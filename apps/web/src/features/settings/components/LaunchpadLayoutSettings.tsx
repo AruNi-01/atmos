@@ -4,9 +4,6 @@ import React from 'react';
 import { useTranslations } from 'next-intl';
 import {
   Badge,
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
   Switch,
   TabsSubtle,
   TabsSubtleItem,
@@ -14,16 +11,15 @@ import {
 import {
   Bot,
   ChartColumnBig,
-  ChevronDown,
   FolderKanban,
   HardDrive,
   LayoutGrid,
   List,
   ListTodo,
+  PencilRuler,
   Plus,
   Presentation,
   Puzzle,
-  Rocket,
   SquareTerminal,
   Timer,
   type LucideIcon,
@@ -34,6 +30,7 @@ import {
   type LaunchpadPlacement,
   useExperimentSettingsStore,
 } from '@/features/settings/store/experiment-settings-store';
+import { SettingsGroupCard } from '@/features/settings/components/settings/SettingsGroupCard';
 
 /** Items that remain experimental feature flags — shown with a badge in layout settings. */
 export const EXPERIMENTAL_LAUNCHPAD_ITEM_IDS = new Set<LaunchpadItemId>([
@@ -51,6 +48,7 @@ const ITEM_I18N_KEYS: Record<LaunchpadItemId, string> = {
   'disk-analyzer': 'items.diskAnalyzer',
   'token-usage': 'items.tokenUsage',
   canvas: 'items.canvas',
+  'pt-design': 'items.ptDesign',
   tasks: 'items.tasks',
   'new-workspace': 'items.newWorkspace',
 };
@@ -65,6 +63,7 @@ const ITEM_ICONS: Record<LaunchpadItemId, LucideIcon> = {
   'disk-analyzer': HardDrive,
   'token-usage': ChartColumnBig,
   canvas: Presentation,
+  'pt-design': PencilRuler,
   tasks: ListTodo,
   'new-workspace': Plus,
 };
@@ -99,35 +98,20 @@ export function LaunchpadLayoutSettings({
   ).length;
 
   return (
-    <Collapsible
+    <SettingsGroupCard
+      id="launchpad"
       open={expanded}
       onOpenChange={onExpandedChange}
-      className="overflow-hidden rounded-2xl border border-border"
-    >
-      <div className="flex items-start justify-between gap-4 px-6 py-5">
-        <CollapsibleTrigger className="group min-w-0 flex-1 cursor-pointer text-left">
-          <div className="flex items-start gap-3">
-            <span className="relative mt-0.5 size-5 shrink-0">
-              <Rocket className="absolute inset-0 size-5 transition-opacity duration-150 group-hover:opacity-0" />
-              <ChevronDown className="absolute inset-0 size-5 opacity-0 transition-all duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
-            </span>
-            <div className="min-w-0">
-              <p className="text-base font-medium text-foreground">{t('title')}</p>
-              <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                {t('description')}
-              </p>
-            </div>
-          </div>
-        </CollapsibleTrigger>
-        <div className="pt-1 text-xs text-muted-foreground">
+      title={t('title')}
+      description={t('description')}
+      headerEnd={
+        <span className="text-xs text-muted-foreground">
           {enabledCount > 0
             ? t('enabledCount', { count: enabledCount })
             : t('allHidden')}
-        </div>
-      </div>
-
-      <CollapsibleContent>
-        <div className="border-t border-border px-4">
+        </span>
+      }
+    >
           {LAUNCHPAD_ITEM_IDS.map((id) => {
             const config = launchpadItems[id];
             const experimental = EXPERIMENTAL_LAUNCHPAD_ITEM_IDS.has(id);
@@ -210,8 +194,6 @@ export function LaunchpadLayoutSettings({
               </div>
             );
           })}
-        </div>
-      </CollapsibleContent>
-    </Collapsible>
+    </SettingsGroupCard>
   );
 }

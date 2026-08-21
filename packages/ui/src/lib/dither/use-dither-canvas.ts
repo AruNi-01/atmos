@@ -13,11 +13,20 @@ export type DitherDrawFrame = (args: {
 /**
  * Owns device-pixel canvas sizing + rAF loop for dither charts.
  * Stops the loop when the element is offscreen (IntersectionObserver).
+ *
+ * The loop is intentionally **not** restarted when chart data changes.
+ * Components keep data in refs / morph state and read them inside `draw`.
+ * Restarting the effect on every data update cleared the canvas for a
+ * frame and caused flicker (especially on tab switches).
  */
 export function useDitherCanvas(
   canvasRef: RefObject<HTMLCanvasElement | null>,
   draw: DitherDrawFrame,
-  deps: readonly unknown[] = [],
+  /**
+   * @deprecated Ignored. Kept for call-site compatibility.
+   * Data updates must flow through refs / morph state inside `draw`.
+   */
+  _deps: readonly unknown[] = [],
 ): void {
   const drawRef = useRef(draw);
   drawRef.current = draw;
@@ -59,7 +68,8 @@ export function useDitherCanvas(
 
       const reducedMotion = media?.matches ?? false;
       if (visible) {
-        time += reducedMotion ? 0 : 0.025;
+        // Wave/shimmer clock for all dither charts. Lower = slower drift.
+        time += reducedMotion ? 0 : 0.012;
         const dpr = Math.min(window.devicePixelRatio || 1, 2);
         const rect = el.getBoundingClientRect();
         const w = Math.max(1, Math.round(rect.width));
@@ -104,6 +114,5 @@ export function useDitherCanvas(
       cancelAnimationFrame(raf);
       if (timeoutId !== null) clearTimeout(timeoutId);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- explicit dep list for chart data
-  }, [canvasRef, ...deps]);
+  }, [canvasRef]);
 }

@@ -494,8 +494,8 @@ export async function desktopUseDriverEnsure(force = false): Promise<unknown> {
   return runDesktopUseJson(args, 120_000);
 }
 
-export async function desktopUseDriverStop(): Promise<unknown> {
-  return runDesktopUseJson(["driver", "stop"]);
+export async function desktopUseDriverStop(timeoutMs = 8_000): Promise<unknown> {
+  return runDesktopUseJson(["driver", "stop"], timeoutMs);
 }
 
 export async function desktopUseDriverRestart(): Promise<unknown> {

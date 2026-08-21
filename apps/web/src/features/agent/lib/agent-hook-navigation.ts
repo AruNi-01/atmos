@@ -28,51 +28,126 @@ function agentT(key: string): string {
   return cachedAgentTranslator(key as never);
 }
 
-export function navigateToAgentHookSessionPane(
+export type AgentHookNavigationTarget = {
+  contextId: string | null;
+  isSideChat: boolean;
+  sideChatId: string | null;
+  tmuxWindowName: string | null;
+};
+
+export function isAgentHookSideChatSession(session: {
+  side_chat_id?: string | null;
+  terminal_kind?: string | null;
+}): boolean {
+  if (session.side_chat_id?.trim()) return true;
+  return session.terminal_kind === "side_chat";
+}
+
+/** Prefer the source terminal/canvas pane for side chats; never the side tmux window. */
+export function resolveAgentHookNavigationTarget(session: {
+  context_id?: string | null;
+  pane_id?: string | null;
+  side_chat_id?: string | null;
+  source_pane_id?: string | null;
+  terminal_kind?: string | null;
+}): AgentHookNavigationTarget {
+  const sideChatId = session.side_chat_id?.trim() || null;
+  const isSideChat = isAgentHookSideChatSession(session);
+  const paneId = (
+    isSideChat ? session.source_pane_id ?? session.pane_id : session.pane_id
+  )?.trim() || null;
+  const tmuxWindowName = paneId
+    ? paneId.split(":").slice(1).join(":") || null
+    : null;
+  return {
+    contextId: session.context_id?.trim() || null,
+    isSideChat,
+    sideChatId,
+    tmuxWindowName,
+  };
+}
+
+export function canNavigateToAgentHookSession(session: {
+  context_id?: string | null;
+  pane_id?: string | null;
+  side_chat_id?: string | null;
+  source_pane_id?: string | null;
+  terminal_kind?: string | null;
+}): boolean {
+  const target = resolveAgentHookNavigationTarget(session);
+  return Boolean(target.contextId && (target.tmuxWindowName || target.sideChatId));
+}
+
+export function buildAgentHookSessionPath(
   session: AgentHookSession,
-  router: { push: (path: string) => void },
   projects: Project[],
-) {
-  const contextId = session.context_id;
-  const paneId = session.side_chat_id
-    ? session.source_pane_id ?? session.pane_id
-    : session.pane_id;
-
-  if (!contextId || !paneId) return;
-
-  const tmuxWindowName = paneId.split(":").slice(1).join(":");
-  if (!tmuxWindowName) return;
+  hit: { terminalTabId: string } | null,
+): string | null {
+  const target = resolveAgentHookNavigationTarget(session);
+  if (!target.contextId || (!target.tmuxWindowName && !target.sideChatId)) {
+    return null;
+  }
 
   let basePath = "/workspace";
   for (const project of projects) {
-    if (project.id === contextId) {
+    if (project.id === target.contextId) {
       basePath = "/project";
       break;
     }
-    const ws = project.workspaces.find((w) => w.id === contextId);
+    const ws = project.workspaces.find((w) => w.id === target.contextId);
     if (ws) {
       basePath = "/workspace";
       break;
     }
   }
 
-  const hit = findWorkspacePaneIdsByTmuxWindowName(
-    useTerminalStore.getState(),
-    contextId,
-    tmuxWindowName,
-    basePath === "/project",
-  );
-
   const params = new URLSearchParams();
-  params.set("id", contextId);
+  params.set("id", target.contextId);
   if (hit?.terminalTabId) {
     params.set("tab", hit.terminalTabId);
   }
-  params.set("terminalTmux", tmuxWindowName);
-  if (session.side_chat_id) {
-    params.set("sideChat", session.side_chat_id);
+  if (target.tmuxWindowName) {
+    params.set("terminalTmux", target.tmuxWindowName);
   }
-  router.push(`${basePath}?${params.toString()}`);
+  if (target.sideChatId) {
+    params.set("sideChat", target.sideChatId);
+  }
+  return `${basePath}?${params.toString()}`;
+}
+
+export function navigateToAgentHookSessionPane(
+  session: AgentHookSession,
+  router: { push: (path: string) => void },
+  projects: Project[],
+) {
+  const target = resolveAgentHookNavigationTarget(session);
+  if (!target.contextId) return;
+
+  let basePath = "/workspace";
+  for (const project of projects) {
+    if (project.id === target.contextId) {
+      basePath = "/project";
+      break;
+    }
+    const ws = project.workspaces.find((w) => w.id === target.contextId);
+    if (ws) {
+      basePath = "/workspace";
+      break;
+    }
+  }
+
+  const hit = target.tmuxWindowName
+    ? findWorkspacePaneIdsByTmuxWindowName(
+        useTerminalStore.getState(),
+        target.contextId,
+        target.tmuxWindowName,
+        basePath === "/project",
+      )
+    : null;
+
+  const path = buildAgentHookSessionPath(session, projects, hit);
+  if (!path) return;
+  router.push(path);
 }
 
 export function resolveAgentHookContextNames(

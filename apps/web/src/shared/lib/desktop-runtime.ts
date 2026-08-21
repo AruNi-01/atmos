@@ -77,6 +77,18 @@ export function isDesktopRuntime(): boolean {
   return bridgeIsDesktopRuntime();
 }
 
+/**
+ * True when this UI should start desktop OAuth (system browser + atmos:// return).
+ * Includes desktop static export even if the preload bridge is not injected.
+ */
+export function isDesktopAuthSurface(): boolean {
+  return (
+    isDesktopRuntime() ||
+    process.env.NEXT_PUBLIC_BUILD_TARGET === "desktop" ||
+    process.env.BUILD_TARGET === "desktop"
+  );
+}
+
 export function isHostedAtmosOrigin(): boolean {
   // Desktop shells (Tauri / Electron) are never "hosted web origin".
   if (isDesktopRuntime()) {
@@ -87,6 +99,13 @@ export function isHostedAtmosOrigin(): boolean {
     typeof window !== 'undefined' &&
     (window.location.hostname === HOSTED_ATMOS_APP_HOST || forceHostedOnboarding)
   );
+}
+
+/** Public Token Usage / leaderboard share pages — no workbench WebSocket. */
+export function isPublicTokPath(
+  pathname = typeof window === 'undefined' ? '' : window.location.pathname,
+): boolean {
+  return pathname === '/tok' || pathname.startsWith('/tok/');
 }
 
 export function setHostedRuntimeApiOverride(cfg: ApiConfig | null): void {

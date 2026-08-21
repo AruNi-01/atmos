@@ -32,6 +32,7 @@ import {
 import type { PreviewViewMode } from "@/shared/lib/nuqs/searchParams";
 import type { BrowserTransportMode } from "../lib/browser-bridge/types";
 import type { FavoriteSite } from "../lib/browser-utils";
+import { useBrowserUseActivity } from "../store/use-browser-use-activity";
 
 type ResolvedTransportMode = BrowserTransportMode | "unavailable";
 
@@ -76,6 +77,7 @@ interface PreviewToolbarProps {
   usesDesktopToolbarExpand: boolean;
   usesToolbarHoverOverlay: boolean;
   viewMode: PreviewViewMode;
+  browserUseSessionId?: string | null;
   focusUrlInput: () => void;
   handleAddFavorite: () => Promise<void>;
   handleDownloadExtension: () => Promise<void>;
@@ -88,7 +90,7 @@ interface PreviewToolbarProps {
   handleRefresh: () => void;
   handleRecheckExtension: () => Promise<void>;
   handleToggleElementPicker: () => Promise<void>;
-  handleUrlInputBlur: () => void;
+  handleUrlInputBlur: (event?: { relatedTarget: EventTarget | null }) => void;
   setDesktopToolbarHovered: React.Dispatch<React.SetStateAction<boolean>>;
   setExtensionPopoverOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setExtensionUpdatePopoverOpen: React.Dispatch<React.SetStateAction<boolean>>;
@@ -140,6 +142,7 @@ export function BrowserToolbar({
   usesDesktopToolbarExpand,
   usesToolbarHoverOverlay,
   viewMode,
+  browserUseSessionId,
   focusUrlInput,
   handleAddFavorite,
   handleDownloadExtension,
@@ -282,6 +285,7 @@ export function BrowserToolbar({
           {isUrlInputFocused ? (
             <input
               ref={urlInputRef}
+              autoFocus
               className="h-full min-w-0 flex-1 border-none bg-transparent px-0.5 text-xs text-foreground placeholder:text-muted-foreground/50 focus:outline-none"
               value={url ?? ""}
               onBlur={handleUrlInputBlur}
@@ -322,6 +326,7 @@ export function BrowserToolbar({
             </button>
           )}
 
+          <BrowserUseActivityBadge sessionId={browserUseSessionId} />
           <FavoriteSavePopover
             activeFavorite={activeFavorite}
             favoriteNameDraft={favoriteNameDraft}
@@ -754,5 +759,23 @@ function PreviewExtensionInstallPopover({
         )}
       </PopoverContent>
     </Popover>
+  );
+}
+
+function BrowserUseActivityBadge({
+  sessionId,
+}: {
+  sessionId?: string | null;
+}) {
+  const t = useTranslations("browser.toolbar");
+  const { active, status } = useBrowserUseActivity(sessionId);
+  if (!active) return null;
+  return (
+    <span
+      className="shrink-0 rounded-full bg-primary/15 px-2 py-0.5 text-[11px] text-primary"
+      title={status || t("agentActive")}
+    >
+      {t("agentActive")}
+    </span>
   );
 }

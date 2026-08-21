@@ -6,7 +6,10 @@ import {
 } from "next/navigation";
 import { useCallback, useMemo } from "react";
 
-import { useAppNavigationInterceptor } from "./app-navigation-intercept";
+import {
+  runRegisteredAppNavigationGuard,
+  useAppNavigationInterceptor,
+} from "./app-navigation-intercept";
 import { prepareAndPrimeWorkspaceNavigation } from "@/app-shell/workspace-surface-switch";
 
 function currentBrowserLocation(fallbackPathname: string): string {
@@ -57,6 +60,9 @@ export function useAppRouter() {
       if (interceptor?.({ path, kind: "push" })) {
         return;
       }
+      if (runRegisteredAppNavigationGuard({ path, kind: "push" })) {
+        return;
+      }
       const nextPath = normalizePath(path);
       if (nextPath === currentBrowserLocation(pathname)) {
         return;
@@ -71,6 +77,9 @@ export function useAppRouter() {
   const replace = useCallback(
     (path: string) => {
       if (interceptor?.({ path, kind: "replace" })) {
+        return;
+      }
+      if (runRegisteredAppNavigationGuard({ path, kind: "replace" })) {
         return;
       }
       const nextPath = normalizePath(path);

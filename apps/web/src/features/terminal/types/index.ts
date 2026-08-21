@@ -159,24 +159,19 @@ export interface TerminalPaneProps {
   keepCwd?: boolean;
 }
 
-export interface TerminalMosaicState {
+// Binary split tree for in-grid terminal panes.
+export type {
+  TerminalLayoutNode,
+  TerminalLayoutBranch,
+  TerminalLayoutDirection,
+} from "@/features/terminal/lib/terminal-layout-tree";
+
+import type { TerminalLayoutNode } from "@/features/terminal/lib/terminal-layout-tree";
+
+export interface TerminalGridLayoutState {
   panes: Record<string, TerminalPaneProps>;
-  layout: MosaicNode<string> | null;
+  layout: TerminalLayoutNode<string> | null;
 }
-
-// react-mosaic types
-export type MosaicNode<T> =
-  | MosaicBranch<T>
-  | T;
-
-export interface MosaicBranch<T> {
-  direction: "row" | "column";
-  first: MosaicNode<T>;
-  second: MosaicNode<T>;
-  splitPercentage?: number;
-}
-
-export type MosaicDirection = "row" | "column";
 
 // WebSocket message types for terminal communication
 export interface WsTerminalCreate {

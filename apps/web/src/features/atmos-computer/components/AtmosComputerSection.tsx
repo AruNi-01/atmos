@@ -5,31 +5,17 @@ import { useTranslations } from 'next-intl';
 import {
   Badge,
   Button,
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
   Input,
   toastManager,
-  Switch,
   cn,
 } from '@workspace/ui';
 import {
-  Check,
-  ChevronDown,
-  Computer,
-  Copy,
   FlaskConical,
-  KeyRound,
   Laptop,
-  Link2,
   LoaderCircle,
   RotateCw,
-  Server,
   Trash2,
 } from 'lucide-react';
-import { automationApi } from '@/api/ws/automation-api';
-import { isPlausibleDeviceCredential } from '@/features/connection/lib/atmos-access-token';
-import { getStoredDeviceCredential, storeDeviceCredential } from '@/api/hub-client';
 import { getWebRelayClient } from '@/features/connection/lib/create-web-relay-client';
 import { createHostedRemoteSession } from '@/features/connection/lib/hosted-connection';
 import {
@@ -54,18 +40,26 @@ import {
   saveComputerClientSettingsToDisk,
 } from '@/features/connection/lib/sync-computer-client-settings';
 import { applyIdentityBearingComputerSettings } from '@/features/connection/lib/query-identity-lifecycle';
+import { ensureLocalHubDevice } from '@/features/connection/lib/ensure-local-hub-device';
 import {
   activeComputerRows,
   isCurrentLocalComputer,
 } from '@/features/connection/lib/computer-list';
 import { ComputerDetailsDialog } from '@/features/atmos-computer/components/ComputerDetailsDialog';
+import { MobilePairQrPanel } from '@/features/atmos-computer/components/MobilePairQrPanel';
 import { RemoteComputerSetupBlock } from '@/features/atmos-computer/components/RemoteComputerSetupBlock';
 import { clearRemoteComputerRegisterTokenCache } from '@/features/connection/lib/remote-computer-register-token-cache';
+import {
+  SettingsGroup,
+  SettingsGroupCard,
+  SettingsGroupRow,
+  SettingsPageStack,
+} from '@/features/settings/components/settings/SettingsGroupCard';
+import { SettingsToggleRow } from '@/features/settings/components/settings/SettingsToggleRow';
 
 function SettingsBlock({
   title,
   description,
-  icon,
   headerAction,
   headerEnd,
   collapsible = false,
@@ -74,7 +68,6 @@ function SettingsBlock({
 }: {
   title: string;
   description?: string;
-  icon: ReactNode;
   headerAction?: ReactNode;
   headerEnd?: ReactNode;
   collapsible?: boolean;
@@ -83,75 +76,23 @@ function SettingsBlock({
 }) {
   const [open, setOpen] = useState(defaultOpen);
 
-  if (collapsible) {
-    return (
-      <Collapsible
-        open={open}
-        onOpenChange={setOpen}
-        className="overflow-hidden rounded-2xl border border-border"
-      >
-        <div className="flex items-start justify-between gap-4 px-6 py-5">
-          <CollapsibleTrigger className="group min-w-0 flex-1 cursor-pointer text-left">
-            <div className="flex min-w-0 gap-3">
-              <span className="relative flex h-6 w-5 shrink-0 items-center justify-center">
-                <span className="absolute flex size-5 items-center justify-center transition-opacity duration-150 group-hover:opacity-0 [&_svg]:size-5">
-                  {icon}
-                </span>
-                <ChevronDown className="absolute size-5 opacity-0 transition-all duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
-              </span>
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="text-base font-medium leading-6 text-foreground">{title}</h3>
-                  {headerAction}
-                </div>
-                {description ? (
-                  <p className="mt-2 text-sm leading-6 text-muted-foreground">{description}</p>
-                ) : null}
-              </div>
-            </div>
-          </CollapsibleTrigger>
-          {headerEnd ? <div className="shrink-0 pt-0.5">{headerEnd}</div> : null}
-        </div>
-        <CollapsibleContent>
-          <div className="space-y-4 border-t border-border px-6 py-5">{children}</div>
-        </CollapsibleContent>
-      </Collapsible>
-    );
-  }
-
   return (
-    <section className="overflow-hidden rounded-2xl border border-border">
-      <div className="border-b border-border/60 px-6 py-5">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex min-w-0 flex-1 gap-3">
-            <span
-              className={cn(
-                'flex w-5 shrink-0 items-center justify-center [&_svg]:size-5',
-                headerAction ? 'h-8' : 'h-6',
-              )}
-            >
-              {icon}
-            </span>
-            <div className="min-w-0 flex-1">
-              <div
-                className={cn(
-                  'flex flex-wrap items-center gap-2',
-                  headerAction ? 'min-h-8' : 'min-h-6',
-                )}
-              >
-                <h3 className="text-base font-medium leading-6 text-foreground">{title}</h3>
-                {headerAction}
-              </div>
-              {description ? (
-                <p className="mt-2 text-sm leading-6 text-muted-foreground">{description}</p>
-              ) : null}
-            </div>
+    <SettingsGroupCard
+      title={title}
+      description={description}
+      headerEnd={
+        headerAction || headerEnd ? (
+          <div className="flex items-center gap-2">
+            {headerAction}
+            {headerEnd}
           </div>
-          {headerEnd ? <div className="shrink-0 pt-0.5">{headerEnd}</div> : null}
-        </div>
-      </div>
-      <div className="space-y-4 px-6 py-5">{children}</div>
-    </section>
+        ) : undefined
+      }
+      open={collapsible ? open : undefined}
+      onOpenChange={collapsible ? setOpen : undefined}
+    >
+      {children}
+    </SettingsGroupCard>
   );
 }
 
@@ -175,17 +116,15 @@ export function AtmosComputerSection() {
   const [listRefreshing, setListRefreshing] = useState(false);
   const [relayUrlDraft, setRelayUrlDraft] = useState(relayUrl);
   const [relaySecretDraft, setRelaySecretDraft] = useState(relaySecretKey);
-  const [tokenDraft, setTokenDraft] = useState(accessToken);
-  const [tokenCopied, setTokenCopied] = useState(false);
-  const [tokenReveal, setTokenReveal] = useState<string | null>(null);
   const [localStatus, setLocalStatus] = useState<LocalComputerStatus | null>(null);
   const [detailsComputer, setDetailsComputer] = useState<ComputerRow | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [remoteComputerExpanded, setRemoteComputerExpanded] = useState(false);
+  const [accountSyncBusy, setAccountSyncBusy] = useState(false);
   const relayAutoSyncAttemptedRef = useRef(false);
 
-  const hasBrowserKey = accessToken.trim().length >= 32;
-  const hasConfiguredKey = hasBrowserKey || accessTokenConfigured;
+  const hasConfiguredKey =
+    accessToken.trim().length >= 32 || accessTokenConfigured;
   const activeComputers = activeComputerRows(computers);
   const connectedServerId =
     connectionMode === 'relay' && relayWebSocketUrl ? selectedServerId : null;
@@ -275,10 +214,6 @@ export function AtmosComputerSection() {
   }, [refreshComputerList, t]);
 
   useEffect(() => {
-    setTokenDraft(accessToken);
-  }, [accessToken]);
-
-  useEffect(() => {
     setRelayUrlDraft(relayUrl);
   }, [relayUrl]);
 
@@ -287,16 +222,29 @@ export function AtmosComputerSection() {
   }, [relaySecretKey]);
 
   useEffect(() => {
-    setTokenCopied(false);
-  }, [tokenDraft]);
-
-  useEffect(() => {
     void hydrateComputerClientSettingsFromDisk().then(() => {
       const settings = useAtmosComputerStore.getState();
-      setTokenDraft(settings.accessToken);
       setRelayUrlDraft(settings.relayUrl);
       setRelaySecretDraft(settings.relaySecretKey);
     });
+  }, []);
+
+  /** Device credential is Hub-minted on sign-in — never shown; sync silently from Account. */
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      setAccountSyncBusy(true);
+      try {
+        await ensureLocalHubDevice();
+      } finally {
+        if (!cancelled) {
+          setAccountSyncBusy(false);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -355,37 +303,6 @@ export function AtmosComputerSection() {
     };
   }, [hasConfiguredKey, localStatus, localServerId, refreshComputerList]);
 
-  async function ensureDeviceCredentialReady(token: string): Promise<boolean> {
-    if (!isPlausibleDeviceCredential(token)) {
-      toastManager.add({
-        title: t("toasts.accessKeyTooShort"),
-        description: t("toasts.accessKeyTooShortDescription"),
-        type: 'error',
-      });
-      return false;
-    }
-    // Device credentials are Hub-minted and projected to Relay — no local /v1/tenants register.
-    return true;
-  }
-
-  async function onCopyToken() {
-    const token = tokenDraft.trim();
-    if (!token) {
-      return;
-    }
-    try {
-      await navigator.clipboard.writeText(token);
-      setTokenCopied(true);
-      window.setTimeout(() => setTokenCopied(false), 2000);
-    } catch {
-      toastManager.add({
-        title: t("toasts.couldNotCopy"),
-        description: t("toasts.checkClipboardPermissions"),
-        type: 'error',
-      });
-    }
-  }
-
   async function onSaveRelaySettings({
     successTitle = t("toasts.privateRelaySettingsSaved"),
     urlDraft = relayUrlDraft,
@@ -422,144 +339,11 @@ export function AtmosComputerSection() {
     }
   }
 
-  async function teardownLocalRelayIdentity() {
-    setLocalServerId(null);
-    setLocalStatus(prev =>
-      prev
-        ? {
-            ...prev,
-            registered: false,
-            relay_connected: false,
-            relay_last_error: null,
-            server_id: null,
-          }
-        : prev,
-    );
-    setComputers([]);
-    await activateCurrentLocalConnection().catch(() => undefined);
-  }
-
-  async function onSaveToken() {
-    setBusy('token-save');
-    try {
-      const token = tokenDraft.trim();
-      const nextUrl = resolveRelayUrl(relayUrlDraft);
-      const nextSecret = relaySecretDraft.trim();
-      const switchingIdentity = hasConfiguredKey && token !== accessToken.trim();
-      if (!(await ensureDeviceCredentialReady(token))) {
-        return;
-      }
-      let githubAutomationsMarked = 0;
-      if (switchingIdentity) {
-        try {
-          await unregisterLocalComputer();
-        } catch (err) {
-          toastManager.add({
-            title: t("toasts.identitySwitchBlocked"),
-            description:
-              err instanceof Error
-                ? t("toasts.couldNotStopOldRelayIdentityWithError", { error: err.message })
-                : t("toasts.couldNotStopOldRelayIdentity"),
-            type: 'error',
-          });
-          return;
-        }
-
-        try {
-          githubAutomationsMarked =
-            await automationApi.markActiveGithubAutomationsNeedsSetup();
-        } catch (err) {
-          await teardownLocalRelayIdentity();
-          toastManager.add({
-            title: t("toasts.identitySwitchBlocked"),
-            description:
-              err instanceof Error
-                ? t("toasts.githubAutomationsMarkSetupFailedWithError", { error: err.message })
-                : t("toasts.githubAutomationsMarkSetupFailed"),
-            type: 'error',
-          });
-          return;
-        }
-
-        await teardownLocalRelayIdentity();
-      }
-      await applyIdentityBearingComputerSettings({
-        relayUrl: nextUrl,
-        relaySecretKey: nextSecret,
-        accessToken: token,
-        accessTokenConfigured: true,
-      });
-      setTokenReveal(null);
-      try {
-        storeDeviceCredential({
-          device_id: 'local',
-          device_credential: token,
-        });
-      } catch {
-        /* ignore */
-      }
-      const persisted = await saveComputerClientSettingsToDisk(token, nextUrl, nextSecret);
-      if (!persisted) {
-        toastManager.add({
-          title: switchingIdentity ? t("toasts.identitySwitchedForSession") : t("toasts.savedForSession"),
-          description: t("toasts.couldNotSaveLocally"),
-          type: 'warning',
-        });
-      } else {
-        toastManager.add({
-          title: switchingIdentity ? t("toasts.identitySwitched") : t("toasts.accessKeySaved"),
-          description: switchingIdentity
-            ? githubAutomationsMarked > 0
-                ? t("toasts.githubAutomationsNeedSetup", { count: githubAutomationsMarked })
-                : t("toasts.previousKeyResourcesRemain")
-            : undefined,
-          type: 'success',
-        });
-      }
-      await refreshComputerListFor(token, nextUrl, nextSecret);
-    } finally {
-      setBusy(null);
-    }
-  }
-
-  async function onImportFromHubEnroll() {
-    const fromHub = getStoredDeviceCredential()?.trim() ?? '';
-    if (!isPlausibleDeviceCredential(fromHub)) {
-      toastManager.add({
-        title: t("toasts.saveAccessKeyFirst"),
-        description: t("toasts.importFromAccountHint"),
-        type: 'error',
-      });
-      return;
-    }
-    setTokenDraft(fromHub);
-    setBusy('token-save');
-    try {
-      const nextUrl = resolveRelayUrl(relayUrlDraft);
-      const nextSecret = relaySecretDraft.trim();
-      await applyIdentityBearingComputerSettings({
-        relayUrl: nextUrl,
-        relaySecretKey: nextSecret,
-        accessToken: fromHub,
-        accessTokenConfigured: true,
-      });
-      const persisted = await saveComputerClientSettingsToDisk(fromHub, nextUrl, nextSecret);
-      toastManager.add({
-        title: t("toasts.accessKeySaved"),
-        description: persisted ? undefined : t("toasts.couldNotSaveLocally"),
-        type: persisted ? 'success' : 'warning',
-      });
-      await refreshComputerListFor(fromHub, nextUrl, nextSecret);
-    } finally {
-      setBusy(null);
-    }
-  }
-
   async function onRemoteToggle(enabled: boolean) {
     if (!hasConfiguredKey) {
       toastManager.add({
-        title: t("toasts.saveAccessKeyFirst"),
-        description: t("toasts.saveAccessKeyBeforeRegistering"),
+        title: t("toasts.signInRequired"),
+        description: t("toasts.signInBeforeRegistering"),
         type: 'error',
       });
       return;
@@ -683,8 +467,8 @@ export function AtmosComputerSection() {
     }
     if (!hasConfiguredKey) {
       toastManager.add({
-        title: t("toasts.saveAccessKeyFirst"),
-        description: t("toasts.saveAccessKeyBeforeConnecting"),
+        title: t("toasts.signInRequired"),
+        description: t("toasts.signInBeforeConnecting"),
         type: 'error',
       });
       return;
@@ -708,8 +492,8 @@ export function AtmosComputerSection() {
   async function onRemove(serverId: string) {
     if (!hasConfiguredKey) {
       toastManager.add({
-        title: t("toasts.saveAccessKeyFirst"),
-        description: t("toasts.saveAccessKeyBeforeRemoving"),
+        title: t("toasts.signInRequired"),
+        description: t("toasts.signInBeforeRemoving"),
         type: 'error',
       });
       return;
@@ -756,140 +540,268 @@ export function AtmosComputerSection() {
     localStatus?.computer_name?.trim() ||
     localStatus?.hostname?.replace(/\.local$/i, '') ||
     t("fallbacks.thisComputer");
-  const tokenDraftTrimmed = tokenDraft.trim();
-  const tokenDraftChanged = tokenDraftTrimmed !== accessToken.trim();
   const relayUrlDraftResolved = resolveRelayUrl(relayUrlDraft);
   const relaySecretDraftTrimmed = relaySecretDraft.trim();
   const relayUrlChanged = relayUrlDraftResolved !== resolveRelayUrl(relayUrl);
   const relaySecretChanged = relaySecretDraftTrimmed !== relaySecretKey.trim();
-  const isSwitchingIdentity =
-    hasConfiguredKey && Boolean(tokenDraftTrimmed) && (!hasBrowserKey || tokenDraftChanged);
-  const canSaveTokenDraft =
-    Boolean(tokenDraftTrimmed) && (!hasConfiguredKey || !hasBrowserKey || tokenDraftChanged);
-  const keyHiddenOnHostedWeb = hasConfiguredKey && !hasBrowserKey;
 
   return (
-    <div className="space-y-4">
-      <div className="overflow-hidden rounded-2xl border border-amber-500/35 bg-amber-500/10">
-        <div className="flex items-start gap-3 px-6 py-5">
-          <FlaskConical className="size-5 shrink-0 text-amber-600 dark:text-amber-400" />
-          <p className="min-w-0 flex-1 text-sm leading-6 text-muted-foreground">
-            Atmos Computer is still in active development, you may encounter bugs or incomplete
-            behavior.
+    <SettingsPageStack>
+      <SettingsGroup className="bg-amber-500/10">
+        <div className="flex items-start gap-2 px-2 py-3">
+          <FlaskConical className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-400" />
+          <p className="min-w-0 text-xs leading-5 text-muted-foreground">
+            {t("developmentWarning")}
           </p>
         </div>
-      </div>
+      </SettingsGroup>
+
+      {!hasConfiguredKey ? (
+        <SettingsGroup>
+          <div className="px-2 py-3">
+            <p className="text-sm font-medium text-foreground">{t("panels.accountRequired.title")}</p>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+              {accountSyncBusy
+                ? t("panels.accountRequired.syncing")
+                : t("panels.accountRequired.description")}
+            </p>
+          </div>
+        </SettingsGroup>
+      ) : null}
 
       <SettingsBlock
-        title={t("panels.accessKey.title")}
-        icon={<KeyRound className="size-5" />}
-        description={t("panels.accessKey.description")}
-        headerAction={
-          !hasConfiguredKey ? (
+        title={t("panels.mobilePair.title")}
+        description={t("panels.mobilePair.description")}
+        collapsible
+        defaultOpen={false}
+      >
+        <MobilePairQrPanel enabled={hasConfiguredKey} />
+      </SettingsBlock>
+
+      <SettingsGroupCard
+        open={remoteComputerExpanded}
+        onOpenChange={setRemoteComputerExpanded}
+        title={t("panels.registerComputer.title")}
+        description={t("panels.registerComputer.description")}
+      >
+        <div className="px-2 py-3">
+          <RemoteComputerSetupBlock
+            active={remoteComputerExpanded}
+            hasAccessToken={hasConfiguredKey}
+            relayUrl={relayUrl}
+            accessToken={accessToken}
+            relaySecretKey={relaySecretKey}
+            busy={busy !== null}
+          />
+        </div>
+      </SettingsGroupCard>
+
+      <SettingsBlock
+        title={t("panels.thisComputer.title")}
+        description={t("panels.thisComputer.description")}
+      >
+        <SettingsToggleRow
+          title={t("panels.thisComputer.registerTitle")}
+          description={
+            isLocalRegistered
+              ? isCurrentRelayReachable
+                ? `${currentDeviceName} · ${t("panels.thisComputer.status.online")}`
+                : `${currentDeviceName} · ${t("panels.thisComputer.status.connecting")}`
+              : `${currentDeviceName} · ${t("panels.thisComputer.status.notRegistered")}`
+          }
+          checked={isLocalRegistered}
+          disabled={busy === 'remote' || !hasConfiguredKey}
+          onCheckedChange={(checked) => void onRemoteToggle(checked)}
+        />
+        {connectionMode === 'relay' ? (
+          <SettingsGroupRow
+            wide
+            title={t("panels.thisComputer.useLocalTitle")}
+            description={t("panels.thisComputer.useLocalDescription")}
+          >
             <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              disabled={busy !== null}
+              onClick={() => void switchToLocalConnection('local-switch')}
+            >
+              {busy === 'local-switch' ? (
+                <LoaderCircle className="mr-2 size-4 animate-spin" />
+              ) : (
+                <Laptop className="mr-2 size-4" />
+              )}
+              {t("panels.thisComputer.useLocalButton")}
+            </Button>
+          </SettingsGroupRow>
+        ) : null}
+        {showRelayReconnect ? (
+          <SettingsGroupRow
+            wide
+            title={t("panels.thisComputer.reconnectTitle")}
+            description={
+              relayLastError || t("panels.thisComputer.reconnectHelper")
+            }
+          >
+            <Button
+              type="button"
               size="sm"
               variant="outline"
               disabled={busy !== null}
-              onClick={() => void onImportFromHubEnroll()}
+              onClick={() => void onRelayReconnect()}
             >
-              {busy === 'token-save' ? (
+              {busy === 'relay-sync' ? (
                 <LoaderCircle className="mr-2 size-4 animate-spin" />
-              ) : null}
-              {t("panels.accessKey.actions.importFromAccount")}
-            </Button>
-          ) : null
-        }
-      >
-        <div className="space-y-3">
-          <div className="flex items-center gap-3">
-            <div className="relative min-w-0 flex-1">
-              <Input
-                type="password"
-                autoComplete="off"
-                value={tokenDraft}
-                onChange={e => setTokenDraft(e.target.value)}
-                placeholder={
-                  keyHiddenOnHostedWeb
-                    ? t("panels.accessKey.placeholders.savedOnComputer")
-                    : t("panels.accessKey.placeholders.pasteDeviceCredential")
-                }
-                className={keyHiddenOnHostedWeb ? undefined : 'pr-10'}
-              />
-              {keyHiddenOnHostedWeb ? null : (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="absolute right-0.5 top-1/2 size-8 -translate-y-1/2"
-                  disabled={busy !== null || !tokenDraft.trim()}
-                  onClick={() => void onCopyToken()}
-                  title={tokenCopied ? t("panels.accessKey.buttons.copied") : t("panels.accessKey.buttons.copy")}
-                  aria-label={tokenCopied ? t("panels.accessKey.buttons.copied") : t("panels.accessKey.buttons.copy")}
-                >
-                  {tokenCopied ? (
-                    <Check className="size-4 text-emerald-500" />
-                  ) : (
-                    <Copy className="size-4" />
-                  )}
-                </Button>
-              )}
-            </div>
-            <Button
-              type="button"
-              variant={isSwitchingIdentity ? 'secondary' : 'ghost'}
-              className="shrink-0 px-3"
-              disabled={busy !== null || !canSaveTokenDraft}
-              onClick={() => void onSaveToken()}
-            >
-              {busy === 'token-save' ? (
-                <LoaderCircle className="size-4 animate-spin" />
-              ) : isSwitchingIdentity ? (
-                t("panels.accessKey.buttons.switchIdentity")
               ) : (
-                t("panels.accessKey.buttons.save")
+                <RotateCw className="mr-2 size-4" />
               )}
+              {t("panels.thisComputer.reconnectButton")}
             </Button>
-          </div>
-          {isSwitchingIdentity || keyHiddenOnHostedWeb || !hasConfiguredKey ? (
-            <p className="text-xs leading-5 text-muted-foreground">
-              {isSwitchingIdentity
-                ? t("panels.accessKey.helper.switchIdentity")
-                : keyHiddenOnHostedWeb
-                  ? t("panels.accessKey.helper.hiddenOnHostedWeb")
-                  : t("panels.accessKey.helper.default")}
-            </p>
-          ) : null}
-        </div>
-        {tokenReveal ? (
-          <div className="space-y-2 rounded-xl border border-amber-500/35 bg-amber-500/10 px-4 py-3">
-            <p className="text-sm font-medium">{t("panels.tokenReveal.title")}</p>
-            <pre className="overflow-x-auto break-all rounded-lg bg-background/60 px-3 py-2 font-mono text-xs">
-              {tokenReveal}
-            </pre>
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => {
-                void navigator.clipboard.writeText(tokenReveal);
-                setTokenReveal(null);
-                toastManager.add({ title: t("panels.tokenReveal.copied"), type: 'success' });
-              }}
-            >
-              <Copy className="mr-2 size-4" />
-              {t("panels.tokenReveal.button")}
-            </Button>
-          </div>
+          </SettingsGroupRow>
+        ) : null}
+        {!hasConfiguredKey ? (
+          <p className="px-2 py-3 text-xs text-muted-foreground">
+            {t("panels.thisComputer.signInPrompt")}
+          </p>
         ) : null}
       </SettingsBlock>
 
       <SettingsBlock
+        title={t("panels.myComputers.title")}
+        description={t("panels.myComputers.description")}
+        headerEnd={
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={!hasConfiguredKey || busy !== null}
+            onClick={() => void refreshComputerList()}
+          >
+            <RotateCw className={cn('mr-2 size-4', listRefreshing && 'animate-spin')} />
+            {t("panels.myComputers.refresh")}
+          </Button>
+        }
+      >
+        {!hasConfiguredKey ? (
+          <p className="px-2 py-3 text-sm text-muted-foreground">{t("panels.myComputers.signInPrompt")}</p>
+        ) : activeComputers.length === 0 ? (
+          <p className="px-2 py-3 text-sm text-muted-foreground">
+            {t("panels.myComputers.empty")}
+          </p>
+        ) : (
+          activeComputers.map(c => {
+            const isCurrent = isCurrentLocalComputer(c, currentServerId);
+            const isUsingLocal = isCurrent && connectionMode === 'local';
+            const isConnected = !isCurrent && connectedServerId === c.server_id;
+            const relayReachable = isCurrent
+              ? isCurrentRelayReachable
+              : Boolean(c.online);
+            const name = (c.display_name ?? t("panels.myComputers.fallbackName")).slice(0, 64);
+            return (
+              <SettingsGroupRow
+                key={c.server_id}
+                wide
+                title={
+                  <span className="inline-flex flex-wrap items-center gap-2">
+                    <span className="truncate">{name}</span>
+                    {isCurrent ? (
+                      <Badge variant="secondary" className="text-xs font-normal">
+                        {t("panels.myComputers.current")}
+                      </Badge>
+                    ) : null}
+                    {isConnected ? (
+                      <Badge className="bg-primary/15 text-xs font-normal text-primary">
+                        {t("panels.myComputers.connected")}
+                      </Badge>
+                    ) : null}
+                    <span
+                      className={cn(
+                        'text-xs font-normal',
+                        relayReachable
+                          ? 'text-emerald-600 dark:text-emerald-400'
+                          : 'text-muted-foreground',
+                      )}
+                    >
+                      {relayReachable ? t("panels.myComputers.online") : t("panels.myComputers.offline")}
+                    </span>
+                  </span>
+                }
+                description={null}
+              >
+                <div className="flex flex-wrap items-center justify-end gap-1.5">
+                  {isCurrent && showRelayReconnect ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={busy !== null}
+                      onClick={() => void onRelayReconnect()}
+                    >
+                      {busy === 'relay-sync' ? (
+                        <LoaderCircle className="size-4 animate-spin" />
+                      ) : (
+                        <>
+                          <RotateCw className="mr-2 size-4" />
+                          {t("panels.myComputers.reconnect")}
+                        </>
+                      )}
+                    </Button>
+                  ) : null}
+                  <Button
+                    size="sm"
+                    variant={isConnected || isUsingLocal ? 'secondary' : 'default'}
+                    disabled={
+                      busy !== null ||
+                      isConnected ||
+                      isUsingLocal
+                    }
+                    onClick={() => void onConnect(c.server_id)}
+                  >
+                    {busy === `connect-${c.server_id}` ? (
+                      <LoaderCircle className="size-4 animate-spin" />
+                    ) : isCurrent ? (
+                      t("panels.myComputers.useLocally")
+                    ) : isConnected ? (
+                      t("panels.myComputers.inUse")
+                    ) : (
+                      t("panels.myComputers.connect")
+                    )}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setDetailsComputer(c);
+                      setDetailsOpen(true);
+                    }}
+                  >
+                    {t("panels.myComputers.details")}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="text-destructive hover:text-destructive"
+                    disabled={busy !== null}
+                    onClick={() => void onRemove(c.server_id)}
+                  >
+                    {busy === `remove-${c.server_id}` ? (
+                      <LoaderCircle className="size-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="size-4" />
+                    )}
+                  </Button>
+                </div>
+              </SettingsGroupRow>
+            );
+          })
+        )}
+      </SettingsBlock>
+
+      <SettingsBlock
         title={t("panels.privateRelay.title")}
-        icon={<Link2 className="size-5" />}
         description={t("panels.privateRelay.description")}
         collapsible
         defaultOpen={false}
       >
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-4 px-2 py-3">
           <div className="flex flex-col gap-2">
             <label className="text-sm font-medium text-muted-foreground" htmlFor="private-relay-url">
               {t("panels.privateRelay.urlLabel")}
@@ -955,265 +867,12 @@ export function AtmosComputerSection() {
               </Button>
             </div>
           </div>
-        </div>
-        <p className="text-xs leading-5 text-muted-foreground">
-          {t("panels.privateRelay.footerPrefix")}{' '}
-          <code className="rounded bg-muted px-1.5 py-0.5">RELAY_SECRET_KEY</code>{' '}
-          {t("panels.privateRelay.footerSuffix")}
-        </p>
-      </SettingsBlock>
-
-      <Collapsible
-        open={remoteComputerExpanded}
-        onOpenChange={setRemoteComputerExpanded}
-        className="overflow-hidden rounded-2xl border border-border"
-      >
-        <div className="flex items-start justify-between gap-4 px-6 py-5">
-          <CollapsibleTrigger className="group min-w-0 flex-1 cursor-pointer text-left">
-            <div className="flex gap-3">
-              <span className="relative flex h-6 w-5 shrink-0 items-center justify-center">
-                <Server className="absolute size-5 transition-opacity duration-150 group-hover:opacity-0" />
-                <ChevronDown className="absolute size-5 opacity-0 transition-all duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
-              </span>
-              <div className="min-w-0">
-                <p className="text-base font-medium leading-6 text-foreground">{t("panels.registerComputer.title")}</p>
-                <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                  {t("panels.registerComputer.description")}
-                </p>
-              </div>
-            </div>
-          </CollapsibleTrigger>
-        </div>
-
-        <CollapsibleContent>
-          <div className="border-t border-border px-6 py-5">
-            <RemoteComputerSetupBlock
-              active={remoteComputerExpanded}
-              hasAccessToken={hasConfiguredKey}
-              relayUrl={relayUrl}
-              accessToken={accessToken}
-              relaySecretKey={relaySecretKey}
-              busy={busy !== null}
-            />
-          </div>
-        </CollapsibleContent>
-      </Collapsible>
-
-      <SettingsBlock
-        title={t("panels.thisComputer.title")}
-        icon={<Laptop className="size-5" />}
-        description={t("panels.thisComputer.description")}
-      >
-        <div className="min-w-0 space-y-3">
-            <div className="space-y-2">
-              <p className="text-base font-semibold tracking-tight text-foreground">
-                {currentDeviceName}
-              </p>
-            </div>
-
-            <div className="flex items-center justify-between gap-4 rounded-xl border border-border/80 bg-muted/15 px-4 py-3">
-              <div>
-                <p className="text-sm font-medium text-foreground">{t("panels.thisComputer.registerTitle")}</p>
-                <p className="text-xs text-muted-foreground">
-                  {isLocalRegistered
-                    ? isCurrentRelayReachable
-                      ? t("panels.thisComputer.status.online")
-                      : t("panels.thisComputer.status.connecting")
-                    : t("panels.thisComputer.status.notRegistered")}
-                </p>
-              </div>
-              <Switch
-                checked={isLocalRegistered}
-                disabled={busy === 'remote' || !hasConfiguredKey}
-                onCheckedChange={checked => void onRemoteToggle(checked)}
-              />
-            </div>
-            {connectionMode === 'relay' ? (
-              <div className="flex flex-col gap-3 rounded-xl border border-border/80 bg-muted/15 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-foreground">{t("panels.thisComputer.useLocalTitle")}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {t("panels.thisComputer.useLocalDescription")}
-                  </p>
-                </div>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="secondary"
-                  className="shrink-0"
-                  disabled={busy !== null}
-                  onClick={() => void switchToLocalConnection('local-switch')}
-                >
-                  {busy === 'local-switch' ? (
-                    <LoaderCircle className="mr-2 size-4 animate-spin" />
-                  ) : (
-                    <Laptop className="mr-2 size-4" />
-                  )}
-                  {t("panels.thisComputer.useLocalButton")}
-                </Button>
-              </div>
-            ) : null}
-            {showRelayReconnect ? (
-              <div className="space-y-2 rounded-xl border border-amber-500/35 bg-amber-500/10 px-4 py-3">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <p className="text-sm font-medium text-foreground">{t("panels.thisComputer.reconnectTitle")}</p>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    disabled={busy !== null}
-                    onClick={() => void onRelayReconnect()}
-                  >
-                    {busy === 'relay-sync' ? (
-                      <LoaderCircle className="mr-2 size-4 animate-spin" />
-                    ) : (
-                      <RotateCw className="mr-2 size-4" />
-                    )}
-                    {t("panels.thisComputer.reconnectButton")}
-                  </Button>
-                </div>
-                {relayLastError ? (
-                  <p className="text-xs leading-5 text-destructive">{relayLastError}</p>
-                ) : (
-                  <p className="text-xs text-muted-foreground">
-                    {t("panels.thisComputer.reconnectHelper")}
-                  </p>
-                )}
-              </div>
-            ) : null}
-            {!hasConfiguredKey ? (
-              <p className="text-xs text-muted-foreground">{t("panels.thisComputer.saveKeyPrompt")}</p>
-            ) : null}
-        </div>
-      </SettingsBlock>
-
-      <SettingsBlock
-        title={t("panels.myComputers.title")}
-        icon={<Computer className="size-5" />}
-        description={t("panels.myComputers.description")}
-        headerEnd={
-          <Button
-            variant="ghost"
-            size="sm"
-            disabled={!hasConfiguredKey || busy !== null}
-            onClick={() => void refreshComputerList()}
-          >
-            <RotateCw className={cn('mr-2 size-4', listRefreshing && 'animate-spin')} />
-            {t("panels.myComputers.refresh")}
-          </Button>
-        }
-      >
-        {!hasConfiguredKey ? (
-          <p className="text-sm text-muted-foreground">{t("panels.myComputers.saveKeyPrompt")}</p>
-        ) : activeComputers.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            {t("panels.myComputers.empty")}
+          <p className="text-xs leading-5 text-muted-foreground">
+            {t("panels.privateRelay.footerPrefix")}{' '}
+            <code className="rounded bg-muted px-1.5 py-0.5">RELAY_SECRET_KEY</code>{' '}
+            {t("panels.privateRelay.footerSuffix")}
           </p>
-        ) : (
-          <ul className="divide-y divide-border rounded-xl border border-border">
-            {activeComputers.map(c => {
-              const isCurrent = isCurrentLocalComputer(c, currentServerId);
-              const isUsingLocal = isCurrent && connectionMode === 'local';
-              const isConnected = !isCurrent && connectedServerId === c.server_id;
-              const relayReachable = isCurrent
-                ? isCurrentRelayReachable
-                : Boolean(c.online);
-              const name = (c.display_name ?? t("panels.myComputers.fallbackName")).slice(0, 64);
-              return (
-                <li
-                  key={c.server_id}
-                  className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
-                >
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="truncate text-sm font-medium text-foreground">{name}</span>
-                      {isCurrent ? (
-                        <Badge variant="secondary" className="text-xs">
-                          {t("panels.myComputers.current")}
-                        </Badge>
-                      ) : null}
-                      {isConnected ? (
-                        <Badge className="bg-primary/15 text-xs text-primary">{t("panels.myComputers.connected")}</Badge>
-                      ) : null}
-                      <span
-                        className={cn(
-                          'text-xs',
-                          relayReachable
-                            ? 'text-emerald-600 dark:text-emerald-400'
-                            : 'text-muted-foreground',
-                        )}
-                      >
-                        {relayReachable ? t("panels.myComputers.online") : t("panels.myComputers.offline")}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {isCurrent && showRelayReconnect ? (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={busy !== null}
-                        onClick={() => void onRelayReconnect()}
-                      >
-                        {busy === 'relay-sync' ? (
-                          <LoaderCircle className="size-4 animate-spin" />
-                        ) : (
-                          <>
-                            <RotateCw className="mr-2 size-4" />
-                            {t("panels.myComputers.reconnect")}
-                          </>
-                        )}
-                      </Button>
-                    ) : null}
-                    <Button
-                      size="sm"
-                      variant={isConnected || isUsingLocal ? 'secondary' : 'default'}
-                      disabled={
-                        busy !== null ||
-                        isConnected ||
-                        isUsingLocal
-                      }
-                      onClick={() => void onConnect(c.server_id)}
-                    >
-                      {busy === `connect-${c.server_id}` ? (
-                        <LoaderCircle className="size-4 animate-spin" />
-                      ) : isCurrent ? (
-                        t("panels.myComputers.useLocally")
-                      ) : isConnected ? (
-                        t("panels.myComputers.inUse")
-                      ) : (
-                        t("panels.myComputers.connect")
-                      )}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        setDetailsComputer(c);
-                        setDetailsOpen(true);
-                      }}
-                    >
-                      {t("panels.myComputers.details")}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="text-destructive hover:text-destructive"
-                      disabled={busy !== null}
-                      onClick={() => void onRemove(c.server_id)}
-                    >
-                      {busy === `remove-${c.server_id}` ? (
-                        <LoaderCircle className="size-4 animate-spin" />
-                      ) : (
-                        <Trash2 className="size-4" />
-                      )}
-                    </Button>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        )}
+        </div>
       </SettingsBlock>
 
       <ComputerDetailsDialog
@@ -1222,6 +881,6 @@ export function AtmosComputerSection() {
         computer={detailsComputer}
         isCurrent={detailsComputer?.server_id === currentServerId}
       />
-    </div>
+    </SettingsPageStack>
   );
 }

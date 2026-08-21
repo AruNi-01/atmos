@@ -9,11 +9,14 @@ import type { QuickOpenAppName } from '@/app-shell/quick-open-apps';
 import { AtmosComputerSection } from '@/features/atmos-computer/components/AtmosComputerSection';
 import { TunnelConnectorSection } from '@/features/tunnel-connector/components/TunnelConnectorSection';
 import { DesktopUseSettingsSection } from '@/features/settings/components/DesktopUseSettingsSection';
+import { BrowserSettingsSection } from '@/features/settings/components/BrowserSettingsSection';
+import { PermissionAccessSettingsSection } from '@/features/settings/components/PermissionAccessSettingsSection';
 import { CanvasSettingsSection } from '@/features/settings/components/CanvasSettingsSection';
 import { CodeAgentSettingsSection } from '@/features/settings/components/CodeAgentSettingsSection';
 import { EditorSettingsSection } from '@/features/settings/components/EditorSettingsSection';
 import { ExperimentSettingsSection } from '@/features/settings/components/ExperimentSettingsSection';
 import { AccountSettingsSection } from '@/features/settings/components/AccountSettingsSection';
+import { AppearanceSettingsSection } from '@/features/settings/components/AppearanceSettingsSection';
 import { IntegrationsSettingsSection } from '@/features/settings/components/IntegrationsSettingsSection';
 import { LabelSettingsSection } from '@/features/settings/components/LabelSettingsSection';
 import { LayoutSettingsSection } from '@/features/settings/components/LayoutSettingsSection';
@@ -24,14 +27,17 @@ import { WorkspaceSettingsSection } from '@/features/settings/components/Workspa
 import { SettingsAboutSection } from '@/features/settings/components/SettingsAboutSection';
 import { SettingsAiSection, type ProviderTestState } from '@/features/settings/components/SettingsAiSection';
 import type { LocalAgentOption } from '@/app-shell/llm-providers-modal-utils';
+import { SettingsSection } from '@/features/settings/components/settings/SettingsGroupCard';
 import type { SettingsSectionId } from '@/features/settings/components/settings-modal-data';
 import type { TerminalAgentSavedRunConfig } from '@/features/agent/lib/terminal-agent-run-config';
+import type { SettingsGroupTabId } from '@/features/settings/lib/settings-section-group-tabs';
 
 type BuiltInAgentSettings = Record<string, { cmd?: string; flags?: string; enabled?: boolean }>;
 type AgentOption = { id: string; label: string };
 
 interface SettingsModalSectionsProps {
   activeSection: SettingsSectionId;
+  activeGroupTab: SettingsGroupTabId | null;
   appVersion: string;
   cliVersionInfo: {
     current: string | null;
@@ -68,6 +74,10 @@ interface SettingsModalSectionsProps {
   customAgents: CodeAgentCustomEntry[];
   customAgentsExpanded: boolean;
   idleSessionTimeoutMins: number;
+  attentionSummaryEnabled: boolean;
+  attentionSummaryDelayMins: number;
+  attentionSummaryAgentId: string;
+  attentionSummaryModel: string;
   runConfigAgentOptions: AgentOption[];
   runConfigsLoading: boolean;
   removingCustomAgentIds: Record<string, boolean>;
@@ -75,6 +85,10 @@ interface SettingsModalSectionsProps {
   savedAgentCustomSettings: BuiltInAgentSettings;
   savedCustomAgents: CodeAgentCustomEntry[];
   savedIdleSessionTimeoutMins: number;
+  savedAttentionSummaryEnabled: boolean;
+  savedAttentionSummaryDelayMins: number;
+  savedAttentionSummaryAgentId: string;
+  savedAttentionSummaryModel: string;
   savingBuiltInAgentIds: Record<string, boolean>;
   savingCustomAgentIds: Record<string, boolean>;
   savingIdleTimeout: boolean;
@@ -97,13 +111,23 @@ interface SettingsModalSectionsProps {
   onRemoveCustomAgent: (id: string) => void;
   onSaveBuiltInAgent: (agentId: string) => void;
   onSaveCustomAgent: (id: string) => void;
-  onSaveIdleTimeout: () => void;
+  onCommitBehaviourSettings: (values: {
+    idleSessionTimeoutMins: number;
+    attentionSummaryEnabled: boolean;
+    attentionSummaryDelayMins: number;
+    attentionSummaryAgentId: string;
+    attentionSummaryModel: string;
+  }) => void | Promise<void>;
   onSaveRunConfigs: (configs: TerminalAgentSavedRunConfig[]) => Promise<void>;
   setBuiltInAgentOpen: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
   setBuiltInAgentsExpanded: React.Dispatch<React.SetStateAction<boolean>>;
   setCustomAgentOpen: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
   setCustomAgentsExpanded: React.Dispatch<React.SetStateAction<boolean>>;
   setIdleSessionTimeoutMins: React.Dispatch<React.SetStateAction<number>>;
+  setAttentionSummaryEnabled: React.Dispatch<React.SetStateAction<boolean>>;
+  setAttentionSummaryDelayMins: React.Dispatch<React.SetStateAction<number>>;
+  setAttentionSummaryAgentId: React.Dispatch<React.SetStateAction<string>>;
+  setAttentionSummaryModel: React.Dispatch<React.SetStateAction<string>>;
   handleLlmConfigUpdate: (
     key: string,
     updater: (current: LlmProvidersFile) => LlmProvidersFile,
@@ -144,22 +168,38 @@ interface SettingsModalSectionsProps {
   onTestPushServer: (index: number) => Promise<{ ok: boolean; error?: string }>;
 }
 
+function TabbedSettingsSection({
+  id,
+  children,
+}: {
+  id: string;
+  children: React.ReactNode;
+}) {
+  return <SettingsSection id={id}>{children}</SettingsSection>;
+}
+
 export function SettingsModalSections(props: SettingsModalSectionsProps) {
   switch (props.activeSection) {
-    case 'about':
-      return (
-        <SettingsAboutSection
-          appVersion={props.appVersion}
-          cliVersionInfo={props.cliVersionInfo}
-          isInstallingCli={props.isInstallingCli}
-          isCheckingCliVersion={props.isCheckingCliVersion}
-          isCheckingDesktopUpdate={props.isCheckingDesktopUpdate}
-          status={props.status}
-          onInstallCli={props.onInstallCli}
-          onCheckCliVersion={props.onCheckCliVersion}
-          onCheckForUpdate={props.onCheckForUpdate}
-        />
-      );
+    case 'general':
+      if (props.activeGroupTab === 'about') {
+        return (
+          <SettingsAboutSection
+            appVersion={props.appVersion}
+            cliVersionInfo={props.cliVersionInfo}
+            isInstallingCli={props.isInstallingCli}
+            isCheckingCliVersion={props.isCheckingCliVersion}
+            isCheckingDesktopUpdate={props.isCheckingDesktopUpdate}
+            status={props.status}
+            onInstallCli={props.onInstallCli}
+            onCheckCliVersion={props.onCheckCliVersion}
+            onCheckForUpdate={props.onCheckForUpdate}
+          />
+        );
+      }
+      if (props.activeGroupTab === 'experiments') {
+        return <ExperimentSettingsSection />;
+      }
+      return <AppearanceSettingsSection />;
     case 'terminal':
       return (
         <TerminalSettingsSection
@@ -179,7 +219,7 @@ export function SettingsModalSections(props: SettingsModalSectionsProps) {
           setMaxGlobalTerminalPanes={props.setMaxGlobalTerminalPanes}
         />
       );
-    case 'code-agent':
+    case 'agents':
       return (
         <CodeAgentSettingsSection
           agentCustomSettings={props.agentCustomSettings}
@@ -190,6 +230,10 @@ export function SettingsModalSections(props: SettingsModalSectionsProps) {
           customAgents={props.customAgents}
           customAgentsExpanded={props.customAgentsExpanded}
           idleSessionTimeoutMins={props.idleSessionTimeoutMins}
+          attentionSummaryEnabled={props.attentionSummaryEnabled}
+          attentionSummaryDelayMins={props.attentionSummaryDelayMins}
+          attentionSummaryAgentId={props.attentionSummaryAgentId}
+          attentionSummaryModel={props.attentionSummaryModel}
           runConfigAgentOptions={props.runConfigAgentOptions}
           runConfigsLoading={props.runConfigsLoading}
           removingCustomAgentIds={props.removingCustomAgentIds}
@@ -197,6 +241,10 @@ export function SettingsModalSections(props: SettingsModalSectionsProps) {
           savedAgentCustomSettings={props.savedAgentCustomSettings}
           savedCustomAgents={props.savedCustomAgents}
           savedIdleSessionTimeoutMins={props.savedIdleSessionTimeoutMins}
+          savedAttentionSummaryEnabled={props.savedAttentionSummaryEnabled}
+          savedAttentionSummaryDelayMins={props.savedAttentionSummaryDelayMins}
+          savedAttentionSummaryAgentId={props.savedAttentionSummaryAgentId}
+          savedAttentionSummaryModel={props.savedAttentionSummaryModel}
           savingBuiltInAgentIds={props.savingBuiltInAgentIds}
           savingCustomAgentIds={props.savingCustomAgentIds}
           savingIdleTimeout={props.savingIdleTimeout}
@@ -219,24 +267,35 @@ export function SettingsModalSections(props: SettingsModalSectionsProps) {
           onRemoveCustomAgent={props.onRemoveCustomAgent}
           onSaveBuiltInAgent={props.onSaveBuiltInAgent}
           onSaveCustomAgent={props.onSaveCustomAgent}
-          onSaveIdleTimeout={props.onSaveIdleTimeout}
+          onCommitBehaviourSettings={props.onCommitBehaviourSettings}
           onSaveRunConfigs={props.onSaveRunConfigs}
           setBuiltInAgentOpen={props.setBuiltInAgentOpen}
           setBuiltInAgentsExpanded={props.setBuiltInAgentsExpanded}
           setCustomAgentOpen={props.setCustomAgentOpen}
           setCustomAgentsExpanded={props.setCustomAgentsExpanded}
           setIdleSessionTimeoutMins={props.setIdleSessionTimeoutMins}
+          setAttentionSummaryEnabled={props.setAttentionSummaryEnabled}
+          setAttentionSummaryDelayMins={props.setAttentionSummaryDelayMins}
+          setAttentionSummaryAgentId={props.setAttentionSummaryAgentId}
+          setAttentionSummaryModel={props.setAttentionSummaryModel}
         />
       );
     case 'workspace':
-      return <WorkspaceSettingsSection />;
-    case 'labels':
-      return <LabelSettingsSection />;
+      if (props.activeGroupTab === 'labels') {
+        return (
+          <TabbedSettingsSection id="labels">
+            <LabelSettingsSection />
+          </TabbedSettingsSection>
+        );
+      }
+      return (
+        <TabbedSettingsSection id="workspace">
+          <WorkspaceSettingsSection />
+        </TabbedSettingsSection>
+      );
     case 'account':
       return <AccountSettingsSection />;
-    case 'integrations':
-      return <IntegrationsSettingsSection />;
-    case 'ai':
+    case 'models':
       return (
         <SettingsAiSection
           handleLlmConfigUpdate={props.handleLlmConfigUpdate}
@@ -257,7 +316,7 @@ export function SettingsModalSections(props: SettingsModalSectionsProps) {
           setRoutingExpanded={props.setRoutingExpanded}
         />
       );
-    case 'notify':
+    case 'notifications':
       return (
         <NotifySettingsSection
           settings={props.notifySettings}
@@ -275,22 +334,54 @@ export function SettingsModalSections(props: SettingsModalSectionsProps) {
           onTestPushServer={props.onTestPushServer}
         />
       );
-    case 'tunnel-connector':
-      return <TunnelConnectorSection />;
-    case 'atmos-computer':
-      return <AtmosComputerSection />;
-    case 'desktop-use':
-      return <DesktopUseSettingsSection />;
-    case 'shortcuts':
+    case 'remote-access':
+      if (props.activeGroupTab === 'tunnel-connector') {
+        return (
+          <TabbedSettingsSection id="tunnel-connector">
+            <TunnelConnectorSection />
+          </TabbedSettingsSection>
+        );
+      }
+      return (
+        <TabbedSettingsSection id="atmos-computer">
+          <AtmosComputerSection />
+        </TabbedSettingsSection>
+      );
+    case 'apps':
+      if (props.activeGroupTab === 'browser') {
+        return (
+          <TabbedSettingsSection id="browser">
+            <BrowserSettingsSection />
+          </TabbedSettingsSection>
+        );
+      }
+      if (props.activeGroupTab === 'desktop-use') {
+        return (
+          <TabbedSettingsSection id="desktop-use">
+            <DesktopUseSettingsSection />
+          </TabbedSettingsSection>
+        );
+      }
+      return (
+        <TabbedSettingsSection id="integrations">
+          <IntegrationsSettingsSection />
+        </TabbedSettingsSection>
+      );
+    case 'privacy':
+      return <PermissionAccessSettingsSection />;
+    case 'keyboard':
       return <ShortcutsSettingsSection />;
-    case 'experiments':
-      return <ExperimentSettingsSection />;
-    case 'layout':
+    case 'interface':
       return <LayoutSettingsSection />;
     case 'editor':
-      return <EditorSettingsSection />;
-    case 'canvas':
-      return <CanvasSettingsSection />;
+      if (props.activeGroupTab === 'canvas') {
+        return <CanvasSettingsSection />;
+      }
+      return (
+        <TabbedSettingsSection id="editor">
+          <EditorSettingsSection />
+        </TabbedSettingsSection>
+      );
     default:
       return null;
   }

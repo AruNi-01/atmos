@@ -1,0 +1,10 @@
+/* The simulator preview is a cross-origin iframe flush under the tab bar
+   and against the sidebar divider. While it is interactive, the host never
+   sees pointerleave (tooltips stick) or pointermove (sidebar resize dies).
+   Freeze the guest for the duration of those host-pointer gestures. */
+body:has([data-slot="tooltip-content"]:not([data-state="closed"]))
+  iframe[data-atmos-guest-iframe],
+body:has([data-resize-handle-active="pointer"]) iframe[data-atmos-guest-iframe],
+html[data-atmos-drag-active] iframe[data-atmos-guest-iframe] {
+  pointer-events: none;
+}

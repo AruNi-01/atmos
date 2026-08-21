@@ -6,8 +6,6 @@ import {
   Circle,
   GitCompare,
   LayoutDashboard,
-  TabsList,
-  TabsTab,
   Tooltip,
   TooltipContent,
   TooltipTrigger,
@@ -15,13 +13,25 @@ import {
   getFileIconProps,
 } from "@workspace/ui";
 import {
+  Tabs as MotionTabs,
+  TabsList as MotionTabsList,
+  TabsTrigger as MotionTabsTrigger,
+} from "@workspace/ui/components/motion/tabs";
+import {
   BookOpen,
   Bot,
   FileCheckCorner,
+  FileDiff,
+  FolderTree,
+  GitBranch,
   GitPullRequest,
   GitMergeIcon,
   GitCommitHorizontal,
+  GitGraph,
+  Github,
   Globe,
+  Play,
+  Smartphone,
   SquareTerminal as TerminalIcon,
   Workflow,
 } from "lucide-react";
@@ -43,6 +53,84 @@ import {
 } from "@/app-shell/center-stage-tabs";
 import { preventNonPrimaryTabActivate } from "@/app-shell/center-stage-tab-model";
 
+/** Tasks-page motion pill trigger density, on Atmos surfaces. */
+export const CENTER_STAGE_TAB_CLASS =
+  "pointer-events-auto group h-7 shrink-0 gap-1.5 px-1.5 text-xs aria-selected:!text-foreground";
+
+export const CENTER_STAGE_TAB_INDICATOR_CLASS = "bg-active";
+
+/** Icon-only pills stay circular (h-7) instead of collapsing into an oval. */
+export const CENTER_STAGE_ICON_TAB_CLASS = "w-7 px-0";
+
+/** Close control. Pair with {@link CenterStageTabIconSlot} so it replaces the icon. */
+export function CenterStageTabCloseButton({
+  className,
+  label,
+  onClose,
+}: {
+  className?: string;
+  label: string;
+  onClose: () => void;
+}) {
+  return (
+    <span
+      role="button"
+      aria-label={label}
+      onPointerDown={(event) => event.stopPropagation()}
+      onClick={(event) => {
+        event.stopPropagation();
+        onClose();
+      }}
+      className={cn(
+        "flex size-3.5 shrink-0 cursor-pointer items-center justify-center rounded-full hover:bg-current/15",
+        className,
+      )}
+    >
+      <X className="size-3" />
+    </span>
+  );
+}
+
+/** Leading glyph that swaps to the close control on tab hover. */
+export function CenterStageTabIconSlot({
+  children,
+  closeLabel,
+  onClose,
+}: {
+  children: React.ReactNode;
+  closeLabel?: string;
+  onClose?: () => void;
+}) {
+  return (
+    <span className="relative flex size-3.5 shrink-0 items-center justify-center">
+      <span className={cn("flex items-center justify-center", onClose && "group-hover:invisible")}>
+        {children}
+      </span>
+      {onClose ? (
+        <CenterStageTabCloseButton
+          label={closeLabel ?? ""}
+          onClose={onClose}
+          className="absolute inset-0 opacity-0 pointer-events-none group-hover:pointer-events-auto group-hover:opacity-100"
+        />
+      ) : null}
+    </span>
+  );
+}
+
+export const CenterStageTab = React.forwardRef<
+  HTMLButtonElement,
+  React.ComponentProps<typeof MotionTabsTrigger>
+>(function CenterStageTab({ className, ...props }, ref) {
+  return (
+    <MotionTabsTrigger
+      ref={ref}
+      className={cn(CENTER_STAGE_TAB_CLASS, className)}
+      indicatorClassName={CENTER_STAGE_TAB_INDICATOR_CLASS}
+      {...props}
+    />
+  );
+});
+
 type SessionDisplay = {
   sessionTitle?: string | null;
   revisionLabel?: string | null;
@@ -61,22 +149,37 @@ export type CenterStageSurfaceTabVariant =
   | "browser";
 
 export function CenterStageTabList({
+  actions,
   children,
   className,
+  onValueChange,
+  value,
 }: {
+  actions?: React.ReactNode;
   children: React.ReactNode;
   className?: string;
+  onValueChange?: (value: string) => void;
+  value: string;
 }) {
   return (
-    <TabsList
-      variant="underline"
+    <div
       className={cn(
-        "h-10 w-full justify-start border-b border-sidebar-border px-0 bg-transparent overflow-hidden gap-0 items-stretch py-0! [&_[data-slot=tab-indicator]]:hidden",
+        "desktop-no-drag relative z-20 flex shrink-0 items-center gap-1.5 px-2 py-1",
         className,
       )}
     >
-      {children}
-    </TabsList>
+      <MotionTabs
+        value={value}
+        onValueChange={onValueChange}
+        variant="pill"
+        className="flex min-h-0 min-w-0 flex-1 items-center"
+      >
+        <MotionTabsList className="flex h-8 w-full min-w-0 justify-start gap-0.5 overflow-hidden bg-background p-0.5">
+          {children}
+          {actions}
+        </MotionTabsList>
+      </MotionTabs>
+    </div>
   );
 }
 
@@ -93,7 +196,7 @@ export function CenterStageScrollableTabs({
   return (
     <div
       ref={scrollableTabsRef}
-      className={cn("flex min-w-0 flex-1 overflow-x-auto no-scrollbar", className)}
+      className={cn("flex min-w-0 flex-1 items-center overflow-x-auto no-scrollbar", className)}
       {...rest}
     >
       {children}
@@ -111,9 +214,10 @@ export function CenterStageStickyTabActions({
   return (
     <div
       className={cn(
-        "z-20 flex h-full shrink-0 items-stretch border-l border-sidebar-border/70 bg-background/95 backdrop-blur-sm",
+        "pointer-events-auto z-20 flex h-7 shrink-0 items-center",
         className,
       )}
+      onPointerDown={(event) => event.stopPropagation()}
     >
       {children}
     </div>
@@ -134,16 +238,16 @@ export function CenterStageOverviewTab({
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <TabsTab
+        <CenterStageTab
           value={value}
-          onPointerDown={preventNonPrimaryTabActivate}
-          className={cn(
-            "h-full! pl-4 pr-4 data-active:bg-muted/40 data-active:text-foreground text-muted-foreground hover:bg-muted/50 transition-colors gap-2 grow-0 shrink-0 justify-start rounded-none border-0!",
-            className,
-          )}
+          onPointerDown={(event) => {
+            preventNonPrimaryTabActivate(event);
+            event.stopPropagation();
+          }}
+          className={cn(CENTER_STAGE_ICON_TAB_CLASS, className)}
         >
           <LayoutDashboard className="size-3.5" />
-        </TabsTab>
+        </CenterStageTab>
       </TooltipTrigger>
       <TooltipContent side="bottom">{tooltipContent ?? t("overview")}</TooltipContent>
     </Tooltip>
@@ -188,7 +292,7 @@ export function BrowserTabFavicon({
     <span className={cn("relative size-3.5 shrink-0", className)}>
       <Globe
         className={cn(
-          "size-3.5 absolute inset-0 text-muted-foreground/70",
+          "size-3.5 absolute inset-0 text-current/70",
           resolvedFaviconUrl && "hidden",
         )}
       />
@@ -242,35 +346,39 @@ export function CenterStageSurfaceContentTab({
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <TabsTab
+        <CenterStageTab
           value={value}
-          className="!h-full pl-2 pr-1 data-active:bg-muted/40 data-active:text-foreground text-muted-foreground hover:bg-muted/50 transition-colors gap-1.5 group grow-0 shrink-0 justify-start rounded-none !border-0"
           onPointerDown={preventNonPrimaryTabActivate}
           onContextMenu={onContextMenu}
           onDoubleClick={onDoubleClick}
         >
-          {variant === "review-diff" ? (
-            <FileCheckCorner className="size-3.5 shrink-0 text-blue-400" />
-          ) : variant === "diff" || variant === "diff-group" ? (
-            <GitCompare className="size-3.5 shrink-0 text-emerald-500" />
-          ) : variant === "conflict" ? (
-            <GitMergeIcon className="size-3.5 shrink-0 text-amber-500" />
-          ) : variant === "github-pr" ? (
-            <GitPullRequest className="size-3.5 shrink-0" />
-          ) : variant === "github-issue" ? (
-            <Circle className="size-3.5 shrink-0" />
-          ) : variant === "github-action" ? (
-            <Workflow className="size-3.5 shrink-0" />
-          ) : variant === "github-commit" ? (
-            <GitCommitHorizontal className="size-3.5 shrink-0" />
-          ) : variant === "browser" ? (
-            <BrowserTabFavicon faviconUrl={faviconUrl} />
-          ) : (
-            <CenterStageFileIcon name={name} className="size-3.5 shrink-0" />
-          )}
+          <CenterStageTabIconSlot
+            closeLabel={onClose ? (closeLabel ?? t("closeTab")) : undefined}
+            onClose={onClose}
+          >
+            {variant === "review-diff" ? (
+              <FileCheckCorner className="size-3.5 shrink-0 text-blue-400" />
+            ) : variant === "diff" || variant === "diff-group" ? (
+              <GitCompare className="size-3.5 shrink-0 text-emerald-500" />
+            ) : variant === "conflict" ? (
+              <GitMergeIcon className="size-3.5 shrink-0 text-amber-500" />
+            ) : variant === "github-pr" ? (
+              <GitPullRequest className="size-3.5 shrink-0" />
+            ) : variant === "github-issue" ? (
+              <Circle className="size-3.5 shrink-0" />
+            ) : variant === "github-action" ? (
+              <Workflow className="size-3.5 shrink-0" />
+            ) : variant === "github-commit" ? (
+              <GitCommitHorizontal className="size-3.5 shrink-0" />
+            ) : variant === "browser" ? (
+              <BrowserTabFavicon faviconUrl={faviconUrl} />
+            ) : (
+              <CenterStageFileIcon name={name} className="size-3.5 shrink-0" />
+            )}
+          </CenterStageTabIconSlot>
           <span
             className={cn(
-              "text-[13px] font-medium whitespace-nowrap max-w-[180px] truncate",
+              "max-w-[180px] truncate whitespace-nowrap",
               variant === "review-diff" && "text-blue-400",
               variant === "diff-group" && "text-emerald-500",
               variant === "conflict" && "text-amber-500",
@@ -279,26 +387,10 @@ export function CenterStageSurfaceContentTab({
           >
             {name}
           </span>
-          <div className="relative size-4 flex items-center justify-center shrink-0 ml-0">
-            {isDirty ? (
-              <Circle className="size-1.5 fill-current text-muted-foreground group-hover:hidden" />
-            ) : null}
-            {onClose ? (
-              <span
-                role="button"
-                aria-label={closeLabel ?? t("closeTab")}
-                onPointerDown={(event) => event.stopPropagation()}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onClose();
-                }}
-                className="absolute inset-0 opacity-0 group-hover:opacity-100 flex items-center justify-center hover:bg-muted-foreground/20 rounded-sm cursor-pointer transition-all ease-out duration-200"
-              >
-                <X className="size-3" />
-              </span>
-            ) : null}
-          </div>
-        </TabsTab>
+          {isDirty ? (
+            <Circle className="size-1.5 shrink-0 fill-current group-hover:invisible" />
+          ) : null}
+        </CenterStageTab>
       </TooltipTrigger>
       <TooltipContent side="bottom" className="max-w-md break-all">
         {resolvedTooltip}
@@ -311,10 +403,12 @@ function CenterStageTerminalTabGroupItemContent({
   effectiveContextId,
   tab,
   label,
+  wrapLeading,
 }: {
   effectiveContextId?: string;
   tab: TabGroupItem;
   label: (text: string) => React.ReactNode;
+  wrapLeading: (node: React.ReactNode) => React.ReactNode;
 }) {
   // Reads customTitle + representative pane title from the terminal store.
   const presentation = useTerminalCenterTabPresentation({
@@ -342,7 +436,7 @@ function CenterStageTerminalTabGroupItemContent({
 
   return (
     <>
-      {leadingIcon}
+      {wrapLeading(leadingIcon)}
       {label(displayTitle)}
       {effectiveContextId ? (
         <TerminalTabAgentIndicatorWithPanes contextId={effectiveContextId} tabId={tab.value} />
@@ -352,10 +446,14 @@ function CenterStageTerminalTabGroupItemContent({
 }
 
 export function CenterStageTabGroupItemContent({
+  closeLabel,
   effectiveContextId,
+  onClose,
   tab,
 }: {
+  closeLabel?: string;
   effectiveContextId?: string;
+  onClose?: () => void;
   tab: TabGroupItem;
 }) {
   const textClassName = cn(
@@ -373,10 +471,16 @@ export function CenterStageTabGroupItemContent({
     </span>
   );
 
+  const leading = (node: React.ReactNode) => (
+    <CenterStageTabIconSlot closeLabel={closeLabel} onClose={onClose}>
+      {node}
+    </CenterStageTabIconSlot>
+  );
+
   if (tab.kind === "overview") {
     return (
       <>
-        <LayoutDashboard className="size-3.5 shrink-0" />
+        {leading(<LayoutDashboard className="size-3.5 shrink-0" />)}
         {label(tab.label)}
       </>
     );
@@ -385,7 +489,7 @@ export function CenterStageTabGroupItemContent({
   if (tab.kind === "wiki") {
     return (
       <>
-        <BookOpen className="size-3.5 shrink-0" />
+        {leading(<BookOpen className="size-3.5 shrink-0" />)}
         {label(tab.label)}
       </>
     );
@@ -394,7 +498,7 @@ export function CenterStageTabGroupItemContent({
   if (tab.kind === "project-wiki") {
     return (
       <>
-        <TerminalIcon className="size-3.5 shrink-0" />
+        {leading(<TerminalIcon className="size-3.5 shrink-0" />)}
         {label(tab.label)}
       </>
     );
@@ -403,7 +507,7 @@ export function CenterStageTabGroupItemContent({
   if (tab.kind === "code-review") {
     return (
       <>
-        <TerminalIcon className="size-3.5 shrink-0 text-primary" />
+        {leading(<TerminalIcon className="size-3.5 shrink-0 text-primary" />)}
         {label(tab.label)}
       </>
     );
@@ -415,6 +519,7 @@ export function CenterStageTabGroupItemContent({
         effectiveContextId={effectiveContextId}
         tab={tab}
         label={label}
+        wrapLeading={leading}
       />
     );
   }
@@ -422,15 +527,80 @@ export function CenterStageTabGroupItemContent({
   if (tab.kind === "github-pr" || tab.kind === "github-issue" || tab.kind === "github-action" || tab.kind === "github-commit") {
     return (
       <>
-        {tab.kind === "github-pr" ? (
-          <GitPullRequest className="size-3.5 shrink-0" />
-        ) : tab.kind === "github-issue" ? (
-          <Circle className="size-3.5 shrink-0" />
-        ) : tab.kind === "github-action" ? (
-          <Workflow className="size-3.5 shrink-0" />
-        ) : (
-          <GitCommitHorizontal className="size-3.5 shrink-0" />
+        {leading(
+          tab.kind === "github-pr" ? (
+            <GitPullRequest className="size-3.5 shrink-0" />
+          ) : tab.kind === "github-issue" ? (
+            <Circle className="size-3.5 shrink-0" />
+          ) : tab.kind === "github-action" ? (
+            <Workflow className="size-3.5 shrink-0" />
+          ) : (
+            <GitCommitHorizontal className="size-3.5 shrink-0" />
+          ),
         )}
+        {label(tab.label)}
+      </>
+    );
+  }
+
+  if (tab.kind === "simulator") {
+    return (
+      <>
+        {leading(<Smartphone className="size-3.5 shrink-0" />)}
+        {label(tab.label)}
+      </>
+    );
+  }
+
+  if (tab.kind === "git-history") {
+    return (
+      <>
+        {leading(<GitGraph className="size-3.5 shrink-0" />)}
+        {label(tab.label)}
+      </>
+    );
+  }
+
+  if (tab.kind === "changes") {
+    return (
+      <>
+        {leading(<GitBranch className="size-3.5 shrink-0" />)}
+        {label(tab.label)}
+      </>
+    );
+  }
+
+  if (tab.kind === "review") {
+    return (
+      <>
+        {leading(<FileDiff className="size-3.5 shrink-0" />)}
+        {label(tab.label)}
+      </>
+    );
+  }
+
+  if (tab.kind === "run") {
+    return (
+      <>
+        {leading(<Play className="size-3.5 shrink-0" />)}
+        {label(tab.label)}
+      </>
+    );
+  }
+
+  if (tab.kind === "github") {
+    return (
+      <>
+        {leading(<Github className="size-3.5 shrink-0" />)}
+        {label(tab.label)}
+      </>
+    );
+  }
+
+  if (tab.kind === "files") {
+    return (
+      <>
+        {leading(<FolderTree className="size-3.5 shrink-0" />)}
         {label(tab.label)}
       </>
     );
@@ -439,7 +609,7 @@ export function CenterStageTabGroupItemContent({
   if (tab.kind === "browser") {
     return (
       <>
-        <BrowserTabFavicon faviconUrl={tab.faviconUrl} />
+        {leading(<BrowserTabFavicon faviconUrl={tab.faviconUrl} />)}
         {label(tab.label)}
       </>
     );
@@ -448,14 +618,16 @@ export function CenterStageTabGroupItemContent({
   if (!tab.file) {
     return (
       <>
-        {tab.kind === "review-diff" ? (
-          <FileCheckCorner className="size-3.5 shrink-0 text-blue-400" />
-        ) : tab.kind === "diff" || tab.kind === "diff-group" ? (
-          <GitCompare className="size-3.5 shrink-0 text-emerald-500" />
-        ) : tab.kind === "conflict" ? (
-          <GitMergeIcon className="size-3.5 shrink-0 text-amber-500" />
-        ) : (
-          <CenterStageFileIcon name={tab.label} className="size-3.5 shrink-0" />
+        {leading(
+          tab.kind === "review-diff" ? (
+            <FileCheckCorner className="size-3.5 shrink-0 text-blue-400" />
+          ) : tab.kind === "diff" || tab.kind === "diff-group" ? (
+            <GitCompare className="size-3.5 shrink-0 text-emerald-500" />
+          ) : tab.kind === "conflict" ? (
+            <GitMergeIcon className="size-3.5 shrink-0 text-amber-500" />
+          ) : (
+            <CenterStageFileIcon name={tab.label} className="size-3.5 shrink-0" />
+          ),
         )}
         {label(tab.label)}
       </>
@@ -464,19 +636,21 @@ export function CenterStageTabGroupItemContent({
 
   return (
     <>
-      {tab.kind === "review-diff" ? (
-        <FileCheckCorner className="size-3.5 shrink-0 text-blue-400" />
-      ) : tab.kind === "diff" || tab.kind === "diff-group" ? (
-        <GitCompare className="size-3.5 shrink-0 text-emerald-500" />
-      ) : tab.kind === "conflict" ? (
-        <GitMergeIcon className="size-3.5 shrink-0 text-amber-500" />
-      ) : (
-        <CenterStageFileIcon name={tab.file.name} className="size-3.5 shrink-0" />
+      {leading(
+        tab.kind === "review-diff" ? (
+          <FileCheckCorner className="size-3.5 shrink-0 text-blue-400" />
+        ) : tab.kind === "diff" || tab.kind === "diff-group" ? (
+          <GitCompare className="size-3.5 shrink-0 text-emerald-500" />
+        ) : tab.kind === "conflict" ? (
+          <GitMergeIcon className="size-3.5 shrink-0 text-amber-500" />
+        ) : (
+          <CenterStageFileIcon name={tab.file.name} className="size-3.5 shrink-0" />
+        ),
       )}
       {label(tab.file.name)}
-      <span className="relative ml-auto flex size-4 shrink-0 items-center justify-center">
-        {tab.file.isDirty ? <Circle className="size-1.5 fill-current text-muted-foreground" /> : null}
-      </span>
+      {tab.file.isDirty ? (
+        <Circle className="size-1.5 shrink-0 fill-current text-muted-foreground group-hover:invisible" />
+      ) : null}
     </>
   );
 }

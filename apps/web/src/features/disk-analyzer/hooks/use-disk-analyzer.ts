@@ -22,11 +22,13 @@ import {
   buildBreadcrumbs,
   collectCleanupSuggestions,
   DEFAULT_TOP_N,
+  suggestionSurvivesDelete,
   filterTree,
   findNodeByPath,
   formatBytes,
   isChildrenLoaded,
   isFsPathAncestor,
+  levelNeedsWiderTopN,
   sortNodes,
   takeTopChildren,
   type ChartMode,
@@ -64,6 +66,8 @@ function graftLevelOntoTree(root: DiskNode, level: DiskNode): DiskNode {
       ...level,
       is_project: level.is_project || previous?.is_project || false,
       is_workspace: level.is_workspace || previous?.is_workspace || false,
+      is_git_worktree: level.is_git_worktree || previous?.is_git_worktree || false,
+      is_agent_data: level.is_agent_data || previous?.is_agent_data || false,
     };
     if (idx >= 0) children[idx] = grafted;
     else children.push(grafted);
@@ -85,6 +89,8 @@ function mergeLevelIntoTree(root: DiskNode | null, level: DiskNode): DiskNode {
         ...level,
         is_project: level.is_project || node.is_project,
         is_workspace: level.is_workspace || node.is_workspace,
+        is_git_worktree: level.is_git_worktree || node.is_git_worktree,
+        is_agent_data: level.is_agent_data || node.is_agent_data,
       };
     }
     if (!node.children?.length) return node;
@@ -136,6 +142,7 @@ export function useDiskAnalyzer() {
   const levelCacheRef = useRef<Record<string, DiskNode>>({});
   const [stats, setStats] = useState<DiskScanStats | null>(null);
   const [suggestions, setSuggestions] = useState<CleanupSuggestion[]>([]);
+  const suppressedSuggestPathsRef = useRef<string[]>([]);
   const [volume, setVolume] = useState<DiskVolumeInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [chartMode, setChartMode] = useState<ChartMode>("treemap");
@@ -151,9 +158,16 @@ export function useDiskAnalyzer() {
   const scanAllSpaceRef = useRef(false);
   const [topN, setTopN] = useState(DEFAULT_TOP_N);
   const [busy, setBusy] = useState(false);
+  const [refreshingDetails, setRefreshingDetails] = useState(false);
   const [loadingPath, setLoadingPath] = useState<string | null>(null);
   const autoStartedRef = useRef(false);
+  const startLockRef = useRef(false);
   const loadingPathRef = useRef<string | null>(null);
+  const focusPathRef = useRef<string | null>(null);
+  const prevTopNRef = useRef(topN);
+  const treeRef = useRef<DiskNode | null>(null);
+  focusPathRef.current = focusPath;
+  treeRef.current = tree;
 
   const rememberLevel = useCallback((level: DiskNode) => {
     const nextCache = { ...levelCacheRef.current, [level.path]: level };
@@ -260,11 +274,23 @@ export function useDiskAnalyzer() {
             }));
           }
         }
-        if (payload.suggestions && payload.suggestions.length > 0) {
-          setSuggestions(payload.suggestions);
+        if (payload.suggestions) {
+          // Confirmed items can stream in while scanning. Only apply an empty
+          // list once the walk is done so "all clean" is not a mid-scan lie.
+          if (payload.suggestions.length > 0 || payload.status === "completed") {
+            const suppressed = suppressedSuggestPathsRef.current;
+            setSuggestions(
+              suppressed.length === 0
+                ? payload.suggestions
+                : payload.suggestions.filter((item) =>
+                    suggestionSurvivesDelete(item.path, suppressed),
+                  ),
+            );
+          }
         }
 
         if (payload.status === "completed") {
+          startLockRef.current = false;
           setBusy(false);
           loadingPathRef.current = null;
           setLoadingPath(null);
@@ -277,11 +303,13 @@ export function useDiskAnalyzer() {
         }
         if (payload.status === "failed") {
           setError(payload.error ?? scanFailedLabel);
+          startLockRef.current = false;
           setBusy(false);
           loadingPathRef.current = null;
           setLoadingPath(null);
         }
         if (payload.status === "cancelled") {
+          startLockRef.current = false;
           setBusy(false);
           loadingPathRef.current = null;
           setLoadingPath(null);
@@ -292,6 +320,8 @@ export function useDiskAnalyzer() {
   }, [queryClient, queryScope, rememberLevel, scanFailedLabel, topN]);
 
   const startScan = useCallback(async () => {
+    if (startLockRef.current) return;
+    startLockRef.current = true;
     setError(null);
     setBusy(true);
     setTree(null);
@@ -299,6 +329,7 @@ export function useDiskAnalyzer() {
     setLevelCache({});
     setStats(null);
     setSuggestions([]);
+    suppressedSuggestPathsRef.current = [];
     setStatus("running");
     setFocusPath(null);
     setSelectedPath(null);
@@ -339,6 +370,7 @@ export function useDiskAnalyzer() {
         // Volume lookup is best-effort; do not fail a running scan.
       }
     } catch (e) {
+      startLockRef.current = false;
       setBusy(false);
       setStatus("failed");
       setError(e instanceof Error ? e.message : String(e));
@@ -379,6 +411,7 @@ export function useDiskAnalyzer() {
       // Free UI immediately; server has already dropped the session slot.
       scanIdRef.current = null;
       setScanId(null);
+      startLockRef.current = false;
       setBusy(false);
       setStatus("cancelled");
       setProgress(null);
@@ -444,6 +477,20 @@ export function useDiskAnalyzer() {
     [queryClient, queryScope, rememberLevel, scanId, topN],
   );
 
+  // Raising Top N cannot invent children from a pruned snapshot — refetch this folder.
+  useEffect(() => {
+    if (prevTopNRef.current === topN) return;
+    prevTopNRef.current = topN;
+    const path = focusPathRef.current;
+    if (!scanIdRef.current || !path) return;
+    const cached = levelCacheRef.current[path];
+    const fromTree = treeRef.current ? findNodeByPath(treeRef.current, path) : null;
+    const node = cached ?? fromTree;
+    if (levelNeedsWiderTopN(node, topN)) {
+      void loadLevel(path, { force: true });
+    }
+  }, [loadLevel, topN]);
+
   const drillTo = useCallback(
     (path: string) => {
       setFocusPath(path);
@@ -469,66 +516,155 @@ export function useDiskAnalyzer() {
     [levelCache, loadLevel, tree],
   );
 
+  const deletePathAt = useCallback(
+    async (path: string, permanent: boolean) => {
+      if (!scanId) {
+        throw new Error(scanFailedLabel);
+      }
+      return diskAnalyzerApi.deletePath(scanId, path, permanent);
+    },
+    [scanFailedLabel, scanId],
+  );
+
   const deleteSelected = useCallback(
     async (permanent: boolean) => {
-      if (!selectedPath || !scanId) return null;
-      const result = await diskAnalyzerApi.deletePath(scanId, selectedPath, permanent);
-      return result;
+      if (!selectedPath) return null;
+      return deletePathAt(selectedPath, permanent);
     },
-    [scanId, selectedPath],
+    [deletePathAt, selectedPath],
   );
+
+  const dropSuggestionPaths = useCallback((paths: string[]) => {
+    if (paths.length === 0) return;
+    const next = [...suppressedSuggestPathsRef.current, ...paths];
+    suppressedSuggestPathsRef.current = next;
+    setSuggestions((prev) =>
+      prev.filter((item) => suggestionSurvivesDelete(item.path, next)),
+    );
+  }, []);
 
   /**
    * After a successful delete: stay on the current directory (do not restart the whole scan).
    * If the focused folder itself was deleted, move up to its parent.
    */
-  const refreshAfterDelete = useCallback(async () => {
-    const deleted = selectedPath;
-    const root = scanPath;
-    if (!scanId || !root) return;
+  const refreshAfterDelete = useCallback(
+    async (deletedPaths?: string | string[] | null) => {
+      const deletedList = (
+        Array.isArray(deletedPaths)
+          ? deletedPaths
+          : deletedPaths
+            ? [deletedPaths]
+            : selectedPath
+              ? [selectedPath]
+              : []
+      ).filter(Boolean);
+      const root = scanPath;
+      if (!scanId || !root) return;
 
-    let stay = focusPath && focusPath.length > 0 ? focusPath : root;
-    if (deleted) {
-      const deletedNorm = deleted.replace(/\/+$/, "");
-      const stayNorm = stay.replace(/\/+$/, "");
-      if (
-        stayNorm === deletedNorm ||
-        stayNorm.startsWith(`${deletedNorm}/`)
-      ) {
-        stay = parentDirPath(deletedNorm, root);
-      }
-    }
+      dropSuggestionPaths(deletedList);
 
-    // Drop stale caches for the deleted subtree and the level we will reload.
-    setLevelCache((prev) => {
-      const next = { ...prev };
-      for (const k of Object.keys(next)) {
-        if (deleted) {
-          const d = deleted.replace(/\/+$/, "");
-          if (k === d || k.startsWith(`${d}/`)) delete next[k];
+      let stay = focusPath && focusPath.length > 0 ? focusPath : root;
+      for (const deleted of deletedList) {
+        const deletedNorm = deleted.replace(/\/+$/, "");
+        const stayNorm = stay.replace(/\/+$/, "");
+        if (
+          stayNorm === deletedNorm ||
+          stayNorm.startsWith(`${deletedNorm}/`)
+        ) {
+          stay = parentDirPath(deletedNorm, root);
         }
-        if (k === stay) delete next[k];
       }
-      levelCacheRef.current = next;
-      return next;
-    });
-    queryClient.removeQueries({
-      queryKey: [...diskAnalyzerQueryKeyRoot(queryScope), "level", scanId],
-    });
 
-    setFocusPath(stay);
-    setSelectedPath(stay);
-    loadingPathRef.current = null;
-    await loadLevel(stay, { force: true });
-  }, [
-    focusPath,
-    loadLevel,
-    queryClient,
-    queryScope,
-    scanId,
-    scanPath,
-    selectedPath,
-  ]);
+      // Drop stale caches for the deleted subtree and the level we will reload.
+      setLevelCache((prev) => {
+        const next = { ...prev };
+        for (const k of Object.keys(next)) {
+          for (const deleted of deletedList) {
+            const d = deleted.replace(/\/+$/, "");
+            if (k === d || k.startsWith(`${d}/`)) delete next[k];
+          }
+          if (k === stay) delete next[k];
+        }
+        levelCacheRef.current = next;
+        return next;
+      });
+      queryClient.removeQueries({
+        queryKey: [...diskAnalyzerQueryKeyRoot(queryScope), "level", scanId],
+      });
+
+      setFocusPath(stay);
+      setSelectedPath(stay);
+      loadingPathRef.current = null;
+      await loadLevel(stay, { force: true });
+    },
+    [
+      dropSuggestionPaths,
+      focusPath,
+      loadLevel,
+      queryClient,
+      queryScope,
+      scanId,
+      scanPath,
+      selectedPath,
+    ],
+  );
+
+  const refreshDetails = useCallback(async () => {
+    const id = scanIdRef.current ?? scanId;
+    if (!id) return;
+    setRefreshingDetails(true);
+    try {
+      const path = focusPathRef.current ?? scanPath;
+      if (path) {
+        await loadLevel(path, { force: true });
+      }
+      const result = await diskAnalyzerApi.getSuggestions(id);
+      const incoming = result.suggestions ?? [];
+      const suppressed = suppressedSuggestPathsRef.current;
+      setSuggestions(
+        suppressed.length === 0
+          ? incoming
+          : incoming.filter((item) => suggestionSurvivesDelete(item.path, suppressed)),
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setRefreshingDetails(false);
+    }
+  }, [loadLevel, scanId, scanPath]);
+
+  const deleteSuggestions = useCallback(
+    async (permanent: boolean, targets?: CleanupSuggestion[]) => {
+      const id = scanIdRef.current ?? scanId;
+      if (!id) {
+        throw new Error(scanFailedLabel);
+      }
+      const items = [...(targets ?? suggestions)];
+      const deleted: string[] = [];
+      let firstError: unknown = null;
+      for (const item of items) {
+        if (firstError) break;
+        try {
+          await diskAnalyzerApi.deletePath(id, item.path, permanent);
+          deleted.push(item.path);
+        } catch (e) {
+          firstError = e;
+        }
+      }
+      if (deleted.length > 0) {
+        await refreshAfterDelete(deleted);
+      }
+      if (firstError) {
+        const error =
+          firstError instanceof Error
+            ? firstError
+            : new Error(String(firstError));
+        throw Object.assign(error, { deletedPaths: deleted });
+      }
+      return deleted;
+    },
+    [refreshAfterDelete, scanFailedLabel, scanId, suggestions],
+  );
 
   // Filter only — apply top-N once on the focused level to avoid double `__other__`.
   const filteredTree = useMemo(() => {
@@ -621,9 +757,11 @@ export function useDiskAnalyzer() {
     focusedNode,
     selectedNode,
     stats,
-    /** Session-global suggestions from the last scan payload (legacy). */
+    /** Session-global cleanup suggestions (time + cache hints). */
     sessionSuggestions: suggestions,
-    /** Suggestions under the current focus directory — use this in the UI. */
+    suggestionsReady: status === "completed",
+    refreshingDetails,
+    /** Suggestions under the current focus directory (chart-tile hints). */
     suggestions: scopedSuggestions,
     volume,
     volumeUsedBytes,
@@ -651,7 +789,10 @@ export function useDiskAnalyzer() {
     drillTo,
     loadLevel,
     deleteSelected,
+    deletePathAt,
+    deleteSuggestions,
     refreshAfterDelete,
+    refreshDetails,
     formatBytes,
   };
 }

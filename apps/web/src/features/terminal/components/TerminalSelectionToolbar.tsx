@@ -6,8 +6,15 @@ import { Check, Copy, MessageCircleMore, MessageCirclePlus } from "lucide-react"
 import { cn } from "@workspace/ui";
 
 import type { TerminalSelectionSnapshot } from "@/features/terminal/types";
-import { clampSelectionToolbarPosition } from "@/features/terminal/lib/terminal-selection-toolbar-position";
+import {
+  clampSelectionToolbarPosition,
+  selectionToolbarDensity,
+  type SelectionToolbarDensity,
+} from "@/features/terminal/lib/terminal-selection-toolbar-position";
 import { wrapAiContextClipboard } from "@/shared/lib/ai-context-protocol";
+
+const toolbarActionClass =
+  "inline-flex shrink-0 items-center justify-center whitespace-nowrap rounded text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
 export function TerminalSelectionToolbar({
   className,
@@ -24,6 +31,8 @@ export function TerminalSelectionToolbar({
 }) {
   const t = useTranslations("terminal.agentInput.selectionContext");
   const toolbarRef = React.useRef<HTMLDivElement | null>(null);
+  const labeledWidthRef = React.useRef(0);
+  const [density, setDensity] = React.useState<SelectionToolbarDensity>("labeled");
   const [position, setPosition] = React.useState(() =>
     snapshot
       ? {
@@ -34,7 +43,11 @@ export function TerminalSelectionToolbar({
   );
 
   React.useLayoutEffect(() => {
-    if (!snapshot) return;
+    if (!snapshot) {
+      labeledWidthRef.current = 0;
+      if (density !== "labeled") setDensity("labeled");
+      return;
+    }
 
     const el = toolbarRef.current;
     if (!el) return;
@@ -44,6 +57,20 @@ export function TerminalSelectionToolbar({
       el.parentElement;
     const containerWidth = container?.clientWidth ?? window.innerWidth;
     const containerHeight = container?.clientHeight ?? window.innerHeight;
+
+    if (density === "labeled") {
+      labeledWidthRef.current = el.offsetWidth;
+    }
+
+    const nextDensity = selectionToolbarDensity({
+      labeledWidth: labeledWidthRef.current || el.offsetWidth,
+      containerWidth,
+      margin: 8,
+    });
+    if (nextDensity !== density) {
+      setDensity(nextDensity);
+      return;
+    }
 
     const next = clampSelectionToolbarPosition({
       anchor: snapshot.anchor,
@@ -60,10 +87,11 @@ export function TerminalSelectionToolbar({
       if (prev.top === next.top && prev.left === next.left) return prev;
       return { top: next.top, left: next.left };
     });
-  }, [snapshot]);
+  }, [density, snapshot]);
 
   if (!snapshot) return null;
 
+  const iconOnly = density === "icon";
   const stopToolbarEvent = (event: React.SyntheticEvent) => {
     event.preventDefault();
     event.stopPropagation();
@@ -73,7 +101,7 @@ export function TerminalSelectionToolbar({
     <div
       ref={toolbarRef}
       className={cn(
-        "absolute z-30 flex -translate-x-1/2 items-center gap-1 rounded-md border border-border/70 bg-background/95 p-1 text-xs shadow-lg backdrop-blur-md",
+        "absolute z-30 flex w-max flex-nowrap items-center gap-1 whitespace-nowrap rounded-md border border-border/70 bg-background/95 p-1 text-xs shadow-lg backdrop-blur-md",
         className,
       )}
       style={{ top: position.top, left: position.left }}
@@ -88,7 +116,11 @@ export function TerminalSelectionToolbar({
       />
       <button
         type="button"
-        className="inline-flex h-7 items-center gap-1.5 rounded px-2 text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className={cn(
+          toolbarActionClass,
+          "text-foreground hover:bg-muted",
+          iconOnly ? "size-7" : "h-7 gap-1.5 px-2",
+        )}
         onClick={(event) => {
           stopToolbarEvent(event);
           onAddAsContext(snapshot);
@@ -97,12 +129,16 @@ export function TerminalSelectionToolbar({
         aria-label={t("addAsContext")}
       >
         <MessageCircleMore className="size-3.5" />
-        <span>{t("addAsContext")}</span>
+        {iconOnly ? null : <span>{t("addAsContext")}</span>}
       </button>
       {onSideChatForSelection ? (
         <button
           type="button"
-          className="inline-flex h-7 items-center gap-1.5 rounded px-2 text-cyan-700 transition-colors hover:bg-cyan-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:text-cyan-300"
+          className={cn(
+            toolbarActionClass,
+            "text-cyan-700 hover:bg-cyan-500/10 dark:text-cyan-300",
+            iconOnly ? "size-7" : "h-7 gap-1.5 px-2",
+          )}
           onClick={(event) => {
             stopToolbarEvent(event);
             onSideChatForSelection(snapshot);
@@ -111,7 +147,7 @@ export function TerminalSelectionToolbar({
           aria-label={t("sideChatForSelection")}
         >
           <MessageCirclePlus className="size-3.5" />
-          <span>{t("sideChatForSelection")}</span>
+          {iconOnly ? null : <span>{t("sideChatForSelection")}</span>}
         </button>
       ) : null}
     </div>
@@ -129,7 +165,10 @@ function CopyButton({ text, label, onDone }: { text: string; label: string; onDo
   return (
     <button
       type="button"
-      className="inline-flex size-7 items-center justify-center rounded text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className={cn(
+        toolbarActionClass,
+        "size-7 text-foreground hover:bg-muted",
+      )}
       onClick={(event) => {
         stopToolbarEvent(event);
         if (copied) return;

@@ -6,9 +6,10 @@ export type CoverIcon = ComponentType<
   SVGProps<SVGSVGElement> & { size?: number | string; absoluteStrokeWidth?: boolean }
 >
 
+import { landingPosterUrl } from '@/lib/landing-assets'
+
 const COVER_W = 960
 const COVER_H = 540
-const FALLBACK_POSTER = '/videos/atmos-intro-editorial-poster.jpg'
 
 function roundRect(
   ctx: CanvasRenderingContext2D,
@@ -192,7 +193,7 @@ async function loadCoverBackground(
   try {
     return await captureVideoPoster(videoUrl)
   } catch {
-    return await loadImage(FALLBACK_POSTER)
+    return await loadImage(landingPosterUrl('atmos-intro-editorial-poster.jpg'))
   }
 }
 
@@ -265,7 +266,7 @@ function wrapLines(ctx: CanvasRenderingContext2D, text: string, maxWidth: number
 export async function createFeatureCover(opts: {
   title: string
   videoUrl: string
-  /** Pre-extracted still (e.g. `/videos/foo-poster.jpg`). Strongly preferred. */
+  /** Pre-extracted still filename under `landing/videos/` (strongly preferred). */
   posterUrl?: string
   icon: CoverIcon
   accent?: string

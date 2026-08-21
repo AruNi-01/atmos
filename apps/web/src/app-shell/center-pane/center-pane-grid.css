@@ -1,0 +1,133 @@
+.center-pane-leaf {
+  transition:
+    left 280ms cubic-bezier(0.22, 1, 0.36, 1),
+    top 280ms cubic-bezier(0.22, 1, 0.36, 1),
+    width 280ms cubic-bezier(0.22, 1, 0.36, 1),
+    height 280ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+[data-center-split-root][data-live-resizing] .center-pane-leaf,
+[data-center-split-root][data-pane-snap] .center-pane-leaf {
+  transition: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .center-pane-leaf {
+    transition: none;
+  }
+}
+
+/* Content panels live in a sibling overlay. While a pane is being docked,
+   they must not steal pointer hits from the mosaic droppables. */
+[data-center-stage-card][data-center-pane-dragging] [data-center-panel-host] {
+  pointer-events: none !important;
+}
+
+/* dnd-kit injects these into the tab strip; never paint them as chrome. */
+[id^="DndDescribedBy"],
+[id^="DndLiveRegion"] {
+  display: none !important;
+}
+
+.center-pane-dock-preview {
+  position: absolute;
+  z-index: 25;
+  pointer-events: none;
+}
+
+.center-pane-dock-preview::after {
+  content: "";
+  position: absolute;
+  background: color-mix(in srgb, var(--primary) 16%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary) 36%, transparent);
+  border-radius: var(--radius-xl);
+}
+
+.center-pane-dock-preview[data-edge="top"]::after {
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 50%;
+}
+
+.center-pane-dock-preview[data-edge="bottom"]::after {
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 50%;
+}
+
+.center-pane-dock-preview[data-edge="left"]::after {
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 50%;
+}
+
+.center-pane-dock-preview[data-edge="right"]::after {
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 50%;
+}
+
+.center-pane-drag-ghost {
+  position: fixed;
+  z-index: 1700;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  pointer-events: none;
+  background: var(--background);
+  border-radius: var(--radius-xl);
+  box-shadow: 0 18px 48px rgb(0 0 0 / 0.36);
+  outline: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  opacity: 0;
+  transform: scale(0.34);
+  user-select: none;
+  will-change: transform, opacity;
+}
+
+.center-pane-drag-ghost.is-spawned {
+  opacity: 1;
+  transform: scale(1);
+  transition:
+    transform 240ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 180ms ease;
+}
+
+.center-pane-drag-ghost-header {
+  display: flex;
+  height: 36px;
+  flex: 0 0 36px;
+  align-items: center;
+  min-width: 0;
+  padding: 0 10px;
+  overflow: hidden;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  font-size: 12px;
+  color: var(--foreground);
+}
+
+.center-pane-drag-ghost-body {
+  min-height: 0;
+  flex: 1 1 auto;
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--muted) 55%, transparent),
+      color-mix(in srgb, var(--muted) 20%, transparent)
+    );
+}
+
+.center-pane-drag-ghost-live-clip {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.center-pane-drag-ghost-live {
+  pointer-events: none;
+  transform-origin: top left;
+}

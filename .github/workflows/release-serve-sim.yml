@@ -1,0 +1,79 @@
+name: Serve-sim helper release
+
+permissions:
+  contents: write
+
+on:
+  push:
+    tags:
+      - "serve-sim-*"
+  workflow_dispatch:
+    inputs:
+      create_release:
+        description: "Create GitHub Release"
+        required: true
+        default: true
+        type: boolean
+      release_tag:
+        description: "Release tag, for example serve-sim-0.1.37-atmos.1"
+        required: false
+      prerelease:
+        description: "Mark as prerelease"
+        required: true
+        default: false
+        type: boolean
+
+jobs:
+  pack:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v5
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.14"
+      - name: Pack darwin-arm64 archive
+        run: bash scripts/serve-sim/pack.sh --out-dir dist/serve-sim
+      - name: Resolve release tag
+        id: meta
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "push" ]; then
+            echo "create_release=true" >> "$GITHUB_OUTPUT"
+            echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "create_release=${{ github.event.inputs.create_release }}" >> "$GITHUB_OUTPUT"
+            echo "tag=${{ github.event.inputs.release_tag }}" >> "$GITHUB_OUTPUT"
+            echo "prerelease=${{ github.event.inputs.prerelease }}" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Upload GitHub Release
+        if: steps.meta.outputs.create_release == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.meta.outputs.tag }}
+          PRERELEASE: ${{ steps.meta.outputs.prerelease }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$TAG" ]]; then
+            echo "release tag is required" >&2
+            exit 1
+          fi
+          shopt -s nullglob
+          assets=(dist/serve-sim/*.tar.gz dist/serve-sim/manifest.json)
+          if [[ ${#assets[@]} -eq 0 ]]; then
+            echo "no serve-sim assets under dist/serve-sim" >&2
+            exit 1
+          fi
+          notes="Vendored serve-sim helper for Atmos Desktop (darwin-arm64). Apache-2.0; /exec shell disabled."
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "${assets[@]}" --clobber
+            echo "Uploaded assets to existing release ${TAG}"
+            exit 0
+          fi
+          if [[ "$PRERELEASE" == "true" ]]; then
+            gh release create "$TAG" --title "$TAG" --notes "$notes" --prerelease "${assets[@]}"
+          else
+            gh release create "$TAG" --title "$TAG" --notes "$notes" "${assets[@]}"
+          fi
+          echo "Created release ${TAG}"

@@ -1,24 +1,28 @@
-/** Atmos concentric-orbit mark (matches `app/icon.svg` and `@workspace/ui` LogoSvg). */
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
+const ICON_CANDIDATES = [
+  join(process.cwd(), 'src/app/icon.png'),
+  join(process.cwd(), 'apps/docs/src/app/icon.png'),
+];
+
+function iconDataUrl(): string {
+  for (const path of ICON_CANDIDATES) {
+    if (existsSync(path)) {
+      return `data:image/png;base64,${readFileSync(path).toString('base64')}`;
+    }
+  }
+  throw new Error('Atmos docs icon.png is missing');
+}
+
+/**
+ * App icon plate for Open Graph cards.
+ * next/og (Satori) cannot paint the CSS-mask LogoSvg, so this is a PNG.
+ */
 export function AtmosBrandIcon({ size = 56 }: { size?: number }) {
   return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 32 32"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <circle cx="16" cy="16" r="7" stroke="currentColor" strokeWidth="2.5" />
-      <circle cx="16" cy="16" r="11" stroke="currentColor" strokeWidth="1.5" opacity="0.6" />
-      <circle
-        cx="16"
-        cy="16"
-        r="15"
-        stroke="currentColor"
-        strokeWidth="0.5"
-        opacity="0.3"
-        strokeDasharray="4 4"
-      />
-    </svg>
+    // ImageResponse has no next/image.
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={iconDataUrl()} width={size} height={size} alt="" />
   );
 }

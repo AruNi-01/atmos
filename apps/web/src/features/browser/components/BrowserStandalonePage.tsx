@@ -14,7 +14,9 @@ import {
 } from "@/shared/lib/standalone-window-handoff";
 import { cn } from "@/shared/lib/utils";
 
+import { useBrowserAgentTabBridge } from "../hooks/use-browser-agent-tab-bridge";
 import { useBrowserState } from "../hooks/use-browser-state";
+import { useBrowserSessionMapStore } from "../store/use-browser-session-map";
 import { BrowserSession } from "./BrowserSession";
 
 export function BrowserStandalonePage() {
@@ -29,6 +31,7 @@ export function BrowserStandalonePage() {
     handleAddBrowserTab,
     handleCloseBrowserTab,
     handleOpenBrowserTab,
+    handleBrowserSessionReady,
     handlePreviewIconChange,
     handlePreviewTitleChange,
     handleReorderBrowserTabs,
@@ -37,6 +40,7 @@ export function BrowserStandalonePage() {
     previewTabsToRender,
     setBrowserTabActivePreviewUrl,
     setBrowserTabPreviewUrl,
+    urlFocusTabId,
   } = useBrowserState({
     workspaceId,
     projectId,
@@ -44,6 +48,23 @@ export function BrowserStandalonePage() {
     // Standalone windows own their instance state; avoid fighting main-window ?pvUrl.
     syncUrlQueryParam: false,
   });
+  useBrowserAgentTabBridge({
+    contextId: resolvedBrowserContextId,
+    isActive: true,
+    tabCount: browserState.tabs.length,
+  });
+  const handleSessionReady = useCallback((tabId: string, sessionId: string | null) => {
+    handleBrowserSessionReady(tabId, sessionId);
+    if (sessionId) {
+      useBrowserSessionMapStore.getState().bindSession(
+        resolvedBrowserContextId,
+        tabId,
+        sessionId,
+      );
+    } else {
+      useBrowserSessionMapStore.getState().unbindTab(tabId);
+    }
+  }, [handleBrowserSessionReady, resolvedBrowserContextId]);
   const standaloneSurfaceKey = useMemo(
     () =>
       makeStandaloneSurfaceKey(
@@ -117,6 +138,8 @@ export function BrowserStandalonePage() {
                     handlePreviewIconChange(tab.id, faviconUrl)
                   }
                   onOpenPageInNewTab={handleOpenBrowserTab}
+                  onSessionReady={(sessionId) => handleSessionReady(tab.id, sessionId)}
+                  requestUrlFocus={urlFocusTabId === tab.id}
                   browserTabBarProps={{
                     tabs: browserState.tabs,
                     activeTabId: browserState.activeTabId,

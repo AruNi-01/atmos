@@ -1,14 +1,12 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, type ComponentType } from 'react';
 import { useTranslations } from 'next-intl';
 import { useQueryState } from 'nuqs';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogTitle,
   ScrollArea,
+  SidebarInset,
+  SidebarProvider,
   toastManager,
 } from '@workspace/ui';
 import { AGENT_OPTIONS } from '@/features/wiki/components/AgentSelect';
@@ -48,20 +46,38 @@ import {
 } from '@/features/settings/components/settings/settings-modal-utils';
 import type { ProviderTestState } from '@/features/settings/components/SettingsAiSection';
 import { SettingsModalSections } from '@/features/settings/components/SettingsModalSections';
+import { SettingsPageTabs } from '@/features/settings/components/SettingsPageTabs';
 import {
   SETTINGS_SEARCH_HIGHLIGHT_STORAGE_KEY,
-  SETTINGS_SECTIONS,
   type SettingsSectionId,
 } from '@/features/settings/components/settings-modal-data';
+import { settingsSectionDomId } from '@/features/settings/components/settings/SettingsGroupCard';
 import { SettingsModalSidebar } from '@/features/settings/components/settings-modal-sidebar';
 import { useSettingsUpdateActions } from '@/features/settings/components/use-settings-update-actions';
+import { useSettingsGroupTab } from '@/features/settings/hooks/use-settings-group-tab';
+import { leaveSettingsPage } from '@/features/settings/lib/open-settings';
+import {
+  isForeignSettingsGroupTabHash,
+  readSettingsHash,
+  replaceSettingsGroupHash,
+} from '@/features/settings/lib/settings-section-group-tabs';
+import {
+  Blocks,
+  Computer,
+  FileCode,
+  FlaskConical,
+  FolderKanban,
+  Globe,
+  Info,
+  Monitor,
+  Presentation,
+  SunMoon,
+  Tags,
+  Waypoints,
+} from 'lucide-react';
 import { isCancelledError } from '@/shared/lib/is-cancelled-error';
-
-interface SettingsModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  activeSectionOverride?: SettingsSectionId | null;
-}
+import { useAppRouter } from '@/shared/hooks/use-app-router';
+import { useDesktopTrafficLightsPadding } from '@/shared/hooks/use-desktop-traffic-lights-padding';
 
 type CssHighlightRegistry = {
   set: (name: string, highlight: unknown) => void;
@@ -76,6 +92,21 @@ function escapeRegExp(value: string) {
 }
 
 const toCamelCase = (str: string) => str.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
+
+const SETTINGS_GROUP_TAB_ICONS: Record<string, ComponentType<{ className?: string }>> = {
+  appearance: SunMoon,
+  about: Info,
+  experiments: FlaskConical,
+  editor: FileCode,
+  canvas: Presentation,
+  workspace: FolderKanban,
+  labels: Tags,
+  'atmos-computer': Computer,
+  'tunnel-connector': Waypoints,
+  integrations: Blocks,
+  browser: Globe,
+  'desktop-use': Monitor,
+};
 
 function buildSettingsSearchTerms(query: string) {
   const trimmedQuery = query.trim();
@@ -209,12 +240,10 @@ function useSettingsContentHighlight(
   }, [activeSection, contentElement, query]);
 }
 
-export const SettingsModal: React.FC<SettingsModalProps> = ({
-  isOpen,
-  onClose,
-  activeSectionOverride,
-}) => {
+export function SettingsPage({ onLeave }: { onLeave?: () => void } = {}) {
   const t = useTranslations('settings.modal');
+  const router = useAppRouter();
+  const needsTrafficLightsPadding = useDesktopTrafficLightsPadding();
   const {
     appVersion,
     cliVersionInfo,
@@ -258,6 +287,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [removingCustomAgentIds, setRemovingCustomAgentIds] = useState<Record<string, boolean>>({});
   const [idleSessionTimeoutMins, setIdleSessionTimeoutMins] = useState<number>(30);
   const [savedIdleSessionTimeoutMins, setSavedIdleSessionTimeoutMins] = useState<number>(30);
+  const [attentionSummaryEnabled, setAttentionSummaryEnabled] = useState(true);
+  const [savedAttentionSummaryEnabled, setSavedAttentionSummaryEnabled] = useState(true);
+  const [attentionSummaryDelayMins, setAttentionSummaryDelayMins] = useState(5);
+  const [savedAttentionSummaryDelayMins, setSavedAttentionSummaryDelayMins] = useState(5);
+  const [attentionSummaryAgentId, setAttentionSummaryAgentId] = useState("");
+  const [savedAttentionSummaryAgentId, setSavedAttentionSummaryAgentId] = useState("");
+  const [attentionSummaryModel, setAttentionSummaryModel] = useState("");
+  const [savedAttentionSummaryModel, setSavedAttentionSummaryModel] = useState("");
   const [savingIdleTimeout, setSavingIdleTimeout] = useState(false);
   const [savedRunConfigs, setSavedRunConfigs] = useState<TerminalAgentSavedRunConfig[]>([]);
   const [runConfigsLoading, setRunConfigsLoading] = useState(false);
@@ -343,6 +380,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       const timeout = behaviourData?.idle_session_timeout_mins ?? 30;
       setIdleSessionTimeoutMins(timeout);
       setSavedIdleSessionTimeoutMins(timeout);
+      const summaryEnabled = behaviourData?.attention_summary_enabled ?? true;
+      setAttentionSummaryEnabled(summaryEnabled);
+      setSavedAttentionSummaryEnabled(summaryEnabled);
+      const summaryDelay = behaviourData?.attention_summary_delay_mins ?? 5;
+      setAttentionSummaryDelayMins(summaryDelay);
+      setSavedAttentionSummaryDelayMins(summaryDelay);
+      const summaryAgent = behaviourData?.attention_summary_agent_id ?? "";
+      setAttentionSummaryAgentId(summaryAgent || "");
+      setSavedAttentionSummaryAgentId(summaryAgent || "");
+      const summaryModel = behaviourData?.attention_summary_model ?? "";
+      setAttentionSummaryModel(summaryModel || "");
+      setSavedAttentionSummaryModel(summaryModel || "");
 
       const agentCli = (functionSettings as Record<string, unknown>)?.agent_cli as
         | Record<string, unknown>
@@ -361,19 +410,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   }, []);
 
   useEffect(() => {
-    if (!isOpen) return;
     void loadAgentSettings();
-  }, [isOpen, loadAgentSettings]);
+  }, [loadAgentSettings]);
 
   useEffect(() => {
-    if (!isOpen || typeof window === 'undefined') return;
+    if (typeof window === 'undefined') return;
 
     const pendingHighlightQuery = window.sessionStorage.getItem(SETTINGS_SEARCH_HIGHLIGHT_STORAGE_KEY);
     if (!pendingHighlightQuery) return;
 
     setSettingsSearchQuery(pendingHighlightQuery);
     window.sessionStorage.removeItem(SETTINGS_SEARCH_HIGHLIGHT_STORAGE_KEY);
-  }, [isOpen]);
+  }, []);
 
   const {
     settings: notifySettings,
@@ -388,14 +436,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   } = useNotificationSettingsStore();
 
   useEffect(() => {
-    if (!isOpen) return;
     void loadNotifySettings();
-  }, [isOpen, loadNotifySettings]);
-
-  useEffect(() => {
-    if (!isOpen || !activeSectionOverride) return;
-    void setActiveSection(activeSectionOverride);
-  }, [activeSectionOverride, isOpen, setActiveSection]);
+  }, [loadNotifySettings]);
 
   const persistCodeAgents = React.useCallback(async (agents: CodeAgentCustomEntry[]) => {
     const nextAgents = dedupeCodeAgentEntries(agents);
@@ -709,17 +751,46 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
   }, [persistCodeAgents, savedAgentCustomSettings, savedCustomAgents]);
 
-  const handleSaveIdleTimeout = React.useCallback(async () => {
-    setSavingIdleTimeout(true);
-    try {
-      await agentBehaviourSettingsApi.update({
-        idle_session_timeout_mins: idleSessionTimeoutMins,
-      });
-      setSavedIdleSessionTimeoutMins(idleSessionTimeoutMins);
-    } finally {
-      setSavingIdleTimeout(false);
-    }
-  }, [idleSessionTimeoutMins]);
+  const handleCommitBehaviourSettings = React.useCallback(
+    async (values: {
+      idleSessionTimeoutMins: number;
+      attentionSummaryEnabled: boolean;
+      attentionSummaryDelayMins: number;
+      attentionSummaryAgentId: string;
+      attentionSummaryModel: string;
+    }) => {
+      setSavingIdleTimeout(true);
+      // Keep controlled inputs in sync when the commit carries clamped/normalized values.
+      setIdleSessionTimeoutMins(values.idleSessionTimeoutMins);
+      setAttentionSummaryEnabled(values.attentionSummaryEnabled);
+      setAttentionSummaryDelayMins(values.attentionSummaryDelayMins);
+      setAttentionSummaryAgentId(values.attentionSummaryAgentId);
+      setAttentionSummaryModel(values.attentionSummaryModel);
+      try {
+        await agentBehaviourSettingsApi.update({
+          idle_session_timeout_mins: values.idleSessionTimeoutMins,
+          attention_summary_enabled: values.attentionSummaryEnabled,
+          attention_summary_delay_mins: values.attentionSummaryDelayMins,
+          attention_summary_agent_id: values.attentionSummaryAgentId,
+          attention_summary_model: values.attentionSummaryModel,
+        });
+        setSavedIdleSessionTimeoutMins(values.idleSessionTimeoutMins);
+        setSavedAttentionSummaryEnabled(values.attentionSummaryEnabled);
+        setSavedAttentionSummaryDelayMins(values.attentionSummaryDelayMins);
+        setSavedAttentionSummaryAgentId(values.attentionSummaryAgentId);
+        setSavedAttentionSummaryModel(values.attentionSummaryModel);
+      } catch (error) {
+        toastManager.add({
+          title: t('errors.saveBehaviourTitle'),
+          description: getErrorDescription(error),
+          type: 'error',
+        });
+      } finally {
+        setSavingIdleTimeout(false);
+      }
+    },
+    [getErrorDescription, t],
+  );
 
   const loadLlmConfig = React.useCallback(async () => {
     setIsLlmConfigLoading(true);
@@ -739,9 +810,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   }, []);
 
   useEffect(() => {
-    if (!isOpen) return;
     void loadLlmConfig();
-  }, [isOpen, loadLlmConfig]);
+  }, [loadLlmConfig]);
 
   useEffect(() => {
     const testUnsubscribeRef = providerTestUnsubscribeRef;
@@ -753,9 +823,25 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     };
   }, []);
 
-  const resolvedActiveSection = activeSection ?? 'about';
-  const activeSectionMeta = SETTINGS_SECTIONS.find((section) => section.id === resolvedActiveSection) ?? SETTINGS_SECTIONS[0];
+  const resolvedActiveSection = activeSection ?? 'interface';
+  const { groupTabs, groupTab, selectGroupTab } = useSettingsGroupTab(
+    resolvedActiveSection,
+    settingsSearchQuery,
+  );
   useSettingsContentHighlight(settingsContentElement, settingsSearchQuery, resolvedActiveSection);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const hash = window.location.hash.replace(/^#/, '');
+    if (!hash) return;
+    const frame = window.requestAnimationFrame(() => {
+      document.getElementById(settingsSectionDomId(hash))?.scrollIntoView({
+        block: 'start',
+        behavior: 'smooth',
+      });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [groupTab, resolvedActiveSection]);
   const localAgentOptions = React.useMemo(
     () =>
       buildLocalAgentOptions([
@@ -949,40 +1035,85 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     void updateNotifyField('browser_notification', checked);
   }, [updateNotifyField]);
 
+  const leaveSettings = React.useCallback(() => {
+    if (onLeave) {
+      onLeave();
+      return;
+    }
+    leaveSettingsPage(router);
+  }, [onLeave, router]);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || event.defaultPrevented || event.isComposing) return;
+      if (providerDialogState.open) return;
+      const target = event.target;
+      if (
+        target instanceof HTMLElement &&
+        target.closest('[role="dialog"], [data-slot="dialog-content"]')
+      ) {
+        return;
+      }
+      if (settingsSearchQuery.trim()) {
+        event.preventDefault();
+        setSettingsSearchQuery('');
+        return;
+      }
+      event.preventDefault();
+      leaveSettings();
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [leaveSettings, providerDialogState.open, settingsSearchQuery]);
+
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent onPointerDownOutside={(e) => e.preventDefault()} onInteractOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()} className="h-[min(90vh,820px)] w-[min(96vw,1360px)] max-w-[min(96vw,1360px)] overflow-hidden border-border bg-background p-0 sm:!max-w-[min(96vw,1360px)]">
-        <DialogTitle className="sr-only">{t('dialog.title')}</DialogTitle>
-        <DialogDescription className="sr-only">
-          {t('dialog.description')}
-        </DialogDescription>
+    <div className="desktop-no-drag flex h-dvh min-h-0 w-full bg-background">
+      <SidebarProvider
+        keyboardShortcut={false}
+        className="h-full min-h-0 w-full"
+        style={{ '--sidebar-width': '240px' } as React.CSSProperties}
+      >
+        <SettingsModalSidebar
+          activeSection={resolvedActiveSection}
+          onSelectSection={(sectionId) => {
+            void setActiveSection(sectionId);
+            const hash = readSettingsHash();
+            if (isForeignSettingsGroupTabHash(sectionId, hash)) {
+              replaceSettingsGroupHash(null);
+            }
+          }}
+          searchQuery={settingsSearchQuery}
+          onSearchQueryChange={setSettingsSearchQuery}
+          onBack={leaveSettings}
+          trafficLightsPadding={needsTrafficLightsPadding}
+        />
 
-        <div className="grid h-full min-h-0 grid-cols-[240px_minmax(0,1fr)]">
-          <SettingsModalSidebar
-            activeSection={resolvedActiveSection}
-            onSelectSection={(sectionId) => void setActiveSection(sectionId)}
-            searchQuery={settingsSearchQuery}
-            onSearchQueryChange={setSettingsSearchQuery}
-          />
-
-          <section ref={setSettingsContentElement} className="flex min-h-0 min-w-0 flex-col overflow-hidden">
-            <div className="px-8 py-4">
-              <h2 className="text-[28px] font-semibold tracking-tight text-foreground">
-                {t(`sections.${toCamelCase(activeSectionMeta.id)}.label`)}
-              </h2>
-              <p className="mt-1 max-w-md text-sm leading-5 text-muted-foreground">
-                {t(`sections.${toCamelCase(activeSectionMeta.id)}.description`)}
-              </p>
+        <SidebarInset className="min-h-0 min-w-0 overflow-hidden">
+          <section
+            ref={setSettingsContentElement}
+            className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
+          >
+          {groupTabs && groupTab ? (
+            <div className="px-8 pt-5 pb-1">
+              <SettingsPageTabs
+                value={groupTab}
+                onValueChange={selectGroupTab}
+                items={groupTabs.map((tabId) => ({
+                  value: tabId,
+                  label: t(`sections.${toCamelCase(tabId)}.label`),
+                  icon: SETTINGS_GROUP_TAB_ICONS[tabId],
+                }))}
+              />
             </div>
-            <div className="px-8">
-              <div className="border-b border-border" />
-            </div>
+          ) : null}
 
-            <div className="min-h-0 flex-1 overflow-hidden">
-              <ScrollArea className="size-full">
-                <div className="px-8 py-6">
-                  <SettingsModalSections
+          <div className="min-h-0 flex-1 overflow-hidden">
+            <ScrollArea className="size-full">
+              <div className="px-8 py-6">
+                <SettingsModalSections
                     activeSection={resolvedActiveSection}
+                    activeGroupTab={groupTab}
                     appVersion={appVersion}
                     cliVersionInfo={cliVersionInfo}
                     isInstallingCli={isInstallingCli}
@@ -1014,6 +1145,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     customAgents={customAgents}
                     customAgentsExpanded={customAgentsExpanded}
                     idleSessionTimeoutMins={idleSessionTimeoutMins}
+                    attentionSummaryEnabled={attentionSummaryEnabled}
+                    attentionSummaryDelayMins={attentionSummaryDelayMins}
+                    attentionSummaryAgentId={attentionSummaryAgentId}
+                    attentionSummaryModel={attentionSummaryModel}
                     runConfigAgentOptions={runConfigAgentOptions}
                     runConfigsLoading={runConfigsLoading}
                     removingCustomAgentIds={removingCustomAgentIds}
@@ -1021,6 +1156,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     savedAgentCustomSettings={savedAgentCustomSettings}
                     savedCustomAgents={savedCustomAgents}
                     savedIdleSessionTimeoutMins={savedIdleSessionTimeoutMins}
+                    savedAttentionSummaryEnabled={savedAttentionSummaryEnabled}
+                    savedAttentionSummaryDelayMins={savedAttentionSummaryDelayMins}
+                    savedAttentionSummaryAgentId={savedAttentionSummaryAgentId}
+                    savedAttentionSummaryModel={savedAttentionSummaryModel}
                     savingBuiltInAgentIds={savingBuiltInAgentIds}
                     savingCustomAgentIds={savingCustomAgentIds}
                     savingIdleTimeout={savingIdleTimeout}
@@ -1057,8 +1196,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     onSaveCustomAgent={(id) => {
                       void handleSaveCustomAgent(id);
                     }}
-                    onSaveIdleTimeout={() => {
-                      void handleSaveIdleTimeout();
+                    onCommitBehaviourSettings={(values) => {
+                      void handleCommitBehaviourSettings(values);
                     }}
                     onSaveRunConfigs={handleSaveRunConfigs}
                     setBuiltInAgentOpen={setBuiltInAgentOpen}
@@ -1066,6 +1205,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     setCustomAgentOpen={setCustomAgentOpen}
                     setCustomAgentsExpanded={setCustomAgentsExpanded}
                     setIdleSessionTimeoutMins={setIdleSessionTimeoutMins}
+                    setAttentionSummaryEnabled={setAttentionSummaryEnabled}
+                    setAttentionSummaryDelayMins={setAttentionSummaryDelayMins}
+                    setAttentionSummaryAgentId={setAttentionSummaryAgentId}
+                    setAttentionSummaryModel={setAttentionSummaryModel}
                     handleLlmConfigUpdate={handleLlmConfigUpdate}
                     handleProviderEnabledChange={handleProviderEnabledChange}
                     isLlmConfigLoading={isLlmConfigLoading}
@@ -1100,7 +1243,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               </ScrollArea>
             </div>
           </section>
-        </div>
+        </SidebarInset>
 
         <LlmProviderEditorDialog
           open={providerDialogState.open}
@@ -1112,7 +1255,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             void loadLlmConfig();
           }}
         />
-      </DialogContent>
-    </Dialog>
+      </SidebarProvider>
+    </div>
   );
-};
+}
+
+export const SettingsModal = SettingsPage;

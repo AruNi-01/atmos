@@ -20,6 +20,7 @@ describe("APP-053 browser webview structural (shipped sources)", () => {
     expect(src).not.toContain("browser_bridge_hide");
     expect(src).toContain("mode: 'desktop'");
     expect(src).toContain("desktop-browser:viewport-changed");
+    expect(src).toContain("desktop-browser:agent-activity");
     expect(src).toContain("browser_bridge_query_element_rects");
     expect(src).toContain("queryElementRects");
   });
@@ -55,6 +56,28 @@ describe("APP-053 browser webview structural (shipped sources)", () => {
     expect(surface).toContain("sessionIdFromGuestWebContents");
     expect(surface).toContain("prevId !== wc.id");
     expect(surface).toContain("queryElementRects");
+  });
+
+  it("guest permission lockdown allows clipboard/media/notifications for preview", () => {
+    const surface = read("apps/desktop-electron/src/browser/surface-manager.ts");
+    expect(surface).toContain("setPermissionRequestHandler");
+    expect(surface).toContain("setPermissionCheckHandler");
+    expect(surface).toContain("isAllowedBrowserGuestPermission");
+
+    const policy = read(
+      "apps/desktop-electron/src/browser/webview-attach-policy.ts",
+    );
+    expect(policy).toContain("clipboard-sanitized-write");
+    expect(policy).toContain("clipboard-read");
+    expect(policy).toContain('"media"');
+    expect(policy).toContain('"notifications"');
+
+    const viewport = read(
+      "apps/web/src/features/browser/components/BrowserViewport.tsx",
+    );
+    expect(viewport).toContain(
+      'allow="clipboard-read; clipboard-write; camera; microphone"',
+    );
   });
 
   it("host SelectionPopover is used for desktop (no desktop-only null branch)", () => {
@@ -143,21 +166,42 @@ describe("APP-053 browser webview structural (shipped sources)", () => {
     expect(mountExpr).toContain("layoutReady");
     expect(mountExpr).not.toContain("layoutHidden");
     expect(src).toContain("onLoadingChange");
-    expect(src).toContain("did-start-loading");
+    expect(src).toContain("did-start-navigation");
+    expect(src).toContain("isMainFrameDocumentNavigation");
     expect(src).toContain("did-stop-loading");
+    expect(src).not.toContain("did-start-loading");
+    expect(src).not.toMatch(/layoutHidden && "hidden"/);
+    expect(src).toContain("pointer-events-none opacity-0");
+
+    const session = read("apps/web/src/features/browser/components/BrowserSession.tsx");
+    expect(session).not.toContain("shouldShowBrowserLoadingOverlay");
+    expect(session).not.toContain("hasPaintedGuest");
+    const viewport = read("apps/web/src/features/browser/components/BrowserViewport.tsx");
+    expect(viewport).not.toContain("showLoadingOverlay");
+    expect(viewport).not.toContain("renderPreviewLoadingOverlay");
+
+    const frame = read("apps/web/src/app-shell/workspace-center-frame.tsx");
+    expect(frame).toContain("browserKeepAlivePanelClass");
+    expect(frame).not.toMatch(/contextBrowserTabs\.map\([\s\S]{0,400}lightSurfacePanelClass/);
+    expect(frame).not.toContain("allowMoveToCenter");
+
+    const panel = read("apps/web/src/features/browser/components/BrowserPanel.tsx");
+    expect(panel).toContain("pointer-events-none z-0 opacity-0");
+    expect(panel).not.toContain("allowMoveToCenter");
   });
 
   it("surface manager injects host-driven selection (showSelectionToolbar false)", () => {
     const src = read("apps/desktop-electron/src/browser/surface-manager.ts");
-    expect(src).toContain("showSelectionToolbar: false");
+    const runtimeInject = read("apps/desktop-electron/src/browser/webview-runtime.ts");
+    expect(runtimeInject).toContain("showSelectionToolbar: false");
     // Guest still draws pick hover labels (host owns toolbar only).
-    expect(src).toContain("showHoverLabel: true");
+    expect(runtimeInject).toContain("showHoverLabel: true");
     expect(src).not.toContain("WebContentsView");
     expect(src).not.toContain("addChildView");
     expect(src).toContain("BROWSER_PARTITION");
-    expect(src).toContain("browser-runtime.js");
+    expect(runtimeInject).toContain("browser-runtime.js");
     // Packaged DMG must resolve dist-local runtime (not monorepo-only path).
-    expect(src).toContain("resolveBrowserRuntimeScriptPath");
+    expect(runtimeInject).toContain("resolveBrowserRuntimeScriptPath");
     const pathHelper = read("apps/desktop-electron/src/browser/browser-runtime-path.ts");
     expect(pathHelper).toContain("browser-runtime.js");
     const build = read("apps/desktop-electron/scripts/build.ts");
@@ -257,5 +301,90 @@ describe("APP-053 browser webview structural (shipped sources)", () => {
     const client = read("apps/web/src/features/browser/lib/desktop-browser-window.ts");
     expect(client).toContain("open_browser_window");
     expect(client).toContain("openBrowserWindow");
+  });
+
+  it("agent tab CRUD goes through the renderer command bus", () => {
+    const commands = read("apps/web/src/features/browser/store/use-browser-tab-commands.ts");
+    expect(commands).toContain('type: "open"');
+    expect(commands).toContain('type: "navigate"');
+    expect(commands).toContain("openTab");
+    expect(commands).toContain("navigateTab");
+    expect(commands).toContain("queuesByContext");
+    expect(commands).toContain("Electron main must not mutate this store");
+
+    const bridge = read("apps/web/src/features/browser/hooks/use-browser-agent-tab-bridge.ts");
+    expect(bridge).toContain("desktop-browser:agent-tab");
+    expect(bridge).toContain("browser_bridge_agent_tab_result");
+    expect(bridge).toContain("commands.openTab");
+    expect(bridge).toContain("commands.closeTab");
+    expect(bridge).toContain("commands.selectTab");
+    expect(bridge).toContain("commands.navigateTab");
+    expect(bridge).toContain('action === "navigate"');
+    expect(bridge).toContain("evicted_target_ids");
+    expect(bridge).toContain("browser_route_unavailable");
+    expect(bridge).toContain("resolveContext");
+
+    const control = read("apps/desktop-electron/src/browser/browser-use-control.ts");
+    expect(control).toContain("/v1/tabs");
+    expect(control).toContain("requestAgentTab");
+    expect(control).toContain('action: "navigate"');
+    expect(control).toContain("isDetached");
+    expect(control).not.toMatch(/new BrowserWindow\(/);
+
+    const handlers = read("apps/desktop-electron/src/ipc/handlers.ts");
+    expect(handlers).toContain("browser_bridge_agent_tab_result");
+    expect(handlers).toContain("browser_bridge_user_picks");
+  });
+
+  it("new empty tabs request address-bar focus on the new session", () => {
+    const state = read("apps/web/src/features/browser/hooks/use-browser-state.ts");
+    expect(state).toContain("setUrlFocusTabId(nextTab.id)");
+    expect(state).toContain("urlFocusTabId");
+
+    const panel = read("apps/web/src/features/browser/components/BrowserPanel.tsx");
+    expect(panel).toContain("requestUrlFocus={urlFocusTabId === tab.id}");
+
+    const standalone = read("apps/web/src/features/browser/components/BrowserStandalonePage.tsx");
+    expect(standalone).toContain("requestUrlFocus={urlFocusTabId === tab.id}");
+
+    const session = read("apps/web/src/features/browser/components/BrowserSession.tsx");
+    expect(session).toContain("requestUrlFocus");
+    expect(session).toContain("urlInputRef.current");
+    expect(session).toContain("input.focus()");
+
+    const toolbar = read("apps/web/src/features/browser/components/BrowserToolbar.tsx");
+    expect(toolbar).toContain("autoFocus");
+
+    const center = read("apps/web/src/app-shell/CenterStage.tsx");
+    expect(center).toContain("requestBrowserContextUrlFocus(tab.browserContextId)");
+  });
+
+  it("user picks sync to the embedded control plane", () => {
+    const session = read("apps/web/src/features/browser/components/BrowserSession.tsx");
+    expect(session).toContain("pushBrowserUseUserPicks");
+    const picks = read("apps/web/src/features/browser/lib/browser-use-user-picks.ts");
+    expect(picks).toContain("browser_bridge_user_picks");
+    const control = read("apps/desktop-electron/src/browser/browser-use-control.ts");
+    expect(control).toContain("user_picks");
+    expect(control).toContain("g${generation}:u");
+    expect(control).toContain("truncated");
+  });
+
+  it("routes agent tabs without silently guessing a window", () => {
+    const map = read("apps/web/src/features/browser/store/use-browser-session-map.ts");
+    expect(map).toContain("resolveContext");
+    expect(map).toContain("resolveBrowserContext");
+    expect(map).not.toContain("pickContext");
+    const resolve = read("apps/web/src/features/browser/store/resolve-browser-context.ts");
+    expect(resolve).toContain("panel.isActive");
+    expect(resolve).toContain("preferredSessionId");
+    expect(resolve).toContain("browser_route_unavailable");
+    expect(resolve).toContain("browser_ambiguous_target");
+
+    const activity = read("apps/web/src/features/browser/store/use-browser-use-activity.ts");
+    expect(activity).toContain("sessionId && current.sessionId !== sessionId");
+
+    const toolbar = read("apps/web/src/features/browser/components/BrowserToolbar.tsx");
+    expect(toolbar).toContain("useBrowserUseActivity(sessionId)");
   });
 });

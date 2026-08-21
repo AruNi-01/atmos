@@ -2,11 +2,10 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useQueryState } from "nuqs";
-import { useTheme } from "next-themes";
 import { useContextParams } from "@/shared/hooks/use-context-params";
+import { useAppRouter } from "@/shared/hooks/use-app-router";
 import {
   llmProvidersModalParams,
-  settingsModalParams,
   skillsModalParams,
 } from "@/shared/lib/nuqs/searchParams";
 import {
@@ -36,16 +35,14 @@ import { toastManager } from '@workspace/ui';
 import { DeleteWorkspaceDialog } from '@/features/workspace/components/DeleteWorkspaceDialog';
 import { DeleteProjectDialog } from '@/features/project/components/DeleteProjectDialog';
 import { SkillsModal } from '@/features/skills';
-import { useAgentChatLayoutStore } from '@/features/agent/store/agent-chat-layout-store';
-import { useExperimentSettingsStore } from '@/features/settings/store/experiment-settings-store';
 import { useLayoutSettingsStore } from '@/features/settings/store/layout-settings-store';
 import { useFocusRestore } from '@/shared/hooks/use-focus-restore';
 import { useDesktopWindowDrag } from '@/shared/hooks/use-desktop-window-drag';
+import { useDesktopTrafficLightsPadding } from '@/shared/hooks/use-desktop-traffic-lights-padding';
 import { useDesktopWebLauncher } from '@/shared/hooks/use-desktop-web-launcher';
 import { isDesktopRuntime as detectDesktopShell } from '@/shared/lib/desktop-runtime';
 import { useTunnelConnector } from '@/features/connection/hooks/use-tunnel-connector';
 import { useSidebarLayout } from '@/app-shell/SidebarLayoutContext';
-import { useAgentChatUrl } from '@/features/agent/hooks/use-agent-chat-url';
 import { useWebSocketStore } from '@/features/connection/hooks/use-websocket';
 import {
   ChevronLeft,
@@ -55,8 +52,7 @@ import {
   PanelLeftOpen,
   RotateCw,
 } from "lucide-react";
-import { SettingsModal } from '@/features/settings/components/SettingsModal';
-import { WorkspaceStatusPopover } from './WorkspaceStatusPopover';
+import { HeaderWorkspaceJobs } from './HeaderWorkspaceJobs';
 import { isWorkspaceSetupBlocking } from '@/features/workspace/lib/workspace-setup';
 import { useTranslations } from "next-intl";
 import { getBranchSyncIndicatorState, getSessionUrgency } from './header-parts';
@@ -65,29 +61,23 @@ import { HeaderGitContext } from './header-git-context';
 import { useHeaderFullscreen } from './use-header-fullscreen';
 import { useHeaderHotkeys } from './use-header-hotkeys';
 import { useOpenGithubCenterTab } from '@/features/github/hooks/use-open-github-center-tab';
+import { settingsHref } from '@/features/settings/lib/open-settings';
 
 const Header: React.FC = () => {
   const pathname = usePathname();
+  const router = useAppRouter();
 
   const searchParams = useSearchParams();
-  const { setTheme, theme } = useTheme();
   const { workspaceId: currentWorkspaceId, projectId: currentProjectIdFromUrl } = useContextParams();
-  const { isLeftCollapsed, isRightCollapsed, showRightSidebar, toggleLeftSidebar, toggleRightSidebar } = useSidebarLayout();
-  const [, setAgentChatOpen] = useAgentChatUrl();
+  const { isLeftCollapsed, toggleLeftSidebar } = useSidebarLayout();
   const { handleDesktopWindowMouseDown, isDesktopDragEnabled } = useDesktopWindowDrag();
+  const needsTrafficLightsPadding = useDesktopTrafficLightsPadding();
 
   const projects = useProjects();
   const updateWorkspaceBranch = useProjectStore(s => s.updateWorkspaceBranch);
   const setupProgress = useProjectStore(s => s.setupProgress);
   const { setGlobalSearchOpen, setHeaderHasOpenOverlay } = useDialogStore();
-  const { layout, updateLayout, loadLayout } = useAgentChatLayoutStore();
-  useEffect(() => { loadLayout(); }, [loadLayout]);
   const t = useTranslations("header");
-  const launchpadAgentsEnabled = useExperimentSettingsStore((s) => s.launchpadAgentsEnabled);
-  const loadExperimentSettings = useExperimentSettingsStore((s) => s.loadSettings);
-  useEffect(() => {
-    void loadExperimentSettings();
-  }, [loadExperimentSettings]);
   const showHeaderQuickOpen = useLayoutSettingsStore((s) => s.showHeaderQuickOpen);
   const showHeaderGitToolbar = useLayoutSettingsStore((s) => s.showHeaderGitToolbar);
   const showHeaderRemoteAccess = useLayoutSettingsStore((s) => s.showHeaderRemoteAccess);
@@ -95,17 +85,10 @@ const Header: React.FC = () => {
   useEffect(() => {
     void loadLayoutSettings();
   }, [loadLayoutSettings]);
-  const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
   const [desktopWebPopoverOpen, setDesktopWebPopoverOpen] = useState(false);
   const [isQuotaPopoverOpen, setIsQuotaPopoverOpen] = useState(false);
   const { onCloseAutoFocusPrevent } = useFocusRestore(isQuotaPopoverOpen);
-  const actionMenuFocusRef = useRef<HTMLElement | null>(null);
-  const {
-    isDesktopFullscreen,
-    isDesktopFullscreenExiting,
-    isFullScreenActive,
-    toggleFullScreen,
-  } = useHeaderFullscreen();
+  const { isDesktopFullscreenExiting } = useHeaderFullscreen();
   const refreshCurrentRoute = useCallback(() => {
     window.location.reload();
   }, []);
@@ -132,8 +115,9 @@ const Header: React.FC = () => {
   const currentProjectIdForContext = currentProject?.id ?? null;
   const currentProjectMainFilePath = currentProject?.mainFilePath ?? null;
   const currentWorkspaceLocalPath = currentWorkspace?.localPath ?? null;
-  const currentWorkspaceSetupProgress = currentWorkspaceId ? setupProgress[currentWorkspaceId] : null;
-  const isSettingUp = isWorkspaceSetupBlocking(currentWorkspaceSetupProgress);
+  const isSettingUp = isWorkspaceSetupBlocking(
+    currentWorkspaceId ? setupProgress[currentWorkspaceId] : null,
+  );
 
   const headerRepoPath = currentWorkspaceLocalPath || currentProjectMainFilePath || editorRepoPath || null;
 
@@ -206,21 +190,17 @@ const Header: React.FC = () => {
   const [isTargetBranchOpen, setIsTargetBranchOpen] = useState(false);
   const [targetBranchFilter, setTargetBranchFilter] = useState('');
 
-  // Settings modal state (URL-persisted via nuqs)
-  const [isSettingsOpen, setIsSettingsOpen] = useQueryState("settingsModal", settingsModalParams.settingsModal);
-
   // Skills modal state (URL-persisted via nuqs)
   const [isSkillsModalOpen, setSkillsModalOpen] = useQueryState("skillsModal", skillsModalParams.skillsModal);
   const [isLlmProvidersOpen, setLlmProvidersOpen] = useQueryState(
     "llmProvidersModal",
     llmProvidersModalParams.llmProvidersModal
   );
-  const [remoteAccessSettingsSection, setRemoteAccessSettingsSection] = useState<'atmos-computer' | 'tunnel-connector' | null>(null);
   useEffect(() => {
-    if (isLlmProvidersOpen) {
-      void setIsSettingsOpen(true);
-    }
-  }, [isLlmProvidersOpen, setIsSettingsOpen]);
+    if (!isLlmProvidersOpen) return;
+    router.push(settingsHref("models"));
+    void setLlmProvidersOpen(false);
+  }, [isLlmProvidersOpen, router, setLlmProvidersOpen]);
   const desktopWebSearch = useMemo(() => {
     const query = searchParams.toString();
     return query ? `?${query}` : '';
@@ -274,17 +254,11 @@ const Header: React.FC = () => {
   } | null>(null);
 
   const deleteProject = useProjectStore(s => s.deleteProject);
-  const clearSetupProgress = useProjectStore(s => s.clearSetupProgress);
 
   useHeaderHotkeys({
-    actionMenuFocusRef,
-    isActionMenuOpen,
     refreshCurrentRoute,
-    setIsActionMenuOpen,
     setIsQuotaPopoverOpen,
-    showRightSidebar,
     toggleLeftSidebar,
-    toggleRightSidebar,
   });
 
   // Sync context when project/workspace changes
@@ -424,26 +398,23 @@ const Header: React.FC = () => {
   }, [openInBrowser, t]);
 
   const isAnyHeaderOverlayOpen =
-    isActionMenuOpen || desktopWebPopoverOpen || isQuotaPopoverOpen ||
-    isSettingsOpen || isSkillsModalOpen || isTargetBranchOpen;
+    desktopWebPopoverOpen || isQuotaPopoverOpen ||
+    isSkillsModalOpen || isTargetBranchOpen;
 
   useEffect(() => {
     setHeaderHasOpenOverlay(isAnyHeaderOverlayOpen);
   }, [isAnyHeaderOverlayOpen, setHeaderHasOpenOverlay]);
 
-  const resolvedThemeLabel = theme === "light"
-    ? t("theme.light")
-    : theme === "dark"
-      ? t("theme.dark")
-      : t("theme.system");
   return (
     <TooltipProvider>
       <header
+        data-app-shell-header=""
         onMouseDown={handleDesktopWindowMouseDown}
         className={cn(
-          "relative flex h-12 items-center justify-between border-b border-sidebar-border px-4 select-none transition-[padding] duration-300 ease-out",
+          "relative flex h-12 items-center justify-between px-4 select-none transition-[padding] duration-300 ease-out",
           isDesktopDragEnabled && "desktop-drag-region",
-          isDesktopDragEnabled && (isDesktopFullscreen ? "pl-4" : "pl-[92px]")
+          // Header spans the full window, including over the left sidebar.
+          needsTrafficLightsPadding && "pl-[92px]",
         )}
       >
         {isDesktopDragEnabled ? (
@@ -469,7 +440,7 @@ const Header: React.FC = () => {
                   type="button"
                   aria-label={isLeftCollapsed ? t("leftSidebar.expand") : t("leftSidebar.collapse")}
                   onClick={toggleLeftSidebar}
-                  className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                  className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                 >
                   {isLeftCollapsed ? <PanelLeftOpen className="size-4" /> : <PanelLeftClose className="size-4" />}
                 </button>
@@ -489,7 +460,7 @@ const Header: React.FC = () => {
                   type="button"
                   aria-label={t("navigation.goBack")}
                   onClick={() => window.history.back()}
-                  className="size-8 inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                  className="size-8 inline-flex items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                 >
                   <ChevronLeft className="size-4" />
                 </button>
@@ -509,7 +480,7 @@ const Header: React.FC = () => {
                   type="button"
                   aria-label={t("navigation.goForward")}
                   onClick={() => window.history.forward()}
-                  className="size-8 inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                  className="size-8 inline-flex items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                 >
                   <ChevronRight className="size-4" />
                 </button>
@@ -529,7 +500,7 @@ const Header: React.FC = () => {
                   type="button"
                   aria-label={t("navigation.refreshPage")}
                   onClick={refreshCurrentRoute}
-                  className="size-8 inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                  className="size-8 inline-flex items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                 >
                   <RotateCw className="size-4" />
                 </button>
@@ -571,14 +542,7 @@ const Header: React.FC = () => {
               </motion.div>
             ) : null}
           </div>
-          {currentWorkspace && currentWorkspaceSetupProgress && (
-            <div className="desktop-no-drag">
-              <WorkspaceStatusPopover
-                progress={currentWorkspaceSetupProgress}
-                onFinish={() => clearSetupProgress(currentWorkspace.id)}
-              />
-            </div>
-          )}
+          <HeaderWorkspaceJobs />
         </div>
 
         {showHeaderGitToolbar && (
@@ -622,20 +586,14 @@ const Header: React.FC = () => {
         )}
 
         <HeaderActionControls
-          actionMenuFocusRef={actionMenuFocusRef}
           activeTunnelConnectors={activeTunnelConnectors}
           browserUrl={browserUrl}
           desktopWebPopoverOpen={desktopWebPopoverOpen}
           desktopWebStatus={desktopWebStatus}
-          isActionMenuOpen={isActionMenuOpen}
           isDesktopRuntime={isDesktopRuntime}
-          isFullScreenActive={isFullScreenActive}
           isOpeningDesktopWeb={isOpeningDesktopWeb}
           isTunnelConnectorRunning={isTunnelConnectorRunning}
-          isRightCollapsed={isRightCollapsed}
           isQuotaPopoverOpen={isQuotaPopoverOpen}
-          layout={layout}
-          launchpadAgentsEnabled={launchpadAgentsEnabled}
           currentProjectName={currentProject?.name}
           currentWorkspaceDisplayName={currentWorkspace?.displayName}
           currentWorkspaceName={currentWorkspace?.name}
@@ -649,20 +607,9 @@ const Header: React.FC = () => {
           refreshTunnelConnectorStatus={refreshTunnelConnectorStatus}
           tunnelConnectorDotColor={tunnelConnectorDotColor}
           renewTunnelConnector={renewTunnelConnector}
-          resolvedThemeLabel={resolvedThemeLabel}
-          setAgentChatOpen={setAgentChatOpen}
           setDesktopWebPopoverOpen={setDesktopWebPopoverOpen}
           setGlobalSearchOpen={setGlobalSearchOpen}
-          setIsActionMenuOpen={setIsActionMenuOpen}
-          setIsSettingsOpen={setIsSettingsOpen}
           setIsQuotaPopoverOpen={setIsQuotaPopoverOpen}
-          setRemoteAccessSettingsSection={setRemoteAccessSettingsSection}
-          setTheme={setTheme}
-          showRightSidebar={showRightSidebar}
-          theme={theme}
-          toggleFullScreen={toggleFullScreen}
-          toggleRightSidebar={toggleRightSidebar}
-          updateLayout={updateLayout}
         />
 
         {/* Delete Workspace Dialog */}
@@ -706,20 +653,6 @@ const Header: React.FC = () => {
         <SkillsModal
           isOpen={isSkillsModalOpen}
           onClose={() => setSkillsModalOpen(false)}
-        />
-
-        <SettingsModal
-          isOpen={isSettingsOpen}
-          onClose={() => {
-            void setIsSettingsOpen(false);
-            if (isLlmProvidersOpen) {
-              void setLlmProvidersOpen(false);
-            }
-            if (remoteAccessSettingsSection) {
-              setRemoteAccessSettingsSection(null);
-            }
-          }}
-          activeSectionOverride={isLlmProvidersOpen ? 'ai' : remoteAccessSettingsSection}
         />
       </header>
     </TooltipProvider>

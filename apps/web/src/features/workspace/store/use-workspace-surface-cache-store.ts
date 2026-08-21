@@ -141,7 +141,8 @@ function surfaceSnapshotEqual(
     prev.editorPathsRecent.join("\0") === next.editorPathsRecent.join("\0") &&
     prev.browserTabValues.join("\0") === next.browserTabValues.join("\0") &&
     prev.lightIds.join("\0") === next.lightIds.join("\0") &&
-    (prev.namedTerminals ?? []).join("\0") === (next.namedTerminals ?? []).join("\0")
+    (prev.namedTerminals ?? []).join("\0") === (next.namedTerminals ?? []).join("\0") &&
+    (prev.frameActiveTabIds ?? []).join("\0") === (next.frameActiveTabIds ?? []).join("\0")
   );
 }
 

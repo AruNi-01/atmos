@@ -2,7 +2,7 @@
 
 > **🛠️ atmos CLI**: Host operations and **HTTP client** to the current Atmos Server — not a second data plane for product state.
 >
-> APP-058 adds an **agent-first product control plane**: typed L1 resources + `POST /api/cli/invoke` (server action dispatch) reusing `WsAction` handlers + JSON envelope.
+> APP-063 adds an **agent-first product control plane**: typed L1 resources + `POST /api/cli/invoke` (server action dispatch) reusing `WsAction` handlers + JSON envelope.
 
 ---
 
@@ -22,7 +22,7 @@
 apps/cli/
 ├── src/
 │   ├── main.rs
-│   ├── envelope.rs        # APP-058 JSON envelope
+│   ├── envelope.rs        # APP-063 JSON envelope
 │   ├── server_invoke.rs   # POST /api/cli/invoke client
 │   ├── context.rs         # ~/.atmos/cli-context.json
 │   ├── api_client.rs
@@ -87,7 +87,7 @@ Token: `--api-token` → `ATMOS_API_TOKEN` → `ATMOS_LOCAL_TOKEN` → `client-s
 
 ## Related
 
-- [specs/APP/APP-058_agent-first-product-cli](../../specs/APP/APP-058_agent-first-product-cli/)
+- [specs/APP/APP-063_agent-first-product-cli](../../specs/APP/APP-063_agent-first-product-cli/)
 - [skills/atmos-cli](../../skills/atmos-cli/)
 - [agents/references/cli-feature-versions.md](../../agents/references/cli-feature-versions.md)
 - [crates/runtime-manager/AGENTS.md](../../crates/runtime-manager/AGENTS.md)

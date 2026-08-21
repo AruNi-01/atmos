@@ -97,16 +97,29 @@ pub fn llm_providers_path() -> Result<PathBuf, String> {
 
 // --- data (helpers for cross-crate consistency) ---
 
+/// Product quota-usage store — always under `data/`, never `data/desktop/`.
 pub fn quota_usage_data_dir() -> Result<PathBuf, String> {
     Ok(data_dir()?.join("quota-usage"))
 }
 
+/// Product token-usage store — always under `data/`, never `data/desktop/`.
 pub fn token_usage_data_dir() -> Result<PathBuf, String> {
     Ok(data_dir()?.join("token-usage"))
 }
 
 pub fn workspaces_data_dir() -> Result<PathBuf, String> {
     Ok(data_dir()?.join("workspaces"))
+}
+
+/// Saved Prototype Design documents: `~/.atmos/data/pt-design/`.
+pub fn pt_design_data_dir() -> Result<PathBuf, String> {
+    if let Ok(raw) = std::env::var("ATMOS_PT_DESIGN_DIR") {
+        let trimmed = raw.trim();
+        if !trimmed.is_empty() {
+            return Ok(PathBuf::from(trimmed));
+        }
+    }
+    Ok(data_dir()?.join("pt-design"))
 }
 
 pub fn review_data_dir() -> Result<PathBuf, String> {
@@ -127,6 +140,25 @@ pub fn desktop_use_data_dir() -> Result<PathBuf, String> {
 
 pub fn browser_use_data_dir() -> Result<PathBuf, String> {
     Ok(data_dir()?.join("browser-use"))
+}
+
+/// Short-lived Browser Use capability bindings (not durable product data).
+pub fn browser_use_state_dir() -> Result<PathBuf, String> {
+    Ok(state_dir()?.join("browser-use"))
+}
+
+pub fn browser_use_bindings_dir() -> Result<PathBuf, String> {
+    Ok(browser_use_state_dir()?.join("bindings"))
+}
+
+/// On-demand serve-sim helper installs: `~/.atmos/runtime/serve-sim/<version>/`.
+pub fn serve_sim_runtime_dir() -> Result<PathBuf, String> {
+    Ok(atmos_home_dir()?.join("runtime").join("serve-sim"))
+}
+
+/// Simulator session claims / leases (not product data).
+pub fn simulator_state_dir() -> Result<PathBuf, String> {
+    Ok(state_dir()?.join("simulator"))
 }
 
 pub fn local_model_runtime_data_dir() -> Result<PathBuf, String> {
@@ -156,5 +188,17 @@ mod tests {
         assert!(quota_usage_data_dir()
             .unwrap()
             .starts_with(home.join("data")));
+        assert!(browser_use_state_dir()
+            .unwrap()
+            .starts_with(home.join("state")));
+        assert!(browser_use_bindings_dir()
+            .unwrap()
+            .starts_with(home.join("state").join("browser-use")));
+        assert!(serve_sim_runtime_dir()
+            .unwrap()
+            .starts_with(home.join("runtime").join("serve-sim")));
+        assert!(simulator_state_dir()
+            .unwrap()
+            .starts_with(home.join("state").join("simulator")));
     }
 }

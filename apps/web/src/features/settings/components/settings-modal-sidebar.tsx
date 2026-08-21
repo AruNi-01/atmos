@@ -4,35 +4,32 @@ import React from "react";
 import { useTranslations } from "next-intl";
 import {
   Input,
-  MotionSidebar,
-  MotionSidebarContent,
-  MotionSidebarGroup,
-  MotionSidebarGroupLabel,
-  MotionSidebarHeader,
-  MotionSidebarMenu,
-  MotionSidebarMenuButton,
-  MotionSidebarMenuItem,
-  MotionSidebarProvider,
+  Sidebar,
+  SidebarContent,
+  SidebarGroup,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
   cn,
 } from "@workspace/ui";
-import { Search, X } from "lucide-react";
+import { ArrowLeft, Search, X } from "lucide-react";
 import InfoCircleIcon from "@workspace/ui/components/icons/info-circle-icon";
 import LayoutDashboardIcon from "@workspace/ui/components/icons/layout-dashboard-icon";
 import TerminalIcon from "@workspace/ui/components/icons/terminal-icon";
 import { BotIcon } from "@workspace/ui/components/icons/bot-icon";
 import BrainCircuitIcon from "@workspace/ui/components/icons/brain-circuit-icon";
 import { BellIcon } from "@workspace/ui/components/icons/bell-icon";
-import WorldIcon from "@workspace/ui/components/icons/world-icon";
 import ComputerIcon from "@workspace/ui/components/icons/computer-icon";
-import DesktopUseIcon from "@workspace/ui/components/icons/desktop-use-icon";
 import { FolderKanbanIcon } from "@workspace/ui/components/icons/folder-kanban-icon";
-import { TagIcon } from "@workspace/ui/components/icons/tag-icon";
 import KeyboardIcon from "@workspace/ui/components/icons/keyboard-icon";
 import { BlocksIcon } from "@workspace/ui/components/icons/blocks-icon";
+import { UserIcon } from "@workspace/ui/components/icons/user-icon";
 import CodeXmlIcon from "@workspace/ui/components/ui/code-xml-icon";
-import CanvasIcon from "@workspace/ui/components/icons/canvas-icon";
+import { SunMoonIcon } from "@workspace/ui/components/icons/sun-moon-icon";
+import { KeyCircleIcon } from "@workspace/ui/components/icons/key-circle-icon";
 import type { AnimatedIconHandle } from "@workspace/ui/components/icons/types";
-import { FlaskIcon, type FlaskIconHandle } from "@/shared/components/ui/flask-icon";
 import {
   SETTINGS_GROUPS,
   SETTINGS_SEARCH_ENTRIES,
@@ -87,36 +84,30 @@ interface SettingsModalSidebarProps {
   searchQuery: string;
   onSelectSection: (sectionId: SettingsSectionId) => void;
   onSearchQueryChange: (query: string) => void;
+  onBack: () => void;
+  trafficLightsPadding?: boolean;
 }
 
 function SettingsSectionIcon({
   iconRef,
   sectionId,
 }: {
-  iconRef: React.RefObject<AnimatedIconHandle | FlaskIconHandle | null>;
+  iconRef: React.RefObject<AnimatedIconHandle | null>;
   sectionId: SettingsSectionId;
 }) {
-  if (sectionId === "layout") return <LayoutDashboardIcon ref={iconRef} className="shrink-0" size={16} />;
+  if (sectionId === "general") return <SunMoonIcon ref={iconRef} className="shrink-0" size={16} />;
+  if (sectionId === "account") return <UserIcon ref={iconRef} className="shrink-0" size={16} />;
+  if (sectionId === "interface") return <LayoutDashboardIcon ref={iconRef} className="shrink-0" size={16} />;
   if (sectionId === "editor") return <CodeXmlIcon ref={iconRef} className="shrink-0" size={16} />;
-  if (sectionId === "canvas") return <CanvasIcon ref={iconRef} className="shrink-0" size={16} />;
   if (sectionId === "terminal") return <TerminalIcon ref={iconRef} className="shrink-0" size={16} />;
-  if (sectionId === "code-agent") return <BotIcon ref={iconRef} className="shrink-0" size={16} />;
   if (sectionId === "workspace") return <FolderKanbanIcon ref={iconRef} className="shrink-0" size={16} />;
-  if (sectionId === "labels") return <TagIcon ref={iconRef} className="shrink-0" size={16} />;
-  // Account reuses world/globe icon until a dedicated user animated icon exists.
-  if (sectionId === "account") return <WorldIcon ref={iconRef} className="shrink-0" size={16} />;
-  if (sectionId === "integrations") return <BlocksIcon ref={iconRef} className="shrink-0" size={16} />;
-  if (sectionId === "ai") return <BrainCircuitIcon ref={iconRef} className="shrink-0" size={16} />;
-  if (sectionId === "notify") return <BellIcon ref={iconRef} className="shrink-0" size={16} />;
-  if (sectionId === "tunnel-connector") return <WorldIcon ref={iconRef} className="shrink-0" size={16} />;
-  if (sectionId === "atmos-computer") return <ComputerIcon ref={iconRef} className="shrink-0" size={16} />;
-  if (sectionId === "desktop-use") {
-    return <DesktopUseIcon ref={iconRef} className="shrink-0" size={16} />;
-  }
-  if (sectionId === "shortcuts") return <KeyboardIcon ref={iconRef} className="shrink-0" size={16} />;
-  if (sectionId === "experiments") {
-    return <FlaskIcon ref={iconRef as React.Ref<FlaskIconHandle>} className="shrink-0" size={16} />;
-  }
+  if (sectionId === "agents") return <BotIcon ref={iconRef} className="shrink-0" size={16} />;
+  if (sectionId === "models") return <BrainCircuitIcon ref={iconRef} className="shrink-0" size={16} />;
+  if (sectionId === "notifications") return <BellIcon ref={iconRef} className="shrink-0" size={16} />;
+  if (sectionId === "remote-access") return <ComputerIcon ref={iconRef} className="shrink-0" size={16} />;
+  if (sectionId === "apps") return <BlocksIcon ref={iconRef} className="shrink-0" size={16} />;
+  if (sectionId === "privacy") return <KeyCircleIcon ref={iconRef} className="shrink-0" size={16} />;
+  if (sectionId === "keyboard") return <KeyboardIcon ref={iconRef} className="shrink-0" size={16} />;
   return <InfoCircleIcon ref={iconRef} className="shrink-0" size={16} />;
 }
 
@@ -125,10 +116,12 @@ export function SettingsModalSidebar({
   searchQuery,
   onSelectSection,
   onSearchQueryChange,
+  onBack,
+  trafficLightsPadding = false,
 }: SettingsModalSidebarProps) {
   const t = useTranslations("settings.modal");
   const [sectionIconRefs] = React.useState(() => {
-    const refs: Record<string, React.RefObject<AnimatedIconHandle | FlaskIconHandle | null>> = {};
+    const refs: Record<string, React.RefObject<AnimatedIconHandle | null>> = {};
     for (const section of SETTINGS_SECTIONS) {
       refs[section.id] = React.createRef();
     }
@@ -190,86 +183,91 @@ export function SettingsModalSidebar({
   }, [activeSection, matchingSectionIds, onSelectSection, orderedMatchingSectionIds, trimmedSearchQuery]);
 
   return (
-    <aside className="h-full min-h-0 border-r border-border bg-background text-sidebar-foreground">
-      <MotionSidebarProvider className="h-full min-h-0">
-        <MotionSidebar
-          collapsible="none"
-          className="h-full w-full border-0 bg-transparent text-sidebar-foreground"
-          containerClassName="h-full"
+    <Sidebar
+      collapsible="none"
+      className="h-full min-h-0 border-r border-border bg-background text-sidebar-foreground"
+    >
+      <SidebarHeader className={cn("gap-0 px-3 pb-1.5 pt-3", trafficLightsPadding && "pt-10")}>
+        <button
+          type="button"
+          onClick={onBack}
+          aria-label={t("page.backAria")}
+          className="desktop-no-drag mb-2 flex h-8 items-center gap-2 rounded-md px-2 text-sm font-medium text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
         >
-          <MotionSidebarHeader className="gap-0 px-3 pb-1.5 pt-3">
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-sidebar-foreground/45" />
-              <Input
-                value={searchQuery}
-                onChange={(event) => onSearchQueryChange(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Escape" && searchQuery) {
-                    event.preventDefault();
-                    onSearchQueryChange("");
-                  }
-                }}
-                placeholder={t("sidebar.searchPlaceholder")}
-                aria-label={t("sidebar.searchAriaLabel")}
-                className="h-9 rounded-lg border-border bg-muted/30 pl-8 pr-8 text-sm shadow-none"
-              />
-              <button
-                type="button"
-                aria-label={t("sidebar.clearSearchAriaLabel")}
-                onClick={() => onSearchQueryChange("")}
-                className={cn(
-                  "absolute right-1.5 top-1/2 flex size-6 -translate-y-1/2 items-center justify-center rounded-md text-sidebar-foreground/45 transition-colors hover:bg-muted hover:text-sidebar-foreground",
-                  !searchQuery && "pointer-events-none opacity-0",
-                )}
-              >
-                <X className="size-3.5" />
-              </button>
-            </div>
-          </MotionSidebarHeader>
+          <ArrowLeft className="size-4 shrink-0" />
+          <span>{t("page.back")}</span>
+        </button>
+        <div className="relative desktop-no-drag">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-sidebar-foreground/45" />
+          <Input
+            value={searchQuery}
+            onChange={(event) => onSearchQueryChange(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Escape" && searchQuery) {
+                event.preventDefault();
+                event.stopPropagation();
+                onSearchQueryChange("");
+              }
+            }}
+            placeholder={t("sidebar.searchPlaceholder")}
+            aria-label={t("sidebar.searchAriaLabel")}
+            className="h-9 rounded-lg border-border bg-muted/30 pl-8 pr-8 text-sm shadow-none"
+          />
+          <button
+            type="button"
+            aria-label={t("sidebar.clearSearchAriaLabel")}
+            onClick={() => onSearchQueryChange("")}
+            className={cn(
+              "absolute right-1.5 top-1/2 flex size-6 -translate-y-1/2 items-center justify-center rounded-md text-sidebar-foreground/45 transition-colors hover:bg-muted hover:text-sidebar-foreground",
+              !searchQuery && "pointer-events-none opacity-0",
+            )}
+          >
+            <X className="size-3.5" />
+          </button>
+        </div>
+      </SidebarHeader>
 
-          <MotionSidebarContent className="gap-1 overflow-y-auto px-3 pb-3 pt-1">
-            {filteredGroups.length === 0 ? (
-              <div className="px-2 py-6 text-sm text-muted-foreground">
-                {t("sidebar.noSettingsFound")}
-              </div>
-            ) : null}
-            {filteredGroups.map((group) => (
-              <MotionSidebarGroup key={group.id} className="px-2 py-1 first:pt-1">
-                <MotionSidebarGroupLabel className="h-7">
-                  {t(`groups.${toCamelCase(group.id)}.label`)}
-                </MotionSidebarGroupLabel>
-                <MotionSidebarMenu>
-                  {group.items.map((itemId) => {
-                    const section = SETTINGS_SECTIONS.find((item) => item.id === itemId);
-                    if (!section) return null;
+      <SidebarContent className="gap-0.5 overflow-y-auto px-3 pb-3 pt-1">
+        {filteredGroups.length === 0 ? (
+          <div className="px-2 py-6 text-sm text-muted-foreground">
+            {t("sidebar.noSettingsFound")}
+          </div>
+        ) : null}
+        {filteredGroups.map((group) => (
+          <SidebarGroup key={group.id} className="px-2 py-0.5 first:pt-1">
+            <SidebarGroupLabel className="h-6">
+              {t(`groups.${toCamelCase(group.id)}.label`)}
+            </SidebarGroupLabel>
+            <SidebarMenu className="gap-0.5">
+              {group.items.map((itemId) => {
+                const section = SETTINGS_SECTIONS.find((item) => item.id === itemId);
+                if (!section) return null;
 
-                    const isActive = activeSection === section.id;
-                    const itemIconRef = sectionIconRefs[section.id];
+                const isActive = activeSection === section.id;
+                const itemIconRef = sectionIconRefs[section.id];
 
-                    return (
-                      <MotionSidebarMenuItem key={itemId}>
-                        <MotionSidebarMenuButton
-                          type="button"
-                          isActive={isActive}
-                          onClick={() => onSelectSection(section.id)}
-                          className="h-9 gap-3 rounded-lg px-3 text-left"
-                          onMouseEnter={() => itemIconRef.current?.startAnimation?.()}
-                          onMouseLeave={() => itemIconRef.current?.stopAnimation?.()}
-                        >
-                          <SettingsSectionIcon iconRef={itemIconRef} sectionId={itemId} />
-                          <span className="min-w-0 truncate text-sm font-medium">
-                            {t(`sections.${toCamelCase(section.id)}.label`)}
-                          </span>
-                        </MotionSidebarMenuButton>
-                      </MotionSidebarMenuItem>
-                    );
-                  })}
-                </MotionSidebarMenu>
-              </MotionSidebarGroup>
-            ))}
-          </MotionSidebarContent>
-        </MotionSidebar>
-      </MotionSidebarProvider>
-    </aside>
+                return (
+                  <SidebarMenuItem key={itemId}>
+                    <SidebarMenuButton
+                      type="button"
+                      isActive={isActive}
+                      onClick={() => onSelectSection(section.id)}
+                      className="h-8 gap-2.5 rounded-md px-2.5 text-left"
+                      onMouseEnter={() => itemIconRef.current?.startAnimation?.()}
+                      onMouseLeave={() => itemIconRef.current?.stopAnimation?.()}
+                    >
+                      <SettingsSectionIcon iconRef={itemIconRef} sectionId={itemId} />
+                      <span className="min-w-0 truncate text-sm font-medium">
+                        {t(`sections.${toCamelCase(section.id)}.label`)}
+                      </span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
+            </SidebarMenu>
+          </SidebarGroup>
+        ))}
+      </SidebarContent>
+    </Sidebar>
   );
 }

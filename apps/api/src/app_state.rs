@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::api::ws::{WsMessageHandler, WsMessageService, WsService};
+use crate::api::ws::{PtDesignHub, WsMessageHandler, WsMessageService, WsService};
 use core_service::{
     AgentHooksService, AgentService, AgentSessionService, AutomationService, CanvasAgentRelay,
     CanvasDocumentService, MessagePushService, NotificationService, ProjectService, ReviewService,
@@ -26,6 +26,7 @@ pub struct AppServices {
     pub agent_hooks_service: Arc<AgentHooksService>,
     pub notification_service: Arc<NotificationService>,
     pub canvas_agent_relay: Arc<CanvasAgentRelay>,
+    pub pt_design_agent_relay: Arc<CanvasAgentRelay>,
     pub review_service: Arc<ReviewService>,
 }
 
@@ -43,14 +44,17 @@ pub struct AppState {
     pub agent_hooks_service: Arc<AgentHooksService>,
     pub notification_service: Arc<NotificationService>,
     pub canvas_agent_relay: Arc<CanvasAgentRelay>,
+    pub pt_design_agent_relay: Arc<CanvasAgentRelay>,
     pub review_service: Arc<ReviewService>,
-    /// Shared with `/ws` — product action dispatch for CLI server_invoke (APP-058).
+    /// Shared with `/ws` — product action dispatch for CLI server_invoke (APP-063).
     pub ws_message_service: Arc<WsMessageService>,
     pub ws_service: Arc<WsService>,
     pub api_port: std::sync::atomic::AtomicU16,
     pub relay_supervisor: RelaySupervisor,
     /// Durable SQLite-backed event queue (GitHub / future third-party triggers).
     pub event_queue: Arc<LocalPersistentQueue>,
+    /// In-process PT Design collab fan-out for this machine (user + local Agent).
+    pub pt_design_hub: Arc<PtDesignHub>,
 }
 
 impl Clone for AppState {
@@ -69,12 +73,14 @@ impl Clone for AppState {
             agent_hooks_service: Arc::clone(&self.agent_hooks_service),
             notification_service: Arc::clone(&self.notification_service),
             canvas_agent_relay: Arc::clone(&self.canvas_agent_relay),
+            pt_design_agent_relay: Arc::clone(&self.pt_design_agent_relay),
             review_service: Arc::clone(&self.review_service),
             ws_message_service: Arc::clone(&self.ws_message_service),
             ws_service: Arc::clone(&self.ws_service),
             api_port: std::sync::atomic::AtomicU16::new(self.api_port()),
             relay_supervisor: self.relay_supervisor.clone(),
             event_queue: Arc::clone(&self.event_queue),
+            pt_design_hub: Arc::clone(&self.pt_design_hub),
         }
     }
 }
@@ -103,12 +109,14 @@ impl AppState {
             agent_hooks_service: services.agent_hooks_service,
             notification_service: services.notification_service,
             canvas_agent_relay: services.canvas_agent_relay,
+            pt_design_agent_relay: services.pt_design_agent_relay,
             review_service: services.review_service,
             ws_message_service,
             ws_service: Arc::new(ws_service),
             api_port: std::sync::atomic::AtomicU16::new(default_port),
             relay_supervisor: RelaySupervisor::new(),
             event_queue,
+            pt_design_hub: Arc::new(PtDesignHub::new()),
         }
     }
 

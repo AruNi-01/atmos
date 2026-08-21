@@ -1,4 +1,4 @@
-//! APP-058 typed L1 product commands (project, workspace, group, settings, terminal, run, git, context).
+//! APP-063 typed L1 product commands (project, workspace, group, settings, terminal, run, git, context).
 
 use std::collections::BTreeMap;
 use std::path::PathBuf;

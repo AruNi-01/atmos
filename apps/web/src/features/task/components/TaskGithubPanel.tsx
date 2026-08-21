@@ -7,7 +7,16 @@ import { useQueries, useQuery } from "@tanstack/react-query";
 import { useQueryState, useQueryStates } from "nuqs";
 import {
   Button,
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
   Input,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
   Select,
   SelectContent,
   SelectItem,
@@ -21,7 +30,6 @@ import {
   ArrowUpDown,
   CircleDot,
   GitPullRequest,
-  Loader2,
   Plus,
   RefreshCw,
   Search,
@@ -62,6 +70,12 @@ import {
   prDrawerKey,
 } from "@/features/task/components/task-github-drawer/types";
 import { openTaskWorkspaceCreate } from "@/features/task/lib/open-task-workspace-create";
+import {
+  TASK_GITHUB_PAGE_SIZE,
+  TASK_GITHUB_SORT_OPTIONS,
+  filtersFromUrl,
+  type TaskGithubKind,
+} from "@/features/task/lib/task-github-panel-model";
 import { findLinkedWorkspaceForGithubItem } from "@/features/task/lib/find-linked-workspace";
 import {
   applyManagedToQuery,
@@ -77,21 +91,6 @@ import {
   type TaskGithubSortParam,
 } from "@/shared/lib/nuqs/searchParams";
 
-const PAGE_SIZE = 20;
-
-type Kind = "issues" | "prs";
-
-/** GitHub.com PR/Issue list sort menu (same labels/order). */
-const SORT_OPTIONS: TaskGithubSortParam[] = [
-  "created-desc",
-  "created-asc",
-  "comments-desc",
-  "comments-asc",
-  "updated-desc",
-  "updated-asc",
-  "best-match",
-];
-
 type TaskGithubPanelProps = {
   projects: Project[];
   /**
@@ -101,20 +100,6 @@ type TaskGithubPanelProps = {
   headerTrailingHost?: HTMLElement | null;
 };
 
-function filtersFromUrl(params: {
-  taskGhState: TaskGithubStateFilter;
-  taskGhRepos: string[];
-  taskGhAssignees: string[];
-  taskGhLabels: string[];
-}): TaskGithubFilters {
-  return {
-    state: params.taskGhState,
-    repoFullNames: params.taskGhRepos,
-    assignees: params.taskGhAssignees,
-    labels: params.taskGhLabels,
-  };
-}
-
 export function TaskGithubPanel({ projects, headerTrailingHost = null }: TaskGithubPanelProps) {
   const t = useTranslations("appShell.task.github");
   const router = useAppRouter();
@@ -123,6 +108,8 @@ export function TaskGithubPanel({ projects, headerTrailingHost = null }: TaskGit
   const drawerControllerRef = React.useRef<TaskGithubDrawerController | null>(null);
   const [, setNewWorkspace] = useQueryState("newWorkspace", centerStageParams.newWorkspace);
   const [createIssueOpen, setCreateIssueOpen] = useState(false);
+  const [createIssueProjectId, setCreateIssueProjectId] = useState<string | null>(null);
+  const [createProjectPickerOpen, setCreateProjectPickerOpen] = useState(false);
 
   const [urlState, setUrlState] = useQueryStates({
     taskGhKind: taskParams.taskGhKind,
@@ -135,7 +122,7 @@ export function TaskGithubPanel({ projects, headerTrailingHost = null }: TaskGit
     taskGhSort: taskParams.taskGhSort,
   });
 
-  const kind = urlState.taskGhKind as Kind;
+  const kind = urlState.taskGhKind as TaskGithubKind;
   const page = Math.max(1, urlState.taskGhPage || 1);
   const sort = urlState.taskGhSort;
   const filters = useMemo(
@@ -166,7 +153,7 @@ export function TaskGithubPanel({ projects, headerTrailingHost = null }: TaskGit
   }, [queryApplied]);
 
   const setKind = useCallback(
-    (next: Kind) => {
+    (next: TaskGithubKind) => {
       void setUrlState({ taskGhKind: next, taskGhPage: 1 });
     },
     [setUrlState],
@@ -276,7 +263,7 @@ export function TaskGithubPanel({ projects, headerTrailingHost = null }: TaskGit
         labels: [...filters.labels].sort().join(","),
         query: apiQuery,
         page,
-        perPage: PAGE_SIZE,
+        perPage: TASK_GITHUB_PAGE_SIZE,
       }),
       queryFn: () =>
         wsGithubApi.search({
@@ -287,17 +274,25 @@ export function TaskGithubPanel({ projects, headerTrailingHost = null }: TaskGit
           labels: filters.labels,
           query: apiQuery || null,
           page,
-          perPage: PAGE_SIZE,
+          perPage: TASK_GITHUB_PAGE_SIZE,
         }),
-      staleTime: 60_000,
+      // Keep last Issues/PRs page warm when switching kind or leaving the Task tab.
+      staleTime: 5 * 60_000,
+      gcTime: 30 * 60_000,
       enabled: searchEnabled,
     }),
   );
 
   const items = searchQuery.data?.items ?? [];
   const hasMore = Boolean(searchQuery.data?.has_more);
-  const loading = reposLoading || (searchEnabled && searchQuery.isLoading);
-  const refreshing = searchEnabled && (searchQuery.isFetching || searchQuery.isRefetching);
+  // Prefer cached data: only full-page loading when there is nothing to show yet.
+  const loading =
+    (reposLoading && repos.length === 0) ||
+    (searchEnabled && searchQuery.isLoading && !searchQuery.data);
+  const refreshing =
+    searchEnabled &&
+    searchQuery.isFetching &&
+    Boolean(searchQuery.data);
 
   const handleRefresh = useCallback(() => {
     void searchQuery.refetch();
@@ -598,10 +593,19 @@ export function TaskGithubPanel({ projects, headerTrailingHost = null }: TaskGit
         return;
       }
       const projectId = projectIdForItem(item);
+      const labelDraft = (item.labels ?? []).map((l) => ({
+        name: l.name,
+        color: l.color,
+      }));
       if (kind === "issues" || item.kind === "issue") {
         openTaskWorkspaceCreate({
           projectId,
           setNewWorkspace,
+          displayName: item.title?.trim()
+            ? `[issue#${item.number}] ${item.title.trim()}`.slice(0, 120)
+            : `[issue#${item.number}]`,
+          // Keep composer empty — do not paste issue body into the prompt.
+          initialRequirement: null,
           link: {
             kind: "issue",
             owner: item.owner,
@@ -609,6 +613,9 @@ export function TaskGithubPanel({ projects, headerTrailingHost = null }: TaskGit
             number: item.number,
             title: item.title,
             url: item.url,
+            body: item.body,
+            state: item.state,
+            labels: labelDraft,
           },
         });
         return;
@@ -616,6 +623,11 @@ export function TaskGithubPanel({ projects, headerTrailingHost = null }: TaskGit
       openTaskWorkspaceCreate({
         projectId,
         setNewWorkspace,
+        displayName: item.title?.trim()
+          ? `[PR#${item.number}] ${item.title.trim()}`.slice(0, 120)
+          : `[PR#${item.number}]`,
+        // Keep composer empty — do not paste PR body into the prompt.
+        initialRequirement: null,
         link: {
           kind: "pr",
           owner: item.owner,
@@ -625,6 +637,10 @@ export function TaskGithubPanel({ projects, headerTrailingHost = null }: TaskGit
           url: item.url,
           head_ref: item.head_ref,
           base_ref: item.base_ref,
+          body: item.body,
+          state: item.state,
+          is_draft: item.is_draft,
+          labels: labelDraft,
         },
       });
     },
@@ -637,13 +653,19 @@ export function TaskGithubPanel({ projects, headerTrailingHost = null }: TaskGit
     ],
   );
 
+  const openCreateIssueForProject = useCallback((projectId: string) => {
+    setCreateIssueProjectId(projectId);
+    setCreateProjectPickerOpen(false);
+    setCreateIssueOpen(true);
+  }, []);
+
   const headerActions = (
-    <div className="flex items-center gap-1">
+    <div className="flex h-7 items-center gap-1.5">
       <Button
         type="button"
         size="icon-xs"
         variant="outline"
-        className="size-7"
+        className="size-7 sm:size-7"
         onClick={handleRefresh}
         disabled={!searchEnabled || refreshing}
         title={kind === "issues" ? t("actions.refreshIssues") : t("actions.refreshPrs")}
@@ -651,18 +673,56 @@ export function TaskGithubPanel({ projects, headerTrailingHost = null }: TaskGit
       >
         <RefreshCw className={cn("size-3.5", refreshing && "animate-spin")} />
       </Button>
-      <Button
-        type="button"
-        size="icon-xs"
-        variant="outline"
-        className="size-7"
-        onClick={() => setCreateIssueOpen(true)}
-        disabled={repos.length === 0}
-        title={t("actions.createIssue")}
-        aria-label={t("actions.createIssue")}
-      >
-        <Plus className="size-3.5" />
-      </Button>
+      <Popover open={createProjectPickerOpen} onOpenChange={setCreateProjectPickerOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            type="button"
+            size="icon-xs"
+            variant="outline"
+            className="size-7 sm:size-7"
+            disabled={repos.length === 0}
+            title={t("actions.createIssue")}
+            aria-label={t("actions.createIssue")}
+          >
+            <Plus className="size-3.5" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent align="end" className="w-72 p-0" sideOffset={6}>
+          <Command>
+            <CommandInput
+              placeholder={t("createIssue.projectSelect.search")}
+              className="h-8 text-xs"
+            />
+            <CommandList>
+              <CommandEmpty className="py-4 text-xs">
+                {repos.length === 0
+                  ? t("createIssue.projectSelect.empty")
+                  : t("createIssue.projectSelect.noMatch")}
+              </CommandEmpty>
+              <CommandGroup
+                heading={t("createIssue.projectSelect.title")}
+                className="max-h-64 overflow-y-auto p-1"
+              >
+                {repos.map((repo) => (
+                  <CommandItem
+                    key={repo.projectId}
+                    value={`${repo.projectName} ${repo.fullName} ${repo.path}`}
+                    onSelect={() => openCreateIssueForProject(repo.projectId)}
+                    className="flex flex-col items-start gap-0.5 px-2 py-2 text-xs"
+                  >
+                    <span className="w-full truncate font-medium text-foreground">
+                      {repo.projectName}
+                    </span>
+                    <span className="w-full truncate text-[11px] text-muted-foreground">
+                      {repo.fullName}
+                    </span>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
     </div>
   );
 
@@ -677,7 +737,7 @@ export function TaskGithubPanel({ projects, headerTrailingHost = null }: TaskGit
         Outer page must not scroll (overflow-hidden on this tree).
         Source Atmos/GitHub tabs live on TaskManagementView so the coss Indicator animates.
       */}
-      <div className="mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col overflow-hidden px-6 py-3">
+      <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden px-6 py-3">
         {/* Issues/PRs · search · Filter · Sort — fixed toolbar */}
         <div className="flex min-w-0 shrink-0 items-center gap-2 pb-2">
           <div className="min-w-0 shrink-0">
@@ -747,7 +807,7 @@ export function TaskGithubPanel({ projects, headerTrailingHost = null }: TaskGit
                 <SelectValue />
               </SelectTrigger>
               <SelectContent align="end" className="min-w-[12rem]">
-                {SORT_OPTIONS.map((value) => (
+                {TASK_GITHUB_SORT_OPTIONS.map((value) => (
                   <SelectItem key={value} value={value} className="text-xs">
                     {t(`sort.options.${value}`)}
                   </SelectItem>
@@ -757,61 +817,51 @@ export function TaskGithubPanel({ projects, headerTrailingHost = null }: TaskGit
           </div>
         </div>
 
-        {/* List region fills remaining height; table scrolls inside */}
+        {/* Table shell always mounts; loading / empty live inside the body. */}
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-          {reposLoading && repos.length === 0 ? (
-            <div className="flex min-h-0 flex-1 items-center justify-center text-muted-foreground">
-              <Loader2 className="size-4 animate-spin" />
-            </div>
-          ) : repos.length === 0 ? (
-            <div className="flex min-h-0 flex-1 items-center justify-center text-center text-sm text-muted-foreground">
-              {t("empty.noRepos")}
-            </div>
-          ) : loading && items.length === 0 ? (
-            <div className="flex min-h-0 flex-1 items-center justify-center text-muted-foreground">
-              <Loader2 className="size-4 animate-spin" />
-            </div>
-          ) : items.length === 0 ? (
-            <div className="flex min-h-0 flex-1 items-center justify-center text-center text-sm text-muted-foreground">
-              {kind === "issues" ? t("empty.noIssues") : t("empty.noPrs")}
-            </div>
-          ) : (
-            <>
-              <div className="min-h-0 flex-1 overflow-hidden">
-                <TaskGithubTable
-                  items={items}
-                  kind={kind}
-                  onOpenItem={handleOpenItem}
-                  onOpenLinkedRef={handleOpenLinkedRef}
-                  onCreateWorkspace={handleCreateWorkspace}
-                  onEnterWorkspace={handleEnterWorkspace}
-                  resolveLinkedWorkspace={resolveLinkedWorkspace}
-                />
-              </div>
+          <div className="min-h-0 flex-1 overflow-hidden">
+            <TaskGithubTable
+              items={items}
+              kind={kind}
+              bodyState={
+                (reposLoading && repos.length === 0) ||
+                (loading && items.length === 0)
+                  ? "loading"
+                  : repos.length === 0
+                    ? "empty"
+                    : items.length === 0
+                      ? "empty"
+                      : "ready"
+              }
+              bodyMessage={
+                repos.length === 0 && !reposLoading
+                  ? t("empty.noRepos")
+                  : kind === "issues"
+                    ? t("empty.noIssues")
+                    : t("empty.noPrs")
+              }
+              onOpenItem={handleOpenItem}
+              onOpenLinkedRef={handleOpenLinkedRef}
+              onCreateWorkspace={handleCreateWorkspace}
+              onEnterWorkspace={handleEnterWorkspace}
+              resolveLinkedWorkspace={resolveLinkedWorkspace}
+            />
+          </div>
 
-              {/* Pagination fixed at bottom of the shell (outside table scroll) */}
-              <div className="flex min-w-0 shrink-0 items-center justify-between gap-3 pt-2">
-                <p className="min-w-0 flex-1 text-[10px] leading-snug text-muted-foreground">
-                  {t("pagination.aggregatedHint", {
-                    repos: activeRepos.length,
-                    count: searchQuery.data?.total_count ?? items.length,
-                    sort: t(`sort.options.${sort}`),
-                  })}
-                </p>
-                {page > 1 || hasMore ? (
-                  <GithubListPagination
-                    page={page}
-                    hasMore={hasMore}
-                    onPageChange={setPage}
-                    previousLabel={t("pagination.previous")}
-                    nextLabel={t("pagination.next")}
-                    layout="full"
-                    className="mt-0 w-auto justify-end pb-0"
-                  />
-                ) : null}
-              </div>
-            </>
-          )}
+          {/* Pagination fixed at bottom of the shell (outside table scroll) */}
+          {page > 1 || hasMore ? (
+            <div className="flex min-w-0 shrink-0 items-center justify-end gap-3 pt-2">
+              <GithubListPagination
+                page={page}
+                hasMore={hasMore}
+                onPageChange={setPage}
+                previousLabel={t("pagination.previous")}
+                nextLabel={t("pagination.next")}
+                layout="full"
+                className="mt-0 w-auto justify-end pb-0"
+              />
+            </div>
+          ) : null}
         </div>
       </div>
 
@@ -821,6 +871,7 @@ export function TaskGithubPanel({ projects, headerTrailingHost = null }: TaskGit
         open={createIssueOpen}
         onOpenChange={setCreateIssueOpen}
         repos={repos}
+        initialProjectId={createIssueProjectId}
         onCreated={handleIssueCreated}
       />
     </div>

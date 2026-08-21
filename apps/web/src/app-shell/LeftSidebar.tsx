@@ -6,8 +6,9 @@ import { useAppRouter } from '@/shared/hooks/use-app-router';
 import { useQueryState } from 'nuqs';
 import { useContextParams } from '@/shared/hooks/use-context-params';
 import { useSidebarLayout } from '@/app-shell/SidebarLayoutContext';
-import { centerStageParams, leftSidebarParams, type LeftSidebarTab } from '@/shared/lib/nuqs/searchParams';
-import { cn, Tabs, TabsPanel } from "@workspace/ui";
+import { LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS } from '@/app-shell/sidebar-layout-constants';
+import { centerStageParams } from '@/shared/lib/nuqs/searchParams';
+import { cn } from "@workspace/ui";
 import { useAppStorage } from "@atmos/shared";
 import type { Project } from '@/shared/types/domain';
 import { useProjectStore } from '@/features/project/store/use-project-store';
@@ -46,7 +47,6 @@ import { useTranslations } from 'next-intl';
 import { CreateProjectDialog } from '@/features/project/components/CreateProjectDialog';
 import { WorkspaceScriptDialog } from '@/features/workspace/components/WorkspaceScriptDialog';
 import { DeleteProjectDialog } from '@/features/project/components/DeleteProjectDialog';
-import { FileTreePanel } from '@/features/files/components/FileTreePanel';
 import { functionSettingsApi } from '@/api/ws-api';
 import { useComputerQueryScope } from '@/api/query/query-scope';
 import { isComputerQueryScopeCurrent } from '@/api/ws/request';
@@ -59,6 +59,7 @@ import {
   type KanbanCardProperties,
 } from '@/app-shell/sidebar/WorkspaceKanbanView';
 import {
+  parseSidebarGroupingMode,
   type SidebarGroupingMode,
 } from '@/app-shell/sidebar/workspace-status';
 import {
@@ -71,26 +72,29 @@ import {
   serializeWorkspaceSidebarFilters,
 } from '@/app-shell/left-sidebar-settings';
 import { isWorkspaceSetupBlocking } from '@/features/workspace/lib/workspace-setup';
-import { useWorkspaceCreationStore } from '@/features/workspace/store/workspace-creation-store';
+import {
+  getWorkspaceCreateOriginKey,
+  useWorkspaceCreationStore,
+} from '@/features/workspace/store/workspace-creation-store';
 import { useLayoutSettingsStore } from '@/features/settings/store/layout-settings-store';
 import { useExperimentSettingsStore } from '@/features/settings/store/experiment-settings-store';
 import { useInitialProjectsLoading } from '@/features/project/store/use-initial-projects-loading';
 import { ProjectsSidebarLoading } from '@/app-shell/ProjectsSidebarLoading';
-import { LeftSidebarLaunchpad, LeftSidebarLaunchpadOutside } from '@/app-shell/LeftSidebarLaunchpad';
+import { LeftSidebarLaunchpadBlock } from '@/app-shell/LeftSidebarLaunchpad';
+import { tasksPathWithStoredSource } from '@/features/task/lib/task-source-preference';
 
 import { LeftSidebarPinnedSection } from '@/app-shell/LeftSidebarPinnedSection';
+import { mergeExpandedProjectIds } from '@/app-shell/left-sidebar-derived';
 import {
     GroupedWorkspaceOneColumnContent,
     GroupedWorkspaceTwoColumnLeftContent,
     GroupedWorkspaceTwoColumnRightContent,
     LeftSidebarFooter,
     LeftSidebarSortableProjectList,
-    LeftSidebarTabsHeader,
     ProjectWorkspaceTwoColumnRightContent,
     TwoColumnSidebarContent,
 } from '@/app-shell/left-sidebar-controls';
 import { useLeftSidebarFileTreeSync } from '@/app-shell/use-left-sidebar-file-tree-sync';
-import { useEditorStore } from '@/features/editor/store/use-editor-store';
 import { useLeftSidebarTwoColumnResize } from '@/app-shell/use-left-sidebar-two-column-resize';
 import { useLeftSidebarWorkspaceDerived } from '@/app-shell/use-left-sidebar-workspace-derived';
 import { useLeftSidebarWorkspaceRenderers } from '@/app-shell/use-left-sidebar-workspace-renderers';
@@ -101,6 +105,7 @@ import {
     selectAttentionFilterMode,
     useAgentAttentionStore,
 } from '@/features/agent/store/agent-attention-store';
+import { useWorkspaceAgentGroupKeyMap } from '@/features/agent/hooks/use-workspace-agent-status';
 import { Bell } from 'lucide-react';
 
 interface LeftSidebarProps {
@@ -126,6 +131,11 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         const ids = attentionContextKey ? attentionContextKey.split('\0').filter(Boolean) : [];
         return filterProjectsByAttention(projects, ids);
     }, [attentionContextKey, attentionFilterMode, projects]);
+    const workspaceAgentContextIds = React.useMemo(
+        () => listProjects.flatMap((project) => project.workspaces.map((workspace) => workspace.id)),
+        [listProjects],
+    );
+    const agentGroupKeyByWorkspaceId = useWorkspaceAgentGroupKeyMap(workspaceAgentContextIds);
 
     // When filtering to attention items, expand projects that still have workspaces
     // to show. Project-only attention keeps the row collapsed (children are hidden).
@@ -204,7 +214,6 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
 
     const { setCurrentContext } = useGitInfoStore();
     const { isLeftCollapsed, leftSidebarSize, resizeLeftSidebar } = useSidebarLayout();
-    const filesOnRight = useLayoutSettingsStore((s) => s.projectFilesSide === 'right');
     const workspaceSidebarTwoColumn = useLayoutSettingsStore((s) => s.workspaceSidebarTwoColumn);
     const workspaceSidebarTwoColumnShowPinned = useLayoutSettingsStore((s) => s.workspaceSidebarTwoColumnShowPinned);
     const workspaceSidebarSecondColumnKanban = useLayoutSettingsStore((s) => s.workspaceSidebarSecondColumnKanban);
@@ -213,25 +222,14 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     const workspaceSidebarPriorityTwoColumn = useLayoutSettingsStore((s) => s.workspaceSidebarPriorityTwoColumn);
     const workspaceSidebarLabelTwoColumn = useLayoutSettingsStore((s) => s.workspaceSidebarLabelTwoColumn);
     const workspaceSidebarGroupTwoColumn = useLayoutSettingsStore((s) => s.workspaceSidebarGroupTwoColumn);
-    const layoutLoaded = useLayoutSettingsStore((s) => s.loaded);
+    const workspaceSidebarAgentTwoColumn = useLayoutSettingsStore((s) => s.workspaceSidebarAgentTwoColumn);
     const loadLayoutSettings = useLayoutSettingsStore((s) => s.loadSettings);
     useEffect(() => { loadLayoutSettings(); }, [loadLayoutSettings]);
 
-    const [activeTab, setActiveTab] = useQueryState("lsTab", leftSidebarParams.lsTab);
-    const fileTreeRevealTarget = useEditorStore((s) => s.fileTreeRevealTarget);
-    // Attention list lives on the Projects tab; force that tab when the filter turns on
-    // so the bell does not appear ineffective while Files is selected.
-    // A pending file-tree reveal must win until cleared — otherwise this effect
-    // and useLeftSidebarFileTreeSync fight (Projects ↔ Files oscillation).
-    useEffect(() => {
-        if (!attentionFilterMode || filesOnRight) return;
-        if (fileTreeRevealTarget) return;
-        if (activeTab === 'projects') return;
-        void setActiveTab('projects');
-    }, [attentionFilterMode, filesOnRight, activeTab, setActiveTab, fileTreeRevealTarget]);
     const [newWorkspace, setNewWorkspace] = useQueryState("newWorkspace", centerStageParams.newWorkspace);
     const [canvasOpen, setCanvasOpen] = useQueryState("canvas", centerStageParams.canvas);
     const [expandedProjects, setExpandedProjects] = useState<string[]>([]);
+    const seenProjectIdsRef = useRef<Set<string>>(new Set());
     const [collapsedWorkspaceGroups, setCollapsedWorkspaceGroups] = useState<Record<string, boolean>>({});
     const [groupingMode, setGroupingMode] = useState<SidebarGroupingMode>('project');
     const [labelGroupOrder, setLabelGroupOrder] = useState<string[]>([]);
@@ -249,7 +247,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         JSON.stringify(serializeWorkspaceSidebarFilters(EMPTY_WORKSPACE_KANBAN_FILTERS)),
     );
     const [isWorkspacesExpanded, setIsWorkspacesExpanded] = useState(
-        currentView === 'workspaces' || currentView === 'skills' || currentView === 'terminals' || currentView === 'agents' || currentView === 'automations' || currentView === 'disk-analyzer' || currentView === 'token-usage' || currentView === 'tasks'
+        currentView === 'workspaces' || currentView === 'skills' || currentView === 'terminals' || currentView === 'agents' || currentView === 'automations' || currentView === 'disk-analyzer' || currentView === 'token-usage' || currentView === 'tasks' || currentView === 'pt-design'
     );
     const [isPinnedSectionCollapsed, setIsPinnedSectionCollapsed] = useState(false);
     const [isPinnedDividerHovered, setIsPinnedDividerHovered] = useState(false);
@@ -353,17 +351,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                     if (settingsScopeVersionRef.current !== scopeVersion) return;
 
                     const groupingModeSetting = settings.workspace_sidebar?.grouping_mode;
-                    let nextGroupingMode: SidebarGroupingMode = 'project';
-                    if (
-                        groupingModeSetting === 'project' ||
-                        groupingModeSetting === 'group' ||
-                        groupingModeSetting === 'status' ||
-                        groupingModeSetting === 'time' ||
-                        groupingModeSetting === 'label' ||
-                        groupingModeSetting === 'priority'
-                    ) {
-                        nextGroupingMode = groupingModeSetting;
-                    }
+                    const nextGroupingMode = parseSidebarGroupingMode(groupingModeSetting);
                     persistedGroupingModeRef.current = nextGroupingMode;
                     setGroupingMode(nextGroupingMode);
 
@@ -465,13 +453,27 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     ]);
 
     useEffect(() => {
-        if (projects.length > 0 && expandedProjects.length === 0) {
-            const timer = window.setTimeout(() => {
-                setExpandedProjects(projects.map(p => p.id));
-            }, 0);
-            return () => window.clearTimeout(timer);
+        const projectIds = projects.map((project) => project.id);
+        const seen = seenProjectIdsRef.current;
+        if (seen.size === 0) {
+            const { expandedIds, nextSeenIds } = mergeExpandedProjectIds(
+                [],
+                projectIds,
+                seen,
+            );
+            seenProjectIdsRef.current = nextSeenIds;
+            setExpandedProjects(expandedIds);
+            return;
         }
-    }, [expandedProjects.length, projects]);
+
+        const added = projectIds.filter((id) => !seen.has(id));
+        if (added.length === 0) {
+            return;
+        }
+
+        seenProjectIdsRef.current = mergeExpandedProjectIds([], projectIds, seen).nextSeenIds;
+        setExpandedProjects((prev) => [...prev, ...added]);
+    }, [projects]);
 
     const [scriptDialogProjectId, setScriptDialogProjectId] = useState<string | null>(null);
     const [deleteProjectDialog, setDeleteProjectDialog] = useState<{
@@ -492,11 +494,15 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     const isSettingUp = isWorkspaceSetupBlocking(
         currentWorkspaceId ? setupProgress[currentWorkspaceId] : null,
     );
-    const showCreating = useWorkspaceCreationStore((s) => s.showCreating);
-    const showOpening = useWorkspaceCreationStore((s) => s.showOpening);
-    const clearWorkspaceCreationOverlay = useWorkspaceCreationStore((s) => s.clear);
-    const openingWorkspaceId = useWorkspaceCreationStore(
-        (s) => (s.phase === 'opening' ? s.pendingWorkspaceId : null),
+    const startCreating = useWorkspaceCreationStore((s) => s.startCreating);
+    const bindWorkspace = useWorkspaceCreationStore((s) => s.bindWorkspace);
+    const failCreating = useWorkspaceCreationStore((s) => s.failCreating);
+    // useShallow: mapping jobs to ids returns a new array each call. React 19
+    // useSyncExternalStore treats that as a changed snapshot and loops (error #185).
+    const openingWorkspaceIds = useWorkspaceCreationStore(
+      useShallow((s) =>
+        s.jobs.map((job) => job.workspaceId).filter((id): id is string => Boolean(id)),
+      ),
     );
 
     // One-shot: onboarding/import asks the sidebar to highlight a project without
@@ -550,7 +556,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         );
 
         if (!workspaceStillExists) {
-            if (openingWorkspaceId === currentWorkspaceId) return;
+            if (openingWorkspaceIds.includes(currentWorkspaceId)) return;
             router.replace('/');
         }
     }, [
@@ -558,7 +564,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         currentWorkspaceId,
         hasLoadedProjects,
         isLoading,
-        openingWorkspaceId,
+        openingWorkspaceIds,
         projects,
         router,
     ]);
@@ -618,19 +624,12 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     }, [currentView, currentWorkspaceId, isLoading, markWorkspaceVisited, projects]);
 
     useLeftSidebarFileTreeSync({
-        activeTab,
         currentEffectivePath,
         currentProjectId,
         currentWorkspaceId,
         effectiveContextId,
-        filesOnRight,
         isSettingUp,
-        setActiveTab,
     });
-
-    const handleTabChange = (value: string) => {
-        setActiveTab(value as LeftSidebarTab);
-    };
 
     const toggleProject = (id: string) => {
         setExpandedProjects(prev =>
@@ -1000,25 +999,30 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         [handleToggleCanvas],
     );
 
-    // ⌘⇧K → open the Kanban board in center stage.
+    // ⌘⇧K → open the Kanban board in center stage (restore last Atmos/GitHub/Linear tab).
     useHotkeys(
         "mod+shift+k",
         () => {
-            router.push("/tasks");
+            router.push(tasksPathWithStoredSource());
         },
         { enableOnContentEditable: true, enableOnFormTags: true, preventDefault: true },
         [router],
     );
 
     const handleQuickAddWorkspace = async (projectId: string) => {
-        showCreating();
+        const jobId = startCreating({
+            originKey: getWorkspaceCreateOriginKey({
+                currentView,
+                workspaceId: currentWorkspaceId,
+                projectId: currentProjectIdFromUrl,
+            }),
+        });
         const workspaceId = await quickAddWorkspace(projectId);
         if (workspaceId) {
-            showOpening(workspaceId);
-            router.push(`/workspace?id=${workspaceId}`);
+            bindWorkspace(jobId, workspaceId);
             return;
         }
-        clearWorkspaceCreationOverlay();
+        failCreating(jobId);
     };
 
     const handleSetColor = async (projectId: string, color?: string) => {
@@ -1058,6 +1062,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         groups,
         kanbanFilters: sidebarWorkspaceFilters,
         labelGroupOrder: effectiveLabelGroupOrder,
+        agentGroupKeyByWorkspaceId,
         projectSidebarSelectionRouteKey,
         projects: listProjects,
         selectedProjectSidebarId,
@@ -1069,6 +1074,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         workspaceSidebarPriorityTwoColumn,
         workspaceSidebarLabelTwoColumn,
         workspaceSidebarGroupTwoColumn,
+        workspaceSidebarAgentTwoColumn,
         workspaceSidebarTwoColumn,
         workspaceLabels,
     });
@@ -1188,6 +1194,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
             availableLabels={workspaceLabels}
             groupingMode={groupingMode}
             labelGroupOrder={effectiveLabelGroupOrder}
+            agentGroupKeyByWorkspaceId={agentGroupKeyByWorkspaceId}
             isCollapsed={isPinnedSectionCollapsed}
             isDividerHovered={isPinnedDividerHovered}
             isSortingDisabled={isPinnedSortingDisabled}
@@ -1451,34 +1458,35 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         canvasOpen: Boolean(canvasOpen),
         newWorkspaceOpen: Boolean(newWorkspace),
         launchpadItems,
-        onNavigate: (path: string) => router.push(path),
+        onNavigate: (path: string) => {
+            // Restore last Task source tab when opening plain /tasks from Launchpad.
+            if (path === "/tasks" || path.startsWith("/tasks?")) {
+                router.push(tasksPathWithStoredSource());
+                return;
+            }
+            router.push(path);
+        },
         onOpenCanvas: () => void setCanvasOpen(true),
         onOpenNewWorkspace: handleOpenNewWorkspace,
     };
 
     return (
         <>
-            <aside className="@container w-full flex flex-col h-full select-none">
+            <aside className="@container flex h-full w-full flex-col select-none bg-sidebar text-sidebar-foreground">
                 {/* Launchpad — wait for first load attempt to avoid default-config flash */}
                 {launchpadSettled ? (
-                    <>
-                        <div className="flex flex-col shrink-0">
-                            <LeftSidebarLaunchpad
-                                isExpanded={isWorkspacesExpanded}
-                                onExpandedChange={setIsWorkspacesExpanded}
-                                {...launchpadSharedProps}
-                            />
-                        </div>
-                        {/* Outside items: simple icon + name list below Launchpad */}
-                        <LeftSidebarLaunchpadOutside {...launchpadSharedProps} />
-                    </>
+                    <LeftSidebarLaunchpadBlock
+                        isExpanded={isWorkspacesExpanded}
+                        onExpandedChange={setIsWorkspacesExpanded}
+                        {...launchpadSharedProps}
+                    />
                 ) : null}
 
 
 
                 <div className="flex-1 flex flex-col min-h-0">
                     {attentionFilterMode ? (
-                        <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border/60 px-3 py-2">
+                        <div className={cn("flex shrink-0 items-center justify-between gap-2 py-2 pl-3", LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS)}>
                             <div className="flex min-w-0 items-center gap-1.5">
                                 <Bell className="size-3.5 shrink-0 text-muted-foreground" />
                                 <p className="truncate text-[12px] font-medium text-foreground">
@@ -1495,44 +1503,20 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                         </div>
                     ) : null}
 
-                    <Tabs
-                        value={filesOnRight ? 'projects' : activeTab}
-                        className="flex flex-col h-full overflow-hidden"
-                        onValueChange={handleTabChange}
-                    >
-                        <LeftSidebarTabsHeader
-                            filesOnRight={filesOnRight}
-                            layoutLoaded={layoutLoaded}
-                            onTabChange={handleTabChange}
-                        />
-
-                        <TabsPanel
-                            value="projects"
-                            className={cn(
-                                "flex-1 overflow-hidden",
-                                isTwoColumnSidebar ? "pt-0 pb-0" : "pt-1.5 pb-3",
-                            )}
-                        >
-                            <div className="flex h-full min-h-0 flex-col">
-                                {!isTwoColumnSidebar ? pinnedWorkspaceSection : null}
-                                <div className="flex-1 min-h-0 overflow-hidden">
-                                    {projectTabContent}
-                                </div>
-                            </div>
-                        </TabsPanel>
-
-                        {!filesOnRight && layoutLoaded && (
-                        <TabsPanel value="files" className="flex-1 overflow-hidden flex flex-col">
-                            <FileTreePanel projectName={currentProject?.name} />
-                        </TabsPanel>
+                    <div
+                        className={cn(
+                            "flex min-h-0 flex-1 flex-col overflow-hidden",
+                            isTwoColumnSidebar ? "pt-0 pb-0" : "pt-1.5 pb-3",
                         )}
-
-                    </Tabs>
+                    >
+                        {!isTwoColumnSidebar ? pinnedWorkspaceSection : null}
+                        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+                            {projectTabContent}
+                        </div>
+                    </div>
                 </div>
                 <LeftSidebarFooter
-                    activeTab={activeTab}
                     availableLabels={workspaceLabels}
-                    filesOnRight={filesOnRight}
                     filters={sidebarWorkspaceFilters}
                     groupingMode={groupingMode}
                     groups={groups}

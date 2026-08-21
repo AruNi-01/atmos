@@ -25,3 +25,16 @@ export async function hubEnrollDevice(opts?: {
   }
   return res.json() as Promise<HubDeviceEnrollResponse>;
 }
+
+/** Revoke a Hub device (and best-effort Relay projection). */
+export async function hubRevokeDevice(deviceId: string): Promise<void> {
+  const id = deviceId.trim();
+  if (!id) throw new Error("device_id required");
+  const res = await hubFetch(`/v1/devices/${encodeURIComponent(id)}/revoke`, {
+    method: "POST",
+  });
+  if (res.status === 401 || res.status === 404) return;
+  if (!res.ok) {
+    throw new Error(await res.text().catch(() => `Hub revoke device ${res.status}`));
+  }
+}

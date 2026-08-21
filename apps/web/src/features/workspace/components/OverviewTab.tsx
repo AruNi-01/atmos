@@ -490,7 +490,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
 
   return (
     <>
-      <div className="flex flex-col gap-5 p-6 max-w-6xl mx-auto animate-in fade-in duration-300">
+      <div className="flex w-full min-w-0 flex-col gap-5 p-6 animate-in fade-in duration-300">
         {/* Header Section */}
         <div className="flex items-center justify-between pb-4 border-b border-border/50">
           <div className="flex items-center gap-3">

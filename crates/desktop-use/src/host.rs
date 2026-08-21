@@ -13,6 +13,10 @@ use serde_json::Value;
 
 use crate::strings::scrub_vendor;
 
+/// `pgrep`/`pkill -f` pattern for host `serve` (product or leftover vendor filename).
+#[cfg(any(test, target_os = "macos"))]
+const HOST_SERVE_PKILL_PATTERN: &str = "Atmos Desktop Use.app/Contents/MacOS/.*serve";
+
 /// Default socket under the Desktop Use data dir.
 pub fn default_socket_path(data_dir: &Path) -> PathBuf {
     data_dir.join("engine.sock")
@@ -38,10 +42,17 @@ pub fn ensure_daemon(
             "Control engine is not installed. Run: atmos desktop-use driver ensure",
         ));
     }
+    if let Some(app) = host_app {
+        let _ = crate::install::ensure_host_serve_alias(app);
+    }
     if is_daemon_alive(socket) {
-        if call_tool(engine_bin, socket, "get_config", &serde_json::json!({})).is_ok() {
+        if call_tool(engine_bin, socket, "get_config", &serde_json::json!({})).is_ok()
+            && !vendor_named_host_serve_running(host_app)
+        {
             return Ok(());
         }
+        // Socket is healthy but Activity Monitor still shows the vendor
+        // filename — stop and respawn via the product-named alias.
         let _ = stop_daemon(engine_bin, socket);
     }
 
@@ -82,12 +93,8 @@ fn spawn_daemon(
         // DYLD_* and cannot load the inject dylib.
         if let Some(app) = host_app {
             if app.is_dir() {
-                let driver_in_app = app.join("Contents").join("MacOS").join("cua-driver");
-                let bin = if driver_in_app.is_file() {
-                    driver_in_app.as_path()
-                } else {
-                    engine_bin
-                };
+                let driver_in_app = crate::install::resolve_host_serve_bin(app);
+                let bin = driver_in_app.as_deref().unwrap_or(engine_bin);
                 match spawn_host_serve(bin, &socket_str, Some(app)) {
                     Ok(child) => {
                         let _ = child.id();
@@ -121,7 +128,7 @@ fn spawn_daemon(
         let child = spawn_host_serve(engine_bin, &socket_str, host_app)?;
         let _ = child.id();
         std::mem::forget(child);
-        return Ok(());
+        Ok(())
     }
 
     #[cfg(not(target_os = "macos"))]
@@ -197,6 +204,36 @@ fn spawn_host_serve(
         .map_err(|e| scrub_vendor(&format!("failed to start control engine: {e}")))
 }
 
+/// Live `serve` still exec'd as the upstream filename (Activity Monitor parent name).
+fn vendor_named_host_serve_running(host_app: Option<&Path>) -> bool {
+    #[cfg(target_os = "macos")]
+    {
+        let Some(app) = host_app else {
+            return false;
+        };
+        let Some(bin) = crate::install::resolve_host_serve_bin(app) else {
+            return false;
+        };
+        if bin.file_name().and_then(|s| s.to_str()) == Some(crate::install::VENDOR_HOST_EXECUTABLE)
+        {
+            return false;
+        }
+        let needle = crate::install::vendor_host_serve_pgrep_pattern(app);
+        Command::new("pgrep")
+            .args(["-f", &needle])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status()
+            .map(|s| s.success())
+            .unwrap_or(false)
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = host_app;
+        false
+    }
+}
+
 pub fn stop_daemon(engine_bin: &Path, socket: &Path) -> Result<(), String> {
     if engine_bin.is_file() && socket.exists() {
         let _ = Command::new(engine_bin)
@@ -207,7 +244,7 @@ pub fn stop_daemon(engine_bin: &Path, socket: &Path) -> Result<(), String> {
     #[cfg(target_os = "macos")]
     {
         let _ = Command::new("pkill")
-            .args(["-f", "Atmos Desktop Use.app/Contents/MacOS/.*serve"])
+            .args(["-f", HOST_SERVE_PKILL_PATTERN])
             .status();
     }
     let _ = fs::remove_file(socket);
@@ -516,6 +553,15 @@ fn parse_health_report_tcc(report: &Value) -> Option<Value> {
 mod tests {
     use super::*;
     use tempfile::tempdir;
+
+    #[test]
+    fn host_serve_pkill_pattern_is_product_path() {
+        assert!(HOST_SERVE_PKILL_PATTERN.contains("Atmos Desktop Use.app/Contents/MacOS/"));
+        assert!(HOST_SERVE_PKILL_PATTERN.contains("serve"));
+        assert!(!crate::strings::contains_vendor_brand(
+            HOST_SERVE_PKILL_PATTERN
+        ));
+    }
 
     #[test]
     fn socket_path_under_data_dir() {

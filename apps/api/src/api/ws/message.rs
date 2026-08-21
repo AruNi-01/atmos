@@ -180,6 +180,8 @@ pub struct TokenUsageOverviewRequest {
     #[serde(default)]
     pub refresh: bool,
     #[serde(default)]
+    pub try_cookies: bool,
+    #[serde(default)]
     pub since: Option<String>,
     #[serde(default)]
     pub until: Option<String>,
@@ -189,6 +191,20 @@ pub struct TokenUsageOverviewRequest {
     pub group_by: Option<token_usage::TokenUsageGroupBy>,
     #[serde(default)]
     pub clients: Option<Vec<String>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TokenUsageBrowserCookieConsentRequest {
+    pub provider_id: String,
+    pub granted: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PermissionAccessSetRequest {
+    pub resource_id: String,
+    #[serde(default)]
+    pub capability: Option<String>,
+    pub granted: bool,
 }
 
 /// 操作类型枚举
@@ -234,6 +250,12 @@ pub enum WsAction {
     CanvasBridgeUnregister,
     /// Browser uplink for a previously dispatched canvas-agent command (APP-015)
     CanvasAgentDispatchResult,
+    /// Register this browser tab as a PT Design agent-bridge target
+    PtDesignBridgeRegister,
+    /// Unregister this browser tab from the PT Design agent bridge
+    PtDesignBridgeUnregister,
+    /// Browser uplink for a previously dispatched PT Design agent tool
+    PtDesignAgentDispatchResult,
 
     // ===== Git 操作 =====
     /// 获取 Git 状态（未提交/未推送的更改）
@@ -282,6 +304,8 @@ pub enum WsAction {
     GitSync,
     /// 获取当前分支的提交记录列表
     GitLog,
+    /// 获取带 parent/ref 的拓扑历史（center-tab graph）
+    GitHistory,
 
     // ===== Usage 操作 =====
     /// 获取 usage 概览
@@ -304,6 +328,12 @@ pub enum WsAction {
     QuotaSetAutoRefresh,
     /// 获取本地 token usage 概览
     TokenUsageOverviewGet,
+    /// Persist Token Usage browser-cookie / Keychain consent
+    TokenUsageSetBrowserCookieConsent,
+    /// List Privacy & Security → Permission Access statuses
+    PermissionAccessList,
+    /// Persist Permission Access consent
+    PermissionAccessSet,
 
     // ===== Project 操作 =====
     /// 获取项目/标签/工作区启动数据
@@ -346,6 +376,8 @@ pub enum WsAction {
     ScriptGet,
     /// 保存项目脚本配置
     ScriptSave,
+    /// 信任当前项目脚本内容（按内容 hash 确认）
+    ProjectScriptTrust,
 
     // ===== Workspace 操作 =====
     /// 获取项目下的 Workspace 列表
@@ -404,13 +436,13 @@ pub enum WsAction {
     // ===== Terminal 操作 =====
     /// 列出指定 Workspace 的可附着 terminal/tmux window 候选
     TerminalWorkspaceCandidates,
-    /// APP-058: create a headless terminal session (tmux window; no browser PTY required)
+    /// APP-063: create a headless terminal session (tmux window; no browser PTY required)
     TerminalSessionCreate,
-    /// APP-058: list in-process terminal session ids (and optional workspace filter via data)
+    /// APP-063: list in-process terminal session ids (and optional workspace filter via data)
     TerminalSessionList,
-    /// APP-058: close (detach) a terminal session; keeps tmux window
+    /// APP-063: close (detach) a terminal session; keeps tmux window
     TerminalSessionClose,
-    /// APP-058: destroy a terminal session (kills tmux window)
+    /// APP-063: destroy a terminal session (kills tmux window)
     TerminalSessionDestroy,
     /// APP-055: rotate/open latest Run log and write start header
     RunLogStart,
@@ -742,10 +774,22 @@ pub enum WsAction {
     DiskAnalyzerCancelScan,
     /// Fetch a (sub)tree from a completed scan session
     DiskAnalyzerGetTree,
+    /// Recompute cleanup suggestions from the current scan tree
+    DiskAnalyzerGetSuggestions,
     /// Move a path to trash or permanently delete it
     DiskAnalyzerDelete,
     /// Read volume total/available bytes for a path
     DiskAnalyzerDiskInfo,
+
+    // ===== Workspace Simulator (APP-060) =====
+    /// Probe this Server host for Xcode / helper / devices
+    SimulatorProbe,
+    /// Download (if needed) and start serve-sim; embed its preview URL
+    SimulatorStart,
+    /// Stop the serve-sim process this Server started
+    SimulatorStop,
+    /// Current claim for a workspace, if any
+    SimulatorStatus,
 }
 
 /// 服务端主动推送的事件类型
@@ -778,6 +822,10 @@ pub enum WsEvent {
     AgentAttentionRaised,
     /// Sticky need-attention latch(es) cleared after user acknowledge
     AgentAttentionCleared,
+    /// Unattended task-complete auto-summary lifecycle update
+    AgentAttentionSummaryUpdated,
+    /// Unattended auto-summary cleared with the attention latch
+    AgentAttentionSummaryCleared,
     /// Agent notification (permission request, task complete, etc.)
     AgentNotification,
     /// Current branch PR status should be refreshed
@@ -794,6 +842,8 @@ pub enum WsEvent {
     LocalModelStateChanged,
     /// Server → browser: terminal-agent command dispatch (APP-015)
     CanvasAgentDispatch,
+    /// Server → browser: PT Design agent tool dispatch
+    PtDesignAgentDispatch,
     /// Automation definition changed
     AutomationDefinitionUpdated,
     /// Automation run changed
@@ -804,6 +854,8 @@ pub enum WsEvent {
     AutomationNotification,
     /// Disk analyzer scan progress / completion (APP-042)
     DiskAnalyzerScanProgress,
+    /// serve-sim helper download progress (APP-060)
+    SimulatorDownloadProgress,
 }
 
 /// 项目删除进度通知数据
@@ -1022,6 +1074,18 @@ pub struct ScriptSaveRequest {
     pub scripts: Value,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProjectScriptTrustRequest {
+    pub project_guid: String,
+    /// Hash of the script content the user reviewed. The server rejects a
+    /// mismatch so a file that changed since is not trusted unseen.
+    pub hash: String,
+    /// Set when a workspace setup is parked waiting for this confirmation, so
+    /// the setup can resume once the script is accepted.
+    #[serde(default)]
+    pub workspace_id: Option<String>,
+}
+
 // ===== WsMessage 工厂方法 =====
 
 impl WsMessage {
@@ -1127,6 +1191,14 @@ pub struct CodeAgentCustomUpdateRequest {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AgentBehaviourSettingsUpdateRequest {
     pub idle_session_timeout_mins: u64,
+    #[serde(default)]
+    pub attention_summary_enabled: Option<bool>,
+    #[serde(default)]
+    pub attention_summary_delay_mins: Option<u64>,
+    #[serde(default)]
+    pub attention_summary_agent_id: Option<String>,
+    #[serde(default)]
+    pub attention_summary_model: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1189,6 +1261,18 @@ pub struct LocalModelCustomAddRequest {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LocalModelCustomDeleteRequest {
     pub model_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SimulatorStartRequest {
+    pub workspace_id: String,
+    #[serde(default)]
+    pub udid: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SimulatorWorkspaceRequest {
+    pub workspace_id: String,
 }
 
 // ===== Local Model Notification Payload =====

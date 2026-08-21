@@ -2,19 +2,19 @@
   "fill-specializations": [
     {
       "value": {
-        "solid": "srgb:1.00000,1.00000,1.00000,1.00000"
+        "solid": "srgb:0.00000,0.00000,0.00000,1.00000"
       }
     },
     {
       "appearance": "dark",
       "value": {
-        "solid": "srgb:0.11000,0.11000,0.11000,1.00000"
+        "solid": "srgb:0.00000,0.00000,0.00000,1.00000"
       }
     },
     {
       "appearance": "tinted",
       "value": {
-        "solid": "srgb:0.92000,0.92000,0.92000,1.00000"
+        "solid": "srgb:0.00000,0.00000,0.00000,1.00000"
       }
     }
   ],
@@ -39,6 +39,28 @@
       "translucency": {
         "enabled": true,
         "value": 0.35
+      }
+    },
+    {
+      "layers": [
+        {
+          "glass": false,
+          "image-name": "Rim.png",
+          "name": "Rim",
+          "position": {
+            "scale": 1,
+            "translation-in-points": [0, 0]
+          }
+        }
+      ],
+      "shadow": {
+        "kind": "neutral",
+        "opacity": 0
+      },
+      "specular": false,
+      "translucency": {
+        "enabled": false,
+        "value": 0
       }
     }
   ],

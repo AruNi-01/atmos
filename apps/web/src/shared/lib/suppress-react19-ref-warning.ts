@@ -3,7 +3,7 @@
  * 
  * React 19 changed how refs work - `ref` is now a regular prop instead of
  * being accessed via `element.ref`. This causes console warnings when using
- * libraries that haven't been updated yet (like react-mosaic-component).
+ * libraries that haven't been updated yet.
  * 
  * This utility suppresses these specific warnings until the libraries are updated.
  * 

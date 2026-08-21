@@ -24,21 +24,27 @@ mod management;
 mod mouse_mode_watch;
 mod run_log_tee;
 mod runtime;
+mod text_capture;
 mod types;
 
 use mouse_mode_watch::{pane_watch_key, MouseModeWatchRegistry};
 use run_log_tee::is_run_window_name as run_window_name_matches;
 pub use run_log_tee::{is_run_window_name, latest_log_path, RunLogTee};
 use runtime::{run_control_mode_tmux_session, run_simple_pty_session};
+pub use text_capture::{
+    process_captured_pane_text, select_transcript, strip_ansi_and_controls, TranscriptBudget,
+};
 pub use types::{
-    AttachSessionParams, CaptureSideContextParams, CapturedSideContext, CreateSessionParams,
-    CreateSimpleSessionParams, SessionDetail, SessionType, TerminalKind, TerminalMessage,
-    TerminalResponse, TerminalSideChatRecord, TerminalSideChatStatus, UpsertTerminalSideChatParams,
+    AttachSessionParams, CapturePanePlainTextParams, CaptureSideContextParams,
+    CapturedPanePlainText, CapturedSideContext, CreateSessionParams, CreateSimpleSessionParams,
+    SessionDetail, SessionType, TerminalKind, TerminalMessage, TerminalResponse,
+    TerminalSideChatRecord, TerminalSideChatStatus, UpsertTerminalSideChatParams,
 };
 use types::{SessionCommand, SessionHandle};
 
 const MIN_BROWSER_COLS: u16 = 20;
 const MIN_BROWSER_ROWS: u16 = 8;
+const HYDRATION_COMPLETE_MESSAGE: &str = "atmos-hydration-complete";
 
 fn is_usable_browser_size(cols: u16, rows: u16) -> bool {
     cols >= MIN_BROWSER_COLS && rows >= MIN_BROWSER_ROWS
@@ -696,7 +702,7 @@ impl TerminalService {
         // This ensures a subsequent request for the same session_id will see it in the map
         let result = self
             .attach_to_tmux_window(
-                session_id,
+                session_id.clone(),
                 workspace_id,
                 tmux_session.clone(),
                 window_index,
@@ -714,17 +720,23 @@ impl TerminalService {
                 source_tmux_window_name,
             )
             .await;
-        let snapshot = if result.is_ok() {
-            self.capture_snapshot_after_attach(&tmux_session, window_index)
+        let snapshot = match result.as_ref() {
+            Ok((_, control_client_name)) => {
+                self.capture_snapshot_after_attach(
+                    &session_id,
+                    &tmux_session,
+                    window_index,
+                    control_client_name,
+                )
                 .await
-        } else {
-            None
+            }
+            Err(_) => None,
         };
 
         // Clean up lock from HashMap
         self.release_creation_lock(&tmux_session).await;
 
-        result.map(|rx| (rx, snapshot))
+        result.map(|(rx, _)| (rx, snapshot))
     }
 
     /// Create a new simple terminal session (NO tmux persistence)
@@ -954,9 +966,9 @@ impl TerminalService {
             tmux_session, final_window_index, session_id
         );
 
-        let rx = self
+        let (rx, control_client_name) = self
             .attach_to_tmux_window(
-                session_id,
+                session_id.clone(),
                 workspace_id,
                 tmux_session.clone(),
                 final_window_index,
@@ -975,7 +987,12 @@ impl TerminalService {
             )
             .await?;
         let snapshot = self
-            .capture_snapshot_after_attach(&tmux_session, final_window_index)
+            .capture_snapshot_after_attach(
+                &session_id,
+                &tmux_session,
+                final_window_index,
+                &control_client_name,
+            )
             .await;
 
         Ok((rx, snapshot))
@@ -1002,7 +1019,7 @@ impl TerminalService {
         side_chat_id: Option<String>,
         source_pane_id: Option<String>,
         source_tmux_window_name: Option<String>,
-    ) -> Result<mpsc::UnboundedReceiver<Vec<u8>>> {
+    ) -> Result<(mpsc::UnboundedReceiver<Vec<u8>>, String)> {
         // Each WebSocket connection gets its own tmux client session, named after
         // the ephemeral session_id UUID assigned by the frontend.
         //
@@ -1096,7 +1113,7 @@ impl TerminalService {
         let title_tx = output_tx.clone();
 
         // Channel for receiving initialization result
-        let (init_tx, init_rx) = oneshot::channel::<Result<()>>();
+        let (init_tx, init_rx) = oneshot::channel::<Result<String>>();
 
         let session_id_clone = session_id.clone();
         let client_session_clone = client_session_name.clone();
@@ -1119,7 +1136,7 @@ impl TerminalService {
 
         // Wait for initialization result
         match init_rx.await {
-            Ok(Ok(())) => {
+            Ok(Ok(control_client_name)) => {
                 // Inject synthetic OSC 9998 (reattach title only — not shell 9999).
                 // Query tmux for the current pane state (command + cwd).
                 self.inject_initial_title(&tmux_session, window_index, &title_tx);
@@ -1151,7 +1168,7 @@ impl TerminalService {
                     "Terminal session created/attached: {} (window index: {})",
                     session_id, window_index
                 );
-                Ok(output_rx)
+                Ok((output_rx, control_client_name))
             }
             Ok(Err(e)) => {
                 error!("Failed to create terminal session: {}", e);
@@ -1220,29 +1237,62 @@ impl TerminalService {
 
     async fn capture_snapshot_after_attach(
         &self,
+        session_id: &str,
         tmux_session: &str,
         window_index: u32,
+        control_client_name: &str,
     ) -> Option<TmuxPaneSnapshot> {
-        let snapshot = self
+        if self
             .tmux_engine
-            .capture_pane_snapshot(tmux_session, window_index, Some(10000))
-            .ok();
-
-        if snapshot.as_ref().is_some_and(|snapshot| snapshot.alternate) {
+            .is_pane_alternate_screen(tmux_session, window_index)
+            .unwrap_or(false)
+        {
             // Full-screen TUIs often redraw shortly after SIGWINCH from the
             // control client resize. Give that redraw one frame before taking
             // the hydration snapshot, otherwise reconnect can replay a
             // half-updated popup/menu.
             tokio::time::sleep(std::time::Duration::from_millis(50)).await;
-            let delayed = self
-                .tmux_engine
-                .capture_pane_snapshot(tmux_session, window_index, Some(10000))
-                .ok()
-                .or(snapshot);
-            return delayed;
         }
 
+        match self.tmux_engine.capture_pane_snapshot_with_marker(
+            tmux_session,
+            window_index,
+            Some(10000),
+            control_client_name,
+            HYDRATION_COMPLETE_MESSAGE,
+        ) {
+            Ok(snapshot) => return Some(snapshot),
+            Err(error) => warn!(
+                "Failed to capture ordered terminal hydration snapshot for {}: {}",
+                session_id, error
+            ),
+        }
+
+        // Degraded fallback: never leave the terminal output gate closed if the
+        // control client disappeared while attaching.
+        let snapshot = self
+            .tmux_engine
+            .capture_pane_snapshot(tmux_session, window_index, Some(10000))
+            .ok();
+        self.release_hydration_output(session_id).await;
         snapshot
+    }
+
+    async fn release_hydration_output(&self, session_id: &str) {
+        let command_tx = self
+            .sessions
+            .lock()
+            .await
+            .get(session_id)
+            .map(|handle| handle.command_tx.clone());
+        if let Some(command_tx) = command_tx {
+            if command_tx.send(SessionCommand::HydrationComplete).is_err() {
+                debug!(
+                    "Failed to release terminal hydration output gate for {}",
+                    session_id
+                );
+            }
+        }
     }
 }
 

@@ -1,5 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { colors, radii } from "@/theme/colors";
+import { pressed as pressedTokens } from "@/theme/pressed";
+import { shadows } from "@/theme/shadows";
 import { useMobileTheme } from "@/theme/theme-store";
 import type { NativeSegmentedControlProps } from "./native-segmented-control.types";
 
@@ -10,9 +12,9 @@ export function NativeSegmentedControl<T extends string>({
   style,
 }: NativeSegmentedControlProps<T>) {
   const theme = useMobileTheme();
-  const rootBackground = theme.isDark ? "#1c1c1e" : "rgba(10, 10, 11, 0.055)";
+  const rootBackground = theme.colors.segmentedTrack;
   const selectedBackground = theme.colors.controlElevated;
-  const selectedBorder = theme.isDark ? "rgba(255, 255, 255, 0.075)" : "rgba(10, 10, 11, 0.07)";
+  const selectedBorder = theme.colors.segmentedSelectedBorder;
 
   return (
     <View style={[styles.root, { backgroundColor: rootBackground, borderColor: theme.colors.controlBorder }, style]}>
@@ -29,7 +31,7 @@ export function NativeSegmentedControl<T extends string>({
               {
                 backgroundColor: selected ? selectedBackground : "transparent",
                 borderColor: selected ? selectedBorder : "transparent",
-                opacity: pressed ? 0.72 : 1,
+                opacity: pressed ? pressedTokens.controlOpacity : 1,
               },
               selected ? (theme.isDark ? styles.selectedOptionDark : styles.selectedOptionLight) : null,
             ]}
@@ -83,9 +85,9 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   selectedOptionDark: {
-    boxShadow: "0 1px 0 rgba(255, 255, 255, 0.04)",
+    boxShadow: shadows.segmentedSelectedDark,
   },
   selectedOptionLight: {
-    boxShadow: "0 5px 14px rgba(10, 10, 11, 0.08)",
+    boxShadow: shadows.segmentedSelectedLight,
   },
 });

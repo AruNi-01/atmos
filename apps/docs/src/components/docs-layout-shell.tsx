@@ -13,7 +13,7 @@ type DocsLayoutShellProps = {
   children: ReactNode;
 };
 
-/** Client shell so `nav.title` can be a component (non-link brand). */
+/** Client shell so `nav.title` can be a component (brand link). */
 export function DocsLayoutShell({ tree, children }: DocsLayoutShellProps) {
   const sidebarTabs: GetSidebarTabsOptions = {
     transform: (option, node) => {
@@ -21,7 +21,12 @@ export function DocsLayoutShell({ tree, children }: DocsLayoutShellProps) {
       return {
         ...option,
         title: isCli ? 'Atmos CLI' : 'Atmos App',
-        icon: isCli ? <Terminal /> : <AppWindow />,
+        description: undefined,
+        icon: (
+          <span className="flex size-full items-center justify-center">
+            {isCli ? <Terminal className="size-3.5" /> : <AppWindow className="size-3.5" />}
+          </span>
+        ),
       };
     },
   };

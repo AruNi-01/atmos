@@ -1,5 +1,6 @@
 import type { TerminalThemeTokens } from "@atmos/shared/terminal";
 import { terminalFontBoldUrl, terminalFontRegularUrl } from "@/features/terminal/mobile-terminal-fonts";
+import { terminalSurfaceColors } from "@/theme/colors";
 
 export function buildTerminalDomCss(theme: TerminalThemeTokens) {
   return `
@@ -94,7 +95,7 @@ export function buildTerminalDomCss(theme: TerminalThemeTokens) {
     .xterm-scrollbar > div,
     .xterm .scrollbar.vertical > div.slider,
     .xterm .invisible.scrollbar > div {
-      background: rgba(161, 161, 170, 0.34) !important;
+      background: ${terminalSurfaceColors.terminalScrollbar} !important;
       border-radius: 9999px !important;
       opacity: 1 !important;
       transition: opacity 0.2s ease !important;
@@ -104,7 +105,7 @@ export function buildTerminalDomCss(theme: TerminalThemeTokens) {
       align-items: center;
       backdrop-filter: blur(16px);
       background: ${theme.background}cc;
-      color: #fca5a5;
+      color: ${terminalSurfaceColors.terminalStatusError};
       display: flex;
       font: 600 13px -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
       inset: 0;

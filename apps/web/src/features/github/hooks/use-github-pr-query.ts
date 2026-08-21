@@ -18,7 +18,6 @@ import {
   githubPrDetailSidebarQueryOptions,
   githubRepoLabelsQueryOptions,
   githubRepoAssigneesQueryOptions,
-  githubUserCardQueryOptions,
   githubRateLimitQueryOptions,
   githubPrFilesQueryOptions,
   githubPrTimelineInfiniteQueryOptions,
@@ -186,23 +185,7 @@ export function useGithubRepoAssigneesQuery(
   );
 }
 
-export function useGithubUserCardQuery(
-  params: { login?: string | null; enabled?: boolean },
-) {
-  const scope = useComputerQueryScope();
-  const connectionState = useWebSocketStore((s) => s.connectionState);
-  const login = (params.login ?? "").trim().replace(/^@/, "");
-  const enabled = (params.enabled ?? true) && Boolean(login);
-
-  return useQuery(
-    githubUserCardQueryOptions(
-      scope,
-      connectionState,
-      { login },
-      { enabled },
-    ),
-  );
-}
+export { useGithubUserCardQuery } from "@/features/github/hooks/use-github-user-card-query";
 
 export function useGithubRateLimitQuery(options?: { enabled?: boolean }) {
   const scope = useComputerQueryScope();

@@ -48,6 +48,27 @@ pub fn engine_payload_is_failure(v: &Value) -> Option<String> {
     None
 }
 
+/// Extract a stable engine refusal / soft-fail code when present.
+pub fn engine_failure_code(v: &Value) -> Option<String> {
+    if let Some(code) = v
+        .pointer("/refusal/code")
+        .or_else(|| v.get("code"))
+        .and_then(|s| s.as_str())
+    {
+        let c = code.trim();
+        if !c.is_empty() && !c.eq_ignore_ascii_case("ok") && !c.eq_ignore_ascii_case("success") {
+            return Some(c.to_string());
+        }
+    }
+    if let Some(status) = v.get("status").and_then(|s| s.as_str()) {
+        let s = status.to_ascii_lowercase();
+        if s == "refused" || s == "error" || s == "failed" {
+            return Some(status.to_string());
+        }
+    }
+    None
+}
+
 /// Parse `call` CLI stdout/stderr into JSON.
 ///
 /// Rules (locked against 0.19.x live probe; shapes stable since 0.17 fixtures):
@@ -266,6 +287,17 @@ mod tests {
     fn success_payload_not_failure() {
         let v = json!({ "width": 1512, "height": 982 });
         assert!(engine_payload_is_failure(&v).is_none());
+    }
+
+    #[test]
+    fn failure_code_from_refusal() {
+        let v = json!({
+            "refusal": { "code": "browser_ref_stale", "message": "refs expired" }
+        });
+        assert_eq!(
+            engine_failure_code(&v).as_deref(),
+            Some("browser_ref_stale")
+        );
     }
 
     fn fixture_dir() -> PathBuf {

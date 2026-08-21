@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Download, Share2, X } from "lucide-react";
+import { Download, Globe, Share2, X } from "lucide-react";
 import {
   Button,
   Dialog,
@@ -18,6 +18,12 @@ import {
   cn,
   toastManager,
 } from "@workspace/ui";
+import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+} from "@workspace/ui/components/motion/tabs";
+import { motion, useReducedMotion } from "motion/react";
 import { useTranslations } from "next-intl";
 
 import {
@@ -37,6 +43,13 @@ import {
   formatCompactNumber,
   formatCurrencyCompact,
 } from "@/app-shell/token-usage-dialog-utils";
+import type { TokenUsageOverviewResponse } from "@/api/ws/token-usage-api";
+import { hubConfigured } from "@/api/hub-client";
+import { TokenUsagePublishControls } from "@/features/token-usage/TokenUsagePublishControls";
+import {
+  consumeTokenUsageShareQuery,
+  takeTokenUsageShareResume,
+} from "@/features/token-usage/token-usage-share-resume";
 
 type TokenUsageSharePopoverProps = {
   captureTargetRef: React.RefObject<HTMLElement | null>;
@@ -44,6 +57,7 @@ type TokenUsageSharePopoverProps = {
   isDark: boolean;
   totalTokens: number;
   totalCost: number | null;
+  overview?: TokenUsageOverviewResponse | null;
   disabled?: boolean;
 };
 
@@ -61,7 +75,195 @@ const SOCIALS: Array<{
 /** Compact ~16:9 preview — image fills the box (object-cover). */
 const PREVIEW_FRAME_H = 168;
 const ACTIONS_ROW_H = 44;
-const POPOVER_W = 300;
+const POPOVER_W = 320;
+const TAB_EASE = [0.22, 1, 0.36, 1] as const;
+
+function SharePublishPanels({
+  tab,
+  share,
+  publish,
+}: {
+  tab: string;
+  share: React.ReactNode;
+  publish: React.ReactNode;
+}) {
+  const reduce = useReducedMotion();
+  const publishRef = React.useRef<HTMLDivElement>(null);
+  const shareRef = React.useRef<HTMLDivElement>(null);
+  const [height, setHeight] = React.useState<number | "auto">("auto");
+
+  React.useLayoutEffect(() => {
+    const el = tab === "publish" ? publishRef.current : shareRef.current;
+    if (!el) return;
+    const apply = () => {
+      const next = el.offsetHeight;
+      setHeight((prev) => (prev === next ? prev : next));
+    };
+    apply();
+    const ro = new ResizeObserver(apply);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [tab]);
+
+  return (
+    <motion.div
+      initial={false}
+      animate={reduce || height === "auto" ? undefined : { height }}
+      transition={{ duration: 0.3, ease: TAB_EASE }}
+      className="overflow-hidden"
+    >
+      <div className="relative">
+        <motion.div
+          ref={publishRef}
+          initial={false}
+          animate={{
+            opacity: tab === "publish" ? 1 : 0,
+            scale: tab === "publish" ? 1 : 0.96,
+          }}
+          transition={{ duration: reduce ? 0 : 0.22, ease: TAB_EASE }}
+          className={cn(
+            "origin-top",
+            tab === "publish"
+              ? "relative"
+              : "pointer-events-none absolute inset-x-0 top-0",
+          )}
+          aria-hidden={tab !== "publish"}
+          inert={tab !== "publish" ? true : undefined}
+        >
+          {publish}
+        </motion.div>
+        <motion.div
+          ref={shareRef}
+          initial={false}
+          animate={{
+            opacity: tab === "share" ? 1 : 0,
+            scale: tab === "share" ? 1 : 0.96,
+          }}
+          transition={{ duration: reduce ? 0 : 0.22, ease: TAB_EASE }}
+          className={cn(
+            "origin-top",
+            tab === "share"
+              ? "relative"
+              : "pointer-events-none absolute inset-x-0 top-0",
+          )}
+          aria-hidden={tab !== "share"}
+          inert={tab !== "share" ? true : undefined}
+        >
+          {share}
+        </motion.div>
+      </div>
+    </motion.div>
+  );
+}
+
+function ShareCardBody({
+  isDark,
+  previewUrl,
+  captureFailed,
+  blob,
+  disabled,
+  busy,
+  onOpenLightbox,
+  onSocial,
+  onSave,
+}: {
+  isDark: boolean;
+  previewUrl: string | null;
+  captureFailed: boolean;
+  blob: Blob | null;
+  disabled?: boolean;
+  busy: boolean;
+  onOpenLightbox: () => void;
+  onSocial: (platform: SocialPlatform) => void;
+  onSave: () => void;
+}) {
+  const t = useTranslations("appShell.tokenUsageDialog.share");
+  return (
+    <>
+      <div className="p-2.5 pb-2">
+        <div
+          className={cn(
+            "relative w-full overflow-hidden rounded-[16px] border",
+            isDark ? "border-white/10 bg-black/30" : "border-black/8 bg-muted/30",
+          )}
+          style={{ height: PREVIEW_FRAME_H }}
+        >
+          {previewUrl ? (
+            <button
+              type="button"
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                onOpenLightbox();
+              }}
+              onPointerDown={(event) => {
+                event.stopPropagation();
+              }}
+              className="absolute inset-0 block cursor-zoom-in outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              aria-label={t("openPreview")}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element -- blob preview */}
+              <img
+                src={previewUrl}
+                alt={t("previewAlt")}
+                className="h-full w-full object-cover object-top"
+              />
+            </button>
+          ) : captureFailed ? (
+            <div className="absolute inset-0 flex items-center justify-center px-3 text-center">
+              <span className="text-[11px] text-muted-foreground">
+                {t("errors.capture")}
+              </span>
+            </div>
+          ) : (
+            <div className="absolute inset-0">
+              <ImageGenerationCanvas
+                theme={isDark ? "dark" : "light"}
+                aria-label={t("capturing")}
+                className="rounded-[16px]"
+              />
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div
+        className="flex w-full shrink-0 items-center gap-1 px-2 pb-1.5"
+        style={{ height: ACTIONS_ROW_H }}
+      >
+        <div className="flex h-8 min-w-0 flex-1 items-center gap-0.5">
+          {SOCIALS.map(({ id, label, Icon }) => (
+            <Button
+              key={id}
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              disabled={disabled || busy || !blob}
+              onClick={() => onSocial(id)}
+              aria-label={label}
+              title={label}
+              className="size-8 shrink-0"
+            >
+              <Icon className="opacity-90" size={14} />
+            </Button>
+          ))}
+        </div>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          disabled={disabled || busy || !blob}
+          onClick={onSave}
+          aria-label={t("save")}
+          title={t("save")}
+          className="size-8 shrink-0"
+        >
+          <Download className="size-3.5 opacity-90" aria-hidden />
+        </Button>
+      </div>
+    </>
+  );
+}
 
 export function TokenUsageSharePopover({
   captureTargetRef,
@@ -69,10 +271,16 @@ export function TokenUsageSharePopover({
   isDark,
   totalTokens,
   totalCost,
+  overview = null,
   disabled,
 }: TokenUsageSharePopoverProps) {
   const t = useTranslations("appShell.tokenUsageDialog.share");
+  const publishT = useTranslations("appShell.tokenUsageDialog.publish");
+  const canPublish = hubConfigured();
+  const [tab, setTab] = React.useState("share");
   const [open, setOpen] = React.useState(false);
+  const contentRef = React.useRef<HTMLDivElement | null>(null);
+  const clampYRef = React.useRef(0);
   const [lightboxOpen, setLightboxOpen] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
   const [captureFailed, setCaptureFailed] = React.useState(false);
@@ -81,6 +289,7 @@ export function TokenUsageSharePopover({
   const previewUrlRef = React.useRef<string | null>(null);
   /** True while lightbox is open or was opened from this popover — keep popover open. */
   const lightboxActiveRef = React.useRef(false);
+  const nestedDialogOpenRef = React.useRef(false);
 
   const notify = React.useCallback(
     (title: string, type: "success" | "error" | "info" = "info") => {
@@ -129,9 +338,10 @@ export function TokenUsageSharePopover({
       pixelRatio: Math.min(2, window.devicePixelRatio || 2),
       slogan: ATMOS_SLOGAN,
       siteHost: ATMOS_SITE_HOST,
+      websiteLabel: t("websiteLabel"),
       isDark,
     });
-  }, [captureTargetRef, isDark]);
+  }, [captureTargetRef, isDark, t]);
 
   // Capture when popover opens. Keep blob alive while lightbox is open even if
   // the popover closes (clicking preview would otherwise revoke URL immediately).
@@ -277,14 +487,62 @@ export function TokenUsageSharePopover({
 
   const handlePopoverOpenChange = React.useCallback(
     (next: boolean) => {
-      // While the full-size preview is open (or just closing), do not dismiss the popover.
-      if (!next && (lightboxOpen || lightboxActiveRef.current)) {
+      // While the full-size preview or nested sign-in dialog is open, keep the popover.
+      if (
+        !next &&
+        (lightboxOpen || lightboxActiveRef.current || nestedDialogOpenRef.current)
+      ) {
         return;
       }
       setOpen(next);
+      if (!next) setTab("share");
     },
     [lightboxOpen],
   );
+
+  React.useLayoutEffect(() => {
+    const resume =
+      consumeTokenUsageShareQuery() ?? takeTokenUsageShareResume();
+    if (!resume) return;
+    setTab(resume);
+    setOpen(true);
+  }, []);
+
+  const clampBelowHeader = React.useCallback(() => {
+    const el = contentRef.current;
+    if (!el) return;
+    const page = document.querySelector("[data-token-usage-page-scroll]");
+    const header = document.querySelector("[data-app-shell-header]");
+    const minTop =
+      Math.max(
+        page?.getBoundingClientRect().top ?? 0,
+        header?.getBoundingClientRect().bottom ?? 48,
+      ) + 8;
+    const overflow = minTop - el.getBoundingClientRect().top;
+    if (overflow > 0.5) {
+      clampYRef.current += overflow;
+    } else if (overflow < -0.5 && clampYRef.current > 0) {
+      clampYRef.current = Math.max(0, clampYRef.current + overflow);
+    } else {
+      return;
+    }
+    el.style.marginTop = clampYRef.current > 0 ? `${clampYRef.current}px` : "";
+  }, []);
+
+  React.useEffect(() => {
+    if (!open) {
+      clampYRef.current = 0;
+      contentRef.current?.style.removeProperty("margin-top");
+      return;
+    }
+    let raf = 0;
+    const tick = () => {
+      clampBelowHeader();
+      raf = window.requestAnimationFrame(tick);
+    };
+    raf = window.requestAnimationFrame(tick);
+    return () => window.cancelAnimationFrame(raf);
+  }, [clampBelowHeader, open]);
 
   const openLightbox = React.useCallback(() => {
     lightboxActiveRef.current = true;
@@ -332,115 +590,109 @@ export function TokenUsageSharePopover({
           </Button>
         </PopoverTrigger>
         <PopoverContent
+          ref={contentRef}
           align="end"
           side="bottom"
           sideOffset={8}
+          sticky="always"
+          hideWhenDetached={false}
+          updatePositionStrategy="always"
+          collisionPadding={{ top: 56, right: 8, bottom: 8, left: 8 }}
           className={cn(
-            "overflow-hidden rounded-[20px] border-border/70 p-0 shadow-[0_20px_60px_-28px_rgba(15,23,42,0.35)]",
+            "max-h-[min(80vh,720px)] overflow-hidden rounded-[20px] border-border/70 p-0 shadow-[0_20px_60px_-28px_rgba(15,23,42,0.35)]",
           )}
           style={{ width: POPOVER_W, maxWidth: "calc(100vw - 1.5rem)" }}
           {...{ [SHARE_CAPTURE_EXCLUDE_ATTR]: "" }}
           onOpenAutoFocus={(event) => event.preventDefault()}
           onCloseAutoFocus={(event) => event.preventDefault()}
           onPointerDownOutside={(event) => {
-            if (lightboxOpen || isDialogSurface(event.target)) {
+            if (
+              lightboxOpen ||
+              nestedDialogOpenRef.current ||
+              isDialogSurface(event.target)
+            ) {
               event.preventDefault();
             }
           }}
           onFocusOutside={(event) => {
-            if (lightboxOpen || lightboxActiveRef.current) {
+            if (
+              lightboxOpen ||
+              lightboxActiveRef.current ||
+              nestedDialogOpenRef.current ||
+              isDialogSurface(event.target)
+            ) {
               event.preventDefault();
             }
           }}
           onInteractOutside={(event) => {
-            if (lightboxOpen || isDialogSurface(event.target)) {
+            if (
+              lightboxOpen ||
+              nestedDialogOpenRef.current ||
+              isDialogSurface(event.target)
+            ) {
               event.preventDefault();
             }
           }}
         >
-          {/* Preview fills the frame (object-cover) — same size loading & ready */}
-          <div className="p-2.5 pb-2">
-            <div
-              className={cn(
-                "relative w-full overflow-hidden rounded-[16px] border",
-                isDark ? "border-white/10 bg-black/30" : "border-black/8 bg-muted/30",
-              )}
-              style={{ height: PREVIEW_FRAME_H }}
+          {canPublish ? (
+            <Tabs
+              value={tab}
+              onValueChange={setTab}
+              variant="pill"
+              className="flex flex-col"
             >
-              {previewUrl ? (
-                <button
-                  type="button"
-                  onClick={(event) => {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    openLightbox();
-                  }}
-                  onPointerDown={(event) => {
-                    event.stopPropagation();
-                  }}
-                  className="absolute inset-0 block cursor-zoom-in outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  aria-label={t("openPreview")}
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element -- blob preview */}
-                  <img
-                    src={previewUrl}
-                    alt={t("previewAlt")}
-                    className="h-full w-full object-cover object-top"
+              <div className="px-2.5 pt-2.5">
+                <TabsList className="h-8 gap-0.5 p-0.5">
+                  <TabsTrigger value="share" className="h-7 gap-1.5 px-3 text-xs">
+                    <Share2 className="size-3.5 shrink-0" aria-hidden />
+                    {t("tab")}
+                  </TabsTrigger>
+                  <TabsTrigger value="publish" className="h-7 gap-1.5 px-3 text-xs">
+                    <Globe className="size-3.5 shrink-0" aria-hidden />
+                    {publishT("tab")}
+                  </TabsTrigger>
+                </TabsList>
+              </div>
+              <SharePublishPanels
+                tab={tab}
+                publish={
+                  <TokenUsagePublishControls
+                    overview={overview}
+                    disabled={disabled}
+                    onDialogOpenChange={(next) => {
+                      nestedDialogOpenRef.current = next;
+                      if (next) setOpen(true);
+                    }}
                   />
-                </button>
-              ) : captureFailed ? (
-                <div className="absolute inset-0 flex items-center justify-center px-3 text-center">
-                  <span className="text-[11px] text-muted-foreground">
-                    {t("errors.capture")}
-                  </span>
-                </div>
-              ) : (
-                <div className="absolute inset-0">
-                  <ImageGenerationCanvas
-                    theme={isDark ? "dark" : "light"}
-                    aria-label={t("capturing")}
-                    className="rounded-[16px]"
+                }
+                share={
+                  <ShareCardBody
+                    isDark={isDark}
+                    previewUrl={previewUrl}
+                    captureFailed={captureFailed}
+                    blob={blob}
+                    disabled={disabled}
+                    busy={busy}
+                    onOpenLightbox={openLightbox}
+                    onSocial={handleSocial}
+                    onSave={handleSave}
                   />
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Fixed-height actions row: social icons + save (no divider) */}
-          <div
-            className="flex w-full shrink-0 items-center gap-1 px-2 pb-1.5"
-            style={{ height: ACTIONS_ROW_H }}
-          >
-            <div className="flex h-8 min-w-0 flex-1 items-center gap-0.5">
-              {SOCIALS.map(({ id, label, Icon }) => (
-                <Button
-                  key={id}
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  disabled={disabled || busy || !blob}
-                  onClick={() => handleSocial(id)}
-                  aria-label={label}
-                  title={label}
-                  className="size-8 shrink-0"
-                >
-                  <Icon className="opacity-90" size={14} />
-                </Button>
-              ))}
-            </div>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              disabled={disabled || busy || !blob}
-              onClick={handleSave}
-              aria-label={t("save")}
-              title={t("save")}
-              className="size-8 shrink-0"
-            >
-              <Download className="size-3.5 opacity-90" aria-hidden />
-            </Button>
-          </div>
+                }
+              />
+            </Tabs>
+          ) : (
+            <ShareCardBody
+              isDark={isDark}
+              previewUrl={previewUrl}
+              captureFailed={captureFailed}
+              blob={blob}
+              disabled={disabled}
+              busy={busy}
+              onOpenLightbox={openLightbox}
+              onSocial={handleSocial}
+              onSave={handleSave}
+            />
+          )}
         </PopoverContent>
       </Popover>
 

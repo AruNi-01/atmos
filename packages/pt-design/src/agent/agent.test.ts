@@ -1,0 +1,255 @@
+import { describe, expect, test } from "bun:test";
+import { mkdtempSync, readFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { openFileSession, runTool } from "./api";
+import { runSessionTool } from "./session-tools";
+import { createPtDesignSession } from "../core/session";
+import { isPtDesignError } from "./errors";
+import { PT_DESIGN_TOOL_DEFS } from "./tool-defs";
+import { createMcpServer } from "../mcp/server";
+import { runCli } from "../cli/bin";
+import { normalizeIR } from "../ir/encode";
+import type { DesignIR } from "../ir/schema";
+
+function tmpFile() {
+  return join(mkdtempSync(join(tmpdir(), "pt-")), "app.ptdesign.json");
+}
+
+describe("agent adapters", () => {
+  test("tool-defs names are unique and complete", () => {
+    const names = PT_DESIGN_TOOL_DEFS.map((d) => d.name);
+    expect(new Set(names).size).toBe(names.length);
+    expect(names).toContain("pt_place");
+    expect(names).toContain("pt_handoff");
+    expect(names).toContain("pt_doc_init");
+  });
+
+  test("runSessionTool places on an in-memory session without a file", () => {
+    const session = createPtDesignSession();
+    const placed = runSessionTool(session, {
+      name: "pt_place",
+      args: { componentType: "button", at: { x: 12, y: 24 }, props: { label: "Go" } },
+    });
+    expect((placed as { componentType: string }).componentType).toBe("button");
+    const ir = runSessionTool(session, { name: "pt_ir_get", args: {} }) as DesignIR;
+    expect(ir.freeNodes.some((n) => n.componentType === "button")).toBe(true);
+    expect(() =>
+      runSessionTool(session, { name: "pt_doc_init", args: { file: "./nope.ptdesign.json" } }),
+    ).toThrow(/Live board/);
+  });
+
+  test("MCP lists tools and place+ir_get auto-saves", () => {
+    const file = tmpFile();
+    const mcp = createMcpServer({ file });
+    const listed = mcp.listTools().map((t) => t.name).sort();
+    expect(listed).toEqual([...PT_DESIGN_TOOL_DEFS.map((d) => d.name)].sort());
+    const placed = mcp.callTool("pt_place", {
+      componentType: "button",
+      at: { x: 10, y: 10 },
+      props: { label: "Save" },
+    });
+    expect(placed.isError).toBe(false);
+    const ir = mcp.callTool("pt_ir_get", {});
+    expect(ir.isError).toBe(false);
+    const data = ir.data as DesignIR;
+    expect(data.freeNodes.some((n) => n.componentType === "button")).toBe(true);
+    const opened = openFileSession({ file });
+    expect(opened.session.getIR().freeNodes.some((n) => n.componentType === "button")).toBe(true);
+  });
+
+  test("unbound MCP mutate without a file is MISSING_FILE", () => {
+    const mcp = createMcpServer();
+    const placed = mcp.callTool("pt_place", {
+      componentType: "button",
+      at: { x: 10, y: 10 },
+    });
+    expect(placed.isError).toBe(true);
+    expect(JSON.stringify(placed)).toContain("MISSING_FILE");
+    expect(JSON.stringify(placed)).toContain("/api/pt-design/agent/invoke");
+  });
+
+  test("unbound MCP session keeps autoSave so init+place persist", () => {
+    const file = tmpFile();
+    const mcp = createMcpServer();
+    expect(mcp.fs.path).toBeNull();
+    expect(mcp.fs.autoSave).toBe(true);
+    const inited = mcp.callTool("pt_doc_init", { file });
+    expect(inited.isError).toBe(false);
+    const placed = mcp.callTool("pt_place", {
+      componentType: "button",
+      at: { x: 10, y: 10 },
+      props: { label: "Save" },
+    });
+    expect(placed.isError).toBe(false);
+    const opened = openFileSession({ file });
+    expect(opened.session.getIR().freeNodes.some((n) => n.componentType === "button")).toBe(true);
+  });
+
+  test("CLI launcher sets exitCode instead of process.exit", () => {
+    const launcher = readFileSync(
+      join(dirname(fileURLToPath(import.meta.url)), "../../bin/pt-design.mjs"),
+      "utf8",
+    );
+    expect(launcher).toContain("#!/usr/bin/env bun");
+    expect(launcher).toContain("process.exitCode = code");
+    expect(launcher).not.toMatch(/process\.exit\(/);
+  });
+
+  test("CLI place without --file does not use a collab room", async () => {
+    const logs: string[] = [];
+    const orig = process.stdout.write.bind(process.stdout);
+    const origErr = process.stderr.write.bind(process.stderr);
+    process.stdout.write = ((chunk: string | Uint8Array) => {
+      logs.push(String(chunk));
+      return true;
+    }) as typeof process.stdout.write;
+    process.stderr.write = (() => true) as typeof process.stderr.write;
+    const prev = process.env.PT_DESIGN_COLLAB_ROOM;
+    process.env.PT_DESIGN_COLLAB_ROOM = "abc123,secretKey";
+    try {
+      const code = await runCli(["place", "button", "--at", "10,10", "--json"]);
+      expect(code).toBe(2);
+    } finally {
+      process.stdout.write = orig;
+      process.stderr.write = origErr;
+      if (prev === undefined) delete process.env.PT_DESIGN_COLLAB_ROOM;
+      else process.env.PT_DESIGN_COLLAB_ROOM = prev;
+    }
+    const parsed = JSON.parse(logs.join(""));
+    expect(parsed.ok).toBe(false);
+    expect(parsed.error.code).toBe("MISSING_FILE");
+    expect(parsed.error.message).toContain("/api/pt-design/agent/invoke");
+    expect(parsed.error.message).not.toContain("PT_DESIGN_COLLAB_ROOM");
+  });
+
+  test("CLI place --json writes parseable success", async () => {
+    const file = tmpFile();
+    const logs: string[] = [];
+    const orig = process.stdout.write.bind(process.stdout);
+    process.stdout.write = ((chunk: string | Uint8Array) => {
+      logs.push(String(chunk));
+      return true;
+    }) as typeof process.stdout.write;
+    try {
+      const code = await runCli(["place", "button", "--at", "10,10", "--file", file, "--json"]);
+      expect(code).toBe(0);
+    } finally {
+      process.stdout.write = orig;
+    }
+    const parsed = JSON.parse(logs.join(""));
+    expect(parsed.ok).toBe(true);
+    expect(parsed.data.componentType).toBe("button");
+    expect(typeof parsed.data.instanceId).toBe("string");
+  });
+
+  test("session CLI MCP parity after place+update+frame", () => {
+    const fileA = tmpFile();
+    const fileB = tmpFile();
+    const ops = (file: string) => {
+      const fs = openFileSession({ file, create: true });
+      runTool(fs, { name: "pt_place", args: { componentType: "button", at: { x: 8, y: 8 }, props: { label: "A" } } });
+      const ir1 = runTool(fs, { name: "pt_ir_get", args: {} }) as DesignIR;
+      const id = ir1.freeNodes[0]?.instanceId;
+      runTool(fs, { name: "pt_update", args: { instanceId: id, props: { label: "B" } } });
+      runTool(fs, {
+        name: "pt_frame_create",
+        args: { name: "Login", x: 0, y: 0, w: 400, h: 300 },
+      });
+      runTool(fs, {
+        name: "pt_place",
+        args: { componentType: "input", at: { x: 20, y: 40 }, frame: "Login" },
+      });
+      return normalizeIR(runTool(fs, { name: "pt_ir_get", args: {} }) as DesignIR);
+    };
+    expect(ops(fileA)).toEqual(ops(fileB));
+  });
+
+  test("missing file and unknown type fail", () => {
+    try {
+      openFileSession({ file: join(tmpdir(), "does-not-exist-pt-design-xyz.ptdesign.json") });
+      throw new Error("should fail");
+    } catch (error) {
+      expect(isPtDesignError(error) && error.code).toBe("MISSING_FILE");
+    }
+    const fs = openFileSession({ file: tmpFile(), create: true });
+    try {
+      runTool(fs, { name: "pt_place", args: { componentType: "nope", at: { x: 0, y: 0 } } });
+      throw new Error("should fail");
+    } catch (error) {
+      expect(isPtDesignError(error) && error.code).toBe("UNKNOWN_COMPONENT_TYPE");
+    }
+  });
+
+  test("every tool-def runs once on a temp file", () => {
+    const file = tmpFile();
+    const fs = openFileSession({ file, create: true });
+    const placed = runTool(fs, {
+      name: "pt_place",
+      args: { componentType: "button", at: { x: 1, y: 1 } },
+    }) as { instanceId: string };
+    runTool(fs, { name: "pt_catalog_list", args: {} });
+    runTool(fs, { name: "pt_ir_get", args: {} });
+    runTool(fs, { name: "pt_scene_get", args: {} });
+    runTool(fs, { name: "pt_frame_create", args: { name: "A", x: 0, y: 0, w: 100, h: 100 } });
+    runTool(fs, { name: "pt_frames_list", args: {} });
+    runTool(fs, { name: "pt_frame_rename", args: { frame: "A", name: "B" } });
+    runTool(fs, { name: "pt_update", args: { instanceId: placed.instanceId, props: { label: "X" } } });
+    runTool(fs, { name: "pt_export", args: {} });
+    runTool(fs, { name: "pt_handoff", args: { scope: "document" } });
+    runTool(fs, { name: "pt_apply_ir", args: { ir: fs.session.getIR(), mode: "merge", dryRun: true } });
+    runTool(fs, { name: "pt_doc_save", args: { file } });
+    runTool(fs, { name: "pt_delete", args: { instanceId: placed.instanceId } });
+    expect(fs.session.getIR().freeNodes.every((n) => n.instanceId !== placed.instanceId)).toBe(true);
+  });
+
+  test("CLI frame create parses string numeric flags into IR bbox", async () => {
+    const file = tmpFile();
+    const logs: string[] = [];
+    const orig = process.stdout.write.bind(process.stdout);
+    process.stdout.write = ((chunk: string | Uint8Array) => {
+      logs.push(String(chunk));
+      return true;
+    }) as typeof process.stdout.write;
+    try {
+      expect(await runCli(["doc", "init", "--file", file, "--json"])).toBe(0);
+      logs.length = 0;
+      const code = await runCli([
+        "frame",
+        "create",
+        "--name",
+        "Login",
+        "--x",
+        "100",
+        "--y",
+        "80",
+        "--w",
+        "500",
+        "--h",
+        "400",
+        "--file",
+        file,
+        "--json",
+      ]);
+      expect(code).toBe(0);
+    } finally {
+      process.stdout.write = orig;
+    }
+    const parsed = JSON.parse(logs.join(""));
+    expect(parsed.ok).toBe(true);
+    const opened = openFileSession({ file });
+    expect(opened.session.getIR().frames).toHaveLength(1);
+    expect(opened.session.getIR().frames[0]?.name).toBe("Login");
+    expect(opened.session.getIR().frames[0]?.bbox).toEqual({ x: 100, y: 80, w: 500, h: 400 });
+  });
+
+  test("runTool accepts numeric strings for frame bbox", () => {
+    const fs = openFileSession({ file: tmpFile(), create: true });
+    runTool(fs, {
+      name: "pt_frame_create",
+      args: { name: "A", x: "12", y: "8", w: "200", h: "150" },
+    });
+    expect(fs.session.getIR().frames[0]?.bbox).toEqual({ x: 12, y: 8, w: 200, h: 150 });
+  });
+});

@@ -20,6 +20,7 @@ import "@xterm/xterm/css/xterm.css";
 import "./terminal-grid.css";
 
 import { defaultTerminalOptions, atmosDarkTheme, atmosLightTheme, terminalFont } from "../lib/theme";
+import { renderXtermBufferPreview } from "../lib/terminal-xterm-preview";
 import { useTerminalAppearanceSettingsStore } from "@/features/settings/store/terminal-appearance-settings-store";
 import { useTerminalWebSocket } from "../hooks/use-terminal-websocket";
 import type { TerminalProps, TerminalSnapshot } from "../types/index";
@@ -38,10 +39,10 @@ import {
   ensureTerminalFontsLoaded,
   extractCommandName,
   isFindShortcut,
-  isInlineMouseTuiCommand,
   isTerminalContainerVisible,
   markTerminalSessionLive,
   scheduleTerminalSessionDead,
+  shouldEnableTuiMouseOnCommandStart,
   wasTerminalSessionLive,
   isTerminalEmulatorReport,
   isUsableTerminalGrid,
@@ -61,6 +62,21 @@ import {
   shouldDisableTuiMouseOnCmdEnd,
 } from "../lib/tui-mouse-wheel";
 import { createTerminalInputCoalesceQueue } from "../lib/terminal-input-coalesce";
+import {
+  createHostResizePinScheduler,
+  HOST_RESIZE_DRAG_ATTR,
+  hostResizeSurfaceKind,
+  isHostResizeDragActive,
+  shouldDiscardXtermScrollbackOnResize,
+  shouldPinPtyDuringHostDrag,
+} from "../lib/host-resize-pin";
+import { createStableGridScheduler } from "../lib/terminal-stable-fit";
+import {
+  captureXtermResizeScroll,
+  clampProposedTerminalRows,
+  isXtermNearBottom,
+  restoreXtermResizeScroll,
+} from "../lib/terminal-resize-scroll";
 import { TerminalChrome } from "./TerminalChrome";
 import { TerminalSelectionToolbar } from "./TerminalSelectionToolbar";
 import { buildTerminalWsUrl } from "../lib/terminal-ws-url";
@@ -97,14 +113,25 @@ export interface TerminalRef {
   destroy: () => void;
   /** Last N lines of the xterm buffer, optionally skipping lines already read from the bottom. */
   getScreenText: (maxLines: number, skipFromBottom?: number) => string;
+  /** JPEG of the visible buffer, sized to the drag preview card. */
+  capturePreview: (width: number, height: number) => string | null;
 }
 
-// tldraw / mosaic can report a usable but transient terminal grid while a new
+// tldraw / terminal grid can report a usable but transient terminal grid while a new
 // pane is still being inserted. Pin tmux only after the first fit settles.
 const INITIAL_CONNECT_MIN_FRAMES = 2;
 const INITIAL_CONNECT_STABLE_FRAMES = 2;
 const INITIAL_CONNECT_MAX_WAIT_FRAMES = 20;
 const CANVAS_TERMINAL_SCALE_FIT_DEBOUNCE_MS = 300;
+
+function readCssCellHeight(term: XTerm): number {
+  const height = (
+    term as XTerm & {
+      _core?: { _renderService?: { dimensions?: { css?: { cell?: { height?: number } } } } };
+    }
+  )._core?._renderService?.dimensions?.css?.cell?.height;
+  return typeof height === "number" && height > 0 ? height : 0;
+}
 
 function proposeTerminalGrid(
   term: XTerm,
@@ -120,7 +147,24 @@ function proposeTerminalGrid(
   ) {
     return null;
   }
-  return { cols: proposed.cols, rows: proposed.rows };
+  const parent = term.element?.parentElement;
+  const cellHeight = readCssCellHeight(term);
+  const rows = parent
+    ? clampProposedTerminalRows(proposed.rows, parent.clientHeight, cellHeight)
+    : proposed.rows;
+  return { cols: proposed.cols, rows };
+}
+
+function resizeXtermPreservingScroll(
+  term: XTerm,
+  cols: number,
+  rows: number,
+): boolean {
+  if (term.cols === cols && term.rows === rows) return false;
+  const snapshot = captureXtermResizeScroll(term);
+  term.resize(cols, rows);
+  restoreXtermResizeScroll(term, snapshot, () => jumpXtermToBottom(term));
+  return true;
 }
 
 function fitTerminalPreservingScroll(
@@ -138,27 +182,15 @@ function fitTerminalPreservingScroll(
     return { cols: prevCols, rows: prevRows, changed: false };
   }
 
-  const before = term.buffer.active;
-  const wasAtBottom = before.viewportY >= before.baseY;
-  const distanceFromBottom = Math.max(0, before.baseY - before.viewportY);
-
   // Prefer direct resize over FitAddon.fit() when we already know the target:
   // FitAddon clears the render service before resize, which blanks the canvas
   // for a frame and makes inline TUIs flash even when the app redraws quickly.
+  let changed = false;
   if (proposed) {
-    term.resize(proposed.cols, proposed.rows);
+    changed = resizeXtermPreservingScroll(term, proposed.cols, proposed.rows);
   } else {
     fit.fit();
-  }
-
-  const changed = term.cols !== prevCols || term.rows !== prevRows;
-  if (changed) {
-    if (wasAtBottom) {
-      jumpXtermToBottom(term);
-    } else {
-      const after = term.buffer.active;
-      term.scrollToLine(Math.max(0, after.baseY - distanceFromBottom));
-    }
+    changed = term.cols !== prevCols || term.rows !== prevRows;
   }
 
   return {
@@ -292,6 +324,61 @@ const Terminal = ({
   // Dedup pins so warm reveal / double onResize do not re-fire refresh-client
   // (SIGWINCH → full Grok/TUI redraw flash) when the grid is already correct.
   const lastPinnedSizeRef = useRef<{ cols: number; rows: number } | null>(null);
+  const followBottomAfterPinRef = useRef(false);
+  const followBottomGenRef = useRef(0);
+  const followBottomTimersRef = useRef<Array<ReturnType<typeof setTimeout>>>([]);
+  const cancelFollowBottom = () => {
+    followBottomGenRef.current += 1;
+    for (const timer of followBottomTimersRef.current) {
+      clearTimeout(timer);
+    }
+    followBottomTimersRef.current = [];
+  };
+  const jumpAndTrackBottom = (term: XTerm) => {
+    jumpXtermToBottom(term);
+    const buf = term.buffer.active;
+    setShowScrollDown(!isXtermNearBottom(buf.viewportY, buf.baseY));
+  };
+  const scheduleFollowBottom = () => {
+    for (const timer of followBottomTimersRef.current) {
+      clearTimeout(timer);
+    }
+    followBottomTimersRef.current = [];
+    const gen = ++followBottomGenRef.current;
+    const run = () => {
+      if (gen !== followBottomGenRef.current) return;
+      const term = terminalRef.current;
+      if (!term) return;
+      jumpAndTrackBottom(term);
+    };
+    requestAnimationFrame(run);
+    followBottomTimersRef.current.push(setTimeout(run, 48));
+  };
+  const applyXtermGrid = (size: { cols: number; rows: number }) => {
+    const term = terminalRef.current;
+    if (!term || !isUsableTerminalGrid(size.cols, size.rows)) return;
+    const snapshot = captureXtermResizeScroll(term);
+    followBottomAfterPinRef.current = snapshot.kind === "follow";
+    if (term.cols === size.cols && term.rows === size.rows) {
+      if (followBottomAfterPinRef.current) {
+        jumpAndTrackBottom(term);
+        scheduleFollowBottom();
+      }
+      return;
+    }
+    term.resize(size.cols, size.rows);
+    restoreXtermResizeScroll(term, snapshot, () => jumpAndTrackBottom(term));
+    if (followBottomAfterPinRef.current) scheduleFollowBottom();
+  };
+  const hostResizePinRef = useRef(createHostResizePinScheduler({
+    send: (size) => {
+      // Mark the pin first so onResize → pin is a no-op, then resize xterm
+      // before SIGWINCH so the pane dumps into the matching grid.
+      lastPinnedSizeRef.current = { cols: size.cols, rows: size.rows };
+      applyXtermGrid(size);
+      sendResizeRef.current(size);
+    },
+  }));
   const pinTerminalSizeRef = useRef<
     (size: { cols: number; rows: number }, options?: { force?: boolean }) => void
   >(() => {});
@@ -304,11 +391,45 @@ const Terminal = ({
       last.cols === size.cols &&
       last.rows === size.rows
     ) {
+      hostResizePinRef.current.cancel();
       return;
     }
-    lastPinnedSizeRef.current = { cols: size.cols, rows: size.rows };
-    sendResizeRef.current(size);
+    if (options?.force) {
+      hostResizePinRef.current.cancel();
+      lastPinnedSizeRef.current = { cols: size.cols, rows: size.rows };
+      applyXtermGrid(size);
+      sendResizeRef.current(size);
+      return;
+    }
+    const surface = hostResizeSurfaceKind(terminalRef.current);
+    if (!shouldPinPtyDuringHostDrag(surface)) {
+      // Local wrap only. Shells redraw the prompt on SIGWINCH — hold that
+      // until the gesture settles so history does not flash.
+      applyXtermGrid(size);
+      if (isHostResizeDragActive()) {
+        hostResizePinRef.current.hold(size);
+      } else {
+        hostResizePinRef.current.debounce(size);
+      }
+      return;
+    }
+    hostResizePinRef.current.schedule(size);
   };
+  const stableFitRef = useRef(
+    createStableGridScheduler({
+      measure: () => {
+        const term = terminalRef.current;
+        const fit = fitAddonRef.current;
+        if (!term || !fit) return null;
+        return proposeTerminalGrid(term, fit);
+      },
+      isCurrent: (size) => {
+        const term = terminalRef.current;
+        return Boolean(term && term.cols === size.cols && term.rows === size.rows);
+      },
+      apply: (size) => pinTerminalSizeRef.current(size),
+    }),
+  );
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
   const currentTheme = isDark ? atmosDarkTheme : atmosLightTheme;
@@ -783,6 +904,11 @@ const Terminal = ({
         }
         return lines.join("\n");
       },
+      capturePreview: (width: number, height: number) => {
+        const terminal = terminalRef.current;
+        if (!terminal) return null;
+        return renderXtermBufferPreview(terminal, width, height);
+      },
       subscribeOutput: (listener: (data: string) => void) => {
         outputListenersRef.current.add(listener);
         return () => {
@@ -1155,14 +1281,13 @@ const Terminal = ({
 
     const applyDynamicTitleCmdStart = (payload: string) => {
       const title = extractCommandName(payload);
-      // Enable mouse is safe for both 9998 and 9999 when a TUI is indicated.
-      // (Disable is gated separately — only real shell 9999 CMD_END may clear.)
-      const onAlternate = terminal.buffer.active.type === "alternate";
-      const wantMouse =
-        onAlternate ||
-        tuiMouseDesiredRef.current ||
-        isInlineMouseTuiCommand(payload) ||
-        isInlineMouseTuiCommand(title);
+      // CMD_START arrives before the process can enter alternate screen or
+      // enable DEC mouse. Reassert only state already observed/restored; a
+      // command name alone must never trigger the inline scrollback policy.
+      const wantMouse = shouldEnableTuiMouseOnCommandStart(
+        terminal.buffer.active.type,
+        tuiMouseDesiredRef.current,
+      );
       if (wantMouse) {
         tuiMouseDesiredRef.current = true;
         const seq =
@@ -1245,8 +1370,9 @@ const Terminal = ({
     registerTitleOsc(9999, true);
 
     // Try to load WebGL addon for better performance and crisp text rendering.
+    // preserveDrawingBuffer lets pane drag capture a real terminal snapshot.
     try {
-      const webglAddon = new WebglAddon();
+      const webglAddon = new WebglAddon(true);
       terminal.loadAddon(webglAddon);
       webglAddonRef.current = webglAddon;
 
@@ -1303,12 +1429,15 @@ const Terminal = ({
       pinTerminalSizeRef.current({ cols, rows });
       // Inline mouse TUIs (Grok) only: a rows change can briefly park the old
       // frame as history before repaint. Idle shells and alt-screen apps must
-      // keep local scrollback intact across resize.
+      // keep local scrollback intact across resize. Always drop the previous
+      // TUI frame here — skipping it during drag leaves stacked remnants.
       if (isInlineMouseTuiScrollbackSurface(terminal)) {
         if (terminal.options.scrollback !== 0) {
           terminal.options.scrollback = 0;
         }
-        discardXtermScrollbackWhileMouseTui(terminal, true);
+        if (shouldDiscardXtermScrollbackOnResize({ inlineMouseTuiActive: true })) {
+          discardXtermScrollbackWhileMouseTui(terminal, true);
+        }
       }
     });
 
@@ -1431,7 +1560,8 @@ const Terminal = ({
     // Show button when user scrolls away from bottom.
     terminal.onScroll(() => {
       const buf = terminal.buffer.active;
-      const atBottom = buf.viewportY >= buf.baseY;
+      const atBottom = isXtermNearBottom(buf.viewportY, buf.baseY);
+      if (!atBottom) cancelFollowBottom();
       setShowScrollDown(!atBottom);
     });
 
@@ -1463,7 +1593,9 @@ const Terminal = ({
         }
       }
 
-      fitTerminalPreservingScroll(term, fit);
+      // Wait for the proposed grid to sit still one frame (or a small cap)
+      // before fitting. Pointermove must not SIGWINCH every tick.
+      stableFitRef.current.request();
       connectWhenVisible();
     };
     const scheduleResizeFit = () => {
@@ -1531,6 +1663,8 @@ const Terminal = ({
         clearTimeout(resizeDebounceTimerRef.current);
         resizeDebounceTimerRef.current = null;
       }
+      stableFitRef.current.cancel();
+      cancelFollowBottom();
       disconnect();
       resizeObserverRef.current?.disconnect();
       if (cmdStartTimerRef.current) clearTimeout(cmdStartTimerRef.current);
@@ -1560,6 +1694,8 @@ const Terminal = ({
     if (!surfaceActive) {
       ro.disconnect();
       suppressNextRoFitRef.current = false;
+      stableFitRef.current.cancel();
+      cancelFollowBottom();
       if (resizeRafIdRef.current) {
         cancelAnimationFrame(resizeRafIdRef.current);
         resizeRafIdRef.current = 0;
@@ -1616,6 +1752,34 @@ const Terminal = ({
       cancelAnimationFrame(outer);
     };
   }, [surfaceActive]);
+
+  // Drag end (sidebar / mosaic / in-pane split) drops the host attribute.
+  // Shells have been preview-scaling; flush one real grid + SIGWINCH so only
+  // the prompt line redraws. TUIs get one scrollback discard.
+  useEffect(() => {
+    const root = document.documentElement;
+    const flushHostResize = () => {
+      stableFitRef.current.flush();
+      hostResizePinRef.current.flush();
+      const term = terminalRef.current;
+      if (term && isInlineMouseTuiScrollbackSurface(term)) {
+        discardXtermScrollbackWhileMouseTui(term, true);
+      }
+    };
+    const observer = new MutationObserver(() => {
+      if (isHostResizeDragActive(root)) return;
+      flushHostResize();
+    });
+    observer.observe(root, {
+      attributes: true,
+      attributeFilter: [HOST_RESIZE_DRAG_ATTR],
+    });
+    return () => {
+      observer.disconnect();
+      stableFitRef.current.cancel();
+      hostResizePinRef.current.dispose();
+    };
+  }, []);
 
   return (
     <TerminalChrome

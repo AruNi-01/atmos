@@ -239,3 +239,31 @@ export function toPreloadFileUrl(absolutePath: string): string {
   }
   return `file://${normalized}`;
 }
+
+/**
+ * Guest Web API permissions that product browsing / local dev needs.
+ *
+ * Chromium's async Clipboard API (`navigator.clipboard.writeText`) requests
+ * `clipboard-sanitized-write`. A blanket default-deny makes Next.js error
+ * overlay Copy (and any in-page copy button) fail with:
+ * "Failed to execute 'writeText' on 'Clipboard': Write permission denied."
+ *
+ * `media` (camera/mic) and `notifications` are allowed so local app previews
+ * can exercise those APIs. Device/hardware ports and high-risk surfaces stay
+ * denied by the surface manager (geolocation, USB/HID/serial, display-capture,
+ * openExternal, fileSystem, etc.).
+ */
+export const BROWSER_GUEST_ALLOWED_PERMISSIONS = new Set<string>([
+  "clipboard-sanitized-write",
+  "clipboard-read",
+  "media",
+  "notifications",
+  // Common preview UX; low risk compared to device ports / capture.
+  "fullscreen",
+  "pointerLock",
+]);
+
+/** True when a guest permission may be granted under APP-053 lockdown. */
+export function isAllowedBrowserGuestPermission(permission: string): boolean {
+  return BROWSER_GUEST_ALLOWED_PERMISSIONS.has(permission);
+}

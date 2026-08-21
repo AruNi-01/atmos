@@ -7,7 +7,6 @@
  */
 
 import {
-  createParser,
   parseAsArrayOf,
   parseAsBoolean,
   parseAsInteger,
@@ -18,7 +17,20 @@ import {
 // ---------------------------------------------------------------------------
 // CenterStage – tab & wiki page
 // ---------------------------------------------------------------------------
-export type FixedTab = "overview" | "terminal" | "wiki" | "project-wiki" | "code-review";
+export type FixedTab =
+  | "overview"
+  | "terminal"
+  | "wiki"
+  | "project-wiki"
+  | "code-review"
+  | "simulator"
+  | "git-history"
+  | "changes"
+  | "review"
+  | "run"
+  | "github"
+  | "files"
+  | "pt-design";
 
 export const centerStageParams = {
   tab: parseAsString.withDefault("terminal"),
@@ -27,6 +39,8 @@ export const centerStageParams = {
   canvas: parseAsBoolean.withDefault(false),
   /** Deep-link: focus terminal pane by tmux window name (paired with `tab` = terminal sub-tab id). */
   terminalTmux: parseAsString,
+  /** Deep-link: open/focus a terminal side chat on the source pane. */
+  sideChat: parseAsString,
 };
 
 // ---------------------------------------------------------------------------
@@ -53,15 +67,69 @@ export const workspacesParams = {
 // AutomationsManagement – page state, selected definition, search, filters
 // ---------------------------------------------------------------------------
 export type AutomationsView = "list" | "create" | "edit" | "history";
-export type AutomationTargetFilter = "all" | "project" | "workspace" | "standalone";
+export type AutomationsListTab = "automations" | "history";
+export type AutomationEnvironmentFilter =
+  | "project"
+  | "workspace"
+  | "new_workspace"
+  | "standalone";
+export type AutomationTriggerFilter =
+  | "manual"
+  | "github"
+  | "hourly"
+  | "daily"
+  | "weekly"
+  | "monthly"
+  | "cron";
+export type AutomationStateFilter = "enabled" | "paused";
+export type AutomationRunStatusFilter =
+  | "running"
+  | "completed"
+  | "failed"
+  | "cancelled"
+  | "interrupted";
 
 export const automationsParams = {
   view: parseAsStringEnum<AutomationsView>(["list", "create", "edit", "history"])
     .withDefault("list")
     .withOptions({ history: "push" }),
+  tab: parseAsStringEnum<AutomationsListTab>(["automations", "history"]).withDefault(
+    "automations",
+  ),
   automation: parseAsString.withDefault(""),
   run: parseAsString.withDefault(""),
-  target: parseAsStringEnum<AutomationTargetFilter>(["all", "project", "workspace", "standalone"]).withDefault("all"),
+  environments: parseAsArrayOf(
+    parseAsStringEnum<AutomationEnvironmentFilter>([
+      "project",
+      "workspace",
+      "new_workspace",
+      "standalone",
+    ]),
+  ).withDefault([]),
+  triggers: parseAsArrayOf(
+    parseAsStringEnum<AutomationTriggerFilter>([
+      "manual",
+      "github",
+      "hourly",
+      "daily",
+      "weekly",
+      "monthly",
+      "cron",
+    ]),
+  ).withDefault([]),
+  states: parseAsArrayOf(
+    parseAsStringEnum<AutomationStateFilter>(["enabled", "paused"]),
+  ).withDefault([]),
+  runStatuses: parseAsArrayOf(
+    parseAsStringEnum<AutomationRunStatusFilter>([
+      "running",
+      "completed",
+      "failed",
+      "cancelled",
+      "interrupted",
+    ]),
+  ).withDefault([]),
+  runAutomations: parseAsArrayOf(parseAsString).withDefault([]),
   q: parseAsString.withDefault(""),
 };
 
@@ -105,45 +173,39 @@ export const llmProvidersModalParams = {
 };
 
 export type SettingsModalTab =
-  | "about"
-  | "layout"
-  | "editor"
-  | "canvas"
-  | "terminal"
-  | "code-agent"
-  | "workspace"
-  | "labels"
+  | "general"
   | "account"
-  | "integrations"
-  | "ai"
-  | "notify"
-  | "tunnel-connector"
-  | "atmos-computer"
-  | "desktop-use"
-  | "shortcuts"
-  | "experiments";
+  | "interface"
+  | "editor"
+  | "terminal"
+  | "workspace"
+  | "agents"
+  | "models"
+  | "notifications"
+  | "remote-access"
+  | "apps"
+  | "privacy"
+  | "keyboard";
 
 export const settingsModalParams = {
   settingsModal: parseAsBoolean.withDefault(false),
   activeSettingTab: parseAsStringEnum<SettingsModalTab>([
-    "about",
-    "layout",
-    "editor",
-    "canvas",
-    "terminal",
-    "code-agent",
-    "workspace",
-    "labels",
+    "general",
     "account",
-    "integrations",
-    "ai",
-    "notify",
-    "tunnel-connector",
-    "atmos-computer",
-    "desktop-use",
-    "shortcuts",
-    "experiments",
-  ]).withDefault("layout"),
+    "interface",
+    "editor",
+    "terminal",
+    "workspace",
+    "agents",
+    "models",
+    "notifications",
+    "remote-access",
+    "apps",
+    "privacy",
+    "keyboard",
+  ])
+    .withDefault("interface")
+    .withOptions({ history: "replace" }),
 };
 
 // ---------------------------------------------------------------------------
@@ -158,62 +220,21 @@ export const agentChatParams = {
 };
 
 // ---------------------------------------------------------------------------
-// RightSidebar – create pull request dialog
+// GitHub hub – create pull request dialog
 // ---------------------------------------------------------------------------
-export const rightSidebarDialogParams = {
-  rsCreatePr: parseAsBoolean.withDefault(false),
+export const createPrDialogParams = {
+  createPr: parseAsBoolean.withDefault(false),
 };
 
 // ---------------------------------------------------------------------------
 // LeftSidebar – tab
 // ---------------------------------------------------------------------------
-export type LeftSidebarTab = "projects" | "files";
+export type LeftSidebarTab = "projects";
 
 export const leftSidebarParams = {
-  lsTab: parseAsStringEnum<LeftSidebarTab>(["projects", "files"]).withDefault("projects"),
+  lsTab: parseAsStringEnum<LeftSidebarTab>(["projects"]).withDefault("projects"),
   lsTask: parseAsBoolean.withDefault(false),
   lsTaskQ: parseAsString.withDefault(""),
-};
-
-// ---------------------------------------------------------------------------
-// RightSidebar – tab
-// ---------------------------------------------------------------------------
-export type RightSidebarTab =
-  | "files"
-  | "changes"
-  | "github"
-  | "review"
-  | "browser"
-  | "run";
-
-const RIGHT_SIDEBAR_TABS = [
-  "files",
-  "changes",
-  "github",
-  "review",
-  "browser",
-  "run",
-] as const satisfies readonly RightSidebarTab[];
-
-/** Legacy deep-link values from before PR/Issues/Actions were merged into GitHub. */
-const LEGACY_RS_TAB_MAP: Record<string, RightSidebarTab> = {
-  pr: "github",
-  issues: "github",
-  actions: "github",
-};
-
-function parseRightSidebarTab(value: string): RightSidebarTab | null {
-  const mapped = LEGACY_RS_TAB_MAP[value] ?? value;
-  return (RIGHT_SIDEBAR_TABS as readonly string[]).includes(mapped)
-    ? (mapped as RightSidebarTab)
-    : null;
-}
-
-export const rightSidebarParams = {
-  rsTab: createParser({
-    parse: parseRightSidebarTab,
-    serialize: (value: RightSidebarTab) => value,
-  }).withDefault("changes" satisfies RightSidebarTab),
 };
 
 // ---------------------------------------------------------------------------
@@ -260,7 +281,8 @@ export type TaskGroupingModeParam =
   | "status"
   | "time"
   | "label"
-  | "priority";
+  | "priority"
+  | "agent";
 
 const parseAsStringList = parseAsArrayOf(parseAsString).withDefault([]);
 
@@ -275,6 +297,7 @@ export const taskParams = {
     "time",
     "label",
     "priority",
+    "agent",
   ]).withDefault("status"),
   /** Atmos board filters (comma-separated ids / enum values). */
   taskStatuses: parseAsStringList,

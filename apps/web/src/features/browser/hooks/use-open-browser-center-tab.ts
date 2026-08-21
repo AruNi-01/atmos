@@ -1,27 +1,19 @@
 "use client";
 
 import React from "react";
-import { useQueryStates } from "nuqs";
 
-import { useEditorStore } from "@/features/editor/store/use-editor-store";
-import { useBrowserCenterTabsStore } from "@/features/browser/store/use-browser-center-tabs";
 import { useContextParams } from "@/shared/hooks/use-context-params";
-import { centerStageParams } from "@/shared/lib/nuqs/searchParams";
+import { ensureSurface } from "@/features/browser/lib/ensure-browser-surface";
 
+/** Human “open Browser” follows Settings → Browser → Default surface. */
 export function useOpenBrowserCenterTab() {
   const { effectiveContextId } = useContextParams();
-  const [, setCenterStageParams] = useQueryStates(centerStageParams);
-  const openBrowser = useBrowserCenterTabsStore((state) => state.openBrowser);
-  const setActiveFile = useEditorStore((state) => state.setActiveFile);
 
   const openBrowserCenterTab = React.useCallback(() => {
     if (!effectiveContextId) return null;
-
-    const tab = openBrowser(effectiveContextId);
-    setActiveFile(null, effectiveContextId);
-    void setCenterStageParams({ tab: tab.value, wikiPage: null });
-    return tab;
-  }, [effectiveContextId, openBrowser, setActiveFile, setCenterStageParams]);
+    void ensureSurface({ contextId: effectiveContextId });
+    return { contextId: effectiveContextId };
+  }, [effectiveContextId]);
 
   return { openBrowserCenterTab };
 }

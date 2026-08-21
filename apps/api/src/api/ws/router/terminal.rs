@@ -9,7 +9,7 @@ use core_service::{
 use uuid::Uuid;
 
 impl WsMessageService {
-    /// APP-058: create a terminal session via service API (no browser required).
+    /// APP-063: create a terminal session via service API (no browser required).
     pub(super) async fn handle_terminal_session_create(
         &self,
         req: TerminalSessionCreateRequest,

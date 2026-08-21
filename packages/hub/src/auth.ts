@@ -18,6 +18,7 @@ import { betterAuth } from "better-auth/minimal";
 import { drizzleAdapter } from "@better-auth/drizzle-adapter";
 import type { HubDb } from "./db/client";
 import * as schema from "./db/schema";
+import { pruneUserSessions } from "./user-security";
 
 export type AuthEnv = {
   BETTER_AUTH_SECRET?: string;
@@ -27,12 +28,29 @@ export type AuthEnv = {
   GOOGLE_CLIENT_ID?: string;
   GOOGLE_CLIENT_SECRET?: string;
   ALLOWED_ORIGINS?: string;
+  /**
+   * Fallback OAuth / API error page (app origin). Prefer per-flow errorCallbackURL
+   * from /v1/oauth/start. Default product app when unset.
+   */
+  AUTH_ERROR_URL?: string;
 };
 
+/** Prefer app error UI over Hub's built-in /error (wrong "Go Home"). */
+function authErrorURL(env: AuthEnv): string {
+  const fromEnv =
+    env.AUTH_ERROR_URL?.trim() ||
+    process.env.AUTH_ERROR_URL?.trim() ||
+    "";
+  if (fromEnv) return fromEnv;
+  // Production app; local OAuth always passes errorCallbackURL per request.
+  return "https://app.atmos.land/hub-auth/error";
+}
+
 function trustedOrigins(env: AuthEnv): string[] {
+  // Keep in sync with env.DEFAULT_ALLOWED_ORIGINS / wrangler [vars].
   const raw =
     env.ALLOWED_ORIGINS ??
-    "http://localhost:3000,https://app.atmos.land,https://atmos.land";
+    "http://localhost:3030,http://127.0.0.1:3030,http://localhost:30303,http://127.0.0.1:30303,http://localhost:3000,https://app.atmos.land,https://atmos.land,https://hub.atmos.land,http://localhost:8787";
   return raw
     .split(",")
     .map((s) => s.trim())
@@ -84,6 +102,11 @@ export function createAuth(db: HubDb, env: AuthEnv = {}) {
       },
     }),
     trustedOrigins: trustedOrigins(env),
+    // OAuth failures (link/sign-in) must not strand users on hub.atmos.land/error.
+    // Per-request errorCallbackURL from /v1/oauth/start overrides this for localhost.
+    onAPIError: {
+      errorURL: authErrorURL(env),
+    },
     // Social only — no emailAndPassword in v1 (APP-056).
     socialProviders: {
       github: {
@@ -99,12 +122,26 @@ export function createAuth(db: HubDb, env: AuthEnv = {}) {
       accountLinking: {
         enabled: true,
         trustedProviders: ["github", "google"],
+        // GitHub work email vs Google personal (or reverse) is common —
+        // without this, link returns email_doesn't_match after OAuth.
+        allowDifferentEmails: true,
+      },
+    },
+    user: {
+      // Social-only: no password. UI confirms with typed phrase; Hub also
+      // exposes POST /v1/me/delete (cookie or device Bearer).
+      deleteUser: {
+        enabled: true,
       },
     },
     session: {
       // Skill default is 7d; product uses 30d for desktop-friendly sessions.
       expiresIn: 60 * 60 * 24 * 30,
       updateAge: 60 * 60 * 24,
+      // unlink-account uses freshSessionMiddleware. Default
+      // freshAge is 1 day, which blocks Security settings after login ages.
+      // Social-only Hub has no password re-auth; disable freshness gate (0).
+      freshAge: 0,
       cookieCache: {
         enabled: true,
         maxAge: 60 * 5,
@@ -118,13 +155,22 @@ export function createAuth(db: HubDb, env: AuthEnv = {}) {
       storage: "memory",
     },
     advanced: {
+      // HTTPS Hub (prod): SameSite=None so SPA on localhost / other ports can
+      // call Hub with credentials:include after OAuth in a separate tab.
+      // HTTP local Hub: Lax is fine (same-host dev).
       useSecureCookies:
         (process.env.BETTER_AUTH_URL || "").startsWith("https") ||
         (env.BETTER_AUTH_URL || "").startsWith("https"),
-      defaultCookieAttributes: {
-        sameSite: "lax",
-        httpOnly: true,
-      },
+      defaultCookieAttributes: (() => {
+        const https =
+          (process.env.BETTER_AUTH_URL || "").startsWith("https") ||
+          (env.BETTER_AUTH_URL || "").startsWith("https");
+        return {
+          sameSite: https ? ("none" as const) : ("lax" as const),
+          secure: https,
+          httpOnly: true,
+        };
+      })(),
       // disableCSRFCheck / disableOriginCheck: never enable
     },
     databaseHooks: {
@@ -133,6 +179,18 @@ export function createAuth(db: HubDb, env: AuthEnv = {}) {
           after: async (user) => {
             // Profile row is ensured lazily in /v1/me; hook reserved for extensions.
             void user;
+          },
+        },
+      },
+      session: {
+        create: {
+          after: async (sess) => {
+            // Cap concurrent sessions per user (keep newest + this token).
+            const userId = sess.userId;
+            const token = sess.token;
+            if (userId && token) {
+              await pruneUserSessions(db, userId, { keepToken: token });
+            }
           },
         },
       },

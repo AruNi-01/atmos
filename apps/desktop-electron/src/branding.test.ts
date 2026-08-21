@@ -6,6 +6,7 @@ import {
   APP_ID,
   APP_PRODUCT_NAME,
   resolveAppIcons,
+  resolveDefaultNotificationIcon,
   resolveIconFile,
 } from "./branding-paths.ts";
 
@@ -64,6 +65,23 @@ describe("branding-paths", () => {
       // Avoid nativeImage.createFromPath(.icns) low-res dock tile bug
       expect(icons.dockIconPath).toBe(join(root, "icon.png"));
       expect(icons.icnsPath).toBe(join(root, "icon.icns"));
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("prefers the 256px brand plate for notification content", () => {
+    const root = join(
+      tmpdir(),
+      `atmos-electron-icons-notify-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    );
+    mkdirSync(root, { recursive: true });
+    try {
+      writeFileSync(join(root, "icon.png"), "full");
+      writeFileSync(join(root, "128x128@2x.png"), "notify");
+      expect(resolveDefaultNotificationIcon([root])).toBe(
+        join(root, "128x128@2x.png"),
+      );
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

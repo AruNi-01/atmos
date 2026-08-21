@@ -779,7 +779,7 @@ export const CommitActions: React.FC<CommitActionsProps> = ({
             </Popover>
           </div>
 
-          <div className={cn("flex w-full items-stretch gap-px shadow-sm group", isPanel ? "h-10" : "h-8")}>
+          <div className={cn("flex w-full items-stretch shadow-sm group", isPanel ? "h-10" : "h-8")}>
             <button
               onClick={
                 hasMergeConflicts
@@ -799,8 +799,8 @@ export const CommitActions: React.FC<CommitActionsProps> = ({
                 isPrimaryButtonDisabled
                   ? "bg-muted text-muted-foreground cursor-not-allowed"
                   : showSyncPushButton || showPushButton
-                    ? "bg-secondary text-secondary-foreground hover:bg-secondary/80 border border-sidebar-border"
-                    : "bg-primary text-primary-foreground hover:bg-primary/90",
+                    ? "bg-secondary text-secondary-foreground hover:bg-secondary/80 border border-sidebar-border border-r-sidebar-border/40"
+                    : "bg-primary text-primary-foreground hover:bg-primary/90 border-r border-r-primary-foreground/20",
               )}
             >
               {(isCommitting || isGlobalActionLoading) && (
@@ -860,13 +860,13 @@ export const CommitActions: React.FC<CommitActionsProps> = ({
                 <DropdownMenuTrigger asChild>
                   <button
                     className={cn(
-                      "flex items-center justify-center border-l transition-colors",
+                      "flex items-center justify-center border-l-0 transition-colors",
                       isPanel ? "rounded-r-lg px-3" : "rounded-r-md px-2",
                       isPrimaryButtonDisabled
-                        ? "bg-muted text-muted-foreground border-l-transparent"
+                        ? "bg-muted text-muted-foreground"
                         : showSyncPushButton || showPushButton
-                          ? "bg-secondary text-secondary-foreground hover:bg-secondary/80 border-y border-r border-sidebar-border border-l-sidebar-border/50"
-                          : "bg-primary text-primary-foreground hover:bg-primary/90 border-l-primary-foreground/10",
+                          ? "bg-secondary text-secondary-foreground hover:bg-secondary/80 border-y border-r border-sidebar-border"
+                          : "bg-primary text-primary-foreground hover:bg-primary/90",
                     )}
                     disabled={isPrimaryButtonDisabled}
                   >

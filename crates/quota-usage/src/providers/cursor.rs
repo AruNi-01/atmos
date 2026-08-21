@@ -9,9 +9,9 @@ use crate::models::{DetailRow, DetailSection, ProviderError, RowTone};
 use crate::runtime::LiveFetchResult;
 use crate::support::browser::load_cursor_session_token;
 use crate::support::{
-    build_percent_usage_summary, expand_home, format_reset_relative_text, format_usd,
-    normalize_fraction_percent, parse_i64_string, round_metric, run_command, run_sqlite_query,
-    unix_now,
+    build_percent_usage_summary, decode_jwt_payload, epoch_millis_to_secs, expand_home,
+    format_reset_relative_text, format_usd, normalize_fraction_percent, parse_i64_string,
+    parse_offset_datetime, round_metric, run_command, run_sqlite_query, unix_now,
 };
 
 #[derive(Debug, Clone, Deserialize)]
@@ -31,6 +31,8 @@ struct CursorUsageResponse {
 struct CursorQuotaSummaryResponse {
     #[serde(default)]
     billing_cycle_end: Option<String>,
+    #[serde(default)]
+    membership_type: Option<String>,
     #[serde(default)]
     individual_usage: Option<CursorIndividualUsage>,
     #[serde(default)]
@@ -134,25 +136,24 @@ struct CursorAuth {
     access_token: String,
     email: Option<String>,
     membership_type: Option<String>,
+    team_id: Option<String>,
 }
 
 pub(crate) async fn fetch_cursor_live(client: &Client) -> Result<LiveFetchResult, ProviderError> {
     let auth = load_cursor_auth()?;
 
-    // Try REST API first (accurate individual usage, works for both personal and team)
-    if let Ok(Some(session)) = load_cursor_session_token() {
-        let team_id = extract_cookie_value(&session.cookie_header, "team_id");
-        if let Ok(summary) =
-            request_cursor_usage_summary(client, &session.cookie_header, team_id.as_deref()).await
-        {
-            let plan_info = request_cursor_plan_info(client, &auth.access_token)
-                .await
-                .ok();
-            return build_result_from_summary(client, &auth, summary, plan_info).await;
+    // Prefer cursor.com usage-summary, authenticated with a WorkosCursorSessionToken
+    // derived from Cursor.app's JWT. Browser cookies are optional; api2 DashboardService
+    // stays as a last-resort fallback.
+    let summary_error = match fetch_cursor_usage_summary(client, &auth).await {
+        Ok(summary) => return build_result_from_summary(&auth, summary),
+        Err(error) => {
+            tracing::debug!(error = %error, "Cursor usage-summary unavailable");
+            error
         }
-    }
+    };
 
-    // Fallback to gRPC
+    // Fallback to Connect RPC
     let usage = match request_cursor_usage(client, &auth.access_token).await {
         Ok(usage) => usage,
         Err(error) if error.contains("401") || error.contains("403") => {
@@ -161,7 +162,11 @@ pub(crate) async fn fetch_cursor_live(client: &Client) -> Result<LiveFetchResult
                     .to_string(),
             ));
         }
-        Err(error) => return Err(ProviderError::Fetch(error)),
+        Err(error) => {
+            return Err(ProviderError::Fetch(format!(
+                "Cursor usage-summary failed ({summary_error}); DashboardService fallback failed ({error})"
+            )));
+        }
     };
 
     let plan_info = request_cursor_plan_info(client, &auth.access_token)
@@ -347,22 +352,14 @@ pub(crate) async fn fetch_cursor_live(client: &Client) -> Result<LiveFetchResult
     })
 }
 
-async fn build_result_from_summary(
-    _client: &Client,
+fn build_result_from_summary(
     auth: &CursorAuth,
     summary: CursorQuotaSummaryResponse,
-    plan_info: Option<CursorPlanInfo>,
 ) -> Result<LiveFetchResult, ProviderError> {
     let reset_at = summary
         .billing_cycle_end
         .as_deref()
-        .and_then(parse_cursor_timestamp)
-        .or_else(|| {
-            plan_info
-                .as_ref()
-                .and_then(|p| p.billing_cycle_end.as_deref())
-                .and_then(parse_cursor_timestamp)
-        });
+        .and_then(parse_cursor_timestamp);
 
     let plan = summary
         .individual_usage
@@ -389,9 +386,9 @@ async fn build_result_from_summary(
         ));
     }
 
-    let plan_label = plan_info
-        .as_ref()
-        .and_then(|p| p.plan_name.clone())
+    let plan_label = summary
+        .membership_type
+        .clone()
         .or_else(|| auth.membership_type.clone())
         .map(format_cursor_plan_label);
 
@@ -523,6 +520,63 @@ async fn build_result_from_summary(
     })
 }
 
+async fn fetch_cursor_usage_summary(
+    client: &Client,
+    auth: &CursorAuth,
+) -> Result<CursorQuotaSummaryResponse, String> {
+    if let Some(cookie) = cursor_session_cookie_from_access_token(&auth.access_token) {
+        match request_cursor_usage_summary(client, &cookie, auth.team_id.as_deref()).await {
+            Ok(summary) => return Ok(summary),
+            Err(error) => {
+                tracing::debug!(error = %error, "Cursor.app JWT cookie rejected by usage-summary");
+            }
+        }
+    }
+
+    if let Ok(Some(session)) = load_cursor_session_token() {
+        let team_id =
+            extract_cookie_value(&session.cookie_header, "team_id").or(auth.team_id.clone());
+        return request_cursor_usage_summary(client, &session.cookie_header, team_id.as_deref())
+            .await;
+    }
+
+    Err("no Cursor session cookie available".to_string())
+}
+
+/// Cursor.app local-auth cookie: `WorkosCursorSessionToken={userId}%3A%3A{jwt}`.
+fn cursor_session_cookie_from_access_token(access_token: &str) -> Option<String> {
+    let token = access_token.trim();
+    if token.is_empty() {
+        return None;
+    }
+    let payload = decode_jwt_payload(token)?;
+    if let Some(exp) = payload.get("exp").and_then(|value| value.as_i64()) {
+        if exp <= (unix_now() as i64) + 60 {
+            return None;
+        }
+    } else {
+        return None;
+    }
+    let user_id = cursor_user_id_from_jwt(&payload)?;
+    Some(format!("WorkosCursorSessionToken={user_id}%3A%3A{token}"))
+}
+
+fn cursor_user_id_from_jwt(payload: &serde_json::Value) -> Option<String> {
+    let sub = payload.get("sub")?.as_str()?.trim();
+    if sub.is_empty() {
+        return None;
+    }
+    let user_id = sub.rsplit('|').next().unwrap_or(sub).trim().to_string();
+    if user_id.is_empty() {
+        return None;
+    }
+    let allowed = |ch: char| ch.is_ascii_alphanumeric() || matches!(ch, '.' | '_' | '-');
+    if !user_id.chars().all(allowed) {
+        return None;
+    }
+    Some(user_id)
+}
+
 async fn request_cursor_usage_summary(
     client: &Client,
     cookie_header: &str,
@@ -534,6 +588,7 @@ async fn request_cursor_usage_summary(
     };
     let response = client
         .get(&url)
+        .header("Accept", "application/json")
         .header("Cookie", cookie_header)
         .send()
         .await
@@ -625,6 +680,7 @@ fn load_cursor_auth() -> Result<CursorAuth, ProviderError> {
             access_token,
             email: None,
             membership_type: None,
+            team_id: None,
         });
     }
 
@@ -656,6 +712,9 @@ fn load_cursor_auth_from_state_db() -> Result<Option<CursorAuth>, ProviderError>
             access_token: access_token.unwrap_or_default(),
             email: cursor_state_value(&path, "cursorAuth/cachedEmail")?,
             membership_type: cursor_state_value(&path, "cursorAuth/stripeMembershipType")?,
+            team_id: cursor_state_value(&path, "cursorAuth/cachedTeam")?
+                .as_deref()
+                .and_then(parse_cursor_team_id),
         }));
     }
 
@@ -672,6 +731,7 @@ fn load_cursor_auth_from_keychain() -> Result<Option<CursorAuth>, ProviderError>
         access_token: access_token.unwrap_or_default(),
         email: None,
         membership_type: None,
+        team_id: None,
     }))
 }
 
@@ -714,13 +774,25 @@ fn security_find_generic_password(service: &str) -> Result<Option<String>, Provi
 }
 
 fn parse_cursor_timestamp(raw: &str) -> Option<u64> {
-    parse_i64_string(raw).map(|value| {
-        if value > 1_000_000_000_000 {
-            (value / 1000) as u64
-        } else {
-            value as u64
+    parse_i64_string(raw)
+        .map(epoch_millis_to_secs)
+        .or_else(|| parse_offset_datetime(raw).map(|value| value.unix_timestamp().max(0) as u64))
+}
+
+fn parse_cursor_team_id(raw: &str) -> Option<String> {
+    let value: serde_json::Value = serde_json::from_str(raw).ok()?;
+    match value.get("teamId") {
+        Some(serde_json::Value::Number(number)) => Some(number.to_string()),
+        Some(serde_json::Value::String(text)) => {
+            let text = text.trim();
+            if text.is_empty() {
+                None
+            } else {
+                Some(text.to_string())
+            }
         }
-    })
+        _ => None,
+    }
 }
 
 fn format_percent_window(
@@ -762,4 +834,87 @@ fn format_cursor_plan_label(raw: String) -> String {
         })
         .collect::<Vec<_>>()
         .join(" ")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const LIVE_JWT: &str = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhdXRoMHx1c2VyXzAxSzlIWERURkczMkUyOTFISEQzTjY0R1JHIiwiZXhwIjo5OTk5OTk5OTk5LCJ0eXBlIjoic2Vzc2lvbiJ9.sig";
+    const EXPIRED_JWT: &str = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhdXRoMHx1c2VyXzAxSzlIWERURkczMkUyOTFISEQzTjY0R1JHIiwiZXhwIjoxLCJ0eXBlIjoic2Vzc2lvbiJ9.sig";
+    const NO_EXP_JWT: &str = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhdXRoMHx1c2VyXzAxQUJDIiwidHlwZSI6InNlc3Npb24ifQ.sig";
+
+    #[test]
+    fn derives_workos_cookie_from_cursor_app_jwt() {
+        let cookie = cursor_session_cookie_from_access_token(LIVE_JWT).expect("cookie");
+        assert_eq!(
+            cookie,
+            format!("WorkosCursorSessionToken=user_01K9HXDTFG32E291HHD3N64GRG%3A%3A{LIVE_JWT}")
+        );
+    }
+
+    #[test]
+    fn rejects_expired_or_unexpiring_access_token() {
+        assert!(cursor_session_cookie_from_access_token(EXPIRED_JWT).is_none());
+        assert!(cursor_session_cookie_from_access_token(NO_EXP_JWT).is_none());
+        assert!(cursor_session_cookie_from_access_token("not-a-jwt").is_none());
+    }
+
+    #[test]
+    fn parses_usage_summary_iso_and_dashboard_millis() {
+        assert_eq!(
+            parse_cursor_timestamp("2026-09-03T05:33:03.000Z"),
+            Some(1788413583)
+        );
+        assert_eq!(parse_cursor_timestamp("1788413583000"), Some(1788413583));
+    }
+
+    #[test]
+    fn parses_cached_team_id_from_state_db() {
+        assert_eq!(
+            parse_cursor_team_id(r#"{"teamId":8521357,"name":"HelloBike"}"#).as_deref(),
+            Some("8521357")
+        );
+        assert_eq!(
+            parse_cursor_team_id(r#"{"teamId":"team_abc"}"#).as_deref(),
+            Some("team_abc")
+        );
+        assert!(parse_cursor_team_id("not-json").is_none());
+    }
+
+    #[test]
+    fn usage_summary_reads_membership_and_plan_buckets() {
+        let summary: CursorQuotaSummaryResponse = serde_json::from_str(
+            r#"{
+              "billingCycleEnd": "2026-09-03T05:33:03.000Z",
+              "membershipType": "enterprise",
+              "individualUsage": {
+                "plan": { "used": 2000, "limit": 2000, "totalPercentUsed": 100 },
+                "onDemand": { "used": 59640, "limit": 200000 }
+              },
+              "teamUsage": { "onDemand": { "used": 100, "limit": 200 } }
+            }"#,
+        )
+        .expect("summary");
+        let result = build_result_from_summary(
+            &CursorAuth {
+                access_token: LIVE_JWT.to_string(),
+                email: Some("dev@example.com".to_string()),
+                membership_type: Some("pro".to_string()),
+                team_id: Some("8521357".to_string()),
+            },
+            summary,
+        )
+        .expect("result");
+        assert_eq!(result.plan_label.as_deref(), Some("Enterprise"));
+        assert_eq!(result.reset_at, Some(1788413583));
+        assert_eq!(result.fetch_message, "Cursor usage-summary API");
+        let usage = result
+            .detail_sections
+            .iter()
+            .find(|section| section.title == "Usage")
+            .expect("usage");
+        assert!(usage.rows.iter().any(|row| row.label == "Included usage"));
+        assert!(usage.rows.iter().any(|row| row.label == "On-Demand"));
+    }
 }

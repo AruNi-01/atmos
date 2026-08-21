@@ -25,6 +25,31 @@ export default function RootLayout() {
           <Stack.Screen name="index" />
           <Stack.Screen name="onboarding" />
           <Stack.Screen
+            name="sign-in"
+            options={{
+              // Fill tracks the dock (light: near-black, dark: elevated card).
+              contentStyle: {
+                backgroundColor: theme.isDark
+                  ? theme.colors.cardElevated
+                  : "#0a0a0b",
+                flex: 1,
+              },
+              headerShown: false,
+              presentation: sheetPresentation,
+              sheetCornerRadius: 32,
+              sheetGrabberVisible: isIos,
+              sheetLargestUndimmedDetentIndex: "none",
+              // Single large detent — sheet fills the stack height.
+              ...(isIos
+                ? {
+                    sheetAllowedDetents: [1],
+                    sheetInitialDetentIndex: 0,
+                    sheetExpandsWhenScrolledToEdge: false,
+                  }
+                : null),
+            }}
+          />
+          <Stack.Screen
             name="settings"
             options={{
               contentStyle: sheetContentStyle,

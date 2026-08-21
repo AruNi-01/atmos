@@ -6,13 +6,15 @@ import { useTranslations } from "next-intl";
 import {
   Button,
   Drawer,
+  DrawerCloseButton,
+  DrawerCloseReserveProvider,
   DrawerContentBare,
   DrawerOverlay,
   DrawerPortal,
   DrawerTitle,
   cn,
 } from "@workspace/ui";
-import { ArrowRight, Rocket, X } from "lucide-react";
+import { ArrowRight, Rocket } from "lucide-react";
 import { useQueryState } from "nuqs";
 import { TaskGithubDrawerNavProvider } from "@/features/task/components/task-github-drawer/task-github-drawer-nav-context";
 import type { TaskGithubDrawerEntry } from "@/features/task/components/task-github-drawer/types";
@@ -54,6 +56,7 @@ const ActionsDetailView = dynamic(
 export type TaskGithubDrawerController = {
   openIssue: (entry: Extract<TaskGithubDrawerEntry, { kind: "issue" }>) => void;
   openPr: (entry: Extract<TaskGithubDrawerEntry, { kind: "pr" }>) => void;
+  openCommit: (entry: Extract<TaskGithubDrawerEntry, { kind: "commit" }>) => void;
   push: (entry: TaskGithubDrawerEntry) => void;
   close: () => void;
   isOpen: boolean;
@@ -169,6 +172,7 @@ function DrawerLayer({
     entry: TaskGithubDrawerEntry,
   ) => { mode: "create" | "enter"; label: string; shortLabel: string } | null;
 }) {
+  const t = useTranslations("appShell.task.github");
   const entry = stack[index];
   // Local open state so we can run Vaul's exit animation before unmounting the layer.
   const [open, setOpen] = React.useState(true);
@@ -187,19 +191,19 @@ function DrawerLayer({
     setOpen(true);
   }, [entryKey]);
 
-  if (!entry) return null;
-
-  const isRoot = index === 0;
-  const hasChildInStack = index < stack.length - 1;
-  // Front = still open and no non-exiting layer above us.
-  const isFront = open && index === visualLen - 1;
-
   const beginClose = React.useCallback(() => {
     if (dismissedRef.current) return;
     setOpen(false);
     // Parent peeks restore immediately; unmount waits for animation end.
     onExitStart(index);
   }, [index, onExitStart]);
+
+  if (!entry) return null;
+
+  const isRoot = index === 0;
+  const hasChildInStack = index < stack.length - 1;
+  // Front = still open and no non-exiting layer above us.
+  const isFront = open && index === visualLen - 1;
 
   const { top, right, bottom, left } = insets;
   const peekX = levelsBehind * NEST_PEEK_X;
@@ -291,17 +295,11 @@ function DrawerLayer({
                   : `Action run ${entry.runId}`}
           </DrawerTitle>
 
-          <div className="relative flex h-full min-h-0 w-full flex-col overflow-hidden">
-            <button
-              type="button"
-              className="absolute right-3 top-3 z-30 inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-              onClick={beginClose}
-              aria-label="Close"
-            >
-              <X className="size-3.5" />
-            </button>
+          <DrawerCloseReserveProvider>
+            <div className="relative flex h-full min-h-0 w-full flex-col overflow-hidden">
+              <DrawerCloseButton onClick={beginClose} aria-label={t("close")} />
 
-            <div className="min-h-0 flex-1 overflow-hidden">
+              <div className="min-h-0 flex-1 overflow-hidden">
               {entry.kind === "issue" || entry.kind === "pr" ? (
                 (() => {
                   const action = resolveWorkspaceAction(entry);
@@ -353,8 +351,9 @@ function DrawerLayer({
                   onRequestClose={beginClose}
                 />
               )}
+              </div>
             </div>
-          </div>
+          </DrawerCloseReserveProvider>
 
           {hasChildInStack ? (
             <DrawerLayer
@@ -448,6 +447,16 @@ export function TaskGithubDrawerHost({
     [openRoot],
   );
 
+  const openCommit = React.useCallback(
+    (entry: Extract<TaskGithubDrawerEntry, { kind: "commit" }>) => {
+      openRoot({
+        ...entry,
+        key: entry.key || commitDrawerKey(entry.owner, entry.repo, entry.sha),
+      });
+    },
+    [openRoot],
+  );
+
   const close = React.useCallback(() => {
     setExitingFrom(null);
     setStack([]);
@@ -458,6 +467,7 @@ export function TaskGithubDrawerHost({
     controllerRef.current = {
       openIssue,
       openPr,
+      openCommit,
       push,
       close,
       isOpen,
@@ -465,7 +475,7 @@ export function TaskGithubDrawerHost({
     return () => {
       controllerRef.current = null;
     };
-  }, [close, controllerRef, isOpen, openIssue, openPr, push]);
+  }, [close, controllerRef, isOpen, openCommit, openIssue, openPr, push]);
 
   const nav = React.useMemo(
     () => ({
@@ -602,9 +612,13 @@ export function TaskGithubDrawerHost({
       }
 
       if (entry.kind === "issue") {
+        const title = entry.title?.trim() || "";
         openTaskWorkspaceCreate({
           projectId: entry.projectId,
           setNewWorkspace,
+          displayName: title
+            ? `[issue#${entry.issueNumber}] ${title}`.slice(0, 120)
+            : `[issue#${entry.issueNumber}]`,
           link: {
             kind: "issue",
             owner: entry.owner,
@@ -617,9 +631,13 @@ export function TaskGithubDrawerHost({
         return;
       }
 
+      const prTitle = entry.title?.trim() || "";
       openTaskWorkspaceCreate({
         projectId: entry.projectId,
         setNewWorkspace,
+        displayName: prTitle
+          ? `[PR#${entry.prNumber}] ${prTitle}`.slice(0, 120)
+          : `[PR#${entry.prNumber}]`,
         link: {
           kind: "pr",
           owner: entry.owner,

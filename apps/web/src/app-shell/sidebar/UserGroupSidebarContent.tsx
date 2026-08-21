@@ -52,6 +52,7 @@ import {
   selectAttentionFilterMode,
   useAgentAttentionStore,
 } from "@/features/agent/store/agent-attention-store";
+import { LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS } from "@/app-shell/sidebar-layout-constants";
 
 type DndSensors = DndContextProps["sensors"];
 
@@ -347,10 +348,10 @@ function SortableUserGroupTwoColumnRow({
         transition,
       }}
       className={cn(
-        "group/row flex w-full items-center gap-0.5 rounded-lg transition-colors",
+        "group/row flex w-full items-center gap-0.5 rounded-lg",
         isSelected
           ? "bg-sidebar-accent text-sidebar-foreground"
-          : "text-muted-foreground hover:bg-sidebar-accent/40 hover:text-sidebar-foreground",
+          : "text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
         // Match project drag: placeholder opacity while reordering.
         isDragging ? "relative z-20 opacity-20" : "opacity-100",
         attentionFilterMode && !isDragging && "opacity-45",
@@ -448,10 +449,10 @@ export function UserGroupTwoColumnLeftContent({
           <div
             key={view.key}
             className={cn(
-              "group/row flex w-full items-center gap-0.5 rounded-lg transition-colors",
+              "group/row flex w-full items-center gap-0.5 rounded-lg",
               selectedKey === view.key
                 ? "bg-sidebar-accent text-sidebar-foreground"
-                : "text-muted-foreground hover:bg-sidebar-accent/40 hover:text-sidebar-foreground",
+                : "text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
               attentionFilterMode && "opacity-45",
             )}
           >
@@ -485,7 +486,7 @@ export function UserGroupTwoColumnLeftContent({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex items-center justify-between gap-1 border-b border-sidebar-border px-2 py-1.5">
+      <div className="flex items-center justify-between gap-1 px-2 py-1.5">
         <span className="px-1 text-[11px] font-semibold tracking-[0.03em] text-muted-foreground">
           Groups
         </span>
@@ -536,30 +537,34 @@ export function UserGroupTwoColumnRightContent({
   const { activeProjectId, activeWorkspaceId, ...sharedProjectItemProps } =
     projectItemProps;
 
-  // Primary open: px-3 from the divider. Primary collapsed: pl-5 for Launchpad
-  // alignment, pr-2 so the expand control sits near the right edge.
-  // List always px-3 — same indent whether one or two columns are visible.
-  const headerPad = isPrimaryCollapsed ? "pl-5 pr-2" : "px-3";
+  // Primary open: pl-3, with the shared divider gutter on the right.
+  // Primary collapsed: pl-5 for Launchpad alignment.
+  const headerPad = isPrimaryCollapsed
+    ? cn("pl-5", LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS)
+    : cn("pl-3", LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS);
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="border-b border-sidebar-border">
-        <div className={cn("flex min-h-10 items-center gap-1", headerPad)}>
-          <div className="flex min-w-0 flex-1 items-center gap-2">
-            {selectedView ? (
-              <FolderOpen className="size-4 shrink-0 text-muted-foreground" />
-            ) : null}
-            <div className="min-w-0 truncate text-sm font-medium text-sidebar-foreground">
-              {selectedView?.label ?? chromeT("leftSidebarControls.selectGroup")}
-            </div>
+      <div className={cn("flex min-h-10 items-center gap-1", headerPad)}>
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          {selectedView ? (
+            <FolderOpen className="size-4 shrink-0 text-muted-foreground" />
+          ) : null}
+          <div className="min-w-0 truncate text-sm font-medium text-sidebar-foreground">
+            {selectedView?.label ?? chromeT("leftSidebarControls.selectGroup")}
           </div>
-          <TwoColumnSidebarToggleButton
-            collapsed={isPrimaryCollapsed}
-            onClick={onTogglePrimaryPanel}
-          />
         </div>
+        <TwoColumnSidebarToggleButton
+          collapsed={isPrimaryCollapsed}
+          onClick={onTogglePrimaryPanel}
+        />
       </div>
-      <div className="scrollbar-on-hover flex-1 overflow-y-auto px-3 py-2">
+      <div
+        className={cn(
+          "scrollbar-on-hover flex-1 overflow-y-auto py-2 pl-3",
+          LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS,
+        )}
+      >
         {!selectedView ? (
           <div className="px-3 py-6 text-sm text-muted-foreground">
             {chromeT("leftSidebarControls.selectGroupDescription")}
@@ -692,7 +697,7 @@ function SortableUserGroupOneColumnSection({
     >
       <div
         className={cn(
-          "group/header flex items-center gap-0.5 rounded-lg px-1 py-0.5 hover:bg-sidebar-accent/40",
+          "group/header flex items-center gap-0.5 rounded-lg px-1 py-0.5 hover:bg-sidebar-accent",
           // Attention filter: dim group chrome so projects/workspaces stay the focus.
           attentionFilterMode && "opacity-45",
         )}
@@ -890,13 +895,18 @@ export function UserGroupOneColumnContent({
 
   return (
     <div className="scrollbar-on-hover flex h-full flex-col overflow-y-auto no-scrollbar">
-      <div className="flex items-center justify-between px-3 py-1.5">
+      <div
+        className={cn(
+          "flex items-center justify-between py-1.5 pl-3",
+          LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS,
+        )}
+      >
         <span className="text-[11px] font-semibold tracking-[0.03em] text-muted-foreground">
           Groups
         </span>
         <CreateGroupPopoverButton variant="labeled" onCreate={onCreateGroup} />
       </div>
-      <div className="space-y-0.5 px-2 pb-2">
+      <div className={cn("space-y-0.5 pb-2 pl-2", LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS)}>
         {canReorder ? (
           <DndContext
             collisionDetection={(args) => {

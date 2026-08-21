@@ -25,9 +25,15 @@ import {
   WorkspaceLabelDots,
 } from "@/app-shell/sidebar/workspace-metadata-controls";
 import {
+  getWorkspaceAgentGroupMeta,
   getWorkspaceWorkflowStatusMeta,
   type SidebarGroupingMode,
 } from "@/app-shell/sidebar/workspace-status";
+import {
+  parseWorkspaceAgentGroupKey,
+  type WorkspaceAgentGroupKey,
+} from "@/features/agent/lib/workspace-agent-status";
+import { LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS } from "@/app-shell/sidebar-layout-constants";
 
 type DndSensors = React.ComponentProps<typeof DndContext>["sensors"];
 
@@ -35,6 +41,7 @@ export function LeftSidebarPinnedSection({
   availableLabels,
   groupingMode,
   labelGroupOrder,
+  agentGroupKeyByWorkspaceId,
   isCollapsed,
   isDividerHovered,
   isSortingDisabled,
@@ -48,6 +55,7 @@ export function LeftSidebarPinnedSection({
   availableLabels: WorkspaceLabel[];
   groupingMode: SidebarGroupingMode;
   labelGroupOrder: string[];
+  agentGroupKeyByWorkspaceId?: Readonly<Record<string, WorkspaceAgentGroupKey>>;
   isCollapsed: boolean;
   isDividerHovered: boolean;
   isSortingDisabled: boolean;
@@ -98,7 +106,7 @@ export function LeftSidebarPinnedSection({
             isCollapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]",
           )}>
             <div className="overflow-hidden">
-              <div className="space-y-0.5 px-2 pb-1">
+              <div className={cn("space-y-0.5 pb-1 pl-2", LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS)}>
                 {pinnedWorkspaces.map((entry) => {
                   const statusMeta = getWorkspaceWorkflowStatusMeta(entry.workspace.workflowStatus);
                   const StatusIcon = statusMeta.icon;
@@ -109,6 +117,12 @@ export function LeftSidebarPinnedSection({
                     labelGroupOrder,
                     availableLabels,
                   );
+                  const agentMeta = getWorkspaceAgentGroupMeta(
+                    parseWorkspaceAgentGroupKey(
+                      agentGroupKeyByWorkspaceId?.[entry.workspace.id],
+                    ),
+                  );
+                  const AgentIcon = agentMeta.icon;
                   // Only show right-side context when there is a real value (no "No label" / no priority).
                   const rightContext =
                     groupingMode === "status" ? (
@@ -122,6 +136,8 @@ export function LeftSidebarPinnedSection({
                       labelGroupKey !== UNTAGGED_WORKSPACE_GROUP_KEY &&
                       entry.workspace.labels.length > 0 ? (
                       <WorkspaceLabelDots labels={entry.workspace.labels} overlap />
+                    ) : groupingMode === "agent" ? (
+                      <AgentIcon className={cn("size-3.5 shrink-0", agentMeta.className)} />
                     ) : undefined;
 
                   return renderWorkspaceItemRow(entry, {
@@ -138,14 +154,13 @@ export function LeftSidebarPinnedSection({
       </DndContext>
       <div
         onClick={() => onCollapsedChange(!isCollapsed)}
-        className="group/divider relative mx-4 my-1.5 flex items-center cursor-pointer"
+        className="group/divider relative mx-4 my-1.5 flex items-center justify-center cursor-pointer"
       >
-        <div className="flex-1 border-t border-dashed border-sidebar-border" />
         <div
           onMouseEnter={() => onDividerHoverChange(true)}
           onMouseLeave={() => onDividerHoverChange(false)}
           className={cn(
-            "relative flex items-center gap-1 cursor-pointer pl-2 transition-colors duration-200",
+            "relative flex items-center gap-1 cursor-pointer transition-colors duration-200",
             isDividerHovered ? "text-sidebar-foreground" : "text-muted-foreground",
           )}
         >
@@ -165,7 +180,6 @@ export function LeftSidebarPinnedSection({
             </span>
           )}
         </div>
-        <div className="flex-1 border-t border-dashed border-sidebar-border" />
       </div>
     </>
   );

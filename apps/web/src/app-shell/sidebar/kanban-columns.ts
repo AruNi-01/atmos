@@ -8,9 +8,15 @@ import type {
 } from "@/shared/types/domain";
 import type { SidebarGroupingMode } from "@/app-shell/sidebar/workspace-status";
 import {
+  getWorkspaceAgentGroupMeta,
   getWorkspaceWorkflowStatusMeta,
+  WORKSPACE_AGENT_GROUP_OPTIONS,
   WORKSPACE_WORKFLOW_STATUS_OPTIONS,
 } from "@/app-shell/sidebar/workspace-status";
+import {
+  parseWorkspaceAgentGroupKey,
+  type WorkspaceAgentGroupKey,
+} from "@/features/agent/lib/workspace-agent-status";
 import {
   WORKSPACE_PRIORITY_OPTIONS,
   WORKSPACE_PRIORITY_SORT_WEIGHT,
@@ -18,6 +24,7 @@ import {
 import {
   getWorkspaceTimeGroupKey,
   getWorkspaceTimeGroupLabel,
+  getWorkspaceAgentGroupLabel,
   UNTAGGED_WORKSPACE_GROUP_KEY,
 } from "@/app-shell/sidebar/workspace-grouping";
 import { findGroupIdForMember, UNGROUPED_USER_GROUP_KEY } from "@/app-shell/sidebar/user-groups";
@@ -31,6 +38,8 @@ export type KanbanBoardColumn = {
   color: string;
   status?: WorkspaceWorkflowStatus;
   priority?: WorkspacePriority;
+  /** Agent grouping column (live-derived, not drag-assignable). */
+  agentGroup?: WorkspaceAgentGroupKey;
   /** null = ungrouped column. */
   groupId?: string | null;
   projectId?: string;
@@ -157,6 +166,16 @@ export function buildKanbanBoardColumns(params: {
 }): KanbanBoardColumn[] {
   const { groupingMode, projects, groups, availableLabels, ungroupedLabel, untaggedLabel } = params;
 
+  if (groupingMode === "agent") {
+    return WORKSPACE_AGENT_GROUP_OPTIONS.map((option) => ({
+      key: option.value,
+      label: getWorkspaceAgentGroupLabel(option.value),
+      labelIsI18nKey: false,
+      color: option.color,
+      agentGroup: option.value,
+    }));
+  }
+
   if (groupingMode === "status") {
     return WORKSPACE_WORKFLOW_STATUS_OPTIONS.map((option) => ({
       key: option.value,
@@ -279,9 +298,11 @@ export function resolveKanbanColumnKeys(params: {
   projectId: string;
   workspace: Workspace;
   groups: Group[];
+  agentGroupKey?: WorkspaceAgentGroupKey;
 }): string[] {
-  const { groupingMode, projectId, workspace, groups } = params;
+  const { groupingMode, projectId, workspace, groups, agentGroupKey } = params;
 
+  if (groupingMode === "agent") return [parseWorkspaceAgentGroupKey(agentGroupKey)];
   if (groupingMode === "status") return [workspace.workflowStatus];
   if (groupingMode === "priority") return [workspace.priority];
   if (groupingMode === "project") return [projectId];
@@ -301,6 +322,7 @@ export function isKanbanDragAssignable(groupingMode: SidebarGroupingMode): boole
 }
 
 export function getColumnStatusIconClass(column: KanbanBoardColumn): string | undefined {
+  if (column.agentGroup) return getWorkspaceAgentGroupMeta(column.agentGroup).className;
   if (!column.status) return undefined;
   return getWorkspaceWorkflowStatusMeta(column.status).className;
 }

@@ -3,8 +3,12 @@
 use serde_json::{json, Value};
 
 use super::BrowserBackend;
+use crate::errors::{
+    fail, fail_with_recovery, map_engine_failure, recovery_for, BROWSER_INVALID_ARGS,
+    BROWSER_PROFILE_GRANT_REQUIRED, BROWSER_SETUP_REQUIRED, BROWSER_UNSUPPORTED,
+};
 use crate::types::{
-    BrowserAction, BrowserBackendKind, BrowserError, BrowserRequest, BrowserResult,
+    action_name, BrowserAction, BrowserBackendKind, BrowserError, BrowserRequest, BrowserResult,
     DEFAULT_SNAPSHOT_FORMAT,
 };
 use desktop_use::host;
@@ -14,10 +18,13 @@ use desktop_use::manager::DesktopUseManager;
 pub struct ExternalBackend;
 
 fn session_id(req: &BrowserRequest) -> String {
-    req.session
-        .clone()
-        .filter(|s| !s.trim().is_empty())
-        .unwrap_or_else(|| crate::chrome::DEFAULT_BROWSER_USE_SESSION.into())
+    crate::binding::engine_session_id(req.binding_id.as_deref(), req.session.as_deref())
+}
+
+fn is_existing_profile(strategy: Option<&str>) -> bool {
+    strategy
+        .map(str::trim)
+        .is_some_and(|s| s.contains("existing"))
 }
 
 /// Map a browser request to control-engine tool + args (0.19.2 contracts).
@@ -72,8 +79,10 @@ pub fn build_tool_call(req: &BrowserRequest) -> Result<(&'static str, Value), St
                     a["profile"] = json!({ "mode": "isolated_new" });
                     a["allow_launch"] = json!(true);
                 }
-                Some(_) => {
-                    // Unknown strategy: attach window_id only (detect-only prepare).
+                Some(unknown) => {
+                    return Err(format!(
+                        "unknown --strategy {unknown:?} (use isolated_new | isolated_named | existing_profile)"
+                    ));
                 }
                 None => {
                     // Optimal default: driver-owned isolated profile (never mutates user Chrome).
@@ -114,6 +123,12 @@ pub fn build_tool_call(req: &BrowserRequest) -> Result<(&'static str, Value), St
                     .map(str::trim)
                     .filter(|s| !s.is_empty())
                     .unwrap_or(DEFAULT_SNAPSHOT_FORMAT);
+                if fmt == "embedded_dom_v1" {
+                    return Err(
+                        "snapshot format embedded_dom_v1 is only valid with --backend embedded"
+                            .into(),
+                    );
+                }
                 a["snapshot_format"] = json!(fmt);
                 if req.include_screenshot {
                     a["include_screenshot"] = json!(true);
@@ -376,9 +391,12 @@ pub fn build_tool_call(req: &BrowserRequest) -> Result<(&'static str, Value), St
                 .as_ref()
                 .map(|s| s.trim())
                 .filter(|s| !s.is_empty())
-                .ok_or_else(|| {
-                    "download requires --dir (approved destination directory)".to_string()
-                })?;
+                .map(|s| s.to_string())
+                .unwrap_or_else(|| {
+                    crate::download::default_download_root()
+                        .to_string_lossy()
+                        .into_owned()
+                });
             Ok((
                 "browser_download",
                 json!({
@@ -386,23 +404,172 @@ pub fn build_tool_call(req: &BrowserRequest) -> Result<(&'static str, Value), St
                     "target_id": target,
                     "tab_id": tab,
                     "ref": r,
-                    "dir": dir,
+                    "destination_root": dir,
                 }),
             ))
         }
+        BrowserAction::PressKey => Err(
+            "press-key is only available with --backend embedded (CUA has no browser_press_key)"
+                .into(),
+        ),
+        BrowserAction::Upload => {
+            let target = req
+                .target_id
+                .as_ref()
+                .ok_or_else(|| "upload requires --target-id".to_string())?;
+            let tab = req
+                .tab_id
+                .as_ref()
+                .ok_or_else(|| "upload requires --tab-id".to_string())?;
+            let r = req
+                .element_ref
+                .as_ref()
+                .map(|s| s.trim())
+                .filter(|s| !s.is_empty())
+                .ok_or_else(|| "upload requires --ref".to_string())?;
+            if req.files.is_empty() {
+                return Err("upload requires --file (one or more local paths)".into());
+            }
+            Ok((
+                "browser_set_input_files",
+                json!({
+                    "session": session,
+                    "target_id": target,
+                    "tab_id": tab,
+                    "ref": r,
+                    "paths": req.files,
+                }),
+            ))
+        }
+        BrowserAction::End => Ok((
+            "end_session",
+            json!({
+                "session": session,
+            }),
+        )),
+        BrowserAction::Tabs => Err(
+            "tabs is only available with --backend embedded (in-app Browser tabs are renderer-owned)"
+                .into(),
+        ),
     }
 }
 
-fn action_name(action: BrowserAction) -> &'static str {
-    match action {
-        BrowserAction::Prepare => "prepare",
-        BrowserAction::State => "state",
-        BrowserAction::Click => "click",
-        BrowserAction::Type => "type",
-        BrowserAction::Navigate => "navigate",
-        BrowserAction::Pointer => "pointer",
-        BrowserAction::Dialog => "dialog",
-        BrowserAction::Download => "download",
+fn state_payload_has_elements(v: &Value) -> bool {
+    v.get("elements")
+        .and_then(Value::as_array)
+        .is_some_and(|els| !els.is_empty())
+        || v.get("snapshot")
+            .and_then(|s| s.get("elements"))
+            .and_then(Value::as_array)
+            .is_some_and(|els| !els.is_empty())
+        || v.get("nodes")
+            .and_then(Value::as_array)
+            .is_some_and(|els| !els.is_empty())
+}
+
+#[allow(clippy::result_large_err)]
+fn follow_bind_with_snapshot(
+    engine: &std::path::Path,
+    socket: &std::path::Path,
+    session: &str,
+    bind: Value,
+    req: &BrowserRequest,
+) -> Result<Value, BrowserResult> {
+    if state_payload_has_elements(&bind) {
+        return Ok(bind);
+    }
+    let tmp = BrowserResult {
+        ok: true,
+        result: Some(bind.clone()),
+        target_id: req.target_id.clone(),
+        tab_id: req.tab_id.clone(),
+        ..BrowserResult::default()
+    };
+    let (target_id, tab_id, _) = crate::binding::extract_ids(&tmp);
+    let (Some(target_id), Some(tab_id)) = (target_id, tab_id) else {
+        return Err(fail_with_recovery(
+            action_name(BrowserAction::State),
+            BrowserBackendKind::External.as_str(),
+            BROWSER_SETUP_REQUIRED,
+            "External bind is not a page snapshot (no elements, no target_id/tab_id).",
+            Some(
+                "Prepare once, then `atmos browser-use state --pid <prepared_pid> --window-id <prepared_window_id>`. That call must return elements[]."
+                    .into(),
+            ),
+        ));
+    };
+    let fmt = req
+        .snapshot_format
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .unwrap_or(DEFAULT_SNAPSHOT_FORMAT);
+    let mut args = json!({
+        "session": session,
+        "target_id": target_id,
+        "tab_id": tab_id,
+        "snapshot_format": fmt,
+    });
+    if req.include_screenshot {
+        args["include_screenshot"] = json!(true);
+    }
+    match host::call_tool(engine, socket, "get_browser_state", &args) {
+        Ok(mut snap) => {
+            if let Some(fail_msg) = desktop_use::engine_protocol::engine_payload_is_failure(&snap) {
+                return Err(map_engine_failure(
+                    action_name(BrowserAction::State),
+                    BrowserBackendKind::External.as_str(),
+                    &snap,
+                    &fail_msg,
+                ));
+            }
+            if !state_payload_has_elements(&snap) {
+                return Err(fail_with_recovery(
+                    action_name(BrowserAction::State),
+                    BrowserBackendKind::External.as_str(),
+                    BROWSER_SETUP_REQUIRED,
+                    "External state bound a window but did not snapshot the page.",
+                    Some(
+                        "Retry `atmos browser-use state --target-id <id> --tab-id <tab>`. Do not treat a bind-only list as a finished page."
+                            .into(),
+                    ),
+                ));
+            }
+            if snap.get("target_id").and_then(Value::as_str).is_none() {
+                snap["target_id"] = json!(target_id);
+            }
+            if snap.get("tab_id").and_then(Value::as_str).is_none() {
+                snap["tab_id"] = json!(tab_id);
+            }
+            Ok(snap)
+        }
+        Err(e) => Err(map_engine_failure(
+            action_name(BrowserAction::State),
+            BrowserBackendKind::External.as_str(),
+            &json!({ "error": e }),
+            "browser engine failed",
+        )),
+    }
+}
+
+fn enrich_prepare_result(v: &mut Value, requested_pid: Option<i32>) {
+    let prepared_pid = v
+        .get("pid")
+        .and_then(Value::as_i64)
+        .or_else(|| v.pointer("/process/pid").and_then(Value::as_i64))
+        .or_else(|| v.pointer("/browser/pid").and_then(Value::as_i64));
+    let prepared_window = v
+        .get("window_id")
+        .and_then(Value::as_i64)
+        .or_else(|| v.pointer("/window/id").and_then(Value::as_i64));
+    if let Some(pid) = prepared_pid {
+        v["prepared_pid"] = json!(pid);
+        if requested_pid.is_some_and(|req| i64::from(req) != pid) {
+            v["rebind_required"] = json!(true);
+        }
+    }
+    if let Some(wid) = prepared_window {
+        v["prepared_window_id"] = json!(wid);
     }
 }
 
@@ -411,17 +578,31 @@ impl BrowserBackend for ExternalBackend {
         let action = action_name(req.action);
         let backend = BrowserBackendKind::External.as_str();
 
+        if is_existing_profile(req.profile_strategy.as_deref()) {
+            return fail_with_recovery(
+                action,
+                backend,
+                BROWSER_PROFILE_GRANT_REQUIRED,
+                "`existing_profile` is not granted on this Desktop Use host. The daemon is started without `--grant existing-profile`.",
+                recovery_for(BROWSER_PROFILE_GRANT_REQUIRED),
+            );
+        }
+
         let (tool, args) = match build_tool_call(&req) {
             Ok(v) => v,
             Err(e) => {
-                return BrowserResult {
-                    ok: false,
-                    action: action.into(),
-                    backend: backend.into(),
-                    result: None,
-                    error: Some(BrowserError::InvalidArgs(e).message()),
-                    error_code: Some(BrowserError::InvalidArgs(String::new()).code().into()),
+                let code = if e.contains("only available") {
+                    BROWSER_UNSUPPORTED
+                } else {
+                    BROWSER_INVALID_ARGS
                 };
+                return fail_with_recovery(
+                    action,
+                    backend,
+                    code,
+                    BrowserError::InvalidArgs(e).message(),
+                    recovery_for(code),
+                );
             }
         };
 
@@ -429,41 +610,30 @@ impl BrowserBackend for ExternalBackend {
         let engine = match mgr.require_engine() {
             Ok(p) => p,
             Err(e) => {
-                return BrowserResult {
-                    ok: false,
-                    action: action.into(),
-                    backend: backend.into(),
-                    result: None,
-                    error: Some(e),
-                    error_code: Some("control_engine_not_installed".into()),
-                };
+                return fail(action, backend, "control_engine_not_installed", e);
             }
         };
         let socket = mgr.socket_path();
         let host_app = mgr.host_app_path();
         if let Err(e) = host::ensure_daemon(&engine, &socket, host_app.as_deref()) {
-            return BrowserResult {
-                ok: false,
-                action: action.into(),
-                backend: backend.into(),
-                result: None,
-                error: Some(e),
-                error_code: Some("control_engine_failed".into()),
-            };
+            return fail(action, backend, "control_engine_failed", e);
         }
 
-        // Ensure a named engine session so browser capabilities + cursor palette stick.
         let session = session_id(&req);
-        let _ = host::call_tool(
-            &engine,
-            &socket,
-            "start_session",
-            &json!({ "session": session }),
-        );
+        if req.action != BrowserAction::End {
+            let _ = host::call_tool(
+                &engine,
+                &socket,
+                "start_session",
+                &json!({ "session": session }),
+            );
+        }
 
-        // Desktop Use-class chrome (session cursor + operation border) for spatial
-        // actions. Best-effort; does not replace browser_click / browser_type.
-        if crate::chrome::wants_action_chrome(req.action, req.element_ref.as_deref()) {
+        // Desktop Use-class chrome only when we have a native window to bound.
+        // APP-052: do not couple page actions to a guessed operation border.
+        if req.window_id.is_some()
+            && crate::chrome::wants_action_chrome(req.action, req.element_ref.as_deref())
+        {
             let bounds = req.window_id.and_then(crate::chrome::resolve_window_bounds);
             if let Some(target) = crate::chrome::chrome_target_for_request(
                 req.action,
@@ -478,34 +648,69 @@ impl BrowserBackend for ExternalBackend {
         }
 
         match host::call_tool(&engine, &socket, tool, &args) {
-            Ok(v) => {
-                if let Some(fail) = desktop_use::engine_protocol::engine_payload_is_failure(&v) {
-                    return BrowserResult {
-                        ok: false,
-                        action: action.into(),
-                        backend: backend.into(),
-                        result: Some(v),
-                        error: Some(BrowserError::Engine(fail).message()),
-                        error_code: Some(BrowserError::Engine(String::new()).code().into()),
-                    };
+            Ok(mut v) => {
+                if let Some(fail_msg) = desktop_use::engine_protocol::engine_payload_is_failure(&v)
+                {
+                    return map_engine_failure(action, backend, &v, &fail_msg);
                 }
-                BrowserResult {
+                if req.action == BrowserAction::Prepare {
+                    enrich_prepare_result(&mut v, req.pid);
+                }
+                if req.action == BrowserAction::State {
+                    match follow_bind_with_snapshot(&engine, &socket, &session, v, &req) {
+                        Ok(snap) => v = snap,
+                        Err(failure) => return failure,
+                    }
+                }
+                let mut result = BrowserResult {
                     ok: true,
                     action: action.into(),
                     backend: backend.into(),
                     result: Some(v),
-                    error: None,
-                    error_code: None,
+                    ..BrowserResult::default()
+                };
+                if req.action == BrowserAction::Prepare
+                    && result
+                        .result
+                        .as_ref()
+                        .and_then(|v| v.get("rebind_required"))
+                        .and_then(Value::as_bool)
+                        == Some(true)
+                {
+                    result.recovery = Some(
+                        "`isolated_new` launched a new browser process. Bind with `prepared_pid` / `prepared_window_id` from this response — do not reuse the original --pid."
+                            .into(),
+                    );
                 }
+                result
             }
-            Err(e) => BrowserResult {
-                ok: false,
-                action: action.into(),
-                backend: backend.into(),
-                result: None,
-                error: Some(BrowserError::Engine(e).message()),
-                error_code: Some(BrowserError::Engine(String::new()).code().into()),
-            },
+            Err(e) => map_engine_failure(
+                action,
+                backend,
+                &json!({ "error": e }),
+                "browser engine failed",
+            ),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn bind_payload_without_elements_is_not_a_snapshot() {
+        assert!(!state_payload_has_elements(&json!({
+            "mode": "bind",
+            "target_id": "t",
+            "tab_id": "tab"
+        })));
+        assert!(!state_payload_has_elements(&json!({ "elements": [] })));
+        assert!(state_payload_has_elements(&json!({
+            "elements": [{ "ref": "p1:0" }]
+        })));
+        assert!(state_payload_has_elements(&json!({
+            "snapshot": { "elements": [{ "ref": "p1:0" }] }
+        })));
     }
 }

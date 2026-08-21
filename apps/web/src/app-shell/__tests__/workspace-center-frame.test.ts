@@ -30,6 +30,14 @@ function baseWarm(overrides: Partial<WorkspaceCenterFrameProps> = {}): Workspace
     reviewTarget: undefined,
     projectWikiTabVisible: false,
     codeReviewTabVisible: false,
+    simulatorTabVisible: false,
+    gitHistoryTabVisible: false,
+    changesTabVisible: false,
+    reviewTabVisible: false,
+    runTabVisible: false,
+    githubHubTabVisible: false,
+    filesTabVisible: false,
+    ptDesignTabVisible: false,
     terminalQuickOpenAgents: undefined,
     terminalGridRef: undefined,
     terminalGridRefs: undefined,
@@ -61,6 +69,27 @@ describe("workspaceCenterFramePropsAreEqual", () => {
     const prev = baseWarm({ isActiveContext: false });
     const next = baseWarm({ isActiveContext: true });
     expect(workspaceCenterFramePropsAreEqual(prev, next)).toBe(false);
+  });
+
+  it("treats hop-frame retained tab ids as paint identity, not ignored host chrome", () => {
+    const hop = baseWarm({
+      isActiveContext: true,
+      isUrlSyncedActive: false,
+      activeTabIds: null,
+    });
+    expect(
+      workspaceCenterFramePropsAreEqual(hop, {
+        ...hop,
+        openFiles: [] as never,
+        activeValue: "other.ts",
+      }),
+    ).toBe(true);
+    expect(
+      workspaceCenterFramePropsAreEqual(hop, {
+        ...hop,
+        activeTabIds: ["terminal", "overview"],
+      }),
+    ).toBe(false);
   });
 
   it("re-renders when this frame becomes URL-synced", () => {

@@ -55,6 +55,8 @@ On successful `TcpListener::bind`:
 
 **Auth**: `require_local_token` applies only when `ATMOS_LOCAL_TOKEN` is configured. Default dev/Desktop path is **open loopback**.
 
+**Origin guard**: `require_allowed_origin` is the outermost layer and is the control that keeps a random web page from driving this Server. A WebSocket handshake is exempt from CORS, so the `Origin` allowlist must be enforced as a request guard — `CorsLayer` alone does not protect `/ws*`. Rules: a request with no `Origin` is allowed (non-browser clients such as the relay/tunnel bridge and CLI never send one); a request with `Origin` must satisfy `ServerConfig::is_origin_allowed`; and the `Host` header must be an IP literal, `localhost`, or listed in `ATMOS_ALLOWED_HOSTS` (blocks DNS rebinding, which arrives without an `Origin` header). Keep CORS and the guard on the same predicate — never add a second origin rule.
+
 ---
 
 ## Coding Conventions
@@ -68,6 +70,8 @@ On successful `TcpListener::bind`:
 
 - Primary transport for interactive features (see root **Transport Rules**).
 - Browser/client WebSocket belongs here, not in `infra`.
+- `/ws/pt-design/:roomId` is the local PT Design collab hub (same frames as Relay). User + Agent on this machine stay here; remote invite still uses `packages/relay`.
+- `POST /api/pt-design/agent/invoke` is non-browser Agent/CLI ingress (same category as `/api/canvas/agent/invoke`). The Server does not run PT Design tools; it forwards to the open board over `/ws` (`pt_design_agent_dispatch`). Opening the tab is enough — Share is not required. Users do not configure MCP or put `pt-design-mcp` on PATH.
 - `api/ws` owns connection lifecycle, auth context, message parsing, protocol DTOs, action routing, and mapping service events to WS notifications.
 - `core-service` should not depend on `WsMessage`, `WsAction`, `WsManager`, or Axum. If a service needs to notify clients, emit a service event and adapt it here.
 - `relay/ingest` must treat relay peers like local WS clients for routing (`conn_id`, events), while relay protocol adaptation stays in `apps/api/src/relay`.

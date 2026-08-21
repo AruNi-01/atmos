@@ -9,7 +9,7 @@ pub struct TerminalWorkspaceCandidatesRequest {
     pub workspace_name: Option<String>,
 }
 
-/// APP-058: create a terminal session without requiring a browser PTY client.
+/// APP-063: create a terminal session without requiring a browser PTY client.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TerminalSessionCreateRequest {
     pub workspace_id: String,

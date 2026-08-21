@@ -96,7 +96,7 @@ export function automationNotificationHref(
   params.set("automationId", automationGuid);
   if (runGuid) {
     params.set("automationRun", runGuid);
-    params.set("automationView", "history");
+    params.set("automationTab", "history");
   }
   return `/automations?${params.toString()}`;
 }
@@ -233,12 +233,17 @@ export async function showDesktopNotification(
 ): Promise<boolean> {
   if (!isDesktopRuntime()) return false;
   try {
+    const icon =
+      options.icon === undefined
+        ? await loadNotificationIconDataUrl(DEFAULT_NOTIFICATION_ICON)
+        : options.icon;
     await desktopInvoke("send_notification", {
       title: payload.title,
       body: payload.body,
       data: options.action ?? null,
-      // Content icon (agent). App identity icon still comes from the Electron app bundle.
-      icon: options.icon ?? null,
+      // Content icon. When omitted, use the current brand plate so macOS does
+      // not keep showing a cached pre-rebrand app icon.
+      icon: icon ?? null,
     });
     return true;
   } catch {

@@ -1,20 +1,34 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Button, Host } from "@expo/ui";
+import { expoUiButtonStretchModifiers } from "@/ui/primitives/expo-ui-button-modifiers";
+import { useEffect, useMemo, useState } from "react";
+import { Platform, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { AppScreen, EmptyState, InlineError, Section } from "@/ui/layout/app-screen";
-import { NativeButton, NativePicker, NativeSwitch, NativeTextInput } from "@/ui/primitives/native-controls";
+import { NativePicker, NativeSwitch, NativeTextInput } from "@/ui/primitives/native-controls";
 import { Row, Separator } from "@/ui/layout/row";
 import {
   getCreateWorkspaceReadiness,
   selectCreateWorkspaceProjectGuid,
 } from "@/features/workspaces/create-workspace-readiness";
+import {
+  formatSetupStatus,
+  slugify,
+} from "@/features/workspaces/create-workspace-helpers";
+import { useCreateWorkspaceSetup } from "@/features/workspaces/use-create-workspace-setup";
 import { useMobileWs } from "@/providers/MobileWsProvider";
+
 import { useSessionStore } from "@/stores/session-store";
-import { isWorkspaceSetupProgressNotification, wsActions } from "@/api/ws-actions";
-import type { WorkspaceModel, WorkspaceSetupProgressNotification, WsNotification } from "@/api/types";
-import { colors } from "@/theme/colors";
+import { wsActions } from "@/api/ws-actions";
+import { colors, radii } from "@/theme/colors";
 import { useMobileTheme } from "@/theme/theme-store";
+import {
+  expoUiDangerStyle,
+  expoUiPrimaryStyle,
+  expoUiSecondaryStyle,
+} from "@/ui/primitives/expo-ui-button-styles";
+
+const buttonStretchModifiers = expoUiButtonStretchModifiers;
 
 const PRIORITY_OPTIONS = [
   { label: "No priority", value: "no_priority" },
@@ -35,12 +49,6 @@ const STATUS_OPTIONS = [
 ];
 
 const EMPTY_LABEL_VALUE = "__none__";
-const ANSI_PATTERN = /\x1B\[[0-?]*[ -/]*[@-~]/g;
-
-type SetupSnapshot = {
-  progress: WorkspaceSetupProgressNotification;
-  output: string;
-};
 
 export function CreateWorkspaceScreen({ initialProjectGuid }: { initialProjectGuid?: string | null }) {
   const router = useRouter();
@@ -62,12 +70,14 @@ export function CreateWorkspaceScreen({ initialProjectGuid }: { initialProjectGu
   const [selectedLabelGuids, setSelectedLabelGuids] = useState<string[]>([]);
   const [labelToAdd, setLabelToAdd] = useState(EMPTY_LABEL_VALUE);
   const [error, setError] = useState<string | null>(null);
-  const [createdWorkspace, setCreatedWorkspace] = useState<WorkspaceModel | null>(null);
-  const [isAwaitingSetup, setIsAwaitingSetup] = useState(false);
-  const [setupProgress, setSetupProgress] = useState<WorkspaceSetupProgressNotification | null>(null);
-  const [setupOutput, setSetupOutput] = useState("");
-  const createdWorkspaceIdRef = useRef<string | null>(null);
-  const setupSnapshotsRef = useRef(new Map<string, SetupSnapshot>());
+  const {
+    beginAwaitingSetup,
+    createdWorkspace,
+    isAwaitingSetup,
+    setIsAwaitingSetup,
+    setupOutput,
+    setupProgress,
+  } = useCreateWorkspaceSetup({ client, setError });
 
   const bootstrap = useQuery({
     queryKey: ["workspace-bootstrap", selectedServerId, state],
@@ -105,63 +115,6 @@ export function CreateWorkspaceScreen({ initialProjectGuid }: { initialProjectGu
       setProjectGuid(nextProjectGuid);
     }
   }, [initialProjectGuid, projectGuid, projectOptions]);
-
-  const applySetupSnapshot = useCallback(
-    (snapshot: SetupSnapshot) => {
-      const { progress, output } = snapshot;
-      setSetupProgress(progress);
-      setSetupOutput(output);
-
-      if (progress.status === "completed" && progress.success) {
-        setError(null);
-        setIsAwaitingSetup(false);
-        router.replace(`/workspace/${progress.workspace_id}`);
-        return;
-      }
-
-      if (progress.status === "error" || !progress.success) {
-        setIsAwaitingSetup(false);
-        setError(progress.output ? cleanSetupOutput(progress.output).trim() : "Workspace setup failed.");
-        return;
-      }
-
-      setError(null);
-      setIsAwaitingSetup(true);
-    },
-    [router],
-  );
-
-  const recordSetupProgress = useCallback(
-    (progress: WorkspaceSetupProgressNotification) => {
-      const previous = setupSnapshotsRef.current.get(progress.workspace_id);
-      const incomingOutput = progress.output ? cleanSetupOutput(progress.output) : "";
-      const output = progress.output
-        ? progress.replace_output
-          ? incomingOutput
-          : `${previous?.output ?? ""}${incomingOutput}`
-        : previous?.output ?? "";
-      const snapshot = { progress, output };
-
-      setupSnapshotsRef.current.set(progress.workspace_id, snapshot);
-
-      if (createdWorkspaceIdRef.current === progress.workspace_id) {
-        applySetupSnapshot(snapshot);
-      }
-    },
-    [applySetupSnapshot],
-  );
-
-  useEffect(() => {
-    if (!client) return;
-    const unsubscribe = client.subscribeMessages((message) => {
-      if (!isWsNotification(message) || message.payload.event !== "workspace_setup_progress") return;
-      if (!isWorkspaceSetupProgressNotification(message.payload.data)) return;
-      recordSetupProgress(message.payload.data);
-    });
-    return () => {
-      unsubscribe();
-    };
-  }, [client, recordSetupProgress]);
 
   const createWorkspace = useMutation({
     mutationFn: async () => {
@@ -201,31 +154,7 @@ export function CreateWorkspaceScreen({ initialProjectGuid }: { initialProjectGu
       return workspace;
     },
     onSuccess: (workspace) => {
-      createdWorkspaceIdRef.current = workspace.guid;
-      setCreatedWorkspace(workspace);
-      setError(null);
-
-      const cachedSnapshot = setupSnapshotsRef.current.get(workspace.guid);
-      if (cachedSnapshot) {
-        applySetupSnapshot(cachedSnapshot);
-        return;
-      }
-
-      setSetupOutput("");
-      setSetupProgress({
-        workspace_id: workspace.guid,
-        status: "creating",
-        step_key: "create_worktree",
-        failed_step_key: null,
-        step_title: "Preparing Workspace",
-        output: null,
-        replace_output: false,
-        requires_confirmation: false,
-        success: true,
-        countdown: null,
-        setup_context: null,
-      });
-      setIsAwaitingSetup(true);
+      beginAwaitingSetup(workspace);
     },
     onError: (nextError) => {
       setError(nextError instanceof Error ? nextError.message : "Workspace creation failed.");
@@ -290,17 +219,29 @@ export function CreateWorkspaceScreen({ initialProjectGuid }: { initialProjectGu
       surface="sheet"
       footer={
         <View style={styles.footer}>
-          <NativeButton
-            label={footerLabel}
-            disabled={footerDisabled}
-            onPress={() => {
+          <Host
+      matchContents={{ vertical: true }}
+      colorScheme={theme.colorScheme}
+      seedColor={footerDisabled ? theme.colors.tertiaryLabel : theme.colors.ctaFill}
+      style={styles.stretchHost}
+    >
+      <Button
+        disabled={footerDisabled}
+        label={footerLabel}
+        onPress={(footerDisabled) ? undefined : (() => {
               if (createdWorkspace) {
                 router.replace(`/workspace/${createdWorkspace.guid}`);
                 return;
               }
               createWorkspace.mutate();
-            }}
-          />
+            })}
+        modifiers={buttonStretchModifiers}
+        style={{
+      height: 52,
+    }}
+        variant="filled"
+      />
+    </Host>
           {!createdWorkspace && createReadiness.reason ? (
             <Text selectable style={[styles.footerHint, { color: theme.colors.secondaryLabel }]}>
               {createReadiness.reason}
@@ -333,10 +274,22 @@ export function CreateWorkspaceScreen({ initialProjectGuid }: { initialProjectGu
             placeholder="Base branch"
             value={baseBranch}
           />
-          <NativeButton
-            label={showAdvanced ? "Hide Advanced" : "Show Advanced"}
-            onPress={() => setShowAdvanced((value) => !value)}
-          />
+          <Host
+      matchContents={{ vertical: true }}
+      colorScheme={theme.colorScheme}
+      seedColor={theme.colors.label}
+      style={styles.stretchHost}
+    >
+      <Button
+        label={showAdvanced ? "Hide Advanced" : "Show Advanced"}
+        onPress={() => setShowAdvanced((value) => !value)}
+        modifiers={buttonStretchModifiers}
+        style={{
+      height: 52,
+    }}
+        variant="outlined"
+      />
+    </Host>
           {showAdvanced ? (
             <View style={styles.advanced}>
               <Separator />
@@ -406,15 +359,29 @@ export function CreateWorkspaceScreen({ initialProjectGuid }: { initialProjectGu
                         options={labelOptions}
                       />
                     </View>
-                    <NativeButton
-                      label="Add"
-                      disabled={labelToAdd === EMPTY_LABEL_VALUE}
-                      onPress={() => {
-                        if (labelToAdd === EMPTY_LABEL_VALUE) return;
-                        setSelectedLabelGuids((current) => [...current, labelToAdd]);
-                        setLabelToAdd(EMPTY_LABEL_VALUE);
-                      }}
-                    />
+                    <View style={styles.inlineAction}>
+                      <Host
+      matchContents={{ vertical: true }}
+      colorScheme={theme.colorScheme}
+      seedColor={theme.colors.label}
+      style={styles.stretchHost}
+    >
+      <Button
+        disabled={labelToAdd === EMPTY_LABEL_VALUE}
+        label={"Add"}
+        onPress={(labelToAdd === EMPTY_LABEL_VALUE) ? undefined : (() => {
+                          if (labelToAdd === EMPTY_LABEL_VALUE) return;
+                          setSelectedLabelGuids((current) => [...current, labelToAdd]);
+                          setLabelToAdd(EMPTY_LABEL_VALUE);
+                        })}
+        modifiers={buttonStretchModifiers}
+        style={{
+      height: 52,
+    }}
+        variant="outlined"
+      />
+    </Host>
+                    </View>
                   </View>
                   {selectedLabels.map((label) => (
                     <Row
@@ -423,13 +390,26 @@ export function CreateWorkspaceScreen({ initialProjectGuid }: { initialProjectGu
                       subtitle={label.source}
                       meta={label.color}
                     >
-                      <NativeButton
-                        label="Remove"
-                        onPress={() => {
-                          setSelectedLabelGuids((current) => current.filter((guid) => guid !== label.guid));
-                        }}
-                        variant="text"
-                      />
+                      <View style={styles.inlineAction}>
+                        <Host
+      matchContents={{ vertical: true }}
+      colorScheme={theme.colorScheme}
+      seedColor={theme.colors.red}
+      style={styles.stretchHost}
+    >
+      <Button
+        label={"Remove"}
+        onPress={() => {
+                            setSelectedLabelGuids((current) => current.filter((guid) => guid !== label.guid));
+                          }}
+        modifiers={buttonStretchModifiers}
+        style={{
+      height: 52,
+    }}
+        variant="outlined"
+      />
+    </Host>
+                      </View>
                     </Row>
                   ))}
                 </View>
@@ -465,23 +445,59 @@ export function CreateWorkspaceScreen({ initialProjectGuid }: { initialProjectGu
               </View>
             ) : null}
             {setupProgress.requires_confirmation ? (
-              <NativeButton
-                label={confirmTodos.isPending ? "Confirming..." : "Confirm TODOs"}
-                disabled={confirmTodos.isPending || !setupOutputPreview}
-                onPress={() => confirmTodos.mutate()}
-              />
+              <Host
+      matchContents={{ vertical: true }}
+      colorScheme={theme.colorScheme}
+      seedColor={confirmTodos.isPending || !setupOutputPreview ? theme.colors.tertiaryLabel : theme.colors.ctaFill}
+      style={styles.stretchHost}
+    >
+      <Button
+        disabled={confirmTodos.isPending || !setupOutputPreview}
+        label={confirmTodos.isPending ? "Confirming..." : "Confirm TODOs"}
+        onPress={(confirmTodos.isPending || !setupOutputPreview) ? undefined : (() => confirmTodos.mutate())}
+        modifiers={buttonStretchModifiers}
+        style={{
+      height: 52,
+    }}
+        variant="filled"
+      />
+    </Host>
             ) : null}
             {setupProgress.status === "error" && createdWorkspace ? (
               <View style={styles.progressActions}>
-                <NativeButton
-                  label={retrySetup.isPending ? "Retrying..." : "Retry Setup"}
-                  disabled={retrySetup.isPending}
-                  onPress={() => retrySetup.mutate()}
-                />
-                <NativeButton
-                  label="Open Workspace"
-                  onPress={() => router.replace(`/workspace/${createdWorkspace.guid}`)}
-                />
+                <Host
+      matchContents={{ vertical: true }}
+      colorScheme={theme.colorScheme}
+      seedColor={retrySetup.isPending ? theme.colors.tertiaryLabel : theme.colors.ctaFill}
+      style={styles.stretchHost}
+    >
+      <Button
+        disabled={retrySetup.isPending}
+        label={retrySetup.isPending ? "Retrying..." : "Retry Setup"}
+        onPress={(retrySetup.isPending) ? undefined : (() => retrySetup.mutate())}
+        modifiers={buttonStretchModifiers}
+        style={{
+      height: 52,
+    }}
+        variant="filled"
+      />
+    </Host>
+                <Host
+      matchContents={{ vertical: true }}
+      colorScheme={theme.colorScheme}
+      seedColor={theme.colors.label}
+      style={styles.stretchHost}
+    >
+      <Button
+        label={"Open Workspace"}
+        onPress={() => router.replace(`/workspace/${createdWorkspace.guid}`)}
+        modifiers={buttonStretchModifiers}
+        style={{
+      height: 52,
+    }}
+        variant="outlined"
+      />
+    </Host>
               </View>
             ) : null}
           </View>
@@ -493,38 +509,17 @@ export function CreateWorkspaceScreen({ initialProjectGuid }: { initialProjectGu
   );
 }
 
-function isWsNotification(message: unknown): message is WsNotification {
-  if (!message || typeof message !== "object") return false;
-  const envelope = message as Record<string, unknown>;
-  if (envelope.type !== "notification") return false;
-  const payload = envelope.payload as Record<string, unknown> | undefined;
-  return Boolean(payload && typeof payload.event === "string" && "data" in payload);
-}
-
-function cleanSetupOutput(value: string) {
-  return value.replace(ANSI_PATTERN, "").replace(/\r/g, "");
-}
-
-function formatSetupStatus(progress: WorkspaceSetupProgressNotification) {
-  if (progress.requires_confirmation) return "Waiting for confirmation";
-  if (progress.status === "completed") return "Completed";
-  if (progress.status === "error") return "Failed";
-  if (progress.status === "setting_up") return "Running setup";
-  return "Creating";
-}
-
-function slugify(value: string) {
-  return (
-    value
-      .trim()
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "")
-      .slice(0, 48) || `mobile-${Date.now()}`
-  );
-}
-
 const styles = StyleSheet.create({
+  stretchHost: {
+    alignSelf: "stretch",
+    width: "100%",
+  },
+  growHost: {
+    alignSelf: "stretch",
+    flex: 1,
+    minWidth: 0,
+    width: "100%",
+  },
   advanced: {
     gap: 12,
   },
@@ -546,8 +541,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
   },
+  inlineAction: {
+    minWidth: 96,
+  },
   labelPicker: {
     flex: 1,
+    minWidth: 0,
   },
   labelPickerRow: {
     alignItems: "center",
@@ -559,7 +558,6 @@ const styles = StyleSheet.create({
   },
   outputBox: {
     backgroundColor: colors.cardElevated,
-    borderColor: colors.separator,
     borderRadius: 10,
     borderWidth: StyleSheet.hairlineWidth,
     maxHeight: 220,

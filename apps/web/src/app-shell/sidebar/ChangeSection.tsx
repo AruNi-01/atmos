@@ -142,7 +142,7 @@ function ChangeFileRow({
       onClick={readOnly ? undefined : () => openDiffFile(file.path, true)}
       onDoubleClick={readOnly ? undefined : () => openDiffFile(file.path, false)}
       className={cn(
-        "group flex items-center px-2 py-1.5 transition-colors ease-out duration-200 w-full relative rounded-sm gap-2",
+        "group flex items-center px-2 py-1.5 w-full relative rounded-sm gap-2",
         readOnly ? "cursor-default" : "cursor-pointer",
         isSelected
           ? "bg-sidebar-accent text-sidebar-foreground"
@@ -477,7 +477,7 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
               selectedPath={selectedDiffFilePath}
               ariaLabel={t("changeSection.treeAriaLabel", { title })}
               className=""
-              indentOffset={hideHeader ? 4 : 28}
+              indentOffset={hideHeader ? 0 : 24}
               isFileActionActive={readOnly ? undefined : (path) =>
                 confirmingActionKey === `${kind}:file:${path}:stage` ||
                 confirmingActionKey === `${kind}:file:${path}:unstage` ||

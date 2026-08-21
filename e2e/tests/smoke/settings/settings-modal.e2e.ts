@@ -1,101 +1,60 @@
 import { expect, test } from "../../../fixtures/test";
 import {
-  buildProjectWorkspaceDeepLink,
   connectLocalComputer,
-  gotoContextRoute,
+  closeSettingsPage,
+  gotoSettingsRoute,
   normalizePathname,
-  openActionMenu,
+  openSettingsPage,
   stubComputerClientSettingsApi,
-  withSearchParams,
 } from "../support/app-smoke";
 
+const SETTINGS_SIDEBAR_ITEMS: Record<string, RegExp> = {
+  keyboard: /^(Keyboard|键盘)$/,
+  interface: /^(Interface|界面)$/,
+  "remote-access": /^(Remote Access|远程访问)$/,
+  general: /^(General|通用)$/,
+};
+
 test.describe("smoke settings", () => {
-  test("@smoke @stateful opens settings from the header menu and closes from the dialog button", async ({
+  test("@smoke @stateful opens settings from the left sidebar and closes from the back button", async ({
     page,
   }) => {
     await stubComputerClientSettingsApi(page);
     await connectLocalComputer(page);
 
-    await openActionMenu(page);
-    await page.getByText("Settings", { exact: true }).click();
+    await openSettingsPage(page);
+    await expect(page.getByRole("dialog", { name: /^(Settings|设置)$/ })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: SETTINGS_SIDEBAR_ITEMS.interface })).toBeVisible();
 
-    const settingsDialog = page.getByRole("dialog", {
-      name: "Settings",
-      exact: true,
-    });
-    await expect(settingsDialog).toBeVisible();
-    await settingsDialog.getByRole("button", { name: /close/i }).click();
-    await expect(settingsDialog).toBeHidden();
+    await closeSettingsPage(page);
   });
 
-  test("@smoke @stateful boots settings modal from project context route params", async ({ page }) => {
+  test("@smoke @stateful boots settings from a deep-linked shortcuts tab", async ({ page }) => {
     await stubComputerClientSettingsApi(page);
     await connectLocalComputer(page);
 
-    const contextUrl = await buildProjectWorkspaceDeepLink(page);
-    const settingsUrl = withSearchParams(contextUrl, {
-      settingsModal: "true",
-      activeSettingTab: "shortcuts",
-      rsTab: null,
-    });
+    await gotoSettingsRoute(page, "keyboard");
+    await expect(page.getByRole("dialog", { name: /^(Settings|设置)$/ })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: SETTINGS_SIDEBAR_ITEMS.keyboard })).toBeVisible();
 
-    await gotoContextRoute(page, settingsUrl);
-    await expect
-      .poll(async () => normalizePathname(new URL(page.url()).pathname))
-      .toBe("/project");
-    await expect
-      .poll(async () => new URL(page.url()).searchParams.get("activeSettingTab"))
-      .toBe("shortcuts");
-    await expect
-      .poll(async () => new URL(page.url()).searchParams.get("settingsModal"))
-      .toBe("true");
-
-    const settingsDialog = page.getByRole("dialog", {
-      name: "Settings",
-      exact: true,
-    });
-    await expect(settingsDialog).toBeVisible();
-    await settingsDialog.getByRole("button", { name: /close/i }).click();
-    await expect(settingsDialog).toBeHidden();
+    await closeSettingsPage(page);
   });
 
-  test("@smoke @stateful keeps settings modal open while switching deep-linked read-only tabs", async ({
+  test("@smoke @stateful keeps the settings page while switching deep-linked tabs", async ({
     page,
   }) => {
     await stubComputerClientSettingsApi(page);
     await connectLocalComputer(page);
 
-    const contextUrl = await buildProjectWorkspaceDeepLink(page);
-    const settingsDialog = page.getByRole("dialog", {
-      name: "Settings",
-      exact: true,
-    });
-
-    for (const activeSettingTab of ["layout", "atmos-computer", "about"] as const) {
-      await gotoContextRoute(
-        page,
-        withSearchParams(contextUrl, {
-          settingsModal: "true",
-          activeSettingTab,
-          rsTab: null,
-        }),
-      );
+    for (const activeSettingTab of ["interface", "remote-access", "general"] as const) {
+      await gotoSettingsRoute(page, activeSettingTab);
+      await expect(page.getByRole("dialog", { name: /^(Settings|设置)$/ })).toHaveCount(0);
       await expect
         .poll(async () => normalizePathname(new URL(page.url()).pathname))
-        .toBe("/project");
-      await expect
-        .poll(async () => new URL(page.url()).searchParams.get("settingsModal"))
-        .toBe("true");
-      await expect
-        .poll(async () => new URL(page.url()).searchParams.get("activeSettingTab"))
-        .toBe(activeSettingTab);
-      await expect(settingsDialog).toBeVisible();
+        .toBe("/settings");
+      await expect(page.getByRole("button", { name: SETTINGS_SIDEBAR_ITEMS[activeSettingTab] })).toBeVisible();
     }
 
-    await settingsDialog.getByRole("button", { name: /close/i }).click();
-    await expect(settingsDialog).toBeHidden();
-    await expect
-      .poll(async () => new URL(page.url()).searchParams.get("settingsModal") ?? "false")
-      .toBe("false");
+    await closeSettingsPage(page);
   });
 });

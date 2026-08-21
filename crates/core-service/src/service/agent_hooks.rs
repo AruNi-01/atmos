@@ -1,6 +1,8 @@
 mod ampcode;
 mod antigravity;
 mod attention;
+mod attention_summary;
+mod attention_summary_generate;
 mod child_agent;
 mod child_lifecycle;
 mod claude_code;
@@ -13,6 +15,7 @@ mod hermes;
 mod kiro;
 mod opencode;
 mod pi;
+mod workspace_agent_group;
 
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
@@ -28,7 +31,15 @@ use tracing::{debug, info, warn};
 use super::notification::NotificationService;
 
 pub use attention::{AgentAttentionLatch, AgentAttentionReason};
+pub use attention_summary::{
+    AgentAttentionSummary, AttentionSummaryPayload, AttentionSummarySettings,
+    AttentionSummaryStatus,
+};
+pub use attention_summary_generate::generate_attention_summary;
 pub(super) use child_agent::{extract_child_agent_id, is_child_start_event, is_child_stop_event};
+pub use workspace_agent_group::{
+    resolve_workspace_agent_group_key, WorkspaceAgentGroupKey, WorkspaceAgentGroupSnapshot,
+};
 
 /// How long late mid-turn progress events are ignored after a terminal idle /
 /// forced idle transition. Prevents a delayed PostToolUse from resurrecting a
@@ -169,6 +180,8 @@ pub enum AgentHookEvent {
     SessionsCleared { session_ids: Vec<String> },
     AttentionRaised(AgentAttentionLatch),
     AttentionCleared { stable_pane_ids: Vec<String> },
+    AttentionSummaryUpdated(AgentAttentionSummary),
+    AttentionSummaryCleared { stable_pane_ids: Vec<String> },
 }
 
 /// Snapshot of a lead TerminalIdle that arrived while child agents were still
@@ -187,6 +200,10 @@ pub struct AgentHooksService {
     /// Sticky attention latches keyed by stable pane id (`{context}:{tmux_window}`).
     /// Independent of idle session rows so refresh still shows need-attention.
     attention: RwLock<HashMap<String, AgentAttentionLatch>>,
+    /// Unattended task-complete auto-summaries keyed by stable pane id.
+    summaries: RwLock<HashMap<String, AgentAttentionSummary>>,
+    /// Monotonic token for in-flight summary generations.
+    summary_generation: RwLock<u64>,
     /// After terminal/forced idle, ignore Progress→Running until this time.
     suppress_running_until: RwLock<HashMap<String, DateTime<Utc>>>,
     /// Lead session → active child agent ids (Task / SubagentStart roster).
@@ -209,6 +226,8 @@ impl AgentHooksService {
         Self {
             sessions: RwLock::new(HashMap::new()),
             attention: RwLock::new(HashMap::new()),
+            summaries: RwLock::new(HashMap::new()),
+            summary_generation: RwLock::new(0),
             suppress_running_until: RwLock::new(HashMap::new()),
             active_children: RwLock::new(HashMap::new()),
             pending_terminal_idle: RwLock::new(HashMap::new()),
@@ -221,6 +240,26 @@ impl AgentHooksService {
 
     pub fn set_notification_service(&self, service: Arc<NotificationService>) {
         *self.notification_service.write() = Some(service);
+    }
+
+    /// Test-only: drop a latch without clearing its summary (orphan simulation).
+    #[cfg(test)]
+    pub(crate) fn test_remove_attention_latch_only(&self, stable_pane_id: &str) {
+        self.attention.write().remove(stable_pane_id);
+    }
+
+    /// Test-only: rewrite summary timestamps so stale pruning can be exercised.
+    #[cfg(test)]
+    pub(crate) fn test_set_summary_timestamps(
+        &self,
+        stable_pane_id: &str,
+        started_at: String,
+        completed_at: Option<String>,
+    ) {
+        if let Some(entry) = self.summaries.write().get_mut(stable_pane_id) {
+            entry.started_at = started_at;
+            entry.completed_at = completed_at;
+        }
     }
 
     pub fn subscribe_events(&self) -> broadcast::Receiver<AgentHookEvent> {
@@ -254,7 +293,9 @@ impl AgentHooksService {
         self.clear_child_tracking(session_id);
         if removed {
             self.broadcast_sessions_cleared(vec![session_id.to_string()]);
-            // Explicit session dismiss also drops sticky attention for that id.
+            // Removing the session row drops the latch but keeps auto-summary
+            // chrome — the pane may still exist, so the user can still read the
+            // recap. Only explicit Dismiss / send / pane destroy drop it.
             self.clear_attention_matching_ids(&[session_id.to_string()]);
         }
         removed
@@ -299,10 +340,11 @@ impl AgentHooksService {
             );
             self.broadcast_sessions_cleared(removed.clone());
         }
-        // Pane is gone — drop sticky attention for this pane and session aliases.
+        // Pane is gone — drop sticky attention and auto-summary for this pane
+        // and session aliases.
         let mut attention_ids = removed.clone();
         attention_ids.push(stable_pane_id.to_string());
-        self.clear_attention_matching_ids(&attention_ids);
+        self.clear_attention_and_summaries_matching_ids(&attention_ids);
         removed
     }
 
@@ -858,11 +900,81 @@ mod tests {
             AgentHookState::Running,
             None,
             &ctx,
-            StateUpdateKind::Progress,
+            StateUpdateKind::NewTurn,
         );
+        service.update_state(
+            "ws-1:win",
+            AgentToolType::Cursor,
+            AgentHookState::Idle,
+            None,
+            &ctx,
+            StateUpdateKind::TerminalIdle,
+        );
+        let (_, _, gen) = service.begin_attention_summary("ws-1:win").expect("begin");
+        let _ = service.complete_attention_summary(
+            "ws-1:win",
+            gen,
+            AttentionSummaryPayload {
+                summary: "done".into(),
+                next_steps: vec![],
+                can_close_session: true,
+            },
+        );
+        assert!(!service.get_all_attention().is_empty());
+        assert!(service.get_attention_summary("ws-1:win").is_some());
+
         let removed = service.clear_sessions_for_stable_pane("ws-1:win");
         assert_eq!(removed, vec!["ws-1:win".to_string()]);
         assert!(service.get_all_sessions().is_empty());
+        assert!(service.get_all_attention().is_empty());
+        assert!(service.get_all_attention_summaries().is_empty());
+    }
+
+    #[test]
+    fn remove_session_drops_latch_but_keeps_summary() {
+        let service = AgentHooksService::new();
+        let ctx = AtmosContext {
+            pane_id: Some("ws-1:win".into()),
+            context_id: Some("ws-1".into()),
+            ..AtmosContext::default()
+        };
+        service.update_state(
+            "ws-1:win",
+            AgentToolType::Cursor,
+            AgentHookState::Running,
+            None,
+            &ctx,
+            StateUpdateKind::NewTurn,
+        );
+        service.update_state(
+            "ws-1:win",
+            AgentToolType::Cursor,
+            AgentHookState::Idle,
+            None,
+            &ctx,
+            StateUpdateKind::TerminalIdle,
+        );
+        let (_, _, gen) = service.begin_attention_summary("ws-1:win").expect("begin");
+        let _ = service.complete_attention_summary(
+            "ws-1:win",
+            gen,
+            AttentionSummaryPayload {
+                summary: "keep me".into(),
+                next_steps: vec![],
+                can_close_session: true,
+            },
+        );
+        assert!(service.remove_session("ws-1:win"));
+        assert!(service.get_all_sessions().is_empty());
+        assert!(service.get_all_attention().is_empty());
+        assert_eq!(
+            service
+                .get_attention_summary("ws-1:win")
+                .unwrap()
+                .summary
+                .as_deref(),
+            Some("keep me")
+        );
     }
 
     #[test]

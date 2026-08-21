@@ -54,6 +54,7 @@ export function useAutomationSetupForm({
   const [timezone, setTimezone] = React.useState(resolveTimezone);
   const [displayName, setDisplayName] = React.useState("");
   const [instructions, setInstructions] = React.useState("");
+  const [memory, setMemory] = React.useState("");
   const [agentId, setAgentId] = React.useState("");
   const [targetKind, setTargetKind] =
     React.useState<AutomationTargetKind>("standalone");
@@ -74,6 +75,7 @@ export function useAutomationSetupForm({
   const [previewLoading, setPreviewLoading] = React.useState(false);
   const [submitError, setSubmitError] = React.useState<string | null>(null);
   const [submitting, setSubmitting] = React.useState(false);
+  const [ready, setReady] = React.useState(mode === "create");
 
   const workspaces = React.useMemo(
     () => flattenWorkspaces(projects),
@@ -105,6 +107,7 @@ export function useAutomationSetupForm({
       clearAttachments();
       setDisplayName(initialAutomation.display_name);
       setInstructions(initialAutomation.instructions);
+      setMemory(initialAutomation.memory ?? "");
       setAgentId(initialAutomation.agent_id);
       setTargetKind(initialAutomation.target_kind);
       setProjectGuid(initialAutomation.project_guid ?? "");
@@ -118,7 +121,7 @@ export function useAutomationSetupForm({
           : {},
       );
       const parsed = parseSchedule(initialAutomation);
-      setTimezone(parsed.timezone);
+      setTimezone(parsed.timezone.trim() || resolveTimezone());
       setTrigger(parsed.trigger);
       setHour(parsed.hour);
       setMinute(parsed.minute);
@@ -126,6 +129,9 @@ export function useAutomationSetupForm({
       setDayOfMonth(parsed.dayOfMonth);
       setCronExpr(parsed.cronExpr);
       setSubmitError(null);
+      setReady(true);
+    } else if (mode === "create") {
+      setReady(true);
     }
   }, [clearAttachments, initialAutomation, mode]);
 
@@ -282,6 +288,7 @@ export function useAutomationSetupForm({
     timezone,
     displayName,
     instructions,
+    memory,
     agentId,
     targetKind,
     projectGuid,
@@ -297,6 +304,7 @@ export function useAutomationSetupForm({
     previewLoading,
     submitError,
     submitting,
+    ready,
     workspaces,
     agentRunConfigs,
     selectedAgent,
@@ -311,6 +319,7 @@ export function useAutomationSetupForm({
     formValid,
     requestSchedule,
     setInstructions,
+    setMemory,
     setSubmitting,
     setSubmitError,
     clearSubmitError,

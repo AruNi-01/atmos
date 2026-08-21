@@ -5,5 +5,5 @@ const config = getDefaultConfig(__dirname);
 
 module.exports = withNativewind(config, {
   inlineVariables: false,
-  globalClassNamePolyfill: false,
+  globalClassNamePolyfill: true,
 });

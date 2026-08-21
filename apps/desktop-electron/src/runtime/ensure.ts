@@ -17,6 +17,8 @@ import { fileURLToPath } from "node:url";
 
 export const DEFAULT_HOST = "127.0.0.1";
 export const DEFAULT_PORT = 30303;
+/** Hosted web app that is allowed to talk to a local Server directly. */
+export const HOSTED_WEB_ORIGIN = "https://app.atmos.land";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -83,11 +85,149 @@ function atmosHome(): string {
 }
 
 function manifestPath(): string {
-  return join(atmosHome(), "runtime_manifest.json");
+  // Align with runtime-manager layout: ~/.atmos/state/runtime_manifest.json
+  return join(atmosHome(), "state", "runtime_manifest.json");
 }
 
 function runtimeLogPath(): string {
   return join(atmosHome(), "logs", "runtime-server.log");
+}
+
+function ensureLog(message: string): void {
+  const line = `${new Date().toISOString()} [desktop-ensure] ${message}\n`;
+  try {
+    const path = join(atmosHome(), "logs", "desktop-main.log");
+    mkdirSync(dirname(path), { recursive: true });
+    appendFileSync(path, line, "utf8");
+  } catch {
+    /* ignore */
+  }
+  console.log(`[desktop-ensure] ${message}`);
+}
+
+/**
+ * PIDs listening on TCP `port` (LISTEN). Best-effort; empty on failure.
+ * Exported for unit tests of parsing.
+ */
+export function parseLsofPids(stdout: string): number[] {
+  const pids = new Set<number>();
+  for (const line of stdout.split(/\r?\n/)) {
+    const t = line.trim();
+    if (!t || !/^\d+$/.test(t)) continue;
+    const n = parseInt(t, 10);
+    if (Number.isFinite(n) && n > 0) pids.add(n);
+  }
+  return [...pids];
+}
+
+export function listPidsListeningOnPort(port: number): number[] {
+  try {
+    if (process.platform === "win32") {
+      // netstat -ano | findstr :port — keep simple for mac/linux first
+      const out = execFileSync(
+        "cmd",
+        ["/c", `netstat -ano | findstr :${port}`],
+        { encoding: "utf8", timeout: 3000 },
+      );
+      const pids = new Set<number>();
+      for (const line of out.split(/\r?\n/)) {
+        if (!/LISTENING/i.test(line)) continue;
+        const parts = line.trim().split(/\s+/);
+        const last = parts[parts.length - 1];
+        const n = last ? parseInt(last, 10) : NaN;
+        if (Number.isFinite(n) && n > 0) pids.add(n);
+      }
+      return [...pids];
+    }
+    const out = execFileSync(
+      "lsof",
+      ["-nP", `-iTCP:${port}`, "-sTCP:LISTEN", "-t"],
+      { encoding: "utf8", timeout: 3000 },
+    );
+    return parseLsofPids(out);
+  } catch {
+    return [];
+  }
+}
+
+function processCommandLine(pid: number): string {
+  try {
+    if (process.platform === "win32") {
+      const out = execFileSync(
+        "cmd",
+        ["/c", `wmic process where processid=${pid} get CommandLine /value`],
+        { encoding: "utf8", timeout: 3000 },
+      );
+      const m = out.match(/CommandLine=(.+)/i);
+      return (m?.[1] ?? "").trim().slice(0, 240);
+    }
+    const out = execFileSync("ps", ["-p", String(pid), "-o", "command="], {
+      encoding: "utf8",
+      timeout: 3000,
+    });
+    return out.trim().slice(0, 240);
+  } catch {
+    return "";
+  }
+}
+
+function signalPid(pid: number, signal: NodeJS.Signals): void {
+  try {
+    process.kill(pid, signal);
+  } catch {
+    /* already dead or permission */
+  }
+}
+
+/**
+ * Free `port` so Desktop can start the bundled Atmos Server with static UI.
+ * Used when a leftover /healthz process does not serve the product HTML (e.g.
+ * `target/debug/api` from just dev-api without ATMOS_STATIC_DIR).
+ */
+export async function reclaimPortWithoutDesktopUi(
+  host: string,
+  port: number,
+  probe: Extract<UiProbeResult, { ok: false }>,
+): Promise<{ killed: number[]; waitedMs: number }> {
+  const pids = listPidsListeningOnPort(port);
+  const cmds = pids.map((pid) => `${pid}: ${processCommandLine(pid) || "?"}`);
+  ensureLog(
+    `port ${port} has API without desktop UI (${probe.reason}); reclaiming listeners=[${cmds.join("; ")}]`,
+  );
+
+  for (const pid of pids) {
+    if (pid === process.pid) continue;
+    signalPid(pid, "SIGTERM");
+  }
+
+  const started = Date.now();
+  const deadline = started + 8_000;
+  while (Date.now() < deadline) {
+    if (!(await isHealthy(host, port))) {
+      return { killed: pids, waitedMs: Date.now() - started };
+    }
+    await sleep(200);
+  }
+
+  // Still healthy — force kill.
+  for (const pid of pids) {
+    if (pid === process.pid) continue;
+    signalPid(pid, "SIGKILL");
+  }
+  await sleep(300);
+  if (await isHealthy(host, port)) {
+    throw new Error(
+      [
+        `Could not free port ${port} for Atmos Desktop UI.`,
+        `A process still answers /healthz but not the product page.`,
+        formatPortOccupiedWithoutUi(host, port, probe),
+        pids.length
+          ? `Tried to stop PIDs: ${pids.join(", ")}`
+          : "Could not resolve listener PIDs (try quitting other Atmos/dev-api processes).",
+      ].join("\n"),
+    );
+  }
+  return { killed: pids, waitedMs: Date.now() - started };
 }
 
 export async function isHealthy(
@@ -202,22 +342,51 @@ function formatPortOccupiedWithoutUi(
     .join("\n");
 }
 
+/** Same schema as `runtime_manager::RuntimeManifest` (no token). */
+export type RuntimeManifestPayload = {
+  version: 1;
+  source: string;
+  pid: number | null;
+  started_at: string;
+  api: {
+    host: string;
+    port: number;
+    url: string;
+    ws_url: string;
+  };
+};
+
+export function clientLoopbackHost(host: string): string {
+  return host === "0.0.0.0" || host === "::" ? "127.0.0.1" : host;
+}
+
+export function buildRuntimeManifest(
+  host: string,
+  port: number,
+  pid: number | null,
+  options?: { startedAt?: string; source?: string },
+): RuntimeManifestPayload {
+  const clientHost = clientLoopbackHost(host);
+  return {
+    version: 1,
+    source: options?.source ?? "desktop-electron",
+    pid,
+    started_at: options?.startedAt ?? new Date().toISOString(),
+    api: {
+      host: clientHost,
+      port,
+      url: `http://${clientHost}:${port}`,
+      ws_url: `ws://${clientHost}:${port}`,
+    },
+  };
+}
+
 function writeManifest(host: string, port: number, pid: number | null) {
   const path = manifestPath();
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(
     path,
-    `${JSON.stringify(
-      {
-        version: 1,
-        source: "desktop-electron",
-        pid,
-        api: { host, port, url: `http://${host}:${port}` },
-        updated_at: new Date().toISOString(),
-      },
-      null,
-      2,
-    )}\n`,
+    `${JSON.stringify(buildRuntimeManifest(host, port, pid), null, 2)}\n`,
     "utf8",
   );
 }
@@ -332,11 +501,18 @@ export async function ensureAtmosServer(
   if (await isHealthy(host, port)) {
     const ui = await probeDesktopUi(host, port);
     if (ui.ok) {
+      // Reuse only when product HTML is actually served (bundled static / Next export).
       ownedServerPid = null;
+      const existingPid = listPidsListeningOnPort(port)[0] ?? null;
+      writeManifest(host, port, existingPid);
+      ensureLog(
+        `reusing existing Atmos Server at http://${host}:${port} (UI OK)`,
+      );
       return { host, port, runtimeDir, webDir: web, started: false, pid: null };
     }
-    // Do not spawn on an occupied port — health would keep hitting the wrong process.
-    throw new Error(formatPortOccupiedWithoutUi(host, port, ui));
+    // e.g. leftover `just dev-api` / target/debug/api — healthz without static.
+    // Desktop product must own the port with ATMOS_STATIC_DIR; reclaim then spawn.
+    await reclaimPortWithoutDesktopUi(host, port, ui);
   }
 
   const logPath = runtimeLogPath();
@@ -395,8 +571,11 @@ export async function ensureAtmosServer(
 }
 
 /**
- * Production Server user-data directory.
- * Prefer ATMOS_DATA_DIR; otherwise shared `~/.atmos/data/desktop` (not desktop-electron).
+ * Desktop shell-scoped Server data directory (`ATMOS_DATA_DIR`).
+ *
+ * Prefer env override; default `~/.atmos/data/desktop` (not desktop-electron).
+ * Product feature stores (token-usage, quota-usage, SQLite, workspaces) must
+ * **not** nest under this path — they use fixed `~/.atmos/data/<feature>` layouts.
  */
 export function resolveAtmosDataDir(home: string = homedir()): string {
   if (process.env.ATMOS_DATA_DIR) return process.env.ATMOS_DATA_DIR;
@@ -458,11 +637,24 @@ function spawnViaShell(
           SERVER_HOST: host,
           ATMOS_PORT: String(port),
           ATMOS_STATIC_DIR: web,
+          // Pin the browser origins allowed to reach this Server. Setting this
+          // also turns off the dev-only "any localhost port is trusted" rule, so
+          // a page served by some other local process cannot drive our API.
+          CORS_ORIGIN: [
+            `http://127.0.0.1:${port}`,
+            `http://localhost:${port}`,
+            HOSTED_WEB_ORIGIN,
+          ].join(","),
           ATMOS_RUNTIME_DIR: runtimeDir,
           ATMOS_DATA_DIR: dataDir,
           ATMOS_LOCAL_API_BIN: apiBin,
           ATMOS_LOCAL_PORT: String(port),
           ATMOS_LOCAL_LOG_PATH: logPath,
+          // Linear OAuth credentials are stored on Hub; default prod origin when unset.
+          ATMOS_HUB_URL:
+            process.env.ATMOS_HUB_URL?.trim() ||
+            process.env.NEXT_PUBLIC_ATMOS_HUB_URL?.trim() ||
+            "https://hub.atmos.land",
           ...(existsSync(skills) ? { ATMOS_SYSTEM_SKILLS_DIR: skills } : {}),
         },
         stdio: ["ignore", "pipe", "pipe"],

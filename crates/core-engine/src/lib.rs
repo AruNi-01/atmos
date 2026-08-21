@@ -15,9 +15,11 @@ pub mod tmux;
 
 pub use app::AppEngine;
 pub use disk_analyzer::{
-    cleanup_suggestions, clear_path_cache, finalize_tree, invalidate_path_cache, limit_tree_depth,
-    prune_tree, CleanupSuggestion, DiskAnalyzerEngine, DiskNode, DiskVolumeInfo, ProgressCallback,
-    ScanProgress, ScanStats, ScanStatus, CACHE_TTL, DEFAULT_TREE_DEPTH,
+    agent_data_roots, cleanup_suggestions, clear_path_cache, clear_suggestions, finalize_tree,
+    invalidate_path_cache, limit_tree_depth, node_needs_wider_children, prune_tree, CleanupKind,
+    CleanupSuggestion, DiskAnalyzerEngine, DiskNode, DiskPathKind, DiskScanRoots, DiskVolumeInfo,
+    MeasureBudget, ProgressCallback, ScanProgress, ScanStats, ScanStatus, CACHE_TTL,
+    DEFAULT_TREE_DEPTH, OTHER_NAME,
 };
 pub use error::EngineError;
 pub use fs::{
@@ -26,7 +28,8 @@ pub use fs::{
 pub use git::{
     list_ignored_paths, list_ignored_paths_for_many, show_git_blob_bytes,
     sync_worktree_local_excludes, ChangedFileInfo, ChangedFilesInfo, CommitInfo, DiffContentKind,
-    DiffPreviewKind, FileDiffInfo, GitBlobLocator, GitEngine, GitStatus, WorktreeInfo,
+    DiffPreviewKind, FileDiffInfo, GitBlobLocator, GitEngine, GitStatus, HistoryCommit,
+    HistoryPage, HistoryRef, HistoryRefKind, WorktreeInfo,
 };
 pub use github::GithubEngine;
 pub use linear::{

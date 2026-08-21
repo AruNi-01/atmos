@@ -30,10 +30,12 @@ import { BaseCodeMirrorEditor } from './BaseCodeMirrorEditor';
 import { setCodeMirrorSearchPanelMessages } from './codemirror-search-panel';
 import { useSelectionPopover } from '@/features/selection/hooks/use-selection-popover';
 import { SelectionPopover } from '@/features/selection/components/SelectionPopover';
+import { usePathname } from "next/navigation";
 import { useContextParams } from "@/shared/hooks/use-context-params";
 import { useEditorSettingsStore } from '@/features/settings/store/editor-settings-store';
 import { useQueryState } from 'nuqs';
 import { settingsModalParams } from '@/shared/lib/nuqs/searchParams';
+import { isSettingsPathname } from "@/features/settings/lib/settings-return";
 import { parseReviewReportMetadata } from '@/features/code-review/lib/review-report-frontmatter';
 import { ReviewReportMetadataCard } from '@/features/code-review/components/ReviewReportMetadataCard';
 import { useProjects } from '@/features/project/hooks/use-project-bootstrap-query';
@@ -72,6 +74,7 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
   surfaceActive = true,
 }) => {
   const t = useTranslations("Editor.components");
+  const pathname = usePathname();
   const { effectiveContextId } = useContextParams();
   const editorContextId = contextId ?? effectiveContextId;
   const workspaceActivePath = useEditorStore((s) => s.getActiveFilePath(editorContextId || undefined));
@@ -129,6 +132,8 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
   const [editorSettingsSettled, setEditorSettingsSettled] = useState(editorSettingsLoaded);
   const [gitDiffRefreshNonce, setGitDiffRefreshNonce] = useState(0);
   const [settingsModalOpen] = useQueryState('settingsModal', settingsModalParams.settingsModal);
+  // Settings path keeps underlay context for push animation — detect via pathname, not currentView.
+  const settingsSurfaceOpen = settingsModalOpen || isSettingsPathname(pathname);
 
   const refreshEditorGitGutter = useCallback(async () => {
     if (currentProjectPath) {
@@ -149,13 +154,13 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
 
   const handleEditorSettingsPopoverOpenChange = useCallback((open: boolean) => {
     if (!surfaceActive) return;
-    if (open && settingsModalOpen) return;
+    if (open && settingsSurfaceOpen) return;
     setSettingsOpen(open);
-  }, [settingsModalOpen, surfaceActive]);
+  }, [settingsSurfaceOpen, surfaceActive]);
 
   useEffect(() => {
-    if (settingsModalOpen) setSettingsOpen(false);
-  }, [settingsModalOpen]);
+    if (settingsSurfaceOpen) setSettingsOpen(false);
+  }, [settingsSurfaceOpen]);
   const [openBreadcrumbIndex, setOpenBreadcrumbIndex] = useState<number | null>(null);
   const storeFileTreeRootPath = useFileTreeStore((s) => s.rootPath);
   const fileTreeShowHidden = useFileTreeStore((s) => s.showHidden);

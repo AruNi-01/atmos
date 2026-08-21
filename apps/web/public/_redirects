@@ -1,0 +1,2 @@
+# APP-061: vanity /tok/@handle (and any extra /tok/* slug) serve the static /tok page.
+/tok/* /tok/ 200

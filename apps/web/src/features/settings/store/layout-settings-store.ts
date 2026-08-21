@@ -25,16 +25,7 @@ export interface HeaderLayoutPrefs {
   showHeaderAppshot: boolean;
 }
 
-export interface RightSidebarLayoutPrefs {
-  rsShowChanges: boolean;
-  rsShowReview: boolean;
-  rsShowBrowser: boolean;
-  rsShowRun: boolean;
-  /** Single GitHub tab (PRs, Issues, Actions). */
-  rsShowGithub: boolean;
-}
-
-interface LayoutSettingsState extends FooterLayoutPrefs, HeaderLayoutPrefs, RightSidebarLayoutPrefs {
+interface LayoutSettingsState extends FooterLayoutPrefs, HeaderLayoutPrefs {
   projectFilesSide: ProjectFilesSide;
   workspaceSidebarTwoColumn: boolean;
   workspaceSidebarTwoColumnShowPinned: boolean;
@@ -44,6 +35,7 @@ interface LayoutSettingsState extends FooterLayoutPrefs, HeaderLayoutPrefs, Righ
   workspaceSidebarPriorityTwoColumn: boolean;
   workspaceSidebarLabelTwoColumn: boolean;
   workspaceSidebarGroupTwoColumn: boolean;
+  workspaceSidebarAgentTwoColumn: boolean;
   loaded: boolean;
   loadSettings: (force?: boolean) => Promise<void>;
   setProjectFilesSide: (value: ProjectFilesSide) => Promise<void>;
@@ -55,6 +47,7 @@ interface LayoutSettingsState extends FooterLayoutPrefs, HeaderLayoutPrefs, Righ
   setWorkspaceSidebarPriorityTwoColumn: (value: boolean) => Promise<void>;
   setWorkspaceSidebarLabelTwoColumn: (value: boolean) => Promise<void>;
   setWorkspaceSidebarGroupTwoColumn: (value: boolean) => Promise<void>;
+  setWorkspaceSidebarAgentTwoColumn: (value: boolean) => Promise<void>;
   setFooterShowWsConnection: (value: boolean) => Promise<void>;
   setFooterShowLocalServices: (value: boolean) => Promise<void>;
   setFooterShowUsageCarousel: (value: boolean) => Promise<void>;
@@ -68,11 +61,6 @@ interface LayoutSettingsState extends FooterLayoutPrefs, HeaderLayoutPrefs, Righ
   setHeaderShowGlobalSearch: (value: boolean) => Promise<void>;
   setHeaderShowRemoteAccess: (value: boolean) => Promise<void>;
   setHeaderShowAppshot: (value: boolean) => Promise<void>;
-  setRightSidebarShowChanges: (value: boolean) => Promise<void>;
-  setRightSidebarShowReview: (value: boolean) => Promise<void>;
-  setRightSidebarShowBrowser: (value: boolean) => Promise<void>;
-  setRightSidebarShowRun: (value: boolean) => Promise<void>;
-  setRightSidebarShowGithub: (value: boolean) => Promise<void>;
 }
 
 function readFooterLayout(layout: Record<string, unknown> | undefined): FooterLayoutPrefs {
@@ -107,34 +95,6 @@ function readHeaderLayout(layout: Record<string, unknown> | undefined): HeaderLa
   };
 }
 
-function readRightSidebarLayout(layout: Record<string, unknown> | undefined): RightSidebarLayoutPrefs {
-  let rsShowGithub: boolean;
-  if (!layout) {
-    rsShowGithub = true;
-  } else if ('right_sidebar_show_github' in layout) {
-    rsShowGithub = layout.right_sidebar_show_github !== false;
-  } else {
-    // Migrate pre-consolidation github sub-tabs (PR / Issues / Actions).
-    // Show GitHub if any legacy tab was explicitly on; hide only when every
-    // present legacy flag is false.
-    const legacy = [
-      layout.right_sidebar_show_pr,
-      layout.right_sidebar_show_actions,
-      layout.right_sidebar_show_issues,
-    ];
-    const present = legacy.filter((v): v is boolean => typeof v === 'boolean');
-    rsShowGithub = present.length === 0 ? true : present.some((v) => v === true);
-  }
-
-  return {
-    rsShowChanges: layout?.right_sidebar_show_changes !== false,
-    rsShowReview: layout?.right_sidebar_show_review !== false,
-    rsShowBrowser: layout?.right_sidebar_show_browser !== false,
-    rsShowRun: layout?.right_sidebar_show_run !== false,
-    rsShowGithub,
-  };
-}
-
 export const useLayoutSettingsStore = create<LayoutSettingsState>((set, get) => {
   const updateLayoutSetting = async (
     patch: Partial<LayoutSettingsState>,
@@ -159,6 +119,7 @@ export const useLayoutSettingsStore = create<LayoutSettingsState>((set, get) => 
     workspaceSidebarPriorityTwoColumn: false,
     workspaceSidebarLabelTwoColumn: false,
     workspaceSidebarGroupTwoColumn: false,
+    workspaceSidebarAgentTwoColumn: false,
     showWsConnection: true,
     showLocalServices: true,
     showUsageCarousel: true,
@@ -172,11 +133,6 @@ export const useLayoutSettingsStore = create<LayoutSettingsState>((set, get) => 
     showHeaderGlobalSearch: true,
     showHeaderRemoteAccess: true,
     showHeaderAppshot: true,
-    rsShowChanges: true,
-    rsShowReview: true,
-    rsShowBrowser: true,
-    rsShowRun: true,
-    rsShowGithub: true,
     loaded: false,
 
     loadSettings: async (force = false) => {
@@ -190,7 +146,6 @@ export const useLayoutSettingsStore = create<LayoutSettingsState>((set, get) => 
         const side = layout?.project_files_side;
         const footer = readFooterLayout(layout);
         const header = readHeaderLayout(layout);
-        const rightSidebar = readRightSidebarLayout(layout);
         set({
           projectFilesSide: side === 'left' ? 'left' : 'right',
           workspaceSidebarTwoColumn: layout?.workspace_sidebar_two_column === true,
@@ -201,9 +156,9 @@ export const useLayoutSettingsStore = create<LayoutSettingsState>((set, get) => 
           workspaceSidebarPriorityTwoColumn: layout?.workspace_sidebar_priority_two_column === true,
           workspaceSidebarLabelTwoColumn: layout?.workspace_sidebar_label_two_column === true,
           workspaceSidebarGroupTwoColumn: layout?.workspace_sidebar_group_two_column === true,
+          workspaceSidebarAgentTwoColumn: layout?.workspace_sidebar_agent_two_column === true,
           ...footer,
           ...header,
-          ...rightSidebar,
           loaded: true,
         });
       } catch {
@@ -266,6 +221,13 @@ export const useLayoutSettingsStore = create<LayoutSettingsState>((set, get) => 
         value,
       ),
 
+    setWorkspaceSidebarAgentTwoColumn: (value) =>
+      updateLayoutSetting(
+        { workspaceSidebarAgentTwoColumn: value },
+        'workspace_sidebar_agent_two_column',
+        value,
+      ),
+
     setFooterShowWsConnection: (value) =>
       updateLayoutSetting({ showWsConnection: value }, 'footer_show_ws_connection', value),
 
@@ -304,20 +266,5 @@ export const useLayoutSettingsStore = create<LayoutSettingsState>((set, get) => 
 
     setHeaderShowAppshot: (value) =>
       updateLayoutSetting({ showHeaderAppshot: value }, 'header_show_appshot', value),
-
-    setRightSidebarShowChanges: (value) =>
-      updateLayoutSetting({ rsShowChanges: value }, 'right_sidebar_show_changes', value),
-
-    setRightSidebarShowReview: (value) =>
-      updateLayoutSetting({ rsShowReview: value }, 'right_sidebar_show_review', value),
-
-    setRightSidebarShowBrowser: (value) =>
-      updateLayoutSetting({ rsShowBrowser: value }, 'right_sidebar_show_browser', value),
-
-    setRightSidebarShowRun: (value) =>
-      updateLayoutSetting({ rsShowRun: value }, 'right_sidebar_show_run', value),
-
-    setRightSidebarShowGithub: (value) =>
-      updateLayoutSetting({ rsShowGithub: value }, 'right_sidebar_show_github', value),
   };
 });

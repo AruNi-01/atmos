@@ -16,6 +16,22 @@ describe("browser-use-control structural", () => {
     const sm = readFileSync(join(root, "browser/surface-manager.ts"), "utf8");
     expect(sm).toContain("getGuestWebContents");
     expect(sm).toContain("listBrowserUseSessions");
+    expect(sm).toContain("emitAgentTab");
+    expect(sm).toContain("lastActiveSessionId");
+    expect(sm).toContain("lastActiveBoundSessionId");
+    expect(sm).toContain("markLastActiveSession");
+    expect(sm).toContain("clearLastActiveIf");
+    expect(sm).toContain("setOnBrowserUseClosed");
+    expect(sm).toContain('payload.action === "ensure-bind"');
+    expect(sm).toContain("this.surfaces.size === 0");
+    expect(sm).toContain("focused");
+    expect(sm).toContain("did-navigate");
+    expect(sm).toContain("did-navigate-in-page");
+    expect(sm).toContain("did-start-navigation");
+    expect(sm).toContain("resolveAgentTabHost");
+    expect(sm).toContain("setOnBrowserUseNavigated");
+    expect(sm).toContain("setDownloadPath");
+    expect(sm).toContain("systemDownloadsDir");
   });
 
   it("control plane uses loopback + control.json", () => {
@@ -27,7 +43,43 @@ describe("browser-use-control structural", () => {
     expect(src).toContain("/v1/pointer");
     expect(src).toContain("/v1/dialog");
     expect(src).toContain("/v1/download");
+    expect(src).toContain("/v1/press-key");
+    expect(src).toContain("/v1/end");
+    expect(src).toContain("/v1/tabs");
+    expect(src).toContain("user_picks");
+    expect(src).toContain("[...userEls, ...domElements]");
+    expect(src).toContain("respondSnapshot");
+    expect(src).toContain("ensureBoundTarget");
+    expect(src).toContain('action: "ensure-bind"');
+    expect(src).toContain("lastActiveBoundSessionId");
+    expect(src).toContain('"__ensure__"');
+    expect(src).toContain("sessions.length > 0");
+    expect(src).toContain("request body is not valid JSON");
+    expect(src).not.toContain('mode: "bind"');
+    expect(src).toContain("emitAgentTab");
+    expect(src).toContain("setUserPicks");
+    expect(src).toContain("completeAgentTab");
+    expect(src).toContain("invalidateSession");
+    expect(src).toContain("truncated");
+    expect(src).toContain("total_candidates");
+    expect(src).toContain("AGENT_TAB_TIMEOUT_MS");
+    expect(src).toContain("pid: process.pid");
+    expect(src).toContain("MAX_BODY_BYTES");
+    expect(src).toContain("browser_route_unavailable");
     expect(src).toContain("persist:atmos-browser");
+    expect(src).toContain("token");
+    expect(src).toContain("embedded_dom_v1");
+    expect(src).toContain("browser_ref_stale");
+    expect(src).toContain("authorization");
+    expect(src).toContain("atmos-browser-use-cursor");
+    expect(src).toContain("waitForGuestReady");
+    expect(src).toContain("waitForGuestNavigated");
+    expect(src).toContain('queues.get("__ensure__")');
+    expect(src).toContain('code === "invalid_args"');
+    expect(src).toContain('action: "navigate"');
+    expect(src).toContain("isDetached");
+    expect(src).toContain("preferredTargetId");
+    expect(src).toContain("lastActiveBoundSessionId");
   });
 
   it("wires Desktop Use agent chrome on embedded click/type", () => {
@@ -46,7 +98,7 @@ describe("browser-use-control structural", () => {
     expect(src).toContain("Typing in page");
     // Click path remains CDP / DOM — not drive click
     expect(src).toContain("Input.dispatchMouseEvent");
-    expect(src).toContain("el.click");
+    expect(src).toContain("node.click");
   });
 
   it("implements full browser action surface on embedded host", () => {
@@ -57,8 +109,14 @@ describe("browser-use-control structural", () => {
     expect(src).toContain("Page.handleJavaScriptDialog");
     expect(src).toContain("javascriptDialogOpening");
     expect(src).toContain("will-download");
+    expect(src).toContain("systemDownloadsDir");
+    expect(src).not.toContain('join(CONTROL_DIR(), "downloads")');
+    expect(src).toContain("wc.id !== guest.id");
     expect(src).toContain("mouseWheel");
     expect(src).toContain("Input.insertText");
+    expect(src).toContain("pressKey");
+    expect(src).toContain("embedded_dom_v1");
+    expect(src).toContain("emitBrowserUseActivity");
   });
 });
 

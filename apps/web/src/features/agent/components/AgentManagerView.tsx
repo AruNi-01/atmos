@@ -7,10 +7,7 @@ import { agentManagerParams, type AgentManagerView as AgentManagerMode, type Age
 import {
   Button,
   Input,
-  cn,
   Tabs,
-  TabsList,
-  TabsTrigger,
   TabsContent,
   Tooltip,
   TooltipTrigger,
@@ -29,6 +26,7 @@ import {
   Globe,
   MessageSquare,
 } from "lucide-react";
+import { LaunchpadPageTabs } from "@/shared/components/LaunchpadPageTabs";
 import { ChatSessionsManagementView } from "@/features/chat-sessions/components/ChatSessionsManagementView";
 import { motion, AnimatePresence } from "motion/react";
 import {
@@ -77,13 +75,14 @@ export const AgentManagerView: React.FC = () => {
   return (
     <div className="flex h-full flex-col overflow-hidden bg-background">
       <div
-        className="border-b border-border bg-background/50 px-8 py-6 backdrop-blur-sm sticky top-0 z-10 cursor-pointer"
+        className="sticky top-0 z-10 cursor-pointer bg-background/50 px-8 py-6 backdrop-blur-sm"
         onMouseEnter={() => setIconHovered(true)}
         onMouseLeave={() => setIconHovered(false)}
         onClick={handleViewChange}
       >
-        <div className="flex items-center justify-between gap-6 max-w-5xl mx-auto w-full">
-          <div className="flex items-center gap-4 shrink-0">
+        <div className="mx-auto flex w-full max-w-5xl flex-col gap-4">
+        <div className="flex items-start justify-between gap-6">
+          <div className="flex min-w-0 items-center gap-4 shrink-0">
             <TooltipProvider delayDuration={300}>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -147,17 +146,30 @@ export const AgentManagerView: React.FC = () => {
             </div>
           </div>
 
-          {/* Agent controls - only show when NOT in sessions view */}
-          {!isSessionsView && (
-            <div className="flex-1 max-w-2xl" onClick={(e) => e.stopPropagation()}>
-              <div className="flex items-center gap-3">
-                <div className="relative w-full group">
+          {!isSessionsView ? (
+            <div onClick={(event) => event.stopPropagation()}>
+              <LaunchpadPageTabs
+                value={activeTab}
+                onValueChange={(value) => void setAgentParams({ agentTab: value as AgentTab })}
+                items={[
+                  { value: "registry", label: t("manager.tabs.registry"), icon: Globe },
+                  { value: "installed", label: t("manager.tabs.installed"), icon: Download },
+                  { value: "custom", label: t("manager.tabs.custom"), icon: Terminal },
+                ]}
+              />
+            </div>
+          ) : null}
+        </div>
+
+          {!isSessionsView ? (
+            <div className="flex items-center gap-2" onClick={(event) => event.stopPropagation()}>
+                <div className="relative min-w-0 flex-1 group">
                   <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground/60 group-focus-within:text-primary transition-colors" />
                   <Input
                     value={query}
                     onChange={(e) => setAgentParams({ agentQ: e.target.value })}
                     placeholder={t("manager.searchPlaceholder")}
-                    className="h-10 pl-10 bg-muted/20 border-border/50 focus:bg-background transition-all rounded-xl shadow-sm focus-visible:ring-1 focus-visible:ring-primary/20"
+                    className="h-11 pl-10 bg-muted/20 border-border/50 focus:bg-background transition-all rounded-xl shadow-sm focus-visible:ring-1 focus-visible:ring-primary/20"
                   />
                 </div>
                 {activeTab === "custom" && (
@@ -165,7 +177,7 @@ export const AgentManagerView: React.FC = () => {
                     variant="outline"
                     size="icon"
                     onClick={openAddCustomDialog}
-                    className="h-10 w-10 shrink-0 rounded-xl bg-muted/20 border-border/50 hover:bg-background transition-all shadow-sm cursor-pointer"
+                    className="size-11 shrink-0 rounded-xl bg-muted/20 border-border/50 hover:bg-background transition-all shadow-sm"
                     title={t("manager.addCustomAgent")}
                   >
                     <Plus className="size-4" />
@@ -177,15 +189,14 @@ export const AgentManagerView: React.FC = () => {
                     size="icon"
                     onClick={() => mgr.handleRefresh()}
                     disabled={mgr.refreshing}
-                    className="h-10 w-10 shrink-0 rounded-xl bg-muted/20 border-border/50 hover:bg-background transition-all shadow-sm cursor-pointer"
+                    className="size-11 shrink-0 rounded-xl bg-muted/20 border-border/50 hover:bg-background transition-all shadow-sm"
                     title={t("manager.refreshRegistry")}
                   >
                     {mgr.refreshing ? <LoaderCircle className="size-4 animate-spin-reverse" /> : <RotateCcw className="size-4" />}
                   </Button>
                 )}
-              </div>
             </div>
-          )}
+          ) : null}
         </div>
       </div>
 
@@ -215,40 +226,6 @@ export const AgentManagerView: React.FC = () => {
         onValueChange={(v) => setAgentParams({ agentTab: v as AgentTab })}
         className="flex-1 flex flex-col overflow-hidden"
       >
-        <div className="px-8 pt-4 pb-2">
-          <div className="max-w-5xl mx-auto w-full">
-            <TabsList>
-              <TabsTrigger value="registry">
-                <Globe className="size-4" />
-                {t("manager.tabs.registry")}
-                {!mgr.loading && (
-                  <span className="ml-1 shrink-0 rounded-full border border-sky-500/20 bg-sky-500/10 px-1.5 text-[10px] font-medium text-sky-700 dark:text-sky-400 tabular-nums">
-                    {mgr.registryCount}
-                  </span>
-                )}
-              </TabsTrigger>
-              <TabsTrigger value="installed">
-                <Download className="size-4" />
-                {t("manager.tabs.installed")}
-                {!mgr.loading && mgr.installedCount + mgr.filteredCustomAgents.length > 0 && (
-                  <span className="ml-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-1.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400 tabular-nums">
-                    {mgr.installedCount + mgr.filteredCustomAgents.length}
-                  </span>
-                )}
-              </TabsTrigger>
-              <TabsTrigger value="custom">
-                <Terminal className="size-4" />
-                {t("manager.tabs.custom")}
-                {!mgr.loading && mgr.customAgents.length > 0 && (
-                  <span className="ml-1 rounded-full bg-violet-500/10 border border-violet-500/20 px-1.5 text-[10px] font-medium text-violet-600 dark:text-violet-400 tabular-nums">
-                    {mgr.customAgents.length}
-                  </span>
-                )}
-              </TabsTrigger>
-            </TabsList>
-          </div>
-        </div>
-
         <div className="flex-1 scrollbar-on-hover overflow-auto px-8 pt-4 pb-8">
           <div className="max-w-5xl mx-auto w-full">
             <TabsContent keepMounted value="registry">

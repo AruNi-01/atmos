@@ -21,6 +21,7 @@ packages/relay/
 ├── src/
 │   ├── index.ts          # Worker routes (relay REST + WS upgrade)
 │   ├── server-hub.ts     # Durable Object per server_id
+│   ├── pt-design-room.ts # Durable Object per Prototype Design collab room
 │   ├── github-app.ts     # GitHub App OAuth/JWT/install token helpers
 │   ├── github-webhook.ts # Webhook signature verification + normalization
 │   ├── event-routes.ts   # GitHub setup, route CRUD, and matching
@@ -67,7 +68,7 @@ Default relay URL: `https://relay.atmos.land` (`ATMOS_RELAY_URL` override). Self
 
 ### NEVER
 
-- Put Atmos business logic (projects, terminals, canvas) in the Worker — relay is routing + auth + presence only.
+- Put Atmos business logic (projects, terminals, canvas) in the Worker — relay is routing + auth + presence only. PT Design rooms may only forward ciphertext; they must not decrypt scenes or store Design IR.
 - Run automations, inspect local automation instructions, or decide whether a local automation is safe to execute.
 - Log `server_secret`, `register_token`, raw device credentials, GitHub webhook secrets, private keys, OAuth codes, or installation tokens.
 

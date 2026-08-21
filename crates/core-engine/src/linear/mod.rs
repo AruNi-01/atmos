@@ -80,14 +80,32 @@ pub struct LinearGithubRef {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct LinearLabel {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
     pub name: String,
     pub color: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct LinearAssignee {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
     pub name: String,
     pub avatar_url: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct LinearUser {
+    pub id: String,
+    pub name: String,
+    pub avatar_url: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct LinearLabelOption {
+    pub id: String,
+    pub name: String,
+    pub color: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -144,6 +162,13 @@ pub struct LinearIssueListOptions {
     pub preset: LinearIssuePreset,
     pub team_id: Option<String>,
     pub project_id: Option<String>,
+    /// Linear workflow state types (`backlog` | `unstarted` | `started` | `completed` | `canceled`).
+    /// When non-empty, applied instead of the preset's built-in state filter.
+    pub state_types: Vec<String>,
+    /// Multi-select assignees (user ids). Empty = any.
+    pub assignee_ids: Vec<String>,
+    /// Multi-select labels (label ids). Empty = any. Matched with OR (any of).
+    pub label_ids: Vec<String>,
     pub query: Option<String>,
     pub first: u32,
     pub after: Option<String>,
@@ -193,18 +218,37 @@ pub fn parse_rate_limit_headers(headers: &HashMap<String, String>) -> Option<Lin
 pub fn build_issues_filter(options: &LinearIssueListOptions) -> Value {
     let mut and: Vec<Value> = Vec::new();
 
-    match options.preset {
-        LinearIssuePreset::Active => {
-            and.push(json!({
-                "state": { "type": { "in": ["started", "unstarted"] } }
-            }));
+    let status_types: Vec<String> = options
+        .state_types
+        .iter()
+        .map(|s| s.trim().to_ascii_lowercase())
+        .filter(|s| {
+            matches!(
+                s.as_str(),
+                "backlog" | "unstarted" | "started" | "completed" | "canceled"
+            )
+        })
+        .collect();
+
+    // Explicit status filter wins over view-preset state filter (avoids empty AND).
+    if !status_types.is_empty() {
+        and.push(json!({
+            "state": { "type": { "in": status_types } }
+        }));
+    } else {
+        match options.preset {
+            LinearIssuePreset::Active => {
+                and.push(json!({
+                    "state": { "type": { "in": ["started", "unstarted"] } }
+                }));
+            }
+            LinearIssuePreset::Backlog => {
+                and.push(json!({
+                    "state": { "type": { "eq": "backlog" } }
+                }));
+            }
+            LinearIssuePreset::All => {}
         }
-        LinearIssuePreset::Backlog => {
-            and.push(json!({
-                "state": { "type": { "eq": "backlog" } }
-            }));
-        }
-        LinearIssuePreset::All => {}
     }
 
     if let Some(team_id) = options
@@ -223,6 +267,31 @@ pub fn build_issues_filter(options: &LinearIssueListOptions) -> Value {
         .filter(|s| !s.is_empty())
     {
         and.push(json!({ "project": { "id": { "eq": project_id } } }));
+    }
+
+    let assignee_ids: Vec<String> = options
+        .assignee_ids
+        .iter()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .collect();
+    if !assignee_ids.is_empty() {
+        and.push(json!({
+            "assignee": { "id": { "in": assignee_ids } }
+        }));
+    }
+
+    let label_ids: Vec<String> = options
+        .label_ids
+        .iter()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .collect();
+    if !label_ids.is_empty() {
+        // Collection filter: issue has *any* of the selected labels.
+        and.push(json!({
+            "labels": { "some": { "id": { "in": label_ids } } }
+        }));
     }
 
     if let Some(q) = options
@@ -429,6 +498,7 @@ pub fn parse_issue_node(node: &Value) -> Result<LinearIssue, EngineError> {
                 .filter_map(|l| {
                     let name = l.get("name")?.as_str()?.to_string();
                     Some(LinearLabel {
+                        id: l.get("id").and_then(|v| v.as_str()).map(str::to_string),
                         name,
                         color: l.get("color").and_then(|c| c.as_str()).map(str::to_string),
                     })
@@ -442,6 +512,7 @@ pub fn parse_issue_node(node: &Value) -> Result<LinearIssue, EngineError> {
             return None;
         }
         Some(LinearAssignee {
+            id: a.get("id").and_then(|v| v.as_str()).map(str::to_string),
             name: a.get("name")?.as_str()?.to_string(),
             avatar_url: a
                 .get("avatarUrl")
@@ -628,8 +699,8 @@ query($first: Int!, $after: String, $filter: IssueFilter) {
       state { name type }
       team { id key }
       project { id name }
-      labels { nodes { name color } }
-      assignee { name avatarUrl }
+      labels { nodes { id name color } }
+      assignee { id name avatarUrl }
       attachments { nodes { url title } }
     }
   }
@@ -694,6 +765,66 @@ query($first: Int!, $after: String, $filter: IssueFilter) {
             .collect())
     }
 
+    pub async fn list_users(&self) -> Result<Vec<LinearUser>, EngineError> {
+        let data = self
+            .graphql(
+                "query { users(first: 100) { nodes { id name displayName avatarUrl } } }",
+                json!({}),
+            )
+            .await?;
+        let nodes = data
+            .pointer("/users/nodes")
+            .and_then(|n| n.as_array())
+            .cloned()
+            .unwrap_or_default();
+        Ok(nodes
+            .into_iter()
+            .filter_map(|n| {
+                let id = n.get("id")?.as_str()?.to_string();
+                let name = n
+                    .get("displayName")
+                    .and_then(|v| v.as_str())
+                    .or_else(|| n.get("name").and_then(|v| v.as_str()))?
+                    .to_string();
+                if id.is_empty() || name.is_empty() {
+                    return None;
+                }
+                Some(LinearUser {
+                    id,
+                    name,
+                    avatar_url: n
+                        .get("avatarUrl")
+                        .and_then(|u| u.as_str())
+                        .map(str::to_string),
+                })
+            })
+            .collect())
+    }
+
+    pub async fn list_labels(&self) -> Result<Vec<LinearLabelOption>, EngineError> {
+        let data = self
+            .graphql(
+                "query { issueLabels(first: 100) { nodes { id name color } } }",
+                json!({}),
+            )
+            .await?;
+        let nodes = data
+            .pointer("/issueLabels/nodes")
+            .and_then(|n| n.as_array())
+            .cloned()
+            .unwrap_or_default();
+        Ok(nodes
+            .into_iter()
+            .filter_map(|n| {
+                Some(LinearLabelOption {
+                    id: n.get("id")?.as_str()?.to_string(),
+                    name: n.get("name")?.as_str()?.to_string(),
+                    color: n.get("color").and_then(|c| c.as_str()).map(str::to_string),
+                })
+            })
+            .collect())
+    }
+
     /// Cheap probe that updates rate-limit headers via `viewer`.
     pub async fn probe_rate_limit(&self) -> Result<Option<LinearRateLimit>, EngineError> {
         let _ = self.viewer().await?;
@@ -733,6 +864,9 @@ mod tests {
             preset: LinearIssuePreset::Active,
             team_id: Some("team-1".into()),
             project_id: None,
+            state_types: vec![],
+            assignee_ids: vec![],
+            label_ids: vec![],
             query: None,
             first: 25,
             after: None,
@@ -748,6 +882,9 @@ mod tests {
             preset: LinearIssuePreset::Backlog,
             team_id: None,
             project_id: Some("proj-9".into()),
+            state_types: vec![],
+            assignee_ids: vec![],
+            label_ids: vec![],
             query: Some("LAN-48".into()),
             first: 10,
             after: None,
@@ -756,6 +893,46 @@ mod tests {
         assert!(s.contains("backlog"));
         assert!(s.contains("proj-9"));
         assert!(s.contains("LAN-48") || s.contains("48"));
+    }
+
+    #[test]
+    fn build_issues_filter_status_overrides_preset_state() {
+        let f = build_issues_filter(&LinearIssueListOptions {
+            preset: LinearIssuePreset::Active,
+            team_id: None,
+            project_id: None,
+            state_types: vec!["completed".into(), "canceled".into()],
+            assignee_ids: vec![],
+            label_ids: vec![],
+            query: None,
+            first: 25,
+            after: None,
+        });
+        let s = f.to_string();
+        assert!(s.contains("completed"));
+        assert!(s.contains("canceled"));
+        // Active's unstarted should not be forced alongside explicit status.
+        assert!(!s.contains("unstarted"));
+    }
+
+    #[test]
+    fn build_issues_filter_assignee_and_labels_multi() {
+        let f = build_issues_filter(&LinearIssueListOptions {
+            preset: LinearIssuePreset::All,
+            team_id: None,
+            project_id: None,
+            state_types: vec![],
+            assignee_ids: vec!["user-a".into(), "user-b".into()],
+            label_ids: vec!["lab-1".into(), "lab-2".into()],
+            query: None,
+            first: 25,
+            after: None,
+        });
+        let s = f.to_string();
+        assert!(s.contains("user-a"));
+        assert!(s.contains("user-b"));
+        assert!(s.contains("lab-1"));
+        assert!(s.contains("some"));
     }
 
     #[test]
@@ -809,8 +986,8 @@ mod tests {
                     "state": { "name": "In Progress", "type": "started" },
                     "team": { "id": "t1", "key": "LAN" },
                     "project": { "id": "p1", "name": "Test" },
-                    "labels": { "nodes": [{ "name": "enhancement", "color": "#00ff00" }] },
-                    "assignee": { "name": "Alice", "avatarUrl": "https://img" },
+                    "labels": { "nodes": [{ "id": "lab-1", "name": "enhancement", "color": "#00ff00" }] },
+                    "assignee": { "id": "user-1", "name": "Alice", "avatarUrl": "https://img" },
                     "attachments": { "nodes": [
                         { "url": "https://github.com/org/repo/issues/164", "title": "#164" }
                     ]}

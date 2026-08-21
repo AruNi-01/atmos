@@ -11,9 +11,9 @@ export function NativeSegmentedControl<T extends string>({
 }: NativeSegmentedControlProps<T>) {
   const theme = useMobileTheme();
   const colors = theme.colors;
-  const trackColor = theme.isDark ? "#1c1c1e" : "rgba(10, 10, 11, 0.055)";
+  const trackColor = colors.segmentedTrack;
   const segmentedColors = {
-    activeBorderColor: theme.isDark ? "rgba(255, 255, 255, 0.075)" : "rgba(10, 10, 11, 0.07)",
+    activeBorderColor: colors.segmentedSelectedBorder,
     activeContainerColor: colors.controlElevated,
     activeContentColor: colors.label,
     inactiveBorderColor: colors.controlBorder,

@@ -7,27 +7,103 @@
 //! **No MCP.**
 
 mod backends;
+pub mod binding;
 mod chrome;
+mod download;
+mod envelope;
+mod errors;
+mod surface;
 mod types;
 
 pub use backends::{EmbeddedBackend, ExternalBackend};
+pub use binding::{
+    apply_binding_defaults, apply_result_to_binding, clear_binding, commit_binding_from_result,
+    engine_session_id, extract_ids, fill_result_ids, load_binding, resolve_binding_id,
+    resolve_binding_scope, resolve_native_route, save_binding, AppliedBinding, BrowserBinding,
+    NativeRouteHint, BINDING_SCOPE_ENV, DEFAULT_BINDING_SCOPE,
+};
 pub use chrome::{
     chrome_target_for_request, show_browser_action_chrome, status_for_browser_action,
     wants_action_chrome, BrowserChromeTarget, DEFAULT_BROWSER_USE_SESSION,
 };
+pub use envelope::{capability_flags, fill_result_envelope};
 pub use types::{
-    BrowserAction, BrowserBackendKind, BrowserError, BrowserRequest, BrowserResult,
-    DEFAULT_SNAPSHOT_FORMAT, ERR_EMBEDDED_HOST_UNAVAILABLE, ERR_NO_MCP, PINNED_ENGINE_VERSION,
+    action_name, BrowserAction, BrowserBackendKind, BrowserError, BrowserRequest, BrowserResult,
+    DEFAULT_SNAPSHOT_FORMAT, EMBEDDED_SNAPSHOT_FORMAT, ERR_EMBEDDED_HOST_UNAVAILABLE, ERR_NO_MCP,
+    PINNED_ENGINE_VERSION,
 };
 
 use backends::BrowserBackend;
+use errors::{fail_with_recovery, recovery_for, BROWSER_DOWNLOAD_DENIED};
 
 /// Dispatch a browser-use request to the selected backend.
-pub fn execute(req: BrowserRequest) -> BrowserResult {
-    match req.backend {
-        BrowserBackendKind::External => ExternalBackend.execute(req),
-        BrowserBackendKind::Embedded => EmbeddedBackend.execute(req),
+pub fn execute(mut req: BrowserRequest) -> BrowserResult {
+    let binding_id = req.binding_id.clone();
+    let target_explicit = req
+        .target_id
+        .as_ref()
+        .is_some_and(|value| !value.trim().is_empty());
+    let mut applied = binding::apply_binding_defaults(
+        req.backend,
+        req.backend_explicit,
+        req.target_id.clone(),
+        req.tab_id.clone(),
+        req.session.clone(),
+        binding_id.as_deref(),
+    );
+    // Embedded `state` without an explicit target must hit last-active / ensure.
+    // Injecting the stored id would pin the old tab and skip pick handoff.
+    if req.action == BrowserAction::State
+        && applied.backend == BrowserBackendKind::Embedded
+        && !target_explicit
+    {
+        applied.target_id = None;
     }
+    req.backend = applied.backend;
+    req.target_id = applied.target_id;
+    req.tab_id = applied.tab_id;
+    req.session = applied.session_id;
+    let resolved_from = applied.resolved_from;
+
+    if req.action == BrowserAction::Download {
+        match download::resolve_download_dir(req.download_dir.as_deref()) {
+            Ok(dir) => req.download_dir = Some(dir),
+            Err(message) => {
+                let backend = match req.backend {
+                    BrowserBackendKind::External => "external",
+                    BrowserBackendKind::Embedded => "embedded",
+                };
+                let mut result = fail_with_recovery(
+                    "download",
+                    backend,
+                    BROWSER_DOWNLOAD_DENIED,
+                    message,
+                    recovery_for(BROWSER_DOWNLOAD_DENIED),
+                );
+                result.resolved_from = resolved_from;
+                envelope::fill_result_envelope(&mut result, req.backend);
+                return result;
+            }
+        }
+    }
+
+    let mut result = match req.backend {
+        BrowserBackendKind::External => ExternalBackend.execute(req.clone()),
+        BrowserBackendKind::Embedded => EmbeddedBackend.execute(req.clone()),
+    };
+    result.resolved_from = resolved_from.or(result.resolved_from);
+    binding::fill_result_ids(&mut result);
+    binding::apply_result_to_binding(
+        binding_id.as_deref(),
+        req.backend,
+        req.action,
+        req.tab_action.as_deref(),
+        &result,
+    );
+    surface::attach_surface(&mut result, req.backend);
+    envelope::fill_result_envelope(&mut result, req.backend);
+    surface::attach_success_recovery(&mut result);
+    result
 }
 
 /// Map a browser request to control-engine tool + args (external path).
@@ -49,6 +125,7 @@ mod tests {
 
     #[test]
     fn embedded_without_host_fails_closed() {
+        let _guard = binding::TEST_HOME_LOCK.lock().expect("test home lock");
         let dir = tempfile::tempdir().unwrap();
         // SAFETY: test isolation via env override
         unsafe {
@@ -302,5 +379,121 @@ mod tests {
             ..Default::default()
         });
         assert_eq!(res.backend, "external");
+    }
+
+    #[test]
+    fn download_outside_system_folder_is_denied() {
+        let _guard = binding::TEST_HOME_LOCK.lock().expect("test home lock");
+        let root = tempfile::tempdir().unwrap();
+        let outside = tempfile::tempdir().unwrap();
+        unsafe {
+            std::env::set_var("ATMOS_BROWSER_USE_DOWNLOADS", root.path());
+        }
+        let res = execute(BrowserRequest {
+            backend: BrowserBackendKind::Embedded,
+            action: BrowserAction::Download,
+            target_id: Some("s1".into()),
+            element_ref: Some("e1".into()),
+            download_dir: Some(outside.path().to_string_lossy().into_owned()),
+            ..Default::default()
+        });
+        unsafe {
+            std::env::remove_var("ATMOS_BROWSER_USE_DOWNLOADS");
+        }
+        assert!(!res.ok);
+        assert_eq!(res.error_code.as_deref(), Some("browser_download_denied"));
+    }
+
+    #[test]
+    fn external_download_uses_destination_root() {
+        let req = BrowserRequest {
+            backend: BrowserBackendKind::External,
+            action: BrowserAction::Download,
+            target_id: Some("tgt".into()),
+            tab_id: Some("tab".into()),
+            element_ref: Some("e1".into()),
+            download_dir: Some("/tmp/out".into()),
+            ..Default::default()
+        };
+        let (tool, args) = build_external_tool_call(&req).unwrap();
+        assert_eq!(tool, "browser_download");
+        assert_eq!(args["destination_root"], "/tmp/out");
+        assert!(args.get("dir").is_none());
+    }
+
+    #[test]
+    fn unknown_strategy_is_invalid_args() {
+        let req = BrowserRequest {
+            backend: BrowserBackendKind::External,
+            action: BrowserAction::Prepare,
+            pid: Some(1),
+            profile_strategy: Some("steal_cookies".into()),
+            ..Default::default()
+        };
+        let err = build_external_tool_call(&req).unwrap_err();
+        assert!(err.contains("unknown --strategy"));
+    }
+
+    #[test]
+    fn existing_profile_fails_closed_without_grant() {
+        let res = execute(BrowserRequest {
+            backend: BrowserBackendKind::External,
+            action: BrowserAction::Prepare,
+            pid: Some(1),
+            window_id: Some(2),
+            profile_strategy: Some("existing_profile".into()),
+            ..Default::default()
+        });
+        assert!(!res.ok);
+        assert_eq!(
+            res.error_code.as_deref(),
+            Some(crate::errors::BROWSER_PROFILE_GRANT_REQUIRED)
+        );
+        assert!(res.recovery.as_deref().unwrap().contains("isolated_new"));
+    }
+
+    #[test]
+    fn external_upload_maps_to_set_input_files() {
+        let req = BrowserRequest {
+            backend: BrowserBackendKind::External,
+            action: BrowserAction::Upload,
+            target_id: Some("tgt".into()),
+            tab_id: Some("tab".into()),
+            element_ref: Some("e2".into()),
+            files: vec!["/tmp/a.png".into()],
+            ..Default::default()
+        };
+        let (tool, args) = build_external_tool_call(&req).unwrap();
+        assert_eq!(tool, "browser_set_input_files");
+        assert_eq!(args["paths"][0], "/tmp/a.png");
+        assert_eq!(args["ref"], "e2");
+    }
+
+    #[test]
+    fn press_key_is_not_an_external_tool() {
+        let req = BrowserRequest {
+            backend: BrowserBackendKind::External,
+            action: BrowserAction::PressKey,
+            target_id: Some("tgt".into()),
+            tab_id: Some("tab".into()),
+            key: Some("Enter".into()),
+            ..Default::default()
+        };
+        assert!(build_external_tool_call(&req).is_err());
+    }
+
+    #[test]
+    fn tabs_is_embedded_only() {
+        let req = BrowserRequest {
+            backend: BrowserBackendKind::External,
+            action: BrowserAction::Tabs,
+            tab_action: Some("open".into()),
+            url: Some("https://example.com".into()),
+            ..Default::default()
+        };
+        assert!(build_external_tool_call(&req)
+            .unwrap_err()
+            .contains("embedded"));
+        assert_eq!(action_name(BrowserAction::Tabs), "tabs");
     }
 }

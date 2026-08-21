@@ -5,6 +5,19 @@ import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { wsLinearApi } from "@/api/ws/linear-api";
 import { selectLinearOauth } from "@/features/settings/lib/linear-local-keys";
+import {
+  OAuthCallbackReturnFooter,
+  OAuthCallbackShell,
+  type OAuthCallbackStatus,
+} from "@/shared/components/oauth-callback-shell";
+import { useOAuthCallbackReturn } from "@/shared/hooks/use-oauth-callback-return";
+
+/**
+ * OAuth codes are single-use. React Strict Mode remounts effects in dev; a module-level
+ * in-flight map reuses one finish promise across remounts so we never double-exchange
+ * (Linear `invalid_grant`) while still updating UI after the remount.
+ */
+const oauthFinishInflight = new Map<string, Promise<void>>();
 
 /**
  * OAuth redirect target for Linear (APP-056).
@@ -13,7 +26,10 @@ import { selectLinearOauth } from "@/features/settings/lib/linear-local-keys";
 function LinearOAuthCallbackInner() {
   const params = useSearchParams();
   const t = useTranslations("settings.integrationsSection.linear.oauthCallback");
-  const [status, setStatus] = useState<"working" | "ok" | "error">("working");
+  const { ctx: returnCtx, ready: returnReady } = useOAuthCallbackReturn(params, {
+    state: params.get("state"),
+  });
+  const [status, setStatus] = useState<OAuthCallbackStatus>("working");
   const [message, setMessage] = useState(() => t("working"));
 
   useEffect(() => {
@@ -30,56 +46,72 @@ function LinearOAuthCallbackInner() {
       setMessage(t("missingParams"));
       return;
     }
+    const finishKey = `${state}:${code}`;
     let cancelled = false;
-    void (async () => {
-      try {
+
+    let finish = oauthFinishInflight.get(finishKey);
+    if (!finish) {
+      finish = (async () => {
         await wsLinearApi.oauthFinish(code, state);
-        if (cancelled) return;
         await selectLinearOauth();
+      })();
+      oauthFinishInflight.set(finishKey, finish);
+    }
+
+    void finish
+      .then(() => {
+        if (cancelled) return;
         setStatus("ok");
         setMessage(t("success"));
-        // Desktop loopback may not have SPA navigation; try soft redirect.
-        window.setTimeout(() => {
-          try {
-            window.location.href = "/";
-          } catch {
-            /* ignore */
-          }
-        }, 1200);
-      } catch (e) {
+      })
+      .catch((e: unknown) => {
+        // Allow a manual retry after a real failure (reload with same params).
+        oauthFinishInflight.delete(finishKey);
         if (cancelled) return;
         setStatus("error");
         setMessage(e instanceof Error ? e.message : t("finishFailed"));
-      }
-    })();
+      });
+
     return () => {
       cancelled = true;
     };
   }, [params, t]);
 
+  const title =
+    status === "ok"
+      ? t("successTitle")
+      : status === "error"
+        ? t("errorTitle")
+        : t("title");
+
   return (
-    <div className="flex min-h-dvh flex-col items-center justify-center gap-3 bg-background px-6 text-center">
-      <p
-        className={
-          status === "error"
-            ? "text-sm text-destructive"
-            : status === "ok"
-              ? "text-sm text-emerald-600"
-              : "text-sm text-muted-foreground"
-        }
-      >
-        {message}
-      </p>
-    </div>
+    <OAuthCallbackShell
+      provider="linear"
+      status={status}
+      title={title}
+      message={message}
+    >
+      {status === "ok" || status === "error" ? (
+        <OAuthCallbackReturnFooter
+          ctx={returnCtx}
+          closeHint={t("closeHint")}
+          backLabel={t("backToAtmos")}
+          showAction={returnReady}
+        />
+      ) : null}
+    </OAuthCallbackShell>
   );
 }
 
 function LinearOAuthCallbackFallback() {
   const t = useTranslations("settings.integrationsSection.linear.oauthCallback");
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-background text-sm text-muted-foreground">
-      {t("loading")}
-    </div>
+    <OAuthCallbackShell
+      provider="linear"
+      status="working"
+      title={t("title")}
+      message={t("loading")}
+    />
   );
 }
 

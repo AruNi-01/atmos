@@ -9,9 +9,9 @@ use core_service::{Result, ServiceError};
 
 use super::{
     GithubIssuePayload, GithubPrPayload, ProjectCreateRequest, ProjectDeleteProgressNotification,
-    ProjectDeleteRequest, ProjectUpdateOrderRequest, ProjectUpdateRequest,
-    ProjectUpdateTargetBranchRequest, ProjectWorkspaceBootstrapResponse, ScriptGetRequest,
-    ScriptSaveRequest, WsEvent, WsManager, WsMessage, WsMessageService,
+    ProjectDeleteRequest, ProjectScriptTrustRequest, ProjectUpdateOrderRequest,
+    ProjectUpdateRequest, ProjectUpdateTargetBranchRequest, ProjectWorkspaceBootstrapResponse,
+    ScriptGetRequest, ScriptSaveRequest, WsEvent, WsManager, WsMessage, WsMessageService,
 };
 
 const WORKSPACE_BOOTSTRAP_CONCURRENCY: usize = 8;
@@ -196,7 +196,7 @@ impl WsMessageService {
     }
 
     pub(super) async fn handle_project_update(&self, req: ProjectUpdateRequest) -> Result<Value> {
-        // APP-058 / product CLI: honor name + sidebar_order in addition to color/logo.
+        // APP-063 / product CLI: honor name + sidebar_order in addition to color/logo.
         if let Some(name) = req.name {
             self.project_service
                 .update_name(req.guid.clone(), name)
@@ -284,26 +284,43 @@ impl WsMessageService {
         Ok(json!({ "success": true }))
     }
 
+    /// Returns the scripts alongside their trust state. Callers must not execute
+    /// anything from `scripts` while `trusted` is false.
     pub(super) async fn handle_script_get(&self, req: ScriptGetRequest) -> Result<Value> {
-        let project = self.project_service.get_project(req.project_guid).await?;
-        if let Some(project) = project {
-            let scripts_path =
-                std::path::Path::new(&project.main_file_path).join(".atmos/scripts/atmos.json");
+        let scripts = self
+            .project_service
+            .read_project_scripts(req.project_guid)
+            .await?;
+        Ok(json!(scripts))
+    }
 
-            if scripts_path.exists() {
-                let (content, _, _) = self.fs_engine.read_file(&scripts_path)?;
-                let json: Value = serde_json::from_str(&content).unwrap_or(json!({}));
-                Ok(json)
-            } else {
-                Ok(json!({}))
-            }
-        } else {
-            Err(ServiceError::Validation("Project not found".to_string()))
+    /// Accept the scripts currently on disk, identified by the hash the user was
+    /// shown, so a file that changed in between is not trusted unseen.
+    pub(super) async fn handle_project_script_trust(
+        &self,
+        conn_id: &str,
+        req: ProjectScriptTrustRequest,
+    ) -> Result<Value> {
+        let scripts = self
+            .project_service
+            .trust_project_scripts(req.project_guid.clone(), req.hash)
+            .await?;
+
+        // Setup parks on the confirmation step, so resume it now that the user
+        // has accepted the script.
+        if let Some(workspace_id) = req.workspace_id.clone() {
+            self.resume_setup_after_script_trust(conn_id, workspace_id)
+                .await?;
         }
+
+        Ok(json!(scripts))
     }
 
     pub(super) async fn handle_script_save(&self, req: ScriptSaveRequest) -> Result<Value> {
-        let project = self.project_service.get_project(req.project_guid).await?;
+        let project = self
+            .project_service
+            .get_project(req.project_guid.clone())
+            .await?;
         if let Some(project) = project {
             let project_root = std::path::Path::new(&project.main_file_path);
             // scripts/ is intentionally trackable; still ensure managed .gitignore
@@ -311,7 +328,7 @@ impl WsMessageService {
             core_engine::ensure_project_atmos_dir(project_root).map_err(|e| {
                 ServiceError::Validation(format!("Failed to ensure project .atmos layout: {}", e))
             })?;
-            let scripts_path = project_root.join(".atmos/scripts/atmos.json");
+            let scripts_path = project_root.join(core_service::PROJECT_SCRIPTS_RELATIVE_PATH);
 
             if let Some(parent) = scripts_path.parent() {
                 std::fs::create_dir_all(parent).map_err(|e| {
@@ -322,6 +339,13 @@ impl WsMessageService {
             let content = serde_json::to_string_pretty(&req.scripts)
                 .map_err(|e| ServiceError::Validation(format!("Invalid script JSON: {}", e)))?;
             self.fs_engine.write_file(&scripts_path, &content)?;
+            // The user just authored this content in the app, so asking them to
+            // confirm their own edit would be noise. Trust the bytes we wrote
+            // rather than re-reading the file, which could pick up a concurrent
+            // rewrite and trust content the user never saw.
+            self.project_service
+                .trust_written_project_scripts(req.project_guid, &content)
+                .await?;
             Ok(json!({ "success": true }))
         } else {
             Err(ServiceError::Validation("Project not found".to_string()))

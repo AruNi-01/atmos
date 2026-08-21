@@ -1,0 +1,8 @@
+[toolchain]
+# Track the latest stable Rust, matching CI (dtolnay/rust-toolchain@stable).
+# Pinning here makes `cargo`/`rustc` auto-select a modern stable in any
+# environment (rustup override, Nix via rust-overlay), avoiding stale
+# preinstalled toolchains that predate edition2024 support (Rust < 1.85).
+channel = "stable"
+components = ["clippy", "rustfmt"]
+profile = "minimal"

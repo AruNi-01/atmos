@@ -2,6 +2,7 @@
 
 import React from "react";
 import { useLocale } from "next-intl";
+import { useReducedMotion } from "motion/react";
 import {
   AnimatedNumber,
   Popover,
@@ -13,9 +14,33 @@ import {
 import { WorkspaceSetupProgressView } from "@/features/workspace/components/WorkspaceSetupProgress";
 import type { WorkspaceSetupProgress } from "@/features/project/store/use-project-store";
 import {
+  getWorkspaceSetupPopoverWidth,
   getWorkspaceSetupProgressValue,
   getWorkspaceSetupSteps,
 } from "@/features/workspace/lib/workspace-setup";
+
+function SetupPopoverSizeFrame({
+  width,
+  children,
+}: {
+  width: number;
+  children: React.ReactNode;
+}) {
+  const reduceMotion = useReducedMotion();
+
+  return (
+    <div
+      className={cn(
+        "h-auto [interpolate-size:allow-keywords]",
+        !reduceMotion &&
+          "transition-[width,height] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
+      )}
+      style={{ width }}
+    >
+      {children}
+    </div>
+  );
+}
 
 interface WorkspaceStatusPopoverProps {
   progress: WorkspaceSetupProgress;
@@ -26,24 +51,31 @@ function ProgressRing({
   progress,
   status,
   highlightReview,
+  highlightScriptTrust,
 }: {
   progress: number;
   status: WorkspaceSetupProgress["status"];
   highlightReview: boolean;
+  highlightScriptTrust: boolean;
 }) {
   const locale = useLocale();
   const radius = 9;
   const circumference = 2 * Math.PI * radius;
   const dashOffset = circumference - (progress / 100) * circumference;
-  const strokeClass =
-    highlightReview
+  // An unreviewed setup script is a stronger signal than a TODO review, so it
+  // gets the destructive tone rather than amber.
+  const strokeClass = highlightScriptTrust
+    ? "stroke-destructive"
+    : highlightReview
       ? "stroke-amber-500"
       : status === "error"
       ? "stroke-destructive"
       : status === "completed"
         ? "stroke-emerald-500"
         : "stroke-primary";
-  const numberClass = highlightReview
+  const numberClass = highlightScriptTrust
+    ? "text-destructive"
+    : highlightReview
     ? "text-amber-500"
     : status === "error"
       ? "text-destructive"
@@ -92,7 +124,15 @@ export function WorkspaceStatusPopover({
   const [open, setOpen] = React.useState(false);
   const progressValue = Math.round(getWorkspaceSetupProgressValue(progress));
   const isReviewingTodos = progress.requiresConfirmation === true;
+  const needsScriptTrust = progress.requiresScriptTrust === true;
   const shimmerToneStyle = React.useMemo(() => {
+    if (needsScriptTrust || progress.status === "error") {
+      return {
+        "--base-color": "rgb(239 68 68 / 0.72)",
+        "--base-gradient-color": "rgb(248 113 113)",
+      } as React.CSSProperties;
+    }
+
     if (isReviewingTodos) {
       return {
         "--base-color": "rgb(217 119 6 / 0.72)",
@@ -100,48 +140,34 @@ export function WorkspaceStatusPopover({
       } as React.CSSProperties;
     }
 
-    if (progress.status === "error") {
-      return {
-        "--base-color": "rgb(239 68 68 / 0.72)",
-        "--base-gradient-color": "rgb(248 113 113)",
-      } as React.CSSProperties;
-    }
-
     return undefined;
-  }, [isReviewingTodos, progress.status]);
+  }, [isReviewingTodos, needsScriptTrust, progress.status]);
   const stepCount = getWorkspaceSetupSteps(progress).length;
-  const popoverWidthClass =
-    stepCount <= 3
-      ? "w-[720px] max-w-[min(720px,calc(100vw-24px))]"
-      : stepCount === 4
-        ? "w-[840px] max-w-[min(840px,calc(100vw-24px))]"
-        : "w-[960px] max-w-[min(960px,calc(100vw-24px))]";
+  const [viewportWidth, setViewportWidth] = React.useState(() =>
+    typeof window === "undefined" ? 1200 : window.innerWidth,
+  );
+  const popoverWidth = getWorkspaceSetupPopoverWidth(stepCount, viewportWidth);
 
   React.useEffect(() => {
-    if (progress.status !== "completed") {
-      return;
-    }
-
-    const timer = window.setTimeout(() => {
-      setOpen(false);
-      onFinish();
-    }, 5000);
-
-    return () => window.clearTimeout(timer);
-  }, [onFinish, progress.status]);
+    const updateViewportWidth = () => setViewportWidth(window.innerWidth);
+    updateViewportWidth();
+    window.addEventListener("resize", updateViewportWidth);
+    return () => window.removeEventListener("resize", updateViewportWidth);
+  }, []);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <button
           type="button"
-          className="grid h-7 max-w-[280px] grid-cols-[22px_minmax(0,1fr)_2px] items-center gap-2 rounded-md border border-transparent bg-muted/40 pl-2 pr-1 text-left transition-colors hover:border-border hover:bg-muted/60"
+          className="grid h-7 max-w-[280px] grid-cols-[22px_minmax(0,1fr)_2px] items-center gap-2 rounded-md border border-transparent bg-muted/40 pl-2 pr-1 text-left hover:border-border hover:bg-muted/60"
           aria-label={`Workspace status: ${progress.stepTitle}`}
         >
           <ProgressRing
             progress={progressValue}
             status={progress.status}
             highlightReview={isReviewingTodos}
+            highlightScriptTrust={needsScriptTrust}
           />
           <div className="min-w-0 overflow-hidden text-center">
             <TextShimmer
@@ -159,12 +185,17 @@ export function WorkspaceStatusPopover({
       <PopoverContent
         align="start"
         sideOffset={8}
-        className={cn(
-          popoverWidthClass,
-          "border border-border/70 bg-popover/96 p-0 shadow-xl",
-        )}
+        forceMount={progress.status === "completed" ? true : undefined}
+        className="w-auto max-w-[calc(100vw-24px)] overflow-x-hidden border border-border/70 bg-popover/96 p-0 data-[state=closed]:hidden"
       >
-        <WorkspaceSetupProgressView progress={progress} onFinish={onFinish} compact />
+        <SetupPopoverSizeFrame width={popoverWidth}>
+          <WorkspaceSetupProgressView
+            progress={progress}
+            onFinish={onFinish}
+            compact
+            pauseAutoFinishEnabled={open}
+          />
+        </SetupPopoverSizeFrame>
       </PopoverContent>
     </Popover>
   );

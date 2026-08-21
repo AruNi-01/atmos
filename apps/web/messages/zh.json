@@ -154,12 +154,6 @@
       "expandLabel": "展开左侧边栏",
       "collapseLabel": "收起左侧边栏"
     },
-    "rightSidebar": {
-      "expand": "展开右侧边栏",
-      "collapse": "收起右侧边栏",
-      "expandLabel": "展开右侧边栏",
-      "collapseLabel": "收起右侧边栏"
-    },
     "navigation": {
       "goBack": "返回上一步",
       "goForward": "前进",
@@ -167,6 +161,19 @@
       "back": "返回",
       "forward": "前进",
       "refresh": "刷新"
+    },
+    "workspaceJobs": {
+      "creating": "正在创建工作区",
+      "countAria": "{count} 个工作区正在准备",
+      "countAriaReady": "{count} 个工作区已就绪",
+      "listTitle": "{count} 个工作区正在准备",
+      "listTitleReady": "{count} 个工作区已就绪",
+      "preparing": "正在准备工作树",
+      "ready": "已就绪，点击打开",
+      "autoOpen": "就绪后自动打开",
+      "back": "返回",
+      "open": "打开",
+      "creatingHint": "正在预留工作树。工作区就绪后会显示完整初始化进度。"
     },
     "searchAria": "搜索",
     "searchPlaceholder": "搜索...",
@@ -229,11 +236,11 @@
       "connectErrorMessage": "连接失败。",
       "connectErrorTitle": "无法连接",
       "connectErrorHint": "请重试。",
-      "accessKeyRequired": "需要访问密钥",
-      "accessKeyRequiredDescription": "在页面头部切换计算机前，请先保存 Atmos 电脑访问密钥。",
+      "accessKeyRequired": "需要登录账号",
+      "accessKeyRequiredDescription": "请先在 设置 → 账号 登录，以便本机使用 Hub 设备身份，然后再从页头切换 Computer。",
       "openComputerSettings": "打开设备设置",
       "noComputers": "还没有设备",
-      "noComputersDescription": "请先注册本机或使用同一访问密钥添加其它机器。",
+      "noComputersDescription": "请先注册本机，或在同一 Atmos 账号下添加其它机器。",
       "refresh": "刷新",
       "addComputer": "添加设备",
       "computerCountOne": "{count} 台设备",
@@ -280,8 +287,7 @@
       "refreshPage": "刷新页面",
       "toggleQuotaUsage": "切换配额用量",
       "toggleNeedAttention": "切换需要关注筛选",
-      "toggleMenu": "切换菜单",
-      "toggleRightSidebar": "切换右侧边栏"
+      "toggleMenu": "切换菜单"
     },
     "headerParts": {
       "defaultBranch": "默认分支",
@@ -306,7 +312,11 @@
       "last_7_days": "最近 7 天",
       "last_30_days": "最近 30 天",
       "older": "更早",
-      "untagged": "无标签"
+      "untagged": "无标签",
+      "agent_permission": "需要授权",
+      "agent_attention": "需要关注",
+      "agent_running": "运行中",
+      "agent_done": "已完成"
     },
     "groups": {
       "ungrouped": "未分组",
@@ -354,7 +364,39 @@
     "centerStageTabBar": {
       "newTerminalTab": "终端",
       "newBrowser": "浏览器",
+      "newChanges": "变更",
+      "newReview": "评审",
+      "newRun": "运行",
+      "newGithub": "GitHub",
+      "newPtDesign": "Prototype Design",
+      "newFiles": "文件",
+      "newSimulator": "模拟器",
+      "splitRight": "向右分屏",
+      "splitDown": "向下分屏",
+      "layouts": "布局",
+      "saveCurrentLayout": "保存当前布局",
+      "saveLayoutDialogTitle": "保存布局",
+      "saveLayoutNamePlaceholder": "布局名称",
+      "saveLayoutConfirm": "保存",
+      "saveLayoutCancel": "取消",
+      "closePane": "关闭",
       "newTabMenu": "新建标签页",
+      "changes": "变更",
+      "closeChangesTab": "关闭变更标签页",
+      "review": "评审",
+      "closeReviewTab": "关闭评审标签页",
+      "run": "运行",
+      "closeRunTab": "关闭运行标签页",
+      "github": "GitHub",
+      "closeGithubTab": "关闭 GitHub 标签页",
+      "files": "文件",
+      "closeFilesTab": "关闭文件标签页",
+      "ptDesign": "Prototype Design",
+      "closePtDesignTab": "关闭 Prototype Design 标签页",
+      "simulator": "模拟器",
+      "closeSimulatorTab": "关闭模拟器标签页",
+      "history": "图形历史",
+      "closeHistoryTab": "关闭图形历史标签页",
       "overview": "总览",
       "refreshWiki": "刷新 Wiki",
       "projectWiki": "项目 Wiki",
@@ -383,6 +425,7 @@
       "waitingForPermission": "等待权限",
       "running": "运行中",
       "napping": "休眠中 ~",
+      "sideChat": "侧聊",
       "agentIdle": "Agent：空闲",
       "status": {
         "normal": "正常",
@@ -565,6 +608,15 @@
         "loadOverviewFallback": "加载 Token 用量概览失败",
         "loadOverviewTitle": "加载 Token 用量失败"
       },
+      "browserCookie": {
+        "title": "包含已登录网页用量",
+        "note": "检测到本机安装了 {products}。若要把对应控制台的 token 用量算进来，Atmos Server 会向钥匙串申请权限，用于解密浏览器里的登录 Cookie。密钥只留在本机，且仅用于读取用量。",
+        "allow": "允许",
+        "skip": "暂不",
+        "denied": "未包含 {products} 云端用量。",
+        "deniedNote": "开启后会向钥匙串申请浏览器 Cookie 密钥，以便读取控制台用量。密钥只留在本机，且仅用于用量数据。",
+        "enable": "开启"
+      },
       "header": {
         "badges": {
           "localSessionData": "本地会话数据",
@@ -595,6 +647,7 @@
         "model": "模型"
       },
       "share": {
+        "tab": "分享",
         "trigger": "分享",
         "dialogTitle": "分享页面",
         "capturing": "截取中…",
@@ -604,6 +657,7 @@
         "save": "保存图片",
         "saved": "已保存",
         "sharePrimary": "我在 Atmos 的 AI agent 用量：{tokens} tokens · {cost}",
+        "websiteLabel": "网站",
         "status": {
           "saved": "已下载。",
           "shared": "已分享。",
@@ -615,6 +669,55 @@
         "errors": {
           "capture": "无法截取当前页面。"
         }
+      },
+      "publish": {
+        "tab": "发布",
+        "handleLabel": "用户名",
+        "handlePlaceholder": "builder",
+        "linkLabel": "链接",
+        "openPage": "打开页面",
+        "visibility": {
+          "public": "公开",
+          "unlisted": "不公开"
+        },
+        "xPlaceholder": "用户名",
+        "githubPlaceholder": "用户名",
+        "publish": "发布",
+        "update": "更新",
+        "turnOff": "关闭分享",
+        "errors": {
+          "generic": "无法发布此页面。",
+          "usernameTaken": "该用户名已被占用。",
+          "handleLocked": "用户名不能再改。",
+          "invalidHandle": "请使用 3–24 位字母、数字或下划线。",
+          "invalidSocial": "请检查用户名后再试。"
+        }
+      },
+      "publicPage": {
+        "notFound": "此页面不可用。",
+        "generatedDate": "{date}",
+        "generatedByPrefix": "由 ",
+        "generatedBySuffix": " 生成",
+        "leaderboardLink": "排行榜"
+      },
+      "leaderboard": {
+        "updated": "更新于 {time} · 每小时刷新",
+        "tokensTitle": "Token",
+        "tokensEmpty": "还没有公开页。",
+        "costTitle": "Cost",
+        "costEmpty": "还没有人公开费用。",
+        "colRank": "排名",
+        "colUser": "用户",
+        "colX": "X",
+        "colGithub": "GitHub",
+        "outsideTop": "你的名次"
+      },
+      "cookieAccess": {
+        "title": "浏览器 Cookie",
+        "description": "授权 Cookie 访问后，可补上 Cursor 等已登录网页会话的用量。",
+        "grant": "授权",
+        "granting": "等待授权…",
+        "dismiss": "关闭"
       },
       "overview": {
         "agentShare": "{percent}% · {tokens} tokens"
@@ -642,6 +745,22 @@
         "estimatedCost": {
           "label": "预估成本",
           "note": "本地估算"
+        }
+      },
+      "loading": {
+        "tips": {
+          "tallyingAgents": "挨个问 Agent：刚才那波，到底烧了多少 token？",
+          "countingLateNight": "逮到 Claude 在通宵码字——深夜 token 正在报到…",
+          "reconcilingInvoices": "像侦探一样把聊天记录和模型对上号…",
+          "tracingCacheHits": "每挖到一次缓存命中，就给 Agent 击个掌…",
+          "weighingInOut": "左边码输入 token，右边码输出 token…",
+          "askingAgents": "把还在打盹的 Agent 戳醒，让它们报 token 数…",
+          "buildingHeatmap": "把你的 token 烟花画到日历热力图上…",
+          "sortingAppetite": "给 Agent 排成一排：从「抿一口」到「鲸吞」…",
+          "estimatingCost": "把那些 prompt 翻译成钱（深呼吸）…",
+          "unwindingWindows": "把超长上下文窗口摊平成好看的图表…",
+          "negotiatingLedger": "把散落一地的 token 归拢成整齐的小堆…",
+          "polishingBreakdown": "给 token 图表最后抛个光…"
         }
       },
       "heatmap": {
@@ -716,13 +835,18 @@
           "cache": "缓存",
           "cacheRead": "缓存读取",
           "cacheWrite": "缓存写入",
-          "reasoning": "推理"
+          "reasoning": "推理",
+          "amount": "Token",
+          "share": "占比"
         },
         "radar": {
           "share": "占比"
         },
         "agent": {
           "other": "其他"
+        },
+        "stacked": {
+          "total": "合计"
         }
       }
     },
@@ -889,7 +1013,9 @@
       "automations": "自动化 - ATMOS",
       "diskAnalyzer": "磁盘分析器 - ATMOS",
       "tokenUsage": "Token 用量 - ATMOS",
-      "tasks": "任务 - ATMOS"
+      "tasks": "任务 - ATMOS",
+      "ptDesign": "Prototype Design - ATMOS",
+      "settings": "设置 - ATMOS"
     },
     "localModelDownload": {
       "downloadingRuntime": "正在下载运行时",
@@ -986,6 +1112,10 @@
         "tokenUsage": {
           "title": "Token 用量",
           "description": "查看模型 Token 使用和活动"
+        },
+        "ptDesign": {
+          "title": "Launchpad：Prototype Design",
+          "description": "打开独立的原型设计画板"
         }
       },
       "tasks": {
@@ -1105,6 +1235,7 @@
         "project": "按项目",
         "group": "按分组",
         "status": "按状态",
+        "agent": "按 Agent 状态",
         "time": "按时间",
         "label": "按标签",
         "priority": "按优先级",
@@ -1200,11 +1331,11 @@
         "enterWorkspace": "进入工作区",
         "create": "创建",
         "enter": "进入",
+        "close": "关闭",
         "draft": "草稿",
         "pagination": {
           "previous": "上一页",
-          "next": "下一页",
-          "aggregatedHint": "在 {repos} 个仓库中共 {count} 项（按{sort}排序）。"
+          "next": "下一页"
         },
         "sort": {
           "label": "排序",
@@ -1224,12 +1355,13 @@
           "label": "搜索语法"
         },
         "table": {
-          "comments": "评论",
+          "comments": "讨论",
           "checks": "检查",
           "updatedAt": "更新时间",
           "action": "操作",
           "assignees": "负责人",
-          "linked": "关联"
+          "linked": "关联",
+          "loading": "加载中…"
         },
         "actions": {
           "createIssue": "创建 Issue",
@@ -1241,8 +1373,10 @@
           "description": "选择模板并填写表单。标 * 的为必填项。",
           "projectSelect": {
             "title": "选择项目",
-            "description": "选择要创建 Issue 的 GitHub 仓库。",
-            "empty": "当前 Atmos 项目尚未关联 GitHub 仓库。"
+            "description": "选择要创建 Issue 的 Atmos 项目。",
+            "search": "搜索项目…",
+            "empty": "当前 Atmos 项目尚未关联 GitHub 仓库。",
+            "noMatch": "没有匹配的项目"
           },
           "template": {
             "label": "模板",
@@ -1332,8 +1466,10 @@
       },
       "linear": {
         "refresh": "刷新",
-        "notConnected": "尚未连接 Linear。",
-        "connectHint": "请打开 设置 → 集成 → Linear，使用 OAuth（推荐）或本地 API Key 连接。",
+        "notConnected": "尚未连接 Linear",
+        "connectHint": "使用 OAuth（推荐）或本地 API Key 连接后，即可浏览 Issue 并创建 Workspace。",
+        "openIntegrations": "连接 Linear",
+        "openAccountSettings": "打开账号设置",
         "loadError": "加载 Linear Issue 失败。",
         "empty": "没有匹配筛选条件的 Issue。",
         "openInLinear": "在 Linear 中打开",
@@ -1342,23 +1478,96 @@
           "oauthAccount": "OAuth 账号"
         },
         "presets": {
-          "active": "进行中",
+          "active": "Active",
           "backlog": "Backlog",
           "all": "全部"
+        },
+        "statusTypes": {
+          "backlog": "Backlog",
+          "unstarted": "Todo",
+          "started": "In Progress",
+          "completed": "Done",
+          "canceled": "Canceled"
         },
         "filters": {
           "allTeams": "全部团队",
           "allProjects": "全部项目",
-          "searchPlaceholder": "搜索标题或编号…",
-          "atmosProject": "Atmos 项目"
+          "searchPlaceholder": "搜索标题或编号…"
+        },
+        "filter": {
+          "trigger": "筛选",
+          "sectionLabel": "筛选",
+          "view": "视图",
+          "status": "状态",
+          "allStatuses": "全部状态",
+          "statusCount": "已选 {count} 项",
+          "assignee": "负责人",
+          "allAssignees": "全部负责人",
+          "assigneeCount": "已选 {count} 人",
+          "searchAssignees": "搜索负责人…",
+          "noMatchingAssignees": "没有匹配的负责人",
+          "labels": "标签",
+          "allLabels": "全部标签",
+          "labelCount": "已选 {count} 个",
+          "searchLabels": "搜索标签…",
+          "noMatchingLabels": "没有匹配的标签",
+          "team": "团队",
+          "project": "项目",
+          "allTeams": "全部团队",
+          "allProjects": "全部项目",
+          "searchTeams": "搜索团队…",
+          "searchProjects": "搜索项目…",
+          "noMatchingTeams": "没有匹配的团队",
+          "noMatchingProjects": "没有匹配的项目",
+          "clearAll": "清除全部筛选"
+        },
+        "search": {
+          "clear": "清除搜索"
+        },
+        "table": {
+          "priority": "优先级",
+          "priorityShort": "P",
+          "noPriority": "无优先级",
+          "issue": "Issue",
+          "assignee": "负责人",
+          "createdAt": "创建",
+          "updatedAt": "更新",
+          "action": "操作",
+          "loading": "正在加载 Issue…",
+          "issueHint": "编号、状态图标、标题、标签与关联 GitHub"
+        },
+        "priority": {
+          "urgent": "紧急",
+          "high": "高",
+          "medium": "中",
+          "low": "低"
+        },
+        "pagination": {
+          "previous": "上一页",
+          "next": "下一页"
         },
         "createWorkspace": "从 Issue 创建 Workspace",
         "create": "创建",
+        "enter": "进入",
+        "enterWorkspace": "进入 Workspace",
         "linkOrCreate": "打开创建并关联",
         "needProject": "请先选择 Atmos 项目。",
         "createFailed": "从 Linear Issue 创建 Workspace 失败。",
-        "signInRequired": "使用 Linear OAuth 前请先登录 Atmos。",
-        "signInHint": "打开 设置 → 账号 登录，或在 设置 → 集成 → Linear 添加本地 API Key。"
+        "signInRequired": "使用 Linear OAuth 前请先登录 Atmos",
+        "signInHint": "请先在账号设置中登录，或在集成 → Linear 添加本地 API Key。",
+        "drawer": {
+          "titleFallback": "Linear Issue",
+          "close": "关闭",
+          "status": "状态",
+          "project": "项目",
+          "noProject": "无项目",
+          "labels": "标签",
+          "noLabels": "无标签",
+          "description": "描述",
+          "noDescription": "暂无描述。",
+          "unassigned": "未指派",
+          "enterWorkspace": "进入 Workspace"
+        }
       }
     }
   },
@@ -1418,7 +1627,9 @@
       },
       "leftSidebarFooter": {
         "addProject": "添加项目",
-        "openTasks": "打开任务"
+        "openTasks": "打开任务",
+        "openSettings": "打开设置",
+        "settings": "设置"
       },
       "launchpad": {
         "title": "Launchpad",
@@ -1429,75 +1640,12 @@
           "agents": "Agent",
           "automations": "自动化",
           "canvas": "画布",
+          "ptDesign": "Prototype Design",
           "newWorkspace": "新建工作区",
           "diskAnalyzer": "磁盘分析器",
           "tokenUsage": "Token 用量",
           "tasks": "任务"
         }
-      },
-      "rightSidebar": {
-        "topTabs": {
-          "changes": "变更",
-          "review": "评审",
-          "browser": "浏览器",
-          "run": "运行",
-          "github": "GitHub",
-          "pullRequests": "拉取请求",
-          "issues": "议题",
-          "actions": "操作"
-        },
-        "noContext": "没有仓库上下文",
-        "changes": {
-          "refreshChanges": "刷新变更",
-          "diffTab": "文件对比",
-          "selectScope": "选择变更范围",
-          "showAsList": "以列表显示",
-          "showAsTree": "以树状显示",
-          "showChangedFilesAsList": "以列表显示变更文件",
-          "showChangedFilesAsTree": "以树状显示变更文件",
-          "refreshCommits": "刷新提交",
-          "loadingCommits": "正在加载提交...",
-          "noCommitsOnBranch": "当前分支没有提交",
-          "noCommitChanges": "提交 {commit} 没有文件变更",
-          "noChangesAgainst": "与 {compareRef} 相比没有变更",
-          "noChangesDetected": "未检测到变更",
-          "compareWithDefaultBranch": "与默认分支比较（{branch}）",
-          "branchChanges": "分支变更",
-          "commitChanges": "提交 {commit} 的变更",
-          "stagedChanges": "已暂存变更",
-          "unstagedChanges": "未暂存变更",
-          "untrackedChanges": "未跟踪文件",
-          "noRepositoryContext": "没有仓库上下文",
-          "scope": {
-            "unstaged": "未暂存",
-            "staged": "已暂存",
-            "commit": "提交",
-            "branch": "分支"
-          }
-        },
-        "pr": {
-          "refreshOpenPullRequests": "刷新打开的拉取请求",
-          "refreshClosedPullRequests": "刷新已关闭的拉取请求",
-          "loadingOpen": "正在加载打开的拉取请求...",
-          "loadingClosed": "正在加载已关闭的拉取请求...",
-          "noOpenFound": "未找到针对 <highlight>{branch}</highlight> 的打开的拉取请求",
-          "noClosedFound": "未找到针对 <highlight>{branch}</highlight> 的已关闭的拉取请求",
-          "selfMerging": "检测到自我合并（循环或同步 PR）",
-          "outgoingPr": "检测为从当前分支（{branch}）发出的拉取请求（OUTGOING）",
-          "incomingPr": "检测为针对当前分支（{branch}）的拉取请求（INCOMING）",
-          "to": "至",
-          "unknownAuthor": "未知",
-          "stateOpen": "开启",
-          "stateClosed": "关闭",
-          "stateMerged": "已合并",
-          "page": "第 {page} / {total} 页",
-          "previousPage": "上一页",
-          "nextPage": "下一页"
-        },
-        "issues": {
-          "refresh": "刷新议题"
-        },
-        "notAGitHubRepository": "不是 GitHub 仓库"
       },
       "projectItem": {
         "mainDirectoryTooltip": "主目录",
@@ -1540,6 +1688,7 @@
         "path": "路径",
         "openPullRequest": "打开 Pull Request #{number}：{title}",
         "openChecks": "打开 Checks / Actions",
+        "openLinearIssue": "打开 Linear {identifier}：{title}",
         "pullRequest": "Pull Request",
         "prState": {
           "open": "开启",
@@ -1671,6 +1820,73 @@
         "unstagedChanges": "未暂存更改",
         "untrackedChanges": "未跟踪文件",
         "noChangedFiles": "没有变更文件"
+      },
+      "changes": {
+        "selectScope": "选择变更范围",
+        "noCommitChanges": "提交 {commit} 没有文件变更",
+        "noChangesAgainst": "与 {compareRef} 相比没有变更",
+        "noChangesDetected": "未检测到变更",
+        "compareWithDefaultBranch": "与默认分支比较（{branch}）",
+        "branchChanges": "分支变更",
+        "commitChanges": "提交 {commit} 的变更",
+        "stagedChanges": "已暂存变更",
+        "unstagedChanges": "未暂存变更",
+        "untrackedChanges": "未跟踪文件",
+        "noRepositoryContext": "没有仓库上下文",
+        "history": "图形历史",
+        "view": {
+          "settings": "更改文件视图",
+          "section": "视图",
+          "list": "列表",
+          "tree": "树状"
+        },
+        "actions": {
+          "stageAll": "全部暂存",
+          "unstageAll": "全部取消暂存",
+          "discardTracked": "丢弃已跟踪的变更",
+          "trashUntracked": "删除未跟踪文件",
+          "moreActions": "更多变更操作",
+          "failedTitle": "Git 操作失败",
+          "failedDescription": "请重试。"
+        },
+        "scope": {
+          "unstaged": "未暂存",
+          "staged": "已暂存",
+          "commit": "提交",
+          "branch": "分支"
+        },
+        "noContext": "没有仓库上下文"
+      },
+      "github": {
+        "noContext": "没有仓库上下文",
+        "notAGitHubRepository": "不是 GitHub 仓库",
+        "topTabs": {
+          "pullRequests": "拉取请求",
+          "issues": "议题",
+          "actions": "操作"
+        },
+        "pr": {
+          "refreshOpenPullRequests": "刷新打开的拉取请求",
+          "refreshClosedPullRequests": "刷新已关闭的拉取请求",
+          "loadingOpen": "正在加载打开的拉取请求...",
+          "loadingClosed": "正在加载已关闭的拉取请求...",
+          "noOpenFound": "未找到针对 <highlight>{branch}</highlight> 的打开的拉取请求",
+          "noClosedFound": "未找到针对 <highlight>{branch}</highlight> 的已关闭的拉取请求",
+          "selfMerging": "检测到自我合并（循环或同步 PR）",
+          "outgoingPr": "检测为从当前分支（{branch}）发出的拉取请求（OUTGOING）",
+          "incomingPr": "检测为针对当前分支（{branch}）的拉取请求（INCOMING）",
+          "to": "至",
+          "unknownAuthor": "未知",
+          "stateOpen": "开启",
+          "stateClosed": "关闭",
+          "stateMerged": "已合并",
+          "page": "第 {page} / {total} 页",
+          "previousPage": "上一页",
+          "nextPage": "下一页"
+        },
+        "issues": {
+          "refresh": "刷新议题"
+        }
       }
     },
     "globalSearchItems": {}
@@ -1679,14 +1895,49 @@
     "listPanel": {
       "title": "自动化",
       "summary": "{automationCount} 个自动化 · {supportedAgentCount} 个受支持 Agent",
+      "historySummary": "{runCount} 次运行",
       "searchPlaceholder": "搜索自动化",
-      "filters": {
-        "all": "全部",
-        "project": "项目",
-        "workspace": "工作区",
-        "standalone": "独立"
+      "searchRunsPlaceholder": "搜索运行记录",
+      "tabs": {
+        "automations": "自动化",
+        "history": "运行历史"
       },
-      "refreshAria": "刷新自动化列表",
+      "filter": {
+        "trigger": "筛选",
+        "automation": "自动化",
+        "unknownAutomation": "已删除的自动化",
+        "environment": "环境",
+        "triggerType": "触发方式",
+        "state": "状态",
+        "status": "状态",
+        "clearAll": "清空所有筛选",
+        "environments": {
+          "project": "项目",
+          "workspace": "工作区",
+          "newWorkspace": "新工作区",
+          "standalone": "独立"
+        },
+        "triggers": {
+          "manual": "手动",
+          "github": "GitHub",
+          "hourly": "每小时",
+          "daily": "每天",
+          "weekly": "每周",
+          "monthly": "每月",
+          "cron": "Cron"
+        },
+        "states": {
+          "enabled": "已启用",
+          "paused": "已暂停"
+        },
+        "statuses": {
+          "running": "运行中",
+          "completed": "已完成",
+          "failed": "失败",
+          "cancelled": "已取消",
+          "interrupted": "已中断"
+        }
+      },
       "newButton": "新建自动化",
       "deleteDialog": {
         "title": "删除自动化？",
@@ -1704,6 +1955,7 @@
         "disableAction": "禁用",
         "enableAction": "启用",
         "runNow": "立即运行",
+        "viewRuns": "运行记录",
         "history": "历史记录",
         "actionsAria": "自动化操作",
         "edit": "编辑",
@@ -1712,17 +1964,62 @@
       "empty": {
         "queryTitle": "没有匹配的自动化",
         "defaultTitle": "还没有自动化",
-        "queryDescription": "试试其他搜索词。",
+        "queryDescription": "试试其他搜索词，或调整筛选条件。",
         "defaultDescription": "创建第一个自动化后即可开始使用。",
         "clearSearch": "清除搜索",
+        "clearFilters": "清除筛选",
         "newAutomation": "新建自动化"
       }
     },
+    "runHistoryList": {
+      "unknownAutomation": "已删除的自动化",
+      "openDetails": "查看详情",
+      "completed": "结束于 {dateTime}",
+      "trigger": {
+        "manual": "手动",
+        "github": "GitHub",
+        "scheduled": "定时"
+      },
+      "empty": {
+        "queryTitle": "没有匹配的运行记录",
+        "defaultTitle": "还没有运行记录",
+        "queryDescription": "试试其他搜索词，或调整筛选条件。",
+        "defaultDescription": "自动化开始运行后，记录会出现在这里。",
+        "clearSearch": "清除搜索",
+        "clearFilters": "清除筛选"
+      }
+    },
+    "runDrawer": {
+      "title": "运行详情",
+      "titleNamed": "运行 {id}",
+      "close": "关闭运行详情",
+      "standalone": {
+        "title": "独立会话",
+        "description": "在本地对话中继续这次运行。",
+        "close": "关闭会话"
+      }
+    },
     "setup": {
+      "title": {
+        "create": "新建自动化",
+        "edit": "编辑自动化"
+      },
+      "subtitle": {
+        "create": "填写名称、环境和触发器，然后写下指令。",
+        "edit": "更新这个自动化的配置、指令或记忆。"
+      },
+      "instructions": {
+        "label": "指令"
+      },
+      "memory": {
+        "label": "Memories",
+        "description": "这个任务的持久记忆。每次运行都会把本地记忆文件路径告诉 Agent，让它可以读取，并在结束后自行追加或改写。"
+      },
       "agentOptions": {
         "ready": "可用",
         "unavailable": "不可用",
-        "unavailableReason": "该 Agent 暂时还不能用于自动化。"
+        "unavailableReason": "该 Agent 暂时还不能用于自动化。",
+        "select": "选择 Agent"
       },
       "headlines": {
         "automateNext": "<wordmark>Atmos</wordmark> 接下来应该自动处理什么？",
@@ -1761,7 +2058,14 @@
         "withAgent": "描述一下希望 {agentName} 做什么...",
         "default": "描述一下这个自动化应该做什么..."
       },
-      "backButton": "返回"
+      "backButton": "返回",
+      "unsavedChanges": {
+        "title": "未保存的更改",
+        "descriptionCreate": "这个自动化还没有保存。要保存，还是放弃这份草稿？",
+        "descriptionEdit": "这个自动化有未保存的更改。要保存，还是放弃这些修改？",
+        "save": "保存",
+        "discard": "放弃"
+      }
     },
     "format": {
       "target": {
@@ -1991,7 +2295,8 @@
         "enableFailed": "启用失败",
         "disableFailed": "停用失败",
         "cancelFailed": "取消失败",
-        "continueInTerminalFailed": "在终端中继续失败"
+        "continueInTerminalFailed": "在终端中继续失败",
+        "saveMemoryFailed": "保存记忆失败"
       },
       "toasts": {
         "created": "自动化已创建",
@@ -2051,7 +2356,9 @@
         "loadingProjects": "正在加载项目",
         "selectProject": "选择项目",
         "loadingWorkspaces": "正在加载工作区",
-        "selectWorkspace": "选择工作区"
+        "selectWorkspace": "选择工作区",
+        "searchWorkspaces": "搜索工作区",
+        "noMatchingWorkspaces": "没有匹配的工作区"
       },
       "standaloneHint": "运行会使用所属 Computer 的 automation run 目录下的独立文件夹。"
     },
@@ -2067,6 +2374,11 @@
       },
       "inline": {
         "exitCode": "退出码 {code}"
+      },
+      "trigger": {
+        "manual": "手动",
+        "github": "GitHub",
+        "scheduled": "定时"
       },
       "metadata": {
         "status": "状态",
@@ -2097,6 +2409,14 @@
     },
     "historyPage": {
       "title": "自动化历史",
+      "tabs": {
+        "runs": "运行",
+        "memory": "Memories"
+      },
+      "memory": {
+        "title": "Memories",
+        "description": "这份文件保存在本机。每次运行时 Agent 都可以读取并编辑它。"
+      },
       "badges": {
         "paused": "已暂停"
       },
@@ -2133,11 +2453,11 @@
         "placeholder": "每日仓库健康检查"
       },
       "submit": {
-        "saving": "正在保存自动化",
+        "saving": "保存中",
         "createAria": "创建自动化",
-        "updateAria": "更新自动化",
-        "create": "创建自动化",
-        "update": "更新自动化"
+        "updateAria": "保存自动化",
+        "create": "创建",
+        "update": "保存"
       }
     },
     "schedule": {
@@ -2206,6 +2526,15 @@
       "failedToLoadTitle": "加载运行历史失败",
       "failedToFetchArtifactTitle": "加载产物失败",
       "unknownError": "未知错误"
+    },
+    "memory": {
+      "fileHint": "memory.md",
+      "save": "保存",
+      "saving": "保存中",
+      "saved": "已保存",
+      "editor": "编辑",
+      "preview": "预览",
+      "emptyPreview": "还没有可预览的内容。"
     }
   },
   "project": {
@@ -2800,7 +3129,8 @@
       "notifications": {
         "permissionRequired": "需要权限",
         "completed": "已完成",
-        "jump": "跳转"
+        "jump": "跳转",
+        "sideChat": "侧聊"
       },
       "desktopAgentChatWindow": {
         "failedToOpenChatWindow": "打开聊天窗口失败"
@@ -2815,6 +3145,30 @@
         "authenticationIsRequiredBeforeThisAgentCanListAcpSessions": "当前 Agent 需要先认证后才能列出 ACP 会话",
         "failedToLoadAcpSessions": "加载 ACP 会话失败"
       }
+    }
+  },
+  "ptDesign": {
+    "share": {
+      "title": "协作",
+      "nameLabel": "你的名称",
+      "agentTab": "和 Agent",
+      "humanTab": "和人类",
+      "agentHint": "把这段 Prompt 发给 Agent。它会改本机已打开的画板。",
+      "copyPrompt": "复制 Prompt",
+      "linkLabel": "链接",
+      "linkPlaceholder": "粘贴协作链接以加入",
+      "copy": "复制链接",
+      "copied": "已复制",
+      "invalidLink": "这个链接里没有房间。",
+      "privacy": "端到端加密，服务器看不到画布内容。",
+      "stopHint": "结束协作只会断开你自己，其他人仍可继续协作。",
+      "start": "开始协作",
+      "stop": "停止协作",
+      "startMenu": "协作",
+      "openMenu": "协作"
+    },
+    "guest": {
+      "logoLink": "打开 Atmos 官网"
     }
   },
   "canvas": {
@@ -2895,6 +3249,10 @@
         "title": "加载 Canvas 失败",
         "retry": "重试",
         "description": "无法加载 Canvas，请重试。"
+      },
+      "licenseBlocked": {
+        "title": "Canvas 暂不可用",
+        "description": "绘图引擎许可证已过期，画板会在打开数秒后被隐藏。请更新 tldraw 许可证并重新构建 Atmos。"
       },
       "toolbar": {
         "expandAria": "展开工具栏",
@@ -3332,6 +3690,7 @@
           "workspaceBranchTitle": "当前工作区分支：{branch}",
           "githubIssueTitle": "GitHub Issue：#{number}",
           "githubPrTitle": "GitHub PR：#{number}（{branch}）",
+          "linearIssueTitle": "Linear issue：{identifier} {title}",
           "autoTodosValue": "TODOs",
           "autoTodosTitle": "启用 LLM 自动提取 TODO：开"
         },
@@ -3462,10 +3821,15 @@
         "randomGenerateAgain": "重新生成",
         "githubIssue": "GitHub Issue",
         "githubPr": "GitHub PR",
+        "linearIssue": "Linear Issue",
         "refreshIssues": "刷新 Issues",
         "refreshPrs": "刷新 PRs",
+        "refreshLinear": "刷新 Linear Issues",
+        "loadMore": "加载更多",
+        "loadingMore": "正在加载…",
         "preview": {
-          "openOnGithub": "在 GitHub 中打开"
+          "openOnGithub": "在 GitHub 中打开",
+          "openOnLinear": "在 Linear 中打开"
         },
         "autoExtractTodos": "自动提取 TODOs",
         "issue": {
@@ -3496,6 +3860,16 @@
           "loadingPrPreview": "正在加载 PR 预览...",
           "noPrDescription": "没有提供 PR 描述。",
           "reuseBranchNotice": "将复用 <mono>{branch}</mono>。"
+        },
+        "linear": {
+          "selectIssue": "选择 Linear Issue",
+          "selectIssuePlaceholder": "选择 Issue",
+          "loadingIssues": "正在加载 Linear Issues…",
+          "noIssuesAvailable": "没有未完成的 Issue",
+          "noOpenIssues": "没有找到未完成的 Linear Issue",
+          "notConnected": "请先在设置 → 集成 中连接 Linear。",
+          "openOnlyHint": "仅显示 Backlog、Todo、In Progress（不含 Done）。",
+          "noDescription": "暂无描述。"
         }
       },
       "mentionPopover": {
@@ -3556,6 +3930,7 @@
         "loadGithubPrs": "加载 GitHub PR 失败",
         "loadProjectContext": "加载项目上下文失败",
         "loadGithubIssues": "加载 GitHub Issue 失败",
+        "loadLinearIssues": "加载 Linear Issue 失败",
         "prRepoMismatch": "该 PR 属于 {previewRepo}，但当前项目是 {currentRepo}。",
         "loadPrPreview": "加载 PR 预览失败",
         "refreshGithubPrs": "刷新 GitHub PR 失败",
@@ -3872,44 +4247,55 @@
       },
       "scriptDialog": {
         "title": "工作区脚本",
-        "description": "配置 Setup、Run 和 Purge 脚本。脚本会在当前工作区目录中执行。",
+        "unsaved": "未保存",
         "toasts": {
           "errorTitle": "错误",
           "loadFailed": "加载脚本失败",
           "saveFailed": "保存脚本失败"
         },
+        "phases": {
+          "label": "生命周期"
+        },
+        "trustHint": {
+          "label": "关于脚本信任",
+          "tooltip": "Atmos 会在执行前检查脚本是否受信任，避免仓库里未经审阅的命令直接在你的 shell 里运行。你在这里手动保存的内容默认视为已信任。"
+        },
         "env": {
-          "title": "可用环境变量：",
+          "title": "插入环境变量：",
           "rootProjectPath": "根项目路径",
           "workspaceName": "当前工作区名称",
-          "workspacePath": "当前工作区路径",
-          "note": "注意：对于复杂脚本，请在 .atmos/scripts/ 中创建 .sh 文件并在此引用（例如 \"./.atmos/scripts/myscript.sh\"）。"
+          "workspacePath": "当前工作区路径"
         },
         "setup": {
-          "title": "Setup 脚本",
-          "placeholder": "例如 cp $ATMOS_ROOT_PROJECT_PATH/.env . && npm install",
-          "help": "在设置新工作区时执行。"
+          "title": "Setup",
+          "placeholder": "cp $ATMOS_ROOT_PROJECT_PATH/.env . && npm install",
+          "help": "创建新工作区时执行一次。"
         },
         "run": {
-          "title": "Run 脚本",
-          "placeholder": "例如 npm run dev",
-          "help": "用于一键启动服务的命令。"
+          "title": "Run",
+          "placeholder": "npm run dev",
+          "help": "用于启动这个工作区的服务。"
         },
         "purge": {
-          "title": "Purge 脚本",
-          "placeholder": "例如 rm -rf node_modules",
-          "help": "用于清理 worktree/workspace 文件时执行。"
+          "title": "Purge",
+          "placeholder": "rm -rf node_modules",
+          "help": "移除工作区前清理文件。"
+        },
+        "status": {
+          "empty": "空",
+          "set": "已设置",
+          "edited": "已改"
         },
         "actions": {
-          "cancel": "取消",
           "saving": "保存中...",
-          "saveScripts": "保存脚本"
+          "save": "保存并信任"
         },
         "confirmExit": {
           "title": "未保存的更改",
-          "description": "你有未保存的更改。确定要不保存直接关闭吗？",
+          "description": "关闭将丢弃对 Setup、Run 和 Purge 的修改。",
           "keepEditing": "继续编辑",
-          "discardChanges": "放弃更改"
+          "discardChanges": "放弃更改",
+          "save": "保存并信任"
         }
       },
       "workspaceSetup": {
@@ -3993,6 +4379,14 @@
         "tip": {
           "press": "提示：按",
           "toContinue": "继续"
+        },
+        "scriptTrust": {
+          "title": "请先确认该项目的初始化脚本",
+          "description": "这些命令来自项目的 .atmos/scripts/atmos.json，尚未经你确认，会以你的权限在 shell 中执行。确认即表示信任整个文件，所以请把下面每一条都读一遍，而不只是即将执行的那条。",
+          "trustAndRun": "信任并运行",
+          "trusting": "正在信任…",
+          "skip": "跳过并进入工作区",
+          "trustFailed": "无法信任该脚本"
         }
       },
       "taskListPanel": {
@@ -4011,6 +4405,10 @@
           "noTasks": "还没有添加任务。",
           "noItemsInSection": "这个分组里还没有内容。"
         }
+      },
+      "viewTabs": {
+        "recent": "最近",
+        "archived": "已归档"
       },
       "recentView": {
         "header": {
@@ -4322,39 +4720,67 @@
         "noSettingsFound": "没有找到设置项。"
       },
       "groups": {
-        "interface": {
-          "label": "界面",
-          "description": "布局、编辑器、画布与键盘偏好设置"
+        "you": {
+          "label": "个人",
+          "description": "通用与账号"
         },
-        "aiAgents": {
-          "label": "AI Agent",
-          "description": "AI 提供商与代码 Agent 配置"
+        "workspace": {
+          "label": "工作区",
+          "description": "界面、编辑器、终端与工作区"
         },
-        "remoteAccess": {
-          "label": "远程访问",
-          "description": "Atmos Computer 与 Tunnel Connector"
+        "agents": {
+          "label": "Agent",
+          "description": "Agent、模型与通知"
         },
-        "systemIntegration": {
-          "label": "系统集成",
-          "description": "集成、Desktop Use 与通知"
-        },
-        "workspaceProjects": {
-          "label": "工作区与项目",
-          "description": "工作区管理与标签"
-        },
-        "more": {
-          "label": "更多",
-          "description": "快捷键、实验功能与关于"
+        "system": {
+          "label": "系统",
+          "description": "远程访问、应用、隐私与键盘"
         }
       },
       "sections": {
+        "general": {
+          "label": "通用",
+          "description": "主题、语言与更新。"
+        },
+        "interface": {
+          "label": "界面",
+          "description": "启动台、侧边栏、顶栏与底栏。"
+        },
+        "agents": {
+          "label": "Agent",
+          "description": "内置 Agent、自定义 Agent 与会话行为。"
+        },
+        "models": {
+          "label": "模型",
+          "description": "Provider、路由与本地模型。"
+        },
+        "notifications": {
+          "label": "通知",
+          "description": "桌面通知与提醒行为。"
+        },
+        "remoteAccess": {
+          "label": "远程访问",
+          "description": "Atmos Computer 与 Tunnel Connector。"
+        },
+        "apps": {
+          "label": "应用",
+          "description": "集成、浏览器与 Desktop Use。"
+        },
+        "privacy": {
+          "label": "隐私",
+          "description": "权限访问与本机密钥。"
+        },
+        "keyboard": {
+          "label": "键盘",
+          "description": "键盘快捷键与快捷操作。"
+        },
         "layout": {
           "label": "布局",
           "description": "侧边栏、标签页和整体布局行为。"
         },
         "editor": {
           "label": "编辑器",
-          "description": "编辑器体验、预览和代码设置。"
+          "description": "编辑器、画布与 diff 设置。"
         },
         "canvas": {
           "label": "画布",
@@ -4367,6 +4793,10 @@
         "terminal": {
           "label": "终端",
           "description": "终端行为、恢复和文件链接处理。"
+        },
+        "browser": {
+          "label": "浏览器",
+          "description": "Agent 如何打开和使用应用内浏览器。"
         },
         "workspace": {
           "label": "工作区",
@@ -4412,14 +4842,41 @@
           "label": "Desktop Use",
           "description": "本机桌面捕获、控制引擎与 macOS 权限"
         },
+        "permissionAccess": {
+          "label": "权限访问",
+          "description": "在本机已安装对应产品时，允许 Atmos Server 读取已登录浏览器 Cookie。"
+        },
+        "appearance": {
+          "label": "外观",
+          "description": "主题与语言。"
+        },
         "account": {
           "label": "账号",
-          "description": "Atmos Hub 登录、设备与云端身份"
+          "description": "登录、信任此设备，并管理你的 Atmos 账号"
         }
+      },
+      "page": {
+        "title": "设置",
+        "back": "返回",
+        "backAria": "关闭设置"
       },
       "dialog": {
         "title": "设置",
         "description": "管理 ATMOS 设置、产品信息和桌面端更新。"
+      },
+      "permissionAccessSection": {
+        "title": "浏览器 Cookie",
+        "description": "Atmos Server 可以解密已登录的浏览器 Cookie 来读取用量。密钥只留在本机。打开某个来源后，macOS 可能会弹出钥匙串授权。",
+        "installed": "已安装",
+        "notInstalled": "未安装",
+        "webSession": "已登录网页会话",
+        "desktopUse": {
+          "title": "Desktop Use",
+          "description": "为 Atmos Desktop Use 授予辅助功能和屏幕录制。以 macOS 系统设置为准——Atmos 不能自己记下这些授权。"
+        },
+        "empty": "暂无权限来源。",
+        "error": "无法更新权限访问。请检查连接后重试。",
+        "toggleAria": "允许读取 {name} 的浏览器 Cookie"
       },
       "unknownError": "未知错误",
       "errors": {
@@ -4434,6 +4891,7 @@
         "saveCustomAgentTitle": "保存自定义 Agent 失败",
         "loadLlmSettingsTitle": "加载 LLM 设置失败",
         "saveRunConfigsTitle": "保存运行配置失败",
+        "saveBehaviourTitle": "保存行为设置失败",
         "updateProviderTitle": "更新 Provider 失败",
         "updateRoutingTitle": "更新路由失败",
         "browserNotificationPermissionDeniedTitle": "浏览器通知权限被拒绝",
@@ -4473,6 +4931,9 @@
             },
             "byGroupUsesSecondColumn": {
               "label": "按分组使用第二列"
+            },
+            "byAgentGroupUsesSecondColumn": {
+              "label": "按 Agent 状态分组时使用第二列"
             },
             "headerLayout": {
               "label": "Header 布局"
@@ -4527,6 +4988,9 @@
             },
             "canvasLaunchpad": {
               "label": "Canvas（Launchpad）"
+            },
+            "ptDesignLaunchpad": {
+              "label": "Prototype Design（Launchpad）"
             },
             "newWorkspaceLaunchpad": {
               "label": "New Workspace（Launchpad）"
@@ -4598,6 +5062,18 @@
             }
           },
           "codeAgent": {
+            "defaults": {
+              "label": "默认设置"
+            },
+            "yoloMode": {
+              "label": "YOLO 模式"
+            },
+            "showAgentNameInTerminalTitles": {
+              "label": "在终端标题中显示 Agent 名称"
+            },
+            "activityIndicators": {
+              "label": "Agent 活动指示器"
+            },
             "builtInAgents": {
               "label": "内置 Agents"
             },
@@ -4839,17 +5315,11 @@
             }
           },
           "atmosComputer": {
-            "accessKey": {
-              "label": "设备凭证"
+            "accountRequired": {
+              "label": "需要登录账号"
             },
-            "generateAccessKey": {
-              "label": "从账号导入设备凭证"
-            },
-            "saveAccessKey": {
-              "label": "保存设备凭证"
-            },
-            "rotateAccessToken": {
-              "label": "轮换设备凭证"
+            "mobilePair": {
+              "label": "配对手机"
             },
             "privateRelay": {
               "label": "Private Relay"
@@ -4904,6 +5374,12 @@
               "label": "Project Wiki（Center Tabs）"
             }
           },
+          "permissionAccess": {
+            "browserCookies": {
+              "label": "浏览器 Cookie",
+              "description": "用于已登录网页用量的钥匙串访问"
+            }
+          },
           "about": {
             "runtime": {
               "label": "Runtime"
@@ -4916,6 +5392,30 @@
             },
             "checkForUpdates": {
               "label": "检查更新"
+            }
+          },
+          "browser": {
+            "defaultSurface": {
+              "label": "默认打开位置",
+              "description": "还没有 Browser 时，新窗口开在哪里"
+            },
+            "sidebar": {
+              "label": "在侧栏显示"
+            },
+            "newTabUrl": {
+              "label": "新标签页网址"
+            },
+            "agentChrome": {
+              "label": "显示操作光标"
+            },
+            "cookiesImport": {
+              "label": "导入 Cookie"
+            },
+            "cookiesClearCache": {
+              "label": "清除缓存"
+            },
+            "cookiesClearSiteData": {
+              "label": "清除 Cookie 与存储"
             }
           },
           "desktopUse": {
@@ -4934,6 +5434,14 @@
             "border": {
               "label": "操作描边",
               "description": "Desktop Use 操作时的视觉反馈"
+            }
+          },
+          "appearance": {
+            "theme": {
+              "label": "主题"
+            },
+            "language": {
+              "label": "语言"
             }
           }
         }
@@ -5098,7 +5606,6 @@
           "title": "全局",
           "items": {
             "toggleLeftSidebar": "切换左侧边栏",
-            "toggleRightSidebar": "切换右侧边栏",
             "commandPalette": "命令面板 / 全局搜索",
             "quickOpenFile": "快速打开文件",
             "navigateBack": "返回上一步",
@@ -5186,8 +5693,8 @@
       "cli": {
         "title": "Atmos CLI",
         "description": "Desktop Use 等本机功能需要 Atmos CLI。安装一次，之后保持更新即可。",
-        "installUpdate": "安装更新",
-        "install": "安装 CLI",
+        "installUpdate": "更新",
+        "install": "安装",
         "notInstalled": "未安装",
         "versionLabel": "v{version}",
         "checkForUpdates": "检查更新"
@@ -5251,9 +5758,7 @@
     "notifySection": {
       "actions": {
         "test": "测试",
-        "testing": "测试中...",
-        "testUpper": "测试",
-        "testingUpper": "测试中..."
+        "testing": "测试中..."
       },
       "toasts": {
         "testSent": "测试通知已发送",
@@ -5349,6 +5854,10 @@
         "title": "内置 Agents",
         "description": "为每个内置代码 Agent 自定义启动命令和参数。"
       },
+      "defaults": {
+        "title": "默认设置",
+        "description": "启动参数，以及 Agent 名称在终端标题中的显示方式。"
+      },
       "yolo": {
         "title": "YOLO 模式",
         "description": "开启后，Agent 启动会带上跳过权限确认 / 自动批准参数（如 --yolo、--dangerously-skip-permissions）。关闭则使用更安全的需确认模式。",
@@ -5404,10 +5913,17 @@
       },
       "behavior": {
         "title": "行为",
-        "description": "配置空闲 Agent 会话在内存中的管理方式。",
+        "description": "配置空闲会话清理，以及未处理 need-attention 时的自动总结。",
         "idleCleanupTitle": "空闲会话清理",
         "idleCleanupDescription": "超过该时长的空闲 Agent 会话会每 5 分钟自动清理一次。",
-        "minutes": "分钟"
+        "minutes": "分钟",
+        "summaryTitle": "Need-attention 自动总结",
+        "summaryDescription": "当 Agent 任务完成且长时间未被确认时，启动后台总结会话，并在 AI 输入框上方展示下一步建议。",
+        "summaryEnabled": "启用自动总结",
+        "summaryDelayTitle": "总结前等待",
+        "summaryDelayDescription": "task-complete 的 attention 在未被确认后，等待多久再触发总结。",
+        "summaryAgentTitle": "总结 Agent",
+        "summaryAgentDescription": "无头总结使用的终端 Agent（与 Automations 相同）。可在 Agent 运行配置中设置模型。不选择则使用默认 LLM 提供方。"
       }
     },
     "canvasSection": {
@@ -5437,7 +5953,7 @@
       },
       "workspaceSidebar": {
         "title": "工作区侧边栏双列布局",
-        "description": "配置 Project、By Group、By Time、By Status、By Priority 和 By Label 侧边栏模式下可选的双列工作区浏览器。",
+        "description": "配置 Project、By Group、By Time、By Status、By Agent Status、By Priority 和 By Label 侧边栏模式下可选的双列工作区浏览器。",
         "enabled": "已启用",
         "disabled": "已关闭",
         "projectTwoColumnTitle": "Project 侧边栏双列布局",
@@ -5455,7 +5971,9 @@
         "byLabelTitle": "By Label 分组使用第二列",
         "byLabelDescription": "在侧边栏的 By Label 模式下，点击分组会在可调整大小的第二列中打开其工作区，而不是内联展开。",
         "byGroupTitle": "By Group 使用第二列",
-        "byGroupDescription": "在侧边栏的 By Group 模式下，点击分组会在可调整大小的第二列中打开其项目与工作区，而不是内联展开。"
+        "byGroupDescription": "在侧边栏的 By Group 模式下，点击分组会在可调整大小的第二列中打开其项目与工作区，而不是内联展开。",
+        "byAgentTitle": "按 Agent 状态分组时使用第二列",
+        "byAgentDescription": "在侧边栏的按 Agent 状态模式下，点击分组会在可调整大小的第二列中打开其工作区，而不是内联展开。"
       },
       "footer": {
         "title": "页脚布局",
@@ -5523,6 +6041,10 @@
           "canvas": {
             "title": "Canvas",
             "description": "打开全屏 Canvas 运维画布。"
+          },
+          "ptDesign": {
+            "title": "Prototype Design",
+            "description": "从启动台打开独立的 Prototype Design 页面。工作区中心区域仍可再新建一块画布。"
           },
           "newWorkspace": {
             "title": "New Workspace",
@@ -5648,22 +6170,6 @@
       "remoteAccessDescription": "显示 Atmos Computer 与隧道连接器控件。隐藏后将停止隧道状态轮询。",
       "appshotTitle": "Appshot 按钮",
       "appshotDescription": "在顶部栏显示 Appshot 截屏按钮。"
-    },
-    "rightSidebarLayoutSection": {
-      "title": "右侧栏标签页",
-      "description": "选择显示哪些右侧栏标签页。隐藏的标签页会被完全移除，并跳过其后台数据加载。",
-      "enabledCount": "已启用 {count} 项",
-      "hidden": "已隐藏",
-      "changesTitle": "变更",
-      "changesDescription": "查看已暂存、未暂存和分支变更以及提交历史。",
-      "reviewTitle": "评审",
-      "reviewDescription": "对当前变更运行内置代码评审。",
-      "browserTitle": "浏览器",
-      "browserDescription": "显示用于运行开发服务器的应用内预览浏览器。",
-      "runTitle": "运行",
-      "runDescription": "启动并监控项目运行脚本。",
-      "githubTitle": "GitHub",
-      "githubDescription": "浏览拉取请求、议题和 Actions 工作流运行记录。隐藏后将移除 GitHub 标签页并停止相关查询。"
     },
     "agentHookStatusCard": {
       "title": "Agent Hook 状态",
@@ -5816,6 +6322,7 @@
         "title": "GitHub CLI",
         "description": "Atmos 使用 GitHub CLI 与 GitHub Issues、Pull Requests 及其他工作流集成。",
         "status": {
+          "installed": "已安装 {version}",
           "authenticatedAs": "已认证为 {username}"
         },
         "installation": {
@@ -5894,17 +6401,17 @@
       },
       "linear": {
         "title": "Linear",
-        "description": "推荐用 OAuth 连接（额度更高、可跨端同步），也可在本机保存个人 API Key。",
+        "description": "推荐用 OAuth 连接 Linear（额度更高、可跨设备同步），也可仅在本机保存个人 API Key。",
         "connectOauth": "使用 Linear 登录",
         "connectApiKey": "保存 API Key",
         "apiKeyPlaceholder": "lin_api_…",
         "disconnect": "断开 OAuth",
         "connectedAs": "已连接为 {name}",
         "notConnected": "未连接",
-        "needsHubLogin": "需要登录 Atmos",
-        "needsHubLoginHint": "OAuth 绑定 Atmos 账号。请先打开「账号」用 GitHub 或 Google 登录。",
+        "needsHubLogin": "需要登录",
+        "needsHubLoginHint": "OAuth 使用你的 Atmos 账号。请先打开「账号」，用 GitHub 或 Google 登录。",
         "needsDevice": "需要信任此设备",
-        "needsDeviceHint": "登录后请在「账号」中信任此设备，再连接 Linear OAuth。",
+        "needsDeviceHint": "登录后请在「账号」中信任此设备，再连接 Linear。",
         "openAccount": "打开账号",
         "connectFailed": "连接 Linear 失败",
         "disconnectFailed": "断开 Linear 失败",
@@ -5919,14 +6426,14 @@
         "oauth": {
           "title": "OAuth 账号",
           "recommended": "推荐",
-          "hint": "额度更高，凭证通过 Atmos Hub 跨设备同步。"
+          "hint": "额度更高，Linear 连接会随你的 Atmos 账号在设备间同步。"
         },
         "local": {
           "title": "本地 API Key",
-          "hint": "保存在本机 ~/.atmos/credentials（不进 Hub）。可保存多把 Key，但同一时间只能选用一把（或改用 OAuth）。",
-          "storageLoading": "正在解析本地存储…",
-          "storageDisk": "磁盘路径：{path}",
-          "storageBrowserFallback": "无法连接本机 Computer API，暂时使用浏览器存储；有本地 Atmos Server 后会写入磁盘。",
+          "hint": "仅保存在本机，不关联 Atmos 账号。可保存多把 Key，但同一时间只能选用一把（或改用 OAuth）。",
+          "storageLoading": "正在确认保存位置…",
+          "storageDisk": "已保存在本机",
+          "storageBrowserFallback": "暂时保存在此浏览器。当本机 Atmos 可用后，可改为本地保存。",
           "createKeyLink": "在 Linear 创建 API Key",
           "namePlaceholder": "Key 名称",
           "apiKeyPlaceholder": "个人 API Key",
@@ -5938,10 +6445,10 @@
         },
         "rateLimit": {
           "title": "API 额度",
-          "description": "当前使用的 OAuth 或本地 API Key 的 Linear 请求次数与复杂度额度（展示方式与 GitHub 一致）。",
+          "description": "当前 OAuth 账号或本地 API Key 的 Linear 请求次数与复杂度额度。",
           "refresh": "刷新",
           "loadError": "无法加载 Linear 额度。",
-          "empty": "当前凭证尚未返回额度头。发起一次 Linear 请求后再点刷新。",
+          "empty": "此连接尚无额度数据。使用 Linear 后再点刷新。",
           "footer": "剩余 {remaining} · {reset}",
           "resetSoon": "即将重置",
           "resetInMinutes": "{minutes} 分钟后重置",
@@ -5952,14 +6459,18 @@
             "complexity": "复杂度"
           }
         },
-        "reconnectOauth": "重新授权",
         "connecting": "正在跳转…",
         "oauthCallback": {
+          "title": "正在连接 Linear",
+          "successTitle": "Linear 已连接",
+          "errorTitle": "无法连接 Linear",
           "loading": "加载中…",
           "working": "正在完成 Linear 连接…",
-          "success": "Linear 已连接。你可以关闭此窗口并返回 Atmos。",
-          "missingParams": "缺少 OAuth code 或 state。",
-          "finishFailed": "OAuth 完成失败"
+          "success": "Linear 已关联到 Atmos。你可以关闭此标签页。",
+          "closeHint": "你可以关闭此页面。",
+          "backToAtmos": "返回 Atmos",
+          "missingParams": "缺少连接信息，请重新连接 Linear。",
+          "finishFailed": "无法完成 Linear 连接"
         }
       }
     },
@@ -6017,6 +6528,73 @@
         "description": "启用 Project Wiki 作为中心区域标签页，便于快速访问项目文档和知识库。"
       }
     },
+    "browser": {
+      "groups": {
+        "placement": {
+          "title": "打开位置",
+          "description": "还没有 Browser 界面时，Agent 在哪里打开。"
+        },
+        "sidebar": {
+          "title": "侧栏",
+          "description": "是否在右侧栏显示 Browser 模块。"
+        },
+        "pages": {
+          "title": "页面",
+          "description": "Agent 打开新标签页时使用的主页。"
+        },
+        "agent": {
+          "title": "Agent",
+          "description": "Agent 在哪里打开 Browser，以及操作时如何显示光标。"
+        },
+        "cookies": {
+          "title": "Cookie",
+          "description": "从其他浏览器导入登录态，或清除缓存与 Cookie。"
+        }
+      },
+      "defaultSurface": {
+        "title": "默认打开位置",
+        "description": "侧栏或中间标签页。现有用户默认仍是侧栏。",
+        "sidebar": "侧栏",
+        "center": "中间标签页"
+      },
+      "sidebar": {
+        "title": "在侧栏显示",
+        "description": "在右侧栏保留 Browser 模块。把默认位置设为侧栏时会自动打开此项。"
+      },
+      "newTabUrl": {
+        "title": "新标签页网址",
+        "description": "Agent 打开标签页但没有给出网址时使用。留空则打开 Browser 主页。"
+      },
+      "agentChrome": {
+        "title": "显示操作光标",
+        "description": "Agent 点击或输入时显示光标叠加层。"
+      },
+      "cookies": {
+        "import": {
+          "title": "导入 Cookie",
+          "description": "从这个 Mac 上的 Chrome、Edge、Brave 或 Firefox 导入已保存的登录态。",
+          "action": "导入"
+        },
+        "clearCache": {
+          "title": "清除缓存",
+          "description": "只删除缓存文件，Cookie 和登录态会保留。",
+          "action": "清除"
+        },
+        "clearSiteData": {
+          "title": "清除 Cookie 与存储",
+          "description": "删除 Cookie、本地存储和缓存文件。这会让你退出已登录的网站。",
+          "action": "清除"
+        },
+        "unavailable": "导入和清理 Cookie 需要在 macOS 上的 Atmos 桌面端使用。"
+      },
+      "links": {
+        "desktopUse": {
+          "title": "Desktop Use",
+          "description": "系统 Chrome、捕获和 macOS 权限仍在 Desktop Use 页。",
+          "action": "打开 Desktop Use"
+        }
+      }
+    },
     "desktopUse": {
       "label": "Desktop Use",
       "description": "本机桌面捕获与控制（截图、点击、输入）",
@@ -6038,7 +6616,11 @@
         },
         "permissions": {
           "title": "权限",
-          "description": "为 Atmos Desktop Use 授予辅助功能与屏幕录制权限——捕获、控制与 AppShot 的 Left⇧+Right⇧ 快捷键共用同一身份。"
+          "description": "为 Atmos Desktop Use 授予辅助功能与屏幕录制权限——捕获、控制与 AppShot 的 Left⇧+Right⇧ 快捷键共用同一身份。",
+          "openAccessHint": "Desktop Use 的系统授权在「隐私与安全性 → 权限访问」里处理。",
+          "openAccessTitle": "权限访问",
+          "openAccessDescription": "在统一的权限访问页授予辅助功能和屏幕录制。",
+          "openAccess": "打开权限访问"
         },
         "visibility": {
           "title": "视觉反馈",
@@ -6157,26 +6739,87 @@
       "label": "Browser Use",
       "description": "控制 Atmos 内置浏览器页面（DOM 点击 / 输入 / 导航）"
     },
+    "appearanceSection": {
+      "title": "外观",
+      "description": "选择 Atmos 的外观和界面语言。",
+      "theme": {
+        "title": "主题",
+        "description": "使用浅色、深色，或跟随系统。",
+        "light": "浅色",
+        "dark": "深色",
+        "system": "跟随系统"
+      },
+      "language": {
+        "title": "语言",
+        "description": "会立刻更新界面文案，无需刷新页面。",
+        "en": "English",
+        "zh": "简体中文"
+      }
+    },
     "accountSection": {
       "title": "Atmos 账号",
-      "description": "使用 GitHub 或 Google 登录。Computer、Linear 与用量分享都挂在此账号（Hub）下，不再使用本机独立 Access Token。",
-      "hubNotConfigured": "未配置 Atmos Hub 地址。请设置 NEXT_PUBLIC_ATMOS_HUB_URL 以启用登录。",
+      "description": "使用 GitHub 或 Google 登录，以便在设备间同步计算机、Linear 与共享用量。",
+      "hubNotConfigured": "此版本暂不支持 Atmos 账号登录。请重新安装 Atmos 或检查更新。",
       "signedIn": "已登录",
       "signedOut": "未登录",
+      "signIn": "登录",
+      "signInHint": "GitHub 或 Google",
+      "signInHintDesktop": "在系统默认浏览器中打开，可复用已有的 GitHub / Google 登录状态",
+      "signInDialogTitle": "登录 Atmos",
+      "signInDialogDescription": "使用 GitHub 或 Google 继续，无需密码。",
+      "signInDialogDescriptionDesktop": "将在系统默认浏览器中完成登录。Atmos 保持打开，完成后会自动同步会话。",
+      "signInDialogDescriptionWeb": "选择你的登录方式。",
       "signInGithub": "使用 GitHub 登录",
       "signInGoogle": "使用 Google 登录",
+      "waitingBrowser": "正在等待浏览器中的登录…请在浏览器完成，再回到 Atmos。",
+      "waitingBrowserWeb": "正在等待新标签页中的登录…请在那边完成，再回到此页。",
       "signOut": "退出登录",
-      "trustDevice": "信任此设备",
-      "devicesTitle": "设备",
-      "devicesEmpty": "尚未登记设备。信任此设备后可通过 Relay 使用 Computer。",
+      "signOutConfirmTitle": "确认退出登录？",
+      "signOutConfirmDescription": "将退出当前浏览器中的 Atmos 登录，并清除会话 cookie 与本机设备凭证。",
+      "signOutCancel": "取消",
+      "nameTitle": "名称",
+      "nameDescription": "全名或显示名称。",
+      "namePlaceholder": "名称",
+      "nameSave": "保存",
+      "nameTooLong": "请使用不超过 {max} 个字符。",
+      "profileTitle": "个人资料",
+      "profileDescription": "你的 Atmos 身份，用于计算机、Linear 与用量等功能。",
+      "securityTitle": "安全",
+      "securityDescription": "此账号的受信任设备。信任当前浏览器后，计算机可安全连接。",
+      "linkedAccounts": "关联账号",
+      "linkedAccountsDescription": "可将 GitHub 与 Google 关联到同一个 Atmos 账号。每种登录方式只能关联一个，不能挂多个 GitHub 或多个 Google。",
+      "link": "关联",
+      "unlink": "取消关联",
+      "linked": "已关联",
+      "linkedAccountId": "账号 {id}",
+      "notLinked": "未关联",
+      "linkOpensNewTab": "将在新标签页打开",
+      "trustDevice": "信任",
+      "devicesTitle": "受信任设备",
+      "devicesEmpty": "还没有受信任的设备。信任此设备后，即可在此使用你的计算机。",
       "deviceActive": "有效",
       "deviceRevoked": "已吊销",
-      "credentialOnceTitle": "设备凭证（仅显示一次）",
-      "credentialOnceHint": "已保存在本浏览器供 Relay 使用。若泄露请在 Hub 轮换。",
+      "credentialOnceTitle": "此设备已受信任（仅显示一次）",
+      "credentialOnceHint": "已保存在此设备。若泄露，请再次信任此设备以替换。",
+      "deleteAccount": "删除账号",
+      "deleteAccountDescription": "永久删除你的 Atmos 账号、已关联登录、会话与受信任设备。此操作不可撤销。",
+      "deleteAccountDialogTitle": "确认删除账号？",
+      "deleteAccountDialogDescription": "将永久删除用户、已关联的 GitHub/Google、登录会话与设备。之后需要重新登录才会创建新账号。",
+      "deleteConfirmPhrase": "删除我的账号",
+      "deleteConfirmPrompt": "请输入 {phrase} 以确认",
+      "deleteConfirmAction": "删除账号",
+      "deleteCancel": "取消",
       "errors": {
         "signInFailed": "登录失败",
         "signOutFailed": "退出失败",
-        "enrollFailed": "设备登记失败"
+        "enrollFailed": "无法信任此设备",
+        "linkFailed": "无法关联账号",
+        "unlinkFailed": "无法取消关联",
+        "alreadyLinked": "该登录方式已关联",
+        "cannotUnlinkLast": "不能取消关联最后一个账号",
+        "listAccountsFailed": "无法加载关联账号",
+        "deleteFailed": "无法删除账号",
+        "nameSaveFailed": "无法保存名称"
       }
     }
   },
@@ -6401,6 +7044,7 @@
         "close": "关闭"
       },
       "paneToolbar": {
+        "dragHandle": "拖动以重新排列窗格",
         "pinAlreadyPinned": "已固定",
         "pin": "固定",
         "splitHorizontal": "水平拆分",
@@ -6597,6 +7241,11 @@
     }
   },
   "github": {
+    "userCard": {
+      "dayTooltip": "{date} 有 {count} 次贡献",
+      "yearTotal": "{year} 年共 {total} 次贡献",
+      "loading": "正在加载贡献…"
+    },
     "centerTabs": {
       "pullRequest": "PR #{number}",
       "issue": "议题 #{number}",
@@ -6858,7 +7507,9 @@
       "connectedTitle": "GitHub App 已连接",
       "finishedTitle": "GitHub 设置已完成",
       "description": "设置已完成。返回 Atmos 继续配置你的 GitHub 触发器。",
-      "installation": "安装 ID {installationId}"
+      "installation": "安装 ID {installationId}",
+      "closeHint": "你可以关闭此页面。",
+      "backToAtmos": "返回 Atmos"
     },
     "prCreateModal": {
       "title": "打开 Pull Request",
@@ -7429,6 +8080,33 @@
         "fastForwardNotPossible": "请先拉取远端最新更改，并解决所有冲突后再继续。",
         "notGitRepository": "此文件夹已不再是 Git 仓库。"
       }
+    },
+    "history": {
+      "title": "图形历史",
+      "loading": "正在加载历史记录…",
+      "empty": "没有找到提交",
+      "noRepository": "未选择仓库",
+      "loadMore": "加载更多",
+      "refresh": "刷新",
+      "retry": "重试",
+      "copied": "已复制",
+      "copyHash": "复制提交哈希",
+      "noSubject": "（无主题）",
+      "unknownAuthor": "未知",
+      "searchPlaceholder": "搜索提交…",
+      "matchCase": "区分大小写",
+      "previousMatch": "上一个匹配",
+      "nextMatch": "下一个匹配",
+      "matchCount": "{current}/{total}",
+      "loadingMore": "正在加载更多提交…",
+      "columns": {
+        "graph": "图形",
+        "description": "描述",
+        "date": "日期",
+        "author": "作者",
+        "commit": "提交"
+      },
+      "resizeColumn": "调整{column}列宽"
     }
   },
   "localServices": {
@@ -7486,6 +8164,10 @@
         "diff": "Diff",
         "codeBlock": "代码块"
       }
+    },
+    "scriptTrustReview": {
+      "empty": "该项目的脚本文件里没有任何命令。",
+      "aboutToRun": "即将执行"
     }
   },
   "diff": {
@@ -7824,6 +8506,33 @@
     }
   },
   "skills": {
+    "view": {
+      "title": "Skills",
+      "description": "管理已安装的 Skill，浏览市场，发现资源。",
+      "refresh": "刷新 Skill 列表",
+      "search": {
+        "installed": "搜索已安装的 Skill",
+        "market": "搜索 Skill 市场",
+        "resources": "搜索资源"
+      },
+      "tabs": {
+        "installed": "已安装",
+        "market": "市场",
+        "resources": "资源"
+      },
+      "filter": {
+        "trigger": "筛选",
+        "scope": "范围",
+        "projects": "项目",
+        "clearAll": "清空所有筛选",
+        "scopes": {
+          "all": "全部",
+          "system": "Atmos 内置",
+          "global": "全局",
+          "project": "项目"
+        }
+      }
+    },
     "viewUtils": {
       "installedEmptyCopy": "可以用本地或项目级技能扩展 Atmos，也可以继续浏览下面的市场。",
       "marketEmptyCopy": "市场中没有匹配当前搜索的技能。试试别的关键词。",
@@ -8444,21 +9153,15 @@
       "toasts": {
         "savedForSession": "已为当前会话保存",
         "couldNotSaveLocally": "无法保存到这台电脑。请确保 Atmos 正在本地运行。",
-        "identitySwitchedForSession": "已为当前会话切换身份",
-        "accessKeyCreated": "访问密钥已创建",
-        "accessKeyCreatedSaved": "已保存到这台电脑。请立即复制，它之后将不会再次显示。",
-        "accessKeyCreatedNotSaved": "请立即复制；无法保存到这台电脑。请确保 Atmos 正在本地运行。",
-        "saveAccessKeyFirst": "请先保存访问密钥",
-        "saveAccessKeyBeforeRotation": "轮换访问密钥时，需要使用当前本地访问密钥来证明所有权。",
-        "saveAccessKeyBeforeRegistering": "注册这台电脑前，请先添加并保存访问密钥。",
-        "saveAccessKeyBeforeConnecting": "连接另一台电脑前，请先添加并保存访问密钥。",
-        "saveAccessKeyBeforeRemoving": "移除电脑前，请先添加并保存访问密钥。",
+        "signInRequired": "需要登录账号",
+        "signInBeforeRegistering": "注册这台 Computer 前，请先在 设置 → 账号 登录。",
+        "signInBeforeConnecting": "连接另一台 Computer 前，请先在 设置 → 账号 登录。",
+        "signInBeforeRemoving": "移除 Computer 前，请先在 设置 → 账号 登录。",
         "remoteConnectionRestored": "远程连接已恢复",
         "computerAvailable": "这台 Computer 已可用于 Atmos Computer 连接。",
         "couldNotConnectRelay": "无法连接 Relay",
         "ensureAtmosRunningThenRetry": "请确保 Atmos 正在这台 Computer 上运行，然后重试。",
         "ensureAtmosRunning": "请确保 Atmos 正在这台 Computer 上运行。",
-        "couldNotRotateAccessKey": "无法轮换访问密钥",
         "couldNotStartRegistration": "无法开始注册",
         "registeredNotYetOnline": "已注册，但尚未上线",
         "useReconnectAfterNetworkCheck": "请检查网络连接后，使用下方的 Reconnect 重试。",
@@ -8471,62 +9174,20 @@
         "connected": "已连接",
         "couldNotConnect": "无法连接",
         "tryAgain": "请重试。",
-        "couldNotSaveAccessKey": "无法保存访问密钥",
         "privateRelaySettingsSaved": "私有 Relay 设置已保存",
-        "identitySwitchBlocked": "身份切换被阻止",
-        "couldNotStopOldRelayIdentityWithError": "无法停止旧的本地 Relay 身份：{error}",
-        "couldNotStopOldRelayIdentity": "无法停止旧的本地 Relay 身份。请重试。",
-        "githubAutomationsMarkSetupFailedWithError": "旧的本地 Relay 身份已停止，但无法将 GitHub 自动化标记为需要重新配置：{error}",
-        "githubAutomationsMarkSetupFailed": "旧的本地 Relay 身份已停止，但无法将 GitHub 自动化标记为需要重新配置。请重试。",
-        "identitySwitched": "身份已切换",
-        "accessKeySaved": "访问密钥已保存",
-        "githubAutomationsNeedSetup": "此身份下有 {count} 个 GitHub 触发的自动化现在需要重新配置。",
-        "previousKeyResourcesRemain": "旧密钥下已有的 Computers 和 GitHub 路由会继续保留在旧密钥下。",
-        "accessKeyTooShort": "访问密钥太短",
-        "accessKeyTooShortDescription": "请生成新的密钥或粘贴你已保存的密钥。",
-        "couldNotCopy": "无法复制",
-        "checkClipboardPermissions": "请检查剪贴板权限。",
-        "accessKeyRotated": "访问密钥已轮换",
-        "accessKeyRotatedDescription": "设备和 GitHub 路由会继续使用同一身份。请现在复制新的密钥。",
-        "accessKeyRotatedNotSaved": "Relay 已接受轮换，但 Atmos 无法保存到本地。请现在复制新的密钥。",
         "couldNotRemove": "无法移除",
-        "computerRemoved": "设备已移除",
-        "importFromAccountHint": "本浏览器还没有设备凭证。请打开 设置 → 账号，登录并信任此设备。"
+        "computerRemoved": "设备已移除"
       },
+      "developmentWarning": "Atmos Computer 仍在积极开发中，可能会遇到缺陷或不完整的行为。",
       "panels": {
-        "accessKey": {
-          "title": "设备凭证",
-          "description": "Relay 使用 Hub 签发的设备凭证（设置 → 账号 → 信任此设备）。可在此粘贴，或从本浏览器登记结果导入。列出 Computer 与注册令牌都用此 Bearer，不再使用用户自建 Access Token。",
-          "actions": {
-            "generate": "生成",
-            "importFromAccount": "从账号导入"
-          },
-          "placeholders": {
-            "savedOnComputer": "设备凭证已保存在此 Computer",
-            "pasteOrGenerate": "粘贴账号登记时显示的设备凭证",
-            "pasteDeviceCredential": "粘贴 Hub 设备凭证"
-          },
-          "buttons": {
-            "copied": "已复制",
-            "copy": "复制设备凭证",
-            "switchIdentity": "切换设备",
-            "save": "保存"
-          },
-          "helper": {
-            "switchIdentity": "切换会替换本机设备凭证。若新凭证属于同一 Hub 用户，现有 Computer 仍归该用户。",
-            "hiddenOnHostedWeb": "此 Computer 已保存设备凭证。托管 Web 会隐藏明文；仅在替换时粘贴新凭证。",
-            "default": "请先在 设置 → 账号 登录并信任此设备，再导入或粘贴仅显示一次的凭证。"
-          }
+        "accountRequired": {
+          "title": "需要登录账号",
+          "description": "请先在 设置 → 账号 登录。Atmos 会为本机自动签发设备凭证，无需复制或粘贴。",
+          "syncing": "正在同步账号设备…"
         },
-        "rotateAccessToken": {
-          "title": "轮换设备凭证",
-          "description": "请在 设置 → 账号（Hub）轮换。Relay 通过 Hub 投影接收新 hash。",
-          "button": "打开账号"
-        },
-        "tokenReveal": {
-          "title": "请立即复制你的访问密钥",
-          "copied": "已复制",
-          "button": "复制并关闭"
+        "mobilePair": {
+          "title": "配对手机",
+          "description": "显示临时二维码，让 Atmos 手机端加入同一账号，无需粘贴设备凭证。"
         },
         "privateRelay": {
           "title": "私有 Relay",
@@ -8560,14 +9221,14 @@
           "useLocalTitle": "使用这台 Computer 本地运行",
           "useLocalDescription": "从当前远程 Computer 切回本机 Desktop runtime。",
           "useLocalButton": "本地使用",
-          "saveKeyPrompt": "请先在上方保存访问密钥，再注册这台 Computer。"
+          "signInPrompt": "请先在 设置 → 账号 登录，再注册这台 Computer。"
         },
         "myComputers": {
           "title": "我的 Computers",
           "description": "与你账户关联的 Computers。",
           "refresh": "刷新",
-          "saveKeyPrompt": "请先保存访问密钥，才能查看你的 Computers。",
-          "empty": "还没有任何 Computer。先注册这台 Computer，或使用相同访问密钥添加另一台远程 Computer。",
+          "signInPrompt": "请先在 设置 → 账号 登录，才能查看你的 Computers。",
+          "empty": "还没有任何 Computer。先注册这台 Computer，或在同一账号下添加另一台远程 Computer。",
           "connected": "已连接",
           "fallbackName": "Computer",
           "current": "当前",
@@ -8673,12 +9334,22 @@
         "copyFailed": "复制失败"
       },
       "description": {
-        "useAccessKeyFirst": "请先填写上面的访问密钥。",
+        "useAccessKeyFirst": "请先在 设置 → 账号 登录，以便本机拥有 Hub 设备身份。",
         "preparing": "正在准备注册码…",
         "expired": "注册码已过期，请重新生成并复制新的启动命令。",
-        "generateAndCopy": "生成并复制启动命令，将这台远程设备绑定到上面的访问密钥。",
-        "runOnRemote": "请在远程设备上运行。注册码为一次性使用，约 15 分钟后过期。"
+        "generateAndCopy": "生成并复制启动命令，将这台远程 Computer 关联到你的账号。",
+        "runOnRemote": "请在远程 Computer 上运行。注册码为一次性使用，约 15 分钟后过期。"
       }
+    },
+    "mobilePair": {
+      "title": "用二维码配对手机",
+      "description": "用 Atmos 手机端扫描。代码 3 分钟后过期，且只能使用一次。手机端无需登录。",
+      "showQr": "显示二维码",
+      "refresh": "刷新代码",
+      "expiresIn": "{seconds} 秒后过期",
+      "signInFirst": "请先在 设置 → 账号 登录。",
+      "hubNotConfigured": "Hub 未配置。",
+      "createFailed": "无法创建配对码"
     }
   },
   "tunnelConnector": {
@@ -8756,6 +9427,14 @@
     },
     "workspace": {
       "main": "主终端"
+    },
+    "scriptTrust": {
+      "title": "请先确认该项目的运行脚本",
+      "description": "这些命令来自项目的 .atmos/scripts/atmos.json，尚未经你确认，会以你的权限在终端中执行。确认即表示信任整个文件，所以请把下面每一条都读一遍，而不只是即将执行的那条。",
+      "trustAndRun": "信任并运行",
+      "trusting": "正在信任…",
+      "cancel": "取消",
+      "trustFailed": "无法信任该脚本"
     }
   },
   "chatSessions": {
@@ -9011,7 +9690,11 @@
       "orphanedProcessesLabel": "{count, plural, one {# 个孤儿进程} other {# 个孤儿进程}}",
       "orphanedProcessesTooltip": "这些是可能正在占用 PTY 设备的孤儿 shell 进程（PPID=1）。详情请查看下面的 Orphaned Processes 区域。"
     },
-    "mosaicWorkspacePaneWindow": {
+    "workspacePane": {
+      "drag": {
+        "handle": "拖动以重新排列窗格",
+        "ghost": "终端"
+      },
       "pin": {
         "title": "固定到 Canvas（⌘⇧P）",
         "alreadyPinnedTitle": "已固定到 Canvas"
@@ -9027,6 +9710,15 @@
       "close": {
         "title": "关闭（⌘W）"
       }
+    },
+    "attentionSummary": {
+      "loadingTitle": "正在总结最近工作…",
+      "readyTitle": "你离开时发生了这些",
+      "errorTitle": "总结失败",
+      "errorFallback": "无头总结 Agent 运行失败，你仍可继续当前会话。",
+      "canCloseBadge": "可关闭会话",
+      "keepOpenBadge": "建议保持打开",
+      "dismiss": "关闭"
     }
   },
   "app": {
@@ -9040,7 +9732,8 @@
       },
       "server": {
         "description": "抱歉，Atmos 出了点问题。",
-        "retry": "重试"
+        "retry": "重试",
+        "home": "返回首页"
       },
       "canvasLabel": {
         "notFound": "Atmos 404 页面的可玩打砖块游戏板",
@@ -9104,6 +9797,7 @@
       "url": {
         "enter": "输入 URL..."
       },
+      "agentActive": "Agent 正在操作此页面",
       "actions": {
         "openInBrowser": "在浏览器中打开",
         "openDeveloperTools": "打开开发者工具",
@@ -9286,9 +9980,6 @@
         "retry": "重试",
         "openInBrowser": "在浏览器中打开"
       },
-      "loading": {
-        "label": "正在加载浏览器..."
-      },
       "home": {
         "title": "浏览器",
         "description": "打开本地应用或网站，检查元素，并把干净的页面上下文发送给 AI。",
@@ -9359,18 +10050,20 @@
   },
   "DiskAnalyzer": {
     "title": "磁盘分析器",
-    "subtitle": "默认扫描 Atmos 相关占用（~/.atmos、已导入项目、Atmos.app 等）。可勾选扫描全部空间。",
+    "subtitle": "分析磁盘占用情况，并给出清理建议。",
     "pathPlaceholder": "要扫描的绝对路径",
     "scan": "开始扫描",
     "rescan": "重新扫描",
+    "scanningButton": "扫描中…",
     "cancel": "取消",
     "sunburst": "旭日图",
     "treemap": "矩形树图",
     "switchChartMode": "切换为{mode}",
     "topN": "Top",
+    "topNHint": "显示当前目录中占用最大的 N 项。目录条目不足时画面不会变化。",
     "computerRoot": "~",
     "atmosRoot": "Atmos",
-    "scanAllSpace": "扫描全部空间",
+    "fullScan": "全盘扫描",
     "scanScopeHintAria": "关于扫描范围",
     "scanScopeHint": "这不是专业的全盘扫描工具。如需系统级磁盘占用与清理，推荐使用 <mole>Mole</mole> 的磁盘扫描与清理功能。",
     "freeSpace": "可用 {free} / 共 {total}",
@@ -9391,8 +10084,70 @@
     "details": "详情",
     "showDetails": "显示详情面板",
     "hideDetails": "隐藏详情面板",
+    "tabDirs": "目录",
+    "tabClearSuggest": "清理建议",
+    "refreshDetails": "刷新",
+    "refreshDetailsAria": "刷新详情面板",
+    "deleteAllSuggest": "全部删除",
+    "deleteAllSuggestTitle": "删除全部建议？",
+    "deleteAllSuggestDescription": "将从 {count} 个建议项中释放约 {size}。",
+    "suggestDeleteGroup": "删除本组",
+    "suggestDeleteGroupTitle": "删除这一组？",
+    "suggestCount": "{count} 项",
+    "suggestScanning": "仍在扫描… 建议列表可能还会增加。",
+    "suggestEmpty": "当前没有清理建议。",
+    "suggestIdleDays": "已闲置 {days} 天",
+    "suggestKind": {
+      "cache": "缓存",
+      "worktree": "Git 工作树",
+      "session": "Agent 会话",
+      "workspace": "工作区"
+    },
     "atmosProject": "项目",
     "atmosWorkspace": "工作区",
+    "gitWorktree": "Git 工作树",
+    "gitWorktrees": "Git 工作树",
+    "agentData": "Agent 数据",
+    "agentSessionNames": {
+      "claude": "Claude Code 会话",
+      "cursor": "Cursor 会话",
+      "cursorChats": "Cursor 聊天记录",
+      "codex": "Codex 会话",
+      "codexArchived": "Codex 已归档会话",
+      "codexHeadless": "Codex Headless 会话",
+      "copilot": "Copilot CLI 会话",
+      "copilotHistory": "Copilot CLI 历史会话",
+      "gemini": "Gemini CLI 会话",
+      "antigravity": "Antigravity 会话",
+      "continue": "Continue 会话",
+      "grok": "Grok Build 会话",
+      "opencode": "OpenCode 会话",
+      "devin": "Devin 会话",
+      "devinAcp": "Devin Desktop 会话",
+      "amp": "Amp 会话",
+      "droid": "Droid 会话",
+      "pi": "Pi 会话",
+      "omp": "Oh My Pi 会话",
+      "kimi": "Kimi 会话",
+      "kimiCode": "Kimi Code 会话",
+      "qwen": "Qwen 会话",
+      "qwenProjects": "Qwen 项目会话",
+      "cline": "Cline 会话",
+      "goose": "Goose 会话",
+      "crush": "Crush 会话",
+      "hermes": "Hermes 会话",
+      "openclaw": "OpenClaw 会话",
+      "openhands": "OpenHands 会话",
+      "mux": "Mux 会话",
+      "junie": "Junie 会话",
+      "commandcode": "Command Code 会话",
+      "codebuddy": "CodeBuddy 会话",
+      "augment": "Augment 会话",
+      "vibe": "Vibe 会话",
+      "kiro": "Kiro 会话",
+      "kiroCli": "Kiro CLI 会话",
+      "windsurf": "Windsurf Cascade 会话"
+    },
     "atmosRuntimeDir": "Atmos 运行时目录",
     "enterDirectory": "进入目录",
     "counts": "{files} 个文件 · {dirs} 个目录",
@@ -9404,6 +10159,7 @@
     "children": "占用最大",
     "deleteTitle": "确认删除？",
     "deleteDescription": "预计释放约 {size}：\n{path}",
+    "deleteWorktreeNote": "删除会执行 git worktree remove，主仓库不再列出该检出。若命令失败，git 仍可能列出该路径。",
     "permanentDelete": "永久删除（不经过回收站）",
     "confirmTrash": "移至回收站",
     "confirmPermanent": "永久删除",
@@ -9413,10 +10169,14 @@
       "bazel_bin": "Bazel bin 输出",
       "bazel_out": "Bazel 输出树",
       "binaries": "Unreal Engine binaries",
+      "archived_sessions": "Codex 会话文件",
+      "acp_events": "Devin 会话文件",
+      "agent_session": "此 Agent 的会话文件。删除后聊天记录会一并清除。",
       "bower_components": "Bower 包（旧式）",
       "buck_out": "Buck 构建输出",
       "build": "构建输出（Gradle/CMake/Web 等）",
       "carthage": "Carthage 检出与构建",
+      "cascade": "Windsurf Cascade 会话文件",
       "cdk_out": "AWS CDK cloud assembly",
       "cmake_build_debug": "CLion/CMake Debug 构建",
       "cmake_build_release": "CLion/CMake Release 构建",
@@ -9427,32 +10187,56 @@
       "deriveddatacache": "Unreal 派生数据缓存",
       "dist": "构建分发产物",
       "dist_newstyle": "Cabal new-style 构建",
+      "dot_aider": "Aider 会话文件",
       "dot_angular": "Angular CLI 缓存",
       "dot_astro": "Astro 构建缓存",
+      "dot_augment": "Augment 会话文件",
       "dot_aws_sam": "AWS SAM 构建产物",
       "dot_bloop": "Bloop BSP 缓存",
       "dot_build": "SwiftPM / 通用 .build 输出",
       "dot_bundle": "Bundler 缓存/配置",
       "dot_cache": "工具缓存目录",
+      "dot_claude": "Claude Code 会话文件",
+      "dot_cline": "Cline 会话文件",
+      "dot_codebuddy": "CodeBuddy 会话文件",
+      "dot_codeium": "Windsurf Cascade 会话文件",
+      "dot_codex": "Codex 会话文件",
+      "dot_commandcode": "Command Code 会话文件",
+      "dot_continue": "Continue 会话文件",
+      "dot_copilot": "Copilot CLI 会话文件",
+      "dot_crush": "Crush 会话文件",
+      "dot_cursor": "Cursor 会话文件",
       "dot_cxx": "Android NDK / CMake CXX 缓存",
       "dot_dart_tool": "Dart/Flutter 工具缓存",
       "dot_devenv": "devenv 缓存",
+      "dot_devin": "Devin 会话文件",
       "dot_direnv": "direnv layout 缓存",
       "dot_docusaurus": "Docusaurus 构建缓存",
       "dot_eggs": "Python eggs",
       "dot_elixir_ls": "ElixirLS 缓存",
       "dot_eslintcache": "ESLint 缓存",
       "dot_externalnativebuild": "Android NDK 外部构建",
+      "dot_factory": "Droid 会话文件",
+      "dot_gemini": "Gemini CLI 会话文件",
+      "dot_goose": "Goose 会话文件",
       "dot_gradle": "Gradle 缓存",
+      "dot_grok": "Grok Build 会话文件",
+      "dot_hermes": "Hermes 会话文件",
+      "dot_history": "Local History IDE 插件数据",
       "dot_huggingface": "Hugging Face hub 缓存",
       "dot_ipynb_checkpoints": "Jupyter 笔记本检查点",
       "dot_ivy2": "Ivy 依赖缓存",
       "dot_jest": "Jest 缓存",
+      "dot_junie": "Junie 会话文件",
       "dot_keras": "Keras 数据集/模型",
+      "dot_kimi": "Kimi 会话文件",
+      "dot_kimi_code": "Kimi Code 会话文件",
+      "dot_kiro": "Kiro 会话文件",
       "dot_kotlin": "Kotlin 编译器守护进程/缓存",
       "dot_m2": "Maven 本地仓库",
       "dot_metals": "Metals 语言服务缓存",
       "dot_mypy_cache": "mypy 类型检查缓存",
+      "dot_mux": "Mux 会话文件",
       "dot_next": "Next.js 构建产物",
       "dot_nox": "nox 虚拟环境",
       "dot_npm": "npm 缓存",
@@ -9461,15 +10245,21 @@
       "dot_nx": "Nx 计算缓存",
       "dot_nyc_output": "Istanbul/nyc 覆盖率临时文件",
       "dot_ollama": "Ollama 本地模型",
+      "dot_omp": "Oh My Pi 会话文件",
       "dot_opam": "opam 根目录 / 包缓存",
+      "dot_opencode": "OpenCode 会话文件",
+      "dot_openclaw": "OpenClaw 会话文件",
+      "dot_openhands": "OpenHands 会话文件",
       "dot_output": "Nuxt/Nitro/框架输出",
       "dot_parcel_cache": "Parcel 打包缓存",
       "dot_pdm_cache": "PDM 包缓存",
+      "dot_pi": "Pi 会话文件",
       "dot_playwright": "Playwright 缓存",
       "dot_pnpm_store": "pnpm 内容寻址存储",
       "dot_pub_cache": "Pub 全局包缓存",
       "dot_pulumi": "Pulumi 插件/缓存",
       "dot_pytest_cache": "pytest 缓存",
+      "dot_qwen": "Qwen 会话文件",
       "dot_ruff_cache": "Ruff 缓存",
       "dot_sass_cache": "Sass 缓存",
       "dot_serverless": "Serverless Framework 包",
@@ -9488,12 +10278,14 @@
       "dot_vagrant": "Vagrant 机器数据",
       "dot_venv": "Python 虚拟环境",
       "dot_vercel": "Vercel 构建缓存",
+      "dot_vibe": "Vibe 会话文件",
       "dot_virtualenv": "virtualenv 目录",
       "dot_vite": "Vite 预构建缓存",
       "dot_vitest": "Vitest 缓存",
       "dot_vscode_test": "VS Code 扩展测试主机",
       "dot_vuepress": "VuePress 缓存/产物",
       "dot_webpack": "Webpack 缓存",
+      "dot_windsurf": "Windsurf 会话文件",
       "dot_yarn": "Yarn 缓存 / 发行版",
       "dot_yarn_cache": "Yarn classic 缓存",
       "egg_info": "Python 包 egg-info（可重建）",
@@ -9501,6 +10293,7 @@
       "ephemeral": "Flutter ephemeral 生成文件",
       "htmlcov": "coverage.py HTML 报告",
       "huggingface": "Hugging Face 缓存",
+      "history_session_state": "Copilot CLI 会话文件",
       "intermediate": "Unreal Engine intermediate",
       "ms_playwright": "Playwright 浏览器二进制",
       "nimcache": "Nim 编译缓存",
@@ -9509,6 +10302,7 @@
       "out": "编译/导出输出",
       "output": "通用构建输出",
       "playwright_report": "Playwright HTML 报告",
+      "session_state": "Copilot CLI 会话文件",
       "pods": "CocoaPods 依赖",
       "puppeteer": "Puppeteer Chromium",
       "pycache": "Python 字节码缓存",
@@ -9555,6 +10349,116 @@
         "engine": "控制引擎已安装并运行",
         "accessibility": "已为 Atmos Desktop Use 开启辅助功能",
         "screenRecording": "已为 Atmos Desktop Use 开启屏幕录制"
+      }
+    }
+  },
+  "hubAuthBridge": {
+    "title": "即将完成",
+    "working": "正在完成登录并信任此设备…",
+    "success": "登录成功。你可以关闭此标签页并返回 Atmos。",
+    "closeHint": "你可以关闭此页面。Atmos 会自动同步登录状态。",
+    "backToAtmos": "返回 Atmos",
+    "noSession": "未找到 Atmos 会话。请从应用中重新登录。",
+    "failed": "无法完成登录",
+    "missingCode": "缺少登录码。请从 Atmos 设置 → 账号 重新开始登录。"
+  },
+  "hubAuthDone": {
+    "title": "登录完成",
+    "working": "正在确认 Atmos 会话…",
+    "success": "已登录。可以关闭此标签页，返回 Atmos。",
+    "closeHint": "你可以关闭此页面。",
+    "backToAtmos": "返回 Atmos",
+    "noSession": "未找到会话。请从 Atmos 重新登录。",
+    "failed": "无法确认登录"
+  },
+  "hubAuthError": {
+    "title": "未能完成",
+    "closeHint": "你可以关闭此页面，然后回到 Atmos 重试。",
+    "backToAtmos": "返回 Atmos",
+    "codeLabel": "错误码：{code}",
+    "errors": {
+      "generic": "登录或关联账号时出错。请从 Atmos 设置 → 账号 重试。",
+      "accountAlreadyLinkedOtherUser": "这个 Google 或 GitHub 登录已经关联到另一个 Atmos 账号。",
+      "accountAlreadyLinkedOtherUserHint": "请改用那个 Google/GitHub 账号登录，或关联其他账号。同一登录方式不能挂在两个 Atmos 用户上。",
+      "emailDoesNotMatch": "第三方邮箱与当前 Atmos 账号不一致。",
+      "unableToLink": "无法关联该账号。请重试或换用其他登录方式。",
+      "stateMismatch": "登录已过期或重复发起。请关闭此标签页，从 Atmos 重新开始。",
+      "sessionRequired": "请先登录，再关联其他账号。"
+    }
+  },
+  "features": {
+    "simulator": {
+      "tab": "模拟器",
+      "iframeTitle": "iOS 模拟器预览",
+      "downloading": "正在下载模拟器助手… {percent}%",
+      "starting": "正在启动模拟器预览…",
+      "checking": "正在检查模拟器…",
+      "actions": {
+        "needDesktop": "获取 Atmos Desktop",
+        "installXcode": "安装 Xcode",
+        "openXcode": "安装 iOS 运行时",
+        "retry": "重试",
+        "start": "启动",
+        "stop": "停止",
+        "cancel": "取消"
+      },
+      "stopConfirm": {
+        "title": "停止模拟器预览？",
+        "body": "这会结束后台助手并释放这台设备。"
+      },
+      "reasons": {
+        "ok": {
+          "title": "模拟器未启动",
+          "body": "需要时再启动预览。同一个工作区一次只能运行一个模拟器。"
+        },
+        "not_desktop": {
+          "title": "需要本机 Mac 上的服务",
+          "body": "iOS 模拟器跑在托管这份 Atmos Server 的那台机器上。请连到装了 Xcode 的 Mac，或在那台 Mac 上启动 just dev-api。"
+        },
+        "unsupported_platform": {
+          "title": "需要 Mac",
+          "body": "iOS 模拟器仅在安装了 Xcode 的 macOS 上可用。"
+        },
+        "unsupported_arch": {
+          "title": "需要 Apple 芯片",
+          "body": "此预览助手仅适用于 Apple 芯片 Mac。"
+        },
+        "macos_too_old": {
+          "title": "需要 macOS 14 或更高版本",
+          "body": "请升级 macOS，然后安装当前版本的 Xcode。"
+        },
+        "xcode_missing": {
+          "title": "未安装 Xcode",
+          "body": "请从 Apple 安装 Xcode，然后再次打开模拟器。"
+        },
+        "simctl_missing": {
+          "title": "缺少模拟器工具",
+          "body": "请安装 Xcode 并接受许可，以便使用 simctl。"
+        },
+        "no_runtime": {
+          "title": "没有 iOS 运行时",
+          "body": "请在 Xcode 设置 → Platforms 中安装 iOS Simulator 运行时。"
+        },
+        "no_device": {
+          "title": "没有模拟器机型",
+          "body": "请在 Xcode 中创建一个 iPhone 模拟器，然后重试。"
+        },
+        "helper_missing": {
+          "title": "尚未安装助手",
+          "body": "点击启动后会下载模拟器助手，然后打开预览。"
+        },
+        "download_failed": {
+          "title": "无法下载助手",
+          "body": "请检查网络后重试。文件会按固定校验和核对。"
+        },
+        "checksum_mismatch": {
+          "title": "助手校验失败",
+          "body": "下载内容与预期文件不一致。请重试以下载新文件。"
+        },
+        "start_failed": {
+          "title": "无法启动预览",
+          "body": "助手没有启动。请确认 Xcode 与模拟器工具可用后重试。"
+        }
       }
     }
   }

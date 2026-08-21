@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "include": [
+    "/tok",
+    "/tok/*",
+    "/_next/*",
+    "/ai-provider/*",
+    "/agents/*",
+    "/icon.svg"
+  ],
+  "exclude": []
+}

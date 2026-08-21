@@ -1,6 +1,6 @@
 "use client";
 
-import type { MosaicNode } from "react-mosaic-component";
+import type { TerminalLayoutNode } from "@/features/terminal/types/index";
 import type { TerminalPaneProps } from "@/features/terminal/types/index";
 
 export const TERMINAL_LAYOUT_SCHEMA = "terminal-layout.v1";
@@ -13,7 +13,7 @@ export interface PersistedTerminalTabDocument {
   id: string;
   title: string;
   closable: boolean;
-  layout: MosaicNode<string> | null;
+  layout: TerminalLayoutNode<string> | null;
   maximizedTerminalId?: string | null;
   panes: Record<string, PersistedTerminalPane>;
   /** User custom tab name (display-only override). Persisted. */
@@ -34,7 +34,7 @@ type LegacyTerminalTabLike = {
 
 type LegacyPersistedTerminalTabState = {
   panes: Record<string, PersistedTerminalPane>;
-  layout: MosaicNode<string> | null;
+  layout: TerminalLayoutNode<string> | null;
   maximizedTerminalId?: string | null;
 };
 
@@ -114,7 +114,7 @@ export function migrateTerminalLayoutDocument(
 
   const legacyValue = value as {
     panes?: Record<string, PersistedTerminalPane>;
-    layout?: MosaicNode<string> | null;
+    layout?: TerminalLayoutNode<string> | null;
   } | null;
 
   if (legacyValue?.panes) {

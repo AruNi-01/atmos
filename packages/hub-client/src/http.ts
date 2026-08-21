@@ -1,8 +1,13 @@
+import { applyHubAuthToHeaders } from "./auth-material";
 import { requireHubBaseUrl } from "./config";
 
 /**
- * Cookie-session Hub fetch (browser / desktop webview).
- * Native may later pass Authorization via custom headers after device enroll.
+ * Hub HTTPS fetch with unified identity attach.
+ *
+ * - Device credential → `Authorization: Bearer …` when present
+ * - Session cookies → `credentials: "include"` (browser jar)
+ *
+ * Call sites never pass cookie/device explicitly.
  */
 export async function hubFetch(
   path: string,
@@ -13,6 +18,7 @@ export async function hubFetch(
   if (!headers.has("Content-Type") && init.body) {
     headers.set("Content-Type", "application/json");
   }
+  applyHubAuthToHeaders(headers);
   return fetch(`${base}${path.startsWith("/") ? path : `/${path}`}`, {
     ...init,
     headers,

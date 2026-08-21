@@ -57,7 +57,7 @@ export interface FunctionSettings {
     [key: string]: unknown;
   };
   workspace_sidebar?: {
-    grouping_mode?: "project" | "group" | "status" | "time" | "label" | "priority";
+    grouping_mode?: "project" | "group" | "status" | "time" | "label" | "priority" | "agent";
     label_group_order?: string[];
     /** Sidebar list filters — independent of `workspace_kanban_view` board filters. */
     filters?: {
@@ -69,6 +69,11 @@ export interface FunctionSettings {
       show_automation_workspaces?: boolean;
     };
     [key: string]: unknown;
+  };
+  browser?: {
+    default_surface?: "sidebar" | "center";
+    new_tab_url?: string;
+    show_agent_chrome?: boolean;
   };
   inner_browser?: {
     favorite_site?: Array<{
@@ -121,13 +126,29 @@ export interface FunctionSettings {
   experiments?: {
     automations?: boolean;
     center_wiki_tab?: boolean;
+    /**
+     * Launchpad inside/outside placement + order.
+     * Durable on disk: `~/.atmos/config/function_settings.json` → experiments.launchpad_items.
+     * Frontend also caches the same map in localStorage for instant load.
+     */
     launchpad_items?: Record<
       string,
       {
         enabled?: boolean;
         placement?: "inside" | "outside";
+        order?: number;
       }
     >;
+    [key: string]: unknown;
+  };
+  /**
+   * Center-stage named multi-pane layouts.
+   * Durable on disk: `~/.atmos/config/function_settings.json` → center_stage.saved_layouts.
+   * Frontend also caches the same array in localStorage for instant load.
+   */
+  center_stage?: {
+    /** Portable layout snapshots (geometry + surface kinds). */
+    saved_layouts?: unknown[];
     [key: string]: unknown;
   };
   [key: string]: unknown;
@@ -297,6 +318,10 @@ export const codeAgentCustomApi = {
 
 export interface AgentBehaviourSettings {
   idle_session_timeout_mins: number;
+  attention_summary_enabled?: boolean;
+  attention_summary_delay_mins?: number;
+  attention_summary_agent_id?: string | null;
+  attention_summary_model?: string | null;
 }
 
 export const agentBehaviourSettingsApi = {

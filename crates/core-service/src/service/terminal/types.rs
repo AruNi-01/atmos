@@ -14,6 +14,8 @@ pub(super) enum SessionCommand {
         cols: u16,
         rows: u16,
     },
+    /// Snapshot hydration is complete; tmux control output may now be forwarded.
+    HydrationComplete,
     /// Close the terminal session. Control-mode sessions already know their
     /// client session/socket; fields are kept so simple and tmux sessions share
     /// one command shape.
@@ -246,6 +248,44 @@ pub struct AttachSessionParams {
     pub cwd: Option<String>,
 }
 
+/// Generic plain-text capture of a tmux pane (side chat, /spawn, attention summary, …).
+pub struct CapturePanePlainTextParams {
+    pub workspace_id: String,
+    pub project_name: Option<String>,
+    pub workspace_name: Option<String>,
+    /// Active browser/API terminal session id when known (preferred resolve path).
+    pub source_session_id: Option<String>,
+    /// Tmux window name fallback when no live session handle is available.
+    pub source_tmux_window_name: String,
+    /// Final selected text budget in bytes (after ANSI strip + head/tail window).
+    pub max_text_bytes: Option<u32>,
+    /// Optional scrollback line request for `capture-pane -S`.
+    pub approx_lines: Option<i32>,
+    /// Optional cap on raw capture bytes before selection.
+    pub max_raw_bytes: Option<usize>,
+    /// Bytes kept from the start of the transcript when mid is omitted.
+    /// `None` uses the side-chat default head; `Some(0)` is tail-only.
+    pub head_prefix_bytes: Option<usize>,
+}
+
+/// Result of a generic plain-text pane capture.
+pub struct CapturedPanePlainText {
+    pub workspace_id: String,
+    pub project_name: Option<String>,
+    pub workspace_name: Option<String>,
+    pub tmux_session: String,
+    pub tmux_window_name: String,
+    pub tmux_window_index: u32,
+    pub captured_lines: u32,
+    pub captured_bytes: u32,
+    pub text_budget_bytes: u32,
+    pub omitted_older_bytes: u32,
+    pub omitted_middle_bytes: u32,
+    pub truncated_bytes: bool,
+    pub text: String,
+}
+
+/// Side-chat /spawn capture params (thin alias over the generic API defaults).
 pub struct CaptureSideContextParams {
     pub workspace_id: String,
     pub project_name: Option<String>,
@@ -269,6 +309,26 @@ pub struct CapturedSideContext {
     pub omitted_middle_bytes: u32,
     pub truncated_bytes: bool,
     pub text: String,
+}
+
+impl From<CapturedPanePlainText> for CapturedSideContext {
+    fn from(value: CapturedPanePlainText) -> Self {
+        Self {
+            workspace_id: value.workspace_id,
+            project_name: value.project_name,
+            workspace_name: value.workspace_name,
+            tmux_session: value.tmux_session,
+            tmux_window_name: value.tmux_window_name,
+            tmux_window_index: value.tmux_window_index,
+            captured_lines: value.captured_lines,
+            captured_bytes: value.captured_bytes,
+            prompt_budget_bytes: value.text_budget_bytes,
+            omitted_older_bytes: value.omitted_older_bytes,
+            omitted_middle_bytes: value.omitted_middle_bytes,
+            truncated_bytes: value.truncated_bytes,
+            text: value.text,
+        }
+    }
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]

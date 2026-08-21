@@ -25,7 +25,7 @@ apps/api WsMessageService
         │
         ▼
 core-service LinearService
-   ├─ Hub integrations (user_id) via hub_cookie
+   ├─ Hub integrations (user_id) via unified Hub auth (cookie and/or device)
    ├─ WorkspaceExternalIssueRepo (SQLite, display)
    └─ core-engine LinearClient
           └─ GraphQL https://api.linear.app/graphql
@@ -69,7 +69,7 @@ apps/web (Hub session cookie)
   → Better Auth session required
 
 apps/api Linear WS
-  → receives hub_cookie from client
+  → receives hub_auth { cookie?, device_credential? } from client (via withHubAuth)
   → GET Hub credentials → Linear GraphQL (read-only)
   → workspace_external_issue stays local SQLite (display only)
 ```

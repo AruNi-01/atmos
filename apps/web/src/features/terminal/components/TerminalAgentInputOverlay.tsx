@@ -44,10 +44,13 @@ import {
 import { useWelcomeSlashSearch } from "@/features/welcome/hooks/use-welcome-slash-search";
 import {
   BROWSER_USE_SLASH_COMMAND_ID,
+  browserUseSlashNeedsDesktopUseGate,
   buildBrowserUseSlashCommand,
+  ensureBrowserUseSlashSurface,
   matchesBrowserUseSlashQuery,
   resolveBrowserUseSkillRef,
 } from "@/features/welcome/lib/slash-browser-use";
+import { useContextParams } from "@/shared/hooks/use-context-params";
 import {
   buildDesktopUseSlashCommand,
   DESKTOP_USE_SLASH_COMMAND_ID,
@@ -96,12 +99,32 @@ import {
   type TerminalPromptContext,
 } from "../lib/terminal-ai-context-protocol";
 import { useTerminalRichInputSettingsStore } from "@/features/settings/store/terminal-rich-input-settings-store";
+import {
+  selectPaneAttentionSummary,
+  dismissAttentionSummaryChrome,
+  useAgentAttentionSummaryStore,
+} from "@/features/agent/store/agent-attention-summary-store";
+import { AttentionSummaryPanel } from "./AttentionSummaryPanel";
 
 import "./TerminalAgentInputOverlay.css";
+
+/**
+ * Overlay is `absolute` on `.terminal-pane-content` (sibling of
+ * `.terminal-padding-wrapper`). Use `bottom-px` — not margin — so the 1px
+ * inset stays inside overflow:hidden ancestors. Chrome `padBottom` is 6px
+ * (1px + 4px pill + 1px) so the TUI stops 1px above the pill. No fixed
+ * height: the composer grows upward.
+ */
+const TERMINAL_BOTTOM_TRIGGER_DOCK_CLASS =
+  "pointer-events-none absolute inset-x-0 bottom-px z-[70] flex justify-center px-3";
+/** AI-input bar and side-chat bar share this baseline. */
+const TERMINAL_BOTTOM_TRIGGER_ROW_CLASS = "flex items-end justify-center";
 
 interface TerminalAgentInputOverlayProps {
   activeProjectId?: string | null;
   agent?: TerminalPaneAgent | null;
+  /** Stable pane id (`{context}:{tmux_window}`) for attention auto-summary chrome. */
+  stablePaneId?: string | null;
   getSideChatFlyTargetClientPoint?: () => { x: number; y: number } | null;
   getTerminalCursorClientPoint?: () => { x: number; y: number } | null;
   isTerminalReady?: boolean;
@@ -149,6 +172,7 @@ export const TerminalAgentInputOverlay = React.forwardRef<
 >(function TerminalAgentInputOverlay({
   activeProjectId,
   agent,
+  stablePaneId = null,
   getSideChatFlyTargetClientPoint,
   getTerminalCursorClientPoint,
   isTerminalReady = true,
@@ -167,6 +191,7 @@ export const TerminalAgentInputOverlay = React.forwardRef<
   surfaceActive = true,
 }, ref) {
   const t = useTranslations("terminal.agentInput");
+  const { effectiveContextId } = useContextParams();
   const {
     enabled: richInputEnabled,
     triggerBarVisible,
@@ -176,6 +201,14 @@ export const TerminalAgentInputOverlay = React.forwardRef<
   // Until prefs hydrate, treat Rich Input as off so a previously disabled
   // preference does not flash the composer for a frame.
   const richInputActive = richInputSettingsLoaded && richInputEnabled;
+  const attentionSummary = useAgentAttentionSummaryStore(
+    selectPaneAttentionSummary(stablePaneId ?? ""),
+  );
+  const isSummarySummarizing = attentionSummary?.status === "summarizing";
+  const isSummaryActive =
+    attentionSummary?.status === "summarizing" ||
+    attentionSummary?.status === "ready" ||
+    attentionSummary?.status === "error";
   const composerRef = React.useRef<ComposerHandle | null>(null);
   const inputShellRef = React.useRef<HTMLDivElement | null>(null);
   const delayedSubmitTimerRef = React.useRef<number | null>(null);
@@ -199,6 +232,7 @@ export const TerminalAgentInputOverlay = React.forwardRef<
     setIsOpen(false);
     setIsPinned(false);
   }, [richInputActive]);
+
   const [text, setText] = React.useState("");
   const [isSending, setIsSending] = React.useState(false);
   const [isSendAnimating, setIsSendAnimating] = React.useState(false);
@@ -604,23 +638,29 @@ export const TerminalAgentInputOverlay = React.forwardRef<
           setSlashPopoverView("menu");
           return;
         }
-        // Non-blocking readiness: insert only when engine + permissions OK.
+        // Desktop already has the in-app Browser plane — do not block on Desktop Use TCC.
         setSlashPopover(null);
         setSlashPopoverView("menu");
+        const insertSkill = () => {
+          composerRef.current?.applySlashAtRange(
+            popover.slashOffset,
+            popover.query.length,
+            {
+              kind: "skill",
+              absolutePath: skill.absolutePath,
+              name: skill.name,
+            },
+          );
+        };
+        if (!browserUseSlashNeedsDesktopUseGate()) {
+          insertSkill();
+          ensureBrowserUseSlashSurface(effectiveContextId);
+          return;
+        }
         void import("@/features/desktop-use/lib/readiness-modal-bus").then(
           ({ gateDesktopUseFeature }) => {
             gateDesktopUseFeature("browser", {
-              onReady: () => {
-                composerRef.current?.applySlashAtRange(
-                  popover.slashOffset,
-                  popover.query.length,
-                  {
-                    kind: "skill",
-                    absolutePath: skill.absolutePath,
-                    name: skill.name,
-                  },
-                );
-              },
+              onReady: insertSkill,
             });
           },
         );
@@ -906,7 +946,8 @@ export const TerminalAgentInputOverlay = React.forwardRef<
     await onStartSideChat(prompt, agent, sanitizeRunConfig(runConfig), contexts);
     const flyTarget = await resolveSideChatFlyTarget(getSideChatFlyTargetClientPoint);
     startSuccessfulSubmitAnimation(prompt, flyTarget);
-  }, [getSideChatFlyTargetClientPoint, onStartSideChat, startSuccessfulSubmitAnimation]);
+    if (stablePaneId) dismissAttentionSummaryChrome(stablePaneId);
+  }, [getSideChatFlyTargetClientPoint, onStartSideChat, stablePaneId, startSuccessfulSubmitAnimation]);
 
   const runSpawn = React.useCallback(async (
     prompt: string,
@@ -917,7 +958,8 @@ export const TerminalAgentInputOverlay = React.forwardRef<
     if (!onSpawn) return;
     await onSpawn(prompt, agent, sanitizeRunConfig(runConfig), contexts);
     startSuccessfulSubmitAnimation(prompt);
-  }, [onSpawn, startSuccessfulSubmitAnimation]);
+    if (stablePaneId) dismissAttentionSummaryChrome(stablePaneId);
+  }, [onSpawn, stablePaneId, startSuccessfulSubmitAnimation]);
 
   const handleSideChatRunConfigChange = React.useCallback(
     (agentId: string, value: TerminalAgentRunConfigInput | null) => {
@@ -1023,6 +1065,7 @@ export const TerminalAgentInputOverlay = React.forwardRef<
         setPromptContexts([]);
         setMentionPopover(null);
         setSlashPopover(null);
+        if (stablePaneId) dismissAttentionSummaryChrome(stablePaneId);
         return;
       }
       const isMultiLine = trimmedExpandedText.includes("\n");
@@ -1049,6 +1092,7 @@ export const TerminalAgentInputOverlay = React.forwardRef<
       setPromptContexts([]);
       setMentionPopover(null);
       setSlashPopover(null);
+      if (stablePaneId) dismissAttentionSummaryChrome(stablePaneId);
     } catch (error) {
       console.error("Failed to submit terminal agent input:", error);
     } finally {
@@ -1074,6 +1118,7 @@ export const TerminalAgentInputOverlay = React.forwardRef<
     runSideChat,
     runSpawn,
     shouldShowSideChatAgentSelector,
+    stablePaneId,
     submitMode,
     text,
   ]);
@@ -1106,16 +1151,16 @@ export const TerminalAgentInputOverlay = React.forwardRef<
   if (!richInputActive) {
     if (!sideChatDots) return null;
     return (
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[70] flex justify-center px-3 pb-0.5">
+      <div className={TERMINAL_BOTTOM_TRIGGER_DOCK_CLASS}>
         <div className="pointer-events-auto flex w-full max-w-3xl flex-col items-center">
-          <div className="flex items-end">{sideChatDots}</div>
+          <div className={TERMINAL_BOTTOM_TRIGGER_ROW_CLASS}>{sideChatDots}</div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[70] flex justify-center px-3 pb-0.5">
+    <div className={TERMINAL_BOTTOM_TRIGGER_DOCK_CLASS}>
       <div
         className="pointer-events-auto flex w-full max-w-3xl flex-col items-center"
         onPointerDown={stopOverlayInteractionPropagation}
@@ -1139,7 +1184,13 @@ export const TerminalAgentInputOverlay = React.forwardRef<
           appendAgentContextItems(items, { x: event.clientX, y: event.clientY });
         }}
         onMouseLeave={() => {
-          if (!isPinned && !isSendAnimating && !isSendExiting && !text.trim() && attachments.length === 0) {
+          if (
+            !isPinned &&
+            !isSendAnimating &&
+            !isSendExiting &&
+            !text.trim() &&
+            attachments.length === 0
+          ) {
             setIsOpen(false);
           }
         }}
@@ -1149,6 +1200,24 @@ export const TerminalAgentInputOverlay = React.forwardRef<
           canSubmit={canSubmit}
           composerRef={composerRef}
           handleAttachmentRemove={handleAttachmentRemove}
+          header={
+            attentionSummary ? (
+              <AttentionSummaryPanel
+                summary={attentionSummary}
+                onPickNextStep={(step) => {
+                  setIsOpen(true);
+                  setText(step);
+                  composerRef.current?.setText(step);
+                  composerRef.current?.focus();
+                  focusComposerSoon();
+                }}
+                onDismiss={() => {
+                  if (!stablePaneId) return;
+                  dismissAttentionSummaryChrome(stablePaneId);
+                }}
+              />
+            ) : undefined
+          }
           handleImagePaste={handleImagePaste}
           handleTextChange={handleTextChange}
           inputShellRef={inputShellRef}
@@ -1193,14 +1262,35 @@ export const TerminalAgentInputOverlay = React.forwardRef<
           }
         />
 
-        <div className="flex items-end">
+        <div
+          className={cn(
+            TERMINAL_BOTTOM_TRIGGER_ROW_CLASS,
+            triggerBarVisible && "gap-1.5",
+          )}
+        >
           {triggerBarVisible ? (
             <button
               type="button"
               aria-label="Open agent input"
+              data-attention-summary={
+                isSummaryActive
+                  ? isSummarySummarizing
+                    ? "summarizing"
+                    : "ready"
+                  : undefined
+              }
+              data-stable-pane-id={stablePaneId ?? undefined}
               className={cn(
-                "h-1 w-28 rounded-full bg-foreground/25 shadow-[0_1px_4px_rgba(0,0,0,0.16)] transition-opacity duration-200",
-                isOverlayVisible ? "opacity-0" : "opacity-100 hover:bg-foreground/35",
+                "h-1 w-28 rounded-full shadow-[0_0_2px_rgba(0,0,0,0.16)] transition-[opacity,background-color,box-shadow] duration-200",
+                isSummaryActive
+                  ? "terminal-agent-input-trigger--summary"
+                  : "bg-foreground/25",
+                isSummaryActive && !isOverlayVisible && "terminal-agent-input-trigger--pulse",
+                isOverlayVisible
+                  ? "opacity-0"
+                  : isSummaryActive
+                    ? undefined
+                    : "opacity-100 hover:bg-foreground/35",
               )}
               onFocus={() => setIsOpen(true)}
               onClick={focusInput}
@@ -1209,7 +1299,7 @@ export const TerminalAgentInputOverlay = React.forwardRef<
           ) : null}
           <div
             className={cn(
-              "flex items-end gap-1 transition-opacity duration-200",
+              "flex items-end transition-opacity duration-200",
               isOverlayVisible ? "pointer-events-none opacity-0" : "opacity-100",
             )}
           >

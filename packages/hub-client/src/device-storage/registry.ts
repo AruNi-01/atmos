@@ -1,4 +1,4 @@
-import type { HubAuthForLocalApi } from "../types";
+import type { StoredDeviceCredential } from "../types";
 import type { DeviceCredentialStore } from "./types";
 
 let store: DeviceCredentialStore | null = null;
@@ -24,6 +24,10 @@ export function getStoredDeviceCredential(): string | null {
   return store?.get() ?? null;
 }
 
+export function getStoredDeviceRecord(): StoredDeviceCredential | null {
+  return store?.getRecord() ?? null;
+}
+
 export function storeDeviceCredential(payload: {
   device_id: string;
   device_credential: string;
@@ -33,12 +37,4 @@ export function storeDeviceCredential(payload: {
 
 export function clearStoredDeviceCredential(): void {
   store?.clear();
-}
-
-/** Cookie fragment (browser) is optional; device credential is preferred for local API. */
-export function hubAuthForLocalApi(getCookie?: () => string): HubAuthForLocalApi {
-  return {
-    hub_cookie: getCookie?.() ?? "",
-    device_credential: getStoredDeviceCredential() ?? "",
-  };
 }

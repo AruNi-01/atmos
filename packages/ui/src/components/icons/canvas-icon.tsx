@@ -1,4 +1,4 @@
-import { forwardRef, useCallback, useImperativeHandle } from "react";
+import { forwardRef, useCallback, useImperativeHandle, useRef } from "react";
 import { Presentation } from "lucide-react";
 import type { AnimatedIconHandle, AnimatedIconProps } from "./types";
 import { motion, useAnimate } from "motion/react";
@@ -9,6 +9,7 @@ const CanvasIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
     ref,
   ) => {
     const [scope, animate] = useAnimate();
+    const isControlledRef = useRef(false);
 
     const start = useCallback(async () => {
       animate(
@@ -37,6 +38,7 @@ const CanvasIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
     }, [animate]);
 
     useImperativeHandle(ref, () => {
+      isControlledRef.current = true;
       return {
         startAnimation: start,
         stopAnimation: stop,
@@ -46,8 +48,12 @@ const CanvasIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
     return (
       <motion.span
         ref={scope}
-        onHoverStart={start}
-        onHoverEnd={stop}
+        onHoverStart={() => {
+          if (!isControlledRef.current) void start();
+        }}
+        onHoverEnd={() => {
+          if (!isControlledRef.current) void stop();
+        }}
         className={`inline-flex items-center justify-center ${className}`}
       >
         <motion.span

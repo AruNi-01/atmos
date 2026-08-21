@@ -4,6 +4,7 @@
 export * from "./components/ui/button";
 export * from "./components/ui/card";
 export * from "./components/ui/checkbox";
+export * from "./components/ui/qr-code";
 export * from "./components/ui/input";
 export * from "./components/ui/input-group";
 export * from "./components/ui/label";
@@ -40,6 +41,41 @@ export {
   TabsSubtleItem,
   TabsSubtlePanel,
 } from "./components/ui/tabs-subtle";
+export {
+  ActionSwapCascadeButton,
+  ActionSwapCascadeText,
+  ActionSwapCascadeIcon,
+} from "./components/motion/action-swap-cascade";
+export type {
+  ActionSwapCascadeButtonProps,
+  ActionSwapCascadeTextProps,
+  ActionSwapCascadeIconProps,
+  ActionSwapItem,
+  ActionSwapButtonSize,
+  ActionSwapButtonVariant,
+} from "./components/motion/action-swap-cascade";
+export { IconSwap, IconSwapItem } from "./components/motion/icon-swap";
+export {
+  PushPageStack,
+  usePushPageTransition,
+  PUSH_PAGE_DURATION_MS,
+  PUSH_PAGE_EASE,
+} from "./components/motion/push-page-stack";
+export type {
+  PushPageAxis,
+  PushPagePhase,
+  PushPageStackProps,
+  PushPageCloseOptions,
+  UsePushPageTransitionOptions,
+  UsePushPageTransitionResult,
+} from "./components/motion/push-page-stack";
+// beui.dev motion tabs — aliased (ui/tabs already exports Tabs/TabsList/…)
+export {
+  Tabs as MotionTabs,
+  TabsList as MotionTabsList,
+  TabsTrigger as MotionTabsTrigger,
+  TabsContent as MotionTabsContent,
+} from "./components/motion/tabs";
 export {
   Command,
   CommandDialog,
@@ -81,6 +117,32 @@ export * from "./components/ui/motion-preset";
 export * from "./components/ui/navigation-menu";
 export * from "./components/ui/rating";
 export * from "./components/ui/separator";
+export {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupAction,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarInput,
+  SidebarInset,
+  SidebarMenu,
+  SidebarMenuAction,
+  SidebarMenuBadge,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarMenuSkeleton,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
+  SidebarProvider,
+  SidebarRail,
+  SidebarSeparator,
+  SidebarTrigger,
+  useSidebar,
+} from "./components/ui/sidebar";
 export * from "./components/ui/switch";
 export {
   Table,
@@ -123,7 +185,10 @@ export type {
   DitherPanelProps,
   DitherGrowthProps,
   DitherHeatmapCell,
+  DitherHeatmapHoverInfo,
+  DitherHeatmapMonthLabel,
   DitherHeatmapProps,
+  DitherHeatmapWeekdayLabel,
   DitherStackedBar,
   DitherStackedBarsProps,
   DitherDonutProps,
@@ -136,6 +201,7 @@ export type {
   DitherRevenueSeries,
   DitherTooltipLine,
   DitherTooltipProps,
+  DitherTooltipSliding,
   DitherTooltipState,
   DitherTheme,
 } from "./components/dither";
@@ -148,6 +214,18 @@ export { AnimatedNumber } from "./components/ui/animated-number";
 export type { AnimatedNumberProps } from "./components/ui/animated-number";
 export { SlidingNumber } from "./components/ui/sliding-number";
 export type { SlidingNumberProps } from "./components/ui/sliding-number";
+export {
+  SlidingMetric,
+  compactSlidingParts,
+  currencySlidingParts,
+  percentSlidingParts,
+  detailedSlidingParts,
+  localeDecimalSeparator,
+} from "./components/ui/sliding-metric";
+export type {
+  SlidingMetricParts,
+  SlidingMetricProps,
+} from "./components/ui/sliding-metric";
 export {
   Sidebar as MotionSidebar,
   SidebarContent as MotionSidebarContent,
@@ -198,6 +276,8 @@ export { GitPullRequestCreateIcon } from "./components/icons/git-pull-request-cr
 export type { GitPullRequestCreateIconHandle } from "./components/icons/git-pull-request-create-icon";
 export { GitPullRequestClosedIcon } from "./components/icons/git-pull-request-closed-icon";
 export type { GitPullRequestClosedIconHandle } from "./components/icons/git-pull-request-closed-icon";
+export { UserIcon } from "./components/icons/user-icon";
+export type { UserIconHandle } from "./components/icons/user-icon";
 
 // Utilities
 export { cn } from "./lib/utils";

@@ -26,56 +26,32 @@ export const AtmosWordmark: React.FC<AtmosWordmarkProps> = ({
   layout = 'spread',
 }) => {
   const sloganText = 'Atmosphere for Agentic Builders';
+  const logoSpacingClass =
+    layout === 'compact' ? undefined : 'mx-0.5 sm:mx-1';
 
   return (
     <div className={cn('flex flex-col items-center', className)}>
       <div
         className={cn(
-          'group flex w-full max-w-3xl cursor-default select-none items-center',
+          'flex w-full max-w-3xl cursor-default select-none items-center text-[10rem] font-normal uppercase leading-none tracking-normal text-foreground drop-shadow-sm',
           layout === 'compact'
-            ? 'justify-center gap-3 sm:gap-4 md:gap-5'
+            ? 'justify-center gap-2 sm:gap-2.5 md:gap-3'
             : 'justify-between',
           GeistPixelSquare.className,
+          letterClassName,
         )}
       >
-        <span
-          className={cn(
-            'text-[10rem] font-normal uppercase leading-[0.75] tracking-normal text-foreground drop-shadow-sm',
-            letterClassName
-          )}
-        >
-          A
-        </span>
-        <span
-          className={cn(
-            'text-[10rem] font-normal uppercase leading-[0.75] tracking-normal text-foreground drop-shadow-sm',
-            letterClassName
-          )}
-        >
-          t
-        </span>
-        <span
-          className={cn(
-            'text-[10rem] font-normal uppercase leading-[0.75] tracking-normal text-foreground drop-shadow-sm',
-            letterClassName
-          )}
-        >
-          m
-        </span>
+        <span>A</span>
+        <span>t</span>
+        <span>m</span>
         <LogoSvg
           className={cn(
-            'size-36 shrink-0 text-foreground drop-shadow-sm transition-transform duration-1000 group-hover:rotate-90',
+            'mx-[0.04em] h-[0.72em] w-auto',
+            logoSpacingClass,
             logoClassName
           )}
         />
-        <span
-          className={cn(
-            'text-[10rem] font-normal uppercase leading-[0.75] tracking-normal text-foreground drop-shadow-sm',
-            letterClassName
-          )}
-        >
-          s
-        </span>
+        <span>s</span>
       </div>
       {sloganShimmer ? (
         <TextShimmer

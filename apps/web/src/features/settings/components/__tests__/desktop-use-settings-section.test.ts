@@ -5,33 +5,40 @@ import { join } from "node:path";
 const root = join(import.meta.dir, "../../../../../../..");
 
 describe("Desktop Use settings wiring", () => {
-  it("registers desktop-use settings section and group", () => {
+  it("registers desktop-use settings under Apps", () => {
     const data = readFileSync(
       join(root, "apps/web/src/features/settings/components/settings-modal-data.ts"),
       "utf8",
     );
-    expect(data).toContain('"desktop-use"');
-    expect(data).toContain("sections.desktopUse");
+    const sections = readFileSync(
+      join(root, "apps/web/src/features/settings/components/SettingsModalSections.tsx"),
+      "utf8",
+    );
+    expect(data).toContain("desktop-use");
+    expect(sections).toContain('activeGroupTab === \'desktop-use\'');
+    expect(data).toContain('apps: mergeTopicItems("integrations", "browser", "desktop-use")');
   });
 
-  it("includes desktop-use in SettingsModalTab enum list", () => {
+  it("includes apps in SettingsModalTab enum list", () => {
     const params = readFileSync(
       join(root, "apps/web/src/shared/lib/nuqs/searchParams.ts"),
       "utf8",
     );
-    expect(params).toContain('"desktop-use"');
+    expect(params).toContain('"apps"');
+    expect(params).not.toContain('"desktop-use"');
   });
 
-  it("SettingsModalSections renders DesktopUseSettingsSection", () => {
+  it("SettingsModalSections renders DesktopUseSettingsSection on Apps", () => {
     const sections = readFileSync(
       join(root, "apps/web/src/features/settings/components/SettingsModalSections.tsx"),
       "utf8",
     );
     expect(sections).toContain("DesktopUseSettingsSection");
-    expect(sections).toContain("case 'desktop-use'");
+    expect(sections).toContain("case 'apps'");
+    expect(sections).not.toContain("case 'desktop-use'");
   });
 
-  it("Desktop Use section owns DesktopUsePermissionsPanel (not AppShot brand)", () => {
+  it("Desktop Use section sends OS grants to Permission access (not AppShot brand)", () => {
     const section = readFileSync(
       join(
         root,
@@ -39,7 +46,15 @@ describe("Desktop Use settings wiring", () => {
       ),
       "utf8",
     );
-    expect(section).toContain("DesktopUsePermissionsPanel");
+    const access = readFileSync(
+      join(
+        root,
+        "apps/web/src/features/settings/components/PermissionAccessSettingsSection.tsx",
+      ),
+      "utf8",
+    );
+    expect(section).toContain("openPermissionAccessSettings");
+    expect(access).toContain("DesktopUsePermissionsPanel");
     expect(section).not.toContain("AppshotPermissionsPanel");
     expect(section.toLowerCase()).not.toContain("cua");
     expect(section.toLowerCase()).not.toContain("trycua");
@@ -58,8 +73,8 @@ describe("Desktop Use settings wiring", () => {
     expect(section).toContain('t("actions.update")');
     expect(section).toContain("update_available");
     expect(section).toContain("updateAvailable");
-    // Engine card does not call grant; permissions panel owns it
-    expect(section).toContain("DesktopUsePermissionsPanel");
+    // Engine card does not call grant; Permission access owns OS grants
+    expect(section).toContain("openPermissionAccessSettings");
   });
 
   it("groups engine (stop/uninstall), permissions, and visibility as collapsible cards", () => {
@@ -95,11 +110,9 @@ describe("Desktop Use settings wiring", () => {
     expect(section).toContain("EngineProgressBar");
     expect(section).toContain("driver?.progress");
     expect(section).not.toContain('t("engine.removeHint")');
-    // Default collapse: installed engine (no update) → collapse; all perms → collapse
     expect(section).toContain("defaultsAppliedRef");
     expect(section).toContain("setEngineOpen");
     expect(section).toContain("setPermissionsOpen");
-    expect(section).toContain("desktop_use_doctor");
   });
 
   it("shows download progress left of install and Check toast for runtime", () => {
@@ -185,9 +198,7 @@ describe("Desktop Use settings wiring", () => {
       ),
       "utf8",
     );
-    expect(section).toContain("DesktopUsePermissionsPanel");
-    expect(section).toContain("headerEnd={permissionsHeaderEnd}");
-    expect(section).toContain("onHeaderEndChange={setPermissionsHeaderEnd}");
+    expect(section).toContain("openPermissionAccessSettings");
     // Must not wire permissions → parent load callback (infinite refresh)
     expect(section).not.toMatch(/onStatusChange\s*=/);
   });
@@ -208,16 +219,11 @@ describe("Desktop Use settings wiring", () => {
       "utf8",
     );
     // Parent → panel one-way signal after driver actions (not reverse onStatusChange).
-    expect(section).toContain("permissionsRefreshToken");
-    expect(section).toContain("setPermissionsRefreshToken");
-    expect(section).toContain("doctorRefreshToken={permissionsRefreshToken}");
-    expect(section).toContain("engineInstalledFromParent");
     expect(section).toContain("cliInstalled");
     expect(section).toContain("systemApi.installCli");
     expect(section).toContain("atmos_cli_probe");
     expect(panel).toContain("engineInstalledFromParent");
     expect(panel).toContain("doctorRefreshToken");
-    // After install, open permissions group so rows are visible.
     expect(section).toMatch(
       /actionKey === "install"[\s\S]*setPermissionsOpen\(true\)/,
     );
@@ -231,7 +237,6 @@ describe("Desktop Use settings wiring", () => {
       ),
       "utf8",
     );
-    expect(section).toContain('t("groups.cli.title")');
     expect(section).toContain("installOrUpdateCli");
     expect(section).toContain("atmos_cli_probe");
     expect(section).toContain("update_required");
@@ -247,8 +252,8 @@ describe("Desktop Use settings wiring", () => {
       join(root, "apps/web/src/features/appshot/lib/appshot-client.ts"),
       "utf8",
     );
-    expect(client).toContain("openDesktopUseSettingsInApp");
-    expect(client).toContain("Desktop Use");
+    expect(client).toContain("openPermissionAccessSettingsInApp");
+    expect(client).toContain("Permission access");
     // No legacy standalone permission window as primary recovery
     expect(client).not.toMatch(
       /appshot_show_permissions_window[\s\S]*openDesktopUseSettingsInApp/,
@@ -263,12 +268,12 @@ describe("Desktop Use settings wiring", () => {
       ),
       "utf8",
     );
-    expect(popover).toContain("useOpenDesktopUseSettings");
-    expect(popover).toContain("openDesktopUseSettings");
+    expect(popover).toContain("useOpenPermissionAccessSettings");
+    expect(popover).toContain("openPermissionAccessSettings");
     expect(popover).not.toContain("showAppshotPermissionsWindow");
   });
 
-  it("settings sidebar uses DesktopUseIcon for desktop-use", () => {
+  it("settings sidebar uses BlocksIcon for apps", () => {
     const sidebar = readFileSync(
       join(
         root,
@@ -276,8 +281,9 @@ describe("Desktop Use settings wiring", () => {
       ),
       "utf8",
     );
-    expect(sidebar).toContain("DesktopUseIcon");
-    expect(sidebar).toContain('sectionId === "desktop-use"');
+    expect(sidebar).toContain("BlocksIcon");
+    expect(sidebar).toContain('sectionId === "apps"');
+    expect(sidebar).not.toContain('sectionId === "desktop-use"');
     const icon = readFileSync(
       join(root, "packages/ui/src/components/icons/desktop-use-icon.tsx"),
       "utf8",

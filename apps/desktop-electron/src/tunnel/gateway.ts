@@ -161,6 +161,9 @@ export class LocalGateway {
       for (const [k, v] of Object.entries(req.headers)) {
         if (v == null) continue;
         if (k === "host" || k === "connection") continue;
+        // The remote page's origin belongs to this hop, which already validated
+        // entry_token. Forwarding it would trip the Server's origin guard.
+        if (k === "origin" || k === "referer") continue;
         headers[k] = Array.isArray(v) ? v.join(",") : v;
       }
 

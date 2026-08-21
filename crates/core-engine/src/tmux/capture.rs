@@ -63,6 +63,20 @@ pub(super) fn count_returned_lines(data: &str) -> u32 {
     }
 }
 
+fn append_hydration_marker(args: &mut Vec<String>, marker: Option<(&str, &str)>) {
+    let Some((client_name, message)) = marker else {
+        return;
+    };
+    args.extend([
+        ";".to_string(),
+        "display-message".to_string(),
+        "-c".to_string(),
+        client_name.to_string(),
+        "--".to_string(),
+        message.to_string(),
+    ]);
+}
+
 impl TmuxEngine {
     /// Capture pane content (scrollback + visible) for reconnection.
     ///
@@ -79,33 +93,54 @@ impl TmuxEngine {
         lines: Option<i32>,
         alternate: bool,
     ) -> Result<String> {
+        self.capture_pane_with_marker(session_name, window_index, lines, alternate, None)
+    }
+
+    fn capture_pane_with_marker(
+        &self,
+        session_name: &str,
+        window_index: u32,
+        lines: Option<i32>,
+        alternate: bool,
+        marker: Option<(&str, &str)>,
+    ) -> Result<String> {
         if alternate {
-            return self.capture_pane_segment(
+            return self.capture_pane_segment_with_marker(
                 session_name,
                 window_index,
                 0,
                 lines.unwrap_or(1),
                 true,
+                marker,
             );
         }
         if let Some(take) = lines {
-            return self.capture_pane_segment(session_name, window_index, 0, take, false);
+            return self.capture_pane_segment_with_marker(
+                session_name,
+                window_index,
+                0,
+                take,
+                false,
+                marker,
+            );
         }
 
         let target = format!("{}:{}.0", session_name, window_index);
-        let args = vec![
-            "capture-pane",
-            "-t",
-            &target,
-            "-p",
-            "-e",
-            "-N",
-            "-S",
-            "-",
-            "-E",
-            "-",
+        let mut args = vec![
+            "capture-pane".to_string(),
+            "-t".to_string(),
+            target,
+            "-p".to_string(),
+            "-e".to_string(),
+            "-N".to_string(),
+            "-S".to_string(),
+            "-".to_string(),
+            "-E".to_string(),
+            "-".to_string(),
         ];
-        let mut content = self.run_tmux_raw(&args)?;
+        append_hydration_marker(&mut args, marker);
+        let arg_refs = args.iter().map(String::as_str).collect::<Vec<_>>();
+        let mut content = self.run_tmux_raw(&arg_refs)?;
         trim_single_trailing_newline(&mut content);
         Ok(content)
     }
@@ -122,12 +157,31 @@ impl TmuxEngine {
         take: i32,
         alternate: bool,
     ) -> Result<String> {
+        self.capture_pane_segment_with_marker(
+            session_name,
+            window_index,
+            skip_from_bottom,
+            take,
+            alternate,
+            None,
+        )
+    }
+
+    fn capture_pane_segment_with_marker(
+        &self,
+        session_name: &str,
+        window_index: u32,
+        skip_from_bottom: i32,
+        take: i32,
+        alternate: bool,
+        marker: Option<(&str, &str)>,
+    ) -> Result<String> {
         let target = format!("{}:{}.0", session_name, window_index);
         let take = take.max(1);
         let skip = skip_from_bottom.max(0);
         let (start_line, end_line) = capture_segment_bounds(skip, take, alternate);
 
-        let args = vec![
+        let mut args = vec![
             "capture-pane".to_string(),
             "-t".to_string(),
             target,
@@ -139,6 +193,7 @@ impl TmuxEngine {
             "-E".to_string(),
             end_line,
         ];
+        append_hydration_marker(&mut args, marker);
         let arg_refs = args.iter().map(String::as_str).collect::<Vec<_>>();
 
         let mut content = self.run_tmux_raw(&arg_refs)?;
@@ -254,12 +309,48 @@ impl TmuxEngine {
         })
     }
 
+    /// Check whether the pane currently owns tmux's alternate screen.
+    pub fn is_pane_alternate_screen(&self, session_name: &str, window_index: u32) -> Result<bool> {
+        let target = format!("{}:{}.0", session_name, window_index);
+        let raw = self.run_tmux(&["display-message", "-t", &target, "-p", "#{alternate_on}"])?;
+        Ok(raw.trim() == "1")
+    }
+
     /// Capture pane content and cursor metadata for initial hydration.
     pub fn capture_pane_snapshot(
         &self,
         session_name: &str,
         window_index: u32,
         lines: Option<i32>,
+    ) -> Result<TmuxPaneSnapshot> {
+        self.capture_pane_snapshot_internal(session_name, window_index, lines, None)
+    }
+
+    /// Capture a hydration snapshot and then emit a message to a control client
+    /// in the same tmux command queue. The message is the ordered boundary
+    /// between snapshot state and subsequent live `%output` notifications.
+    pub fn capture_pane_snapshot_with_marker(
+        &self,
+        session_name: &str,
+        window_index: u32,
+        lines: Option<i32>,
+        client_name: &str,
+        message: &str,
+    ) -> Result<TmuxPaneSnapshot> {
+        self.capture_pane_snapshot_internal(
+            session_name,
+            window_index,
+            lines,
+            Some((client_name, message)),
+        )
+    }
+
+    fn capture_pane_snapshot_internal(
+        &self,
+        session_name: &str,
+        window_index: u32,
+        lines: Option<i32>,
+        marker: Option<(&str, &str)>,
     ) -> Result<TmuxPaneSnapshot> {
         let target = format!("{}:{}.0", session_name, window_index);
         let metadata = self.run_tmux(&[
@@ -294,11 +385,12 @@ impl TmuxEngine {
         } else {
             lines
         };
-        let data = self.capture_pane(
+        let data = self.capture_pane_with_marker(
             session_name,
             window_index,
             capture_lines,
             metadata.alternate,
+            marker,
         )?;
 
         Ok(TmuxPaneSnapshot {
@@ -311,5 +403,28 @@ impl TmuxEngine {
             restore_mouse_tracking,
             mouse_tracking_sequence,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::append_hydration_marker;
+
+    #[test]
+    fn capture_marker_runs_after_capture_in_same_tmux_command_queue() {
+        let mut args = vec!["capture-pane".to_string()];
+        append_hydration_marker(&mut args, Some(("client-42", "atmos-hydration-complete")));
+        assert_eq!(
+            args,
+            [
+                "capture-pane",
+                ";",
+                "display-message",
+                "-c",
+                "client-42",
+                "--",
+                "atmos-hydration-complete",
+            ]
+        );
     }
 }

@@ -30,7 +30,7 @@ fn resolve_linear_oauth_client_id(from_request: Option<&str>) -> Result<String> 
 }
 
 fn hub_auth(hub: &HubSessionFields) -> HubAuth {
-    HubAuth::from_parts(hub.hub_cookie.as_deref(), hub.device_credential.as_deref())
+    HubAuth::from_parts(hub.cookie(), hub.device_credential())
 }
 
 fn linear_api_key(hub: &HubSessionFields) -> Option<&str> {
@@ -58,11 +58,13 @@ fn wire_to_issue(w: LinearIssueWire) -> LinearIssue {
             .labels
             .into_iter()
             .map(|l| LinearLabel {
+                id: None,
                 name: l.name,
                 color: l.color,
             })
             .collect(),
         assignee: w.assignee.map(|a| LinearAssignee {
+            id: None,
             name: a.name,
             avatar_url: a.avatar_url,
         }),
@@ -146,7 +148,11 @@ impl WsMessageService {
     ) -> Result<Value> {
         match self
             .linear_service
-            .rate_limit(&hub_auth(&req.hub), linear_api_key(&req.hub))
+            .rate_limit(
+                &hub_auth(&req.hub),
+                linear_api_key(&req.hub),
+                req.client_id.as_deref(),
+            )
             .await?
         {
             Some(rl) => Ok(json!({
@@ -175,13 +181,21 @@ impl WsMessageService {
             req.preset,
             req.team_id,
             req.project_id,
+            req.state_types,
+            req.assignee_ids,
+            req.label_ids,
             req.query,
             req.first,
             req.after,
         );
         let page = self
             .linear_service
-            .list_issues(&hub_auth(&req.hub), options, linear_api_key(&req.hub))
+            .list_issues(
+                &hub_auth(&req.hub),
+                options,
+                linear_api_key(&req.hub),
+                req.client_id.as_deref(),
+            )
             .await?;
         serde_json::to_value(page).map_err(|e| {
             ServiceError::Processing(format!("Failed to serialize linear issues: {e}"))
@@ -192,11 +206,20 @@ impl WsMessageService {
         &self,
         req: LinearFilterOptionsRequest,
     ) -> Result<Value> {
-        let (teams, projects) = self
+        let (teams, projects, users, labels) = self
             .linear_service
-            .filter_options(&hub_auth(&req.hub), linear_api_key(&req.hub))
+            .filter_options(
+                &hub_auth(&req.hub),
+                linear_api_key(&req.hub),
+                req.client_id.as_deref(),
+            )
             .await?;
-        Ok(json!({ "teams": teams, "projects": projects }))
+        Ok(json!({
+            "teams": teams,
+            "projects": projects,
+            "users": users,
+            "labels": labels,
+        }))
     }
 
     pub(super) async fn handle_linear_link_issue(

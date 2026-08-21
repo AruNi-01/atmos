@@ -35,7 +35,7 @@ export function createPreviewBrowserTab(
   };
 }
 
-/** Fresh browser surface: a single empty tab (sidebar default after move-to-center). */
+/** Fresh browser surface: a single empty tab. */
 export function createInitialBrowserContext(
   url = "",
 ): PreviewBrowserContextPrefs {

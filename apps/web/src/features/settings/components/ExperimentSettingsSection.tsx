@@ -4,6 +4,11 @@ import React from 'react';
 import { useTranslations } from 'next-intl';
 import { Switch } from '@workspace/ui';
 import { useExperimentSettingsStore } from '@/features/settings/store/experiment-settings-store';
+import {
+  SettingsGroup,
+  SettingsSection,
+} from '@/features/settings/components/settings/SettingsGroupCard';
+import { SettingsToggleRow } from '@/features/settings/components/settings/SettingsToggleRow';
 
 export function ExperimentSettingsSection() {
   const t = useTranslations('settings.experimentSection');
@@ -18,23 +23,15 @@ export function ExperimentSettingsSection() {
   }, [loadSettings]);
 
   return (
-    <div className="space-y-4">
-      <div className="overflow-hidden rounded-2xl border border-border">
-        <div className="grid grid-cols-[minmax(0,1fr)_100px] gap-8 px-6 py-4">
-          <div>
-            <p className="text-sm font-medium text-foreground">{t('centerWikiTab.title')}</p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {t('centerWikiTab.description')}
-            </p>
-          </div>
-          <div className="flex items-center justify-end">
-            <Switch
-              checked={centerWikiTabEnabled}
-              onCheckedChange={(checked) => void setCenterWikiTabEnabled(checked)}
-            />
-          </div>
-        </div>
-      </div>
-    </div>
+    <SettingsSection id="experiments">
+      <SettingsGroup>
+        <SettingsToggleRow
+          title={t('centerWikiTab.title')}
+          description={t('centerWikiTab.description')}
+          checked={centerWikiTabEnabled}
+          onCheckedChange={(checked) => void setCenterWikiTabEnabled(checked)}
+        />
+      </SettingsGroup>
+    </SettingsSection>
   );
 }

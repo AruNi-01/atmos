@@ -29,63 +29,51 @@ function settingsModalT(key: string): string {
 
 export const SETTINGS_GROUPS = [
   {
-    id: "interface",
-    label: settingsModalT("groups.interface.label"),
-    description: settingsModalT("groups.interface.description"),
-    items: ["layout", "editor", "canvas", "terminal"] as const,
+    id: "you",
+    label: settingsModalT("groups.you.label"),
+    description: settingsModalT("groups.you.description"),
+    items: ["general", "account"] as const,
   },
   {
-    id: "ai-agents",
-    label: settingsModalT("groups.aiAgents.label"),
-    description: settingsModalT("groups.aiAgents.description"),
-    items: ["ai", "code-agent"] as const,
+    id: "workspace",
+    label: settingsModalT("groups.workspace.label"),
+    description: settingsModalT("groups.workspace.description"),
+    items: ["interface", "editor", "terminal", "workspace"] as const,
   },
   {
-    id: "remote-access",
-    label: settingsModalT("groups.remoteAccess.label"),
-    description: settingsModalT("groups.remoteAccess.description"),
-    items: ["atmos-computer", "tunnel-connector"] as const,
+    id: "agents",
+    label: settingsModalT("groups.agents.label"),
+    description: settingsModalT("groups.agents.description"),
+    items: ["agents", "models", "notifications"] as const,
   },
   {
-    id: "system-integration",
-    label: settingsModalT("groups.systemIntegration.label"),
-    description: settingsModalT("groups.systemIntegration.description"),
-    items: ["account", "integrations", "desktop-use", "notify"] as const,
-  },
-  {
-    id: "workspace-projects",
-    label: settingsModalT("groups.workspaceProjects.label"),
-    description: settingsModalT("groups.workspaceProjects.description"),
-    items: ["workspace", "labels"] as const,
-  },
-  {
-    id: "more",
-    label: settingsModalT("groups.more.label"),
-    description: settingsModalT("groups.more.description"),
-    items: ["shortcuts", "experiments", "about"] as const,
+    id: "system",
+    label: settingsModalT("groups.system.label"),
+    description: settingsModalT("groups.system.description"),
+    items: ["remote-access", "apps", "privacy", "keyboard"] as const,
   },
 ] as const;
 
 export const SETTINGS_SECTIONS = [
   {
-    id: "layout",
-    label: settingsModalT("sections.layout.label"),
-    description: settingsModalT("sections.layout.description"),
+    id: "general",
+    label: settingsModalT("sections.general.label"),
+    description: settingsModalT("sections.general.description"),
+  },
+  {
+    id: "account",
+    label: settingsModalT("sections.account.label"),
+    description: settingsModalT("sections.account.description"),
+  },
+  {
+    id: "interface",
+    label: settingsModalT("sections.interface.label"),
+    description: settingsModalT("sections.interface.description"),
   },
   {
     id: "editor",
     label: settingsModalT("sections.editor.label"),
     description: settingsModalT("sections.editor.description"),
-  },
-  {
-    id: "canvas",
-    label: settingsModalT("sections.canvas.label"),
-    description: settingsModalT("sections.canvas.description"),
-  },
-  {
-    id: "code-agent",
-    label: settingsModalT("sections.codeAgent.label"),
-    description: settingsModalT("sections.codeAgent.description"),
   },
   {
     id: "terminal",
@@ -98,59 +86,39 @@ export const SETTINGS_SECTIONS = [
     description: settingsModalT("sections.workspace.description"),
   },
   {
-    id: "labels",
-    label: settingsModalT("sections.labels.label"),
-    description: settingsModalT("sections.labels.description"),
+    id: "agents",
+    label: settingsModalT("sections.agents.label"),
+    description: settingsModalT("sections.agents.description"),
   },
   {
-    id: "account",
-    label: settingsModalT("sections.account.label"),
-    description: settingsModalT("sections.account.description"),
+    id: "models",
+    label: settingsModalT("sections.models.label"),
+    description: settingsModalT("sections.models.description"),
   },
   {
-    id: "integrations",
-    label: settingsModalT("sections.integrations.label"),
-    description: settingsModalT("sections.integrations.description"),
+    id: "notifications",
+    label: settingsModalT("sections.notifications.label"),
+    description: settingsModalT("sections.notifications.description"),
   },
   {
-    id: "ai",
-    label: settingsModalT("sections.ai.label"),
-    description: settingsModalT("sections.ai.description"),
+    id: "remote-access",
+    label: settingsModalT("sections.remoteAccess.label"),
+    description: settingsModalT("sections.remoteAccess.description"),
   },
   {
-    id: "notify",
-    label: settingsModalT("sections.notify.label"),
-    description: settingsModalT("sections.notify.description"),
+    id: "apps",
+    label: settingsModalT("sections.apps.label"),
+    description: settingsModalT("sections.apps.description"),
   },
   {
-    id: "tunnel-connector",
-    label: settingsModalT("sections.tunnelConnector.label"),
-    description: settingsModalT("sections.tunnelConnector.description"),
+    id: "privacy",
+    label: settingsModalT("sections.privacy.label"),
+    description: settingsModalT("sections.privacy.description"),
   },
   {
-    id: "atmos-computer",
-    label: settingsModalT("sections.atmosComputer.label"),
-    description: settingsModalT("sections.atmosComputer.description"),
-  },
-  {
-    id: "desktop-use",
-    label: settingsModalT("sections.desktopUse.label"),
-    description: settingsModalT("sections.desktopUse.description"),
-  },
-  {
-    id: "shortcuts",
-    label: settingsModalT("sections.shortcuts.label"),
-    description: settingsModalT("sections.shortcuts.description"),
-  },
-  {
-    id: "experiments",
-    label: settingsModalT("sections.experiments.label"),
-    description: settingsModalT("sections.experiments.description"),
-  },
-  {
-    id: "about",
-    label: settingsModalT("sections.about.label"),
-    description: settingsModalT("sections.about.description"),
+    id: "keyboard",
+    label: settingsModalT("sections.keyboard.label"),
+    description: settingsModalT("sections.keyboard.description"),
   },
 ] as const satisfies ReadonlyArray<{
   id: SettingsModalTab;
@@ -170,16 +138,16 @@ const SECTION_GROUP_TERMS = SETTINGS_GROUPS.reduce(
   {} as Record<SettingsSectionId, string[]>,
 );
 
-const SETTINGS_SECTION_KEYWORDS: Record<SettingsSectionId, readonly string[]> = {
+const SETTINGS_TOPIC_KEYWORDS: Record<string, readonly string[]> = {
+  appearance: ["theme", "language", "locale", "dark", "light", "system", "appearance"],
   account: ["account", "login", "sign in", "hub", "github", "google", "device", "identity"],
-  layout: [
-    "layout",
+  interface: [
+    "interface",
     "panel",
     "sidebar",
-    "interface",
+    "launchpad",
     "project files show side",
     "left sidebar",
-    "right sidebar",
     "workspace sidebar two-column layout",
     "project sidebar two-column layout",
     "show pinned workspaces in second column",
@@ -209,6 +177,8 @@ const SETTINGS_SECTION_KEYWORDS: Record<SettingsSectionId, readonly string[]> = 
     "automations",
     "disk analyzer",
     "canvas",
+    "prototype design",
+    "pt design",
     "tasks",
     "new workspace",
     "acp agent chat entry",
@@ -249,8 +219,8 @@ const SETTINGS_SECTION_KEYWORDS: Record<SettingsSectionId, readonly string[]> = 
     "tmux pane",
     "live xterm buffer",
   ],
-  "code-agent": [
-    "code agent",
+  agents: [
+    "agents",
     "agent",
     "claude",
     "codex",
@@ -276,6 +246,12 @@ const SETTINGS_SECTION_KEYWORDS: Record<SettingsSectionId, readonly string[]> = 
     "agent hook status",
     "install hooks",
     "uninstall hooks",
+    "defaults",
+    "yolo",
+    "yolo mode",
+    "skip permissions",
+    "show agent name",
+    "terminal titles",
     "behaviour",
     "idle session cleanup",
     "agent activity indicators",
@@ -300,6 +276,21 @@ const SETTINGS_SECTION_KEYWORDS: Record<SettingsSectionId, readonly string[]> = 
     "default split agent",
     "split",
     "last split agent",
+  ],
+  browser: [
+    "browser",
+    "sidebar",
+    "center tabs",
+    "homepage",
+    "new tab",
+    "action overlay",
+    "cursor overlay",
+    "cookies",
+    "import cookies",
+    "clear cache",
+    "site data",
+    "in-app browser",
+    "webview",
   ],
   workspace: [
     "workspace",
@@ -354,8 +345,8 @@ const SETTINGS_SECTION_KEYWORDS: Record<SettingsSectionId, readonly string[]> = 
     "tmux",
     "atmos tmux configuration",
   ],
-  ai: [
-    "ai",
+  models: [
+    "models",
     "provider",
     "providers",
     "llm",
@@ -375,10 +366,9 @@ const SETTINGS_SECTION_KEYWORDS: Record<SettingsSectionId, readonly string[]> = 
     "managed local model",
     "runtime",
   ],
-  notify: [
-    "notify",
-    "notification",
+  notifications: [
     "notifications",
+    "notification",
     "channels",
     "browser notifications",
     "desktop notifications",
@@ -421,14 +411,11 @@ const SETTINGS_SECTION_KEYWORDS: Record<SettingsSectionId, readonly string[]> = 
     "computer",
     "remote",
     "relay",
-    "access token",
-    "access key",
+    "account",
+    "sign in",
     "private relay",
     "relay url",
     "token",
-    "rotate device credential",
-    "device credential",
-    "switch identity",
     "register computer",
     "register this computer",
     "this computer",
@@ -453,9 +440,23 @@ const SETTINGS_SECTION_KEYWORDS: Record<SettingsSectionId, readonly string[]> = 
     "click",
     "type",
   ],
-  shortcuts: [
-    "shortcuts",
+  privacy: [
+    "privacy",
+    "permission access",
+    "security",
+    "privacy and security",
+    "keychain",
+    "browser cookie",
+    "chrome safe storage",
+    "cursor",
+    "consent",
+    "accessibility",
+    "screen recording",
+    "desktop use",
+  ],
+  keyboard: [
     "keyboard",
+    "shortcuts",
     "hotkeys",
     "command palette",
     "global search",
@@ -518,16 +519,20 @@ function settingsModalSearchItem(
   };
 }
 
-const SETTINGS_SETTING_ITEMS: Record<SettingsSectionId, readonly SettingsSearchItemDefinition[]> = {
+const SETTINGS_TOPIC_ITEMS: Record<string, readonly SettingsSearchItemDefinition[]> = {
+  appearance: [
+    settingsModalSearchItem("appearance.theme", { keywords: ["theme", "light", "dark", "system"] }),
+    settingsModalSearchItem("appearance.language", { keywords: ["language", "locale", "english", "chinese", "zh"] }),
+  ],
   account: [],
-  layout: [
+  interface: [
     settingsModalSearchItem("layout.projectFilesShowSide", {
       hasDescription: true,
-      keywords: ["left sidebar", "right sidebar", "project file tree"],
+      keywords: ["left sidebar", "project file tree", "files column"],
     }),
     settingsModalSearchItem("layout.workspaceSidebarTwoColumnLayout", {
       hasDescription: true,
-      keywords: ["project sidebar", "by group", "by time", "by status", "by priority", "by label", "second column"],
+      keywords: ["project sidebar", "by group", "by time", "by status", "by agent", "by priority", "by label", "second column"],
     }),
     settingsModalSearchItem("layout.projectSidebarTwoColumnLayout", {
       keywords: ["projects in first column", "workspaces in second column"],
@@ -553,9 +558,13 @@ const SETTINGS_SETTING_ITEMS: Record<SettingsSectionId, readonly SettingsSearchI
     settingsModalSearchItem("layout.byGroupUsesSecondColumn", {
       keywords: ["group grouping", "sidebar by group", "user groups"],
     }),
+    settingsModalSearchItem("layout.byAgentGroupUsesSecondColumn", {
+      keywords: ["agent grouping", "sidebar by agent status", "done", "running", "permission", "need attention"],
+    }),
     settingsModalSearchItem("layout.headerLayout", {
       keywords: ["workspace utilities", "global search", "header summary"],
     }),
+
     settingsModalSearchItem("layout.workspaceSummaryButton", {
       keywords: ["project", "task", "note", "commit shortcuts"],
     }),
@@ -606,6 +615,9 @@ const SETTINGS_SETTING_ITEMS: Record<SettingsSectionId, readonly SettingsSearchI
     }),
     settingsModalSearchItem("layout.canvasLaunchpad", {
       keywords: ["canvas", "ops desk", "infinite canvas", "launchpad"],
+    }),
+    settingsModalSearchItem("layout.ptDesignLaunchpad", {
+      keywords: ["prototype design", "pt design", "wireframe", "launchpad"],
     }),
     settingsModalSearchItem("layout.tasksLaunchpad", {
       keywords: ["task board", "workspace tasks", "launchpad"],
@@ -676,7 +688,19 @@ const SETTINGS_SETTING_ITEMS: Record<SettingsSectionId, readonly SettingsSearchI
       keywords: ["copying a canvas terminal", "extract-text", "tmux pane", "xterm buffer"],
     }),
   ],
-  "code-agent": [
+  agents: [
+    settingsModalSearchItem("codeAgent.defaults", {
+      keywords: ["defaults", "launch flags", "yolo", "agent name", "terminal titles"],
+    }),
+    settingsModalSearchItem("codeAgent.yoloMode", {
+      keywords: ["yolo", "skip-permissions", "auto-approve", "dangerously-skip-permissions", "restore yolo"],
+    }),
+    settingsModalSearchItem("codeAgent.showAgentNameInTerminalTitles", {
+      keywords: ["agent name", "terminal titles", "terminal tabs", "agent icon", "brand name"],
+    }),
+    settingsModalSearchItem("codeAgent.activityIndicators", {
+      keywords: ["running-state icon", "unicode spinner", "orbs", "left sidebar", "footer"],
+    }),
     settingsModalSearchItem("codeAgent.builtInAgents", {
       keywords: ["startup command", "parameters", "claude", "codex", "gemini", "antigravity", "grok", "grok build"],
     }),
@@ -715,6 +739,20 @@ const SETTINGS_SETTING_ITEMS: Record<SettingsSectionId, readonly SettingsSearchI
     }),
     settingsModalSearchItem("codeAgent.idleSessionCleanup", {
       keywords: ["remove idle agent sessions", "every 5 minutes", "timeout"],
+    }),
+  ],
+  browser: [
+    settingsModalSearchItem("browser.agentChrome", {
+      keywords: ["action overlay", "cursor overlay", "highlight", "click"],
+    }),
+    settingsModalSearchItem("browser.cookiesImport", {
+      keywords: ["import cookies", "chrome", "edge", "brave", "firefox", "sign-in"],
+    }),
+    settingsModalSearchItem("browser.cookiesClearCache", {
+      keywords: ["clear cache", "cached files"],
+    }),
+    settingsModalSearchItem("browser.cookiesClearSiteData", {
+      keywords: ["clear cookies", "delete cookies", "storage", "sign out"],
     }),
   ],
   terminal: [
@@ -855,7 +893,7 @@ const SETTINGS_SETTING_ITEMS: Record<SettingsSectionId, readonly SettingsSearchI
       keywords: ["~/.atmos/atmos.sock", "terminal persistence", "session management"],
     }),
   ],
-  ai: [
+  models: [
     settingsModalSearchItem("ai.providers", {
       keywords: ["api keys", "endpoints", "default models", "background tasks", "add provider"],
     }),
@@ -878,7 +916,7 @@ const SETTINGS_SETTING_ITEMS: Record<SettingsSectionId, readonly SettingsSearchI
       keywords: ["on-device", "no api key", "managed local model", "runtime"],
     }),
   ],
-  notify: [
+  notifications: [
     settingsModalSearchItem("notify.notificationChannels", {
       keywords: ["agents need attention", "notification channel"],
     }),
@@ -977,17 +1015,11 @@ const SETTINGS_SETTING_ITEMS: Record<SettingsSectionId, readonly SettingsSearchI
     }),
   ],
   "atmos-computer": [
-    settingsModalSearchItem("atmosComputer.accessKey", {
-      keywords: ["access token", "register new computers", "registration codes", "identity"],
+    settingsModalSearchItem("atmosComputer.accountRequired", {
+      keywords: ["sign in", "account", "hub device", "login required"],
     }),
-    settingsModalSearchItem("atmosComputer.generateAccessKey", {
-      keywords: ["create access key", "generate token"],
-    }),
-    settingsModalSearchItem("atmosComputer.saveAccessKey", {
-      keywords: ["paste access key", "switch identity", "hosted web"],
-    }),
-    settingsModalSearchItem("atmosComputer.rotateAccessToken", {
-      keywords: ["security refresh", "relay access token exposed"],
+    settingsModalSearchItem("atmosComputer.mobilePair", {
+      keywords: ["pair phone", "qr code", "mobile", "scan"],
     }),
     settingsModalSearchItem("atmosComputer.privateRelay", {
       keywords: ["self-hosted relay", "official atmos relay"],
@@ -1011,11 +1043,10 @@ const SETTINGS_SETTING_ITEMS: Record<SettingsSectionId, readonly SettingsSearchI
       keywords: ["computers linked", "refresh", "remove computer", "connect"],
     }),
   ],
-  shortcuts: [
+  keyboard: [
     settingsModalSearchItem("shortcuts.globalShortcuts", {
       keywords: [
         "toggle left sidebar",
-        "toggle right sidebar",
         "command palette",
         "global search",
         "quick open file",
@@ -1051,6 +1082,12 @@ const SETTINGS_SETTING_ITEMS: Record<SettingsSectionId, readonly SettingsSearchI
     }),
   ],
 
+  privacy: [
+    settingsModalSearchItem("permissionAccess.browserCookies", {
+      hasDescription: true,
+      keywords: ["keychain", "chrome safe storage", "cursor", "cookie"],
+    }),
+  ],
   about: [
     settingsModalSearchItem("about.runtime", {
       keywords: ["web", "desktop", "runtime"],
@@ -1071,6 +1108,70 @@ const SETTINGS_SETTING_ITEMS: Record<SettingsSectionId, readonly SettingsSearchI
       keywords: ["desktop updates", "check update"],
     }),
   ],
+};
+
+function mergeTopicKeywords(...topics: string[]): string[] {
+  return topics.flatMap((topic) => SETTINGS_TOPIC_KEYWORDS[topic] ?? []);
+}
+
+function mergeTopicItems(...topics: string[]): readonly SettingsSearchItemDefinition[] {
+  return topics.flatMap((topic) => SETTINGS_TOPIC_ITEMS[topic] ?? []);
+}
+
+const SETTINGS_SECTION_KEYWORDS: Record<SettingsSectionId, readonly string[]> = {
+  general: [
+    "general",
+    "appearance",
+    "about",
+    "experiments",
+    ...mergeTopicKeywords("appearance", "about", "experiments"),
+  ],
+  account: [...mergeTopicKeywords("account")],
+  interface: [
+    "interface",
+    "launchpad",
+    "sidebar",
+    "header",
+    "footer",
+    ...mergeTopicKeywords("interface"),
+  ],
+  editor: ["editor", "canvas", ...mergeTopicKeywords("editor", "canvas")],
+  terminal: [...mergeTopicKeywords("terminal")],
+  workspace: ["workspace", "labels", ...mergeTopicKeywords("workspace", "labels")],
+  agents: [...mergeTopicKeywords("agents")],
+  models: [...mergeTopicKeywords("models")],
+  notifications: [...mergeTopicKeywords("notifications")],
+  "remote-access": [
+    "remote access",
+    "atmos computer",
+    "tunnel connector",
+    ...mergeTopicKeywords("atmos-computer", "tunnel-connector"),
+  ],
+  apps: [
+    "apps",
+    "integrations",
+    "browser",
+    "desktop use",
+    ...mergeTopicKeywords("integrations", "browser", "desktop-use"),
+  ],
+  privacy: [...mergeTopicKeywords("privacy")],
+  keyboard: [...mergeTopicKeywords("keyboard")],
+};
+
+const SETTINGS_SETTING_ITEMS: Record<SettingsSectionId, readonly SettingsSearchItemDefinition[]> = {
+  general: mergeTopicItems("appearance", "about", "experiments"),
+  account: mergeTopicItems("account"),
+  interface: mergeTopicItems("interface"),
+  editor: mergeTopicItems("editor", "canvas"),
+  terminal: mergeTopicItems("terminal"),
+  workspace: mergeTopicItems("workspace", "labels"),
+  agents: mergeTopicItems("agents"),
+  models: mergeTopicItems("models"),
+  notifications: mergeTopicItems("notifications"),
+  "remote-access": mergeTopicItems("atmos-computer", "tunnel-connector"),
+  apps: mergeTopicItems("integrations", "browser", "desktop-use"),
+  privacy: mergeTopicItems("privacy"),
+  keyboard: mergeTopicItems("keyboard"),
 };
 
 const slugSettingSearchId = (value: string) =>

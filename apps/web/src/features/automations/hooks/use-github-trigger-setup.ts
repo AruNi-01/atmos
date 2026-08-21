@@ -23,7 +23,11 @@ import type {
 import type { TriggerChoice } from "@/features/automations/lib/automation-schedule";
 import { ensureComputerClientSettingsHydrated } from "@/features/connection/lib/sync-computer-client-settings";
 import { openDesktopExternalUrl } from "@/shared/lib/desktop-external-url";
-import { isTauriRuntime } from "@/shared/lib/desktop-runtime";
+import { isDesktopAuthSurface, isTauriRuntime } from "@/shared/lib/desktop-runtime";
+import {
+  buildOAuthLandingQuery,
+  currentOAuthReturnToPath,
+} from "@/shared/lib/oauth-callback-return";
 
 const HOSTED_GITHUB_SETUP_COMPLETION_ORIGIN = "https://app.atmos.land";
 
@@ -463,11 +467,16 @@ function commentContainsInputValue(filters: GithubTriggerConfig["filters"]): str
 
 function githubSetupCompletionReturnUrl(): string {
   const path = "/github/setup/complete";
+  const desktop = isDesktopAuthSurface();
+  const qs = buildOAuthLandingQuery({
+    client: desktop ? "desktop" : "web",
+    returnTo: desktop ? undefined : currentOAuthReturnToPath(),
+  });
   if (typeof window !== "undefined" && !isTauriRuntime()) {
     const { origin, protocol } = window.location;
     if (protocol === "http:" || protocol === "https:") {
-      return `${origin}${path}`;
+      return `${origin}${path}?${qs}`;
     }
   }
-  return `${HOSTED_GITHUB_SETUP_COMPLETION_ORIGIN}${path}`;
+  return `${HOSTED_GITHUB_SETUP_COMPLETION_ORIGIN}${path}?${qs}`;
 }

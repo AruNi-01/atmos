@@ -124,6 +124,9 @@ export const queryKeys = {
       repoPath: string,
       params: { branchKey: string | null; limit: number; page: number },
     ) => [...queryKeys.computer.git(scope, repoPath), "log", params] as const,
+    /** Topological commit history pages for the center-tab graph. */
+    gitHistory: (scope: ComputerQueryScope, repoPath: string) =>
+      [...queryKeys.computer.git(scope, repoPath), "history"] as const,
     /** Prefix for all filesystem queries — used for broad reconnect invalidation. */
     filesRoot: (scope: ComputerQueryScope) =>
       [...queryKeys.computer.root(scope), "files"] as const,
@@ -260,9 +263,12 @@ export const queryKeys = {
         params.perPage,
       ] as const,
 
-    /** `.github/ISSUE_TEMPLATE` listing for create-issue. */
-    githubIssueTemplates: (scope: ComputerQueryScope, repoFullName: string) =>
-      [...queryKeys.computer.root(scope), "github", "issueTemplates", repoFullName] as const,
+    /**
+     * Local `.github/ISSUE_TEMPLATE` for create-issue.
+     * Keyed by project working-tree path (not remote owner/repo).
+     */
+    githubIssueTemplates: (scope: ComputerQueryScope, projectPath: string) =>
+      [...queryKeys.computer.root(scope), "github", "issueTemplates", "local", projectPath] as const,
 
     githubIssueList: (
       scope: ComputerQueryScope,
@@ -539,6 +545,11 @@ export const queryKeys = {
   relay: {
     root: (scope: RelayQueryScope) =>
       ["atmos", "relay", scope.relayUrl, scope.authRevision] as const,
+  },
+  /** Unauthenticated GitHub REST (share/leaderboard hover cards). */
+  publicGithub: {
+    userCard: (login: string) =>
+      ["atmos", "public", "github", "userCard", login] as const,
   },
 } as const;
 

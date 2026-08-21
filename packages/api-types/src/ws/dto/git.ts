@@ -91,3 +91,29 @@ export type GitCommitResponse = {
 export type GitGenerateCommitMessageResponse = {
   message: string;
 };
+
+export type GitHistoryRefKind = "branch" | "remote" | "tag";
+
+export type GitHistoryRef = {
+  kind: GitHistoryRefKind;
+  label: string;
+};
+
+export type GitHistoryCommit = {
+  hash: string;
+  short_hash: string;
+  parent_hashes: string[];
+  subject: string;
+  author_name: string;
+  author_email: string;
+  timestamp: number;
+  refs: GitHistoryRef[];
+};
+
+export type GitHistoryPage = {
+  commits: GitHistoryCommit[];
+  head_sha: string | null;
+  next_cursor: number | null;
+  total_count: number | null;
+  head_commit_count: number | null;
+};

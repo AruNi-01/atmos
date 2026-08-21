@@ -5,14 +5,16 @@ import type { ClientSessionResponse } from "@/api/types";
 import { getDefaultRelayUrl, normalizeRelayUrl } from "@/lib/relay-url";
 
 type SessionState = {
-  accessTokenLoaded: boolean;
-  hasAccessToken: boolean;
+  /** True after bootstrap finished checking SecureStore. */
+  deviceCredentialLoaded: boolean;
+  /** True when a Hub device credential is present locally. */
+  hasDeviceCredential: boolean;
   relayUrl: string;
   relaySecretKey: string;
   relayAuthRevision: number;
   selectedServerId: string | null;
   activeClientSession: ClientSessionResponse | null;
-  setAccessTokenLoaded: (hasAccessToken: boolean) => void;
+  setDeviceCredentialLoaded: (hasDeviceCredential: boolean) => void;
   setRelayUrl: (url: string) => void;
   setRelaySecretKey: (secretKey: string) => void;
   selectServer: (serverId: string | null) => void;
@@ -24,17 +26,17 @@ type SessionState = {
 export const useSessionStore = create<SessionState>()(
   persist(
     (set) => ({
-      accessTokenLoaded: false,
-      hasAccessToken: false,
+      deviceCredentialLoaded: false,
+      hasDeviceCredential: false,
       relayUrl: getDefaultRelayUrl(),
       relaySecretKey: "",
       relayAuthRevision: 0,
       selectedServerId: null,
       activeClientSession: null,
-      setAccessTokenLoaded: (hasAccessToken) =>
+      setDeviceCredentialLoaded: (hasDeviceCredential) =>
         set({
-          accessTokenLoaded: true,
-          hasAccessToken,
+          deviceCredentialLoaded: true,
+          hasDeviceCredential,
         }),
       setRelayUrl: (url) =>
         set({
@@ -65,8 +67,8 @@ export const useSessionStore = create<SessionState>()(
         }),
       clearSession: () =>
         set({
-          accessTokenLoaded: true,
-          hasAccessToken: false,
+          deviceCredentialLoaded: true,
+          hasDeviceCredential: false,
           selectedServerId: null,
           activeClientSession: null,
         }),

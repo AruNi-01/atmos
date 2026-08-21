@@ -36,6 +36,7 @@ import { useBrowserIframeLoad } from "../hooks/use-browser-iframe-load";
 import { useBrowserLifecycleEffects } from "../hooks/use-browser-lifecycle-effects";
 import { useBrowserNavigation } from "../hooks/use-browser-navigation";
 import { useBrowserSelection } from "../hooks/use-browser-selection";
+import { pushBrowserUseUserPicks } from "../lib/browser-use-user-picks";
 import { useBrowserToolbarLayout } from "../hooks/use-browser-toolbar-layout";
 import { useBrowserWindowState } from "../hooks/use-browser-window-state";
 import {
@@ -66,6 +67,7 @@ interface BrowserSessionProps {
   onPageTitleChange?: (title: string, pageUrl?: string) => void;
   onPageIconChange?: (faviconUrl: string) => void;
   onOpenPageInNewTab?: (url: string) => void;
+  onSessionReady?: (sessionId: string | null) => void;
   browserTabBarProps?: Omit<BrowserTabBarProps, "chromeControls">;
   isStandaloneBrowserWindow?: boolean;
   isPreviewStandaloneOpen?: boolean;
@@ -74,7 +76,8 @@ interface BrowserSessionProps {
   canvasViewportControllerRef?: React.MutableRefObject<BrowserCanvasViewportController | null>;
   onOpenPreviewBrowserWindow?: (url: string) => Promise<void> | void;
   onCloseStandalonePreviewWindow?: () => void;
-  onMoveToCenter?: () => void;
+  /** Focus the address bar after a user-created empty tab mounts. */
+  requestUrlFocus?: boolean;
 }
 
 /**
@@ -106,6 +109,7 @@ export const BrowserSession: React.FC<BrowserSessionProps> = ({
   onPageTitleChange,
   onPageIconChange,
   onOpenPageInNewTab,
+  onSessionReady,
   browserTabBarProps,
   isStandaloneBrowserWindow = false,
   isPreviewStandaloneOpen = false,
@@ -114,7 +118,7 @@ export const BrowserSession: React.FC<BrowserSessionProps> = ({
   canvasViewportControllerRef,
   onOpenPreviewBrowserWindow,
   onCloseStandalonePreviewWindow,
-  onMoveToCenter,
+  requestUrlFocus = false,
 }) => {
   const previewToolbarT = useTranslations("browser.toolbar");
   const headerHasOpenOverlay = useDialogStore(s => s.headerHasOpenOverlay);
@@ -134,7 +138,9 @@ export const BrowserSession: React.FC<BrowserSessionProps> = ({
     y: number;
   } | null>(null);
   const [currentPageTitle, setCurrentPageTitle] = useState("");
-  const [isUrlInputFocused, setIsUrlInputFocused] = useState(false);
+  const [isUrlInputFocused, setIsUrlInputFocused] = useState(
+    () => Boolean(isActive && requestUrlFocus),
+  );
   const [transportState, setTransportState] = useState<PreviewTransportState>({
     mode: 'unavailable',
     connected: false,
@@ -163,6 +169,8 @@ export const BrowserSession: React.FC<BrowserSessionProps> = ({
   const iframeUrlWatcherCleanupRef = useRef<(() => void) | null>(null);
   const transportControllerRef = useRef<BrowserBridgeController | null>(null);
   const transportSessionIdRef = useRef<string | null>(null);
+  const onSessionReadyRef = useRef(onSessionReady);
+  onSessionReadyRef.current = onSessionReady;
   const desktopPreviewUrlRef = useRef<string | null>(null);
   const desktopPreviewViewportRef = useRef<string | null>(null);
   const desktopPreviewVisibleRef = useRef(false);
@@ -174,6 +182,7 @@ export const BrowserSession: React.FC<BrowserSessionProps> = ({
       setHoverCursorLabel(null);
     }
   }, [isElementPickerEnabled]);
+
   const desktopConnectingRef = useRef(false);
   const iframeLoadResolveRef = useRef<(() => void) | null>(null);
   const extensionVersionRef = useRef<string | null>(null);
@@ -275,9 +284,6 @@ export const BrowserSession: React.FC<BrowserSessionProps> = ({
       return isDesktopRuntime() ? 'desktop' : 'unavailable';
     }
   }, [normalizedActiveUrl]);
-  // NOTE: Do not suspend based on right-sidebar collapse — that used to hide
-  // *every* desktop surface (including center browsers). Sidebar
-  // visibility is handled via BrowserPanel `isActive` in RightSidebar instead.
   // In-DOM webview: overlays stack with z-index — do not hide the live guest for menus.
   // Only "suspend" layout when this tab is not the active surface (handled via CSS) or standalone handoff.
   const shouldSuspendDesktopPreview =
@@ -336,6 +342,16 @@ export const BrowserSession: React.FC<BrowserSessionProps> = ({
     transportControllerRef,
   });
 
+  useEffect(() => {
+    const sessionId = desktopAttach?.sessionId ?? transportSessionIdRef.current;
+    if (!sessionId || preferredTransportMode !== "desktop") return;
+    void pushBrowserUseUserPicks({
+      sessionId,
+      current: selectionInfo,
+      annotations: selectionAnnotations,
+    }).catch(() => undefined);
+  }, [desktopAttach?.sessionId, preferredTransportMode, selectionAnnotations, selectionInfo]);
+
   // Only auto-dismiss when the picker is off. While pick mode is on, guest clicks
   // intentionally select elements and must open the host SelectionPopover — webview
   // focus/blur must not race-close it.
@@ -363,6 +379,9 @@ export const BrowserSession: React.FC<BrowserSessionProps> = ({
   const teardownTransport = useCallback((clearSelection = true) => {
     const activeController = transportControllerRef.current;
     transportControllerRef.current = null;
+    if (transportSessionIdRef.current) {
+      onSessionReadyRef.current?.(null);
+    }
     transportSessionIdRef.current = null;
     desktopPreviewUrlRef.current = null;
     desktopPreviewViewportRef.current = null;
@@ -387,7 +406,7 @@ export const BrowserSession: React.FC<BrowserSessionProps> = ({
     handleGoForward,
     handleGoHome,
     handleRefresh,
-    handleUrlInputBlur,
+    handleUrlInputBlur: handleUrlInputBlurInner,
     navigateToUrl,
     pushHistoryEntry,
     skipExternalHistorySyncRef,
@@ -415,8 +434,55 @@ export const BrowserSession: React.FC<BrowserSessionProps> = ({
     teardownTransport,
     transportControllerRef,
     url,
-    urlInputRef,
   });
+
+  useLayoutEffect(() => {
+    if (!isActive || !requestUrlFocus) return;
+    if ((url ?? "").trim() || (activeUrl ?? "").trim()) return;
+    setIsUrlInputFocused(true);
+  }, [activeUrl, isActive, requestUrlFocus, url]);
+
+  useLayoutEffect(() => {
+    if (!isActive || !isUrlInputFocused) return;
+    const focusInput = () => {
+      const input = urlInputRef.current;
+      if (!input) return false;
+      input.focus();
+      input.select();
+      return true;
+    };
+    if (focusInput()) return;
+    const frame = window.requestAnimationFrame(() => {
+      focusInput();
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [isActive, isUrlInputFocused]);
+
+  const handleUrlInputBlur = useCallback(
+    (event?: { relatedTarget: EventTarget | null }) => {
+      // Adding a tab blurs the + button after click. Ignore that empty
+      // relatedTarget so the new empty address bar stays open.
+      if (
+        requestUrlFocus &&
+        !(url ?? "").trim() &&
+        !(activeUrl ?? "").trim() &&
+        !(event?.relatedTarget instanceof Node)
+      ) {
+        window.requestAnimationFrame(() => {
+          urlInputRef.current?.focus();
+        });
+        return;
+      }
+      handleUrlInputBlurInner();
+    },
+    [activeUrl, handleUrlInputBlurInner, requestUrlFocus, url],
+  );
+
+  useEffect(() => {
+    if (!activeUrl) return;
+    if (canonicalizeUrl(requestedIframeUrl) === canonicalizeUrl(activeUrl)) return;
+    navigateToUrl(activeUrl);
+  }, [activeUrl, navigateToUrl, requestedIframeUrl]);
 
   const getIframeAccess = useCallback(() => {
     try {
@@ -787,6 +853,7 @@ export const BrowserSession: React.FC<BrowserSessionProps> = ({
         message: '',
         capabilities: [],
       });
+      onSessionReadyRef.current?.(sessionId);
     } catch (error) {
       console.error('[browser] desktop transport connect failed:', error);
       desktopCommittedUrlRef.current = "";
@@ -1186,6 +1253,7 @@ export const BrowserSession: React.FC<BrowserSessionProps> = ({
     usesDesktopToolbarExpand: isChromeManagedByTabBar ? false : usesDesktopToolbarExpand,
     usesToolbarHoverOverlay: isChromeManagedByTabBar ? false : usesToolbarHoverOverlay,
     viewMode,
+    browserUseSessionId: desktopAttach?.sessionId ?? null,
     focusUrlInput,
     handleAddFavorite,
     handleDownloadExtension,
@@ -1292,7 +1360,6 @@ export const BrowserSession: React.FC<BrowserSessionProps> = ({
                 needsDesktopPreviewSafeInset,
                 openInWindowTitle: previewToolbarT("actions.openBrowserWindow"),
                 returnToEmbeddedTitle: previewToolbarT("actions.returnToEmbeddedPreview"),
-                moveToCenterTitle: previewToolbarT("browserTabs.moveToCenter"),
                 toolbarToggleTitle,
                 onOpenInWindow: canOpenPreviewBrowserWindow
                   ? handleOpenPreviewBrowserWindow
@@ -1300,10 +1367,6 @@ export const BrowserSession: React.FC<BrowserSessionProps> = ({
                 onReturnToEmbedded: isStandaloneBrowserWindow
                   ? handleCloseStandalonePreviewWindow
                   : undefined,
-                onMoveToCenter:
-                  onMoveToCenter && !isStandaloneBrowserWindow
-                    ? onMoveToCenter
-                    : undefined,
                 onToggleMaximized:
                   allowMaximize && !isStandaloneBrowserWindow
                     ? handleToggleMaximized

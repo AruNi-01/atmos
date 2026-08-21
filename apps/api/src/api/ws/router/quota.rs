@@ -6,7 +6,8 @@ use super::{
     QuotaAddProviderApiKeyRequest, QuotaAllProvidersSwitchRequest,
     QuotaApplyProviderVisibilityRequest, QuotaAutoRefreshRequest, QuotaDeleteProviderApiKeyRequest,
     QuotaOverviewRequest, QuotaProviderFooterCarouselRequest, QuotaProviderManualSetupRequest,
-    QuotaProviderSwitchRequest, TokenUsageOverviewRequest, WsMessageService,
+    QuotaProviderSwitchRequest, TokenUsageBrowserCookieConsentRequest, TokenUsageOverviewRequest,
+    WsMessageService,
 };
 
 impl WsMessageService {
@@ -115,7 +116,7 @@ impl WsMessageService {
     ) -> Result<Value> {
         let overview = self
             .token_usage_service
-            .get_overview(
+            .get_overview_opts(
                 token_usage::TokenUsageQuery {
                     clients: req.clients.filter(|clients| !clients.is_empty()),
                     since: req.since,
@@ -124,7 +125,20 @@ impl WsMessageService {
                     group_by: req.group_by.unwrap_or_default(),
                 },
                 req.refresh,
+                req.try_cookies,
             )
+            .await
+            .map_err(|error| ServiceError::Processing(error.to_string()))?;
+        Ok(json!(overview))
+    }
+
+    pub(super) async fn handle_token_usage_set_browser_cookie_consent(
+        &self,
+        req: TokenUsageBrowserCookieConsentRequest,
+    ) -> Result<Value> {
+        let overview = self
+            .token_usage_service
+            .set_browser_cookie_consent(&req.provider_id, req.granted)
             .await
             .map_err(|error| ServiceError::Processing(error.to_string()))?;
         Ok(json!(overview))

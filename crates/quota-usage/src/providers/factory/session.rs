@@ -88,6 +88,7 @@ fn factory_session_path() -> PathBuf {
         dirs::home_dir()
             .unwrap_or_else(|| PathBuf::from("."))
             .join(".atmos")
+            .join("data")
             .join("quota-usage")
             .join("factory-session.json")
     })

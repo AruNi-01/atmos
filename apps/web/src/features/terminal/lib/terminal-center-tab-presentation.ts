@@ -6,9 +6,9 @@ import {
   type ContestedOwnersMap,
   type TerminalTitleAgent,
 } from "@atmos/shared/terminal";
-import type { MosaicNode } from "react-mosaic-component";
+import type { TerminalLayoutNode } from "@/features/terminal/types/index";
 import type { TerminalPaneAgent, TerminalPaneProps } from "@/features/terminal/types/index";
-import { flattenMosaicLayout } from "@/features/terminal/lib/terminal-grid-utils";
+import { flattenTerminalLayout } from "@/features/terminal/lib/terminal-grid-utils";
 
 export type TerminalCenterTabPresentation = {
   /** Text shown on the center-stage terminal tab. */
@@ -35,12 +35,12 @@ export type TerminalCenterTabPresentation = {
  */
 export function pickRepresentativeTerminalPaneId(options: {
   panes: Record<string, TerminalPaneProps>;
-  layout?: MosaicNode<string> | null;
+  layout?: TerminalLayoutNode<string> | null;
   lastActivePaneId?: string | null;
   maximizedPaneId?: string | null;
 }): string | null {
   const { panes, layout = null, lastActivePaneId = null, maximizedPaneId = null } = options;
-  const layoutOrder = flattenMosaicLayout(layout).filter((paneId) => Boolean(panes[paneId]));
+  const layoutOrder = flattenTerminalLayout(layout).filter((paneId) => Boolean(panes[paneId]));
   const paneIds =
     layoutOrder.length > 0
       ? layoutOrder
@@ -175,7 +175,7 @@ export function resolveTerminalCenterTabPresentation(options: {
   fallbackTitle: string;
   customTitle?: string | null;
   panes: Record<string, TerminalPaneProps>;
-  layout?: MosaicNode<string> | null;
+  layout?: TerminalLayoutNode<string> | null;
   lastActivePaneId?: string | null;
   maximizedPaneId?: string | null;
   configuredAgents?: TerminalTitleAgent[];

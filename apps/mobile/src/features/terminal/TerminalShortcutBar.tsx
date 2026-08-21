@@ -13,7 +13,9 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { GlassPanel } from "@/ui/primitives/glass-panel";
 import { TerminalKeyboardDismissButton } from "@/features/terminal/TerminalKeyboardDismissButton";
 import { terminalShortcuts, type TerminalShortcut } from "@/features/terminal/terminal-shortcuts";
-import { colors } from "@/theme/colors";
+import { radii } from "@/theme/radii";
+import { spacing } from "@/theme/spacing";
+import { typography } from "@/theme/typography";
 import { useMobileTheme } from "@/theme/theme-store";
 
 export function TerminalShortcutBar({
@@ -55,21 +57,32 @@ export function TerminalShortcutBar({
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.terminalBg, paddingBottom: bottomPadding }]}>
+    <View
+      style={[
+        styles.container,
+        {
+          backgroundColor: theme.colors.terminalBg,
+          paddingBottom: bottomPadding,
+          paddingHorizontal: spacing.terminalChromeX,
+        },
+      ]}
+    >
       <View style={styles.row}>
         <GlassPanel
-          fallbackStyle={[styles.fallback, { backgroundColor: theme.isDark ? "rgba(9, 9, 11, 0.92)" : "rgba(255, 255, 255, 0.72)" }]}
+          fallbackStyle={[styles.fallback, { backgroundColor: theme.colors.terminalChromeFallback }]}
           glassEffectStyle={{ style: "regular", animate: true }}
           interactive
-          style={[styles.root, { backgroundColor: theme.colors.terminalBg, borderColor: theme.colors.glassBorder }]}
-          tintColor={theme.isDark ? "rgba(9, 9, 11, 0.78)" : "rgba(255, 255, 255, 0.58)"}
+          style={[
+            styles.root,
+            {
+              borderColor: theme.colors.glassBorder,
+              borderRadius: radii.terminalChrome,
+            },
+          ]}
+          tintColor={theme.colors.terminalChromeTint}
         >
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.content}>
-            <ShortcutMenuButton
-              actions={CTRL_ACTIONS}
-              label="Ctrl"
-              onAction={handleMenuAction}
-            />
+            <ShortcutMenuButton actions={CTRL_ACTIONS} label="Ctrl" onAction={handleMenuAction} />
             <ShortcutButton label="Esc" onPress={() => fireShortcut("esc")} />
             <ShortcutButton label="Tab" onPress={() => fireShortcut("tab")} />
             <ShortcutButton label="Paste" onPress={() => fireShortcut("paste")} />
@@ -80,11 +93,7 @@ export function TerminalShortcutBar({
               onAction={handleMenuAction}
               openOnLongPress
             />
-            <ShortcutMenuButton
-              actions={AGENT_ACTIONS}
-              label="Agent"
-              onAction={handleMenuAction}
-            />
+            <ShortcutMenuButton actions={AGENT_ACTIONS} label="Agent" onAction={handleMenuAction} />
           </ScrollView>
         </GlassPanel>
         {keyboardVisible && onDismissKeyboard ? (
@@ -104,14 +113,15 @@ function ShortcutButton({
 }) {
   const theme = useMobileTheme();
   const keycapStyle = {
-    backgroundColor: theme.isDark ? "rgba(248, 250, 252, 0.10)" : "rgba(244, 244, 245, 0.93)",
-    borderColor: theme.isDark ? theme.colors.glassBorder : theme.colors.separator,
+    backgroundColor: theme.colors.terminalKeycap,
+    borderColor: theme.colors.glassBorder,
+    borderRadius: radii.terminalKeycap,
   };
   const keycapPressedStyle = {
-    backgroundColor: theme.isDark ? "rgba(248, 250, 252, 0.16)" : "rgba(228, 228, 231, 0.96)",
+    backgroundColor: theme.colors.terminalKeycapPressed,
   };
   const keycapTextStyle = {
-    color: theme.isDark ? theme.colors.label : "#111827",
+    color: theme.colors.terminalFg,
   };
 
   if (!onPress) {
@@ -182,14 +192,10 @@ const AGENT_ACTIONS: MenuAction[] = [
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: colors.terminalBg,
-    paddingHorizontal: 8,
     paddingTop: 4,
   },
   root: {
-    backgroundColor: colors.terminalBg,
-    borderColor: "rgba(255, 255, 255, 0.12)",
-    borderRadius: 23,
+    borderWidth: StyleSheet.hairlineWidth,
     flex: 1,
     minWidth: 0,
   },
@@ -200,20 +206,15 @@ const styles = StyleSheet.create({
   },
   content: {
     alignItems: "center",
-    gap: 6,
+    gap: spacing.terminalKeycapGap,
     minHeight: 44,
-    paddingHorizontal: 8,
+    paddingHorizontal: spacing.terminalChromeX,
     paddingVertical: 4,
   },
-  fallback: {
-    backgroundColor: "rgba(9, 9, 11, 0.92)",
-  },
+  fallback: {},
   keycap: {
     alignItems: "center",
-    backgroundColor: "rgba(244, 244, 245, 0.93)",
-    borderColor: colors.separator,
     borderCurve: "continuous",
-    borderRadius: 13,
     borderWidth: StyleSheet.hairlineWidth,
     justifyContent: "center",
     minHeight: 36,
@@ -221,9 +222,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
   },
   keycapText: {
-    color: "#111827",
-    fontSize: 12,
-    fontWeight: "800",
-    letterSpacing: 0,
+    ...typography.terminalKeycapLabel,
   },
 });

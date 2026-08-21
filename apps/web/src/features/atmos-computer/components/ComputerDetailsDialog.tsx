@@ -145,28 +145,26 @@ function RuntimeTabContent({ runtimeInfo }: { runtimeInfo: RuntimeInfoResponse }
 
   return (
     <div className="space-y-3">
-      <DetailSection title={t('runtimeManifest.title')}>
-        {manifest ? (
-          <>
-            <DetailRow label={t('runtimeManifest.source')} value={manifest.source} />
-            <DetailRow label={t('runtimeManifest.started')} value={formatIsoTime(manifest.started_at, locale)} />
+      {manifest ? (
+        <DetailSection title={t('runtimeManifest.title')}>
+          <DetailRow label={t('runtimeManifest.source')} value={manifest.source} />
+          <DetailRow label={t('runtimeManifest.started')} value={formatIsoTime(manifest.started_at, locale)} />
+          <DetailRow
+            label={t('runtimeManifest.apiUrl')}
+            value={<span className="font-mono text-xs">{manifest.api_url}</span>}
+          />
+          <DetailRow
+            label={t('runtimeManifest.wsUrl')}
+            value={<span className="font-mono text-xs">{manifest.ws_url}</span>}
+          />
+          {manifest.pid != null ? (
             <DetailRow
-              label={t('runtimeManifest.apiUrl')}
-              value={<span className="font-mono text-xs">{manifest.api_url}</span>}
+              label={t('runtimeManifest.apiProcess')}
+              value={t('runtimeManifest.pid', { pid: manifest.pid })}
             />
-            <DetailRow
-              label={t('runtimeManifest.wsUrl')}
-              value={<span className="font-mono text-xs">{manifest.ws_url}</span>}
-            />
-            {manifest.pid != null ? (
-              <DetailRow
-                label={t('runtimeManifest.apiProcess')}
-                value={t('runtimeManifest.pid', { pid: manifest.pid })}
-              />
-            ) : null}
-          </>
-        ) : null}
-      </DetailSection>
+          ) : null}
+        </DetailSection>
+      ) : null}
 
       {relay ? (
         <DetailSection title={t('relay.title')}>

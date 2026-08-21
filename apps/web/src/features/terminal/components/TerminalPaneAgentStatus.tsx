@@ -7,7 +7,7 @@ import { AGENT_STATE, useAgentHooksStore } from "@/features/agent/store/agent-ho
 
 /**
  * Live agent-hook status + sticky need-attention for one terminal pane.
- * Shared by center-stage mosaic panes and canvas terminal cards — both must
+ * Shared by center-stage terminal panes and canvas terminal cards — both must
  * pass the same stable pane id (`{contextId}:{tmuxWindowName}`).
  */
 export function TerminalPaneAgentStatus({

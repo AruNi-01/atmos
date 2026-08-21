@@ -1,3 +1,54 @@
-export const ROOT_SIDEBAR_LAYOUT_AUTO_SAVE_ID = "root-sidebar-layout-v3";
+export const ROOT_SIDEBAR_LAYOUT_AUTO_SAVE_ID = "root-sidebar-layout-v4";
 export const DEFAULT_LEFT_SIDEBAR_SIZE = 25;
 export const DEFAULT_COLLAPSED_TWO_COLUMN_LEFT_SIDEBAR_SIZE = 15;
+
+/** Shared height for left-sidebar footer + main column Footer (Tailwind `h-9`). */
+export const APP_FOOTER_HEIGHT_CLASS = "h-9";
+export const APP_FOOTER_HEIGHT_PX = 36;
+
+/**
+ * Floating center-stage card gutters (Tailwind `px-1 py-px`).
+ * 1px vertical keeps the card ring from clipping against header/footer
+ * while lining up with the left sidebar. Keep overlay insets in sync.
+ */
+export const CENTER_STAGE_GUTTER_X_PX = 4;
+export const CENTER_STAGE_GUTTER_Y_PX = 1;
+export const CENTER_STAGE_GUTTER_CLASS = "px-1 py-px";
+
+/**
+ * Left sidebar inset against the root sidebar↔center divider.
+ * Keep this equal to the center card's left gutter so the split is even.
+ */
+export const LEFT_SIDEBAR_DIVIDER_GUTTER_PX = CENTER_STAGE_GUTTER_X_PX;
+export const LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS = "pr-1";
+export const LEFT_SIDEBAR_DIVIDER_GUTTER_MR_CLASS = "mr-1";
+
+/** Shell behind the floating card — matches sidebar so gutters read as inset. */
+export const CENTER_STAGE_SHELL_CLASS =
+  "relative flex h-full min-h-0 flex-col overflow-hidden bg-sidebar";
+
+/**
+ * Shared radius for every center-stage surface (`rounded-xl` = `--radius-xl`).
+ * Use this instead of hardcoded 12px so WebGL/canvas clips match the card.
+ */
+export const CENTER_STAGE_RADIUS_CLASS = "rounded-xl";
+export const CENTER_STAGE_RADIUS_CSS = "var(--radius-xl)";
+
+/** Inset a hover resize hairline so it does not run through rounded-xl corners. */
+export const RESIZE_HAIRLINE_CORNER_INSET_CSS = CENTER_STAGE_RADIUS_CSS;
+
+/**
+ * Root sidebar↔center hairline. The handle spans the full column (card +
+ * footer); the painted line stays on the floating card face only.
+ */
+export const ROOT_RESIZE_HAIRLINE_TOP_CSS = `calc(${CENTER_STAGE_GUTTER_Y_PX}px + ${CENTER_STAGE_RADIUS_CSS})`;
+export const ROOT_RESIZE_HAIRLINE_BOTTOM_CSS = `calc(${APP_FOOTER_HEIGHT_PX}px + ${CENTER_STAGE_GUTTER_Y_PX}px + ${CENTER_STAGE_RADIUS_CSS})`;
+
+/** Floating card: clip children to the radius and ring the inset stage. */
+export const CENTER_STAGE_CARD_CLASS =
+  "desktop-no-drag h-full min-h-0 overflow-hidden rounded-xl bg-background ring-1 ring-border/40";
+
+/** Column above the center-stage footer — drawer insets prefer this over the panel. */
+export const CENTER_STAGE_BODY_ATTR = "data-center-stage-body";
+/** Visual floating card inside the center-stage shell. */
+export const CENTER_STAGE_CARD_ATTR = "data-center-stage-card";

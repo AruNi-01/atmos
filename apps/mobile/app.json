@@ -14,21 +14,31 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "land.atmos.mobile"
+      "bundleIdentifier": "land.atmos.mobile",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Atmos uses the camera to scan a temporary pair QR from Desktop or Web."
+      }
     },
     "android": {
       "package": "land.atmos.mobile",
       "adaptiveIcon": {
-        "backgroundColor": "#F7F7F7",
+        "backgroundColor": "#0A0A0B",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
+      "permissions": ["android.permission.CAMERA"],
       "predictiveBackGestureEnabled": false
     },
     "plugins": [
       "expo-router",
       "expo-secure-store",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Atmos uses the camera to scan a temporary pair QR from Desktop or Web."
+        }
+      ],
       [
         "expo-dev-client",
         {

@@ -3,7 +3,6 @@
 import React from "react";
 import { useTranslations } from "next-intl";
 import {
-  Button,
   CSS,
   DndContext,
   Popover,
@@ -13,7 +12,6 @@ import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-  X,
   closestCenter,
   getFileIconProps,
   restrictToVerticalAxis,
@@ -42,7 +40,10 @@ import { cn } from "@/shared/lib/utils";
 /** Cap each group column so long labels truncate instead of stretching the popover. */
 const TAB_GROUP_COLUMN_MAX_WIDTH_CLASS = "max-w-[240px]";
 
-export const FIXED_TABS = new Set<string>(["overview", "wiki", "project-wiki", "code-review"]);
+export {
+  FIXED_TABS,
+  shouldSkipLastTabRestoreForUrlTab,
+} from "@/app-shell/center-stage-fixed-tabs";
 export const CENTER_TERMINAL_SHORTCUT_LIMIT = 5;
 
 export type TabGroupItem = {
@@ -64,7 +65,15 @@ export type TabGroupItem = {
     | "github-issue"
     | "github-action"
     | "github-commit"
-    | "browser";
+    | "github"
+    | "browser"
+    | "simulator"
+    | "git-history"
+    | "changes"
+    | "review"
+    | "run"
+    | "files"
+    | "pt-design";
   file?: OpenFile;
   /** Center browser instance id (for kind === "browser"). */
   browserId?: string;
@@ -183,19 +192,14 @@ export function SortableTabGroupItem({
   tab,
   isActive,
   children,
-  closable,
   onSelect,
-  onClose,
 }: {
   groupKey: string;
   tab: TabGroupItem;
   isActive: boolean;
   children: React.ReactNode;
-  closable: boolean;
   onSelect: () => void;
-  onClose: () => void;
 }) {
-  const t = useTranslations("AppShell.chrome");
   const {
     attributes,
     listeners,
@@ -243,6 +247,17 @@ export function SortableTabGroupItem({
     if (!isLabelTruncated) setTooltipOpen(false);
   }, [isLabelTruncated]);
 
+  // Only while actively dragging: force grabbing cursor globally so hover
+  // over neighboring pointer items does not snap back to the default cursor.
+  React.useEffect(() => {
+    if (!isDragging) return;
+    const previous = document.body.style.cursor;
+    document.body.style.cursor = "grabbing";
+    return () => {
+      document.body.style.cursor = previous;
+    };
+  }, [isDragging]);
+
   return (
     <Tooltip
       open={isLabelTruncated ? tooltipOpen : false}
@@ -264,10 +279,10 @@ export function SortableTabGroupItem({
             transition,
           }}
           className={cn(
-            "group/tab-item relative flex h-10 w-full min-w-0 cursor-grab items-center gap-1 rounded-md pl-2 pr-2 text-left text-muted-foreground transition-colors active:cursor-grabbing",
-            "hover:bg-sidebar-accent/70 hover:text-sidebar-foreground dark:hover:bg-muted/45",
-            isActive && "bg-muted/40 hover:bg-sidebar-accent/70",
-            isDragging && "z-10 opacity-70 shadow-md",
+            "group group/tab-item relative flex h-10 w-full min-w-0 cursor-pointer items-center gap-1 rounded-md pl-2 pr-2 text-left text-muted-foreground",
+            "hover:bg-accent hover:text-accent-foreground",
+            isActive && "bg-accent text-accent-foreground",
+            isDragging && "z-10 cursor-grabbing opacity-70 shadow-md",
           )}
           {...attributes}
           {...listeners}
@@ -280,27 +295,6 @@ export function SortableTabGroupItem({
           >
             {children}
           </div>
-          {closable ? (
-            <span
-              role="button"
-              tabIndex={0}
-              aria-label={t("centerStageTabs.closeTab", { label: tab.label })}
-              onPointerDown={(event) => event.stopPropagation()}
-              onClick={(event) => {
-                event.stopPropagation();
-                onClose();
-              }}
-              onKeyDown={(event) => {
-                if (event.key !== "Enter" && event.key !== " ") return;
-                event.preventDefault();
-                event.stopPropagation();
-                onClose();
-              }}
-              className="ml-0.5 flex size-5 shrink-0 cursor-pointer items-center justify-center rounded-sm text-muted-foreground opacity-0 transition-all hover:bg-muted-foreground/20 hover:text-foreground group-hover/tab-item:opacity-100"
-            >
-              <X className="size-3" />
-            </span>
-          ) : null}
         </div>
       </TooltipTrigger>
       {isLabelTruncated ? (
@@ -336,20 +330,23 @@ export function CenterStageTabGroupPopover({
   isClosable: (tab: TabGroupItem) => boolean;
   /** Optional override for active highlighting (e.g. browser internal tabs). */
   isItemActive?: (tab: TabGroupItem) => boolean;
-  renderContent: (tab: TabGroupItem) => React.ReactNode;
+  renderContent: (
+    tab: TabGroupItem,
+    close?: { label: string; onClose: () => void },
+  ) => React.ReactNode;
 }) {
   const t = useTranslations("AppShell.chrome");
 
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
       <PopoverTrigger asChild>
-        <Button
-          variant="ghost"
-          className="h-full! rounded-none border-0 px-4 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
+        <button
+          type="button"
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-active hover:text-foreground data-[state=open]:bg-active data-[state=open]:text-foreground"
           aria-label={t("centerStageTabs.openTabGroups")}
         >
           <List className="size-4" />
-        </Button>
+        </button>
       </PopoverTrigger>
       <PopoverContent
         align="end"
@@ -406,7 +403,7 @@ export function CenterStageTabGroupPopover({
                             items={section.tabs.map((tab) => tab.id)}
                             strategy={verticalListSortingStrategy}
                           >
-                            <div className="w-full min-w-0">
+                            <div className="flex w-full min-w-0 flex-col gap-1">
                               {section.tabs.map((tab) => (
                                 <SortableTabGroupItem
                                   key={tab.id}
@@ -417,11 +414,19 @@ export function CenterStageTabGroupPopover({
                                       ? isItemActive(tab)
                                       : activeValue === tab.value
                                   }
-                                  closable={isClosable(tab)}
                                   onSelect={() => onSelect(tab)}
-                                  onClose={() => onClose(tab)}
                                 >
-                                  {renderContent(tab)}
+                                  {renderContent(
+                                    tab,
+                                    isClosable(tab)
+                                      ? {
+                                          label: t("centerStageTabs.closeTab", {
+                                            label: tab.label,
+                                          }),
+                                          onClose: () => onClose(tab),
+                                        }
+                                      : undefined,
+                                  )}
                                 </SortableTabGroupItem>
                               ))}
                             </div>

@@ -35,7 +35,6 @@ interface UsePreviewNavigationParams {
   teardownTransport: (clearSelection?: boolean) => void;
   transportControllerRef: MutableRefObject<BrowserBridgeController | null>;
   url: string;
-  urlInputRef: RefObject<HTMLInputElement | null>;
 }
 
 export function useBrowserNavigation({
@@ -61,7 +60,6 @@ export function useBrowserNavigation({
   teardownTransport,
   transportControllerRef,
   url,
-  urlInputRef,
 }: UsePreviewNavigationParams) {
   const [history, setHistory] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
@@ -129,11 +127,7 @@ export function useBrowserNavigation({
   const focusUrlInput = useCallback(() => {
     userEditedUrlRef.current = false;
     setIsUrlInputFocused(true);
-    window.requestAnimationFrame(() => {
-      urlInputRef.current?.focus();
-      urlInputRef.current?.select();
-    });
-  }, [setIsUrlInputFocused, urlInputRef]);
+  }, [setIsUrlInputFocused]);
 
   const handleUrlInputBlur = useCallback(() => {
     const edited = userEditedUrlRef.current;

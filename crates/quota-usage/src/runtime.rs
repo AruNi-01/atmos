@@ -315,14 +315,16 @@ pub(crate) fn detect_auth(spec: &ProviderSpec) -> AuthState {
     }
 
     if spec.id == "factory" {
-        if let Ok(tokens) = factory::storage::load_factory_local_storage_tokens() {
-            if let Some(token) = tokens.first() {
-                return AuthState {
-                    status: AuthStateStatus::Detected,
-                    source: Some(token.source_label.clone()),
-                    detail: Some("Detected browser local storage token".to_string()),
-                    setup_hint: Some(spec.setup_hint.to_string()),
-                };
+        if crate::support::browser_access::may_probe_browser_cookies("factory") {
+            if let Ok(tokens) = factory::storage::load_factory_local_storage_tokens() {
+                if let Some(token) = tokens.first() {
+                    return AuthState {
+                        status: AuthStateStatus::Detected,
+                        source: Some(token.source_label.clone()),
+                        detail: Some("Detected browser local storage token".to_string()),
+                        setup_hint: Some(spec.setup_hint.to_string()),
+                    };
+                }
             }
         }
 
@@ -637,6 +639,13 @@ fn snapshot_candidates(provider_id: &str) -> Vec<PathBuf> {
     }
     if let Some(home) = dirs::home_dir() {
         let file_name = format!("{provider_id}.json");
+        // Canonical layout + short legacy root-level path (pre-layout move).
+        candidates.push(
+            home.join(".atmos")
+                .join("data")
+                .join("quota-usage")
+                .join(&file_name),
+        );
         candidates.push(home.join(".atmos").join("quota-usage").join(&file_name));
         candidates.push(
             home.join(".config")

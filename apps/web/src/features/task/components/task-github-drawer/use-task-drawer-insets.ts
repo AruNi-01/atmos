@@ -1,8 +1,17 @@
 "use client";
 
 import React from "react";
+import {
+  APP_FOOTER_HEIGHT_PX,
+  CENTER_STAGE_BODY_ATTR,
+  CENTER_STAGE_CARD_ATTR,
+  CENTER_STAGE_GUTTER_X_PX,
+  CENTER_STAGE_GUTTER_Y_PX,
+} from "@/app-shell/sidebar-layout-constants";
 
 const GAP_PX = 8;
+const CARD_SELECTOR = `[${CENTER_STAGE_CARD_ATTR}]`;
+const BODY_SELECTOR = `[${CENTER_STAGE_BODY_ATTR}]`;
 
 export type TaskDrawerInsets = {
   left: number;
@@ -12,67 +21,108 @@ export type TaskDrawerInsets = {
   gap: number;
 };
 
+function queryCenterStageCard(): HTMLElement | null {
+  return document.querySelector<HTMLElement>(CARD_SELECTOR);
+}
+
+function queryCenterStageBody(): HTMLElement | null {
+  return document.querySelector<HTMLElement>(BODY_SELECTOR);
+}
+
+function queryCenterStagePanel(): HTMLElement | null {
+  return (
+    document.querySelector<HTMLElement>('[data-panel-id="root-center-stage"]') ??
+    document.querySelector<HTMLElement>("#root-center-stage")
+  );
+}
+
+function insetsFromRect(
+  rect: DOMRect,
+  pad: { left?: number; top?: number; right?: number; bottom?: number } = {},
+): TaskDrawerInsets {
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  return {
+    left: Math.max(0, Math.round(rect.left) + (pad.left ?? 0)),
+    top: Math.max(0, Math.round(rect.top) + (pad.top ?? 0)),
+    right: Math.max(0, Math.round(vw - rect.right) + (pad.right ?? 0)),
+    bottom: Math.max(0, Math.round(vh - rect.bottom) + (pad.bottom ?? 0)),
+    gap: GAP_PX,
+  };
+}
+
+function fallbackInsets(): TaskDrawerInsets {
+  return {
+    left: CENTER_STAGE_GUTTER_X_PX,
+    top: 48 + CENTER_STAGE_GUTTER_Y_PX,
+    right: CENTER_STAGE_GUTTER_X_PX,
+    bottom: APP_FOOTER_HEIGHT_PX + CENTER_STAGE_GUTTER_Y_PX,
+    gap: GAP_PX,
+  };
+}
+
 /**
- * Keep the Task GitHub drawer inside the center stage only:
- * never cover the app header, footer, or sidebars.
+ * Keep task / GitHub drawers inside the floating center-stage card.
  *
- * Geometry is measured from `[data-panel-id="root-center-stage"]` (with a
- * small outer gap), so the sheet tracks the live center panel bounds.
+ * After the shell split, `root-center-stage` also contains the app footer.
+ * Measuring the panel made the sheet overflow the card and cover the footer.
+ * Prefer the visual card, then the column above the footer.
  */
 export function useTaskDrawerInsets(): TaskDrawerInsets {
-  const [insets, setInsets] = React.useState<TaskDrawerInsets>({
-    left: GAP_PX,
-    top: GAP_PX,
-    right: GAP_PX,
-    bottom: GAP_PX,
-    gap: GAP_PX,
-  });
+  const [insets, setInsets] = React.useState<TaskDrawerInsets>(fallbackInsets);
 
-  React.useEffect(() => {
+  React.useLayoutEffect(() => {
     let frame = 0;
 
     const measure = () => {
       cancelAnimationFrame(frame);
       frame = requestAnimationFrame(() => {
-        const center =
-          document.querySelector<HTMLElement>('[data-panel-id="root-center-stage"]') ??
-          document.querySelector<HTMLElement>("#root-center-stage");
-
-        if (!center) {
-          // Fallback: header h-12 (48) + footer h-6 (24) + gap.
-          setInsets({
-            left: GAP_PX,
-            top: 48 + GAP_PX,
-            right: GAP_PX,
-            bottom: 24 + GAP_PX,
-            gap: GAP_PX,
-          });
+        const card = queryCenterStageCard();
+        if (card) {
+          setInsets(insetsFromRect(card.getBoundingClientRect()));
           return;
         }
 
-        const rect = center.getBoundingClientRect();
-        const vw = window.innerWidth;
-        const vh = window.innerHeight;
+        const body = queryCenterStageBody();
+        if (body) {
+          setInsets(
+            insetsFromRect(body.getBoundingClientRect(), {
+              left: CENTER_STAGE_GUTTER_X_PX,
+              top: CENTER_STAGE_GUTTER_Y_PX,
+              right: CENTER_STAGE_GUTTER_X_PX,
+              bottom: CENTER_STAGE_GUTTER_Y_PX,
+            }),
+          );
+          return;
+        }
 
-        setInsets({
-          left: Math.max(GAP_PX, Math.round(rect.left) + GAP_PX),
-          top: Math.max(GAP_PX, Math.round(rect.top) + GAP_PX),
-          right: Math.max(GAP_PX, Math.round(vw - rect.right) + GAP_PX),
-          bottom: Math.max(GAP_PX, Math.round(vh - rect.bottom) + GAP_PX),
-          gap: GAP_PX,
-        });
+        const panel = queryCenterStagePanel();
+        if (!panel) {
+          setInsets(fallbackInsets());
+          return;
+        }
+
+        setInsets(
+          insetsFromRect(panel.getBoundingClientRect(), {
+            left: CENTER_STAGE_GUTTER_X_PX,
+            top: CENTER_STAGE_GUTTER_Y_PX,
+            right: CENTER_STAGE_GUTTER_X_PX,
+            bottom: APP_FOOTER_HEIGHT_PX + CENTER_STAGE_GUTTER_Y_PX,
+          }),
+        );
       });
     };
 
     measure();
 
     const observer = new ResizeObserver(measure);
-    const center =
-      document.querySelector<HTMLElement>('[data-panel-id="root-center-stage"]') ??
-      document.querySelector<HTMLElement>("#root-center-stage");
-    if (center) observer.observe(center);
+    const card = queryCenterStageCard();
+    const body = queryCenterStageBody();
+    const panel = queryCenterStagePanel();
+    if (card) observer.observe(card);
+    if (body) observer.observe(body);
+    if (panel) observer.observe(panel);
 
-    // Side panels / layout root reflow change center bounds.
     const layoutRoot = document.querySelector<HTMLElement>("[data-panel-group]");
     if (layoutRoot) observer.observe(layoutRoot);
 
@@ -80,11 +130,6 @@ export function useTaskDrawerInsets(): TaskDrawerInsets {
       document.querySelector<HTMLElement>('[data-panel-id="root-left-sidebar"]') ??
       document.querySelector<HTMLElement>("#root-left-sidebar");
     if (left) observer.observe(left);
-
-    const right =
-      document.querySelector<HTMLElement>('[data-panel-id="root-right-sidebar"]') ??
-      document.querySelector<HTMLElement>("#root-right-sidebar");
-    if (right) observer.observe(right);
 
     window.addEventListener("resize", measure);
 

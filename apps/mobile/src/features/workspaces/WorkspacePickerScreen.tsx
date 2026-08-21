@@ -1,3 +1,6 @@
+import { radii } from "@/theme/radii";
+import { expoUiButtonStretchModifiers } from "@/ui/primitives/expo-ui-button-modifiers";
+import { Button, Host } from "@expo/ui";
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { Stack, type NativeStackHeaderItem, useRouter } from "expo-router";
 import type { SFSymbol } from "sf-symbols-typescript";
@@ -9,7 +12,7 @@ import { useMobileWs } from "@/providers/MobileWsProvider";
 import { useSessionStore } from "@/stores/session-store";
 import { AppScreen, EmptyState, InlineError, Section } from "@/ui/layout/app-screen";
 import { Separator } from "@/ui/layout/row";
-import { NativeButton, NativeMenuButton } from "@/ui/primitives/native-controls";
+import { NativeMenuButton } from "@/ui/primitives/native-controls";
 import { DownloadIcon, PlusIcon } from "@/ui/icons/lucide-native";
 import { useMobileTheme } from "@/theme/theme-store";
 import { buildWorkspaceProjectGroups } from "@/features/workspaces/workspace-picker-groups";
@@ -21,12 +24,16 @@ import {
   type WorkspaceWorkflowStatus,
 } from "@/features/workspaces/workspace-status";
 
+const buttonStretchModifiers = expoUiButtonStretchModifiers;
+
 export function WorkspacePickerScreen() {
   const router = useRouter();
   const theme = useMobileTheme();
   const queryClient = useQueryClient();
   const { client, state } = useMobileWs();
-  const hasAccessToken = useSessionStore((store) => store.hasAccessToken);
+  const hasDeviceCredential = useSessionStore(
+    (store) => store.hasDeviceCredential,
+  );
   const selectedServerId = useSessionStore((store) => store.selectedServerId);
   const isConnected = Boolean(client && state === "open");
   const bootstrapQueryKey = ["workspace-bootstrap", selectedServerId, state] as const;
@@ -73,17 +80,17 @@ export function WorkspacePickerScreen() {
   const projectCount = projects.length;
   const error = bootstrap.error instanceof Error ? bootstrap.error.message : null;
   const statusUpdateError = updateWorkflowStatus.error instanceof Error ? updateWorkflowStatus.error.message : null;
-  const canShowWorkspaces = hasAccessToken && isConnected && !error;
+  const canShowWorkspaces = hasDeviceCredential && isConnected && !error;
 
   return (
     <>
       <AppScreen surface="sheet">
-        {!hasAccessToken || error ? (
+        {!hasDeviceCredential || error ? (
           <GuideSection
             actionLabel="Computer Connect"
             message={error ?? "Choose a Computer before opening Workspaces."}
             onAction={() => router.replace("/computer-connect")}
-            title={!hasAccessToken ? "Connect first" : "Connection failed"}
+            title={!hasDeviceCredential ? "Connect first" : "Connection failed"}
           />
         ) : !isConnected ? (
           <GuideSection
@@ -108,15 +115,26 @@ export function WorkspacePickerScreen() {
                 {group.workspaces.length === 0 ? (
                   <View style={styles.emptyProject}>
                     <EmptyState title="No Workspaces" message="Create a workspace in this project to start working." />
-                    <NativeButton
-                      label="New Workspace"
-                      onPress={() =>
+                    <Host
+      matchContents={{ vertical: true }}
+      colorScheme={theme.colorScheme}
+      seedColor={theme.colors.ctaFill}
+      style={styles.stretchHost}
+    >
+      <Button
+        label={"New Workspace"}
+        onPress={() =>
                         router.replace({
                           pathname: "/create-workspace",
                           params: { projectGuid: group.project.guid },
-                        })
-                      }
-                    />
+                        })}
+        modifiers={buttonStretchModifiers}
+        style={{
+      height: 52,
+    }}
+        variant="filled"
+      />
+    </Host>
                   </View>
                 ) : (
                   <View>
@@ -367,11 +385,27 @@ function GuideSection({
   onAction?: () => void;
   title: string;
 }) {
+  const theme = useMobileTheme();
   return (
     <Section>
       <View style={styles.guide}>
         <EmptyState title={title} message={message} />
-        {actionLabel && onAction ? <NativeButton label={actionLabel} onPress={onAction} /> : null}
+        {actionLabel && onAction ? <Host
+      matchContents={{ vertical: true }}
+      colorScheme={theme.colorScheme}
+      seedColor={theme.colors.ctaFill}
+      style={styles.stretchHost}
+    >
+      <Button
+        label={actionLabel}
+        onPress={onAction}
+        modifiers={buttonStretchModifiers}
+        style={{
+      height: 52,
+    }}
+        variant="filled"
+      />
+    </Host> : null}
       </View>
     </Section>
   );
@@ -404,6 +438,16 @@ function updateBootstrapWorkspaceStatus(
 }
 
 const styles = StyleSheet.create({
+  stretchHost: {
+    alignSelf: "stretch",
+    width: "100%",
+  },
+  growHost: {
+    alignSelf: "stretch",
+    flex: 1,
+    minWidth: 0,
+    width: "100%",
+  },
   emptyProject: {
     gap: 12,
     padding: 16,

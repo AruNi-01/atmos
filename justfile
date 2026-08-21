@@ -184,6 +184,12 @@ dev-api *args:
         export CORS_ORIGIN="http://localhost:${web_port},http://127.0.0.1:${web_port}"
     fi
 
+    # Linear OAuth finish persists tokens on Hub (core-service). Prefer explicit env;
+    # fall back to web's NEXT_PUBLIC_ / prod Hub so local API is not misconfigured.
+    if [[ -z "${ATMOS_HUB_URL:-}" && -z "${NEXT_PUBLIC_ATMOS_HUB_URL:-}" ]]; then
+        export ATMOS_HUB_URL="https://hub.atmos.land"
+    fi
+
     if [[ -n "$port" ]]; then
         cargo run --bin api -- --port "$port" --cleanup-stale-clients "$cleanup_stale_clients"
     else
@@ -264,6 +270,10 @@ dev-api-watch *args:
         export CORS_ORIGIN="http://localhost:${web_port},http://127.0.0.1:${web_port}"
     fi
 
+    if [[ -z "${ATMOS_HUB_URL:-}" && -z "${NEXT_PUBLIC_ATMOS_HUB_URL:-}" ]]; then
+        export ATMOS_HUB_URL="https://hub.atmos.land"
+    fi
+
     if [[ -n "$port" ]]; then
         cargo watch -x "run --bin api -- --port $port --cleanup-stale-clients $cleanup_stale_clients" -w apps/api -w crates
     else
@@ -337,6 +347,12 @@ build-cli:
 # 构建本地 Web runtime 产物 (api + atmos + web)
 build-local-runtime *args:
     node ./scripts/local-runtime/build-runtime.mjs {{args}}
+
+# Pack vendored serve-sim into a darwin-arm64 archive (APP-060).
+#   just pack-serve-sim
+#   just pack-serve-sim --install
+pack-serve-sim *args:
+    bash scripts/serve-sim/pack.sh {{args}}
 
 # 构建所有 Rust 项目
 build-rust:

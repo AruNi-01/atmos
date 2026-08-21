@@ -7,7 +7,7 @@ use async_trait::async_trait;
 use tokio::time::{sleep, timeout, Instant};
 
 use crate::models::{TokenUsageGroupBy, TokenUsageQuery};
-use crate::service::{CollectedTokenUsageReports, TokenUsageCollector};
+use crate::service::{CollectedTokenUsageReports, CookieEnrichmentOutcome, TokenUsageCollector};
 use crate::{TokenUsageError, TokenUsageService};
 
 struct FakeCollector {
@@ -41,6 +41,35 @@ impl TokenUsageCollector for DelayedCollector {
         self.calls.fetch_add(1, Ordering::SeqCst);
         sleep(self.delay).await;
         Ok(sample_reports())
+    }
+}
+
+struct DelayedEnrichCollector {
+    collect_calls: Arc<AtomicUsize>,
+    enrich_delay: Duration,
+}
+
+#[async_trait]
+impl TokenUsageCollector for DelayedEnrichCollector {
+    async fn collect(
+        &self,
+        _query: &TokenUsageQuery,
+        _force_sync: bool,
+    ) -> Result<CollectedTokenUsageReports, TokenUsageError> {
+        self.collect_calls.fetch_add(1, Ordering::SeqCst);
+        Ok(sample_reports())
+    }
+
+    async fn enrich_cookie_sources(
+        &self,
+        _query: &TokenUsageQuery,
+        _force: bool,
+    ) -> CookieEnrichmentOutcome {
+        sleep(self.enrich_delay).await;
+        CookieEnrichmentOutcome {
+            warnings: vec![],
+            reports: Some(sample_reports()),
+        }
     }
 }
 
@@ -241,6 +270,42 @@ async fn get_overview_loads_cached_overview_from_disk_on_startup() {
     assert_eq!(startup_calls.load(Ordering::SeqCst), 0);
 
     let _ = fs::remove_file(&cache_path);
+}
+
+#[tokio::test]
+async fn get_overview_returns_local_scan_before_cookie_enrichment() {
+    let collect_calls = Arc::new(AtomicUsize::new(0));
+    let service = TokenUsageService::new(
+        Arc::new(DelayedEnrichCollector {
+            collect_calls: Arc::clone(&collect_calls),
+            enrich_delay: Duration::from_millis(80),
+        }),
+        Duration::from_secs(300),
+    );
+    let mut updates = service.subscribe_updates();
+    let query = TokenUsageQuery {
+        clients: None,
+        since: None,
+        until: None,
+        year: None,
+        group_by: TokenUsageGroupBy::ClientModel,
+    };
+
+    let started = Instant::now();
+    let overview = service.get_overview(query, false).await.unwrap();
+    assert!(started.elapsed() < Duration::from_millis(50));
+    assert_eq!(overview.summary.total_tokens, 710);
+    assert_eq!(collect_calls.load(Ordering::SeqCst), 1);
+    assert!(matches!(
+        updates.try_recv(),
+        Err(tokio::sync::broadcast::error::TryRecvError::Empty)
+    ));
+
+    let update = timeout(Duration::from_secs(1), updates.recv())
+        .await
+        .expect("cookie enrichment should publish")
+        .unwrap();
+    assert_eq!(update.overview.summary.total_tokens, 710);
 }
 
 fn test_cache_path(label: &str) -> PathBuf {

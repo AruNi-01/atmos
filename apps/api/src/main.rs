@@ -4,13 +4,14 @@ mod config;
 mod error;
 mod middleware;
 mod relay;
+mod simulator;
 
 use std::sync::Arc;
 
 use crate::api::ws::{
     automation_event_to_ws_message, WsEvent, WsManager, WsMessage, WsMessageService,
 };
-use crate::middleware::{require_local_token, require_loopback_or_token};
+use crate::middleware::{require_allowed_origin, require_local_token, require_loopback_or_token};
 use app_state::{AppServices, AppState};
 use axum::{
     http::{
@@ -104,6 +105,13 @@ fn spawn_agent_hook_forwarder(
                         }
                         AgentHookEvent::AttentionCleared { stable_pane_ids } => (
                             WsEvent::AgentAttentionCleared,
+                            json!({ "stable_pane_ids": stable_pane_ids }),
+                        ),
+                        AgentHookEvent::AttentionSummaryUpdated(summary) => {
+                            (WsEvent::AgentAttentionSummaryUpdated, json!(summary))
+                        }
+                        AgentHookEvent::AttentionSummaryCleared { stable_pane_ids } => (
+                            WsEvent::AgentAttentionSummaryCleared,
                             json!({ "stable_pane_ids": stable_pane_ids }),
                         ),
                     };
@@ -251,6 +259,8 @@ fn spawn_non_critical_startup_tasks(
 
 /// Product job id for agent-hooks idle session cleanup (APP-051).
 const AGENT_HOOKS_IDLE_CLEANUP_JOB_ID: &str = "agent-hooks.idle_session_cleanup";
+/// Product job id for unattended need-attention auto-summary.
+const AGENT_HOOKS_ATTENTION_SUMMARY_JOB_ID: &str = "agent-hooks.attention_auto_summary";
 
 /// Register the agent-hook session cleanup interval job (every 5 minutes).
 async fn register_idle_session_cleanup_job(
@@ -287,20 +297,110 @@ async fn register_idle_session_cleanup_job(
     }
 }
 
+/// Poll sticky task-complete attention and spawn headless auto-summaries.
+async fn register_attention_summary_job(
+    jobs: Arc<LocalScheduler>,
+    agent_hooks_service: Arc<core_service::AgentHooksService>,
+    terminal_service: Arc<core_service::TerminalService>,
+) {
+    if let Err(error) = jobs
+        .set_interval_job(
+            JobId::new(AGENT_HOOKS_ATTENTION_SUMMARY_JOB_ID),
+            IntervalSpec {
+                // 30s keeps the configurable delay responsive without busy-looping.
+                every: std::time::Duration::from_secs(30),
+                skip_if_running: true,
+                fire_immediately: false,
+            },
+            RetryPolicy::none(),
+            move || {
+                let agent_hooks_service = Arc::clone(&agent_hooks_service);
+                let terminal_service = Arc::clone(&terminal_service);
+                async move {
+                    tick_attention_auto_summary(agent_hooks_service, terminal_service).await;
+                    Ok(())
+                }
+            },
+        )
+        .await
+    {
+        warn!(
+            "Failed to register agent-hooks attention auto-summary job: {}",
+            error
+        );
+    }
+}
+
+async fn tick_attention_auto_summary(
+    agent_hooks_service: Arc<core_service::AgentHooksService>,
+    terminal_service: Arc<core_service::TerminalService>,
+) {
+    let settings = read_attention_summary_settings();
+    if !settings.enabled {
+        return;
+    }
+    // Bound concurrent headless summaries so one idle burst cannot spawn
+    // an agent-cli process per pane in a single tick.
+    const MAX_SUMMARIES_PER_TICK: usize = 3;
+    let due = agent_hooks_service.attention_due_for_summary(settings.delay());
+    for latch in due.into_iter().take(MAX_SUMMARIES_PER_TICK) {
+        let Some((latch, _row, generation)) =
+            agent_hooks_service.begin_attention_summary(&latch.stable_pane_id)
+        else {
+            continue;
+        };
+        let service = Arc::clone(&agent_hooks_service);
+        let terminal = Arc::clone(&terminal_service);
+        let settings = settings.clone();
+        tokio::spawn(async move {
+            match core_service::generate_attention_summary(
+                &latch,
+                &settings,
+                Some(terminal.as_ref()),
+            )
+            .await
+            {
+                Ok(payload) => {
+                    let _ = service.complete_attention_summary(
+                        &latch.stable_pane_id,
+                        generation,
+                        payload,
+                    );
+                }
+                Err(error) => {
+                    warn!(
+                        pane = %latch.stable_pane_id,
+                        "Attention auto-summary failed: {error}"
+                    );
+                    let _ = service.fail_attention_summary(
+                        &latch.stable_pane_id,
+                        generation,
+                        error.to_string(),
+                    );
+                }
+            }
+        });
+    }
+}
+
 struct AgentHookSessionTimeouts {
     idle_mins: u64,
     active_stale_mins: u64,
 }
 
-fn read_agent_hook_session_timeouts() -> AgentHookSessionTimeouts {
-    const DEFAULT_IDLE: u64 = 30;
-    const DEFAULT_ACTIVE_STALE: u64 = 30;
-    let path = dirs::home_dir()
+fn terminal_code_agent_settings_path() -> std::path::PathBuf {
+    dirs::home_dir()
         .unwrap_or_else(|| std::path::PathBuf::from("."))
         .join(".atmos")
         .join("config")
         .join("agent")
-        .join("terminal_code_agent.json");
+        .join("terminal_code_agent.json")
+}
+
+fn read_agent_hook_session_timeouts() -> AgentHookSessionTimeouts {
+    const DEFAULT_IDLE: u64 = 30;
+    const DEFAULT_ACTIVE_STALE: u64 = 30;
+    let path = terminal_code_agent_settings_path();
     let Ok(content) = std::fs::read_to_string(&path) else {
         return AgentHookSessionTimeouts {
             idle_mins: DEFAULT_IDLE,
@@ -323,6 +423,17 @@ fn read_agent_hook_session_timeouts() -> AgentHookSessionTimeouts {
             .and_then(|v| v.as_u64())
             .unwrap_or(DEFAULT_ACTIVE_STALE),
     }
+}
+
+fn read_attention_summary_settings() -> core_service::AttentionSummarySettings {
+    let path = terminal_code_agent_settings_path();
+    let Ok(content) = std::fs::read_to_string(&path) else {
+        return core_service::AttentionSummarySettings::default();
+    };
+    let Ok(val) = serde_json::from_str::<serde_json::Value>(&content) else {
+        return core_service::AttentionSummarySettings::default();
+    };
+    core_service::AttentionSummarySettings::from_json(&val)
 }
 
 /// rustls 0.23+ requires an explicit process-wide provider before TLS (relay WSS, reqwest, etc.).
@@ -439,6 +550,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let quota_usage_service = Arc::new(QuotaUsageService::default());
     quota_usage_service.attach_jobs(Arc::clone(&jobs)).await;
     let token_usage_service = Arc::new(TokenUsageService::default());
+    token_usage::import_legacy_cookie_consents();
     let terminal_service = Arc::new(TerminalService::new_with_db(Arc::clone(&db)));
     let agent_hooks_service = Arc::new(AgentHooksService::new());
     let notification_service = Arc::new(NotificationService::new());
@@ -456,6 +568,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Canvas terminal-agent relay. Shared between WsMessageService (browser
     // uplink) and the HTTP invoke handler (CLI ingress).
     let canvas_agent_relay = Arc::new(CanvasAgentRelay::new());
+    let pt_design_agent_relay = Arc::new(CanvasAgentRelay::new());
 
     // WsMessageService handles all WebSocket-based operations
     let ws_message_service = Arc::new(WsMessageService::new(
@@ -469,6 +582,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Arc::clone(&review_service),
         Arc::clone(&quota_usage_service),
         Arc::clone(&canvas_agent_relay),
+        Arc::clone(&pt_design_agent_relay),
         Arc::clone(&notification_service),
         Arc::clone(&token_usage_service),
         Arc::clone(&db),
@@ -513,6 +627,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             agent_hooks_service: Arc::clone(&agent_hooks_service),
             notification_service: Arc::clone(&notification_service),
             canvas_agent_relay: Arc::clone(&canvas_agent_relay),
+            pt_design_agent_relay: Arc::clone(&pt_design_agent_relay),
             review_service: Arc::clone(&review_service),
         },
         server_config.port,
@@ -709,6 +824,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let project_service_for_startup = Arc::clone(&app_state.project_service);
     let agent_hooks_for_startup = Arc::clone(&app_state.agent_hooks_service);
+    let terminal_service_for_startup = Arc::clone(&app_state.terminal_service);
+
+    // Outermost layer: a WebSocket handshake bypasses CORS entirely, so untrusted
+    // browser origins have to be rejected before routing reaches /ws.
+    let origin_guard_config = Arc::new(server_config.clone());
 
     let mut app = Router::new()
         .route("/healthz", get(|| async { StatusCode::OK }))
@@ -717,7 +837,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_state(app_state)
         .layer(TraceLayer::new_for_http())
         .layer(map_response(add_private_network_header))
-        .layer(cors);
+        .layer(cors)
+        .layer(from_fn(move |headers, req, next| {
+            require_allowed_origin(headers, req, next, origin_guard_config.clone())
+        }));
 
     if let Ok(static_dir) = std::env::var("ATMOS_STATIC_DIR") {
         let static_path = std::path::PathBuf::from(&static_dir);
@@ -784,7 +907,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Arc::clone(&agent_hooks_for_startup),
         actual_addr.port(),
     );
-    register_idle_session_cleanup_job(Arc::clone(&jobs), agent_hooks_for_startup).await;
+    register_idle_session_cleanup_job(Arc::clone(&jobs), Arc::clone(&agent_hooks_for_startup))
+        .await;
+    register_attention_summary_job(
+        Arc::clone(&jobs),
+        agent_hooks_for_startup,
+        terminal_service_for_startup,
+    )
+    .await;
 
     // Serve with graceful shutdown — ensures PTY resources are cleaned up
     // when the process receives SIGTERM/SIGINT (e.g., during hot-reload).

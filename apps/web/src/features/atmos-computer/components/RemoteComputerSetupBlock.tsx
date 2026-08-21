@@ -71,6 +71,7 @@ export function RemoteComputerSetupBlock({
   accessToken,
   relaySecretKey = '',
   busy,
+  className,
 }: {
   active?: boolean;
   hasAccessToken: boolean;
@@ -78,6 +79,7 @@ export function RemoteComputerSetupBlock({
   accessToken: string;
   relaySecretKey?: string;
   busy: boolean;
+  className?: string;
 }) {
   const t = useTranslations('atmosComputer.remoteSetup');
   const registerCommandShown = useAtmosComputerStore(state => state.registerCommandShown);
@@ -173,7 +175,7 @@ export function RemoteComputerSetupBlock({
     : t('actions.copy');
 
   return (
-    <div className="space-y-4 rounded-lg border border-dashed border-border/80 bg-muted/10 px-4 py-4">
+    <div className={cn('space-y-4', className)}>
       <CommandBlock
         title={t('title')}
         description={setupDescription}

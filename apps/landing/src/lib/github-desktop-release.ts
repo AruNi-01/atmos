@@ -1,4 +1,5 @@
 export const GITHUB_REPO_PATH = "/AruNi-01/atmos";
+export const GITHUB_REPO_URL = `https://github.com${GITHUB_REPO_PATH}`;
 export const GITHUB_RELEASES_URL = `https://github.com${GITHUB_REPO_PATH}/releases`;
 export const GITHUB_RELEASES_ATOM_URL = `https://github.com${GITHUB_REPO_PATH}/releases.atom`;
 

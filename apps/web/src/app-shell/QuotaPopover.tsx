@@ -34,7 +34,6 @@ import {
   useSensor,
   useSensors,
   type DragEndEvent,
-  arrayMove,
   SortableContext,
   horizontalListSortingStrategy,
   restrictToHorizontalAxis,
@@ -52,6 +51,8 @@ import { useQuotaProviderOrder } from "@/shared/stores/use-ui-pref-hooks";
 import {
   formatNextAutoRefreshHint,
   formatTimestamp,
+  reorderQuotaProvidersKeepingEnabledFirst,
+  sortQuotaProvidersBySwitchAndOrder,
 } from "./quota-popover-utils";
 import { AggregateDetail, ProviderDetail } from "./quota-popover-detail";
 import {
@@ -102,10 +103,12 @@ interface QuotaPopoverProps {
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   embedded?: boolean;
+  /** When false, skip quota fetches (e.g. Canvas keep-alive hidden). */
+  dataEnabled?: boolean;
   onPopoverCloseAutoFocus?: (e: Event) => void;
 }
 
-export function QuotaPopover({ open: externalOpen, onOpenChange: externalOnOpenChange, embedded = false, onPopoverCloseAutoFocus }: QuotaPopoverProps = {}) {
+export function QuotaPopover({ open: externalOpen, onOpenChange: externalOnOpenChange, embedded = false, dataEnabled = true, onPopoverCloseAutoFocus }: QuotaPopoverProps = {}) {
   const t = useTranslations("appShell.usagePopover");
   const locale = useLocale();
   const providerScrollRef = useRef<HTMLDivElement | null>(null);
@@ -113,7 +116,7 @@ export function QuotaPopover({ open: externalOpen, onOpenChange: externalOnOpenC
   const [internalOpen, setInternalOpen] = useState(false);
   const open = embedded ? true : externalOpen !== undefined ? externalOpen : internalOpen;
   const setOpen = externalOnOpenChange !== undefined ? externalOnOpenChange : setInternalOpen;
-  const usageQuery = useQuotaOverviewQuery({ enabled: open || embedded });
+  const usageQuery = useQuotaOverviewQuery({ enabled: dataEnabled && (open || embedded) });
   const { setOverview: writeOverviewCache } = useQuotaOverviewCache();
   const overview = usageQuery.data ?? null;
   const [selectedProviderId, setSelectedProviderId] = useState<string>(ALL_PROVIDER_ID);
@@ -255,7 +258,7 @@ export function QuotaPopover({ open: externalOpen, onOpenChange: externalOnOpenC
   }, [usageQuery.isError, usageQuery.error, overview]);
 
   useEffect(() => {
-    if (!open || !overview?.auto_refresh.interval_minutes) return;
+    if (!dataEnabled || !open || !overview?.auto_refresh.interval_minutes) return;
 
     setNowMs(Date.now());
 
@@ -264,7 +267,7 @@ export function QuotaPopover({ open: externalOpen, onOpenChange: externalOnOpenC
     }, 1_000);
 
     return () => window.clearInterval(timer);
-  }, [open, overview?.auto_refresh.interval_minutes]);
+  }, [dataEnabled, open, overview?.auto_refresh.interval_minutes]);
 
   useEffect(() => {
     if (selectedProviderId === ALL_PROVIDER_ID) return;
@@ -276,13 +279,7 @@ export function QuotaPopover({ open: externalOpen, onOpenChange: externalOnOpenC
   const switches = useMemo(
     () => {
       const providers = overview?.providers ?? [];
-      const orderIndex = new Map(providerOrder.map((id, index) => [id, index]));
-      const orderedProviders = [...providers].sort((left, right) => {
-        const leftOrder = orderIndex.get(left.id) ?? Number.MAX_SAFE_INTEGER;
-        const rightOrder = orderIndex.get(right.id) ?? Number.MAX_SAFE_INTEGER;
-        if (leftOrder !== rightOrder) return leftOrder - rightOrder;
-        return left.label.localeCompare(right.label);
-      });
+      const orderedProviders = sortQuotaProvidersBySwitchAndOrder(providers, providerOrder);
 
       return [
         {
@@ -324,13 +321,26 @@ export function QuotaPopover({ open: externalOpen, onOpenChange: externalOnOpenC
     const { active, over } = event;
     if (!over || active.id === over.id) return;
 
-    setProviderOrder((current) => {
-      const oldIndex = current.indexOf(String(active.id));
-      const newIndex = current.indexOf(String(over.id));
-      if (oldIndex === -1 || newIndex === -1) return current;
-      return arrayMove(current, oldIndex, newIndex);
-    });
-  }, [setProviderOrder]);
+    const providers = overview?.providers ?? [];
+    const visualIds = sortQuotaProvidersBySwitchAndOrder(providers, providerOrder).map(
+      (provider) => provider.id,
+    );
+    const switchEnabledIds = providers
+      .filter((provider) => provider.switch_enabled)
+      .map((provider) => provider.id);
+    const next = reorderQuotaProvidersKeepingEnabledFirst(
+      visualIds,
+      String(active.id),
+      String(over.id),
+      switchEnabledIds,
+    );
+
+    setProviderOrder((current) =>
+      next.length === current.length && next.every((id, index) => id === current[index])
+        ? current
+        : next,
+    );
+  }, [overview?.providers, providerOrder, setProviderOrder]);
 
   const updateProviderScrollState = useCallback(() => {
     const el = providerScrollRef.current;
@@ -420,7 +430,7 @@ export function QuotaPopover({ open: externalOpen, onOpenChange: externalOnOpenC
   const showProviderArrows = providerScrollState.hasOverflow;
 
   useEffect(() => {
-    if (!open || showFooterActions || !canCycleFooterInfo) {
+    if (!dataEnabled || !open || showFooterActions || !canCycleFooterInfo) {
       setFooterInfoMode("updated");
       return;
     }
@@ -434,6 +444,7 @@ export function QuotaPopover({ open: externalOpen, onOpenChange: externalOnOpenC
 
     return () => window.clearInterval(timer);
   }, [
+    dataEnabled,
     open,
     showFooterActions,
     canCycleFooterInfo,
@@ -922,7 +933,7 @@ export function QuotaPopover({ open: externalOpen, onOpenChange: externalOnOpenC
               <PopoverTrigger asChild>
                 <button
                   aria-label={t("triggerAria")}
-                  className="size-8 flex items-center justify-center rounded-md text-muted-foreground transition-colors duration-200 ease-out hover:bg-accent hover:text-accent-foreground"
+                  className="size-8 flex items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                 >
                   <Gauge className="size-3.5" />
                 </button>

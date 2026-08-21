@@ -2,7 +2,7 @@
 
 import { createTranslator } from "next-intl";
 import { v4 as uuidv4 } from "uuid";
-import type { MosaicDirection, MosaicNode } from "react-mosaic-component";
+import type { TerminalLayoutDirection, TerminalLayoutNode } from "@/features/terminal/types/index";
 import { nextOscTitleAfterIncoming, resolveIncomingOscTitle } from "@atmos/shared/terminal";
 
 import type { TmuxWindow } from "@/api/rest-api";
@@ -21,7 +21,7 @@ import zhMessages from "../../../../messages/zh.json";
 export const TERMINAL_TAB_VALUE_PREFIX = "terminal-tab:";
 
 /**
- * Normalize untrusted OSC 0/2 text before storing on a pane (shared by mosaic / wiki / CR).
+ * Normalize untrusted OSC 0/2 text before storing on a pane (shared by grid / wiki / CR).
  * Returns `undefined` for empty/noise. Callers that must **not** wipe a previous
  * agent topic on shell path noise should use {@link resolveIncomingOscTitle}
  * and ignore the `ignore` action instead of writing `undefined`.
@@ -89,7 +89,7 @@ type TerminalLookupState = {
 type TerminalRuntimeEvictState = TerminalLookupState & {
   workspaceActiveTerminalTabIds: Record<string, string>;
   workspaceActivePaneIds: Record<string, string | null>;
-  workspaceLayouts: Record<string, MosaicNode<string> | null>;
+  workspaceLayouts: Record<string, TerminalLayoutNode<string> | null>;
   workspaceMaximizedIds: Record<string, string | null>;
   loadedWorkspaces: Set<string>;
   hydratedTerminalScopes: Set<string>;
@@ -100,12 +100,12 @@ type TerminalRuntimeEvictState = TerminalLookupState & {
   tmuxWindowsCache: Record<string, TmuxWindow[]>;
   workspaceContexts: Record<string, boolean>;
   projectWikiPanes: Record<string, Record<string, TerminalPaneProps>>;
-  projectWikiLayouts: Record<string, MosaicNode<string> | null>;
+  projectWikiLayouts: Record<string, TerminalLayoutNode<string> | null>;
   projectWikiMaximizedIds: Record<string, string | null>;
   projectWikiLoadedWorkspaces: Set<string>;
   projectWikiInitializingWorkspaces: Set<string>;
   codeReviewPanes: Record<string, Record<string, TerminalPaneProps>>;
-  codeReviewLayouts: Record<string, MosaicNode<string> | null>;
+  codeReviewLayouts: Record<string, TerminalLayoutNode<string> | null>;
   codeReviewMaximizedIds: Record<string, string | null>;
   codeReviewLoadedWorkspaces: Set<string>;
   codeReviewInitializingWorkspaces: Set<string>;
@@ -113,7 +113,7 @@ type TerminalRuntimeEvictState = TerminalLookupState & {
 
 type TerminalPersistenceState = TerminalLookupState & {
   workspaceActiveTerminalTabIds: Record<string, string>;
-  workspaceLayouts: Record<string, MosaicNode<string> | null>;
+  workspaceLayouts: Record<string, TerminalLayoutNode<string> | null>;
   workspaceMaximizedIds: Record<string, string | null>;
 };
 
@@ -305,7 +305,7 @@ export function getWorkspacePaneFieldsByPaneId(
   return { dynamicTitle: pane.dynamicTitle, oscTitle: pane.oscTitle, agent: pane.agent };
 }
 
-/** Read transient title + agent for a tmux-attached pane (same fields the mosaic uses). */
+/** Read transient title + agent for a tmux-attached pane (same fields the grid pane uses). */
 export function getWorkspacePaneLiveFieldsByTmuxWindow(
   state: TerminalLookupState,
   workspaceId: string,
@@ -405,7 +405,7 @@ export function hydratePersistedTab(
   livePanes?: Record<string, TerminalPaneProps> | null,
 ): {
   panes: Record<string, TerminalPaneProps>;
-  layout: MosaicNode<string> | null;
+  layout: TerminalLayoutNode<string> | null;
   maximizedTerminalId: string | null;
 } | null {
   if (!tab.layout || !tab.panes || Object.keys(tab.panes).length === 0) {
@@ -478,7 +478,7 @@ export function createInitialLayout(
   existingPanes: Record<string, TerminalPaneProps> = {},
 ): {
   panes: Record<string, TerminalPaneProps>;
-  layout: MosaicNode<string>;
+  layout: TerminalLayoutNode<string>;
 } {
   const initialId = uuidv4();
   const windowName =
@@ -500,7 +500,7 @@ export function createLayoutFromTmuxWindows(
   windows: TmuxWindow[],
 ): {
   panes: Record<string, TerminalPaneProps>;
-  layout: MosaicNode<string>;
+  layout: TerminalLayoutNode<string>;
 } | null {
   if (windows.length === 0) return null;
 
@@ -517,7 +517,7 @@ export function createLayoutFromTmuxWindows(
     });
   }
 
-  let layout: MosaicNode<string> = paneIds[0];
+  let layout: TerminalLayoutNode<string> = paneIds[0];
   for (let index = 1; index < paneIds.length; index++) {
     layout = {
       direction: "row",
@@ -819,9 +819,9 @@ export function buildPersistedTerminalWorkspaceLayout(
 }
 
 export function removePaneFromLayout(
-  node: MosaicNode<string> | null,
+  node: TerminalLayoutNode<string> | null,
   targetId: string,
-): MosaicNode<string> | null {
+): TerminalLayoutNode<string> | null {
   if (!node) return null;
   if (typeof node === "string") {
     return node === targetId ? null : node;
@@ -837,11 +837,11 @@ export function removePaneFromLayout(
 }
 
 export function splitPaneInLayout(
-  node: MosaicNode<string>,
+  node: TerminalLayoutNode<string>,
   targetId: string,
   newId: string,
-  direction: MosaicDirection,
-): MosaicNode<string> {
+  direction: TerminalLayoutDirection,
+): TerminalLayoutNode<string> {
   if (typeof node === "string") {
     if (node === targetId) {
       return {

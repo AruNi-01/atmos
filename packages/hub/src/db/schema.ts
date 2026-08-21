@@ -4,7 +4,7 @@
  * Business: devices, usage_shares, user_profiles, user_integrations
  */
 import { sql } from "drizzle-orm";
-import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { index, integer, real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 // ---------------------------------------------------------------------------
 // Better Auth core (provider: sqlite, camelCase fields via drizzle adapter)
@@ -142,16 +142,41 @@ export const userProfiles = sqliteTable(
     userId: text("user_id")
       .primaryKey()
       .references(() => user.id, { onDelete: "cascade" }),
-    handle: text("handle").notNull().unique(),
+    /** Public vanity slug. Null until the user claims once (APP-061). */
+    handle: text("handle"),
     handleChangedAt: integer("handle_changed_at", { mode: "timestamp_ms" }),
+    handleClaimedAt: integer("handle_claimed_at", { mode: "timestamp_ms" }),
     primaryShareId: text("primary_share_id"),
     profilePublic: integer("profile_public", { mode: "boolean" })
       .notNull()
       .default(false),
+    avatarUrl: text("avatar_url"),
+    githubUsername: text("github_username"),
+    xUsername: text("x_username"),
+    usageVisibility: text("usage_visibility").notNull().default("off"),
+    unlistedTokenHash: text("unlisted_token_hash"),
+    includeCost: integer("include_cost", { mode: "boolean" })
+      .notNull()
+      .default(false),
+    snapshotJson: text("snapshot_json"),
+    snapshotUpdatedAt: integer("snapshot_updated_at", { mode: "timestamp_ms" }),
+    shareTotalTokens: integer("share_total_tokens"),
+    shareTotalCostUsd: real("share_total_cost_usd"),
     updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
   },
-  (t) => [uniqueIndex("user_profiles_handle_uidx").on(t.handle)],
+  (t) => [
+    uniqueIndex("user_profiles_handle_uidx").on(t.handle),
+    index("idx_profiles_public_tokens").on(t.usageVisibility, t.shareTotalTokens),
+    index("idx_profiles_public_cost").on(t.usageVisibility, t.shareTotalCostUsd),
+  ],
 );
+
+/** Materialized public boards; write-path debounce 5m, hourly cron rebuilds. */
+export const usageLeaderboards = sqliteTable("usage_leaderboards", {
+  boardId: text("board_id").primaryKey(),
+  payloadJson: text("payload_json").notNull(),
+  updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+});
 
 /** Third-party product integrations (Linear, …) — sole credential store (no local dual). */
 export const userIntegrations = sqliteTable(
@@ -184,4 +209,5 @@ export const hubSchema = {
   usageShares,
   userProfiles,
   userIntegrations,
+  usageLeaderboards,
 };

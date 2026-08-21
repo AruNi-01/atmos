@@ -4,7 +4,7 @@ import type {
   LinearRateLimitPayload,
   LinearStatusPayload,
 } from "@atmos/api-types/ws/dto/linear";
-import { hubAuthForLocalApi } from "@/api/hub-client";
+import { withHubAuth } from "@/api/hub-client";
 import { getActiveLinearApiKeyForRequest } from "@/features/settings/lib/linear-local-keys";
 import { wsRequest } from "@/api/ws/request";
 
@@ -12,6 +12,10 @@ export type LinearIssueListParams = {
   preset?: string;
   team_id?: string;
   project_id?: string;
+  /** Linear workflow state types: backlog | unstarted | started | completed | canceled. */
+  state_types?: string[];
+  assignee_ids?: string[];
+  label_ids?: string[];
   query?: string;
   first?: number;
   after?: string;
@@ -26,28 +30,24 @@ export function linearOauthClientId(): string {
   );
 }
 
-type LinearAuthFields = {
-  hub_cookie: string;
-  device_credential: string;
-  linear_api_key?: string;
-};
-
+/**
+ * Attach unified Hub identity (+ optional local Linear API key).
+ * Call sites never see cookie vs device.
+ */
 function withLinearAuth<T extends Record<string, unknown>>(
   data: T,
   opts?: { linearApiKey?: string | null },
-): T & LinearAuthFields {
-  const hub = hubAuthForLocalApi();
+): T & ReturnType<typeof withHubAuth> {
   // Explicit null/empty disables local key injection (OAuth / validate-only).
-  const key =
+  const linearApiKey =
     opts && "linearApiKey" in opts
-      ? opts.linearApiKey?.trim() || undefined
-      : getActiveLinearApiKeyForRequest() || undefined;
-  return {
-    ...data,
-    hub_cookie: hub.hub_cookie,
-    device_credential: hub.device_credential,
-    ...(key ? { linear_api_key: key } : {}),
-  };
+      ? opts.linearApiKey
+      : getActiveLinearApiKeyForRequest() ?? null;
+  const client_id = linearOauthClientId() || undefined;
+  return withHubAuth(
+    client_id ? { ...data, client_id } : data,
+    { linearApiKey },
+  );
 }
 
 export const wsLinearApi = {
@@ -58,7 +58,10 @@ export const wsLinearApi = {
 
   /** Validate a personal API key (does not store on Hub). */
   connectApiKey: (api_key: string): Promise<LinearStatusPayload> =>
-    wsRequest("linear_connect_api_key", withLinearAuth({ api_key }, { linearApiKey: null })),
+    wsRequest(
+      "linear_connect_api_key",
+      withLinearAuth({ api_key }, { linearApiKey: null }),
+    ),
 
   oauthStart: (shell: "desktop" | "web", web_origin?: string) => {
     const client_id = linearOauthClientId();
@@ -87,22 +90,23 @@ export const wsLinearApi = {
   },
 
   disconnect: (): Promise<LinearStatusPayload> =>
-    wsRequest(
-      "linear_disconnect",
-      withLinearAuth({}, { linearApiKey: null }),
-    ),
+    wsRequest("linear_disconnect", withLinearAuth({}, { linearApiKey: null })),
 
   rateLimit: (opts?: {
     linearApiKey?: string | null;
   }): Promise<LinearRateLimitPayload> =>
     wsRequest("linear_rate_limit", withLinearAuth({}, opts)),
 
-  issueList: (params: LinearIssueListParams = {}): Promise<LinearIssueListPagePayload> =>
+  issueList: (
+    params: LinearIssueListParams = {},
+  ): Promise<LinearIssueListPagePayload> =>
     wsRequest("linear_issue_list", withLinearAuth({ ...params })),
 
   filterOptions: (): Promise<{
     teams: Array<{ id: string; name: string; key: string }>;
     projects: Array<{ id: string; name: string }>;
+    users: Array<{ id: string; name: string; avatar_url?: string | null }>;
+    labels: Array<{ id: string; name: string; color?: string | null }>;
   }> => wsRequest("linear_filter_options", withLinearAuth({})),
 
   linkIssue: (workspace_guid: string, issue: unknown): Promise<LinearLinkPayload> =>

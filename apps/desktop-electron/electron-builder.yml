@@ -5,6 +5,12 @@ appId: com.atmos.desktop
 productName: Atmos
 copyright: Atmos
 
+# System-browser OAuth "Back to Atmos" → focus the running app.
+protocols:
+  - name: Atmos
+    schemes:
+      - atmos
+
 directories:
   output: release
   buildResources: resources

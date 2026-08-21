@@ -4,65 +4,85 @@ import { AppState, Appearance } from "react-native";
 import * as Network from "expo-network";
 import * as SystemUI from "expo-system-ui";
 import { QueryClientProvider, focusManager, onlineManager } from "@tanstack/react-query";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 import { createAtmosQueryClient } from "@/providers/query-client";
 import { MobileWsProvider } from "@/providers/MobileWsProvider";
-import { getStoredAccessToken, storeAccessToken } from "@/lib/access-token";
-import { loadDevAccessTokenImport } from "@/lib/dev-access-token-import";
-import { clearRelaySecretKey, getStoredRelaySecretKey, storeRelaySecretKey } from "@/lib/relay-secret-key";
+import { acceptDeviceCredential, hasDeviceCredential } from "@/lib/device-credential";
+import {
+  isDevDeviceImportEnabled,
+  loadDevDeviceImport,
+} from "@/lib/dev-device-import";
+import { ensureMobileHubConfigured } from "@/lib/hub-config";
+import {
+  clearRelaySecretKey,
+  getStoredRelaySecretKey,
+  storeRelaySecretKey,
+} from "@/lib/relay-secret-key";
 import { useSessionStore } from "@/stores/session-store";
+import { MobileThemeVariablesProvider } from "@/providers/MobileThemeVariablesProvider";
 import { useMobileTheme } from "@/theme/theme-store";
 
 export function AppProviders({ children }: PropsWithChildren) {
   const theme = useMobileTheme();
   const queryClient = useMemo(() => createAtmosQueryClient(), []);
-  const setAccessTokenLoaded = useSessionStore((state) => state.setAccessTokenLoaded);
+  const setDeviceCredentialLoaded = useSessionStore(
+    (state) => state.setDeviceCredentialLoaded,
+  );
   const setRelayUrl = useSessionStore((state) => state.setRelayUrl);
   const setRelaySecretKey = useSessionStore((state) => state.setRelaySecretKey);
 
   useEffect(() => {
     let cancelled = false;
 
-    const loadAccessToken = async () => {
-      const storedToken = await getStoredAccessToken();
-      if (storedToken) {
+    const bootstrap = async () => {
+      await ensureMobileHubConfigured();
+
+      if (hasDeviceCredential()) {
         setRelaySecretKey((await getStoredRelaySecretKey()) ?? "");
-        if (!cancelled) setAccessTokenLoaded(true);
+        if (!cancelled) setDeviceCredentialLoaded(true);
         return;
       }
 
-      const imported = await loadDevAccessTokenImport();
-      if (imported) {
-        await storeAccessToken(imported.accessToken);
-        if (imported.relayUrl) {
-          setRelayUrl(imported.relayUrl);
+      if (isDevDeviceImportEnabled()) {
+        const imported = await loadDevDeviceImport();
+        if (imported) {
+          await acceptDeviceCredential({
+            device_id: imported.deviceId,
+            device_credential: imported.deviceCredential,
+          });
+          if (imported.relayUrl) {
+            setRelayUrl(imported.relayUrl);
+          }
+          if (imported.relaySecretKey) {
+            await storeRelaySecretKey(imported.relaySecretKey);
+            setRelaySecretKey(imported.relaySecretKey);
+          } else {
+            await clearRelaySecretKey();
+            setRelaySecretKey("");
+          }
+          if (!cancelled) setDeviceCredentialLoaded(true);
+          return;
         }
-        if (imported.relaySecretKey) {
-          await storeRelaySecretKey(imported.relaySecretKey);
-          setRelaySecretKey(imported.relaySecretKey);
-        } else {
-          await clearRelaySecretKey();
-          setRelaySecretKey("");
-        }
-        if (!cancelled) setAccessTokenLoaded(true);
-        return;
       }
 
       await clearRelaySecretKey();
       setRelaySecretKey("");
-      if (!cancelled) setAccessTokenLoaded(false);
+      if (!cancelled) setDeviceCredentialLoaded(false);
     };
 
-    void loadAccessToken().catch(() => {
-      if (!cancelled) setAccessTokenLoaded(false);
+    void bootstrap().catch(() => {
+      if (!cancelled) setDeviceCredentialLoaded(false);
     });
 
     return () => {
       cancelled = true;
     };
-  }, [setAccessTokenLoaded, setRelayUrl, setRelaySecretKey]);
+  }, [setDeviceCredentialLoaded, setRelayUrl, setRelaySecretKey]);
 
   useEffect(() => {
-    Appearance.setColorScheme(theme.preference === "system" ? "unspecified" : theme.preference);
+    Appearance.setColorScheme(
+      theme.preference === "system" ? "unspecified" : theme.preference,
+    );
     void SystemUI.setBackgroundColorAsync(theme.colors.background);
   }, [theme.colors.background, theme.preference]);
 
@@ -82,8 +102,13 @@ export function AppProviders({ children }: PropsWithChildren) {
   }, []);
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <MobileWsProvider>{children}</MobileWsProvider>
-    </QueryClientProvider>
+    // Theme vars wrap SafeArea so inset VariableContext inherits color tokens.
+    <MobileThemeVariablesProvider>
+      <SafeAreaProvider>
+        <QueryClientProvider client={queryClient}>
+          <MobileWsProvider>{children}</MobileWsProvider>
+        </QueryClientProvider>
+      </SafeAreaProvider>
+    </MobileThemeVariablesProvider>
   );
 }

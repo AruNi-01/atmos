@@ -23,12 +23,14 @@ import {
   toastManager,
   Zap,
 } from "@workspace/ui";
-import { HardDrive, Presentation } from "lucide-react";
+import { HardDrive, PencilRuler, Presentation } from "lucide-react";
 import { appApi } from "@/api/ws-api";
 import type { GithubPrPayload } from "@/api/ws/github-api";
 import { currentAppLocale } from "@/shared/lib/current-app-locale";
-import type { SettingsModalTab } from "@/shared/lib/nuqs/searchParams";
+import { settingsHref } from "@/features/settings/lib/open-settings";
+import { settingsGroupTabForSearchItem } from "@/features/settings/lib/settings-section-group-tabs";
 import { writeQuickOpenLastUsed } from "@/shared/stores/use-ui-pref-hooks";
+import { tasksPathWithStoredSource } from "@/features/task/lib/task-source-preference";
 import enMessages from "../../messages/en.json";
 import zhMessages from "../../messages/zh.json";
 import {
@@ -117,12 +119,11 @@ interface BuildGlobalSearchItemsParams {
   setCanvasOpen: (open: boolean) => void;
 
   setIsLeftCollapsed: (collapsed: boolean) => void;
-  setActiveSettingTab: (tab: SettingsModalTab) => void;
-  setSettingsOpen: (open: boolean) => void;
   setSubView: (view: "todo" | "commit" | "usage") => void;
-  showCreating: () => void;
-  showOpening: (workspaceId: string) => void;
-  clearWorkspaceCreationOverlay: () => void;
+  startCreating: (input: { originKey: string; label?: string | null }) => string;
+  bindWorkspace: (jobId: string, workspaceId: string, label?: string | null) => void;
+  failCreating: (jobId: string) => void;
+  createOriginKey: string;
 }
 
 export function buildGlobalSearchItems({
@@ -149,13 +150,11 @@ export function buildGlobalSearchItems({
   setLeftSidebarTab,
   setCanvasOpen,
   setIsLeftCollapsed,
-
-  setActiveSettingTab,
-  setSettingsOpen,
   setSubView,
-  showCreating,
-  showOpening,
-  clearWorkspaceCreationOverlay,
+  startCreating,
+  bindWorkspace,
+  failCreating,
+  createOriginKey,
 }: BuildGlobalSearchItemsParams): AppSearchItem[] {
   const items: AppSearchItem[] = [];
   const setPendingSettingsHighlight = (query: string | null) => {
@@ -386,6 +385,19 @@ export function buildGlobalSearchItems({
     },
   });
 
+  items.push({
+    id: "launchpad-pt-design",
+    type: "launchpad",
+    title: globalSearchItemsT("launchpad.ptDesign.title"),
+    description: globalSearchItemsT("launchpad.ptDesign.description"),
+    keywords: ["launchpad", "prototype", "design", "pt-design", "wireframe", "board", "mockup"],
+    icon: <PencilRuler className="size-4 text-muted-foreground" />,
+    action: () => {
+      router.push("/pt-design");
+      setGlobalSearchOpen(false);
+    },
+  });
+
   items.push(
     {
       id: "modal-llm-providers",
@@ -418,7 +430,7 @@ export function buildGlobalSearchItems({
       keywords: ["kanban", "task", "board", "workspace", "workspaces", "status", "priority", "view", "open", "github", "issue", "pr"],
       icon: <ListTodo className="size-4 text-muted-foreground" />,
       action: () => {
-        router.push("/tasks");
+        router.push(tasksPathWithStoredSource());
         setGlobalSearchOpen(false);
       },
     },
@@ -443,8 +455,7 @@ export function buildGlobalSearchItems({
       icon: <Settings className="size-4 text-muted-foreground" />,
       action: () => {
         setPendingSettingsHighlight(null);
-        setActiveSettingTab("about");
-        setSettingsOpen(true);
+        router.push(settingsHref("general", "about"));
         setGlobalSearchOpen(false);
       },
     },
@@ -468,8 +479,7 @@ export function buildGlobalSearchItems({
       icon: <Settings className="size-4 text-muted-foreground" />,
       action: () => {
         setPendingSettingsHighlight(null);
-        setActiveSettingTab(section.id);
-        setSettingsOpen(true);
+        router.push(settingsHref(section.id));
         setGlobalSearchOpen(false);
       },
     });
@@ -496,8 +506,10 @@ export function buildGlobalSearchItems({
       searchOnly: true,
       action: () => {
         setPendingSettingsHighlight(`${settingItem.label} ${settingItem.description}`.trim());
-        setActiveSettingTab(settingItem.sectionId);
-        setSettingsOpen(true);
+        router.push(settingsHref(
+          settingItem.sectionId,
+          settingsGroupTabForSearchItem(settingItem) ?? undefined,
+        ));
         setGlobalSearchOpen(false);
       },
     });
@@ -552,13 +564,12 @@ export function buildGlobalSearchItems({
       keywords: ["new", "workspace", "quick", "create", project.name],
       icon: <Zap className="size-4 text-muted-foreground" />,
       action: async () => {
-        showCreating();
+        const jobId = startCreating({ originKey: createOriginKey });
         const workspaceId = await quickAddWorkspace(project.id);
         if (workspaceId) {
-          showOpening(workspaceId);
-          router.push(`/workspace?id=${workspaceId}`);
+          bindWorkspace(jobId, workspaceId);
         } else {
-          clearWorkspaceCreationOverlay();
+          failCreating(jobId);
         }
         setGlobalSearchOpen(false);
       },

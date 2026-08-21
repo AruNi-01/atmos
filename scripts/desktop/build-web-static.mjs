@@ -99,6 +99,12 @@ export function buildWebStaticForDesktop(rootDir = defaultRootDir) {
         // Desktop must always boot through the local runtime, even if a
         // developer's web .env.local forces hosted onboarding for browser work.
         NEXT_PUBLIC_FORCE_HOSTED_ONBOARDING: "0",
+        // Bake Hub control-plane URL into the static export (APP-056 Account sign-in).
+        // Prefer explicit env / apps/web/.env.local; default production Hub.
+        NEXT_PUBLIC_ATMOS_HUB_URL:
+          process.env.NEXT_PUBLIC_ATMOS_HUB_URL ??
+          loadWebEnvVar(rootDir, "NEXT_PUBLIC_ATMOS_HUB_URL") ??
+          "https://hub.atmos.land",
         NEXT_PUBLIC_TLDRAW_LICENSE_KEY:
           process.env.NEXT_PUBLIC_TLDRAW_LICENSE_KEY ??
           loadWebEnvVar(rootDir, "NEXT_PUBLIC_TLDRAW_LICENSE_KEY") ??

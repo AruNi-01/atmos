@@ -5,7 +5,12 @@ pub mod utils;
 
 pub use error::{Result, ServiceError};
 pub use service::agent::AgentService;
-pub use service::agent_hooks::{AgentHookEvent, AgentHooksService};
+pub use service::agent_hooks::{
+    generate_attention_summary, resolve_workspace_agent_group_key, AgentAttentionLatch,
+    AgentAttentionReason, AgentAttentionSummary, AgentHookEvent, AgentHooksService,
+    AttentionSummaryPayload, AttentionSummarySettings, AttentionSummaryStatus,
+    WorkspaceAgentGroupKey, WorkspaceAgentGroupSnapshot,
+};
 pub use service::agent_session::{AgentSessionService, LazySessionSpec, ResumeNativeSessionSpec};
 pub use service::automation::{
     ensure_builtin_terminal_agents_upgraded, AutomationAgentCapability, TerminalAgentCliStatus,
@@ -49,13 +54,14 @@ pub use service::local_services::{
 };
 pub use service::message_push::MessagePushService;
 pub use service::notification::NotificationService;
-pub use service::project::ProjectService;
+pub use service::project::{ProjectScripts, ProjectService, PROJECT_SCRIPTS_RELATIVE_PATH};
 pub use service::review::ReviewService;
 pub use service::terminal::{
-    AttachSessionParams, CaptureSideContextParams, CapturedSideContext, CreateSessionParams,
-    CreateSimpleSessionParams, SessionDetail, SessionType, TerminalKind, TerminalMessage,
-    TerminalResponse, TerminalService, TerminalSideChatRecord, TerminalSideChatStatus,
-    UpsertTerminalSideChatParams,
+    process_captured_pane_text, select_transcript, strip_ansi_and_controls, AttachSessionParams,
+    CapturePanePlainTextParams, CaptureSideContextParams, CapturedPanePlainText,
+    CapturedSideContext, CreateSessionParams, CreateSimpleSessionParams, SessionDetail,
+    SessionType, TerminalKind, TerminalMessage, TerminalResponse, TerminalService,
+    TerminalSideChatRecord, TerminalSideChatStatus, TranscriptBudget, UpsertTerminalSideChatParams,
 };
 pub use service::terminal_overview::build_terminal_overview_active_sessions_json;
 pub use service::test::TestService;

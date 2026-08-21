@@ -6,6 +6,8 @@
     "dev": "next dev --port 3001 --turbopack",
     "dev:portless": "portless landing next dev --turbopack",
     "build": "next build",
+    "build:pages": "node ../../scripts/pages/build-pages-landing.mjs",
+    "deploy:pages": "node ../../scripts/pages/deploy-pages-landing.mjs",
     "start": "next start",
     "lint": "eslint",
     "typecheck": "bun ../../scripts/run-tsc7.ts --noEmit"
@@ -28,6 +30,7 @@
     "next": "16.3.0",
     "next-intl": "^4.7.0",
     "next-themes": "^0.4.6",
+    "posthog-js": "^1.415.6",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-markdown": "^10.1.0",

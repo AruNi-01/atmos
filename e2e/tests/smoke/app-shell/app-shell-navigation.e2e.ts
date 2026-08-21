@@ -24,7 +24,7 @@ test.describe("smoke app shell navigation", () => {
     await page.keyboard.press("Escape");
     await expect(page.getByRole("dialog", { name: "Command Palette" })).toBeHidden();
 
-    await page.getByRole("button", { name: "Usage" }).click();
+    await page.getByRole("button", { name: "Usage", exact: true }).click();
     const usageDialog = page.getByRole("dialog").filter({ hasText: "All Providers" });
     await expect(usageDialog).toBeVisible();
     await page.keyboard.press("Escape");

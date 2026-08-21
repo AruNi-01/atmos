@@ -3,7 +3,6 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import { useTranslations } from "next-intl";
 import { Loader2 } from "lucide-react";
-import { useQueryState } from "nuqs";
 import { TextShimmer } from "@workspace/ui";
 import {
   localModelApi,
@@ -11,15 +10,14 @@ import {
   type LocalModelListResponse,
 } from "@/api/ws-api";
 import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
-import { settingsModalParams } from "@/shared/lib/nuqs/searchParams";
+import { useOpenSettings } from "@/features/settings/lib/open-settings";
 
 export function LocalModelDownloadProgress() {
   const t = useTranslations("appShell.localModelDownload");
   const [data, setData] = useState<LocalModelListResponse | null>(null);
   const [isVisible, setIsVisible] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
-  const [, setIsSettingsOpen] = useQueryState("settingsModal", settingsModalParams.settingsModal);
-  const [, setActiveSettingTab] = useQueryState("activeSettingTab", settingsModalParams.activeSettingTab);
+  const openSettings = useOpenSettings();
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const load = useCallback(async () => {
@@ -115,9 +113,7 @@ export function LocalModelDownloadProgress() {
   };
 
   const handleClick = () => {
-    // Open settings modal and navigate to AI section
-    setIsSettingsOpen(true);
-    setActiveSettingTab("ai");
+    openSettings("models");
   };
 
   const downloadText = isDownloadingRuntime ? t("downloadingRuntime") : t("downloadingModel");
@@ -128,14 +124,14 @@ export function LocalModelDownloadProgress() {
 
   return (
     <div
-      className="desktop-no-drag flex h-7 items-center overflow-hidden rounded-md border border-border transition-colors hover:border-border/80"
+      className="desktop-no-drag flex h-7 items-center overflow-hidden rounded-md border border-border hover:border-border/80"
       onMouseLeave={() => setIsExpanded(false)}
     >
       {/* Main indicator - always shows loading icon and progress */}
       <button
         onClick={handleClick}
         onMouseEnter={() => setIsExpanded(true)}
-        className="flex h-full items-center rounded-md px-2 transition-all outline-none hover:cursor-pointer hover:bg-accent/50"
+        className="flex h-full items-center rounded-md px-2 outline-none hover:cursor-pointer hover:bg-accent"
         title={t("openSettings")}
       >
         <Loader2 className="size-3.5 shrink-0 animate-spin text-muted-foreground" />

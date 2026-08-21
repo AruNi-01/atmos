@@ -662,17 +662,44 @@ export const agentHooksApi = {
     return fetchHooksApi<{ attention: AgentAttentionLatchDto[] }>('/hooks/attention');
   },
 
+  /**
+   * Workspace Agent grouping snapshot held in API memory (sessions + attention).
+   * Survives browser refresh until the local API process restarts.
+   */
+  listWorkspaceAgentGroups: async (): Promise<{
+    groups: WorkspaceAgentGroupSnapshotDto[];
+  }> => {
+    return fetchHooksApi<{ groups: WorkspaceAgentGroupSnapshotDto[] }>(
+      '/hooks/workspace-agent-groups',
+    );
+  },
+
   clearAttention: async (input: {
     stablePaneId?: string;
     stablePaneIds?: string[];
+    /** RFC3339: only clear latches raised at or before this (dismiss race guard). */
+    notAfter?: string;
+    /** Also drop auto-summary chrome. Focus-ack omits this; Dismiss / send set it. */
+    dismissSummary?: boolean;
   }): Promise<{ cleared: string[] }> => {
     return fetchHooksApi<{ cleared: string[] }>('/hooks/attention/clear', {
       method: 'POST',
       body: JSON.stringify({
         stable_pane_id: input.stablePaneId,
         stable_pane_ids: input.stablePaneIds,
+        not_after: input.notAfter,
+        dismiss_summary: input.dismissSummary === true ? true : undefined,
       }),
     });
+  },
+
+  /** Unattended task-complete auto-summaries held in API memory. */
+  listAttentionSummaries: async (): Promise<{
+    summaries: AgentAttentionSummaryDto[];
+  }> => {
+    return fetchHooksApi<{ summaries: AgentAttentionSummaryDto[] }>(
+      '/hooks/attention/summaries',
+    );
   },
 
   /** Resolve contested short CLI names (e.g. bare `agent`) to a product owner. */
@@ -685,13 +712,41 @@ export const agentHooksApi = {
 
 export type AgentAttentionReasonDto = 'permission_request' | 'task_complete';
 
+export type WorkspaceAgentGroupKeyDto =
+  | 'permission'
+  | 'attention'
+  | 'running'
+  | 'done'
+  | 'idle';
+
+export type WorkspaceAgentGroupSnapshotDto = {
+  context_id: string;
+  group_key: WorkspaceAgentGroupKeyDto;
+};
+
 export type AgentAttentionLatchDto = {
   stable_pane_id: string;
   context_id: string;
   reason: AgentAttentionReasonDto;
   session_id: string;
   tool?: string | null;
+  project_path?: string | null;
   raised_at: string;
+};
+
+export type AttentionSummaryStatusDto = 'summarizing' | 'ready' | 'error';
+
+export type AgentAttentionSummaryDto = {
+  stable_pane_id: string;
+  context_id: string;
+  session_id: string;
+  status: AttentionSummaryStatusDto;
+  summary?: string | null;
+  next_steps?: string[] | null;
+  can_close_session?: boolean | null;
+  error?: string | null;
+  started_at: string;
+  completed_at?: string | null;
 };
 
 // ===== Workspace Terminal Layout API =====
@@ -1033,5 +1088,40 @@ export const canvasApi = {
         body: JSON.stringify({ name: name ?? null }),
       },
     );
+  },
+};
+
+export type PtDesignLibraryItem = {
+  name: string;
+  modified_at: number;
+  size_bytes: number;
+};
+
+export type PtDesignLibraryList = {
+  dir: string;
+  items: PtDesignLibraryItem[];
+};
+
+export const ptDesignApi = {
+  listDocuments: async (): Promise<PtDesignLibraryList> => {
+    return fetchApi<PtDesignLibraryList>("/api/pt-design/documents");
+  },
+
+  getDocument: async (name: string): Promise<{ name: string; body: { scene?: unknown } }> => {
+    return fetchApi<{ name: string; body: { scene?: unknown } }>(
+      `/api/pt-design/documents/${encodeURIComponent(name)}`,
+    );
+  },
+
+  putDocument: async (
+    name: string,
+    body: unknown,
+    options?: { overwrite?: boolean },
+  ): Promise<{ name: string }> => {
+    const qs = options?.overwrite === false ? "" : "?overwrite=true";
+    return fetchApi<{ name: string }>(`/api/pt-design/documents/${encodeURIComponent(name)}${qs}`, {
+      method: "PUT",
+      body: JSON.stringify(body),
+    });
   },
 };

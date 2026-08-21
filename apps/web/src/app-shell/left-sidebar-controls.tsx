@@ -35,10 +35,12 @@ import {
   WorkspaceListShowMoreLess,
 } from "@/app-shell/sidebar/workspace-list-pagination";
 import {
+  getWorkspaceAgentGroupMeta,
   getWorkspaceWorkflowStatusMeta,
   type SidebarGroupingMode,
 } from "@/app-shell/sidebar/workspace-status";
 import { getWorkspacePriorityMeta } from "@/app-shell/sidebar/workspace-metadata-controls";
+import type { WorkspaceAgentGroupKey } from "@/features/agent/lib/workspace-agent-status";
 import {
   UNTAGGED_WORKSPACE_GROUP_KEY,
   type FlattenedWorkspaceEntry,
@@ -48,7 +50,8 @@ import {
   selectAttentionFilterMode,
   useAgentAttentionStore,
 } from "@/features/agent/store/agent-attention-store";
-export { LeftSidebarFooter, LeftSidebarTabsHeader } from "./left-sidebar-tab-footer-controls";
+import { LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS } from "@/app-shell/sidebar-layout-constants";
+export { LeftSidebarFooter } from "./left-sidebar-tab-footer-controls";
 
 type DndSensors = React.ComponentProps<typeof DndContext>["sensors"];
 type PanelGroupStorage = React.ComponentProps<typeof PanelGroup>["storage"];
@@ -275,7 +278,9 @@ export function SidebarColumnResizeHandle({
     <PanelResizeHandle
       onDragging={onDragging}
       className={cn(
-        "relative flex h-full self-stretch w-px items-center justify-center bg-sidebar-border/70 transition-colors duration-200 hover:bg-sidebar-border group touch-none",
+        // Invisible by default so the sidebar has no hard divider; show a thin
+        // hover affordance so resize remains discoverable.
+        "relative flex h-full self-stretch w-px items-center justify-center bg-transparent transition-colors duration-200 hover:bg-sidebar-border/50 group touch-none",
         "before:absolute before:inset-y-0 before:left-1/2 before:w-1 before:-translate-x-1/2",
       )}
     />
@@ -375,7 +380,10 @@ function WorkspaceGroupMarker({
         group.key as Parameters<typeof getWorkspacePriorityMeta>[0],
       )
     : null;
-  const GroupIcon = statusMeta?.icon ?? priorityMeta?.icon;
+  const agentMeta = groupingMode === "agent"
+    ? getWorkspaceAgentGroupMeta(group.key as WorkspaceAgentGroupKey)
+    : null;
+  const GroupIcon = statusMeta?.icon ?? priorityMeta?.icon ?? agentMeta?.icon;
 
   if (GroupIcon) {
     return (
@@ -383,7 +391,7 @@ function WorkspaceGroupMarker({
         className={cn(
           // size-4 matches Launchpad / outside nav icons for a shared icon column.
           "size-4 shrink-0",
-          statusMeta?.className ?? priorityMeta?.className,
+          statusMeta?.className ?? priorityMeta?.className ?? agentMeta?.className,
         )}
       />
     );
@@ -453,14 +461,14 @@ function SortableWorkspaceGroupSection({
     >
       <div
         className={cn(
-          "group relative flex items-center rounded-lg transition-colors hover:bg-sidebar-accent/40",
+          "group relative flex items-center rounded-lg hover:bg-sidebar-accent",
           attentionFilterMode && "opacity-45",
         )}
       >
         <button
           type="button"
           onClick={toggleWorkspaceGroup}
-          className="flex min-w-0 flex-1 items-center gap-1.5 py-2 pl-3 pr-2 text-left text-[11px] font-semibold tracking-[0.03em] text-muted-foreground transition-colors hover:text-sidebar-foreground"
+          className="flex min-w-0 flex-1 items-center gap-1.5 py-2 pl-3 pr-2 text-left text-[11px] font-semibold tracking-[0.03em] text-muted-foreground hover:text-sidebar-accent-foreground"
         >
           <WorkspaceGroupMarker group={group} groupingMode={groupingMode} />
           <span className="truncate">{group.label}</span>
@@ -577,7 +585,7 @@ export function GroupedWorkspaceOneColumnContent({
           }
           strategy={verticalListSortingStrategy}
         >
-          <div className="space-y-0.5 px-2">
+          <div className={cn("space-y-0.5 pl-2", LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS)}>
             {visibleGroups.map((group) => {
               const stateKey = `${groupingMode}:${group.key}`;
               return (
@@ -630,10 +638,10 @@ export function GroupedWorkspaceTwoColumnLeftContent({
               type="button"
               onClick={() => onSelectGroup(group.key)}
               className={cn(
-                "flex w-full items-center gap-1.5 rounded-lg px-3 py-2 text-left text-[11px] font-semibold tracking-[0.03em] transition-colors",
+                "flex w-full items-center gap-1.5 rounded-lg px-3 py-2 text-left text-[11px] font-semibold tracking-[0.03em]",
                 isSelected
                   ? "bg-sidebar-accent text-sidebar-foreground"
-                  : "text-muted-foreground hover:bg-sidebar-accent/40 hover:text-sidebar-foreground",
+                  : "text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
                 // Dim group chrome in attention filter so workspace rows stand out in the right pane.
                 attentionFilterMode && "opacity-45",
               )}
@@ -682,35 +690,38 @@ export function GroupedWorkspaceTwoColumnRightContent({
   } = useWorkspaceListVisibleCount(groupItems.length, selectedGroup?.key);
   const visibleItems = groupItems.slice(0, visibleCount);
 
-  // Primary open: px-3 breathing room from the divider.
-  // Primary collapsed: pl-5 lines up group icon with Launchpad; pr-2 keeps the
-  // expand control near the right edge (not inset as far as the left).
-  // List always uses px-3 so workspace rows match the two-column spacing.
-  const headerPad = isPrimaryCollapsed ? "pl-5 pr-2" : "px-3";
+  // Primary open: pl-3, with the shared divider gutter on the right.
+  // Primary collapsed: pl-5 lines up group icon with Launchpad.
+  const headerPad = isPrimaryCollapsed
+    ? cn("pl-5", LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS)
+    : cn("pl-3", LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS);
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="border-b border-sidebar-border">
-        <div className={cn("flex min-h-10 items-center gap-1", headerPad)}>
-          <div className="flex min-w-0 flex-1 items-center gap-2">
-            {selectedGroup ? (
-              <WorkspaceGroupMarker group={selectedGroup} groupingMode={groupingMode} />
-            ) : null}
-            <div className="min-w-0">
-              <div className="truncate text-sm font-medium text-sidebar-foreground">
-                {selectedGroup?.label ?? t("leftSidebarControls.selectGroup")}
-              </div>
+      <div className={cn("flex min-h-10 items-center gap-1", headerPad)}>
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          {selectedGroup ? (
+            <WorkspaceGroupMarker group={selectedGroup} groupingMode={groupingMode} />
+          ) : null}
+          <div className="min-w-0">
+            <div className="truncate text-sm font-medium text-sidebar-foreground">
+              {selectedGroup?.label ?? t("leftSidebarControls.selectGroup")}
             </div>
           </div>
-          <div className="shrink-0">
-            <TwoColumnSidebarToggleButton
-              collapsed={isPrimaryCollapsed}
-              onClick={onTogglePrimaryPanel}
-            />
-          </div>
+        </div>
+        <div className="shrink-0">
+          <TwoColumnSidebarToggleButton
+            collapsed={isPrimaryCollapsed}
+            onClick={onTogglePrimaryPanel}
+          />
         </div>
       </div>
-      <div className="scrollbar-on-hover flex-1 overflow-y-auto px-3 py-2">
+      <div
+        className={cn(
+          "scrollbar-on-hover flex-1 overflow-y-auto py-2 pl-3",
+          LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS,
+        )}
+      >
         {!selectedGroup ? (
           <div className="px-3 py-6 text-sm text-muted-foreground">
             {t("leftSidebarControls.selectGroupDescription")}
@@ -882,12 +893,13 @@ export function ProjectWorkspaceTwoColumnRightContent({
     </DndContext>
   );
 
-  // Primary open: px-3 from the divider. Primary collapsed: pl-5 for Launchpad
-  // alignment, pr-2 so the expand control sits near the right edge.
+  // Primary open: pl-3, with the shared divider gutter on the right.
+  // Primary collapsed: pl-5 for Launchpad alignment.
   // Only bleed the left so ProjectItem doesn't collide with the toggle.
-  // List always px-3 — same indent whether one or two columns are visible.
-  const headerPad = isPrimaryCollapsed ? "pl-5 pr-2" : "px-3";
-  const projectHeaderBleed = isPrimaryCollapsed ? "-ml-5" : "-mx-3";
+  const headerPad = isPrimaryCollapsed
+    ? cn("pl-5", LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS)
+    : cn("pl-3", LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS);
+  const projectHeaderBleed = isPrimaryCollapsed ? "-ml-5" : "-ml-3 -mr-1";
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -937,7 +949,12 @@ export function ProjectWorkspaceTwoColumnRightContent({
           </div>
         </div>
       </div>
-      <div className="scrollbar-on-hover flex-1 overflow-y-auto px-3 py-2">
+      <div
+        className={cn(
+          "scrollbar-on-hover flex-1 overflow-y-auto py-2 pl-3",
+          LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS,
+        )}
+      >
         {!selectedProject ? (
           <div className="px-3 py-6 text-sm text-muted-foreground">
             {t("leftSidebarControls.selectProjectDescription")}
@@ -950,7 +967,7 @@ export function ProjectWorkspaceTwoColumnRightContent({
                 onOpenChange={onPinnedExpandedChange}
                 className="space-y-1.5"
               >
-                <CollapsibleTrigger className="group flex w-full items-center gap-1.5 rounded-lg px-3 py-2 text-left text-[11px] font-semibold tracking-[0.03em] text-muted-foreground transition-colors hover:bg-sidebar-accent/40 hover:text-sidebar-foreground">
+                <CollapsibleTrigger className="group flex w-full items-center gap-1.5 rounded-lg px-3 py-2 text-left text-[11px] font-semibold tracking-[0.03em] text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground">
                   <span className="truncate">{t("leftSidebarControls.pinned")}</span>
                   <ChevronRight className={cn("ml-1 size-3 shrink-0 opacity-0 transition-all duration-200 group-hover:opacity-100", isPinnedExpanded && "rotate-90")} />
                   <span className="ml-auto text-[10px] text-muted-foreground/80">
@@ -1012,7 +1029,7 @@ export function ProjectWorkspaceTwoColumnRightContent({
                 onOpenChange={onWorkspacesExpandedChange}
                 className="space-y-1.5"
               >
-                <CollapsibleTrigger className="group flex w-full items-center gap-1.5 rounded-lg px-3 py-2 text-left text-[11px] font-semibold tracking-[0.03em] text-muted-foreground transition-colors hover:bg-sidebar-accent/40 hover:text-sidebar-foreground">
+                <CollapsibleTrigger className="group flex w-full items-center gap-1.5 rounded-lg px-3 py-2 text-left text-[11px] font-semibold tracking-[0.03em] text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground">
                   <span className="truncate">{t("leftSidebarControls.workspaces")}</span>
                   <ChevronRight className={cn("ml-1 size-3 shrink-0 opacity-0 transition-all duration-200 group-hover:opacity-100", isWorkspacesExpanded && "rotate-90")} />
                   <span className="ml-auto text-[10px] text-muted-foreground/80">

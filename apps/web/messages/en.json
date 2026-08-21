@@ -154,12 +154,6 @@
       "expandLabel": "Expand Left Sidebar",
       "collapseLabel": "Collapse Left Sidebar"
     },
-    "rightSidebar": {
-      "expand": "Expand right sidebar",
-      "collapse": "Collapse right sidebar",
-      "expandLabel": "Expand Right Sidebar",
-      "collapseLabel": "Collapse Right Sidebar"
-    },
     "navigation": {
       "goBack": "Go back",
       "goForward": "Go forward",
@@ -167,6 +161,19 @@
       "back": "Back",
       "forward": "Forward",
       "refresh": "Refresh"
+    },
+    "workspaceJobs": {
+      "creating": "Creating workspace",
+      "countAria": "{count} workspaces in progress",
+      "countAriaReady": "{count} workspaces ready",
+      "listTitle": "{count} workspaces in progress",
+      "listTitleReady": "{count} workspaces ready",
+      "preparing": "Preparing worktree",
+      "ready": "Ready — click to open",
+      "autoOpen": "Opens automatically",
+      "back": "Back",
+      "open": "Open",
+      "creatingHint": "Preparing the worktree. Setup details appear once the workspace exists."
     },
     "searchAria": "Search",
     "searchPlaceholder": "Search...",
@@ -229,11 +236,11 @@
       "connectErrorMessage": "Could not connect.",
       "connectErrorTitle": "Could not connect",
       "connectErrorHint": "Try again.",
-      "accessKeyRequired": "Access key required",
-      "accessKeyRequiredDescription": "Save an Atmos Computer access key before switching computers from the header.",
+      "accessKeyRequired": "Sign in required",
+      "accessKeyRequiredDescription": "Sign in under Settings → Account so this app can use your Hub device. Then switch computers from the header.",
       "openComputerSettings": "Open Computer Settings",
       "noComputers": "No computers yet",
-      "noComputersDescription": "Register this computer or add another machine with the same access key.",
+      "noComputersDescription": "Register this computer or add another machine under the same Atmos account.",
       "refresh": "Refresh",
       "addComputer": "Add Computer",
       "computerCountOne": "{count} computer",
@@ -280,8 +287,7 @@
       "refreshPage": "Refresh page",
       "toggleQuotaUsage": "Toggle Quota Usage",
       "toggleNeedAttention": "Toggle need attention filter",
-      "toggleMenu": "Toggle menu",
-      "toggleRightSidebar": "Toggle right sidebar"
+      "toggleMenu": "Toggle menu"
     },
     "headerParts": {
       "defaultBranch": "default branch",
@@ -306,7 +312,11 @@
       "last_7_days": "Last 7 Days",
       "last_30_days": "Last 30 Days",
       "older": "Older",
-      "untagged": "No label"
+      "untagged": "No label",
+      "agent_permission": "Need permission",
+      "agent_attention": "Need attention",
+      "agent_running": "Running",
+      "agent_done": "Done"
     },
     "groups": {
       "ungrouped": "Ungrouped",
@@ -354,7 +364,39 @@
     "centerStageTabBar": {
       "newTerminalTab": "Terminal",
       "newBrowser": "Browser",
+      "newChanges": "Changes",
+      "newReview": "Review",
+      "newRun": "Run",
+      "newGithub": "GitHub",
+      "newPtDesign": "Prototype Design",
+      "newFiles": "Files",
+      "newSimulator": "Simulator",
+      "splitRight": "Split right",
+      "splitDown": "Split down",
+      "layouts": "Layouts",
+      "saveCurrentLayout": "Save current layout",
+      "saveLayoutDialogTitle": "Save layout",
+      "saveLayoutNamePlaceholder": "Layout name",
+      "saveLayoutConfirm": "Save",
+      "saveLayoutCancel": "Cancel",
+      "closePane": "Close",
       "newTabMenu": "New tab",
+      "changes": "Changes",
+      "closeChangesTab": "Close Changes tab",
+      "review": "Review",
+      "closeReviewTab": "Close Review tab",
+      "run": "Run",
+      "closeRunTab": "Close Run tab",
+      "github": "GitHub",
+      "closeGithubTab": "Close GitHub tab",
+      "files": "Files",
+      "closeFilesTab": "Close Files tab",
+      "ptDesign": "Prototype Design",
+      "closePtDesignTab": "Close Prototype Design tab",
+      "simulator": "Simulator",
+      "closeSimulatorTab": "Close Simulator tab",
+      "history": "Graph History",
+      "closeHistoryTab": "Close Graph History tab",
       "overview": "Overview",
       "refreshWiki": "Refresh Wiki",
       "projectWiki": "Project Wiki",
@@ -383,6 +425,7 @@
       "waitingForPermission": "Waiting for permission",
       "running": "Running",
       "napping": "Napping ~",
+      "sideChat": "Side chat",
       "agentIdle": "Agent: Idle",
       "status": {
         "normal": "NORMAL",
@@ -565,6 +608,15 @@
         "loadOverviewFallback": "Failed to load token usage overview",
         "loadOverviewTitle": "Failed to load token usage"
       },
+      "browserCookie": {
+        "title": "Include signed-in web usage",
+        "note": "Atmos found {products} on this computer. To add dashboard token usage, Atmos Server will ask Keychain Access to decrypt the matching browser cookie. Keys stay local and are used only to read usage data.",
+        "allow": "Allow",
+        "skip": "Not now",
+        "denied": "{products} cloud usage is off.",
+        "deniedNote": "Enabling will ask Keychain Access for the browser cookie key so Atmos can read dashboard usage. The key stays on this computer and is used only for usage data.",
+        "enable": "Enable"
+      },
       "header": {
         "badges": {
           "localSessionData": "Local session data",
@@ -595,6 +647,7 @@
         "model": "Model"
       },
       "share": {
+        "tab": "Share",
         "trigger": "Share",
         "dialogTitle": "Share page",
         "capturing": "Capturing…",
@@ -604,6 +657,7 @@
         "save": "Save image",
         "saved": "Saved",
         "sharePrimary": "My AI agent usage on Atmos: {tokens} tokens · {cost}",
+        "websiteLabel": "Website",
         "status": {
           "saved": "Downloaded.",
           "shared": "Shared.",
@@ -615,6 +669,55 @@
         "errors": {
           "capture": "Could not capture this page."
         }
+      },
+      "publish": {
+        "tab": "Publish",
+        "handleLabel": "Handle",
+        "handlePlaceholder": "builder",
+        "linkLabel": "Link",
+        "openPage": "Open page",
+        "visibility": {
+          "public": "Public",
+          "unlisted": "Unlisted"
+        },
+        "xPlaceholder": "username",
+        "githubPlaceholder": "username",
+        "publish": "Publish",
+        "update": "Update",
+        "turnOff": "Turn off",
+        "errors": {
+          "generic": "Could not publish this page.",
+          "usernameTaken": "That handle is taken.",
+          "handleLocked": "This handle cannot be changed.",
+          "invalidHandle": "Use 3–24 letters, numbers, or underscores.",
+          "invalidSocial": "Check the username and try again."
+        }
+      },
+      "publicPage": {
+        "notFound": "This page is not available.",
+        "generatedDate": "Generated {date}",
+        "generatedByPrefix": "Generated by ",
+        "generatedBySuffix": "",
+        "leaderboardLink": "Leaderboard"
+      },
+      "leaderboard": {
+        "updated": "Updated {time} · refreshes every hour",
+        "tokensTitle": "Token",
+        "tokensEmpty": "No public pages yet.",
+        "costTitle": "Cost",
+        "costEmpty": "Nobody has published cost yet.",
+        "colRank": "Rank",
+        "colUser": "User",
+        "colX": "X",
+        "colGithub": "GitHub",
+        "outsideTop": "Your rank"
+      },
+      "cookieAccess": {
+        "title": "Browser cookies",
+        "description": "Authorize cookie access to include Cursor and other signed-in web sessions.",
+        "grant": "Authorize",
+        "granting": "Waiting…",
+        "dismiss": "Dismiss"
       },
       "overview": {
         "agentShare": "{percent}% · {tokens} tokens"
@@ -642,6 +745,22 @@
         "estimatedCost": {
           "label": "Est. cost",
           "note": "Local estimate"
+        }
+      },
+      "loading": {
+        "tips": {
+          "tallyingAgents": "Asking each agent: \"so… how many tokens was that?\"",
+          "countingLateNight": "Catching Claude mid-sprint — those late-night tokens add up…",
+          "reconcilingInvoices": "Matching chats to models like a very patient detective…",
+          "tracingCacheHits": "High-fiving agents for every cache hit we find…",
+          "weighingInOut": "Stacking input tokens on one side, output on the other…",
+          "askingAgents": "Poking agents awake to confess their token counts…",
+          "buildingHeatmap": "Coloring the calendar with your token fireworks…",
+          "sortingAppetite": "Lining up agents from \"sip\" to \"guzzle\"…",
+          "estimatingCost": "Translating prompts into dollars (brace yourself)…",
+          "unwindingWindows": "Unrolling giant context windows into tidy charts…",
+          "negotiatingLedger": "Herding loose tokens into neat little piles…",
+          "polishingBreakdown": "Giving your token charts one last polish…"
         }
       },
       "heatmap": {
@@ -716,13 +835,18 @@
           "cache": "Cache",
           "cacheRead": "Cache read",
           "cacheWrite": "Cache write",
-          "reasoning": "Reasoning"
+          "reasoning": "Reasoning",
+          "amount": "Tokens",
+          "share": "Share"
         },
         "radar": {
           "share": "Share"
         },
         "agent": {
           "other": "Other"
+        },
+        "stacked": {
+          "total": "Total"
         }
       }
     },
@@ -889,7 +1013,9 @@
       "automations": "Automations - ATMOS",
       "diskAnalyzer": "Disk Analyzer - ATMOS",
       "tokenUsage": "Token Usage - ATMOS",
-      "tasks": "Task - ATMOS"
+      "tasks": "Task - ATMOS",
+      "ptDesign": "Prototype Design - ATMOS",
+      "settings": "Settings - ATMOS"
     },
     "localModelDownload": {
       "downloadingRuntime": "Downloading runtime",
@@ -986,6 +1112,10 @@
         "tokenUsage": {
           "title": "Token Usage",
           "description": "Review model token usage and activity"
+        },
+        "ptDesign": {
+          "title": "Launchpad: Prototype Design",
+          "description": "Open the standalone prototype design board"
         }
       },
       "tasks": {
@@ -1105,6 +1235,7 @@
         "project": "By Project",
         "group": "By Group",
         "status": "By Status",
+        "agent": "By Agent Status",
         "time": "By Time",
         "label": "By Label",
         "priority": "By Priority",
@@ -1200,11 +1331,11 @@
         "enterWorkspace": "Enter workspace",
         "create": "Create",
         "enter": "Enter",
+        "close": "Close",
         "draft": "Draft",
         "pagination": {
           "previous": "Previous",
-          "next": "Next",
-          "aggregatedHint": "Showing {count} items across {repos} repositories (sorted by {sort})."
+          "next": "Next"
         },
         "sort": {
           "label": "Sort",
@@ -1224,12 +1355,13 @@
           "label": "Search query"
         },
         "table": {
-          "comments": "Comments",
+          "comments": "Discussion",
           "checks": "Checks",
           "assignees": "Assignees",
           "linked": "Linked",
           "updatedAt": "Updated",
-          "action": "Action"
+          "action": "Action",
+          "loading": "Loading…"
         },
         "actions": {
           "createIssue": "Create issue",
@@ -1241,8 +1373,10 @@
           "description": "Choose a template and fill in the form. Required fields are marked with *.",
           "projectSelect": {
             "title": "Select a project",
-            "description": "Choose which GitHub repository to create the issue in.",
-            "empty": "No GitHub repositories linked to your Atmos projects."
+            "description": "Choose which Atmos project to create the issue in.",
+            "search": "Search projects…",
+            "empty": "No GitHub repositories linked to your Atmos projects.",
+            "noMatch": "No matching projects"
           },
           "template": {
             "label": "Template",
@@ -1332,8 +1466,10 @@
       },
       "linear": {
         "refresh": "Refresh",
-        "notConnected": "Linear is not connected.",
-        "connectHint": "Open Settings → Integrations → Linear to connect with OAuth (recommended) or a local API key.",
+        "notConnected": "Linear is not connected",
+        "connectHint": "Connect with OAuth (recommended) or a local API key to browse issues and create workspaces.",
+        "openIntegrations": "Connect Linear",
+        "openAccountSettings": "Open Account settings",
         "loadError": "Failed to load Linear issues.",
         "empty": "No issues match these filters.",
         "openInLinear": "Open in Linear",
@@ -1346,19 +1482,92 @@
           "backlog": "Backlog",
           "all": "All issues"
         },
+        "statusTypes": {
+          "backlog": "Backlog",
+          "unstarted": "Todo",
+          "started": "In Progress",
+          "completed": "Done",
+          "canceled": "Canceled"
+        },
         "filters": {
           "allTeams": "All teams",
           "allProjects": "All projects",
-          "searchPlaceholder": "Search title or id…",
-          "atmosProject": "Atmos project"
+          "searchPlaceholder": "Search title or id…"
+        },
+        "filter": {
+          "trigger": "Filter",
+          "sectionLabel": "Filter",
+          "view": "View",
+          "status": "Status",
+          "allStatuses": "All statuses",
+          "statusCount": "{count} selected",
+          "assignee": "Assignee",
+          "allAssignees": "All assignees",
+          "assigneeCount": "{count} selected",
+          "searchAssignees": "Search assignees…",
+          "noMatchingAssignees": "No matching assignees",
+          "labels": "Labels",
+          "allLabels": "All labels",
+          "labelCount": "{count} selected",
+          "searchLabels": "Search labels…",
+          "noMatchingLabels": "No matching labels",
+          "team": "Team",
+          "project": "Project",
+          "allTeams": "All teams",
+          "allProjects": "All projects",
+          "searchTeams": "Search teams…",
+          "searchProjects": "Search projects…",
+          "noMatchingTeams": "No matching teams",
+          "noMatchingProjects": "No matching projects",
+          "clearAll": "Clear all filters"
+        },
+        "search": {
+          "clear": "Clear search"
+        },
+        "table": {
+          "priority": "Priority",
+          "priorityShort": "P",
+          "noPriority": "No priority",
+          "issue": "Issue",
+          "assignee": "Assignee",
+          "createdAt": "Created",
+          "updatedAt": "Updated",
+          "action": "Action",
+          "loading": "Loading issues…",
+          "issueHint": "ID, status icon, title, labels, and linked GitHub"
+        },
+        "priority": {
+          "urgent": "Urgent",
+          "high": "High",
+          "medium": "Medium",
+          "low": "Low"
+        },
+        "pagination": {
+          "previous": "Previous",
+          "next": "Next"
         },
         "createWorkspace": "Create workspace from issue",
         "create": "Create",
+        "enter": "Enter",
+        "enterWorkspace": "Enter workspace",
         "linkOrCreate": "Open create with link",
         "needProject": "Select an Atmos project first.",
         "createFailed": "Failed to create workspace from Linear issue.",
-        "signInRequired": "Sign in to Atmos to use Linear OAuth.",
-        "signInHint": "Open Settings → Account and sign in, or add a local API key under Settings → Integrations → Linear."
+        "signInRequired": "Sign in to Atmos to use Linear OAuth",
+        "signInHint": "Sign in under Account, or add a local API key under Integrations → Linear.",
+        "drawer": {
+          "titleFallback": "Linear issue",
+          "close": "Close",
+          "status": "Status",
+          "project": "Project",
+          "noProject": "No project",
+          "labels": "Labels",
+          "noLabels": "No labels",
+          "description": "Description",
+          "noDescription": "No description.",
+          "unassigned": "Unassigned",
+          "enterWorkspace": "Enter workspace"
+        }
       }
     }
   },
@@ -1418,7 +1627,9 @@
       },
       "leftSidebarFooter": {
         "addProject": "Add Project",
-        "openTasks": "Open Task"
+        "openTasks": "Open Task",
+        "openSettings": "Open settings",
+        "settings": "Settings"
       },
       "launchpad": {
         "title": "Launchpad",
@@ -1429,75 +1640,12 @@
           "agents": "Agents",
           "automations": "Automations",
           "canvas": "Canvas",
+          "ptDesign": "Prototype Design",
           "newWorkspace": "New Workspace",
           "diskAnalyzer": "Disk Analyzer",
           "tokenUsage": "Token Usage",
           "tasks": "Task"
         }
-      },
-      "rightSidebar": {
-        "topTabs": {
-          "changes": "Changes",
-          "review": "Review",
-          "browser": "Browser",
-          "run": "Run",
-          "github": "GitHub",
-          "pullRequests": "Pull Requests",
-          "issues": "Issues",
-          "actions": "Actions"
-        },
-        "noContext": "No repository context",
-        "changes": {
-          "refreshChanges": "Refresh changes",
-          "diffTab": "Files Diff",
-          "selectScope": "Select changes scope",
-          "showAsList": "Show as list",
-          "showAsTree": "Show as tree",
-          "showChangedFilesAsList": "Show changed files as list",
-          "showChangedFilesAsTree": "Show changed files as tree",
-          "refreshCommits": "Refresh commits",
-          "loadingCommits": "Loading commits...",
-          "noCommitsOnBranch": "No commits on branch",
-          "noCommitChanges": "Commit {commit} has no file changes",
-          "noChangesAgainst": "No changes against {compareRef}",
-          "noChangesDetected": "No changes detected",
-          "compareWithDefaultBranch": "Compare with default branch ({branch})",
-          "branchChanges": "Branch changes",
-          "commitChanges": "Commit {commit} changes",
-          "stagedChanges": "Staged changes",
-          "unstagedChanges": "Unstaged changes",
-          "untrackedChanges": "Untracked changes",
-          "noRepositoryContext": "No repository context",
-          "scope": {
-            "unstaged": "Unstaged",
-            "staged": "Staged",
-            "commit": "Commit",
-            "branch": "Branch"
-          }
-        },
-        "pr": {
-          "refreshOpenPullRequests": "Refresh open pull requests",
-          "refreshClosedPullRequests": "Refresh closed pull requests",
-          "loadingOpen": "Loading open pull requests...",
-          "loadingClosed": "Loading closed pull requests...",
-          "noOpenFound": "No open pull requests found for <highlight>{branch}</highlight>",
-          "noClosedFound": "No closed pull requests found for <highlight>{branch}</highlight>",
-          "selfMerging": "Self-merging detected (Circular or Sync PR)",
-          "outgoingPr": "Detected as an OUTGOING PR from your current branch ({branch})",
-          "incomingPr": "Detected as an INCOMING PR targeting your current branch ({branch})",
-          "to": "TO",
-          "unknownAuthor": "unknown",
-          "stateOpen": "open",
-          "stateClosed": "closed",
-          "stateMerged": "merged",
-          "page": "Page {page} of {total}",
-          "previousPage": "Previous",
-          "nextPage": "Next"
-        },
-        "issues": {
-          "refresh": "Refresh issues"
-        },
-        "notAGitHubRepository": "Not a GitHub repository"
       },
       "projectItem": {
         "mainDirectoryTooltip": "Main directory",
@@ -1540,6 +1688,7 @@
         "path": "Path",
         "openPullRequest": "Open pull request #{number}: {title}",
         "openChecks": "Open checks / Actions",
+        "openLinearIssue": "Open Linear {identifier}: {title}",
         "pullRequest": "Pull request",
         "prState": {
           "open": "Open",
@@ -1671,6 +1820,73 @@
         "unstagedChanges": "Unstaged Changes",
         "untrackedChanges": "Untracked Changes",
         "noChangedFiles": "No changed files"
+      },
+      "changes": {
+        "selectScope": "Select changes scope",
+        "noCommitChanges": "Commit {commit} has no file changes",
+        "noChangesAgainst": "No changes against {compareRef}",
+        "noChangesDetected": "No changes detected",
+        "compareWithDefaultBranch": "Compare with default branch ({branch})",
+        "branchChanges": "Branch changes",
+        "commitChanges": "Commit {commit} changes",
+        "stagedChanges": "Staged changes",
+        "unstagedChanges": "Unstaged changes",
+        "untrackedChanges": "Untracked changes",
+        "noRepositoryContext": "No repository context",
+        "history": "Graph History",
+        "view": {
+          "settings": "Change file view",
+          "section": "View",
+          "list": "List",
+          "tree": "Tree"
+        },
+        "actions": {
+          "stageAll": "Stage all",
+          "unstageAll": "Unstage all",
+          "discardTracked": "Discard tracked changes",
+          "trashUntracked": "Trash untracked files",
+          "moreActions": "More change actions",
+          "failedTitle": "Git action failed",
+          "failedDescription": "Try again."
+        },
+        "scope": {
+          "unstaged": "Unstaged",
+          "staged": "Staged",
+          "commit": "Commit",
+          "branch": "Branch"
+        },
+        "noContext": "No repository context"
+      },
+      "github": {
+        "noContext": "No repository context",
+        "notAGitHubRepository": "Not a GitHub repository",
+        "topTabs": {
+          "pullRequests": "Pull Requests",
+          "issues": "Issues",
+          "actions": "Actions"
+        },
+        "pr": {
+          "refreshOpenPullRequests": "Refresh open pull requests",
+          "refreshClosedPullRequests": "Refresh closed pull requests",
+          "loadingOpen": "Loading open pull requests...",
+          "loadingClosed": "Loading closed pull requests...",
+          "noOpenFound": "No open pull requests found for <highlight>{branch}</highlight>",
+          "noClosedFound": "No closed pull requests found for <highlight>{branch}</highlight>",
+          "selfMerging": "Self-merging detected (Circular or Sync PR)",
+          "outgoingPr": "Detected as an OUTGOING PR from your current branch ({branch})",
+          "incomingPr": "Detected as an INCOMING PR targeting your current branch ({branch})",
+          "to": "TO",
+          "unknownAuthor": "unknown",
+          "stateOpen": "open",
+          "stateClosed": "closed",
+          "stateMerged": "merged",
+          "page": "Page {page} of {total}",
+          "previousPage": "Previous",
+          "nextPage": "Next"
+        },
+        "issues": {
+          "refresh": "Refresh issues"
+        }
       }
     },
     "globalSearchItems": {}
@@ -1679,14 +1895,49 @@
     "listPanel": {
       "title": "Automations",
       "summary": "{automationCount} automations · {supportedAgentCount} supported agents",
+      "historySummary": "{runCount} runs",
       "searchPlaceholder": "Search automations",
-      "filters": {
-        "all": "All",
-        "project": "Project",
-        "workspace": "Workspace",
-        "standalone": "Standalone"
+      "searchRunsPlaceholder": "Search runs",
+      "tabs": {
+        "automations": "Automations",
+        "history": "Run history"
       },
-      "refreshAria": "Refresh automations",
+      "filter": {
+        "trigger": "Filter",
+        "automation": "Automation",
+        "unknownAutomation": "Deleted automation",
+        "environment": "Environment",
+        "triggerType": "Trigger",
+        "state": "State",
+        "status": "Status",
+        "clearAll": "Clear all filters",
+        "environments": {
+          "project": "Project",
+          "workspace": "Workspace",
+          "newWorkspace": "New workspace",
+          "standalone": "Standalone"
+        },
+        "triggers": {
+          "manual": "Manual",
+          "github": "GitHub",
+          "hourly": "Hourly",
+          "daily": "Daily",
+          "weekly": "Weekly",
+          "monthly": "Monthly",
+          "cron": "Cron"
+        },
+        "states": {
+          "enabled": "Enabled",
+          "paused": "Paused"
+        },
+        "statuses": {
+          "running": "Running",
+          "completed": "Completed",
+          "failed": "Failed",
+          "cancelled": "Cancelled",
+          "interrupted": "Interrupted"
+        }
+      },
       "newButton": "New automation",
       "deleteDialog": {
         "title": "Delete automation?",
@@ -1704,6 +1955,7 @@
         "disableAction": "Disable",
         "enableAction": "Enable",
         "runNow": "Run now",
+        "viewRuns": "Runs",
         "history": "History",
         "actionsAria": "Automation actions",
         "edit": "Edit",
@@ -1712,17 +1964,62 @@
       "empty": {
         "queryTitle": "No matching automations",
         "defaultTitle": "No automations yet",
-        "queryDescription": "Try a different search term.",
+        "queryDescription": "Try a different search or adjust your filters.",
         "defaultDescription": "Create your first automation to get started.",
         "clearSearch": "Clear search",
+        "clearFilters": "Clear filters",
         "newAutomation": "New automation"
       }
     },
+    "runHistoryList": {
+      "unknownAutomation": "Deleted automation",
+      "openDetails": "View details",
+      "completed": "Finished {dateTime}",
+      "trigger": {
+        "manual": "Manual",
+        "github": "GitHub",
+        "scheduled": "Scheduled"
+      },
+      "empty": {
+        "queryTitle": "No matching runs",
+        "defaultTitle": "No runs yet",
+        "queryDescription": "Try a different search or adjust your filters.",
+        "defaultDescription": "Runs will appear here after an automation starts.",
+        "clearSearch": "Clear search",
+        "clearFilters": "Clear filters"
+      }
+    },
+    "runDrawer": {
+      "title": "Run details",
+      "titleNamed": "Run {id}",
+      "close": "Close run details",
+      "standalone": {
+        "title": "Standalone conversation",
+        "description": "Continue this run in a local chat.",
+        "close": "Close conversation"
+      }
+    },
     "setup": {
+      "title": {
+        "create": "New automation",
+        "edit": "Edit automation"
+      },
+      "subtitle": {
+        "create": "Name the job, pick an environment and trigger, then write the instruction.",
+        "edit": "Update this automation’s setup, instruction, or memory."
+      },
+      "instructions": {
+        "label": "Instructions"
+      },
+      "memory": {
+        "label": "Memories",
+        "description": "Persistent notes for this job. Each run gives the agent the local memory file path so it can read it and decide whether to append or rewrite it."
+      },
       "agentOptions": {
         "ready": "Ready",
         "unavailable": "Unavailable",
-        "unavailableReason": "This agent cannot be used for automations yet."
+        "unavailableReason": "This agent cannot be used for automations yet.",
+        "select": "Select agent"
       },
       "headlines": {
         "automateNext": "What should <wordmark>Atmos</wordmark> automate next?",
@@ -1761,7 +2058,14 @@
         "withAgent": "Describe what {agentName} should do...",
         "default": "Describe what this automation should do..."
       },
-      "backButton": "Back"
+      "backButton": "Back",
+      "unsavedChanges": {
+        "title": "Unsaved changes",
+        "descriptionCreate": "This automation has not been saved. Save it or discard the draft.",
+        "descriptionEdit": "This automation has unsaved changes. Save them or discard the edits.",
+        "save": "Save",
+        "discard": "Discard"
+      }
     },
     "format": {
       "target": {
@@ -1991,7 +2295,8 @@
         "enableFailed": "Enable failed",
         "disableFailed": "Disable failed",
         "cancelFailed": "Cancel failed",
-        "continueInTerminalFailed": "Failed to continue in terminal"
+        "continueInTerminalFailed": "Failed to continue in terminal",
+        "saveMemoryFailed": "Failed to save memory"
       },
       "toasts": {
         "created": "Automation created",
@@ -2051,7 +2356,9 @@
         "loadingProjects": "Loading projects",
         "selectProject": "Select project",
         "loadingWorkspaces": "Loading workspaces",
-        "selectWorkspace": "Select workspace"
+        "selectWorkspace": "Select workspace",
+        "searchWorkspaces": "Search workspaces",
+        "noMatchingWorkspaces": "No matching workspaces"
       },
       "standaloneHint": "Runs use a standalone directory under the owning Computer's automation run folder."
     },
@@ -2060,13 +2367,18 @@
         "title": "Select a run",
         "description": "Artifacts and terminal metadata appear here."
       },
-      "title": "Run Detail",
+      "title": "Run detail",
       "actions": {
         "cancel": "Cancel",
         "continue": "Continue"
       },
       "inline": {
-        "exitCode": "exit {code}"
+        "exitCode": "Exit {code}"
+      },
+      "trigger": {
+        "manual": "Manual",
+        "github": "GitHub",
+        "scheduled": "Scheduled"
       },
       "metadata": {
         "status": "Status",
@@ -2097,6 +2409,14 @@
     },
     "historyPage": {
       "title": "Automation history",
+      "tabs": {
+        "runs": "Runs",
+        "memory": "Memories"
+      },
+      "memory": {
+        "title": "Memories",
+        "description": "This file stays on this computer. The agent can read and edit it on every run."
+      },
       "badges": {
         "paused": "Paused"
       },
@@ -2133,11 +2453,11 @@
         "placeholder": "Daily repo health"
       },
       "submit": {
-        "saving": "Saving automation",
+        "saving": "Saving",
         "createAria": "Create automation",
-        "updateAria": "Update automation",
-        "create": "Create Automation",
-        "update": "Update Automation"
+        "updateAria": "Save automation",
+        "create": "Create",
+        "update": "Save"
       }
     },
     "schedule": {
@@ -2206,6 +2526,15 @@
       "failedToLoadTitle": "Failed to load run history",
       "failedToFetchArtifactTitle": "Failed to load artifact",
       "unknownError": "Unknown error"
+    },
+    "memory": {
+      "fileHint": "memory.md",
+      "save": "Save",
+      "saving": "Saving",
+      "saved": "Saved",
+      "editor": "Editor",
+      "preview": "Preview",
+      "emptyPreview": "Nothing to preview yet."
     }
   },
   "project": {
@@ -2800,7 +3129,8 @@
       "notifications": {
         "permissionRequired": "Permission required",
         "completed": "Completed",
-        "jump": "Jump"
+        "jump": "Jump",
+        "sideChat": "Side chat"
       },
       "desktopAgentChatWindow": {
         "failedToOpenChatWindow": "Failed to open chat window"
@@ -2815,6 +3145,30 @@
         "authenticationIsRequiredBeforeThisAgentCanListAcpSessions": "Authentication is required before this agent can list ACP sessions",
         "failedToLoadAcpSessions": "Failed to load ACP sessions"
       }
+    }
+  },
+  "ptDesign": {
+    "share": {
+      "title": "Collaborate",
+      "nameLabel": "Your name",
+      "agentTab": "With Agent",
+      "humanTab": "With Human",
+      "agentHint": "Copy this prompt into your Agent. It calls the open board on this computer.",
+      "copyPrompt": "Copy prompt",
+      "linkLabel": "Link",
+      "linkPlaceholder": "Paste a collaboration link to join",
+      "copy": "Copy link",
+      "copied": "Copied",
+      "invalidLink": "That link does not contain a room.",
+      "privacy": "End-to-end encrypted. The server cannot see the board.",
+      "stopHint": "Stopping disconnects you only. Others can keep collaborating.",
+      "start": "Start collaboration",
+      "stop": "Stop collaboration",
+      "startMenu": "Collaborate",
+      "openMenu": "Collaborate"
+    },
+    "guest": {
+      "logoLink": "Open Atmos"
     }
   },
   "canvas": {
@@ -2895,6 +3249,10 @@
         "title": "Failed to load Canvas",
         "retry": "Retry",
         "description": "Unable to load the canvas. Try again."
+      },
+      "licenseBlocked": {
+        "title": "Canvas is unavailable",
+        "description": "The drawing engine license has expired, so the board was hidden after a few seconds. Renew the tldraw license and rebuild Atmos."
       },
       "toolbar": {
         "expandAria": "Expand toolbar",
@@ -3332,6 +3690,7 @@
           "workspaceBranchTitle": "Current workspace branch: {branch}",
           "githubIssueTitle": "GitHub issue: #{number}",
           "githubPrTitle": "GitHub PR: #{number} ({branch})",
+          "linearIssueTitle": "Linear issue: {identifier} {title}",
           "autoTodosValue": "TODOs",
           "autoTodosTitle": "Auto-extract TODOs with LLM: on"
         },
@@ -3462,10 +3821,15 @@
         "randomGenerateAgain": "Generate again",
         "githubIssue": "GitHub issue",
         "githubPr": "GitHub PR",
+        "linearIssue": "Linear issue",
         "refreshIssues": "Refresh issues",
         "refreshPrs": "Refresh PRs",
+        "refreshLinear": "Refresh Linear issues",
+        "loadMore": "Load more",
+        "loadingMore": "Loading more…",
         "preview": {
-          "openOnGithub": "Open on GitHub"
+          "openOnGithub": "Open on GitHub",
+          "openOnLinear": "Open in Linear"
         },
         "autoExtractTodos": "Auto-extract TODOs",
         "issue": {
@@ -3496,6 +3860,16 @@
           "loadingPrPreview": "Loading PR preview...",
           "noPrDescription": "No PR description provided.",
           "reuseBranchNotice": "<mono>{branch}</mono> will be reused."
+        },
+        "linear": {
+          "selectIssue": "Select Linear issue",
+          "selectIssuePlaceholder": "Select issue",
+          "loadingIssues": "Loading Linear issues…",
+          "noIssuesAvailable": "No open issues",
+          "noOpenIssues": "No non-done Linear issues found",
+          "notConnected": "Connect Linear in Settings → Integrations to pick an issue.",
+          "openOnlyHint": "Shows Backlog, Todo, and In Progress issues (not Done).",
+          "noDescription": "No description."
         }
       },
       "mentionPopover": {
@@ -3556,6 +3930,7 @@
         "loadGithubPrs": "Failed to load GitHub PRs",
         "loadProjectContext": "Failed to load project context",
         "loadGithubIssues": "Failed to load GitHub issues",
+        "loadLinearIssues": "Failed to load Linear issues",
         "prRepoMismatch": "PR belongs to {previewRepo}, but current project is {currentRepo}.",
         "loadPrPreview": "Failed to load PR preview",
         "refreshGithubPrs": "Failed to refresh GitHub PRs",
@@ -3872,44 +4247,55 @@
       },
       "scriptDialog": {
         "title": "Workspace Scripts",
-        "description": "Configure scripts for Setup, Run, and Purge. Scripts are executed in the current workspace directory.",
+        "unsaved": "Unsaved",
         "toasts": {
           "errorTitle": "Error",
           "loadFailed": "Failed to load scripts",
           "saveFailed": "Failed to save scripts"
         },
+        "phases": {
+          "label": "Lifecycle"
+        },
+        "trustHint": {
+          "label": "About script trust",
+          "tooltip": "Atmos checks whether these scripts are trusted before they run, so commands from a clone or pull cannot execute in your shell unseen. Saving here marks this copy as trusted."
+        },
         "env": {
-          "title": "Available Environment Variables:",
-          "rootProjectPath": "Path to root project",
+          "title": "Insert env:",
+          "rootProjectPath": "Path to the root project",
           "workspaceName": "Current workspace name",
-          "workspacePath": "Path to current workspace",
-          "note": "Note: For complex scripts, create a .sh file in .atmos/scripts/ and reference it (e.g., \"./.atmos/scripts/myscript.sh\")."
+          "workspacePath": "Path to the current workspace"
         },
         "setup": {
-          "title": "Setup Script",
-          "placeholder": "e.g. cp $ATMOS_ROOT_PROJECT_PATH/.env . && npm install",
-          "help": "Executed when setting up a new workspace."
+          "title": "Setup",
+          "placeholder": "cp $ATMOS_ROOT_PROJECT_PATH/.env . && npm install",
+          "help": "Runs once when a new workspace is created."
         },
         "run": {
-          "title": "Run Script",
-          "placeholder": "e.g. npm run dev",
-          "help": "One-click command to start services."
+          "title": "Run",
+          "placeholder": "npm run dev",
+          "help": "Starts services for this workspace."
         },
         "purge": {
-          "title": "Purge Script",
-          "placeholder": "e.g. rm -rf node_modules",
-          "help": "Executed to clean up worktree/workspace files."
+          "title": "Purge",
+          "placeholder": "rm -rf node_modules",
+          "help": "Cleans files before the workspace is removed."
+        },
+        "status": {
+          "empty": "Empty",
+          "set": "Set",
+          "edited": "Edited"
         },
         "actions": {
-          "cancel": "Cancel",
           "saving": "Saving...",
-          "saveScripts": "Save Scripts"
+          "save": "Save & Trust"
         },
         "confirmExit": {
-          "title": "Unsaved Changes",
-          "description": "You have unsaved changes. Are you sure you want to close without saving?",
-          "keepEditing": "Keep Editing",
-          "discardChanges": "Discard Changes"
+          "title": "Unsaved changes",
+          "description": "Closing will discard edits to Setup, Run, and Purge.",
+          "keepEditing": "Keep editing",
+          "discardChanges": "Discard changes",
+          "save": "Save & Trust"
         }
       },
       "workspaceSetup": {
@@ -3993,6 +4379,14 @@
         "tip": {
           "press": "Tip: Press",
           "toContinue": "to continue"
+        },
+        "scriptTrust": {
+          "title": "Review this project's setup script",
+          "description": "These commands come from the project's .atmos/scripts/atmos.json and have not been reviewed yet. They run in your shell with your permissions. Accepting trusts the whole file, so read every command below — not just the one about to run.",
+          "trustAndRun": "Trust and run",
+          "trusting": "Trusting…",
+          "skip": "Skip and enter workspace",
+          "trustFailed": "Could not trust the script"
         }
       },
       "taskListPanel": {
@@ -4012,6 +4406,10 @@
           "noItemsInSection": "No items in this section."
         }
       },
+      "viewTabs": {
+        "recent": "Recent",
+        "archived": "Archived"
+      },
       "recentView": {
         "header": {
           "title": "Recent Workspaces",
@@ -4019,7 +4417,7 @@
         },
         "searchPlaceholder": "Search by name, project, or branch...",
         "unknownPath": "Unknown path",
-        "archivedBadge": "ARCHIVED",
+        "archivedBadge": "Archived",
         "groups": {
           "today": "Today",
           "yesterday": "Yesterday",
@@ -4322,39 +4720,67 @@
         "noSettingsFound": "No settings found."
       },
       "groups": {
-        "interface": {
-          "label": "Interface",
-          "description": "Layout, editor, canvas, and keyboard preferences"
+        "you": {
+          "label": "You",
+          "description": "General and account"
         },
-        "aiAgents": {
-          "label": "AI Agents",
-          "description": "AI providers and code agent configurations"
+        "workspace": {
+          "label": "Workspace",
+          "description": "Interface, editor, terminal, and workspace"
         },
-        "remoteAccess": {
-          "label": "Remote Access",
-          "description": "Atmos Computer and Tunnel Connector"
+        "agents": {
+          "label": "Agents",
+          "description": "Agents, models, and notifications"
         },
-        "systemIntegration": {
-          "label": "System Integration",
-          "description": "Integrations, Desktop Use, and notifications"
-        },
-        "workspaceProjects": {
-          "label": "Workspace & Projects",
-          "description": "Workspace management and labels"
-        },
-        "more": {
-          "label": "More",
-          "description": "Shortcuts, experiments, and about"
+        "system": {
+          "label": "System",
+          "description": "Remote access, apps, privacy, and keyboard"
         }
       },
       "sections": {
+        "general": {
+          "label": "General",
+          "description": "Theme, language, and updates."
+        },
+        "interface": {
+          "label": "Interface",
+          "description": "Launchpad, sidebar, header, and footer."
+        },
+        "agents": {
+          "label": "Agents",
+          "description": "Built-in agents, custom agents, and session behaviour."
+        },
+        "models": {
+          "label": "Models",
+          "description": "Providers, routing, and local models."
+        },
+        "notifications": {
+          "label": "Notifications",
+          "description": "Desktop notifications and alert behavior."
+        },
+        "remoteAccess": {
+          "label": "Remote Access",
+          "description": "Atmos Computer and Tunnel Connector."
+        },
+        "apps": {
+          "label": "Apps",
+          "description": "Integrations, Browser, and Desktop Use."
+        },
+        "privacy": {
+          "label": "Privacy",
+          "description": "Permission access and local secrets."
+        },
+        "keyboard": {
+          "label": "Keyboard",
+          "description": "Keyboard shortcuts and quick actions."
+        },
         "layout": {
           "label": "Layout",
           "description": "Sidebar, tab, and overall layout behavior."
         },
         "editor": {
           "label": "Editor",
-          "description": "Editor experience, previews, and code settings."
+          "description": "Editor, Canvas, and diff settings."
         },
         "canvas": {
           "label": "Canvas",
@@ -4367,6 +4793,10 @@
         "terminal": {
           "label": "Terminal",
           "description": "Terminal behavior, restore, and file-link handling."
+        },
+        "browser": {
+          "label": "Browser",
+          "description": "How the agent opens and uses the in-app Browser."
         },
         "workspace": {
           "label": "Workspace",
@@ -4412,14 +4842,41 @@
           "label": "Desktop Use",
           "description": "Local desktop capture, control engine, and macOS permissions"
         },
+        "permissionAccess": {
+          "label": "Permission Access",
+          "description": "Allow Atmos Server to read signed-in browser cookies when a product is installed."
+        },
+        "appearance": {
+          "label": "Appearance",
+          "description": "Theme and language."
+        },
         "account": {
           "label": "Account",
-          "description": "Atmos Hub sign-in, devices, and cloud identity"
+          "description": "Sign in, trust this device, and manage your Atmos account"
         }
+      },
+      "page": {
+        "title": "Settings",
+        "back": "Back",
+        "backAria": "Close settings"
       },
       "dialog": {
         "title": "Settings",
         "description": "Manage ATMOS settings, product information, and desktop updates."
+      },
+      "permissionAccessSection": {
+        "title": "Browser cookies",
+        "description": "Atmos Server can decrypt signed-in browser cookies to read usage data. Keys stay on this computer. macOS may ask for Keychain Access after you turn a source on.",
+        "installed": "Installed",
+        "notInstalled": "Not installed",
+        "webSession": "Signed-in web session",
+        "desktopUse": {
+          "title": "Desktop Use",
+          "description": "Grant Accessibility and Screen Recording to Atmos Desktop Use. macOS System Settings is the source of truth — Atmos cannot store these grants itself."
+        },
+        "empty": "No permission sources available.",
+        "error": "Could not update Permission Access. Check your connection and try again.",
+        "toggleAria": "Allow browser cookie access for {name}"
       },
       "unknownError": "Unknown error",
       "errors": {
@@ -4434,6 +4891,7 @@
         "saveCustomAgentTitle": "Failed to save custom agent",
         "loadLlmSettingsTitle": "Failed to load LLM settings",
         "saveRunConfigsTitle": "Failed to save run configs",
+        "saveBehaviourTitle": "Failed to save behaviour settings",
         "updateProviderTitle": "Failed to update provider",
         "updateRoutingTitle": "Failed to update routing",
         "browserNotificationPermissionDeniedTitle": "Browser notification permission denied",
@@ -4473,6 +4931,9 @@
             },
             "byGroupUsesSecondColumn": {
               "label": "By Group uses second column"
+            },
+            "byAgentGroupUsesSecondColumn": {
+              "label": "By Agent Status group uses second column"
             },
             "headerLayout": {
               "label": "Header layout"
@@ -4527,6 +4988,9 @@
             },
             "canvasLaunchpad": {
               "label": "Canvas (Launchpad)"
+            },
+            "ptDesignLaunchpad": {
+              "label": "Prototype Design (Launchpad)"
             },
             "newWorkspaceLaunchpad": {
               "label": "New Workspace (Launchpad)"
@@ -4598,6 +5062,18 @@
             }
           },
           "codeAgent": {
+            "defaults": {
+              "label": "Defaults"
+            },
+            "yoloMode": {
+              "label": "YOLO mode"
+            },
+            "showAgentNameInTerminalTitles": {
+              "label": "Show agent name in terminal titles"
+            },
+            "activityIndicators": {
+              "label": "Agent Activity Indicators"
+            },
             "builtInAgents": {
               "label": "Built-in Agents"
             },
@@ -4839,17 +5315,11 @@
             }
           },
           "atmosComputer": {
-            "accessKey": {
-              "label": "Device credential"
+            "accountRequired": {
+              "label": "Account required"
             },
-            "generateAccessKey": {
-              "label": "Import device credential"
-            },
-            "saveAccessKey": {
-              "label": "Save device credential"
-            },
-            "rotateAccessToken": {
-              "label": "Rotate device credential"
+            "mobilePair": {
+              "label": "Pair phone"
             },
             "privateRelay": {
               "label": "Private Relay"
@@ -4904,6 +5374,12 @@
               "label": "Project Wiki (Center Tabs)"
             }
           },
+          "permissionAccess": {
+            "browserCookies": {
+              "label": "Browser cookies",
+              "description": "Keychain access for signed-in web usage"
+            }
+          },
           "about": {
             "runtime": {
               "label": "Runtime"
@@ -4916,6 +5392,30 @@
             },
             "checkForUpdates": {
               "label": "Check for updates"
+            }
+          },
+          "browser": {
+            "defaultSurface": {
+              "label": "Default surface",
+              "description": "Where a new Browser opens when none exists"
+            },
+            "sidebar": {
+              "label": "Show in sidebar"
+            },
+            "newTabUrl": {
+              "label": "New tab URL"
+            },
+            "agentChrome": {
+              "label": "Show action overlay"
+            },
+            "cookiesImport": {
+              "label": "Import cookies"
+            },
+            "cookiesClearCache": {
+              "label": "Clear cache"
+            },
+            "cookiesClearSiteData": {
+              "label": "Clear cookies and storage"
             }
           },
           "desktopUse": {
@@ -4934,6 +5434,14 @@
             "border": {
               "label": "Operation border",
               "description": "Visual feedback while Desktop Use operates"
+            }
+          },
+          "appearance": {
+            "theme": {
+              "label": "Theme"
+            },
+            "language": {
+              "label": "Language"
             }
           }
         }
@@ -5098,7 +5606,6 @@
           "title": "Global",
           "items": {
             "toggleLeftSidebar": "Toggle left sidebar",
-            "toggleRightSidebar": "Toggle right sidebar",
             "commandPalette": "Command palette / global search",
             "quickOpenFile": "Quick open file",
             "navigateBack": "Navigate back",
@@ -5186,16 +5693,16 @@
       "cli": {
         "title": "Atmos CLI",
         "description": "Required for Desktop Use and other local desktop features. Install once, then keep it up to date.",
-        "installUpdate": "Install Update",
-        "install": "Install CLI",
+        "installUpdate": "Update",
+        "install": "Install",
         "notInstalled": "Not installed",
         "versionLabel": "v{version}",
-        "checkForUpdates": "Check for Updates"
+        "checkForUpdates": "Check updates"
       },
       "desktop": {
         "title": "Check for updates",
         "description": "Query the desktop updater for the latest available release.",
-        "checkForUpdates": "Check for Updates"
+        "checkForUpdates": "Check updates"
       }
     },
     "workspaceSection": {
@@ -5251,9 +5758,7 @@
     "notifySection": {
       "actions": {
         "test": "Test",
-        "testing": "Testing...",
-        "testUpper": "TEST",
-        "testingUpper": "TESTING..."
+        "testing": "Testing..."
       },
       "toasts": {
         "testSent": "Test notification sent",
@@ -5349,6 +5854,10 @@
         "title": "Built-in Agents",
         "description": "Customize the startup command and parameters for each built-in code agent."
       },
+      "defaults": {
+        "title": "Defaults",
+        "description": "Launch flags and how agent names appear in terminal titles."
+      },
       "yolo": {
         "title": "YOLO mode",
         "description": "When enabled, agents launch with skip-permissions / auto-approve flags (e.g. --yolo, --dangerously-skip-permissions). Turn off for safer, approval-gated runs.",
@@ -5404,10 +5913,17 @@
       },
       "behavior": {
         "title": "Behaviour",
-        "description": "Configure how idle agent sessions are managed in memory.",
+        "description": "Configure idle session cleanup and unattended need-attention auto-summary.",
         "idleCleanupTitle": "Idle session cleanup",
         "idleCleanupDescription": "Idle agent sessions older than this duration are automatically removed every 5 minutes.",
-        "minutes": "min"
+        "minutes": "min",
+        "summaryTitle": "Need-attention auto-summary",
+        "summaryDescription": "When a finished agent turn stays unacknowledged, spawn a headless summarizer and show next steps above the AI input.",
+        "summaryEnabled": "Enable auto-summary",
+        "summaryDelayTitle": "Wait before summarizing",
+        "summaryDelayDescription": "How long a task-complete attention latch can sit unacknowledged before summarizing.",
+        "summaryAgentTitle": "Summary agent",
+        "summaryAgentDescription": "Terminal agent used for the headless session (same as Automations). Configure model via the agent run config. Leave unselected to use the default LLM provider."
       }
     },
     "canvasSection": {
@@ -5437,7 +5953,7 @@
       },
       "workspaceSidebar": {
         "title": "Workspace Sidebar Two-Column Layout",
-        "description": "Configure the optional two-column workspace browser for Project, By Group, By Time, By Status, By Priority, and By Label sidebar modes.",
+        "description": "Configure the optional two-column workspace browser for Project, By Group, By Time, By Status, By Agent Status, By Priority, and By Label sidebar modes.",
         "enabled": "Enabled",
         "disabled": "Disabled",
         "projectTwoColumnTitle": "Project sidebar two-column layout",
@@ -5455,7 +5971,9 @@
         "byLabelTitle": "By Label group uses second column",
         "byLabelDescription": "In the sidebar's By Label mode, clicking a group opens its workspaces in a second resizable column instead of expanding inline.",
         "byGroupTitle": "By Group uses second column",
-        "byGroupDescription": "In the sidebar's By Group mode, clicking a group opens its projects and workspaces in a second resizable column instead of expanding inline."
+        "byGroupDescription": "In the sidebar's By Group mode, clicking a group opens its projects and workspaces in a second resizable column instead of expanding inline.",
+        "byAgentTitle": "By Agent Status group uses second column",
+        "byAgentDescription": "In the sidebar's By Agent Status mode, clicking a group opens its workspaces in a second resizable column instead of expanding inline."
       },
       "footer": {
         "title": "Footer layout",
@@ -5523,6 +6041,10 @@
           "canvas": {
             "title": "Canvas",
             "description": "Open the full-screen Canvas ops surface."
+          },
+          "ptDesign": {
+            "title": "Prototype Design",
+            "description": "Open Prototype Design as its own page from Launchpad. A workspace can still open a separate board from the center tab bar."
           },
           "newWorkspace": {
             "title": "New Workspace",
@@ -5648,22 +6170,6 @@
       "remoteAccessDescription": "Show the Atmos Computer and tunnel connector controls. Hiding this stops tunnel status polling.",
       "appshotTitle": "Appshot button",
       "appshotDescription": "Show the Appshot screen capture button in the header."
-    },
-    "rightSidebarLayoutSection": {
-      "title": "Right sidebar tabs",
-      "description": "Choose which right sidebar tabs are shown. Hidden tabs are fully removed and skip their background data loading.",
-      "enabledCount": "{count} enabled",
-      "hidden": "Hidden",
-      "changesTitle": "Changes",
-      "changesDescription": "Review staged, unstaged, and branch changes plus the commit history.",
-      "reviewTitle": "Review",
-      "reviewDescription": "Run the built-in code review over the current changes.",
-      "browserTitle": "Browser",
-      "browserDescription": "Show the in-app preview browser for running dev servers.",
-      "runTitle": "Run",
-      "runDescription": "Start and monitor project run scripts.",
-      "githubTitle": "GitHub",
-      "githubDescription": "Browse pull requests, issues, and Actions workflow runs. Hiding this removes the GitHub tab and stops related lookups."
     },
     "agentHookStatusCard": {
       "title": "Agent Hook Status",
@@ -5816,6 +6322,7 @@
         "title": "GitHub CLI",
         "description": "Atmos uses GitHub CLI to integrate with GitHub Issues, Pull Requests, and other workflows.",
         "status": {
+          "installed": "Installed {version}",
           "authenticatedAs": "Authenticated as {username}"
         },
         "installation": {
@@ -5894,7 +6401,7 @@
       },
       "linear": {
         "title": "Linear",
-        "description": "Connect Linear via OAuth (recommended) for higher limits and cross-device sync, or use a personal API key stored only on this device.",
+        "description": "Connect Linear with OAuth (recommended) for higher limits and cross-device sync, or save a personal API key only on this computer.",
         "connectOauth": "Continue with Linear",
         "connectApiKey": "Save API key",
         "apiKeyPlaceholder": "lin_api_…",
@@ -5902,9 +6409,9 @@
         "connectedAs": "Connected as {name}",
         "notConnected": "Not connected",
         "needsHubLogin": "Sign in required",
-        "needsHubLoginHint": "OAuth is linked to your Atmos account. Open Account and sign in with GitHub or Google first.",
+        "needsHubLoginHint": "OAuth uses your Atmos account. Open Account and sign in with GitHub or Google first.",
         "needsDevice": "Trust this device",
-        "needsDeviceHint": "After signing in, trust this device under Account, then connect Linear OAuth.",
+        "needsDeviceHint": "After signing in, trust this device under Account, then connect Linear.",
         "openAccount": "Open Account",
         "connectFailed": "Could not connect Linear",
         "disconnectFailed": "Could not disconnect Linear",
@@ -5919,14 +6426,14 @@
         "oauth": {
           "title": "OAuth account",
           "recommended": "Recommended",
-          "hint": "Higher rate limits and credentials sync across devices via your Atmos Hub account."
+          "hint": "Higher rate limits, and your Linear connection syncs across devices with your Atmos account."
         },
         "local": {
           "title": "Local API keys",
-          "hint": "Stored on this computer under ~/.atmos/credentials (not Hub). You can save several keys, but only one can be active at a time (or use OAuth instead).",
-          "storageLoading": "Resolving local storage…",
-          "storageDisk": "On disk: {path}",
-          "storageBrowserFallback": "Computer API unavailable — using browser storage until a local Atmos Server is reachable.",
+          "hint": "Saved only on this computer, not linked to your Atmos account. You can save several keys, but only one can be active at a time (or use OAuth instead).",
+          "storageLoading": "Checking where keys are saved…",
+          "storageDisk": "Saved on this computer",
+          "storageBrowserFallback": "Saved in this browser for now. When Atmos is fully available on this computer, keys can be stored locally.",
           "createKeyLink": "Create an API key in Linear",
           "namePlaceholder": "Key name",
           "apiKeyPlaceholder": "Personal API key",
@@ -5938,10 +6445,10 @@
         },
         "rateLimit": {
           "title": "API rate limits",
-          "description": "Linear request and complexity budgets for the active OAuth account or local API key (same style as GitHub).",
+          "description": "Linear request and complexity budgets for the active OAuth account or local API key.",
           "refresh": "Refresh",
           "loadError": "Could not load Linear rate limits.",
-          "empty": "No rate-limit headers returned for this credential yet. Try Refresh after a Linear request.",
+          "empty": "No rate-limit data yet for this connection. Try Refresh after using Linear.",
           "footer": "{remaining} remaining · {reset}",
           "resetSoon": "resets soon",
           "resetInMinutes": "resets in {minutes}m",
@@ -5952,14 +6459,18 @@
             "complexity": "Complexity"
           }
         },
-        "reconnectOauth": "Re-authorize",
         "connecting": "Redirecting…",
         "oauthCallback": {
+          "title": "Connecting Linear",
+          "successTitle": "Linear connected",
+          "errorTitle": "Could not connect Linear",
           "loading": "Loading…",
           "working": "Finishing Linear connection…",
-          "success": "Linear connected. You can close this window and return to Atmos.",
-          "missingParams": "Missing OAuth code or state.",
-          "finishFailed": "OAuth finish failed"
+          "success": "Linear is linked to Atmos. You can close this tab.",
+          "closeHint": "You can close this page.",
+          "backToAtmos": "Back to Atmos",
+          "missingParams": "Missing connection details. Try connecting Linear again.",
+          "finishFailed": "Could not finish connecting Linear"
         }
       }
     },
@@ -6017,6 +6528,73 @@
         "description": "Enable Project Wiki as a center stage tab for quick access to your project documentation and knowledge base."
       }
     },
+    "browser": {
+      "groups": {
+        "placement": {
+          "title": "Placement",
+          "description": "Where the agent opens Browser chrome when none is mounted."
+        },
+        "sidebar": {
+          "title": "Sidebar",
+          "description": "Show the Browser module in the right sidebar."
+        },
+        "pages": {
+          "title": "Pages",
+          "description": "Homepage used when the agent opens a new tab."
+        },
+        "agent": {
+          "title": "Agent",
+          "description": "Where the agent opens Browser, and how actions appear on the page."
+        },
+        "cookies": {
+          "title": "Cookies",
+          "description": "Import sign-ins from another browser, or clear cache and cookies."
+        }
+      },
+      "defaultSurface": {
+        "title": "Default surface",
+        "description": "Sidebar or Center tabs. Existing users stay on Sidebar.",
+        "sidebar": "Sidebar",
+        "center": "Center tabs"
+      },
+      "sidebar": {
+        "title": "Show in sidebar",
+        "description": "Keep the Browser module in the right sidebar. Saving Sidebar as the default surface turns this on."
+      },
+      "newTabUrl": {
+        "title": "New tab URL",
+        "description": "Used when the agent opens a tab without a URL. Leave empty for the Browser home."
+      },
+      "agentChrome": {
+        "title": "Show action overlay",
+        "description": "Draw a cursor overlay when the agent clicks or types."
+      },
+      "cookies": {
+        "import": {
+          "title": "Import cookies",
+          "description": "Bring saved sign-ins from Chrome, Edge, Brave, or Firefox on this Mac.",
+          "action": "Import"
+        },
+        "clearCache": {
+          "title": "Clear cache",
+          "description": "Remove cached files only. Cookies and sign-ins stay.",
+          "action": "Clear"
+        },
+        "clearSiteData": {
+          "title": "Clear cookies and storage",
+          "description": "Remove cookies, local storage, and cached files. This signs you out of sites.",
+          "action": "Clear"
+        },
+        "unavailable": "Cookie import and cleanup need Atmos Desktop on macOS."
+      },
+      "links": {
+        "desktopUse": {
+          "title": "Desktop Use",
+          "description": "System Chrome, capture, and macOS permissions stay on the Desktop Use page.",
+          "action": "Open Desktop Use"
+        }
+      }
+    },
     "desktopUse": {
       "label": "Desktop Use",
       "description": "Capture and control the local desktop (screenshot, click, type)",
@@ -6038,7 +6616,11 @@
         },
         "permissions": {
           "title": "Permissions",
-          "description": "Grant Accessibility and Screen Recording to Atmos Desktop Use — one identity for capture, control, and AppShot’s Left⇧+Right⇧ shortcut."
+          "description": "Grant Accessibility and Screen Recording to Atmos Desktop Use — one identity for capture, control, and AppShot’s Left⇧+Right⇧ shortcut.",
+          "openAccessHint": "OS grants for Desktop Use live under Privacy & Security → Permission Access.",
+          "openAccessTitle": "Permission Access",
+          "openAccessDescription": "Grant Accessibility and Screen Recording in the shared Permission Access page.",
+          "openAccess": "Open Permission Access"
         },
         "visibility": {
           "title": "Visual feedback",
@@ -6157,26 +6739,87 @@
       "label": "Browser Use",
       "description": "Control Atmos in-app browser pages (DOM click / type / navigate)"
     },
+    "appearanceSection": {
+      "title": "Appearance",
+      "description": "Choose how Atmos looks and which language it uses.",
+      "theme": {
+        "title": "Theme",
+        "description": "Use light, dark, or match the system.",
+        "light": "Light",
+        "dark": "Dark",
+        "system": "System"
+      },
+      "language": {
+        "title": "Language",
+        "description": "Changes labels across the app. Does not reload the page.",
+        "en": "English",
+        "zh": "简体中文"
+      }
+    },
     "accountSection": {
       "title": "Atmos Account",
-      "description": "Sign in with GitHub or Google. Computers, Linear, and usage share use this account (Hub) — no separate local access token.",
-      "hubNotConfigured": "Atmos Hub URL is not configured. Set NEXT_PUBLIC_ATMOS_HUB_URL to enable sign-in.",
+      "description": "Sign in with GitHub or Google to sync computers, Linear, and shared usage across your devices.",
+      "hubNotConfigured": "Atmos account sign-in is not available in this build. Reinstall Atmos or check for updates.",
       "signedIn": "Signed in",
       "signedOut": "Not signed in",
+      "signIn": "Sign in",
+      "signInHint": "GitHub or Google",
+      "signInHintDesktop": "Opens your default browser so existing GitHub/Google sessions can be used",
+      "signInDialogTitle": "Sign in to Atmos",
+      "signInDialogDescription": "Continue with GitHub or Google. No password required.",
+      "signInDialogDescriptionDesktop": "Continue in your default browser. Atmos stays open and picks up your session when you finish.",
+      "signInDialogDescriptionWeb": "Choose your sign-in method.",
       "signInGithub": "Sign in with GitHub",
       "signInGoogle": "Sign in with Google",
+      "waitingBrowser": "Waiting for sign-in in your browser… finish there, then return here.",
+      "waitingBrowserWeb": "Waiting for sign-in in the new tab… finish there, then return here.",
       "signOut": "Sign out",
-      "trustDevice": "Trust this device",
-      "devicesTitle": "Devices",
-      "devicesEmpty": "No devices enrolled yet. Trust this device to use Computers via Relay.",
+      "signOutConfirmTitle": "Sign out?",
+      "signOutConfirmDescription": "You will be signed out of Atmos on this browser. Your session cookie and this device’s local credential will be cleared.",
+      "signOutCancel": "Cancel",
+      "nameTitle": "Name",
+      "nameDescription": "Your full name, or a display name.",
+      "namePlaceholder": "Name",
+      "nameSave": "Save",
+      "nameTooLong": "Use {max} characters or fewer.",
+      "profileTitle": "Profile",
+      "profileDescription": "Your Atmos identity used across computers, Linear, and usage.",
+      "securityTitle": "Security",
+      "securityDescription": "Trusted devices for this account. Trust this browser so computers can connect securely.",
+      "linkedAccounts": "Linked accounts",
+      "linkedAccountsDescription": "Connect GitHub and Google to the same Atmos account. One login per provider — not multiple GitHub or Google accounts.",
+      "link": "Link",
+      "unlink": "Unlink",
+      "linked": "Connected",
+      "linkedAccountId": "Account {id}",
+      "notLinked": "Not connected",
+      "linkOpensNewTab": "Opens in a new tab",
+      "trustDevice": "Trust",
+      "devicesTitle": "Trusted devices",
+      "devicesEmpty": "No trusted devices yet. Trust this device to use your computers from here.",
       "deviceActive": "Active",
       "deviceRevoked": "Revoked",
-      "credentialOnceTitle": "Device credential (shown once)",
-      "credentialOnceHint": "Stored in this browser for Relay. Rotate from Hub if leaked.",
+      "credentialOnceTitle": "This device is trusted (shown once)",
+      "credentialOnceHint": "Saved on this device. If it leaks, trust this device again to replace it.",
+      "deleteAccount": "Delete account",
+      "deleteAccountDescription": "Permanently delete your Atmos account, linked logins, sessions, and trusted devices. This cannot be undone.",
+      "deleteAccountDialogTitle": "Delete account?",
+      "deleteAccountDialogDescription": "This permanently removes your user, linked GitHub/Google accounts, sessions, and devices from Atmos. You will need to sign in again to create a new account.",
+      "deleteConfirmPhrase": "delete my account",
+      "deleteConfirmPrompt": "Type {phrase} to confirm",
+      "deleteConfirmAction": "Delete account",
+      "deleteCancel": "Cancel",
       "errors": {
         "signInFailed": "Sign-in failed",
         "signOutFailed": "Sign-out failed",
-        "enrollFailed": "Could not enroll device"
+        "enrollFailed": "Could not trust this device",
+        "linkFailed": "Could not link account",
+        "unlinkFailed": "Could not unlink account",
+        "alreadyLinked": "This provider is already connected",
+        "cannotUnlinkLast": "You can't unlink your last account",
+        "listAccountsFailed": "Could not load linked accounts",
+        "deleteFailed": "Could not delete account",
+        "nameSaveFailed": "Could not save name"
       }
     }
   },
@@ -6401,6 +7044,7 @@
         "close": "Close"
       },
       "paneToolbar": {
+        "dragHandle": "Drag to rearrange panes",
         "pinAlreadyPinned": "Already pinned",
         "pin": "Pin",
         "splitHorizontal": "Split Horizontal",
@@ -6597,6 +7241,11 @@
     }
   },
   "github": {
+    "userCard": {
+      "dayTooltip": "{count} contributions on {date}",
+      "yearTotal": "{total} contributions in {year}",
+      "loading": "Loading contributions…"
+    },
     "centerTabs": {
       "pullRequest": "PR #{number}",
       "issue": "Issue #{number}",
@@ -6858,7 +7507,9 @@
       "connectedTitle": "GitHub App connected",
       "finishedTitle": "GitHub setup finished",
       "description": "Setup is complete. Return to Atmos to continue configuring your GitHub trigger.",
-      "installation": "Installation {installationId}"
+      "installation": "Installation {installationId}",
+      "closeHint": "You can close this page.",
+      "backToAtmos": "Back to Atmos"
     },
     "prCreateModal": {
       "title": "Open a Pull Request",
@@ -7429,6 +8080,33 @@
         "fastForwardNotPossible": "Pull the latest remote changes and resolve any conflicts before continuing.",
         "notGitRepository": "This folder is no longer a Git repository."
       }
+    },
+    "history": {
+      "title": "Graph History",
+      "loading": "Loading history…",
+      "empty": "No commits found",
+      "noRepository": "No repository selected",
+      "loadMore": "Load more",
+      "refresh": "Refresh",
+      "retry": "Retry",
+      "copied": "Copied",
+      "copyHash": "Copy commit hash",
+      "noSubject": "(no subject)",
+      "unknownAuthor": "Unknown",
+      "searchPlaceholder": "Search commits…",
+      "matchCase": "Match case",
+      "previousMatch": "Previous match",
+      "nextMatch": "Next match",
+      "matchCount": "{current}/{total}",
+      "loadingMore": "Loading more commits…",
+      "columns": {
+        "graph": "Graph",
+        "description": "Description",
+        "date": "Date",
+        "author": "Author",
+        "commit": "Commit"
+      },
+      "resizeColumn": "Resize {column} column"
     }
   },
   "localServices": {
@@ -7439,7 +8117,7 @@
       "heading": "Local Services",
       "title": "Atmos Local Services",
       "subtitle": "Browse local services discovered across all Atmos projects.",
-      "triggerLabel": "LOCAL {count}",
+      "triggerLabel": "Local {count}",
       "refresh": "Refresh",
       "emptyLabel": "No local services found."
     }
@@ -7486,6 +8164,10 @@
         "diff": "Diff",
         "codeBlock": "Code Block"
       }
+    },
+    "scriptTrustReview": {
+      "empty": "This project's script file has no commands in it.",
+      "aboutToRun": "About to run"
     }
   },
   "diff": {
@@ -7824,6 +8506,33 @@
     }
   },
   "skills": {
+    "view": {
+      "title": "Skills",
+      "description": "Manage installed skills, browse the market, and discover resources.",
+      "refresh": "Refresh skills",
+      "search": {
+        "installed": "Search installed skills",
+        "market": "Search skills market",
+        "resources": "Search resources"
+      },
+      "tabs": {
+        "installed": "Installed",
+        "market": "Market",
+        "resources": "Resources"
+      },
+      "filter": {
+        "trigger": "Filter",
+        "scope": "Scope",
+        "projects": "Projects",
+        "clearAll": "Clear all filters",
+        "scopes": {
+          "all": "All",
+          "system": "Atmos built-in",
+          "global": "Global",
+          "project": "Project"
+        }
+      }
+    },
     "viewUtils": {
       "installedEmptyCopy": "Extend Atmos with local and project-scoped skills, or browse the market below.",
       "marketEmptyCopy": "No skills in the market matched your search. Try a different keyword.",
@@ -8444,21 +9153,15 @@
       "toasts": {
         "savedForSession": "Saved for this session",
         "couldNotSaveLocally": "Could not save on this computer. Ensure Atmos is running locally.",
-        "identitySwitchedForSession": "Identity switched for this session",
-        "accessKeyCreated": "Access key created",
-        "accessKeyCreatedSaved": "Saved on this computer. Copy it now - it will not be shown again.",
-        "accessKeyCreatedNotSaved": "Copy it now - could not save on this computer. Ensure Atmos is running locally.",
-        "saveAccessKeyFirst": "Save your access key first",
-        "saveAccessKeyBeforeRotation": "Rotation uses the current local access key as proof of ownership.",
-        "saveAccessKeyBeforeRegistering": "Add and save an access key before registering this computer.",
-        "saveAccessKeyBeforeConnecting": "Add and save an access key before connecting to another computer.",
-        "saveAccessKeyBeforeRemoving": "Add and save an access key before removing computers.",
+        "signInRequired": "Sign in required",
+        "signInBeforeRegistering": "Sign in under Settings → Account before registering this computer.",
+        "signInBeforeConnecting": "Sign in under Settings → Account before connecting to another computer.",
+        "signInBeforeRemoving": "Sign in under Settings → Account before removing computers.",
         "remoteConnectionRestored": "Remote connection restored",
         "computerAvailable": "This computer is available for Atmos Computer connections.",
         "couldNotConnectRelay": "Could not connect relay",
         "ensureAtmosRunningThenRetry": "Ensure Atmos is running on this computer, then try again.",
         "ensureAtmosRunning": "Ensure Atmos is running on this computer.",
-        "couldNotRotateAccessKey": "Could not rotate access key",
         "couldNotStartRegistration": "Could not start registration",
         "registeredNotYetOnline": "Registered, not yet online",
         "useReconnectAfterNetworkCheck": "Use Reconnect below after checking your network connection.",
@@ -8471,62 +9174,20 @@
         "connected": "Connected",
         "couldNotConnect": "Could not connect",
         "tryAgain": "Try again.",
-        "couldNotSaveAccessKey": "Could not save access key",
         "privateRelaySettingsSaved": "Private Relay settings saved",
-        "identitySwitchBlocked": "Identity switch blocked",
-        "couldNotStopOldRelayIdentityWithError": "Could not stop the old local Relay identity: {error}",
-        "couldNotStopOldRelayIdentity": "Could not stop the old local Relay identity. Try again.",
-        "githubAutomationsMarkSetupFailedWithError": "Old local Relay identity was stopped, but GitHub automations could not be marked for setup: {error}",
-        "githubAutomationsMarkSetupFailed": "Old local Relay identity was stopped, but GitHub automations could not be marked for setup. Try again.",
-        "identitySwitched": "Identity switched",
-        "accessKeySaved": "Access key saved",
-        "githubAutomationsNeedSetup": "{count} GitHub-triggered automation{count, plural, one {} other {s}} now need setup under this identity.",
-        "previousKeyResourcesRemain": "Existing Computers and GitHub routes from the previous key stay with that key.",
-        "accessKeyTooShort": "Access key is too short",
-        "accessKeyTooShortDescription": "Generate a new key or paste your saved one.",
-        "couldNotCopy": "Could not copy",
-        "checkClipboardPermissions": "Check clipboard permissions.",
-        "accessKeyRotated": "Access key rotated",
-        "accessKeyRotatedDescription": "Computers and GitHub routes stay on the same identity. Copy the new key now.",
-        "accessKeyRotatedNotSaved": "Relay accepted the rotation, but Atmos could not save locally. Copy the new key now.",
         "couldNotRemove": "Could not remove",
-        "computerRemoved": "Computer removed",
-        "importFromAccountHint": "No device credential in this browser. Open Settings → Account, sign in, and trust this device."
+        "computerRemoved": "Computer removed"
       },
+      "developmentWarning": "Atmos Computer is still in active development. You may encounter bugs or incomplete behavior.",
       "panels": {
-        "accessKey": {
-          "title": "Device credential",
-          "description": "Relay uses a Hub-minted device credential (Settings → Account → Trust this device). Paste it here or import from this browser’s enroll. Computers list and register tokens use this Bearer — not a user-generated Access Token.",
-          "actions": {
-            "generate": "Generate",
-            "importFromAccount": "Import from Account"
-          },
-          "placeholders": {
-            "savedOnComputer": "Device credential is saved on this Computer",
-            "pasteOrGenerate": "Paste device credential from Account enroll",
-            "pasteDeviceCredential": "Paste Hub device credential"
-          },
-          "buttons": {
-            "copied": "Copied",
-            "copy": "Copy device credential",
-            "switchIdentity": "Switch device",
-            "save": "Save"
-          },
-          "helper": {
-            "switchIdentity": "Switching replaces the local device credential. Existing Computers stay under the same Hub user if the new credential belongs to that user.",
-            "hiddenOnHostedWeb": "A device credential is saved on this Computer. Hosted web keeps it hidden; paste a new credential only to replace it.",
-            "default": "Sign in and trust this device under Settings → Account, then import or paste the credential shown once."
-          }
+        "accountRequired": {
+          "title": "Account required",
+          "description": "Sign in under Settings → Account. Atmos mints a device credential for this install automatically — you never need to copy or paste it.",
+          "syncing": "Syncing your account device…"
         },
-        "rotateAccessToken": {
-          "title": "Rotate device credential",
-          "description": "Rotate from Settings → Account (Hub). Relay receives the new hash via Hub projection.",
-          "button": "Open Account"
-        },
-        "tokenReveal": {
-          "title": "Copy your access key now",
-          "copied": "Copied",
-          "button": "Copy and dismiss"
+        "mobilePair": {
+          "title": "Pair phone",
+          "description": "Show a temporary QR code so the Atmos mobile app can join this account without pasting a credential."
         },
         "privateRelay": {
           "title": "Private Relay",
@@ -8560,14 +9221,14 @@
           "useLocalTitle": "Use this computer locally",
           "useLocalDescription": "Switch back from the selected remote Computer to the local Desktop runtime.",
           "useLocalButton": "Use locally",
-          "saveKeyPrompt": "Save an access key above to register this computer."
+          "signInPrompt": "Sign in under Settings → Account to register this computer."
         },
         "myComputers": {
           "title": "My Computers",
           "description": "Computers linked to your account.",
           "refresh": "Refresh",
-          "saveKeyPrompt": "Save an access key to see your computers.",
-          "empty": "No computers yet. Register this computer, or add another remote computer with the same access key.",
+          "signInPrompt": "Sign in under Settings → Account to see your computers.",
+          "empty": "No computers yet. Register this computer, or add another remote computer under the same account.",
           "connected": "Connected",
           "fallbackName": "Computer",
           "current": "Current",
@@ -8673,12 +9334,22 @@
         "copyFailed": "Copy failed"
       },
       "description": {
-        "useAccessKeyFirst": "Use an access key above first.",
+        "useAccessKeyFirst": "Sign in under Settings → Account first so this install has a Hub device.",
         "preparing": "Preparing registration code…",
         "expired": "Registration code expired — generate and copy a fresh setup command.",
-        "generateAndCopy": "Generate and copy a setup command to link this remote computer to your access key above.",
+        "generateAndCopy": "Generate and copy a setup command to link this remote computer to your account.",
         "runOnRemote": "Run on the remote computer. The registration code is one-time use and expires in about 15 minutes."
       }
+    },
+    "mobilePair": {
+      "title": "Pair phone with QR",
+      "description": "Scan with the Atmos mobile app. Code expires in 3 minutes and can only be used once. No login required on the phone.",
+      "showQr": "Show QR",
+      "refresh": "New code",
+      "expiresIn": "Expires in {seconds}s",
+      "signInFirst": "Sign in under Settings → Account first.",
+      "hubNotConfigured": "Hub is not configured.",
+      "createFailed": "Could not create pair code"
     }
   },
   "tunnelConnector": {
@@ -8756,6 +9427,14 @@
     },
     "workspace": {
       "main": "Main"
+    },
+    "scriptTrust": {
+      "title": "Review this project's run script",
+      "description": "These commands come from the project's .atmos/scripts/atmos.json and have not been reviewed yet. They run in your terminal with your permissions. Accepting trusts the whole file, so read every command below — not just the one about to run.",
+      "trustAndRun": "Trust and run",
+      "trusting": "Trusting…",
+      "cancel": "Cancel",
+      "trustFailed": "Could not trust the script"
     }
   },
   "chatSessions": {
@@ -9011,7 +9690,11 @@
       "orphanedProcessesLabel": "{count, plural, one {# orphan} other {# orphans}}",
       "orphanedProcessesTooltip": "Orphaned shell processes (PPID=1) that may be holding PTY devices. See the Orphaned Processes section below for details."
     },
-    "mosaicWorkspacePaneWindow": {
+    "workspacePane": {
+      "drag": {
+        "handle": "Drag to rearrange panes",
+        "ghost": "Terminal"
+      },
       "pin": {
         "title": "Pin to canvas (⌘⇧P)",
         "alreadyPinnedTitle": "Already pinned to canvas"
@@ -9027,6 +9710,15 @@
       "close": {
         "title": "Close (⌘W)"
       }
+    },
+    "attentionSummary": {
+      "loadingTitle": "Summarizing recent work…",
+      "readyTitle": "While you were away",
+      "errorTitle": "Could not summarize",
+      "errorFallback": "The headless summary agent failed. You can still continue in this session.",
+      "canCloseBadge": "Safe to close",
+      "keepOpenBadge": "Keep open",
+      "dismiss": "Dismiss"
     }
   },
   "app": {
@@ -9040,7 +9732,8 @@
       },
       "server": {
         "description": "Sorry, something went wrong in Atmos.",
-        "retry": "TRY AGAIN"
+        "retry": "TRY AGAIN",
+        "home": "Go back home"
       },
       "canvasLabel": {
         "notFound": "Playable Breakout board for the Atmos 404 page",
@@ -9104,6 +9797,7 @@
       "url": {
         "enter": "Enter URL..."
       },
+      "agentActive": "Agent is using this page",
       "actions": {
         "openInBrowser": "Open in browser",
         "openDeveloperTools": "Open developer tools",
@@ -9286,9 +9980,6 @@
         "retry": "Retry",
         "openInBrowser": "Open in browser"
       },
-      "loading": {
-        "label": "Loading Browser..."
-      },
       "home": {
         "title": "Browser",
         "description": "Open a local app or website, inspect elements, and send clean page context to AI.",
@@ -9359,18 +10050,20 @@
   },
   "DiskAnalyzer": {
     "title": "Disk analyzer",
-    "subtitle": "Scans Atmos-related space by default (~/.atmos, projects, Atmos.app). Opt in to scan all space.",
+    "subtitle": "See what's using disk space, and get cleanup suggestions.",
     "pathPlaceholder": "Absolute path to scan",
     "scan": "Scan",
     "rescan": "Rescan",
+    "scanningButton": "Scanning…",
     "cancel": "Cancel",
     "sunburst": "Sunburst",
     "treemap": "Treemap",
     "switchChartMode": "Switch to {mode}",
     "topN": "Top",
+    "topNHint": "Largest N items in this folder. No change when the folder has fewer items.",
     "computerRoot": "~",
     "atmosRoot": "Atmos",
-    "scanAllSpace": "Scan all space",
+    "fullScan": "Full Scan",
     "scanScopeHintAria": "About scan scope",
     "scanScopeHint": "Not a professional full-disk scanner. For system-wide disk maps and cleanup, we recommend <mole>Mole</mole>'s disk scan and clean tools.",
     "freeSpace": "{free} free of {total}",
@@ -9391,8 +10084,70 @@
     "details": "Details",
     "showDetails": "Show details panel",
     "hideDetails": "Hide details panel",
+    "tabDirs": "Dirs",
+    "tabClearSuggest": "Clear suggest",
+    "refreshDetails": "Refresh",
+    "refreshDetailsAria": "Refresh details panel",
+    "deleteAllSuggest": "Delete all",
+    "deleteAllSuggestTitle": "Delete all suggestions?",
+    "deleteAllSuggestDescription": "This will reclaim about {size} from {count} suggested items.",
+    "suggestDeleteGroup": "Delete group",
+    "suggestDeleteGroupTitle": "Delete this group?",
+    "suggestCount": "{count} items",
+    "suggestScanning": "Still scanning… more suggestions may appear.",
+    "suggestEmpty": "No cleanup suggestions right now.",
+    "suggestIdleDays": "Idle {days, plural, one {# day} other {# days}}",
+    "suggestKind": {
+      "cache": "Cache",
+      "worktree": "Git worktree",
+      "session": "Agent session",
+      "workspace": "Workspace"
+    },
     "atmosProject": "Project",
     "atmosWorkspace": "Workspace",
+    "gitWorktree": "Git worktree",
+    "gitWorktrees": "Git worktrees",
+    "agentData": "Agent data",
+    "agentSessionNames": {
+      "claude": "Claude Code sessions",
+      "cursor": "Cursor sessions",
+      "cursorChats": "Cursor chats",
+      "codex": "Codex sessions",
+      "codexArchived": "Codex archived sessions",
+      "codexHeadless": "Codex headless sessions",
+      "copilot": "Copilot CLI sessions",
+      "copilotHistory": "Copilot CLI history",
+      "gemini": "Gemini CLI sessions",
+      "antigravity": "Antigravity sessions",
+      "continue": "Continue sessions",
+      "grok": "Grok Build sessions",
+      "opencode": "OpenCode sessions",
+      "devin": "Devin sessions",
+      "devinAcp": "Devin Desktop sessions",
+      "amp": "Amp sessions",
+      "droid": "Droid sessions",
+      "pi": "Pi sessions",
+      "omp": "Oh My Pi sessions",
+      "kimi": "Kimi sessions",
+      "kimiCode": "Kimi Code sessions",
+      "qwen": "Qwen sessions",
+      "qwenProjects": "Qwen project sessions",
+      "cline": "Cline sessions",
+      "goose": "Goose sessions",
+      "crush": "Crush sessions",
+      "hermes": "Hermes sessions",
+      "openclaw": "OpenClaw sessions",
+      "openhands": "OpenHands sessions",
+      "mux": "Mux sessions",
+      "junie": "Junie sessions",
+      "commandcode": "Command Code sessions",
+      "codebuddy": "CodeBuddy sessions",
+      "augment": "Augment sessions",
+      "vibe": "Vibe sessions",
+      "kiro": "Kiro sessions",
+      "kiroCli": "Kiro CLI sessions",
+      "windsurf": "Windsurf Cascade sessions"
+    },
     "atmosRuntimeDir": "Atmos Runtime Dir",
     "enterDirectory": "Open folder",
     "counts": "{files} files · {dirs} dirs",
@@ -9404,6 +10159,7 @@
     "children": "Largest items",
     "deleteTitle": "Delete path?",
     "deleteDescription": "This will reclaim about {size} from:\n{path}",
+    "deleteWorktreeNote": "This runs git worktree remove so the main repo no longer lists this checkout. If remove fails, git may still list the path.",
     "permanentDelete": "Permanently delete (do not use trash)",
     "confirmTrash": "Move to trash",
     "confirmPermanent": "Delete permanently",
@@ -9413,10 +10169,14 @@
       "bazel_bin": "Bazel bin outputs",
       "bazel_out": "Bazel output tree",
       "binaries": "Unreal Engine binaries",
+      "archived_sessions": "Codex session files",
+      "acp_events": "Devin session files",
+      "agent_session": "Session files for this agent. Deleting them removes chat history.",
       "bower_components": "Bower packages (legacy)",
       "buck_out": "Buck build output",
       "build": "Build output (Gradle/CMake/web/etc.)",
       "carthage": "Carthage checkouts/build",
+      "cascade": "Windsurf Cascade session files",
       "cdk_out": "AWS CDK cloud assembly",
       "cmake_build_debug": "CLion/CMake debug build",
       "cmake_build_release": "CLion/CMake release build",
@@ -9427,32 +10187,56 @@
       "deriveddatacache": "Unreal derived data cache",
       "dist": "Build distribution output",
       "dist_newstyle": "Cabal new-style build",
+      "dot_aider": "Aider session files",
       "dot_angular": "Angular CLI cache",
       "dot_astro": "Astro build cache",
+      "dot_augment": "Augment session files",
       "dot_aws_sam": "AWS SAM build artifacts",
       "dot_bloop": "Bloop BSP cache",
       "dot_build": "SwiftPM / generic dot-build output",
       "dot_bundle": "Bundler cache/config",
       "dot_cache": "Tool cache directory",
+      "dot_claude": "Claude Code session files",
+      "dot_cline": "Cline session files",
+      "dot_codebuddy": "CodeBuddy session files",
+      "dot_codeium": "Windsurf Cascade session files",
+      "dot_codex": "Codex session files",
+      "dot_commandcode": "Command Code session files",
+      "dot_continue": "Continue session files",
+      "dot_copilot": "Copilot CLI session files",
+      "dot_crush": "Crush session files",
+      "dot_cursor": "Cursor session files",
       "dot_cxx": "Android NDK / CMake CXX cache",
       "dot_dart_tool": "Dart/Flutter tool cache",
       "dot_devenv": "devenv cache",
+      "dot_devin": "Devin session files",
       "dot_direnv": "direnv layout cache",
       "dot_docusaurus": "Docusaurus build cache",
       "dot_eggs": "Python eggs",
       "dot_elixir_ls": "ElixirLS cache",
       "dot_eslintcache": "ESLint cache",
       "dot_externalnativebuild": "Android NDK external build",
+      "dot_factory": "Droid session files",
+      "dot_gemini": "Gemini CLI session files",
+      "dot_goose": "Goose session files",
       "dot_gradle": "Gradle cache",
+      "dot_grok": "Grok Build session files",
+      "dot_hermes": "Hermes session files",
+      "dot_history": "Local History IDE plugin data",
       "dot_huggingface": "Hugging Face hub cache",
       "dot_ipynb_checkpoints": "Jupyter notebook checkpoints",
       "dot_ivy2": "Ivy dependency cache",
       "dot_jest": "Jest cache",
+      "dot_junie": "Junie session files",
       "dot_keras": "Keras datasets/models",
+      "dot_kimi": "Kimi session files",
+      "dot_kimi_code": "Kimi Code session files",
+      "dot_kiro": "Kiro session files",
       "dot_kotlin": "Kotlin compiler daemon/cache",
       "dot_m2": "Maven local repository",
       "dot_metals": "Metals language server cache",
       "dot_mypy_cache": "mypy type-check cache",
+      "dot_mux": "Mux session files",
       "dot_next": "Next.js build output",
       "dot_nox": "nox virtualenvs",
       "dot_npm": "npm cache",
@@ -9461,15 +10245,21 @@
       "dot_nx": "Nx computation cache",
       "dot_nyc_output": "Istanbul/nyc coverage temp",
       "dot_ollama": "Ollama local models",
+      "dot_omp": "Oh My Pi session files",
       "dot_opam": "opam root / package cache",
+      "dot_opencode": "OpenCode session files",
+      "dot_openclaw": "OpenClaw session files",
+      "dot_openhands": "OpenHands session files",
       "dot_output": "Nuxt/Nitro/framework output",
       "dot_parcel_cache": "Parcel bundler cache",
       "dot_pdm_cache": "PDM package cache",
+      "dot_pi": "Pi session files",
       "dot_playwright": "Playwright cache",
       "dot_pnpm_store": "pnpm content-addressable store",
       "dot_pub_cache": "Pub global package cache",
       "dot_pulumi": "Pulumi plugins/cache",
       "dot_pytest_cache": "pytest cache",
+      "dot_qwen": "Qwen session files",
       "dot_ruff_cache": "Ruff linter cache",
       "dot_sass_cache": "Sass cache",
       "dot_serverless": "Serverless Framework package",
@@ -9488,18 +10278,21 @@
       "dot_vagrant": "Vagrant machine data",
       "dot_venv": "Python virtual environment",
       "dot_vercel": "Vercel build cache",
+      "dot_vibe": "Vibe session files",
       "dot_virtualenv": "virtualenv directory",
       "dot_vite": "Vite prebundle cache",
       "dot_vitest": "Vitest cache",
       "dot_vscode_test": "VS Code extension test host",
       "dot_vuepress": "VuePress cache/dist",
       "dot_webpack": "Webpack cache",
+      "dot_windsurf": "Windsurf session files",
       "dot_yarn": "Yarn cache / releases",
       "dot_yarn_cache": "Yarn classic cache",
       "egg_info": "Python package egg-info (rebuildable)",
       "ephemeral": "Flutter ephemeral generated files",
       "htmlcov": "coverage.py HTML report",
       "huggingface": "Hugging Face cache",
+      "history_session_state": "Copilot CLI session files",
       "intermediate": "Unreal Engine intermediate",
       "ms_playwright": "Playwright browser binaries",
       "nimcache": "Nim compiler cache",
@@ -9508,6 +10301,7 @@
       "out": "Compile/export output",
       "output": "Generic build output",
       "playwright_report": "Playwright HTML report",
+      "session_state": "Copilot CLI session files",
       "pods": "CocoaPods dependencies",
       "puppeteer": "Puppeteer Chromium",
       "pycache": "Python bytecode cache",
@@ -9554,6 +10348,116 @@
         "engine": "Control engine installed and running",
         "accessibility": "Accessibility allowed for Atmos Desktop Use",
         "screenRecording": "Screen Recording allowed for Atmos Desktop Use"
+      }
+    }
+  },
+  "hubAuthBridge": {
+    "title": "Almost done",
+    "working": "Finishing sign-in and trusting this device…",
+    "success": "Signed in. You can close this tab and return to Atmos.",
+    "closeHint": "You can close this page. Atmos will pick up your session automatically.",
+    "backToAtmos": "Back to Atmos",
+    "noSession": "No Atmos session found. Try signing in again from the app.",
+    "failed": "Could not finish sign-in",
+    "missingCode": "Missing sign-in code. Start again from Atmos Settings → Account."
+  },
+  "hubAuthDone": {
+    "title": "Sign-in complete",
+    "working": "Confirming your Atmos session…",
+    "success": "Signed in. You can close this tab and return to Atmos.",
+    "closeHint": "You can close this page.",
+    "backToAtmos": "Back to Atmos",
+    "noSession": "No session found. Try signing in again from Atmos.",
+    "failed": "Could not confirm sign-in"
+  },
+  "hubAuthError": {
+    "title": "Could not finish",
+    "closeHint": "You can close this page and try again from Atmos.",
+    "backToAtmos": "Back to Atmos",
+    "codeLabel": "Code: {code}",
+    "errors": {
+      "generic": "Something went wrong while signing in or linking an account. Try again from Atmos Settings → Account.",
+      "accountAlreadyLinkedOtherUser": "This Google or GitHub login is already connected to a different Atmos account.",
+      "accountAlreadyLinkedOtherUserHint": "Sign in with that Google/GitHub account instead, or link a different account. You cannot attach the same login to two Atmos users.",
+      "emailDoesNotMatch": "The provider email does not match this Atmos account.",
+      "unableToLink": "Could not link this account. Try again or use another provider.",
+      "stateMismatch": "Sign-in expired or was started twice. Close this tab and try again from Atmos.",
+      "sessionRequired": "Sign in first, then link another account."
+    }
+  },
+  "features": {
+    "simulator": {
+      "tab": "Simulator",
+      "iframeTitle": "iOS Simulator preview",
+      "downloading": "Downloading Simulator helper… {percent}%",
+      "starting": "Starting Simulator preview…",
+      "checking": "Checking Simulator…",
+      "actions": {
+        "needDesktop": "Get Atmos Desktop",
+        "installXcode": "Install Xcode",
+        "openXcode": "Install an iOS runtime",
+        "retry": "Retry",
+        "start": "Start",
+        "stop": "Stop",
+        "cancel": "Cancel"
+      },
+      "stopConfirm": {
+        "title": "Stop the simulator preview?",
+        "body": "This ends the helper process and frees the device."
+      },
+      "reasons": {
+        "ok": {
+          "title": "Simulator is stopped",
+          "body": "Start the preview when you need it. This workspace can run one Simulator at a time."
+        },
+        "not_desktop": {
+          "title": "Needs a local Mac server",
+          "body": "The iOS Simulator runs on the machine that hosts this Atmos Server. Connect to a Mac that has Xcode, or start just dev-api on that Mac."
+        },
+        "unsupported_platform": {
+          "title": "Mac required",
+          "body": "The iOS Simulator is only available on macOS with Xcode."
+        },
+        "unsupported_arch": {
+          "title": "Apple Silicon required",
+          "body": "This preview helper is built for Apple Silicon Macs."
+        },
+        "macos_too_old": {
+          "title": "macOS 14 or later required",
+          "body": "Update macOS, then install the current Xcode."
+        },
+        "xcode_missing": {
+          "title": "Xcode is not installed",
+          "body": "Install Xcode from Apple, then open Simulator again."
+        },
+        "simctl_missing": {
+          "title": "Simulator tools are missing",
+          "body": "Install Xcode and accept its license so simctl is available."
+        },
+        "no_runtime": {
+          "title": "No iOS runtime",
+          "body": "Install an iOS Simulator runtime in Xcode Settings → Platforms."
+        },
+        "no_device": {
+          "title": "No Simulator device",
+          "body": "Create an iPhone simulator in Xcode, then try again."
+        },
+        "helper_missing": {
+          "title": "Helper not installed",
+          "body": "Start to download the Simulator helper, then open the preview."
+        },
+        "download_failed": {
+          "title": "Could not download helper",
+          "body": "Check your network and retry. The file is checked against a pinned checksum."
+        },
+        "checksum_mismatch": {
+          "title": "Helper checksum failed",
+          "body": "The download did not match the expected file. Retry to download again."
+        },
+        "start_failed": {
+          "title": "Could not start preview",
+          "body": "The helper did not come up. Retry after Xcode and Simulator tools are ready."
+        }
       }
     }
   }

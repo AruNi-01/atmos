@@ -3,13 +3,11 @@
 import React from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
-import { Loader2, RotateCcw, Server } from "lucide-react";
+import { Loader2, Server } from "lucide-react";
 import {
-  Button,
   Popover,
   PopoverContent,
   PopoverTrigger,
-  cn,
 } from "@workspace/ui";
 
 import { useComputerQueryScope } from "@/api/query/query-scope";
@@ -19,6 +17,7 @@ import { localServicesScanQueryOptions } from "@/features/local-services/lib/loc
 import type { LocalService } from "@/features/local-services/types";
 import { useAppRouter } from "@/shared/hooks/use-app-router";
 import { useLocalServicesScanQuery } from "@/features/local-services/hooks/use-local-services-query";
+import { ensureSurface } from "@/features/browser/lib/ensure-browser-surface";
 import { LocalServiceList } from "./LocalServiceList";
 
 const FOOTER_REQUEST = {
@@ -62,17 +61,18 @@ export function LocalServicesFooterItem() {
   const handleOpen = React.useCallback((service: LocalService) => {
     const openUrl = localServiceOpenUrl(service);
     if (!openUrl) return;
-    const params = new URLSearchParams();
-    params.set("rsTab", "browser");
-    params.set("pvUrl", openUrl);
+    const contextId = service.owner.workspace_id || service.owner.project_id;
     if (service.owner.workspace_id) {
-      params.set("id", service.owner.workspace_id);
-      router.push(`/workspace?${params.toString()}`);
+      router.push(`/workspace?id=${encodeURIComponent(service.owner.workspace_id)}`);
     } else if (service.owner.project_id) {
-      params.set("id", service.owner.project_id);
-      router.push(`/project?${params.toString()}`);
+      router.push(`/project?id=${encodeURIComponent(service.owner.project_id)}`);
     } else {
       window.open(openUrl, "_blank", "noopener,noreferrer");
+      setOpen(false);
+      return;
+    }
+    if (contextId) {
+      void ensureSurface({ contextId, url: openUrl });
     }
     setOpen(false);
   }, [router]);
@@ -96,35 +96,12 @@ export function LocalServicesFooterItem() {
         </button>
       </PopoverTrigger>
       <PopoverContent side="top" align="start" className="w-[420px] p-0">
-        <div className="border-b border-border px-3 py-2">
-          <div className="flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <div className="text-xs font-semibold text-foreground">
-                {label("title")}
-              </div>
-              <div className="truncate text-[10px] text-muted-foreground">
-                {label("subtitle")}
-              </div>
-            </div>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="size-7"
-              onClick={() => void forceRefresh()}
-              disabled={loading || connectionState !== "connected"}
-              title={label("refresh")}
-            >
-              <RotateCcw className={cn("size-3.5", loading && "animate-spin-reverse")} />
-            </Button>
-          </div>
+        <div className="max-h-[420px] overflow-y-auto p-3">
           {error ? (
-            <div className="mt-2 rounded border border-destructive/30 bg-destructive/10 px-2 py-1 text-[10px] text-destructive">
+            <div className="mb-3 rounded border border-destructive/30 bg-destructive/10 px-2 py-1 text-[10px] text-destructive">
               {error}
             </div>
           ) : null}
-        </div>
-        <div className="max-h-[420px] overflow-y-auto p-3">
           <LocalServiceList
             services={services}
             grouped

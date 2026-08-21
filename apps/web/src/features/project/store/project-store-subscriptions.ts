@@ -61,6 +61,9 @@ export function subscribeToWorkspaceSetupProgressEvent(
       output: data.output || '',
       replaceOutput: data.replace_output,
       requiresConfirmation: data.requires_confirmation,
+      requiresScriptTrust: data.requires_script_trust,
+      scriptProjectGuid: data.script_project_guid,
+      scriptHash: data.script_hash,
       success: data.success,
       countdown: data.countdown,
       setupContext: data.setup_context

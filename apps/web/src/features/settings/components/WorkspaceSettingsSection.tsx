@@ -4,9 +4,6 @@ import React from 'react';
 import { useTranslations } from 'next-intl';
 import {
   Button,
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
   Input,
   Select,
   SelectContent,
@@ -15,17 +12,16 @@ import {
   SelectValue,
   Switch,
 } from '@workspace/ui';
-import {
-  Archive,
-  ChevronDown,
-  FolderSymlink,
-  GitBranch,
-  Plus,
-  Trash2,
-} from 'lucide-react';
+import { Plus, Trash2 } from 'lucide-react';
 import type { GitIgnoreDirStrategy } from '@/api/ws-api';
 import { useWorkspaceGitignoreDirsStore } from '@/features/workspace/store/workspace-gitignore-dirs-store';
 import { useWorkspaceSettingsStore } from '@/features/settings/store/workspace-settings-store';
+import {
+  SettingsGroupCard,
+  SettingsGroupRow,
+  SettingsPageStack,
+} from '@/features/settings/components/settings/SettingsGroupCard';
+import { SettingsToggleRow } from '@/features/settings/components/settings/SettingsToggleRow';
 
 function GitignoreDirsCard() {
   const t = useTranslations('settings.workspaceSection');
@@ -41,7 +37,7 @@ function GitignoreDirsCard() {
     updateCustomPath,
   } = useWorkspaceGitignoreDirsStore();
 
-  const [expanded, setExpanded] = React.useState(true);
+  const [expanded, setExpanded] = React.useState(false);
   const [newPath, setNewPath] = React.useState('');
   const [editingPaths, setEditingPaths] = React.useState<Record<string, string>>({});
 
@@ -64,35 +60,19 @@ function GitignoreDirsCard() {
   ];
 
   return (
-    <Collapsible
+    <SettingsGroupCard
       open={expanded}
       onOpenChange={setExpanded}
-      className="overflow-hidden rounded-2xl border border-border"
+      title={t('gitignore.title')}
+      description={
+        <>
+          {t('gitignore.descriptionPrefix')} <code className="font-mono text-[11px]">git worktree add</code>
+          {t('gitignore.descriptionMiddle')} <code className="font-mono text-[11px]">.gitignore</code>
+          {t('gitignore.descriptionSuffix')}
+        </>
+      }
+      headerEnd={<Switch checked={enabled} onCheckedChange={setEnabled} />}
     >
-      <div className="flex items-start justify-between gap-4 px-6 py-5">
-        <CollapsibleTrigger className="group min-w-0 flex-1 cursor-pointer text-left">
-          <div className="flex items-start gap-3">
-            <span className="relative mt-0.5 size-5 shrink-0">
-              <FolderSymlink className="absolute inset-0 size-5 transition-opacity duration-150 group-hover:opacity-0" />
-              <ChevronDown className="absolute inset-0 size-5 opacity-0 transition-all duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
-            </span>
-            <div className="min-w-0">
-              <p className="text-base font-medium text-foreground">{t('gitignore.title')}</p>
-              <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                {t('gitignore.descriptionPrefix')} <code className="font-mono text-xs">git worktree add</code>
-                {t('gitignore.descriptionMiddle')} <code className="font-mono text-xs">.gitignore</code>
-                {t('gitignore.descriptionSuffix')}
-              </p>
-            </div>
-          </div>
-        </CollapsibleTrigger>
-        <div className="shrink-0 pt-1">
-          <Switch checked={enabled} onCheckedChange={setEnabled} />
-        </div>
-      </div>
-
-      <CollapsibleContent>
-        <div className="border-t border-border px-4">
           <div className="px-2 py-3">
             <p className="px-1 pb-2 text-xs font-medium text-muted-foreground">
               {t('gitignore.builtInDefaults')}
@@ -226,9 +206,7 @@ function GitignoreDirsCard() {
               {t('gitignore.warning')}
             </p>
           </div>
-        </div>
-      </CollapsibleContent>
-    </Collapsible>
+    </SettingsGroupCard>
   );
 }
 
@@ -254,9 +232,9 @@ export function WorkspaceSettingsSection() {
     loadSettings,
   } = useWorkspaceSettingsStore();
 
-  const [expanded, setExpanded] = React.useState(true);
+  const [expanded, setExpanded] = React.useState(false);
   const [branchNamingExpanded, setBranchNamingExpanded] = React.useState(true);
-  const [archiveExpanded, setArchiveExpanded] = React.useState(true);
+  const [archiveExpanded, setArchiveExpanded] = React.useState(false);
   const [localPrefix, setLocalPrefix] = React.useState(branchPrefix);
   const pendingSaveRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -294,206 +272,88 @@ export function WorkspaceSettingsSection() {
   }, []);
 
   return (
-    <div className="space-y-4">
-      <Collapsible
+    <SettingsPageStack>
+      <SettingsGroupCard
         open={branchNamingExpanded}
         onOpenChange={setBranchNamingExpanded}
-        className="overflow-hidden rounded-2xl border border-border"
+        title={t('branchNaming.title')}
+        description={t('branchNaming.description')}
       >
-        <div className="flex items-start justify-between gap-4 px-6 py-5">
-          <CollapsibleTrigger className="group min-w-0 flex-1 cursor-pointer text-left">
-            <div className="flex items-start gap-3">
-              <span className="relative mt-0.5 size-5 shrink-0">
-                <GitBranch className="absolute inset-0 size-5 transition-opacity duration-150 group-hover:opacity-0" />
-                <ChevronDown className="absolute inset-0 size-5 opacity-0 transition-all duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
-              </span>
-              <div className="min-w-0">
-                <p className="text-base font-medium text-foreground">{t('branchNaming.title')}</p>
-                <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                  {t('branchNaming.description')}
-                </p>
-              </div>
-            </div>
-          </CollapsibleTrigger>
-        </div>
-
-        <CollapsibleContent>
-          <div className="border-t border-border px-4">
-            <div className="border-b border-border px-2 py-4 last:border-b-0">
-              <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8">
-                <div>
-                  <p className="text-sm text-foreground">{t('branchNaming.prefixTitle')}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {t('branchNaming.prefixDescription')}
-                  </p>
-                </div>
-                <div className="flex items-center justify-end">
-                  <div className="flex items-center gap-0">
-                    <Input
-                      value={localPrefix}
-                      onChange={(event) => handlePrefixChange(event.target.value)}
-                      placeholder={t('branchNaming.prefixPlaceholder')}
-                      className="h-8 w-[200px] rounded-r-none border-r-0 focus-visible:ring-0"
-                    />
-                    <div className="flex h-8 items-center rounded-r-md border border-l-0 bg-muted px-2 text-sm text-muted-foreground">
-                      /
-                    </div>
-                  </div>
-                </div>
-              </div>
+        <SettingsGroupRow wide title={t('branchNaming.prefixTitle')} description={t('branchNaming.prefixDescription')}>
+          <div className="flex items-center gap-0">
+            <Input
+              value={localPrefix}
+              onChange={(event) => handlePrefixChange(event.target.value)}
+              placeholder={t('branchNaming.prefixPlaceholder')}
+              className="h-8 w-[200px] rounded-r-none border-r-0 focus-visible:ring-0"
+            />
+            <div className="flex h-8 items-center rounded-r-md border border-l-0 bg-muted px-2 text-sm text-muted-foreground">
+              /
             </div>
           </div>
-        </CollapsibleContent>
-      </Collapsible>
+        </SettingsGroupRow>
+      </SettingsGroupCard>
 
       <GitignoreDirsCard />
 
-      <Collapsible
+      <SettingsGroupCard
         open={expanded}
         onOpenChange={setExpanded}
-        className="overflow-hidden rounded-2xl border border-border"
+        title={t('deletion.title')}
+        description={t('deletion.description')}
       >
-        <div className="flex items-start justify-between gap-4 px-6 py-5">
-          <CollapsibleTrigger className="group min-w-0 flex-1 cursor-pointer text-left">
-            <div className="flex items-start gap-3">
-              <span className="relative mt-0.5 size-5 shrink-0">
-                <Trash2 className="absolute inset-0 size-5 transition-opacity duration-150 group-hover:opacity-0" />
-                <ChevronDown className="absolute inset-0 size-5 opacity-0 transition-all duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
-              </span>
-              <div className="min-w-0">
-                <p className="text-base font-medium text-foreground">{t('deletion.title')}</p>
-                <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                  {t('deletion.description')}
-                </p>
-              </div>
-            </div>
-          </CollapsibleTrigger>
-        </div>
+        <SettingsToggleRow
+          title={t('deletion.closePrTitle')}
+          description={t('deletion.closePrDescription')}
+          checked={closePrOnDelete}
+          onCheckedChange={setClosePrOnDelete}
+        />
+        <SettingsToggleRow
+          title={t('deletion.closeIssueTitle')}
+          description={t('deletion.closeIssueDescription')}
+          checked={closeIssueOnDelete}
+          onCheckedChange={setCloseIssueOnDelete}
+        />
+        <SettingsToggleRow
+          title={t('deletion.deleteRemoteBranchTitle')}
+          description={t('deletion.deleteRemoteBranchDescription')}
+          checked={deleteRemoteBranch}
+          onCheckedChange={setDeleteRemoteBranch}
+        />
+        <SettingsToggleRow
+          title={t('deletion.confirmBeforeDeleteTitle')}
+          description={t('deletion.confirmBeforeDeleteDescription')}
+          checked={confirmBeforeDelete}
+          onCheckedChange={setConfirmBeforeDelete}
+        />
+      </SettingsGroupCard>
 
-        <CollapsibleContent>
-          <div className="border-t border-border px-4">
-            <div className="border-b border-border px-2 py-4 last:border-b-0">
-              <div className="grid grid-cols-[minmax(0,1fr)_100px] gap-8">
-                <div>
-                  <p className="text-sm text-foreground">{t('deletion.closePrTitle')}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {t('deletion.closePrDescription')}
-                  </p>
-                </div>
-                <div className="flex items-center justify-end">
-                  <Switch checked={closePrOnDelete} onCheckedChange={setClosePrOnDelete} />
-                </div>
-              </div>
-            </div>
-            <div className="border-b border-border px-2 py-4 last:border-b-0">
-              <div className="grid grid-cols-[minmax(0,1fr)_100px] gap-8">
-                <div>
-                  <p className="text-sm text-foreground">{t('deletion.closeIssueTitle')}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {t('deletion.closeIssueDescription')}
-                  </p>
-                </div>
-                <div className="flex items-center justify-end">
-                  <Switch checked={closeIssueOnDelete} onCheckedChange={setCloseIssueOnDelete} />
-                </div>
-              </div>
-            </div>
-            <div className="border-b border-border px-2 py-4 last:border-b-0">
-              <div className="grid grid-cols-[minmax(0,1fr)_100px] gap-8">
-                <div>
-                  <p className="text-sm text-foreground">{t('deletion.deleteRemoteBranchTitle')}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {t('deletion.deleteRemoteBranchDescription')}
-                  </p>
-                </div>
-                <div className="flex items-center justify-end">
-                  <Switch checked={deleteRemoteBranch} onCheckedChange={setDeleteRemoteBranch} />
-                </div>
-              </div>
-            </div>
-            <div className="border-b border-border px-2 py-4 last:border-b-0">
-              <div className="grid grid-cols-[minmax(0,1fr)_100px] gap-8">
-                <div>
-                  <p className="text-sm text-foreground">{t('deletion.confirmBeforeDeleteTitle')}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {t('deletion.confirmBeforeDeleteDescription')}
-                  </p>
-                </div>
-                <div className="flex items-center justify-end">
-                  <Switch checked={confirmBeforeDelete} onCheckedChange={setConfirmBeforeDelete} />
-                </div>
-              </div>
-            </div>
-          </div>
-        </CollapsibleContent>
-      </Collapsible>
-
-      <Collapsible
+      <SettingsGroupCard
         open={archiveExpanded}
         onOpenChange={setArchiveExpanded}
-        className="overflow-hidden rounded-2xl border border-border"
+        title={t('archive.title')}
+        description={t('archive.description')}
       >
-        <div className="flex items-start justify-between gap-4 px-6 py-5">
-          <CollapsibleTrigger className="group min-w-0 flex-1 cursor-pointer text-left">
-            <div className="flex items-start gap-3">
-              <span className="relative mt-0.5 size-5 shrink-0">
-                <Archive className="absolute inset-0 size-5 transition-opacity duration-150 group-hover:opacity-0" />
-                <ChevronDown className="absolute inset-0 size-5 opacity-0 transition-all duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
-              </span>
-              <div className="min-w-0">
-                <p className="text-base font-medium text-foreground">{t('archive.title')}</p>
-                <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                  {t('archive.description')}
-                </p>
-              </div>
-            </div>
-          </CollapsibleTrigger>
-        </div>
-
-        <CollapsibleContent>
-          <div className="border-t border-border px-4">
-            <div className="border-b border-border px-2 py-4 last:border-b-0">
-              <div className="grid grid-cols-[minmax(0,1fr)_100px] gap-8">
-                <div>
-                  <p className="text-sm text-foreground">{t('archive.confirmBeforeArchiveTitle')}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {t('archive.confirmBeforeArchiveDescription')}
-                  </p>
-                </div>
-                <div className="flex items-center justify-end">
-                  <Switch checked={confirmBeforeArchive} onCheckedChange={setConfirmBeforeArchive} />
-                </div>
-              </div>
-            </div>
-            <div className="border-b border-border px-2 py-4 last:border-b-0">
-              <div className="grid grid-cols-[minmax(0,1fr)_100px] gap-8">
-                <div>
-                  <p className="text-sm text-foreground">{t('archive.killTmuxTitle')}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {t('archive.killTmuxDescription')}
-                  </p>
-                </div>
-                <div className="flex items-center justify-end">
-                  <Switch checked={killTmuxOnArchive} onCheckedChange={setKillTmuxOnArchive} />
-                </div>
-              </div>
-            </div>
-            <div className="border-b border-border px-2 py-4 last:border-b-0">
-              <div className="grid grid-cols-[minmax(0,1fr)_100px] gap-8">
-                <div>
-                  <p className="text-sm text-foreground">{t('archive.closeAcpTitle')}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {t('archive.closeAcpDescription')}
-                  </p>
-                </div>
-                <div className="flex items-center justify-end">
-                  <Switch checked={closeAcpOnArchive} onCheckedChange={setCloseAcpOnArchive} />
-                </div>
-              </div>
-            </div>
-          </div>
-        </CollapsibleContent>
-      </Collapsible>
-    </div>
+        <SettingsToggleRow
+          title={t('archive.confirmBeforeArchiveTitle')}
+          description={t('archive.confirmBeforeArchiveDescription')}
+          checked={confirmBeforeArchive}
+          onCheckedChange={setConfirmBeforeArchive}
+        />
+        <SettingsToggleRow
+          title={t('archive.killTmuxTitle')}
+          description={t('archive.killTmuxDescription')}
+          checked={killTmuxOnArchive}
+          onCheckedChange={setKillTmuxOnArchive}
+        />
+        <SettingsToggleRow
+          title={t('archive.closeAcpTitle')}
+          description={t('archive.closeAcpDescription')}
+          checked={closeAcpOnArchive}
+          onCheckedChange={setCloseAcpOnArchive}
+        />
+      </SettingsGroupCard>
+    </SettingsPageStack>
   );
 }
+

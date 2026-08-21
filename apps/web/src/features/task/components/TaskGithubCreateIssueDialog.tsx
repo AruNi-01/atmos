@@ -6,7 +6,6 @@ import { useForm } from "@tanstack/react-form";
 import { useQuery } from "@tanstack/react-query";
 import {
   Button,
-  Checkbox,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -33,23 +32,32 @@ import {
   githubRepoLabelsQueryOptions,
 } from "@/features/github/lib/github-query-options";
 import { GithubMarkdownField } from "@/features/task/components/GithubMarkdownField";
+import {
+  MultiToggleGroup,
+  TemplateFormField,
+  requiredMessage,
+} from "@/features/task/components/TaskGithubTemplateFormFields";
 import type { ProjectGithubRepo } from "@/features/task/hooks/use-project-github-repos";
 import {
   composeIssueBodyFromForm,
   defaultFieldValuesForTemplate,
-  isFieldValueEmpty,
   parseGithubIssueTemplates,
-  type IssueFormField,
   type ParsedIssueTemplate,
 } from "@/features/task/lib/github-issue-templates";
+import { loadLocalGithubIssueTemplates } from "@/features/task/lib/load-local-github-issue-templates";
 import { MarkdownRenderer } from "@/shared/components/markdown/MarkdownRenderer";
 
 export type TaskGithubCreateIssueDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** Candidate repos from Atmos projects. */
+  /** Candidate Atmos projects with a linked GitHub remote. */
   repos: ProjectGithubRepo[];
-  /** Prefill when opened from a single known repo. */
+  /**
+   * Project chosen before open (from the + button popover).
+   * Templates load from this project's local working tree.
+   */
+  initialProjectId?: string | null;
+  /** Fallback when only owner/repo is known. */
   initialRepoFullName?: string | null;
   onCreated?: (result: { owner: string; repo: string; number?: number | null; url: string }) => void;
 };
@@ -64,14 +72,11 @@ type CreateIssueFormValues = {
 
 const BLANK_ID = "blank";
 
-function requiredMessage(label: string, tRequired: (values: { field: string }) => string) {
-  return tRequired({ field: label });
-}
-
 export function TaskGithubCreateIssueDialog({
   open,
   onOpenChange,
   repos,
+  initialProjectId,
   initialRepoFullName,
   onCreated,
 }: TaskGithubCreateIssueDialogProps) {
@@ -79,47 +84,49 @@ export function TaskGithubCreateIssueDialog({
   const scope = useComputerQueryScope();
   const connectionState = useWebSocketStore((s) => s.connectionState);
 
-  // Step: pick project when multiple / not preselected.
-  const [selectedFullName, setSelectedFullName] = useState<string | null>(null);
+  // Project is chosen at the + button popover; dialog only creates for that project.
   const [templateId, setTemplateId] = useState(BLANK_ID);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   const selectedRepo = useMemo(() => {
-    const key = selectedFullName ?? initialRepoFullName ?? null;
-    if (key) {
-      return repos.find((r) => r.fullName === key) ?? null;
+    if (initialProjectId) {
+      const byId = repos.find((r) => r.projectId === initialProjectId);
+      if (byId) return byId;
     }
-    // Single linked repo → skip picker; multiple → force explicit choice.
+    if (initialRepoFullName) {
+      const byRemote = repos.find((r) => r.fullName === initialRepoFullName);
+      if (byRemote) return byRemote;
+    }
     if (repos.length === 1) return repos[0] ?? null;
     return null;
-  }, [initialRepoFullName, repos, selectedFullName]);
+  }, [initialProjectId, initialRepoFullName, repos]);
 
-  // Reset when dialog opens.
+  // Reset form state when dialog opens / project changes.
   useEffect(() => {
     if (!open) return;
-    setSelectedFullName(initialRepoFullName ?? (repos.length === 1 ? repos[0]?.fullName ?? null : null));
     setTemplateId(BLANK_ID);
     setSubmitError(null);
     setSubmitting(false);
-  }, [open, initialRepoFullName, repos]);
+  }, [open, selectedRepo?.projectId]);
 
   const projectPicked = Boolean(selectedRepo);
 
+  // Templates come from the selected Project's local tree — not remote gh api.
   const templatesQuery = useQuery(
     wsQueryOptions({
       scope,
       connectionState,
       queryKey: queryKeys.computer.githubIssueTemplates(
         scope,
-        selectedRepo ? `${selectedRepo.owner}/${selectedRepo.repo}` : "",
+        selectedRepo?.path ?? "",
       ),
       queryFn: () =>
-        wsGithubApi.listIssueTemplates({
+        loadLocalGithubIssueTemplates(selectedRepo!.path, {
           owner: selectedRepo!.owner,
           repo: selectedRepo!.repo,
         }),
-      enabled: open && projectPicked && Boolean(selectedRepo),
+      enabled: open && projectPicked && Boolean(selectedRepo?.path),
       staleTime: 5 * 60_000,
     }),
   );
@@ -271,7 +278,7 @@ export function TaskGithubCreateIssueDialog({
     });
     // form identity is stable from useForm; activeTemplate drives reseed.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reseed on template/repo only
-  }, [activeTemplate.id, open, projectPicked, selectedRepo?.fullName]);
+  }, [activeTemplate.id, open, projectPicked, selectedRepo?.path, selectedRepo?.fullName]);
 
   const assigneeOptions = useMemo(() => {
     const set = new Set<string>();
@@ -293,55 +300,19 @@ export function TaskGithubCreateIssueDialog({
     return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
   }, [activeTemplate.labels, labelsQuery.data]);
 
-  // —— Project picker step ——
-  if (open && !projectPicked) {
-    return (
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-md gap-0 p-0 sm:max-w-md">
-          <DialogHeader className="border-b border-border/70 px-4 py-3">
-            <DialogTitle className="text-base">{t("projectSelect.title")}</DialogTitle>
-            <DialogDescription className="text-xs">{t("projectSelect.description")}</DialogDescription>
-          </DialogHeader>
-          <div className="max-h-[50vh] overflow-y-auto p-2">
-            {repos.length === 0 ? (
-              <p className="px-2 py-6 text-center text-sm text-muted-foreground">
-                {t("projectSelect.empty")}
-              </p>
-            ) : (
-              <ul className="m-0 list-none space-y-0.5 p-0">
-                {repos.map((repo) => (
-                  <li key={repo.fullName}>
-                    <button
-                      type="button"
-                      className="flex w-full flex-col items-start rounded-md px-3 py-2.5 text-left transition-colors hover:bg-muted/60"
-                      onClick={() => setSelectedFullName(repo.fullName)}
-                    >
-                      <span className="text-sm font-medium text-foreground">{repo.fullName}</span>
-                      <span className="text-[11px] text-muted-foreground">{repo.projectName}</span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-          <DialogFooter className="border-t border-border/70 px-4 py-3">
-            <Button type="button" variant="outline" size="sm" onClick={() => onOpenChange(false)}>
-              {t("actions.cancel")}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    );
+  // Project is required (chosen from the + popover). Keep Dialog mounted for close animation.
+  if (!selectedRepo) {
+    return null;
   }
 
   const formFields = activeTemplate.formFields ?? [];
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open && projectPicked} onOpenChange={onOpenChange}>
       <DialogContent className="flex max-h-[min(90vh,840px)] max-w-2xl flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl">
         <DialogHeader className="shrink-0 border-b border-border/70 px-4 py-3">
           <DialogTitle className="text-base">
-            {t("title", { repo: selectedRepo?.fullName ?? "" })}
+            {t("title", { repo: selectedRepo.fullName })}
           </DialogTitle>
           <DialogDescription className="text-xs">{t("description")}</DialogDescription>
         </DialogHeader>
@@ -560,20 +531,6 @@ export function TaskGithubCreateIssueDialog({
           </div>
 
           <DialogFooter className="shrink-0 gap-2 border-t border-border/70 px-4 py-3 sm:justify-end">
-            {repos.length > 1 ? (
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="mr-auto"
-                onClick={() => {
-                  setSelectedFullName(null);
-                  setTemplateId(BLANK_ID);
-                }}
-              >
-                {t("actions.changeProject")}
-              </Button>
-            ) : null}
             <Button type="button" variant="outline" size="sm" onClick={() => onOpenChange(false)}>
               {t("actions.cancel")}
             </Button>
@@ -614,278 +571,3 @@ export function TaskGithubCreateIssueDialog({
   );
 }
 
-function TemplateFormField({
-  field,
-  form,
-  tRequired,
-}: {
-  field: IssueFormField;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- tanstack form instance is deeply generic
-  form: any;
-  tRequired: (values: { field: string }) => string;
-}) {
-  if (field.type === "markdown") {
-    return (
-      <div className="prose prose-sm max-w-none rounded-md border border-border/50 bg-muted/20 px-3 py-2 text-[13px] text-muted-foreground dark:prose-invert">
-        {/* Static markdown from template — not an input */}
-        <pre className="m-0 whitespace-pre-wrap font-sans text-[13px]">{field.value}</pre>
-      </div>
-    );
-  }
-
-  const label = field.label || field.id;
-
-  const validators = {
-    onChange: ({ value }: { value: string | string[] | boolean | undefined }) => {
-      if (!field.required && field.type !== "checkboxes") return undefined;
-      if (isFieldValueEmpty(field, value)) {
-        return requiredMessage(label, tRequired);
-      }
-      return undefined;
-    },
-    onSubmit: ({ value }: { value: string | string[] | boolean | undefined }) => {
-      if (isFieldValueEmpty(field, value) && (field.required || field.type === "checkboxes")) {
-        // checkboxes always run isFieldValueEmpty (handles option-level required)
-        if (field.type === "checkboxes" || field.required) {
-          return requiredMessage(label, tRequired);
-        }
-      }
-      return undefined;
-    },
-  };
-
-  // Dynamic nested field API is loosely typed (template ids are runtime strings).
-  type AnyFieldApi = {
-    state: {
-      value: unknown;
-      meta: { errors: unknown[] };
-    };
-    handleBlur: () => void;
-    handleChange: (value: unknown) => void;
-  };
-
-  if (field.type === "textarea") {
-    return (
-      <form.Field name={`fields.${field.id}` as never} validators={validators as never}>
-        {(f: AnyFieldApi) => {
-          const value = String(f.state.value ?? "");
-          const errors = f.state.meta.errors;
-          return (
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium">
-                {label}
-                {field.required ? <span className="text-destructive"> *</span> : null}
-              </Label>
-              {field.description ? (
-                <p className="text-[11px] text-muted-foreground">{field.description}</p>
-              ) : null}
-              <GithubMarkdownField
-                value={value}
-                onChange={(v) => f.handleChange(v)}
-                onBlur={f.handleBlur}
-                placeholder={field.placeholder}
-                aria-label={label}
-                error={errors[0] ? String(errors[0]) : null}
-              />
-            </div>
-          );
-        }}
-      </form.Field>
-    );
-  }
-
-  if (field.type === "input") {
-    return (
-      <form.Field
-        name={`fields.${field.id}` as never}
-        validators={validators as never}
-      >
-        {(f: AnyFieldApi) => (
-          <div className="space-y-1.5">
-            <Label className="text-xs font-medium">
-              {label}
-              {field.required ? <span className="text-destructive"> *</span> : null}
-            </Label>
-            {field.description ? (
-              <p className="text-[11px] text-muted-foreground">{field.description}</p>
-            ) : null}
-            <Input
-              value={String(f.state.value ?? "")}
-              onBlur={f.handleBlur}
-              onChange={(e) => f.handleChange(e.target.value)}
-              placeholder={field.placeholder}
-              className={cn(
-                "h-9 text-sm",
-                f.state.meta.errors.length > 0 && "border-destructive/60",
-              )}
-            />
-            {f.state.meta.errors[0] ? (
-              <p className="text-[11px] text-destructive">{String(f.state.meta.errors[0])}</p>
-            ) : null}
-          </div>
-        )}
-      </form.Field>
-    );
-  }
-
-  if (field.type === "dropdown") {
-    const options = field.options ?? [];
-    return (
-      <form.Field name={`fields.${field.id}` as never} validators={validators as never}>
-        {(f: AnyFieldApi) => (
-          <div className="space-y-1.5">
-            <Label className="text-xs font-medium">
-              {label}
-              {field.required ? <span className="text-destructive"> *</span> : null}
-            </Label>
-            {field.description ? (
-              <p className="text-[11px] text-muted-foreground">{field.description}</p>
-            ) : null}
-            {field.multiple ? (
-              <MultiToggleGroup
-                label=""
-                hideLabel
-                options={options.map((o) => ({ value: o, label: o }))}
-                value={Array.isArray(f.state.value) ? (f.state.value as string[]) : []}
-                onChange={(next) => f.handleChange(next)}
-                emptyLabel="—"
-              />
-            ) : (
-              <Select
-                value={String(f.state.value ?? "") || undefined}
-                onValueChange={(v) => f.handleChange(v ?? "")}
-              >
-                <SelectTrigger className="h-9 w-full text-sm">
-                  <SelectValue placeholder={field.placeholder || label} />
-                </SelectTrigger>
-                <SelectContent>
-                  {options.map((o) => (
-                    <SelectItem key={o} value={o} className="text-sm">
-                      {o}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-            {f.state.meta.errors[0] ? (
-              <p className="text-[11px] text-destructive">{String(f.state.meta.errors[0])}</p>
-            ) : null}
-          </div>
-        )}
-      </form.Field>
-    );
-  }
-
-  // checkboxes
-  const opts = field.checkboxOptions ?? [];
-  return (
-    <form.Field name={`fields.${field.id}` as never} validators={validators as never}>
-      {(f: AnyFieldApi) => {
-        const selected = Array.isArray(f.state.value) ? (f.state.value as string[]) : [];
-        return (
-          <div className="space-y-1.5">
-            <Label className="text-xs font-medium">
-              {label}
-              {field.required ? <span className="text-destructive"> *</span> : null}
-            </Label>
-            {field.description ? (
-              <p className="text-[11px] text-muted-foreground">{field.description}</p>
-            ) : null}
-            <div className="space-y-1.5 rounded-md border border-border/60 p-2.5">
-              {opts.map((opt) => {
-                const checked = selected.includes(opt.label);
-                return (
-                  <label
-                    key={opt.label}
-                    className="flex cursor-pointer items-start gap-2 text-xs leading-snug"
-                  >
-                    <Checkbox
-                      checked={checked}
-                      onCheckedChange={(next) => {
-                        const on = Boolean(next);
-                        const set = new Set(selected);
-                        if (on) set.add(opt.label);
-                        else set.delete(opt.label);
-                        f.handleChange(Array.from(set));
-                      }}
-                      className="mt-0.5"
-                    />
-                    <span>
-                      {opt.label}
-                      {opt.required ? <span className="text-destructive"> *</span> : null}
-                    </span>
-                  </label>
-                );
-              })}
-            </div>
-            {f.state.meta.errors[0] ? (
-              <p className="text-[11px] text-destructive">{String(f.state.meta.errors[0])}</p>
-            ) : null}
-          </div>
-        );
-      }}
-    </form.Field>
-  );
-}
-
-function MultiToggleGroup({
-  label,
-  hideLabel,
-  options,
-  value,
-  onChange,
-  emptyLabel,
-}: {
-  label: string;
-  hideLabel?: boolean;
-  options: Array<{ value: string; label: string; color?: string | null }>;
-  value: string[];
-  onChange: (next: string[]) => void;
-  emptyLabel: string;
-}) {
-  const selected = new Set(value);
-  return (
-    <div className="space-y-1.5">
-      {!hideLabel && label ? (
-        <Label className="text-xs font-medium">{label}</Label>
-      ) : null}
-      {options.length === 0 ? (
-        <p className="text-[11px] text-muted-foreground">{emptyLabel}</p>
-      ) : (
-        <div className="flex max-h-28 flex-wrap gap-1.5 overflow-y-auto">
-          {options.map((opt) => {
-            const on = selected.has(opt.value);
-            return (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => {
-                  const next = new Set(selected);
-                  if (on) next.delete(opt.value);
-                  else next.add(opt.value);
-                  onChange(Array.from(next));
-                }}
-                className={cn(
-                  "inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium transition-colors",
-                  on
-                    ? "border-foreground/30 bg-muted text-foreground"
-                    : "border-border/70 text-muted-foreground hover:bg-muted/50",
-                )}
-                style={
-                  opt.color
-                    ? {
-                        borderColor: on ? `#${opt.color.replace(/^#/, "")}` : undefined,
-                        color: on ? `#${opt.color.replace(/^#/, "")}` : undefined,
-                      }
-                    : undefined
-                }
-              >
-                {opt.label}
-              </button>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}

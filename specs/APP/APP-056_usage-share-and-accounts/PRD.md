@@ -2,6 +2,8 @@
 
 > Product Requirements · WHAT and WHY. Settled direction for GitHub-based Atmos Accounts and public Token Usage share pages.
 
+> **Share product surface:** vanity URL, one snapshot per user, and the public page UI now live in [APP-061](../APP-061_token-usage-public-share/PRD.md). This spec remains the source for Hub accounts, sessions, and device credentials.
+
 ## Context
 
 - **Problem**: Users can analyze AI token usage locally and export a PNG share card, but cannot give someone a **URL** that opens a live usage page owned by them. Without a cloud identity, a public page has no safe owner, recovery, or unpublish story.

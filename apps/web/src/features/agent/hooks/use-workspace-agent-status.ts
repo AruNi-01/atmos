@@ -12,8 +12,12 @@ import {
   type AttentionReason,
 } from "@/features/agent/store/agent-attention-store";
 import {
+  parseWorkspaceAgentGroupKey,
+  resolveHydratedWorkspaceAgentGroupKey,
   resolveRolledAttentionReason,
+  resolveWorkspaceAgentGroupKey,
   resolveWorkspaceAgentStatusView,
+  type WorkspaceAgentGroupKey,
   type WorkspaceAgentStatusView,
 } from "@/features/agent/lib/workspace-agent-status";
 
@@ -51,6 +55,49 @@ export function useWorkspaceAgentStatus(
     }),
     [agentState, attentionReason, attentionFilterMode],
   );
+}
+
+/**
+ * Live Agent grouping keys for many workspace/project context ids.
+ * Recomputes when hook sessions or sticky attention revision change.
+ */
+export function useWorkspaceAgentGroupKeyMap(
+  contextIds: readonly string[],
+): Readonly<Record<string, WorkspaceAgentGroupKey>> {
+  const sessions = useAgentHooksStore((s) => s.sessions);
+  const serverWorkspaceGroupKeys = useAgentHooksStore(
+    (s) => s.serverWorkspaceGroupKeys,
+  );
+  const hooksHydrated = useAgentHooksStore((s) => s.hooksHydrated);
+  const attentionRevision = useAgentAttentionStore((s) => s.revision);
+  const idsKey = contextIds.join("\n");
+
+  return useMemo(() => {
+    const hooks = useAgentHooksStore.getState();
+    const attention = useAgentAttentionStore.getState();
+    const map: Record<string, WorkspaceAgentGroupKey> = {};
+    if (!idsKey) return map;
+    for (const id of idsKey.split("\n")) {
+      if (!id) continue;
+      const live = resolveWorkspaceAgentGroupKey({
+        agentState: hooks.getAgentStateForContextId(id),
+        attentionReason: attention.getContextReason(id),
+      });
+      const serverRaw = hooks.serverWorkspaceGroupKeys[id];
+      map[id] = resolveHydratedWorkspaceAgentGroupKey({
+        live,
+        server: serverRaw ? parseWorkspaceAgentGroupKey(serverRaw) : undefined,
+        hooksHydrated: hooks.hooksHydrated,
+      });
+    }
+    return map;
+  }, [
+    attentionRevision,
+    hooksHydrated,
+    idsKey,
+    serverWorkspaceGroupKeys,
+    sessions,
+  ]);
 }
 
 /**

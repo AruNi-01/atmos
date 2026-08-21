@@ -1,23 +1,15 @@
 "use client";
 
 import React from "react";
-import { useRouter } from "next/navigation";
-import { AnimatePresence, motion } from "motion/react";
 import { useTranslations } from "next-intl";
 import {
   Badge,
-  Bot,
   Button,
-  ChartColumnBig,
   Laptop,
-  Maximize,
-  Minimize,
-  Moon,
   Popover,
   PopoverContent,
   PopoverTrigger,
   Search,
-  Sun,
   Tabs,
   TabsContent,
   TabsList,
@@ -29,29 +21,12 @@ import {
   toastManager,
 } from "@workspace/ui";
 import {
-  Menu,
-  MenuItem,
-  MenuPanel,
-  MenuSeparator,
-  MenuShortcut,
-  MenuSubmenu,
-  MenuSubmenuPanel,
-  MenuSubmenuTrigger,
-  MenuTrigger,
-} from "@workspace/ui/components/animate-ui/components/base/menu";
-import {
-  ArrowBigUp,
   Command,
   Computer,
   ExternalLink,
   Globe,
   LoaderCircle,
-  Languages,
-  PanelRightClose,
-  PanelRightOpen,
   RotateCcw,
-  Settings,
-  SunMoon,
 } from "lucide-react";
 
 import type { ProviderKind, TunnelConnectorStatus } from "@/features/connection/hooks/use-tunnel-connector";
@@ -76,6 +51,7 @@ import {
 import { useAtmosComputerStore } from "@/features/connection/lib/atmos-computer-store";
 import { AppshotCapturePreview, AppshotsHeaderButton } from "@/features/appshot";
 import { isHostedAtmosOrigin } from "@/shared/lib/desktop-runtime";
+import { useOpenSettings } from "@/features/settings/lib/open-settings";
 import { LocalModelDownloadProgress } from "@/app-shell/LocalModelDownloadProgress";
 import { QuotaPopover } from "./QuotaPopover";
 import { TunnelItem } from "./header-parts";
@@ -87,20 +63,14 @@ import { formatComputerSeenAt } from "./header-action-controls-utils";
 type DesktopWebStatus = "checking" | "ready" | "unavailable";
 
 type HeaderActionControlsProps = {
-  actionMenuFocusRef: React.MutableRefObject<HTMLElement | null>;
   activeTunnelConnectors: TunnelConnectorStatus[];
   browserUrl: string | null;
   desktopWebPopoverOpen: boolean;
   desktopWebStatus: DesktopWebStatus;
-  isActionMenuOpen: boolean;
   isDesktopRuntime: boolean;
-  isFullScreenActive: boolean;
   isOpeningDesktopWeb: boolean;
   isTunnelConnectorRunning: boolean;
-  isRightCollapsed: boolean;
   isQuotaPopoverOpen: boolean;
-  layout: { opacity: number };
-  launchpadAgentsEnabled: boolean;
   currentProjectName?: string | null;
   currentWorkspaceDisplayName?: string | null;
   currentWorkspaceName?: string | null;
@@ -118,23 +88,12 @@ type HeaderActionControlsProps = {
     ttlSecs: number,
     reuseToken: boolean,
   ) => Promise<unknown>;
-  resolvedThemeLabel: string;
-  setAgentChatOpen: (open: boolean) => void;
   setDesktopWebPopoverOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setGlobalSearchOpen: (open: boolean) => void;
-  setIsActionMenuOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  setIsSettingsOpen: (open: boolean) => Promise<URLSearchParams>;
   setIsQuotaPopoverOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  setRemoteAccessSettingsSection: React.Dispatch<React.SetStateAction<"atmos-computer" | "tunnel-connector" | null>>;
-  setTheme: (theme: string) => void;
-  showRightSidebar: boolean;
-  theme?: string;
-  toggleFullScreen: () => Promise<void> | void;
-  toggleRightSidebar: () => void;
-  updateLayout: (layout: { opacity: number }) => void;
 };
 
-type RemoteAccessSettingsSection = "atmos-computer" | "tunnel-connector";
+type RemoteAccessSettingsHash = "atmos-computer" | "tunnel-connector";
 
 const LOCAL_SWITCH_BUSY_ID = "__local_switch__";
 
@@ -147,8 +106,6 @@ function RemoteAccessPopover({
   onOpenDesktopWeb,
   renewTunnelConnector,
   setDesktopWebPopoverOpen,
-  setIsSettingsOpen,
-  setRemoteAccessSettingsSection,
 }: {
   activeTunnelConnectors: TunnelConnectorStatus[];
   browserUrl: string | null;
@@ -162,18 +119,16 @@ function RemoteAccessPopover({
     reuseToken: boolean,
   ) => Promise<unknown>;
   setDesktopWebPopoverOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  setIsSettingsOpen: (open: boolean) => Promise<URLSearchParams>;
-  setRemoteAccessSettingsSection: React.Dispatch<React.SetStateAction<RemoteAccessSettingsSection | null>>;
 }) {
   const t = useTranslations("header");
+  const openSettingsPage = useOpenSettings();
 
   const openSettings = React.useCallback(
-    (section: RemoteAccessSettingsSection) => {
+    (hash: RemoteAccessSettingsHash) => {
       setDesktopWebPopoverOpen(false);
-      setRemoteAccessSettingsSection(section);
-      void setIsSettingsOpen(true);
+      openSettingsPage("remote-access", hash);
     },
-    [setDesktopWebPopoverOpen, setIsSettingsOpen, setRemoteAccessSettingsSection],
+    [openSettingsPage, setDesktopWebPopoverOpen],
   );
 
   return (
@@ -617,20 +572,14 @@ function TunnelConnectorPopoverContent({
 }
 
 export function HeaderActionControls({
-  actionMenuFocusRef,
   activeTunnelConnectors,
   browserUrl,
   desktopWebPopoverOpen,
   desktopWebStatus,
-  isActionMenuOpen,
   isDesktopRuntime,
-  isFullScreenActive,
   isOpeningDesktopWeb,
   isTunnelConnectorRunning,
-  isRightCollapsed,
   isQuotaPopoverOpen,
-  layout,
-  launchpadAgentsEnabled,
   currentProjectName,
   currentWorkspaceDisplayName,
   currentWorkspaceName,
@@ -644,37 +593,16 @@ export function HeaderActionControls({
   refreshTunnelConnectorStatus,
   tunnelConnectorDotColor,
   renewTunnelConnector,
-  resolvedThemeLabel,
-  setAgentChatOpen,
   setDesktopWebPopoverOpen,
   setGlobalSearchOpen,
-  setIsActionMenuOpen,
-  setIsSettingsOpen,
   setIsQuotaPopoverOpen,
-  setRemoteAccessSettingsSection,
-  setTheme,
-  showRightSidebar,
-  theme,
-  toggleFullScreen,
-  toggleRightSidebar,
-  updateLayout,
 }: HeaderActionControlsProps) {
   const t = useTranslations("header");
-  const router = useRouter();
   const showHeaderSummary = useLayoutSettingsStore((state) => state.showHeaderSummary);
   const showGlobalSearch = useLayoutSettingsStore((state) => state.showHeaderGlobalSearch);
   const showRemoteAccess = useLayoutSettingsStore((state) => state.showHeaderRemoteAccess);
   const showAppshot = useLayoutSettingsStore((state) => state.showHeaderAppshot);
   const loadLayoutSettings = useLayoutSettingsStore((state) => state.loadSettings);
-  const { locale, setLocale } = useWorkbenchLocale();
-  const currentLocaleLabel = locale === "zh" ? t("localeChinese") : t("localeEnglish");
-
-  const handleLocaleSelect = React.useCallback((nextLocale: string) => {
-    if (nextLocale === "en" || nextLocale === "zh") {
-      setLocale(nextLocale);
-    }
-    setIsActionMenuOpen(false);
-  }, [setIsActionMenuOpen, setLocale]);
 
   React.useEffect(() => {
     void loadLayoutSettings();
@@ -687,7 +615,7 @@ export function HeaderActionControls({
       {showGlobalSearch ? (
         <button
           aria-label={t("searchAria")}
-          className="desktop-no-drag flex items-center gap-3 px-3 py-1.5 h-8 min-w-[180px] bg-muted/40 hover:bg-muted/60 text-muted-foreground text-[12px] rounded-md border border-transparent hover:border-border transition-colors ease-out duration-200 cursor-pointer"
+          className="desktop-no-drag flex items-center gap-3 px-3 py-1.5 h-8 min-w-[180px] bg-muted/40 hover:bg-muted/60 text-muted-foreground text-[12px] rounded-md border border-transparent hover:border-border cursor-pointer"
           onClick={() => setGlobalSearchOpen(true)}
         >
           <Search className="size-3.5" />
@@ -728,7 +656,7 @@ export function HeaderActionControls({
             <PopoverTrigger asChild>
               <button
                 aria-label={t("menu.openInWeb")}
-                className="relative size-8 flex items-center justify-center rounded-md text-muted-foreground transition-colors duration-200 ease-out hover:bg-accent hover:text-accent-foreground"
+                className="relative size-8 flex items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                 title={t("menu.remoteAccess")}
               >
                 <Globe className="size-4" />
@@ -756,8 +684,6 @@ export function HeaderActionControls({
                 onOpenDesktopWeb={onOpenDesktopWeb}
                 renewTunnelConnector={renewTunnelConnector}
                 setDesktopWebPopoverOpen={setDesktopWebPopoverOpen}
-                setIsSettingsOpen={setIsSettingsOpen}
-                setRemoteAccessSettingsSection={setRemoteAccessSettingsSection}
               />
             </PopoverContent>
           </Popover>
@@ -782,225 +708,6 @@ export function HeaderActionControls({
           </TooltipContent>
         </Tooltip>
 
-        <Menu open={isActionMenuOpen} onOpenChange={setIsActionMenuOpen}>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <MenuTrigger
-                render={
-                  <button
-                    type="button"
-                    aria-label={t("menu.openActions")}
-                    className="size-8 flex items-center justify-center rounded-md text-base font-medium tracking-[0.18em] text-muted-foreground transition-colors duration-200 ease-out hover:bg-accent hover:text-accent-foreground"
-                  >
-                    <span className="translate-x-[0.08em]">···</span>
-                  </button>
-                }
-              />
-            </TooltipTrigger>
-            <TooltipContent>
-              <div className="flex items-center gap-2">
-                <span>{t("menu.label")}</span>
-                <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-foreground/90">
-                  <Command className="size-3" />
-                  <ArrowBigUp className="size-3" />
-                  <span className="text-xs">M</span>
-                </kbd>
-              </div>
-            </TooltipContent>
-          </Tooltip>
-          <MenuPanel finalFocus={actionMenuFocusRef} align="end" sideOffset={8} className="w-56">
-            <MenuItem
-              closeOnClick
-              onClick={() => {
-                void setIsSettingsOpen(true);
-                setIsActionMenuOpen(false);
-              }}
-            >
-              <Settings className="size-4" />
-              {t("menu.settings")}
-            </MenuItem>
-
-            <MenuSubmenu>
-              <MenuSubmenuTrigger className="[&_[data-slot=chevron]]:ml-2">
-                <span className="flex items-center gap-2">
-                  <SunMoon className="size-4 text-foreground/90" />
-                  <span>{t("menu.theme")}</span>
-                </span>
-                <span className="ml-auto text-xs tracking-wide text-foreground/90">
-                  {resolvedThemeLabel}
-                </span>
-              </MenuSubmenuTrigger>
-              <MenuSubmenuPanel className="w-44">
-                <MenuItem
-                  closeOnClick
-                  onClick={() => {
-                    setTheme("light");
-                    setIsActionMenuOpen(false);
-                  }}
-                >
-                  <Sun className="size-4" />
-                  {t("menu.themeLight")}
-                  {theme === "light" ? <MenuShortcut>{t("menu.current")}</MenuShortcut> : null}
-                </MenuItem>
-                <MenuItem
-                  closeOnClick
-                  onClick={() => {
-                    setTheme("dark");
-                    setIsActionMenuOpen(false);
-                  }}
-                >
-                  <Moon className="size-4" />
-                  {t("menu.themeDark")}
-                  {theme === "dark" ? <MenuShortcut>{t("menu.current")}</MenuShortcut> : null}
-                </MenuItem>
-                <MenuItem
-                  closeOnClick
-                  onClick={() => {
-                    setTheme("system");
-                    setIsActionMenuOpen(false);
-                  }}
-                >
-                  <Laptop className="size-4" />
-                  {t("menu.themeSystem")}
-                  {theme === "system" ? <MenuShortcut>{t("menu.current")}</MenuShortcut> : null}
-                </MenuItem>
-              </MenuSubmenuPanel>
-            </MenuSubmenu>
-
-            <MenuSubmenu>
-              <MenuSubmenuTrigger className="[&_[data-slot=chevron]]:ml-2">
-                <span className="flex items-center gap-2">
-                  <Languages className="size-4 text-foreground/90" />
-                  <span>{t("menu.language")}</span>
-                </span>
-                <span className="ml-auto text-xs tracking-wide text-foreground/90">{currentLocaleLabel}</span>
-              </MenuSubmenuTrigger>
-              <MenuSubmenuPanel className="w-44">
-                <MenuItem
-                  closeOnClick
-                  onClick={() => handleLocaleSelect("en")}
-                >
-                  {t("localeEnglish")}
-                  {locale === "en" ? <MenuShortcut>{t("menu.current")}</MenuShortcut> : null}
-                </MenuItem>
-                <MenuItem
-                  closeOnClick
-                  onClick={() => handleLocaleSelect("zh")}
-                >
-                  {t("localeChinese")}
-                  {locale === "zh" ? <MenuShortcut>{t("menu.current")}</MenuShortcut> : null}
-                </MenuItem>
-              </MenuSubmenuPanel>
-            </MenuSubmenu>
-
-            {/* Fullscreen control for all shells (web, Electron, and Tauri menu). */}
-            <MenuItem
-              closeOnClick
-              onClick={() => {
-                void toggleFullScreen();
-                setIsActionMenuOpen(false);
-              }}
-            >
-              {isFullScreenActive ? <Minimize className="size-4" /> : <Maximize className="size-4" />}
-              {isFullScreenActive ? t("menu.fullScreenExit") : t("menu.fullScreenEnter")}
-            </MenuItem>
-
-            <MenuSeparator />
-
-            {launchpadAgentsEnabled ? (
-              <MenuSubmenu>
-                <MenuSubmenuTrigger>
-                  <span className="flex items-center gap-2">
-                    <Bot className="size-4 text-foreground/90" />
-                    <span>{t("menu.acpAgent")}</span>
-                  </span>
-                </MenuSubmenuTrigger>
-                <MenuSubmenuPanel className="w-64">
-                  <MenuItem
-                    closeOnClick
-                    onClick={() => {
-                      setAgentChatOpen(true);
-                      setIsActionMenuOpen(false);
-                    }}
-                  >
-                    {t("menu.openAgentChat")}
-                  </MenuItem>
-
-                  <MenuItem closeOnClick={false}>
-                    <div className="flex w-full items-center gap-2">
-                      <span className="min-w-14 text-sm text-foreground">{t("menu.opacity")}</span>
-                      <input
-                        type="range"
-                        min={20}
-                        max={100}
-                        value={layout.opacity}
-                        onChange={(e) => updateLayout({ opacity: Number(e.target.value) })}
-                        aria-label={t("menu.opacity")}
-                        onClick={(event) => event.stopPropagation()}
-                        onPointerDown={(event) => event.stopPropagation()}
-                        className="h-2 flex-1 cursor-pointer appearance-none rounded-full bg-foreground/18 accent-foreground/35"
-                      />
-                      <span className="w-10 text-right text-xs text-muted-foreground tabular-nums">
-                        {layout.opacity}%
-                      </span>
-                    </div>
-                  </MenuItem>
-                </MenuSubmenuPanel>
-              </MenuSubmenu>
-            ) : null}
-
-            <MenuItem
-              closeOnClick
-              onClick={() => {
-                router.push("/token-usage");
-                setIsActionMenuOpen(false);
-              }}
-            >
-              <ChartColumnBig className="size-4" />
-              {t("menu.tokenUsage")}
-            </MenuItem>
-          </MenuPanel>
-        </Menu>
-
-        <AnimatePresence initial={false}>
-          {showRightSidebar ? (
-            <motion.div
-              key="right-sidebar-toggle"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.18, ease: "easeOut" }}
-              className="flex"
-            >
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    type="button"
-                    aria-label={isRightCollapsed ? t("rightSidebar.expand") : t("rightSidebar.collapse")}
-                    onClick={toggleRightSidebar}
-                    className="size-8 flex items-center justify-center rounded-md text-muted-foreground transition-colors duration-200 ease-out hover:bg-accent hover:text-accent-foreground"
-                  >
-                    {isRightCollapsed ? (
-                      <PanelRightOpen className="size-4" />
-                    ) : (
-                      <PanelRightClose className="size-4" />
-                    )}
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <div className="flex items-center gap-2">
-                    <span>{isRightCollapsed ? t("rightSidebar.expandLabel") : t("rightSidebar.collapseLabel")}</span>
-                    <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-foreground/90">
-                      <Command className="size-3" />
-                      <ArrowBigUp className="size-3" />
-                      <span className="text-xs">B</span>
-                    </kbd>
-                  </div>
-                </TooltipContent>
-              </Tooltip>
-            </motion.div>
-          ) : null}
-        </AnimatePresence>
       </div>
     </div>
   );

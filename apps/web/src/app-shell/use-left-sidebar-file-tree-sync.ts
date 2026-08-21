@@ -1,81 +1,94 @@
-import { useEffect } from 'react';
-
-import { useEditorStore } from '@/features/editor/store/use-editor-store';
-import { useFileTreeStore } from '@/features/files/store/use-file-tree-store';
-import type { LeftSidebarTab } from '@/shared/lib/nuqs/searchParams';
+import { useEffect } from "react";
+import { useQueryStates } from "nuqs";
+import { useEditorStore } from "@/features/editor/store/use-editor-store";
+import { useFileTreeStore } from "@/features/files/store/use-file-tree-store";
+import { centerStageParams } from "@/shared/lib/nuqs/searchParams";
+import { useToolCenterTabsStore } from "@/app-shell/center-tool-tabs";
 
 function normalizePathForContainment(path: string): string {
-    const normalized = path.replace(/\\/g, '/');
-    if (normalized.length > 1 && normalized.endsWith('/')) {
-        return normalized.slice(0, -1);
-    }
-    return normalized;
+  const normalized = path.replace(/\\/g, "/");
+  if (normalized.length > 1 && normalized.endsWith("/")) {
+    return normalized.slice(0, -1);
+  }
+  return normalized;
 }
 
 interface UseLeftSidebarFileTreeSyncParams {
-    activeTab: LeftSidebarTab;
-    currentEffectivePath: string | null;
-    currentProjectId: string | null;
-    currentWorkspaceId: string | null;
-    effectiveContextId: string | null;
-    filesOnRight: boolean;
-    isSettingUp: boolean;
-    setActiveTab: (value: LeftSidebarTab) => void | Promise<URLSearchParams>;
+  currentEffectivePath: string | null;
+  currentProjectId: string | null;
+  currentWorkspaceId: string | null;
+  effectiveContextId: string | null;
+  isSettingUp: boolean;
 }
 
 export function useLeftSidebarFileTreeSync({
-    activeTab,
-    currentEffectivePath,
+  currentEffectivePath,
+  currentProjectId,
+  currentWorkspaceId,
+  effectiveContextId,
+  isSettingUp,
+}: UseLeftSidebarFileTreeSyncParams) {
+  const setCurrentProjectPath = useEditorStore((s) => s.setCurrentProjectPath);
+  const fileTreeRevealTarget = useEditorStore((s) => s.fileTreeRevealTarget);
+  const setActiveFile = useEditorStore((s) => s.setActiveFile);
+  const setContext = useFileTreeStore((s) => s.setContext);
+  const openToolTab = useToolCenterTabsStore((s) => s.open);
+  const [, setCenterStageParams] = useQueryStates(centerStageParams);
+
+  // Keep the file-tree query key bound to the live workspace so the center
+  // Files tab can render as soon as it opens.
+  useEffect(() => {
+    if (!currentProjectId || !currentEffectivePath) return;
+    const canSet = currentWorkspaceId ? !isSettingUp : true;
+    if (!canSet) return;
+
+    let cancelled = false;
+    const outer = requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (cancelled) return;
+        setCurrentProjectPath(currentEffectivePath);
+        setContext(currentProjectId, currentWorkspaceId, currentEffectivePath);
+      });
+    });
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(outer);
+    };
+  }, [
     currentProjectId,
     currentWorkspaceId,
-    effectiveContextId,
-    filesOnRight,
+    currentEffectivePath,
     isSettingUp,
-    setActiveTab,
-}: UseLeftSidebarFileTreeSyncParams) {
-    const setCurrentProjectPath = useEditorStore(s => s.setCurrentProjectPath);
-    const fileTreeRevealTarget = useEditorStore(s => s.fileTreeRevealTarget);
-    const setContext = useFileTreeStore((s) => s.setContext);
+    setCurrentProjectPath,
+    setContext,
+  ]);
 
-    // Update the store context so FileTreePanel knows which Query key to render.
-    // Defer past paint so rapid workspace hops do not block sidebar hover.
-    useEffect(() => {
-        if (!((activeTab === 'files' || filesOnRight) && currentProjectId && currentEffectivePath)) {
-            return;
-        }
-        const canSet = currentWorkspaceId ? !isSettingUp : true;
-        if (!canSet) return;
-
-        let cancelled = false;
-        const outer = requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-                if (cancelled) return;
-                setCurrentProjectPath(currentEffectivePath);
-                setContext(currentProjectId, currentWorkspaceId, currentEffectivePath);
-            });
-        });
-        return () => {
-            cancelled = true;
-            cancelAnimationFrame(outer);
-        };
-    }, [activeTab, filesOnRight, currentProjectId, currentWorkspaceId, currentEffectivePath, isSettingUp, setCurrentProjectPath, setContext]);
-
-    useEffect(() => {
-        if (!fileTreeRevealTarget) return;
-        if (fileTreeRevealTarget.workspaceId && fileTreeRevealTarget.workspaceId !== effectiveContextId) {
-            return;
-        }
-        if (!currentEffectivePath) return;
-        const normalizedCurrentPath = normalizePathForContainment(currentEffectivePath);
-        const normalizedRevealPath = normalizePathForContainment(fileTreeRevealTarget.path);
-        if (
-            normalizedRevealPath !== normalizedCurrentPath &&
-            !normalizedRevealPath.startsWith(`${normalizedCurrentPath}/`)
-        ) {
-            return;
-        }
-        if (activeTab !== 'files') {
-            void setActiveTab('files');
-        }
-    }, [activeTab, currentEffectivePath, effectiveContextId, fileTreeRevealTarget, setActiveTab]);
+  useEffect(() => {
+    if (!fileTreeRevealTarget || !effectiveContextId) return;
+    if (
+      fileTreeRevealTarget.workspaceId &&
+      fileTreeRevealTarget.workspaceId !== effectiveContextId
+    ) {
+      return;
+    }
+    if (!currentEffectivePath) return;
+    const normalizedCurrentPath = normalizePathForContainment(currentEffectivePath);
+    const normalizedRevealPath = normalizePathForContainment(fileTreeRevealTarget.path);
+    if (
+      normalizedRevealPath !== normalizedCurrentPath &&
+      !normalizedRevealPath.startsWith(`${normalizedCurrentPath}/`)
+    ) {
+      return;
+    }
+    openToolTab(effectiveContextId, "files");
+    setActiveFile(null, effectiveContextId);
+    void setCenterStageParams({ tab: "files", wikiPage: null });
+  }, [
+    currentEffectivePath,
+    effectiveContextId,
+    fileTreeRevealTarget,
+    openToolTab,
+    setActiveFile,
+    setCenterStageParams,
+  ]);
 }

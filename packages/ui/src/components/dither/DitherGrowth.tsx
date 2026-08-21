@@ -3,10 +3,16 @@
 import { useCallback, useRef, useState } from "react";
 import { cn } from "../../lib/utils";
 import { type DitherTheme } from "../../lib/dither/math";
+import {
+  createSeriesMorph,
+  seriesSignature,
+  type SeriesMorph,
+} from "../../lib/dither/morph";
 import { useDitherCanvas } from "../../lib/dither/use-dither-canvas";
 import {
   DitherTooltip,
   smoothToward,
+  type DitherTooltipSliding,
   type DitherTooltipState,
 } from "./DitherTooltip";
 
@@ -18,6 +24,13 @@ export type DitherGrowthProps = {
   interactive?: boolean;
   valueLabel?: string;
   formatValue?: (value: number) => string;
+  /** Optional sliding-number parts for scrub tooltip values. */
+  formatSliding?: (value: number) => DitherTooltipSliding | null | undefined;
+  /**
+   * Semantic domain id (e.g. `"tokens"` / `"cost"`). When it changes, force a
+   * grow-in instead of cross-scale index morph.
+   */
+  domainKey?: string;
 };
 
 /** Evenly spaced indices, always including first and last when count > 1. */
@@ -54,6 +67,8 @@ export function DitherGrowth({
   interactive = true,
   valueLabel = "Value",
   formatValue = (v) => Math.round(v).toLocaleString(),
+  formatSliding,
+  domainKey,
 }: DitherGrowthProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const pointerRef = useRef({
@@ -70,14 +85,43 @@ export function DitherGrowth({
   labelsRef.current = labels;
   const formatRef = useRef(formatValue);
   formatRef.current = formatValue;
+  const formatSlidingRef = useRef(formatSliding);
+  formatSlidingRef.current = formatSliding;
   const valueLabelRef = useRef(valueLabel);
   valueLabelRef.current = valueLabel;
   const clientRef = useRef({ x: 0, y: 0 });
   const lastTipKey = useRef("");
+  const morphRef = useRef<SeriesMorph | null>(null);
+  if (!morphRef.current) morphRef.current = createSeriesMorph();
+  const sigRef = useRef("");
+  const domainRef = useRef(domainKey);
+  const fromAxisRef = useRef(0);
+  const toAxisRef = useRef(1);
+  const lastAxisRef = useRef(0);
+
+  // Retarget during render so the first paint already has morph state (ref-only).
+  const valuesKey = seriesSignature(values);
+  const domainChanged =
+    domainKey !== undefined && domainRef.current !== domainKey;
+  if (domainKey !== undefined) domainRef.current = domainKey;
+  if (sigRef.current !== valuesKey || domainChanged) {
+    const nextPeak = Math.max(0, ...values);
+    const nextAxis = growthAxisMax(nextPeak > 0 ? nextPeak : 1);
+    if (domainChanged) {
+      // Unit flip: morph by relative height on the new axis (not raw values).
+      morphRef.current.retarget(values);
+      fromAxisRef.current = nextAxis;
+    } else {
+      morphRef.current.retarget(values);
+      fromAxisRef.current = lastAxisRef.current || nextAxis;
+    }
+    toAxisRef.current = nextAxis;
+    sigRef.current = valuesKey;
+  }
 
   const [tooltip, setTooltip] = useState<DitherTooltipState | null>(null);
 
-  const publishTooltip = useCallback((idx: number | null) => {
+  const publishTooltip = useCallback((idx: number | null, _data: number[]) => {
     if (idx === null) {
       if (lastTipKey.current !== "") {
         lastTipKey.current = "";
@@ -85,13 +129,24 @@ export function DitherGrowth({
       }
       return;
     }
-    const data = valuesRef.current;
+    // Prefer target series for tooltip amounts so digit springs aren't fed
+    // mid-morph floats while the curve is still animating.
     const label = labelsRef.current?.[idx];
-    const value = data[idx] ?? 0;
-    const key = `${idx}:${value}:${clientRef.current.x}:${clientRef.current.y}`;
+    const value = valuesRef.current[idx] ?? 0;
     const contentKey = `${idx}:${value}`;
-    if (lastTipKey.current.startsWith(contentKey) && lastTipKey.current === key) return;
-    lastTipKey.current = key;
+    if (lastTipKey.current === contentKey) {
+      setTooltip((prev) =>
+        prev
+          ? {
+              ...prev,
+              clientX: clientRef.current.x,
+              clientY: clientRef.current.y,
+            }
+          : prev,
+      );
+      return;
+    }
+    lastTipKey.current = contentKey;
     setTooltip({
       clientX: clientRef.current.x,
       clientY: clientRef.current.y,
@@ -100,6 +155,7 @@ export function DitherGrowth({
         {
           label: valueLabelRef.current,
           value: formatRef.current(value),
+          sliding: formatSlidingRef.current?.(value) ?? undefined,
         },
       ],
     });
@@ -119,11 +175,18 @@ export function DitherGrowth({
       time: number;
       reducedMotion: boolean;
     }) => {
-      const data = valuesRef.current;
+      const data = morphRef.current!.sample(reducedMotion);
       if (data.length === 0 || w < 2 || h < 2) return;
 
-      const curMax = Math.max(0, ...data);
-      const axisMax = growthAxisMax(curMax);
+      const prog = morphRef.current!.progress(reducedMotion);
+      const targetPeak = Math.max(0, ...valuesRef.current);
+      const samplePeak = Math.max(0, ...data);
+      const fromAxis = fromAxisRef.current;
+      const toAxis =
+        toAxisRef.current ||
+        growthAxisMax(targetPeak > 0 ? targetPeak : samplePeak);
+      const axisMax = Math.max(1e-6, fromAxis + (toAxis - fromAxis) * prog);
+      lastAxisRef.current = axisMax;
       const yTickCount = 3;
       const yTickValues = Array.from(
         { length: yTickCount },
@@ -159,9 +222,9 @@ export function DitherGrowth({
         ptr.scrubX = reducedMotion
           ? targetX
           : smoothToward(ptr.scrubX, targetX, 0.24);
-        publishTooltip(idx);
+        publishTooltip(idx, data);
       } else if (ptr.active < 0.05) {
-        publishTooltip(null);
+        publishTooltip(null, data);
       }
 
       const glowStrength = ptr.active;
@@ -210,7 +273,12 @@ export function DitherGrowth({
           const depth = Math.max(0, Math.min(1, (y - curveY) / fillSpan));
           const gradient = 1 - depth * 0.78;
 
-          const shimmer = reducedMotion ? 0 : Math.sin(y * 0.1 - time * 2) * 0.07;
+          // Right→left drift — same phase sign as heatmap / share / funnel.
+          const shimmer = reducedMotion
+            ? 0
+            : (Math.sin(plotX * 0.05 + time) +
+                Math.sin(y * 0.05 + time * 0.7)) *
+              0.035;
           ctx.fillStyle = ink;
           const sz = cell * (0.55 + gradient * 0.22 + shimmer);
           const alpha = 0.18 + gradient * 0.62;
@@ -264,10 +332,10 @@ export function DitherGrowth({
         ctx.globalAlpha = 1;
       }
     },
-    [interactive, publishTooltip, theme],
+    [publishTooltip, theme],
   );
 
-  useDitherCanvas(canvasRef, draw, [values, labels, theme, interactive, formatValue]);
+  useDitherCanvas(canvasRef, draw);
 
   return (
     <div className={cn("relative h-full w-full", className)}>

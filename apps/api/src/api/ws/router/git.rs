@@ -13,9 +13,9 @@ use super::{
     GitFileDiffResponse, GitFilesDiffRequest, GitFilesDiffResponse, GitFilesDiffResult,
     GitGenerateCommitMessageRequest, GitGetCommitCountRequest, GitGetHeadCommitRequest,
     GitGetStatusBatchRequest, GitGetStatusBatchResponse, GitGetStatusBatchResult,
-    GitGetStatusRequest, GitListBranchesRequest, GitLogRequest, GitPatchChunkRequest,
-    GitPullRequest, GitPushRequest, GitRenameBranchRequest, GitStageRequest, GitStatusResponse,
-    GitSyncRequest, GitUnstageRequest, WsEvent, WsMessage, WsMessageService,
+    GitGetStatusRequest, GitHistoryRequest, GitListBranchesRequest, GitLogRequest,
+    GitPatchChunkRequest, GitPullRequest, GitPushRequest, GitRenameBranchRequest, GitStageRequest,
+    GitStatusResponse, GitSyncRequest, GitUnstageRequest, WsEvent, WsMessage, WsMessageService,
 };
 
 const GIT_BATCH_CONCURRENCY: usize = 8;
@@ -595,5 +595,21 @@ impl WsMessageService {
             .collect();
 
         Ok(json!({ "commits": commits_json }))
+    }
+
+    pub(super) fn handle_git_history(&self, req: GitHistoryRequest) -> Result<Value> {
+        let path = self.fs_engine.expand_path(&req.path)?;
+        let page = self
+            .git_engine
+            .get_commit_history(&path, req.cursor, req.limit)
+            .map_err(|e| ServiceError::Validation(format!("Failed to get git history: {}", e)))?;
+
+        Ok(json!({
+            "commits": page.commits,
+            "head_sha": page.head_sha,
+            "next_cursor": page.next_cursor,
+            "total_count": page.total_count,
+            "head_commit_count": page.head_commit_count,
+        }))
     }
 }

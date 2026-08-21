@@ -1,8 +1,16 @@
-import { StyleSheet, Text, View } from "react-native";
+import { Button, Host } from "@expo/ui";
+import { expoUiButtonStretchModifiers } from "@/ui/primitives/expo-ui-button-modifiers";
+import { Platform, StyleSheet, Text, View } from "react-native";
 import { InlineError } from "@/ui/layout/app-screen";
-import { NativeButton, NativeTextInput } from "@/ui/primitives/native-controls";
+import { NativeTextInput } from "@/ui/primitives/native-controls";
 import { colors, radii } from "@/theme/colors";
 import { useMobileTheme } from "@/theme/theme-store";
+import {
+  expoUiPrimaryStyle,
+  expoUiSecondaryStyle,
+} from "@/ui/primitives/expo-ui-button-styles";
+
+const buttonStretchModifiers = expoUiButtonStretchModifiers;
 
 export function CommitSheet({
   message,
@@ -39,16 +47,46 @@ export function CommitSheet({
         placeholder="Commit message"
       />
       <View style={styles.actions}>
-        <NativeButton
-          label={isCommitting ? "Committing..." : "Commit"}
-          onPress={onCommit}
-          disabled={!canCommit || !message.trim() || isCommitting}
-        />
-        <NativeButton
-          label={isPushing ? "Pushing..." : "Push"}
-          onPress={onPush}
-          disabled={!canPush || isPushing}
-        />
+        {(() => {
+          const commitDisabled = !canCommit || !message.trim() || isCommitting;
+          const commitStyle = expoUiPrimaryStyle(theme.colors, commitDisabled);
+          const pushDisabled = !canPush || isPushing;
+          const pushStyle = expoUiSecondaryStyle(theme.colors, pushDisabled);
+          return (
+            <>
+              <Host
+                matchContents={{ vertical: true }}
+                colorScheme={theme.colorScheme}
+                seedColor={commitStyle.seedColor}
+                style={styles.stretchHost}
+              >
+                <Button
+                  disabled={commitDisabled}
+                  label={isCommitting ? "Committing..." : "Commit"}
+                  onPress={commitDisabled ? undefined : onCommit}
+                  modifiers={buttonStretchModifiers}
+                  style={commitStyle.style}
+                  variant={commitStyle.variant}
+                />
+              </Host>
+              <Host
+                matchContents={{ vertical: true }}
+                colorScheme={theme.colorScheme}
+                seedColor={pushStyle.seedColor}
+                style={styles.stretchHost}
+              >
+                <Button
+                  disabled={pushDisabled}
+                  label={isPushing ? "Pushing..." : "Push"}
+                  onPress={pushDisabled ? undefined : onPush}
+                  modifiers={buttonStretchModifiers}
+                  style={pushStyle.style}
+                  variant={pushStyle.variant}
+                />
+              </Host>
+            </>
+          );
+        })()}
       </View>
       {successMessage ? (
         <View
@@ -68,6 +106,16 @@ export function CommitSheet({
 }
 
 const styles = StyleSheet.create({
+  stretchHost: {
+    alignSelf: "stretch",
+    width: "100%",
+  },
+  growHost: {
+    alignSelf: "stretch",
+    flex: 1,
+    minWidth: 0,
+    width: "100%",
+  },
   actions: {
     gap: 10,
   },

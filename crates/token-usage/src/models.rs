@@ -148,6 +148,30 @@ pub struct MonthlyTokenUsage {
     pub models: Vec<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum BrowserCookieConsent {
+    #[default]
+    NotApplicable,
+    Needed,
+    Granted,
+    Denied,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+pub struct BrowserCookieAccess {
+    #[serde(default)]
+    pub provider_id: String,
+    #[serde(default)]
+    pub label: String,
+    #[serde(default)]
+    pub detected: bool,
+    #[serde(default)]
+    pub consent: BrowserCookieConsent,
+    #[serde(default)]
+    pub has_manual_token: bool,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct TokenUsageOverview {
     pub query: TokenUsageQuery,
@@ -159,6 +183,8 @@ pub struct TokenUsageOverview {
     pub available_years: Vec<String>,
     pub generated_at: u64,
     pub partial_warnings: Vec<String>,
+    #[serde(default)]
+    pub browser_cookie_access: Vec<BrowserCookieAccess>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

@@ -7,12 +7,19 @@
 /* React Flow base styles: source(none) so Tailwind v4 does not scan/strip them.
    Component also imports the same file via JS as a reliable fallback. */
 @import "@xyflow/react/dist/style.css" source(none);
+/* better-auth-ui (AuthView / UserAvatar etc.).
+   Relative path + source(none): Tailwind v4 CSS resolver requires package
+   "exports" condition "style", which better-auth-ui only exposes as `./css`
+   without that condition — package-name imports fail at postcss time. */
+@import "../../node_modules/@daveyplate/better-auth-ui/dist/style.css" source(none);
 
 /* Tell Tailwind to scan our UI package components */
 @source "../../../../packages/ui/src";
 
 /* Streamdown - streaming markdown */
 @source "../../../node_modules/streamdown/dist/*.js";
+/* better-auth-ui component class names live in the package dist */
+@source "../../node_modules/@daveyplate/better-auth-ui/dist";
 
 .actions-workflow-flow .react-flow__pane {
   cursor: grab;
@@ -133,6 +140,21 @@ pre.shiki-line-numbers code:has(.line:nth-child(2)) .line::before {
 }
 
 @layer base {
+/*
+ * Match the desktop window background (#06070b) before .dark lands.
+ * :root tokens are light; without this the titlebar / rounded chrome
+ * flashes white while the theme script (or hydration) catches up.
+ */
+html {
+  background-color: #06070b;
+  color-scheme: dark;
+}
+
+html.light {
+  background-color: oklch(1 0 0);
+  color-scheme: light;
+}
+
 html:not([data-theme-ready="true"]) body {
   visibility: hidden;
 }
@@ -195,7 +217,7 @@ html:not([data-theme-ready="true"]) body {
  * terminal grid (relative flex ↔ absolute was a 1-col thrash → SIGWINCH →
  * Grok full redraw flash). Only opacity / z-index / pointer-events flip.
  *
- * Parent opacity:0 already hides maximized mosaic children that force
+ * Parent opacity:0 already hides maximized terminal pane children that force
  * visibility:visible — no need for a visibility override that re-opens leaks.
  */
 .atmos-terminal-panel-keepalive {
@@ -207,10 +229,13 @@ html:not([data-theme-ready="true"]) body {
   min-height: 0;
   min-width: 0;
   overflow: hidden;
+  /* Match center-stage rounded-xl so WebGL canvas cannot square off bottom corners. */
+  border-bottom-left-radius: var(--radius-xl);
+  border-bottom-right-radius: var(--radius-xl);
 }
 
-.atmos-terminal-panel-keepalive .mosaic-window.is-maximized,
-.atmos-terminal-panel-keepalive .terminal-mosaic-container[data-maximized-id] .mosaic-window.is-maximized {
+.atmos-terminal-panel-keepalive .terminal-pane.is-maximized,
+.atmos-terminal-panel-keepalive .terminal-grid-container[data-maximized-id] .terminal-pane.is-maximized {
   position: absolute !important;
   inset: 0 !important;
   top: 0 !important;
@@ -232,6 +257,9 @@ html:not([data-theme-ready="true"]) body {
   min-height: 0;
   min-width: 0;
   overflow: hidden;
+  /* Match center-stage rounded-xl so WebGL canvas cannot square off bottom corners. */
+  border-bottom-left-radius: var(--radius-xl);
+  border-bottom-right-radius: var(--radius-xl);
 }
 
   html,
@@ -511,6 +539,21 @@ html:not([data-theme-ready="true"]) body {
   animation: welcome-placeholder-hint-slide 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
+@keyframes atmos-logo-breathe {
+  0%,
+  100% {
+    color: color-mix(in oklab, var(--foreground) 28%, var(--background));
+  }
+  50% {
+    color: var(--foreground);
+  }
+}
+
+.atmos-logo-breathe {
+  color: var(--foreground);
+  animation: atmos-logo-breathe 2.6s ease-in-out infinite;
+}
+
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
   ::view-transition-old(*),
@@ -524,6 +567,11 @@ html:not([data-theme-ready="true"]) body {
   .agent-attention-ring,
   .agent-attention-ring-tab {
     animation-duration: 0s !important;
+  }
+
+  .atmos-logo-breathe {
+    animation: none;
+    color: color-mix(in oklab, var(--foreground) 72%, var(--background));
   }
 }
 

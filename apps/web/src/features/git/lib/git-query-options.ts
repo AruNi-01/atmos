@@ -1,19 +1,21 @@
 "use client";
 
+import type { InfiniteData } from "@tanstack/react-query";
 import {
   queryKeys,
   GIT_WORKTREE_PARAMS,
   type GitCompareParams,
   type GitFileDiffParams,
 } from "@/api/query/query-keys";
-import { wsQueryOptions } from "@/api/query/computer-query-options";
+import { wsQueryOptions, wsInfiniteQueryOptions } from "@/api/query/computer-query-options";
 import type { ComputerQueryScope } from "@/api/query/query-scope";
-import { gitApi, type GitStatusResponse, type GitChangedFilesResponse, type GitFileDiffResponse } from "@/api/ws-api";
+import { gitApi, type GitStatusResponse, type GitChangedFilesResponse, type GitFileDiffResponse, type GitHistoryPage } from "@/api/ws-api";
 
 export type { GitCompareParams, GitFileDiffParams };
 export { GIT_WORKTREE_PARAMS };
 export {
   EMPTY_CHANGED_FILES,
+  collectStageAllPaths,
   selectCompareChangedFiles,
 } from "@/features/git/lib/git-changed-files-selection";
 
@@ -194,6 +196,40 @@ export function gitLogQueryOptions(
       });
       return { commits: result?.commits ?? [] };
     },
+    staleTime: GIT_LIST_STALE_MS,
+    gcTime: GIT_LIST_GC_MS,
+  });
+}
+
+/** Zed streams graph SHAs in 1000-commit chunks; we page at the same size. */
+export const GIT_HISTORY_PAGE_SIZE = 1000;
+/** Prefetch this many pages on open, then load more from the virtualizer. */
+export const GIT_HISTORY_PREFETCH_PAGES = 2;
+
+export function gitHistoryInfiniteQueryOptions(
+  scope: ComputerQueryScope,
+  connectionState: ConnectionState,
+  repoPath: string,
+  options?: { enabled?: boolean },
+) {
+  return wsInfiniteQueryOptions<
+    GitHistoryPage,
+    Error,
+    InfiniteData<GitHistoryPage>,
+    ReturnType<typeof queryKeys.computer.gitHistory>,
+    number
+  >({
+    scope,
+    connectionState,
+    enabled: options?.enabled,
+    queryKey: queryKeys.computer.gitHistory(scope, repoPath),
+    queryFn: ({ pageParam }) =>
+      gitApi.getHistory(repoPath, {
+        cursor: pageParam,
+        limit: GIT_HISTORY_PAGE_SIZE,
+      }),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage) => lastPage.next_cursor ?? undefined,
     staleTime: GIT_LIST_STALE_MS,
     gcTime: GIT_LIST_GC_MS,
   });

@@ -27,6 +27,10 @@ import {
     type UserGroupView,
 } from '@/app-shell/sidebar/user-groups';
 import type { SidebarGroupingMode } from '@/app-shell/sidebar/workspace-status';
+import {
+    parseWorkspaceAgentGroupKey,
+    type WorkspaceAgentGroupKey,
+} from '@/features/agent/lib/workspace-agent-status';
 
 interface UseLeftSidebarWorkspaceDerivedParams {
     currentProjectId: string | null;
@@ -36,6 +40,7 @@ interface UseLeftSidebarWorkspaceDerivedParams {
     groups: Group[];
     kanbanFilters: WorkspaceKanbanFilters;
     labelGroupOrder: string[];
+    agentGroupKeyByWorkspaceId?: Readonly<Record<string, WorkspaceAgentGroupKey>>;
     projectSidebarSelectionRouteKey: string | null;
     projects: Project[];
     selectedProjectSidebarId: string | null;
@@ -47,6 +52,7 @@ interface UseLeftSidebarWorkspaceDerivedParams {
     workspaceSidebarPriorityTwoColumn: boolean;
     workspaceSidebarLabelTwoColumn: boolean;
     workspaceSidebarGroupTwoColumn: boolean;
+    workspaceSidebarAgentTwoColumn: boolean;
     workspaceSidebarTwoColumn: boolean;
     workspaceLabels: WorkspaceLabel[];
 }
@@ -59,6 +65,7 @@ export function useLeftSidebarWorkspaceDerived({
     groups,
     kanbanFilters,
     labelGroupOrder,
+    agentGroupKeyByWorkspaceId,
     projectSidebarSelectionRouteKey,
     projects,
     selectedProjectSidebarId,
@@ -70,6 +77,7 @@ export function useLeftSidebarWorkspaceDerived({
     workspaceSidebarPriorityTwoColumn,
     workspaceSidebarLabelTwoColumn,
     workspaceSidebarGroupTwoColumn,
+    workspaceSidebarAgentTwoColumn,
     workspaceSidebarTwoColumn,
     workspaceLabels,
 }: UseLeftSidebarWorkspaceDerivedParams) {
@@ -103,8 +111,9 @@ export function useLeftSidebarWorkspaceDerived({
         return groupWorkspaces(unpinnedFlattenedWorkspaces, groupingMode, {
             availableLabels: workspaceLabels,
             labelGroupOrder,
+            agentGroupKeyByWorkspaceId,
         });
-    }, [groupingMode, labelGroupOrder, unpinnedFlattenedWorkspaces, workspaceLabels]);
+    }, [agentGroupKeyByWorkspaceId, groupingMode, labelGroupOrder, unpinnedFlattenedWorkspaces, workspaceLabels]);
     const userGroupViews = useMemo((): UserGroupView[] => {
         if (groupingMode !== 'group') return [];
         return buildUserGroupViews(groups, projectModeProjects, ungroupedLabel);
@@ -115,13 +124,15 @@ export function useLeftSidebarWorkspaceDerived({
     const isStatusTwoColumn = groupingMode === 'status' && workspaceSidebarStatusTwoColumn;
     const isPriorityTwoColumn = groupingMode === 'priority' && workspaceSidebarPriorityTwoColumn;
     const isLabelTwoColumn = groupingMode === 'label' && workspaceSidebarLabelTwoColumn;
+    const isAgentTwoColumn = groupingMode === 'agent' && workspaceSidebarAgentTwoColumn;
     const isTwoColumnSidebar =
         isProjectTwoColumn ||
         isGroupTwoColumn ||
         isTimeTwoColumn ||
         isStatusTwoColumn ||
         isPriorityTwoColumn ||
-        isLabelTwoColumn;
+        isLabelTwoColumn ||
+        isAgentTwoColumn;
     const shouldShowGlobalPinnedSection = pinnedWorkspaces.length > 0;
     const currentWorkspaceGroupKey = useMemo(() => {
         if (!currentWorkspace || currentWorkspace.isPinned) return null;
@@ -150,8 +161,13 @@ export function useLeftSidebarWorkspaceDerived({
                 workspaceLabels,
             );
         }
+        if (groupingMode === 'agent') {
+            return parseWorkspaceAgentGroupKey(
+                agentGroupKeyByWorkspaceId?.[currentWorkspace.id],
+            );
+        }
         return null;
-    }, [currentWorkspace, groupingMode, groups, labelGroupOrder, workspaceLabels]);
+    }, [agentGroupKeyByWorkspaceId, currentWorkspace, groupingMode, groups, labelGroupOrder, workspaceLabels]);
     const effectiveSelectedProjectSidebarId = useMemo(() => {
         if (!isProjectTwoColumn || projectModeProjects.length === 0) return null;
         const visibleIds = new Set(projectModeProjects.map((project) => project.id));

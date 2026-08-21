@@ -10,8 +10,10 @@ import {
   pushStickyLeavingContext,
   resolveContextIdsToRender,
   resolveFrameActiveTab,
+  resolveWorkspaceFrameActiveTabIds,
   selectEditorMountSet,
   sweepWarmByTtl,
+  browserKeepAlivePanelClass,
   lightSurfacePanelClass,
   terminalKeepAlivePanelClass,
   terminalMountKey,
@@ -68,6 +70,22 @@ describe("resolveFrameActiveTab / panel visibility", () => {
     expect(
       isFramePanelVisible({
         isActiveFrame: true,
+        frameActiveTab: "terminal",
+        frameActiveTabIds: ["terminal", "overview"],
+        panelTabId: "overview",
+      }),
+    ).toBe(true);
+    expect(
+      isFramePanelVisible({
+        isActiveFrame: true,
+        frameActiveTab: "terminal",
+        frameActiveTabIds: ["terminal", "overview"],
+        panelTabId: "wiki",
+      }),
+    ).toBe(false);
+    expect(
+      isFramePanelVisible({
+        isActiveFrame: true,
         frameActiveTab: "file/x.ts",
         panelTabId: "file/x.ts",
       }),
@@ -81,6 +99,39 @@ describe("resolveFrameActiveTab / panel visibility", () => {
     ).toBe(false);
   });
 
+  it("does not activate retained pane tabs on a visually active unsynced hop frame", () => {
+    const hopIds = resolveWorkspaceFrameActiveTabIds({
+      isActiveContext: true,
+      isUrlSyncedActive: false,
+      liveActiveTabIds: ["terminal", "overview"],
+      retainedActiveTabIds: ["terminal", "overview"],
+    });
+    expect(hopIds).toBeNull();
+    expect(
+      isFramePanelVisible({
+        isActiveFrame: true,
+        frameActiveTab: "terminal",
+        frameActiveTabIds: hopIds,
+        panelTabId: "overview",
+      }),
+    ).toBe(false);
+
+    const warmIds = resolveWorkspaceFrameActiveTabIds({
+      isActiveContext: false,
+      isUrlSyncedActive: false,
+      retainedActiveTabIds: ["terminal", "overview"],
+    });
+    expect(warmIds).toEqual(["terminal", "overview"]);
+    expect(
+      isFramePanelVisible({
+        isActiveFrame: false,
+        frameActiveTab: "terminal",
+        frameActiveTabIds: warmIds,
+        panelTabId: "overview",
+      }),
+    ).toBe(true);
+  });
+
   it("terminal keep-alive panels avoid display:none class names", () => {
     expect(terminalKeepAlivePanelClass(true)).toBe("atmos-terminal-panel-active");
     expect(terminalKeepAlivePanelClass(false)).toBe("atmos-terminal-panel-keepalive");
@@ -90,6 +141,14 @@ describe("resolveFrameActiveTab / panel visibility", () => {
     expect(lightSurfacePanelClass(true)).not.toContain("hidden");
     expect(lightSurfacePanelClass(false)).toContain("hidden");
     expect(lightSurfacePanelClass(false)).toContain("bg-background");
+    expect(browserKeepAlivePanelClass(true)).toContain("absolute");
+    expect(browserKeepAlivePanelClass(true)).toContain("bg-background");
+    expect(browserKeepAlivePanelClass(true).split(/\s+/)).not.toContain("hidden");
+    expect(browserKeepAlivePanelClass(true)).not.toContain("opacity-0");
+    expect(browserKeepAlivePanelClass(false).split(/\s+/)).not.toContain("hidden");
+    expect(browserKeepAlivePanelClass(false)).toContain("opacity-0");
+    expect(browserKeepAlivePanelClass(false)).toContain("pointer-events-none");
+    expect(browserKeepAlivePanelClass(false)).toContain("bg-background");
   });
 });
 
@@ -398,7 +457,7 @@ describe("selectEditorMountSet + computeMountPlan", () => {
     expect(terminals.length).toBe(2);
   });
 
-  it("counts mosaic pane units toward max_global_terminal_panes", () => {
+  it("counts terminal split-pane units toward max_global_terminal_panes", () => {
     const plan = computeMountPlan({
       activeContextId: "a",
       warm: [{ contextId: "b", lastAccessed: 10 }],

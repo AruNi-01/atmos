@@ -166,7 +166,7 @@ pub async fn put_linear_local_keys(
                 created_at: row
                     .created_at
                     .or_else(|| prev.map(|k| k.created_at))
-                    .unwrap_or_else(|| chrono_like_now()),
+                    .unwrap_or_else(chrono_like_now),
             });
         }
         out

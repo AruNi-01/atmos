@@ -73,6 +73,8 @@ import {
 import { useAtmosComputerStore } from "@/features/connection/lib/atmos-computer-store";
 import { instanceIdFromRelaySelection } from "@/features/connection/lib/connection-instance";
 import { useCanvasChromePrefs } from "@/features/canvas/hooks/use-canvas-chrome-prefs";
+import { useCanvasOverlayActive } from "@/features/canvas/lib/canvas-overlay-activity";
+import { hostHasTldrawLicenseGate } from "@/features/canvas/lib/canvas-tldraw-license";
 import {
   CANVAS_TERMINAL_SHAPE_TYPE,
   CANVAS_TERMINAL_SHAPES_REMOVED_EVENT,
@@ -226,6 +228,7 @@ export const CanvasView: React.FC = () => {
     refreshDocumentList,
     setDocument,
   } = useCanvasBoard();
+  const overlayActive = useCanvasOverlayActive();
   const canvasPrefsInstanceId = useAtmosComputerStore((state) =>
     instanceIdFromRelaySelection(state.connectionMode, state.selectedServerId),
   );
@@ -248,7 +251,9 @@ export const CanvasView: React.FC = () => {
   } = useCanvasSettingsStore();
   const needsTrafficLightsPadding = useDesktopTrafficLightsPadding();
   const editorRef = React.useRef<Editor | null>(null);
+  const [tldrawHost, setTldrawHost] = React.useState<HTMLDivElement | null>(null);
   const [editorReady, setEditorReady] = React.useState(false);
+  const [tldrawLicenseBlocked, setTldrawLicenseBlocked] = React.useState(false);
   const [readyCanvasRenderKey, setReadyCanvasRenderKey] = React.useState<string | null>(null);
   const canvasLoadingStartedAtRef = React.useRef(nowMs());
   const previousCanvasRenderKeyRef = React.useRef<string | null>(null);
@@ -817,9 +822,10 @@ export const CanvasView: React.FC = () => {
     [document?.script, documentTitle, fileName, saveAs, saveDocument],
   );
 
-  // Auto-save only when a file path is set (never invent untitled names).
+  // Auto-save only while Canvas is visible. Keep-alive-hidden boards must not
+  // keep PUT-ing the document (default interval is 1s).
   React.useEffect(() => {
-    if (!editorReady || !fileName) return;
+    if (!editorReady || !fileName || !overlayActive) return;
 
     autoSaveIntervalRef.current = setInterval(() => {
       void (async () => {
@@ -837,7 +843,7 @@ export const CanvasView: React.FC = () => {
         autoSaveIntervalRef.current = null;
       }
     };
-  }, [autoSaveInterval, editorReady, fileName, persistEditorSnapshot]);
+  }, [autoSaveInterval, editorReady, fileName, overlayActive, persistEditorSnapshot]);
 
   // Manual save function
   // Cmd/Ctrl+S still flushes autosave (no UI Save control).
@@ -887,6 +893,22 @@ export const CanvasView: React.FC = () => {
   }, [cancelPendingCanvasReveal, connectionBootstrapReady, isLoading]);
 
   React.useEffect(() => cancelPendingCanvasReveal, [cancelPendingCanvasReveal]);
+
+  React.useEffect(() => {
+    if (!tldrawHost) {
+      setTldrawLicenseBlocked(false);
+      return;
+    }
+
+    const sync = () => {
+      const blocked = hostHasTldrawLicenseGate(tldrawHost);
+      setTldrawLicenseBlocked((prev) => (prev === blocked ? prev : blocked));
+    };
+    sync();
+    const observer = new MutationObserver(sync);
+    observer.observe(tldrawHost, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, [tldrawHost]);
 
   const scheduleSessionSave = React.useCallback(
     (nextSession: CanvasTldrawSession) => {
@@ -1032,7 +1054,7 @@ export const CanvasView: React.FC = () => {
       dispatchCanvasTerminalPinStateChange(pinKey, false);
     }
 
-    if (documentSaveInFlightRef.current || !fileName) {
+    if (documentSaveInFlightRef.current || !fileName || !overlayActive) {
       return;
     }
 
@@ -1053,6 +1075,7 @@ export const CanvasView: React.FC = () => {
     currentView,
     effectiveContextId,
     editorReady,
+    overlayActive,
   ]);
 
   React.useEffect(() => {
@@ -1393,7 +1416,10 @@ export const CanvasView: React.FC = () => {
   const showCanvasLoading = readyCanvasRenderKey !== canvasRenderKey;
 
   return (
-    <div className="tldraw-wrapper relative isolate h-full w-full overflow-hidden bg-background">
+    <div
+      ref={setTldrawHost}
+      className="tldraw-wrapper relative isolate h-full w-full overflow-hidden bg-background"
+    >
       <style jsx global>{`
         .tldraw-wrapper .tl-container {
           --tl-layer-menu-click-capture: 1190;
@@ -1468,6 +1494,20 @@ export const CanvasView: React.FC = () => {
         </CanvasAgentContext.Provider>
       </div>
       {showCanvasLoading ? <CanvasLoadingScreen overlay /> : null}
+      {tldrawLicenseBlocked ? (
+        <div
+          className="absolute inset-0 z-[1500] flex flex-col items-center justify-center gap-3 bg-background px-6 text-center"
+          data-testid="canvas-tldraw-license-blocked"
+        >
+          <AlertTriangle className="size-12 text-warning" />
+          <div>
+            <div className="text-base font-semibold text-foreground">{t("licenseBlocked.title")}</div>
+            <div className="mt-1 max-w-md text-sm text-muted-foreground">
+              {t("licenseBlocked.description")}
+            </div>
+          </div>
+        </div>
+      ) : null}
       <CanvasUnsupportedInteractionDialog />
     </div>
   );

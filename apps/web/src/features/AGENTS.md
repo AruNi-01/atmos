@@ -34,4 +34,5 @@ layered.
 - `project/` and `workspace/` — project/workspace state, management views, and
   CRUD dialogs.
 - `settings/` — settings modal sections and settings-backed stores.
+- `simulator/` — Desktop iOS Simulator tab (vendored serve-sim preview iframe).
 - `terminal/` — terminal UI, terminal store, terminal settings helpers.

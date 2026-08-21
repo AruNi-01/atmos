@@ -28,6 +28,9 @@ import { useMobileWs } from "@/providers/MobileWsProvider";
 import { useSessionStore } from "@/stores/session-store";
 import { useTerminalStore, type MobileTerminalEntry } from "@/stores/terminal-store";
 import { colors, type MobileThemeColors } from "@/theme/colors";
+import { radii } from "@/theme/radii";
+import { spacing } from "@/theme/spacing";
+import { typography } from "@/theme/typography";
 import { useMobileTheme } from "@/theme/theme-store";
 import { BotIcon, TerminalIcon } from "@/ui/icons/lucide-native";
 
@@ -308,14 +311,21 @@ function MobileTerminalHeader({
       ) : (
         <TerminalIcon color={themeColors.terminalMuted} size={18} strokeWidth={2.2} />
       )}
-      <Text style={[styles.terminalTitle, { color: themeColors.terminalFg }]} numberOfLines={1}>
+      <Text
+        style={[styles.terminalTitle, { color: themeColors.terminalFg }]}
+        numberOfLines={1}
+      >
         {title || "Terminal"}
       </Text>
       {statusLabel ? (
-        <View style={[styles.terminalStatusPill, { backgroundColor: themeColors.mutedPressed }]}>
+        <View style={[styles.terminalStatusPill, { backgroundColor: themeColors.terminalKeycap }]}>
           <Text style={[styles.terminalStatusText, { color: themeColors.terminalMuted }]}>{statusLabel}</Text>
         </View>
       ) : null}
+      <View
+        pointerEvents="none"
+        style={[styles.terminalHeaderSeparator, { backgroundColor: themeColors.glassBorder }]}
+      />
     </View>
   );
 }
@@ -374,42 +384,39 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   root: {
-    backgroundColor: colors.terminalBg,
     flex: 1,
     minHeight: 0,
     overflow: "hidden",
   },
   terminalHeader: {
     alignItems: "center",
-    backgroundColor: colors.terminalBg,
     flexDirection: "row",
-    gap: 8,
-    minHeight: 42,
-    paddingHorizontal: 14,
+    gap: spacing.terminalKeycapGap,
+    minHeight: spacing.terminalHeaderMinHeight,
+    paddingHorizontal: spacing.terminalHeaderX,
+  },
+  terminalHeaderSeparator: {
+    bottom: 0,
+    height: StyleSheet.hairlineWidth,
+    left: spacing.terminalHeaderX,
+    position: "absolute",
+    right: spacing.terminalHeaderX,
   },
   terminalShell: {
-    backgroundColor: colors.terminalBg,
     flex: 1,
     minHeight: 0,
     overflow: "hidden",
   },
   terminalStatusPill: {
-    backgroundColor: "rgba(244, 244, 245, 0.10)",
-    borderRadius: 999,
+    borderRadius: radii.pill,
     paddingHorizontal: 8,
     paddingVertical: 4,
   },
   terminalStatusText: {
-    color: colors.terminalMuted,
-    fontSize: 11,
-    fontWeight: "700",
+    ...typography.terminalStatus,
   },
   terminalTitle: {
-    color: colors.terminalFg,
+    ...typography.terminalTitle,
     flex: 1,
-    fontFamily: "Menlo",
-    fontSize: 15,
-    fontWeight: "600",
-    lineHeight: 20,
   },
 });

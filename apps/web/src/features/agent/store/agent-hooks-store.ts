@@ -4,10 +4,18 @@ import { create } from "zustand";
 import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
 import { getRuntimeApiConfig, httpBase } from "@/shared/lib/desktop-runtime";
 import { agentHooksApi } from "@/api/rest-api";
+import type {
+  AgentAttentionSummaryDto,
+  WorkspaceAgentGroupKeyDto,
+} from "@/api/rest-api";
 import {
   setAgentPaneAcknowledgedHandler,
   useAgentAttentionStore,
 } from "@/features/agent/store/agent-attention-store";
+import {
+  hydrateAttentionSummariesFromServer,
+  useAgentAttentionSummaryStore,
+} from "@/features/agent/store/agent-attention-summary-store";
 import {
   collectIdleSessionIdsForPane,
   resolveAgentStateForPaneId,
@@ -105,10 +113,21 @@ interface AgentHookStateUpdate {
 
 interface AgentHooksStore {
   sessions: Map<string, AgentHookSession>;
+  /**
+   * Last grouping snapshot from API memory. Used until live sessions +
+   * attention hydrate, so By Agent Status buckets survive a page refresh.
+   */
+  serverWorkspaceGroupKeys: Readonly<Record<string, WorkspaceAgentGroupKeyDto>>;
+  hooksHydrated: boolean;
   _unsubscribe: (() => void) | null;
 
   init: () => void;
   cleanup: () => void;
+  /**
+   * Drop Computer-scoped hook/attention snapshots on target switch.
+   * WS listeners stay; the next hydrate reads the new Computer's REST maps.
+   */
+  resetForConnectionChange: () => void;
 
   getAllSessions: () => AgentHookSession[];
   getSessionsByProjectPath: (projectPath: string) => AgentHookSession[];
@@ -133,6 +152,8 @@ interface AgentHooksStore {
 
 export const useAgentHooksStore = create<AgentHooksStore>((set, get) => ({
   sessions: new Map(),
+  serverWorkspaceGroupKeys: {},
+  hooksHydrated: false,
   _unsubscribe: null,
 
   init: () => {
@@ -143,6 +164,10 @@ export const useAgentHooksStore = create<AgentHooksStore>((set, get) => ({
     // drop idle hook sessions for that pane — sticky attention already covered
     // the "needs attention" signal until acknowledge.
     setAgentPaneAcknowledgedHandler((stablePaneId) => {
+      if (hydrateInFlight) {
+        ackedDuringHydrate.add(stablePaneId);
+        dropStaleServerGroupKey(set, get, stablePaneId);
+      }
       get().dismissIdleSessionsForPane(stablePaneId);
     });
 
@@ -256,33 +281,66 @@ export const useAgentHooksStore = create<AgentHooksStore>((set, get) => ({
       },
     );
 
+    const unsubscribeAttentionSummaryUpdated = useWebSocketStore
+      .getState()
+      .onEvent("agent_attention_summary_updated", (data: unknown) => {
+        const dto = data as AgentAttentionSummaryDto;
+        if (!dto?.stable_pane_id || !dto.status) return;
+        useAgentAttentionSummaryStore.getState().upsert({
+          stablePaneId: dto.stable_pane_id,
+          contextId: dto.context_id,
+          sessionId: dto.session_id || dto.stable_pane_id,
+          status: dto.status,
+          summary: dto.summary ?? undefined,
+          nextSteps: Array.isArray(dto.next_steps)
+            ? dto.next_steps.map(String).filter(Boolean)
+            : [],
+          canCloseSession:
+            typeof dto.can_close_session === "boolean"
+              ? dto.can_close_session
+              : undefined,
+          error: dto.error ?? undefined,
+          startedAt: dto.started_at ? Date.parse(dto.started_at) : Date.now(),
+          completedAt: dto.completed_at
+            ? Date.parse(dto.completed_at)
+            : undefined,
+        });
+      });
+
+    const unsubscribeAttentionSummaryCleared = useWebSocketStore
+      .getState()
+      .onEvent("agent_attention_summary_cleared", (data: unknown) => {
+        const { stable_pane_ids } = data as { stable_pane_ids?: string[] };
+        if (!stable_pane_ids?.length) return;
+        useAgentAttentionSummaryStore
+          .getState()
+          .clearMatchingIds(stable_pane_ids);
+      });
+
     const _unsubscribe = () => {
       unsubscribeStateChanged();
       unsubscribeCleared();
       unsubscribeAttentionRaised();
       unsubscribeAttentionCleared();
+      unsubscribeAttentionSummaryUpdated();
+      unsubscribeAttentionSummaryCleared();
     };
     set({ _unsubscribe });
 
-    fetchInitialSessions().then((initialSessions) => {
-      if (initialSessions.length > 0) {
-        set((state) => {
-          const sessions = new Map(state.sessions);
-          for (const s of initialSessions) {
-            if (!sessions.has(s.session_id)) {
-              sessions.set(s.session_id, s);
-            }
-          }
-          return { sessions };
-        });
-      }
-    });
+    void hydrateHookSnapshots(set, get, beginHydrateWindow());
+    void hydrateAttentionSummariesFromServer();
+  },
 
-    // Recover sticky attention from API memory after refresh / reconnect.
-    fetchInitialAttention().then((latches) => {
-      if (latches.length === 0) return;
-      useAgentAttentionStore.getState().hydrateFromServer(latches);
+  resetForConnectionChange: () => {
+    set({
+      sessions: new Map(),
+      serverWorkspaceGroupKeys: {},
+      hooksHydrated: false,
     });
+    useAgentAttentionStore.getState().hydrateFromServer([]);
+    useAgentAttentionSummaryStore.getState().hydrateFromServer([]);
+    void hydrateHookSnapshots(set, get, beginHydrateWindow());
+    void hydrateAttentionSummariesFromServer();
   },
 
   cleanup: () => {
@@ -290,7 +348,14 @@ export const useAgentHooksStore = create<AgentHooksStore>((set, get) => ({
     if (_unsubscribe) {
       _unsubscribe();
       setAgentPaneAcknowledgedHandler(null);
-      set({ _unsubscribe: null, sessions: new Map() });
+      invalidateHydrateWindow();
+      set({
+        _unsubscribe: null,
+        sessions: new Map(),
+        serverWorkspaceGroupKeys: {},
+        hooksHydrated: false,
+      });
+      useAgentAttentionSummaryStore.getState().hydrateFromServer([]);
     }
   },
 
@@ -454,6 +519,130 @@ export const useAgentHooksStore = create<AgentHooksStore>((set, get) => ({
     }
   },
 }));
+
+let hydrateGeneration = 0;
+let hydrateInFlight = false;
+const ackedDuringHydrate = new Set<string>();
+
+function beginHydrateWindow(): number {
+  ackedDuringHydrate.clear();
+  hydrateInFlight = true;
+  return ++hydrateGeneration;
+}
+
+function invalidateHydrateWindow() {
+  hydrateGeneration += 1;
+  hydrateInFlight = false;
+  ackedDuringHydrate.clear();
+}
+
+function contextIdFromStablePaneId(stablePaneId: string): string {
+  const idx = stablePaneId.indexOf(":");
+  return idx === -1 ? stablePaneId : stablePaneId.slice(0, idx);
+}
+
+function dropStaleServerGroupKey(
+  set: (partial: Partial<AgentHooksStore> | ((state: AgentHooksStore) => Partial<AgentHooksStore> | AgentHooksStore)) => void,
+  get: () => AgentHooksStore,
+  stablePaneId: string,
+) {
+  const contextId = contextIdFromStablePaneId(stablePaneId);
+  if (!contextId) return;
+  const attentionReason = useAgentAttentionStore
+    .getState()
+    .getContextReason(contextId);
+  if (
+    get().getAgentStateForContextId(contextId) !== AGENT_STATE.IDLE ||
+    attentionReason
+  ) {
+    return;
+  }
+  set((state) => {
+    if (!state.serverWorkspaceGroupKeys[contextId]) return state;
+    const serverWorkspaceGroupKeys = { ...state.serverWorkspaceGroupKeys };
+    delete serverWorkspaceGroupKeys[contextId];
+    return { serverWorkspaceGroupKeys };
+  });
+}
+
+async function hydrateHookSnapshots(
+  set: (partial: Partial<AgentHooksStore> | ((state: AgentHooksStore) => Partial<AgentHooksStore> | AgentHooksStore)) => void,
+  get: () => AgentHooksStore,
+  generation: number,
+): Promise<void> {
+  const groupsPromise = fetchWorkspaceAgentGroups();
+  const sessionsPromise = fetchInitialSessions();
+  const attentionPromise = fetchInitialAttention();
+  const groups = await groupsPromise;
+  if (generation !== hydrateGeneration) return;
+  if (groups.length > 0) {
+    set((state) => {
+      const serverWorkspaceGroupKeys = {
+        ...state.serverWorkspaceGroupKeys,
+      };
+      for (const row of groups) {
+        if (!row.context_id || row.group_key === "idle" || row.group_key === "done") continue;
+        serverWorkspaceGroupKeys[row.context_id] = row.group_key;
+      }
+      for (const paneId of ackedDuringHydrate) {
+        const contextId = contextIdFromStablePaneId(paneId);
+        if (!contextId) continue;
+        const attentionReason = useAgentAttentionStore
+          .getState()
+          .getContextReason(contextId);
+        if (
+          get().getAgentStateForContextId(contextId) === AGENT_STATE.IDLE &&
+          !attentionReason
+        ) {
+          delete serverWorkspaceGroupKeys[contextId];
+        }
+      }
+      return { serverWorkspaceGroupKeys };
+    });
+  }
+
+  const [initialSessions, attention] = await Promise.all([
+    sessionsPromise,
+    attentionPromise,
+  ]);
+  if (generation !== hydrateGeneration) return;
+  if (attention.length > 0) {
+    const filteredAttention = attention.filter((latch) => {
+      const paneId = latch.stable_pane_id?.trim();
+      const sessionId = latch.session_id?.trim();
+      if (paneId && ackedDuringHydrate.has(paneId)) return false;
+      if (sessionId && ackedDuringHydrate.has(sessionId)) return false;
+      return true;
+    });
+    useAgentAttentionStore.getState().hydrateFromServer(filteredAttention);
+  }
+  set((state) => {
+    const sessions = new Map(state.sessions);
+    for (const s of initialSessions) {
+      if (!sessions.has(s.session_id)) {
+        sessions.set(s.session_id, s);
+      }
+    }
+    return {
+      sessions,
+      hooksHydrated: true,
+    };
+  });
+  if (generation === hydrateGeneration) {
+    hydrateInFlight = false;
+  }
+}
+
+async function fetchWorkspaceAgentGroups(): Promise<
+  import("@/api/rest-api").WorkspaceAgentGroupSnapshotDto[]
+> {
+  try {
+    const { groups } = await agentHooksApi.listWorkspaceAgentGroups();
+    return groups ?? [];
+  } catch {
+    return [];
+  }
+}
 
 async function fetchInitialSessions(): Promise<AgentHookSession[]> {
   try {

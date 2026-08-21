@@ -30,6 +30,14 @@ export interface WorkspaceSetupProgress {
   output: string;
   replaceOutput?: boolean;
   requiresConfirmation?: boolean;
+  /**
+   * Setup is parked because the project's `.atmos` script content has not been
+   * accepted. `output` holds the script for review; confirm via
+   * `wsScriptApi.trust(scriptProjectGuid, scriptHash, workspaceId)`.
+   */
+  requiresScriptTrust?: boolean;
+  scriptProjectGuid?: string | null;
+  scriptHash?: string | null;
   success: boolean;
   countdown?: number;
   setupContext?: {
@@ -63,6 +71,9 @@ export interface WorkspaceSetupProgressEventPayload {
   output?: string;
   replace_output?: boolean;
   requires_confirmation?: boolean;
+  requires_script_trust?: boolean;
+  script_project_guid?: string | null;
+  script_hash?: string | null;
   success: boolean;
   countdown?: number;
   setup_context?: WorkspaceSetupContextPayload | null;
@@ -179,6 +190,8 @@ export function isWorkspaceSetupProgressEventPayload(
     (payload.replace_output == null || typeof payload.replace_output === "boolean") &&
     (payload.requires_confirmation == null ||
       typeof payload.requires_confirmation === "boolean") &&
+    (payload.requires_script_trust == null ||
+      typeof payload.requires_script_trust === "boolean") &&
     (payload.setup_context == null ||
       (typeof payload.setup_context === "object" &&
         typeof (payload.setup_context as Record<string, unknown>).has_github_issue === "boolean" &&

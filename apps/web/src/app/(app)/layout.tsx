@@ -1,16 +1,10 @@
 import { Suspense } from "react";
-import Header from "@/app-shell/Header";
-import LeftSidebar from "@/app-shell/LeftSidebar";
-import CenterStage from "@/app-shell/CenterStage";
-import RightSidebar from "@/app-shell/RightSidebar";
+import { AppShellMain } from "@/app-shell/AppShellMain";
 import GlobalSearch from "@/app-shell/GlobalSearch";
 import { ModalAgentChatPanel } from "@/features/agent/components/ModalAgentChatPanel";
-import Footer from "@/app-shell/Footer";
 import { HostedBootstrapBoundary } from "@/app-shell/HostedAppShellGate";
-import { PanelLayout } from "@/app-shell/PanelLayout";
 import { DocumentTitle } from "@/app-shell/DocumentTitle";
 import { SidebarLayoutProvider } from "@/app-shell/SidebarLayoutContext";
-import { WorkspaceCreationOverlay } from "@/app-shell/WorkspaceCreationOverlay";
 import { CanvasOverlay } from "@/features/canvas/components/CanvasOverlay";
 import { ConnectionBootstrapper } from "@/app-shell/bootstrap/ConnectionBootstrapper";
 import { DiffWorkerPoolProvider } from "@/features/diff/components/DiffWorkerPoolProvider";
@@ -23,24 +17,27 @@ type Props = {
 
 export default function AppLayout({ children }: Props) {
   return (
-    <div className="flex flex-col h-dvh">
+    <div className="flex h-dvh flex-col bg-sidebar text-sidebar-foreground">
       <Suspense
         fallback={
-          <div className="flex flex-1 flex-col">
-            <div className="flex h-12 items-center border-b border-border px-4">
-              <div className="h-5 w-28 animate-pulse rounded bg-muted" />
+          <div className="flex flex-1 min-h-0">
+            <div className="hidden w-56 shrink-0 p-3 md:block">
+              <div className="space-y-2">
+                <div className="h-6 w-full animate-pulse rounded bg-muted" />
+                <div className="h-6 w-3/4 animate-pulse rounded bg-muted" />
+                <div className="h-6 w-5/6 animate-pulse rounded bg-muted" />
+              </div>
             </div>
-            <div className="flex flex-1">
-              <div className="hidden w-56 border-r border-border p-3 md:block">
-                <div className="space-y-2">
-                  <div className="h-6 w-full animate-pulse rounded bg-muted" />
-                  <div className="h-6 w-3/4 animate-pulse rounded bg-muted" />
-                  <div className="h-6 w-5/6 animate-pulse rounded bg-muted" />
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+              <div className="flex h-12 items-center px-4">
+                <div className="h-5 w-28 animate-pulse rounded bg-muted" />
+              </div>
+              <div className="flex min-h-0 flex-1 items-center justify-center px-2 py-1">
+                <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-xl bg-background ring-1 ring-border/40">
+                  <div className="h-8 w-8 animate-spin rounded-full border-2 border-muted-foreground/25 border-t-foreground" />
                 </div>
               </div>
-              <div className="flex flex-1 items-center justify-center">
-                <div className="h-8 w-8 animate-spin rounded-full border-2 border-muted-foreground/25 border-t-foreground" />
-              </div>
+              <div className="h-6" />
             </div>
           </div>
         }
@@ -51,23 +48,13 @@ export default function AppLayout({ children }: Props) {
             <HostedBootstrapBoundary>
               <OnboardingGate>
                 <E2eNavigateBridge />
-                <Header />
-
-                <PanelLayout
-                  leftSidebar={<LeftSidebar />}
-                  centerStage={<CenterStage />}
-                  rightSidebar={<RightSidebar />}
-                />
-
-                <Footer />
+                <AppShellMain />
 
                 <GlobalSearch />
 
                 <ModalAgentChatPanel />
 
                 <DocumentTitle />
-
-                <WorkspaceCreationOverlay />
 
                 <CanvasOverlay />
               </OnboardingGate>

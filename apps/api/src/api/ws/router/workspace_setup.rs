@@ -3,7 +3,7 @@ use std::io::Read;
 use std::time::Duration;
 
 use portable_pty::{native_pty_system, CommandBuilder, PtySize};
-use serde_json::{json, Value};
+use serde_json::json;
 
 use super::*;
 
@@ -45,7 +45,19 @@ pub(super) struct WorkspaceSetupPlan {
     context: WorkspaceSetupContextNotification,
     requirement_step_title: String,
     project_main_file_path: String,
+    project_guid: String,
     setup_script: Option<String>,
+    /// Whole script file, pretty-printed, for the review UI. Trust is recorded
+    /// for the entire file, so confirmation must show every command in it — not
+    /// just the one about to run.
+    scripts_document: Option<String>,
+    /// Whether the user has accepted the current `.atmos` script content. The
+    /// file is repository content, so a clone or pull can change it without the
+    /// user ever seeing it; setup parks instead of running untrusted commands.
+    setup_script_trusted: bool,
+    /// Fingerprint of the script content this plan was built from, echoed to the
+    /// client so its confirmation refers to exactly what it was shown.
+    setup_script_hash: Option<String>,
 }
 
 impl WsMessageService {
@@ -115,22 +127,25 @@ impl WsMessageService {
 
         let has_requirement_step = github_issue.is_some();
 
-        let project_root = std::path::Path::new(&project.main_file_path);
-        let scripts_path = project_root.join(".atmos/scripts/atmos.json");
-        let setup_script = if scripts_path.exists() {
-            std::fs::read_to_string(&scripts_path)
-                .ok()
-                .and_then(|content| serde_json::from_str::<Value>(&content).ok())
-                .and_then(|json| {
-                    json["setup"]
-                        .as_str()
-                        .map(str::trim)
-                        .filter(|value| !value.is_empty())
-                        .map(ToOwned::to_owned)
-                })
-        } else {
-            None
-        };
+        let project_scripts = project_service
+            .read_project_scripts(project_guid.to_string())
+            .await
+            .ok();
+        let setup_script = project_scripts
+            .as_ref()
+            .and_then(|scripts| scripts.command("setup"))
+            .map(ToOwned::to_owned);
+        let setup_script_trusted = project_scripts
+            .as_ref()
+            .map(|scripts| scripts.trusted)
+            .unwrap_or(false);
+        // Trust covers the whole file, so review has to show the whole file.
+        // Serialized from the same read as the hash, otherwise the user could
+        // confirm a hash that belongs to content they were not shown.
+        let scripts_document = project_scripts
+            .as_ref()
+            .and_then(|scripts| serde_json::to_string_pretty(&scripts.scripts).ok());
+        let setup_script_hash = project_scripts.and_then(|scripts| scripts.hash);
 
         // NOTE: WriteRequirement is intentionally NOT pushed into the plan.
         // The composer pre-fills .atmos/context/requirement.md synchronously
@@ -162,7 +177,11 @@ impl WsMessageService {
                 "Writing Requirement Specification".to_string()
             },
             project_main_file_path: project.main_file_path,
+            project_guid: project_guid.to_string(),
             setup_script,
+            scripts_document,
+            setup_script_trusted,
+            setup_script_hash,
         })
     }
 
@@ -189,6 +208,9 @@ impl WsMessageService {
                 output: Some(output),
                 replace_output,
                 requires_confirmation: false,
+                requires_script_trust: false,
+                script_project_guid: None,
+                script_hash: None,
                 success: false,
                 countdown: None,
                 setup_context: Some(plan.context.clone()),
@@ -244,6 +266,9 @@ impl WsMessageService {
                         ),
                         replace_output: true,
                         requires_confirmation: false,
+                        requires_script_trust: false,
+                        script_project_guid: None,
+                        script_hash: None,
                         success: false,
                         countdown: None,
                         setup_context: None,
@@ -281,6 +306,9 @@ impl WsMessageService {
                             )),
                             replace_output: true,
                             requires_confirmation: false,
+                            requires_script_trust: false,
+                            script_project_guid: None,
+                            script_hash: None,
                             success: false,
                             countdown: None,
                             setup_context: Some(plan.context.clone()),
@@ -308,6 +336,9 @@ impl WsMessageService {
                             output: None,
                             replace_output: false,
                             requires_confirmation: false,
+                            requires_script_trust: false,
+                            script_project_guid: None,
+                            script_hash: None,
                             success: true,
                             countdown: None,
                             setup_context: Some(plan.context.clone()),
@@ -346,6 +377,9 @@ impl WsMessageService {
                             output: None,
                             replace_output: false,
                             requires_confirmation: false,
+                            requires_script_trust: false,
+                            script_project_guid: None,
+                            script_hash: None,
                             success: true,
                             countdown: None,
                             setup_context: Some(plan.context.clone()),
@@ -408,6 +442,9 @@ impl WsMessageService {
                             output: None,
                             replace_output: true,
                             requires_confirmation: false,
+                            requires_script_trust: false,
+                            script_project_guid: None,
+                            script_hash: None,
                             success: true,
                             countdown: None,
                             setup_context: Some(plan.context.clone()),
@@ -454,6 +491,9 @@ impl WsMessageService {
                                         output: Some(text),
                                         replace_output: false,
                                         requires_confirmation: false,
+                                        requires_script_trust: false,
+                                        script_project_guid: None,
+                                        script_hash: None,
                                         success: true,
                                         countdown: None,
                                         setup_context: Some(plan.context.clone()),
@@ -513,6 +553,9 @@ impl WsMessageService {
                             output: Some(normalized_markdown),
                             replace_output: true,
                             requires_confirmation: true,
+                            requires_script_trust: false,
+                            script_project_guid: None,
+                            script_hash: None,
                             success: true,
                             countdown: None,
                             setup_context: Some(plan.context.clone()),
@@ -536,6 +579,37 @@ impl WsMessageService {
                         continue;
                     };
 
+                    // The script comes from the repository, so it may have arrived
+                    // via clone or pull. Park here until the user accepts this
+                    // exact content; ProjectScriptTrust resumes from this step.
+                    if !plan.setup_script_trusted {
+                        Self::send_workspace_setup_progress(
+                            &manager,
+                            &conn_id,
+                            WorkspaceSetupProgressNotification {
+                                workspace_id: workspace_id.clone(),
+                                status: "setting_up".to_string(),
+                                step_key: Some(step.key().to_string()),
+                                failed_step_key: None,
+                                step_title: "Review Setup Script".to_string(),
+                                output: plan
+                                    .scripts_document
+                                    .clone()
+                                    .or_else(|| Some(script.clone())),
+                                replace_output: true,
+                                requires_confirmation: false,
+                                requires_script_trust: true,
+                                script_project_guid: Some(plan.project_guid.clone()),
+                                script_hash: plan.setup_script_hash.clone(),
+                                success: true,
+                                countdown: None,
+                                setup_context: Some(plan.context.clone()),
+                            },
+                        )
+                        .await;
+                        return;
+                    }
+
                     Self::send_workspace_setup_progress(
                         &manager,
                         &conn_id,
@@ -548,6 +622,9 @@ impl WsMessageService {
                             output: Some(format!("\r\n$ Running setup script: {}\r\n", script)),
                             replace_output: true,
                             requires_confirmation: false,
+                            requires_script_trust: false,
+                            script_project_guid: None,
+                            script_hash: None,
                             success: true,
                             countdown: None,
                             setup_context: Some(plan.context.clone()),
@@ -594,6 +671,9 @@ impl WsMessageService {
                             output: None,
                             replace_output: false,
                             requires_confirmation: false,
+                            requires_script_trust: false,
+                            script_project_guid: None,
+                            script_hash: None,
                             success: true,
                             countdown: None,
                             setup_context: Some(plan.context.clone()),
@@ -696,6 +776,9 @@ set -x
                             output: Some(output),
                             replace_output: false,
                             requires_confirmation: false,
+                            requires_script_trust: false,
+                            script_project_guid: None,
+                            script_hash: None,
                             success: true,
                             countdown: None,
                             setup_context: None,
@@ -729,6 +812,9 @@ set -x
                             output: Some(output),
                             replace_output: false,
                             requires_confirmation: false,
+                            requires_script_trust: false,
+                            script_project_guid: None,
+                            script_hash: None,
                             success: true,
                             countdown: None,
                             setup_context: None,

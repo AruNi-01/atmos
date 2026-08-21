@@ -15,7 +15,12 @@ import {
   readCenterStageTabGroupOrder,
   writeCenterStageTabGroupOrder,
 } from "@/shared/stores/use-ui-pref-hooks";
-import { isDiffGroupEditorPath } from "@/features/diff/lib/diff-editor-paths";
+import {
+  collectDiffGroupTabs,
+  paneScopedTabGroupKey,
+  readPaneTabGroupOrder,
+  type GroupedTabColumn,
+} from "@/app-shell/center-stage-tab-groups";
 import type { GithubCenterTab } from "@/features/github/store/use-github-center-tabs";
 import type { BrowserCenterTab } from "@/features/browser/store/use-browser-center-tabs";
 import {
@@ -42,6 +47,7 @@ function applySectionedGroupOrder(
   contextOrder: Record<string, string[] | undefined> | undefined,
   getSectionId: (tab: TabGroupItem) => string | undefined,
   sectionKeyPrefix: string,
+  paneId?: string,
 ) {
   const sections: TabGroupItem[][] = [];
   let currentSection: TabGroupItem[] = [];
@@ -65,7 +71,7 @@ function applySectionedGroupOrder(
     const orderedSection = orderKey
       ? applySavedTabGroupOrder(
           { key: orderKey, label: group.label, tabs: section },
-          contextOrder?.[orderKey],
+          readPaneTabGroupOrder(contextOrder, paneId, orderKey),
         ).tabs
       : section;
 
@@ -84,20 +90,48 @@ function applySectionedGroupOrder(
 function applyBrowserGroupOrder(
   group: { key: string; label: string; tabs: TabGroupItem[] },
   contextOrder?: Record<string, string[] | undefined>,
+  paneId?: string,
 ) {
-  return applySectionedGroupOrder(group, contextOrder, (tab) => tab.browserId, "browser-instance");
+  return applySectionedGroupOrder(
+    group,
+    contextOrder,
+    (tab) => tab.browserId,
+    "browser-instance",
+    paneId,
+  );
 }
 
 function applyTerminalGroupOrder(
   group: { key: string; label: string; tabs: TabGroupItem[] },
   contextOrder?: Record<string, string[] | undefined>,
+  paneId?: string,
 ) {
   return applySectionedGroupOrder(
     group,
     contextOrder,
     (tab) => tab.terminalSection ?? tab.kind,
     "terminal-section",
+    paneId,
   );
+}
+
+export function applyPaneTabGroupOrders(
+  groups: readonly GroupedTabColumn[],
+  contextOrder: Record<string, string[] | undefined> | undefined,
+  paneId?: string,
+): GroupedTabColumn[] {
+  return groups.map((group) => {
+    if (group.key === "browser") {
+      return applyBrowserGroupOrder(group, contextOrder, paneId);
+    }
+    if (group.key === "terminal") {
+      return applyTerminalGroupOrder(group, contextOrder, paneId);
+    }
+    return applySavedTabGroupOrder(
+      group,
+      readPaneTabGroupOrder(contextOrder, paneId, group.key),
+    );
+  });
 }
 
 function resolveSectionedColumnKey(activeGroupKey: string): {
@@ -127,6 +161,13 @@ export function useCenterStageTabGroups({
   browserTabs,
   codeReviewTabVisible = false,
   effectiveContextId,
+  gitHistoryTabVisible = false,
+  changesTabVisible = false,
+  reviewTabVisible = false,
+  runTabVisible = false,
+  githubHubTabVisible = false,
+  filesTabVisible = false,
+  ptDesignTabVisible = false,
   githubTabs,
   openFiles,
   previewBrowserPrefs = DEFAULT_PREVIEW_BROWSER_PREFS,
@@ -136,6 +177,13 @@ export function useCenterStageTabGroups({
   browserTabs: BrowserCenterTab[];
   codeReviewTabVisible?: boolean;
   effectiveContextId: string | null;
+  gitHistoryTabVisible?: boolean;
+  changesTabVisible?: boolean;
+  reviewTabVisible?: boolean;
+  runTabVisible?: boolean;
+  githubHubTabVisible?: boolean;
+  filesTabVisible?: boolean;
+  ptDesignTabVisible?: boolean;
   githubTabs: GithubCenterTab[];
   openFiles: OpenFile[];
   previewBrowserPrefs?: PreviewBrowserPrefs;
@@ -195,6 +243,22 @@ export function useCenterStageTabGroups({
 
     // File tabs (regular editor files, not diffs / reviews / conflicts)
     const fileTabs: TabGroupItem[] = [];
+    if (filesTabVisible) {
+      fileTabs.push({
+        id: "files",
+        label: tabBarT("files"),
+        value: "files",
+        kind: "files",
+      });
+    }
+    if (ptDesignTabVisible) {
+      fileTabs.push({
+        id: "pt-design",
+        label: tabBarT("ptDesign"),
+        value: "pt-design",
+        kind: "pt-design",
+      });
+    }
     openFiles
       .filter((file) => !isDiffEditorPath(file.path) && !isConflictResolveEditorPath(file.path))
       .forEach((file) => {
@@ -207,36 +271,44 @@ export function useCenterStageTabGroups({
         });
       });
     if (fileTabs.length > 0) {
-      fileTabs.sort((a, b) => byOpenedAt(
-        { openedAt: a.file!.lastOpenedAt },
-        { openedAt: b.file!.lastOpenedAt },
-      ));
+      fileTabs.sort((left, right) => {
+        if (left.kind === "files") return -1;
+        if (right.kind === "files") return 1;
+        if (left.kind === "pt-design") return -1;
+        if (right.kind === "pt-design") return 1;
+        return byOpenedAt(
+          { openedAt: left.file!.lastOpenedAt },
+          { openedAt: right.file!.lastOpenedAt },
+        );
+      });
       groups.push({ key: "file", label: t("groups.file"), tabs: fileTabs });
     }
 
-    // Diff tabs
-    const diffTabs: TabGroupItem[] = [];
-    openFiles
-      .filter((file) => isDiffGroupEditorPath(file.path))
-      .forEach((file) => {
-        diffTabs.push({
-          id: file.path,
-          label: file.name,
-          value: file.path,
-          kind: "diff-group" as const,
-          file,
-        });
-      });
+    // Diff tabs — Graph History lives in this column with file diffs.
+    const diffTabs = collectDiffGroupTabs(openFiles, {
+      gitHistory: {
+        visible: gitHistoryTabVisible,
+        label: tabBarT("history"),
+      },
+      changes: {
+        visible: changesTabVisible,
+        label: tabBarT("changes"),
+      },
+    });
     if (diffTabs.length > 0) {
-      diffTabs.sort((a, b) => byOpenedAt(
-        { openedAt: a.file!.lastOpenedAt },
-        { openedAt: b.file!.lastOpenedAt },
-      ));
       groups.push({ key: "diff", label: t("groups.diff"), tabs: diffTabs });
     }
 
     // Review tabs
     const reviewTabs: TabGroupItem[] = [];
+    if (reviewTabVisible) {
+      reviewTabs.push({
+        id: "review",
+        label: tabBarT("review"),
+        value: "review",
+        kind: "review",
+      });
+    }
     openFiles
       .filter((file) => file.path.startsWith(EDITOR_REVIEW_DIFF_PREFIX) || isReviewGroupEditorPath(file.path))
       .forEach((file) => {
@@ -278,16 +350,46 @@ export function useCenterStageTabGroups({
     }
 
     // GitHub tabs (PR and Action) — attach openedAt from the source tab for sorting
-    const githubGroupTabs: Array<TabGroupItem & { openedAt: number }> = githubTabs.map((tab) => ({
+    const githubGroupTabs: Array<TabGroupItem & { openedAt?: number }> = githubTabs.map((tab) => ({
       id: tab.id,
       label: tab.label,
       value: tab.value,
       kind: tab.kind,
       openedAt: tab.openedAt,
     }));
+    if (githubHubTabVisible) {
+      githubGroupTabs.unshift({
+        id: "github",
+        label: tabBarT("github"),
+        value: "github",
+        kind: "github",
+      });
+    }
     if (githubGroupTabs.length > 0) {
-      githubGroupTabs.sort(byOpenedAt);
+      githubGroupTabs.sort((left, right) => {
+        if (left.kind === "github") return -1;
+        if (right.kind === "github") return 1;
+        return byOpenedAt(
+          { openedAt: left.openedAt ?? 0 },
+          { openedAt: right.openedAt ?? 0 },
+        );
+      });
       groups.push({ key: "github", label: t("groups.github"), tabs: githubGroupTabs });
+    }
+
+    if (runTabVisible) {
+      groups.push({
+        key: "run",
+        label: tabBarT("run"),
+        tabs: [
+          {
+            id: "run",
+            label: tabBarT("run"),
+            value: "run",
+            kind: "run",
+          },
+        ],
+      });
     }
 
     // Browser: list every internal tab across all open browser instances.
@@ -322,32 +424,43 @@ export function useCenterStageTabGroups({
   }, [
     browserFallbackLabel,
     browserTabs,
+    changesTabVisible,
     codeReviewTabVisible,
+    filesTabVisible,
+    ptDesignTabVisible,
+    gitHistoryTabVisible,
+    githubHubTabVisible,
     githubTabs,
     openFiles,
     previewBrowserPrefs,
     projectWikiTabVisible,
+    reviewTabVisible,
+    runTabVisible,
     t,
     tabBarT,
     terminalTabs,
   ]);
 
-  const orderedGroupedTabItems = React.useMemo(() => {
-    const contextOrder = effectiveContextId ? tabGroupOrderByContext[effectiveContextId] : undefined;
-    return groupedTabItems.map((group) => {
-      // Browser / terminal columns mix multiple families. Order is stored and
-      // applied per section so tabs cannot be interleaved across separators.
-      if (group.key === "browser") {
-        return applyBrowserGroupOrder(group, contextOrder);
-      }
-      if (group.key === "terminal") {
-        return applyTerminalGroupOrder(group, contextOrder);
-      }
-      return applySavedTabGroupOrder(group, contextOrder?.[group.key]);
-    });
-  }, [effectiveContextId, groupedTabItems, tabGroupOrderByContext]);
+  const contextOrder = effectiveContextId
+    ? tabGroupOrderByContext[effectiveContextId]
+    : undefined;
 
-  const handleTabGroupDragEnd = React.useCallback((event: DragEndEvent) => {
+  const orderGroupsForPane = React.useCallback(
+    (groups: readonly GroupedTabColumn[], paneId?: string) =>
+      applyPaneTabGroupOrders(groups, contextOrder, paneId),
+    [contextOrder],
+  );
+
+  const orderedGroupedTabItems = React.useMemo(
+    () => orderGroupsForPane(groupedTabItems),
+    [groupedTabItems, orderGroupsForPane],
+  );
+
+  const handleTabGroupDragEnd = React.useCallback((
+    event: DragEndEvent,
+    paneId?: string,
+    paneGroups?: readonly GroupedTabColumn[],
+  ) => {
     if (!effectiveContextId || !event.over || event.active.id === event.over.id) return;
 
     const activeGroupKey = event.active.data.current?.groupKey;
@@ -358,7 +471,8 @@ export function useCenterStageTabGroups({
     // (`browser-instance:<id>` / `terminal-section:<id>`). Same-key check above
     // already rejects those.
     const { columnKey, sectionFilter } = resolveSectionedColumnKey(activeGroupKey);
-    const group = orderedGroupedTabItems.find((item) => item.key === columnKey);
+    const groups = paneGroups ?? orderGroupsForPane(groupedTabItems, paneId);
+    const group = groups.find((item) => item.key === columnKey);
     if (!group) return;
 
     const ids = sectionFilter
@@ -370,21 +484,25 @@ export function useCenterStageTabGroups({
     if (oldIndex === -1 || newIndex === -1) return;
 
     const nextOrder = arrayMove(ids, oldIndex, newIndex);
+    const orderKey = paneScopedTabGroupKey(paneId, activeGroupKey);
     setTabGroupOrderByContext((current) => {
       const next: TabGroupOrderByContext = {
         ...current,
         [effectiveContextId]: {
           ...(current[effectiveContextId] ?? {}),
-          [activeGroupKey]: nextOrder,
+          [orderKey]: nextOrder,
         },
       };
       writeCenterStageTabGroupOrder(next);
       return next;
     });
-  }, [effectiveContextId, orderedGroupedTabItems]);
+  }, [effectiveContextId, groupedTabItems, orderGroupsForPane]);
 
   return {
+    groupedTabItems,
     handleTabGroupDragEnd,
+    orderGroupsForPane,
     orderedGroupedTabItems,
+    tabGroupOrderByContext,
   };
 }

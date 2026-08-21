@@ -67,9 +67,14 @@ pub fn routes() -> Router<AppState> {
             post(force_session_idle),
         )
         .route("/sessions/{session_id}", delete(remove_hook_session))
-        // Attention routes before `/{tool}/…` so "attention" is not parsed as a tool name.
+        // Attention / grouping snapshot routes before `/{tool}/…` so those
+        // names are not parsed as a tool. REST (not WS): pre-connection
+        // bootstrap so browser refresh can hydrate sticky attention and
+        // By Agent Status buckets from API memory before WS is ready.
+        .route("/workspace-agent-groups", get(list_workspace_agent_groups))
         .route("/attention", get(list_attention))
         .route("/attention/clear", post(clear_attention))
+        .route("/attention/summaries", get(list_attention_summaries))
         .route("/install", post(install_hooks))
         .route("/uninstall", post(uninstall_hooks))
         .route("/status", get(hooks_status))
@@ -244,9 +249,19 @@ async fn list_hook_sessions(State(state): State<AppState>) -> Json<Value> {
     Json(serde_json::json!({ "sessions": sessions }))
 }
 
+async fn list_workspace_agent_groups(State(state): State<AppState>) -> Json<Value> {
+    let groups = state.agent_hooks_service.list_workspace_agent_groups();
+    Json(serde_json::json!({ "groups": groups }))
+}
+
 async fn list_attention(State(state): State<AppState>) -> Json<Value> {
     let attention = state.agent_hooks_service.get_all_attention();
     Json(serde_json::json!({ "attention": attention }))
+}
+
+async fn list_attention_summaries(State(state): State<AppState>) -> Json<Value> {
+    let summaries = state.agent_hooks_service.get_all_attention_summaries();
+    Json(serde_json::json!({ "summaries": summaries }))
 }
 
 #[derive(Debug, Deserialize)]
@@ -256,6 +271,14 @@ struct ClearAttentionBody {
     stable_pane_id: Option<String>,
     #[serde(default)]
     stable_pane_ids: Option<Vec<String>>,
+    /// When set (RFC3339), only clear latches raised at or before this time so a
+    /// late dismiss cannot wipe a newer turn that landed after the client acted.
+    #[serde(default)]
+    not_after: Option<String>,
+    /// When true, also drop auto-summary chrome (explicit Dismiss / send / pane
+    /// destroy). Focus-ack omits this so the user can still read the recap.
+    #[serde(default)]
+    dismiss_summary: bool,
 }
 
 async fn clear_attention(
@@ -268,13 +291,14 @@ async fn clear_attention(
             ids.push(id);
         }
     }
-    let cleared = if ids.len() == 1 {
-        state
-            .agent_hooks_service
-            .clear_attention_for_pane(ids[0].as_str())
-    } else {
-        state.agent_hooks_service.clear_attention_matching_ids(&ids)
-    };
+    let not_after = body
+        .not_after
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty());
+    let cleared = state
+        .agent_hooks_service
+        .clear_attention_matching_ids_not_after(&ids, not_after, body.dismiss_summary);
     Json(serde_json::json!({ "cleared": cleared }))
 }
 

@@ -6,6 +6,11 @@ import {
   groupWorkspaces,
   type FlattenedWorkspaceEntry,
 } from "@/app-shell/sidebar/workspace-grouping";
+import {
+  parseSidebarGroupingMode,
+  SIDEBAR_GROUPING_OPTIONS,
+  WORKSPACE_AGENT_GROUP_OPTIONS,
+} from "@/app-shell/sidebar/workspace-status";
 import type { Workspace, WorkspaceLabel } from "@/shared/types/domain";
 
 const labelA: WorkspaceLabel = {
@@ -131,5 +136,86 @@ describe("groupWorkspaces", () => {
         [labelA, labelB],
       ),
     ).toBe(labelB.id);
+  });
+
+  it("always emits four agent buckets in action-first order", () => {
+    const groups = groupWorkspaces(
+      [
+        entry(workspace({ id: "needs-permission" })),
+        entry(workspace({ id: "done-one" })),
+      ],
+      "agent",
+      {
+        agentGroupKeyByWorkspaceId: {
+          "needs-permission": "permission",
+          "done-one": "done",
+        },
+      },
+    );
+
+    expect(groups.map((group) => group.key)).toEqual([
+      "permission",
+      "attention",
+      "running",
+      "done",
+    ]);
+    expect(groups[0].items.map((item) => item.workspace.id)).toEqual(["needs-permission"]);
+    expect(groups[1].items).toEqual([]);
+    expect(groups[2].items).toEqual([]);
+    expect(groups[3].items.map((item) => item.workspace.id)).toEqual(["done-one"]);
+  });
+
+  it("puts unmapped and legacy idle workspaces in done", () => {
+    const groups = groupWorkspaces(
+      [
+        entry(workspace({ id: "never-ran" })),
+        entry(workspace({ id: "acked" })),
+      ],
+      "agent",
+      {
+        agentGroupKeyByWorkspaceId: {
+          acked: "idle" as never,
+        },
+      },
+    );
+
+    expect(groups.find((group) => group.key === "done")?.items.map((item) => item.workspace.id)).toEqual([
+      "never-ran",
+      "acked",
+    ]);
+  });
+
+  it("rebuckets a workspace when the agent map changes", () => {
+    const running = entry(workspace({ id: "ws-run" }));
+    const first = groupWorkspaces([running], "agent", {
+      agentGroupKeyByWorkspaceId: { "ws-run": "running" },
+    });
+    const second = groupWorkspaces([running], "agent", {
+      agentGroupKeyByWorkspaceId: { "ws-run": "done" },
+    });
+
+    expect(first.find((group) => group.key === "running")?.items).toHaveLength(1);
+    expect(second.find((group) => group.key === "running")?.items).toHaveLength(0);
+    expect(second.find((group) => group.key === "done")?.items.map((item) => item.workspace.id)).toEqual([
+      "ws-run",
+    ]);
+  });
+});
+
+describe("parseSidebarGroupingMode", () => {
+  it("accepts agent and falls unknown values back to project", () => {
+    expect(SIDEBAR_GROUPING_OPTIONS.some((option) => option.value === "agent")).toBe(true);
+    expect(parseSidebarGroupingMode("agent")).toBe("agent");
+    expect(parseSidebarGroupingMode("status")).toBe("status");
+    expect(parseSidebarGroupingMode("nope")).toBe("project");
+    expect(parseSidebarGroupingMode(undefined)).toBe("project");
+  });
+});
+
+describe("agent group icons", () => {
+  it("gives each By Agent Status bucket a distinct icon", () => {
+    const icons = WORKSPACE_AGENT_GROUP_OPTIONS.map((option) => option.icon);
+    expect(icons).toHaveLength(4);
+    expect(new Set(icons).size).toBe(4);
   });
 });

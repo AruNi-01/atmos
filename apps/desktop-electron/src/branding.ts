@@ -19,7 +19,13 @@ import {
   type ResolvedAppIcons,
 } from "./branding-paths.js";
 
-export { APP_ID, APP_PRODUCT_NAME, resolveAppIcons, resolveIconFile } from "./branding-paths.js";
+export {
+  APP_ID,
+  APP_PRODUCT_NAME,
+  resolveAppIcons,
+  resolveDefaultNotificationIcon,
+  resolveIconFile,
+} from "./branding-paths.js";
 export type { ResolvedAppIcons } from "./branding-paths.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));

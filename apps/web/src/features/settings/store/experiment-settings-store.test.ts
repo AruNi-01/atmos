@@ -1,6 +1,14 @@
 import { beforeEach, describe, expect, it, mock } from "bun:test";
 
 const loadMock = mock(() => Promise.resolve({} as unknown));
+const updateMock = mock(() => Promise.resolve({ ok: true }));
+const writeJsonMock = mock(() => true);
+const removeKeyMock = mock(() => {});
+const readJsonMock = mock(() => null as unknown);
+
+mock.module("@workspace/ui", () => ({
+  toastManager: { add: () => {} },
+}));
 
 mock.module("@/features/settings/store/function-settings-store", () => ({
   useFunctionSettingsStore: {
@@ -11,85 +19,30 @@ mock.module("@/features/settings/store/function-settings-store", () => ({
   },
 }));
 
-mock.module("@/api/ws-api", () => ({
+mock.module("@/api/ws/settings-api", () => ({
   functionSettingsApi: {
-    update: async () => {},
+    update: (...args: unknown[]) => updateMock(...args),
   },
 }));
 
-import {
-  createDefaultLaunchpadItems,
-  readLaunchpadItems,
-  selectLaunchpadItemsByPlacement,
-  useExperimentSettingsStore,
-  type LaunchpadItems,
-} from "./experiment-settings-store";
+mock.module("@/shared/lib/browser-store", () => ({
+  globalKey: (name: string) => `atmos:v1:global:${name}`,
+  readJson: (...args: unknown[]) => readJsonMock(...args),
+  writeJson: (...args: unknown[]) => writeJsonMock(...args),
+  removeKey: (...args: unknown[]) => removeKeyMock(...args),
+}));
 
-describe("launchpad item placement helpers", () => {
-  it("defaults always-on items enabled; skills/automations/token-usage/canvas/tasks/new-workspace outside, rest inside; terminals/agents off", () => {
-    const items = createDefaultLaunchpadItems();
-    expect(items.workspaces).toEqual({ enabled: true, placement: "inside" });
-    expect(items.skills).toEqual({ enabled: true, placement: "outside" });
-    expect(items["disk-analyzer"]).toEqual({ enabled: true, placement: "inside" });
-    expect(items["token-usage"]).toEqual({ enabled: true, placement: "outside" });
-    expect(items.canvas).toEqual({ enabled: true, placement: "outside" });
-    expect(items.tasks).toEqual({ enabled: true, placement: "outside" });
-    expect(items["new-workspace"]).toEqual({ enabled: true, placement: "outside" });
-    expect(items.terminals).toEqual({ enabled: false, placement: "inside" });
-    expect(items.agents).toEqual({ enabled: false, placement: "inside" });
-    expect(items.automations).toEqual({ enabled: true, placement: "outside" });
-  });
-
-  it("selects only enabled items for a placement", () => {
-    const items: LaunchpadItems = {
-      ...createDefaultLaunchpadItems(),
-      workspaces: { enabled: true, placement: "outside" },
-      skills: { enabled: false, placement: "inside" },
-      canvas: { enabled: true, placement: "outside" },
-      terminals: { enabled: true, placement: "inside" },
-      "token-usage": { enabled: false, placement: "outside" },
-    };
-
-    expect(selectLaunchpadItemsByPlacement(items, "outside")).toEqual([
-      "workspaces",
-      "automations",
-      "canvas",
-      "tasks",
-      "new-workspace",
-    ]);
-    expect(selectLaunchpadItemsByPlacement(items, "inside")).toEqual([
-      "terminals",
-      "disk-analyzer",
-    ]);
-  });
-
-  it("uses defaults when launchpad_items is absent", () => {
-    const items = readLaunchpadItems({});
-    expect(items.terminals).toEqual({ enabled: false, placement: "inside" });
-    expect(items.agents).toEqual({ enabled: false, placement: "inside" });
-    expect(items.automations).toEqual({ enabled: true, placement: "outside" });
-    expect(items.workspaces).toEqual({ enabled: true, placement: "inside" });
-  });
-
-  it("merges persisted launchpad_items over defaults", () => {
-    const items = readLaunchpadItems({
-      launchpad_items: {
-        terminals: { enabled: false, placement: "outside" },
-        agents: { enabled: true, placement: "outside" },
-        workspaces: { enabled: false, placement: "inside" },
-      },
-    });
-    expect(items.terminals).toEqual({ enabled: false, placement: "outside" });
-    expect(items.agents).toEqual({ enabled: true, placement: "outside" });
-    // Not listed — keep default outside placement for automations.
-    expect(items.automations).toEqual({ enabled: true, placement: "outside" });
-    expect(items.workspaces).toEqual({ enabled: false, placement: "inside" });
-  });
-});
+const { useExperimentSettingsStore } = await import("./experiment-settings-store");
 
 describe("experiment settings load across computer switch", () => {
   beforeEach(() => {
     loadMock.mockReset();
+    updateMock.mockReset();
+    writeJsonMock.mockReset();
+    removeKeyMock.mockReset();
+    readJsonMock.mockReset();
+    readJsonMock.mockImplementation(() => null);
+    updateMock.mockImplementation(() => Promise.resolve({ ok: true }));
     useExperimentSettingsStore.getState().resetForConnectionChange();
   });
 
@@ -110,6 +63,7 @@ describe("experiment settings load across computer switch", () => {
     expect(useExperimentSettingsStore.getState().launchpadItems.terminals).toEqual({
       enabled: false,
       placement: "inside",
+      order: 2,
     });
 
     // New Computer hydrates with a distinct config.
@@ -143,12 +97,56 @@ describe("experiment settings load across computer switch", () => {
     expect(state.launchpadItems.terminals).toEqual({
       enabled: true,
       placement: "outside",
+      order: 2,
     });
     // Stale agents:true from the outgoing Computer must not leak.
     expect(state.launchpadItems.agents).toEqual({
       enabled: false,
       placement: "inside",
+      order: 3,
     });
     expect(state.launchpadAgentsEnabled).toBe(false);
+  });
+
+  it("commits a live drag layout to localStorage and ~/.atmos function_settings", async () => {
+    const next = {
+      ...useExperimentSettingsStore.getState().launchpadItems,
+    };
+    next.workspaces = { ...next.workspaces, placement: "outside", order: 99 };
+    await useExperimentSettingsStore.getState().commitLaunchpadItems(next);
+    expect(useExperimentSettingsStore.getState().launchpadItems.workspaces.placement).toBe(
+      "outside",
+    );
+    expect(updateMock).toHaveBeenCalledWith(
+      "experiments",
+      "launchpad_items",
+      expect.objectContaining({
+        workspaces: expect.objectContaining({ placement: "outside" }),
+      }),
+    );
+  });
+
+  it("persists reorder to localStorage and ~/.atmos function_settings", async () => {
+    await useExperimentSettingsStore.getState().reorderLaunchpadItems(
+      "automations",
+      "skills",
+    );
+
+    expect(writeJsonMock).toHaveBeenCalled();
+    const written = writeJsonMock.mock.calls.at(-1)?.[1] as {
+      automations: { order: number };
+      skills: { order: number };
+    };
+    expect(written.automations.order).toBeLessThan(written.skills.order);
+
+    expect(updateMock).toHaveBeenCalledWith(
+      "experiments",
+      "launchpad_items",
+      written,
+    );
+  });
+
+  it("clears the local Launchpad cache when switching computers", () => {
+    expect(removeKeyMock).toHaveBeenCalledWith("atmos:v1:global:launchpad-items");
   });
 });

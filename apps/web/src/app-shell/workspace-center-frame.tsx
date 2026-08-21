@@ -37,6 +37,7 @@ import {
   isFramePanelVisible,
   isKeyMounted,
   lightMountKey,
+  browserKeepAlivePanelClass,
   lightSurfacePanelClass,
   namedTerminalMountKey,
   resolveFrameActiveTab,
@@ -44,6 +45,12 @@ import {
   terminalMountKey,
 } from "@/app-shell/workspace-surface-policies";
 import { readCenterStageLastTab } from "@/shared/stores/use-ui-pref-hooks";
+import { CENTER_STAGE_RADIUS_CSS } from "@/app-shell/sidebar-layout-constants";
+import {
+  isUsablePaneSlotBox,
+  shouldWithholdUnmeasuredPaneTerminal,
+} from "@/app-shell/center-pane/use-center-pane-slot-boxes";
+import { cn } from "@/shared/lib/utils";
 import {
   workspaceCenterFramePropsAreEqual,
   type TerminalQuickOpenAgent,
@@ -134,8 +141,94 @@ const BrowserPanel = dynamic(
     ),
   { ssr: false },
 );
+const SimulatorPanel = dynamic(
+  () =>
+    import("@/features/simulator").then((mod) => mod.SimulatorPanel),
+  { ssr: false },
+);
+const GitHistoryPanel = dynamic(
+  () =>
+    import("@/features/git/components/GitHistoryPanel").then((mod) => mod.GitHistoryPanel),
+  { ssr: false },
+);
+const ChangesPanel = dynamic(
+  () =>
+    import("@/features/git/components/ChangesPanel").then((mod) => mod.ChangesPanel),
+  { ssr: false },
+);
+const ReviewCenterPanel = dynamic(
+  () =>
+    import("@/features/diff/components/ReviewCenterPanel").then(
+      (mod) => mod.ReviewCenterPanel,
+    ),
+  { ssr: false },
+);
+const GithubHubPanel = dynamic(
+  () =>
+    import("@/features/github/components/GithubHubPanel").then(
+      (mod) => mod.GithubHubPanel,
+    ),
+  { ssr: false },
+);
+const PtDesignCenterPanel = dynamic(
+  () =>
+    import("@/features/pt-design/PtDesignCenterPanel").then(
+      (mod) => mod.PtDesignCenterPanel,
+    ),
+  { ssr: false },
+);
+const RunScript = dynamic(
+  () =>
+    import("@/features/browser/components/RunScript").then((mod) => mod.RunScript),
+  { ssr: false },
+);
+const FileTreePanel = dynamic(
+  () =>
+    import("@/features/files/components/FileTreePanel").then((mod) => mod.FileTreePanel),
+  { ssr: false },
+);
 
 export const EMPTY_MOUNTED_TAB_IDS: string[] = [];
+
+function multiPanePanelStyle(
+  visible: boolean,
+  tabId: string,
+  tabToPaneId: Readonly<Record<string, string>> | null | undefined,
+  paneSlotBoxes: Readonly<Record<string, { top: number; left: number; width: number; height: number }>> | null | undefined,
+): React.CSSProperties | undefined {
+  if (!visible || !tabToPaneId || !paneSlotBoxes) return undefined;
+  const paneId = tabToPaneId[tabId];
+  if (!paneId) return undefined;
+  const box = paneSlotBoxes[paneId];
+  // Missing box = empty pane just grew a slot. Do not fall back to
+  // `inset: 0` (covers sibling panes and fits the PTY at the wrong size).
+  if (!isUsablePaneSlotBox(box)) {
+    return {
+      position: "absolute",
+      inset: "auto",
+      width: 0,
+      height: 0,
+      overflow: "hidden",
+      pointerEvents: "none",
+      opacity: 0,
+    };
+  }
+  return {
+    position: "absolute",
+    inset: "auto",
+    top: box.top,
+    left: box.left,
+    width: box.width,
+    height: box.height,
+    zIndex: 1,
+    // Multi-pane panels sit in a host sibling of the rounded pane card, so
+    // they are not clipped by the card. Round the bottom so square terminal
+    // canvas does not cover the pane's rounded-xl corners.
+    borderBottomLeftRadius: CENTER_STAGE_RADIUS_CSS,
+    borderBottomRightRadius: CENTER_STAGE_RADIUS_CSS,
+    overflow: "hidden",
+  };
+}
 
 function WorkspaceCenterFrameImpl({
   contextId,
@@ -145,6 +238,9 @@ function WorkspaceCenterFrameImpl({
   mountedTabIds,
   fallbackTerminalTitle,
   activeValue,
+  activeTabIds,
+  tabToPaneId,
+  paneSlotBoxes,
   visibleTerminalTabs,
   openFiles,
   githubTabs,
@@ -157,6 +253,14 @@ function WorkspaceCenterFrameImpl({
   reviewTarget,
   projectWikiTabVisible,
   codeReviewTabVisible,
+  simulatorTabVisible,
+  gitHistoryTabVisible,
+  changesTabVisible,
+  reviewTabVisible,
+  runTabVisible,
+  githubHubTabVisible,
+  filesTabVisible,
+  ptDesignTabVisible,
   terminalQuickOpenAgents,
   terminalGridRef,
   terminalGridRefs,
@@ -224,6 +328,14 @@ function WorkspaceCenterFrameImpl({
     "wiki",
     "project-wiki",
     "code-review",
+    "simulator",
+    "git-history",
+    "changes",
+    "review",
+    "run",
+    "github",
+    "files",
+    "pt-design",
     FIXED_TERMINAL_TAB_VALUE,
   ];
   const frameActiveTab = resolveFrameActiveTab({
@@ -233,6 +345,41 @@ function WorkspaceCenterFrameImpl({
     fallbackTab: FIXED_TERMINAL_TAB_VALUE,
     validTabs,
   });
+
+  // Multi-pane: keep every pane-active surface visible/mounted, including warm
+  // frames. Slot geometry is only applied when this frame is URL-synced so
+  // active-context boxes cannot paint a warm workspace incorrectly.
+  const multiActiveTabIds =
+    activeTabIds && activeTabIds.length > 0 ? activeTabIds : null;
+
+  const retainSurface = (tabId: string, urlVisible: boolean) => {
+    if (isUrlSyncedActive) return urlVisible;
+    if (multiActiveTabIds?.includes(tabId)) return true;
+    return frameActiveTab === tabId;
+  };
+
+  const paneOwner = (tabId: string) => tabToPaneId?.[tabId];
+  const interactivePaneClass = (visible: boolean) =>
+    multiActiveTabIds && visible && isActiveContext ? "pointer-events-auto" : undefined;
+
+  const panelVisible = React.useCallback(
+    (panelTabId: string) =>
+      isFramePanelVisible({
+        isActiveFrame: isActiveContext,
+        frameActiveTab,
+        frameActiveTabIds: multiActiveTabIds,
+        panelTabId,
+      }),
+    [frameActiveTab, isActiveContext, multiActiveTabIds],
+  );
+
+  const panelStyle = React.useCallback(
+    (panelTabId: string, visible: boolean) =>
+      multiActiveTabIds
+        ? multiPanePanelStyle(visible, panelTabId, tabToPaneId, paneSlotBoxes)
+        : undefined,
+    [multiActiveTabIds, paneSlotBoxes, tabToPaneId],
+  );
 
   const planReady = mountPlan.mounted.length > 0;
 
@@ -246,29 +393,44 @@ function WorkspaceCenterFrameImpl({
       // content-visibility:hidden / visibility:hidden, which blank warm xterm WebGL on hop.
       aria-hidden={!isActiveContext}
       inert={!isActiveContext ? true : undefined}
-      className="absolute inset-0 flex flex-col min-h-0 min-w-0"
+      className={
+        multiActiveTabIds
+          ? "absolute inset-0 flex flex-col min-h-0 min-w-0 pointer-events-none"
+          : "absolute inset-0 flex flex-col min-h-0 min-w-0"
+      }
     >
       {tabs
         .filter((tab) => {
+          const isMultiActive = Boolean(multiActiveTabIds?.includes(tab.id));
           const isRetained =
-            mountedTabIds.includes(tab.id) || tab.id === frameActiveTab;
+            mountedTabIds.includes(tab.id) ||
+            tab.id === frameActiveTab ||
+            isMultiActive;
           if (!isRetained) return false;
-          if (isActiveContext && tab.id === frameActiveTab) return true;
+          if (
+            shouldWithholdUnmeasuredPaneTerminal({
+              applySlotGeometry: isUrlSyncedActive,
+              isPaneActive: isMultiActive,
+              slotBox: paneSlotBoxes?.[tabToPaneId?.[tab.id] ?? ""],
+            })
+          ) {
+            return false;
+          }
+          if (isActiveContext && (tab.id === frameActiveTab || isMultiActive)) return true;
           if (!planReady) {
-            return isActiveContext || tab.id === frameActiveTab;
+            return isActiveContext || tab.id === frameActiveTab || isMultiActive;
           }
           return isKeyMounted(mountPlan, terminalMountKey(contextId, tab.id));
         })
         .map((tab) => (
           <div
             key={`${contextId}-${tab.id}`}
-            className={terminalKeepAlivePanelClass(
-              isFramePanelVisible({
-                isActiveFrame: isActiveContext,
-                frameActiveTab,
-                panelTabId: tab.id,
-              }),
+            data-center-pane-owner={paneOwner(tab.id)}
+            className={cn(
+              terminalKeepAlivePanelClass(panelVisible(tab.id)),
+              interactivePaneClass(panelVisible(tab.id)),
             )}
+            style={panelStyle(tab.id, panelVisible(tab.id))}
           >
             <div className="h-full w-full">
               <TerminalGrid
@@ -291,11 +453,7 @@ function WorkspaceCenterFrameImpl({
                 // Only the active frame + this tab should fit/measure (IMP-014).
                 isSurfaceActive={
                   isActiveContext &&
-                  isFramePanelVisible({
-                    isActiveFrame: isActiveContext,
-                    frameActiveTab,
-                    panelTabId: tab.id,
-                  })
+                  panelVisible(tab.id)
                 }
                 onNewTerminalTab={
                   isUrlSyncedActive ? handleCreateTerminalCenterTab : undefined
@@ -308,18 +466,15 @@ function WorkspaceCenterFrameImpl({
           </div>
         ))}
 
-      {(isUrlSyncedActive ? projectWikiTabVisible : frameActiveTab === "project-wiki") &&
+      {retainSurface("project-wiki", projectWikiTabVisible) &&
         (!planReady ||
           isKeyMounted(mountPlan, namedTerminalMountKey(contextId, "project-wiki")) ||
-          frameActiveTab === "project-wiki") && (
+          frameActiveTab === "project-wiki" ||
+          Boolean(multiActiveTabIds?.includes("project-wiki"))) && (
           <div
-            className={terminalKeepAlivePanelClass(
-              isFramePanelVisible({
-                isActiveFrame: isActiveContext,
-                frameActiveTab,
-                panelTabId: "project-wiki",
-              }),
-            )}
+            data-center-pane-owner={paneOwner("project-wiki")}
+            className={cn(terminalKeepAlivePanelClass(panelVisible("project-wiki")), interactivePaneClass(panelVisible("project-wiki")))}
+            style={panelStyle("project-wiki", panelVisible("project-wiki"))}
           >
             <TerminalGrid
               ref={isUrlSyncedActive ? projectWikiTerminalGridRef : undefined}
@@ -329,11 +484,7 @@ function WorkspaceCenterFrameImpl({
               className="h-full"
               isSurfaceActive={
                 isActiveContext &&
-                isFramePanelVisible({
-                  isActiveFrame: isActiveContext,
-                  frameActiveTab,
-                  panelTabId: "project-wiki",
-                })
+                panelVisible("project-wiki")
               }
               onNewTerminalTab={
                 isUrlSyncedActive ? handleCreateTerminalCenterTab : undefined
@@ -342,18 +493,15 @@ function WorkspaceCenterFrameImpl({
           </div>
         )}
 
-      {(isUrlSyncedActive ? codeReviewTabVisible : frameActiveTab === "code-review") &&
+      {retainSurface("code-review", codeReviewTabVisible) &&
         (!planReady ||
           isKeyMounted(mountPlan, namedTerminalMountKey(contextId, "code-review")) ||
-          frameActiveTab === "code-review") && (
+          frameActiveTab === "code-review" ||
+          Boolean(multiActiveTabIds?.includes("code-review"))) && (
           <div
-            className={terminalKeepAlivePanelClass(
-              isFramePanelVisible({
-                isActiveFrame: isActiveContext,
-                frameActiveTab,
-                panelTabId: "code-review",
-              }),
-            )}
+            data-center-pane-owner={paneOwner("code-review")}
+            className={cn(terminalKeepAlivePanelClass(panelVisible("code-review")), interactivePaneClass(panelVisible("code-review")))}
+            style={panelStyle("code-review", panelVisible("code-review"))}
           >
             <TerminalGrid
               ref={isUrlSyncedActive ? codeReviewTerminalGridRef : undefined}
@@ -363,11 +511,7 @@ function WorkspaceCenterFrameImpl({
               className="h-full"
               isSurfaceActive={
                 isActiveContext &&
-                isFramePanelVisible({
-                  isActiveFrame: isActiveContext,
-                  frameActiveTab,
-                  panelTabId: "code-review",
-                })
+                panelVisible("code-review")
               }
               onNewTerminalTab={
                 isUrlSyncedActive ? handleCreateTerminalCenterTab : undefined
@@ -377,17 +521,14 @@ function WorkspaceCenterFrameImpl({
         )}
 
       {(frameActiveTab === "overview" ||
+        Boolean(multiActiveTabIds?.includes("overview")) ||
         (isUrlSyncedActive &&
           (!planReady ||
             isKeyMounted(mountPlan, lightMountKey(contextId, "overview"))))) && (
         <div
-          className={lightSurfacePanelClass(
-            isFramePanelVisible({
-              isActiveFrame: isActiveContext,
-              frameActiveTab,
-              panelTabId: "overview",
-            }),
-          )}
+          data-center-pane-owner={paneOwner("overview")}
+          className={cn(lightSurfacePanelClass(panelVisible("overview")), interactivePaneClass(panelVisible("overview")))}
+          style={panelStyle("overview", panelVisible("overview"))}
         >
           <OverviewTab
             contextId={contextId}
@@ -409,11 +550,7 @@ function WorkspaceCenterFrameImpl({
             labels={isUrlSyncedActive ? currentWorkspace?.labels : undefined}
             active={
               isActiveContext &&
-              isFramePanelVisible({
-                isActiveFrame: isActiveContext,
-                frameActiveTab,
-                panelTabId: "overview",
-              })
+              panelVisible("overview")
             }
           />
         </div>
@@ -422,7 +559,12 @@ function WorkspaceCenterFrameImpl({
       {contextOpenFiles.map((file) => {
         if (planReady && !isKeyMounted(mountPlan, editorMountKey(contextId, file.path))) {
           if (!(isUrlSyncedActive && activeValue === file.path)) {
-            if (!(isActiveContext && frameActiveTab === file.path)) {
+            if (
+              !(
+                isActiveContext &&
+                (frameActiveTab === file.path || multiActiveTabIds?.includes(file.path))
+              )
+            ) {
               return null;
             }
           }
@@ -432,13 +574,9 @@ function WorkspaceCenterFrameImpl({
             key={`${contextId}:${file.path}`}
             value={file.path}
             keepMounted
-            className={lightSurfacePanelClass(
-              isFramePanelVisible({
-                isActiveFrame: isActiveContext,
-                frameActiveTab,
-                panelTabId: file.path,
-              }),
-            )}
+            data-center-pane-owner={paneOwner(file.path)}
+            className={cn(lightSurfacePanelClass(panelVisible(file.path)), interactivePaneClass(panelVisible(file.path)))}
+          style={panelStyle(file.path, panelVisible(file.path))}
           >
             {isDiffGroupEditorPath(file.path) && currentRepoPath && isUrlSyncedActive ? (
               <ChangesCodeView repoPath={currentRepoPath} groupPath={file.path} />
@@ -479,11 +617,7 @@ function WorkspaceCenterFrameImpl({
                 className="flex-1"
                 surfaceActive={
                   isActiveContext &&
-                  isFramePanelVisible({
-                    isActiveFrame: isActiveContext,
-                    frameActiveTab,
-                    panelTabId: file.path,
-                  })
+                  panelVisible(file.path)
                 }
               />
             )}
@@ -494,6 +628,7 @@ function WorkspaceCenterFrameImpl({
       {contextGithubTabs.map((tab) => {
         const shouldMount =
           frameActiveTab === tab.value ||
+          Boolean(multiActiveTabIds?.includes(tab.value)) ||
           (isUrlSyncedActive &&
             planReady &&
             isKeyMounted(mountPlan, lightMountKey(contextId, tab.value)));
@@ -501,23 +636,15 @@ function WorkspaceCenterFrameImpl({
         return (
           <div
             key={`${contextId}-${tab.value}`}
-            className={lightSurfacePanelClass(
-              isFramePanelVisible({
-                isActiveFrame: isActiveContext,
-                frameActiveTab,
-                panelTabId: tab.value,
-              }),
-            )}
+            data-center-pane-owner={paneOwner(tab.value)}
+            className={cn(lightSurfacePanelClass(panelVisible(tab.value)), interactivePaneClass(panelVisible(tab.value)))}
+          style={panelStyle(tab.value, panelVisible(tab.value))}
           >
             {tab.kind === "github-pr" ? (
               <PRDetailView
                 active={
                   isActiveContext &&
-                  isFramePanelVisible({
-                    isActiveFrame: isActiveContext,
-                    frameActiveTab,
-                    panelTabId: tab.value,
-                  })
+                  panelVisible(tab.value)
                 }
                 branch={tab.branch}
                 onClosed={isUrlSyncedActive ? onGithubPullRequestChanged : undefined}
@@ -535,11 +662,7 @@ function WorkspaceCenterFrameImpl({
               <IssueDetailView
                 active={
                   isActiveContext &&
-                  isFramePanelVisible({
-                    isActiveFrame: isActiveContext,
-                    frameActiveTab,
-                    panelTabId: tab.value,
-                  })
+                  panelVisible(tab.value)
                 }
                 owner={tab.owner}
                 issueNumber={tab.issueNumber}
@@ -549,11 +672,7 @@ function WorkspaceCenterFrameImpl({
               <ActionsDetailView
                 active={
                   isActiveContext &&
-                  isFramePanelVisible({
-                    isActiveFrame: isActiveContext,
-                    frameActiveTab,
-                    panelTabId: tab.value,
-                  })
+                  panelVisible(tab.value)
                 }
                 onRequestClose={
                   isUrlSyncedActive && handleCloseGithubTab
@@ -569,11 +688,7 @@ function WorkspaceCenterFrameImpl({
               <CommitDetailView
                 active={
                   isActiveContext &&
-                  isFramePanelVisible({
-                    isActiveFrame: isActiveContext,
-                    frameActiveTab,
-                    panelTabId: tab.value,
-                  })
+                  panelVisible(tab.value)
                 }
                 onRequestClose={
                   isUrlSyncedActive && handleCloseGithubTab
@@ -595,20 +710,19 @@ function WorkspaceCenterFrameImpl({
         if (
           planReady &&
           !isKeyMounted(mountPlan, browserMountKey(contextId, tab.value)) &&
-          !(isActiveContext && frameActiveTab === tab.value)
+          !(isActiveContext && (frameActiveTab === tab.value || multiActiveTabIds?.includes(tab.value)))
         ) {
           return null;
         }
+        const browserVisible = panelVisible(tab.value);
         return (
           <div
             key={`${contextId}-${tab.value}`}
-            className={lightSurfacePanelClass(
-              isFramePanelVisible({
-                isActiveFrame: isActiveContext,
-                frameActiveTab,
-                panelTabId: tab.value,
-              }),
-            )}
+            data-center-pane-owner={paneOwner(tab.value)}
+            aria-hidden={!browserVisible}
+            inert={!browserVisible ? true : undefined}
+            className={cn(browserKeepAlivePanelClass(browserVisible), interactivePaneClass(browserVisible))}
+            style={panelStyle(tab.value, browserVisible)}
           >
             <BrowserPanel
               workspaceId={
@@ -617,23 +731,145 @@ function WorkspaceCenterFrameImpl({
                   : null
               }
               projectId={isUrlSyncedActive ? currentProject?.id : undefined}
-              isActive={
-                isActiveContext &&
-                isFramePanelVisible({
-                  isActiveFrame: isActiveContext,
-                  frameActiveTab,
-                  panelTabId: tab.value,
-                })
-              }
+              isActive={isActiveContext && browserVisible}
               browserContextId={tab.browserContextId}
               allowStandaloneWindow
               allowMaximize
               keepInactiveTabsMounted
               syncUrlQueryParam={false}
+              centerPaneOwnerId={paneOwner(tab.value)}
             />
           </div>
         );
       })}
+
+      {retainSurface("simulator", simulatorTabVisible) && (
+        <div
+          data-center-pane-owner={paneOwner("simulator")}
+          className={cn(lightSurfacePanelClass(panelVisible("simulator")), interactivePaneClass(panelVisible("simulator")))}
+          style={panelStyle("simulator", panelVisible("simulator"))}
+        >
+          <SimulatorPanel
+            workspaceId={
+              isUrlSyncedActive && currentView === "workspace"
+                ? (currentWorkspace?.id ?? contextId)
+                : contextId
+            }
+            active={
+              isActiveContext &&
+              panelVisible("simulator")
+            }
+          />
+        </div>
+      )}
+
+      {retainSurface("git-history", gitHistoryTabVisible) && (
+        <div
+          data-center-pane-owner={paneOwner("git-history")}
+          className={cn(lightSurfacePanelClass(panelVisible("git-history")), interactivePaneClass(panelVisible("git-history")))}
+          style={panelStyle("git-history", panelVisible("git-history"))}
+        >
+          <GitHistoryPanel
+            contextId={contextId}
+            repoPath={isUrlSyncedActive ? (currentRepoPath ?? null) : null}
+          />
+        </div>
+      )}
+
+      {retainSurface("changes", changesTabVisible) && (
+        <div
+          data-center-pane-owner={paneOwner("changes")}
+          className={cn(lightSurfacePanelClass(panelVisible("changes")), interactivePaneClass(panelVisible("changes")))}
+          style={panelStyle("changes", panelVisible("changes"))}
+        >
+          <ChangesPanel
+            contextId={contextId}
+            currentProject={isUrlSyncedActive ? currentProject : undefined}
+            currentProjectPath={isUrlSyncedActive ? (currentRepoPath ?? null) : null}
+            currentWorkspace={isUrlSyncedActive ? currentWorkspace : undefined}
+            projectId={isUrlSyncedActive ? (currentProject?.id ?? null) : null}
+            workspaceId={
+              isUrlSyncedActive && currentView === "workspace"
+                ? (currentWorkspace?.id ?? null)
+                : null
+            }
+          />
+        </div>
+      )}
+
+      {retainSurface("review", reviewTabVisible) && (
+        <div
+          data-center-pane-owner={paneOwner("review")}
+          className={cn(lightSurfacePanelClass(panelVisible("review")), interactivePaneClass(panelVisible("review")))}
+          style={panelStyle("review", panelVisible("review"))}
+        >
+          <ReviewCenterPanel
+            filePath=""
+            reviewTarget={isUrlSyncedActive ? (reviewTarget ?? null) : null}
+          />
+        </div>
+      )}
+
+      {retainSurface("run", runTabVisible) && (
+        <div
+          data-center-pane-owner={paneOwner("run")}
+          className={cn(lightSurfacePanelClass(panelVisible("run")), interactivePaneClass(panelVisible("run")))}
+          style={panelStyle("run", panelVisible("run"))}
+        >
+          <RunScript
+            workspaceId={
+              isUrlSyncedActive && currentView === "workspace"
+                ? (currentWorkspace?.id ?? null)
+                : null
+            }
+            projectId={isUrlSyncedActive ? currentProject?.id : undefined}
+            isActive={
+              isActiveContext &&
+              panelVisible("run")
+            }
+            projectName={isUrlSyncedActive ? currentProject?.name : undefined}
+            workspaceName={isUrlSyncedActive ? currentWorkspace?.name : undefined}
+          />
+        </div>
+      )}
+
+      {retainSurface("github", githubHubTabVisible) && (
+        <div
+          data-center-pane-owner={paneOwner("github")}
+          className={cn(lightSurfacePanelClass(panelVisible("github")), interactivePaneClass(panelVisible("github")))}
+          style={panelStyle("github", panelVisible("github"))}
+        >
+          <GithubHubPanel
+            currentProjectPath={isUrlSyncedActive ? (currentRepoPath ?? null) : null}
+          />
+        </div>
+      )}
+
+      {retainSurface("files", filesTabVisible) && (
+        <div
+          data-center-pane-owner={paneOwner("files")}
+          className={cn(lightSurfacePanelClass(panelVisible("files")), interactivePaneClass(panelVisible("files")))}
+          style={panelStyle("files", panelVisible("files"))}
+        >
+          <FileTreePanel
+            projectName={isUrlSyncedActive ? currentProject?.name : undefined}
+            revealEnabled={
+              isActiveContext &&
+              panelVisible("files")
+            }
+          />
+        </div>
+      )}
+
+      {retainSurface("pt-design", ptDesignTabVisible) && (
+        <div
+          data-center-pane-owner={paneOwner("pt-design")}
+          className={cn(lightSurfacePanelClass(panelVisible("pt-design")), interactivePaneClass(panelVisible("pt-design")))}
+          style={panelStyle("pt-design", panelVisible("pt-design"))}
+        >
+          <PtDesignCenterPanel contextId={contextId} />
+        </div>
+      )}
     </div>
   );
 }

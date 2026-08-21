@@ -1,6 +1,131 @@
-/* ATMOS Terminal Mosaic - Seamless Integrated Layout */
+/* ATMOS Terminal Grid — split layout + pane chrome */
 
-.terminal-mosaic-container {
+.terminal-dock-preview {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  pointer-events: none;
+}
+
+.terminal-dock-preview::after {
+  content: "";
+  position: absolute;
+  background: color-mix(in srgb, var(--primary) 16%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary) 36%, transparent);
+  border-radius: 2px;
+}
+
+.terminal-dock-preview[data-edge="top"]::after {
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 50%;
+}
+
+.terminal-dock-preview[data-edge="bottom"]::after {
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 50%;
+}
+
+.terminal-dock-preview[data-edge="left"]::after {
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 50%;
+}
+
+.terminal-dock-preview[data-edge="right"]::after {
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 50%;
+}
+
+/*
+ * Dock preview uses the same center-stage rounded-xl clip as the
+ * need-attention ring. Only round overlay corners that sit on the mosaic
+ * outer corners — otherwise the inset highlight is a square and gets cut.
+ */
+.terminal-dock-preview[data-edge-top][data-edge-left][data-edge="top"]::after,
+.terminal-dock-preview[data-edge-top][data-edge-left][data-edge="left"]::after {
+  border-top-left-radius: var(--radius-xl);
+}
+
+.terminal-dock-preview[data-edge-top][data-edge-right][data-edge="top"]::after,
+.terminal-dock-preview[data-edge-top][data-edge-right][data-edge="right"]::after {
+  border-top-right-radius: var(--radius-xl);
+}
+
+.terminal-dock-preview[data-edge-bottom][data-edge-left][data-edge="bottom"]::after,
+.terminal-dock-preview[data-edge-bottom][data-edge-left][data-edge="left"]::after {
+  border-bottom-left-radius: var(--radius-xl);
+}
+
+.terminal-dock-preview[data-edge-bottom][data-edge-right][data-edge="bottom"]::after,
+.terminal-dock-preview[data-edge-bottom][data-edge-right][data-edge="right"]::after {
+  border-bottom-right-radius: var(--radius-xl);
+}
+
+.terminal-pane-drag-ghost {
+  position: fixed;
+  z-index: 1700;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  pointer-events: none;
+  background: var(--background);
+  border-radius: 8px;
+  box-shadow: 0 18px 48px rgb(0 0 0 / 0.36);
+  outline: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  opacity: 0;
+  transform: scale(0.34);
+  user-select: none;
+  will-change: transform, opacity;
+}
+
+.terminal-pane-drag-ghost.is-spawned {
+  opacity: 1;
+  transform: scale(1);
+  transition:
+    transform 240ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 180ms ease;
+}
+
+.terminal-pane-drag-ghost-header {
+  display: flex;
+  height: 34px;
+  flex: 0 0 34px;
+  align-items: center;
+  min-width: 0;
+  padding: 0 8px;
+  overflow: hidden;
+  background: var(--background);
+}
+
+.terminal-pane-drag-ghost-header .terminal-pane-toolbar-left {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.terminal-pane-drag-ghost-shot {
+  position: relative;
+  min-height: 0;
+  flex: 1 1 auto;
+  background-color: #09090b;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 100% 100%;
+}
+
+.terminal-pane-drag-ghost-body {
+  min-height: 0;
+  flex: 1 1 auto;
+  background: #09090b;
+}
+
+.terminal-grid-container {
   width: 100%;
   height: 100%;
   background: var(--background);
@@ -9,23 +134,24 @@
   padding: 0; /* Removed outer padding */
 }
 
-/* Base Mosaic Overrides */
-.atmos-mosaic-theme {
+/* Terminal split host */
+.terminal-split-theme {
   background: transparent !important;
 }
 
-.atmos-mosaic-theme .mosaic-window {
+.terminal-split-theme .terminal-pane {
   border: none !important;
   box-shadow: none !important;
   background: var(--background) !important;
   border-radius: 0 !important;
   overflow: hidden !important;
   isolation: isolate;
+  position: relative;
 }
 
 /*
  * Need-attention pulse for terminal panes.
- * Mosaic forces box-shadow: none !important on .mosaic-window, so the shared
+ * Pane chrome previously forced box-shadow: none !important on .terminal-pane, so the shared
  * .agent-attention-ring (inset box-shadow) never paints. Use a border overlay.
  */
 @keyframes agent-attention-pane-border-pulse {
@@ -38,33 +164,47 @@
   }
 }
 
-.atmos-mosaic-theme .mosaic-window.agent-attention-ring {
+.terminal-split-theme .terminal-pane.agent-attention-ring {
   /* Keep class for color tokens from agent-attention-ring-permission/complete. */
   animation: none;
 }
 
-.atmos-mosaic-theme .mosaic-window.agent-attention-ring::after {
+.terminal-split-theme .terminal-pane.agent-attention-ring::after {
   content: "";
   position: absolute;
   inset: 0;
   z-index: 7;
   pointer-events: none;
+  box-sizing: border-box;
   border: 1.5px solid transparent;
   border-radius: 2px;
   animation: agent-attention-pane-border-pulse 2.4s ease-in-out infinite;
 }
 
-.atmos-mosaic-theme .mosaic-window.agent-attention-ring-permission {
+/*
+ * Center-stage cards clip terminals to rounded-xl at the bottom corners
+ * (.atmos-terminal-panel-active). A 2px overlay at inset 0 sits in that
+ * clipped square corner — follow the card radius so the pulse stays visible.
+ */
+[data-edge-bottom][data-edge-left] .terminal-pane.agent-attention-ring::after {
+  border-bottom-left-radius: var(--radius-xl);
+}
+
+[data-edge-bottom][data-edge-right] .terminal-pane.agent-attention-ring::after {
+  border-bottom-right-radius: var(--radius-xl);
+}
+
+.terminal-split-theme .terminal-pane.agent-attention-ring-permission {
   --agent-attention-ring-color: rgb(245 158 11 / 0.5);
 }
 
-.atmos-mosaic-theme .mosaic-window.agent-attention-ring-complete {
+.terminal-split-theme .terminal-pane.agent-attention-ring-complete {
   --agent-attention-ring-color: rgb(16 185 129 / 0.48);
 }
 
-/* Dim inactive panes with an overlay instead of filter — CSS filter on mosaic-window
+/* Dim inactive panes with an overlay instead of filter — CSS filter on terminal-pane
    causes a half-pixel white seam at split edges in WKWebView (Tauri desktop). */
-.atmos-mosaic-theme .mosaic-window.is-inactive-pane::before {
+.terminal-split-theme .terminal-pane.is-inactive-pane::before {
   content: "";
   position: absolute;
   inset: 0;
@@ -74,147 +214,33 @@
   transition: background 0.18s ease;
 }
 
-.atmos-mosaic-theme .mosaic-window.is-inactive-pane:hover::before {
+.terminal-split-theme .terminal-pane.is-inactive-pane:hover::before {
   background: rgba(0, 0, 0, 0.02);
 }
 
-.dark .atmos-mosaic-theme .mosaic-window.is-inactive-pane::before {
+.dark .terminal-split-theme .terminal-pane.is-inactive-pane::before {
   background: rgba(0, 0, 0, 0.45);
 }
 
-.dark .atmos-mosaic-theme .mosaic-window.is-inactive-pane:hover::before {
+.dark .terminal-split-theme .terminal-pane.is-inactive-pane:hover::before {
   background: rgba(0, 0, 0, 0.3);
 }
 
-.atmos-mosaic-theme .mosaic-window.is-inactive-pane .terminal-mosaic-toolbar-left {
+.terminal-split-theme .terminal-pane.is-inactive-pane .terminal-pane-toolbar-left {
   opacity: 0.5;
   transition: opacity 0.18s ease;
 }
 
-.atmos-mosaic-theme .mosaic-window.is-inactive-pane:hover .terminal-mosaic-toolbar-left {
+.terminal-split-theme .terminal-pane.is-inactive-pane:hover .terminal-pane-toolbar-left {
   opacity: 0.7;
 }
 
-.atmos-mosaic-theme .mosaic-preview {
-  isolation: isolate;
-}
-
-.atmos-mosaic-theme .mosaic-tile {
-  margin: 0;
-  padding: 2px; /* Reduced gap size */
-}
-
-.atmos-mosaic-theme .mosaic-root {
-  top: 0;
-  right: 0;
-  bottom: 0;
-  left: 0;
-}
-
-.atmos-mosaic-theme .mosaic-split {
-  z-index: 10;
-  background: transparent !important; /* Fully transparent to avoid "topping out" look */
-  box-shadow: none !important;
-  border: none !important;
-  transition: background 0.2s ease;
-  pointer-events: auto; /* Enable resizing */
-}
-
-.atmos-mosaic-theme .mosaic-split:hover {
-  background: rgba(255, 255, 255, 0.03) !important; /* Extremely subtle hint on hover */
-}
-
-.atmos-mosaic-theme .mosaic-split.column {
-  cursor: ew-resize;
-  width: 4px; /* Even thinner hit-box */
-  margin-left: -2px;
-}
-
-.atmos-mosaic-theme .mosaic-split.row {
-  cursor: ns-resize;
-  height: 4px; /* Even thinner hit-box */
-  margin-top: -2px;
-}
-
 /* Window Content */
-.atmos-mosaic-theme .mosaic-window-body {
+.terminal-split-theme .terminal-pane-body {
   background: var(--background) !important;
   color: var(--foreground);
   border: none !important; /* Content is contained by parent window */
   border-radius: 0 !important;
-}
-
-.atmos-mosaic-theme.mosaic-drop-target > .drop-target-container,
-.atmos-mosaic-theme .mosaic-drop-target .drop-target-container {
-  z-index: 80;
-  pointer-events: none;
-  transform: translateZ(0);
-}
-
-.atmos-mosaic-theme.mosaic-drop-target > .drop-target-container .drop-target,
-.atmos-mosaic-theme .mosaic-drop-target .drop-target-container .drop-target {
-  z-index: 81;
-  pointer-events: auto;
-  transform: translateZ(0);
-  background: color-mix(in srgb, var(--primary) 10%, transparent) !important;
-  border: 1px solid color-mix(in srgb, var(--primary) 42%, var(--border)) !important;
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary) 18%, transparent);
-  transition:
-    opacity 0.16s ease,
-    background-color 0.16s ease,
-    border-color 0.16s ease,
-    box-shadow 0.16s ease;
-}
-
-.atmos-mosaic-theme.mosaic-drop-target > .drop-target-container .drop-target.left,
-.atmos-mosaic-theme .mosaic-drop-target .drop-target-container .drop-target.left {
-  right: calc(100% - 38%);
-}
-
-.atmos-mosaic-theme.mosaic-drop-target > .drop-target-container .drop-target.right,
-.atmos-mosaic-theme .mosaic-drop-target .drop-target-container .drop-target.right {
-  left: calc(100% - 38%);
-}
-
-.atmos-mosaic-theme.mosaic-drop-target > .drop-target-container .drop-target.bottom,
-.atmos-mosaic-theme .mosaic-drop-target .drop-target-container .drop-target.bottom {
-  top: calc(100% - 38%);
-}
-
-.atmos-mosaic-theme.mosaic-drop-target > .drop-target-container .drop-target.top,
-.atmos-mosaic-theme .mosaic-drop-target .drop-target-container .drop-target.top {
-  bottom: calc(100% - 38%);
-}
-
-.atmos-mosaic-theme.mosaic-drop-target > .drop-target-container .drop-target.drop-target-hover,
-.atmos-mosaic-theme .mosaic-drop-target .drop-target-container .drop-target.drop-target-hover {
-  background: color-mix(in srgb, var(--primary) 18%, transparent) !important;
-  border-color: color-mix(in srgb, var(--primary) 68%, var(--border)) !important;
-  box-shadow:
-    inset 0 0 0 1px color-mix(in srgb, var(--primary) 44%, transparent),
-    0 0 0 1px color-mix(in srgb, var(--primary) 18%, transparent);
-}
-
-.atmos-mosaic-theme.mosaic-drop-target > .drop-target-container .drop-target.drop-target-hover.left,
-.atmos-mosaic-theme .mosaic-drop-target .drop-target-container .drop-target.drop-target-hover.left {
-  right: calc(100% - 56%);
-}
-
-.atmos-mosaic-theme.mosaic-drop-target > .drop-target-container .drop-target.drop-target-hover.right,
-.atmos-mosaic-theme .mosaic-drop-target .drop-target-container .drop-target.drop-target-hover.right {
-  left: calc(100% - 56%);
-}
-
-.atmos-mosaic-theme.mosaic-drop-target > .drop-target-container .drop-target.drop-target-hover.bottom,
-.atmos-mosaic-theme .mosaic-drop-target .drop-target-container .drop-target.drop-target-hover.bottom {
-  top: calc(100% - 56%);
-}
-
-.atmos-mosaic-theme.mosaic-drop-target > .drop-target-container .drop-target.drop-target-hover.top,
-.atmos-mosaic-theme .mosaic-drop-target .drop-target-container .drop-target.drop-target-hover.top {
-  bottom: calc(100% - 56%);
 }
 
 /* Custom Toolbar
@@ -224,7 +250,7 @@
  * Actions use a fixed open width (not max-width/transform overlay) so the
  * title column is truly squeezed and the OSC marquee can remeasure.
  */
-.terminal-mosaic-toolbar {
+.terminal-pane-toolbar {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -233,17 +259,20 @@
   min-width: 0;
   padding: 0 8px;
   background: transparent;
-  cursor: grab;
   user-select: none;
   pointer-events: auto;
   overflow: hidden;
 }
 
-.terminal-mosaic-toolbar:active {
+.terminal-pane-toolbar-left[data-pane-drag-handle] {
+  cursor: grab;
+}
+
+.terminal-pane-toolbar-left[data-pane-drag-handle]:active {
   cursor: grabbing;
 }
 
-.terminal-mosaic-toolbar-left {
+.terminal-pane-toolbar-left {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -257,7 +286,7 @@
  * Opaque background + soft left fade so OSC text never reads as painted under
  * this rail when the title column is squeezed.
  */
-.terminal-mosaic-toolbar-end {
+.terminal-pane-toolbar-end {
   display: flex;
   align-items: center;
   flex: 0 0 auto;
@@ -268,7 +297,7 @@
   box-shadow: -12px 0 12px 0 var(--background);
 }
 
-.terminal-mosaic-title {
+.terminal-pane-title {
   font-size: 11px;
   font-weight: 500;
   color: var(--foreground);
@@ -408,7 +437,7 @@
  * menu, maximized) or :focus-within — not pure :hover, so the rail stays up
  * while the pointer travels to a portaled split-agent menu.
  */
-.terminal-mosaic-toolbar-right {
+.terminal-pane-toolbar-right {
   display: flex;
   align-items: center;
   gap: 2px;
@@ -423,15 +452,15 @@
     opacity 0.16s ease;
 }
 
-.terminal-mosaic-toolbar.is-toolbar-expanded .terminal-mosaic-toolbar-right,
-.terminal-mosaic-toolbar:focus-within .terminal-mosaic-toolbar-right {
+.terminal-pane-toolbar.is-toolbar-expanded .terminal-pane-toolbar-right,
+.terminal-pane-toolbar:focus-within .terminal-pane-toolbar-right {
   /* pin + 2 splits + maximize + close (+ gaps / close margin) */
   width: 124px;
   opacity: 1;
   pointer-events: auto;
 }
 
-.terminal-mosaic-btn {
+.terminal-pane-btn {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -446,12 +475,12 @@
   transition: all 0.15s ease;
 }
 
-.terminal-mosaic-btn:hover {
+.terminal-pane-btn:hover {
   color: var(--foreground);
   background: var(--accent);
 }
 
-.terminal-mosaic-btn-close:hover {
+.terminal-pane-btn-close:hover {
   color: #ef4444; /* Shadcn red */
   background: rgba(239, 68, 68, 0.1);
 }
@@ -597,7 +626,7 @@
 }
 
 /* Terminal Content Integration */
-.terminal-mosaic-content {
+.terminal-pane-content {
   flex: 1;
   width: 100%;
   height: 100%;
@@ -647,7 +676,7 @@
   background-color: #09090b !important;
 }
 
-/* xterm-scrollable-element: scrollbar overlays but FitAddon reserves space — compensate with left padding */
+/* Overlay scrollbar sits on the right edge; FitAddon uses the full mount width. */
 .atmos-terminal .xterm-scrollable-element {
   position: relative;
   /* Actual scroll container for xterm buffer; contain avoids chaining to parent (e.g. tldraw canvas) */
@@ -676,7 +705,6 @@
   opacity: 0 !important;
   width: 0 !important;
 }
-
 
 /* xterm.js Custom Scrollbar - Slim & Modern Design */
 /* Target the xterm.js overlay scrollbar */
@@ -736,8 +764,8 @@
   opacity: 0.5 !important;
 }
 
-/* Mosaic Toolbar Integration */
-.atmos-mosaic-theme .mosaic-window-toolbar {
+/* Pane toolbar */
+.terminal-split-theme .terminal-pane-toolbar {
   height: 34px !important;
   display: flex !important;
   background: var(--background) !important;
@@ -748,101 +776,56 @@
   position: relative;
 }
 
-.atmos-mosaic-theme .mosaic-window-toolbar.draggable {
+.terminal-split-theme .terminal-pane-toolbar.draggable {
   border: none !important;
 }
 
-.atmos-mosaic-theme .mosaic-window .mosaic-window-toolbar,
-.atmos-mosaic-theme .mosaic-window .mosaic-window-toolbar.draggable,
-.atmos-mosaic-theme .mosaic-preview .mosaic-window-toolbar {
+.terminal-split-theme .terminal-pane .terminal-pane-toolbar,
+.terminal-split-theme .terminal-pane .terminal-pane-toolbar.draggable {
   border: none !important;
   box-shadow: none !important;
 }
 
-/* Hide default buttons if they still show up */
-.atmos-mosaic-theme .mosaic-window-controls {
-  display: none !important;
-}
-
-.atmos-mosaic-theme .mosaic-window-title {
-  display: none !important;
-}
-
 /* Unified Scrollbar */
-.terminal-mosaic-container ::-webkit-scrollbar {
+.terminal-grid-container ::-webkit-scrollbar {
   width: 6px !important;
   height: 6px !important;
 }
 
-.terminal-mosaic-container ::-webkit-scrollbar-track {
+.terminal-grid-container ::-webkit-scrollbar-track {
   background: transparent !important;
 }
 
-.terminal-mosaic-container ::-webkit-scrollbar-thumb {
+.terminal-grid-container ::-webkit-scrollbar-thumb {
   background: rgba(156, 163, 175, 0.2) !important;
   border-radius: 10px !important;
 }
 
-.terminal-mosaic-container ::-webkit-scrollbar-thumb:hover {
+.terminal-grid-container ::-webkit-scrollbar-thumb:hover {
   background: rgba(156, 163, 175, 0.4) !important;
 }
 
-/* Drag & Drop Styling for Dark Mode */
-.dark .atmos-mosaic-theme .mosaic-preview {
-  background: color-mix(in srgb, var(--background) 84%, var(--primary) 16%) !important;
-  border: 1px solid color-mix(in srgb, var(--primary) 38%, var(--border)) !important;
-  box-shadow:
-    0 10px 30px rgba(0, 0, 0, 0.28),
-    inset 0 0 0 1px color-mix(in srgb, var(--primary) 12%, transparent) !important;
-}
-
-.dark .atmos-mosaic-theme.mosaic-drop-target > .drop-target-container .drop-target,
-.dark .atmos-mosaic-theme .mosaic-drop-target .drop-target-container .drop-target {
-  background: color-mix(in srgb, var(--primary) 16%, var(--background)) !important;
-  border-color: color-mix(in srgb, var(--primary) 54%, var(--border)) !important;
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary) 26%, transparent);
-}
-
-.dark .atmos-mosaic-theme.mosaic-drop-target > .drop-target-container .drop-target.drop-target-hover,
-.dark .atmos-mosaic-theme .mosaic-drop-target .drop-target-container .drop-target.drop-target-hover {
-  background: color-mix(in srgb, var(--primary) 24%, var(--background)) !important;
-  border-color: color-mix(in srgb, var(--primary) 76%, var(--border)) !important;
-  box-shadow:
-    inset 0 0 0 1px color-mix(in srgb, var(--primary) 42%, transparent),
-    0 0 24px color-mix(in srgb, var(--primary) 16%, transparent);
-}
-
-/* Zero State */
-.mosaic-zero-state {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  background: var(--background);
-  color: var(--muted-foreground);
-}
-
 /* Maximization Overlay Logic */
-.terminal-mosaic-container {
+.terminal-grid-container {
   /* Create a containing block for position: fixed children */
   transform: translate3d(0, 0, 0);
   contain: paint;
 }
 
-.terminal-mosaic-container[data-maximized-id] .mosaic-window:not(.is-maximized) {
+.terminal-grid-container[data-maximized-id] .terminal-pane:not(.is-maximized) {
   opacity: 0 !important;
   visibility: hidden !important;
   pointer-events: none !important;
 }
 
-.terminal-mosaic-container[data-pane-dragging="true"] .mosaic-window-body,
-.terminal-mosaic-container[data-pane-dragging="true"] .terminal-mosaic-content,
-.terminal-mosaic-container[data-pane-dragging="true"] .terminal-padding-wrapper,
-.terminal-mosaic-container[data-pane-dragging="true"] .atmos-terminal {
+.terminal-grid-container[data-pane-dragging="true"] .terminal-pane-body,
+.terminal-grid-container[data-pane-dragging="true"] .terminal-pane-content,
+.terminal-grid-container[data-pane-dragging="true"] .terminal-padding-wrapper,
+.terminal-grid-container[data-pane-dragging="true"] .atmos-terminal {
   pointer-events: none !important;
 }
 
-.terminal-mosaic-container[data-maximized-id] .mosaic-window.is-maximized {
+.terminal-grid-container[data-maximized-id] .terminal-pane.is-maximized {
   position: fixed !important;
   top: 0 !important;
   left: 0 !important;
@@ -860,14 +843,4 @@
   pointer-events: auto !important;
   box-shadow: none !important;
   transform: none !important;
-}
-
-/* Ensure the tile parent doesn't constrain the maximized window */
-.terminal-mosaic-container[data-maximized-id] .mosaic-tile:has(.is-maximized) {
-  z-index: 100 !important;
-}
-
-/* Ensure Splitters are hidden when maximized */
-.terminal-mosaic-container[data-maximized-id] .mosaic-split {
-  display: none !important;
 }

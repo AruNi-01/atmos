@@ -70,6 +70,31 @@ describe("linear-local-keys (browser fallback)", () => {
     expect(getLinearLocalStoreSnapshot().onDisk).toBe(false);
   });
 
+  test("mode none with keys treats first key as active (no Hub login)", async () => {
+    await ensureLinearLocalKeysHydrated();
+    const a = await upsertLinearLocalKey({
+      name: "Work",
+      api_key: "lin_a".padEnd(32, "x"),
+    });
+    const b = await upsertLinearLocalKey({
+      name: "Personal",
+      api_key: "lin_b".padEnd(32, "y"),
+    });
+    // upsert selects the last key; clear selection to mode "none".
+    await clearLinearAuthSelection();
+    expect(getLinearAuthSelection()).toEqual({ mode: "none" });
+    // First key is the implicit active local credential.
+    expect(getActiveLinearApiKeyForRequest()).toBe(a.api_key);
+    expect(listLinearLocalKeys().map((k) => k.id)).toEqual([a.id, b.id]);
+    expect(
+      resolveLinearCredentialSource({
+        selection: { mode: "none" },
+        oauthConnected: false,
+        hasLocalKey: true,
+      }),
+    ).toBe("local");
+  });
+
   test("remove active key clears selection when last", async () => {
     await ensureLinearLocalKeysHydrated();
     await clearLinearAuthSelection();
@@ -81,6 +106,7 @@ describe("linear-local-keys (browser fallback)", () => {
     await removeLinearLocalKey(only.id);
     expect(listLinearLocalKeys()).toHaveLength(0);
     expect(getLinearAuthSelection()).toEqual({ mode: "none" });
+    expect(getActiveLinearApiKeyForRequest()).toBeUndefined();
   });
 
   test("defaultLinearKeyName is non-empty", () => {
@@ -102,5 +128,21 @@ describe("linear-local-keys (browser fallback)", () => {
         hasLocalKey: true,
       }),
     ).toBe("oauth");
+    // Not explicit OAuth: local wins over OAuth when a key exists.
+    expect(
+      resolveLinearCredentialSource({
+        selection: { mode: "none" },
+        oauthConnected: true,
+        hasLocalKey: true,
+      }),
+    ).toBe("local");
+    // Explicit OAuth without connection is "none" (sign-in required separately).
+    expect(
+      resolveLinearCredentialSource({
+        selection: { mode: "oauth" },
+        oauthConnected: false,
+        hasLocalKey: true,
+      }),
+    ).toBe("none");
   });
 });

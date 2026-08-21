@@ -1,8 +1,8 @@
 'use client'
 
-import { useEffect, useState, type MouseEvent } from 'react'
+import { useEffect, useState } from 'react'
 
-import { Hammer, MenuIcon } from 'lucide-react'
+import { MenuIcon } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
 import Link from 'next/link'
@@ -23,6 +23,8 @@ import { cn } from '@/lib/utils'
 import Logo from '@/components/logo'
 import { ModeToggle } from '@/components/layout/mode-toggle'
 import { LocaleSwitcher } from '@/components/locale-switcher'
+import { GitHubStarButton } from '@/components/ui/github-star-button'
+import { GITHUB_REPO_URL } from '@/lib/github-desktop-release'
 
 import { MotionPreset } from '@workspace/ui/components/ui/motion-preset'
 import { motion, useScroll, useSpring, useTransform } from 'motion/react'
@@ -57,15 +59,6 @@ const Header = ({ className }: HeaderProps) => {
   const leftScaleY = useTransform(scaleX, [leftTrigger, leftTrigger + 0.05], [0, 1])
   const rightScaleY = useTransform(scaleX, [rightTrigger, rightTrigger + 0.05], [0, 1])
 
-  const scrollToDownload = (event: MouseEvent<HTMLAnchorElement>) => {
-    const el = document.getElementById('ready-download') || document.getElementById('download')
-    if (!el) return
-
-    event.preventDefault()
-    setMobileMenuOpen(false)
-    el.scrollIntoView({ behavior: 'smooth' })
-  }
-
   useEffect(() => {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 0)
@@ -91,7 +84,6 @@ const Header = ({ className }: HeaderProps) => {
   return (
     <MotionPreset
       fade
-      blur
       transition={{ duration: 0.5 }}
       delay={0.05}
       component='header'
@@ -118,7 +110,7 @@ const Header = ({ className }: HeaderProps) => {
           />
           {/* Logo */}
           <IntlLink href={{ pathname: '/', hash: 'home' }} className='flex min-w-0 items-center gap-2 sm:gap-3'>
-            <Logo animate={!isScrolled} />
+            <Logo />
           </IntlLink>
 
           <div className='flex shrink-0 items-center gap-1.5 sm:gap-3'>
@@ -134,15 +126,11 @@ const Header = ({ className }: HeaderProps) => {
             <LocaleSwitcher />
             {/* Theme Toggle */}
             <ModeToggle />
-            {/* Desktop CTA */}
-            <Button variant='outline' className='hidden rounded-full px-4! sm:inline-flex' asChild>
-              <IntlLink
-                href={{ pathname: '/', hash: 'ready-download' }}
-                onClick={scrollToDownload}
-              >
-                {t('build')} <Hammer className='size-4' />
-              </IntlLink>
-            </Button>
+            <GitHubStarButton
+              href={GITHUB_REPO_URL}
+              label={t('starOnGithub')}
+              className='hidden sm:inline-flex'
+            />
 
             {/* Mobile menu */}
             <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
@@ -179,16 +167,12 @@ const Header = ({ className }: HeaderProps) => {
                       {t('changelog')}
                     </IntlLink>
                   </SheetClose>
-                  <SheetClose asChild>
-                    <IntlLink
-                      href={{ pathname: '/', hash: 'ready-download' }}
-                      onClick={scrollToDownload}
-                      className='mt-1 inline-flex items-center gap-2 rounded-lg bg-primary px-3 py-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90'
-                    >
-                      {t('build')}
-                      <Hammer className='size-4' />
-                    </IntlLink>
-                  </SheetClose>
+                  <GitHubStarButton
+                    href={GITHUB_REPO_URL}
+                    label={t('starOnGithub')}
+                    className='mt-1 w-full'
+                    onClick={() => setMobileMenuOpen(false)}
+                  />
                 </nav>
               </SheetContent>
             </Sheet>

@@ -3,76 +3,273 @@
 import React from "react";
 import { useTranslations } from "next-intl";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Button, Skeleton, cn } from "@workspace/ui";
-import { CircleCheck, CircleMinus, LogIn, LogOut, RefreshCw, Shield } from "lucide-react";
+import { AuthView, UserView } from "@daveyplate/better-auth-ui";
+import { HubDeleteAccountSection } from "@/features/settings/components/HubDeleteAccountSection";
+import { HubNameSettingsCard } from "@/features/settings/components/HubNameSettingsCard";
+import { HubSecuritySettingsCards } from "@/features/settings/components/HubSecuritySettingsCards";
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+  Skeleton,
+  cn,
+} from "@workspace/ui";
+import { LogIn, LogOut, RefreshCw } from "lucide-react";
+import {
+  HUB_AUTH_DONE_CHANNEL,
+  HUB_AUTH_DONE_MESSAGE,
+} from "@/app/hub-auth/hub-auth-channel";
 import {
   clearStoredDeviceCredential,
-  hubBaseUrl,
+  getStoredDeviceCredential,
   hubConfigured,
-  hubEnrollAndStoreDevice,
-  hubListDevices,
-  type HubDeviceRow,
+  hubMe,
+  storeDeviceCredential,
+  type HubMe,
 } from "@/api/hub-client";
 import {
+  getHubAuthClient,
   hubGetSession,
-  hubSignInSocial,
   hubSignOut,
 } from "@/api/hub-auth-client";
+import {
+  HUB_OAUTH_STARTED_EVENT,
+  HubAuthUIProvider,
+} from "@/features/settings/components/HubAuthUIProvider";
+import { ensureLocalHubDevice } from "@/features/connection/lib/ensure-local-hub-device";
+import { loadComputerClientSettingsFromDisk } from "@/features/connection/lib/sync-computer-client-settings";
+import { applyIdentityBearingComputerSettings } from "@/features/connection/lib/query-identity-lifecycle";
+import { clearWebRelayClientCache } from "@/features/connection/lib/create-web-relay-client";
+import { isDesktopRuntime } from "@/shared/lib/desktop-runtime";
+import {
+  SettingsGroup,
+  SettingsPageStack,
+  SettingsSection,
+} from "@/features/settings/components/settings/SettingsGroupCard";
 
 export function AccountSettingsSection() {
   const t = useTranslations("settings.accountSection");
-  const qc = useQueryClient();
   const configured = hubConfigured();
+
+  if (!configured) {
+    return (
+      <SettingsSection title={t("title")}>
+        <SettingsGroup>
+          <p className="px-2 py-3 text-sm text-muted-foreground">
+            {t("hubNotConfigured")}
+          </p>
+        </SettingsGroup>
+      </SettingsSection>
+    );
+  }
+
+  return (
+    <HubAuthUIProvider>
+      <AccountSettingsBody />
+    </HubAuthUIProvider>
+  );
+}
+
+function AccountSettingsBody() {
+  const t = useTranslations("settings.accountSection");
+  const qc = useQueryClient();
+  // Electron/Tauri preload, or desktop static export build (packaged UI).
+  const desktop =
+    isDesktopRuntime() ||
+    process.env.NEXT_PUBLIC_BUILD_TARGET === "desktop";
 
   const sessionQuery = useQuery({
     queryKey: ["hub", "session"],
     queryFn: async () => hubGetSession(),
-    enabled: configured,
     staleTime: 15_000,
     retry: false,
   });
 
-  const user = sessionQuery.data?.user;
-  const signedIn = Boolean(user?.id);
+  // Live Better Auth session atom — updates immediately after rename (updateUser).
+  const authClient = React.useMemo(() => getHubAuthClient(), []);
+  const { data: liveSession } = authClient.useSession();
 
-  const devicesQuery = useQuery({
-    queryKey: ["hub", "devices"],
-    queryFn: async (): Promise<HubDeviceRow[]> => hubListDevices(),
-    enabled: configured && signedIn,
+  // Desktop after system-browser OAuth has no Hub cookies in Electron —
+  // identity comes from device credential + /v1/me Bearer.
+  const meQuery = useQuery({
+    queryKey: ["hub", "me"],
+    queryFn: async (): Promise<HubMe | null> => hubMe(),
     staleTime: 15_000,
+    retry: false,
   });
 
+  const cookieUser = liveSession?.user ?? sessionQuery.data?.user;
+  const me = meQuery.data;
+  const signedIn = Boolean(cookieUser?.id || me?.user_id);
+
+  const [signInOpen, setSignInOpen] = React.useState(false);
+  const [signOutConfirmOpen, setSignOutConfirmOpen] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
-  const [deviceCredentialOnce, setDeviceCredentialOnce] = React.useState<string | null>(
-    null,
-  );
+  const [waitingBrowser, setWaitingBrowser] = React.useState(false);
 
   const refresh = React.useCallback(() => {
     void sessionQuery.refetch();
-    void devicesQuery.refetch();
-  }, [sessionQuery, devicesQuery]);
+    void meQuery.refetch();
+  }, [sessionQuery, meQuery]);
 
-  const signIn = async (provider: "github" | "google") => {
-    setBusy(true);
-    setError(null);
-    try {
-      await hubSignInSocial(provider);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : t("errors.signInFailed"));
-    } finally {
-      setBusy(false);
+  // After OAuth opens in a new tab / system browser, poll until this tab sees a session
+  // (web: Hub cookie) or device credential (desktop: bridge → disk).
+  React.useEffect(() => {
+    if (!waitingBrowser || signedIn) return;
+
+    let cancelled = false;
+    const tick = async () => {
+      try {
+        if (desktop) {
+          const disk = await loadComputerClientSettingsFromDisk();
+          const cred = (
+            disk?.device_credential ||
+            disk?.access_token ||
+            ""
+          ).trim();
+          if (cred.length >= 32 && !cancelled) {
+            storeDeviceCredential({
+              device_id: disk?.device_id ?? "device",
+              device_credential: cred,
+            });
+            try {
+              await applyIdentityBearingComputerSettings({
+                accessToken: cred,
+                accessTokenConfigured: true,
+              });
+              clearWebRelayClientCache();
+            } catch {
+              /* local API optional */
+            }
+          }
+        }
+        await qc.invalidateQueries({ queryKey: ["hub"] });
+      } catch {
+        /* keep polling */
+      }
+    };
+
+    void tick();
+    const id = window.setInterval(() => void tick(), 1500);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [desktop, waitingBrowser, signedIn, qc]);
+
+  React.useEffect(() => {
+    if (signedIn && (signInOpen || waitingBrowser)) {
+      setSignInOpen(false);
+      setWaitingBrowser(false);
     }
-  };
+  }, [signedIn, signInOpen, waitingBrowser]);
+
+  React.useEffect(() => {
+    const onStarted = () => setWaitingBrowser(true);
+    window.addEventListener(HUB_OAUTH_STARTED_EVENT, onStarted);
+    return () => {
+      window.removeEventListener(HUB_OAUTH_STARTED_EVENT, onStarted);
+    };
+  }, []);
+
+  // OAuth done tab notifies via BroadcastChannel (and postMessage if opener intact).
+  React.useEffect(() => {
+    const onDone = () => {
+      void qc.invalidateQueries({ queryKey: ["hub"] });
+      // Web login tab: mint/sync device for Linear + local API (no manual Trust).
+      void ensureLocalHubDevice().then(() =>
+        qc.invalidateQueries({ queryKey: ["hub"] }),
+      );
+    };
+    let bc: BroadcastChannel | null = null;
+    try {
+      bc = new BroadcastChannel(HUB_AUTH_DONE_CHANNEL);
+      bc.onmessage = (ev) => {
+        if (ev.data?.type === HUB_AUTH_DONE_MESSAGE && !ev.data?.error) onDone();
+      };
+    } catch {
+      /* ignore */
+    }
+    const onMessage = (ev: MessageEvent) => {
+      if (ev.origin !== window.location.origin) return;
+      if (ev.data?.type === HUB_AUTH_DONE_MESSAGE && !ev.data?.error) onDone();
+    };
+    window.addEventListener("message", onMessage);
+    return () => {
+      window.removeEventListener("message", onMessage);
+      bc?.close();
+    };
+  }, [qc]);
+
+  // Hydrate device store from disk when Account opens (desktop cold start).
+  React.useEffect(() => {
+    if (!desktop || getStoredDeviceCredential()) return;
+    void (async () => {
+      try {
+        const disk = await loadComputerClientSettingsFromDisk();
+        const cred = (
+          disk?.device_credential ||
+          disk?.access_token ||
+          ""
+        ).trim();
+        if (cred.length >= 32) {
+          storeDeviceCredential({
+            device_id: disk?.device_id ?? "device",
+            device_credential: cred,
+          });
+          await qc.invalidateQueries({ queryKey: ["hub"] });
+        }
+      } catch {
+        /* ignore */
+      }
+    })();
+  }, [desktop, qc]);
+
+  // Cookie session present → ensure local device matches this user (auto re-trust).
+  React.useEffect(() => {
+    if (!cookieUser?.id) return;
+    let cancelled = false;
+    void (async () => {
+      const result = await ensureLocalHubDevice();
+      if (cancelled) return;
+      if (result.status === "ok" && result.enrolled) {
+        await qc.invalidateQueries({ queryKey: ["hub"] });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [cookieUser?.id, qc]);
 
   const signOut = async () => {
     setBusy(true);
     setError(null);
     try {
+      // Hub /api/auth/sign-out: delete session row + expire session cookies.
       await hubSignOut();
-      setDeviceCredentialOnce(null);
       clearStoredDeviceCredential();
+      try {
+        const { clearComputerClientSettingsOnDisk } = await import(
+          "@/features/connection/lib/sync-computer-client-settings"
+        );
+        await clearComputerClientSettingsOnDisk();
+        await applyIdentityBearingComputerSettings({
+          accessToken: "",
+          accessTokenConfigured: false,
+        });
+        clearWebRelayClientCache();
+      } catch {
+        /* local API optional */
+      }
       await qc.invalidateQueries({ queryKey: ["hub"] });
+      setSignOutConfirmOpen(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : t("errors.signOutFailed"));
     } finally {
@@ -80,204 +277,196 @@ export function AccountSettingsSection() {
     }
   };
 
-  const enrollDevice = async () => {
-    setBusy(true);
-    setError(null);
-    try {
-      const body = await hubEnrollAndStoreDevice({
-        label:
-          typeof navigator !== "undefined"
-            ? navigator.userAgent.slice(0, 64)
-            : "web",
-      });
-      // Show once — store already persisted via hubEnrollAndStoreDevice.
-      setDeviceCredentialOnce(body.device_credential);
-      // Also project into Computer client settings when local API is available.
-      try {
-        const { saveComputerClientSettingsToDisk } = await import(
-          "@/features/connection/lib/sync-computer-client-settings"
-        );
-        const { applyIdentityBearingComputerSettings } = await import(
-          "@/features/connection/lib/query-identity-lifecycle"
-        );
-        const { useAtmosComputerStore } = await import(
-          "@/features/connection/lib/atmos-computer-store"
-        );
-        const { clearWebRelayClientCache } = await import(
-          "@/features/connection/lib/create-web-relay-client"
-        );
-        const st = useAtmosComputerStore.getState();
-        await applyIdentityBearingComputerSettings({
-          accessToken: body.device_credential,
-          accessTokenConfigured: true,
-        });
-        await saveComputerClientSettingsToDisk(
-          body.device_credential,
-          st.relayUrl,
-          st.relaySecretKey,
-          body.device_id,
-        );
-        clearWebRelayClientCache();
-      } catch {
-        /* local API optional */
-      }
-      await devicesQuery.refetch();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : t("errors.enrollFailed"));
-    } finally {
-      setBusy(false);
-    }
-  };
+  // better-auth-ui UserView accepts a user-like object; desktop device auth has no cookie session.
+  const profileUser = cookieUser
+    ? cookieUser
+    : me
+      ? {
+          id: me.user_id,
+          name: me.name || me.handle || t("signedIn"),
+          email: me.email ?? undefined,
+          image: undefined as string | undefined,
+        }
+      : null;
 
-  if (!configured) {
-    return (
-      <div className="rounded-2xl border border-border p-6">
-        <p className="text-sm font-medium text-foreground">{t("title")}</p>
-        <p className="mt-2 text-sm text-muted-foreground">{t("hubNotConfigured")}</p>
-        <p className="mt-1 text-xs text-muted-foreground">
-          NEXT_PUBLIC_ATMOS_HUB_URL → {hubBaseUrl() || "(empty)"}
-        </p>
-      </div>
-    );
-  }
+  const identityPending =
+    (sessionQuery.isLoading || meQuery.isLoading) && !signedIn;
 
   return (
-    <div className="space-y-4">
-      <div className="overflow-hidden rounded-2xl border border-border">
-        <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-6 px-6 py-5">
-          <div className="flex items-start gap-3">
-            <Shield className="mt-0.5 size-5 shrink-0" />
-            <div>
-              <p className="text-base font-medium text-foreground">{t("title")}</p>
-              <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                {t("description")}
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            {sessionQuery.isLoading ? (
+    <SettingsPageStack>
+      {!signedIn ? (
+        <SettingsSection
+          title={t("title")}
+          description={t("description")}
+          action={
+            identityPending ? (
               <Skeleton className="h-9 w-28 rounded-xl" />
-            ) : signedIn ? (
-              <div className="flex items-center gap-2 text-sm text-emerald-500">
-                <CircleCheck className="size-4" />
-                <span>
-                  {user?.name || user?.email || t("signedIn")}
-                </span>
-              </div>
             ) : (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <CircleMinus className="size-4" />
-                <span>{t("signedOut")}</span>
-              </div>
-            )}
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              className="h-8 gap-1.5"
-              onClick={refresh}
-              disabled={sessionQuery.isFetching}
-            >
-              <RefreshCw
-                className={cn("size-3.5", sessionQuery.isFetching && "animate-spin")}
-              />
-            </Button>
-          </div>
-        </div>
-
-        <div className="space-y-3 border-t border-border px-6 py-4">
+              <Button
+                type="button"
+                size="sm"
+                className="h-9 gap-1.5"
+                onClick={() => setSignInOpen(true)}
+              >
+                <LogIn className="size-3.5" />
+                {t("signIn")}
+              </Button>
+            )
+          }
+        >
+          {waitingBrowser ? (
+            <p className="text-xs text-muted-foreground">
+              {desktop ? t("waitingBrowser") : t("waitingBrowserWeb")}
+            </p>
+          ) : null}
           {error ? (
             <p className="text-xs text-destructive">{error}</p>
           ) : null}
-
-          {!signedIn ? (
-            <div className="flex flex-wrap gap-2">
-              <Button
-                type="button"
-                size="sm"
-                className="h-9 gap-1.5"
-                disabled={busy}
-                onClick={() => void signIn("github")}
-              >
-                <LogIn className="size-3.5" />
-                {t("signInGithub")}
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="h-9 gap-1.5"
-                disabled={busy}
-                onClick={() => void signIn("google")}
-              >
-                <LogIn className="size-3.5" />
-                {t("signInGoogle")}
-              </Button>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              <div className="flex flex-wrap items-center gap-2">
+        </SettingsSection>
+      ) : (
+        <>
+          <SettingsGroup>
+            <div className="flex flex-wrap items-center justify-between gap-4 px-2 py-3">
+              {profileUser ? (
+                <UserView
+                  key={`${profileUser.id}:${profileUser.name ?? ""}`}
+                  user={profileUser}
+                  size="lg"
+                />
+              ) : (
+                <Skeleton className="h-12 w-48 rounded-xl" />
+              )}
+              <div className="flex items-center gap-2">
                 <Button
                   type="button"
                   size="sm"
                   variant="outline"
-                  className="h-8"
-                  disabled={busy}
-                  onClick={() => void enrollDevice()}
-                >
-                  {t("trustDevice")}
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
                   className="h-8 gap-1.5"
-                  disabled={busy}
-                  onClick={() => void signOut()}
+                  onClick={refresh}
+                  disabled={sessionQuery.isFetching || meQuery.isFetching}
                 >
-                  <LogOut className="size-3.5" />
-                  {t("signOut")}
+                  <RefreshCw
+                    className={cn(
+                      "size-3.5",
+                      (sessionQuery.isFetching || meQuery.isFetching) &&
+                        "animate-spin",
+                    )}
+                  />
                 </Button>
-              </div>
-
-              {deviceCredentialOnce ? (
-                <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs">
-                  <p className="font-medium text-foreground">{t("credentialOnceTitle")}</p>
-                  <p className="mt-1 break-all font-mono text-muted-foreground">
-                    {deviceCredentialOnce}
-                  </p>
-                  <p className="mt-1 text-muted-foreground">{t("credentialOnceHint")}</p>
-                </div>
-              ) : null}
-
-              <div>
-                <p className="text-sm font-medium text-foreground">{t("devicesTitle")}</p>
-                {devicesQuery.isLoading ? (
-                  <Skeleton className="mt-2 h-12 w-full rounded-lg" />
-                ) : (devicesQuery.data?.length ?? 0) === 0 ? (
-                  <p className="mt-1 text-xs text-muted-foreground">{t("devicesEmpty")}</p>
-                ) : (
-                  <ul className="mt-2 space-y-1">
-                    {devicesQuery.data!.map((d) => (
-                      <li
-                        key={d.device_id}
-                        className="flex items-center justify-between rounded-lg border border-border px-3 py-2 text-xs"
+                <Popover
+                  open={signOutConfirmOpen}
+                  onOpenChange={setSignOutConfirmOpen}
+                >
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className="h-8 gap-1.5"
+                      disabled={busy}
+                    >
+                      <LogOut className="size-3.5" />
+                      {t("signOut")}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent align="end" className="z-[70] w-72 space-y-3">
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium text-foreground">
+                        {t("signOutConfirmTitle")}
+                      </p>
+                      <p className="text-xs leading-5 text-muted-foreground">
+                        {t("signOutConfirmDescription")}
+                      </p>
+                    </div>
+                    <div className="flex items-center justify-end gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={busy}
+                        onClick={() => setSignOutConfirmOpen(false)}
                       >
-                        <span className="truncate font-mono text-muted-foreground">
-                          {d.device_id}
-                        </span>
-                        <span className="text-muted-foreground">
-                          {d.revoked_at ? t("deviceRevoked") : d.label || t("deviceActive")}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
+                        {t("signOutCancel")}
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="destructive"
+                        disabled={busy}
+                        onClick={() => void signOut()}
+                      >
+                        {t("signOut")}
+                      </Button>
+                    </div>
+                  </PopoverContent>
+                </Popover>
               </div>
             </div>
-          )}
-        </div>
-      </div>
-    </div>
+            {error ? (
+              <p className="px-2 py-3 text-xs text-destructive">{error}</p>
+            ) : null}
+          </SettingsGroup>
+
+          {cookieUser ? (
+            <HubNameSettingsCard
+              value={cookieUser.name ?? ""}
+              onSaved={() => {
+                void qc.invalidateQueries({ queryKey: ["hub"] });
+              }}
+            />
+          ) : null}
+          <HubSecuritySettingsCards />
+          <HubDeleteAccountSection
+            onDeleted={() => {
+              setError(null);
+              void qc.invalidateQueries({ queryKey: ["hub"] });
+            }}
+          />
+        </>
+      )}
+
+      <Dialog open={signInOpen} onOpenChange={setSignInOpen}>
+        <DialogContent
+          className="z-[70] w-full max-w-sm gap-0 overflow-hidden border-none bg-transparent p-0 shadow-none sm:max-w-sm"
+          overlayClassName="z-[70]"
+          showCloseButton
+        >
+          <DialogHeader className="sr-only">
+            <DialogTitle>{t("signInDialogTitle")}</DialogTitle>
+            <DialogDescription>
+              {desktop
+                ? t("signInDialogDescriptionDesktop")
+                : t("signInDialogDescriptionWeb")}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="overflow-hidden rounded-xl border border-border bg-background shadow-lg">
+            <AuthView
+              view="SIGN_IN"
+              socialLayout="vertical"
+              className="w-full max-w-none"
+              redirectTo={
+                typeof window !== "undefined" ? window.location.origin : "/"
+              }
+              localization={{
+                SIGN_IN: t("signInDialogTitle"),
+                DISABLED_CREDENTIALS_DESCRIPTION: desktop
+                  ? t("signInDialogDescriptionDesktop")
+                  : t("signInDialogDescriptionWeb"),
+              }}
+              classNames={{
+                base: "w-full max-w-none border-0 shadow-none rounded-none bg-transparent",
+              }}
+              cardFooter={
+                waitingBrowser ? (
+                  <p className="w-full px-1 pb-1 text-center text-xs leading-5 text-muted-foreground">
+                    {desktop ? t("waitingBrowser") : t("waitingBrowserWeb")}
+                  </p>
+                ) : undefined
+              }
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
+    </SettingsPageStack>
   );
 }

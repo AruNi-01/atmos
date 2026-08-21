@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import dynamic from "next/dynamic";
 import { useHotkeys } from "react-hotkeys-hook";
 import { AgentManagerView } from "@/features/agent/components/AgentManagerView";
 import { AutomationPage } from "@/features/automations/components/AutomationPage";
@@ -14,7 +15,7 @@ import { TaskManagementView } from "@/features/task/components/TaskManagementVie
 import { TokenUsagePage } from "@/app-shell/TokenUsagePage";
 import type { OpenFile } from "@/features/editor/store/use-editor-store";
 import type { TerminalCenterTab } from "@/features/terminal/store/use-terminal-store";
-import { FIXED_TABS, isTerminalCenterTabValue } from "@/app-shell/center-stage-tabs";
+import { isTerminalCenterTabValue } from "@/app-shell/center-stage-tabs";
 import type { Project, Workspace } from "@/shared/types/domain";
 import { useWorkspaceSurfaceCacheStore } from "@/features/workspace/store/use-workspace-surface-cache-store";
 import { schedulePromoteWorkspaceSurfaceSwitch } from "@/app-shell/workspace-surface-switch";
@@ -22,6 +23,15 @@ import {
   readCenterStageLastTab,
   setCenterStageLastTab,
 } from "@/shared/stores/use-ui-pref-hooks";
+import { CenterStageSurface } from "@/app-shell/center-stage-chrome";
+
+const PtDesignStandaloneStage = dynamic(
+  () =>
+    import("@/features/pt-design/PtDesignStandaloneStage").then(
+      (mod) => mod.PtDesignStandaloneStage,
+    ),
+  { ssr: false },
+);
 
 type TerminalGridRef = React.RefObject<TerminalGridHandle | null>;
 type TerminalGridRefs = React.RefObject<Record<string, TerminalGridHandle | null>>;
@@ -50,80 +60,37 @@ export function CenterStageNoContextView({
   automationsEnabled,
   onAddProject,
   onConnectAgent,
+  ptDesignOpen = false,
 }: {
   currentView: string;
   automationsEnabled: boolean;
   onAddProject: () => void;
   onConnectAgent: () => void;
+  ptDesignOpen?: boolean;
 }) {
-  if (currentView === "workspaces") {
+  const body = (() => {
+    if (currentView === "pt-design" || ptDesignOpen) {
+      return <PtDesignStandaloneStage />;
+    }
+    if (currentView === "workspaces") return <WorkspacesManagementView />;
+    if (currentView === "skills") return <SkillsView />;
+    if (currentView === "terminals") return <TerminalsView />;
+    if (currentView === "agents") return <AgentManagerView />;
+    if (currentView === "automations" && automationsEnabled) return <AutomationPage />;
+    if (currentView === "disk-analyzer") return <DiskAnalyzerPage />;
+    if (currentView === "token-usage") return <TokenUsagePage />;
+    if (currentView === "tasks") return <TaskManagementView />;
     return (
-      <main className="h-full overflow-hidden">
-        <WorkspacesManagementView />
-      </main>
+      <HostedWelcomeGate onAddProject={onAddProject} onConnectAgent={onConnectAgent} />
     );
-  }
-
-  if (currentView === "skills") {
-    return (
-      <main className="h-full overflow-hidden">
-        <SkillsView />
-      </main>
-    );
-  }
-
-  if (currentView === "terminals") {
-    return (
-      <main className="h-full overflow-hidden">
-        <TerminalsView />
-      </main>
-    );
-  }
-
-  if (currentView === "agents") {
-    return (
-      <main className="h-full overflow-hidden">
-        <AgentManagerView />
-      </main>
-    );
-  }
-
-  if (currentView === "automations" && automationsEnabled) {
-    return (
-      <main className="h-full overflow-hidden">
-        <AutomationPage />
-      </main>
-    );
-  }
-
-  if (currentView === "disk-analyzer") {
-    return (
-      <main className="h-full overflow-hidden">
-        <DiskAnalyzerPage />
-      </main>
-    );
-  }
-
-  if (currentView === "token-usage") {
-    return (
-      <main className="h-full overflow-hidden">
-        <TokenUsagePage />
-      </main>
-    );
-  }
-
-  if (currentView === "tasks") {
-    return (
-      <main className="h-full overflow-hidden">
-        <TaskManagementView />
-      </main>
-    );
-  }
+  })();
 
   return (
-    <main className="h-full overflow-hidden">
-      <HostedWelcomeGate onAddProject={onAddProject} onConnectAgent={onConnectAgent} />
-    </main>
+    <CenterStageSurface
+      data-testid={currentView === "pt-design" || ptDesignOpen ? "pt-design-standalone" : undefined}
+    >
+      {body}
+    </CenterStageSurface>
   );
 }
 
@@ -305,51 +272,6 @@ export function useTerminalTabMountLifecycle({
       };
     });
   }, [effectiveContextId, setMountedTerminalTabsByContext, visibleTerminalTabs]);
-}
-
-export function useCenterStageTabScrollEffects({
-  activeValue,
-  codeReviewTabVisible,
-  effectiveContextId,
-  openFilesCount,
-  projectWikiTabVisible,
-  scrollableTabsRef,
-  visibleTerminalTabsCount,
-}: {
-  activeValue: string;
-  codeReviewTabVisible: boolean;
-  effectiveContextId: string | null | undefined;
-  openFilesCount: number;
-  projectWikiTabVisible: boolean;
-  /** Horizontal scroller (or chain clip root) for the center tab strip. */
-  scrollableTabsRef: React.RefObject<HTMLDivElement | null>;
-  visibleTerminalTabsCount: number;
-}) {
-  React.useEffect(() => {
-    const container = scrollableTabsRef.current;
-    if (!activeValue || !container) return;
-    if (FIXED_TABS.has(activeValue)) return;
-
-    const timer = setTimeout(() => {
-      const current = scrollableTabsRef.current;
-      if (!current) return;
-      const activeTab = current.querySelector<HTMLElement>('[data-active], [aria-selected="true"]');
-      if (!activeTab) return;
-
-      // Prefer the nearest horizontal scroller (unpinned lane in chained layout).
-      const lane =
-        activeTab.closest<HTMLElement>("[data-center-tabs-scroll]") ?? current;
-      const laneRect = lane.getBoundingClientRect();
-      const tabRect = activeTab.getBoundingClientRect();
-      const isVisible =
-        tabRect.left >= laneRect.left && tabRect.right <= laneRect.right;
-      if (!isVisible) {
-        activeTab.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
-      }
-    }, 0);
-
-    return () => clearTimeout(timer);
-  }, [activeValue, effectiveContextId, openFilesCount, projectWikiTabVisible, codeReviewTabVisible, visibleTerminalTabsCount, scrollableTabsRef]);
 }
 
 export type PendingNamedTerminalRun = {

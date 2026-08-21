@@ -1,4 +1,4 @@
-//! APP-058: CLI → Atmos Server product control plane.
+//! APP-063: CLI → Atmos Server product control plane.
 //!
 //! `POST /api/cli/invoke` dispatches the same `WsAction` handlers used by `/ws`.
 //! Auth is the global `require_local_token` middleware.

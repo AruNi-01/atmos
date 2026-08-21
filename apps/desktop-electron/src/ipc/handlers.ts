@@ -163,8 +163,9 @@ export function createAllHandlers(
           ? (args.data as Record<string, unknown>)
           : null;
       // Content icon (left on macOS). Prefer PNG data URL from the renderer so we
-      // can show the agent brand mark. The OS still attaches the Atmos app icon
-      // for identity (right side on macOS banners).
+      // can show the agent brand mark. If the renderer omits one (Settings test,
+      // automation), use the packaged brand plate — otherwise macOS keeps showing
+      // a cached pre-rebrand app icon for com.atmos.desktop.
       const iconArg = typeof args.icon === "string" ? args.icon : "";
       const { Notification, nativeImage } = await electron();
       if (!Notification.isSupported()) return null;
@@ -175,10 +176,18 @@ export function createAllHandlers(
           const image = nativeImage.createFromDataURL(iconArg);
           if (!image.isEmpty()) icon = image;
         } catch {
-          /* fall through without content icon */
+          /* fall through to packaged brand plate */
         }
       } else if (iconArg && existsSync(iconArg)) {
         icon = iconArg;
+      }
+      if (!icon) {
+        const { iconSearchRoots } = await import("../branding.js");
+        const { resolveDefaultNotificationIcon } = await import(
+          "../branding-paths.js"
+        );
+        const fallback = resolveDefaultNotificationIcon(iconSearchRoots());
+        if (fallback) icon = fallback;
       }
 
       const notification = new Notification({
@@ -497,6 +506,86 @@ export function createAllHandlers(
      * Lightweight URL shape check (http/https only). No network fetch.
      * Product navigation does not require this; kept for tooling/smoke.
      */
+    async browser_bridge_agent_tab_result(args) {
+      const requestId = str(args.requestId ?? args.request_id);
+      if (!requestId) return null;
+      state.browserUseControl?.completeAgentTab({
+        requestId,
+        ok: args.ok !== false,
+        target_id:
+          typeof args.target_id === "string"
+            ? args.target_id
+            : typeof args.targetId === "string"
+              ? args.targetId
+              : null,
+        tab_id:
+          typeof args.tab_id === "string"
+            ? args.tab_id
+            : typeof args.tabId === "string"
+              ? args.tabId
+              : "main",
+        error: typeof args.error === "string" ? args.error : undefined,
+        error_code:
+          typeof args.error_code === "string"
+            ? args.error_code
+            : typeof args.errorCode === "string"
+              ? args.errorCode
+              : undefined,
+        evicted_target_ids: Array.isArray(args.evicted_target_ids)
+          ? args.evicted_target_ids.filter(
+              (id): id is string => typeof id === "string" && id.trim().length > 0,
+            )
+          : undefined,
+      });
+      return null;
+    },
+
+    async browser_bridge_user_picks(args) {
+      const sessionId = str(args.session_id ?? args.sessionId);
+      const raw = args.picks ?? args.annotations;
+      const current = args.current;
+      const picks: Array<Record<string, unknown>> = [];
+      if (current && typeof current === "object") {
+        picks.push({ ...(current as Record<string, unknown>), source: "current" });
+      }
+      if (Array.isArray(raw)) {
+        for (const item of raw) {
+          if (item && typeof item === "object") {
+            picks.push({
+              ...(item as Record<string, unknown>),
+              source:
+                (item as { source?: string }).source === "current"
+                  ? "current"
+                  : "annotation",
+            });
+          }
+        }
+      }
+      state.browserUseControl?.setUserPicks(
+        sessionId,
+        picks
+          .map((pick) => ({
+            id: typeof pick.id === "string" ? pick.id : undefined,
+            source: pick.source === "current" ? "current" as const : "annotation" as const,
+            selector: str(pick.selector),
+            name: typeof pick.name === "string" ? pick.name : undefined,
+            note: typeof pick.note === "string" ? pick.note : undefined,
+            tag: typeof pick.tag === "string" ? pick.tag : undefined,
+            rect:
+              pick.rect && typeof pick.rect === "object"
+                ? (pick.rect as {
+                    x: number;
+                    y: number;
+                    width: number;
+                    height: number;
+                  })
+                : undefined,
+          }))
+          .filter((pick) => pick.selector.trim()),
+      );
+      return null;
+    },
+
     async browser_bridge_probe_url(args) {
       const url = str(args.url);
       try {
@@ -591,9 +680,10 @@ export function createAllHandlers(
         BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0];
       if (win && !win.isDestroyed()) {
         const url = new URL(win.webContents.getURL());
-        url.searchParams.set("settingsModal", "true");
-        url.searchParams.set("activeSettingTab", "desktop-use");
-        await win.loadURL(url.toString());
+        const next = new URL("/settings", url.origin);
+        next.searchParams.set("activeSettingTab", "apps");
+        next.hash = "desktop-use";
+        await win.loadURL(next.toString());
         win.show();
         win.focus();
         return null;

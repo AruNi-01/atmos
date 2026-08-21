@@ -79,6 +79,7 @@ impl<'a> ProjectRepo<'a> {
             target_branch: Set(target_branch),
             terminal_layout: Set(None),
             maximized_terminal_id: Set(None),
+            trusted_scripts_hash: Set(None),
         };
 
         let result = model.insert(self.db).await?;
@@ -136,6 +137,28 @@ impl<'a> ProjectRepo<'a> {
     pub async fn update_logo_path(&self, guid: &str, logo_path: Option<String>) -> Result<()> {
         let result = project::Entity::update_many()
             .col_expr(project::Column::LogoPath, Expr::value(logo_path))
+            .col_expr(
+                project::Column::UpdatedAt,
+                Expr::value(chrono::Utc::now().naive_utc()),
+            )
+            .filter(project::Column::Guid.eq(guid))
+            .exec(self.db)
+            .await?;
+        if result.rows_affected == 0 {
+            return Err(crate::error::InfraError::Custom("Project not found".into()));
+        }
+        Ok(())
+    }
+
+    /// Record the `.atmos` script content the user accepted, or clear it with
+    /// `None` so the next run asks again.
+    pub async fn update_trusted_scripts_hash(
+        &self,
+        guid: &str,
+        hash: Option<String>,
+    ) -> Result<()> {
+        let result = project::Entity::update_many()
+            .col_expr(project::Column::TrustedScriptsHash, Expr::value(hash))
             .col_expr(
                 project::Column::UpdatedAt,
                 Expr::value(chrono::Utc::now().naive_utc()),

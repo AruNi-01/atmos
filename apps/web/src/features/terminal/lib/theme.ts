@@ -120,6 +120,9 @@ export const defaultTerminalOptions = {
   theme: atmosDarkTheme,
   minimumContrastRatio: 1,
   rescaleOverlappingGlyphs: true,
+  // Shells (p10k) redraw the cursor line on SIGWINCH. Local reflow of that
+  // line stacks wide-glyph remnants on top of the redraw.
+  reflowCursorLine: false,
 };
 
 // Scrollbar colors for dark theme (add to theme object)

@@ -19,51 +19,57 @@ import {
 } from "@/app-shell/SidebarPeekShell";
 import {
   DEFAULT_LEFT_SIDEBAR_SIZE,
+  ROOT_RESIZE_HAIRLINE_BOTTOM_CSS,
+  ROOT_RESIZE_HAIRLINE_TOP_CSS,
   ROOT_SIDEBAR_LAYOUT_AUTO_SAVE_ID,
 } from "@/app-shell/sidebar-layout-constants";
 import { NewWorkspaceWelcomeOverlay } from "@/app-shell/NewWorkspaceWelcomeOverlay";
-
-const DEFAULT_RIGHT_SIDEBAR_SIZE = 20;
+import { ensureBrowserAgentTabListener } from "@/features/browser/hooks/use-browser-agent-tab-bridge";
+import { registerBrowserHostChrome } from "@/features/browser/lib/ensure-browser-surface";
 
 interface PanelLayoutProps {
   leftSidebar: React.ReactNode;
-  rightSidebar: React.ReactNode;
   centerStage: React.ReactNode;
 }
 
 export function PanelLayout({
   leftSidebar,
-  rightSidebar,
   centerStage,
 }: PanelLayoutProps) {
   const storage = useAppStorage();
-  const { currentView } = useContextParams();
+  const { currentView, effectiveContextId } = useContextParams();
   const layoutRootRef = useRef<HTMLDivElement>(null);
   const panelGroupRef = useRef<ImperativePanelGroupHandle>(null);
   const leftPanelRef = useRef<ImperativePanelHandle>(null);
-  const rightPanelRef = useRef<ImperativePanelHandle>(null);
-  const showRightSidebar = currentView === "project" || currentView === "workspace";
   const {
     isLeftCollapsed,
-    isRightCollapsed,
     leftSidebarSize,
     requestedLeftSidebarSize,
     setIsLeftCollapsed,
-    setIsRightCollapsed,
     setLeftSidebarSize,
     setLiveLeftSidebarSize,
     setIsLeftSidebarDragging,
     setRequestedLeftSidebarSize,
-    setShowRightSidebar,
     setToggleLeftSidebar,
-    setToggleRightSidebar,
   } = useSidebarLayout();
   const [isDragging, setIsDragging] = useState(false);
+  useEffect(() => {
+    void ensureBrowserAgentTabListener();
+  }, []);
+  useEffect(() => {
+    return () => {
+      document.documentElement.removeAttribute("data-atmos-drag-active");
+    };
+  }, []);
+  useEffect(() => {
+    registerBrowserHostChrome({
+      currentContextId: () => effectiveContextId,
+    });
+  }, [effectiveContextId]);
   const [layoutRootWidth, setLayoutRootWidth] = useState(0);
   const [leftOverlaySize, setLeftOverlaySize] = useState(
     leftSidebarSize > 0 ? leftSidebarSize : DEFAULT_LEFT_SIDEBAR_SIZE,
   );
-  const [rightOverlaySize, setRightOverlaySize] = useState(DEFAULT_RIGHT_SIDEBAR_SIZE);
   const isDividerDraggingRef = useRef(false);
   const pendingLeftSidebarSizeRef = useRef<number | null>(null);
 
@@ -82,26 +88,12 @@ export function PanelLayout({
   }, []);
 
   React.useEffect(() => {
-    logSidebarLayout("ROOT_VIEW_STATE", "PanelLayout view/showRightSidebar changed", {
+    logSidebarLayout("ROOT_VIEW_STATE", "PanelLayout view changed", {
       currentView,
-      showRightSidebar,
       leftSidebarSize,
       isLeftCollapsed,
-      isRightCollapsed,
     });
-    setShowRightSidebar(showRightSidebar);
-    if (!showRightSidebar) {
-      setIsRightCollapsed(false);
-    }
-  }, [
-    currentView,
-    isLeftCollapsed,
-    isRightCollapsed,
-    leftSidebarSize,
-    setIsRightCollapsed,
-    setShowRightSidebar,
-    showRightSidebar,
-  ]);
+  }, [currentView, isLeftCollapsed, leftSidebarSize]);
 
   React.useEffect(() => {
     setToggleLeftSidebar(() => {
@@ -128,7 +120,6 @@ export function PanelLayout({
       clampedSize,
       currentLeftSidebarSize: leftSidebarSize,
       currentLayout: layout,
-      showRightSidebar,
     });
 
     if (!group || !layout || layout.length < 2) {
@@ -140,48 +131,16 @@ export function PanelLayout({
       return;
     }
 
-    if (layout.length === 2 || !showRightSidebar) {
-      logSidebarLayout("ROOT_SET_LAYOUT", "Applying two-panel root layout", {
-        nextLayout: [clampedSize, 100 - clampedSize],
-      });
-      group.setLayout([clampedSize, 100 - clampedSize]);
-      setRequestedLeftSidebarSize(null);
-      return;
-    }
-
-    const [, center, right] = layout;
-    const remaining = 100 - clampedSize;
-    const centerRightTotal = center + right;
-    const centerRatio = centerRightTotal > 0 ? center / centerRightTotal : 0.75;
-    const nextCenter = remaining * centerRatio;
-    const nextRight = remaining - nextCenter;
-
-    logSidebarLayout("ROOT_SET_LAYOUT", "Applying three-panel root layout", {
-      previousLayout: layout,
-      nextLayout: [clampedSize, nextCenter, nextRight],
-      centerRatio,
+    logSidebarLayout("ROOT_SET_LAYOUT", "Applying two-panel root layout", {
+      nextLayout: [clampedSize, 100 - clampedSize],
     });
-
-    group.setLayout([clampedSize, nextCenter, nextRight]);
+    group.setLayout([clampedSize, 100 - clampedSize]);
     setRequestedLeftSidebarSize(null);
   }, [
     leftSidebarSize,
     requestedLeftSidebarSize,
     setRequestedLeftSidebarSize,
-    showRightSidebar,
   ]);
-
-  React.useEffect(() => {
-    setToggleRightSidebar(() => {
-      if (!showRightSidebar) return;
-      if (isRightCollapsed) {
-        rightPanelRef.current?.expand();
-      } else {
-        rightPanelRef.current?.collapse();
-      }
-    });
-    return () => setToggleRightSidebar(null);
-  }, [isRightCollapsed, setToggleRightSidebar, showRightSidebar]);
 
   const handleDividerDragging = useCallback(
     (dragging: boolean) => {
@@ -192,6 +151,13 @@ export function PanelLayout({
       isDividerDraggingRef.current = dragging;
       setIsDragging(dragging);
       setIsLeftSidebarDragging(dragging);
+      // Cross-origin guests (simulator iframe, desktop webview) swallow
+      // pointermove. Mark the host so they can set pointer-events: none.
+      if (dragging) {
+        document.documentElement.setAttribute("data-atmos-drag-active", "");
+      } else {
+        document.documentElement.removeAttribute("data-atmos-drag-active");
+      }
       if (!dragging) {
         const pending = pendingLeftSidebarSizeRef.current;
         if (pending != null) {
@@ -238,10 +204,6 @@ export function PanelLayout({
         setLeftOverlaySize(nextLeftSize);
         setLiveLeftSidebarSize(nextLeftSize);
       }
-      const nextRightSize = layout[2];
-      if (typeof nextRightSize === "number" && Number.isFinite(nextRightSize) && nextRightSize > 0.5) {
-        setRightOverlaySize(nextRightSize);
-      }
       if (isDividerDraggingRef.current) {
         pendingLeftSidebarSizeRef.current = nextLeftSize;
         return;
@@ -251,133 +213,82 @@ export function PanelLayout({
     [setLeftSidebarSize, setLiveLeftSidebarSize],
   );
 
-  const handleRightPanelResize = useCallback((size: number) => {
-    if (size > 0.5) {
-      setRightOverlaySize(size);
-    }
-  }, []);
-
   const leftOverlayWidthPx = getSidebarPeekOverlayWidthPx(
     layoutRootWidth,
     leftOverlaySize,
   );
-  const rightOverlayWidthPx = getSidebarPeekOverlayWidthPx(
-    layoutRootWidth,
-    rightOverlaySize,
-  );
-
-  const leftPanelNode = (
-    <Panel
-      id="root-left-sidebar"
-      order={1}
-      ref={leftPanelRef}
-      collapsible
-      defaultSize={DEFAULT_LEFT_SIDEBAR_SIZE}
-      minSize={10}
-      maxSize={50}
-      collapsedSize={0}
-      onResize={handleLeftPanelResize}
-      onCollapse={() => {
-        logSidebarLayout("ROOT_LEFT_COLLAPSE", "Root left panel collapsed", {
-          previousLeftSidebarSize: leftSidebarSize,
-        });
-        setIsLeftCollapsed(true);
-        setLeftSidebarSize(0);
-        setLiveLeftSidebarSize(0);
-      }}
-      onExpand={() => {
-        logSidebarLayout("ROOT_LEFT_EXPAND", "Root left panel expanded", {
-          currentLeftSidebarSize: leftSidebarSize,
-        });
-        setIsLeftCollapsed(false);
-      }}
-      className={cn(
-        "h-full flex flex-col",
-        // Isolate left list layout/paint from center thrash (IMP-013).
-        // Only when expanded: contain makes this panel the fixed containing
-        // block and clips paint, which zeros out the collapsed edge-hover peek
-        // trigger (right sidebar has no contain and still peeks correctly).
-        !isLeftCollapsed && "[contain:layout_paint]",
-        !isDragging && "transition-[flex-grow,flex-shrink,basis] duration-300 ease-in-out",
-        isLeftCollapsed && "min-w-0!"
-      )}
-    >
-      <SidebarPeekShell
-        side="left"
-        collapsed={isLeftCollapsed}
-        widthPx={leftOverlayWidthPx}
-      >
-        {leftSidebar}
-      </SidebarPeekShell>
-    </Panel>
-  );
 
   return (
-    <div ref={layoutRootRef} className="relative flex-1 flex min-h-0 overflow-hidden">
+    <div
+      ref={layoutRootRef}
+      className="relative flex min-h-0 flex-1 overflow-hidden bg-sidebar"
+    >
       <PanelGroup
         ref={panelGroupRef}
         autoSaveId={ROOT_SIDEBAR_LAYOUT_AUTO_SAVE_ID}
         direction="horizontal"
         onLayout={handleRootLayout}
         storage={storage}
-        className="flex-1"
+        className="flex-1 bg-sidebar"
       >
-        {/* Left Sidebar */}
-        {leftPanelNode}
+        <Panel
+          id="root-left-sidebar"
+          order={1}
+          ref={leftPanelRef}
+          collapsible
+          defaultSize={DEFAULT_LEFT_SIDEBAR_SIZE}
+          minSize={10}
+          maxSize={50}
+          collapsedSize={0}
+          onResize={handleLeftPanelResize}
+          onCollapse={() => {
+            logSidebarLayout("ROOT_LEFT_COLLAPSE", "Root left panel collapsed", {
+              previousLeftSidebarSize: leftSidebarSize,
+            });
+            setIsLeftCollapsed(true);
+            setLeftSidebarSize(0);
+            setLiveLeftSidebarSize(0);
+          }}
+          onExpand={() => {
+            logSidebarLayout("ROOT_LEFT_EXPAND", "Root left panel expanded", {
+              currentLeftSidebarSize: leftSidebarSize,
+            });
+            setIsLeftCollapsed(false);
+          }}
+          className={cn(
+            "h-full flex flex-col",
+            !isLeftCollapsed && "[contain:layout_paint]",
+            !isDragging && "transition-[flex-grow,flex-shrink,basis] duration-300 ease-in-out",
+            isLeftCollapsed && "min-w-0!"
+          )}
+        >
+          <SidebarPeekShell
+            side="left"
+            collapsed={isLeftCollapsed}
+            widthPx={leftOverlayWidthPx}
+          >
+            {leftSidebar}
+          </SidebarPeekShell>
+        </Panel>
 
         <ResizeHandle
           onDragging={handleDividerDragging}
           hitAreaMargins={{ fine: 2, coarse: 4 }}
-          className={cn(isLeftCollapsed && "bg-transparent hover:bg-transparent")}
+          hideHairline={isLeftCollapsed}
         />
 
-        {/* Center Stage */}
         <Panel
           id="root-center-stage"
           order={2}
-          defaultSize={showRightSidebar ? 80 - DEFAULT_LEFT_SIDEBAR_SIZE : 100 - DEFAULT_LEFT_SIDEBAR_SIZE}
+          defaultSize={100 - DEFAULT_LEFT_SIDEBAR_SIZE}
           minSize={25}
-          className="h-full [contain:layout]"
+          /* Do not add contain:layout/paint here. It becomes the containing
+             block for position:fixed, so Excalidraw laser/eraser trails and
+             other viewport-fixed overlays shift right by the sidebar width. */
+          className="relative h-full"
         >
           {centerStage}
         </Panel>
-
-        {showRightSidebar ? (
-          <>
-            <ResizeHandle
-              onDragging={handleDividerDragging}
-              className={cn(isRightCollapsed && "bg-transparent hover:bg-transparent")}
-            />
-
-            {/* Right Sidebar */}
-            <Panel
-              id="root-right-sidebar"
-              order={3}
-              ref={rightPanelRef}
-              collapsible
-              defaultSize={DEFAULT_RIGHT_SIDEBAR_SIZE}
-              minSize={10}
-              maxSize={75}
-              collapsedSize={0}
-              onResize={handleRightPanelResize}
-              onCollapse={() => setIsRightCollapsed(true)}
-              onExpand={() => setIsRightCollapsed(false)}
-              className={cn(
-                "h-full flex flex-col",
-                !isDragging && "transition-[flex-grow,flex-shrink,basis] duration-300 ease-in-out",
-                isRightCollapsed && "min-w-0!"
-              )}
-            >
-              <SidebarPeekShell
-                side="right"
-                collapsed={isRightCollapsed}
-                widthPx={rightOverlayWidthPx}
-              >
-                {rightSidebar}
-              </SidebarPeekShell>
-            </Panel>
-          </>
-        ) : null}
       </PanelGroup>
 
       <NewWorkspaceWelcomeOverlay />
@@ -388,6 +299,7 @@ export function PanelLayout({
 interface ResizeHandleProps {
   onDragging: (isDragging: boolean) => void;
   className?: string;
+  hideHairline?: boolean;
   hitAreaMargins?: {
     fine: number;
     coarse: number;
@@ -397,16 +309,39 @@ interface ResizeHandleProps {
 function ResizeHandle({
   onDragging,
   className,
+  hideHairline = false,
   hitAreaMargins,
 }: ResizeHandleProps) {
+  const [dragging, setDragging] = useState(false);
   return (
     <PanelResizeHandle
-      onDragging={onDragging}
+      onDragging={(nextDragging) => {
+        setDragging(nextDragging);
+        onDragging(nextDragging);
+      }}
       hitAreaMargins={hitAreaMargins}
       className={cn(
-        "relative flex w-px items-center justify-center bg-border transition-colors duration-200 hover:bg-border/80 group touch-none",
+        // Hit target stays full height; the painted hairline is inset so it
+        // does not run through the center card corners or into the footer.
+        "relative z-20 flex w-px items-center justify-center bg-transparent group touch-none",
         className
       )}
-    />
+    >
+      <span aria-hidden className="absolute inset-y-0 -left-1 -right-1.5" />
+      {hideHairline ? null : (
+        <span
+          aria-hidden
+          data-resize-hairline="root"
+          className={cn(
+            "pointer-events-none absolute left-0 w-px transition-colors duration-200",
+            dragging ? "bg-border/50" : "bg-transparent group-hover:bg-border/50",
+          )}
+          style={{
+            top: ROOT_RESIZE_HAIRLINE_TOP_CSS,
+            bottom: ROOT_RESIZE_HAIRLINE_BOTTOM_CSS,
+          }}
+        />
+      )}
+    </PanelResizeHandle>
   );
 }

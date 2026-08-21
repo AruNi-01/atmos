@@ -1,14 +1,13 @@
 "use client";
 
-import { useEffect, useId } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   MotionValue,
   motion,
   useSpring,
   useTransform,
-  motionValue,
 } from "motion/react";
-import useMeasure from "react-use-measure";
+import { cn } from "../../lib/utils";
 
 const TRANSITION = {
   type: "spring" as const,
@@ -17,60 +16,99 @@ const TRANSITION = {
   mass: 0.3,
 };
 
-function Digit({ value, place }: { value: number; place: number }) {
+/** Hold extra high places briefly so 3→2 digit shrinks still morph tens/ones. */
+const PLACE_SHRINK_MS = 420;
+
+function Digit({
+  value,
+  place,
+  hidden,
+}: {
+  value: number;
+  place: number;
+  /** Leading placeholder place (value < place) — keep mounted, hide visually. */
+  hidden?: boolean;
+}) {
   const valueRoundedToPlace = Math.floor(value / place) % 10;
-  const initial = motionValue(valueRoundedToPlace);
-  const animatedValue = useSpring(initial, TRANSITION);
+  // Spring owns a stable MotionValue; we push targets via .set() so re-renders
+  // always morph instead of rebinding to an already-final number.
+  const animatedValue = useSpring(valueRoundedToPlace, TRANSITION);
+  const sizerRef = useRef<HTMLDivElement>(null);
+  const [height, setHeight] = useState(0);
 
   useEffect(() => {
     animatedValue.set(valueRoundedToPlace);
   }, [animatedValue, valueRoundedToPlace]);
 
+  useLayoutEffect(() => {
+    const el = sizerRef.current;
+    if (!el) return;
+    const measure = () => {
+      const next = el.offsetHeight;
+      if (next > 0) {
+        setHeight((prev) => (prev === next ? prev : next));
+      }
+    };
+    measure();
+    const ro =
+      typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver(measure)
+        : null;
+    ro?.observe(el);
+    return () => ro?.disconnect();
+  }, []);
+
   return (
-    <div className="relative inline-block w-[1ch] overflow-x-visible overflow-y-clip leading-none tabular-nums">
-      <div className="invisible">0</div>
-      {Array.from({ length: 10 }, (_, i) => (
-        <Number key={i} mv={animatedValue} number={i} />
-      ))}
+    // Clip the rolling strip so glyphs never paint outside the digit cell.
+    // h-[1em] + leading-none keeps the cap-height tight so tokens (no `$`)
+    // don't show a tall empty band above the ink.
+    <div
+      className={cn(
+        "relative inline-block h-[1em] w-[1ch] overflow-hidden leading-none tabular-nums",
+        hidden && "pointer-events-none w-0 overflow-hidden opacity-0",
+      )}
+      aria-hidden={hidden || undefined}
+    >
+      <div ref={sizerRef} className="invisible block h-[1em] leading-none">
+        0
+      </div>
+      {height > 0
+        ? Array.from({ length: 10 }, (_, i) => (
+            <DigitGlyph key={i} mv={animatedValue} digit={i} height={height} />
+          ))
+        : null}
     </div>
   );
 }
 
-function Number({ mv, number }: { mv: MotionValue<number>; number: number }) {
-  const uniqueId = useId();
-  const [ref, bounds] = useMeasure();
-
+function DigitGlyph({
+  mv,
+  digit,
+  height,
+}: {
+  mv: MotionValue<number>;
+  digit: number;
+  height: number;
+}) {
   const y = useTransform(mv, (latest) => {
-    if (!bounds.height) return 0;
+    if (!height) return 0;
     const placeValue = latest % 10;
-    const offset = (10 + number - placeValue) % 10;
-    let memo = offset * bounds.height;
-
+    const offset = (10 + digit - placeValue) % 10;
+    let memo = offset * height;
     if (offset > 5) {
-      memo -= 10 * bounds.height;
+      memo -= 10 * height;
     }
-
     return memo;
   });
 
-  // don't render the animated number until we know the height
-  if (!bounds.height) {
-    return (
-      <span ref={ref} className="invisible absolute">
-        {number}
-      </span>
-    );
-  }
-
+  // No layoutId — layoutId re-animates position when a parent (e.g. hover
+  // tooltip) moves with the pointer, which pulls digits out of the bubble.
   return (
     <motion.span
       style={{ y }}
-      layoutId={`${uniqueId}-${number}`}
       className="absolute inset-0 flex items-center justify-center"
-      transition={TRANSITION}
-      ref={ref}
     >
-      {number}
+      {digit}
     </motion.span>
   );
 }
@@ -79,45 +117,113 @@ export type SlidingNumberProps = {
   value: number;
   padStart?: boolean;
   decimalSeparator?: string;
+  /**
+   * Force a fixed number of decimal digits (uses toFixed).
+   * When omitted, decimals follow Number#toString.
+   */
+  decimals?: number;
+  className?: string;
 };
 
 export function SlidingNumber({
   value,
   padStart = false,
   decimalSeparator = ".",
+  decimals,
+  className,
 }: SlidingNumberProps) {
-  const absValue = Math.abs(value);
-  const [integerPart, decimalPart] = absValue.toString().split(".");
-  const integerValue = parseInt(integerPart, 10);
-  const paddedInteger =
-    padStart && integerValue < 10 ? `0${integerPart}` : integerPart;
-  const integerDigits = paddedInteger.split("");
-  const integerPlaces = integerDigits.map((_, i) =>
-    Math.pow(10, integerDigits.length - i - 1),
+  const safe = Number.isFinite(value) ? value : 0;
+  const absValue = Math.abs(safe);
+  const rendered =
+    decimals != null && decimals >= 0
+      ? absValue.toFixed(decimals)
+      : String(absValue);
+  const [integerPart, decimalPart] = rendered.split(".");
+  const integerValue = parseInt(integerPart || "0", 10);
+  const neededPlaces = Math.max(1, (integerPart || "0").length);
+  // Keep high places mounted briefly when digit count shrinks so existing
+  // Digit springs morph instead of remounting to the final glyph.
+  const [heldPlaces, setHeldPlaces] = useState(neededPlaces);
+  const shrinkTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useLayoutEffect(() => {
+    if (neededPlaces >= heldPlaces) {
+      if (shrinkTimer.current) {
+        clearTimeout(shrinkTimer.current);
+        shrinkTimer.current = null;
+      }
+      setHeldPlaces(neededPlaces);
+      return;
+    }
+    if (shrinkTimer.current) clearTimeout(shrinkTimer.current);
+    shrinkTimer.current = setTimeout(() => {
+      setHeldPlaces(neededPlaces);
+      shrinkTimer.current = null;
+    }, PLACE_SHRINK_MS);
+    return () => {
+      if (shrinkTimer.current) clearTimeout(shrinkTimer.current);
+    };
+  }, [neededPlaces, heldPlaces]);
+
+  const placeCount =
+    padStart && integerValue < 10
+      ? Math.max(2, heldPlaces)
+      : Math.max(neededPlaces, heldPlaces);
+  const integerPlaces = Array.from({ length: placeCount }, (_, i) =>
+    Math.pow(10, placeCount - i - 1),
   );
 
+  // Keep a fixed decimal slot count while decimals are present so switching
+  // metric (e.g. 1 → 2 places) does not remount all decimal Digit springs.
+  const decimalLen = decimalPart?.length ?? 0;
+  const [heldDecimals, setHeldDecimals] = useState(decimalLen);
+  useLayoutEffect(() => {
+    if (decimalLen >= heldDecimals) {
+      setHeldDecimals(decimalLen);
+      return;
+    }
+    if (decimalLen === 0) {
+      // Dropping decimals entirely (tokens integer path) — clear after morph.
+      const id = window.setTimeout(() => setHeldDecimals(0), PLACE_SHRINK_MS);
+      return () => window.clearTimeout(id);
+    }
+    const id = window.setTimeout(
+      () => setHeldDecimals(decimalLen),
+      PLACE_SHRINK_MS,
+    );
+    return () => window.clearTimeout(id);
+  }, [decimalLen, heldDecimals]);
+
+  const decimalSlots = Math.max(decimalLen, heldDecimals);
+  const decimalValue =
+    decimalPart != null
+      ? parseInt(decimalPart.padEnd(decimalSlots, "0"), 10)
+      : 0;
+
   return (
-    <div className="flex items-center">
-      {value < 0 && "-"}
-      {integerDigits.map((_, index) => (
+    <div className={cn("inline-flex items-center leading-none", className)}>
+      {safe < 0 && "-"}
+      {integerPlaces.map((place) => (
         <Digit
-          key={`pos-${integerPlaces[index]}`}
+          key={`pos-${place}`}
           value={integerValue}
-          place={integerPlaces[index]}
+          place={place}
+          hidden={place >= 10 && integerValue < place}
         />
       ))}
-      {decimalPart && (
+      {decimalSlots > 0 ? (
         <>
           <span>{decimalSeparator}</span>
-          {decimalPart.split("").map((_, index) => (
+          {Array.from({ length: decimalSlots }, (_, index) => (
             <Digit
               key={`decimal-${index}`}
-              value={parseInt(decimalPart, 10)}
-              place={Math.pow(10, decimalPart.length - index - 1)}
+              value={decimalValue}
+              place={Math.pow(10, decimalSlots - index - 1)}
+              hidden={decimalLen === 0 || index >= decimalLen}
             />
           ))}
         </>
-      )}
+      ) : null}
     </div>
   );
 }

@@ -1,17 +1,19 @@
 import { expect, test } from "../../../fixtures/test";
 import {
   buildProjectWorkspaceDeepLink,
+  closeSettingsPage,
   connectLocalComputer,
   expectHealthyRoute,
-  getRightSidebar,
+  getCenterStage,
   gotoContextRoute,
+  gotoSettingsRoute,
   normalizePathname,
   stubComputerClientSettingsApi,
   withSearchParams,
 } from "../support/app-smoke";
 
 test.describe("smoke workspace", () => {
-  test("@smoke @stateful exercises workspace right sidebar tab routes and read-only subtabs", async ({
+  test("@smoke @stateful exercises workspace center tool tabs and read-only subtabs", async ({
     page,
   }) => {
     await stubComputerClientSettingsApi(page);
@@ -26,71 +28,59 @@ test.describe("smoke workspace", () => {
       activeSettingTab: null,
     });
 
-    await gotoContextRoute(page, withSearchParams(contextUrl, { rsTab: "files" }), {
+    await gotoContextRoute(page, withSearchParams(contextUrl, { tab: "files" }), {
       locale: "zh",
     });
     await expect
-      .poll(async () => new URL(page.url()).searchParams.get("rsTab"))
+      .poll(async () => new URL(page.url()).searchParams.get("tab"))
       .toBe("files");
 
-    await gotoContextRoute(page, withSearchParams(contextUrl, { rsTab: "changes" }), {
+    await gotoContextRoute(page, withSearchParams(contextUrl, { tab: "changes" }), {
       locale: "zh",
     });
     await expect
-      .poll(async () => new URL(page.url()).searchParams.get("rsTab") ?? "changes")
+      .poll(async () => new URL(page.url()).searchParams.get("tab") ?? "changes")
       .toBe("changes");
-    const changesSidebar = await getRightSidebar(page);
-    await changesSidebar.getByRole("tab", { name: "提交" }).click();
-    await expect(changesSidebar.getByRole("tab", { name: "提交" })).toBeVisible();
+    const changesStage = await getCenterStage(page);
+    const scopeTrigger = changesStage.getByRole("button", {
+      name: /选择变更范围|Select changes scope/,
+    });
+    await expect(scopeTrigger).toBeVisible();
+    await scopeTrigger.click();
+    await page.getByRole("menuitem", { name: /^(图形历史|Graph History)$/ }).click();
+    await expect
+      .poll(async () => new URL(page.url()).searchParams.get("tab"))
+      .toBe("git-history");
+    // The tab's computed name can include the close control; do not require an exact match.
+    await expect(page.getByRole("tab", { name: /图形历史|Graph History/ })).toBeVisible();
 
-    await gotoContextRoute(page, withSearchParams(contextUrl, { rsTab: "review" }), {
+    await gotoContextRoute(page, withSearchParams(contextUrl, { tab: "review" }), {
       locale: "zh",
     });
     await expect
-      .poll(async () => new URL(page.url()).searchParams.get("rsTab"))
+      .poll(async () => new URL(page.url()).searchParams.get("tab"))
       .toBe("review");
 
-    await gotoContextRoute(
-      page,
-      withSearchParams(contextUrl, { rsTab: "browser", pvView: "desktop" }),
-      { locale: "zh" },
-    );
-    await expect
-      .poll(async () => new URL(page.url()).searchParams.get("rsTab"))
-      .toBe("browser");
-    await expect
-      .poll(async () => new URL(page.url()).searchParams.get("pvView") ?? "desktop")
-      .toBe("desktop");
-
-    await gotoContextRoute(
-      page,
-      withSearchParams(contextUrl, { rsTab: "browser", pvView: "mobile" }),
-      { locale: "zh" },
-    );
-    await expect
-      .poll(async () => new URL(page.url()).searchParams.get("pvView"))
-      .toBe("mobile");
-
-    await gotoContextRoute(page, withSearchParams(contextUrl, { rsTab: "run" }), {
+    await gotoContextRoute(page, withSearchParams(contextUrl, { tab: "run" }), {
       locale: "zh",
     });
     await expect
-      .poll(async () => new URL(page.url()).searchParams.get("rsTab"))
+      .poll(async () => new URL(page.url()).searchParams.get("tab"))
       .toBe("run");
 
-    await gotoContextRoute(page, withSearchParams(contextUrl, { rsTab: "github" }), {
+    await gotoContextRoute(page, withSearchParams(contextUrl, { tab: "github" }), {
       locale: "zh",
     });
     await expect
-      .poll(async () => new URL(page.url()).searchParams.get("rsTab"))
+      .poll(async () => new URL(page.url()).searchParams.get("tab"))
       .toBe("github");
-    const githubSidebar = await getRightSidebar(page);
-    await expect(githubSidebar.getByRole("tab", { name: "拉取请求" })).toBeVisible();
-    await expect(githubSidebar.getByRole("tab", { name: "议题" })).toBeVisible();
-    await expect(githubSidebar.getByRole("tab", { name: "操作" })).toBeVisible();
+    const githubStage = await getCenterStage(page);
+    await expect(githubStage.getByRole("tab", { name: "拉取请求" })).toBeVisible();
+    await expect(githubStage.getByRole("tab", { name: "议题" })).toBeVisible();
+    await expect(githubStage.getByRole("tab", { name: "操作" })).toBeVisible();
   });
 
-  test("@smoke @stateful boots direct workspace urls with read-only sidebar toggles and settings modal", async ({
+  test("@smoke @stateful boots direct workspace urls with read-only sidebar toggles and settings page", async ({
     page,
   }) => {
     await stubComputerClientSettingsApi(page);
@@ -129,7 +119,7 @@ test.describe("smoke workspace", () => {
     await expect(page.locator("body")).toBeVisible();
 
     const filesRoute = withSearchParams(workspaceUrl!, {
-      lsTab: "files",
+      tab: "files",
       lsTask: null,
       settingsModal: null,
       activeSettingTab: null,
@@ -140,37 +130,25 @@ test.describe("smoke workspace", () => {
     expect(secondResponse, `missing navigation response for ${filesRoute}`).not.toBeNull();
     expect(secondResponse!.status(), `unexpected status for ${filesRoute}`).toBeLessThan(500);
     await expect
-      .poll(async () => new URL(page.url()).searchParams.get("lsTab"))
+      .poll(async () => new URL(page.url()).searchParams.get("tab"))
       .toBe("files");
     await expect
       .poll(async () => new URL(page.url()).searchParams.get("lsTask") ?? "")
       .toBe("");
 
-    const settingsRoute = withSearchParams(workspaceUrl!, {
-      lsTab: "files",
-      settingsModal: "true",
-      activeSettingTab: "shortcuts",
-    });
-    const thirdResponse = await page.goto(settingsRoute, {
-      waitUntil: "domcontentloaded",
-    });
-    expect(thirdResponse, `missing navigation response for ${settingsRoute}`).not.toBeNull();
-    expect(thirdResponse!.status(), `unexpected status for ${settingsRoute}`).toBeLessThan(500);
+    await gotoSettingsRoute(page, "keyboard", { locale: "zh" });
     await expect
-      .poll(async () => new URL(page.url()).searchParams.get("settingsModal"))
-      .toBe("true");
+      .poll(async () => normalizePathname(new URL(page.url()).pathname))
+      .toBe("/settings");
     await expect
       .poll(async () => new URL(page.url()).searchParams.get("activeSettingTab"))
-      .toBe("shortcuts");
+      .toBe("keyboard");
+    await expect(page.getByRole("button", { name: /^(Keyboard|键盘)$/ })).toBeVisible();
+    await expect(page.getByRole("dialog", { name: /^(Settings|设置)$/ })).toHaveCount(0);
 
-    const settingsDialog = page.getByRole("dialog", {
-      name: /^(Settings|设置)$/,
-    });
-    await expect(settingsDialog).toBeVisible();
-    await settingsDialog.getByRole("button", { name: /close|关闭/i }).click();
-    await expect(settingsDialog).toBeHidden();
+    await closeSettingsPage(page);
     await expect
-      .poll(async () => new URL(page.url()).searchParams.get("settingsModal") ?? "false")
-      .toBe("false");
+      .poll(async () => normalizePathname(new URL(page.url()).pathname))
+      .not.toBe("/settings");
   });
 });

@@ -356,6 +356,135 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 -------------------------------------------------------------------------------
+11. serve-sim (preview helper)
+-------------------------------------------------------------------------------
+
+Source:   https://github.com/EvanBacon/serve-sim
+Pin:      https://github.com/expo/serve-sim  tag @expo/serve-sim@0.1.37
+          commit  b2c92534d373f2a2975a3c013c25a3ab3985f268
+Location: vendor/serve-sim/
+          Redistributed binary: GitHub Release tag serve-sim-<version>
+          (darwin-arm64 archive extracted to ~/.atmos/runtime/serve-sim/<version>/)
+License:  Apache License 2.0
+Copyright: serve-sim authors (Evan Bacon / Expo)
+
+This project vendors a modified copy of serve-sim (HTTP POST /exec removed,
+/exec-ws shell frames disabled, bind forced to 127.0.0.1). The full Apache-2.0
+text ships at vendor/serve-sim/LICENSE and inside the published archive.
+Atmos changes are listed in vendor/serve-sim/ATMOS-PATCHES.md.
+
+The compiled helper also redistributes LiveKitWebRTC.framework (BSD-style,
+see the LICENSE copied next to the framework in the GitHub Release archive).
+That binary is loaded by serve-sim-native.node, not by Electron.
+
+-------------------------------------------------------------------------------
+12. Comet git history graph (adapted)
+-------------------------------------------------------------------------------
+
+Source:   https://github.com/zeronsh/comet
+License:  MIT
+Copyright (c) 2026 Wing
+
+Notes:    The topological history walk, lane-layout algorithm (`layout_graph`),
+          and SVG segment drawing are adapted from Comet (MIT). Not a verbatim
+          vendor of the Comet crate tree. Ported into:
+
+            crates/core-engine/src/git/history.rs
+            apps/web/src/features/git/lib/git-history-graph.ts
+            apps/web/src/features/git/components/GitHistoryPanel.tsx
+
+The MIT License (MIT)
+
+Copyright (c) 2026 Wing
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+-------------------------------------------------------------------------------
+13. CodexBar (Quota Usage reference)
+-------------------------------------------------------------------------------
+
+Source:   https://github.com/steipete/CodexBar
+License:  MIT
+Copyright (c) 2026 Peter Steinberger
+
+Notes:    Atmos Quota Usage (crates/quota-usage) consulted CodexBar for
+          provider usage-endpoint and session discovery. Not a vendor of the
+          CodexBar tree; Atmos reimplemented providers in Rust.
+
+The MIT License (MIT)
+
+Copyright (c) 2026 Peter Steinberger
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+-------------------------------------------------------------------------------
+14. Amicro (Star on GitHub button)
+-------------------------------------------------------------------------------
+
+Source:   https://github.com/Subhan-code/Amicro--Micro-transitions-
+Location: apps/landing/src/components/ui/github-star-button.tsx
+License:  MIT
+Copyright (c) 2026 SYED SUBHAN UDDIN
+
+Notes:    Landing header button adapted from Amicro catalog item btn-2
+          (Star on GitHub sparkle interaction). Not a vendor of the Amicro
+          tree.
+
+The MIT License (MIT)
+
+Copyright (c) 2026 SYED SUBHAN UDDIN
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+-------------------------------------------------------------------------------
 End of NOTICE
 -------------------------------------------------------------------------------
 

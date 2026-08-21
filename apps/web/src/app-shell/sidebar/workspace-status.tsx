@@ -16,12 +16,22 @@ import {
 } from "@workspace/ui";
 import type { Project, Workspace, WorkspaceWorkflowStatus } from "@/shared/types/domain";
 import {
+  Bell,
+  Bot,
+  CircleCheck,
   Clock3,
   Flag,
   FolderKanban,
   Folders,
+  LoaderCircle,
+  ShieldAlert,
   Tags,
 } from "lucide-react";
+import {
+  parseWorkspaceAgentGroupKey,
+  WORKSPACE_AGENT_GROUP_ORDER,
+  type WorkspaceAgentGroupKey,
+} from "@/features/agent/lib/workspace-agent-status";
 
 export type SidebarGroupingMode =
   | "project"
@@ -29,7 +39,24 @@ export type SidebarGroupingMode =
   | "status"
   | "time"
   | "label"
-  | "priority";
+  | "priority"
+  | "agent";
+
+export const SIDEBAR_GROUPING_MODES: readonly SidebarGroupingMode[] = [
+  "project",
+  "group",
+  "status",
+  "time",
+  "label",
+  "priority",
+  "agent",
+] as const;
+
+export function parseSidebarGroupingMode(value: unknown): SidebarGroupingMode {
+  return SIDEBAR_GROUPING_MODES.includes(value as SidebarGroupingMode)
+    ? (value as SidebarGroupingMode)
+    : "project";
+}
 
 // Linear-style circular status icons
 function StatusBacklog({ className }: { className?: string }) {
@@ -162,10 +189,63 @@ export const SIDEBAR_GROUPING_OPTIONS: Array<{
   { value: "project", label: "By Project", labelKey: "grouping.project", icon: FolderKanban },
   { value: "group", label: "By Group", labelKey: "grouping.group", icon: Folders },
   { value: "status", label: "By Status", labelKey: "grouping.status", icon: StatusBacklog },
+  { value: "agent", label: "By Agent Status", labelKey: "grouping.agent", icon: Bot },
   { value: "time", label: "By Time", labelKey: "grouping.time", icon: Clock3 },
   { value: "label", label: "By Label", labelKey: "grouping.label", icon: Tags },
   { value: "priority", label: "By Priority", labelKey: "grouping.priority", icon: Flag },
 ];
+
+type AgentGroupMeta = {
+  value: WorkspaceAgentGroupKey;
+  labelKey: string;
+  groupingLabelKey: string;
+  icon: React.ComponentType<{ className?: string }>;
+  className: string;
+  color: string;
+};
+
+const AGENT_GROUP_META: Record<WorkspaceAgentGroupKey, AgentGroupMeta> = {
+  permission: {
+    value: "permission",
+    labelKey: "agentStatus.permission",
+    groupingLabelKey: "agent_permission",
+    icon: ShieldAlert,
+    className: "text-amber-500",
+    color: "#f59e0b",
+  },
+  attention: {
+    value: "attention",
+    labelKey: "agentStatus.attention",
+    groupingLabelKey: "agent_attention",
+    icon: Bell,
+    className: "text-emerald-500",
+    color: "#10b981",
+  },
+  running: {
+    value: "running",
+    labelKey: "agentStatus.running",
+    groupingLabelKey: "agent_running",
+    icon: LoaderCircle,
+    className: "text-blue-500",
+    color: "#3b82f6",
+  },
+  done: {
+    value: "done",
+    labelKey: "agentStatus.done",
+    groupingLabelKey: "agent_done",
+    icon: CircleCheck,
+    className: "text-muted-foreground",
+    color: "#94a3b8",
+  },
+};
+
+export const WORKSPACE_AGENT_GROUP_OPTIONS = WORKSPACE_AGENT_GROUP_ORDER.map(
+  (key) => AGENT_GROUP_META[key],
+);
+
+export function getWorkspaceAgentGroupMeta(key: string): AgentGroupMeta {
+  return AGENT_GROUP_META[parseWorkspaceAgentGroupKey(key)];
+}
 
 export const WORKSPACE_WORKFLOW_STATUS_OPTIONS = Object.values(WORKFLOW_STATUS_META);
 

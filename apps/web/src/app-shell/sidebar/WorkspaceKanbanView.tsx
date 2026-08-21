@@ -37,6 +37,7 @@ import type {
   WorkspaceWorkflowStatus,
 } from "@/shared/types/domain";
 import {
+  getWorkspaceAgentGroupMeta,
   getWorkspaceWorkflowStatusMeta,
   SIDEBAR_GROUPING_OPTIONS,
   type SidebarGroupingMode,
@@ -56,6 +57,7 @@ import {
   Search,
   Settings2,
 } from "lucide-react";
+import { useWorkspaceAgentGroupKeyMap } from "@/features/agent/hooks/use-workspace-agent-status";
 import { CreateWorkspaceDialog } from "@/features/workspace/components/CreateWorkspaceDialog";
 import {
   WorkspaceKanbanFilterMenu,
@@ -180,6 +182,11 @@ export function WorkspaceKanbanView({
   const groupsT = useTranslations("appShell.groups");
   const groupingT = useTranslations("appShell.workspaceGrouping");
   const router = useAppRouter();
+  const workspaceAgentContextIds = React.useMemo(
+    () => projects.flatMap((project) => project.workspaces.map((workspace) => workspace.id)),
+    [projects],
+  );
+  const agentGroupKeyByWorkspaceId = useWorkspaceAgentGroupKeyMap(workspaceAgentContextIds);
   const [searchQuery, setSearchQuery] = useQueryState("lsTaskQ", leftSidebarParams.lsTaskQ);
   const availableStatusSet = React.useMemo(
     () => new Set(WORKSPACE_WORKFLOW_STATUS_OPTIONS.map((option) => option.value)),
@@ -392,6 +399,7 @@ export function WorkspaceKanbanView({
           projectId: project.id,
           workspace,
           groups,
+          agentGroupKey: agentGroupKeyByWorkspaceId[workspace.id],
         });
         const entry = { projectId: project.id, projectName: project.name, workspace };
         for (const key of columnKeys) {
@@ -438,7 +446,7 @@ export function WorkspaceKanbanView({
     });
 
     return buckets;
-  }, [filters, groupingMode, groups, projects, searchQuery, sortBy, sortOrder]);
+  }, [agentGroupKeyByWorkspaceId, filters, groupingMode, groups, projects, searchQuery, sortBy, sortOrder]);
 
   React.useEffect(() => {
     if (typeof document === "undefined") return;
@@ -537,7 +545,7 @@ export function WorkspaceKanbanView({
   );
 
   const toolbarActions = showToolbarActions ? (
-    <div className="flex items-center justify-end gap-1.5">
+    <div className="flex h-7 items-center justify-end gap-1.5">
       <div ref={searchContainerRef} className="relative h-7 w-56">
         <div
           className={cn(
@@ -572,7 +580,7 @@ export function WorkspaceKanbanView({
       </div>
       <DropdownMenu modal={false}>
         <DropdownMenuTrigger asChild>
-          {/* Lock size-7 at all breakpoints — icon-xs defaults to sm:size-6. */}
+          {/* Match Task source tabs + trailing actions (h-7). icon-xs defaults to sm:size-6. */}
           <Button size="icon-xs" variant="outline" className="size-7 sm:size-7">
             <Settings2 className="size-3.5" />
           </Button>
@@ -688,12 +696,16 @@ export function WorkspaceKanbanView({
                     const priorityMeta = column.priority
                       ? getWorkspacePriorityMeta(column.priority)
                       : null;
-                    const HeaderIcon = statusMeta?.icon ?? priorityMeta?.icon ?? ModeIcon;
+                    const agentMeta = column.agentGroup
+                      ? getWorkspaceAgentGroupMeta(column.agentGroup)
+                      : null;
+                    const HeaderIcon = statusMeta?.icon ?? priorityMeta?.icon ?? agentMeta?.icon ?? ModeIcon;
                     const headerIconClass =
                       statusMeta?.className ??
                       priorityMeta?.className ??
+                      agentMeta?.className ??
                       "text-muted-foreground";
-                    // Color-backed modes use a swatch; status/priority keep their level icons.
+                    // Color-backed modes use a swatch; status/priority/agent keep their level icons.
                     const showColorSwatch =
                       groupingMode === "label" ||
                       groupingMode === "project" ||
@@ -788,12 +800,35 @@ export function WorkspaceKanbanView({
                         {hiddenColumnList.map((column) => {
                           const title = columnTitle(column);
                           const hiddenCount = (grouped.get(column.key) ?? []).length;
+                          const statusMeta = column.status
+                            ? getWorkspaceWorkflowStatusMeta(column.status)
+                            : null;
+                          const priorityMeta = column.priority
+                            ? getWorkspacePriorityMeta(column.priority)
+                            : null;
+                          const agentMeta = column.agentGroup
+                            ? getWorkspaceAgentGroupMeta(column.agentGroup)
+                            : null;
+                          const HiddenIcon =
+                            statusMeta?.icon ??
+                            priorityMeta?.icon ??
+                            agentMeta?.icon ??
+                            null;
+                          const hiddenIconClass =
+                            statusMeta?.className ??
+                            priorityMeta?.className ??
+                            agentMeta?.className ??
+                            "text-muted-foreground";
                           return (
                             <div key={column.key} className="flex items-center rounded-md border border-border/60 bg-background px-2 py-1.5">
-                              <span
-                                className="size-2.5 shrink-0 rounded-full"
-                                style={{ backgroundColor: column.color }}
-                              />
+                              {HiddenIcon ? (
+                                <HiddenIcon className={cn("size-2.5 shrink-0", hiddenIconClass)} />
+                              ) : (
+                                <span
+                                  className="size-2.5 shrink-0 rounded-full"
+                                  style={{ backgroundColor: column.color }}
+                                />
+                              )}
                               <span className="ml-2 truncate text-xs text-foreground">{title}</span>
                               <span className="ml-1 text-xs text-muted-foreground">{hiddenCount}</span>
                               <button

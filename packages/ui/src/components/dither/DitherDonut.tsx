@@ -16,6 +16,11 @@ import {
   smoothstep,
   type DitherTheme,
 } from "../../lib/dither/math";
+import {
+  createSeriesMorph,
+  seriesSignature,
+  type SeriesMorph,
+} from "../../lib/dither/morph";
 import { useDitherCanvas } from "../../lib/dither/use-dither-canvas";
 import {
   DitherTooltip,
@@ -57,6 +62,18 @@ export function DitherDonut({
   const lastTipKey = useRef("");
   const formatRef = useRef(formatValue);
   formatRef.current = formatValue;
+  const morphRef = useRef<SeriesMorph | null>(null);
+  if (!morphRef.current) morphRef.current = createSeriesMorph();
+  const sigRef = useRef("");
+  /** Last drawn values for hit-test. */
+  const lastValuesRef = useRef<number[]>([]);
+
+  // Retarget during render so the first paint already has morph state (ref-only).
+  const slicesKey = seriesSignature(slices.map((s) => s.value));
+  if (sigRef.current !== slicesKey) {
+    morphRef.current.retarget(slices.map((s) => s.value));
+    sigRef.current = slicesKey;
+  }
 
   const [tooltip, setTooltip] = useState<DitherTooltipState | null>(null);
 
@@ -75,7 +92,9 @@ export function DitherDonut({
       reducedMotion: boolean;
     }) => {
       const raw = slicesRef.current;
-      const total = raw.reduce((s, d) => s + Math.max(0, d.value), 0);
+      const values = morphRef.current!.sample(reducedMotion);
+      lastValuesRef.current = values;
+      const total = values.reduce((s, d) => s + Math.max(0, d), 0);
       const logicalSize = 200;
       const dpr = Math.min(
         typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1,
@@ -103,12 +122,13 @@ export function DitherDonut({
       }
 
       // Smooth hover weights
-      if (weightsRef.current.length !== raw.length) {
-        weightsRef.current = raw.map(() => 0);
+      const n = Math.min(raw.length, values.length);
+      if (weightsRef.current.length !== n) {
+        weightsRef.current = Array.from({ length: n }, () => 0);
       }
       const rate = reducedMotion ? 1 : 0.14;
       let anyHover = 0;
-      for (let i = 0; i < raw.length; i++) {
+      for (let i = 0; i < n; i++) {
         const target = targetIdxRef.current === i ? 1 : 0;
         weightsRef.current[i] = smoothToward(weightsRef.current[i]!, target, rate);
         anyHover = Math.max(anyHover, weightsRef.current[i]!);
@@ -118,12 +138,13 @@ export function DitherDonut({
       const hi = targetIdxRef.current;
       if (hi !== null && raw[hi] && anyHover > 0.05) {
         const slice = raw[hi]!;
-        const share = Math.max(0, slice.value) / total;
+        const displayVal = values[hi] ?? slice.value;
+        const share = Math.max(0, displayVal) / total;
         const fmt = formatRef.current;
         const valueText = fmt
-          ? fmt(slice.value, share)
-          : `${Math.round(share * 100)}% · ${Math.round(slice.value).toLocaleString()}`;
-        const key = `${hi}:${slice.value}:${clientRef.current.x}`;
+          ? fmt(displayVal, share)
+          : `${Math.round(share * 100)}% · ${Math.round(displayVal).toLocaleString()}`;
+        const key = `${hi}:${displayVal}:${clientRef.current.x}`;
         if (lastTipKey.current !== key) {
           lastTipKey.current = key;
           setTooltip({
@@ -145,7 +166,7 @@ export function DitherDonut({
         setTooltip(null);
       }
 
-      const shares = raw.map((s) => Math.max(0, s.value) / total);
+      const shares = values.slice(0, n).map((v) => Math.max(0, v) / total);
       let startAngle = -Math.PI / 2;
       const gap = 0.07;
       const rIn = 55;
@@ -226,7 +247,7 @@ export function DitherDonut({
     [theme],
   );
 
-  useDitherCanvas(canvasRef, draw, [slices, theme]);
+  useDitherCanvas(canvasRef, draw);
 
   const hitTest = (e: ReactPointerEvent<HTMLCanvasElement>) => {
     clientRef.current = { x: e.clientX, y: e.clientY };
@@ -243,14 +264,16 @@ export function DitherDonut({
     const a = Math.atan2(dy, dx);
     let startAngle = -Math.PI / 2;
     const raw = slicesRef.current;
-    const total = raw.reduce((s, d) => s + Math.max(0, d.value), 0);
+    const values = lastValuesRef.current;
+    const total = values.reduce((s, d) => s + Math.max(0, d), 0);
     if (total <= 0) {
       targetIdxRef.current = null;
       return;
     }
     const gap = 0.07;
-    for (let i = 0; i < raw.length; i++) {
-      const share = Math.max(0, raw[i]!.value) / total;
+    const n = Math.min(raw.length, values.length);
+    for (let i = 0; i < n; i++) {
+      const share = Math.max(0, values[i]!) / total;
       if (share <= 0) continue;
       const sweep = share * Math.PI * 2;
       const aStart = startAngle + gap / 2;

@@ -135,11 +135,41 @@ export function resolveFrameActiveTab(input: {
  */
 export function isFramePanelVisible(input: {
   isActiveFrame: boolean;
+  /** Primary / focused active tab (legacy single-pane). */
   frameActiveTab: string;
   panelTabId: string;
+  /**
+   * When multi-pane center is open, every pane's active tab is visible.
+   * Falls back to `frameActiveTab` when omitted or empty.
+   */
+  frameActiveTabIds?: readonly string[] | null;
 }): boolean {
   void input.isActiveFrame;
+  const multi = input.frameActiveTabIds;
+  if (multi && multi.length > 0) {
+    return multi.includes(input.panelTabId);
+  }
   return input.frameActiveTab === input.panelTabId;
+}
+
+/**
+ * Which pane-active tab ids a workspace frame may treat as simultaneously
+ * visible. Live mosaic geometry is only available on URL-synced active frames.
+ * Truly warm frames keep retained ids mounted (inactive, no live boxes).
+ * Visually active hop frames (`isActiveContext` before URL/paint sync) must
+ * not activate every retained tab at inset-0 — that SIGWINCHes PTYs.
+ */
+export function resolveWorkspaceFrameActiveTabIds(input: {
+  isActiveContext: boolean;
+  isUrlSyncedActive: boolean;
+  liveActiveTabIds?: readonly string[] | null;
+  retainedActiveTabIds?: readonly string[] | null;
+}): readonly string[] | null {
+  const nonempty = (ids: readonly string[] | null | undefined) =>
+    ids && ids.length > 0 ? ids : null;
+  if (input.isUrlSyncedActive) return nonempty(input.liveActiveTabIds);
+  if (input.isActiveContext) return null;
+  return nonempty(input.retainedActiveTabIds);
 }
 
 /**
@@ -156,16 +186,29 @@ export function terminalKeepAlivePanelClass(visible: boolean): string {
 
 /**
  * Full-bleed opaque stacker for non-terminal center panels (overview, PR,
- * files, browser, …). Terminal keep-alive sits at z-0 with opacity stacking;
+ * files, …). Terminal keep-alive sits at z-0 with opacity stacking;
  * these panels must cover it with an opaque layer so transparent layout gaps
  * cannot show the xterm canvas underneath.
  *
- * Uses `hidden` when inactive — safe here because these surfaces are not WebGL.
+ * Uses `hidden` when inactive — safe here because these surfaces are not WebGL
+ * or Electron `<webview>`. Browser tabs use `browserKeepAlivePanelClass`.
  */
 export function lightSurfacePanelClass(visible: boolean): string {
   return [
     "absolute inset-0 z-[1] flex min-h-0 min-w-0 flex-col bg-background",
     visible ? "overflow-auto" : "hidden pointer-events-none",
+  ].join(" ");
+}
+
+/**
+ * Center-stage Browser keep-alive. Same opacity stacking as terminals:
+ * `display:none` / `visibility:hidden` discard the in-DOM `<webview>` guest
+ * and reload the page on the next tab hop.
+ */
+export function browserKeepAlivePanelClass(visible: boolean): string {
+  return [
+    "absolute inset-0 z-[1] flex min-h-0 min-w-0 flex-col bg-background",
+    visible ? "overflow-auto" : "pointer-events-none overflow-hidden opacity-0",
   ].join(" ");
 }
 
@@ -321,7 +364,7 @@ export interface ContextSurfaceSnapshot {
   /** Terminal tab ids currently candidates for mount (usually active + previously open). */
   terminalTabIds: string[];
   /**
-   * Mosaic pane counts per terminal tab id. Defaults to 1 when omitted.
+   * Terminal split-pane counts per terminal tab id. Defaults to 1 when omitted.
    * Used so `max_global_terminal_panes` tracks real xterm instances, not only tabs.
    */
   terminalPaneCountByTabId?: Record<string, number>;
@@ -333,6 +376,11 @@ export interface ContextSurfaceSnapshot {
   namedTerminals?: Array<"project-wiki" | "code-review">;
   /** Which surface is the frame's active tab (for prefer-keep). */
   frameActiveTab?: string | null;
+  /**
+   * Multi-pane: every pane-active tab to prefer-keep on Active ∪ Warm frames.
+   * Falls back to `[frameActiveTab]` when omitted.
+   */
+  frameActiveTabIds?: readonly string[] | null;
 }
 
 export interface ComputeMountPlanInput {
@@ -340,6 +388,19 @@ export interface ComputeMountPlanInput {
   warm: WarmEntry[];
   contexts: ContextSurfaceSnapshot[];
   budgets: SurfaceBudgets;
+}
+
+function preferKeepTabIds(snap: ContextSurfaceSnapshot): string[] {
+  const ids: string[] = [];
+  const seen = new Set<string>();
+  const add = (id: string | null | undefined) => {
+    if (!id || seen.has(id)) return;
+    seen.add(id);
+    ids.push(id);
+  };
+  for (const id of snap.frameActiveTabIds ?? []) add(id);
+  add(snap.frameActiveTab);
+  return ids;
 }
 
 function terminalPaneUnits(snap: ContextSurfaceSnapshot, tabId: string): number {
@@ -405,40 +466,44 @@ export function computeMountPlan(input: ComputeMountPlanInput): MountPlan {
     mounted.push(key);
   };
 
-  // --- Terminals: two-pass so warm frameActiveTabs beat active secondaries ---
+  // --- Terminals: two-pass so warm pane-active tabs beat active secondaries ---
   const isTerminalTab = (snap: ContextSurfaceSnapshot, tabId: string | null | undefined) =>
     Boolean(tabId && snap.terminalTabIds.includes(tabId));
 
-  // Pass 1a: Active frameActiveTab (never demount — TECH hard rule)
+  // Pass 1a: Active pane-active terminals (never demount — TECH hard rule)
   if (input.activeContextId) {
     const snap = byId.get(input.activeContextId);
-    const activeTab = snap?.frameActiveTab ?? null;
-    if (snap && isTerminalTab(snap, activeTab)) {
-      tryAdd(terminalMountKey(input.activeContextId, activeTab!), "terminal", {
-        units: terminalPaneUnits(snap, activeTab!),
-        force: true,
-      });
+    if (snap) {
+      for (const activeTab of preferKeepTabIds(snap)) {
+        if (isTerminalTab(snap, activeTab)) {
+          tryAdd(terminalMountKey(input.activeContextId, activeTab), "terminal", {
+            units: terminalPaneUnits(snap, activeTab),
+            force: true,
+          });
+        }
+      }
     }
   }
 
-  // Pass 1b: Warm frameActiveTabs (newest → oldest already in `order` after active)
+  // Pass 1b: Warm pane-active terminals (newest → oldest already in `order` after active)
   for (const contextId of order) {
     if (contextId === input.activeContextId) continue;
     const snap = byId.get(contextId)!;
-    const activeTab = snap.frameActiveTab ?? null;
-    if (isTerminalTab(snap, activeTab)) {
-      tryAdd(terminalMountKey(contextId, activeTab!), "terminal", {
-        units: terminalPaneUnits(snap, activeTab!),
-      });
+    for (const activeTab of preferKeepTabIds(snap)) {
+      if (isTerminalTab(snap, activeTab)) {
+        tryAdd(terminalMountKey(contextId, activeTab), "terminal", {
+          units: terminalPaneUnits(snap, activeTab),
+        });
+      }
     }
   }
 
   // Pass 2: secondary terminal tabs (active first, then warm)
   for (const contextId of order) {
     const snap = byId.get(contextId)!;
-    const activeTab = snap.frameActiveTab ?? null;
+    const prefer = new Set(preferKeepTabIds(snap));
     for (const tabId of snap.terminalTabIds) {
-      if (tabId === activeTab) continue;
+      if (prefer.has(tabId)) continue;
       tryAdd(terminalMountKey(contextId, tabId), "terminal", {
         units: terminalPaneUnits(snap, tabId),
       });
@@ -449,11 +514,24 @@ export function computeMountPlan(input: ComputeMountPlanInput): MountPlan {
   for (const contextId of order) {
     const snap = byId.get(contextId)!;
     const isActive = contextId === input.activeContextId;
-    const activeTab = snap.frameActiveTab ?? null;
+    const prefer = preferKeepTabIds(snap);
+    const preferSet = new Set(prefer);
 
-    // Editors: per-workspace cap then global
+    // Editors: pane-active first, then recent, per-workspace cap then global
     let perWsEditors = 0;
+    const editorPaths: string[] = [];
+    const editorSeen = new Set<string>();
+    for (const path of prefer) {
+      if (!snap.editorPathsRecent.includes(path) || editorSeen.has(path)) continue;
+      editorSeen.add(path);
+      editorPaths.push(path);
+    }
     for (const path of snap.editorPathsRecent) {
+      if (editorSeen.has(path)) continue;
+      editorSeen.add(path);
+      editorPaths.push(path);
+    }
+    for (const path of editorPaths) {
       if (perWsEditors >= input.budgets.maxMountedEditorsPerWorkspace) break;
       const before = mounted.length;
       tryAdd(editorMountKey(contextId, path), "editor");
@@ -461,28 +539,24 @@ export function computeMountPlan(input: ComputeMountPlanInput): MountPlan {
     }
 
     for (const tabValue of snap.browserTabValues) {
-      // Prefer active browser tab
-      if (activeTab === tabValue || isActive || snap.browserTabValues.length === 1) {
+      if (preferSet.has(tabValue) || isActive || snap.browserTabValues.length === 1) {
         tryAdd(browserMountKey(contextId, tabValue), "browser");
       }
     }
-    // Fill remaining browsers oldest contexts already ordered
     for (const tabValue of snap.browserTabValues) {
       tryAdd(browserMountKey(contextId, tabValue), "browser");
     }
 
-    // Light: only last tab / listed light ids (narrow default)
     for (const lightId of snap.lightIds) {
-      if (activeTab === lightId || snap.lightIds.includes(lightId)) {
+      if (preferSet.has(lightId) || snap.lightIds.includes(lightId)) {
         tryAdd(lightMountKey(contextId, lightId), "light");
       }
     }
 
     for (const kind of snap.namedTerminals ?? []) {
-      if (activeTab === kind || isActive) {
+      if (preferSet.has(kind) || isActive) {
         tryAdd(namedTerminalMountKey(contextId, kind), "named", {
-          // Force only when this named surface is the active frame's last tab.
-          force: isActive && activeTab === kind,
+          force: isActive && preferSet.has(kind),
         });
       }
     }

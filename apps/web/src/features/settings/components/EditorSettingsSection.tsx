@@ -10,8 +10,6 @@ import {
   cn,
 } from '@workspace/ui';
 import {
-  Code2,
-  GitCompareArrows,
   Rows3,
   SquareSplitHorizontal,
 } from 'lucide-react';
@@ -25,6 +23,7 @@ import { useDiffSettingsStore, type DiffSettingsStyle } from '@/features/setting
 import {
   SettingsGroupCard,
   SettingsGroupRow,
+  SettingsPageStack,
 } from '@/features/settings/components/settings/SettingsGroupCard';
 
 function DiffStyleControl({
@@ -152,11 +151,10 @@ export function EditorSettingsSection() {
   }, [loadSettings, loadDiffSettings]);
 
   return (
-    <div className="space-y-4">
+    <SettingsPageStack>
       <SettingsGroupCard
         open={codeEditorExpanded}
         onOpenChange={setCodeEditorExpanded}
-        icon={Code2}
         title={t('groups.codeEditor.title')}
         description={t('groups.codeEditor.description')}
       >
@@ -216,7 +214,6 @@ export function EditorSettingsSection() {
       <SettingsGroupCard
         open={diffExpanded}
         onOpenChange={setDiffExpanded}
-        icon={GitCompareArrows}
         title={t('groups.diff.title')}
         description={t('groups.diff.description')}
       >
@@ -262,6 +259,6 @@ export function EditorSettingsSection() {
           />
         </SettingsGroupRow>
       </SettingsGroupCard>
-    </div>
+    </SettingsPageStack>
   );
 }

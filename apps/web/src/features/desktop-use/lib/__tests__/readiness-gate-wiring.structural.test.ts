@@ -17,6 +17,16 @@ describe("desktop-use readiness gate wiring", () => {
     expect(layout).toMatch(/Suspense[\s\S]*DesktopUseReadinessHost/);
   });
 
+  it("applies theme with a blocking script before first paint", () => {
+    const layout = read("apps/web/src/app/layout.tsx");
+    expect(layout).not.toMatch(/from ["']next\/script["']/);
+    expect(layout).not.toContain('data-theme-ready="true"');
+    expect(layout).toContain('id="theme-init"');
+    expect(layout).toMatch(/<script[\s\S]*id="theme-init"/);
+    expect(layout).not.toContain('strategy=');
+    expect(layout).toContain("if (!root.classList.contains(theme))");
+  });
+
   it("gates Appshots open and closes popover when blocked", () => {
     const popover = read(
       "apps/web/src/features/appshot/components/AppshotsHistoryPopover.tsx",
@@ -36,6 +46,7 @@ describe("desktop-use readiness gate wiring", () => {
       "apps/web/src/features/desktop-use/components/DesktopUseReadinessDialog.tsx",
     );
     expect(dialog).toContain("useOpenDesktopUseSettings");
+    expect(dialog).toContain("useOpenPermissionAccessSettings");
     expect(dialog).toContain("OPEN_SETTLE_MS");
     expect(dialog).toContain("onPointerDownOutside");
   });
@@ -46,6 +57,7 @@ describe("desktop-use readiness gate wiring", () => {
     expect(page).toContain('"slash"');
     expect(page).toContain('"browser"');
     expect(page).toContain("BROWSER_USE_SLASH_COMMAND_ID");
+    expect(page).toContain("browserUseSlashNeedsDesktopUseGate");
     expect(page).toContain("DESKTOP_USE_SLASH_COMMAND_ID");
   });
 
@@ -57,6 +69,7 @@ describe("desktop-use readiness gate wiring", () => {
     expect(overlay).toContain('"slash"');
     expect(overlay).toContain('"browser"');
     expect(overlay).toContain("BROWSER_USE_SLASH_COMMAND_ID");
+    expect(overlay).toContain("browserUseSlashNeedsDesktopUseGate");
     expect(overlay).toContain("DESKTOP_USE_SLASH_COMMAND_ID");
   });
 

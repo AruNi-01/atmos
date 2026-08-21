@@ -10,7 +10,7 @@ use serde_json::{json, Value};
 use crate::{app_state::AppState, error::ApiResult};
 
 /// Compiled catalog kept in sync with `packages/api-types/fixtures/actions.server.json`
-/// plus APP-058 terminal session actions. Prefer this over shipping a second runtime file.
+/// plus APP-063 terminal session actions. Prefer this over shipping a second runtime file.
 const ACTION_CATALOG: &str =
     include_str!("../../../../../packages/api-types/fixtures/actions.server.json");
 
@@ -26,7 +26,7 @@ pub async fn list_actions(
 ) -> ApiResult<Json<Value>> {
     let mut actions: Vec<String> = serde_json::from_str(ACTION_CATALOG).unwrap_or_default();
 
-    // APP-058 actions may not be in the fixture until extract-actions is re-run.
+    // APP-063 actions may not be in the fixture until extract-actions is re-run.
     for extra in [
         "terminal_session_create",
         "terminal_session_list",

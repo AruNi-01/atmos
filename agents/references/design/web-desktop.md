@@ -32,6 +32,7 @@ Left Sidebar owns selection and organization. Right Sidebar owns inspection and 
 Rules:
 
 - Keep sidebar lists dense and scannable.
+- Hover fills on sidebar lists, file trees, change/review/GitHub lists, and Graph History rows are instant. Do not add color transitions to those hover backgrounds unless a shared primitive already owns the transition or the motion is a real state change.
 - Use metadata chips, status dots, labels, and small icons rather than large visual cards.
 - Support resize and collapse without destroying context.
 - Do not duplicate left and right sidebar responsibilities unless a user preference explicitly places a surface on either side.

@@ -3,8 +3,8 @@
 **Date**: 2026-03-06
 **Status**: **Superseded**
 
-> **Superseded by** [`specs/APP/APP-058_agent-first-product-cli/`](../../specs/APP/APP-058_agent-first-product-cli/).  
-> This draft’s “direct `core-service` in CLI” approach is rejected. Product control is a thin CLI client over Atmos Server (HTTP CLI RPC reusing `WsAction` handlers) with agent-first JSON envelopes. Do not implement this document.
+> **Superseded by** [`specs/APP/APP-063_agent-first-product-cli/`](../../specs/APP/APP-063_agent-first-product-cli/).  
+> This draft’s “direct `core-service` in CLI” approach is rejected. Product control is a thin CLI client over Atmos Server (`POST /api/cli/invoke` reusing `WsAction` handlers) with agent-first JSON envelopes. Do not implement this document.
 
 ## Overview
 

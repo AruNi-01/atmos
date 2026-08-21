@@ -63,6 +63,7 @@ const workspaces: Workspace[] = [
   { name: "api-client", cwd: "packages/api-client", args: ["--noEmit"], script: "typecheck" },
   { name: "hub-client", cwd: "packages/hub-client", args: ["--noEmit"], script: "typecheck" },
   { name: "relay-client", cwd: "packages/relay-client", args: ["--noEmit"], script: "typecheck" },
+  { name: "pt-design", cwd: "packages/pt-design", args: ["--noEmit"], script: "typecheck" },
   { name: "hub", cwd: "packages/hub", args: ["-p", "tsconfig.json"], script: "typecheck" },
   { name: "relay", cwd: "packages/relay", args: ["-p", "tsconfig.json"] },
 ];

@@ -53,6 +53,9 @@ Generated native folders `ios/` and `android/` are managed by Expo prebuild and 
 
 - Mobile is a lightweight client for a remote Atmos Computer. It never starts or requires a local Atmos Server on the phone.
 - Hub **device credential** and Relay bootstrap follow APP-016 / APP-056 (no user-generated Access Token).
+- Identity: **device Bearer only** (SecureStore → `@atmos/hub-client` store). No Better Auth cookie in the app.
+- Onboarding primary: **Hub OAuth** (system browser → `/v1/mobile-auth/*` → `acceptDeviceCredential` + `hubMe`). Secondary: **QR pair** (`/v1/mobile-pair/*`, 3 min). No paste path.
+- Sign-out: Hub `revoke` this device (best-effort) then clear store. After auth, auto-connect when a single Computer is online.
 - Primary post-auth screen is the workspace list.
 - Workspace development is terminal-first and shows exactly one terminal renderer at a time.
 - The only Web right-sidebar-derived M1 surface is Changes & Commit.
@@ -69,7 +72,7 @@ Spec: [specs/APP/APP-025_mobile-app](../../specs/APP/APP-025_mobile-app/)
 - Use Expo UI native controls where practical for app chrome, buttons, lists, forms, menus, sheets, dialogs, and settings.
 - Use `lucide-react-native` for mobile business/content icons that should match web Lucide icons. Import icons through the narrow wrapper in `src/ui/icons/lucide-native.ts`; do not import from the `lucide-react-native` package root in feature files, because its full type surface can make mobile typecheck unstable.
 - Use `src/features/terminal/MobileAgentIcon.tsx` for built-in/custom terminal agent icons. Do not reuse web `AgentIcon`; it depends on Next/Image and DOM behavior.
-- Import shared mobile controls from `src/ui/primitives/native-controls`; add new Expo UI wrappers under `src/ui/primitives`.
+- Import shared mobile controls from `src/ui/primitives/native-controls`; add new Expo UI wrappers under `src/ui/primitives`. For buttons, import `Host` + `Button` from `@expo/ui` at the call site (no shared Atmos Button wrapper).
 - Keep route-level layout helpers under `src/ui/layout`.
 - Page titles, headers, navigation bars, and header buttons must follow [agents/references/mobile/native-navigation.md](../../agents/references/mobile/native-navigation.md). Do not hand-roll page titles or native-looking header chrome.
 - iOS grouped header menus must use native-stack header items (`unstable_headerRightItems` / `unstable_headerLeftItems`) as documented in [agents/references/mobile/native-navigation.md](../../agents/references/mobile/native-navigation.md); do not put Expo UI SwiftUI `ControlGroup` or custom glass capsules in `headerRight`.

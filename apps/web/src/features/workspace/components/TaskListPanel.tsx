@@ -22,13 +22,10 @@ import {
   Pencil,
   Trash2,
   CheckSquare,
-  Circle,
-  XOctagon,
-  LoaderCircle,
-  RotateCw,
-  CircleDashed,
   ChevronRight,
 } from 'lucide-react';
+import type { WorkspaceWorkflowStatus } from '@/shared/types/domain';
+import { getWorkspaceWorkflowStatusMeta } from '@/app-shell/sidebar/workspace-status';
 import type { TaskStatus } from '@/features/workspace/hooks/use-workspace-context';
 
 // ---------------------------------------------------------------------------
@@ -40,26 +37,31 @@ function getToggleStatus(current: TaskStatus): TaskStatus {
   return 'todo';
 }
 
-function renderStatusIcon(status: TaskStatus) {
+/** Overview checklist statuses map onto the Atmos kanban workflow icons. */
+function taskStatusToWorkflowStatus(status: TaskStatus): WorkspaceWorkflowStatus {
   switch (status) {
-    case 'todo':
-      return <Circle className="size-4 text-muted-foreground/60" />;
     case 'progress':
-      return <LoaderCircle className="size-4 animate-spin text-primary" />;
+      return 'in_progress';
     case 'done':
-      return <CheckSquare className="size-4 text-emerald-500 fill-emerald-500/10" />;
+      return 'completed';
     case 'cancelled':
-      return <XOctagon className="size-4 text-muted-foreground/60" />;
+      return 'canceled';
     default:
-      return <Circle className="size-4 text-muted-foreground/60" />;
+      return 'todo';
   }
 }
 
+function renderStatusIcon(status: TaskStatus, className = 'size-4') {
+  const meta = getWorkspaceWorkflowStatusMeta(taskStatusToWorkflowStatus(status));
+  const Icon = meta.icon;
+  return <Icon className={cn(className, meta.className)} />;
+}
+
 const TASK_SECTIONS: { id: TaskStatus; labelKey: 'inProgress' | 'toDo' | 'completed' | 'cancelled'; icon: React.ReactNode }[] = [
-  { id: 'progress', labelKey: 'inProgress', icon: <RotateCw className="size-4" /> },
-  { id: 'todo', labelKey: 'toDo', icon: <CircleDashed className="size-4" /> },
-  { id: 'done', labelKey: 'completed', icon: <CheckSquare className="size-4" /> },
-  { id: 'cancelled', labelKey: 'cancelled', icon: <XOctagon className="size-4" /> },
+  { id: 'progress', labelKey: 'inProgress', icon: renderStatusIcon('progress') },
+  { id: 'todo', labelKey: 'toDo', icon: renderStatusIcon('todo') },
+  { id: 'done', labelKey: 'completed', icon: renderStatusIcon('done') },
+  { id: 'cancelled', labelKey: 'cancelled', icon: renderStatusIcon('cancelled') },
 ];
 
 // ---------------------------------------------------------------------------
@@ -235,19 +237,19 @@ export const TaskListPanel: React.FC<TaskListPanelProps> = ({
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-[150px]">
             <DropdownMenuItem onClick={() => handleSetStatus(task.index, 'todo')} className="text-xs cursor-pointer">
-              <Circle className="size-3.5 mr-2 opacity-50" />
+              {renderStatusIcon('todo', 'size-3.5 mr-2')}
               {t('sections.toDo')}
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => handleSetStatus(task.index, 'progress')} className="text-xs cursor-pointer">
-              <RotateCw className="size-3.5 mr-2" />
+              {renderStatusIcon('progress', 'size-3.5 mr-2')}
               {t('sections.inProgress')}
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => handleSetStatus(task.index, 'done')} className="text-xs cursor-pointer">
-              <CheckSquare className="size-3.5 mr-2" />
+              {renderStatusIcon('done', 'size-3.5 mr-2')}
               {t('sections.completed')}
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => handleSetStatus(task.index, 'cancelled')} className="text-xs opacity-60 cursor-pointer">
-              <XOctagon className="size-3.5 mr-2" />
+            <DropdownMenuItem onClick={() => handleSetStatus(task.index, 'cancelled')} className="text-xs cursor-pointer">
+              {renderStatusIcon('cancelled', 'size-3.5 mr-2')}
               {t('sections.cancelled')}
             </DropdownMenuItem>
             <DropdownMenuSeparator />

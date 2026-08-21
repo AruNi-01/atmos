@@ -638,6 +638,57 @@ impl WsMessageService {
         Ok(json!({ "success": true }))
     }
 
+    /// Continue a setup that parked on the script-review step.
+    ///
+    /// Mirrors `handle_workspace_confirm_todos`: rebuild the plan (so it picks up
+    /// the freshly recorded trust) and re-enter the state machine at the step that
+    /// was waiting.
+    pub(super) async fn resume_setup_after_script_trust(
+        &self,
+        conn_id: &str,
+        workspace_id: String,
+    ) -> Result<()> {
+        let workspace = self
+            .workspace_service
+            .get_workspace(workspace_id.clone())
+            .await?
+            .ok_or_else(|| ServiceError::Validation("Workspace not found".to_string()))?;
+
+        let Some(manager) = self.ws_manager.get().cloned() else {
+            return Ok(());
+        };
+
+        let project_service = self.project_service.clone();
+        let workspace_service = self.workspace_service.clone();
+        let conn_id = conn_id.to_string();
+        let project_guid = workspace.model.project_guid.clone();
+        let workspace_name = workspace.model.name.clone();
+        let github_issue = workspace.github_issue.clone();
+        let has_github_pr = workspace.github_pr.is_some();
+        let auto_extract_todos = workspace.model.auto_extract_todos;
+
+        tokio::spawn(async move {
+            Self::execute_setup_state_machine(
+                manager,
+                project_service,
+                workspace_service,
+                conn_id,
+                project_guid,
+                workspace_id,
+                workspace_name,
+                None,
+                github_issue,
+                has_github_pr,
+                auto_extract_todos,
+                Some(WorkspaceSetupStep::RunSetupScript),
+                None,
+            )
+            .await;
+        });
+
+        Ok(())
+    }
+
     pub(super) async fn handle_workspace_confirm_todos(
         &self,
         conn_id: &str,

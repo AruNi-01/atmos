@@ -11,9 +11,42 @@ export {
   type HubClientConfig,
 } from "./config";
 export { hubFetch } from "./http";
+export {
+  applyHubAuthToHeaders,
+  getHubAuthMaterial,
+  getHubSessionCookieProvider,
+  hasHubAuthMaterial,
+  hubAuthWire,
+  setHubSessionCookieProvider,
+  withHubAuth,
+  type HubAuthMaterial,
+  type HubAuthWire,
+} from "./auth-material";
 export { hubMe } from "./me";
-export { hubEnrollDevice, hubListDevices } from "./devices";
+export {
+  hubDeleteUsagePage,
+  hubGetPublicLeaderboards,
+  hubGetPublicTok,
+  hubGetUsagePage,
+  hubMintUsagePageSecret,
+  hubPutUsagePage,
+  type HubLeaderboardEntry,
+  type HubLeaderboards,
+  type HubPublicTok,
+  type HubUsagePage,
+  type HubUsagePagePut,
+  type HubUsagePagePutResult,
+  type UsageVisibility,
+} from "./usage-page";
+export { hubEnrollDevice, hubListDevices, hubRevokeDevice } from "./devices";
 export { hubEnrollAndStoreDevice } from "./enroll";
+export {
+  hubClaimMobilePair,
+  hubCreateMobilePair,
+  parseMobilePairScan,
+  type MobilePairClaimResponse,
+  type MobilePairCreateResponse,
+} from "./mobile-pair";
 export {
   hubLinearConnectApiKey,
   hubLinearDisconnect,
@@ -23,13 +56,12 @@ export {
   clearStoredDeviceCredential,
   getDeviceCredentialStore,
   getStoredDeviceCredential,
-  hubAuthForLocalApi,
+  getStoredDeviceRecord,
   setDeviceCredentialStore,
   storeDeviceCredential,
 } from "./device-storage/registry";
 export type { DeviceCredentialStore } from "./device-storage/types";
 export type {
-  HubAuthForLocalApi,
   HubDeviceEnrollResponse,
   HubDeviceRow,
   HubLinearStatus,

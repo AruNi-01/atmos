@@ -13,8 +13,9 @@ use uuid::Uuid;
 use crate::error::ServiceError;
 
 use super::automation::{
-    read_stream, resolve_automation_agent, AutomationAgentInvocation, AutomationCommandInput,
-    OutputChunk, OutputRenderer, PromptDelivery, StdoutParser,
+    read_stream, resolve_automation_agent_with_config, AutomationAgentInvocation,
+    AutomationAgentRunConfig, AutomationCommandInput, OutputChunk, OutputRenderer, PromptDelivery,
+    StdoutParser,
 };
 
 const AGENT_OUTPUT_CHANNEL_SIZE: usize = 32;
@@ -76,7 +77,22 @@ async fn run_agent_cli_text_stream(
             ))
         })?;
 
-    let agent_command = resolve_automation_agent(agent_id).map_err(service_error_to_llm)?;
+    let run_config = {
+        let model = provider.model.trim();
+        let agent = provider.agent_id.as_deref().unwrap_or("").trim();
+        // agent-cli providers often set model=agent_id as a placeholder; only
+        // treat a distinct non-empty value as an explicit model selection.
+        if model.is_empty() || model == agent {
+            None
+        } else {
+            Some(AutomationAgentRunConfig {
+                model: Some(model.to_string()),
+                ..Default::default()
+            })
+        }
+    };
+    let agent_command = resolve_automation_agent_with_config(agent_id, run_config.as_ref())
+        .map_err(service_error_to_llm)?;
     let prompt = build_agent_cli_prompt(&request);
     let prompt_path = write_prompt_file(&prompt).await?;
     let invocation = agent_command.build_invocation(AutomationCommandInput {

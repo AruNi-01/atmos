@@ -23,6 +23,7 @@ import type {
   GitFileDiffResponse,
   GitFilesDiffResponse,
   GitGenerateCommitMessageResponse,
+  GitHistoryPage,
   GitPatchChunkResponse,
   GitGetStatusBatchResponse,
   GitStatusResponse,
@@ -30,6 +31,7 @@ import type {
   GroupModel,
   ProjectWorkspaceBootstrapResponse,
   ProjectModel,
+  ProjectScripts,
   WorkspaceAttachmentPayload,
   WorkspaceLabelModel,
   WorkspaceModel,
@@ -59,6 +61,10 @@ export type {
   GitFilesDiffResponse,
   GitFilesDiffResult,
   GitGenerateCommitMessageResponse,
+  GitHistoryCommit,
+  GitHistoryPage,
+  GitHistoryRef,
+  GitHistoryRefKind,
   GitPatchChunkResponse,
   GitGetStatusBatchResponse,
   GitGetStatusBatchResult,
@@ -67,6 +73,7 @@ export type {
   GroupModel,
   ProjectWorkspaceBootstrapResponse,
   ProjectModel,
+  ProjectScripts,
   SearchMatch,
   WorkspaceAttachmentPayload,
   WorkspaceLabelModel,
@@ -327,6 +334,18 @@ export const canvasAgentBridgeWsApi = {
     }),
 };
 
+export const ptDesignAgentBridgeWsApi = {
+  register: (payload: CanvasBridgeRegisterPayload) =>
+    wsRequest<unknown>("pt_design_bridge_register", payload),
+  unregister: (clientId: string) =>
+    wsRequest<unknown>("pt_design_bridge_unregister", { client_id: clientId }),
+  postResult: (payload: CanvasAgentDispatchResultPayload) =>
+    wsRequest<unknown>("pt_design_agent_dispatch_result", {
+      ...payload,
+      data: payload.data ?? null,
+    }),
+};
+
 // ===== Git API =====
 
 export const gitApi = {
@@ -362,6 +381,20 @@ export const gitApi = {
       path,
       base_commit: baseCommit,
       head_commit: headCommit,
+    });
+  },
+
+  /**
+   * Topological commit history with parent hashes and refs (center-tab graph).
+   */
+  getHistory: async (
+    path: string,
+    options?: { cursor?: number; limit?: number },
+  ): Promise<GitHistoryPage> => {
+    return wsRequest<GitHistoryPage>("git_history", {
+      path,
+      cursor: options?.cursor ?? 0,
+      limit: options?.limit ?? 1000,
     });
   },
 
@@ -1067,16 +1100,19 @@ export const wsWorkspaceApi = {
 
 export const wsScriptApi = {
   /**
-   * 获取项目脚本
+   * 获取项目脚本及其信任状态。
+   *
+   * `trusted` 为 false 时不要执行任何脚本：该文件随仓库分发，可能来自 clone
+   * 或 pull，用户从未看过其内容。
    */
-  get: async (projectGuid: string): Promise<Record<string, string>> => {
-    return wsRequest<Record<string, string>>("script_get", {
+  get: async (projectGuid: string): Promise<ProjectScripts> => {
+    return wsRequest<ProjectScripts>("script_get", {
       project_guid: projectGuid,
     });
   },
 
   /**
-   * 保存项目脚本
+   * 保存项目脚本（用户自己编写的内容，保存后自动视为已信任）
    */
   save: async (
     projectGuid: string,
@@ -1085,6 +1121,24 @@ export const wsScriptApi = {
     return wsRequest<{ success: boolean }>("script_save", {
       project_guid: projectGuid,
       scripts,
+    });
+  },
+
+  /**
+   * 信任当前脚本内容。`hash` 必须是用户实际看过的那份内容的哈希，
+   * 服务端会拒绝不匹配的请求，避免信任到中途被改写的文件。
+   *
+   * 传 `workspaceId` 时，服务端会继续那个正等待确认的 workspace setup。
+   */
+  trust: async (
+    projectGuid: string,
+    hash: string,
+    workspaceId?: string,
+  ): Promise<ProjectScripts> => {
+    return wsRequest<ProjectScripts>("project_script_trust", {
+      project_guid: projectGuid,
+      hash,
+      workspace_id: workspaceId,
     });
   },
 };

@@ -2407,7 +2407,7 @@ impl WsMessageService {
             .and_then(|job| {
                 job.get("steps").and_then(Value::as_array).map(|arr| {
                     arr.iter()
-                        .filter_map(|step| {
+                        .map(|step| {
                             let number = step.get("number").and_then(Value::as_u64).unwrap_or(0);
                             let name = step
                                 .get("name")
@@ -2422,13 +2422,13 @@ impl WsMessageService {
                                 parse_github_time(step.get("started_at").and_then(Value::as_str));
                             let completed_at =
                                 parse_github_time(step.get("completed_at").and_then(Value::as_str));
-                            Some(JobStepMeta {
+                            JobStepMeta {
                                 number,
                                 name,
                                 conclusion,
                                 started_at,
                                 completed_at,
-                            })
+                            }
                         })
                         .collect::<Vec<_>>()
                 })

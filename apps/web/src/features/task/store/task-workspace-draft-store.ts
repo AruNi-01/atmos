@@ -10,6 +10,10 @@ export type TaskWorkspaceLinkDraft =
       number: number;
       title?: string | null;
       url?: string | null;
+      /** Issue body for New Workspace requirement prefill. */
+      body?: string | null;
+      state?: string | null;
+      labels?: Array<{ name: string; color?: string | null }>;
     }
   | {
       kind: "pr";
@@ -20,11 +24,54 @@ export type TaskWorkspaceLinkDraft =
       url?: string | null;
       head_ref?: string | null;
       base_ref?: string | null;
+      body?: string | null;
+      state?: string | null;
+      is_draft?: boolean;
+      labels?: Array<{ name: string; color?: string | null }>;
     };
+
+/** Snapshot for `linear_link_issue` after workspace create (APP-056). */
+export type TaskWorkspaceLinearDraft = {
+  id: string;
+  identifier: string;
+  title: string;
+  url: string;
+  description?: string | null;
+  priority?: number;
+  state_name?: string | null;
+  state_type?: string | null;
+  project_name?: string | null;
+  project_id?: string | null;
+  team_id?: string | null;
+  team_key?: string | null;
+  labels?: Array<{ name: string; color?: string | null }>;
+  assignee?: { name: string; avatar_url?: string | null } | null;
+  github_refs?: Array<{
+    owner: string;
+    repo: string;
+    number: number;
+    kind: string;
+    url: string;
+  }>;
+  created_at?: string | null;
+  updated_at?: string | null;
+};
 
 export type TaskWorkspaceDraft = {
   projectId: string;
-  link: TaskWorkspaceLinkDraft;
+  /** Optional GitHub Issue/PR to prefill Advanced link. */
+  link?: TaskWorkspaceLinkDraft | null;
+  /** Prefill workspace display name (e.g. `LAN-51 Title`). */
+  displayName?: string | null;
+  /** Prefill composer / initial requirement. */
+  initialRequirement?: string | null;
+  /** When set, WelcomePage links Linear after create. */
+  linearIssue?: TaskWorkspaceLinearDraft | null;
+  /**
+   * Do not auto-pick the first Atmos project — user must choose.
+   * Used for Linear create (issue is not bound to a repo/project).
+   */
+  requireProjectPick?: boolean;
   createdAt: number;
 };
 

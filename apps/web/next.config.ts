@@ -101,13 +101,17 @@ const devRewritesConfig =
               source: "/hooks/:path*",
               destination: `http://127.0.0.1:${devApiPort}/hooks/:path*`,
             },
+            {
+              source: "/tok/:handle*",
+              destination: "/tok",
+            },
           ];
         },
       }
     : {};
 
 const nextConfig: NextConfig = {
-  transpilePackages: ["@pierre/diffs"],
+  transpilePackages: ["@pierre/diffs", "@atmos/pt-design", "@excalidraw/excalidraw"],
   output: isStaticExportTarget ? "export" : undefined,
   // Generate directory indexes so static file servers can resolve app routes
   // consistently with trailing slash URLs.

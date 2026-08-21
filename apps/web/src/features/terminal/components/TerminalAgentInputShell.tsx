@@ -23,6 +23,7 @@ export function TerminalAgentInputShell({
   handleAttachmentRemove,
   handleImagePaste,
   handleTextChange,
+  header,
   inputShellRef,
   isOverlayVisible,
   isSendAnimating,
@@ -46,6 +47,7 @@ export function TerminalAgentInputShell({
   handleAttachmentRemove: AttachmentBarProps["onRemove"];
   handleImagePaste: PromptComposerProps["onImagePaste"];
   handleTextChange: (nextText: string) => void;
+  header?: React.ReactNode;
   inputShellRef: React.RefObject<HTMLDivElement | null>;
   isOverlayVisible: boolean;
   isSendAnimating: boolean;
@@ -62,12 +64,14 @@ export function TerminalAgentInputShell({
   placeholder: string;
   startSendExit: () => void;
 }) {
+  const hasHeader = Boolean(header);
   const hasFooterContent = attachments.length > 0 || !!footerEndControl;
 
   return (
     <div
       className={cn(
-        "mb-1 grid w-full transition-[grid-template-rows,opacity,transform] duration-200 ease-out",
+        "grid w-full transition-[grid-template-rows,opacity,transform] duration-200 ease-out",
+        (isOverlayVisible || isSendAnimating || isSendExiting) && "mb-1",
         isSendExiting
           ? "grid-rows-[1fr] opacity-0 -translate-y-3"
           : isOverlayVisible
@@ -81,6 +85,16 @@ export function TerminalAgentInputShell({
           className="terminal-agent-input-shell relative overflow-hidden rounded-[1.65rem] bg-background/95 p-1.5 shadow-[0_18px_50px_rgba(0,0,0,0.28)] backdrop-blur-md dark:bg-[#151515]"
           data-send-animating={isSendAnimating ? "true" : "false"}
         >
+          <div
+            className="terminal-agent-input-header relative z-10"
+            data-visible={hasHeader ? "true" : "false"}
+          >
+            <div className="min-h-0 overflow-hidden">
+              <div className="terminal-agent-input-header-content pb-1.5">
+                {header}
+              </div>
+            </div>
+          </div>
           <div className="relative z-10 flex items-end gap-2 overflow-hidden rounded-[1.25rem] bg-muted/30 px-4 py-2 dark:bg-[#0b0b0b]">
             {isSendAnimating ? (
               <div

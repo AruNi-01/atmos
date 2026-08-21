@@ -1,9 +1,8 @@
-import { AlertTriangle, ExternalLink, LoaderCircle, Monitor, SquareMousePointer } from "lucide-react";
+import { AlertTriangle, ExternalLink, Monitor, SquareMousePointer } from "lucide-react";
 import { createTranslator, useTranslations } from "next-intl";
-import { Button, TextShimmer, cn } from "@workspace/ui";
+import { Button, cn } from "@workspace/ui";
 import enMessages from "../../../../messages/en.json";
 import zhMessages from "../../../../messages/zh.json";
-import type { PreviewViewMode } from "@/shared/lib/nuqs/searchParams";
 import { currentAppLocale } from "@/shared/lib/current-app-locale";
 
 export interface FavoriteSite {
@@ -352,30 +351,6 @@ export const renderPreviewErrorCard = (
   previewLoadError: PreviewLoadError,
   handleRefresh: () => void,
 ) => <PreviewErrorCardContent previewLoadError={previewLoadError} handleRefresh={handleRefresh} />;
-
-const PreviewLoadingOverlayContent = ({ viewMode }: { viewMode: PreviewViewMode }) => {
-  const t = useTranslations(PREVIEW_UTILS_NAMESPACE);
-
-  return (
-    <div
-      className={cn(
-        "absolute inset-0 z-20 flex items-center justify-center bg-background",
-        viewMode === "mobile" && "mx-auto w-[375px]",
-      )}
-    >
-      <div className="inline-flex items-center gap-2">
-        <LoaderCircle className="size-4 animate-spin text-muted-foreground" aria-hidden="true" />
-        <TextShimmer as="p" duration={1.8} className="text-sm font-medium sm:text-base">
-          {t("loading.label")}
-        </TextShimmer>
-      </div>
-    </div>
-  );
-};
-
-export const renderPreviewLoadingOverlay = (viewMode: PreviewViewMode) => (
-  <PreviewLoadingOverlayContent viewMode={viewMode} />
-);
 
 const PreviewHomeContent = ({
   shouldStackPreviewHomeCards,

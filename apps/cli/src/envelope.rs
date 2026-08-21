@@ -1,4 +1,4 @@
-//! APP-058 agent-first JSON envelope (cli-design principles).
+//! APP-063 agent-first JSON envelope (cli-design principles).
 
 use serde::Serialize;
 use serde_json::{json, Value};

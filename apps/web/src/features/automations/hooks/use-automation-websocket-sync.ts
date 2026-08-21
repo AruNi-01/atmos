@@ -22,7 +22,7 @@ interface UseAutomationWebsocketSyncOptions {
   refreshAutomation: (automationGuid: string) => Promise<AutomationDetail>;
   removeAutomation: (automationGuid: string) => void;
   upsertAutomation: (automation: AutomationSummary | AutomationDetail) => void;
-  loadRuns: (automationGuid: string) => Promise<unknown>;
+  loadRuns: (automationGuid?: string) => Promise<unknown>;
   applyRunUpdate: (payload: AutomationRunUpdatedEvent) => void;
   applyRunOutput: (payload: AutomationRunOutputEvent) => void;
   clearRunSelection: () => void;

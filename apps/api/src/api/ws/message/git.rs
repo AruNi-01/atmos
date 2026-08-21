@@ -392,3 +392,20 @@ pub struct GitLogRequest {
 fn default_git_log_limit() -> usize {
     30
 }
+
+/// 获取拓扑 Git 历史（带 parent hashes 与 refs）请求
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GitHistoryRequest {
+    /// 仓库路径
+    pub path: String,
+    /// 每页条数（默认 100，最大 1000）
+    #[serde(default = "default_git_history_limit")]
+    pub limit: usize,
+    /// 跳过的条数（cursor，默认 0）
+    #[serde(default)]
+    pub cursor: usize,
+}
+
+fn default_git_history_limit() -> usize {
+    100
+}

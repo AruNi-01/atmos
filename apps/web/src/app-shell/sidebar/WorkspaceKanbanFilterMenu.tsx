@@ -119,6 +119,7 @@ type WorkspaceKanbanFilterMenuProps = {
   showGrouping?: boolean;
   groupingMode?: SidebarGroupingMode;
   onGroupingModeChange?: (mode: SidebarGroupingMode) => void;
+  triggerClassName?: string;
 };
 
 /** Icons aligned with SIDEBAR_GROUPING_OPTIONS for Group By + Filter. */
@@ -139,6 +140,7 @@ export function WorkspaceKanbanFilterMenu({
   showGrouping = false,
   groupingMode = "project",
   onGroupingModeChange,
+  triggerClassName,
 }: WorkspaceKanbanFilterMenuProps) {
   const t = useTranslations("appShell.task");
   const groupsT = useTranslations("appShell.groups");
@@ -226,7 +228,10 @@ export function WorkspaceKanbanFilterMenu({
         {triggerVariant === "icon" ? (
           <button
             type="button"
-            className="group relative inline-flex h-8 items-center gap-1 rounded-lg bg-transparent px-2 text-[11px] text-muted-foreground/90 transition-colors hover:text-sidebar-foreground"
+            className={cn(
+              "group relative inline-flex h-8 items-center gap-1 rounded-lg bg-transparent px-2 text-[11px] text-muted-foreground/90 transition-colors hover:text-sidebar-foreground",
+              triggerClassName,
+            )}
           >
             {activeFilterCount > 0 ? (
               <span className="absolute right-0 top-0 inline-flex size-4 items-center justify-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground">
@@ -241,8 +246,8 @@ export function WorkspaceKanbanFilterMenu({
           <Button
             size="xs"
             variant="secondary"
-            // Match toolbar search/settings (h-7). size=xs is h-7 sm:h-6 by default.
-            className="relative h-7 sm:h-7"
+            // Match Task source tabs + trailing tools (h-7). size=xs defaults to sm:h-6.
+            className="relative h-7 gap-1 px-2.5 text-xs sm:h-7"
           >
             {activeFilterCount > 0 ? (
               <span className="absolute -right-1 -top-1 inline-flex size-4 items-center justify-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground">
