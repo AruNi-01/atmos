@@ -1,0 +1,22 @@
+apps/web/src/app-shell/__tests__/center-pane-defects.test.ts
+  h_5be255725524c8 201-258
+apps/web/src/app-shell/__tests__/center-pane-layout.test.ts
+  h_5be255725524c8 211-230
+apps/web/src/app-shell/center-pane/center-pane-close-fallback.ts
+  h_5be255725524c8 47,64,66-68,118-130
+apps/web/src/app-shell/center-pane/center-pane-layout-store.ts
+  h_5be255725524c8 64-68,223-226
+apps/web/src/app-shell/center-pane/center-pane-layout.ts
+  h_5be255725524c8 232-244,652,763,774-778,800-803,865-867
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "fe71f7c2ff6206fc9a20156bec3d6b62c6cce148",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
