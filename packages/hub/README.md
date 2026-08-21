@@ -80,3 +80,37 @@ Do **not** use bare `https://localhost`, `http://localhost:8080`, or `https://ap
 1. **Linear / integrations** — credentials only in Hub `user_integrations` under `user_id`. No `~/.atmos/*_credentials.json`.
 2. **Computers** — Relay rows owned by `user_id`; device credentials Hub-minted. Using Relay requires sign-in + device enroll.
 3. **Local Token Usage** still works offline; **publish** and **integrations** require Hub login.
+
+## Deploy
+
+From `packages/hub`, after Wrangler auth, a real D1 `database_id` in `wrangler.toml`, and Worker secrets (`scripts/hub/put-cloud-secrets.sh`):
+
+```bash
+scripts/hub/deploy.sh
+# or (from packages/hub)
+bun run deploy:hub
+# or
+bunx wrangler deploy
+```
+
+Worker secrets persist across deploys. Production origin is **`https://hub.atmos.land`**.
+
+### Custom domain
+
+This repo sets **`hub.atmos.land`** in `wrangler.toml` (`routes` + `custom_domain`). The **atmos.land** zone must be on Cloudflare.
+
+### Deploy from GitHub Actions
+
+Workflow: [`.github/workflows/deploy-hub.yml`](../../.github/workflows/deploy-hub.yml).
+
+1. **Repository secret:** `CLOUDFLARE_API_TOKEN` (same token as relay)
+2. **Optional:** `CLOUDFLARE_ACCOUNT_ID`
+3. **`wrangler.toml`** must contain a real **`database_id`**
+4. **Triggers:** manual **Run workflow**, or push to **`main`** when files under **`packages/hub/`** change
+
+D1 schema migrations are **not** auto-run in CI; apply when you change `drizzle/`:
+
+```bash
+cd packages/hub
+bunx wrangler d1 migrations apply atmos-hub --remote
+```

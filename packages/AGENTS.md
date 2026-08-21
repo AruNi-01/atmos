@@ -105,7 +105,7 @@ cd packages/relay && bunx wrangler dev
 ### ALWAYS
 
 - `workspace:*` for monorepo deps
-- Deploy relay only after D1 migrations ([relay/README.md](relay/README.md))
+- Deploy hub/relay only after D1 migrations ([hub/README.md](hub/README.md), [relay/README.md](relay/README.md))
 - When adding Rust `WsAction`: update `@atmos/api-types` in the same PR
 
 ---
@@ -114,6 +114,7 @@ cd packages/relay && bunx wrangler dev
 
 - [api-types/AGENTS.md](api-types/AGENTS.md)
 - [api-client/AGENTS.md](api-client/AGENTS.md)
+- [hub/AGENTS.md](hub/AGENTS.md)
 - [hub-client/AGENTS.md](hub-client/AGENTS.md)
 - [relay-client/AGENTS.md](relay-client/AGENTS.md)
 - [shared/AGENTS.md](shared/AGENTS.md)

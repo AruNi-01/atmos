@@ -38,6 +38,7 @@
 | **Terminal agent built-ins** (shared Rust/TS manifest) | [resources/terminal-agents/AGENTS.md](resources/terminal-agents/AGENTS.md) |
 | **CLI Tool** (atmos command) | [apps/cli/AGENTS.md](apps/cli/AGENTS.md) |
 | **CLI × feature versions** (min pin, install/upgrade gates) | [agents/references/cli-feature-versions.md](agents/references/cli-feature-versions.md) |
+| **Hub** (Cloudflare Worker — auth/devices) | [packages/hub/AGENTS.md](packages/hub/AGENTS.md) |
 | **Relay** (Cloudflare Worker) | [packages/relay/AGENTS.md](packages/relay/AGENTS.md) |
 | **Write/Edit Specs** (planning + optional logs) | [specs/AGENTS.md](specs/AGENTS.md) |
 | **E2E / Playwright** (cross-layer browser checks) | [e2e/AGENTS.md](e2e/AGENTS.md) |
