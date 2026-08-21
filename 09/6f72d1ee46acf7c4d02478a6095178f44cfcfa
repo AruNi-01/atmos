@@ -1,0 +1,26 @@
+apps/desktop-electron/AGENTS.md
+  h_5be255725524c8 69
+apps/desktop-electron/electron-builder.yml
+  h_5be255725524c8 38,63,88-90
+apps/desktop-electron/resources/icons/README.md
+  h_5be255725524c8 8-9,40-41,43,50
+apps/desktop-electron/scripts/macos-icon.test.ts
+  h_5be255725524c8 8,11,111-113,115,120-174
+apps/desktop-electron/scripts/macos-icon.ts
+  h_5be255725524c8 16-24
+apps/desktop-electron/scripts/regen-legacy-icns.ts
+  h_5be255725524c8 9,35,62,69-72,84,122-129,147,178-184,223-224,227-229,233,279,326,329
+apps/desktop-electron/scripts/sync-icons.ts
+  h_5be255725524c8 26
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "096f72d1ee46acf7c4d02478a6095178f44cfcfa",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
