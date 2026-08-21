@@ -28,7 +28,6 @@ const THEME_OPTIONS = [
 
 export function AppearanceSettingsSection() {
   const t = useTranslations('settings.appearanceSection');
-  const pageT = useTranslations('settings.modal');
   const { theme, setTheme } = useTheme();
   const { locale, setLocale } = useWorkbenchLocale();
   const [mounted, setMounted] = React.useState(false);
@@ -43,11 +42,7 @@ export function AppearanceSettingsSection() {
   const themeIndex = Math.max(0, THEME_OPTIONS.findIndex((option) => option.id === themeValue));
 
   return (
-    <SettingsSection
-      id="appearance"
-      title={pageT('sections.appearance.label')}
-      description={pageT('sections.appearance.description')}
-    >
+    <SettingsSection id="appearance">
       <SettingsGroup>
         <SettingsGroupRow
           wide

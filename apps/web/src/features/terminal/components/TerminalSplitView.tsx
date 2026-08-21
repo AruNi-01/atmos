@@ -245,6 +245,7 @@ export function TerminalSplitView({
     return (
       <div
         className={cn("h-full w-full min-h-0 min-w-0", className)}
+        data-edge-top=""
         data-edge-bottom=""
         data-edge-left=""
         data-edge-right=""
@@ -274,6 +275,7 @@ export function TerminalSplitView({
             <div
               key={leaf.id}
               className="absolute min-h-0 min-w-0 overflow-hidden"
+              data-edge-top={edges.top ? "" : undefined}
               data-edge-bottom={edges.bottom ? "" : undefined}
               data-edge-left={edges.left ? "" : undefined}
               data-edge-right={edges.right ? "" : undefined}
@@ -286,6 +288,7 @@ export function TerminalSplitView({
             >
               <SplitLeaf
                 paneId={leaf.id}
+                edges={edges}
                 canDrag={canDrag}
                 draggingPaneId={draggingPaneId}
                 hover={hover}
@@ -316,7 +319,14 @@ export function TerminalSplitView({
             ))
           : null}
         {hover?.kind === "root" ? (
-          <div className="terminal-dock-preview" data-edge={hover.edge} />
+          <div
+            className="terminal-dock-preview"
+            data-edge={hover.edge}
+            data-edge-top=""
+            data-edge-bottom=""
+            data-edge-left=""
+            data-edge-right=""
+          />
         ) : null}
       </div>
       {preview && ghostPose && typeof document !== "undefined"
@@ -591,12 +601,14 @@ function SplitHandle({
 
 function SplitLeaf({
   paneId,
+  edges,
   canDrag,
   draggingPaneId,
   hover,
   renderPane,
 }: {
   paneId: string;
+  edges: ReturnType<typeof unitSquareEdgeFlags>;
   canDrag: boolean;
   draggingPaneId: string | null;
   hover: DockHover | null;
@@ -640,7 +652,14 @@ function SplitLeaf({
       >
         {renderPane(paneId)}
         {showDock ? (
-          <div className="terminal-dock-preview" data-edge={hover.edge} />
+          <div
+            className="terminal-dock-preview"
+            data-edge={hover.edge}
+            data-edge-top={edges.top ? "" : undefined}
+            data-edge-bottom={edges.bottom ? "" : undefined}
+            data-edge-left={edges.left ? "" : undefined}
+            data-edge-right={edges.right ? "" : undefined}
+          />
         ) : null}
       </div>
     </TerminalPaneDragHandleProvider>

@@ -1,8 +1,8 @@
 /**
- * Account linking + browser sessions bound to Hub user_id.
+ * Account linking and session housekeeping bound to Hub user_id.
  *
- * These are readable with either Better Auth session cookie OR device Bearer
- * (desktop / phone) — both resolve to the same user_id.
+ * Linked accounts are readable with either Better Auth session cookie OR
+ * device Bearer (desktop / phone) — both resolve to the same user_id.
  */
 import { and, asc, eq, gt, inArray, lt } from "drizzle-orm";
 import type { HubDb } from "./db/client";
@@ -46,17 +46,6 @@ export function emailFromIdToken(idToken: string | null | undefined): string | n
     return null;
   }
 }
-
-export type SessionRow = {
-  id: string;
-  token: string;
-  userId: string;
-  expiresAt: Date;
-  createdAt: Date | null;
-  updatedAt: Date | null;
-  ipAddress: string | null;
-  userAgent: string | null;
-};
 
 export type LinkedAccountInternal = LinkedAccountRow & {
   accessToken: string | null;
@@ -181,52 +170,6 @@ export async function pruneUserSessions(
   if (toDelete.length === 0) return 0;
   await db.delete(session).where(inArray(session.id, toDelete));
   return toDelete.length;
-}
-
-export async function listActiveSessions(
-  db: HubDb,
-  userId: string,
-  opts?: { keepToken?: string },
-): Promise<SessionRow[]> {
-  await pruneUserSessions(db, userId, { keepToken: opts?.keepToken });
-  const now = new Date();
-  const rows = await db
-    .select()
-    .from(session)
-    .where(and(eq(session.userId, userId), gt(session.expiresAt, now)));
-  // Newest first for stable UI (current session still reordered client-side).
-  rows.sort((a, b) => {
-    const ta = a.createdAt?.getTime() ?? 0;
-    const tb = b.createdAt?.getTime() ?? 0;
-    return tb - ta;
-  });
-  return rows.map((s) => ({
-    id: s.id,
-    token: s.token,
-    userId: s.userId,
-    expiresAt: s.expiresAt,
-    createdAt: s.createdAt ?? null,
-    updatedAt: s.updatedAt ?? null,
-    ipAddress: s.ipAddress ?? null,
-    userAgent: s.userAgent ?? null,
-  }));
-}
-
-export async function revokeUserSession(
-  db: HubDb,
-  userId: string,
-  token: string,
-): Promise<{ ok: true } | { ok: false; error: string; status: number }> {
-  const rows = await db
-    .select()
-    .from(session)
-    .where(and(eq(session.token, token), eq(session.userId, userId)))
-    .limit(1);
-  if (!rows[0]) {
-    return { ok: false, error: "session_not_found", status: 404 };
-  }
-  await db.delete(session).where(eq(session.token, token));
-  return { ok: true };
 }
 
 // ---------------------------------------------------------------------------

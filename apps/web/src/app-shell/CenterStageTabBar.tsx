@@ -1175,7 +1175,13 @@ function CenterStageNewTabMenu({
 
   return (
     <>
-      <Popover open={open} onOpenChange={setOpen}>
+      <Popover
+        open={open}
+        onOpenChange={(next) => {
+          setOpen(next);
+          if (!next) setLayoutsSubOpen(false);
+        }}
+      >
         <PopoverTrigger asChild>
           <button
             type="button"
@@ -1206,6 +1212,24 @@ function CenterStageNewTabMenu({
           onCloseAutoFocus={(event) => event.preventDefault()}
           onMouseEnter={clearCloseTimer}
           onMouseLeave={scheduleClose}
+          onPointerDownOutside={(event) => {
+            const target = event.target;
+            if (
+              target instanceof Element &&
+              target.closest("[data-center-stage-layouts-menu]")
+            ) {
+              event.preventDefault();
+            }
+          }}
+          onFocusOutside={(event) => {
+            const target = event.target;
+            if (
+              target instanceof Element &&
+              target.closest("[data-center-stage-layouts-menu]")
+            ) {
+              event.preventDefault();
+            }
+          }}
         >
           <button
             type="button"
@@ -1337,65 +1361,82 @@ function CenterStageNewTabMenu({
             </button>
           ) : null}
           {showLayoutItems ? (
-            <div
-              className="relative"
-              onMouseEnter={() => {
-                clearLayoutsLeaveTimer();
-                setLayoutsSubOpen(true);
-              }}
-              onMouseLeave={scheduleLayoutsClose}
-            >
-              <button
-                type="button"
-                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
-                aria-haspopup="menu"
-                aria-expanded={layoutsSubOpen}
-              >
-                <LayoutTemplate className="size-3.5 shrink-0 text-muted-foreground" />
-                <span className="min-w-0 flex-1 truncate">{layoutLabel}</span>
-                <ChevronRight className="size-3.5 shrink-0 text-muted-foreground" />
-              </button>
-              {layoutsSubOpen ? (
-                <div
-                  className="absolute top-0 right-full z-50 mr-1 w-48 rounded-md border border-border/70 bg-popover/95 p-1 shadow-lg backdrop-blur-xl"
-                  onMouseEnter={clearLayoutsLeaveTimer}
+            <Popover open={layoutsSubOpen} onOpenChange={setLayoutsSubOpen}>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground data-[state=open]:bg-accent data-[state=open]:text-accent-foreground"
+                  aria-haspopup="menu"
+                  aria-expanded={layoutsSubOpen}
+                  onMouseEnter={() => {
+                    clearLayoutsLeaveTimer();
+                    clearCloseTimer();
+                    setLayoutsSubOpen(true);
+                  }}
                   onMouseLeave={scheduleLayoutsClose}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    clearLayoutsLeaveTimer();
+                    clearCloseTimer();
+                    setLayoutsSubOpen(true);
+                  }}
                 >
-                  {onSaveLayout ? (
-                    <button
-                      type="button"
-                      className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
-                      onClick={openSaveDialog}
-                    >
-                      <Plus className="size-3.5 shrink-0 text-muted-foreground" />
-                      <span className="min-w-0 flex-1 truncate">{newLayoutLabel}</span>
-                    </button>
-                  ) : null}
-                  {onSaveLayout && (savedLayouts?.length ?? 0) > 0 ? (
-                    <div className="my-1 h-px bg-border/60" role="separator" />
-                  ) : null}
-                  {(savedLayouts ?? []).map((layout) => (
-                    <button
-                      key={layout.id}
-                      type="button"
-                      className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
-                      onClick={() => {
-                        onApplyLayout?.(layout.id);
-                        setOpen(false);
-                        setLayoutsSubOpen(false);
-                      }}
-                    >
-                      <span className="min-w-0 flex-1 truncate">{layout.name}</span>
-                    </button>
-                  ))}
-                  {(savedLayouts?.length ?? 0) === 0 && !onSaveLayout ? (
-                    <div className="px-2 py-1.5 text-xs text-muted-foreground">
-                      —
-                    </div>
-                  ) : null}
-                </div>
-              ) : null}
-            </div>
+                  <LayoutTemplate className="size-3.5 shrink-0 text-muted-foreground" />
+                  <span className="min-w-0 flex-1 truncate">{layoutLabel}</span>
+                  <ChevronRight className="size-3.5 shrink-0 text-muted-foreground" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent
+                align="start"
+                side="left"
+                sideOffset={4}
+                data-center-stage-layouts-menu=""
+                className="w-48 border-border/70 bg-popover/90 p-1 shadow-lg backdrop-blur-xl"
+                onOpenAutoFocus={(event) => event.preventDefault()}
+                onCloseAutoFocus={(event) => event.preventDefault()}
+                onMouseEnter={() => {
+                  clearLayoutsLeaveTimer();
+                  clearCloseTimer();
+                }}
+                onMouseLeave={() => {
+                  scheduleLayoutsClose();
+                  scheduleClose();
+                }}
+              >
+                {onSaveLayout ? (
+                  <button
+                    type="button"
+                    className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
+                    onClick={openSaveDialog}
+                  >
+                    <Plus className="size-3.5 shrink-0 text-muted-foreground" />
+                    <span className="min-w-0 flex-1 truncate">{newLayoutLabel}</span>
+                  </button>
+                ) : null}
+                {onSaveLayout && (savedLayouts?.length ?? 0) > 0 ? (
+                  <div className="my-1 h-px bg-border/60" role="separator" />
+                ) : null}
+                {(savedLayouts ?? []).map((layout) => (
+                  <button
+                    key={layout.id}
+                    type="button"
+                    className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
+                    onClick={() => {
+                      onApplyLayout?.(layout.id);
+                      setOpen(false);
+                      setLayoutsSubOpen(false);
+                    }}
+                  >
+                    <span className="min-w-0 flex-1 truncate">{layout.name}</span>
+                  </button>
+                ))}
+                {(savedLayouts?.length ?? 0) === 0 && !onSaveLayout ? (
+                  <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                    —
+                  </div>
+                ) : null}
+              </PopoverContent>
+            </Popover>
           ) : null}
         </PopoverContent>
       </Popover>

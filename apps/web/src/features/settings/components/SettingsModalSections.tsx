@@ -27,16 +27,17 @@ import { WorkspaceSettingsSection } from '@/features/settings/components/Workspa
 import { SettingsAboutSection } from '@/features/settings/components/SettingsAboutSection';
 import { SettingsAiSection, type ProviderTestState } from '@/features/settings/components/SettingsAiSection';
 import type { LocalAgentOption } from '@/app-shell/llm-providers-modal-utils';
-import { SettingsPageStack, SettingsSection } from '@/features/settings/components/settings/SettingsGroupCard';
+import { SettingsSection } from '@/features/settings/components/settings/SettingsGroupCard';
 import type { SettingsSectionId } from '@/features/settings/components/settings-modal-data';
 import type { TerminalAgentSavedRunConfig } from '@/features/agent/lib/terminal-agent-run-config';
-import { useTranslations } from 'next-intl';
+import type { SettingsGroupTabId } from '@/features/settings/lib/settings-section-group-tabs';
 
 type BuiltInAgentSettings = Record<string, { cmd?: string; flags?: string; enabled?: boolean }>;
 type AgentOption = { id: string; label: string };
 
 interface SettingsModalSectionsProps {
   activeSection: SettingsSectionId;
+  activeGroupTab: SettingsGroupTabId | null;
   appVersion: string;
   cliVersionInfo: {
     current: string | null;
@@ -167,39 +168,21 @@ interface SettingsModalSectionsProps {
   onTestPushServer: (index: number) => Promise<{ ok: boolean; error?: string }>;
 }
 
-function NestedSettingsSection({
+function TabbedSettingsSection({
   id,
-  titleKey,
   children,
 }: {
   id: string;
-  titleKey:
-    | 'labels'
-    | 'atmosComputer'
-    | 'tunnelConnector'
-    | 'integrations'
-    | 'browser'
-    | 'desktopUse';
   children: React.ReactNode;
 }) {
-  const t = useTranslations('settings.modal');
-  return (
-    <SettingsSection
-      id={id}
-      title={t(`sections.${titleKey}.label`)}
-      description={t(`sections.${titleKey}.description`)}
-    >
-      {children}
-    </SettingsSection>
-  );
+  return <SettingsSection id={id}>{children}</SettingsSection>;
 }
 
 export function SettingsModalSections(props: SettingsModalSectionsProps) {
   switch (props.activeSection) {
     case 'general':
-      return (
-        <SettingsPageStack>
-          <AppearanceSettingsSection />
+      if (props.activeGroupTab === 'about') {
+        return (
           <SettingsAboutSection
             appVersion={props.appVersion}
             cliVersionInfo={props.cliVersionInfo}
@@ -211,9 +194,12 @@ export function SettingsModalSections(props: SettingsModalSectionsProps) {
             onCheckCliVersion={props.onCheckCliVersion}
             onCheckForUpdate={props.onCheckForUpdate}
           />
-          <ExperimentSettingsSection />
-        </SettingsPageStack>
-      );
+        );
+      }
+      if (props.activeGroupTab === 'experiments') {
+        return <ExperimentSettingsSection />;
+      }
+      return <AppearanceSettingsSection />;
     case 'terminal':
       return (
         <TerminalSettingsSection
@@ -295,13 +281,17 @@ export function SettingsModalSections(props: SettingsModalSectionsProps) {
         />
       );
     case 'workspace':
-      return (
-        <SettingsPageStack>
-          <WorkspaceSettingsSection />
-          <NestedSettingsSection id="labels" titleKey="labels">
+      if (props.activeGroupTab === 'labels') {
+        return (
+          <TabbedSettingsSection id="labels">
             <LabelSettingsSection />
-          </NestedSettingsSection>
-        </SettingsPageStack>
+          </TabbedSettingsSection>
+        );
+      }
+      return (
+        <TabbedSettingsSection id="workspace">
+          <WorkspaceSettingsSection />
+        </TabbedSettingsSection>
       );
     case 'account':
       return <AccountSettingsSection />;
@@ -345,29 +335,37 @@ export function SettingsModalSections(props: SettingsModalSectionsProps) {
         />
       );
     case 'remote-access':
-      return (
-        <SettingsPageStack>
-          <NestedSettingsSection id="atmos-computer" titleKey="atmosComputer">
-            <AtmosComputerSection />
-          </NestedSettingsSection>
-          <NestedSettingsSection id="tunnel-connector" titleKey="tunnelConnector">
+      if (props.activeGroupTab === 'tunnel-connector') {
+        return (
+          <TabbedSettingsSection id="tunnel-connector">
             <TunnelConnectorSection />
-          </NestedSettingsSection>
-        </SettingsPageStack>
+          </TabbedSettingsSection>
+        );
+      }
+      return (
+        <TabbedSettingsSection id="atmos-computer">
+          <AtmosComputerSection />
+        </TabbedSettingsSection>
       );
     case 'apps':
-      return (
-        <SettingsPageStack>
-          <NestedSettingsSection id="integrations" titleKey="integrations">
-            <IntegrationsSettingsSection />
-          </NestedSettingsSection>
-          <NestedSettingsSection id="browser" titleKey="browser">
+      if (props.activeGroupTab === 'browser') {
+        return (
+          <TabbedSettingsSection id="browser">
             <BrowserSettingsSection />
-          </NestedSettingsSection>
-          <NestedSettingsSection id="desktop-use" titleKey="desktopUse">
+          </TabbedSettingsSection>
+        );
+      }
+      if (props.activeGroupTab === 'desktop-use') {
+        return (
+          <TabbedSettingsSection id="desktop-use">
             <DesktopUseSettingsSection />
-          </NestedSettingsSection>
-        </SettingsPageStack>
+          </TabbedSettingsSection>
+        );
+      }
+      return (
+        <TabbedSettingsSection id="integrations">
+          <IntegrationsSettingsSection />
+        </TabbedSettingsSection>
       );
     case 'privacy':
       return <PermissionAccessSettingsSection />;
@@ -376,11 +374,13 @@ export function SettingsModalSections(props: SettingsModalSectionsProps) {
     case 'interface':
       return <LayoutSettingsSection />;
     case 'editor':
+      if (props.activeGroupTab === 'canvas') {
+        return <CanvasSettingsSection />;
+      }
       return (
-        <SettingsPageStack>
+        <TabbedSettingsSection id="editor">
           <EditorSettingsSection />
-          <CanvasSettingsSection />
-        </SettingsPageStack>
+        </TabbedSettingsSection>
       );
     default:
       return null;

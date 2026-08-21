@@ -165,7 +165,9 @@
     "workspaceJobs": {
       "creating": "Creating workspace",
       "countAria": "{count} workspaces in progress",
+      "countAriaReady": "{count} workspaces ready",
       "listTitle": "{count} workspaces in progress",
+      "listTitleReady": "{count} workspaces ready",
       "preparing": "Preparing worktree",
       "ready": "Ready — click to open",
       "autoOpen": "Opens automatically",
@@ -3164,6 +3166,9 @@
       "stop": "Stop collaboration",
       "startMenu": "Collaborate",
       "openMenu": "Collaborate"
+    },
+    "guest": {
+      "logoLink": "Open Atmos"
     }
   },
   "canvas": {
@@ -5057,6 +5062,18 @@
             }
           },
           "codeAgent": {
+            "defaults": {
+              "label": "Defaults"
+            },
+            "yoloMode": {
+              "label": "YOLO mode"
+            },
+            "showAgentNameInTerminalTitles": {
+              "label": "Show agent name in terminal titles"
+            },
+            "activityIndicators": {
+              "label": "Agent Activity Indicators"
+            },
             "builtInAgents": {
               "label": "Built-in Agents"
             },
@@ -5837,6 +5854,10 @@
         "title": "Built-in Agents",
         "description": "Customize the startup command and parameters for each built-in code agent."
       },
+      "defaults": {
+        "title": "Defaults",
+        "description": "Launch flags and how agent names appear in terminal titles."
+      },
       "yolo": {
         "title": "YOLO mode",
         "description": "When enabled, agents launch with skip-permissions / auto-approve flags (e.g. --yolo, --dangerously-skip-permissions). Turn off for safer, approval-gated runs.",
@@ -6301,6 +6322,7 @@
         "title": "GitHub CLI",
         "description": "Atmos uses GitHub CLI to integrate with GitHub Issues, Pull Requests, and other workflows.",
         "status": {
+          "installed": "Installed {version}",
           "authenticatedAs": "Authenticated as {username}"
         },
         "installation": {
@@ -6766,19 +6788,12 @@
       "securityDescription": "Trusted devices for this account. Trust this browser so computers can connect securely.",
       "linkedAccounts": "Linked accounts",
       "linkedAccountsDescription": "Connect GitHub and Google to the same Atmos account. One login per provider — not multiple GitHub or Google accounts.",
-      "activeSessions": "Active sessions",
-      "activeSessionsDescription": "Manage your active sessions and revoke access.",
       "link": "Link",
       "unlink": "Unlink",
       "linked": "Connected",
       "linkedAccountId": "Account {id}",
       "notLinked": "Not connected",
       "linkOpensNewTab": "Opens in a new tab",
-      "revoke": "Revoke",
-      "currentSession": "Current session",
-      "otherSession": "Other session",
-      "sessionUnknown": "Unknown device",
-      "sessionsEmpty": "No active sessions.",
       "trustDevice": "Trust",
       "devicesTitle": "Trusted devices",
       "devicesEmpty": "No trusted devices yet. Trust this device to use your computers from here.",
@@ -6803,8 +6818,6 @@
         "alreadyLinked": "This provider is already connected",
         "cannotUnlinkLast": "You can't unlink your last account",
         "listAccountsFailed": "Could not load linked accounts",
-        "listSessionsFailed": "Could not load sessions",
-        "revokeFailed": "Could not revoke session",
         "deleteFailed": "Could not delete account",
         "nameSaveFailed": "Could not save name"
       }

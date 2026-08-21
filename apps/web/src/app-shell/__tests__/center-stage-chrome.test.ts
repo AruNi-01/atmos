@@ -4,7 +4,12 @@ import { join } from "node:path";
 import {
   APP_FOOTER_HEIGHT_PX,
   CENTER_STAGE_CARD_CLASS,
+  CENTER_STAGE_GUTTER_CLASS,
+  CENTER_STAGE_GUTTER_X_PX,
   CENTER_STAGE_GUTTER_Y_PX,
+  LEFT_SIDEBAR_DIVIDER_GUTTER_MR_CLASS,
+  LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS,
+  LEFT_SIDEBAR_DIVIDER_GUTTER_PX,
   CENTER_STAGE_RADIUS_CLASS,
   CENTER_STAGE_RADIUS_CSS,
   RESIZE_HAIRLINE_CORNER_INSET_CSS,
@@ -57,6 +62,26 @@ describe("center-stage chrome", () => {
     const shell = read("../AppShellMain.tsx");
     expect(shell).toContain("data-center-stage-body");
     expect(shell).toContain("<Footer />");
+  });
+
+  test("floating card gutters stay tight to header, footer, and sidebar", () => {
+    expect(CENTER_STAGE_GUTTER_X_PX).toBe(4);
+    expect(CENTER_STAGE_GUTTER_Y_PX).toBe(1);
+    expect(CENTER_STAGE_GUTTER_CLASS).toBe("px-1 py-px");
+    expect(LEFT_SIDEBAR_DIVIDER_GUTTER_PX).toBe(CENTER_STAGE_GUTTER_X_PX);
+    expect(LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS).toBe("pr-1");
+    expect(LEFT_SIDEBAR_DIVIDER_GUTTER_MR_CLASS).toBe("mr-1");
+  });
+
+  test("left sidebar sits on the same divider gutter as the center card", () => {
+    const launchpad = read("../LeftSidebarLaunchpad.tsx");
+    expect(launchpad).toContain("LEFT_SIDEBAR_DIVIDER_GUTTER_MR_CLASS");
+    expect(launchpad).toContain("LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS");
+    expect(launchpad).not.toContain("mx-2.5 mb-1.5");
+
+    const projectItem = read("../sidebar/ProjectItem.tsx");
+    expect(projectItem).toContain("LEFT_SIDEBAR_DIVIDER_GUTTER_MR_CLASS");
+    expect(projectItem).toContain("LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS");
   });
 
   test("resize hairlines stop short of rounded-xl corners and the footer", () => {

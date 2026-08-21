@@ -6,6 +6,7 @@ import { useAppRouter } from '@/shared/hooks/use-app-router';
 import { useQueryState } from 'nuqs';
 import { useContextParams } from '@/shared/hooks/use-context-params';
 import { useSidebarLayout } from '@/app-shell/SidebarLayoutContext';
+import { LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS } from '@/app-shell/sidebar-layout-constants';
 import { centerStageParams } from '@/shared/lib/nuqs/searchParams';
 import { cn } from "@workspace/ui";
 import { useAppStorage } from "@atmos/shared";
@@ -1485,7 +1486,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
 
                 <div className="flex-1 flex flex-col min-h-0">
                     {attentionFilterMode ? (
-                        <div className="flex shrink-0 items-center justify-between gap-2 px-3 py-2">
+                        <div className={cn("flex shrink-0 items-center justify-between gap-2 py-2 pl-3", LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS)}>
                             <div className="flex min-w-0 items-center gap-1.5">
                                 <Bell className="size-3.5 shrink-0 text-muted-foreground" />
                                 <p className="truncate text-[12px] font-medium text-foreground">

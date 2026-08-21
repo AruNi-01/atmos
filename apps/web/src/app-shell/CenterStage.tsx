@@ -2239,8 +2239,12 @@ const CenterStage: React.FC = () => {
   // --- Multi-pane center layout (dnd-kit grid) — hooks before any early return ---
   const hydratePaneLayout = useCenterPaneLayoutStore((s) => s.hydrate);
   const ensurePaneLayout = useCenterPaneLayoutStore((s) => s.ensureLayout);
+  // Mosaic chrome follows the painted workspace immediately. Deferred
+  // `renderContextId` lags hops (useDeferredValue) and would morph the
+  // previous split into the destination after warm content is already visible.
+  const mosaicContextId = paintContextId ?? "";
   const paneLayout = useCenterPaneLayoutStore((s) =>
-    renderContextId ? (s.byContext[renderContextId] ?? null) : null,
+    mosaicContextId ? (s.byContext[mosaicContextId] ?? null) : null,
   );
   const focusCenterPane = useCenterPaneLayoutStore((s) => s.focus);
   const splitCenterPane = useCenterPaneLayoutStore((s) => s.split);
@@ -2275,15 +2279,25 @@ const CenterStage: React.FC = () => {
     [openTabIdKey],
   );
 
-  const resolvedPaneLayout = React.useMemo(
-    () =>
-      paneLayout ??
-      createDefaultLayout(
-        applyLegacyStripOrder(openTabIdList, contextStripOrder),
-        activeValue,
-      ),
-    [activeValue, contextStripOrder, openTabIdList, paneLayout],
-  );
+  const resolvedPaneLayout = React.useMemo(() => {
+    if (paneLayout) return paneLayout;
+    // During a hop the deferred open-tab list still belongs to the previous
+    // context. Do not seed the destination mosaic with those tabs.
+    if (mosaicContextId && mosaicContextId !== renderContextId) {
+      return createDefaultLayout(["terminal"], "terminal");
+    }
+    return createDefaultLayout(
+      applyLegacyStripOrder(openTabIdList, contextStripOrder),
+      activeValue,
+    );
+  }, [
+    activeValue,
+    contextStripOrder,
+    mosaicContextId,
+    openTabIdList,
+    paneLayout,
+    renderContextId,
+  ]);
 
   React.useEffect(() => {
     if (!renderContextId) return;
@@ -2320,7 +2334,7 @@ const CenterStage: React.FC = () => {
   const prevLayoutContext = prevLayoutContextRef.current;
   const paneCountTransition = {
     prevContextId: prevLayoutContext?.contextId,
-    nextContextId: renderContextId,
+    nextContextId: mosaicContextId,
     prevPaneCount: prevLayoutContext?.paneCount ?? paneCount,
     nextPaneCount: paneCount,
   };
@@ -2341,8 +2355,8 @@ const CenterStage: React.FC = () => {
     if (!mosaicHold) setMosaicHold(true);
   } else if (
     prevLayoutContext &&
-    renderContextId &&
-    prevLayoutContext.contextId !== renderContextId &&
+    mosaicContextId &&
+    prevLayoutContext.contextId !== mosaicContextId &&
     mosaicHold
   ) {
     setMosaicHold(false);
@@ -2351,7 +2365,7 @@ const CenterStage: React.FC = () => {
     setMosaicHold(false);
   }
   prevLayoutContextRef.current = {
-    contextId: renderContextId ?? "",
+    contextId: mosaicContextId,
     paneCount,
   };
   const showMosaic = isMultiPane || mosaicHold;
@@ -2379,6 +2393,7 @@ const CenterStage: React.FC = () => {
     panelHostRef,
     resolvedPaneLayout,
     showMosaic,
+    mosaicContextId,
   );
   const multiActiveTabIds = React.useMemo(() => {
     if (!showMosaic) return null;
@@ -2750,6 +2765,7 @@ const CenterStage: React.FC = () => {
           <div className="absolute inset-0 min-h-0">
             <CenterPaneGrid
               layout={resolvedPaneLayout}
+              contextId={mosaicContextId}
               seedFromFullPane={seedFromFullPane}
               onTreeChange={(tree) => {
                 if (renderContextId) setCenterPaneTree(renderContextId, tree);

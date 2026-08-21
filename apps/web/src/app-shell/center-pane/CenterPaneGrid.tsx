@@ -44,6 +44,8 @@ import {
 import { HOST_RESIZE_DRAG_ATTR } from "@/features/terminal/lib/host-resize-pin";
 import { useLiveSplitLayout } from "@/features/terminal/lib/use-live-split-layout";
 import { useAnimatedPaneTiles } from "@/app-shell/center-pane/use-animated-pane-tiles";
+import { buildCenterPaneLivePreview } from "@/app-shell/center-pane/center-pane-drag-preview";
+import { centerPaneLeafTileStyle } from "@/app-shell/center-pane/center-pane-leaf-metrics";
 
 import "./center-pane-grid.css";
 
@@ -55,6 +57,8 @@ export type CenterPaneGridProps = {
   renderPaneChrome: (pane: CenterPane, ctx: { isFocused: boolean }) => React.ReactNode;
   /** True on the render that opens the mosaic from a single pane. */
   seedFromFullPane?: boolean;
+  /** Painted workspace/project id — hops snap instead of morphing the previous split. */
+  contextId?: string;
   className?: string;
 };
 
@@ -66,16 +70,16 @@ type PaneDragPreview = {
   paneId: string;
   width: number;
   height: number;
-  title: string;
-  snapshotUrl: string | null;
+  sourceWidth: number;
+  sourceHeight: number;
   originX: number;
   originY: number;
+  liveNode: HTMLElement | null;
 };
 
 type GhostPose = { x: number; y: number };
 
 const ROOT_EDGES: TerminalDockEdge[] = ["top", "bottom", "left", "right"];
-const LEAF_INSET_PX = 4;
 
 const paneCollision: CollisionDetection = (args) => {
   const pointerHits = pointerWithin(args);
@@ -92,6 +96,7 @@ export function CenterPaneGrid({
   onTreeChange,
   renderPaneChrome,
   seedFromFullPane = false,
+  contextId = "",
   className,
 }: CenterPaneGridProps) {
   const normalized = React.useMemo(() => normalizeCenterPaneLayout(layout), [layout]);
@@ -112,9 +117,27 @@ export function CenterPaneGrid({
   const [liveResizing, setLiveResizing] = React.useState(false);
   const paneCacheRef = React.useRef(paneById);
   paneCacheRef.current = new Map([...paneCacheRef.current, ...paneById]);
+  const mosaicContextRef = React.useRef(contextId);
+  const [snapMotion, setSnapMotion] = React.useState(false);
+  if (mosaicContextRef.current !== contextId) {
+    mosaicContextRef.current = contextId;
+    if (!snapMotion) setSnapMotion(true);
+  }
+  React.useLayoutEffect(() => {
+    if (!snapMotion) return;
+    let inner = 0;
+    const outer = window.requestAnimationFrame(() => {
+      inner = window.requestAnimationFrame(() => setSnapMotion(false));
+    });
+    return () => {
+      window.cancelAnimationFrame(outer);
+      window.cancelAnimationFrame(inner);
+    };
+  }, [contextId, snapMotion]);
   const tiles = useAnimatedPaneTiles(geometry.leaves, {
     liveResizing,
     seedFromFullPane,
+    contextId,
   });
   const [draggingPaneId, setDraggingPaneId] = React.useState<string | null>(null);
   const [hover, setHover] = React.useState<DockHover | null>(null);
@@ -175,11 +198,11 @@ export function CenterPaneGrid({
     const el = document.querySelector(
       `[data-center-split-leaf="${CSS.escape(paneId)}"]`,
     );
-    const captured =
+    const rect =
       el instanceof HTMLElement
-        ? captureCenterPanePreview(el)
-        : { width: 360, height: 240, title: "", snapshotUrl: null, left: 0, top: 0 };
-    const sized = scaleTerminalDragPreview(captured.width, captured.height);
+        ? el.getBoundingClientRect()
+        : { width: 360, height: 240, left: 0, top: 0 };
+    const sized = scaleTerminalDragPreview(rect.width, rect.height);
     const pointer = getEventCoordinates(event.activatorEvent);
     const grab = dragPreviewGrabOffset(sized.width);
     grabOffsetRef.current = grab;
@@ -187,15 +210,17 @@ export function CenterPaneGrid({
       paneId,
       width: sized.width,
       height: sized.height,
-      title: captured.title,
-      snapshotUrl: captured.snapshotUrl,
+      sourceWidth: Math.max(1, rect.width),
+      sourceHeight: Math.max(1, rect.height),
       originX: grab.x,
       originY: grab.y,
+      liveNode:
+        el instanceof HTMLElement ? buildCenterPaneLivePreview(el, paneId) : null,
     });
     setGhostPose(
       pointer
         ? { x: pointer.x - grab.x, y: pointer.y - grab.y }
-        : { x: captured.left, y: captured.top },
+        : { x: rect.left, y: rect.top },
     );
     setDraggingPaneId(paneId);
     hoverRef.current = null;
@@ -246,6 +271,7 @@ export function CenterPaneGrid({
         data-center-pane-grid=""
         data-center-split-root=""
         data-live-resizing={liveResizing ? "" : undefined}
+        data-pane-snap={snapMotion ? "" : undefined}
       >
         {tiles.map((leaf) => {
           const pane = paneById.get(leaf.id) ?? paneCacheRef.current.get(leaf.id);
@@ -256,12 +282,7 @@ export function CenterPaneGrid({
               key={leaf.id}
               className="center-pane-leaf absolute min-h-0 min-w-0"
               data-phase={leaf.phase}
-              style={{
-                left: `calc(${leaf.left * 100}% + ${LEAF_INSET_PX}px)`,
-                top: `calc(${leaf.top * 100}% + ${LEAF_INSET_PX}px)`,
-                width: `calc(${leaf.width * 100}% - ${LEAF_INSET_PX * 2}px)`,
-                height: `calc(${leaf.height * 100}% - ${LEAF_INSET_PX * 2}px)`,
-              }}
+              style={centerPaneLeafTileStyle(leaf)}
             >
               <SplitLeaf
                 pane={pane}
@@ -518,6 +539,16 @@ function CenterPaneDragGhost({
     });
     return () => window.cancelAnimationFrame(frame);
   }, []);
+  const attachLive = React.useCallback(
+    (node: HTMLDivElement | null) => {
+      if (!node || !preview.liveNode) return;
+      if (preview.liveNode.parentElement !== node) {
+        node.replaceChildren(preview.liveNode);
+      }
+    },
+    [preview.liveNode],
+  );
+  const scale = preview.width / Math.max(1, preview.sourceWidth);
   return (
     <div
       className={cn("center-pane-drag-ghost", spawned && "is-spawned")}
@@ -529,15 +560,18 @@ function CenterPaneDragGhost({
         transformOrigin: `${preview.originX}px ${preview.originY}px`,
       }}
     >
-      <div className="center-pane-drag-ghost-header">
-        <span className="truncate">{preview.title || "Pane"}</span>
-      </div>
-      {preview.snapshotUrl ? (
-        <div
-          aria-hidden
-          className="center-pane-drag-ghost-shot"
-          style={{ backgroundImage: `url("${preview.snapshotUrl}")` }}
-        />
+      {preview.liveNode ? (
+        <div className="center-pane-drag-ghost-live-clip">
+          <div
+            ref={attachLive}
+            className="center-pane-drag-ghost-live"
+            style={{
+              width: preview.sourceWidth,
+              height: preview.sourceHeight,
+              transform: `scale(${scale})`,
+            }}
+          />
+        </div>
       ) : (
         <div className="center-pane-drag-ghost-body" />
       )}
@@ -569,29 +603,14 @@ function CenterPaneDockPreview({
     setCard(document.querySelector("[data-center-stage-card]"));
   }, []);
   if (!card || !box || typeof document === "undefined") return null;
-  const inset = box.width === 1 && box.height === 1 ? 0 : LEAF_INSET_PX;
   return createPortal(
     <div
       className="center-pane-dock-preview"
       data-edge={edge}
-      style={{
-        left: `calc(${box.left * 100}% + ${inset}px)`,
-        top: `calc(${box.top * 100}% + ${inset}px)`,
-        width: `calc(${box.width * 100}% - ${inset * 2}px)`,
-        height: `calc(${box.height * 100}% - ${inset * 2}px)`,
-      }}
+      style={centerPaneLeafTileStyle(box)}
     />,
     card,
   );
-}
-
-function readCenterPanePreviewTitle(el: HTMLElement): string {
-  const selected = el.querySelector<HTMLElement>(
-    "[data-center-tabs-scroll] [aria-selected='true'], [aria-selected='true']",
-  );
-  const raw = selected?.textContent?.replace(/\s+/g, " ").trim() ?? "";
-  if (!raw || /pick up a draggable item/i.test(raw)) return "";
-  return raw;
 }
 
 function readPaneId(data: Record<string, unknown> | undefined): string | null {
@@ -610,67 +629,6 @@ function pointerFromDragEvent(event: {
   const start = getEventCoordinates(event.activatorEvent);
   if (!start) return null;
   return { x: start.x + event.delta.x, y: start.y + event.delta.y };
-}
-
-function captureCenterPanePreview(el: HTMLElement): {
-  width: number;
-  height: number;
-  title: string;
-  snapshotUrl: string | null;
-  left: number;
-  top: number;
-} {
-  const rect = el.getBoundingClientRect();
-  const title = readCenterPanePreviewTitle(el);
-  return {
-    width: rect.width,
-    height: rect.height,
-    title,
-    snapshotUrl: capturePaneSnapshot(el),
-    left: rect.left,
-    top: rect.top,
-  };
-}
-
-function capturePaneSnapshot(root: HTMLElement): string | null {
-  const canvases = Array.from(root.querySelectorAll("canvas")).filter(
-    (src) => src.width >= 16 && src.height >= 16,
-  );
-  if (canvases.length === 0) return null;
-  const hostRect = root.getBoundingClientRect();
-  const width = Math.max(1, Math.round(hostRect.width));
-  const height = Math.max(1, Math.round(hostRect.height));
-  const scale = Math.min(1.5, window.devicePixelRatio || 1);
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.round(width * scale);
-  canvas.height = Math.round(height * scale);
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return null;
-  ctx.scale(scale, scale);
-  ctx.fillStyle = getComputedStyle(root).backgroundColor || "#111";
-  ctx.fillRect(0, 0, width, height);
-  let painted = false;
-  for (const src of canvases) {
-    try {
-      const srcRect = src.getBoundingClientRect();
-      ctx.drawImage(
-        src,
-        srcRect.left - hostRect.left,
-        srcRect.top - hostRect.top,
-        Math.max(1, srcRect.width),
-        Math.max(1, srcRect.height),
-      );
-      painted = true;
-    } catch {
-      // tainted / WebGL
-    }
-  }
-  if (!painted) return null;
-  try {
-    return canvas.toDataURL("image/jpeg", 0.8);
-  } catch {
-    return null;
-  }
 }
 
 /** Content mount point for a pane — panels portal here when multi-pane. */

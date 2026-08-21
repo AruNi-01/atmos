@@ -10,7 +10,10 @@ import {
 } from "@/app-shell/sidebar/WorkspaceKanbanFilterMenu";
 import type { SidebarGroupingMode } from "@/app-shell/sidebar/workspace-status";
 import { useOpenSettings } from "@/features/settings/lib/open-settings";
-import { APP_FOOTER_HEIGHT_CLASS } from "@/app-shell/sidebar-layout-constants";
+import {
+  APP_FOOTER_HEIGHT_CLASS,
+  LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS,
+} from "@/app-shell/sidebar-layout-constants";
 import { cn } from "@/shared/lib/utils";
 
 
@@ -57,7 +60,12 @@ export function LeftSidebarFooter({
 
   return (
     <div className={cn("relative shrink-0 bg-transparent", APP_FOOTER_HEIGHT_CLASS)}>
-      <div className="relative flex h-full items-center justify-between gap-1 px-1.5">
+      <div
+        className={cn(
+          "relative flex h-full items-center justify-between gap-1 pl-1.5",
+          LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS,
+        )}
+      >
         <div className="flex items-center gap-0">
           <button
             type="button"

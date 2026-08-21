@@ -138,7 +138,7 @@ export function createAuth(db: HubDb, env: AuthEnv = {}) {
       // Skill default is 7d; product uses 30d for desktop-friendly sessions.
       expiresIn: 60 * 60 * 24 * 30,
       updateAge: 60 * 60 * 24,
-      // list-sessions / unlink-account use freshSessionMiddleware. Default
+      // unlink-account uses freshSessionMiddleware. Default
       // freshAge is 1 day, which blocks Security settings after login ages.
       // Social-only Hub has no password re-auth; disable freshness gate (0).
       freshAge: 0,

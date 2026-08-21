@@ -43,7 +43,11 @@ function withLinearAuth<T extends Record<string, unknown>>(
     opts && "linearApiKey" in opts
       ? opts.linearApiKey
       : getActiveLinearApiKeyForRequest() ?? null;
-  return withHubAuth(data, { linearApiKey });
+  const client_id = linearOauthClientId() || undefined;
+  return withHubAuth(
+    client_id ? { ...data, client_id } : data,
+    { linearApiKey },
+  );
 }
 
 export const wsLinearApi = {

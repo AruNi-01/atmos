@@ -11,6 +11,7 @@ use core_engine::linear::{
     select_oauth_redirect, LinearAuth, LinearClient, LinearIssue, LinearIssueListOptions,
     LinearIssuePreset, LinearOAuthShell, LinearRateLimit,
 };
+use core_engine::EngineError;
 use infra::db::entities::workspace_external_issue;
 use infra::db::repo::{WorkspaceExternalIssueRepo, PROVIDER_LINEAR};
 use sea_orm::DatabaseConnection;
@@ -57,6 +58,72 @@ pub struct LinearImportPayload {
     pub url: String,
     pub identifier: String,
     pub external_id: String,
+}
+
+fn is_linear_auth_error(err: &EngineError) -> bool {
+    let msg = err.to_string().to_ascii_lowercase();
+    msg.contains("authentication required")
+        || msg.contains("not authenticated")
+        || msg.contains("invalid token")
+        || msg.contains("unauthorized")
+}
+
+fn linear_oauth_client_id(from_request: Option<&str>) -> Result<String> {
+    let from_req = from_request
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(str::to_string);
+    let from_env = std::env::var("LINEAR_OAUTH_CLIENT_ID")
+        .ok()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .or_else(|| {
+            std::env::var("NEXT_PUBLIC_LINEAR_OAUTH_CLIENT_ID")
+                .ok()
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty())
+        });
+    from_req.or(from_env).ok_or_else(|| {
+        ServiceError::Validation(
+            "Linear OAuth client_id is not configured. Set NEXT_PUBLIC_LINEAR_OAUTH_CLIENT_ID (web) or LINEAR_OAUTH_CLIENT_ID (API).".into(),
+        )
+    })
+}
+
+fn apply_oauth_token_json(creds: &mut LinearCredentials, body: &serde_json::Value) -> Result<()> {
+    let access = body
+        .get("access_token")
+        .and_then(|v| v.as_str())
+        .filter(|s| !s.is_empty())
+        .ok_or_else(|| {
+            let err = body
+                .get("error")
+                .and_then(|v| v.as_str())
+                .unwrap_or("unknown");
+            let desc = body
+                .get("error_description")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+            ServiceError::Validation(format!(
+                "Linear OAuth token refresh failed ({err}): {desc}. Reconnect Linear in Settings."
+            ))
+        })?;
+    creds.access_token = Some(access.to_string());
+    if let Some(refresh) = body
+        .get("refresh_token")
+        .and_then(|v| v.as_str())
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+    {
+        creds.refresh_token = Some(refresh.to_string());
+    }
+    let expires_in = body
+        .get("expires_in")
+        .and_then(|v| v.as_i64())
+        .unwrap_or(86400);
+    creds.expires_at = Some(Utc::now().timestamp() + expires_in);
+    creds.auth_method = AUTH_METHOD_OAUTH.to_string();
+    Ok(())
 }
 
 pub struct LinearService {
@@ -160,6 +227,54 @@ impl LinearService {
             }
         };
         Ok(LinearClient::new(auth))
+    }
+
+    async fn client_for_request(
+        &self,
+        auth: &HubAuth,
+        linear_api_key: Option<&str>,
+    ) -> Result<(LinearCredentials, LinearClient)> {
+        let creds = self.load_creds(auth, linear_api_key).await?;
+        let client = self.client_from_creds(&creds)?;
+        Ok((creds, client))
+    }
+
+    async fn refresh_oauth_tokens(
+        &self,
+        auth: &HubAuth,
+        creds: &LinearCredentials,
+        client_id: Option<&str>,
+    ) -> Result<LinearCredentials> {
+        let refresh = creds
+            .refresh_token
+            .as_deref()
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .ok_or_else(|| {
+                ServiceError::Validation(
+                    "Linear OAuth expired. Reconnect Linear in Settings.".into(),
+                )
+            })?;
+        let client_id = linear_oauth_client_id(client_id)?;
+        let http = reqwest::Client::new();
+        let form = [
+            ("grant_type", "refresh_token"),
+            ("refresh_token", refresh),
+            ("client_id", client_id.as_str()),
+        ];
+        let resp = http
+            .post(core_engine::linear::LINEAR_OAUTH_TOKEN_URL)
+            .form(&form)
+            .send()
+            .await
+            .map_err(|e| ServiceError::Processing(format!("Linear OAuth refresh failed: {e}")))?;
+        let body: serde_json::Value = resp.json().await.map_err(|e| {
+            ServiceError::Processing(format!("Linear OAuth refresh JSON invalid: {e}"))
+        })?;
+        let mut next = creds.clone();
+        apply_oauth_token_json(&mut next, &body)?;
+        put_credentials_to_hub(auth, &next).await?;
+        Ok(next)
     }
 
     /// Validate a personal API key (local product path). Does **not** write to Hub.
@@ -314,13 +429,22 @@ impl LinearService {
         &self,
         auth: &HubAuth,
         linear_api_key: Option<&str>,
+        client_id: Option<&str>,
     ) -> Result<Option<LinearRateLimit>> {
-        let c = self.load_creds(auth, linear_api_key).await?;
-        let client = self.client_from_creds(&c)?;
-        client
-            .probe_rate_limit()
-            .await
-            .map_err(|e| ServiceError::Processing(format!("Linear rate limit probe failed: {e}")))
+        let (creds, client) = self.client_for_request(auth, linear_api_key).await?;
+        match client.probe_rate_limit().await {
+            Ok(limit) => Ok(limit),
+            Err(err) if creds.auth_method == AUTH_METHOD_OAUTH && is_linear_auth_error(&err) => {
+                let refreshed = self.refresh_oauth_tokens(auth, &creds, client_id).await?;
+                let client = self.client_from_creds(&refreshed)?;
+                client.probe_rate_limit().await.map_err(|e| {
+                    ServiceError::Processing(format!("Linear rate limit probe failed: {e}"))
+                })
+            }
+            Err(err) => Err(ServiceError::Processing(format!(
+                "Linear rate limit probe failed: {err}"
+            ))),
+        }
     }
 
     pub async fn list_issues(
@@ -328,27 +452,63 @@ impl LinearService {
         auth: &HubAuth,
         options: LinearIssueListOptions,
         linear_api_key: Option<&str>,
+        client_id: Option<&str>,
     ) -> Result<core_engine::linear::LinearIssueListPage> {
-        let c = self.load_creds(auth, linear_api_key).await?;
-        let client = self.client_from_creds(&c)?;
-        client
-            .list_issues(options)
-            .await
-            .map_err(|e| ServiceError::Processing(format!("Linear issue list failed: {e}")))
+        let (creds, client) = self.client_for_request(auth, linear_api_key).await?;
+        match client.list_issues(options.clone()).await {
+            Ok(page) => Ok(page),
+            Err(err) if creds.auth_method == AUTH_METHOD_OAUTH && is_linear_auth_error(&err) => {
+                let refreshed = self.refresh_oauth_tokens(auth, &creds, client_id).await?;
+                let client = self.client_from_creds(&refreshed)?;
+                client
+                    .list_issues(options)
+                    .await
+                    .map_err(|e| ServiceError::Processing(format!("Linear issue list failed: {e}")))
+            }
+            Err(err) => Err(ServiceError::Processing(format!(
+                "Linear issue list failed: {err}"
+            ))),
+        }
     }
 
     pub async fn filter_options(
         &self,
         auth: &HubAuth,
         linear_api_key: Option<&str>,
+        client_id: Option<&str>,
     ) -> Result<(
         Vec<core_engine::linear::LinearTeam>,
         Vec<core_engine::linear::LinearProject>,
         Vec<core_engine::linear::LinearUser>,
         Vec<core_engine::linear::LinearLabelOption>,
     )> {
-        let c = self.load_creds(auth, linear_api_key).await?;
-        let client = self.client_from_creds(&c)?;
+        let (creds, client) = self.client_for_request(auth, linear_api_key).await?;
+        match self.load_filter_options(client).await {
+            Ok(options) => Ok(options),
+            Err(err)
+                if creds.auth_method == AUTH_METHOD_OAUTH
+                    && err
+                        .to_string()
+                        .to_ascii_lowercase()
+                        .contains("authentication") =>
+            {
+                let refreshed = self.refresh_oauth_tokens(auth, &creds, client_id).await?;
+                let client = self.client_from_creds(&refreshed)?;
+                self.load_filter_options(client).await
+            }
+            Err(err) => Err(err),
+        }
+    }
+
+    async fn load_filter_options(
+        &self,
+        client: LinearClient,
+    ) -> Result<(
+        Vec<core_engine::linear::LinearTeam>,
+        Vec<core_engine::linear::LinearProject>,
+        Vec<core_engine::linear::LinearUser>,
+        Vec<core_engine::linear::LinearLabelOption>,
+    )> {
         let teams = client
             .list_teams()
             .await
@@ -481,6 +641,51 @@ pub fn parse_oauth_shell(raw: Option<String>) -> LinearOAuthShell {
 mod tests {
     use super::*;
     use infra::db::entities::base::BaseFields;
+
+    #[test]
+    fn apply_oauth_token_json_updates_access_and_keeps_refresh_when_omitted() {
+        let mut creds = LinearCredentials {
+            auth_method: AUTH_METHOD_OAUTH.into(),
+            access_token: Some("old".into()),
+            refresh_token: Some("r1".into()),
+            expires_at: Some(1),
+            ..Default::default()
+        };
+        apply_oauth_token_json(
+            &mut creds,
+            &serde_json::json!({ "access_token": "new", "expires_in": 60 }),
+        )
+        .expect("ok");
+        assert_eq!(creds.access_token.as_deref(), Some("new"));
+        assert_eq!(creds.refresh_token.as_deref(), Some("r1"));
+        assert!(creds.expires_at.unwrap() > 1);
+    }
+
+    #[test]
+    fn apply_oauth_token_json_maps_linear_errors() {
+        let mut creds = LinearCredentials::default();
+        let err = apply_oauth_token_json(
+            &mut creds,
+            &serde_json::json!({
+                "error": "invalid_grant",
+                "error_description": "Token has been expired or revoked."
+            }),
+        )
+        .expect_err("fail");
+        let msg = err.to_string();
+        assert!(msg.contains("invalid_grant"));
+        assert!(msg.contains("Reconnect Linear"));
+    }
+
+    #[test]
+    fn is_linear_auth_error_detects_graphql_message() {
+        assert!(is_linear_auth_error(&EngineError::Git(
+            "Linear GraphQL error: Authentication required, not authenticated".into(),
+        )));
+        assert!(!is_linear_auth_error(&EngineError::Git(
+            "Linear rate limited".into(),
+        )));
+    }
     use infra::db::entities::{project, workspace};
     use infra::db::migration::Migrator;
     use sea_orm::{ActiveModelTrait, ConnectionTrait, Database, Set, Statement};

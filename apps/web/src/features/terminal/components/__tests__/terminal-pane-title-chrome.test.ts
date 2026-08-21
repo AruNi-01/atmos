@@ -67,5 +67,17 @@ describe("terminal pane title chrome", () => {
     expect(split).toContain("data-edge-left");
     expect(split).toContain("data-edge-right");
   });
+
+  it("rounds dock-preview corners that sit on the mosaic outer edges", () => {
+    const css = readSibling("terminal-grid.css");
+    const split = readSibling("TerminalSplitView.tsx");
+    expect(css).toContain('.terminal-dock-preview[data-edge-top][data-edge-left][data-edge="top"]::after');
+    expect(css).toContain('.terminal-dock-preview[data-edge-top][data-edge-left][data-edge="left"]::after');
+    expect(css).toContain('.terminal-dock-preview[data-edge-bottom][data-edge-left][data-edge="bottom"]::after');
+    expect(css).toContain('.terminal-dock-preview[data-edge-bottom][data-edge-right][data-edge="bottom"]::after');
+    expect(css).toContain("border-top-left-radius: var(--radius-xl)");
+    expect(split).toContain("data-edge-top");
+    expect(split).toContain("edges={edges}");
+  });
 });
 

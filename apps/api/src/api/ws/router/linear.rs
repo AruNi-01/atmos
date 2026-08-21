@@ -148,7 +148,11 @@ impl WsMessageService {
     ) -> Result<Value> {
         match self
             .linear_service
-            .rate_limit(&hub_auth(&req.hub), linear_api_key(&req.hub))
+            .rate_limit(
+                &hub_auth(&req.hub),
+                linear_api_key(&req.hub),
+                req.client_id.as_deref(),
+            )
             .await?
         {
             Some(rl) => Ok(json!({
@@ -186,7 +190,12 @@ impl WsMessageService {
         );
         let page = self
             .linear_service
-            .list_issues(&hub_auth(&req.hub), options, linear_api_key(&req.hub))
+            .list_issues(
+                &hub_auth(&req.hub),
+                options,
+                linear_api_key(&req.hub),
+                req.client_id.as_deref(),
+            )
             .await?;
         serde_json::to_value(page).map_err(|e| {
             ServiceError::Processing(format!("Failed to serialize linear issues: {e}"))
@@ -199,7 +208,11 @@ impl WsMessageService {
     ) -> Result<Value> {
         let (teams, projects, users, labels) = self
             .linear_service
-            .filter_options(&hub_auth(&req.hub), linear_api_key(&req.hub))
+            .filter_options(
+                &hub_auth(&req.hub),
+                linear_api_key(&req.hub),
+                req.client_id.as_deref(),
+            )
             .await?;
         Ok(json!({
             "teams": teams,

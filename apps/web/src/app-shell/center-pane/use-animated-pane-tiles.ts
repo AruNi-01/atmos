@@ -39,19 +39,36 @@ function tilesFromLeaves(leaves: TerminalLeafBox[], seedFromFullPane: boolean): 
 
 export function useAnimatedPaneTiles(
   leaves: TerminalLeafBox[],
-  options: { liveResizing: boolean; seedFromFullPane: boolean },
+  options: {
+    liveResizing: boolean;
+    seedFromFullPane: boolean;
+    contextId?: string;
+  },
 ): PaneTile[] {
   const [tiles, setTiles] = useState<PaneTile[]>(() =>
     tilesFromLeaves(leaves, options.seedFromFullPane),
   );
   const prevLeavesRef = useRef<TerminalLeafBox[]>(leaves);
+  const prevContextRef = useRef(options.contextId);
   const seenSeedRef = useRef(false);
   const key = leafKey(leaves);
 
   useLayoutEffect(() => {
+    const contextChanged = prevContextRef.current !== options.contextId;
+    prevContextRef.current = options.contextId;
+
+    if (contextChanged) {
+      seenSeedRef.current = false;
+      prevLeavesRef.current = leaves;
+      setTiles(leaves.map((leaf) => ({ ...leaf, phase: "idle" as const })));
+      return;
+    }
+
     const previous = prevLeavesRef.current;
     const shouldSeed =
-      options.seedFromFullPane && !seenSeedRef.current && previous.length <= 1;
+      options.seedFromFullPane &&
+      !seenSeedRef.current &&
+      previous.length <= 1;
     if (options.seedFromFullPane) seenSeedRef.current = true;
 
     if (options.liveResizing || prefersReducedMotion()) {
@@ -104,7 +121,7 @@ export function useAnimatedPaneTiles(
     };
     // Geometry identity is captured in `key`.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, options.liveResizing, options.seedFromFullPane]);
+  }, [key, options.contextId, options.liveResizing, options.seedFromFullPane]);
 
   return tiles;
 }

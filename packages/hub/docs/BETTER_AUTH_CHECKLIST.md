@@ -36,7 +36,7 @@ Wrong (common mistakes):
 
 ## Client
 
-- `better-auth/client` via `apps/web/src/api/hub-auth-client.ts` — `signIn.social`, `getSession`, `signOut`, `listAccounts`, `listSessions`, `linkSocial` (via Hub start URL), `unlinkAccount`, `revokeSession`
+- `better-auth/client` via `apps/web/src/api/hub-auth-client.ts` — `signIn.social`, `getSession`, `signOut`, `listAccounts`, `linkSocial` (via Hub start URL), `unlinkAccount`
 - `NEXT_PUBLIC_ATMOS_HUB_URL` points at Hub; browser uses `credentials: "include"`
 - HTTPS Hub uses session cookies with `SameSite=None; Secure` so SPA on `localhost` / other origins can call Hub after OAuth in a new tab
 - Web OAuth return path: `{appOrigin}/hub-auth/done` (not bare `/`)
@@ -49,7 +49,7 @@ Wrong (common mistakes):
 
 ## Security settings (better-auth-ui aligned)
 
-Account → **Linked accounts** + **Active sessions** (see [Security settings](https://better-auth-ui.com/docs/shadcn/components/settings/security/security-settings)).
+Account → **Linked accounts** (see [Security settings](https://better-auth-ui.com/docs/shadcn/components/settings/security/security-settings)).
 
 Data is **bound to `user_id`**. Hub exposes identity-agnostic routes that accept **session cookie or device Bearer** (same as `/v1/me`):
 
@@ -58,9 +58,7 @@ Data is **bound to `user_id`**. Hub exposes identity-agnostic routes that accept
 | List linked providers | `GET /v1/me/accounts` | Reads Better Auth `account` rows for user |
 | Link provider | `GET /v1/oauth/start?mode=link&…` | Web: browser cookie. Desktop/phone: `POST /v1/me/link-ticket` then `link_ticket=`. `accountLinking.allowDifferentEmails: true` so GitHub/Google emails need not match. |
 | Unlink provider | `POST /v1/me/accounts/unlink` | Body: `{ provider_id, account_id? }` |
-| List sessions | `GET /v1/me/sessions` | Active browser sessions for user (prunes expired + over cap) |
-| Revoke session | `POST /v1/me/sessions/revoke` | Body: `{ token }` |
-| Session cap | max **10** per user | On create (`databaseHooks.session.create`) + list: drop oldest; keep current cookie token when possible. Link `link_ticket` temp sessions are deleted after OAuth start. |
+| Session cap | max **10** per user | On create (`databaseHooks.session.create`): drop oldest; keep current cookie token when possible. Link `link_ticket` temp sessions are deleted after OAuth start. |
 | Delete account | `POST /v1/me/delete` | Hard-delete user (cascade accounts/sessions/devices/…). UI requires typed phrase. `user.deleteUser.enabled` also on Better Auth. |
 
 Phone and Desktop use the same product APIs via **`requireUser`** (session cookie **or** device Bearer → same `user_id`). Clients attach identity through `@atmos/hub-client` (`hubFetch` / `withHubAuth`) and never branch on cookie vs device in feature code.
@@ -74,5 +72,5 @@ After Hub cookie sign-in, the web/desktop client **auto-mints** a Hub device (`P
 1. `GET $BETTER_AUTH_URL/api/auth/ok` → `{ status: "ok" }`
 2. Sign in from `app` → Hub cookie set on Hub origin
 3. `GET /v1/me` with credentials include
-4. `GET /api/auth/list-accounts` + `GET /api/auth/list-sessions` with credentials
+4. `GET /api/auth/list-accounts` with credentials
 5. `POST /v1/devices` enrolls; Relay receives projection when `RELAY_*` configured

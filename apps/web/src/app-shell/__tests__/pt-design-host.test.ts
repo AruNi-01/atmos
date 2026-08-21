@@ -132,6 +132,39 @@ describe("PT Design Atmos host wiring", () => {
     expect(frame).toContain("<PtDesignCenterPanel contextId={contextId} />");
   });
 
+  test("hosted collab invites skip onboarding and open a fullscreen guest board", () => {
+    const gate = readFileSync(
+      join(import.meta.dir, "../HostedAppShellGate.tsx"),
+      "utf8",
+    );
+    const guest = readFileSync(
+      join(import.meta.dir, "../../features/pt-design/PtDesignGuestStage.tsx"),
+      "utf8",
+    );
+    const panel = readFileSync(
+      join(import.meta.dir, "../../features/pt-design/PtDesignCenterPanel.tsx"),
+      "utf8",
+    );
+    expect(gate).toContain("hasPtDesignCollabInvite");
+    expect(gate).toContain("PtDesignGuestStage");
+    expect(gate).toContain("collabInviteOnLoad");
+    expect(guest).toContain("data-testid=\"pt-design-guest\"");
+    expect(guest).toContain("pt-design-guest-logo");
+    expect(guest).toContain("https://atmos.land");
+    expect(guest).toContain("memoryPersistence");
+    expect(guest).toContain("LogoSvg");
+    expect(guest).not.toContain("httpDesignLibrary");
+    expect(guest).not.toContain("usePtDesignAgentBridge");
+    expect(guest).not.toContain("CenterStageSurface");
+    expect(guest).toContain("ptDesign.guest");
+    expect(panel).not.toContain("pt-design-guest-logo");
+    expect(panel).not.toContain("https://atmos.land");
+    const en = readFileSync(join(import.meta.dir, "../../../messages/en.json"), "utf8");
+    const zh = readFileSync(join(import.meta.dir, "../../../messages/zh.json"), "utf8");
+    expect(en).toContain("\"logoLink\": \"Open Atmos\"");
+    expect(zh).toContain("\"logoLink\": \"打开 Atmos 官网\"");
+  });
+
   test("center stage panel does not trap position:fixed overlays", () => {
     const layout = readFileSync(join(import.meta.dir, "../PanelLayout.tsx"), "utf8");
     const center = layout.slice(layout.indexOf('id="root-center-stage"'));

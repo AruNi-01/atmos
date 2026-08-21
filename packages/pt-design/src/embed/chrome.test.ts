@@ -81,6 +81,8 @@ describe("excalidraw Atmos chrome", () => {
     expect(css).toContain("input.pt-design-catalog-search");
     expect(css).toContain(".pt-design-place-reveal");
     expect(css).toContain("pt-design-place-breathe");
+    expect(css).toContain(".excalidraw .follow-mode");
+    expect(css).toContain("border-radius: var(--radius-xl");
     expect(app).toContain("scrollToContent");
     expect(app).toContain("PLACE_SCROLL_OFFSETS");
     expect(app).toContain("echoFromBoardRef");

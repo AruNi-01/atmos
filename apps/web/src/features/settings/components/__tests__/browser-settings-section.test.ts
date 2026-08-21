@@ -32,6 +32,7 @@ describe("APP-059 Browser settings wiring", () => {
     );
     expect(sections).toContain("BrowserSettingsSection");
     expect(sections).toContain("case 'apps'");
+    expect(sections).toContain("activeGroupTab === 'browser'");
     expect(sections).not.toContain("case 'browser'");
   });
 

@@ -165,7 +165,9 @@
     "workspaceJobs": {
       "creating": "正在创建工作区",
       "countAria": "{count} 个工作区正在准备",
+      "countAriaReady": "{count} 个工作区已就绪",
       "listTitle": "{count} 个工作区正在准备",
+      "listTitleReady": "{count} 个工作区已就绪",
       "preparing": "正在准备工作树",
       "ready": "已就绪，点击打开",
       "autoOpen": "就绪后自动打开",
@@ -3164,6 +3166,9 @@
       "stop": "停止协作",
       "startMenu": "协作",
       "openMenu": "协作"
+    },
+    "guest": {
+      "logoLink": "打开 Atmos 官网"
     }
   },
   "canvas": {
@@ -5057,6 +5062,18 @@
             }
           },
           "codeAgent": {
+            "defaults": {
+              "label": "默认设置"
+            },
+            "yoloMode": {
+              "label": "YOLO 模式"
+            },
+            "showAgentNameInTerminalTitles": {
+              "label": "在终端标题中显示 Agent 名称"
+            },
+            "activityIndicators": {
+              "label": "Agent 活动指示器"
+            },
             "builtInAgents": {
               "label": "内置 Agents"
             },
@@ -5837,6 +5854,10 @@
         "title": "内置 Agents",
         "description": "为每个内置代码 Agent 自定义启动命令和参数。"
       },
+      "defaults": {
+        "title": "默认设置",
+        "description": "启动参数，以及 Agent 名称在终端标题中的显示方式。"
+      },
       "yolo": {
         "title": "YOLO 模式",
         "description": "开启后，Agent 启动会带上跳过权限确认 / 自动批准参数（如 --yolo、--dangerously-skip-permissions）。关闭则使用更安全的需确认模式。",
@@ -6301,6 +6322,7 @@
         "title": "GitHub CLI",
         "description": "Atmos 使用 GitHub CLI 与 GitHub Issues、Pull Requests 及其他工作流集成。",
         "status": {
+          "installed": "已安装 {version}",
           "authenticatedAs": "已认证为 {username}"
         },
         "installation": {
@@ -6766,19 +6788,12 @@
       "securityDescription": "此账号的受信任设备。信任当前浏览器后，计算机可安全连接。",
       "linkedAccounts": "关联账号",
       "linkedAccountsDescription": "可将 GitHub 与 Google 关联到同一个 Atmos 账号。每种登录方式只能关联一个，不能挂多个 GitHub 或多个 Google。",
-      "activeSessions": "活跃会话",
-      "activeSessionsDescription": "管理当前登录会话，可撤销访问。",
       "link": "关联",
       "unlink": "取消关联",
       "linked": "已关联",
       "linkedAccountId": "账号 {id}",
       "notLinked": "未关联",
       "linkOpensNewTab": "将在新标签页打开",
-      "revoke": "撤销",
-      "currentSession": "当前会话",
-      "otherSession": "其他会话",
-      "sessionUnknown": "未知设备",
-      "sessionsEmpty": "暂无活跃会话。",
       "trustDevice": "信任",
       "devicesTitle": "受信任设备",
       "devicesEmpty": "还没有受信任的设备。信任此设备后，即可在此使用你的计算机。",
@@ -6803,8 +6818,6 @@
         "alreadyLinked": "该登录方式已关联",
         "cannotUnlinkLast": "不能取消关联最后一个账号",
         "listAccountsFailed": "无法加载关联账号",
-        "listSessionsFailed": "无法加载会话",
-        "revokeFailed": "无法撤销会话",
         "deleteFailed": "无法删除账号",
         "nameSaveFailed": "无法保存名称"
       }

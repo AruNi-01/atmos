@@ -19,6 +19,7 @@ import {
   hubConfigured,
   hubCreateMobilePair,
 } from '@/api/hub-client';
+import { SettingsGroupRow } from '@/features/settings/components/settings/SettingsGroupCard';
 
 type PairState =
   | { status: 'idle' }
@@ -99,16 +100,16 @@ export function MobilePairQrPanel({ enabled }: { enabled: boolean }) {
 
   return (
     <>
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-muted/10 px-4 py-4">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
+      <SettingsGroupRow
+        wide
+        title={
+          <span className="inline-flex items-center gap-2">
             <Smartphone className="size-4 text-muted-foreground" />
-            <p className="text-sm font-medium text-foreground">{t('title')}</p>
-          </div>
-          <p className="mt-1 text-xs leading-5 text-muted-foreground">
-            {enabled ? t('description') : t('signInFirst')}
-          </p>
-        </div>
+            <span>{t('title')}</span>
+          </span>
+        }
+        description={enabled ? t('description') : t('signInFirst')}
+      >
         <Button
           type="button"
           size="sm"
@@ -119,7 +120,7 @@ export function MobilePairQrPanel({ enabled }: { enabled: boolean }) {
           <QrCode className="mr-2 size-4" />
           {t('showQr')}
         </Button>
-      </div>
+      </SettingsGroupRow>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-[360px]">

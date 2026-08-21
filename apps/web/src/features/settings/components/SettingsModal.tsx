@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, type ComponentType } from 'react';
 import { useTranslations } from 'next-intl';
 import { useQueryState } from 'nuqs';
 import {
@@ -46,15 +46,35 @@ import {
 } from '@/features/settings/components/settings/settings-modal-utils';
 import type { ProviderTestState } from '@/features/settings/components/SettingsAiSection';
 import { SettingsModalSections } from '@/features/settings/components/SettingsModalSections';
+import { SettingsPageTabs } from '@/features/settings/components/SettingsPageTabs';
 import {
   SETTINGS_SEARCH_HIGHLIGHT_STORAGE_KEY,
-  SETTINGS_SECTIONS,
   type SettingsSectionId,
 } from '@/features/settings/components/settings-modal-data';
 import { settingsSectionDomId } from '@/features/settings/components/settings/SettingsGroupCard';
 import { SettingsModalSidebar } from '@/features/settings/components/settings-modal-sidebar';
 import { useSettingsUpdateActions } from '@/features/settings/components/use-settings-update-actions';
+import { useSettingsGroupTab } from '@/features/settings/hooks/use-settings-group-tab';
 import { leaveSettingsPage } from '@/features/settings/lib/open-settings';
+import {
+  isForeignSettingsGroupTabHash,
+  readSettingsHash,
+  replaceSettingsGroupHash,
+} from '@/features/settings/lib/settings-section-group-tabs';
+import {
+  Blocks,
+  Computer,
+  FileCode,
+  FlaskConical,
+  FolderKanban,
+  Globe,
+  Info,
+  Monitor,
+  Presentation,
+  SunMoon,
+  Tags,
+  Waypoints,
+} from 'lucide-react';
 import { isCancelledError } from '@/shared/lib/is-cancelled-error';
 import { useAppRouter } from '@/shared/hooks/use-app-router';
 import { useDesktopTrafficLightsPadding } from '@/shared/hooks/use-desktop-traffic-lights-padding';
@@ -72,6 +92,21 @@ function escapeRegExp(value: string) {
 }
 
 const toCamelCase = (str: string) => str.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
+
+const SETTINGS_GROUP_TAB_ICONS: Record<string, ComponentType<{ className?: string }>> = {
+  appearance: SunMoon,
+  about: Info,
+  experiments: FlaskConical,
+  editor: FileCode,
+  canvas: Presentation,
+  workspace: FolderKanban,
+  labels: Tags,
+  'atmos-computer': Computer,
+  'tunnel-connector': Waypoints,
+  integrations: Blocks,
+  browser: Globe,
+  'desktop-use': Monitor,
+};
 
 function buildSettingsSearchTerms(query: string) {
   const trimmedQuery = query.trim();
@@ -789,7 +824,10 @@ export function SettingsPage({ onLeave }: { onLeave?: () => void } = {}) {
   }, []);
 
   const resolvedActiveSection = activeSection ?? 'interface';
-  const activeSectionMeta = SETTINGS_SECTIONS.find((section) => section.id === resolvedActiveSection) ?? SETTINGS_SECTIONS[0];
+  const { groupTabs, groupTab, selectGroupTab } = useSettingsGroupTab(
+    resolvedActiveSection,
+    settingsSearchQuery,
+  );
   useSettingsContentHighlight(settingsContentElement, settingsSearchQuery, resolvedActiveSection);
 
   useEffect(() => {
@@ -803,7 +841,7 @@ export function SettingsPage({ onLeave }: { onLeave?: () => void } = {}) {
       });
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [resolvedActiveSection]);
+  }, [groupTab, resolvedActiveSection]);
   const localAgentOptions = React.useMemo(
     () =>
       buildLocalAgentOptions([
@@ -1038,7 +1076,13 @@ export function SettingsPage({ onLeave }: { onLeave?: () => void } = {}) {
       >
         <SettingsModalSidebar
           activeSection={resolvedActiveSection}
-          onSelectSection={(sectionId) => void setActiveSection(sectionId)}
+          onSelectSection={(sectionId) => {
+            void setActiveSection(sectionId);
+            const hash = readSettingsHash();
+            if (isForeignSettingsGroupTabHash(sectionId, hash)) {
+              replaceSettingsGroupHash(null);
+            }
+          }}
           searchQuery={settingsSearchQuery}
           onSearchQueryChange={setSettingsSearchQuery}
           onBack={leaveSettings}
@@ -1050,20 +1094,26 @@ export function SettingsPage({ onLeave }: { onLeave?: () => void } = {}) {
             ref={setSettingsContentElement}
             className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
           >
-          <div className="px-8 py-5">
-            <h2 className="text-[28px] font-semibold tracking-tight text-foreground">
-              {t(`sections.${toCamelCase(activeSectionMeta.id)}.label`)}
-            </h2>
-            <p className="mt-1 max-w-md text-sm leading-5 text-muted-foreground">
-              {t(`sections.${toCamelCase(activeSectionMeta.id)}.description`)}
-            </p>
-          </div>
+          {groupTabs && groupTab ? (
+            <div className="px-8 pt-5 pb-1">
+              <SettingsPageTabs
+                value={groupTab}
+                onValueChange={selectGroupTab}
+                items={groupTabs.map((tabId) => ({
+                  value: tabId,
+                  label: t(`sections.${toCamelCase(tabId)}.label`),
+                  icon: SETTINGS_GROUP_TAB_ICONS[tabId],
+                }))}
+              />
+            </div>
+          ) : null}
 
           <div className="min-h-0 flex-1 overflow-hidden">
             <ScrollArea className="size-full">
               <div className="px-8 py-6">
                 <SettingsModalSections
                     activeSection={resolvedActiveSection}
+                    activeGroupTab={groupTab}
                     appVersion={appVersion}
                     cliVersionInfo={cliVersionInfo}
                     isInstallingCli={isInstallingCli}

@@ -46,8 +46,8 @@ const centerPaneEmptyState = readFileSync(
 describe("center list hover", () => {
   it("uses instant hover on split-pane empty launcher rows", () => {
     const rowClass = centerPaneEmptyState.slice(
-      centerPaneEmptyState.indexOf("flex w-full items-center gap-2.5 rounded-lg"),
-      centerPaneEmptyState.indexOf("focus-visible:outline-none focus-visible:ring-2"),
+      centerPaneEmptyState.indexOf("function EmptyPaneTypeButton"),
+      centerPaneEmptyState.indexOf("onClick={action.onSelect}"),
     );
     expect(rowClass).toContain("hover:bg-accent");
     expect(rowClass).not.toContain("transition-colors");

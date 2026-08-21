@@ -57,6 +57,10 @@ import TerminalIcon from "@workspace/ui/components/icons/terminal-icon";
 import { TimerIcon } from "@workspace/ui/components/icons/timer-icon";
 import type { AnimatedIconHandle } from "@workspace/ui/components/icons/types";
 
+import {
+  LEFT_SIDEBAR_DIVIDER_GUTTER_MR_CLASS,
+  LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS,
+} from "@/app-shell/sidebar-layout-constants";
 import type {
   LaunchpadItemId,
   LaunchpadItems,
@@ -314,7 +318,10 @@ function LaunchpadInsideDroppable({
   return (
     <div
       ref={setNodeRef}
-      className="mx-2.5 mb-1.5 rounded-2xl border border-border/70 bg-muted/20"
+      className={cn(
+        "mb-1.5 ml-2.5 rounded-2xl border border-border/70 bg-muted/20",
+        LEFT_SIDEBAR_DIVIDER_GUTTER_MR_CLASS,
+      )}
     >
       {children}
     </div>
@@ -343,7 +350,11 @@ function LaunchpadOutsideDroppable({
     <nav
       ref={setNodeRef}
       data-launchpad-outside-nav
-      className={cn("flex flex-col gap-0.5 px-2 py-1.5", empty && "min-h-8")}
+      className={cn(
+        "flex flex-col gap-0.5 py-1.5 pl-2",
+        LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS,
+        empty && "min-h-8",
+      )}
       aria-label={label}
     >
       {children}

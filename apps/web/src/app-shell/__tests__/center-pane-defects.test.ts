@@ -21,6 +21,7 @@ import {
   collapsedStripOrderForContext,
   shouldPersistCollapsedStripOrder,
   shouldSeedMosaicFromFullPane,
+  shouldSnapPaneTilesOnContextChange,
 } from "@/app-shell/center-pane/center-pane-collapse-persist";
 import { resolveStripOrderForContext } from "@/app-shell/center-pane/center-pane-strip-prefs";
 import { resolvePaneLocalCloseFallback } from "@/app-shell/center-pane/center-pane-close-fallback";
@@ -601,6 +602,12 @@ describe("context-keyed collapse strip persistence", () => {
         nextPaneCount: 2,
       }),
     ).toBe(false);
+    expect(shouldSnapPaneTilesOnContextChange("workspace-y", "workspace-x")).toBe(
+      true,
+    );
+    expect(shouldSnapPaneTilesOnContextChange("workspace-x", "workspace-x")).toBe(
+      false,
+    );
   });
 
   it("persists remaining pane order only for a same-context N→1 collapse", () => {

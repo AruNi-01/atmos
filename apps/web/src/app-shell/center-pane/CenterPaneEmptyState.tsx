@@ -14,7 +14,15 @@ import {
   X,
 } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
+import { CENTER_STAGE_RADIUS_CLASS } from "@/app-shell/sidebar-layout-constants";
 import type { CenterToolTabValue } from "@/app-shell/center-tool-tabs";
+import {
+  EMPTY_PANE_LIST_MAX_WIDTH_PX,
+  UNMEASURED_EMPTY_PANE_LAUNCHER_PLAN,
+  emptyPaneLauncherPlansEqual,
+  planEmptyPaneLauncher,
+  type EmptyPaneLauncherPlan,
+} from "@/app-shell/center-pane/center-pane-empty-layout";
 
 export type CenterPaneEmptyActionId =
   | "terminal"
@@ -50,9 +58,67 @@ function ShortcutKeys({ keys }: { keys: string[] }) {
   );
 }
 
+const ACTION_FOCUS_CLASS =
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50";
+
+function EmptyPaneTypeButton({
+  action,
+  plan,
+}: {
+  action: CenterPaneEmptyAction;
+  plan: EmptyPaneLauncherPlan;
+}) {
+  const compact = plan.mode === "grid";
+  return (
+    <button
+      type="button"
+      data-center-pane-empty-action={action.id}
+      className={cn(
+        CENTER_STAGE_RADIUS_CLASS,
+        ACTION_FOCUS_CLASS,
+        compact
+          ? "flex flex-col items-center justify-center bg-muted/35 text-center ring-1 ring-border/40 hover:bg-accent hover:text-accent-foreground"
+          : "flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground",
+      )}
+      style={
+        compact
+          ? {
+              minHeight: plan.cardMinHeight,
+              gap: Math.max(4, Math.round(plan.iconSize * 0.2)),
+              paddingLeft: 12,
+              paddingRight: 12,
+              paddingTop: plan.cardPaddingY,
+              paddingBottom: plan.cardPaddingY,
+            }
+          : undefined
+      }
+      onClick={action.onSelect}
+    >
+      <span
+        className="inline-flex shrink-0 items-center justify-center text-muted-foreground [&_svg]:h-full [&_svg]:w-full"
+        style={{ width: plan.iconSize, height: plan.iconSize }}
+      >
+        {action.icon}
+      </span>
+      <span
+        className={cn(
+          "min-w-0 font-medium",
+          compact ? "w-full truncate text-sm leading-tight" : "flex-1 truncate",
+        )}
+      >
+        {action.label}
+      </span>
+      {!compact && action.shortcutKeys && action.shortcutKeys.length > 0 ? (
+        <ShortcutKeys keys={action.shortcutKeys} />
+      ) : null}
+    </button>
+  );
+}
+
 /**
- * Empty center pane launcher — list of creatable tabs with optional shortcuts,
- * similar to a quiet command palette / Changes empty state.
+ * Empty center pane launcher. Layout follows the pane box: list in a tall
+ * portrait pane, 2-col cards when that list will not fit, more columns when
+ * the pane is landscape, and vertical scroll when both axes are tight.
  */
 export function CenterPaneEmptyState({
   actions,
@@ -64,52 +130,102 @@ export function CenterPaneEmptyState({
   onClose?: () => void;
 }) {
   const t = useTranslations("appShell.centerStageTabBar");
+  const rootRef = React.useRef<HTMLDivElement>(null);
+  const hasClose = Boolean(onClose);
+  const [plan, setPlan] = React.useState<EmptyPaneLauncherPlan>(
+    UNMEASURED_EMPTY_PANE_LAUNCHER_PLAN,
+  );
+
+  React.useLayoutEffect(() => {
+    const el = rootRef.current;
+    if (!el) return;
+
+    const update = () => {
+      const next = planEmptyPaneLauncher({
+        width: el.clientWidth,
+        height: el.clientHeight,
+        actionCount: actions.length,
+        hasClose,
+      });
+      setPlan((prev) => (emptyPaneLauncherPlansEqual(prev, next) ? prev : next));
+    };
+
+    update();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(update);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [actions.length, hasClose]);
+
+  const compact = plan.mode === "grid";
 
   return (
     <div
+      ref={rootRef}
       className={cn(
-        "flex h-full min-h-0 w-full flex-col items-center justify-center bg-background px-6 py-8",
+        "flex min-h-0 w-full flex-1 flex-col overflow-x-hidden overflow-y-auto bg-background",
         className,
       )}
       data-center-pane-empty=""
+      data-center-pane-empty-layout={plan.mode}
+      data-center-pane-empty-columns={plan.columns}
     >
-      <div className="w-full max-w-sm space-y-1">
-        {actions.map((action) => (
-          <button
-            key={action.id}
-            type="button"
-            className={cn(
-              "flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm text-foreground",
-              "hover:bg-accent hover:text-accent-foreground",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
-            )}
-            onClick={action.onSelect}
-          >
-            <span className="inline-flex size-5 shrink-0 items-center justify-center text-muted-foreground">
-              {action.icon}
-            </span>
-            <span className="min-w-0 flex-1 truncate font-medium">{action.label}</span>
-            {action.shortcutKeys && action.shortcutKeys.length > 0 ? (
-              <ShortcutKeys keys={action.shortcutKeys} />
-            ) : null}
-          </button>
-        ))}
-        {onClose ? (
-          <button
-            type="button"
-            className={cn(
-              "mt-2 flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm text-muted-foreground",
-              "hover:bg-accent hover:text-foreground",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
-            )}
-            onClick={onClose}
-          >
-            <span className="inline-flex size-5 shrink-0 items-center justify-center">
-              <X className="size-4" />
-            </span>
-            <span className="min-w-0 flex-1 truncate font-medium">{t("closePane")}</span>
-          </button>
-        ) : null}
+      <div
+        className={cn(
+          "flex w-full justify-center",
+          plan.scroll ? "items-start" : "min-h-full items-center",
+        )}
+        style={{
+          paddingLeft: plan.paddingX,
+          paddingRight: plan.paddingX,
+          paddingTop: plan.paddingY,
+          paddingBottom: plan.paddingY,
+        }}
+      >
+        <div
+          className="grid w-full min-w-0"
+          style={
+            compact
+              ? {
+                  gridTemplateColumns: `repeat(${plan.columns}, minmax(0, 1fr))`,
+                  gap: plan.gap,
+                  maxWidth: plan.gridMaxWidth,
+                }
+              : {
+                  gridTemplateColumns: "minmax(0, 1fr)",
+                  gap: plan.gap,
+                  maxWidth: EMPTY_PANE_LIST_MAX_WIDTH_PX,
+                }
+          }
+        >
+          {actions.map((action) => (
+            <EmptyPaneTypeButton
+              key={action.id}
+              action={action}
+              plan={plan}
+            />
+          ))}
+          {onClose ? (
+            <button
+              type="button"
+              data-center-pane-empty-close=""
+              className={cn(
+                CENTER_STAGE_RADIUS_CLASS,
+                ACTION_FOCUS_CLASS,
+                compact
+                  ? "flex items-center justify-center gap-2 bg-muted/25 px-3 py-2.5 text-sm text-muted-foreground ring-1 ring-border/40 hover:bg-accent hover:text-foreground"
+                  : "mt-2 flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-muted-foreground hover:bg-accent hover:text-foreground",
+              )}
+              style={compact ? { gridColumn: "1 / -1" } : undefined}
+              onClick={onClose}
+            >
+              <span className="inline-flex size-5 shrink-0 items-center justify-center">
+                <X className="size-4" />
+              </span>
+              <span className="min-w-0 truncate font-medium">{t("closePane")}</span>
+            </button>
+          ) : null}
+        </div>
       </div>
     </div>
   );
@@ -140,7 +256,7 @@ export function buildDefaultEmptyPaneActions(input: {
     {
       id: "terminal",
       label: labels.terminal,
-      icon: <TerminalIcon className="size-4" />,
+      icon: <TerminalIcon />,
       // Matches global new-terminal hotkey (⌘T / Ctrl+T).
       shortcutKeys: [modKey, "T"],
       onSelect: input.onCreateTerminal,
@@ -148,37 +264,37 @@ export function buildDefaultEmptyPaneActions(input: {
     {
       id: "files",
       label: labels.files,
-      icon: <FolderTree className="size-4" />,
+      icon: <FolderTree />,
       onSelect: () => input.onCreateToolTab("files"),
     },
     {
       id: "changes",
       label: labels.changes,
-      icon: <GitBranch className="size-4" />,
+      icon: <GitBranch />,
       onSelect: () => input.onCreateToolTab("changes"),
     },
     {
       id: "review",
       label: labels.review,
-      icon: <FileDiff className="size-4" />,
+      icon: <FileDiff />,
       onSelect: () => input.onCreateToolTab("review"),
     },
     {
       id: "run",
       label: labels.run,
-      icon: <Play className="size-4" />,
+      icon: <Play />,
       onSelect: () => input.onCreateToolTab("run"),
     },
     {
       id: "github",
       label: labels.github,
-      icon: <Github className="size-4" />,
+      icon: <Github />,
       onSelect: () => input.onCreateToolTab("github"),
     },
     {
       id: "simulator",
       label: labels.simulator,
-      icon: <Smartphone className="size-4" />,
+      icon: <Smartphone />,
       onSelect: input.onCreateSimulator,
     },
   ];
@@ -187,7 +303,7 @@ export function buildDefaultEmptyPaneActions(input: {
     actions.unshift({
       id: "overview",
       label: input.overviewLabel ?? "Overview",
-      icon: <LayoutDashboard className="size-4" />,
+      icon: <LayoutDashboard />,
       shortcutKeys: [modKey, "0"],
       onSelect: input.onOpenOverview,
     });

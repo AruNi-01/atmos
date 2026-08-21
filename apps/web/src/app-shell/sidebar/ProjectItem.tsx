@@ -57,6 +57,7 @@ import {
 import type { WorkspaceWorkflowStatus } from "@/shared/types/domain";
 import { FileBrowser } from "@/features/files/components/FileBrowser";
 import { getRuntimeApiConfig, httpBase } from "@/shared/lib/desktop-runtime";
+import { LEFT_SIDEBAR_DIVIDER_GUTTER_MR_CLASS, LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS } from "@/app-shell/sidebar-layout-constants";
 
 export interface ProjectItemProps {
   project: Project;
@@ -404,7 +405,8 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
     >
       <div
         className={cn(
-            "flex items-center px-2 py-1.5 hover:bg-sidebar-accent rounded-sm mx-2 relative",
+            "relative ml-2 flex items-center rounded-sm px-2 py-1.5 hover:bg-sidebar-accent",
+            LEFT_SIDEBAR_DIVIDER_GUTTER_MR_CLASS,
             isDragging && "bg-sidebar-accent shadow-2xl scale-[1.02]",
             (isActiveProject || isSelected) && "bg-sidebar-accent"
           )}
@@ -726,7 +728,8 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
 
           <div
             className={cn(
-              "ml-8 mt-1 space-y-0.5 pr-2 transition-all duration-300",
+              "mt-1 ml-8 space-y-0.5 transition-all duration-300",
+              LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS,
               isAnyProjectDragging ? "pointer-events-none opacity-0" : "opacity-100"
             )}
           >

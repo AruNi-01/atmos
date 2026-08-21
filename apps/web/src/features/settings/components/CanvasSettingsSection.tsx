@@ -18,7 +18,6 @@ import {
 
 export function CanvasSettingsSection() {
   const t = useTranslations('settings.canvasSection');
-  const pageT = useTranslations('settings.modal');
   const {
     autoSaveInterval,
     maxRenderedTerminals,
@@ -85,11 +84,7 @@ export function CanvasSettingsSection() {
   };
 
   return (
-    <SettingsSection
-      id="canvas"
-      title={pageT('sections.canvas.label')}
-      description={pageT('sections.canvas.description')}
-    >
+    <SettingsSection id="canvas">
       <SettingsGroup>
         <SettingsGroupRow
           wide

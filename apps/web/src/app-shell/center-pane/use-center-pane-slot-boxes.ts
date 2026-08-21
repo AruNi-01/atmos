@@ -56,6 +56,34 @@ export function shouldWithholdUnmeasuredPaneTerminal(input: {
   );
 }
 
+const EMPTY_PANE_SLOT_BOXES: Record<string, PaneSlotBox> = {};
+
+/** Stash the leaving workspace's slots and restore the destination's last boxes. */
+export function paneSlotBoxesForContextSwitch(input: {
+  prevContextId: string | null | undefined;
+  nextContextId: string | null | undefined;
+  currentBoxes: Record<string, PaneSlotBox>;
+  cache: Record<string, Record<string, PaneSlotBox>>;
+}): {
+  cache: Record<string, Record<string, PaneSlotBox>>;
+  boxes: Record<string, PaneSlotBox>;
+} {
+  if (
+    !input.nextContextId ||
+    input.prevContextId === input.nextContextId
+  ) {
+    return { cache: input.cache, boxes: input.currentBoxes };
+  }
+  const cache = { ...input.cache };
+  if (input.prevContextId && Object.keys(input.currentBoxes).length > 0) {
+    cache[input.prevContextId] = input.currentBoxes;
+  }
+  return {
+    cache,
+    boxes: (input.nextContextId && cache[input.nextContextId]) || EMPTY_PANE_SLOT_BOXES,
+  };
+}
+
 /**
  * Measure `[data-center-pane-content-slot]` boxes relative to `hostRef`.
  * Used to position keep-alive panels into multi-pane content slots without remounting.
@@ -64,8 +92,24 @@ export function useCenterPaneSlotBoxes(
   hostRef: React.RefObject<HTMLElement | null>,
   layout: CenterPaneLayout | null,
   enabled: boolean,
+  contextId?: string | null,
 ): Record<string, PaneSlotBox> {
   const [boxes, setBoxes] = React.useState<Record<string, PaneSlotBox>>({});
+  const cacheRef = React.useRef<Record<string, Record<string, PaneSlotBox>>>({});
+  const contextRef = React.useRef(contextId ?? "");
+  if (contextRef.current !== (contextId ?? "")) {
+    const switched = paneSlotBoxesForContextSwitch({
+      prevContextId: contextRef.current,
+      nextContextId: contextId,
+      currentBoxes: boxes,
+      cache: cacheRef.current,
+    });
+    contextRef.current = contextId ?? "";
+    cacheRef.current = switched.cache;
+    if (switched.boxes !== boxes) {
+      setBoxes(switched.boxes);
+    }
+  }
   const orderKey = layout?.order.join("\0") ?? "";
   const fractionKey = layout
     ? `${layout.columnFractions.join(",")}|${layout.rowFractions.join(",")}|${layout.columnCount}`
@@ -128,6 +172,9 @@ export function useCenterPaneSlotBoxes(
           }
           if (same) return prev;
         }
+        if (contextId) {
+          cacheRef.current = { ...cacheRef.current, [contextId]: next };
+        }
         return next;
       });
     };
@@ -151,7 +198,7 @@ export function useCenterPaneSlotBoxes(
       window.removeEventListener("resize", measure);
     };
     // Depend on stable string keys only — never the layout object identity.
-  }, [enabled, fractionKey, hostRef, occupancyKey, orderKey, treeKey]);
+  }, [contextId, enabled, fractionKey, hostRef, occupancyKey, orderKey, treeKey]);
 
   return boxes;
 }

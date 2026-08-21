@@ -38,6 +38,22 @@ export function shouldSeedMosaicFromFullPane(
   );
 }
 
+/**
+ * Workspace hops must snap the shared mosaic to the destination geometry.
+ * Animating from the previous workspace's tiles reads as a split opening
+ * (grow-from-small) and refits warm terminals at the wrong size.
+ */
+export function shouldSnapPaneTilesOnContextChange(
+  prevContextId: string | null | undefined,
+  nextContextId: string | null | undefined,
+): boolean {
+  return Boolean(
+    prevContextId &&
+      nextContextId &&
+      prevContextId !== nextContextId,
+  );
+}
+
 export function shouldHoldMosaicAfterCollapse(
   input: CenterPaneCountTransition,
 ): boolean {

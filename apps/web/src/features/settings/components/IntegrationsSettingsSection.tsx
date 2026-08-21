@@ -59,6 +59,45 @@ import {
 } from '@/features/settings/components/settings/SettingsGroupCard';
 
 type RateLimitKey = 'core' | 'search' | 'graphql';
+type IntegrationStatusTone = 'ok' | 'warn' | 'muted';
+
+function IntegrationStatusMark({
+  tone,
+  label,
+}: {
+  tone: IntegrationStatusTone;
+  label: string;
+}) {
+  const Icon = tone === 'ok' ? CircleCheck : tone === 'warn' ? CircleX : CircleMinus;
+  const color =
+    tone === 'ok'
+      ? 'text-emerald-500'
+      : tone === 'warn'
+        ? 'text-amber-500'
+        : 'text-muted-foreground';
+
+  return (
+    <div className={cn('flex items-center gap-2 text-sm', color)}>
+      <Icon className="size-4 shrink-0" />
+      <span className="whitespace-nowrap">{label}</span>
+    </div>
+  );
+}
+
+function IntegrationStatusControl({
+  mark,
+  action,
+}: {
+  mark: React.ReactNode;
+  action?: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-wrap items-center justify-end gap-2">
+      {mark}
+      {action}
+    </div>
+  );
+}
 
 function formatCount(n: number): string {
   return new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(n);
@@ -400,20 +439,6 @@ function LinearIntegrationCard() {
     refetchOnWindowFocus: true,
   });
 
-  const localStatusQuery = useQuery({
-    queryKey: [
-      ...queryKeys.computer.root(scope),
-      'linear',
-      'localStatus',
-      activeLocal?.id ?? null,
-      keysVersion,
-    ] as const,
-    queryFn: () =>
-      wsLinearApi.status({ linearApiKey: activeLocal?.api_key ?? null }),
-    enabled: selection.mode === 'local' && Boolean(activeLocal?.api_key),
-    staleTime: 15_000,
-  });
-
   const oauthConnected = Boolean(oauthStatusQuery.data?.connected);
   const needsHubLogin = Boolean(oauthStatusQuery.data?.needs_hub_login);
   const source = resolveLinearCredentialSource({
@@ -422,13 +447,6 @@ function LinearIntegrationCard() {
     hasLocalKey: Boolean(activeLocal),
   });
   const connected = source === 'oauth' || source === 'local';
-  const viewer =
-    source === 'local'
-      ? activeLocal?.viewer_name ||
-        activeLocal?.viewer_email ||
-        localStatusQuery.data?.viewer_name ||
-        localStatusQuery.data?.viewer_email
-      : oauthStatusQuery.data?.viewer_name || oauthStatusQuery.data?.viewer_email;
   const canConnectOauth = !needsHubLogin && hasDevice && !busy;
 
   const bumpKeys = () => setKeysVersion((v) => v + 1);
@@ -528,36 +546,6 @@ function LinearIntegrationCard() {
     <SettingsGroupCard
       title={t('linear.title')}
       description={t('linear.description')}
-      headerEnd={
-        oauthStatusQuery.isLoading && selection.mode !== 'local' ? (
-          <Skeleton className="h-8 w-28 rounded-xl" />
-        ) : connected ? (
-          <div className="flex flex-wrap items-center justify-end gap-2 text-sm text-emerald-500">
-            <CircleCheck className="size-4" />
-            <span>
-              {viewer
-                ? t('linear.connectedAs', { name: viewer })
-                : t('githubCli.status.authenticatedAs', {
-                    username: t('shared.userFallback'),
-                  })}
-            </span>
-            <span className="rounded-full border border-border bg-muted/40 px-2 py-0.5 text-[11px] font-medium text-foreground">
-              {source === 'local'
-                ? t('linear.chip.localApiKey')
-                : t('linear.chip.oauthAccount')}
-            </span>
-          </div>
-        ) : (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <CircleMinus className="size-4" />
-            <span>
-              {needsHubLogin && selection.mode === 'oauth'
-                ? t('linear.needsHubLogin')
-                : t('linear.notConnected')}
-            </span>
-          </div>
-        )
-      }
     >
       <div className="px-2 py-3">
         <LinearRateLimitPanel
@@ -785,26 +773,6 @@ export function IntegrationsSettingsSection() {
       <SettingsGroupCard
         title={t('githubCli.title')}
         description={t('githubCli.description')}
-        headerEnd={
-          isLoading ? (
-            <Skeleton className="h-8 w-28 rounded-xl" />
-          ) : ghCliStatus?.installed && ghCliStatus.authenticated ? (
-            <div className="flex items-center gap-2 text-sm text-emerald-500">
-              <CircleCheck className="size-4" />
-              <span>{t('githubCli.status.authenticatedAs', { username: ghCliStatus.username || t('shared.userFallback') })}</span>
-            </div>
-          ) : ghCliStatus?.installed ? (
-            <div className="flex items-center gap-2 text-sm text-amber-500">
-              <CircleX className="size-4" />
-              <span>{t('shared.status.notAuthenticated')}</span>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <CircleMinus className="size-4" />
-              <span>{t('shared.status.notInstalled')}</span>
-            </div>
-          )
-        }
       >
         {isLoading ? (
           <div className="px-2 py-3">
@@ -821,14 +789,28 @@ export function IntegrationsSettingsSection() {
                   : t('githubCli.installation.notInstalled')
               }
             >
-              {!ghCliStatus?.installed ? (
-                <InstallToolPopover
-                  toolId="gh"
-                  toolName="GitHub CLI (gh)"
-                  onInstalled={refetchGh}
-                  triggerClassName="h-8 rounded-lg px-3 text-xs font-medium"
-                />
-              ) : null}
+              <IntegrationStatusControl
+                mark={
+                  <IntegrationStatusMark
+                    tone={ghCliStatus?.installed ? 'ok' : 'muted'}
+                    label={
+                      ghCliStatus?.installed
+                        ? t('githubCli.status.installed', { version: ghCliStatus.version || '' })
+                        : t('shared.status.notInstalled')
+                    }
+                  />
+                }
+                action={
+                  ghCliStatus?.installed ? undefined : (
+                    <InstallToolPopover
+                      toolId="gh"
+                      toolName="GitHub CLI (gh)"
+                      onInstalled={refetchGh}
+                      triggerClassName="h-8 rounded-lg px-3 text-xs font-medium"
+                    />
+                  )
+                }
+              />
             </SettingsGroupRow>
             {ghCliStatus?.installed ? (
               <SettingsGroupRow
@@ -840,17 +822,33 @@ export function IntegrationsSettingsSection() {
                     : t('githubCli.authentication.notAuthenticated')
                 }
               >
-                {!ghCliStatus.authenticated ? (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => window.open('https://cli.github.com/manual/gh_auth_login', '_blank', 'noopener,noreferrer')}
-                    className="cursor-pointer"
-                  >
-                    <ExternalLink className="mr-2 size-4" />
-                    {t('githubCli.actions.authenticate')}
-                  </Button>
-                ) : null}
+                <IntegrationStatusControl
+                  mark={
+                    <IntegrationStatusMark
+                      tone={ghCliStatus.authenticated ? 'ok' : 'warn'}
+                      label={
+                        ghCliStatus.authenticated
+                          ? t('githubCli.status.authenticatedAs', {
+                              username: ghCliStatus.username || t('shared.userFallback'),
+                            })
+                          : t('shared.status.notAuthenticated')
+                      }
+                    />
+                  }
+                  action={
+                    ghCliStatus.authenticated ? undefined : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => window.open('https://cli.github.com/manual/gh_auth_login', '_blank', 'noopener,noreferrer')}
+                        className="cursor-pointer"
+                      >
+                        <ExternalLink className="mr-2 size-4" />
+                        {t('githubCli.actions.authenticate')}
+                      </Button>
+                    )
+                  }
+                />
               </SettingsGroupRow>
             ) : null}
             <div className="px-2 py-3">
@@ -865,21 +863,6 @@ export function IntegrationsSettingsSection() {
       <SettingsGroupCard
         title={t('git.title')}
         description={t('git.description')}
-        headerEnd={
-          isLoading ? (
-            <Skeleton className="h-8 w-28 rounded-xl" />
-          ) : gitStatus?.installed ? (
-            <div className="flex items-center gap-2 text-sm text-emerald-500">
-              <CircleCheck className="size-4" />
-              <span>{t('git.status.installed', { version: gitStatus.version || '' })}</span>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <CircleMinus className="size-4" />
-              <span>{t('shared.status.notInstalled')}</span>
-            </div>
-          )
-        }
       >
         {isLoading ? (
           <div className="px-2 py-3">
@@ -896,14 +879,28 @@ export function IntegrationsSettingsSection() {
                   : t('git.installation.notInstalled')
               }
             >
-              {!gitStatus?.installed ? (
-                <InstallToolPopover
-                  toolId="git"
-                  toolName="Git"
-                  onInstalled={refetchGit}
-                  triggerClassName="h-8 rounded-lg px-3 text-xs font-medium"
-                />
-              ) : null}
+              <IntegrationStatusControl
+                mark={
+                  <IntegrationStatusMark
+                    tone={gitStatus?.installed ? 'ok' : 'muted'}
+                    label={
+                      gitStatus?.installed
+                        ? t('git.status.installed', { version: gitStatus.version || '' })
+                        : t('shared.status.notInstalled')
+                    }
+                  />
+                }
+                action={
+                  gitStatus?.installed ? undefined : (
+                    <InstallToolPopover
+                      toolId="git"
+                      toolName="Git"
+                      onInstalled={refetchGit}
+                      triggerClassName="h-8 rounded-lg px-3 text-xs font-medium"
+                    />
+                  )
+                }
+              />
             </SettingsGroupRow>
             {gitStatus?.installed && (gitStatus.username || gitStatus.email) ? (
               <SettingsGroupRow
@@ -923,21 +920,6 @@ export function IntegrationsSettingsSection() {
       <SettingsGroupCard
         title={t('tmux.title')}
         description={t('tmux.description')}
-        headerEnd={
-          isLoading ? (
-            <Skeleton className="h-8 w-28 rounded-xl" />
-          ) : tmuxStatus?.installed ? (
-            <div className="flex items-center gap-2 text-sm text-emerald-500">
-              <CircleCheck className="size-4" />
-              <span>{t('tmux.status.installed', { version: tmuxStatus.version || '' })}</span>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <CircleMinus className="size-4" />
-              <span>{t('shared.status.notInstalled')}</span>
-            </div>
-          )
-        }
       >
         {isLoading ? (
           <div className="px-2 py-3">
@@ -954,14 +936,28 @@ export function IntegrationsSettingsSection() {
                   : t('tmux.installation.notInstalled')
               }
             >
-              {!tmuxStatus?.installed ? (
-                <InstallToolPopover
-                  toolId="tmux"
-                  toolName="tmux"
-                  onInstalled={refetchTmux}
-                  triggerClassName="h-8 rounded-lg px-3 text-xs font-medium"
-                />
-              ) : null}
+              <IntegrationStatusControl
+                mark={
+                  <IntegrationStatusMark
+                    tone={tmuxStatus?.installed ? 'ok' : 'muted'}
+                    label={
+                      tmuxStatus?.installed
+                        ? t('tmux.status.installed', { version: tmuxStatus.version || '' })
+                        : t('shared.status.notInstalled')
+                    }
+                  />
+                }
+                action={
+                  tmuxStatus?.installed ? undefined : (
+                    <InstallToolPopover
+                      toolId="tmux"
+                      toolName="tmux"
+                      onInstalled={refetchTmux}
+                      triggerClassName="h-8 rounded-lg px-3 text-xs font-medium"
+                    />
+                  )
+                }
+              />
             </SettingsGroupRow>
             {tmuxStatus?.installed ? (
               <SettingsGroupRow

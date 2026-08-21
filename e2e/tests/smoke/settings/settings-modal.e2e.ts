@@ -8,7 +8,7 @@ import {
   stubComputerClientSettingsApi,
 } from "../support/app-smoke";
 
-const SETTINGS_HEADINGS: Record<string, RegExp> = {
+const SETTINGS_SIDEBAR_ITEMS: Record<string, RegExp> = {
   keyboard: /^(Keyboard|键盘)$/,
   interface: /^(Interface|界面)$/,
   "remote-access": /^(Remote Access|远程访问)$/,
@@ -24,7 +24,7 @@ test.describe("smoke settings", () => {
 
     await openSettingsPage(page);
     await expect(page.getByRole("dialog", { name: /^(Settings|设置)$/ })).toHaveCount(0);
-    await expect(page.getByRole("heading", { name: /^(Interface|General|界面|通用)$/ }).first()).toBeVisible();
+    await expect(page.getByRole("button", { name: SETTINGS_SIDEBAR_ITEMS.interface })).toBeVisible();
 
     await closeSettingsPage(page);
   });
@@ -35,7 +35,7 @@ test.describe("smoke settings", () => {
 
     await gotoSettingsRoute(page, "keyboard");
     await expect(page.getByRole("dialog", { name: /^(Settings|设置)$/ })).toHaveCount(0);
-    await expect(page.getByRole("heading", { name: SETTINGS_HEADINGS.keyboard })).toBeVisible();
+    await expect(page.getByRole("button", { name: SETTINGS_SIDEBAR_ITEMS.keyboard })).toBeVisible();
 
     await closeSettingsPage(page);
   });
@@ -52,7 +52,7 @@ test.describe("smoke settings", () => {
       await expect
         .poll(async () => normalizePathname(new URL(page.url()).pathname))
         .toBe("/settings");
-      await expect(page.getByRole("heading", { name: SETTINGS_HEADINGS[activeSettingTab] })).toBeVisible();
+      await expect(page.getByRole("button", { name: SETTINGS_SIDEBAR_ITEMS[activeSettingTab] })).toBeVisible();
     }
 
     await closeSettingsPage(page);

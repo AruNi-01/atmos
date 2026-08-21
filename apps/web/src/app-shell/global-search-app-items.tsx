@@ -28,6 +28,7 @@ import { appApi } from "@/api/ws-api";
 import type { GithubPrPayload } from "@/api/ws/github-api";
 import { currentAppLocale } from "@/shared/lib/current-app-locale";
 import { settingsHref } from "@/features/settings/lib/open-settings";
+import { settingsGroupTabForSearchItem } from "@/features/settings/lib/settings-section-group-tabs";
 import { writeQuickOpenLastUsed } from "@/shared/stores/use-ui-pref-hooks";
 import { tasksPathWithStoredSource } from "@/features/task/lib/task-source-preference";
 import enMessages from "../../messages/en.json";
@@ -505,7 +506,10 @@ export function buildGlobalSearchItems({
       searchOnly: true,
       action: () => {
         setPendingSettingsHighlight(`${settingItem.label} ${settingItem.description}`.trim());
-        router.push(settingsHref(settingItem.sectionId));
+        router.push(settingsHref(
+          settingItem.sectionId,
+          settingsGroupTabForSearchItem(settingItem) ?? undefined,
+        ));
         setGlobalSearchOpen(false);
       },
     });

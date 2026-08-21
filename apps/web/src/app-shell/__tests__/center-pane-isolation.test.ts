@@ -10,6 +10,7 @@ import {
   centerPaneSlotOccupancyKey,
   centerPaneTreeKey,
   isUsablePaneSlotBox,
+  paneSlotBoxesForContextSwitch,
   shouldWithholdUnmeasuredPaneTerminal,
 } from "@/app-shell/center-pane/use-center-pane-slot-boxes";
 
@@ -66,10 +67,16 @@ describe("center pane tab isolation", () => {
     expect(grid).toContain("CenterPaneDockPreview");
     expect(grid).toContain("data-center-pane-dragging");
     expect(grid).toContain("useAnimatedPaneTiles");
+    expect(grid).toContain("centerPaneLeafTileStyle");
     expect(grid).toContain("center-pane-leaf");
+    expect(grid).toContain("data-pane-snap");
+    expect(grid).toContain("contextId");
     expect(css).toContain("left 280ms");
     expect(css).toContain("[data-live-resizing]");
+    expect(css).toContain("[data-pane-snap]");
     expect(stage).toContain("seedFromFullPane");
+    expect(stage).toContain("mosaicContextId");
+    expect(stage).toContain("paintContextId");
     expect(stage).toContain("showMosaic");
     expect(stage).toContain("shouldSeedMosaicFromFullPane");
     expect(stage).toContain("collapsedStripOrderForContext");
@@ -98,8 +105,31 @@ describe("center pane tab isolation", () => {
     expect(slots).toContain("centerPaneSlotOccupancyKey(layout)");
     expect(slots).toContain("treeKey");
     expect(slots).toContain("centerPaneTreeKey");
+    expect(slots).toContain("paneSlotBoxesForContextSwitch");
     expect(frame).toContain("shouldWithholdUnmeasuredPaneTerminal");
     expect(frame).toContain("applySlotGeometry: isUrlSyncedActive");
+  });
+
+  it("restores the destination workspace slot boxes instead of morphing the previous split", () => {
+    const left = { top: 8, left: 8, width: 400, height: 240 };
+    const right = { top: 8, left: 420, width: 380, height: 240 };
+    const first = paneSlotBoxesForContextSwitch({
+      prevContextId: "ws-a",
+      nextContextId: "ws-b",
+      currentBoxes: { "pane-main": left, "pane-2": right },
+      cache: {},
+    });
+    expect(first.cache["ws-a"]?.["pane-main"]).toEqual(left);
+    expect(first.boxes).toEqual({});
+
+    const back = paneSlotBoxesForContextSwitch({
+      prevContextId: "ws-b",
+      nextContextId: "ws-a",
+      currentBoxes: {},
+      cache: first.cache,
+    });
+    expect(back.boxes["pane-main"]).toEqual(left);
+    expect(back.boxes["pane-2"]).toEqual(right);
   });
 
   it("changes slot occupancy when an empty pane gets its first tab", () => {

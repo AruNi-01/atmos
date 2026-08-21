@@ -867,12 +867,12 @@ export function AtmosComputerSection() {
               </Button>
             </div>
           </div>
+          <p className="text-xs leading-5 text-muted-foreground">
+            {t("panels.privateRelay.footerPrefix")}{' '}
+            <code className="rounded bg-muted px-1.5 py-0.5">RELAY_SECRET_KEY</code>{' '}
+            {t("panels.privateRelay.footerSuffix")}
+          </p>
         </div>
-        <p className="text-xs leading-5 text-muted-foreground">
-          {t("panels.privateRelay.footerPrefix")}{' '}
-          <code className="rounded bg-muted px-1.5 py-0.5">RELAY_SECRET_KEY</code>{' '}
-          {t("panels.privateRelay.footerSuffix")}
-        </p>
       </SettingsBlock>
 
       <ComputerDetailsDialog

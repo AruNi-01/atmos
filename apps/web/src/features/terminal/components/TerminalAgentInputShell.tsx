@@ -70,7 +70,8 @@ export function TerminalAgentInputShell({
   return (
     <div
       className={cn(
-        "mb-1 grid w-full transition-[grid-template-rows,opacity,transform] duration-200 ease-out",
+        "grid w-full transition-[grid-template-rows,opacity,transform] duration-200 ease-out",
+        (isOverlayVisible || isSendAnimating || isSendExiting) && "mb-1",
         isSendExiting
           ? "grid-rows-[1fr] opacity-0 -translate-y-3"
           : isOverlayVisible
