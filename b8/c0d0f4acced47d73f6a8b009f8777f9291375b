@@ -1,0 +1,28 @@
+apps/web/src/features/agent-fix/components/AgentFixToolbarPrimitive.tsx
+  h_5be255725524c8 5,21-23,45-92,94-98,111-112,117-118
+apps/web/src/features/browser/components/RunScript.tsx
+  h_5be255725524c8 476
+apps/web/src/features/canvas/components/widgets/CanvasReviewWidget.tsx
+  h_5be255725524c8 88
+apps/web/src/features/diff/components/ReviewCenterPanel.tsx
+  h_5be255725524c8 23
+apps/web/src/features/diff/components/ReviewView.tsx
+  h_5be255725524c8 243,266,268-269,275,282
+apps/web/src/features/diff/components/review/FixActionsMenu.tsx
+  h_5be255725524c8 5,73,75-76,78,83
+apps/web/src/features/diff/components/review/ReviewActions.tsx
+  h_5be255725524c8 12,24,159,416-418,425,427-428,430,432-433,436-437,521-536
+apps/web/src/features/files/components/FileTreePanel.tsx
+  h_5be255725524c8 86
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "b8c0d0f4acced47d73f6a8b009f8777f9291375b",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
