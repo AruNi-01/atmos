@@ -10,7 +10,6 @@ import {
   cn,
 } from '@workspace/ui';
 import {
-  FlaskConical,
   Laptop,
   LoaderCircle,
   RotateCw,
@@ -50,6 +49,7 @@ import { MobilePairQrPanel } from '@/features/atmos-computer/components/MobilePa
 import { RemoteComputerSetupBlock } from '@/features/atmos-computer/components/RemoteComputerSetupBlock';
 import { clearRemoteComputerRegisterTokenCache } from '@/features/connection/lib/remote-computer-register-token-cache';
 import {
+  SettingsExperimentalNotice,
   SettingsGroup,
   SettingsGroupCard,
   SettingsGroupRow,
@@ -547,14 +547,9 @@ export function AtmosComputerSection() {
 
   return (
     <SettingsPageStack>
-      <SettingsGroup className="bg-amber-500/10">
-        <div className="flex items-start gap-2 px-2 py-3">
-          <FlaskConical className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-400" />
-          <p className="min-w-0 text-xs leading-5 text-muted-foreground">
-            {t("developmentWarning")}
-          </p>
-        </div>
-      </SettingsGroup>
+      <SettingsExperimentalNotice>
+        {t("developmentWarning")}
+      </SettingsExperimentalNotice>
 
       {!hasConfiguredKey ? (
         <SettingsGroup>

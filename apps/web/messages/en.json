@@ -371,6 +371,8 @@
       "newPtDesign": "Prototype Design",
       "newFiles": "Files",
       "newSimulator": "Simulator",
+      "fullscreen": "Fullscreen",
+      "exitFullscreen": "Exit fullscreen",
       "splitRight": "Split right",
       "splitDown": "Split down",
       "layouts": "Layouts",
@@ -379,6 +381,10 @@
       "saveLayoutNamePlaceholder": "Layout name",
       "saveLayoutConfirm": "Save",
       "saveLayoutCancel": "Cancel",
+      "applyLayoutConfirmTitle": "Replace current layout?",
+      "applyLayoutConfirmDescription": "This replaces the current center split and open tabs, except Overview. Editor, PR, issue, and diff tabs will close.",
+      "applyLayoutConfirm": "Replace",
+      "applyLayoutCancel": "Cancel",
       "closePane": "Close",
       "newTabMenu": "New tab",
       "changes": "Changes",
@@ -6529,6 +6535,7 @@
       }
     },
     "browser": {
+      "developmentWarning": "Browser Use is still in active development. You may encounter bugs or incomplete behavior.",
       "groups": {
         "placement": {
           "title": "Placement",
@@ -6599,6 +6606,7 @@
       "label": "Desktop Use",
       "description": "Capture and control the local desktop (screenshot, click, type)",
       "desktopOnly": "Desktop Use is only available in Atmos Desktop.",
+      "developmentWarning": "Desktop Use is still in active development. You may encounter bugs or incomplete behavior.",
       "status": {
         "webOnly": "Desktop only"
       },
@@ -9728,11 +9736,11 @@
     "errorBreakout": {
       "notFound": {
         "description": "Sorry, the page you're looking for could not be found.",
-        "home": "GO BACK HOME"
+        "home": "Go back home"
       },
       "server": {
         "description": "Sorry, something went wrong in Atmos.",
-        "retry": "TRY AGAIN",
+        "retry": "Try again",
         "home": "Go back home"
       },
       "canvasLabel": {

@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Scan } from "lucide-react";
 import {
+  SettingsExperimentalNotice,
   SettingsGroupCard,
 } from "@/features/settings/components/settings/SettingsGroupCard";
 import { SettingsToggleRow } from "@/features/settings/components/settings/SettingsToggleRow";
@@ -24,6 +25,10 @@ export function BrowserSettingsSection() {
 
   return (
     <div className="space-y-4">
+      <SettingsExperimentalNotice>
+        {t("developmentWarning")}
+      </SettingsExperimentalNotice>
+
       <SettingsGroupCard
         open={agentOpen}
         onOpenChange={setAgentOpen}

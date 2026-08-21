@@ -7,7 +7,7 @@ import {
   CollapsibleTrigger,
   cn,
 } from '@workspace/ui';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, FlaskConical } from 'lucide-react';
 
 export const SETTINGS_SECTION_DOM_ID_PREFIX = 'settings-section-';
 
@@ -71,6 +71,20 @@ export function SettingsGroup({
 
 export function SettingsPageStack({ children }: { children: React.ReactNode }) {
   return <div className="space-y-8">{children}</div>;
+}
+
+/** Amber flask notice for settings pages that are still in active development. */
+export function SettingsExperimentalNotice({ children }: { children: React.ReactNode }) {
+  return (
+    <SettingsGroup className="bg-amber-500/10">
+      <div className="flex items-start gap-2 px-2 py-3">
+        <FlaskConical className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-400" />
+        <p className="min-w-0 text-xs leading-5 text-muted-foreground">
+          {children}
+        </p>
+      </div>
+    </SettingsGroup>
+  );
 }
 
 /** Shared settings row used by Editor / Terminal (and similar) sections. */

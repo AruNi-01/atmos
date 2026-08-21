@@ -371,6 +371,8 @@
       "newPtDesign": "Prototype Design",
       "newFiles": "文件",
       "newSimulator": "模拟器",
+      "fullscreen": "全屏",
+      "exitFullscreen": "退出全屏",
       "splitRight": "向右分屏",
       "splitDown": "向下分屏",
       "layouts": "布局",
@@ -379,6 +381,10 @@
       "saveLayoutNamePlaceholder": "布局名称",
       "saveLayoutConfirm": "保存",
       "saveLayoutCancel": "取消",
+      "applyLayoutConfirmTitle": "替换当前布局？",
+      "applyLayoutConfirmDescription": "将用所选布局替换当前 center 分屏和已打开的标签（Overview 除外）。编辑器、PR、Issue 和 diff 等标签会被关闭。",
+      "applyLayoutConfirm": "替换",
+      "applyLayoutCancel": "取消",
       "closePane": "关闭",
       "newTabMenu": "新建标签页",
       "changes": "变更",
@@ -6529,6 +6535,7 @@
       }
     },
     "browser": {
+      "developmentWarning": "Browser Use 仍在积极开发中，可能会遇到缺陷或不完整的行为。",
       "groups": {
         "placement": {
           "title": "打开位置",
@@ -6599,6 +6606,7 @@
       "label": "Desktop Use",
       "description": "本机桌面捕获与控制（截图、点击、输入）",
       "desktopOnly": "Desktop Use 仅在 Atmos 桌面端可用。",
+      "developmentWarning": "Desktop Use 仍在积极开发中，可能会遇到缺陷或不完整的行为。",
       "status": {
         "webOnly": "仅桌面端"
       },

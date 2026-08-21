@@ -32,6 +32,7 @@ import { useOpenPermissionAccessSettings } from "@/features/appshot/lib/open-des
 // systemApi used only for install/update of the canonical CLI (not for version gate).
 import { DesktopUseEngineProgressBar } from "@/features/settings/components/DesktopUseEngineProgressBar";
 import {
+  SettingsExperimentalNotice,
   SettingsGroupCard,
   SettingsGroupRow,
 } from "@/features/settings/components/settings/SettingsGroupCard";
@@ -598,6 +599,10 @@ export function DesktopUseSettingsSection() {
 
   return (
     <div className="space-y-4">
+      <SettingsExperimentalNotice>
+        {t("developmentWarning")}
+      </SettingsExperimentalNotice>
+
       {/* CLI gate — only when missing or below package min (hidden when OK). */}
       {showCliGateBanner ? (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3">
