@@ -109,6 +109,15 @@ describe("mapOverviewToSharePayload", () => {
     expect(JSON.stringify(payload)).not.toContain("prompt");
     expect(JSON.stringify(payload)).not.toContain("partial_warnings");
     expect(JSON.stringify(payload)).not.toContain("browser_cookie");
+    expect(payload.summary.computer_count).toBeUndefined();
+  });
+
+  it("keeps computer_count when aggregating more than one Computer", () => {
+    const payload = mapOverviewToSharePayload(
+      { ...overviewFixture(), computer_count: 3 },
+      { includeCost: false },
+    );
+    expect(payload.summary.computer_count).toBe(3);
   });
 
   it("omits cost fields when not included", () => {

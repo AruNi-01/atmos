@@ -240,6 +240,14 @@ export function normalizeSharePayload(
         ...(opts.includeCost
           ? { total_cost_usd: asFiniteNumber(summaryIn.total_cost_usd) }
           : {}),
+        ...(asFiniteNumber(summaryIn.computer_count) > 1
+          ? {
+              computer_count: Math.min(
+                99,
+                Math.floor(asFiniteNumber(summaryIn.computer_count)),
+              ),
+            }
+          : {}),
         mix: {
           input: asFiniteNumber(mixIn.input),
           output: asFiniteNumber(mixIn.output),

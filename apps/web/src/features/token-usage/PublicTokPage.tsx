@@ -7,6 +7,7 @@ import { XIcon } from "@workspace/ui";
 import { useLocale, useTranslations } from "next-intl";
 
 import { GithubUserHoverCard } from "@/features/github/components/GithubUserHoverCard";
+import { HandleComputerCount } from "@/features/token-usage/HandleComputerCount";
 import { TokenUsageOverviewView } from "@/features/token-usage/TokenUsageOverviewView";
 import type { TokenUsageSharePayload } from "@/features/token-usage/token-usage-share-payload";
 
@@ -72,7 +73,10 @@ export function PublicTokPage({
         <header className="flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-2.5">
             {avatar}
-            <span className="truncate text-sm font-medium">@{handle}</span>
+            <span className="inline-flex min-w-0 items-baseline text-sm font-medium">
+              <span className="truncate">@{handle}</span>
+              <HandleComputerCount count={payload.summary.computer_count} />
+            </span>
           </div>
           <div className="flex shrink-0 items-center gap-3">
             {xUsername ? (

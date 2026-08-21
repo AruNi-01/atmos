@@ -6,11 +6,12 @@ use axum::extract::State;
 use axum::http::HeaderMap;
 use axum::Json;
 use runtime_manager::{
-    clear_computer_client_settings, clear_server_identity, computer_client_settings_path,
-    default_relay_url, local_computer_display_name, local_computer_display_name_opt,
-    normalize_relay_url, read_computer_client_settings, read_runtime_manifest,
-    read_server_identity, register_computer, resolve_relay_proxy_auth, resolved_relay_url,
-    write_computer_client_settings, ComputerClientSettings, COMPUTER_CLIENT_SETTINGS_VERSION,
+    app_device_id, clear_computer_client_settings, clear_server_identity,
+    computer_client_settings_path, default_relay_url, local_computer_display_name,
+    local_computer_display_name_opt, normalize_relay_url, read_computer_client_settings,
+    read_runtime_manifest, read_server_identity, register_computer, resolve_relay_proxy_auth,
+    resolved_relay_url, write_computer_client_settings, ComputerClientSettings,
+    COMPUTER_CLIENT_SETTINGS_VERSION,
 };
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -45,6 +46,7 @@ pub async fn get_computer_status(
         "relay_connected": relay_connected,
         "relay_last_error": relay_last_error,
         "server_id": identity.as_ref().map(|i| i.server_id.clone()),
+        "app_device_id": app_device_id().ok(),
         "relay_url": identity
             .as_ref()
             .and_then(|i| i.relay_url.clone())
@@ -90,6 +92,7 @@ pub async fn get_runtime_info(
 
     Ok(Json(ApiResponse::success(json!({
         "api_version": env!("CARGO_PKG_VERSION"),
+        "app_device_id": app_device_id().ok(),
         "runtime_manifest": manifest_json,
         "registration_meta": identity.as_ref().and_then(|i| i.registration_meta.clone()),
         "relay": {

@@ -629,6 +629,14 @@
         "loadOverviewFallback": "Failed to load token usage overview",
         "loadOverviewTitle": "Failed to load token usage"
       },
+      "computerScope": {
+        "allComputers": "All computers",
+        "loadOtherError": "Could not reach this Computer.",
+        "missedComputer": "{name} was not included",
+        "missedBanner": "Some Computers could not be reached. Totals are only for machines that answered.",
+        "noneReached": "Could not reach any Computer.",
+        "aggregatedTooltip": "Aggregated from {count} computers"
+      },
       "browserCookie": {
         "title": "Include signed-in web usage",
         "note": "Atmos found {products} on this computer. To add dashboard token usage, Atmos Server will ask Keychain Access to decrypt the matching browser cookie. Keys stay local and are used only to read usage data.",

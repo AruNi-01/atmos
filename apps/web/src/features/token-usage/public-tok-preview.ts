@@ -88,6 +88,7 @@ export function buildPublicTokPreview(): PublicTokData {
         model_count: 12,
         total_cost_usd: Number((total_tokens / 1_200_000).toFixed(2)),
         mix,
+        computer_count: 3,
       },
       by_client: [
         { id: "claude", total_tokens: Math.round(total_tokens * 0.46), message_count: 420 },

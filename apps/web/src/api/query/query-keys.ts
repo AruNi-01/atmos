@@ -546,6 +546,32 @@ export const queryKeys = {
     root: (scope: RelayQueryScope) =>
       ["atmos", "relay", scope.relayUrl, scope.authRevision] as const,
   },
+  tokenUsage: {
+    scopedOverview: (
+      scope: RelayQueryScope,
+      usageKey: string,
+      filters?: {
+        year?: string | null;
+        since?: string | null;
+        until?: string | null;
+        clients?: string[] | null;
+        groupBy?: string | null;
+      },
+    ) =>
+      [
+        ...queryKeys.relay.root(scope),
+        "tokenUsage",
+        "overview",
+        usageKey,
+        {
+          year: filters?.year ?? null,
+          since: filters?.since ?? null,
+          until: filters?.until ?? null,
+          clients: filters?.clients ?? null,
+          groupBy: filters?.groupBy ?? null,
+        },
+      ] as const,
+  },
   /** Unauthenticated GitHub REST (share/leaderboard hover cards). */
   publicGithub: {
     userCard: (login: string) =>

@@ -190,6 +190,23 @@ describe("normalizeSharePayload", () => {
     expect(out.snapshot.schema_version).toBe(2);
   });
 
+  test("keeps computer_count on aggregated snapshots", () => {
+    const out = normalizeSharePayload(
+      slimSnapshot({
+        summary: {
+          ...slimSnapshot().summary,
+          computer_count: 4,
+        },
+      }),
+      { includeCost: false },
+    );
+    expect(out.ok).toBe(true);
+    if (!out.ok) return;
+    expect(
+      (out.snapshot.summary as { computer_count?: number }).computer_count,
+    ).toBe(4);
+  });
+
   test("strips cost unless included", () => {
     const without = normalizeSharePayload(
       slimSnapshot({

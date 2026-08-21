@@ -21,6 +21,7 @@ export interface LocalComputerStatus {
   /** Last relay connect failure from the local API, if any. */
   relay_last_error?: string | null;
   server_id: string | null;
+  app_device_id?: string | null;
   relay_url: string;
   relay_ws_url: string | null;
   shell_env?: ShellEnvInfo;
@@ -176,6 +177,7 @@ export async function loadLocalComputerStatus(
     relay_connected: false,
     relay_last_error: null,
     server_id: knownServerId ?? null,
+    app_device_id: null,
     relay_url: DEFAULT_RELAY,
     relay_ws_url: null,
     shell_env: overview?.shell_env,
