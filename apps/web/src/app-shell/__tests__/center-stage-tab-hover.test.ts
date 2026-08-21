@@ -66,7 +66,7 @@ describe("center stage tab hover", () => {
     expect(menuBlock).not.toContain("overflow-visible");
   });
 
-  it("splits the plus menu into hover-switch pill tabs that fill the popover", () => {
+  it("splits the plus menu into click-switch pill tabs that fill the popover", () => {
     const menuBlock = tabBar.slice(
       tabBar.indexOf("function CenterStageNewTabMenu"),
       tabBar.indexOf("function SpecialTerminalTab"),
@@ -74,7 +74,13 @@ describe("center stage tab hover", () => {
     expect(tabBar).toContain('@workspace/ui/components/motion/tabs');
     expect(menuBlock).toContain('variant="pill"');
     expect(menuBlock).toContain('className="flex h-8 w-full min-w-0 gap-0.5 p-0.5"');
-    expect(menuBlock).toContain('onMouseEnter={() => setPlusTab("layout")}');
+    expect(menuBlock).toContain('onValueChange={(value) => {');
+    const tabList = menuBlock.slice(
+      menuBlock.indexOf("<MotionTabsList"),
+      menuBlock.indexOf("</MotionTabsList>"),
+    );
+    expect(tabList).not.toContain("onMouseEnter");
+    expect(tabList).not.toContain("setPlusTab");
     expect(menuBlock).toContain('value="tabs"');
     expect(menuBlock).toContain('value="layout"');
     expect(menuBlock).toContain("plusMenuTabsLabel");

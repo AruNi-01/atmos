@@ -1442,17 +1442,12 @@ function CenterStageNewTabMenu({
               <MotionTabsTrigger
                 value="tabs"
                 className="h-7 min-w-0 flex-1 px-2 text-xs"
-                onMouseEnter={() => {
-                  setPlusTab("tabs");
-                  setLayoutsSubOpen(false);
-                }}
               >
                 {plusMenuTabsLabel}
               </MotionTabsTrigger>
               <MotionTabsTrigger
                 value="layout"
                 className="h-7 min-w-0 flex-1 px-2 text-xs"
-                onMouseEnter={() => setPlusTab("layout")}
               >
                 {plusMenuLayoutLabel}
               </MotionTabsTrigger>
