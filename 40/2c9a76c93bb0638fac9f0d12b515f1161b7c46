@@ -1,0 +1,18 @@
+apps/web/src/app-shell/__tests__/center-pane-dock-hover.test.ts
+  h_5be255725524c8 1-62
+apps/web/src/app-shell/center-pane/CenterPaneGrid.tsx
+  h_5be255725524c8 47-50,151-152,172-183,218-221,250-251,635-645
+apps/web/src/app-shell/center-pane/center-pane-dock-hover.ts
+  h_5be255725524c8 1-49
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "402c9a76c93bb0638fac9f0d12b515f1161b7c46",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
