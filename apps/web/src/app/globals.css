@@ -270,15 +270,28 @@ html:not([data-theme-ready="true"]) body {
   }
 
   /*
-   * Overlay-safe scrollbar tint.
-   * Setting width/height on `::-webkit-scrollbar` switches Chromium from macOS
-   * overlay scrollbars to classic gutters and kills rubber-banding at the
-   * edges of overflow:auto regions. `scrollbar-color` tints the overlay thumb
-   * without changing the scrollbar theme.
+   * Thin overlay scrollbars, without killing macOS rubber-banding.
+   * `::-webkit-scrollbar { width/height }` switches Chromium to classic
+   * gutters and the edge bounce disappears. `scrollbar-width: thin` is the
+   * platform thin overlay; `scrollbar-color` tints the thumb. Thumb/track
+   * cosmetics below must not set a width.
    */
   * {
-    scrollbar-color: color-mix(in oklab, var(--muted-foreground) 28%, transparent) transparent;
-    scrollbar-width: auto;
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in oklab, var(--muted-foreground) 22%, transparent) transparent;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background: color-mix(in oklab, var(--muted-foreground) 22%, transparent);
+    border-radius: 9999px;
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background: color-mix(in oklab, var(--muted-foreground) 40%, transparent);
   }
 
   *::-webkit-scrollbar-corner {
@@ -348,23 +361,42 @@ html:not([data-theme-ready="true"]) body {
     scrollbar-width: none; /* Firefox */
   }
 
-  /* Hide classic thumbs until hover without forcing a classic scrollbar width
-     (which would disable overlay rubber-banding). Native overlay bars already
-     fade on idle. */
+  /* Idle: hide the thin thumb. Hover: same tint as the global overlay bar.
+     Do not set ::-webkit-scrollbar width here — that would drop bounce. */
   .scrollbar-on-hover {
     scrollbar-color: transparent transparent;
   }
+  .scrollbar-on-hover::-webkit-scrollbar-thumb {
+    background: transparent;
+  }
   .scrollbar-on-hover:hover {
-    scrollbar-color: color-mix(in oklab, var(--muted-foreground) 28%, transparent) transparent;
+    scrollbar-color: color-mix(in oklab, var(--muted-foreground) 22%, transparent) transparent;
+  }
+  .scrollbar-on-hover:hover::-webkit-scrollbar-thumb {
+    background: color-mix(in oklab, var(--muted-foreground) 22%, transparent);
+  }
+  .scrollbar-on-hover:hover::-webkit-scrollbar-thumb:hover {
+    background: color-mix(in oklab, var(--muted-foreground) 40%, transparent);
   }
 
   .scrollbar-overlay-on-hover {
+    scrollbar-width: thin;
     scrollbar-color: transparent transparent;
-    scrollbar-width: auto;
+  }
+  .scrollbar-overlay-on-hover::-webkit-scrollbar-thumb {
+    background: transparent;
   }
   .scrollbar-overlay-on-hover:hover,
   .scrollbar-overlay-on-hover.is-scrolling {
-    scrollbar-color: color-mix(in oklab, var(--muted-foreground) 28%, transparent) transparent;
+    scrollbar-color: color-mix(in oklab, var(--muted-foreground) 22%, transparent) transparent;
+  }
+  .scrollbar-overlay-on-hover:hover::-webkit-scrollbar-thumb,
+  .scrollbar-overlay-on-hover.is-scrolling::-webkit-scrollbar-thumb {
+    background: color-mix(in oklab, var(--muted-foreground) 22%, transparent);
+  }
+  .scrollbar-overlay-on-hover:hover::-webkit-scrollbar-thumb:hover,
+  .scrollbar-overlay-on-hover.is-scrolling::-webkit-scrollbar-thumb:hover {
+    background: color-mix(in oklab, var(--muted-foreground) 40%, transparent);
   }
 }
 

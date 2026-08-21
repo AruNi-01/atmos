@@ -14,7 +14,7 @@ describe("overlay scroll bounce (macOS rubber-banding)", () => {
     expect(css).not.toMatch(/\*::-webkit-scrollbar\s*\{[^}]*\bwidth\s*:/);
     expect(css).not.toMatch(/\*::-webkit-scrollbar\s*\{[^}]*\bheight\s*:/);
     expect(css).toContain("scrollbar-color:");
-    expect(css).toContain("scrollbar-width: auto");
+    expect(css).toContain("scrollbar-width: thin");
     expect(css).toContain(".agent-chat-scroll");
     expect(css).toContain("scrollbar-gutter: auto !important");
 
@@ -31,7 +31,7 @@ describe("overlay scroll bounce (macOS rubber-banding)", () => {
       "apps/web/src/features/editor/components/BaseCodeMirrorEditor.tsx",
     );
     expect(src).not.toMatch(/\.cm-scroller::-webkit-scrollbar['"]\s*:\s*\{[^}]*width/);
-    expect(src).toContain("scrollbarWidth: 'auto'");
+    expect(src).toContain("scrollbarWidth: 'thin'");
   });
 
   it("enables Electron scrollBounce on product windows", () => {

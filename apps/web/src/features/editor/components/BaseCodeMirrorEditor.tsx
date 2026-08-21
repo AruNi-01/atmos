@@ -92,7 +92,7 @@ function createEditorTheme(isDark: boolean): Extension {
         fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace',
         lineHeight: '1.6',
         overflow: 'auto',
-        scrollbarWidth: 'auto',
+        scrollbarWidth: 'thin',
         scrollbarColor: isDark ? 'rgba(161, 161, 170, 0.28) transparent' : 'rgba(113, 113, 122, 0.24) transparent',
       },
       '.cm-content': {
