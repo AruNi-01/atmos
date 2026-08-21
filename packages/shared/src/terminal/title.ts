@@ -237,6 +237,16 @@ export function isBareProcessTitle(value: string | undefined): boolean {
 }
 
 /**
+ * Default tmux window names are decimal indexes (`1`, `6`). Those are attach
+ * identities, not display titles — center tabs should keep the last cwd/command.
+ */
+export function isTmuxIndexTitle(value: string | undefined): boolean {
+  const trimmed = value?.trim();
+  if (!trimmed) return false;
+  return /^\d+$/.test(trimmed);
+}
+
+/**
  * Reattach injects CMD_START:<process> which must not clobber a richer title
  * already held in the pane store (warm workspace switch keep-alive).
  */
@@ -247,6 +257,8 @@ export function isDynamicTitleDowngrade(
   const prev = existing?.trim();
   const n = next?.trim();
   if (!prev || !n || prev === n) return false;
+  // Never replace a real title with a tmux window index.
+  if (isTmuxIndexTitle(n)) return true;
   if (!isBareProcessTitle(n)) return false;
   // Process just started over a cwd/path title — that is an upgrade, allow it.
   if (isPathLikeTitle(prev)) return false;

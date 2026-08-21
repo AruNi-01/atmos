@@ -149,6 +149,8 @@ export interface FunctionSettings {
   center_stage?: {
     /** Portable layout snapshots (geometry + surface kinds). */
     saved_layouts?: unknown[];
+    /** Per-workspace/project named center spaces. */
+    spaces?: unknown;
     [key: string]: unknown;
   };
   [key: string]: unknown;

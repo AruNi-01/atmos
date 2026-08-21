@@ -7,6 +7,8 @@ import {
   centerPaneLayoutsEqual,
   closePane,
   createDefaultLayout,
+  createEmptyCenterLayout,
+  isFreshEmptyCenterLayout,
   focusPane,
   migrateLegacySinglePaneStripOrder,
   normalizeCenterPaneLayout,
@@ -26,6 +28,7 @@ import {
   removeTabFromLayout,
   MAX_CENTER_PANES,
 } from "@/app-shell/center-pane/center-pane-layout";
+import { isExtraCenterSpaceKey } from "@/app-shell/center-space/center-space";
 
 const STORAGE_KEY = "atmos.center-pane-layout.v1";
 const MAX_CONTEXTS = 24;
@@ -73,6 +76,8 @@ type CenterPaneLayoutStore = {
   ) => void;
   setColumns: (contextId: string, columnCount: number) => void;
   setTree: (contextId: string, tree: CenterPaneTree) => void;
+  /** Drop a context's mosaic (used when deleting a center space). */
+  forgetContext: (contextId: string) => void;
 };
 
 function persist(byContext: LayoutByContext) {
@@ -119,6 +124,18 @@ export const useCenterPaneLayoutStore = create<CenterPaneLayoutStore>((set, get)
       return withCanonicalTabStrip(createDefaultLayout(openTabIds, activeTabId));
     }
     const existing = get().byContext[contextId];
+    if (isExtraCenterSpaceKey(contextId)) {
+      const empty = existing
+        ? normalizeCenterPaneLayout(existing)
+        : createEmptyCenterLayout();
+      if (!existing || isFreshEmptyCenterLayout(empty)) {
+        if (!existing) get().setLayout(contextId, empty);
+        return get().byContext[contextId] ?? empty;
+      }
+    }
+    if (existing && isFreshEmptyCenterLayout(normalizeCenterPaneLayout(existing))) {
+      return normalizeCenterPaneLayout(existing);
+    }
     if (existing) {
       const reconciled = reconcileOpenTabs(
         normalizeCenterPaneLayout(existing),
@@ -157,7 +174,10 @@ export const useCenterPaneLayoutStore = create<CenterPaneLayoutStore>((set, get)
 
   patchLayout: (contextId, updater) => {
     const current =
-      get().byContext[contextId] ?? createDefaultLayout(["terminal"], "terminal");
+      get().byContext[contextId] ??
+      (isExtraCenterSpaceKey(contextId)
+        ? createEmptyCenterLayout()
+        : createDefaultLayout(["terminal"], "terminal"));
     const next = updater(current);
     if (next === current || centerPaneLayoutsEqual(current, next)) {
       return;
@@ -238,5 +258,15 @@ export const useCenterPaneLayoutStore = create<CenterPaneLayoutStore>((set, get)
 
   setTree: (contextId, tree) => {
     get().patchLayout(contextId, (layout) => applyCenterPaneTree(layout, tree));
+  },
+
+  forgetContext: (contextId) => {
+    if (!contextId) return;
+    const current = get().byContext;
+    if (!(contextId in current)) return;
+    const byContext = { ...current };
+    delete byContext[contextId];
+    persist(byContext);
+    set({ byContext, hydrated: true });
   },
 }));

@@ -235,6 +235,24 @@ describe("resolveTerminalCenterTabPresentation", () => {
     expect(result.toolbarAgent?.id).toBe("claude");
   });
 
+  it("shows the last cwd instead of the tmux window index", () => {
+    const panes = {
+      a: pane({
+        id: "a",
+        label: "1",
+        tmuxWindowName: "1",
+        dynamicTitle: "OpenSource/atmos",
+      }),
+    };
+    expect(
+      resolveTerminalCenterTabPresentation({
+        fallbackTitle: "Term",
+        panes,
+        layout: "a",
+      }).displayTitle,
+    ).toBe("OpenSource/atmos");
+  });
+
   it("uses the last-active pane when multiple panes exist", () => {
     const panes = {
       a: pane({ id: "a", label: "1", dynamicTitle: ".../proj" }),

@@ -5,6 +5,7 @@ import {
   extractStableCenterTabOscTitle,
   getTerminalDisplayMeta,
   isDynamicTitleDowngrade,
+  isTmuxIndexTitle,
   isShellPreexecCommandOscTitle,
   MAX_NATIVE_OSC_TITLE_CHARS,
   nextCenterTabSessionOscTitle,
@@ -73,6 +74,12 @@ describe("terminal title runtime wrapper fallback", () => {
     expect(isDynamicTitleDowngrade("Hermes Agent", "agy")).toBe(true);
     expect(isDynamicTitleDowngrade(".../foo/bar", "agy")).toBe(false);
     expect(isDynamicTitleDowngrade("agy", "node")).toBe(false);
+    expect(isDynamicTitleDowngrade("OpenSource/atmos", "1")).toBe(true);
+    expect(isDynamicTitleDowngrade(".../foo/bar", "6")).toBe(true);
+    expect(isTmuxIndexTitle("1")).toBe(true);
+    expect(isTmuxIndexTitle("6")).toBe(true);
+    expect(isTmuxIndexTitle("OpenSource/atmos")).toBe(false);
+    expect(isTmuxIndexTitle("npm")).toBe(false);
   });
 
   it("falls back to the base title for versioned runtime wrapper commands", () => {

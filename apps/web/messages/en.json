@@ -175,6 +175,14 @@
       "open": "Open",
       "creatingHint": "Preparing the worktree. Setup details appear once the workspace exists."
     },
+    "centerSpace": {
+      "buttonLabel": "Spaces",
+      "buttonCountAria": "{count} spaces",
+      "defaultSpace": "Default",
+      "noPreview": "No preview yet",
+      "deleteSpace": "Delete {name}",
+      "limitReached": "Space limit reached"
+    },
     "searchAria": "Search",
     "searchPlaceholder": "Search...",
     "projectFallback": "Atmosphere for Agentic Builders",
@@ -376,6 +384,13 @@
       "splitRight": "Split right",
       "splitDown": "Split down",
       "layouts": "Layouts",
+      "plusMenuTabs": "Tabs",
+      "plusMenuLayout": "Layout",
+      "newSpace": "New space",
+      "newSpaceDialogTitle": "New space",
+      "newSpaceNamePlaceholder": "Space name",
+      "newSpaceConfirm": "Create",
+      "newSpaceCancel": "Cancel",
       "saveCurrentLayout": "Save current layout",
       "saveLayoutDialogTitle": "Save layout",
       "saveLayoutNamePlaceholder": "Layout name",

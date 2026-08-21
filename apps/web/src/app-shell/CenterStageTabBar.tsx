@@ -32,6 +32,12 @@ import {
   type DragEndEvent,
 } from "@workspace/ui";
 import {
+  Tabs as MotionTabs,
+  TabsList as MotionTabsList,
+  TabsTrigger as MotionTabsTrigger,
+} from "@workspace/ui/components/motion/tabs";
+import { motion, useReducedMotion } from "motion/react";
+import {
   BookOpen,
   Bot,
   ChevronRight,
@@ -40,6 +46,7 @@ import {
   GitBranch,
   Github,
   Globe,
+  Layers,
   LayoutTemplate,
   LoaderCircle,
   Maximize2,
@@ -159,6 +166,8 @@ interface CenterStageTabBarProps {
   setTabContextMenu: (value: CenterTabContextMenuState) => void;
   setWikiRefreshing: React.Dispatch<React.SetStateAction<boolean>>;
   setWikiRefreshTrigger: React.Dispatch<React.SetStateAction<number>>;
+  /** Owning mosaic pane — fullscreen expands this pane over sibling center regions. */
+  paneId?: string;
   /** Split the center stage into another pane (right). */
   onSplitRight?: () => void;
   /** Split the center stage into another pane (down). */
@@ -171,6 +180,8 @@ interface CenterStageTabBarProps {
   onApplyLayout?: (layoutId: string) => void;
   /** True when apply would replace a split or tabs other than Overview. */
   shouldConfirmApplyLayout?: () => boolean;
+  /** Create a new independent center space with a user-provided name. */
+  onCreateSpace?: (name: string) => void;
 }
 
 export function CenterStageTabBar({
@@ -222,12 +233,14 @@ export function CenterStageTabBar({
   setTabContextMenu,
   setWikiRefreshing,
   setWikiRefreshTrigger,
+  paneId,
   onSplitRight,
   onSplitDown,
   savedLayouts,
   onSaveLayout,
   onApplyLayout,
   shouldConfirmApplyLayout,
+  onCreateSpace,
 }: CenterStageTabBarProps) {
   const t = useTranslations("appShell");
   const newTerminalTabLabel = t("centerStageTabBar.newTerminalTab");
@@ -770,6 +783,7 @@ export function CenterStageTabBar({
             applyLayoutConfirmLabel={t("centerStageTabBar.applyLayoutConfirm")}
             applyLayoutCancelLabel={t("centerStageTabBar.applyLayoutCancel")}
             simulatorLabel={t("centerStageTabBar.newSimulator")}
+            paneId={paneId}
             fullscreenLabel={t("centerStageTabBar.fullscreen")}
             exitFullscreenLabel={t("centerStageTabBar.exitFullscreen")}
             splitDownLabel={t("centerStageTabBar.splitDown")}
@@ -785,6 +799,14 @@ export function CenterStageTabBar({
             onSaveLayout={onSaveLayout}
             onApplyLayout={onApplyLayout}
             shouldConfirmApplyLayout={shouldConfirmApplyLayout}
+            onCreateSpace={onCreateSpace}
+            newSpaceLabel={t("centerStageTabBar.newSpace")}
+            plusMenuTabsLabel={t("centerStageTabBar.plusMenuTabs")}
+            plusMenuLayoutLabel={t("centerStageTabBar.plusMenuLayout")}
+            newSpaceDialogTitle={t("centerStageTabBar.newSpaceDialogTitle")}
+            newSpaceNamePlaceholder={t("centerStageTabBar.newSpaceNamePlaceholder")}
+            newSpaceConfirmLabel={t("centerStageTabBar.newSpaceConfirm")}
+            newSpaceCancelLabel={t("centerStageTabBar.newSpaceCancel")}
           />
           <CenterStageTabGroupPopover
             open={tabGroupPopoverOpen}
@@ -1067,6 +1089,86 @@ function TerminalExtraTab({
   );
 }
 
+const PLUS_MENU_TAB_EASE = [0.22, 1, 0.36, 1] as const;
+
+function PlusMenuTabPanels({
+  tab,
+  tabs,
+  layout,
+}: {
+  tab: "tabs" | "layout";
+  tabs: React.ReactNode;
+  layout: React.ReactNode;
+}) {
+  const reduce = useReducedMotion();
+  const tabsRef = React.useRef<HTMLDivElement>(null);
+  const layoutRef = React.useRef<HTMLDivElement>(null);
+  const [height, setHeight] = React.useState<number | "auto">("auto");
+
+  React.useLayoutEffect(() => {
+    const el = tab === "layout" ? layoutRef.current : tabsRef.current;
+    if (!el) return;
+    const apply = () => {
+      const next = el.offsetHeight;
+      setHeight((prev) => (prev === next ? prev : next));
+    };
+    apply();
+    const observer = new ResizeObserver(apply);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [tab]);
+
+  return (
+    <motion.div
+      initial={false}
+      animate={reduce || height === "auto" ? undefined : { height }}
+      transition={{ duration: 0.3, ease: PLUS_MENU_TAB_EASE }}
+      className="mt-1 overflow-hidden"
+    >
+      <div className="relative">
+        <motion.div
+          ref={tabsRef}
+          initial={false}
+          animate={{
+            opacity: tab === "tabs" ? 1 : 0,
+            scale: tab === "tabs" ? 1 : 0.96,
+          }}
+          transition={{ duration: reduce ? 0 : 0.22, ease: PLUS_MENU_TAB_EASE }}
+          className={cn(
+            "origin-top",
+            tab === "tabs"
+              ? "relative"
+              : "pointer-events-none absolute inset-x-0 top-0",
+          )}
+          aria-hidden={tab !== "tabs"}
+          inert={tab !== "tabs" ? true : undefined}
+        >
+          {tabs}
+        </motion.div>
+        <motion.div
+          ref={layoutRef}
+          initial={false}
+          animate={{
+            opacity: tab === "layout" ? 1 : 0,
+            scale: tab === "layout" ? 1 : 0.96,
+          }}
+          transition={{ duration: reduce ? 0 : 0.22, ease: PLUS_MENU_TAB_EASE }}
+          className={cn(
+            "origin-top",
+            tab === "layout"
+              ? "relative"
+              : "pointer-events-none absolute inset-x-0 top-0",
+          )}
+          aria-hidden={tab !== "layout"}
+          inert={tab !== "layout" ? true : undefined}
+        >
+          {layout}
+        </motion.div>
+      </div>
+    </motion.div>
+  );
+}
+
 function CenterStageNewTabMenu({
   browserLabel,
   changesLabel,
@@ -1087,6 +1189,7 @@ function CenterStageNewTabMenu({
   applyLayoutConfirmLabel,
   applyLayoutCancelLabel,
   simulatorLabel,
+  paneId,
   fullscreenLabel,
   exitFullscreenLabel,
   splitDownLabel,
@@ -1102,6 +1205,14 @@ function CenterStageNewTabMenu({
   onSaveLayout,
   onApplyLayout,
   shouldConfirmApplyLayout,
+  onCreateSpace,
+  newSpaceLabel,
+  newSpaceDialogTitle,
+  newSpaceNamePlaceholder,
+  newSpaceConfirmLabel,
+  newSpaceCancelLabel,
+  plusMenuTabsLabel,
+  plusMenuLayoutLabel,
 }: {
   browserLabel: string;
   changesLabel: string;
@@ -1122,6 +1233,7 @@ function CenterStageNewTabMenu({
   applyLayoutConfirmLabel: string;
   applyLayoutCancelLabel: string;
   simulatorLabel: string;
+  paneId?: string;
   fullscreenLabel: string;
   exitFullscreenLabel: string;
   splitDownLabel: string;
@@ -1137,11 +1249,22 @@ function CenterStageNewTabMenu({
   onSaveLayout?: (name: string) => void;
   onApplyLayout?: (layoutId: string) => void;
   shouldConfirmApplyLayout?: () => boolean;
+  onCreateSpace?: (name: string) => void;
+  newSpaceLabel?: string;
+  newSpaceDialogTitle: string;
+  newSpaceNamePlaceholder: string;
+  newSpaceConfirmLabel: string;
+  newSpaceCancelLabel: string;
+  plusMenuTabsLabel: string;
+  plusMenuLayoutLabel: string;
 }) {
   const [open, setOpen] = React.useState(false);
+  const [plusTab, setPlusTab] = React.useState<"tabs" | "layout">("tabs");
   const [layoutsSubOpen, setLayoutsSubOpen] = React.useState(false);
   const [saveDialogOpen, setSaveDialogOpen] = React.useState(false);
   const [layoutName, setLayoutName] = React.useState("");
+  const [spaceDialogOpen, setSpaceDialogOpen] = React.useState(false);
+  const [spaceName, setSpaceName] = React.useState("");
   const [applyConfirmOpen, setApplyConfirmOpen] = React.useState(false);
   const [pendingApplyLayoutId, setPendingApplyLayoutId] = React.useState<string | null>(null);
   const isCenterFullscreen = useCenterStageFullscreenStore((state) => state.isFullscreen);
@@ -1205,6 +1328,21 @@ function CenterStageNewTabMenu({
     setLayoutName("");
   }, [layoutName, onSaveLayout]);
 
+  const openSpaceDialog = React.useCallback(() => {
+    setSpaceName("");
+    setSpaceDialogOpen(true);
+    setOpen(false);
+    setLayoutsSubOpen(false);
+  }, []);
+
+  const confirmCreateSpace = React.useCallback(() => {
+    const name = spaceName.trim();
+    if (!name || !onCreateSpace) return;
+    onCreateSpace(name);
+    setSpaceDialogOpen(false);
+    setSpaceName("");
+  }, [onCreateSpace, spaceName]);
+
   const requestApplyLayout = React.useCallback(
     (layoutId: string) => {
       if (shouldConfirmApplyLayout?.()) {
@@ -1236,7 +1374,10 @@ function CenterStageNewTabMenu({
         open={open}
         onOpenChange={(next) => {
           setOpen(next);
-          if (!next) setLayoutsSubOpen(false);
+          if (!next) {
+            setLayoutsSubOpen(false);
+            setPlusTab("tabs");
+          }
         }}
       >
         <PopoverTrigger asChild>
@@ -1264,7 +1405,7 @@ function CenterStageNewTabMenu({
           align="end"
           side="bottom"
           sideOffset={4}
-          className="w-48 border-border/70 bg-popover/90 p-1 shadow-lg backdrop-blur-xl"
+          className="w-48 overflow-hidden border-border/70 bg-popover/90 p-1 shadow-lg backdrop-blur-xl"
           onOpenAutoFocus={(event) => event.preventDefault()}
           onCloseAutoFocus={(event) => event.preventDefault()}
           onMouseEnter={clearCloseTimer}
@@ -1288,6 +1429,38 @@ function CenterStageNewTabMenu({
             }
           }}
         >
+          <MotionTabs
+            value={plusTab}
+            onValueChange={(value) => {
+              if (value === "tabs" || value === "layout") setPlusTab(value);
+              if (value !== "layout") setLayoutsSubOpen(false);
+            }}
+            variant="pill"
+            className="w-full"
+          >
+            <MotionTabsList className="flex h-8 w-full min-w-0 gap-0.5 p-0.5">
+              <MotionTabsTrigger
+                value="tabs"
+                className="h-7 min-w-0 flex-1 px-2 text-xs"
+                onMouseEnter={() => {
+                  setPlusTab("tabs");
+                  setLayoutsSubOpen(false);
+                }}
+              >
+                {plusMenuTabsLabel}
+              </MotionTabsTrigger>
+              <MotionTabsTrigger
+                value="layout"
+                className="h-7 min-w-0 flex-1 px-2 text-xs"
+                onMouseEnter={() => setPlusTab("layout")}
+              >
+                {plusMenuLayoutLabel}
+              </MotionTabsTrigger>
+            </MotionTabsList>
+            <PlusMenuTabPanels
+              tab={plusTab}
+              tabs={
+                <>
           <button
             type="button"
             className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
@@ -1388,13 +1561,16 @@ function CenterStageNewTabMenu({
             <Smartphone className="size-3.5 shrink-0 text-muted-foreground" />
             <span className="min-w-0 flex-1 truncate">{simulatorLabel}</span>
           </button>
-          <div className="my-1 h-px bg-border/60" role="separator" />
+                </>
+              }
+              layout={
+                <>
           <button
             type="button"
             aria-pressed={isCenterFullscreen}
             className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
             onClick={() => {
-              toggleCenterFullscreen();
+              toggleCenterFullscreen(paneId);
               setOpen(false);
             }}
           >
@@ -1431,6 +1607,16 @@ function CenterStageNewTabMenu({
             >
               <Rows2 className="size-3.5 shrink-0 text-muted-foreground" />
               <span className="min-w-0 flex-1 truncate">{splitDownLabel}</span>
+            </button>
+          ) : null}
+          {onCreateSpace && newSpaceLabel ? (
+            <button
+              type="button"
+              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
+              onClick={openSpaceDialog}
+            >
+              <Layers className="size-3.5 shrink-0 text-muted-foreground" />
+              <span className="min-w-0 flex-1 truncate">{newSpaceLabel}</span>
             </button>
           ) : null}
           {showLayoutItems ? (
@@ -1507,6 +1693,10 @@ function CenterStageNewTabMenu({
               </PopoverContent>
             </Popover>
           ) : null}
+                </>
+              }
+            />
+          </MotionTabs>
         </PopoverContent>
       </Popover>
 
@@ -1537,6 +1727,41 @@ function CenterStageNewTabMenu({
               {applyLayoutConfirmLabel}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={spaceDialogOpen} onOpenChange={setSpaceDialogOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{newSpaceDialogTitle}</DialogTitle>
+          </DialogHeader>
+          <form
+            className="space-y-4"
+            onSubmit={(event) => {
+              event.preventDefault();
+              confirmCreateSpace();
+            }}
+          >
+            <Input
+              autoFocus
+              value={spaceName}
+              onChange={(event) => setSpaceName(event.target.value)}
+              placeholder={newSpaceNamePlaceholder}
+              maxLength={64}
+            />
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setSpaceDialogOpen(false)}
+              >
+                {newSpaceCancelLabel}
+              </Button>
+              <Button type="submit" disabled={!spaceName.trim()}>
+                {newSpaceConfirmLabel}
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
 

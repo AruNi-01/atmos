@@ -30,6 +30,8 @@ export type PaneSlotBox = {
 export type WorkspaceCenterFrameProps = {
   contextId: string;
   isActiveContext: boolean;
+  /** Settings-style slide while switching spaces inside the same host. */
+  spaceSlide?: "in" | "out" | null;
   isUrlSyncedActive: boolean;
   /** Mount keys for this context only (stable string for memo). */
   mountPlanKeys: string;
@@ -48,6 +50,8 @@ export type WorkspaceCenterFrameProps = {
   tabToPaneId?: Readonly<Record<string, string>> | null;
   /** Multi-pane: content-slot boxes relative to the panel host. */
   paneSlotBoxes?: Readonly<Record<string, PaneSlotBox>> | null;
+  /** Mosaic pane filling the center body; sibling overlay content is hidden. */
+  fullscreenPaneId?: string | null;
   visibleTerminalTabs: TerminalCenterTab[] | undefined;
   openFiles: OpenFile[] | undefined;
   githubTabs: GithubCenterTab[] | undefined;
@@ -104,6 +108,7 @@ export function workspaceCenterFramePropsAreEqual(
   next: WorkspaceCenterFrameProps,
 ): boolean {
   if (prev.contextId !== next.contextId) return false;
+  if (prev.spaceSlide !== next.spaceSlide) return false;
   if (prev.isActiveContext !== next.isActiveContext) return false;
   if (prev.isUrlSyncedActive !== next.isUrlSyncedActive) return false;
   if (prev.mountPlanKeys !== next.mountPlanKeys) return false;
@@ -117,7 +122,8 @@ export function workspaceCenterFramePropsAreEqual(
     return (
       sameStringList(prev.activeTabIds ?? [], next.activeTabIds ?? []) &&
       prev.tabToPaneId === next.tabToPaneId &&
-      prev.paneSlotBoxes === next.paneSlotBoxes
+      prev.paneSlotBoxes === next.paneSlotBoxes &&
+      prev.fullscreenPaneId === next.fullscreenPaneId
     );
   }
 
@@ -126,6 +132,7 @@ export function workspaceCenterFramePropsAreEqual(
     sameStringList(prev.activeTabIds ?? [], next.activeTabIds ?? []) &&
     prev.tabToPaneId === next.tabToPaneId &&
     prev.paneSlotBoxes === next.paneSlotBoxes &&
+    prev.fullscreenPaneId === next.fullscreenPaneId &&
     prev.visibleTerminalTabs === next.visibleTerminalTabs &&
     prev.openFiles === next.openFiles &&
     prev.githubTabs === next.githubTabs &&

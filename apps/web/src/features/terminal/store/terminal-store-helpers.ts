@@ -15,6 +15,17 @@ import {
   type PersistedTerminalTabDocument,
   type PersistedTerminalWorkspaceLayoutDocument,
 } from "@/features/terminal/lib/terminal-layout-document";
+import {
+  DEFAULT_CENTER_SPACE_ID,
+  hostIdFromCenterKey,
+  parseCenterSpaceKey,
+} from "@/app-shell/center-space/center-space";
+import {
+  normalizeStoredDynamicTitle,
+  readCachedDynamicTitle,
+  readCachedOscTitle,
+  writeCachedOscTitle,
+} from "@/features/terminal/lib/terminal-dynamic-title-cache";
 import enMessages from "../../../../messages/en.json";
 import zhMessages from "../../../../messages/zh.json";
 
@@ -46,6 +57,8 @@ export function nextOscTitleFromIncoming(
 ): string | undefined {
   return nextOscTitleAfterIncoming(previous, raw);
 }
+
+export { normalizeStoredDynamicTitle } from "@/features/terminal/lib/terminal-dynamic-title-cache";
 
 type TerminalMessagesLocale = "en" | "zh";
 
@@ -189,7 +202,7 @@ export function createTerminalPane(
     id: options.id ?? uuidv4(),
     label,
     sessionId: uuidv4(),
-    workspaceId,
+    workspaceId: hostIdFromCenterKey(workspaceId),
     tmuxWindowName: options.tmuxWindowName ?? label,
     isNewPane: options.isNewPane,
     agent: options.agent,
@@ -246,9 +259,13 @@ export function getWorkspaceTerminalTabs(
   state: Pick<TerminalLookupState, "workspaceTerminalTabs">,
   workspaceId: string,
 ): TerminalCenterTab[] {
-  return Object.prototype.hasOwnProperty.call(state.workspaceTerminalTabs, workspaceId)
-    ? state.workspaceTerminalTabs[workspaceId] ?? []
-    : [createFixedTerminalTab()];
+  if (Object.prototype.hasOwnProperty.call(state.workspaceTerminalTabs, workspaceId)) {
+    return state.workspaceTerminalTabs[workspaceId] ?? [];
+  }
+  if (parseCenterSpaceKey(workspaceId).spaceId !== DEFAULT_CENTER_SPACE_ID) {
+    return [];
+  }
+  return [createFixedTerminalTab()];
 }
 
 /**
@@ -398,9 +415,9 @@ export function hydratePersistedTab(
   tab: PersistedTerminalTabDocument,
   existingWindowNames: Set<string>,
   /**
-   * Optional in-memory panes for this scope. When present, preserve transient
-   * display fields (`dynamicTitle`) that are intentionally not persisted.
-   * `sessionId` is always fresh — callers that need reattach must reconnect.
+   * Optional in-memory panes for this scope. When present, prefer live
+   * `dynamicTitle` over localStorage / leftover layout fields. `sessionId`
+   * is always fresh — callers that need reattach must reconnect.
    */
   livePanes?: Record<string, TerminalPaneProps> | null,
 ): {
@@ -430,6 +447,14 @@ export function hydratePersistedTab(
           )
         : undefined);
 
+    const oscTitle =
+      liveByWindow?.oscTitle ??
+      pane.oscTitle ??
+      readCachedOscTitle(workspaceId, windowName);
+    // Copy leftover layout OSC into localStorage so later layout saves
+    // (which no longer include oscTitle) do not drop the topic.
+    if (oscTitle) writeCachedOscTitle(workspaceId, windowName, oscTitle);
+
     validatedPanes[id] = {
       ...pane,
       workspaceId,
@@ -454,10 +479,14 @@ export function hydratePersistedTab(
             : windowName
               ? false
               : true,
-      // dynamicTitle is display-only (reattach inject); keep warm in-memory.
-      // oscTitle is persisted so agent session topics survive refresh (APP-047).
-      dynamicTitle: liveByWindow?.dynamicTitle,
-      oscTitle: liveByWindow?.oscTitle ?? pane.oscTitle,
+      // Titles: live pane, then leftover layout fields, then localStorage.
+      // Not written to the terminal-layout API (title changes are too chatty).
+      dynamicTitle: normalizeStoredDynamicTitle(
+        liveByWindow?.dynamicTitle ??
+          (pane as { dynamicTitle?: string }).dynamicTitle ??
+          readCachedDynamicTitle(workspaceId, windowName),
+      ),
+      oscTitle,
       // Prefer live agent, then persisted agent.
       agent: liveByWindow?.agent ?? pane.agent,
       customLabel: liveByWindow?.customLabel ?? pane.customLabel,
@@ -778,8 +807,6 @@ export function buildPersistedTerminalWorkspaceLayout(
         projectName: pane.projectName,
         workspaceName: pane.workspaceName,
         isNewPane: pane.isNewPane,
-        // Persist agent OSC session topics; omit empty so layout stays lean.
-        ...(pane.oscTitle?.trim() ? { oscTitle: pane.oscTitle.trim() } : {}),
         customLabel: pane.customLabel,
         keepAgentName: pane.keepAgentName,
         keepCwd: pane.keepCwd,

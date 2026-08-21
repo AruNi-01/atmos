@@ -65,4 +65,31 @@ describe("center stage tab hover", () => {
     expect(menuBlock).not.toContain("right-full");
     expect(menuBlock).not.toContain("overflow-visible");
   });
+
+  it("splits the plus menu into hover-switch pill tabs that fill the popover", () => {
+    const menuBlock = tabBar.slice(
+      tabBar.indexOf("function CenterStageNewTabMenu"),
+      tabBar.indexOf("function SpecialTerminalTab"),
+    );
+    expect(tabBar).toContain('@workspace/ui/components/motion/tabs');
+    expect(menuBlock).toContain('variant="pill"');
+    expect(menuBlock).toContain('className="flex h-8 w-full min-w-0 gap-0.5 p-0.5"');
+    expect(menuBlock).toContain('onMouseEnter={() => setPlusTab("layout")}');
+    expect(menuBlock).toContain('value="tabs"');
+    expect(menuBlock).toContain('value="layout"');
+    expect(menuBlock).toContain("plusMenuTabsLabel");
+    expect(menuBlock).toContain("plusMenuLayoutLabel");
+  });
+
+  it("animates plus-menu popover height when switching tabs", () => {
+    const menuBlock = tabBar.slice(
+      tabBar.indexOf("function PlusMenuTabPanels"),
+      tabBar.indexOf("function CenterStageNewTabMenu"),
+    );
+    expect(menuBlock).toContain("ResizeObserver");
+    expect(menuBlock).toContain("animate={reduce || height === \"auto\" ? undefined : { height }}");
+    expect(menuBlock).toContain("overflow-hidden");
+    expect(menuBlock).toContain("scale: tab === \"tabs\" ? 1 : 0.96");
+    expect(tabBar).toContain("w-48 overflow-hidden border-border/70");
+  });
 });

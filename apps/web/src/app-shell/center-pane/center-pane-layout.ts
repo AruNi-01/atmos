@@ -35,6 +35,23 @@ export function createEmptyPane(id: string): CenterPane {
   return { id, tabIds: [], activeTabId: EMPTY_PANE_ACTIVE_TAB_ID };
 }
 
+/** Brand-new extra space: one empty launcher pane, no inherited tabs. */
+export function createEmptyCenterLayout(): CenterPaneLayout {
+  return withCanonicalTabStrip({
+    panes: [createEmptyPane(DEFAULT_PANE_ID)],
+    order: [DEFAULT_PANE_ID],
+    tree: DEFAULT_PANE_ID,
+    columnCount: 1,
+    columnFractions: [1],
+    rowFractions: [1],
+    focusedPaneId: DEFAULT_PANE_ID,
+  });
+}
+
+export function isFreshEmptyCenterLayout(layout: CenterPaneLayout): boolean {
+  return layout.panes.length === 1 && isEmptyPane(layout.panes[0]);
+}
+
 /** Mosaic tree of pane ids — same algorithm as in-pane Terminal split. */
 export type CenterPaneTree = TerminalLayoutNode<string>;
 

@@ -46,11 +46,13 @@ import {
 } from "@/app-shell/workspace-surface-policies";
 import { readCenterStageLastTab } from "@/shared/stores/use-ui-pref-hooks";
 import { CENTER_STAGE_RADIUS_CSS } from "@/app-shell/sidebar-layout-constants";
+import { paneHiddenByCenterFullscreen } from "@/app-shell/center-stage-fullscreen";
 import {
   isUsablePaneSlotBox,
   shouldWithholdUnmeasuredPaneTerminal,
 } from "@/app-shell/center-pane/use-center-pane-slot-boxes";
 import { cn } from "@/shared/lib/utils";
+import { hostIdFromCenterKey } from "@/app-shell/center-space/center-space";
 import {
   workspaceCenterFramePropsAreEqual,
   type TerminalQuickOpenAgent,
@@ -195,10 +197,22 @@ function multiPanePanelStyle(
   tabId: string,
   tabToPaneId: Readonly<Record<string, string>> | null | undefined,
   paneSlotBoxes: Readonly<Record<string, { top: number; left: number; width: number; height: number }>> | null | undefined,
+  fullscreenPaneId?: string | null,
 ): React.CSSProperties | undefined {
   if (!visible || !tabToPaneId || !paneSlotBoxes) return undefined;
   const paneId = tabToPaneId[tabId];
   if (!paneId) return undefined;
+  if (paneHiddenByCenterFullscreen(fullscreenPaneId, paneId)) {
+    return {
+      position: "absolute",
+      inset: "auto",
+      width: 0,
+      height: 0,
+      overflow: "hidden",
+      pointerEvents: "none",
+      opacity: 0,
+    };
+  }
   const box = paneSlotBoxes[paneId];
   // Missing box = empty pane just grew a slot. Do not fall back to
   // `inset: 0` (covers sibling panes and fits the PTY at the wrong size).
@@ -233,6 +247,7 @@ function multiPanePanelStyle(
 function WorkspaceCenterFrameImpl({
   contextId,
   isActiveContext,
+  spaceSlide,
   isUrlSyncedActive,
   mountPlan,
   mountedTabIds,
@@ -241,6 +256,7 @@ function WorkspaceCenterFrameImpl({
   activeTabIds,
   tabToPaneId,
   paneSlotBoxes,
+  fullscreenPaneId,
   visibleTerminalTabs,
   openFiles,
   githubTabs,
@@ -376,9 +392,15 @@ function WorkspaceCenterFrameImpl({
   const panelStyle = React.useCallback(
     (panelTabId: string, visible: boolean) =>
       multiActiveTabIds
-        ? multiPanePanelStyle(visible, panelTabId, tabToPaneId, paneSlotBoxes)
+        ? multiPanePanelStyle(
+            visible,
+            panelTabId,
+            tabToPaneId,
+            paneSlotBoxes,
+            fullscreenPaneId,
+          )
         : undefined,
-    [multiActiveTabIds, paneSlotBoxes, tabToPaneId],
+    [fullscreenPaneId, multiActiveTabIds, paneSlotBoxes, tabToPaneId],
   );
 
   const planReady = mountPlan.mounted.length > 0;
@@ -393,11 +415,12 @@ function WorkspaceCenterFrameImpl({
       // content-visibility:hidden / visibility:hidden, which blank warm xterm WebGL on hop.
       aria-hidden={!isActiveContext}
       inert={!isActiveContext ? true : undefined}
-      className={
-        multiActiveTabIds
-          ? "absolute inset-0 flex flex-col min-h-0 min-w-0 pointer-events-none"
-          : "absolute inset-0 flex flex-col min-h-0 min-w-0"
-      }
+      className={cn(
+        "absolute inset-0 flex min-h-0 min-w-0 flex-col",
+        multiActiveTabIds && "pointer-events-none",
+        spaceSlide === "in" && "push-page-slide-in-x z-20",
+        spaceSlide === "out" && "push-page-slide-out-x z-10",
+      )}
     >
       {tabs
         .filter((tab) => {
@@ -531,7 +554,7 @@ function WorkspaceCenterFrameImpl({
           style={panelStyle("overview", panelVisible("overview"))}
         >
           <OverviewTab
-            contextId={contextId}
+            contextId={hostIdFromCenterKey(contextId)}
             projectId={isUrlSyncedActive ? currentProject?.id : undefined}
             projectName={isUrlSyncedActive ? currentProject?.name : undefined}
             projectPath={isUrlSyncedActive ? currentProject?.mainFilePath : undefined}
@@ -852,6 +875,15 @@ function WorkspaceCenterFrameImpl({
         >
           <FileTreePanel
             projectName={isUrlSyncedActive ? currentProject?.name : undefined}
+            rootPath={
+              isUrlSyncedActive
+                ? (currentWorkspace?.localPath ?? currentProject?.mainFilePath ?? null)
+                : undefined
+            }
+            currentProjectPath={
+              isUrlSyncedActive ? (currentRepoPath ?? currentWorkspace?.localPath ?? null) : null
+            }
+            contextId={contextId}
             revealEnabled={
               isActiveContext &&
               panelVisible("files")

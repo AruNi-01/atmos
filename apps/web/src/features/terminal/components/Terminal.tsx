@@ -92,6 +92,7 @@ import { createAgentHookInterruptInference } from "@/features/agent/lib/agent-ho
 import { useAgentHooksStore } from "@/features/agent/store/agent-hooks-store";
 import {
   isShellPreexecCommandOscTitle,
+  isTmuxIndexTitle,
   nextOscTitleAfterIncoming,
   shouldClearNativeOscOnCmdEnd,
 } from "@atmos/shared/terminal";
@@ -1279,6 +1280,15 @@ const Terminal = ({
     //      and the title never flickers.
     const CMD_START_DELAY_MS = 150;
 
+    const emitDynamicTitle = (title: string) => {
+      // Tmux window indexes are attach identities, not display titles.
+      if (isTmuxIndexTitle(title)) return;
+      if (title !== lastTitleRef.current) {
+        lastTitleRef.current = title;
+        onTitleChangeRef.current?.(title);
+      }
+    };
+
     const applyDynamicTitleCmdStart = (payload: string) => {
       const title = extractCommandName(payload);
       // CMD_START arrives before the process can enter alternate screen or
@@ -1300,10 +1310,7 @@ const Terminal = ({
       }
       cmdStartTimerRef.current = setTimeout(() => {
         cmdStartTimerRef.current = null;
-        if (title !== lastTitleRef.current) {
-          lastTitleRef.current = title;
-          onTitleChangeRef.current?.(title);
-        }
+        emitDynamicTitle(title);
       }, CMD_START_DELAY_MS);
     };
 
@@ -1341,11 +1348,7 @@ const Terminal = ({
         lastOscTitleRef.current = undefined;
         onOscTitleChangeRef.current?.(undefined);
       }
-      const title = shortenPath(payload);
-      if (title !== lastTitleRef.current) {
-        lastTitleRef.current = title;
-        onTitleChangeRef.current?.(title);
-      }
+      emitDynamicTitle(shortenPath(payload));
     };
 
     const registerTitleOsc = (osc: number, allowMouseSideEffects: boolean) => {

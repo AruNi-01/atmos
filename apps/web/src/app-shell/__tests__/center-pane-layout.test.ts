@@ -3,7 +3,9 @@ import {
   closePane,
   collectActiveTabIds,
   createDefaultLayout,
+  createEmptyCenterLayout,
   DEFAULT_PANE_ID,
+  isFreshEmptyCenterLayout,
   findPaneIdForTab,
   focusPane,
   isEmptyPane,
@@ -27,6 +29,14 @@ import {
 import { collectTerminalLayoutGeometry, getLeaves } from "@/features/terminal/lib/terminal-layout-tree";
 
 describe("center-pane-layout", () => {
+  it("creates a fresh empty extra-space layout with no inherited tabs", () => {
+    const layout = createEmptyCenterLayout();
+    expect(isFreshEmptyCenterLayout(layout)).toBe(true);
+    expect(layout.panes).toHaveLength(1);
+    expect(layout.panes[0]!.tabIds).toEqual([]);
+    expect(layout.panes[0]!.activeTabId).toBe("");
+  });
+
   it("creates a single-pane default owning all tabs", () => {
     const layout = createDefaultLayout(["terminal", "overview", "a.ts"], "a.ts");
     expect(layout.panes).toHaveLength(1);

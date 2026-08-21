@@ -8,6 +8,7 @@ import {
 } from "@/features/terminal/store/use-terminal-store";
 import {
   getScopeKey,
+  getTerminalWorkspaceScopeKey,
   getWorkspaceTerminalTabs,
 } from "@/features/terminal/store/terminal-store-helpers";
 import {
@@ -62,13 +63,25 @@ export function useTerminalCenterTabPresentation(options: {
       }
       const scopeKey = getScopeKey(contextId, terminalTabId);
       const tab = getWorkspaceTerminalTabs(s, contextId).find((entry) => entry.id === terminalTabId);
+      const livePanes = s.workspacePanes[scopeKey];
+      const hasLivePanes = Boolean(livePanes && Object.keys(livePanes).length > 0);
+      const persisted =
+        s.persistedTerminalLayouts[
+          getTerminalWorkspaceScopeKey(contextId, s.workspaceContexts[contextId] ?? false)
+        ];
+      const persistedTab = persisted?.tabs.find((entry) => entry.id === terminalTabId);
       return {
-        panes: s.workspacePanes[scopeKey] ?? EMPTY_PANES,
-        layout: s.workspaceLayouts[scopeKey] ?? null,
+        // Inactive/unmounted tabs may not be live-hydrated yet; the persisted
+        // cwd/command title is enough for the tab strip.
+        panes: hasLivePanes
+          ? livePanes!
+          : ((persistedTab?.panes as Record<string, TerminalPaneProps> | undefined) ?? EMPTY_PANES),
+        layout: s.workspaceLayouts[scopeKey] ?? persistedTab?.layout ?? null,
         lastActivePaneId: s.workspaceActivePaneIds?.[scopeKey] ?? null,
-        maximizedPaneId: s.workspaceMaximizedIds?.[scopeKey] ?? null,
-        storeCustomTitle: tab?.customTitle,
-        storeFallbackTitle: tab?.title ?? fallbackTitle,
+        maximizedPaneId:
+          s.workspaceMaximizedIds?.[scopeKey] ?? persistedTab?.maximizedTerminalId ?? null,
+        storeCustomTitle: tab?.customTitle ?? persistedTab?.customTitle,
+        storeFallbackTitle: tab?.title ?? persistedTab?.title ?? fallbackTitle,
       };
     }),
   );

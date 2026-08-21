@@ -73,6 +73,7 @@ import { resolveDefaultSplitAgent } from "@/features/terminal/lib/terminal-split
 import { useTerminalSplitPrefsStore } from "@/features/settings/store/terminal-split-prefs-store";
 import { resolveAgentFixLaunchPrompt } from "@/features/agent-fix/lib/agent-fix-prompt-file";
 import { useWorkspaceCreationStore } from "@/features/workspace/store/workspace-creation-store";
+import { useWorkspaceSurfaceCacheStore } from "@/features/workspace/store/use-workspace-surface-cache-store";
 import { useAgentTitleSettingsStore } from "@/features/settings/store/agent-title-settings-store";
 import { useExperimentSettingsStore } from "@/features/settings/store/experiment-settings-store";
 import {
@@ -105,7 +106,11 @@ import {
   UnsavedChangesDialog,
 } from "@/app-shell/center-stage-dialogs";
 
-import { useCenterStageFullscreenMotion } from "@/app-shell/use-center-stage-fullscreen";
+import { CENTER_STAGE_FULLSCREEN_Z_INDEX } from "@/app-shell/center-stage-fullscreen";
+import {
+  useCenterStageFullscreenMotion,
+  useCenterStageFullscreenStore,
+} from "@/app-shell/use-center-stage-fullscreen";
 import { CenterStagePanels } from "@/app-shell/CenterStagePanels";
 import {
   CenterPaneContentSlot,
@@ -117,7 +122,9 @@ import {
   buildTabToPaneId,
   collectActiveTabIds,
   createDefaultLayout,
+  createEmptyCenterLayout,
   isEmptyPane,
+  isFreshEmptyCenterLayout,
   isPrimaryPane,
   MAX_CENTER_PANES,
   OVERVIEW_TAB_ID,
@@ -142,11 +149,17 @@ import {
   isToolSurfaceKind,
   materializeSavedLayout,
   resolveSurfaceTabId,
-  shouldConfirmReplaceCenterLayout,
   snapshotCenterLayout,
   type CenterSurfaceKind,
 } from "@/app-shell/center-pane/center-pane-saved-layout";
 import { useCenterPaneSavedLayoutStore } from "@/app-shell/center-pane/center-pane-saved-layout-store";
+import {
+  DEFAULT_CENTER_SPACE_ID,
+  isExtraCenterSpaceKey,
+  makeCenterSpaceKey,
+} from "@/app-shell/center-space/center-space";
+import { useCenterSpaceStore } from "@/app-shell/center-space/center-space-store";
+import { openNewCenterSpace } from "@/app-shell/center-space/center-space-switch";
 import {
   buildDefaultEmptyPaneActions,
   CenterPaneEmptyState,
@@ -159,7 +172,6 @@ import { simulatorApi } from "@/api/ws/simulator-api";
 import { GIT_HISTORY_TAB_VALUE } from "@/features/git/types";
 import { useGitHistoryCenterTabStore } from "@/features/git/store/use-git-history-center-tab";
 import {
-  CENTER_TOOL_TAB_VALUES,
   isCenterToolTabValue,
   useToolCenterTabsStore,
   type CenterToolTabValue,
@@ -237,6 +249,12 @@ function useZustandPersistHydrated(persistApi: {
 
 const EMPTY_GITHUB_TABS: GithubCenterTab[] = [];
 const EMPTY_BROWSER_TABS: BrowserCenterTab[] = [];
+const EMPTY_TERMINAL_TABS: Array<{
+  id: string;
+  title: string;
+  closable: boolean;
+  customTitle?: string;
+}> = [];
 
 const CenterStage: React.FC = () => {
   const t = useTranslations("appShell.centerStage");
@@ -299,19 +317,44 @@ const CenterStage: React.FC = () => {
   const {
     workspaceId: liveWorkspaceId,
     projectId: liveProjectIdFromUrl,
-    effectiveContextId: liveEffectiveContextId,
+    effectiveContextId: liveHostContextId,
     currentView,
   } = useContextParams();
+  const hydrateCenterSpaces = useCenterSpaceStore((s) => s.hydrate);
+  const syncCenterSpacesFromDisk = useCenterSpaceStore((s) => s.syncFromDisk);
+  React.useEffect(() => {
+    hydrateCenterSpaces();
+    void syncCenterSpacesFromDisk();
+  }, [hydrateCenterSpaces, syncCenterSpacesFromDisk]);
+  const liveActiveSpaceId = useCenterSpaceStore((s) =>
+    liveHostContextId
+      ? s.getActiveSpaceId(liveHostContextId)
+      : DEFAULT_CENTER_SPACE_ID,
+  );
+  const liveCenterContextId = liveHostContextId
+    ? makeCenterSpaceKey(liveHostContextId, liveActiveSpaceId)
+    : null;
+  const isExtraCenterSpace = Boolean(
+    liveHostContextId && liveCenterContextId && liveCenterContextId !== liveHostContextId,
+  );
+  const followUrlToolTab = !isExtraCenterSpace;
+  const liveExtraSpaceEmpty = useCenterPaneLayoutStore((s) => {
+    if (!liveCenterContextId || !isExtraCenterSpaceKey(liveCenterContextId)) {
+      return false;
+    }
+    const layout = s.byContext[liveCenterContextId];
+    return !layout || isFreshEmptyCenterLayout(layout);
+  });
   // IMP-013: heavy tab/file/terminal rebind follows deferred IDs.
   // Live IDs stay for promote + paint so the left sidebar's urgent
   // URL update is not stuck behind a multi-frame center commit.
   const workspaceId = React.useDeferredValue(liveWorkspaceId);
   const projectIdFromUrl = React.useDeferredValue(liveProjectIdFromUrl);
-  const effectiveContextId = React.useDeferredValue(liveEffectiveContextId);
+  const effectiveContextId = React.useDeferredValue(liveCenterContextId);
   const isCenterContextSettled =
     workspaceId === liveWorkspaceId &&
     projectIdFromUrl === liveProjectIdFromUrl &&
-    effectiveContextId === liveEffectiveContextId;
+    effectiveContextId === liveCenterContextId;
 
   const githubTabs = useGithubCenterTabsStore((state) =>
     effectiveContextId
@@ -394,10 +437,20 @@ const CenterStage: React.FC = () => {
   const setupProgressMap = useProjectStore((s) => s.setupProgress);
   const currentSetupProgress = workspaceId ? setupProgressMap[workspaceId] : null;
   const isSetupBlocking = isWorkspaceSetupBlocking(currentSetupProgress);
-  const visibleTerminalTabs = React.useMemo(
-    () => terminalTabs ?? [{ id: FIXED_TERMINAL_TAB_VALUE, title: t("fallbackTerminalTitle"), closable: true }],
-    [t, terminalTabs]
-  );
+  const visibleTerminalTabs = React.useMemo(() => {
+    const extraPaint =
+      Boolean(effectiveContextId) && isExtraCenterSpaceKey(effectiveContextId);
+    if (extraPaint && liveExtraSpaceEmpty) return EMPTY_TERMINAL_TABS;
+    if (Array.isArray(terminalTabs)) return terminalTabs;
+    if (extraPaint) return EMPTY_TERMINAL_TABS;
+    return [
+      {
+        id: FIXED_TERMINAL_TAB_VALUE,
+        title: t("fallbackTerminalTitle"),
+        closable: true,
+      },
+    ];
+  }, [effectiveContextId, liveExtraSpaceEmpty, t, terminalTabs]);
   // Prefer the workspace's remembered active terminal over always defaulting to the first tab.
   const fallbackCenterTab =
     (workspaceActiveTerminalTabId &&
@@ -444,22 +497,26 @@ const CenterStage: React.FC = () => {
     setCodeReviewVisibleMap,
     setProjectWikiVisibleMap,
   } = useCenterStageNamedTerminalVisibility({
-    currentTab: tabFromUrl,
-    effectiveContextId,
+    currentTab: followUrlToolTab ? tabFromUrl : null,
+    effectiveContextId: followUrlToolTab ? effectiveContextId : null,
     isSetupBlocking,
     onMissingCodeReviewTab: redirectMissingNamedTerminalTab,
     onMissingProjectWikiTab: redirectMissingNamedTerminalTab,
   });
 
-  const simulatorTabVisible = useSimulatorCenterTabStore((s) =>
-    effectiveContextId ? Boolean(s.visibleByContext[effectiveContextId]) : false,
-  ) || tabFromUrl === SIMULATOR_TAB_VALUE;
+  const simulatorTabVisible =
+    (useSimulatorCenterTabStore((s) =>
+      effectiveContextId ? Boolean(s.visibleByContext[effectiveContextId]) : false,
+    ) ||
+      (followUrlToolTab && tabFromUrl === SIMULATOR_TAB_VALUE));
   const openSimulatorTab = useSimulatorCenterTabStore((s) => s.open);
   const closeSimulatorTab = useSimulatorCenterTabStore((s) => s.close);
 
-  const gitHistoryTabVisible = useGitHistoryCenterTabStore((s) =>
-    effectiveContextId ? Boolean(s.visibleByContext[effectiveContextId]) : false,
-  ) || tabFromUrl === GIT_HISTORY_TAB_VALUE;
+  const gitHistoryTabVisible =
+    (useGitHistoryCenterTabStore((s) =>
+      effectiveContextId ? Boolean(s.visibleByContext[effectiveContextId]) : false,
+    ) ||
+      (followUrlToolTab && tabFromUrl === GIT_HISTORY_TAB_VALUE));
   const openGitHistoryTab = useGitHistoryCenterTabStore((s) => s.open);
   const closeGitHistoryTab = useGitHistoryCenterTabStore((s) => s.close);
   const toolTabsVisibleByContext = useToolCenterTabsStore((s) => s.visibleByContext);
@@ -467,40 +524,43 @@ const CenterStage: React.FC = () => {
   const closeToolTab = useToolCenterTabsStore((s) => s.close);
   const changesTabVisible =
     Boolean(effectiveContextId && toolTabsVisibleByContext[effectiveContextId]?.changes) ||
-    tabFromUrl === "changes";
+    (followUrlToolTab && tabFromUrl === "changes");
   const reviewTabVisible =
     Boolean(effectiveContextId && toolTabsVisibleByContext[effectiveContextId]?.review) ||
-    tabFromUrl === "review";
+    (followUrlToolTab && tabFromUrl === "review");
   const runTabVisible =
     Boolean(effectiveContextId && toolTabsVisibleByContext[effectiveContextId]?.run) ||
-    tabFromUrl === "run";
+    (followUrlToolTab && tabFromUrl === "run");
   const githubHubTabVisible =
     Boolean(effectiveContextId && toolTabsVisibleByContext[effectiveContextId]?.github) ||
-    tabFromUrl === "github";
+    (followUrlToolTab && tabFromUrl === "github");
   const filesTabVisible =
     Boolean(effectiveContextId && toolTabsVisibleByContext[effectiveContextId]?.files) ||
-    tabFromUrl === "files";
+    (followUrlToolTab && tabFromUrl === "files");
   const ptDesignTabVisible =
     Boolean(effectiveContextId && toolTabsVisibleByContext[effectiveContextId]?.["pt-design"]) ||
-    tabFromUrl === "pt-design";
+    (followUrlToolTab && tabFromUrl === "pt-design");
 
   React.useEffect(() => {
-    if (tabFromUrl === SIMULATOR_TAB_VALUE && effectiveContextId) {
+    if (!followUrlToolTab || !effectiveContextId) return;
+    if (tabFromUrl === SIMULATOR_TAB_VALUE) {
       openSimulatorTab(effectiveContextId);
     }
-  }, [effectiveContextId, openSimulatorTab, tabFromUrl]);
+  }, [effectiveContextId, followUrlToolTab, openSimulatorTab, tabFromUrl]);
 
   React.useEffect(() => {
-    if (tabFromUrl === GIT_HISTORY_TAB_VALUE && effectiveContextId) {
+    if (!followUrlToolTab || !effectiveContextId) return;
+    if (tabFromUrl === GIT_HISTORY_TAB_VALUE) {
       openGitHistoryTab(effectiveContextId);
     }
-  }, [effectiveContextId, openGitHistoryTab, tabFromUrl]);
+  }, [effectiveContextId, followUrlToolTab, openGitHistoryTab, tabFromUrl]);
 
   React.useEffect(() => {
-    if (isCenterToolTabValue(tabFromUrl) && effectiveContextId) {
+    if (!followUrlToolTab || !effectiveContextId) return;
+    if (isCenterToolTabValue(tabFromUrl)) {
       openToolTab(effectiveContextId, tabFromUrl);
     }
-  }, [effectiveContextId, openToolTab, tabFromUrl]);
+  }, [effectiveContextId, followUrlToolTab, openToolTab, tabFromUrl]);
 
   /** Until experiment prefs load, preserve `tab=wiki` from the URL so we do not strip deep links. */
   const wikiCenterEligible = React.useMemo(() => {
@@ -509,6 +569,9 @@ const CenterStage: React.FC = () => {
   }, [experimentPrefsLoaded, centerWikiTabEnabled, tabFromUrl]);
 
   const resolvedTab = React.useMemo(() => {
+    if (isExtraCenterSpace && liveExtraSpaceEmpty) {
+      return "";
+    }
     if (tabFromUrl === "wiki" && experimentPrefsLoaded && !centerWikiTabEnabled) {
       return fallbackCenterTab;
     }
@@ -546,6 +609,8 @@ const CenterStage: React.FC = () => {
     gitHistoryTabVisible,
     effectiveContextId,
     fallbackCenterTab,
+    isExtraCenterSpace,
+    liveExtraSpaceEmpty,
     visibleTerminalTabs,
     browserTabs,
   ]);
@@ -820,7 +885,17 @@ const CenterStage: React.FC = () => {
         githubHubVisible: githubHubTabVisible,
         filesVisible: filesTabVisible,
         ptDesignVisible: ptDesignTabVisible,
-        wikiEnabled: centerWikiTabEnabled,
+        wikiEnabled:
+          centerWikiTabEnabled &&
+          !(
+            Boolean(effectiveContextId) &&
+            isExtraCenterSpaceKey(effectiveContextId) &&
+            liveExtraSpaceEmpty
+          ),
+        fixedAlwaysOpen:
+          effectiveContextId && isExtraCenterSpaceKey(effectiveContextId)
+            ? []
+            : ["overview"],
         exclude,
       }),
     [
@@ -838,6 +913,8 @@ const CenterStage: React.FC = () => {
       githubHubTabVisible,
       filesTabVisible,
       ptDesignTabVisible,
+      effectiveContextId,
+      liveExtraSpaceEmpty,
       visibleTerminalTabs,
     ],
   );
@@ -1055,7 +1132,7 @@ const CenterStage: React.FC = () => {
   // Promote / sticky leave track the live URL so warm membership is not deferred.
   useTerminalTabMountLifecycle({
     activeValue,
-    effectiveContextId: liveEffectiveContextId,
+    effectiveContextId: liveCenterContextId,
     setMountedTerminalTabsByContext,
     visibleTerminalTabs,
   });
@@ -1105,6 +1182,11 @@ const CenterStage: React.FC = () => {
   // Wait for deferred context so restore URL writes do not stack on the hop frame.
   React.useEffect(() => {
     if (!isCenterContextSettled || !effectiveContextId || !activeValue) return;
+    if (isExtraCenterSpaceKey(effectiveContextId) && liveExtraSpaceEmpty) {
+      pendingCenterTabRestoreContextRef.current = null;
+      restoringCenterTabToRef.current = null;
+      return;
+    }
 
     if (pendingCenterTabRestoreContextRef.current === effectiveContextId) {
       const restoreTarget = restoringCenterTabToRef.current;
@@ -1210,6 +1292,7 @@ const CenterStage: React.FC = () => {
     isCenterContextSettled,
     isEditorHydrated,
     isTerminalWorkspaceReady,
+    liveExtraSpaceEmpty,
     openFiles,
     projectWikiTabVisible,
     setActiveFile,
@@ -2074,7 +2157,15 @@ const CenterStage: React.FC = () => {
     // always follows the focused pane (exclusive; removed from siblings).
     // Close fallback passes attach:false so a sibling's tab is never stolen.
     if (attach && effectiveContextId && val) {
-      useCenterPaneLayoutStore.getState().openTab(effectiveContextId, val);
+      const layout = useCenterPaneLayoutStore.getState().getLayout(effectiveContextId);
+      const inheritHostUrlTab =
+        isExtraCenterSpaceKey(effectiveContextId) &&
+        layout &&
+        isFreshEmptyCenterLayout(layout) &&
+        val === tabFromUrl;
+      if (!inheritHostUrlTab) {
+        useCenterPaneLayoutStore.getState().openTab(effectiveContextId, val);
+      }
     }
   }, [
     centerWikiTabEnabled,
@@ -2085,6 +2176,7 @@ const CenterStage: React.FC = () => {
     setFixedTab,
     setUrlParams,
     runWhenTerminalGridReady,
+    tabFromUrl,
   ]);
   navigateCenterTabRef.current = handleCenterStageTabChange;
 
@@ -2242,8 +2334,8 @@ const CenterStage: React.FC = () => {
   };
 
   // Paint / render context ids (may be empty before a workspace is selected).
-  const paintContextId: string | null = liveEffectiveContextId;
-  const renderContextId: string = effectiveContextId ?? liveEffectiveContextId ?? "";
+  const paintContextId: string | null = liveCenterContextId;
+  const renderContextId: string = effectiveContextId ?? liveCenterContextId ?? "";
   const storedStripForRenderContext = React.useMemo(() => {
     if (!renderContextId || tabStripState.contextId === renderContextId) {
       return tabStripState.order;
@@ -2283,6 +2375,11 @@ const CenterStage: React.FC = () => {
   const panelHostRef = React.useRef<HTMLDivElement>(null);
   const centerStageFullscreenRef = React.useRef<HTMLElement | null>(null);
   useCenterStageFullscreenMotion(centerStageFullscreenRef);
+  const isCenterFullscreen = useCenterStageFullscreenStore((s) => s.isFullscreen);
+  const fullscreenPaneId = useCenterStageFullscreenStore((s) => s.paneId);
+  const setCenterFullscreen = useCenterStageFullscreenStore((s) => s.setFullscreen);
+  const activeFullscreenPaneId =
+    isCenterFullscreen ? fullscreenPaneId : null;
 
   React.useEffect(() => {
     hydratePaneLayout();
@@ -2305,6 +2402,9 @@ const CenterStage: React.FC = () => {
 
   const resolvedPaneLayout = React.useMemo(() => {
     if (paneLayout) return paneLayout;
+    if (isExtraCenterSpaceKey(mosaicContextId)) {
+      return createEmptyCenterLayout();
+    }
     // During a hop the deferred open-tab list still belongs to the previous
     // context. Do not seed the destination mosaic with those tabs.
     if (mosaicContextId && mosaicContextId !== renderContextId) {
@@ -2326,6 +2426,10 @@ const CenterStage: React.FC = () => {
   React.useEffect(() => {
     if (!renderContextId) return;
     if (!openTabSourcesHydrated) return;
+    const existingLayout = useCenterPaneLayoutStore.getState().getLayout(renderContextId);
+    if (existingLayout && isFreshEmptyCenterLayout(existingLayout)) {
+      return;
+    }
     // Reconcile open-tab membership only. Do NOT auto-openTab from URL here —
     // that steals surfaces between multi-panes whenever `?tab=` changes.
     // Explicit navigation (tab click / create / hotkey) calls openTab itself.
@@ -2392,7 +2496,10 @@ const CenterStage: React.FC = () => {
     contextId: mosaicContextId,
     paneCount,
   };
-  const showMosaic = isMultiPane || mosaicHold;
+  const showMosaic =
+    isMultiPane ||
+    mosaicHold ||
+    (isExtraCenterSpace && isFreshEmptyCenterLayout(resolvedPaneLayout));
   React.useEffect(() => {
     const pending = persistCollapsedStripContextRef.current;
     if (!pending) return;
@@ -2413,11 +2520,21 @@ const CenterStage: React.FC = () => {
     );
     return () => window.clearTimeout(timer);
   }, [mosaicHold]);
+  React.useEffect(() => {
+    setCenterFullscreen(false);
+  }, [mosaicContextId, setCenterFullscreen]);
+  React.useEffect(() => {
+    if (!activeFullscreenPaneId) return;
+    if (!resolvedPaneLayout.order.includes(activeFullscreenPaneId)) {
+      setCenterFullscreen(false);
+    }
+  }, [activeFullscreenPaneId, resolvedPaneLayout.order, setCenterFullscreen]);
   const paneSlotBoxes = useCenterPaneSlotBoxes(
     panelHostRef,
     resolvedPaneLayout,
     showMosaic,
     mosaicContextId,
+    activeFullscreenPaneId,
   );
   const multiActiveTabIds = React.useMemo(() => {
     if (!showMosaic) return null;
@@ -2511,83 +2628,42 @@ const CenterStage: React.FC = () => {
     [resolvedPaneLayout, saveCenterLayout],
   );
 
+  const handleCreateCenterSpace = React.useCallback(
+    (name?: string) => {
+      if (!liveHostContextId) return;
+      void openNewCenterSpace(liveHostContextId, name);
+    },
+    [liveHostContextId],
+  );
+
   const handleApplyCenterLayout = React.useCallback(
     (layoutId: string) => {
-      if (!renderContextId) return;
+      if (!liveHostContextId) return;
       const saved = useCenterPaneSavedLayoutStore.getState().getById(layoutId);
       if (!saved) return;
+      void (async () => {
+      const space = await openNewCenterSpace(liveHostContextId, saved.name);
+      if (!space) return;
+      const paintId = makeCenterSpaceKey(liveHostContextId, space.id);
 
       const surfaces = collectSavedSurfaces(saved);
-
-      for (const file of getOpenFiles(renderContextId)) {
-        closeFile(file.path, renderContextId);
-      }
-      setActiveFile(null, renderContextId);
-
-      for (const tab of githubTabs) {
-        closeGithubTab(renderContextId, tab.value);
-      }
-
-      const keepBrowser = surfaces.includes("browser");
       let browserTabValue: string | null = null;
-      if (keepBrowser) {
-        const existing = browserTabs[0] ?? null;
-        if (existing) {
-          browserTabValue = existing.value;
-          for (const tab of browserTabs) {
-            if (tab.value !== existing.value) {
-              closeBrowserCenterTab(renderContextId, tab.value);
-            }
-          }
-        } else {
-          const tab = openBrowserCenterTab(renderContextId);
-          browserTabValue = tab.value;
-          requestBrowserContextUrlFocus(tab.browserContextId);
-        }
-      } else {
-        for (const tab of browserTabs) {
-          closeBrowserCenterTab(renderContextId, tab.value);
-        }
-      }
-
-      const keepTerminal = surfaces.includes("terminal");
-      const liveTerminalTabs =
-        useTerminalStore.getState().workspaceTerminalTabs[renderContextId] ?? [];
       let terminalTabId: string | null = null;
-      if (keepTerminal) {
-        terminalTabId = liveTerminalTabs.some((tab) => tab.id === FIXED_TERMINAL_TAB_VALUE)
-          ? FIXED_TERMINAL_TAB_VALUE
-          : (liveTerminalTabs[0]?.id ?? createTerminalTab(renderContextId).id);
-        for (const tab of liveTerminalTabs) {
-          if (tab.id !== terminalTabId) {
-            closeTerminalTab(renderContextId, tab.id);
-          }
-        }
-      } else {
-        for (const tab of liveTerminalTabs) {
-          closeTerminalTab(renderContextId, tab.id);
-        }
-      }
 
-      for (const tool of CENTER_TOOL_TAB_VALUES) {
-        if (!surfaces.includes(tool)) {
-          closeToolTab(renderContextId, tool);
-        }
+      if (surfaces.includes("browser")) {
+        const tab = openBrowserCenterTab(paintId);
+        browserTabValue = tab.value;
+        requestBrowserContextUrlFocus(tab.browserContextId);
+      }
+      if (surfaces.includes("terminal")) {
+        terminalTabId = createTerminalTab(paintId).id;
       }
       if (surfaces.includes("simulator")) {
-        openSimulatorTab(renderContextId);
-      } else {
-        closeSimulatorTab(renderContextId);
-        void simulatorApi.stop(renderContextId).catch(() => {});
+        openSimulatorTab(paintId);
       }
-      closeGitHistoryTab(renderContextId);
-      setProjectWikiVisibleMap((prev) => ({ ...prev, [renderContextId]: false }));
-      setCodeReviewVisibleMap((prev) => ({ ...prev, [renderContextId]: false }));
-
       for (const surface of surfaces) {
-        if (surface === "simulator") continue;
         if (isToolSurfaceKind(surface)) {
-          openToolTab(renderContextId, surface);
+          openToolTab(paintId, surface);
         }
       }
 
@@ -2597,47 +2673,36 @@ const CenterStage: React.FC = () => {
         }
         return resolveSurfaceTabId(kind, { browserTabId: browserTabValue });
       };
-
       const liveLayout = materializeSavedLayout(saved, resolveTabId);
-      setCenterPaneLayout(renderContextId, liveLayout);
+      setCenterPaneLayout(paintId, liveLayout);
+      useWorkspaceSurfaceCacheStore.getState().beginVisualSwitch(paintId);
 
       const focused =
         liveLayout.panes.find((p) => p.id === liveLayout.focusedPaneId) ??
         liveLayout.panes[0];
       if (focused?.activeTabId) {
-        setActiveFile(null, renderContextId);
+        setActiveFile(null, paintId);
         void setUrlParams({
           tab: focused.activeTabId,
           wikiPage: null,
         });
       }
+      })();
     },
     [
-      browserTabs,
-      closeBrowserCenterTab,
-      closeFile,
-      closeGitHistoryTab,
-      closeGithubTab,
-      closeSimulatorTab,
-      closeTerminalTab,
-      closeToolTab,
       createTerminalTab,
-      getOpenFiles,
-      githubTabs,
+      liveHostContextId,
       openBrowserCenterTab,
       openSimulatorTab,
       openToolTab,
-      renderContextId,
       setActiveFile,
       setCenterPaneLayout,
-      setCodeReviewVisibleMap,
-      setProjectWikiVisibleMap,
       setUrlParams,
     ],
   );
 
   // Gate on live URL so deferred lag never flashes the empty/welcome chrome mid-hop.
-  if (!liveEffectiveContextId || !paintContextId) {
+  if (!liveHostContextId || !paintContextId) {
     return (
       <CenterStageNoContextView
         currentView={currentView}
@@ -2764,6 +2829,7 @@ const CenterStage: React.FC = () => {
         setTabContextMenu={setTabContextMenu}
         setWikiRefreshing={setWikiRefreshing}
         setWikiRefreshTrigger={setWikiRefreshTrigger}
+        paneId={layoutPaneId}
         onSplitRight={handleSplitRight}
         onSplitDown={handleSplitDown}
         savedLayouts={savedLayouts.map((layout) => ({
@@ -2772,12 +2838,7 @@ const CenterStage: React.FC = () => {
         }))}
         onSaveLayout={handleSaveCenterLayout}
         onApplyLayout={handleApplyCenterLayout}
-        shouldConfirmApplyLayout={() =>
-          shouldConfirmReplaceCenterLayout({
-            paneCount: resolvedPaneLayout.order.length,
-            openTabIds: openTabIdList,
-          })
-        }
+        onCreateSpace={(name) => handleCreateCenterSpace(name)}
       />
     );
   };
@@ -2788,6 +2849,7 @@ const CenterStage: React.FC = () => {
       activeTabIds={multiActiveTabIds}
       tabToPaneId={tabToPaneId}
       paneSlotBoxes={isMultiPane ? paneSlotBoxes : null}
+      fullscreenPaneId={activeFullscreenPaneId}
       browserTabs={browserTabs}
       codeReviewTabVisible={codeReviewTabVisible}
       codeReviewTerminalGridRef={codeReviewTerminalGridRef}
@@ -2862,6 +2924,7 @@ const CenterStage: React.FC = () => {
             <CenterPaneGrid
               layout={resolvedPaneLayout}
               contextId={mosaicContextId}
+              fullscreenPaneId={activeFullscreenPaneId}
               seedFromFullPane={seedFromFullPane}
               onTreeChange={(tree) => {
                 if (renderContextId) setCenterPaneTree(renderContextId, tree);
@@ -2976,6 +3039,11 @@ const CenterStage: React.FC = () => {
             ref={panelHostRef}
             data-center-panel-host=""
             className="pointer-events-none absolute inset-0 min-h-0"
+            style={
+              activeFullscreenPaneId
+                ? { zIndex: CENTER_STAGE_FULLSCREEN_Z_INDEX + 1 }
+                : undefined
+            }
             onPointerDownCapture={handleOverlayPaneInteraction}
             onFocusCapture={handleOverlayPaneInteraction}
           >

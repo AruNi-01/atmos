@@ -16,7 +16,6 @@ import { TokenUsagePage } from "@/app-shell/TokenUsagePage";
 import type { OpenFile } from "@/features/editor/store/use-editor-store";
 import type { TerminalCenterTab } from "@/features/terminal/store/use-terminal-store";
 import { isTerminalCenterTabValue } from "@/app-shell/center-stage-tabs";
-import type { Project, Workspace } from "@/shared/types/domain";
 import { useWorkspaceSurfaceCacheStore } from "@/features/workspace/store/use-workspace-surface-cache-store";
 import { schedulePromoteWorkspaceSurfaceSwitch } from "@/app-shell/workspace-surface-switch";
 import {
@@ -24,6 +23,8 @@ import {
   setCenterStageLastTab,
 } from "@/shared/stores/use-ui-pref-hooks";
 import { CenterStageSurface } from "@/app-shell/center-stage-chrome";
+
+export { resolveCenterStageProjectContext } from "@/app-shell/center-stage-project-context";
 
 const PtDesignStandaloneStage = dynamic(
   () =>
@@ -35,25 +36,6 @@ const PtDesignStandaloneStage = dynamic(
 
 type TerminalGridRef = React.RefObject<TerminalGridHandle | null>;
 type TerminalGridRefs = React.RefObject<Record<string, TerminalGridHandle | null>>;
-
-export function resolveCenterStageProjectContext(
-  projects: Project[],
-  effectiveContextId: string | null,
-): { currentProject: Project | undefined; currentWorkspace: Workspace | undefined } {
-  if (!effectiveContextId) {
-    return { currentProject: undefined, currentWorkspace: undefined };
-  }
-
-  for (const project of projects) {
-    const workspace = project.workspaces.find(w => w.id === effectiveContextId);
-    if (workspace) {
-      return { currentProject: project, currentWorkspace: workspace };
-    }
-  }
-
-  const project = projects.find(p => p.id === effectiveContextId);
-  return { currentProject: project, currentWorkspace: undefined };
-}
 
 export function CenterStageNoContextView({
   currentView,

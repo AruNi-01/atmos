@@ -175,6 +175,14 @@
       "open": "打开",
       "creatingHint": "正在预留工作树。工作区就绪后会显示完整初始化进度。"
     },
+    "centerSpace": {
+      "buttonLabel": "空间",
+      "buttonCountAria": "{count} 个空间",
+      "defaultSpace": "Default",
+      "noPreview": "暂无预览",
+      "deleteSpace": "删除 {name}",
+      "limitReached": "已达到空间数量上限"
+    },
     "searchAria": "搜索",
     "searchPlaceholder": "搜索...",
     "projectFallback": "Atmosphere for Agentic Builders",
@@ -376,6 +384,13 @@
       "splitRight": "向右分屏",
       "splitDown": "向下分屏",
       "layouts": "布局",
+      "plusMenuTabs": "标签",
+      "plusMenuLayout": "布局",
+      "newSpace": "新建空间",
+      "newSpaceDialogTitle": "新建空间",
+      "newSpaceNamePlaceholder": "空间名称",
+      "newSpaceConfirm": "创建",
+      "newSpaceCancel": "取消",
       "saveCurrentLayout": "保存当前布局",
       "saveLayoutDialogTitle": "保存布局",
       "saveLayoutNamePlaceholder": "布局名称",

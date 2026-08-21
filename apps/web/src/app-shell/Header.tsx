@@ -57,6 +57,7 @@ import { isWorkspaceSetupBlocking } from '@/features/workspace/lib/workspace-set
 import { useTranslations } from "next-intl";
 import { getBranchSyncIndicatorState, getSessionUrgency } from './header-parts';
 import { HeaderActionControls } from './header-action-controls';
+import { CenterSpaceSwitcher } from "@/app-shell/center-space/CenterSpaceSwitcher";
 import { HeaderGitContext } from './header-git-context';
 import { useHeaderFullscreen } from './use-header-fullscreen';
 import { useHeaderHotkeys } from './use-header-hotkeys';
@@ -545,45 +546,48 @@ const Header: React.FC = () => {
           <HeaderWorkspaceJobs />
         </div>
 
-        {showHeaderGitToolbar && (
-          <HeaderGitContext
-            branchSyncState={branchSyncState}
-            currentBranchPR={currentBranchPR}
-            currentProject={currentProject}
-            currentWorkspace={currentWorkspace}
-            displayCurrentBranch={displayCurrentBranch}
-            displayTargetBranch={displayTargetBranch}
-            editedCurrentBranch={editedCurrentBranch}
-            filteredBranches={filteredBranches}
-            hasUncommittedChanges={hasUncommittedChanges}
-            hasUnpushedCommits={hasUnpushedCommits}
-            isEditingCurrentBranch={isEditingCurrentBranch}
-            isLoadingBranches={isLoadingBranches}
-            isTargetBranchOpen={isTargetBranchOpen}
-            onCancelEditCurrentBranch={handleCancelEditCurrentBranch}
-            onOpenPr={(prNumber, prTitle) => {
-              if (!currentBranch || !githubOwner || !githubRepo) return;
-              openPullRequestTab({
-                branch: currentBranch,
-                owner: githubOwner,
-                prNumber,
-                repo: githubRepo,
-                title: prTitle,
-              });
-            }}
-            onRefreshChangedFiles={refreshGitStatus}
-            onSaveCurrentBranch={handleSaveCurrentBranch}
-            onSetTargetBranch={setTargetBranch}
-            prIconRef={prIconRef}
-            setEditedCurrentBranch={setEditedCurrentBranch}
-            setIsEditingCurrentBranch={setIsEditingCurrentBranch}
-            setIsTargetBranchOpen={setIsTargetBranchOpen}
-            setTargetBranchFilter={setTargetBranchFilter}
-            targetBranchFilter={targetBranchFilter}
-            uncommittedCount={uncommittedCount}
-            unpushedCount={unpushedCount}
-          />
-        )}
+        <div className="relative z-10 flex min-w-0 items-center gap-5">
+          {showHeaderGitToolbar && (
+            <HeaderGitContext
+              branchSyncState={branchSyncState}
+              currentBranchPR={currentBranchPR}
+              currentProject={currentProject}
+              currentWorkspace={currentWorkspace}
+              displayCurrentBranch={displayCurrentBranch}
+              displayTargetBranch={displayTargetBranch}
+              editedCurrentBranch={editedCurrentBranch}
+              filteredBranches={filteredBranches}
+              hasUncommittedChanges={hasUncommittedChanges}
+              hasUnpushedCommits={hasUnpushedCommits}
+              isEditingCurrentBranch={isEditingCurrentBranch}
+              isLoadingBranches={isLoadingBranches}
+              isTargetBranchOpen={isTargetBranchOpen}
+              onCancelEditCurrentBranch={handleCancelEditCurrentBranch}
+              onOpenPr={(prNumber, prTitle) => {
+                if (!currentBranch || !githubOwner || !githubRepo) return;
+                openPullRequestTab({
+                  branch: currentBranch,
+                  owner: githubOwner,
+                  prNumber,
+                  repo: githubRepo,
+                  title: prTitle,
+                });
+              }}
+              onRefreshChangedFiles={refreshGitStatus}
+              onSaveCurrentBranch={handleSaveCurrentBranch}
+              onSetTargetBranch={setTargetBranch}
+              prIconRef={prIconRef}
+              setEditedCurrentBranch={setEditedCurrentBranch}
+              setIsEditingCurrentBranch={setIsEditingCurrentBranch}
+              setIsTargetBranchOpen={setIsTargetBranchOpen}
+              setTargetBranchFilter={setTargetBranchFilter}
+              targetBranchFilter={targetBranchFilter}
+              uncommittedCount={uncommittedCount}
+              unpushedCount={unpushedCount}
+            />
+          )}
+          <CenterSpaceSwitcher />
+        </div>
 
         <HeaderActionControls
           activeTunnelConnectors={activeTunnelConnectors}

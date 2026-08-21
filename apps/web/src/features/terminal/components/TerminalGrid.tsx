@@ -42,6 +42,7 @@ import { useContestedCliOwners } from "../hooks/use-contested-cli-owners";
 import { useAgentAttentionStore } from "@/features/agent/store/agent-attention-store";
 import { useAgentAttentionSummaryStore } from "@/features/agent/store/agent-attention-summary-store";
 import { useAgentHooksStore } from "@/features/agent/store/agent-hooks-store";
+import { hostIdFromCenterKey } from "@/app-shell/center-space/center-space";
 import {
   toPendingTerminalRun,
   useTerminalAgentTuiFollowUp,
@@ -205,17 +206,19 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
   const projects = useProjects();
   const isProjectsLoading = useProjectsLoading();
 
-  // Look up project and workspace info for human-readable naming
+  // Look up project and workspace info for human-readable naming.
+  // Extra center spaces share the host workspace/project path (cwd, git, files).
   const workspaceInfo = (() => {
+    const hostId = hostIdFromCenterKey(workspaceId);
     for (const project of projects) {
-      if (project.id === workspaceId) {
+      if (project.id === hostId) {
         return {
           projectName: project.name,
           workspaceName: "Main",
           localPath: project.mainFilePath,
         };
       }
-      const workspace = project.workspaces.find(w => w.id === workspaceId);
+      const workspace = project.workspaces.find((row) => row.id === hostId);
       if (workspace) {
         return {
           projectName: project.name,

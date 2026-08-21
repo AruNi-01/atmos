@@ -20,6 +20,21 @@
 import { startTransition } from "react";
 import { useWorkspaceSurfaceCacheStore } from "@/features/workspace/store/use-workspace-surface-cache-store";
 import { readCenterStageLastTab } from "@/shared/stores/use-ui-pref-hooks";
+import {
+  CENTER_SPACE_KEY_MARK,
+  hostIdFromCenterKey,
+} from "@/app-shell/center-space/center-space";
+import { useCenterSpaceStore } from "@/app-shell/center-space/center-space-store";
+
+function framePaintId(id: string | null): string | null {
+  if (!id) return null;
+  if (id.includes(CENTER_SPACE_KEY_MARK)) return id;
+  try {
+    return useCenterSpaceStore.getState().getPaintContextId(id) || id;
+  } catch {
+    return id;
+  }
+}
 
 /** After this quiet gap, the next visual flip is applied immediately (slow hop). */
 export const VISUAL_SWITCH_QUIET_MS = 140;
@@ -119,10 +134,11 @@ function flushPendingVisualSwitch(): void {
   lastVisualFlushAt = nowMs();
   // Paint first (center + sidebar). Store update is non-urgent so it cannot
   // monopolize the main thread before the next sidebar hover/click.
-  applyWorkspaceFrameVisualDom(id);
-  applyWorkspaceSidebarSelectionDom(id);
+  const frameId = framePaintId(id);
+  applyWorkspaceFrameVisualDom(frameId);
+  applyWorkspaceSidebarSelectionDom(id ? hostIdFromCenterKey(id) : null);
   scheduleNonUrgent(() => {
-    useWorkspaceSurfaceCacheStore.getState().beginVisualSwitch(id);
+    useWorkspaceSurfaceCacheStore.getState().beginVisualSwitch(frameId);
   });
 }
 
@@ -350,21 +366,26 @@ export function promoteWorkspaceSurfaceSwitch(nextContextId: string | null): {
 } {
   const store = useWorkspaceSurfaceCacheStore.getState();
   const previousContextId = store.activeContextId;
-  if (previousContextId === nextContextId) {
+  const nextPaintId = framePaintId(nextContextId);
+  if (previousContextId === nextPaintId) {
     // URL caught up to an optimistic visual flip — keep visual aligned.
-    if (store.visualActiveContextId !== nextContextId) {
-      applyWorkspaceFrameVisualDom(nextContextId);
-      applyWorkspaceSidebarSelectionDom(nextContextId);
+    if (store.visualActiveContextId !== nextPaintId) {
+      applyWorkspaceFrameVisualDom(nextPaintId);
+      applyWorkspaceSidebarSelectionDom(
+        nextContextId ? hostIdFromCenterKey(nextContextId) : null,
+      );
       scheduleNonUrgent(() => {
-        store.beginVisualSwitch(nextContextId);
+        store.beginVisualSwitch(nextPaintId);
       });
     }
     return { previousContextId, alreadyActive: true };
   }
-  applyWorkspaceFrameVisualDom(nextContextId);
-  applyWorkspaceSidebarSelectionDom(nextContextId);
+  applyWorkspaceFrameVisualDom(nextPaintId);
+  applyWorkspaceSidebarSelectionDom(
+    nextContextId ? hostIdFromCenterKey(nextContextId) : null,
+  );
   scheduleNonUrgent(() => {
-    store.switchContext(nextContextId);
+    store.switchContext(nextPaintId);
   });
   return { previousContextId, alreadyActive: false };
 }
@@ -399,7 +420,8 @@ export function primeWorkspaceSurfaceNavigation(path: string): boolean {
 
     const store = useWorkspaceSurfaceCacheStore.getState();
     const mounted = store.getMountedContextIds();
-    if (!mounted.includes(parsed.contextId)) {
+    const paintId = framePaintId(parsed.contextId);
+    if (!paintId || (!mounted.includes(paintId) && !mounted.includes(parsed.contextId))) {
       // Cold / frozen: cancel any pending warm lead and snap paint to committed active.
       cancelScheduledVisualActiveSwitch();
       if (
@@ -428,6 +450,13 @@ export function primeWorkspaceSurfaceNavigation(path: string): boolean {
  * Prefer this from app-router push/replace.
  */
 export function prepareAndPrimeWorkspaceNavigation(path: string): string {
+  const current = useWorkspaceSurfaceCacheStore.getState().activeContextId;
+  if (current) {
+    const host = hostIdFromCenterKey(current);
+    void import("@/app-shell/center-space/center-space-switch").then((mod) => {
+      void mod.captureActiveCenterSpaceThumbnail(host);
+    });
+  }
   const prepared = prepareWorkspaceContextNavigation(path);
   primeWorkspaceSurfaceNavigation(prepared);
   return prepared;

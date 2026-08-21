@@ -109,14 +109,11 @@ describe("center-pane-saved-layout", () => {
     ).toBe(true);
   });
 
-  it("wires replace-on-apply confirmation into the plus menu", () => {
+  it("opens a saved layout in a new space instead of replacing the current one", () => {
     const stage = readFileSync(join(import.meta.dir, "../CenterStage.tsx"), "utf8");
     const tabBar = readFileSync(join(import.meta.dir, "../CenterStageTabBar.tsx"), "utf8");
-    expect(stage).toContain("shouldConfirmReplaceCenterLayout");
-    expect(stage).toContain("closeFile(file.path, renderContextId)");
-    expect(stage).toContain("closeGithubTab");
-    expect(tabBar).toContain("applyLayoutConfirmTitle");
-    expect(tabBar).toContain("requestApplyLayout");
-    expect(tabBar).toContain("shouldConfirmApplyLayout");
+    expect(stage).toContain("openNewCenterSpace");
+    expect(stage).not.toContain("shouldConfirmReplaceCenterLayout");
+    expect(tabBar).toContain("onCreateSpace");
   });
 });
