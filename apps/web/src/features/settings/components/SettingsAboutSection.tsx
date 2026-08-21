@@ -5,7 +5,6 @@ import { useTranslations } from "next-intl";
 import { Button } from "@workspace/ui";
 import { Download, ExternalLink, LoaderCircle, RotateCcw } from "lucide-react";
 
-import { AtmosWordmark } from "@/shared/components/ui/AtmosWordmark";
 import {
   SettingsGroup,
   SettingsGroupRow,
@@ -55,7 +54,6 @@ export function SettingsAboutSection({
   onCheckForUpdate,
 }: SettingsAboutSectionProps) {
   const t = useTranslations("settings.aboutSection");
-  const pageT = useTranslations("settings.modal");
   const isChecking = status.stage === "checking";
   const isDownloading = status.stage === "downloading";
   const isInstalling = status.stage === "installing";
@@ -67,14 +65,7 @@ export function SettingsAboutSection({
     : runtimeLabel;
 
   return (
-    <SettingsSection
-      id="about"
-      title={pageT("sections.about.label")}
-      description={pageT("sections.about.description")}
-    >
-      <div className="px-0.5">
-        <AtmosWordmark className="w-full max-w-xs" />
-      </div>
+    <SettingsSection id="about">
       <SettingsGroup>
         <SettingsGroupRow
           wide

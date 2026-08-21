@@ -246,6 +246,12 @@ const SETTINGS_TOPIC_KEYWORDS: Record<string, readonly string[]> = {
     "agent hook status",
     "install hooks",
     "uninstall hooks",
+    "defaults",
+    "yolo",
+    "yolo mode",
+    "skip permissions",
+    "show agent name",
+    "terminal titles",
     "behaviour",
     "idle session cleanup",
     "agent activity indicators",
@@ -683,6 +689,18 @@ const SETTINGS_TOPIC_ITEMS: Record<string, readonly SettingsSearchItemDefinition
     }),
   ],
   agents: [
+    settingsModalSearchItem("codeAgent.defaults", {
+      keywords: ["defaults", "launch flags", "yolo", "agent name", "terminal titles"],
+    }),
+    settingsModalSearchItem("codeAgent.yoloMode", {
+      keywords: ["yolo", "skip-permissions", "auto-approve", "dangerously-skip-permissions", "restore yolo"],
+    }),
+    settingsModalSearchItem("codeAgent.showAgentNameInTerminalTitles", {
+      keywords: ["agent name", "terminal titles", "terminal tabs", "agent icon", "brand name"],
+    }),
+    settingsModalSearchItem("codeAgent.activityIndicators", {
+      keywords: ["running-state icon", "unicode spinner", "orbs", "left sidebar", "footer"],
+    }),
     settingsModalSearchItem("codeAgent.builtInAgents", {
       keywords: ["startup command", "parameters", "claude", "codex", "gemini", "antigravity", "grok", "grok build"],
     }),

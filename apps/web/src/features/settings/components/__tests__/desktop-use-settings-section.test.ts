@@ -15,7 +15,7 @@ describe("Desktop Use settings wiring", () => {
       "utf8",
     );
     expect(data).toContain("desktop-use");
-    expect(sections).toContain('titleKey="desktopUse"');
+    expect(sections).toContain('activeGroupTab === \'desktop-use\'');
     expect(data).toContain('apps: mergeTopicItems("integrations", "browser", "desktop-use")');
   });
 

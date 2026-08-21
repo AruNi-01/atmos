@@ -9,10 +9,12 @@ Applies only when editing `../SettingsModal.tsx` and settings-specific subviews 
 
 ## Page layout
 
-- Page title is the sidebar tab (28px). Keep the subtitle to one line.
+- Do not render a page-level title or subtitle. The sidebar already names the item.
+- When a sidebar item contains multiple large groups, split them with `SettingsPageTabs` (same pill tabs as Tasks) at the top-left. That header is tabs only. Do not stack those groups on one page.
+- Tab labels reuse `settings.modal.sections.<group>.label`. Deep links keep using `#<group-id>` (`settings-section-<group-id>`).
 - In-page section titles sit **outside** the muted group: `text-sm font-medium`, optional `text-xs` help, optional ghost action on the right.
 - Related rows belong in `SettingsGroup` (`rounded-2xl bg-muted/40`). Do not put a second title+icon chrome inside the group.
-- Stack sections with `SettingsPageStack` (`space-y-8`).
+- Stack remaining cards with `SettingsPageStack` (`space-y-8`).
 - Do not nest cards inside cards.
 
 ## Rows

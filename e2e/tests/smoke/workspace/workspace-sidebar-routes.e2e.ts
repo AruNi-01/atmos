@@ -143,7 +143,7 @@ test.describe("smoke workspace", () => {
     await expect
       .poll(async () => new URL(page.url()).searchParams.get("activeSettingTab"))
       .toBe("keyboard");
-    await expect(page.getByRole("heading", { name: /^(Keyboard|键盘)$/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: /^(Keyboard|键盘)$/ })).toBeVisible();
     await expect(page.getByRole("dialog", { name: /^(Settings|设置)$/ })).toHaveCount(0);
 
     await closeSettingsPage(page);

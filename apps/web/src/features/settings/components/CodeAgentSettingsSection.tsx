@@ -31,7 +31,6 @@ import {
 import { CodeAgentRunConfigSettingsSection } from "@/features/settings/components/CodeAgentRunConfigSettingsSection";
 import { SaveActionButton } from "@/features/settings/components/settings/SaveActionButton";
 import {
-  SettingsGroup,
   SettingsGroupCard,
   SettingsGroupRow,
   SettingsPageStack,
@@ -165,7 +164,11 @@ export function CodeAgentSettingsSection({
 
   return (
     <SettingsPageStack>
-      <SettingsGroup>
+      <SettingsGroupCard
+        id="defaults"
+        title={t("defaults.title")}
+        description={t("defaults.description")}
+      >
         <SettingsToggleRow
           title={t("yolo.title")}
           description={t("yolo.description")}
@@ -188,9 +191,6 @@ export function CodeAgentSettingsSection({
             {t("yolo.restoreAll")}
           </Button>
         </SettingsGroupRow>
-      </SettingsGroup>
-
-      <SettingsGroup>
         <SettingsToggleRow
           title={t("showAgentName.title")}
           description={t("showAgentName.description")}
@@ -198,7 +198,7 @@ export function CodeAgentSettingsSection({
           disabled={showAgentNameInTerminalTitlesSyncing}
           onCheckedChange={(checked) => onShowAgentNameInTerminalTitlesChange(checked)}
         />
-      </SettingsGroup>
+      </SettingsGroupCard>
 
       <AgentActivityIndicatorsSettingsSection />
 

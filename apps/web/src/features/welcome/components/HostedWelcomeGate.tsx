@@ -848,6 +848,7 @@ function HostedConnectionOnboarding({
                       accessToken={tokenDraft.trim()}
                       relaySecretKey={relaySecretDraft}
                       busy={busyAction !== null}
+                      className="rounded-lg border border-dashed border-border/80 bg-muted/10 px-4 py-4"
                     />
                   </div>
                 </section>
