@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { HOST_RESIZE_DRAG_ATTR } from "@/features/terminal/lib/host-resize-pin";
 
@@ -14,7 +14,7 @@ export function useLiveSplitLayout<T>(source: T) {
   const resizingRef = useRef(false);
   const rafRef = useRef(0);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (resizingRef.current) return;
     liveRef.current = source;
     setLive(source);

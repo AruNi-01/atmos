@@ -53,6 +53,26 @@ describe("attention summary input chrome", () => {
     expect(panel).not.toContain("dark:bg-sky-400/10");
   });
 
+  it("pins the overlay 1px above the pane edge so overflow-hidden cannot crop the inset", () => {
+    const overlay = readSibling("TerminalAgentInputOverlay.tsx");
+    const sideChat = readSibling("TerminalSideChatDots.tsx");
+    const chrome = readSibling("TerminalChrome.tsx");
+    expect(overlay).toContain(
+      '"pointer-events-none absolute inset-x-0 bottom-px z-[70] flex justify-center px-3"',
+    );
+    expect(overlay).not.toContain("mb-px");
+    expect(overlay).not.toContain("pb-px");
+    expect(overlay).not.toContain("h-1.5");
+    expect(overlay).toContain("shadow-[0_0_2px_rgba(0,0,0,0.16)]");
+    expect(sideChat).toContain("shadow-[0_0_2px_rgba(0,0,0,0.16)]");
+    expect(sideChat).toContain('shouldShowIndicator ? "h-3 w-8 opacity-100"');
+    expect(chrome).toContain("const padBottom = 6 * normalizedTerminalScale;");
+    expect(readSibling("TerminalAgentInputShell.tsx")).toContain(
+      "(isOverlayVisible || isSendAnimating || isSendExiting) && \"mb-1\"",
+    );
+    expect(overlay).not.toContain("-translate-y-1");
+  });
+
   it("breathes the trigger bar whenever a summary is waiting, not only while summarizing", () => {
     const overlay = readSibling("TerminalAgentInputOverlay.tsx");
     const css = readSibling("TerminalAgentInputOverlay.css");

@@ -12,6 +12,7 @@
   position: absolute;
   background: color-mix(in srgb, var(--primary) 16%, transparent);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary) 36%, transparent);
+  border-radius: 2px;
 }
 
 .terminal-dock-preview[data-edge="top"]::after {
@@ -40,6 +41,31 @@
   right: 0;
   bottom: 0;
   width: 50%;
+}
+
+/*
+ * Dock preview uses the same center-stage rounded-xl clip as the
+ * need-attention ring. Only round overlay corners that sit on the mosaic
+ * outer corners — otherwise the inset highlight is a square and gets cut.
+ */
+.terminal-dock-preview[data-edge-top][data-edge-left][data-edge="top"]::after,
+.terminal-dock-preview[data-edge-top][data-edge-left][data-edge="left"]::after {
+  border-top-left-radius: var(--radius-xl);
+}
+
+.terminal-dock-preview[data-edge-top][data-edge-right][data-edge="top"]::after,
+.terminal-dock-preview[data-edge-top][data-edge-right][data-edge="right"]::after {
+  border-top-right-radius: var(--radius-xl);
+}
+
+.terminal-dock-preview[data-edge-bottom][data-edge-left][data-edge="bottom"]::after,
+.terminal-dock-preview[data-edge-bottom][data-edge-left][data-edge="left"]::after {
+  border-bottom-left-radius: var(--radius-xl);
+}
+
+.terminal-dock-preview[data-edge-bottom][data-edge-right][data-edge="bottom"]::after,
+.terminal-dock-preview[data-edge-bottom][data-edge-right][data-edge="right"]::after {
+  border-bottom-right-radius: var(--radius-xl);
 }
 
 .terminal-pane-drag-ghost {
