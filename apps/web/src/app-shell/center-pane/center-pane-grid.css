@@ -6,7 +6,8 @@
     height 280ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-[data-center-split-root][data-live-resizing] .center-pane-leaf {
+[data-center-split-root][data-live-resizing] .center-pane-leaf,
+[data-center-split-root][data-pane-snap] .center-pane-leaf {
   transition: none;
 }
 
@@ -119,11 +120,14 @@
     );
 }
 
-.center-pane-drag-ghost-shot {
-  min-height: 0;
+.center-pane-drag-ghost-live-clip {
+  position: relative;
   flex: 1 1 auto;
-  background-color: var(--background);
-  background-repeat: no-repeat;
-  background-position: center;
-  background-size: 100% 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.center-pane-drag-ghost-live {
+  pointer-events: none;
+  transform-origin: top left;
 }

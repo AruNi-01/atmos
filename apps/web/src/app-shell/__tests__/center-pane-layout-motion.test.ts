@@ -4,6 +4,7 @@ import {
   planPaneTileMotion,
   seedFullStagePrevious,
 } from "@/app-shell/center-pane/center-pane-layout-motion";
+import { shouldSnapPaneTilesOnContextChange } from "@/app-shell/center-pane/center-pane-collapse-persist";
 
 const left: { id: string; left: number; top: number; width: number; height: number } = {
   id: "pane-main",
@@ -40,5 +41,11 @@ describe("center pane layout motion", () => {
     expect(plan.exiting).toHaveLength(1);
     expect(plan.exiting[0]?.to).toMatchObject({ id: "pane-2", width: 0, left: 0.5 });
     expect(plan.staying[0]?.to).toEqual(full);
+  });
+
+  it("snaps tiles when hopping workspaces instead of growing from the previous split", () => {
+    expect(shouldSnapPaneTilesOnContextChange("ws-a", "ws-b")).toBe(true);
+    expect(shouldSnapPaneTilesOnContextChange("ws-a", "ws-a")).toBe(false);
+    expect(shouldSnapPaneTilesOnContextChange(null, "ws-b")).toBe(false);
   });
 });

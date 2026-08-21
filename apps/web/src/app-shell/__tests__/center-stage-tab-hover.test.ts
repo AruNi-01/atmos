@@ -53,4 +53,16 @@ describe("center stage tab hover", () => {
     expect(tabBar).not.toContain("CreateTerminalTabButton");
     expect(tabBar).not.toContain("backdrop-blur-[4px]");
   });
+
+  it("opens the layouts submenu with the shared popover animation", () => {
+    const menuBlock = tabBar.slice(
+      tabBar.indexOf("function CenterStageNewTabMenu"),
+      tabBar.indexOf("function SpecialTerminalTab"),
+    );
+    expect(menuBlock).toContain("<Popover open={layoutsSubOpen}");
+    expect(menuBlock).toContain('side="left"');
+    expect(menuBlock).toContain("data-center-stage-layouts-menu");
+    expect(menuBlock).not.toContain("right-full");
+    expect(menuBlock).not.toContain("overflow-visible");
+  });
 });
