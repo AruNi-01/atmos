@@ -3,7 +3,7 @@
 import React from "react";
 import { AuthUIProvider } from "@daveyplate/better-auth-ui";
 import { useQueryClient } from "@tanstack/react-query";
-import { toastManager } from "@workspace/ui";
+import { cn, toastManager } from "@workspace/ui";
 import {
   getHubAuthClient,
   hubSignOut,
@@ -25,6 +25,34 @@ export {
 type HubAuthUIProviderProps = {
   children: React.ReactNode;
 };
+
+/**
+ * GitHub / Google profile photos are remote HTTPS URLs. Render them as a
+ * plain img (not next/image) with no-referrer so the provider CDN does not
+ * 403, and keep the image above Radix's initials fallback.
+ */
+function HubAvatarImage({
+  src,
+  alt,
+  className,
+}: {
+  src: string;
+  alt: string;
+  className?: string;
+}) {
+  const [failed, setFailed] = React.useState(false);
+  if (!src || failed) return null;
+  return (
+    // eslint-disable-next-line @next/next/no-img-element -- OAuth avatars are arbitrary GitHub/Google hosts.
+    <img
+      src={src}
+      alt={alt}
+      referrerPolicy="no-referrer"
+      className={cn("relative z-10 size-full object-cover", className)}
+      onError={() => setFailed(true)}
+    />
+  );
+}
 
 /**
  * better-auth-ui provider wired to Atmos Hub's Better Auth browser client.
@@ -143,6 +171,7 @@ export function HubAuthUIProvider({ children }: HubAuthUIProviderProps) {
       signUp={false}
       changeEmail={false}
       account={{ fields: ["name"] }}
+      avatar={{ Image: HubAvatarImage }}
       social={{
         providers: ["github", "google"],
         signIn: socialSignIn,

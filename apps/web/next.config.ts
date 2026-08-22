@@ -116,7 +116,14 @@ const nextConfig: NextConfig = {
   // Generate directory indexes so static file servers can resolve app routes
   // consistently with trailing slash URLs.
   trailingSlash: isStaticExportTarget,
-  images: { unoptimized: isStaticExportTarget },
+  images: {
+    unoptimized: isStaticExportTarget,
+    remotePatterns: [
+      { protocol: "https", hostname: "avatars.githubusercontent.com" },
+      { protocol: "https", hostname: "lh3.googleusercontent.com" },
+      { protocol: "https", hostname: "*.googleusercontent.com" },
+    ],
+  },
   allowedDevOrigins: ["*"],
   // View transitions are stable in Next.js 16.3+ (no experimental flag).
   turbopack: {
