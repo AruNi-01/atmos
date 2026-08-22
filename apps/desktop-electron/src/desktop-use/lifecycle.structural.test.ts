@@ -12,6 +12,12 @@ describe("desktop-use quit lifecycle", () => {
     const appshotAt = main.indexOf("appshotStatus");
     expect(brandingAt).toBeGreaterThan(-1);
     expect(appshotAt).toBeGreaterThan(brandingAt);
+    const branding = readFileSync(
+      join(root, "desktop-use/host-branding.ts"),
+      "utf8",
+    );
+    expect(branding).toContain("AppIcon.icns");
+    expect(branding).toContain("applyHostAppIcon");
   });
 
   it("stops the host daemon on real quit, not window hide", () => {
