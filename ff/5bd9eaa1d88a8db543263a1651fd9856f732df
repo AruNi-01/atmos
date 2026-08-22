@@ -1,0 +1,22 @@
+apps/web/next.config.ts
+  h_5be255725524c8 119-126
+apps/web/src/features/settings/components/AccountSettingsSection.tsx
+  h_5be255725524c8 56,282-288,333
+apps/web/src/features/settings/components/HubAuthUIProvider.tsx
+  h_5be255725524c8 6,29-56,174
+apps/web/src/features/settings/lib/hub-profile-user.test.ts
+  h_5be255725524c8 1-119
+apps/web/src/features/settings/lib/hub-profile-user.ts
+  h_5be255725524c8 1-70
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "ff5bd9eaa1d88a8db543263a1651fd9856f732df",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
