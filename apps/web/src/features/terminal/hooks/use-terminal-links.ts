@@ -133,7 +133,7 @@ export function useTerminalLinks({
         return;
       }
 
-      const targetContextId = workspaceId || currentEditorContextId;
+      const targetContextId = workspaceId || currentEditorContextId || undefined;
 
       if (fileLinkOpenMode === "finder") {
         await openPathWithApp("Finder", resolved.path);
@@ -155,7 +155,9 @@ export function useTerminalLinks({
         line: resolved.line,
         column: resolved.column,
       });
-      attachCenterTab(targetContextId, resolved.path);
+      if (targetContextId) {
+        attachCenterTab(targetContextId, resolved.path);
+      }
     } catch (error) {
       reportTerminalLinkError(
         resolved.type === "external" ? resolved.url : resolved.path,
