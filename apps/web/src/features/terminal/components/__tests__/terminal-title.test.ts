@@ -137,6 +137,36 @@ describe("terminal title runtime wrapper fallback", () => {
       toolbarAgent: hermesAgent,
     });
   });
+
+  it("uses live cwd instead of a leftover agent pane label", () => {
+    expect(
+      getTerminalDisplayMeta({
+        baseTitle: "Hermes Agent",
+        dynamicTitle: ".../OpenSource/atmos",
+        configuredAgents: [hermesAgent],
+        agent: hermesAgent,
+      }),
+    ).toMatchObject({
+      displayTitle: ".../OpenSource/atmos",
+      primaryTitle: ".../OpenSource/atmos",
+      toolbarAgent: undefined,
+    });
+  });
+
+  it("uses a live non-agent command instead of a leftover agent pane label", () => {
+    expect(
+      getTerminalDisplayMeta({
+        baseTitle: "Hermes Agent",
+        dynamicTitle: "git status",
+        configuredAgents: [hermesAgent],
+        agent: hermesAgent,
+      }),
+    ).toMatchObject({
+      displayTitle: "git status",
+      primaryTitle: "git status",
+      toolbarAgent: undefined,
+    });
+  });
 });
 
 describe("terminal title APP-036 unique + contested agent matching", () => {
@@ -291,15 +321,17 @@ describe("terminal title APP-036 unique + contested agent matching", () => {
   });
 
   it("does not treat path-only titles ending in agent as contested freehand", () => {
-    expect(
-      getTerminalDisplayMeta({
-        baseTitle: "Cursor Agent",
-        dynamicTitle: "/tmp/workspace/agent",
-        configuredAgents: agents,
-        agent: cursorAgent,
-        contestedOwners: { agent: "unknown" },
-      }).toolbarAgent?.id,
-    ).toBe("cursor");
+    const meta = getTerminalDisplayMeta({
+      baseTitle: "Cursor Agent",
+      dynamicTitle: "/tmp/workspace/agent",
+      configuredAgents: agents,
+      agent: cursorAgent,
+      contestedOwners: { agent: "unknown" },
+    });
+    // Cwd/path text, not the contested `agent` CLI — show the path, not a brand
+    // and not the raw token "agent".
+    expect(meta.displayTitle).toBe("/tmp/workspace/agent");
+    expect(meta.toolbarAgent).toBeUndefined();
   });
 });
 

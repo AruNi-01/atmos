@@ -1108,7 +1108,7 @@ export function getTerminalDisplayMeta<TAgent extends TerminalTitleAgent>(option
     contestedOwners,
   });
   // Contested bare `agent` command lines suppress stale brand fallbacks.
-  // Path-only titles ending in `agent` must not hide a valid pane agent.
+  // Path-only titles ending in `agent` are cwd/path text, not that CLI token.
   const unresolvedContestedDynamic =
     titleMatchToken(dynamicTitle) === "agent" &&
     !matchedDynamicAgent &&
@@ -1122,9 +1122,14 @@ export function getTerminalDisplayMeta<TAgent extends TerminalTitleAgent>(option
       : dynamicTitleIsVersion
         ? labelAgent ?? agent
         : undefined;
+  // A live cwd or non-agent command is the current title. Do not keep a leftover
+  // pane-label brand (e.g. launched as "Claude Code") after the agent exits or
+  // the shell returns to a prompt — refresh + typed commands must show cwd.
+  const hasLiveDynamicTitle =
+    Boolean(dynamicTitle?.trim()) && !isTmuxIndexTitle(dynamicTitle);
   const toolbarAgent = unresolvedContestedDynamic
     ? undefined
-    : matchedDynamicAgent ?? fallbackAgent ?? labelAgent;
+    : matchedDynamicAgent ?? fallbackAgent ?? (hasLiveDynamicTitle ? undefined : labelAgent);
 
   // Agent brand is optional: icon stays (callers), name can be hidden to save space.
   // When hidden, primary is empty so OSC (if any) is shown without a ` | ` separator.
