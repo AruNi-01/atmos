@@ -1563,60 +1563,6 @@ function CenterStageNewTabMenu({
               }
               layout={
                 <>
-          <button
-            type="button"
-            aria-pressed={isCenterFullscreen}
-            className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
-            onClick={() => {
-              toggleCenterFullscreen(paneId);
-              setOpen(false);
-            }}
-          >
-            {isCenterFullscreen ? (
-              <Minimize2 className="size-3.5 shrink-0 text-muted-foreground" />
-            ) : (
-              <Maximize2 className="size-3.5 shrink-0 text-muted-foreground" />
-            )}
-            <span className="min-w-0 flex-1 truncate">
-              {isCenterFullscreen ? exitFullscreenLabel : fullscreenLabel}
-            </span>
-          </button>
-          {onSplitRight ? (
-            <button
-              type="button"
-              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
-              onClick={() => {
-                onSplitRight();
-                setOpen(false);
-              }}
-            >
-              <SquareSplitHorizontal className="size-3.5 shrink-0 text-muted-foreground" />
-              <span className="min-w-0 flex-1 truncate">{splitRightLabel}</span>
-            </button>
-          ) : null}
-          {onSplitDown ? (
-            <button
-              type="button"
-              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
-              onClick={() => {
-                onSplitDown();
-                setOpen(false);
-              }}
-            >
-              <Rows2 className="size-3.5 shrink-0 text-muted-foreground" />
-              <span className="min-w-0 flex-1 truncate">{splitDownLabel}</span>
-            </button>
-          ) : null}
-          {onCreateSpace && newSpaceLabel ? (
-            <button
-              type="button"
-              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
-              onClick={openSpaceDialog}
-            >
-              <Layers className="size-3.5 shrink-0 text-muted-foreground" />
-              <span className="min-w-0 flex-1 truncate">{newSpaceLabel}</span>
-            </button>
-          ) : null}
           {showLayoutItems ? (
             <Popover open={layoutsSubOpen} onOpenChange={setLayoutsSubOpen}>
               <PopoverTrigger asChild>
@@ -1691,6 +1637,60 @@ function CenterStageNewTabMenu({
               </PopoverContent>
             </Popover>
           ) : null}
+          {onSplitRight ? (
+            <button
+              type="button"
+              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
+              onClick={() => {
+                onSplitRight();
+                setOpen(false);
+              }}
+            >
+              <SquareSplitHorizontal className="size-3.5 shrink-0 text-muted-foreground" />
+              <span className="min-w-0 flex-1 truncate">{splitRightLabel}</span>
+            </button>
+          ) : null}
+          {onSplitDown ? (
+            <button
+              type="button"
+              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
+              onClick={() => {
+                onSplitDown();
+                setOpen(false);
+              }}
+            >
+              <Rows2 className="size-3.5 shrink-0 text-muted-foreground" />
+              <span className="min-w-0 flex-1 truncate">{splitDownLabel}</span>
+            </button>
+          ) : null}
+          {onCreateSpace && newSpaceLabel ? (
+            <button
+              type="button"
+              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
+              onClick={openSpaceDialog}
+            >
+              <Layers className="size-3.5 shrink-0 text-muted-foreground" />
+              <span className="min-w-0 flex-1 truncate">{newSpaceLabel}</span>
+            </button>
+          ) : null}
+          <button
+            type="button"
+            aria-pressed={isCenterFullscreen}
+            className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
+            onClick={() => {
+              toggleCenterFullscreen(paneId);
+              setOpen(false);
+            }}
+          >
+            {isCenterFullscreen ? (
+              <Minimize2 className="size-3.5 shrink-0 text-muted-foreground" />
+            ) : (
+              <Maximize2 className="size-3.5 shrink-0 text-muted-foreground" />
+            )}
+            <span className="min-w-0 flex-1 truncate">
+              {isCenterFullscreen ? exitFullscreenLabel : fullscreenLabel}
+            </span>
+          </button>
                 </>
               }
             />

@@ -99,7 +99,7 @@ describe("center stage fullscreen geometry", () => {
 });
 
 describe("center stage fullscreen wiring", () => {
-  it("puts fullscreen above split in the plus menu", () => {
+  it("puts layout first and fullscreen last in the plus menu layout tab", () => {
     const tabBar = readFileSync(
       join(import.meta.dir, "../CenterStageTabBar.tsx"),
       "utf8",
@@ -108,12 +108,15 @@ describe("center stage fullscreen wiring", () => {
       tabBar.indexOf("function CenterStageNewTabMenu"),
       tabBar.indexOf("function SpecialTerminalTab"),
     );
-    const fullscreenAt = menuBlock.indexOf("{isCenterFullscreen ? exitFullscreenLabel : fullscreenLabel}");
+    const layoutAt = menuBlock.indexOf("{layoutLabel}");
     const splitRightAt = menuBlock.indexOf("{splitRightLabel}");
     const splitDownAt = menuBlock.indexOf("{splitDownLabel}");
+    const fullscreenAt = menuBlock.indexOf("{isCenterFullscreen ? exitFullscreenLabel : fullscreenLabel}");
+    expect(layoutAt).toBeGreaterThan(0);
     expect(fullscreenAt).toBeGreaterThan(0);
-    expect(splitRightAt).toBeGreaterThan(fullscreenAt);
+    expect(splitRightAt).toBeGreaterThan(layoutAt);
     expect(splitDownAt).toBeGreaterThan(splitRightAt);
+    expect(fullscreenAt).toBeGreaterThan(splitDownAt);
     expect(menuBlock).toContain("Maximize2");
     expect(menuBlock).toContain("Minimize2");
     expect(menuBlock).toContain("toggleCenterFullscreen(paneId)");
