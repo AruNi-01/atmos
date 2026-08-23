@@ -181,6 +181,10 @@
       "defaultSpace": "Default",
       "noPreview": "No preview yet",
       "deleteSpace": "Delete {name}",
+      "deleteConfirmTitle": "Delete {name}?",
+      "deleteConfirmDescription": "Open tabs and terminals in this space will close.",
+      "deleteConfirmCancel": "Cancel",
+      "deleteConfirmAction": "Delete",
       "limitReached": "Space limit reached"
     },
     "searchAria": "Search",
@@ -9476,6 +9480,7 @@
     },
     "actions": {
       "newTerminal": "New Terminal",
+      "closeTerminal": "Close {tab}",
       "stop": "Stop",
       "run": "Run",
       "configureScripts": "Configure Scripts"

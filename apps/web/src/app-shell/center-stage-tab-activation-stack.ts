@@ -28,6 +28,12 @@ export function recordCenterTabActivation(
   stacksByContext.set(contextId, next);
 }
 
+/** Drop every close-navigation entry for a paint context (space delete). */
+export function clearCenterTabActivationStack(contextId: string): void {
+  if (!contextId) return;
+  stacksByContext.delete(contextId);
+}
+
 /** Drop a closed (or otherwise gone) tab from the stack. */
 export function removeCenterTabFromActivationStack(
   contextId: string,

@@ -845,8 +845,15 @@ export function reconcileOpenTabs(
   if (open.size === 0) {
     open.add("terminal");
   }
+  // Extra spaces omit Overview from the chrome open-tab list. Keep it when a
+  // pane already owns it so reconcile cannot strip it and steal a sibling tab.
+  for (const pane of layout.panes) {
+    if (pane.tabIds.includes(OVERVIEW_TAB_ID)) open.add(OVERVIEW_TAB_ID);
+  }
 
   const primaryId = getPrimaryPaneId(layout);
+  const ownedByOtherPane = (paneId: string, tabId: string) =>
+    layout.panes.some((other) => other.id !== paneId && other.tabIds.includes(tabId));
   // Split intentionally leaves empty launcher panes — keep those.
   const intentionallyEmpty = new Set(
     layout.panes.filter((p) => p.tabIds.length === 0).map((p) => p.id),
@@ -863,14 +870,34 @@ export function reconcileOpenTabs(
     }
     if (tabIds.length === 0) {
       if (p.id === primaryId) {
-        const fallback =
+        const unownedPreferred =
           preferredActiveTabId &&
           open.has(preferredActiveTabId) &&
-          preferredActiveTabId !== OVERVIEW_TAB_ID
+          preferredActiveTabId !== OVERVIEW_TAB_ID &&
+          !ownedByOtherPane(p.id, preferredActiveTabId)
             ? preferredActiveTabId
-            : open.has(OVERVIEW_TAB_ID)
-              ? OVERVIEW_TAB_ID
-              : ([...open][0] ?? OVERVIEW_TAB_ID);
+            : null;
+        // Overview-only primary: keep Overview instead of copying a sibling tab.
+        if (p.tabIds.includes(OVERVIEW_TAB_ID)) {
+          if (
+            p.tabIds.length === 1 &&
+            p.tabIds[0] === OVERVIEW_TAB_ID &&
+            p.activeTabId === OVERVIEW_TAB_ID
+          ) {
+            return p;
+          }
+          return { ...p, tabIds: [OVERVIEW_TAB_ID], activeTabId: OVERVIEW_TAB_ID };
+        }
+        // Empty launcher primary: stay empty when the new tab already lives elsewhere.
+        if (p.tabIds.length === 0) {
+          if (!unownedPreferred) return createEmptyPane(p.id);
+          return { ...p, tabIds: [unownedPreferred], activeTabId: unownedPreferred };
+        }
+        const fallback =
+          unownedPreferred ??
+          (open.has(OVERVIEW_TAB_ID)
+            ? OVERVIEW_TAB_ID
+            : ([...open].find((id) => !ownedByOtherPane(p.id, id)) ?? OVERVIEW_TAB_ID));
         if (p.tabIds.length === 1 && p.tabIds[0] === fallback && p.activeTabId === fallback) {
           return p;
         }

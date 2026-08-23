@@ -1441,7 +1441,7 @@ function CenterStageNewTabMenu({
             variant="pill"
             className="w-full"
           >
-            <MotionTabsList className="flex h-8 w-full min-w-0 gap-0.5 p-0.5">
+            <MotionTabsList className="flex h-8 w-full min-w-0 gap-0.5 bg-muted p-0.5">
               <MotionTabsTrigger
                 value="tabs"
                 className="h-7 min-w-0 flex-1 px-2 text-xs"

@@ -7,7 +7,7 @@ import {
   instanceIdFromRelaySelection,
   type ConnectionInstanceId,
 } from '@/features/connection/lib/connection-instance';
-import { useConnectionStore } from '@/features/connection/store/connection-store';
+import { getActiveInstanceId, useConnectionStore } from '@/features/connection/store/connection-store';
 import { useUiPrefStore, type UiPrefSlice } from '@/shared/stores/use-ui-pref-store';
 
 function useActiveInstanceId() {
@@ -215,6 +215,7 @@ export function useQuotaProviderOrder(): [
 
 export interface CenterStageUiPrefs {
   lastTabByContext: Record<string, string>;
+  wikiPageByContext: Record<string, string>;
   tabGroupOrderByContext: Record<string, Record<string, string[]>>;
   /** Per-workspace center strip tab id order (drag-and-drop). */
   tabStripOrderByContext: Record<string, string[]>;
@@ -224,6 +225,7 @@ export interface CenterStageUiPrefs {
 
 const DEFAULT_CENTER_STAGE: CenterStageUiPrefs = {
   lastTabByContext: {},
+  wikiPageByContext: {},
   tabGroupOrderByContext: {},
   tabStripOrderByContext: {},
 };
@@ -231,9 +233,13 @@ const DEFAULT_CENTER_STAGE: CenterStageUiPrefs = {
 export function useCenterStageUiPrefs(): CenterStageUiPrefs {
   const instanceId = useActiveInstanceId();
   const readSlice = useUiPrefStore(s => s.readSlice);
-  return useMemo(
-    () => readSlice(instanceId, 'centerStage', DEFAULT_CENTER_STAGE),
-    [instanceId, readSlice],
+  useEffect(() => {
+    readSlice(instanceId, 'centerStage', DEFAULT_CENTER_STAGE);
+  }, [instanceId, readSlice]);
+  return useUiPrefStore(
+    s =>
+      (s.byInstance[instanceId]?.centerStage as CenterStageUiPrefs | undefined) ??
+      DEFAULT_CENTER_STAGE,
   );
 }
 
@@ -244,7 +250,7 @@ export function setCenterStageLastTab(contextId: string, tab: string): void {
     'centerStage',
     prev => ({
       ...prev,
-      lastTabByContext: { ...prev.lastTabByContext, [contextId]: tab },
+      lastTabByContext: { ...(prev.lastTabByContext ?? {}), [contextId]: tab },
     }),
     DEFAULT_CENTER_STAGE,
   );
@@ -253,7 +259,44 @@ export function setCenterStageLastTab(contextId: string, tab: string): void {
 export function readCenterStageLastTab(contextId: string): string | undefined {
   const instanceId = useConnectionStore.getState().activeInstanceId;
   return useUiPrefStore.getState().readSlice(instanceId, 'centerStage', DEFAULT_CENTER_STAGE)
-    .lastTabByContext[contextId];
+    .lastTabByContext?.[contextId];
+}
+
+export function useCenterStageLastTab(contextId: string | null): string | undefined {
+  const instanceId = useActiveInstanceId();
+  const readSlice = useUiPrefStore(s => s.readSlice);
+  useEffect(() => {
+    readSlice(instanceId, 'centerStage', DEFAULT_CENTER_STAGE);
+  }, [instanceId, readSlice]);
+  return useUiPrefStore(s => {
+    if (!contextId) return undefined;
+    const slice = s.byInstance[instanceId]?.centerStage as CenterStageUiPrefs | undefined;
+    return slice?.lastTabByContext?.[contextId];
+  });
+}
+
+export function setCenterStageWikiPage(contextId: string, page: string | null): void {
+  const instanceId = useConnectionStore.getState().activeInstanceId;
+  useUiPrefStore.getState().patchSlice(
+    instanceId,
+    'centerStage',
+    prev => {
+      const wikiPageByContext = { ...(prev.wikiPageByContext ?? {}) };
+      if (!page) delete wikiPageByContext[contextId];
+      else wikiPageByContext[contextId] = page;
+      return { ...prev, wikiPageByContext };
+    },
+    DEFAULT_CENTER_STAGE,
+  );
+}
+
+export function useCenterStageWikiPage(contextId: string | null): string | undefined {
+  const instanceId = useActiveInstanceId();
+  return useUiPrefStore(s => {
+    if (!contextId) return undefined;
+    const slice = s.byInstance[instanceId]?.centerStage as CenterStageUiPrefs | undefined;
+    return slice?.wikiPageByContext?.[contextId];
+  });
 }
 
 export function readCenterStageTabGroupOrder(): CenterStageUiPrefs['tabGroupOrderByContext'] {
@@ -282,6 +325,51 @@ export function readCenterStageTabStripOrder(contextId: string): string[] {
     DEFAULT_CENTER_STAGE,
   ).tabStripOrderByContext?.[contextId];
   return Array.isArray(order) ? order.filter((id): id is string => typeof id === 'string') : [];
+}
+
+/** Drop per-space chrome and Run tabs when a center space is deleted. */
+export function forgetPaintContextUiPrefs(paintContextId: string): void {
+  if (!paintContextId) return;
+  const instanceId = getActiveInstanceId();
+  const store = useUiPrefStore.getState();
+  store.patchSlice(
+    instanceId,
+    'run',
+    prev => {
+      const byContext = {
+        ...((prev as { byContext?: Record<string, unknown> }).byContext ?? {}),
+      };
+      if (!(paintContextId in byContext)) return prev as { byContext: Record<string, unknown> };
+      delete byContext[paintContextId];
+      return { byContext };
+    },
+    { byContext: {} },
+  );
+  store.patchSlice(
+    instanceId,
+    'centerStage',
+    prev => {
+      const lastTabByContext = { ...(prev.lastTabByContext ?? {}) };
+      const wikiPageByContext = { ...(prev.wikiPageByContext ?? {}) };
+      const tabGroupOrderByContext = { ...(prev.tabGroupOrderByContext ?? {}) };
+      const tabStripOrderByContext = { ...(prev.tabStripOrderByContext ?? {}) };
+      const pinnedTabsByContext = { ...(prev.pinnedTabsByContext ?? {}) };
+      delete lastTabByContext[paintContextId];
+      delete wikiPageByContext[paintContextId];
+      delete tabGroupOrderByContext[paintContextId];
+      delete tabStripOrderByContext[paintContextId];
+      delete pinnedTabsByContext[paintContextId];
+      return {
+        ...prev,
+        lastTabByContext,
+        wikiPageByContext,
+        tabGroupOrderByContext,
+        tabStripOrderByContext,
+        pinnedTabsByContext,
+      };
+    },
+    DEFAULT_CENTER_STAGE,
+  );
 }
 
 export function writeCenterStageTabStripOrder(

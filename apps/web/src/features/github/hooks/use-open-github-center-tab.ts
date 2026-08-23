@@ -2,27 +2,21 @@
 
 import React from "react";
 import { useTranslations } from "next-intl";
-import { useQueryStates } from "nuqs";
 import type { ActionRun } from "@/features/github/components/ActionsPanel";
 import { useGithubCenterTabsStore } from "@/features/github/store/use-github-center-tabs";
-import { useEditorStore } from "@/features/editor/store/use-editor-store";
 import { useContextParams } from "@/shared/hooks/use-context-params";
 import { useAppRouter } from "@/shared/hooks/use-app-router";
-import { centerStageParams } from "@/shared/lib/nuqs/searchParams";
 import { useTaskGithubDrawerNav } from "@/features/task/components/task-github-drawer/task-github-drawer-nav-context";
 import { hostIdFromCenterKey } from "@/app-shell/center-space/center-space";
-import {
-  attachCenterTab,
-  resolveCenterOpenContextId,
-} from "@/app-shell/center-space/center-open-context";
+import { resolveCenterOpenContextId } from "@/app-shell/center-space/center-open-context";
 import { useCenterPaintContextId } from "@/app-shell/center-space/use-center-paint-context-id";
+import { activateCenterChromeTab } from "@/app-shell/center-stage-activate";
 
 export function useOpenGithubCenterTab() {
   const t = useTranslations("github.centerTabs");
   const router = useAppRouter();
   const { effectiveContextId: hostContextId } = useContextParams();
   const paintContextId = useCenterPaintContextId();
-  const [, setCenterStageParams] = useQueryStates(centerStageParams);
   const drawerNav = useTaskGithubDrawerNav();
   const openPullRequest = useGithubCenterTabsStore(
     (state) => state.openPullRequest,
@@ -34,28 +28,23 @@ export function useOpenGithubCenterTab() {
   const openCommit = useGithubCenterTabsStore(
     (state) => state.openCommit,
   );
-  const setActiveFile = useEditorStore((state) => state.setActiveFile);
 
   /**
-   * Activate a center tab on `contextId`. When opening for another workspace,
-   * navigate there with `tab` in the query so the surface switch keeps it.
-   * Extra-space paint ids are not workspace route ids.
+   * Activate a center tab on `contextId`. Cross-workspace hops pass `tab` as a
+   * one-shot deep link; same-host activation writes lastTab only.
    */
   const activateTab = React.useCallback(
     (value: string, contextId: string) => {
-      setActiveFile(null, contextId);
-      attachCenterTab(contextId, value);
+      activateCenterChromeTab(contextId, value);
       const targetHost = hostIdFromCenterKey(contextId);
       const currentHost = hostContextId ? hostIdFromCenterKey(hostContextId) : "";
       if (targetHost && targetHost !== currentHost) {
         router.push(
           `/workspace?id=${encodeURIComponent(targetHost)}&tab=${encodeURIComponent(value)}`,
         );
-        return;
       }
-      void setCenterStageParams({ tab: value, wikiPage: null });
     },
-    [hostContextId, router, setActiveFile, setCenterStageParams],
+    [hostContextId, router],
   );
 
   const resolveContextId = React.useCallback(

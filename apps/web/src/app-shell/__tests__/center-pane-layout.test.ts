@@ -8,6 +8,7 @@ import {
   isFreshEmptyCenterLayout,
   findPaneIdForTab,
   focusPane,
+  getPane,
   isEmptyPane,
   isPrimaryPane,
   MAX_CENTER_PANES,
@@ -209,6 +210,27 @@ describe("center-pane-layout", () => {
     const next = reconcileOpenTabs(layout, ["terminal", "browser:1"], "browser:1");
     expect(next.panes[0]!.tabIds).toContain("browser:1");
     expect(next.panes[0]!.activeTabId).toBe("browser:1");
+  });
+
+  it("does not copy a sibling tab onto an empty or overview-only primary", () => {
+    let emptyPrimary = createEmptyCenterLayout();
+    emptyPrimary = splitPane(emptyPrimary, { direction: "right" });
+    const emptySecondaryId = emptyPrimary.order.find((id) => id !== DEFAULT_PANE_ID)!;
+    emptyPrimary = openTabOnFocusedPane(emptyPrimary, "AGENTS.md");
+    const afterEmpty = reconcileOpenTabs(emptyPrimary, ["AGENTS.md"], "AGENTS.md");
+    expect(findPaneIdForTab(afterEmpty, "AGENTS.md")).toBe(emptySecondaryId);
+    expect(getPane(afterEmpty, DEFAULT_PANE_ID)!.tabIds).not.toContain("AGENTS.md");
+    expect(isEmptyPane(getPane(afterEmpty, DEFAULT_PANE_ID))).toBe(true);
+    expect(getPane(afterEmpty, emptySecondaryId)!.tabIds).toEqual(["AGENTS.md"]);
+
+    let overviewPrimary = createDefaultLayout(["overview"], "overview");
+    overviewPrimary = splitPane(overviewPrimary, { direction: "right" });
+    const overviewSecondaryId = overviewPrimary.order.find((id) => id !== DEFAULT_PANE_ID)!;
+    overviewPrimary = openTabOnFocusedPane(overviewPrimary, "AGENTS.md");
+    const afterOverview = reconcileOpenTabs(overviewPrimary, ["AGENTS.md"], "AGENTS.md");
+    expect(findPaneIdForTab(afterOverview, "AGENTS.md")).toBe(overviewSecondaryId);
+    expect(getPane(afterOverview, DEFAULT_PANE_ID)!.tabIds).toEqual(["overview"]);
+    expect(getPane(afterOverview, overviewSecondaryId)!.tabIds).toEqual(["AGENTS.md"]);
   });
 
   it("removes closed tabs from ownership", () => {

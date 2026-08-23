@@ -20,7 +20,10 @@ import "@xterm/xterm/css/xterm.css";
 import "./terminal-grid.css";
 
 import { defaultTerminalOptions, atmosDarkTheme, atmosLightTheme, terminalFont } from "../lib/theme";
-import { renderXtermBufferPreview } from "../lib/terminal-xterm-preview";
+import {
+  registerXtermPreviewHost,
+  renderXtermBufferPreview,
+} from "../lib/terminal-xterm-preview";
 import { useTerminalAppearanceSettingsStore } from "@/features/settings/store/terminal-appearance-settings-store";
 import { useTerminalWebSocket } from "../hooks/use-terminal-websocket";
 import type { TerminalProps, TerminalSnapshot } from "../types/index";
@@ -1009,6 +1012,7 @@ const Terminal = ({
     let inputQueueAlive = true;
     let inputCoalesceQueue: ReturnType<typeof createTerminalInputCoalesceQueue> | null = null;
     let hostForMouseChrome: HTMLElement | null = null;
+    let unregisterPreviewHost: (() => void) | null = null;
 
     const initTerminal = async () => {
       try {
@@ -1061,6 +1065,10 @@ const Terminal = ({
 
     // Open terminal in container
     terminal.open(containerRef.current);
+    unregisterPreviewHost = registerXtermPreviewHost(
+      containerRef.current,
+      () => terminal,
+    );
 
     // APP-054: while DEC mouse tracking is active, convert trackpad/wheel
     // distance into multiple line reports so TUI viewports move proportionally.
@@ -1642,6 +1650,8 @@ const Terminal = ({
 
     return () => {
       cancelled = true;
+      unregisterPreviewHost?.();
+      unregisterPreviewHost = null;
       inputQueueAlive = false;
       inputCoalesceQueue?.clear();
       inputCoalesceQueue = null;

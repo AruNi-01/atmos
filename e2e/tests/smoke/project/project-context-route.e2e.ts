@@ -35,9 +35,9 @@ test.describe("smoke project", () => {
         return `${normalizePathname(parsed.pathname)}:${parsed.searchParams.has("id")}`;
       })
       .toBe("/workspace:true");
-    await expect
-      .poll(async () => new URL(page.url()).searchParams.get("tab"))
-      .toBe("files");
+    await expect(page.getByRole("tab", { name: /^(文件|Files)$/ })).toBeVisible({
+      timeout: 45_000,
+    });
   });
 
   test("@smoke @stateful keeps project route stable while switching read-only sidebar and settings params", async ({
@@ -56,9 +56,9 @@ test.describe("smoke project", () => {
     await expect
       .poll(async () => normalizePathname(new URL(page.url()).pathname))
       .toBe("/project");
-    await expect
-      .poll(async () => new URL(page.url()).searchParams.get("tab"))
-      .toBe("files");
+    await expect(page.getByRole("tab", { name: /^(文件|Files)$/ })).toBeVisible({
+      timeout: 45_000,
+    });
 
     await gotoSettingsRoute(page, "general");
     await expect

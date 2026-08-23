@@ -24,6 +24,7 @@ import {
 import { useCenterPaneLayoutStore } from "@/app-shell/center-pane/center-pane-layout-store";
 import { getWorkspaceTerminalTabs } from "@/features/terminal/store/terminal-store-helpers";
 import { resolveCenterStageProjectContext } from "@/app-shell/center-stage-project-context";
+import { globalKey, readJson } from "@/shared/lib/browser-store";
 
 const dir = join(import.meta.dir, "..");
 
@@ -121,11 +122,11 @@ describe("center space keys", () => {
     const left = centerSpaceFanPose(0, 3, true, null);
     const mid = centerSpaceFanPose(1, 3, true, null);
     const right = centerSpaceFanPose(2, 3, true, null);
-    expect(left.x).toBeLessThan(0);
-    expect(right.x).toBeGreaterThan(0);
-    expect(left.rotate).toBeLessThan(0);
-    expect(right.rotate).toBeGreaterThan(0);
-    expect(mid.y).toBeGreaterThan(0);
+    expect(left.x).toBe(-99);
+    expect(right.x).toBe(99);
+    expect(left.rotate).toBe(-20);
+    expect(right.rotate).toBe(20);
+    expect(mid.y).toBe(22);
     const hovered = centerSpaceFanPose(0, 3, true, 0);
     expect(hovered.z).toBeGreaterThan(right.z);
     expect(hovered.scale).toBeGreaterThan(mid.scale);
@@ -135,7 +136,7 @@ describe("center space keys", () => {
     expect(vars["--fan-rotate"]).toBe(`${left.rotate}deg`);
   });
 
-  it("stores thumbnails in memory without going through persist commit", () => {
+  it("persists thumbnails to localStorage without writing function settings", () => {
     const host = "ws-thumb-memory";
     useCenterSpaceStore.getState().hydrate();
     useCenterSpaceStore.getState().ensureHost(host);
@@ -145,6 +146,15 @@ describe("center space keys", () => {
     expect(
       useCenterSpaceStore.getState().list(host)[0]?.thumbnailDataUrl,
     ).toBe("data:image/jpeg;base64,qq");
+    const stored = readJson<Record<
+      string,
+      { spaces?: { thumbnailDataUrl?: string | null }[] }
+    > | null>(globalKey("center-spaces"), null);
+    if (typeof localStorage !== "undefined") {
+      expect(stored?.[host]?.spaces?.[0]?.thumbnailDataUrl).toBe(
+        "data:image/jpeg;base64,qq",
+      );
+    }
   });
 
   it("strips jpeg data urls before durable writes", () => {
@@ -180,6 +190,9 @@ describe("center space wiring", () => {
     expect(tabBar).toContain("newSpace");
     expect(stage).toContain("openNewCenterSpace");
     expect(stage).toContain("switchCenterSpace(liveHostContextId, targetSpaceId)");
+    expect(stage).toContain("shouldHonorUrlTabForPaintContext");
+    expect(stage).toContain("bindCenterPaintTabUrlWriter");
+    expect(stage).toContain("activateCenterChromeTab");
     expect(stage).toContain("spaceIdFromTmuxWindowName");
     expect(stage).toContain("handleApplyCenterLayout");
     expect(stage).toContain("liveExtraSpaceEmpty");
@@ -206,6 +219,7 @@ describe("center space wiring", () => {
     expect(switcherSrc).toContain("scheduleIncomingSpaceThumbnail");
     expect(switcherSrc).toContain("refreshActiveCenterSpacePreview");
     expect(switcherSrc).toContain("runCenterSpaceSlide");
+    expect(switcherSrc).toContain("clearCenterDeepLinkUrl");
     expect(switcherSrc).toContain("invalidateCenterSpaceThumbnailCapture");
     expect(switcherSrc).not.toContain("useCenterSpaceSlideStore");
     expect(switcherSrc).not.toContain("await captureActiveCenterSpaceThumbnail(hostId);\n  const outgoing");
@@ -218,7 +232,7 @@ describe("center space wiring", () => {
     expect(switcher).toContain("onFocus={handlePointerEnter}");
     expect(switcher).toContain("schedulePreview");
     expect(switcher).toContain("ensurePreview");
-    expect(switcher).toContain("void ensurePreview()");
+    expect(switcher).toContain("void ensurePreview(true)");
     expect(switcher).not.toContain("await ensurePreview()");
     expect(switcher).toContain("refreshActiveCenterSpacePreview");
     expect(switcher).toContain("center-space-fan.css");
@@ -238,27 +252,33 @@ describe("center space wiring", () => {
     expect(switcher).toContain("hostSpaceAttentionReasons");
     const toggleAt = switcher.indexOf("const handleToggleOpen");
     const openAt = switcher.indexOf("setOpen(true)", toggleAt);
-    const captureAt = switcher.indexOf("void ensurePreview()", toggleAt);
+    const captureAt = switcher.indexOf("void ensurePreview(true)", toggleAt);
     expect(openAt).toBeGreaterThan(toggleAt);
     expect(captureAt).toBeGreaterThan(openAt);
     const thumb = readFileSync(join(dir, "center-space/center-space-thumbnail.ts"), "utf8");
-    expect(thumb).toContain("toJpeg");
-    expect(thumb).toContain("skipFonts: true");
-    expect(thumb).toContain("cacheBust: false");
-    expect(thumb).toContain("THUMB_WIDTH = 96");
-    expect(thumb).toContain("includeStyleProperties");
-    expect(thumb).not.toContain("cacheBust: true");
+    expect(thumb).toContain("snapdom.toCanvas");
+    expect(thumb).toContain("paintXtermBufferInto");
+    expect(thumb).toContain("THUMB_WIDTH = 136");
+    expect(thumb).not.toContain("html-to-image");
+    expect(thumb).not.toContain("html2canvas");
     expect(thumb).not.toContain("THUMB_WIDTH = 280");
     const fanCss = readFileSync(join(dir, "center-space/center-space-fan.css"), "utf8");
     expect(fanCss).toContain("translate3d(var(--fan-x), var(--fan-y), 0)");
     expect(fanCss).toContain("will-change: transform, opacity");
     const storeSrc = readFileSync(join(dir, "center-space/center-space-store.ts"), "utf8");
     expect(storeSrc).toContain("omitCenterSpaceThumbnails");
-    const setThumbAt = storeSrc.indexOf("setThumbnail:");
-    const renameAt = storeSrc.indexOf("renameSpace:", setThumbAt);
+    expect(storeSrc).toContain("writeJson(STORAGE_KEY, byHost)");
+    const persistDiskAt = storeSrc.indexOf("async function persistDisk");
+    const persistLocalAt = storeSrc.indexOf("function persistLocal");
+    expect(persistLocalAt).toBeGreaterThan(0);
+    expect(persistDiskAt).toBeGreaterThan(persistLocalAt);
+    const persistDiskBlock = storeSrc.slice(persistDiskAt, storeSrc.indexOf("function commit"));
+    expect(persistDiskBlock).toContain("omitCenterSpaceThumbnails(byHost)");
+    const setThumbAt = storeSrc.indexOf("setThumbnails: (hostId, thumbs)");
+    const renameAt = storeSrc.indexOf("renameSpace: (hostId, spaceId, name)", setThumbAt);
     const setThumbBlock = storeSrc.slice(setThumbAt, renameAt);
     expect(setThumbBlock).not.toContain("commit(");
-    expect(setThumbBlock).toContain("set({");
+    expect(setThumbBlock).toContain("persistLocal(byHost)");
   });
 
   it("does not invent a default terminal tab for extra spaces", () => {

@@ -19,21 +19,15 @@
 
 import { startTransition } from "react";
 import { useWorkspaceSurfaceCacheStore } from "@/features/workspace/store/use-workspace-surface-cache-store";
-import { readCenterStageLastTab } from "@/shared/stores/use-ui-pref-hooks";
+import { hostIdFromCenterKey } from "@/app-shell/center-space/center-space";
 import {
-  CENTER_SPACE_KEY_MARK,
-  hostIdFromCenterKey,
-} from "@/app-shell/center-space/center-space";
-import { useCenterSpaceStore } from "@/app-shell/center-space/center-space-store";
+  paintContextIdForHost,
+  shouldKeepExplicitTabOnHostHop,
+} from "@/app-shell/center-space/center-space-url";
 
 function framePaintId(id: string | null): string | null {
   if (!id) return null;
-  if (id.includes(CENTER_SPACE_KEY_MARK)) return id;
-  try {
-    return useCenterSpaceStore.getState().getPaintContextId(id) || id;
-  } catch {
-    return id;
-  }
+  return paintContextIdForHost(id);
 }
 
 /** After this quiet gap, the next visual flip is applied immediately (slow hop). */
@@ -312,6 +306,8 @@ export type ParsedContextHref = {
   /** Raw `tab` query value when present (including empty string). */
   tabParam: string | null;
   hasTabParam: boolean;
+  terminalTmux: string | null;
+  sideChat: string | null;
   pathname: string;
   searchParams: URLSearchParams;
   hash: string;
@@ -330,6 +326,8 @@ export function parseWorkspaceContextHref(path: string): ParsedContextHref {
     view,
     tabParam,
     hasTabParam,
+    terminalTmux: url.searchParams.get("terminalTmux"),
+    sideChat: url.searchParams.get("sideChat"),
     pathname: url.pathname,
     searchParams: url.searchParams,
     hash: url.hash,
@@ -354,6 +352,39 @@ export function injectLastCenterTabIfMissing(
   } catch {
     return path;
   }
+}
+
+/** Set or drop `tab` and optionally strip leftover pane deep-links. */
+export function replaceCenterTabOnHref(
+  path: string,
+  tab: string | null | undefined,
+  opts?: { clearDeepLinks?: boolean },
+): string {
+  try {
+    const url = new URL(path, "http://atmos.local");
+    if (tab) url.searchParams.set("tab", tab);
+    else url.searchParams.delete("tab");
+    if (opts?.clearDeepLinks) {
+      url.searchParams.delete("terminalTmux");
+      url.searchParams.delete("sideChat");
+      url.searchParams.delete("wikiPage");
+    }
+    return `${url.pathname}${url.search}${url.hash}`;
+  } catch {
+    return path;
+  }
+}
+
+function currentContextHref(override?: string | null): ParsedContextHref | null {
+  if (override === null) return null;
+  const raw =
+    override ??
+    (typeof window !== "undefined"
+      ? `${window.location.pathname}${window.location.search}${window.location.hash}`
+      : "");
+  if (!raw) return null;
+  const parsed = parseWorkspaceContextHref(raw);
+  return parsed.contextId ? parsed : null;
 }
 
 /**
@@ -391,17 +422,35 @@ export function promoteWorkspaceSurfaceSwitch(nextContextId: string | null): {
 }
 
 /**
- * Nav-time prep: inject last tab into href (pure string).
+ * Nav-time prep: keep explicit dest deep links, strip leftover tab/tmux/sideChat.
+ * Live tab chrome is not written into the href.
  * Does not touch WSC — use {@link primeWorkspaceSurfaceNavigation} for paint.
+ *
+ * `currentHref` is the pre-hop location. Pass `null` for a cold load (keep
+ * explicit dest tab). Omit to read `window.location`.
  */
-export function prepareWorkspaceContextNavigation(path: string): string {
+export function prepareWorkspaceContextNavigation(
+  path: string,
+  currentHref?: string | null,
+): string {
   try {
     const parsed = parseWorkspaceContextHref(path);
     if (!parsed.view || !parsed.contextId) return path;
-    if (parsed.hasTabParam) return path;
 
-    const lastTab = readCenterStageLastTab(parsed.contextId);
-    return injectLastCenterTabIfMissing(path, lastTab);
+    const destPaintId = paintContextIdForHost(parsed.contextId);
+    const current = currentContextHref(currentHref);
+    if (
+      shouldKeepExplicitTabOnHostHop({
+        destHostId: parsed.contextId,
+        destPaintId,
+        dest: parsed,
+        current,
+      })
+    ) {
+      return path;
+    }
+
+    return replaceCenterTabOnHref(path, null, { clearDeepLinks: true });
   } catch {
     return path;
   }

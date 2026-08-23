@@ -73,7 +73,7 @@ describe("center stage tab hover", () => {
     );
     expect(tabBar).toContain('@workspace/ui/components/motion/tabs');
     expect(menuBlock).toContain('variant="pill"');
-    expect(menuBlock).toContain('className="flex h-8 w-full min-w-0 gap-0.5 p-0.5"');
+    expect(menuBlock).toContain('className="flex h-8 w-full min-w-0 gap-0.5 bg-muted p-0.5"');
     expect(menuBlock).toContain('onValueChange={(value) => {');
     const tabList = menuBlock.slice(
       menuBlock.indexOf("<MotionTabsList"),

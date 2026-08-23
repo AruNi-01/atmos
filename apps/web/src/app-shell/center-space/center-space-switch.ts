@@ -15,22 +15,49 @@ import {
   captureCenterSpaceThumbnail,
   decodeCenterSpaceThumbnail,
   invalidateCenterSpaceThumbnailCapture,
+  snapshotMountedCenterSpaceThumbnails,
 } from "@/app-shell/center-space/center-space-thumbnail";
 import { cleanupCenterSpaceContext } from "@/app-shell/center-space/center-space-cleanup";
 import {
   CENTER_SPACE_SLIDE_MS,
   runCenterSpaceSlide,
 } from "@/app-shell/center-space/center-space-slide";
+import { clearCenterDeepLinkUrl } from "@/app-shell/center-space/center-space-url";
+
+function applyThumbnails(
+  hostId: string,
+  thumbs: ReadonlyArray<{ spaceId: string; dataUrl: string }>,
+): void {
+  if (!hostId || thumbs.length === 0) return;
+  useCenterSpaceStore.getState().setThumbnails(
+    hostId,
+    thumbs.map((thumb) => ({
+      spaceId: thumb.spaceId,
+      thumbnailDataUrl: thumb.dataUrl,
+    })),
+  );
+}
+
+async function rememberMountedThumbnails(hostId: string): Promise<void> {
+  if (!hostId) return;
+  const thumbs = await snapshotMountedCenterSpaceThumbnails(hostId);
+  applyThumbnails(hostId, thumbs);
+}
 
 export async function captureActiveCenterSpaceThumbnail(hostId: string): Promise<void> {
   if (!hostId) return;
+  const thumbs = await snapshotMountedCenterSpaceThumbnails(hostId);
+  applyThumbnails(hostId, thumbs);
   const store = useCenterSpaceStore.getState();
   const spaceId = store.getActiveSpaceId(hostId);
+  if (store.list(hostId).some((space) => space.id === spaceId && space.thumbnailDataUrl)) {
+    return;
+  }
   const thumb = await captureCenterSpaceThumbnail();
   if (thumb) store.setThumbnail(hostId, spaceId, thumb);
 }
 
-/** Capture the live space and decode every stored preview before the fan opens. */
+/** Screenshot the live frame and decode stored JPEGs so the fan has pixels ready. */
 export async function refreshActiveCenterSpacePreview(hostId: string): Promise<void> {
   if (!hostId) return;
   await captureActiveCenterSpaceThumbnail(hostId);
@@ -66,8 +93,10 @@ export async function openNewCenterSpace(
   // cannot inherit the host's open tabs / URL tool tab.
   useCenterPaneLayoutStore.getState().setLayout(incoming, createEmptyCenterLayout());
   let space: CenterSpaceRecord | null = null;
+  await rememberMountedThumbnails(hostId);
   invalidateCenterSpaceThumbnailCapture();
   await runCenterSpaceSlide("forward", () => {
+    clearCenterDeepLinkUrl();
     space = store.createSpace(hostId, name, spaceId);
     if (space) paintIncomingSpace(incoming);
   });
@@ -76,7 +105,16 @@ export async function openNewCenterSpace(
   return space;
 }
 
-export async function switchCenterSpace(hostId: string, spaceId: string): Promise<void> {
+export type SwitchCenterSpaceOptions = {
+  fromCard?: HTMLElement | null;
+  onPaint?: () => void;
+};
+
+export async function switchCenterSpace(
+  hostId: string,
+  spaceId: string,
+  options?: SwitchCenterSpaceOptions,
+): Promise<void> {
   if (!hostId) return;
   const store = useCenterSpaceStore.getState();
   const current = store.ensureHost(hostId);
@@ -85,11 +123,18 @@ export async function switchCenterSpace(hostId: string, spaceId: string): Promis
   if (currentId === spaceId) return;
   const incoming = makeCenterSpaceKey(hostId, spaceId);
   const direction = centerSpaceSlideDirection(current.spaces, currentId, spaceId);
+  await rememberMountedThumbnails(hostId);
   invalidateCenterSpaceThumbnailCapture();
-  await runCenterSpaceSlide(direction, () => {
-    store.setActiveSpace(hostId, spaceId);
-    paintIncomingSpace(incoming);
-  });
+  await runCenterSpaceSlide(
+    direction,
+    () => {
+      options?.onPaint?.();
+      clearCenterDeepLinkUrl();
+      store.setActiveSpace(hostId, spaceId);
+      paintIncomingSpace(incoming);
+    },
+    { fromCard: options?.fromCard ?? null },
+  );
   scheduleIncomingSpaceThumbnail(hostId);
 }
 
@@ -107,6 +152,7 @@ export async function deleteCenterSpace(hostId: string, spaceId: string): Promis
   const incoming = makeCenterSpaceKey(hostId, nextId);
   invalidateCenterSpaceThumbnailCapture();
   await runCenterSpaceSlide("back", () => {
+    clearCenterDeepLinkUrl();
     store.setActiveSpace(hostId, nextId);
     paintIncomingSpace(incoming);
   });

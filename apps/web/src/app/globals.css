@@ -444,9 +444,20 @@ html:not([data-theme-ready="true"]) body {
 }
 
 /*
- * Center-space hops: zoom fade. Must come after freeze-all `::view-transition-*(*)`.
- * Exit expands outward while fading; enter comes inward from larger and settles.
+ * Center-space hops. Must come after freeze-all `::view-transition-*(*)`.
+ * Card click: incoming morphs from the fan card; outgoing center shrinks in.
+ * Fallback (new/delete): same-rect content swap with shrink-out / fade-in.
  */
+@keyframes space-shrink-out {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.86);
+  }
+}
 @keyframes space-zoom-out {
   from {
     opacity: 1;
@@ -454,13 +465,13 @@ html:not([data-theme-ready="true"]) body {
   }
   to {
     opacity: 0;
-    transform: scale(1.12);
+    transform: scale(0.86);
   }
 }
 @keyframes space-zoom-in {
   from {
     opacity: 0;
-    transform: scale(1.12);
+    transform: scale(0.92);
   }
   to {
     opacity: 1;
@@ -468,13 +479,44 @@ html:not([data-theme-ready="true"]) body {
   }
 }
 
-::view-transition-group(center-space-card) {
+::view-transition-group(center-space-card),
+::view-transition-group(center-space-incoming),
+::view-transition-group(center-space-outgoing) {
   overflow: hidden;
   border-radius: var(--radius-xl);
 }
 
-::view-transition-image-pair(center-space-card) {
+::view-transition-group(center-space-incoming) {
+  z-index: 2;
+  animation-duration: 320ms;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+::view-transition-group(center-space-outgoing) {
+  z-index: 1;
+  animation-duration: 220ms;
+  animation-timing-function: ease-in;
+}
+
+::view-transition-image-pair(center-space-card),
+::view-transition-image-pair(center-space-incoming),
+::view-transition-image-pair(center-space-outgoing) {
   isolation: isolate;
+}
+
+::view-transition-old(center-space-outgoing) {
+  mix-blend-mode: normal;
+  transform-origin: center;
+  animation: space-shrink-out 220ms ease-in both;
+}
+
+::view-transition-old(center-space-incoming) {
+  mix-blend-mode: normal;
+  animation: fade-out 180ms ease-in both;
+}
+::view-transition-new(center-space-incoming) {
+  mix-blend-mode: normal;
+  animation: fade-in 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 ::view-transition-old(center-space-card) {

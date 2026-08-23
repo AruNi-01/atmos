@@ -181,6 +181,10 @@
       "defaultSpace": "Default",
       "noPreview": "暂无预览",
       "deleteSpace": "删除 {name}",
+      "deleteConfirmTitle": "删除 {name}？",
+      "deleteConfirmDescription": "该空间中打开的标签页和终端会被关闭。",
+      "deleteConfirmCancel": "取消",
+      "deleteConfirmAction": "删除",
       "limitReached": "已达到空间数量上限"
     },
     "searchAria": "搜索",
@@ -9476,6 +9480,7 @@
     },
     "actions": {
       "newTerminal": "新建终端",
+      "closeTerminal": "关闭{tab}",
       "stop": "停止",
       "run": "运行",
       "configureScripts": "配置脚本"

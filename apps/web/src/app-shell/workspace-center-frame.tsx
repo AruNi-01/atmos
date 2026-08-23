@@ -851,11 +851,7 @@ function WorkspaceCenterFrameImpl({
           style={panelStyle("run", panelVisible("run"))}
         >
           <RunScript
-            workspaceId={
-              isUrlSyncedActive && currentView === "workspace"
-                ? (currentWorkspace?.id ?? null)
-                : null
-            }
+            workspaceId={isUrlSyncedActive ? contextId : null}
             projectId={isUrlSyncedActive ? currentProject?.id : undefined}
             isActive={
               isActiveContext &&

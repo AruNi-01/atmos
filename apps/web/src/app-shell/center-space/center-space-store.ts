@@ -17,9 +17,11 @@ import {
   type CenterSpaceRecord,
   type HostCenterSpaces,
 } from "@/app-shell/center-space/center-space";
+import { bindPaintContextIdReader } from "@/app-shell/center-space/center-space-url";
 
 /**
- * Fast cache. Durable copy: function_settings.json → center_stage.spaces
+ * Fast cache (including JPEG thumbnails). Metadata copy:
+ * function_settings.json → center_stage.spaces (thumbnails stripped).
  */
 const STORAGE_KEY = globalKey("center-spaces");
 const EMPTY_SPACES: CenterSpaceRecord[] = [];
@@ -41,11 +43,16 @@ type CenterSpaceStore = {
   ) => CenterSpaceRecord | null;
   setActiveSpace: (hostId: string, spaceId: string) => void;
   setThumbnail: (hostId: string, spaceId: string, thumbnailDataUrl: string | null) => void;
+  setThumbnails: (
+    hostId: string,
+    thumbs: ReadonlyArray<{ spaceId: string; thumbnailDataUrl: string | null }>,
+  ) => void;
   renameSpace: (hostId: string, spaceId: string, name: string) => void;
   removeSpace: (hostId: string, spaceId: string) => string | null;
 };
 
 function persistLocal(byHost: Record<string, HostCenterSpaces>) {
+  if (writeJson(STORAGE_KEY, byHost)) return;
   writeJson(STORAGE_KEY, omitCenterSpaceThumbnails(byHost));
 }
 
@@ -178,16 +185,25 @@ export const useCenterSpaceStore = create<CenterSpaceStore>((set, get) => ({
 
   setThumbnail: (hostId, spaceId, thumbnailDataUrl) => {
     if (!hostId) return;
+    get().setThumbnails(hostId, [{ spaceId, thumbnailDataUrl }]);
+  },
+
+  setThumbnails: (hostId, thumbs) => {
+    if (!hostId || thumbs.length === 0) return;
     const current = get().byHost[hostId] ?? get().ensureHost(hostId);
     if (!current) return;
-    const spaces = current.spaces.map((space) =>
-      space.id === spaceId
-        ? { ...space, thumbnailDataUrl, updatedAt: Date.now() }
-        : space,
-    );
-    set({
-      byHost: { ...get().byHost, [hostId]: { ...current, spaces } },
+    const byId = new Map(thumbs.map((thumb) => [thumb.spaceId, thumb.thumbnailDataUrl]));
+    let changed = false;
+    const now = Date.now();
+    const spaces = current.spaces.map((space) => {
+      if (!byId.has(space.id)) return space;
+      changed = true;
+      return { ...space, thumbnailDataUrl: byId.get(space.id), updatedAt: now };
     });
+    if (!changed) return;
+    const byHost = { ...get().byHost, [hostId]: { ...current, spaces } };
+    set({ byHost });
+    persistLocal(byHost);
   },
 
   renameSpace: (hostId, spaceId, name) => {
@@ -214,3 +230,7 @@ export const useCenterSpaceStore = create<CenterSpaceStore>((set, get) => ({
     return makeCenterSpaceKey(hostId, spaceId);
   },
 }));
+
+bindPaintContextIdReader((hostId) =>
+  useCenterSpaceStore.getState().getPaintContextId(hostId),
+);

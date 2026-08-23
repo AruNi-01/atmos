@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
-import { Play, Settings, Plus, X, Command, Lock, Unlock, Square, Skull, Loader2, ShieldAlert } from "lucide-react";
+import { Play, Settings, Plus, Command, Lock, Unlock, Square, Skull, Loader2, ShieldAlert, SquareTerminal } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Terminal } from "@/features/terminal/components/Terminal";
 import { cn } from "@/shared/lib/utils";
@@ -13,14 +13,19 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  Tabs,
-  TabsList,
-  TabsTab,
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@workspace/ui";
+import {
+  CenterStageScrollableTabs,
+  CenterStageStickyTabActions,
+  CenterStageTab,
+  CenterStageTabIconSlot,
+  CenterStageTabList,
+} from "@/app-shell/center-stage-shared-tabs";
+import { preventNonPrimaryTabActivate } from "@/app-shell/center-stage-tab-model";
 
 import { useEditorStore } from '@/features/editor/store/use-editor-store';
 import { WorkspaceScriptDialog } from '@/features/workspace/components/WorkspaceScriptDialog';
@@ -29,6 +34,8 @@ import { wsScriptApi } from '@/api/ws-api';
 import { toastManager } from '@workspace/ui';
 import type { TerminalRef } from "@/features/terminal/components/Terminal";
 import { getActiveInstanceId } from '@/features/connection/store/connection-store';
+import { hostIdFromCenterKey } from "@/app-shell/center-space/center-space";
+import { namespacedTmuxWindowName } from "@/features/terminal/store/terminal-store-helpers";
 import { useUiPrefStore } from '@/shared/stores/use-ui-pref-store';
 import { isRunTerminalBusyFromTitle } from "@/features/browser/lib/run-terminal-busy";
 import { runLogApi } from "@/features/browser/lib/run-log-api";
@@ -147,8 +154,14 @@ export const RunScript: React.FC<RunScriptProps> = ({ workspaceId, projectId, is
   const [tabs, setTabs] = useState<RunTerminalTab[]>(defaultRunTabs);
   const [activeTabId, setActiveTabId] = useState(RUN_TAB_ID);
   const currentProjectPath = useEditorStore(s => s.currentProjectPath);
-  const terminalContextId = workspaceId || projectId || "";
+  const paintContextId = workspaceId || "";
+  const hostWorkspaceId = paintContextId ? hostIdFromCenterKey(paintContextId) : (projectId || "");
+  const terminalContextId = paintContextId || hostWorkspaceId;
   const sessionNonceRef = React.useRef(createSessionNonce());
+  const runWindowName = React.useCallback(
+    (tabId: string) => namespacedTmuxWindowName(terminalContextId, getRunTerminalWindowName(tabId)),
+    [terminalContextId],
+  );
 
   // Lazy initialization state
   const [hasBeenActive, setHasBeenActive] = React.useState(false);
@@ -428,8 +441,7 @@ export const RunScript: React.FC<RunScriptProps> = ({ workspaceId, projectId, is
     setActiveTabId(newId);
   };
 
-  const removeTab = (e: React.MouseEvent, id: string) => {
-    e.stopPropagation();
+  const closeTab = (id: string) => {
     terminalRefs.current[id]?.destroy();
     const newTabs = tabs.filter(t => t.id !== id);
     if (newTabs.length === 0) return; // Keep at least one
@@ -466,79 +478,64 @@ export const RunScript: React.FC<RunScriptProps> = ({ workspaceId, projectId, is
 
   return (
     <TooltipProvider>
-      <div className="flex flex-col h-full w-full bg-background">
-        {/* Header */}
-        <Tabs
-          value={activeTabId}
-          onValueChange={setActiveTabId}
-          className="flex flex-col h-full w-full"
-        >
-          <div className="flex items-center justify-between px-2 h-9 bg-muted/20 shrink-0">
-            <div className="flex items-center gap-1 overflow-x-auto overflow-y-hidden no-scrollbar flex-1 mr-2 h-full">
-              <TabsList variant='underline' className="h-full bg-transparent p-0 gap-1 border-b-0 w-auto justify-start">
-                {tabs.map(tab => (
-                  <TabsTab
-                    key={tab.id}
-                    value={tab.id}
-                    className="group relative h-full px-2 border-b-2 border-transparent data-[state=active]:border-primary bg-transparent text-muted-foreground data-[state=active]:text-foreground transition-all select-none min-w-0 inline-flex items-center justify-center"
-                  >
-                    <span className="text-[11px] font-medium truncate max-w-[120px]">
-                      {tab.name}
-                    </span>
-
-                    {/* Tab Actions: Close (for new tabs) or Lock (for Run tab) */}
-                    {tab.id === RUN_TAB_ID ? (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <div
-                            role="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setIsLocked(!isLocked);
-                            }}
-                            className={cn(
-                              "ml-1 p-1 rounded-sm dark:hover:bg-zinc-900 hover:bg-zinc-200 shrink-0 z-10",
-                              isLocked ? "text-primary" : "text-muted-foreground hover:text-foreground"
-                            )}
-                          >
-                            {isLocked ? <Lock className="size-3" /> : <Unlock className="size-3" />}
-                          </div>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          {isLocked ? unlockTerminalTooltip : lockTerminalTooltip}
-                        </TooltipContent>
-                      </Tooltip>
-                    ) : (
-                      <div
-                        className={cn(
-                          "absolute right-0 top-1/2 -translate-y-1/2 w-16 h-full flex items-center justify-end pr-1 opacity-0 group-hover:opacity-100 transition-opacity z-10"
-                        )}
+      <div className="flex h-full w-full flex-col bg-background">
+        <div className="flex shrink-0 items-center">
+          <CenterStageTabList
+            className="min-w-0 flex-1"
+            value={activeTabId}
+            onValueChange={setActiveTabId}
+            actions={
+              <CenterStageStickyTabActions>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      onClick={addTab}
+                      className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+                      aria-label={newTerminalLabel}
+                    >
+                      <Plus className="size-3.5" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">{newTerminalLabel}</TooltipContent>
+                </Tooltip>
+              </CenterStageStickyTabActions>
+            }
+          >
+            <CenterStageScrollableTabs>
+              {tabs.map((tab) => {
+                const isRunTab = tab.id === RUN_TAB_ID;
+                return (
+                  <Tooltip key={tab.id}>
+                    <TooltipTrigger asChild>
+                      <CenterStageTab
+                        value={tab.id}
+                        aria-label={tab.name}
+                        onPointerDown={preventNonPrimaryTabActivate}
                       >
-                        <span
-                          role="button"
-                          onClick={(e) => removeTab(e, tab.id)}
-                          className="p-1 bg-muted rounded-sm text-foreground dark:hover:bg-zinc-900 hover:bg-zinc-200"
+                        <CenterStageTabIconSlot
+                          closeLabel={
+                            isRunTab ? undefined : t("actions.closeTerminal", { tab: tab.name })
+                          }
+                          onClose={isRunTab ? undefined : () => closeTab(tab.id)}
                         >
-                          <X className="size-3.5" />
-                        </span>
-                      </div>
-                    )}
-                  </TabsTab>
-                ))}
-              </TabsList>
+                          {isRunTab ? (
+                            <Play className="size-3.5 shrink-0" />
+                          ) : (
+                            <SquareTerminal className="size-3.5 shrink-0" />
+                          )}
+                        </CenterStageTabIconSlot>
+                        <span className="max-w-[180px] truncate text-pretty">{tab.name}</span>
+                      </CenterStageTab>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">{tab.name}</TooltipContent>
+                  </Tooltip>
+                );
+              })}
+            </CenterStageScrollableTabs>
+          </CenterStageTabList>
 
-
-              <button
-                onClick={addTab}
-                className="p-1 hover:bg-muted hover:cursor-pointer rounded-sm text-muted-foreground hover:text-foreground ml-1 shrink-0"
-                title={newTerminalLabel}
-              >
-                <Plus className="size-3.5" />
-              </button>
-            </div>
-
-            {/* Actions */}
-            <div className="flex items-center gap-2 shrink-0">
+          <div className="flex shrink-0 items-center gap-2 pr-2">
 
               {/* Run/Stop Button - Only visible in Run tab */}
               {activeTabId === RUN_TAB_ID && (
@@ -614,20 +611,40 @@ export const RunScript: React.FC<RunScriptProps> = ({ workspaceId, projectId, is
                 </Tooltip>
               )}
 
-              {/* Lock Toggle (Removed from here) */}
+              {activeTabId === RUN_TAB_ID ? (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      onClick={() => setIsLocked(!isLocked)}
+                      className={cn(
+                        "size-6 flex items-center justify-center hover:bg-muted hover:cursor-pointer rounded-sm",
+                        isLocked
+                          ? "text-primary"
+                          : "text-muted-foreground hover:text-foreground",
+                      )}
+                    >
+                      {isLocked ? <Lock className="size-3.5" /> : <Unlock className="size-3.5" />}
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    {isLocked ? unlockTerminalTooltip : lockTerminalTooltip}
+                  </TooltipContent>
+                </Tooltip>
+              ) : null}
 
-              <button
-                onClick={() => setIsScriptDialogOpen(true)}
-                className="size-6 flex items-center justify-center hover:bg-muted hover:cursor-pointer rounded-sm text-muted-foreground hover:text-foreground"
-                title={configureScriptsLabel}
-              >
-                <Settings className="size-3.5" />
-              </button>
-            </div>
+            <button
+              onClick={() => setIsScriptDialogOpen(true)}
+              className="size-6 flex items-center justify-center hover:bg-muted hover:cursor-pointer rounded-sm text-muted-foreground hover:text-foreground"
+              title={configureScriptsLabel}
+            >
+              <Settings className="size-3.5" />
+            </button>
           </div>
+        </div>
 
-          {/* Content */}
-          <div className="flex-1 overflow-hidden relative">
+        {/* Content */}
+        <div className="flex-1 overflow-hidden relative">
             {hasBeenActive && !currentProjectPath && (
               <div className="absolute inset-0 z-20 flex items-center justify-center bg-background">
                 <div className="flex items-center gap-2 text-muted-foreground">
@@ -644,11 +661,11 @@ export const RunScript: React.FC<RunScriptProps> = ({ workspaceId, projectId, is
                 <Terminal
                   ref={(el) => { terminalRefs.current[tab.id] = el; }}
                   sessionId={`${sessionNonceRef.current}-run-script-${terminalContextId}-${tab.id}-${sessionVersions[tab.id] || 0}`}
-                  workspaceId={terminalContextId}
+                  workspaceId={hostWorkspaceId}
                   projectName={projectName}
                   workspaceName={workspaceName || mainWorkspaceLabel}
                   terminalName={getRunTerminalWindowName(tab.id)}
-                  tmuxWindowName={getRunTerminalWindowName(tab.id)}
+                  tmuxWindowName={runWindowName(tab.id)}
                   isNewPane={true}
                   cwd={currentProjectPath}
                   onSessionReady={() => markTabReady(tab.id)}
@@ -668,8 +685,7 @@ export const RunScript: React.FC<RunScriptProps> = ({ workspaceId, projectId, is
                 />
               </div>
             ))}
-          </div>
-        </Tabs>
+        </div>
 
         <WorkspaceScriptDialog
           projectId={projectId || null}

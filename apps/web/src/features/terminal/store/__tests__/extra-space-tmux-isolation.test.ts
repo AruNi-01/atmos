@@ -31,6 +31,9 @@ describe("extra-space tmux window isolation", () => {
     expect(namespacedTmuxWindowName(extra, "Claude Code")).toBe(
       "cs__space-abc__Claude Code",
     );
+    expect(namespacedTmuxWindowName(extra, "run-main")).toBe("cs__space-abc__run-main");
+    expect(namespacedTmuxWindowName(extra, "run-3")).toBe("cs__space-abc__run-3");
+    expect(namespacedTmuxWindowName("ws-1", "run-main")).toBe("run-main");
     expect(namespacedTmuxWindowName(extra, "cs__space-abc__1")).toBe(
       "cs__space-abc__1",
     );

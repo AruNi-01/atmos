@@ -171,7 +171,7 @@ export function centerSpaceSlideDirection(
   return to >= from ? "forward" : "back";
 }
 
-/** Thumbnails are session visual cache — never write JPEG data URLs to disk. */
+/** Strip JPEG data URLs before function_settings / server writes. */
 export function omitCenterSpaceThumbnails(
   byHost: Record<string, HostCenterSpaces>,
 ): Record<string, HostCenterSpaces> {
