@@ -110,13 +110,13 @@ import "./TerminalAgentInputOverlay.css";
 
 /**
  * Overlay is `absolute` on `.terminal-pane-content` (sibling of
- * `.terminal-padding-wrapper`). Use `bottom-px` — not margin — so the 1px
- * inset stays inside overflow:hidden ancestors. Chrome `padBottom` is 6px
- * (1px + 4px pill + 1px) so the TUI stops 1px above the pill. No fixed
+ * `.terminal-padding-wrapper`). Use `bottom-1.5` — not margin — so the 6px
+ * inset stays inside overflow:hidden ancestors. Chrome `padBottom` is 12px
+ * (6px + 4px pill + 2px) so the TUI stops 2px above the pill. No fixed
  * height: the composer grows upward.
  */
 const TERMINAL_BOTTOM_TRIGGER_DOCK_CLASS =
-  "pointer-events-none absolute inset-x-0 bottom-px z-[70] flex justify-center px-3";
+  "pointer-events-none absolute inset-x-0 bottom-1.5 z-[70] flex justify-center px-3";
 /** AI-input bar and side-chat bar share this baseline. */
 const TERMINAL_BOTTOM_TRIGGER_ROW_CLASS = "flex items-end justify-center";
 
