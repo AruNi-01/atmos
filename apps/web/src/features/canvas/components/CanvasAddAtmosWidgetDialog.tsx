@@ -144,7 +144,7 @@ function ProjectFilterButton({
       type="button"
       onClick={onClick}
       className={cn(
-        "inline-flex max-w-52 shrink-0 items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs transition-colors",
+        "inline-flex max-w-52 shrink-0 items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs",
         active
           ? "border-foreground/25 bg-foreground text-background"
           : "border-border/70 bg-muted/35 text-muted-foreground hover:bg-accent/60 hover:text-foreground",
@@ -228,7 +228,7 @@ function CanvasContextPicker({
         <button
           type="button"
           className={cn(
-            "flex min-h-12 w-full items-center gap-3 rounded-md border border-border/70 bg-muted/35 px-3 py-2 text-left transition-colors",
+            "flex min-h-12 w-full items-center gap-3 rounded-md border border-border/70 bg-muted/35 px-3 py-2 text-left",
             "hover:border-foreground/30 hover:bg-accent/60 focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/45",
           )}
         >
@@ -331,7 +331,7 @@ function CanvasContextPicker({
                           type="button"
                           onClick={() => handleSelect(option)}
                           className={cn(
-                            "flex w-full items-center gap-3 rounded-md px-2.5 py-2 text-left transition-colors",
+                            "flex w-full items-center gap-3 rounded-md px-2.5 py-2 text-left",
                             "hover:bg-accent/60 focus-visible:bg-accent/60 focus-visible:outline-none",
                             active && "bg-accent text-accent-foreground",
                           )}
@@ -606,7 +606,7 @@ export function CanvasAddAtmosWidgetPopover({
                               disabled={disabled}
                               onClick={() => toggleItemType(type)}
                               className={cn(
-                                "flex min-h-20 items-start gap-3 rounded-md bg-muted/35 p-3 text-left transition-colors",
+                                "flex min-h-20 items-start gap-3 rounded-md bg-muted/35 p-3 text-left",
                                 "enabled:hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/45",
                                 "disabled:cursor-not-allowed disabled:bg-muted/20 disabled:opacity-45",
                                 active && "bg-accent",

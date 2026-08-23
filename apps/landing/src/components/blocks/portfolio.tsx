@@ -69,7 +69,7 @@ const Portfolio = () => {
 
               <Button
                 variant='outline'
-                className='group-hover:bg-primary! group-hover:border-primary group-hover:text-primary-foreground! rounded-full px-4! transition-all duration-300'
+                className='group-hover:bg-primary! group-hover:border-primary group-hover:text-primary-foreground! rounded-full px-4!'
                 asChild
               >
                 <Link href='https://github.com/AruNi-01/atmos' target='_blank' rel='noopener noreferrer'>
@@ -99,7 +99,7 @@ const Portfolio = () => {
 
               <Button
                 variant='outline'
-                className='group-hover:bg-primary! group-hover:border-primary group-hover:text-primary-foreground! rounded-full px-4! transition-all duration-300'
+                className='group-hover:bg-primary! group-hover:border-primary group-hover:text-primary-foreground! rounded-full px-4!'
                 asChild
               >
                 <Link href='https://github.com/AruNi-01/atmos' target='_blank' rel='noopener noreferrer'>
@@ -128,7 +128,7 @@ const Portfolio = () => {
 
               <Button
                 variant='outline'
-                className='group-hover:bg-primary! group-hover:border-primary group-hover:text-primary-foreground! rounded-full px-4! transition-all duration-300'
+                className='group-hover:bg-primary! group-hover:border-primary group-hover:text-primary-foreground! rounded-full px-4!'
                 asChild
               >
                 <Link href='https://github.com/AruNi-01/atmos' target='_blank' rel='noopener noreferrer'>
@@ -158,7 +158,7 @@ const Portfolio = () => {
 
               <Button
                 variant='outline'
-                className='group-hover:bg-primary! group-hover:border-primary group-hover:text-primary-foreground! rounded-full px-4! transition-all duration-300'
+                className='group-hover:bg-primary! group-hover:border-primary group-hover:text-primary-foreground! rounded-full px-4!'
                 asChild
               >
                 <Link href='https://github.com/AruNi-01/atmos' target='_blank' rel='noopener noreferrer'>

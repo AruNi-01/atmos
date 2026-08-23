@@ -286,7 +286,7 @@ export function PRActionBar({
                     size="sm"
                     onClick={onClose}
                     disabled={!!actionLoading}
-                    className="h-8 sm:h-8 border-0 shadow-sm hover:shadow-md hover:bg-red-600 transition-all"
+                    className="h-8 sm:h-8 border-0 shadow-sm hover:shadow-md hover:bg-red-600"
                   >
                     {actionLoading === 'close' ? <Loader2 className="mr-2 size-4 animate-spin" /> : <XCircle className="mr-2 size-4" />}
                     {t('closePr')}

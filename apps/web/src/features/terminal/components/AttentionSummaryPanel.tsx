@@ -66,7 +66,7 @@ export function AttentionSummaryPanel({
             {onDismiss && (isReady || isError) ? (
               <button
                 type="button"
-                className="ml-auto -mr-1 rounded-md px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                className="ml-auto -mr-1 rounded-md px-2 py-1 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground"
                 onClick={onDismiss}
               >
                 {t("dismiss")}
@@ -105,7 +105,7 @@ export function AttentionSummaryPanel({
                       type="button"
                       className={cn(
                         "max-w-full truncate rounded-full border border-slate-400/40 bg-background",
-                        "px-2.5 py-1 text-left text-xs text-foreground transition-colors",
+                        "px-2.5 py-1 text-left text-xs text-foreground",
                         "hover:border-slate-400/60 hover:bg-foreground/5",
                       )}
                       onClick={() => onPickNextStep(step)}

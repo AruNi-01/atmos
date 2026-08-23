@@ -472,7 +472,7 @@ export function NotifySettingsSection({
                     onCheckedChange={(checked) => void onUpdatePushServer(server.id, { enabled: !!checked })}
                   />
                   <button
-                    className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                    className="flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                     onClick={() => void onRemovePushServer(server.id)}
                     title={t('pushServers.removeServer')}
                     type="button"

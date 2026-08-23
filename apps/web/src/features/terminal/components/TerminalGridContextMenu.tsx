@@ -282,7 +282,7 @@ export function TerminalGridContextMenu({
                     onToggleKeepAgentName(!paneKeepAgentName);
                   }}
                   className={cn(
-                    "flex items-center justify-between gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors",
+                    "flex items-center justify-between gap-2 rounded-sm px-2 py-1.5 text-sm outline-none",
                     hasCustomName
                       ? "cursor-pointer hover:bg-accent"
                       : "cursor-not-allowed opacity-50",
@@ -308,7 +308,7 @@ export function TerminalGridContextMenu({
                     onToggleKeepCwd(!paneKeepCwd);
                   }}
                   className={cn(
-                    "flex items-center justify-between gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors",
+                    "flex items-center justify-between gap-2 rounded-sm px-2 py-1.5 text-sm outline-none",
                     hasCustomName
                       ? "cursor-pointer hover:bg-accent"
                       : "cursor-not-allowed opacity-50",

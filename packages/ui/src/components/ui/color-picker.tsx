@@ -756,7 +756,7 @@ function FormatItem({
         </span>
         <span
           className={cn(
-            "col-start-1 row-start-1 transition-[color,font-variation-settings] duration-80",
+            "col-start-1 row-start-1 transition-[font-variation-settings] duration-80",
             isActive || checked ? "text-foreground" : "text-muted-foreground"
           )}
           style={{
@@ -853,7 +853,7 @@ function FormatDropdown({
     >
       <Menu.Trigger
         className={cn(
-          "flex items-center justify-between gap-2 h-9 px-3 text-[13px] bg-transparent hover:bg-hover hover:text-foreground transition-colors duration-80 outline-none focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#6B97FF)] cursor-pointer",
+          "flex items-center justify-between gap-2 h-9 px-3 text-[13px] bg-transparent hover:bg-hover hover:text-foreground outline-none focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#6B97FF)] cursor-pointer",
           open ? "bg-active text-foreground" : "text-muted-foreground active:bg-active",
           shape.input
         )}
@@ -1122,7 +1122,7 @@ const TextColorInput = forwardRef<HTMLInputElement, ColorInputProps>(
     return (
       <div
         className={cn(
-          "flex items-center h-9 px-2 bg-transparent hover:bg-hover active:bg-active transition-colors duration-80 focus-within:ring-1 focus-within:ring-[color:var(--focus-ring,#6B97FF)] select-none",
+          "flex items-center h-9 px-2 bg-transparent hover:bg-hover active:bg-active focus-within:ring-1 focus-within:ring-[color:var(--focus-ring,#6B97FF)] select-none",
           shape.input,
           className
         )}
@@ -1297,7 +1297,7 @@ const ScrubColorInput = forwardRef<HTMLInputElement, ColorInputProps>(
         largeStep={nudgeShiftStep ?? 10}
         format={format}
         className={cn(
-          "flex items-center h-9 bg-transparent hover:bg-hover active:bg-active transition-colors duration-80 focus-within:ring-1 focus-within:ring-[color:var(--focus-ring,#6B97FF)] select-none",
+          "flex items-center h-9 bg-transparent hover:bg-hover active:bg-active focus-within:ring-1 focus-within:ring-[color:var(--focus-ring,#6B97FF)] select-none",
           shape.input,
           className
         )}
@@ -1478,7 +1478,7 @@ function EyeDropperButton({
       onClick={handleClick}
       aria-label="Pick color from screen"
       className={cn(
-        "flex items-center justify-center h-9 px-3 text-muted-foreground bg-transparent hover:bg-hover hover:text-foreground active:bg-active transition-colors duration-80 outline-none focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#6B97FF)] cursor-pointer",
+        "flex items-center justify-center h-9 px-3 text-muted-foreground bg-transparent hover:bg-hover hover:text-foreground active:bg-active outline-none focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#6B97FF)] cursor-pointer",
         shape.input
       )}
     >
@@ -2166,7 +2166,7 @@ const ColorPickerPopover = forwardRef<HTMLDivElement, ColorPickerPopoverProps>(
         <div ref={ref} className="inline-flex">
           <Popover.Trigger
             className={cn(
-              "flex items-center gap-2 h-9 px-2 border border-border bg-transparent hover:bg-hover transition-colors duration-80 outline-none focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#6B97FF)] cursor-pointer",
+              "flex items-center gap-2 h-9 px-2 border border-border bg-transparent hover:bg-hover outline-none focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#6B97FF)] cursor-pointer",
               shape.input,
               triggerClassName
             )}

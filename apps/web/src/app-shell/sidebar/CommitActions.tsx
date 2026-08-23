@@ -659,7 +659,7 @@ export const CommitActions: React.FC<CommitActionsProps> = ({
                 className={cn(
                   // Fixed height + internal scroll: streaming/long messages never
                   // grow the beam frame (field-sizing-fixed disables content sizing).
-                  "box-border field-sizing-fixed w-full resize-none overflow-y-auto focus:outline-none focus:ring-0 transition-colors ease-out duration-200",
+                  "box-border field-sizing-fixed w-full resize-none overflow-y-auto focus:outline-none focus:ring-0",
                   isPanel
                     ? "h-full min-h-[220px] rounded-lg border border-border/70 bg-muted/30 p-3 pr-10 text-sm leading-6 text-foreground placeholder:text-muted-foreground/60 focus:border-border focus:bg-background"
                     : "h-full rounded-md border border-transparent bg-sidebar-accent/50 p-2.5 pr-8 text-xs leading-snug text-sidebar-foreground placeholder:text-muted-foreground/50 focus:border-sidebar-border/50 focus:bg-sidebar-accent",
@@ -692,7 +692,7 @@ export const CommitActions: React.FC<CommitActionsProps> = ({
                   }}
                   disabled={!hasChanges || isGeneratingCommitMessage}
                   className={cn(
-                    "absolute rounded-sm transition-colors",
+                    "absolute rounded-sm",
                     isPanel ? "right-2.5 top-2.5 p-1.5" : "right-1.5 top-1.5 p-1",
                     hasChanges && !isGeneratingCommitMessage
                       ? "text-muted-foreground hover:text-foreground cursor-pointer"
@@ -743,7 +743,7 @@ export const CommitActions: React.FC<CommitActionsProps> = ({
                       </span>
                     </p>
                     <div className="border-t border-border mx-1.5 my-1" />
-                    <div className="flex items-center justify-between gap-3 rounded-sm px-2.5 py-2 hover:bg-muted transition-colors">
+                    <div className="flex items-center justify-between gap-3 rounded-sm px-2.5 py-2 hover:bg-muted">
                       <TooltipProvider delayDuration={200}>
                         <Tooltip>
                           <TooltipTrigger asChild>
@@ -843,7 +843,7 @@ export const CommitActions: React.FC<CommitActionsProps> = ({
                       type="button"
                       onClick={() => void handleCopyConflictPrompt()}
                       className={cn(
-                        "flex h-full items-center justify-center border-l border-l-blue-500/40 bg-blue-500/10 text-blue-300 transition-colors hover:text-blue-200",
+                        "flex h-full items-center justify-center border-l border-l-blue-500/40 bg-blue-500/10 text-blue-300 hover:text-blue-200",
                         isPanel ? "rounded-r-lg px-3" : "rounded-r-md px-2",
                       )}
                     >
@@ -860,7 +860,7 @@ export const CommitActions: React.FC<CommitActionsProps> = ({
                 <DropdownMenuTrigger asChild>
                   <button
                     className={cn(
-                      "flex items-center justify-center border-l-0 transition-colors",
+                      "flex items-center justify-center border-l-0",
                       isPanel ? "rounded-r-lg px-3" : "rounded-r-md px-2",
                       isPrimaryButtonDisabled
                         ? "bg-muted text-muted-foreground"

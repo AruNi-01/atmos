@@ -432,7 +432,7 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
         >
           <div className="flex items-center space-x-2 flex-1 min-w-0">
             <div
-              className="size-6 flex items-center justify-center bg-sidebar rounded-md border border-sidebar-border text-[10px] font-bold text-muted-foreground shrink-0 transition-colors hover:bg-sidebar-accent relative"
+              className="size-6 flex items-center justify-center bg-sidebar rounded-md border border-sidebar-border text-[10px] font-bold text-muted-foreground shrink-0 hover:bg-sidebar-accent relative"
               style={{ borderLeft: project.borderColor ? `2px solid ${project.borderColor}` : undefined }}
             >
               {logoUrl && !hasLogoLoadError ? (
@@ -454,7 +454,7 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
                         e.stopPropagation();
                         onSelectMain(project.id);
                       }}
-                      className="hidden group-hover/project:flex items-center justify-center size-full absolute inset-0 text-muted-foreground hover:text-foreground transition-colors hover:cursor-pointer"
+                      className="hidden group-hover/project:flex items-center justify-center size-full absolute inset-0 text-muted-foreground hover:text-foreground hover:cursor-pointer"
                     >
                       <MapPinned className="size-3.5" />
                     </button>
@@ -467,7 +467,7 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
             </div>
             <span
               className={cn(
-                "text-[13px] font-medium truncate transition-colors",
+                "text-[13px] font-medium truncate",
                 dimAsAttentionParent
                   ? "text-muted-foreground"
                   : "text-sidebar-foreground group-hover/project:text-sidebar-foreground",
@@ -512,7 +512,7 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
                         e.stopPropagation();
                         onQuickAddWorkspace(project.id);
                       }}
-                      className="p-1 hover:bg-sidebar-accent rounded-sm transition-all duration-200 hover:cursor-pointer"
+                      className="p-1 hover:bg-sidebar-accent rounded-sm hover:cursor-pointer"
                     >
                       <Zap className="size-3.5 text-muted-foreground" />
                     </button>
@@ -541,7 +541,7 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
                 <DropdownMenuTrigger asChild>
                   <button
                     ref={triggerRef}
-                    className="p-1 hover:bg-sidebar-accent rounded-sm transition-all duration-200 hover:cursor-pointer"
+                    className="p-1 hover:bg-sidebar-accent rounded-sm hover:cursor-pointer"
                     onMouseEnter={openProjectMenu}
                     onMouseLeave={scheduleProjectMenuClose}
                   >
@@ -610,7 +610,7 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
                         <button
                           type="button"
                           onClick={() => onSetColor(project.id, undefined)}
-                          className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-border/60 bg-background px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                          className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-border/60 bg-background px-2 py-1.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
                           title={t("projectItem.none")}
                         >
                           <X className="size-3.5" />

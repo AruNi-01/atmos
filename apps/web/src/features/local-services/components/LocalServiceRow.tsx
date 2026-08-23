@@ -58,7 +58,7 @@ export function LocalServiceRow({
   return (
     <div
       className={cn(
-        "group grid min-h-[76px] grid-cols-[96px_minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-border/70 bg-background/60 px-3 py-2 transition-colors hover:bg-muted/40",
+        "group grid min-h-[76px] grid-cols-[96px_minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-border/70 bg-background/60 px-3 py-2 hover:bg-muted/40",
         compact && "min-h-[76px] grid-cols-[88px_minmax(0,1fr)_auto] gap-3 px-3 py-2.5",
       )}
     >

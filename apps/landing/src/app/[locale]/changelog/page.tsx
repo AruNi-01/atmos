@@ -182,7 +182,7 @@ export default function ChangelogPage() {
                   key={item.id}
                   onClick={() => item.version && handleTocClick(item.version)}
                   className={cn(
-                    "w-full rounded-md px-2 py-2 text-left text-sm transition-colors",
+                    "w-full rounded-md px-2 py-2 text-left text-sm",
                     "hover:bg-muted/50",
                     activeId === `v${item.version}`
                       ? "bg-primary/10 font-medium text-primary"
@@ -320,7 +320,7 @@ export default function ChangelogPage() {
                                   e.preventDefault();
                                   handleTocClick(item.version!);
                                 }}
-                                className="relative z-10 inline-flex items-center justify-center rounded-lg border border-zinc-700/90 px-2.5 py-1 text-sm font-bold text-foreground transition-colors hover:border-primary hover:text-primary"
+                                className="relative z-10 inline-flex items-center justify-center rounded-lg border border-zinc-700/90 px-2.5 py-1 text-sm font-bold text-foreground hover:border-primary hover:text-primary"
                                 title={t("changelog.copyLink")}
                               >
                                 v{item.version}

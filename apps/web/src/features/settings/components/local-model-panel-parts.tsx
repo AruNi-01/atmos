@@ -474,7 +474,7 @@ export function ModelCard({
     <>
       <div
         className={cn(
-          "rounded-xl border border-border p-4 transition-colors",
+          "rounded-xl border border-border p-4",
           isRunning && "border-green-500/30",
         )}
       >

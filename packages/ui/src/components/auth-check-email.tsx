@@ -80,7 +80,7 @@ export function AuthCheckEmailShowcasePage() {
         <div className="mt-8 border-border/60 border-t pt-5">
           <a
             href="#"
-            className="inline-flex items-center gap-1.5 text-muted-foreground text-sm transition-colors hover:text-foreground"
+            className="inline-flex items-center gap-1.5 text-muted-foreground text-sm hover:text-foreground"
           >
             <ArrowLeftIcon className="size-3.5" />
             Use a different email

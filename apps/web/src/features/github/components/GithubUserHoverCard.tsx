@@ -213,7 +213,7 @@ function GithubUserCardBody({
             href={profileUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="truncate text-xs text-muted-foreground transition-colors hover:text-foreground"
+            className="truncate text-xs text-muted-foreground hover:text-foreground"
             onClick={(event) => event.stopPropagation()}
           >
             @{username}

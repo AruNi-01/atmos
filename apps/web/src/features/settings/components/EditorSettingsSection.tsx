@@ -41,7 +41,7 @@ function DiffStyleControl({
         type="button"
         onClick={() => onChange('split')}
         className={cn(
-          'flex h-full items-center gap-1.5 rounded-md px-3 text-sm font-medium transition-colors',
+          'flex h-full items-center gap-1.5 rounded-md px-3 text-sm font-medium',
           value === 'split'
             ? 'bg-muted text-foreground'
             : 'text-muted-foreground hover:text-foreground',
@@ -54,7 +54,7 @@ function DiffStyleControl({
         type="button"
         onClick={() => onChange('unified')}
         className={cn(
-          'flex h-full items-center gap-1.5 rounded-md px-3 text-sm font-medium transition-colors',
+          'flex h-full items-center gap-1.5 rounded-md px-3 text-sm font-medium',
           value === 'unified'
             ? 'bg-muted text-foreground'
             : 'text-muted-foreground hover:text-foreground',

@@ -120,7 +120,7 @@ export function showAgentHookStateToast(options: {
         <>
           <button
             type="button"
-            className="inline-flex h-7 items-center rounded-md bg-primary px-2.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50"
+            className="inline-flex h-7 items-center rounded-md bg-primary px-2.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50"
             disabled={!canNavigate}
             onClick={() => {
               if (!canNavigate) return;
@@ -134,7 +134,7 @@ export function showAgentHookStateToast(options: {
           </button>
           <button
             type="button"
-            className="inline-flex h-7 items-center rounded-md border border-border bg-background px-2.5 text-xs font-medium text-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+            className="inline-flex h-7 items-center rounded-md border border-border bg-background px-2.5 text-xs font-medium text-foreground hover:bg-accent hover:text-accent-foreground"
             onClick={() => agentToastManager.close(toastId)}
           >
             {t("common.close")}

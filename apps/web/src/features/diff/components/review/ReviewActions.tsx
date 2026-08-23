@@ -379,14 +379,14 @@ export const ReviewActions: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setRenameSessionGuid(null)}
-                    className="px-2.5 py-1 text-xs rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-sidebar-accent transition-colors cursor-pointer"
+                    className="px-2.5 py-1 text-xs rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-sidebar-accent cursor-pointer"
                   >
                     {t("actions.cancel")}
                   </button>
                   <button
                     type="button"
                     onClick={() => void handleSubmitRename()}
-                    className="px-2.5 py-1 text-xs rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors cursor-pointer"
+                    className="px-2.5 py-1 text-xs rounded-md bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer"
                   >
                     {t("actions.save")}
                   </button>
@@ -470,7 +470,7 @@ export const ReviewActions: React.FC = () => {
                             event.stopPropagation();
                             setArchivedOpen((open) => !open);
                           }}
-                          className="flex w-full items-center gap-1 text-left hover:text-foreground transition-colors cursor-pointer"
+                          className="flex w-full items-center gap-1 text-left hover:text-foreground cursor-pointer"
                         >
                           <ChevronRight
                             className={cn(

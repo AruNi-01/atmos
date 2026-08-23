@@ -200,8 +200,8 @@ function AutomationRunHistoryRow({
       onClick={onSelect}
       className={
         selected
-          ? "group relative flex w-full min-w-0 flex-col gap-4 overflow-hidden rounded-xl border border-primary/40 bg-primary/5 p-4 text-left transition-all hover:border-primary/50 hover:bg-primary/10 hover:shadow-md lg:flex-row lg:items-center lg:justify-between"
-          : "group relative flex w-full min-w-0 flex-col gap-4 overflow-hidden rounded-xl border border-border bg-background p-4 text-left transition-all hover:border-primary/30 hover:bg-muted/35 hover:shadow-md lg:flex-row lg:items-center lg:justify-between"
+          ? "group relative flex w-full min-w-0 flex-col gap-4 overflow-hidden rounded-xl border border-primary/40 bg-primary/5 p-4 text-left hover:border-primary/50 hover:bg-primary/10 hover:shadow-md lg:flex-row lg:items-center lg:justify-between"
+          : "group relative flex w-full min-w-0 flex-col gap-4 overflow-hidden rounded-xl border border-border bg-background p-4 text-left hover:border-primary/30 hover:bg-muted/35 hover:shadow-md lg:flex-row lg:items-center lg:justify-between"
       }
     >
       <div className="flex min-w-0 flex-1 items-start gap-4">
@@ -210,7 +210,7 @@ function AutomationRunHistoryRow({
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 flex-wrap items-center gap-2">
-            <h3 className="truncate text-sm font-semibold text-foreground transition-colors group-hover:text-primary">
+            <h3 className="truncate text-sm font-semibold text-foreground group-hover:text-primary">
               {automation?.display_name ?? t("unknownAutomation")}
             </h3>
             <StatusBadge status={run.status} />

@@ -259,7 +259,7 @@ export function TerminalAgentRunConfigContent({
               <button
                 type="button"
                 onClick={handleOpenCodeAgentSettings}
-                className="text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+                className="text-xs font-medium text-muted-foreground hover:text-foreground"
               >
                 {t("common.manageConfigs")}
               </button>

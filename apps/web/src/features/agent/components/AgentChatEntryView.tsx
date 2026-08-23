@@ -76,7 +76,7 @@ export const AgentChatEntryView = React.memo(function AgentChatEntryView({
                   text={getAssistantCopyText(entry)}
                   ariaLabel={t("copy.turnAria")}
                   title={t("copy.turn")}
-                  className="inline-flex items-center gap-1 rounded-md border border-border/60 px-2 py-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+                  className="inline-flex items-center gap-1 rounded-md border border-border/60 px-2 py-1 text-xs text-muted-foreground hover:text-foreground"
                 />
                 {entry.usage && (
                   <MessageTurnUsageBadge usage={entry.usage} />

@@ -588,7 +588,7 @@ function SplitHandle({
       <span
         aria-hidden
         className={cn(
-          "pointer-events-none absolute bg-transparent transition-colors duration-200",
+          "pointer-events-none absolute bg-transparent",
           "group-hover:bg-border/50 group-data-[resizing]:bg-border/50",
           isRow
             ? "inset-y-0 left-1/2 w-px -translate-x-1/2"

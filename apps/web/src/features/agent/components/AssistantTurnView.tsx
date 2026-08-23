@@ -52,7 +52,7 @@ function useReviewLinkComponents() {
           <button
             type="button"
             onClick={() => handleOpen(text)}
-            className="inline-flex items-center gap-1 rounded-sm bg-primary/10 px-1.5 py-0.5 font-mono text-[0.85em] text-primary underline decoration-primary/40 underline-offset-2 transition-colors hover:bg-primary/20 hover:decoration-primary cursor-pointer"
+            className="inline-flex items-center gap-1 rounded-sm bg-primary/10 px-1.5 py-0.5 font-mono text-[0.85em] text-primary underline decoration-primary/40 underline-offset-2 hover:bg-primary/20 hover:decoration-primary cursor-pointer"
             title={text}
           >
             <FileText className="size-3 shrink-0" />
@@ -281,7 +281,7 @@ export function AssistantTurnView({
     return (
       <>
         <Collapsible open={stepsExpanded} onOpenChange={setStepsExpanded}>
-          <CollapsibleTrigger className="w-full cursor-pointer transition-colors hover:text-foreground">
+          <CollapsibleTrigger className="w-full cursor-pointer hover:text-foreground">
             <ProcessDivider expanded={stepsExpanded} t={t} />
           </CollapsibleTrigger>
           <CollapsibleContent className="space-y-2 pt-1">
@@ -290,7 +290,7 @@ export function AssistantTurnView({
             ))}
             <CollapsibleTrigger
               aria-label={t("assistantTurn.process.collapseAria")}
-              className="flex w-full cursor-pointer items-center gap-2 py-1 text-muted-foreground transition-colors hover:text-foreground"
+              className="flex w-full cursor-pointer items-center gap-2 py-1 text-muted-foreground hover:text-foreground"
             >
               <div className="h-px flex-1 bg-border" />
               <span className="shrink-0 text-xs leading-none">{t("assistantTurn.process.collapseLabel")}</span>

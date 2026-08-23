@@ -117,7 +117,7 @@ export function AutomationEnvironmentPicker({
               disabled={disabled}
               onClick={() => onTargetKindChange(option.value)}
               className={cn(
-                "flex min-h-[82px] items-start gap-3 rounded-md border p-3 text-left transition-colors",
+                "flex min-h-[82px] items-start gap-3 rounded-md border p-3 text-left",
                 selected
                   ? "border-primary/40 bg-primary/5"
                   : "border-border bg-background hover:bg-muted/35",
@@ -225,7 +225,7 @@ function WorkspaceSelect({
           aria-expanded={open}
           disabled={disabled}
           className={cn(
-            "border-input flex h-9 w-full items-center justify-between gap-2 rounded-md border bg-background/35 px-3 py-2 text-sm shadow-xs outline-none transition-[color,box-shadow]",
+            "border-input flex h-9 w-full items-center justify-between gap-2 rounded-md border bg-background/35 px-3 py-2 text-sm shadow-xs outline-none transition-shadow",
             "focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]",
             "dark:bg-input/30 dark:hover:bg-input/50",
             "disabled:cursor-not-allowed disabled:opacity-50",

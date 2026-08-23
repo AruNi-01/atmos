@@ -126,7 +126,7 @@ export function PRCreateModal({
           <div className="absolute right-6 top-6 z-50">
             <DialogClose asChild>
               <button
-                className="flex h-7 w-7 items-center justify-center rounded-md hover:bg-muted/80 transition-colors opacity-70 hover:opacity-100"
+                className="flex h-7 w-7 items-center justify-center rounded-md hover:bg-muted/80 opacity-70 hover:opacity-100"
                 aria-label={t('actions.close')}
               >
                 <X className="size-4" />
@@ -201,9 +201,9 @@ export function PRCreateModal({
                   }}
                 >
                   <DropdownMenuTrigger asChild>
-                    <button className="h-12 w-full px-4 flex items-center justify-between bg-muted/20 border border-border/40 hover:bg-muted/30 hover:border-border/60 transition-all rounded-lg text-xs font-mono text-foreground outline-none cursor-pointer group">
+                    <button className="h-12 w-full px-4 flex items-center justify-between bg-muted/20 border border-border/40 hover:bg-muted/30 hover:border-border/60 rounded-lg text-xs font-mono text-foreground outline-none cursor-pointer group">
                       <div className="flex items-center min-w-0">
-                        <GitBranch className="size-3.5 mr-2.5 text-primary/60 group-hover:text-primary transition-colors" />
+                        <GitBranch className="size-3.5 mr-2.5 text-primary/60 group-hover:text-primary" />
                         <span className="truncate">{baseBranch}</span>
                       </div>
                       <ChevronDown className="size-4 opacity-40 group-hover:opacity-100 transition-opacity ml-2 shrink-0" />
@@ -239,7 +239,7 @@ export function PRCreateModal({
                                 setIsBranchDropdownOpen(false);
                               }}
                               className={cn(
-                                "flex items-center justify-between text-[12px] h-10 px-3 cursor-pointer rounded-lg mb-0.5 transition-colors",
+                                "flex items-center justify-between text-[12px] h-10 px-3 cursor-pointer rounded-lg mb-0.5",
                                 baseBranch === b ? "bg-primary/10 text-primary font-bold" : "hover:bg-muted/50"
                               )}
                             >
@@ -275,7 +275,7 @@ export function PRCreateModal({
             </div>
 
             {/* Draft Option */}
-            <div className="flex items-center gap-4 p-5 rounded-2xl bg-sidebar/5 border border-border/40 hover:bg-sidebar/10 transition-colors cursor-pointer group"
+            <div className="flex items-center gap-4 p-5 rounded-2xl bg-sidebar/5 border border-border/40 hover:bg-sidebar/10 cursor-pointer group"
               onClick={() => setIsDraft(!isDraft)}>
               <div className={cn(
                 "size-5 rounded-md border-2 flex items-center justify-center transition-all",
@@ -293,7 +293,7 @@ export function PRCreateModal({
           {/* Footer */}
           <div className="px-8 py-6 border-t border-border/40 bg-muted/10 flex items-center justify-end gap-4 shrink-0">
             <DialogClose asChild>
-              <Button variant="ghost" className="h-11 px-6 font-bold text-xs rounded-xl hover:bg-muted transition-all opacity-70 hover:opacity-100">
+              <Button variant="ghost" className="h-11 px-6 font-bold text-xs rounded-xl hover:bg-muted opacity-70 hover:opacity-100">
                 {t('actions.cancel')}
               </Button>
             </DialogClose>

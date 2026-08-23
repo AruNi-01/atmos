@@ -624,7 +624,7 @@ export function PRChecksTab({
                     return (
                       <div
                         key={rowKey}
-                        className="group flex items-center gap-3 px-3 py-2.5 hover:bg-muted/35 transition-colors"
+                        className="group flex items-center gap-3 px-3 py-2.5 hover:bg-muted/35"
                       >
                         <div className="shrink-0">
                           {section.key === "failing" ? (
@@ -779,7 +779,7 @@ export function PRChecksTab({
                       key={path}
                       type="button"
                       onClick={() => void openConflictFile(path)}
-                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-[12px] hover:bg-muted/40 transition-colors"
+                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-[12px] hover:bg-muted/40"
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
@@ -797,7 +797,7 @@ export function PRChecksTab({
                 <button
                   type="button"
                   onClick={() => void openConflictFile()}
-                  className="flex w-full items-center justify-center gap-1.5 px-3 py-2 text-[11px] font-medium text-muted-foreground hover:bg-muted/40 hover:text-foreground transition-colors"
+                  className="flex w-full items-center justify-center gap-1.5 px-3 py-2 text-[11px] font-medium text-muted-foreground hover:bg-muted/40 hover:text-foreground"
                 >
                   {t("conflicts.openAll")}
                 </button>

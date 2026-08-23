@@ -340,7 +340,7 @@ export const SkillInstallTerminalDialog: React.FC<SkillInstallTerminalDialogProp
                   type="button"
                   onClick={() => setInstallScope("global")}
                   className={cn(
-                    "flex items-start gap-3 rounded-xl border p-4 text-left transition-all cursor-pointer",
+                    "flex items-start gap-3 rounded-xl border p-4 text-left cursor-pointer",
                     installScope === "global"
                       ? "border-primary/40 bg-primary/5 ring-1 ring-primary/20"
                       : "border-border hover:bg-muted/40",
@@ -366,7 +366,7 @@ export const SkillInstallTerminalDialog: React.FC<SkillInstallTerminalDialogProp
                   type="button"
                   onClick={() => setInstallScope("project")}
                   className={cn(
-                    "flex items-start gap-3 rounded-xl border p-4 text-left transition-all cursor-pointer",
+                    "flex items-start gap-3 rounded-xl border p-4 text-left cursor-pointer",
                     installScope === "project"
                       ? "border-primary/40 bg-primary/5 ring-1 ring-primary/20"
                       : "border-border hover:bg-muted/40",
@@ -413,7 +413,7 @@ export const SkillInstallTerminalDialog: React.FC<SkillInstallTerminalDialogProp
                             type="button"
                             onClick={() => setSelectedProjectId(project.id)}
                             className={cn(
-                              "flex items-start justify-between gap-3 rounded-lg border px-3 py-3 text-left transition-colors cursor-pointer",
+                              "flex items-start justify-between gap-3 rounded-lg border px-3 py-3 text-left cursor-pointer",
                               selectedProjectId === project.id
                                 ? "border-primary/40 bg-primary/5"
                                 : "border-border hover:bg-muted/40",

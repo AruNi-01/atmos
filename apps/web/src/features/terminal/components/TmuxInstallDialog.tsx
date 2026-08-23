@@ -340,7 +340,7 @@ export const TmuxInstallDialog: React.FC<TmuxInstallDialogProps> = ({
                       </div>
 
                       <Collapsible defaultOpen={false}>
-                        <CollapsibleTrigger className="group flex w-full items-center gap-1.5 py-1 text-left text-xs text-muted-foreground transition-colors hover:text-foreground">
+                        <CollapsibleTrigger className="group flex w-full items-center gap-1.5 py-1 text-left text-xs text-muted-foreground hover:text-foreground">
                           <ChevronDown className="size-3.5 shrink-0 transition-transform group-data-[state=open]:rotate-180" />
                           <span>{t('tmuxInstall.morePlatforms')}</span>
                         </CollapsibleTrigger>

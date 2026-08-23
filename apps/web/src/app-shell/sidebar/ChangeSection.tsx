@@ -240,7 +240,7 @@ function ChangeFileRow({
                   );
                 }}
                 title={stageLabel}
-                className="p-1 rounded-md cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
+                className="p-1 rounded-md cursor-pointer text-muted-foreground hover:text-foreground"
               >
                 <Plus className="size-3.5" />
               </button>
@@ -258,7 +258,7 @@ function ChangeFileRow({
                   );
                 }}
                 title={t("changeSection.unstageChanges")}
-                className="p-1 rounded-md cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
+                className="p-1 rounded-md cursor-pointer text-muted-foreground hover:text-foreground"
               >
                 <Minus className="size-3.5" />
               </button>
@@ -415,7 +415,7 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
               );
             }}
             title={title}
-            className="p-1 rounded-md cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
+            className="p-1 rounded-md cursor-pointer text-muted-foreground hover:text-foreground"
           >
             <Minus className="size-3.5" />
           </button>
@@ -524,7 +524,7 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
                           );
                         }}
                         title={stageLabel}
-                        className="p-1 rounded-md cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
+                        className="p-1 rounded-md cursor-pointer text-muted-foreground hover:text-foreground"
                       >
                         <Plus className="size-3.5" />
                       </button>
@@ -542,7 +542,7 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
                           );
                         }}
                         title={t("changeSection.unstageChanges")}
-                        className="p-1 rounded-md cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
+                        className="p-1 rounded-md cursor-pointer text-muted-foreground hover:text-foreground"
                       >
                         <Minus className="size-3.5" />
                       </button>
@@ -584,7 +584,7 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
                           );
                         }}
                         title={t("changeSection.stageInFolder", { stageLabel, label })}
-                        className="p-1 rounded-md cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
+                        className="p-1 rounded-md cursor-pointer text-muted-foreground hover:text-foreground"
                       >
                         <Plus className="size-3.5" />
                       </button>
@@ -602,7 +602,7 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
                           );
                         }}
                         title={t("changeSection.unstageInFolder", { label })}
-                        className="p-1 rounded-md cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
+                        className="p-1 rounded-md cursor-pointer text-muted-foreground hover:text-foreground"
                       >
                         <Minus className="size-3.5" />
                       </button>
@@ -687,7 +687,7 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
               void runAction(`${kind}-bulk-stage`, onStageAll);
             }}
             title={t("changeSection.stageAll")}
-            className="p-1 hover:bg-sidebar-accent rounded-sm cursor-pointer hover:text-foreground text-muted-foreground transition-colors"
+            className="p-1 hover:bg-sidebar-accent rounded-sm cursor-pointer hover:text-foreground text-muted-foreground"
           >
             <Plus className="size-3.5" />
           </button>
@@ -703,7 +703,7 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
               void runAction(`${kind}-bulk-unstage`, onUnstageAll);
             }}
             title={t("changeSection.unstageAll")}
-            className="p-1 hover:bg-sidebar-accent rounded-sm cursor-pointer hover:text-foreground text-muted-foreground transition-colors"
+            className="p-1 hover:bg-sidebar-accent rounded-sm cursor-pointer hover:text-foreground text-muted-foreground"
           >
             <Minus className="size-3.5" />
           </button>
@@ -739,7 +739,7 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen} className="w-full">
       <div className="group/header relative mb-1 rounded-sm px-2 py-1 hover:bg-sidebar-accent/50">
-        <CollapsibleTrigger className="flex min-w-0 flex-1 items-center gap-1 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors">
+        <CollapsibleTrigger className="flex min-w-0 flex-1 items-center gap-1 text-xs font-semibold text-muted-foreground hover:text-foreground">
           <ChevronRight
             className={cn(
               "size-3.5 transition-transform duration-200",

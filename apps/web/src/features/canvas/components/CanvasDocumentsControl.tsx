@@ -199,7 +199,7 @@ export function CanvasDocumentsControl({
                     key={item.file_name}
                     className={cn(
                       // One fused row: hover/active paint the full item including ···
-                      "group flex items-center gap-0.5 rounded-lg px-1.5 py-1 transition-colors",
+                      "group flex items-center gap-0.5 rounded-lg px-1.5 py-1",
                       active
                         ? "bg-accent text-accent-foreground"
                         : "hover:bg-muted/70",

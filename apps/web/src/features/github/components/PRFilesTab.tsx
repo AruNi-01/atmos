@@ -108,7 +108,7 @@ function FileCommentThread({
         role="button"
         tabIndex={0}
         aria-expanded={!collapsed}
-        className="group/file-thread bg-muted/30 px-3 py-1.5 border-b border-border/30 text-[10px] text-muted-foreground flex min-w-0 items-center gap-1.5 w-full text-left cursor-pointer transition-colors duration-180 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-muted/50"
+        className="group/file-thread bg-muted/30 px-3 py-1.5 border-b border-border/30 text-[10px] text-muted-foreground flex min-w-0 items-center gap-1.5 w-full text-left cursor-pointer hover:bg-muted/50"
         onClick={() => setCollapsed((v) => !v)}
         onKeyDown={(event) => {
           if (event.key === 'Enter' || event.key === ' ') {

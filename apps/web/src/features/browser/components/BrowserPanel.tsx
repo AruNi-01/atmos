@@ -294,7 +294,7 @@ function PreviewStandalonePaused({
           type="button"
           aria-label={minimizeLabel}
           title={minimizeLabel}
-          className="absolute right-3 top-3 inline-flex size-8 items-center justify-center rounded-md border border-border bg-background text-muted-foreground shadow-sm transition-colors hover:bg-accent hover:text-foreground"
+          className="absolute right-3 top-3 inline-flex size-8 items-center justify-center rounded-md border border-border bg-background text-muted-foreground shadow-sm hover:bg-accent hover:text-foreground"
           onClick={onMinimize}
         >
           <Minimize className="size-4" />
@@ -309,7 +309,7 @@ function PreviewStandalonePaused({
         </div>
         <button
           type="button"
-          className="mt-4 inline-flex h-8 items-center justify-center rounded-md border border-border bg-background px-3 text-xs font-medium text-foreground shadow-sm transition-colors hover:bg-accent"
+          className="mt-4 inline-flex h-8 items-center justify-center rounded-md border border-border bg-background px-3 text-xs font-medium text-foreground shadow-sm hover:bg-accent"
           onClick={onReturn}
         >
           {returnLabel}

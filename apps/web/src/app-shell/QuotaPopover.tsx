@@ -830,7 +830,7 @@ export function QuotaPopover({ open: externalOpen, onOpenChange: externalOnOpenC
                     <TooltipTrigger asChild>
                       <button
                         type="button"
-                        className="inline-flex items-center gap-1.5 text-muted-foreground transition-colors hover:text-foreground"
+                        className="inline-flex items-center gap-1.5 text-muted-foreground hover:text-foreground"
                         aria-label={t("keychainAccessReason")}
                       >
                         <KeyRound className="size-3.5" />
@@ -845,7 +845,7 @@ export function QuotaPopover({ open: externalOpen, onOpenChange: externalOnOpenC
                     <PopoverTrigger asChild>
                       <button
                         type="button"
-                        className="inline-flex items-center gap-1 text-muted-foreground/80 transition-colors hover:text-foreground"
+                        className="inline-flex items-center gap-1 text-muted-foreground/80 hover:text-foreground"
                         aria-label={t("footerCarousel.configure")}
                       >
                         <Gauge className="size-3.5" />
@@ -887,7 +887,7 @@ export function QuotaPopover({ open: externalOpen, onOpenChange: externalOnOpenC
                                   aria-pressed={checked}
                                   disabled={isSwitchingFooterCarousel || !footerShowUsageCarousel}
                                   onClick={() => void toggleFooterCarouselProvider(provider.id, !checked)}
-                                  className="flex w-full items-center justify-between gap-3 rounded-md px-2 py-1.5 text-left text-xs text-foreground transition-colors hover:bg-muted/65 disabled:cursor-not-allowed disabled:opacity-40"
+                                  className="flex w-full items-center justify-between gap-3 rounded-md px-2 py-1.5 text-left text-xs text-foreground hover:bg-muted/65 disabled:cursor-not-allowed disabled:opacity-40"
                                 >
                                 <span className="flex min-w-0 items-center gap-2">
                                   <span className="flex size-5 shrink-0 items-center justify-center rounded-sm border border-border/60 bg-background/75 text-foreground/85 [&_svg]:size-3.5 [&_span]:size-3.5">

@@ -703,7 +703,7 @@ export function AutomationSetup({
                   trigger={
                     <button
                       type="button"
-                      className="inline-flex h-8 max-w-[24rem] items-center gap-2 rounded-md border border-border bg-background px-2.5 text-sm text-foreground transition-colors hover:bg-muted"
+                      className="inline-flex h-8 max-w-[24rem] items-center gap-2 rounded-md border border-border bg-background px-2.5 text-sm text-foreground hover:bg-muted"
                     >
                       {selectedAgent ? (
                         <AgentIcon

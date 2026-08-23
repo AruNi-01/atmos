@@ -108,7 +108,7 @@ export function InstalledSkillListCard({
     <div
       onClick={onClick}
       className={cn(
-        "group flex h-full cursor-pointer flex-col rounded-xl border p-5 transition-all duration-200",
+        "group flex h-full cursor-pointer flex-col rounded-xl border p-5",
         isDisabled
           ? "border-border/70 hover:bg-muted/35"
           : "border-border hover:bg-muted/25 hover:shadow-md",
@@ -119,7 +119,7 @@ export function InstalledSkillListCard({
           <div className="min-w-0 flex items-start gap-3">
             <div
               className={cn(
-                "mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-xl border transition-colors",
+                "mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-xl border",
                 isDisabled
                   ? "border-border/40 bg-muted/40 text-muted-foreground"
                   : "border-border/50 bg-muted/20 text-primary group-hover:bg-primary/5",

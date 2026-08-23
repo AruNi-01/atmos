@@ -673,7 +673,7 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
             onClick={handleCreateRelatedTerminal}
             aria-label={t("terminalCard.newTerminal")}
             title={t("terminalCard.newTerminal")}
-            className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
           >
             <Plus className="size-3.5" />
           </button>
@@ -684,7 +684,7 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
               onClick={handleUnpin}
               aria-label={t("terminalCard.unpinFromCanvas")}
               title={t("common.unpin")}
-              className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
             >
               <PinOff className="size-3.5" />
             </button>
@@ -695,7 +695,7 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
             onClick={handleCloseTerminal}
             aria-label={t("terminalCard.closeTerminal")}
             title={t("terminalCard.closeTerminal")}
-            className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/12 hover:text-destructive"
+            className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/12 hover:text-destructive"
           >
             <X className="size-3.5" />
           </button>
@@ -705,7 +705,7 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
             onClick={handleRevealSource}
             aria-label={t("terminalCard.openSourceTerminal")}
             title={t("common.source")}
-            className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
           >
             <ArrowUpRight className="size-3.5" />
           </button>

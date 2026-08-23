@@ -123,7 +123,7 @@ export const SkillsModal: React.FC<SkillsModalProps> = ({ isOpen, onClose }) => 
           </Button>
           <button
             onClick={onClose}
-            className="size-8 flex items-center justify-center rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+            className="size-8 flex items-center justify-center rounded-md hover:bg-accent text-muted-foreground hover:text-foreground"
           >
             <X className="size-5" />
           </button>

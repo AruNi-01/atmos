@@ -1495,7 +1495,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                             </div>
                             <button
                                 type="button"
-                                className="shrink-0 rounded-md px-2 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                                className="shrink-0 rounded-md px-2 py-1 text-[11px] font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
                                 onClick={() => useAgentAttentionStore.getState().setFilterMode(false)}
                             >
                                 {attentionT('clearFilter')}

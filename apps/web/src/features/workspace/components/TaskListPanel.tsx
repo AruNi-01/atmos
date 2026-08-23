@@ -185,7 +185,7 @@ export const TaskListPanel: React.FC<TaskListPanelProps> = ({
     <div
       onDoubleClick={() => { setEditingIndex(task.index); setEditingContent(task.content); }}
       className={cn(
-        'group flex items-center gap-3 px-3 py-2 rounded-sm hover:bg-muted/50 transition-colors select-none',
+        'group flex items-center gap-3 px-3 py-2 rounded-sm hover:bg-muted/50 select-none',
         task.status === 'done' && 'opacity-50'
       )}
     >
@@ -321,7 +321,7 @@ export const TaskListPanel: React.FC<TaskListPanelProps> = ({
                   onOpenChange={() => toggleSection(section.id)}
                   className="w-full"
                 >
-                  <CollapsibleTrigger className="flex items-center gap-2.5 w-full px-3.5 py-2 hover:bg-muted/50 transition-colors text-xs font-medium text-muted-foreground uppercase tracking-wide group rounded-sm cursor-pointer">
+                  <CollapsibleTrigger className="flex items-center gap-2.5 w-full px-3.5 py-2 hover:bg-muted/50 text-xs font-medium text-muted-foreground uppercase tracking-wide group rounded-sm cursor-pointer">
                     <ChevronRight className={cn("size-3.5 transition-transform duration-200 opacity-50", expandedSections[section.id] && "rotate-90")} />
                     <div className="flex items-center gap-2">
                       {section.icon}

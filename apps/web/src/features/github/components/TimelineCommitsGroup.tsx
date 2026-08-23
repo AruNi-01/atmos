@@ -129,7 +129,7 @@ export function TimelineCommitsGroup<T extends TimelineCommitLike>({
             className={cn(
               "relative flex items-center gap-3 py-1.5 pr-2 text-xs",
               canClick &&
-                "cursor-pointer rounded-md outline-none transition-colors hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring/40",
+                "cursor-pointer rounded-md outline-none hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring/40",
             )}
           >
             <div className={timelineIconRailClass}>

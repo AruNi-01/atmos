@@ -76,7 +76,7 @@ export function CommitsPanel({
                       onClick={goToPrevPage}
                       disabled={page === 0 || loading}
                       className={cn(
-                        "p-1.5 rounded-md border border-sidebar-border/50 transition-colors shadow-xs",
+                        "p-1.5 rounded-md border border-sidebar-border/50 shadow-xs",
                         page === 0 || loading
                           ? "text-muted-foreground/30 cursor-not-allowed bg-transparent border-transparent shadow-none"
                           : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground cursor-pointer bg-background"
@@ -97,7 +97,7 @@ export function CommitsPanel({
                       onClick={goToNextPage}
                       disabled={!hasMore || loading}
                       className={cn(
-                        "p-1.5 rounded-md border border-sidebar-border/50 transition-colors shadow-xs",
+                        "p-1.5 rounded-md border border-sidebar-border/50 shadow-xs",
                         !hasMore || loading
                           ? "text-muted-foreground/30 cursor-not-allowed bg-transparent border-transparent shadow-none"
                           : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground cursor-pointer bg-background"

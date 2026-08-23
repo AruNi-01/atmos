@@ -790,7 +790,7 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
                             key={agent.agent_id}
                             className={cn(
                               // Always reserve the same border width so checked state only recolors.
-                              'group/agent overflow-hidden border bg-muted/10 transition-colors',
+                              'group/agent overflow-hidden border bg-muted/10',
                               selected
                                 ? 'border-foreground/20 bg-muted/20'
                                 : 'border-border/40',
@@ -938,7 +938,7 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
                         <Card
                           key={provider.id}
                           className={cn(
-                            'overflow-hidden border bg-muted/10 transition-colors',
+                            'overflow-hidden border bg-muted/10',
                             selected
                               ? 'border-foreground/20 bg-muted/20'
                               : 'border-border/40',

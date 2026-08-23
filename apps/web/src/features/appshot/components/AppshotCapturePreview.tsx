@@ -422,7 +422,7 @@ function CountdownStatusBadge({ paused, seconds }: { paused: boolean; seconds: n
     <span
       aria-label={paused ? `Paused ${seconds}s` : `${seconds}s`}
       className={cn(
-        "inline-flex h-5 shrink-0 items-center overflow-hidden rounded-md border px-1.5 py-0.5 text-[10px] tabular-nums transition-colors duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]",
+        "inline-flex h-5 shrink-0 items-center overflow-hidden rounded-md border px-1.5 py-0.5 text-[10px] tabular-nums",
         paused
           ? "border-warning/35 bg-warning/10 text-warning"
           : "border-border text-muted-foreground",

@@ -63,7 +63,7 @@ export function DiffCodeViewSettingsMenu({
       <button
         type="button"
         title={diffStyle === 'split' ? t('switchToUnifiedView') : t('switchToSplitView')}
-        className="flex size-7 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
+        className="flex size-7 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
         onClick={() =>
           onDiffStyleChange(diffStyle === 'split' ? 'unified' : 'split')
         }
@@ -79,7 +79,7 @@ export function DiffCodeViewSettingsMenu({
         title={
           collapseMode === 'expanded' ? t('collapseAllFiles') : t('expandAllFiles')
         }
-        className="flex size-7 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
+        className="flex size-7 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
         onClick={onToggleCollapseMode}
       >
         {collapseMode === 'expanded' ? (
@@ -93,7 +93,7 @@ export function DiffCodeViewSettingsMenu({
           <button
             type="button"
             title={t('viewOptions')}
-            className="flex size-7 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
+            className="flex size-7 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
           >
             <IconGearFill className="size-3.5" />
           </button>

@@ -97,12 +97,8 @@ function WorkspaceHeaderAction({
     <Button
       type="button"
       size="sm"
-      variant={mode === "enter" ? "ghost" : "outline"}
-      className={cn(
-        "h-7 gap-1.5 px-2 text-xs font-medium text-muted-foreground shadow-none",
-        mode === "enter" && "hover:bg-muted hover:text-foreground",
-        mode === "create" && "border-border/70 hover:bg-muted hover:text-foreground",
-      )}
+      variant="default"
+      className="h-7 gap-1.5 px-2 text-xs font-medium"
       onClick={onClick}
       title={label}
       aria-label={label}

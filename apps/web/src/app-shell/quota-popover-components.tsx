@@ -129,7 +129,7 @@ export function ProviderApiKeyManager({
                 aria-label={t("manualSetup.deleteKey")}
                 onClick={() => onDeleteKey(providerId, key.id)}
                 disabled={deletingKeyId === key.id}
-                className="shrink-0 rounded-md p-1 text-foreground/50 hover:text-destructive hover:bg-destructive/10 disabled:opacity-40 transition-colors"
+                className="shrink-0 rounded-md p-1 text-foreground/50 hover:text-destructive hover:bg-destructive/10 disabled:opacity-40"
               >
                 <Trash2 className="size-3.5" />
               </button>
@@ -142,7 +142,7 @@ export function ProviderApiKeyManager({
         <button
           type="button"
           onClick={() => setShowAddForm(true)}
-          className="flex items-center gap-1.5 text-[11px] text-foreground/60 hover:text-foreground transition-colors"
+          className="flex items-center gap-1.5 text-[11px] text-foreground/60 hover:text-foreground"
         >
           <Plus className="size-3.5" />
           {t("manualSetup.addApiKey")}
@@ -194,7 +194,7 @@ export function ProviderApiKeyManager({
                 <button
                   type="button"
                   onClick={() => { setShowAddForm(false); setApiKey(""); }}
-                  className="text-[11px] text-foreground/50 hover:text-foreground transition-colors"
+                  className="text-[11px] text-foreground/50 hover:text-foreground"
                 >
                   {t("manualSetup.cancel")}
                 </button>
@@ -237,7 +237,7 @@ export function UsagePortalLink({
         href={href}
         target="_blank"
         rel="noreferrer"
-        className="min-w-0 truncate text-[11px] text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline"
+        className="min-w-0 truncate text-[11px] text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
       >
         <span className="truncate">{href}</span>
       </a>
@@ -323,7 +323,7 @@ export function UsageSwitch({
       disabled={disabled}
       aria-label={ariaLabel}
       className={cn(
-        "h-[18px] w-8 border border-border/70 bg-background/80 shadow-none transition-colors",
+        "h-[18px] w-8 border border-border/70 bg-background/80 shadow-none",
         "data-[state=checked]:border-foreground/85 data-[state=checked]:bg-foreground",
         "data-[state=unchecked]:bg-background/70",
         "[&_[data-slot=switch-thumb]]:size-[13px] [&_[data-slot=switch-thumb]]:shadow-none",
@@ -356,7 +356,7 @@ export function ProviderSwitch({
       aria-label={label}
       title={label}
       className={cn(
-        "group relative flex w-[64px] shrink-0 flex-col items-center gap-1.5 rounded-[16px] border border-transparent px-1.5 py-2.5 transition-all duration-200",
+        "group relative flex w-[64px] shrink-0 flex-col items-center gap-1.5 rounded-[16px] border border-transparent px-1.5 py-2.5",
         draggable ? "cursor-grab active:cursor-grabbing" : "cursor-pointer",
         selected
           ? "border-border/75 bg-accent/75 text-foreground shadow-[0_14px_30px_-22px_rgba(0,0,0,0.38),inset_0_1px_0_rgba(255,255,255,0.06)]"

@@ -30,7 +30,7 @@ interface CraftButtonIconProps {
 
 function CraftButtonLabel({ children, className }: CraftButtonLabelProps) {
   return (
-    <span className={cn('group-hover:text-foreground relative z-2 transition-colors duration-500', className)}>
+    <span className={cn('group-hover:text-foreground relative z-2', className)}>
       {children}
     </span>
   )

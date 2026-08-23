@@ -159,13 +159,13 @@ export const PRPanel = React.forwardRef<PRPanelHandle, PRPanelProps>(function PR
 
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-muted/40 hover:bg-muted/60 transition-colors border border-border/10 min-w-0 w-fit ml-auto shadow-sm">
+                          <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-muted/40 hover:bg-muted/60 border border-border/10 min-w-0 w-fit ml-auto shadow-sm">
                             <GitBranch className="size-3 text-muted-foreground/80 shrink-0" />
-                            <span className={cn("text-[10px] font-mono truncate transition-colors", isTo ? "text-foreground font-bold underline decoration-foreground/30 underline-offset-2" : "text-muted-foreground/60")}>
+                            <span className={cn("text-[10px] font-mono truncate", isTo ? "text-foreground font-bold underline decoration-foreground/30 underline-offset-2" : "text-muted-foreground/60")}>
                               {pr.baseRefName}
                             </span>
                             <ArrowLeft className="size-2.5 text-muted-foreground/30 shrink-0" />
-                            <span className={cn("text-[10px] font-mono truncate transition-colors", isFrom ? "text-foreground font-bold underline decoration-foreground/30 underline-offset-2" : "text-muted-foreground/60")}>
+                            <span className={cn("text-[10px] font-mono truncate", isFrom ? "text-foreground font-bold underline decoration-foreground/30 underline-offset-2" : "text-muted-foreground/60")}>
                               {pr.headRefName}
                             </span>
                           </div>

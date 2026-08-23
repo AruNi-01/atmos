@@ -274,7 +274,7 @@ export function MultiToggleGroup({
                   onChange(Array.from(next));
                 }}
                 className={cn(
-                  "inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium transition-colors",
+                  "inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium",
                   on
                     ? "border-foreground/30 bg-muted text-foreground"
                     : "border-border/70 text-muted-foreground hover:bg-muted/50",

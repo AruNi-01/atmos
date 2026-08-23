@@ -28,9 +28,9 @@ function LeftSidebarSettingsButton() {
       type="button"
       aria-label={label}
       onClick={() => openSettings()}
-      className="group relative inline-flex h-8 items-center gap-1 rounded-lg bg-transparent pl-0.5 pr-2 text-[11px] text-muted-foreground/90 transition-colors hover:text-sidebar-foreground"
+      className="group relative inline-flex h-8 items-center gap-1 rounded-lg bg-transparent pl-0.5 pr-2 text-[11px] text-muted-foreground/90 hover:text-sidebar-foreground"
     >
-      <span className="inline-flex size-5 items-center justify-center rounded-md text-muted-foreground transition-colors group-hover:text-sidebar-foreground">
+      <span className="inline-flex size-5 items-center justify-center rounded-md text-muted-foreground group-hover:text-sidebar-foreground">
         <Settings className="size-3.5" />
       </span>
     </button>
@@ -72,9 +72,9 @@ export function LeftSidebarFooter({
             title={t("leftSidebarFooter.addProject")}
             aria-label={t("leftSidebarFooter.addProject")}
             onClick={onAddProject}
-            className="group inline-flex h-8 items-center gap-1 rounded-lg bg-transparent px-0.5 text-[11px] text-muted-foreground/90 transition-colors hover:text-sidebar-foreground"
+            className="group inline-flex h-8 items-center gap-1 rounded-lg bg-transparent px-0.5 text-[11px] text-muted-foreground/90 hover:text-sidebar-foreground"
           >
-            <span className="inline-flex size-5 items-center justify-center rounded-md text-muted-foreground transition-colors group-hover:text-sidebar-foreground">
+            <span className="inline-flex size-5 items-center justify-center rounded-md text-muted-foreground group-hover:text-sidebar-foreground">
               <FolderPlus className="size-3.5" />
             </span>
           </button>

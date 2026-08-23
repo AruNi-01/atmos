@@ -192,7 +192,7 @@ export function GitHistoryRow({
           aria-label={t("copyHash")}
           title={t("copyHash")}
           className={cn(
-            "inline-flex size-5 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-colors hover:bg-accent hover:text-foreground group-hover/hash:opacity-100",
+            "inline-flex size-5 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 hover:bg-accent hover:text-foreground group-hover/hash:opacity-100",
             copied && "opacity-100 text-info",
           )}
           onClick={(event) => {

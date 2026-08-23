@@ -296,11 +296,11 @@ export function AgentChatHistorySidebar({
         <div className="flex min-w-0 items-center gap-1.5">
           <div
             ref={newSessionControlRef}
-            className="flex h-9 min-w-0 flex-1 items-stretch overflow-hidden rounded-md bg-muted/55 shadow-sm transition-colors hover:bg-muted/70"
+            className="flex h-9 min-w-0 flex-1 items-stretch overflow-hidden rounded-md bg-muted/55 shadow-sm hover:bg-muted/70"
           >
             <button
               type="button"
-              className="flex min-w-0 flex-1 items-center gap-2 px-3 text-left text-sm font-medium text-foreground transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-50"
+              className="flex min-w-0 flex-1 items-center gap-2 px-3 text-left text-sm font-medium text-foreground hover:bg-muted disabled:pointer-events-none disabled:opacity-50"
               disabled={!canCreateNewSession || isConnecting}
               onClick={() => void handleCreateNewSession(selectedAgent?.id)}
             >
@@ -315,7 +315,7 @@ export function AgentChatHistorySidebar({
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"
-                  className="group/agent-selector relative flex h-full min-w-0 max-w-[50%] shrink-0 items-center px-2 text-left text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
+                  className="group/agent-selector relative flex h-full min-w-0 max-w-[50%] shrink-0 items-center px-2 text-left text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
                   disabled={installedAgents.length === 0 || isConnecting}
                   aria-label={t("historySidebar.selectAgentAria")}
                   title={selectedAgentLabel}
@@ -408,7 +408,7 @@ export function AgentChatHistorySidebar({
                   <button
                     type="button"
                     className={cn(
-                      "flex h-8 w-full min-w-0 items-center gap-2 rounded-md px-2 text-left text-sm font-medium text-foreground transition-colors hover:bg-muted/60",
+                      "flex h-8 w-full min-w-0 items-center gap-2 rounded-md px-2 text-left text-sm font-medium text-foreground hover:bg-muted/60",
                       !collapsed && "mb-1",
                     )}
                     aria-expanded={!collapsed}
@@ -444,7 +444,7 @@ export function AgentChatHistorySidebar({
                               key={`${session.registry_id}:${session.acp_session_id}`}
                               type="button"
                               className={cn(
-                                "group flex h-9 w-full min-w-0 items-center gap-2 rounded-md px-2 text-left text-sm transition-colors",
+                                "group flex h-9 w-full min-w-0 items-center gap-2 rounded-md px-2 text-left text-sm",
                                 isActive
                                   ? "bg-muted text-foreground"
                                   : "text-foreground hover:bg-muted/70",
@@ -480,7 +480,7 @@ export function AgentChatHistorySidebar({
             {historyHasMore && historyCursor ? (
               <button
                 type="button"
-                className="w-full rounded-md px-2 py-2 text-left text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
+                className="w-full rounded-md px-2 py-2 text-left text-sm text-muted-foreground hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
                 disabled={historyLoading}
                 onClick={() => void loadHistorySessions(historyCursor)}
               >

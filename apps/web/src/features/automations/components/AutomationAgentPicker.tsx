@@ -51,7 +51,7 @@ export function AutomationAgentPicker({
                   disabled={!agent.automation_supported}
                   onClick={() => onSelect(agent.agent_id)}
                   className={cn(
-                    "flex w-full items-center gap-3 rounded-md border px-3 py-2 text-left transition-colors",
+                    "flex w-full items-center gap-3 rounded-md border px-3 py-2 text-left",
                     selected
                       ? "border-primary/40 bg-primary/5"
                       : "border-border bg-background hover:bg-muted/35",

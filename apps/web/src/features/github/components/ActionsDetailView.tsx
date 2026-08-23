@@ -746,7 +746,7 @@ function ActionsArtifacts({
                     rel="noopener noreferrer"
                     title={t("artifacts.download")}
                     aria-label={t("artifacts.download")}
-                    className="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    className="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
                   >
                     <Download className="size-3.5" />
                   </a>

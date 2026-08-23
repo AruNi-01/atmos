@@ -70,7 +70,7 @@ export function WorkspaceListShowMoreLess({
         <button
           type="button"
           onClick={onShowMore}
-          className="cursor-pointer transition-colors hover:text-sidebar-foreground"
+          className="cursor-pointer hover:text-sidebar-foreground"
         >
           {t("showMore")}
         </button>
@@ -84,7 +84,7 @@ export function WorkspaceListShowMoreLess({
         <button
           type="button"
           onClick={onShowLess}
-          className="cursor-pointer transition-colors hover:text-sidebar-foreground"
+          className="cursor-pointer hover:text-sidebar-foreground"
         >
           {t("showLess")}
         </button>

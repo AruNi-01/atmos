@@ -1281,7 +1281,7 @@ export const TerminalAgentInputOverlay = React.forwardRef<
               }
               data-stable-pane-id={stablePaneId ?? undefined}
               className={cn(
-                "h-1 w-28 rounded-full shadow-[0_0_2px_rgba(0,0,0,0.16)] transition-[opacity,background-color,box-shadow] duration-200",
+                "h-1 w-28 rounded-full shadow-[0_0_2px_rgba(0,0,0,0.16)] transition-[opacity,box-shadow] duration-200",
                 isSummaryActive
                   ? "terminal-agent-input-trigger--summary"
                   : "bg-foreground/25",

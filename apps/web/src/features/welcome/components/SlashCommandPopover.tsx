@@ -525,7 +525,7 @@ export function SlashCommandPopover({
       <div className="flex items-center gap-1 border-b border-border/70 px-2 py-2">
         <button
           type="button"
-          className="inline-flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          className="inline-flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
           aria-label={disableT("back")}
           onMouseDown={(event) => {
             event.preventDefault();

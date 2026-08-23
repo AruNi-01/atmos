@@ -319,7 +319,7 @@ export function ActionSwapButton({
       type={type}
       disabled={disabled}
       className={cn(
-        "inline-flex max-h-full min-h-0 shrink-0 items-center justify-center overflow-hidden font-medium transition-colors active:scale-[0.97]",
+        "inline-flex max-h-full min-h-0 shrink-0 items-center justify-center overflow-hidden font-medium active:scale-[0.97]",
         "disabled:pointer-events-none disabled:opacity-50",
         VARIANT_CLASS[variant],
         SIZE_CLASS[size],

@@ -530,9 +530,9 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
   }, [editorContextId, file.path, updateFileContent]);
 
   const toolbarIconBtnClass =
-    'flex size-6 items-center justify-center rounded hover:bg-accent hover:text-foreground transition-colors cursor-pointer select-none';
+    'flex size-6 items-center justify-center rounded hover:bg-accent hover:text-foreground cursor-pointer select-none';
   const floatingChromeBtnClass =
-    'flex size-8 items-center justify-center rounded-md border border-border bg-muted/80 text-muted-foreground shadow-sm backdrop-blur-sm transition-all hover:bg-muted hover:text-foreground cursor-pointer select-none';
+    'flex size-8 items-center justify-center rounded-md border border-border bg-muted/80 text-muted-foreground shadow-sm backdrop-blur-sm hover:bg-muted hover:text-foreground cursor-pointer select-none';
 
   /** When the breadcrumb strip is hidden, surface preview + settings in the top-right overlay. */
   const showFloatingMarkdownEditorChrome = !breadcrumbs || isPreview;
@@ -780,7 +780,7 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
                     const segmentClass =
                       index === array.length - 1
                         ? 'text-foreground font-medium cursor-default truncate flex items-center gap-1'
-                        : 'hover:text-foreground cursor-pointer transition-colors flex items-center gap-1 truncate';
+                        : 'hover:text-foreground cursor-pointer flex items-center gap-1 truncate';
 
                     if (!surfaceActive) {
                       return (

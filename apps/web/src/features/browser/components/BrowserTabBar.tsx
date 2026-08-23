@@ -180,7 +180,7 @@ export function BrowserTabBar({
         type="button"
         aria-label={chromeControls.toolbarToggleTitle}
         title={chromeControls.toolbarToggleTitle}
-        className="flex size-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-background/50 hover:text-foreground"
+        className="flex size-6 items-center justify-center rounded-md text-muted-foreground hover:bg-background/50 hover:text-foreground"
         onClick={chromeControls.onToggleToolbarHidden}
       >
         {chromeControls.isToolbarHidden ? (
@@ -308,7 +308,7 @@ function PreviewBrowserChromeOverflowMenu({ controls }: PreviewBrowserChromeOver
           type="button"
           aria-label={t("overflow.moreActions")}
           title={t("overflow.moreActions")}
-          className="flex size-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-background/50 hover:text-foreground data-[state=open]:bg-background/70 data-[state=open]:text-foreground"
+          className="flex size-6 items-center justify-center rounded-md text-muted-foreground hover:bg-background/50 hover:text-foreground data-[state=open]:bg-background/70 data-[state=open]:text-foreground"
         >
           <MoreHorizontal className="size-3.5" />
         </button>

@@ -168,7 +168,7 @@ function AggregateProviderRow({
             setOpen((value) => !value);
           }
         }}
-        className="flex cursor-pointer items-center justify-between gap-3 px-3.5 py-3 transition-colors hover:bg-muted/32"
+        className="flex cursor-pointer items-center justify-between gap-3 px-3.5 py-3 hover:bg-muted/32"
       >
         <div className="flex min-w-0 items-center gap-3">
           <div className="flex size-8 shrink-0 items-center justify-center rounded-[11px] border border-border/75 bg-background/96 text-foreground/90">

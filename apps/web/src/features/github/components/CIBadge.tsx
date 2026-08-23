@@ -64,7 +64,7 @@ export const CIBadge: React.FC<CIBadgeProps> = ({ owner, repo, branch, className
           <button
             onClick={handleClick}
             className={cn(
-              "p-1 rounded-sm hover:bg-sidebar-accent transition-colors flex items-center justify-center cursor-pointer",
+              "p-1 rounded-sm hover:bg-sidebar-accent flex items-center justify-center cursor-pointer",
               className
             )}
           >

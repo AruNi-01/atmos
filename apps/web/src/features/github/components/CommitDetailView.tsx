@@ -127,7 +127,7 @@ export function CommitDetailView({
           <button
             type="button"
             onClick={handleCopyHash}
-            className="flex items-center gap-1 rounded px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground transition-colors hover:bg-muted"
+            className="flex items-center gap-1 rounded px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground hover:bg-muted"
           >
             {copied ? <Check className="size-3 text-green-500" /> : <Copy className="size-3" />}
             {sha.substring(0, 7)}
@@ -136,7 +136,7 @@ export function CommitDetailView({
             href={githubUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
           >
             <Github className="size-3.5" />
           </a>

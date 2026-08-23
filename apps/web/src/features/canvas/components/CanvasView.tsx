@@ -1400,7 +1400,7 @@ export const CanvasView: React.FC = () => {
             >
               <Palette
                 className={cn(
-                  "size-3.5 transition-colors",
+                  "size-3.5",
                   isStylePanelEnabled &&
                     "text-blue-400 [&>circle:nth-of-type(1)]:fill-rose-500 [&>circle:nth-of-type(1)]:stroke-rose-500 [&>circle:nth-of-type(2)]:fill-amber-400 [&>circle:nth-of-type(2)]:stroke-amber-400 [&>circle:nth-of-type(3)]:fill-emerald-500 [&>circle:nth-of-type(3)]:stroke-emerald-500 [&>circle:nth-of-type(4)]:fill-sky-500 [&>circle:nth-of-type(4)]:stroke-sky-500",
                 )}

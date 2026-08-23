@@ -164,7 +164,7 @@ export const AgentManagerView: React.FC = () => {
           {!isSessionsView ? (
             <div className="flex items-center gap-2" onClick={(event) => event.stopPropagation()}>
                 <div className="relative min-w-0 flex-1 group">
-                  <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground/60 group-focus-within:text-primary transition-colors" />
+                  <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground/60 group-focus-within:text-primary" />
                   <Input
                     value={query}
                     onChange={(e) => setAgentParams({ agentQ: e.target.value })}
@@ -177,7 +177,7 @@ export const AgentManagerView: React.FC = () => {
                     variant="outline"
                     size="icon"
                     onClick={openAddCustomDialog}
-                    className="size-11 shrink-0 rounded-xl bg-muted/20 border-border/50 hover:bg-background transition-all shadow-sm"
+                    className="size-11 shrink-0 rounded-xl bg-muted/20 border-border/50 hover:bg-background shadow-sm"
                     title={t("manager.addCustomAgent")}
                   >
                     <Plus className="size-4" />
@@ -189,7 +189,7 @@ export const AgentManagerView: React.FC = () => {
                     size="icon"
                     onClick={() => mgr.handleRefresh()}
                     disabled={mgr.refreshing}
-                    className="size-11 shrink-0 rounded-xl bg-muted/20 border-border/50 hover:bg-background transition-all shadow-sm"
+                    className="size-11 shrink-0 rounded-xl bg-muted/20 border-border/50 hover:bg-background shadow-sm"
                     title={t("manager.refreshRegistry")}
                   >
                     {mgr.refreshing ? <LoaderCircle className="size-4 animate-spin-reverse" /> : <RotateCcw className="size-4" />}

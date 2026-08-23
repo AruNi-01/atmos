@@ -110,7 +110,7 @@ export function RefreshableTabsTab({
             handleRefresh(event);
           }}
           className={cn(
-            "flex h-full cursor-pointer items-center justify-center text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground",
+            "flex h-full cursor-pointer items-center justify-center text-muted-foreground hover:bg-sidebar-accent hover:text-foreground",
             // Files tab (and any tab with extra hover actions): compact icon at the end.
             // PR tabs: keep the original full-width centered refresh hit target.
             trailingAction

@@ -41,7 +41,7 @@ export function DiffWorktreeEditToolbar({
       <button
         type="button"
         className={cn(
-          'relative flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-md transition-colors disabled:pointer-events-none disabled:opacity-50',
+          'relative flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-md disabled:pointer-events-none disabled:opacity-50',
           showResetButton
             ? 'bg-primary text-primary-foreground hover:bg-primary/90'
             : editingPath
@@ -103,7 +103,7 @@ export function DiffWorktreeEditToolbar({
           >
             <button
               type="button"
-              className="ml-0.5 flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
+              className="ml-0.5 flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-muted/50 hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
               disabled={isSavingEdit}
               onClick={onResetClick}
               title={t('edit.reset')}

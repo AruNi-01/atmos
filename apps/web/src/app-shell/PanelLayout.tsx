@@ -336,7 +336,7 @@ function ResizeHandle({
           aria-hidden
           data-resize-hairline="root"
           className={cn(
-            "pointer-events-none absolute left-0 w-px transition-colors duration-200",
+            "pointer-events-none absolute left-0 w-px",
             dragging ? "bg-border/50" : "bg-transparent group-hover:bg-border/50",
           )}
           style={{

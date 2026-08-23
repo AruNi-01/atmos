@@ -374,7 +374,7 @@ function ActionJobRow({
         }}
         aria-expanded={canExpand ? isExpanded : undefined}
         className={cn(
-          "group px-4 py-3 flex w-full items-center gap-3 text-left transition-colors duration-180 ease-[cubic-bezier(0.22,1,0.36,1)]",
+          "group px-4 py-3 flex w-full items-center gap-3 text-left",
           canExpand ? "cursor-pointer hover:bg-muted/30" : "cursor-default",
           isExpanded && "bg-muted/20",
         )}
@@ -423,7 +423,7 @@ function ActionJobRow({
       {(steps.length > 0 || jobFailure) && (
         <div
           className={cn(
-            "grid overflow-hidden transition-[grid-template-rows,opacity,border-color] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
+            "grid overflow-hidden transition-[grid-template-rows,opacity] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
             isExpanded
               ? "grid-rows-[1fr] border-t border-border/40 opacity-100"
               : "grid-rows-[0fr] border-t border-transparent opacity-0",
@@ -613,7 +613,7 @@ function StepLogPanel({
           <button
             type="button"
             onClick={onRetry}
-            className="rounded-md border border-border/50 bg-background/80 px-2 py-0.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            className="rounded-md border border-border/50 bg-background/80 px-2 py-0.5 text-[11px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
           >
             {t("logs.retry")}
           </button>
@@ -876,7 +876,7 @@ function ActionStepsListInner({
               }
             }}
             className={cn(
-              "group/step flex flex-wrap items-start gap-x-2 rounded-md border px-2 py-2 text-xs transition-colors duration-180 ease-[cubic-bezier(0.22,1,0.36,1)] outline-none",
+              "group/step flex flex-wrap items-start gap-x-2 rounded-md border px-2 py-2 text-xs outline-none",
               isSelected
                 ? "border-border/70 bg-background shadow-sm"
                 : "border-transparent text-muted-foreground/85 hover:bg-background/70 focus-visible:border-ring/40",
@@ -949,7 +949,7 @@ function ActionStepsListInner({
                           step,
                         );
                       }}
-                      className="flex size-6 items-center justify-center rounded-md text-muted-foreground/60 transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+                      className="flex size-6 items-center justify-center rounded-md text-muted-foreground/60 hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
                     >
                       <ExternalLink className="size-3" />
                     </button>

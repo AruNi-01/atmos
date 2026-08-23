@@ -202,7 +202,7 @@ export const WikiViewer: React.FC<WikiViewerProps> = ({
         <PanelResizeHandle
           onDragging={setIsDragging}
           className={cn(
-            "relative flex w-px items-center justify-center bg-border transition-colors duration-200 hover:bg-border/80 group touch-none",
+            "relative flex w-px items-center justify-center bg-border hover:bg-border/80 group touch-none",
             "before:absolute before:inset-y-0 before:-left-1 before:-right-1 before:z-10"
           )}
         >
@@ -217,7 +217,7 @@ export const WikiViewer: React.FC<WikiViewerProps> = ({
             }}
             title={isSidebarCollapsed ? t("expandSidebar") : t("collapseSidebar")}
             className={cn(
-              "absolute z-50 flex size-5 items-center justify-center rounded-full bg-muted border border-border shadow-lg transition-all duration-200 hover:bg-muted/80 hover:scale-110 opacity-0 group-hover:opacity-100 cursor-pointer",
+              "absolute z-50 flex size-5 items-center justify-center rounded-full bg-muted border border-border shadow-lg transition-[opacity,transform] duration-200 hover:bg-muted/80 hover:scale-110 opacity-0 group-hover:opacity-100 cursor-pointer",
               "left-1/2 -translate-x-1/2",
               isSidebarCollapsed && "hover:opacity-100! hover:bg-accent!"
             )}

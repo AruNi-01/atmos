@@ -660,7 +660,7 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
                   <span className="text-[11px] text-muted-foreground">{timeAgo}</span>
                   <button
                     onClick={handleArchiveClick}
-                    className="flex size-4 items-center justify-center rounded text-muted-foreground transition-colors hover:cursor-pointer hover:text-foreground"
+                    className="flex size-4 items-center justify-center rounded text-muted-foreground hover:cursor-pointer hover:text-foreground"
                     title={t("common.archive")}
                     disabled={isCheckingGit}
                   >
@@ -774,7 +774,7 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
                       <PopoverTrigger asChild>
                         <button
                           type="button"
-                          className="absolute right-0 top-1/2 z-10 flex size-5 -translate-y-1/2 items-center justify-center rounded border border-border/60 bg-background/85 text-muted-foreground opacity-0 shadow-sm backdrop-blur-sm transition-all hover:bg-muted hover:text-foreground group-hover/display:opacity-100"
+                          className="absolute right-0 top-1/2 z-10 flex size-5 -translate-y-1/2 items-center justify-center rounded border border-border/60 bg-background/85 text-muted-foreground opacity-0 shadow-sm backdrop-blur-sm transition-[opacity,transform] hover:bg-muted hover:text-foreground group-hover/display:opacity-100"
                           title={t("workspaceContent.editDisplayName")}
                         >
                           <Pencil className="size-2.5" />
@@ -847,7 +847,7 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
                 type="button"
                 onClick={handleArchiveClick}
                 disabled={isCheckingGit}
-                className="flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
               >
                 <Archive className="size-3" />
                 <span>{t("common.archive")}</span>
@@ -857,7 +857,7 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
                   type="button"
                   onClick={handleDeleteClick}
                   disabled={isCheckingGit}
-                  className="flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs text-destructive transition-colors hover:bg-destructive/10"
+                  className="flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs text-destructive hover:bg-destructive/10"
                 >
                   <Trash2 className="size-3" />
                   <span>{t("common.delete")}</span>

@@ -83,7 +83,7 @@ function AgentToolDiffFile({
         type="button"
         aria-expanded={!collapsed}
         aria-label={collapsed ? t("expandDiff") : t("collapseDiff")}
-        className="flex w-full items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-muted/35"
+        className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-muted/35"
         onClick={() => setCollapsed((value) => !value)}
       >
         <ChevronRight

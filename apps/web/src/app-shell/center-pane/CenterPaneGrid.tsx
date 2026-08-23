@@ -517,7 +517,7 @@ function CenterPaneResizeHairline({
       aria-hidden
       data-resize-hairline={orientation}
       className={cn(
-        "pointer-events-none absolute bg-transparent transition-colors duration-200",
+        "pointer-events-none absolute bg-transparent",
         "group-hover:bg-border/50 group-data-[resizing]:bg-border/50",
         vertical
           ? "left-1/2 w-px -translate-x-1/2"

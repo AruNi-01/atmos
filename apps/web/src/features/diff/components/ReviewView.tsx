@@ -290,7 +290,7 @@ const ReviewView: React.FC<ReviewViewProps> = ({
       <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-2 py-1">
         {/* Frozen Files */}
         <Collapsible open={filesOpen} onOpenChange={setFilesOpen} className="w-full">
-          <CollapsibleTrigger className="flex w-full items-center gap-1.5 py-1.5 text-[13px] font-medium text-muted-foreground hover:text-foreground transition-colors cursor-pointer">
+          <CollapsibleTrigger className="flex w-full items-center gap-1.5 py-1.5 text-[13px] font-medium text-muted-foreground hover:text-foreground cursor-pointer">
             <ChevronRight
               className={cn(
                 "size-3.5 shrink-0 transition-transform duration-200",
@@ -338,7 +338,7 @@ const ReviewView: React.FC<ReviewViewProps> = ({
 
         {/* Comments */}
         <Collapsible open={commentsOpen} onOpenChange={setCommentsOpen} className="w-full">
-          <CollapsibleTrigger className="flex w-full items-center gap-1.5 py-1.5 text-[13px] font-medium text-muted-foreground hover:text-foreground transition-colors cursor-pointer">
+          <CollapsibleTrigger className="flex w-full items-center gap-1.5 py-1.5 text-[13px] font-medium text-muted-foreground hover:text-foreground cursor-pointer">
             <ChevronRight
               className={cn(
                 "size-3.5 shrink-0 transition-transform duration-200",
@@ -366,7 +366,7 @@ const ReviewView: React.FC<ReviewViewProps> = ({
                     }
                     className="space-y-2"
                   >
-                    <CollapsibleTrigger className="group/comment-file flex w-full items-center gap-2 rounded-md px-1 py-1 text-left transition-colors hover:bg-sidebar-accent/40 cursor-pointer">
+                    <CollapsibleTrigger className="group/comment-file flex w-full items-center gap-2 rounded-md px-1 py-1 text-left hover:bg-sidebar-accent/40 cursor-pointer">
                       <DiffFilePathLabel
                         path={file}
                         className="flex min-w-0 flex-1 items-center gap-2"
@@ -415,7 +415,7 @@ const ReviewView: React.FC<ReviewViewProps> = ({
         {/* Fix Run Summary */}
         {latestSummaryRun && (
           <Collapsible open={summaryOpen} onOpenChange={setSummaryOpen} className="w-full">
-            <CollapsibleTrigger className="flex w-full items-center gap-1.5 py-1.5 text-[13px] font-medium text-muted-foreground hover:text-foreground transition-colors cursor-pointer">
+            <CollapsibleTrigger className="flex w-full items-center gap-1.5 py-1.5 text-[13px] font-medium text-muted-foreground hover:text-foreground cursor-pointer">
               <ChevronRight
                 className={cn(
                   "size-3.5 shrink-0 transition-transform duration-200",

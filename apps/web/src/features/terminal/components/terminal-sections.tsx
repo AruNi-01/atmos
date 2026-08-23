@@ -109,7 +109,7 @@ export const SessionCard: React.FC<{ session: ActiveSessionInfo }> = ({ session 
   const isTmux = session.session_type === 'tmux';
 
   return (
-    <div className="flex flex-col gap-2 rounded-lg border border-border bg-muted/20 p-4 transition-colors hover:bg-muted/30">
+    <div className="flex flex-col gap-2 rounded-lg border border-border bg-muted/20 p-4 hover:bg-muted/30">
       {/* Header */}
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">

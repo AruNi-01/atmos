@@ -133,7 +133,7 @@ export const TerminalManagerView: React.FC = () => {
                 size="sm"
                 onClick={handleCleanup}
                 disabled={isCleaning}
-                className="h-10 px-4 rounded-xl bg-amber-500/5 text-amber-600 dark:text-amber-400 border-amber-500/20 hover:bg-amber-500/10 transition-all cursor-pointer font-medium text-xs shadow-sm"
+                className="h-10 px-4 rounded-xl bg-amber-500/5 text-amber-600 dark:text-amber-400 border-amber-500/20 hover:bg-amber-500/10 cursor-pointer font-medium text-xs shadow-sm"
               >
                 <Trash2 className={cn("mr-2 size-3.5", isCleaning && "animate-spin")} />
                 {t('cleanUpButton', { count: data?.tmux.stale_client_sessions ?? 0 })}
@@ -144,7 +144,7 @@ export const TerminalManagerView: React.FC = () => {
               size="icon"
               onClick={handleRefresh}
               disabled={isLoading}
-              className="h-10 w-10 shrink-0 rounded-xl bg-muted/20 border-border/50 hover:bg-background transition-all shadow-sm cursor-pointer"
+              className="h-10 w-10 shrink-0 rounded-xl bg-muted/20 border-border/50 hover:bg-background shadow-sm cursor-pointer"
               title={t('refreshStats')}
             >
               {isLoading ? <LoaderCircle className="size-4 animate-spin-reverse" /> : <RotateCcw className="size-4" />}

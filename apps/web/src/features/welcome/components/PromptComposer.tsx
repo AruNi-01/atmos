@@ -1728,7 +1728,7 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
           onMouseOver={handleEditorMouseOver}
           onMouseOut={handleEditorMouseOut}
           className={cn(
-            "min-h-[88px] max-h-[148px] w-full overflow-y-auto whitespace-pre-wrap break-words rounded-t-xl rounded-b-none border border-transparent bg-transparent py-2 pl-0 pr-2 text-base leading-6 text-foreground outline-none transition-colors",
+            "min-h-[88px] max-h-[148px] w-full overflow-y-auto whitespace-pre-wrap break-words rounded-t-xl rounded-b-none border border-transparent bg-transparent py-2 pl-0 pr-2 text-base leading-6 text-foreground outline-none",
             editorClassName,
           )}
           spellCheck={false}

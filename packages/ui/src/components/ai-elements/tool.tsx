@@ -115,7 +115,7 @@ export const ToolHeader = ({
   return (
     <CollapsibleTrigger
       className={cn(
-        "flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-muted/50 [&[data-state=open]>svg:last-child]:rotate-180",
+        "flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-muted/50 [&[data-state=open]>svg:last-child]:rotate-180",
         className
       )}
       {...props}

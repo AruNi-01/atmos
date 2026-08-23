@@ -441,7 +441,7 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
             )}>
               {headerTrailing}
               <button
-                className="flex h-7 w-7 items-center justify-center rounded-md hover:bg-muted/80 transition-colors duration-180 ease-[cubic-bezier(0.22,1,0.36,1)] opacity-70 hover:opacity-100"
+                className="flex h-7 w-7 items-center justify-center rounded-md hover:bg-muted/80 opacity-70 hover:opacity-100"
                 onClick={() => setIsSidebarCollapsed(v => !v)}
                 title={isSidebarCollapsed ? t('header.showSidebar') : t('header.hideSidebar')}
               >
@@ -509,7 +509,7 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
                             {pr.headRefName || branch}
                           </span>
                           <button
-                            className="text-muted-foreground/50 hover:text-muted-foreground transition-colors duration-180 ease-[cubic-bezier(0.22,1,0.36,1)] shrink-0"
+                            className="text-muted-foreground/50 hover:text-muted-foreground shrink-0"
                             onClick={() => {
                               navigator.clipboard.writeText(pr.headRefName || branch);
                               setBranchCopied(true);
@@ -837,7 +837,7 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
                                             authorName: item.author?.login || pr.author?.login || '',
                                           });
                                         }}
-                                        className="font-mono bg-muted/50 px-1 rounded hover:bg-muted hover:text-foreground transition-colors"
+                                        className="font-mono bg-muted/50 px-1 rounded hover:bg-muted hover:text-foreground"
                                       >
                                         {shortId}
                                       </button>
@@ -930,7 +930,7 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
                                         href={item.deployment_status.target_url}
                                         target="_blank"
                                         rel="noreferrer"
-                                        className="ml-2 px-1.5 py-0.5 bg-muted hover:bg-muted-foreground/20 rounded border border-border/40 transition-colors duration-180 ease-[cubic-bezier(0.22,1,0.36,1)] inline-flex items-center gap-1"
+                                        className="ml-2 px-1.5 py-0.5 bg-muted hover:bg-muted-foreground/20 rounded border border-border/40 inline-flex items-center gap-1"
                                       >
                                         {t('activity.viewDeployment')} <ExternalLink className="size-2.5" />
                                       </a>
@@ -1084,7 +1084,7 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
                         <div className="mt-6 flex justify-center relative z-10">
                           <button
                             onClick={loadMoreTimeline}
-                            className="flex items-center gap-2 px-4 py-2 rounded-md text-[12px] font-medium text-muted-foreground border border-border/60 bg-muted/30 hover:bg-muted/60 hover:text-foreground transition-colors duration-180 ease-[cubic-bezier(0.22,1,0.36,1)]"
+                            className="flex items-center gap-2 px-4 py-2 rounded-md text-[12px] font-medium text-muted-foreground border border-border/60 bg-muted/30 hover:bg-muted/60 hover:text-foreground"
                           >
                             {t('activity.loadMore')}
                           </button>

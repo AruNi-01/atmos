@@ -92,7 +92,7 @@ export const FileTreePanel: React.FC<FileTreePanelProps> = ({
               type="button"
               onClick={() => handleShowHiddenChange(!effectiveShowHidden)}
               className={cn(
-                "p-1 hover:bg-sidebar-accent rounded-sm transition-colors",
+                "p-1 hover:bg-sidebar-accent rounded-sm",
                 effectiveShowHidden
                   ? "text-sidebar-foreground bg-sidebar-accent"
                   : "text-muted-foreground",
@@ -114,7 +114,7 @@ export const FileTreePanel: React.FC<FileTreePanelProps> = ({
               onClick={() => {
                 void effectiveRefresh();
               }}
-              className="p-1 hover:bg-sidebar-accent rounded-sm transition-colors"
+              className="p-1 hover:bg-sidebar-accent rounded-sm"
               title={t("fileTreePanel.actions.refreshFiles")}
               disabled={effectiveIsLoading || isRefreshInFlight}
               aria-busy={effectiveIsLoading || isRefreshInFlight}

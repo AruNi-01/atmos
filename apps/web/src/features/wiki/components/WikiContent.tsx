@@ -313,7 +313,7 @@ export const WikiContent: React.FC<WikiContentProps> = ({
             <button
               onClick={handleSave}
               disabled={isSaving}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded transition-colors bg-primary/10 text-primary hover:bg-primary/20 cursor-pointer"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded bg-primary/10 text-primary hover:bg-primary/20 cursor-pointer"
               title={t("buttons.saveTitle")}
             >
               {isSaving ? (
@@ -326,7 +326,7 @@ export const WikiContent: React.FC<WikiContentProps> = ({
           )}
           <button
             onClick={() => setIsPreview(!isPreview)}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded hover:bg-accent text-muted-foreground hover:text-foreground cursor-pointer"
             title={isPreview ? t("buttons.switchToEdit") : t("buttons.switchToPreview")}
           >
             {isPreview ? (
@@ -364,7 +364,7 @@ export const WikiContent: React.FC<WikiContentProps> = ({
               <div ref={wikiContentRootRef} id="wiki-content-root" className="px-6 py-6 space-y-4">
                 {sources.length > 0 && (
                   <Collapsible defaultOpen={false} className="rounded-lg border border-border">
-                    <CollapsibleTrigger className="group flex items-center gap-2 w-full px-3 py-2.5 text-left text-sm font-medium text-foreground hover:bg-accent/30 cursor-pointer transition-colors">
+                    <CollapsibleTrigger className="group flex items-center gap-2 w-full px-3 py-2.5 text-left text-sm font-medium text-foreground hover:bg-accent/30 cursor-pointer">
                       <ChevronRight className="size-4 shrink-0 transition-transform duration-200 group-data-[state=open]:rotate-90" />
                       <span>{t("sourcesTitle")}</span>
                     </CollapsibleTrigger>

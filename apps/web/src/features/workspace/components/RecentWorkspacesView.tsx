@@ -347,7 +347,7 @@ export const RecentWorkspacesView: React.FC<RecentWorkspacesViewProps> = ({ refr
             {/* Sticky Search Bar */}
             <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-md pt-2 pb-6 -mx-4 px-4 sm:-mx-8 sm:px-8">
               <div className="relative group max-w-5xl mx-auto">
-                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground/60 group-focus-within:text-primary transition-colors" />
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground/60 group-focus-within:text-primary" />
                 <Input
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
@@ -422,7 +422,7 @@ export const RecentWorkspacesView: React.FC<RecentWorkspacesViewProps> = ({ refr
                                 transition={{ duration: 0.2, delay: Math.min(index * 0.02, 0.2) }}
                                 onClick={() => handleSelect(ws)}
                                 className={cn(
-                                  "group relative flex w-full min-w-0 flex-col gap-4 overflow-hidden rounded-xl border p-4 text-left transition-all md:flex-row md:items-center md:justify-between",
+                                  "group relative flex w-full min-w-0 flex-col gap-4 overflow-hidden rounded-xl border p-4 text-left md:flex-row md:items-center md:justify-between",
                                   ws.isArchivedRemote
                                     ? "bg-muted/30 border-border/40 opacity-60 cursor-not-allowed"
                                     : "bg-background border-border hover:border-primary/30 hover:shadow-md cursor-pointer hover:bg-muted/50"
@@ -442,7 +442,7 @@ export const RecentWorkspacesView: React.FC<RecentWorkspacesViewProps> = ({ refr
                                       <OverflowTooltip
                                         text={ws.projectName}
                                         className={cn(
-                                          "text-[14px] font-semibold transition-colors",
+                                          "text-[14px] font-semibold",
                                           ws.isArchivedRemote ? "text-muted-foreground" : "text-foreground group-hover:text-primary"
                                         )}
                                       />

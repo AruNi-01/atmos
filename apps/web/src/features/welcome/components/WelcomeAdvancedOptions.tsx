@@ -205,7 +205,7 @@ export function WelcomeAdvancedOptions({
       <PopoverTrigger asChild>
         <button
           type="button"
-          className="inline-flex size-9 items-center justify-center rounded-md border border-border/60 bg-background/35 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          className="inline-flex size-9 items-center justify-center rounded-md border border-border/60 bg-background/35 text-muted-foreground hover:bg-accent hover:text-foreground"
           aria-label={t("advanced.openAria")}
         >
           <Ellipsis className="size-4" />
@@ -520,7 +520,7 @@ function SelectLoadMoreFooter({
     >
       <button
         type="button"
-        className="flex w-full items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-60"
+        className="flex w-full items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-60"
         disabled={loading}
         onClick={(event) => {
           event.preventDefault();

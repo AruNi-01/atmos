@@ -18,7 +18,7 @@ export function CommandCopyButton({ text }: { text: string }) {
     <button
       type="button"
       onClick={handleCopy}
-      className="shrink-0 px-2 py-1 text-zinc-500 hover:text-zinc-300 transition-colors cursor-pointer"
+      className="shrink-0 px-2 py-1 text-zinc-500 hover:text-zinc-300 cursor-pointer"
       aria-label={t("copyCommand")}
     >
       {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}

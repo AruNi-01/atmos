@@ -167,7 +167,7 @@ function ShapeCopyButton({
           className={cn(
             "pointer-events-auto absolute inline-flex size-7 items-center justify-center rounded-md border border-border",
             "bg-background/95 text-muted-foreground shadow-sm backdrop-blur-sm",
-            "transition-colors hover:bg-accent hover:text-foreground",
+            "hover:bg-accent hover:text-foreground",
           )}
         >
           {state === "loading" ? (

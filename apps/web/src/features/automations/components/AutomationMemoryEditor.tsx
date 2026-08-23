@@ -101,7 +101,7 @@ export function AutomationMemoryEditor({
           <button
             type="button"
             onClick={() => setIsPreview((current) => !current)}
-            className="inline-flex items-center gap-1.5 rounded px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            className="inline-flex items-center gap-1.5 rounded px-2 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
           >
             {isPreview ? <FileText className="size-3.5" /> : <Eye className="size-3.5" />}
             {isPreview ? t("editor") : t("preview")}

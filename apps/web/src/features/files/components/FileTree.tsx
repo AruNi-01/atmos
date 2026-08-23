@@ -632,7 +632,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
         ref={tree.registerElement}
         {...tree.getContainerProps(t('fileTree.containerAriaLabel'))}
         className={cn(
-          'text-sm rounded-md transition-colors',
+          'text-sm rounded-md',
           isTreeHighlighted && 'bg-sidebar-accent/35',
         )}
       >

@@ -162,7 +162,7 @@ function AgentMessageLinkSafetyModal({
         tabIndex={-1}
       >
         <button
-          className="absolute right-4 top-4 rounded-md p-1 text-muted-foreground transition-all hover:bg-muted hover:text-foreground"
+          className="absolute right-4 top-4 rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
           onClick={onClose}
           title={t("linkSafety.closeTitle")}
           type="button"
@@ -189,7 +189,7 @@ function AgentMessageLinkSafetyModal({
         <div className="flex gap-2">
           <button
             ref={copyButtonRef}
-            className="flex flex-1 items-center justify-center gap-2 rounded-md border bg-background px-4 py-2 text-sm font-medium transition-all hover:bg-muted"
+            className="flex flex-1 items-center justify-center gap-2 rounded-md border bg-background px-4 py-2 text-sm font-medium hover:bg-muted"
             onClick={handleCopy}
             type="button"
           >
@@ -206,7 +206,7 @@ function AgentMessageLinkSafetyModal({
             )}
           </button>
           <button
-            className="flex flex-1 items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90"
+            className="flex flex-1 items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
             onClick={handleConfirm}
             type="button"
           >

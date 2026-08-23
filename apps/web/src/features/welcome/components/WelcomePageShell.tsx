@@ -54,7 +54,7 @@ export function WelcomeCloseButton({ onClose }: { onClose: () => void }) {
     <button
       type="button"
       onClick={onClose}
-      className="group absolute left-1/2 top-0 z-20 -translate-x-1/2 flex cursor-pointer flex-col items-center gap-0 px-6 py-0.5 text-muted-foreground/40 transition-colors hover:text-muted-foreground"
+      className="group absolute left-1/2 top-0 z-20 -translate-x-1/2 flex cursor-pointer flex-col items-center gap-0 px-6 py-0.5 text-muted-foreground/40 hover:text-muted-foreground"
       aria-label={t("shell.close")}
     >
       <ChevronDown className="h-5 w-9 animate-[bounce-down_1.6s_ease-in-out_infinite]" strokeWidth={1.2} />

@@ -94,8 +94,8 @@ export function AgentFixToolbarPrimitive({
   const textSizeClass = size === "xs" ? "text-[11px]" : "text-xs";
   const segmentPaddingClass = size === "xs" ? "px-2" : "px-2.5";
   const segmentClass = isBottom
-    ? "text-foreground/90 transition-colors duration-180 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-background hover:text-foreground"
-    : "text-secondary-foreground transition-colors duration-180 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-secondary/80 hover:text-secondary-foreground";
+    ? "text-foreground/90 hover:bg-background hover:text-foreground"
+    : "text-secondary-foreground hover:bg-secondary/80 hover:text-secondary-foreground";
   const settingsClassName = cn(
     "shrink-0 rounded-none border-0 border-r border-border/50 bg-transparent shadow-none",
     settingsSizeClass,

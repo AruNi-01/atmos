@@ -325,7 +325,7 @@ function CheckGroupItem({
 
   return (
     <div className="flex flex-col border-b border-border/40 last:border-0 overflow-hidden bg-background">
-      <div className="group flex items-center gap-2.5 px-4 py-3 hover:bg-muted/40 transition-colors duration-180 ease-[cubic-bezier(0.22,1,0.36,1)] w-full">
+      <div className="group flex items-center gap-2.5 px-4 py-3 hover:bg-muted/40 w-full">
         <button
           type="button"
           className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
@@ -427,7 +427,7 @@ function CheckGroupItem({
                 return (
                   <div
                     key={idx}
-                    className="group/check flex items-center justify-between gap-2 text-[13px] px-4 py-2 pl-10 hover:bg-muted/40 transition-colors duration-180 ease-[cubic-bezier(0.22,1,0.36,1)]"
+                    className="group/check flex items-center justify-between gap-2 text-[13px] px-4 py-2 pl-10 hover:bg-muted/40"
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       <div className="shrink-0 flex items-center justify-center">
@@ -783,7 +783,7 @@ export function TimelineMergedChecks({
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
-          className="shrink-0 rounded-md border border-border/50 bg-background/80 px-2 py-0.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          className="shrink-0 rounded-md border border-border/50 bg-background/80 px-2 py-0.5 text-[11px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
         >
           {open ? t('activity.hideDetails') : t('activity.showDetails')}
         </button>
@@ -847,7 +847,7 @@ export function TimelineMergedChecks({
                       <button
                         type="button"
                         onClick={() => openCheck(check)}
-                        className="shrink-0 rounded-md border border-border/50 bg-background/80 px-2 py-0.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                        className="shrink-0 rounded-md border border-border/50 bg-background/80 px-2 py-0.5 text-[11px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
                         aria-label={
                           runId != null
                             ? tParts('checks.openAction', { name: label })
@@ -932,7 +932,7 @@ export const ReviewCommentThreadView = React.memo(function ReviewCommentThreadVi
       <div
         role="button"
         tabIndex={0}
-        className="group/thread flex items-center gap-2 px-3 py-2 w-full text-left bg-muted/30 hover:bg-muted/50 transition-colors duration-180 ease-[cubic-bezier(0.22,1,0.36,1)] border-b border-border/40"
+        className="group/thread flex items-center gap-2 px-3 py-2 w-full text-left bg-muted/30 hover:bg-muted/50 border-b border-border/40"
         onClick={() => setIsExpanded(!isExpanded)}
         onKeyDown={(event) => {
           if (event.key === 'Enter' || event.key === ' ') {

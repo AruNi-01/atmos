@@ -36,7 +36,7 @@ export const RevisionPicker: React.FC<RevisionPickerProps> = ({
           type="button"
           className={cn(
             "flex items-center gap-1 rounded-md border border-sidebar-border px-2 py-1 text-xs",
-            "bg-background text-foreground hover:bg-sidebar-accent transition-colors cursor-pointer",
+            "bg-background text-foreground hover:bg-sidebar-accent cursor-pointer",
           )}
         >
           <span>{label}</span>

@@ -215,7 +215,7 @@ export function TerminalAgentSelectorWithRunConfig(
                   openRunConfig(option.id);
                 }
               }}
-              className="absolute inset-0 inline-flex items-center justify-center rounded-md text-muted-foreground opacity-0 pointer-events-none transition-opacity group-hover/agent:pointer-events-auto group-hover/agent:opacity-100 group-focus-within/agent:pointer-events-auto group-focus-within/agent:opacity-100 hover:bg-background hover:text-foreground"
+              className="absolute inset-0 inline-flex items-center justify-center rounded-md text-muted-foreground opacity-0 pointer-events-none group-hover/agent:pointer-events-auto group-hover/agent:opacity-100 group-focus-within/agent:pointer-events-auto group-focus-within/agent:opacity-100 hover:bg-background hover:text-foreground"
               aria-label={t("configureAgent", { label: option.label })}
             >
               <Settings2 className="size-3.5" />
@@ -252,9 +252,9 @@ export function TerminalAgentSelectorWithRunConfig(
               </button>
               <span className="relative inline-flex size-7 shrink-0 items-center justify-center">
                 {selected ? (
-                  <Check className="size-4 text-foreground transition-opacity group-hover/agent:opacity-0 group-focus-within/agent:opacity-0" />
+                  <Check className="size-4 text-foreground group-hover/agent:opacity-0 group-focus-within/agent:opacity-0" />
                 ) : allowRunConfig ? (
-                  <Settings2 className="size-3.5 text-muted-foreground transition-opacity group-hover/agent:opacity-0 group-focus-within/agent:opacity-0" />
+                  <Settings2 className="size-3.5 text-muted-foreground group-hover/agent:opacity-0 group-focus-within/agent:opacity-0" />
                 ) : null}
                 {allowRunConfig ? configButton : null}
               </span>
@@ -329,7 +329,7 @@ export function TerminalAgentSelectorWithRunConfig(
                 setView("agent_list");
                 setConfiguringAgentId(null);
               }}
-              className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent/70 hover:text-foreground"
+              className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-accent/70 hover:text-foreground"
             >
               <ChevronLeft className="size-3.5" />
               {t("back")}
@@ -365,7 +365,7 @@ export function TerminalAgentSelectorWithRunConfig(
               <button
                 type="button"
                 className={cn(
-                  "z-20 inline-flex size-10 cursor-pointer items-center justify-center rounded-lg border border-border/60 bg-background text-foreground/90 shadow-[0_6px_20px_rgba(0,0,0,0.18)] backdrop-blur-sm transition-colors hover:bg-accent hover:text-foreground",
+                  "z-20 inline-flex size-10 cursor-pointer items-center justify-center rounded-lg border border-border/60 bg-background text-foreground/90 shadow-[0_6px_20px_rgba(0,0,0,0.18)] backdrop-blur-sm hover:bg-accent hover:text-foreground",
                   props.triggerPlacement === "inline" ? "relative" : "absolute -left-3 -top-3",
                 )}
                 aria-label={t("selectAgent")}
@@ -407,7 +407,7 @@ export function TerminalAgentSelectorWithRunConfig(
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"
-                  className="inline-flex w-full items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm shadow-xs transition-[color,box-shadow] outline-none hover:bg-accent/40"
+                  className="inline-flex w-full items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm shadow-xs outline-none hover:bg-accent/40"
                 >
                   {selectedOption ? <AgentGlyph option={selectedOption} /> : null}
                   <span className="min-w-0 flex-1 truncate text-left">

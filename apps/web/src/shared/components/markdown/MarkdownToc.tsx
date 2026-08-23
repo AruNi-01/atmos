@@ -265,7 +265,7 @@ const TocLink: React.FC<{
       onMouseEnter={startScroll}
       onMouseLeave={stopScroll}
       className={cn(
-        "group flex items-center py-1.5 pr-2 text-[12.5px] leading-snug rounded-md transition-colors cursor-pointer",
+        "group flex items-center py-1.5 pr-2 text-[12.5px] leading-snug rounded-md cursor-pointer",
         isActive
           ? "text-foreground font-medium"
           : "text-muted-foreground/70 hover:text-foreground"
@@ -274,7 +274,7 @@ const TocLink: React.FC<{
     >
       <span
         className={cn(
-          "shrink-0 w-[2px] h-3.5 rounded-full mr-2 transition-colors",
+          "shrink-0 w-[2px] h-3.5 rounded-full mr-2",
           isActive
             ? "bg-primary"
             : "bg-transparent group-hover:bg-muted-foreground/20"

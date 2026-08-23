@@ -411,7 +411,6 @@ function MorphSurfaceDock() {
       className={cn(
         "m-[-8px] flex justify-end rounded-full p-2 flex-1 gap-1",
         "text-muted-foreground hover:text-foreground",
-        "transition-colors duration-200",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
         triggerClassName
       )}

@@ -292,7 +292,7 @@ export function WorkspaceStatusButton({
       type="button"
       disabled={!onChange}
       className={cn(
-        "flex size-5 items-center justify-center rounded-sm transition-colors",
+        "flex size-5 items-center justify-center rounded-sm",
         onChange
           ? "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground cursor-pointer"
           : "cursor-default text-muted-foreground",

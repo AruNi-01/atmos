@@ -57,7 +57,7 @@ export function TerminalBlock({
           type="button"
           aria-expanded={isOpen}
           onClick={() => setIsOpen((value) => !value)}
-          className="flex min-w-0 flex-1 items-center gap-2 text-left text-sm text-zinc-400 transition-colors hover:text-zinc-100"
+          className="flex min-w-0 flex-1 items-center gap-2 text-left text-sm text-zinc-400 hover:text-zinc-100"
         >
           <ChevronRight
             className={`size-4 shrink-0 transition-transform ${isOpen ? "rotate-90" : ""}`}

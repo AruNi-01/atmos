@@ -141,7 +141,7 @@ export const TabsTrigger = forwardRef<HTMLButtonElement, TabsTriggerProps>(
           aria-selected={active}
           onClick={handleClick}
           className={cn(
-            "relative isolate px-3 pb-2.5 pt-1 -mb-px text-sm font-medium transition-colors min-h-[44px] inline-flex items-center",
+            "relative isolate px-3 pb-2.5 pt-1 -mb-px text-sm font-medium min-h-[44px] inline-flex items-center",
             active ? "text-foreground" : "text-muted-foreground hover:text-foreground",
             className,
           )}
@@ -172,7 +172,6 @@ export const TabsTrigger = forwardRef<HTMLButtonElement, TabsTriggerProps>(
         onClick={handleClick}
         className={cn(
           "relative isolate z-10 inline-flex items-center justify-center whitespace-nowrap bg-transparent px-3.5 py-1.5 text-sm font-medium outline-none",
-          "transition-colors",
           active
             ? "text-primary-foreground"
             : "text-muted-foreground hover:text-foreground",
