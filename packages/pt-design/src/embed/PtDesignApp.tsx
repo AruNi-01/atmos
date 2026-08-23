@@ -473,17 +473,6 @@ export function PtDesignApp({
 
   const menuItems = [
     {
-      id: "add-frame" as const,
-      label: "Add frame",
-      onSelect: () => {
-        session.dispatch({
-          type: "createFrame",
-          name: "Frame",
-          bbox: { x: 40, y: 40, w: 480, h: 320 },
-        });
-      },
-    },
-    {
       id: "give-to-agent" as const,
       label: "Give to Agent",
       onSelect: () => {
@@ -510,18 +499,6 @@ export function PtDesignApp({
           },
         ]
       : []),
-    {
-      id: "copy-ir" as const,
-      label: "Copy IR",
-      onSelect: () => {
-        void navigator.clipboard?.writeText(JSON.stringify(session.getIR(), null, 2));
-      },
-    },
-    {
-      id: "share" as const,
-      label: collab.isCollaborating ? shareLabels.openMenu : shareLabels.startMenu,
-      onSelect: openShare,
-    },
   ];
 
   return (

@@ -94,6 +94,9 @@ describe("session + IR", () => {
     expect(payload.ir.version).toBe("pt-design-ir/1");
     expect(payload.instructions).toBe(HANDOFF_INSTRUCTIONS);
     expect(payload.instructions.length).toBeGreaterThan(40);
+    expect(HANDOFF_INSTRUCTIONS).not.toMatch(/prefer shadcn/i);
+    expect(HANDOFF_INSTRUCTIONS).toContain("UI component library the target project already uses");
+    expect(HANDOFF_INSTRUCTIONS).toContain("do not assume shadcn/ui");
     const live = session.buildHandoff({
       scope: "document",
       clientId: "global",

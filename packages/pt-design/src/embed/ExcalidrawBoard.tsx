@@ -2,13 +2,20 @@
 
 import "./excalidraw-assets";
 import React from "react";
-import { DefaultSidebar, Excalidraw, MainMenu, Sidebar } from "@excalidraw/excalidraw";
-import { ClipboardCopy, FolderOpen, Frame, Library, Link, Save, Sparkles, Users } from "lucide-react";
+import { DefaultSidebar, Excalidraw, MainMenu, Sidebar, useHandleLibrary } from "@excalidraw/excalidraw";
+import { FolderOpen, Library, Save, Sparkles, Users } from "lucide-react";
+import { motion, useReducedMotion } from "motion/react";
 import { SharePopover, type ShareCopy } from "./SharePopover";
 import type { CollabRoom } from "../collab/constants";
 import "@excalidraw/excalidraw/index.css";
 import "./excalidraw-theme.css";
 import { FONT_HELVETICA } from "../catalog/primitives";
+import {
+  bindExcalidrawLibraryWindowName,
+  localStorageLibraryAdapter,
+} from "./excalidraw-library";
+import { observeShortcutDecorations } from "./shortcut-keys";
+import { observeSidebarExit, wrapToggleSidebar } from "./sidebar-motion";
 import {
   applyThemeInkToElements,
   drawingAppState,
@@ -33,7 +40,15 @@ type ExcalidrawApi = {
       canvasOffsets?: { top?: number; right?: number; bottom?: number; left?: number };
     },
   ) => void;
-  toggleSidebar: (next: { name: string; tab?: string }) => unknown;
+  toggleSidebar: (next: { name: string; tab?: string; force?: boolean }) => unknown;
+  id: string;
+  updateLibrary: (opts: {
+    libraryItems: unknown;
+    merge?: boolean;
+    prompt?: boolean;
+    openLibraryMenu?: boolean;
+    defaultStatus?: "published" | "unpublished";
+  }) => Promise<unknown>;
   getSceneElements: () => readonly ExcalidrawCompatElement[];
   getSceneElementsIncludingDeleted: () => readonly ExcalidrawCompatElement[];
   getFiles?: () => Record<string, unknown>;
@@ -51,7 +66,7 @@ type ExcalidrawApi = {
 };
 
 export type BoardMenuItem = {
-  id: "add-frame" | "give-to-agent" | "copy-ir" | "share" | "save" | "open";
+  id: "give-to-agent" | "save" | "open";
   label: string;
   onSelect: () => void;
 };
@@ -105,13 +120,13 @@ export type ExcalidrawBoardProps = {
 };
 
 function menuIcon(id: BoardMenuItem["id"]): React.JSX.Element {
-  if (id === "add-frame") return <Frame size={16} strokeWidth={2} />;
   if (id === "give-to-agent") return <Sparkles size={16} strokeWidth={2} />;
-  if (id === "share") return <Link size={16} strokeWidth={2} />;
   if (id === "save") return <Save size={16} strokeWidth={2} />;
-  if (id === "open") return <FolderOpen size={16} strokeWidth={2} />;
-  return <ClipboardCopy size={16} strokeWidth={2} />;
+  return <FolderOpen size={16} strokeWidth={2} />;
 }
+
+const PRESS_TAP = { scale: 0.96 };
+const PRESS_TRANSITION = { duration: 0.12, ease: [0.16, 1, 0.3, 1] as const };
 
 function ShareTrigger({
   active,
@@ -124,10 +139,11 @@ function ShareTrigger({
   title: string;
   onClick: () => void;
 }) {
+  const reduceMotion = useReducedMotion();
   return (
-    <button
+    <motion.button
       type="button"
-      className="pt-design-share-trigger"
+      className="pt-design-share-trigger sidebar-trigger"
       data-testid="pt-design-share-trigger"
       data-active={active ? "true" : "false"}
       data-collaborating={collaborating ? "true" : "false"}
@@ -135,12 +151,15 @@ function ShareTrigger({
       aria-label={title}
       aria-expanded={active}
       aria-haspopup="dialog"
+      whileTap={reduceMotion ? undefined : PRESS_TAP}
+      transition={PRESS_TRANSITION}
       onClick={onClick}
       onMouseDown={(event) => event.stopPropagation()}
+      onPointerDown={(event) => event.stopPropagation()}
     >
       <Users size={16} strokeWidth={2} />
       {collaborating ? <span className="pt-design-share-dot" aria-hidden="true" /> : null}
-    </button>
+    </motion.button>
   );
 }
 
@@ -175,21 +194,25 @@ function IslandTrigger({
   onClick: () => void;
   children: React.ReactNode;
 }) {
+  const reduceMotion = useReducedMotion();
   return (
-    <button
+    <motion.button
       type="button"
-      className="pt-design-island-trigger"
+      className="pt-design-island-trigger sidebar-trigger"
       data-testid={testId}
       data-active={active ? "true" : "false"}
       data-icon-only={iconOnly ? "true" : "false"}
       title={title}
       aria-label={title}
       aria-pressed={active}
+      whileTap={reduceMotion ? undefined : PRESS_TAP}
+      transition={PRESS_TRANSITION}
       onClick={onClick}
       onMouseDown={(event) => event.stopPropagation()}
+      onPointerDown={(event) => event.stopPropagation()}
     >
       {children}
-    </button>
+    </motion.button>
   );
 }
 
@@ -249,11 +272,14 @@ export default function ExcalidrawBoard({
   sharePanel,
   onPointerUpdate,
 }: ExcalidrawBoardProps) {
+  const boardRef = React.useRef<HTMLDivElement>(null);
   const apiRef = React.useRef<ExcalidrawApi | null>(null);
   const onApiRef = React.useRef(onApi);
   const sharePanelRef = React.useRef(sharePanel);
   const handedOffRef = React.useRef(false);
   const inkFixRef = React.useRef(false);
+  const [libraryHost, setLibraryHost] = React.useState<ExcalidrawApi | null>(null);
+  const libraryAdapter = React.useMemo(() => localStorageLibraryAdapter(), []);
   onApiRef.current = onApi;
   sharePanelRef.current = sharePanel;
 
@@ -266,12 +292,34 @@ export default function ExcalidrawBoard({
     document.head.appendChild(style);
   }, []);
 
+  React.useEffect(() => {
+    const root = boardRef.current;
+    if (!root) return;
+    const stopShortcuts = observeShortcutDecorations(root);
+    const stopSidebarExit = observeSidebarExit(root, () => apiRef.current);
+    return () => {
+      stopShortcuts();
+      stopSidebarExit();
+    };
+  }, []);
+
+  React.useEffect(() => {
+    bindExcalidrawLibraryWindowName();
+  }, []);
+
+  useHandleLibrary({
+    excalidrawAPI: libraryHost as never,
+    adapter: libraryAdapter,
+  });
+
   // Excalidraw calls `excalidrawAPI` from `_App`'s constructor — before mount.
   // Hand the host API over only after this board (and `_App`) have committed.
   React.useEffect(() => {
     const api = apiRef.current;
     if (!api || handedOffRef.current) return;
     handedOffRef.current = true;
+    wrapToggleSidebar(api, () => boardRef.current);
+    setLibraryHost(api);
     onApiRef.current(bindHostApi(api));
     api.updateScene({
       appState: {
@@ -343,6 +391,7 @@ export default function ExcalidrawBoard({
 
   return (
     <div
+      ref={boardRef}
       data-testid="pt-design-board"
       data-theme={theme}
       style={{
@@ -426,6 +475,7 @@ export default function ExcalidrawBoard({
         )}
         excalidrawAPI={(api) => {
           apiRef.current = api as unknown as ExcalidrawApi;
+          wrapToggleSidebar(apiRef.current, () => boardRef.current);
         }}
         onChange={(elements, appState) => {
           const typed = elements as unknown as readonly ExcalidrawCompatElement[];

@@ -1,7 +1,7 @@
 import type { DesignIR } from "./schema";
 
 export const HANDOFF_INSTRUCTIONS =
-  "This is a PT Design wireframe prototype, not production UI. Implement using real components in the target project (prefer shadcn/ui if the repo already uses it). Use componentType, props, frames, and relative bbox/containment for structure and hierarchy — do not pixel-chase absolute coordinates with absolute CSS. Do not invent major sections absent from the IR. Visual wireframes are approximate. Prefer Design IR over screenshots; image is optional aid only.";
+  "This is a PT Design wireframe prototype, not production UI. Implement it with the UI component library the target project already uses — inspect dependencies, imports, and design-system folders; do not assume shadcn/ui just because catalog ids look like shadcn. Map each IR componentType onto that library's closest equivalent (Radix, MUI, Ant Design, Chakra, Naive UI, custom primitives, shadcn, or anything else the repo already ships). Use componentType, props, frames, and relative bbox/containment for structure and hierarchy — do not pixel-chase absolute coordinates with absolute CSS. Do not invent major sections absent from the IR. Visual wireframes are approximate. Prefer Design IR over screenshots; image is optional aid only.";
 
 export const LIVE_BOARD_INSTRUCTIONS =
   "The live board is the open Prototype Design tab, not a .ptdesign.json file. POST the invoke URL with client_id. Read ~/.atmos/skills/.system/atmos-pt-design-agent/SKILL.md and follow it. Do not start MCP, do not join a collaboration room, and do not write a separate file.";

@@ -136,6 +136,14 @@
   border-radius: 12px;
   box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.25);
   overflow: hidden;
+  transform-origin: right center;
+  animation: pt-design-drawer-in 280ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.excalidraw .sidebar[data-pt-leaving="true"],
+.pt-design-sidebar-exit {
+  pointer-events: none;
+  animation: none !important;
 }
 
 .excalidraw .sidebar__header {
@@ -267,9 +275,22 @@ html[lang^="zh"] .excalidraw .pt-design-library-sidebar .sidebar-triggers .sideb
   border: none;
   border-radius: 8px;
   cursor: pointer;
+  transform-origin: center;
   background: var(--island-bg-color, var(--card));
   color: var(--icon-fill-color, var(--foreground, inherit));
   box-shadow: 0 0 0 1px var(--border, rgba(0, 0, 0, 0.1));
+}
+
+.excalidraw .dropdown-menu-button {
+  transform-origin: center;
+  transition:
+    transform 120ms cubic-bezier(0.16, 1, 0.3, 1),
+    background-color 120ms ease,
+    border-color 120ms ease !important;
+}
+
+.excalidraw .dropdown-menu-button:active {
+  transform: scale(0.96) !important;
 }
 
 .pt-design-share-trigger,
@@ -371,9 +392,276 @@ html[lang^="zh"] .excalidraw .pt-design-library-sidebar .sidebar-triggers .sideb
     animation: none;
     opacity: 0.9;
   }
+
+  .excalidraw .context-menu {
+    animation: none;
+  }
+
+  .excalidraw .sidebar,
+  .excalidraw .sidebar--docked,
+  .excalidraw .sidebar[data-pt-leaving="true"] {
+    animation: none;
+  }
+
+  .excalidraw .dropdown-menu-button {
+    transition: none;
+  }
+
+  .excalidraw .dropdown-menu-button:active {
+    transform: none;
+  }
 }
 
 /* Follow overlay is a square stroke; round it to match the center-stage card. */
 .excalidraw .follow-mode {
   border-radius: var(--radius-xl, 0.875rem);
+}
+
+/* Right-click + hamburger menus: match Atmos dropdown (popover, not invert-hover). */
+.excalidraw .popover:has(.context-menu) {
+  padding: 0;
+  z-index: 50;
+}
+
+.excalidraw .context-menu {
+  --pt-menu-bg: var(--popup-bg-color, var(--island-bg-color, var(--card, #ffffff)));
+  --pt-menu-fg: var(--popup-text-color, var(--foreground, #18181b));
+  --pt-menu-muted: var(--muted-foreground, #71717a);
+  --pt-menu-hover: var(--button-hover-bg, var(--muted, #f4f4f5));
+  --pt-menu-border: var(--default-border-color, var(--border, rgba(0, 0, 0, 0.1)));
+  --pt-menu-danger: var(--destructive, #dc2626);
+  position: relative;
+  min-width: 14rem;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  user-select: none;
+  cursor: default;
+  overflow: hidden;
+  color: var(--pt-menu-fg);
+  background-color: var(--pt-menu-bg);
+  border: 1px solid var(--pt-menu-border);
+  border-radius: 8px;
+  box-shadow:
+    0 4px 6px -1px rgb(0 0 0 / 0.1),
+    0 10px 24px -8px rgb(0 0 0 / 0.18);
+  transform-origin: top left;
+  animation: pt-design-menu-in 140ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.excalidraw.theme--dark .context-menu {
+  --pt-menu-muted: var(--muted-foreground, #a1a1aa);
+  --pt-menu-hover: var(--button-hover-bg, var(--muted, #3f3f46));
+  --pt-menu-border: var(--default-border-color, var(--border, rgba(255, 255, 255, 0.1)));
+  --pt-menu-danger: var(--destructive, #f87171);
+  box-shadow:
+    0 0 0 1px var(--pt-menu-border),
+    0 10px 24px -8px rgb(0 0 0 / 0.45);
+}
+
+.excalidraw .context-menu li {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.excalidraw .context-menu button,
+.excalidraw .context-menu .context-menu-item {
+  color: var(--pt-menu-fg);
+}
+
+.excalidraw .context-menu-item {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  min-width: 0;
+  min-height: 32px;
+  margin: 0;
+  padding: 6px 8px;
+  border: none;
+  border-radius: 6px;
+  background-color: transparent;
+  text-align: start;
+  white-space: nowrap;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.25;
+  outline: none;
+  box-shadow: none;
+}
+
+.excalidraw .context-menu-item.checkmark {
+  padding-left: 28px;
+}
+
+.excalidraw .context-menu-item.checkmark::before {
+  position: absolute;
+  left: 8px;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  content: "";
+  transform: translateY(-50%);
+  background-color: currentColor;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E")
+    center / 14px 14px no-repeat;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E")
+    center / 14px 14px no-repeat;
+}
+
+.excalidraw .context-menu-item .context-menu-item__label {
+  justify-self: start;
+  margin-inline-end: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.excalidraw .context-menu-item .context-menu-item__shortcut,
+.excalidraw .dropdown-menu .dropdown-menu-item__shortcut {
+  display: inline-flex;
+  align-items: center;
+  justify-self: end;
+  gap: 2px;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1;
+  color: inherit;
+  opacity: 1;
+}
+
+.excalidraw .context-menu-item .context-menu-item__shortcut:empty,
+.excalidraw .dropdown-menu .dropdown-menu-item__shortcut:empty {
+  display: none;
+}
+
+.excalidraw .context-menu-item .context-menu-item__shortcut > kbd,
+.excalidraw .dropdown-menu .dropdown-menu-item__shortcut > kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 20px;
+  min-width: 20px;
+  padding: 0 5px;
+  border: 1px solid color-mix(in srgb, var(--muted-foreground, #71717a) 20%, transparent);
+  border-radius: 6px;
+  background: var(--muted, var(--button-hover-bg, #f4f4f5));
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
+  color: var(--foreground, var(--pt-menu-fg, #18181b));
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+.excalidraw.theme--dark .context-menu-item .context-menu-item__shortcut > kbd,
+.excalidraw.theme--dark .dropdown-menu .dropdown-menu-item__shortcut > kbd {
+  border-color: color-mix(in srgb, var(--muted-foreground, #a1a1aa) 20%, transparent);
+  background: var(--muted, #3f3f46);
+  color: var(--foreground, #fafafa);
+  box-shadow: none;
+}
+
+.excalidraw .context-menu-item:hover,
+.excalidraw .context-menu-item:focus,
+.excalidraw .context-menu-item:focus-visible {
+  color: var(--pt-menu-fg);
+  background-color: var(--pt-menu-hover);
+}
+
+.excalidraw .context-menu-item.dangerous .context-menu-item__label {
+  color: var(--pt-menu-danger);
+}
+
+.excalidraw .context-menu-item:hover.dangerous,
+.excalidraw .context-menu-item:focus.dangerous,
+.excalidraw .context-menu-item:focus-visible.dangerous {
+  color: var(--pt-menu-danger);
+  background-color: color-mix(in srgb, var(--pt-menu-danger) 12%, transparent);
+}
+
+.excalidraw .context-menu-item:hover.dangerous .context-menu-item__label,
+.excalidraw .context-menu-item:focus.dangerous .context-menu-item__label {
+  color: var(--pt-menu-danger);
+}
+
+.excalidraw .context-menu-item-separator {
+  height: 1px;
+  margin: 4px 0;
+  border: none;
+  border-top: none;
+  background-color: var(--pt-menu-border, var(--border, rgba(0, 0, 0, 0.1)));
+}
+
+.excalidraw .dropdown-menu .dropdown-menu-container {
+  padding: 4px;
+  overflow: hidden;
+  overflow-y: auto;
+  background-color: var(--popup-bg-color, var(--island-bg-color));
+  border: 1px solid var(--default-border-color, var(--border, rgba(0, 0, 0, 0.1)));
+  border-radius: 8px;
+  box-shadow:
+    0 4px 6px -1px rgb(0 0 0 / 0.1),
+    0 10px 24px -8px rgb(0 0 0 / 0.18);
+}
+
+.excalidraw.theme--dark .dropdown-menu .dropdown-menu-container {
+  box-shadow:
+    0 0 0 1px var(--default-border-color, var(--border, rgba(255, 255, 255, 0.1))),
+    0 10px 24px -8px rgb(0 0 0 / 0.45);
+}
+
+.excalidraw .dropdown-menu .dropdown-menu-item {
+  height: 32px;
+  margin: 0;
+  padding: 0 8px;
+  width: 100%;
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+
+
+@keyframes pt-design-menu-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes pt-design-drawer-in {
+  from {
+    opacity: 0.72;
+    transform: translateX(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes pt-design-drawer-out {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  to {
+    opacity: 0.72;
+    transform: translateX(100%);
+  }
 }
