@@ -13,10 +13,11 @@ import {
   type PtTheme,
 } from "../host/adapters";
 import { FONT_HELVETICA } from "../catalog/primitives";
-import { isPtDesignError } from "../agent/errors";
+import { isPtDesignError, PT_ERROR_CODES, PtDesignError } from "../agent/errors";
+import { isMutatingTool } from "../agent/mutating";
 import { runSessionTool } from "../agent/session-tools";
 import type { ToolName } from "../agent/tool-defs";
-import { PT_DESIGN_TOOL_DEFS } from "../agent/tool-defs";
+import { captureLiveScreenshot } from "./screenshot";
 import { chromeTokens, resolveBoardTheme } from "./chrome";
 import { agentInvokeUrl, normalizeAgentApiBase } from "./agent-prompt";
 import { drawingAppState } from "./theme-palette";
@@ -37,6 +38,8 @@ import {
   PLACE_REVEAL_MS,
   PLACE_SCROLL_OFFSETS,
   elementsForInstances,
+  frameIdFromToolData,
+  instanceIdsFromToolData,
   prefersReducedMotion,
   sceneRectToBoardBox,
   selectedIdsForElements,
@@ -107,6 +110,7 @@ export function PtDesignApp({
   const [catalogType, setCatalogType] = React.useState("button");
   const [selectedInstanceId, setSelectedInstanceId] = React.useState<string | null>(null);
   const [revealIds, setRevealIds] = React.useState<string[] | null>(null);
+  const [revealKind, setRevealKind] = React.useState<"catalog" | "agent">("catalog");
   const [revealBox, setRevealBox] = React.useState<RevealBox | null>(null);
   const apiRef = React.useRef<ExcalidrawHostApi | null>(null);
   const applyGateRef = React.useRef(createApplyGate());
@@ -232,44 +236,89 @@ export function PtDesignApp({
   broadcastRef.current = collab.broadcastScene;
   const agentApiBase = normalizeAgentApiBase(collabServerUrl);
 
+  const revealOnBoard = React.useCallback((instanceIds: string[], kind: "catalog" | "agent" = "agent") => {
+    const api = apiRef.current;
+    if (!api || instanceIds.length === 0) return;
+    const targets = elementsForInstances(session.getScene().elements, instanceIds);
+    if (targets.length === 0) return;
+    api.updateScene({ appState: { selectedElementIds: selectedIdsForElements(targets) } });
+    const zoom = api.getAppState().zoom.value || 1;
+    const reduceMotion = prefersReducedMotion();
+    api.scrollToContent(targets, {
+      animate: !reduceMotion,
+      duration: reduceMotion ? 0 : 420,
+      fitToContent: true,
+      minZoom: zoom,
+      maxZoom: zoom,
+      canvasOffsets: PLACE_SCROLL_OFFSETS,
+    });
+    setRevealKind(kind);
+    setRevealIds(instanceIds);
+  }, [session]);
+
   React.useEffect(() => {
     if (!agentBridge) return;
-    const tools = new Set(PT_DESIGN_TOOL_DEFS.map((def) => def.name));
     void Promise.resolve(
       agentBridge.register({ client_id: clientId, label: "Prototype Design" }),
     ).catch(() => undefined);
     const unsubscribe = agentBridge.subscribe((dispatch) => {
       if (dispatch.client_id && dispatch.client_id !== clientId) return;
       const tool = dispatch.tool.trim() as ToolName;
-      try {
-        if (!tools.has(tool)) {
-          throw new Error(`Unknown tool: ${dispatch.tool}`);
+      void (async () => {
+        try {
+          let data: unknown;
+          if (tool === "pt_screenshot") {
+            const api = apiRef.current;
+            if (!api) {
+              throw new PtDesignError(PT_ERROR_CODES.USAGE, "Board is not ready for screenshot.");
+            }
+            data = await captureLiveScreenshot(api, session, dispatch.args ?? {});
+          } else {
+            data = runSessionTool(session, { name: tool, args: dispatch.args ?? {} });
+          }
+          if (isMutatingTool(tool) || tool === "pt_screenshot") {
+            const ids = instanceIdsFromToolData(data);
+            if (ids.length) revealOnBoard(ids, "agent");
+            else {
+              const frameId = frameIdFromToolData(data);
+              const frame = frameId
+                ? session.getScene().elements.find((el) => el.id === frameId && !el.isDeleted)
+                : undefined;
+              if (frame) {
+                apiRef.current?.scrollToContent([frame], {
+                  animate: !prefersReducedMotion(),
+                  duration: prefersReducedMotion() ? 0 : 420,
+                  fitToContent: true,
+                  canvasOffsets: PLACE_SCROLL_OFFSETS,
+                });
+              }
+            }
+          }
+          await Promise.resolve(
+            agentBridge.reply({
+              request_id: dispatch.request_id,
+              success: true,
+              data,
+            }),
+          );
+        } catch (error) {
+          await Promise.resolve(
+            agentBridge.reply({
+              request_id: dispatch.request_id,
+              success: false,
+              error_code: isPtDesignError(error) ? error.code : "INTERNAL",
+              error_message: error instanceof Error ? error.message : String(error),
+              recoverable: true,
+            }),
+          );
         }
-        const data = runSessionTool(session, { name: tool, args: dispatch.args ?? {} });
-        void Promise.resolve(
-          agentBridge.reply({
-            request_id: dispatch.request_id,
-            success: true,
-            data,
-          }),
-        );
-      } catch (error) {
-        void Promise.resolve(
-          agentBridge.reply({
-            request_id: dispatch.request_id,
-            success: false,
-            error_code: isPtDesignError(error) ? error.code : "INTERNAL",
-            error_message: error instanceof Error ? error.message : String(error),
-            recoverable: true,
-          }),
-        );
-      }
+      })();
     });
     return () => {
       unsubscribe();
       void Promise.resolve(agentBridge.unregister(clientId)).catch(() => undefined);
     };
-  }, [agentBridge, clientId, session]);
+  }, [agentBridge, clientId, revealOnBoard, session]);
 
   const scene = session.getScene();
   const catalog = listComponentTypes();
@@ -299,21 +348,7 @@ export function PtDesignApp({
       setSelectedInstanceId(instanceIds[0]);
       session.setSelection(instanceIds);
     }
-    if (!api || instanceIds.length === 0) return;
-    const targets = elementsForInstances(session.getScene().elements, instanceIds);
-    if (targets.length === 0) return;
-    api.updateScene({ appState: { selectedElementIds: selectedIdsForElements(targets) } });
-    const zoom = api.getAppState().zoom.value || 1;
-    const reduceMotion = prefersReducedMotion();
-    api.scrollToContent(targets, {
-      animate: !reduceMotion,
-      duration: reduceMotion ? 0 : 420,
-      fitToContent: true,
-      minZoom: zoom,
-      maxZoom: zoom,
-      canvasOffsets: PLACE_SCROLL_OFFSETS,
-    });
-    setRevealIds(instanceIds);
+    revealOnBoard(instanceIds, "catalog");
   };
 
   React.useEffect(() => {
@@ -321,7 +356,7 @@ export function PtDesignApp({
       setRevealBox(null);
       return;
     }
-    const until = performance.now() + PLACE_REVEAL_MS;
+    const until = performance.now() + (revealKind === "agent" ? 2400 : PLACE_REVEAL_MS);
     let frame = 0;
     const tick = () => {
       const api = apiRef.current;
@@ -332,7 +367,7 @@ export function PtDesignApp({
     };
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
-  }, [revealIds, session]);
+  }, [revealIds, revealKind, session]);
 
   const handleBoardChange = React.useCallback(
     (
@@ -546,7 +581,9 @@ export function PtDesignApp({
                   {revealBox ? (
                     <div
                       data-testid="pt-design-place-reveal"
-                      className="pt-design-place-reveal"
+                      className={
+                        revealKind === "agent" ? "pt-design-agent-highlight" : "pt-design-place-reveal"
+                      }
                       style={{
                         left: revealBox.left,
                         top: revealBox.top,

@@ -2,8 +2,9 @@ import {
   defaultProps,
   getCatalogEntry,
   getComponentTemplate,
-  listComponentTypes,
+  listCatalogForAgent,
   sanitizeProps,
+  type AgentCatalogEntry,
 } from "../catalog/registry";
 import { nextPlaceOffset, resolvePlaceVariants, showcaseProps } from "../catalog/place-sets";
 import { applyDesignIR } from "../ir/apply";
@@ -33,10 +34,13 @@ export type PtDesignCommand =
       variant?: string;
       size?: PtSize;
       bbox?: Partial<BBox>;
+      frameId?: string | null;
     }
   | { type: "delete"; instanceIds: string[] }
   | { type: "createFrame"; name: string; bbox: BBox }
   | { type: "renameFrame"; frameId: string; name: string }
+  | { type: "updateFrame"; frameId: string; name?: string; bbox?: Partial<BBox> }
+  | { type: "deleteFrame"; frameId: string; orphan?: boolean }
   | { type: "replaceScene"; scene: PtScene }
   | { type: "applyIR"; ir: DesignIR; mode: "merge" | "replace" };
 
@@ -48,7 +52,7 @@ export type PtDesignSession = {
   dispatch(cmd: PtDesignCommand): { instanceId?: string; instanceIds?: string[]; frameId?: string };
   getScene(): PtScene;
   getIR(options?: { frameId?: string; instanceIds?: string[] }): DesignIR;
-  listCatalog(): { componentType: string; variants?: string[] }[];
+  listCatalog(): AgentCatalogEntry[];
   getSelection(): string[];
   setSelection(ids: string[]): void;
   subscribe(fn: (snap: PtDesignSnapshot) => void): () => void;
@@ -127,6 +131,54 @@ export function createPtDesignSession(initial?: PtScene): PtDesignSession {
       emit();
       return { frameId: frame.id };
     }
+    if (cmd.type === "updateFrame") {
+      const frame = resolveFrame(cmd.frameId);
+      if (!frame) {
+        throw new PtDesignError(PT_ERROR_CODES.NOT_FOUND, `Frame not found: ${cmd.frameId}`);
+      }
+      const x = cmd.bbox?.x ?? frame.x;
+      const y = cmd.bbox?.y ?? frame.y;
+      const w = cmd.bbox?.w ?? frame.width;
+      const h = cmd.bbox?.h ?? frame.height;
+      const name = cmd.name ?? frame.name;
+      const dx = x - frame.x;
+      const dy = y - frame.y;
+      scene = {
+        ...scene,
+        elements: scene.elements.map((el) => {
+          if (el.id === frame.id) {
+            return { ...el, name, x, y, width: w, height: h };
+          }
+          if ((dx !== 0 || dy !== 0) && el.frameId === frame.id) {
+            return { ...el, x: el.x + dx, y: el.y + dy };
+          }
+          return el;
+        }),
+      };
+      emit();
+      return { frameId: frame.id };
+    }
+    if (cmd.type === "deleteFrame") {
+      const frame = resolveFrame(cmd.frameId);
+      if (!frame) {
+        throw new PtDesignError(PT_ERROR_CODES.NOT_FOUND, `Frame not found: ${cmd.frameId}`);
+      }
+      if (cmd.orphan) {
+        scene = {
+          ...scene,
+          elements: scene.elements
+            .filter((el) => el.id !== frame.id)
+            .map((el) => (el.frameId === frame.id ? { ...el, frameId: null } : el)),
+        };
+      } else {
+        scene = {
+          ...scene,
+          elements: scene.elements.filter((el) => el.id !== frame.id && el.frameId !== frame.id),
+        };
+      }
+      emit();
+      return { frameId: frame.id };
+    }
     if (cmd.type === "place") {
       getCatalogEntry(cmd.componentType);
       const baseProps = { ...defaultProps(cmd.componentType), ...sanitizeProps(cmd.componentType, cmd.props ?? {}) };
@@ -193,12 +245,23 @@ export function createPtDesignSession(initial?: PtScene): PtDesignSession {
         props: nextProps,
         instanceId: cmd.instanceId,
       });
-      const frameId = root.frameId;
+      let nextFrameId = root.frameId;
+      if (cmd.frameId !== undefined) {
+        if (cmd.frameId === null || cmd.frameId === "") {
+          nextFrameId = null;
+        } else {
+          const nextFrame = resolveFrame(cmd.frameId);
+          if (!nextFrame) {
+            throw new PtDesignError(PT_ERROR_CODES.NOT_FOUND, `Frame not found: ${cmd.frameId}`);
+          }
+          nextFrameId = nextFrame.id;
+        }
+      }
       scene = {
         ...scene,
         elements: [
           ...scene.elements.filter((el) => el.customData?.pt?.instanceId !== cmd.instanceId),
-          ...built.elements.map((el) => ({ ...el, frameId })),
+          ...built.elements.map((el) => ({ ...el, frameId: nextFrameId })),
         ],
       };
       emit();
@@ -249,11 +312,7 @@ export function createPtDesignSession(initial?: PtScene): PtDesignSession {
     dispatch,
     getScene: () => scene,
     getIR,
-    listCatalog: () =>
-      listComponentTypes().map((e) => ({
-        componentType: e.componentType,
-        variants: e.variants,
-      })),
+    listCatalog: () => listCatalogForAgent(),
     getSelection: () => selection.slice(),
     setSelection: (ids) => {
       selection = ids.slice();

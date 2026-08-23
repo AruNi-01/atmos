@@ -1,5 +1,5 @@
 import { CATALOG_VERSION } from "./shadcn-list";
-import { C, ellipse, groupElements, rect, textEl } from "./primitives";
+import { C, ellipse, estimateTextWidth, groupElements, rect, textEl } from "./primitives";
 import { createId } from "../core/ids";
 import type { PtElement, PtProps, PtSize } from "../core/types";
 
@@ -22,6 +22,12 @@ function str(props: PtProps, key: string, fallback: string): string {
   const value = props[key];
   if (value === null || value === undefined || value === "") return fallback;
   return String(value);
+}
+
+/** Use template copy when the catalog default title ("Accordion") is still in place. */
+function named(props: PtProps, key: string, componentType: string, fallback: string): string {
+  const value = str(props, key, fallback);
+  return value === titleCase(componentType) ? fallback : value;
 }
 
 function bool(props: PtProps, key: string): boolean {
@@ -101,7 +107,7 @@ function labeledBox(
 }
 
 function triggerButton(ctx: TemplateContext, label: string): TemplateBuild {
-  const w = Math.max(88, label.length * 8 + 28);
+  const w = Math.max(88, estimateTextWidth(label) + 28);
   const h = 32;
   const root = rect(ctx.x, ctx.y, w, h, {
     backgroundColor: C.primary,
@@ -130,7 +136,7 @@ function chipRow(
   const out: PtElement[] = [];
   let cx = x;
   for (const label of labels) {
-    const w = Math.max(48, label.length * 7 + 16);
+    const w = Math.max(48, estimateTextWidth(label, 7) + 16);
     out.push(rect(cx, y, w, 22, { backgroundColor: fill, strokeColor: C.outline }));
     out.push(textEl(cx + 8, y, w - 16, 22, label, { fontSize: 11, textAlign: "center" }));
     cx += w + 6;
@@ -151,7 +157,7 @@ export function buildTemplate(
   switch (componentType) {
     case "button": {
       const colors = variantFill(variant);
-      const w = Math.max(72, label.length * 8 + 28);
+      const w = Math.max(72, estimateTextWidth(label) + 28);
       const h = ctx.size === "sm" ? 28 : ctx.size === "lg" ? 40 : 32;
       const root = rect(ctx.x, ctx.y, w, h, {
         backgroundColor: colors.bg,
@@ -166,7 +172,7 @@ export function buildTemplate(
     }
     case "badge": {
       const colors = variantFill(variant === "default" ? "secondary" : variant);
-      const w = Math.max(44, label.length * 7 + 16);
+      const w = Math.max(44, estimateTextWidth(label, 7) + 16);
       const root = rect(ctx.x, ctx.y, w, 20, {
         backgroundColor: colors.bg,
         strokeColor: colors.stroke,
@@ -323,7 +329,7 @@ export function buildTemplate(
       return assemble(root, [], 24, 24);
     }
     case "kbd": {
-      const w = Math.max(28, label.length * 8 + 12);
+      const w = Math.max(28, estimateTextWidth(label) + 12);
       const root = rect(ctx.x, ctx.y, w, 22, { backgroundColor: C.muted });
       const text = textEl(ctx.x, ctx.y, w, 22, label, { textAlign: "center", fontSize: 11 });
       return assemble(root, [text], w, 22);
@@ -360,22 +366,29 @@ export function buildTemplate(
     case "tabs": {
       const w = 280;
       const h = 140;
+      const tabTitle = named(ctx.props, "title", componentType, "Account, Password");
+      const tabLabels = tabTitle.includes(",")
+        ? tabTitle.split(",").map((part) => part.trim()).filter(Boolean)
+        : [tabTitle, "Password"];
+      const panel = named(ctx.props, "description", componentType, "Tab panel");
       const root = rect(ctx.x, ctx.y, w, h);
       const kids = [
-        ...chipRow(ctx.x + 12, ctx.y + 10, ["Account", "Password"], C.muted),
+        ...chipRow(ctx.x + 12, ctx.y + 10, tabLabels.slice(0, 4), C.muted),
         rect(ctx.x + 12, ctx.y + 44, w - 24, 84, { backgroundColor: C.muted, strokeColor: C.outline }),
-        textEl(ctx.x + 24, ctx.y + 70, w - 48, 20, "Tab panel", { strokeColor: C.mutedText }),
+        textEl(ctx.x + 24, ctx.y + 70, w - 48, 20, panel, { strokeColor: C.mutedText }),
       ];
       return assemble(root, kids, w, h);
     }
     case "accordion":
     case "collapsible": {
       const w = 280;
+      const heading = named(ctx.props, "title", componentType, "Is it accessible?");
+      const body = named(ctx.props, "description", componentType, "Yes. It uses semantic markup.");
       if (variant === "collapsed") {
         const root = rect(ctx.x, ctx.y, w, 40);
         return assemble(
           root,
-          [textEl(ctx.x + 12, ctx.y, w - 36, 40, "Is it accessible?"), textEl(ctx.x + w - 24, ctx.y, 16, 40, "▸")],
+          [textEl(ctx.x + 12, ctx.y, w - 36, 40, heading), textEl(ctx.x + w - 24, ctx.y, 16, 40, "▸")],
           w,
           40,
         );
@@ -383,27 +396,28 @@ export function buildTemplate(
       const h = 120;
       const root = rect(ctx.x, ctx.y, w, h);
       const kids = [
-        textEl(ctx.x + 12, ctx.y, w - 36, 36, "Is it accessible?"),
+        textEl(ctx.x + 12, ctx.y, w - 36, 36, heading),
         textEl(ctx.x + w - 24, ctx.y, 16, 36, "▾"),
-        textEl(ctx.x + 12, ctx.y + 36, w - 24, 36, "Yes. It uses semantic markup.", {
+        textEl(ctx.x + 12, ctx.y + 36, w - 24, 72, body, {
           fontSize: 12,
           strokeColor: C.mutedText,
           verticalAlign: "top",
         }),
-        textEl(ctx.x + 12, ctx.y + 80, w - 24, 18, "Is it styled?", { strokeColor: C.mutedText }),
       ];
       return assemble(root, kids, w, h);
     }
     case "breadcrumb": {
-      const root = rect(ctx.x, ctx.y, 260, 24, {
+      const trail = named(ctx.props, "title", componentType, "Home / Components / Breadcrumb");
+      const w = Math.max(260, estimateTextWidth(trail, 7) + 16);
+      const root = rect(ctx.x, ctx.y, w, 24, {
         backgroundColor: "transparent",
         strokeColor: "transparent",
       });
-      const text = textEl(ctx.x, ctx.y, 260, 24, "Home / Components / Breadcrumb", {
+      const text = textEl(ctx.x, ctx.y, w, 24, trail, {
         fontSize: 12,
         strokeColor: C.mutedText,
       });
-      return assemble(root, [text], 260, 24);
+      return assemble(root, [text], w, 24);
     }
     case "pagination": {
       const root = rect(ctx.x, ctx.y, 220, 32, {
@@ -632,10 +646,15 @@ export function buildTemplate(
     case "sidebar": {
       const w = 220;
       const h = 320;
+      const heading = named(ctx.props, "title", componentType, "");
       const root = rect(ctx.x, ctx.y, w, h, { backgroundColor: C.muted });
-      const kids = ["Home", "Inbox", "Settings", "Help"].map((item, i) =>
-        textEl(ctx.x + 16, ctx.y + 20 + i * 36, w - 32, 22, item),
-      );
+      const startY = heading ? 52 : 20;
+      const kids = [
+        ...(heading ? [textEl(ctx.x + 16, ctx.y + 16, w - 32, 22, heading, { fontSize: 14 })] : []),
+        ...["Home", "Inbox", "Settings", "Help"].map((item, i) =>
+          textEl(ctx.x + 16, ctx.y + startY + i * 36, w - 32, 22, item),
+        ),
+      ];
       return assemble(root, kids, w, h);
     }
     case "form":
@@ -734,16 +753,26 @@ export function buildTemplate(
       return assemble(root, [text], w, h);
     }
     case "typography": {
-      const w = 280;
-      const h = 100;
+      const heading = named(ctx.props, "title", componentType, "Taxing Laughter");
+      const body = named(ctx.props, "description", componentType, "The joke tax is a terrible idea.");
+      const spec =
+        ctx.size === "xl"
+          ? { w: 720, h: 168, title: 40, body: 16, gap: 16 }
+          : ctx.size === "lg"
+            ? { w: 560, h: 140, title: 32, body: 15, gap: 12 }
+            : ctx.size === "sm" || ctx.size === "xs"
+              ? { w: 280, h: 72, title: 16, body: 12, gap: 8 }
+              : { w: 360, h: 100, title: 20, body: 13, gap: 10 };
+      const w = Math.max(spec.w, estimateTextWidth(heading, Math.round(spec.title * 0.55)) + 8);
+      const h = spec.h;
       const root = rect(ctx.x, ctx.y, w, h, {
         backgroundColor: "transparent",
         strokeColor: "transparent",
       });
       const kids = [
-        textEl(ctx.x, ctx.y, w, 28, title || "Taxing Laughter", { fontSize: 20 }),
-        textEl(ctx.x, ctx.y + 36, w, 48, description || "The joke tax is a terrible idea.", {
-          fontSize: 13,
+        textEl(ctx.x, ctx.y, w, spec.title + 8, heading, { fontSize: spec.title, verticalAlign: "top" }),
+        textEl(ctx.x, ctx.y + spec.title + spec.gap, w, h - spec.title - spec.gap, body, {
+          fontSize: spec.body,
           strokeColor: C.mutedText,
           verticalAlign: "top",
         }),
@@ -926,17 +955,21 @@ export function buildTemplate(
     case "block.empty-state": {
       const w = 360;
       const h = 200;
+      const heading = named(ctx.props, "title", componentType, "Nothing here yet");
+      const body = named(ctx.props, "description", componentType, "Create your first item to get started.");
+      const action = str(ctx.props, "action", "Create");
+      const actionW = Math.max(100, estimateTextWidth(action) + 24);
       const root = rect(ctx.x, ctx.y, w, h, { backgroundColor: C.muted });
       const kids = [
         ellipse(ctx.x + 156, ctx.y + 24, 48, 48, { backgroundColor: C.secondary }),
-        textEl(ctx.x + 20, ctx.y + 84, w - 40, 22, "Nothing here yet", { textAlign: "center" }),
-        textEl(ctx.x + 20, ctx.y + 112, w - 40, 20, "Create your first item to get started.", {
+        textEl(ctx.x + 20, ctx.y + 84, w - 40, 22, heading, { textAlign: "center" }),
+        textEl(ctx.x + 20, ctx.y + 112, w - 40, 20, body, {
           textAlign: "center",
           fontSize: 12,
           strokeColor: C.mutedText,
         }),
-        rect(ctx.x + 130, ctx.y + 148, 100, 28, { backgroundColor: C.primary, strokeColor: C.primary }),
-        textEl(ctx.x + 130, ctx.y + 148, 100, 28, "Create", {
+        rect(ctx.x + (w - actionW) / 2, ctx.y + 148, actionW, 28, { backgroundColor: C.primary, strokeColor: C.primary }),
+        textEl(ctx.x + (w - actionW) / 2, ctx.y + 148, actionW, 28, action, {
           textAlign: "center",
           strokeColor: C.primaryFg,
         }),
@@ -946,14 +979,16 @@ export function buildTemplate(
     case "block.nav-content": {
       const w = 520;
       const h = 280;
+      const heading = named(ctx.props, "title", componentType, "Build faster");
+      const body = named(ctx.props, "description", componentType, "A clean content column under a top nav.");
       const root = rect(ctx.x, ctx.y, w, h);
       const kids = [
         rect(ctx.x, ctx.y, w, 48, { backgroundColor: C.muted }),
         textEl(ctx.x + 16, ctx.y, 80, 48, "Product"),
         textEl(ctx.x + 120, ctx.y, 60, 48, "Docs", { fontSize: 13 }),
         textEl(ctx.x + 190, ctx.y, 80, 48, "Pricing", { fontSize: 13 }),
-        textEl(ctx.x + 24, ctx.y + 80, 300, 28, "Build faster", { fontSize: 22, verticalAlign: "top" }),
-        textEl(ctx.x + 24, ctx.y + 118, 360, 40, "A clean content column under a top nav.", {
+        textEl(ctx.x + 24, ctx.y + 80, w - 48, 28, heading, { fontSize: 22, verticalAlign: "top" }),
+        textEl(ctx.x + 24, ctx.y + 118, w - 48, 40, body, {
           strokeColor: C.mutedText,
           verticalAlign: "top",
         }),

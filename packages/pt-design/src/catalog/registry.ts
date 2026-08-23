@@ -1,4 +1,5 @@
 import { catalogDisplayName } from "./labels";
+import { defaultPlaceVariant } from "./place-sets";
 import { REQUIRED_BLOCKS, SHADCN_BASIC_IDS } from "./shadcn-list";
 import { buildTemplate, stampRootMeta, type TemplateContext } from "./templates";
 import { createInstanceId } from "../core/ids";
@@ -57,11 +58,22 @@ const PROP_KEYS: Record<string, string[]> = {
   tooltip: ["label"],
   avatar: ["fallback"],
   toggle: ["pressed"],
+  kbd: ["label"],
+  accordion: ["title", "description"],
+  collapsible: ["title", "description"],
+  tabs: ["title", "description"],
+  breadcrumb: ["title"],
+  sidebar: ["title"],
+  typography: ["title", "description"],
   attachment: ["label", "description"],
   bubble: ["label"],
   message: ["title", "description"],
   marker: ["label"],
   questionnaire: ["title", "description"],
+  "block.auth-form": ["title"],
+  "block.settings-shell": ["title"],
+  "block.empty-state": ["title", "description", "action"],
+  "block.nav-content": ["title", "description"],
 };
 
 export type CatalogEntry = {
@@ -70,6 +82,11 @@ export type CatalogEntry = {
   kind: "basic" | "block";
   variants: string[];
   propKeys: string[];
+};
+
+export type AgentCatalogEntry = CatalogEntry & {
+  defaultVariant: string;
+  defaultBBox: { w: number; h: number };
 };
 
 const ENTRIES: CatalogEntry[] = [
@@ -85,7 +102,7 @@ const ENTRIES: CatalogEntry[] = [
     label: catalogDisplayName(componentType),
     kind: "block" as const,
     variants: ["default"],
-    propKeys: ["title", "description"],
+    propKeys: PROP_KEYS[componentType] ?? ["title", "description"],
   })),
 ];
 
@@ -154,6 +171,25 @@ function titleCase(id: string): string {
     .filter(Boolean)
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(" ");
+}
+
+export function toAgentCatalogEntry(entry: CatalogEntry): AgentCatalogEntry {
+  const defaultVariant = defaultPlaceVariant(entry.componentType);
+  const built = getComponentTemplate(entry.componentType, {
+    x: 0,
+    y: 0,
+    variant: defaultVariant,
+    props: defaultProps(entry.componentType),
+  });
+  return {
+    ...entry,
+    defaultVariant,
+    defaultBBox: { w: built.width, h: built.height },
+  };
+}
+
+export function listCatalogForAgent(kind?: CatalogEntry["kind"]): AgentCatalogEntry[] {
+  return listComponentTypes(kind).map(toAgentCatalogEntry);
 }
 
 export function allowedSize(size?: PtSize): PtSize | undefined {

@@ -1,7 +1,7 @@
 import type { FileSession } from "./api";
 import { PT_ERROR_CODES, PtDesignError } from "./errors";
 
-const FILE_OPTIONAL = new Set(["pt_catalog_list", "pt_doc_init", "pt_doc_open"]);
+const FILE_OPTIONAL = new Set(["pt_catalog_list", "pt_tools_list", "pt_doc_init", "pt_doc_open"]);
 
 export const OFFLINE_FILE_REQUIRED_MESSAGE =
   "Pass --file for an offline .ptdesign.json. To edit the open Prototype Design tab, POST /api/pt-design/agent/invoke. Do not join a collaboration room.";

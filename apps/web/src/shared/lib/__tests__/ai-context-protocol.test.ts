@@ -69,6 +69,20 @@ describe("ai-context protocol", () => {
     expect(presentation.icon).toBe("code");
   });
 
+  it("wraps Prototype Design copy-prompt as a context chip", () => {
+    const body = [
+      "The live Prototype Design board is already open on this computer.",
+      "Read ~/.atmos/skills/.system/atmos-pt-design-agent/SKILL.md and follow it.",
+    ].join("\n");
+    const clipboard = wrapAiContextClipboard("pt-design-agent", body);
+    expect(clipboard.startsWith("atmos://context/pt-design-agent\n")).toBe(true);
+    expect(parseAiContextProtocol(clipboard)).toEqual({
+      kind: "pt-design-agent",
+      promptText: body,
+    });
+    expect(presentAiContextChip("pt-design-agent", body).label).toBe("Prototype");
+  });
+
   it("maps agent-fix sources to specific kinds", () => {
     expect(
       agentFixSourceToAiContextKind({ id: "diff-stashed:ws", family: "diff" }),

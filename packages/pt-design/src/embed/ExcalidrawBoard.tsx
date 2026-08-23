@@ -36,6 +36,7 @@ type ExcalidrawApi = {
   toggleSidebar: (next: { name: string; tab?: string }) => unknown;
   getSceneElements: () => readonly ExcalidrawCompatElement[];
   getSceneElementsIncludingDeleted: () => readonly ExcalidrawCompatElement[];
+  getFiles?: () => Record<string, unknown>;
   getAppState: () => {
     scrollX: number;
     scrollY: number;
@@ -213,6 +214,10 @@ function bindHostApi(api: ExcalidrawApi): ExcalidrawHostApi {
       api.getSceneElements() as unknown as readonly ExcalidrawCompatElement[],
     getSceneElementsIncludingDeleted: () =>
       api.getSceneElementsIncludingDeleted() as unknown as readonly ExcalidrawCompatElement[],
+    getFiles: () =>
+      typeof (api as { getFiles?: () => Record<string, unknown> }).getFiles === "function"
+        ? (api as { getFiles: () => Record<string, unknown> }).getFiles()
+        : {},
     getAppState: () => {
       const state = api.getAppState();
       return {

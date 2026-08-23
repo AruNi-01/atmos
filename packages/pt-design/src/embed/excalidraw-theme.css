@@ -312,6 +312,42 @@ html[lang^="zh"] .excalidraw .pt-design-library-sidebar .sidebar-triggers .sideb
   animation: pt-design-place-breathe 0.75s ease-in-out 3;
 }
 
+.pt-design-agent-highlight {
+  position: absolute;
+  pointer-events: none;
+  z-index: 6;
+  box-sizing: border-box;
+  border-radius: 8px;
+  border: 1.5px solid rgb(52 211 153 / 0.9);
+  box-shadow:
+    0 0 0 3px rgb(52 211 153 / 0.18),
+    0 0 14px 2px rgb(52 211 153 / 0.3);
+  animation: pt-design-agent-pulse 2400ms ease-in-out forwards;
+}
+
+@keyframes pt-design-agent-pulse {
+  0% {
+    opacity: 0;
+    transform: scale(0.995);
+  }
+  12% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  45% {
+    opacity: 0.35;
+    transform: scale(1.004);
+  }
+  70% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.008);
+  }
+}
+
 @keyframes pt-design-place-breathe {
   0%,
   100% {
@@ -329,6 +365,11 @@ html[lang^="zh"] .excalidraw .pt-design-library-sidebar .sidebar-triggers .sideb
     animation: none;
     opacity: 0.85;
     box-shadow: 0 0 0 2px currentColor;
+  }
+
+  .pt-design-agent-highlight {
+    animation: none;
+    opacity: 0.9;
   }
 }
 

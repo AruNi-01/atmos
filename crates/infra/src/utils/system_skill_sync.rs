@@ -39,6 +39,8 @@ const ALL_SYSTEM_SKILL_NAMES: &[&str] = &[
     "atmos-review-fix",
     // Canvas terminal-agent integration (APP-015)
     "atmos-canvas-agent",
+    // Prototype Design live board (APP-062)
+    "atmos-pt-design-agent",
     // Desktop capture / drive (APP-052)
     "atmos-desktop-use",
     "atmos-browser-use",
@@ -175,6 +177,7 @@ fn repo_skill_root(skill_name: &str) -> Option<&'static str> {
         "git-commit" => Some("skills/git-commit"),
         "atmos-review-fix" => Some("skills/atmos-review-fix"),
         "atmos-canvas-agent" => Some("skills/atmos-canvas-agent"),
+        "atmos-pt-design-agent" => Some("skills/atmos-pt-design-agent"),
         _ => None,
     }
 }
