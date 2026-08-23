@@ -15,13 +15,8 @@ const PIERRE_NULL_LINE_ERROR =
 
 const GUARD_MARK = '__atmosPierreNullLineGuard';
 
-type ProcessDiffResult = (
-  this: DiffHunksRenderer,
-  ...args: unknown[]
-) => unknown;
-
 type GuardedPrototype = {
-  processDiffResult: ProcessDiffResult;
+  processDiffResult: (this: GuardedPrototype, ...args: unknown[]) => unknown;
   clearRenderCache: () => void;
   onRenderUpdate?: () => void;
 } & {
