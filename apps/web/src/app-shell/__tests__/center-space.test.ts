@@ -172,10 +172,15 @@ describe("center space wiring", () => {
     const tabBar = readFileSync(join(dir, "CenterStageTabBar.tsx"), "utf8");
     const header = readFileSync(join(dir, "Header.tsx"), "utf8");
     expect(tabBar).toContain("onCreateSpace");
+    expect(tabBar).toContain("stableAgentPaneId");
+    const stageTabs = readFileSync(join(dir, "center-stage-tabs.tsx"), "utf8");
+    expect(stageTabs).toContain("stableAgentPaneId");
     expect(tabBar).toContain("newSpaceDialogTitle");
     expect(tabBar).toContain("confirmCreateSpace");
     expect(tabBar).toContain("newSpace");
     expect(stage).toContain("openNewCenterSpace");
+    expect(stage).toContain("switchCenterSpace(liveHostContextId, targetSpaceId)");
+    expect(stage).toContain("spaceIdFromTmuxWindowName");
     expect(stage).toContain("handleApplyCenterLayout");
     expect(stage).toContain("liveExtraSpaceEmpty");
     expect(stage).toContain("createEmptyCenterLayout");
@@ -227,6 +232,10 @@ describe("center space wiring", () => {
     expect(switcher).toContain("h-2.5 min-w-2.5");
     expect(switcher).toContain("text-[8px]");
     expect(switcher).toContain("{spaces.length}");
+    expect(switcher).toContain("bg-emerald-500");
+    expect(switcher).toContain("agent-attention-ring-card");
+    expect(switcher).toContain("offActiveSpaceAttentionReason");
+    expect(switcher).toContain("hostSpaceAttentionReasons");
     const toggleAt = switcher.indexOf("const handleToggleOpen");
     const openAt = switcher.indexOf("setOpen(true)", toggleAt);
     const captureAt = switcher.indexOf("void ensurePreview()", toggleAt);

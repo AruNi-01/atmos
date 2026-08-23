@@ -4,6 +4,7 @@ import React from "react";
 import { createPortal } from "react-dom";
 import { useTranslations } from "next-intl";
 import { Layers, Trash2 } from "lucide-react";
+import { useShallow } from "zustand/react/shallow";
 import { cn } from "@workspace/ui";
 import { useContextParams } from "@/shared/hooks/use-context-params";
 import {
@@ -11,6 +12,10 @@ import {
   MAX_CENTER_SPACES_PER_HOST,
   type CenterSpaceRecord,
 } from "@/app-shell/center-space/center-space";
+import {
+  hostSpaceAttentionReasons,
+  offActiveSpaceAttentionReason,
+} from "@/app-shell/center-space/center-space-attention";
 import {
   CENTER_SPACE_FAN_EXIT_MS,
   centerSpaceFanCssVars,
@@ -22,6 +27,7 @@ import {
   refreshActiveCenterSpacePreview,
   switchCenterSpace,
 } from "@/app-shell/center-space/center-space-switch";
+import { useAgentAttentionStore } from "@/features/agent/store/agent-attention-store";
 import "./center-space-fan.css";
 
 const EMPTY_CENTER_SPACES: CenterSpaceRecord[] = [];
@@ -35,6 +41,13 @@ export function CenterSpaceSwitcher() {
   );
   const activeSpaceId = useCenterSpaceStore((s) =>
     hostId ? s.getActiveSpaceId(hostId) : DEFAULT_CENTER_SPACE_ID,
+  );
+  const spaceAttentionReasons = useAgentAttentionStore(
+    useShallow((s) => hostSpaceAttentionReasons(s.panes.values(), hostId ?? "")),
+  );
+  const otherSpaceAttention = offActiveSpaceAttentionReason(
+    spaceAttentionReasons,
+    activeSpaceId,
   );
   const [open, setOpen] = React.useState(false);
   const [mounted, setMounted] = React.useState(false);
@@ -240,7 +253,14 @@ export function CenterSpaceSwitcher() {
           <Layers className="size-3.5" />
           <span
             aria-hidden="true"
-            className="absolute -left-1 -top-1 flex h-2.5 min-w-2.5 items-center justify-center rounded-full bg-primary px-px text-[8px] font-semibold tabular-nums leading-none text-primary-foreground"
+            className={cn(
+              "absolute -left-1 -top-1 flex h-2.5 min-w-2.5 items-center justify-center rounded-full px-px text-[8px] font-semibold tabular-nums leading-none",
+              otherSpaceAttention === "permission_request"
+                ? "bg-amber-500 text-white"
+                : otherSpaceAttention === "task_complete"
+                  ? "bg-emerald-500 text-white"
+                  : "bg-primary text-primary-foreground",
+            )}
           >
             {spaces.length}
           </span>
@@ -267,6 +287,7 @@ export function CenterSpaceSwitcher() {
                 {spaces.map((space, index) => {
                   const pose = centerSpaceFanPose(index, spaces.length, spread);
                   const selected = space.id === activeSpaceId;
+                  const attentionReason = spaceAttentionReasons[space.id] ?? null;
                   const canDelete =
                     space.id !== DEFAULT_CENTER_SPACE_ID && spaces.length > 1;
                   return (
@@ -285,7 +306,16 @@ export function CenterSpaceSwitcher() {
                         }}
                         className={cn(
                           "relative flex w-full flex-col overflow-hidden rounded-xl border bg-background text-left shadow-[0_10px_24px_rgb(0_0_0/0.22)]",
-                          selected ? "border-primary/55" : "border-border/70",
+                          attentionReason
+                            ? cn(
+                                "agent-attention-ring-card",
+                                attentionReason === "permission_request"
+                                  ? "agent-attention-ring-permission"
+                                  : "agent-attention-ring-complete",
+                              )
+                            : selected
+                              ? "border-primary/55"
+                              : "border-border/70",
                         )}
                       >
                         <div className="relative aspect-[16/10] w-full bg-muted/40">

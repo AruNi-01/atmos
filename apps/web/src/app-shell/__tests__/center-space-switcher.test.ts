@@ -31,6 +31,10 @@ describe("center space switcher open path", () => {
     expect(switcher).toContain("void ensurePreview()");
     expect(switcher).not.toContain("await ensurePreview()");
     expect(switcher).toContain("refreshActiveCenterSpacePreview");
+    expect(switcher).toContain("bg-emerald-500");
+    expect(switcher).toContain("agent-attention-ring-card");
+    expect(switcher).toContain("offActiveSpaceAttentionReason");
+    expect(switcher).toContain("hostSpaceAttentionReasons");
     const enterAt = switcher.indexOf("const handlePointerEnter");
     const toggleAt = switcher.indexOf("const handleToggleOpen");
     const enterBody = switcher.slice(enterAt, toggleAt);
@@ -80,7 +84,19 @@ describe("center space switcher open path", () => {
       "utf8",
     );
     expect(switcherSrc).toContain("runCenterSpaceSlide");
+    expect(switcherSrc).toContain("!current.spaces.some((space) => space.id === spaceId)");
     expect(switcherSrc).toContain('"forward"');
+    const stage = readFileSync(join(dir, "CenterStage.tsx"), "utf8");
+    expect(stage).toContain("switchCenterSpace(liveHostContextId, targetSpaceId)");
+    expect(stage).toContain("spaceIdFromTmuxWindowName");
+    const spaceSwitchAt = stage.indexOf("switchCenterSpace(liveHostContextId, targetSpaceId)");
+    const paneFocusAt = stage.indexOf("focusPaneByTmuxAcrossAllTabs(tmux)");
+    expect(spaceSwitchAt).toBeGreaterThan(0);
+    expect(paneFocusAt).toBeGreaterThan(spaceSwitchAt);
+    const tabBar = readFileSync(join(dir, "CenterStageTabBar.tsx"), "utf8");
+    expect(tabBar).toContain("stableAgentPaneId");
+    const stageTabs = readFileSync(join(dir, "center-stage-tabs.tsx"), "utf8");
+    expect(stageTabs).toContain("stableAgentPaneId");
     expect(switcherSrc).toContain('"back"');
     const createAt = switcherSrc.indexOf("export async function openNewCenterSpace");
     const switchAt = switcherSrc.indexOf("export async function switchCenterSpace");
@@ -106,6 +122,8 @@ describe("center space switcher open path", () => {
     expect(css.indexOf("::view-transition-old(center-space-card)")).toBeGreaterThan(
       css.indexOf("::view-transition-old(*)"),
     );
+    expect(css).toContain("agent-attention-card-border-pulse");
+    expect(css).toContain("agent-attention-ring-card");
     const slideSrc = readFileSync(join(dir, "center-space/center-space-slide.ts"), "utf8");
     expect(slideSrc).toContain("doc.startViewTransition(update)");
     expect(slideSrc).not.toContain("return start(update)");

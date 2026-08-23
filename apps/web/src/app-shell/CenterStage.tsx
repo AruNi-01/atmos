@@ -63,7 +63,10 @@ import {
 } from "@/features/terminal/lib/terminal-grid-utils";
 import { resolveTerminalCenterTabPresentation } from "@/features/terminal/lib/terminal-center-tab-presentation";
 import { getTerminalCloseConfirmName } from "@/features/terminal/lib/terminal-close-confirm-name";
-import { getScopeKey } from "@/features/terminal/store/terminal-store-helpers";
+import {
+  getScopeKey,
+  spaceIdFromTmuxWindowName,
+} from "@/features/terminal/store/terminal-store-helpers";
 import { CodeReviewDialog } from "@/features/code-review";
 import { useReviewSnapshotStore } from "@/features/code-review/store/review-snapshot-store";
 import { usePrewarmCodeLanguages } from "@/shared/hooks/use-prewarm-code-languages";
@@ -158,9 +161,13 @@ import {
   hostIdFromCenterKey,
   isExtraCenterSpaceKey,
   makeCenterSpaceKey,
+  parseCenterSpaceKey,
 } from "@/app-shell/center-space/center-space";
 import { useCenterSpaceStore } from "@/app-shell/center-space/center-space-store";
-import { openNewCenterSpace } from "@/app-shell/center-space/center-space-switch";
+import {
+  openNewCenterSpace,
+  switchCenterSpace,
+} from "@/app-shell/center-space/center-space-switch";
 import {
   buildDefaultEmptyPaneActions,
   CenterPaneEmptyState,
@@ -1390,6 +1397,24 @@ const CenterStage: React.FC = () => {
     if (currentView !== "workspace" && currentView !== "project") return;
     if (!isTerminalWorkspaceReady) return;
 
+    const targetSpaceId = spaceIdFromTmuxWindowName(tmux);
+    if (liveHostContextId) {
+      const hostSpaces = useCenterSpaceStore.getState().list(liveHostContextId);
+      const targetSpaceExists =
+        targetSpaceId === DEFAULT_CENTER_SPACE_ID ||
+        hostSpaces.some((space) => space.id === targetSpaceId);
+      if (targetSpaceExists && liveActiveSpaceId !== targetSpaceId) {
+        void switchCenterSpace(liveHostContextId, targetSpaceId);
+        return;
+      }
+      if (
+        targetSpaceExists &&
+        parseCenterSpaceKey(effectiveContextId).spaceId !== targetSpaceId
+      ) {
+        return;
+      }
+    }
+
     if (activeFilePath) {
       setActiveFile(null, effectiveContextId);
     }
@@ -1437,6 +1462,8 @@ const CenterStage: React.FC = () => {
     focusPaneByTmuxAcrossAllTabs,
     isSetupBlocking,
     isTerminalWorkspaceReady,
+    liveActiveSpaceId,
+    liveHostContextId,
     resolvedTab,
     runWhenTerminalGridReady,
     setActiveFile,

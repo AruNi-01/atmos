@@ -80,6 +80,7 @@ export async function switchCenterSpace(hostId: string, spaceId: string): Promis
   if (!hostId) return;
   const store = useCenterSpaceStore.getState();
   const current = store.ensureHost(hostId);
+  if (!current.spaces.some((space) => space.id === spaceId)) return;
   const currentId = store.getActiveSpaceId(hostId);
   if (currentId === spaceId) return;
   const incoming = makeCenterSpaceKey(hostId, spaceId);

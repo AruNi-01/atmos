@@ -208,6 +208,27 @@ export function isExtraCenterSpaceTmuxWindowName(name: string): boolean {
   return name.startsWith(EXTRA_SPACE_TMUX_WINDOW_MARK);
 }
 
+/** Default space windows are unprefixed; extra spaces use `cs__{spaceId}__{local}`. */
+export function spaceIdFromTmuxWindowName(
+  name: string | null | undefined,
+): string {
+  if (!name || !name.startsWith(EXTRA_SPACE_TMUX_WINDOW_MARK)) {
+    return DEFAULT_CENTER_SPACE_ID;
+  }
+  const rest = name.slice(EXTRA_SPACE_TMUX_WINDOW_MARK.length);
+  const end = rest.indexOf("__");
+  if (end <= 0) return DEFAULT_CENTER_SPACE_ID;
+  return rest.slice(0, end);
+}
+
+/** Agent hook / attention key. Always the host workspace id, never a paint id. */
+export function stableAgentPaneId(
+  paintOrHostId: string,
+  tmuxWindowName: string,
+): string {
+  return `${hostIdFromCenterKey(paintOrHostId)}:${tmuxWindowName}`;
+}
+
 export function namespacedTmuxWindowName(
   paintContextId: string,
   localName: string,

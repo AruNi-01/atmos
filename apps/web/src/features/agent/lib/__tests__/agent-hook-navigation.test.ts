@@ -1,9 +1,12 @@
 // @ts-expect-error bun:test is available at runtime but not in tsconfig types
 import { describe, expect, it } from "bun:test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 import type { AgentHookSession } from "@/features/agent/store/agent-hooks-store";
 import type { Project } from "@/shared/types/domain";
 
+import { DEFAULT_CENTER_SPACE_ID } from "@/app-shell/center-space/center-space";
 import {
   buildAgentHookSessionPath,
   canNavigateToAgentHookSession,
@@ -60,6 +63,7 @@ describe("resolveAgentHookNavigationTarget", () => {
       ),
     ).toEqual({
       contextId: "ws-1",
+      spaceId: DEFAULT_CENTER_SPACE_ID,
       isSideChat: true,
       sideChatId: "side-abcd",
       tmuxWindowName: "3",
@@ -84,9 +88,24 @@ describe("resolveAgentHookNavigationTarget", () => {
   it("keeps the main pane window for a normal session", () => {
     expect(resolveAgentHookNavigationTarget(session())).toEqual({
       contextId: "ws-1",
+      spaceId: DEFAULT_CENTER_SPACE_ID,
       isSideChat: false,
       sideChatId: null,
       tmuxWindowName: "1",
+    });
+  });
+
+  it("resolves the extra center space from a namespaced tmux window", () => {
+    expect(
+      resolveAgentHookNavigationTarget(
+        session({ pane_id: "ws-1:cs__space-abc__Claude Code" }),
+      ),
+    ).toEqual({
+      contextId: "ws-1",
+      spaceId: "space-abc",
+      isSideChat: false,
+      sideChatId: null,
+      tmuxWindowName: "cs__space-abc__Claude Code",
     });
   });
 });
@@ -113,6 +132,16 @@ describe("buildAgentHookSessionPath", () => {
       "/workspace?id=ws-1&terminalTmux=1",
     );
   });
+
+  it("keeps the host workspace id when jumping to an extra space pane", () => {
+    expect(
+      buildAgentHookSessionPath(
+        session({ pane_id: "ws-1:cs__space-abc__1" }),
+        projects,
+        null,
+      ),
+    ).toBe("/workspace?id=ws-1&terminalTmux=cs__space-abc__1");
+  });
 });
 
 describe("canNavigateToAgentHookSession", () => {
@@ -132,5 +161,16 @@ describe("canNavigateToAgentHookSession", () => {
     expect(
       canNavigateToAgentHookSession(session({ context_id: null, pane_id: null })),
     ).toBe(false);
+  });
+});
+
+describe("navigateToAgentHookSessionPane space handoff", () => {
+  it("switches the owning space before pushing the pane deep link", () => {
+    const src = readFileSync(join(import.meta.dir, "../agent-hook-navigation.ts"), "utf8");
+    const activateAt = src.indexOf("activateCenterSpaceForAgentHook(target.contextId, target.spaceId)");
+    const pushAt = src.indexOf("router.push(path)");
+    expect(activateAt).toBeGreaterThan(0);
+    expect(pushAt).toBeGreaterThan(activateAt);
+    expect(src).toContain("makeCenterSpaceKey(target.contextId, target.spaceId)");
   });
 });

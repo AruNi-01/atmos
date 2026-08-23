@@ -532,6 +532,32 @@ html:not([data-theme-ready="true"]) body {
   --agent-attention-ring-color: rgb(16 185 129 / 0.4);
 }
 
+@keyframes agent-attention-card-border-pulse {
+  0%,
+  100% {
+    border-color: color-mix(
+      in oklab,
+      var(--agent-attention-ring-color, rgb(16 185 129 / 0.55)) 45%,
+      transparent
+    );
+  }
+  50% {
+    border-color: var(--agent-attention-ring-color, rgb(16 185 129 / 0.9));
+  }
+}
+
+.agent-attention-ring-card {
+  animation: agent-attention-card-border-pulse 2.4s ease-in-out infinite;
+}
+
+.agent-attention-ring-card.agent-attention-ring-permission {
+  --agent-attention-ring-color: rgb(245 158 11 / 0.9);
+}
+
+.agent-attention-ring-card.agent-attention-ring-complete {
+  --agent-attention-ring-color: rgb(16 185 129 / 0.9);
+}
+
 @keyframes welcome-placeholder-enter {
   from {
     opacity: 0;
@@ -608,7 +634,8 @@ html:not([data-theme-ready="true"]) body {
   .welcome-placeholder-exit,
   .welcome-placeholder-hint,
   .agent-attention-ring,
-  .agent-attention-ring-tab {
+  .agent-attention-ring-tab,
+  .agent-attention-ring-card {
     animation-duration: 0s !important;
   }
 

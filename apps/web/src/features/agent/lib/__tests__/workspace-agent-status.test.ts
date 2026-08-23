@@ -1,6 +1,5 @@
 // @ts-expect-error bun:test is available at runtime but not in tsconfig types
 import { describe, expect, it } from "bun:test";
-import { AGENT_STATE } from "@/features/agent/store/agent-hooks-store";
 import {
   parseWorkspaceAgentGroupKey,
   resolveHydratedWorkspaceAgentGroupKey,
@@ -14,7 +13,7 @@ describe("resolveWorkspaceAgentStatusView", () => {
   it("prefers sticky attention when filter mode is on", () => {
     expect(
       resolveWorkspaceAgentStatusView({
-        agentState: AGENT_STATE.RUNNING,
+        agentState: "running",
         attentionReason: "task_complete",
         attentionFilterMode: true,
       }),
@@ -24,27 +23,27 @@ describe("resolveWorkspaceAgentStatusView", () => {
   it("shows live permission over sticky complete", () => {
     expect(
       resolveWorkspaceAgentStatusView({
-        agentState: AGENT_STATE.PERMISSION_REQUEST,
+        agentState: "permission_request",
         attentionReason: "task_complete",
         attentionFilterMode: false,
       }),
-    ).toEqual({ kind: "permission", state: AGENT_STATE.PERMISSION_REQUEST });
+    ).toEqual({ kind: "permission", state: "permission_request" });
   });
 
   it("shows live running when not idle", () => {
     expect(
       resolveWorkspaceAgentStatusView({
-        agentState: AGENT_STATE.RUNNING,
+        agentState: "running",
         attentionReason: null,
         attentionFilterMode: false,
       }),
-    ).toEqual({ kind: "running", state: AGENT_STATE.RUNNING });
+    ).toEqual({ kind: "running", state: "running" });
   });
 
   it("falls back to sticky attention when live is idle", () => {
     expect(
       resolveWorkspaceAgentStatusView({
-        agentState: AGENT_STATE.IDLE,
+        agentState: "idle",
         attentionReason: "permission_request",
         attentionFilterMode: false,
       }),
@@ -54,7 +53,7 @@ describe("resolveWorkspaceAgentStatusView", () => {
   it("returns none when idle and no attention", () => {
     expect(
       resolveWorkspaceAgentStatusView({
-        agentState: AGENT_STATE.IDLE,
+        agentState: "idle",
         attentionReason: null,
         attentionFilterMode: false,
       }),
@@ -78,19 +77,19 @@ describe("resolveWorkspaceAgentGroupKey", () => {
   it("maps live or sticky permission to permission", () => {
     expect(
       resolveWorkspaceAgentGroupKey({
-        agentState: AGENT_STATE.PERMISSION_REQUEST,
+        agentState: "permission_request",
         attentionReason: null,
       }),
     ).toBe("permission");
     expect(
       resolveWorkspaceAgentGroupKey({
-        agentState: AGENT_STATE.IDLE,
+        agentState: "idle",
         attentionReason: "permission_request",
       }),
     ).toBe("permission");
     expect(
       resolveWorkspaceAgentGroupKey({
-        agentState: AGENT_STATE.RUNNING,
+        agentState: "running",
         attentionReason: "permission_request",
       }),
     ).toBe("permission");
@@ -99,7 +98,7 @@ describe("resolveWorkspaceAgentGroupKey", () => {
   it("keeps a running agent in running even with a leftover complete latch", () => {
     expect(
       resolveWorkspaceAgentGroupKey({
-        agentState: AGENT_STATE.RUNNING,
+        agentState: "running",
         attentionReason: "task_complete",
       }),
     ).toBe("running");
@@ -108,7 +107,7 @@ describe("resolveWorkspaceAgentGroupKey", () => {
   it("maps idle plus task_complete to attention", () => {
     expect(
       resolveWorkspaceAgentGroupKey({
-        agentState: AGENT_STATE.IDLE,
+        agentState: "idle",
         attentionReason: "task_complete",
       }),
     ).toBe("attention");
@@ -117,10 +116,37 @@ describe("resolveWorkspaceAgentGroupKey", () => {
   it("maps idle with no latch to done", () => {
     expect(
       resolveWorkspaceAgentGroupKey({
-        agentState: AGENT_STATE.IDLE,
+        agentState: "idle",
         attentionReason: null,
       }),
     ).toBe("done");
+  });
+
+  it("keeps an acknowledged just-finished workspace in attention while grouping hold is active", () => {
+    expect(
+      resolveWorkspaceAgentGroupKey({
+        agentState: "idle",
+        attentionReason: null,
+        groupingHoldActive: true,
+      }),
+    ).toBe("attention");
+  });
+
+  it("lets live running and permission beat grouping hold", () => {
+    expect(
+      resolveWorkspaceAgentGroupKey({
+        agentState: "running",
+        attentionReason: null,
+        groupingHoldActive: true,
+      }),
+    ).toBe("running");
+    expect(
+      resolveWorkspaceAgentGroupKey({
+        agentState: "idle",
+        attentionReason: "permission_request",
+        groupingHoldActive: true,
+      }),
+    ).toBe("permission");
   });
 
   it("uses action-first bucket order", () => {

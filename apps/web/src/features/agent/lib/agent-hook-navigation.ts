@@ -1,10 +1,12 @@
 "use client";
 
 import { createTranslator } from "next-intl";
+import { makeCenterSpaceKey } from "@/app-shell/center-space/center-space";
 import {
   findWorkspacePaneIdsByTmuxWindowName,
   useTerminalStore,
 } from "@/features/terminal/store/use-terminal-store";
+import { spaceIdFromTmuxWindowName } from "@/features/terminal/store/terminal-store-helpers";
 import type { AgentHookSession } from "@/features/agent/store/agent-hooks-store";
 import { currentAppLocale } from "@/shared/lib/current-app-locale";
 import type { Project } from "@/shared/types/domain";
@@ -30,6 +32,8 @@ function agentT(key: string): string {
 
 export type AgentHookNavigationTarget = {
   contextId: string | null;
+  /** Center space that owns the pane (`main` when the window is unprefixed). */
+  spaceId: string;
   isSideChat: boolean;
   sideChatId: string | null;
   tmuxWindowName: string | null;
@@ -61,10 +65,40 @@ export function resolveAgentHookNavigationTarget(session: {
     : null;
   return {
     contextId: session.context_id?.trim() || null,
+    spaceId: spaceIdFromTmuxWindowName(tmuxWindowName),
     isSideChat,
     sideChatId,
     tmuxWindowName,
   };
+}
+
+function currentHostIdFromLocation(): string | null {
+  if (typeof window === "undefined") return null;
+  return new URLSearchParams(window.location.search).get("id")?.trim() || null;
+}
+
+/** Switch to the pane's space first (animated when already on that host). */
+async function activateCenterSpaceForAgentHook(
+  hostId: string,
+  spaceId: string,
+): Promise<void> {
+  if (!hostId || !spaceId) return;
+  const { useCenterSpaceStore } = await import(
+    "@/app-shell/center-space/center-space-store"
+  );
+  const store = useCenterSpaceStore.getState();
+  if (!store.hydrated) store.hydrate();
+  store.ensureHost(hostId);
+  if (store.getActiveSpaceId(hostId) === spaceId) return;
+  if (!store.list(hostId).some((space) => space.id === spaceId)) return;
+  if (currentHostIdFromLocation() === hostId) {
+    const { switchCenterSpace } = await import(
+      "@/app-shell/center-space/center-space-switch"
+    );
+    await switchCenterSpace(hostId, spaceId);
+    return;
+  }
+  store.setActiveSpace(hostId, spaceId);
 }
 
 export function canNavigateToAgentHookSession(session: {
@@ -136,10 +170,11 @@ export function navigateToAgentHookSessionPane(
     }
   }
 
+  const paintContextId = makeCenterSpaceKey(target.contextId, target.spaceId);
   const hit = target.tmuxWindowName
     ? findWorkspacePaneIdsByTmuxWindowName(
         useTerminalStore.getState(),
-        target.contextId,
+        paintContextId,
         target.tmuxWindowName,
         basePath === "/project",
       )
@@ -147,7 +182,10 @@ export function navigateToAgentHookSessionPane(
 
   const path = buildAgentHookSessionPath(session, projects, hit);
   if (!path) return;
-  router.push(path);
+
+  void activateCenterSpaceForAgentHook(target.contextId, target.spaceId).then(() => {
+    router.push(path);
+  });
 }
 
 export function resolveAgentHookContextNames(

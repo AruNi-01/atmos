@@ -20,6 +20,7 @@ import {
   collectIdleSessionIdsForPane,
   resolveAgentStateForPaneId,
 } from "@/features/agent/store/agent-hooks-idle";
+import { useWorkspaceAgentGroupingHoldStore } from "@/features/agent/store/workspace-agent-grouping-hold";
 
 export {
   collectIdleSessionIdsForPane,
@@ -339,6 +340,7 @@ export const useAgentHooksStore = create<AgentHooksStore>((set, get) => ({
     });
     useAgentAttentionStore.getState().hydrateFromServer([]);
     useAgentAttentionSummaryStore.getState().hydrateFromServer([]);
+    useWorkspaceAgentGroupingHoldStore.getState().clearAll();
     void hydrateHookSnapshots(set, get, beginHydrateWindow());
     void hydrateAttentionSummariesFromServer();
   },
@@ -356,6 +358,7 @@ export const useAgentHooksStore = create<AgentHooksStore>((set, get) => ({
         hooksHydrated: false,
       });
       useAgentAttentionSummaryStore.getState().hydrateFromServer([]);
+      useWorkspaceAgentGroupingHoldStore.getState().clearAll();
     }
   },
 

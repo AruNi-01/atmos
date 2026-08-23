@@ -92,6 +92,7 @@ import { AgentIcon } from "@/features/agent/components/AgentIcon";
 import { useAgentAttentionStore } from "@/features/agent/store/agent-attention-store";
 import { useTerminalCenterTabPresentation } from "@/features/terminal/hooks/use-terminal-center-tab-presentation";
 import { useTerminalStore } from "@/features/terminal/store/use-terminal-store";
+import { stableAgentPaneId } from "@/features/terminal/store/terminal-store-helpers";
 import { useShallow } from "zustand/react/shallow";
 import type { CenterTabContextMenuState, CenterTabDescriptor } from "@/app-shell/center-stage-tab-model";
 import {
@@ -1028,7 +1029,9 @@ function TerminalExtraTab({
       const panes = s.getPanes(effectiveContextId, tab.id);
       return Object.values(panes)
         .map((pane) =>
-          pane.tmuxWindowName ? `${effectiveContextId}:${pane.tmuxWindowName}` : null,
+          pane.tmuxWindowName
+            ? stableAgentPaneId(effectiveContextId, pane.tmuxWindowName)
+            : null,
         )
         .filter((id): id is string => Boolean(id));
     }),

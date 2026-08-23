@@ -1,5 +1,8 @@
 import { beforeEach, describe, expect, it } from "bun:test";
-import { makeCenterSpaceKey } from "@/app-shell/center-space/center-space";
+import {
+  DEFAULT_CENTER_SPACE_ID,
+  makeCenterSpaceKey,
+} from "@/app-shell/center-space/center-space";
 import {
   CODE_REVIEW_WINDOW_NAME,
   PROJECT_WIKI_WINDOW_NAME,
@@ -8,6 +11,8 @@ import {
   extraCenterSpaceTmuxWindowPrefix,
   isExtraCenterSpaceTmuxWindowName,
   namespacedTmuxWindowName,
+  spaceIdFromTmuxWindowName,
+  stableAgentPaneId,
 } from "../terminal-store-helpers";
 import {
   getTerminalWorkspaceScopeKey,
@@ -41,6 +46,16 @@ describe("extra-space tmux window isolation", () => {
     expect(isExtraCenterSpaceTmuxWindowName("1")).toBe(false);
     expect(isExtraCenterSpaceTmuxWindowName("Claude Code")).toBe(false);
     expect(isExtraCenterSpaceTmuxWindowName("cs__space-abc__1")).toBe(true);
+  });
+
+  it("parses the owning space id from a tmux window name", () => {
+    expect(spaceIdFromTmuxWindowName("1")).toBe(DEFAULT_CENTER_SPACE_ID);
+    expect(spaceIdFromTmuxWindowName("Claude Code")).toBe(DEFAULT_CENTER_SPACE_ID);
+    expect(spaceIdFromTmuxWindowName("cs__space-abc__1")).toBe("space-abc");
+    expect(spaceIdFromTmuxWindowName("cs__space-abc__Claude Code")).toBe("space-abc");
+    expect(spaceIdFromTmuxWindowName("cs__")).toBe(DEFAULT_CENTER_SPACE_ID);
+    expect(stableAgentPaneId(extra, "cs__space-abc__1")).toBe("ws-1:cs__space-abc__1");
+    expect(stableAgentPaneId("ws-1", "1")).toBe("ws-1:1");
   });
 
   it("stores host workspace id with a namespaced tmux window on extra-space panes", () => {

@@ -1,7 +1,4 @@
-import {
-  AGENT_STATE,
-  type AgentHookState,
-} from "@/features/agent/store/agent-hooks-store";
+import type { AgentHookState } from "@/features/agent/store/agent-hooks-store";
 import type { AttentionReason } from "@/features/agent/store/agent-attention-store";
 
 /**
@@ -10,8 +7,8 @@ import type { AttentionReason } from "@/features/agent/store/agent-attention-sto
  */
 export type WorkspaceAgentStatusView =
   | { kind: "none" }
-  | { kind: "running"; state: typeof AGENT_STATE.RUNNING }
-  | { kind: "permission"; state: typeof AGENT_STATE.PERMISSION_REQUEST }
+  | { kind: "running"; state: "running" }
+  | { kind: "permission"; state: "permission_request" }
   | { kind: "attention"; reason: AttentionReason };
 
 /**
@@ -51,27 +48,33 @@ export function parseWorkspaceAgentGroupKey(value: unknown): WorkspaceAgentGroup
  * Grouping bucket for one workspace. Does **not** honor attention-filter overlay:
  * a still-running agent stays in `running` even if the filter would show a bell.
  *
- * Priority: permission (live or sticky) > running > task_complete attention > done.
- * `done` is the remainder: never-run, acknowledged attention, or no live status.
+ * Priority: permission (live or sticky) > running > task_complete attention
+ * or post-ack grouping hold > done.
+ *
+ * `groupingHoldActive` keeps an acknowledged just-finished workspace in
+ * `attention` for a short dwell so the sidebar row does not jump to `done`
+ * the moment the user focuses it. Unacknowledged `task_complete` still uses
+ * the latch and does not time out into `done`.
  */
 export function resolveWorkspaceAgentGroupKey(input: {
   agentState: AgentHookState;
   attentionReason: AttentionReason | null;
+  groupingHoldActive?: boolean;
 }): WorkspaceAgentGroupKey {
-  const { agentState, attentionReason } = input;
+  const { agentState, attentionReason, groupingHoldActive } = input;
 
   if (
-    agentState === AGENT_STATE.PERMISSION_REQUEST ||
+    agentState === "permission_request" ||
     attentionReason === "permission_request"
   ) {
     return "permission";
   }
 
-  if (agentState === AGENT_STATE.RUNNING) {
+  if (agentState === "running") {
     return "running";
   }
 
-  if (attentionReason === "task_complete") {
+  if (attentionReason === "task_complete" || groupingHoldActive) {
     return "attention";
   }
 
@@ -113,12 +116,12 @@ export function resolveWorkspaceAgentStatusView(input: {
     return { kind: "attention", reason: attentionReason };
   }
 
-  if (agentState === AGENT_STATE.PERMISSION_REQUEST) {
-    return { kind: "permission", state: AGENT_STATE.PERMISSION_REQUEST };
+  if (agentState === "permission_request") {
+    return { kind: "permission", state: "permission_request" };
   }
 
-  if (agentState === AGENT_STATE.RUNNING) {
-    return { kind: "running", state: AGENT_STATE.RUNNING };
+  if (agentState === "running") {
+    return { kind: "running", state: "running" };
   }
 
   if (attentionReason) {

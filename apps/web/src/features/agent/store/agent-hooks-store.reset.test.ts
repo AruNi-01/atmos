@@ -5,6 +5,7 @@ import {
   useAgentHooksStore,
   type AgentHookSession,
 } from "./agent-hooks-store";
+import { useWorkspaceAgentGroupingHoldStore } from "./workspace-agent-grouping-hold";
 
 function runningSession(contextId: string): AgentHookSession {
   return {
@@ -29,6 +30,7 @@ beforeEach(() => {
     focusedStablePaneId: null,
     revision: 0,
   });
+  useWorkspaceAgentGroupingHoldStore.getState().clearAll();
 });
 
 describe("resetForConnectionChange", () => {
@@ -43,6 +45,7 @@ describe("resetForConnectionChange", () => {
       contextId: "ws-1",
       reason: "permission_request",
     });
+    useWorkspaceAgentGroupingHoldStore.getState().beginHold("ws-1");
 
     useAgentHooksStore.getState().resetForConnectionChange();
 
@@ -51,5 +54,8 @@ describe("resetForConnectionChange", () => {
     expect(hooks.serverWorkspaceGroupKeys).toEqual({});
     expect(hooks.hooksHydrated).toBe(false);
     expect(useAgentAttentionStore.getState().panes.size).toBe(0);
+    expect(
+      useWorkspaceAgentGroupingHoldStore.getState().isHoldActive("ws-1"),
+    ).toBe(false);
   });
 });

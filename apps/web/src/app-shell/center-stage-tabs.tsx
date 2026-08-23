@@ -35,6 +35,7 @@ import {
   TERMINAL_TAB_VALUE_PREFIX,
   useTerminalStore,
 } from "@/features/terminal/store/use-terminal-store";
+import { stableAgentPaneId } from "@/features/terminal/store/terminal-store-helpers";
 import { cn } from "@/shared/lib/utils";
 
 /** Cap each group column so long labels truncate instead of stretching the popover. */
@@ -178,7 +179,7 @@ export function TerminalTabAgentIndicatorWithPanes({ contextId, tabId }: { conte
     useShallow((s) => {
       const panes = s.getPanes(contextId, tabId);
       return Object.values(panes)
-        .map((p) => (p.tmuxWindowName ? `${contextId}:${p.tmuxWindowName}` : null))
+        .map((p) => (p.tmuxWindowName ? stableAgentPaneId(contextId, p.tmuxWindowName) : null))
         .filter((id): id is string => id !== null);
     })
   );

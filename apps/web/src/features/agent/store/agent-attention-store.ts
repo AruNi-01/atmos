@@ -5,6 +5,7 @@ import {
   agentHooksApi,
   type AgentAttentionLatchDto,
 } from "@/api/rest-api";
+import { useWorkspaceAgentGroupingHoldStore } from "@/features/agent/store/workspace-agent-grouping-hold";
 
 export type AttentionReason = "permission_request" | "task_complete";
 
@@ -99,6 +100,7 @@ function clearAttentionOnServer(stablePaneId: string) {
 }
 
 const autoClearTimers = new Map<string, ReturnType<typeof setTimeout>>();
+/** Bell-only: grouping dwell is WORKSPACE_AGENT_GROUPING_HOLD_MS after this clear. */
 const AUTO_CLEAR_MS = 3000;
 
 /**
@@ -189,7 +191,9 @@ export const useAgentAttentionStore = create<AgentAttentionStore>((set, get) => 
       return { panes, revision: state.revision + 1 };
     });
 
-    // Already focused on this panel → clear after a short delay (less noisy).
+    // Already focused on this panel → clear the bell after a short delay.
+    // Grouping hold (started in clearPane) keeps By Agent Status in Need
+    // attention for a few minutes so the row does not jump to Done.
     if (get().focusedStablePaneId === stablePaneId) {
       scheduleAutoClear(stablePaneId);
     }
@@ -198,6 +202,8 @@ export const useAgentAttentionStore = create<AgentAttentionStore>((set, get) => 
   clearPane: (stablePaneId) => {
     if (!stablePaneId) return;
     clearAutoClearTimer(stablePaneId);
+    const existing = get().panes.get(stablePaneId);
+    if (!existing) return;
     set((state) => {
       if (!state.panes.has(stablePaneId)) return state;
       const panes = new Map(state.panes);
@@ -205,6 +211,12 @@ export const useAgentAttentionStore = create<AgentAttentionStore>((set, get) => 
       const filterMode = panes.size === 0 ? false : state.filterMode;
       return { panes, filterMode, revision: state.revision + 1 };
     });
+    if (
+      existing.reason === "task_complete" &&
+      !get().hasContextAttention(existing.contextId)
+    ) {
+      useWorkspaceAgentGroupingHoldStore.getState().beginHold(existing.contextId);
+    }
   },
 
   clearMatchingSessionIds: (ids) => {
