@@ -1,6 +1,5 @@
 'use client';
 
-import { DEFAULT_THEMES } from '@pierre/diffs';
 import {
   useWorkerPool,
   WorkerPoolContextProvider,
@@ -8,7 +7,11 @@ import {
   type WorkerPoolOptions,
 } from '@pierre/diffs/react';
 import { useCallback, useSyncExternalStore, type ReactNode } from 'react';
+import { ATMOS_DIFF_THEME } from '@/features/diff/lib/diff-view-constants';
+import { installPierreDiffHunksRendererGuard } from '@/features/diff/lib/pierre-diff-hunks-guard';
 import { pierreWorkerFactory } from '@/shared/lib/pierre-worker-factory';
+
+installPierreDiffHunksRendererGuard();
 
 function getPoolSize(): number {
   const cores = globalThis.navigator?.hardwareConcurrency ?? 1;
@@ -22,7 +25,7 @@ const poolOptions: WorkerPoolOptions = {
 };
 
 const highlighterOptions: WorkerInitializationRenderOptions = {
-  theme: DEFAULT_THEMES,
+  theme: ATMOS_DIFF_THEME,
   preferredHighlighter: 'shiki-wasm',
   langs: [
     'cpp',
