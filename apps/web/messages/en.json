@@ -3181,6 +3181,29 @@
     }
   },
   "ptDesign": {
+    "agentIsland": {
+      "working": "Agent working on Prototype Design",
+      "idle": "Prototype Design agent activity",
+      "history": "Prototype Design agent activity history",
+      "openScreenshotPreview": "Open agent screenshot preview",
+      "screenshotPreviewAlt": "Screenshot of the Prototype Design board"
+    },
+    "agentFeedLabels": {
+      "readingBoard": "Reading board",
+      "capturingScreenshot": "Capturing screenshot",
+      "placingComponent": "Placing component",
+      "placingNamed": "Placing {type}",
+      "editingComponent": "Editing component",
+      "deletingComponents": "Deleting components",
+      "creatingFrame": "Creating frame",
+      "editingFrame": "Editing frame",
+      "deletingFrame": "Deleting frame",
+      "arrangingLayout": "Arranging layout",
+      "batchingCommands": "Batching board commands",
+      "applyingDesign": "Applying design",
+      "exportingBoard": "Exporting board",
+      "workingOnBoard": "Working on board"
+    },
     "share": {
       "title": "Collaborate",
       "nameLabel": "Your name",

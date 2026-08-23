@@ -1,8 +1,21 @@
 // @ts-expect-error bun:test is available at runtime but not in tsconfig types
 import { describe, expect, it } from "bun:test";
 
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { CanvasAgentFeedStore } from "../lib/canvas-agent-feed";
 import { describeCanvasAgentCommand } from "../lib/canvas-agent-feed-labels";
+
+describe("CanvasAgentIsland", () => {
+  it("uses the shared agent surface island", () => {
+    const island = readFileSync(
+      join(import.meta.dir, "../components/CanvasAgentIsland.tsx"),
+      "utf8",
+    );
+    expect(island).toContain("AgentSurfaceIsland");
+    expect(island).toContain("@/shared/components/agent-surface-island");
+  });
+});
 
 describe("describeCanvasAgentCommand", () => {
   it("maps read verbs", () => {

@@ -100,6 +100,8 @@ describe("PT Design Atmos host wiring", () => {
     expect(panel).toContain("library={library}");
     expect(panel).toContain("agentBridge");
     expect(panel).toContain("clientId={contextId}");
+    expect(panel).toContain("AgentSurfaceIsland");
+    expect(panel).toContain("relative h-full");
   });
 
   test("no-context center stage opens Prototype Design from /pt-design or a legacy tab", () => {

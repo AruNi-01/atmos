@@ -3181,6 +3181,29 @@
     }
   },
   "ptDesign": {
+    "agentIsland": {
+      "working": "Agent 正在操作原型板",
+      "idle": "原型板 Agent 活动",
+      "history": "原型板 Agent 活动历史",
+      "openScreenshotPreview": "打开 Agent 截图预览",
+      "screenshotPreviewAlt": "原型板截图"
+    },
+    "agentFeedLabels": {
+      "readingBoard": "正在读取画板",
+      "capturingScreenshot": "正在截图",
+      "placingComponent": "正在放置组件",
+      "placingNamed": "正在放置 {type}",
+      "editingComponent": "正在编辑组件",
+      "deletingComponents": "正在删除组件",
+      "creatingFrame": "正在创建画板",
+      "editingFrame": "正在编辑画板",
+      "deletingFrame": "正在删除画板",
+      "arrangingLayout": "正在排列布局",
+      "batchingCommands": "正在批量更新画板",
+      "applyingDesign": "正在应用设计",
+      "exportingBoard": "正在导出画板",
+      "workingOnBoard": "正在操作画板"
+    },
     "share": {
       "title": "协作",
       "nameLabel": "你的名称",
