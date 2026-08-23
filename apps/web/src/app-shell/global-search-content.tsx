@@ -450,22 +450,22 @@ export function GlobalSearchMainView({
         hoveredValue={hoveredValue}
         selectedValue={selectedValue}
       />
-      <div className="flex h-12 shrink-0 items-center px-3 pt-2">
+      <div className="flex h-10 shrink-0 items-center px-3 pt-1">
         <Tabs
           value={globalSearchTab}
           onValueChange={(value) => setGlobalSearchTab(value as SearchTab)}
           variant="pill"
         >
           <TabsList className="h-8 gap-0.5 p-0.5">
-            <TabsTrigger value="app" className="h-7 gap-1.5 px-3 text-xs">
+            <TabsTrigger value="app" tabIndex={-1} className="h-7 gap-1.5 px-3 text-xs">
               <Layers className="size-3.5 shrink-0" />
               {t("globalSearch.tabs.app")}
             </TabsTrigger>
-            <TabsTrigger value="files" className="h-7 gap-1.5 px-3 text-xs">
+            <TabsTrigger value="files" tabIndex={-1} className="h-7 gap-1.5 px-3 text-xs">
               <File className="size-3.5 shrink-0" />
               {t("globalSearch.tabs.files")}
             </TabsTrigger>
-            <TabsTrigger value="code" className="h-7 gap-1.5 px-3 text-xs">
+            <TabsTrigger value="code" tabIndex={-1} className="h-7 gap-1.5 px-3 text-xs">
               <Code className="size-3.5 shrink-0" />
               {t("globalSearch.tabs.code")}
             </TabsTrigger>
@@ -478,7 +478,6 @@ export function GlobalSearchMainView({
         placeholder={t("globalSearch.placeholder")}
         value={searchQuery}
         onValueChange={setSearchQuery}
-        className="text-base"
       />
 
       <CommandList className="h-full max-h-none flex-1 rounded-t-[20px] bg-muted/50 pt-1 shadow-inner/5 dark:bg-black/60">

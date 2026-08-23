@@ -167,7 +167,7 @@ export function SearchItem({
       )}
     >
       <div className="flex flex-1 items-center gap-3 overflow-hidden">
-        <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground group-hover:bg-background group-hover:text-primary group-data-[selected=true]:bg-background group-data-[selected=true]:text-primary">
+        <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground group-hover:bg-background group-hover:text-primary in-[[data-slot=command-list]:not(:hover)]:group-data-[selected=true]:bg-background in-[[data-slot=command-list]:not(:hover)]:group-data-[selected=true]:text-primary">
           {githubPr ? (
             <WorkspacePrStatusIcon
               githubPr={githubPr}
@@ -198,7 +198,7 @@ export function SearchItem({
         </div>
       </div>
       {shortcut ? (
-        <CommandShortcut className="opacity-0 group-hover:opacity-100 group-data-[selected=true]:opacity-100">
+        <CommandShortcut className="opacity-0 group-hover:opacity-100 in-[[data-slot=command-list]:not(:hover)]:group-data-[selected=true]:opacity-100">
           {shortcut}
         </CommandShortcut>
       ) : null}
@@ -228,7 +228,7 @@ export function CodeSearchResultItem({ match, onHover, onSelect }: CodeSearchRes
       className="group flex-col items-start gap-2.5 py-3 hover:bg-accent hover:text-accent-foreground"
     >
       <div className="flex w-full items-center gap-3">
-        <div className="flex size-7 shrink-0 items-center justify-center rounded bg-muted text-muted-foreground group-hover:bg-background group-hover:text-primary group-data-[selected=true]:bg-background group-data-[selected=true]:text-primary">
+        <div className="flex size-7 shrink-0 items-center justify-center rounded bg-muted text-muted-foreground group-hover:bg-background group-hover:text-primary in-[[data-slot=command-list]:not(:hover)]:group-data-[selected=true]:bg-background in-[[data-slot=command-list]:not(:hover)]:group-data-[selected=true]:text-primary">
           <img {...iconProps} alt="" className="size-3.5" />
         </div>
         <div className="flex min-w-0 flex-1 flex-col">
@@ -239,7 +239,7 @@ export function CodeSearchResultItem({ match, onHover, onSelect }: CodeSearchRes
         </span>
       </div>
       <div className="w-full pl-10">
-        <pre className="truncate rounded-sm border border-border/20 bg-muted/30 p-1.5 font-mono text-[11px] text-muted-foreground/90 group-hover:bg-muted/10 group-data-[selected=true]:bg-muted/10">
+        <pre className="truncate rounded-sm border border-border/20 bg-muted/30 p-1.5 font-mono text-[11px] text-muted-foreground/90 group-hover:bg-muted/10 in-[[data-slot=command-list]:not(:hover)]:group-data-[selected=true]:bg-muted/10">
           {match.line_content.trim()}
         </pre>
       </div>
