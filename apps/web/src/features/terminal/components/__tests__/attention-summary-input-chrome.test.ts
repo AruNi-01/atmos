@@ -83,7 +83,8 @@ describe("attention summary input chrome", () => {
       "isSummarySummarizing && \"terminal-agent-input-trigger--pulse\"",
     );
     expect(overlay).not.toContain("bg-sky-500");
-    expect(css).toContain("background: #3e5460 !important;");
+    expect(css).toContain("background: #8aa9b8 !important;");
+    expect(css).not.toContain("background: #3e5460 !important;");
     expect(css).not.toContain("background: #0ea5e9 !important;");
   });
 

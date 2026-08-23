@@ -178,9 +178,9 @@
   }
 }
 
-/* Unattended attention auto-summary trigger bar — same muted slate as the card, no glow. */
+/* Unattended attention auto-summary trigger bar — muted slate, bright enough to read. */
 .terminal-agent-input-trigger--summary {
-  background: #3e5460 !important;
+  background: #8aa9b8 !important;
   box-shadow: none;
 }
 
@@ -191,10 +191,10 @@
 @keyframes terminal-agent-input-trigger-pulse {
   0%,
   100% {
-    opacity: 0.42;
+    opacity: 0.62;
   }
   50% {
-    opacity: 0.88;
+    opacity: 1;
   }
 }
 
