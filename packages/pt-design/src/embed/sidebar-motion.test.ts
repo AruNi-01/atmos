@@ -19,6 +19,13 @@ describe("sidebar motion", () => {
     expect(css).toContain("pt-design-drawer-in");
     expect(css).toContain(".sidebar[data-pt-leaving=\"true\"]");
     expect(css).toContain(".pt-design-sidebar-exit");
+    expect(css).toContain(".sidebar[data-pt-leaving=\"true\"]");
+    expect(css).toMatch(/data-pt-leaving[\s\S]{0,120}box-shadow: none/);
+    const motion = readFileSync(new URL("./sidebar-motion.ts", import.meta.url), "utf8");
+    expect(motion).toContain("commitStyles");
+    expect(motion).toContain("freezeOffscreen");
+    expect(motion).toContain("opacity: 0");
+    expect(motion).toContain("afterPaint");
     expect(css).toContain(".dropdown-menu-button:active");
     expect(css).toContain("scale(0.96)");
     expect(board).toContain("whileTap");

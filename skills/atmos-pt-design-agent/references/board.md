@@ -131,6 +131,6 @@ Default `atomic: true` rolls the scene back if any op fails. Max 200 ops. Do not
 
 ## Update / delete
 
-`pt_update`: `instanceId` plus any of `props`, `variant`, `size`, `bbox` `{x,y,w,h}`, `frameId` (reparent).
+`pt_update`: `instanceId` plus any of `props`, `variant`, `size`, `bbox` `{x,y,w,h}`, `frameId` (reparent). `bbox.w/h` scales the whole instance; an explicit bbox wins over `size`.
 
 `pt_delete`: `instanceId` or `instanceIds`.

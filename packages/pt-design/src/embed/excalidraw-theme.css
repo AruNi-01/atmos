@@ -144,6 +144,7 @@
 .pt-design-sidebar-exit {
   pointer-events: none;
   animation: none !important;
+  box-shadow: none;
 }
 
 .excalidraw .sidebar__header {
@@ -323,6 +324,104 @@ html[lang^="zh"] .excalidraw .pt-design-library-sidebar .sidebar-triggers .sideb
   box-shadow: 0 0 0 2px var(--island-bg-color, var(--card));
 }
 
+.pt-design-prop-rail {
+  position: absolute;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow: visible;
+  pointer-events: none;
+  user-select: none;
+  transition: opacity 160ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.pt-design-prop-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  pointer-events: auto;
+}
+
+.pt-design-prop-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--default-button-size, 2rem);
+  height: var(--default-button-size, 2rem);
+  padding: 0;
+  border: 1px solid var(--pt-prop-border, var(--default-border-color, rgba(0, 0, 0, 0.1)));
+  border-radius: var(--border-radius-lg, 0.625rem);
+  color: var(--pt-prop-fg, var(--icon-fill-color, inherit));
+  background: var(--pt-prop-bg, var(--island-bg-color, var(--card, #ffffff)));
+  box-shadow: var(--shadow-island, 0 0 0 1px var(--pt-prop-border, rgba(0, 0, 0, 0.1)));
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.pt-design-prop-trigger:hover,
+.pt-design-prop-trigger[data-open="true"] {
+  background: var(--pt-prop-muted, var(--muted, var(--color-surface-high)));
+}
+
+.pt-design-prop-trigger[data-open="true"] {
+  box-shadow:
+    var(--shadow-island, 0 0 0 1px var(--pt-prop-border, rgba(0, 0, 0, 0.1))),
+    0 0 0 1px var(--pt-prop-fg, var(--color-on-surface));
+}
+
+.pt-design-prop-size {
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+
+.pt-design-prop-options {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  max-width: min(70vw, 560px);
+  overflow-x: auto;
+  white-space: nowrap;
+  border-radius: 999px;
+  background: var(--pt-prop-bg, var(--island-bg-color, var(--card, #ffffff)));
+  box-shadow: var(--shadow-island, 0 0 0 1px var(--pt-prop-border, rgba(0, 0, 0, 0.1)));
+  color: var(--pt-prop-fg, var(--text-primary-color, inherit));
+}
+
+.pt-design-prop-option {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 24px;
+  padding: 0 10px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--pt-prop-muted-fg, var(--muted-foreground, #71717a));
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.pt-design-prop-option:hover {
+  background: var(--pt-prop-muted, var(--muted, var(--color-surface-high)));
+  color: var(--pt-prop-fg, inherit);
+}
+
+.pt-design-prop-option[data-selected="true"] {
+  background: var(--pt-prop-muted, var(--muted, var(--color-surface-high)));
+  color: var(--pt-prop-fg, inherit);
+  font-weight: 600;
+}
+
 .pt-design-place-reveal {
   position: absolute;
   pointer-events: none;
@@ -409,6 +508,11 @@ html[lang^="zh"] .excalidraw .pt-design-library-sidebar .sidebar-triggers .sideb
 
   .excalidraw .dropdown-menu-button:active {
     transform: none;
+  }
+
+  .pt-design-prop-options,
+  .pt-design-prop-rail {
+    transition: none;
   }
 }
 
@@ -661,7 +765,7 @@ html[lang^="zh"] .excalidraw .pt-design-library-sidebar .sidebar-triggers .sideb
     transform: translateX(0);
   }
   to {
-    opacity: 0.72;
+    opacity: 0;
     transform: translateX(100%);
   }
 }

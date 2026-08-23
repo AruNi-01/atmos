@@ -1,6 +1,6 @@
 export const SIDEBAR_ENTER_MS = 280;
-export const SIDEBAR_EXIT_MS = 280;
-export const SIDEBAR_EXIT_FALLBACK_MS = SIDEBAR_EXIT_MS + 60;
+export const SIDEBAR_EXIT_MS = 210;
+export const SIDEBAR_EXIT_FALLBACK_MS = SIDEBAR_EXIT_MS + 80;
 
 export type SidebarTarget = { name: string; tab?: string; force?: boolean };
 
@@ -22,15 +22,43 @@ export function isClosingToggle(
 }
 
 const EXIT_KEYFRAMES: Keyframe[] = [
-  { transform: "translateX(0)" },
-  { transform: "translateX(100%)" },
+  { transform: "translateX(0)", opacity: 1 },
+  { transform: "translateX(100%)", opacity: 0 },
 ];
 
 const EXIT_TIMING: KeyframeAnimationOptions = {
   duration: SIDEBAR_EXIT_MS,
-  easing: "cubic-bezier(0.16, 1, 0.3, 1)",
+  easing: "cubic-bezier(0.32, 0.72, 0, 1)",
   fill: "forwards",
 };
+
+/** Keep the last painted frame after WAAPI ends so unmount cannot flash the rest pose. */
+function freezeOffscreen(el: HTMLElement, animation?: Animation): void {
+  try {
+    animation?.commitStyles();
+  } catch {
+    /* commitStyles throws if the animation already cancelled */
+  }
+  el.style.opacity = "0";
+  el.style.transform = "translateX(100%)";
+  el.style.visibility = "hidden";
+  el.style.pointerEvents = "none";
+  try {
+    animation?.cancel();
+  } catch {
+    /* already finished */
+  }
+}
+
+function afterPaint(fn: () => void): void {
+  if (typeof requestAnimationFrame !== "function") {
+    fn();
+    return;
+  }
+  requestAnimationFrame(() => {
+    requestAnimationFrame(fn);
+  });
+}
 
 export function playLiveExit(sidebar: HTMLElement, onDone: () => void): void {
   if (sidebar.dataset.ptLeaving === "true") return;
@@ -45,7 +73,8 @@ export function playLiveExit(sidebar: HTMLElement, onDone: () => void): void {
   const finish = () => {
     if (finished) return;
     finished = true;
-    onDone();
+    freezeOffscreen(sidebar, animation);
+    afterPaint(onDone);
   };
   animation.addEventListener("finish", finish);
   window.setTimeout(finish, SIDEBAR_EXIT_FALLBACK_MS);
@@ -83,8 +112,15 @@ function spawnFixedExitClone(host: Element, sidebar: HTMLElement, rect: Rect): v
     return;
   }
   const animation = clone.animate(EXIT_KEYFRAMES, EXIT_TIMING);
-  animation.addEventListener("finish", cleanup);
-  window.setTimeout(cleanup, SIDEBAR_EXIT_FALLBACK_MS);
+  let finished = false;
+  const finish = () => {
+    if (finished) return;
+    finished = true;
+    freezeOffscreen(clone, animation);
+    afterPaint(cleanup);
+  };
+  animation.addEventListener("finish", finish);
+  window.setTimeout(finish, SIDEBAR_EXIT_FALLBACK_MS);
 }
 
 export type SidebarApi = {

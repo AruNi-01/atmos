@@ -92,7 +92,8 @@ export const PT_DESIGN_TOOL_DEFS: ToolDef[] = [
     name: "pt_update",
     cli: ["update"],
     title: "Update component",
-    description: "Update props, variant, size, scene bbox, or frame membership of an instance.",
+    description:
+      "Update props, variant, size, scene bbox, or frame membership of an instance. bbox.w/h scale the whole instance (explicit bbox wins over size).",
     args: "instanceId, props?, variant?, size?, bbox?: {x,y,w,h}, frameId?",
     idempotent: true,
     live: true,

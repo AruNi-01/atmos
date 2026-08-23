@@ -170,6 +170,38 @@ describe("agent drawing UX", () => {
     expect(session.getIR().freeNodes[0]?.bbox).toMatchObject({ x: 80, y: 40 });
   });
 
+  test("pt_update bbox w/h is stored in IR", () => {
+    const session = createPtDesignSession();
+    const placed = runSessionTool(session, {
+      name: "pt_place",
+      args: { componentType: "card", at: { x: 0, y: 0 } },
+    }) as { instanceId: string };
+    runSessionTool(session, {
+      name: "pt_update",
+      args: { instanceId: placed.instanceId, bbox: { w: 420, h: 176 } },
+    });
+    expect(session.getIR().freeNodes[0]?.bbox).toMatchObject({ w: 420, h: 176 });
+  });
+
+  test("layout grid spreads cards by width plus gap", () => {
+    const session = createPtDesignSession();
+    const ids = [0, 1, 2].map((index) => {
+      const placed = runSessionTool(session, {
+        name: "pt_place",
+        args: { componentType: "card", at: { x: 0, y: 0 } },
+      }) as { instanceId: string };
+      void index;
+      return placed.instanceId;
+    });
+    runSessionTool(session, {
+      name: "pt_layout_grid",
+      args: { instanceIds: ids, columns: 3, gap: 24 },
+    });
+    const nodes = session.getIR().freeNodes.sort((l, r) => l.bbox.x - r.bbox.x);
+    expect(nodes[1]!.bbox.x).toBe(nodes[0]!.bbox.x + nodes[0]!.bbox.w + 24);
+    expect(nodes[2]!.bbox.x).toBe(nodes[1]!.bbox.x + nodes[1]!.bbox.w + 24);
+  });
+
   test("layout row and lint catch overlap", () => {
     const session = createPtDesignSession();
     const a = runSessionTool(session, {

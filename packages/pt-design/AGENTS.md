@@ -18,6 +18,8 @@ Atmos in-app Agents call `POST /api/pt-design/agent/invoke` on the local Server 
 
 Live-board drawing: `pt_tools_list` / `pt_catalog_list` (includes `defaultBBox` + `propKeys`), `pt_frame_create` presets, `pt_place` (one instance; `at` is frame-relative when `frameId` is set), `pt_batch`, `pt_layout_*`, `pt_lint`, `pt_screenshot` (open tab only). Human catalog clicks may still dump a variant showcase; the Agent path does not. Agent activity island UI lives in `apps/web` (`AgentSurfaceIsland`), shared with Canvas.
 
+Live session vs Excalidraw: `embed/board-sync.ts`. Agent tools run in `runHeld` then one `commit` + `drain` before `reply`, so `pt_batch` / layout / update IDs match the visible board. Do not skip `pushScene` while the apply-gate is pending — that drops every op after the first.
+
 ## Forbidden imports
 
 Do not import `@atmos/api-types`, `@atmos/api-client`, `@atmos/hub-client`, `@atmos/relay-client`, `@atmos/shared`, `@workspace/ui`, or `apps/*` (including `apps/cli`) from this package.

@@ -1,5 +1,6 @@
 import { frameEl } from "../catalog/primitives";
 import { getComponentTemplate } from "../catalog/registry";
+import { fitInstanceElements } from "../catalog/fit-instance";
 import type { PtElement, PtScene } from "../core/types";
 import type { DesignIR, DesignNode } from "./schema";
 import { DESIGN_IR_VERSION } from "./schema";
@@ -78,7 +79,12 @@ export function applyDesignIR(
       props: node.props,
       instanceId: node.instanceId,
     });
-    const stamped = built.elements.map((el) => ({
+    const fitted = fitInstanceElements(
+      built.elements,
+      { x: node.bbox.x, y: node.bbox.y, w: built.width, h: built.height },
+      node.bbox,
+    );
+    const stamped = fitted.map((el) => ({
       ...el,
       frameId: frameId ?? el.frameId ?? null,
     }));

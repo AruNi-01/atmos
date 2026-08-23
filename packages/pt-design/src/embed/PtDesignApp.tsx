@@ -22,7 +22,7 @@ import { chromeTokens, resolveBoardTheme } from "./chrome";
 import { agentInvokeUrl, normalizeAgentApiBase } from "./agent-prompt";
 import { drawingAppState } from "./theme-palette";
 import { ComponentCatalog } from "./ComponentCatalog";
-import { createApplyGate } from "./apply-gate";
+import { createBoardSync } from "./board-sync";
 import { createPersistDebouncer } from "./persist-debounce";
 import {
   excalidrawElementsToScene,
@@ -34,6 +34,13 @@ import {
 import { useExcalidrawCollab } from "./use-collab";
 import { resolveShareCopy, type ShareCopy } from "./SharePopover";
 import { defaultDesignName, LibraryOverlay } from "./LibraryOverlay";
+import { SelectionPropsRail } from "./SelectionPropsRail";
+import {
+  instanceIdFromBoardSelection,
+  selectionPropGroups,
+  selectionPropPatch,
+  type SelectionPropGroup,
+} from "./selection-props";
 import {
   PLACE_REVEAL_MS,
   PLACE_SCROLL_OFFSETS,
@@ -109,11 +116,13 @@ export function PtDesignApp({
   const [, setTick] = React.useState(0);
   const [catalogType, setCatalogType] = React.useState("button");
   const [selectedInstanceId, setSelectedInstanceId] = React.useState<string | null>(null);
+  const selectedInstanceIdRef = React.useRef<string | null>(null);
+  selectedInstanceIdRef.current = selectedInstanceId;
   const [revealIds, setRevealIds] = React.useState<string[] | null>(null);
   const [revealKind, setRevealKind] = React.useState<"catalog" | "agent">("catalog");
   const [revealBox, setRevealBox] = React.useState<RevealBox | null>(null);
   const apiRef = React.useRef<ExcalidrawHostApi | null>(null);
-  const applyGateRef = React.useRef(createApplyGate());
+  const boardSyncRef = React.useRef<ReturnType<typeof createBoardSync> | null>(null);
   const loadingRef = React.useRef(false);
   const echoFromBoardRef = React.useRef(false);
   const [boardReady, setBoardReady] = React.useState(false);
@@ -129,26 +138,40 @@ export function PtDesignApp({
   const chrome = chromeTokens(boardTheme);
   const shareLabels = resolveShareCopy(shareCopy);
 
-  const beginApply = React.useCallback(() => {
-    applyGateRef.current.begin();
-  }, []);
-
-  const pushScene = React.useCallback(() => {
-    const api = apiRef.current;
-    if (!api) return;
-    const scene = session.getScene();
-    const current = excalidrawElementsToScene(
-      api.getSceneElementsIncludingDeleted(),
-      api.getAppState(),
-      boardTheme,
-    );
-    if (sceneFingerprint(current) === sceneFingerprint(scene)) return;
-    beginApply();
-    api.updateScene({ elements: sceneToExcalidrawElements(scene, boardTheme) });
-  }, [session, boardTheme, beginApply]);
-
-  const pushSceneRef = React.useRef(pushScene);
-  pushSceneRef.current = pushScene;
+  const boardSync = React.useMemo(
+    () =>
+      createBoardSync({
+        getSessionScene: () => session.getScene(),
+        fingerprint: sceneFingerprint,
+        replaceSession: (next) => {
+          echoFromBoardRef.current = true;
+          session.dispatch({ type: "replaceScene", scene: next });
+          echoFromBoardRef.current = false;
+        },
+        getHost: () => {
+          const api = apiRef.current;
+          if (!api) return null;
+          return {
+            getBoardScene: () =>
+              excalidrawElementsToScene(
+                api.getSceneElementsIncludingDeleted(),
+                api.getAppState(),
+                boardTheme,
+              ),
+            pushToBoard: (scene) => {
+              const ids = session.getSelection();
+              const targets = elementsForInstances(scene.elements, ids);
+              api.updateScene({
+                elements: sceneToExcalidrawElements(scene, boardTheme),
+                appState: { selectedElementIds: selectedIdsForElements(targets) },
+              });
+            },
+          };
+        },
+      }),
+    [session, boardTheme],
+  );
+  boardSyncRef.current = boardSync;
   const broadcastRef = React.useRef<(elements: readonly unknown[]) => void>(() => undefined);
 
   const handleApi = React.useCallback((api: ExcalidrawHostApi) => {
@@ -164,7 +187,7 @@ export function PtDesignApp({
       session.dispatch({ type: "replaceScene", scene: loaded.scene });
       loadingRef.current = false;
       setTick((n) => n + 1);
-      pushSceneRef.current();
+      boardSyncRef.current?.commit();
     });
     return () => {
       cancelled = true;
@@ -175,7 +198,7 @@ export function PtDesignApp({
     if (!boardReady) return;
     const api = apiRef.current;
     if (!api) return;
-    beginApply();
+    boardSync.beginEcho();
     api.updateScene({
       elements: sceneToExcalidrawElements(session.getScene(), boardTheme),
       appState: {
@@ -188,7 +211,7 @@ export function PtDesignApp({
         ...drawingAppState(boardTheme),
       },
     });
-  }, [boardReady, boardTheme, chrome.canvas, session, beginApply]);
+  }, [boardReady, boardTheme, chrome.canvas, session, boardSync]);
 
   React.useEffect(() => {
     const debouncer = createPersistDebouncer((scene) => persist.save({ scene }));
@@ -196,17 +219,16 @@ export function PtDesignApp({
       setTick((n) => n + 1);
       if (!loadingRef.current) debouncer.schedule(session.getScene());
       if (echoFromBoardRef.current) return;
-      if (!loadingRef.current && !applyGateRef.current.isPending()) {
-        pushSceneRef.current();
-        const api = apiRef.current;
-        if (api) broadcastRef.current(api.getSceneElementsIncludingDeleted());
-      }
+      if (loadingRef.current) return;
+      boardSync.onSessionChanged();
+      const api = apiRef.current;
+      if (api) broadcastRef.current(api.getSceneElementsIncludingDeleted());
     });
     return () => {
       unsubscribe();
       debouncer.flush();
     };
-  }, [persist, session]);
+  }, [persist, session, boardSync]);
 
   const applyRemoteElements = React.useCallback(
     (elements: readonly unknown[]) => {
@@ -219,11 +241,11 @@ export function PtDesignApp({
       loadingRef.current = true;
       session.dispatch({ type: "replaceScene", scene: next });
       loadingRef.current = false;
-      beginApply();
+      boardSync.beginEcho();
       apiRef.current?.updateScene({ elements: sceneToExcalidrawElements(next, boardTheme) });
       setTick((n) => n + 1);
     },
-    [beginApply, boardTheme, session],
+    [boardSync, boardTheme, session],
   );
 
   const collab = useExcalidrawCollab({
@@ -274,9 +296,27 @@ export function PtDesignApp({
             }
             data = await captureLiveScreenshot(api, session, dispatch.args ?? {});
           } else {
-            data = runSessionTool(session, { name: tool, args: dispatch.args ?? {} });
+            data = boardSync.runHeld(() => runSessionTool(session, { name: tool, args: dispatch.args ?? {} }));
           }
-          if (isMutatingTool(tool) || tool === "pt_screenshot") {
+          const mutating = isMutatingTool(tool);
+          if (mutating) {
+            const ids = instanceIdsFromToolData(data);
+            if (ids[0]) {
+              session.setSelection(ids);
+              selectedInstanceIdRef.current = ids[0];
+              setSelectedInstanceId(ids[0]);
+            }
+            boardSync.commit();
+            await boardSync.drain();
+          }
+          await Promise.resolve(
+            agentBridge.reply({
+              request_id: dispatch.request_id,
+              success: true,
+              data,
+            }),
+          );
+          if (mutating || tool === "pt_screenshot") {
             const ids = instanceIdsFromToolData(data);
             if (ids.length) revealOnBoard(ids, "agent");
             else {
@@ -294,13 +334,6 @@ export function PtDesignApp({
               }
             }
           }
-          await Promise.resolve(
-            agentBridge.reply({
-              request_id: dispatch.request_id,
-              success: true,
-              data,
-            }),
-          );
         } catch (error) {
           await Promise.resolve(
             agentBridge.reply({
@@ -318,7 +351,7 @@ export function PtDesignApp({
       unsubscribe();
       void Promise.resolve(agentBridge.unregister(clientId)).catch(() => undefined);
     };
-  }, [agentBridge, clientId, revealOnBoard, session]);
+  }, [agentBridge, clientId, revealOnBoard, session, boardSync]);
 
   const scene = session.getScene();
   const catalog = listComponentTypes();
@@ -377,32 +410,41 @@ export function PtDesignApp({
       const selectedIds = Object.keys(appState.selectedElementIds ?? {}).filter(
         (id) => appState.selectedElementIds[id],
       );
-      const instanceId =
-        elements.find((el) => selectedIds.includes(el.id) && el.customData?.pt?.instanceId)?.customData?.pt
-          ?.instanceId ?? null;
+      const instanceId = instanceIdFromBoardSelection({
+        elements,
+        selectedIds,
+        previousInstanceId: selectedInstanceIdRef.current,
+      });
+      selectedInstanceIdRef.current = instanceId;
       setSelectedInstanceId((prev) => (prev === instanceId ? prev : instanceId));
       if (instanceId) session.setSelection([instanceId]);
 
-      if (applyGateRef.current.consume()) return;
       const next = excalidrawElementsToScene(elements, appState, boardTheme);
-      if (sceneFingerprint(next) === sceneFingerprint(session.getScene())) return;
-      echoFromBoardRef.current = true;
-      session.dispatch({ type: "replaceScene", scene: next });
-      echoFromBoardRef.current = false;
+      if (boardSync.onBoardChange(next) !== "applied") return;
       collab.broadcastScene(elements);
     },
-    [boardTheme, collab, session],
+    [boardSync, boardTheme, collab, session],
   );
 
-  const toolButton: React.CSSProperties = {
-    fontSize: 12,
-    color: chrome.fg,
-    background: chrome.muted,
-    border: `1px solid ${chrome.border}`,
-    borderRadius: 8,
-    padding: "4px 8px",
-    cursor: "pointer",
-  };
+  const applySelectionPatch = React.useCallback(
+    (group: SelectionPropGroup, optionId: string) => {
+      if (!selectedInstanceId) return;
+      const patch = selectionPropPatch(group, optionId);
+      if (!patch) return;
+      if (patch.type === "variant") {
+        session.dispatch({ type: "update", instanceId: selectedInstanceId, variant: patch.variant });
+      } else if (patch.type === "size") {
+        session.dispatch({ type: "update", instanceId: selectedInstanceId, size: patch.size });
+      } else {
+        session.dispatch({
+          type: "update",
+          instanceId: selectedInstanceId,
+          props: { [patch.key]: patch.value },
+        });
+      }
+    },
+    [selectedInstanceId, session],
+  );
 
   const openShare = React.useCallback(() => {
     setShareOpen(true);
@@ -454,10 +496,7 @@ export function PtDesignApp({
         loadingRef.current = true;
         session.dispatch({ type: "replaceScene", scene: loaded.scene });
         loadingRef.current = false;
-        beginApply();
-        apiRef.current?.updateScene({
-          elements: sceneToExcalidrawElements(loaded.scene, boardTheme),
-        });
+        boardSync.commit();
         setLibraryFile(loaded.name);
         if (typeof localStorage !== "undefined") {
           localStorage.setItem(`${storageKey}:file`, loaded.name);
@@ -468,7 +507,7 @@ export function PtDesignApp({
         setLibraryError(error instanceof Error ? error.message : "Could not open");
       }
     },
-    [beginApply, boardTheme, library, session, storageKey],
+    [boardSync, library, session, storageKey],
   );
 
   const menuItems = [
@@ -588,38 +627,13 @@ export function PtDesignApp({
                       onClose={() => setLibraryMode(null)}
                     />
                   ) : null}
-                  {selectedEntry && selectedInstanceId && selectedEntry.variants.length > 1 ? (
-                    <span
-                      style={{
-                        position: "absolute",
-                        top: 12,
-                        left: "50%",
-                        transform: "translateX(-50%)",
-                        zIndex: 4,
-                        display: "inline-flex",
-                        gap: 4,
-                        alignItems: "center",
-                        fontSize: 12,
-                        color: chrome.mutedFg,
-                      }}
-                    >
-                      Variant
-                      {selectedEntry.variants.map((variant) => (
-                        <button
-                          key={variant}
-                          type="button"
-                          onClick={() => {
-                            session.dispatch({ type: "update", instanceId: selectedInstanceId, variant });
-                          }}
-                          style={{
-                            ...toolButton,
-                            fontWeight: selected?.customData?.pt?.variant === variant ? 600 : 400,
-                          }}
-                        >
-                          {variant}
-                        </button>
-                      ))}
-                    </span>
+                  {selectedEntry && selectedInstanceId ? (
+                    <SelectionPropsRail
+                      instanceId={selectedInstanceId}
+                      chrome={chrome}
+                      groups={selectionPropGroups(selectedEntry, selected?.customData?.pt)}
+                      onSelect={applySelectionPatch}
+                    />
                   ) : null}
                 </>
               }

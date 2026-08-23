@@ -19,6 +19,11 @@ describe("apply gate", () => {
     expect(gate.consume()).toBe(true);
     expect(gate.isPending()).toBe(false);
     expect(gate.consume()).toBe(false);
+    gate.begin();
+    gate.begin();
+    gate.reset();
+    expect(gate.isPending()).toBe(false);
+    expect(gate.consume()).toBe(false);
   });
 
   test("async updateScene onChange does not replace the pushed session", async () => {
@@ -85,10 +90,14 @@ describe("apply gate", () => {
 
   test("PtDesignApp uses the apply gate and persist debounce", () => {
     const src = readFileSync(new URL("./PtDesignApp.tsx", import.meta.url), "utf8");
-    expect(src).toContain("createApplyGate");
+    expect(src).toContain("createBoardSync");
     expect(src).toContain("createPersistDebouncer");
-    expect(src).toContain("applyGateRef.current.consume()");
+    expect(src).toContain("boardSync.runHeld");
+    expect(src).toContain("boardSync.commit");
+    expect(src).toContain("boardSync.drain");
+    expect(src).toContain("boardSync.onBoardChange");
     expect(src).toContain("debouncer.flush()");
+    expect(src).not.toContain("applyGateRef.current.consume()");
     expect(src).not.toMatch(/applyingRef\.current = false/);
   });
 

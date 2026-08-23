@@ -118,6 +118,17 @@ describe("excalidraw Atmos chrome", () => {
     expect(board).toContain("pt-design-library-trigger");
     expect(board).toContain("iconOnly");
     expect(app).toContain("drawingAppState(boardTheme)");
+    expect(app).toContain("SelectionPropsRail");
+    expect(app).not.toContain("translateX(-50%)");
+    expect(css).toContain(".pt-design-prop-rail");
+    expect(css).toContain(".pt-design-prop-trigger");
+    expect(css).toContain(".pt-design-prop-options");
+    expect(css).toContain(".pt-design-prop-option");
+    expect(css).toContain("flex-direction: column");
+    const rail = readFileSync(new URL("./SelectionPropsRail.tsx", import.meta.url), "utf8");
+    expect(rail).toContain("AnimatePresence");
+    expect(rail).toContain("pt-design-selection-props");
+    expect(rail).toContain("STYLE_PANEL_SELECTOR");
   });
 });
 

@@ -35,7 +35,7 @@ Do not start MCP. Do not join a collaboration room.
 | `pt_ir_get` | `frameId?`, `instanceIds?` | Scene coordinates |
 | `pt_scene_get` | — | Raw scene; prefer IR |
 | `pt_place` | `componentType`, `at?`, `below?`, `rightOf?`, `props?`, `variant?`, `size?`, `frameId?`, `mode?` | One instance by default |
-| `pt_update` | `instanceId`, `props?`, `variant?`, `size?`, `bbox?`, `frameId?` | Scene bbox |
+| `pt_update` | `instanceId`, `props?`, `variant?`, `size?`, `bbox?`, `frameId?` | Scene bbox; `w/h` scales the instance |
 | `pt_delete` | `instanceId` \| `instanceIds` | |
 | `pt_frame_create` | `name?`, `x?`, `y?`, `w?`, `h?`, `preset?` | desktop\|tablet\|mobile |
 | `pt_frame_rename` | `frameId`, `name` | |

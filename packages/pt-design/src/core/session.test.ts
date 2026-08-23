@@ -138,6 +138,23 @@ describe("session + IR", () => {
     expect(types).toEqual(["button", "input"]);
   });
 
+  test("bbox w/h scales the instance and survives a later variant swap", () => {
+    const session = createPtDesignSession();
+    const { instanceId } = session.dispatch({
+      type: "place",
+      componentType: "card",
+      at: { x: 0, y: 0 },
+    });
+    session.dispatch({
+      type: "update",
+      instanceId: instanceId!,
+      bbox: { w: 420, h: 176 },
+    });
+    expect(session.getIR().freeNodes[0]?.bbox).toMatchObject({ w: 420, h: 176 });
+    session.dispatch({ type: "update", instanceId: instanceId!, variant: "default" });
+    expect(session.getIR().freeNodes[0]?.bbox).toMatchObject({ w: 420, h: 176 });
+  });
+
   test("variant update keeps instanceId", () => {
     const session = createPtDesignSession();
     const { instanceId } = session.dispatch({

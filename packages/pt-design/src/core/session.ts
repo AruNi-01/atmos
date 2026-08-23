@@ -12,6 +12,7 @@ import { encodeDesignIR } from "../ir/encode";
 import { buildHandoffPayload, type HandoffPayload } from "../ir/handoff";
 import type { DesignIR } from "../ir/schema";
 import { frameEl } from "../catalog/primitives";
+import { fitInstanceElements } from "../catalog/fit-instance";
 import { PT_ERROR_CODES, PtDesignError } from "../agent/errors";
 import { createId } from "./ids";
 import { emptyScene, type BBox, type PtElement, type PtProps, type PtScene, type PtSize } from "./types";
@@ -245,6 +246,13 @@ export function createPtDesignSession(initial?: PtScene): PtDesignSession {
         props: nextProps,
         instanceId: cmd.instanceId,
       });
+      const targetW = cmd.bbox?.w ?? (cmd.size == null ? root.width : built.width);
+      const targetH = cmd.bbox?.h ?? (cmd.size == null ? root.height : built.height);
+      const fitted = fitInstanceElements(
+        built.elements,
+        { x, y, w: built.width, h: built.height },
+        { x, y, w: targetW, h: targetH },
+      );
       let nextFrameId = root.frameId;
       if (cmd.frameId !== undefined) {
         if (cmd.frameId === null || cmd.frameId === "") {
@@ -261,7 +269,7 @@ export function createPtDesignSession(initial?: PtScene): PtDesignSession {
         ...scene,
         elements: [
           ...scene.elements.filter((el) => el.customData?.pt?.instanceId !== cmd.instanceId),
-          ...built.elements.map((el) => ({ ...el, frameId: nextFrameId })),
+          ...fitted.map((el) => ({ ...el, frameId: nextFrameId })),
         ],
       };
       emit();
