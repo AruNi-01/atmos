@@ -24,7 +24,10 @@ test.describe("smoke settings", () => {
 
     await openSettingsPage(page);
     await expect(page.getByRole("dialog", { name: /^(Settings|设置)$/ })).toHaveCount(0);
-    await expect(page.getByRole("button", { name: SETTINGS_SIDEBAR_ITEMS.interface })).toBeVisible();
+    await expect
+      .poll(async () => new URL(page.url()).searchParams.get("activeSettingTab"))
+      .toBe("general");
+    await expect(page.getByRole("button", { name: SETTINGS_SIDEBAR_ITEMS.general })).toBeVisible();
 
     await closeSettingsPage(page);
   });

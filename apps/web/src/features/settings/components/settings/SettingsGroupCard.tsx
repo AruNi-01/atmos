@@ -126,6 +126,14 @@ export function SettingsGroupRow({
   );
 }
 
+/** Title of a collapsible settings heading: quiet at rest, foreground on hover. */
+export const settingsCollapsibleTitleClassName =
+  'text-sm font-medium text-muted-foreground group-hover:text-foreground';
+
+/** Chevron next to a collapsible settings heading. */
+export const settingsCollapsibleChevronTriggerClassName =
+  'cursor-pointer text-muted-foreground hover:text-foreground';
+
 /** Group with a heading outside the muted card; optional collapse. */
 export function SettingsGroupCard({
   id,
@@ -149,7 +157,15 @@ export function SettingsGroupCard({
 
   const titleBlock = (
     <div className="min-w-0 flex-1">
-      <p className="text-sm font-medium text-foreground">{title}</p>
+      <p
+        className={
+          collapsible
+            ? settingsCollapsibleTitleClassName
+            : 'text-sm font-medium text-foreground'
+        }
+      >
+        {title}
+      </p>
       {description ? (
         <div className="mt-1 max-w-xl text-xs leading-5 text-muted-foreground">
           {description}
@@ -186,7 +202,7 @@ export function SettingsGroupCard({
           </CollapsibleTrigger>
           <div className="flex shrink-0 items-center gap-2 self-center">
             {headerEnd}
-            <CollapsibleTrigger className="cursor-pointer text-muted-foreground">
+            <CollapsibleTrigger className={settingsCollapsibleChevronTriggerClassName}>
               <ChevronDown
                 className={cn(
                   'size-4 transition-transform duration-150',

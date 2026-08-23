@@ -53,6 +53,10 @@ import {
 } from '@/features/settings/components/settings-modal-data';
 import { settingsSectionDomId } from '@/features/settings/components/settings/SettingsGroupCard';
 import { SettingsModalSidebar } from '@/features/settings/components/settings-modal-sidebar';
+import {
+  rememberSettingsTab,
+  resolveSettingsTab,
+} from '@/features/settings/lib/settings-last-section';
 import { useSettingsUpdateActions } from '@/features/settings/components/use-settings-update-actions';
 import { useSettingsGroupTab } from '@/features/settings/hooks/use-settings-group-tab';
 import { leaveSettingsPage } from '@/features/settings/lib/open-settings';
@@ -823,7 +827,15 @@ export function SettingsPage({ onLeave }: { onLeave?: () => void } = {}) {
     };
   }, []);
 
-  const resolvedActiveSection = activeSection ?? 'interface';
+  const resolvedActiveSection = resolveSettingsTab(activeSection);
+
+  useEffect(() => {
+    rememberSettingsTab(resolvedActiveSection);
+    if (activeSection == null) {
+      void setActiveSection(resolvedActiveSection);
+    }
+  }, [activeSection, resolvedActiveSection, setActiveSection]);
+
   const { groupTabs, groupTab, selectGroupTab } = useSettingsGroupTab(
     resolvedActiveSection,
     settingsSearchQuery,

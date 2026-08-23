@@ -4,21 +4,18 @@ import { useCallback } from "react";
 
 import type { SettingsModalTab } from "@/shared/lib/nuqs/searchParams";
 import { useAppRouter } from "@/shared/hooks/use-app-router";
+import { settingsHref } from "@/features/settings/lib/settings-last-section";
 import {
   findSettingsReturnHref,
   rememberSettingsReturnPath,
   resolveStoredSettingsReturnPath,
 } from "@/features/settings/lib/settings-return";
 
+export { settingsHref } from "@/features/settings/lib/settings-last-section";
+
 type NavigationLike = {
   entries?: () => Array<{ url?: string }>;
 };
-
-export function settingsHref(tab?: SettingsModalTab | null, hash?: string): string {
-  if (!tab) return "/settings";
-  const href = `/settings?activeSettingTab=${tab}`;
-  return hash ? `${href}#${hash}` : href;
-}
 
 export function leaveSettingsPage(router: { replace: (path: string) => void }): void {
   if (typeof window === "undefined") {

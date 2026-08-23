@@ -203,9 +203,7 @@ export const settingsModalParams = {
     "apps",
     "privacy",
     "keyboard",
-  ])
-    .withDefault("interface")
-    .withOptions({ history: "replace" }),
+  ]).withOptions({ history: "replace" }),
 };
 
 // ---------------------------------------------------------------------------

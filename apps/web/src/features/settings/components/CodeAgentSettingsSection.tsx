@@ -10,6 +10,7 @@ import {
   Input,
   Skeleton,
   Switch,
+  cn,
 } from "@workspace/ui";
 import {
   Bot,
@@ -34,6 +35,8 @@ import {
   SettingsGroupCard,
   SettingsGroupRow,
   SettingsPageStack,
+  settingsCollapsibleChevronTriggerClassName,
+  settingsCollapsibleTitleClassName,
 } from "@/features/settings/components/settings/SettingsGroupCard";
 import { SettingsToggleRow } from "@/features/settings/components/settings/SettingsToggleRow";
 import type { TerminalAgentSavedRunConfig } from "@/features/agent/lib/terminal-agent-run-config";
@@ -244,10 +247,10 @@ export function CodeAgentSettingsSection({
                     className="border-b border-border/60 px-2 py-3 last:border-b-0"
                   >
                     <div className="flex items-center gap-3">
-                      <CollapsibleTrigger className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 text-left">
+                      <CollapsibleTrigger className="group flex min-w-0 flex-1 cursor-pointer items-center gap-3 text-left">
                         <AgentIcon registryId={agent.id} name={agent.label} size={20} />
                         <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium text-foreground">{agent.label}</p>
+                          <p className={settingsCollapsibleTitleClassName}>{agent.label}</p>
                           <p className="mt-1 truncate text-xs text-muted-foreground">
                             {summary || t("common.noParameters")}
                           </p>
@@ -263,7 +266,7 @@ export function CodeAgentSettingsSection({
                           disabled={isSyncingEnabled}
                           onCheckedChange={(checked) => onBuiltInEnabledChange(agent.id, !!checked)}
                         />
-                        <CollapsibleTrigger className="cursor-pointer text-muted-foreground">
+                        <CollapsibleTrigger className={settingsCollapsibleChevronTriggerClassName}>
                           <ChevronDown
                             className={`size-4 transition-transform duration-150 ${!isOpen ? "-rotate-90" : ""}`}
                           />
@@ -353,10 +356,10 @@ export function CodeAgentSettingsSection({
                     className="border-b border-border/60 px-2 py-3 last:border-b-0"
                   >
                     <div className="flex items-center gap-3">
-                      <CollapsibleTrigger className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 text-left">
+                      <CollapsibleTrigger className="group flex min-w-0 flex-1 cursor-pointer items-center gap-3 text-left">
                         <Bot className="size-5 shrink-0 text-muted-foreground" />
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-medium text-foreground">
+                          <p className={cn("truncate", settingsCollapsibleTitleClassName)}>
                             {agent.label || t("custom.newAgent")}
                           </p>
                           <p className="mt-1 truncate text-xs text-muted-foreground">
@@ -374,14 +377,14 @@ export function CodeAgentSettingsSection({
                           disabled={isSyncingEnabled}
                           onCheckedChange={(checked) => onCustomAgentEnabledChange(agent.id, !!checked)}
                         />
-                        <CollapsibleTrigger className="cursor-pointer text-muted-foreground">
+                        <CollapsibleTrigger className={settingsCollapsibleChevronTriggerClassName}>
                           <ChevronDown
                             className={`size-4 transition-transform duration-150 ${!isOpen ? "-rotate-90" : ""}`}
                           />
                         </CollapsibleTrigger>
                       </div>
                       <button
-                        className="flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                        className="flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                         onClick={() => onRemoveCustomAgent(agent.id)}
                         title={t("custom.removeAgent")}
                         disabled={isRemoving}

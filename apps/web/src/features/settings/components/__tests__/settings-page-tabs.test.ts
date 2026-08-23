@@ -20,6 +20,8 @@ describe("Settings page group tabs", () => {
     expect(tabs).toContain('h-7 gap-1.5 px-3.5 text-sm');
     expect(modal).toContain("SettingsPageTabs");
     expect(modal).toContain("useSettingsGroupTab");
+    expect(modal).toContain("resolveSettingsTab");
+    expect(modal).not.toContain("?? 'interface'");
     expect(modal).not.toContain("text-[28px]");
   });
 
@@ -37,5 +39,29 @@ describe("Settings page group tabs", () => {
     expect(sections).toContain("activeGroupTab === 'about'");
     expect(sections).not.toContain("NestedSettingsSection");
     expect(sections).not.toContain("SettingsPageStack");
+  });
+
+  it("highlights collapsible heading text on hover", () => {
+    const card = readFileSync(
+      join(root, "apps/web/src/features/settings/components/settings/SettingsGroupCard.tsx"),
+      "utf8",
+    );
+    const agents = readFileSync(
+      join(root, "apps/web/src/features/settings/components/CodeAgentSettingsSection.tsx"),
+      "utf8",
+    );
+    const indicators = readFileSync(
+      join(
+        root,
+        "apps/web/src/features/settings/components/AgentActivityIndicatorsSettingsSection.tsx",
+      ),
+      "utf8",
+    );
+    expect(card).toContain("group-hover:text-foreground");
+    expect(card).toContain("hover:text-foreground");
+    expect(agents).toContain("settingsCollapsibleTitleClassName");
+    expect(agents).toContain("settingsCollapsibleChevronTriggerClassName");
+    expect(indicators).toContain("settingsCollapsibleTitleClassName");
+    expect(indicators).toContain("settingsCollapsibleChevronTriggerClassName");
   });
 });

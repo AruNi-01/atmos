@@ -29,7 +29,11 @@ import {
   type IndicatorFamily,
 } from "@/features/agent/lib/agent-activity-indicator-styles";
 import { useAgentActivityIndicatorSettingsStore } from "@/features/settings/store/agent-activity-indicator-settings-store";
-import { SettingsGroupCard } from "@/features/settings/components/settings/SettingsGroupCard";
+import {
+  SettingsGroupCard,
+  settingsCollapsibleChevronTriggerClassName,
+  settingsCollapsibleTitleClassName,
+} from "@/features/settings/components/settings/SettingsGroupCard";
 
 /** Picker Orbs need a slight bump so their sparse geometry matches unicode mono glyphs. */
 const PICKER_ORB_SIZE = 22;
@@ -185,7 +189,7 @@ function IndicatorStylePicker({
                     onChange(option.id);
                   }}
                   className={cn(
-                    "flex flex-col items-center gap-1.5 rounded-xl border px-1.5 py-2 transition-[border-color,background-color,box-shadow] duration-150",
+                    "flex flex-col items-center gap-1.5 rounded-xl border px-1.5 py-2 transition-shadow duration-150",
                     "cursor-pointer hover:bg-accent/50",
                     selected
                       ? "border-primary bg-primary/5 ring-1 ring-primary/30"
@@ -257,10 +261,10 @@ function PlacementRow({
       className="border-b border-border/60 px-2 py-3 last:border-b-0"
     >
       <div className="flex items-center gap-3">
-        <CollapsibleTrigger className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 text-left">
+        <CollapsibleTrigger className="group flex min-w-0 flex-1 cursor-pointer items-center gap-3 text-left">
           <PlacementIcon className="size-5 shrink-0 text-muted-foreground" />
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium text-foreground">
+            <p className={settingsCollapsibleTitleClassName}>
               {t(placementTitleKey(placement) as never)}
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
@@ -271,7 +275,7 @@ function PlacementRow({
 
         <div className="flex shrink-0 items-center gap-2">
           <PlacementMockPreview placement={placement} styleId={styleId} />
-          <CollapsibleTrigger className="cursor-pointer text-muted-foreground">
+          <CollapsibleTrigger className={settingsCollapsibleChevronTriggerClassName}>
             <ChevronDown
               className={cn(
                 "size-4 transition-transform duration-150",

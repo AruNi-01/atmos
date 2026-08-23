@@ -72,6 +72,23 @@ export function settingsGroupTabForSearchItem(item: {
   return null;
 }
 
+const lastGroupTabBySection: Partial<Record<SettingsSectionId, SettingsGroupTabId>> = {};
+
+export function rememberSettingsGroupTab(
+  sectionId: SettingsSectionId,
+  tab: string | null | undefined,
+): void {
+  const tabs = getSettingsSectionGroupTabs(sectionId);
+  if (!tabs || !tab || !tabs.includes(tab as SettingsGroupTabId)) return;
+  lastGroupTabBySection[sectionId] = tab as SettingsGroupTabId;
+}
+
+export function peekLastSettingsGroupTab(
+  sectionId: SettingsSectionId,
+): SettingsGroupTabId | null {
+  return lastGroupTabBySection[sectionId] ?? null;
+}
+
 export function resolveSettingsGroupTab(
   sectionId: SettingsSectionId,
   hash: string,
@@ -80,10 +97,17 @@ export function resolveSettingsGroupTab(
   const tabs = getSettingsSectionGroupTabs(sectionId);
   if (!tabs) return null;
   if (tabs.includes(hash as SettingsGroupTabId)) return hash as SettingsGroupTabId;
-  if (remembered && tabs.includes(remembered as SettingsGroupTabId)) {
-    return remembered as SettingsGroupTabId;
+  const lastTab = remembered ?? lastGroupTabBySection[sectionId];
+  if (lastTab && tabs.includes(lastTab as SettingsGroupTabId)) {
+    return lastTab as SettingsGroupTabId;
   }
   return tabs[0];
+}
+
+export function __resetSettingsGroupTabMemoryForTests(): void {
+  for (const key of Object.keys(lastGroupTabBySection)) {
+    delete lastGroupTabBySection[key as SettingsSectionId];
+  }
 }
 
 export function isForeignSettingsGroupTabHash(sectionId: SettingsSectionId, hash: string): boolean {
