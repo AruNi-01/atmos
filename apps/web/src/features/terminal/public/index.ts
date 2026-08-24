@@ -1,6 +1,13 @@
 export {
+  LOCATE_DESTINATION_POLL_ATTEMPTS,
+  LOCATE_DESTINATION_POLL_INTERVAL_MS,
   buildLocatedPanePath,
+  locatedPaneDestination,
+  locationMatchesDestination,
   navigateToLocatedPane,
+  waitForDestination,
+  type LocatedPaneDestination,
+  type LocatedPaneHref,
   type LocatedResourceSessionRouteKind,
   type NavigateToLocatedPaneDeps,
   type NavigateToLocatedPaneRouter,
