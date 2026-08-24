@@ -1,0 +1,24 @@
+apps/web/src/app-shell/Header.tsx
+  h_5be255725524c8 46,416-417
+apps/web/src/app-shell/SidebarPeekShell.tsx
+  h_5be255725524c8 6-9,54-57,70-71,74,84,101
+apps/web/src/app-shell/__tests__/center-stage-chrome.test.ts
+  h_5be255725524c8 6-7,22-23,124-144
+apps/web/src/app-shell/sidebar-layout-constants.ts
+  h_5be255725524c8 5-8,22-30
+apps/web/src/features/task/components/task-github-drawer/__tests__/drawer-insets.test.ts
+  h_5be255725524c8 19
+apps/web/src/features/task/components/task-github-drawer/use-task-drawer-insets.ts
+  h_5be255725524c8 6,58
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "ec6460baf4d105526eb7f6b94203ffebb29a1e45",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
