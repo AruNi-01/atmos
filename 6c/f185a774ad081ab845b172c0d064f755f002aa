@@ -1,0 +1,16 @@
+apps/web/src/app-shell/GlobalSearch.tsx
+  h_5be255725524c8 522
+apps/web/src/app-shell/global-search-content.tsx
+  h_5be255725524c8 453,459-461,464-465,468-469
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "6cf185a774ad081ab845b172c0d064f755f002aa",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
