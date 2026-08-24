@@ -1,0 +1,22 @@
+apps/desktop-electron/src/ipc/handlers.ts
+  h_5be255725524c8 30-47,279-285,289-294
+apps/web/src/features/project/components/CreateProjectDialog.tsx
+  h_5be255725524c8 20,35-37,110,117-118,121-124,131,185,191,197-198,268-275
+apps/web/src/features/welcome/components/OnboardingPage.tsx
+  h_5be255725524c8 55,412-414,486,493-498,505,1007,1013,1063-1070
+apps/web/src/shared/lib/__tests__/desktop-directory-picker.test.ts
+  h_5be255725524c8 1-186
+apps/web/src/shared/lib/desktop-directory-picker.ts
+  h_5be255725524c8 5-49,51-54,57,63-76,79-94,96,101-104,107,111,120,122-124,127,129,131-232,238-513
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "a39a314c60b60a972e531fb4e6298aab926a85ca",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
