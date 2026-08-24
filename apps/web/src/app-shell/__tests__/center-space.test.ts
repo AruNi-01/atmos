@@ -189,7 +189,7 @@ describe("center space wiring", () => {
     expect(tabBar).toContain("confirmCreateSpace");
     expect(tabBar).toContain("newSpace");
     expect(stage).toContain("openNewCenterSpace");
-    expect(stage).toContain("switchCenterSpace(liveHostContextId, targetSpaceId)");
+    expect(stage).toContain("switchCenterSpace(liveHostContextId, targetSpaceId, {");
     expect(stage).toContain("shouldHonorUrlTabForPaintContext");
     expect(stage).toContain("bindCenterPaintTabUrlWriter");
     expect(stage).toContain("activateCenterChromeTab");

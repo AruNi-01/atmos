@@ -327,10 +327,34 @@ export function getWorkspaceTerminalTabs(
   return [createFixedTerminalTab()];
 }
 
+function findPaneIdsInWorkspacePanes(
+  panesByScope: TerminalLookupState["workspacePanes"],
+  workspaceId: string,
+  tmuxWindowName: string,
+): { paneId: string; terminalTabId: string } | null {
+  const prefix = `${workspaceId}::`;
+  for (const [scopeKey, panes] of Object.entries(panesByScope)) {
+    if (scopeKey !== workspaceId && !scopeKey.startsWith(prefix)) continue;
+    for (const [paneId, pane] of Object.entries(panes ?? {})) {
+      if (pane.tmuxWindowName === tmuxWindowName) {
+        return {
+          paneId,
+          terminalTabId:
+            scopeKey === workspaceId
+              ? FIXED_TERMINAL_TAB_VALUE
+              : scopeKey.slice(prefix.length),
+        };
+      }
+    }
+  }
+  return null;
+}
+
 /**
  * Locate a pane in the main workspace terminal grid by its tmux window name (any tab).
  *
- * Checks hydrated panes first; falls back to the persisted layout so deep
+ * Checks hydrated panes first, then any live scope for this paint id (extra
+ * spaces may not have a tab list yet), then the persisted layout so deep
  * links (e.g. the footer agent-status jump) can resolve the owning tab even
  * before the workspace's non-active tabs have been mounted/hydrated.
  */
@@ -351,6 +375,13 @@ export function findWorkspacePaneIdsByTmuxWindowName(
       }
     }
   }
+
+  const liveHit = findPaneIdsInWorkspacePanes(
+    state.workspacePanes,
+    workspaceId,
+    tmuxWindowName,
+  );
+  if (liveHit) return liveHit;
 
   const persistedTabs = getPersistedTerminalLayoutForWorkspace(state, workspaceId, isProjectContext)?.tabs;
   if (persistedTabs) {

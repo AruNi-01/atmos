@@ -11,6 +11,7 @@ import {
   extraCenterSpaceTmuxWindowPrefix,
   isExtraCenterSpaceTmuxWindowName,
   namespacedTmuxWindowName,
+  findWorkspacePaneIdsByTmuxWindowName,
   spaceIdFromTmuxWindowName,
   stableAgentPaneId,
 } from "../terminal-store-helpers";
@@ -85,6 +86,32 @@ describe("extra-space tmux window isolation", () => {
     expect(
       createLayoutFromTmuxWindows("ws-1", [{ index: 0, name: "cs__space-abc__1" }]),
     ).toBeNull();
+  });
+
+  it("finds an extra-space pane when the paint context has no tab list yet", () => {
+    const extra = makeCenterSpaceKey("ws-1", "space-abc");
+    const hit = findWorkspacePaneIdsByTmuxWindowName(
+      {
+        workspaceTerminalTabs: {},
+        workspacePanes: {
+          [extra]: {
+            "pane-1": {
+              id: "pane-1",
+              label: "1",
+              sessionId: "s1",
+              workspaceId: "ws-1",
+              tmuxWindowName: "cs__space-abc__1",
+              isNewPane: false,
+            },
+          },
+        },
+        persistedTerminalLayouts: {},
+        workspaceContexts: {},
+      },
+      extra,
+      "cs__space-abc__1",
+    );
+    expect(hit).toEqual({ paneId: "pane-1", terminalTabId: "terminal" });
   });
 });
 

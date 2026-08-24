@@ -172,5 +172,6 @@ describe("navigateToAgentHookSessionPane space handoff", () => {
     expect(activateAt).toBeGreaterThan(0);
     expect(pushAt).toBeGreaterThan(activateAt);
     expect(src).toContain("makeCenterSpaceKey(target.contextId, target.spaceId)");
+    expect(src).toContain("preserveDeepLink: true");
   });
 });

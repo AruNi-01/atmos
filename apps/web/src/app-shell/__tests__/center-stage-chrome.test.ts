@@ -56,9 +56,10 @@ describe("center-stage chrome", () => {
   test("workspace and setup surfaces reuse the shared card class", () => {
     const stage = read("../CenterStage.tsx");
     expect(stage).toContain("CenterStageSurface");
-    expect(stage).toContain("CENTER_STAGE_CARD_CLASS");
     expect(stage).toContain("CENTER_STAGE_SHELL_CLASS");
     expect(stage).toContain('data-center-stage-card=""');
+    const chrome = read("../center-stage-chrome.tsx");
+    expect(chrome).toContain("CENTER_STAGE_CARD_CLASS");
   });
 
   test("center-stage card chrome is tagged for drawer insets", () => {

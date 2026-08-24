@@ -40,6 +40,55 @@ export function isUsablePaneSlotBox(
 }
 
 /**
+ * Occupied panes must keep a usable box across split/collapse remasure.
+ * Dropping them to "unmeasured" unmounts keep-alive xterm/webview just to
+ * grow/shrink the sibling — the user sees a black reload instead of a resize.
+ */
+export function mergePaneSlotBoxes(
+  previous: Record<string, PaneSlotBox>,
+  measured: Record<string, PaneSlotBox>,
+  order: readonly string[],
+): Record<string, PaneSlotBox> {
+  const next: Record<string, PaneSlotBox> = {};
+  for (const paneId of order) {
+    const measuredBox = measured[paneId];
+    if (isUsablePaneSlotBox(measuredBox)) {
+      next[paneId] = measuredBox;
+      continue;
+    }
+    const previousBox = previous[paneId];
+    if (isUsablePaneSlotBox(previousBox)) {
+      next[paneId] = previousBox;
+    }
+  }
+  return next;
+}
+
+function paneSlotBoxesEqual(
+  a: Record<string, PaneSlotBox>,
+  b: Record<string, PaneSlotBox>,
+): boolean {
+  const aKeys = Object.keys(a);
+  const bKeys = Object.keys(b);
+  if (aKeys.length !== bKeys.length) return false;
+  for (const key of bKeys) {
+    const left = a[key];
+    const right = b[key];
+    if (
+      !left ||
+      !right ||
+      Math.abs(left.top - right.top) > 0.5 ||
+      Math.abs(left.left - right.left) > 0.5 ||
+      Math.abs(left.width - right.width) > 0.5 ||
+      Math.abs(left.height - right.height) > 0.5
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
  * Live mosaic only: don't mount a pane-active terminal until its slot has a
  * real box (avoids fitting PTY at full-stage size). Warm frames have no
  * live geometry — withholding there would unmount retained split terminals.
@@ -86,7 +135,7 @@ export function paneSlotBoxesForContextSwitch(input: {
 
 /**
  * Measure `[data-center-pane-content-slot]` boxes relative to `hostRef`.
- * Used to position keep-alive panels into multi-pane content slots without remounting.
+ * Used to position keep-alive panels into pane content slots without remounting.
  * `remeasureKey` re-runs the observer when overlay geometry changes (e.g. pane fullscreen).
  */
 export function useCenterPaneSlotBoxes(
@@ -124,7 +173,10 @@ export function useCenterPaneSlotBoxes(
   const treeKey = centerPaneTreeKey(layout?.tree);
 
   React.useLayoutEffect(() => {
-    if (!enabled || !layout || layout.order.length <= 1) {
+    // Measure even a single pane: overlay keep-alive (xterm/webview) is
+    // positioned into `[data-center-pane-content-slot]` for 1 and N panes.
+    // Clearing on N→1 withholds the remaining terminal and remounts it.
+    if (!enabled || !layout || layout.order.length < 1) {
       // Avoid setState({}) every render — empty object identity would loop.
       setBoxes((prev) => (Object.keys(prev).length === 0 ? prev : {}));
       return;
@@ -138,14 +190,14 @@ export function useCenterPaneSlotBoxes(
     const measure = () => {
       const hostRect = host.getBoundingClientRect();
       if (hostRect.width <= 0 || hostRect.height <= 0) return;
-      const next: Record<string, PaneSlotBox> = {};
+      const measured: Record<string, PaneSlotBox> = {};
       for (const paneId of order) {
         const slot = document.querySelector<HTMLElement>(
           `[data-center-pane-content-slot="${paneId}"]`,
         );
         if (!slot) continue;
         const r = slot.getBoundingClientRect();
-        next[paneId] = {
+        measured[paneId] = {
           top: r.top - hostRect.top,
           left: r.left - hostRect.left,
           width: r.width,
@@ -153,27 +205,8 @@ export function useCenterPaneSlotBoxes(
         };
       }
       setBoxes((prev) => {
-        const prevKeys = Object.keys(prev);
-        const nextKeys = Object.keys(next);
-        if (prevKeys.length === nextKeys.length) {
-          let same = true;
-          for (const key of nextKeys) {
-            const a = prev[key];
-            const b = next[key];
-            if (
-              !a ||
-              !b ||
-              Math.abs(a.top - b.top) > 0.5 ||
-              Math.abs(a.left - b.left) > 0.5 ||
-              Math.abs(a.width - b.width) > 0.5 ||
-              Math.abs(a.height - b.height) > 0.5
-            ) {
-              same = false;
-              break;
-            }
-          }
-          if (same) return prev;
-        }
+        const next = mergePaneSlotBoxes(prev, measured, order);
+        if (paneSlotBoxesEqual(prev, next)) return prev;
         if (contextId) {
           cacheRef.current = { ...cacheRef.current, [contextId]: next };
         }

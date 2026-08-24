@@ -1,5 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { makeCenterSpaceKey } from "@/app-shell/center-space/center-space";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { resolveCenterOpenContextId } from "@/app-shell/center-space/center-open-context";
 
 describe("resolveCenterOpenContextId", () => {
@@ -27,5 +29,15 @@ describe("resolveCenterOpenContextId", () => {
   it("falls back to the host when no extra space is active", () => {
     expect(resolveCenterOpenContextId(null, host, host)).toBe(host);
     expect(resolveCenterOpenContextId(host, host, host)).toBe(host);
+  });
+});
+
+describe("attachCenterTab isolation", () => {
+  it("reveals the owning pane instead of openTabOnFocusedPane", () => {
+    const src = readFileSync(join(import.meta.dir, "../center-space/center-open-context.ts"), "utf8");
+    expect(src).toContain("planCenterTabAttach");
+    expect(src).toContain('if (plan.action === "reveal")');
+    expect(src).toContain("store.focus(contextId, plan.paneId)");
+    expect(src).toContain("store.setActiveTab(contextId, plan.paneId, tabId)");
   });
 });

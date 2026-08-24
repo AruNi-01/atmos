@@ -95,7 +95,7 @@ async function activateCenterSpaceForAgentHook(
     const { switchCenterSpace } = await import(
       "@/app-shell/center-space/center-space-switch"
     );
-    await switchCenterSpace(hostId, spaceId);
+    await switchCenterSpace(hostId, spaceId, { preserveDeepLink: true });
     return;
   }
   store.setActiveSpace(hostId, spaceId);

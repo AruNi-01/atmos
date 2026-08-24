@@ -100,6 +100,7 @@ import {
   appendCenterTabToStripOrder,
   collectDefaultCenterStripTabIds,
   isFileLikeCenterTabKind,
+  resolveCenterStripShortcutTabIds,
 } from "@/app-shell/center-stage-tab-model";
 import {
   buildOpenCenterTabValues,
@@ -138,7 +139,7 @@ import {
 } from "@/app-shell/center-pane/center-pane-layout";
 import {
   collapsedStripOrderForContext,
-  shouldHoldMosaicAfterCollapse,
+  shouldPersistCollapsedStripOrder,
   shouldSeedMosaicFromFullPane,
 } from "@/app-shell/center-pane/center-pane-collapse-persist";
 import { resolveStripOrderForContext } from "@/app-shell/center-pane/center-pane-strip-prefs";
@@ -149,7 +150,6 @@ import {
 } from "@/app-shell/center-pane/center-pane-overlay-focus";
 import { areOpenTabIdListSourcesHydrated } from "@/app-shell/center-pane/center-pane-open-tab-hydration";
 import { useCenterPaneSlotBoxes } from "@/app-shell/center-pane/use-center-pane-slot-boxes";
-import { CENTER_PANE_LAYOUT_MOTION_MS } from "@/app-shell/center-pane/center-pane-layout-motion";
 import {
   collectSavedSurfaces,
   isToolSurfaceKind,
@@ -238,7 +238,6 @@ import { useConnectionStore } from "@/features/connection/store/connection-store
 import { useUiPrefStore } from "@/shared/stores/use-ui-pref-store";
 import { CenterStageSurface } from "@/app-shell/center-stage-chrome";
 import {
-  CENTER_STAGE_CARD_CLASS,
   CENTER_STAGE_GUTTER_CLASS,
   CENTER_STAGE_SHELL_CLASS,
 } from "@/app-shell/sidebar-layout-constants";
@@ -337,7 +336,7 @@ const CenterStage: React.FC = () => {
   } = useContextParams();
   const hydrateCenterSpaces = useCenterSpaceStore((s) => s.hydrate);
   const syncCenterSpacesFromDisk = useCenterSpaceStore((s) => s.syncFromDisk);
-  React.useEffect(() => {
+  React.useLayoutEffect(() => {
     hydrateCenterSpaces();
     void syncCenterSpacesFromDisk();
   }, [hydrateCenterSpaces, syncCenterSpacesFromDisk]);
@@ -512,12 +511,21 @@ const CenterStage: React.FC = () => {
   const storedWikiPage = useCenterStageWikiPage(effectiveContextId);
   const lastTabForPaint = storedLastTab;
   if (paintContextJustChanged) {
-    const leftoverDeepLink =
-      (Boolean(terminalTmux?.trim()) &&
-        terminalTmux === previousDeepLinkRef.current.tmux) ||
-      (Boolean(sideChat?.trim()) &&
-        sideChat === previousDeepLinkRef.current.sideChat);
-    if (leftoverDeepLink) ignoreLeftoverDeepLinkRef.current = true;
+    if (
+      (terminalTmux?.trim() || sideChat?.trim()) &&
+      !shouldHonorUrlTabForPaintContext({
+        tabFromUrl,
+        paintId: effectiveContextId,
+        previousPaintId: previousPaintIdForUrl,
+        lastTab: lastTabForPaint,
+        terminalTmux,
+        sideChat,
+        previousTerminalTmux: previousDeepLinkRef.current.tmux,
+        previousSideChat: previousDeepLinkRef.current.sideChat,
+      })
+    ) {
+      ignoreLeftoverDeepLinkRef.current = true;
+    }
     if (previousPaintIdForUrl && tabFromUrl && tabFromUrl !== lastTabForPaint) {
       blockedUrlTabRef.current = tabFromUrl;
     }
@@ -1419,7 +1427,9 @@ const CenterStage: React.FC = () => {
         targetSpaceId === DEFAULT_CENTER_SPACE_ID ||
         hostSpaces.some((space) => space.id === targetSpaceId);
       if (targetSpaceExists && liveActiveSpaceId !== targetSpaceId) {
-        void switchCenterSpace(liveHostContextId, targetSpaceId);
+        void switchCenterSpace(liveHostContextId, targetSpaceId, {
+          preserveDeepLink: true,
+        });
         return;
       }
       if (
@@ -2193,12 +2203,6 @@ const CenterStage: React.FC = () => {
   ]);
   navigateCenterTabRef.current = handleCenterStageTabChange;
 
-  useCenterStageKeyboardShortcuts({
-    effectiveContextId,
-    handleCenterStageTabChange,
-    visibleTerminalTabs,
-  });
-
   const {
     groupedTabItems,
     handleTabGroupDragEnd,
@@ -2395,7 +2399,7 @@ const CenterStage: React.FC = () => {
   const activeFullscreenPaneId =
     isCenterFullscreen ? fullscreenPaneId : null;
 
-  React.useEffect(() => {
+  React.useLayoutEffect(() => {
     hydratePaneLayout();
     // Instant localStorage cache, then fill/migrate from ~/.atmos when empty.
     hydrateSavedLayouts();
@@ -2416,7 +2420,10 @@ const CenterStage: React.FC = () => {
 
   const resolvedPaneLayout = React.useMemo(() => {
     if (paneLayout) return paneLayout;
-    if (isExtraCenterSpaceKey(mosaicContextId)) {
+    // Before localStorage hydrate, a computed default would flash a 1-pane
+    // terminal over a stored split. Extra spaces stay empty; hosts stay on a
+    // single Term placeholder that ensureLayout will not persist yet.
+    if (!paneLayoutHydrated || isExtraCenterSpaceKey(mosaicContextId)) {
       return createEmptyCenterLayout();
     }
     // During a hop the deferred open-tab list still belongs to the previous
@@ -2434,6 +2441,7 @@ const CenterStage: React.FC = () => {
     mosaicContextId,
     openTabIdList,
     paneLayout,
+    paneLayoutHydrated,
     renderContextId,
   ]);
 
@@ -2463,12 +2471,33 @@ const CenterStage: React.FC = () => {
     renderContextId,
   ]);
   const isMultiPane = resolvedPaneLayout.order.length > 1;
+  const focusedStripTabIds = React.useMemo(() => {
+    const focusedPane =
+      resolvedPaneLayout.panes.find((pane) => pane.id === resolvedPaneLayout.focusedPaneId) ??
+      resolvedPaneLayout.panes[0];
+    return resolveCenterStripShortcutTabIds({
+      membershipIds: defaultStripTabIds,
+      paneTabIds: focusedPane?.tabIds ?? null,
+      savedStripOrder: contextStripOrder,
+      constrainToPane: isMultiPane,
+    });
+  }, [
+    contextStripOrder,
+    defaultStripTabIds,
+    isMultiPane,
+    resolvedPaneLayout.focusedPaneId,
+    resolvedPaneLayout.panes,
+  ]);
+  useCenterStageKeyboardShortcuts({
+    effectiveContextId,
+    handleCenterStageTabChange,
+    orderedTabValues: focusedStripTabIds,
+  });
   const paneCount = resolvedPaneLayout.order.length;
   const prevLayoutContextRef = React.useRef<{
     contextId: string;
     paneCount: number;
   } | null>(null);
-  const [mosaicHold, setMosaicHold] = React.useState(false);
   const persistCollapsedStripContextRef = React.useRef<{
     contextId: string;
     order: string[];
@@ -2481,7 +2510,7 @@ const CenterStage: React.FC = () => {
     nextPaneCount: paneCount,
   };
   const seedFromFullPane = shouldSeedMosaicFromFullPane(paneCountTransition);
-  if (shouldHoldMosaicAfterCollapse(paneCountTransition) && renderContextId) {
+  if (shouldPersistCollapsedStripOrder(paneCountTransition) && renderContextId) {
     const remainingId = resolvedPaneLayout.order[0];
     const remaining =
       resolvedPaneLayout.panes.find((pane) => pane.id === remainingId) ??
@@ -2494,26 +2523,11 @@ const CenterStage: React.FC = () => {
       remainingTabIds: remaining?.tabIds,
     });
     if (persist) persistCollapsedStripContextRef.current = persist;
-    if (!mosaicHold) setMosaicHold(true);
-  } else if (
-    prevLayoutContext &&
-    mosaicContextId &&
-    prevLayoutContext.contextId !== mosaicContextId &&
-    mosaicHold
-  ) {
-    setMosaicHold(false);
-  }
-  if (paneCount > 1 && mosaicHold) {
-    setMosaicHold(false);
   }
   prevLayoutContextRef.current = {
     contextId: mosaicContextId,
     paneCount,
   };
-  const showMosaic =
-    isMultiPane ||
-    mosaicHold ||
-    (isExtraCenterSpace && isFreshEmptyCenterLayout(resolvedPaneLayout));
   React.useEffect(() => {
     const pending = persistCollapsedStripContextRef.current;
     if (!pending) return;
@@ -2524,17 +2538,6 @@ const CenterStage: React.FC = () => {
     }
   }, [paneCount, renderContextId]);
   React.useEffect(() => {
-    if (!mosaicHold) return;
-    const reduce =
-      typeof window !== "undefined" &&
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const timer = window.setTimeout(
-      () => setMosaicHold(false),
-      reduce ? 0 : CENTER_PANE_LAYOUT_MOTION_MS,
-    );
-    return () => window.clearTimeout(timer);
-  }, [mosaicHold]);
-  React.useEffect(() => {
     setCenterFullscreen(false);
   }, [mosaicContextId, setCenterFullscreen]);
   React.useEffect(() => {
@@ -2543,29 +2546,29 @@ const CenterStage: React.FC = () => {
       setCenterFullscreen(false);
     }
   }, [activeFullscreenPaneId, resolvedPaneLayout.order, setCenterFullscreen]);
+  // Always overlay-host keep-alive panels (even for one pane). Switching
+  // them between in-flow Tabs and the overlay remounts xterm/webview.
   const paneSlotBoxes = useCenterPaneSlotBoxes(
     panelHostRef,
     resolvedPaneLayout,
-    showMosaic,
+    true,
     mosaicContextId,
     activeFullscreenPaneId,
   );
-  const multiActiveTabIds = React.useMemo(() => {
-    if (!showMosaic) return null;
-    // Always pass a list when multi-pane so content slots position correctly
-    // even if only one pane has an active tab (others empty).
-    return collectActiveTabIds(resolvedPaneLayout);
-  }, [resolvedPaneLayout, showMosaic]);
-  const tabToPaneId = React.useMemo(() => {
-    if (!showMosaic) return null;
-    return buildTabToPaneId(resolvedPaneLayout);
-  }, [resolvedPaneLayout, showMosaic]);
+  const multiActiveTabIds = React.useMemo(
+    () => collectActiveTabIds(resolvedPaneLayout),
+    [resolvedPaneLayout],
+  );
+  const tabToPaneId = React.useMemo(
+    () => buildTabToPaneId(resolvedPaneLayout),
+    [resolvedPaneLayout],
+  );
   const focusedPaneIdRef = React.useRef(resolvedPaneLayout.focusedPaneId);
   focusedPaneIdRef.current = resolvedPaneLayout.focusedPaneId;
 
   const handleOverlayPaneInteraction = React.useCallback(
     (event: { target: EventTarget | null }) => {
-      if (!showMosaic || !mosaicWriteContextId) return;
+      if (!mosaicWriteContextId) return;
       const paneId = paneIdFromOverlayEventTarget(event.target);
       if (
         !shouldFocusOwningPane({
@@ -2577,11 +2580,10 @@ const CenterStage: React.FC = () => {
       }
       focusCenterPane(mosaicWriteContextId, paneId!);
     },
-    [focusCenterPane, mosaicWriteContextId, showMosaic],
+    [focusCenterPane, mosaicWriteContextId],
   );
 
   React.useEffect(() => {
-    if (!showMosaic) return;
     const onCapture = (event: Event) => {
       handleOverlayPaneInteraction(event);
     };
@@ -2593,7 +2595,7 @@ const CenterStage: React.FC = () => {
       document.removeEventListener("pointerdown", onCapture, true);
       document.removeEventListener("focusin", onCapture, true);
     };
-  }, [handleOverlayPaneInteraction, showMosaic]);
+  }, [handleOverlayPaneInteraction]);
 
   const handleSplitRight = React.useCallback(() => {
     if (!mosaicWriteContextId) return;
@@ -2838,6 +2840,7 @@ const CenterStage: React.FC = () => {
         setWikiRefreshing={setWikiRefreshing}
         setWikiRefreshTrigger={setWikiRefreshTrigger}
         paneId={layoutPaneId}
+        isMultiPane={isMultiPane}
         onSplitRight={handleSplitRight}
         onSplitDown={handleSplitDown}
         savedLayouts={savedLayouts.map((layout) => ({
@@ -2856,7 +2859,7 @@ const CenterStage: React.FC = () => {
       activeValue={activeValue}
       activeTabIds={multiActiveTabIds}
       tabToPaneId={tabToPaneId}
-      paneSlotBoxes={isMultiPane ? paneSlotBoxes : null}
+      paneSlotBoxes={paneSlotBoxes}
       fullscreenPaneId={activeFullscreenPaneId}
       browserTabs={browserTabs}
       codeReviewTabVisible={codeReviewTabVisible}
@@ -2926,8 +2929,7 @@ const CenterStage: React.FC = () => {
         ref={centerStageFullscreenRef}
         className={cn(CENTER_STAGE_SHELL_CLASS, CENTER_STAGE_GUTTER_CLASS)}
       >
-      {showMosaic ? (
-        <div data-center-stage-card="" className="desktop-no-drag relative min-h-0 flex-1">
+      <div data-center-stage-card="" className="desktop-no-drag relative min-h-0 flex-1 isolate">
           <div className="absolute inset-0 min-h-0">
             <CenterPaneGrid
               layout={resolvedPaneLayout}
@@ -3058,24 +3060,6 @@ const CenterStage: React.FC = () => {
             {panels}
           </div>
         </div>
-      ) : (
-        <Tabs
-          value={activeValue}
-          onValueChange={(value) => handleCenterStageTabChange(value)}
-          // isolate helps clip xterm WebGL to the rounded card corners.
-          data-center-stage-card=""
-          className={cn(
-            "flex min-h-0 flex-1 flex-col gap-0 isolate",
-            CENTER_STAGE_CARD_CLASS,
-          )}
-        >
-          {renderTabBar({
-            paneId: resolvedPaneLayout.order[0],
-            activeTabId: activeValue,
-          })}
-          {panels}
-        </Tabs>
-      )}
 
       <CenterStageTabContextMenu
         tabContextMenu={tabContextMenu}

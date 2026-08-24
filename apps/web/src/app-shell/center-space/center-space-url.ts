@@ -4,7 +4,13 @@
  */
 
 import { readCenterStageLastTab } from "@/shared/stores/use-ui-pref-hooks";
-import { CENTER_SPACE_KEY_MARK } from "@/app-shell/center-space/center-space";
+import {
+  CENTER_SPACE_KEY_MARK,
+  DEFAULT_CENTER_SPACE_ID,
+  hostIdFromCenterKey,
+  parseCenterSpaceKey,
+} from "@/app-shell/center-space/center-space";
+import { spaceIdFromTmuxWindowName } from "@/features/terminal/store/terminal-store-helpers";
 
 const CONTEXT_ENCODED_TAB_PREFIXES = [
   "github-pr:",
@@ -120,10 +126,45 @@ export function shouldKeepExplicitTabOnHostHop(input: {
   return true;
 }
 
+function isLeftoverUrlDeepLink(input: {
+  paintId: string | null | undefined;
+  previousPaintId?: string | null;
+  terminalTmux?: string | null;
+  sideChat?: string | null;
+  previousTerminalTmux?: string | null;
+  previousSideChat?: string | null;
+  ignoreLeftoverDeepLink?: boolean;
+}): boolean {
+  const tmux = input.terminalTmux?.trim() || "";
+  const side = input.sideChat?.trim() || "";
+  if (!tmux && !side) return false;
+  if (tmux) {
+    const tmuxSpace = spaceIdFromTmuxWindowName(tmux);
+    const destSpace = parseCenterSpaceKey(input.paintId ?? "").spaceId;
+    if (tmuxSpace !== DEFAULT_CENTER_SPACE_ID) {
+      return tmuxSpace !== destSpace;
+    }
+  }
+  if (input.ignoreLeftoverDeepLink) return true;
+  const paintChanged =
+    Boolean(input.previousPaintId) && input.previousPaintId !== input.paintId;
+  if (!paintChanged) return false;
+  const prevHost = hostIdFromCenterKey(input.previousPaintId ?? "");
+  const destHost = hostIdFromCenterKey(input.paintId ?? "");
+  if (prevHost && destHost && prevHost === destHost) return false;
+  return (
+    (Boolean(tmux) && tmux === (input.previousTerminalTmux ?? "").trim()) ||
+    (Boolean(side) && side === (input.previousSideChat ?? "").trim())
+  );
+}
+
 /**
- * Whether CenterStage may follow `?tab=` for this paint context.
- * Generic leftover tokens from a previous space/workspace must not open
- * tools or skip last-tab restore on the destination.
+ * Whether CenterStage may follow `?tab=` / `terminalTmux` / `sideChat` for this
+ * paint context. Generic leftover tokens from a previous space/workspace must
+ * not open tools or skip last-tab restore on the destination.
+ *
+ * Agent footer jumps often omit `tab` and only send `terminalTmux`; those still
+ * count as a real deep link when they are not leftover chrome.
  */
 export function shouldHonorUrlTabForPaintContext(input: {
   tabFromUrl: string | null | undefined;
@@ -138,23 +179,21 @@ export function shouldHonorUrlTabForPaintContext(input: {
   /** Leftover `?tab=` from the previous paint context, held until URL rewrites. */
   blockedUrlTab?: string | null;
 }): boolean {
-  const tab = input.tabFromUrl;
-  if (!tab || !input.paintId) return false;
+  if (!input.paintId) return false;
 
+  const tab = input.tabFromUrl;
   const paintChanged =
     Boolean(input.previousPaintId) && input.previousPaintId !== input.paintId;
 
   const tmux = input.terminalTmux?.trim() || "";
   const side = input.sideChat?.trim() || "";
   if (tmux || side) {
-    const leftoverDeepLink =
-      Boolean(input.ignoreLeftoverDeepLink) ||
-      (paintChanged &&
-        ((Boolean(tmux) && tmux === (input.previousTerminalTmux ?? "").trim()) ||
-          (Boolean(side) && side === (input.previousSideChat ?? "").trim())));
-    if (!leftoverDeepLink) return true;
+    if (!isLeftoverUrlDeepLink(input)) return true;
+    if (!tab) return false;
     return input.lastTab === tab;
   }
+
+  if (!tab) return false;
 
   if (paintIdFromEncodedTab(tab)) {
     return tabValueBelongsToPaintContext(tab, input.paintId);

@@ -742,6 +742,27 @@ export function shouldAttachActiveTabToFocusedPane(
   return !layout.panes.some((pane) => pane.tabIds.includes(tabId));
 }
 
+export type CenterTabAttachPlan =
+  | { action: "open" }
+  | { action: "reveal"; paneId: string };
+
+/**
+ * URL/chrome activation must not steal an already-owned tab onto the focused
+ * pane. Reveal the owning pane instead; only brand-new tabs attach there.
+ */
+export function planCenterTabAttach(
+  layout: CenterPaneLayout | null | undefined,
+  tabId: string | null | undefined,
+): CenterTabAttachPlan {
+  if (!tabId) return { action: "open" };
+  if (!layout || shouldAttachActiveTabToFocusedPane(layout, tabId)) {
+    return { action: "open" };
+  }
+  const paneId = findPaneIdForTab(layout, tabId);
+  if (!paneId) return { action: "open" };
+  return { action: "reveal", paneId };
+}
+
 /** Open or activate a tab on the focused pane; remove from any other pane. */
 export function openTabOnFocusedPane(layout: CenterPaneLayout, tabId: string): CenterPaneLayout {
   // Overview always lands on the primary pane.
