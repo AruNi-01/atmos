@@ -5019,6 +5019,9 @@
             "localServices": {
               "label": "Local Services"
             },
+            "resourceMonitor": {
+              "label": "Resource Monitor"
+            },
             "aiQuotaUsageCarousel": {
               "label": "AI Quota Usage carousel"
             },
@@ -6041,6 +6044,8 @@
         "wsConnectionDescription": "Show live connection state and active WebSocket clients in the footer.",
         "localServicesTitle": "Local Services",
         "localServicesDescription": "Show Project and Workspace local services in the footer.",
+        "resourceMonitorTitle": "Resource Monitor",
+        "resourceMonitorDescription": "Show host CPU and memory in the footer.",
         "usageCarouselTitle": "AI Quota Usage carousel",
         "usageCarouselDescription": "Rotate enabled quota usage summaries in the footer. Provider picks and the master switch in Quota Usage also apply here.",
         "agentStatusTitle": "Agent Status Panel",
@@ -8179,6 +8184,45 @@
       "triggerLabel": "Local {count}",
       "refresh": "Refresh",
       "emptyLabel": "No local services found."
+    }
+  },
+  "resourceMonitor": {
+    "footerItem": {
+      "title": "Resource Monitor",
+      "compact": "CPU {cpu} · {memory}",
+      "compactUnavailable": "CPU — · —"
+    },
+    "popover": {
+      "title": "Resource Monitor",
+      "host": "Host",
+      "cpu": "CPU",
+      "memory": "Memory",
+      "logicalCpus": "{count} logical CPUs",
+      "desktop": "Desktop",
+      "desktopTotal": "Desktop total",
+      "desktopGroup": {
+        "main": "Main",
+        "renderer": "Renderer",
+        "gpu": "GPU",
+        "utility": "Utility",
+        "other": "Other"
+      },
+      "desktopLoading": "Loading desktop shell metrics",
+      "desktopUnsupported": "Desktop shell metrics are unavailable.",
+      "atmos": "Atmos",
+      "server": "Atmos Server",
+      "sharedRuntime": "Shared runtime",
+      "projects": "Projects",
+      "projectSessions": "Project sessions",
+      "unnamedSession": "Untitled session",
+      "noSessions": "No attributed sessions",
+      "unattributed": "Unattributed",
+      "loading": "Loading resource snapshot",
+      "stale": "Showing last snapshot",
+      "unsupported": "Process attribution is unavailable on this computer.",
+      "disconnected": "Not connected",
+      "empty": "No attributed projects",
+      "partial": "Some processes could not be attributed."
     }
   },
   "shared": {

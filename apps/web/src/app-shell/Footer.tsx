@@ -38,6 +38,8 @@ import { useExperimentSettingsStore } from '@/features/settings/store/experiment
 import { useLayoutSettingsStore } from '@/features/settings/store/layout-settings-store';
 import { useAppRouter } from '@/shared/hooks/use-app-router';
 import { LocalServicesFooterItem } from '@/features/local-services/components/LocalServicesFooterItem';
+import { ResourceMonitorFooterItem } from '@/features/resource-monitor/components/ResourceMonitorFooterItem';
+import { effectiveShowResourceMonitor as resolveEffectiveShowResourceMonitor } from '@/features/resource-monitor/lib/resource-monitor-footer-visibility';
 import {
   isAgentHookSideChatSession,
   navigateToAgentHookSessionPane,
@@ -420,6 +422,12 @@ const Footer: React.FC = () => {
   const loadExperimentSettings = useExperimentSettingsStore((s) => s.loadSettings);
   const showWsConnection = useLayoutSettingsStore((s) => s.showWsConnection);
   const showLocalServices = useLayoutSettingsStore((s) => s.showLocalServices);
+  const layoutLoaded = useLayoutSettingsStore((s) => s.loaded);
+  const showResourceMonitor = useLayoutSettingsStore((s) => s.showResourceMonitor);
+  const effectiveShowResourceMonitor = resolveEffectiveShowResourceMonitor(
+    layoutLoaded,
+    showResourceMonitor,
+  );
   const showUsageCarousel = useLayoutSettingsStore((s) => s.showUsageCarousel);
   const showAgentStatus = useLayoutSettingsStore((s) => s.showAgentStatus);
   const loadLayoutSettings = useLayoutSettingsStore((s) => s.loadSettings);
@@ -491,7 +499,7 @@ const Footer: React.FC = () => {
 
   const showLeftCarousel = showUsageCarousel && Boolean(usageCarouselItem);
   const showWsStatus = showWsConnection && connectionState !== "connected";
-  const showLeft = showWsStatus || showLocalServices || showLeftCarousel;
+  const showLeft = showWsStatus || showLocalServices || effectiveShowResourceMonitor || showLeftCarousel;
   const showRightAgent = showAgentStatus;
   const showRightAcp = launchpadAgentsEnabled;
   const showRight = showRightAgent || showRightAcp;
@@ -532,13 +540,19 @@ const Footer: React.FC = () => {
               </TooltipContent>
             </Tooltip>
           ) : null}
-          {showWsStatus && (showLocalServices || showLeftCarousel) ? (
+          {showWsStatus && (showLocalServices || effectiveShowResourceMonitor || showLeftCarousel) ? (
             <div className="h-3 w-px bg-border" />
           ) : null}
           {showLocalServices ? (
             <LocalServicesFooterItem />
           ) : null}
-          {showLocalServices && showLeftCarousel ? (
+          {showLocalServices && (effectiveShowResourceMonitor || showLeftCarousel) ? (
+            <div className="h-3 w-px bg-border" />
+          ) : null}
+          {effectiveShowResourceMonitor ? (
+            <ResourceMonitorFooterItem />
+          ) : null}
+          {effectiveShowResourceMonitor && showLeftCarousel ? (
             <div className="h-3 w-px bg-border" />
           ) : null}
           {showLeftCarousel && usageCarouselItem ? (

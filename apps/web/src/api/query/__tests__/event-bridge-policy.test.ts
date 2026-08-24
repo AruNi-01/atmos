@@ -11,6 +11,7 @@
  *  quota_overview_updated          → setQueryData  (complete snapshot)
  *  token_usage_updated             → invalidateQueries (tokenUsage root)
  *  local_services_updated          → setQueryData (all_atmos) + invalidate other scan keys
+ *  resource_monitor_updated        → setQueryData (scoped snapshot, no refetch)
  *  local_model_state_changed       → invalidateQueries (localModelList)
  *  automation_definition_updated   → invalidateQueries (automationList)
  *  automation_run_updated          → invalidateQueries (automations/runs prefix)
@@ -25,6 +26,8 @@ import type { LocalServicesScanResponse } from "@/api/ws/local-services-api";
 import { applyQuotaOverviewUpdated } from "@/features/quota-usage/lib/quota-query-events";
 import { invalidateTokenUsageQueries } from "@/features/quota-usage/lib/token-usage-query-options";
 import { applyLocalServicesUpdated } from "@/features/local-services/lib/local-services-query-events";
+import { applyResourceMonitorUpdated } from "@/features/resource-monitor/lib/resource-monitor-query-events";
+import type { ResourceMonitorSnapshot } from "@/api/ws/resource-monitor-api";
 import { localServicesScopeKey } from "@/features/local-services/store/local-services-store";
 import { invalidateLocalModelQueries } from "@/features/local-services/lib/local-model-query-options";
 import {
@@ -38,6 +41,7 @@ import {
   getLocalModelBridgeSubscriberCount,
   getAutomationDefinitionBridgeSubscriberCount,
   getAutomationRunBridgeSubscriberCount,
+  getResourceMonitorBridgeSubscriberCount,
 } from "@/providers/app/server-state-event-bridge";
 import { createAtmosWebQueryClient } from "@/providers/app/query-client";
 
@@ -64,6 +68,26 @@ function makeQuotaOverview(ts = 1_700_000_000): QuotaOverviewResponse {
     },
     partial_failures: [],
     auto_refresh: { interval_minutes: null },
+  };
+}
+
+function makeResourceMonitorSnapshot(
+  collectedAtMs = 1_700_000_000,
+): ResourceMonitorSnapshot {
+  const usage = { cpu_percent: 1.5, memory_rss_bytes: 1024, process_count: 1 };
+  return {
+    collected_at_ms: collectedAtMs,
+    host: {
+      cpu_percent: 12,
+      memory_used_bytes: 8_000_000_000,
+      memory_total_bytes: 16_000_000_000,
+      logical_cpu_count: 8,
+    },
+    server: usage,
+    shared_runtime: usage,
+    projects: [],
+    unattributed: { cpu_percent: 0, memory_rss_bytes: 0, process_count: 0 },
+    attribution_status: "complete",
   };
 }
 
@@ -318,6 +342,53 @@ describe("event-bridge-policy", () => {
       expect(client.getQueryState(contextKey)?.isInvalidated).toBe(true);
     });
 
+    test("resource_monitor_updated (complete): sets scoped snapshot without invalidation", () => {
+      const client = createAtmosWebQueryClient();
+      const key = queryKeys.computer.resourceMonitorSnapshot(scope);
+      const snapshot = makeResourceMonitorSnapshot(42);
+
+      const applied = applyResourceMonitorUpdated(client, scope, snapshot);
+
+      expect(applied).toBe(true);
+      expect(client.getQueryData(key)).toEqual(snapshot);
+      expect(client.getQueryState(key)?.isInvalidated).toBe(false);
+      expect(client.getQueryState(key)?.fetchStatus).toBe("idle");
+    });
+
+    test("resource_monitor_updated is isolated from other Computer scopes", () => {
+      const client = createAtmosWebQueryClient();
+      const otherScope: ComputerQueryScope = {
+        activeInstanceId: "relay:other",
+        connectionEpoch: 9,
+        relaySessionRevision: 4,
+      };
+      const snapshot = makeResourceMonitorSnapshot(99);
+
+      applyResourceMonitorUpdated(client, scope, snapshot);
+
+      expect(
+        client.getQueryData(queryKeys.computer.resourceMonitorSnapshot(otherScope)),
+      ).toBeUndefined();
+      expect(
+        client.getQueryData(queryKeys.computer.resourceMonitorSnapshot(scope)),
+      ).toEqual(snapshot);
+    });
+
+    test("resource_monitor_updated rejects partial payload", () => {
+      const client = createAtmosWebQueryClient();
+      const key = queryKeys.computer.resourceMonitorSnapshot(scope);
+      const seed = makeResourceMonitorSnapshot(1);
+      client.setQueryData(key, seed);
+
+      const applied = applyResourceMonitorUpdated(client, scope, {
+        collected_at_ms: 2,
+        host: { cpu_percent: 1 },
+      });
+
+      expect(applied).toBe(false);
+      expect(client.getQueryData(key)).toEqual(seed);
+    });
+
     test("local_services_updated rejects partial payload", () => {
       const client = createAtmosWebQueryClient();
       const allKey = queryKeys.computer.localServicesScan(
@@ -376,6 +447,7 @@ describe("event-bridge-policy", () => {
       expect(typeof getLocalModelBridgeSubscriberCount()).toBe("number");
       expect(typeof getAutomationDefinitionBridgeSubscriberCount()).toBe("number");
       expect(typeof getAutomationRunBridgeSubscriberCount()).toBe("number");
+      expect(typeof getResourceMonitorBridgeSubscriberCount()).toBe("number");
     });
 
     test("subscriber count helpers are non-negative", () => {
@@ -385,6 +457,7 @@ describe("event-bridge-policy", () => {
       expect(getLocalModelBridgeSubscriberCount()).toBeGreaterThanOrEqual(0);
       expect(getAutomationDefinitionBridgeSubscriberCount()).toBeGreaterThanOrEqual(0);
       expect(getAutomationRunBridgeSubscriberCount()).toBeGreaterThanOrEqual(0);
+      expect(getResourceMonitorBridgeSubscriberCount()).toBeGreaterThanOrEqual(0);
     });
   });
 });

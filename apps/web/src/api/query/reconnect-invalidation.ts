@@ -22,6 +22,7 @@ export function reconnectInvalidationKeys(scope: ComputerQueryScope): QueryKey[]
     [...queryKeys.computer.root(scope), "review"] as const,
     [...queryKeys.computer.root(scope), "localModels"] as const,
     [...queryKeys.computer.root(scope), "localServices"] as const,
+    [...queryKeys.computer.root(scope), "resourceMonitor"] as const,
     [...queryKeys.computer.root(scope), "agentRegistry"] as const,
   ];
 }

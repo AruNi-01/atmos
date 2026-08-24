@@ -165,6 +165,9 @@ const SETTINGS_TOPIC_KEYWORDS: Record<string, readonly string[]> = {
     "footer layout",
     "websocket connection status",
     "local services",
+    "resource monitor",
+    "cpu",
+    "memory",
     "ai quota usage carousel",
     "agent status panel",
     "launchpad",
@@ -585,6 +588,9 @@ const SETTINGS_TOPIC_ITEMS: Record<string, readonly SettingsSearchItemDefinition
     }),
     settingsModalSearchItem("layout.localServices", {
       keywords: ["project local services", "workspace local services"],
+    }),
+    settingsModalSearchItem("layout.resourceMonitor", {
+      keywords: ["resource monitor", "cpu", "memory", "host usage"],
     }),
     settingsModalSearchItem("layout.aiQuotaUsageCarousel", {
       keywords: ["usage summaries", "provider picks", "ai usage"],

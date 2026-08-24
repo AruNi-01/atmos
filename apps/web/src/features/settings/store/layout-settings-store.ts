@@ -9,6 +9,7 @@ export type ProjectFilesSide = 'left' | 'right';
 export interface FooterLayoutPrefs {
   showWsConnection: boolean;
   showLocalServices: boolean;
+  showResourceMonitor: boolean;
   showUsageCarousel: boolean;
   showAgentStatus: boolean;
 }
@@ -50,6 +51,7 @@ interface LayoutSettingsState extends FooterLayoutPrefs, HeaderLayoutPrefs {
   setWorkspaceSidebarAgentTwoColumn: (value: boolean) => Promise<void>;
   setFooterShowWsConnection: (value: boolean) => Promise<void>;
   setFooterShowLocalServices: (value: boolean) => Promise<void>;
+  setFooterShowResourceMonitor: (value: boolean) => Promise<void>;
   setFooterShowUsageCarousel: (value: boolean) => Promise<void>;
   setFooterShowAgentStatus: (value: boolean) => Promise<void>;
   setHeaderShowSummary: (value: boolean) => Promise<void>;
@@ -67,6 +69,7 @@ function readFooterLayout(layout: Record<string, unknown> | undefined): FooterLa
   return {
     showWsConnection: layout?.footer_show_ws_connection !== false,
     showLocalServices: layout?.footer_show_local_services !== false,
+    showResourceMonitor: layout?.footer_show_resource_monitor !== false,
     showUsageCarousel: layout?.footer_show_usage_carousel !== false,
     showAgentStatus: layout?.footer_show_agent_status !== false,
   };
@@ -122,6 +125,7 @@ export const useLayoutSettingsStore = create<LayoutSettingsState>((set, get) => 
     workspaceSidebarAgentTwoColumn: false,
     showWsConnection: true,
     showLocalServices: true,
+    showResourceMonitor: true,
     showUsageCarousel: true,
     showAgentStatus: true,
     showHeaderSummary: true,
@@ -233,6 +237,9 @@ export const useLayoutSettingsStore = create<LayoutSettingsState>((set, get) => 
 
     setFooterShowLocalServices: (value) =>
       updateLayoutSetting({ showLocalServices: value }, 'footer_show_local_services', value),
+
+    setFooterShowResourceMonitor: (value) =>
+      updateLayoutSetting({ showResourceMonitor: value }, 'footer_show_resource_monitor', value),
 
     setFooterShowUsageCarousel: (value) =>
       updateLayoutSetting({ showUsageCarousel: value }, 'footer_show_usage_carousel', value),

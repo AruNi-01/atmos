@@ -30,6 +30,7 @@ describe("reconnect-invalidation", () => {
       [...queryKeys.computer.root(scope), "review"],
       [...queryKeys.computer.root(scope), "localModels"],
       [...queryKeys.computer.root(scope), "localServices"],
+      [...queryKeys.computer.root(scope), "resourceMonitor"],
       [...queryKeys.computer.root(scope), "agentRegistry"],
     ]);
   });

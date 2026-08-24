@@ -478,6 +478,41 @@ export const apiOperationInventory = [
   },
 
   // ──────────────────────────────────────────────────────────────────────────
+  // EXTENDED: Resource monitor
+  // ──────────────────────────────────────────────────────────────────────────
+  {
+    domain: "resourceMonitor",
+    operation: "resourceMonitorGet",
+    transport: "websocket-request",
+    classification: "query",
+    legacyOwner: "ResourceMonitorFooterItem idle get",
+    queryKeyRoot: "queryKeys.computer.resourceMonitorSnapshot",
+    phase: "extended",
+    status: "complete",
+  },
+  {
+    domain: "resourceMonitor",
+    operation: "resourceMonitorSubscribe",
+    transport: "websocket-request",
+    classification: "query",
+    legacyOwner: "use-resource-monitor interactive subscribe",
+    queryKeyRoot: "queryKeys.computer.resourceMonitorSnapshot",
+    phase: "extended",
+    status: "complete",
+  },
+  {
+    domain: "resourceMonitor",
+    operation: "resourceMonitorUpdated",
+    transport: "websocket-event",
+    classification: "event",
+    legacyOwner: "ServerStateEventBridge setQueryData",
+    queryKeyRoot: "queryKeys.computer.resourceMonitorSnapshot",
+    invalidatedBy: ["resource_monitor_updated"],
+    phase: "extended",
+    status: "complete",
+  },
+
+  // ──────────────────────────────────────────────────────────────────────────
   // EXTENDED: Local models
   // ──────────────────────────────────────────────────────────────────────────
   {

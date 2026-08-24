@@ -30,6 +30,7 @@ export function LayoutSettingsSection() {
     workspaceSidebarAgentTwoColumn,
     showWsConnection,
     showLocalServices,
+    showResourceMonitor,
     showUsageCarousel,
     showAgentStatus,
     loadSettings,
@@ -45,6 +46,7 @@ export function LayoutSettingsSection() {
     setWorkspaceSidebarAgentTwoColumn,
     setFooterShowWsConnection,
     setFooterShowLocalServices,
+    setFooterShowResourceMonitor,
     setFooterShowUsageCarousel,
     setFooterShowAgentStatus,
   } = useLayoutSettingsStore();
@@ -64,7 +66,11 @@ export function LayoutSettingsSection() {
     workspaceSidebarGroupTwoColumn ||
     workspaceSidebarAgentTwoColumn;
   const footerEnabledCount =
-    Number(showWsConnection) + Number(showLocalServices) + Number(showUsageCarousel) + Number(showAgentStatus);
+    Number(showWsConnection) +
+    Number(showLocalServices) +
+    Number(showResourceMonitor) +
+    Number(showUsageCarousel) +
+    Number(showAgentStatus);
 
   React.useEffect(() => {
     loadSettings();
@@ -180,6 +186,12 @@ export function LayoutSettingsSection() {
           description={t('footer.localServicesDescription')}
           checked={showLocalServices}
           onCheckedChange={(checked) => void setFooterShowLocalServices(checked)}
+        />
+        <SettingsToggleRow
+          title={t('footer.resourceMonitorTitle')}
+          description={t('footer.resourceMonitorDescription')}
+          checked={showResourceMonitor}
+          onCheckedChange={(checked) => void setFooterShowResourceMonitor(checked)}
         />
         <SettingsToggleRow
           title={t('footer.usageCarouselTitle')}

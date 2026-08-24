@@ -530,6 +530,10 @@ export const queryKeys = {
     localServicesScan: (scope: ComputerQueryScope, scopeKey: string) =>
       [...queryKeys.computer.root(scope), "localServices", "scan", scopeKey] as const,
 
+    /** Resource monitor: latest Computer-scoped snapshot */
+    resourceMonitorSnapshot: (scope: ComputerQueryScope) =>
+      [...queryKeys.computer.root(scope), "resourceMonitor", "snapshot"] as const,
+
     /** Local models: installed model list + state */
     localModelList: (scope: ComputerQueryScope) =>
       [...queryKeys.computer.root(scope), "localModels", "list"] as const,

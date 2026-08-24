@@ -5019,6 +5019,9 @@
             "localServices": {
               "label": "本地服务"
             },
+            "resourceMonitor": {
+              "label": "资源监视器"
+            },
             "aiQuotaUsageCarousel": {
               "label": "AI 配额使用轮播"
             },
@@ -6041,6 +6044,8 @@
         "wsConnectionDescription": "在页脚显示实时连接状态和活动 WebSocket 客户端。",
         "localServicesTitle": "本地服务",
         "localServicesDescription": "在页脚显示 Project 和 Workspace 的本地服务。",
+        "resourceMonitorTitle": "资源监视器",
+        "resourceMonitorDescription": "在页脚显示主机 CPU 和内存用量。",
         "usageCarouselTitle": "AI 配额用量轮播",
         "usageCarouselDescription": "在页脚轮播已启用的配额用量摘要。Provider 选择和「配额用量」中的总开关同样适用于这里。",
         "agentStatusTitle": "Agent 状态面板",
@@ -8179,6 +8184,45 @@
       "triggerLabel": "本地 {count}",
       "refresh": "刷新",
       "emptyLabel": "未找到本地服务。"
+    }
+  },
+  "resourceMonitor": {
+    "footerItem": {
+      "title": "资源监视器",
+      "compact": "CPU {cpu} · {memory}",
+      "compactUnavailable": "CPU — · —"
+    },
+    "popover": {
+      "title": "资源监视器",
+      "host": "主机",
+      "cpu": "CPU",
+      "memory": "内存",
+      "logicalCpus": "{count} 个逻辑 CPU",
+      "desktop": "Desktop",
+      "desktopTotal": "Desktop 合计",
+      "desktopGroup": {
+        "main": "主进程",
+        "renderer": "渲染进程",
+        "gpu": "GPU",
+        "utility": "工具进程",
+        "other": "其他"
+      },
+      "desktopLoading": "正在加载 Desktop 壳层指标",
+      "desktopUnsupported": "无法获取 Desktop 壳层指标。",
+      "atmos": "Atmos",
+      "server": "Atmos Server",
+      "sharedRuntime": "共享运行时",
+      "projects": "项目",
+      "projectSessions": "项目会话",
+      "unnamedSession": "未命名会话",
+      "noSessions": "没有已归属的会话",
+      "unattributed": "未归属",
+      "loading": "正在加载资源快照",
+      "stale": "正在显示上次快照",
+      "unsupported": "此计算机无法进行进程归属。",
+      "disconnected": "未连接",
+      "empty": "没有已归属的项目",
+      "partial": "部分进程无法归属。"
     }
   },
   "shared": {

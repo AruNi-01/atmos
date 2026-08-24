@@ -62,6 +62,26 @@ describe("computer-query-options enablement", () => {
     expect(callerDisabled.enabled).toBe(false);
   });
 
+  test("wsQueryOptions preserves caller refetchInterval", () => {
+    const opts = wsQueryOptions({
+      scope,
+      connectionState: "connected",
+      queryKey: ["k"],
+      queryFn: async () => 1,
+      refetchInterval: 15_000,
+    });
+    expect(opts.refetchInterval).toBe(15_000);
+
+    const interactive = wsQueryOptions({
+      scope,
+      connectionState: "connected",
+      queryKey: ["k"],
+      queryFn: async () => 1,
+      refetchInterval: false,
+    });
+    expect(interactive.refetchInterval).toBe(false);
+  });
+
   test("wsQueryOptions retry stays off while disconnected", () => {
     const opts = wsQueryOptions({
       scope,
