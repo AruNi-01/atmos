@@ -469,7 +469,7 @@ export function ResourceMonitorHierarchy({
       ) : (
         projects.map((project, index) => (
           <ProjectBlock
-            key={`${sortKey}:${project.project_id}`}
+            key={project.project_id}
             project={project}
             liveTitles={liveTitles}
             workspacePanes={workspacePanes}

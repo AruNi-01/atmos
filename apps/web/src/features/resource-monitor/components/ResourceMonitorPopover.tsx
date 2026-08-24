@@ -165,7 +165,7 @@ export function ResourceMonitorPopover({
   return (
     <TooltipProvider delayDuration={250}>
       <div
-        className="flex max-h-[min(520px,70vh)] min-w-0 flex-col overflow-hidden"
+        className="flex max-h-[min(520px,90vh)] min-w-0 flex-col overflow-hidden"
         data-resource-monitor-state={state}
       >
         <header className="shrink-0 space-y-2 border-b border-border px-3 py-2">

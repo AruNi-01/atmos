@@ -110,7 +110,9 @@ export function ResourceMonitorHostChart({
             <Tooltip
               content={<HostTrendTooltip nowMs={nowMs} />}
               isAnimationActive={false}
+              allowEscapeViewBox={{ x: true, y: true }}
               cursor={{ stroke: "var(--color-border)" }}
+              wrapperStyle={{ zIndex: 20, pointerEvents: "none" }}
             />
             <Line
               type="monotone"
@@ -125,6 +127,7 @@ export function ResourceMonitorHostChart({
               type="monotone"
               dataKey="memory_percent"
               stroke="var(--color-foreground)"
+              strokeOpacity={0.55}
               strokeWidth={1.5}
               dot={false}
               isAnimationActive={false}
