@@ -16,12 +16,14 @@ This design implements M1–M7 with no new crate, database table, REST endpoint,
 | Transport | Computer metrics use the main WebSocket. Desktop shell metrics use existing Electron invoke IPC. |
 | Live lifecycle | Footer performs an idle snapshot request every 15 seconds; an open popover owns one 2.5-second WS subscription. |
 | Subscription delivery | Send full snapshots only to the subscribing connection; never global-broadcast resource events. |
-| History | No Server ring buffer. Client-side history is deferred with N1. |
+| History | No Server ring buffer or persistence. `apps/web` keeps at most 60 Host points from snapshots already requested by the Footer/subscription. |
 | Process types | Resource samples are separate from stop-oriented `ProcessSnapshot`. |
 | PID exposure | Root PIDs stay inside Rust services; wire DTOs contain aggregates only. |
 | Precision | Attribution is best-effort. Shared and unattributed usage remain visible. |
 | CPU meaning | `cpu_percent` is normalized to total logical host capacity, where the host is 0–100%. |
 | Memory meaning | On macOS, Host used matches btop: `(active + wired) × page_size` from Mach. Linux/Windows use `total − available`. Process groups use summed RSS/working-set bytes and need not add exactly to Host used. |
+| Terminal navigation | Resolve the live pane by ephemeral `session_id`, then navigate through the owning host, Center Space, Terminal tab, and stable tmux deep link. Never guess when the live pane cannot be resolved. |
+| Locate feedback | Use a short-lived blue terminal locate signal. Do not reuse agent-attention state, colors, persistence, filters, or API events. |
 
 ## Architecture overview
 
@@ -305,6 +307,54 @@ Popover:
 - Loading, stale, unsupported, disconnected, and empty states.
 - Scrollable body for many Workspaces.
 - Active session rows enrich the Server fallback name with the current frontend terminal title by `session_id`: `customLabel`, then canonical dynamic/OSC/agent display title. Numeric tmux window names are attach identities, not preferred display titles.
+- Host summary uses aligned CPU/memory values, bounded usage bars, and one 60-point CPU/memory percentage chart. The chart consumes existing Query/subscription snapshots and creates no additional timer or transport.
+- The hierarchy is a dense Name/CPU/Memory table with stable Name/CPU/Memory sorting. Only terminal-session rows are navigation actions.
+
+#### Terminal navigation and locate pulse
+
+```text
+Resource session click
+  -> resolve session_id in live workspacePanes
+  -> capture host / Center Space / Terminal tab / pane / tmux window
+  -> close popover without restoring focus to the Footer trigger
+  -> switchCenterSpace(..., preserveDeepLink: true)
+  -> route to /workspace or /project with tab + terminalTmux
+  -> existing CenterStage deep-link waits for the target grid and focuses pane
+  -> terminal locate store acknowledges the mounted active pane
+  -> one-shot blue ::after border pulse, then generation-safe cleanup
+```
+
+New terminal-owned public capability:
+
+```text
+apps/web/src/features/terminal/public/pane-location.ts
+apps/web/src/features/terminal/store/terminal-pane-locate-store.ts
+```
+
+Rules:
+
+- Resolve the owning Center Space from the live pane scope and namespaced tmux window; support default and extra spaces.
+- Route Project-direct sessions to `/project` and Workspace sessions to `/workspace`.
+- Use the existing `terminalTmux` CenterStage deep link when a tmux window exists. A live simple-PTY pane may be focused by the pending locate request after its tab mounts.
+- A locate request becomes active only when the matching pane is on the active surface, so a warm hidden Space cannot consume the pulse.
+- Pulse duration is approximately 2.4 seconds, uses the semantic info blue, and provides a non-animated short blue border under reduced motion.
+- Agent attention remains a separate sticky green/amber system.
+
+#### Client Host history
+
+```ts
+type ResourceHostHistoryPoint = {
+  received_at_ms: number; // Query local receive time; avoids remote clock skew
+  cpu_percent: number;
+  memory_percent: number;
+};
+```
+
+- Scope key includes `activeInstanceId`, `connectionEpoch`, and `relaySessionRevision`.
+- Keep only the current scope and at most 60 points.
+- Deduplicate the same snapshot receive timestamp.
+- Append only when a valid connected snapshot already reaches Query.
+- Closing the popover does not create or keep a second subscriber; hiding/unmounting the Footer drops the in-memory ring.
 
 Add `showResourceMonitor` to layout settings and a Settings → Layout toggle. Default enabled unless the stored setting is explicitly `false`.
 

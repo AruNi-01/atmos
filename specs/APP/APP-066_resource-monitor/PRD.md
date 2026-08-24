@@ -40,11 +40,13 @@
 - **M5 — Visible-only live updates**: Opening the Resource Monitor starts interactive updates; closing it stops the interactive subscription. The first useful snapshot is available without waiting for the next periodic tick.
 - **M6 — Honest state**: The UI distinguishes loading, stale, unsupported, and partial-attribution states. Unknown ownership remains visible in a shared or unattributed bucket.
 - **M7 — Discoverable UI**: A configurable Footer item shows compact CPU and memory values and opens a popover containing the hierarchy and per-scope values. User-facing copy is localized in every web locale.
+- **M8 — Terminal navigation**: An attributed terminal-session row is actionable. Selecting it navigates to the owning Project or Workspace, activates the exact Center Space and Terminal tab, focuses the matching panel, and plays a short blue locate pulse distinct from agent-attention state.
+- **M9 — Diagnostic presentation**: The popover provides a clear Host summary, a useful client-side CPU/memory trend, aligned CPU and memory columns, and Name/CPU/Memory sorting without increasing Server sampling frequency.
 
 ### Nice to Have
 
-- **N1 — Live sparklines**: Keep a client-side ring of recent visible samples for CPU and memory sparklines.
-- **N2 — Sort and focus**: Sort scopes by CPU or memory and focus the current Workspace.
+- **N1 — Filter scopes**: Filter Project, Workspace, and terminal rows by name when the hierarchy is large.
+- **N2 — Focus current Workspace**: Highlight and optionally pin the active Workspace at the top of the hierarchy.
 - **N3 — Diagnostics detail**: An explicit diagnostics mode can reveal process counts and attribution reasons without exposing command lines by default.
 
 ## Out of Scope
@@ -56,11 +58,13 @@
 - **Arbitrary process explorer**: Do not expose the full host process table, command lines, or unrelated user processes.
 - **Mobile-specific UI**: Shared wire types may be consumed later, but v1 UI targets web and Desktop.
 - **Local shell while viewing remote Computer**: The local Electron shell is not merged into a remote host hierarchy.
+- **Cold terminal reconstruction**: A session that is no longer represented in the active frontend terminal store cannot be deep-linked by its ephemeral session ID; the UI must not guess a Center Space or panel.
 
 ## Success Metrics
 
 - **Leading**: A user can identify the highest attributed Project or Workspace from the Resource Monitor without opening an external process tool.
 - **Correctness**: Switching Computers or closing the popover never shows live values under the wrong Computer scope.
+- **Navigation**: Selecting a live terminal row lands on the correct Workspace/Project, Center Space, Terminal tab, and panel without reusing the agent-attention signal.
 - **Performance**: Interactive and idle overhead stay within the budgets defined by TEST.md.
 - **Qualitative**: Shared and unattributed rows make attribution limitations understandable rather than appearing as missing data.
 
@@ -76,4 +80,5 @@
 - **Phase 1**: M1, M2, M4, M5 — Server sampler, attribution, and Computer-scoped WebSocket contract.
 - **Phase 2**: M3 — Electron shell source.
 - **Phase 3**: M6, M7 — localized Footer and hierarchy popover.
-- **Phase 4**: N1 and N2 after v1 performance and usability verification.
+- **Phase 4**: M8, M9 — cross-Space terminal navigation, blue locate feedback, live Host trend, and sortable hierarchy.
+- **Phase 5**: N1 and N2 after the dense hierarchy is exercised at scale.

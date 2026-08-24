@@ -20,6 +20,8 @@
 | M5 | S7, S9 |
 | M6 | S2, S6, S13 |
 | M7 | S11, S13 |
+| M8 | S14, S15 |
+| M9 | S16 |
 
 ## Execution map
 
@@ -38,6 +40,9 @@
 | S11 | Bun test + E2E | `bun test`, Playwright | resource-monitor feature tests; `e2e/tests/specs/APP-066_resource-monitor.e2e.ts` if fixture supports metrics | Electron-local and hosted/relay modes | shell shown only for local Electron; Footer opens popover | planned |
 | S12 | Bun test | `bun test` | resource-monitor API lifecycle tests | scope changes while popover is open | unsubscribe targets captured old scope; new scope subscribes once | planned |
 | S13 | Bun test + agent-browser | `bun test`, `agent-browser` | UI states and exploratory checks | loading, stale, unsupported, partial, many Workspaces | actionable localized states; scrollable hierarchy; no layout overlap | planned |
+| S14 | Bun test + E2E | `bun test`, Playwright | terminal pane locate helpers and APP-066 E2E | one host with default and extra Center Spaces | exact host/Space/tab/pane route; session row is actionable | planned |
+| S15 | Bun test + E2E | `bun test`, Playwright | locate signal store/CSS and pane integration | repeated locate requests and reduced-motion mode | only target panel receives a finite blue pulse; agent attention is unchanged | planned |
+| S16 | Bun test + E2E | `bun test`, Playwright | history/sort helpers and APP-066 popover | 61 snapshots across two Computer scopes | 60-point isolated history; useful chart; stable Name/CPU/Memory sorting | planned |
 
 ## Scenarios
 
@@ -144,6 +149,30 @@
 - **When**: each state is rendered in light and dark themes.
 - **Then**: localized sentence-case copy explains the state, unattributed usage remains visible, and the hierarchy scrolls without covering Footer controls.
 - **Signals**: visible text, semantic state markers, no console error or clipped popover.
+
+### S14 — Terminal row navigates across Center Spaces
+
+- **Level**: Bun test + E2E
+- **Given**: an attributed terminal session whose live pane belongs to a non-active Center Space and a non-default Terminal tab.
+- **When**: the user selects that session row in Resource Monitor.
+- **Then**: Atmos closes the popover, activates the owning Project/Workspace, Center Space, and Terminal tab, focuses the exact pane, and does not restore focus to the Footer trigger.
+- **Signals**: route host/tab/tmux parameters, active Center Space, active pane, focused terminal element.
+
+### S15 — Located panel receives a blue one-shot pulse
+
+- **Level**: Bun test + E2E
+- **Given**: a terminal pane that may already have green/amber agent-attention state.
+- **When**: Resource Monitor navigation reaches the pane.
+- **Then**: a separate semantic-info blue border pulse plays once and clears generation-safely; agent-attention state and filters are unchanged. Reduced-motion mode uses a brief non-animated blue border.
+- **Signals**: terminal locate store generation, pane locate data/class, finite cleanup, unchanged attention store.
+
+### S16 — Host trend and sortable hierarchy remain Computer-scoped
+
+- **Level**: Bun test + E2E
+- **Given**: repeated snapshots for one Computer followed by a scope switch.
+- **When**: the popover is opened and sorting changes between Name, CPU, and Memory.
+- **Then**: the Host chart contains at most 60 existing snapshot points, never mixes Computers, creates no extra subscription, and the hierarchy uses stable sorting with aligned CPU/memory columns.
+- **Signals**: history ring contents, subscription count, sort output, visible chart/table controls.
 
 ## Performance & load budgets
 

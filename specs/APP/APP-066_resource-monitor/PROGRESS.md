@@ -4,11 +4,11 @@
 
 ## Status
 
-- **State**: ready_for_review
+- **State**: in_progress
 - **Branch**: `aarynlu/resource-monitor-8c97`
 - **Last updated**: 2026-08-25
 - **Current owner**: coordinator with Grok 4.6 implementation workers
-- **Current phase**: review
+- **Current phase**: web
 
 ## Snapshot
 
@@ -41,6 +41,7 @@
 - Fixed review findings covering subscription generation races, Relay app-close cleanup, WS backpressure, blocking path work, nested payload validation, and stale/partial UI states.
 - Added targeted Rust/Bun tests and a real Playwright Footer/popover journey.
 - Aligned macOS Host memory with btop's Mach accounting and enriched session rows with live terminal titles.
+- In progress: Activity Monitor + Raycast visual redesign, client Host history, sortable hierarchy, and cross-Center-Space terminal locate navigation.
 
 ## Decisions Since TECH
 
