@@ -27,6 +27,24 @@ function str(v: unknown): string {
   return typeof v === "string" ? v : String(v ?? "");
 }
 
+function parseOpenDialogFilters(
+  raw: unknown,
+): Array<{ name: string; extensions: string[] }> | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const filters: Array<{ name: string; extensions: string[] }> = [];
+  for (const item of raw) {
+    if (!item || typeof item !== "object") continue;
+    const rec = item as { name?: unknown; extensions?: unknown };
+    if (typeof rec.name !== "string" || !Array.isArray(rec.extensions)) continue;
+    const extensions = rec.extensions.filter(
+      (ext): ext is string => typeof ext === "string" && ext.length > 0,
+    );
+    if (extensions.length === 0) continue;
+    filters.push({ name: rec.name, extensions });
+  }
+  return filters.length > 0 ? filters : undefined;
+}
+
 /**
  * Resolve the BrowserWindow that invoked a desktop command (from main.ts inject).
  * Browser bridge uses this so standalone browser windows bind guests to the correct host.
@@ -258,14 +276,22 @@ export function createAllHandlers(
     async open_path_dialog(args) {
       const directory = Boolean(args.directory ?? true);
       const { dialog } = await electron();
-      const result = await dialog.showOpenDialog({
-        properties: directory
-          ? ["openDirectory", "createDirectory"]
-          : ["openFile"],
+      const win = await hostWindowFromArgs(args, state);
+      const filters = parseOpenDialogFilters(args.filters);
+      const properties: Array<"openDirectory" | "createDirectory" | "openFile"> = directory
+        ? ["openDirectory", "createDirectory"]
+        : ["openFile"];
+      const options = {
+        properties,
         defaultPath:
           typeof args.defaultPath === "string" ? args.defaultPath : undefined,
         title: typeof args.title === "string" ? args.title : undefined,
-      });
+        ...(filters ? { filters } : {}),
+      };
+      const result =
+        win && !win.isDestroyed()
+          ? await dialog.showOpenDialog(win, options)
+          : await dialog.showOpenDialog(options);
       if (result.canceled || !result.filePaths[0]) return null;
       return result.filePaths[0];
     },

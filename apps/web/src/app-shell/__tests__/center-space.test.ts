@@ -189,7 +189,7 @@ describe("center space wiring", () => {
     expect(tabBar).toContain("confirmCreateSpace");
     expect(tabBar).toContain("newSpace");
     expect(stage).toContain("openNewCenterSpace");
-    expect(stage).toContain("switchCenterSpace(liveHostContextId, targetSpaceId)");
+    expect(stage).toContain("switchCenterSpace(liveHostContextId, targetSpaceId, {");
     expect(stage).toContain("shouldHonorUrlTabForPaintContext");
     expect(stage).toContain("bindCenterPaintTabUrlWriter");
     expect(stage).toContain("activateCenterChromeTab");
@@ -205,6 +205,8 @@ describe("center space wiring", () => {
       "utf8",
     );
     expect(grid).toContain("hostIdFromCenterKey(workspaceId)");
+    expect(grid).toContain("listTmuxWindows(hostIdFromCenterKey(workspaceId))");
+    expect(stage).toContain("listTmuxWindows(hostIdFromCenterKey(effectiveContextId))");
     expect(stage).not.toContain("shouldConfirmReplaceCenterLayout");
     expect(header).toContain("CenterSpaceSwitcher");
     expect(header.indexOf("HeaderGitContext")).toBeLessThan(

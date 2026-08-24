@@ -3,6 +3,8 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   APP_FOOTER_HEIGHT_PX,
+  APP_HEADER_HEIGHT_CLASS,
+  APP_HEADER_HEIGHT_PX,
   APP_SHELL_CENTER_COLUMN_ATTR,
   APP_SHELL_PANEL_LAYOUT_ATTR,
   CENTER_STAGE_CARD_CLASS,
@@ -17,6 +19,8 @@ import {
   RESIZE_HAIRLINE_CORNER_INSET_CSS,
   ROOT_RESIZE_HAIRLINE_BOTTOM_CSS,
   ROOT_RESIZE_HAIRLINE_TOP_CSS,
+  SIDEBAR_PEEK_INSET_BOTTOM_PX,
+  SIDEBAR_PEEK_INSET_TOP_PX,
 } from "@/app-shell/sidebar-layout-constants";
 
 function read(rel: string) {
@@ -52,9 +56,10 @@ describe("center-stage chrome", () => {
   test("workspace and setup surfaces reuse the shared card class", () => {
     const stage = read("../CenterStage.tsx");
     expect(stage).toContain("CenterStageSurface");
-    expect(stage).toContain("CENTER_STAGE_CARD_CLASS");
     expect(stage).toContain("CENTER_STAGE_SHELL_CLASS");
     expect(stage).toContain('data-center-stage-card=""');
+    const chrome = read("../center-stage-chrome.tsx");
+    expect(chrome).toContain("CENTER_STAGE_CARD_CLASS");
   });
 
   test("center-stage card chrome is tagged for drawer insets", () => {
@@ -115,6 +120,27 @@ describe("center-stage chrome", () => {
     expect(grid).toContain("onTreeChange");
     expect(grid).toContain("useLiveSplitLayout");
     expect(grid).toContain("commitLiveResize");
+  });
+
+  test("collapsed sidebar peek stays in the center band, not header or footer", () => {
+    expect(APP_HEADER_HEIGHT_CLASS).toBe("h-12");
+    expect(APP_HEADER_HEIGHT_PX).toBe(48);
+    expect(SIDEBAR_PEEK_INSET_TOP_PX).toBe(
+      APP_HEADER_HEIGHT_PX + CENTER_STAGE_GUTTER_Y_PX,
+    );
+    expect(SIDEBAR_PEEK_INSET_BOTTOM_PX).toBe(
+      APP_FOOTER_HEIGHT_PX + CENTER_STAGE_GUTTER_Y_PX,
+    );
+
+    const peek = read("../SidebarPeekShell.tsx");
+    expect(peek).toContain("SIDEBAR_PEEK_INSET_TOP_PX");
+    expect(peek).toContain("SIDEBAR_PEEK_INSET_BOTTOM_PX");
+    expect(peek).not.toContain("inset-y-0");
+    expect(peek).not.toContain("top-12 bottom-6");
+
+    const header = read("../Header.tsx");
+    expect(header).toContain("APP_HEADER_HEIGHT_CLASS");
+    expect(header).not.toContain('"relative flex h-12 items-center');
   });
 
   test("standalone Prototype Design does not apply a second card chrome", () => {

@@ -53,17 +53,14 @@ export function ShortcutsSettingsSection() {
           { keys: ['⌘', '⇧', 'H'], description: t('groups.workspace.items.toggleCanvasOverlay') },
           { keys: ['⌘', '⇧', 'K'], description: t('groups.workspace.items.expandKanbanOverlay') },
           { keys: ['⌘', '⇧', '↵'], description: t('groups.workspace.items.openOrCreateWorkspace') },
+          { keys: ['⌘', '⇧', '1-9'], description: t('groups.workspace.items.listByPosition') },
         ]}
       />
       <ShortcutGroup
         title={t('groups.centerStageTabs.title')}
         shortcuts={[
           { keys: ['⌘', '0'], description: t('groups.centerStageTabs.items.overview') },
-          { keys: ['⌘', '1'], description: t('groups.centerStageTabs.items.fixedTerminal') },
-          { keys: ['⌘', '2'], description: t('groups.centerStageTabs.items.terminal1') },
-          { keys: ['⌘', '3'], description: t('groups.centerStageTabs.items.terminal2') },
-          { keys: ['⌘', '4'], description: t('groups.centerStageTabs.items.terminal3') },
-          { keys: ['⌘', '5'], description: t('groups.centerStageTabs.items.terminal4') },
+          { keys: ['⌘', '1-9'], description: t('groups.centerStageTabs.items.tabByPosition') },
         ]}
       />
       <ShortcutGroup

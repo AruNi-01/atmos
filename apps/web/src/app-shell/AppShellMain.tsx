@@ -8,6 +8,7 @@ import { PushPageStack, usePushPageTransition } from "@workspace/ui";
 import CenterStage from "@/app-shell/CenterStage";
 import Footer from "@/app-shell/Footer";
 import Header from "@/app-shell/Header";
+import { HeldShortcutPrefixListener } from "@/app-shell/HeldShortcutPrefixListener";
 import LeftSidebar from "@/app-shell/LeftSidebar";
 import { PanelLayout } from "@/app-shell/PanelLayout";
 import { SettingsPage } from "@/features/settings/components/SettingsModal";
@@ -106,6 +107,7 @@ export function AppShellMain() {
         // Header is a full-width chrome strip above the sidebar (macOS traffic
         // lights live in its left inset). Sidebar + center share the row below.
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-sidebar">
+          <HeldShortcutPrefixListener />
           <Header />
           <PanelLayout
             leftSidebar={<LeftSidebar />}

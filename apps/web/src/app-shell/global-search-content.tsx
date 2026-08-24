@@ -450,23 +450,23 @@ export function GlobalSearchMainView({
         hoveredValue={hoveredValue}
         selectedValue={selectedValue}
       />
-      <div className="flex h-10 shrink-0 items-center px-3 pt-1">
+      <div className="flex shrink-0 items-center px-3.5 py-2">
         <Tabs
           value={globalSearchTab}
           onValueChange={(value) => setGlobalSearchTab(value as SearchTab)}
           variant="pill"
         >
-          <TabsList className="h-8 gap-0.5 p-0.5">
-            <TabsTrigger value="app" tabIndex={-1} className="h-7 gap-1.5 px-3 text-xs">
-              <Layers className="size-3.5 shrink-0" />
+          <TabsList className="h-10 gap-1 p-1">
+            <TabsTrigger value="app" tabIndex={-1} className="h-8 gap-2 px-4 text-sm">
+              <Layers className="size-4 shrink-0" />
               {t("globalSearch.tabs.app")}
             </TabsTrigger>
-            <TabsTrigger value="files" tabIndex={-1} className="h-7 gap-1.5 px-3 text-xs">
-              <File className="size-3.5 shrink-0" />
+            <TabsTrigger value="files" tabIndex={-1} className="h-8 gap-2 px-4 text-sm">
+              <File className="size-4 shrink-0" />
               {t("globalSearch.tabs.files")}
             </TabsTrigger>
-            <TabsTrigger value="code" tabIndex={-1} className="h-7 gap-1.5 px-3 text-xs">
-              <Code className="size-3.5 shrink-0" />
+            <TabsTrigger value="code" tabIndex={-1} className="h-8 gap-2 px-4 text-sm">
+              <Code className="size-4 shrink-0" />
               {t("globalSearch.tabs.code")}
             </TabsTrigger>
           </TabsList>

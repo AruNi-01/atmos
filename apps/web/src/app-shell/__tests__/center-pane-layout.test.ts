@@ -21,6 +21,7 @@ import {
   resizeAdjacentFractions,
   rowCountFor,
   setPaneActiveTab,
+  planCenterTabAttach,
   shouldAttachActiveTabToFocusedPane,
   splitPane,
   syncFractionsToPaneCount,
@@ -73,6 +74,20 @@ describe("center-pane-layout", () => {
     const layout = createDefaultLayout(["terminal", "overview"], "terminal");
     expect(shouldAttachActiveTabToFocusedPane(layout, "terminal")).toBe(true);
     expect(shouldAttachActiveTabToFocusedPane(layout, "overview")).toBe(true);
+    expect(planCenterTabAttach(layout, "terminal")).toEqual({ action: "open" });
+  });
+
+  it("reveals an already-owned tab instead of stealing it onto the focused pane", () => {
+    const next = splitPane(
+      createDefaultLayout(["terminal", "overview", "files"], "files"),
+      { direction: "right", seedTabId: "files" },
+    );
+    const primaryId = next.panes.find((pane) => pane.id === DEFAULT_PANE_ID)!.id;
+    expect(planCenterTabAttach(next, "files")).toEqual({
+      action: "reveal",
+      paneId: primaryId,
+    });
+    expect(planCenterTabAttach(next, "brand-new-tab")).toEqual({ action: "open" });
   });
 
   it("ignores moveTabId and still creates an empty pane", () => {

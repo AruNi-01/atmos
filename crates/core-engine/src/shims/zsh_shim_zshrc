@@ -1,8 +1,9 @@
 # Atmos Terminal Dynamic Title Shim - Zsh .zshrc
 #
 # This file lives in a temporary ZDOTDIR. It:
-#   1. Restores ZDOTDIR to $HOME (so subsequent zsh operations are normal)
-#   2. Sources the user's real .zshrc
+#   1. Sources the user's real .zprofile/.zshrc (ZDOTDIR stays managed so
+#      `exec zsh` during startup still reaches this shim)
+#   2. Restores ZDOTDIR to $HOME for subsequent interactive use
 #   3. Installs Atmos preexec/precmd hooks AFTER the user's config
 #      (so our hooks aren't overridden by oh-my-zsh, starship, etc.)
 #
@@ -13,18 +14,20 @@
 # Inside tmux, OSC sequences are wrapped in DCS passthrough so they
 # reach the outer PTY reader (tmux drops unrecognized OSC codes).
 
-# ── 1. Restore ZDOTDIR and load user's config ─────────────────────────
-# Some shell integrations replace the startup shell with `exec` while the
-# user's .zshrc is still loading. Make that replacement inherit the managed
-# ZDOTDIR so the replacement zsh reaches this shim too. The temporary exec
-# wrapper is removed after user startup completes.
-__atmos_managed_zdotdir="$ZDOTDIR"
-__atmos_exec_with_managed_zdotdir() {
-    ZDOTDIR="$__atmos_managed_zdotdir" builtin exec "$@"
-}
-functions[exec]="$functions[__atmos_exec_with_managed_zdotdir]"
+# ── 1. Load user's config, then restore ZDOTDIR ───────────────────────
+# Keep the managed ZDOTDIR exported while sourcing user startup files so
+# `exec zsh` during .zshrc still lands back in this shim.
+#
+# Do not wrap the `exec` builtin as a function. Powerlevel10k / gitstatus
+# use `exec {fd}>&1` style redirections; a function named exec breaks
+# gitstatus daemon startup ("gitstatus failed to initialize") and can
+# pin ZDOTDIR back onto this directory because prefix assignments on
+# special builtins persist.
 
-ZDOTDIR="$HOME"
+# zsh defaults HISTFILE to $ZDOTDIR/.zsh_history before .zshrc runs.
+if [[ "${HISTFILE:-}" == "${ZDOTDIR:-/}/"* ]]; then
+    HISTFILE="$HOME/.zsh_history"
+fi
 
 # Source user's .zprofile if this is a login shell (tmux starts login shells)
 if [[ -o login ]] && [ -f "$HOME/.zprofile" ]; then
@@ -33,11 +36,7 @@ fi
 
 [ -f "$HOME/.zshrc" ] && source "$HOME/.zshrc"
 
-if [[ "$functions[exec]" == "$functions[__atmos_exec_with_managed_zdotdir]" ]]; then
-    unfunction exec 2>/dev/null || true
-fi
-unfunction __atmos_exec_with_managed_zdotdir 2>/dev/null || true
-unset __atmos_managed_zdotdir
+ZDOTDIR="$HOME"
 
 # Atmos-local command wrappers must stay ahead of PATH changes from direnv,
 # virtualenvs, and prompt hooks.

@@ -45,7 +45,10 @@ export {
   FIXED_TABS,
   shouldSkipLastTabRestoreForUrlTab,
 } from "@/app-shell/center-stage-fixed-tabs";
-export const CENTER_TERMINAL_SHORTCUT_LIMIT = 5;
+export {
+  CENTER_STRIP_POSITION_HOTKEYS,
+  CENTER_STRIP_SHORTCUT_LIMIT,
+} from "@/app-shell/center-stage-tab-model";
 
 export type TabGroupItem = {
   id: string;
@@ -518,6 +521,22 @@ export function ShortcutHint({ digit }: { digit: number | string }) {
       <Command className="size-3" />
       <span className="text-xs">{digit}</span>
     </kbd>
+  );
+}
+
+export function CenterStageShortcutTooltipBody({
+  children,
+  digit,
+}: {
+  children: React.ReactNode;
+  digit?: number | string | null;
+}) {
+  if (digit == null || digit === "") return children;
+  return (
+    <div className="flex items-center gap-2">
+      {children}
+      <ShortcutHint digit={digit} />
+    </div>
   );
 }
 

@@ -5681,18 +5681,15 @@
             "newWorkspaceOverlay": "New workspace overlay",
             "toggleCanvasOverlay": "Toggle Canvas overlay",
             "expandKanbanOverlay": "Expand Kanban overlay",
-            "openOrCreateWorkspace": "Open / create workspace (in new workspace overlay)"
+            "openOrCreateWorkspace": "Open / create workspace (in new workspace overlay)",
+            "listByPosition": "Switch to the project or workspace at that position"
           }
         },
         "centerStageTabs": {
           "title": "Center Stage Tabs",
           "items": {
             "overview": "Switch to Overview tab",
-            "fixedTerminal": "Switch to Fixed Terminal tab",
-            "terminal1": "Switch to terminal tab 1",
-            "terminal2": "Switch to terminal tab 2",
-            "terminal3": "Switch to terminal tab 3",
-            "terminal4": "Switch to terminal tab 4"
+            "tabByPosition": "Switch to the tab at that position"
           }
         },
         "terminal": {

@@ -168,9 +168,11 @@ describe("center space switcher open path", () => {
     expect(switcherSrc).toContain("!current.spaces.some((space) => space.id === spaceId)");
     expect(switcherSrc).toContain('"forward"');
     const stage = readFileSync(join(dir, "CenterStage.tsx"), "utf8");
-    expect(stage).toContain("switchCenterSpace(liveHostContextId, targetSpaceId)");
+    expect(stage).toContain("switchCenterSpace(liveHostContextId, targetSpaceId, {");
+    expect(stage).toContain("preserveDeepLink: true");
+    expect(switcherSrc).toContain("preserveDeepLink");
     expect(stage).toContain("spaceIdFromTmuxWindowName");
-    const spaceSwitchAt = stage.indexOf("switchCenterSpace(liveHostContextId, targetSpaceId)");
+    const spaceSwitchAt = stage.indexOf("switchCenterSpace(liveHostContextId, targetSpaceId");
     const paneFocusAt = stage.indexOf("focusPaneByTmuxAcrossAllTabs(tmux)");
     expect(spaceSwitchAt).toBeGreaterThan(0);
     expect(paneFocusAt).toBeGreaterThan(spaceSwitchAt);

@@ -60,7 +60,11 @@ test.describe("smoke workspace", () => {
     await gotoContextRoute(page, withSearchParams(contextUrl, { tab: "run" }), {
       locale: "zh",
     });
-    await expect(page.getByRole("tab", { name: /^(运行|Run)$/ }).first()).toBeVisible();
+    const runStage = await getCenterStage(page);
+    // The Run surface's inner terminal strip reuses the same 运行/Run tab name.
+    await expect(
+      runStage.getByRole("tablist").first().getByRole("tab", { name: /运行|Run/ }),
+    ).toBeVisible();
 
     await gotoContextRoute(page, withSearchParams(contextUrl, { tab: "github" }), {
       locale: "zh",

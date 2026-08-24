@@ -53,6 +53,9 @@ import type { WorkspaceWorkflowStatus } from "@/shared/types/domain";
 import { useWorkspaceSettingsStore } from "@/features/settings/store/workspace-settings-store";
 import { findGroupIdForMember } from "@/app-shell/sidebar/user-groups";
 import { GitBranch } from "lucide-react";
+import { SidebarHeldShortcutBadge } from "@/app-shell/HeldShortcutBadge";
+import { useSidebarShortcutDigit } from "@/app-shell/held-shortcut-prefix-store";
+import { SIDEBAR_SHORTCUT_TARGET_ATTR } from "@/app-shell/shortcut-prefix";
 
 export interface WorkspaceContentProps {
   workspace: Workspace;
@@ -194,6 +197,8 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
   const [isGroupMenuOpen, setIsGroupMenuOpen] = useState(false);
   const [isLabelPopoverOpen, setIsLabelPopoverOpen] = useState(false);
   const workspaceGroupId = findGroupIdForMember(groups, "workspace", workspace.id);
+  const workspaceShortcutKey = `workspace:${workspace.id}`;
+  const shortcutDigit = useSidebarShortcutDigit(workspaceShortcutKey);
   const infoPopoverTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const infoPopoverTriggerRef = React.useRef<HTMLDivElement | null>(null);
   const ignoreNextClickRef = React.useRef(false);
@@ -568,6 +573,7 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
             role="button"
             tabIndex={0}
             data-ws-row=""
+            {...{ [SIDEBAR_SHORTCUT_TARGET_ATTR]: workspaceShortcutKey }}
             className={cn(
               // Instant hover fill — match settings SidebarMenuButton (no color fade).
               "relative flex items-center px-3 py-1.5 rounded-md cursor-pointer border border-transparent hover:bg-sidebar-accent group/ws",
@@ -651,22 +657,28 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
               </div>
               {/* Trailing slot in normal flow: status/time/label, or archive on hover. */}
               <div className="flex shrink-0 items-center justify-end">
-                {rightContext ? (
-                  <div className="flex items-center text-[11px] text-muted-foreground group-hover/ws:hidden">
-                    {rightContext}
-                  </div>
-                ) : null}
-                <div className="hidden items-center gap-1 group-hover/ws:flex">
-                  <span className="text-[11px] text-muted-foreground">{timeAgo}</span>
-                  <button
-                    onClick={handleArchiveClick}
-                    className="flex size-4 items-center justify-center rounded text-muted-foreground hover:cursor-pointer hover:text-foreground"
-                    title={t("common.archive")}
-                    disabled={isCheckingGit}
-                  >
-                    <Archive className="size-3" />
-                  </button>
-                </div>
+                {shortcutDigit != null ? (
+                  <SidebarHeldShortcutBadge targetKey={workspaceShortcutKey} />
+                ) : (
+                  <>
+                    {rightContext ? (
+                      <div className="flex items-center text-[11px] text-muted-foreground group-hover/ws:hidden">
+                        {rightContext}
+                      </div>
+                    ) : null}
+                    <div className="hidden items-center gap-1 group-hover/ws:flex">
+                      <span className="text-[11px] text-muted-foreground">{timeAgo}</span>
+                      <button
+                        onClick={handleArchiveClick}
+                        className="flex size-4 items-center justify-center rounded text-muted-foreground hover:cursor-pointer hover:text-foreground"
+                        title={t("common.archive")}
+                        disabled={isCheckingGit}
+                      >
+                        <Archive className="size-3" />
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           </div>

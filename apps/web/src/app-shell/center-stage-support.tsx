@@ -16,6 +16,12 @@ import { TokenUsagePage } from "@/app-shell/TokenUsagePage";
 import type { OpenFile } from "@/features/editor/store/use-editor-store";
 import type { TerminalCenterTab } from "@/features/terminal/store/use-terminal-store";
 import { isTerminalCenterTabValue } from "@/app-shell/center-stage-tabs";
+import {
+  CENTER_STRIP_POSITION_HOTKEYS,
+  centerStripShortcutDigitFromEvent,
+  resolveCenterStripShortcutTabId,
+} from "@/app-shell/center-stage-tab-model";
+import { isCenterStageHotkeyTarget } from "@/app-shell/shortcut-prefix";
 import { useWorkspaceSurfaceCacheStore } from "@/features/workspace/store/use-workspace-surface-cache-store";
 import { schedulePromoteWorkspaceSurfaceSwitch } from "@/app-shell/workspace-surface-switch";
 import {
@@ -315,69 +321,38 @@ export function usePendingNamedTerminalCommand({
 export function useCenterStageKeyboardShortcuts({
   effectiveContextId,
   handleCenterStageTabChange,
-  visibleTerminalTabs,
+  orderedTabValues,
 }: {
   effectiveContextId: string | null | undefined;
   handleCenterStageTabChange: (value: string) => void;
-  visibleTerminalTabs: TerminalCenterTab[];
+  orderedTabValues: readonly string[];
 }) {
   useHotkeys(
     "mod+0",
-    () => {
+    (event) => {
+      if (event.shiftKey) return;
+      if (!isCenterStageHotkeyTarget(event.target)) return;
       if (!effectiveContextId) return;
+      event.preventDefault();
       handleCenterStageTabChange("overview");
     },
-    { enableOnContentEditable: true, enableOnFormTags: true, preventDefault: true },
+    { enableOnContentEditable: true, enableOnFormTags: true },
     [effectiveContextId, handleCenterStageTabChange],
   );
 
   useHotkeys(
-    "mod+1",
-    () => {
-      const target = visibleTerminalTabs[0];
-      if (target) handleCenterStageTabChange(target.id);
+    CENTER_STRIP_POSITION_HOTKEYS,
+    (event) => {
+      if (event.shiftKey) return;
+      if (!isCenterStageHotkeyTarget(event.target)) return;
+      const digit = centerStripShortcutDigitFromEvent(event);
+      if (digit == null) return;
+      const target = resolveCenterStripShortcutTabId(orderedTabValues, digit);
+      if (!target) return;
+      event.preventDefault();
+      handleCenterStageTabChange(target);
     },
-    { enableOnContentEditable: true, enableOnFormTags: true, preventDefault: true },
-    [handleCenterStageTabChange, visibleTerminalTabs],
-  );
-
-  useHotkeys(
-    "mod+2",
-    () => {
-      const target = visibleTerminalTabs[1];
-      if (target) handleCenterStageTabChange(target.id);
-    },
-    { enableOnContentEditable: true, enableOnFormTags: true, preventDefault: true },
-    [handleCenterStageTabChange, visibleTerminalTabs],
-  );
-
-  useHotkeys(
-    "mod+3",
-    () => {
-      const target = visibleTerminalTabs[2];
-      if (target) handleCenterStageTabChange(target.id);
-    },
-    { enableOnContentEditable: true, enableOnFormTags: true, preventDefault: true },
-    [handleCenterStageTabChange, visibleTerminalTabs],
-  );
-
-  useHotkeys(
-    "mod+4",
-    () => {
-      const target = visibleTerminalTabs[3];
-      if (target) handleCenterStageTabChange(target.id);
-    },
-    { enableOnContentEditable: true, enableOnFormTags: true, preventDefault: true },
-    [handleCenterStageTabChange, visibleTerminalTabs],
-  );
-
-  useHotkeys(
-    "mod+5",
-    () => {
-      const target = visibleTerminalTabs[4];
-      if (target) handleCenterStageTabChange(target.id);
-    },
-    { enableOnContentEditable: true, enableOnFormTags: true, preventDefault: true },
-    [handleCenterStageTabChange, visibleTerminalTabs],
+    { enableOnContentEditable: true, enableOnFormTags: true },
+    [handleCenterStageTabChange, orderedTabValues],
   );
 }

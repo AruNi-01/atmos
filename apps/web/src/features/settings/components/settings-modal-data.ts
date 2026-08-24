@@ -1055,10 +1055,17 @@ const SETTINGS_TOPIC_ITEMS: Record<string, readonly SettingsSearchItemDefinition
       ],
     }),
     settingsModalSearchItem("shortcuts.workspaceShortcuts", {
-      keywords: ["new workspace overlay", "canvas overlay", "task board", "open create workspace"],
+      keywords: [
+        "new workspace overlay",
+        "canvas overlay",
+        "task board",
+        "open create workspace",
+        "workspace position",
+        "project position",
+      ],
     }),
     settingsModalSearchItem("shortcuts.centerStageTabsShortcuts", {
-      keywords: ["overview tab", "fixed terminal tab", "terminal tab"],
+      keywords: ["overview tab", "tab position", "switch tab", "center stage tab"],
     }),
     settingsModalSearchItem("shortcuts.terminalShortcuts", {
       keywords: ["split terminal", "new terminal tab", "close terminal pane", "find in terminal"],

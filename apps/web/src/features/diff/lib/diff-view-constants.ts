@@ -22,6 +22,12 @@ export const ATMOS_DIFF_THEME: ThemesType = {
 };
 
 const DIFF_VIEW_CUSTOM_FILE_ICON_CSS = `
+  /* pierre-dark-soft canvas is #171717; pin to Atmos --background instead. */
+  :host {
+    --diffs-bg: var(--background);
+    --diffs-dark-bg: var(--background);
+    --diffs-light-bg: var(--background);
+  }
   [data-change-icon] {
     display: none !important;
   }

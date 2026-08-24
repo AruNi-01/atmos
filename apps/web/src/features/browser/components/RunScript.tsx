@@ -502,7 +502,7 @@ export const RunScript: React.FC<RunScriptProps> = ({ workspaceId, projectId, is
               </CenterStageStickyTabActions>
             }
           >
-            <CenterStageScrollableTabs>
+            <CenterStageScrollableTabs className="flex-initial">
               {tabs.map((tab) => {
                 const isRunTab = tab.id === RUN_TAB_ID;
                 return (
@@ -513,18 +513,24 @@ export const RunScript: React.FC<RunScriptProps> = ({ workspaceId, projectId, is
                         aria-label={tab.name}
                         onPointerDown={preventNonPrimaryTabActivate}
                       >
-                        <CenterStageTabIconSlot
-                          closeLabel={
-                            isRunTab ? undefined : t("actions.closeTerminal", { tab: tab.name })
-                          }
-                          onClose={isRunTab ? undefined : () => closeTab(tab.id)}
-                        >
-                          {isRunTab ? (
+                        {isRunTab ? (
+                          <CenterStageTabIconSlot
+                            hoverLabel={isLocked ? unlockTerminalTooltip : lockTerminalTooltip}
+                            hoverIcon={
+                              isLocked ? <Unlock className="size-3" /> : <Lock className="size-3" />
+                            }
+                            onHoverAction={() => setIsLocked((locked) => !locked)}
+                          >
                             <Play className="size-3.5 shrink-0" />
-                          ) : (
+                          </CenterStageTabIconSlot>
+                        ) : (
+                          <CenterStageTabIconSlot
+                            closeLabel={t("actions.closeTerminal", { tab: tab.name })}
+                            onClose={() => closeTab(tab.id)}
+                          >
                             <SquareTerminal className="size-3.5 shrink-0" />
-                          )}
-                        </CenterStageTabIconSlot>
+                          </CenterStageTabIconSlot>
+                        )}
                         <span className="max-w-[180px] truncate text-pretty">{tab.name}</span>
                       </CenterStageTab>
                     </TooltipTrigger>
@@ -616,7 +622,7 @@ export const RunScript: React.FC<RunScriptProps> = ({ workspaceId, projectId, is
                   <TooltipTrigger asChild>
                     <button
                       type="button"
-                      onClick={() => setIsLocked(!isLocked)}
+                      onClick={() => setIsLocked((locked) => !locked)}
                       className={cn(
                         "size-6 flex items-center justify-center hover:bg-muted hover:cursor-pointer rounded-sm",
                         isLocked

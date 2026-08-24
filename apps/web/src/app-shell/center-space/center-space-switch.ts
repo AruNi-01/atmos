@@ -108,6 +108,8 @@ export async function openNewCenterSpace(
 export type SwitchCenterSpaceOptions = {
   fromCard?: HTMLElement | null;
   onPaint?: () => void;
+  /** Keep `tab` / `terminalTmux` / `sideChat` — agent pane jumps own the dest URL. */
+  preserveDeepLink?: boolean;
 };
 
 export async function switchCenterSpace(
@@ -129,7 +131,7 @@ export async function switchCenterSpace(
     direction,
     () => {
       options?.onPaint?.();
-      clearCenterDeepLinkUrl();
+      if (!options?.preserveDeepLink) clearCenterDeepLinkUrl();
       store.setActiveSpace(hostId, spaceId);
       paintIncomingSpace(incoming);
     },

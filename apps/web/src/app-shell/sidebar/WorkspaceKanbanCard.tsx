@@ -47,6 +47,9 @@ import type {
   KanbanCardProperties,
 } from "@/app-shell/sidebar/WorkspaceKanbanTypes";
 import { resolveWorkspaceGroupId } from "@/app-shell/sidebar/kanban-columns";
+import { SidebarHeldShortcutBadge } from "@/app-shell/HeldShortcutBadge";
+import { useSidebarShortcutDigit } from "@/app-shell/held-shortcut-prefix-store";
+import { SIDEBAR_SHORTCUT_TARGET_ATTR } from "@/app-shell/shortcut-prefix";
 
 /**
  * Nested interactive controls should not trigger click-to-enter.
@@ -199,13 +202,16 @@ export function KanbanWorkspaceCard({
 
   const showFooter =
     (cardProperties.pull_request && Boolean(managedPr)) || cardProperties.last_visit;
+  const workspaceShortcutKey = `workspace:${workspace.id}`;
+  const shortcutDigit = useSidebarShortcutDigit(workspaceShortcutKey);
 
   return (
     <div
       role="button"
       tabIndex={0}
+      {...{ [SIDEBAR_SHORTCUT_TARGET_ATTR]: workspaceShortcutKey }}
       className={cn(
-        "w-full cursor-pointer rounded-md bg-background p-3 text-left shadow-xs outline-none",
+        "relative w-full cursor-pointer rounded-md bg-background p-3 text-left shadow-xs outline-none",
         "focus-visible:ring-1 focus-visible:ring-ring",
         workspace.isPinned
           ? "border border-border"
@@ -221,6 +227,11 @@ export function KanbanWorkspaceCard({
         }
       }}
     >
+      {shortcutDigit != null ? (
+        <div className="absolute right-2 top-2 z-10">
+          <SidebarHeldShortcutBadge targetKey={workspaceShortcutKey} />
+        </div>
+      ) : null}
       {cardProperties.project || cardProperties.priority || cardProperties.status || !cardProperties.workspace_name ? (
         <div className="mb-3 flex items-center justify-between gap-2">
           <div className="flex min-w-0 items-center gap-2">

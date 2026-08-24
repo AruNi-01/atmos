@@ -69,9 +69,11 @@ import {
 import { useTranslations } from "next-intl";
 import type { OpenFile } from "@/features/editor/store/use-editor-store";
 import { cn } from "@/shared/lib/utils";
+import { CenterTabHeldShortcut } from "@/app-shell/HeldShortcutBadge";
+import { useHeldShortcutPrefix } from "@/app-shell/held-shortcut-prefix-store";
 import {
+  CenterStageShortcutTooltipBody,
   CenterStageTabGroupPopover,
-  CENTER_TERMINAL_SHORTCUT_LIMIT,
   ShortcutHint,
   TerminalTabAgentIndicatorWithPanes,
   type TabGroupItem,
@@ -96,6 +98,7 @@ import { stableAgentPaneId } from "@/features/terminal/store/terminal-store-help
 import { useShallow } from "zustand/react/shallow";
 import type { CenterTabContextMenuState, CenterTabDescriptor } from "@/app-shell/center-stage-tab-model";
 import {
+  getCenterStripShortcutDigit,
   orderCenterTabsBySavedOrder,
   preventNonPrimaryTabActivate,
 } from "@/app-shell/center-stage-tab-model";
@@ -169,6 +172,8 @@ interface CenterStageTabBarProps {
   setWikiRefreshTrigger: React.Dispatch<React.SetStateAction<number>>;
   /** Owning mosaic pane — fullscreen expands this pane over sibling center regions. */
   paneId?: string;
+  /** Show a tab-bar fullscreen toggle (multi-pane only). */
+  isMultiPane?: boolean;
   /** Split the center stage into another pane (right). */
   onSplitRight?: () => void;
   /** Split the center stage into another pane (down). */
@@ -235,6 +240,7 @@ export function CenterStageTabBar({
   setWikiRefreshing,
   setWikiRefreshTrigger,
   paneId,
+  isMultiPane = false,
   onSplitRight,
   onSplitDown,
   savedLayouts,
@@ -534,17 +540,16 @@ export function CenterStageTabBar({
     visibleTerminalTabs.length,
   ]);
 
-  const renderDescriptorTab = (tab: CenterTabDescriptor) => {
+  const renderDescriptorTab = (tab: CenterTabDescriptor, index: number) => {
+    const shortcutDigit = getCenterStripShortcutDigit(index);
     if (tab.kind === "terminal") {
       const source = visibleTerminalTabs.find((item) => item.id === tab.value);
       if (!source) return null;
-      const index = visibleTerminalTabs.findIndex((item) => item.id === tab.value);
       return (
         <TerminalExtraTab
           key={tab.id}
           effectiveContextId={effectiveContextId}
-          hasShortcut={index >= 0 && index < CENTER_TERMINAL_SHORTCUT_LIMIT}
-          shortcutDigit={index + 1}
+          shortcutDigit={shortcutDigit}
           tab={source}
           onClose={handleCloseTerminalCenterTab}
           onContextMenu={(event) => openContextMenu(event, tab)}
@@ -559,6 +564,7 @@ export function CenterStageTabBar({
           closeLabel={t("centerStageTabBar.closeProjectWikiTab")}
           icon={<TerminalIcon className="size-3.5 shrink-0" />}
           label={t("centerStageTabBar.projectWiki")}
+          shortcutDigit={shortcutDigit}
           tooltip={t("centerStageTabBar.projectWikiTerminal")}
           value="project-wiki"
           onClose={() => setProjectWikiCloseConfirmOpen(true)}
@@ -574,6 +580,7 @@ export function CenterStageTabBar({
           closeLabel={t("centerStageTabBar.closeCodeReviewTab")}
           icon={<TerminalIcon className="size-3.5 shrink-0 text-blue-500" />}
           label={t("centerStageTabBar.codeReview")}
+          shortcutDigit={shortcutDigit}
           tooltip={t("centerStageTabBar.codeReviewTerminal")}
           value="code-review"
           onClose={() => setCodeReviewCloseConfirmOpen(true)}
@@ -589,6 +596,7 @@ export function CenterStageTabBar({
           closeLabel={t("centerStageTabBar.closeSimulatorTab")}
           icon={<Smartphone className="size-3.5 shrink-0" />}
           label={t("centerStageTabBar.simulator")}
+          shortcutDigit={shortcutDigit}
           tooltip={t("centerStageTabBar.simulator")}
           value="simulator"
           onClose={handleCloseSimulatorTab}
@@ -604,6 +612,7 @@ export function CenterStageTabBar({
           closeLabel={t("centerStageTabBar.closeHistoryTab")}
           icon={<GitGraph className="size-3.5 shrink-0" />}
           label={t("centerStageTabBar.history")}
+          shortcutDigit={shortcutDigit}
           tooltip={t("centerStageTabBar.history")}
           value="git-history"
           onClose={handleCloseGitHistoryTab}
@@ -619,6 +628,7 @@ export function CenterStageTabBar({
           closeLabel={t("centerStageTabBar.closeChangesTab")}
           icon={<GitBranch className="size-3.5 shrink-0" />}
           label={t("centerStageTabBar.changes")}
+          shortcutDigit={shortcutDigit}
           tooltip={t("centerStageTabBar.changes")}
           value="changes"
           onClose={() => handleCloseToolTab("changes")}
@@ -634,6 +644,7 @@ export function CenterStageTabBar({
           closeLabel={t("centerStageTabBar.closeReviewTab")}
           icon={<FileDiff className="size-3.5 shrink-0" />}
           label={t("centerStageTabBar.review")}
+          shortcutDigit={shortcutDigit}
           tooltip={t("centerStageTabBar.review")}
           value="review"
           onClose={() => handleCloseToolTab("review")}
@@ -649,6 +660,7 @@ export function CenterStageTabBar({
           closeLabel={t("centerStageTabBar.closeRunTab")}
           icon={<Play className="size-3.5 shrink-0" />}
           label={t("centerStageTabBar.run")}
+          shortcutDigit={shortcutDigit}
           tooltip={t("centerStageTabBar.run")}
           value="run"
           onClose={() => handleCloseToolTab("run")}
@@ -664,6 +676,7 @@ export function CenterStageTabBar({
           closeLabel={t("centerStageTabBar.closeGithubTab")}
           icon={<Github className="size-3.5 shrink-0" />}
           label={t("centerStageTabBar.github")}
+          shortcutDigit={shortcutDigit}
           tooltip={t("centerStageTabBar.github")}
           value="github"
           onClose={() => handleCloseToolTab("github")}
@@ -679,6 +692,7 @@ export function CenterStageTabBar({
           closeLabel={t("centerStageTabBar.closeFilesTab")}
           icon={<FolderTree className="size-3.5 shrink-0" />}
           label={t("centerStageTabBar.files")}
+          shortcutDigit={shortcutDigit}
           tooltip={t("centerStageTabBar.files")}
           value="files"
           onClose={() => handleCloseToolTab("files")}
@@ -694,6 +708,7 @@ export function CenterStageTabBar({
           closeLabel={t("centerStageTabBar.closePtDesignTab")}
           icon={<PencilRuler className="size-3.5 shrink-0" />}
           label={t("centerStageTabBar.ptDesign")}
+          shortcutDigit={shortcutDigit}
           tooltip={t("centerStageTabBar.ptDesign")}
           value="pt-design"
           onClose={() => handleCloseToolTab("pt-design")}
@@ -708,6 +723,7 @@ export function CenterStageTabBar({
           key={tab.id}
           file={tab.file}
           sessionDisplay={sessionDisplay}
+          shortcutDigit={shortcutDigit}
           onClose={handleCloseFile}
           onContextMenuRequest={(event) => openContextMenu(event, tab)}
           onPreviewPin={(nextFile) => pinFile(nextFile.path, effectiveContextId)}
@@ -734,6 +750,7 @@ export function CenterStageTabBar({
           onClose={() => handleCloseBrowserTab(browserTab.value)}
           onContextMenu={(event) => openContextMenu(event, tab)}
           path={label}
+          shortcutDigit={shortcutDigit}
           tooltip={label}
           value={browserTab.value}
           variant="browser"
@@ -751,6 +768,7 @@ export function CenterStageTabBar({
         onClose={() => handleCloseGithubTab(githubTab.value)}
         onContextMenu={(event) => openContextMenu(event, tab)}
         path={`${githubTab.owner}/${githubTab.repo}`}
+        shortcutDigit={shortcutDigit}
         tooltip={githubTab.description || `${githubTab.owner}/${githubTab.repo}`}
         value={githubTab.value}
         variant={githubTab.kind}
@@ -808,7 +826,15 @@ export function CenterStageTabBar({
             newSpaceNamePlaceholder={t("centerStageTabBar.newSpaceNamePlaceholder")}
             newSpaceConfirmLabel={t("centerStageTabBar.newSpaceConfirm")}
             newSpaceCancelLabel={t("centerStageTabBar.newSpaceCancel")}
+            showPaneFullscreenButton={isMultiPane}
           />
+          {isMultiPane ? (
+            <CenterStagePaneFullscreenButton
+              paneId={paneId}
+              fullscreenLabel={t("centerStageTabBar.fullscreen")}
+              exitFullscreenLabel={t("centerStageTabBar.exitFullscreen")}
+            />
+          ) : null}
           <CenterStageTabGroupPopover
             open={tabGroupPopoverOpen}
             onOpenChange={setTabGroupPopoverOpen}
@@ -910,9 +936,9 @@ export function CenterStageTabBar({
             items={orderedDescriptors.map((tab) => tab.id)}
             strategy={horizontalListSortingStrategy}
           >
-            {orderedDescriptors.map((tab) => (
+            {orderedDescriptors.map((tab, index) => (
               <SortableCenterStripTab key={tab.id} id={tab.id}>
-                {renderDescriptorTab(tab)}
+                {renderDescriptorTab(tab, index)}
               </SortableCenterStripTab>
             ))}
           </SortableContext>
@@ -1002,15 +1028,13 @@ function SortableCenterStripTab({
 
 function TerminalExtraTab({
   effectiveContextId,
-  hasShortcut,
   shortcutDigit,
   tab,
   onClose,
   onContextMenu,
 }: {
   effectiveContextId: string;
-  hasShortcut: boolean;
-  shortcutDigit: number;
+  shortcutDigit: number | null;
   tab: { id: string; title: string; customTitle?: string };
   onClose: (tabId: string) => void;
   onContextMenu: (event: React.MouseEvent) => void;
@@ -1023,6 +1047,8 @@ function TerminalExtraTab({
     customTitle: tab.customTitle,
   });
   const closeAriaLabel = t("centerStageTabBar.closeTab", { tab: displayTitle });
+  const prefix = useHeldShortcutPrefix();
+  const showHeldShortcut = prefix === "mod" && shortcutDigit != null;
 
   const stablePaneIds = useTerminalStore(
     useShallow((s) => {
@@ -1079,14 +1105,17 @@ function TerminalExtraTab({
           <span className="max-w-[180px] truncate whitespace-nowrap">
             {displayTitle}
           </span>
-          <TerminalTabAgentIndicatorWithPanes contextId={effectiveContextId} tabId={tab.id} />
+          {showHeldShortcut ? (
+            <CenterTabHeldShortcut digit={shortcutDigit} />
+          ) : (
+            <TerminalTabAgentIndicatorWithPanes contextId={effectiveContextId} tabId={tab.id} />
+          )}
         </CenterStageTab>
       </TooltipTrigger>
       <TooltipContent side="bottom">
-        <div className="flex items-center gap-2">
+        <CenterStageShortcutTooltipBody digit={shortcutDigit}>
           <span>{displayTitle}</span>
-          {hasShortcut ? <ShortcutHint digit={shortcutDigit} /> : null}
-        </div>
+        </CenterStageShortcutTooltipBody>
       </TooltipContent>
     </Tooltip>
   );
@@ -1172,6 +1201,59 @@ function PlusMenuTabPanels({
   );
 }
 
+function isCenterStagePlusMenuEventTarget(target: EventTarget | null): boolean {
+  return Boolean(
+    target instanceof Element &&
+      (target.closest("[data-center-stage-plus-menu]") ||
+        target.closest("[data-center-stage-layouts-menu]") ||
+        target.closest("[data-center-stage-plus-trigger]")),
+  );
+}
+
+const PANE_FULLSCREEN_BUTTON_CLASS =
+  "flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-active hover:text-foreground";
+
+function CenterStagePaneFullscreenButton({
+  paneId,
+  fullscreenLabel,
+  exitFullscreenLabel,
+}: {
+  paneId?: string;
+  fullscreenLabel: string;
+  exitFullscreenLabel: string;
+}) {
+  const isCenterFullscreen = useCenterStageFullscreenStore((state) => state.isFullscreen);
+  const toggleCenterFullscreen = useCenterStageFullscreenStore(
+    (state) => state.toggleFullscreen,
+  );
+  const label = isCenterFullscreen ? exitFullscreenLabel : fullscreenLabel;
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          data-center-stage-pane-fullscreen=""
+          aria-label={label}
+          aria-pressed={isCenterFullscreen}
+          title={label}
+          className={cn(
+            PANE_FULLSCREEN_BUTTON_CLASS,
+            isCenterFullscreen && "bg-active text-foreground",
+          )}
+          onClick={() => toggleCenterFullscreen(paneId)}
+        >
+          {isCenterFullscreen ? (
+            <Minimize2 className="size-4" />
+          ) : (
+            <Maximize2 className="size-4" />
+          )}
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="bottom">{label}</TooltipContent>
+    </Tooltip>
+  );
+}
+
 function CenterStageNewTabMenu({
   browserLabel,
   changesLabel,
@@ -1216,6 +1298,7 @@ function CenterStageNewTabMenu({
   newSpaceCancelLabel,
   plusMenuTabsLabel,
   plusMenuLayoutLabel,
+  showPaneFullscreenButton,
 }: {
   browserLabel: string;
   changesLabel: string;
@@ -1260,6 +1343,7 @@ function CenterStageNewTabMenu({
   newSpaceCancelLabel: string;
   plusMenuTabsLabel: string;
   plusMenuLayoutLabel: string;
+  showPaneFullscreenButton?: boolean;
 }) {
   const [open, setOpen] = React.useState(false);
   const [plusTab, setPlusTab] = React.useState<"tabs" | "layout">("tabs");
@@ -1389,6 +1473,7 @@ function CenterStageNewTabMenu({
             aria-label={menuLabel}
             aria-haspopup="menu"
             aria-expanded={open}
+            data-center-stage-plus-trigger=""
             className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-active hover:text-foreground data-[state=open]:bg-active data-[state=open]:text-foreground"
             onMouseEnter={() => {
               clearCloseTimer();
@@ -1399,7 +1484,11 @@ function CenterStageNewTabMenu({
               clearCloseTimer();
               setOpen(true);
             }}
-            onBlur={scheduleClose}
+            onBlur={(event) => {
+              const next = event.relatedTarget ?? document.activeElement;
+              if (isCenterStagePlusMenuEventTarget(next)) return;
+              scheduleClose();
+            }}
           >
             <Plus className="size-4" />
           </button>
@@ -1408,26 +1497,21 @@ function CenterStageNewTabMenu({
           align="end"
           side="bottom"
           sideOffset={4}
-          className="w-48 overflow-hidden border-border/70 bg-popover/90 p-1 shadow-lg backdrop-blur-xl"
+          data-center-stage-plus-menu=""
+          className="z-[90] w-48 overflow-hidden border-border/70 bg-popover/90 p-1 shadow-lg backdrop-blur-xl"
           onOpenAutoFocus={(event) => event.preventDefault()}
           onCloseAutoFocus={(event) => event.preventDefault()}
           onMouseEnter={clearCloseTimer}
           onMouseLeave={scheduleClose}
+          onPointerDown={(event) => event.stopPropagation()}
+          onMouseDown={(event) => event.stopPropagation()}
           onPointerDownOutside={(event) => {
-            const target = event.target;
-            if (
-              target instanceof Element &&
-              target.closest("[data-center-stage-layouts-menu]")
-            ) {
+            if (isCenterStagePlusMenuEventTarget(event.target)) {
               event.preventDefault();
             }
           }}
           onFocusOutside={(event) => {
-            const target = event.target;
-            if (
-              target instanceof Element &&
-              target.closest("[data-center-stage-layouts-menu]")
-            ) {
+            if (isCenterStagePlusMenuEventTarget(event.target)) {
               event.preventDefault();
             }
           }}
@@ -1445,12 +1529,16 @@ function CenterStageNewTabMenu({
               <MotionTabsTrigger
                 value="tabs"
                 className="h-7 min-w-0 flex-1 px-2 text-xs"
+                onPointerDown={(event) => event.stopPropagation()}
+                onClick={(event) => event.stopPropagation()}
               >
                 {plusMenuTabsLabel}
               </MotionTabsTrigger>
               <MotionTabsTrigger
                 value="layout"
                 className="h-7 min-w-0 flex-1 px-2 text-xs"
+                onPointerDown={(event) => event.stopPropagation()}
+                onClick={(event) => event.stopPropagation()}
               >
                 {plusMenuLayoutLabel}
               </MotionTabsTrigger>
@@ -1673,6 +1761,7 @@ function CenterStageNewTabMenu({
               <span className="min-w-0 flex-1 truncate">{newSpaceLabel}</span>
             </button>
           ) : null}
+          {showPaneFullscreenButton ? null : (
           <button
             type="button"
             aria-pressed={isCenterFullscreen}
@@ -1691,6 +1780,7 @@ function CenterStageNewTabMenu({
               {isCenterFullscreen ? exitFullscreenLabel : fullscreenLabel}
             </span>
           </button>
+          )}
                 </>
               }
             />
@@ -1805,6 +1895,7 @@ function SpecialTerminalTab({
   closeLabel,
   icon,
   label,
+  shortcutDigit,
   tooltip,
   value,
   onClose,
@@ -1813,11 +1904,14 @@ function SpecialTerminalTab({
   closeLabel: string;
   icon: React.ReactNode;
   label: string;
+  shortcutDigit?: number | null;
   tooltip: string;
   value: string;
   onClose: () => void;
   onContextMenu?: (event: React.MouseEvent) => void;
 }) {
+  const prefix = useHeldShortcutPrefix();
+  const showHeldShortcut = prefix === "mod" && shortcutDigit != null;
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -1832,9 +1926,14 @@ function SpecialTerminalTab({
             {icon}
           </CenterStageTabIconSlot>
           <span className="text-pretty">{label}</span>
+          {showHeldShortcut ? <CenterTabHeldShortcut digit={shortcutDigit} /> : null}
         </CenterStageTab>
       </TooltipTrigger>
-      <TooltipContent side="bottom">{tooltip}</TooltipContent>
+      <TooltipContent side="bottom">
+        <CenterStageShortcutTooltipBody digit={shortcutDigit}>
+          {tooltip}
+        </CenterStageShortcutTooltipBody>
+      </TooltipContent>
     </Tooltip>
   );
 }

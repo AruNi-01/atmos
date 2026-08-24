@@ -1,4 +1,5 @@
 import { hostIdFromCenterKey } from "@/app-shell/center-space/center-space";
+import { planCenterTabAttach } from "@/app-shell/center-pane/center-pane-layout";
 import { useCenterPaneLayoutStore } from "@/app-shell/center-pane/center-pane-layout-store";
 
 /**
@@ -24,5 +25,12 @@ export function resolveCenterOpenContextId(
 /** Attach a tab to the focused pane of a center paint context. */
 export function attachCenterTab(contextId: string, tabId: string): void {
   if (!contextId || !tabId) return;
-  useCenterPaneLayoutStore.getState().openTab(contextId, tabId);
+  const store = useCenterPaneLayoutStore.getState();
+  const plan = planCenterTabAttach(store.getLayout(contextId), tabId);
+  if (plan.action === "reveal") {
+    store.focus(contextId, plan.paneId);
+    store.setActiveTab(contextId, plan.paneId, tabId);
+    return;
+  }
+  store.openTab(contextId, tabId);
 }

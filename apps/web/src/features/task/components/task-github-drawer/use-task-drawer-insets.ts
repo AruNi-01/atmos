@@ -3,6 +3,7 @@
 import React from "react";
 import {
   APP_FOOTER_HEIGHT_PX,
+  APP_HEADER_HEIGHT_PX,
   CENTER_STAGE_BODY_ATTR,
   CENTER_STAGE_CARD_ATTR,
   CENTER_STAGE_GUTTER_X_PX,
@@ -54,7 +55,7 @@ function insetsFromRect(
 function fallbackInsets(): TaskDrawerInsets {
   return {
     left: CENTER_STAGE_GUTTER_X_PX,
-    top: 48 + CENTER_STAGE_GUTTER_Y_PX,
+    top: APP_HEADER_HEIGHT_PX + CENTER_STAGE_GUTTER_Y_PX,
     right: CENTER_STAGE_GUTTER_X_PX,
     bottom: APP_FOOTER_HEIGHT_PX + CENTER_STAGE_GUTTER_Y_PX,
     gap: GAP_PX,

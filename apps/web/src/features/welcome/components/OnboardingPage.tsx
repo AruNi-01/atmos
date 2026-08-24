@@ -52,10 +52,7 @@ import {
 } from '@/features/welcome/components/OnboardingStepActions';
 import { useDialogStore } from '@/app-shell/state/use-dialog-store';
 import { useAtmosComputerStore } from '@/features/connection/lib/atmos-computer-store';
-import {
-  canUseNativeDirectoryPicker,
-  pickLocalDirectory,
-} from '@/shared/lib/desktop-directory-picker';
+import { pickLocalDirectory } from '@/shared/lib/desktop-directory-picker';
 import { AgentIcon } from '@/features/agent/components/AgentIcon';
 import { AGENT_OPTIONS } from '@/features/wiki/components/AgentSelect';
 import {
@@ -412,10 +409,9 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
   const [isPickingDirectory, setIsPickingDirectory] = useState(false);
   const pathValidationSeq = useRef(0);
   const connectionMode = useAtmosComputerStore((s) => s.connectionMode);
-  // Native OS picker only when Desktop is talking to the local machine.
-  // Relay / remote computers still need the in-app FileBrowser (WS FS API).
-  const useNativePicker =
-    canUseNativeDirectoryPicker() && connectionMode === 'local';
+  // OS picker first when talking to the local machine. Atmos FileBrowser is
+  // the fallback (and the only option for relay / remote computers).
+  const preferOsPicker = connectionMode === 'local';
 
   // Validate path when it changes
   useEffect(() => {
@@ -487,23 +483,26 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
   };
 
   const handleBrowse = useCallback(async () => {
-    if (useNativePicker) {
+    if (preferOsPicker) {
       setIsPickingDirectory(true);
       try {
         const selected = await pickLocalDirectory({
           defaultPath: path || undefined,
           title: t('project.fields.browse'),
         });
-        if (selected) {
-          applySelectedProjectPath(selected);
+        if (selected.status === 'picked') {
+          applySelectedProjectPath(selected.path);
+          return;
+        }
+        if (selected.status === 'cancelled') {
+          return;
         }
       } finally {
         setIsPickingDirectory(false);
       }
-      return;
     }
     setShowFileBrowser(true);
-  }, [useNativePicker, path, t, applySelectedProjectPath]);
+  }, [preferOsPicker, path, t, applySelectedProjectPath]);
 
   const handleProjectSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1005,13 +1004,13 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
                       <Label htmlFor="path" className="text-xs font-semibold text-foreground">
                         {t('project.fields.path')}
                       </Label>
-                      <div className="flex gap-2">
+                      <div className="flex items-stretch gap-2">
                         <Input
                           id="path"
                           value={path}
                           onChange={(e) => setPath(e.target.value)}
                           placeholder={t('project.fields.pathPlaceholder')}
-                          className="font-mono text-xs border-border/40 bg-muted/10 focus-visible:ring-1"
+                          className="min-w-0 flex-1 font-mono text-xs border-border/40 bg-muted/10 focus-visible:ring-1"
                         />
                         <Button
                           type="button"
@@ -1061,16 +1060,14 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
                     </div>
                   </form>
 
-                  {!useNativePicker ? (
-                    <FileBrowser
-                      open={showFileBrowser}
-                      onOpenChange={setShowFileBrowser}
-                      onSelect={handleFileBrowserSelect}
-                      title={t('project.fields.browse')}
-                      selectLabel={t('project.submit')}
-                      dirsOnly={true}
-                    />
-                  ) : null}
+                  <FileBrowser
+                    open={showFileBrowser}
+                    onOpenChange={setShowFileBrowser}
+                    onSelect={handleFileBrowserSelect}
+                    title={t('project.fields.browse')}
+                    selectLabel={t('project.submit')}
+                    dirsOnly={true}
+                  />
                 </div>
               )}
                   </div>

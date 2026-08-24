@@ -189,6 +189,49 @@ describe("center space URL isolation", () => {
     ).toBe(false);
   });
 
+  it("honors a tabless agent tmux jump and rejects leftover tmux chrome", () => {
+    expect(
+      shouldHonorUrlTabForPaintContext({
+        tabFromUrl: null,
+        paintId: "ws-b",
+        previousPaintId: "ws-a",
+        lastTab: "files",
+        terminalTmux: "agent-2",
+        previousTerminalTmux: "agent-1",
+      }),
+    ).toBe(true);
+    expect(
+      shouldHonorUrlTabForPaintContext({
+        tabFromUrl: null,
+        paintId: "ws-b",
+        previousPaintId: "ws-a",
+        lastTab: "files",
+        terminalTmux: "agent-1",
+        previousTerminalTmux: "agent-1",
+      }),
+    ).toBe(false);
+    expect(
+      shouldHonorUrlTabForPaintContext({
+        tabFromUrl: null,
+        paintId: makeCenterSpaceKey("ws-a", "space-2"),
+        previousPaintId: "ws-a",
+        lastTab: "terminal",
+        terminalTmux: "cs__space-2__1",
+        previousTerminalTmux: null,
+      }),
+    ).toBe(true);
+    expect(
+      shouldHonorUrlTabForPaintContext({
+        tabFromUrl: null,
+        paintId: makeCenterSpaceKey("ws-a", "space-2"),
+        previousPaintId: "ws-a",
+        lastTab: "terminal",
+        terminalTmux: "cs__space-2__1",
+        previousTerminalTmux: "cs__space-2__1",
+      }),
+    ).toBe(true);
+  });
+
   it("treats leftover terminalTmux as foreign on a host hop", () => {
     expect(
       shouldHonorUrlTabForPaintContext({

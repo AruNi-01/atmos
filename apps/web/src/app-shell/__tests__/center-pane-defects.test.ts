@@ -1,4 +1,6 @@
 import { describe, expect, it } from "bun:test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import {
   applyLegacyStripOrder,
   closePane,
@@ -468,6 +470,11 @@ describe("hydration-safe reconcile", () => {
         layoutHydrated: true,
       }),
     ).toBe(true);
+
+    const stage = readFileSync(join(import.meta.dir, "../CenterStage.tsx"), "utf8");
+    expect(stage).toContain("React.useLayoutEffect(() => {\n    hydratePaneLayout();");
+    expect(stage).toContain("if (!paneLayoutHydrated || isExtraCenterSpaceKey(mosaicContextId))");
+    expect(stage).toContain("preserveDeepLink: true");
 
     const { layout, secondaryId } = splitWithSecondaryTab(
       ["terminal", "overview"],

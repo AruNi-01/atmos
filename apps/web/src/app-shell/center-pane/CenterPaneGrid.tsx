@@ -124,6 +124,7 @@ export function CenterPaneGrid({
     [live],
   );
   const canDrag = normalized.order.length > 1;
+  const isOnlyPane = normalized.order.length === 1;
   const [liveResizing, setLiveResizing] = React.useState(false);
   const paneCacheRef = React.useRef(paneById);
   paneCacheRef.current = new Map([...paneCacheRef.current, ...paneById]);
@@ -318,6 +319,7 @@ export function CenterPaneGrid({
               <SplitLeaf
                 pane={pane}
                 isFocused={!exiting && normalized.focusedPaneId === pane.id}
+                isOnlyPane={isOnlyPane}
                 canDrag={canDrag && !exiting && !fullscreenPaneId}
                 draggingPaneId={draggingPaneId}
                 onFocus={onFocus}
@@ -371,6 +373,7 @@ export function CenterPaneGrid({
 function SplitLeaf({
   pane,
   isFocused,
+  isOnlyPane,
   canDrag,
   draggingPaneId,
   onFocus,
@@ -378,6 +381,7 @@ function SplitLeaf({
 }: {
   pane: CenterPane;
   isFocused: boolean;
+  isOnlyPane: boolean;
   canDrag: boolean;
   draggingPaneId: string | null;
   onFocus: (paneId: string) => void;
@@ -404,7 +408,11 @@ function SplitLeaf({
           "relative flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-background ring-1 transition-[box-shadow,ring-color,opacity]",
           CENTER_STAGE_RADIUS_CLASS,
           "isolate",
-          isFocused ? "ring-border/70 shadow-sm" : "ring-border/40",
+          isOnlyPane
+            ? "ring-border/40"
+            : isFocused
+              ? "ring-border/70 shadow-sm"
+              : "ring-border/40",
           isDragging && "pointer-events-none opacity-80",
         )}
         onPointerDownCapture={() => onFocus(pane.id)}

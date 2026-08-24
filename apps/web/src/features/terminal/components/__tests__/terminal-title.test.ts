@@ -55,11 +55,38 @@ describe("terminal title runtime wrapper fallback", () => {
     });
   });
 
-  it("keeps the pane agent title when reattach injects a bare process name", () => {
+  it("shows a reattached bare process name unless it matches a configured agent", () => {
     expect(
       getTerminalDisplayMeta({
         baseTitle: "1",
         dynamicTitle: "agy",
+        agent: hermesAgent,
+      }),
+    ).toMatchObject({
+      displayTitle: "agy",
+      toolbarAgent: undefined,
+    });
+  });
+
+  it("shows a live CLI instead of a leftover agent pane title", () => {
+    expect(
+      getTerminalDisplayMeta({
+        baseTitle: "Hermes Agent",
+        dynamicTitle: "mole",
+        configuredAgents: [hermesAgent],
+        agent: hermesAgent,
+      }),
+    ).toMatchObject({
+      displayTitle: "mole",
+      toolbarAgent: undefined,
+    });
+  });
+
+  it("falls back to the last agent title when the dynamic title is version-like", () => {
+    expect(
+      getTerminalDisplayMeta({
+        baseTitle: "Hermes Agent",
+        dynamicTitle: "3.1.3",
         agent: hermesAgent,
       }),
     ).toMatchObject({
