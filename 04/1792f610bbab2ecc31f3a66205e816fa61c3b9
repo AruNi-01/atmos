@@ -1,0 +1,14 @@
+apps/api/src/api/system/files.rs
+  h_5be255725524c8 109,113,117,122-128,130-136,140,146,153,156,162-167,170,174,181,185-195,198,203,210
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "041792f610bbab2ecc31f3a66205e816fa61c3b9",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
