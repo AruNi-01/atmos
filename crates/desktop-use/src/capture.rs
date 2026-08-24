@@ -165,7 +165,7 @@ struct Frontmost {
 #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 fn build_context_markdown(frontmost: &Frontmost, warnings: &[String]) -> String {
     let mut lines = vec![
-        format!("# Desktop Use Capture"),
+        "# Desktop Use Capture".to_string(),
         format!("- App: {}", frontmost.app_name),
     ];
     if let Some(t) = &frontmost.window_title {
