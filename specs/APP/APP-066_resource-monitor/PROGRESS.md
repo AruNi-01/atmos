@@ -4,11 +4,11 @@
 
 ## Status
 
-- **State**: in_progress
+- **State**: ready_for_review
 - **Branch**: `aarynlu/resource-monitor-8c97`
 - **Last updated**: 2026-08-25
 - **Current owner**: coordinator with Grok 4.6 implementation workers
-- **Current phase**: web
+- **Current phase**: review
 
 ## Snapshot
 
@@ -26,6 +26,8 @@
 - [x] `@atmos/api-types` action/event contracts
 - [x] Electron shell metrics IPC
 - [x] Web Query, Footer, popover, settings, and i18n
+- [x] Activity Monitor + Raycast visual redesign and 60-point Host trend
+- [x] Cross-Center-Space Terminal locate and blue one-shot feedback
 - [x] Automated tests
 - [ ] Agent Browser / manual verification
 - [x] Architecture and implementation review
@@ -41,7 +43,8 @@
 - Fixed review findings covering subscription generation races, Relay app-close cleanup, WS backpressure, blocking path work, nested payload validation, and stale/partial UI states.
 - Added targeted Rust/Bun tests and a real Playwright Footer/popover journey.
 - Aligned macOS Host memory with btop's Mach accounting and enriched session rows with live terminal titles.
-- In progress: Activity Monitor + Raycast visual redesign, client Host history, sortable hierarchy, and cross-Center-Space terminal locate navigation.
+- Completed Activity Monitor + Raycast visual redesign, client Host history, sortable hierarchy, and cross-Center-Space terminal locate navigation.
+- Added a real Playwright terminal-session click that verifies route, focus, blue pulse, attention isolation, and test Workspace cleanup.
 
 ## Decisions Since TECH
 
@@ -53,9 +56,9 @@ No implementation deltas.
 |------|------------------|-------------|-------|
 | Rust tests | targeted `cargo test` + strict Clippy | passed | engine, service, terminal, API, Relay lifecycle |
 | API types | extract/check/test/typecheck | passed | 280 actions, 31 events |
-| Web tests | targeted `bun test` + typecheck + lint | passed | APP-066 Query/lifecycle/state coverage |
+| Web tests | 138 targeted `bun test` + typecheck + lint | passed | UI, history, sorting, exact deep links, locate generation |
 | Electron | full `bun test` + typecheck + build | passed | shell collector and IPC |
-| E2E | targeted Playwright | passed | Chromium + mobile Chromium |
+| E2E | targeted Playwright | passed | 4 tests: Host/sort/chart + real Terminal locate on Chromium/mobile |
 | Full repository | `just test` / `just typecheck` | unrelated failures | APP-066 surfaces pass; see `TEST.md` Coverage Status |
 | Agent Browser/manual | exploratory | partial | Connect gate blocked Agent Browser; host-specific checks remain |
 

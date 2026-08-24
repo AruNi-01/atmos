@@ -2,8 +2,8 @@
 
 > Post-implementation review log for functional completeness, architecture, reliability, performance, and testability. Complements the planning quartet; does not replace it.
 
-**Review date**: 2026-08-24  
-**Review scope**: functional + quality + performance + reliability  
+**Review date**: 2026-08-25
+**Review scope**: functional + quality + performance + reliability
 **Related code**: `crates/core-engine/src/resource_metrics`, `crates/core-service/src/service/resource_monitor`, `apps/api/src/api/ws`, `apps/web/src/features/resource-monitor`, `apps/desktop-electron/src/metrics`
 
 ---
@@ -20,6 +20,8 @@
 | REV-006 | P2 | test | Structural checks did not prove the user-visible lifecycle | verified |
 | REV-007 | P1 | backend | macOS Host memory used the wrong accounting definition | verified |
 | REV-008 | P2 | frontend | Session rows displayed numeric tmux identities as titles | verified |
+| REV-009 | P1 | frontend | Resource hierarchy was visually flat and terminal rows were not actionable | verified |
+| REV-010 | P1 | frontend | Cross-host locate deep links could be stripped as leftover chrome | verified |
 
 ---
 
@@ -281,3 +283,69 @@ Join active Resource Monitor session rows to terminal pane state by `session_id`
 
 - 2026-08-25 — Added a display-only session-title map sourced from `useTerminalStore.workspacePanes`.
 - Verified by `bun test apps/web/src/features/resource-monitor`, Web typecheck, and feature lint.
+
+---
+
+## REV-009 · Resource hierarchy was visually flat and terminal rows were not actionable
+
+| Field | Value |
+|-------|-------|
+| **Status** | verified |
+| **Severity** | P1 |
+| **Area** | frontend |
+| **Reported by** | user review |
+| **Owner** | APP-066 implementation |
+
+### Finding
+
+The first popover rendered Host, Atmos, Projects, Workspaces, and sessions as nearly identical text rows. CPU and memory were hard to compare, the popover carried no trend context, and terminal rows did not communicate or provide navigation.
+
+### Required fix
+
+Use an Activity Monitor + Raycast hierarchy: compact Host summary and time-based CPU/memory chart, aligned sortable columns, one scrollable dense hierarchy, semantic status treatments, and clearly actionable terminal rows.
+
+### Acceptance
+
+- [x] Host CPU/memory and their existing-snapshot trend are immediately distinguishable.
+- [x] Name/CPU/Memory columns align and sort without flattening hierarchy.
+- [x] Only the hierarchy scrolls and 390px width does not overflow.
+- [x] Terminal rows expose an accessible locate action when a live pane can be resolved.
+- [x] The design remains dense, neutral, border-led, and localized.
+
+### Fix log
+
+- 2026-08-25 — Rebuilt the popover with existing UI primitives, Recharts, a 60-point Computer-scoped history ring, sortable table headers, and responsive hierarchy.
+- Verified by 138 targeted Web/navigation tests, typecheck/lint, and APP-066 Playwright on Chromium/mobile Chromium.
+
+---
+
+## REV-010 · Cross-host locate deep links could be stripped as leftover chrome
+
+| Field | Value |
+|-------|-------|
+| **Status** | verified |
+| **Severity** | P1 |
+| **Area** | frontend |
+| **Reported by** | internal review |
+| **Owner** | APP-066 implementation |
+
+### Finding
+
+The ordinary app-router path sanitizes tab and terminal query parameters copied between hosts. A deliberate Resource Monitor jump to another Workspace with the same `tab=terminal` or tmux name could therefore lose the destination deep link and reopen the popover without locating the pane.
+
+### Required fix
+
+Provide a guarded app-router method for explicit Workspace deep links, commit the destination query before same-host Center Space switching, and clear pending locate state when URL commit fails.
+
+### Acceptance
+
+- [x] Same-host extra-Space jumps commit destination tab/tmux before switching.
+- [x] Cross-host Project/Workspace jumps preserve intentional tab/tmux parameters.
+- [x] Simple PTY jumps remove stale `terminalTmux`.
+- [x] Failed/guarded navigation clears pending locate state and does not flash another pane.
+- [x] The blue locate signal remains generation-safe and independent of agent attention.
+
+### Fix log
+
+- 2026-08-25 — Added `pushWorkspaceDeepLink`, bounded destination URL confirmation, exact Center Space/tab/pane resolution, and terminal-owned locate state/CSS.
+- Verified by cross-host/extra-Space/simple-PTY behavior tests and a real default-Space terminal click/focus/blue-pulse Playwright journey.

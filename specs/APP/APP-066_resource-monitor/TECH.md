@@ -317,8 +317,10 @@ Resource session click
   -> resolve session_id in live workspacePanes
   -> capture host / Center Space / Terminal tab / pane / tmux window
   -> close popover without restoring focus to the Footer trigger
-  -> switchCenterSpace(..., preserveDeepLink: true)
-  -> route to /workspace or /project with tab + terminalTmux
+  -> guarded pushWorkspaceDeepLink to /workspace or /project with tab + terminalTmux
+  -> confirm the destination query committed and stale terminalTmux was removed
+  -> same host: switchCenterSpace(..., preserveDeepLink: true)
+     cross host: activate the destination Space before the host paint commits
   -> existing CenterStage deep-link waits for the target grid and focuses pane
   -> terminal locate store acknowledges the mounted active pane
   -> one-shot blue ::after border pulse, then generation-safe cleanup
@@ -335,6 +337,7 @@ Rules:
 
 - Resolve the owning Center Space from the live pane scope and namespaced tmux window; support default and extra spaces.
 - Route Project-direct sessions to `/project` and Workspace sessions to `/workspace`.
+- Intentional Resource Monitor deep links use the guarded exact-deep-link app-router path so ordinary cross-host leftover-chrome cleanup cannot strip a destination with the same tab or tmux name.
 - Use the existing `terminalTmux` CenterStage deep link when a tmux window exists. A live simple-PTY pane may be focused by the pending locate request after its tab mounts.
 - A locate request becomes active only when the matching pane is on the active surface, so a warm hidden Space cannot consume the pulse.
 - Pulse duration is approximately 2.4 seconds, uses the semantic info blue, and provides a non-animated short blue border under reduced motion.

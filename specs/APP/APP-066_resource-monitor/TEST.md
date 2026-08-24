@@ -236,7 +236,7 @@ The test-run agent must load the installed Agent Browser skill before these chec
 
 ## Coverage Status
 
-_Last run: 2026-08-24 · Grok 4.6 · `atmos-specs-test-run` (status recalibrated to Then signals). Covered: S1, S3, S4, S6, S8, S10, S12. Partial: S2, S5, S7, S9, S11, S13. Targeted Rust/Bun/E2E green. Root `just typecheck` still fails two unrelated packages._
+_Last run: 2026-08-25 · Grok 4.6 + coordinator verification. Covered: S1, S3, S4, S6, S8, S10, S12, S14, S15, S16. Partial: S2, S5, S7, S9, S11, S13. Targeted Rust/Bun/E2E green. Root `just typecheck` still fails two unrelated packages._
 
 ### Scenario status
 
@@ -253,6 +253,9 @@ _Last run: 2026-08-24 · Grok 4.6 · `atmos-specs-test-run` (status recalibrated
 - S11 — ◐ partial. Hosted Footer + Host/Atmos and Desktop heading count 0 are in `e2e/tests/specs/APP-066_resource-monitor.e2e.ts`; Electron+local vs hosted/relay IPC gating is in `desktop-shell-metrics.test.ts`. Then also requires the Desktop shell section visible only in local Electron and Server hierarchy in all supported Computer modes; Electron-local render and Relay UI were not e2e'd.
 - S12 — ✅ covered by `apps/web/src/features/resource-monitor/lib/resource-monitor-subscription.test.ts` (captured-scope unsubscribe, scope-change order, remount, disconnect skip).
 - S13 — ◐ partial. State mapping / banners / stale-vs-partial are behavioral in `resource-monitor-ui-state.test.ts` and `resource-monitor-clock.test.ts`. Footer/popover Host+Atmos, close, and 390px no horizontal overflow are in the APP-066 e2e. Light/dark, many-Workspace scroll covering Footer, and unsupported/partial visual fixtures were not exercised in a browser.
+- S14 — ✅ covered by default/extra/custom-tab/simple-PTY locator and navigation tests plus the real default-Space Playwright session-click journey. The production `useAppRouter.pushWorkspaceDeepLink` path preserves explicit cross-host tab/tmux parameters.
+- S15 — ✅ covered by generation/timer/pane-match tests and Playwright observation of the target pane's finite `data-resource-locate-ring`; the same E2E verifies no synthetic agent-attention class is introduced.
+- S16 — ✅ covered by 60-point scope-isolated history tests, stable hierarchy sort tests, scoped subscription tests, and Playwright Host metrics/sort/chart-or-collecting assertions on Chromium and mobile Chromium.
 
 ### Structural-only (not treated as scenario proof)
 
@@ -331,6 +334,9 @@ just test
 - macOS Host memory now follows btop's Mach `(active + wired) × page_size` formula. `cargo test -p core-engine resource_metrics` covers the page formula, overflow/error fallback, host bounds, and unchanged process RSS; 9 tests passed.
 - Resource Monitor session rows now join live terminal titles by `session_id`. `bun test apps/web/src/features/resource-monitor` covers numeric tmux fallback, dynamic title, agent + OSC title, custom title priority, and missing-live-title behavior; 50 tests passed.
 - `cargo clippy -p core-engine --all-targets -- -D warnings`, Web typecheck, and changed-feature lint passed.
+- Activity Monitor + Raycast redesign: `bun test` ran 138 resource/navigation/workspace tests with 0 failures; Web typecheck and changed-file lint passed.
+- `E2E_REUSE_SERVER=1 bun run --cwd e2e test tests/specs/APP-066_resource-monitor.e2e.ts` passed 4 tests: Host/sort/chart layout plus a real default-Space terminal locate/focus/blue-pulse journey on Chromium and mobile Chromium. Each test-created Workspace is deleted and verified absent in `finally`.
+- Extra Center Space and custom Terminal tab routing are deterministic Bun coverage; the committed E2E intentionally does not manufacture those UI layouts.
 
 ### Test-run files changed
 
