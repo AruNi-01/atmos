@@ -52,7 +52,61 @@ struct RelayEnvelope {
 
 struct Session {
     conn_id: String,
-    _push_abort: tokio::task::JoinHandle<()>,
+    push_task: tokio::task::JoinHandle<()>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum RelaySessionClose {
+    App { sid: String },
+    Terminal { sid: String },
+}
+
+fn classify_relay_session_close(
+    stream: Option<&str>,
+    kind: &str,
+    from: Option<&str>,
+) -> Option<RelaySessionClose> {
+    if kind != "close" {
+        return None;
+    }
+    let sid = from?.strip_prefix("client:")?;
+    match stream {
+        Some("app") => Some(RelaySessionClose::App {
+            sid: sid.to_string(),
+        }),
+        Some("terminal") => Some(RelaySessionClose::Terminal {
+            sid: sid.to_string(),
+        }),
+        _ => None,
+    }
+}
+
+async fn close_app_virtual_session(
+    sessions: &RwLock<HashMap<String, Session>>,
+    sid: &str,
+) -> Option<String> {
+    let mut locked = sessions.write().await;
+    let session = locked.remove(sid)?;
+    session.push_task.abort();
+    Some(session.conn_id)
+}
+
+async fn apply_app_session_close<F, Fut>(
+    sessions: &RwLock<HashMap<String, Session>>,
+    sid: &str,
+    unregister: F,
+) -> bool
+where
+    F: FnOnce(String) -> Fut,
+    Fut: std::future::Future<Output = ()>,
+{
+    match close_app_virtual_session(sessions, sid).await {
+        Some(conn_id) => {
+            unregister(conn_id).await;
+            true
+        }
+        None => false,
+    }
 }
 
 /// Shared flags updated by the outbound relay task for status APIs.
@@ -310,11 +364,26 @@ pub async fn run(
                     continue;
                 }
 
-                if env.stream.as_deref() == Some("terminal") && env.kind == "close" {
-                    if let Some(from) = env.from.clone() {
-                        if let Some(sid) = from.strip_prefix("client:") {
-                            terminal::handle_terminal_client_close(&state, &terminal_sessions, sid)
-                                .await;
+                if let Some(close) = classify_relay_session_close(
+                    env.stream.as_deref(),
+                    &env.kind,
+                    env.from.as_deref(),
+                ) {
+                    match close {
+                        RelaySessionClose::Terminal { sid } => {
+                            terminal::handle_terminal_client_close(
+                                &state,
+                                &terminal_sessions,
+                                &sid,
+                            )
+                            .await;
+                        }
+                        RelaySessionClose::App { sid } => {
+                            apply_app_session_close(&sessions, &sid, |conn_id| {
+                                let ws_service = Arc::clone(&state.ws_service);
+                                async move { ws_service.unregister(&conn_id).await }
+                            })
+                            .await;
                         }
                     }
                     continue;
@@ -420,7 +489,7 @@ pub async fn run(
 
     let mut locked = sessions.write().await;
     for (_sid, s) in locked.drain() {
-        s._push_abort.abort();
+        s.push_task.abort();
         state.ws_service.unregister(&s.conn_id).await;
     }
     drop(locked);
@@ -484,9 +553,125 @@ async fn ensure_session(
         sid,
         Session {
             conn_id: conn_id.clone(),
-            _push_abort: push_task,
+            push_task,
         },
     );
 
     Ok(conn_id)
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+    use std::sync::Arc;
+    use std::time::Duration;
+
+    use tokio::sync::{oneshot, RwLock};
+
+    use super::{
+        apply_app_session_close, classify_relay_session_close, RelaySessionClose, Session,
+    };
+
+    fn pending_session(conn_id: &str) -> (Session, oneshot::Receiver<()>) {
+        let (alive_tx, alive_rx) = oneshot::channel();
+        let push_task = tokio::spawn(async move {
+            let _alive_tx = alive_tx;
+            std::future::pending::<()>().await;
+        });
+        (
+            Session {
+                conn_id: conn_id.to_string(),
+                push_task,
+            },
+            alive_rx,
+        )
+    }
+
+    #[test]
+    fn app_close_classifies_only_app_stream_close() {
+        assert_eq!(
+            classify_relay_session_close(Some("app"), "close", Some("client:sid-a")),
+            Some(RelaySessionClose::App {
+                sid: "sid-a".to_string(),
+            })
+        );
+        assert_eq!(
+            classify_relay_session_close(Some("terminal"), "close", Some("client:sid-t")),
+            Some(RelaySessionClose::Terminal {
+                sid: "sid-t".to_string(),
+            })
+        );
+        assert_eq!(
+            classify_relay_session_close(Some("app"), "frame", Some("client:sid-a")),
+            None
+        );
+        assert_eq!(
+            classify_relay_session_close(Some("app"), "close", Some("server")),
+            None
+        );
+        assert_eq!(
+            classify_relay_session_close(Some("app"), "close", None),
+            None
+        );
+        assert_eq!(
+            classify_relay_session_close(None, "close", Some("client:sid-a")),
+            None
+        );
+        assert_eq!(
+            classify_relay_session_close(Some("http"), "close", Some("client:sid-a")),
+            None
+        );
+    }
+
+    #[tokio::test]
+    async fn app_close_removes_only_target_and_exposes_unregister_id() {
+        let sessions = RwLock::new(HashMap::new());
+        let (target, target_alive) = pending_session("conn-a");
+        let (other, _other_alive) = pending_session("conn-b");
+        sessions.write().await.insert("sid-a".to_string(), target);
+        sessions.write().await.insert("sid-b".to_string(), other);
+
+        let cleaned = Arc::new(tokio::sync::Mutex::new(Vec::<String>::new()));
+        let cleaned_cb = Arc::clone(&cleaned);
+        assert!(
+            apply_app_session_close(&sessions, "sid-a", |conn_id| {
+                let cleaned_cb = Arc::clone(&cleaned_cb);
+                async move {
+                    cleaned_cb.lock().await.push(conn_id);
+                }
+            })
+            .await,
+            "app-close must invoke cleanup for the target session"
+        );
+
+        let locked = sessions.read().await;
+        assert!(!locked.contains_key("sid-a"));
+        assert!(locked.contains_key("sid-b"));
+        assert_eq!(
+            locked.get("sid-b").map(|s| s.conn_id.as_str()),
+            Some("conn-b")
+        );
+        drop(locked);
+
+        let result = tokio::time::timeout(Duration::from_secs(1), target_alive)
+            .await
+            .expect("timed out waiting for target push task abort");
+        assert!(
+            result.is_err(),
+            "app-close must abort only the target push task"
+        );
+        assert_eq!(cleaned.lock().await.as_slice(), ["conn-a"]);
+        assert!(
+            !apply_app_session_close(&sessions, "sid-a", |_conn_id| async {}).await,
+            "closing an already-removed sid must be a no-op"
+        );
+        assert_eq!(
+            sessions
+                .read()
+                .await
+                .get("sid-b")
+                .map(|s| s.conn_id.as_str()),
+            Some("conn-b")
+        );
+    }
 }

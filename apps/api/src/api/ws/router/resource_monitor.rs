@@ -2,6 +2,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use serde_json::{json, Value};
+use tokio::time::{interval, Interval, MissedTickBehavior};
 
 use core_service::{Result, ServiceError};
 
@@ -16,6 +17,15 @@ use crate::api::ws::WsManager;
 
 /// Interactive Resource Monitor push interval. Must stay at or above 2 seconds.
 pub(crate) const RESOURCE_MONITOR_INTERVAL: Duration = Duration::from_millis(2500);
+
+/// Delay missed ticks instead of bursting catch-up snapshots after a stall.
+pub(crate) const RESOURCE_MONITOR_MISSED_TICKS: MissedTickBehavior = MissedTickBehavior::Delay;
+
+pub(crate) fn new_resource_monitor_ticker() -> Interval {
+    let mut ticker = interval(RESOURCE_MONITOR_INTERVAL);
+    ticker.set_missed_tick_behavior(RESOURCE_MONITOR_MISSED_TICKS);
+    ticker
+}
 
 const CLI_DISPATCH_CONN_ID: &str = "cli";
 
@@ -73,8 +83,12 @@ impl WsMessageService {
             run_resource_monitor_loop(loop_conn_id, generation, monitor, manager, subscriptions)
                 .await;
         });
-        self.resource_monitor_subscriptions
-            .commit_replace(&conn_id, generation, handle);
+        if !self
+            .resource_monitor_subscriptions
+            .commit_replace(&conn_id, generation, handle)
+        {
+            return Err(subscription_commit_error());
+        }
 
         serde_json::to_value(snapshot).map_err(|error| ServiceError::Processing(error.to_string()))
     }
@@ -100,6 +114,10 @@ impl WsMessageService {
     }
 }
 
+pub(crate) fn subscription_commit_error() -> ServiceError {
+    ServiceError::Processing("resource monitor subscription was replaced or cancelled".to_string())
+}
+
 async fn run_resource_monitor_loop(
     conn_id: String,
     generation: u64,
@@ -107,7 +125,7 @@ async fn run_resource_monitor_loop(
     manager: Arc<WsManager>,
     subscriptions: Arc<ConnectionTaskRegistry>,
 ) {
-    let mut ticker = tokio::time::interval(RESOURCE_MONITOR_INTERVAL);
+    let mut ticker = new_resource_monitor_ticker();
     ticker.tick().await;
 
     loop {
@@ -144,7 +162,7 @@ async fn run_resource_monitor_loop(
                             );
                         }
                     }
-                    subscriptions.remove_if_generation(&conn_id, generation);
+                    subscriptions.take_if_generation(&conn_id, generation);
                     break;
                 }
             }
@@ -162,13 +180,38 @@ async fn run_resource_monitor_loop(
 
 #[cfg(test)]
 mod tests {
-    use super::{require_live_ws_connection, RESOURCE_MONITOR_INTERVAL};
+    use super::{
+        new_resource_monitor_ticker, require_live_ws_connection, subscription_commit_error,
+        RESOURCE_MONITOR_INTERVAL, RESOURCE_MONITOR_MISSED_TICKS,
+    };
     use std::time::Duration;
+    use tokio::time::MissedTickBehavior;
 
     #[test]
     fn interactive_interval_is_at_least_two_seconds() {
         assert!(RESOURCE_MONITOR_INTERVAL >= Duration::from_secs(2));
         assert_eq!(RESOURCE_MONITOR_INTERVAL, Duration::from_millis(2500));
+    }
+
+    #[test]
+    fn resource_monitor_ticker_uses_delay_constant() {
+        assert_eq!(RESOURCE_MONITOR_MISSED_TICKS, MissedTickBehavior::Delay);
+        assert_ne!(RESOURCE_MONITOR_MISSED_TICKS, MissedTickBehavior::Burst);
+    }
+
+    #[tokio::test]
+    async fn resource_monitor_ticker_constructs_with_delay() {
+        let _ticker = new_resource_monitor_ticker();
+    }
+
+    #[test]
+    fn stale_commit_returns_service_error_not_snapshot() {
+        match subscription_commit_error() {
+            core_service::ServiceError::Processing(message) => {
+                assert!(message.contains("replaced or cancelled"));
+            }
+            other => panic!("expected Processing, got {other:?}"),
+        }
     }
 
     #[test]

@@ -59,15 +59,26 @@ impl WsManager {
 
     pub async fn send_to(&self, id: &str, message: &WsMessage) -> WsResult<()> {
         let json = message.to_json()?;
-        let connections = self.connections.read().await;
+        let sender = {
+            let connections = self.connections.read().await;
+            connections
+                .get(id)
+                .map(|connection| connection.sender().clone())
+        };
 
-        if let Some(connection) = connections.get(id) {
-            connection.send(json).await?;
-            debug!("Message sent to connection: {}", id);
-            Ok(())
-        } else {
-            warn!("Connection not found: {}", id);
-            Err(WsError::ConnectionNotFound(id.to_string()))
+        match sender {
+            Some(sender) => {
+                sender
+                    .send(json)
+                    .await
+                    .map_err(|_| WsError::ChannelClosed)?;
+                debug!("Message sent to connection: {}", id);
+                Ok(())
+            }
+            None => {
+                warn!("Connection not found: {}", id);
+                Err(WsError::ConnectionNotFound(id.to_string()))
+            }
         }
     }
 
@@ -121,5 +132,73 @@ impl WsManager {
                 connected_seconds: conn.last_active().elapsed().as_secs(),
             })
             .collect()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+    use std::time::Duration;
+
+    use tokio::sync::mpsc;
+
+    use super::WsManager;
+    use crate::api::ws::connection::ClientType;
+    use crate::api::ws::message::WsMessage;
+
+    #[tokio::test]
+    async fn send_to_does_not_hold_lock_across_channel_backpressure() {
+        let manager = Arc::new(WsManager::new());
+        let (tx, mut rx) = mpsc::channel::<String>(1);
+        let blocked_id = manager.register_connection(ClientType::Web, tx).await;
+        manager
+            .send_to(&blocked_id, &WsMessage::pong())
+            .await
+            .expect("first send fills the bounded channel");
+
+        let send_manager = Arc::clone(&manager);
+        let send_id = blocked_id.clone();
+        let send_task =
+            tokio::spawn(async move { send_manager.send_to(&send_id, &WsMessage::ping()).await });
+
+        tokio::time::sleep(Duration::from_millis(30)).await;
+        assert!(
+            !send_task.is_finished(),
+            "send_to should still be waiting on channel backpressure"
+        );
+
+        let (other_tx, _other_rx) = mpsc::channel::<String>(1);
+        let other_id = tokio::time::timeout(
+            Duration::from_millis(200),
+            manager.register_connection(ClientType::Desktop, other_tx),
+        )
+        .await
+        .expect("register_connection blocked while send_to held the connections lock");
+
+        tokio::time::timeout(
+            Duration::from_millis(200),
+            manager.unregister_connection(&other_id),
+        )
+        .await
+        .expect("unregister_connection blocked while send_to held the connections lock");
+
+        assert!(
+            !send_task.is_finished(),
+            "register/unregister must not depend on the blocked send completing"
+        );
+
+        let fill = tokio::time::timeout(Duration::from_millis(200), rx.recv())
+            .await
+            .expect("blocked send_to should complete once the receiver is ready")
+            .expect("channel closed before the fill message was read");
+        assert!(fill.contains("pong"), "unexpected fill payload: {fill}");
+        send_task
+            .await
+            .expect("send_to task panicked")
+            .expect("send_to should succeed after backpressure clears");
+        let received = rx
+            .try_recv()
+            .expect("ping should be queued after send_to completes");
+        assert!(received.contains("ping"), "unexpected payload: {received}");
     }
 }

@@ -5,6 +5,7 @@
 //! deleting a newer replacement.
 
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
 
 use tokio::task::JoinHandle;
@@ -15,8 +16,13 @@ struct RegisteredTask {
 }
 
 /// `conn_id` → task map with replace/abort and generation-safe self-cleanup.
+///
+/// Generations come from a process-wide counter so `prepare_replace` never
+/// reuses a value after abort/remove. A stale closer therefore cannot delete a
+/// newer reserved slot.
 pub struct ConnectionTaskRegistry {
     inner: Mutex<HashMap<String, RegisteredTask>>,
+    next_generation: AtomicU64,
 }
 
 impl Default for ConnectionTaskRegistry {
@@ -29,6 +35,7 @@ impl ConnectionTaskRegistry {
     pub fn new() -> Self {
         Self {
             inner: Mutex::new(HashMap::new()),
+            next_generation: AtomicU64::new(1),
         }
     }
 
@@ -38,13 +45,16 @@ impl ConnectionTaskRegistry {
             .unwrap_or_else(|poisoned| poisoned.into_inner())
     }
 
-    /// Abort any existing task and reserve the next generation for `conn_id`.
+    fn allocate_generation(&self) -> u64 {
+        self.next_generation.fetch_add(1, Ordering::Relaxed)
+    }
+
+    /// Abort any existing task and reserve a unique generation for `conn_id`.
+    ///
+    /// The reserved generation is never reused, including after abort/remove.
     pub fn prepare_replace(&self, conn_id: &str) -> u64 {
+        let generation = self.allocate_generation();
         let mut map = self.lock();
-        let generation = map
-            .get(conn_id)
-            .map(|task| task.generation.wrapping_add(1))
-            .unwrap_or(1);
         if let Some(old) = map.insert(
             conn_id.to_string(),
             RegisteredTask {
@@ -90,6 +100,9 @@ impl ConnectionTaskRegistry {
     }
 
     /// Remove the entry only when `generation` still owns the slot.
+    ///
+    /// Aborts the stored handle. Use [`Self::take_if_generation`] from the
+    /// running task so it does not abort itself.
     pub fn remove_if_generation(&self, conn_id: &str, generation: u64) -> bool {
         let mut map = self.lock();
         let matches = map
@@ -101,6 +114,21 @@ impl ConnectionTaskRegistry {
                     handle.abort();
                 }
             }
+        }
+        matches
+    }
+
+    /// Remove the matching slot without aborting its handle.
+    ///
+    /// The running task calls this for self-cleanup, then exits. Dropping the
+    /// `JoinHandle` detaches rather than aborting.
+    pub fn take_if_generation(&self, conn_id: &str, generation: u64) -> bool {
+        let mut map = self.lock();
+        let matches = map
+            .get(conn_id)
+            .is_some_and(|task| task.generation == generation);
+        if matches {
+            let _ = map.remove(conn_id);
         }
         matches
     }
@@ -133,6 +161,13 @@ impl ConnectionTaskRegistry {
     #[cfg(test)]
     pub fn len(&self) -> usize {
         self.lock().len()
+    }
+
+    #[cfg(test)]
+    pub fn has_handle(&self, conn_id: &str) -> bool {
+        self.lock()
+            .get(conn_id)
+            .is_some_and(|task| task.handle.is_some())
     }
 }
 
@@ -241,5 +276,96 @@ mod tests {
         assert!(!registry.commit_replace("conn-e", first, handle));
         wait_cancelled(alive).await;
         assert!(registry.contains("conn-e"));
+    }
+
+    #[tokio::test]
+    async fn resource_monitor_prepare_replace_never_reuses_generation_after_abort() {
+        let registry = ConnectionTaskRegistry::new();
+        let first = registry.prepare_replace("conn-reuse");
+        registry.abort_and_remove("conn-reuse");
+        assert!(!registry.contains("conn-reuse"));
+
+        let second = registry.prepare_replace("conn-reuse");
+        assert!(
+            second > first,
+            "generation must stay unique after abort/remove, got first={first} second={second}"
+        );
+        assert_eq!(registry.generation_of("conn-reuse"), Some(second));
+        assert!(!registry.remove_if_generation("conn-reuse", first));
+        assert_eq!(registry.generation_of("conn-reuse"), Some(second));
+    }
+
+    #[tokio::test]
+    async fn resource_monitor_failed_cleanup_cannot_delete_newer_reserved_slot() {
+        let registry = ConnectionTaskRegistry::new();
+        let first = registry.prepare_replace("conn-cleanup");
+        let second = registry.prepare_replace("conn-cleanup");
+        assert_ne!(first, second);
+        assert!(!registry.has_handle("conn-cleanup"));
+
+        assert!(
+            !registry.remove_if_generation("conn-cleanup", first),
+            "stale snapshot-fail cleanup must not delete a newer reserved slot"
+        );
+        assert_eq!(registry.generation_of("conn-cleanup"), Some(second));
+        assert_eq!(registry.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn resource_monitor_unsubscribe_then_resubscribe_rejects_stale_generation() {
+        let registry = ConnectionTaskRegistry::new();
+
+        let gen1 = registry.prepare_replace("conn-race");
+        let (first_handle, _first_alive) = spawn_pending();
+        assert!(registry.commit_replace("conn-race", gen1, first_handle));
+
+        registry.abort_and_remove("conn-race");
+        assert!(!registry.contains("conn-race"));
+
+        let gen2 = registry.prepare_replace("conn-race");
+        assert_ne!(gen1, gen2, "unsubscribe must not reset generation");
+        assert_eq!(registry.generation_of("conn-race"), Some(gen2));
+
+        assert!(
+            !registry.remove_if_generation("conn-race", gen1),
+            "gen1 remove must not delete the gen2 reserved slot"
+        );
+        assert_eq!(registry.generation_of("conn-race"), Some(gen2));
+
+        let (stale_handle, stale_alive) = spawn_pending();
+        assert!(
+            !registry.commit_replace("conn-race", gen1, stale_handle),
+            "stale gen1 commit must fail"
+        );
+        wait_cancelled(stale_alive).await;
+
+        let (gen2_handle, _gen2_alive) = spawn_pending();
+        assert!(registry.commit_replace("conn-race", gen2, gen2_handle));
+        assert_eq!(registry.len(), 1);
+        assert!(registry.has_handle("conn-race"));
+        assert_eq!(registry.generation_of("conn-race"), Some(gen2));
+    }
+
+    #[tokio::test]
+    async fn resource_monitor_take_if_generation_does_not_abort_running_task() {
+        let registry = std::sync::Arc::new(ConnectionTaskRegistry::new());
+        let gen = registry.prepare_replace("conn-self");
+        let (start_tx, start_rx) = oneshot::channel();
+        let (continued_tx, continued_rx) = oneshot::channel();
+        let registry_task = std::sync::Arc::clone(&registry);
+        let handle = tokio::spawn(async move {
+            let _ = start_rx.await;
+            assert!(registry_task.take_if_generation("conn-self", gen));
+            tokio::task::yield_now().await;
+            let _ = continued_tx.send(());
+        });
+        assert!(registry.commit_replace("conn-self", gen, handle));
+        start_tx.send(()).expect("start self-cleanup");
+
+        tokio::time::timeout(Duration::from_secs(1), continued_rx)
+            .await
+            .expect("self-cleanup aborted the running task")
+            .expect("continued sender dropped");
+        assert!(!registry.contains("conn-self"));
     }
 }
