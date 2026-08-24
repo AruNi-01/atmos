@@ -1,0 +1,16 @@
+apps/web/src/features/browser/components/RunScript.tsx
+  h_5be255725524c8 505,516-523,525-530,532-533,625
+apps/web/src/features/browser/lib/__tests__/run-script-tab-bar.test.ts
+  h_5be255725524c8 1-44
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "1b77b82b4ff267ee0b08c07d6b9a0d68dffbef94",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
