@@ -16,6 +16,10 @@ resources/icons/*
 # Staged Atmos Server + web for electron-builder extraResources
 resources/runtime/
 
+# Package-time CLI floor overlay (prepare-package from apps/cli/Cargo.toml).
+# Do not write over the tracked pin in resources/desktop-use/.
+resources/desktop-use-stage/
+
 # Runtime logs
 logs/
 

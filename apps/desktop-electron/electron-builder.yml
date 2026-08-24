@@ -40,11 +40,16 @@ extraResources:
     to: bin
     filter:
       - "**/*"
-  # Control-engine pin authority for this Desktop build (APP-052 optimal design).
+  # Control-engine pin. Exclude the committed CLI floor — extraResources copies
+  # run in parallel, so the package-time pin must be the only copy of that file.
   - from: resources/desktop-use
     to: desktop-use
     filter:
       - "**/*"
+      - "!cli-requirement.json"
+  # Package-time CLI floor from apps/cli/Cargo.toml (gitignored stage).
+  - from: resources/desktop-use-stage/cli-requirement.json
+    to: desktop-use/cli-requirement.json
 
 asar: true
 # koffi ships platform native binaries that must load outside asar.

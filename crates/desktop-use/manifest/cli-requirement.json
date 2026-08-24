@@ -1,5 +1,5 @@
 {
   "schema_version": 1,
   "min_cli_version": "2026.8.7",
-  "notes": "Minimum Atmos CLI version this Desktop/Desktop Use surface expects. Packaged Desktop embeds a copy under Resources/desktop-use/. Bump when Desktop Use needs a newer CLI protocol; prepare-package overwrites min_cli_version from apps/cli/Cargo.toml."
+  "notes": "Minimum Atmos CLI version this Desktop/Desktop Use surface expects. Packaged Desktop embeds a copy under Resources/desktop-use/. Bump when Desktop Use needs a newer CLI protocol. prepare-package writes min_cli_version from apps/cli/Cargo.toml into a gitignored overlay (resources/desktop-use-stage/); it must not overwrite the tracked resources/desktop-use/cli-requirement.json."
 }

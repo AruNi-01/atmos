@@ -18,7 +18,7 @@
     "typecheck": "bun ../../scripts/run-tsc7.ts -p tsconfig.json --noEmit",
     "dev": "bun run scripts/ensure-electron.ts && bun run build && bun run scripts/dev.ts",
     "start": "bun run scripts/ensure-electron.ts && bun run build && electron .",
-    "test": "bun test src/**/*.test.ts",
+    "test": "bun test src/**/*.test.ts scripts/**/*.test.ts",
     "smoke:router": "bun run scripts/smoke-router.ts",
     "smoke:boot": "bun run scripts/smoke-boot.ts"
   },

@@ -2,7 +2,8 @@
  * Stage Atmos Server + web static + skills into resources/runtime/current
  * for electron-builder extraResources (process.resourcesPath/runtime/current).
  * Also stages atmos-browser-cookies for packaged cookie import (no cargo),
- * and Desktop Use engine-manifest.json (pin authority for this Desktop build).
+ * Desktop Use engine-manifest.json (pin authority for this Desktop build),
+ * and a gitignored CLI floor overlay (never mutate the tracked pin).
  */
 import {
   cpSync,
@@ -25,6 +26,65 @@ import {
 const appRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const repoRoot = join(appRoot, "../..");
 const require = createRequire(join(appRoot, "package.json"));
+
+/** Committed default pin. Packaging must not overwrite this path. */
+export const TRACKED_CLI_REQUIREMENT_REL =
+  "resources/desktop-use/cli-requirement.json";
+/** Package-time overlay from apps/cli/Cargo.toml; gitignored. */
+export const STAGED_CLI_REQUIREMENT_REL =
+  "resources/desktop-use-stage/cli-requirement.json";
+
+export function parseCliVersionFromCargoToml(cliCargoText: string): string {
+  const match = cliCargoText.match(/^version\s*=\s*"([^"]+)"/m);
+  return match?.[1]?.trim() ?? "";
+}
+
+export function readFallbackMinCliVersion(fallbackJsonText: string): string {
+  try {
+    const parsed = JSON.parse(fallbackJsonText) as {
+      min_cli_version?: string;
+    };
+    return parsed.min_cli_version?.trim() || "";
+  } catch {
+    return "";
+  }
+}
+
+export function resolveMinCliVersion(opts: {
+  cliCargoText: string;
+  fallbackJsonText?: string;
+}): string {
+  return (
+    parseCliVersionFromCargoToml(opts.cliCargoText) ||
+    (opts.fallbackJsonText
+      ? readFallbackMinCliVersion(opts.fallbackJsonText)
+      : "")
+  );
+}
+
+export function stagedCliRequirementPayload(minCliVersion: string): {
+  schema_version: 1;
+  min_cli_version: string;
+} {
+  return {
+    schema_version: 1,
+    min_cli_version: minCliVersion,
+  };
+}
+
+export function writeStagedCliRequirement(
+  destAppRoot: string,
+  minCliVersion: string,
+): string {
+  const dest = join(destAppRoot, STAGED_CLI_REQUIREMENT_REL);
+  mkdirSync(dirname(dest), { recursive: true });
+  writeFileSync(
+    dest,
+    `${JSON.stringify(stagedCliRequirementPayload(minCliVersion), null, 2)}\n`,
+    "utf8",
+  );
+  return dest;
+}
 
 function packageVersion(): string {
   const pkg = require(join(appRoot, "package.json")) as { version?: string };
@@ -93,48 +153,30 @@ function main() {
 
   // CLI floor for this Desktop build: min Atmos CLI version Desktop Use expects.
   // Binary is never bundled (ADR-005); only the version pin ships in the package.
+  // Write to a gitignored overlay — do not mutate the tracked pin under
+  // resources/desktop-use/cli-requirement.json.
   const cliCargo = join(repoRoot, "apps/cli/Cargo.toml");
   const cliCargoText = existsSync(cliCargo)
     ? readFileSync(cliCargo, "utf8")
     : "";
-  const cliVersionMatch = cliCargoText.match(
-    /^version\s*=\s*"([^"]+)"/m,
+  const fallback = join(
+    repoRoot,
+    "crates/desktop-use/manifest/cli-requirement.json",
   );
-  const minCliVersion =
-    cliVersionMatch?.[1]?.trim() ||
-    (() => {
-      const fallback = join(
-        repoRoot,
-        "crates/desktop-use/manifest/cli-requirement.json",
-      );
-      if (existsSync(fallback)) {
-        try {
-          const j = JSON.parse(readFileSync(fallback, "utf8")) as {
-            min_cli_version?: string;
-          };
-          return j.min_cli_version?.trim() || "";
-        } catch {
-          return "";
-        }
-      }
-      return "";
-    })();
+  const minCliVersion = resolveMinCliVersion({
+    cliCargoText,
+    fallbackJsonText: existsSync(fallback)
+      ? readFileSync(fallback, "utf8")
+      : undefined,
+  });
   if (!minCliVersion) {
     throw new Error(
       `[prepare-package] cannot determine min CLI version (apps/cli/Cargo.toml or cli-requirement.json)`,
     );
   }
-  const cliReq = {
-    schema_version: 1,
-    min_cli_version: minCliVersion,
-  };
-  writeFileSync(
-    join(manifestDestDir, "cli-requirement.json"),
-    `${JSON.stringify(cliReq, null, 2)}\n`,
-    "utf8",
-  );
+  const stagedCliReq = writeStagedCliRequirement(appRoot, minCliVersion);
   console.log(
-    `[prepare-package] staged cli-requirement.json min_cli_version=${minCliVersion}`,
+    `[prepare-package] staged ${stagedCliReq} min_cli_version=${minCliVersion}`,
   );
 
   // CLI is never staged into the Desktop package (ADR-005). Sole install path
@@ -201,4 +243,6 @@ function main() {
   }
 }
 
-main();
+if (import.meta.main) {
+  main();
+}

@@ -45,7 +45,8 @@ Shape:
 | Stage | Location |
 |-------|----------|
 | Monorepo source / default | `crates/desktop-use/manifest/cli-requirement.json` |
-| Package time | `apps/desktop-electron/scripts/prepare-package.ts` writes/overwrites pin from **`apps/cli/Cargo.toml` `version`** into `resources/desktop-use/cli-requirement.json` (shipped via electron-builder `extraResources`) |
+| Tracked Desktop fallback | `apps/desktop-electron/resources/desktop-use/cli-requirement.json` (committed; **packaging must not overwrite**) |
+| Package time | `apps/desktop-electron/scripts/prepare-package.ts` writes pin from **`apps/cli/Cargo.toml` `version`** into gitignored `resources/desktop-use-stage/cli-requirement.json`. electron-builder `extraResources` copies that file to packaged `desktop-use/cli-requirement.json` and **excludes** the tracked pin from the `resources/desktop-use` copy (extraResources copies run in parallel) |
 | Runtime resolve | `apps/desktop-electron/src/desktop-use/client.ts` → `resolveCliRequirementPath` / `readCliRequirement` / `enrichCliStatusWithRequirement` |
 
 Engine pin remains separate: `desktop-use/engine-manifest.json` (control engine version, not CLI).
@@ -88,7 +89,7 @@ When adding or changing a feature that shells out to `atmos …` (or assumes CLI
 | IPC probe (includes `meets_requirement` / `update_required`) | `atmos_cli_probe` |
 | Settings gate | `apps/web/.../DesktopUseSettingsSection.tsx` |
 | Readiness reasons | `cli_not_installed`, `cli_update_required` in desktop-use readiness |
-| Stage pin | `prepare-package.ts` → `cli-requirement.json` |
+| Stage pin | `prepare-package.ts` → gitignored `resources/desktop-use-stage/cli-requirement.json` (extraResources copy; tracked pin excluded) |
 
 ---
 

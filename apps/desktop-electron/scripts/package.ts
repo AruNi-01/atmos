@@ -19,6 +19,7 @@ import {
   ICON_COMPOSER_REL,
   verifyPackagedMacIcon,
 } from "./macos-icon.ts";
+import { STAGED_CLI_REQUIREMENT_REL } from "./prepare-package.ts";
 
 const appRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const require = createRequire(join(appRoot, "package.json"));
@@ -142,6 +143,14 @@ function main() {
   if (!existsSync(runtimeWeb)) {
     console.error(
       `[package] missing ${runtimeWeb} — stage runtime before packaging`,
+    );
+    process.exit(1);
+  }
+
+  const stagedCliReq = join(appRoot, STAGED_CLI_REQUIREMENT_REL);
+  if (!existsSync(stagedCliReq)) {
+    console.error(
+      `[package] missing ${stagedCliReq} — stage CLI floor overlay before packaging`,
     );
     process.exit(1);
   }
