@@ -461,14 +461,31 @@
 }
 
 /*
- * The center plus-menu popover sits over the pane toolbar and xterm WebGL.
- * Those surfaces can win hit-testing (hover-expanded action rail, GPU canvas)
- * and swallow plus-menu tab / fullscreen clicks, which dismisses the popover.
- * Skip them while the menu is open so clicks stay on the menu.
+ * The center plus-menu popover sits over overlay panels (xterm WebGL, toolbar,
+ * webview). GPU canvases can win hit-testing even when the popover is portaled
+ * above them: skipping only `.terminal-grid-container` still leaves the
+ * `pointer-events: auto` panel parent (`.atmos-terminal-panel-active`) to
+ * swallow the click, which dismisses the menu with no action.
+ *
+ * Mute the whole overlay host — and beat `.is-maximized { pointer-events: auto }`
+ * — while the menu is open so Layout / split / fullscreen clicks stay on it.
  */
+body:has([data-center-stage-plus-menu][data-state="open"]) [data-center-panel-host],
+body:has([data-center-stage-plus-menu][data-state="open"]) [data-center-panel-host] *,
 body:has([data-center-stage-plus-menu][data-state="open"]) .terminal-grid-container,
-body:has([data-center-stage-plus-menu][data-state="open"]) .terminal-grid-container * {
+body:has([data-center-stage-plus-menu][data-state="open"]) .terminal-grid-container *,
+body:has([data-center-stage-plus-menu][data-state="open"]) .terminal-grid-container[data-maximized-id] .terminal-pane.is-maximized,
+html[data-center-stage-plus-menu-open] [data-center-panel-host],
+html[data-center-stage-plus-menu-open] [data-center-panel-host] *,
+html[data-center-stage-plus-menu-open] .terminal-grid-container,
+html[data-center-stage-plus-menu-open] .terminal-grid-container *,
+html[data-center-stage-plus-menu-open] .terminal-grid-container[data-maximized-id] .terminal-pane.is-maximized {
   pointer-events: none !important;
+}
+
+[data-center-stage-plus-menu],
+[data-center-stage-layouts-menu] {
+  pointer-events: auto !important;
 }
 
 .terminal-pane-btn {

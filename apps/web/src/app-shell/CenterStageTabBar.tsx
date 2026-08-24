@@ -1210,6 +1210,15 @@ function isCenterStagePlusMenuEventTarget(target: EventTarget | null): boolean {
   );
 }
 
+function markCenterStagePlusMenuOpen(open: boolean): void {
+  const root = document.documentElement;
+  if (open) {
+    root.setAttribute("data-center-stage-plus-menu-open", "");
+    return;
+  }
+  root.removeAttribute("data-center-stage-plus-menu-open");
+}
+
 const PANE_FULLSCREEN_BUTTON_CLASS =
   "flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-active hover:text-foreground";
 
@@ -1400,6 +1409,11 @@ function CenterStageNewTabMenu({
     [clearCloseTimer, clearLayoutsLeaveTimer],
   );
 
+  React.useLayoutEffect(() => {
+    markCenterStagePlusMenuOpen(open);
+    return () => markCenterStagePlusMenuOpen(false);
+  }, [open]);
+
   const openSaveDialog = React.useCallback(() => {
     setLayoutName("");
     setSaveDialogOpen(true);
@@ -1458,6 +1472,7 @@ function CenterStageNewTabMenu({
   return (
     <>
       <Popover
+        modal={false}
         open={open}
         onOpenChange={(next) => {
           setOpen(next);
@@ -1511,6 +1526,11 @@ function CenterStageNewTabMenu({
             }
           }}
           onFocusOutside={(event) => {
+            if (isCenterStagePlusMenuEventTarget(event.target)) {
+              event.preventDefault();
+            }
+          }}
+          onInteractOutside={(event) => {
             if (isCenterStagePlusMenuEventTarget(event.target)) {
               event.preventDefault();
             }
@@ -1652,7 +1672,7 @@ function CenterStageNewTabMenu({
               layout={
                 <>
           {showLayoutItems ? (
-            <Popover open={layoutsSubOpen} onOpenChange={setLayoutsSubOpen}>
+            <Popover modal={false} open={layoutsSubOpen} onOpenChange={setLayoutsSubOpen}>
               <PopoverTrigger asChild>
                 <button
                   type="button"
@@ -1665,8 +1685,10 @@ function CenterStageNewTabMenu({
                     setLayoutsSubOpen(true);
                   }}
                   onMouseLeave={scheduleLayoutsClose}
+                  onPointerDown={(event) => event.stopPropagation()}
                   onClick={(event) => {
                     event.preventDefault();
+                    event.stopPropagation();
                     clearLayoutsLeaveTimer();
                     clearCloseTimer();
                     setLayoutsSubOpen(true);
@@ -1682,9 +1704,21 @@ function CenterStageNewTabMenu({
                 side="left"
                 sideOffset={4}
                 data-center-stage-layouts-menu=""
-                className="w-48 border-border/70 bg-popover/90 p-1 shadow-lg backdrop-blur-xl"
+                className="z-[110] w-48 border-border/70 bg-popover/90 p-1 shadow-lg backdrop-blur-xl"
                 onOpenAutoFocus={(event) => event.preventDefault()}
                 onCloseAutoFocus={(event) => event.preventDefault()}
+                onPointerDown={(event) => event.stopPropagation()}
+                onMouseDown={(event) => event.stopPropagation()}
+                onPointerDownOutside={(event) => {
+                  if (isCenterStagePlusMenuEventTarget(event.target)) {
+                    event.preventDefault();
+                  }
+                }}
+                onInteractOutside={(event) => {
+                  if (isCenterStagePlusMenuEventTarget(event.target)) {
+                    event.preventDefault();
+                  }
+                }}
                 onMouseEnter={() => {
                   clearLayoutsLeaveTimer();
                   clearCloseTimer();

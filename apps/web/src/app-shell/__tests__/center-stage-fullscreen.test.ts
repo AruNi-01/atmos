@@ -145,6 +145,18 @@ describe("center stage fullscreen wiring", () => {
     expect(stage).toContain("isMultiPane={isMultiPane}");
   });
 
+  it("keeps floating-card gutters while a pane is fullscreen", () => {
+    const css = readFileSync(
+      join(import.meta.dir, "../center-pane/center-pane-grid.css"),
+      "utf8",
+    );
+    expect(css).not.toContain("padding: 0 !important");
+    expect(css).not.toContain("Eat the floating-card gutters");
+    const stage = readFileSync(join(import.meta.dir, "../CenterStage.tsx"), "utf8");
+    expect(stage).toContain("CENTER_STAGE_GUTTER_CLASS");
+    expect(stage).toContain("CENTER_STAGE_SHELL_CLASS");
+  });
+
   it("keeps an in-flow slot and expands the focused mosaic pane over siblings", () => {
     const stage = readFileSync(join(import.meta.dir, "../CenterStage.tsx"), "utf8");
     expect(stage).toContain('data-center-stage-fullscreen-slot=""');

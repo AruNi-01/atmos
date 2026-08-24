@@ -60,7 +60,7 @@ describe("center stage tab hover", () => {
       tabBar.indexOf("function CenterStageNewTabMenu"),
       tabBar.indexOf("function SpecialTerminalTab"),
     );
-    expect(menuBlock).toContain("<Popover open={layoutsSubOpen}");
+    expect(menuBlock).toContain("<Popover modal={false} open={layoutsSubOpen}");
     expect(menuBlock).toContain('side="left"');
     expect(menuBlock).toContain("data-center-stage-layouts-menu");
     expect(menuBlock).not.toContain("right-full");
@@ -73,21 +73,38 @@ describe("center stage tab hover", () => {
       tabBar.indexOf("function SpecialTerminalTab"),
     );
     expect(menuBlock).toContain("function isCenterStagePlusMenuEventTarget");
+    expect(menuBlock).toContain("markCenterStagePlusMenuOpen");
     expect(menuBlock).toContain('data-center-stage-plus-menu=""');
     expect(menuBlock).toContain('data-center-stage-plus-trigger=""');
     expect(menuBlock).toContain("isCenterStagePlusMenuEventTarget(next)");
     expect(menuBlock).toContain("isCenterStagePlusMenuEventTarget(event.target)");
     expect(menuBlock).toContain("onPointerDown={(event) => event.stopPropagation()}");
     expect(menuBlock).toContain('className="z-[90] w-48 overflow-hidden border-border/70');
+    expect(menuBlock).toContain("z-[110]");
+    expect(menuBlock).toContain("modal={false}");
+    expect(menuBlock).toContain("onInteractOutside");
+    expect(menuBlock).toContain('data-center-stage-plus-menu-open');
 
     const terminalGridCss = readFileSync(
       join(import.meta.dir, "../../features/terminal/components/terminal-grid.css"),
       "utf8",
     );
     expect(terminalGridCss).toContain(
-      'body:has([data-center-stage-plus-menu][data-state="open"]) .terminal-grid-container',
+      'body:has([data-center-stage-plus-menu][data-state="open"]) [data-center-panel-host]',
     );
+    expect(terminalGridCss).toContain(
+      'body:has([data-center-stage-plus-menu][data-state="open"]) [data-center-panel-host] *',
+    );
+    expect(terminalGridCss).toContain(
+      "html[data-center-stage-plus-menu-open] [data-center-panel-host]",
+    );
+    expect(terminalGridCss).toContain(
+      "html[data-center-stage-plus-menu-open] .terminal-grid-container[data-maximized-id] .terminal-pane.is-maximized",
+    );
+    expect(terminalGridCss).toContain("[data-center-stage-plus-menu],");
+    expect(terminalGridCss).toContain("[data-center-stage-layouts-menu]");
     expect(terminalGridCss).toContain("pointer-events: none !important;");
+    expect(terminalGridCss).toContain("pointer-events: auto !important;");
   });
 
   it("splits the plus menu into click-switch pill tabs that fill the popover", () => {
