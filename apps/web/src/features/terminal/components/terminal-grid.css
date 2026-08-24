@@ -744,7 +744,8 @@ body:has([data-center-stage-plus-menu][data-state="open"]) .terminal-grid-contai
   opacity: 0.3 !important;
   border-radius: 9999px !important;
   width: 100% !important;
-  transition: all 0.2s ease !important;
+  /* Never ease top/height — xterm updates those every wheel tick. */
+  transition: opacity 0.2s ease !important;
 }
 
 .atmos-terminal .xterm .xterm-scroll-area ~ .xterm-decoration-container + div > div:hover,
