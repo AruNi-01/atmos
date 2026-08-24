@@ -137,6 +137,30 @@ describe("workspace creation store", () => {
     expect(state.jobs.map((item) => item.workspaceId)).toEqual(["ws-1", "ws-2"]);
   });
 
+  test("keeps setup jobs when auto-enter is cancelled", () => {
+    const id = useWorkspaceCreationStore.getState().startCreating({
+      originKey: "view:welcome",
+    });
+    useWorkspaceCreationStore.getState().bindWorkspace(id, "ws-1");
+    useWorkspaceCreationStore.getState().cancelAutoOpen("ws-1");
+
+    const state = useWorkspaceCreationStore.getState();
+    expect(state.jobs).toHaveLength(1);
+    expect(state.jobs[0]?.workspaceId).toBe("ws-1");
+    expect(state.latestJobId).toBe(id);
+    expect(state.autoOpenedWorkspaceId).toBe("ws-1");
+    expect(
+      selectAutoOpenWorkspaceId({
+        jobs: state.jobs,
+        latestJobId: state.latestJobId,
+        autoOpenedWorkspaceId: state.autoOpenedWorkspaceId,
+        currentOriginKey: "view:welcome",
+        currentWorkspaceId: null,
+        isEnterable: () => true,
+      }),
+    ).toBeNull();
+  });
+
   test("drops a job once that workspace is opened", () => {
     const id = useWorkspaceCreationStore.getState().startCreating({
       originKey: "view:welcome",

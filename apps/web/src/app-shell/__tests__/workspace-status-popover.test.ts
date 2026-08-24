@@ -72,4 +72,27 @@ describe("header workspace setup grouping", () => {
     expect(source).not.toContain("backgroundJobs");
     expect(source).not.toContain("showList");
   });
+
+  test("delays auto-enter behind a hover-pausable countdown chip", () => {
+    const source = readFileSync(
+      join(import.meta.dir, "../HeaderWorkspaceJobs.tsx"),
+      "utf8",
+    );
+    const hook = readFileSync(
+      join(import.meta.dir, "../use-workspace-create-auto-open.ts"),
+      "utf8",
+    );
+
+    expect(source).toContain("function AutoEnterChip");
+    expect(source).toContain('t("autoEnterStayAll")');
+    expect(source).toContain('t("autoEnterStay")');
+    expect(source).toContain('t("autoEnterNow")');
+    expect(source).toContain("hovered={headerHovering}");
+    expect(source).toContain("cancelAutoOpen");
+    expect(source).toContain("WORKSPACE_AUTO_ENTER_HOVER_LEAVE_MS");
+    expect(hook).toContain("WORKSPACE_AUTO_ENTER_DELAY_MS");
+    expect(hook).toContain("getWorkspaceAutoEnterResumeGraceMs");
+    expect(hook).toContain("setInterval");
+    expect(hook).not.toMatch(/markOpened\(nextWorkspaceId\);\s*router\.push/);
+  });
 });

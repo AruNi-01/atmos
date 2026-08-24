@@ -3,9 +3,13 @@ import type { WorkspaceSetupProgress } from "@/features/project/store/use-projec
 import type { WorkspaceCreateJob } from "@/features/workspace/store/workspace-creation-store";
 import {
   collectHeaderWorkspaceSetupItems,
+  getWorkspaceAutoEnterResumeGraceMs,
+  getWorkspaceAutoEnterSeconds,
   isHeaderWorkspaceSetupReadyToOpen,
   selectHeaderWorkspaceSetupChipItem,
   visibleHeaderWorkspaceSetupItems,
+  WORKSPACE_AUTO_ENTER_DELAY_MS,
+  WORKSPACE_AUTO_ENTER_GROUPED_RESUME_GRACE_MS,
 } from "./header-workspace-jobs";
 
 function job(
@@ -139,6 +143,24 @@ describe("visibleHeaderWorkspaceSetupItems", () => {
     expect(visibleHeaderWorkspaceSetupItems(items, "ws-1").map((item) => item.workspaceId)).toEqual([
       "ws-2",
     ]);
+  });
+});
+
+describe("workspace auto-enter countdown policy", () => {
+  test("counts remaining milliseconds up to whole seconds", () => {
+    expect(WORKSPACE_AUTO_ENTER_DELAY_MS).toBe(5_000);
+    expect(getWorkspaceAutoEnterSeconds(5_000)).toBe(5);
+    expect(getWorkspaceAutoEnterSeconds(4_001)).toBe(5);
+    expect(getWorkspaceAutoEnterSeconds(4_000)).toBe(4);
+    expect(getWorkspaceAutoEnterSeconds(1)).toBe(1);
+    expect(getWorkspaceAutoEnterSeconds(0)).toBe(0);
+  });
+
+  test("only grouped header leave waits before resuming", () => {
+    expect(getWorkspaceAutoEnterResumeGraceMs(false)).toBe(0);
+    expect(getWorkspaceAutoEnterResumeGraceMs(true)).toBe(
+      WORKSPACE_AUTO_ENTER_GROUPED_RESUME_GRACE_MS,
+    );
   });
 });
 

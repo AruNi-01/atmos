@@ -45,6 +45,8 @@ function SetupPopoverSizeFrame({
 interface WorkspaceStatusPopoverProps {
   progress: WorkspaceSetupProgress;
   onFinish: () => void;
+  onContentMouseEnter?: () => void;
+  onContentMouseLeave?: () => void;
 }
 
 function ProgressRing({
@@ -120,6 +122,8 @@ function ProgressRing({
 export function WorkspaceStatusPopover({
   progress,
   onFinish,
+  onContentMouseEnter,
+  onContentMouseLeave,
 }: WorkspaceStatusPopoverProps) {
   const [open, setOpen] = React.useState(false);
   const progressValue = Math.round(getWorkspaceSetupProgressValue(progress));
@@ -187,6 +191,8 @@ export function WorkspaceStatusPopover({
         sideOffset={8}
         forceMount={progress.status === "completed" ? true : undefined}
         className="w-auto max-w-[calc(100vw-24px)] overflow-x-hidden border border-border/70 bg-popover/96 p-0 data-[state=closed]:hidden"
+        onMouseEnter={onContentMouseEnter}
+        onMouseLeave={onContentMouseLeave}
       >
         <SetupPopoverSizeFrame width={popoverWidth}>
           <WorkspaceSetupProgressView

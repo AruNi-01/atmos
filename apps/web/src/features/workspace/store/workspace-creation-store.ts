@@ -25,6 +25,7 @@ export function getWorkspaceCreateOriginKey(input: {
   return `view:${input.currentView}`;
 }
 
+/** Auto-enter follows the newest create (`latestJobId`), never the first in a batch. */
 export function selectAutoOpenWorkspaceId(input: {
   jobs: WorkspaceCreateJob[];
   latestJobId: string | null;
@@ -67,6 +68,7 @@ interface WorkspaceCreationState {
   bindWorkspace: (jobId: string, workspaceId: string, label?: string | null) => void;
   failCreating: (jobId: string) => void;
   markOpened: (workspaceId: string) => void;
+  cancelAutoOpen: (workspaceId: string) => void;
   queueAgentRun: (data: Omit<PendingWorkspaceAgentRun, "createdAt">) => void;
   consumeAgentRun: (contextId: string) => PendingWorkspaceAgentRun | null;
 }
@@ -128,6 +130,10 @@ export const useWorkspaceCreationStore = create<WorkspaceCreationState>((set) =>
           ? null
           : state.latestJobId,
     })),
+  cancelAutoOpen: (workspaceId) =>
+    set({
+      autoOpenedWorkspaceId: workspaceId,
+    }),
   queueAgentRun: ({ workspaceId, projectId, prompt, command, agent, agentRunConfig }) =>
     set({
       pendingAgentRun: {
