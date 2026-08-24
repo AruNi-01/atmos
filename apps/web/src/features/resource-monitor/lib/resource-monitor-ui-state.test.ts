@@ -2,7 +2,12 @@ import { describe, expect, it } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { ResourceMonitorSnapshot } from "@atmos/api-types/ws/dto/resource-monitor";
-import { resolveResourceMonitorUiState } from "@/features/resource-monitor/lib/resource-monitor-ui-state";
+import {
+  resolveResourceMonitorUiState,
+  resourceMonitorStatusBanners,
+  shouldRenderResourceMonitorSnapshot,
+  shouldShowProjectsEmptyCopy,
+} from "@/features/resource-monitor/lib/resource-monitor-ui-state";
 
 const usage = { cpu_percent: 4, memory_rss_bytes: 2048, process_count: 1 };
 
@@ -115,6 +120,59 @@ describe("resolveResourceMonitorUiState", () => {
         nowMs,
       }),
     ).toBe("stale");
+  });
+
+  it("keeps stale as the primary state when attribution is also partial", () => {
+    expect(
+      resolveResourceMonitorUiState({
+        connectionState: "connected",
+        isLoading: false,
+        snapshot: snapshot({ attribution_status: "partial", collected_at_ms: 1 }),
+        lastUpdatedAtMs: 1,
+        nowMs: 100_000,
+      }),
+    ).toBe("stale");
+  });
+});
+
+describe("resourceMonitorStatusBanners", () => {
+  it("shows stale and partial together only when the snapshot is stale and partial", () => {
+    expect(
+      resourceMonitorStatusBanners(
+        "stale",
+        snapshot({ attribution_status: "partial" }),
+      ),
+    ).toEqual(["stale", "partial"]);
+    expect(
+      resourceMonitorStatusBanners(
+        "partial",
+        snapshot({ attribution_status: "partial" }),
+      ),
+    ).toEqual(["partial"]);
+    expect(
+      resourceMonitorStatusBanners(
+        "stale",
+        snapshot({ attribution_status: "complete" }),
+      ),
+    ).toEqual(["stale"]);
+    expect(resourceMonitorStatusBanners("ready", snapshot())).toEqual([]);
+  });
+});
+
+describe("resource monitor snapshot visibility", () => {
+  it("hides cached snapshot values while disconnected", () => {
+    expect(shouldRenderResourceMonitorSnapshot("disconnected")).toBe(false);
+    expect(shouldRenderResourceMonitorSnapshot("loading")).toBe(false);
+    expect(shouldRenderResourceMonitorSnapshot("unsupported")).toBe(true);
+    expect(shouldRenderResourceMonitorSnapshot("stale")).toBe(true);
+    expect(shouldRenderResourceMonitorSnapshot("ready")).toBe(true);
+  });
+
+  it("shows the empty copy only when empty is not already the primary banner", () => {
+    expect(shouldShowProjectsEmptyCopy("empty", 0)).toBe(false);
+    expect(shouldShowProjectsEmptyCopy("stale", 0)).toBe(true);
+    expect(shouldShowProjectsEmptyCopy("unsupported", 0)).toBe(true);
+    expect(shouldShowProjectsEmptyCopy("ready", 1)).toBe(false);
   });
 });
 

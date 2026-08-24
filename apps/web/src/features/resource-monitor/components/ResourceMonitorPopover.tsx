@@ -23,15 +23,24 @@ import {
 } from "@/features/resource-monitor/lib/resource-monitor-format";
 import {
   resolveResourceMonitorUiState,
-  type ResourceMonitorUiState,
+  resourceMonitorStatusBanners,
+  shouldRenderResourceMonitorSnapshot,
+  shouldShowProjectsEmptyCopy,
+  type ResourceMonitorStatusBanner,
 } from "@/features/resource-monitor/lib/resource-monitor-ui-state";
 
 function UsageCells({ usage }: { usage: ResourceUsage }) {
+  const t = useTranslations("resourceMonitor.popover");
+  const cpu = formatCpuPercent(usage.cpu_percent);
+  const memory = formatMemoryBytes(usage.memory_rss_bytes);
   return (
-    <span className="tabular-nums text-muted-foreground">
-      {formatCpuPercent(usage.cpu_percent)}
+    <span
+      className="tabular-nums text-muted-foreground"
+      aria-label={t("usageAriaLabel", { cpu, memory })}
+    >
+      {cpu}
       <span className="mx-1 text-border">·</span>
-      {formatMemoryBytes(usage.memory_rss_bytes)}
+      {memory}
     </span>
   );
 }
@@ -47,7 +56,7 @@ function MetricRow({
 }) {
   return (
     <div
-      className="flex items-center justify-between gap-3 py-1 text-[11px]"
+      className="flex min-h-8 items-center justify-between gap-3 py-1 text-[11px]"
       style={{ paddingLeft: indent * 12 }}
     >
       <span className="min-w-0 truncate text-foreground">{label}</span>
@@ -64,7 +73,7 @@ function WorkspaceRows({
   const t = useTranslations("resourceMonitor.popover");
   return (
     <Collapsible defaultOpen={false}>
-      <CollapsibleTrigger className="group flex w-full items-center gap-1 py-1 text-left text-[11px] text-foreground hover:text-foreground">
+      <CollapsibleTrigger className="group flex min-h-8 w-full min-w-0 items-center gap-1 py-1 text-left text-[11px] text-foreground hover:text-foreground">
         <ChevronRight className="size-3 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-90" />
         <span className="min-w-0 flex-1 truncate">{workspace.name}</span>
         <UsageCells usage={workspace.usage} />
@@ -93,7 +102,7 @@ function ProjectRows({ project }: { project: ResourceProjectMetrics }) {
   const t = useTranslations("resourceMonitor.popover");
   return (
     <Collapsible defaultOpen>
-      <CollapsibleTrigger className="group flex w-full items-center gap-1 py-1 text-left text-[11px] font-medium text-foreground hover:text-foreground">
+      <CollapsibleTrigger className="group flex min-h-8 w-full min-w-0 items-center gap-1 py-1 text-left text-[11px] font-medium text-foreground hover:text-foreground">
         <ChevronRight className="size-3 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-90" />
         <span className="min-w-0 flex-1 truncate">{project.name}</span>
         <UsageCells usage={project.usage} />
@@ -124,14 +133,14 @@ function ProjectRows({ project }: { project: ResourceProjectMetrics }) {
   );
 }
 
-function StatusBanner({
-  state,
+function StatusBanners({
+  banners,
 }: {
-  state: ResourceMonitorUiState;
+  banners: ResourceMonitorStatusBanner[];
 }) {
   const t = useTranslations("resourceMonitor.popover");
-  if (state === "ready") return null;
-  const copy: Record<Exclude<ResourceMonitorUiState, "ready">, string> = {
+  if (banners.length === 0) return null;
+  const copy: Record<ResourceMonitorStatusBanner, string> = {
     loading: t("loading"),
     disconnected: t("disconnected"),
     unsupported: t("unsupported"),
@@ -140,9 +149,18 @@ function StatusBanner({
     empty: t("empty"),
   };
   return (
-    <p className="rounded-md bg-muted/50 px-2 py-1.5 text-[11px] text-muted-foreground">
-      {copy[state]}
-    </p>
+    <>
+      {banners.map((state) => (
+        <p
+          key={state}
+          role="status"
+          aria-live="polite"
+          className="rounded-md bg-muted/50 px-2 py-1.5 text-[11px] text-muted-foreground"
+        >
+          {copy[state]}
+        </p>
+      ))}
+    </>
   );
 }
 
@@ -150,6 +168,7 @@ export function ResourceMonitorPopover({
   connectionState,
   isLoading,
   lastUpdatedAtMs,
+  nowMs,
   snapshot,
   showDesktop,
   desktop,
@@ -158,6 +177,7 @@ export function ResourceMonitorPopover({
   connectionState: string;
   isLoading: boolean;
   lastUpdatedAtMs?: number;
+  nowMs?: number;
   snapshot?: ResourceMonitorSnapshot;
   showDesktop: boolean;
   desktop?: DesktopShellMetricsSnapshot;
@@ -168,24 +188,28 @@ export function ResourceMonitorPopover({
     connectionState,
     isLoading,
     lastUpdatedAtMs,
+    nowMs,
     snapshot,
   });
+  const banners = resourceMonitorStatusBanners(state, snapshot);
+  const showSnapshot = shouldRenderResourceMonitorSnapshot(state) && snapshot != null;
   const showUnattributed =
+    showSnapshot &&
     snapshot != null &&
     (isUsageVisible(snapshot.unattributed) ||
       snapshot.attribution_status === "partial");
 
   return (
     <div
-      className="flex max-h-[min(420px,70vh)] flex-col gap-3 overflow-y-auto p-3"
+      className="flex max-h-[min(420px,70vh)] min-w-0 flex-col gap-3 overflow-x-hidden overflow-y-auto p-3"
       data-resource-monitor-state={state}
     >
       <div>
         <h3 className="text-xs font-medium text-foreground">{t("title")}</h3>
       </div>
-      <StatusBanner state={state} />
+      <StatusBanners banners={banners} />
 
-      {snapshot ? (
+      {showSnapshot && snapshot ? (
         <>
           <section className="space-y-1">
             <h4 className="text-[10px] font-medium text-muted-foreground">{t("host")}</h4>
@@ -257,7 +281,9 @@ export function ResourceMonitorPopover({
               {t("projects")}
             </h4>
             {snapshot.projects.length === 0 ? (
-              <p className="text-[11px] text-muted-foreground">{t("empty")}</p>
+              shouldShowProjectsEmptyCopy(state, snapshot.projects.length) ? (
+                <p className="text-[11px] text-muted-foreground">{t("empty")}</p>
+              ) : null
             ) : (
               snapshot.projects.map((project) => (
                 <ProjectRows key={project.project_id} project={project} />

@@ -2,7 +2,10 @@ import { describe, expect, test } from "bun:test";
 import { queryKeys } from "@/api/query/query-keys";
 import type { ComputerQueryScope } from "@/api/query/query-scope";
 import type { ResourceMonitorSnapshot } from "@atmos/api-types/ws/dto/resource-monitor";
-import { applyResourceMonitorUpdated } from "@/features/resource-monitor/lib/resource-monitor-query-events";
+import {
+  applyResourceMonitorUpdated,
+  isResourceMonitorSnapshot,
+} from "@/features/resource-monitor/lib/resource-monitor-query-events";
 import { createAtmosWebQueryClient } from "@/providers/app/query-client";
 
 const scope: ComputerQueryScope = {
@@ -91,5 +94,133 @@ describe("applyResourceMonitorUpdated", () => {
       }),
     ).toBe(false);
     expect(client.getQueryData(key)).toEqual(seed);
+  });
+
+  test("rejects a null project entry and leaves the cache unchanged", () => {
+    const client = createAtmosWebQueryClient();
+    const key = queryKeys.computer.resourceMonitorSnapshot(scope);
+    const seed = makeSnapshot(1);
+    client.setQueryData(key, seed);
+    const invalid = { ...makeSnapshot(2), projects: [null] };
+
+    expect(isResourceMonitorSnapshot(invalid)).toBe(false);
+    expect(applyResourceMonitorUpdated(client, scope, invalid)).toBe(false);
+    expect(client.getQueryData(key)).toEqual(seed);
+  });
+});
+
+describe("isResourceMonitorSnapshot", () => {
+  const usage = { cpu_percent: 1.5, memory_rss_bytes: 1024, process_count: 1 };
+
+  function nestedSnapshot(): ResourceMonitorSnapshot {
+    return {
+      ...makeSnapshot(),
+      projects: [
+        {
+          project_id: "p1",
+          name: "Atmos",
+          usage,
+          direct_usage: usage,
+          sessions: [
+            {
+              session_id: "s0",
+              name: null,
+              terminal_kind: "simple",
+              usage,
+            },
+          ],
+          workspaces: [
+            {
+              workspace_id: "w1",
+              name: "Main",
+              usage,
+              sessions: [
+                {
+                  session_id: "s1",
+                  name: "pty",
+                  terminal_kind: "simple",
+                  usage,
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+  }
+
+  test("accepts a nested snapshot with a nullable session name", () => {
+    expect(isResourceMonitorSnapshot(nestedSnapshot())).toBe(true);
+  });
+
+  test("rejects missing required hierarchy fields and non-array children", () => {
+    const valid = nestedSnapshot();
+    expect(
+      isResourceMonitorSnapshot({
+        ...valid,
+        projects: [{ ...valid.projects[0], project_id: undefined }],
+      }),
+    ).toBe(false);
+    expect(
+      isResourceMonitorSnapshot({
+        ...valid,
+        projects: [{ ...valid.projects[0], workspaces: null }],
+      }),
+    ).toBe(false);
+    expect(
+      isResourceMonitorSnapshot({
+        ...valid,
+        projects: [
+          {
+            ...valid.projects[0],
+            sessions: [{ session_id: "s", terminal_kind: "simple", usage }],
+          },
+        ],
+      }),
+    ).toBe(false);
+    expect(
+      isResourceMonitorSnapshot({
+        ...valid,
+        projects: [
+          {
+            ...valid.projects[0],
+            workspaces: [{ ...valid.projects[0].workspaces[0], sessions: [null] }],
+          },
+        ],
+      }),
+    ).toBe(false);
+  });
+
+  test("rejects non-finite or negative usage and host fields", () => {
+    const valid = nestedSnapshot();
+    expect(
+      isResourceMonitorSnapshot({
+        ...valid,
+        server: { ...usage, cpu_percent: Number.NaN },
+      }),
+    ).toBe(false);
+    expect(
+      isResourceMonitorSnapshot({
+        ...valid,
+        host: { ...valid.host, memory_used_bytes: Number.POSITIVE_INFINITY },
+      }),
+    ).toBe(false);
+    expect(
+      isResourceMonitorSnapshot({
+        ...valid,
+        projects: [
+          {
+            ...valid.projects[0],
+            usage: { ...usage, memory_rss_bytes: -1 },
+          },
+        ],
+      }),
+    ).toBe(false);
+    expect(
+      isResourceMonitorSnapshot({
+        ...valid,
+        collected_at_ms: Number.NaN,
+      }),
+    ).toBe(false);
   });
 });

@@ -8222,7 +8222,8 @@
       "unsupported": "此计算机无法进行进程归属。",
       "disconnected": "未连接",
       "empty": "没有已归属的项目",
-      "partial": "部分进程无法归属。"
+      "partial": "部分进程无法归属。",
+      "usageAriaLabel": "CPU {cpu}，内存 {memory}"
     }
   },
   "shared": {

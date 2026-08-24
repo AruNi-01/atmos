@@ -8222,7 +8222,8 @@
       "unsupported": "Process attribution is unavailable on this computer.",
       "disconnected": "Not connected",
       "empty": "No attributed projects",
-      "partial": "Some processes could not be attributed."
+      "partial": "Some processes could not be attributed.",
+      "usageAriaLabel": "CPU {cpu}, Memory {memory}"
     }
   },
   "shared": {

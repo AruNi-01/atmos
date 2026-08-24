@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/api/query/query-keys";
 import { useComputerQueryScope } from "@/api/query/query-scope";
@@ -12,6 +12,7 @@ import {
   desktopShellMetricsQueryKey,
   fetchDesktopShellMetrics,
 } from "@/features/resource-monitor/lib/desktop-shell-metrics";
+import { createResourceMonitorClock } from "@/features/resource-monitor/lib/resource-monitor-clock";
 import {
   RESOURCE_MONITOR_IDLE_MS,
   RESOURCE_MONITOR_INTERACTIVE_MS,
@@ -30,6 +31,14 @@ export function useResourceMonitor(options: {
   const queryClient = useQueryClient();
   const electron = typeof window !== "undefined" ? isElectronShell() : false;
   const showDesktop = canFetchDesktopShellMetrics(electron, connectionMode);
+  const [nowMs, setNowMs] = useState(() => Date.now());
+
+  const clockRef = useRef<ReturnType<typeof createResourceMonitorClock> | null>(
+    null,
+  );
+  if (clockRef.current == null) {
+    clockRef.current = createResourceMonitorClock();
+  }
 
   const controllerRef = useRef<ReturnType<
     typeof createResourceMonitorSubscriptionController
@@ -83,6 +92,11 @@ export function useResourceMonitor(options: {
     scope,
   ]);
 
+  useEffect(() => {
+    if (!options.enabled || !options.interactive) return;
+    return clockRef.current?.attach(setNowMs);
+  }, [options.enabled, options.interactive]);
+
   return {
     connectionState,
     showDesktop,
@@ -90,6 +104,7 @@ export function useResourceMonitor(options: {
     isLoading: serverQuery.isLoading && serverQuery.data == null,
     isFetching: serverQuery.isFetching,
     lastUpdatedAtMs: serverQuery.dataUpdatedAt,
+    nowMs,
     desktop: desktopQuery.data,
     desktopLoading: desktopQuery.isLoading && desktopQuery.data == null,
   };

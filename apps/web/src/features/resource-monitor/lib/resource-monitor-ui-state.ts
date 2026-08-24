@@ -25,3 +25,31 @@ export function resolveResourceMonitorUiState(input: {
   if (input.snapshot.projects.length === 0) return "empty";
   return "ready";
 }
+
+export type ResourceMonitorStatusBanner = Exclude<ResourceMonitorUiState, "ready">;
+
+/** Primary state plus a one-shot extra partial banner when a stale snapshot is also partial. */
+export function resourceMonitorStatusBanners(
+  state: ResourceMonitorUiState,
+  snapshot?: ResourceMonitorSnapshot,
+): ResourceMonitorStatusBanner[] {
+  if (state === "ready") return [];
+  const banners: ResourceMonitorStatusBanner[] = [state];
+  if (state === "stale" && snapshot?.attribution_status === "partial") {
+    banners.push("partial");
+  }
+  return banners;
+}
+
+export function shouldRenderResourceMonitorSnapshot(
+  state: ResourceMonitorUiState,
+): boolean {
+  return state !== "disconnected" && state !== "loading";
+}
+
+export function shouldShowProjectsEmptyCopy(
+  state: ResourceMonitorUiState,
+  projectCount: number,
+): boolean {
+  return projectCount === 0 && state !== "empty";
+}

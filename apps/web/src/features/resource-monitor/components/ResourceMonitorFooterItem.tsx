@@ -20,6 +20,7 @@ export function ResourceMonitorFooterItem() {
     snapshot,
     isLoading,
     lastUpdatedAtMs,
+    nowMs,
     desktop,
     desktopLoading,
   } = useResourceMonitor({
@@ -49,11 +50,16 @@ export function ResourceMonitorFooterItem() {
           <span className="font-medium">{compact}</span>
         </button>
       </PopoverTrigger>
-      <PopoverContent side="top" align="start" className="w-[420px] p-0">
+      <PopoverContent
+        side="top"
+        align="start"
+        className="w-[min(420px,calc(100vw-1.5rem))] max-w-[min(420px,100vw)] p-0"
+      >
         <ResourceMonitorPopover
           connectionState={connectionState}
           isLoading={isLoading}
           lastUpdatedAtMs={lastUpdatedAtMs}
+          nowMs={nowMs}
           snapshot={snapshot}
           showDesktop={showDesktop}
           desktop={desktop}
