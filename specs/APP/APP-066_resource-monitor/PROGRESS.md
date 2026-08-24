@@ -6,7 +6,7 @@
 
 - **State**: ready_for_review
 - **Branch**: `aarynlu/resource-monitor-8c97`
-- **Last updated**: 2026-08-24
+- **Last updated**: 2026-08-25
 - **Current owner**: coordinator with Grok 4.6 implementation workers
 - **Current phase**: review
 
@@ -40,6 +40,7 @@
 - Implemented the full layered feature with no new crate, REST endpoint, migration, global resource broadcast, or public PID field.
 - Fixed review findings covering subscription generation races, Relay app-close cleanup, WS backpressure, blocking path work, nested payload validation, and stale/partial UI states.
 - Added targeted Rust/Bun tests and a real Playwright Footer/popover journey.
+- Aligned macOS Host memory with btop's Mach accounting and enriched session rows with live terminal titles.
 
 ## Decisions Since TECH
 

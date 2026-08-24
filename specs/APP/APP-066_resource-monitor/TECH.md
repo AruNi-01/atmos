@@ -21,7 +21,7 @@ This design implements M1–M7 with no new crate, database table, REST endpoint,
 | PID exposure | Root PIDs stay inside Rust services; wire DTOs contain aggregates only. |
 | Precision | Attribution is best-effort. Shared and unattributed usage remain visible. |
 | CPU meaning | `cpu_percent` is normalized to total logical host capacity, where the host is 0–100%. |
-| Memory meaning | Process groups use summed RSS/working-set bytes; they are estimates and need not add exactly to host used memory. |
+| Memory meaning | On macOS, Host used matches btop: `(active + wired) × page_size` from Mach. Linux/Windows use `total − available`. Process groups use summed RSS/working-set bytes and need not add exactly to Host used. |
 
 ## Architecture overview
 
@@ -304,6 +304,7 @@ Popover:
 - Unattributed row when non-zero or attribution is partial.
 - Loading, stale, unsupported, disconnected, and empty states.
 - Scrollable body for many Workspaces.
+- Active session rows enrich the Server fallback name with the current frontend terminal title by `session_id`: `customLabel`, then canonical dynamic/OSC/agent display title. Numeric tmux window names are attach identities, not preferred display titles.
 
 Add `showResourceMonitor` to layout settings and a Settings → Layout toggle. Default enabled unless the stored setting is explicitly `false`.
 
@@ -469,3 +470,10 @@ No REST endpoint is introduced.
 - Remote shell: never merge local Electron into a remote Computer.
 - Collector placement: modules in existing crates, not a new crate.
 - REST: none.
+
+## Post-implementation update
+
+<!-- updated 2026-08-25: align observed host memory and terminal labels with existing product surfaces -->
+
+- **macOS Host memory**: direct Mach `HOST_VM_INFO64` sampling uses btop's `(active_count + wire_count) × page_size` definition. Falling back to `total − sysinfo.available_memory()` is allowed only when Mach sampling fails and is not considered equivalent on macOS.
+- **Terminal titles**: the Server keeps stable aggregate/session identity and a fallback name. `apps/web` joins active `ResourceSessionMetrics.session_id` rows to `useTerminalStore.workspacePanes` and resolves the same local display inputs used by terminal chrome. Titles remain local display state and never enter the shared WS DTO.

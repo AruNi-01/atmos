@@ -18,6 +18,8 @@
 | REV-004 | P2 | frontend | Malformed nested metrics and stale states were unsafe | verified |
 | REV-005 | P2 | api | `send_to` held the connection lock across backpressure | verified |
 | REV-006 | P2 | test | Structural checks did not prove the user-visible lifecycle | verified |
+| REV-007 | P1 | backend | macOS Host memory used the wrong accounting definition | verified |
+| REV-008 | P2 | frontend | Session rows displayed numeric tmux identities as titles | verified |
 
 ---
 
@@ -216,3 +218,66 @@ Use behavioral pure tests for Query/controller/state invariants and the existing
 
 - 2026-08-24 — Added targeted API connection tests and `e2e/tests/specs/APP-066_resource-monitor.e2e.ts`.
 - Verified by `E2E_REUSE_SERVER=1 bun run --cwd e2e test tests/specs/APP-066_resource-monitor.e2e.ts` (Chromium + mobile Chromium).
+
+---
+
+## REV-007 · macOS Host memory used the wrong accounting definition
+
+| Field | Value |
+|-------|-------|
+| **Status** | verified |
+| **Severity** | P1 |
+| **Area** | backend |
+| **Reported by** | user review |
+| **Owner** | APP-066 implementation |
+
+### Finding
+
+The initial Host row used `sysinfo.used_memory()`. On macOS that includes internal, wired, and compressed memory and displayed about 25 GiB while btop showed about 12–13 GiB. A first correction using `total − available` only matched numerically by accident because sysinfo's macOS available value includes active pages.
+
+### Required fix
+
+Use the same Mach VM formula as btop on macOS: `(active_count + wire_count) × page_size`. Keep process rows as RSS estimates.
+
+### Acceptance
+
+- [x] Host memory tracks the btop accounting definition on macOS.
+- [x] Mach failure has a bounded fallback and Host used never exceeds total.
+- [x] Process RSS collection is unchanged.
+
+### Fix log
+
+- 2026-08-25 — Added a macOS Mach collector using `HOST_VM_INFO64`; Linux/Windows retain `total − available`.
+- Verified by `cargo test -p core-engine resource_metrics` and strict core-engine Clippy.
+
+---
+
+## REV-008 · Session rows displayed numeric tmux identities as titles
+
+| Field | Value |
+|-------|-------|
+| **Status** | verified |
+| **Severity** | P2 |
+| **Area** | frontend |
+| **Reported by** | user review |
+| **Owner** | APP-066 implementation |
+
+### Finding
+
+`ResourceSessionMetrics.name` comes from the stable Server terminal name. For tmux this is commonly the window identity `1`, while the actual user-facing title is maintained locally from custom, dynamic, agent, and OSC title state.
+
+### Required fix
+
+Join active Resource Monitor session rows to terminal pane state by `session_id`, prefer the canonical live display title, and treat pure numeric tmux names as fallback identities rather than titles.
+
+### Acceptance
+
+- [x] A tmux session named `1` displays its live dynamic/agent/OSC title.
+- [x] Custom terminal titles have highest priority.
+- [x] Missing live state falls back to a meaningful non-numeric Server name or localized unnamed copy.
+- [x] Local titles are not written into the shared WS snapshot.
+
+### Fix log
+
+- 2026-08-25 — Added a display-only session-title map sourced from `useTerminalStore.workspacePanes`.
+- Verified by `bun test apps/web/src/features/resource-monitor`, Web typecheck, and feature lint.

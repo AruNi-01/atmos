@@ -297,6 +297,12 @@ just test
 - Root typecheck still red on `packages/ui` `DrawerContentBare` and `packages/relay` `PT_DESIGN_ROOM` — unrelated to APP-066.
 - Root `just test` remains red on unrelated desktop icon/cookie, Bun alias, PT Design structural, and vendor native-architecture checks.
 
+### Follow-up verification · 2026-08-25
+
+- macOS Host memory now follows btop's Mach `(active + wired) × page_size` formula. `cargo test -p core-engine resource_metrics` covers the page formula, overflow/error fallback, host bounds, and unchanged process RSS; 9 tests passed.
+- Resource Monitor session rows now join live terminal titles by `session_id`. `bun test apps/web/src/features/resource-monitor` covers numeric tmux fallback, dynamic title, agent + OSC title, custom title priority, and missing-live-title behavior; 50 tests passed.
+- `cargo clippy -p core-engine --all-targets -- -D warnings`, Web typecheck, and changed-feature lint passed.
+
 ### Test-run files changed
 
 - `apps/api/src/api/ws/manager.rs` (#[cfg(test)] two-conn `send_to`)
