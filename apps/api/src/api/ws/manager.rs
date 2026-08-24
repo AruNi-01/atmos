@@ -146,6 +146,35 @@ mod tests {
     use crate::api::ws::connection::ClientType;
     use crate::api::ws::message::WsMessage;
 
+    /// S7 — `send_to` is connection-scoped; a second conn receives nothing.
+    #[tokio::test]
+    async fn send_to_does_not_deliver_to_a_second_connection() {
+        let manager = WsManager::new();
+        let (tx_a, mut rx_a) = mpsc::channel::<String>(8);
+        let (tx_b, mut rx_b) = mpsc::channel::<String>(8);
+        let subscriber = manager.register_connection(ClientType::Web, tx_a).await;
+        let _other = manager.register_connection(ClientType::Web, tx_b).await;
+
+        let message = WsMessage::notification(
+            crate::api::ws::message::WsEvent::ResourceMonitorUpdated,
+            serde_json::json!({ "collected_at_ms": 1 }),
+        );
+        manager
+            .send_to(&subscriber, &message)
+            .await
+            .expect("subscriber send_to");
+
+        let received = rx_a.try_recv().expect("subscriber must receive send_to");
+        assert!(
+            received.contains("resource_monitor_updated"),
+            "unexpected subscriber payload: {received}"
+        );
+        assert!(
+            rx_b.try_recv().is_err(),
+            "non-subscriber must not receive a send_to payload"
+        );
+    }
+
     #[tokio::test]
     async fn send_to_does_not_hold_lock_across_channel_backpressure() {
         let manager = Arc::new(WsManager::new());

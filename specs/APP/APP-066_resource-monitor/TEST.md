@@ -207,4 +207,94 @@ The test-run agent must load the installed Agent Browser skill before these chec
 
 ## Coverage Status
 
-> Filled after implementation by `atmos-specs-test-run`. Include exact automated tests, commands, agent-browser prompts/results, and remaining macOS/Linux/Windows gaps.
+_Last run: 2026-08-24 · Grok 4.6 · `atmos-specs-test-run` (status recalibrated to Then signals). Covered: S1, S3, S4, S6, S8, S10, S12. Partial: S2, S5, S7, S9, S11, S13. Targeted Rust/Bun/E2E green. Root `just typecheck` still fails two unrelated packages._
+
+### Scenario status
+
+- S1 — ✅ covered by `crates/core-engine/src/resource_metrics/mod.rs::first_sample_is_primed_and_satisfies_invariants` and `second_sample_reuses_primed_counters`. Behavioral host snapshot (positive totals, logical CPUs > 0, primed timestamp, current PID present).
+- S2 — ◐ partial. CPU 0–100 / bytes / `pid > 0` covered by `normalize_process_cpu_uses_total_host_capacity` and first-sample invariants. Then also requires an exit-during-refresh omit without failing the host sample; there is no process-exit injection, so that race is a gap.
+- S3 — ✅ covered by `crates/core-service/src/service/resource_monitor/attribution_tests.rs::exclusive_nested_deepest_and_server_excludes_workspace`.
+- S4 — ✅ covered by `crates/core-service/src/service/terminal.rs::simple_pty_captures_nonzero_root_pid_without_session_detail_leak` and `terminal/types.rs::resource_root_keeps_pid_and_session_detail_does_not`.
+- S5 — ◐ partial. Parser + exclusive claim covered by `duplicate_tmux_roots_claim_once`, `tmux::session::parse_pane_processes_*`, and `list_pane_processes_returns_tmux_error_or_empty_when_server_is_absent`. Then also requires one batched pane-list supplying both windows; no live `tmux list-panes -a` against a real server is asserted.
+- S6 — ✅ covered by `project_workspace_and_unresolved_contexts` (plus cwd-boundary / missing-root / GUID-preference extras in the same file).
+- S7 — ◐ partial. Connection isolation of `send_to` is proven by `apps/api/src/api/ws/manager.rs::send_to_does_not_deliver_to_a_second_connection`. Then also requires two live subscribed connections, one `resource_monitor_updated`, none on the other, and subscribe returning an immediate snapshot; there is no `WsMessageService` two-client subscribe/snapshot integration.
+- S8 — ✅ covered by `apps/web/src/features/resource-monitor/lib/resource-monitor-query-events.test.ts` (scoped `setQueryData`, no reuse across instance/epoch/revision, nested payload reject). Query-options / API source-string tests remain structural support only.
+- S9 — ◐ partial. Registry abort/unsubscribe/disconnect and `resource_monitor_abort_one_connection_leaves_the_other` prove map cleanup. Then also requires the subscription task gone and later interactive send count stable after popover close / unmount / WS disconnect; `WsMessageService::abort_resource_monitor_subscription` / `on_disconnect` and post-cleanup send counts are not exercised.
+- S10 — ✅ covered by `apps/desktop-electron/src/metrics/desktop-shell-metrics.test.ts` (groups, KB→bytes, CPU normalize, no PID/name keys).
+- S11 — ◐ partial. Hosted Footer + Host/Atmos and Desktop heading count 0 are in `e2e/tests/specs/APP-066_resource-monitor.e2e.ts`; Electron+local vs hosted/relay IPC gating is in `desktop-shell-metrics.test.ts`. Then also requires the Desktop shell section visible only in local Electron and Server hierarchy in all supported Computer modes; Electron-local render and Relay UI were not e2e'd.
+- S12 — ✅ covered by `apps/web/src/features/resource-monitor/lib/resource-monitor-subscription.test.ts` (captured-scope unsubscribe, scope-change order, remount, disconnect skip).
+- S13 — ◐ partial. State mapping / banners / stale-vs-partial are behavioral in `resource-monitor-ui-state.test.ts` and `resource-monitor-clock.test.ts`. Footer/popover Host+Atmos, close, and 390px no horizontal overflow are in the APP-066 e2e. Light/dark, many-Workspace scroll covering Footer, and unsupported/partial visual fixtures were not exercised in a browser.
+
+### Structural-only (not treated as scenario proof)
+
+- `resource-monitor-api.test.ts`, `use-resource-monitor.structural.test.ts`, `resource-monitor-event-bridge.structural.test.ts`, Footer/popover/source-string settings tests, API interval/ticker/serialize unit checks.
+
+### Commands
+
+```bash
+cargo test -p api send_to_does_not_deliver -- --nocapture
+cargo test -p api resource_monitor -- --nocapture
+cargo test -p core-engine resource_metrics -- --nocapture
+cargo test -p core-engine parse_pane_processes -- --nocapture
+cargo test -p core-engine list_pane_processes -- --nocapture
+cargo test -p core-service resource_monitor -- --nocapture
+cargo test -p core-service simple_pty_captures -- --nocapture
+cargo test -p core-service resource_root_keeps_pid -- --nocapture
+# all green
+
+bun test apps/web/src/features/resource-monitor \
+  apps/web/src/api/ws/resource-monitor-api.test.ts \
+  apps/web/src/providers/app/__tests__/resource-monitor-event-bridge.structural.test.ts \
+  apps/web/src/features/settings/store/layout-settings-store.resource-monitor.test.ts \
+  apps/web/src/features/settings/components/__tests__/layout-settings-resource-monitor.test.ts \
+  apps/desktop-electron/src/metrics/desktop-shell-metrics.test.ts \
+  packages/api-types/src/ws/actions.test.ts \
+  packages/api-types/src/ws/events.test.ts
+# 64 pass / 0 fail
+
+cargo clippy -p api --tests -- -D warnings
+# green
+
+bun run --cwd e2e lint
+# green
+
+bun run --cwd e2e install:browsers
+# installed playwright chromium v1234 (was missing headless-shell-1234)
+
+E2E_REUSE_SERVER=1 bun run --cwd e2e test tests/specs/APP-066_resource-monitor.e2e.ts
+# 2 passed (chromium + mobile-chromium), 7.5s
+
+just typecheck
+# web/e2e/desktop-electron/api-types green
+# unrelated fail: packages/ui DrawerContentBare TS2883 (DialogContentProps portability)
+# unrelated fail: packages/relay src/server-hub.ts TS2741 missing PT_DESIGN_ROOM on ServerHubEnv
+```
+
+`just test-e2e -- tests/specs/APP-066_resource-monitor.e2e.ts` forwarded an extra `--` and launched the full Playwright suite against the missing v1234 browser; after `install:browsers`, the targeted file command above is the passing run. Full `just test` / `just test-e2e-smoke` were not re-run.
+
+### Exploratory agent-browser
+
+- CLI: `agent-browser 0.26.0` present. Local web `http://localhost:3030/` and API `:30303` were already listening.
+- Session `app066` opened `/` (Welcome / Local Atmos Computer). Connect (`@e9`) did not enter the workbench; page stayed on the Connect gate after retry. No Footer/popover observations were taken.
+- Result: **not_run** for TEST.md checks 1–6. Reason: agent-browser could not pass the Connect gate on the live Welcome page (no `atmos_onboarding_done` seed / `connectLocalComputer` helper). Playwright e2e already covers Footer open/close/Host/Atmos/overflow on the same local API+web. CPU-heavy Workspace, Relay switch, light/dark, and WS-storm inspection remain manual.
+
+### Remaining gaps
+
+- S2: no exit-during-refresh injection (why partial).
+- S5: no live batched `tmux list-panes -a` (why partial).
+- S7: no two-live-WS subscribe + immediate snapshot + scoped `resource_monitor_updated` (why partial; `send_to` isolation only).
+- S9: no `WsMessageService` on_disconnect / post-cleanup send-count (why partial; registry only).
+- S11: no Electron-local Desktop render or Relay UI e2e (why partial; hosted Footer + IPC gate only).
+- S13: no light/dark, many-Workspace scroll, or unsupported/partial visual browser pass.
+- Agent-browser / Activity Monitor / real Relay Computer remain manual (TEST.md Manual verification).
+- Windows host sampling not executed in this run (macOS).
+- Root typecheck still red on `packages/ui` `DrawerContentBare` and `packages/relay` `PT_DESIGN_ROOM` — unrelated to APP-066.
+
+### Test-run files changed
+
+- `apps/api/src/api/ws/manager.rs` (#[cfg(test)] two-conn `send_to`)
+- `apps/api/src/api/ws/subscription.rs` (#[cfg(test)] two-conn abort isolation)
+- `e2e/tests/specs/APP-066_resource-monitor.e2e.ts` (new)
+- this Coverage Status block only
+
+No production, PRD, TECH, BRAINSTORM, or PROGRESS edits. No commit/push.

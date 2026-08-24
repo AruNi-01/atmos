@@ -221,6 +221,30 @@ mod tests {
         assert_eq!(registry.len(), 1);
     }
 
+    /// S9 — aborting one connection must not remove another connection's task.
+    #[tokio::test]
+    async fn resource_monitor_abort_one_connection_leaves_the_other() {
+        let registry = ConnectionTaskRegistry::new();
+
+        let gen_a = registry.prepare_replace("conn-a");
+        let (handle_a, alive_a) = spawn_pending();
+        assert!(registry.commit_replace("conn-a", gen_a, handle_a));
+
+        let gen_b = registry.prepare_replace("conn-b");
+        let (handle_b, _alive_b) = spawn_pending();
+        assert!(registry.commit_replace("conn-b", gen_b, handle_b));
+        assert_eq!(registry.len(), 2);
+
+        registry.abort_and_remove("conn-a");
+        wait_cancelled(alive_a).await;
+
+        assert!(!registry.contains("conn-a"));
+        assert!(registry.contains("conn-b"));
+        assert_eq!(registry.generation_of("conn-b"), Some(gen_b));
+        assert_eq!(registry.len(), 1);
+        assert!(registry.has_handle("conn-b"));
+    }
+
     #[tokio::test]
     async fn resource_monitor_unsubscribe_is_idempotent() {
         let registry = ConnectionTaskRegistry::new();
