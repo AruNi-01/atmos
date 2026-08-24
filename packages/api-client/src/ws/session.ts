@@ -1,4 +1,11 @@
-import type { WsAction } from "@atmos/api-types/ws/actions";
+import type {
+  MappedWsAction,
+  WsContract,
+} from "@atmos/api-types/ws/contract";
+import type {
+  MappedWsEvent,
+  WsEventPayload,
+} from "@atmos/api-types/ws/event-contract";
 import type { WsError, WsResponse } from "@atmos/api-types/ws/frames";
 import {
   WEBSOCKET_OPEN,
@@ -13,7 +20,8 @@ import {
 import type {
   ConnectionState,
   ReconnectPolicy,
-  RequestWhenReadyOptions,
+  MappedRequestWhenReadyOptions,
+  WsRequestCallOpts,
   WsSessionOptions,
 } from "./types";
 
@@ -176,10 +184,59 @@ export class WsSession {
     w.reject(error);
   }
 
-  request<T>(
-    action: WsAction | string,
+  request<A extends MappedWsAction>(
+    action: A,
+    data?: WsContract[A]["input"],
+    opts?: WsRequestCallOpts,
+  ): Promise<WsContract[A]["output"]>;
+  request(
+    action: string,
     data: unknown = {},
-    opts?: { timeoutMs?: number },
+    opts?: WsRequestCallOpts,
+  ): Promise<unknown> {
+    return this.sendRequest(action, data, opts);
+  }
+
+  requestUnchecked<T = unknown>(
+    action: string,
+    data: unknown = {},
+    opts?: WsRequestCallOpts,
+  ): Promise<T> {
+    return this.sendRequest(action, data, opts);
+  }
+
+  requestWhenReady<A extends MappedWsAction>(
+    opts: MappedRequestWhenReadyOptions<A>,
+  ): Promise<WsContract[A]["output"]>;
+  async requestWhenReady(opts: {
+    action: string;
+    data?: unknown;
+    timeoutMs?: number;
+    waitMs?: number;
+    isValid: () => boolean;
+  }): Promise<unknown> {
+    if (!opts.isValid()) {
+      throw new Error("Computer scope changed before WebSocket request");
+    }
+    if (
+      this.currentState !== "connected" ||
+      !this.socket ||
+      this.socket.readyState !== WEBSOCKET_OPEN
+    ) {
+      await this.waitUntilConnected(opts.waitMs ?? this.connectWaitMs);
+    }
+    if (!opts.isValid()) {
+      throw new Error("Computer scope changed while waiting for WebSocket");
+    }
+    return this.sendRequest(opts.action, opts.data ?? {}, {
+      timeoutMs: opts.timeoutMs,
+    });
+  }
+
+  private sendRequest<T>(
+    action: string,
+    data: unknown = {},
+    opts?: WsRequestCallOpts,
   ): Promise<T> {
     if (
       this.currentState !== "connected" ||
@@ -223,25 +280,6 @@ export class WsSession {
     });
   }
 
-  async requestWhenReady<T>(opts: RequestWhenReadyOptions): Promise<T> {
-    if (!opts.isValid()) {
-      throw new Error("Computer scope changed before WebSocket request");
-    }
-    if (
-      this.currentState !== "connected" ||
-      !this.socket ||
-      this.socket.readyState !== WEBSOCKET_OPEN
-    ) {
-      await this.waitUntilConnected(opts.waitMs ?? this.connectWaitMs);
-    }
-    if (!opts.isValid()) {
-      throw new Error("Computer scope changed while waiting for WebSocket");
-    }
-    return this.request<T>(opts.action, opts.data, {
-      timeoutMs: opts.timeoutMs,
-    });
-  }
-
   onState(cb: (s: ConnectionState) => void): () => void {
     this.stateListeners.add(cb);
     cb(this.currentState);
@@ -250,6 +288,11 @@ export class WsSession {
     };
   }
 
+  onNotification<E extends MappedWsEvent>(
+    event: E,
+    cb: (data: WsEventPayload<E>) => void,
+  ): () => void;
+  onNotification(event: string, cb: (data: unknown) => void): () => void;
   onNotification(event: string, cb: (data: unknown) => void): () => void {
     let set = this.notificationListeners.get(event);
     if (!set) {

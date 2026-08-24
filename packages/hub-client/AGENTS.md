@@ -59,9 +59,17 @@ setHubSessionCookieProvider(hubCookieFromDocument);
 
 Mobile: SecureStore device store via app bootstrap; omit cookie provider (device-only). Pair without login: `hubCreateMobilePair` / `hubClaimMobilePair`.
 
+## Adding a Hub HTTP route (same PR as `packages/hub`)
+
+1. Worker: route under `packages/hub/src/` (`requireUser` unless TECH says otherwise).
+2. DTO in `src/types.ts` (JSON wire, same field names as the Worker body).
+3. Function next to the existing ones (`me.ts`, `devices.ts`, `integrations/…`) that `hubFetch`s and returns that DTO. Call sites never pass cookie vs device.
+4. No `WsContract`, no oRPC, no OpenAPI. Hub is already a typed HTTPS client.
+
 ## Must not
 
 - Main `/ws` session kernel (that is `@atmos/api-client`)
 - Better Auth **server** (that is `packages/hub`)
 - UI components
 - Feature code that inspects `hub_cookie` / `device_credential` separately
+- Computer `/api/system/*` or Relay computers/sessions (wrong plane)

@@ -187,9 +187,7 @@ export function gitLogQueryOptions(
       const { useWebSocketStore } = await import(
         "@/features/connection/hooks/use-websocket"
       );
-      const result = await useWebSocketStore.getState().send<{
-        commits?: GitLogPage["commits"];
-      }>("git_log", {
+      const result = await useWebSocketStore.getState().send("git_log", {
         path: repoPath,
         limit: params.limit,
         offset: params.page * params.limit,

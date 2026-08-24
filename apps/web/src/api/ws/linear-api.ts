@@ -1,5 +1,6 @@
 import type {
   LinearIssueListPagePayload,
+  LinearLinkIssueRequest,
   LinearLinkPayload,
   LinearRateLimitPayload,
   LinearStatusPayload,
@@ -72,10 +73,11 @@ export const wsLinearApi = {
         ),
       );
     }
-    return wsRequest<{ authorize_url: string; state: string }>(
-      "linear_oauth_start",
-      { shell, web_origin, client_id },
-    );
+    return wsRequest("linear_oauth_start", {
+      shell,
+      web_origin,
+      client_id,
+    });
   },
 
   oauthFinish: (code: string, state: string): Promise<LinearStatusPayload> => {
@@ -109,11 +111,14 @@ export const wsLinearApi = {
     labels: Array<{ id: string; name: string; color?: string | null }>;
   }> => wsRequest("linear_filter_options", withLinearAuth({})),
 
-  linkIssue: (workspace_guid: string, issue: unknown): Promise<LinearLinkPayload> =>
+  linkIssue: (
+    workspace_guid: string,
+    issue: LinearLinkIssueRequest["issue"],
+  ): Promise<LinearLinkPayload> =>
     wsRequest("linear_link_issue", { workspace_guid, issue }),
 
   unlinkIssue: (workspace_guid: string, external_id: string) =>
-    wsRequest<{ ok: boolean }>("linear_unlink_issue", {
+    wsRequest("linear_unlink_issue", {
       workspace_guid,
       external_id,
     }),

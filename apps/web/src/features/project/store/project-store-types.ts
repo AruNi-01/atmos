@@ -1,4 +1,4 @@
-import type { WorkspaceAttachmentPayload, WorkspaceModel } from "@/api/ws-api";
+import type { WorkspaceAttachmentView, WorkspaceModel } from "@/api/ws-api";
 import type {
   Project,
   Workspace,
@@ -40,7 +40,7 @@ export interface ProjectStore {
     priority?: WorkspacePriority;
     workflowStatus?: WorkspaceWorkflowStatus;
     labels?: WorkspaceLabel[];
-    attachments?: WorkspaceAttachmentPayload[];
+    attachments?: WorkspaceAttachmentView[];
   }) => Promise<string>;
   quickAddWorkspace: (projectId: string) => Promise<string | null>;
   deleteWorkspace: (projectId: string, workspaceId: string) => Promise<void>;

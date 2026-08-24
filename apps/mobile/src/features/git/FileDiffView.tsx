@@ -47,8 +47,8 @@ export function FileDiffView({ diff }: { diff: GitFileDiffResponse | null }) {
     );
   }
 
-  const oldText = diff.old_text ?? diff.old_content ?? "";
-  const newText = diff.new_text ?? diff.new_content ?? "";
+  const oldText = diff.old_text ?? "";
+  const newText = diff.new_text ?? "";
   const lines = createInlineDiff(oldText, newText);
 
   return (

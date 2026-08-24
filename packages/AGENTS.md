@@ -8,8 +8,8 @@
 
 | Package | Namespace | May contain | Must not | Channel |
 |---------|-----------|-------------|----------|---------|
-| **api-types** | `@atmos/api-types` | Main `/ws` frames, `WsAction`, multi-client DTOs | React, transport, business rules | Main `/ws` |
-| **api-client** | `@atmos/api-client` | WS session kernel, reconnect, request helpers | UI, Query, feature stores | Main `/ws` transport |
+| **api-types** | `@atmos/api-types` | Main `/ws` frames, `WsAction`, `WsEvent`, `WsContract` input/output, multi-client DTOs | React, transport, business rules, oRPC | Main `/ws` |
+| **api-client** | `@atmos/api-client` | WS session kernel, reconnect, typed `request` | UI, Query, feature stores, domain APIs | Main `/ws` transport |
 | **hub-client** | `@atmos/hub-client` | Hub HTTPS client (auth, devices, integrations), pluggable device credential store | Main `/ws`, UI, Query | Hub control plane |
 | **relay-client** | `@atmos/relay-client` | Relay HTTPS client (computers, register tokens, client sessions), pluggable transport | Worker impl, main `/ws`, UI | Relay control plane |
 | **shared** | `@atmos/shared` | Pure utils, hooks, debug, **terminal stream protocol** | Main `/ws` types, WS session kernel | Terminal stream (exception) |
@@ -25,8 +25,9 @@ Apps (`apps/web`, `apps/mobile`, `apps/desktop-electron`, …) own UI, feature s
 
 ## Decision tree
 
-1. **Main `/ws` frame, `WsAction`, multi-client DTO?** → `@atmos/api-types` ([api-types/AGENTS.md](api-types/AGENTS.md), APP-048)  
+1. **Main `/ws` frame, `WsAction`, `WsEvent`, multi-client DTO, or `WsContract` input/output map?** → `@atmos/api-types` ([api-types/AGENTS.md](api-types/AGENTS.md), APP-048 / APP-064). Do **not** add oRPC, tRPC, ts-rest, or another RPC framework for type safety.  
 1b. **Single-app DTO only?** → owning app until a second consumer  
+1c. **App feature wrapper** (`fsApi`, mobile `ws-actions.ts`)? → owning app. Do not put domain methods on `@atmos/api-client`.  
 2. **Main `/ws` connect / reconnect / request_id?** → `@atmos/api-client` ([api-client/AGENTS.md](api-client/AGENTS.md), APP-049)  
 2b. **Hub HTTPS (session, devices, Linear OAuth finish, etc.)?** → `@atmos/hub-client` ([hub-client/AGENTS.md](hub-client/AGENTS.md), APP-056)  
 2c. **Relay REST (computers, register tokens, client sessions)?** → `@atmos/relay-client` ([relay-client/AGENTS.md](relay-client/AGENTS.md), APP-016/056)  
@@ -65,17 +66,32 @@ Next apps ──► @atmos/i18n
 ## API clients vs apps
 
 - **Shared main-app WS session kernel** → `@atmos/api-client`  
-- **Shared main-app wire types** → `@atmos/api-types`  
+- **Shared main-app wire types + `WsContract`** → `@atmos/api-types` (how to add an action: [api-types/AGENTS.md](api-types/AGENTS.md))  
 - **Shared Hub control-plane HTTPS client** → `@atmos/hub-client` (apps bootstrap base URL + platform device store)  
 - **Shared Relay control-plane HTTPS client** → `@atmos/relay-client` (apps inject transport if needed, e.g. desktop loopback proxy)  
 - **Relay `clientKind`**: `web` | `desktop` (Electron workbench) | `mobile` — set at `createClientSession`  
 - **Computer gateway REST** (`gateway_url` + `/api/system/*`) → owning app after session (not relay-client)  
-- **App feature API modules, platform bindings, UI** → `apps/*`  
+- **App feature API modules, platform bindings, UI** → `apps/*` (`wsRequest` / mobile `ws-actions.ts`). Do not put `gitApi` on the kernel.  
 - Do **not** reintroduce dual action catalogs or dual pending-map kernels in apps  
+- Do **not** add oRPC/tRPC/ts-rest for Computer `/ws` type safety — extend `WsContract`  
 - Do **not** re-implement Hub fetch / device credential storage per app — extend `@atmos/hub-client`  
 - Do **not** re-implement Relay computers / register / client_sessions per app — extend `@atmos/relay-client`  
 
-Types track the server via `@atmos/api-types` (enum-backed action drift), not by hand-copying into each app forever.
+Types track the server via `@atmos/api-types` (enum extract + `WsContract`), not by hand-copying into each app forever.
+
+### HTTP contracts (not `WsContract`)
+
+HTTP is three planes. Do **not** fold them into `@atmos/api-types` or one OpenAPI.
+
+| Plane | Transport | Contract home | Shape |
+|-------|-----------|---------------|--------|
+| Hub | HTTPS | `@atmos/hub-client` | Named functions + DTOs in `src/types.ts` (`hubMe(): Promise<HubMe>`) |
+| Relay control | HTTPS | `@atmos/relay-client` | Named methods on `createRelayClient()` + `src/types.ts` |
+| Computer REST | loopback / gateway `/api/*` | **owning app** (`apps/web/src/api/rest-api.ts`, `relay.ts`) | Handwritten types next to the fetch helper |
+
+- Hub/Relay already have procedure-level typing (function in → function out). Adding oRPC would duplicate that.
+- Computer REST is the exception transport (bootstrap, binary, CLI/hooks, diagnostics). Types stay app-local until a **second** TS consumer (e.g. mobile) needs the same DTO — then extract, still **not** into `api-types/ws`.
+- Same PR as the server route: update the matching client DTO + function. No extract gate (unlike `WsAction`).
 
 ---
 
@@ -106,7 +122,7 @@ cd packages/relay && bunx wrangler dev
 
 - `workspace:*` for monorepo deps
 - Deploy hub/relay only after D1 migrations ([hub/README.md](hub/README.md), [relay/README.md](relay/README.md))
-- When adding Rust `WsAction`: update `@atmos/api-types` in the same PR
+- When adding Rust `WsAction` / `WsEvent`: update `@atmos/api-types` catalog **and** `WsContract` (actions) in the same PR — see [api-types/AGENTS.md](api-types/AGENTS.md)
 
 ---
 
@@ -120,3 +136,4 @@ cd packages/relay && bunx wrangler dev
 - [shared/AGENTS.md](shared/AGENTS.md)
 - [relay/AGENTS.md](relay/AGENTS.md)
 - [specs/APP/APP-050_shared-package-layering](../specs/APP/APP-050_shared-package-layering/)
+- [specs/APP/APP-064_api-contract-hardening](../specs/APP/APP-064_api-contract-hardening/)

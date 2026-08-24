@@ -1,35 +1,25 @@
 import type {
-  FsListDirResponse,
-  FsValidateGitPathResponse,
-  GitChangedFilesResponse,
-  GitCommitResponse,
-  GitFileDiffResponse,
-  GitStatusResponse,
   GithubIssuePayload,
   GithubPrPayload,
-  ProjectModel,
-  ProjectWorkspaceBootstrapResponse,
-  TerminalWorkspaceCandidatesResponse,
-  WorkspaceModel,
   WorkspaceSetupProgressNotification,
 } from "@/api/types";
 import type { MobileWsClient } from "@/api/mobile-ws-client";
 
 export const wsActions = {
   projectWorkspaceBootstrap(client: MobileWsClient) {
-    return client.request<ProjectWorkspaceBootstrapResponse>("project_workspace_bootstrap");
+    return client.request("project_workspace_bootstrap");
   },
   fsGetHomeDir(client: MobileWsClient) {
-    return client.request<{ path: string }>("fs_get_home_dir");
+    return client.request("fs_get_home_dir");
   },
   fsListDir(client: MobileWsClient, path: string, dirsOnly = true) {
-    return client.request<FsListDirResponse>("fs_list_dir", {
+    return client.request("fs_list_dir", {
       path,
       dirs_only: dirsOnly,
     });
   },
   fsSearchDirs(client: MobileWsClient, rootPath: string, query: string) {
-    return client.request<{ entries: FsListDirResponse["entries"] }>("fs_search_dirs", {
+    return client.request("fs_search_dirs", {
       root_path: rootPath,
       query,
       max_results: 25,
@@ -37,10 +27,10 @@ export const wsActions = {
     });
   },
   fsValidateGitPath(client: MobileWsClient, path: string) {
-    return client.request<FsValidateGitPathResponse>("fs_validate_git_path", { path });
+    return client.request("fs_validate_git_path", { path });
   },
   projectCreate(client: MobileWsClient, payload: { name: string; main_file_path: string }) {
-    return client.request<ProjectModel>("project_create", {
+    return client.request("project_create", {
       ...payload,
       sidebar_order: 0,
     });
@@ -61,7 +51,7 @@ export const wsActions = {
       label_guids?: string[];
     },
   ) {
-    return client.request<WorkspaceModel>("workspace_create", {
+    return client.request("workspace_create", {
       initial_requirement: null,
       attachments: [],
       sidebar_order: 0,
@@ -75,13 +65,13 @@ export const wsActions = {
     });
   },
   workspaceConfirmTodos(client: MobileWsClient, guid: string, markdown: string) {
-    return client.request<{ success: boolean }>("workspace_confirm_todos", {
+    return client.request("workspace_confirm_todos", {
       guid,
       markdown,
     });
   },
   workspaceUpdateWorkflowStatus(client: MobileWsClient, guid: string, workflowStatus: string) {
-    return client.request<{ success: boolean }>("workspace_update_workflow_status", {
+    return client.request("workspace_update_workflow_status", {
       guid,
       workflow_status: workflowStatus,
     });
@@ -97,7 +87,7 @@ export const wsActions = {
       auto_extract_todos?: boolean;
     },
   ) {
-    return client.request<{ success: boolean }>("workspace_retry_setup", {
+    return client.request("workspace_retry_setup", {
       initial_requirement: null,
       github_issue: null,
       github_pr: null,
@@ -106,20 +96,20 @@ export const wsActions = {
     });
   },
   githubIssueGet(client: MobileWsClient, issueUrl: string) {
-    return client.request<GithubIssuePayload>("github_issue_get", {
+    return client.request("github_issue_get", {
       issue_url: issueUrl,
     });
   },
   githubPrGet(client: MobileWsClient, prUrl: string) {
-    return client.request<GithubPrPayload>("github_pr_get", {
+    return client.request("github_pr_get", {
       pr_url: prUrl,
     });
   },
   gitGetStatus(client: MobileWsClient, path: string) {
-    return client.request<GitStatusResponse>("git_get_status", { path });
+    return client.request("git_get_status", { path });
   },
   gitChangedFiles(client: MobileWsClient, path: string, baseBranch?: string | null, usePreferredCompare = false) {
-    return client.request<GitChangedFilesResponse>("git_changed_files", {
+    return client.request("git_changed_files", {
       path,
       base_branch: baseBranch ?? null,
       use_preferred_compare: usePreferredCompare,
@@ -132,7 +122,7 @@ export const wsActions = {
     baseBranch?: string | null,
     againstIndex = false,
   ) {
-    return client.request<GitFileDiffResponse>("git_file_diff", {
+    return client.request("git_file_diff", {
       path,
       file_path: filePath,
       base_branch: baseBranch ?? null,
@@ -140,16 +130,16 @@ export const wsActions = {
     });
   },
   gitStage(client: MobileWsClient, path: string, files: string[]) {
-    return client.request<{ success: boolean }>("git_stage", { path, files });
+    return client.request("git_stage", { path, files });
   },
   gitUnstage(client: MobileWsClient, path: string, files: string[]) {
-    return client.request<{ success: boolean }>("git_unstage", { path, files });
+    return client.request("git_unstage", { path, files });
   },
   gitCommit(client: MobileWsClient, path: string, message: string) {
-    return client.request<GitCommitResponse>("git_commit", { path, message });
+    return client.request("git_commit", { path, message });
   },
   gitPush(client: MobileWsClient, path: string) {
-    return client.request<{ success: boolean }>("git_push", { path });
+    return client.request("git_push", { path });
   },
   terminalWorkspaceCandidates(
     client: MobileWsClient,
@@ -159,7 +149,7 @@ export const wsActions = {
       workspace_name?: string | null;
     },
   ) {
-    return client.request<TerminalWorkspaceCandidatesResponse>("terminal_workspace_candidates", payload);
+    return client.request("terminal_workspace_candidates", payload);
   },
 };
 

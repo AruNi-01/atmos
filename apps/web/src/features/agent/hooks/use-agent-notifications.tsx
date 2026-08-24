@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useCallback } from "react";
 import { useTranslations } from "next-intl";
+import type { AutomationNotificationPayload } from "@atmos/api-types/ws/dto/automation";
+import type { AgentNotificationPayload } from "@atmos/api-types/ws/dto/events";
 import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
 import {
   AGENT_STATE,
@@ -31,29 +33,6 @@ import {
   showAgentHookStateToast,
   type AgentHookStateUpdatePayload,
 } from "@/features/agent/lib/agent-hook-toast";
-
-interface AgentNotificationPayload {
-  title: string;
-  body: string;
-  tool: string;
-  state: string;
-  session_id: string;
-  project_path?: string | null;
-  context_id?: string | null;
-  pane_id?: string | null;
-  side_chat_id?: string | null;
-  source_pane_id?: string | null;
-}
-
-interface AutomationNotificationPayload {
-  title: string;
-  body: string;
-  automation_guid: string;
-  automation_display_name: string;
-  run_guid: string;
-  status: string;
-  result_path?: string | null;
-}
 
 function agentClickActionFromPayload(
   payload: AgentNotificationPayload,
@@ -129,8 +108,7 @@ export function useAgentNotifications() {
     }
   }, []);
 
-  const handleNotification = useCallback((data: unknown) => {
-    const payload = data as AgentNotificationPayload;
+  const handleNotification = useCallback((payload: AgentNotificationPayload) => {
     const settings = useNotificationSettingsStore.getState().settings;
     const showSystem = shouldShowSystemNotification(
       settings.system_notification_when_focused,
@@ -158,8 +136,7 @@ export function useAgentNotifications() {
     }
   }, [handleNotificationClickAction]);
 
-  const handleAutomationNotification = useCallback((data: unknown) => {
-    const payload = data as AutomationNotificationPayload;
+  const handleAutomationNotification = useCallback((payload: AutomationNotificationPayload) => {
     const settings = useNotificationSettingsStore.getState().settings;
 
     if (!settings.notify_on_automation_outcome) {
@@ -188,8 +165,7 @@ export function useAgentNotifications() {
     }
   }, [handleNotificationClickAction]);
 
-  const handleAgentHookToastNotification = useCallback((data: unknown) => {
-    const update = data as AgentHookStateUpdatePayload;
+  const handleAgentHookToastNotification = useCallback((update: AgentHookStateUpdatePayload) => {
     const settings = useNotificationSettingsStore.getState().settings;
     const previousState = previousAgentHookStateRef.current.get(update.session_id);
     previousAgentHookStateRef.current.set(update.session_id, update.state);

@@ -39,7 +39,7 @@ packages/shared/
 ### NEVER
 - Add framework-specific code to utils — keep them framework-agnostic
 - Add API calls or side effects to `utils/` functions
-- Add main-app `/ws` wire types (`WsAction`, frames, multi-client DTOs) — use `@atmos/api-types`
+- Add main-app `/ws` wire types (`WsAction`, `WsEvent`, `WsContract`, frames, DTOs) — use `@atmos/api-types`
 - Add WS session / reconnect / pending-map kernels — use `@atmos/api-client`
 - Import `@atmos/api-client` or `@atmos/api-types` from utils (keep pure-shared free of wire coupling)
 

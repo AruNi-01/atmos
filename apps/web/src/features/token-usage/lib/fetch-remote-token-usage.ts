@@ -1,6 +1,6 @@
 "use client";
 
-import { createWsSession } from "@atmos/api-client/ws";
+import { createWsSession, type WsSession } from "@atmos/api-client/ws";
 import { isPlausibleDeviceCredential } from "@atmos/relay-client";
 import type { TokenUsageOverviewResponse } from "@/api/ws/token-usage-api";
 import { getWebRelayClient } from "@/features/connection/lib/create-web-relay-client";
@@ -10,16 +10,10 @@ import { useAtmosComputerStore } from "@/features/connection/lib/atmos-computer-
 export const REMOTE_TOKEN_USAGE_CONNECT_WAIT_MS = 15_000;
 export const REMOTE_TOKEN_USAGE_REQUEST_TIMEOUT_MS = 60_000;
 
-export type RemoteTokenUsageSession = {
-  connect: () => Promise<void>;
-  waitUntilConnected: (timeoutMs?: number) => Promise<void>;
-  request: <T>(
-    action: string,
-    data?: unknown,
-    opts?: { timeoutMs?: number },
-  ) => Promise<T>;
-  disconnect: () => void;
-};
+export type RemoteTokenUsageSession = Pick<
+  WsSession,
+  "connect" | "waitUntilConnected" | "request" | "disconnect"
+>;
 
 export type FetchRemoteTokenUsageDeps = {
   createClientSession: (serverId: string) => Promise<{ ws_url: string }>;
@@ -39,7 +33,7 @@ export async function fetchRemoteTokenUsageOverview(
   const session = deps.openSession(sessionInfo.ws_url);
   try {
     await session.waitUntilConnected(REMOTE_TOKEN_USAGE_CONNECT_WAIT_MS);
-    return await session.request<TokenUsageOverviewResponse>(
+    return await session.request(
       "token_usage_overview_get",
       {
         refresh: true,

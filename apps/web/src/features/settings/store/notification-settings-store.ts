@@ -89,8 +89,7 @@ const notificationSettingsStore = create<NotificationSettingsStore>(
     loadSettings: async () => {
       set({ isLoading: true });
       try {
-        const data = await wsRequest<Partial<NotificationSettings>>(
-          "notification_settings_get"
+        const data = await wsRequest("notification_settings_get"
         );
         set({ settings: { ...DEFAULT_SETTINGS, ...data } });
       } catch {
@@ -105,7 +104,7 @@ const notificationSettingsStore = create<NotificationSettingsStore>(
       const versionAtStart = get()._version + 1;
       set({ settings, isSaving: true, _version: versionAtStart });
       try {
-        await wsRequest<{ ok: boolean }>("notification_settings_update", {
+        await wsRequest("notification_settings_update", {
           settings,
         });
       } catch {
@@ -153,8 +152,7 @@ const notificationSettingsStore = create<NotificationSettingsStore>(
 
     testPushServer: async (index: number) => {
       try {
-        return await wsRequest<{ ok: boolean; error?: string }>(
-          "notification_test_push",
+        return await wsRequest("notification_test_push",
           { server_index: index }
         );
       } catch (e) {

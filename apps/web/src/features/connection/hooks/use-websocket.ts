@@ -3,6 +3,14 @@
 import { create } from "zustand";
 import type { WsAction } from "@atmos/api-types/ws/actions";
 import type {
+  MappedWsAction,
+  WsContract,
+} from "@atmos/api-types/ws/contract";
+import type {
+  MappedWsEvent,
+  WsEventPayload,
+} from "@atmos/api-types/ws/event-contract";
+import type {
   WsError,
   WsMessage,
   WsNotification,
@@ -76,12 +84,20 @@ interface WebSocketStore {
   maxReconnectAttempts: number;
   connect: () => Promise<void>;
   disconnect: () => void;
-  send: <T = unknown>(
-    action: WsAction,
-    data?: unknown,
-    timeoutMs?: number,
-  ) => Promise<T>;
-  onEvent: (event: string, callback: (data: unknown) => void) => () => void;
+  send: {
+    <A extends MappedWsAction>(
+      action: A,
+      data?: WsContract[A]["input"],
+      timeoutMs?: number,
+    ): Promise<WsContract[A]["output"]>;
+  };
+  onEvent: {
+    <E extends MappedWsEvent>(
+      event: E,
+      callback: (data: WsEventPayload<E>) => void,
+    ): () => void;
+    (event: string, callback: (data: unknown) => void): () => void;
+  };
 }
 
 const getWsUrl = (): string => buildWsUrlSync("/ws");
@@ -353,16 +369,16 @@ export const useWebSocketStore = create<WebSocketStore>((set, get) => ({
     });
   },
 
-  send: <T = unknown>(
-    action: WsAction,
+  send: ((
+    action: string,
     data: unknown = {},
     timeoutMs?: number,
-  ): Promise<T> => {
+  ): Promise<unknown> => {
     const s = ensureSession();
-    return s.request<T>(action, data, { timeoutMs });
-  },
+    return s.request(action as never, data as never, { timeoutMs });
+  }) as WebSocketStore["send"],
 
-  onEvent: (event: string, callback: (data: unknown) => void) => {
+  onEvent: ((event: string, callback: (data: unknown) => void) => {
     const { eventListeners } = get();
     if (!eventListeners.has(event)) {
       eventListeners.set(event, new Set());
@@ -375,7 +391,7 @@ export const useWebSocketStore = create<WebSocketStore>((set, get) => ({
         listeners.delete(callback);
       }
     };
-  },
+  }) as WebSocketStore["onEvent"],
 }));
 
 /**

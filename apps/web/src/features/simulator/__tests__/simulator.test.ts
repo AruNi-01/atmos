@@ -44,7 +44,7 @@ describe("control plane", () => {
       join(import.meta.dir, "../../../api/ws/simulator-api.ts"),
       "utf8",
     );
-    expect(client).toContain('wsRequest<SimulatorProbe>("simulator_probe")');
+    expect(client).toContain('wsRequest("simulator_probe")');
     expect(client).toContain("workspace_id: workspaceId");
     expect(client).not.toContain("desktopInvoke");
   });

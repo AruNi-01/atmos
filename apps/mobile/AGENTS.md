@@ -89,10 +89,11 @@ Spec: [specs/APP/APP-025_mobile-app](../../specs/APP/APP-025_mobile-app/)
 ## API & Transport
 
 - App bootstrap/session issuance uses the existing Relay REST routes.
-- Business workflows use the main app WebSocket through `src/api/mobile-ws-client.ts` and `src/api/ws-actions.ts`.
+- Business workflows use the main app WebSocket through `src/api/mobile-ws-client.ts` (kernel adapter) and `src/api/ws-actions.ts` (feature wrapper). Wire types/`WsContract` come from `@atmos/api-types` — see [packages/api-types/AGENTS.md](../../packages/api-types/AGENTS.md).
+- Mapped calls: `client.request("git_get_status", { path })` with **no** `<T>`. `ws-actions.ts` is not a second `WsAction` catalog; do not add parallel action unions.
 - Terminal transport uses the native-owned terminal WebSocket through `src/api/terminal-ws-client.ts`.
 - The terminal WebView must not receive device credentials, `client_token`, Relay URLs, or `terminal_ws_url`.
-- Do not add mobile-only REST shortcuts for project, workspace, terminal, or Git flows. Extend shared WS actions instead.
+- Do not add mobile-only REST shortcuts for project, workspace, terminal, or Git flows. Extend shared WS actions (and `WsContract`) instead.
 
 ---
 
@@ -105,6 +106,7 @@ Spec: [specs/APP/APP-025_mobile-app](../../specs/APP/APP-025_mobile-app/)
 - Render multiple terminal panes side by side on phone.
 - Expose commit history, PR panels, notes/TODO/review panels, AI commit generation, discard, or chunk-level patch controls in the M1 mobile Git surface.
 - Log device credentials, `client_token`, register tokens, or Relay/server secrets.
+- Re-declare `WsAction` or a pending-map kernel. Use `@atmos/api-types` + `@atmos/api-client`.
 
 ### ALWAYS
 
@@ -119,5 +121,6 @@ Spec: [specs/APP/APP-025_mobile-app](../../specs/APP/APP-025_mobile-app/)
 ## Related
 
 - [apps/api/AGENTS.md](../api/AGENTS.md)
+- [packages/api-types/AGENTS.md](../../packages/api-types/AGENTS.md)
 - [packages/relay/AGENTS.md](../../packages/relay/AGENTS.md)
 - [apps/web/AGENTS.md](../web/AGENTS.md)

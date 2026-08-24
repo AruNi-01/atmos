@@ -1,7 +1,10 @@
 "use client";
 
+import type {
+  MappedWsAction,
+  WsContract,
+} from "@atmos/api-types/ws/contract";
 import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
-import type { WsAction } from "@/features/connection/hooks/use-websocket";
 import {
   getComputerQueryScope,
   type ComputerQueryScope,
@@ -34,27 +37,38 @@ async function waitUntilConnected(): Promise<void> {
 /**
  * Shared helper for request/response actions over the app WebSocket.
  */
-export async function wsRequest<T>(
-  action: WsAction,
+export function wsRequest<A extends MappedWsAction>(
+  action: A,
+  data?: WsContract[A]["input"],
+  timeoutMs?: number,
+): Promise<WsContract[A]["output"]>;
+export async function wsRequest(
+  action: string,
   data: unknown = {},
   timeoutMs?: number,
-): Promise<T> {
+): Promise<unknown> {
   if (useWebSocketStore.getState().connectionState !== "connected") {
     await waitUntilConnected();
   }
-  return useWebSocketStore.getState().send<T>(action, data, timeoutMs);
+  return useWebSocketStore.getState().send(action as never, data as never, timeoutMs);
 }
 
 /**
  * Sends only if the active Computer still matches the scope that initiated
  * the request. This prevents queued writes from crossing a reconnect target.
  */
-export async function wsRequestForComputerScope<T>(
+export function wsRequestForComputerScope<A extends MappedWsAction>(
   expectedScope: ComputerQueryScope,
-  action: WsAction,
+  action: A,
+  data?: WsContract[A]["input"],
+  timeoutMs?: number,
+): Promise<WsContract[A]["output"]>;
+export async function wsRequestForComputerScope(
+  expectedScope: ComputerQueryScope,
+  action: string,
   data: unknown = {},
   timeoutMs?: number,
-): Promise<T> {
+): Promise<unknown> {
   if (!isComputerQueryScopeCurrent(expectedScope)) {
     throw new Error("Computer scope changed before WebSocket request");
   }
@@ -64,5 +78,5 @@ export async function wsRequestForComputerScope<T>(
   if (!isComputerQueryScopeCurrent(expectedScope)) {
     throw new Error("Computer scope changed while waiting for WebSocket");
   }
-  return useWebSocketStore.getState().send<T>(action, data, timeoutMs);
+  return useWebSocketStore.getState().send(action as never, data as never, timeoutMs);
 }

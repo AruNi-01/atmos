@@ -60,7 +60,7 @@ test.describe("smoke workspace", () => {
     await gotoContextRoute(page, withSearchParams(contextUrl, { tab: "run" }), {
       locale: "zh",
     });
-    await expect(page.getByRole("tab", { name: /^(运行|Run)$/ })).toBeVisible();
+    await expect(page.getByRole("tab", { name: /^(运行|Run)$/ }).first()).toBeVisible();
 
     await gotoContextRoute(page, withSearchParams(contextUrl, { tab: "github" }), {
       locale: "zh",

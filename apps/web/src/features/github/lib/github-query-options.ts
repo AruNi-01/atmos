@@ -206,8 +206,8 @@ export function githubIssueTimelineInfiniteQueryOptions(
     connectionState,
     queryKey: queryKeys.computer.githubIssueTimeline(scope, { owner, repo, issueNumber }),
     queryFn: async ({ pageParam }): Promise<GithubPrTimelinePage> => {
-      const result = await wsRequest<GithubPrTimelinePage>("github_issue_timeline_page", {
-        owner, repo, issue_number: issueNumber, page: pageParam, per_page: GITHUB_PR_TIMELINE_PER_PAGE,
+      const result = await wsRequest("github_issue_timeline_page", {
+        owner, repo, issue_number: issueNumber, page: Number(pageParam), per_page: GITHUB_PR_TIMELINE_PER_PAGE,
       });
       return { items: Array.isArray(result?.items) ? result.items : [], has_more: Boolean(result?.has_more) };
     },
@@ -253,14 +253,16 @@ export function branchPrListQueryOptions(
       state,
       emitBranchStatusRefresh,
     }),
-    queryFn: (): Promise<BranchPr[]> =>
-      wsRequest<BranchPr[]>("github_pr_list", {
+    queryFn: async (): Promise<BranchPr[]> => {
+      const result = await wsRequest("github_pr_list", {
         owner,
         repo,
         branch,
         state,
         emit_branch_status_refresh: emitBranchStatusRefresh ?? false,
-      }),
+      });
+      return result as BranchPr[];
+    },
     staleTime: 5 * 60_000,
     gcTime: 30 * 60_000,
     enabled: (options?.enabled ?? true) && Boolean(owner && repo && branch),
@@ -368,7 +370,7 @@ export function githubRepoLabelsQueryOptions(
     connectionState,
     queryKey: queryKeys.computer.githubRepoLabels(scope, { owner, repo, limit }),
     queryFn: (): Promise<GithubRepoLabel[]> =>
-      wsRequest<GithubRepoLabel[]>("github_repo_labels", {
+      wsRequest("github_repo_labels", {
         owner,
         repo,
         limit,
@@ -391,7 +393,7 @@ export function githubRepoAssigneesQueryOptions(
     connectionState,
     queryKey: queryKeys.computer.githubRepoAssignees(scope, { owner, repo }),
     queryFn: (): Promise<GithubRepoAssignee[]> =>
-      wsRequest<GithubRepoAssignee[]>("github_repo_assignees", {
+      wsRequest("github_repo_assignees", {
         owner,
         repo,
       }),
@@ -417,7 +419,7 @@ export function githubUserCardQueryOptions(
     connectionState,
     queryKey: queryKeys.computer.githubUserCard(scope, { login }),
     queryFn: (): Promise<GithubUserCardPayload> =>
-      wsRequest<GithubUserCardPayload>("github_user_card", { login }),
+      wsRequest("github_user_card", { login }),
     staleTime: 60 * 60_000,
     gcTime: 2 * 60 * 60_000,
     enabled: (options?.enabled ?? true) && Boolean(login),
@@ -487,11 +489,11 @@ export function githubPrTimelineInfiniteQueryOptions(
     connectionState,
     queryKey: queryKeys.computer.githubPrTimeline(scope, { owner, repo, prNumber }),
     queryFn: async ({ pageParam }): Promise<GithubPrTimelinePage> => {
-      const result = await wsRequest<GithubPrTimelinePage>("github_pr_timeline_page", {
+      const result = await wsRequest("github_pr_timeline_page", {
         owner,
         repo,
         pr_number: prNumber,
-        page: pageParam,
+        page: Number(pageParam),
         per_page: GITHUB_PR_TIMELINE_PER_PAGE,
       });
       return {

@@ -1,4 +1,5 @@
 import type { WsAction } from "./actions";
+import type { WsEvent } from "./events";
 
 /**
  * Canonical main-app WebSocket envelopes (Rust `WsMessage` tag/content shape).
@@ -9,7 +10,7 @@ export type WsRequest = {
   type: "request";
   payload: {
     request_id: string;
-    action: WsAction | string;
+    action: WsAction;
     data?: unknown;
   };
 };
@@ -35,7 +36,7 @@ export type WsError = {
 export type WsNotification = {
   type: "notification";
   payload: {
-    event: string;
+    event: WsEvent;
     data?: unknown;
   };
 };
