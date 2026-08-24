@@ -1,0 +1,30 @@
+agents/references/cli-feature-versions.md
+  h_5be255725524c8 48-49,92
+apps/desktop-electron/.gitignore
+  h_5be255725524c8 19-22
+apps/desktop-electron/electron-builder.yml
+  h_5be255725524c8 43-44,49-52
+apps/desktop-electron/package.json
+  h_5be255725524c8 21
+apps/desktop-electron/scripts/package.ts
+  h_5be255725524c8 22,150-157
+apps/desktop-electron/scripts/prepare-package.test.ts
+  h_5be255725524c8 1-108
+apps/desktop-electron/scripts/prepare-package.ts
+  h_5be255725524c8 5-6,30-88,156-157,162-164,166-171,177,179,246-248
+crates/desktop-use/manifest/cli-requirement.json
+  h_5be255725524c8 4
+specs/APP/APP-052_desktop-use/TECH.md
+  h_5be255725524c8 18
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "47422329cb1684c8e3c7cfa83b7cc83c210cc514",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
