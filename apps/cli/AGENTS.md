@@ -1,6 +1,8 @@
 # CLI Tool (atmos) - AGENTS.md
 
-> **🛠️ atmos CLI**: Host operations and **HTTP client** to the current Atmos Server — not a second data plane for review/canvas state.
+> **🛠️ atmos CLI**: Host operations and **HTTP client** to the current Atmos Server — not a second data plane for product state.
+>
+> APP-063 adds an **agent-first product control plane**: typed L1 resources + `POST /api/cli/invoke` (server action dispatch) reusing `WsAction` handlers + JSON envelope.
 
 ---
 
@@ -20,43 +22,51 @@
 apps/cli/
 ├── src/
 │   ├── main.rs
+│   ├── envelope.rs        # APP-063 JSON envelope
+│   ├── server_invoke.rs   # POST /api/cli/invoke client
+│   ├── context.rs         # ~/.atmos/cli-context.json
+│   ├── api_client.rs
 │   └── commands/
-│       ├── runtime.rs     # atmos runtime ensure|stop|status
-│       ├── computer.rs    # API-first relay registration + ensure API (APP-016)
-│       ├── canvas.rs      # HTTP → /api/canvas/agent/invoke
-│       ├── review.rs      # HTTP → /api/review/*
-│       └── update.rs
-└── Cargo.toml             # runtime-manager (supervisor + client)
+│       ├── product.rs     # L1 project/workspace/terminal/…
+│       ├── runtime.rs
+│       ├── computer.rs
+│       ├── canvas.rs
+│       ├── review.rs
+│       ├── desktop_use/
+│       └── …
+└── Cargo.toml             # thin client — no core-service
 ```
+
+Agent skill (usage): `skills/atmos-cli/` → system skill `atmos-cli`.
 
 ---
 
 ## Commands vs architecture
 
-| Command | Purpose |
+| Surface | Purpose |
 |---------|---------|
-| `atmos runtime` | Ensure/stop/status local Atmos Server via `runtime-manager::supervisor` |
-| `atmos computer` | Register on relay (`register_token`) + ensure Atmos Server on this host |
-| `atmos canvas` | Agent canvas control — resolves Atmos Server URL via `resolve_api_base_url()` |
-| `atmos review` | HTTP client to `/api/review/*` (same Atmos Server base URL resolution as canvas) |
+| `atmos` / `status` / `call` / `actions` | Discovery + RPC escape hatch |
+| `project` `workspace` `group` `settings` `terminal` `run` `git` `context` | L1 product control via `/api/cli/invoke` |
+| `atmos runtime` | Ensure/stop/status local Atmos Server |
+| `atmos computer` | Relay registration + ensure API |
+| `atmos canvas` / `review` / `desktop-use` / `browser-use` | Specialized tools (envelope-wrapped) |
 
 ### Atmos Server URL resolution (`runtime-manager`)
 
-Global on every command: `atmos --api-url … canvas status` (also per-subcommand).
+1. `--api-url` / `ATMOS_API_URL`
+2. `~/.atmos/client-session.json` (relay)
+3. `~/.atmos/state/runtime_manifest.json` (local)
 
-1. `--api-url` / `ATMOS_API_URL` (explicit override)
-2. `~/.atmos/client-session.json` (only when UI is on **relay** — gateway + token)
-3. `~/.atmos/state/runtime_manifest.json` (normal **local** path — Atmos Server writes this on start)
-
-Token: `--api-token` → `ATMOS_API_TOKEN` → `ATMOS_LOCAL_TOKEN` → `client-session.json` (`gateway_token`).
+Token: `--api-token` → `ATMOS_API_TOKEN` → `ATMOS_LOCAL_TOKEN` → `client-session.json`.
 
 ---
 
 ## Coding Conventions
 
-- Subcommands return `serde_json::Value`; `main` prints human-readable output for host operations by default and keeps `--json` for machine-readable output.
-- **Supervisor** spawns installed layout under `~/.atmos/runtime/current` (or dev paths) — same binary Desktop uses when bundled.
-- Do not embed `core-service` / `infra` — all review/canvas state goes through Atmos Server.
+- **JSON envelope always** for point-in-time commands (`ok`, `command`, `result`/`error`+`fix`, `next_actions`). Exit `0` iff `ok`.
+- Product mutations go through `server_invoke::invoke` → `POST /api/cli/invoke` — never embed `core-service`.
+- Destructive L1 deletes require `--yes`.
+- Prefer extending L1 clap verbs over teaching agents raw wire actions.
 
 ---
 
@@ -77,7 +87,8 @@ Token: `--api-token` → `ATMOS_API_TOKEN` → `ATMOS_LOCAL_TOKEN` → `client-s
 
 ## Related
 
-- [agents/references/cli-feature-versions.md](../../agents/references/cli-feature-versions.md) — CLI floor pins vs channel latest; feature install/upgrade gates
+- [specs/APP/APP-063_agent-first-product-cli](../../specs/APP/APP-063_agent-first-product-cli/)
+- [skills/atmos-cli](../../skills/atmos-cli/)
+- [agents/references/cli-feature-versions.md](../../agents/references/cli-feature-versions.md)
 - [crates/runtime-manager/AGENTS.md](../../crates/runtime-manager/AGENTS.md)
 - [apps/api/AGENTS.md](../api/AGENTS.md)
-- [apps/desktop/AGENTS.md](../desktop/AGENTS.md)

@@ -9,6 +9,59 @@ pub struct TerminalWorkspaceCandidatesRequest {
     pub workspace_name: Option<String>,
 }
 
+/// APP-063: create a terminal session without requiring a browser PTY client.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TerminalSessionCreateRequest {
+    pub workspace_id: String,
+    #[serde(default)]
+    pub session_id: Option<String>,
+    #[serde(default)]
+    pub shell: Option<String>,
+    #[serde(default)]
+    pub name: Option<String>,
+    #[serde(default)]
+    pub cwd: Option<String>,
+    #[serde(default)]
+    pub project_name: Option<String>,
+    #[serde(default)]
+    pub workspace_name: Option<String>,
+    #[serde(default)]
+    pub cols: Option<u16>,
+    #[serde(default)]
+    pub rows: Option<u16>,
+    /// When true (default), detach the in-process PTY handle after create so the
+    /// tmux window remains without holding a CLI-side reader.
+    #[serde(default = "default_true")]
+    pub detach_after_create: bool,
+}
+
+fn default_true() -> bool {
+    true
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TerminalSessionCreateResponse {
+    pub session_id: String,
+    pub workspace_id: String,
+    pub detached: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TerminalSessionListRequest {
+    #[serde(default)]
+    pub workspace_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TerminalSessionCloseRequest {
+    pub session_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TerminalSessionDestroyRequest {
+    pub session_id: String,
+}
+
 /// APP-055: start/rotate a project-local Run log for a Run terminal window.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RunLogStartRequest {

@@ -51,6 +51,7 @@
 | APP | `APP-045_desktop-electron-dual-shell` | **shipped** | TS Electron dual-shell + atmos-browser-cookies Keychain helper + AppShot screencapture records; smokes 52 cmds |
 | APP | `APP-046_terminal-tui-mouse-tracking` | **partial** | unit tests green; manual Claude/Grok hover dogfood pending |
 | APP | `APP-054_terminal-tui-scroll-stability` | **in_progress** | cross-chunk mouse observe, restore policy, gated CMD_END, proportional TUI wheel |
+| APP | `APP-063_agent-first-product-cli` | **in_progress** | PR #251; server_invoke + L1 CLI + atmos-cli skill |
 | QUALITY | `QUALITY-001_large-file-code-debt-cleanup` | **shipped** | quality program docs; not product Must Have blocker |
 | QUALITY | `QUALITY-002_spec-test-execution-loop` | **shipped** | quality program docs; not product Must Have blocker |
 | QUALITY | `QUALITY-003_playwright-e2e-harness` | **shipped** | quality program docs; not product Must Have blocker |
@@ -60,7 +61,7 @@
 ## Counts
 - shipped: 50
 - partial: 1
-- open: 0
+- open: 1
 - obsolete: 0
 
 | APP | `APP-052_desktop-use` | **in_progress** | Desktop Use: capture migration, Settings, CLI `atmos desktop-use` |

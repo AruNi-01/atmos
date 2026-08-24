@@ -436,6 +436,14 @@ pub enum WsAction {
     // ===== Terminal 操作 =====
     /// 列出指定 Workspace 的可附着 terminal/tmux window 候选
     TerminalWorkspaceCandidates,
+    /// APP-063: create a headless terminal session (tmux window; no browser PTY required)
+    TerminalSessionCreate,
+    /// APP-063: list in-process terminal session ids (and optional workspace filter via data)
+    TerminalSessionList,
+    /// APP-063: close (detach) a terminal session; keeps tmux window
+    TerminalSessionClose,
+    /// APP-063: destroy a terminal session (kills tmux window)
+    TerminalSessionDestroy,
     /// APP-055: rotate/open latest Run log and write start header
     RunLogStart,
     /// APP-055: resolve preferred latest Run log path under a project root

@@ -74,6 +74,18 @@
     ],
     "atmos-browser-use": [
       "skills/atmos-browser-use/SKILL.md"
+    ],
+    "atmos-cli": [
+      "skills/atmos-cli/SKILL.md",
+      "skills/atmos-cli/references/envelope.md",
+      "skills/atmos-cli/references/auth-and-runtime.md",
+      "skills/atmos-cli/references/project-workspace.md",
+      "skills/atmos-cli/references/terminal-run.md",
+      "skills/atmos-cli/references/settings.md",
+      "skills/atmos-cli/references/git.md",
+      "skills/atmos-cli/references/call-escape-hatch.md",
+      "skills/atmos-cli/references/errors.md",
+      "skills/atmos-cli/references/command-index.md"
     ]
   }
 }

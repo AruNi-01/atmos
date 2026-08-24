@@ -196,6 +196,17 @@ impl WsMessageService {
     }
 
     pub(super) async fn handle_project_update(&self, req: ProjectUpdateRequest) -> Result<Value> {
+        // APP-063 / product CLI: honor name + sidebar_order in addition to color/logo.
+        if let Some(name) = req.name {
+            self.project_service
+                .update_name(req.guid.clone(), name)
+                .await?;
+        }
+        if let Some(order) = req.sidebar_order {
+            self.project_service
+                .update_order(req.guid.clone(), order)
+                .await?;
+        }
         if let Some(color) = req.border_color {
             self.project_service
                 .update_color(req.guid.clone(), color)
