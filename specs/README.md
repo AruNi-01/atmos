@@ -142,7 +142,7 @@ These files are not requirements sources. Requirements live in `PRD.md`, archite
 | **APP-063** | Token Usage Computer scope (All Computers / per-Computer via Relay; device uniqueness) | `specs/APP/APP-063_token-usage-computer-scope/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`) |
 | **APP-064** | API Contract Hardening (no oRPC; typed `WsAction → input → output`; event catalog) | `specs/APP/APP-064_api-contract-hardening/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`) |
 | **APP-065** | Agent-First Product CLI (typed resource CLI + `POST /api/cli/invoke` reusing WsAction + `atmos-cli` system skill; no backward compat) | `specs/APP/APP-063_agent-first-product-cli/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`) |
-| **APP-066** | Resource Monitor (Computer/Atmos/Project/Workspace CPU + memory; local Electron shell) | `specs/APP/APP-066_resource-monitor/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`, `PROGRESS.md`) |
+| **APP-066** | Resource Monitor (Computer/Atmos/Project/Workspace CPU + memory; local Electron shell) | `specs/APP/APP-066_resource-monitor/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`, `PROGRESS.md`, `REVIEW.md`) |
 | **QUALITY-001** | Large File Code Debt Cleanup | `specs/APP/QUALITY-001_large-file-code-debt-cleanup/` (`TECH.md`, `TEST.md`) |
 | **QUALITY-002** | Spec Test Execution Loop | `specs/APP/QUALITY-002_spec-test-execution-loop/` (`TECH.md`, `TEST.md`) |
 | **QUALITY-003** | Playwright E2E Harness | `specs/APP/QUALITY-003_playwright-e2e-harness/` (`TECH.md`, `TEST.md`) |

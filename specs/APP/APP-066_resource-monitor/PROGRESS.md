@@ -4,31 +4,31 @@
 
 ## Status
 
-- **State**: in_progress
+- **State**: ready_for_review
 - **Branch**: `aarynlu/resource-monitor-8c97`
 - **Last updated**: 2026-08-24
 - **Current owner**: coordinator with Grok 4.6 implementation workers
-- **Current phase**: service
+- **Current phase**: review
 
 ## Snapshot
 
-- Product scope and technical contract are frozen in the APP-066 quartet.
-- Next: implement engine/terminal roots and the service attribution layer.
-- No known blocker.
-- Do not add a crate, REST endpoint, database migration, global WS broadcast, or public PID field.
+- Production implementation is complete across Rust, WebSocket, api-types, Electron, and Web.
+- Functional and quality review findings are fixed and verified in `REVIEW.md`.
+- Targeted Rust/Bun/Playwright gates pass.
+- Remaining gaps are manual/host-specific: real Relay UI, Electron-local render, Windows sampling, light/dark and many-Workspace exploration.
 
 ## Implementation Checklist
 
-- [ ] Core engine sampler and tmux pane roots
-- [ ] Terminal simple-PTY root capture
-- [ ] Core service attribution and coalescing
-- [ ] API / WebSocket routing
-- [ ] `@atmos/api-types` action/event contracts
-- [ ] Electron shell metrics IPC
-- [ ] Web Query, Footer, popover, settings, and i18n
-- [ ] Automated tests
+- [x] Core engine sampler and tmux pane roots
+- [x] Terminal simple-PTY root capture
+- [x] Core service attribution and coalescing
+- [x] API / WebSocket routing
+- [x] `@atmos/api-types` action/event contracts
+- [x] Electron shell metrics IPC
+- [x] Web Query, Footer, popover, settings, and i18n
+- [x] Automated tests
 - [ ] Agent Browser / manual verification
-- [ ] Architecture and implementation review
+- [x] Architecture and implementation review
 
 ## Progress Log
 
@@ -37,6 +37,9 @@
 - Completed BRAINSTORM, PRD, TECH, and TEST design.
 - Chose Server-primary attribution with independent Electron shell collection and frontend composition.
 - Verified current main has no reusable resource sampler, no terminal root PID registry, and no connection-scoped resource subscription.
+- Implemented the full layered feature with no new crate, REST endpoint, migration, global resource broadcast, or public PID field.
+- Fixed review findings covering subscription generation races, Relay app-close cleanup, WS backpressure, blocking path work, nested payload validation, and stale/partial UI states.
+- Added targeted Rust/Bun tests and a real Playwright Footer/popover journey.
 
 ## Decisions Since TECH
 
@@ -46,11 +49,12 @@ No implementation deltas.
 
 | Area | Command / Method | Last result | Notes |
 |------|------------------|-------------|-------|
-| Rust tests | targeted `cargo test` | not_run | implementation pending |
-| API types | extract/check/test/typecheck | not_run | implementation pending |
-| Web tests | targeted `bun test` + typecheck | not_run | implementation pending |
-| Electron | `bun test` + router smoke | not_run | implementation pending |
-| E2E / manual | Agent Browser/manual | not_run | implementation pending |
+| Rust tests | targeted `cargo test` + strict Clippy | passed | engine, service, terminal, API, Relay lifecycle |
+| API types | extract/check/test/typecheck | passed | 280 actions, 31 events |
+| Web tests | targeted `bun test` + typecheck + lint | passed | APP-066 Query/lifecycle/state coverage |
+| Electron | full `bun test` + typecheck + build | passed | shell collector and IPC |
+| E2E | targeted Playwright | passed | Chromium + mobile Chromium |
+| Agent Browser/manual | exploratory | partial | Connect gate blocked Agent Browser; host-specific checks remain |
 
 ## Known Blockers
 
@@ -64,12 +68,13 @@ Ship live host, Atmos, Project, Workspace, terminal-session, and local Electron 
 
 ### Current progress
 
-Design complete; production code not started.
+Implementation and review are complete; ready for human review with host-specific manual gaps documented in `TEST.md`.
 
 ### Completed work
 
-- APP-066 planning quartet.
-- Current-code seam review for Rust, WebSocket, Query, Footer, and Electron.
+- APP-066 planning quartet plus `PROGRESS.md` and `REVIEW.md`.
+- Cross-platform resource sampler, terminal roots, exclusive attribution, scoped WS subscriptions, Electron shell collector, and localized Footer/popover.
+- Targeted scenario tests and Playwright coverage.
 
 ### Key decisions
 
@@ -86,24 +91,30 @@ Design complete; production code not started.
 
 ### Open issues
 
-- Validate `sysinfo` latest API during implementation.
-- Validate first-sample CPU priming and portable-pty child ownership.
+- Real Relay UI and Electron-local Desktop section were not browser-tested.
+- Windows sampler and path behavior were not run on a Windows host.
+- Root `just typecheck` has two unrelated existing failures in `packages/ui` and `packages/relay`; all APP-066 packages pass.
 
 ### Next steps
 
-1. Implement engine sampler and terminal root projection.
-2. Implement deterministic attribution and service cache.
-3. Add WS subscription, Desktop IPC, and web UI.
-4. Run test-plan scenarios and review.
+1. Human review the draft PR.
+2. Run the manual host matrix from `TEST.md` when macOS/Windows/Relay environments are available.
+3. Decide separately whether to pursue N1 history/sparklines.
 
 ### Relevant files/symbols
 
-- `crates/core-engine/src/local_services/process.rs`
-- `crates/core-service/src/service/terminal/`
-- `apps/api/src/api/ws/router/mod.rs`
-- `apps/web/src/providers/app/server-state-event-bridge.tsx`
-- `apps/desktop-electron/src/ipc/handlers.ts`
+- `crates/core-engine/src/resource_metrics/mod.rs`
+- `crates/core-service/src/service/resource_monitor/`
+- `apps/api/src/api/ws/router/resource_monitor.rs`
+- `packages/api-types/src/ws/dto/resource-monitor.ts`
+- `apps/web/src/features/resource-monitor/`
+- `apps/desktop-electron/src/metrics/desktop-shell-metrics.ts`
 
 ## Changed Areas
 
-- `specs/APP/APP-066_resource-monitor`: design and progress documents.
+- `crates/core-engine`: host/process sampling and tmux pane roots.
+- `crates/core-service`: terminal roots, attribution, aggregation, coalescing.
+- `apps/api` / `packages/api-types`: scoped WS actions/events and typed contract.
+- `apps/desktop-electron`: local shell IPC metrics.
+- `apps/web`: scoped Query lifecycle, localized Footer/popover, settings.
+- `e2e`: APP-066 hosted workflow.
