@@ -1,0 +1,16 @@
+apps/web/src/shared/components/breakout-error-page.tsx
+  h_5be255725524c8 355-358
+crates/desktop-use/src/capture.rs
+  h_5be255725524c8 168
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "2dd8a55dc4db69d680c73f06bfcee82d5bc7c9a7",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
