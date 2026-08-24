@@ -1,0 +1,18 @@
+crates/core-service/src/service/mod.rs
+  h_5be255725524c8 18
+crates/core-service/src/service/project.rs
+  h_5be255725524c8 9-10,122-123,131-143,416-437
+crates/core-service/src/service/project_logo.rs
+  h_5be255725524c8 1-483
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "3d24b03725e271c56711bffdec7a52acf28b5cfb",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
