@@ -1,0 +1,16 @@
+apps/web/src/features/terminal/components/__tests__/terminal-title.test.ts
+  h_5be255725524c8 58,65-91
+packages/shared/src/terminal/title.ts
+  h_5be255725524c8 1120-1123,1133-1141
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "c6824966459856e8767a22bb7da9576093ee9179",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
