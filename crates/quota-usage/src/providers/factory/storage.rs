@@ -542,8 +542,10 @@ fn decode_bytes(data: &[u8]) -> String {
 fn decode_value_bytes(data: &[u8]) -> Option<String> {
     String::from_utf16(
         &data
-            .chunks_exact(2)
-            .map(|chunk| u16::from_le_bytes([chunk[0], chunk[1]]))
+            .as_chunks::<2>()
+            .0
+            .iter()
+            .map(|chunk| u16::from_le_bytes(*chunk))
             .collect::<Vec<_>>(),
     )
     .ok()
