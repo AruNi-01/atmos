@@ -1,8 +1,14 @@
 import { describe, expect, test } from "bun:test";
 import {
   appendCenterTabToStripOrder,
+  CENTER_STRIP_SHORTCUT_LIMIT,
   collectDefaultCenterStripTabIds,
+  getCenterStripShortcutDigit,
   orderCenterTabsBySavedOrder,
+  orderIdsBySavedOrder,
+  resolveCenterStripShortcutTabId,
+  resolveCenterStripShortcutTabIds,
+  centerStripShortcutDigitFromEvent,
   type CenterTabDescriptor,
 } from "@/app-shell/center-stage-tab-model";
 
@@ -81,5 +87,75 @@ describe("collectDefaultCenterStripTabIds", () => {
         surfaceTabIds: ["src/a.ts", "browser-1"],
       }),
     ).toEqual(["terminal", "terminal-tab:2", "changes", "files", "src/a.ts", "browser-1"]);
+  });
+});
+
+describe("center strip position shortcuts", () => {
+  test("orders ids by saved strip, then appends new membership", () => {
+    expect(orderIdsBySavedOrder(["a", "b", "c"], ["c", "a"])).toEqual(["c", "a", "b"]);
+  });
+
+  test("numbers the visual strip instead of terminal identity", () => {
+    const ordered = resolveCenterStripShortcutTabIds({
+      membershipIds: ["terminal", "terminal-tab:2", "src/a.ts", "files"],
+      savedStripOrder: ["src/a.ts", "files", "terminal", "terminal-tab:2"],
+    });
+    expect(ordered).toEqual(["src/a.ts", "files", "terminal", "terminal-tab:2"]);
+    expect(resolveCenterStripShortcutTabId(ordered, 1)).toBe("src/a.ts");
+    expect(resolveCenterStripShortcutTabId(ordered, 2)).toBe("files");
+    expect(resolveCenterStripShortcutTabId(ordered, 3)).toBe("terminal");
+    expect(resolveCenterStripShortcutTabId(ordered, 9)).toBeNull();
+  });
+
+  test("limits shortcut targets to the focused pane strip when split", () => {
+    expect(
+      resolveCenterStripShortcutTabIds({
+        membershipIds: ["terminal", "files", "src/a.ts"],
+        paneTabIds: ["src/a.ts", "files"],
+        savedStripOrder: ["terminal", "files", "src/a.ts"],
+        constrainToPane: true,
+      }),
+    ).toEqual(["src/a.ts", "files"]);
+  });
+
+  test("single-pane shortcuts keep full strip membership and pane order", () => {
+    expect(
+      resolveCenterStripShortcutTabIds({
+        membershipIds: ["terminal", "files", "src/a.ts"],
+        paneTabIds: ["src/a.ts", "terminal"],
+        savedStripOrder: ["terminal", "files", "src/a.ts"],
+      }),
+    ).toEqual(["src/a.ts", "terminal", "files"]);
+  });
+
+  test("empty split panes have no numbered shortcut targets", () => {
+    expect(
+      resolveCenterStripShortcutTabIds({
+        membershipIds: ["terminal", "files"],
+        paneTabIds: [],
+        savedStripOrder: ["terminal", "files"],
+        constrainToPane: true,
+      }),
+    ).toEqual([]);
+  });
+
+  test("skips overview in pane tab ids because it is not strip membership", () => {
+    expect(
+      resolveCenterStripShortcutTabIds({
+        membershipIds: ["terminal", "files"],
+        paneTabIds: ["overview", "files", "terminal"],
+      }),
+    ).toEqual(["files", "terminal"]);
+  });
+
+  test("exposes digits 1-9 only", () => {
+    expect(CENTER_STRIP_SHORTCUT_LIMIT).toBe(9);
+    expect(getCenterStripShortcutDigit(0)).toBe(1);
+    expect(getCenterStripShortcutDigit(8)).toBe(9);
+    expect(getCenterStripShortcutDigit(9)).toBeNull();
+    expect(centerStripShortcutDigitFromEvent({ code: "Digit4" })).toBe(4);
+    expect(centerStripShortcutDigitFromEvent({ code: "Numpad9" })).toBe(9);
+    expect(centerStripShortcutDigitFromEvent({ key: "7" })).toBe(7);
+    expect(centerStripShortcutDigitFromEvent({ code: "Digit0" })).toBeNull();
   });
 });

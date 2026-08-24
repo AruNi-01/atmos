@@ -103,6 +103,35 @@ export function collectDefaultCenterStripTabIds(input: {
   return ids;
 }
 
+/** Cmd+1–9 maps to these first N tabs in the visual strip (any kind). */
+export const CENTER_STRIP_SHORTCUT_LIMIT = 9;
+
+export const CENTER_STRIP_POSITION_HOTKEYS =
+  "mod+1,mod+2,mod+3,mod+4,mod+5,mod+6,mod+7,mod+8,mod+9";
+
+/**
+ * Apply a saved id order. Known ids keep relative saved positions; new ids
+ * append in the order they appear in `ids`.
+ */
+export function orderIdsBySavedOrder(
+  ids: readonly string[],
+  savedOrder?: readonly string[],
+): string[] {
+  if (!savedOrder?.length) return [...ids];
+  const remaining = new Set(ids);
+  const ordered: string[] = [];
+  for (const id of savedOrder) {
+    if (!remaining.has(id)) continue;
+    ordered.push(id);
+    remaining.delete(id);
+  }
+  for (const id of ids) {
+    if (!remaining.has(id)) continue;
+    ordered.push(id);
+  }
+  return ordered;
+}
+
 /**
  * Apply a saved strip order. Known ids keep relative saved positions; new tabs
  * append in the order they appear in `tabs`.
@@ -114,18 +143,61 @@ export function orderCenterTabsBySavedOrder(
   savedOrder?: string[],
 ): CenterTabDescriptor[] {
   if (!savedOrder?.length) return tabs;
-  const remaining = new Map(tabs.map((tab) => [tab.id, tab]));
-  const ordered: CenterTabDescriptor[] = [];
-  for (const id of savedOrder) {
-    const tab = remaining.get(id);
-    if (!tab) continue;
-    ordered.push(tab);
-    remaining.delete(id);
-  }
-  for (const tab of tabs) {
-    if (remaining.has(tab.id)) ordered.push(tab);
-  }
-  return ordered;
+  const byId = new Map(tabs.map((tab) => [tab.id, tab]));
+  return orderIdsBySavedOrder(
+    tabs.map((tab) => tab.id),
+    savedOrder,
+  ).flatMap((id) => {
+    const tab = byId.get(id);
+    return tab ? [tab] : [];
+  });
+}
+
+export function getCenterStripShortcutDigit(index: number): number | null {
+  if (index < 0 || index >= CENTER_STRIP_SHORTCUT_LIMIT) return null;
+  return index + 1;
+}
+
+export function resolveCenterStripShortcutTabId(
+  orderedTabIds: readonly string[],
+  digit: number,
+): string | null {
+  if (digit < 1 || digit > CENTER_STRIP_SHORTCUT_LIMIT) return null;
+  return orderedTabIds[digit - 1] ?? null;
+}
+
+export function centerStripShortcutDigitFromEvent(event: {
+  code?: string;
+  key?: string;
+}): number | null {
+  const fromCode = event.code?.match(/^(?:Digit|Numpad)([1-9])$/);
+  if (fromCode) return Number(fromCode[1]);
+  const fromKey = event.key?.match(/^([1-9])$/);
+  if (fromKey) return Number(fromKey[1]);
+  return null;
+}
+
+/**
+ * Visual strip ids used by Cmd+1–9. Overview / wiki stay pinned outside this
+ * list (Overview is Cmd+0). Multi-pane layouts pass `constrainToPane` so only
+ * the focused pane's strip is numbered; empty panes have no shortcut targets.
+ */
+export function resolveCenterStripShortcutTabIds(input: {
+  membershipIds: readonly string[];
+  paneTabIds?: readonly string[] | null;
+  savedStripOrder?: readonly string[];
+  constrainToPane?: boolean;
+}): string[] {
+  const paneTabIds = input.paneTabIds;
+  const membership =
+    input.constrainToPane && paneTabIds != null
+      ? input.membershipIds.filter((id) => paneTabIds.includes(id))
+      : [...input.membershipIds];
+  const savedOrder =
+    paneTabIds != null && paneTabIds.length > 0
+      ? paneTabIds
+      : input.savedStripOrder;
+  return orderIdsBySavedOrder(membership, savedOrder);
 }
 
 /**

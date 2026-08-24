@@ -1142,7 +1142,9 @@ export function TwoColumnSidebarContent({
             maxSize={100}
             className="min-w-0"
           >
-            {rightContent}
+            <div data-sidebar-shortcut-scope="secondary" className="h-full min-h-0">
+              {rightContent}
+            </div>
           </Panel>
         </PanelGroup>
       </div>

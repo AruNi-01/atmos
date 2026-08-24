@@ -5681,18 +5681,15 @@
             "newWorkspaceOverlay": "新建工作区浮层",
             "toggleCanvasOverlay": "切换 Canvas 浮层",
             "expandKanbanOverlay": "展开看板浮层",
-            "openOrCreateWorkspace": "打开 / 创建工作区（在新建工作区浮层中）"
+            "openOrCreateWorkspace": "打开 / 创建工作区（在新建工作区浮层中）",
+            "listByPosition": "按列表位置切换项目或工作区"
           }
         },
         "centerStageTabs": {
           "title": "Center Stage 标签页",
           "items": {
             "overview": "切换到总览标签页",
-            "fixedTerminal": "切换到固定终端标签页",
-            "terminal1": "切换到终端标签页 1",
-            "terminal2": "切换到终端标签页 2",
-            "terminal3": "切换到终端标签页 3",
-            "terminal4": "切换到终端标签页 4"
+            "tabByPosition": "按标签页位置切换"
           }
         },
         "terminal": {
