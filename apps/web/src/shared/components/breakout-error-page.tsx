@@ -352,7 +352,10 @@ export function BreakoutErrorPage({
         data-error-action="home"
         // Native anchor, not next/link: a full document load leaves the
         // broken route even if reset() or the client router is wedged.
-        render={<a href="/" onPointerDown={stopActionPointer} />}
+        render={
+          // eslint-disable-next-line @next/next/no-html-link-for-pages -- full reload required
+          <a href="/" onPointerDown={stopActionPointer} />
+        }
       >
         {t("server.home")}
       </Button>
