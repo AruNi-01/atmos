@@ -1,0 +1,16 @@
+e2e/tests/smoke/app-shell/app-shell-preferences-menu.e2e.ts
+  h_5be255725524c8 15-17
+e2e/tests/smoke/workspace/workspace-sidebar-routes.e2e.ts
+  h_5be255725524c8 63-67
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "52b1e3eb593a8dd93b53daa1030f21d50b1fa9f5",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
