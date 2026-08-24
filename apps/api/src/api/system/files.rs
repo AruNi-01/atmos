@@ -106,93 +106,106 @@ fn is_safe_git_rev(rev: &str) -> bool {
 }
 
 /// GET /api/system/file?path=<absolute_path>
-pub async fn serve_file(Query(query): Query<ServeFileQuery>) -> Result<Response, Response> {
+pub async fn serve_file(Query(query): Query<ServeFileQuery>) -> Response {
     let file_path = std::path::Path::new(&query.path);
 
     if !file_path.exists() {
-        return Err((StatusCode::NOT_FOUND, "File not found").into_response());
+        return (StatusCode::NOT_FOUND, "File not found").into_response();
     }
 
     if !file_path.is_file() {
-        return Err((StatusCode::BAD_REQUEST, "Not a file").into_response());
+        return (StatusCode::BAD_REQUEST, "Not a file").into_response();
     }
 
     let ext = path_ext(&query.path);
 
-    let metadata = tokio::fs::metadata(file_path).await.map_err(|e| {
-        warn!("Failed to read file metadata: {}", e);
-        (StatusCode::INTERNAL_SERVER_ERROR, "Failed to read file").into_response()
-    })?;
+    let metadata = match tokio::fs::metadata(file_path).await {
+        Ok(metadata) => metadata,
+        Err(e) => {
+            warn!("Failed to read file metadata: {}", e);
+            return (StatusCode::INTERNAL_SERVER_ERROR, "Failed to read file").into_response();
+        }
+    };
 
-    let file = tokio::fs::File::open(file_path).await.map_err(|e| {
-        warn!("Failed to open file: {}", e);
-        (StatusCode::INTERNAL_SERVER_ERROR, "Failed to open file").into_response()
-    })?;
+    let file = match tokio::fs::File::open(file_path).await {
+        Ok(file) => file,
+        Err(e) => {
+            warn!("Failed to open file: {}", e);
+            return (StatusCode::INTERNAL_SERVER_ERROR, "Failed to open file").into_response();
+        }
+    };
 
     let body = Body::from_stream(ReaderStream::new(file));
 
-    Ok(Response::builder()
+    Response::builder()
         .status(StatusCode::OK)
         .header(header::CONTENT_TYPE, mime_type_for_ext(&ext))
         .header(header::CONTENT_LENGTH, metadata.len())
         .body(body)
         .unwrap()
-        .into_response())
+        .into_response()
 }
 
 /// GET /api/system/git-blob?repo=&rev=&path=
 ///
 /// Streams a historical or index blob via `git show`. Used for binary/image
 /// previews in the diff UI without embedding bytes in the WebSocket payload.
-pub async fn serve_git_blob(Query(query): Query<ServeGitBlobQuery>) -> Result<Response, Response> {
+pub async fn serve_git_blob(Query(query): Query<ServeGitBlobQuery>) -> Response {
     let repo = std::path::PathBuf::from(query.repo.trim());
     if !repo.is_absolute() || !repo.is_dir() {
-        return Err((StatusCode::BAD_REQUEST, "Invalid repo path").into_response());
+        return (StatusCode::BAD_REQUEST, "Invalid repo path").into_response();
     }
 
     let rev = query.rev.trim();
     let (show_spec, display_path) = if rev.starts_with(':') {
         // Index / stage form: `:path` or `:N:path` — validate the path portion.
-        parse_index_show_spec(rev)
-            .ok_or_else(|| (StatusCode::BAD_REQUEST, "Invalid index blob rev").into_response())?
+        match parse_index_show_spec(rev) {
+            Some(spec) => spec,
+            None => {
+                return (StatusCode::BAD_REQUEST, "Invalid index blob rev").into_response();
+            }
+        }
     } else {
         if !is_safe_git_rev(rev) {
-            return Err((StatusCode::BAD_REQUEST, "Invalid rev").into_response());
+            return (StatusCode::BAD_REQUEST, "Invalid rev").into_response();
         }
         let path = query.path.trim();
         if !is_safe_repo_relative_path(path) {
-            return Err((StatusCode::BAD_REQUEST, "Invalid path").into_response());
+            return (StatusCode::BAD_REQUEST, "Invalid path").into_response();
         }
         (format!("{rev}:{path}"), path.to_string())
     };
 
     let repo_for_git = repo.clone();
     let show_spec_for_git = show_spec.clone();
-    let bytes = tokio::task::spawn_blocking(move || {
+    let bytes = match tokio::task::spawn_blocking(move || {
         core_engine::show_git_blob_bytes(&repo_for_git, &show_spec_for_git)
     })
     .await
-    .map_err(|e| {
-        warn!("git-blob join error: {e}");
-        (StatusCode::INTERNAL_SERVER_ERROR, "Failed to read blob").into_response()
-    })?
-    .map_err(|e| {
-        warn!("git-blob show failed: {e}");
-        (StatusCode::NOT_FOUND, "Blob not found").into_response()
-    })?;
+    {
+        Ok(Ok(bytes)) => bytes,
+        Ok(Err(e)) => {
+            warn!("git-blob show failed: {e}");
+            return (StatusCode::NOT_FOUND, "Blob not found").into_response();
+        }
+        Err(e) => {
+            warn!("git-blob join error: {e}");
+            return (StatusCode::INTERNAL_SERVER_ERROR, "Failed to read blob").into_response();
+        }
+    };
 
     if bytes.len() as u64 > GIT_BLOB_MAX_BYTES {
-        return Err((StatusCode::PAYLOAD_TOO_LARGE, "Blob too large").into_response());
+        return (StatusCode::PAYLOAD_TOO_LARGE, "Blob too large").into_response();
     }
 
     let ext = path_ext(&display_path);
     let len = bytes.len();
-    Ok(Response::builder()
+    Response::builder()
         .status(StatusCode::OK)
         .header(header::CONTENT_TYPE, mime_type_for_ext(&ext))
         .header(header::CONTENT_LENGTH, len)
         .header(header::CACHE_CONTROL, "private, max-age=60")
         .body(Body::from(bytes))
         .unwrap()
-        .into_response())
+        .into_response()
 }
