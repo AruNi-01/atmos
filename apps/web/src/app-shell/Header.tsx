@@ -43,6 +43,7 @@ import { useDesktopWebLauncher } from '@/shared/hooks/use-desktop-web-launcher';
 import { isDesktopRuntime as detectDesktopShell } from '@/shared/lib/desktop-runtime';
 import { useTunnelConnector } from '@/features/connection/hooks/use-tunnel-connector';
 import { useSidebarLayout } from '@/app-shell/SidebarLayoutContext';
+import { APP_HEADER_HEIGHT_CLASS } from '@/app-shell/sidebar-layout-constants';
 import { useWebSocketStore } from '@/features/connection/hooks/use-websocket';
 import {
   ChevronLeft,
@@ -412,7 +413,8 @@ const Header: React.FC = () => {
         data-app-shell-header=""
         onMouseDown={handleDesktopWindowMouseDown}
         className={cn(
-          "relative flex h-12 items-center justify-between px-4 select-none transition-[padding] duration-300 ease-out",
+          "relative flex items-center justify-between px-4 select-none transition-[padding] duration-300 ease-out",
+          APP_HEADER_HEIGHT_CLASS,
           isDesktopDragEnabled && "desktop-drag-region",
           // Header spans the full window, including over the left sidebar.
           needsTrafficLightsPadding && "pl-[92px]",
