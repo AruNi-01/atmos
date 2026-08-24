@@ -210,7 +210,7 @@ export function TaskLinearDrawer({
                               <button
                                 key={ref.url}
                                 type="button"
-                                className="inline-flex max-w-full items-center gap-1 rounded-md border border-border/60 bg-muted/25 px-1.5 py-0.5 text-[11px] font-medium text-foreground transition-colors hover:bg-muted/50"
+                                className="inline-flex max-w-full items-center gap-1 rounded-md border border-border/60 bg-muted/25 px-1.5 py-0.5 text-[11px] font-medium text-foreground hover:bg-muted/50"
                                 title={`${ref.owner}/${ref.repo}#${ref.number}`}
                                 onClick={() => {
                                   if (onOpenGithubRef) {

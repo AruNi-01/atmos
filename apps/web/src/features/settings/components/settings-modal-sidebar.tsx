@@ -192,7 +192,7 @@ export function SettingsModalSidebar({
           type="button"
           onClick={onBack}
           aria-label={t("page.backAria")}
-          className="desktop-no-drag mb-2 flex h-8 items-center gap-2 rounded-md px-2 text-sm font-medium text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+          className="desktop-no-drag mb-2 flex h-8 items-center gap-2 rounded-md px-2 text-sm font-medium text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
         >
           <ArrowLeft className="size-4 shrink-0" />
           <span>{t("page.back")}</span>
@@ -218,7 +218,7 @@ export function SettingsModalSidebar({
             aria-label={t("sidebar.clearSearchAriaLabel")}
             onClick={() => onSearchQueryChange("")}
             className={cn(
-              "absolute right-1.5 top-1/2 flex size-6 -translate-y-1/2 items-center justify-center rounded-md text-sidebar-foreground/45 transition-colors hover:bg-muted hover:text-sidebar-foreground",
+              "absolute right-1.5 top-1/2 flex size-6 -translate-y-1/2 items-center justify-center rounded-md text-sidebar-foreground/45 hover:bg-muted hover:text-sidebar-foreground",
               !searchQuery && "pointer-events-none opacity-0",
             )}
           >

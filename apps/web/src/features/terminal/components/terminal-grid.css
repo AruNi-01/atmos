@@ -460,6 +460,17 @@
   pointer-events: auto;
 }
 
+/*
+ * The center plus-menu popover sits over the pane toolbar and xterm WebGL.
+ * Those surfaces can win hit-testing (hover-expanded action rail, GPU canvas)
+ * and swallow plus-menu tab / fullscreen clicks, which dismisses the popover.
+ * Skip them while the menu is open so clicks stay on the menu.
+ */
+body:has([data-center-stage-plus-menu][data-state="open"]) .terminal-grid-container,
+body:has([data-center-stage-plus-menu][data-state="open"]) .terminal-grid-container * {
+  pointer-events: none !important;
+}
+
 .terminal-pane-btn {
   display: flex;
   align-items: center;
@@ -733,7 +744,8 @@
   opacity: 0.3 !important;
   border-radius: 9999px !important;
   width: 100% !important;
-  transition: all 0.2s ease !important;
+  /* Never ease top/height — xterm updates those every wheel tick. */
+  transition: opacity 0.2s ease !important;
 }
 
 .atmos-terminal .xterm .xterm-scroll-area ~ .xterm-decoration-container + div > div:hover,
@@ -784,25 +796,6 @@
 .terminal-split-theme .terminal-pane .terminal-pane-toolbar.draggable {
   border: none !important;
   box-shadow: none !important;
-}
-
-/* Unified Scrollbar */
-.terminal-grid-container ::-webkit-scrollbar {
-  width: 6px !important;
-  height: 6px !important;
-}
-
-.terminal-grid-container ::-webkit-scrollbar-track {
-  background: transparent !important;
-}
-
-.terminal-grid-container ::-webkit-scrollbar-thumb {
-  background: rgba(156, 163, 175, 0.2) !important;
-  border-radius: 10px !important;
-}
-
-.terminal-grid-container ::-webkit-scrollbar-thumb:hover {
-  background: rgba(156, 163, 175, 0.4) !important;
 }
 
 /* Maximization Overlay Logic */

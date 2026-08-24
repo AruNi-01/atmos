@@ -4,13 +4,26 @@ import React from "react";
 import type { AgentBridge, AgentBridgeDispatch } from "@atmos/pt-design";
 import { ptDesignAgentBridgeWsApi } from "@/api/ws-api";
 import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
+import { AgentSurfaceActivityStore } from "@/shared/lib/agent-surface-activity";
+import {
+  AgentSurfaceFeedStore,
+  screenshotFromToolData,
+} from "@/shared/lib/agent-surface-feed";
+import { describePtDesignAgentCommand } from "./lib/pt-design-agent-feed-labels";
+import { instanceIdsFromToolData } from "./lib/pt-design-agent-targets";
 
 const DISPATCH_EVENT = "pt_design_agent_dispatch";
 
-export function usePtDesignAgentBridge(): AgentBridge | undefined {
+export function usePtDesignAgentBridge(clientId?: string): {
+  bridge: AgentBridge | undefined;
+  feed: AgentSurfaceFeedStore;
+  activity: AgentSurfaceActivityStore;
+} {
   const isConnected = useWebSocketStore((s) => s.connectionState === "connected");
   const onEvent = useWebSocketStore((s) => s.onEvent);
   const listeners = React.useRef(new Set<(dispatch: AgentBridgeDispatch) => void>());
+  const [feed] = React.useState(() => new AgentSurfaceFeedStore(describePtDesignAgentCommand));
+  const [activity] = React.useState(() => new AgentSurfaceActivityStore());
 
   React.useEffect(() => {
     if (!isConnected) return;
@@ -43,7 +56,7 @@ export function usePtDesignAgentBridge(): AgentBridge | undefined {
     });
   }, [isConnected, onEvent]);
 
-  return React.useMemo(() => {
+  const bridge = React.useMemo((): AgentBridge | undefined => {
     if (!isConnected) return undefined;
     return {
       register: async (payload) => {
@@ -58,12 +71,31 @@ export function usePtDesignAgentBridge(): AgentBridge | undefined {
         await ptDesignAgentBridgeWsApi.unregister(clientId);
       },
       subscribe: (handler) => {
-        listeners.current.add(handler);
+        const wrapped: (dispatch: AgentBridgeDispatch) => void = (dispatch) => {
+          if (clientId && dispatch.client_id && dispatch.client_id !== clientId) {
+            handler(dispatch);
+            return;
+          }
+          feed.begin(dispatch.request_id, dispatch.tool, dispatch.args ?? null);
+          activity.beginWork();
+          handler(dispatch);
+        };
+        listeners.current.add(wrapped);
         return () => {
-          listeners.current.delete(handler);
+          listeners.current.delete(wrapped);
         };
       },
       reply: async (result) => {
+        const screenshot = result.success ? screenshotFromToolData(result.data) : null;
+        feed.finalizeRequest(
+          result.request_id,
+          result.success,
+          screenshot ? { screenshot } : undefined,
+        );
+        if (result.success) {
+          activity.record(result.request_id, instanceIdsFromToolData(result.data));
+        }
+        activity.endWork();
         await ptDesignAgentBridgeWsApi.postResult({
           request_id: result.request_id,
           success: result.success,
@@ -74,5 +106,7 @@ export function usePtDesignAgentBridge(): AgentBridge | undefined {
         });
       },
     };
-  }, [isConnected]);
+  }, [activity, clientId, feed, isConnected]);
+
+  return { bridge, feed, activity };
 }

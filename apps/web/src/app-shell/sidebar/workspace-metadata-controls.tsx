@@ -172,9 +172,9 @@ export function WorkspacePrioritySelect({
       title={resolvedTitle}
       className={cn(
         triggerVariant === "icon"
-          ? "inline-flex size-8 items-center justify-center rounded-md text-foreground transition-colors hover:bg-muted"
+          ? "inline-flex size-8 items-center justify-center rounded-md text-foreground hover:bg-muted"
           : "inline-flex h-6 items-center gap-1.5 rounded-md border border-border/60 bg-muted/35 px-2 text-xs text-foreground",
-        !isDisabled && triggerVariant !== "icon" && "cursor-pointer transition-colors hover:bg-muted",
+        !isDisabled && triggerVariant !== "icon" && "cursor-pointer hover:bg-muted",
         triggerClassName,
       )}
     >
@@ -259,9 +259,9 @@ export function WorkspaceStatusSelect({
       title={resolvedTitle}
       className={cn(
         triggerVariant === "icon"
-          ? "inline-flex size-8 items-center justify-center rounded-md text-foreground transition-colors hover:bg-muted"
+          ? "inline-flex size-8 items-center justify-center rounded-md text-foreground hover:bg-muted"
           : "inline-flex h-6 items-center gap-1.5 rounded-md border border-border/60 bg-muted/35 px-2 text-xs text-foreground",
-        !isDisabled && triggerVariant !== "icon" && "cursor-pointer transition-colors hover:bg-muted",
+        !isDisabled && triggerVariant !== "icon" && "cursor-pointer hover:bg-muted",
         triggerClassName,
       )}
     >
@@ -365,9 +365,9 @@ export function WorkspaceGroupSelect({
       title={resolvedTitle}
       className={cn(
         triggerVariant === "icon"
-          ? "inline-flex size-8 items-center justify-center rounded-md text-foreground transition-colors hover:bg-muted"
+          ? "inline-flex size-8 items-center justify-center rounded-md text-foreground hover:bg-muted"
           : "inline-flex h-6 max-w-[9.5rem] items-center gap-1.5 rounded-md border border-border/60 bg-muted/35 px-2 text-xs text-foreground",
-        !isDisabled && triggerVariant !== "icon" && "cursor-pointer transition-colors hover:bg-muted",
+        !isDisabled && triggerVariant !== "icon" && "cursor-pointer hover:bg-muted",
         triggerClassName,
       )}
       data-testid="workspace-group-select"
@@ -559,10 +559,10 @@ export function WorkspaceLabelPicker({
       title={t("labels.trigger")}
       className={cn(
         triggerVariant === "icon"
-          ? "relative inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          ? "relative inline-flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
           : triggerVariant === "summary"
-            ? "inline-flex items-center gap-1.5 rounded-md border border-border/60 bg-background px-2 py-1 text-xs transition-colors hover:bg-muted"
-            : "inline-flex h-6 items-center rounded-full bg-foreground/12 px-2 text-xs font-medium text-foreground transition-colors hover:bg-foreground/18",
+            ? "inline-flex items-center gap-1.5 rounded-md border border-border/60 bg-background px-2 py-1 text-xs hover:bg-muted"
+            : "inline-flex h-6 items-center rounded-full bg-foreground/12 px-2 text-xs font-medium text-foreground hover:bg-foreground/18",
         triggerClassName,
       )}
     >
@@ -613,7 +613,7 @@ export function WorkspaceLabelPicker({
             <PopoverTrigger asChild>
               <button
                 type="button"
-                className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-xs font-medium text-foreground transition-colors hover:bg-muted"
+                className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-xs font-medium text-foreground hover:bg-muted"
               >
                 <span>{t("labels.createNew")}</span>
                 <span className="text-muted-foreground">+</span>
@@ -657,7 +657,7 @@ export function WorkspaceLabelPicker({
                   }}
                   onClick={() => handleToggleLabel(label)}
                   className={cn(
-                    "flex h-8 w-full cursor-pointer items-center gap-2 rounded-md px-2 text-left text-xs transition-colors hover:bg-muted",
+                    "flex h-8 w-full cursor-pointer items-center gap-2 rounded-md px-2 text-left text-xs hover:bg-muted",
                     selectedLabelIds.has(label.id) && "bg-muted",
                   )}
                 >
@@ -688,7 +688,7 @@ export function WorkspaceLabelPicker({
                             event.stopPropagation();
                             openLabelEditor(label);
                           }}
-                          className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                          className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
                         >
                           <SourceIcon className="size-3 group-hover/label-item:hidden" />
                           <Pencil className="size-3 hidden group-hover/label-item:block" />

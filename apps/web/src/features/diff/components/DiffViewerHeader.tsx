@@ -121,7 +121,7 @@ export function DiffViewerHeader({
             onClick={() => onToggleReviewed(!isReviewed)}
             disabled={!canEditReview}
             className={cn(
-              'flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium transition-colors cursor-pointer disabled:cursor-not-allowed shrink-0',
+              'flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium cursor-pointer disabled:cursor-not-allowed shrink-0',
               isReviewed
                 ? 'border-blue-500/50 bg-blue-500/15 text-blue-300 hover:bg-blue-500/25'
                 : 'border-border bg-background/80 text-foreground hover:bg-muted/50',
@@ -142,7 +142,7 @@ export function DiffViewerHeader({
         <button
           type="button"
           title={diffStyle === 'split' ? t('switchToUnifiedView') : t('switchToSplitView')}
-          className="flex size-7 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
+          className="flex size-7 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
           onClick={() => setDiffStyle(diffStyle === 'split' ? 'unified' : 'split')}
         >
           {diffStyle === 'split' ? (
@@ -154,7 +154,7 @@ export function DiffViewerHeader({
         <button
           type="button"
           title={fileCollapsed ? t('expandFile') : t('collapseFile')}
-          className="flex size-7 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
+          className="flex size-7 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
           onClick={() => setFileCollapsed(!fileCollapsed)}
         >
           {fileCollapsed ? (
@@ -167,7 +167,7 @@ export function DiffViewerHeader({
           <DropdownMenuTrigger asChild>
             <button
               type="button"
-              className="flex size-7 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
+              className="flex size-7 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
               title={t('viewOptions')}
             >
               <IconGearFill className="size-3.5" />

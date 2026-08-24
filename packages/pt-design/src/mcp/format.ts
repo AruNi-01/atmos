@@ -1,5 +1,5 @@
 import { isPtDesignError, PT_ERROR_CODES } from "../agent/errors";
-import type { CatalogEntry } from "../catalog/registry";
+import type { AgentCatalogEntry, CatalogEntry } from "../catalog/registry";
 import type { DesignIR } from "../ir/schema";
 
 export const CHARACTER_LIMIT = 50_000;
@@ -55,7 +55,7 @@ function hintFor(code: string): string {
     case PT_ERROR_CODES.INVALID_FILE:
       return "Pass file to pt_doc_init / pt_doc_open, or start the server with --file.";
     case PT_ERROR_CODES.USAGE:
-      return "Check required fields in the tool schema; componentType/instanceId/file are the usual misses.";
+      return "Call pt_tools_list for argument summaries. componentType/instanceId/file are the usual misses.";
     default:
       return "";
   }
@@ -104,7 +104,7 @@ function toMarkdown(data: unknown): string {
 }
 
 function catalogMarkdown(page: Record<string, unknown>): string {
-  const items = page.items as CatalogEntry[];
+  const items = page.items as Array<CatalogEntry | AgentCatalogEntry>;
   const lines = [
     `# Catalog`,
     ``,
@@ -113,7 +113,12 @@ function catalogMarkdown(page: Record<string, unknown>): string {
   ];
   for (const item of items) {
     const variants = item.variants.length ? item.variants.join(", ") : "default";
-    lines.push(`- **${item.label}** (\`${item.componentType}\`) — ${item.kind}; variants: ${variants}`);
+    const box = "defaultBBox" in item ? item.defaultBBox : undefined;
+    const size = box ? `${box.w}×${box.h}` : "";
+    const props = item.propKeys?.length ? item.propKeys.join(", ") : "";
+    lines.push(
+      `- **${item.label}** (\`${item.componentType}\`) — ${item.kind}${size ? `; ${size}` : ""}; variants: ${variants}${props ? `; props: ${props}` : ""}`,
+    );
   }
   if (page.has_more) lines.push(``, `More results: pass offset=${String(page.next_offset)}.`);
   return lines.join("\n");

@@ -82,7 +82,7 @@ export const AgentCard = React.memo<AgentCardProps>(function AgentCard({
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex items-center gap-3">
-          <div className="size-10 rounded-xl border border-border/50 bg-muted/20 flex items-center justify-center overflow-hidden shrink-0 group-hover:bg-primary/5 transition-colors">
+          <div className="size-10 rounded-xl border border-border/50 bg-muted/20 flex items-center justify-center overflow-hidden shrink-0 group-hover:bg-primary/5">
             <AgentIcon
               registryId={item.id}
               name={item.name}
@@ -110,7 +110,7 @@ export const AgentCard = React.memo<AgentCardProps>(function AgentCard({
         </div>
         <span
           className={cn(
-            "rounded-full border px-2.5 py-0.5 text-[10px] font-medium transition-colors",
+            "rounded-full border px-2.5 py-0.5 text-[10px] font-medium",
             !item.installed
               ? "border-primary/20 bg-primary/10 text-primary"
               : item.installed_version &&
@@ -145,7 +145,7 @@ export const AgentCard = React.memo<AgentCardProps>(function AgentCard({
                     "noopener,noreferrer",
                   )
                 }
-                className="inline-flex size-8 items-center justify-center rounded-lg border border-border/60 text-muted-foreground hover:text-foreground hover:bg-muted/50 cursor-pointer transition-colors"
+                className="inline-flex size-8 items-center justify-center rounded-lg border border-border/60 text-muted-foreground hover:text-foreground hover:bg-muted/50 cursor-pointer"
                 title={t("managerCards.repositoryTitle")}
                 aria-label={t("managerCards.repositoryAria", { name: item.name })}
               >
@@ -184,7 +184,7 @@ export const AgentCard = React.memo<AgentCardProps>(function AgentCard({
                     variant="outline"
                     onClick={() => void onInstall(item.id, true)}
                     disabled={isInstalling}
-                    className="h-8 rounded-lg px-3 text-xs bg-blue-500/10 border-blue-500/30 text-blue-600 dark:text-blue-400 hover:bg-blue-500/20 hover:border-blue-500/50 transition-all"
+                    className="h-8 rounded-lg px-3 text-xs bg-blue-500/10 border-blue-500/30 text-blue-600 dark:text-blue-400 hover:bg-blue-500/20 hover:border-blue-500/50"
                   >
                     {isInstalling ? (
                       <>
@@ -206,7 +206,7 @@ export const AgentCard = React.memo<AgentCardProps>(function AgentCard({
                   onRemoveRequest({ registryId: item.id, name: item.name })
                 }
                 disabled={removingRegistryId === item.id}
-                className="h-8 rounded-lg px-4 text-xs bg-muted/50 hover:bg-destructive/10 hover:text-destructive hover:border-destructive/20 border-transparent transition-all"
+                className="h-8 rounded-lg px-4 text-xs bg-muted/50 hover:bg-destructive/10 hover:text-destructive hover:border-destructive/20 border-transparent"
               >
                 {removingRegistryId === item.id ? (
                   <>
@@ -259,7 +259,7 @@ export const CustomAgentCard = React.memo<CustomAgentCardProps>(
       >
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex items-center gap-3">
-            <div className="size-10 rounded-xl border border-border/50 bg-muted/20 flex items-center justify-center overflow-hidden shrink-0 group-hover:bg-primary/5 transition-colors">
+            <div className="size-10 rounded-xl border border-border/50 bg-muted/20 flex items-center justify-center overflow-hidden shrink-0 group-hover:bg-primary/5">
               <Terminal className="size-5 text-muted-foreground" />
             </div>
             <div className="min-w-0">
@@ -301,7 +301,7 @@ export const CustomAgentCard = React.memo<CustomAgentCardProps>(
               size="sm"
               onClick={() => onEdit(agent)}
               disabled={removingCustomName === agent.name}
-              className="h-8 rounded-lg px-4 text-xs border-border/60 bg-background opacity-0 pointer-events-none translate-x-1 group-hover:opacity-100 group-hover:pointer-events-auto group-hover:translate-x-0 focus-visible:opacity-100 focus-visible:pointer-events-auto focus-visible:translate-x-0 hover:bg-muted/50 transition-all"
+              className="h-8 rounded-lg px-4 text-xs border-border/60 bg-background opacity-0 pointer-events-none translate-x-1 group-hover:opacity-100 group-hover:pointer-events-auto group-hover:translate-x-0 focus-visible:opacity-100 focus-visible:pointer-events-auto focus-visible:translate-x-0 hover:bg-muted/50 transition-[opacity,transform]"
             >
               <Pencil className="mr-1 size-3.5" />
               {t("common.edit")}
@@ -311,7 +311,7 @@ export const CustomAgentCard = React.memo<CustomAgentCardProps>(
               size="sm"
               onClick={() => onRemoveRequest({ name: agent.name })}
               disabled={removingCustomName === agent.name}
-              className="h-8 rounded-lg px-4 text-xs bg-muted/50 hover:bg-destructive/10 hover:text-destructive hover:border-destructive/20 border-transparent transition-all"
+              className="h-8 rounded-lg px-4 text-xs bg-muted/50 hover:bg-destructive/10 hover:text-destructive hover:border-destructive/20 border-transparent"
             >
               {removingCustomName === agent.name ? (
                 <>

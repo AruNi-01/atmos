@@ -174,7 +174,7 @@ export function CanvasAgentBridgeControls({
       >
         <Bot
           className={cn(
-            "size-3.5 transition-colors",
+            "size-3.5",
             status === "off" ? "text-muted-foreground" : "text-foreground",
           )}
         />

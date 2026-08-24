@@ -181,7 +181,7 @@ export function CanvasOverlay() {
         type="button"
         onClick={handleClose}
         tabIndex={isKeepAliveHidden ? -1 : undefined}
-        className="group absolute left-1/2 top-0 z-[160] flex -translate-x-1/2 cursor-pointer flex-col items-center gap-0 px-6 pb-0.5 text-muted-foreground/40 transition-colors hover:text-muted-foreground"
+        className="group absolute left-1/2 top-0 z-[160] flex -translate-x-1/2 cursor-pointer flex-col items-center gap-0 px-6 pb-0.5 text-muted-foreground/40 hover:text-muted-foreground"
         style={needsTrafficLightsPadding ? { top: 32 } : undefined}
         aria-label={t("overlay.collapseCanvas")}
         title={t("overlay.collapseCanvas")}

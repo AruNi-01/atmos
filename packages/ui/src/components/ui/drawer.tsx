@@ -12,7 +12,7 @@ import { cn } from "../../lib/utils";
  * the top-right padding instead of dropping onto the title baseline.
  */
 const drawerCloseButtonClassName =
-  "absolute right-2 top-1.5 z-30 inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground";
+  "absolute right-2 top-1.5 z-30 inline-flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground";
 
 /** Right padding so header content clears `DrawerCloseButton`. */
 const drawerCloseReserveClass = "pr-11";

@@ -42,6 +42,7 @@ export type LeaderboardEntry = {
   github_username: string | null;
   x_username: string | null;
   value: number;
+  computer_count?: number;
 };
 
 export type LeaderboardBoard = {
@@ -59,20 +60,28 @@ export type LeaderboardPayload = {
 export function extractShareTotals(
   snapshotJson: string | null | undefined,
   includeCost: boolean,
-): { tokens: number | null; cost: number | null } {
+): { tokens: number | null; cost: number | null; computer_count?: number } {
   if (!snapshotJson) return { tokens: null, cost: null };
   try {
     const parsed = JSON.parse(snapshotJson) as {
-      summary?: { total_tokens?: unknown; total_cost_usd?: unknown };
+      summary?: {
+        total_tokens?: unknown;
+        total_cost_usd?: unknown;
+        computer_count?: unknown;
+      };
     };
     const tokens = parsed.summary?.total_tokens;
     const cost = parsed.summary?.total_cost_usd;
+    const computers = parsed.summary?.computer_count;
     return {
       tokens: typeof tokens === "number" && Number.isFinite(tokens) ? tokens : null,
       cost:
         includeCost && typeof cost === "number" && Number.isFinite(cost)
           ? cost
           : null,
+      ...(typeof computers === "number" && Number.isFinite(computers) && computers > 1
+        ? { computer_count: Math.min(99, Math.floor(computers)) }
+        : {}),
     };
   } catch {
     return { tokens: null, cost: null };
@@ -89,6 +98,7 @@ type RankedRow = {
   github_username: string | null;
   x_username: string | null;
   value: number;
+  computer_count?: number;
 };
 
 function buildBoard(rows: RankedRow[]): LeaderboardBoard {
@@ -106,6 +116,9 @@ function buildBoard(rows: RankedRow[]): LeaderboardBoard {
         github_username: row.github_username,
         x_username: row.x_username,
         value: row.value,
+        ...(row.computer_count && row.computer_count > 1
+          ? { computer_count: row.computer_count }
+          : {}),
       });
     }
   });
@@ -123,6 +136,7 @@ export async function refreshUsageLeaderboards(db: HubDb): Promise<LeaderboardPa
       cost: userProfiles.shareTotalCostUsd,
       claimedAt: userProfiles.handleClaimedAt,
       visibility: userProfiles.usageVisibility,
+      snapshotJson: userProfiles.snapshotJson,
     })
     .from(userProfiles)
     .where(
@@ -138,11 +152,13 @@ export async function refreshUsageLeaderboards(db: HubDb): Promise<LeaderboardPa
 
   for (const row of rows) {
     if (!row.handle || !row.claimedAt) continue;
+    const computerCount = extractShareTotals(row.snapshotJson, false).computer_count;
     const shared = {
       handle: row.handle,
       avatar_url: row.avatarUrl ?? null,
       github_username: row.githubUsername ?? null,
       x_username: row.xUsername ?? null,
+      ...(computerCount ? { computer_count: computerCount } : {}),
     };
     if (typeof row.tokens === "number" && Number.isFinite(row.tokens)) {
       tokenRows.push({ ...shared, value: row.tokens });

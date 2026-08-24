@@ -110,13 +110,13 @@ export const defaultTerminalOptions = {
   fontWeightBold: "700" as const,
   lineHeight: terminalFont.lineHeight,
   letterSpacing: terminalFont.letterSpacing,
-  // Local xterm.js scrollback — scroll is handled natively by xterm.js,
-  // providing smooth scrolling with a native scrollbar. Tmux copy-mode is
-  // no longer used for scrolling (avoids ugly status bar and flickering).
+  // Local xterm.js scrollback. xterm 6 uses VS Code's overlay scrollbar;
+  // duration 0 keeps wheel/trackpad 1:1 instead of easing the thumb.
   // Only inline mouse TUIs (Grok on the normal buffer) force scrollback to 0
   // so full-frame redraws cannot stack ghost history. Idle shells and
   // alt-screen apps keep this default across resize.
   scrollback: DEFAULT_TERMINAL_SCROLLBACK,
+  smoothScrollDuration: 0,
   theme: atmosDarkTheme,
   minimumContrastRatio: 1,
   rescaleOverlappingGlyphs: true,

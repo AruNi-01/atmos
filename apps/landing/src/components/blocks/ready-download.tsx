@@ -119,7 +119,7 @@ const ReadyDownload = ({ downloadLinks }: ReadyDownloadProps) => {
 
             <div className='flex w-full max-w-md flex-col items-stretch gap-3 pt-2 sm:max-w-none sm:flex-row sm:items-center sm:justify-center sm:gap-4 sm:pt-4'>
               <div className='relative isolate flex w-full items-center overflow-hidden rounded-lg ring-2 ring-primary/60 sm:w-72'>
-                <Button size='lg' className='h-12 flex-1 rounded-r-none border-r border-primary-foreground/20 px-4 text-sm font-medium transition-colors hover:bg-primary sm:h-14 sm:px-6 sm:text-base' asChild>
+                <Button size='lg' className='h-12 flex-1 rounded-r-none border-r border-primary-foreground/20 px-4 text-sm font-medium hover:bg-primary sm:h-14 sm:px-6 sm:text-base' asChild>
                   <Link href={downloadLinks.macAppleSilicon} target='_blank' rel='noopener noreferrer'>
                     <OsIcon os='apple' className='size-5' />
                     {t('primaryCta')}
@@ -128,7 +128,7 @@ const ReadyDownload = ({ downloadLinks }: ReadyDownloadProps) => {
 
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button size='lg' className='h-12 rounded-l-none border-none px-3 ring-0 transition-colors hover:bg-primary hover:text-primary-foreground sm:h-14'>
+                    <Button size='lg' className='h-12 rounded-l-none border-none px-3 ring-0 hover:bg-primary hover:text-primary-foreground sm:h-14'>
                       <ChevronDownIcon className='size-5' />
                       <span className='sr-only'>{t('moreOptions')}</span>
                     </Button>

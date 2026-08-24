@@ -13,6 +13,15 @@ import { join } from "node:path";
 
 export const ICON_COMPOSER_REL = "resources/icons/icon.icon";
 export const ICON_ICNS_REL = "resources/icons/icon.icns";
+/** Finder volume / downloaded-DMG icon — not the app Dock tile. */
+export const ICON_DMG_ICNS_REL = "resources/icons/dmg-icon.icns";
+/**
+ * Transparent margin on each side of the DMG icns canvas.
+ * App `icon.icns` stays full-bleed (system masks Dock). Finder file wells
+ * scale the whole canvas, so a full-bleed plate fills the desktop frame.
+ * 0.09 matches Arc/Dia volume icons (~9% midline inset).
+ */
+export const DMG_ICON_PLATE_INSET = 0.09;
 
 export type ActoolStatus =
   | { ok: true; version: string }

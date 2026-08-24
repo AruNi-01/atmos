@@ -47,7 +47,7 @@ function HashCopyButton({ hash, shortHash }: { hash: string; shortHash: string }
 
   return (
     <div
-      className="group/hash flex items-center gap-1.5 px-2 py-0.5 rounded hover:bg-sidebar-accent cursor-pointer transition-colors"
+      className="group/hash flex items-center gap-1.5 px-2 py-0.5 rounded hover:bg-sidebar-accent cursor-pointer"
       onClick={handleCopy}
     >
       <div className="shrink-0 opacity-0 group-hover/hash:opacity-100 transition-opacity flex items-center justify-center w-3.5 h-3.5">
@@ -83,7 +83,7 @@ function CommitRow({ commit, owner, repo, onCommitClick }: { commit: CommitListI
   return (
     <div
       className={cn(
-        "flex items-start gap-2.5 px-3 py-2.5 hover:bg-sidebar-accent/40 transition-colors group",
+        "flex items-start gap-2.5 px-3 py-2.5 hover:bg-sidebar-accent/40 group",
         onCommitClick && commit.isPushed !== false && "cursor-pointer",
       )}
       onClick={() => onCommitClick?.(commit)}
@@ -127,7 +127,7 @@ function CommitRow({ commit, owner, repo, onCommitClick }: { commit: CommitListI
             <Tooltip>
               <TooltipTrigger asChild>
                 {canOpenGithub ? (
-                  <a href={githubUrl} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} className="shrink-0 p-1 rounded hover:bg-sidebar-accent text-muted-foreground/60 hover:text-foreground transition-colors">
+                  <a href={githubUrl} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} className="shrink-0 p-1 rounded hover:bg-sidebar-accent text-muted-foreground/60 hover:text-foreground">
                     <Github className="size-3" />
                   </a>
                 ) : (

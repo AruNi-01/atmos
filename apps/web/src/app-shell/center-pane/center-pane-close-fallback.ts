@@ -44,8 +44,7 @@ export function resolvePaneLocalCloseFallback(input: {
     }
     const next =
       pickMruAmong(input.mruOrder, input.openTabValues) ??
-      (input.openTabValues.has(input.fallbackTab) ? input.fallbackTab : null) ??
-      firstOpen(input.openTabValues);
+      pickNonOverviewFallback(input.openTabValues, input.fallbackTab);
     return { nextTabId: next, ...noAttach };
   }
 
@@ -62,8 +61,11 @@ export function resolvePaneLocalCloseFallback(input: {
     if (!activeWasClosed && owning && !closed.includes(owning.activeTabId)) {
       return { nextTabId: null, ...noAttach };
     }
+    const remainingSet = new Set(remaining);
     const next =
-      pickMruAmong(input.mruOrder, new Set(remaining)) ?? remaining[0]!;
+      pickMruAmong(input.mruOrder, remainingSet) ??
+      remaining.find((id) => id !== OVERVIEW_TAB_ID) ??
+      remaining[0]!;
     return { nextTabId: next, ...noAttach };
   }
 
@@ -111,6 +113,19 @@ function pickMruAmong(
     if (allowed.has(id)) return id;
   }
   return null;
+}
+
+function pickNonOverviewFallback(
+  openTabValues: ReadonlySet<string>,
+  fallbackTab: string,
+): string | null {
+  if (fallbackTab !== OVERVIEW_TAB_ID && openTabValues.has(fallbackTab)) {
+    return fallbackTab;
+  }
+  for (const id of openTabValues) {
+    if (id !== OVERVIEW_TAB_ID) return id;
+  }
+  return openTabValues.has(OVERVIEW_TAB_ID) ? OVERVIEW_TAB_ID : null;
 }
 
 function firstOpen(openTabValues: ReadonlySet<string>): string | null {

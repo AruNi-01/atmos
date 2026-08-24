@@ -30,7 +30,7 @@
 | **Desktop Tauri (DEPRECATED — do not change for product)** | [apps/desktop/AGENTS.md](apps/desktop/AGENTS.md) |
 | **Mobile** (Expo / React Native) | [apps/mobile/AGENTS.md](apps/mobile/AGENTS.md) |
 | **Frontend: UI Library** (@workspace/ui) | [packages/ui/AGENTS.md](packages/ui/AGENTS.md) |
-| **Main `/ws` wire types** (`@atmos/api-types`) | [packages/api-types/AGENTS.md](packages/api-types/AGENTS.md) |
+| **Main `/ws` wire types + `WsContract`** (`@atmos/api-types`) | [packages/api-types/AGENTS.md](packages/api-types/AGENTS.md) |
 | **Main `/ws` session kernel** (`@atmos/api-client`) | [packages/api-client/AGENTS.md](packages/api-client/AGENTS.md) |
 | **Hub control-plane client** (`@atmos/hub-client`) | [packages/hub-client/AGENTS.md](packages/hub-client/AGENTS.md) |
 | **Relay control-plane client** (`@atmos/relay-client`) | [packages/relay-client/AGENTS.md](packages/relay-client/AGENTS.md) |
@@ -38,6 +38,7 @@
 | **Terminal agent built-ins** (shared Rust/TS manifest) | [resources/terminal-agents/AGENTS.md](resources/terminal-agents/AGENTS.md) |
 | **CLI Tool** (atmos command) | [apps/cli/AGENTS.md](apps/cli/AGENTS.md) |
 | **CLI × feature versions** (min pin, install/upgrade gates) | [agents/references/cli-feature-versions.md](agents/references/cli-feature-versions.md) |
+| **Hub** (Cloudflare Worker — auth/devices) | [packages/hub/AGENTS.md](packages/hub/AGENTS.md) |
 | **Relay** (Cloudflare Worker) | [packages/relay/AGENTS.md](packages/relay/AGENTS.md) |
 | **Write/Edit Specs** (planning + optional logs) | [specs/AGENTS.md](specs/AGENTS.md) |
 | **E2E / Playwright** (cross-layer browser checks) | [e2e/AGENTS.md](e2e/AGENTS.md) |
@@ -81,7 +82,7 @@ atmos/
 ├── packages/                  # 📦 Shared JS/TS Packages
 │   ├── ui/                    # @workspace/ui (shadcn/ui)
 │   ├── shared/                # @atmos/shared (Hooks/Utils)
-│   ├── api-types/             # @atmos/api-types (main /ws wire types)
+│   ├── api-types/             # @atmos/api-types (main /ws wire types + WsContract)
 │   ├── api-client/            # @atmos/api-client (main /ws session kernel)
 │   ├── hub-client/            # @atmos/hub-client (Hub HTTPS auth/devices/integrations)
 │   ├── relay-client/          # @atmos/relay-client (Relay REST computers/sessions)
@@ -174,6 +175,9 @@ Full conventions (zones, naming, the 4-file rule, optional spec logs, review che
 - **Avoid duplicate transports** — Do not build a new REST path for capabilities that should use WebSocket
 - **When unsure, prefer extending WS messages** — Extend the existing WebSocket protocol rather than creating parallel REST endpoints
 - **Inbound WebSocket lives in `apps/api`** — browser/client WebSocket connection management, auth, message parsing, protocol DTOs, and action routing belong under `apps/api/src/api/ws`; `infra` does not own inbound user transports.
+- **New `WsAction` / `WsEvent`** — same PR: Rust enum + handler, then `@atmos/api-types` extract catalog **and** a `WsContract` `{ input, output }` row. Recipe: [packages/api-types/AGENTS.md](packages/api-types/AGENTS.md). Do not add oRPC/tRPC for type safety.
+- **Call sites** — `wsRequest("the_action", { ...wire })` with no `<T>` once mapped. Feature wrappers stay in apps; `@atmos/api-client` stays a session kernel.
+- **HTTP** is not `WsContract`. Hub → `@atmos/hub-client` functions; Relay control → `@atmos/relay-client` methods; Computer REST → owning app (`apps/web/src/api/rest-api.ts`). See [packages/AGENTS.md](packages/AGENTS.md).
 
 ---
 

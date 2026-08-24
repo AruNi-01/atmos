@@ -6,6 +6,8 @@ use sea_orm::DatabaseConnection;
 use std::collections::HashSet;
 use std::sync::Arc;
 
+use super::project_logo::detect_project_logo;
+
 pub struct ProjectService {
     db: Arc<DatabaseConnection>,
     git_engine: GitEngine,
@@ -117,7 +119,8 @@ impl ProjectService {
             .git_engine
             .get_default_branch(std::path::Path::new(&main_file_path))
             .unwrap_or(None);
-        Ok(repo
+        let logo_path = detect_project_logo(std::path::Path::new(&main_file_path));
+        let mut project = repo
             .create(
                 name,
                 main_file_path,
@@ -125,7 +128,19 @@ impl ProjectService {
                 border_color,
                 default_branch,
             )
-            .await?)
+            .await?;
+        if let Some(logo_path) = logo_path {
+            match repo
+                .update_logo_path(&project.guid, Some(logo_path.clone()))
+                .await
+            {
+                Ok(()) => project.logo_path = Some(logo_path),
+                Err(error) => {
+                    tracing::warn!(%error, "failed to persist detected project logo");
+                }
+            }
+        }
+        Ok(project)
     }
 
     /// Read a project's `.atmos` scripts and decide whether they may run.
@@ -406,6 +421,28 @@ mod tests {
         let path = root.join(PROJECT_SCRIPTS_RELATIVE_PATH);
         std::fs::create_dir_all(path.parent().expect("parent")).expect("mkdir");
         std::fs::write(&path, content).expect("write scripts");
+    }
+
+    #[tokio::test]
+    async fn create_project_detects_nested_logo_file() {
+        let root = tempfile::tempdir().expect("tempdir");
+        let logo = root.path().join("apps/site/assets/logo.svg");
+        std::fs::create_dir_all(logo.parent().expect("parent")).expect("mkdir");
+        std::fs::write(&logo, "<svg/>").expect("write logo");
+
+        let db = Database::connect("sqlite::memory:").await.expect("sqlite");
+        Migrator::up(&db, None).await.expect("migrate");
+        let service = ProjectService::new(Arc::new(db));
+        let project = service
+            .create_project("demo".into(), root.path().display().to_string(), 0, None)
+            .await
+            .expect("create");
+
+        let logo_path = project.logo_path.expect("detected logo");
+        assert!(
+            logo_path.ends_with("logo.svg"),
+            "unexpected logo_path: {logo_path}"
+        );
     }
 
     #[tokio::test]

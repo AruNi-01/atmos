@@ -37,8 +37,11 @@ import { useGithubCenterTabsStore } from "@/features/github/store/use-github-cen
 import { useBrowserCenterTabsStore } from "@/features/browser/store/use-browser-center-tabs";
 import {
   collectActiveTabIds,
+  isFreshEmptyCenterLayout,
 } from "@/app-shell/center-pane/center-pane-layout";
+import { isExtraCenterSpaceKey } from "@/app-shell/center-space/center-space";
 import { useCenterPaneLayoutStore } from "@/app-shell/center-pane/center-pane-layout-store";
+import { paneHiddenByCenterFullscreen } from "@/app-shell/center-stage-fullscreen";
 import { isTerminalCenterTabValue } from "@/app-shell/center-stage-tabs";
 import {
   EMPTY_MOUNTED_TAB_IDS,
@@ -60,6 +63,8 @@ interface CenterStagePanelsProps {
   paneSlotBoxes?: Readonly<
     Record<string, { top: number; left: number; width: number; height: number }>
   > | null;
+  /** Mosaic pane currently filling the center body. */
+  fullscreenPaneId?: string | null;
   browserTabs: BrowserCenterTab[];
   codeReviewTabVisible: boolean;
   codeReviewTerminalGridRef: React.RefObject<TerminalGridHandle | null>;
@@ -121,6 +126,7 @@ export function CenterStagePanels({
   activeTabIds,
   tabToPaneId,
   paneSlotBoxes,
+  fullscreenPaneId,
   browserTabs,
   codeReviewTabVisible,
   codeReviewTerminalGridRef,
@@ -254,6 +260,24 @@ export function CenterStagePanels({
       }> = [];
       for (const contextId of contextIds) {
         const isActive = contextId === activeId;
+        const contextLayout = layoutsByContext[contextId];
+        if (
+          isExtraCenterSpaceKey(contextId) &&
+          (!contextLayout || isFreshEmptyCenterLayout(contextLayout))
+        ) {
+          batch.push({
+            contextId,
+            terminalTabIds: [],
+            terminalPaneCountByTabId: {},
+            editorPathsRecent: [],
+            browserTabValues: [],
+            lightIds: [],
+            namedTerminals: [],
+            frameActiveTab: "",
+            frameActiveTabIds: [],
+          });
+          continue;
+        }
         const tabs =
           allWorkspaceTerminalTabs[contextId] ??
           (isActive
@@ -287,7 +311,6 @@ export function CenterStagePanels({
           fallbackTab: FIXED_TERMINAL_TAB_VALUE,
           validTabs: validForContext,
         });
-        const contextLayout = layoutsByContext[contextId];
         const paneActiveTabIds =
           contextLayout && contextLayout.order.length > 1
             ? collectActiveTabIds(contextLayout).filter(Boolean)
@@ -441,6 +464,7 @@ export function CenterStagePanels({
             })}
             tabToPaneId={isUrlSyncedActive ? tabToPaneId : null}
             paneSlotBoxes={isUrlSyncedActive ? paneSlotBoxes : null}
+            fullscreenPaneId={isUrlSyncedActive ? fullscreenPaneId : null}
             visibleTerminalTabs={isUrlSyncedActive ? visibleTerminalTabs : undefined}
             openFiles={isUrlSyncedActive ? openFiles : undefined}
             githubTabs={isUrlSyncedActive ? githubTabs : undefined}
@@ -496,10 +520,12 @@ export function CenterStagePanels({
           data-center-pane-owner={tabToPaneId?.wiki}
           className={cn(
             "absolute inset-0 z-[2] min-h-0 min-w-0 overflow-hidden bg-background",
-            !(
+            (!(
               activeValue === "wiki" ||
               (activeTabIds && activeTabIds.includes("wiki"))
-            ) && "hidden",
+            ) ||
+              paneHiddenByCenterFullscreen(fullscreenPaneId, tabToPaneId?.wiki)) &&
+              "hidden",
             activeTabIds && activeTabIds.includes("wiki") && "pointer-events-auto",
           )}
           style={
@@ -508,8 +534,9 @@ export function CenterStagePanels({
             tabToPaneId?.wiki &&
             paneSlotBoxes?.[tabToPaneId.wiki]
               ? {
-                  inset: "auto",
                   top: paneSlotBoxes[tabToPaneId.wiki]!.top,
+                  right: "auto",
+                  bottom: "auto",
                   left: paneSlotBoxes[tabToPaneId.wiki]!.left,
                   width: paneSlotBoxes[tabToPaneId.wiki]!.width,
                   height: paneSlotBoxes[tabToPaneId.wiki]!.height,

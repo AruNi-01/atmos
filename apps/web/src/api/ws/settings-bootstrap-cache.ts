@@ -113,10 +113,10 @@ async function fetchBootstrapFromServer(
   request: (
     scope: ComputerQueryScope,
   ) => Promise<SettingsBootstrapPayload> = (requestScope) =>
-    wsRequestForComputerScope<SettingsBootstrapPayload>(
+    wsRequestForComputerScope(
       requestScope,
       "settings_bootstrap_get",
-    ),
+    ) as Promise<SettingsBootstrapPayload>,
 ): Promise<SettingsBootstrapPayload> {
   const requestMutationState = getMutationState(scope);
   const requestMutationVersion = requestMutationState.mutationVersion;

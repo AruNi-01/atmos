@@ -1,25 +1,19 @@
 "use client";
 
-import dynamic from "next/dynamic";
 import { useTranslations } from "next-intl";
 import { ChevronDown } from "lucide-react";
 
-import { Button, cn } from "@workspace/ui";
-
-const PixelBlast = dynamic(
-  () => import("@workspace/ui/components/ui/pixel-blast"),
-  { ssr: false },
-);
+import { Button, cn, ShootingStarsBackground } from "@workspace/ui";
 
 export function WelcomePageMountedSkeleton({ className }: { className?: string }) {
   return (
     <div
       className={cn(
-        "min-h-full overflow-hidden bg-background px-4 py-8 selection:bg-foreground/10 sm:px-6",
+        "flex h-full min-h-full overflow-hidden bg-background px-4 py-8 selection:bg-foreground/10 sm:px-6",
         className,
       )}
     >
-      <div className="mx-auto flex min-h-full w-full max-w-5xl flex-col items-center justify-center py-8">
+      <div className="mx-auto flex h-full w-full max-w-5xl flex-col items-center justify-center">
         <div className="mb-10 flex w-full max-w-4xl justify-center">
           <div className="h-16 w-[min(92vw,980px)] animate-pulse rounded-2xl bg-muted/40 sm:h-20 md:h-24" />
         </div>
@@ -49,23 +43,7 @@ export function WelcomePageMountedSkeleton({ className }: { className?: string }
 export function WelcomePageBackdrop() {
   return (
     <div className="absolute inset-0 z-0">
-      <PixelBlast
-        variant="circle"
-        pixelSize={6}
-        color="#999999"
-        patternScale={3}
-        patternDensity={1}
-        pixelSizeJitter={0.5}
-        enableRipples
-        rippleSpeed={0.2}
-        rippleThickness={0.12}
-        rippleIntensityScale={1}
-        speed={0.2}
-        edgeFade={0.25}
-        centerFade={0.85}
-        centerRadius={0.45}
-        transparent
-      />
+      <ShootingStarsBackground />
     </div>
   );
 }
@@ -76,7 +54,7 @@ export function WelcomeCloseButton({ onClose }: { onClose: () => void }) {
     <button
       type="button"
       onClick={onClose}
-      className="group absolute left-1/2 top-0 z-20 -translate-x-1/2 flex cursor-pointer flex-col items-center gap-0 px-6 py-0.5 text-muted-foreground/40 transition-colors hover:text-muted-foreground"
+      className="group absolute left-1/2 top-0 z-20 -translate-x-1/2 flex cursor-pointer flex-col items-center gap-0 px-6 py-0.5 text-muted-foreground/40 hover:text-muted-foreground"
       aria-label={t("shell.close")}
     >
       <ChevronDown className="h-5 w-9 animate-[bounce-down_1.6s_ease-in-out_infinite]" strokeWidth={1.2} />

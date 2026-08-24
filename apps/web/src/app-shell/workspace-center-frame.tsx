@@ -9,7 +9,7 @@
 
 import React from "react";
 import dynamic from "next/dynamic";
-import { Loader2, TabsPanel } from "@workspace/ui";
+import { Loader2 } from "@workspace/ui";
 import {
   ReviewContextProvider,
 } from "@/features/diff/components/review/ReviewContextProvider";
@@ -46,11 +46,13 @@ import {
 } from "@/app-shell/workspace-surface-policies";
 import { readCenterStageLastTab } from "@/shared/stores/use-ui-pref-hooks";
 import { CENTER_STAGE_RADIUS_CSS } from "@/app-shell/sidebar-layout-constants";
+import { paneHiddenByCenterFullscreen } from "@/app-shell/center-stage-fullscreen";
 import {
   isUsablePaneSlotBox,
   shouldWithholdUnmeasuredPaneTerminal,
 } from "@/app-shell/center-pane/use-center-pane-slot-boxes";
 import { cn } from "@/shared/lib/utils";
+import { hostIdFromCenterKey } from "@/app-shell/center-space/center-space";
 import {
   workspaceCenterFramePropsAreEqual,
   type TerminalQuickOpenAgent,
@@ -195,17 +197,35 @@ function multiPanePanelStyle(
   tabId: string,
   tabToPaneId: Readonly<Record<string, string>> | null | undefined,
   paneSlotBoxes: Readonly<Record<string, { top: number; left: number; width: number; height: number }>> | null | undefined,
+  fullscreenPaneId?: string | null,
 ): React.CSSProperties | undefined {
   if (!visible || !tabToPaneId || !paneSlotBoxes) return undefined;
   const paneId = tabToPaneId[tabId];
   if (!paneId) return undefined;
+  if (paneHiddenByCenterFullscreen(fullscreenPaneId, paneId)) {
+    return {
+      position: "absolute",
+      top: 0,
+      right: "auto",
+      bottom: "auto",
+      left: 0,
+      width: 0,
+      height: 0,
+      overflow: "hidden",
+      pointerEvents: "none",
+      opacity: 0,
+    };
+  }
   const box = paneSlotBoxes[paneId];
   // Missing box = empty pane just grew a slot. Do not fall back to
   // `inset: 0` (covers sibling panes and fits the PTY at the wrong size).
   if (!isUsablePaneSlotBox(box)) {
     return {
       position: "absolute",
-      inset: "auto",
+      top: 0,
+      right: "auto",
+      bottom: "auto",
+      left: 0,
       width: 0,
       height: 0,
       overflow: "hidden",
@@ -215,8 +235,9 @@ function multiPanePanelStyle(
   }
   return {
     position: "absolute",
-    inset: "auto",
     top: box.top,
+    right: "auto",
+    bottom: "auto",
     left: box.left,
     width: box.width,
     height: box.height,
@@ -241,6 +262,7 @@ function WorkspaceCenterFrameImpl({
   activeTabIds,
   tabToPaneId,
   paneSlotBoxes,
+  fullscreenPaneId,
   visibleTerminalTabs,
   openFiles,
   githubTabs,
@@ -376,9 +398,15 @@ function WorkspaceCenterFrameImpl({
   const panelStyle = React.useCallback(
     (panelTabId: string, visible: boolean) =>
       multiActiveTabIds
-        ? multiPanePanelStyle(visible, panelTabId, tabToPaneId, paneSlotBoxes)
+        ? multiPanePanelStyle(
+            visible,
+            panelTabId,
+            tabToPaneId,
+            paneSlotBoxes,
+            fullscreenPaneId,
+          )
         : undefined,
-    [multiActiveTabIds, paneSlotBoxes, tabToPaneId],
+    [fullscreenPaneId, multiActiveTabIds, paneSlotBoxes, tabToPaneId],
   );
 
   const planReady = mountPlan.mounted.length > 0;
@@ -393,11 +421,10 @@ function WorkspaceCenterFrameImpl({
       // content-visibility:hidden / visibility:hidden, which blank warm xterm WebGL on hop.
       aria-hidden={!isActiveContext}
       inert={!isActiveContext ? true : undefined}
-      className={
-        multiActiveTabIds
-          ? "absolute inset-0 flex flex-col min-h-0 min-w-0 pointer-events-none"
-          : "absolute inset-0 flex flex-col min-h-0 min-w-0"
-      }
+      className={cn(
+        "absolute inset-0 flex min-h-0 min-w-0 flex-col",
+        multiActiveTabIds && "pointer-events-none",
+      )}
     >
       {tabs
         .filter((tab) => {
@@ -531,7 +558,8 @@ function WorkspaceCenterFrameImpl({
           style={panelStyle("overview", panelVisible("overview"))}
         >
           <OverviewTab
-            contextId={contextId}
+            contextId={hostIdFromCenterKey(contextId)}
+            editorContextId={contextId}
             projectId={isUrlSyncedActive ? currentProject?.id : undefined}
             projectName={isUrlSyncedActive ? currentProject?.name : undefined}
             projectPath={isUrlSyncedActive ? currentProject?.mainFilePath : undefined}
@@ -569,17 +597,20 @@ function WorkspaceCenterFrameImpl({
             }
           }
         }
+        // Not TabsPanel: mosaic hosts this outside <Tabs.Root> (Base UI #64).
         return (
-          <TabsPanel
+          <div
             key={`${contextId}:${file.path}`}
-            value={file.path}
-            keepMounted
             data-center-pane-owner={paneOwner(file.path)}
             className={cn(lightSurfacePanelClass(panelVisible(file.path)), interactivePaneClass(panelVisible(file.path)))}
-          style={panelStyle(file.path, panelVisible(file.path))}
+            style={panelStyle(file.path, panelVisible(file.path))}
           >
             {isDiffGroupEditorPath(file.path) && currentRepoPath && isUrlSyncedActive ? (
-              <ChangesCodeView repoPath={currentRepoPath} groupPath={file.path} />
+              <ChangesCodeView
+                repoPath={currentRepoPath}
+                groupPath={file.path}
+                contextId={contextId}
+              />
             ) : isReviewGroupEditorPath(file.path) && isUrlSyncedActive ? (
               <ReviewContextProvider
                 target={reviewTarget ?? null}
@@ -587,7 +618,7 @@ function WorkspaceCenterFrameImpl({
                 fileSnapshotGuid={null}
                 revisionGuid={getReviewGroupRevisionGuid(file.path)}
               >
-                <ReviewCodeView groupPath={file.path} />
+                <ReviewCodeView groupPath={file.path} contextId={contextId} />
               </ReviewContextProvider>
             ) : file.path.startsWith(EDITOR_REVIEW_DIFF_PREFIX) &&
               currentRepoPath &&
@@ -603,6 +634,7 @@ function WorkspaceCenterFrameImpl({
                   repoPath={currentRepoPath}
                   filePath={getEditorSourcePath(file.path)}
                   originalPath={file.path}
+                  contextId={contextId}
                 />
               </ReviewContextProvider>
             ) : isConflictResolveEditorPath(file.path) && isUrlSyncedActive ? (
@@ -615,13 +647,14 @@ function WorkspaceCenterFrameImpl({
               <FileViewer
                 file={file}
                 className="flex-1"
+                contextId={contextId}
                 surfaceActive={
                   isActiveContext &&
                   panelVisible(file.path)
                 }
               />
             )}
-          </TabsPanel>
+          </div>
         );
       })}
 
@@ -805,6 +838,7 @@ function WorkspaceCenterFrameImpl({
         >
           <ReviewCenterPanel
             filePath=""
+            contextId={contextId}
             reviewTarget={isUrlSyncedActive ? (reviewTarget ?? null) : null}
           />
         </div>
@@ -817,11 +851,7 @@ function WorkspaceCenterFrameImpl({
           style={panelStyle("run", panelVisible("run"))}
         >
           <RunScript
-            workspaceId={
-              isUrlSyncedActive && currentView === "workspace"
-                ? (currentWorkspace?.id ?? null)
-                : null
-            }
+            workspaceId={isUrlSyncedActive ? contextId : null}
             projectId={isUrlSyncedActive ? currentProject?.id : undefined}
             isActive={
               isActiveContext &&
@@ -853,6 +883,15 @@ function WorkspaceCenterFrameImpl({
         >
           <FileTreePanel
             projectName={isUrlSyncedActive ? currentProject?.name : undefined}
+            rootPath={
+              isUrlSyncedActive
+                ? (currentWorkspace?.localPath ?? currentProject?.mainFilePath ?? null)
+                : undefined
+            }
+            currentProjectPath={
+              isUrlSyncedActive ? (currentRepoPath ?? currentWorkspace?.localPath ?? null) : null
+            }
+            contextId={contextId}
             revealEnabled={
               isActiveContext &&
               panelVisible("files")

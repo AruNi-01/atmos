@@ -109,7 +109,7 @@ export function MessageTurnUsageBadge({ usage }: { usage: AgentTurnUsage }) {
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
-          <div className="flex items-center gap-1.5 rounded-md border border-border/60 bg-muted/20 px-2 py-1 text-[10px] font-medium text-muted-foreground transition-all hover:border-border hover:bg-muted/40 hover:text-foreground cursor-help">
+          <div className="flex items-center gap-1.5 rounded-md border border-border/60 bg-muted/20 px-2 py-1 text-[10px] font-medium text-muted-foreground hover:border-border hover:bg-muted/40 hover:text-foreground cursor-help">
             <Coins className="size-3" />
             <span>{t("usageBadges.turn.summary", { total })}</span>
           </div>

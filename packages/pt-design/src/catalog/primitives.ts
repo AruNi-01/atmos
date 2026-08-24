@@ -10,6 +10,25 @@ export const FONT_VIRGIL = 1;
 export const DEFAULT_FONT_SIZE = 13;
 export const DEFAULT_LINE_HEIGHT = 1.25;
 
+/** ASCII ~8px at 13px Helvetica; CJK / fullwidth closer to 14px. */
+export function estimateTextWidth(text: string, asciiWidth = 8): number {
+  let width = 0;
+  for (const ch of text) {
+    const code = ch.codePointAt(0) ?? 0;
+    if (
+      (code >= 0x2e80 && code <= 0x9fff) ||
+      (code >= 0x3040 && code <= 0x30ff) ||
+      (code >= 0xac00 && code <= 0xd7af) ||
+      (code >= 0xff00 && code <= 0xffef)
+    ) {
+      width += asciiWidth * 1.75;
+    } else {
+      width += asciiWidth;
+    }
+  }
+  return Math.ceil(width);
+}
+
 export function textLineHeight(
   fontSize = DEFAULT_FONT_SIZE,
   lineHeight = DEFAULT_LINE_HEIGHT,

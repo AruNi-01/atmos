@@ -70,7 +70,7 @@ export function AgentChatHistoryPopover({
                 type="button"
                 className={cn(
                   // desktop-no-drag: header is a drag-region on standalone Electron.
-                  "desktop-no-drag rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
+                  "desktop-no-drag rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground",
                   triggerClassName,
                 )}
                 aria-label={t("historyPopover.triggerAria")}
@@ -122,7 +122,7 @@ export function AgentChatHistoryPopover({
                   <button
                     key={s.acp_session_id}
                     type="button"
-                    className="flex w-full flex-col items-start gap-0.5 rounded-md px-3 py-2 text-left text-sm transition-colors hover:bg-muted"
+                    className="flex w-full flex-col items-start gap-0.5 rounded-md px-3 py-2 text-left text-sm hover:bg-muted"
                     onClick={() => handleSelectHistorySession(s)}
                     disabled={isConnecting || Boolean(historyResumeUnsupportedReason)}
                     title={historyResumeUnsupportedReason ?? undefined}
@@ -155,7 +155,7 @@ export function AgentChatHistoryPopover({
               {historyHasMore && historyCursor && (
                 <button
                   type="button"
-                  className="w-full rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted"
+                  className="w-full rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-muted"
                   onClick={() => loadHistorySessions(historyCursor)}
                   disabled={historyLoading}
                 >

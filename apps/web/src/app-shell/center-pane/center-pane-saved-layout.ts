@@ -1,14 +1,15 @@
 /**
  * Global, context-agnostic center layout snapshots.
  *
- * A snapshot stores functional surface kinds (files, terminal, …) plus grid
- * geometry (column/row fractions). Concrete tab ids and content are resolved
+ * A snapshot stores plus-menu surfaces (files, terminal, GitHub hub, …) plus
+ * grid geometry. Ephemeral tabs opened by a second click (files in the editor,
+ * PR/issue/diff pages, previews) are not saved. Concrete tab ids are resolved
  * against the current project/workspace when the layout is applied.
  */
 
 import {
+  createEmptyPane,
   DEFAULT_PANE_ID,
-  FALLBACK_SECONDARY_TAB_ID,
   OVERVIEW_TAB_ID,
   normalizeCenterPaneLayout,
   type CenterPane,
@@ -25,7 +26,6 @@ import {
 } from "@/features/terminal/store/use-terminal-store";
 
 const SIMULATOR_TAB_VALUE = "simulator";
-const GIT_HISTORY_TAB_VALUE = "git-history";
 
 function isTerminalSurfaceTabId(tabId: string): boolean {
   return (
@@ -38,11 +38,10 @@ function isBrowserSurfaceTabId(tabId: string): boolean {
   return tabId.startsWith("browser:") || tabId === "browser";
 }
 
-function isGithubSurfaceTabId(tabId: string): boolean {
-  return tabId === "github" || tabId.startsWith("github:");
-}
-
-/** Functional center surfaces that can be saved in a layout (not path/context ids). */
+/**
+ * Plus-menu surfaces that may be stored in a layout. Kept as a union so older
+ * snapshots that still mention overview/wiki/git-history can materialize.
+ */
 export type CenterSurfaceKind =
   | "overview"
   | "terminal"
@@ -56,6 +55,27 @@ export type CenterSurfaceKind =
   | "files"
   | "pt-design"
   | "browser";
+
+/** Surfaces created from the center + menu — the only kinds new snapshots store. */
+export const PLUS_MENU_CENTER_SURFACE_KINDS = [
+  "terminal",
+  "browser",
+  "files",
+  "changes",
+  "review",
+  "run",
+  "github",
+  "pt-design",
+  "simulator",
+] as const satisfies readonly CenterSurfaceKind[];
+
+const PLUS_MENU_SURFACE_KIND_SET = new Set<string>(PLUS_MENU_CENTER_SURFACE_KINDS);
+
+export function isPlusMenuSurfaceKind(
+  kind: string,
+): kind is (typeof PLUS_MENU_CENTER_SURFACE_KINDS)[number] {
+  return PLUS_MENU_SURFACE_KIND_SET.has(kind);
+}
 
 export type SavedCenterPaneSpec = {
   id: string;
@@ -120,19 +140,16 @@ export function normalizeSavedCenterLayouts(raw: unknown): SavedCenterLayout[] {
 }
 
 /**
- * Map a live center tab id to a portable surface kind.
- * Returns null for context-bound content (open files, named terminals, …).
+ * Map a live center tab id to a portable plus-menu surface kind.
+ * Returns null for Overview, wiki, git-history, and second-click content
+ * (editor files, PR/issue/diff pages, previews).
  */
 export function tabIdToSurfaceKind(tabId: string): CenterSurfaceKind | null {
   if (!tabId) return null;
-  if (tabId === OVERVIEW_TAB_ID) return "overview";
-  if (tabId === "wiki") return "wiki";
   if (tabId === SIMULATOR_TAB_VALUE) return "simulator";
-  if (tabId === GIT_HISTORY_TAB_VALUE) return "git-history";
   if (isCenterToolTabValue(tabId)) return tabId;
   if (isTerminalSurfaceTabId(tabId)) return "terminal";
   if (isBrowserSurfaceTabId(tabId)) return "browser";
-  if (isGithubSurfaceTabId(tabId)) return "github";
   return null;
 }
 
@@ -158,14 +175,6 @@ export function snapshotCenterLayout(
       seen.add(kind);
       surfaces.push(kind);
     }
-    if (surfaces.length === 0) {
-      // Primary pane with only context-bound tabs still needs a residual surface.
-      if (pane.id === DEFAULT_PANE_ID || panes.length === 0) {
-        surfaces.push(OVERVIEW_TAB_ID);
-      } else {
-        surfaces.push(FALLBACK_SECONDARY_TAB_ID as CenterSurfaceKind);
-      }
-    }
     const activeKind =
       tabIdToSurfaceKind(pane.activeTabId) ??
       surfaces[0] ??
@@ -173,7 +182,9 @@ export function snapshotCenterLayout(
     panes.push({
       id: pane.id,
       surfaces,
-      activeSurface: surfaces.includes(activeKind) ? activeKind : surfaces[0]!,
+      activeSurface: surfaces.includes(activeKind)
+        ? activeKind
+        : (surfaces[0] ?? "overview"),
     });
   }
 
@@ -223,24 +234,28 @@ export function materializeSavedLayout(
   resolveTabId: (kind: CenterSurfaceKind) => string,
 ): CenterPaneLayout {
   const panes: CenterPane[] = saved.panes.map((pane) => {
+    const isPrimary = pane.id === DEFAULT_PANE_ID || pane.id === saved.order[0];
     const tabIds: string[] = [];
     const seen = new Set<string>();
     for (const surface of pane.surfaces) {
+      if (!isPlusMenuSurfaceKind(surface) && surface !== "overview") continue;
       const tabId = resolveTabId(surface);
       if (!tabId || seen.has(tabId)) continue;
       // Overview only on primary.
-      if (surface === "overview" && pane.id !== DEFAULT_PANE_ID && pane.id !== saved.order[0]) {
+      if (surface === "overview" && !isPrimary) {
         continue;
       }
       seen.add(tabId);
       tabIds.push(tabId);
     }
     if (tabIds.length === 0) {
-      tabIds.push(
-        pane.id === DEFAULT_PANE_ID || pane.id === saved.order[0]
-          ? OVERVIEW_TAB_ID
-          : FIXED_TERMINAL_TAB_VALUE,
-      );
+      return isPrimary
+        ? {
+            id: pane.id,
+            tabIds: [OVERVIEW_TAB_ID],
+            activeTabId: OVERVIEW_TAB_ID,
+          }
+        : createEmptyPane(pane.id);
     }
     const activeTabId = resolveTabId(pane.activeSurface);
     return {
@@ -268,20 +283,30 @@ export function materializeSavedLayout(
   });
 }
 
-/** All unique surface kinds referenced by a saved layout (for open-before-apply). */
+/**
+ * Applying a named layout wipes the current mosaic and non-Overview tabs.
+ * Prompt when the workspace already has a split or any extra tab.
+ */
+export function shouldConfirmReplaceCenterLayout(input: {
+  paneCount: number;
+  openTabIds: readonly string[];
+}): boolean {
+  if (input.paneCount > 1) return true;
+  return input.openTabIds.some((id) => id !== OVERVIEW_TAB_ID);
+}
+
+/** Plus-menu surfaces referenced by a saved layout (for open-before-apply). */
 export function collectSavedSurfaces(saved: SavedCenterLayout): CenterSurfaceKind[] {
   const out: CenterSurfaceKind[] = [];
   const seen = new Set<CenterSurfaceKind>();
+  const add = (surface: CenterSurfaceKind) => {
+    if (!isPlusMenuSurfaceKind(surface) || seen.has(surface)) return;
+    seen.add(surface);
+    out.push(surface);
+  };
   for (const pane of saved.panes) {
-    for (const surface of pane.surfaces) {
-      if (seen.has(surface)) continue;
-      seen.add(surface);
-      out.push(surface);
-    }
-    if (!seen.has(pane.activeSurface)) {
-      seen.add(pane.activeSurface);
-      out.push(pane.activeSurface);
-    }
+    for (const surface of pane.surfaces) add(surface);
+    if (pane.surfaces.length > 0) add(pane.activeSurface);
   }
   return out;
 }

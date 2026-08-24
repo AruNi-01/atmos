@@ -10,6 +10,7 @@ import {
   centerPaneSlotOccupancyKey,
   centerPaneTreeKey,
   isUsablePaneSlotBox,
+  mergePaneSlotBoxes,
   paneSlotBoxesForContextSwitch,
   shouldWithholdUnmeasuredPaneTerminal,
 } from "@/app-shell/center-pane/use-center-pane-slot-boxes";
@@ -41,7 +42,7 @@ describe("center pane tab isolation", () => {
   it("runs create and popover select on the pane that owns the tab bar", () => {
     const stage = readSibling("CenterStage.tsx");
     expect(stage).toContain("const runOnThisPane = (run: () => void) => {");
-    expect(stage).toContain("focusCenterPane(renderContextId, opts.paneId)");
+    expect(stage).toContain("focusCenterPane(mosaicWriteContextId, opts.paneId)");
     expect(stage).toContain("handleCreateTerminalCenterTab={() =>");
     expect(stage).toContain("runOnThisPane(handleCreateTerminalCenterTab)");
     expect(stage).toContain("appendTabToStripOrder(nextTab.id)");
@@ -68,22 +69,28 @@ describe("center pane tab isolation", () => {
     expect(grid).toContain("data-center-pane-dragging");
     expect(grid).toContain("useAnimatedPaneTiles");
     expect(grid).toContain("centerPaneLeafTileStyle");
+    expect(grid).toContain("centerPaneFullscreenTileStyle");
     expect(grid).toContain("center-pane-leaf");
     expect(grid).toContain("data-pane-snap");
     expect(grid).toContain("contextId");
+    expect(grid).toContain("isOnlyPane");
     expect(css).toContain("left 280ms");
     expect(css).toContain("[data-live-resizing]");
     expect(css).toContain("[data-pane-snap]");
     expect(stage).toContain("seedFromFullPane");
     expect(stage).toContain("mosaicContextId");
     expect(stage).toContain("paintContextId");
-    expect(stage).toContain("showMosaic");
+    expect(stage).not.toContain("showMosaic");
+    expect(stage).not.toContain("mosaicHold");
     expect(stage).toContain("shouldSeedMosaicFromFullPane");
+    expect(stage).toContain("shouldPersistCollapsedStripOrder");
     expect(stage).toContain("collapsedStripOrderForContext");
     expect(stage).toContain("resolveStripOrderForContext");
     expect(stage).not.toContain("prevPaneCountRef");
     expect(stage).toContain("desktop-no-drag relative min-h-0 flex-1");
     expect(stage).toContain('data-center-panel-host=""');
+    expect(stage).toContain("paneSlotBoxes={paneSlotBoxes}");
+    expect(stage).not.toMatch(/CENTER_STAGE_CARD_CLASS[\s\S]*\{panels\}/);
     expect(css).toContain("border-radius: var(--radius-xl)");
     expect(css).toContain("[data-center-pane-dragging]");
     expect(css).not.toContain("border-radius: var(--radius-xl) var(--radius-xl) 0 0");
@@ -95,7 +102,14 @@ describe("center pane tab isolation", () => {
     expect(empty).not.toContain("emptyPaneHint");
     expect(empty).toContain("closePane");
     expect(empty).toContain("onClose");
-    expect(stage).toContain("closeCenterPane(renderContextId, pane.id)");
+    expect(stage).toContain("closeCenterPane(mosaicWriteContextId, pane.id)");
+  });
+
+  it("does not wrap file editors in Base UI TabsPanel", () => {
+    const frame = readSibling("workspace-center-frame.tsx");
+    // Mosaic hosts panels in a sibling overlay outside <Tabs.Root>.
+    // <TabsPanel> would throw Base UI error #64 (missing TabsRootContext).
+    expect(frame).not.toMatch(/<TabsPanel\b/);
   });
 
   it("remasures pane slots when occupancy changes and withholds an unmeasured terminal", () => {
@@ -106,8 +120,27 @@ describe("center pane tab isolation", () => {
     expect(slots).toContain("treeKey");
     expect(slots).toContain("centerPaneTreeKey");
     expect(slots).toContain("paneSlotBoxesForContextSwitch");
+    expect(slots).toContain("mergePaneSlotBoxes");
+    expect(slots).not.toContain("layout.order.length <= 1");
     expect(frame).toContain("shouldWithholdUnmeasuredPaneTerminal");
     expect(frame).toContain("applySlotGeometry: isUrlSyncedActive");
+  });
+
+  it("keeps the last usable box when a remasure misses an occupied pane", () => {
+    const previous = {
+      "pane-main": { top: 8, left: 8, width: 400, height: 240 },
+      "pane-2": { top: 8, left: 420, width: 380, height: 240 },
+    };
+    const merged = mergePaneSlotBoxes(
+      previous,
+      { "pane-main": { top: 8, left: 8, width: 800, height: 240 } },
+      ["pane-main"],
+    );
+    expect(merged["pane-main"]?.width).toBe(800);
+    expect(merged["pane-2"]).toBeUndefined();
+
+    const missed = mergePaneSlotBoxes(previous, {}, ["pane-main"]);
+    expect(missed["pane-main"]).toEqual(previous["pane-main"]);
   });
 
   it("restores the destination workspace slot boxes instead of morphing the previous split", () => {

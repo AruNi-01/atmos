@@ -79,7 +79,7 @@ function SideImage({
         <button
           type="button"
           onClick={() => onPreview?.(url, label)}
-          className="flex min-h-[120px] w-full cursor-zoom-in items-center justify-center overflow-hidden rounded-md border border-border/50 bg-[image:repeating-conic-gradient(#80808018_0%_25%,transparent_0%_50%)] bg-[length:16px_16px] p-2 transition-colors hover:border-border focus:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          className="flex min-h-[120px] w-full cursor-zoom-in items-center justify-center overflow-hidden rounded-md border border-border/50 bg-[image:repeating-conic-gradient(#80808018_0%_25%,transparent_0%_50%)] bg-[length:16px_16px] p-2 hover:border-border focus:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           aria-label={label}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}

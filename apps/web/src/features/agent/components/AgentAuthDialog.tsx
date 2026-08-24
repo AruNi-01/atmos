@@ -53,7 +53,7 @@ export function AgentAuthDialog({
                 key={method.id}
                 type="button"
                 onClick={() => setSelectedAuthMethodId(method.id)}
-                className={`w-full rounded-md border p-3 text-left transition-colors ${checked ? "border-primary bg-primary/5" : "border-border hover:bg-muted"}`}
+                className={`w-full rounded-md border p-3 text-left ${checked ? "border-primary bg-primary/5" : "border-border hover:bg-muted"}`}
               >
                 <p className="text-sm font-medium">{method.name}</p>
                 <p className="mt-1 text-xs text-muted-foreground">{method.description || method.id}</p>

@@ -46,6 +46,11 @@ export function resolvePlaceVariants(componentType: string, requested?: string):
   );
 }
 
+/** Single instance for Agent `pt_place` when variant is omitted. Overlay → trigger/bar/collapsed. */
+export function defaultPlaceVariant(componentType: string): string {
+  return OVERLAY_PLACE_VARIANTS[componentType]?.[0] ?? "default";
+}
+
 function isGenericLabel(value: unknown, componentType: string): boolean {
   if (value === null || value === undefined || value === "") return true;
   const generic = componentType

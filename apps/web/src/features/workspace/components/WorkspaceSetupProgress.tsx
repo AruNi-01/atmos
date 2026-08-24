@@ -764,7 +764,7 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
             <div
               key={step.id}
               className={cn(
-                "min-w-0 flex-1 basis-0 border transition-[border-color,background-color] duration-300",
+                "min-w-0 flex-1 basis-0 border",
                 compact || useCompactSteps ? "rounded-lg px-2.5 py-2" : "rounded-xl p-4",
                 isActive
                   ? "border-primary bg-primary/5"

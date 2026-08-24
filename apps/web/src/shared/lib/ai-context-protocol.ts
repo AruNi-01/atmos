@@ -26,6 +26,7 @@ export const AI_CONTEXT_KINDS = [
   "review-run",
   "git-conflict",
   "canvas-agent",
+  "pt-design-agent",
   "run-log",
 ] as const;
 
@@ -133,6 +134,12 @@ const KIND_DEFAULTS: Record<
     label: "Canvas",
     tooltip: "Canvas agent instructions",
     tone: "slate",
+    icon: "layout",
+  },
+  "pt-design-agent": {
+    label: "Prototype",
+    tooltip: "Prototype Design agent instructions",
+    tone: "violet",
     icon: "layout",
   },
   "run-log": {
@@ -326,7 +333,8 @@ function deriveChipLabel(kind: AiContextKind, promptText: string): string | null
     case "agent-fix":
     case "review-run":
     case "git-conflict":
-    case "canvas-agent": {
+    case "canvas-agent":
+    case "pt-design-agent": {
       const heading = promptText.match(/^#{1,3}\s+(.+)$/m)?.[1]?.trim();
       return heading ? truncateLabel(heading, 28) : null;
     }

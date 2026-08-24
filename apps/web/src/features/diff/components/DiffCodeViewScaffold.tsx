@@ -44,7 +44,7 @@ export function DiffCodeViewScaffold({
         <button
           type="button"
           aria-label={treeVisible ? t("hideFileTree") : t("showFileTree")}
-          className="flex size-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
+          className="flex size-6 items-center justify-center rounded-md text-muted-foreground hover:bg-muted/50 hover:text-foreground"
           onClick={() => setTreeVisible((value) => !value)}
           title={treeVisible ? t("hideFileTree") : t("showFileTree")}
         >
@@ -113,7 +113,7 @@ export function DiffCodeViewScaffold({
 
         {treeVisible ? (
           <div
-            className="relative w-px shrink-0 cursor-col-resize bg-border/40 transition-colors before:absolute before:-inset-x-2 before:h-full before:transition-colors before:hover:bg-primary/40"
+            className="relative w-px shrink-0 cursor-col-resize bg-border/40 before:absolute before:-inset-x-2 before:h-full before:hover:bg-primary/40"
             onMouseDown={(event) => {
               event.preventDefault();
               setIsResizing(true);

@@ -11,6 +11,7 @@ import {
   useAgentAttentionStore,
   type AttentionReason,
 } from "@/features/agent/store/agent-attention-store";
+import { useWorkspaceAgentGroupingHoldStore } from "@/features/agent/store/workspace-agent-grouping-hold";
 import {
   parseWorkspaceAgentGroupKey,
   resolveHydratedWorkspaceAgentGroupKey,
@@ -59,7 +60,7 @@ export function useWorkspaceAgentStatus(
 
 /**
  * Live Agent grouping keys for many workspace/project context ids.
- * Recomputes when hook sessions or sticky attention revision change.
+ * Recomputes when hook sessions, sticky attention, or grouping hold change.
  */
 export function useWorkspaceAgentGroupKeyMap(
   contextIds: readonly string[],
@@ -70,11 +71,15 @@ export function useWorkspaceAgentGroupKeyMap(
   );
   const hooksHydrated = useAgentHooksStore((s) => s.hooksHydrated);
   const attentionRevision = useAgentAttentionStore((s) => s.revision);
+  const groupingHoldRevision = useWorkspaceAgentGroupingHoldStore(
+    (s) => s.revision,
+  );
   const idsKey = contextIds.join("\n");
 
   return useMemo(() => {
     const hooks = useAgentHooksStore.getState();
     const attention = useAgentAttentionStore.getState();
+    const groupingHold = useWorkspaceAgentGroupingHoldStore.getState();
     const map: Record<string, WorkspaceAgentGroupKey> = {};
     if (!idsKey) return map;
     for (const id of idsKey.split("\n")) {
@@ -82,6 +87,7 @@ export function useWorkspaceAgentGroupKeyMap(
       const live = resolveWorkspaceAgentGroupKey({
         agentState: hooks.getAgentStateForContextId(id),
         attentionReason: attention.getContextReason(id),
+        groupingHoldActive: groupingHold.isHoldActive(id),
       });
       const serverRaw = hooks.serverWorkspaceGroupKeys[id];
       map[id] = resolveHydratedWorkspaceAgentGroupKey({
@@ -93,6 +99,7 @@ export function useWorkspaceAgentGroupKeyMap(
     return map;
   }, [
     attentionRevision,
+    groupingHoldRevision,
     hooksHydrated,
     idsKey,
     serverWorkspaceGroupKeys,

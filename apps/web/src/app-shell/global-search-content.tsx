@@ -19,10 +19,12 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
+} from "@workspace/ui";
+import {
   Tabs,
   TabsList,
-  TabsTab,
-} from "@workspace/ui";
+  TabsTrigger,
+} from "@workspace/ui/components/motion/tabs";
 import type { SearchMatch } from "@/api/ws-api";
 import type { Task } from "@/features/workspace/hooks/use-workspace-context";
 import { TaskListPanel } from "@/features/workspace/components/TaskListPanel";
@@ -448,21 +450,25 @@ export function GlobalSearchMainView({
         hoveredValue={hoveredValue}
         selectedValue={selectedValue}
       />
-      <div className="px-1">
-        <Tabs value={globalSearchTab} onValueChange={(value) => setGlobalSearchTab(value as SearchTab)} className="h-full w-full">
-          <TabsList variant="underline" className="flex h-12 w-full border-b border-border">
-            <TabsTab value="app" className="flex h-full flex-1 gap-2 text-[12px] font-semibold transition-all">
-              <Layers className="size-3.5" />
-              <span>{t("globalSearch.tabs.app")}</span>
-            </TabsTab>
-            <TabsTab value="files" className="flex h-full flex-1 gap-2 text-[12px] font-semibold transition-all">
-              <File className="size-3.5" />
-              <span>{t("globalSearch.tabs.files")}</span>
-            </TabsTab>
-            <TabsTab value="code" className="flex h-full flex-1 gap-2 text-[12px] font-semibold transition-all">
-              <Code className="size-3.5" />
-              <span>{t("globalSearch.tabs.code")}</span>
-            </TabsTab>
+      <div className="flex shrink-0 items-center px-3.5 py-2">
+        <Tabs
+          value={globalSearchTab}
+          onValueChange={(value) => setGlobalSearchTab(value as SearchTab)}
+          variant="pill"
+        >
+          <TabsList className="h-10 gap-1 p-1">
+            <TabsTrigger value="app" tabIndex={-1} className="h-8 gap-2 px-4 text-sm">
+              <Layers className="size-4 shrink-0" />
+              {t("globalSearch.tabs.app")}
+            </TabsTrigger>
+            <TabsTrigger value="files" tabIndex={-1} className="h-8 gap-2 px-4 text-sm">
+              <File className="size-4 shrink-0" />
+              {t("globalSearch.tabs.files")}
+            </TabsTrigger>
+            <TabsTrigger value="code" tabIndex={-1} className="h-8 gap-2 px-4 text-sm">
+              <Code className="size-4 shrink-0" />
+              {t("globalSearch.tabs.code")}
+            </TabsTrigger>
           </TabsList>
         </Tabs>
       </div>
@@ -472,7 +478,6 @@ export function GlobalSearchMainView({
         placeholder={t("globalSearch.placeholder")}
         value={searchQuery}
         onValueChange={setSearchQuery}
-        className="text-base"
       />
 
       <CommandList className="h-full max-h-none flex-1 rounded-t-[20px] bg-muted/50 pt-1 shadow-inner/5 dark:bg-black/60">

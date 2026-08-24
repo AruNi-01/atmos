@@ -94,6 +94,9 @@ describe("session + IR", () => {
     expect(payload.ir.version).toBe("pt-design-ir/1");
     expect(payload.instructions).toBe(HANDOFF_INSTRUCTIONS);
     expect(payload.instructions.length).toBeGreaterThan(40);
+    expect(HANDOFF_INSTRUCTIONS).not.toMatch(/prefer shadcn/i);
+    expect(HANDOFF_INSTRUCTIONS).toContain("UI component library the target project already uses");
+    expect(HANDOFF_INSTRUCTIONS).toContain("do not assume shadcn/ui");
     const live = session.buildHandoff({
       scope: "document",
       clientId: "global",
@@ -133,6 +136,23 @@ describe("session + IR", () => {
     const ir = encodeDesignIR(merged);
     const types = ir.freeNodes.map((n) => n.componentType).sort();
     expect(types).toEqual(["button", "input"]);
+  });
+
+  test("bbox w/h scales the instance and survives a later variant swap", () => {
+    const session = createPtDesignSession();
+    const { instanceId } = session.dispatch({
+      type: "place",
+      componentType: "card",
+      at: { x: 0, y: 0 },
+    });
+    session.dispatch({
+      type: "update",
+      instanceId: instanceId!,
+      bbox: { w: 420, h: 176 },
+    });
+    expect(session.getIR().freeNodes[0]?.bbox).toMatchObject({ w: 420, h: 176 });
+    session.dispatch({ type: "update", instanceId: instanceId!, variant: "default" });
+    expect(session.getIR().freeNodes[0]?.bbox).toMatchObject({ w: 420, h: 176 });
   });
 
   test("variant update keeps instanceId", () => {

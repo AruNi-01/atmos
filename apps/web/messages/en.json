@@ -175,6 +175,18 @@
       "open": "Open",
       "creatingHint": "Preparing the worktree. Setup details appear once the workspace exists."
     },
+    "centerSpace": {
+      "buttonLabel": "Spaces",
+      "buttonCountAria": "{count} spaces",
+      "defaultSpace": "Default",
+      "noPreview": "No preview yet",
+      "deleteSpace": "Delete {name}",
+      "deleteConfirmTitle": "Delete {name}?",
+      "deleteConfirmDescription": "Open tabs and terminals in this space will close.",
+      "deleteConfirmCancel": "Cancel",
+      "deleteConfirmAction": "Delete",
+      "limitReached": "Space limit reached"
+    },
     "searchAria": "Search",
     "searchPlaceholder": "Search...",
     "projectFallback": "Atmosphere for Agentic Builders",
@@ -371,14 +383,27 @@
       "newPtDesign": "Prototype Design",
       "newFiles": "Files",
       "newSimulator": "Simulator",
+      "fullscreen": "Fullscreen",
+      "exitFullscreen": "Exit fullscreen",
       "splitRight": "Split right",
       "splitDown": "Split down",
       "layouts": "Layouts",
+      "plusMenuTabs": "Tabs",
+      "plusMenuLayout": "Layout",
+      "newSpace": "New space",
+      "newSpaceDialogTitle": "New space",
+      "newSpaceNamePlaceholder": "Space name",
+      "newSpaceConfirm": "Create",
+      "newSpaceCancel": "Cancel",
       "saveCurrentLayout": "Save current layout",
       "saveLayoutDialogTitle": "Save layout",
       "saveLayoutNamePlaceholder": "Layout name",
       "saveLayoutConfirm": "Save",
       "saveLayoutCancel": "Cancel",
+      "applyLayoutConfirmTitle": "Replace current layout?",
+      "applyLayoutConfirmDescription": "This replaces the current center split and open tabs, except Overview. Editor, PR, issue, and diff tabs will close.",
+      "applyLayoutConfirm": "Replace",
+      "applyLayoutCancel": "Cancel",
       "closePane": "Close",
       "newTabMenu": "New tab",
       "changes": "Changes",
@@ -607,6 +632,18 @@
       "errors": {
         "loadOverviewFallback": "Failed to load token usage overview",
         "loadOverviewTitle": "Failed to load token usage"
+      },
+      "computerScope": {
+        "allComputers": "All computers",
+        "loadOtherError": "Could not reach this Computer.",
+        "missedComputer": "{name} was not included",
+        "missedBanner": "Some Computers could not be reached. Totals are only for machines that answered.",
+        "noneReached": "Could not reach any Computer.",
+        "aggregatedTooltip": "Aggregated from {count} computers",
+        "hintSignIn": "Sign in",
+        "hintSignInTooltip": "Sign in, then add another Computer, to include local token usage from each machine.",
+        "hintAddComputer": "Add Computer",
+        "hintAddComputerTooltip": "Add another Computer in Settings to include local token usage from each machine."
       },
       "browserCookie": {
         "title": "Include signed-in web usage",
@@ -3148,6 +3185,29 @@
     }
   },
   "ptDesign": {
+    "agentIsland": {
+      "working": "Agent working on Prototype Design",
+      "idle": "Prototype Design agent activity",
+      "history": "Prototype Design agent activity history",
+      "openScreenshotPreview": "Open agent screenshot preview",
+      "screenshotPreviewAlt": "Screenshot of the Prototype Design board"
+    },
+    "agentFeedLabels": {
+      "readingBoard": "Reading board",
+      "capturingScreenshot": "Capturing screenshot",
+      "placingComponent": "Placing component",
+      "placingNamed": "Placing {type}",
+      "editingComponent": "Editing component",
+      "deletingComponents": "Deleting components",
+      "creatingFrame": "Creating frame",
+      "editingFrame": "Editing frame",
+      "deletingFrame": "Deleting frame",
+      "arrangingLayout": "Arranging layout",
+      "batchingCommands": "Batching board commands",
+      "applyingDesign": "Applying design",
+      "exportingBoard": "Exporting board",
+      "workingOnBoard": "Working on board"
+    },
     "share": {
       "title": "Collaborate",
       "nameLabel": "Your name",
@@ -3701,15 +3761,15 @@
           "questionMark": "?",
           "spinUpNext": {
             "prefix": "What do you want",
-            "suffix": "to spin up next?"
+            "suffix": "to spin up next"
           },
           "startBuildingWithYou": {
             "prefix": "What should",
-            "suffix": "start building with you?"
+            "suffix": "start building with you"
           },
           "deservesWorkspace": {
             "prefix": "What idea deserves an",
-            "suffix": "workspace?"
+            "suffix": "workspace"
           }
         }
       },
@@ -5621,18 +5681,15 @@
             "newWorkspaceOverlay": "New workspace overlay",
             "toggleCanvasOverlay": "Toggle Canvas overlay",
             "expandKanbanOverlay": "Expand Kanban overlay",
-            "openOrCreateWorkspace": "Open / create workspace (in new workspace overlay)"
+            "openOrCreateWorkspace": "Open / create workspace (in new workspace overlay)",
+            "listByPosition": "Switch to the project or workspace at that position"
           }
         },
         "centerStageTabs": {
           "title": "Center Stage Tabs",
           "items": {
             "overview": "Switch to Overview tab",
-            "fixedTerminal": "Switch to Fixed Terminal tab",
-            "terminal1": "Switch to terminal tab 1",
-            "terminal2": "Switch to terminal tab 2",
-            "terminal3": "Switch to terminal tab 3",
-            "terminal4": "Switch to terminal tab 4"
+            "tabByPosition": "Switch to the tab at that position"
           }
         },
         "terminal": {
@@ -6529,6 +6586,7 @@
       }
     },
     "browser": {
+      "developmentWarning": "Browser Use is still in active development. You may encounter bugs or incomplete behavior.",
       "groups": {
         "placement": {
           "title": "Placement",
@@ -6599,6 +6657,7 @@
       "label": "Desktop Use",
       "description": "Capture and control the local desktop (screenshot, click, type)",
       "desktopOnly": "Desktop Use is only available in Atmos Desktop.",
+      "developmentWarning": "Desktop Use is still in active development. You may encounter bugs or incomplete behavior.",
       "status": {
         "webOnly": "Desktop only"
       },
@@ -9418,6 +9477,7 @@
     },
     "actions": {
       "newTerminal": "New Terminal",
+      "closeTerminal": "Close {tab}",
       "stop": "Stop",
       "run": "Run",
       "configureScripts": "Configure Scripts"
@@ -9728,11 +9788,11 @@
     "errorBreakout": {
       "notFound": {
         "description": "Sorry, the page you're looking for could not be found.",
-        "home": "GO BACK HOME"
+        "home": "Go back home"
       },
       "server": {
         "description": "Sorry, something went wrong in Atmos.",
-        "retry": "TRY AGAIN",
+        "retry": "Try again",
         "home": "Go back home"
       },
       "canvasLabel": {

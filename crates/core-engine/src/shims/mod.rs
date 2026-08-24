@@ -517,6 +517,76 @@ fi
 
     #[cfg(unix)]
     #[test]
+    fn test_zsh_startup_leaves_exec_builtin_for_fd_redirection() {
+        use std::process::Command;
+
+        if !Path::new("/bin/zsh").exists() {
+            return;
+        }
+
+        let temp = tempfile::tempdir().unwrap();
+        let shims_dir = temp.path().join("shims");
+        install_into(&shims_dir).unwrap();
+
+        std::fs::write(
+            temp.path().join(".zshrc"),
+            r#"
+exec {__atmos_test_fd}>&1 || {
+    print -r -- "fd-exec-failed"
+    return
+}
+print -r -- "fd=${__atmos_test_fd}"
+print -r -- "execfn=${+functions[exec]}"
+"#,
+        )
+        .unwrap();
+
+        let output = Command::new("/bin/zsh")
+            .args([
+                "-i",
+                "-c",
+                r#"print -r -- "zdotdir=$ZDOTDIR"; print -r -- "histfile=$HISTFILE""#,
+            ])
+            .env("HOME", temp.path())
+            .env("ZDOTDIR", shims_dir.join("zdotdir"))
+            .env("ATMOS_SHIMS_BIN", shims_dir.join("bin"))
+            .env("PATH", "/usr/bin:/bin")
+            .env("TMUX", "/tmp/tmux,1,0")
+            .env("TMUX_PANE", "%1")
+            .output()
+            .unwrap();
+
+        assert!(output.status.success(), "{output:?}");
+        let stdout = String::from_utf8(output.stdout).unwrap();
+        let expected_zdotdir = format!("zdotdir={}", temp.path().display());
+        let expected_histfile = format!("histfile={}/.zsh_history", temp.path().display());
+        let lines: Vec<&str> = stdout.lines().collect();
+        assert!(
+            lines
+                .iter()
+                .any(|line| line.starts_with("fd=") && *line != "fd="),
+            "expected allocated fd, got {stdout:?}"
+        );
+        assert!(
+            lines.contains(&"execfn=0"),
+            "exec must remain a builtin during user zshrc: {stdout:?}"
+        );
+        assert!(
+            lines.contains(&expected_zdotdir.as_str()),
+            "ZDOTDIR should be restored to HOME after startup: {stdout:?}"
+        );
+        assert!(
+            lines.contains(&expected_histfile.as_str()),
+            "HISTFILE should not stay in the managed ZDOTDIR: {stdout:?}"
+        );
+        assert!(
+            !stdout.contains("fd-exec-failed"),
+            "gitstatus-style exec {{fd}}>&1 must succeed: {stdout:?}"
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
     fn test_grok_wrapper_preserves_empty_path_component() {
         use std::os::unix::fs::PermissionsExt;
         use std::process::Command;

@@ -160,7 +160,7 @@ export function LeftSidebarPinnedSection({
           onMouseEnter={() => onDividerHoverChange(true)}
           onMouseLeave={() => onDividerHoverChange(false)}
           className={cn(
-            "relative flex items-center gap-1 cursor-pointer transition-colors duration-200",
+            "relative flex items-center gap-1 cursor-pointer",
             isDividerHovered ? "text-sidebar-foreground" : "text-muted-foreground",
           )}
         >

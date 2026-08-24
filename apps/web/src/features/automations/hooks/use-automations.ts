@@ -108,7 +108,7 @@ export function useAutomations() {
 
   const refreshAutomation = React.useCallback(
     async (automationGuid: string) => {
-      const detail = await wsRequest<AutomationDetail>("automation_get", {
+      const detail = await wsRequest("automation_get", {
         automation_guid: automationGuid,
       });
       upsertAutomation(detail);
@@ -118,45 +118,45 @@ export function useAutomations() {
   );
 
   const getAutomation = React.useCallback((automationGuid: string) => {
-    return wsRequest<AutomationDetail>("automation_get", {
+    return wsRequest("automation_get", {
       automation_guid: automationGuid,
     });
   }, []);
 
   const createAutomation = React.useCallback((request: AutomationCreateRequest) => {
-    return wsRequest<AutomationDetail>("automation_create", request);
+    return wsRequest("automation_create", request);
   }, []);
 
   const updateAutomation = React.useCallback((request: AutomationUpdateRequest) => {
-    return wsRequest<AutomationDetail>("automation_update", request);
+    return wsRequest("automation_update", request);
   }, []);
 
   const deleteAutomation = React.useCallback((automationGuid: string) => {
-    return wsRequest<{ ok: boolean }>("automation_delete", {
+    return wsRequest("automation_delete", {
       automation_guid: automationGuid,
     });
   }, []);
 
   const runNow = React.useCallback((automationGuid: string) => {
-    return wsRequest<AutomationRunDetail>("automation_run_now", {
+    return wsRequest("automation_run_now", {
       automation_guid: automationGuid,
     });
   }, []);
 
   const pauseAutomation = React.useCallback((automationGuid: string) => {
-    return wsRequest<AutomationDetail>("automation_pause", {
+    return wsRequest("automation_pause", {
       automation_guid: automationGuid,
     });
   }, []);
 
   const resumeAutomation = React.useCallback((automationGuid: string) => {
-    return wsRequest<AutomationDetail>("automation_resume", {
+    return wsRequest("automation_resume", {
       automation_guid: automationGuid,
     });
   }, []);
 
   const listRuns = React.useCallback((automationGuid: string, limit = 50, pageToken?: string) => {
-    return wsRequest<AutomationRunListResponse>("automation_run_list", {
+    return wsRequest("automation_run_list", {
       automation_guid: automationGuid,
       limit,
       page_token: pageToken,
@@ -164,33 +164,33 @@ export function useAutomations() {
   }, []);
 
   const getRun = React.useCallback((runGuid: string) => {
-    return wsRequest<AutomationRunDetail>("automation_run_get", {
+    return wsRequest("automation_run_get", {
       run_guid: runGuid,
     });
   }, []);
 
   const cancelRun = React.useCallback((runGuid: string) => {
-    return wsRequest<AutomationRunDetail>("automation_cancel_run", {
+    return wsRequest("automation_cancel_run", {
       run_guid: runGuid,
     });
   }, []);
 
   const getArtifact = React.useCallback((runGuid: string, artifact: AutomationArtifactKind) => {
-    return wsRequest<AutomationArtifactResponse>("automation_artifact_get", {
+    return wsRequest("automation_artifact_get", {
       run_guid: runGuid,
       artifact,
     });
   }, []);
 
   const continueInTerminal = React.useCallback((runGuid: string) => {
-    return wsRequest<AutomationContinueInTerminalResponse>("automation_continue_in_terminal", {
+    return wsRequest("automation_continue_in_terminal", {
       run_guid: runGuid,
     });
   }, []);
 
   const schedulePreview = React.useCallback(
     (schedule: AutomationScheduleInput, timezone: string, count = 5) => {
-      return wsRequest<AutomationSchedulePreviewResponse>("automation_schedule_preview", {
+      return wsRequest("automation_schedule_preview", {
         schedule,
         timezone,
         count,

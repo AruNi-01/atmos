@@ -175,6 +175,18 @@
       "open": "打开",
       "creatingHint": "正在预留工作树。工作区就绪后会显示完整初始化进度。"
     },
+    "centerSpace": {
+      "buttonLabel": "空间",
+      "buttonCountAria": "{count} 个空间",
+      "defaultSpace": "Default",
+      "noPreview": "暂无预览",
+      "deleteSpace": "删除 {name}",
+      "deleteConfirmTitle": "删除 {name}？",
+      "deleteConfirmDescription": "该空间中打开的标签页和终端会被关闭。",
+      "deleteConfirmCancel": "取消",
+      "deleteConfirmAction": "删除",
+      "limitReached": "已达到空间数量上限"
+    },
     "searchAria": "搜索",
     "searchPlaceholder": "搜索...",
     "projectFallback": "Atmosphere for Agentic Builders",
@@ -371,14 +383,27 @@
       "newPtDesign": "Prototype Design",
       "newFiles": "文件",
       "newSimulator": "模拟器",
+      "fullscreen": "全屏",
+      "exitFullscreen": "退出全屏",
       "splitRight": "向右分屏",
       "splitDown": "向下分屏",
       "layouts": "布局",
+      "plusMenuTabs": "标签",
+      "plusMenuLayout": "布局",
+      "newSpace": "新建空间",
+      "newSpaceDialogTitle": "新建空间",
+      "newSpaceNamePlaceholder": "空间名称",
+      "newSpaceConfirm": "创建",
+      "newSpaceCancel": "取消",
       "saveCurrentLayout": "保存当前布局",
       "saveLayoutDialogTitle": "保存布局",
       "saveLayoutNamePlaceholder": "布局名称",
       "saveLayoutConfirm": "保存",
       "saveLayoutCancel": "取消",
+      "applyLayoutConfirmTitle": "替换当前布局？",
+      "applyLayoutConfirmDescription": "将用所选布局替换当前 center 分屏和已打开的标签（Overview 除外）。编辑器、PR、Issue 和 diff 等标签会被关闭。",
+      "applyLayoutConfirm": "替换",
+      "applyLayoutCancel": "取消",
       "closePane": "关闭",
       "newTabMenu": "新建标签页",
       "changes": "变更",
@@ -607,6 +632,18 @@
       "errors": {
         "loadOverviewFallback": "加载 Token 用量概览失败",
         "loadOverviewTitle": "加载 Token 用量失败"
+      },
+      "computerScope": {
+        "allComputers": "全部 Computer",
+        "loadOtherError": "无法连接到这台 Computer。",
+        "missedComputer": "未计入 {name}",
+        "missedBanner": "有的 Computer 没连上，合计只包含已扫到的机器。",
+        "noneReached": "没有任何 Computer 可以连接。",
+        "aggregatedTooltip": "来自 {count} 台 Computer 的合计",
+        "hintSignIn": "登录",
+        "hintSignInTooltip": "登录后再添加另一台 Computer，即可合计各台机器的本地 Token 用量。",
+        "hintAddComputer": "添加 Computer",
+        "hintAddComputerTooltip": "在设置里再添加一台 Computer，即可合计各台机器的本地 Token 用量。"
       },
       "browserCookie": {
         "title": "包含已登录网页用量",
@@ -3148,6 +3185,29 @@
     }
   },
   "ptDesign": {
+    "agentIsland": {
+      "working": "Agent 正在操作原型板",
+      "idle": "原型板 Agent 活动",
+      "history": "原型板 Agent 活动历史",
+      "openScreenshotPreview": "打开 Agent 截图预览",
+      "screenshotPreviewAlt": "原型板截图"
+    },
+    "agentFeedLabels": {
+      "readingBoard": "正在读取画板",
+      "capturingScreenshot": "正在截图",
+      "placingComponent": "正在放置组件",
+      "placingNamed": "正在放置 {type}",
+      "editingComponent": "正在编辑组件",
+      "deletingComponents": "正在删除组件",
+      "creatingFrame": "正在创建画板",
+      "editingFrame": "正在编辑画板",
+      "deletingFrame": "正在删除画板",
+      "arrangingLayout": "正在排列布局",
+      "batchingCommands": "正在批量更新画板",
+      "applyingDesign": "正在应用设计",
+      "exportingBoard": "正在导出画板",
+      "workingOnBoard": "正在操作画板"
+    },
     "share": {
       "title": "协作",
       "nameLabel": "你的名称",
@@ -3698,18 +3758,18 @@
           "comeAlive": {
             "prefix": "你希望什么在"
           },
-          "questionMark": "里活起来？",
+          "questionMark": "里活起来",
           "spinUpNext": {
             "prefix": "你想让",
-            "suffix": "接下来启动什么？"
+            "suffix": "接下来启动什么"
           },
           "startBuildingWithYou": {
             "prefix": "你希望",
-            "suffix": "和你一起开始构建什么？"
+            "suffix": "和你一起开始构建什么"
           },
           "deservesWorkspace": {
             "prefix": "什么想法值得拥有一个",
-            "suffix": "工作区？"
+            "suffix": "工作区"
           }
         }
       },
@@ -5621,18 +5681,15 @@
             "newWorkspaceOverlay": "新建工作区浮层",
             "toggleCanvasOverlay": "切换 Canvas 浮层",
             "expandKanbanOverlay": "展开看板浮层",
-            "openOrCreateWorkspace": "打开 / 创建工作区（在新建工作区浮层中）"
+            "openOrCreateWorkspace": "打开 / 创建工作区（在新建工作区浮层中）",
+            "listByPosition": "按列表位置切换项目或工作区"
           }
         },
         "centerStageTabs": {
           "title": "Center Stage 标签页",
           "items": {
             "overview": "切换到总览标签页",
-            "fixedTerminal": "切换到固定终端标签页",
-            "terminal1": "切换到终端标签页 1",
-            "terminal2": "切换到终端标签页 2",
-            "terminal3": "切换到终端标签页 3",
-            "terminal4": "切换到终端标签页 4"
+            "tabByPosition": "按标签页位置切换"
           }
         },
         "terminal": {
@@ -6529,6 +6586,7 @@
       }
     },
     "browser": {
+      "developmentWarning": "Browser Use 仍在积极开发中，可能会遇到缺陷或不完整的行为。",
       "groups": {
         "placement": {
           "title": "打开位置",
@@ -6599,6 +6657,7 @@
       "label": "Desktop Use",
       "description": "本机桌面捕获与控制（截图、点击、输入）",
       "desktopOnly": "Desktop Use 仅在 Atmos 桌面端可用。",
+      "developmentWarning": "Desktop Use 仍在积极开发中，可能会遇到缺陷或不完整的行为。",
       "status": {
         "webOnly": "仅桌面端"
       },
@@ -9418,6 +9477,7 @@
     },
     "actions": {
       "newTerminal": "新建终端",
+      "closeTerminal": "关闭{tab}",
       "stop": "停止",
       "run": "运行",
       "configureScripts": "配置脚本"

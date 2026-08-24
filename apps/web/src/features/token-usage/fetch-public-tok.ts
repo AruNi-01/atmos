@@ -28,6 +28,7 @@ export type PublicLeaderboardEntry = {
   github_username: string | null;
   x_username: string | null;
   value: number;
+  computer_count?: number;
 };
 
 export type PublicLeaderboards = {
@@ -139,6 +140,7 @@ function rankedPreviewRows(values: number[]): PublicLeaderboardEntry[] {
       avatar_url: null,
       ...previewSocials(index, handle),
       value,
+      ...(index % 5 === 0 ? { computer_count: 3 } : {}),
     };
   });
 }

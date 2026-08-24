@@ -83,7 +83,7 @@ export const FileTreePanel: React.FC<FileTreePanelProps> = ({
   return (
     <div className="flex flex-col h-full min-h-0">
       {projectName && (
-        <div className="flex items-center justify-between px-3 py-1.5 border-b border-sidebar-border shrink-0">
+        <div className="flex items-center justify-between px-3 py-1.5 shrink-0">
           <span className="text-[12px] font-medium text-muted-foreground truncate">
             {projectName}
           </span>
@@ -92,7 +92,7 @@ export const FileTreePanel: React.FC<FileTreePanelProps> = ({
               type="button"
               onClick={() => handleShowHiddenChange(!effectiveShowHidden)}
               className={cn(
-                "p-1 hover:bg-sidebar-accent rounded-sm transition-colors",
+                "p-1 hover:bg-sidebar-accent rounded-sm",
                 effectiveShowHidden
                   ? "text-sidebar-foreground bg-sidebar-accent"
                   : "text-muted-foreground",
@@ -114,7 +114,7 @@ export const FileTreePanel: React.FC<FileTreePanelProps> = ({
               onClick={() => {
                 void effectiveRefresh();
               }}
-              className="p-1 hover:bg-sidebar-accent rounded-sm transition-colors"
+              className="p-1 hover:bg-sidebar-accent rounded-sm"
               title={t("fileTreePanel.actions.refreshFiles")}
               disabled={effectiveIsLoading || isRefreshInFlight}
               aria-busy={effectiveIsLoading || isRefreshInFlight}

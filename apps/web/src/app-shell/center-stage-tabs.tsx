@@ -35,6 +35,7 @@ import {
   TERMINAL_TAB_VALUE_PREFIX,
   useTerminalStore,
 } from "@/features/terminal/store/use-terminal-store";
+import { stableAgentPaneId } from "@/features/terminal/store/terminal-store-helpers";
 import { cn } from "@/shared/lib/utils";
 
 /** Cap each group column so long labels truncate instead of stretching the popover. */
@@ -44,7 +45,10 @@ export {
   FIXED_TABS,
   shouldSkipLastTabRestoreForUrlTab,
 } from "@/app-shell/center-stage-fixed-tabs";
-export const CENTER_TERMINAL_SHORTCUT_LIMIT = 5;
+export {
+  CENTER_STRIP_POSITION_HOTKEYS,
+  CENTER_STRIP_SHORTCUT_LIMIT,
+} from "@/app-shell/center-stage-tab-model";
 
 export type TabGroupItem = {
   id: string;
@@ -178,7 +182,7 @@ export function TerminalTabAgentIndicatorWithPanes({ contextId, tabId }: { conte
     useShallow((s) => {
       const panes = s.getPanes(contextId, tabId);
       return Object.values(panes)
-        .map((p) => (p.tmuxWindowName ? `${contextId}:${p.tmuxWindowName}` : null))
+        .map((p) => (p.tmuxWindowName ? stableAgentPaneId(contextId, p.tmuxWindowName) : null))
         .filter((id): id is string => id !== null);
     })
   );
@@ -517,6 +521,22 @@ export function ShortcutHint({ digit }: { digit: number | string }) {
       <Command className="size-3" />
       <span className="text-xs">{digit}</span>
     </kbd>
+  );
+}
+
+export function CenterStageShortcutTooltipBody({
+  children,
+  digit,
+}: {
+  children: React.ReactNode;
+  digit?: number | string | null;
+}) {
+  if (digit == null || digit === "") return children;
+  return (
+    <div className="flex items-center gap-2">
+      {children}
+      <ShortcutHint digit={digit} />
+    </div>
   );
 }
 

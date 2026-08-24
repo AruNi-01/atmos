@@ -47,6 +47,8 @@ describe("APP-059 Browser settings wiring", () => {
     expect(section).not.toContain("defaultSurface");
     expect(section).toContain("groups.agent");
     expect(section).toContain("BrowserCookiesSettingsCard");
+    expect(section).toContain("SettingsExperimentalNotice");
+    expect(section).toContain('t("developmentWarning")');
     expect(section).not.toContain("downloads");
     expect(section).not.toContain("~/Downloads");
   });

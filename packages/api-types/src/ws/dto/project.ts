@@ -39,3 +39,56 @@ export type ProjectWorkspaceBootstrapResponse = {
   workspaces_by_project: Record<string, WorkspaceModel[]>;
   groups?: GroupModel[];
 };
+
+export type ProjectCreateRequest = {
+  name: string;
+  main_file_path: string;
+  sidebar_order?: number;
+  border_color?: string | null;
+};
+
+export type ProjectUpdateRequest = {
+  guid: string;
+  name?: string | null;
+  border_color?: string | null;
+  logo_path?: string | null;
+  sidebar_order?: number | null;
+};
+
+export type ProjectGuidRequest = {
+  guid: string;
+};
+
+export type ProjectUpdateTargetBranchRequest = {
+  guid: string;
+  target_branch?: string | null;
+};
+
+export type ProjectUpdateOrderRequest = {
+  guid: string;
+  sidebar_order: number;
+};
+
+export type ProjectValidatePathRequest = {
+  path: string;
+};
+
+export type ProjectCheckCanDeleteResponse = {
+  can_delete: boolean;
+  active_workspace_count: number;
+};
+
+export type ScriptGetRequest = {
+  project_guid: string;
+};
+
+export type ScriptSaveRequest = {
+  project_guid: string;
+  scripts: Record<string, string>;
+};
+
+export type ProjectScriptTrustRequest = {
+  project_guid: string;
+  hash: string;
+  workspace_id?: string | null;
+};

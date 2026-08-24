@@ -438,7 +438,7 @@ function TokenField({
         role="group"
         className={cn(
           "flex min-h-9 w-full flex-wrap items-center gap-1.5 rounded-md border border-input bg-background px-2 py-1 shadow-xs",
-          "transition-[color,box-shadow] focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50",
+          "transition-shadow focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50",
         )}
         onClick={() => inputRef.current?.focus()}
       >
@@ -451,7 +451,7 @@ function TokenField({
             <span className="truncate">{token}</span>
             <button
               type="button"
-              className="rounded-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               aria-label={t("removeTokenAria", { token })}
               onClick={(event) => {
                 event.stopPropagation();

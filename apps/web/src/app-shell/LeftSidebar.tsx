@@ -98,6 +98,12 @@ import { useLeftSidebarFileTreeSync } from '@/app-shell/use-left-sidebar-file-tr
 import { useLeftSidebarTwoColumnResize } from '@/app-shell/use-left-sidebar-two-column-resize';
 import { useLeftSidebarWorkspaceDerived } from '@/app-shell/use-left-sidebar-workspace-derived';
 import { useLeftSidebarWorkspaceRenderers } from '@/app-shell/use-left-sidebar-workspace-renderers';
+import {
+    collectSidebarShortcutTargets,
+    isCenterStageHotkeyTarget,
+    SIDEBAR_STRIP_POSITION_HOTKEYS,
+} from '@/app-shell/shortcut-prefix';
+import { centerStripShortcutDigitFromEvent } from '@/app-shell/center-stage-tab-model';
 import { useLeftSidebarDragHandlers } from '@/app-shell/use-left-sidebar-drag-handlers';
 import {
     filterProjectsByAttention,
@@ -1009,6 +1015,25 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         [router],
     );
 
+    useHotkeys(
+        SIDEBAR_STRIP_POSITION_HOTKEYS,
+        (event) => {
+            if (!isCenterStageHotkeyTarget(event.target)) return;
+            const digit = centerStripShortcutDigitFromEvent(event);
+            if (digit == null) return;
+            const target = collectSidebarShortcutTargets(document)[digit - 1];
+            if (!target) return;
+            event.preventDefault();
+            if (target.kind === "workspace") {
+                router.push(`/workspace?id=${target.id}`);
+                return;
+            }
+            router.push(`/project?id=${target.id}`);
+        },
+        { enableOnContentEditable: true, enableOnFormTags: true },
+        [router],
+    );
+
     const handleQuickAddWorkspace = async (projectId: string) => {
         const jobId = startCreating({
             originKey: getWorkspaceCreateOriginKey({
@@ -1495,7 +1520,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                             </div>
                             <button
                                 type="button"
-                                className="shrink-0 rounded-md px-2 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                                className="shrink-0 rounded-md px-2 py-1 text-[11px] font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
                                 onClick={() => useAgentAttentionStore.getState().setFilterMode(false)}
                             >
                                 {attentionT('clearFilter')}
@@ -1508,6 +1533,9 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                             "flex min-h-0 flex-1 flex-col overflow-hidden",
                             isTwoColumnSidebar ? "pt-0 pb-0" : "pt-1.5 pb-3",
                         )}
+                        {...(isTwoColumnSidebar
+                            ? {}
+                            : { "data-sidebar-shortcut-scope": "list" })}
                     >
                         {!isTwoColumnSidebar ? pinnedWorkspaceSection : null}
                         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">

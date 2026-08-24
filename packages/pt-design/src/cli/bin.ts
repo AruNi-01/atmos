@@ -112,14 +112,42 @@ export async function runCli(argv = process.argv.slice(2)): Promise<number> {
       args.props = parseProps(parsed.flags);
       args.frame = parsed.flags.frame;
       args.variant = parsed.flags.variant;
+      args.mode = parsed.flags.mode;
+      args.below = parsed.flags.below;
+      args.rightOf = parsed.flags.rightOf;
     }
     if (name === "pt_update") {
       args.instanceId = rest[0] ?? parsed.flags.instanceId;
       args.props = parseProps(parsed.flags);
       args.variant = parsed.flags.variant;
+      if (parsed.flags.x != null || parsed.flags.y != null || parsed.flags.w != null || parsed.flags.h != null) {
+        args.bbox = {
+          x: parsed.flags.x,
+          y: parsed.flags.y,
+          w: parsed.flags.w,
+          h: parsed.flags.h,
+        };
+      }
+      args.frameId = parsed.flags.frameId ?? parsed.flags.frame;
     }
     if (name === "pt_delete") {
       args.instanceId = rest[0] ?? parsed.flags.instanceId;
+    }
+    if (name === "pt_frame_update" || name === "pt_frame_delete") {
+      args.frameId = rest[0] ?? parsed.flags.frameId ?? parsed.flags.frame;
+    }
+    if (name === "pt_layout_row" || name === "pt_layout_column" || name === "pt_layout_grid") {
+      args.instanceIds =
+        typeof parsed.flags.instanceIds === "string"
+          ? parsed.flags.instanceIds.split(",").map((id) => id.trim()).filter(Boolean)
+          : rest;
+    }
+    if (name === "pt_batch" && typeof parsed.flags.ops === "string") {
+      try {
+        args.ops = JSON.parse(parsed.flags.ops);
+      } catch {
+        throw new PtDesignError(PT_ERROR_CODES.INVALID_JSON, "Invalid --ops JSON");
+      }
     }
     if (name === "pt_handoff") {
       args.scope = parsed.flags.scope ?? "document";

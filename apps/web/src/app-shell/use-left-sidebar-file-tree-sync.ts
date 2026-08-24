@@ -1,9 +1,8 @@
 import { useEffect } from "react";
-import { useQueryStates } from "nuqs";
 import { useEditorStore } from "@/features/editor/store/use-editor-store";
 import { useFileTreeStore } from "@/features/files/store/use-file-tree-store";
-import { centerStageParams } from "@/shared/lib/nuqs/searchParams";
-import { useToolCenterTabsStore } from "@/app-shell/center-tool-tabs";
+import { activateCenterChromeTab } from "@/app-shell/center-stage-activate";
+import { useCenterPaintContextId } from "@/app-shell/center-space/use-center-paint-context-id";
 
 function normalizePathForContainment(path: string): string {
   const normalized = path.replace(/\\/g, "/");
@@ -30,10 +29,8 @@ export function useLeftSidebarFileTreeSync({
 }: UseLeftSidebarFileTreeSyncParams) {
   const setCurrentProjectPath = useEditorStore((s) => s.setCurrentProjectPath);
   const fileTreeRevealTarget = useEditorStore((s) => s.fileTreeRevealTarget);
-  const setActiveFile = useEditorStore((s) => s.setActiveFile);
   const setContext = useFileTreeStore((s) => s.setContext);
-  const openToolTab = useToolCenterTabsStore((s) => s.open);
-  const [, setCenterStageParams] = useQueryStates(centerStageParams);
+  const paintContextId = useCenterPaintContextId();
 
   // Keep the file-tree query key bound to the live workspace so the center
   // Files tab can render as soon as it opens.
@@ -80,15 +77,12 @@ export function useLeftSidebarFileTreeSync({
     ) {
       return;
     }
-    openToolTab(effectiveContextId, "files");
-    setActiveFile(null, effectiveContextId);
-    void setCenterStageParams({ tab: "files", wikiPage: null });
+    const targetContextId = paintContextId || effectiveContextId;
+    activateCenterChromeTab(targetContextId, "files");
   }, [
     currentEffectivePath,
     effectiveContextId,
     fileTreeRevealTarget,
-    openToolTab,
-    setActiveFile,
-    setCenterStageParams,
+    paintContextId,
   ]);
 }

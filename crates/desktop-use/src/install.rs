@@ -499,9 +499,9 @@ fn install_host_app(src: &Path, dest: &Path, manifest: &EngineManifest) -> Resul
 
 /// Rebrand an already-extracted host app: Atmos name/bundle id + product icon.
 ///
-/// **Idempotent:** skips rewrite + codesign when branding is already correct so we
-/// do not rotate the ad-hoc signature (macOS TCC is keyed to code identity and
-/// re-signing would drop Accessibility / Screen Recording grants).
+/// **Idempotent:** skips rewrite when branding is already correct.
+/// Ad-hoc **codesign** only when Info.plist identity changed — icon-only
+/// updates must not rotate cdhash (macOS TCC is keyed to code identity).
 pub fn rebrand_existing_host_app(dest: &Path, manifest: &EngineManifest) -> Result<(), String> {
     if !dest.is_dir() {
         return Err(scrub_vendor("host app path is not a directory"));
@@ -510,34 +510,39 @@ pub fn rebrand_existing_host_app(dest: &Path, manifest: &EngineManifest) -> Resu
     // Product-named spawn alias (no codesign). Safe on already-granted hosts.
     let _ = ensure_host_serve_alias(dest);
 
-    let mut dirty = false;
+    let mut plist_dirty = false;
+    let mut icon_dirty = false;
     let plist = dest.join("Contents").join("Info.plist");
     if plist.is_file() && host_plist_needs_rebrand(&plist, manifest) {
         rewrite_host_plist(&plist, manifest)?;
-        dirty = true;
+        plist_dirty = true;
     }
     if host_icon_needs_replace(dest) {
         apply_host_app_icon(dest)?;
-        dirty = true;
+        icon_dirty = true;
+    }
+    if clear_host_icon_catalog_name(dest) {
+        icon_dirty = true;
     }
 
-    if !dirty {
+    if !plist_dirty && !icon_dirty {
         return Ok(());
     }
 
-    // Ad-hoc sign only when branding bits changed.
     #[cfg(target_os = "macos")]
     {
-        let _ = Command::new("codesign")
-            .args(["--force", "--deep", "-s", "-"])
-            .arg(dest)
-            .status();
-        // Refresh LaunchServices name + icon (best-effort).
+        // Re-signing drops Accessibility / Screen Recording. Only do it when
+        // the bundle identity (plist) changed, never for an icon swap.
+        if plist_dirty {
+            let _ = Command::new("codesign")
+                .args(["--force", "--deep", "-s", "-"])
+                .arg(dest)
+                .status();
+        }
         let _ = Command::new("/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister")
             .args(["-f"])
             .arg(dest)
             .status();
-        // Touch bundle so Finder/Dock icon cache notices the change.
         let _ = Command::new("touch").arg(dest).status();
     }
 
@@ -577,6 +582,37 @@ fn host_plist_needs_rebrand(plist: &Path, manifest: &EngineManifest) -> bool {
     false
 }
 
+/// Drop `CFBundleIconName` when the host has no Assets.car.
+///
+/// Existing installs kept IconName=AppIcon from the vendor plist. LaunchServices
+/// then served the pre-planet concentric plate from its catalog cache even after
+/// AppIcon.icns was replaced. Not an identity change — do not codesign.
+fn clear_host_icon_catalog_name(dest: &Path) -> bool {
+    let assets = dest.join("Contents").join("Resources").join("Assets.car");
+    if assets.exists() {
+        return false;
+    }
+    let plist = dest.join("Contents").join("Info.plist");
+    if !plist.is_file() {
+        return false;
+    }
+    let present = Command::new("plutil")
+        .args(["-extract", "CFBundleIconName", "raw", "-o", "-"])
+        .arg(&plist)
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+    if !present {
+        return false;
+    }
+    Command::new("plutil")
+        .args(["-remove", "CFBundleIconName"])
+        .arg(&plist)
+        .status()
+        .map(|s| s.success())
+        .unwrap_or(false)
+}
+
 fn apply_host_app_icon(dest: &Path) -> Result<(), String> {
     let resources = dest.join("Contents").join("Resources");
     fs::create_dir_all(&resources).map_err(|e| scrub_vendor(&e.to_string()))?;
@@ -597,7 +633,6 @@ fn rewrite_host_plist(plist: &Path, manifest: &EngineManifest) -> Result<(), Str
         ("CFBundleExecutable", manifest.host_app_name.as_str()),
         ("CFBundleIdentifier", manifest.host_bundle_id.as_str()),
         ("CFBundleIconFile", "AppIcon"),
-        ("CFBundleIconName", "AppIcon"),
         (
             "NSScreenCaptureUsageDescription",
             "Atmos Desktop Use captures the screen so agents can see and help with the interface you ask them to control.",
@@ -620,6 +655,12 @@ fn rewrite_host_plist(plist: &Path, manifest: &EngineManifest) -> Result<(), Str
                 .status();
         }
     }
+    // No Assets.car in the rebranded host — IconName would keep a stale
+    // vendor catalog icon in Activity Monitor / System Settings.
+    let _ = Command::new("plutil")
+        .args(["-remove", "CFBundleIconName"])
+        .arg(plist)
+        .status();
     Ok(())
 }
 
@@ -745,6 +786,34 @@ mod tests {
         let written = fs::read(resources.join("AppIcon.icns")).unwrap();
         assert_eq!(written, HOST_APP_ICON_ICNS);
         assert!(!host_icon_needs_replace(&app));
+    }
+
+    #[test]
+    fn clear_host_icon_catalog_name_strips_stale_iconname() {
+        if !cfg!(target_os = "macos") {
+            return;
+        }
+        let dir = tempdir().unwrap();
+        let app = dir.path().join("Atmos Desktop Use.app");
+        let contents = app.join("Contents");
+        fs::create_dir_all(contents.join("Resources")).unwrap();
+        let plist = contents.join("Info.plist");
+        fs::write(
+            &plist,
+            r#"<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>CFBundleIconFile</key><string>AppIcon</string>
+  <key>CFBundleIconName</key><string>AppIcon</string>
+</dict></plist>
+"#,
+        )
+        .unwrap();
+        assert!(clear_host_icon_catalog_name(&app));
+        let xml = fs::read_to_string(&plist).unwrap();
+        assert!(!xml.contains("CFBundleIconName"));
+        assert!(xml.contains("CFBundleIconFile"));
+        assert!(!clear_host_icon_catalog_name(&app));
     }
 
     #[test]

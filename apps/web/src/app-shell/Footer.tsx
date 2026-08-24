@@ -75,7 +75,7 @@ function SessionStateBadge({ state, hoverAction, onAction }: {
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: -40, opacity: 0 }}
             transition={springTransition}
-            className="absolute inset-0 flex items-center justify-center text-[9px] font-mono px-1 py-px rounded text-emerald-500 bg-emerald-500/10 cursor-pointer hover:bg-emerald-500/20 transition-colors"
+            className="absolute inset-0 flex items-center justify-center text-[9px] font-mono px-1 py-px rounded text-emerald-500 bg-emerald-500/10 cursor-pointer hover:bg-emerald-500/20"
             onClick={(e) => { e.stopPropagation(); onAction(); }}
           >
             IDLE
@@ -87,7 +87,7 @@ function SessionStateBadge({ state, hoverAction, onAction }: {
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: -40, opacity: 0 }}
             transition={springTransition}
-            className="absolute inset-0 flex items-center justify-center text-[9px] font-mono px-1 py-px rounded text-red-400 bg-red-500/10 cursor-pointer hover:bg-red-500/20 transition-colors"
+            className="absolute inset-0 flex items-center justify-center text-[9px] font-mono px-1 py-px rounded text-red-400 bg-red-500/10 cursor-pointer hover:bg-red-500/20"
             onClick={(e) => { e.stopPropagation(); onAction(); }}
           >
             CLEAR
@@ -335,7 +335,7 @@ function AcpChatButton({ onClick }: { onClick: () => void }) {
     <button
       type="button"
       aria-label={t("footer.openAgentChat")}
-      className="inline-flex h-5 items-center gap-1 rounded-sm bg-transparent px-1 text-[10px] text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground"
+      className="inline-flex h-5 items-center gap-1 rounded-sm bg-transparent px-1 text-[10px] text-muted-foreground hover:bg-accent/60 hover:text-foreground"
       onClick={onClick}
       onMouseEnter={() => iconRef.current?.startAnimation()}
       onMouseLeave={() => iconRef.current?.stopAnimation()}
@@ -508,7 +508,7 @@ const Footer: React.FC = () => {
             <Tooltip>
               <TooltipTrigger asChild>
                 <div
-                  className="flex items-center hover:text-foreground cursor-pointer transition-colors ease-out duration-200"
+                  className="flex items-center hover:text-foreground cursor-pointer"
                   onMouseEnter={fetchConnections}
                 >
                   <div className={cn(
@@ -586,7 +586,7 @@ const Footer: React.FC = () => {
           {showRightAgent ? (
             <Popover>
               <PopoverTrigger asChild>
-                <button className="flex items-center gap-1.5 hover:text-foreground transition-colors cursor-pointer">
+                <button className="flex items-center gap-1.5 hover:text-foreground cursor-pointer">
                   {tickerSession ? (
                     <>
                       <AgentHookStatusIndicator

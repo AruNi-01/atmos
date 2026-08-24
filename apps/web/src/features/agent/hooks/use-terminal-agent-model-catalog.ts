@@ -4,21 +4,12 @@ import * as React from "react";
 import { useTranslations } from "next-intl";
 
 import { wsRequest } from "@/api/ws/request";
+import type { TerminalAgentModelCatalog } from "@atmos/api-types/ws/dto/settings";
 
-export interface TerminalAgentModelOption {
-  id: string;
-  label: string;
-  group?: string | null;
-  is_default?: boolean;
-}
-
-export interface TerminalAgentModelCatalog {
-  agent_id: string;
-  status: "ok" | "unsupported" | "auth_required" | "error";
-  models: TerminalAgentModelOption[];
-  message: string | null;
-  source: "live" | "cache";
-}
+export type {
+  TerminalAgentModelCatalog,
+  TerminalAgentModelOption,
+} from "@atmos/api-types/ws/dto/settings";
 
 export function useTerminalAgentModelCatalog(agentId: string, enabled: boolean) {
   const t = useTranslations("agent.modelCatalog");
@@ -38,7 +29,7 @@ export function useTerminalAgentModelCatalog(agentId: string, enabled: boolean) 
       setLoading(true);
       setRequestError(null);
       try {
-        const nextCatalog = await wsRequest<TerminalAgentModelCatalog>("terminal_agent_models_get", {
+        const nextCatalog = await wsRequest("terminal_agent_models_get", {
           agent_id: agentId,
           refresh,
         });

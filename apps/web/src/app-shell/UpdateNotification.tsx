@@ -49,7 +49,7 @@ export default function UpdateNotification() {
     >
       <button
         onClick={() => setDismissed(true)}
-        className="absolute top-3 right-3 size-6 flex items-center justify-center hover:bg-accent rounded-md text-muted-foreground hover:text-accent-foreground transition-colors ease-out duration-200"
+        className="absolute top-3 right-3 size-6 flex items-center justify-center hover:bg-accent rounded-md text-muted-foreground hover:text-accent-foreground"
       >
         <X className="size-4" />
       </button>

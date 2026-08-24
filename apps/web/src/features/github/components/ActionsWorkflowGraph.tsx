@@ -285,7 +285,7 @@ function WorkflowNode({ data, id }: NodeProps<Node<WorkflowNodeData>>) {
     <div
       className={cn(
         "relative w-full rounded-md border border-border bg-background px-4 py-3 shadow-sm",
-        canSelect && "cursor-pointer transition-colors hover:border-border/80 hover:bg-muted/30",
+        canSelect && "cursor-pointer hover:border-border/80 hover:bg-muted/30",
       )}
       onClick={() => {
         if (!canSelect || !onSelectJobs) return;
@@ -313,7 +313,7 @@ function WorkflowNode({ data, id }: NodeProps<Node<WorkflowNodeData>>) {
           <button
             type="button"
             aria-expanded={matrixExpanded}
-            className="nodrag nopan mt-2 flex w-full items-center justify-between rounded-sm px-1 py-0.5 text-left text-xs text-muted-foreground transition-colors hover:bg-muted"
+            className="nodrag nopan mt-2 flex w-full items-center justify-between rounded-sm px-1 py-0.5 text-left text-xs text-muted-foreground hover:bg-muted"
             onClick={(event) => {
               event.stopPropagation();
               setMatrixExpanded((expanded) => !expanded);
@@ -338,7 +338,7 @@ function WorkflowNode({ data, id }: NodeProps<Node<WorkflowNodeData>>) {
                   <button
                     key={job.id}
                     type="button"
-                    className="nodrag nopan flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-muted/60"
+                    className="nodrag nopan flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left hover:bg-muted/60"
                     onClick={(event) => {
                       event.stopPropagation();
                       onSelectJobs?.({ jobKeys: [job.jobKey] });

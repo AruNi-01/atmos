@@ -66,7 +66,7 @@ const FilterIconTrigger = React.forwardRef<
       title={label}
       aria-label={count > 0 ? `${label} (${count})` : label}
       className={cn(
-        "inline-flex h-6 shrink-0 items-center justify-center gap-0.5 rounded-md text-[10px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground",
+        "inline-flex h-6 shrink-0 items-center justify-center gap-0.5 rounded-md text-[10px] font-medium text-muted-foreground hover:bg-accent hover:text-foreground",
         count > 0 ? "min-w-6 px-1.5" : "w-6 px-0",
         active && "bg-muted text-foreground",
         className,

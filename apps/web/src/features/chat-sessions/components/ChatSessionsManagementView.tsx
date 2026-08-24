@@ -732,7 +732,7 @@ export const ChatSessionsManagementView: React.FC<ChatSessionsManagementViewProp
                                   onClick={() => handleOpenSession(session)}
                                   disabled={Boolean(resumeUnsupportedReason)}
                                   title={resumeUnsupportedReason ?? undefined}
-                                  className="group flex w-full items-center justify-between rounded-lg border border-border bg-background p-4 text-left transition-all duration-200 hover:border-primary/30 hover:bg-muted/50 hover:shadow-sm disabled:pointer-events-none disabled:opacity-55"
+                                  className="group flex w-full items-center justify-between rounded-lg border border-border bg-background p-4 text-left hover:border-primary/30 hover:bg-muted/50 hover:shadow-sm disabled:pointer-events-none disabled:opacity-55"
                                 >
                                   <div className="flex min-w-0 flex-1 items-center gap-4">
                                     <div className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border/50 bg-muted/30">
@@ -746,7 +746,7 @@ export const ChatSessionsManagementView: React.FC<ChatSessionsManagementViewProp
 
                                     <div className="flex min-w-0 flex-1 flex-col">
                                       <div className="flex min-w-0 items-center gap-2">
-                                        <span className="truncate text-sm font-semibold text-foreground transition-colors group-hover:text-primary">
+                                        <span className="truncate text-sm font-semibold text-foreground group-hover:text-primary">
                                           {session.displayTitle}
                                         </span>
                                         <span className="shrink-0 rounded-md border border-border bg-muted px-1.5 py-0.5 font-mono text-[9px] text-muted-foreground">

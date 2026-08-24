@@ -39,6 +39,7 @@ import {
   hasAgentContextDragData,
 } from "@/shared/lib/agent-context-drag";
 import { useTerminalRichInputSettingsStore } from "@/features/settings/store/terminal-rich-input-settings-store";
+import { hostIdFromCenterKey } from "@/app-shell/center-space/center-space";
 
 type TerminalPaneToolbarActions = {
   split: boolean;
@@ -147,19 +148,20 @@ export function TerminalScopedPane({
     setIsTerminalReady(readyPanesRef.current.has(id));
   }, [id, pane.sessionId, readyPanesRef]);
 
+  const hostWorkspaceId = hostIdFromCenterKey(workspaceId);
   const activeProject = React.useMemo(
     () =>
       projects.find(
         (project) =>
-          project.id === workspaceId ||
+          project.id === hostWorkspaceId ||
           project.mainFilePath === workspaceInfo?.localPath ||
           project.workspaces.some(
             (workspace) =>
-              workspace.id === workspaceId ||
+              workspace.id === hostWorkspaceId ||
               workspace.localPath === workspaceInfo?.localPath,
           ),
       ) ?? null,
-    [projects, workspaceId, workspaceInfo?.localPath],
+    [projects, hostWorkspaceId, workspaceInfo?.localPath],
   );
   const panePinKey = pane.tmuxWindowName
     ? buildCanvasTerminalPinKey(isProjectContext ? "project" : "workspace", workspaceId, pane.tmuxWindowName)
@@ -180,11 +182,11 @@ export function TerminalScopedPane({
     }
     return {
       mode: "workspace" as const,
-      id: workspaceId,
-      name: workspaceInfo.workspaceName || workspaceInfo.projectName || workspaceId,
+      id: hostWorkspaceId,
+      name: workspaceInfo.workspaceName || workspaceInfo.projectName || hostWorkspaceId,
       path: workspaceInfo.localPath,
     };
-  }, [activeProject, isProjectContext, workspaceId, workspaceInfo]);
+  }, [activeProject, hostWorkspaceId, isProjectContext, workspaceInfo]);
   const sideChatAgentOptions = React.useMemo(() => {
     const options = quickOpenAgents.map(({ agent, command }) => ({ ...agent, command }));
     if (agentForSubmit?.command?.trim() && !options.some((agent) => agent.id === agentForSubmit.id)) {
@@ -204,7 +206,9 @@ export function TerminalScopedPane({
     workspaceName: workspaceInfo?.workspaceName ?? null,
     localPath: workspaceInfo?.localPath ?? null,
     projectRootPath: activeProject?.mainFilePath ?? workspaceInfo?.localPath ?? null,
-    sourcePaneId: pane.tmuxWindowName ? `${workspaceId}:${pane.tmuxWindowName}` : pane.sessionId,
+    sourcePaneId: pane.tmuxWindowName
+      ? `${hostWorkspaceId}:${pane.tmuxWindowName}`
+      : pane.sessionId,
     sourceSessionId: pane.sessionId,
     sourceSurfaceKind: "terminal_pane",
     sourceSurfaceRef: { paneId: id, scope: isProjectContext ? "project" : "workspace" },
@@ -212,7 +216,7 @@ export function TerminalScopedPane({
   });
 
   const stablePaneId = pane.tmuxWindowName
-    ? `${workspaceId}:${pane.tmuxWindowName}`
+    ? `${hostWorkspaceId}:${pane.tmuxWindowName}`
     : pane.sessionId;
   const attentionReason = useAgentAttentionStore(
     (s) => s.panes.get(stablePaneId)?.reason ?? null,
@@ -251,7 +255,7 @@ export function TerminalScopedPane({
             </TerminalPaneDragHandle>
 
             <div className="terminal-pane-toolbar-end">
-              <TerminalPaneAgentStatus paneId={pane.tmuxWindowName ? `${workspaceId}:${pane.tmuxWindowName}` : pane.sessionId} contextId={workspaceId} />
+              <TerminalPaneAgentStatus paneId={stablePaneId} contextId={workspaceId} />
               {(actions.split || actions.maximize || actions.close) && (
               <div className="terminal-pane-toolbar-right">
                 <button

@@ -14,6 +14,10 @@ export function createApplyGate() {
       pending -= 1;
       return true;
     },
+    /** Drop unmatched tokens so a late echo cannot swallow the next user stroke. */
+    reset() {
+      pending = 0;
+    },
   };
 }
 

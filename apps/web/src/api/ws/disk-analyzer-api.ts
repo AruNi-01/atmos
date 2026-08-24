@@ -81,8 +81,7 @@ export const diskAnalyzerApi = {
   startScan: async (path?: string, maxChildren?: number, scanAll = false) => {
     // start_scan must return immediately (session id only). Keep a short timeout so
     // hangs surface quickly instead of looking like a long disk walk.
-    return wsRequest<{ scan_id: string; root_path: string; status: string; scan_all?: boolean }>(
-      "disk_analyzer_start_scan",
+    return wsRequest("disk_analyzer_start_scan",
       {
         path: path ?? null,
         max_children: maxChildren ?? 30,
@@ -92,32 +91,27 @@ export const diskAnalyzerApi = {
     );
   },
   cancelScan: async (scanId: string) => {
-    return wsRequest<{ ok: boolean }>("disk_analyzer_cancel_scan", {
+    return wsRequest("disk_analyzer_cancel_scan", {
       scan_id: scanId,
     });
   },
   getTree: async (scanId: string, path?: string, maxChildren?: number) => {
-    return wsRequest<DiskTreeResponse>("disk_analyzer_get_tree", {
+    return wsRequest("disk_analyzer_get_tree", {
       scan_id: scanId,
       path: path ?? null,
       max_children: maxChildren ?? null,
     });
   },
   getSuggestions: async (scanId: string) => {
-    return wsRequest<DiskSuggestionsResponse>("disk_analyzer_get_suggestions", {
+    return wsRequest("disk_analyzer_get_suggestions", {
       scan_id: scanId,
     });
   },
   deletePath: async (scanId: string, path: string, permanent = false) => {
-    return wsRequest<{
-      success: boolean;
-      path: string;
-      freed_bytes: number;
-      permanent: boolean;
-    }>("disk_analyzer_delete", { scan_id: scanId, path, permanent });
+    return wsRequest("disk_analyzer_delete", { scan_id: scanId, path, permanent });
   },
   diskInfo: async (path?: string) => {
-    return wsRequest<DiskVolumeInfo>("disk_analyzer_disk_info", {
+    return wsRequest("disk_analyzer_disk_info", {
       path: path ?? null,
     });
   },

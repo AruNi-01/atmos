@@ -89,7 +89,7 @@ export function AgentFixButton({
         triggerRef={settingsTriggerRef}
         className={cn(
           isSubtle
-            ? "size-6 rounded-none border-0 border-r border-border/50 bg-transparent text-muted-foreground transition-colors duration-180 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-muted hover:text-foreground"
+            ? "size-6 rounded-none border-0 border-r border-border/50 bg-transparent text-muted-foreground hover:bg-muted hover:text-foreground"
             : "size-7 rounded-none border-0 border-r border-border/70",
         )}
       />
@@ -101,7 +101,7 @@ export function AgentFixButton({
           void launchAgentFix();
         }}
         className={cn(
-          "inline-flex min-w-0 items-center justify-center gap-1.5 font-medium transition-colors duration-180 ease-[cubic-bezier(0.22,1,0.36,1)] disabled:cursor-not-allowed disabled:opacity-50",
+          "inline-flex min-w-0 items-center justify-center gap-1.5 font-medium disabled:cursor-not-allowed disabled:opacity-50",
           isSubtle
             ? "h-6 rounded-none px-1.5 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground"
             : "px-2 text-xs text-foreground hover:bg-muted",

@@ -244,7 +244,7 @@ export const ArchivedWorkspacesView: React.FC<ArchivedWorkspacesViewProps> = ({ 
             {/* Sticky Search Bar */}
             <div className="sticky top-0 z-30 bg-background/80 backdrop-blur-md pt-2 pb-6 -mx-4 px-4 sm:-mx-8 sm:px-8">
               <div className="relative group max-w-5xl mx-auto">
-                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground/60 group-focus-within:text-primary transition-colors" />
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground/60 group-focus-within:text-primary" />
                 <Input
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
@@ -321,7 +321,7 @@ export const ArchivedWorkspacesView: React.FC<ArchivedWorkspacesViewProps> = ({ 
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10 cursor-pointer rounded-lg transition-colors border border-transparent hover:border-destructive/20"
+                            className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10 cursor-pointer rounded-lg border border-transparent hover:border-destructive/20"
                             onClick={() => handleDeleteProject(projectId, projectName)}
                             title={t('actions.deleteProject')}
                           >
@@ -339,7 +339,7 @@ export const ArchivedWorkspacesView: React.FC<ArchivedWorkspacesViewProps> = ({ 
                                 animate={{ opacity: 1, x: 0 }}
                                 exit={{ opacity: 0, scale: 0.95 }}
                                 transition={{ duration: 0.2, delay: Math.min(index * 0.02, 0.2) }}
-                                className="group flex items-center justify-between p-4 rounded-xl border border-border bg-background hover:bg-muted/50 transition-all text-left w-full shadow-sm"
+                                className="group flex items-center justify-between p-4 rounded-xl border border-border bg-background hover:bg-muted/50 text-left w-full shadow-sm"
                               >
                                 <div className="flex items-center gap-4 min-w-0 flex-1">
                                   <div className="flex items-center gap-3 min-w-0 shrink-0 w-[520px] max-w-full">
@@ -368,7 +368,7 @@ export const ArchivedWorkspacesView: React.FC<ArchivedWorkspacesViewProps> = ({ 
                                   <Button
                                     variant="outline"
                                     size="sm"
-                                    className="h-8 px-3 text-muted-foreground hover:text-foreground hover:bg-background cursor-pointer rounded-lg shadow-sm font-medium text-xs transition-all"
+                                    className="h-8 px-3 text-muted-foreground hover:text-foreground hover:bg-background cursor-pointer rounded-lg shadow-sm font-medium text-xs"
                                     onClick={() => handleRestore(ws)}
                                     disabled={restoringIds.has(ws.guid)}
                                     title={t('actions.restore')}
@@ -385,7 +385,7 @@ export const ArchivedWorkspacesView: React.FC<ArchivedWorkspacesViewProps> = ({ 
                                   <Button
                                     variant="outline"
                                     size="sm"
-                                    className="h-8 px-3 text-muted-foreground hover:text-destructive hover:bg-destructive/10 hover:border-destructive/20 cursor-pointer rounded-lg shadow-sm font-medium text-xs transition-all"
+                                    className="h-8 px-3 text-muted-foreground hover:text-destructive hover:bg-destructive/10 hover:border-destructive/20 cursor-pointer rounded-lg shadow-sm font-medium text-xs"
                                     onClick={() => handleDelete(ws)}
                                     title={t('actions.deletePermanently')}
                                   >

@@ -8,6 +8,14 @@ Hosted **control plane**: identity (Better Auth + GitHub/Google), device credent
 
 See [APP-056 TECH](../../specs/APP/APP-056_usage-share-and-accounts/TECH.md).
 
+## Build And Test
+
+- **Dev**: `bun run --cwd packages/hub dev` (or `just dev-hub`)
+- **Deploy**: `bunx wrangler deploy` (see [README.md](README.md), `.github/workflows/deploy-hub.yml`)
+- **D1 migrate**: `bunx wrangler d1 migrations apply atmos-hub --remote` (see `drizzle/`)
+- **Deploy script**: `scripts/hub/deploy.sh` (or `bun run deploy:hub` from `packages/hub`)
+- **Secrets**: `scripts/hub/put-cloud-secrets.sh`
+
 ## Rules
 
 1. Product owner is always **`user_id`** (= Better Auth `user.id`). Never dual-store Access Token identity.

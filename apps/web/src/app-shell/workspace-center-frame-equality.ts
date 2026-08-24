@@ -48,6 +48,8 @@ export type WorkspaceCenterFrameProps = {
   tabToPaneId?: Readonly<Record<string, string>> | null;
   /** Multi-pane: content-slot boxes relative to the panel host. */
   paneSlotBoxes?: Readonly<Record<string, PaneSlotBox>> | null;
+  /** Mosaic pane filling the center body; sibling overlay content is hidden. */
+  fullscreenPaneId?: string | null;
   visibleTerminalTabs: TerminalCenterTab[] | undefined;
   openFiles: OpenFile[] | undefined;
   githubTabs: GithubCenterTab[] | undefined;
@@ -117,7 +119,8 @@ export function workspaceCenterFramePropsAreEqual(
     return (
       sameStringList(prev.activeTabIds ?? [], next.activeTabIds ?? []) &&
       prev.tabToPaneId === next.tabToPaneId &&
-      prev.paneSlotBoxes === next.paneSlotBoxes
+      prev.paneSlotBoxes === next.paneSlotBoxes &&
+      prev.fullscreenPaneId === next.fullscreenPaneId
     );
   }
 
@@ -126,6 +129,7 @@ export function workspaceCenterFramePropsAreEqual(
     sameStringList(prev.activeTabIds ?? [], next.activeTabIds ?? []) &&
     prev.tabToPaneId === next.tabToPaneId &&
     prev.paneSlotBoxes === next.paneSlotBoxes &&
+    prev.fullscreenPaneId === next.fullscreenPaneId &&
     prev.visibleTerminalTabs === next.visibleTerminalTabs &&
     prev.openFiles === next.openFiles &&
     prev.githubTabs === next.githubTabs &&

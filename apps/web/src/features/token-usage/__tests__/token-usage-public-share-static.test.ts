@@ -33,6 +33,7 @@ describe("APP-061 static wiring", () => {
     expect(page).toContain("TokenUsageOverviewView");
     expect(page).toContain("payload={payload}");
     expect(page).toContain("@{handle}");
+    expect(page).toContain("HandleComputerCount");
     expect(page).toContain("https://x.com/");
     expect(page).toContain("https://github.com/");
     expect(page).toContain("GitHubIcon");
@@ -47,6 +48,7 @@ describe("APP-061 static wiring", () => {
     const boards = read(
       "apps/web/src/features/token-usage/PublicTokLeaderboards.tsx",
     );
+    expect(boards).toContain("HandleComputerCount");
     expect(boards).toContain("Crown");
     expect(boards).toContain("GithubUserHoverCard");
     expect(boards).toContain("GithubCell");
@@ -65,6 +67,9 @@ describe("APP-061 static wiring", () => {
     expect(tok).toContain("fetchPublicLeaderboards");
     expect(tok).toContain("PushPageStack");
     expect(tok).toContain("onOpenProfile");
+    expect(tok).toContain("TokenUsageLoadingScreen");
+    expect(tok).not.toContain("Loader2");
+    expect(tok).not.toContain("animate-spin");
   });
 
   it("local page keeps PNG, consent, and does not auto-upload", () => {
@@ -76,6 +81,10 @@ describe("APP-061 static wiring", () => {
     expect(local).toContain("tokenUsageApi.getOverview");
     expect(local).not.toContain("hubPutUsagePage");
     expect(local).toContain("Does not upload to Hub");
+    expect(local).toContain("TokenUsageLoadingScreen");
+    expect(local).not.toContain("isCurrentScope && loading");
+    expect(local).not.toContain("fullPageLoading");
+    expect(local).not.toContain("TerminalLoader");
   });
 
   it("share URL copy uses atmos.land/tok/@", () => {

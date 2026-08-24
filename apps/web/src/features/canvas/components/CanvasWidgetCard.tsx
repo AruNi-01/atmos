@@ -255,7 +255,7 @@ function CanvasWidgetCardInner({ shape }: { shape: CanvasWidgetShape }) {
               }}
               aria-label={t("widgetCard.refreshWidget")}
               title={t("common.refresh")}
-              className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
             >
               <RefreshCcw className="size-3.5" />
             </button>
@@ -267,7 +267,7 @@ function CanvasWidgetCardInner({ shape }: { shape: CanvasWidgetShape }) {
               onClick={handleRevealSource}
               aria-label={t("widgetCard.openSource")}
               title={t("common.source")}
-              className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
             >
               <ArrowUpRight className="size-3.5" />
             </button>
@@ -278,7 +278,7 @@ function CanvasWidgetCardInner({ shape }: { shape: CanvasWidgetShape }) {
             onClick={handleClose}
             aria-label={t("widgetCard.closeWidget")}
             title={t("common.close")}
-            className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/12 hover:text-destructive"
+            className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/12 hover:text-destructive"
           >
             <X className="size-3.5" />
           </button>

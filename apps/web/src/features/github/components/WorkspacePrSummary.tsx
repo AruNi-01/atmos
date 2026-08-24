@@ -102,7 +102,7 @@ export function WorkspacePrSummary({
                 onOpenPr?.();
               }}
               className={cn(
-                "flex min-w-0 items-center gap-1.5 rounded-md px-1.5 py-1 text-left text-xs transition-colors hover:bg-muted/70",
+                "flex min-w-0 items-center gap-1.5 rounded-md px-1.5 py-1 text-left text-xs hover:bg-muted/70",
                 compact ? "shrink-0" : "flex-1",
               )}
               aria-label={prLabel}
@@ -149,7 +149,7 @@ export function WorkspacePrSummary({
                 onOpenPr?.();
               }}
               className={cn(
-                "inline-flex shrink-0 items-center justify-center rounded-md p-0.5 transition-colors",
+                "inline-flex shrink-0 items-center justify-center rounded-md p-0.5",
                 "hover:bg-muted/70 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                 !hasChecks && "opacity-70",
               )}

@@ -155,7 +155,7 @@ export function WelcomeComposerControls({
             <button
               type="button"
               className={cn(
-                "inline-flex h-9 min-w-[160px] items-center gap-2 rounded-md border px-3 text-sm backdrop-blur-sm transition-colors hover:bg-muted",
+                "inline-flex h-9 min-w-[160px] items-center gap-2 rounded-md border px-3 text-sm backdrop-blur-sm hover:bg-muted",
                 projects.length === 0
                   ? "border-dashed border-border bg-muted/25 text-muted-foreground"
                   : "border-border/60 bg-background/40 text-foreground/90",

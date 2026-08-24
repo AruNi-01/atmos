@@ -3,7 +3,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 import { openFileSession, runTool, type FileSession } from "../agent/api";
 import { PT_ERROR_CODES, PtDesignError } from "../agent/errors";
-import { PT_DESIGN_TOOL_DEFS, type ToolName } from "../agent/tool-defs";
+import { PT_DESIGN_TOOL_DEFS, unknownToolMessage, type ToolName } from "../agent/tool-defs";
 import { PT_TOOL_SCHEMAS } from "./schemas";
 import { paginate, toolError, toolSuccess, type ResponseFormat, type ToolResult } from "./format";
 import { isMutatingTool } from "../agent/mutating";
@@ -54,7 +54,7 @@ Error handling:
 
 export function executeTool(fs: FileSession, name: string, raw: Record<string, unknown>): ToolResult {
   if (!(name in PT_TOOL_SCHEMAS)) {
-    return toolError(new PtDesignError(PT_ERROR_CODES.USAGE, `Unknown tool: ${name}. Use tools/list.`));
+    return toolError(new PtDesignError(PT_ERROR_CODES.USAGE, unknownToolMessage(name)));
   }
   const parsed = PT_TOOL_SCHEMAS[name as ToolName].safeParse(raw);
   if (!parsed.success) {
@@ -74,7 +74,7 @@ export function executeTool(fs: FileSession, name: string, raw: Record<string, u
       const page = paginate(
         (data as { items: unknown[] }).items,
         Number(args.offset ?? 0),
-        Number(args.limit ?? 50),
+        Number(args.limit ?? 100),
       );
       data = page;
     }
@@ -82,7 +82,7 @@ export function executeTool(fs: FileSession, name: string, raw: Record<string, u
       const page = paginate(
         (data as { frames: unknown[] }).frames,
         Number(args.offset ?? 0),
-        Number(args.limit ?? 50),
+        Number(args.limit ?? 100),
       );
       data = { ...page, frames: page.items };
     }

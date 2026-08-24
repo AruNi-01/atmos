@@ -4,6 +4,8 @@ import React from "react";
 import { useTranslations } from "next-intl";
 import {
   cn,
+  TypewriterEffectSmooth,
+  type TypewriterWord,
 } from "@workspace/ui";
 import { useHotkeys } from "react-hotkeys-hook";
 import {
@@ -37,6 +39,7 @@ import {
   matchesBrowserUseSlashQuery,
   resolveBrowserUseSkillRef,
 } from "@/features/welcome/lib/slash-browser-use";
+import { AtmosWordmark } from "@/shared/components/ui/AtmosWordmark";
 import { useContextParams } from "@/shared/hooks/use-context-params";
 import {
   buildDesktopUseSlashCommand,
@@ -98,6 +101,7 @@ import {
   blobToBase64,
   buildAutoExtractDescription,
   buildWelcomeSummaryItems,
+  headlineTypewriterParts,
   isBranchConflictError,
   issueToBranchName,
   issueToWorkspaceName,
@@ -105,7 +109,6 @@ import {
   linearIssueToWorkspaceName,
   prToWorkspaceName,
   regeneratePokemonSuffixBranch,
-  renderHeadline,
   resolvePromptPlaceholders,
   resolveWorkspaceIssueTodoProvider,
   sanitizeCreateWorkspaceErrorMessage,
@@ -818,6 +821,21 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
     projectName: selectedProject?.name,
   });
 
+  const headlineWords = React.useMemo<TypewriterWord[]>(() => {
+    const logo = (
+      <AtmosWordmark
+        className="inline-flex w-auto"
+        layout="compact"
+        letterClassName="w-auto items-center gap-x-[0.04em] gap-y-0 text-[1em] leading-none font-semibold sm:gap-x-[0.04em] md:gap-x-[0.04em]"
+        logoClassName="mx-0 h-[0.55em] self-center"
+        sloganClassName="hidden"
+      />
+    );
+    return headlineTypewriterParts(headline, t).map((part) =>
+      part.brand ? { text: part.text, node: logo } : { text: part.text },
+    );
+  }, [headline, t]);
+
   const canAutoExtractTodosIssue = !!issuePreview && !!todoProviderLabel && !isLlmRoutingLoading;
   const canAutoExtractTodosPr = !!prPreview && !!todoProviderLabel && !isLlmRoutingLoading;
   const canAutoExtractTodos = canAutoExtractTodosIssue || canAutoExtractTodosPr;
@@ -1207,17 +1225,21 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
   return (
     <div
       className={cn(
-        "relative min-h-full overflow-hidden bg-background px-4 py-8 selection:bg-foreground/10 sm:px-6",
+        "relative flex h-full min-h-full overflow-hidden bg-background px-4 py-8 selection:bg-foreground/10 sm:px-6",
         className,
       )}
     >
       <WelcomePageBackdrop />
       {onClose ? <WelcomeCloseButton onClose={onClose} /> : null}
-      <div className="relative z-10 mx-auto flex min-h-full w-full max-w-5xl flex-col items-center justify-center py-8 md:translate-y-8">
-        <div className="mb-10 flex w-full max-w-4xl flex-col items-center">
-          <h1 className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2 text-center text-4xl font-semibold tracking-tight text-foreground sm:text-5xl md:text-6xl">
-            {renderHeadline(headline, t)}
-          </h1>
+      <div className="relative z-10 mx-auto flex h-full w-full max-w-5xl -translate-y-16 flex-col items-center justify-center">
+        <div className="mb-10 flex w-full justify-center">
+          <TypewriterEffectSmooth
+            as="h1"
+            key={headline}
+            words={headlineWords}
+            className="my-0 items-end text-3xl font-semibold leading-none tracking-tight text-foreground sm:text-4xl md:text-5xl"
+            cursorClassName="h-[0.82em] w-[4px] bg-foreground"
+          />
         </div>
 
         <form onSubmit={handleSubmit} className="w-full max-w-4xl">

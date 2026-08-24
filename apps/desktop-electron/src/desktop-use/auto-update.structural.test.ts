@@ -37,4 +37,14 @@ describe("desktop-use engine auto-update", () => {
     expect(client).not.toContain("isPackagedElectron");
     expect(client).not.toContain("ATMOS_CLI_PATH");
   });
+
+  it("re-applies Desktop host icon after CLI driver ensure", () => {
+    const client = readFileSync(join(root, "desktop-use/client.ts"), "utf8");
+    const fnAt = client.indexOf("export async function desktopUseDriverEnsure");
+    expect(fnAt).toBeGreaterThan(-1);
+    const nextExport = client.indexOf("export async function", fnAt + 10);
+    const body = client.slice(fnAt, nextExport === -1 ? undefined : nextExport);
+    expect(body).toContain("ensureDesktopUseHostBranding");
+    expect(body).toContain("host-branding.js");
+  });
 });

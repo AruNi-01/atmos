@@ -55,7 +55,7 @@ export function PtDesignGuestStage() {
         href={ATMOS_SITE_URL}
         target="_blank"
         rel="noreferrer"
-        className="absolute bottom-4 right-4 z-20 rounded-md p-1 text-foreground/55 transition-colors hover:text-foreground"
+        className="absolute bottom-4 right-4 z-20 rounded-md p-1 text-foreground/55 hover:text-foreground"
         aria-label={tGuest("logoLink")}
         title={tGuest("logoLink")}
         data-testid="pt-design-guest-logo"

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   CodeView,
   EditProvider,
+  useWorkerPool,
   type CodeViewHandle,
   type CreateEditor,
 } from '@pierre/diffs/react';
@@ -46,6 +47,7 @@ import {
   diffSideCacheKey,
   type DiffListAnnotationMeta,
 } from '@/features/diff/lib/diff-code-view-shared';
+import { primePierreFileDiff } from '@/features/diff/lib/pierre-diff-hunks-guard';
 import {
   binaryDiffPlaceholders,
   isLikelyBinaryPath,
@@ -134,6 +136,7 @@ export function ChangesCodeView({
     navigationTargetProp === undefined ? storeNavigationTarget : navigationTargetProp;
   const selectedPath = navigationTargetProp?.diffFilePath ?? storeSelectedPath;
 
+  const workerPool = useWorkerPool();
   const workerPoolReady = useDiffWorkerPoolReady();
   const [isLoading, setIsLoading] = useState(true);
   const [hasLoadedAllItems, setHasLoadedAllItems] = useState(false);
@@ -403,6 +406,7 @@ export function ChangesCodeView({
                   oldContent: oldText,
                   newContent: newText,
                 });
+                primePierreFileDiff(workerPool, fileDiff);
                 codeItems.push({
                   id: file.path,
                   type: 'diff',
@@ -441,6 +445,7 @@ export function ChangesCodeView({
                 oldContent: oldText,
                 newContent: newText,
               });
+              primePierreFileDiff(workerPool, fileDiff);
               codeItems.push({
                 id: file.path,
                 type: 'diff',
@@ -500,7 +505,7 @@ export function ChangesCodeView({
     return () => {
       cancelled = true;
     };
-  }, [diffRequestOptions, groupFiles, groupKind, repoPath]);
+  }, [diffRequestOptions, groupFiles, groupKind, repoPath, workerPool]);
 
   useEffect(() => {
     if (!viewerMounted || pendingAppendRef.current.length === 0) return;

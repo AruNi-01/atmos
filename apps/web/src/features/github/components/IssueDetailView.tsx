@@ -207,7 +207,7 @@ export function IssueDetailView({
           {headerTrailing}
           <button
             type="button"
-            className="flex size-7 items-center justify-center rounded-md opacity-70 transition-colors hover:bg-muted hover:opacity-100"
+            className="flex size-7 items-center justify-center rounded-md opacity-70 hover:bg-muted hover:opacity-100"
             onClick={() => setSidebarCollapsed((value) => !value)}
             title={sidebarCollapsed ? t("showSidebar") : t("hideSidebar")}
           >
@@ -365,7 +365,7 @@ export function IssueDetailView({
                       <button
                         type="button"
                         onClick={loadMore}
-                        className="rounded-md border border-border/60 bg-muted/30 px-4 py-2 text-[12px] font-medium text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
+                        className="rounded-md border border-border/60 bg-muted/30 px-4 py-2 text-[12px] font-medium text-muted-foreground hover:bg-muted/60 hover:text-foreground"
                       >
                         {t("loadMore")}
                       </button>
@@ -476,12 +476,15 @@ function IssueActionToolbar({
   const act = async (action: "close" | "reopen") => {
     setPending(action);
     try {
-      await wsRequest(`github_issue_${action}`, {
-        owner: issue.owner,
-        repo: issue.repo,
-        issue_number: issue.number,
-        body: null,
-      });
+      await wsRequest(
+        action === "close" ? "github_issue_close" : "github_issue_reopen",
+        {
+          owner: issue.owner,
+          repo: issue.repo,
+          issue_number: issue.number,
+          body: null,
+        },
+      );
       invalidate();
     } finally {
       setPending(null);
@@ -576,12 +579,19 @@ function IssueDiscussionComposer({
     if ((action === "comment" && !body.trim()) || pending) return;
     setPending(true);
     try {
-      await wsRequest(`github_issue_${action}`, {
-        owner: issue.owner,
-        repo: issue.repo,
-        issue_number: issue.number,
-        body: body.trim() || null,
-      });
+      await wsRequest(
+        action === "comment"
+          ? "github_issue_comment"
+          : action === "close"
+            ? "github_issue_close"
+            : "github_issue_reopen",
+        {
+          owner: issue.owner,
+          repo: issue.repo,
+          issue_number: issue.number,
+          body: body.trim() || null,
+        },
+      );
       setBody("");
       void queryClient.invalidateQueries({
         queryKey: queryKeys.computer.githubIssueTimeline(scope, {
@@ -827,7 +837,7 @@ function IssueTimelineItem({
                 authorName: login,
               })
             }
-            className="min-w-0 max-w-[280px] truncate text-left font-medium text-foreground/70 transition-colors hover:text-foreground hover:underline underline-offset-2"
+            className="min-w-0 max-w-[280px] truncate text-left font-medium text-foreground/70 hover:text-foreground hover:underline underline-offset-2"
           >
             {item.body}
           </button>
@@ -844,7 +854,7 @@ function IssueTimelineItem({
                 authorName: login,
               })
             }
-            className="shrink-0 font-mono text-[10px] text-muted-foreground/70 transition-colors hover:text-foreground"
+            className="shrink-0 font-mono text-[10px] text-muted-foreground/70 hover:text-foreground"
           >
             {refSha.slice(0, 7)}
           </button>
@@ -865,7 +875,7 @@ function IssueTimelineItem({
               title: linkedPullRequest.title ?? "",
             })
           }
-          className="ml-7 flex min-w-0 items-center gap-1.5 rounded-md px-1.5 py-1 text-left text-[13px] font-medium text-foreground underline decoration-border underline-offset-2 transition-colors hover:bg-muted/60 hover:text-primary"
+          className="ml-7 flex min-w-0 items-center gap-1.5 rounded-md px-1.5 py-1 text-left text-[13px] font-medium text-foreground underline decoration-border underline-offset-2 hover:bg-muted/60 hover:text-primary"
         >
           <GitPullRequest className="size-3.5 shrink-0 text-purple-500" />
           <span className="truncate">
@@ -997,7 +1007,7 @@ function LinkedPullRequests({
             <button
               key={pr.number}
               type="button"
-              className="flex w-full min-w-0 items-start gap-2 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-muted/60"
+              className="flex w-full min-w-0 items-start gap-2 rounded-md px-2 py-1.5 text-left hover:bg-muted/60"
               onClick={() => openPullRequestTab({
                 owner,
                 repo,
@@ -1075,7 +1085,7 @@ function LinkedPullRequestsEditor({
         <button
           type="button"
           aria-label={t("sidebar.editDevelopment")}
-          className="inline-flex size-5 items-center justify-center rounded text-muted-foreground/70 transition-colors hover:bg-muted hover:text-foreground"
+          className="inline-flex size-5 items-center justify-center rounded text-muted-foreground/70 hover:bg-muted hover:text-foreground"
         >
           {pending ? <Loader2 className="size-3 animate-spin" /> : <Settings2 className="size-3" />}
         </button>

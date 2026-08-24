@@ -199,7 +199,7 @@ export function AgentChatHeader({
             {historySidebarControl}
             <div className="relative size-5">
               <div
-                className={`pointer-events-none absolute inset-0 flex items-center justify-center transition-all duration-200 ease-out ${headerHovered
+                className={`pointer-events-none absolute inset-0 flex items-center justify-center transition-[opacity,transform] duration-200 ease-out ${headerHovered}
                   ? "translate-y-[-2px] scale-90 opacity-0"
                   : "translate-y-0 scale-100 opacity-100"
                   }`}
@@ -223,7 +223,7 @@ export function AgentChatHeader({
                     onClick={() => void handleCreateNewSession()}
                     onMouseEnter={handleOpenNewSessionAgentsMenu}
                     onMouseLeave={handleScheduleCloseNewSessionAgentsMenu}
-                    className={`absolute inset-0 flex size-5 items-center justify-center rounded-sm text-muted-foreground transition-all duration-200 ease-out hover:bg-muted hover:text-foreground ${headerHovered
+                    className={`absolute inset-0 flex size-5 items-center justify-center rounded-sm text-muted-foreground transition-[opacity,transform] duration-200 ease-out hover:bg-muted hover:text-foreground ${headerHovered}
                       ? "translate-y-0 scale-100 opacity-100"
                       : "translate-y-[2px] scale-90 opacity-0 pointer-events-none"
                       }`}
@@ -275,7 +275,7 @@ export function AgentChatHeader({
                               <TooltipTrigger asChild>
                                 <button
                                   type="button"
-                                  className={`rounded-sm p-1.5 transition-all ${isDefault
+                                  className={`rounded-sm p-1.5 transition-opacity ${isDefault}
                                     ? "text-primary opacity-100"
                                     : "text-muted-foreground/60 opacity-0 group-hover:opacity-100 hover:text-primary hover:bg-primary/5"
                                     }`}
@@ -377,7 +377,7 @@ export function AgentChatHeader({
                   <button
                     type="button"
                     onClick={() => void handleOpenStandaloneWindow()}
-                    className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
                     aria-label={t("header.actions.openInWindow")}
                   >
                     <PictureInPicture2 className="size-4" />
@@ -396,7 +396,7 @@ export function AgentChatHeader({
                   <button
                     type="button"
                     onClick={handleToggleFullscreen}
-                    className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
                     aria-label={isFullscreen
                       ? t("header.fullscreen.exitAria")
                       : t("header.fullscreen.openAria")}
@@ -417,7 +417,7 @@ export function AgentChatHeader({
                   <button
                     type="button"
                     onClick={handleReturnToEmbeddedWindow}
-                    className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
                     aria-label={t("header.actions.returnToEmbedded")}
                   >
                     <PictureInPicture className="size-4" />
@@ -436,7 +436,7 @@ export function AgentChatHeader({
                   <DropdownMenuTrigger asChild>
                     <button
                       type="button"
-                      className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                      className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
                       aria-label={t("header.moreActions.aria")}
                     >
                       <MoreHorizontal className="size-4" />
@@ -477,7 +477,7 @@ export function AgentChatHeader({
               <DialogFooter className="mt-1 flex-row justify-end gap-2">
                 <button
                   type="button"
-                  className="rounded-md border border-border px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  className="rounded-md border border-border px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
                   onClick={() => setLogoutConfirmOpen(false)}
                 >
                   {t("common.cancel")}
@@ -500,7 +500,7 @@ export function AgentChatHeader({
             <button
               type="button"
               onClick={handleClose}
-              className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
               aria-label={t("header.closeChatAria")}
             >
               <X className="size-4" />

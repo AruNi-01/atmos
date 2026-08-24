@@ -73,7 +73,8 @@ export interface ArchivedWorkspace {
   archived_at: string;
 }
 
-export interface WorkspaceAttachmentPayload {
+/** App-level camelCase attachment before mapping to the snake_case wire type. */
+export interface WorkspaceAttachmentView {
   filename: string;
   mime: string;
   dataBase64: string;

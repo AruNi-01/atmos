@@ -84,7 +84,7 @@ export function WelcomeComposerFooter({
             {summaryItems.map((item) => (
               <Tooltip key={item.key}>
                 <TooltipTrigger asChild>
-                  <span className="inline-flex h-6 max-w-[9rem] cursor-default items-center gap-1.5 rounded-md border border-border/70 bg-muted/35 px-2 text-[11px] text-muted-foreground transition-colors hover:bg-muted">
+                  <span className="inline-flex h-6 max-w-[9rem] cursor-default items-center gap-1.5 rounded-md border border-border/70 bg-muted/35 px-2 text-[11px] text-muted-foreground hover:bg-muted">
                     <SummaryIcon type={item.key} />
                     <span className="truncate">{item.value}</span>
                   </span>

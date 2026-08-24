@@ -34,8 +34,8 @@ const actionsPanel = readFileSync(
   join(import.meta.dir, "../../features/github/components/ActionsPanel.tsx"),
   "utf8",
 );
-const gitHistoryPanel = readFileSync(
-  join(import.meta.dir, "../../features/git/components/GitHistoryPanel.tsx"),
+const gitHistoryRow = readFileSync(
+  join(import.meta.dir, "../../features/git/components/git-history-row.tsx"),
   "utf8",
 );
 const centerPaneEmptyState = readFileSync(
@@ -103,9 +103,9 @@ describe("center list hover", () => {
   });
 
   it("uses instant hover on graph history commit rows", () => {
-    const rowClass = gitHistoryPanel.slice(
-      gitHistoryPanel.indexOf("grid h-9 cursor-pointer items-center"),
-      gitHistoryPanel.indexOf("matched && !selected"),
+    const rowClass = gitHistoryRow.slice(
+      gitHistoryRow.indexOf("grid h-9 cursor-pointer items-center"),
+      gitHistoryRow.indexOf("matched && !selected"),
     );
     expect(rowClass).toContain("hover:bg-muted/40");
     expect(rowClass).not.toContain("transition-colors");

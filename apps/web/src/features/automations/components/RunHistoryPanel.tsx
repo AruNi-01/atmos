@@ -90,7 +90,7 @@ function RunHistoryRow({
   return (
     <div
       className={cn(
-        "rounded-md border transition-colors",
+        "rounded-md border",
         selected ? "border-primary/40 bg-primary/5" : "border-border bg-background hover:bg-muted/30",
       )}
     >

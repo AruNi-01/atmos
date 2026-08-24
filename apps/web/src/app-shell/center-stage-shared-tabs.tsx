@@ -47,7 +47,10 @@ import { isDiffGroupEditorPath } from "@/features/diff/lib/diff-editor-paths";
 import { AgentIcon } from "@/features/agent/components/AgentIcon";
 import { useTerminalCenterTabPresentation } from "@/features/terminal/hooks/use-terminal-center-tab-presentation";
 import { cn } from "@/shared/lib/utils";
+import { CenterTabHeldShortcut } from "@/app-shell/HeldShortcutBadge";
+import { useHeldShortcutPrefix } from "@/app-shell/held-shortcut-prefix-store";
 import {
+  CenterStageShortcutTooltipBody,
   TerminalTabAgentIndicatorWithPanes,
   type TabGroupItem,
 } from "@/app-shell/center-stage-tabs";
@@ -62,12 +65,14 @@ export const CENTER_STAGE_TAB_INDICATOR_CLASS = "bg-active";
 /** Icon-only pills stay circular (h-7) instead of collapsing into an oval. */
 export const CENTER_STAGE_ICON_TAB_CLASS = "w-7 px-0";
 
-/** Close control. Pair with {@link CenterStageTabIconSlot} so it replaces the icon. */
+/** Hover control that replaces the leading tab icon. Defaults to close. */
 export function CenterStageTabCloseButton({
+  children,
   className,
   label,
   onClose,
 }: {
+  children?: React.ReactNode;
   className?: string;
   label: string;
   onClose: () => void;
@@ -86,32 +91,46 @@ export function CenterStageTabCloseButton({
         className,
       )}
     >
-      <X className="size-3" />
+      {children ?? <X className="size-3" />}
     </span>
   );
 }
 
-/** Leading glyph that swaps to the close control on tab hover. */
+/** Leading glyph that swaps to close, or a custom hover action, on tab hover. */
 export function CenterStageTabIconSlot({
   children,
   closeLabel,
+  hoverIcon,
+  hoverLabel,
   onClose,
+  onHoverAction,
 }: {
   children: React.ReactNode;
   closeLabel?: string;
+  hoverIcon?: React.ReactNode;
+  hoverLabel?: string;
   onClose?: () => void;
+  onHoverAction?: () => void;
 }) {
+  const hover = onClose
+    ? { label: closeLabel ?? "", icon: <X className="size-3" />, onAction: onClose }
+    : onHoverAction
+      ? { label: hoverLabel ?? "", icon: hoverIcon, onAction: onHoverAction }
+      : null;
+
   return (
     <span className="relative flex size-3.5 shrink-0 items-center justify-center">
-      <span className={cn("flex items-center justify-center", onClose && "group-hover:invisible")}>
+      <span className={cn("flex items-center justify-center", hover && "group-hover:invisible")}>
         {children}
       </span>
-      {onClose ? (
+      {hover ? (
         <CenterStageTabCloseButton
-          label={closeLabel ?? ""}
-          onClose={onClose}
+          label={hover.label}
+          onClose={hover.onAction}
           className="absolute inset-0 opacity-0 pointer-events-none group-hover:pointer-events-auto group-hover:opacity-100"
-        />
+        >
+          {hover.icon}
+        </CenterStageTabCloseButton>
       ) : null}
     </span>
   );
@@ -214,7 +233,7 @@ export function CenterStageStickyTabActions({
   return (
     <div
       className={cn(
-        "pointer-events-auto z-20 flex h-7 shrink-0 items-center",
+        "pointer-events-auto z-20 flex h-7 shrink-0 items-center gap-0.5",
         className,
       )}
       onPointerDown={(event) => event.stopPropagation()}
@@ -323,6 +342,7 @@ export function CenterStageSurfaceContentTab({
   onContextMenu,
   onDoubleClick,
   path,
+  shortcutDigit,
   tooltip,
   value,
   variant = "file",
@@ -336,12 +356,15 @@ export function CenterStageSurfaceContentTab({
   onContextMenu?: (event: React.MouseEvent<HTMLButtonElement>) => void;
   onDoubleClick?: () => void;
   path: string;
+  shortcutDigit?: number | null;
   tooltip?: React.ReactNode;
   value: string;
   variant?: CenterStageSurfaceTabVariant;
 }) {
   const t = useTranslations("appShell.centerStageSharedTabs");
   const resolvedTooltip = tooltip ?? path;
+  const prefix = useHeldShortcutPrefix();
+  const showHeldShortcut = prefix === "mod" && shortcutDigit != null;
 
   return (
     <Tooltip>
@@ -387,13 +410,17 @@ export function CenterStageSurfaceContentTab({
           >
             {name}
           </span>
-          {isDirty ? (
+          {showHeldShortcut ? (
+            <CenterTabHeldShortcut digit={shortcutDigit} />
+          ) : isDirty ? (
             <Circle className="size-1.5 shrink-0 fill-current group-hover:invisible" />
           ) : null}
         </CenterStageTab>
       </TooltipTrigger>
       <TooltipContent side="bottom" className="max-w-md break-all">
-        {resolvedTooltip}
+        <CenterStageShortcutTooltipBody digit={shortcutDigit}>
+          {resolvedTooltip}
+        </CenterStageShortcutTooltipBody>
       </TooltipContent>
     </Tooltip>
   );
@@ -663,6 +690,7 @@ export function CenterStageOpenFileTab({
   onContextMenuRequest,
   onPreviewPin,
   sessionDisplay,
+  shortcutDigit,
   tabValue,
   variant: variantProp,
 }: {
@@ -673,6 +701,7 @@ export function CenterStageOpenFileTab({
   onContextMenuRequest: (event: React.MouseEvent<HTMLButtonElement>, file: OpenFile) => void;
   onPreviewPin: (file: OpenFile) => void;
   sessionDisplay: SessionDisplay;
+  shortcutDigit?: number | null;
   tabValue?: string;
   variant?: CenterStageSurfaceTabVariant;
 }) {
@@ -688,6 +717,7 @@ export function CenterStageOpenFileTab({
       variant={variant}
       isDirty={file.isDirty}
       isPreview={file.isPreview}
+      shortcutDigit={shortcutDigit}
       closeLabel={closeLabel}
       onClose={() => onClose(file)}
       onContextMenu={(event) => {

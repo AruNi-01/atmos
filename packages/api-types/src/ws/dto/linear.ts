@@ -79,3 +79,72 @@ export type LinearLinkPayload = {
   snapshot_json?: string | null;
   linked_at: string;
 };
+
+export type HubAuthWire = {
+  cookie?: string | null;
+  device_credential?: string | null;
+};
+
+export type HubSessionFields = {
+  hub_auth?: HubAuthWire;
+  linear_api_key?: string | null;
+};
+
+export type LinearConnectApiKeyRequest = HubSessionFields & {
+  api_key: string;
+};
+
+export type LinearOauthStartRequest = {
+  shell?: string | null;
+  web_origin?: string | null;
+  client_id?: string | null;
+};
+
+export type LinearOauthStartResponse = {
+  authorize_url: string;
+  state: string;
+};
+
+export type LinearOauthFinishRequest = HubSessionFields & {
+  code: string;
+  state: string;
+  client_id?: string | null;
+};
+
+export type LinearClientHubRequest = HubSessionFields & {
+  client_id?: string | null;
+};
+
+export type LinearIssueListRequest = HubSessionFields & {
+  preset?: string | null;
+  team_id?: string | null;
+  project_id?: string | null;
+  state_types?: string[] | null;
+  assignee_ids?: string[] | null;
+  label_ids?: string[] | null;
+  query?: string | null;
+  first?: number | null;
+  after?: string | null;
+  client_id?: string | null;
+};
+
+export type LinearFilterOptionsResponse = {
+  teams: Array<{ id: string; name: string; key: string }>;
+  projects: Array<{ id: string; name: string }>;
+  users: Array<{ id: string; name: string; avatar_url?: string | null }>;
+  labels: Array<{ id: string; name: string; color?: string | null }>;
+};
+
+export type LinearLinkIssueRequest = {
+  workspace_guid: string;
+  issue: LinearIssuePayload;
+};
+
+export type LinearUnlinkIssueRequest = {
+  workspace_guid: string;
+  external_id: string;
+};
+
+export type LinearLinksForWorkspaceRequest = {
+  workspace_guid: string;
+};

@@ -12,7 +12,8 @@
     "auth:generate": "better-auth generate --config ./src/auth.ts --output ./src/db/auth-schema.generated.ts",
     "cf-typegen": "wrangler types",
     "deploy:dry-run": "wrangler deploy --dry-run",
-    "deploy": "wrangler deploy"
+    "deploy": "wrangler deploy",
+    "deploy:hub": "bash ../../scripts/hub/deploy.sh"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20260810.1",

@@ -41,7 +41,7 @@ const timelineNavClassName = cn(
   "[&_.agent-message-timeline-bar]:[--agent-message-timeline-scale-y:1]",
   "[&_.agent-message-timeline-bar]:scale-x-[var(--agent-message-timeline-scale-x)]",
   "[&_.agent-message-timeline-bar]:scale-y-[var(--agent-message-timeline-scale-y)]",
-  "[&_.agent-message-timeline-bar]:transition-[transform,background-color,opacity]",
+  "[&_.agent-message-timeline-bar]:transition-[transform,opacity]",
   "[&_.agent-message-timeline-bar]:duration-200",
   "[&_.agent-message-timeline-bar]:ease-[cubic-bezier(0.22,1,0.36,1)]",
   "motion-reduce:[&_.agent-message-timeline-bar]:transition-none",

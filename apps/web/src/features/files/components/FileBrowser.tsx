@@ -333,7 +333,7 @@ export function FileBrowser({
             <button
               type="button"
               onClick={handleClearSearch}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
             >
               <X className="w-4 h-4" />
             </button>
@@ -390,7 +390,7 @@ export function FileBrowser({
                   key={entry.path}
                   className={cn(
                     'flex items-center gap-2 px-3 py-2 rounded-md cursor-pointer',
-                    'hover:bg-muted/50 transition-colors',
+                    'hover:bg-muted/50',
                     selectedEntry?.path === entry.path && 'bg-primary/10 ring-1 ring-primary'
                   )}
                   onClick={() => handleEntryClick(entry)}

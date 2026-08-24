@@ -12,6 +12,7 @@ import {
   Button,
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -31,6 +32,12 @@ import {
   type DragEndEvent,
 } from "@workspace/ui";
 import {
+  Tabs as MotionTabs,
+  TabsList as MotionTabsList,
+  TabsTrigger as MotionTabsTrigger,
+} from "@workspace/ui/components/motion/tabs";
+import { motion, useReducedMotion } from "motion/react";
+import {
   BookOpen,
   Bot,
   ChevronRight,
@@ -39,8 +46,11 @@ import {
   GitBranch,
   Github,
   Globe,
+  Layers,
   LayoutTemplate,
   LoaderCircle,
+  Maximize2,
+  Minimize2,
   PencilRuler,
   GitGraph,
   Play,
@@ -59,9 +69,11 @@ import {
 import { useTranslations } from "next-intl";
 import type { OpenFile } from "@/features/editor/store/use-editor-store";
 import { cn } from "@/shared/lib/utils";
+import { CenterTabHeldShortcut } from "@/app-shell/HeldShortcutBadge";
+import { useHeldShortcutPrefix } from "@/app-shell/held-shortcut-prefix-store";
 import {
+  CenterStageShortcutTooltipBody,
   CenterStageTabGroupPopover,
-  CENTER_TERMINAL_SHORTCUT_LIMIT,
   ShortcutHint,
   TerminalTabAgentIndicatorWithPanes,
   type TabGroupItem,
@@ -82,9 +94,11 @@ import { AgentIcon } from "@/features/agent/components/AgentIcon";
 import { useAgentAttentionStore } from "@/features/agent/store/agent-attention-store";
 import { useTerminalCenterTabPresentation } from "@/features/terminal/hooks/use-terminal-center-tab-presentation";
 import { useTerminalStore } from "@/features/terminal/store/use-terminal-store";
+import { stableAgentPaneId } from "@/features/terminal/store/terminal-store-helpers";
 import { useShallow } from "zustand/react/shallow";
 import type { CenterTabContextMenuState, CenterTabDescriptor } from "@/app-shell/center-stage-tab-model";
 import {
+  getCenterStripShortcutDigit,
   orderCenterTabsBySavedOrder,
   preventNonPrimaryTabActivate,
 } from "@/app-shell/center-stage-tab-model";
@@ -95,6 +109,7 @@ import {
   getActivePreviewBrowserLabel,
   type PreviewBrowserPrefs,
 } from "@/features/browser/lib/browser-labels";
+import { useCenterStageFullscreenStore } from "@/app-shell/use-center-stage-fullscreen";
 
 type SessionDisplay = {
   sessionTitle?: string | null;
@@ -155,6 +170,10 @@ interface CenterStageTabBarProps {
   setTabContextMenu: (value: CenterTabContextMenuState) => void;
   setWikiRefreshing: React.Dispatch<React.SetStateAction<boolean>>;
   setWikiRefreshTrigger: React.Dispatch<React.SetStateAction<number>>;
+  /** Owning mosaic pane — fullscreen expands this pane over sibling center regions. */
+  paneId?: string;
+  /** Show a tab-bar fullscreen toggle (multi-pane only). */
+  isMultiPane?: boolean;
   /** Split the center stage into another pane (right). */
   onSplitRight?: () => void;
   /** Split the center stage into another pane (down). */
@@ -165,6 +184,10 @@ interface CenterStageTabBarProps {
   onSaveLayout?: (name: string) => void;
   /** Apply a previously saved layout to the current context. */
   onApplyLayout?: (layoutId: string) => void;
+  /** True when apply would replace a split or tabs other than Overview. */
+  shouldConfirmApplyLayout?: () => boolean;
+  /** Create a new independent center space with a user-provided name. */
+  onCreateSpace?: (name: string) => void;
 }
 
 export function CenterStageTabBar({
@@ -216,11 +239,15 @@ export function CenterStageTabBar({
   setTabContextMenu,
   setWikiRefreshing,
   setWikiRefreshTrigger,
+  paneId,
+  isMultiPane = false,
   onSplitRight,
   onSplitDown,
   savedLayouts,
   onSaveLayout,
   onApplyLayout,
+  shouldConfirmApplyLayout,
+  onCreateSpace,
 }: CenterStageTabBarProps) {
   const t = useTranslations("appShell");
   const newTerminalTabLabel = t("centerStageTabBar.newTerminalTab");
@@ -513,17 +540,16 @@ export function CenterStageTabBar({
     visibleTerminalTabs.length,
   ]);
 
-  const renderDescriptorTab = (tab: CenterTabDescriptor) => {
+  const renderDescriptorTab = (tab: CenterTabDescriptor, index: number) => {
+    const shortcutDigit = getCenterStripShortcutDigit(index);
     if (tab.kind === "terminal") {
       const source = visibleTerminalTabs.find((item) => item.id === tab.value);
       if (!source) return null;
-      const index = visibleTerminalTabs.findIndex((item) => item.id === tab.value);
       return (
         <TerminalExtraTab
           key={tab.id}
           effectiveContextId={effectiveContextId}
-          hasShortcut={index >= 0 && index < CENTER_TERMINAL_SHORTCUT_LIMIT}
-          shortcutDigit={index + 1}
+          shortcutDigit={shortcutDigit}
           tab={source}
           onClose={handleCloseTerminalCenterTab}
           onContextMenu={(event) => openContextMenu(event, tab)}
@@ -538,6 +564,7 @@ export function CenterStageTabBar({
           closeLabel={t("centerStageTabBar.closeProjectWikiTab")}
           icon={<TerminalIcon className="size-3.5 shrink-0" />}
           label={t("centerStageTabBar.projectWiki")}
+          shortcutDigit={shortcutDigit}
           tooltip={t("centerStageTabBar.projectWikiTerminal")}
           value="project-wiki"
           onClose={() => setProjectWikiCloseConfirmOpen(true)}
@@ -553,6 +580,7 @@ export function CenterStageTabBar({
           closeLabel={t("centerStageTabBar.closeCodeReviewTab")}
           icon={<TerminalIcon className="size-3.5 shrink-0 text-blue-500" />}
           label={t("centerStageTabBar.codeReview")}
+          shortcutDigit={shortcutDigit}
           tooltip={t("centerStageTabBar.codeReviewTerminal")}
           value="code-review"
           onClose={() => setCodeReviewCloseConfirmOpen(true)}
@@ -568,6 +596,7 @@ export function CenterStageTabBar({
           closeLabel={t("centerStageTabBar.closeSimulatorTab")}
           icon={<Smartphone className="size-3.5 shrink-0" />}
           label={t("centerStageTabBar.simulator")}
+          shortcutDigit={shortcutDigit}
           tooltip={t("centerStageTabBar.simulator")}
           value="simulator"
           onClose={handleCloseSimulatorTab}
@@ -583,6 +612,7 @@ export function CenterStageTabBar({
           closeLabel={t("centerStageTabBar.closeHistoryTab")}
           icon={<GitGraph className="size-3.5 shrink-0" />}
           label={t("centerStageTabBar.history")}
+          shortcutDigit={shortcutDigit}
           tooltip={t("centerStageTabBar.history")}
           value="git-history"
           onClose={handleCloseGitHistoryTab}
@@ -598,6 +628,7 @@ export function CenterStageTabBar({
           closeLabel={t("centerStageTabBar.closeChangesTab")}
           icon={<GitBranch className="size-3.5 shrink-0" />}
           label={t("centerStageTabBar.changes")}
+          shortcutDigit={shortcutDigit}
           tooltip={t("centerStageTabBar.changes")}
           value="changes"
           onClose={() => handleCloseToolTab("changes")}
@@ -613,6 +644,7 @@ export function CenterStageTabBar({
           closeLabel={t("centerStageTabBar.closeReviewTab")}
           icon={<FileDiff className="size-3.5 shrink-0" />}
           label={t("centerStageTabBar.review")}
+          shortcutDigit={shortcutDigit}
           tooltip={t("centerStageTabBar.review")}
           value="review"
           onClose={() => handleCloseToolTab("review")}
@@ -628,6 +660,7 @@ export function CenterStageTabBar({
           closeLabel={t("centerStageTabBar.closeRunTab")}
           icon={<Play className="size-3.5 shrink-0" />}
           label={t("centerStageTabBar.run")}
+          shortcutDigit={shortcutDigit}
           tooltip={t("centerStageTabBar.run")}
           value="run"
           onClose={() => handleCloseToolTab("run")}
@@ -643,6 +676,7 @@ export function CenterStageTabBar({
           closeLabel={t("centerStageTabBar.closeGithubTab")}
           icon={<Github className="size-3.5 shrink-0" />}
           label={t("centerStageTabBar.github")}
+          shortcutDigit={shortcutDigit}
           tooltip={t("centerStageTabBar.github")}
           value="github"
           onClose={() => handleCloseToolTab("github")}
@@ -658,6 +692,7 @@ export function CenterStageTabBar({
           closeLabel={t("centerStageTabBar.closeFilesTab")}
           icon={<FolderTree className="size-3.5 shrink-0" />}
           label={t("centerStageTabBar.files")}
+          shortcutDigit={shortcutDigit}
           tooltip={t("centerStageTabBar.files")}
           value="files"
           onClose={() => handleCloseToolTab("files")}
@@ -673,6 +708,7 @@ export function CenterStageTabBar({
           closeLabel={t("centerStageTabBar.closePtDesignTab")}
           icon={<PencilRuler className="size-3.5 shrink-0" />}
           label={t("centerStageTabBar.ptDesign")}
+          shortcutDigit={shortcutDigit}
           tooltip={t("centerStageTabBar.ptDesign")}
           value="pt-design"
           onClose={() => handleCloseToolTab("pt-design")}
@@ -687,6 +723,7 @@ export function CenterStageTabBar({
           key={tab.id}
           file={tab.file}
           sessionDisplay={sessionDisplay}
+          shortcutDigit={shortcutDigit}
           onClose={handleCloseFile}
           onContextMenuRequest={(event) => openContextMenu(event, tab)}
           onPreviewPin={(nextFile) => pinFile(nextFile.path, effectiveContextId)}
@@ -713,6 +750,7 @@ export function CenterStageTabBar({
           onClose={() => handleCloseBrowserTab(browserTab.value)}
           onContextMenu={(event) => openContextMenu(event, tab)}
           path={label}
+          shortcutDigit={shortcutDigit}
           tooltip={label}
           value={browserTab.value}
           variant="browser"
@@ -730,6 +768,7 @@ export function CenterStageTabBar({
         onClose={() => handleCloseGithubTab(githubTab.value)}
         onContextMenu={(event) => openContextMenu(event, tab)}
         path={`${githubTab.owner}/${githubTab.repo}`}
+        shortcutDigit={shortcutDigit}
         tooltip={githubTab.description || `${githubTab.owner}/${githubTab.repo}`}
         value={githubTab.value}
         variant={githubTab.kind}
@@ -758,7 +797,14 @@ export function CenterStageTabBar({
             saveLayoutNamePlaceholder={t("centerStageTabBar.saveLayoutNamePlaceholder")}
             saveLayoutConfirmLabel={t("centerStageTabBar.saveLayoutConfirm")}
             saveLayoutCancelLabel={t("centerStageTabBar.saveLayoutCancel")}
+            applyLayoutConfirmTitle={t("centerStageTabBar.applyLayoutConfirmTitle")}
+            applyLayoutConfirmDescription={t("centerStageTabBar.applyLayoutConfirmDescription")}
+            applyLayoutConfirmLabel={t("centerStageTabBar.applyLayoutConfirm")}
+            applyLayoutCancelLabel={t("centerStageTabBar.applyLayoutCancel")}
             simulatorLabel={t("centerStageTabBar.newSimulator")}
+            paneId={paneId}
+            fullscreenLabel={t("centerStageTabBar.fullscreen")}
+            exitFullscreenLabel={t("centerStageTabBar.exitFullscreen")}
             splitDownLabel={t("centerStageTabBar.splitDown")}
             splitRightLabel={t("centerStageTabBar.splitRight")}
             terminalLabel={newTerminalTabLabel}
@@ -771,7 +817,24 @@ export function CenterStageTabBar({
             onSplitRight={onSplitRight}
             onSaveLayout={onSaveLayout}
             onApplyLayout={onApplyLayout}
+            shouldConfirmApplyLayout={shouldConfirmApplyLayout}
+            onCreateSpace={onCreateSpace}
+            newSpaceLabel={t("centerStageTabBar.newSpace")}
+            plusMenuTabsLabel={t("centerStageTabBar.plusMenuTabs")}
+            plusMenuLayoutLabel={t("centerStageTabBar.plusMenuLayout")}
+            newSpaceDialogTitle={t("centerStageTabBar.newSpaceDialogTitle")}
+            newSpaceNamePlaceholder={t("centerStageTabBar.newSpaceNamePlaceholder")}
+            newSpaceConfirmLabel={t("centerStageTabBar.newSpaceConfirm")}
+            newSpaceCancelLabel={t("centerStageTabBar.newSpaceCancel")}
+            showPaneFullscreenButton={isMultiPane}
           />
+          {isMultiPane ? (
+            <CenterStagePaneFullscreenButton
+              paneId={paneId}
+              fullscreenLabel={t("centerStageTabBar.fullscreen")}
+              exitFullscreenLabel={t("centerStageTabBar.exitFullscreen")}
+            />
+          ) : null}
           <CenterStageTabGroupPopover
             open={tabGroupPopoverOpen}
             onOpenChange={setTabGroupPopoverOpen}
@@ -873,9 +936,9 @@ export function CenterStageTabBar({
             items={orderedDescriptors.map((tab) => tab.id)}
             strategy={horizontalListSortingStrategy}
           >
-            {orderedDescriptors.map((tab) => (
+            {orderedDescriptors.map((tab, index) => (
               <SortableCenterStripTab key={tab.id} id={tab.id}>
-                {renderDescriptorTab(tab)}
+                {renderDescriptorTab(tab, index)}
               </SortableCenterStripTab>
             ))}
           </SortableContext>
@@ -965,15 +1028,13 @@ function SortableCenterStripTab({
 
 function TerminalExtraTab({
   effectiveContextId,
-  hasShortcut,
   shortcutDigit,
   tab,
   onClose,
   onContextMenu,
 }: {
   effectiveContextId: string;
-  hasShortcut: boolean;
-  shortcutDigit: number;
+  shortcutDigit: number | null;
   tab: { id: string; title: string; customTitle?: string };
   onClose: (tabId: string) => void;
   onContextMenu: (event: React.MouseEvent) => void;
@@ -986,13 +1047,17 @@ function TerminalExtraTab({
     customTitle: tab.customTitle,
   });
   const closeAriaLabel = t("centerStageTabBar.closeTab", { tab: displayTitle });
+  const prefix = useHeldShortcutPrefix();
+  const showHeldShortcut = prefix === "mod" && shortcutDigit != null;
 
   const stablePaneIds = useTerminalStore(
     useShallow((s) => {
       const panes = s.getPanes(effectiveContextId, tab.id);
       return Object.values(panes)
         .map((pane) =>
-          pane.tmuxWindowName ? `${effectiveContextId}:${pane.tmuxWindowName}` : null,
+          pane.tmuxWindowName
+            ? stableAgentPaneId(effectiveContextId, pane.tmuxWindowName)
+            : null,
         )
         .filter((id): id is string => Boolean(id));
     }),
@@ -1040,15 +1105,151 @@ function TerminalExtraTab({
           <span className="max-w-[180px] truncate whitespace-nowrap">
             {displayTitle}
           </span>
-          <TerminalTabAgentIndicatorWithPanes contextId={effectiveContextId} tabId={tab.id} />
+          {showHeldShortcut ? (
+            <CenterTabHeldShortcut digit={shortcutDigit} />
+          ) : (
+            <TerminalTabAgentIndicatorWithPanes contextId={effectiveContextId} tabId={tab.id} />
+          )}
         </CenterStageTab>
       </TooltipTrigger>
       <TooltipContent side="bottom">
-        <div className="flex items-center gap-2">
+        <CenterStageShortcutTooltipBody digit={shortcutDigit}>
           <span>{displayTitle}</span>
-          {hasShortcut ? <ShortcutHint digit={shortcutDigit} /> : null}
-        </div>
+        </CenterStageShortcutTooltipBody>
       </TooltipContent>
+    </Tooltip>
+  );
+}
+
+const PLUS_MENU_TAB_EASE = [0.22, 1, 0.36, 1] as const;
+
+function PlusMenuTabPanels({
+  tab,
+  tabs,
+  layout,
+}: {
+  tab: "tabs" | "layout";
+  tabs: React.ReactNode;
+  layout: React.ReactNode;
+}) {
+  const reduce = useReducedMotion();
+  const tabsRef = React.useRef<HTMLDivElement>(null);
+  const layoutRef = React.useRef<HTMLDivElement>(null);
+  const [height, setHeight] = React.useState<number | "auto">("auto");
+
+  React.useLayoutEffect(() => {
+    const el = tab === "layout" ? layoutRef.current : tabsRef.current;
+    if (!el) return;
+    const apply = () => {
+      const next = el.offsetHeight;
+      setHeight((prev) => (prev === next ? prev : next));
+    };
+    apply();
+    const observer = new ResizeObserver(apply);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [tab]);
+
+  return (
+    <motion.div
+      initial={false}
+      animate={reduce || height === "auto" ? undefined : { height }}
+      transition={{ duration: 0.3, ease: PLUS_MENU_TAB_EASE }}
+      className="mt-1 overflow-hidden"
+    >
+      <div className="relative">
+        <motion.div
+          ref={tabsRef}
+          initial={false}
+          animate={{
+            opacity: tab === "tabs" ? 1 : 0,
+            scale: tab === "tabs" ? 1 : 0.96,
+          }}
+          transition={{ duration: reduce ? 0 : 0.22, ease: PLUS_MENU_TAB_EASE }}
+          className={cn(
+            "origin-top",
+            tab === "tabs"
+              ? "relative"
+              : "pointer-events-none absolute inset-x-0 top-0",
+          )}
+          aria-hidden={tab !== "tabs"}
+          inert={tab !== "tabs" ? true : undefined}
+        >
+          {tabs}
+        </motion.div>
+        <motion.div
+          ref={layoutRef}
+          initial={false}
+          animate={{
+            opacity: tab === "layout" ? 1 : 0,
+            scale: tab === "layout" ? 1 : 0.96,
+          }}
+          transition={{ duration: reduce ? 0 : 0.22, ease: PLUS_MENU_TAB_EASE }}
+          className={cn(
+            "origin-top",
+            tab === "layout"
+              ? "relative"
+              : "pointer-events-none absolute inset-x-0 top-0",
+          )}
+          aria-hidden={tab !== "layout"}
+          inert={tab !== "layout" ? true : undefined}
+        >
+          {layout}
+        </motion.div>
+      </div>
+    </motion.div>
+  );
+}
+
+function isCenterStagePlusMenuEventTarget(target: EventTarget | null): boolean {
+  return Boolean(
+    target instanceof Element &&
+      (target.closest("[data-center-stage-plus-menu]") ||
+        target.closest("[data-center-stage-layouts-menu]") ||
+        target.closest("[data-center-stage-plus-trigger]")),
+  );
+}
+
+const PANE_FULLSCREEN_BUTTON_CLASS =
+  "flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-active hover:text-foreground";
+
+function CenterStagePaneFullscreenButton({
+  paneId,
+  fullscreenLabel,
+  exitFullscreenLabel,
+}: {
+  paneId?: string;
+  fullscreenLabel: string;
+  exitFullscreenLabel: string;
+}) {
+  const isCenterFullscreen = useCenterStageFullscreenStore((state) => state.isFullscreen);
+  const toggleCenterFullscreen = useCenterStageFullscreenStore(
+    (state) => state.toggleFullscreen,
+  );
+  const label = isCenterFullscreen ? exitFullscreenLabel : fullscreenLabel;
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          data-center-stage-pane-fullscreen=""
+          aria-label={label}
+          aria-pressed={isCenterFullscreen}
+          title={label}
+          className={cn(
+            PANE_FULLSCREEN_BUTTON_CLASS,
+            isCenterFullscreen && "bg-active text-foreground",
+          )}
+          onClick={() => toggleCenterFullscreen(paneId)}
+        >
+          {isCenterFullscreen ? (
+            <Minimize2 className="size-4" />
+          ) : (
+            <Maximize2 className="size-4" />
+          )}
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="bottom">{label}</TooltipContent>
     </Tooltip>
   );
 }
@@ -1068,7 +1269,14 @@ function CenterStageNewTabMenu({
   saveLayoutNamePlaceholder,
   saveLayoutConfirmLabel,
   saveLayoutCancelLabel,
+  applyLayoutConfirmTitle,
+  applyLayoutConfirmDescription,
+  applyLayoutConfirmLabel,
+  applyLayoutCancelLabel,
   simulatorLabel,
+  paneId,
+  fullscreenLabel,
+  exitFullscreenLabel,
   splitDownLabel,
   splitRightLabel,
   terminalLabel,
@@ -1081,6 +1289,16 @@ function CenterStageNewTabMenu({
   onSplitRight,
   onSaveLayout,
   onApplyLayout,
+  shouldConfirmApplyLayout,
+  onCreateSpace,
+  newSpaceLabel,
+  newSpaceDialogTitle,
+  newSpaceNamePlaceholder,
+  newSpaceConfirmLabel,
+  newSpaceCancelLabel,
+  plusMenuTabsLabel,
+  plusMenuLayoutLabel,
+  showPaneFullscreenButton,
 }: {
   browserLabel: string;
   changesLabel: string;
@@ -1096,7 +1314,14 @@ function CenterStageNewTabMenu({
   saveLayoutNamePlaceholder: string;
   saveLayoutConfirmLabel: string;
   saveLayoutCancelLabel: string;
+  applyLayoutConfirmTitle: string;
+  applyLayoutConfirmDescription: string;
+  applyLayoutConfirmLabel: string;
+  applyLayoutCancelLabel: string;
   simulatorLabel: string;
+  paneId?: string;
+  fullscreenLabel: string;
+  exitFullscreenLabel: string;
   splitDownLabel: string;
   splitRightLabel: string;
   terminalLabel: string;
@@ -1109,11 +1334,30 @@ function CenterStageNewTabMenu({
   onSplitRight?: () => void;
   onSaveLayout?: (name: string) => void;
   onApplyLayout?: (layoutId: string) => void;
+  shouldConfirmApplyLayout?: () => boolean;
+  onCreateSpace?: (name: string) => void;
+  newSpaceLabel?: string;
+  newSpaceDialogTitle: string;
+  newSpaceNamePlaceholder: string;
+  newSpaceConfirmLabel: string;
+  newSpaceCancelLabel: string;
+  plusMenuTabsLabel: string;
+  plusMenuLayoutLabel: string;
+  showPaneFullscreenButton?: boolean;
 }) {
   const [open, setOpen] = React.useState(false);
+  const [plusTab, setPlusTab] = React.useState<"tabs" | "layout">("tabs");
   const [layoutsSubOpen, setLayoutsSubOpen] = React.useState(false);
   const [saveDialogOpen, setSaveDialogOpen] = React.useState(false);
   const [layoutName, setLayoutName] = React.useState("");
+  const [spaceDialogOpen, setSpaceDialogOpen] = React.useState(false);
+  const [spaceName, setSpaceName] = React.useState("");
+  const [applyConfirmOpen, setApplyConfirmOpen] = React.useState(false);
+  const [pendingApplyLayoutId, setPendingApplyLayoutId] = React.useState<string | null>(null);
+  const isCenterFullscreen = useCenterStageFullscreenStore((state) => state.isFullscreen);
+  const toggleCenterFullscreen = useCenterStageFullscreenStore(
+    (state) => state.toggleFullscreen,
+  );
   const closeTimerRef = React.useRef<number | null>(null);
   const layoutsLeaveTimerRef = React.useRef<number | null>(null);
 
@@ -1171,6 +1415,44 @@ function CenterStageNewTabMenu({
     setLayoutName("");
   }, [layoutName, onSaveLayout]);
 
+  const openSpaceDialog = React.useCallback(() => {
+    setSpaceName("");
+    setSpaceDialogOpen(true);
+    setOpen(false);
+    setLayoutsSubOpen(false);
+  }, []);
+
+  const confirmCreateSpace = React.useCallback(() => {
+    const name = spaceName.trim();
+    if (!name || !onCreateSpace) return;
+    onCreateSpace(name);
+    setSpaceDialogOpen(false);
+    setSpaceName("");
+  }, [onCreateSpace, spaceName]);
+
+  const requestApplyLayout = React.useCallback(
+    (layoutId: string) => {
+      if (shouldConfirmApplyLayout?.()) {
+        setPendingApplyLayoutId(layoutId);
+        setApplyConfirmOpen(true);
+        setOpen(false);
+        setLayoutsSubOpen(false);
+        return;
+      }
+      onApplyLayout?.(layoutId);
+      setOpen(false);
+      setLayoutsSubOpen(false);
+    },
+    [onApplyLayout, shouldConfirmApplyLayout],
+  );
+
+  const confirmApplyLayout = React.useCallback(() => {
+    if (!pendingApplyLayoutId) return;
+    onApplyLayout?.(pendingApplyLayoutId);
+    setPendingApplyLayoutId(null);
+    setApplyConfirmOpen(false);
+  }, [onApplyLayout, pendingApplyLayoutId]);
+
   const showLayoutItems = Boolean(onSaveLayout || onApplyLayout);
 
   return (
@@ -1179,7 +1461,10 @@ function CenterStageNewTabMenu({
         open={open}
         onOpenChange={(next) => {
           setOpen(next);
-          if (!next) setLayoutsSubOpen(false);
+          if (!next) {
+            setLayoutsSubOpen(false);
+            setPlusTab("tabs");
+          }
         }}
       >
         <PopoverTrigger asChild>
@@ -1188,6 +1473,7 @@ function CenterStageNewTabMenu({
             aria-label={menuLabel}
             aria-haspopup="menu"
             aria-expanded={open}
+            data-center-stage-plus-trigger=""
             className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-active hover:text-foreground data-[state=open]:bg-active data-[state=open]:text-foreground"
             onMouseEnter={() => {
               clearCloseTimer();
@@ -1198,7 +1484,11 @@ function CenterStageNewTabMenu({
               clearCloseTimer();
               setOpen(true);
             }}
-            onBlur={scheduleClose}
+            onBlur={(event) => {
+              const next = event.relatedTarget ?? document.activeElement;
+              if (isCenterStagePlusMenuEventTarget(next)) return;
+              scheduleClose();
+            }}
           >
             <Plus className="size-4" />
           </button>
@@ -1207,30 +1497,56 @@ function CenterStageNewTabMenu({
           align="end"
           side="bottom"
           sideOffset={4}
-          className="w-48 border-border/70 bg-popover/90 p-1 shadow-lg backdrop-blur-xl"
+          data-center-stage-plus-menu=""
+          className="z-[90] w-48 overflow-hidden border-border/70 bg-popover/90 p-1 shadow-lg backdrop-blur-xl"
           onOpenAutoFocus={(event) => event.preventDefault()}
           onCloseAutoFocus={(event) => event.preventDefault()}
           onMouseEnter={clearCloseTimer}
           onMouseLeave={scheduleClose}
+          onPointerDown={(event) => event.stopPropagation()}
+          onMouseDown={(event) => event.stopPropagation()}
           onPointerDownOutside={(event) => {
-            const target = event.target;
-            if (
-              target instanceof Element &&
-              target.closest("[data-center-stage-layouts-menu]")
-            ) {
+            if (isCenterStagePlusMenuEventTarget(event.target)) {
               event.preventDefault();
             }
           }}
           onFocusOutside={(event) => {
-            const target = event.target;
-            if (
-              target instanceof Element &&
-              target.closest("[data-center-stage-layouts-menu]")
-            ) {
+            if (isCenterStagePlusMenuEventTarget(event.target)) {
               event.preventDefault();
             }
           }}
         >
+          <MotionTabs
+            value={plusTab}
+            onValueChange={(value) => {
+              if (value === "tabs" || value === "layout") setPlusTab(value);
+              if (value !== "layout") setLayoutsSubOpen(false);
+            }}
+            variant="pill"
+            className="w-full"
+          >
+            <MotionTabsList className="flex h-8 w-full min-w-0 gap-0.5 bg-muted p-0.5">
+              <MotionTabsTrigger
+                value="tabs"
+                className="h-7 min-w-0 flex-1 px-2 text-xs"
+                onPointerDown={(event) => event.stopPropagation()}
+                onClick={(event) => event.stopPropagation()}
+              >
+                {plusMenuTabsLabel}
+              </MotionTabsTrigger>
+              <MotionTabsTrigger
+                value="layout"
+                className="h-7 min-w-0 flex-1 px-2 text-xs"
+                onPointerDown={(event) => event.stopPropagation()}
+                onClick={(event) => event.stopPropagation()}
+              >
+                {plusMenuLayoutLabel}
+              </MotionTabsTrigger>
+            </MotionTabsList>
+            <PlusMenuTabPanels
+              tab={plusTab}
+              tabs={
+                <>
           <button
             type="button"
             className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
@@ -1331,35 +1647,10 @@ function CenterStageNewTabMenu({
             <Smartphone className="size-3.5 shrink-0 text-muted-foreground" />
             <span className="min-w-0 flex-1 truncate">{simulatorLabel}</span>
           </button>
-          {onSplitRight || onSplitDown || showLayoutItems ? (
-            <div className="my-1 h-px bg-border/60" role="separator" />
-          ) : null}
-          {onSplitRight ? (
-            <button
-              type="button"
-              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
-              onClick={() => {
-                onSplitRight();
-                setOpen(false);
-              }}
-            >
-              <SquareSplitHorizontal className="size-3.5 shrink-0 text-muted-foreground" />
-              <span className="min-w-0 flex-1 truncate">{splitRightLabel}</span>
-            </button>
-          ) : null}
-          {onSplitDown ? (
-            <button
-              type="button"
-              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
-              onClick={() => {
-                onSplitDown();
-                setOpen(false);
-              }}
-            >
-              <Rows2 className="size-3.5 shrink-0 text-muted-foreground" />
-              <span className="min-w-0 flex-1 truncate">{splitDownLabel}</span>
-            </button>
-          ) : null}
+                </>
+              }
+              layout={
+                <>
           {showLayoutItems ? (
             <Popover open={layoutsSubOpen} onOpenChange={setLayoutsSubOpen}>
               <PopoverTrigger asChild>
@@ -1421,11 +1712,7 @@ function CenterStageNewTabMenu({
                     key={layout.id}
                     type="button"
                     className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
-                    onClick={() => {
-                      onApplyLayout?.(layout.id);
-                      setOpen(false);
-                      setLayoutsSubOpen(false);
-                    }}
+                    onClick={() => requestApplyLayout(layout.id)}
                   >
                     <span className="min-w-0 flex-1 truncate">{layout.name}</span>
                   </button>
@@ -1438,8 +1725,133 @@ function CenterStageNewTabMenu({
               </PopoverContent>
             </Popover>
           ) : null}
+          {onSplitRight ? (
+            <button
+              type="button"
+              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
+              onClick={() => {
+                onSplitRight();
+                setOpen(false);
+              }}
+            >
+              <SquareSplitHorizontal className="size-3.5 shrink-0 text-muted-foreground" />
+              <span className="min-w-0 flex-1 truncate">{splitRightLabel}</span>
+            </button>
+          ) : null}
+          {onSplitDown ? (
+            <button
+              type="button"
+              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
+              onClick={() => {
+                onSplitDown();
+                setOpen(false);
+              }}
+            >
+              <Rows2 className="size-3.5 shrink-0 text-muted-foreground" />
+              <span className="min-w-0 flex-1 truncate">{splitDownLabel}</span>
+            </button>
+          ) : null}
+          {onCreateSpace && newSpaceLabel ? (
+            <button
+              type="button"
+              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
+              onClick={openSpaceDialog}
+            >
+              <Layers className="size-3.5 shrink-0 text-muted-foreground" />
+              <span className="min-w-0 flex-1 truncate">{newSpaceLabel}</span>
+            </button>
+          ) : null}
+          {showPaneFullscreenButton ? null : (
+          <button
+            type="button"
+            aria-pressed={isCenterFullscreen}
+            className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
+            onClick={() => {
+              toggleCenterFullscreen(paneId);
+              setOpen(false);
+            }}
+          >
+            {isCenterFullscreen ? (
+              <Minimize2 className="size-3.5 shrink-0 text-muted-foreground" />
+            ) : (
+              <Maximize2 className="size-3.5 shrink-0 text-muted-foreground" />
+            )}
+            <span className="min-w-0 flex-1 truncate">
+              {isCenterFullscreen ? exitFullscreenLabel : fullscreenLabel}
+            </span>
+          </button>
+          )}
+                </>
+              }
+            />
+          </MotionTabs>
         </PopoverContent>
       </Popover>
+
+      <Dialog
+        open={applyConfirmOpen}
+        onOpenChange={(open) => {
+          setApplyConfirmOpen(open);
+          if (!open) setPendingApplyLayoutId(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{applyLayoutConfirmTitle}</DialogTitle>
+            <DialogDescription>{applyLayoutConfirmDescription}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => {
+                setApplyConfirmOpen(false);
+                setPendingApplyLayoutId(null);
+              }}
+            >
+              {applyLayoutCancelLabel}
+            </Button>
+            <Button type="button" onClick={confirmApplyLayout}>
+              {applyLayoutConfirmLabel}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={spaceDialogOpen} onOpenChange={setSpaceDialogOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{newSpaceDialogTitle}</DialogTitle>
+          </DialogHeader>
+          <form
+            className="space-y-4"
+            onSubmit={(event) => {
+              event.preventDefault();
+              confirmCreateSpace();
+            }}
+          >
+            <Input
+              autoFocus
+              value={spaceName}
+              onChange={(event) => setSpaceName(event.target.value)}
+              placeholder={newSpaceNamePlaceholder}
+              maxLength={64}
+            />
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setSpaceDialogOpen(false)}
+              >
+                {newSpaceCancelLabel}
+              </Button>
+              <Button type="submit" disabled={!spaceName.trim()}>
+                {newSpaceConfirmLabel}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={saveDialogOpen} onOpenChange={setSaveDialogOpen}>
         <DialogContent className="sm:max-w-sm">
@@ -1483,6 +1895,7 @@ function SpecialTerminalTab({
   closeLabel,
   icon,
   label,
+  shortcutDigit,
   tooltip,
   value,
   onClose,
@@ -1491,11 +1904,14 @@ function SpecialTerminalTab({
   closeLabel: string;
   icon: React.ReactNode;
   label: string;
+  shortcutDigit?: number | null;
   tooltip: string;
   value: string;
   onClose: () => void;
   onContextMenu?: (event: React.MouseEvent) => void;
 }) {
+  const prefix = useHeldShortcutPrefix();
+  const showHeldShortcut = prefix === "mod" && shortcutDigit != null;
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -1510,9 +1926,14 @@ function SpecialTerminalTab({
             {icon}
           </CenterStageTabIconSlot>
           <span className="text-pretty">{label}</span>
+          {showHeldShortcut ? <CenterTabHeldShortcut digit={shortcutDigit} /> : null}
         </CenterStageTab>
       </TooltipTrigger>
-      <TooltipContent side="bottom">{tooltip}</TooltipContent>
+      <TooltipContent side="bottom">
+        <CenterStageShortcutTooltipBody digit={shortcutDigit}>
+          {tooltip}
+        </CenterStageShortcutTooltipBody>
+      </TooltipContent>
     </Tooltip>
   );
 }

@@ -41,7 +41,7 @@ export function AttachmentBar({ attachments, onRemove, onPreview, className }: A
                     onPreview?.(att);
                   }
                 }}
-                className="relative h-12 w-12 cursor-zoom-in overflow-hidden rounded-md border border-border/70 bg-muted/40 transition-colors hover:border-border focus:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="relative h-12 w-12 cursor-zoom-in overflow-hidden rounded-md border border-border/70 bg-muted/40 hover:border-border focus:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 aria-label={att.filename}
               >
                 {att.blob.type.startsWith("image/") ? (

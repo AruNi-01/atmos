@@ -8,7 +8,7 @@ import type {
 
 export const automationApi = {
   async markActiveGithubAutomationsNeedsSetup(): Promise<number> {
-    const list = await wsRequest<AutomationListResponse>("automation_list", {
+    const list = await wsRequest("automation_list", {
       include_paused: true,
     });
     const githubAutomations = list.automations.filter(

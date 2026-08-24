@@ -56,6 +56,15 @@ createClientSession → gateway_url + client_token
 
 `apps/web/src/api/relay.ts` owns gateway `/api/system/*` helpers. Keep them out of `@atmos/relay-client`.
 
+## Adding a Relay control-plane route (same PR as `packages/relay`)
+
+1. Worker: `/v1/computers|register_tokens|client_sessions|…` in `packages/relay`.
+2. DTO in `src/types.ts`.
+3. Method on `createRelayClient()` / `AuthenticatedRelayClient` (not a new package, not `api-types`).
+4. After `createClientSession`, Computer `/api/system/*` on `gateway_url` stays **app-owned** (`apps/web/src/api/relay.ts`). Do not absorb it here.
+
+No oRPC / OpenAPI. Relay REST is already a typed client.
+
 ## Must not
 
 - Main `/ws` session kernel (`@atmos/api-client`)

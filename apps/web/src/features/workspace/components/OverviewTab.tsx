@@ -57,6 +57,7 @@ import {
 import { formatLocalDateTime } from '@atmos/shared';
 import { MarkdownRenderer } from '@/shared/components/markdown/MarkdownRenderer';
 import { useWorkspaceContext, type TaskStatus } from '@/features/workspace/hooks/use-workspace-context';
+import { attachCenterTab } from "@/app-shell/center-space/center-open-context";
 import { useEditorStore } from '@/features/editor/store/use-editor-store';
 import { useProjectStore } from '@/features/project/store/use-project-store';
 import { useWorkspaceLabels } from '@/features/project/hooks/use-project-bootstrap-query';
@@ -81,6 +82,8 @@ type OverviewPullRequest = {
 
 interface OverviewTabProps {
   contextId: string;
+  /** Center paint id for opening files/tabs. Defaults to `contextId`. */
+  editorContextId?: string;
   projectId?: string;
   projectName?: string;
   projectPath?: string;
@@ -116,7 +119,7 @@ function formatDate(isoString: string | undefined, locale: string): string {
 function DroppableSection({ id, children }: { id: string; children: React.ReactNode }) {
   const { setNodeRef, isOver } = useDroppable({ id });
   return (
-    <div ref={setNodeRef} className={cn("w-full rounded-sm transition-colors", isOver && "bg-primary/10")}>
+    <div ref={setNodeRef} className={cn("w-full rounded-sm", isOver && "bg-primary/10")}>
       {children}
     </div>
   );
@@ -217,6 +220,7 @@ function MetadataControlGroup({
 
 export const OverviewTab: React.FC<OverviewTabProps> = ({
   contextId,
+  editorContextId,
   projectId,
   projectName,
   projectPath,
@@ -239,6 +243,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   const t = useTranslations('Workspace.components.overviewTab');
   const relativeTimeLocale = locale.startsWith('zh') ? zhCN : enUS;
   const openFile = useEditorStore(s => s.openFile);
+  const fileOpenContextId = editorContextId || contextId;
   const updateWorkspacePriority = useProjectStore(s => s.updateWorkspacePriority);
   const updateWorkspaceWorkflowStatus = useProjectStore(s => s.updateWorkspaceWorkflowStatus);
   const updateWorkspaceLabels = useProjectStore(s => s.updateWorkspaceLabels);
@@ -430,10 +435,12 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
         prNumber: pr.number,
         repo: githubRepo,
         title: pr.title as string | undefined,
+        contextId: fileOpenContextId,
       });
     },
     [
       effectiveGitBranch,
+      fileOpenContextId,
       githubOwner,
       githubRepo,
       onOpenPullRequest,
@@ -448,9 +455,14 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
         return;
       }
       if (!githubOwner || !githubRepo) return;
-      openActionRunTab({ owner: githubOwner, repo: githubRepo, run });
+      openActionRunTab({
+        owner: githubOwner,
+        repo: githubRepo,
+        run,
+        contextId: fileOpenContextId,
+      });
     },
-    [githubOwner, githubRepo, onOpenActionRun, openActionRunTab],
+    [fileOpenContextId, githubOwner, githubRepo, onOpenActionRun, openActionRunTab],
   );
 
   const taskDragOverlay = (
@@ -528,7 +540,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
               size="sm"
               onClick={handleRefresh}
               disabled={isRefreshing}
-              className="h-8 gap-2 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+              className="h-8 gap-2 hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer"
             >
               {isRefreshing ? <LoaderCircle className="size-3.5 animate-spin" /> : <RotateCcw className="size-3.5" />}
               <span className="text-xs">{t('actions.refresh')}</span>
@@ -624,7 +636,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
               {githubIssue && (
                 <div
                   onClick={() => window.open(githubIssue.url, '_blank', 'noopener,noreferrer')}
-                  className="rounded-md border border-border bg-muted/20 p-3 transition-colors hover:bg-muted/40 cursor-pointer"
+                  className="rounded-md border border-border bg-muted/20 p-3 hover:bg-muted/40 cursor-pointer"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
@@ -670,11 +682,14 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <div
-                              onClick={() => openFile(file.path, contextId, { preview: true })}
-                              className="flex items-center gap-2.5 p-2 rounded-md bg-muted/20 hover:bg-muted/40 transition-colors cursor-pointer group min-w-0"
+                              onClick={() => {
+                                void openFile(file.path, fileOpenContextId, { preview: true });
+                                attachCenterTab(fileOpenContextId, file.path);
+                              }}
+                              className="flex items-center gap-2.5 p-2 rounded-md bg-muted/20 hover:bg-muted/40 cursor-pointer group min-w-0"
                             >
-                              <FileCheck className="size-3.5 shrink-0 text-muted-foreground group-hover:text-foreground transition-colors" />
-                              <span className="text-[11px] text-muted-foreground group-hover:text-foreground transition-colors truncate">
+                              <FileCheck className="size-3.5 shrink-0 text-muted-foreground group-hover:text-foreground" />
+                              <span className="text-[11px] text-muted-foreground group-hover:text-foreground truncate">
                                 {file.name}
                               </span>
                             </div>
@@ -711,10 +726,10 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                       <div
                         key={pr.number}
                         onClick={() => handleOpenPullRequest(pr)}
-                        className="flex flex-col p-3 rounded-md bg-muted/20 border border-sidebar-border/50 hover:bg-muted/40 hover:border-sidebar-border transition-all cursor-pointer group"
+                        className="flex flex-col p-3 rounded-md bg-muted/20 border border-sidebar-border/50 hover:bg-muted/40 hover:border-sidebar-border cursor-pointer group"
                       >
                         <div className="flex justify-between items-start gap-4 mb-2">
-                          <span className="text-[13px] font-medium text-foreground group-hover:text-primary transition-colors leading-snug line-clamp-2">
+                          <span className="text-[13px] font-medium text-foreground group-hover:text-primary leading-snug line-clamp-2">
                             {pr.title}
                           </span>
                           <div className="flex gap-1.5 shrink-0 pt-0.5">
@@ -722,7 +737,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                               {pr.isDraft && (
                                 <Tooltip>
                                   <TooltipTrigger asChild>
-                                    <div className="size-5 rounded-md bg-muted/30 border border-muted-foreground/20 flex items-center justify-center text-muted-foreground hover:bg-muted/50 transition-colors">
+                                    <div className="size-5 rounded-md bg-muted/30 border border-muted-foreground/20 flex items-center justify-center text-muted-foreground hover:bg-muted/50">
                                       <GitPullRequestDraft className="size-3" />
                                     </div>
                                   </TooltipTrigger>
@@ -879,7 +894,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-7 gap-1.5 px-3 text-[11px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground cursor-pointer"
+                className="h-7 gap-1.5 px-3 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground cursor-pointer"
                 onClick={isEditingRequirement ? handleSaveRequirement : handleStartRequirementEdit}
                 disabled={!effectivePath || isSavingRequirement}
               >
@@ -919,7 +934,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="mt-4 h-8 shrink-0 text-[11px] text-muted-foreground hover:text-foreground hover:bg-muted w-full border border-dashed border-border rounded-sm transition-colors cursor-pointer"
+                      className="mt-4 h-8 shrink-0 text-[11px] text-muted-foreground hover:text-foreground hover:bg-muted w-full border border-dashed border-border rounded-sm cursor-pointer"
                       onClick={() => setRequirementExpanded(!requirementExpanded)}
                     >
                       {requirementExpanded ? t('requirement.showLess') : t('requirement.showMore')}

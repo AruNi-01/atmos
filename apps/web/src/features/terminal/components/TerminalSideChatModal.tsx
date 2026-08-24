@@ -15,6 +15,7 @@ import {
   TabsTrigger,
 } from "@workspace/ui/components/motion/tabs";
 
+import { AgentIcon } from "@/features/agent/components/AgentIcon";
 import { useAgentAttentionStore } from "@/features/agent/store/agent-attention-store";
 import { useTerminalRichInputSettingsStore } from "@/features/settings/store/terminal-rich-input-settings-store";
 import {
@@ -115,15 +116,17 @@ export function TerminalSideChatModal({
   const modalRef = React.useRef<HTMLDivElement | null>(null);
   const holdFocusUntilRef = React.useRef(0);
 
+  const recordsRef = React.useRef(records);
+  recordsRef.current = records;
   const claimSideChatFocus = React.useCallback((sideChatId: string) => {
     holdFocusUntilRef.current = Date.now() + 500;
     setIsFocusedWithin(true);
     modalRef.current?.focus({ preventScroll: true });
     terminalRefs.current.get(sideChatId)?.focus();
-    const record = records.find((item) => item.side_chat_id === sideChatId);
+    const record = recordsRef.current.find((item) => item.side_chat_id === sideChatId);
     const paneId = record ? sideChatStablePaneId(record) : null;
     if (paneId) useAgentAttentionStore.getState().notifyPaneFocused(paneId);
-  }, [records, terminalRefs]);
+  }, [terminalRefs]);
   const {
     handleDragStart,
     handleResizeStart,
@@ -198,18 +201,29 @@ export function TerminalSideChatModal({
 
   const handleHeaderPointerDown = React.useCallback(
     (event: React.PointerEvent<HTMLDivElement>) => {
-      claimSideChatFocus(activeSideChatId);
+      if (isSideChatControlTarget(event.target)) {
+        markInteraction(event);
+        return;
+      }
       handleDragStart(event);
     },
-    [activeSideChatId, claimSideChatFocus, handleDragStart],
+    [handleDragStart, markInteraction],
   );
 
-  const handleResizePointerDown = React.useCallback(
-    (edge: SideChatResizeEdge) => (event: React.PointerEvent<HTMLDivElement>) => {
+  const handleHeaderClick = React.useCallback(
+    (event: React.MouseEvent<HTMLDivElement>) => {
+      if (isSideChatControlTarget(event.target)) return;
       claimSideChatFocus(activeSideChatId);
-      handleResizeStart(edge)(event);
     },
-    [activeSideChatId, claimSideChatFocus, handleResizeStart],
+    [activeSideChatId, claimSideChatFocus],
+  );
+
+  const stopControlPointerDown = React.useCallback(
+    (event: React.PointerEvent<HTMLElement>) => {
+      markInteraction(event);
+      event.stopPropagation();
+    },
+    [markInteraction],
   );
 
   React.useEffect(() => {
@@ -249,7 +263,7 @@ export function TerminalSideChatModal({
         onKeyDown={handleModalKeyDown}
         style={modalStyle}
       >
-        <SideChatResizeHandles onResizeStart={handleResizePointerDown} />
+        <SideChatResizeHandles onResizeStart={handleResizeStart} />
         <Tabs
           value={activeSideChatId}
           onValueChange={(value) => onSelectSideChat(value)}
@@ -257,8 +271,9 @@ export function TerminalSideChatModal({
           className="flex min-h-0 flex-1 flex-col"
         >
           <div
-            className="flex h-11 shrink-0 cursor-grab touch-none items-center justify-between gap-3 bg-background px-3 pt-1 active:cursor-grabbing"
+            className="relative z-[70] flex h-11 shrink-0 cursor-grab touch-none items-center justify-between gap-3 bg-background px-3 pt-1 active:cursor-grabbing"
             onPointerDown={handleHeaderPointerDown}
+            onClick={handleHeaderClick}
             onClickCapture={(event) => {
               if (!suppressNextHeaderClickRef.current) return;
               suppressNextHeaderClickRef.current = false;
@@ -269,53 +284,32 @@ export function TerminalSideChatModal({
             <div
               className="min-w-0 flex-1 overflow-x-auto"
               onPointerDown={(event) => {
-                claimSideChatFocus(activeSideChatId);
-                event.stopPropagation();
+                if (
+                  event.target instanceof Element &&
+                  event.target.closest("button, [role='tab']")
+                ) {
+                  event.stopPropagation();
+                }
               }}
             >
               <TabsList className="h-8 max-w-full gap-0.5 p-0.5">
-                {records.map((record, index) => {
-                  const isActive = activeSideChatId === record.side_chat_id;
-                  return (
-                    <div key={record.side_chat_id} className="group/side-tab relative">
-                      <TabsTrigger
-                        value={record.side_chat_id}
-                        className={cn(
-                          "h-7 max-w-40 gap-1.5 px-2.5 text-xs",
-                          isActive && "pr-7",
-                        )}
-                      >
-                        <span
-                          aria-hidden="true"
-                          className="size-2 shrink-0 rounded-full"
-                          style={{ backgroundColor: record.color_hex }}
-                        />
-                        <span className="min-w-0 truncate">
-                          {sideChatTabLabel(record, index, t("title"))}
-                        </span>
-                      </TabsTrigger>
-                      {isActive ? (
-                        <button
-                          type="button"
-                          data-side-chat-control="true"
-                          aria-label={t("closeTab")}
-                          className="absolute right-1 top-1/2 z-20 flex size-5 -translate-y-1/2 items-center justify-center rounded-sm text-primary-foreground/70 opacity-0 transition-colors hover:bg-primary-foreground/15 hover:text-primary-foreground group-hover/side-tab:opacity-100 focus-visible:opacity-100"
-                          onPointerDown={(event) => {
-                            markInteraction(event);
-                            event.stopPropagation();
-                          }}
-                          onClick={(event) => {
-                            event.preventDefault();
-                            event.stopPropagation();
-                            onClose(record.side_chat_id);
-                          }}
-                        >
-                          <X className="size-3" />
-                        </button>
-                      ) : null}
-                    </div>
-                  );
-                })}
+                {records.map((record, index) => (
+                  <TabsTrigger
+                    key={record.side_chat_id}
+                    value={record.side_chat_id}
+                    className="group h-7 max-w-40 gap-1.5 px-2.5 text-xs"
+                  >
+                    <SideChatTabLeadingIcon
+                      record={record}
+                      closeLabel={t("closeTab")}
+                      onClose={() => onClose(record.side_chat_id)}
+                      onPointerDown={stopControlPointerDown}
+                    />
+                    <span className="min-w-0 truncate">
+                      {sideChatTabLabel(record, index, t("title"))}
+                    </span>
+                  </TabsTrigger>
+                ))}
               </TabsList>
             </div>
             <div className="flex items-center gap-1">
@@ -325,7 +319,12 @@ export function TerminalSideChatModal({
                 className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
                 aria-label={t("hide")}
                 title={t("hide")}
-                onClick={() => onHide()}
+                onPointerDown={stopControlPointerDown}
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  onHide();
+                }}
               >
                 <Minus className="size-3.5" />
               </button>
@@ -337,12 +336,23 @@ export function TerminalSideChatModal({
                     className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/12 hover:text-destructive"
                     aria-label={t("closeAll")}
                     title={t("closeAll")}
-                    onClick={() => setCloseAllConfirmOpen(true)}
+                    onPointerDown={stopControlPointerDown}
                   >
                     <X className="size-3.5" />
                   </button>
                 </PopoverTrigger>
-                <PopoverContent align="end" className="w-72 space-y-3" data-side-chat-control="true">
+                <PopoverContent
+                  align="end"
+                  className="z-[200] w-72 space-y-3"
+                  data-side-chat-control="true"
+                  onFocusOutside={(event) => {
+                    const target = event.target;
+                    if (target instanceof Node && modalRef.current?.contains(target)) {
+                      event.preventDefault();
+                    }
+                  }}
+                  onCloseAutoFocus={(event) => event.preventDefault()}
+                >
                   <div className="flex items-start gap-2.5">
                     <AlertTriangle className="mt-0.5 size-4.5 text-amber-500" />
                     <div className="space-y-1">
@@ -471,6 +481,51 @@ export function TerminalSideChatModal({
         </Tabs>
       </div>
     </div>
+  );
+}
+
+function isSideChatControlTarget(target: EventTarget | null): boolean {
+  return target instanceof Element && Boolean(target.closest("[data-side-chat-control='true']"));
+}
+
+function SideChatTabLeadingIcon({
+  record,
+  closeLabel,
+  onClose,
+  onPointerDown,
+}: {
+  record: LocalSideChatRecord;
+  closeLabel: string;
+  onClose: () => void;
+  onPointerDown: (event: React.PointerEvent<HTMLElement>) => void;
+}) {
+  const agent = record.agent;
+  return (
+    <span className="relative flex size-3.5 shrink-0 items-center justify-center">
+      <span className="flex items-center justify-center group-hover:invisible">
+        <AgentIcon
+          registryId={agent?.id ?? ""}
+          name={agent?.label ?? "Agent"}
+          size={14}
+          isCustom={agent?.iconType === "custom"}
+          color={record.color_hex}
+        />
+      </span>
+      <span
+        role="button"
+        data-side-chat-control="true"
+        aria-label={closeLabel}
+        onPointerDown={onPointerDown}
+        onClick={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          onClose();
+        }}
+        className="absolute inset-0 flex cursor-pointer items-center justify-center rounded-full opacity-0 pointer-events-none hover:bg-current/15 group-hover:pointer-events-auto group-hover:opacity-100"
+      >
+        <X className="size-3" />
+      </span>
+    </span>
   );
 }
 

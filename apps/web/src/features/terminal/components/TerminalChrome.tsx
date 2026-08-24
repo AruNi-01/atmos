@@ -71,12 +71,12 @@ export function TerminalChrome({
   const scrollbarOffset = Math.max(1, 2 * normalizedTerminalScale);
   // Tight inset so split panes sit close to the 1px divider. No right
   // padding — the overlay scrollbar already occupies that edge.
-  // Bottom gutter is 1px + 4px trigger pill + 1px. The overlay is a sibling
-  // pinned with `bottom-px`; this padding keeps TUI cells out of that strip.
+  // Bottom gutter is 6px + 4px trigger pill + 2px. The overlay is a sibling
+  // pinned with `bottom-1.5`; this padding keeps TUI cells out of that strip.
   const padTop = 2 * normalizedTerminalScale;
   const padLeft = 8 * normalizedTerminalScale;
   const padRight = 0;
-  const padBottom = 6 * normalizedTerminalScale;
+  const padBottom = 12 * normalizedTerminalScale;
   const terminalScrollbarStyle = {
     "--atmos-terminal-scrollbar-width": `${scrollbarWidth}px`,
     "--atmos-terminal-scrollbar-hover-width": `${scrollbarHoverWidth}px`,

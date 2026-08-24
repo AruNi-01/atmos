@@ -48,6 +48,8 @@ const GITHUB_CONTROL_RATE_LIMIT = 60;
 const PT_DESIGN_ROOM_RATE_LIMIT = 60;
 const RATE_WINDOW_SEC = 60;
 const COMPUTER_DEVICE_REGISTRATION_LIMIT = 10;
+/** Live client sessions per user+Computer. Token Usage side sessions must not kick workbench/mobile. */
+const CLIENT_SESSIONS_PER_COMPUTER_LIMIT = 8;
 const DEFAULT_RELAY_ORIGIN = "https://relay.atmos.land";
 /** Minimum device credential length (characters). */
 const MIN_ACCESS_TOKEN_LEN = 32;
@@ -618,7 +620,7 @@ async function handleApi(
       }
 
       const { results } = await env.DB.prepare(
-        `SELECT server_id, display_name, revoked, created_at, last_seen_at, registration_meta
+        `SELECT server_id, display_name, revoked, created_at, last_seen_at, registration_meta, app_device_id
          FROM computers WHERE user_id = ? ORDER BY created_at DESC`,
       )
         .bind(userId)
@@ -629,6 +631,7 @@ async function handleApi(
           created_at: number;
           last_seen_at: number | null;
           registration_meta: string | null;
+          app_device_id: string | null;
         }>();
 
       const computers = (results ?? []).map((c) => ({
@@ -639,6 +642,7 @@ async function handleApi(
         last_seen_at: c.last_seen_at,
         registration_meta: parseRegistrationMeta(c.registration_meta),
         online: c.last_seen_at != null,
+        app_device_id: c.app_device_id ?? null,
       }));
 
       return json({ computers });
@@ -725,11 +729,25 @@ async function handleApi(
       const clientToken = randomBase64Url(32);
       const tokenHash = await secretHash(clientToken);
 
-      await env.DB.prepare(
-        "DELETE FROM client_sessions WHERE server_id = ? AND user_id = ?",
+      const sessionCountRow = await env.DB.prepare(
+        "SELECT COUNT(*) AS count FROM client_sessions WHERE server_id = ? AND user_id = ?",
       )
         .bind(serverId, userId)
-        .run();
+        .first<{ count: number }>();
+      const overflow =
+        (sessionCountRow?.count ?? 0) + 1 - CLIENT_SESSIONS_PER_COMPUTER_LIMIT;
+      if (overflow > 0) {
+        await env.DB.prepare(
+          `DELETE FROM client_sessions WHERE rowid IN (
+             SELECT rowid FROM client_sessions
+             WHERE server_id = ? AND user_id = ?
+             ORDER BY created_at ASC, rowid ASC
+             LIMIT ?
+           )`,
+        )
+          .bind(serverId, userId, overflow)
+          .run();
+      }
 
       await env.DB.prepare(
         "UPDATE computers SET updated_at = ? WHERE server_id = ? AND user_id = ?",

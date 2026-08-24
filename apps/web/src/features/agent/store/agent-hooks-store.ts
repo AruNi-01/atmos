@@ -1,6 +1,7 @@
 "use client";
 
 import { create } from "zustand";
+import type { AgentHookStateNotification } from "@atmos/api-types/ws/dto/events";
 import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
 import { getRuntimeApiConfig, httpBase } from "@/shared/lib/desktop-runtime";
 import { agentHooksApi } from "@/api/rest-api";
@@ -20,6 +21,7 @@ import {
   collectIdleSessionIdsForPane,
   resolveAgentStateForPaneId,
 } from "@/features/agent/store/agent-hooks-idle";
+import { useWorkspaceAgentGroupingHoldStore } from "@/features/agent/store/workspace-agent-grouping-hold";
 
 export {
   collectIdleSessionIdsForPane,
@@ -97,20 +99,6 @@ export interface AgentHookSession {
   hook_version?: number | null;
 }
 
-interface AgentHookStateUpdate {
-  session_id: string;
-  tool: AgentToolType;
-  state: AgentHookState;
-  timestamp: string;
-  project_path?: string | null;
-  context_id?: string | null;
-  pane_id?: string | null;
-  terminal_kind?: string | null;
-  side_chat_id?: string | null;
-  source_pane_id?: string | null;
-  hook_version?: number | null;
-}
-
 interface AgentHooksStore {
   sessions: Map<string, AgentHookSession>;
   /**
@@ -173,8 +161,7 @@ export const useAgentHooksStore = create<AgentHooksStore>((set, get) => ({
 
     const unsubscribeStateChanged = useWebSocketStore.getState().onEvent(
       "agent_hook_state_changed",
-      (data: unknown) => {
-        const update = data as AgentHookStateUpdate;
+      (update: AgentHookStateNotification) => {
         const previous = get().sessions.get(update.session_id);
         set((state) => {
           const sessions = new Map(state.sessions);
@@ -339,6 +326,7 @@ export const useAgentHooksStore = create<AgentHooksStore>((set, get) => ({
     });
     useAgentAttentionStore.getState().hydrateFromServer([]);
     useAgentAttentionSummaryStore.getState().hydrateFromServer([]);
+    useWorkspaceAgentGroupingHoldStore.getState().clearAll();
     void hydrateHookSnapshots(set, get, beginHydrateWindow());
     void hydrateAttentionSummariesFromServer();
   },
@@ -356,6 +344,7 @@ export const useAgentHooksStore = create<AgentHooksStore>((set, get) => ({
         hooksHydrated: false,
       });
       useAgentAttentionSummaryStore.getState().hydrateFromServer([]);
+      useWorkspaceAgentGroupingHoldStore.getState().clearAll();
     }
   },
 

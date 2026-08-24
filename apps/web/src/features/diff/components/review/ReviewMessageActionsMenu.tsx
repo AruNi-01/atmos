@@ -79,7 +79,7 @@ export const ReviewMessageActionsMenu: React.FC<ReviewMessageActionsMenuProps> =
           onClick={stopPropagation}
           onKeyDown={stopPropagation}
           disabled={isDisabled}
-          className="flex size-6 items-center justify-center rounded bg-background/80 text-muted-foreground opacity-0 shadow-sm ring-1 ring-border/70 backdrop-blur transition-colors hover:bg-muted hover:text-foreground group-hover/message:opacity-100 focus:opacity-100 data-[state=open]:opacity-100 disabled:opacity-50"
+          className="flex size-6 items-center justify-center rounded bg-background/80 text-muted-foreground opacity-0 shadow-sm ring-1 ring-border/70 backdrop-blur hover:bg-muted hover:text-foreground group-hover/message:opacity-100 focus:opacity-100 data-[state=open]:opacity-100 disabled:opacity-50"
           title="Comment actions"
           aria-label="Comment actions"
         >

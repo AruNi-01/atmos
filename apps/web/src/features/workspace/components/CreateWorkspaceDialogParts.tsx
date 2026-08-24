@@ -163,7 +163,7 @@ export function BaseBranchField({
             id="workspace-base-branch-trigger"
             type="button"
             disabled={isLoading || remoteBranches.length === 0}
-            className="border-input placeholder:text-muted-foreground ring-offset-background focus-visible:border-ring focus-visible:ring-ring/50 dark:bg-input/30 flex h-9 w-full min-w-0 items-center justify-between rounded-md border bg-transparent px-3 py-1 text-base shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px] disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
+            className="border-input placeholder:text-muted-foreground ring-offset-background focus-visible:border-ring focus-visible:ring-ring/50 dark:bg-input/30 flex h-9 w-full min-w-0 items-center justify-between rounded-md border bg-transparent px-3 py-1 text-base shadow-xs transition-shadow outline-none focus-visible:ring-[3px] disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
           >
             <div className="flex items-center min-w-0 text-muted-foreground">
               <span className="opacity-50 shrink-0 mr-1">origin/</span>
@@ -318,7 +318,7 @@ export function GithubLinkImportSection({
           onClick={() => onSelectLinkType('issue')}
           disabled={isPreselectedIssue}
           className={cn(
-            'inline-flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm transition-colors',
+            'inline-flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm',
             linkType === 'issue'
               ? 'bg-muted text-foreground shadow-sm'
               : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground',
@@ -333,7 +333,7 @@ export function GithubLinkImportSection({
           onClick={() => onSelectLinkType('pr')}
           disabled={isPreselectedIssue}
           className={cn(
-            'inline-flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm transition-colors',
+            'inline-flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm',
             linkType === 'pr'
               ? 'bg-muted text-foreground shadow-sm'
               : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground',

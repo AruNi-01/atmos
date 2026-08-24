@@ -59,7 +59,7 @@ export function AgentFixSettingsPopover({
           disabled={disabled}
           onClick={(event) => event.stopPropagation()}
           className={cn(
-            "inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-border/70 bg-background text-muted-foreground transition-colors duration-180 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50",
+            "inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-border/70 bg-background text-muted-foreground hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50",
             className,
           )}
           aria-label={t("trigger.ariaLabel")}

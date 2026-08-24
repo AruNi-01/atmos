@@ -38,6 +38,7 @@ export type ExcalidrawHostApi = {
   ) => void;
   getSceneElements: () => readonly ExcalidrawCompatElement[];
   getSceneElementsIncludingDeleted: () => readonly ExcalidrawCompatElement[];
+  getFiles?: () => Record<string, unknown>;
   getAppState: () => {
     scrollX: number;
     scrollY: number;

@@ -53,20 +53,24 @@ describe("attention summary input chrome", () => {
     expect(panel).not.toContain("dark:bg-sky-400/10");
   });
 
-  it("pins the overlay 1px above the pane edge so overflow-hidden cannot crop the inset", () => {
+  it("pins the overlay 6px above the pane edge so the collapsed pill is not flush", () => {
     const overlay = readSibling("TerminalAgentInputOverlay.tsx");
     const sideChat = readSibling("TerminalSideChatDots.tsx");
     const chrome = readSibling("TerminalChrome.tsx");
     expect(overlay).toContain(
-      '"pointer-events-none absolute inset-x-0 bottom-px z-[70] flex justify-center px-3"',
+      '"pointer-events-none absolute inset-x-0 bottom-1.5 z-[70] flex justify-center px-3"',
     );
+    expect(overlay).not.toContain("bottom-px");
     expect(overlay).not.toContain("mb-px");
     expect(overlay).not.toContain("pb-px");
-    expect(overlay).not.toContain("h-1.5");
+    expect(overlay).toContain(
+      '"h-1 w-28 rounded-full shadow-[0_0_2px_rgba(0,0,0,0.16)] transition-[opacity,box-shadow] duration-200"',
+    );
+    expect(overlay).not.toContain('"h-1.5 w-28');
     expect(overlay).toContain("shadow-[0_0_2px_rgba(0,0,0,0.16)]");
     expect(sideChat).toContain("shadow-[0_0_2px_rgba(0,0,0,0.16)]");
     expect(sideChat).toContain('shouldShowIndicator ? "h-3 w-8 opacity-100"');
-    expect(chrome).toContain("const padBottom = 6 * normalizedTerminalScale;");
+    expect(chrome).toContain("const padBottom = 12 * normalizedTerminalScale;");
     expect(readSibling("TerminalAgentInputShell.tsx")).toContain(
       "(isOverlayVisible || isSendAnimating || isSendExiting) && \"mb-1\"",
     );
@@ -83,7 +87,8 @@ describe("attention summary input chrome", () => {
       "isSummarySummarizing && \"terminal-agent-input-trigger--pulse\"",
     );
     expect(overlay).not.toContain("bg-sky-500");
-    expect(css).toContain("background: #3e5460 !important;");
+    expect(css).toContain("background: #8aa9b8 !important;");
+    expect(css).not.toContain("background: #3e5460 !important;");
     expect(css).not.toContain("background: #0ea5e9 !important;");
   });
 

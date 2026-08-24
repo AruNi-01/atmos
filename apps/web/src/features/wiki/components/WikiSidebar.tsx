@@ -71,7 +71,7 @@ const WikiSidebarLeaf: React.FC<{
       type="button"
       onClick={() => onSelectPage(item.file)}
       className={cn(
-        "flex items-center gap-2 w-full py-1.5 px-3 text-left text-sm rounded-none transition-colors cursor-pointer group/leaf",
+        "flex items-center gap-2 w-full py-1.5 px-3 text-left text-sm rounded-none cursor-pointer group/leaf",
         "hover:bg-accent/50",
         isActive && "bg-accent text-accent-foreground"
       )}
@@ -105,7 +105,7 @@ const WikiSidebarGroup: React.FC<{
     <Collapsible open={open} onOpenChange={setOpen}>
       <div
         className={cn(
-          "flex items-center w-full text-sm rounded-none transition-colors",
+          "flex items-center w-full text-sm rounded-none",
           "hover:bg-accent/50",
           isActive && "bg-accent"
         )}
@@ -113,7 +113,7 @@ const WikiSidebarGroup: React.FC<{
       >
         {/* Chevron toggle — only controls expand/collapse */}
         <CollapsibleTrigger
-          className="shrink-0 mr-1 size-6 flex items-center justify-center rounded-sm cursor-pointer text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+          className="shrink-0 mr-1 size-6 flex items-center justify-center rounded-sm cursor-pointer text-muted-foreground hover:text-foreground hover:bg-accent"
         >
           <ChevronRight
             className={cn("size-3.5 transition-transform", open && "rotate-90")}
@@ -125,7 +125,7 @@ const WikiSidebarGroup: React.FC<{
             type="button"
             onClick={() => onSelectPage(item.file)}
             className={cn(
-              "flex-1 min-w-0 py-1.5 pr-3 text-left cursor-pointer truncate font-medium transition-colors",
+              "flex-1 min-w-0 py-1.5 pr-3 text-left cursor-pointer truncate font-medium",
               isActive ? "text-accent-foreground" : "text-muted-foreground hover:text-foreground"
             )}
           >
@@ -176,7 +176,7 @@ const WikiSidebarSection: React.FC<{
           type="button"
           onClick={() => onSelectPage(item.file)}
           className={cn(
-            "flex items-center gap-2 px-4 h-8 w-full text-left cursor-pointer transition-colors rounded-none group/section",
+            "flex items-center gap-2 px-4 h-8 w-full text-left cursor-pointer rounded-none group/section",
             "hover:bg-accent/50",
             isActive && "bg-accent"
           )}
@@ -282,7 +282,7 @@ export const WikiSidebar: React.FC<WikiSidebarProps> = ({
           type="button"
           onClick={() => setInfoOpen(true)}
           title={t("projectInfo")}
-          className="flex-1 min-w-0 flex items-center gap-2 px-3 text-left cursor-pointer hover:bg-accent/30 transition-colors rounded-none"
+          className="flex-1 min-w-0 flex items-center gap-2 px-3 text-left cursor-pointer hover:bg-accent/30 rounded-none"
         >
           <h3 className="text-base font-semibold text-foreground truncate flex-1">
             {project?.name ?? t("fallbackTitle")}
@@ -350,7 +350,7 @@ export const WikiSidebar: React.FC<WikiSidebarProps> = ({
                 <button
                   type="button"
                   onClick={onTriggerSpecify}
-                  className="size-10 flex items-center justify-center text-muted-foreground hover:bg-accent/30 cursor-pointer transition-colors border-l border-border"
+                  className="size-10 flex items-center justify-center text-muted-foreground hover:bg-accent/30 cursor-pointer border-l border-border"
                   aria-label={t("specifyAria")}
                 >
                   <FilePlus className="size-4" />

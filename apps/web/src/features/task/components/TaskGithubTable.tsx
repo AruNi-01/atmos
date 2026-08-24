@@ -124,7 +124,7 @@ function LinkedRefsCell({
             type="button"
             title={title}
             aria-label={title}
-            className="inline-flex items-center gap-0.5 rounded px-0.5 py-px text-[11px] font-mono tabular-nums text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            className="inline-flex items-center gap-0.5 rounded px-0.5 py-px text-[11px] font-mono tabular-nums text-muted-foreground hover:bg-muted hover:text-foreground"
             onClick={(e) => {
               e.stopPropagation();
               onOpen?.(ref);
@@ -307,7 +307,7 @@ export function TaskGithubTable({
             (kind === "issues" ? t("empty.noIssues") : t("empty.noPrs"))}
         </div>
       ) : (
-      <ul className="m-0 min-h-0 min-w-0 flex-1 list-none overflow-y-auto overscroll-contain p-0">
+      <ul className="m-0 min-h-0 min-w-0 flex-1 list-none overflow-y-auto overscroll-contain px-1 py-1">
         {items.map((item) => {
           const fullName = `${item.owner}/${item.repo}`;
           const login = item.author?.login ?? null;
@@ -328,7 +328,7 @@ export function TaskGithubTable({
               <div
                 role="button"
                 tabIndex={0}
-                className="group flex min-w-0 cursor-pointer items-center gap-3 px-3 py-2.5 transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="group flex min-w-0 cursor-pointer items-center gap-3 rounded-md px-2 py-2.5 hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 onClick={() => onOpenItem(item)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === " ") {
@@ -464,8 +464,8 @@ export function TaskGithubTable({
                     <Button
                       type="button"
                       size="sm"
-                      variant="ghost"
-                      className="h-7 whitespace-nowrap gap-1.5 px-2 text-[11px] font-medium text-muted-foreground shadow-none hover:bg-muted hover:text-foreground"
+                      variant="default"
+                      className="h-7 whitespace-nowrap gap-1.5 px-2 text-[11px] font-medium"
                       onClick={() => onEnterWorkspace(linked.workspace.id)}
                       title={t("enterWorkspace")}
                       aria-label={t("enterWorkspace")}
@@ -477,8 +477,8 @@ export function TaskGithubTable({
                     <Button
                       type="button"
                       size="sm"
-                      variant="outline"
-                      className="h-7 whitespace-nowrap gap-1.5 border-border/70 px-2 text-[11px] font-medium text-muted-foreground shadow-none hover:bg-muted hover:text-foreground"
+                      variant="default"
+                      className="h-7 whitespace-nowrap gap-1.5 px-2 text-[11px] font-medium"
                       onClick={() => onCreateWorkspace(item)}
                       title={t("createWorkspace")}
                       aria-label={t("createWorkspace")}

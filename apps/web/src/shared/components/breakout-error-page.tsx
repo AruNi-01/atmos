@@ -352,7 +352,10 @@ export function BreakoutErrorPage({
         data-error-action="home"
         // Native anchor, not next/link: a full document load leaves the
         // broken route even if reset() or the client router is wedged.
-        render={<a href="/" onPointerDown={stopActionPointer} />}
+        render={
+          // eslint-disable-next-line @next/next/no-html-link-for-pages -- full reload required
+          <a href="/" onPointerDown={stopActionPointer} />
+        }
       >
         {t("server.home")}
       </Button>
@@ -385,8 +388,7 @@ export function BreakoutErrorPage({
       onPointerDown={handlePointerDown}
       className={cn(
         "relative h-dvh w-screen overflow-hidden bg-[#fbfbfa] text-[#9d9d9d] dark:bg-[#09090b] dark:text-[#5f5f66]",
-        "touch-none select-none [-webkit-font-smoothing:none] [font-variant-ligatures:none]",
-        GeistPixelSquare.className,
+        "touch-none select-none",
         className,
       )}
     >
@@ -398,14 +400,20 @@ export function BreakoutErrorPage({
       />
 
       <section className="group pointer-events-auto absolute inset-x-4 top-[38%] z-10 flex -translate-y-1/2 flex-col items-center text-center sm:top-[54%]">
-        <div className="text-[clamp(8rem,18vw,18rem)] font-normal leading-none text-[#ececec] transition-colors duration-150 group-hover:text-[#111112] dark:text-[#18181c] dark:group-hover:text-[#f5f5f7]">
+        <div
+          className={cn(
+            "text-[clamp(8rem,18vw,18rem)] font-normal leading-none text-[#ececec] group-hover:text-[#111112] dark:text-[#18181c] dark:group-hover:text-[#f5f5f7]",
+            "[-webkit-font-smoothing:none] [font-variant-ligatures:none]",
+            GeistPixelSquare.className,
+          )}
+        >
           {code}
         </div>
-        <h1 className="mt-5 max-w-[min(760px,calc(100vw-2rem))] text-[clamp(1rem,1.35vw,1.45rem)] font-normal leading-7 text-[#aaa] transition-colors duration-150 group-hover:text-[#111112] dark:text-[#5f5f66] dark:group-hover:text-[#f5f5f7]">
+        <h1 className="mt-5 max-w-[min(760px,calc(100vw-2rem))] text-[clamp(1rem,1.35vw,1.45rem)] font-normal leading-7 text-[#aaa] group-hover:text-[#111112] dark:text-[#5f5f66] dark:group-hover:text-[#f5f5f7]">
           {t(`${kind}.description`)}
         </h1>
         {kind === "server" && errorMessage ? (
-          <p className="mt-3 max-w-[min(680px,calc(100vw-2rem))] truncate text-xs text-[#b8b8b8] transition-colors duration-150 group-hover:text-[#111112] dark:text-[#4f4f56] dark:group-hover:text-[#f5f5f7]">
+          <p className="mt-3 max-w-[min(680px,calc(100vw-2rem))] truncate text-xs text-[#b8b8b8] group-hover:text-[#111112] dark:text-[#4f4f56] dark:group-hover:text-[#f5f5f7]">
             {errorMessage}
           </p>
         ) : null}

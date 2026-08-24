@@ -1,10 +1,12 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { SettingsSectionId } from '@/features/settings/components/settings-modal-data';
 import {
   getSettingsSectionGroupTabs,
+  peekLastSettingsGroupTab,
   readSettingsHash,
+  rememberSettingsGroupTab,
   replaceSettingsGroupHash,
   resolveSettingsGroupTab,
   resolveSettingsGroupTabFromSearch,
@@ -15,10 +17,9 @@ export function useSettingsGroupTab(
   sectionId: SettingsSectionId,
   searchQuery: string,
 ) {
-  const lastTabBySectionRef = useRef<Partial<Record<SettingsSectionId, SettingsGroupTabId>>>({});
   const groupTabs = getSettingsSectionGroupTabs(sectionId);
   const [groupTab, setGroupTab] = useState<SettingsGroupTabId | null>(() =>
-    resolveSettingsGroupTab(sectionId, readSettingsHash()),
+    resolveSettingsGroupTab(sectionId, readSettingsHash(), peekLastSettingsGroupTab(sectionId)),
   );
 
   useEffect(() => {
@@ -27,12 +28,10 @@ export function useSettingsGroupTab(
       const next = resolveSettingsGroupTab(
         sectionId,
         hash,
-        lastTabBySectionRef.current[sectionId],
+        peekLastSettingsGroupTab(sectionId),
       );
       setGroupTab(next);
-      if (next) {
-        lastTabBySectionRef.current[sectionId] = next;
-      }
+      if (next) rememberSettingsGroupTab(sectionId, next);
     };
 
     syncFromLocation();
@@ -48,7 +47,7 @@ export function useSettingsGroupTab(
     const fromSearch = resolveSettingsGroupTabFromSearch(sectionId, searchQuery);
     if (!fromSearch) return;
     setGroupTab(fromSearch);
-    lastTabBySectionRef.current[sectionId] = fromSearch;
+    rememberSettingsGroupTab(sectionId, fromSearch);
     replaceSettingsGroupHash(fromSearch);
   }, [searchQuery, sectionId]);
 
@@ -58,7 +57,7 @@ export function useSettingsGroupTab(
       if (!tabs?.includes(value as SettingsGroupTabId)) return;
       const next = value as SettingsGroupTabId;
       setGroupTab(next);
-      lastTabBySectionRef.current[sectionId] = next;
+      rememberSettingsGroupTab(sectionId, next);
       replaceSettingsGroupHash(next);
     },
     [sectionId],

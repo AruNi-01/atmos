@@ -47,7 +47,7 @@ export function TerminalGridEmptyState({
           </div>
         </div>
         <div className="flex flex-col items-center gap-1">
-          <span className="text-sm font-semibold tracking-tight text-muted-foreground group-hover:text-foreground transition-colors">
+          <span className="text-sm font-semibold tracking-tight text-muted-foreground group-hover:text-foreground">
             {emptyLabel}
           </span>
           <span className="text-[11px] text-muted-foreground/60">

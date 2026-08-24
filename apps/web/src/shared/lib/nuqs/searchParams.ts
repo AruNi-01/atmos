@@ -33,13 +33,15 @@ export type FixedTab =
   | "pt-design";
 
 export const centerStageParams = {
-  tab: parseAsString.withDefault("terminal"),
+  /** One-shot deep link. Live tab chrome lives in lastTabByContext, not the URL. */
+  tab: parseAsString,
+  /** One-shot wiki page deep link. */
   wikiPage: parseAsString,
   newWorkspace: parseAsBoolean.withDefault(false),
   canvas: parseAsBoolean.withDefault(false),
-  /** Deep-link: focus terminal pane by tmux window name (paired with `tab` = terminal sub-tab id). */
+  /** One-shot: focus terminal pane by tmux window name. */
   terminalTmux: parseAsString,
-  /** Deep-link: open/focus a terminal side chat on the source pane. */
+  /** One-shot: open/focus a terminal side chat on the source pane. */
   sideChat: parseAsString,
 };
 
@@ -203,9 +205,7 @@ export const settingsModalParams = {
     "apps",
     "privacy",
     "keyboard",
-  ])
-    .withDefault("interface")
-    .withOptions({ history: "replace" }),
+  ]).withOptions({ history: "replace" }),
 };
 
 // ---------------------------------------------------------------------------

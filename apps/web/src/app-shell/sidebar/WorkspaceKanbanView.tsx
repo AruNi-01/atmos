@@ -740,7 +740,7 @@ export function WorkspaceKanbanView({
                               <button
                                 type="button"
                                 onClick={() => hideColumn(column.key)}
-                                className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                                className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
                                 title={t("column.hide", { label: title })}
                               >
                                 <EyeOff className="size-3.5" />
@@ -749,7 +749,7 @@ export function WorkspaceKanbanView({
                                 <button
                                   type="button"
                                   onClick={() => openCreateWorkspaceDialog(column.status)}
-                                  className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                                  className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
                                   title={t("column.createWorkspace", { label: title })}
                                 >
                                   <Plus className="size-3.5" />
@@ -834,7 +834,7 @@ export function WorkspaceKanbanView({
                               <button
                                 type="button"
                                 onClick={() => showColumn(column.key)}
-                                className="ml-auto inline-flex size-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                                className="ml-auto inline-flex size-6 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
                                 title={t("column.show", { label: title })}
                               >
                                 <Eye className="size-3.5" />

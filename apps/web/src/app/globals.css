@@ -269,9 +269,16 @@ html:not([data-theme-ready="true"]) body {
     width: 100%;
   }
 
-  *::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
+  /*
+   * Thin overlay scrollbars, without killing macOS rubber-banding.
+   * `::-webkit-scrollbar { width/height }` switches Chromium to classic
+   * gutters and the edge bounce disappears. `scrollbar-width: thin` is the
+   * platform thin overlay; `scrollbar-color` tints the thumb. Thumb/track
+   * cosmetics below must not set a width.
+   */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in oklab, var(--muted-foreground) 22%, transparent) transparent;
   }
 
   *::-webkit-scrollbar-track {
@@ -279,15 +286,22 @@ html:not([data-theme-ready="true"]) body {
   }
 
   *::-webkit-scrollbar-thumb {
-    @apply bg-muted-foreground/20 rounded-full;
+    background: color-mix(in oklab, var(--muted-foreground) 22%, transparent);
+    border-radius: 9999px;
   }
 
   *::-webkit-scrollbar-thumb:hover {
-    @apply bg-muted-foreground/40;
+    background: color-mix(in oklab, var(--muted-foreground) 40%, transparent);
   }
 
   *::-webkit-scrollbar-corner {
     background: transparent;
+  }
+
+  /* use-stick-to-bottom hardcodes `scrollbar-gutter: stable both-edges` inline.
+     Classic gutters also drop overlay rubber-banding on the chat transcript. */
+  .agent-chat-scroll {
+    scrollbar-gutter: auto !important;
   }
 }
 
@@ -347,58 +361,42 @@ html:not([data-theme-ready="true"]) body {
     scrollbar-width: none; /* Firefox */
   }
 
-  /* Scrollbar visible only on hover of container */
+  /* Idle: hide the thin thumb. Hover: same tint as the global overlay bar.
+     Do not set ::-webkit-scrollbar width here — that would drop bounce. */
+  .scrollbar-on-hover {
+    scrollbar-color: transparent transparent;
+  }
   .scrollbar-on-hover::-webkit-scrollbar-thumb {
     background: transparent;
-    transition: background 0.2s ease;
+  }
+  .scrollbar-on-hover:hover {
+    scrollbar-color: color-mix(in oklab, var(--muted-foreground) 22%, transparent) transparent;
   }
   .scrollbar-on-hover:hover::-webkit-scrollbar-thumb {
-    @apply bg-muted-foreground/20;
+    background: color-mix(in oklab, var(--muted-foreground) 22%, transparent);
   }
   .scrollbar-on-hover:hover::-webkit-scrollbar-thumb:hover {
-    @apply bg-muted-foreground/40;
+    background: color-mix(in oklab, var(--muted-foreground) 40%, transparent);
   }
 
   .scrollbar-overlay-on-hover {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
-  }
-  .scrollbar-overlay-on-hover::-webkit-scrollbar {
-    width: 0;
-    height: 0;
-  }
-  .scrollbar-overlay-on-hover:hover {
     scrollbar-width: thin;
-  }
-  .scrollbar-overlay-on-hover.is-scrolling {
-    scrollbar-width: thin;
-  }
-  .scrollbar-overlay-on-hover:hover::-webkit-scrollbar {
-    width: 4px;
-    height: 4px;
-  }
-  .scrollbar-overlay-on-hover.is-scrolling::-webkit-scrollbar {
-    width: 4px;
-    height: 4px;
-  }
-  .scrollbar-overlay-on-hover::-webkit-scrollbar-track {
-    background: transparent;
+    scrollbar-color: transparent transparent;
   }
   .scrollbar-overlay-on-hover::-webkit-scrollbar-thumb {
     background: transparent;
-    border-radius: 9999px;
   }
-  .scrollbar-overlay-on-hover:hover::-webkit-scrollbar-thumb {
-    @apply bg-muted-foreground/20;
+  .scrollbar-overlay-on-hover:hover,
+  .scrollbar-overlay-on-hover.is-scrolling {
+    scrollbar-color: color-mix(in oklab, var(--muted-foreground) 22%, transparent) transparent;
   }
+  .scrollbar-overlay-on-hover:hover::-webkit-scrollbar-thumb,
   .scrollbar-overlay-on-hover.is-scrolling::-webkit-scrollbar-thumb {
-    @apply bg-muted-foreground/20;
+    background: color-mix(in oklab, var(--muted-foreground) 22%, transparent);
   }
-  .scrollbar-overlay-on-hover:hover::-webkit-scrollbar-thumb:hover {
-    @apply bg-muted-foreground/40;
-  }
+  .scrollbar-overlay-on-hover:hover::-webkit-scrollbar-thumb:hover,
   .scrollbar-overlay-on-hover.is-scrolling::-webkit-scrollbar-thumb:hover {
-    @apply bg-muted-foreground/40;
+    background: color-mix(in oklab, var(--muted-foreground) 40%, transparent);
   }
 }
 
@@ -445,6 +443,93 @@ html:not([data-theme-ready="true"]) body {
   animation: 220ms ease-in both fade-in;
 }
 
+/*
+ * Center-space hops. Must come after freeze-all `::view-transition-*(*)`.
+ * Card click: incoming morphs from the fan card; outgoing center shrinks in.
+ * Fallback (new/delete): same-rect content swap with shrink-out / fade-in.
+ */
+@keyframes space-shrink-out {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.86);
+  }
+}
+@keyframes space-zoom-out {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.86);
+  }
+}
+@keyframes space-zoom-in {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+::view-transition-group(center-space-card),
+::view-transition-group(center-space-incoming),
+::view-transition-group(center-space-outgoing) {
+  overflow: hidden;
+  border-radius: var(--radius-xl);
+}
+
+::view-transition-group(center-space-incoming) {
+  z-index: 2;
+  animation-duration: 320ms;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+::view-transition-group(center-space-outgoing) {
+  z-index: 1;
+  animation-duration: 220ms;
+  animation-timing-function: ease-in;
+}
+
+::view-transition-image-pair(center-space-card),
+::view-transition-image-pair(center-space-incoming),
+::view-transition-image-pair(center-space-outgoing) {
+  isolation: isolate;
+}
+
+::view-transition-old(center-space-outgoing) {
+  mix-blend-mode: normal;
+  transform-origin: center;
+  animation: space-shrink-out 220ms ease-in both;
+}
+
+::view-transition-old(center-space-incoming) {
+  mix-blend-mode: normal;
+  animation: fade-out 180ms ease-in both;
+}
+::view-transition-new(center-space-incoming) {
+  mix-blend-mode: normal;
+  animation: fade-in 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+::view-transition-old(center-space-card) {
+  mix-blend-mode: normal;
+  transform-origin: center;
+  animation: space-zoom-out 220ms ease-in both;
+}
+::view-transition-new(center-space-card) {
+  mix-blend-mode: normal;
+  transform-origin: center;
+  animation: space-zoom-in 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
 @keyframes fade-out {
   to { opacity: 0; }
 }
@@ -487,6 +572,32 @@ html:not([data-theme-ready="true"]) body {
 
 .agent-attention-ring-complete {
   --agent-attention-ring-color: rgb(16 185 129 / 0.4);
+}
+
+@keyframes agent-attention-card-border-pulse {
+  0%,
+  100% {
+    border-color: color-mix(
+      in oklab,
+      var(--agent-attention-ring-color, rgb(16 185 129 / 0.55)) 45%,
+      transparent
+    );
+  }
+  50% {
+    border-color: var(--agent-attention-ring-color, rgb(16 185 129 / 0.9));
+  }
+}
+
+.agent-attention-ring-card {
+  animation: agent-attention-card-border-pulse 2.4s ease-in-out infinite;
+}
+
+.agent-attention-ring-card.agent-attention-ring-permission {
+  --agent-attention-ring-color: rgb(245 158 11 / 0.9);
+}
+
+.agent-attention-ring-card.agent-attention-ring-complete {
+  --agent-attention-ring-color: rgb(16 185 129 / 0.9);
 }
 
 @keyframes welcome-placeholder-enter {
@@ -565,7 +676,8 @@ html:not([data-theme-ready="true"]) body {
   .welcome-placeholder-exit,
   .welcome-placeholder-hint,
   .agent-attention-ring,
-  .agent-attention-ring-tab {
+  .agent-attention-ring-tab,
+  .agent-attention-ring-card {
     animation-duration: 0s !important;
   }
 

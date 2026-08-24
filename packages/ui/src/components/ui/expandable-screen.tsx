@@ -193,7 +193,7 @@ export function ExpandableScreenContent({
             {showCloseButton && (
               <motion.button
                 onClick={collapse}
-                className={`absolute right-6 top-6 z-30 flex h-10 w-10 items-center justify-center transition-colors rounded-full ${
+                className={`absolute right-6 top-6 z-30 flex h-10 w-10 items-center justify-center rounded-full ${
                   closeButtonClassName ||
                   "text-white bg-transparent hover:bg-white/10"
                 }`}

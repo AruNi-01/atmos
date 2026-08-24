@@ -126,7 +126,7 @@ export function TerminalAgentInputShell({
             </div>
             <button
               type="button"
-              className="flex size-9 shrink-0 items-center justify-center rounded-full border border-border/70 bg-foreground text-background shadow-sm transition-colors hover:bg-foreground/90 disabled:cursor-not-allowed disabled:opacity-45"
+              className="flex size-9 shrink-0 items-center justify-center rounded-full border border-border/70 bg-foreground text-background shadow-sm hover:bg-foreground/90 disabled:cursor-not-allowed disabled:opacity-45"
               disabled={!canSubmit}
               onClick={() => void onSubmit()}
               aria-label="Send to terminal"

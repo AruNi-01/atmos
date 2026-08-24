@@ -5,6 +5,7 @@ import {
   extractStableCenterTabOscTitle,
   getTerminalDisplayMeta,
   isDynamicTitleDowngrade,
+  isTmuxIndexTitle,
   isShellPreexecCommandOscTitle,
   MAX_NATIVE_OSC_TITLE_CHARS,
   nextCenterTabSessionOscTitle,
@@ -54,11 +55,38 @@ describe("terminal title runtime wrapper fallback", () => {
     });
   });
 
-  it("keeps the pane agent title when reattach injects a bare process name", () => {
+  it("shows a reattached bare process name unless it matches a configured agent", () => {
     expect(
       getTerminalDisplayMeta({
         baseTitle: "1",
         dynamicTitle: "agy",
+        agent: hermesAgent,
+      }),
+    ).toMatchObject({
+      displayTitle: "agy",
+      toolbarAgent: undefined,
+    });
+  });
+
+  it("shows a live CLI instead of a leftover agent pane title", () => {
+    expect(
+      getTerminalDisplayMeta({
+        baseTitle: "Hermes Agent",
+        dynamicTitle: "mole",
+        configuredAgents: [hermesAgent],
+        agent: hermesAgent,
+      }),
+    ).toMatchObject({
+      displayTitle: "mole",
+      toolbarAgent: undefined,
+    });
+  });
+
+  it("falls back to the last agent title when the dynamic title is version-like", () => {
+    expect(
+      getTerminalDisplayMeta({
+        baseTitle: "Hermes Agent",
+        dynamicTitle: "3.1.3",
         agent: hermesAgent,
       }),
     ).toMatchObject({
@@ -73,6 +101,12 @@ describe("terminal title runtime wrapper fallback", () => {
     expect(isDynamicTitleDowngrade("Hermes Agent", "agy")).toBe(true);
     expect(isDynamicTitleDowngrade(".../foo/bar", "agy")).toBe(false);
     expect(isDynamicTitleDowngrade("agy", "node")).toBe(false);
+    expect(isDynamicTitleDowngrade("OpenSource/atmos", "1")).toBe(true);
+    expect(isDynamicTitleDowngrade(".../foo/bar", "6")).toBe(true);
+    expect(isTmuxIndexTitle("1")).toBe(true);
+    expect(isTmuxIndexTitle("6")).toBe(true);
+    expect(isTmuxIndexTitle("OpenSource/atmos")).toBe(false);
+    expect(isTmuxIndexTitle("npm")).toBe(false);
   });
 
   it("falls back to the base title for versioned runtime wrapper commands", () => {
@@ -128,6 +162,36 @@ describe("terminal title runtime wrapper fallback", () => {
     ).toMatchObject({
       displayTitle: "Hermes Agent",
       toolbarAgent: hermesAgent,
+    });
+  });
+
+  it("uses live cwd instead of a leftover agent pane label", () => {
+    expect(
+      getTerminalDisplayMeta({
+        baseTitle: "Hermes Agent",
+        dynamicTitle: ".../OpenSource/atmos",
+        configuredAgents: [hermesAgent],
+        agent: hermesAgent,
+      }),
+    ).toMatchObject({
+      displayTitle: ".../OpenSource/atmos",
+      primaryTitle: ".../OpenSource/atmos",
+      toolbarAgent: undefined,
+    });
+  });
+
+  it("uses a live non-agent command instead of a leftover agent pane label", () => {
+    expect(
+      getTerminalDisplayMeta({
+        baseTitle: "Hermes Agent",
+        dynamicTitle: "git status",
+        configuredAgents: [hermesAgent],
+        agent: hermesAgent,
+      }),
+    ).toMatchObject({
+      displayTitle: "git status",
+      primaryTitle: "git status",
+      toolbarAgent: undefined,
     });
   });
 });
@@ -284,15 +348,17 @@ describe("terminal title APP-036 unique + contested agent matching", () => {
   });
 
   it("does not treat path-only titles ending in agent as contested freehand", () => {
-    expect(
-      getTerminalDisplayMeta({
-        baseTitle: "Cursor Agent",
-        dynamicTitle: "/tmp/workspace/agent",
-        configuredAgents: agents,
-        agent: cursorAgent,
-        contestedOwners: { agent: "unknown" },
-      }).toolbarAgent?.id,
-    ).toBe("cursor");
+    const meta = getTerminalDisplayMeta({
+      baseTitle: "Cursor Agent",
+      dynamicTitle: "/tmp/workspace/agent",
+      configuredAgents: agents,
+      agent: cursorAgent,
+      contestedOwners: { agent: "unknown" },
+    });
+    // Cwd/path text, not the contested `agent` CLI — show the path, not a brand
+    // and not the raw token "agent".
+    expect(meta.displayTitle).toBe("/tmp/workspace/agent");
+    expect(meta.toolbarAgent).toBeUndefined();
   });
 });
 

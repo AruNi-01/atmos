@@ -4,6 +4,7 @@ import React from "react";
 import { useTheme } from "next-themes";
 import { useTranslations } from "next-intl";
 import { PtDesignApp, type PersistenceAdapter } from "@atmos/pt-design";
+import { AgentSurfaceIsland } from "@/shared/components/agent-surface-island";
 import { getRuntimeApiConfig, httpBase, isHostedAtmosOrigin } from "@/shared/lib/desktop-runtime";
 import { httpDesignLibrary } from "./library-adapter";
 import { ptDesignSceneStorageKey } from "./storage-key";
@@ -37,7 +38,18 @@ export function PtDesignCenterPanel({ contextId }: { contextId: string }) {
   const theme = resolvedTheme === "dark" ? "dark" : "light";
   const [collabServerUrl, setCollabServerUrl] = React.useState<string | undefined>();
   const library = React.useMemo(() => httpDesignLibrary(), []);
-  const agentBridge = usePtDesignAgentBridge();
+  const tIsland = useTranslations("ptDesign.agentIsland");
+  const { bridge: agentBridge, feed, activity } = usePtDesignAgentBridge(contextId);
+  const viewState = React.useSyncExternalStore(
+    activity.subscribe,
+    activity.getViewState,
+    activity.getViewState,
+  );
+  const lastActivityAt = React.useSyncExternalStore(
+    activity.subscribe,
+    () => activity.getSnapshot()?.at ?? null,
+    () => activity.getSnapshot()?.at ?? null,
+  );
   React.useEffect(() => {
     if (isHostedAtmosOrigin()) return;
     void getRuntimeApiConfig().then((cfg) => {
@@ -46,7 +58,7 @@ export function PtDesignCenterPanel({ contextId }: { contextId: string }) {
   }, []);
   return (
     <div
-      className="h-full min-h-0 w-full overflow-hidden bg-background text-foreground"
+      className="relative h-full min-h-0 w-full overflow-hidden bg-background text-foreground"
       data-testid="pt-design-center"
       data-context-id={contextId}
       data-theme={theme}
@@ -79,6 +91,19 @@ export function PtDesignCenterPanel({ contextId }: { contextId: string }) {
           stop: t("stop"),
           startMenu: t("startMenu"),
           openMenu: t("openMenu"),
+        }}
+      />
+      <AgentSurfaceIsland
+        acceptsCommands={Boolean(agentBridge)}
+        feed={feed}
+        viewState={viewState}
+        lastActivityAt={lastActivityAt}
+        copy={{
+          workingAria: tIsland("working"),
+          idleAria: tIsland("idle"),
+          historyAria: tIsland("history"),
+          openScreenshotPreview: tIsland("openScreenshotPreview"),
+          screenshotPreviewAlt: tIsland("screenshotPreviewAlt"),
         }}
       />
     </div>

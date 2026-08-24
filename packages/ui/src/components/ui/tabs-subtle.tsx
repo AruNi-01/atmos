@@ -301,7 +301,7 @@ function DualWeightLabel({
       </span>
       <span
         className={cn(
-          "col-start-1 row-start-1 transition-[color,font-variation-settings] duration-80 [text-box:trim-both_cap_alphabetic]",
+          "col-start-1 row-start-1 transition-[font-variation-settings] duration-80 [text-box:trim-both_cap_alphabetic]",
           isActive ? "text-foreground" : "text-muted-foreground"
         )}
         style={{
@@ -373,7 +373,7 @@ const TabsSubtleItem = forwardRef<HTMLButtonElement, TabsSubtleItemProps>(
             size={16}
             strokeWidth={isActive ? 2 : 1.5}
             className={cn(
-              "shrink-0 transition-[color,stroke-width] duration-80",
+              "shrink-0 transition-[stroke-width] duration-80",
               isActive ? "text-foreground" : "text-muted-foreground"
             )}
           />
@@ -405,7 +405,7 @@ const TabsSubtleItem = forwardRef<HTMLButtonElement, TabsSubtleItemProps>(
             {metaDisplay ? (
               <span
                 className={cn(
-                  "shrink-0 text-[13px] whitespace-nowrap transition-colors duration-80",
+                  "shrink-0 text-[13px] whitespace-nowrap",
                   // When title is hidden, keep a small gap after the icon.
                   !showTitle && "ml-1.5",
                   // When title is shown, space before parenthesized meta.

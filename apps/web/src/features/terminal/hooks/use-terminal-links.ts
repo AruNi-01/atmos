@@ -3,6 +3,7 @@ import type { Terminal as XTerm } from "@xterm/xterm";
 import { toastManager } from "@workspace/ui";
 
 import { appApi } from "@/api/ws-api";
+import { attachCenterTab } from "@/app-shell/center-space/center-open-context";
 import { useEditorStore } from "@/features/editor/store/use-editor-store";
 import { useTerminalLinkSettingsStore } from "@/features/settings/store/terminal-link-settings-store";
 import { openDesktopExternalUrl } from "@/shared/lib/desktop-external-url";
@@ -132,7 +133,7 @@ export function useTerminalLinks({
         return;
       }
 
-      const targetContextId = currentEditorContextId || workspaceId;
+      const targetContextId = workspaceId || currentEditorContextId || undefined;
 
       if (fileLinkOpenMode === "finder") {
         await openPathWithApp("Finder", resolved.path);
@@ -154,6 +155,9 @@ export function useTerminalLinks({
         line: resolved.line,
         column: resolved.column,
       });
+      if (targetContextId) {
+        attachCenterTab(targetContextId, resolved.path);
+      }
     } catch (error) {
       reportTerminalLinkError(
         resolved.type === "external" ? resolved.url : resolved.path,

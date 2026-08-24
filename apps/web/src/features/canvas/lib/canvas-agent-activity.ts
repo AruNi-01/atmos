@@ -21,6 +21,10 @@
 import type { Editor, TLShapeId } from "tldraw";
 
 import {
+  resolveAgentSurfaceIslandWorking,
+  type AgentSurfaceViewState,
+} from "@/shared/lib/agent-surface-activity";
+import {
   AGENT_VIEW_PADDING,
   boundsFromBox,
   type CanvasAgentBounds,
@@ -64,9 +68,11 @@ export function resolveCanvasAgentIslandWorking(
   recentlyActive: boolean,
   feedEntryActive: boolean,
 ): boolean {
-  if (viewState.session === "idle") return false;
-  if (viewState.session === "active") return true;
-  return viewState.inflight || feedEntryActive || recentlyActive;
+  const surface: AgentSurfaceViewState = {
+    inflight: viewState.inflight,
+    session: viewState.session,
+  };
+  return resolveAgentSurfaceIslandWorking(surface, recentlyActive, feedEntryActive);
 }
 
 export interface CanvasAgentActivity {

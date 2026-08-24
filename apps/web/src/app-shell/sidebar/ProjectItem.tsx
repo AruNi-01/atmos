@@ -56,8 +56,13 @@ import {
 } from "@/features/agent/store/agent-attention-store";
 import type { WorkspaceWorkflowStatus } from "@/shared/types/domain";
 import { FileBrowser } from "@/features/files/components/FileBrowser";
+import { useAtmosComputerStore } from "@/features/connection/lib/atmos-computer-store";
+import { pickLocalFile } from "@/shared/lib/desktop-directory-picker";
 import { getRuntimeApiConfig, httpBase } from "@/shared/lib/desktop-runtime";
 import { LEFT_SIDEBAR_DIVIDER_GUTTER_MR_CLASS, LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS } from "@/app-shell/sidebar-layout-constants";
+import { SidebarHeldShortcutBadge } from "@/app-shell/HeldShortcutBadge";
+import { useSidebarShortcutDigit } from "@/app-shell/held-shortcut-prefix-store";
+import { SIDEBAR_SHORTCUT_TARGET_ATTR } from "@/app-shell/shortcut-prefix";
 
 export interface ProjectItemProps {
   project: Project;
@@ -183,8 +188,12 @@ function isSupportedProjectLogoPath(path: string): boolean {
   return !!extension && PROJECT_LOGO_EXTENSIONS.has(extension);
 }
 
+function isDirectLogoSource(value: string): boolean {
+  return /^(https?:|data:)/i.test(value.trim());
+}
+
 function isRemoteLogoSource(value: string): boolean {
-  return /^https?:\/\//i.test(value);
+  return /^https?:\/\//i.test(value.trim());
 }
 
 export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
@@ -249,8 +258,15 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
     project.workspaces.length > 0;
   const [showLogoDialog, setShowLogoDialog] = useState(false);
   const [showLogoBrowser, setShowLogoBrowser] = useState(false);
+  const [isPickingLogo, setIsPickingLogo] = useState(false);
   const [logoInput, setLogoInput] = useState("");
   const [isProjectMenuOpen, setIsProjectMenuOpen] = useState(false);
+  const connectionMode = useAtmosComputerStore((s) => s.connectionMode);
+  // OS picker first when talking to the local machine. Atmos FileBrowser is
+  // the fallback (and the only option for relay / remote computers).
+  const preferOsLogoPicker = connectionMode === "local";
+  const projectShortcutKey = `project:${project.id}`;
+  const shortcutDigit = useSidebarShortcutDigit(projectShortcutKey);
 
   const unpinnedWorkspaces = project.workspaces.filter((workspace) => !workspace.isPinned);
   const {
@@ -326,7 +342,7 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
     setLogoUrl(null);
 
     // If it's a remote URL, use it directly
-    if (isRemoteLogoSource(project.logoPath)) {
+    if (isDirectLogoSource(project.logoPath)) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setLogoUrl(project.logoPath);
       return () => {
@@ -370,6 +386,53 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
     setShowLogoDialog(true);
   }, [project.logoPath]);
 
+  const applySelectedLogoPath = useCallback(
+    (path: string) => {
+      if (!isDirectLogoSource(path) && !isSupportedProjectLogoPath(path)) {
+        toastManager.add({
+          title: t("projectItem.logo.unsupportedLogoFileTitle"),
+          description: t("projectItem.logo.unsupportedLogoFileDescription"),
+          type: "error",
+        });
+        return;
+      }
+      setLogoInput(path);
+    },
+    [t],
+  );
+
+  const handleBrowseLogo = useCallback(async () => {
+    if (preferOsLogoPicker) {
+      setIsPickingLogo(true);
+      try {
+        const localSource = logoInput.trim();
+        const selected = await pickLocalFile({
+          defaultPath:
+            localSource && !isDirectLogoSource(localSource)
+              ? localSource
+              : undefined,
+          title: t("projectItem.logo.selectLogoImage"),
+          filters: [
+            {
+              name: t("projectItem.logo.selectLogoImage"),
+              extensions: [...PROJECT_LOGO_EXTENSIONS],
+            },
+          ],
+        });
+        if (selected.status === "picked") {
+          applySelectedLogoPath(selected.path);
+          return;
+        }
+        if (selected.status === "cancelled") {
+          return;
+        }
+      } finally {
+        setIsPickingLogo(false);
+      }
+    }
+    setShowLogoBrowser(true);
+  }, [applySelectedLogoPath, logoInput, preferOsLogoPicker, t]);
+
   const handleSaveLogo = useCallback(() => {
     const value = logoInput.trim();
     if (!value) {
@@ -381,7 +444,7 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
       return;
     }
 
-    if (!isRemoteLogoSource(value) && !isSupportedProjectLogoPath(value)) {
+    if (!isDirectLogoSource(value) && !isSupportedProjectLogoPath(value)) {
       toastManager.add({
         title: t("projectItem.logo.unsupportedLogoFileTitle"),
         description: t("projectItem.logo.unsupportedLogoFileDescription"),
@@ -402,6 +465,7 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
         isPlaceholder ? "opacity-20" : "opacity-100",
         isDragging && "z-50"
       )}
+      {...{ [SIDEBAR_SHORTCUT_TARGET_ATTR]: projectShortcutKey }}
     >
       <div
         className={cn(
@@ -432,7 +496,7 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
         >
           <div className="flex items-center space-x-2 flex-1 min-w-0">
             <div
-              className="size-6 flex items-center justify-center bg-sidebar rounded-md border border-sidebar-border text-[10px] font-bold text-muted-foreground shrink-0 transition-colors hover:bg-sidebar-accent relative"
+              className="size-6 flex items-center justify-center bg-sidebar rounded-md border border-sidebar-border text-[10px] font-bold text-muted-foreground shrink-0 hover:bg-sidebar-accent relative"
               style={{ borderLeft: project.borderColor ? `2px solid ${project.borderColor}` : undefined }}
             >
               {logoUrl && !hasLogoLoadError ? (
@@ -454,7 +518,7 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
                         e.stopPropagation();
                         onSelectMain(project.id);
                       }}
-                      className="hidden group-hover/project:flex items-center justify-center size-full absolute inset-0 text-muted-foreground hover:text-foreground transition-colors hover:cursor-pointer"
+                      className="hidden group-hover/project:flex items-center justify-center size-full absolute inset-0 text-muted-foreground hover:text-foreground hover:cursor-pointer"
                     >
                       <MapPinned className="size-3.5" />
                     </button>
@@ -467,7 +531,7 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
             </div>
             <span
               className={cn(
-                "text-[13px] font-medium truncate transition-colors",
+                "text-[13px] font-medium truncate",
                 dimAsAttentionParent
                   ? "text-muted-foreground"
                   : "text-sidebar-foreground group-hover/project:text-sidebar-foreground",
@@ -484,7 +548,15 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
           </div>
         </div>
 
-            {!isDragging && (
+            {!isDragging && shortcutDigit != null ? (
+          <div
+            className={cn(
+              "absolute right-2 top-1/2 z-10 flex -translate-y-1/2 items-center justify-end",
+            )}
+          >
+            <SidebarHeldShortcutBadge targetKey={projectShortcutKey} />
+          </div>
+            ) : !isDragging && (
           <div
             className={cn(
               "absolute right-2 top-1/2 z-10 flex -translate-y-1/2 items-center justify-end",
@@ -512,7 +584,7 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
                         e.stopPropagation();
                         onQuickAddWorkspace(project.id);
                       }}
-                      className="p-1 hover:bg-sidebar-accent rounded-sm transition-all duration-200 hover:cursor-pointer"
+                      className="p-1 hover:bg-sidebar-accent rounded-sm hover:cursor-pointer"
                     >
                       <Zap className="size-3.5 text-muted-foreground" />
                     </button>
@@ -541,7 +613,7 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
                 <DropdownMenuTrigger asChild>
                   <button
                     ref={triggerRef}
-                    className="p-1 hover:bg-sidebar-accent rounded-sm transition-all duration-200 hover:cursor-pointer"
+                    className="p-1 hover:bg-sidebar-accent rounded-sm hover:cursor-pointer"
                     onMouseEnter={openProjectMenu}
                     onMouseLeave={scheduleProjectMenuClose}
                   >
@@ -610,7 +682,7 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
                         <button
                           type="button"
                           onClick={() => onSetColor(project.id, undefined)}
-                          className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-border/60 bg-background px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                          className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-border/60 bg-background px-2 py-1.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
                           title={t("projectItem.none")}
                         >
                           <X className="size-3.5" />
@@ -806,12 +878,24 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
           <div className="grid gap-4 py-2">
             <div className="grid gap-2">
               <Label htmlFor={`project-logo-source-${project.id}`}>{t("projectItem.logo.sourceLabel")}</Label>
-              <Input
-                id={`project-logo-source-${project.id}`}
-                value={logoInput}
-                onChange={(e) => setLogoInput(e.target.value)}
-                placeholder={t("projectItem.logo.sourcePlaceholder")}
-              />
+              <div className="flex items-stretch gap-2">
+                <Input
+                  id={`project-logo-source-${project.id}`}
+                  value={logoInput}
+                  onChange={(e) => setLogoInput(e.target.value)}
+                  placeholder={t("projectItem.logo.sourcePlaceholder")}
+                  className="min-w-0 flex-1"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-9 sm:h-9 cursor-pointer shrink-0"
+                  onClick={() => void handleBrowseLogo()}
+                  disabled={preferOsLogoPicker ? isPickingLogo : false}
+                >
+                  {t("projectItem.logo.browse")}
+                </Button>
+              </div>
               <p className="text-xs text-muted-foreground">
                 {t("projectItem.logo.detectedAs", {
                   source: logoInput.trim()
@@ -821,22 +905,6 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
                     : t("projectItem.logo.detectedSourceUnknown"),
                 })}
               </p>
-            </div>
-            <div className="flex items-center justify-between gap-3 rounded-md border border-border p-3">
-              <div className="min-w-0">
-                <p className="text-sm font-medium">{t("projectItem.logo.localFileTitle")}</p>
-                <p className="text-xs text-muted-foreground">
-                  {t("projectItem.logo.localFileDescription")}
-                </p>
-              </div>
-              <Button
-                type="button"
-                variant="outline"
-                className="cursor-pointer shrink-0"
-                onClick={() => setShowLogoBrowser(true)}
-              >
-                {t("projectItem.logo.browse")}
-              </Button>
             </div>
           </div>
           <DialogFooter>
@@ -874,15 +942,7 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
         open={showLogoBrowser}
         onOpenChange={setShowLogoBrowser}
         onSelect={(path) => {
-          if (!isSupportedProjectLogoPath(path)) {
-            toastManager.add({
-              title: t("projectItem.logo.unsupportedLogoFileTitle"),
-              description: t("projectItem.logo.unsupportedLogoFileDescription"),
-              type: "error",
-            });
-            return;
-          }
-          setLogoInput(path);
+          applySelectedLogoPath(path);
         }}
         title={t("projectItem.logo.selectLogoImage")}
         selectLabel={t("projectItem.logo.useFile")}

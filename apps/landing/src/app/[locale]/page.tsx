@@ -18,7 +18,7 @@ export default async function LandingPage({ params }: Props) {
   const downloadLinks = await resolveDesktopDownloadLinks();
 
   return (
-    <div className="min-h-screen font-sans transition-colors duration-300">
+    <div className="min-h-screen font-sans">
       <main className='relative flex flex-col overflow-x-clip *:scroll-mt-16 sm:*:scroll-mt-15.5'>
         <HeroSection />
         <FeatureShowcase />

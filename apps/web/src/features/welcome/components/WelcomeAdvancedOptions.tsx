@@ -28,6 +28,11 @@ import {
   cn,
 } from "@workspace/ui";
 import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+} from "@workspace/ui/components/motion/tabs";
+import {
   Check,
   ChevronDown,
   CircleDot,
@@ -200,7 +205,7 @@ export function WelcomeAdvancedOptions({
       <PopoverTrigger asChild>
         <button
           type="button"
-          className="inline-flex size-9 items-center justify-center rounded-md border border-border/60 bg-background/35 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          className="inline-flex size-9 items-center justify-center rounded-md border border-border/60 bg-background/35 text-muted-foreground hover:bg-accent hover:text-foreground"
           aria-label={t("advanced.openAria")}
         >
           <Ellipsis className="size-4" />
@@ -331,50 +336,50 @@ export function WelcomeAdvancedOptions({
             </div>
 
             <div className="rounded-2xl border border-border/60 bg-background/35">
-              <div className="flex items-center gap-1 p-1.5">
-                <button
-                  type="button"
-                  onClick={() => handleSelectLinkType("issue")}
-                  className={cn(
-                    "inline-flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-xl px-2 py-2 text-xs transition-colors sm:gap-2 sm:px-3 sm:text-sm",
-                    linkType === "issue"
-                      ? "bg-muted text-foreground shadow-sm"
-                      : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
-                    // Bound but not focused: GitHub + Linear can coexist.
-                    issuePreview && linkType !== "issue" && "ring-1 ring-primary/35",
-                  )}
+              <div className="flex items-center gap-1.5 p-1.5">
+                <Tabs
+                  value={linkType === "none" ? "none" : linkType}
+                  onValueChange={(next) => {
+                    if (next === "issue" || next === "pr" || next === "linear") {
+                      handleSelectLinkType(next);
+                    }
+                  }}
+                  variant="pill"
+                  className="min-w-0 flex-1"
                 >
-                  <CircleDot className="size-3.5 shrink-0 sm:size-4" />
-                  <span className="truncate font-medium">{t("advanced.githubIssue")}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleSelectLinkType("pr")}
-                  className={cn(
-                    "inline-flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-xl px-2 py-2 text-xs transition-colors sm:gap-2 sm:px-3 sm:text-sm",
-                    linkType === "pr"
-                      ? "bg-muted text-foreground shadow-sm"
-                      : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
-                    prPreview && linkType !== "pr" && "ring-1 ring-primary/35",
-                  )}
-                >
-                  <GitPullRequestArrow className="size-3.5 shrink-0 sm:size-4" />
-                  <span className="truncate font-medium">{t("advanced.githubPr")}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleSelectLinkType("linear")}
-                  className={cn(
-                    "inline-flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-xl px-2 py-2 text-xs transition-colors sm:gap-2 sm:px-3 sm:text-sm",
-                    linkType === "linear"
-                      ? "bg-muted text-foreground shadow-sm"
-                      : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
-                    linearPreview && linkType !== "linear" && "ring-1 ring-primary/35",
-                  )}
-                >
-                  <LinearIcon className="size-3.5 shrink-0 sm:size-4" size={16} />
-                  <span className="truncate font-medium">{t("advanced.linearIssue")}</span>
-                </button>
+                  <TabsList className="h-8 w-full gap-0.5 p-0.5">
+                    <TabsTrigger
+                      value="issue"
+                      className={cn(
+                        "h-7 min-w-0 flex-1 gap-1.5 px-2 text-xs sm:px-3",
+                        issuePreview && linkType !== "issue" && "ring-1 ring-primary/35",
+                      )}
+                    >
+                      <CircleDot className="size-3.5 shrink-0" />
+                      <span className="truncate">{t("advanced.githubIssue")}</span>
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="pr"
+                      className={cn(
+                        "h-7 min-w-0 flex-1 gap-1.5 px-2 text-xs sm:px-3",
+                        prPreview && linkType !== "pr" && "ring-1 ring-primary/35",
+                      )}
+                    >
+                      <GitPullRequestArrow className="size-3.5 shrink-0" />
+                      <span className="truncate">{t("advanced.githubPr")}</span>
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="linear"
+                      className={cn(
+                        "h-7 min-w-0 flex-1 gap-1.5 px-2 text-xs sm:px-3",
+                        linearPreview && linkType !== "linear" && "ring-1 ring-primary/35",
+                      )}
+                    >
+                      <LinearIcon className="size-3.5 shrink-0" size={14} />
+                      <span className="truncate">{t("advanced.linearIssue")}</span>
+                    </TabsTrigger>
+                  </TabsList>
+                </Tabs>
                 {repoContext && linkType === "issue" ? (
                   <Button
                     type="button"
@@ -515,7 +520,7 @@ function SelectLoadMoreFooter({
     >
       <button
         type="button"
-        className="flex w-full items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-60"
+        className="flex w-full items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-60"
         disabled={loading}
         onClick={(event) => {
           event.preventDefault();

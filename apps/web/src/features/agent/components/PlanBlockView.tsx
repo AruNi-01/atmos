@@ -137,8 +137,8 @@ export function PlanBlockView({
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
         {isOpen && (
           <CollapsibleTrigger asChild>
-            <div className="flex items-center gap-2 px-3 py-1.5 hover:bg-muted/10 cursor-pointer transition-colors group">
-              <span className="text-muted-foreground group-hover:text-foreground transition-colors">
+            <div className="flex items-center gap-2 px-3 py-1.5 hover:bg-muted/10 cursor-pointer group">
+              <span className="text-muted-foreground group-hover:text-foreground">
                 <ChevronDown className="w-4 h-4" />
               </span>
               <span className="text-sm font-medium text-foreground/90">{t("plan.title")}</span>
@@ -196,7 +196,7 @@ export function PlanBlockView({
         {!isOpen && collapsedEntry && (
           <CollapsibleTrigger asChild>
             <div
-              className={`flex items-center gap-2 px-3 py-1.5 bg-background overflow-hidden cursor-pointer hover:bg-muted/10 transition-colors ${embedded || docked ? "rounded-none" : "rounded-b-md"}`}
+              className={`flex items-center gap-2 px-3 py-1.5 bg-background overflow-hidden cursor-pointer hover:bg-muted/10 ${embedded || docked ? "rounded-none" : "rounded-b-md"}`}
             >
               <ChevronDown className="w-4 h-4 text-muted-foreground -rotate-90 shrink-0" />
               <div className="shrink-0 flex items-center justify-center w-4 h-4">

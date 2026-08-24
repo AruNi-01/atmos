@@ -14,7 +14,7 @@ import {
 import { wrapAiContextClipboard } from "@/shared/lib/ai-context-protocol";
 
 const toolbarActionClass =
-  "inline-flex shrink-0 items-center justify-center whitespace-nowrap rounded text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+  "inline-flex shrink-0 items-center justify-center whitespace-nowrap rounded text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
 export function TerminalSelectionToolbar({
   className,

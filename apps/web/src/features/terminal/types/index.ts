@@ -27,6 +27,8 @@ export interface TerminalSize {
 export interface TerminalProps {
   sessionId: string;
   workspaceId: string;
+  /** Center paint id for opening file links. Defaults to `workspaceId`. */
+  openContextId?: string;
   className?: string;
   /** tmux window name for reconnection (if set, will try to attach to existing window) */
   tmuxWindowName?: string;
@@ -131,12 +133,15 @@ export interface TerminalPaneProps {
   isNewPane?: boolean;
   /**
    * Dynamic title from shell shim (e.g., running command name or current directory).
-   * This is transient and NOT persisted to backend — only used for tab display.
+   * In-memory for the live pane; last value is cached in localStorage so refresh
+   * and unmounted tabs keep cwd/command titles. Not written to terminal-layout.
+   * Tmux window indexes (`1`, `6`) are not stored — those are attach identities.
    */
   dynamicTitle?: string;
   /**
    * Native OSC 0/2 title from the foreground process (agent session topic).
-   * Persisted in the terminal layout so refresh keeps session topics (APP-047).
+   * In-memory for the live pane toolbar; the stable topic is cached in
+   * localStorage so refresh keeps it. Not written to terminal-layout.
    * Never used for agent detection. Shell host/path noise is not stored.
    */
   oscTitle?: string;

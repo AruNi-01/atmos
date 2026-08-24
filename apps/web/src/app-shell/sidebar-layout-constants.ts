@@ -2,6 +2,10 @@ export const ROOT_SIDEBAR_LAYOUT_AUTO_SAVE_ID = "root-sidebar-layout-v4";
 export const DEFAULT_LEFT_SIDEBAR_SIZE = 25;
 export const DEFAULT_COLLAPSED_TWO_COLUMN_LEFT_SIDEBAR_SIZE = 15;
 
+/** Full-width chrome strip above PanelLayout (Tailwind `h-12`). */
+export const APP_HEADER_HEIGHT_CLASS = "h-12";
+export const APP_HEADER_HEIGHT_PX = 48;
+
 /** Shared height for left-sidebar footer + main column Footer (Tailwind `h-9`). */
 export const APP_FOOTER_HEIGHT_CLASS = "h-9";
 export const APP_FOOTER_HEIGHT_PX = 36;
@@ -14,6 +18,15 @@ export const APP_FOOTER_HEIGHT_PX = 36;
 export const CENTER_STAGE_GUTTER_X_PX = 4;
 export const CENTER_STAGE_GUTTER_Y_PX = 1;
 export const CENTER_STAGE_GUTTER_CLASS = "px-1 py-px";
+
+/**
+ * Collapsed sidebar hover peek. `position:fixed` is viewport-relative, so pin
+ * to the center-stage band — not over the header or the footer strip.
+ */
+export const SIDEBAR_PEEK_INSET_TOP_PX =
+  APP_HEADER_HEIGHT_PX + CENTER_STAGE_GUTTER_Y_PX;
+export const SIDEBAR_PEEK_INSET_BOTTOM_PX =
+  APP_FOOTER_HEIGHT_PX + CENTER_STAGE_GUTTER_Y_PX;
 
 /**
  * Left sidebar inset against the root sidebar↔center divider.
@@ -48,7 +61,11 @@ export const ROOT_RESIZE_HAIRLINE_BOTTOM_CSS = `calc(${APP_FOOTER_HEIGHT_PX}px +
 export const CENTER_STAGE_CARD_CLASS =
   "desktop-no-drag h-full min-h-0 overflow-hidden rounded-xl bg-background ring-1 ring-border/40";
 
-/** Column above the center-stage footer — drawer insets prefer this over the panel. */
+/** Column above the center-stage footer — drawer insets and stage fullscreen fill this. */
 export const CENTER_STAGE_BODY_ATTR = "data-center-stage-body";
 /** Visual floating card inside the center-stage shell. */
 export const CENTER_STAGE_CARD_ATTR = "data-center-stage-card";
+/** Root row under the header: left sidebar + center + footer. */
+export const APP_SHELL_PANEL_LAYOUT_ATTR = "data-app-shell-panel-layout";
+/** Center column (stage + footer). Fullscreen must not pin to this — it includes the footer. */
+export const APP_SHELL_CENTER_COLUMN_ATTR = "data-app-shell-center-column";

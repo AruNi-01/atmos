@@ -255,7 +255,7 @@ export function TwoColumnSidebarToggleButton({
     <button
       type="button"
       onClick={onClick}
-      className="inline-flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
+      className="inline-flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground"
       aria-label={label}
       title={label}
     >
@@ -280,7 +280,7 @@ export function SidebarColumnResizeHandle({
       className={cn(
         // Invisible by default so the sidebar has no hard divider; show a thin
         // hover affordance so resize remains discoverable.
-        "relative flex h-full self-stretch w-px items-center justify-center bg-transparent transition-colors duration-200 hover:bg-sidebar-border/50 group touch-none",
+        "relative flex h-full self-stretch w-px items-center justify-center bg-transparent hover:bg-sidebar-border/50 group touch-none",
         "before:absolute before:inset-y-0 before:left-1/2 before:w-1 before:-translate-x-1/2",
       )}
     />
@@ -1142,7 +1142,9 @@ export function TwoColumnSidebarContent({
             maxSize={100}
             className="min-w-0"
           >
-            {rightContent}
+            <div data-sidebar-shortcut-scope="secondary" className="h-full min-h-0">
+              {rightContent}
+            </div>
           </Panel>
         </PanelGroup>
       </div>

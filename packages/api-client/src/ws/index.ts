@@ -14,8 +14,13 @@ export { createWsSession, WsSession } from "./session";
 export type {
   ConnectionState,
   ExhaustedBehavior,
+  MappedRequestWhenReadyOptions,
+  MappedWsAction,
   ReconnectPolicy,
   RequestWhenReadyOptions,
+  UnmappedWsAction,
   WsAction,
+  WsContract,
+  WsRequestCallOpts,
   WsSessionOptions,
 } from "./types";

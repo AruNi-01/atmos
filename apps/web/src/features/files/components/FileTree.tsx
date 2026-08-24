@@ -21,6 +21,7 @@ import {
   type FileTreeMenuState,
   type PendingPanelState,
 } from '../lib/file-tree-utils';
+import { attachCenterTab } from "@/app-shell/center-space/center-open-context";
 import { FileTreeContextMenu } from './FileTreeContextMenu';
 import { FileTreeRow } from './FileTreeRow';
 
@@ -279,8 +280,9 @@ export const FileTree: React.FC<FileTreeProps> = ({
       beforeOpenFile?.();
       if (onOpenFile) {
         void onOpenFile(item.path, { preview: true });
-      } else {
-        void openFile(item.path, editorContextId || undefined, { preview: true });
+      } else if (editorContextId) {
+        void openFile(item.path, editorContextId, { preview: true });
+        attachCenterTab(editorContextId, item.path);
       }
     }
   }, [beforeOpenFile, editorContextId, onOpenFile, openFile]);
@@ -424,6 +426,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
           await onOpenFile(nextPath, { preview: false });
         } else {
           await openFile(nextPath, editorContextId || undefined, { preview: false });
+          if (editorContextId) attachCenterTab(editorContextId, nextPath);
         }
       } else if (panelState.mode === 'create-folder') {
         await fsApi.createDir(joinPath(panelState.parentPath, trimmedName));
@@ -629,7 +632,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
         ref={tree.registerElement}
         {...tree.getContainerProps(t('fileTree.containerAriaLabel'))}
         className={cn(
-          'text-sm rounded-md transition-colors',
+          'text-sm rounded-md',
           isTreeHighlighted && 'bg-sidebar-accent/35',
         )}
       >

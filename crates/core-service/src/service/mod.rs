@@ -15,6 +15,7 @@ pub mod local_services;
 pub mod message_push;
 pub mod notification;
 pub mod project;
+mod project_logo;
 pub mod review;
 pub mod skill;
 pub mod terminal;

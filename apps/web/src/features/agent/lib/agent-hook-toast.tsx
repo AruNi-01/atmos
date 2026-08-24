@@ -2,6 +2,7 @@
 
 import React from "react";
 import { useTranslations } from "next-intl";
+import type { AgentHookStateNotification } from "@atmos/api-types/ws/dto/events";
 import { agentToastManager } from "@workspace/ui";
 import {
   AGENT_STATE,
@@ -9,7 +10,6 @@ import {
   AGENT_TOOL_LABELS,
   type AgentHookSession,
   type AgentHookState,
-  type AgentToolType,
 } from "@/features/agent/store/agent-hooks-store";
 import { AgentIcon } from "@/features/agent/components/AgentIcon";
 import { getProjectBootstrapSnapshot } from "@/features/project/hooks/use-project-bootstrap-query";
@@ -21,19 +21,7 @@ import {
   resolveAgentHookContextNames,
 } from "@/features/agent/lib/agent-hook-navigation";
 
-export type AgentHookStateUpdatePayload = {
-  session_id: string;
-  tool: AgentToolType;
-  state: AgentHookState;
-  timestamp: string;
-  project_path?: string | null;
-  context_id?: string | null;
-  pane_id?: string | null;
-  terminal_kind?: string | null;
-  side_chat_id?: string | null;
-  source_pane_id?: string | null;
-  hook_version?: number | null;
-};
+export type AgentHookStateUpdatePayload = AgentHookStateNotification;
 
 type AgentHookToastT = ReturnType<typeof useTranslations>;
 type AppRouterLike = ReturnType<typeof useAppRouter>;
@@ -120,7 +108,7 @@ export function showAgentHookStateToast(options: {
         <>
           <button
             type="button"
-            className="inline-flex h-7 items-center rounded-md bg-primary px-2.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50"
+            className="inline-flex h-7 items-center rounded-md bg-primary px-2.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50"
             disabled={!canNavigate}
             onClick={() => {
               if (!canNavigate) return;
@@ -134,7 +122,7 @@ export function showAgentHookStateToast(options: {
           </button>
           <button
             type="button"
-            className="inline-flex h-7 items-center rounded-md border border-border bg-background px-2.5 text-xs font-medium text-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+            className="inline-flex h-7 items-center rounded-md border border-border bg-background px-2.5 text-xs font-medium text-foreground hover:bg-accent hover:text-accent-foreground"
             onClick={() => agentToastManager.close(toastId)}
           >
             {t("common.close")}

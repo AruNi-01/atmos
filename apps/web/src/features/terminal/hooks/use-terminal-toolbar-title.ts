@@ -12,6 +12,7 @@ import {
 import { getTerminalDisplayMeta, resolveAgentForTitle } from "@/features/terminal/components/terminal-title";
 import {
   isPathLikeTitle,
+  isTmuxIndexTitle,
   nextOscTitleAfterIncoming,
   shortenPath,
 } from "@atmos/shared/terminal";
@@ -73,6 +74,8 @@ export function useTerminalToolbarTitle(options: {
 
   const onTitleChange = useCallback(
     (title: string) => {
+      // Keep the last cwd/command when tmux reports a window index.
+      if (isTmuxIndexTitle(title)) return;
       setLocalShimDynamicTitle(title);
       if (storeWrite.kind === "none") return;
       const { setDynamicTitle, setPaneAgent } = useTerminalStore.getState();

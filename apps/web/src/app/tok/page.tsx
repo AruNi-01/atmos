@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { usePathname } from "next/navigation";
-import { Loader2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { PushPageStack, usePushPageTransition } from "@workspace/ui";
 
 import {
@@ -10,6 +10,7 @@ import {
   PublicTokPage,
 } from "@/features/token-usage/PublicTokPage";
 import { PublicTokLeaderboards } from "@/features/token-usage/PublicTokLeaderboards";
+import { TokenUsageLoadingScreen } from "@/features/token-usage/TokenUsageLoadingScreen";
 import {
   fetchPublicLeaderboards,
   fetchPublicTok,
@@ -98,6 +99,7 @@ function ProfilePendingShell({
   avatarUrl: string | null;
   onBack: () => void;
 }) {
+  const t = useTranslations("appShell.tokenUsageDialog.publicPage");
   const letter = (handle[0] ?? "?").toUpperCase();
   const [avatarFailed, setAvatarFailed] = React.useState(false);
   const showAvatar = Boolean(avatarUrl) && !avatarFailed;
@@ -131,13 +133,11 @@ function ProfilePendingShell({
             onClick={onBack}
             className="text-xs text-muted-foreground hover:text-foreground"
           >
-            Leaderboard
+            {t("leaderboardLink")}
           </button>
         </header>
       </div>
-      <div className="flex flex-1 items-center justify-center" aria-busy="true">
-        <Loader2 className="size-6 animate-spin text-muted-foreground/70" />
-      </div>
+      <TokenUsageLoadingScreen />
     </div>
   );
 }
@@ -278,8 +278,8 @@ export default function TokPage() {
 
   const leaderboardBase =
     boards === undefined ? (
-      <div className="flex h-full items-center justify-center" aria-busy="true">
-        <Loader2 className="size-8 animate-spin text-muted-foreground" />
+      <div className="flex h-full min-h-0 flex-col bg-background">
+        <TokenUsageLoadingScreen />
       </div>
     ) : boards ? (
       <div className="h-full overflow-y-auto pt-8">

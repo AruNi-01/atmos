@@ -389,7 +389,7 @@ export const DiffViewer = ({
           name: fileName,
           contents: diff.old_content,
           cacheKey: diffSideCacheKey(
-            fileName,
+            filePath,
             diff.old_content,
             diff.file_snapshot.old_sha256,
           ),
@@ -398,7 +398,7 @@ export const DiffViewer = ({
           name: fileName,
           contents: diff.new_content,
           cacheKey: diffSideCacheKey(
-            fileName,
+            filePath,
             diff.new_content,
             diff.file_snapshot.new_sha256,
           ),
@@ -456,12 +456,12 @@ export const DiffViewer = ({
       const nextOldFile = {
         name: fileName,
         contents: oldText,
-        cacheKey: diffSideCacheKey(fileName, oldText),
+        cacheKey: diffSideCacheKey(filePath, oldText),
       };
       const nextNewFile = {
         name: fileName,
         contents: newText,
-        cacheKey: diffSideCacheKey(fileName, newText),
+        cacheKey: diffSideCacheKey(filePath, newText),
       };
       setOldFile(nextOldFile);
       setNewFile(nextNewFile);

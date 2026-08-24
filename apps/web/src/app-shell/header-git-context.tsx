@@ -155,7 +155,7 @@ export function HeaderGitContext({
             <Input
               value={editedCurrentBranch}
               onChange={(e) => setEditedCurrentBranch(e.target.value)}
-              className="h-6 w-48 text-[13px] px-2 py-0 bg-secondary/50 border-transparent focus:bg-background transition-colors rounded-sm focus:border-primary/20"
+              className="h-6 w-48 text-[13px] px-2 py-0 bg-secondary/50 border-transparent focus:bg-background rounded-sm focus:border-primary/20"
               placeholder={t("gitContext.branchNamePlaceholder")}
               onKeyDown={(e) => {
                 if (e.key === "Enter") void onSaveCurrentBranch();

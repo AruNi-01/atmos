@@ -212,7 +212,7 @@ export function BrowserToolbar({
             <button
               onClick={() => setViewMode("desktop")}
               className={cn(
-                "rounded-sm p-1.5 transition-colors",
+                "rounded-sm p-1.5",
                 viewMode === "desktop" ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground",
               )}
               title={t("view.desktop")}
@@ -222,7 +222,7 @@ export function BrowserToolbar({
             <button
               onClick={() => setViewMode("mobile")}
               className={cn(
-                "rounded-sm p-1.5 transition-colors",
+                "rounded-sm p-1.5",
                 viewMode === "mobile" ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground",
               )}
               title={t("view.mobile")}
@@ -242,7 +242,7 @@ export function BrowserToolbar({
             onClick={handleGoBack}
             disabled={!canGoBack}
             className={cn(
-              "rounded-sm p-1.5 transition-colors",
+              "rounded-sm p-1.5",
               canGoBack
                 ? "text-muted-foreground hover:bg-muted hover:text-foreground"
                 : "cursor-not-allowed text-muted-foreground/30",
@@ -255,7 +255,7 @@ export function BrowserToolbar({
             onClick={handleGoForward}
             disabled={!canGoForward}
             className={cn(
-              "rounded-sm p-1.5 transition-colors",
+              "rounded-sm p-1.5",
               canGoForward
                 ? "text-muted-foreground hover:bg-muted hover:text-foreground"
                 : "cursor-not-allowed text-muted-foreground/30",
@@ -266,7 +266,7 @@ export function BrowserToolbar({
           </button>
           <button
             onClick={handleRefresh}
-            className="rounded-sm p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            className="rounded-sm p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
             title={t("navigation.refresh")}
           >
             <RotateCcw className={cn("size-3.5", isPreviewLoading && "animate-spin [animation-direction:reverse]")} />
@@ -277,7 +277,7 @@ export function BrowserToolbar({
           <button
             type="button"
             onClick={handleGoHome}
-            className="shrink-0 rounded-sm p-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            className="shrink-0 rounded-sm p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
             title={t("navigation.home")}
           >
             <Home className="size-3.5" />
@@ -346,7 +346,7 @@ export function BrowserToolbar({
               window.open(normalizedActiveUrl, "_blank", "noopener,noreferrer");
             }}
             className={cn(
-              "shrink-0 rounded-sm p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
+              "shrink-0 rounded-sm p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground",
               !normalizedActiveUrl && "pointer-events-none opacity-50",
             )}
             title={t("actions.openInBrowser")}
@@ -371,7 +371,7 @@ export function BrowserToolbar({
                   onClick={() => {
                     void handleOpenDeveloperTools();
                   }}
-                  className="flex h-6 cursor-pointer items-center justify-center rounded-l-sm rounded-r-none px-2 leading-none text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
+                  className="flex h-6 cursor-pointer items-center justify-center rounded-l-sm rounded-r-none px-2 leading-none text-muted-foreground hover:bg-accent/50 hover:text-foreground"
                   title={t("actions.openDeveloperTools")}
                   aria-label={t("actions.openDeveloperTools")}
                 >
@@ -393,7 +393,7 @@ export function BrowserToolbar({
                       disabled={!activeUrl || preferredTransportMode === "unavailable"}
                       aria-pressed={isElementPickerEnabled}
                       className={cn(
-                        "flex h-6 cursor-pointer items-center justify-center px-2 leading-none transition-colors",
+                        "flex h-6 cursor-pointer items-center justify-center px-2 leading-none",
                         elementPickerRadiusClass,
                         activeUrl && preferredTransportMode !== "unavailable"
                           ? isElementPickerEnabled
@@ -422,7 +422,7 @@ export function BrowserToolbar({
                       onClick={() => {
                         void handleCopySelectionAnnotations();
                       }}
-                      className="group relative flex h-6 w-[66px] cursor-pointer items-center justify-center overflow-hidden rounded-l-none rounded-r-sm border-l border-border/60 px-2 text-[11px] font-medium leading-none text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
+                      className="group relative flex h-6 w-[66px] cursor-pointer items-center justify-center overflow-hidden rounded-l-none rounded-r-sm border-l border-border/60 px-2 text-[11px] font-medium leading-none text-muted-foreground hover:bg-accent/50 hover:text-foreground"
                       aria-label={t(
                         selectionAnnotationCount === 1
                           ? "annotations.copyAriaOne"
@@ -511,7 +511,7 @@ function FavoriteSavePopover({
       <PopoverTrigger asChild>
         <button
           className={cn(
-            "shrink-0 rounded-sm p-0.5 transition-colors",
+            "shrink-0 rounded-sm p-0.5",
             normalizedActiveUrl
               ? activeFavorite
                 ? "text-favorite hover:opacity-80"
@@ -590,7 +590,7 @@ function PreviewExtensionUpdatePopover({
       <PopoverTrigger asChild>
         <button
           type="button"
-          className="flex h-6 cursor-pointer items-center px-1.5 text-[11px] leading-none font-medium text-emerald-400 transition-colors hover:text-emerald-300"
+          className="flex h-6 cursor-pointer items-center px-1.5 text-[11px] leading-none font-medium text-emerald-400 hover:text-emerald-300"
         >
           {t("trigger")}
         </button>
@@ -667,7 +667,7 @@ function PreviewExtensionInstallPopover({
       <PopoverTrigger asChild>
         <button
           type="button"
-          className="flex h-6 cursor-pointer items-center justify-center px-2 leading-none text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
+          className="flex h-6 cursor-pointer items-center justify-center px-2 leading-none text-muted-foreground hover:bg-accent/50 hover:text-foreground"
           aria-label={t("trigger")}
           title={t("trigger")}
         >

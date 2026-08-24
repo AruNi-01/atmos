@@ -7,7 +7,7 @@ import { StarIcon, type LucideProps } from 'lucide-react'
 import { cn } from "../../lib/utils"
 
 // Variants
-const ratingVariants = cva('transition-colors', {
+const ratingVariants = cva('', {
   variants: {
     variant: {
       default: 'text-foreground fill-current',

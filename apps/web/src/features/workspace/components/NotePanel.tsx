@@ -99,7 +99,7 @@ export const NotePanel: React.FC<NotePanelProps> = ({
           <Button
             variant="ghost"
             size="sm"
-            className="h-7 cursor-pointer gap-1.5 px-3 text-[11px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            className="h-7 cursor-pointer gap-1.5 px-3 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground"
             onClick={isEditing ? () => void handleSave() : handleStartEdit}
             disabled={!effectivePath || isSaving || hasConflict}
           >

@@ -19,7 +19,16 @@
 
 import { startTransition } from "react";
 import { useWorkspaceSurfaceCacheStore } from "@/features/workspace/store/use-workspace-surface-cache-store";
-import { readCenterStageLastTab } from "@/shared/stores/use-ui-pref-hooks";
+import { hostIdFromCenterKey } from "@/app-shell/center-space/center-space";
+import {
+  paintContextIdForHost,
+  shouldKeepExplicitTabOnHostHop,
+} from "@/app-shell/center-space/center-space-url";
+
+function framePaintId(id: string | null): string | null {
+  if (!id) return null;
+  return paintContextIdForHost(id);
+}
 
 /** After this quiet gap, the next visual flip is applied immediately (slow hop). */
 export const VISUAL_SWITCH_QUIET_MS = 140;
@@ -119,10 +128,11 @@ function flushPendingVisualSwitch(): void {
   lastVisualFlushAt = nowMs();
   // Paint first (center + sidebar). Store update is non-urgent so it cannot
   // monopolize the main thread before the next sidebar hover/click.
-  applyWorkspaceFrameVisualDom(id);
-  applyWorkspaceSidebarSelectionDom(id);
+  const frameId = framePaintId(id);
+  applyWorkspaceFrameVisualDom(frameId);
+  applyWorkspaceSidebarSelectionDom(id ? hostIdFromCenterKey(id) : null);
   scheduleNonUrgent(() => {
-    useWorkspaceSurfaceCacheStore.getState().beginVisualSwitch(id);
+    useWorkspaceSurfaceCacheStore.getState().beginVisualSwitch(frameId);
   });
 }
 
@@ -296,6 +306,8 @@ export type ParsedContextHref = {
   /** Raw `tab` query value when present (including empty string). */
   tabParam: string | null;
   hasTabParam: boolean;
+  terminalTmux: string | null;
+  sideChat: string | null;
   pathname: string;
   searchParams: URLSearchParams;
   hash: string;
@@ -314,6 +326,8 @@ export function parseWorkspaceContextHref(path: string): ParsedContextHref {
     view,
     tabParam,
     hasTabParam,
+    terminalTmux: url.searchParams.get("terminalTmux"),
+    sideChat: url.searchParams.get("sideChat"),
     pathname: url.pathname,
     searchParams: url.searchParams,
     hash: url.hash,
@@ -340,6 +354,39 @@ export function injectLastCenterTabIfMissing(
   }
 }
 
+/** Set or drop `tab` and optionally strip leftover pane deep-links. */
+export function replaceCenterTabOnHref(
+  path: string,
+  tab: string | null | undefined,
+  opts?: { clearDeepLinks?: boolean },
+): string {
+  try {
+    const url = new URL(path, "http://atmos.local");
+    if (tab) url.searchParams.set("tab", tab);
+    else url.searchParams.delete("tab");
+    if (opts?.clearDeepLinks) {
+      url.searchParams.delete("terminalTmux");
+      url.searchParams.delete("sideChat");
+      url.searchParams.delete("wikiPage");
+    }
+    return `${url.pathname}${url.search}${url.hash}`;
+  } catch {
+    return path;
+  }
+}
+
+function currentContextHref(override?: string | null): ParsedContextHref | null {
+  if (override === null) return null;
+  const raw =
+    override ??
+    (typeof window !== "undefined"
+      ? `${window.location.pathname}${window.location.search}${window.location.hash}`
+      : "");
+  if (!raw) return null;
+  const parsed = parseWorkspaceContextHref(raw);
+  return parsed.contextId ? parsed : null;
+}
+
 /**
  * Atomic leave→warm + set active. Prefer over setActive+touch.
  * Call only after URL/context has committed (layout effect), never before router.push.
@@ -350,37 +397,60 @@ export function promoteWorkspaceSurfaceSwitch(nextContextId: string | null): {
 } {
   const store = useWorkspaceSurfaceCacheStore.getState();
   const previousContextId = store.activeContextId;
-  if (previousContextId === nextContextId) {
+  const nextPaintId = framePaintId(nextContextId);
+  if (previousContextId === nextPaintId) {
     // URL caught up to an optimistic visual flip — keep visual aligned.
-    if (store.visualActiveContextId !== nextContextId) {
-      applyWorkspaceFrameVisualDom(nextContextId);
-      applyWorkspaceSidebarSelectionDom(nextContextId);
+    if (store.visualActiveContextId !== nextPaintId) {
+      applyWorkspaceFrameVisualDom(nextPaintId);
+      applyWorkspaceSidebarSelectionDom(
+        nextContextId ? hostIdFromCenterKey(nextContextId) : null,
+      );
       scheduleNonUrgent(() => {
-        store.beginVisualSwitch(nextContextId);
+        store.beginVisualSwitch(nextPaintId);
       });
     }
     return { previousContextId, alreadyActive: true };
   }
-  applyWorkspaceFrameVisualDom(nextContextId);
-  applyWorkspaceSidebarSelectionDom(nextContextId);
+  applyWorkspaceFrameVisualDom(nextPaintId);
+  applyWorkspaceSidebarSelectionDom(
+    nextContextId ? hostIdFromCenterKey(nextContextId) : null,
+  );
   scheduleNonUrgent(() => {
-    store.switchContext(nextContextId);
+    store.switchContext(nextPaintId);
   });
   return { previousContextId, alreadyActive: false };
 }
 
 /**
- * Nav-time prep: inject last tab into href (pure string).
+ * Nav-time prep: keep explicit dest deep links, strip leftover tab/tmux/sideChat.
+ * Live tab chrome is not written into the href.
  * Does not touch WSC — use {@link primeWorkspaceSurfaceNavigation} for paint.
+ *
+ * `currentHref` is the pre-hop location. Pass `null` for a cold load (keep
+ * explicit dest tab). Omit to read `window.location`.
  */
-export function prepareWorkspaceContextNavigation(path: string): string {
+export function prepareWorkspaceContextNavigation(
+  path: string,
+  currentHref?: string | null,
+): string {
   try {
     const parsed = parseWorkspaceContextHref(path);
     if (!parsed.view || !parsed.contextId) return path;
-    if (parsed.hasTabParam) return path;
 
-    const lastTab = readCenterStageLastTab(parsed.contextId);
-    return injectLastCenterTabIfMissing(path, lastTab);
+    const destPaintId = paintContextIdForHost(parsed.contextId);
+    const current = currentContextHref(currentHref);
+    if (
+      shouldKeepExplicitTabOnHostHop({
+        destHostId: parsed.contextId,
+        destPaintId,
+        dest: parsed,
+        current,
+      })
+    ) {
+      return path;
+    }
+
+    return replaceCenterTabOnHref(path, null, { clearDeepLinks: true });
   } catch {
     return path;
   }
@@ -399,7 +469,8 @@ export function primeWorkspaceSurfaceNavigation(path: string): boolean {
 
     const store = useWorkspaceSurfaceCacheStore.getState();
     const mounted = store.getMountedContextIds();
-    if (!mounted.includes(parsed.contextId)) {
+    const paintId = framePaintId(parsed.contextId);
+    if (!paintId || (!mounted.includes(paintId) && !mounted.includes(parsed.contextId))) {
       // Cold / frozen: cancel any pending warm lead and snap paint to committed active.
       cancelScheduledVisualActiveSwitch();
       if (
@@ -428,6 +499,13 @@ export function primeWorkspaceSurfaceNavigation(path: string): boolean {
  * Prefer this from app-router push/replace.
  */
 export function prepareAndPrimeWorkspaceNavigation(path: string): string {
+  const current = useWorkspaceSurfaceCacheStore.getState().activeContextId;
+  if (current) {
+    const host = hostIdFromCenterKey(current);
+    void import("@/app-shell/center-space/center-space-switch").then((mod) => {
+      void mod.captureActiveCenterSpaceThumbnail(host);
+    });
+  }
   const prepared = prepareWorkspaceContextNavigation(path);
   primeWorkspaceSurfaceNavigation(prepared);
   return prepared;

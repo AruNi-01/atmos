@@ -38,7 +38,7 @@ const LatestChanges = () => {
       }}
       onClick={clearCurrentHashBeforeNavigation}
       className={cn(
-        'group block w-full min-w-0 rounded-2xl border bg-background p-5 transition-colors hover:bg-muted/30',
+        'group block w-full min-w-0 rounded-2xl border bg-background p-5 hover:bg-muted/30',
         'outline-hidden ring-offset-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
       )}
     >
@@ -178,7 +178,7 @@ const LatestChanges = () => {
                     onClick={clearCurrentHashBeforeNavigation}
                     className={cn(
                       // Links default to inline — must be block so rounded borders paint fully
-                      'group block w-full min-w-0 rounded-2xl border bg-background p-4 transition-colors hover:bg-muted/30 sm:p-5',
+                      'group block w-full min-w-0 rounded-2xl border bg-background p-4 hover:bg-muted/30 sm:p-5',
                       'outline-hidden ring-offset-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
                     )}
                   >

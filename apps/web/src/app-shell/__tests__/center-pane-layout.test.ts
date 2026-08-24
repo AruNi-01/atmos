@@ -3,9 +3,12 @@ import {
   closePane,
   collectActiveTabIds,
   createDefaultLayout,
+  createEmptyCenterLayout,
   DEFAULT_PANE_ID,
+  isFreshEmptyCenterLayout,
   findPaneIdForTab,
   focusPane,
+  getPane,
   isEmptyPane,
   isPrimaryPane,
   MAX_CENTER_PANES,
@@ -18,6 +21,7 @@ import {
   resizeAdjacentFractions,
   rowCountFor,
   setPaneActiveTab,
+  planCenterTabAttach,
   shouldAttachActiveTabToFocusedPane,
   splitPane,
   syncFractionsToPaneCount,
@@ -27,6 +31,14 @@ import {
 import { collectTerminalLayoutGeometry, getLeaves } from "@/features/terminal/lib/terminal-layout-tree";
 
 describe("center-pane-layout", () => {
+  it("creates a fresh empty extra-space layout with no inherited tabs", () => {
+    const layout = createEmptyCenterLayout();
+    expect(isFreshEmptyCenterLayout(layout)).toBe(true);
+    expect(layout.panes).toHaveLength(1);
+    expect(layout.panes[0]!.tabIds).toEqual([]);
+    expect(layout.panes[0]!.activeTabId).toBe("");
+  });
+
   it("creates a single-pane default owning all tabs", () => {
     const layout = createDefaultLayout(["terminal", "overview", "a.ts"], "a.ts");
     expect(layout.panes).toHaveLength(1);
@@ -62,6 +74,20 @@ describe("center-pane-layout", () => {
     const layout = createDefaultLayout(["terminal", "overview"], "terminal");
     expect(shouldAttachActiveTabToFocusedPane(layout, "terminal")).toBe(true);
     expect(shouldAttachActiveTabToFocusedPane(layout, "overview")).toBe(true);
+    expect(planCenterTabAttach(layout, "terminal")).toEqual({ action: "open" });
+  });
+
+  it("reveals an already-owned tab instead of stealing it onto the focused pane", () => {
+    const next = splitPane(
+      createDefaultLayout(["terminal", "overview", "files"], "files"),
+      { direction: "right", seedTabId: "files" },
+    );
+    const primaryId = next.panes.find((pane) => pane.id === DEFAULT_PANE_ID)!.id;
+    expect(planCenterTabAttach(next, "files")).toEqual({
+      action: "reveal",
+      paneId: primaryId,
+    });
+    expect(planCenterTabAttach(next, "brand-new-tab")).toEqual({ action: "open" });
   });
 
   it("ignores moveTabId and still creates an empty pane", () => {
@@ -201,11 +227,52 @@ describe("center-pane-layout", () => {
     expect(next.panes[0]!.activeTabId).toBe("browser:1");
   });
 
+  it("does not copy a sibling tab onto an empty or overview-only primary", () => {
+    let emptyPrimary = createEmptyCenterLayout();
+    emptyPrimary = splitPane(emptyPrimary, { direction: "right" });
+    const emptySecondaryId = emptyPrimary.order.find((id) => id !== DEFAULT_PANE_ID)!;
+    emptyPrimary = openTabOnFocusedPane(emptyPrimary, "AGENTS.md");
+    const afterEmpty = reconcileOpenTabs(emptyPrimary, ["AGENTS.md"], "AGENTS.md");
+    expect(findPaneIdForTab(afterEmpty, "AGENTS.md")).toBe(emptySecondaryId);
+    expect(getPane(afterEmpty, DEFAULT_PANE_ID)!.tabIds).not.toContain("AGENTS.md");
+    expect(isEmptyPane(getPane(afterEmpty, DEFAULT_PANE_ID))).toBe(true);
+    expect(getPane(afterEmpty, emptySecondaryId)!.tabIds).toEqual(["AGENTS.md"]);
+
+    let overviewPrimary = createDefaultLayout(["overview"], "overview");
+    overviewPrimary = splitPane(overviewPrimary, { direction: "right" });
+    const overviewSecondaryId = overviewPrimary.order.find((id) => id !== DEFAULT_PANE_ID)!;
+    overviewPrimary = openTabOnFocusedPane(overviewPrimary, "AGENTS.md");
+    const afterOverview = reconcileOpenTabs(overviewPrimary, ["AGENTS.md"], "AGENTS.md");
+    expect(findPaneIdForTab(afterOverview, "AGENTS.md")).toBe(overviewSecondaryId);
+    expect(getPane(afterOverview, DEFAULT_PANE_ID)!.tabIds).toEqual(["overview"]);
+    expect(getPane(afterOverview, overviewSecondaryId)!.tabIds).toEqual(["AGENTS.md"]);
+  });
+
   it("removes closed tabs from ownership", () => {
     const layout = createDefaultLayout(["terminal", "overview"], "overview");
     const next = removeTabFromLayout(layout, "overview");
     expect(next.panes[0]!.tabIds).toContain("terminal");
     expect(next.panes[0]!.activeTabId).toBe("terminal");
+  });
+
+  it("activates the preferred MRU tab instead of the first strip item", () => {
+    const layout = createDefaultLayout(["overview", "a", "b", "c"], "c");
+    const next = removeTabFromLayout(layout, "c", "b");
+    expect(next.panes[0]!.tabIds).toEqual(["overview", "a", "b"]);
+    expect(next.panes[0]!.activeTabId).toBe("b");
+  });
+
+  it("skips Overview when closing the active tab without an MRU hint", () => {
+    const layout = createDefaultLayout(["overview", "a", "b"], "b");
+    const next = removeTabFromLayout(layout, "b");
+    expect(next.panes[0]!.activeTabId).toBe("a");
+  });
+
+  it("reconciles a missing active tab to preferred over Overview", () => {
+    const layout = createDefaultLayout(["overview", "a", "gone"], "gone");
+    const next = reconcileOpenTabs(layout, ["overview", "a"], "a");
+    expect(next.panes[0]!.tabIds).toEqual(["overview", "a"]);
+    expect(next.panes[0]!.activeTabId).toBe("a");
   });
 
   it("computes row count from pane count and columns", () => {

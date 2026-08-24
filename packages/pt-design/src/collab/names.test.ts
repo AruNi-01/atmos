@@ -9,7 +9,14 @@ import {
   roomToHash,
   shareUrlForRoom,
 } from "./room";
-import { buildLocalAgentPrompt, buildMcpConfig } from "../embed/agent-prompt";
+import {
+  buildLocalAgentPrompt,
+  buildMcpConfig,
+  PT_DESIGN_AGENT_SKILL_PATH,
+} from "../embed/agent-prompt";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { sceneFromLiveElements } from "./publish";
 import { decryptData, encryptData, generateEncryptionKey } from "./crypto";
 import {
@@ -68,14 +75,31 @@ describe("collab rooms", () => {
       "https://app.atmos.land/?tab=pt-design#room=abc123,secretKey",
     );
     const prompt = buildLocalAgentPrompt("global", "http://127.0.0.1:30303");
+    expect(prompt).toContain("atmos://context/pt-design-agent");
     expect(prompt).toContain("POST http://127.0.0.1:30303/api/pt-design/agent/invoke");
     expect(prompt).toContain("\"client_id\": \"global\"");
+    expect(prompt).toContain(PT_DESIGN_AGENT_SKILL_PATH);
     expect(prompt).not.toContain("pt-design-mcp");
     expect(prompt).not.toContain("PT_DESIGN_COLLAB_ROOM");
     const mcp = JSON.parse(buildMcpConfig()).mcpServers["pt-design"];
     expect(mcp.command).toBe("npx");
     expect(mcp.args).toEqual(["-y", "-p", "@atmos/pt-design", "pt-design-mcp"]);
     expect(mcp.env).toBeUndefined();
+  });
+
+  test("canonical Prototype Design agent skill ships with board and catalog references", () => {
+    const root = join(dirname(fileURLToPath(import.meta.url)), "../../../..");
+    const skillDir = join(root, "skills", "atmos-pt-design-agent");
+    const skill = readFileSync(join(skillDir, "SKILL.md"), "utf8");
+    expect(skill).toContain("name: atmos-pt-design-agent");
+    expect(skill).toContain("version:");
+    expect(skill).toContain("references/catalog.md");
+    expect(skill).toContain("references/board.md");
+    expect(readFileSync(join(skillDir, "references", "catalog.md"), "utf8")).toContain("propKeys");
+    expect(readFileSync(join(skillDir, "references", "board.md"), "utf8")).toContain("pt_screenshot");
+    expect(readFileSync(join(skillDir, "references", "command-reference.md"), "utf8")).toContain(
+      "pt_batch",
+    );
   });
 });
 

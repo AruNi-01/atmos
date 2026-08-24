@@ -103,7 +103,7 @@ function DiskAnalyzerScanButton({
       variant="secondary"
       size="sm"
       className={cn(
-        "h-9 rounded-xl transition-[color,background-color,box-shadow] duration-200",
+        "h-9 rounded-xl",
         showCancel &&
           "bg-destructive/10 text-destructive hover:bg-destructive/10 hover:text-destructive",
       )}
@@ -359,7 +359,7 @@ export function DiskAnalyzerPage() {
                   <Tooltip>
                     <TooltipTrigger
                       type="button"
-                      className="inline-flex size-5 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                      className="inline-flex size-5 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
                       aria-label={t("scanScopeHintAria")}
                     >
                       <CircleAlert className="size-3.5" />
@@ -435,7 +435,7 @@ export function DiskAnalyzerPage() {
                     <button
                       type="button"
                       className={cn(
-                        "max-w-[12rem] truncate rounded-md px-1.5 py-0.5 transition-colors",
+                        "max-w-[12rem] truncate rounded-md px-1.5 py-0.5",
                         index === analyzer.breadcrumbs.length - 1
                           ? "font-medium text-foreground"
                           : "text-muted-foreground hover:bg-muted hover:text-foreground",
@@ -795,7 +795,7 @@ export function DiskAnalyzerPage() {
                             className={cn(
                               // Only hover / open-delete highlight — never sticky from focus or selectedPath
                               // (opening delete sets selectedPath for the API, which used to leave bg-muted on).
-                              "group relative flex w-full cursor-pointer items-center gap-1 overflow-hidden rounded-md px-2 py-1 transition-colors",
+                              "group relative flex w-full cursor-pointer items-center gap-1 overflow-hidden rounded-md px-2 py-1",
                               popoverOpen ? "bg-muted" : "hover:bg-muted/50",
                             )}
                             onClick={enterRow}

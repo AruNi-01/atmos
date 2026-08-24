@@ -57,12 +57,12 @@ export function SkillsResourcesTab({
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.2, delay: Math.min(index * 0.02, 0.16) }}
-                    className="group flex h-full flex-col rounded-xl border border-border p-5 transition-all duration-200 hover:bg-muted/25 hover:shadow-md"
+                    className="group flex h-full flex-col rounded-xl border border-border p-5 hover:bg-muted/25 hover:shadow-md"
                   >
                     <div className="flex flex-1 flex-col justify-between">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0 flex items-start gap-3">
-                          <div className="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-xl border border-border/50 bg-muted/20 text-primary transition-colors group-hover:bg-primary/5">
+                          <div className="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-xl border border-border/50 bg-muted/20 text-primary group-hover:bg-primary/5">
                             <Link2 className="size-5" />
                           </div>
                           <div className="min-w-0">
@@ -70,7 +70,7 @@ export function SkillsResourcesTab({
                             <p className="mt-1 text-xs text-muted-foreground">{category.title}</p>
                           </div>
                         </div>
-                        <ExternalLink className="size-4 shrink-0 text-muted-foreground transition-colors group-hover:text-foreground" />
+                        <ExternalLink className="size-4 shrink-0 text-muted-foreground group-hover:text-foreground" />
                       </div>
 
                       <p className="mt-4 line-clamp-3 text-[13px] leading-relaxed text-muted-foreground text-pretty">

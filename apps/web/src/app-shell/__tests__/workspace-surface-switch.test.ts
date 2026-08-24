@@ -16,6 +16,8 @@ import {
 } from "@/app-shell/workspace-surface-switch";
 import { useWorkspaceSurfaceCacheStore } from "@/features/workspace/store/use-workspace-surface-cache-store";
 import { setCenterStageLastTab } from "@/shared/stores/use-ui-pref-hooks";
+import { makeCenterSpaceKey } from "@/app-shell/center-space/center-space";
+import { bindPaintContextIdReader } from "@/app-shell/center-space/center-space-url";
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -61,6 +63,7 @@ describe("promoteWorkspaceSurfaceSwitch + prepareWorkspaceContextNavigation", ()
     // do not race Bun module instantiation.
     await sleep(5);
     setCenterStageLastTab("ws-b", "overview");
+    bindPaintContextIdReader(null);
   });
 
   it("promotes leave→warm once and is idempotent", () => {
@@ -77,11 +80,11 @@ describe("promoteWorkspaceSurfaceSwitch + prepareWorkspaceContextNavigation", ()
     expect(again.alreadyActive).toBe(true);
   });
 
-  it("prepare injects remembered last tab without full promote", () => {
+  it("prepare does not inject last tab into the href", () => {
     useWorkspaceSurfaceCacheStore.getState().setActiveContextId("ws-a");
     const href = prepareWorkspaceContextNavigation("/workspace?id=ws-b");
     expect(href).toContain("id=ws-b");
-    expect(href).toContain("tab=overview");
+    expect(href).not.toContain("tab=");
     // Critical: pure prepare must not promote — that sync re-render freezes the sidebar.
     expect(useWorkspaceSurfaceCacheStore.getState().activeContextId).toBe("ws-a");
     expect(useWorkspaceSurfaceCacheStore.getState().warm).toEqual([]);
@@ -90,8 +93,57 @@ describe("promoteWorkspaceSurfaceSwitch + prepareWorkspaceContextNavigation", ()
   it("prepare keeps caller-provided tab", () => {
     const href = prepareWorkspaceContextNavigation(
       "/workspace?id=ws-b&tab=terminal",
+      null,
     );
     expect(href).toBe("/workspace?id=ws-b&tab=terminal");
+  });
+
+  it("prepare strips leftover tab from the previous host", () => {
+    const href = prepareWorkspaceContextNavigation(
+      "/workspace?id=ws-b&tab=files",
+      "/workspace?id=ws-a&tab=files",
+    );
+    expect(href).toContain("id=ws-b");
+    expect(href).not.toContain("tab=");
+  });
+
+  it("prepare does not copy dest last tab onto a clean host hop", () => {
+    const host = "ws-b-extra";
+    const extra = makeCenterSpaceKey(host, "space-files");
+    bindPaintContextIdReader((id) => (id === host ? extra : id));
+    setCenterStageLastTab(host, "files");
+    setCenterStageLastTab(extra, "changes");
+    const href = prepareWorkspaceContextNavigation(
+      `/workspace?id=${host}`,
+      "/workspace?id=ws-a&tab=files",
+    );
+    expect(href).not.toContain("tab=");
+    bindPaintContextIdReader(null);
+  });
+
+  it("prepare keeps agent tmux deep links and dest-owned github tabs", () => {
+    const github = `github-pr:${encodeURIComponent("ws-b")}:8`;
+    expect(
+      prepareWorkspaceContextNavigation(
+        "/workspace?id=ws-b&tab=terminal&terminalTmux=agent-1",
+        "/workspace?id=ws-a&tab=files",
+      ),
+    ).toContain("terminalTmux=agent-1");
+    const href = prepareWorkspaceContextNavigation(
+      `/workspace?id=ws-b&tab=${encodeURIComponent(github)}`,
+      "/workspace?id=ws-a&tab=files",
+    );
+    expect(href).toContain("github-pr");
+  });
+
+  it("prepare strips leftover pane deep-links when rewriting an inherited tab", () => {
+    const href = prepareWorkspaceContextNavigation(
+      "/workspace?id=ws-b&tab=files&terminalTmux=stale&sideChat=chat-1",
+      "/workspace?id=ws-a&tab=files&terminalTmux=stale&sideChat=chat-1",
+    );
+    expect(href).not.toContain("tab=");
+    expect(href).not.toContain("terminalTmux");
+    expect(href).not.toContain("sideChat");
   });
 
   it("prime flips visual for warm targets without promote", () => {
@@ -151,14 +203,14 @@ describe("promoteWorkspaceSurfaceSwitch + prepareWorkspaceContextNavigation", ()
     expect(s.warm.map((w) => w.contextId)).toContain("ws-a");
   });
 
-  it("prepareAndPrime injects tab and primes warm paint", () => {
+  it("prepareAndPrime primes warm paint without injecting tab", () => {
     const store = useWorkspaceSurfaceCacheStore.getState();
     store.switchContext("ws-a");
     store.switchContext("ws-b");
     setCenterStageLastTab("ws-a", "overview");
 
     const href = prepareAndPrimeWorkspaceNavigation("/workspace?id=ws-a");
-    expect(href).toContain("tab=overview");
+    expect(href).not.toContain("tab=");
     expect(useWorkspaceSurfaceCacheStore.getState().visualActiveContextId).toBe("ws-a");
     expect(useWorkspaceSurfaceCacheStore.getState().activeContextId).toBe("ws-b");
   });

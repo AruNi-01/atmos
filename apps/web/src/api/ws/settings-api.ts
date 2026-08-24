@@ -149,6 +149,8 @@ export interface FunctionSettings {
   center_stage?: {
     /** Portable layout snapshots (geometry + surface kinds). */
     saved_layouts?: unknown[];
+    /** Per-workspace/project named center spaces. */
+    spaces?: unknown;
     [key: string]: unknown;
   };
   [key: string]: unknown;
@@ -222,7 +224,7 @@ export const functionSettingsApi = {
     // Capture scope before enqueue so a Computer switch mid-queue rejects the write.
     const scope = expectedScope ?? getComputerQueryScope();
     return enqueueFunctionSettingsWrite(async () => {
-      const result = await wsRequestForComputerScope<{ ok: boolean }>(
+      const result = await wsRequestForComputerScope(
         scope,
         "function_settings_update",
         {
@@ -258,10 +260,10 @@ export interface GitIgnoreDirsConfig {
 
 export const workspaceGitignoreDirsApi = {
   get: async (): Promise<GitIgnoreDirsConfig> => {
-    return wsRequest<GitIgnoreDirsConfig>("workspace_gitignore_dirs_get");
+    return wsRequest("workspace_gitignore_dirs_get");
   },
   update: async (config: GitIgnoreDirsConfig): Promise<{ ok: boolean }> => {
-    return wsRequest<{ ok: boolean }>("workspace_gitignore_dirs_update", config);
+    return wsRequest("workspace_gitignore_dirs_update", config);
   },
 };
 
@@ -271,7 +273,7 @@ export const llmProvidersApi = {
   },
 
   update: async (config: LlmProvidersFile): Promise<{ ok: boolean }> => {
-    const result = await wsRequest<{ ok: boolean }>("llm_providers_update", { config });
+    const result = await wsRequest("llm_providers_update", { config });
     if (result.ok) {
       settingsBootstrapCache.setLlmProviders(config);
     }
@@ -283,7 +285,7 @@ export const llmProvidersApi = {
     provider_id?: string | null;
     provider: LlmProviderEntry;
   }): Promise<LlmProviderTestResponse> => {
-    return wsRequest<LlmProviderTestResponse>("llm_provider_test", params, 120_000);
+    return wsRequest("llm_provider_test", params, 120_000);
   },
 };
 
@@ -307,7 +309,7 @@ export const codeAgentCustomApi = {
   },
 
   update: async (agents: CodeAgentCustomEntry[]): Promise<{ ok: boolean }> => {
-    const result = await wsRequest<{ ok: boolean }>("code_agent_custom_update", { agents });
+    const result = await wsRequest("code_agent_custom_update", { agents });
     if (result.ok) {
       settingsBootstrapCache.setCodeAgentCustom({ agents });
       settingsBootstrapCache.invalidateAgentBehaviourSettings();
@@ -329,7 +331,7 @@ export const agentBehaviourSettingsApi = {
     return settingsBootstrapCache.getAgentBehaviourSettings();
   },
   update: async (settings: AgentBehaviourSettings): Promise<{ ok: boolean }> => {
-    const result = await wsRequest<{ ok: boolean }>("agent_behaviour_settings_update", settings);
+    const result = await wsRequest("agent_behaviour_settings_update", settings);
     if (result.ok) {
       settingsBootstrapCache.setAgentBehaviourSettings(settings);
     }

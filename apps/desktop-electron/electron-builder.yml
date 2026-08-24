@@ -35,6 +35,7 @@ extraResources:
     to: icons
     filter:
       - "**/*"
+      - "!**/dmg-icon.icns"
   - from: resources/bin
     to: bin
     filter:
@@ -59,7 +60,7 @@ afterPack: scripts/after-pack-macos-icon.cjs
 
 mac:
   category: public.app-category.developer-tools
-  # Legacy ICNS for CFBundleIconFile + pre-Tahoe / DMG volume icon.
+  # Legacy ICNS for CFBundleIconFile + pre-Tahoe Dock (full-bleed plate).
   # macOS 26 Liquid Glass: afterPack compiles resources/icons/icon.icon → Assets.car.
   icon: resources/icons/icon.icns
   # Default ad-hoc codesign (sealed resources). Avoids Gatekeeper "damaged" for
@@ -84,8 +85,9 @@ dmg:
   # Minimal plain backdrop: slogan + arrow + drag caption only (no Atmos title / art).
   # Regenerate: python3 scripts/generate-dmg-background.py
   background: resources/dmg/background.png
-  # Volume icon must remain .icns (not Icon Composer / Assets.car).
-  icon: resources/icons/icon.icns
+  # Volume + downloaded-file icon. Must remain .icns (not Assets.car).
+  # Padded separately from the app tile so Finder's desktop well has margin.
+  icon: resources/icons/dmg-icon.icns
   iconSize: 96
   window:
     width: 540

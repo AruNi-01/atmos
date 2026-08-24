@@ -86,12 +86,12 @@ export function SkillsMarketTab({
                         initial={false}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.2, delay: Math.min(index * 0.02, 0.16) }}
-                        className="group flex h-full flex-col rounded-xl border border-border p-5 transition-all duration-200 hover:bg-muted/25 hover:shadow-md"
+                        className="group flex h-full flex-col rounded-xl border border-border p-5 hover:bg-muted/25 hover:shadow-md"
                       >
                         <div className="flex flex-1 flex-col">
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0 flex items-start gap-3">
-                              <div className="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-xl border border-border/50 bg-muted/20 text-primary transition-colors group-hover:bg-primary/5">
+                              <div className="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-xl border border-border/50 bg-muted/20 text-primary group-hover:bg-primary/5">
                                 <Puzzle className="size-5" />
                               </div>
                               <div className="min-w-0">
@@ -101,7 +101,7 @@ export function SkillsMarketTab({
                                     href={item.author.url}
                                     target="_blank"
                                     rel="noreferrer"
-                                    className="mt-1 inline-flex text-xs text-muted-foreground transition-colors hover:text-foreground"
+                                    className="mt-1 inline-flex text-xs text-muted-foreground hover:text-foreground"
                                   >
                                     {item.author.handle}
                                   </a>
@@ -120,14 +120,14 @@ export function SkillsMarketTab({
                           <div className="mt-4 flex items-center justify-between gap-3">
                             <button
                               onClick={() => window.open(resolveSkillSourceUrl(item), "_blank", "noopener,noreferrer")}
-                              className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground cursor-pointer"
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground cursor-pointer"
                             >
                               <ExternalLink className="size-3.5" />
                               View Source
                             </button>
                             <button
                               onClick={() => onInstallSkill(item)}
-                              className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 cursor-pointer"
+                              className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-xs font-medium text-primary-foreground hover:bg-primary/90 cursor-pointer"
                             >
                               <ArrowDownToLine className="size-3.5" />
                               Install
@@ -148,7 +148,7 @@ export function SkillsMarketTab({
               href="https://github.com/ComposioHQ/awesome-claude-skills"
               target="_blank"
               rel="noreferrer"
-              className="transition-colors hover:text-foreground"
+              className="hover:text-foreground"
             >
               Awesome Claude Skills
             </Link>{" "}
@@ -157,7 +157,7 @@ export function SkillsMarketTab({
               href="https://skills.sh"
               target="_blank"
               rel="noreferrer"
-              className="transition-colors hover:text-foreground"
+              className="hover:text-foreground"
             >
               skills.sh
             </Link>

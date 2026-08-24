@@ -3,6 +3,10 @@
 import React from "react";
 
 import { cn } from "@/shared/lib/utils";
+import {
+  SIDEBAR_PEEK_INSET_BOTTOM_PX,
+  SIDEBAR_PEEK_INSET_TOP_PX,
+} from "@/app-shell/sidebar-layout-constants";
 import { useSidebarPeekVisibility } from "@/app-shell/use-sidebar-peek-visibility";
 
 const SIDEBAR_PEEK_HIT_AREA_PX = 5;
@@ -47,6 +51,10 @@ export function SidebarPeekShell({
 
   const isLeft = side === "left";
   const edgeClassName = isLeft ? "left-0" : "right-0";
+  const peekInsetStyle = {
+    top: SIDEBAR_PEEK_INSET_TOP_PX,
+    bottom: SIDEBAR_PEEK_INSET_BOTTOM_PX,
+  };
 
   return (
     <div
@@ -59,11 +67,11 @@ export function SidebarPeekShell({
         ref={triggerRef}
         aria-hidden="true"
         className={cn(
-          // Full-height shell: sidebar peeks from the full viewport edge.
-          "peer fixed inset-y-0 z-[70] bg-transparent",
+          // Center-band shell: peek from the center-stage edge, not header/footer.
+          "peer fixed z-[70] bg-transparent",
           edgeClassName,
         )}
-        style={{ width: SIDEBAR_PEEK_HIT_AREA_PX }}
+        style={{ width: SIDEBAR_PEEK_HIT_AREA_PX, ...peekInsetStyle }}
         onPointerEnter={showPeek}
         onPointerLeave={(event) => handlePointerLeave(event.relatedTarget)}
       />
@@ -73,7 +81,7 @@ export function SidebarPeekShell({
         // pointer-events policy so guest webviews do not steal clicks while open.
         data-atmos-browser-surface-overlay="true"
         className={cn(
-          "fixed inset-y-0 z-[45] min-w-0 overflow-hidden bg-sidebar text-sidebar-foreground shadow-2xl ring-1 ring-sidebar-border/80",
+          "fixed z-[45] min-w-0 overflow-hidden bg-sidebar text-sidebar-foreground shadow-2xl ring-1 ring-sidebar-border/80",
           "transition-[translate,opacity,box-shadow] duration-250 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-[translate,opacity]",
           isVisible
             ? "pointer-events-auto translate-x-0 opacity-100"
@@ -90,6 +98,7 @@ export function SidebarPeekShell({
         style={{
           width:
             widthPx == null ? "min(360px, calc(100vw - 48px))" : `${widthPx}px`,
+          ...peekInsetStyle,
         }}
         onPointerEnter={showPeek}
         onPointerLeave={(event) => handlePointerLeave(event.relatedTarget)}

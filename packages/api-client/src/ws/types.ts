@@ -1,4 +1,9 @@
 import type { WsAction } from "@atmos/api-types/ws/actions";
+import type {
+  MappedWsAction,
+  UnmappedWsAction,
+  WsContract,
+} from "@atmos/api-types/ws/contract";
 import type { WsSessionPlatform } from "../platform/types";
 
 export type ConnectionState =
@@ -32,12 +37,22 @@ export type WsSessionOptions = {
   connectWaitMs?: number;
 };
 
-export type RequestWhenReadyOptions = {
-  action: WsAction | string;
-  data?: unknown;
+export type WsRequestCallOpts = {
+  timeoutMs?: number;
+};
+
+type ReadyBase = {
   timeoutMs?: number;
   waitMs?: number;
   isValid: () => boolean;
 };
 
-export type { WsAction };
+export type MappedRequestWhenReadyOptions<A extends MappedWsAction> = ReadyBase & {
+  action: A;
+  data?: WsContract[A]["input"];
+};
+
+export type RequestWhenReadyOptions<A extends MappedWsAction = MappedWsAction> =
+  MappedRequestWhenReadyOptions<A>;
+
+export type { MappedWsAction, UnmappedWsAction, WsAction, WsContract };

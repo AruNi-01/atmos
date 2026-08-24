@@ -57,7 +57,7 @@ export function WorkspaceLinearSummary({
                   onClick={(event) => event.stopPropagation()}
                   onPointerDown={(event) => event.stopPropagation()}
                   className={cn(
-                    "flex min-w-0 items-center gap-1.5 rounded-md px-1.5 py-1 text-left text-xs transition-colors hover:bg-muted/70",
+                    "flex min-w-0 items-center gap-1.5 rounded-md px-1.5 py-1 text-left text-xs hover:bg-muted/70",
                     compact ? "shrink-0" : "w-full",
                   )}
                   aria-label={t("openLinearIssue", {

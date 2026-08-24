@@ -20,7 +20,10 @@ import "@xterm/xterm/css/xterm.css";
 import "./terminal-grid.css";
 
 import { defaultTerminalOptions, atmosDarkTheme, atmosLightTheme, terminalFont } from "../lib/theme";
-import { renderXtermBufferPreview } from "../lib/terminal-xterm-preview";
+import {
+  registerXtermPreviewHost,
+  renderXtermBufferPreview,
+} from "../lib/terminal-xterm-preview";
 import { useTerminalAppearanceSettingsStore } from "@/features/settings/store/terminal-appearance-settings-store";
 import { useTerminalWebSocket } from "../hooks/use-terminal-websocket";
 import type { TerminalProps, TerminalSnapshot } from "../types/index";
@@ -92,6 +95,7 @@ import { createAgentHookInterruptInference } from "@/features/agent/lib/agent-ho
 import { useAgentHooksStore } from "@/features/agent/store/agent-hooks-store";
 import {
   isShellPreexecCommandOscTitle,
+  isTmuxIndexTitle,
   nextOscTitleAfterIncoming,
   shouldClearNativeOscOnCmdEnd,
 } from "@atmos/shared/terminal";
@@ -203,6 +207,7 @@ function fitTerminalPreservingScroll(
 const Terminal = ({
   sessionId,
   workspaceId,
+  openContextId,
   className,
   tmuxWindowName,
   projectName,
@@ -472,7 +477,7 @@ const Terminal = ({
     cwd,
     projectRootPath,
     terminalRef,
-    workspaceId,
+    workspaceId: openContextId || workspaceId,
   });
 
   const wsUrl = buildTerminalWsUrl({
@@ -1007,6 +1012,7 @@ const Terminal = ({
     let inputQueueAlive = true;
     let inputCoalesceQueue: ReturnType<typeof createTerminalInputCoalesceQueue> | null = null;
     let hostForMouseChrome: HTMLElement | null = null;
+    let unregisterPreviewHost: (() => void) | null = null;
 
     const initTerminal = async () => {
       try {
@@ -1059,6 +1065,10 @@ const Terminal = ({
 
     // Open terminal in container
     terminal.open(containerRef.current);
+    unregisterPreviewHost = registerXtermPreviewHost(
+      containerRef.current,
+      () => terminal,
+    );
 
     // APP-054: while DEC mouse tracking is active, convert trackpad/wheel
     // distance into multiple line reports so TUI viewports move proportionally.
@@ -1279,6 +1289,15 @@ const Terminal = ({
     //      and the title never flickers.
     const CMD_START_DELAY_MS = 150;
 
+    const emitDynamicTitle = (title: string) => {
+      // Tmux window indexes are attach identities, not display titles.
+      if (isTmuxIndexTitle(title)) return;
+      if (title !== lastTitleRef.current) {
+        lastTitleRef.current = title;
+        onTitleChangeRef.current?.(title);
+      }
+    };
+
     const applyDynamicTitleCmdStart = (payload: string) => {
       const title = extractCommandName(payload);
       // CMD_START arrives before the process can enter alternate screen or
@@ -1300,10 +1319,7 @@ const Terminal = ({
       }
       cmdStartTimerRef.current = setTimeout(() => {
         cmdStartTimerRef.current = null;
-        if (title !== lastTitleRef.current) {
-          lastTitleRef.current = title;
-          onTitleChangeRef.current?.(title);
-        }
+        emitDynamicTitle(title);
       }, CMD_START_DELAY_MS);
     };
 
@@ -1341,11 +1357,7 @@ const Terminal = ({
         lastOscTitleRef.current = undefined;
         onOscTitleChangeRef.current?.(undefined);
       }
-      const title = shortenPath(payload);
-      if (title !== lastTitleRef.current) {
-        lastTitleRef.current = title;
-        onTitleChangeRef.current?.(title);
-      }
+      emitDynamicTitle(shortenPath(payload));
     };
 
     const registerTitleOsc = (osc: number, allowMouseSideEffects: boolean) => {
@@ -1638,6 +1650,8 @@ const Terminal = ({
 
     return () => {
       cancelled = true;
+      unregisterPreviewHost?.();
+      unregisterPreviewHost = null;
       inputQueueAlive = false;
       inputCoalesceQueue?.clear();
       inputCoalesceQueue = null;

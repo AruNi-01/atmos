@@ -6,7 +6,7 @@ import { Button } from "@workspace/ui";
 import { ClipboardCheck, ExternalLink, Sparkles } from "lucide-react";
 import { useQueryStates } from "nuqs";
 import { parseAsString } from "nuqs";
-import { centerStageParams } from "@/shared/lib/nuqs/searchParams";
+
 import { useOpenToolCenterTab } from "@/app-shell/use-open-tool-center-tab";
 import { useAppNavigationInterceptor } from "@/shared/hooks/app-navigation-intercept";
 import type { AtmosReviewMetadata } from "@/features/code-review/lib/review-report-frontmatter";
@@ -27,7 +27,6 @@ export const ReviewReportMetadataCard: React.FC<ReviewReportMetadataCardProps> =
   const { openToolTab } = useOpenToolCenterTab();
   const navigationInterceptor = useAppNavigationInterceptor();
   const [, setReviewParams] = useQueryStates({
-    tab: centerStageParams.tab,
     reviewSession: parseAsString,
     reviewRevision: parseAsString,
   });
@@ -35,10 +34,10 @@ export const ReviewReportMetadataCard: React.FC<ReviewReportMetadataCardProps> =
   const handleOpenSession = useCallback(() => {
     if (typeof window !== "undefined") {
       const targetUrl = new URL(window.location.href);
-      targetUrl.searchParams.set("tab", "review");
       targetUrl.searchParams.set("reviewSession", metadata.session_guid);
       targetUrl.searchParams.set("reviewRevision", metadata.current_revision_guid);
       targetUrl.searchParams.delete("canvas");
+      targetUrl.searchParams.delete("tab");
       const targetPath = `${targetUrl.pathname}${targetUrl.search}${targetUrl.hash}`;
       if (navigationInterceptor?.({ path: targetPath, kind: "replace" })) {
         return;
@@ -47,7 +46,6 @@ export const ReviewReportMetadataCard: React.FC<ReviewReportMetadataCardProps> =
 
     openToolTab("review");
     void setReviewParams({
-      tab: "review",
       reviewSession: metadata.session_guid,
       reviewRevision: metadata.current_revision_guid,
     });

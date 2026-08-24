@@ -45,6 +45,6 @@ for k in "${KEYS[@]}"; do
 done
 
 echo
-echo "Done. Deploy with: cd packages/hub && bunx wrangler deploy"
+echo "Done. Deploy with: scripts/hub/deploy.sh  (or: cd packages/hub && bunx wrangler deploy)"
 echo "Custom domain hub.atmos.land is created from wrangler.toml routes on first successful deploy"
 echo "(zone atmos.land must already be on this Cloudflare account)."

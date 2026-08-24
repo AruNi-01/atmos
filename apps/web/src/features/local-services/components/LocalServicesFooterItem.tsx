@@ -82,7 +82,7 @@ export function LocalServicesFooterItem() {
       <PopoverTrigger asChild>
         <button
           type="button"
-          className="inline-flex items-center gap-1.5 text-muted-foreground transition-colors hover:text-foreground"
+          className="inline-flex items-center gap-1.5 text-muted-foreground hover:text-foreground"
           title={label("title")}
         >
           {loading ? (

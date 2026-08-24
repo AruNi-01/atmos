@@ -5,7 +5,6 @@ import React, { useCallback, useEffect } from "react";
 import { cn } from "@workspace/ui";
 import type { TerminalRef } from "./Terminal";
 import type { TerminalLayoutNode, TerminalPaneAgent } from "../types/index";
-import { isPathLikeTitle } from "./terminal-title";
 import { agentHooksApi, systemApi } from "@/api/rest-api";
 import { useTerminalStore, FIXED_TERMINAL_TAB_VALUE } from "@/features/terminal/store/use-terminal-store";
 import { useTerminalSplitPrefsStore } from "@/features/settings/store/terminal-split-prefs-store";
@@ -42,6 +41,7 @@ import { useContestedCliOwners } from "../hooks/use-contested-cli-owners";
 import { useAgentAttentionStore } from "@/features/agent/store/agent-attention-store";
 import { useAgentAttentionSummaryStore } from "@/features/agent/store/agent-attention-summary-store";
 import { useAgentHooksStore } from "@/features/agent/store/agent-hooks-store";
+import { hostIdFromCenterKey } from "@/app-shell/center-space/center-space";
 import {
   toPendingTerminalRun,
   useTerminalAgentTuiFollowUp,
@@ -205,17 +205,19 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
   const projects = useProjects();
   const isProjectsLoading = useProjectsLoading();
 
-  // Look up project and workspace info for human-readable naming
+  // Look up project and workspace info for human-readable naming.
+  // Extra center spaces share the host workspace/project path (cwd, git, files).
   const workspaceInfo = (() => {
+    const hostId = hostIdFromCenterKey(workspaceId);
     for (const project of projects) {
-      if (project.id === workspaceId) {
+      if (project.id === hostId) {
         return {
           projectName: project.name,
           workspaceName: "Main",
           localPath: project.mainFilePath,
         };
       }
-      const workspace = project.workspaces.find(w => w.id === workspaceId);
+      const workspace = project.workspaces.find((row) => row.id === hostId);
       if (workspace) {
         return {
           projectName: project.name,
@@ -278,7 +280,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
       const pane = panes[paneId];
       if (!pane) return;
       const stablePaneId = pane.tmuxWindowName
-        ? `${workspaceId}:${pane.tmuxWindowName}`
+        ? `${hostIdFromCenterKey(workspaceId)}:${pane.tmuxWindowName}`
         : pane.sessionId;
       useAgentAttentionStore.getState().notifyPaneFocused(stablePaneId);
     },
@@ -408,7 +410,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
   const clearAgentHookSessionForPane = useCallback((pane: { tmuxWindowName?: string | null }) => {
     const windowName = pane.tmuxWindowName;
     if (!windowName || !workspaceId) return;
-    const stablePaneId = `${workspaceId}:${windowName}`;
+    const stablePaneId = `${hostIdFromCenterKey(workspaceId)}:${windowName}`;
     useAgentAttentionStore.getState().clearPane(stablePaneId);
     useAgentAttentionSummaryStore.getState().clearPane(stablePaneId);
     void agentHooksApi
@@ -615,16 +617,17 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     const pane = panes[id];
     if (!pane) return;
 
-    // No tmux identity / path-like title → idle shell; close without confirm.
-    if (!pane.tmuxWindowName || isPathLikeTitle(pane.dynamicTitle)) {
+    // No tmux identity yet → not attached; close without confirm.
+    if (!pane.tmuxWindowName) {
       removeTerminal(id);
       return;
     }
 
-    // Probe tmux foreground command. Unavailable list falls back to confirm.
+    // Probe tmux foreground command. Unavailable list falls back to confirm
+    // unless the title is a CMD_END cwd (see isTerminalPaneNonIdle).
     let tmuxWindows: Awaited<ReturnType<typeof systemApi.listTmuxWindows>>["windows"] | null = null;
     try {
-      const response = await systemApi.listTmuxWindows(workspaceId);
+      const response = await systemApi.listTmuxWindows(hostIdFromCenterKey(workspaceId));
       tmuxWindows = response.windows;
     } catch (error) {
       console.warn("Failed to inspect terminal foreground command before close", error);

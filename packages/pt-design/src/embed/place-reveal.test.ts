@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import {
   elementsForInstances,
+  frameIdFromToolData,
+  instanceIdsFromToolData,
   sceneRectToBoardBox,
   selectedIdsForElements,
   unionElementBounds,
@@ -36,5 +38,27 @@ describe("place reveal", () => {
     const live = elementsForInstances(elements, ["one"]);
     expect(live.map((el) => el.id)).toEqual(["a"]);
     expect(selectedIdsForElements(live)).toEqual({ a: true });
+  });
+
+  test("pulls instance and frame ids out of tool payloads", () => {
+    expect(instanceIdsFromToolData({ instanceId: "a", instanceIds: ["b", "c"] })).toEqual(["b", "c"]);
+    expect(
+      instanceIdsFromToolData({
+        results: [
+          { ok: true, data: { instanceId: "one" } },
+          { ok: false, data: { instanceId: "nope" } },
+          { ok: true, data: { instanceIds: ["two"] } },
+        ],
+      }),
+    ).toEqual(["one", "two"]);
+    expect(frameIdFromToolData({ frameId: "frame-1" })).toBe("frame-1");
+    expect(
+      frameIdFromToolData({
+        results: [
+          { ok: true, data: { frameId: "first" } },
+          { ok: true, data: { frameId: "last" } },
+        ],
+      }),
+    ).toBe("last");
   });
 });

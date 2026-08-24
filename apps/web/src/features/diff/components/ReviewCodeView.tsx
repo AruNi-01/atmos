@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { CodeView, type CodeViewHandle } from '@pierre/diffs/react';
+import { CodeView, useWorkerPool, type CodeViewHandle } from '@pierre/diffs/react';
 import type {
   CodeViewItem,
   DiffLineAnnotation,
@@ -26,6 +26,7 @@ import {
   getNextItemVersion,
   updateViewerDiffItem,
 } from '@/features/diff/lib/diff-code-view-shared';
+import { primePierreFileDiff } from '@/features/diff/lib/pierre-diff-hunks-guard';
 import {
   ATMOS_DIFF_THEME,
   buildSharedDiffViewOptions,
@@ -71,6 +72,7 @@ export function ReviewCodeView({
   const { resolvedTheme } = useTheme();
   const { effectiveContextId } = useContextParams();
   const activeContextId = contextId ?? effectiveContextId;
+  const workerPool = useWorkerPool();
   const workerPoolReady = useDiffWorkerPoolReady();
   const reviewCtx = useReviewCtx();
   const clearNavigationTarget = useEditorStore((s) => s.clearNavigationTarget);
@@ -351,6 +353,7 @@ export function ReviewCodeView({
                 oldContent: diff.old_content,
                 newContent: diff.new_content,
               });
+              primePierreFileDiff(workerPool, fileDiff);
               return {
                 id: file.snapshot.file_path,
                 type: 'diff' as const,
@@ -428,7 +431,7 @@ export function ReviewCodeView({
     return () => {
       cancelled = true;
     };
-  }, [orderedFiles, currentRevisionGuid]);
+  }, [orderedFiles, currentRevisionGuid, workerPool]);
 
   useEffect(() => {
     if (!viewerMounted || pendingAppendRef.current.length === 0) return;

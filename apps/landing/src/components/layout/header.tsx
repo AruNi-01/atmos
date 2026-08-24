@@ -115,10 +115,10 @@ const Header = ({ className }: HeaderProps) => {
 
           <div className='flex shrink-0 items-center gap-1.5 sm:gap-3'>
             <nav className="mr-2 hidden items-center gap-4 text-sm font-medium text-muted-foreground sm:flex">
-              <Link href="https://docs.atmos.land" target="_blank" rel="noopener noreferrer" className="transition-colors hover:text-foreground">
+              <Link href="https://docs.atmos.land" target="_blank" rel="noopener noreferrer" className="hover:text-foreground">
                 {t('docs')}
               </Link>
-              <IntlLink href="/changelog" className="transition-colors hover:text-foreground">
+              <IntlLink href="/changelog" className="hover:text-foreground">
                 {t('changelog')}
               </IntlLink>
             </nav>
@@ -154,7 +154,7 @@ const Header = ({ className }: HeaderProps) => {
                       href='https://docs.atmos.land'
                       target='_blank'
                       rel='noopener noreferrer'
-                      className='rounded-lg px-3 py-3 text-sm font-medium text-foreground transition-colors hover:bg-muted'
+                      className='rounded-lg px-3 py-3 text-sm font-medium text-foreground hover:bg-muted'
                     >
                       {t('docs')}
                     </Link>
@@ -162,7 +162,7 @@ const Header = ({ className }: HeaderProps) => {
                   <SheetClose asChild>
                     <IntlLink
                       href='/changelog'
-                      className='rounded-lg px-3 py-3 text-sm font-medium text-foreground transition-colors hover:bg-muted'
+                      className='rounded-lg px-3 py-3 text-sm font-medium text-foreground hover:bg-muted'
                     >
                       {t('changelog')}
                     </IntlLink>

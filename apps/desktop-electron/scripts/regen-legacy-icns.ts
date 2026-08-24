@@ -6,6 +6,7 @@
  *
  *   resources/icons/icon.icon/Assets/Logo.png
  *     → electron + Tauri: icon.icns, icon.png, size PNGs
+ *     → electron + Tauri: dmg-icon.icns (Finder volume / downloaded file)
  *     → crates/desktop-use/assets/host-app-icon.icns  (TCC host / Settings)
  *     → apps/web/public/notification-icon.png         (notification content)
  *     → apps/{docs,landing,web}/src/app/icon.png      (site favicons)
@@ -31,6 +32,7 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { DMG_ICON_PLATE_INSET } from "./macos-icon.ts";
 
 const appRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const repoRoot = join(appRoot, "../..");
@@ -57,13 +59,17 @@ function run(cmd: string, args: string[]) {
   return r;
 }
 
-function composeBrandArt(fullPng: string) {
+function composeBrandArt(fullPng: string, dmgPng: string) {
   // Black rounded plate + hairline rim + white Logo mark.
   // Classic .icns / PNG cannot be Assets.car — bake the squircle so DMG /
   // Windows / notifications are not a sharp square. Also writes Rim.png for
   // the Liquid Glass package (system still masks the fill; the rim layer
   // keeps the tile from dissolving into a dark Dock, like Cursor).
   // Logo.png stays the mark on transparent — no inner disc.
+  //
+  // App icns is full-bleed (Dock/system mask). DMG volume / downloaded-file
+  // icons are scaled into Finder's well, so the plate is inset on a
+  // transparent canvas — otherwise it fills the desktop frame.
   const py = `
 from PIL import Image, ImageChops, ImageDraw
 
@@ -75,6 +81,7 @@ STROKE = 13 * SCALE
 PAD = 8 * SCALE
 # Keep a thin margin so the horizon tips stay inside the squircle mask.
 MARK_INSET = 0.06
+DMG_PLATE_INSET = ${DMG_ICON_PLATE_INSET}
 RIM = (232, 232, 235, 108)
 
 # Pillow's rounded_rectangle(outline=...) only paints the four straight
@@ -112,6 +119,14 @@ def fit_mark(logo, size, inset):
     canvas.alpha_composite(fitted, ((size - nw) // 2, (size - nh) // 2))
     return canvas
 
+def pad_for_dmg(plate, inset_ratio):
+    inset = int(round(plate.size[0] * inset_ratio))
+    inner = plate.size[0] - 2 * inset
+    scaled = plate.resize((inner, inner), Image.Resampling.LANCZOS)
+    canvas = Image.new("RGBA", plate.size, (0, 0, 0, 0))
+    canvas.alpha_composite(scaled, (inset, inset))
+    return canvas
+
 logo = fit_mark(
     Image.open(${JSON.stringify(logoPath)}).convert("RGBA"),
     S,
@@ -129,6 +144,7 @@ plate = hi.resize((S, S), Image.Resampling.LANCZOS)
 lg = logo.resize((S, S), Image.Resampling.LANCZOS)
 plate.alpha_composite(lg, (0, 0))
 plate.save(${JSON.stringify(fullPng)})
+pad_for_dmg(plate, DMG_PLATE_INSET).save(${JSON.stringify(dmgPng)})
 
 rim = ring.resize((S, S), Image.Resampling.LANCZOS)
 rim.save(${JSON.stringify(rimPath)})
@@ -159,8 +175,13 @@ print("ok")
   }
 }
 
-function buildIcns(fullPng: string, icnsOut: string, tmp: string) {
-  const iconset = join(tmp, "Atmos.iconset");
+function buildIcns(
+  fullPng: string,
+  icnsOut: string,
+  tmp: string,
+  iconsetName = "Atmos.iconset",
+) {
+  const iconset = join(tmp, iconsetName);
   mkdirSync(iconset, { recursive: true });
   const pairs: [number, string][] = [
     [16, "icon_16x16.png"],
@@ -199,13 +220,17 @@ function main() {
   const tmp = mkdtempSync(join(tmpdir(), "atmos-regen-icns-"));
   try {
     const fullPng = join(tmp, "full-1024.png");
-    composeBrandArt(fullPng);
+    const dmgPng = join(tmp, "dmg-1024.png");
+    composeBrandArt(fullPng, dmgPng);
 
     const icnsOut = join(tmp, "icon.icns");
-    buildIcns(fullPng, icnsOut, tmp);
+    const dmgIcnsOut = join(tmp, "dmg-icon.icns");
+    buildIcns(fullPng, icnsOut, tmp, "Atmos.iconset");
+    buildIcns(dmgPng, dmgIcnsOut, tmp, "AtmosDmg.iconset");
 
     mkdirSync(electronIcons, { recursive: true });
     copyFileSync(icnsOut, join(electronIcons, "icon.icns"));
+    copyFileSync(dmgIcnsOut, join(electronIcons, "dmg-icon.icns"));
     run("sips", [
       "-z",
       "512",
@@ -251,6 +276,7 @@ function main() {
       ]);
       for (const name of [
         "icon.icns",
+        "dmg-icon.icns",
         "icon.png",
         "icon.ico",
         "128x128.png",
@@ -297,10 +323,10 @@ function main() {
     console.log("[regen-legacy-icns] site favicons → docs/landing/web");
 
     console.log(
-      `[regen-legacy-icns] wrote icon.icns + png sizes under ${electronIcons}`,
+      `[regen-legacy-icns] wrote icon.icns + dmg-icon.icns + png sizes under ${electronIcons}`,
     );
     console.log(
-      "[regen-legacy-icns] surfaces: Electron/Tauri app+DMG, Desktop Use host, web notification-icon.png, docs/landing/web favicons, icon.icon/Assets/Rim.png",
+      "[regen-legacy-icns] surfaces: Electron/Tauri app icns, DMG volume icns, Desktop Use host, web notification-icon.png, docs/landing/web favicons, icon.icon/Assets/Rim.png",
     );
     console.log(
       "[regen-legacy-icns] Tahoe Atmos.app Dock still uses Assets.car from icon.icon (afterPack)",

@@ -15,6 +15,17 @@ import {
   type PersistedTerminalTabDocument,
   type PersistedTerminalWorkspaceLayoutDocument,
 } from "@/features/terminal/lib/terminal-layout-document";
+import {
+  DEFAULT_CENTER_SPACE_ID,
+  hostIdFromCenterKey,
+  parseCenterSpaceKey,
+} from "@/app-shell/center-space/center-space";
+import {
+  normalizeStoredDynamicTitle,
+  readCachedDynamicTitle,
+  readCachedOscTitle,
+  writeCachedOscTitle,
+} from "@/features/terminal/lib/terminal-dynamic-title-cache";
 import enMessages from "../../../../messages/en.json";
 import zhMessages from "../../../../messages/zh.json";
 
@@ -46,6 +57,8 @@ export function nextOscTitleFromIncoming(
 ): string | undefined {
   return nextOscTitleAfterIncoming(previous, raw);
 }
+
+export { normalizeStoredDynamicTitle } from "@/features/terminal/lib/terminal-dynamic-title-cache";
 
 type TerminalMessagesLocale = "en" | "zh";
 
@@ -175,6 +188,64 @@ export function createFixedTerminalTab(): TerminalCenterTab {
   };
 }
 
+/**
+ * Extra center spaces share the host workspace tmux session (same cwd / git).
+ * Window names must still be unique: backend create is attach-if-exists, so a
+ * second space that opens window "1" would show the first space's terminal.
+ * Prefix is tmux-safe (no `:`) and easy to skip when hydrating the default space.
+ */
+const EXTRA_SPACE_TMUX_WINDOW_MARK = "cs__";
+
+export function extraCenterSpaceTmuxWindowPrefix(
+  paintContextId: string,
+): string | null {
+  const { spaceId } = parseCenterSpaceKey(paintContextId);
+  if (spaceId === DEFAULT_CENTER_SPACE_ID) return null;
+  return `${EXTRA_SPACE_TMUX_WINDOW_MARK}${spaceId}__`;
+}
+
+export function isExtraCenterSpaceTmuxWindowName(name: string): boolean {
+  return name.startsWith(EXTRA_SPACE_TMUX_WINDOW_MARK);
+}
+
+/** Default space windows are unprefixed; extra spaces use `cs__{spaceId}__{local}`. */
+export function spaceIdFromTmuxWindowName(
+  name: string | null | undefined,
+): string {
+  if (!name || !name.startsWith(EXTRA_SPACE_TMUX_WINDOW_MARK)) {
+    return DEFAULT_CENTER_SPACE_ID;
+  }
+  const rest = name.slice(EXTRA_SPACE_TMUX_WINDOW_MARK.length);
+  const end = rest.indexOf("__");
+  if (end <= 0) return DEFAULT_CENTER_SPACE_ID;
+  return rest.slice(0, end);
+}
+
+/** Agent hook / attention key. Always the host workspace id, never a paint id. */
+export function stableAgentPaneId(
+  paintOrHostId: string,
+  tmuxWindowName: string,
+): string {
+  return `${hostIdFromCenterKey(paintOrHostId)}:${tmuxWindowName}`;
+}
+
+export function namespacedTmuxWindowName(
+  paintContextId: string,
+  localName: string,
+): string {
+  if (
+    !localName ||
+    localName === PROJECT_WIKI_WINDOW_NAME ||
+    localName === CODE_REVIEW_WINDOW_NAME
+  ) {
+    return localName;
+  }
+  const prefix = extraCenterSpaceTmuxWindowPrefix(paintContextId);
+  if (!prefix) return localName;
+  if (localName.startsWith(prefix)) return localName;
+  return `${prefix}${localName}`;
+}
+
 export function createTerminalPane(
   workspaceId: string,
   label: string,
@@ -185,12 +256,13 @@ export function createTerminalPane(
     agent?: TerminalPaneAgent;
   },
 ): TerminalPaneProps {
+  const localName = options.tmuxWindowName ?? label;
   return {
     id: options.id ?? uuidv4(),
     label,
     sessionId: uuidv4(),
-    workspaceId,
-    tmuxWindowName: options.tmuxWindowName ?? label,
+    workspaceId: hostIdFromCenterKey(workspaceId),
+    tmuxWindowName: namespacedTmuxWindowName(workspaceId, localName),
     isNewPane: options.isNewPane,
     agent: options.agent,
   };
@@ -246,15 +318,43 @@ export function getWorkspaceTerminalTabs(
   state: Pick<TerminalLookupState, "workspaceTerminalTabs">,
   workspaceId: string,
 ): TerminalCenterTab[] {
-  return Object.prototype.hasOwnProperty.call(state.workspaceTerminalTabs, workspaceId)
-    ? state.workspaceTerminalTabs[workspaceId] ?? []
-    : [createFixedTerminalTab()];
+  if (Object.prototype.hasOwnProperty.call(state.workspaceTerminalTabs, workspaceId)) {
+    return state.workspaceTerminalTabs[workspaceId] ?? [];
+  }
+  if (parseCenterSpaceKey(workspaceId).spaceId !== DEFAULT_CENTER_SPACE_ID) {
+    return [];
+  }
+  return [createFixedTerminalTab()];
+}
+
+function findPaneIdsInWorkspacePanes(
+  panesByScope: TerminalLookupState["workspacePanes"],
+  workspaceId: string,
+  tmuxWindowName: string,
+): { paneId: string; terminalTabId: string } | null {
+  const prefix = `${workspaceId}::`;
+  for (const [scopeKey, panes] of Object.entries(panesByScope)) {
+    if (scopeKey !== workspaceId && !scopeKey.startsWith(prefix)) continue;
+    for (const [paneId, pane] of Object.entries(panes ?? {})) {
+      if (pane.tmuxWindowName === tmuxWindowName) {
+        return {
+          paneId,
+          terminalTabId:
+            scopeKey === workspaceId
+              ? FIXED_TERMINAL_TAB_VALUE
+              : scopeKey.slice(prefix.length),
+        };
+      }
+    }
+  }
+  return null;
 }
 
 /**
  * Locate a pane in the main workspace terminal grid by its tmux window name (any tab).
  *
- * Checks hydrated panes first; falls back to the persisted layout so deep
+ * Checks hydrated panes first, then any live scope for this paint id (extra
+ * spaces may not have a tab list yet), then the persisted layout so deep
  * links (e.g. the footer agent-status jump) can resolve the owning tab even
  * before the workspace's non-active tabs have been mounted/hydrated.
  */
@@ -275,6 +375,13 @@ export function findWorkspacePaneIdsByTmuxWindowName(
       }
     }
   }
+
+  const liveHit = findPaneIdsInWorkspacePanes(
+    state.workspacePanes,
+    workspaceId,
+    tmuxWindowName,
+  );
+  if (liveHit) return liveHit;
 
   const persistedTabs = getPersistedTerminalLayoutForWorkspace(state, workspaceId, isProjectContext)?.tabs;
   if (persistedTabs) {
@@ -398,9 +505,9 @@ export function hydratePersistedTab(
   tab: PersistedTerminalTabDocument,
   existingWindowNames: Set<string>,
   /**
-   * Optional in-memory panes for this scope. When present, preserve transient
-   * display fields (`dynamicTitle`) that are intentionally not persisted.
-   * `sessionId` is always fresh — callers that need reattach must reconnect.
+   * Optional in-memory panes for this scope. When present, prefer live
+   * `dynamicTitle` over localStorage / leftover layout fields. `sessionId`
+   * is always fresh — callers that need reattach must reconnect.
    */
   livePanes?: Record<string, TerminalPaneProps> | null,
 ): {
@@ -430,6 +537,14 @@ export function hydratePersistedTab(
           )
         : undefined);
 
+    const oscTitle =
+      liveByWindow?.oscTitle ??
+      pane.oscTitle ??
+      readCachedOscTitle(workspaceId, windowName);
+    // Copy leftover layout OSC into localStorage so later layout saves
+    // (which no longer include oscTitle) do not drop the topic.
+    if (oscTitle) writeCachedOscTitle(workspaceId, windowName, oscTitle);
+
     validatedPanes[id] = {
       ...pane,
       workspaceId,
@@ -454,10 +569,14 @@ export function hydratePersistedTab(
             : windowName
               ? false
               : true,
-      // dynamicTitle is display-only (reattach inject); keep warm in-memory.
-      // oscTitle is persisted so agent session topics survive refresh (APP-047).
-      dynamicTitle: liveByWindow?.dynamicTitle,
-      oscTitle: liveByWindow?.oscTitle ?? pane.oscTitle,
+      // Titles: live pane, then leftover layout fields, then localStorage.
+      // Not written to the terminal-layout API (title changes are too chatty).
+      dynamicTitle: normalizeStoredDynamicTitle(
+        liveByWindow?.dynamicTitle ??
+          (pane as { dynamicTitle?: string }).dynamicTitle ??
+          readCachedDynamicTitle(workspaceId, windowName),
+      ),
+      oscTitle,
       // Prefer live agent, then persisted agent.
       agent: liveByWindow?.agent ?? pane.agent,
       customLabel: liveByWindow?.customLabel ?? pane.customLabel,
@@ -508,6 +627,7 @@ export function createLayoutFromTmuxWindows(
   const paneIds: string[] = [];
 
   for (const win of windows) {
+    if (isExtraCenterSpaceTmuxWindowName(win.name)) continue;
     const id = uuidv4();
     paneIds.push(id);
     panes[id] = createTerminalPane(workspaceId, win.name, {
@@ -517,7 +637,10 @@ export function createLayoutFromTmuxWindows(
     });
   }
 
-  let layout: TerminalLayoutNode<string> = paneIds[0];
+  const firstPaneId = paneIds[0];
+  if (!firstPaneId) return null;
+
+  let layout: TerminalLayoutNode<string> = firstPaneId;
   for (let index = 1; index < paneIds.length; index++) {
     layout = {
       direction: "row",
@@ -778,8 +901,6 @@ export function buildPersistedTerminalWorkspaceLayout(
         projectName: pane.projectName,
         workspaceName: pane.workspaceName,
         isNewPane: pane.isNewPane,
-        // Persist agent OSC session topics; omit empty so layout stays lean.
-        ...(pane.oscTitle?.trim() ? { oscTitle: pane.oscTitle.trim() } : {}),
         customLabel: pane.customLabel,
         keepAgentName: pane.keepAgentName,
         keepCwd: pane.keepCwd,

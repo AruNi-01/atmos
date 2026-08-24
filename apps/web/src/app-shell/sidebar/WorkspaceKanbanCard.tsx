@@ -47,6 +47,9 @@ import type {
   KanbanCardProperties,
 } from "@/app-shell/sidebar/WorkspaceKanbanTypes";
 import { resolveWorkspaceGroupId } from "@/app-shell/sidebar/kanban-columns";
+import { SidebarHeldShortcutBadge } from "@/app-shell/HeldShortcutBadge";
+import { useSidebarShortcutDigit } from "@/app-shell/held-shortcut-prefix-store";
+import { SIDEBAR_SHORTCUT_TARGET_ATTR } from "@/app-shell/shortcut-prefix";
 
 /**
  * Nested interactive controls should not trigger click-to-enter.
@@ -199,13 +202,16 @@ export function KanbanWorkspaceCard({
 
   const showFooter =
     (cardProperties.pull_request && Boolean(managedPr)) || cardProperties.last_visit;
+  const workspaceShortcutKey = `workspace:${workspace.id}`;
+  const shortcutDigit = useSidebarShortcutDigit(workspaceShortcutKey);
 
   return (
     <div
       role="button"
       tabIndex={0}
+      {...{ [SIDEBAR_SHORTCUT_TARGET_ATTR]: workspaceShortcutKey }}
       className={cn(
-        "w-full cursor-pointer rounded-md bg-background p-3 text-left shadow-xs outline-none",
+        "relative w-full cursor-pointer rounded-md bg-background p-3 text-left shadow-xs outline-none",
         "focus-visible:ring-1 focus-visible:ring-ring",
         workspace.isPinned
           ? "border border-border"
@@ -221,6 +227,11 @@ export function KanbanWorkspaceCard({
         }
       }}
     >
+      {shortcutDigit != null ? (
+        <div className="absolute right-2 top-2 z-10">
+          <SidebarHeldShortcutBadge targetKey={workspaceShortcutKey} />
+        </div>
+      ) : null}
       {cardProperties.project || cardProperties.priority || cardProperties.status || !cardProperties.workspace_name ? (
         <div className="mb-3 flex items-center justify-between gap-2">
           <div className="flex min-w-0 items-center gap-2">
@@ -272,7 +283,7 @@ export function KanbanWorkspaceCard({
               type="button"
               onClick={handlePinClick}
               className={cn(
-                "inline-flex size-6 items-center justify-center rounded-md transition-colors hover:bg-accent",
+                "inline-flex size-6 items-center justify-center rounded-md hover:bg-accent",
                 workspace.isPinned
                   ? "text-foreground"
                   : "text-muted-foreground/50 hover:text-foreground",
@@ -287,7 +298,7 @@ export function KanbanWorkspaceCard({
                   <button
                     type="button"
                     onClick={(event) => event.stopPropagation()}
-                    className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                    className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
                     title={t("common.more")}
                   >
                     <MoreHorizontal className="size-3.5" />
@@ -301,7 +312,7 @@ export function KanbanWorkspaceCard({
                         event.stopPropagation();
                         void onArchiveWorkspace(projectId, workspace.id);
                       }}
-                      className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs text-foreground transition-colors hover:bg-accent"
+                      className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs text-foreground hover:bg-accent"
                     >
                       <Archive className="size-3.5" />
                       {t("common.archive")}
@@ -314,7 +325,7 @@ export function KanbanWorkspaceCard({
                         event.stopPropagation();
                         void onDeleteWorkspace(projectId, workspace.id);
                       }}
-                      className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs text-destructive transition-colors hover:bg-accent"
+                      className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs text-destructive hover:bg-accent"
                     >
                       <Trash2 className="size-3.5" />
                       {t("common.delete")}

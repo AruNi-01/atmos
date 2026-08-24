@@ -213,7 +213,7 @@ const TreeItem: React.FC<{
           }
         }}
         className={cn(
-          'flex items-center py-1 px-2 cursor-pointer select-none rounded-none transition-colors',
+          'flex items-center py-1 px-2 cursor-pointer select-none rounded-none',
           'hover:bg-sidebar-accent/50',
           isSelected && 'bg-sidebar-accent text-sidebar-foreground'
         )}
@@ -286,7 +286,7 @@ function ResizeHandle({
     <PanelResizeHandle
       onDragging={onDragging}
       className={cn(
-        "relative flex w-px items-center justify-center bg-border transition-colors duration-200 hover:bg-border/80 group touch-none z-10",
+        "relative flex w-px items-center justify-center bg-border hover:bg-border/80 group touch-none z-10",
         "before:absolute before:inset-y-0 before:-left-1 before:-right-1 before:z-10", // Expand hit area
         className
       )}
@@ -301,7 +301,7 @@ function ResizeHandle({
         }}
         title={isCollapsed ? t('resize.expand') : t('resize.collapse')}
         className={cn(
-          "absolute z-50 flex size-5 items-center justify-center rounded-full bg-muted border border-border shadow-lg transition-all duration-200 hover:bg-muted/80 hover:scale-110 opacity-0 group-hover:opacity-100",
+          "absolute z-50 flex size-5 items-center justify-center rounded-full bg-muted border border-border shadow-lg transition-[opacity,transform] duration-200 hover:bg-muted/80 hover:scale-110 opacity-0 group-hover:opacity-100",
           "left-1/2 -translate-x-1/2",
           isCollapsed && "hover:opacity-100! hover:bg-accent!"
         )}
@@ -534,7 +534,7 @@ export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onBack, onUpdat
           <button
             type="button"
             onClick={onBack}
-            className="group/icon relative size-9 shrink-0 overflow-hidden rounded-lg border border-border bg-muted/40 transition-colors duration-200 hover:bg-accent cursor-pointer"
+            className="group/icon relative size-9 shrink-0 overflow-hidden rounded-lg border border-border bg-muted/40 hover:bg-accent cursor-pointer"
             title={t('back')}
           >
             <div className="absolute inset-0 flex items-center justify-center transition-all duration-200 group-hover/icon:-translate-x-1 group-hover/icon:opacity-0">
@@ -567,7 +567,7 @@ export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onBack, onUpdat
                 {skill.description && (
                   <PreviewCard>
                     <PreviewCardTrigger>
-                      <span className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-muted text-muted-foreground flex items-center gap-1 cursor-help hover:bg-accent transition-colors h-5">
+                      <span className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-muted text-muted-foreground flex items-center gap-1 cursor-help hover:bg-accent h-5">
                         <Info className="size-2.5" />
                         {t('description.badge')}
                       </span>
@@ -689,7 +689,7 @@ export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onBack, onUpdat
                     <button
                       onClick={handleSave}
                       disabled={isSaving}
-                      className="flex items-center gap-1.5 px-2 py-1 text-xs rounded transition-colors cursor-pointer bg-primary/10 text-primary hover:bg-primary/20"
+                      className="flex items-center gap-1.5 px-2 py-1 text-xs rounded cursor-pointer bg-primary/10 text-primary hover:bg-primary/20"
                       title={t('toolbar.saveTitle')}
                     >
                       {isSaving ? <Loader2 className="size-3 animate-spin" /> : <Save className="size-3" />}
@@ -702,7 +702,7 @@ export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onBack, onUpdat
                     <button
                       onClick={() => setIsReadOnly(!isReadOnly)}
                       className={cn(
-                        "flex items-center gap-1.5 px-2 py-1 text-xs rounded transition-colors cursor-pointer",
+                        "flex items-center gap-1.5 px-2 py-1 text-xs rounded cursor-pointer",
                         isReadOnly 
                           ? "bg-amber-500/10 text-amber-600 dark:text-amber-400" 
                           : "bg-green-500/10 text-green-600 dark:text-green-400"
@@ -725,7 +725,7 @@ export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onBack, onUpdat
                           setIsReadOnly(false);
                         }
                       }}
-                      className="flex items-center gap-1.5 px-2 py-1 text-xs rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                      className="flex items-center gap-1.5 px-2 py-1 text-xs rounded hover:bg-accent text-muted-foreground hover:text-foreground cursor-pointer"
                     >
                       {isPreview ? <FileText className="size-3.5" /> : <Eye className="size-3.5" />}
                       {isPreview ? t('toolbar.editor') : t('toolbar.preview')}

@@ -209,6 +209,19 @@ export function isPathLikeTitle(value: string | undefined): boolean {
   );
 }
 
+/**
+ * CMD_END / cwd-style titles that mean "shell at prompt", not a running binary.
+ *
+ * Absolute agent/CLI paths (`/opt/homebrew/bin/claude`, `~/.grok/.../grok`)
+ * are path-like but busy — close confirmation must still treat them as work.
+ */
+export function isIdleCwdTitle(value: string | undefined): boolean {
+  if (!value) return false;
+  const command = firstCommandToken(value);
+  if (!isPathLikeTitle(value) || command.rest) return false;
+  return !executablePathMatchToken(command.token);
+}
+
 function isRuntimeWrapperTitle(value: string | undefined): boolean {
   const normalized = normalizeRuntimeWrapperTitle(value);
   return Boolean(
@@ -237,6 +250,16 @@ export function isBareProcessTitle(value: string | undefined): boolean {
 }
 
 /**
+ * Default tmux window names are decimal indexes (`1`, `6`). Those are attach
+ * identities, not display titles — center tabs should keep the last cwd/command.
+ */
+export function isTmuxIndexTitle(value: string | undefined): boolean {
+  const trimmed = value?.trim();
+  if (!trimmed) return false;
+  return /^\d+$/.test(trimmed);
+}
+
+/**
  * Reattach injects CMD_START:<process> which must not clobber a richer title
  * already held in the pane store (warm workspace switch keep-alive).
  */
@@ -247,6 +270,8 @@ export function isDynamicTitleDowngrade(
   const prev = existing?.trim();
   const n = next?.trim();
   if (!prev || !n || prev === n) return false;
+  // Never replace a real title with a tmux window index.
+  if (isTmuxIndexTitle(n)) return true;
   if (!isBareProcessTitle(n)) return false;
   // Process just started over a cwd/path title — that is an upgrade, allow it.
   if (isPathLikeTitle(prev)) return false;
@@ -1092,27 +1117,36 @@ export function getTerminalDisplayMeta<TAgent extends TerminalTitleAgent>(option
     showAgentName = true,
   } = options;
   const dynamicTitleIsVersion = isVersionLikeTitle(dynamicTitle);
-  const matchedDynamicAgent = resolveAgentForTitle(dynamicTitle, configuredAgents, {
+  // Pane leftover `agent` still brands when the live command is that agent
+  // (`claude` → Claude Code). It must not brand unrelated CLIs (mole, agy).
+  const agentsForTitle = agent ? [agent, ...configuredAgents] : configuredAgents;
+  const matchedDynamicAgent = resolveAgentForTitle(dynamicTitle, agentsForTitle, {
     contestedOwners,
   });
   // Contested bare `agent` command lines suppress stale brand fallbacks.
-  // Path-only titles ending in `agent` must not hide a valid pane agent.
+  // Path-only titles ending in `agent` are cwd/path text, not that CLI token.
   const unresolvedContestedDynamic =
     titleMatchToken(dynamicTitle) === "agent" &&
     !matchedDynamicAgent &&
     !isPathOnlyTitle(dynamicTitle);
   const labelAgent = resolveAgentForLabel(baseTitle, configuredAgents);
-  // Runtime wrappers (python3.11) and bare process basenames from reattach
-  // CMD_START inject (agy, node) should not hide a known pane agent brand.
-  const fallbackAgent =
-    isRuntimeWrapperTitle(dynamicTitle) || isBareProcessTitle(dynamicTitle)
-      ? agent ?? labelAgent
-      : dynamicTitleIsVersion
-        ? labelAgent ?? agent
-        : undefined;
+  // Runtime wrappers (python3.11, node) and version-like reattach injects
+  // (3.1.3) should not hide a known pane agent brand. Real CLIs (mole, vim,
+  // htop, agy, git) must display as themselves unless resolveAgentForTitle
+  // matches a configured agent.
+  const fallbackAgent = isRuntimeWrapperTitle(dynamicTitle)
+    ? agent ?? labelAgent
+    : dynamicTitleIsVersion
+      ? labelAgent ?? agent
+      : undefined;
+  // A live cwd or non-agent command is the current title. Do not keep a leftover
+  // pane-label brand (e.g. launched as "Claude Code") after the agent exits or
+  // the shell returns to a prompt — refresh + typed commands must show cwd.
+  const hasLiveDynamicTitle =
+    Boolean(dynamicTitle?.trim()) && !isTmuxIndexTitle(dynamicTitle);
   const toolbarAgent = unresolvedContestedDynamic
     ? undefined
-    : matchedDynamicAgent ?? fallbackAgent ?? labelAgent;
+    : matchedDynamicAgent ?? fallbackAgent ?? (hasLiveDynamicTitle ? undefined : labelAgent);
 
   // Agent brand is optional: icon stays (callers), name can be hidden to save space.
   // When hidden, primary is empty so OSC (if any) is shown without a ` | ` separator.

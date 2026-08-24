@@ -189,7 +189,7 @@ export function AutomationListPanel({
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
               <div className="flex min-w-0 flex-1 items-center gap-2">
                 <div className="relative group min-w-0 flex-1">
-                  <Search className="absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground/60 transition-colors group-focus-within:text-primary" />
+                  <Search className="absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground/60 group-focus-within:text-primary" />
                   <Input
                     value={searchQuery}
                     onChange={(event) => onSearchQueryChange(event.target.value)}
@@ -371,7 +371,7 @@ function AutomationListRow({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.98 }}
       transition={{ duration: 0.2, delay: Math.min(index * 0.018, 0.16) }}
-      className="group relative flex w-full min-w-0 flex-col gap-4 overflow-hidden rounded-xl border border-border bg-background p-4 text-left transition-all hover:border-primary/30 hover:bg-muted/35 hover:shadow-md lg:flex-row lg:items-center lg:justify-between"
+      className="group relative flex w-full min-w-0 flex-col gap-4 overflow-hidden rounded-xl border border-border bg-background p-4 text-left hover:border-primary/30 hover:bg-muted/35 hover:shadow-md lg:flex-row lg:items-center lg:justify-between"
     >
       <div className="flex min-w-0 flex-1 items-start gap-4">
         <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 text-primary">
@@ -379,7 +379,7 @@ function AutomationListRow({
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 flex-wrap items-center gap-2">
-            <h3 className="truncate text-sm font-semibold text-foreground transition-colors group-hover:text-primary">
+            <h3 className="truncate text-sm font-semibold text-foreground group-hover:text-primary">
               {automation.display_name}
             </h3>
             {isAutomationPaused(automation) ? <Badge variant="outline">{t("row.paused")}</Badge> : null}

@@ -247,7 +247,7 @@ function ReviewersList({
             type="button"
             className={cn(
               "flex w-full items-center gap-2 py-0.5 rounded-md px-1 -mx-1 min-w-0 text-left",
-              "cursor-pointer hover:bg-muted/60 transition-colors",
+              "cursor-pointer hover:bg-muted/60",
               "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
             )}
             onClick={() => onReviewerClick()}
@@ -394,7 +394,7 @@ function DevelopmentIssues({
                     issueNumber: issue.number,
                     title: issue.title,
                   })}
-                  className="flex w-full min-w-0 items-start gap-2 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-muted/60"
+                  className="flex w-full min-w-0 items-start gap-2 rounded-lg px-3 py-2.5 text-left hover:bg-muted/60"
                 >
                   <CircleDot className={cn(
                     "size-3.5 shrink-0 mt-0.5",
@@ -550,7 +550,7 @@ const MetadataEditTrigger = React.forwardRef<
       aria-label={label}
       className={cn(
         "inline-flex size-5 items-center justify-center rounded text-muted-foreground/70",
-        "hover:bg-muted hover:text-foreground transition-colors",
+        "hover:bg-muted hover:text-foreground",
         "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
         className,
       )}
@@ -624,13 +624,23 @@ export function LabelsEditor({
     });
 
     try {
-      await wsRequest(resource === "pr" ? 'github_pr_update_labels' : 'github_issue_update_labels', {
-        owner,
-        repo,
-        [resource === "pr" ? "pr_number" : "issue_number"]: number,
-        add: currentlySelected ? [] : [label.name],
-        remove: currentlySelected ? [label.name] : [],
-      });
+      if (resource === "pr") {
+        await wsRequest("github_pr_update_labels", {
+          owner,
+          repo,
+          pr_number: number,
+          add: currentlySelected ? [] : [label.name],
+          remove: currentlySelected ? [label.name] : [],
+        });
+      } else {
+        await wsRequest("github_issue_update_labels", {
+          owner,
+          repo,
+          issue_number: number,
+          add: currentlySelected ? [] : [label.name],
+          remove: currentlySelected ? [label.name] : [],
+        });
+      }
       onChanged?.();
       void queryClient.invalidateQueries({ queryKey: detailKey });
       void queryClient.invalidateQueries({
@@ -784,13 +794,23 @@ export function AssigneesEditor({
     });
 
     try {
-      await wsRequest(resource === "pr" ? 'github_pr_update_assignees' : 'github_issue_update_assignees', {
-        owner,
-        repo,
-        [resource === "pr" ? "pr_number" : "issue_number"]: number,
-        add: currentlySelected ? [] : [user.login],
-        remove: currentlySelected ? [user.login] : [],
-      });
+      if (resource === "pr") {
+        await wsRequest("github_pr_update_assignees", {
+          owner,
+          repo,
+          pr_number: number,
+          add: currentlySelected ? [] : [user.login],
+          remove: currentlySelected ? [user.login] : [],
+        });
+      } else {
+        await wsRequest("github_issue_update_assignees", {
+          owner,
+          repo,
+          issue_number: number,
+          add: currentlySelected ? [] : [user.login],
+          remove: currentlySelected ? [user.login] : [],
+        });
+      }
       onChanged?.();
       void queryClient.invalidateQueries({ queryKey: detailKey });
       void queryClient.invalidateQueries({

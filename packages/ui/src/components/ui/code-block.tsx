@@ -111,7 +111,7 @@ export function CodeBlock({
                   onClick={() => handleTabChange(index)}
                   className={cn(
                     "flex items-center relative gap-1.5 my-1 mb-1.5 outline-0",
-                    "whitespace-nowrap font-medium transition-colors duration-150",
+                    "whitespace-nowrap font-medium",
                     "px-1.5 rounded-lg",
                     "first:ml-2.5",
                     "hover:bg-zinc-200/50 dark:hover:bg-zinc-700/70",

@@ -97,7 +97,7 @@ export function GithubListPagination({
           disabled={!canPrev}
           onClick={() => onPageChange(page - 1)}
           className={cn(
-            "inline-flex size-7 shrink-0 items-center justify-center rounded-md border-0 bg-transparent transition-colors",
+            "inline-flex size-7 shrink-0 items-center justify-center rounded-md border-0 bg-transparent",
             canPrev
               ? "cursor-pointer text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
               : "cursor-not-allowed text-muted-foreground/30",
@@ -116,7 +116,7 @@ export function GithubListPagination({
               aria-current={isActive ? "page" : undefined}
               onClick={() => onPageChange(value)}
               className={cn(
-                "inline-flex size-7 shrink-0 items-center justify-center rounded-md font-mono text-[11px] tabular-nums transition-colors",
+                "inline-flex size-7 shrink-0 items-center justify-center rounded-md font-mono text-[11px] tabular-nums",
                 isActive
                   ? "bg-sidebar-accent font-semibold text-foreground"
                   : "cursor-pointer text-muted-foreground hover:bg-sidebar-accent/60 hover:text-foreground",
@@ -142,7 +142,7 @@ export function GithubListPagination({
           disabled={!canNext}
           onClick={() => onPageChange(page + 1)}
           className={cn(
-            "inline-flex size-7 shrink-0 items-center justify-center rounded-md border-0 bg-transparent transition-colors",
+            "inline-flex size-7 shrink-0 items-center justify-center rounded-md border-0 bg-transparent",
             canNext
               ? "cursor-pointer text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
               : "cursor-not-allowed text-muted-foreground/30",

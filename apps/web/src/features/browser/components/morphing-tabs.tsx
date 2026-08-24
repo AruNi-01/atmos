@@ -356,7 +356,7 @@ function AddTabButton({
         onClick();
         event.currentTarget.blur();
       }}
-      className="desktop-no-drag flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-background/50 hover:text-foreground"
+      className="desktop-no-drag flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-background/50 hover:text-foreground"
     >
       <Plus className="size-3.5" />
     </button>
@@ -1041,7 +1041,7 @@ export function MorphingTabs({
                       <span
                         aria-hidden
                         className={cn(
-                          "absolute inset-x-0.5 bottom-0.5 top-0.5 rounded-lg transition-colors duration-200",
+                          "absolute inset-x-0.5 bottom-0.5 top-0.5 rounded-lg",
                           isDragging
                             ? "bg-background/60"
                             : "bg-transparent group-hover:bg-background/45",
@@ -1069,7 +1069,7 @@ export function MorphingTabs({
                       }}
                       onKeyDown={(event) => handleTabKeyDown(item.id, event)}
                       className={cn(
-                        "group relative z-10 flex h-full w-full min-w-0 items-center gap-1.5 overflow-hidden rounded-t-[10px] px-2.5 text-left text-xs outline-none transition-colors",
+                        "group relative z-10 flex h-full w-full min-w-0 items-center gap-1.5 overflow-hidden rounded-t-[10px] px-2.5 text-left text-xs outline-none",
                         isActive
                           ? "text-foreground"
                           : "text-muted-foreground hover:text-foreground",
@@ -1121,7 +1121,7 @@ export function MorphingTabs({
                           onClose(item.id);
                         }}
                         className={cn(
-                          "absolute right-1 top-1/2 z-20 grid size-5 -translate-y-1/2 place-items-center rounded-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+                          "absolute right-1 top-1/2 z-20 grid size-5 -translate-y-1/2 place-items-center rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                           !isActive &&
                             "opacity-0 group-hover:opacity-100 hover:bg-background/60",
                           classNames?.close,

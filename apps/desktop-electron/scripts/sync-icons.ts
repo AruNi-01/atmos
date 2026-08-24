@@ -23,6 +23,7 @@ const destDir = join(appRoot, "resources/icons");
 const REQUIRED = [
   "icon.png",
   "icon.icns",
+  "dmg-icon.icns",
   "icon.ico",
   "32x32.png",
   "128x128.png",

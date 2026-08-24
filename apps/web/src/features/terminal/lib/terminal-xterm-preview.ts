@@ -1,7 +1,7 @@
 import type { IBufferCell, Terminal } from "@xterm/xterm";
 
 const DEFAULT_FG = "#d4d4d8";
-const DEFAULT_BG = "#09090b";
+export const XTERM_PREVIEW_BG = "#09090b";
 
 const ANSI_16 = [
   "#09090b",
@@ -53,29 +53,53 @@ export function xtermCellCssColor(
   return ansiPaletteColor(value);
 }
 
-/** Paint the visible xterm buffer into a card that matches the live pane shape. */
-export function renderXtermBufferPreview(
-  term: Pick<Terminal, "cols" | "rows" | "buffer">,
-  width: number,
-  height: number,
-): string | null {
+export type XtermPreviewTerminal = Pick<Terminal, "cols" | "rows" | "buffer">;
+
+export type XtermPreviewDest = { x: number; y: number; w: number; h: number };
+
+type PreviewHostGetter = () => XtermPreviewTerminal | null;
+
+const previewHosts = new Map<HTMLElement, PreviewHostGetter>();
+
+/** Live xterm instances, keyed by their mount host, for cheap space-switcher thumbs. */
+export function registerXtermPreviewHost(
+  host: HTMLElement,
+  getTerminal: PreviewHostGetter,
+): () => void {
+  previewHosts.set(host, getTerminal);
+  return () => {
+    if (previewHosts.get(host) === getTerminal) previewHosts.delete(host);
+  };
+}
+
+export function listXtermPreviewHosts(
+  root: HTMLElement,
+): Array<{ host: HTMLElement; terminal: XtermPreviewTerminal }> {
+  const out: Array<{ host: HTMLElement; terminal: XtermPreviewTerminal }> = [];
+  for (const [host, getTerminal] of previewHosts) {
+    if (!root.contains(host)) continue;
+    const terminal = getTerminal();
+    if (!terminal || terminal.cols < 1 || terminal.rows < 1) continue;
+    out.push({ host, terminal });
+  }
+  return out;
+}
+
+/** Paint the visible xterm buffer into `dest` in the current ctx space. */
+export function paintXtermBufferInto(
+  ctx: CanvasRenderingContext2D,
+  term: XtermPreviewTerminal,
+  dest: XtermPreviewDest,
+): void {
+  if (dest.w < 1 || dest.h < 1) return;
   const cols = Math.max(1, term.cols);
   const rows = Math.max(1, term.rows);
-  const outW = Math.max(1, Math.round(width));
-  const outH = Math.max(1, Math.round(height));
   const buf = term.buffer.active;
-  const canvas = document.createElement("canvas");
-  const dpr = Math.min(2, window.devicePixelRatio || 1);
-  canvas.width = Math.round(outW * dpr);
-  canvas.height = Math.round(outH * dpr);
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return null;
-  ctx.scale(dpr, dpr);
-  ctx.fillStyle = DEFAULT_BG;
-  ctx.fillRect(0, 0, outW, outH);
+  ctx.fillStyle = XTERM_PREVIEW_BG;
+  ctx.fillRect(dest.x, dest.y, dest.w, dest.h);
 
-  const cellW = outW / cols;
-  const cellH = outH / rows;
+  const cellW = dest.w / cols;
+  const cellH = dest.h / rows;
   const fontSize = Math.max(5, Math.floor(cellH * 0.78));
   ctx.font = `${fontSize}px "Hack Nerd Font Mono", ui-monospace, SFMono-Regular, Menlo, monospace`;
   ctx.textBaseline = "middle";
@@ -94,7 +118,7 @@ export function renderXtermBufferPreview(
         current.isBgDefault(),
         current.isBgRGB(),
         current.getBgColor(),
-        DEFAULT_BG,
+        XTERM_PREVIEW_BG,
       );
       let fg = xtermCellCssColor(
         current.isFgDefault(),
@@ -107,9 +131,9 @@ export function renderXtermBufferPreview(
         bg = fg;
         fg = swap;
       }
-      const px = x * cellW;
-      const py = y * cellH;
-      if (bg !== DEFAULT_BG) {
+      const px = dest.x + x * cellW;
+      const py = dest.y + y * cellH;
+      if (bg !== XTERM_PREVIEW_BG) {
         ctx.fillStyle = bg;
         ctx.fillRect(px, py, cellW * width, cellH);
       }
@@ -120,7 +144,24 @@ export function renderXtermBufferPreview(
       ctx.fillText(chars, px, py + cellH / 2, cellW * width);
     }
   }
+}
 
+/** Paint the visible xterm buffer into a card that matches the live pane shape. */
+export function renderXtermBufferPreview(
+  term: XtermPreviewTerminal,
+  width: number,
+  height: number,
+): string | null {
+  const outW = Math.max(1, Math.round(width));
+  const outH = Math.max(1, Math.round(height));
+  const canvas = document.createElement("canvas");
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  canvas.width = Math.round(outW * dpr);
+  canvas.height = Math.round(outH * dpr);
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+  ctx.scale(dpr, dpr);
+  paintXtermBufferInto(ctx, term, { x: 0, y: 0, w: outW, h: outH });
   try {
     return canvas.toDataURL("image/jpeg", 0.86);
   } catch {

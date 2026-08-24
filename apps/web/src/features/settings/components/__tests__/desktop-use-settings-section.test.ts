@@ -87,6 +87,8 @@ describe("Desktop Use settings wiring", () => {
     );
     expect(section).toContain("SettingsGroupCard");
     expect(section).toContain("SettingsGroupRow");
+    expect(section).toContain("SettingsExperimentalNotice");
+    expect(section).toContain('t("developmentWarning")');
     // Icons per group
     expect(section).toContain("Cpu");
     expect(section).toContain("Shield");

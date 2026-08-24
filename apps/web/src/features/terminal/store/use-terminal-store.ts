@@ -31,6 +31,7 @@ import {
   hydratePersistedTab,
   isTerminalWorkspaceScopeKeyForWorkspace,
   normalizeCustomName,
+  normalizeStoredDynamicTitle,
   nextOscTitleFromIncoming,
   removePaneFromLayout,
   samePaneAgent,
@@ -38,6 +39,15 @@ import {
   type TerminalCenterTab,
 } from "@/features/terminal/store/terminal-store-helpers";
 import type { TerminalStore } from "@/features/terminal/store/terminal-store-types";
+import {
+  writeCachedDynamicTitle,
+  writeCachedOscTitle,
+} from "@/features/terminal/lib/terminal-dynamic-title-cache";
+import {
+  DEFAULT_CENTER_SPACE_ID,
+  hostIdFromCenterKey,
+  parseCenterSpaceKey,
+} from "@/app-shell/center-space/center-space";
 
 export { FIXED_TERMINAL_TAB_VALUE } from "@/features/terminal/lib/terminal-layout-document";
 export {
@@ -568,7 +578,7 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => {
 
   fetchTmuxWindows: async (workspaceId, isProjectContext) => {
     try {
-      const response = await systemApi.listTmuxWindows(workspaceId);
+      const response = await systemApi.listTmuxWindows(hostIdFromCenterKey(workspaceId));
       const windows = response.windows || [];
       const resolvedIsProjectContext = isProjectContext ?? get().workspaceContexts[workspaceId] ?? false;
       const workspaceScopeKey = getTerminalWorkspaceScopeKey(
@@ -597,6 +607,32 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => {
 
   loadFromBackend: async (workspaceId, isProjectContext = false, terminalTabId = null) => {
     if (typeof window === "undefined") return;
+
+    const space = parseCenterSpaceKey(workspaceId);
+    if (space.spaceId !== DEFAULT_CENTER_SPACE_ID) {
+      ensureWorkspaceContext(workspaceId, isProjectContext);
+      const workspaceScopeKey = getTerminalWorkspaceScopeKey(workspaceId, isProjectContext);
+      if (!get().loadedWorkspaces.has(workspaceScopeKey)) {
+        const existingTabs = Object.prototype.hasOwnProperty.call(
+          get().workspaceTerminalTabs,
+          workspaceId,
+        )
+          ? get().workspaceTerminalTabs[workspaceId] ?? []
+          : [];
+        set((currentState) => ({
+          workspaceTerminalTabs: {
+            ...currentState.workspaceTerminalTabs,
+            [workspaceId]: existingTabs,
+          },
+          loadedWorkspaces: new Set([...currentState.loadedWorkspaces, workspaceScopeKey]),
+          initializingWorkspaces: new Set(
+            [...currentState.initializingWorkspaces].filter((id) => id !== workspaceScopeKey),
+          ),
+          isHydrated: true,
+        }));
+      }
+      return;
+    }
 
     ensureWorkspaceContext(workspaceId, isProjectContext);
 
@@ -861,6 +897,7 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => {
 
   saveToBackend: (workspaceId, isProjectContextOverride) => {
     if (typeof window === 'undefined') return;
+    if (parseCenterSpaceKey(workspaceId).spaceId !== DEFAULT_CENTER_SPACE_ID) return;
 
     const state = get();
     const isProjectContext = isProjectContextOverride ?? state.workspaceContexts[workspaceId] ?? false;
@@ -966,8 +1003,10 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => {
     const panes = get().workspacePanes[scopeKey];
     if (!panes || !panes[paneId]) return;
 
-    // Only update if the title actually changed (avoid unnecessary re-renders)
-    if (panes[paneId].dynamicTitle === dynamicTitle) return;
+    const next = normalizeStoredDynamicTitle(dynamicTitle);
+    // Reject tmux indexes (`1`) so they cannot clobber a stored cwd/command.
+    if (next === undefined) return;
+    if (panes[paneId].dynamicTitle === next) return;
 
     set((state) => ({
       workspacePanes: {
@@ -976,12 +1015,17 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => {
           ...panes,
           [paneId]: {
             ...panes[paneId],
-            dynamicTitle,
+            dynamicTitle: next,
           },
         },
       },
     }));
-    // NOTE: Do NOT call saveToBackend — dynamicTitle is transient display-only
+    // localStorage only — title changes must not PUT terminal-layout.
+    writeCachedDynamicTitle(
+      workspaceId,
+      panes[paneId].tmuxWindowName || panes[paneId].label,
+      next,
+    );
   },
 
   setOscTitle: (workspaceId, paneId, oscTitle, terminalTabId = FIXED_TERMINAL_TAB_VALUE) => {
@@ -1005,10 +1049,12 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => {
         },
       },
     }));
-    // Persisted in terminal layout (debounced by saveToBackend) so agent
-    // session topics survive full page refresh — unlike dynamicTitle, which
-    // is re-injected from tmux on attach (APP-047).
-    get().saveToBackend(workspaceId);
+    // localStorage only — live OSC (spinners/activity) must not PUT terminal-layout.
+    writeCachedOscTitle(
+      workspaceId,
+      panes[paneId].tmuxWindowName || panes[paneId].label,
+      next,
+    );
   },
 
   setPaneAgent: (workspaceId, paneId, agent, terminalTabId = FIXED_TERMINAL_TAB_VALUE) => {

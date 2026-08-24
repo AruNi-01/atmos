@@ -88,7 +88,7 @@ export function CopyableLabel({ children, href }: { children: React.ReactNode; h
           href={href}
           target="_blank"
           rel="noopener noreferrer"
-          className="shrink-0 text-muted-foreground transition-colors hover:text-foreground"
+          className="shrink-0 text-muted-foreground hover:text-foreground"
           title={tunnelT("actions.openInBrowser")}
         >
           <ExternalLink className="size-3" />
@@ -112,15 +112,15 @@ export function CopyableText({ value }: { value: string }) {
     <button
       onClick={handleCopy}
       title={tunnelT("actions.clickToCopy")}
-      className="group flex w-full min-w-0 cursor-pointer items-center gap-1.5 rounded bg-muted px-2 py-1 transition-colors hover:bg-accent"
+      className="group flex w-full min-w-0 cursor-pointer items-center gap-1.5 rounded bg-muted px-2 py-1 hover:bg-accent"
     >
-      <code className="min-w-0 flex-1 truncate text-left font-mono text-xs text-muted-foreground transition-colors group-hover:text-foreground">
+      <code className="min-w-0 flex-1 truncate text-left font-mono text-xs text-muted-foreground group-hover:text-foreground">
         {value}
       </code>
       {copied ? (
         <Check className="size-3 shrink-0 text-emerald-500" />
       ) : (
-        <Copy className="size-3 shrink-0 text-muted-foreground transition-colors group-hover:text-foreground" />
+        <Copy className="size-3 shrink-0 text-muted-foreground group-hover:text-foreground" />
       )}
     </button>
   );
@@ -266,14 +266,14 @@ export function ProviderActionTerminalPopover({
           </span>
           <div className="flex items-center gap-1.5">
             <button
-              className="text-muted-foreground transition-colors hover:text-foreground"
+              className="text-muted-foreground hover:text-foreground"
               onClick={() => copyToClipboard(command)}
               title={tunnelT("actions.copyCommand")}
             >
               <Copy className="size-3.5" />
             </button>
             <button
-              className="text-muted-foreground transition-colors hover:text-foreground"
+              className="text-muted-foreground hover:text-foreground"
               onClick={() => setOpen(false)}
               title={tunnelT("actions.close")}
             >
@@ -362,7 +362,7 @@ export function ProviderActions({ p, onRedetect }: { p: ProviderDiagnostics; onR
             {info.authHint}
           </code>
           <button
-            className="text-muted-foreground transition-colors hover:text-foreground"
+            className="text-muted-foreground hover:text-foreground"
             onClick={() => copyToClipboard(info.authHint!)}
             title={tunnelT("actions.copyCommand")}
           >
@@ -395,7 +395,7 @@ export function ProviderActions({ p, onRedetect }: { p: ProviderDiagnostics; onR
                       {cmd}
                     </code>
                     <button
-                      className="text-muted-foreground transition-colors hover:text-foreground"
+                      className="text-muted-foreground hover:text-foreground"
                       onClick={() => copyToClipboard(cmd)}
                       title={tunnelT("actions.copy")}
                     >
@@ -829,7 +829,7 @@ export function ViewTunnelPopover({
             {tunnelT("view.activeTunnel")}
           </span>
           <button
-            className="text-muted-foreground transition-colors hover:text-foreground"
+            className="text-muted-foreground hover:text-foreground"
             onClick={() => setOpen(false)}
           >
             <X className="size-3.5" />

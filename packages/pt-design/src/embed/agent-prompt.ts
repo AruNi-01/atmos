@@ -2,6 +2,12 @@ export const DEFAULT_AGENT_API_BASE = "http://127.0.0.1:30303";
 export const MCP_NPX_PACKAGE = "@atmos/pt-design";
 export const MCP_NPX_BIN = "pt-design-mcp";
 
+/** Synced to ~/.atmos/skills/.system/ on Atmos startup (same pattern as Canvas). */
+export const PT_DESIGN_AGENT_SKILL_PATH =
+  "~/.atmos/skills/.system/atmos-pt-design-agent/SKILL.md";
+
+export const PT_DESIGN_AGENT_CONTEXT_KIND = "pt-design-agent";
+
 export function normalizeAgentApiBase(raw?: string | null): string {
   const trimmed = raw?.trim().replace(/\/$/, "");
   return trimmed || DEFAULT_AGENT_API_BASE;
@@ -30,7 +36,9 @@ export function buildMcpConfig(): string {
 export function buildLocalAgentPrompt(clientId: string, apiBase?: string | null): string {
   const invoke = agentInvokeUrl(apiBase);
   return [
+    `atmos://context/${PT_DESIGN_AGENT_CONTEXT_KIND}`,
     "The live Prototype Design board is already open on this computer.",
+    `Read ${PT_DESIGN_AGENT_SKILL_PATH} and follow it.`,
     "Do not start MCP. Do not install a CLI. Do not edit a separate .ptdesign.json. Do not join a collaboration room.",
     `POST ${invoke}`,
     "Content-Type: application/json",
@@ -44,6 +52,5 @@ export function buildLocalAgentPrompt(clientId: string, apiBase?: string | null)
       null,
       2,
     ),
-    "Call pt_catalog_list and pt_ir_get first, then pt_place / pt_update / pt_frame_create.",
   ].join("\n");
 }

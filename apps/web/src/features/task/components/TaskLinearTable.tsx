@@ -119,7 +119,7 @@ export function TaskLinearTable({
           {bodyMessage ?? t("empty")}
         </div>
       ) : (
-      <ul className="m-0 min-h-0 min-w-0 flex-1 list-none overflow-y-auto overscroll-contain p-0">
+      <ul className="m-0 min-h-0 min-w-0 flex-1 list-none overflow-y-auto overscroll-contain px-1 py-1">
         {issues.map((issue) => {
           const createdLabel = formatShortDate(issue.created_at, locale);
           const updatedLabel = formatShortDate(issue.updated_at, locale);
@@ -133,7 +133,7 @@ export function TaskLinearTable({
                 role={onOpenIssue ? "button" : undefined}
                 tabIndex={onOpenIssue ? 0 : undefined}
                 className={cn(
-                  "group flex min-w-0 items-center gap-2.5 px-3 py-2 transition-colors hover:bg-muted/40",
+                  "group flex min-w-0 items-center gap-2.5 rounded-md px-2 py-2 hover:bg-muted/40",
                   onOpenIssue && "cursor-pointer",
                 )}
                 onClick={() => onOpenIssue?.(issue)}
@@ -273,8 +273,8 @@ export function TaskLinearTable({
                     <Button
                       type="button"
                       size="sm"
-                      variant="ghost"
-                      className="h-7 gap-1 px-2 text-[11px] font-medium text-muted-foreground shadow-none hover:bg-muted hover:text-foreground"
+                      variant="default"
+                      className="h-7 gap-1 px-2 text-[11px] font-medium"
                       onClick={() => onEnterWorkspace(linkedWorkspaceId)}
                       title={t("enterWorkspace")}
                       aria-label={t("enterWorkspace")}
@@ -286,8 +286,8 @@ export function TaskLinearTable({
                     <Button
                       type="button"
                       size="sm"
-                      variant="ghost"
-                      className="h-7 gap-1 px-2 text-[11px] font-medium text-muted-foreground shadow-none hover:bg-muted hover:text-foreground"
+                      variant="default"
+                      className="h-7 gap-1 px-2 text-[11px] font-medium"
                       disabled={busyId === issue.id}
                       onClick={() => onCreateWorkspace(issue)}
                       title={t("createWorkspace")}

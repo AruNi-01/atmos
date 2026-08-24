@@ -1,10 +1,14 @@
-import { beforeEach, describe, expect, mock, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import {
   filterProjectsByAttention,
   setAgentPaneAcknowledgedHandler,
   useAgentAttentionStore,
 } from "./agent-attention-store";
 import { useAgentAttentionSummaryStore } from "./agent-attention-summary-store";
+import {
+  useWorkspaceAgentGroupingHoldStore,
+  WORKSPACE_AGENT_GROUPING_HOLD_MS,
+} from "./workspace-agent-grouping-hold";
 
 beforeEach(() => {
   useAgentAttentionStore.setState({
@@ -17,7 +21,12 @@ beforeEach(() => {
     panes: new Map(),
     revision: 0,
   });
+  useWorkspaceAgentGroupingHoldStore.getState().clearAll();
   setAgentPaneAcknowledgedHandler(null);
+});
+
+afterEach(() => {
+  useWorkspaceAgentGroupingHoldStore.getState().clearAll();
 });
 
 describe("agent-attention-store", () => {
@@ -57,6 +66,91 @@ describe("agent-attention-store", () => {
     });
     store.notifyPaneFocused("ws-1:main");
     expect(store.hasPaneAttention("ws-1:main")).toBe(false);
+  });
+
+  test("clearing the last task_complete latch starts a grouping hold", () => {
+    const store = useAgentAttentionStore.getState();
+    store.raise({
+      stablePaneId: "ws-1:main",
+      contextId: "ws-1",
+      reason: "task_complete",
+    });
+    store.notifyPaneFocused("ws-1:main");
+    expect(store.hasPaneAttention("ws-1:main")).toBe(false);
+    expect(
+      useWorkspaceAgentGroupingHoldStore.getState().isHoldActive("ws-1"),
+    ).toBe(true);
+  });
+
+  test("clearing permission does not start a grouping hold", () => {
+    const store = useAgentAttentionStore.getState();
+    store.raise({
+      stablePaneId: "ws-1:main",
+      contextId: "ws-1",
+      reason: "permission_request",
+    });
+    store.notifyPaneFocused("ws-1:main");
+    expect(
+      useWorkspaceAgentGroupingHoldStore.getState().isHoldActive("ws-1"),
+    ).toBe(false);
+  });
+
+  test("grouping hold waits until the last task_complete latch on the context is gone", () => {
+    const store = useAgentAttentionStore.getState();
+    store.raise({
+      stablePaneId: "ws-1:a",
+      contextId: "ws-1",
+      reason: "task_complete",
+    });
+    store.raise({
+      stablePaneId: "ws-1:b",
+      contextId: "ws-1",
+      reason: "task_complete",
+    });
+    store.notifyPaneFocused("ws-1:a");
+    expect(
+      useWorkspaceAgentGroupingHoldStore.getState().isHoldActive("ws-1"),
+    ).toBe(false);
+    expect(store.hasContextAttention("ws-1")).toBe(true);
+    store.notifyPaneFocused("ws-1:b");
+    expect(
+      useWorkspaceAgentGroupingHoldStore.getState().isHoldActive("ws-1"),
+    ).toBe(true);
+  });
+
+  test("unacknowledged task_complete does not start a grouping hold", () => {
+    useAgentAttentionStore.getState().raise({
+      stablePaneId: "ws-1:main",
+      contextId: "ws-1",
+      reason: "task_complete",
+    });
+    expect(
+      useWorkspaceAgentGroupingHoldStore.getState().isHoldActive("ws-1"),
+    ).toBe(false);
+    expect(useAgentAttentionStore.getState().hasContextAttention("ws-1")).toBe(
+      true,
+    );
+  });
+
+  test("grouping hold survives ack and expires after the dwell window", () => {
+    const attention = useAgentAttentionStore.getState();
+    attention.raise({
+      stablePaneId: "ws-1:main",
+      contextId: "ws-1",
+      reason: "task_complete",
+    });
+    attention.notifyPaneFocused("ws-1:main");
+    expect(attention.getContextReason("ws-1")).toBeNull();
+    expect(
+      useWorkspaceAgentGroupingHoldStore.getState().isHoldActive("ws-1"),
+    ).toBe(true);
+
+    useWorkspaceAgentGroupingHoldStore
+      .getState()
+      .expireDue(Date.now() + WORKSPACE_AGENT_GROUPING_HOLD_MS + 1);
+    expect(
+      useWorkspaceAgentGroupingHoldStore.getState().isHoldActive("ws-1"),
+    ).toBe(false);
   });
 
   test("notifyPaneFocused acknowledges the pane so idle agent status can drop", () => {

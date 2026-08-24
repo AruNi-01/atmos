@@ -201,7 +201,7 @@ function ConfidenceDisclosure({
   const t = useTranslations('Selection.components');
   return (
     <details className="group space-y-1">
-      <summary className="flex w-full cursor-pointer list-none items-center justify-between gap-2 rounded-md py-0.5 text-left transition-colors hover:text-foreground">
+      <summary className="flex w-full cursor-pointer list-none items-center justify-between gap-2 rounded-md py-0.5 text-left hover:text-foreground">
         <div className="flex min-w-0 items-center gap-1.5">
           <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-200 ease-out group-open:rotate-180 motion-reduce:transition-none" />
           <div className="truncate text-[11px] font-medium text-muted-foreground group-hover:text-foreground">

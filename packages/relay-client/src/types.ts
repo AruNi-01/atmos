@@ -11,6 +11,8 @@ export type ComputerRow = {
   last_seen_at: number | null;
   registration_meta: Record<string, unknown> | null;
   online: boolean;
+  /** HMAC of host machine id; null on legacy rows. Same value ⇒ same physical machine. */
+  app_device_id?: string | null;
 };
 
 export type ClientSessionResponse = {

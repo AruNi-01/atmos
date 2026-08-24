@@ -547,7 +547,7 @@ export function AgentChatPanel({
           <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
             <button
               type="button"
-              className="inline-flex h-8 items-center justify-center rounded-md border border-border bg-background px-3 text-xs font-medium text-foreground shadow-sm transition-colors hover:bg-muted"
+              className="inline-flex h-8 items-center justify-center rounded-md border border-border bg-background px-3 text-xs font-medium text-foreground shadow-sm hover:bg-muted"
               onClick={handleReturnChatToEmbedded}
             >
               {t("header.standaloneWindow.returnHere")}
@@ -555,7 +555,7 @@ export function AgentChatPanel({
             {variant === "modal" && (
               <button
                 type="button"
-                className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md border border-border bg-background px-3 text-xs font-medium text-foreground shadow-sm transition-colors hover:bg-muted"
+                className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md border border-border bg-background px-3 text-xs font-medium text-foreground shadow-sm hover:bg-muted"
                 onClick={session.handleClose}
               >
                 <X className="size-3.5" aria-hidden="true" />

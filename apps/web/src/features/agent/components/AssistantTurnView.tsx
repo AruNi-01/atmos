@@ -13,7 +13,8 @@ import {
   TextMorph,
 } from "@workspace/ui";
 import { ChevronRight, FileText } from "lucide-react";
-import { useContextParams } from "@/shared/hooks/use-context-params";
+import { attachCenterTab } from "@/app-shell/center-space/center-open-context";
+import { useCenterPaintContextId } from "@/app-shell/center-space/use-center-paint-context-id";
 import { useEditorStore } from "@/features/editor/store/use-editor-store";
 import { MarkdownCodeBlock } from "@/shared/components/markdown/MarkdownRenderer";
 import { resolveAgentVendor } from "@/features/agent/lib/agent/agent-vendor";
@@ -33,11 +34,13 @@ const REVIEW_PATH_RE = /(?:\/[\w.~-]+)*\/\.atmos\/reviews\/[\w./:~-]+\.md/;
 
 function useReviewLinkComponents() {
   const openFile = useEditorStore(s => s.openFile);
-  const { effectiveContextId } = useContextParams();
+  const paintContextId = useCenterPaintContextId();
 
   return useMemo(() => {
     const handleOpen = (path: string) => {
-      void openFile(path, effectiveContextId || undefined, { preview: true });
+      if (!paintContextId) return;
+      void openFile(path, paintContextId, { preview: true });
+      attachCenterTab(paintContextId, path);
     };
 
     const ReviewCode = (props: React.ComponentPropsWithoutRef<"code"> & { node?: unknown }) => {
@@ -49,7 +52,7 @@ function useReviewLinkComponents() {
           <button
             type="button"
             onClick={() => handleOpen(text)}
-            className="inline-flex items-center gap-1 rounded-sm bg-primary/10 px-1.5 py-0.5 font-mono text-[0.85em] text-primary underline decoration-primary/40 underline-offset-2 transition-colors hover:bg-primary/20 hover:decoration-primary cursor-pointer"
+            className="inline-flex items-center gap-1 rounded-sm bg-primary/10 px-1.5 py-0.5 font-mono text-[0.85em] text-primary underline decoration-primary/40 underline-offset-2 hover:bg-primary/20 hover:decoration-primary cursor-pointer"
             title={text}
           >
             <FileText className="size-3 shrink-0" />
@@ -61,7 +64,7 @@ function useReviewLinkComponents() {
     };
 
     return { code: ReviewCode };
-  }, [openFile, effectiveContextId]);
+  }, [openFile, paintContextId]);
 }
 
 function isBlockHidden(
@@ -278,7 +281,7 @@ export function AssistantTurnView({
     return (
       <>
         <Collapsible open={stepsExpanded} onOpenChange={setStepsExpanded}>
-          <CollapsibleTrigger className="w-full cursor-pointer transition-colors hover:text-foreground">
+          <CollapsibleTrigger className="w-full cursor-pointer hover:text-foreground">
             <ProcessDivider expanded={stepsExpanded} t={t} />
           </CollapsibleTrigger>
           <CollapsibleContent className="space-y-2 pt-1">
@@ -287,7 +290,7 @@ export function AssistantTurnView({
             ))}
             <CollapsibleTrigger
               aria-label={t("assistantTurn.process.collapseAria")}
-              className="flex w-full cursor-pointer items-center gap-2 py-1 text-muted-foreground transition-colors hover:text-foreground"
+              className="flex w-full cursor-pointer items-center gap-2 py-1 text-muted-foreground hover:text-foreground"
             >
               <div className="h-px flex-1 bg-border" />
               <span className="shrink-0 text-xs leading-none">{t("assistantTurn.process.collapseLabel")}</span>

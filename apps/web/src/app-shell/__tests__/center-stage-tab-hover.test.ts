@@ -49,6 +49,7 @@ describe("center stage tab hover", () => {
     expect(shared).toContain("export function CenterStageTabIconSlot");
     expect(shared).toContain("group-hover:invisible");
     expect(shared).toContain("group-hover:pointer-events-auto");
+    expect(shared).toContain("onHoverAction");
     expect(tabBar).toContain("CenterStageTabIconSlot");
     expect(tabBar).not.toContain("CreateTerminalTabButton");
     expect(tabBar).not.toContain("backdrop-blur-[4px]");
@@ -64,5 +65,61 @@ describe("center stage tab hover", () => {
     expect(menuBlock).toContain("data-center-stage-layouts-menu");
     expect(menuBlock).not.toContain("right-full");
     expect(menuBlock).not.toContain("overflow-visible");
+  });
+
+  it("keeps plus-menu tab clicks on the popover instead of the terminal toolbar", () => {
+    const menuBlock = tabBar.slice(
+      tabBar.indexOf("function isCenterStagePlusMenuEventTarget"),
+      tabBar.indexOf("function SpecialTerminalTab"),
+    );
+    expect(menuBlock).toContain("function isCenterStagePlusMenuEventTarget");
+    expect(menuBlock).toContain('data-center-stage-plus-menu=""');
+    expect(menuBlock).toContain('data-center-stage-plus-trigger=""');
+    expect(menuBlock).toContain("isCenterStagePlusMenuEventTarget(next)");
+    expect(menuBlock).toContain("isCenterStagePlusMenuEventTarget(event.target)");
+    expect(menuBlock).toContain("onPointerDown={(event) => event.stopPropagation()}");
+    expect(menuBlock).toContain('className="z-[90] w-48 overflow-hidden border-border/70');
+
+    const terminalGridCss = readFileSync(
+      join(import.meta.dir, "../../features/terminal/components/terminal-grid.css"),
+      "utf8",
+    );
+    expect(terminalGridCss).toContain(
+      'body:has([data-center-stage-plus-menu][data-state="open"]) .terminal-grid-container',
+    );
+    expect(terminalGridCss).toContain("pointer-events: none !important;");
+  });
+
+  it("splits the plus menu into click-switch pill tabs that fill the popover", () => {
+    const menuBlock = tabBar.slice(
+      tabBar.indexOf("function CenterStageNewTabMenu"),
+      tabBar.indexOf("function SpecialTerminalTab"),
+    );
+    expect(tabBar).toContain('@workspace/ui/components/motion/tabs');
+    expect(menuBlock).toContain('variant="pill"');
+    expect(menuBlock).toContain('className="flex h-8 w-full min-w-0 gap-0.5 bg-muted p-0.5"');
+    expect(menuBlock).toContain('onValueChange={(value) => {');
+    const tabList = menuBlock.slice(
+      menuBlock.indexOf("<MotionTabsList"),
+      menuBlock.indexOf("</MotionTabsList>"),
+    );
+    expect(tabList).not.toContain("onMouseEnter");
+    expect(tabList).not.toContain("setPlusTab");
+    expect(menuBlock).toContain('value="tabs"');
+    expect(menuBlock).toContain('value="layout"');
+    expect(menuBlock).toContain("plusMenuTabsLabel");
+    expect(menuBlock).toContain("plusMenuLayoutLabel");
+  });
+
+  it("animates plus-menu popover height when switching tabs", () => {
+    const menuBlock = tabBar.slice(
+      tabBar.indexOf("function PlusMenuTabPanels"),
+      tabBar.indexOf("function CenterStageNewTabMenu"),
+    );
+    expect(menuBlock).toContain("ResizeObserver");
+    expect(menuBlock).toContain("animate={reduce || height === \"auto\" ? undefined : { height }}");
+    expect(menuBlock).toContain("overflow-hidden");
+    expect(menuBlock).toContain("scale: tab === \"tabs\" ? 1 : 0.96");
+    expect(tabBar).toContain("w-48 overflow-hidden border-border/70");
   });
 });

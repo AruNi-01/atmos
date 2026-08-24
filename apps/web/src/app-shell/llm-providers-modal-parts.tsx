@@ -334,7 +334,7 @@ export function SaveStateButton({
       disabled={disabled}
       variant={variant}
       className={cn(
-        "relative justify-center overflow-hidden transition-[background-color,border-color,color,box-shadow] duration-300",
+        "relative justify-center overflow-hidden transition-shadow duration-300",
         state === "saved" &&
           !variant &&
           "bg-emerald-600 text-white hover:bg-emerald-600",

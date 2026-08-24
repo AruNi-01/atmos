@@ -24,7 +24,6 @@ const ExpandButton = ({
       title={expanded ? t("collapseCode") : t("expandCode")}
       className={cn(
         "cursor-pointer",
-        "transition-colors duration-200 ease-in-out",
         "text-neutral-600 dark:text-neutral-400",
         "hover:text-neutral-950 hover:dark:text-neutral-50",
         className,

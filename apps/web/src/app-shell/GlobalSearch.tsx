@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } from 'react';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { useFocusRestore } from '@/shared/hooks/use-focus-restore';
 import { useAppRouter } from '@/shared/hooks/use-app-router';
@@ -39,6 +39,7 @@ import {
   type GroupedAppItems,
   type SubView,
 } from '@/app-shell/global-search-content';
+import { resolveGlobalSearchTypeahead } from '@/app-shell/global-search-focus';
 
 function normalizeGlobalSearchValue(value: string) {
   return value
@@ -165,6 +166,8 @@ export function GlobalSearch() {
   const [selectedValue, setSelectedValue] = useState<string>("");
   const [hoveredValue, setHoveredValue] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const searchQueryRef = useRef(searchQuery);
+  searchQueryRef.current = searchQuery;
 
   // Fullscreen state
   const [isFullScreen, setIsFullScreen] = useState(false);
@@ -266,6 +269,46 @@ export function GlobalSearch() {
       setSubView(null);
     }
   }, [isGlobalSearchOpen]);
+
+  const focusSearchInput = useCallback((event?: Event) => {
+    event?.preventDefault();
+    const dialog = event?.currentTarget instanceof HTMLElement ? event.currentTarget : null;
+    const input =
+      inputRef.current ??
+      dialog?.querySelector<HTMLInputElement>("[data-slot='command-input'], [cmdk-input]");
+    input?.focus();
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!isGlobalSearchOpen || subView) return;
+    const focus = () => inputRef.current?.focus();
+    focus();
+    const frame = requestAnimationFrame(focus);
+    const timeout = window.setTimeout(focus, 0);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.clearTimeout(timeout);
+    };
+  }, [isGlobalSearchOpen, subView]);
+
+  useEffect(() => {
+    if (!isGlobalSearchOpen || subView) return;
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      const currentQuery = searchQueryRef.current;
+      const result = resolveGlobalSearchTypeahead(event, inputRef.current, currentQuery);
+      if (!result) return;
+      if (result.preventDefault) event.preventDefault();
+      inputRef.current?.focus();
+      if (result.query !== currentQuery) {
+        searchQueryRef.current = result.query;
+        setSearchQuery(result.query);
+      }
+    };
+
+    document.addEventListener('keydown', onKeyDown, true);
+    return () => document.removeEventListener('keydown', onKeyDown, true);
+  }, [isGlobalSearchOpen, subView]);
 
   // Reset selection when tab or query changes
   useEffect(() => {
@@ -475,7 +518,8 @@ export function GlobalSearch() {
         setGlobalSearchOpen(open);
       }}
       onCloseAutoFocus={onCloseAutoFocusPrevent}
-      className="w-[min(740px,calc(100vw-2rem))] sm:max-w-[740px] h-[min(82vh,900px)]"
+      onOpenAutoFocus={focusSearchInput}
+      className="w-[min(640px,calc(100vw-2rem))] sm:max-w-[640px] h-[min(64vh,640px)]"
     >
       {subView === 'todo' ? (
         <TodoSubView

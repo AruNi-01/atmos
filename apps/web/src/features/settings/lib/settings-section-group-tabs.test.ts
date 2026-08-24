@@ -1,14 +1,21 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, test } from "bun:test";
 
 import {
+  __resetSettingsGroupTabMemoryForTests,
   getSettingsSectionGroupTabs,
   isForeignSettingsGroupTabHash,
+  peekLastSettingsGroupTab,
+  rememberSettingsGroupTab,
   resolveSettingsGroupTab,
   resolveSettingsGroupTabFromSearch,
   settingsGroupTabFromTranslationKey,
   settingsGroupTabForSearchItem,
   settingsGroupTabLabelKey,
 } from "./settings-section-group-tabs";
+
+afterEach(() => {
+  __resetSettingsGroupTabMemoryForTests();
+});
 
 describe("settings section group tabs", () => {
   test("splits stacked pages into named groups", () => {
@@ -34,6 +41,13 @@ describe("settings section group tabs", () => {
     expect(resolveSettingsGroupTab("apps", "missing", "desktop-use")).toBe("desktop-use");
     expect(resolveSettingsGroupTab("apps", "")).toBe("integrations");
     expect(resolveSettingsGroupTab("keyboard", "browser")).toBeNull();
+  });
+
+  test("remembers the last group tab in memory", () => {
+    rememberSettingsGroupTab("apps", "desktop-use");
+    expect(peekLastSettingsGroupTab("apps")).toBe("desktop-use");
+    expect(resolveSettingsGroupTab("apps", "")).toBe("desktop-use");
+    expect(resolveSettingsGroupTab("apps", "browser")).toBe("browser");
   });
 
   test("maps search items onto the owning group tab", () => {

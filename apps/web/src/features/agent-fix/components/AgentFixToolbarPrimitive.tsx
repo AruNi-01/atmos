@@ -2,7 +2,7 @@
 
 import React from "react";
 import { Copy, Loader2 } from "lucide-react";
-import { cn } from "@workspace/ui";
+import { Button, cn } from "@workspace/ui";
 
 type AgentFixToolbarPrimitiveVariant = "bottom" | "inline" | "review";
 type AgentFixToolbarPrimitiveSize = "sm" | "xs";
@@ -17,6 +17,9 @@ type AgentFixToolbarPrimitiveAction = {
   onClick: () => void | Promise<void>;
   title?: string;
 };
+
+const REVIEW_GHOST_BUTTON_CLASS =
+  "text-muted-foreground shadow-none hover:bg-sidebar-accent hover:text-foreground";
 
 export function AgentFixToolbarPrimitive({
   className,
@@ -39,16 +42,60 @@ export function AgentFixToolbarPrimitive({
 }) {
   const isBottom = variant === "bottom";
   const isReview = variant === "review";
-  const controlHeightClass = isReview ? "h-full" : size === "xs" ? "h-6" : "h-8";
-  const settingsSizeClass = isReview ? "h-full w-8" : size === "xs" ? "size-6" : "size-8";
+
+  if (isReview) {
+    return (
+      <div className={cn("flex min-w-0 items-center gap-1", className)} title={title}>
+        {renderSettings(REVIEW_GHOST_BUTTON_CLASS)}
+        {copyAction ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            disabled={copyAction.disabled}
+            onClick={() => void copyAction.onClick()}
+            className={REVIEW_GHOST_BUTTON_CLASS}
+            aria-label={copyAction.ariaLabel}
+            title={copyAction.title}
+          >
+            {copyAction.isLoading ? (
+              <Loader2 className="size-3.5 animate-spin" />
+            ) : (
+              copyAction.icon ?? <Copy className="size-3.5" />
+            )}
+          </Button>
+        ) : null}
+        <Button
+          type="button"
+          variant="ghost"
+          size="xs"
+          disabled={primaryAction.disabled}
+          onClick={() => void primaryAction.onClick()}
+          className={cn("min-w-0 gap-1", REVIEW_GHOST_BUTTON_CLASS)}
+          aria-label={primaryAction.ariaLabel}
+          title={primaryAction.title}
+        >
+          {primaryAction.isLoading ? (
+            <Loader2 className="size-3.5 shrink-0 animate-spin" />
+          ) : (
+            <span className="shrink-0">{primaryAction.icon}</span>
+          )}
+          {primaryAction.hideLabel ? null : (
+            <span className="min-w-0 truncate">{primaryAction.label}</span>
+          )}
+        </Button>
+      </div>
+    );
+  }
+
+  const controlHeightClass = size === "xs" ? "h-6" : "h-8";
+  const settingsSizeClass = size === "xs" ? "size-6" : "size-8";
   const iconSizeClass = size === "xs" ? "size-3" : "size-3.5";
-  const textSizeClass = isReview ? "text-[13px]" : size === "xs" ? "text-[11px]" : "text-xs";
-  const segmentPaddingClass = isReview ? "px-2.5" : size === "xs" ? "px-2" : "px-2.5";
-  const segmentClass = isReview
-    ? "text-foreground hover:bg-sidebar-accent/30 transition-colors duration-180 ease-[cubic-bezier(0.22,1,0.36,1)]"
-    : isBottom
-      ? "text-foreground/90 transition-colors duration-180 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-background hover:text-foreground"
-      : "text-secondary-foreground transition-colors duration-180 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-secondary/80 hover:text-secondary-foreground";
+  const textSizeClass = size === "xs" ? "text-[11px]" : "text-xs";
+  const segmentPaddingClass = size === "xs" ? "px-2" : "px-2.5";
+  const segmentClass = isBottom
+    ? "text-foreground/90 hover:bg-background hover:text-foreground"
+    : "text-secondary-foreground hover:bg-secondary/80 hover:text-secondary-foreground";
   const settingsClassName = cn(
     "shrink-0 rounded-none border-0 border-r border-border/50 bg-transparent shadow-none",
     settingsSizeClass,
@@ -61,27 +108,14 @@ export function AgentFixToolbarPrimitive({
     segmentClass,
     "disabled:cursor-not-allowed disabled:opacity-50",
   );
-  const copyButtonClass = cn(
-    buttonBaseClass,
-    "border-r border-border/50",
-    copyAction?.hideLabel && isReview ? "w-8 shrink-0 px-0" : segmentPaddingClass,
-  );
-  const primaryButtonClass = cn(
-    buttonBaseClass,
-    segmentPaddingClass,
-    isReview ? "min-w-8 flex-1 basis-0" : "flex-1",
-  );
+  const copyButtonClass = cn(buttonBaseClass, "border-r border-border/50", segmentPaddingClass);
+  const primaryButtonClass = cn(buttonBaseClass, segmentPaddingClass, "flex-1");
 
   return (
     <div
       className={cn(
-        "flex min-w-0 items-stretch overflow-hidden",
-        isReview
-          ? "h-full flex-1 rounded-none border-0 bg-transparent"
-          : cn(
-              "rounded-md border shadow-none",
-              isBottom ? "w-full border-border/60 bg-muted/30" : "border-transparent bg-secondary",
-            ),
+        "flex min-w-0 items-stretch overflow-hidden rounded-md border shadow-none",
+        isBottom ? "w-full border-border/60 bg-muted/30" : "border-transparent bg-secondary",
         className,
       )}
       title={title}

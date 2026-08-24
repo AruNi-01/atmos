@@ -106,6 +106,7 @@ fn is_safe_git_rev(rev: &str) -> bool {
 }
 
 /// GET /api/system/file?path=<absolute_path>
+#[allow(clippy::result_large_err)]
 pub async fn serve_file(Query(query): Query<ServeFileQuery>) -> Result<Response, Response> {
     let file_path = std::path::Path::new(&query.path);
 
@@ -144,6 +145,7 @@ pub async fn serve_file(Query(query): Query<ServeFileQuery>) -> Result<Response,
 ///
 /// Streams a historical or index blob via `git show`. Used for binary/image
 /// previews in the diff UI without embedding bytes in the WebSocket payload.
+#[allow(clippy::result_large_err)]
 pub async fn serve_git_blob(Query(query): Query<ServeGitBlobQuery>) -> Result<Response, Response> {
     let repo = std::path::PathBuf::from(query.repo.trim());
     if !repo.is_absolute() || !repo.is_dir() {

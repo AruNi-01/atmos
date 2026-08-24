@@ -55,3 +55,38 @@ export function sceneRectToBoardBox(
 export function prefersReducedMotion(): boolean {
   return typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 }
+
+export function instanceIdsFromToolData(data: unknown): string[] {
+  if (!data || typeof data !== "object") return [];
+  const rec = data as Record<string, unknown>;
+  if (Array.isArray(rec.instanceIds)) {
+    return rec.instanceIds.filter((id): id is string => typeof id === "string" && id.length > 0);
+  }
+  if (typeof rec.instanceId === "string" && rec.instanceId) return [rec.instanceId];
+  if (Array.isArray(rec.results)) {
+    return rec.results.flatMap((item) => {
+      if (!item || typeof item !== "object") return [];
+      const row = item as Record<string, unknown>;
+      if (row.ok === false) return [];
+      return instanceIdsFromToolData(row.data);
+    });
+  }
+  return [];
+}
+
+export function frameIdFromToolData(data: unknown): string | undefined {
+  if (!data || typeof data !== "object") return undefined;
+  const rec = data as Record<string, unknown>;
+  if (typeof rec.frameId === "string" && rec.frameId) return rec.frameId;
+  if (Array.isArray(rec.results)) {
+    for (let i = rec.results.length - 1; i >= 0; i--) {
+      const item = rec.results[i];
+      if (!item || typeof item !== "object") continue;
+      const row = item as Record<string, unknown>;
+      if (row.ok === false) continue;
+      const id = frameIdFromToolData(row.data);
+      if (id) return id;
+    }
+  }
+  return undefined;
+}

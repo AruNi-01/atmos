@@ -59,7 +59,7 @@ export function BrowserFavoritesListPopover({
       <PopoverTrigger asChild>
         <button
           type="button"
-          className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
+          className="flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-background hover:text-foreground"
           title={favoritesLabel}
           aria-label={favoritesLabel}
         >
@@ -119,7 +119,7 @@ export function BrowserFavoritesListPopover({
                         />
                         <button
                           onClick={() => void handleRenameFavorite(site)}
-                          className="rounded-sm p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                          className="rounded-sm p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
                           title={saveLabel}
                         >
                           <Check className="size-3.5" />
@@ -129,7 +129,7 @@ export function BrowserFavoritesListPopover({
                             setRenamingUrl(null);
                             setRenameDraft("");
                           }}
-                          className="rounded-sm p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                          className="rounded-sm p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
                           title={cancelLabel}
                         >
                           <X className="size-3.5" />
@@ -159,7 +159,7 @@ export function BrowserFavoritesListPopover({
                             setRenameDraft(site.name ?? "");
                           }}
                           type="button"
-                          className="rounded-sm p-1 text-muted-foreground opacity-0 transition-all hover:bg-muted hover:text-foreground group-hover/item:opacity-100"
+                          className="rounded-sm p-1 text-muted-foreground opacity-0 transition-[opacity,transform] hover:bg-muted hover:text-foreground group-hover/item:opacity-100"
                           title={renameLabel}
                         >
                           <Pencil className="size-3.5" />
@@ -167,7 +167,7 @@ export function BrowserFavoritesListPopover({
                         <button
                           onClick={() => void handleDeleteFavorite(site)}
                           type="button"
-                          className="rounded-sm p-1 text-muted-foreground opacity-0 transition-all hover:bg-destructive/10 hover:text-destructive group-hover/item:opacity-100"
+                          className="rounded-sm p-1 text-muted-foreground opacity-0 transition-[opacity,transform] hover:bg-destructive/10 hover:text-destructive group-hover/item:opacity-100"
                           title={deleteLabel}
                         >
                           <Trash2 className="size-3.5" />

@@ -317,7 +317,7 @@ export function CanvasEmptyBrushAddWidgetPopover({
             <button
               type="button"
               onClick={() => onOpenChange(false)}
-              className="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              className="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
               aria-label={t("actions.cancel")}
             >
               <X className="size-3.5" />
@@ -340,7 +340,7 @@ export function CanvasEmptyBrushAddWidgetPopover({
                   <button
                     type="button"
                     className={cn(
-                      "flex min-h-11 w-full items-center gap-2.5 rounded-md border border-border/70 bg-muted/35 px-3 py-2 text-left transition-colors",
+                      "flex min-h-11 w-full items-center gap-2.5 rounded-md border border-border/70 bg-muted/35 px-3 py-2 text-left",
                       "hover:border-foreground/30 hover:bg-accent/60 focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/45",
                     )}
                   >
@@ -406,7 +406,7 @@ export function CanvasEmptyBrushAddWidgetPopover({
                       type="button"
                       onClick={() => selectContext(null)}
                       className={cn(
-                        "flex w-full items-center justify-between gap-2 rounded-md px-2.5 py-2 text-left text-sm transition-colors",
+                        "flex w-full items-center justify-between gap-2 rounded-md px-2.5 py-2 text-left text-sm",
                         "hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/45",
                         selectedContextValue == null && "bg-accent text-accent-foreground",
                       )}
@@ -431,7 +431,7 @@ export function CanvasEmptyBrushAddWidgetPopover({
                             type="button"
                             onClick={() => selectContext(option.value)}
                             className={cn(
-                              "flex w-full items-start gap-2 rounded-md px-2.5 py-2 text-left transition-colors",
+                              "flex w-full items-start gap-2 rounded-md px-2.5 py-2 text-left",
                               "hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/45",
                               active && "bg-accent text-accent-foreground",
                             )}
@@ -539,7 +539,7 @@ export function CanvasEmptyBrushAddWidgetPopover({
                                 setSelectedItemType((prev) => (prev === type ? null : type))
                               }
                               className={cn(
-                                "flex min-h-[4.25rem] items-start gap-2.5 rounded-md bg-muted/35 p-2.5 text-left transition-colors",
+                                "flex min-h-[4.25rem] items-start gap-2.5 rounded-md bg-muted/35 p-2.5 text-left",
                                 "enabled:hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/45",
                                 "disabled:cursor-not-allowed disabled:bg-muted/20 disabled:opacity-45",
                                 active && "bg-accent",

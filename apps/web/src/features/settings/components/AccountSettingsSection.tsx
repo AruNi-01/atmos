@@ -49,9 +49,11 @@ import { clearWebRelayClientCache } from "@/features/connection/lib/create-web-r
 import { isDesktopRuntime } from "@/shared/lib/desktop-runtime";
 import {
   SettingsGroup,
+  SettingsGroupCard,
   SettingsPageStack,
   SettingsSection,
 } from "@/features/settings/components/settings/SettingsGroupCard";
+import { hubProfileUser } from "@/features/settings/lib/hub-profile-user";
 
 export function AccountSettingsSection() {
   const t = useTranslations("settings.accountSection");
@@ -277,17 +279,13 @@ function AccountSettingsBody() {
     }
   };
 
-  // better-auth-ui UserView accepts a user-like object; desktop device auth has no cookie session.
-  const profileUser = cookieUser
-    ? cookieUser
-    : me
-      ? {
-          id: me.user_id,
-          name: me.name || me.handle || t("signedIn"),
-          email: me.email ?? undefined,
-          image: undefined as string | undefined,
-        }
-      : null;
+  // Cookie session (web) or /v1/me (device Bearer). Keep the OAuth avatar URL
+  // from either source — UserView is a regular <img>, not next/image.
+  const profileUser = hubProfileUser({
+    cookieUser,
+    me,
+    fallbackName: t("signedIn"),
+  });
 
   const identityPending =
     (sessionQuery.isLoading || meQuery.isLoading) && !signedIn;
@@ -325,11 +323,14 @@ function AccountSettingsBody() {
         </SettingsSection>
       ) : (
         <>
-          <SettingsGroup>
+          <SettingsGroupCard
+            title={t("profileTitle")}
+            description={t("profileDescription")}
+          >
             <div className="flex flex-wrap items-center justify-between gap-4 px-2 py-3">
               {profileUser ? (
                 <UserView
-                  key={`${profileUser.id}:${profileUser.name ?? ""}`}
+                  key={`${profileUser.id}:${profileUser.name}:${profileUser.image ?? ""}`}
                   user={profileUser}
                   size="lg"
                 />
@@ -405,7 +406,7 @@ function AccountSettingsBody() {
             {error ? (
               <p className="px-2 py-3 text-xs text-destructive">{error}</p>
             ) : null}
-          </SettingsGroup>
+          </SettingsGroupCard>
 
           {cookieUser ? (
             <HubNameSettingsCard

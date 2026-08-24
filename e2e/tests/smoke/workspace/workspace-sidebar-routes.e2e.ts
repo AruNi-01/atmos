@@ -31,16 +31,17 @@ test.describe("smoke workspace", () => {
     await gotoContextRoute(page, withSearchParams(contextUrl, { tab: "files" }), {
       locale: "zh",
     });
+    await expect(page.getByRole("tab", { name: /^(文件|Files)$/ })).toBeVisible({
+      timeout: 45_000,
+    });
     await expect
       .poll(async () => new URL(page.url()).searchParams.get("tab"))
-      .toBe("files");
+      .toBeNull();
 
     await gotoContextRoute(page, withSearchParams(contextUrl, { tab: "changes" }), {
       locale: "zh",
     });
-    await expect
-      .poll(async () => new URL(page.url()).searchParams.get("tab") ?? "changes")
-      .toBe("changes");
+    await expect(page.getByRole("tab", { name: /^(变更|Changes)$/ })).toBeVisible();
     const changesStage = await getCenterStage(page);
     const scopeTrigger = changesStage.getByRole("button", {
       name: /选择变更范围|Select changes scope/,
@@ -48,32 +49,27 @@ test.describe("smoke workspace", () => {
     await expect(scopeTrigger).toBeVisible();
     await scopeTrigger.click();
     await page.getByRole("menuitem", { name: /^(图形历史|Graph History)$/ }).click();
-    await expect
-      .poll(async () => new URL(page.url()).searchParams.get("tab"))
-      .toBe("git-history");
     // The tab's computed name can include the close control; do not require an exact match.
     await expect(page.getByRole("tab", { name: /图形历史|Graph History/ })).toBeVisible();
 
     await gotoContextRoute(page, withSearchParams(contextUrl, { tab: "review" }), {
       locale: "zh",
     });
-    await expect
-      .poll(async () => new URL(page.url()).searchParams.get("tab"))
-      .toBe("review");
+    await expect(page.getByRole("tab", { name: /^(评审|Review)$/ })).toBeVisible();
 
     await gotoContextRoute(page, withSearchParams(contextUrl, { tab: "run" }), {
       locale: "zh",
     });
-    await expect
-      .poll(async () => new URL(page.url()).searchParams.get("tab"))
-      .toBe("run");
+    const runStage = await getCenterStage(page);
+    // The Run surface's inner terminal strip reuses the same 运行/Run tab name.
+    await expect(
+      runStage.getByRole("tablist").first().getByRole("tab", { name: /运行|Run/ }),
+    ).toBeVisible();
 
     await gotoContextRoute(page, withSearchParams(contextUrl, { tab: "github" }), {
       locale: "zh",
     });
-    await expect
-      .poll(async () => new URL(page.url()).searchParams.get("tab"))
-      .toBe("github");
+    await expect(page.getByRole("tab", { name: /^GitHub$/ })).toBeVisible();
     const githubStage = await getCenterStage(page);
     await expect(githubStage.getByRole("tab", { name: "拉取请求" })).toBeVisible();
     await expect(githubStage.getByRole("tab", { name: "议题" })).toBeVisible();
@@ -129,9 +125,9 @@ test.describe("smoke workspace", () => {
     });
     expect(secondResponse, `missing navigation response for ${filesRoute}`).not.toBeNull();
     expect(secondResponse!.status(), `unexpected status for ${filesRoute}`).toBeLessThan(500);
-    await expect
-      .poll(async () => new URL(page.url()).searchParams.get("tab"))
-      .toBe("files");
+    await expect(page.getByRole("tab", { name: /^(文件|Files)$/ })).toBeVisible({
+      timeout: 45_000,
+    });
     await expect
       .poll(async () => new URL(page.url()).searchParams.get("lsTask") ?? "")
       .toBe("");

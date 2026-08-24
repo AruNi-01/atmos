@@ -67,22 +67,22 @@ export interface RegistryInstallResponse {
 
 export const agentApi = {
   list: async (): Promise<{ agents: AgentStatus[] }> => {
-    return wsRequest<{ agents: AgentStatus[] }>("agent_list");
+    return wsRequest("agent_list");
   },
 
   install: async (id: AgentId): Promise<AgentInstallResponse> => {
-    return wsRequest<AgentInstallResponse>("agent_install", { id });
+    return wsRequest("agent_install", { id });
   },
 
   getConfig: async (id: AgentId): Promise<AgentConfigState> => {
-    return wsRequest<AgentConfigState>("agent_config_get", { id });
+    return wsRequest("agent_config_get", { id });
   },
 
   setConfig: async (
     id: AgentId,
     apiKey: string,
   ): Promise<{ success: boolean }> => {
-    return wsRequest<{ success: boolean }>("agent_config_set", {
+    return wsRequest("agent_config_set", {
       id,
       api_key: apiKey,
     });
@@ -91,7 +91,7 @@ export const agentApi = {
   listRegistry: async (
     forceRefresh = false,
   ): Promise<{ agents: RegistryAgent[] }> => {
-    return wsRequest<{ agents: RegistryAgent[] }>("agent_registry_list", {
+    return wsRequest("agent_registry_list", {
       force_refresh: forceRefresh,
     });
   },
@@ -100,8 +100,7 @@ export const agentApi = {
     registryId: string,
     forceOverwrite = false,
   ): Promise<RegistryInstallResponse> => {
-    return wsRequest<RegistryInstallResponse>(
-      "agent_registry_install",
+    return wsRequest("agent_registry_install",
       {
         registry_id: registryId,
         force_overwrite: forceOverwrite,
@@ -113,8 +112,7 @@ export const agentApi = {
   removeRegistry: async (
     registryId: string,
   ): Promise<RegistryInstallResponse> => {
-    return wsRequest<RegistryInstallResponse>(
-      "agent_registry_remove",
+    return wsRequest("agent_registry_remove",
       {
         registry_id: registryId,
       },
@@ -123,7 +121,7 @@ export const agentApi = {
   },
 
   listCustomAgents: async (): Promise<{ agents: CustomAgent[] }> => {
-    return wsRequest<{ agents: CustomAgent[] }>("custom_agent_list");
+    return wsRequest("custom_agent_list");
   },
 
   addCustomAgent: async (agent: {
@@ -132,22 +130,22 @@ export const agentApi = {
     args: string[];
     env: Record<string, string>;
   }): Promise<{ success: boolean }> => {
-    return wsRequest<{ success: boolean }>("custom_agent_add", agent);
+    return wsRequest("custom_agent_add", agent);
   },
 
   removeCustomAgent: async (name: string): Promise<{ success: boolean }> => {
-    return wsRequest<{ success: boolean }>("custom_agent_remove", { name });
+    return wsRequest("custom_agent_remove", { name });
   },
 
   getCustomAgentsJson: async (): Promise<{ json: string }> => {
-    return wsRequest<{ json: string }>("custom_agent_get_json");
+    return wsRequest("custom_agent_get_json");
   },
 
   setCustomAgentsJson: async (json: string): Promise<{ success: boolean }> => {
-    return wsRequest<{ success: boolean }>("custom_agent_set_json", { json });
+    return wsRequest("custom_agent_set_json", { json });
   },
 
   getManifestPath: async (): Promise<{ path: string }> => {
-    return wsRequest<{ path: string }>("custom_agent_get_manifest_path");
+    return wsRequest("custom_agent_get_manifest_path");
   },
 };

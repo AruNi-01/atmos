@@ -153,7 +153,7 @@ function QueueCard({
     <div
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      className={`group/queue transition-colors ${
+      className={`group/queue ${
         isDragging
           ? "bg-background/95 shadow-sm"
           : "bg-transparent"
@@ -163,7 +163,7 @@ function QueueCard({
         <button
           type="button"
           aria-label={t("messageQueue.reorderAria")}
-          className={`flex size-5 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors ${
+          className={`flex size-5 shrink-0 items-center justify-center rounded-md text-muted-foreground ${
             isEditing
               ? "cursor-not-allowed opacity-40"
               : "cursor-grab hover:bg-muted hover:text-foreground active:cursor-grabbing"
@@ -211,7 +211,7 @@ function QueueCard({
                   autoFocus
                   value={editValue}
                   onChange={(e) => onEditValueChange?.(e.target.value)}
-                  className="min-h-28 w-full resize-y rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none transition-colors focus:border-ring"
+                  className="min-h-28 w-full resize-y rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-ring"
                 />
                 <div className="flex items-center justify-end gap-2">
                   <Button type="button" variant="ghost" size="sm" onClick={onCancelEdit}>

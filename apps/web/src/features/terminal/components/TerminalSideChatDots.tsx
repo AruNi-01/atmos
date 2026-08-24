@@ -70,7 +70,7 @@ export function TerminalSideChatDots({
             className={cn(
               sideChatIndicatorClassName,
               !hasMinimizedSummary &&
-                "transition-colors duration-200 group-hover/side-dot:bg-cyan-500 dark:group-hover/side-dot:bg-cyan-200",
+                "group-hover/side-dot:bg-cyan-500 dark:group-hover/side-dot:bg-cyan-200",
             )}
           />
         </button>

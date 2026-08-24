@@ -17,10 +17,7 @@ import { wsProjectApi } from '@/api/ws-api';
 import { FileBrowser } from '@/features/files/components/FileBrowser';
 import { useWebSocket } from '@/features/connection/hooks/use-websocket';
 import { useAtmosComputerStore } from '@/features/connection/lib/atmos-computer-store';
-import {
-  canUseNativeDirectoryPicker,
-  pickLocalDirectory,
-} from '@/shared/lib/desktop-directory-picker';
+import { pickLocalDirectory } from '@/shared/lib/desktop-directory-picker';
 
 interface CreateProjectDialogProps {
   isOpen: boolean;
@@ -35,10 +32,9 @@ export const CreateProjectDialog: React.FC<CreateProjectDialogProps> = ({
   const addProject = useProjectStore(s => s.addProject);
   const { isConnected, connectionState } = useWebSocket();
   const connectionMode = useAtmosComputerStore((s) => s.connectionMode);
-  // Native OS picker only when Desktop is talking to the local machine.
-  // Relay / remote computers still need the in-app FileBrowser (WS FS API).
-  const useNativePicker =
-    canUseNativeDirectoryPicker() && connectionMode === 'local';
+  // OS picker first when talking to the local machine. Atmos FileBrowser is
+  // the fallback (and the only option for relay / remote computers).
+  const preferOsPicker = connectionMode === 'local';
   
   const [path, setPath] = useState('');
   const [name, setName] = useState('');
@@ -111,25 +107,28 @@ export const CreateProjectDialog: React.FC<CreateProjectDialogProps> = ({
   };
 
   const handleBrowse = useCallback(async () => {
-    if (useNativePicker) {
+    if (preferOsPicker) {
       setIsPickingDirectory(true);
       try {
         const selected = await pickLocalDirectory({
           defaultPath: path || undefined,
           title: t('fileBrowser.title'),
         });
-        if (selected) {
-          setPath(selected);
+        if (selected.status === 'picked') {
+          setPath(selected.path);
           setValidationInfo(null);
           setValidationError(null);
+          return;
+        }
+        if (selected.status === 'cancelled') {
+          return;
         }
       } finally {
         setIsPickingDirectory(false);
       }
-      return;
     }
     setShowFileBrowser(true);
-  }, [useNativePicker, path, t]);
+  }, [preferOsPicker, path, t]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -183,20 +182,20 @@ export const CreateProjectDialog: React.FC<CreateProjectDialogProps> = ({
           <form onSubmit={handleSubmit} className="grid gap-4 py-4">
             <div className="grid gap-2">
               <Label htmlFor="path">{t('fields.path.label')}</Label>
-              <div className="flex gap-2">
+              <div className="flex items-stretch gap-2">
                 <Input
                   id="path"
                   value={path}
                   onChange={(e) => setPath(e.target.value)}
                   placeholder={t('fields.path.placeholder')}
-                  className="flex-1 font-mono text-sm"
+                  className="min-w-0 flex-1 font-mono text-sm"
                 />
                 <Button 
                   type="button" 
                   variant="outline" 
                   onClick={() => void handleBrowse()}
-                  disabled={useNativePicker ? isPickingDirectory : !isConnected}
-                  className="cursor-pointer"
+                  disabled={preferOsPicker ? isPickingDirectory : !isConnected}
+                  className="h-9 sm:h-9 cursor-pointer shrink-0"
                 >
                   {t('fields.path.browse')}
                 </Button>
@@ -266,17 +265,14 @@ export const CreateProjectDialog: React.FC<CreateProjectDialogProps> = ({
         </DialogContent>
       </Dialog>
       
-      {/* Web / remote: in-app browser. Desktop local uses the native OS picker. */}
-      {!useNativePicker ? (
-        <FileBrowser
-          open={showFileBrowser}
-          onOpenChange={setShowFileBrowser}
-          onSelect={handleFileBrowserSelect}
-          title={t('fileBrowser.title')}
-          selectLabel={t('fileBrowser.select')}
-          dirsOnly={true}
-        />
-      ) : null}
+      <FileBrowser
+        open={showFileBrowser}
+        onOpenChange={setShowFileBrowser}
+        onSelect={handleFileBrowserSelect}
+        title={t('fileBrowser.title')}
+        selectLabel={t('fileBrowser.select')}
+        dirsOnly={true}
+      />
     </>
   );
 };

@@ -491,7 +491,20 @@ export async function desktopUseStatus(): Promise<DesktopUseStatusJson> {
 export async function desktopUseDriverEnsure(force = false): Promise<unknown> {
   const args = ["driver", "ensure"];
   if (force) args.push("--force");
-  return runDesktopUseJson(args, 120_000);
+  const result = await runDesktopUseJson(args, 120_000);
+  // CLI rebrand uses the CLI's embedded icns (often stale). Desktop's
+  // current app icon is the source of truth — re-apply after ensure.
+  if (process.platform === "darwin") {
+    try {
+      const { ensureDesktopUseHostBranding } = await import(
+        "./host-branding.js"
+      );
+      await ensureDesktopUseHostBranding();
+    } catch {
+      /* branding is best-effort */
+    }
+  }
+  return result;
 }
 
 export async function desktopUseDriverStop(timeoutMs = 8_000): Promise<unknown> {

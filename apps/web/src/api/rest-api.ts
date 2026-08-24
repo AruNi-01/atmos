@@ -313,6 +313,7 @@ export interface RegistrationMetaResponse {
 
 export interface RuntimeInfoResponse {
   api_version: string;
+  app_device_id?: string | null;
   registration_meta?: RegistrationMetaResponse | Record<string, unknown> | null;
   runtime_manifest: {
     source: string;

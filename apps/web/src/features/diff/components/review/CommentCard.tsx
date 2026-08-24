@@ -110,7 +110,7 @@ export const CommentCard: React.FC<CommentCardProps> = ({
           <button
             type="button"
             onClick={() => setExpanded((value) => !value)}
-            className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
             aria-label={expanded ? t("comment.collapseAria") : t("comment.expandAria")}
           >
             <ChevronRight
