@@ -16,6 +16,7 @@ pub mod message_push;
 pub mod notification;
 pub mod project;
 mod project_logo;
+pub mod resource_monitor;
 pub mod review;
 pub mod skill;
 pub mod terminal;

@@ -9,7 +9,7 @@
 //! - Closing a session detaches the PTY but keeps the tmux window alive
 
 use crate::error::{Result, ServiceError};
-use core_engine::{TmuxEngine, TmuxPaneSnapshot, TmuxWindowAtmosMetadata};
+use core_engine::{TmuxEngine, TmuxPaneProcess, TmuxPaneSnapshot, TmuxWindowAtmosMetadata};
 use infra::db::repo::{ProjectRepo, WorkspaceRepo};
 use sea_orm::DatabaseConnection;
 use std::collections::HashMap;
@@ -289,6 +289,20 @@ impl TerminalService {
     /// Get the TmuxEngine reference
     pub fn tmux_engine(&self) -> Arc<TmuxEngine> {
         self.tmux_engine.clone()
+    }
+
+    /// Best-effort batched pane roots for resource attribution.
+    ///
+    /// Returns `None` when tmux is missing or the server cannot be queried so
+    /// host snapshots can still succeed with `partial` attribution.
+    pub fn list_pane_processes_best_effort(&self) -> Option<Vec<TmuxPaneProcess>> {
+        match self.tmux_engine.list_pane_processes() {
+            Ok(panes) => Some(panes),
+            Err(error) => {
+                debug!(%error, "tmux list_pane_processes unavailable");
+                None
+            }
+        }
     }
 
     /// Get or create a lock for a specific tmux session
