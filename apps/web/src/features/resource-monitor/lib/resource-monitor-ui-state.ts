@@ -53,3 +53,28 @@ export function shouldShowProjectsEmptyCopy(
 ): boolean {
   return projectCount === 0 && state !== "empty";
 }
+
+export type ResourceMonitorStatusTone =
+  | "info"
+  | "warning"
+  | "muted"
+  | "secondary"
+  | "destructive";
+
+/** Semantic badge tone. Info is only for live/ready status, never a gray catch-all. */
+export function resourceMonitorStatusTone(
+  banner: ResourceMonitorStatusBanner,
+): ResourceMonitorStatusTone {
+  switch (banner) {
+    case "stale":
+    case "partial":
+      return "warning";
+    case "disconnected":
+      return "destructive";
+    case "unsupported":
+      return "muted";
+    case "loading":
+    case "empty":
+      return "secondary";
+  }
+}

@@ -3,11 +3,18 @@ import {
   formatCpuPercent,
   formatMemoryBytes,
   formatMemoryPair,
+  formatPercent,
   isSnapshotStale,
   isUsageVisible,
 } from "@/features/resource-monitor/lib/resource-monitor-format";
 
 describe("resource-monitor-format", () => {
+  test("formats a generic percent the same way as CPU", () => {
+    expect(formatPercent(3.42)).toBe("3.4%");
+    expect(formatPercent(12.4)).toBe("12%");
+    expect(formatPercent(0)).toBe("0%");
+  });
+
   test("formats CPU with one decimal below 10% and integers at or above", () => {
     expect(formatCpuPercent(0)).toBe("0%");
     expect(formatCpuPercent(-1)).toBe("0%");

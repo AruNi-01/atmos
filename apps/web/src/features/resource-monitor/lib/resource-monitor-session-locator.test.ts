@@ -7,6 +7,7 @@ import { FIXED_TERMINAL_TAB_VALUE } from "@/features/terminal/lib/terminal-layou
 import {
   findLiveResourceSessionLocation,
   findLiveResourceSessionLocationForMonitor,
+  findResourceMonitorSessionLocation,
   parseTerminalWorkspaceScopeKey,
   type LiveResourceSessionPanes,
 } from "@/features/resource-monitor/lib/resource-monitor-session-locator";
@@ -74,7 +75,7 @@ describe("findLiveResourceSessionLocation", () => {
         }),
       },
     };
-    expect(findLiveResourceSessionLocationForMonitor(panes, HOST, "sess-default")).toEqual({
+    expect(findResourceMonitorSessionLocation(panes, HOST, "sess-default")).toEqual({
       hostId: HOST,
       spaceId: DEFAULT_CENTER_SPACE_ID,
       paintContextId: HOST,
@@ -163,6 +164,22 @@ describe("findLiveResourceSessionLocation", () => {
       paneId: "pane-simple",
       sessionId: "sess-simple",
     });
+  });
+
+  test("aliases the Resource Monitor wrapper to the same locator", () => {
+    const panes: LiveResourceSessionPanes = {
+      [HOST]: {
+        "pane-1": pane({
+          sessionId: "sess-default",
+          workspaceId: HOST,
+          tmuxWindowName: "1",
+        }),
+      },
+    };
+    expect(findLiveResourceSessionLocationForMonitor(panes, HOST, "sess-default")).toEqual(
+      findResourceMonitorSessionLocation(panes, HOST, "sess-default"),
+    );
+    expect(findResourceMonitorSessionLocation(panes, HOST, "missing")).toBeNull();
   });
 
   test("does not guess when sessionId is missing or null", () => {

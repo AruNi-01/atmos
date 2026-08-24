@@ -17,6 +17,13 @@ import {
   RESOURCE_MONITOR_IDLE_MS,
   RESOURCE_MONITOR_INTERACTIVE_MS,
 } from "@/features/resource-monitor/lib/resource-monitor-constants";
+import {
+  appendResourceHostHistoryPoint,
+  emptyResourceHostHistoryRing,
+  resourceHostHistoryPointFromSnapshot,
+  resourceMonitorHistoryScopeKey,
+  type ResourceHostHistoryPoint,
+} from "@/features/resource-monitor/lib/resource-monitor-host-history";
 import { resourceMonitorSnapshotQueryOptions } from "@/features/resource-monitor/lib/resource-monitor-query-options";
 import { createResourceMonitorSubscriptionController } from "@/features/resource-monitor/lib/resource-monitor-subscription";
 import { isElectronShell } from "@/shared/lib/desktop-bridge";
@@ -39,6 +46,9 @@ export function useResourceMonitor(options: {
   if (clockRef.current == null) {
     clockRef.current = createResourceMonitorClock();
   }
+
+  const historyRingRef = useRef(emptyResourceHostHistoryRing());
+  const [history, setHistory] = useState<ResourceHostHistoryPoint[]>([]);
 
   const controllerRef = useRef<ReturnType<
     typeof createResourceMonitorSubscriptionController
@@ -97,6 +107,24 @@ export function useResourceMonitor(options: {
     return clockRef.current?.attach(setNowMs);
   }, [options.enabled, options.interactive]);
 
+  useEffect(() => {
+    const scopeKey = resourceMonitorHistoryScopeKey(scope);
+    const snapshot = serverQuery.data;
+    const receivedAtMs = serverQuery.dataUpdatedAt;
+    const point =
+      snapshot != null && connectionState === "connected"
+        ? resourceHostHistoryPointFromSnapshot(receivedAtMs, snapshot.host)
+        : null;
+    const next = appendResourceHostHistoryPoint(
+      historyRingRef.current,
+      scopeKey,
+      point,
+    );
+    if (next === historyRingRef.current) return;
+    historyRingRef.current = next;
+    setHistory(next.points);
+  }, [connectionState, scope, serverQuery.data, serverQuery.dataUpdatedAt]);
+
   return {
     connectionState,
     showDesktop,
@@ -105,6 +133,7 @@ export function useResourceMonitor(options: {
     isFetching: serverQuery.isFetching,
     lastUpdatedAtMs: serverQuery.dataUpdatedAt,
     nowMs,
+    history,
     desktop: desktopQuery.data,
     desktopLoading: desktopQuery.isLoading && desktopQuery.data == null,
   };

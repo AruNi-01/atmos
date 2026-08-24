@@ -5,6 +5,7 @@ import type { ResourceMonitorSnapshot } from "@atmos/api-types/ws/dto/resource-m
 import {
   resolveResourceMonitorUiState,
   resourceMonitorStatusBanners,
+  resourceMonitorStatusTone,
   shouldRenderResourceMonitorSnapshot,
   shouldShowProjectsEmptyCopy,
 } from "@/features/resource-monitor/lib/resource-monitor-ui-state";
@@ -176,21 +177,60 @@ describe("resource monitor snapshot visibility", () => {
   });
 });
 
+describe("resourceMonitorStatusTone", () => {
+  it("uses warning for stale/partial and never treats every banner as muted", () => {
+    expect(resourceMonitorStatusTone("stale")).toBe("warning");
+    expect(resourceMonitorStatusTone("partial")).toBe("warning");
+    expect(resourceMonitorStatusTone("disconnected")).toBe("destructive");
+    expect(resourceMonitorStatusTone("unsupported")).toBe("muted");
+    expect(resourceMonitorStatusTone("loading")).toBe("secondary");
+    expect(resourceMonitorStatusTone("empty")).toBe("secondary");
+    expect(resourceMonitorStatusTone("stale")).not.toBe(
+      resourceMonitorStatusTone("loading"),
+    );
+  });
+});
+
 describe("ResourceMonitorPopover structure", () => {
   it("renders host, optional desktop, atmos, project hierarchy, and unattributed", () => {
+    const hierarchySrc = readFileSync(
+      join(import.meta.dir, "../components/ResourceMonitorHierarchy.tsx"),
+      "utf8",
+    );
     expect(popoverSrc).toContain('data-resource-monitor-state={state}');
     expect(popoverSrc).toContain('t("host")');
     expect(popoverSrc).toContain("showDesktop");
     expect(popoverSrc).toContain("desktopLoading");
-    expect(popoverSrc).toContain('t("desktopLoading")');
     expect(popoverSrc).toContain("lastUpdatedAtMs");
-    expect(popoverSrc).toContain('t("desktop")');
-    expect(popoverSrc).toContain('t("server")');
-    expect(popoverSrc).toContain('t("sharedRuntime")');
-    expect(popoverSrc).toContain('t("projects")');
-    expect(popoverSrc).toContain('t("unattributed")');
-    expect(popoverSrc).toContain("max-h-[min(420px,70vh)]");
-    expect(popoverSrc).toContain("overflow-y-auto");
+    expect(popoverSrc).toContain("ScrollArea");
+    expect(popoverSrc).toContain("data-resource-monitor-host");
+    const chartSrc = readFileSync(
+      join(import.meta.dir, "../components/ResourceMonitorHostChart.tsx"),
+      "utf8",
+    );
+    expect(popoverSrc).toContain("h-[min(250px,38vh)]");
+    expect(popoverSrc).toContain("ResourceMonitorHostChart");
+    expect(chartSrc).toContain('dataKey="received_at_ms"');
+    expect(chartSrc).toContain('type="number"');
+    expect(chartSrc).toContain('domain={["dataMin", "dataMax"]}');
+    expect(chartSrc).toContain("formatPercent");
+    expect(chartSrc).toContain("useMemo");
+    expect(chartSrc).toContain("h-[52px]");
+    expect(chartSrc).not.toContain("formatCpuPercent");
+    expect(popoverSrc).not.toContain('role="toolbar"');
     expect(popoverSrc).not.toMatch(/uppercase|text-transform:\s*uppercase/);
+    expect(hierarchySrc).toContain("data-resource-monitor-sort");
+    expect(hierarchySrc).toContain('t("desktop")');
+    expect(hierarchySrc).toContain('t("server")');
+    expect(hierarchySrc).toContain('t("sharedRuntime")');
+    expect(hierarchySrc).toContain('t("projects")');
+    expect(hierarchySrc).toContain('t("other")');
+    expect(hierarchySrc).toContain('t("unattributed")');
+    expect(hierarchySrc).toContain('t("desktopLoading")');
+    expect(hierarchySrc).toContain("transition-none");
+    expect(hierarchySrc).toContain("hover:bg-accent");
+    expect(hierarchySrc).not.toContain("hover:bg-info/10");
+    expect(hierarchySrc).not.toContain('role="row"');
+    expect(hierarchySrc).not.toContain("ResourceMonitorUsageBar");
   });
 });

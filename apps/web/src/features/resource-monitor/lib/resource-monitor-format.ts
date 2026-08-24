@@ -3,11 +3,15 @@ import { RESOURCE_MONITOR_STALE_MS } from "@/features/resource-monitor/lib/resou
 
 const MEMORY_UNITS = ["B", "KB", "MB", "GB", "TB"] as const;
 
-export function formatCpuPercent(value: number): string {
+export function formatPercent(value: number): string {
   if (!Number.isFinite(value) || value <= 0) return "0%";
   const clamped = Math.min(100, Math.max(0, value));
   if (clamped < 10) return `${clamped.toFixed(1)}%`;
   return `${Math.round(clamped)}%`;
+}
+
+export function formatCpuPercent(value: number): string {
+  return formatPercent(value);
 }
 
 export function formatMemoryBytes(bytes: number): string {

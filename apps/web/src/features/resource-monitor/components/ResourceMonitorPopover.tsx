@@ -2,168 +2,62 @@
 
 import React from "react";
 import { useTranslations } from "next-intl";
-import { ChevronRight } from "lucide-react";
 import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
+  Badge,
+  ScrollArea,
+  Skeleton,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
 } from "@workspace/ui";
-import type {
-  ResourceMonitorSnapshot,
-  ResourceProjectMetrics,
-  ResourceUsage,
-  ResourceWorkspaceMetrics,
-} from "@atmos/api-types/ws/dto/resource-monitor";
+import { cn } from "@/shared/lib/utils";
+import type { ResourceMonitorSnapshot } from "@atmos/api-types/ws/dto/resource-monitor";
 import type { DesktopShellMetricsSnapshot } from "@/features/resource-monitor/lib/desktop-shell-metrics";
+import { ResourceMonitorHierarchy } from "@/features/resource-monitor/components/ResourceMonitorHierarchy";
+import { ResourceMonitorHostChart } from "@/features/resource-monitor/components/ResourceMonitorHostChart";
+import { ResourceMonitorUsageBar } from "@/features/resource-monitor/components/ResourceMonitorUsageBar";
 import {
   formatCpuPercent,
   formatMemoryBytes,
-  formatMemoryPair,
   isUsageVisible,
 } from "@/features/resource-monitor/lib/resource-monitor-format";
+import type { ResourceHostHistoryPoint } from "@/features/resource-monitor/lib/resource-monitor-host-history";
+import { hostMemoryPercent } from "@/features/resource-monitor/lib/resource-monitor-host-history";
+import type { ResourceMonitorSessionNavigationTarget } from "@/features/resource-monitor/lib/resource-monitor-session-navigation";
+import { buildResourceMonitorSessionTitleMap } from "@/features/resource-monitor/lib/resource-monitor-session-titles";
+import { type ResourceMonitorSortKey } from "@/features/resource-monitor/lib/resource-monitor-sort";
 import {
   resolveResourceMonitorUiState,
   resourceMonitorStatusBanners,
+  resourceMonitorStatusTone,
   shouldRenderResourceMonitorSnapshot,
   shouldShowProjectsEmptyCopy,
   type ResourceMonitorStatusBanner,
+  type ResourceMonitorStatusTone,
 } from "@/features/resource-monitor/lib/resource-monitor-ui-state";
-import {
-  buildResourceMonitorSessionTitleMap,
-  resolveResourceMonitorSessionTitle,
-} from "@/features/resource-monitor/lib/resource-monitor-session-titles";
 import { useTerminalStore } from "@/features/terminal/store/use-terminal-store";
 
-function UsageCells({ usage }: { usage: ResourceUsage }) {
-  const t = useTranslations("resourceMonitor.popover");
-  const cpu = formatCpuPercent(usage.cpu_percent);
-  const memory = formatMemoryBytes(usage.memory_rss_bytes);
-  return (
-    <span
-      className="tabular-nums text-muted-foreground"
-      aria-label={t("usageAriaLabel", { cpu, memory })}
-    >
-      {cpu}
-      <span className="mx-1 text-border">·</span>
-      {memory}
-    </span>
-  );
-}
+const TONE_CLASS: Record<ResourceMonitorStatusTone, string> = {
+  info: "border-info/30 bg-info/10 text-info",
+  warning: "border-warning/30 bg-warning/10 text-warning",
+  muted: "border-border bg-muted/40 text-muted-foreground",
+  secondary: "border-transparent bg-secondary text-secondary-foreground",
+  destructive: "border-destructive/30 bg-destructive/10 text-destructive",
+};
 
-function MetricRow({
-  label,
-  usage,
-  indent = 0,
-}: {
-  label: string;
-  usage: ResourceUsage;
-  indent?: number;
-}) {
-  return (
-    <div
-      className="flex min-h-8 items-center justify-between gap-3 py-1 text-[11px]"
-      style={{ paddingLeft: indent * 12 }}
-    >
-      <span className="min-w-0 truncate text-foreground">{label}</span>
-      <UsageCells usage={usage} />
-    </div>
-  );
-}
-
-function WorkspaceRows({
-  workspace,
-  liveTitles,
-}: {
-  workspace: ResourceWorkspaceMetrics;
-  liveTitles: ReadonlyMap<string, string>;
-}) {
-  const t = useTranslations("resourceMonitor.popover");
-  return (
-    <Collapsible defaultOpen={false}>
-      <CollapsibleTrigger className="group flex min-h-8 w-full min-w-0 items-center gap-1 py-1 text-left text-[11px] text-foreground hover:text-foreground">
-        <ChevronRight className="size-3 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-90" />
-        <span className="min-w-0 flex-1 truncate">{workspace.name}</span>
-        <UsageCells usage={workspace.usage} />
-      </CollapsibleTrigger>
-      <CollapsibleContent>
-        {workspace.sessions.length === 0 ? (
-          <div className="py-1 pl-7 text-[11px] text-muted-foreground">
-            {t("noSessions")}
-          </div>
-        ) : (
-          workspace.sessions.map((session) => (
-            <MetricRow
-              key={session.session_id}
-              indent={2}
-              label={resolveResourceMonitorSessionTitle(
-                session.session_id,
-                session.name,
-                liveTitles,
-                t("unnamedSession"),
-              )}
-              usage={session.usage}
-            />
-          ))
-        )}
-      </CollapsibleContent>
-    </Collapsible>
-  );
-}
-
-function ProjectRows({
-  project,
-  liveTitles,
-}: {
-  project: ResourceProjectMetrics;
-  liveTitles: ReadonlyMap<string, string>;
-}) {
-  const t = useTranslations("resourceMonitor.popover");
-  return (
-    <Collapsible defaultOpen>
-      <CollapsibleTrigger className="group flex min-h-8 w-full min-w-0 items-center gap-1 py-1 text-left text-[11px] font-medium text-foreground hover:text-foreground">
-        <ChevronRight className="size-3 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-90" />
-        <span className="min-w-0 flex-1 truncate">{project.name}</span>
-        <UsageCells usage={project.usage} />
-      </CollapsibleTrigger>
-      <CollapsibleContent>
-        {project.sessions.length > 0 ? (
-          <div className="pl-4">
-            <div className="pt-1 text-[10px] text-muted-foreground">
-              {t("projectSessions")}
-            </div>
-            {project.sessions.map((session) => (
-              <MetricRow
-                key={session.session_id}
-                indent={1}
-                label={resolveResourceMonitorSessionTitle(
-                  session.session_id,
-                  session.name,
-                  liveTitles,
-                  t("unnamedSession"),
-                )}
-                usage={session.usage}
-              />
-            ))}
-          </div>
-        ) : null}
-        {project.workspaces.map((workspace) => (
-          <div key={workspace.workspace_id} className="pl-4">
-            <WorkspaceRows workspace={workspace} liveTitles={liveTitles} />
-          </div>
-        ))}
-      </CollapsibleContent>
-    </Collapsible>
-  );
-}
-
-function StatusBanners({
-  banners,
-}: {
-  banners: ResourceMonitorStatusBanner[];
-}) {
+function StatusBadges({ banners }: { banners: ResourceMonitorStatusBanner[] }) {
   const t = useTranslations("resourceMonitor.popover");
   if (banners.length === 0) return null;
-  const copy: Record<ResourceMonitorStatusBanner, string> = {
+  const short: Record<ResourceMonitorStatusBanner, string> = {
+    loading: t("statusLoading"),
+    disconnected: t("statusDisconnected"),
+    unsupported: t("statusUnavailable"),
+    stale: t("statusStale"),
+    partial: t("statusPartial"),
+    empty: t("statusEmpty"),
+  };
+  const detail: Record<ResourceMonitorStatusBanner, string> = {
     loading: t("loading"),
     disconnected: t("disconnected"),
     unsupported: t("unsupported"),
@@ -172,18 +66,54 @@ function StatusBanners({
     empty: t("empty"),
   };
   return (
-    <>
-      {banners.map((state) => (
-        <p
-          key={state}
-          role="status"
-          aria-live="polite"
-          className="rounded-md bg-muted/50 px-2 py-1.5 text-[11px] text-muted-foreground"
-        >
-          {copy[state]}
-        </p>
+    <div role="status" aria-live="polite" className="flex flex-wrap gap-1">
+      {banners.map((banner) => (
+        <Tooltip key={banner}>
+          <TooltipTrigger asChild>
+            <span className="inline-flex">
+              <Badge
+                variant="outline"
+                aria-label={detail[banner]}
+                className={cn(
+                  "text-[10px] font-medium",
+                  TONE_CLASS[resourceMonitorStatusTone(banner)],
+                )}
+              >
+                {short[banner]}
+              </Badge>
+            </span>
+          </TooltipTrigger>
+          <TooltipContent side="top" className="max-w-xs">
+            {detail[banner]}
+          </TooltipContent>
+        </Tooltip>
       ))}
-    </>
+    </div>
+  );
+}
+
+function HostMetricColumn({
+  label,
+  value,
+  caption,
+  barValue,
+  tone,
+}: {
+  label: string;
+  value: string;
+  caption: string;
+  barValue: number;
+  tone: "cpu" | "memory";
+}) {
+  return (
+    <div className="flex min-w-0 flex-col gap-1">
+      <p className="text-[10px] text-muted-foreground">{label}</p>
+      <p className="text-base font-semibold leading-none tabular-nums">{value}</p>
+      <p className="min-h-[14px] truncate text-[10px] tabular-nums text-muted-foreground">
+        {caption}
+      </p>
+      <ResourceMonitorUsageBar value={barValue} tone={tone} />
+    </div>
   );
 }
 
@@ -193,18 +123,22 @@ export function ResourceMonitorPopover({
   lastUpdatedAtMs,
   nowMs,
   snapshot,
+  history = [],
   showDesktop,
   desktop,
   desktopLoading = false,
+  onNavigateSession,
 }: {
   connectionState: string;
   isLoading: boolean;
   lastUpdatedAtMs?: number;
   nowMs?: number;
   snapshot?: ResourceMonitorSnapshot;
+  history?: readonly ResourceHostHistoryPoint[];
   showDesktop: boolean;
   desktop?: DesktopShellMetricsSnapshot;
   desktopLoading?: boolean;
+  onNavigateSession?: (target: ResourceMonitorSessionNavigationTarget) => void;
 }) {
   const t = useTranslations("resourceMonitor.popover");
   const workspacePanes = useTerminalStore((s) => s.workspacePanes);
@@ -212,6 +146,7 @@ export function ResourceMonitorPopover({
     () => buildResourceMonitorSessionTitleMap(workspacePanes),
     [workspacePanes],
   );
+  const [sortKey, setSortKey] = React.useState<ResourceMonitorSortKey>("cpu");
   const state = resolveResourceMonitorUiState({
     connectionState,
     isLoading,
@@ -228,111 +163,80 @@ export function ResourceMonitorPopover({
       snapshot.attribution_status === "partial");
 
   return (
-    <div
-      className="flex max-h-[min(420px,70vh)] min-w-0 flex-col gap-3 overflow-x-hidden overflow-y-auto p-3"
-      data-resource-monitor-state={state}
-    >
-      <div>
-        <h3 className="text-xs font-medium text-foreground">{t("title")}</h3>
-      </div>
-      <StatusBanners banners={banners} />
+    <TooltipProvider delayDuration={250}>
+      <div
+        className="flex max-h-[min(520px,70vh)] min-w-0 flex-col overflow-hidden"
+        data-resource-monitor-state={state}
+      >
+        <header className="shrink-0 space-y-2 border-b border-border px-3 py-2">
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="text-xs font-medium text-foreground">{t("title")}</h3>
+            <StatusBadges banners={banners} />
+          </div>
+        </header>
 
-      {showSnapshot && snapshot ? (
-        <>
-          <section className="space-y-1">
-            <h4 className="text-[10px] font-medium text-muted-foreground">{t("host")}</h4>
-            <div className="flex items-center justify-between gap-3 text-[11px]">
-              <span>{t("cpu")}</span>
-              <span className="tabular-nums">{formatCpuPercent(snapshot.host.cpu_percent)}</span>
-            </div>
-            <div className="flex items-center justify-between gap-3 text-[11px]">
-              <span>{t("memory")}</span>
-              <span className="tabular-nums">
-                {formatMemoryPair(
-                  snapshot.host.memory_used_bytes,
-                  snapshot.host.memory_total_bytes,
-                )}
-              </span>
-            </div>
-            <p className="text-[10px] text-muted-foreground">
-              {t("logicalCpus", { count: snapshot.host.logical_cpu_count })}
-            </p>
-          </section>
-
-          {showDesktop ? (
-            <section className="space-y-1">
-              <h4 className="text-[10px] font-medium text-muted-foreground">
-                {t("desktop")}
-              </h4>
-              {desktopLoading ? (
-                <p className="text-[11px] text-muted-foreground">{t("desktopLoading")}</p>
-              ) : desktop?.supported ? (
-                <>
-                  <MetricRow label={t("desktopTotal")} usage={desktop.total} />
-                  {desktop.groups
-                    .filter((group) => isUsageVisible(group.usage))
-                    .map((group) => (
-                      <MetricRow
-                        key={group.kind}
-                        indent={1}
-                        label={
-                          group.kind === "main"
-                            ? t("desktopGroup.main")
-                            : group.kind === "renderer"
-                              ? t("desktopGroup.renderer")
-                              : group.kind === "gpu"
-                                ? t("desktopGroup.gpu")
-                                : group.kind === "utility"
-                                  ? t("desktopGroup.utility")
-                                  : t("desktopGroup.other")
-                        }
-                        usage={group.usage}
-                      />
-                    ))}
-                </>
-              ) : (
-                <p className="text-[11px] text-muted-foreground">{t("desktopUnsupported")}</p>
-              )}
-            </section>
-          ) : null}
-
-          <section className="space-y-1">
-            <h4 className="text-[10px] font-medium text-muted-foreground">
-              {t("atmos")}
-            </h4>
-            <MetricRow label={t("server")} usage={snapshot.server} />
-            <MetricRow label={t("sharedRuntime")} usage={snapshot.shared_runtime} />
-          </section>
-
-          <section className="space-y-1">
-            <h4 className="text-[10px] font-medium text-muted-foreground">
-              {t("projects")}
-            </h4>
-            {snapshot.projects.length === 0 ? (
-              shouldShowProjectsEmptyCopy(state, snapshot.projects.length) ? (
-                <p className="text-[11px] text-muted-foreground">{t("empty")}</p>
-              ) : null
-            ) : (
-              snapshot.projects.map((project) => (
-                <ProjectRows
-                  key={project.project_id}
-                  project={project}
-                  liveTitles={liveTitles}
+        <section className="shrink-0 space-y-2 border-b border-border px-3 py-2">
+          <h4 className="text-[10px] font-medium text-muted-foreground">{t("host")}</h4>
+          {showSnapshot && snapshot ? (
+            <>
+              <div
+                className="grid grid-cols-2 gap-3"
+                data-resource-monitor-host=""
+              >
+                <HostMetricColumn
+                  label={t("cpu")}
+                  value={formatCpuPercent(snapshot.host.cpu_percent)}
+                  caption={t("logicalCpus", { count: snapshot.host.logical_cpu_count })}
+                  barValue={snapshot.host.cpu_percent}
+                  tone="cpu"
                 />
-              ))
-            )}
-          </section>
-
-          {showUnattributed ? (
-            <section className="space-y-1">
-              <h4 className="text-[10px] font-medium text-muted-foreground">
-                {t("unattributed")}
-              </h4>
-              <MetricRow label={t("unattributed")} usage={snapshot.unattributed} />
-            </section>
+                <HostMetricColumn
+                  label={t("memory")}
+                  value={formatMemoryBytes(snapshot.host.memory_used_bytes)}
+                  caption={t("memoryOfTotal", {
+                    total: formatMemoryBytes(snapshot.host.memory_total_bytes),
+                  })}
+                  barValue={hostMemoryPercent(
+                    snapshot.host.memory_used_bytes,
+                    snapshot.host.memory_total_bytes,
+                  )}
+                  tone="memory"
+                />
+              </div>
+              <ResourceMonitorHostChart history={history} nowMs={nowMs} />
+            </>
+          ) : isLoading ? (
+            <div className="grid grid-cols-2 gap-3" data-resource-monitor-host="">
+              <Skeleton className="h-10" />
+              <Skeleton className="h-10" />
+            </div>
           ) : null}
-        </>
-      ) : null}
-    </div>
+        </section>
+
+        {showSnapshot && snapshot ? (
+          <ScrollArea className="h-[min(250px,38vh)]">
+            <ResourceMonitorHierarchy
+              sortKey={sortKey}
+              onSortKeyChange={setSortKey}
+              snapshotProjects={snapshot.projects}
+              snapshotServer={snapshot.server}
+              snapshotShared={snapshot.shared_runtime}
+              snapshotUnattributed={snapshot.unattributed}
+              showUnattributed={showUnattributed}
+              showProjectsEmpty={shouldShowProjectsEmptyCopy(
+                state,
+                snapshot.projects.length,
+              )}
+              showDesktop={showDesktop}
+              desktop={desktop}
+              desktopLoading={desktopLoading}
+              liveTitles={liveTitles}
+              workspacePanes={workspacePanes}
+              onNavigate={onNavigateSession}
+            />
+          </ScrollArea>
+        ) : null}
+      </div>
+    </TooltipProvider>
   );
 }

@@ -3,17 +3,33 @@
 import React from "react";
 import { useTranslations } from "next-intl";
 import { Activity } from "lucide-react";
-import { Popover, PopoverContent, PopoverTrigger } from "@workspace/ui";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@workspace/ui";
 import { useResourceMonitor } from "@/features/resource-monitor/hooks/use-resource-monitor";
 import { ResourceMonitorPopover } from "@/features/resource-monitor/components/ResourceMonitorPopover";
 import {
   formatCpuPercent,
   formatMemoryBytes,
 } from "@/features/resource-monitor/lib/resource-monitor-format";
+import { preventResourceMonitorCloseAutoFocus } from "@/features/resource-monitor/lib/resource-monitor-close-autofocus";
+import {
+  runResourceMonitorSessionNavigation,
+  type ResourceMonitorSessionNavigationTarget,
+} from "@/features/resource-monitor/lib/resource-monitor-session-navigation";
+import { useAppRouter } from "@/shared/hooks/use-app-router";
 
 export function ResourceMonitorFooterItem() {
   const t = useTranslations("resourceMonitor.footerItem");
   const [open, setOpen] = React.useState(false);
+  const navigatingRef = React.useRef(false);
+  const router = useAppRouter();
   const {
     connectionState,
     showDesktop,
@@ -21,6 +37,7 @@ export function ResourceMonitorFooterItem() {
     isLoading,
     lastUpdatedAtMs,
     nowMs,
+    history,
     desktop,
     desktopLoading,
   } = useResourceMonitor({
@@ -36,36 +53,62 @@ export function ResourceMonitorFooterItem() {
         })
       : t("compactUnavailable");
 
+  const handleSessionNavigate = React.useCallback(
+    (target: ResourceMonitorSessionNavigationTarget) => {
+      void runResourceMonitorSessionNavigation({
+        target,
+        router,
+        markNavigating: () => {
+          navigatingRef.current = true;
+        },
+        close: () => setOpen(false),
+        reopen: () => setOpen(true),
+      });
+    },
+    [router],
+  );
+
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          className="inline-flex items-center gap-1.5 text-muted-foreground hover:text-foreground"
-          title={t("title")}
-          aria-label={t("title")}
-          data-resource-monitor-footer=""
+    <TooltipProvider delayDuration={250}>
+      <Popover open={open} onOpenChange={setOpen}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                className="inline-flex items-center gap-1.5 text-muted-foreground hover:text-foreground"
+                aria-label={t("title")}
+                data-resource-monitor-footer=""
+              >
+                <Activity className="size-3" />
+                <span className="font-medium">{compact}</span>
+              </button>
+            </PopoverTrigger>
+          </TooltipTrigger>
+          <TooltipContent side="top">{t("title")}</TooltipContent>
+        </Tooltip>
+        <PopoverContent
+          side="top"
+          align="start"
+          className="w-[min(400px,calc(100vw-1.5rem))] max-w-[min(400px,100vw)] overflow-hidden p-0"
+          onCloseAutoFocus={(event) => {
+            preventResourceMonitorCloseAutoFocus(navigatingRef, event);
+          }}
         >
-          <Activity className="size-3" />
-          <span className="font-medium">{compact}</span>
-        </button>
-      </PopoverTrigger>
-      <PopoverContent
-        side="top"
-        align="start"
-        className="w-[min(420px,calc(100vw-1.5rem))] max-w-[min(420px,100vw)] p-0"
-      >
-        <ResourceMonitorPopover
-          connectionState={connectionState}
-          isLoading={isLoading}
-          lastUpdatedAtMs={lastUpdatedAtMs}
-          nowMs={nowMs}
-          snapshot={snapshot}
-          showDesktop={showDesktop}
-          desktop={desktop}
-          desktopLoading={desktopLoading}
-        />
-      </PopoverContent>
-    </Popover>
+          <ResourceMonitorPopover
+            connectionState={connectionState}
+            isLoading={isLoading}
+            lastUpdatedAtMs={lastUpdatedAtMs}
+            nowMs={nowMs}
+            snapshot={snapshot}
+            history={history}
+            showDesktop={showDesktop}
+            desktop={desktop}
+            desktopLoading={desktopLoading}
+            onNavigateSession={handleSessionNavigate}
+          />
+        </PopoverContent>
+      </Popover>
+    </TooltipProvider>
   );
 }

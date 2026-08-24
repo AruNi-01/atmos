@@ -7,13 +7,18 @@ import {
 } from "@/app-shell/center-space/center-space";
 import { FIXED_TERMINAL_TAB_VALUE } from "@/features/terminal/lib/terminal-layout-document";
 import type { LiveResourceSessionLocation } from "@/features/terminal/public";
-import type { NavigateToLocatedPaneDeps } from "@/features/terminal/public";
+import type { LocatedPaneHref, NavigateToLocatedPaneDeps } from "@/features/terminal/public";
 import {
   buildLocatedPanePath,
+  locationMatchesDestination,
   navigateToResourceMonitorSession,
+  runResourceMonitorSessionNavigation,
+  waitForDestination,
 } from "@/features/resource-monitor/lib/resource-monitor-session-navigation";
 
 const HOST = "ws-host";
+const EXTRA = "space-abc";
+const EXTRA_TMUX = `cs__${EXTRA}__2`;
 
 function location(
   overrides: Partial<LiveResourceSessionLocation> = {},
@@ -30,20 +35,48 @@ function location(
   };
 }
 
-function createDeps(options?: {
+function extraLocation(
+  overrides: Partial<LiveResourceSessionLocation> = {},
+): LiveResourceSessionLocation {
+  return location({
+    spaceId: EXTRA,
+    paintContextId: makeCenterSpaceKey(HOST, EXTRA),
+    paneId: "pane-extra",
+    sessionId: "sess-extra",
+    tmuxWindowName: EXTRA_TMUX,
+    ...overrides,
+  });
+}
+
+function hrefFromPath(path: string): LocatedPaneHref {
+  const url = new URL(path, "https://app.local");
+  return { pathname: url.pathname, search: url.search };
+}
+
+function createHarness(options?: {
   currentHostId?: string | null;
   spaceIds?: string[];
+  initialHref?: LocatedPaneHref;
+  commitOnPush?: boolean;
+  waitAttempts?: number;
 }) {
+  const href: LocatedPaneHref = {
+    ...(options?.initialHref ?? {
+      pathname: "/workspace",
+      search: `?id=${HOST}&tab=${FIXED_TERMINAL_TAB_VALUE}&terminalTmux=1`,
+    }),
+  };
   const order: string[] = [];
-  const deps: NavigateToLocatedPaneDeps & { order: string[] } = {
+  const deps: NavigateToLocatedPaneDeps & { order: string[]; href: LocatedPaneHref } = {
     order,
+    href,
     hydrate: () => {
       order.push("hydrate");
     },
     ensureHost: (hostId) => {
       order.push(`ensureHost:${hostId}`);
     },
-    listSpaceIds: () => options?.spaceIds ?? [DEFAULT_CENTER_SPACE_ID],
+    listSpaceIds: () => options?.spaceIds ?? [DEFAULT_CENTER_SPACE_ID, EXTRA],
     currentHostId: () =>
       options?.currentHostId === undefined ? HOST : options.currentHostId,
     switchCenterSpace: async (hostId, spaceId, switchOptions) => {
@@ -56,8 +89,25 @@ function createDeps(options?: {
       order.push(`request:${target.sessionId}`);
       return 1;
     },
+    clearLocate: () => {
+      order.push("clear");
+    },
+    getLocation: () => ({ pathname: href.pathname, search: href.search }),
+    sleep: async () => {},
+    waitAttempts: options?.waitAttempts ?? 3,
+    waitIntervalMs: 50,
   };
-  return deps;
+  const router = {
+    push: (path: string) => {
+      order.push(`push:${path}`);
+      if (options?.commitOnPush !== false) {
+        const next = hrefFromPath(path);
+        href.pathname = next.pathname;
+        href.search = next.search;
+      }
+    },
+  };
+  return { deps, router, href };
 }
 
 describe("buildLocatedPanePath", () => {
@@ -85,53 +135,137 @@ describe("buildLocatedPanePath", () => {
   });
 });
 
-describe("navigateToResourceMonitorSession", () => {
-  test("switches the same-host space with preserveDeepLink before push", async () => {
-    const deps = createDeps({ currentHostId: HOST });
-    const pushed: string[] = [];
-    const ok = await navigateToResourceMonitorSession(
-      location({ spaceId: "space-abc", paintContextId: makeCenterSpaceKey(HOST, "space-abc") }),
-      "workspace",
-      {
-        push: (path) => {
-          deps.order.push(`push:${path}`);
-          pushed.push(path);
+describe("locationMatchesDestination / waitForDestination", () => {
+  test("rejects leftover terminalTmux=1 when dest is a simple PTY", () => {
+    expect(
+      locationMatchesDestination(
+        {
+          pathname: "/workspace",
+          search: `?id=${HOST}&tab=${FIXED_TERMINAL_TAB_VALUE}&terminalTmux=1`,
         },
+        {
+          pathname: "/workspace",
+          id: HOST,
+          tab: FIXED_TERMINAL_TAB_VALUE,
+        },
+      ),
+    ).toBe(false);
+    expect(
+      locationMatchesDestination(
+        {
+          pathname: "/workspace",
+          search: `?id=${HOST}&tab=${FIXED_TERMINAL_TAB_VALUE}`,
+        },
+        {
+          pathname: "/workspace",
+          id: HOST,
+          tab: FIXED_TERMINAL_TAB_VALUE,
+        },
+      ),
+    ).toBe(true);
+  });
+
+  test("requires the namespaced dest tmux, not the leftover default 1", () => {
+    expect(
+      locationMatchesDestination(
+        {
+          pathname: "/workspace",
+          search: `?id=${HOST}&tab=${FIXED_TERMINAL_TAB_VALUE}&terminalTmux=1`,
+        },
+        {
+          pathname: "/workspace",
+          id: HOST,
+          tab: FIXED_TERMINAL_TAB_VALUE,
+          terminalTmux: EXTRA_TMUX,
+        },
+      ),
+    ).toBe(false);
+    expect(
+      locationMatchesDestination(
+        {
+          pathname: "/en/workspace",
+          search: `?id=${HOST}&tab=${FIXED_TERMINAL_TAB_VALUE}&terminalTmux=${EXTRA_TMUX}`,
+        },
+        {
+          pathname: "/workspace",
+          id: HOST,
+          tab: FIXED_TERMINAL_TAB_VALUE,
+          terminalTmux: EXTRA_TMUX,
+        },
+      ),
+    ).toBe(true);
+  });
+
+  test("polls an injectable location without sleeping real time", async () => {
+    const hrefs: LocatedPaneHref[] = [
+      {
+        pathname: "/workspace",
+        search: `?id=${HOST}&tab=${FIXED_TERMINAL_TAB_VALUE}&terminalTmux=1`,
       },
       {
-        ...deps,
-        listSpaceIds: () => [DEFAULT_CENTER_SPACE_ID, "space-abc"],
+        pathname: "/workspace",
+        search: `?id=${HOST}&tab=${FIXED_TERMINAL_TAB_VALUE}&terminalTmux=1`,
+      },
+      {
+        pathname: "/workspace",
+        search: `?id=${HOST}&tab=${FIXED_TERMINAL_TAB_VALUE}&terminalTmux=${EXTRA_TMUX}`,
+      },
+    ];
+    let index = 0;
+    let sleeps = 0;
+    const ok = await waitForDestination(
+      {
+        pathname: "/workspace",
+        id: HOST,
+        tab: FIXED_TERMINAL_TAB_VALUE,
+        terminalTmux: EXTRA_TMUX,
+      },
+      {
+        getLocation: () => hrefs[Math.min(index, hrefs.length - 1)]!,
+        sleep: async () => {
+          sleeps += 1;
+          index += 1;
+        },
+        intervalMs: 50,
+        attempts: 4,
       },
     );
+    expect(ok).toBe(true);
+    expect(sleeps).toBe(2);
+  });
+});
+
+describe("navigateToResourceMonitorSession", () => {
+  test("commits dest then switches same-host with preserveDeepLink", async () => {
+    const { deps, router } = createHarness();
+    const dest = location({
+      spaceId: EXTRA,
+      paintContextId: makeCenterSpaceKey(HOST, EXTRA),
+    });
+    const path = buildLocatedPanePath(dest, "workspace");
+    const ok = await navigateToResourceMonitorSession(dest, "workspace", router, deps);
 
     expect(ok).toBe(true);
     expect(deps.order).toEqual([
       "hydrate",
       `ensureHost:${HOST}`,
-      `switch:${HOST}:space-abc:true`,
       "request:sess-1",
-      `push:/workspace?id=${HOST}&tab=${FIXED_TERMINAL_TAB_VALUE}&terminalTmux=1`,
+      `push:${path}`,
+      `switch:${HOST}:${EXTRA}:true`,
     ]);
-    expect(pushed).toEqual([
-      `/workspace?id=${HOST}&tab=${FIXED_TERMINAL_TAB_VALUE}&terminalTmux=1`,
-    ]);
-    expect(deps.order.indexOf(`switch:${HOST}:space-abc:true`)).toBeLessThan(
-      deps.order.indexOf("request:sess-1"),
+    expect(deps.order.indexOf(`push:${path}`)).toBeLessThan(
+      deps.order.indexOf(`switch:${HOST}:${EXTRA}:true`),
     );
     expect(deps.order.indexOf("request:sess-1")).toBeLessThan(
-      deps.order.findIndex((step) => step.startsWith("push:")),
+      deps.order.indexOf(`switch:${HOST}:${EXTRA}:true`),
     );
   });
 
-  test("setActiveSpace on a cross-host jump and still requests before push", async () => {
-    const deps = createDeps({ currentHostId: "other-host" });
-    const pushed: string[] = [];
-    const ok = await navigateToResourceMonitorSession(
-      location(),
-      "workspace",
-      { push: (path) => pushed.push(path) },
-      deps,
-    );
+  test("setActiveSpace on a cross-host jump, then push a complete dest", async () => {
+    const { deps, router } = createHarness({ currentHostId: "other-host" });
+    const dest = location();
+    const path = buildLocatedPanePath(dest, "workspace");
+    const ok = await navigateToResourceMonitorSession(dest, "workspace", router, deps);
 
     expect(ok).toBe(true);
     expect(deps.order).toEqual([
@@ -139,67 +273,224 @@ describe("navigateToResourceMonitorSession", () => {
       `ensureHost:${HOST}`,
       `setActiveSpace:${HOST}:${DEFAULT_CENTER_SPACE_ID}`,
       "request:sess-1",
+      `push:${path}`,
     ]);
-    expect(pushed).toHaveLength(1);
     expect(deps.order.some((step) => step.startsWith("switch:"))).toBe(false);
+    expect(path).toContain(`id=${HOST}`);
+    expect(path).toContain(`tab=${FIXED_TERMINAL_TAB_VALUE}`);
+    expect(path).toContain("terminalTmux=1");
   });
 
   test("returns false when the target space does not exist and does not push", async () => {
-    const deps = createDeps({ spaceIds: [DEFAULT_CENTER_SPACE_ID] });
-    const pushed: string[] = [];
-    const ok = await navigateToResourceMonitorSession(
-      location({ spaceId: "missing", paintContextId: makeCenterSpaceKey(HOST, "missing") }),
-      "workspace",
-      { push: (path) => pushed.push(path) },
-      deps,
-    );
+    const { deps, router } = createHarness({ spaceIds: [DEFAULT_CENTER_SPACE_ID] });
+    const dest = location({
+      spaceId: "missing",
+      paintContextId: makeCenterSpaceKey(HOST, "missing"),
+    });
+    const ok = await navigateToResourceMonitorSession(dest, "workspace", router, deps);
     expect(ok).toBe(false);
-    expect(pushed).toEqual([]);
+    expect(deps.order).toEqual(["hydrate", `ensureHost:${HOST}`, "clear"]);
+    expect(deps.order.some((step) => step.startsWith("push:"))).toBe(false);
+    expect(deps.order.some((step) => step.startsWith("switch:"))).toBe(false);
     expect(deps.order.includes("request:sess-1")).toBe(false);
   });
 
   test("uses a project route for project-direct sessions", async () => {
-    const deps = createDeps({ currentHostId: "proj-1" });
-    const pushed: string[] = [];
-    const ok = await navigateToResourceMonitorSession(
-      location({ hostId: "proj-1", paintContextId: "proj-1" }),
-      "project",
-      { push: (path) => pushed.push(path) },
-      deps,
-    );
+    const { deps, router } = createHarness({
+      currentHostId: "proj-1",
+      initialHref: {
+        pathname: "/project",
+        search: `?id=proj-1&tab=${FIXED_TERMINAL_TAB_VALUE}&terminalTmux=1`,
+      },
+      spaceIds: [DEFAULT_CENTER_SPACE_ID],
+    });
+    const dest = location({ hostId: "proj-1", paintContextId: "proj-1" });
+    const ok = await navigateToResourceMonitorSession(dest, "project", router, deps);
     expect(ok).toBe(true);
-    expect(pushed[0]).toBe(
-      `/project?id=proj-1&tab=${FIXED_TERMINAL_TAB_VALUE}&terminalTmux=1`,
-    );
+    expect(deps.order.some((step) => step.startsWith("push:/project?"))).toBe(true);
   });
 
   test("simple PTY navigation has no tmux deep link", async () => {
-    const deps = createDeps();
-    const pushed: string[] = [];
-    await navigateToResourceMonitorSession(
-      location({ tmuxWindowName: undefined }),
+    const { deps, router } = createHarness();
+    const dest = location({ tmuxWindowName: undefined });
+    await navigateToResourceMonitorSession(dest, "workspace", router, deps);
+    const push = deps.order.find((step) => step.startsWith("push:"));
+    expect(push).toBe(`push:/workspace?id=${HOST}&tab=${FIXED_TERMINAL_TAB_VALUE}`);
+    expect(push).not.toContain("terminalTmux");
+  });
+
+  test("initial URL terminalTmux=1 then extra namespaced tmux waits for dest before switch", async () => {
+    const { deps, router, href } = createHarness({
+      initialHref: {
+        pathname: "/workspace",
+        search: `?id=${HOST}&tab=${FIXED_TERMINAL_TAB_VALUE}&terminalTmux=1`,
+      },
+    });
+    const dest = extraLocation();
+    const path = buildLocatedPanePath(dest, "workspace");
+    const ok = await navigateToResourceMonitorSession(dest, "workspace", router, deps);
+
+    expect(ok).toBe(true);
+    expect(href.search).toContain(`terminalTmux=${EXTRA_TMUX}`);
+    expect(href.search).not.toMatch(/terminalTmux=1(?:&|$)/);
+    expect(deps.order).toEqual([
+      "hydrate",
+      `ensureHost:${HOST}`,
+      "request:sess-extra",
+      `push:${path}`,
+      `switch:${HOST}:${EXTRA}:true`,
+    ]);
+  });
+
+  test("extra simple PTY dest waits until leftover terminalTmux is cleared", async () => {
+    const { deps, router, href } = createHarness();
+    const dest = extraLocation({ tmuxWindowName: undefined, sessionId: "sess-pty" });
+    const path = buildLocatedPanePath(dest, "workspace");
+    const ok = await navigateToResourceMonitorSession(dest, "workspace", router, deps);
+
+    expect(ok).toBe(true);
+    expect(path).not.toContain("terminalTmux");
+    expect(href.search).not.toContain("terminalTmux");
+    expect(deps.order).toEqual([
+      "hydrate",
+      `ensureHost:${HOST}`,
+      "request:sess-pty",
+      `push:${path}`,
+      `switch:${HOST}:${EXTRA}:true`,
+    ]);
+  });
+
+  test("URL commit failure clears pending locate and does not switch", async () => {
+    const { deps, router, href } = createHarness({
+      commitOnPush: false,
+      waitAttempts: 3,
+    });
+    const dest = extraLocation();
+    const path = buildLocatedPanePath(dest, "workspace");
+    const ok = await navigateToResourceMonitorSession(dest, "workspace", router, deps);
+
+    expect(ok).toBe(false);
+    expect(href.search).toContain("terminalTmux=1");
+    expect(deps.order).toEqual([
+      "hydrate",
+      `ensureHost:${HOST}`,
+      "request:sess-extra",
+      `push:${path}`,
+      "clear",
+    ]);
+    expect(deps.order.some((step) => step.startsWith("switch:"))).toBe(false);
+  });
+
+  test("switches only after dest commit, not immediately after push", async () => {
+    const href: LocatedPaneHref = {
+      pathname: "/workspace",
+      search: `?id=${HOST}&tab=${FIXED_TERMINAL_TAB_VALUE}&terminalTmux=1`,
+    };
+    const order: string[] = [];
+    let commitAfterSleeps = 0;
+    const dest = extraLocation();
+    const path = buildLocatedPanePath(dest, "workspace");
+    const ok = await navigateToResourceMonitorSession(
+      dest,
       "workspace",
-      { push: (path) => pushed.push(path) },
-      deps,
+      {
+        push: (next) => {
+          order.push(`push:${next}`);
+        },
+      },
+      {
+        hydrate: () => order.push("hydrate"),
+        ensureHost: (hostId) => order.push(`ensureHost:${hostId}`),
+        listSpaceIds: () => [DEFAULT_CENTER_SPACE_ID, EXTRA],
+        currentHostId: () => HOST,
+        switchCenterSpace: async (hostId, spaceId, switchOptions) => {
+          order.push(`switch:${hostId}:${spaceId}:${String(switchOptions.preserveDeepLink)}`);
+        },
+        requestLocate: (target) => {
+          order.push(`request:${target.sessionId}`);
+          return 1;
+        },
+        clearLocate: () => order.push("clear"),
+        getLocation: () => ({ pathname: href.pathname, search: href.search }),
+        sleep: async () => {
+          commitAfterSleeps += 1;
+          if (commitAfterSleeps >= 2) {
+            const next = hrefFromPath(path);
+            href.pathname = next.pathname;
+            href.search = next.search;
+            order.push("commit");
+          }
+        },
+        waitAttempts: 4,
+        waitIntervalMs: 50,
+      },
     );
-    expect(pushed[0]).toBe(`/workspace?id=${HOST}&tab=${FIXED_TERMINAL_TAB_VALUE}`);
-    expect(pushed[0]).not.toContain("terminalTmux");
+
+    expect(ok).toBe(true);
+    expect(order).toEqual([
+      "hydrate",
+      `ensureHost:${HOST}`,
+      "request:sess-extra",
+      `push:${path}`,
+      "commit",
+      `switch:${HOST}:${EXTRA}:true`,
+    ]);
+    expect(order.indexOf("commit")).toBeGreaterThan(order.indexOf(`push:${path}`));
+    expect(order.indexOf("commit")).toBeLessThan(order.indexOf(`switch:${HOST}:${EXTRA}:true`));
   });
 });
 
-describe("navigate space-before-push contract", () => {
-  test("public helper switches before router.push and never calls agent attention", () => {
+describe("runResourceMonitorSessionNavigation", () => {
+  test("marks navigation, closes, then navigates; reopens only on failure", async () => {
+    const order: string[] = [];
+    const failed = await runResourceMonitorSessionNavigation({
+      target: { location: location(), routeKind: "workspace" },
+      router: { push: (path) => order.push(`push:${path}`) },
+      markNavigating: () => order.push("mark"),
+      close: () => order.push("close"),
+      reopen: () => order.push("reopen"),
+      navigate: async () => {
+        order.push("navigate");
+        return false;
+      },
+    });
+    expect(failed).toBe(false);
+    expect(order).toEqual(["mark", "close", "navigate", "reopen"]);
+
+    order.length = 0;
+    const ok = await runResourceMonitorSessionNavigation({
+      target: { location: location({ hostId: "proj-1" }), routeKind: "project" },
+      router: { push: (path) => order.push(`push:${path}`) },
+      markNavigating: () => order.push("mark"),
+      close: () => order.push("close"),
+      reopen: () => order.push("reopen"),
+      navigate: async () => {
+        order.push("navigate");
+        return true;
+      },
+    });
+    expect(ok).toBe(true);
+    expect(order).toEqual(["mark", "close", "navigate"]);
+  });
+});
+
+describe("navigate dest-commit-before-switch contract", () => {
+  test("public helper waits for dest URL before same-host switch and never calls agent attention", () => {
     const src = readFileSync(
       join(import.meta.dir, "../../terminal/public/navigate-to-located-pane.ts"),
       "utf8",
     );
-    const switchAt = src.indexOf("await activateCenterSpaceForLocation");
+    const pushAt = src.indexOf("options.router.push(path)");
+    const waitAt = src.indexOf("waitForDestination");
+    const switchAt = src.indexOf("await switchSameHostSpace");
     const requestAt = src.indexOf("requestLocate(location)");
-    const pushAt = src.indexOf("options.router.push");
-    expect(switchAt).toBeGreaterThan(0);
-    expect(requestAt).toBeGreaterThan(switchAt);
-    expect(pushAt).toBeGreaterThan(requestAt);
+    expect(pushAt).toBeGreaterThan(0);
+    expect(waitAt).toBeGreaterThan(0);
+    expect(requestAt).toBeGreaterThan(0);
+    expect(switchAt).toBeGreaterThan(pushAt);
+    expect(switchAt).toBeGreaterThan(src.lastIndexOf("if (!committed)"));
     expect(src).toContain("preserveDeepLink: true");
+    expect(src).toContain("locationMatchesDestination");
     expect(src).not.toContain("useAgentAttentionStore");
     expect(src).not.toContain("raise(");
     expect(src).not.toContain("navigateToAgentHook");

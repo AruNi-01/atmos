@@ -15,6 +15,10 @@ const titlesSrc = readFileSync(
   join(import.meta.dir, "../lib/resource-monitor-session-titles.ts"),
   "utf8",
 );
+const hierarchySrc = readFileSync(
+  join(import.meta.dir, "../components/ResourceMonitorHierarchy.tsx"),
+  "utf8",
+);
 
 describe("useResourceMonitor lifecycle wiring", () => {
   test("idles with get polling and switches to subscribe while the popover is open", () => {
@@ -28,6 +32,11 @@ describe("useResourceMonitor lifecycle wiring", () => {
     expect(hookSrc).toContain("!options.interactive && connectionState === \"connected\"");
     expect(hookSrc).toContain("lastUpdatedAtMs: serverQuery.dataUpdatedAt");
     expect(hookSrc).toContain("desktopLoading");
+    expect(hookSrc).toContain("appendResourceHostHistoryPoint");
+    expect(hookSrc).toContain("resourceHostHistoryPointFromSnapshot");
+    expect(hookSrc).toContain("serverQuery.dataUpdatedAt");
+    expect(hookSrc).toContain("history,");
+    expect(hookSrc).toContain("resourceMonitorHistoryScopeKey(scope)");
   });
 
   test("Footer item owns popover open state as the interactive flag", () => {
@@ -38,6 +47,18 @@ describe("useResourceMonitor lifecycle wiring", () => {
     expect(footerSrc).toContain('aria-label={t("title")}');
     expect(footerSrc).toContain("lastUpdatedAtMs={lastUpdatedAtMs}");
     expect(footerSrc).toContain("desktopLoading={desktopLoading}");
+    expect(footerSrc).toContain("history={history}");
+    expect(footerSrc).toContain("Tooltip");
+    expect(footerSrc).not.toContain("title={t(\"title\")}");
+    expect(footerSrc).toContain("navigatingRef");
+    expect(footerSrc).toContain("onCloseAutoFocus");
+    expect(footerSrc).toContain("preventResourceMonitorCloseAutoFocus");
+    expect(footerSrc).toContain("runResourceMonitorSessionNavigation");
+    expect(footerSrc).toContain("useAppRouter");
+    expect(footerSrc).toMatch(/reopen:\s*\(\)\s*=>\s*setOpen\(true\)/);
+    expect(footerSrc).not.toMatch(
+      /reopen:\s*\(\)\s*=>\s*\{[\s\S]*navigatingRef\.current\s*=\s*false/,
+    );
   });
 });
 
@@ -45,8 +66,14 @@ describe("Resource Monitor live session titles", () => {
   test("popover subscribes to workspacePanes and resolves display-only titles", () => {
     expect(popoverSrc).toContain('useTerminalStore((s) => s.workspacePanes)');
     expect(popoverSrc).toContain("buildResourceMonitorSessionTitleMap(workspacePanes)");
-    expect(popoverSrc).toContain("resolveResourceMonitorSessionTitle");
     expect(popoverSrc).toContain("liveTitles={liveTitles}");
+    expect(popoverSrc).toContain("onNavigateSession");
+    expect(hierarchySrc).toContain("resolveResourceMonitorSessionTitle");
+    expect(hierarchySrc).toContain("findResourceMonitorSessionLocation");
+    expect(hierarchySrc).toContain('routeKind="project"');
+    expect(hierarchySrc).toContain("project.project_id");
+    expect(hierarchySrc).toContain('routeKind="workspace"');
+    expect(hierarchySrc).toContain("workspace.workspace_id");
     expect(titlesSrc).toContain("getTerminalDisplayMeta");
     expect(titlesSrc).toContain("isTmuxIndexTitle");
     expect(titlesSrc).toContain("never write this back onto the WS snapshot DTO");
