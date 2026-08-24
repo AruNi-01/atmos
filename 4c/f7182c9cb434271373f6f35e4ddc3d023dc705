@@ -1,0 +1,16 @@
+crates/core-engine/src/shims/mod.rs
+  h_5be255725524c8 518-587
+crates/core-engine/src/shims/zsh_shim_zshrc
+  h_5be255725524c8 4-6,17-25,27-30,39
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "4cf7182c9cb434271373f6f35e4ddc3d023dc705",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
