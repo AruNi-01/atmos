@@ -179,5 +179,21 @@ describe("shortcut prefix wiring", () => {
     const shell = readFileSync(join(import.meta.dir, "../AppShellMain.tsx"), "utf8");
     expect(shell).toContain("HeldShortcutPrefixListener");
   });
+
+  test("workspace rows overlay shortcut hints so the list height does not jump", () => {
+    const content = readFileSync(
+      join(import.meta.dir, "../sidebar/WorkspaceContent.tsx"),
+      "utf8",
+    );
+    expect(content).toContain('shortcutDigit != null && "invisible"');
+    expect(content).toContain("absolute right-0 top-1/2");
+    expect(content).toContain("SidebarHeldShortcutBadge");
+    const badge = readFileSync(
+      join(import.meta.dir, "../HeldShortcutBadge.tsx"),
+      "utf8",
+    );
+    expect(badge).toContain("leading-none");
+    expect(badge).toContain("h-4");
+  });
 });
 

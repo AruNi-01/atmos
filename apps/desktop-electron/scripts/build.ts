@@ -84,6 +84,19 @@ if (!existsSync(browserRuntimeSrc)) {
 }
 copyFileSync(browserRuntimeSrc, browserRuntimeDest);
 
+if (process.platform === "darwin") {
+  const native = spawnSync(
+    process.execPath,
+    [join(root, "scripts/build-appshot-shift-native.ts")],
+    { cwd: root, stdio: "inherit" },
+  );
+  if (native.status !== 0) {
+    throw new Error(
+      `[build] native helpers failed status=${native.status ?? "null"}`,
+    );
+  }
+}
+
 console.log(
   "[build] dist/main.js, dist/preload.cjs, dist/browser-preload.cjs, dist/browser-runtime.js, dist/shift-helper-main.js, dist/grant-preload.cjs",
 );

@@ -3,6 +3,7 @@
  *
  * - libatmos_appshot_shift.dylib — koffi load for Electron fallback helper
  * - libatmos_appshot_shift_inject.dylib — DYLD_INSERT into Atmos Desktop Use
+ * - libatmos_host_shortcuts.dylib — swallow macOS screenshot chords while focused
  * - atmos-appshot-frontmost — CGWindowList frontmost geometry (Tauri parity)
  *
  * Invoked from prepare-package / package / dev build flow.
@@ -14,6 +15,10 @@ import { fileURLToPath } from "node:url";
 
 const appRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const src = join(appRoot, "native/appshot-shift/appshot_shift.c");
+const hostShortcutsSrc = join(
+  appRoot,
+  "native/host-shortcuts/host_shortcuts.c",
+);
 const frontmostSrc = join(
   appRoot,
   "native/appshot-frontmost/appshot_frontmost.m",
@@ -21,6 +26,7 @@ const frontmostSrc = join(
 const outDir = join(appRoot, "resources/bin");
 const outHelper = join(outDir, "libatmos_appshot_shift.dylib");
 const outInject = join(outDir, "libatmos_appshot_shift_inject.dylib");
+const outHostShortcuts = join(outDir, "libatmos_host_shortcuts.dylib");
 const outFrontmost = join(outDir, "atmos-appshot-frontmost");
 
 function codesignAdHoc(path: string): void {
@@ -70,6 +76,25 @@ function main(): void {
     "CoreGraphics",
     "-install_name",
     "@rpath/libatmos_appshot_shift.dylib",
+  ]);
+
+  if (!existsSync(hostShortcutsSrc)) {
+    throw new Error(`missing native source: ${hostShortcutsSrc}`);
+  }
+  buildDylib(outHostShortcuts, [
+    "-dynamiclib",
+    "-O2",
+    "-o",
+    outHostShortcuts,
+    hostShortcutsSrc,
+    "-framework",
+    "ApplicationServices",
+    "-framework",
+    "CoreFoundation",
+    "-framework",
+    "CoreGraphics",
+    "-install_name",
+    "@rpath/libatmos_host_shortcuts.dylib",
   ]);
 
   // Host inject — dual-shift inside Atmos Desktop Use serve process

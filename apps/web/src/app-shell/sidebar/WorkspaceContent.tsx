@@ -655,31 +655,35 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
                 )}
                 <WorkspaceAgentStatusMark contextId={workspace.id} />
               </div>
-              {/* Trailing slot in normal flow: status/time/label, or archive on hover. */}
-              <div className="flex shrink-0 items-center justify-end">
-                {shortcutDigit != null ? (
-                  <SidebarHeldShortcutBadge targetKey={workspaceShortcutKey} />
-                ) : (
-                  <>
-                    {rightContext ? (
-                      <div className="flex items-center text-[11px] text-muted-foreground group-hover/ws:hidden">
-                        {rightContext}
-                      </div>
-                    ) : null}
-                    <div className="hidden items-center gap-1 group-hover/ws:flex">
-                      <span className="text-[11px] text-muted-foreground">{timeAgo}</span>
-                      <button
-                        onClick={handleArchiveClick}
-                        className="flex size-4 items-center justify-center rounded text-muted-foreground hover:cursor-pointer hover:text-foreground"
-                        title={t("common.archive")}
-                        disabled={isCheckingGit}
-                      >
-                        <Archive className="size-3" />
-                      </button>
-                    </div>
-                  </>
+              {/* Trailing slot stays in flow so cmd+shift badges can overlay without growing the row. */}
+              <div
+                className={cn(
+                  "flex shrink-0 items-center justify-end",
+                  shortcutDigit != null && "invisible",
                 )}
+              >
+                {rightContext ? (
+                  <div className="flex items-center text-[11px] text-muted-foreground group-hover/ws:hidden">
+                    {rightContext}
+                  </div>
+                ) : null}
+                <div className="hidden items-center gap-1 group-hover/ws:flex">
+                  <span className="text-[11px] text-muted-foreground">{timeAgo}</span>
+                  <button
+                    onClick={handleArchiveClick}
+                    className="flex size-4 items-center justify-center rounded text-muted-foreground hover:cursor-pointer hover:text-foreground"
+                    title={t("common.archive")}
+                    disabled={isCheckingGit}
+                  >
+                    <Archive className="size-3" />
+                  </button>
+                </div>
               </div>
+              {shortcutDigit != null ? (
+                <div className="pointer-events-none absolute right-0 top-1/2 z-10 -translate-y-1/2">
+                  <SidebarHeldShortcutBadge targetKey={workspaceShortcutKey} />
+                </div>
+              ) : null}
             </div>
           </div>
         </PopoverTrigger>

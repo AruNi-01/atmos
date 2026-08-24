@@ -18,7 +18,7 @@ export function HeldShortcutBadge({
   return (
     <kbd
       className={cn(
-        "pointer-events-none inline-flex h-5 shrink-0 items-center gap-px rounded border border-border/70 bg-muted/90 px-1 font-mono text-[10px] font-medium tabular-nums text-muted-foreground",
+        "pointer-events-none inline-flex h-4 shrink-0 items-center gap-px rounded border border-border/70 bg-muted/90 px-1 font-mono text-[10px] font-medium leading-none tabular-nums text-muted-foreground",
         className,
       )}
     >

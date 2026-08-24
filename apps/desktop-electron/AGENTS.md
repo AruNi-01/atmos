@@ -61,6 +61,7 @@ Release notes: `releasenotes/Atmos Desktop <version>.md`.
 - Browser guest inject: `packages/shared/browser/browser-runtime.js` is **copied into `dist/browser-runtime.js` at build** (packaged apps must not rely on monorepo paths)
 - Commands: `get_api_config`, `browser_bridge_*`, `appshot_*`, `tunnel_connector_*`, …
 - AppShot: dual-shift, live TCC, frontmost capture, target-window border/flash overlay, pending auto-accept + fly-in preview (`source_bounds`), shared `appshots` layout
+- Host shortcuts: while Atmos is active, claim macOS screenshot chords (⌘⇧3–6) via CGEventTap (`libatmos_host_shortcuts.dylib`) with `globalShortcut` fallback, then replay into the focused renderer so product shortcuts win
 - Cookies: `atmos-browser-cookies` under `resources/bin`
 - Tunnel: shared local gateway + share URL
 - Quit: stop Server when this process started it

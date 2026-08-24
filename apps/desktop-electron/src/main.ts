@@ -16,6 +16,7 @@ import {
   applyReadyAppBranding,
 } from "./branding.js";
 import { installDevToolsPolicy } from "./devtools-policy.js";
+import { installAppShortcutGuard } from "./host-shortcuts.js";
 import { ensureAtmosServer } from "./runtime/ensure.js";
 import { createDesktopCommandRouter } from "./ipc/router.js";
 import { createAllHandlers } from "./ipc/handlers.js";
@@ -120,6 +121,7 @@ function handleAtmosDeepLink(url: string): void {
 async function boot() {
   registerIpc();
   applyReadyAppBranding();
+  installAppShortcutGuard();
 
   console.log("[desktop-electron] ensuring Atmos Server…");
   mainLog("[boot] ensuring Atmos Server…");
