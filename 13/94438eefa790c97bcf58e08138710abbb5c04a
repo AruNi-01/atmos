@@ -1,0 +1,14 @@
+crates/desktop-use/src/capture.rs
+  h_5be255725524c8 168
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "1394438eefa790c97bcf58e08138710abbb5c04a",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
