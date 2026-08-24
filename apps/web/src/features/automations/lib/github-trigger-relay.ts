@@ -1,4 +1,5 @@
 import { createTranslator } from "next-intl";
+import type { AutomationGithubRelayRequest } from "@atmos/api-types/ws/dto/automation";
 
 import { wsRequest } from "@/api/ws/request";
 import { parseGithubTriggerConfig } from "@/api/ws/automation-dtos";
@@ -185,7 +186,7 @@ async function githubRelayRequest<T>(
   if (!accessToken && !prereqs.serverCredentialsAvailable) {
     throw new Error(automationsT("githubRelay.errors.accessTokenMissing"));
   }
-  const relayPayload: Record<string, unknown> = {
+  const relayPayload: AutomationGithubRelayRequest = {
     relay_url: prereqs.relayUrl,
     relay_secret_key: prereqs.relaySecretKey.trim() || null,
     ...payload,
@@ -193,7 +194,7 @@ async function githubRelayRequest<T>(
   if (accessToken) {
     relayPayload.device_credential = accessToken;
   }
-  return wsRequest<T>(action, relayPayload);
+  return wsRequest(action, relayPayload) as Promise<T>;
 }
 
 function isGithubRouteMissingError(err: unknown): boolean {

@@ -102,3 +102,68 @@ export type FsSearchContentResponse = {
 export type FsSearchDirsResponse = {
   entries: FsEntry[];
 };
+
+export type FsHomeDirResponse = {
+  path: string;
+};
+
+export type FsListDirRequest = {
+  path: string;
+  dirs_only?: boolean;
+  show_hidden?: boolean;
+  ignore_not_found?: boolean;
+};
+
+export type FsValidateGitPathRequest = {
+  path: string;
+};
+
+export type FsReadFileRequest = {
+  path: string;
+};
+
+export type FsReadFilesRequest = {
+  paths: string[];
+};
+
+export type FsWriteFileRequest = {
+  path: string;
+  content: string;
+};
+
+export type FsCreateDirRequest = {
+  path: string;
+};
+
+export type FsRenamePathRequest = {
+  from: string;
+  to: string;
+};
+
+export type FsDeletePathRequest = {
+  path: string;
+};
+
+export type FsDuplicatePathRequest = {
+  from: string;
+  to: string;
+};
+
+export type FsListProjectFilesRequest = {
+  root_path: string;
+  show_hidden?: boolean;
+};
+
+export type FsSearchContentRequest = {
+  root_path: string;
+  query: string;
+  max_results?: number;
+  case_sensitive?: boolean;
+};
+
+export type FsSearchDirsRequest = {
+  root_path: string;
+  query: string;
+  max_results?: number;
+  max_depth?: number;
+};

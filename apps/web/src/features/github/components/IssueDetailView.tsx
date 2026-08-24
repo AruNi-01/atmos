@@ -476,12 +476,15 @@ function IssueActionToolbar({
   const act = async (action: "close" | "reopen") => {
     setPending(action);
     try {
-      await wsRequest(`github_issue_${action}`, {
-        owner: issue.owner,
-        repo: issue.repo,
-        issue_number: issue.number,
-        body: null,
-      });
+      await wsRequest(
+        action === "close" ? "github_issue_close" : "github_issue_reopen",
+        {
+          owner: issue.owner,
+          repo: issue.repo,
+          issue_number: issue.number,
+          body: null,
+        },
+      );
       invalidate();
     } finally {
       setPending(null);
@@ -576,12 +579,19 @@ function IssueDiscussionComposer({
     if ((action === "comment" && !body.trim()) || pending) return;
     setPending(true);
     try {
-      await wsRequest(`github_issue_${action}`, {
-        owner: issue.owner,
-        repo: issue.repo,
-        issue_number: issue.number,
-        body: body.trim() || null,
-      });
+      await wsRequest(
+        action === "comment"
+          ? "github_issue_comment"
+          : action === "close"
+            ? "github_issue_close"
+            : "github_issue_reopen",
+        {
+          owner: issue.owner,
+          repo: issue.repo,
+          issue_number: issue.number,
+          body: body.trim() || null,
+        },
+      );
       setBody("");
       void queryClient.invalidateQueries({
         queryKey: queryKeys.computer.githubIssueTimeline(scope, {

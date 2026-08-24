@@ -117,3 +117,122 @@ export type GitHistoryPage = {
   total_count: number | null;
   head_commit_count: number | null;
 };
+
+export type GitGetStatusRequest = {
+  path: string;
+};
+
+export type GitGetStatusBatchRequest = {
+  paths: string[];
+};
+
+export type GitGetHeadCommitRequest = {
+  path: string;
+};
+
+export type GitGetHeadCommitResponse = {
+  commit_hash: string;
+};
+
+export type GitGetCommitCountRequest = {
+  path: string;
+  base_commit: string;
+  head_commit: string;
+};
+
+export type GitGetCommitCountResponse = {
+  count: number;
+};
+
+export type GitListBranchesRequest = {
+  path: string;
+};
+
+export type GitBranchesResponse = {
+  branches: string[];
+};
+
+export type GitRenameBranchRequest = {
+  path: string;
+  old_name: string;
+  new_name: string;
+};
+
+export type GitChangedFilesRequest = {
+  path: string;
+  base_branch?: string | null;
+  base_ref?: string | null;
+  commit_ref?: string | null;
+  use_preferred_compare?: boolean;
+};
+
+export type GitFileDiffRequest = {
+  path: string;
+  file_path: string;
+  base_branch?: string | null;
+  base_ref?: string | null;
+  commit_ref?: string | null;
+  against_index?: boolean;
+};
+
+export type GitFilesDiffRequest = {
+  path: string;
+  file_paths: string[];
+  base_branch?: string | null;
+  base_ref?: string | null;
+  commit_ref?: string | null;
+  against_index?: boolean;
+};
+
+export type GitPatchChunkRequest = {
+  path: string;
+  file_path: string;
+  patch: string;
+  file_status: string;
+};
+
+export type GitCommitRequest = {
+  path: string;
+  message: string;
+};
+
+export type GitGenerateCommitMessageRequest = {
+  path: string;
+};
+
+export type GitPathFilesRequest = {
+  path: string;
+  files: string[];
+};
+
+export type GitPathRequest = {
+  path: string;
+};
+
+export type GitLogRequest = {
+  path: string;
+  limit?: number;
+  offset?: number;
+};
+
+export type GitLogCommit = {
+  hash: string;
+  short_hash: string;
+  author_name: string;
+  author_email: string;
+  timestamp: number;
+  subject: string;
+  body: string | null;
+  is_pushed: boolean;
+  author_avatar_url: string | null;
+};
+
+export type GitLogPage = {
+  commits: GitLogCommit[];
+};
+
+export type GitHistoryRequest = {
+  path: string;
+  limit?: number;
+  cursor?: number;
+};

@@ -15,6 +15,7 @@ test.describe("smoke app shell preferences menu", () => {
     await gotoSettingsRoute(page, "general");
     // Appearance lives on the General group tab strip, not as a page heading.
     await expect(page.getByRole("tab", { name: /^(Appearance|外观)$/ })).toBeVisible();
+    await expect(page.getByRole("tab", { name: /^(Light|浅色)$/ })).toBeVisible();
 
     await page.getByRole("tab", { name: /^(Light|浅色)$/ }).click();
     await expect

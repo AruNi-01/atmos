@@ -23,7 +23,7 @@ export function automationListQueryOptions(
     connectionState,
     queryKey: queryKeys.computer.automationList(scope),
     queryFn: (): Promise<AutomationListResponse> =>
-      wsRequest<AutomationListResponse>("automation_list", { include_paused: true }),
+      wsRequest("automation_list", { include_paused: true }),
     staleTime: 30_000,
   });
 }
@@ -37,7 +37,7 @@ export function automationAgentCapabilitiesQueryOptions(
     connectionState,
     queryKey: queryKeys.computer.automationAgentCapabilities(scope),
     queryFn: (): Promise<AutomationAgentCapabilitiesResponse> =>
-      wsRequest<AutomationAgentCapabilitiesResponse>("automation_agent_capabilities"),
+      wsRequest("automation_agent_capabilities"),
     staleTime: 60_000,
   });
 }
@@ -46,16 +46,16 @@ export const ALL_AUTOMATION_RUNS_KEY = "all";
 
 async function fetchAllAutomationRuns(): Promise<AutomationRunListResponse> {
   try {
-    return await wsRequest<AutomationRunListResponse>("automation_run_list", {
+    return await wsRequest("automation_run_list", {
       limit: 200,
     });
   } catch {
-    const list = await wsRequest<AutomationListResponse>("automation_list", {
+    const list = await wsRequest("automation_list", {
       include_paused: true,
     });
     const pages = await Promise.all(
       list.automations.map((automation) =>
-        wsRequest<AutomationRunListResponse>("automation_run_list", {
+        wsRequest("automation_run_list", {
           automation_guid: automation.guid,
           limit: 50,
         }),
@@ -82,7 +82,7 @@ export function automationRunListQueryOptions(
     queryFn: (): Promise<AutomationRunListResponse> =>
       listingAll
         ? fetchAllAutomationRuns()
-        : wsRequest<AutomationRunListResponse>("automation_run_list", {
+        : wsRequest("automation_run_list", {
             automation_guid: automationGuid,
           }),
     staleTime: 15_000,

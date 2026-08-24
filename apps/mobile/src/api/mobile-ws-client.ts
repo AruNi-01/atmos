@@ -1,4 +1,7 @@
-import type { WsAction } from "@atmos/api-types/ws/actions";
+import type {
+  MappedWsAction,
+  WsContract,
+} from "@atmos/api-types/ws/contract";
 import {
   createWsSession,
   DEFAULT_MOBILE_RECONNECT,
@@ -183,8 +186,12 @@ export class MobileWsClient {
     this.stateListeners.forEach((l) => l(this.currentState));
   }
 
-  request<T>(action: WsAction | string, data?: unknown): Promise<T> {
-    return this.session.request<T>(action, data).catch((err) => {
+  request<A extends MappedWsAction>(
+    action: A,
+    data?: WsContract[A]["input"],
+  ): Promise<WsContract[A]["output"]>;
+  request(action: string, data?: unknown): Promise<unknown> {
+    return this.session.request(action as never, data as never).catch((err) => {
       const message = err instanceof Error ? err.message : String(err);
       if (message.includes("not connected")) {
         return Promise.reject(

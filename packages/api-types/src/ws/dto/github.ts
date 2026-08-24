@@ -272,9 +272,329 @@ export type GithubActionsJobLogsPayload = {
   job_id: number;
   job_total_lines?: number;
   steps: GithubActionsJobStepLogPayload[];
-  /** @deprecated Prefer `steps`. Kept empty for older clients. */
   text?: string;
   total_lines?: number;
   truncated?: boolean;
   tail_lines?: number;
+};
+
+export type GithubPage<T> = {
+  items: T[];
+  has_more: boolean;
+};
+
+export type GithubLinkedPrPayload = {
+  number: number;
+  title: string;
+  url: string;
+  state: string;
+  headRefName?: string;
+};
+
+export type GithubRepoLabel = {
+  name: string;
+  color?: string | null;
+  description?: string | null;
+};
+
+export type GithubRepoAssignee = {
+  login: string;
+  avatar_url?: string | null;
+};
+
+export type GithubPrFile = {
+  sha: string;
+  filename: string;
+  previous_filename?: string;
+  status: string;
+  additions: number;
+  deletions: number;
+  changes: number;
+  patch?: string;
+  raw_url?: string;
+  blob_url?: string;
+  contents_url?: string;
+};
+
+export type GithubPrConflictFilesResponse = {
+  files?: string[];
+  contents?: Record<string, string>;
+  source?: string;
+  reason?: string;
+  base_oid?: string;
+  head_oid?: string;
+};
+
+export type GithubIssueListRequest = {
+  owner: string;
+  repo: string;
+  state?: string;
+  limit?: number;
+  sort?: string;
+  direction?: string;
+  search?: string | null;
+};
+
+export type GithubIssueGetRequest = {
+  owner?: string | null;
+  repo?: string | null;
+  issue_number?: number | null;
+  issue_url?: string | null;
+};
+
+export type GithubIssueTimelinePageRequest = {
+  owner: string;
+  repo: string;
+  issue_number: number;
+  page: number;
+  per_page: number;
+};
+
+export type GithubIssuePageRequest = {
+  owner: string;
+  repo: string;
+  state: string;
+  page: number;
+  per_page: number;
+  sort?: string;
+  direction?: string;
+};
+
+export type GithubIssueLinkedPrsRequest = {
+  owner: string;
+  repo: string;
+  issue_number: number;
+};
+
+export type GithubPrListRepoRequest = {
+  owner: string;
+  repo: string;
+  state?: string;
+  limit?: number;
+};
+
+export type GithubSearchRepoRef = {
+  owner: string;
+  repo: string;
+};
+
+export type GithubSearchRequest = {
+  kind: string;
+  repos?: GithubSearchRepoRef[];
+  state?: string;
+  assignees?: string[];
+  labels?: string[];
+  query?: string | null;
+  page?: number;
+  per_page?: number;
+};
+
+export type GithubIssueTemplatesRequest = {
+  owner: string;
+  repo: string;
+};
+
+export type GithubIssueCreateRequest = {
+  owner: string;
+  repo: string;
+  title: string;
+  body?: string | null;
+  labels?: string[];
+  assignees?: string[];
+};
+
+export type GithubPrGetRequest = {
+  owner?: string | null;
+  repo?: string | null;
+  pr_number?: number | null;
+  pr_url?: string | null;
+};
+
+export type GithubPrListRequest = {
+  owner: string;
+  repo: string;
+  branch: string;
+  state?: string | null;
+  emit_branch_status_refresh?: boolean;
+};
+
+export type GithubPrBranchPageRequest = {
+  owner: string;
+  repo: string;
+  branch: string;
+  state: string;
+  page: number;
+  per_page: number;
+};
+
+export type GithubPrDetailRequest = {
+  owner: string;
+  repo: string;
+  pr_number: number;
+};
+
+export type GithubPrCreateRequest = {
+  owner: string;
+  repo: string;
+  branch: string;
+  title: string;
+  body?: string | null;
+  base_branch: string;
+  draft?: boolean | null;
+};
+
+export type GithubPrMergeRequest = {
+  owner: string;
+  repo: string;
+  pr_number: number;
+  strategy: string;
+  body?: string | null;
+};
+
+export type GithubPrCloseRequest = {
+  owner: string;
+  repo: string;
+  pr_number: number;
+  comment?: string | null;
+};
+
+export type GithubPrNumberRequest = {
+  owner: string;
+  repo: string;
+  pr_number: number;
+};
+
+export type GithubPrCommentRequest = {
+  owner: string;
+  repo: string;
+  pr_number: number;
+  body: string;
+};
+
+export type GithubRepoLabelsRequest = {
+  owner: string;
+  repo: string;
+  limit?: number;
+};
+
+export type GithubRepoAssigneesRequest = {
+  owner: string;
+  repo: string;
+};
+
+export type GithubUserCardRequest = {
+  login: string;
+};
+
+export type GithubPrUpdateLabelsRequest = {
+  owner: string;
+  repo: string;
+  pr_number: number;
+  add?: string[];
+  remove?: string[];
+};
+
+export type GithubPrUpdateAssigneesRequest = {
+  owner: string;
+  repo: string;
+  pr_number: number;
+  add?: string[];
+  remove?: string[];
+};
+
+export type GithubIssueUpdateLabelsRequest = {
+  owner: string;
+  repo: string;
+  issue_number: number;
+  add?: string[];
+  remove?: string[];
+};
+
+export type GithubIssueUpdateAssigneesRequest = {
+  owner: string;
+  repo: string;
+  issue_number: number;
+  add?: string[];
+  remove?: string[];
+};
+
+export type GithubIssueActionRequest = {
+  owner: string;
+  repo: string;
+  issue_number: number;
+  body?: string | null;
+};
+
+export type GithubPrUpdateLinkedIssuesRequest = {
+  owner: string;
+  repo: string;
+  pr_number: number;
+  add?: number[];
+  remove?: number[];
+};
+
+export type GithubPrTimelinePageRequest = {
+  owner: string;
+  repo: string;
+  pr_number: number;
+  page: number;
+  per_page: number;
+};
+
+export type GithubCiStatusRequest = {
+  owner: string;
+  repo: string;
+  branch: string;
+};
+
+export type GithubCiOpenBrowserRequest = {
+  owner: string;
+  repo: string;
+  run_id: number;
+};
+
+export type GithubActionsListRequest = {
+  owner: string;
+  repo: string;
+  branch: string;
+};
+
+export type GithubActionsRerunRequest = {
+  owner: string;
+  repo: string;
+  run_id: number;
+  failed_only?: boolean | null;
+};
+
+export type GithubPrFilesRequest = {
+  owner: string;
+  repo: string;
+  pr_number: number;
+};
+
+export type GithubPrConflictFilesRequest = {
+  owner: string;
+  repo: string;
+  pr_number: number;
+  repo_path?: string | null;
+  include_contents?: boolean;
+};
+
+export type GithubActionsDetailRequest = {
+  owner: string;
+  repo: string;
+  run_id: number;
+};
+
+export type GithubActionsJobLogsRequest = {
+  owner: string;
+  repo: string;
+  job_id: number;
+  tail_lines?: number | null;
+};
+
+export type GithubCommitDetailRequest = {
+  owner: string;
+  repo: string;
+  sha: string;
 };
