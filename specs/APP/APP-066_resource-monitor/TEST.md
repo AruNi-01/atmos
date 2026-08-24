@@ -268,9 +268,15 @@ just typecheck
 # web/e2e/desktop-electron/api-types green
 # unrelated fail: packages/ui DrawerContentBare TS2883 (DialogContentProps portability)
 # unrelated fail: packages/relay src/server-hub.ts TS2741 missing PT_DESIGN_ROOM on ServerHubEnv
+
+just test
+# APP-066 targeted tests remain green; the full run failed on unrelated existing/environment-sensitive suites:
+# desktop macOS icon Python assertions, the real browser-cookie helper payload,
+# Bun @workspace/ui alias resolution, stale PT Design source-string assertions,
+# and vendor serve-sim native lipo architecture checks.
 ```
 
-`just test-e2e -- tests/specs/APP-066_resource-monitor.e2e.ts` forwarded an extra `--` and launched the full Playwright suite against the missing v1234 browser; after `install:browsers`, the targeted file command above is the passing run. Full `just test` / `just test-e2e-smoke` were not re-run.
+`just test-e2e -- tests/specs/APP-066_resource-monitor.e2e.ts` forwarded an extra `--` and launched the full Playwright suite against the missing v1234 browser; after `install:browsers`, the targeted file command above is the passing run. `just test` was run afterward and failed only on the unrelated suites listed above. `just test-e2e-smoke` was not re-run.
 
 ### Exploratory agent-browser
 
@@ -289,6 +295,7 @@ just typecheck
 - Agent-browser / Activity Monitor / real Relay Computer remain manual (TEST.md Manual verification).
 - Windows host sampling not executed in this run (macOS).
 - Root typecheck still red on `packages/ui` `DrawerContentBare` and `packages/relay` `PT_DESIGN_ROOM` — unrelated to APP-066.
+- Root `just test` remains red on unrelated desktop icon/cookie, Bun alias, PT Design structural, and vendor native-architecture checks.
 
 ### Test-run files changed
 

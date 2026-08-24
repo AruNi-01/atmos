@@ -54,6 +54,7 @@ No implementation deltas.
 | Web tests | targeted `bun test` + typecheck + lint | passed | APP-066 Query/lifecycle/state coverage |
 | Electron | full `bun test` + typecheck + build | passed | shell collector and IPC |
 | E2E | targeted Playwright | passed | Chromium + mobile Chromium |
+| Full repository | `just test` / `just typecheck` | unrelated failures | APP-066 surfaces pass; see `TEST.md` Coverage Status |
 | Agent Browser/manual | exploratory | partial | Connect gate blocked Agent Browser; host-specific checks remain |
 
 ## Known Blockers
