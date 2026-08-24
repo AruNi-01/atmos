@@ -259,6 +259,63 @@ describe("collectDesktopShellMetrics", () => {
     expect(snapshot.logical_cpu_count).toBe(4);
   });
 
+  it("treats overflowing raw CPU aggregates as zero", () => {
+    const snapshot = collectDesktopShellMetrics({
+      logicalCpuCount: 8,
+      nowMs: () => 11,
+      readProcessMetrics: () => [
+        {
+          type: "Browser",
+          memory: { workingSetSize: 1 },
+          cpu: { percentCPUUsage: Number.MAX_VALUE },
+        },
+        {
+          type: "Tab",
+          memory: { workingSetSize: 1 },
+          cpu: { percentCPUUsage: Number.MAX_VALUE },
+        },
+      ],
+    });
+
+    expect(usageOf(snapshot, "main").cpu_percent).toBe(100);
+    expect(usageOf(snapshot, "renderer").cpu_percent).toBe(100);
+    expect(snapshot.total.cpu_percent).toBe(0);
+  });
+
+  it("clamps over-aggregated CPU to the host 0..100 range", () => {
+    const snapshot = collectDesktopShellMetrics({
+      logicalCpuCount: 2,
+      nowMs: () => 12,
+      readProcessMetrics: () => [
+        {
+          type: "Tab",
+          memory: { workingSetSize: 1 },
+          cpu: { percentCPUUsage: 80 },
+        },
+        {
+          type: "Tab",
+          memory: { workingSetSize: 1 },
+          cpu: { percentCPUUsage: 80 },
+        },
+        {
+          type: "Tab",
+          memory: { workingSetSize: 1 },
+          cpu: { percentCPUUsage: 80 },
+        },
+        {
+          type: "Tab",
+          memory: { workingSetSize: 1 },
+          cpu: { percentCPUUsage: 80 },
+        },
+      ],
+    });
+
+    expect(usageOf(snapshot, "renderer").cpu_percent).toBe(100);
+    expect(snapshot.total.cpu_percent).toBe(100);
+    expect(snapshot.total.cpu_percent).toBeLessThanOrEqual(100);
+    expect(snapshot.total.cpu_percent).toBeGreaterThanOrEqual(0);
+  });
+
   it("sanitizes a non-finite logical CPU count and still reports memory", () => {
     const snapshot = collectDesktopShellMetrics({
       logicalCpuCount: Number.NaN,

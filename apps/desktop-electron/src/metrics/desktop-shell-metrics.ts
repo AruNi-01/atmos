@@ -113,8 +113,10 @@ function unsupportedSnapshot(
 }
 
 function normalizeCpu(rawPercent: number, logicalCpuCount: number): number {
-  if (logicalCpuCount <= 0) return 0;
-  return rawPercent / logicalCpuCount;
+  if (!Number.isFinite(rawPercent) || rawPercent < 0 || logicalCpuCount <= 0) {
+    return 0;
+  }
+  return Math.min(100, rawPercent / logicalCpuCount);
 }
 
 export function collectDesktopShellMetrics(
