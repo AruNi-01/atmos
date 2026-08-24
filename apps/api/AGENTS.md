@@ -84,6 +84,7 @@ On successful `TcpListener::bind`:
   3. **Pre-connection bootstrap** — data needed before a WS connection exists (`/healthz`, `/api/system/computer*`, client-session).
   4. **Diagnostics / destructive ops** — tmux cleanup, process kill, relay register.
 - Do not duplicate WS-capable flows as new REST APIs. When adding a REST route, state in the PR/spec why it cannot be a WS action.
+- Computer REST **types** are not `@atmos/api-types`. They live with the TS consumer (`apps/web/src/api/rest-api.ts` today). Hub/Relay HTTP contracts are `@atmos/hub-client` / `@atmos/relay-client` — see [packages/AGENTS.md](../../packages/AGENTS.md).
 
 ---
 
@@ -99,7 +100,7 @@ On successful `TcpListener::bind`:
 ### ALWAYS
 
 - Use `AppState` for services.
-- Keep main-app WS action/frame TS surface in sync via `@atmos/api-types` (APP-048): when adding `WsAction` variants, update `packages/api-types` (enum extract + catalog) in the same change set.
+- Keep main-app WS TS in sync via `@atmos/api-types` (APP-048 / APP-064): when adding `WsAction` or `WsEvent`, update extract fixtures, `actions.ts` / `events.ts`, DTOs, and a **`WsContract` row** in the same change set. Recipe: [packages/api-types/AGENTS.md](../../packages/api-types/AGENTS.md). Do not add oRPC or a parallel REST path for a new interactive action.
 - When changing relay protocol, update `packages/relay` and APP-016 TECH.
 
 ---
@@ -108,4 +109,5 @@ On successful `TcpListener::bind`:
 
 - [crates/runtime-manager/AGENTS.md](../../crates/runtime-manager/AGENTS.md)
 - [packages/relay/AGENTS.md](../../packages/relay/AGENTS.md)
+- [packages/api-types/AGENTS.md](../../packages/api-types/AGENTS.md)
 - [apps/cli/AGENTS.md](../cli/AGENTS.md)

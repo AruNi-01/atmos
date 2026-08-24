@@ -624,13 +624,23 @@ export function LabelsEditor({
     });
 
     try {
-      await wsRequest(resource === "pr" ? 'github_pr_update_labels' : 'github_issue_update_labels', {
-        owner,
-        repo,
-        [resource === "pr" ? "pr_number" : "issue_number"]: number,
-        add: currentlySelected ? [] : [label.name],
-        remove: currentlySelected ? [label.name] : [],
-      });
+      if (resource === "pr") {
+        await wsRequest("github_pr_update_labels", {
+          owner,
+          repo,
+          pr_number: number,
+          add: currentlySelected ? [] : [label.name],
+          remove: currentlySelected ? [label.name] : [],
+        });
+      } else {
+        await wsRequest("github_issue_update_labels", {
+          owner,
+          repo,
+          issue_number: number,
+          add: currentlySelected ? [] : [label.name],
+          remove: currentlySelected ? [label.name] : [],
+        });
+      }
       onChanged?.();
       void queryClient.invalidateQueries({ queryKey: detailKey });
       void queryClient.invalidateQueries({
@@ -784,13 +794,23 @@ export function AssigneesEditor({
     });
 
     try {
-      await wsRequest(resource === "pr" ? 'github_pr_update_assignees' : 'github_issue_update_assignees', {
-        owner,
-        repo,
-        [resource === "pr" ? "pr_number" : "issue_number"]: number,
-        add: currentlySelected ? [] : [user.login],
-        remove: currentlySelected ? [user.login] : [],
-      });
+      if (resource === "pr") {
+        await wsRequest("github_pr_update_assignees", {
+          owner,
+          repo,
+          pr_number: number,
+          add: currentlySelected ? [] : [user.login],
+          remove: currentlySelected ? [user.login] : [],
+        });
+      } else {
+        await wsRequest("github_issue_update_assignees", {
+          owner,
+          repo,
+          issue_number: number,
+          add: currentlySelected ? [] : [user.login],
+          remove: currentlySelected ? [user.login] : [],
+        });
+      }
       onChanged?.();
       void queryClient.invalidateQueries({ queryKey: detailKey });
       void queryClient.invalidateQueries({

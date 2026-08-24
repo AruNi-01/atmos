@@ -105,7 +105,7 @@ describe("@atmos/api-client WsSession", () => {
     const p = session.connect();
     sock!.open();
     await p;
-    const req = session.request<{ path: string }>("fs_get_home_dir", {});
+    const req = session.request("fs_get_home_dir", {});
     const sent = JSON.parse(sock!.sent[0]!) as {
       payload: { request_id: string };
     };

@@ -1,6 +1,7 @@
 "use client";
 
 import { wsRequest } from "@/api/ws/request";
+import type { TerminalSideChatRecord } from "@atmos/api-types/ws/dto/terminal";
 import type { Workspace, WorkspaceWorkflowStatus, WorkspacePriority, WorkspaceLabel } from "@/shared/types/domain";
 import { normalizeWorkspaceCreateSource } from "@/shared/lib/workspace-create-source";
 import type { GithubIssuePayload, GithubPrPayload } from "@/api/ws/github-api";
@@ -32,7 +33,7 @@ import type {
   ProjectWorkspaceBootstrapResponse,
   ProjectModel,
   ProjectScripts,
-  WorkspaceAttachmentPayload,
+  WorkspaceAttachmentView,
   WorkspaceLabelModel,
   WorkspaceModel,
 } from "@/api/ws-api-types";
@@ -75,7 +76,7 @@ export type {
   ProjectModel,
   ProjectScripts,
   SearchMatch,
-  WorkspaceAttachmentPayload,
+  WorkspaceAttachmentView,
   WorkspaceLabelModel,
   WorkspaceModel,
 } from "@/api/ws-api-types";
@@ -87,7 +88,7 @@ export const fsApi = {
    * 获取用户主目录
    */
   getHomeDir: async (): Promise<string> => {
-    const result = await wsRequest<{ path: string }>("fs_get_home_dir");
+    const result = await wsRequest("fs_get_home_dir");
     return result.path;
   },
 
@@ -102,7 +103,7 @@ export const fsApi = {
       ignoreNotFound?: boolean;
     },
   ): Promise<FsListDirResponse> => {
-    return wsRequest<FsListDirResponse>("fs_list_dir", {
+    return wsRequest("fs_list_dir", {
       path,
       dirs_only: options?.dirsOnly ?? true, // 默认只显示目录
       show_hidden: options?.showHidden ?? false,
@@ -114,7 +115,7 @@ export const fsApi = {
    * 验证 Git 仓库路径
    */
   validateGitPath: async (path: string): Promise<FsValidateGitPathResponse> => {
-    return wsRequest<FsValidateGitPathResponse>("fs_validate_git_path", {
+    return wsRequest("fs_validate_git_path", {
       path,
     });
   },
@@ -123,14 +124,14 @@ export const fsApi = {
    * 读取文件内容
    */
   readFile: async (path: string): Promise<FsReadFileResponse> => {
-    return wsRequest<FsReadFileResponse>("fs_read_file", { path });
+    return wsRequest("fs_read_file", { path });
   },
 
   /**
    * 批量读取文件内容
    */
   readFiles: async (paths: string[]): Promise<FsReadFilesResponse> => {
-    return wsRequest<FsReadFilesResponse>("fs_read_files", { paths });
+    return wsRequest("fs_read_files", { paths });
   },
 
   /**
@@ -140,26 +141,26 @@ export const fsApi = {
     path: string,
     content: string,
   ): Promise<FsWriteFileResponse> => {
-    return wsRequest<FsWriteFileResponse>("fs_write_file", { path, content });
+    return wsRequest("fs_write_file", { path, content });
   },
 
   createDir: async (path: string): Promise<FsCreateDirResponse> => {
-    return wsRequest<FsCreateDirResponse>("fs_create_dir", { path });
+    return wsRequest("fs_create_dir", { path });
   },
 
   renamePath: async (from: string, to: string): Promise<FsRenamePathResponse> => {
-    return wsRequest<FsRenamePathResponse>("fs_rename_path", { from, to });
+    return wsRequest("fs_rename_path", { from, to });
   },
 
   deletePath: async (path: string): Promise<FsDeletePathResponse> => {
-    return wsRequest<FsDeletePathResponse>("fs_delete_path", { path });
+    return wsRequest("fs_delete_path", { path });
   },
 
   duplicatePath: async (
     from: string,
     to: string,
   ): Promise<FsDuplicatePathResponse> => {
-    return wsRequest<FsDuplicatePathResponse>("fs_duplicate_path", { from, to });
+    return wsRequest("fs_duplicate_path", { from, to });
   },
 
   /**
@@ -169,7 +170,7 @@ export const fsApi = {
     rootPath: string,
     options?: { showHidden?: boolean },
   ): Promise<FsListProjectFilesResponse> => {
-    return wsRequest<FsListProjectFilesResponse>("fs_list_project_files", {
+    return wsRequest("fs_list_project_files", {
       root_path: rootPath,
       show_hidden: options?.showHidden ?? false,
     });
@@ -183,7 +184,7 @@ export const fsApi = {
     query: string,
     options?: { maxResults?: number; caseSensitive?: boolean },
   ): Promise<FsSearchContentResponse> => {
-    return wsRequest<FsSearchContentResponse>("fs_search_content", {
+    return wsRequest("fs_search_content", {
       root_path: rootPath,
       query,
       max_results: options?.maxResults ?? 50,
@@ -199,7 +200,7 @@ export const fsApi = {
     query: string,
     options?: { maxResults?: number; maxDepth?: number },
   ): Promise<FsSearchDirsResponse> => {
-    return wsRequest<FsSearchDirsResponse>("fs_search_dirs", {
+    return wsRequest("fs_search_dirs", {
       root_path: rootPath,
       query,
       max_results: options?.maxResults ?? 50,
@@ -221,13 +222,13 @@ export const appApi = {
    * 使用外部应用打开路径
    */
   openWith: async (appName: string, path: string): Promise<AppOpenResponse> => {
-    return wsRequest<AppOpenResponse>("app_open", {
+    return wsRequest("app_open", {
       app_name: appName,
       path,
     });
   },
   openPath: async (path: string): Promise<AppOpenResponse> => {
-    return wsRequest<AppOpenResponse>("app_open", {
+    return wsRequest("app_open", {
       app_name: "Default",
       path,
     });
@@ -251,29 +252,11 @@ export interface TerminalSideContextCaptureResponse {
   text: string;
 }
 
-export type TerminalSideChatStatus = "open" | "hidden" | "closing";
-
-export interface TerminalSideChatRecord {
-  side_chat_id: string;
-  workspace_id: string;
-  project_name?: string | null;
-  workspace_name?: string | null;
-  source_pane_id: string;
-  source_tmux_window_name: string;
-  source_surface_kind: string;
-  source_surface_ref_json?: string | null;
-  side_tmux_window_name: string;
-  agent_ref_json?: string | null;
-  color_hex: string;
-  status: TerminalSideChatStatus;
-  created_at?: string | null;
-  updated_at?: string | null;
-}
-
-export interface TerminalSideChatListResponse {
-  workspace_id: string;
-  records: TerminalSideChatRecord[];
-}
+export type {
+  TerminalSideChatListResponse,
+  TerminalSideChatRecord,
+  TerminalSideChatStatus,
+} from "@atmos/api-types/ws/dto/terminal";
 
 export const terminalSideChatApi = {
   captureContext: (payload: {
@@ -283,24 +266,24 @@ export const terminalSideChatApi = {
     source_session_id?: string | null;
     source_tmux_window_name: string;
     max_prompt_bytes?: number;
-  }) => wsRequest<TerminalSideContextCaptureResponse>("terminal_side_context_capture", payload),
+  }) => wsRequest("terminal_side_context_capture", payload),
 
   list: (workspaceId: string) =>
-    wsRequest<TerminalSideChatListResponse>("terminal_side_chat_list", {
+    wsRequest("terminal_side_chat_list", {
       workspace_id: workspaceId,
     }),
 
   upsert: (record: TerminalSideChatRecord) =>
-    wsRequest<TerminalSideChatRecord>("terminal_side_chat_upsert", { record }),
+    wsRequest("terminal_side_chat_upsert", { record }),
 
   setStatus: (payload: {
     workspace_id: string;
     side_chat_id: string;
     status: "open" | "hidden";
-  }) => wsRequest<TerminalSideChatRecord>("terminal_side_chat_status_update", payload),
+  }) => wsRequest("terminal_side_chat_status_update", payload),
 
   close: (payload: { workspace_id: string; side_chat_id: string }) =>
-    wsRequest<{ ok: boolean; closed: boolean }>("terminal_side_chat_close", payload),
+    wsRequest("terminal_side_chat_close", payload),
 };
 
 // ===== Canvas terminal-agent bridge (APP-015) =====
@@ -324,11 +307,11 @@ export interface CanvasAgentDispatchResultPayload {
 
 export const canvasAgentBridgeWsApi = {
   register: (payload: CanvasBridgeRegisterPayload) =>
-    wsRequest<unknown>("canvas_bridge_register", payload),
+    wsRequest("canvas_bridge_register", payload),
   unregister: (clientId: string) =>
-    wsRequest<unknown>("canvas_bridge_unregister", { client_id: clientId }),
+    wsRequest("canvas_bridge_unregister", { client_id: clientId }),
   postResult: (payload: CanvasAgentDispatchResultPayload) =>
-    wsRequest<unknown>("canvas_agent_dispatch_result", {
+    wsRequest("canvas_agent_dispatch_result", {
       ...payload,
       data: payload.data ?? null,
     }),
@@ -336,11 +319,11 @@ export const canvasAgentBridgeWsApi = {
 
 export const ptDesignAgentBridgeWsApi = {
   register: (payload: CanvasBridgeRegisterPayload) =>
-    wsRequest<unknown>("pt_design_bridge_register", payload),
+    wsRequest("pt_design_bridge_register", payload),
   unregister: (clientId: string) =>
-    wsRequest<unknown>("pt_design_bridge_unregister", { client_id: clientId }),
+    wsRequest("pt_design_bridge_unregister", { client_id: clientId }),
   postResult: (payload: CanvasAgentDispatchResultPayload) =>
-    wsRequest<unknown>("pt_design_agent_dispatch_result", {
+    wsRequest("pt_design_agent_dispatch_result", {
       ...payload,
       data: payload.data ?? null,
     }),
@@ -353,14 +336,14 @@ export const gitApi = {
    * 获取 Git 状态（未提交/未推送的更改）
    */
   getStatus: async (path: string): Promise<GitStatusResponse> => {
-    return wsRequest<GitStatusResponse>("git_get_status", { path });
+    return wsRequest("git_get_status", { path });
   },
 
   /**
    * 批量获取 Git 状态
    */
   getStatuses: async (paths: string[]): Promise<GitGetStatusBatchResponse> => {
-    return wsRequest<GitGetStatusBatchResponse>("git_get_status_batch", {
+    return wsRequest("git_get_status_batch", {
       paths,
     });
   },
@@ -368,8 +351,8 @@ export const gitApi = {
   /**
    * 获取当前 HEAD 提交 hash
    */
-  getHeadCommit: async (path: string): Promise<{ commit_hash: string }> => {
-    return wsRequest<{ commit_hash: string }>("git_get_head_commit", { path });
+  getHeadCommit: async (path: string) => {
+    return wsRequest("git_get_head_commit", { path });
   },
 
   getCommitCount: async (
@@ -377,7 +360,7 @@ export const gitApi = {
     baseCommit: string,
     headCommit: string,
   ): Promise<{ count: number }> => {
-    return wsRequest<{ count: number }>("git_get_commit_count", {
+    return wsRequest("git_get_commit_count", {
       path,
       base_commit: baseCommit,
       head_commit: headCommit,
@@ -391,7 +374,7 @@ export const gitApi = {
     path: string,
     options?: { cursor?: number; limit?: number },
   ): Promise<GitHistoryPage> => {
-    return wsRequest<GitHistoryPage>("git_history", {
+    return wsRequest("git_history", {
       path,
       cursor: options?.cursor ?? 0,
       limit: options?.limit ?? 1000,
@@ -402,8 +385,7 @@ export const gitApi = {
    * 列出仓库所有分支
    */
   listBranches: async (path: string): Promise<string[]> => {
-    const result = await wsRequest<{ branches: string[] }>(
-      "git_list_branches",
+    const result = await wsRequest("git_list_branches",
       { path },
     );
     return result.branches;
@@ -413,8 +395,7 @@ export const gitApi = {
    * 列出仓库所有远程分支
    */
   listRemoteBranches: async (path: string): Promise<string[]> => {
-    const result = await wsRequest<{ branches: string[] }>(
-      "git_list_remote_branches",
+    const result = await wsRequest("git_list_remote_branches",
       { path },
     );
     return result.branches;
@@ -428,7 +409,7 @@ export const gitApi = {
     oldName: string,
     newName: string,
   ): Promise<{ success: boolean }> => {
-    return wsRequest<{ success: boolean }>("git_rename_branch", {
+    return wsRequest("git_rename_branch", {
       path,
       old_name: oldName,
       new_name: newName,
@@ -444,7 +425,7 @@ export const gitApi = {
     usePreferredCompare?: boolean,
     options?: { baseRef?: string | null; commitRef?: string | null },
   ): Promise<GitChangedFilesResponse> => {
-    return wsRequest<GitChangedFilesResponse>("git_changed_files", {
+    return wsRequest("git_changed_files", {
       path,
       base_branch: baseBranch ?? null,
       base_ref: options?.baseRef ?? null,
@@ -462,7 +443,7 @@ export const gitApi = {
     baseBranch?: string | null,
     options?: { againstIndex?: boolean; baseRef?: string | null; commitRef?: string | null },
   ): Promise<GitFileDiffResponse> => {
-    return wsRequest<GitFileDiffResponse>("git_file_diff", {
+    return wsRequest("git_file_diff", {
       path,
       file_path: filePath,
       base_branch: baseBranch ?? null,
@@ -481,7 +462,7 @@ export const gitApi = {
     baseBranch?: string | null,
     options?: { againstIndex?: boolean; baseRef?: string | null; commitRef?: string | null },
   ): Promise<GitFilesDiffResponse> => {
-    return wsRequest<GitFilesDiffResponse>("git_files_diff", {
+    return wsRequest("git_files_diff", {
       path,
       file_paths: filePaths,
       base_branch: baseBranch ?? null,
@@ -500,7 +481,7 @@ export const gitApi = {
     patch: string,
     fileStatus: string,
   ): Promise<GitPatchChunkResponse> => {
-    return wsRequest<GitPatchChunkResponse>("git_stage_patch_chunk", {
+    return wsRequest("git_stage_patch_chunk", {
       path,
       file_path: filePath,
       patch,
@@ -517,7 +498,7 @@ export const gitApi = {
     patch: string,
     fileStatus: string,
   ): Promise<GitPatchChunkResponse> => {
-    return wsRequest<GitPatchChunkResponse>("git_restore_patch_chunk", {
+    return wsRequest("git_restore_patch_chunk", {
       path,
       file_path: filePath,
       patch,
@@ -529,7 +510,7 @@ export const gitApi = {
    * 提交更改
    */
   commit: async (path: string, message: string): Promise<GitCommitResponse> => {
-    return wsRequest<GitCommitResponse>("git_commit", {
+    return wsRequest("git_commit", {
       path,
       message,
     });
@@ -541,8 +522,7 @@ export const gitApi = {
   generateCommitMessage: async (
     path: string,
   ): Promise<GitGenerateCommitMessageResponse> => {
-    return wsRequest<GitGenerateCommitMessageResponse>(
-      "git_generate_commit_message",
+    return wsRequest("git_generate_commit_message",
       { path },
     );
   },
@@ -551,7 +531,7 @@ export const gitApi = {
    * 推送到远程
    */
   push: async (path: string): Promise<{ success: boolean }> => {
-    return wsRequest<{ success: boolean }>("git_push", { path });
+    return wsRequest("git_push", { path });
   },
 
   /**
@@ -561,7 +541,7 @@ export const gitApi = {
     path: string,
     files: string[],
   ): Promise<{ success: boolean }> => {
-    return wsRequest<{ success: boolean }>("git_stage", { path, files });
+    return wsRequest("git_stage", { path, files });
   },
 
   /**
@@ -571,7 +551,7 @@ export const gitApi = {
     path: string,
     files: string[],
   ): Promise<{ success: boolean }> => {
-    return wsRequest<{ success: boolean }>("git_unstage", { path, files });
+    return wsRequest("git_unstage", { path, files });
   },
 
   /**
@@ -581,7 +561,7 @@ export const gitApi = {
     path: string,
     files: string[],
   ): Promise<{ success: boolean }> => {
-    return wsRequest<{ success: boolean }>("git_discard_unstaged", {
+    return wsRequest("git_discard_unstaged", {
       path,
       files,
     });
@@ -594,7 +574,7 @@ export const gitApi = {
     path: string,
     files: string[],
   ): Promise<{ success: boolean }> => {
-    return wsRequest<{ success: boolean }>("git_discard_untracked", {
+    return wsRequest("git_discard_untracked", {
       path,
       files,
     });
@@ -604,21 +584,21 @@ export const gitApi = {
    * 拉取变更
    */
   pull: async (path: string): Promise<{ success: boolean }> => {
-    return wsRequest<{ success: boolean }>("git_pull", { path });
+    return wsRequest("git_pull", { path });
   },
 
   /**
    * 获取远程变更
    */
   fetch: async (path: string): Promise<{ success: boolean }> => {
-    return wsRequest<{ success: boolean }>("git_fetch", { path });
+    return wsRequest("git_fetch", { path });
   },
 
   /**
    * 同步本地与远端（已发布分支会先 pull 再 push；未发布分支会直接 publish/push）
    */
   sync: async (path: string): Promise<{ success: boolean }> => {
-    return wsRequest<{ success: boolean }>("git_sync", { path });
+    return wsRequest("git_sync", { path });
   },
 };
 
@@ -629,14 +609,14 @@ export const wsProjectApi = {
    * 获取项目/标签/工作区启动数据
    */
   bootstrap: async (): Promise<ProjectWorkspaceBootstrapResponse> => {
-    return wsRequest<ProjectWorkspaceBootstrapResponse>("project_workspace_bootstrap");
+    return wsRequest("project_workspace_bootstrap");
   },
 
   /**
    * 获取所有项目
    */
   list: async (): Promise<ProjectModel[]> => {
-    return wsRequest<ProjectModel[]>("project_list");
+    return wsRequest("project_list");
   },
 
   /**
@@ -648,7 +628,7 @@ export const wsProjectApi = {
     sidebarOrder?: number;
     borderColor?: string;
   }): Promise<ProjectModel> => {
-    return wsRequest<ProjectModel>("project_create", {
+    return wsRequest("project_create", {
       name: data.name,
       main_file_path: data.mainFilePath,
       sidebar_order: data.sidebarOrder ?? 0,
@@ -666,7 +646,7 @@ export const wsProjectApi = {
     logoPath?: string | null;
     sidebarOrder?: number;
   }): Promise<{ success: boolean }> => {
-    return wsRequest<{ success: boolean }>("project_update", {
+    return wsRequest("project_update", {
       guid: data.guid,
       name: data.name,
       border_color: data.borderColor,
@@ -679,14 +659,14 @@ export const wsProjectApi = {
    * 删除项目
    */
   delete: async (guid: string): Promise<{ success: boolean }> => {
-    return wsRequest<{ success: boolean }>("project_delete", { guid });
+    return wsRequest("project_delete", { guid });
   },
 
   /**
    * 验证项目路径
    */
   validatePath: async (path: string): Promise<FsValidateGitPathResponse> => {
-    return wsRequest<FsValidateGitPathResponse>("project_validate_path", {
+    return wsRequest("project_validate_path", {
       path,
     });
   },
@@ -698,7 +678,7 @@ export const wsProjectApi = {
     guid: string,
     targetBranch: string | null,
   ): Promise<{ success: boolean }> => {
-    return wsRequest<{ success: boolean }>("project_update_target_branch", {
+    return wsRequest("project_update_target_branch", {
       guid,
       target_branch: targetBranch,
     });
@@ -711,7 +691,7 @@ export const wsProjectApi = {
     guid: string,
     sidebarOrder: number,
   ): Promise<{ success: boolean }> => {
-    return wsRequest<{ success: boolean }>("project_update_order", {
+    return wsRequest("project_update_order", {
       guid,
       sidebar_order: sidebarOrder,
     });
@@ -723,10 +703,7 @@ export const wsProjectApi = {
   checkCanDelete: async (
     guid: string,
   ): Promise<{ can_delete: boolean; active_workspace_count: number }> => {
-    return wsRequest<{ can_delete: boolean; active_workspace_count: number }>(
-      "project_check_can_delete",
-      { guid },
-    );
+    return wsRequest("project_check_can_delete", { guid });
   },
 };
 
@@ -734,14 +711,14 @@ export const wsProjectApi = {
 
 export const wsGroupApi = {
   list: async (): Promise<GroupModel[]> => {
-    return wsRequest<GroupModel[]>("group_list");
+    return wsRequest("group_list");
   },
 
   create: async (data: {
     name: string;
     sidebarOrder?: number;
   }): Promise<GroupModel> => {
-    return wsRequest<GroupModel>("group_create", {
+    return wsRequest("group_create", {
       name: data.name,
       sidebar_order: data.sidebarOrder,
     });
@@ -751,7 +728,7 @@ export const wsGroupApi = {
     guid: string;
     name?: string;
   }): Promise<{ success: boolean }> => {
-    return wsRequest<{ success: boolean }>("group_update", {
+    return wsRequest("group_update", {
       guid: data.guid,
       name: data.name,
     });
@@ -760,11 +737,11 @@ export const wsGroupApi = {
   updateOrder: async (
     orders: Array<{ guid: string; order: number }>,
   ): Promise<{ success: boolean }> => {
-    return wsRequest<{ success: boolean }>("group_update_order", { orders });
+    return wsRequest("group_update_order", { orders });
   },
 
   delete: async (guid: string): Promise<{ success: boolean }> => {
-    return wsRequest<{ success: boolean }>("group_delete", { guid });
+    return wsRequest("group_delete", { guid });
   },
 
   setMember: async (data: {
@@ -772,7 +749,7 @@ export const wsGroupApi = {
     memberType: "project" | "workspace";
     memberGuid: string;
   }): Promise<GroupMemberModel> => {
-    return wsRequest<GroupMemberModel>("group_set_member", {
+    return wsRequest("group_set_member", {
       group_guid: data.groupGuid,
       member_type: data.memberType,
       member_guid: data.memberGuid,
@@ -783,7 +760,7 @@ export const wsGroupApi = {
     memberType: "project" | "workspace";
     memberGuid: string;
   }): Promise<{ success: boolean }> => {
-    return wsRequest<{ success: boolean }>("group_remove_member", {
+    return wsRequest("group_remove_member", {
       member_type: data.memberType,
       member_guid: data.memberGuid,
     });
@@ -793,7 +770,7 @@ export const wsGroupApi = {
     groupGuid: string;
     memberGuids: string[];
   }): Promise<{ success: boolean }> => {
-    return wsRequest<{ success: boolean }>("group_update_member_order", {
+    return wsRequest("group_update_member_order", {
       group_guid: data.groupGuid,
       member_guids: data.memberGuids,
     });
@@ -807,7 +784,7 @@ export const wsWorkspaceApi = {
    * 获取项目下的所有 Workspace
    */
   listByProject: async (projectGuid: string): Promise<WorkspaceModel[]> => {
-    return wsRequest<WorkspaceModel[]>("workspace_list", {
+    return wsRequest("workspace_list", {
       project_guid: projectGuid,
     });
   },
@@ -874,9 +851,9 @@ export const wsWorkspaceApi = {
     priority?: string | null;
     workflowStatus?: string | null;
     labelGuids?: string[];
-    attachments?: WorkspaceAttachmentPayload[];
+    attachments?: WorkspaceAttachmentView[];
   }): Promise<WorkspaceModel> => {
-    return wsRequest<WorkspaceModel>("workspace_create", {
+    return wsRequest("workspace_create", {
       project_guid: data.projectGuid,
       name: data.name,
       display_name: data.displayName ?? null,
@@ -905,7 +882,7 @@ export const wsWorkspaceApi = {
     guid: string,
     name: string,
   ): Promise<{ success: boolean }> => {
-    return wsRequest<{ success: boolean }>("workspace_update_name", {
+    return wsRequest("workspace_update_name", {
       guid,
       name,
     });
@@ -918,7 +895,7 @@ export const wsWorkspaceApi = {
     guid: string,
     branch: string,
   ): Promise<{ success: boolean }> => {
-    return wsRequest<{ success: boolean }>("workspace_update_branch", {
+    return wsRequest("workspace_update_branch", {
       guid,
       branch,
     });
@@ -928,7 +905,7 @@ export const wsWorkspaceApi = {
     guid: string,
     workflowStatus: string,
   ): Promise<{ success: boolean }> => {
-    return wsRequest<{ success: boolean }>("workspace_update_workflow_status", {
+    return wsRequest("workspace_update_workflow_status", {
       guid,
       workflow_status: workflowStatus,
     });
@@ -938,14 +915,14 @@ export const wsWorkspaceApi = {
     guid: string,
     priority: string,
   ): Promise<{ success: boolean }> => {
-    return wsRequest<{ success: boolean }>("workspace_update_priority", {
+    return wsRequest("workspace_update_priority", {
       guid,
       priority,
     });
   },
 
   listLabels: async (deletedOnly: boolean = false): Promise<WorkspaceLabelModel[]> => {
-    return wsRequest<WorkspaceLabelModel[]>("workspace_label_list", { deleted_only: deletedOnly });
+    return wsRequest("workspace_label_list", { deleted_only: deletedOnly });
   },
 
   createLabel: async (data: {
@@ -953,7 +930,7 @@ export const wsWorkspaceApi = {
     color: string;
     source?: string;
   }): Promise<WorkspaceLabelModel> => {
-    return wsRequest<WorkspaceLabelModel>("workspace_label_create", data);
+    return wsRequest("workspace_label_create", data);
   },
 
   updateLabel: async (
@@ -964,25 +941,25 @@ export const wsWorkspaceApi = {
       source?: string;
     },
   ): Promise<WorkspaceLabelModel> => {
-    return wsRequest<WorkspaceLabelModel>("workspace_label_update", {
+    return wsRequest("workspace_label_update", {
       guid,
       ...data,
     });
   },
 
-  deleteLabel: async (guid: string): Promise<void> => {
-    return wsRequest<void>("workspace_label_delete", { guid });
+  deleteLabel: async (guid: string) => {
+    return wsRequest("workspace_label_delete", { guid });
   },
 
-  restoreLabel: async (guid: string): Promise<void> => {
-    return wsRequest<void>("workspace_label_restore", { guid });
+  restoreLabel: async (guid: string) => {
+    return wsRequest("workspace_label_restore", { guid });
   },
 
   updateLabels: async (
     guid: string,
     labelGuids: string[],
   ): Promise<{ success: boolean }> => {
-    return wsRequest<{ success: boolean }>("workspace_update_labels", {
+    return wsRequest("workspace_update_labels", {
       guid,
       label_guids: labelGuids,
     });
@@ -992,7 +969,7 @@ export const wsWorkspaceApi = {
     guid: string,
     markdown: string,
   ): Promise<{ success: boolean }> => {
-    return wsRequest<{ success: boolean }>("workspace_confirm_todos", {
+    return wsRequest("workspace_confirm_todos", {
       guid,
       markdown,
     });
@@ -1001,7 +978,7 @@ export const wsWorkspaceApi = {
   skipSetupScript: async (
     guid: string,
   ): Promise<{ success: boolean }> => {
-    return wsRequest<{ success: boolean }>("workspace_skip_setup_script", {
+    return wsRequest("workspace_skip_setup_script", {
       guid,
     });
   },
@@ -1015,7 +992,7 @@ export const wsWorkspaceApi = {
       autoExtractTodos?: boolean;
     },
   ): Promise<{ success: boolean }> => {
-    return wsRequest<{ success: boolean }>("workspace_skip_setup_step", {
+    return wsRequest("workspace_skip_setup_step", {
       guid,
       failed_step_key: failedStepKey,
       initial_requirement: context?.initialRequirement ?? null,
@@ -1031,42 +1008,42 @@ export const wsWorkspaceApi = {
     guid: string,
     sidebarOrder: number,
   ): Promise<{ success: boolean }> => {
-    return wsRequest<{ success: boolean }>("workspace_update_order", {
+    return wsRequest("workspace_update_order", {
       guid,
       sidebar_order: sidebarOrder,
     });
   },
 
   markVisited: async (guid: string): Promise<{ success: boolean }> => {
-    return wsRequest<{ success: boolean }>("workspace_mark_visited", { guid });
+    return wsRequest("workspace_mark_visited", { guid });
   },
 
   /**
    * 删除 Workspace
    */
   delete: async (guid: string): Promise<{ success: boolean }> => {
-    return wsRequest<{ success: boolean }>("workspace_delete", { guid });
+    return wsRequest("workspace_delete", { guid });
   },
 
   /**
    * 置顶 Workspace
    */
   pin: async (guid: string): Promise<{ success: boolean }> => {
-    return wsRequest<{ success: boolean }>("workspace_pin", { guid });
+    return wsRequest("workspace_pin", { guid });
   },
 
   /**
    * 取消置顶 Workspace
    */
   unpin: async (guid: string): Promise<{ success: boolean }> => {
-    return wsRequest<{ success: boolean }>("workspace_unpin", { guid });
+    return wsRequest("workspace_unpin", { guid });
   },
 
   /**
    * 更新置顶工作区顺序
    */
   updatePinOrder: async (workspaceIds: string[]): Promise<{ success: boolean }> => {
-    return wsRequest<{ success: boolean }>("workspace_update_pin_order", {
+    return wsRequest("workspace_update_pin_order", {
       workspace_ids: workspaceIds,
     });
   },
@@ -1075,14 +1052,14 @@ export const wsWorkspaceApi = {
    * 归档 Workspace
    */
   archive: async (guid: string): Promise<{ success: boolean }> => {
-    return wsRequest<{ success: boolean }>("workspace_archive", { guid });
+    return wsRequest("workspace_archive", { guid });
   },
 
   /**
    * 获取所有归档的 Workspace
    */
-  listArchived: async (): Promise<{ workspaces: ArchivedWorkspace[] }> => {
-    return wsRequest<{ workspaces: ArchivedWorkspace[] }>(
+  listArchived: async () => {
+    return wsRequest(
       "workspace_list_archived",
       {},
     );
@@ -1092,7 +1069,7 @@ export const wsWorkspaceApi = {
    * 取消归档 Workspace
    */
   unarchive: async (guid: string): Promise<{ success: boolean }> => {
-    return wsRequest<{ success: boolean }>("workspace_unarchive", { guid });
+    return wsRequest("workspace_unarchive", { guid });
   },
 };
 
@@ -1106,7 +1083,7 @@ export const wsScriptApi = {
    * 或 pull，用户从未看过其内容。
    */
   get: async (projectGuid: string): Promise<ProjectScripts> => {
-    return wsRequest<ProjectScripts>("script_get", {
+    return wsRequest("script_get", {
       project_guid: projectGuid,
     });
   },
@@ -1118,7 +1095,7 @@ export const wsScriptApi = {
     projectGuid: string,
     scripts: Record<string, string>,
   ): Promise<{ success: boolean }> => {
-    return wsRequest<{ success: boolean }>("script_save", {
+    return wsRequest("script_save", {
       project_guid: projectGuid,
       scripts,
     });
@@ -1135,7 +1112,7 @@ export const wsScriptApi = {
     hash: string,
     workspaceId?: string,
   ): Promise<ProjectScripts> => {
-    return wsRequest<ProjectScripts>("project_script_trust", {
+    return wsRequest("project_script_trust", {
       project_guid: projectGuid,
       hash,
       workspace_id: workspaceId,

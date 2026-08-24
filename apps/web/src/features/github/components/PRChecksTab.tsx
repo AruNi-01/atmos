@@ -279,14 +279,7 @@ export function PRChecksTab({
       base_oid?: string;
       head_oid?: string;
     }> => {
-      const result = await wsRequest<{
-        files?: string[];
-        contents?: Record<string, string>;
-        source?: string;
-        reason?: string;
-        base_oid?: string;
-        head_oid?: string;
-      }>("github_pr_conflict_files", {
+      const result = await wsRequest("github_pr_conflict_files", {
         owner,
         repo,
         pr_number: prNumber,

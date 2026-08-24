@@ -61,13 +61,13 @@
 - **M9 — Stack**: Plain TypeScript types only. No parallel protocol stack, no alternate server runtime required for this package.
 - **M10 — Subpath exports**: Prefer `@atmos/api-types/ws`, `.../ws/actions`, `.../ws/dto/*` (exact paths in TECH). Avoid forcing every consumer to import all DTOs.
 - **M11 — Incremental ship**: PR-sized slices; **APP-049 may start after Phase 1 (frames + actions)** without waiting for full DTO migration.
-- **M12 — Explicit non-goals in-package**: No per-action request/response TypeScript map (`Record<WsAction, …>`) in MVP. Callers use `request<T>(action, data?)` with caller-chosen `T` (APP-049).
+- **M12 — Explicit non-goals in-package**: No per-action request/response TypeScript map (`Record<WsAction, …>`) in MVP. Callers use `request<T>(action, data?)` with caller-chosen `T` (APP-049). **Superseded for follow-on work by [APP-064](../APP-064_api-contract-hardening/PRD.md)** (typed `WsContract` map). This bullet remains the APP-048 MVP scope record.
 - **M13 — Honest gate coverage**: Document that M7 covers **action names only**; DTO field fidelity is merge rule + typecheck + review (optional golden JSON later).
 
 ### Nice to Have
 
 - **N1 — Relay REST DTO subpath** (`ComputerRow`, client session, register token, …) when multi-client and not blocking MVP.
-- **N2 — Notification event catalog** extracted from Rust `WsEvent` (same pipeline as actions).
+- **N2 — Notification event catalog** extracted from Rust `WsEvent` (same pipeline as actions). **Taken as Must Have in [APP-064](../APP-064_api-contract-hardening/PRD.md) M10.**
 - **N3 — Runtime parsers** (e.g. Zod) for high-risk payloads.
 - **N4 — DTO codegen** from Rust if manual DTO cost dominates.
 - **N5 — `ping`/`pong`/legacy `message` in exported message union** only if product paths still need them; default TECH decision may exclude app-level ping.

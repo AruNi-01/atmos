@@ -1,64 +1,22 @@
 "use client";
 
 import { wsRequest } from "@/api/ws/request";
+import type { SkillInfo, SkillScopeRoot } from "@atmos/api-types/ws/dto/skills";
 
-export interface SkillFile {
-  name: string;
-  relative_path: string;
-  absolute_path: string;
-  content: string | null;
-  is_main: boolean;
-  is_symlink?: boolean;
-  symlink_target?: string | null;
-}
-
-export interface SkillPlacement {
-  id: string;
-  agent: string;
-  scope: "global" | "project" | "workspace" | "inside_project" | "system";
-  project_id: string | null;
-  project_name: string | null;
-  path: string;
-  original_path: string;
-  resolved_path: string | null;
-  status: "enabled" | "disabled";
-  entry_kind: "directory" | "file" | "symlink";
-  symlink_target: string | null;
-  can_delete: boolean;
-  can_toggle: boolean;
-}
-
-export interface SkillInfo {
-  id: string;
-  name: string;
-  description: string;
-  agents: string[];
-  scope: "global" | "project" | "workspace" | "inside_project" | "system";
-  project_id: string | null;
-  project_name: string | null;
-  path: string;
-  files: SkillFile[];
-  title: string | null;
-  status: "enabled" | "disabled" | "partial";
-  manageable: boolean;
-  can_delete: boolean;
-  can_toggle: boolean;
-  placements: SkillPlacement[];
-}
-
-export type SkillScopeRoot = {
-  scope: "project" | "workspace";
-  id: string;
-  name: string;
-  path: string;
-};
+export type {
+  SkillFile,
+  SkillInfo,
+  SkillPlacement,
+  SkillScope,
+  SkillScopeRoot,
+} from "@atmos/api-types/ws/dto/skills";
 
 export const skillsApi = {
   /**
    * 获取已安装的 Skills 列表
    */
   list: async (options?: { forceRefresh?: boolean }): Promise<{ skills: SkillInfo[] }> => {
-    return wsRequest<{ skills: SkillInfo[] }>("skills_list", {
+    return wsRequest("skills_list", {
       force_refresh: options?.forceRefresh ?? false,
     });
   },
@@ -67,14 +25,14 @@ export const skillsApi = {
    * Scan a single project/workspace root for composer toggles (no disk cache).
    */
   scanRoot: async (root: SkillScopeRoot): Promise<{ skills: SkillInfo[] }> => {
-    return wsRequest<{ skills: SkillInfo[] }>("skills_scan_root", root);
+    return wsRequest("skills_scan_root", root);
   },
 
   /**
    * 获取单个 Skill 详情
    */
   get: async (scope: string, id: string): Promise<SkillInfo> => {
-    return wsRequest<SkillInfo>("skills_get", { scope, id });
+    return wsRequest("skills_get", { scope, id });
   },
 
   setEnabled: async (
@@ -83,7 +41,7 @@ export const skillsApi = {
     placementIds?: string[],
     scopeRoot?: SkillScopeRoot,
   ): Promise<{ success: boolean }> => {
-    return wsRequest<{ success: boolean }>("skills_set_enabled", {
+    return wsRequest("skills_set_enabled", {
       id,
       enabled,
       placement_ids: placementIds,
@@ -92,7 +50,7 @@ export const skillsApi = {
   },
 
   delete: async (id: string, placementIds?: string[]): Promise<{ success: boolean }> => {
-    return wsRequest<{ success: boolean }>("skills_delete", {
+    return wsRequest("skills_delete", {
       id,
       placement_ids: placementIds,
     });
@@ -106,8 +64,7 @@ export const skillsApi = {
     path: string;
     message: string;
   }> => {
-    return wsRequest<{ success: boolean; path: string; message: string }>(
-      "wiki_skill_install",
+    return wsRequest("wiki_skill_install",
     );
   },
 
@@ -116,8 +73,7 @@ export const skillsApi = {
    * in ~/.atmos/skills/.system/
    */
   isProjectWikiInstalledInSystem: async (): Promise<boolean> => {
-    const res = await wsRequest<{ installed: boolean }>(
-      "wiki_skill_system_status",
+    const res = await wsRequest("wiki_skill_system_status",
     );
     return res.installed;
   },
@@ -127,8 +83,7 @@ export const skillsApi = {
    * are installed in ~/.atmos/skills/.system/
    */
   isCodeReviewSkillsInstalledInSystem: async (): Promise<boolean> => {
-    const res = await wsRequest<{ installed: boolean }>(
-      "code_review_skill_system_status",
+    const res = await wsRequest("code_review_skill_system_status",
     );
     return res.installed;
   },
@@ -137,8 +92,7 @@ export const skillsApi = {
    * Check if git-commit skill is installed in ~/.atmos/skills/.system/git-commit/
    */
   isGitCommitSkillInstalledInSystem: async (): Promise<boolean> => {
-    const res = await wsRequest<{ installed: boolean }>(
-      "git_commit_skill_system_status",
+    const res = await wsRequest("git_commit_skill_system_status",
     );
     return res.installed;
   },
@@ -149,7 +103,7 @@ export const skillsApi = {
   syncSingleSystemSkill: async (
     skillName: string,
   ): Promise<{ success: boolean }> => {
-    return wsRequest<{ success: boolean }>("sync_single_system_skill", {
+    return wsRequest("sync_single_system_skill", {
       skill_name: skillName,
     });
   },
@@ -158,7 +112,7 @@ export const skillsApi = {
    * Manually trigger sync of all system skills from project/GitHub
    */
   syncSystemSkills: async (): Promise<{ initiated: boolean }> => {
-    return wsRequest<{ initiated: boolean }>("skills_system_sync");
+    return wsRequest("skills_system_sync");
   },
 
   /**

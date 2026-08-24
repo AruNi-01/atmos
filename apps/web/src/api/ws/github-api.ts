@@ -146,7 +146,7 @@ export const wsGithubApi = {
     page?: number;
     perPage?: number;
   }): Promise<GithubSearchPagePayload> =>
-    wsRequest<GithubSearchPagePayload>("github_search", {
+    wsRequest("github_search", {
       kind: params.kind,
       repos: params.repos,
       state: params.state ?? "all",
@@ -161,7 +161,7 @@ export const wsGithubApi = {
     owner: string;
     repo: string;
   }): Promise<GithubIssueTemplatesPayload> =>
-    wsRequest<GithubIssueTemplatesPayload>("github_issue_templates", {
+    wsRequest("github_issue_templates", {
       owner: params.owner,
       repo: params.repo,
     }),
@@ -174,7 +174,7 @@ export const wsGithubApi = {
     labels?: string[];
     assignees?: string[];
   }): Promise<GithubIssueCreatePayload> =>
-    wsRequest<GithubIssueCreatePayload>("github_issue_create", {
+    wsRequest("github_issue_create", {
       owner: params.owner,
       repo: params.repo,
       title: params.title,
@@ -186,7 +186,7 @@ export const wsGithubApi = {
   listIssuePage: (params: {
     owner: string; repo: string; state: "open" | "closed"; page: number; perPage: number;
   }): Promise<GithubPage<GithubIssuePayload>> =>
-    wsRequest<GithubPage<GithubIssuePayload>>("github_issue_page", {
+    wsRequest("github_issue_page", {
       owner: params.owner, repo: params.repo, state: params.state, page: params.page, per_page: params.perPage,
       sort: "updated", direction: "desc",
     }),
@@ -200,7 +200,7 @@ export const wsGithubApi = {
     direction?: "asc" | "desc";
     search?: string;
   }): Promise<GithubIssuePayload[]> => {
-    return wsRequest<GithubIssuePayload[]>("github_issue_list", {
+    return wsRequest("github_issue_list", {
       owner: params.owner,
       repo: params.repo,
       state: params.state ?? "open",
@@ -215,7 +215,7 @@ export const wsGithubApi = {
     | { owner: string; repo: string; issueNumber: number; issueUrl?: undefined }
     | { issueUrl: string; owner?: undefined; repo?: undefined; issueNumber?: undefined },
   ): Promise<GithubIssuePayload> => {
-    return wsRequest<GithubIssuePayload>("github_issue_get", {
+    return wsRequest("github_issue_get", {
       owner: params.owner ?? null,
       repo: params.repo ?? null,
       issue_number: params.issueNumber ?? null,
@@ -229,7 +229,7 @@ export const wsGithubApi = {
     state?: string;
     limit?: number;
   }): Promise<GithubPrPayload[]> => {
-    return wsRequest<GithubPrPayload[]>("github_pr_list_repo", {
+    return wsRequest("github_pr_list_repo", {
       owner: params.owner,
       repo: params.repo,
       state: params.state ?? "open",
@@ -240,7 +240,7 @@ export const wsGithubApi = {
   listBranchPrPage: (params: {
     owner: string; repo: string; branch: string; state: string; page: number; perPage: number;
   }): Promise<GithubPage<Record<string, unknown>>> =>
-    wsRequest<GithubPage<Record<string, unknown>>>("github_pr_branch_page", {
+    wsRequest("github_pr_branch_page", {
       owner: params.owner, repo: params.repo, branch: params.branch, state: params.state,
       page: params.page, per_page: params.perPage,
     }),
@@ -249,7 +249,7 @@ export const wsGithubApi = {
     | { owner: string; repo: string; prNumber: number; prUrl?: undefined }
     | { prUrl: string; owner?: undefined; repo?: undefined; prNumber?: undefined },
   ): Promise<GithubPrPayload> => {
-    return wsRequest<GithubPrPayload>("github_pr_get", {
+    return wsRequest("github_pr_get", {
       owner: params.owner ?? null,
       repo: params.repo ?? null,
       pr_number: params.prNumber ?? null,
@@ -262,7 +262,7 @@ export const wsGithubApi = {
     repo: string;
     issueNumber: number;
   }): Promise<GithubLinkedPrPayload[]> => {
-    return wsRequest<GithubLinkedPrPayload[]>("github_issue_linked_prs", {
+    return wsRequest("github_issue_linked_prs", {
       owner: params.owner,
       repo: params.repo,
       issue_number: params.issueNumber,
@@ -271,5 +271,5 @@ export const wsGithubApi = {
 
   /** REST core / Search / GraphQL rate limits for the local `gh` auth token. */
   getRateLimit: (): Promise<GithubRateLimitPayload> =>
-    wsRequest<GithubRateLimitPayload>("github_rate_limit", {}),
+    wsRequest("github_rate_limit", {}),
 };

@@ -55,13 +55,18 @@ Use `getRuntimeApiConfig()` / `httpBase()` / `wsBase()` — not raw `fetch` host
 
 ### WebSocket-first
 
-- Interactive flows: `use-websocket.ts`, agent/session streams.
-- Extend WS protocol before adding REST (see root AGENTS.md).
+- Interactive flows: `use-websocket.ts` + `src/api/ws/request.ts` (`wsRequest` / `wsRequestForComputerScope`).
+- Wire types and `action → input/output` live in `@atmos/api-types`. New Computer RPC: follow [packages/api-types/AGENTS.md](../../packages/api-types/AGENTS.md).
+- Feature wrappers stay here (`src/api/ws-api.ts`, `src/api/ws/*-api.ts`). Call `wsRequest("the_action", { ...snake_case wire })` with **no** `<T>`. Re-export wire DTOs from `@atmos/api-types/ws/dto/<domain>`; do not keep a second copy. Dynamic action names use `requestUnchecked`.
+- Do not add oRPC/tRPC or a second action catalog. Do not put domain methods on `@atmos/api-client`.
+- Extend WS before adding REST (see root Transport Rules).
 
 ### REST
 
-- `src/api/rest-api.ts` — bootstrap, uploads, canvas invoke paths that are already REST.
+- Computer local/gateway HTTP: `src/api/rest-api.ts` (types + fetch) and `src/api/relay.ts` (same paths via Relay `gateway_url`). Handwritten; not `WsContract`.
+- Hub HTTPS: `@atmos/hub-client` (`hubMe`, `hubFetch`, …). Relay control: `@atmos/relay-client`.
 - Optional `Authorization` only when `cfg.token` is set (Tauri legacy / explicit env).
+- Do not generate OpenAPI “for all REST” — the three HTTP planes stay separate.
 
 ---
 
@@ -80,7 +85,7 @@ Spec: [specs/APP/APP-016_atmos-computer/](../../specs/APP/APP-016_atmos-computer
 
 ## Coding Conventions
 
-- API types ↔ `apps/api/src/api/dto.rs`
+- Main `/ws` types ↔ `@atmos/api-types` (`WsContract`). REST DTO leftovers may still track `apps/api/src/api/dto.rs` until a second TS consumer exists.
 - UI atoms from `@workspace/ui`; semantic theme tokens (`bg-background`, etc.)
 - Feature-local dialogs live with their feature, not in a global dialog folder.
 - Settings-specific rules: [src/features/settings/components/AGENTS.md](src/features/settings/components/AGENTS.md)
@@ -95,6 +100,7 @@ Spec: [specs/APP/APP-016_atmos-computer/](../../specs/APP/APP-016_atmos-computer
 - `fetch()` inside feature components — use `src/api/` or shared clients.
 - Hardcode `ATMOS_LOCAL_TOKEN` in web bundle for default dev.
 - Add REST duplicates for WS-first features.
+- Add oRPC/tRPC or a second `WsAction` / pending-map kernel in the web app.
 
 ### ALWAYS
 
@@ -107,4 +113,5 @@ Spec: [specs/APP/APP-016_atmos-computer/](../../specs/APP/APP-016_atmos-computer
 
 - [apps/desktop/AGENTS.md](../desktop/AGENTS.md)
 - [apps/api/AGENTS.md](../api/AGENTS.md)
+- [packages/api-types/AGENTS.md](../../packages/api-types/AGENTS.md)
 - [packages/relay/AGENTS.md](../../packages/relay/AGENTS.md)

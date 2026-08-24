@@ -2,6 +2,7 @@
 
 import React from "react";
 import { useTranslations } from "next-intl";
+import type { AgentHookStateNotification } from "@atmos/api-types/ws/dto/events";
 import { agentToastManager } from "@workspace/ui";
 import {
   AGENT_STATE,
@@ -9,7 +10,6 @@ import {
   AGENT_TOOL_LABELS,
   type AgentHookSession,
   type AgentHookState,
-  type AgentToolType,
 } from "@/features/agent/store/agent-hooks-store";
 import { AgentIcon } from "@/features/agent/components/AgentIcon";
 import { getProjectBootstrapSnapshot } from "@/features/project/hooks/use-project-bootstrap-query";
@@ -21,19 +21,7 @@ import {
   resolveAgentHookContextNames,
 } from "@/features/agent/lib/agent-hook-navigation";
 
-export type AgentHookStateUpdatePayload = {
-  session_id: string;
-  tool: AgentToolType;
-  state: AgentHookState;
-  timestamp: string;
-  project_path?: string | null;
-  context_id?: string | null;
-  pane_id?: string | null;
-  terminal_kind?: string | null;
-  side_chat_id?: string | null;
-  source_pane_id?: string | null;
-  hook_version?: number | null;
-};
+export type AgentHookStateUpdatePayload = AgentHookStateNotification;
 
 type AgentHookToastT = ReturnType<typeof useTranslations>;
 type AppRouterLike = ReturnType<typeof useAppRouter>;

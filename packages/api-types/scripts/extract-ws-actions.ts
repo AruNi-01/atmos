@@ -18,10 +18,10 @@ function camelToSnake(name: string): string {
   return s2.toLowerCase();
 }
 
-export function extractWsActionsFromMessageRs(source: string): string[] {
-  const match = source.match(/pub enum WsAction\s*\{([\s\S]*?)\n\}/);
+export function extractRustEnumWireNames(source: string, enumName: string): string[] {
+  const match = source.match(new RegExp(`pub enum ${enumName}\\s*\\{([\\s\\S]*?)\\n\\}`));
   if (!match) {
-    throw new Error("Could not find pub enum WsAction in message.rs");
+    throw new Error(`Could not find pub enum ${enumName} in message.rs`);
   }
   const body = match[1]!;
   const variants: string[] = [];
@@ -35,13 +35,21 @@ export function extractWsActionsFromMessageRs(source: string): string[] {
     variants.push(camelToSnake(name));
   }
   if (variants.length === 0) {
-    throw new Error("No WsAction variants extracted");
+    throw new Error(`No ${enumName} variants extracted`);
   }
   const unique = new Set(variants);
   if (unique.size !== variants.length) {
-    throw new Error("Duplicate WsAction wire names after extract");
+    throw new Error(`Duplicate ${enumName} wire names after extract`);
   }
   return variants;
+}
+
+export function extractWsActionsFromMessageRs(source: string): string[] {
+  return extractRustEnumWireNames(source, "WsAction");
+}
+
+export function extractWsEventsFromMessageRs(source: string): string[] {
+  return extractRustEnumWireNames(source, "WsEvent");
 }
 
 function main() {

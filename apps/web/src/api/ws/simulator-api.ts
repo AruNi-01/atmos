@@ -17,19 +17,18 @@ export type SimulatorStartResult = {
 } & Partial<SimulatorProbe>;
 
 export const simulatorApi = {
-  probe: () => wsRequest<SimulatorProbe>("simulator_probe"),
+  probe: () => wsRequest("simulator_probe"),
   start: (workspaceId: string, udid?: string) =>
-    wsRequest<SimulatorStartResult>(
-      "simulator_start",
+    wsRequest("simulator_start",
       { workspace_id: workspaceId, udid },
       600_000,
     ),
   stop: (workspaceId: string) =>
-    wsRequest<{ stopped: boolean }>("simulator_stop", {
+    wsRequest("simulator_stop", {
       workspace_id: workspaceId,
     }),
   status: (workspaceId: string) =>
-    wsRequest<SimulatorClaim | null>("simulator_status", {
+    wsRequest("simulator_status", {
       workspace_id: workspaceId,
     }),
 };
