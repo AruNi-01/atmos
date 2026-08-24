@@ -17,6 +17,7 @@ mod local_services;
 mod permission_access;
 mod project;
 mod quota;
+mod resource_monitor;
 mod review;
 mod settings;
 mod simulator;
@@ -31,9 +32,9 @@ mod workspace_setup;
 
 use std::sync::Arc;
 
-use super::{message::*, WsManager, WsMessageHandler};
+use super::{message::*, subscription::ConnectionTaskRegistry, WsManager, WsMessageHandler};
 use async_trait::async_trait;
-use core_engine::{FsEngine, GitEngine};
+use core_engine::{FsEngine, GitEngine, ResourceMetricsEngine};
 use core_service::service::canvas_agent_relay::{
     CanvasAgentDispatchOutcome, CanvasAgentRelay, CompleteDispatchResult,
 };
@@ -46,8 +47,8 @@ use crate::simulator::SimulatorRuntime;
 
 use core_service::{
     AgentService, AgentSessionService, AutomationService, DiskAnalyzerService, GroupService,
-    LinearService, LocalServicesService, NotificationService, ProjectService, ReviewService,
-    TerminalService, WorkspaceService,
+    LinearService, LocalServicesService, NotificationService, ProjectService,
+    ResourceMonitorService, ReviewService, TerminalService, WorkspaceService,
 };
 use core_service::{Result, ServiceError};
 use sea_orm_migration::sea_orm::DatabaseConnection;
@@ -72,6 +73,8 @@ pub struct WsMessageService {
     pt_design_agent_relay: Arc<CanvasAgentRelay>,
     local_services_service: Arc<LocalServicesService>,
     disk_analyzer_service: Arc<DiskAnalyzerService>,
+    resource_monitor_service: Arc<ResourceMonitorService>,
+    resource_monitor_subscriptions: Arc<ConnectionTaskRegistry>,
     notification_service: Arc<NotificationService>,
     token_usage_service: Arc<token_usage::TokenUsageService>,
     linear_service: LinearService,
@@ -106,6 +109,12 @@ impl WsMessageService {
             Arc::clone(&project_service),
             Arc::clone(&workspace_service),
         ));
+        let resource_monitor_service = Arc::new(ResourceMonitorService::new(
+            Arc::clone(&project_service),
+            Arc::clone(&workspace_service),
+            Arc::clone(&terminal_service),
+            Arc::new(ResourceMetricsEngine::new()),
+        ));
 
         Self {
             fs_engine: FsEngine::new(),
@@ -125,6 +134,8 @@ impl WsMessageService {
             pt_design_agent_relay,
             local_services_service,
             disk_analyzer_service,
+            resource_monitor_service,
+            resource_monitor_subscriptions: Arc::new(ConnectionTaskRegistry::new()),
             notification_service,
             token_usage_service,
             linear_service: LinearService::new(db),
@@ -1141,6 +1152,16 @@ impl WsMessageService {
             WsAction::SimulatorStart => self.handle_simulator_start(request.data).await,
             WsAction::SimulatorStop => self.handle_simulator_stop(request.data).await,
             WsAction::SimulatorStatus => self.handle_simulator_status(request.data).await,
+
+            // Resource Monitor (APP-066)
+            WsAction::ResourceMonitorGet => self.handle_resource_monitor_get(request.data).await,
+            WsAction::ResourceMonitorSubscribe => {
+                self.handle_resource_monitor_subscribe(conn_id, request.data)
+                    .await
+            }
+            WsAction::ResourceMonitorUnsubscribe => {
+                self.handle_resource_monitor_unsubscribe(conn_id, request.data)
+            }
         }
     }
 
@@ -1347,5 +1368,12 @@ impl WsMessageHandler for WsMessageService {
         self.pt_design_agent_relay.unregister_conn(conn_id);
         self.disk_analyzer_service
             .remove_connection_sessions(conn_id);
+        self.abort_resource_monitor_subscription(conn_id);
+    }
+}
+
+impl Drop for WsMessageService {
+    fn drop(&mut self) {
+        self.resource_monitor_subscriptions.abort_all();
     }
 }

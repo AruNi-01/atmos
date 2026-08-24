@@ -17,6 +17,6 @@ type _NoExtraEvents = AssertNever<ExtraEvents>;
 describe("@atmos/api-types WsContract", () => {
   test("every catalog action has a contract entry", () => {
     expect(WS_ACTIONS.length).toBeGreaterThan(200);
-    expect(WS_EVENTS.length).toBe(30);
+    expect(WS_EVENTS.length).toBe(31);
   });
 });

@@ -3,6 +3,13 @@ import type {
   RunLogResolveLatestResponse,
   RunLogStartRequest,
   RunLogStartResponse,
+  TerminalSessionCloseRequest,
+  TerminalSessionCloseResponse,
+  TerminalSessionCreateRequest,
+  TerminalSessionCreateResponse,
+  TerminalSessionDestroyRequest,
+  TerminalSessionListRequest,
+  TerminalSessionListResponse,
   TerminalSideChatCloseRequest,
   TerminalSideChatCloseResponse,
   TerminalSideChatListRequest,
@@ -20,6 +27,22 @@ export type TerminalContract = {
   terminal_workspace_candidates: {
     input: TerminalWorkspaceCandidatesRequest;
     output: TerminalWorkspaceCandidatesResponse;
+  };
+  terminal_session_create: {
+    input: TerminalSessionCreateRequest;
+    output: TerminalSessionCreateResponse;
+  };
+  terminal_session_list: {
+    input: TerminalSessionListRequest;
+    output: TerminalSessionListResponse;
+  };
+  terminal_session_close: {
+    input: TerminalSessionCloseRequest;
+    output: TerminalSessionCloseResponse;
+  };
+  terminal_session_destroy: {
+    input: TerminalSessionDestroyRequest;
+    output: TerminalSessionCloseResponse;
   };
   run_log_start: { input: RunLogStartRequest; output: RunLogStartResponse };
   run_log_resolve_latest: {

@@ -13,6 +13,7 @@ import type { LocalServicesContract } from "./contract/local-services";
 import type { PermissionContract } from "./contract/permission";
 import type { ProjectContract } from "./contract/project";
 import type { QuotaContract } from "./contract/quota";
+import type { ResourceMonitorContract } from "./contract/resource-monitor";
 import type { ReviewContract } from "./contract/review";
 import type { SettingsContract } from "./contract/settings";
 import type { SimulatorContract } from "./contract/simulator";
@@ -41,7 +42,8 @@ export type WsContract = FsContract &
   LocalServicesContract &
   LocalModelContract &
   DiskAnalyzerContract &
-  SimulatorContract;
+  SimulatorContract &
+  ResourceMonitorContract;
 
 export type MappedWsAction = keyof WsContract & WsAction;
 /** Empty once every `WsAction` has a `WsContract` row. */
