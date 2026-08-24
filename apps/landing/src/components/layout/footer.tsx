@@ -13,8 +13,10 @@ import { LandingFrame } from '@/components/layout/landing-frame'
 const FONT_SIZE = 'calc((min(100vw, 72rem) - 2rem) / 4.02)'
 
 const Footer = () => {
+  // Clip pixel-font glyph overflow (~0.15em past the line box) so it
+  // does not extend the document's scrollable overflow.
   return (
-    <footer className='relative'>
+    <footer className='relative overflow-hidden'>
       <LandingFrame>
         <div className='flex w-full justify-center'>
           <Link
