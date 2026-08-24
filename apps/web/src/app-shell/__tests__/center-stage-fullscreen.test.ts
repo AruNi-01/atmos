@@ -120,6 +120,29 @@ describe("center stage fullscreen wiring", () => {
     expect(menuBlock).toContain("Maximize2");
     expect(menuBlock).toContain("Minimize2");
     expect(menuBlock).toContain("toggleCenterFullscreen(paneId)");
+    expect(menuBlock).toContain("{showPaneFullscreenButton ? null : (");
+  });
+
+  it("puts a pane fullscreen toggle to the right of the plus button when split", () => {
+    const tabBar = readFileSync(
+      join(import.meta.dir, "../CenterStageTabBar.tsx"),
+      "utf8",
+    );
+    const stage = readFileSync(join(import.meta.dir, "../CenterStage.tsx"), "utf8");
+    const actionsBlock = tabBar.slice(
+      tabBar.indexOf("<CenterStageStickyTabActions>"),
+      tabBar.indexOf("</CenterStageStickyTabActions>"),
+    );
+    const plusAt = actionsBlock.indexOf("<CenterStageNewTabMenu");
+    const fullscreenAt = actionsBlock.indexOf("<CenterStagePaneFullscreenButton");
+    const groupsAt = actionsBlock.indexOf("<CenterStageTabGroupPopover");
+    expect(plusAt).toBeGreaterThan(0);
+    expect(fullscreenAt).toBeGreaterThan(plusAt);
+    expect(groupsAt).toBeGreaterThan(fullscreenAt);
+    expect(actionsBlock).toContain("{isMultiPane ? (");
+    expect(tabBar).toContain('data-center-stage-pane-fullscreen=""');
+    expect(tabBar).toContain("showPaneFullscreenButton={isMultiPane}");
+    expect(stage).toContain("isMultiPane={isMultiPane}");
   });
 
   it("keeps an in-flow slot and expands the focused mosaic pane over siblings", () => {

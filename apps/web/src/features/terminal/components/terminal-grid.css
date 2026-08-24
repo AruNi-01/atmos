@@ -460,6 +460,17 @@
   pointer-events: auto;
 }
 
+/*
+ * The center plus-menu popover sits over the pane toolbar and xterm WebGL.
+ * Those surfaces can win hit-testing (hover-expanded action rail, GPU canvas)
+ * and swallow plus-menu tab / fullscreen clicks, which dismisses the popover.
+ * Skip them while the menu is open so clicks stay on the menu.
+ */
+body:has([data-center-stage-plus-menu][data-state="open"]) .terminal-grid-container,
+body:has([data-center-stage-plus-menu][data-state="open"]) .terminal-grid-container * {
+  pointer-events: none !important;
+}
+
 .terminal-pane-btn {
   display: flex;
   align-items: center;
