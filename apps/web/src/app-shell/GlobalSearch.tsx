@@ -519,7 +519,7 @@ export function GlobalSearch() {
       }}
       onCloseAutoFocus={onCloseAutoFocusPrevent}
       onOpenAutoFocus={focusSearchInput}
-      className="w-[min(740px,calc(100vw-2rem))] sm:max-w-[740px] h-[min(64vh,640px)]"
+      className="w-[min(640px,calc(100vw-2rem))] sm:max-w-[640px] h-[min(64vh,640px)]"
     >
       {subView === 'todo' ? (
         <TodoSubView
