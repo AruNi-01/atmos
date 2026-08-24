@@ -23,6 +23,7 @@ state.tunnel = new TunnelService();
 const router = createDesktopCommandRouter(createAllHandlers(state));
 const cmds = router.listCommands();
 assert(cmds.includes("get_api_config"), "get_api_config");
+assert(cmds.includes("get_desktop_shell_metrics"), "get_desktop_shell_metrics");
 assert(cmds.includes("browser_bridge_open"), "browser_bridge_open");
 assert(cmds.includes("browser_bridge_exit_pick_mode"), "browser_bridge_exit_pick_mode");
 assert(cmds.includes("list_importable_browsers"), "cookies");
@@ -44,6 +45,28 @@ assert(
 
 const cfg = await router.invoke("get_api_config");
 assert((cfg as { port: number }).port === 30303, "port");
+
+const shell = await router.invoke("get_desktop_shell_metrics");
+assert(
+  (shell as { supported: boolean }).supported === false,
+  "shell metrics unsupported without Electron ready",
+);
+assert(
+  typeof (shell as { collected_at_ms: number }).collected_at_ms === "number",
+  "shell collected_at_ms",
+);
+assert(
+  typeof (shell as { logical_cpu_count: number }).logical_cpu_count === "number",
+  "shell logical_cpu_count",
+);
+assert(
+  Array.isArray((shell as { groups: unknown[] }).groups),
+  "shell groups",
+);
+assert(
+  !("pid" in (shell as object)),
+  "shell snapshot must not expose pid",
+);
 
 const unsup = await router.invokeSafe("totally_unknown_cmd");
 assert(unsup.ok === false, "unsupported ok");
@@ -72,6 +95,5 @@ assert(
   (status as { trigger?: unknown }).trigger != null,
   "appshot status.trigger",
 );
-
 
 console.log(`smoke-router: OK (${cmds.length} commands)`);

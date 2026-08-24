@@ -18,6 +18,7 @@ import { electronLogPath, appDataDir } from "../runtime/ensure.js";
 import type { DesktopCommandHandler, DesktopInvokeArgs } from "../types.js";
 import * as cookies from "../cookies/service.js";
 import type { ProviderKind } from "../tunnel/service.js";
+import { collectDesktopShellMetrics } from "../metrics/desktop-shell-metrics.js";
 
 async function electron() {
   return import("electron");
@@ -168,6 +169,48 @@ export function createAllHandlers(
         /* ignore */
       }
       return null;
+    },
+
+    async get_desktop_shell_metrics() {
+      let logicalCpuCount = 0;
+      try {
+        const { cpus } = await import("node:os");
+        logicalCpuCount = cpus()?.length ?? 0;
+      } catch {
+        /* ignore */
+      }
+      const nowMs = Date.now();
+      const unsupported = () =>
+        collectDesktopShellMetrics({
+          logicalCpuCount,
+          nowMs: () => nowMs,
+          readProcessMetrics: () => {
+            throw new Error("desktop shell metrics unavailable");
+          },
+        });
+      try {
+        const mod = (await electron()) as {
+          app?: {
+            getAppMetrics?: () => unknown;
+            isReady?: () => boolean;
+          };
+        };
+        const app = mod?.app;
+        const getAppMetrics = app?.getAppMetrics;
+        if (!app || typeof getAppMetrics !== "function" || app.isReady?.() === false) {
+          return unsupported();
+        }
+        return collectDesktopShellMetrics({
+          logicalCpuCount,
+          nowMs: () => nowMs,
+          readProcessMetrics: () => {
+            const metrics = getAppMetrics.call(app);
+            return Array.isArray(metrics) ? metrics : [];
+          },
+        });
+      } catch {
+        return unsupported();
+      }
     },
 
     // --- system ---
