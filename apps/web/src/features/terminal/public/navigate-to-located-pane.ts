@@ -7,6 +7,12 @@ export type LocatedResourceSessionRouteKind = "project" | "workspace";
 
 export type NavigateToLocatedPaneRouter = {
   push: (path: string) => void;
+  /**
+   * Prefer this when the router is `useAppRouter()`. It keeps dest `tab` /
+   * `terminalTmux` across a host hop. Tests and other callers may omit it and
+   * fall back to `push`.
+   */
+  pushWorkspaceDeepLink?: (path: string) => void;
 };
 
 export type LocatedPaneHref = {
@@ -104,6 +110,17 @@ function defaultSleep(ms: number): Promise<void> {
   return new Promise((resolve) => {
     globalThis.setTimeout(resolve, ms);
   });
+}
+
+export function commitLocatedPaneNavigation(
+  router: NavigateToLocatedPaneRouter,
+  path: string,
+): void {
+  if (typeof router.pushWorkspaceDeepLink === "function") {
+    router.pushWorkspaceDeepLink(path);
+    return;
+  }
+  router.push(path);
 }
 
 /**
@@ -252,7 +269,7 @@ export async function navigateToLocatedPane(
   }
 
   requestLocate(location);
-  options.router.push(path);
+  commitLocatedPaneNavigation(options.router, path);
 
   const committed = deps.waitForDestination
     ? await deps.waitForDestination(dest)

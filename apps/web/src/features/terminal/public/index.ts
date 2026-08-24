@@ -2,6 +2,7 @@ export {
   LOCATE_DESTINATION_POLL_ATTEMPTS,
   LOCATE_DESTINATION_POLL_INTERVAL_MS,
   buildLocatedPanePath,
+  commitLocatedPaneNavigation,
   locatedPaneDestination,
   locationMatchesDestination,
   navigateToLocatedPane,

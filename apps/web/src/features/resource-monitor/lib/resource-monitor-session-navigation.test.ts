@@ -5,9 +5,14 @@ import {
   DEFAULT_CENTER_SPACE_ID,
   makeCenterSpaceKey,
 } from "@/app-shell/center-space/center-space";
+import { prepareWorkspaceContextNavigation } from "@/app-shell/workspace-surface-switch";
 import { FIXED_TERMINAL_TAB_VALUE } from "@/features/terminal/lib/terminal-layout-document";
-import type { LiveResourceSessionLocation } from "@/features/terminal/public";
-import type { LocatedPaneHref, NavigateToLocatedPaneDeps } from "@/features/terminal/public";
+import {
+  commitLocatedPaneNavigation,
+  type LiveResourceSessionLocation,
+  type LocatedPaneHref,
+  type NavigateToLocatedPaneDeps,
+} from "@/features/terminal/public";
 import {
   buildLocatedPanePath,
   locationMatchesDestination,
@@ -108,6 +113,30 @@ function createHarness(options?: {
     },
   };
   return { deps, router, href };
+}
+
+function createPrepareAwareDeepLinkRouter(options: {
+  currentHref: string;
+  href: LocatedPaneHref;
+  order: string[];
+  commitOnPush?: boolean;
+}) {
+  const apply = (prepared: string, label: "push" | "deepLink") => {
+    options.order.push(`${label}:${prepared}`);
+    if (options.commitOnPush !== false) {
+      const next = hrefFromPath(prepared);
+      options.href.pathname = next.pathname;
+      options.href.search = next.search;
+    }
+  };
+  return {
+    push: (path: string) => {
+      apply(prepareWorkspaceContextNavigation(path, options.currentHref), "push");
+    },
+    pushWorkspaceDeepLink: (path: string) => {
+      apply(prepareWorkspaceContextNavigation(path, null), "deepLink");
+    },
+  };
 }
 
 describe("buildLocatedPanePath", () => {
@@ -235,6 +264,29 @@ describe("locationMatchesDestination / waitForDestination", () => {
   });
 });
 
+describe("commitLocatedPaneNavigation", () => {
+  test("prefers pushWorkspaceDeepLink and falls back to push", () => {
+    const order: string[] = [];
+    commitLocatedPaneNavigation(
+      {
+        push: (path) => order.push(`push:${path}`),
+        pushWorkspaceDeepLink: (path) => order.push(`deepLink:${path}`),
+      },
+      "/workspace?id=ws-b&tab=terminal&terminalTmux=1",
+    );
+    expect(order).toEqual([
+      "deepLink:/workspace?id=ws-b&tab=terminal&terminalTmux=1",
+    ]);
+
+    order.length = 0;
+    commitLocatedPaneNavigation(
+      { push: (path) => order.push(`push:${path}`) },
+      "/workspace?id=ws-b&tab=terminal",
+    );
+    expect(order).toEqual(["push:/workspace?id=ws-b&tab=terminal"]);
+  });
+});
+
 describe("navigateToResourceMonitorSession", () => {
   test("commits dest then switches same-host with preserveDeepLink", async () => {
     const { deps, router } = createHarness();
@@ -279,6 +331,83 @@ describe("navigateToResourceMonitorSession", () => {
     expect(path).toContain(`id=${HOST}`);
     expect(path).toContain(`tab=${FIXED_TERMINAL_TAB_VALUE}`);
     expect(path).toContain("terminalTmux=1");
+  });
+
+  test("cross-host tmux dest keeps identical tab and terminalTmux through pushWorkspaceDeepLink", async () => {
+    const dest = location({
+      hostId: "ws-b",
+      paintContextId: "ws-b",
+      sessionId: "sess-b",
+    });
+    const path = buildLocatedPanePath(dest, "workspace");
+    const currentHref = `/workspace?id=other-host&tab=${FIXED_TERMINAL_TAB_VALUE}&terminalTmux=1`;
+    expect(prepareWorkspaceContextNavigation(path, currentHref)).not.toContain("tab=");
+    expect(prepareWorkspaceContextNavigation(path, currentHref)).not.toContain(
+      "terminalTmux",
+    );
+    expect(prepareWorkspaceContextNavigation(path, null)).toBe(path);
+
+    const { deps, href } = createHarness({
+      currentHostId: "other-host",
+      initialHref: hrefFromPath(currentHref),
+    });
+    const router = createPrepareAwareDeepLinkRouter({
+      currentHref,
+      href,
+      order: deps.order,
+    });
+    const ok = await navigateToResourceMonitorSession(dest, "workspace", router, deps);
+
+    expect(ok).toBe(true);
+    expect(deps.order).toEqual([
+      "hydrate",
+      "ensureHost:ws-b",
+      `setActiveSpace:ws-b:${DEFAULT_CENTER_SPACE_ID}`,
+      "request:sess-b",
+      `deepLink:${path}`,
+    ]);
+    expect(href.search).toContain(`id=ws-b`);
+    expect(href.search).toContain(`tab=${FIXED_TERMINAL_TAB_VALUE}`);
+    expect(href.search).toContain("terminalTmux=1");
+    expect(deps.order.some((step) => step.startsWith("push:"))).toBe(false);
+    expect(deps.order.some((step) => step.startsWith("switch:"))).toBe(false);
+  });
+
+  test("cross-host simple PTY dest keeps identical tab through pushWorkspaceDeepLink", async () => {
+    const dest = location({
+      hostId: "ws-b",
+      paintContextId: "ws-b",
+      sessionId: "sess-pty-b",
+      tmuxWindowName: undefined,
+    });
+    const path = buildLocatedPanePath(dest, "workspace");
+    const currentHref = `/workspace?id=other-host&tab=${FIXED_TERMINAL_TAB_VALUE}`;
+    expect(path).not.toContain("terminalTmux");
+    expect(prepareWorkspaceContextNavigation(path, currentHref)).not.toContain("tab=");
+    expect(prepareWorkspaceContextNavigation(path, null)).toBe(path);
+
+    const { deps, href } = createHarness({
+      currentHostId: "other-host",
+      initialHref: hrefFromPath(currentHref),
+    });
+    const router = createPrepareAwareDeepLinkRouter({
+      currentHref,
+      href,
+      order: deps.order,
+    });
+    const ok = await navigateToResourceMonitorSession(dest, "workspace", router, deps);
+
+    expect(ok).toBe(true);
+    expect(deps.order).toEqual([
+      "hydrate",
+      "ensureHost:ws-b",
+      `setActiveSpace:ws-b:${DEFAULT_CENTER_SPACE_ID}`,
+      "request:sess-pty-b",
+      `deepLink:${path}`,
+    ]);
+    expect(href.search).toContain(`id=ws-b`);
+    expect(href.search).toContain(`tab=${FIXED_TERMINAL_TAB_VALUE}`);
+    expect(href.search).not.toContain("terminalTmux");
   });
 
   test("returns false when the target space does not exist and does not push", async () => {
@@ -480,15 +609,17 @@ describe("navigate dest-commit-before-switch contract", () => {
       join(import.meta.dir, "../../terminal/public/navigate-to-located-pane.ts"),
       "utf8",
     );
-    const pushAt = src.indexOf("options.router.push(path)");
+    const commitAt = src.indexOf("commitLocatedPaneNavigation(options.router, path)");
     const waitAt = src.indexOf("waitForDestination");
     const switchAt = src.indexOf("await switchSameHostSpace");
     const requestAt = src.indexOf("requestLocate(location)");
-    expect(pushAt).toBeGreaterThan(0);
+    expect(commitAt).toBeGreaterThan(0);
     expect(waitAt).toBeGreaterThan(0);
     expect(requestAt).toBeGreaterThan(0);
-    expect(switchAt).toBeGreaterThan(pushAt);
+    expect(switchAt).toBeGreaterThan(commitAt);
     expect(switchAt).toBeGreaterThan(src.lastIndexOf("if (!committed)"));
+    expect(src).toContain("pushWorkspaceDeepLink");
+    expect(src).toContain("router.push(path)");
     expect(src).toContain("preserveDeepLink: true");
     expect(src).toContain("locationMatchesDestination");
     expect(src).not.toContain("useAgentAttentionStore");

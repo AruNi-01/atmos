@@ -55,45 +55,53 @@ export function useAppRouter() {
     [],
   );
 
-  const push = useCallback(
-    (path: string) => {
-      if (interceptor?.({ path, kind: "push" })) {
+  const commitWorkspaceNavigation = useCallback(
+    (path: string, kind: "push" | "replace", currentHref?: string | null) => {
+      if (interceptor?.({ path, kind })) {
         return;
       }
-      if (runRegisteredAppNavigationGuard({ path, kind: "push" })) {
+      if (runRegisteredAppNavigationGuard({ path, kind })) {
         return;
       }
       const nextPath = normalizePath(path);
       if (nextPath === currentBrowserLocation(pathname)) {
         return;
       }
-      // APP-043/IMP-008: last-tab inject + warm visual prime only (no full promote).
-      const prepared = prepareAndPrimeWorkspaceNavigation(nextPath);
+      // APP-043/IMP-008: leftover-chrome strip + warm visual prime only (no full promote).
+      // `currentHref === null` keeps dest tab/tmux for an explicit workspace deep link.
+      const prepared = prepareAndPrimeWorkspaceNavigation(nextPath, currentHref);
+      if (kind === "replace") {
+        router.replace(prepared);
+        return;
+      }
       router.push(prepared);
     },
     [interceptor, normalizePath, pathname, router],
   );
 
+  const push = useCallback(
+    (path: string) => {
+      commitWorkspaceNavigation(path, "push");
+    },
+    [commitWorkspaceNavigation],
+  );
+
   const replace = useCallback(
     (path: string) => {
-      if (interceptor?.({ path, kind: "replace" })) {
-        return;
-      }
-      if (runRegisteredAppNavigationGuard({ path, kind: "replace" })) {
-        return;
-      }
-      const nextPath = normalizePath(path);
-      if (nextPath === currentBrowserLocation(pathname)) {
-        return;
-      }
-      const prepared = prepareAndPrimeWorkspaceNavigation(nextPath);
-      router.replace(prepared);
+      commitWorkspaceNavigation(path, "replace");
     },
-    [interceptor, normalizePath, pathname, router],
+    [commitWorkspaceNavigation],
+  );
+
+  const pushWorkspaceDeepLink = useCallback(
+    (path: string) => {
+      commitWorkspaceNavigation(path, "push", null);
+    },
+    [commitWorkspaceNavigation],
   );
 
   return useMemo(
-    () => ({ ...router, push, replace }),
-    [router, push, replace],
+    () => ({ ...router, push, replace, pushWorkspaceDeepLink }),
+    [router, push, replace, pushWorkspaceDeepLink],
   );
 }

@@ -495,18 +495,30 @@ export function primeWorkspaceSurfaceNavigation(path: string): boolean {
 }
 
 /**
- * Full nav-time helper: last-tab inject + optional warm visual prime.
+ * Full nav-time helper: leftover-chrome strip + optional warm visual prime.
  * Prefer this from app-router push/replace.
+ *
+ * `currentHref` is the pre-hop location passed to
+ * {@link prepareWorkspaceContextNavigation}. Pass `null` when the caller is
+ * committing an explicit dest deep link (keep dest `tab` / `terminalTmux`).
+ * Omit to read `window.location` (default leftover-chrome strip).
  */
-export function prepareAndPrimeWorkspaceNavigation(path: string): string {
+export function prepareAndPrimeWorkspaceNavigation(
+  path: string,
+  currentHref?: string | null,
+): string {
   const current = useWorkspaceSurfaceCacheStore.getState().activeContextId;
   if (current) {
     const host = hostIdFromCenterKey(current);
-    void import("@/app-shell/center-space/center-space-switch").then((mod) => {
-      void mod.captureActiveCenterSpaceThumbnail(host);
-    });
+    void import("@/app-shell/center-space/center-space-switch")
+      .then((mod) => {
+        void mod.captureActiveCenterSpaceThumbnail(host);
+      })
+      .catch(() => {
+        /* thumbnail capture is best-effort */
+      });
   }
-  const prepared = prepareWorkspaceContextNavigation(path);
+  const prepared = prepareWorkspaceContextNavigation(path, currentHref);
   primeWorkspaceSurfaceNavigation(prepared);
   return prepared;
 }
