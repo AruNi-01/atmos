@@ -1,0 +1,32 @@
+apps/web/messages/en.json
+  h_5be255725524c8 173-179
+apps/web/messages/zh.json
+  h_5be255725524c8 173-179
+apps/web/src/app-shell/HeaderWorkspaceJobs.tsx
+  h_5be255725524c8 6,36,41-42,73-154,164-165,175-176,196,198-201,234-235,243-244,250-251,257,259,263,282,288-306,309-337,369-370,376-377,400-401,426,430-431,443-465,490-500,507-511,525-529,536-537,544-545,560-561,624-625,632-644
+apps/web/src/app-shell/WorkspaceStatusPopover.tsx
+  h_5be255725524c8 48-49,125-126,194-195
+apps/web/src/app-shell/__tests__/workspace-status-popover.test.ts
+  h_5be255725524c8 75-97
+apps/web/src/app-shell/header-workspace-jobs.test.ts
+  h_5be255725524c8 6-7,11-12,149-166
+apps/web/src/app-shell/header-workspace-jobs.ts
+  h_5be255725524c8 71-82
+apps/web/src/app-shell/use-workspace-create-auto-open.ts
+  h_5be255725524c8 3,12-16,18-22,33-43,46-65,67-162
+apps/web/src/features/workspace/store/workspace-creation-store.test.ts
+  h_5be255725524c8 140-163
+apps/web/src/features/workspace/store/workspace-creation-store.ts
+  h_5be255725524c8 28,71,133-136
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "fc47002a5633d8fad81cd23f852d3fd6d5e21d96",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
