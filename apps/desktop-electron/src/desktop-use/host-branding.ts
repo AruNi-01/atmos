@@ -210,6 +210,9 @@ export function applyHostAppIcon(appPath: string, icnsPath: string): boolean {
   return true;
 }
 
+const CF_BUNDLE_ICON_NAME_XML =
+  /\s*<key>CFBundleIconName<\/key>\s*<string>[^<]*<\/string>/;
+
 /**
  * Without Assets.car, CFBundleIconName makes LaunchServices keep a stale
  * catalog icon (the old vendor plate) instead of AppIcon.icns.
@@ -218,16 +221,36 @@ export function preferHostIcnsOverCatalog(appPath: string): boolean {
   const assetsCar = join(appPath, "Contents", "Resources", "Assets.car");
   const plist = join(appPath, "Contents", "Info.plist");
   if (!existsSync(plist) || existsSync(assetsCar)) return false;
+  if (stripIconNameWithPlutil(plist)) return true;
+  return stripIconNameFromXmlPlist(plist);
+}
+
+function stripIconNameWithPlutil(plist: string): boolean {
   try {
-    const { status } = spawnSync(
+    const extracted = spawnSync(
       "plutil",
       ["-extract", "CFBundleIconName", "raw", "-o", "-", plist],
       { encoding: "utf8" },
     );
-    if (status !== 0) return false;
-    spawnSync("plutil", ["-remove", "CFBundleIconName", plist], {
+    if (extracted.error || extracted.status !== 0) return false;
+    const removed = spawnSync("plutil", ["-remove", "CFBundleIconName", plist], {
       stdio: "ignore",
     });
+    return !removed.error && removed.status === 0;
+  } catch {
+    return false;
+  }
+}
+
+/** Fallback when plutil is missing (Linux unit tests). */
+function stripIconNameFromXmlPlist(plist: string): boolean {
+  try {
+    const raw = readFileSync(plist);
+    if (raw.subarray(0, 8).toString("ascii") === "bplist00") return false;
+    const text = raw.toString("utf8");
+    const next = text.replace(CF_BUNDLE_ICON_NAME_XML, "");
+    if (next === text) return false;
+    writeFileSync(plist, next);
     return true;
   } catch {
     return false;
