@@ -1,0 +1,50 @@
+apps/web/src/app-shell/CenterStage.tsx
+  h_5be255725524c8 103,142,339,514-528,1430-1432,2402,2423-2426,2444,2474-2495,2513,2549-2550,2554,2558-2565,2571,2583,2598,2843,2862,2932
+apps/web/src/app-shell/__tests__/center-open-context.test.ts
+  h_5be255725524c8 3-4,34-43
+apps/web/src/app-shell/__tests__/center-pane-defects.test.ts
+  h_5be255725524c8 2-3,474-478
+apps/web/src/app-shell/__tests__/center-pane-isolation.test.ts
+  h_5be255725524c8 13,76,83-84,86,92-93,123-124,129-145
+apps/web/src/app-shell/__tests__/center-pane-layout.test.ts
+  h_5be255725524c8 24,77-90
+apps/web/src/app-shell/__tests__/center-space-switcher.test.ts
+  h_5be255725524c8 171-173,175
+apps/web/src/app-shell/__tests__/center-space-url.test.ts
+  h_5be255725524c8 192-234
+apps/web/src/app-shell/__tests__/center-space.test.ts
+  h_5be255725524c8 192
+apps/web/src/app-shell/__tests__/center-stage-chrome.test.ts
+  h_5be255725524c8 61-62
+apps/web/src/app-shell/center-pane/CenterPaneGrid.tsx
+  h_5be255725524c8 127,322,376,384,411-415
+apps/web/src/app-shell/center-pane/center-pane-layout.ts
+  h_5be255725524c8 745-765
+apps/web/src/app-shell/center-pane/use-center-pane-slot-boxes.ts
+  h_5be255725524c8 42-90,138,176-179,193,200,208-209
+apps/web/src/app-shell/center-space/center-open-context.ts
+  h_5be255725524c8 2,28-35
+apps/web/src/app-shell/center-space/center-space-switch.ts
+  h_5be255725524c8 111-112,134
+apps/web/src/app-shell/center-space/center-space-url.ts
+  h_5be255725524c8 7-13,129-160,162-167,182,184,191-192,196-197
+apps/web/src/features/agent/lib/__tests__/agent-hook-navigation.test.ts
+  h_5be255725524c8 175
+apps/web/src/features/agent/lib/agent-hook-navigation.ts
+  h_5be255725524c8 98
+apps/web/src/features/terminal/store/__tests__/extra-space-tmux-isolation.test.ts
+  h_5be255725524c8 14,90-115
+apps/web/src/features/terminal/store/terminal-store-helpers.ts
+  h_5be255725524c8 330-352,356-357,379-385
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "41fe05428cef3e9fcdd93a6c5112f060f87a40c6",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
