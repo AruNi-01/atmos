@@ -7,6 +7,14 @@ const footerSrc = readFileSync(
   join(import.meta.dir, "../components/ResourceMonitorFooterItem.tsx"),
   "utf8",
 );
+const popoverSrc = readFileSync(
+  join(import.meta.dir, "../components/ResourceMonitorPopover.tsx"),
+  "utf8",
+);
+const titlesSrc = readFileSync(
+  join(import.meta.dir, "../lib/resource-monitor-session-titles.ts"),
+  "utf8",
+);
 
 describe("useResourceMonitor lifecycle wiring", () => {
   test("idles with get polling and switches to subscribe while the popover is open", () => {
@@ -30,5 +38,19 @@ describe("useResourceMonitor lifecycle wiring", () => {
     expect(footerSrc).toContain('aria-label={t("title")}');
     expect(footerSrc).toContain("lastUpdatedAtMs={lastUpdatedAtMs}");
     expect(footerSrc).toContain("desktopLoading={desktopLoading}");
+  });
+});
+
+describe("Resource Monitor live session titles", () => {
+  test("popover subscribes to workspacePanes and resolves display-only titles", () => {
+    expect(popoverSrc).toContain('useTerminalStore((s) => s.workspacePanes)');
+    expect(popoverSrc).toContain("buildResourceMonitorSessionTitleMap(workspacePanes)");
+    expect(popoverSrc).toContain("resolveResourceMonitorSessionTitle");
+    expect(popoverSrc).toContain("liveTitles={liveTitles}");
+    expect(titlesSrc).toContain("getTerminalDisplayMeta");
+    expect(titlesSrc).toContain("isTmuxIndexTitle");
+    expect(titlesSrc).toContain("never write this back onto the WS snapshot DTO");
+    expect(titlesSrc).not.toContain("from \"@/features/terminal/components");
+    expect(popoverSrc).not.toContain("from \"@/features/terminal/components");
   });
 });

@@ -28,6 +28,11 @@ import {
   shouldShowProjectsEmptyCopy,
   type ResourceMonitorStatusBanner,
 } from "@/features/resource-monitor/lib/resource-monitor-ui-state";
+import {
+  buildResourceMonitorSessionTitleMap,
+  resolveResourceMonitorSessionTitle,
+} from "@/features/resource-monitor/lib/resource-monitor-session-titles";
+import { useTerminalStore } from "@/features/terminal/store/use-terminal-store";
 
 function UsageCells({ usage }: { usage: ResourceUsage }) {
   const t = useTranslations("resourceMonitor.popover");
@@ -67,8 +72,10 @@ function MetricRow({
 
 function WorkspaceRows({
   workspace,
+  liveTitles,
 }: {
   workspace: ResourceWorkspaceMetrics;
+  liveTitles: ReadonlyMap<string, string>;
 }) {
   const t = useTranslations("resourceMonitor.popover");
   return (
@@ -88,7 +95,12 @@ function WorkspaceRows({
             <MetricRow
               key={session.session_id}
               indent={2}
-              label={session.name?.trim() || t("unnamedSession")}
+              label={resolveResourceMonitorSessionTitle(
+                session.session_id,
+                session.name,
+                liveTitles,
+                t("unnamedSession"),
+              )}
               usage={session.usage}
             />
           ))
@@ -98,7 +110,13 @@ function WorkspaceRows({
   );
 }
 
-function ProjectRows({ project }: { project: ResourceProjectMetrics }) {
+function ProjectRows({
+  project,
+  liveTitles,
+}: {
+  project: ResourceProjectMetrics;
+  liveTitles: ReadonlyMap<string, string>;
+}) {
   const t = useTranslations("resourceMonitor.popover");
   return (
     <Collapsible defaultOpen>
@@ -117,7 +135,12 @@ function ProjectRows({ project }: { project: ResourceProjectMetrics }) {
               <MetricRow
                 key={session.session_id}
                 indent={1}
-                label={session.name?.trim() || t("unnamedSession")}
+                label={resolveResourceMonitorSessionTitle(
+                  session.session_id,
+                  session.name,
+                  liveTitles,
+                  t("unnamedSession"),
+                )}
                 usage={session.usage}
               />
             ))}
@@ -125,7 +148,7 @@ function ProjectRows({ project }: { project: ResourceProjectMetrics }) {
         ) : null}
         {project.workspaces.map((workspace) => (
           <div key={workspace.workspace_id} className="pl-4">
-            <WorkspaceRows workspace={workspace} />
+            <WorkspaceRows workspace={workspace} liveTitles={liveTitles} />
           </div>
         ))}
       </CollapsibleContent>
@@ -184,6 +207,11 @@ export function ResourceMonitorPopover({
   desktopLoading?: boolean;
 }) {
   const t = useTranslations("resourceMonitor.popover");
+  const workspacePanes = useTerminalStore((s) => s.workspacePanes);
+  const liveTitles = React.useMemo(
+    () => buildResourceMonitorSessionTitleMap(workspacePanes),
+    [workspacePanes],
+  );
   const state = resolveResourceMonitorUiState({
     connectionState,
     isLoading,
@@ -286,7 +314,11 @@ export function ResourceMonitorPopover({
               ) : null
             ) : (
               snapshot.projects.map((project) => (
-                <ProjectRows key={project.project_id} project={project} />
+                <ProjectRows
+                  key={project.project_id}
+                  project={project}
+                  liveTitles={liveTitles}
+                />
               ))
             )}
           </section>
