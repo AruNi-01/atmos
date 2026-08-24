@@ -1,0 +1,254 @@
+AGENTS.md
+  h_5be255725524c8 33,85,178-180
+apps/api/AGENTS.md
+  h_5be255725524c8 87,103,112
+apps/mobile/AGENTS.md
+  h_5be255725524c8 92-93,96,109,124
+apps/mobile/src/api/mobile-ws-client.ts
+  h_5be255725524c8 1-4,189-194
+apps/mobile/src/api/types.ts
+  h_5be255725524c8 21,52-59
+apps/mobile/src/api/ws-actions.ts
+  h_5be255725524c8 10,13,16,22,30,33,54,68,74,90,99,104,109,112,125,133,136,139,142,152
+apps/mobile/src/features/git/FileDiffView.tsx
+  h_5be255725524c8 50-51
+apps/web/AGENTS.md
+  h_5be255725524c8 58-62,66-67,69,88,103,116
+apps/web/src/api/ws-api-types.ts
+  h_5be255725524c8 76-77
+apps/web/src/api/ws-api.ts
+  h_5be255725524c8 4,36,79,91,106,118,127,134,144,148,152,156,163,173,187,203,225,231,255-259,269,272,277,283,286,310,312,314,322,324,326,339,346,354-355,363,377,388,398,412,428,446,465,484,501,513,525,534,544,554,564,577,587,594,601,612,619,631,649,662,669,681,694,706,714,721,731,740,744,752,763,773,787,854,856,885,898,908,918,925,933,944,950-951,954-955,962,972,981,995,1011,1018,1025,1032,1039,1046,1055,1061-1062,1072,1086,1098,1115
+apps/web/src/api/ws/agent-api.ts
+  h_5be255725524c8 70,74,78,85,94,103,115,124,133,137,141,145,149
+apps/web/src/api/ws/automation-api.ts
+  h_5be255725524c8 11
+apps/web/src/api/ws/disk-analyzer-api.ts
+  h_5be255725524c8 84,94,99,106,111,114
+apps/web/src/api/ws/github-api.ts
+  h_5be255725524c8 149,164,177,189,203,218,232,243,252,265,274
+apps/web/src/api/ws/linear-api.ts
+  h_5be255725524c8 3,76-80,114-117,121
+apps/web/src/api/ws/local-model-api.ts
+  h_5be255725524c8 4-9,11-18,22,25,28,31,34,37,40,43,46,49,56,66
+apps/web/src/api/ws/local-services-api.ts
+  h_5be255725524c8 4-25,29,34
+apps/web/src/api/ws/quota-usage-api.ts
+  h_5be255725524c8 5-26,39,59,74,88,107,120,137,153,167
+apps/web/src/api/ws/request.ts
+  h_5be255725524c8 3-6,40-46,49,53,60-66,68,71,81
+apps/web/src/api/ws/review-api.ts
+  h_5be255725524c8 4-38,53,57,71,82,88,94,100,107,115,123,135,146,162,178,191,201,208,214,228,243,253,266
+apps/web/src/api/ws/settings-api.ts
+  h_5be255725524c8 227,263,266,276,288,312,334
+apps/web/src/api/ws/settings-bootstrap-cache.ts
+  h_5be255725524c8 116,119
+apps/web/src/api/ws/simulator-api.ts
+  h_5be255725524c8 20,22,27,31
+apps/web/src/api/ws/skills-api.ts
+  h_5be255725524c8 4,6-12,19,28,35,44,53,67,76,86,95,106,115
+apps/web/src/api/ws/token-usage-api.ts
+  h_5be255725524c8 4-23,38,53-57
+apps/web/src/features/agent/hooks/use-agent-notifications.tsx
+  h_5be255725524c8 5-6,111,139,168
+apps/web/src/features/agent/hooks/use-terminal-agent-model-catalog.ts
+  h_5be255725524c8 7,9-12,32
+apps/web/src/features/agent/lib/agent-hook-toast.tsx
+  h_5be255725524c8 5,24
+apps/web/src/features/agent/store/agent-hooks-store.ts
+  h_5be255725524c8 4,164
+apps/web/src/features/automations/hooks/use-automations.ts
+  h_5be255725524c8 111,121,127,131,135,141,147,153,159,167,173,179,186,193
+apps/web/src/features/automations/lib/automations-query-options.ts
+  h_5be255725524c8 26,40,49,53,58,85
+apps/web/src/features/automations/lib/github-trigger-relay.ts
+  h_5be255725524c8 2,189,197
+apps/web/src/features/browser/lib/run-log-api.ts
+  h_5be255725524c8 9,18
+apps/web/src/features/connection/hooks/use-websocket.ts
+  h_5be255725524c8 5-12,87-100,372-373,376,378-379,381,394
+apps/web/src/features/git/lib/git-query-options.ts
+  h_5be255725524c8 190
+apps/web/src/features/github/components/IssueDetailView.tsx
+  h_5be255725524c8 479-487,582-594
+apps/web/src/features/github/components/PRChecksTab.tsx
+  h_5be255725524c8 282
+apps/web/src/features/github/lib/github-query-options.ts
+  h_5be255725524c8 209-210,256-257,263-265,373,396,422,492,496
+apps/web/src/features/github/lib/pr-detail-sidebar.tsx
+  h_5be255725524c8 627-643,797-813
+apps/web/src/features/project/store/project-store-types.ts
+  h_5be255725524c8 1,43
+apps/web/src/features/settings/store/notification-settings-store.ts
+  h_5be255725524c8 92,107,155
+apps/web/src/features/simulator/__tests__/simulator.test.ts
+  h_5be255725524c8 47
+apps/web/src/features/token-usage/lib/fetch-remote-token-usage.ts
+  h_5be255725524c8 3,13-16,36
+apps/web/src/shared/components/breakout-error-page.tsx
+  h_5be255725524c8 355-358
+crates/desktop-use/src/capture.rs
+  h_5be255725524c8 168
+e2e/tests/smoke/app-shell/app-shell-preferences-menu.e2e.ts
+  h_5be255725524c8 18
+packages/AGENTS.md
+  h_5be255725524c8 11-12,28,30,69,74,76,80-94,125,139
+packages/api-client/AGENTS.md
+  h_5be255725524c8 3,14-17,23,25,29-32,38-39
+packages/api-client/src/ws/index.ts
+  h_5be255725524c8 17-18,21,23-24
+packages/api-client/src/ws/request-types.ts
+  h_5be255725524c8 1-29
+packages/api-client/src/ws/session.test.ts
+  h_5be255725524c8 108
+packages/api-client/src/ws/session.ts
+  h_5be255725524c8 1-8,23-24,187-201,203-239,291-295
+packages/api-client/src/ws/types.ts
+  h_5be255725524c8 2-6,40-44,50-58
+packages/api-types/AGENTS.md
+  h_5be255725524c8 3,10-13,18-51,55-60,64-65,69-70
+packages/api-types/fixtures/events.server.json
+  h_5be255725524c8 1-32
+packages/api-types/package.json
+  h_5be255725524c8 10-12,19-35,41-43
+packages/api-types/scripts/check-ws-events.ts
+  h_5be255725524c8 1-35
+packages/api-types/scripts/extract-ws-actions.ts
+  h_5be255725524c8 21-22,24,38,42,47-54
+packages/api-types/scripts/extract-ws-events.ts
+  h_5be255725524c8 1-25
+packages/api-types/src/ws/contract.test.ts
+  h_5be255725524c8 1-22
+packages/api-types/src/ws/contract.ts
+  h_5be255725524c8 1-56
+packages/api-types/src/ws/contract/agent.ts
+  h_5be255725524c8 1-47
+packages/api-types/src/ws/contract/automation.ts
+  h_5be255725524c8 1-91
+packages/api-types/src/ws/contract/canvas.ts
+  h_5be255725524c8 1-39
+packages/api-types/src/ws/contract/disk-analyzer.ts
+  h_5be255725524c8 1-41
+packages/api-types/src/ws/contract/fs.ts
+  h_5be255725524c8 1-56
+packages/api-types/src/ws/contract/git.ts
+  h_5be255725524c8 1-86
+packages/api-types/src/ws/contract/github.ts
+  h_5be255725524c8 1-184
+packages/api-types/src/ws/contract/group.ts
+  h_5be255725524c8 1-26
+packages/api-types/src/ws/contract/linear.ts
+  h_5be255725524c8 1-56
+packages/api-types/src/ws/contract/local-model.ts
+  h_5be255725524c8 1-40
+packages/api-types/src/ws/contract/local-services.ts
+  h_5be255725524c8 1-17
+packages/api-types/src/ws/contract/permission.ts
+  h_5be255725524c8 1-16
+packages/api-types/src/ws/contract/project.ts
+  h_5be255725524c8 1-46
+packages/api-types/src/ws/contract/quota.ts
+  h_5be255725524c8 1-50
+packages/api-types/src/ws/contract/review.ts
+  h_5be255725524c8 1-113
+packages/api-types/src/ws/contract/settings.ts
+  h_5be255725524c8 1-57
+packages/api-types/src/ws/contract/simulator.ts
+  h_5be255725524c8 1-25
+packages/api-types/src/ws/contract/skills.ts
+  h_5be255725524c8 1-44
+packages/api-types/src/ws/contract/terminal.ts
+  h_5be255725524c8 1-49
+packages/api-types/src/ws/contract/token-usage.ts
+  h_5be255725524c8 1-17
+packages/api-types/src/ws/contract/workspace.ts
+  h_5be255725524c8 1-104
+packages/api-types/src/ws/dto/agent.ts
+  h_5be255725524c8 1-118
+packages/api-types/src/ws/dto/automation.ts
+  h_5be255725524c8 1-291
+packages/api-types/src/ws/dto/canvas.ts
+  h_5be255725524c8 1-48
+packages/api-types/src/ws/dto/common.ts
+  h_5be255725524c8 1-10
+packages/api-types/src/ws/dto/disk-analyzer.ts
+  h_5be255725524c8 1-109
+packages/api-types/src/ws/dto/events.ts
+  h_5be255725524c8 1-71
+packages/api-types/src/ws/dto/fs.ts
+  h_5be255725524c8 105-169
+packages/api-types/src/ws/dto/git.ts
+  h_5be255725524c8 120-238
+packages/api-types/src/ws/dto/github.ts
+  h_5be255725524c8 280-600
+packages/api-types/src/ws/dto/group.ts
+  h_5be255725524c8 14-52
+packages/api-types/src/ws/dto/linear.ts
+  h_5be255725524c8 82-150
+packages/api-types/src/ws/dto/local-model.ts
+  h_5be255725524c8 1-87
+packages/api-types/src/ws/dto/local-services.ts
+  h_5be255725524c8 1-108
+packages/api-types/src/ws/dto/permission.ts
+  h_5be255725524c8 1-24
+packages/api-types/src/ws/dto/project.ts
+  h_5be255725524c8 42-94
+packages/api-types/src/ws/dto/quota.ts
+  h_5be255725524c8 1-167
+packages/api-types/src/ws/dto/review.ts
+  h_5be255725524c8 1-318
+packages/api-types/src/ws/dto/settings.ts
+  h_5be255725524c8 1-151
+packages/api-types/src/ws/dto/simulator.ts
+  h_5be255725524c8 1-71
+packages/api-types/src/ws/dto/skills.ts
+  h_5be255725524c8 1-118
+packages/api-types/src/ws/dto/terminal.ts
+  h_5be255725524c8 1-119
+packages/api-types/src/ws/dto/token-usage.ts
+  h_5be255725524c8 1-128
+packages/api-types/src/ws/dto/workspace.ts
+  h_5be255725524c8 47-112,114-214
+packages/api-types/src/ws/event-contract.ts
+  h_5be255725524c8 1-68
+packages/api-types/src/ws/events.test.ts
+  h_5be255725524c8 1-44
+packages/api-types/src/ws/events.ts
+  h_5be255725524c8 1-42
+packages/api-types/src/ws/frames.ts
+  h_5be255725524c8 2,13,39
+packages/api-types/src/ws/index.ts
+  h_5be255725524c8 9-21
+packages/api-types/src/ws/v1-actions.ts
+  h_5be255725524c8 1-25
+packages/hub-client/AGENTS.md
+  h_5be255725524c8 62-68,75
+packages/relay-client/AGENTS.md
+  h_5be255725524c8 59-67
+packages/shared/AGENTS.md
+  h_5be255725524c8 42
+specs/APP/APP-048_api-types/PRD.md
+  h_5be255725524c8 64,70
+specs/APP/APP-049_api-client/PRD.md
+  h_5be255725524c8 45
+specs/APP/APP-064_api-contract-hardening/BRAINSTORM.md
+  h_5be255725524c8 1-121
+specs/APP/APP-064_api-contract-hardening/PRD.md
+  h_5be255725524c8 1-121
+specs/APP/APP-064_api-contract-hardening/TECH.md
+  h_5be255725524c8 1-310
+specs/APP/APP-064_api-contract-hardening/TEST.md
+  h_5be255725524c8 1-253
+specs/README.md
+  h_5be255725524c8 143
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "d8de63e3305407e249fa627cc2bb4537eacd2320",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
