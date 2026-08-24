@@ -1,0 +1,36 @@
+agents/references/keyboard-shortcuts.md
+  h_5be255725524c8 26-29
+apps/desktop-electron/AGENTS.md
+  h_5be255725524c8 64
+apps/desktop-electron/native/host-shortcuts/host_shortcuts.c
+  h_5be255725524c8 1-194
+apps/desktop-electron/scripts/build-appshot-shift-native.ts
+  h_5be255725524c8 6,18-21,29,81-99
+apps/desktop-electron/scripts/build.ts
+  h_5be255725524c8 87-99
+apps/desktop-electron/src/host-shortcuts.ts
+  h_5be255725524c8 1-251
+apps/desktop-electron/src/main.ts
+  h_5be255725524c8 19,124
+apps/desktop-electron/src/os-reserved-shortcuts.test.ts
+  h_5be255725524c8 1-56
+apps/desktop-electron/src/os-reserved-shortcuts.ts
+  h_5be255725524c8 1-56
+apps/web/src/app-shell/HeldShortcutBadge.tsx
+  h_5be255725524c8 21
+apps/web/src/app-shell/__tests__/shortcut-prefix.test.ts
+  h_5be255725524c8 182-197
+apps/web/src/app-shell/sidebar/WorkspaceContent.tsx
+  h_5be255725524c8 658-662,664-680,682-686
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "7170ac7ff8226b997f8d24adc07a6343ac4a6464",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
