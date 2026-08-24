@@ -205,6 +205,8 @@ describe("center space wiring", () => {
       "utf8",
     );
     expect(grid).toContain("hostIdFromCenterKey(workspaceId)");
+    expect(grid).toContain("listTmuxWindows(hostIdFromCenterKey(workspaceId))");
+    expect(stage).toContain("listTmuxWindows(hostIdFromCenterKey(effectiveContextId))");
     expect(stage).not.toContain("shouldConfirmReplaceCenterLayout");
     expect(header).toContain("CenterSpaceSwitcher");
     expect(header.indexOf("HeaderGitContext")).toBeLessThan(

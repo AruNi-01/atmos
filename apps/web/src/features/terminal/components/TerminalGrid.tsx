@@ -5,7 +5,6 @@ import React, { useCallback, useEffect } from "react";
 import { cn } from "@workspace/ui";
 import type { TerminalRef } from "./Terminal";
 import type { TerminalLayoutNode, TerminalPaneAgent } from "../types/index";
-import { isPathLikeTitle } from "./terminal-title";
 import { agentHooksApi, systemApi } from "@/api/rest-api";
 import { useTerminalStore, FIXED_TERMINAL_TAB_VALUE } from "@/features/terminal/store/use-terminal-store";
 import { useTerminalSplitPrefsStore } from "@/features/settings/store/terminal-split-prefs-store";
@@ -618,16 +617,17 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     const pane = panes[id];
     if (!pane) return;
 
-    // No tmux identity / path-like title → idle shell; close without confirm.
-    if (!pane.tmuxWindowName || isPathLikeTitle(pane.dynamicTitle)) {
+    // No tmux identity yet → not attached; close without confirm.
+    if (!pane.tmuxWindowName) {
       removeTerminal(id);
       return;
     }
 
-    // Probe tmux foreground command. Unavailable list falls back to confirm.
+    // Probe tmux foreground command. Unavailable list falls back to confirm
+    // unless the title is a CMD_END cwd (see isTerminalPaneNonIdle).
     let tmuxWindows: Awaited<ReturnType<typeof systemApi.listTmuxWindows>>["windows"] | null = null;
     try {
-      const response = await systemApi.listTmuxWindows(workspaceId);
+      const response = await systemApi.listTmuxWindows(hostIdFromCenterKey(workspaceId));
       tmuxWindows = response.windows;
     } catch (error) {
       console.warn("Failed to inspect terminal foreground command before close", error);

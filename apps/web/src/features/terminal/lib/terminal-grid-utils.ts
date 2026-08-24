@@ -1,6 +1,6 @@
 "use client";
 
-import { isPathLikeTitle } from "@atmos/shared/terminal";
+import { isIdleCwdTitle } from "@atmos/shared/terminal";
 import type {
   TerminalLayoutBranch,
   TerminalLayoutNode,
@@ -122,34 +122,56 @@ export function findMatchingTmuxWindow(
   windows: TmuxWindowBusyProbe[],
   pane: TerminalPaneBusyProbe,
 ): TmuxWindowBusyProbe | undefined {
-  return windows.find(
-    (window) =>
-      window.name === pane.tmuxWindowName ||
-      window.name === pane.label ||
-      String(window.index) === pane.tmuxWindowName,
-  );
+  if (pane.tmuxWindowName) {
+    const byName = windows.find((window) => window.name === pane.tmuxWindowName);
+    if (byName) return byName;
+    const byIndex = windows.find((window) => String(window.index) === pane.tmuxWindowName);
+    if (byIndex) return byIndex;
+  }
+  // Label is a last resort. Extra-space panes keep a local label like "1"
+  // while the tmux name is namespaced (`cs__space-abc__1`); matching by label
+  // first would pick the host window named "1" instead.
+  if (pane.label && pane.label !== pane.tmuxWindowName) {
+    return windows.find((window) => window.name === pane.label);
+  }
+  return undefined;
 }
 
 /**
  * Whether a pane should require close confirmation (same policy as panel close).
  *
+ * Confirm when either signal says work is running:
+ * - tmux foreground command is not a known idle shell
+ * - dynamic title is a live command / agent binary (not a CMD_END cwd)
+ *
  * Idle without confirm when:
  * - no tmux window identity yet
- * - dynamic title is path-like (shell at cwd after CMD_END)
- * - tmux foreground command is a known idle shell
+ * - tmux foreground is an idle shell and the title is cwd-style or empty
+ * - tmux list is unavailable and the title is a CMD_END cwd
  *
- * When `tmuxWindows` is null (list failed / unavailable), treat candidate panes as non-idle
- * so the user still gets a confirmation rather than silently killing work.
+ * When `tmuxWindows` is null (list failed / unavailable) and the title is not a
+ * cwd, treat the pane as non-idle so we still confirm rather than silently killing work.
  */
 export function isTerminalPaneNonIdle(
   pane: TerminalPaneBusyProbe,
   tmuxWindows: TmuxWindowBusyProbe[] | null,
 ): boolean {
   if (!pane.tmuxWindowName) return false;
-  if (isPathLikeTitle(pane.dynamicTitle)) return false;
-  if (!tmuxWindows) return true;
+
+  const cwdTitle = isIdleCwdTitle(pane.dynamicTitle);
+  const titleLooksBusy =
+    Boolean(pane.dynamicTitle?.trim()) &&
+    !cwdTitle &&
+    !isIdleShellCommand(pane.dynamicTitle);
+
+  if (!tmuxWindows) {
+    return !cwdTitle;
+  }
+
   const tmuxWindow = findMatchingTmuxWindow(tmuxWindows, pane);
-  if (tmuxWindow && isIdleShellCommand(tmuxWindow.current_command)) return false;
+  if (tmuxWindow && isIdleShellCommand(tmuxWindow.current_command)) {
+    return titleLooksBusy;
+  }
   return true;
 }
 

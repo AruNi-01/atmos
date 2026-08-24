@@ -1863,7 +1863,7 @@ const CenterStage: React.FC = () => {
       const tabPanes = getTerminalTabPanes(effectiveContextId, tabId);
       let tmuxWindows: Awaited<ReturnType<typeof systemApi.listTmuxWindows>>["windows"] | null = null;
       try {
-        const response = await systemApi.listTmuxWindows(effectiveContextId);
+        const response = await systemApi.listTmuxWindows(hostIdFromCenterKey(effectiveContextId));
         tmuxWindows = response.windows;
       } catch (error) {
         console.warn("Failed to inspect terminal foreground commands before tab close", error);
@@ -1917,7 +1917,7 @@ const CenterStage: React.FC = () => {
     const needsTmux = tabs.some((tab) => tab.kind === "terminal");
     if (needsTmux && effectiveContextId) {
       try {
-        const response = await systemApi.listTmuxWindows(effectiveContextId);
+        const response = await systemApi.listTmuxWindows(hostIdFromCenterKey(effectiveContextId));
         tmuxWindows = response.windows;
       } catch (error) {
         console.warn("Failed to inspect terminal foreground commands before bulk close", error);

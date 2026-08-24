@@ -209,6 +209,19 @@ export function isPathLikeTitle(value: string | undefined): boolean {
   );
 }
 
+/**
+ * CMD_END / cwd-style titles that mean "shell at prompt", not a running binary.
+ *
+ * Absolute agent/CLI paths (`/opt/homebrew/bin/claude`, `~/.grok/.../grok`)
+ * are path-like but busy — close confirmation must still treat them as work.
+ */
+export function isIdleCwdTitle(value: string | undefined): boolean {
+  if (!value) return false;
+  const command = firstCommandToken(value);
+  if (!isPathLikeTitle(value) || command.rest) return false;
+  return !executablePathMatchToken(command.token);
+}
+
 function isRuntimeWrapperTitle(value: string | undefined): boolean {
   const normalized = normalizeRuntimeWrapperTitle(value);
   return Boolean(
