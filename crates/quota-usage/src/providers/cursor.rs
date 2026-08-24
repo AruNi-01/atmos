@@ -550,11 +550,8 @@ fn cursor_session_cookie_from_access_token(access_token: &str) -> Option<String>
         return None;
     }
     let payload = decode_jwt_payload(token)?;
-    if let Some(exp) = payload.get("exp").and_then(|value| value.as_i64()) {
-        if exp <= (unix_now() as i64) + 60 {
-            return None;
-        }
-    } else {
+    let exp = payload.get("exp").and_then(|value| value.as_i64())?;
+    if exp <= (unix_now() as i64) + 60 {
         return None;
     }
     let user_id = cursor_user_id_from_jwt(&payload)?;
