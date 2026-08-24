@@ -1117,7 +1117,10 @@ export function getTerminalDisplayMeta<TAgent extends TerminalTitleAgent>(option
     showAgentName = true,
   } = options;
   const dynamicTitleIsVersion = isVersionLikeTitle(dynamicTitle);
-  const matchedDynamicAgent = resolveAgentForTitle(dynamicTitle, configuredAgents, {
+  // Pane leftover `agent` still brands when the live command is that agent
+  // (`claude` → Claude Code). It must not brand unrelated CLIs (mole, agy).
+  const agentsForTitle = agent ? [agent, ...configuredAgents] : configuredAgents;
+  const matchedDynamicAgent = resolveAgentForTitle(dynamicTitle, agentsForTitle, {
     contestedOwners,
   });
   // Contested bare `agent` command lines suppress stale brand fallbacks.
@@ -1127,14 +1130,15 @@ export function getTerminalDisplayMeta<TAgent extends TerminalTitleAgent>(option
     !matchedDynamicAgent &&
     !isPathOnlyTitle(dynamicTitle);
   const labelAgent = resolveAgentForLabel(baseTitle, configuredAgents);
-  // Runtime wrappers (python3.11) and bare process basenames from reattach
-  // CMD_START inject (agy, node) should not hide a known pane agent brand.
-  const fallbackAgent =
-    isRuntimeWrapperTitle(dynamicTitle) || isBareProcessTitle(dynamicTitle)
-      ? agent ?? labelAgent
-      : dynamicTitleIsVersion
-        ? labelAgent ?? agent
-        : undefined;
+  // Runtime wrappers (python3.11, node) and version-like reattach injects
+  // (3.1.3) should not hide a known pane agent brand. Real CLIs (mole, vim,
+  // htop, agy, git) must display as themselves unless resolveAgentForTitle
+  // matches a configured agent.
+  const fallbackAgent = isRuntimeWrapperTitle(dynamicTitle)
+    ? agent ?? labelAgent
+    : dynamicTitleIsVersion
+      ? labelAgent ?? agent
+      : undefined;
   // A live cwd or non-agent command is the current title. Do not keep a leftover
   // pane-label brand (e.g. launched as "Claude Code") after the agent exits or
   // the shell returns to a prompt — refresh + typed commands must show cwd.
