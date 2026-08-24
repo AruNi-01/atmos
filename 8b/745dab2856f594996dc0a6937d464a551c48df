@@ -1,0 +1,54 @@
+apps/web/messages/en.json
+  h_5be255725524c8 5684-5685,5692
+apps/web/messages/zh.json
+  h_5be255725524c8 5684-5685,5692
+apps/web/src/app-shell/AppShellMain.tsx
+  h_5be255725524c8 11,110
+apps/web/src/app-shell/HeldShortcutBadge.tsx
+  h_5be255725524c8 1-70
+apps/web/src/app-shell/HeldShortcutPrefixListener.tsx
+  h_5be255725524c8 1-46
+apps/web/src/app-shell/LeftSidebar.tsx
+  h_5be255725524c8 101-106,1018-1036,1536-1538
+apps/web/src/app-shell/__tests__/center-stage-tab-model.test.ts
+  h_5be255725524c8 4,6,8-11,92-161
+apps/web/src/app-shell/__tests__/center-stage-tab-shortcuts.test.ts
+  h_5be255725524c8 1-42
+apps/web/src/app-shell/__tests__/shortcut-prefix.test.ts
+  h_5be255725524c8 1-183
+apps/web/src/app-shell/center-stage-shared-tabs.tsx
+  h_5be255725524c8 50-51,53,68,70,75,94,99,103-104,106,110-111,113,115-120,123,126,128-129,131-133,236,345,359,366-367,413-415,421-423,693,704,720
+apps/web/src/app-shell/center-stage-support.tsx
+  h_5be255725524c8 19-24,324,328,332-334,336,339,344-353,355-356
+apps/web/src/app-shell/center-stage-tab-model.ts
+  h_5be255725524c8 106-134,146-200
+apps/web/src/app-shell/center-stage-tabs.tsx
+  h_5be255725524c8 48-51,527-542
+apps/web/src/app-shell/held-shortcut-prefix-store.ts
+  h_5be255725524c8 1-55
+apps/web/src/app-shell/left-sidebar-controls.tsx
+  h_5be255725524c8 1145-1147
+apps/web/src/app-shell/shortcut-prefix.ts
+  h_5be255725524c8 1-133
+apps/web/src/app-shell/sidebar/ProjectItem.tsx
+  h_5be255725524c8 59-60,63-65,191-194,196,261,264-269,345,389-435,447,468,551-559,881-898,945
+apps/web/src/app-shell/sidebar/WorkspaceContent.tsx
+  h_5be255725524c8 56-58,200-201,576,660-681
+apps/web/src/app-shell/sidebar/WorkspaceKanbanCard.tsx
+  h_5be255725524c8 50-52,205-206,212,214,230-234
+apps/web/src/features/settings/components/ShortcutsSettingsSection.tsx
+  h_5be255725524c8 56,63
+apps/web/src/features/settings/components/settings-modal-data.ts
+  h_5be255725524c8 1058-1065,1068
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "8b745dab2856f594996dc0a6937d464a551c48df",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
