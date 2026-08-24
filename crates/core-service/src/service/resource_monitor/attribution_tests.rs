@@ -649,6 +649,41 @@ fn terminal_root_equal_server_pid_does_not_steal_server() {
 }
 
 #[test]
+fn windows_containment_strips_verbatim_prefix_and_ascii_case() {
+    use std::path::Path;
+
+    assert_eq!(
+        normalize_windows_containment_key(Path::new(r"\\?\C:\Repo")),
+        r"c:\repo"
+    );
+    assert_eq!(
+        strip_windows_verbatim_prefix(r"\\?\UNC\Srv\Share\Repo"),
+        r"\\Srv\Share\Repo"
+    );
+    assert_eq!(
+        normalize_windows_containment_key(Path::new(r"\\?\UNC\Srv\Share\Repo")),
+        r"\\srv\share\repo"
+    );
+
+    assert!(windows_path_contains(
+        Path::new(r"\\?\C:\Repo"),
+        Path::new(r"C:\repo\src")
+    ));
+    assert!(windows_path_contains(
+        Path::new(r"\\?\UNC\Srv\Share\Repo"),
+        Path::new(r"\\SRV\SHARE\repo\src")
+    ));
+    assert!(!windows_path_contains(
+        Path::new(r"C:\Repo"),
+        Path::new(r"C:\Repo-other")
+    ));
+    assert!(!windows_path_contains(
+        Path::new(r"C:\Repo"),
+        Path::new(r"C:\Repository")
+    ));
+}
+
+#[test]
 fn normalize_path_canonicalizes_existing_and_falls_back_lexically() {
     let missing = PathBuf::from("/does-not-exist-atmos-rm/foo/../ws");
     assert_eq!(

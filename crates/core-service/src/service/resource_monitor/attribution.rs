@@ -333,14 +333,17 @@ pub(crate) fn attribute(input: AttributionInput) -> AttributionOutput {
         .path_contexts
         .iter()
         .filter_map(|context| {
-            let path = context.path.as_ref()?.clone();
+            let path = context.path.as_ref()?;
+            if path.as_os_str().is_empty() {
+                return None;
+            }
             Some(ResolvedPathRoot {
                 project_id: context.project_id.clone(),
                 workspace_id: match context.kind {
                     PathContextKind::Workspace => Some(context.id.clone()),
                     PathContextKind::Project => None,
                 },
-                path: normalize_path(&path),
+                path: path.clone(),
             })
         })
         .collect();
@@ -606,7 +609,46 @@ fn path_contains(root: &Path, cwd: &Path) -> bool {
     if root.as_os_str().is_empty() {
         return false;
     }
-    cwd.starts_with(root)
+    #[cfg(windows)]
+    {
+        windows_path_contains(root, cwd)
+    }
+    #[cfg(not(windows))]
+    {
+        cwd.starts_with(root)
+    }
+}
+
+/// Strip `\\?\` / `\\?\UNC\` and ASCII-fold case for Windows containment.
+#[cfg(any(windows, test))]
+pub(crate) fn normalize_windows_containment_key(path: &Path) -> String {
+    let raw = path.to_string_lossy();
+    strip_windows_verbatim_prefix(&raw).to_ascii_lowercase()
+}
+
+#[cfg(any(windows, test))]
+pub(crate) fn strip_windows_verbatim_prefix(path: &str) -> String {
+    const UNC: &str = r"\\?\UNC\";
+    const VERBATIM: &str = r"\\?\";
+    if let Some(rest) = path.strip_prefix(UNC) {
+        format!(r"\\{rest}")
+    } else if let Some(rest) = path.strip_prefix(VERBATIM) {
+        rest.to_string()
+    } else {
+        path.to_string()
+    }
+}
+
+/// Windows containment after prefix/case normalization. Pure and testable on Unix.
+#[cfg(any(windows, test))]
+pub(crate) fn windows_path_contains(root: &Path, cwd: &Path) -> bool {
+    let root = normalize_windows_containment_key(root);
+    let cwd = normalize_windows_containment_key(cwd);
+    let root = root.trim_end_matches(['\\', '/']);
+    if root.is_empty() {
+        return false;
+    }
+    cwd == root || cwd.starts_with(&format!("{root}\\")) || cwd.starts_with(&format!("{root}/"))
 }
 
 pub(crate) fn normalize_path(path: &Path) -> PathBuf {
