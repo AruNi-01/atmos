@@ -27,10 +27,11 @@ pub use mouse_modes::{
     resolve_mouse_tracking_restore, MouseEventMode, MouseFormat, MouseModeState,
     ATMOS_MOUSE_TRACKING_OPTION, DEFAULT_TUI_MOUSE_RESTORE,
 };
+pub use session::parse_pane_processes;
 pub use types::{
     is_inline_mouse_tui_command, is_shell_command, pane_command_basename,
-    should_restore_tui_mouse_tracking, TmuxInstallPlan, TmuxPaneCapturePage, TmuxPaneSnapshot,
-    TmuxSessionInfo, TmuxVersion, TmuxWindowAtmosMetadata, TmuxWindowInfo,
+    should_restore_tui_mouse_tracking, TmuxInstallPlan, TmuxPaneCapturePage, TmuxPaneProcess,
+    TmuxPaneSnapshot, TmuxSessionInfo, TmuxVersion, TmuxWindowAtmosMetadata, TmuxWindowInfo,
 };
 
 /// Default socket path for Atmos tmux server
@@ -449,5 +450,28 @@ mod tests {
     fn test_check_installed() {
         let installed = TmuxEngine::check_installed();
         println!("tmux installed: {}", installed);
+    }
+
+    #[test]
+    fn list_pane_processes_returns_tmux_error_or_empty_when_server_is_absent() {
+        let socket_dir = std::env::temp_dir().join(format!(
+            "atmos-tmux-pane-roots-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|elapsed| elapsed.as_nanos())
+                .unwrap_or(0)
+        ));
+        let engine = TmuxEngine::with_socket_dir(socket_dir);
+        match engine.list_pane_processes() {
+            Ok(panes) => assert!(
+                panes.is_empty(),
+                "an isolated socket with no tmux server should not invent pane roots"
+            ),
+            Err(EngineError::Tmux(_)) => {}
+            Err(other) => {
+                panic!("tmux unavailability must surface as EngineError::Tmux, got {other}")
+            }
+        }
     }
 }

@@ -37,8 +37,8 @@ pub use text_capture::{
 pub use types::{
     AttachSessionParams, CapturePanePlainTextParams, CaptureSideContextParams,
     CapturedPanePlainText, CapturedSideContext, CreateSessionParams, CreateSimpleSessionParams,
-    SessionDetail, SessionType, TerminalKind, TerminalMessage, TerminalResponse,
-    TerminalSideChatRecord, TerminalSideChatStatus, UpsertTerminalSideChatParams,
+    SessionDetail, SessionType, TerminalKind, TerminalMessage, TerminalResourceRoot,
+    TerminalResponse, TerminalSideChatRecord, TerminalSideChatStatus, UpsertTerminalSideChatParams,
 };
 use types::{SessionCommand, SessionHandle};
 
@@ -783,7 +783,7 @@ impl TerminalService {
             self.maybe_bridge_run_log_output(raw_output_tx, cwd.clone(), terminal_name.clone());
 
         // Channel for receiving initialization result
-        let (init_tx, init_rx) = oneshot::channel::<Result<()>>();
+        let (init_tx, init_rx) = oneshot::channel::<Result<Option<u32>>>();
 
         let session_id_clone = session_id.clone();
         let cwd_for_handle = cwd.clone();
@@ -806,7 +806,7 @@ impl TerminalService {
 
         // Wait for initialization result
         match init_rx.await {
-            Ok(Ok(())) => {
+            Ok(Ok(simple_root_pid)) => {
                 // Store session handle with metadata
                 let handle = SessionHandle {
                     command_tx,
@@ -824,6 +824,7 @@ impl TerminalService {
                     source_pane_id: None,
                     source_tmux_window_name: None,
                     created_at: Instant::now(),
+                    simple_root_pid,
                 };
 
                 self.sessions
@@ -1158,6 +1159,7 @@ impl TerminalService {
                     source_pane_id,
                     source_tmux_window_name,
                     created_at: Instant::now(),
+                    simple_root_pid: None,
                 };
 
                 self.sessions
@@ -1310,6 +1312,7 @@ mod tests {
     async fn test_session_list_empty() {
         let service = TerminalService::new();
         assert!(service.list_sessions().await.is_empty());
+        assert!(service.list_resource_roots().await.is_empty());
     }
 
     #[test]

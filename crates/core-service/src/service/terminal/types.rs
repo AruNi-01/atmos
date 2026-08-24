@@ -100,6 +100,20 @@ pub(super) struct SessionHandle {
     pub(super) source_pane_id: Option<String>,
     pub(super) source_tmux_window_name: Option<String>,
     pub(super) created_at: Instant,
+    /// Simple-PTY workload root. Never copied onto [`SessionDetail`].
+    pub(super) simple_root_pid: Option<u32>,
+}
+
+/// Internal projection used by resource attribution. Not a public session DTO.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TerminalResourceRoot {
+    pub session_id: String,
+    pub context_id: String,
+    pub display_name: Option<String>,
+    pub terminal_kind: TerminalKind,
+    pub simple_root_pid: Option<u32>,
+    pub tmux_session: Option<String>,
+    pub tmux_window_index: Option<u32>,
 }
 
 /// Detailed session information for the terminal manager UI
@@ -139,6 +153,18 @@ impl SessionHandle {
             source_pane_id: self.source_pane_id.clone(),
             source_tmux_window_name: self.source_tmux_window_name.clone(),
             uptime_secs: self.created_at.elapsed().as_secs(),
+        }
+    }
+
+    pub(super) fn to_resource_root(&self, session_id: &str) -> TerminalResourceRoot {
+        TerminalResourceRoot {
+            session_id: session_id.to_string(),
+            context_id: self.workspace_id.clone(),
+            display_name: self.terminal_name.clone(),
+            terminal_kind: self.terminal_kind.clone(),
+            simple_root_pid: self.simple_root_pid,
+            tmux_session: self.tmux_session.clone(),
+            tmux_window_index: self.tmux_window_index,
         }
     }
 }
@@ -366,7 +392,11 @@ pub struct UpsertTerminalSideChatParams {
 
 #[cfg(test)]
 mod tests {
-    use super::TerminalSideChatStatus;
+    use super::{
+        SessionHandle, SessionType, TerminalKind, TerminalResourceRoot, TerminalSideChatStatus,
+    };
+    use std::time::Instant;
+    use tokio::sync::mpsc;
 
     #[test]
     fn side_chat_status_accepts_canonical_and_legacy_values() {
@@ -391,5 +421,88 @@ mod tests {
             TerminalSideChatStatus::Closing
         );
         assert!(TerminalSideChatStatus::try_from("bad").is_err());
+    }
+
+    fn sample_handle(simple_root_pid: Option<u32>) -> SessionHandle {
+        let (command_tx, _command_rx) = mpsc::unbounded_channel();
+        SessionHandle {
+            command_tx,
+            workspace_id: "ws-guid".to_string(),
+            tmux_session: None,
+            tmux_window_index: None,
+            client_session: None,
+            session_type: SessionType::Simple,
+            project_name: Some("Atmos".to_string()),
+            workspace_name: Some("Main".to_string()),
+            terminal_name: Some("run-1".to_string()),
+            cwd: Some("/tmp".to_string()),
+            terminal_kind: TerminalKind::Standard,
+            side_chat_id: None,
+            source_pane_id: None,
+            source_tmux_window_name: None,
+            created_at: Instant::now(),
+            simple_root_pid,
+        }
+    }
+
+    #[test]
+    fn resource_root_keeps_pid_and_session_detail_does_not() {
+        let handle = sample_handle(Some(4242));
+        let root = handle.to_resource_root("sess-1");
+        assert_eq!(
+            root,
+            TerminalResourceRoot {
+                session_id: "sess-1".to_string(),
+                context_id: "ws-guid".to_string(),
+                display_name: Some("run-1".to_string()),
+                terminal_kind: TerminalKind::Standard,
+                simple_root_pid: Some(4242),
+                tmux_session: None,
+                tmux_window_index: None,
+            }
+        );
+
+        let detail = handle.to_detail("sess-1");
+        let json = serde_json::to_string(&detail).expect("session detail serializes");
+        assert!(
+            !json.contains("4242"),
+            "SessionDetail must not expose the simple PTY pid: {json}"
+        );
+        assert!(
+            !json.to_ascii_lowercase().contains("pid"),
+            "SessionDetail JSON must not grow a pid field: {json}"
+        );
+        assert_eq!(detail.session_id, "sess-1");
+        assert_eq!(detail.workspace_id, "ws-guid");
+    }
+
+    #[test]
+    fn tmux_resource_root_projects_session_and_window_without_simple_pid() {
+        let (command_tx, _command_rx) = mpsc::unbounded_channel();
+        let handle = SessionHandle {
+            command_tx,
+            workspace_id: "proj-or-ws".to_string(),
+            tmux_session: Some("atmos_main".to_string()),
+            tmux_window_index: Some(3),
+            client_session: Some("atmos_client_x".to_string()),
+            session_type: SessionType::Tmux,
+            project_name: None,
+            workspace_name: None,
+            terminal_name: Some("agent".to_string()),
+            cwd: None,
+            terminal_kind: TerminalKind::SideChat,
+            side_chat_id: Some("chat-1".to_string()),
+            source_pane_id: None,
+            source_tmux_window_name: None,
+            created_at: Instant::now(),
+            simple_root_pid: None,
+        };
+
+        let root = handle.to_resource_root("tmux-sess");
+        assert_eq!(root.simple_root_pid, None);
+        assert_eq!(root.tmux_session.as_deref(), Some("atmos_main"));
+        assert_eq!(root.tmux_window_index, Some(3));
+        assert_eq!(root.context_id, "proj-or-ws");
+        assert_eq!(root.terminal_kind, TerminalKind::SideChat);
     }
 }

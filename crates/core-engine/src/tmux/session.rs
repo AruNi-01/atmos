@@ -5,7 +5,32 @@ use tracing::{debug, info, warn};
 use crate::error::{EngineError, Result};
 
 use super::locale::apply_utf8_env;
-use super::{TmuxEngine, TmuxSessionInfo, TmuxWindowInfo};
+use super::{TmuxEngine, TmuxPaneProcess, TmuxSessionInfo, TmuxWindowInfo};
+
+/// Parse `tmux list-panes -a -F '#{session_name}\t#{window_index}\t#{pane_pid}'`.
+/// Unparseable lines are skipped so a single bad pane cannot fail the batch.
+pub fn parse_pane_processes(raw: &str) -> Vec<TmuxPaneProcess> {
+    raw.lines().filter_map(parse_pane_process_line).collect()
+}
+
+fn parse_pane_process_line(line: &str) -> Option<TmuxPaneProcess> {
+    let line = line.trim_end_matches(['\r', '\n']);
+    if line.trim().is_empty() {
+        return None;
+    }
+    let mut parts = line.split('\t');
+    let session_name = parts.next()?.trim();
+    let window_index = parts.next()?.trim().parse::<u32>().ok()?;
+    let pane_pid = parts.next()?.trim().parse::<u32>().ok()?;
+    if session_name.is_empty() || pane_pid == 0 {
+        return None;
+    }
+    Some(TmuxPaneProcess {
+        session_name: session_name.to_string(),
+        window_index,
+        pane_pid,
+    })
+}
 
 pub(super) fn session_name_from_workspace_id(workspace_id: &str) -> String {
     workspace_id.replace('-', "_")
@@ -409,6 +434,20 @@ impl TmuxEngine {
         Ok(sessions)
     }
 
+    /// List every parseable pane root in one `list-panes -a` call.
+    ///
+    /// Returns [`EngineError::Tmux`] when tmux is missing or the server cannot
+    /// be queried. Callers degrade rather than treating this as a host-sample failure.
+    pub fn list_pane_processes(&self) -> Result<Vec<TmuxPaneProcess>> {
+        let output = self.run_tmux(&[
+            "list-panes",
+            "-a",
+            "-F",
+            "#{session_name}\t#{window_index}\t#{pane_pid}",
+        ])?;
+        Ok(parse_pane_processes(&output))
+    }
+
     /// List windows in a session
     pub fn list_windows(&self, session_name: &str) -> Result<Vec<TmuxWindowInfo>> {
         let output = self.run_tmux(&[
@@ -576,7 +615,9 @@ impl TmuxEngine {
 
 #[cfg(test)]
 mod tests {
-    use super::{parse_workspace_id_from_session_name, session_name_from_names};
+    use super::{
+        parse_pane_processes, parse_workspace_id_from_session_name, session_name_from_names,
+    };
 
     #[test]
     fn test_session_name_generation() {
@@ -606,5 +647,47 @@ mod tests {
             parse_workspace_id_from_session_name("abc_def_123"),
             "abc-def-123".to_string()
         );
+    }
+
+    #[test]
+    fn parse_pane_processes_keeps_valid_rows_and_skips_junk() {
+        let raw = [
+            "proj_main\t1\t4242",
+            "proj_main\t2\t4243",
+            "",
+            "bad-line",
+            "proj_main\tnot-a-number\t1",
+            "\t3\t99",
+            "empty_pid\t4\t0",
+            "other_ws\t8\t1001",
+        ]
+        .join("\n");
+
+        assert_eq!(
+            parse_pane_processes(&raw),
+            vec![
+                super::TmuxPaneProcess {
+                    session_name: "proj_main".into(),
+                    window_index: 1,
+                    pane_pid: 4242,
+                },
+                super::TmuxPaneProcess {
+                    session_name: "proj_main".into(),
+                    window_index: 2,
+                    pane_pid: 4243,
+                },
+                super::TmuxPaneProcess {
+                    session_name: "other_ws".into(),
+                    window_index: 8,
+                    pane_pid: 1001,
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn parse_pane_processes_empty_output_is_empty() {
+        assert!(parse_pane_processes("").is_empty());
+        assert!(parse_pane_processes("\n\n").is_empty());
     }
 }

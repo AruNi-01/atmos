@@ -18,6 +18,14 @@ pub struct TmuxWindowInfo {
     pub panes: u32,
 }
 
+/// One pane root from a batched `list-panes -a` query.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct TmuxPaneProcess {
+    pub session_name: String,
+    pub window_index: u32,
+    pub pane_pid: u32,
+}
+
 /// Atmos-specific metadata stored on a tmux window through user options.
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct TmuxWindowAtmosMetadata {

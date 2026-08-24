@@ -19,6 +19,7 @@ trash = "5"
 fs4 = "0.13"
 sha2 = "0.10"
 hex = "0.4"
+sysinfo = { version = "0.38.4", default-features = false, features = ["system"] }
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.59", features = [
