@@ -98,24 +98,44 @@ export function hitPlusMenuControl(
   return null;
 }
 
-export function clientPointFromOutsideEvent(event: {
+type ClientPointLike = {
   clientX?: number;
   clientY?: number;
-  detail?: { originalEvent?: { clientX?: number; clientY?: number } };
-}): Point | null {
-  const original = event.detail?.originalEvent;
-  const x = original?.clientX ?? event.clientX;
-  const y = original?.clientY ?? event.clientY;
+};
+
+function clientPointFromUnknown(value: unknown): Point | null {
+  if (!value || typeof value !== "object") return null;
+  const x = "clientX" in value ? value.clientX : undefined;
+  const y = "clientY" in value ? value.clientY : undefined;
   if (typeof x !== "number" || typeof y !== "number") return null;
   return { x, y };
 }
 
-export function shouldRetainPlusMenuForOutsidePointer(event: {
+/**
+ * Duck type for Radix dismissable-layer outside events. Must stay a
+ * supertype of both `PointerDownOutsideEvent` and `FocusOutsideEvent`:
+ * focus-outside wraps a `FocusEvent` with no client coordinates.
+ */
+export type PlusMenuOutsideDismissEvent = {
   target: EventTarget | null;
+  preventDefault: () => void;
   clientX?: number;
   clientY?: number;
-  detail?: { originalEvent?: { clientX?: number; clientY?: number } };
-}): boolean {
+  detail?: { originalEvent?: Event | ClientPointLike };
+};
+
+export function clientPointFromOutsideEvent(
+  event: Pick<PlusMenuOutsideDismissEvent, "clientX" | "clientY" | "detail">,
+): Point | null {
+  return (
+    clientPointFromUnknown(event.detail?.originalEvent) ??
+    clientPointFromUnknown(event)
+  );
+}
+
+export function shouldRetainPlusMenuForOutsidePointer(
+  event: Pick<PlusMenuOutsideDismissEvent, "target" | "clientX" | "clientY" | "detail">,
+): boolean {
   if (isCenterStagePlusMenuEventTarget(event.target)) return true;
   const point = clientPointFromOutsideEvent(event);
   return (
