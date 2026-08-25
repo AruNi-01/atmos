@@ -1,0 +1,38 @@
+agents/references/keyboard-shortcuts.md
+  h_5be255725524c8 28-30
+apps/desktop-electron/AGENTS.md
+  h_5be255725524c8 64
+apps/desktop-electron/native/host-shortcuts/host_shortcuts.c
+  h_5be255725524c8 71-73,81-85,96-97
+apps/desktop-electron/src/host-shortcuts.ts
+  h_5be255725524c8 3-4,8,15,19,21-22,93,95,98,108,119-129,132-134,137,140-142,144-153,162,209,231-237,242-246
+apps/desktop-electron/src/os-reserved-shortcuts.test.ts
+  h_5be255725524c8 7,10,27,30-82,95-96
+apps/desktop-electron/src/os-reserved-shortcuts.ts
+  h_5be255725524c8 7-10,13-14,22-26,53-82
+apps/web/src/app-shell/HeldShortcutBadge.tsx
+  h_5be255725524c8 68-81
+apps/web/src/app-shell/HeldShortcutPrefixListener.tsx
+  h_5be255725524c8 5,7,9,12-14,32-38,47-48,55-56,62-82
+apps/web/src/app-shell/LeftSidebar.tsx
+  h_5be255725524c8 102,104-105,107,120,1023-1036,1043-1044,1046,1570
+apps/web/src/app-shell/__tests__/shortcut-prefix.test.ts
+  h_5be255725524c8 7-8,10,13-18,133,137,145,153-254,295-302,319
+apps/web/src/app-shell/center-stage-shared-tabs.tsx
+  h_5be255725524c8 410,413
+apps/web/src/app-shell/center-stage-support.tsx
+  h_5be255725524c8 24-30,336-350,356-357,359,370-371,373
+apps/web/src/app-shell/shortcut-prefix.ts
+  h_5be255725524c8 9-11,18-31,33,37-40,44-49,77-114,116-171
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "e9a8be75786035020e57f2802b1dfe018ff9d89b",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
