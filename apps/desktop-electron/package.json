@@ -23,8 +23,8 @@
     "smoke:boot": "bun run scripts/smoke-boot.ts"
   },
   "devDependencies": {
-    "@types/node": "^22.13.10",
-    "electron": "^37.2.0",
+    "@types/node": "^24.9.0",
+    "electron": "^44.0.0",
     "electron-builder": "^26.0.12",
     "esbuild": "^0.25.0",
     "typescript": "6.0.3"

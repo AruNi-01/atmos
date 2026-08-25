@@ -251,7 +251,6 @@ export async function clearBrowserSiteData(
       "localstorage",
       "indexdb",
       "shadercache",
-      "websql",
       "serviceworkers",
       "cachestorage",
     ],
