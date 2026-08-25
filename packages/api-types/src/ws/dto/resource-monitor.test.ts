@@ -3,6 +3,7 @@ import type { WsEmpty } from "./common";
 import type { WsOutput } from "../contract";
 import type { WsEventPayload } from "../event-contract";
 import type {
+  ResourceDiskMetrics,
   ResourceHostCpuCore,
   ResourceHostMemoryMetrics,
   ResourceHostMetrics,
@@ -61,6 +62,13 @@ type _UnsubscribeEmpty = AssertTrue<
 type _UpdatedSnapshot = AssertTrue<
   Same<WsEventPayload<"resource_monitor_updated">, ResourceMonitorSnapshot>
 >;
+type _DiskFieldsRequired = AssertNever<OptionalKeys<ResourceDiskMetrics>>;
+type _SnapshotDisksRequired = AssertNever<
+  Extract<OptionalKeys<ResourceMonitorSnapshot>, "disks">
+>;
+type _DisksAreArray = AssertTrue<
+  Same<ResourceMonitorSnapshot["disks"], ResourceDiskMetrics[]>
+>;
 
 const usage = { cpu_percent: 1.5, memory_rss_bytes: 20, process_count: 2 };
 
@@ -85,6 +93,21 @@ function hostMemory(
     swap_used_bytes: 1,
     swap_free_bytes: 3,
     accounting: "linux_memavailable",
+    ...overrides,
+  };
+}
+
+function diskMetrics(
+  overrides: Partial<ResourceDiskMetrics> = {},
+): ResourceDiskMetrics {
+  return {
+    name: "root",
+    mount_point: "/",
+    total_bytes: 100,
+    used_bytes: 40,
+    available_bytes: 60,
+    usage_percent: 40,
+    removable: false,
     ...overrides,
   };
 }
@@ -142,6 +165,7 @@ describe("@atmos/api-types resource-monitor dto", () => {
     };
     const snapshot: ResourceMonitorSnapshot = {
       collected_at_ms: 1,
+      disks: [diskMetrics()],
       host: hostMetrics({
         cpu_percent: 0,
         memory_used_bytes: 0,
@@ -237,5 +261,54 @@ describe("@atmos/api-types resource-monitor dto", () => {
     expect(host.memory.cached_bytes).toBeNull();
     expect(host.memory.accounting).toBe("btop_mach");
     expect(accountingValues).toContain(host.memory.accounting);
+  });
+
+  test("disk metrics require capacity fields and hide device/fs/uuid/io", () => {
+    const disk = diskMetrics({
+      name: "Macintosh HD",
+      mount_point: "/",
+      total_bytes: 100,
+      used_bytes: 40,
+      available_bytes: 60,
+      usage_percent: 40,
+      removable: false,
+    });
+    const snapshot: ResourceMonitorSnapshot = {
+      collected_at_ms: 1,
+      host: hostMetrics(),
+      disks: [disk],
+      server: usage,
+      shared_runtime: usage,
+      projects: [],
+      unattributed: usage,
+      attribution_status: "complete",
+    };
+    const allowedKeys = [
+      "available_bytes",
+      "mount_point",
+      "name",
+      "removable",
+      "total_bytes",
+      "usage_percent",
+      "used_bytes",
+    ];
+    const forbiddenKeys = [
+      "device",
+      "file_system",
+      "filesystem",
+      "fs",
+      "io",
+      "kind",
+      "serial",
+      "uuid",
+    ];
+
+    expect(Object.keys(disk).sort()).toEqual(allowedKeys);
+    expect(snapshot.disks).toHaveLength(1);
+    expect(disk.used_bytes + disk.available_bytes).toBe(disk.total_bytes);
+    expect(disk.used_bytes + disk.available_bytes).toBe(100);
+    for (const key of forbiddenKeys) {
+      expect(Object.hasOwn(disk, key)).toBe(false);
+    }
   });
 });

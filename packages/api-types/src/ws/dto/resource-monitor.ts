@@ -82,10 +82,22 @@ export type ResourceHostMetrics = {
   memory: ResourceHostMemoryMetrics;
 };
 
+/** Mirrors `core_service::ResourceDiskMetrics`. Mount root is the only path. */
+export type ResourceDiskMetrics = {
+  name: string;
+  mount_point: string;
+  total_bytes: number;
+  used_bytes: number;
+  available_bytes: number;
+  usage_percent: number;
+  removable: boolean;
+};
+
 /** Mirrors `core_service::ResourceMonitorSnapshot`. */
 export type ResourceMonitorSnapshot = {
   collected_at_ms: number;
   host: ResourceHostMetrics;
+  disks: ResourceDiskMetrics[];
   server: ResourceUsage;
   shared_runtime: ResourceUsage;
   projects: ResourceProjectMetrics[];
