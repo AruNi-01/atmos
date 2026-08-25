@@ -157,6 +157,7 @@ export const RunScript: React.FC<RunScriptProps> = ({ workspaceId, projectId, is
   const paintContextId = workspaceId || "";
   const hostWorkspaceId = paintContextId ? hostIdFromCenterKey(paintContextId) : (projectId || "");
   const terminalContextId = paintContextId || hostWorkspaceId;
+  const rootRef = React.useRef<HTMLDivElement>(null);
   const sessionNonceRef = React.useRef(createSessionNonce());
   const runWindowName = React.useCallback(
     (tabId: string) => namespacedTmuxWindowName(terminalContextId, getRunTerminalWindowName(tabId)),
@@ -419,6 +420,9 @@ export const RunScript: React.FC<RunScriptProps> = ({ workspaceId, projectId, is
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'r') {
+        // Host keeps isActive true while the run panel is opacity-hidden so the
+        // PTY tree does not re-render. Skip the shortcut when this panel is inert.
+        if (rootRef.current?.closest("[inert]")) return;
         e.preventDefault();
         handleRunScript(false);
       }
@@ -478,7 +482,7 @@ export const RunScript: React.FC<RunScriptProps> = ({ workspaceId, projectId, is
 
   return (
     <TooltipProvider>
-      <div className="flex h-full w-full flex-col bg-background">
+      <div ref={rootRef} className="flex h-full w-full flex-col bg-background">
         <div className="flex shrink-0 items-center">
           <CenterStageTabList
             className="min-w-0 flex-1"

@@ -41,4 +41,8 @@ describe("run script tab bar", () => {
     expect(runTabSlot).not.toContain("onClose");
     expect(runScript).not.toContain("setIsLocked(!isLocked)");
   });
+
+  it("ignores Cmd+R when the keep-alive host marked the panel inert", () => {
+    expect(runScript).toContain('rootRef.current?.closest("[inert]")');
+  });
 });

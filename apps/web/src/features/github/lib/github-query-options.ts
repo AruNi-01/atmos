@@ -24,6 +24,33 @@ import type {
 
 type ConnectionState = "connecting" | "connected" | "disconnected" | "reconnecting";
 
+function withQuerySignal<T>(promise: Promise<T>, signal?: AbortSignal): Promise<T> {
+  if (!signal) return promise;
+  if (signal.aborted) {
+    return Promise.reject(new DOMException("Aborted", "AbortError"));
+  }
+  return new Promise((resolve, reject) => {
+    const onAbort = () => {
+      reject(new DOMException("Aborted", "AbortError"));
+    };
+    signal.addEventListener("abort", onAbort, { once: true });
+    promise.then(
+      (value) => {
+        signal.removeEventListener("abort", onAbort);
+        if (signal.aborted) {
+          reject(new DOMException("Aborted", "AbortError"));
+          return;
+        }
+        resolve(value);
+      },
+      (error) => {
+        signal.removeEventListener("abort", onAbort);
+        reject(error);
+      },
+    );
+  });
+}
+
 export interface PrFile {
   sha: string;
   filename: string;
@@ -298,12 +325,15 @@ export function githubPrDetailQueryOptions(
     connectionState,
     queryKey: queryKeys.computer.githubPrDetail(scope, { owner, repo, prNumber }),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    queryFn: (): Promise<any> =>
-      wsRequest("github_pr_detail", {
-        owner,
-        repo,
-        pr_number: prNumber,
-      }),
+    queryFn: ({ signal }): Promise<any> =>
+      withQuerySignal(
+        wsRequest("github_pr_detail", {
+          owner,
+          repo,
+          pr_number: prNumber,
+        }),
+        signal,
+      ),
     staleTime: 60_000,
     enabled: (options?.enabled ?? true) && Boolean(owner && repo && prNumber),
   });
@@ -542,8 +572,11 @@ export function githubActionsDetailQueryOptions(
     scope,
     connectionState,
     queryKey: queryKeys.computer.githubActionsDetail(scope, { owner, repo, runId }),
-    queryFn: (): Promise<GithubActionsDetailPayload> =>
-      wsRequest("github_actions_detail", { owner, repo, run_id: runId }),
+    queryFn: ({ signal }): Promise<GithubActionsDetailPayload> =>
+      withQuerySignal(
+        wsRequest("github_actions_detail", { owner, repo, run_id: runId }),
+        signal,
+      ),
     // A completed run's jobs, annotations, artifacts, and workflow source are immutable.
     staleTime: 5 * 60_000,
     gcTime: 30 * 60_000,
