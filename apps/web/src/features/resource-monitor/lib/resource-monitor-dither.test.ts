@@ -103,9 +103,14 @@ describe("resource monitor dither structure", () => {
     expect(footerSrc).toContain("opacity: 0");
     expect(footerSrc).toContain("opacity: 1");
     expect(footerSrc).toContain('t("monitor")');
-    expect(footerSrc).toContain("width: previewing ? 124 : 52");
+    expect(footerSrc).toContain("labelWidth");
+    expect(footerSrc).toContain("usageWidth");
+    expect(footerSrc).toContain("scrollWidth");
+    expect(footerSrc).toContain("data-resource-monitor-footer-measure");
+    expect(footerSrc).toContain("invisible inline-flex items-center gap-1 whitespace-nowrap font-medium");
     expect(footerSrc).toContain('type: "spring"');
     expect(footerSrc).not.toContain("min-w-[7.75rem]");
+    expect(footerSrc).not.toContain("width: previewing ? 124 : 52");
   });
 
   test("Workspace rows carry a localized Workspace badge", () => {

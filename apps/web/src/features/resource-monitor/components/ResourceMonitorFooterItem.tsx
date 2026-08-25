@@ -75,6 +75,54 @@ export function ResourceMonitorFooterItem() {
   const compactAria = compact
     ? t("compact", compact)
     : t("compactUnavailable");
+  const labelText = t("monitor");
+  const labelMeasureRef = React.useRef<HTMLSpanElement>(null);
+  const usageMeasureRef = React.useRef<HTMLSpanElement>(null);
+  const [labelWidth, setLabelWidth] = React.useState(0);
+  const [usageWidth, setUsageWidth] = React.useState(0);
+
+  const usageContent = compact ? (
+    <>
+      <span
+        className={resourceMonitorPressureTextClass(
+          resourceMonitorPressureTone(hostCpuPercent),
+        )}
+      >
+        {t("cpuValue", { value: compact.cpu })}
+      </span>
+      <span className="text-muted-foreground/60">·</span>
+      <span
+        className={resourceMonitorPressureTextClass(
+          resourceMonitorPressureTone(hostMemoryUsagePercent),
+        )}
+      >
+        {t("memoryValue", { value: compact.memory })}
+      </span>
+    </>
+  ) : (
+    compactAria
+  );
+
+  React.useLayoutEffect(() => {
+    const labelEl = labelMeasureRef.current;
+    const usageEl = usageMeasureRef.current;
+    const update = () => {
+      const nextLabel = labelEl?.scrollWidth ?? 0;
+      const nextUsage = usageEl?.scrollWidth ?? 0;
+      if (nextLabel > 0) setLabelWidth(nextLabel);
+      if (nextUsage > 0) setUsageWidth(nextUsage);
+    };
+    update();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(update);
+    if (labelEl) observer.observe(labelEl);
+    if (usageEl) observer.observe(usageEl);
+    return () => observer.disconnect();
+  }, [compactAria, labelText, compact?.cpu, compact?.memory]);
+
+  const contentWidth = previewing
+    ? usageWidth || labelWidth
+    : labelWidth;
 
   const handleSessionNavigate = React.useCallback(
     (target: ResourceMonitorSessionNavigationTarget) => {
@@ -98,7 +146,7 @@ export function ResourceMonitorFooterItem() {
             <PopoverTrigger asChild>
               <button
                 type="button"
-                className="inline-flex h-5 items-center gap-1.5 overflow-hidden text-muted-foreground hover:text-foreground"
+                className="relative inline-flex h-5 items-center gap-1.5 overflow-hidden text-muted-foreground hover:text-foreground"
                 aria-label={`${t("title")}: ${compactAria}`}
                 data-resource-monitor-footer=""
                 onMouseEnter={() => setPreviewing(true)}
@@ -107,9 +155,24 @@ export function ResourceMonitorFooterItem() {
                 onBlur={() => setPreviewing(false)}
               >
                 <Activity className="size-3" />
+                <span
+                  aria-hidden
+                  className="pointer-events-none invisible absolute left-0 top-0 flex gap-6 whitespace-nowrap font-medium"
+                  data-resource-monitor-footer-measure=""
+                >
+                  <span ref={labelMeasureRef} className="inline-block">
+                    {labelText}
+                  </span>
+                  <span
+                    ref={usageMeasureRef}
+                    className="inline-flex items-center gap-1"
+                  >
+                    {usageContent}
+                  </span>
+                </span>
                 <motion.span
                   initial={false}
-                  animate={{ width: previewing ? 124 : 52 }}
+                  animate={contentWidth > 0 ? { width: contentWidth } : undefined}
                   transition={
                     reducedMotion
                       ? { duration: 0 }
@@ -123,6 +186,9 @@ export function ResourceMonitorFooterItem() {
                   className="relative h-4 shrink-0 overflow-hidden"
                   data-resource-monitor-footer-content=""
                 >
+                  <span className="invisible inline-flex items-center gap-1 whitespace-nowrap font-medium">
+                    {previewing ? usageContent : labelText}
+                  </span>
                   <AnimatePresence initial={false} mode="sync">
                     {previewing ? (
                       <motion.span
@@ -136,27 +202,7 @@ export function ResourceMonitorFooterItem() {
                         }}
                         className="absolute inset-0 inline-flex items-center gap-1 whitespace-nowrap font-medium"
                       >
-                        {compact ? (
-                          <>
-                            <span
-                              className={resourceMonitorPressureTextClass(
-                                resourceMonitorPressureTone(hostCpuPercent),
-                              )}
-                            >
-                              {t("cpuValue", { value: compact.cpu })}
-                            </span>
-                            <span className="text-muted-foreground/60">·</span>
-                            <span
-                              className={resourceMonitorPressureTextClass(
-                                resourceMonitorPressureTone(hostMemoryUsagePercent),
-                              )}
-                            >
-                              {t("memoryValue", { value: compact.memory })}
-                            </span>
-                          </>
-                        ) : (
-                          compactAria
-                        )}
+                        {usageContent}
                       </motion.span>
                     ) : (
                       <motion.span
@@ -170,7 +216,7 @@ export function ResourceMonitorFooterItem() {
                         }}
                         className="absolute inset-0 inline-flex items-center whitespace-nowrap font-medium"
                       >
-                        {t("monitor")}
+                        {labelText}
                       </motion.span>
                     )}
                   </AnimatePresence>
