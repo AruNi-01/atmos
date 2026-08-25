@@ -151,7 +151,7 @@ html {
 }
 
 html.light {
-  background-color: oklch(1 0 0);
+  background-color: oklch(0.94 0.003 286);
   color-scheme: light;
 }
 
@@ -262,17 +262,6 @@ html:not([data-theme-ready="true"]) body {
   border-bottom-right-radius: var(--radius-xl);
 }
 
-/*
- * Always-on backup for the plus-menu overlay mute (terminal-grid.css may not
- * be loaded on a non-terminal tab). GPU canvases / <webview> steal hits from
- * the portaled plus menu even when it paints above them.
- */
-html[data-center-stage-plus-menu-open] canvas,
-html[data-center-stage-plus-menu-open] webview,
-html[data-center-stage-plus-menu-open] iframe {
-  pointer-events: none !important;
-}
-
   html,
   body {
     overflow: hidden;
@@ -314,6 +303,33 @@ html[data-center-stage-plus-menu-open] iframe {
   .agent-chat-scroll {
     scrollbar-gutter: auto !important;
   }
+}
+
+/*
+ * Unlayered so this beats @layer base and Radix's inline wrapper z-index.
+ * GPU canvases / <webview> steal hits from the portaled plus menu even when
+ * it paints above them; mute them while the menu is open.
+ */
+html[data-center-stage-plus-menu-open] canvas,
+html[data-center-stage-plus-menu-open] webview,
+html[data-center-stage-plus-menu-open] iframe {
+  pointer-events: none !important;
+}
+
+[data-radix-popper-content-wrapper]:has([data-center-stage-plus-menu]) {
+  z-index: 2147483646 !important;
+  pointer-events: auto !important;
+}
+
+[data-radix-popper-content-wrapper]:has([data-center-stage-layouts-menu]) {
+  z-index: 2147483647 !important;
+  pointer-events: auto !important;
+}
+
+[data-center-stage-plus-menu] [data-plus-menu-hot]:not([aria-selected="true"]),
+[data-center-stage-layouts-menu] [data-plus-menu-hot]:not([aria-selected="true"]) {
+  background: var(--accent);
+  color: var(--accent-foreground);
 }
 
 @layer utilities {

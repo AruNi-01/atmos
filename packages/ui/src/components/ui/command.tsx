@@ -29,6 +29,19 @@ function Command({
   )
 }
 
+type CommandDialogProps = React.ComponentProps<typeof Dialog> &
+  Pick<
+    React.ComponentProps<typeof CommandPrimitive>,
+    "shouldFilter" | "value" | "onValueChange"
+  > & {
+    title?: string
+    description?: string
+    className?: string
+    showCloseButton?: boolean
+    onCloseAutoFocus?: (event: Event) => void
+    onOpenAutoFocus?: (event: Event) => void
+  }
+
 function CommandDialog({
   title = "Command Palette",
   description = "Search for a command to run...",
@@ -37,15 +50,11 @@ function CommandDialog({
   showCloseButton = true,
   onCloseAutoFocus,
   onOpenAutoFocus,
+  shouldFilter,
+  value,
+  onValueChange,
   ...props
-}: React.ComponentProps<typeof Dialog> & {
-  title?: string
-  description?: string
-  className?: string
-  showCloseButton?: boolean
-  onCloseAutoFocus?: (event: Event) => void
-  onOpenAutoFocus?: (event: Event) => void
-}) {
+}: CommandDialogProps) {
   return (
     <Dialog {...props}>
       <DialogContent
@@ -58,7 +67,12 @@ function CommandDialog({
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
-        <Command className="[&_[cmdk-group-heading]]:text-muted-foreground **:data-[slot=command-input-wrapper]:h-10 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group]]:px-2 [&_[cmdk-group]:not([hidden])_~[cmdk-group]]:pt-0 [&_[cmdk-input-wrapper]_svg]:h-4 [&_[cmdk-input-wrapper]_svg]:w-4 [&_[cmdk-input]]:h-9 [&_[cmdk-item]]:px-2 [&_[cmdk-item]]:py-3 [&_[cmdk-item]_svg]:h-5 [&_[cmdk-item]_svg]:w-5">
+        <Command
+          shouldFilter={shouldFilter}
+          value={value}
+          onValueChange={onValueChange}
+          className="[&_[cmdk-group-heading]]:text-muted-foreground **:data-[slot=command-input-wrapper]:h-10 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group]]:px-2 [&_[cmdk-group]:not([hidden])_~[cmdk-group]]:pt-0 [&_[cmdk-input-wrapper]_svg]:h-4 [&_[cmdk-input-wrapper]_svg]:w-4 [&_[cmdk-input]]:h-9 [&_[cmdk-item]]:px-2 [&_[cmdk-item]]:py-3 [&_[cmdk-item]_svg]:h-5 [&_[cmdk-item]_svg]:w-5"
+        >
           {children}
         </Command>
       </DialogContent>
@@ -121,10 +135,6 @@ function CommandList({
       data-slot="command-list"
       className={cn(
         "max-h-[300px] scroll-py-1 overflow-x-hidden overflow-y-auto",
-        // Pointer scanning: don't leave the previous cmdk-selected row filled
-        // after CSS :hover has already moved on.
-        "[&:hover_[data-slot=command-item][data-selected=true]:not(:hover)]:bg-transparent",
-        "[&:hover_[data-slot=command-item][data-selected=true]:not(:hover)]:text-inherit",
         className
       )}
       {...props}
