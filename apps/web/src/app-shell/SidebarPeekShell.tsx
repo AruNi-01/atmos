@@ -4,6 +4,7 @@ import React from "react";
 
 import { cn } from "@/shared/lib/utils";
 import {
+  SIDEBAR_PEEK_CONTENT_PT_CLASS,
   SIDEBAR_PEEK_INSET_BOTTOM_PX,
   SIDEBAR_PEEK_INSET_TOP_PX,
 } from "@/app-shell/sidebar-layout-constants";
@@ -103,7 +104,9 @@ export function SidebarPeekShell({
         onPointerEnter={showPeek}
         onPointerLeave={(event) => handlePointerLeave(event.relatedTarget)}
       >
-        {children}
+        <div className={cn("flex h-full min-h-0 flex-col", SIDEBAR_PEEK_CONTENT_PT_CLASS)}>
+          <div className="min-h-0 flex-1">{children}</div>
+        </div>
       </div>
     </div>
   );

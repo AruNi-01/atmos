@@ -19,6 +19,7 @@ import {
   RESIZE_HAIRLINE_CORNER_INSET_CSS,
   ROOT_RESIZE_HAIRLINE_BOTTOM_CSS,
   ROOT_RESIZE_HAIRLINE_TOP_CSS,
+  SIDEBAR_PEEK_CONTENT_PT_CLASS,
   SIDEBAR_PEEK_INSET_BOTTOM_PX,
   SIDEBAR_PEEK_INSET_TOP_PX,
 } from "@/app-shell/sidebar-layout-constants";
@@ -132,9 +133,12 @@ describe("center-stage chrome", () => {
       APP_FOOTER_HEIGHT_PX + CENTER_STAGE_GUTTER_Y_PX,
     );
 
+    expect(SIDEBAR_PEEK_CONTENT_PT_CLASS).toBe("pt-2.5");
+
     const peek = read("../SidebarPeekShell.tsx");
     expect(peek).toContain("SIDEBAR_PEEK_INSET_TOP_PX");
     expect(peek).toContain("SIDEBAR_PEEK_INSET_BOTTOM_PX");
+    expect(peek).toContain("SIDEBAR_PEEK_CONTENT_PT_CLASS");
     expect(peek).not.toContain("inset-y-0");
     expect(peek).not.toContain("top-12 bottom-6");
 
