@@ -370,11 +370,20 @@ test.describe("APP-066 resource monitor", () => {
     const footerItem = page.getByRole("button", { name: "Resource Monitor" });
     await expect(footerItem).toBeVisible({ timeout: 45_000 });
     await expect(footerItem.getByText("Monitor", { exact: true })).toBeVisible();
+    const restingFooterWidth = (await footerItem.boundingBox())?.width ?? 0;
     await footerItem.hover();
     await expect(footerItem.getByText(/^CPU \d/)).toBeVisible();
     await expect(footerItem.getByText(/^Memory \d/)).toBeVisible();
+    await expect
+      .poll(async () => (await footerItem.boundingBox())?.width ?? 0)
+      .toBeGreaterThan(restingFooterWidth + 40);
     await page.mouse.move(0, 0);
     await expect(footerItem.getByText("Monitor", { exact: true })).toBeVisible();
+    await expect
+      .poll(async () =>
+        Math.abs(((await footerItem.boundingBox())?.width ?? 0) - restingFooterWidth),
+      )
+      .toBeLessThanOrEqual(2);
     await expect(footerItem).toHaveAttribute(
       "aria-label",
       /CPU .*%.*Memory .*%/,

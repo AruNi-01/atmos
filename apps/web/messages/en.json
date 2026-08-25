@@ -8254,6 +8254,7 @@
       "server": "Atmos Server",
       "sharedRuntime": "Shared runtime",
       "projects": "Projects",
+      "workspaceBadge": "Workspace",
       "projectResources": "Project resources",
       "projectSessions": "Project sessions",
       "sessions": "Sessions",

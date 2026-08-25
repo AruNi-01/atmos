@@ -4,6 +4,7 @@ import React from "react";
 import { useTranslations } from "next-intl";
 import { ChevronRight, Locate } from "lucide-react";
 import {
+  Badge,
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
@@ -386,6 +387,7 @@ function GroupRow({
   indent = 0,
   defaultOpen = false,
   dataAttr,
+  trailingBadge,
   children,
 }: {
   name: string;
@@ -393,6 +395,7 @@ function GroupRow({
   indent?: number;
   defaultOpen?: boolean;
   dataAttr?: Record<string, string>;
+  trailingBadge?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
@@ -407,6 +410,7 @@ function GroupRow({
         >
           <ChevronRight className="size-3 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-90" />
           <NameLabel name={name} className="font-medium text-foreground" />
+          {trailingBadge}
         </span>
         <MetricCells usage={usage} />
       </CollapsibleTrigger>
@@ -424,6 +428,7 @@ function StaticRow({
   usage: ResourceUsage;
   indent?: number;
 }) {
+  const t = useTranslations("resourceMonitor.popover");
   return (
     <div className={cn(RM_ROW, RM_ROW_PAD)}>
       <span className={RM_NAME} style={{ paddingLeft: indent * 12 }}>
@@ -540,6 +545,15 @@ function WorkspaceBlock({
       indent={1}
       defaultOpen={workspaceDefaultOpen()}
       dataAttr={{ "data-resource-monitor-workspace": workspace.workspace_id }}
+      trailingBadge={
+        <Badge
+          variant="secondary"
+          className="h-4 shrink-0 rounded px-1 text-[9px] font-medium"
+          data-resource-monitor-workspace-badge=""
+        >
+          {t("workspaceBadge")}
+        </Badge>
+      }
     >
       <ScopeSections
         sessions={workspace.sessions}

@@ -98,7 +98,7 @@ export function ResourceMonitorFooterItem() {
             <PopoverTrigger asChild>
               <button
                 type="button"
-                className="inline-flex h-5 min-w-[7.75rem] items-center gap-1.5 overflow-hidden text-muted-foreground hover:text-foreground"
+                className="inline-flex h-5 items-center gap-1.5 overflow-hidden text-muted-foreground hover:text-foreground"
                 aria-label={`${t("title")}: ${compactAria}`}
                 data-resource-monitor-footer=""
                 onMouseEnter={() => setPreviewing(true)}
@@ -107,7 +107,22 @@ export function ResourceMonitorFooterItem() {
                 onBlur={() => setPreviewing(false)}
               >
                 <Activity className="size-3" />
-                <span className="relative h-4 w-28 overflow-hidden">
+                <motion.span
+                  initial={false}
+                  animate={{ width: previewing ? 124 : 52 }}
+                  transition={
+                    reducedMotion
+                      ? { duration: 0 }
+                      : {
+                          type: "spring",
+                          stiffness: 420,
+                          damping: 38,
+                          mass: 0.7,
+                        }
+                  }
+                  className="relative h-4 shrink-0 overflow-hidden"
+                  data-resource-monitor-footer-content=""
+                >
                   <AnimatePresence initial={false} mode="wait">
                     {previewing ? (
                       <motion.span
@@ -159,7 +174,7 @@ export function ResourceMonitorFooterItem() {
                       </motion.span>
                     )}
                   </AnimatePresence>
-                </span>
+                </motion.span>
               </button>
             </PopoverTrigger>
           </TooltipTrigger>

@@ -100,5 +100,13 @@ describe("resource monitor dither structure", () => {
     expect(footerSrc).toContain('key="label"');
     expect(footerSrc).toContain('key="usage"');
     expect(footerSrc).toContain('t("monitor")');
+    expect(footerSrc).toContain("width: previewing ? 124 : 52");
+    expect(footerSrc).toContain('type: "spring"');
+    expect(footerSrc).not.toContain("min-w-[7.75rem]");
+  });
+
+  test("Workspace rows carry a localized Workspace badge", () => {
+    expect(hierarchySrc).toContain("data-resource-monitor-workspace-badge");
+    expect(hierarchySrc).toContain('t("workspaceBadge")');
   });
 });

@@ -8254,6 +8254,7 @@
       "server": "Atmos Server",
       "sharedRuntime": "共享运行时",
       "projects": "项目",
+      "workspaceBadge": "工作区",
       "projectResources": "项目资源",
       "projectSessions": "项目会话",
       "sessions": "会话",
