@@ -328,6 +328,10 @@ mod tests {
         assert_eq!(value["host"]["memory"]["accounting"], "linux_memavailable");
         assert_eq!(value["host"]["cores"][0]["index"], 0);
         assert_eq!(value["host"]["cores"][0]["cpu_percent"], 1.5);
+        assert!(
+            value["disks"].as_array().expect("disks array").len() <= 1,
+            "snapshot may expose at most one disk"
+        );
         let disk = value["disks"][0].as_object().expect("disk object");
         for key in [
             "name",

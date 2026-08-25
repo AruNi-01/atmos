@@ -1133,6 +1133,7 @@ fn snapshot_json_omits_process_identity_fields() {
         unattributed: output.unattributed.clone(),
         attribution_status: output.attribution_status,
     };
+    assert!(snapshot.disks.len() <= 1);
     let value = serde_json::to_value(&snapshot).unwrap();
     let keys = json_object_keys(&value);
     for forbidden in [

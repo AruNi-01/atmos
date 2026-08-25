@@ -725,7 +725,8 @@ Buffers:          256 kB
     }
 
     fn assert_disk_samples(disks: &[ResourceDiskSample]) {
-        assert!(disks.len() <= 16);
+        assert!(disks.len() <= 1);
+        assert!(disks.iter().all(|disk| !disk.removable));
         let mut mounts = std::collections::HashSet::new();
         for disk in disks {
             assert!(!disk.name.is_empty());

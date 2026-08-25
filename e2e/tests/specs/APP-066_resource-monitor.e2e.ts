@@ -401,11 +401,19 @@ test.describe("APP-066 resource monitor", () => {
     await expect(popover.locator(".recharts-responsive-container")).toHaveCount(0);
 
     const diskTrigger = popover.locator("[data-resource-monitor-disk-trigger]");
+    const diskRows = popover.locator("[data-resource-monitor-disk-row]");
     if ((await diskTrigger.count()) > 0) {
       await expect(diskTrigger).toHaveAttribute("aria-expanded", "false");
       await diskTrigger.click();
       await expect(diskTrigger).toHaveAttribute("aria-expanded", "true");
-      await expect(popover.locator("[data-resource-monitor-disk-row]").first()).toBeVisible();
+      await expect(diskRows).toHaveCount(1);
+      await expect(diskRows.first()).toBeVisible();
+      const diskText = await popover.innerText();
+      expect(diskText).not.toContain("/System/Volumes/Data");
+      expect(diskText).not.toContain("/Volumes/Atmos");
+      expect(diskText).not.toContain("/Volumes/Dray");
+    } else {
+      await expect(diskRows).toHaveCount(0);
     }
 
     const cpuDetails = popover.locator("[data-resource-monitor-details='cpu']");

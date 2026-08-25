@@ -470,6 +470,7 @@ mod tests {
         assert_eq!(a.collected_at_ms, b.collected_at_ms);
         assert_eq!(a.collected_at_ms, c.collected_at_ms);
         assert_eq!(a.disks, b.disks);
+        assert!(a.disks.len() <= 1);
         for disk in &a.disks {
             assert!(!disk.name.is_empty());
             assert!(!disk.mount_point.is_empty());

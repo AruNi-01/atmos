@@ -12,8 +12,6 @@ use sysinfo::{DiskRefreshKind, Disks};
 /// Interactive disk-capacity cache. Matches the Resource Monitor sample interval.
 pub const DISK_CACHE_TTL: Duration = Duration::from_millis(2500);
 
-const DISK_LIST_CAP: usize = 16;
-
 /// One filtered local volume. Bytes and 0–100 pressure only.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ResourceDiskSample {
@@ -115,7 +113,24 @@ fn disk_refresh_kind() -> DiskRefreshKind {
 
 fn refresh_and_collect(disks: &mut Disks) -> Vec<ResourceDiskSample> {
     disks.refresh_specifics(true, disk_refresh_kind());
-    finalize_disks(disks.list().iter().map(candidate_from_sysinfo).collect())
+    finalize_disks_with_preferred(
+        disks.list().iter().map(candidate_from_sysinfo).collect(),
+        production_preferred_mount().as_deref(),
+    )
+}
+
+fn production_preferred_mount() -> Option<String> {
+    #[cfg(windows)]
+    {
+        std::env::var("SystemDrive")
+            .ok()
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty())
+    }
+    #[cfg(not(windows))]
+    {
+        None
+    }
 }
 
 fn candidate_from_sysinfo(disk: &sysinfo::Disk) -> DiskCandidate {
@@ -129,22 +144,35 @@ fn candidate_from_sysinfo(disk: &sysinfo::Disk) -> DiskCandidate {
     }
 }
 
-/// Filter, dedup exact mounts, name, used/percent, sort, cap. Pure.
-pub(crate) fn finalize_disks(candidates: Vec<DiskCandidate>) -> Vec<ResourceDiskSample> {
+/// Filter, dedup, then select a single system disk. Pure. No preferred mount.
+#[cfg(test)]
+fn finalize_disks(candidates: Vec<DiskCandidate>) -> Vec<ResourceDiskSample> {
+    finalize_disks_with_preferred(candidates, None)
+}
+
+fn finalize_disks_with_preferred(
+    candidates: Vec<DiskCandidate>,
+    preferred_mount: Option<&str>,
+) -> Vec<ResourceDiskSample> {
+    let filtered = filter_disk_candidates(candidates);
+    select_primary_candidate(&filtered, preferred_mount)
+        .map(disk_sample_from_candidate)
+        .into_iter()
+        .collect()
+}
+
+/// Keep useful non-removable local volumes. May return several candidates.
+fn filter_disk_candidates(candidates: Vec<DiskCandidate>) -> Vec<DiskCandidate> {
     let mut seen_mounts = HashSet::new();
-    let mut samples: Vec<ResourceDiskSample> = candidates
+    candidates
         .into_iter()
         .filter(keep_disk_candidate)
         .filter(|candidate| seen_mounts.insert(candidate.mount_point.clone()))
-        .map(disk_sample_from_candidate)
-        .collect();
-    samples.sort_by(disk_sort_cmp);
-    samples.truncate(DISK_LIST_CAP);
-    samples
+        .collect()
 }
 
 fn keep_disk_candidate(candidate: &DiskCandidate) -> bool {
-    if candidate.total == 0 || candidate.mount_point.trim().is_empty() {
+    if candidate.removable || candidate.total == 0 || candidate.mount_point.trim().is_empty() {
         return false;
     }
     if is_ignored_file_system(&candidate.file_system) {
@@ -154,6 +182,86 @@ fn keep_disk_candidate(candidate: &DiskCandidate) -> bool {
         return false;
     }
     true
+}
+
+fn select_primary_candidate(
+    filtered: &[DiskCandidate],
+    preferred_mount: Option<&str>,
+) -> Option<DiskCandidate> {
+    if filtered.is_empty() {
+        return None;
+    }
+    let has_unix_root = filtered
+        .iter()
+        .any(|candidate| is_unix_root(&candidate.mount_point));
+    let eligible: Vec<&DiskCandidate> = filtered
+        .iter()
+        .filter(|candidate| !(has_unix_root && is_macos_shadow_volume(&candidate.mount_point)))
+        .collect();
+    if eligible.is_empty() {
+        return None;
+    }
+    if let Some(preferred) = preferred_mount
+        .map(str::trim)
+        .filter(|mount| !mount.is_empty())
+    {
+        if let Some(hit) = eligible
+            .iter()
+            .find(|candidate| mounts_equivalent(&candidate.mount_point, preferred))
+        {
+            return Some((*hit).clone());
+        }
+    }
+    if let Some(root) = eligible
+        .iter()
+        .find(|candidate| is_unix_root(&candidate.mount_point))
+    {
+        return Some((*root).clone());
+    }
+    if let Some(drive) = pick_largest(
+        eligible
+            .iter()
+            .copied()
+            .filter(|candidate| is_root_or_drive(&candidate.mount_point)),
+    ) {
+        return Some(drive.clone());
+    }
+    pick_largest(eligible.iter().copied()).cloned()
+}
+
+fn pick_largest<'a>(
+    candidates: impl Iterator<Item = &'a DiskCandidate>,
+) -> Option<&'a DiskCandidate> {
+    candidates.max_by(|left, right| {
+        left.total
+            .cmp(&right.total)
+            .then_with(|| {
+                left.name
+                    .to_ascii_lowercase()
+                    .cmp(&right.name.to_ascii_lowercase())
+            })
+            .then_with(|| {
+                left.mount_point
+                    .to_ascii_lowercase()
+                    .cmp(&right.mount_point.to_ascii_lowercase())
+            })
+    })
+}
+
+fn mounts_equivalent(left: &str, right: &str) -> bool {
+    normalize_mount_for_match(left).eq_ignore_ascii_case(&normalize_mount_for_match(right))
+}
+
+fn normalize_mount_for_match(mount: &str) -> String {
+    normalize_mount_slashes(mount.trim())
+        .trim_end_matches('/')
+        .to_string()
+}
+
+fn is_macos_shadow_volume(mount: &str) -> bool {
+    mount_is_or_under(mount, "/System/Volumes/Data")
+        || mount_is_or_under(mount, "/Volumes/Atmos")
+        || mount_is_or_under(mount, "/Volumes/Dray")
 }
 
 fn disk_sample_from_candidate(candidate: DiskCandidate) -> ResourceDiskSample {
@@ -331,21 +439,6 @@ fn is_root_or_drive(mount: &str) -> bool {
     bytes.len() == 2 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':'
 }
 
-fn disk_sort_cmp(left: &ResourceDiskSample, right: &ResourceDiskSample) -> std::cmp::Ordering {
-    (
-        left.removable,
-        !is_root_or_drive(&left.mount_point),
-        left.name.to_ascii_lowercase(),
-        left.mount_point.to_ascii_lowercase(),
-    )
-        .cmp(&(
-            right.removable,
-            !is_root_or_drive(&right.mount_point),
-            right.name.to_ascii_lowercase(),
-            right.mount_point.to_ascii_lowercase(),
-        ))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -369,11 +462,11 @@ mod tests {
     }
 
     fn assert_disk_invariants(disks: &[ResourceDiskSample]) {
-        assert!(disks.len() <= DISK_LIST_CAP);
-        let mut mounts = HashSet::new();
+        assert!(disks.len() <= 1);
         for disk in disks {
             assert!(!disk.name.is_empty(), "name must be displayable");
             assert!(!disk.mount_point.is_empty());
+            assert!(!disk.removable);
             assert!(disk.total_bytes > 0);
             assert!(disk.used_bytes <= disk.total_bytes);
             assert_eq!(
@@ -387,24 +480,23 @@ mod tests {
                 disk.usage_percent
             );
             assert!(
-                mounts.insert(disk.mount_point.clone()),
-                "duplicate mount {}",
-                disk.mount_point
-            );
-            assert!(
                 !is_ignored_mount(&disk.mount_point),
                 "hidden mount leaked {}",
                 disk.mount_point
             );
         }
-        let mut sorted = disks.to_vec();
-        sorted.sort_by(disk_sort_cmp);
-        assert_eq!(disks, sorted.as_slice());
+    }
+
+    fn filtered_mounts(candidates: Vec<DiskCandidate>) -> Vec<String> {
+        filter_disk_candidates(candidates)
+            .into_iter()
+            .map(|candidate| candidate.mount_point)
+            .collect()
     }
 
     #[test]
-    fn drops_zero_capacity_pseudo_network_and_hidden_mounts() {
-        let disks = finalize_disks(vec![
+    fn drops_zero_capacity_pseudo_network_hidden_and_removable() {
+        let candidates = vec![
             candidate("root", "/", "apfs", 100, 40, false),
             candidate("zero", "/mnt/empty", "apfs", 0, 0, false),
             candidate("tmp", "/tmp", "tmpfs", 80, 20, false),
@@ -421,17 +513,24 @@ mod tests {
             candidate("vm", "/System/Volumes/VM", "apfs", 80, 20, false),
             candidate("update", "/System/Volumes/Update", "apfs", 80, 20, false),
             candidate("swap", "/private/var/vm", "apfs", 80, 20, false),
-        ]);
-        let mounts: Vec<_> = disks.iter().map(|disk| disk.mount_point.as_str()).collect();
-        assert_eq!(mounts, vec!["/", "/run/media/user/USB"]);
+        ];
+        assert_eq!(filtered_mounts(candidates.clone()), vec!["/"]);
+        let disks = finalize_disks(candidates);
+        assert_eq!(
+            disks
+                .iter()
+                .map(|disk| disk.mount_point.as_str())
+                .collect::<Vec<_>>(),
+            vec!["/"]
+        );
         assert_disk_invariants(&disks);
     }
 
     #[test]
-    fn keeps_local_physical_fuse_and_drops_network_virtual_fuse() {
-        let disks = finalize_disks(vec![
+    fn filter_keeps_local_physical_fuse_and_drops_network_virtual_fuse() {
+        let candidates = vec![
             candidate("ntfs-blk", "/mnt/ntfs-blk", "fuseblk", 80, 20, false),
-            candidate("ntfs", "/mnt/ntfs", "fuse.ntfs", 80, 20, false),
+            candidate("ntfs", "/mnt/ntfs", "fuse.ntfs", 120, 20, false),
             candidate("ntfs3g", "/mnt/ntfs3g", "fuse.ntfs-3g", 80, 20, false),
             candidate("ntfs3g-alt", "/mnt/ntfs3g-alt", "ntfs-3g", 80, 20, false),
             candidate("exfat", "/mnt/exfat", "fuse.exfat", 80, 20, true),
@@ -439,171 +538,151 @@ mod tests {
             candidate("portal", "/mnt/portal", "fuse.portal", 80, 20, false),
             candidate("ctl", "/mnt/fusectl", "fusectl", 80, 20, false),
             candidate("rclone", "/mnt/cloud", "fuse.rclone", 80, 20, false),
-        ]);
-        let mounts: Vec<_> = disks.iter().map(|disk| disk.mount_point.as_str()).collect();
+        ];
         assert_eq!(
-            mounts,
+            filtered_mounts(candidates.clone()),
             vec![
-                "/mnt/ntfs",
                 "/mnt/ntfs-blk",
+                "/mnt/ntfs",
                 "/mnt/ntfs3g",
                 "/mnt/ntfs3g-alt",
-                "/mnt/exfat",
             ]
         );
-        assert!(disks.iter().all(|disk| !matches!(
-            disk.mount_point.as_str(),
-            "/mnt/ssh" | "/mnt/portal" | "/mnt/fusectl" | "/mnt/cloud"
-        )));
+        let disks = finalize_disks(candidates);
+        assert_eq!(disks.len(), 1);
+        assert_eq!(disks[0].mount_point, "/mnt/ntfs");
         assert_disk_invariants(&disks);
     }
 
     #[test]
-    fn preserves_macos_root_and_data_as_distinct_volumes() {
-        let disks = finalize_disks(vec![
+    fn root_plus_data_atmos_dray_selects_only_slash() {
+        let candidates = vec![
             candidate("Macintosh HD", "/", "apfs", 500, 200, false),
-            candidate("Data", "/System/Volumes/Data", "apfs", 500, 200, false),
+            candidate("Data", "/System/Volumes/Data", "apfs", 800, 100, false),
+            candidate("Atmos", "/Volumes/Atmos", "apfs", 900, 10, false),
+            candidate("Dray", "/Volumes/Dray", "apfs", 900, 10, false),
             candidate("Macintosh HD", "/", "apfs", 500, 180, false),
-        ]);
-        assert_eq!(disks.len(), 2);
+        ];
+        let filtered = filter_disk_candidates(candidates.clone());
+        assert!(filtered.iter().any(|disk| disk.mount_point == "/"));
+        assert!(filtered
+            .iter()
+            .any(|disk| disk.mount_point == "/System/Volumes/Data"));
+        assert!(filtered
+            .iter()
+            .any(|disk| disk.mount_point == "/Volumes/Atmos"));
+        assert!(filtered
+            .iter()
+            .any(|disk| disk.mount_point == "/Volumes/Dray"));
+        let disks = finalize_disks(candidates);
+        assert_eq!(disks.len(), 1);
         assert_eq!(disks[0].mount_point, "/");
         assert_eq!(disks[0].name, "Macintosh HD");
-        assert_eq!(disks[1].mount_point, "/System/Volumes/Data");
-        assert_eq!(disks[1].name, "Data");
         assert_disk_invariants(&disks);
     }
 
     #[test]
-    fn exact_mount_duplicate_keeps_first_and_does_not_merge_data() {
+    fn windows_preferred_drive_beats_other_system_drive() {
+        let candidates = vec![
+            candidate("System", "C:\\", "ntfs", 200, 80, false),
+            candidate("Data", "D:\\", "ntfs", 100, 40, false),
+        ];
+        let disks = finalize_disks_with_preferred(candidates, Some("D:"));
+        assert_eq!(disks.len(), 1);
+        assert_eq!(disks[0].mount_point, "D:\\");
+        assert_eq!(disks[0].name, "Data");
+        assert_disk_invariants(&disks);
+    }
+
+    #[test]
+    fn no_root_selects_largest_local_non_removable() {
         let disks = finalize_disks(vec![
+            candidate("home", "/home", "ext4", 80, 20, false),
+            candidate("data", "/data", "ext4", 200, 50, false),
+            candidate("usb", "/mnt/usb", "exfat", 400, 10, true),
+        ]);
+        assert_eq!(disks.len(), 1);
+        assert_eq!(disks[0].mount_point, "/data");
+        assert_eq!(disks[0].name, "data");
+        assert_disk_invariants(&disks);
+    }
+
+    #[test]
+    fn removable_only_selects_empty() {
+        let disks = finalize_disks(vec![
+            candidate("USB", "/Volumes/USB", "exfat", 30, 10, true),
+            candidate("SD", "/run/media/user/SD", "exfat", 20, 5, true),
+        ]);
+        assert!(disks.is_empty());
+        assert_disk_invariants(&disks);
+    }
+
+    #[test]
+    fn exact_mount_duplicate_keeps_first_in_filter_then_selects_root() {
+        let candidates = vec![
             candidate("home-a", "/home", "ext4", 100, 40, false),
             candidate("home-b", "/home", "ext4", 90, 10, false),
             candidate("Data", "/System/Volumes/Data", "apfs", 100, 40, false),
             candidate("root", "/", "apfs", 100, 40, false),
-        ]);
-        assert_eq!(disks.len(), 3);
+        ];
+        let filtered = filter_disk_candidates(candidates.clone());
         assert_eq!(
-            disks
+            filtered
                 .iter()
                 .find(|disk| disk.mount_point == "/home")
                 .map(|disk| disk.name.as_str()),
             Some("home-a")
         );
+        let disks = finalize_disks(candidates);
+        assert_eq!(disks.len(), 1);
+        assert_eq!(disks[0].mount_point, "/");
         assert_disk_invariants(&disks);
     }
 
     #[test]
     fn empty_or_device_name_falls_back_to_root_basename_or_mount() {
-        let disks = finalize_disks(vec![
-            candidate("", "/", "apfs", 100, 40, false),
-            candidate("/dev/nvme0n1p2", "/home", "ext4", 80, 20, false),
-            candidate(
-                "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
-                "/Volumes/USB",
-                "exfat",
-                50,
-                10,
-                true,
-            ),
-            candidate("   ", "\\\\unusual", "ntfs", 40, 10, false),
-        ]);
-        assert_eq!(disks[0].name, "root");
-        assert_eq!(disks[0].mount_point, "/");
-        assert_eq!(
-            disks
-                .iter()
-                .find(|disk| disk.mount_point == "/home")
-                .map(|disk| disk.name.as_str()),
-            Some("home")
-        );
-        assert_eq!(
-            disks
-                .iter()
-                .find(|disk| disk.mount_point == "/Volumes/USB")
-                .map(|disk| disk.name.as_str()),
-            Some("USB")
-        );
-        assert_eq!(
-            disks
-                .iter()
-                .find(|disk| disk.mount_point == "\\\\unusual")
-                .map(|disk| disk.name.as_str()),
-            Some("unusual")
-        );
-        assert_disk_invariants(&disks);
-    }
-
-    #[test]
-    fn sorts_non_removable_then_root_or_drive_then_name_mount() {
-        let disks = finalize_disks(vec![
-            candidate("USB", "/Volumes/USB", "exfat", 30, 10, true),
-            candidate("home", "/home", "ext4", 80, 20, false),
-            candidate("Data", "/System/Volumes/Data", "apfs", 100, 40, false),
-            candidate("Macintosh HD", "/", "apfs", 100, 40, false),
-            candidate("Windows", "D:\\", "ntfs", 200, 50, false),
-            candidate("System", "C:\\", "ntfs", 200, 80, false),
-        ]);
-        let mounts: Vec<_> = disks.iter().map(|disk| disk.mount_point.as_str()).collect();
-        assert_eq!(
-            mounts,
-            vec![
-                "/",
-                "C:\\",
-                "D:\\",
-                "/System/Volumes/Data",
-                "/home",
-                "/Volumes/USB"
-            ]
-        );
-        assert!(!disks[0].removable);
-        assert!(disks.last().unwrap().removable);
-        assert_disk_invariants(&disks);
-    }
-
-    #[test]
-    fn caps_at_sixteen_after_stable_sort() {
-        let candidates: Vec<_> = (0..20)
-            .map(|index| {
-                candidate(
-                    &format!("vol-{index:02}"),
-                    &format!("/mnt/vol-{index:02}"),
-                    "ext4",
-                    100,
-                    50,
-                    false,
-                )
-            })
-            .collect();
-        let disks = finalize_disks(candidates);
-        assert_eq!(disks.len(), 16);
-        assert_eq!(disks[0].name, "vol-00");
-        assert_eq!(disks[15].name, "vol-15");
-        assert_disk_invariants(&disks);
+        let root = finalize_disks(vec![candidate("", "/", "apfs", 100, 40, false)]);
+        assert_eq!(root[0].name, "root");
+        assert_eq!(root[0].mount_point, "/");
+        let home = finalize_disks(vec![candidate(
+            "/dev/nvme0n1p2",
+            "/home",
+            "ext4",
+            80,
+            20,
+            false,
+        )]);
+        assert_eq!(home[0].name, "home");
+        let unusual = finalize_disks(vec![candidate("   ", "\\\\unusual", "ntfs", 40, 10, false)]);
+        assert_eq!(unusual[0].name, "unusual");
+        assert_disk_invariants(&root);
+        assert_disk_invariants(&home);
+        assert_disk_invariants(&unusual);
     }
 
     #[test]
     fn used_is_saturating_total_minus_available_and_percent_clamps() {
-        let disks = finalize_disks(vec![
-            candidate("full", "/mnt/full", "ext4", 100, 0, false),
-            candidate("over", "/mnt/over", "ext4", 100, 140, false),
-            candidate("half", "/mnt/half", "ext4", 50, 25, false),
-        ]);
-        let full = disks.iter().find(|disk| disk.name == "full").unwrap();
+        let full =
+            disk_sample_from_candidate(candidate("full", "/mnt/full", "ext4", 100, 0, false));
         assert_eq!(full.used_bytes, 100);
         assert_eq!(full.available_bytes, 0);
         assert_eq!(full.used_bytes + full.available_bytes, full.total_bytes);
         assert_eq!(full.usage_percent, 100.0);
-        let over = disks.iter().find(|disk| disk.name == "over").unwrap();
+        let over =
+            disk_sample_from_candidate(candidate("over", "/mnt/over", "ext4", 100, 140, false));
         assert_eq!(over.used_bytes, 0);
         assert_eq!(over.available_bytes, 100);
         assert_eq!(over.used_bytes + over.available_bytes, over.total_bytes);
         assert_eq!(over.usage_percent, 0.0);
-        let half = disks.iter().find(|disk| disk.name == "half").unwrap();
+        let half =
+            disk_sample_from_candidate(candidate("half", "/mnt/half", "ext4", 50, 25, false));
         assert_eq!(half.used_bytes, 25);
         assert_eq!(half.available_bytes, 25);
         assert_eq!(half.used_bytes + half.available_bytes, half.total_bytes);
         assert_eq!(half.usage_percent, 50.0);
-        assert_disk_invariants(&disks);
+        assert_disk_invariants(std::slice::from_ref(&full));
+        assert_disk_invariants(std::slice::from_ref(&over));
+        assert_disk_invariants(std::slice::from_ref(&half));
     }
 
     #[test]

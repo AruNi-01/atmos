@@ -17,7 +17,6 @@ import {
 import {
   diskDefaultOpen,
   resourceMonitorDiskSummary,
-  sortResourceMonitorDisks,
 } from "@/features/resource-monitor/lib/resource-monitor-disks";
 import {
   formatMemoryBytes,
@@ -31,15 +30,14 @@ export function ResourceMonitorDiskSection({
 }) {
   const t = useTranslations("resourceMonitor.popover");
   const [open, setOpen] = React.useState(diskDefaultOpen);
-  const rows = sortResourceMonitorDisks(disks);
-  const summary = resourceMonitorDiskSummary(rows);
+  const disk = resourceMonitorDiskSummary(disks);
 
-  if (rows.length === 0 || summary == null) return null;
+  if (disk == null) return null;
 
-  const percent = formatPercent(summary.usage_percent);
-  const used = formatMemoryBytes(summary.used_bytes);
+  const percent = formatPercent(disk.usage_percent);
+  const used = formatMemoryBytes(disk.used_bytes);
   const ofTotal = t("memoryOfTotal", {
-    total: formatMemoryBytes(summary.total_bytes),
+    total: formatMemoryBytes(disk.total_bytes),
   });
 
   return (
@@ -65,12 +63,6 @@ export function ResourceMonitorDiskSection({
           data-resource-monitor-disk-summary=""
         >
           {percent}
-          {rows.length > 1 ? (
-            <span className="text-muted-foreground/80">
-              {" "}
-              · {t("volumes", { count: rows.length })}
-            </span>
-          ) : null}
         </span>
         <span className={RM_HOST_MEMORY}>
           {used}
@@ -78,41 +70,36 @@ export function ResourceMonitorDiskSection({
         </span>
       </CollapsibleTrigger>
       <CollapsibleContent className="px-3 pb-2">
-        <div className="max-h-64 space-y-2.5 overflow-y-auto pt-1 pr-1">
-          {rows.map((disk) => (
-            <div
-              key={`${disk.mount_point}:${disk.name}`}
-              className="min-w-0 space-y-1"
-              data-resource-monitor-disk-row=""
-              data-resource-monitor-disk-mount={disk.mount_point}
-            >
-              <div className="flex min-w-0 items-baseline justify-between gap-2 text-[11px]">
-                <span className="min-w-0 truncate font-medium text-foreground">
-                  {disk.name}
-                </span>
-                <span className="shrink-0 tabular-nums text-foreground">
-                  {formatPercent(disk.usage_percent)}
-                </span>
-              </div>
-              <p className="truncate text-[10px] text-muted-foreground">
-                {disk.mount_point}
-              </p>
-              <p className="text-[11px] tabular-nums text-muted-foreground">
-                {t("used")} {formatMemoryBytes(disk.used_bytes)} /{" "}
-                {formatMemoryBytes(disk.total_bytes)}
-                <span className="text-muted-foreground/80">
-                  {" "}
-                  · {t("available")} {formatMemoryBytes(disk.available_bytes)}
-                </span>
-              </p>
-              <ResourceMonitorUsageBar
-                value={disk.usage_percent}
-                tone="pressure"
-                label={disk.name}
-                className="h-2.5"
-              />
-            </div>
-          ))}
+        <div
+          className="min-w-0 space-y-1 pt-1"
+          data-resource-monitor-disk-row=""
+          data-resource-monitor-disk-mount={disk.mount_point}
+        >
+          <div className="flex min-w-0 items-baseline justify-between gap-2 text-[11px]">
+            <span className="min-w-0 truncate font-medium text-foreground">
+              {disk.name}
+            </span>
+            <span className="shrink-0 tabular-nums text-foreground">
+              {formatPercent(disk.usage_percent)}
+            </span>
+          </div>
+          <p className="truncate text-[10px] text-muted-foreground">
+            {disk.mount_point}
+          </p>
+          <p className="text-[11px] tabular-nums text-muted-foreground">
+            {t("used")} {formatMemoryBytes(disk.used_bytes)} /{" "}
+            {formatMemoryBytes(disk.total_bytes)}
+            <span className="text-muted-foreground/80">
+              {" "}
+              · {t("available")} {formatMemoryBytes(disk.available_bytes)}
+            </span>
+          </p>
+          <ResourceMonitorUsageBar
+            value={disk.usage_percent}
+            tone="pressure"
+            label={disk.name}
+            className="h-2.5"
+          />
         </div>
       </CollapsibleContent>
     </Collapsible>

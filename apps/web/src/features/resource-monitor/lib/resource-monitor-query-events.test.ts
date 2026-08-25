@@ -578,7 +578,7 @@ describe("isResourceHostMetrics", () => {
 });
 
 describe("isResourceDiskMetrics", () => {
-  test("requires snapshot.disks and accepts empty or valid volumes", () => {
+  test("requires snapshot.disks and accepts empty or one valid disk", () => {
     const valid = makeSnapshot();
     expect(isResourceMonitorSnapshot(valid)).toBe(true);
     expect(isResourceMonitorSnapshot({ ...valid, disks: [] })).toBe(true);
@@ -617,17 +617,19 @@ describe("isResourceDiskMetrics", () => {
     expect(isResourceDiskMetrics(missingField)).toBe(false);
   });
 
-  test("rejects more than 16 volumes", () => {
+  test("rejects a disks list longer than 1, including duplicates", () => {
     const valid = makeSnapshot();
-    const disks = Array.from({ length: 17 }, (_, index) =>
-      testDiskMetrics({
-        name: `vol-${index}`,
-        mount_point: `/${index}`,
-      }),
+    const disk = testDiskMetrics();
+    const extra = testDiskMetrics({
+      name: "Data",
+      mount_point: "/System/Volumes/Data",
+    });
+    expect(isResourceMonitorSnapshot({ ...valid, disks: [disk] })).toBe(true);
+    expect(isResourceMonitorSnapshot({ ...valid, disks: [disk, extra] })).toBe(
+      false,
     );
-    expect(isResourceMonitorSnapshot({ ...valid, disks })).toBe(false);
-    expect(
-      isResourceMonitorSnapshot({ ...valid, disks: disks.slice(0, 16) }),
-    ).toBe(true);
+    expect(isResourceMonitorSnapshot({ ...valid, disks: [disk, disk] })).toBe(
+      false,
+    );
   });
 });

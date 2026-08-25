@@ -8229,7 +8229,6 @@
       "expandHost": "Expand Host",
       "collapseHost": "Collapse Host",
       "disk": "Disk",
-      "volumes": "{count, plural, one {# volume} other {# volumes}}",
       "expandDisk": "Expand Disk",
       "collapseDisk": "Collapse Disk",
       "expandAtmos": "Expand Atmos",
