@@ -8255,6 +8255,7 @@
       "sharedRuntime": "Shared runtime",
       "projects": "Projects",
       "workspaceBadge": "Workspace",
+      "spaceBadgeAria": "Space {name}",
       "projectResources": "Project resources",
       "projectSessions": "Project sessions",
       "sessions": "Sessions",

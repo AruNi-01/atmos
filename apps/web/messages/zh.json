@@ -8255,6 +8255,7 @@
       "sharedRuntime": "共享运行时",
       "projects": "项目",
       "workspaceBadge": "工作区",
+      "spaceBadgeAria": "空间 {name}",
       "projectResources": "项目资源",
       "projectSessions": "项目会话",
       "sessions": "会话",

@@ -57,6 +57,16 @@ mock.module("@/features/agent/components/AgentIcon", () => ({
   AgentIcon: () => <span data-agent-icon="" />,
 }));
 
+const spaceState: {
+  byHost: Record<string, { spaces: Array<{ id: string; name: string }> }>;
+} = { byHost: {} };
+
+mock.module("@/app-shell/center-space/center-space-store", () => ({
+  useCenterSpaceStore: (
+    selector: (state: typeof spaceState) => unknown,
+  ) => selector(spaceState),
+}));
+
 const { ResourceMonitorHierarchy } = await import(
   "@/features/resource-monitor/components/ResourceMonitorHierarchy"
 );
@@ -108,11 +118,40 @@ const workspacePanes: LiveResourceSessionPanes = {
   },
 };
 
+function renderHierarchy(
+  root: Root | null,
+  panes: LiveResourceSessionPanes,
+) {
+  root?.render(
+    <ResourceMonitorHierarchy
+      sortKey="name"
+      sortDirection="ascending"
+      onSortKeyChange={() => undefined}
+      snapshotProjects={[project]}
+      snapshotServer={USAGE}
+      snapshotShared={USAGE}
+      snapshotUnattributed={{
+        cpu_percent: 0,
+        memory_rss_bytes: 0,
+        process_count: 0,
+      }}
+      showUnattributed={false}
+      showProjectsEmpty={false}
+      showDesktop={false}
+      desktopLoading={false}
+      liveDisplays={new Map()}
+      workspacePanes={panes}
+      onNavigate={() => undefined}
+    />,
+  );
+}
+
 describe("ResourceMonitorHierarchy session row hover", () => {
   let root: Root | null = null;
   let container: HTMLElement;
 
   beforeEach(() => {
+    spaceState.byHost = {};
     const window = new Window({ url: "http://localhost/" });
     globalThis.window = window as unknown as typeof globalThis.window;
     globalThis.document = window.document as unknown as Document;
@@ -185,6 +224,7 @@ describe("ResourceMonitorHierarchy session row hover", () => {
     expect(locate).not.toBeNull();
     expect(session?.querySelector("svg.lucide-locate")).toBeNull();
     expect(session?.innerHTML).not.toContain("lucide-locate");
+    expect(session?.querySelector("[data-resource-monitor-space-badge]")).toBeNull();
 
     await act(async () => {
       trigger?.dispatchEvent(
@@ -199,5 +239,44 @@ describe("ResourceMonitorHierarchy session row hover", () => {
       );
     });
     expect(onNavigate).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows a Space badge only when the host has more than one Space", async () => {
+    spaceState.byHost[PROJECT_ID] = {
+      spaces: [
+        { id: "main", name: "Default" },
+        { id: "space-review", name: "Review" },
+      ],
+    };
+    const extraPanes: LiveResourceSessionPanes = {
+      [`${PROJECT_ID}::space::space-review`]: {
+        "pane-1": {
+          sessionId: SESSION_ID,
+          workspaceId: PROJECT_ID,
+          tmuxWindowName: "cs__space-review__1",
+        },
+      },
+    };
+
+    await act(async () => {
+      renderHierarchy(root, extraPanes);
+    });
+
+    const badge = container.querySelector(
+      '[data-resource-monitor-space-badge="space-review"]',
+    );
+    expect(badge).not.toBeNull();
+    expect(badge?.textContent).toContain("Review");
+    expect(badge?.getAttribute("aria-label")).toContain("Review");
+
+    spaceState.byHost[PROJECT_ID] = {
+      spaces: [{ id: "main", name: "Default" }],
+    };
+    await act(async () => {
+      renderHierarchy(root, extraPanes);
+    });
+    expect(
+      container.querySelector("[data-resource-monitor-space-badge]"),
+    ).toBeNull();
   });
 });

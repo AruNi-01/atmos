@@ -113,6 +113,14 @@ describe("resource monitor dither structure", () => {
     expect(hierarchySrc).toContain('t("workspaceBadge")');
   });
 
+  test("session rows show a Space badge only when the host has extra Spaces", () => {
+    expect(hierarchySrc).toContain("data-resource-monitor-space-badge");
+    expect(hierarchySrc).toContain("resolveResourceMonitorSessionSpaceBadge");
+    expect(hierarchySrc).toContain("Layers");
+    expect(hierarchySrc).toContain('spaceT("defaultSpace")');
+    expect(hierarchySrc).toContain('t("spaceBadgeAria"');
+  });
+
   test("session rows share one padded hover surface and hide the locate icon", () => {
     expect(hierarchySrc).toContain("data-resource-monitor-session-row");
     expect(hierarchySrc).toContain("RM_ROW_INTERACTIVE");

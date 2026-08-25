@@ -7,6 +7,7 @@ import {
   ArrowUp,
   ArrowUpDown,
   ChevronRight,
+  Layers,
 } from "lucide-react";
 import {
   Badge,
@@ -17,6 +18,8 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@workspace/ui";
+import type { CenterSpaceRecord } from "@/app-shell/center-space/center-space";
+import { useCenterSpaceStore } from "@/app-shell/center-space/center-space-store";
 import { cn } from "@/shared/lib/utils";
 import type {
   ResourceProcessMetrics,
@@ -55,6 +58,10 @@ import {
 import { findResourceMonitorSessionLocation } from "@/features/resource-monitor/lib/resource-monitor-session-locator";
 import type { ResourceMonitorSessionNavigationTarget } from "@/features/resource-monitor/lib/resource-monitor-session-navigation";
 import {
+  resolveResourceMonitorSessionSpaceBadge,
+  type ResourceMonitorSessionSpaceBadge,
+} from "@/features/resource-monitor/lib/resource-monitor-session-space";
+import {
   resolveResourceMonitorSessionDisplay,
   type ResourceMonitorSessionDisplay,
 } from "@/features/resource-monitor/lib/resource-monitor-session-titles";
@@ -68,6 +75,7 @@ import type { LiveResourceSessionPanes } from "@/features/terminal/public";
 
 const PROCESS_ROW =
   "flex min-h-8 w-full items-start gap-2 px-4 py-1 text-[12px] transition-none";
+const EMPTY_CENTER_SPACES: CenterSpaceRecord[] = [];
 
 function NameLabel({
   name,
@@ -250,6 +258,25 @@ function SessionName({
   );
 }
 
+function SessionSpaceBadge({
+  badge,
+}: {
+  badge: ResourceMonitorSessionSpaceBadge;
+}) {
+  const t = useTranslations("resourceMonitor.popover");
+  return (
+    <Badge
+      variant="secondary"
+      className="h-4 max-w-[7.5rem] shrink-0 gap-0.5 rounded px-1 text-[9px] font-medium"
+      data-resource-monitor-space-badge={badge.spaceId}
+      aria-label={t("spaceBadgeAria", { name: badge.name })}
+    >
+      <Layers className="size-2.5 shrink-0" aria-hidden />
+      <span className="min-w-0 truncate">{badge.name}</span>
+    </Badge>
+  );
+}
+
 function SessionRow({
   session,
   hostId,
@@ -268,6 +295,7 @@ function SessionRow({
   onNavigate?: (target: ResourceMonitorSessionNavigationTarget) => void;
 }) {
   const t = useTranslations("resourceMonitor.popover");
+  const spaceT = useTranslations("header.centerSpace");
   const display = resolveResourceMonitorSessionDisplay(
     session.session_id,
     session.name,
@@ -281,6 +309,14 @@ function SessionRow({
     session.session_id,
   );
   const locatable = location != null && onNavigate != null;
+  const spaces = useCenterSpaceStore(
+    (state) => state.byHost[hostId]?.spaces ?? EMPTY_CENTER_SPACES,
+  );
+  const spaceBadge = resolveResourceMonitorSessionSpaceBadge({
+    spaces,
+    spaceId: location?.spaceId,
+    defaultSpaceName: spaceT("defaultSpace"),
+  });
   const cpu = formatCpuPercent(session.usage.cpu_percent);
   const memory = formatMemoryBytes(session.usage.memory_rss_bytes);
   const hasProcesses = session.processes.length > 0;
@@ -292,10 +328,11 @@ function SessionRow({
   });
   const nameCell = (
     <span
-      className={cn(RM_NAME, "flex items-center")}
+      className={cn(RM_NAME, "flex items-center gap-1.5")}
       style={{ paddingLeft: indent * 12 }}
     >
       <SessionName name={name} toolbarAgent={display.toolbarAgent} />
+      {spaceBadge ? <SessionSpaceBadge badge={spaceBadge} /> : null}
     </span>
   );
 
@@ -378,6 +415,7 @@ function SessionRow({
           ) : (
             <SessionName name={name} toolbarAgent={display.toolbarAgent} />
           )}
+          {spaceBadge ? <SessionSpaceBadge badge={spaceBadge} /> : null}
         </span>
         <MetricCells usage={session.usage} />
       </div>

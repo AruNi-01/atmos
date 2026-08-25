@@ -413,6 +413,7 @@ just test
 - The S11/S13/S16/S20 Playwright path passed on Chromium and mobile Chromium after asserting the wider 120px-style semicircle Gauge canvas, Monitor-to-usage hover transition, retained reduced-motion path, no horizontal overflow, and exact Project CPU/Memory header alignment. The test first reproduced a real 16px row-width conflict and passed after removing the overriding `w-full`.
 - Workspace/Footer polish: localized Workspace badge and spring-width structure tests passed; Web typecheck passed; Chromium and mobile Chromium verified the idle Footer stays compact, expands by more than 40px on hover, returns to its original width, and retains the existing monitor workflow.
 - Session-row hover: `bun test` for Resource Monitor structural/dither/ui-state suites passed 18 tests; the session-row DOM test passed, proving the chevron lives on the padded `hover:bg-accent` surface, has icon-only highlight, does not navigate, and renders no locate icon. Web typecheck passed; Web lint completed with 0 errors.
+- Session Space badge: resolver unit tests plus the session-row DOM test passed; the badge appears only when the host has extra Center Spaces and the live session space is known. Web typecheck passed.
 
 ### Test-run files changed
 
