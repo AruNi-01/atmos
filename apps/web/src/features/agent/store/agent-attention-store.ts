@@ -29,6 +29,13 @@ export type RaiseAttentionInput = {
   raisedAt?: number;
 };
 
+/** User click vs programmatic/auto focus from a need-attention jump. */
+export type PaneFocusAck = "immediate" | "deferred";
+
+export type NotifyPaneFocusedOptions = {
+  ack?: PaneFocusAck;
+};
+
 type AgentAttentionStore = {
   panes: Map<string, PaneAttention>;
   /** When true, left sidebar only lists contexts that need attention. */
@@ -45,8 +52,15 @@ type AgentAttentionStore = {
    * given IDs (used when hook sessions are cleared under an alias key).
    */
   clearMatchingSessionIds: (ids: readonly string[]) => void;
-  /** Called when the user focuses a terminal pane (click / focus capture). */
-  notifyPaneFocused: (stablePaneId: string | null) => void;
+  /**
+   * Record which pane is focused. `ack: "immediate"` (default) is a user click
+   * and drops the latch now. `ack: "deferred"` is auto-focus from a jump and
+   * keeps the ring for {@link ATTENTION_AUTO_CLEAR_MS}.
+   */
+  notifyPaneFocused: (
+    stablePaneId: string | null,
+    options?: NotifyPaneFocusedOptions,
+  ) => void;
   /**
    * Replace local latches with the API memory snapshot (browser refresh recovery).
    * Does not touch filterMode / focused pane.
@@ -101,7 +115,13 @@ function clearAttentionOnServer(stablePaneId: string) {
 
 const autoClearTimers = new Map<string, ReturnType<typeof setTimeout>>();
 /** Bell-only: grouping dwell is WORKSPACE_AGENT_GROUPING_HOLD_MS after this clear. */
-const AUTO_CLEAR_MS = 3000;
+export const ATTENTION_AUTO_CLEAR_MS = 3000;
+
+export function clearAgentAttentionAutoClearTimers(): void {
+  for (const id of [...autoClearTimers.keys()]) {
+    clearAutoClearTimer(id);
+  }
+}
 
 /**
  * Optional side-effect when a pane is acknowledged (focused or auto-cleared while
@@ -138,20 +158,34 @@ function clearAutoClearTimer(stablePaneId: string) {
   }
 }
 
-function scheduleAutoClear(stablePaneId: string) {
+function matchingAttentionKeys(stablePaneId: string): string[] {
+  const keys: string[] = [];
+  for (const [id, pane] of useAgentAttentionStore.getState().panes) {
+    if (id === stablePaneId || pane.sessionId === stablePaneId) {
+      keys.push(id);
+    }
+  }
+  return keys;
+}
+
+function scheduleAutoClear(stablePaneId: string, restart = true) {
+  if (!restart && autoClearTimers.has(stablePaneId)) return;
   clearAutoClearTimer(stablePaneId);
   const timer = setTimeout(() => {
     autoClearTimers.delete(stablePaneId);
     const state = useAgentAttentionStore.getState();
     // Only auto-clear if the user is still focused on this pane.
     if (state.focusedStablePaneId !== stablePaneId) return;
-    if (!state.panes.has(stablePaneId)) return;
-    state.clearPane(stablePaneId);
+    const toClear = matchingAttentionKeys(stablePaneId);
+    if (toClear.length === 0) return;
+    for (const id of toClear) {
+      state.clearPane(id);
+    }
     // Persist so refresh does not revive a latch the user already saw.
     clearAttentionOnServer(stablePaneId);
     // User already has the pane open — drop idle agent status with the latch.
     notifyPaneAcknowledged(stablePaneId);
-  }, AUTO_CLEAR_MS);
+  }, ATTENTION_AUTO_CLEAR_MS);
   autoClearTimers.set(stablePaneId, timer);
 }
 
@@ -255,7 +289,8 @@ export const useAgentAttentionStore = create<AgentAttentionStore>((set, get) => 
     }));
   },
 
-  notifyPaneFocused: (stablePaneId) => {
+  notifyPaneFocused: (stablePaneId, options) => {
+    const ack = options?.ack ?? "immediate";
     const prev = get().focusedStablePaneId;
     if (prev && prev !== stablePaneId) {
       clearAutoClearTimer(prev);
@@ -266,14 +301,17 @@ export const useAgentAttentionStore = create<AgentAttentionStore>((set, get) => 
         : { focusedStablePaneId: stablePaneId, revision: state.revision + 1 },
     );
     if (!stablePaneId) return;
-    // Clear exact pane key and any attention latched under a hook session_id
-    // alias for this pane (raise may have stored session_id when pane_id was
-    // missing on an earlier event, or session_id may equal the stable key).
-    const toClear: string[] = [];
-    for (const [id, pane] of get().panes) {
-      if (id === stablePaneId || pane.sessionId === stablePaneId) {
-        toClear.push(id);
+    // Exact pane key and any latch stored under a hook session_id alias.
+    const toClear = matchingAttentionKeys(stablePaneId);
+    if (ack === "deferred") {
+      // Jump / URL / restore auto-focus: keep the ring, then clear if still
+      // focused. A later user click uses the immediate path below.
+      if (toClear.length > 0) {
+        scheduleAutoClear(stablePaneId, false);
+        return;
       }
+      notifyPaneAcknowledged(stablePaneId);
+      return;
     }
     const hadAttention = toClear.length > 0;
     for (const id of toClear) {
@@ -284,8 +322,8 @@ export const useAgentAttentionStore = create<AgentAttentionStore>((set, get) => 
     if (hadAttention) {
       clearAttentionOnServer(stablePaneId);
     }
-    // Focusing a pane acknowledges it: drop sticky attention (above) and any
-    // leftover idle hook sessions so we do not wait for the idle sweeper.
+    // User click acknowledges: drop sticky attention (above) and leftover
+    // idle hook sessions so we do not wait for the idle sweeper.
     notifyPaneAcknowledged(stablePaneId);
   },
 

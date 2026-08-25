@@ -1,5 +1,7 @@
-import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, jest, mock, test } from "bun:test";
 import {
+  ATTENTION_AUTO_CLEAR_MS,
+  clearAgentAttentionAutoClearTimers,
   filterProjectsByAttention,
   setAgentPaneAcknowledgedHandler,
   useAgentAttentionStore,
@@ -23,9 +25,12 @@ beforeEach(() => {
   });
   useWorkspaceAgentGroupingHoldStore.getState().clearAll();
   setAgentPaneAcknowledgedHandler(null);
+  clearAgentAttentionAutoClearTimers();
 });
 
 afterEach(() => {
+  jest.useRealTimers();
+  clearAgentAttentionAutoClearTimers();
   useWorkspaceAgentGroupingHoldStore.getState().clearAll();
 });
 
@@ -66,6 +71,121 @@ describe("agent-attention-store", () => {
     });
     store.notifyPaneFocused("ws-1:main");
     expect(store.hasPaneAttention("ws-1:main")).toBe(false);
+  });
+
+  test("deferred auto-focus keeps attention until the dwell window", () => {
+    jest.useFakeTimers();
+    const store = useAgentAttentionStore.getState();
+    store.raise({
+      stablePaneId: "ws-1:main",
+      contextId: "ws-1",
+      reason: "permission_request",
+    });
+    store.notifyPaneFocused("ws-1:main", { ack: "deferred" });
+    expect(store.hasPaneAttention("ws-1:main")).toBe(true);
+    jest.advanceTimersByTime(ATTENTION_AUTO_CLEAR_MS - 1);
+    expect(store.hasPaneAttention("ws-1:main")).toBe(true);
+    jest.advanceTimersByTime(1);
+    expect(useAgentAttentionStore.getState().hasPaneAttention("ws-1:main")).toBe(
+      false,
+    );
+  });
+
+  test("user click clears a deferred auto-focus ring immediately", () => {
+    jest.useFakeTimers();
+    const store = useAgentAttentionStore.getState();
+    store.raise({
+      stablePaneId: "ws-1:main",
+      contextId: "ws-1",
+      reason: "task_complete",
+    });
+    store.notifyPaneFocused("ws-1:main", { ack: "deferred" });
+    expect(store.hasPaneAttention("ws-1:main")).toBe(true);
+    store.notifyPaneFocused("ws-1:main");
+    expect(store.hasPaneAttention("ws-1:main")).toBe(false);
+  });
+
+  test("deferred auto-focus does not clear after leaving the pane", () => {
+    jest.useFakeTimers();
+    const store = useAgentAttentionStore.getState();
+    store.raise({
+      stablePaneId: "ws-1:main",
+      contextId: "ws-1",
+      reason: "permission_request",
+    });
+    store.notifyPaneFocused("ws-1:main", { ack: "deferred" });
+    store.notifyPaneFocused("ws-1:other", { ack: "deferred" });
+    jest.advanceTimersByTime(ATTENTION_AUTO_CLEAR_MS);
+    expect(useAgentAttentionStore.getState().hasPaneAttention("ws-1:main")).toBe(
+      true,
+    );
+  });
+
+  test("deferred auto-focus clears attention latched under a session alias", () => {
+    jest.useFakeTimers();
+    const store = useAgentAttentionStore.getState();
+    store.raise({
+      stablePaneId: "agent-session-uuid",
+      contextId: "ws-1",
+      reason: "permission_request",
+      sessionId: "ws-1:main",
+    });
+    store.notifyPaneFocused("ws-1:main", { ack: "deferred" });
+    expect(store.hasPaneAttention("agent-session-uuid")).toBe(true);
+    jest.advanceTimersByTime(ATTENTION_AUTO_CLEAR_MS);
+    expect(
+      useAgentAttentionStore.getState().hasPaneAttention("agent-session-uuid"),
+    ).toBe(false);
+  });
+
+  test("raise while focused auto-clears after the dwell window", () => {
+    jest.useFakeTimers();
+    const store = useAgentAttentionStore.getState();
+    store.notifyPaneFocused("ws-1:main");
+    store.raise({
+      stablePaneId: "ws-1:main",
+      contextId: "ws-1",
+      reason: "task_complete",
+    });
+    expect(store.hasPaneAttention("ws-1:main")).toBe(true);
+    jest.advanceTimersByTime(ATTENTION_AUTO_CLEAR_MS);
+    expect(useAgentAttentionStore.getState().hasPaneAttention("ws-1:main")).toBe(
+      false,
+    );
+  });
+
+  test("repeated deferred auto-focus does not restart the dwell window", () => {
+    jest.useFakeTimers();
+    const store = useAgentAttentionStore.getState();
+    store.raise({
+      stablePaneId: "ws-1:main",
+      contextId: "ws-1",
+      reason: "permission_request",
+    });
+    store.notifyPaneFocused("ws-1:main", { ack: "deferred" });
+    jest.advanceTimersByTime(1000);
+    store.notifyPaneFocused("ws-1:main", { ack: "deferred" });
+    jest.advanceTimersByTime(ATTENTION_AUTO_CLEAR_MS - 1000);
+    expect(useAgentAttentionStore.getState().hasPaneAttention("ws-1:main")).toBe(
+      false,
+    );
+  });
+
+  test("deferred auto-focus does not drop idle status until the dwell window", () => {
+    jest.useFakeTimers();
+    const ack = mock(() => {});
+    setAgentPaneAcknowledgedHandler(ack);
+    const store = useAgentAttentionStore.getState();
+    store.raise({
+      stablePaneId: "ws-1:main",
+      contextId: "ws-1",
+      reason: "task_complete",
+    });
+    store.notifyPaneFocused("ws-1:main", { ack: "deferred" });
+    expect(ack).toHaveBeenCalledTimes(0);
+    jest.advanceTimersByTime(ATTENTION_AUTO_CLEAR_MS);
+    expect(ack).toHaveBeenCalledTimes(1);
+    expect(ack).toHaveBeenCalledWith("ws-1:main");
   });
 
   test("clearing the last task_complete latch starts a grouping hold", () => {

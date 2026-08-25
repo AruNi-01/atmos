@@ -14,7 +14,10 @@ import {
 import { AgentIcon } from "@/features/agent/components/AgentIcon";
 import { attentionBorderClass } from "@/features/agent/components/AgentAttentionIndicator";
 import { buildCanvasTerminalPinKey } from "@/features/canvas/lib/canvas-terminal-shape";
-import { useAgentAttentionStore } from "@/features/agent/store/agent-attention-store";
+import {
+  useAgentAttentionStore,
+  type PaneFocusAck,
+} from "@/features/agent/store/agent-attention-store";
 import type { Project } from "@/shared/types/domain";
 import { Terminal, type TerminalRef } from "./Terminal";
 import {
@@ -80,7 +83,7 @@ type TerminalWorkspacePaneProps = {
   pinPaneToCanvas: (id?: string | null) => void;
   onToggleMaximize: (id: string) => void;
   requestCloseTerminal: (id?: string | null) => void;
-  setActivePaneId: (id: string | null) => void;
+  setActivePaneId: (id: string | null, ack?: PaneFocusAck) => void;
   terminalRefsMap: React.MutableRefObject<Map<string, TerminalRef>>;
   agentInputOverlayRefsMap: React.MutableRefObject<Map<string, TerminalAgentInputOverlayHandle>>;
   readyPanesRef: React.MutableRefObject<Set<string>>;
@@ -302,7 +305,9 @@ export function TerminalWorkspacePane(props: TerminalWorkspacePaneProps) {
     applyResourceLocateArrival({
       paneId: id,
       generation: locateGeneration,
-      setActivePaneId,
+      setActivePaneId: (paneId) => {
+        setActivePaneId(paneId, "deferred");
+      },
       scheduleFocus: (run) => {
         requestAnimationFrame(run);
       },
@@ -333,6 +338,7 @@ export function TerminalWorkspacePane(props: TerminalWorkspacePaneProps) {
         attentionBorderClass(attentionReason),
         showLocateRing && "resource-locate-ring",
       )}
+      onMouseDownCapture={() => setActivePaneId(id, "immediate")}
       {...(showLocateRing ? { "data-resource-locate-ring": "" } : {})}
     >
           <div
@@ -502,8 +508,7 @@ export function TerminalWorkspacePane(props: TerminalWorkspacePaneProps) {
       <div
         className="terminal-pane-content min-h-0 flex-1"
         data-pane-id={id}
-        onMouseDownCapture={() => setActivePaneId(id)}
-        onFocusCapture={() => setActivePaneId(id)}
+        onFocusCapture={() => setActivePaneId(id, "deferred")}
         onDragOver={(event) => {
           if (!hasAgentContextDragData(event.dataTransfer)) return;
           event.preventDefault();

@@ -335,7 +335,9 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
     }
 
     // Cover non-click activation paths (e.g. agent-status widget → focusCanvasTerminalShape).
-    useAgentAttentionStore.getState().notifyPaneFocused(stablePaneId);
+    useAgentAttentionStore.getState().notifyPaneFocused(stablePaneId, {
+      ack: "deferred",
+    });
 
     const frame = requestAnimationFrame(() => {
       focusTerminal();

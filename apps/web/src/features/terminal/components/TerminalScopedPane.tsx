@@ -13,7 +13,10 @@ import {
 } from "@workspace/ui";
 import { AgentIcon } from "@/features/agent/components/AgentIcon";
 import { attentionBorderClass } from "@/features/agent/components/AgentAttentionIndicator";
-import { useAgentAttentionStore } from "@/features/agent/store/agent-attention-store";
+import {
+  useAgentAttentionStore,
+  type PaneFocusAck,
+} from "@/features/agent/store/agent-attention-store";
 import { buildCanvasTerminalPinKey } from "@/features/canvas/lib/canvas-terminal-shape";
 import type { Project } from "@/shared/types/domain";
 import { Terminal, type TerminalRef } from "./Terminal";
@@ -75,7 +78,7 @@ type ScopedPaneWindowProps = {
   pinPaneToCanvas: (id?: string | null) => void;
   onToggleMaximize: (id: string) => void;
   requestCloseTerminal: (id?: string | null) => void;
-  setActivePaneId: (id: string | null) => void;
+  setActivePaneId: (id: string | null, ack?: PaneFocusAck) => void;
   terminalRefsMap: React.MutableRefObject<Map<string, TerminalRef>>;
   agentInputOverlayRefsMap: React.MutableRefObject<Map<string, TerminalAgentInputOverlayHandle>>;
   readyPanesRef: React.MutableRefObject<Set<string>>;
@@ -230,6 +233,7 @@ export function TerminalScopedPane({
         hasMultiplePanes && (effectiveActivePaneId === id ? "is-active-pane" : "is-inactive-pane"),
         attentionBorderClass(attentionReason),
       )}
+      onMouseDownCapture={() => setActivePaneId(id, "immediate")}
     >
           <div
             className={cn(
@@ -392,8 +396,7 @@ export function TerminalScopedPane({
       <div
         className="terminal-pane-content min-h-0 flex-1"
         data-pane-id={id}
-        onMouseDownCapture={() => setActivePaneId(id)}
-        onFocusCapture={() => setActivePaneId(id)}
+        onFocusCapture={() => setActivePaneId(id, "deferred")}
         onDragOver={(event) => {
           if (!hasAgentContextDragData(event.dataTransfer)) return;
           event.preventDefault();

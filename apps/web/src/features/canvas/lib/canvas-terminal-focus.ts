@@ -90,8 +90,10 @@ export function focusCanvasTerminalShape(
   );
   options.setRenderedShapeIds(nextRendered);
   options.setActiveShapeId(shapeId);
-  // Treat focusing a canvas terminal like focusing its source terminal pane.
-  useAgentAttentionStore.getState().notifyPaneFocused(stablePaneId);
+  // Jump from agent-status / widget is auto-focus — keep the ring briefly.
+  useAgentAttentionStore.getState().notifyPaneFocused(stablePaneId, {
+    ack: "deferred",
+  });
 
   try {
     editor.select(shapeId);
