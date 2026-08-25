@@ -66,10 +66,11 @@ describe("DitherGrowth area options", () => {
     expect(src).toContain("clampToDomain");
   });
 
-  test("optional color and compact keep the default Token Usage path", () => {
+  test("optional color, gradient stops, and compact keep the default Token Usage path", () => {
     expect(src).toContain("color?: string");
+    expect(src).toContain("colorStops?: DitherGrowthColorStop[]");
     expect(src).toContain("compact?: boolean");
-    expect(src).toContain("resolveGrowthInk");
+    expect(src).toContain("resolveGrowthColor");
     expect(src).toContain("shouldPaintGrowthGuides");
     expect(src).toContain("resolveGrowthPlotPadding");
     expect(src).toContain("createSeriesMorph");
