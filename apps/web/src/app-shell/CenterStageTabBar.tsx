@@ -66,11 +66,16 @@ import {
   applyHorizontalTabStripWheel,
   scrollActiveTabIntoStripView,
 } from "@/app-shell/center-stage-tab-scroll";
+import {
+  isCenterStagePlusMenuEventTarget,
+  shouldRetainPlusMenuForOutsidePointer,
+  shouldSchedulePlusMenuClose,
+  useCenterStagePlusMenuOverlayGuard,
+} from "@/app-shell/center-stage-plus-menu-pointer";
 import { useTranslations } from "next-intl";
 import type { OpenFile } from "@/features/editor/store/use-editor-store";
 import { cn } from "@/shared/lib/utils";
 import { CenterTabHeldShortcut } from "@/app-shell/HeldShortcutBadge";
-import { useHeldShortcutPrefix } from "@/app-shell/held-shortcut-prefix-store";
 import {
   CenterStageShortcutTooltipBody,
   CenterStageTabGroupPopover,
@@ -1047,8 +1052,6 @@ function TerminalExtraTab({
     customTitle: tab.customTitle,
   });
   const closeAriaLabel = t("centerStageTabBar.closeTab", { tab: displayTitle });
-  const prefix = useHeldShortcutPrefix();
-  const showHeldShortcut = prefix === "mod" && shortcutDigit != null;
 
   const stablePaneIds = useTerminalStore(
     useShallow((s) => {
@@ -1105,11 +1108,8 @@ function TerminalExtraTab({
           <span className="max-w-[180px] truncate whitespace-nowrap">
             {displayTitle}
           </span>
-          {showHeldShortcut ? (
-            <CenterTabHeldShortcut digit={shortcutDigit} />
-          ) : (
-            <TerminalTabAgentIndicatorWithPanes contextId={effectiveContextId} tabId={tab.id} />
-          )}
+          <TerminalTabAgentIndicatorWithPanes contextId={effectiveContextId} tabId={tab.id} />
+          <CenterTabHeldShortcut digit={shortcutDigit} />
         </CenterStageTab>
       </TooltipTrigger>
       <TooltipContent side="bottom">
@@ -1170,7 +1170,7 @@ function PlusMenuTabPanels({
             "origin-top",
             tab === "tabs"
               ? "relative"
-              : "pointer-events-none absolute inset-x-0 top-0",
+              : "pointer-events-none invisible absolute inset-x-0 top-0 [&_*]:pointer-events-none",
           )}
           aria-hidden={tab !== "tabs"}
           inert={tab !== "tabs" ? true : undefined}
@@ -1189,7 +1189,7 @@ function PlusMenuTabPanels({
             "origin-top",
             tab === "layout"
               ? "relative"
-              : "pointer-events-none absolute inset-x-0 top-0",
+              : "pointer-events-none invisible absolute inset-x-0 top-0 [&_*]:pointer-events-none",
           )}
           aria-hidden={tab !== "layout"}
           inert={tab !== "layout" ? true : undefined}
@@ -1199,24 +1199,6 @@ function PlusMenuTabPanels({
       </div>
     </motion.div>
   );
-}
-
-function isCenterStagePlusMenuEventTarget(target: EventTarget | null): boolean {
-  return Boolean(
-    target instanceof Element &&
-      (target.closest("[data-center-stage-plus-menu]") ||
-        target.closest("[data-center-stage-layouts-menu]") ||
-        target.closest("[data-center-stage-plus-trigger]")),
-  );
-}
-
-function markCenterStagePlusMenuOpen(open: boolean): void {
-  const root = document.documentElement;
-  if (open) {
-    root.setAttribute("data-center-stage-plus-menu-open", "");
-    return;
-  }
-  root.removeAttribute("data-center-stage-plus-menu-open");
 }
 
 const PANE_FULLSCREEN_BUTTON_CLASS =
@@ -1409,10 +1391,33 @@ function CenterStageNewTabMenu({
     [clearCloseTimer, clearLayoutsLeaveTimer],
   );
 
-  React.useLayoutEffect(() => {
-    markCenterStagePlusMenuOpen(open);
-    return () => markCenterStagePlusMenuOpen(false);
-  }, [open]);
+  useCenterStagePlusMenuOverlayGuard(open);
+
+  const handlePlusMenuMouseLeave = React.useCallback(
+    (event: React.MouseEvent) => {
+      if (!shouldSchedulePlusMenuClose(event)) {
+        clearCloseTimer();
+        return;
+      }
+      scheduleClose();
+    },
+    [clearCloseTimer, scheduleClose],
+  );
+
+  const retainPlusMenuIfPointerOverIt = React.useCallback(
+    (event: {
+      target: EventTarget | null;
+      preventDefault: () => void;
+      clientX?: number;
+      clientY?: number;
+      detail?: { originalEvent?: { clientX?: number; clientY?: number } };
+    }) => {
+      if (shouldRetainPlusMenuForOutsidePointer(event)) {
+        event.preventDefault();
+      }
+    },
+    [],
+  );
 
   const openSaveDialog = React.useCallback(() => {
     setLayoutName("");
@@ -1494,7 +1499,7 @@ function CenterStageNewTabMenu({
               clearCloseTimer();
               setOpen(true);
             }}
-            onMouseLeave={scheduleClose}
+            onMouseLeave={handlePlusMenuMouseLeave}
             onFocus={() => {
               clearCloseTimer();
               setOpen(true);
@@ -1513,28 +1518,16 @@ function CenterStageNewTabMenu({
           side="bottom"
           sideOffset={4}
           data-center-stage-plus-menu=""
-          className="z-[90] w-48 overflow-hidden border-border/70 bg-popover/90 p-1 shadow-lg backdrop-blur-xl"
+          className="z-[300] w-48 overflow-hidden border-border/70 bg-popover/90 p-1 shadow-lg backdrop-blur-xl"
           onOpenAutoFocus={(event) => event.preventDefault()}
           onCloseAutoFocus={(event) => event.preventDefault()}
           onMouseEnter={clearCloseTimer}
-          onMouseLeave={scheduleClose}
+          onMouseLeave={handlePlusMenuMouseLeave}
           onPointerDown={(event) => event.stopPropagation()}
           onMouseDown={(event) => event.stopPropagation()}
-          onPointerDownOutside={(event) => {
-            if (isCenterStagePlusMenuEventTarget(event.target)) {
-              event.preventDefault();
-            }
-          }}
-          onFocusOutside={(event) => {
-            if (isCenterStagePlusMenuEventTarget(event.target)) {
-              event.preventDefault();
-            }
-          }}
-          onInteractOutside={(event) => {
-            if (isCenterStagePlusMenuEventTarget(event.target)) {
-              event.preventDefault();
-            }
-          }}
+          onPointerDownOutside={retainPlusMenuIfPointerOverIt}
+          onFocusOutside={retainPlusMenuIfPointerOverIt}
+          onInteractOutside={retainPlusMenuIfPointerOverIt}
         >
           <MotionTabs
             value={plusTab}
@@ -1704,26 +1697,23 @@ function CenterStageNewTabMenu({
                 side="left"
                 sideOffset={4}
                 data-center-stage-layouts-menu=""
-                className="z-[110] w-48 border-border/70 bg-popover/90 p-1 shadow-lg backdrop-blur-xl"
+                className="z-[310] w-48 border-border/70 bg-popover/90 p-1 shadow-lg backdrop-blur-xl"
                 onOpenAutoFocus={(event) => event.preventDefault()}
                 onCloseAutoFocus={(event) => event.preventDefault()}
                 onPointerDown={(event) => event.stopPropagation()}
                 onMouseDown={(event) => event.stopPropagation()}
-                onPointerDownOutside={(event) => {
-                  if (isCenterStagePlusMenuEventTarget(event.target)) {
-                    event.preventDefault();
-                  }
-                }}
-                onInteractOutside={(event) => {
-                  if (isCenterStagePlusMenuEventTarget(event.target)) {
-                    event.preventDefault();
-                  }
-                }}
+                onPointerDownOutside={retainPlusMenuIfPointerOverIt}
+                onInteractOutside={retainPlusMenuIfPointerOverIt}
                 onMouseEnter={() => {
                   clearLayoutsLeaveTimer();
                   clearCloseTimer();
                 }}
-                onMouseLeave={() => {
+                onMouseLeave={(event) => {
+                  if (!shouldSchedulePlusMenuClose(event)) {
+                    clearCloseTimer();
+                    clearLayoutsLeaveTimer();
+                    return;
+                  }
                   scheduleLayoutsClose();
                   scheduleClose();
                 }}
@@ -1944,8 +1934,6 @@ function SpecialTerminalTab({
   onClose: () => void;
   onContextMenu?: (event: React.MouseEvent) => void;
 }) {
-  const prefix = useHeldShortcutPrefix();
-  const showHeldShortcut = prefix === "mod" && shortcutDigit != null;
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -1954,13 +1942,12 @@ function SpecialTerminalTab({
           aria-label={label}
           onPointerDown={preventNonPrimaryTabActivate}
           onContextMenu={onContextMenu}
-          className="relative"
         >
           <CenterStageTabIconSlot closeLabel={closeLabel} onClose={onClose}>
             {icon}
           </CenterStageTabIconSlot>
           <span className="text-pretty">{label}</span>
-          {showHeldShortcut ? <CenterTabHeldShortcut digit={shortcutDigit} /> : null}
+          <CenterTabHeldShortcut digit={shortcutDigit} />
         </CenterStageTab>
       </TooltipTrigger>
       <TooltipContent side="bottom">

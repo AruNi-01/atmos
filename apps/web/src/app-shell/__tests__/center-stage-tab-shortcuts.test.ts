@@ -14,6 +14,8 @@ describe("center stage tab position shortcuts", () => {
     expect(support).toContain("CENTER_STRIP_POSITION_HOTKEYS");
     expect(support).toContain("resolveCenterStripShortcutTabId");
     expect(support).toContain("isCenterStageHotkeyTarget");
+    expect(support).toContain("registerCenterStripShortcutHandler");
+    expect(support).toContain("CENTER_REGION_DIGIT_HOTKEY_OPTIONS");
     expect(support).toContain("event.shiftKey");
     expect(support).not.toContain("visibleTerminalTabs[0]");
     expect(support).not.toContain('"mod+5"');
@@ -37,6 +39,18 @@ describe("center stage tab position shortcuts", () => {
     expect(tabBar).not.toContain("CENTER_TERMINAL_SHORTCUT_LIMIT");
     expect(tabBar).not.toContain("visibleTerminalTabs.findIndex");
     expect(tabBar).toContain("CenterTabHeldShortcut");
+  });
+
+  test("held tab shortcuts overlay the original pill instead of widening it", () => {
+    const tabBar = read("../CenterStageTabBar.tsx");
+    const shared = read("../center-stage-shared-tabs.tsx");
+    const badge = read("../HeldShortcutBadge.tsx");
+    expect(badge).toContain("absolute inset-y-0 right-0");
+    expect(badge).toContain("bg-gradient-to-l from-background");
+    expect(tabBar).toContain("TerminalTabAgentIndicatorWithPanes contextId={effectiveContextId} tabId={tab.id}");
+    expect(tabBar).not.toContain("showHeldShortcut");
+    expect(shared).not.toContain("showHeldShortcut");
+    expect(shared).toContain("<CenterTabHeldShortcut digit={shortcutDigit} />");
   });
 });
 
