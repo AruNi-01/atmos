@@ -1,0 +1,48 @@
+apps/api/src/api/ws/router/resource_monitor.rs
+  h_5be255725524c8 271,284
+apps/web/messages/en.json
+  h_5be255725524c8 8261
+apps/web/messages/zh.json
+  h_5be255725524c8 8261
+apps/web/src/features/resource-monitor/components/ResourceMonitorHierarchy.tsx
+  h_5be255725524c8 682,689,696-700,760-762,793,810,888
+apps/web/src/features/resource-monitor/components/ResourceMonitorPopover.tsx
+  h_5be255725524c8 186
+apps/web/src/features/resource-monitor/components/__tests__/resource-monitor-session-row.dom.test.tsx
+  h_5be255725524c8 133-137,188-192
+apps/web/src/features/resource-monitor/lib/resource-monitor-format.test.ts
+  h_5be255725524c8 86,91,93
+apps/web/src/features/resource-monitor/lib/resource-monitor-format.ts
+  h_5be255725524c8 61-65,68-72
+apps/web/src/features/resource-monitor/lib/resource-monitor-query-events.ts
+  h_5be255725524c8 268
+apps/web/src/features/resource-monitor/lib/resource-monitor-test-host.ts
+  h_5be255725524c8 98
+apps/web/src/features/resource-monitor/lib/resource-monitor-ui-state.test.ts
+  h_5be255725524c8 239
+crates/core-service/src/service/resource_monitor/attribution.rs
+  h_5be255725524c8 77-78,100,108,202,397-403,407,430-432,536,548-587
+crates/core-service/src/service/resource_monitor/attribution_tests.rs
+  h_5be255725524c8 133,314,366,416,460,524,558,620,638,679,844,948,985,1013,1068,1105,1130,1149,1189,1200-1237,1286,1303
+crates/core-service/src/service/resource_monitor/mod.rs
+  h_5be255725524c8 146-147,154,163,397
+crates/core-service/src/service/resource_monitor/types.rs
+  h_5be255725524c8 173-175
+packages/api-types/src/ws/dto/resource-monitor.test.ts
+  h_5be255725524c8 189,283
+packages/api-types/src/ws/dto/resource-monitor.ts
+  h_5be255725524c8 103
+specs/APP/APP-066_resource-monitor/TECH.md
+  h_5be255725524c8 322
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "f985c45e98562c10a6f4276347a9328def65a727",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
