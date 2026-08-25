@@ -29,7 +29,7 @@ This design implements M1–M7 with no new crate, database table, REST endpoint,
 | Host detail | Keep headline Host fields and add per-logical-core CPU plus a nested memory breakdown with an explicit accounting enum. Do not expose CPU brand/frequency or host identity. |
 | Metric motion | Animate usage-bar transform and chart updates for less than one 2.5-second sample interval. Disable metric animation under reduced motion; hover fills remain instant. |
 | Dither visualization | Resource pressure charts/meters reuse the Token Usage Dither canvas engine. Threshold selection stays feature-local: low `<60` success, medium `60–79` warning, high `≥80` destructive. |
-| Disk capacity | Sample storage-only local volumes through `sysinfo::Disks` with a 2.5-second engine cache. Do not reuse Disk Analyzer, collect disk I/O, or enumerate network/tmpfs mounts. |
+| Disk capacity | Sample storage-only mounts through `sysinfo::Disks`, then select one primary system disk (`/` on Unix, system drive on Windows) with a 2.5-second engine cache. Do not expose disk images, secondary APFS views, removable/network/tmpfs mounts, Disk Analyzer, or disk I/O. |
 
 ## Architecture overview
 
@@ -342,13 +342,13 @@ Memory accounting:
 
 Dither and Disk:
 
-- Shared UI provides generic `DitherUsageBar`, fixed-domain two-series `DitherUsageHistory`, and single-canvas `DitherUsageGrid`; these contain no Resource Monitor thresholds.
+- Shared UI provides `DitherFunnel` with an optional full-length track and compact fixed-domain `DitherGrowth`; these contain no Resource Monitor thresholds.
 - Resource Monitor resolves semantic Dither colors from theme tokens and applies low/success, medium/warning, and high/destructive thresholds. Available/cached/free remain neutral because they are not pressure.
 - Dither morph duration remains below the interactive 2.5-second sample interval and snaps under reduced motion.
 - `ResourceMetricsEngine` owns a `sysinfo::Disks` sampler separate from `System`, refreshes only storage capacity, and caches the filtered result for 2.5 seconds.
-- Drop zero-capacity, pseudo, hidden system, network, tmpfs/overlay-style mounts; deduplicate equivalent mounts; preserve `/` and macOS Data when they are distinct volumes; sort stable and cap at 16.
+- Drop zero-capacity, pseudo, hidden system, network, tmpfs/overlay-style, removable, and disk-image mounts; deduplicate; select `/` on macOS/Linux or the Windows system drive, with a largest-local-disk fallback; emit at most one disk.
 - Disk wire may expose the filtered mount root as a narrow exception to the process-path privacy rule. Device path, filesystem UUID, serial, and directory contents are never emitted.
-- Disk is a default-collapsed row directly below Host and outside the Project hierarchy. The collapsed summary uses the fullest volume; expansion shows independent per-volume capacity meters. Disk Analyzer remains separate.
+- Disk is a default-collapsed row directly below Host and outside the Project hierarchy. Its summary and expansion describe only the selected primary disk. Disk Analyzer remains separate.
 
 #### Terminal navigation and locate pulse
 

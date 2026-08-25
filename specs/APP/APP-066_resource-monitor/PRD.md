@@ -44,7 +44,7 @@
 - **M9 — Diagnostic presentation**: The popover provides a clear Host summary, a useful client-side CPU/memory trend, aligned CPU and memory columns, and Name/CPU/Memory sorting without increasing Server sampling frequency.
 - **M10 — Explainable scope totals**: Every Project and Workspace can explain its aggregate usage through exclusive terminal-session and non-session process groups. Project-direct resources appear before Workspaces. Attributed listening programs show their local ports without exposing PID, command line, environment, username, or absolute host paths.
 - **M11 — Progressive Host and Atmos inspection**: Host and Atmos are compact, default-collapsed rows with CPU/memory summaries. Expanding Host reveals animated usage/trend surfaces plus CPU and memory detail panels. CPU detail shows every logical core; memory detail shows used, available, cached/free information, and swap using explicit platform accounting semantics.
-- **M12 — Disk capacity**: A default-collapsed Disk module shows local physical/removable volumes, their capacity, used/available bytes, and pressure percentage. Expanding it reveals per-volume rows without invoking directory analysis or disk-I/O tracing.
+- **M12 — Disk capacity**: A default-collapsed Disk module shows one primary system disk, its capacity, used/available bytes, and pressure percentage. Mounted disk images, secondary APFS views, removable/network/pseudo volumes, and duplicate mounts do not appear.
 
 ### Nice to Have
 
@@ -72,7 +72,7 @@
 - **Navigation**: Selecting a live terminal row lands on the correct Workspace/Project, Center Space, Terminal tab, and panel without reusing the agent-attention signal.
 - **Explainability**: Project memory and process-count totals reconcile with Project-direct plus Workspace totals, and Workspace totals reconcile with session plus non-session process buckets.
 - **Inspection UX**: Collapsed Host/Atmos rows preserve table space while still showing current totals; detail panels remain keyboard accessible and do not close the parent Resource Monitor.
-- **Disk clarity**: Users can identify the fullest local volume without opening Disk Analyzer, while pseudo/network mounts and device identifiers remain hidden.
+- **Disk clarity**: Users can understand the primary system disk total without duplicate APFS/Data views or mounted installer/development images.
 - **Performance**: Interactive and idle overhead stay within the budgets defined by TEST.md.
 - **Qualitative**: Shared and unattributed rows make attribution limitations understandable rather than appearing as missing data.
 
