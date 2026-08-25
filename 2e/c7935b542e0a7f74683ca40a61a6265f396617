@@ -1,0 +1,22 @@
+packages/ui/src/components/dither/DitherFunnel.tsx
+  h_5be255725524c8 198-201
+packages/ui/src/components/dither/DitherGrowth.tsx
+  h_5be255725524c8 262-264,401-407
+packages/ui/src/components/dither/dither-domain.structural.test.ts
+  h_5be255725524c8 28-44
+packages/ui/src/components/ui/dither-gauge.tsx
+  h_5be255725524c8 17-18,28,37-40,70,72,85-86,105,136-139,152,171-172,190,211
+packages/ui/src/lib/dither/use-dither-canvas.ts
+  h_5be255725524c8 5-6,13-25,31-37,58,61-63,70-77,79-80,86-88,90,92-95,103-106,109,111-112,114-115,125-133,136,139-159,164-168,179,181
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "2ec7935b542e0a7f74683ca40a61a6265f396617",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
