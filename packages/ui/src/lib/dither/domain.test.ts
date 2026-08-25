@@ -5,6 +5,7 @@ import {
   clampToDomain,
   isFixedDomainMax,
   resolveDomainMax,
+  resolveFixedDomainMax,
 } from "./domain";
 
 describe("isFixedDomainMax", () => {
@@ -20,6 +21,15 @@ describe("isFixedDomainMax", () => {
     expect(isFixedDomainMax(Number.NaN)).toBe(false);
     expect(isFixedDomainMax(Number.POSITIVE_INFINITY)).toBe(false);
     expect(isFixedDomainMax(Number.NEGATIVE_INFINITY)).toBe(false);
+  });
+});
+
+describe("resolveFixedDomainMax", () => {
+  test("uses yMax when valid and otherwise keeps the auto max", () => {
+    expect(resolveFixedDomainMax(100, 53)).toBe(100);
+    expect(resolveFixedDomainMax(undefined, 53)).toBe(53);
+    expect(resolveFixedDomainMax(0, 53)).toBe(53);
+    expect(resolveFixedDomainMax(Number.NaN, 53)).toBe(53);
   });
 });
 

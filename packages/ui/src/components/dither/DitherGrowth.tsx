@@ -2,6 +2,14 @@
 
 import { useCallback, useRef, useState } from "react";
 import { cn } from "../../lib/utils";
+import { clampToDomain } from "../../lib/dither/domain";
+import {
+  growthAxisMax,
+  resolveGrowthAxisMax,
+  resolveGrowthInk,
+  resolveGrowthPlotPadding,
+  shouldPaintGrowthGuides,
+} from "../../lib/dither/growth-layout";
 import { type DitherTheme } from "../../lib/dither/math";
 import {
   createSeriesMorph,
@@ -31,6 +39,19 @@ export type DitherGrowthProps = {
    * grow-in instead of cross-scale index morph.
    */
   domainKey?: string;
+  /**
+   * Optional fixed positive Y domain. When finite and > 0, draw uses this
+   * max instead of the 1.06 auto axis and clamps plotted points to 0..yMax.
+   * Omitted / invalid keeps the Token Usage auto domain. Read via ref.
+   */
+  yMax?: number;
+  /** Hex fill / scrub-dot ink. Omitted keeps theme ink. */
+  color?: string;
+  /**
+   * Hide Y guides/labels and X labels, with ~2/0 padding for a 40–50px
+   * area chart. Default is the labeled Token Usage layout.
+   */
+  compact?: boolean;
 };
 
 /** Evenly spaced indices, always including first and last when count > 1. */
@@ -48,16 +69,6 @@ function sparseIndices(count: number, maxLabels: number): number[] {
   return [...new Set(out)];
 }
 
-/**
- * Y-axis ceiling from the series peak — proportional headroom only.
- * ~6% above max so the crest doesn't kiss the top, without rounding
- * up to a "nice" number that can nearly double the scale.
- */
-function growthAxisMax(peak: number): number {
-  if (peak <= 0) return 1;
-  return peak * 1.06;
-}
-
 /** Ordered-dither growth chart with sparse axes + scrub tooltip. */
 export function DitherGrowth({
   values,
@@ -69,6 +80,9 @@ export function DitherGrowth({
   formatValue = (v) => Math.round(v).toLocaleString(),
   formatSliding,
   domainKey,
+  yMax,
+  color,
+  compact = false,
 }: DitherGrowthProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const pointerRef = useRef({
@@ -89,6 +103,12 @@ export function DitherGrowth({
   formatSlidingRef.current = formatSliding;
   const valueLabelRef = useRef(valueLabel);
   valueLabelRef.current = valueLabel;
+  const yMaxRef = useRef(yMax);
+  yMaxRef.current = yMax;
+  const colorRef = useRef(color);
+  colorRef.current = color;
+  const compactRef = useRef(compact);
+  compactRef.current = compact;
   const clientRef = useRef({ x: 0, y: 0 });
   const lastTipKey = useRef("");
   const morphRef = useRef<SeriesMorph | null>(null);
@@ -185,8 +205,12 @@ export function DitherGrowth({
       const toAxis =
         toAxisRef.current ||
         growthAxisMax(targetPeak > 0 ? targetPeak : samplePeak);
-      const axisMax = Math.max(1e-6, fromAxis + (toAxis - fromAxis) * prog);
+      const autoAxis = Math.max(1e-6, fromAxis + (toAxis - fromAxis) * prog);
+      const domainMax = yMaxRef.current;
+      const axisMax = resolveGrowthAxisMax(domainMax, autoAxis);
       lastAxisRef.current = axisMax;
+      const compact = compactRef.current;
+      const showGuides = shouldPaintGrowthGuides(compact);
       const yTickCount = 3;
       const yTickValues = Array.from(
         { length: yTickCount },
@@ -195,17 +219,21 @@ export function DitherGrowth({
 
       ctx.font = "10px ui-monospace, SFMono-Regular, Menlo, monospace";
       let yLabelW = 0;
-      for (const value of yTickValues) {
-        yLabelW = Math.max(yLabelW, ctx.measureText(formatRef.current(value)).width);
+      if (showGuides) {
+        for (const value of yTickValues) {
+          yLabelW = Math.max(yLabelW, ctx.measureText(formatRef.current(value)).width);
+        }
       }
 
-      const padL = Math.min(64, Math.max(32, Math.ceil(yLabelW) + 10));
-      const padR = 10;
-      const padT = 10;
-      const padB = 22;
+      const { padL, padR, padT, padB } = resolveGrowthPlotPadding(
+        compact,
+        yLabelW,
+      );
       const plotW = Math.max(1, w - padL - padR);
       const plotH = Math.max(1, h - padT - padB);
       const plotBottom = padT + plotH;
+      const plotY = (value: number) =>
+        plotBottom - plotH * (clampToDomain(value, domainMax) / axisMax);
 
       const cell = Math.max(3, Math.round(plotW / 180));
 
@@ -228,7 +256,7 @@ export function DitherGrowth({
       }
 
       const glowStrength = ptr.active;
-      const ink = theme === "dark" ? "#FFFFFF" : "#0F172A";
+      const ink = resolveGrowthInk(colorRef.current, theme);
       const axisMuted =
         theme === "dark" ? "rgba(255,255,255,0.38)" : "rgba(15,23,42,0.42)";
       const gridMuted =
@@ -237,24 +265,26 @@ export function DitherGrowth({
         theme === "dark" ? "rgba(255,255,255,0.12)" : "rgba(15,23,42,0.14)";
 
       // --- Sparse Y-axis (3 ticks) + faint guides ---
-      ctx.font = "10px ui-monospace, SFMono-Regular, Menlo, monospace";
-      ctx.textAlign = "right";
-      ctx.textBaseline = "middle";
-      for (let i = 0; i < yTickCount; i++) {
-        const frac = i / (yTickCount - 1);
-        const value = yTickValues[i]!;
-        const y = padT + frac * plotH;
+      if (showGuides) {
+        ctx.font = "10px ui-monospace, SFMono-Regular, Menlo, monospace";
+        ctx.textAlign = "right";
+        ctx.textBaseline = "middle";
+        for (let i = 0; i < yTickCount; i++) {
+          const frac = i / (yTickCount - 1);
+          const value = yTickValues[i]!;
+          const y = padT + frac * plotH;
 
-        ctx.strokeStyle = i === yTickCount - 1 ? baselineMuted : gridMuted;
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(padL, y);
-        ctx.lineTo(padL + plotW, y);
-        ctx.stroke();
+          ctx.strokeStyle = i === yTickCount - 1 ? baselineMuted : gridMuted;
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(padL, y);
+          ctx.lineTo(padL + plotW, y);
+          ctx.stroke();
 
-        ctx.fillStyle = axisMuted;
-        ctx.globalAlpha = 1;
-        ctx.fillText(formatRef.current(value), padL - 6, y);
+          ctx.fillStyle = axisMuted;
+          ctx.globalAlpha = 1;
+          ctx.fillText(formatRef.current(value), padL - 6, y);
+        }
       }
 
       // --- Curve fill within plot bounds ---
@@ -266,7 +296,7 @@ export function DitherGrowth({
         const i1 = Math.min(i0 + 1, data.length - 1);
         const frac = exactIdx - i0;
         const val = data[i0]! + (data[i1]! - data[i0]!) * frac;
-        const curveY = plotBottom - plotH * (val / axisMax);
+        const curveY = plotY(val);
 
         for (let y = plotBottom; y >= curveY; y -= cell) {
           const fillSpan = Math.max(1, plotBottom - curveY);
@@ -291,7 +321,7 @@ export function DitherGrowth({
 
       // --- Sparse X-axis labels ---
       const labelList = labelsRef.current;
-      if (labelList && labelList.length > 0) {
+      if (showGuides && labelList && labelList.length > 0) {
         const maxXLabels = Math.max(2, Math.min(5, Math.floor(plotW / 64)));
         const indices = sparseIndices(data.length, maxXLabels);
         ctx.fillStyle = axisMuted;
@@ -316,7 +346,7 @@ export function DitherGrowth({
         const sx = ptr.scrubX;
         const idx = ptr.scrubIdx;
         const val = data[idx] ?? 0;
-        const cy = plotBottom - plotH * (val / axisMax);
+        const cy = plotY(val);
         ctx.globalAlpha = 0.28 * glowStrength;
         ctx.strokeStyle = ink;
         ctx.lineWidth = 1;
