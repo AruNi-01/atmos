@@ -107,6 +107,8 @@ describe("resource monitor dither structure", () => {
     expect(footerSrc).toContain("usageWidth");
     expect(footerSrc).toContain("scrollWidth");
     expect(footerSrc).toContain("data-resource-monitor-footer-measure");
+    expect(footerSrc).toContain("data-resource-monitor-footer-label");
+    expect(footerSrc).toContain("data-resource-monitor-footer-usage");
     expect(footerSrc).toContain("invisible inline-flex items-center gap-1 whitespace-nowrap font-medium");
     expect(footerSrc).toContain('type: "spring"');
     expect(footerSrc).not.toContain("min-w-[7.75rem]");

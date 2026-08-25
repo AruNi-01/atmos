@@ -186,7 +186,10 @@ export function ResourceMonitorFooterItem() {
                   className="relative h-4 shrink-0 overflow-hidden"
                   data-resource-monitor-footer-content=""
                 >
-                  <span className="invisible inline-flex items-center gap-1 whitespace-nowrap font-medium">
+                  <span
+                    aria-hidden
+                    className="invisible inline-flex items-center gap-1 whitespace-nowrap font-medium"
+                  >
                     {previewing ? usageContent : labelText}
                   </span>
                   <AnimatePresence initial={false} mode="sync">
@@ -201,6 +204,7 @@ export function ResourceMonitorFooterItem() {
                           ease: [0.22, 1, 0.36, 1],
                         }}
                         className="absolute inset-0 inline-flex items-center gap-1 whitespace-nowrap font-medium"
+                        data-resource-monitor-footer-usage=""
                       >
                         {usageContent}
                       </motion.span>
@@ -215,6 +219,7 @@ export function ResourceMonitorFooterItem() {
                           ease: [0.22, 1, 0.36, 1],
                         }}
                         className="absolute inset-0 inline-flex items-center whitespace-nowrap font-medium"
+                        data-resource-monitor-footer-label=""
                       >
                         {labelText}
                       </motion.span>

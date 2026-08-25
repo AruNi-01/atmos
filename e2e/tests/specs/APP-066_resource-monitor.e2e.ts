@@ -368,17 +368,19 @@ test.describe("APP-066 resource monitor", () => {
     await connectLocalComputer(page, { locale: "en" });
 
     const footerItem = page.getByRole("button", { name: "Resource Monitor" });
+    const footerLabel = footerItem.locator("[data-resource-monitor-footer-label]");
+    const footerUsage = footerItem.locator("[data-resource-monitor-footer-usage]");
     await expect(footerItem).toBeVisible({ timeout: 45_000 });
-    await expect(footerItem.getByText("Monitor", { exact: true })).toBeVisible();
+    await expect(footerLabel).toHaveText("Monitor");
     const restingFooterWidth = (await footerItem.boundingBox())?.width ?? 0;
     await footerItem.hover();
-    await expect(footerItem.getByText(/^CPU \d/)).toBeVisible();
-    await expect(footerItem.getByText(/^Memory \d/)).toBeVisible();
+    await expect(footerUsage.getByText(/^CPU \d/)).toBeVisible();
+    await expect(footerUsage.getByText(/^Memory \d/)).toBeVisible();
     await expect
       .poll(async () => (await footerItem.boundingBox())?.width ?? 0)
       .toBeGreaterThan(restingFooterWidth + 40);
     await page.mouse.move(0, 0);
-    await expect(footerItem.getByText("Monitor", { exact: true })).toBeVisible();
+    await expect(footerLabel).toHaveText("Monitor");
     await expect
       .poll(async () =>
         Math.abs(((await footerItem.boundingBox())?.width ?? 0) - restingFooterWidth),
