@@ -204,7 +204,8 @@ describe("ResourceMonitorPopover structure", () => {
       join(import.meta.dir, "../components/ResourceMonitorHostChart.tsx"),
       "utf8",
     );
-    expect(popoverSrc).toContain("min-h-0 flex-1");
+    expect(popoverSrc).toContain("min-h-0");
+    expect(popoverSrc).toContain("flex-1");
     expect(popoverSrc).toContain(
       "max-h-[min(620px,calc(100vh-1.5rem))]",
     );

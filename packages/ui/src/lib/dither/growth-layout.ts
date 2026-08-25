@@ -69,6 +69,9 @@ export function resolveGrowthColor(
   const upperIndex = stops.findIndex((stop) => value <= stop.value);
   const lower = stops[Math.max(0, upperIndex - 1)]!;
   const upper = stops[Math.max(0, upperIndex)]!;
+  if (lower.color.toLowerCase() === upper.color.toLowerCase()) {
+    return lower.color;
+  }
   const lowerRgb = colorChannels(lower.color)!;
   const upperRgb = colorChannels(upper.color)!;
   const span = Math.max(Number.EPSILON, upper.value - lower.value);

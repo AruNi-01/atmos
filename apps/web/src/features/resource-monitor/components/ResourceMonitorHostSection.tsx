@@ -78,8 +78,6 @@ function MemoryMeter({
 
 function CpuDetailPanel({ host }: { host: ResourceHostMetrics }) {
   const t = useTranslations("resourceMonitor.popover");
-  const { resolvedTheme } = useTheme();
-  const ditherTheme = resourceMonitorDitherTheme(resolvedTheme);
   return (
     <div className="space-y-2">
       <p className="text-[11px] font-medium text-foreground">{t("cpuDetails")}</p>
@@ -244,6 +242,8 @@ export function ResourceMonitorHostSection({
   nowMs?: number;
 }) {
   const t = useTranslations("resourceMonitor.popover");
+  const { resolvedTheme } = useTheme();
+  const ditherTheme = resourceMonitorDitherTheme(resolvedTheme);
   const [hostOpen, setHostOpen] = React.useState(hostDefaultOpen);
   const [cpuDetailOpen, setCpuDetailOpen] = React.useState(false);
   const [memoryDetailOpen, setMemoryDetailOpen] = React.useState(false);
