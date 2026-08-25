@@ -1,0 +1,24 @@
+apps/web/src/app-shell/CenterStageTabBar.tsx
+  h_5be255725524c8 69-74,1111-1112,1173,1192,1394-1420,1502,1521,1525,1528-1530,1700,1705-1706,1711-1716,1950
+apps/web/src/app-shell/__tests__/center-stage-plus-menu-pointer.test.ts
+  h_5be255725524c8 1-172
+apps/web/src/app-shell/__tests__/center-stage-tab-hover.test.ts
+  h_5be255725524c8 72,75-85,90-91,94,112-114,117-123
+apps/web/src/app-shell/__tests__/center-stage-tab-shortcuts.test.ts
+  h_5be255725524c8 17-18,43-54
+apps/web/src/app-shell/center-stage-plus-menu-pointer.ts
+  h_5be255725524c8 1-174
+apps/web/src/app/globals.css
+  h_5be255725524c8 265-275
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "fa3a89270fd6345c9447164e4a5f755c173423a2",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
