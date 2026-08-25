@@ -74,6 +74,8 @@ pub(crate) struct AttributionInput {
     pub path_contexts: Vec<PathContext>,
     pub terminals: Vec<TerminalClaim>,
     pub port_cache: Option<Vec<CachedListenerPort>>,
+    /// `~/.atmos/data/desktop-use`. Name matching still runs when this is None.
+    pub desktop_use_root: Option<PathBuf>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -95,6 +97,7 @@ pub(crate) enum AssignmentOwner {
     },
     Server,
     SharedRuntime,
+    DesktopUse,
     Unattributed,
 }
 
@@ -102,6 +105,7 @@ pub(crate) enum AssignmentOwner {
 pub(crate) struct AttributionOutput {
     pub server: ResourceUsage,
     pub shared_runtime: ResourceUsage,
+    pub desktop_use: ResourceUsage,
     pub projects: Vec<super::types::ResourceProjectMetrics>,
     pub unattributed: ResourceUsage,
     pub attribution_status: ResourceAttributionStatus,
@@ -195,6 +199,7 @@ pub(crate) fn attribute(input: AttributionInput) -> AttributionOutput {
         return AttributionOutput {
             server: ResourceUsage::zero(),
             shared_runtime: ResourceUsage::zero(),
+            desktop_use: ResourceUsage::zero(),
             projects: Vec::new(),
             unattributed: ResourceUsage::zero(),
             attribution_status: ResourceAttributionStatus::Unsupported,
@@ -389,9 +394,17 @@ pub(crate) fn attribute(input: AttributionInput) -> AttributionOutput {
         }
     }
 
+    claim_desktop_use(
+        &mut assigned,
+        &processes,
+        &children,
+        input.desktop_use_root.as_deref(),
+    );
+
     let mut assignments = HashMap::new();
     let mut server = ResourceUsage::zero();
     let mut shared_runtime = ResourceUsage::zero();
+    let mut desktop_use = ResourceUsage::zero();
     let mut unattributed = ResourceUsage::zero();
     let mut usage = HierarchyUsage::default();
     let mut session_groups: HashMap<String, HashMap<String, ProcessGroupAcc>> = HashMap::new();
@@ -413,6 +426,9 @@ pub(crate) fn attribute(input: AttributionInput) -> AttributionOutput {
             }
             AssignmentOwner::SharedRuntime => {
                 shared_runtime.add_process(process.cpu_percent, process.memory_rss_bytes);
+            }
+            AssignmentOwner::DesktopUse => {
+                desktop_use.add_process(process.cpu_percent, process.memory_rss_bytes);
             }
             AssignmentOwner::Unattributed => {
                 unattributed.add_process(process.cpu_percent, process.memory_rss_bytes);
@@ -517,6 +533,7 @@ pub(crate) fn attribute(input: AttributionInput) -> AttributionOutput {
     AttributionOutput {
         server,
         shared_runtime,
+        desktop_use,
         projects,
         unattributed,
         attribution_status: if partial {
@@ -526,6 +543,46 @@ pub(crate) fn attribute(input: AttributionInput) -> AttributionOutput {
         },
         assignments,
     }
+}
+
+fn claim_desktop_use(
+    assigned: &mut [Option<AssignmentOwner>],
+    processes: &[IndexedProcess],
+    children: &HashMap<u32, Vec<usize>>,
+    desktop_use_root: Option<&Path>,
+) {
+    let mut roots = Vec::new();
+    for (index, process) in processes.iter().enumerate() {
+        if assigned[index].is_some() {
+            continue;
+        }
+        if is_desktop_use_process(process, desktop_use_root) {
+            roots.push(index);
+        }
+    }
+    for root in roots {
+        for index in subtree_indices(root, processes, children) {
+            if assigned[index].is_none() {
+                assigned[index] = Some(AssignmentOwner::DesktopUse);
+            }
+        }
+    }
+}
+
+fn is_desktop_use_process(process: &IndexedProcess, desktop_use_root: Option<&Path>) -> bool {
+    if let (Some(root), Some(cwd)) = (desktop_use_root, process.cwd.as_deref()) {
+        if !root.as_os_str().is_empty() && path_contains(root, cwd) {
+            return true;
+        }
+    }
+    let Some(name) = process.name.as_deref() else {
+        return false;
+    };
+    let base = process_group_name(Some(name)).unwrap_or_else(|| name.to_string());
+    let lower = base.to_ascii_lowercase();
+    lower.contains("desktop use")
+        || lower.contains("desktop-use")
+        || lower.starts_with("atmos-desktop-")
 }
 
 fn reserve_server_pid(

@@ -236,6 +236,7 @@ describe("ResourceMonitorPopover structure", () => {
     expect(hierarchySrc).not.toContain("border-b border-border");
     expect(hierarchySrc).toContain('t("desktop")');
     expect(hierarchySrc).toContain('t("server")');
+    expect(hierarchySrc).toContain('t("desktopUse")');
     expect(hierarchySrc).toContain('t("sharedRuntime")');
     expect(hierarchySrc).toContain('t("projects")');
     expect(hierarchySrc).toContain('t("projectResources")');

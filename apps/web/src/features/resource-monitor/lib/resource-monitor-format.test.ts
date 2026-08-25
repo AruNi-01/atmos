@@ -83,13 +83,14 @@ describe("resource-monitor-format", () => {
     ]);
   });
 
-  test("sumAtmosUsage adds Server and shared only", () => {
+  test("sumAtmosUsage adds Server, shared, and Desktop Use", () => {
     expect(
       sumAtmosUsage(
         { cpu_percent: 2, memory_rss_bytes: 100, process_count: 1 },
         { cpu_percent: 3.5, memory_rss_bytes: 40, process_count: 2 },
+        { cpu_percent: 0.2, memory_rss_bytes: 33, process_count: 1 },
       ),
-    ).toEqual({ cpu_percent: 5.5, memory_rss_bytes: 140, process_count: 3 });
+    ).toEqual({ cpu_percent: 5.7, memory_rss_bytes: 173, process_count: 4 });
   });
 
   test("stale detection uses local receive time, not server collected_at", () => {
