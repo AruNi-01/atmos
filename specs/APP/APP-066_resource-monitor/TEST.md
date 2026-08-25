@@ -411,6 +411,7 @@ just test
 - Root `@workspace/ui` typecheck remains blocked by the pre-existing `DrawerContentBare` TS2883 portability error; Web typecheck, which consumes the new `ServerGauge` and Dither props, is green.
 - Gauge/Footer follow-up: 147 targeted Bun tests passed across shared Gauge, Resource Monitor, and Layout settings; Web and E2E typechecks passed; Web lint completed with 0 errors (699 unrelated warnings).
 - The S11/S13/S16/S20 Playwright path passed on Chromium and mobile Chromium after asserting the wider 120px-style semicircle Gauge canvas, Monitor-to-usage hover transition, retained reduced-motion path, no horizontal overflow, and exact Project CPU/Memory header alignment. The test first reproduced a real 16px row-width conflict and passed after removing the overriding `w-full`.
+- Workspace/Footer polish: localized Workspace badge and spring-width structure tests passed; Web typecheck passed; Chromium and mobile Chromium verified the idle Footer stays compact, expands by more than 40px on hover, returns to its original width, and retains the existing monitor workflow.
 
 ### Test-run files changed
 

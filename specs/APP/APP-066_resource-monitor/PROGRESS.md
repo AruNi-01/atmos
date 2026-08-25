@@ -54,6 +54,7 @@
 - Completed Token Usage Dither reuse, semantic pressure colors, and filtered cross-platform Disk capacity.
 - Refined the monitor with an Amicro-derived dynamic ServerGauge, vertical threshold gradients, concrete hover amounts, agent-aware session icons, percentage-only Footer memory, one responsive scroll surface, and a non-dismissing Disk Analysis link.
 - Matched the upstream Amicro ServerGauge semicircle geometry, added spring-driven live updates, changed the Footer to a Monitor-to-usage hover/focus transition, made unhealthy WebSocket status automatic, moved Monitor before Local Services, and corrected the 16px Project metric-column offset.
+- Added a localized Workspace badge to Workspace-owned rows and removed the Footer Monitor's expanded idle footprint; its width now springs from the compact label to live usage only on hover/focus.
 
 ## Decisions Since TECH
 
@@ -73,6 +74,7 @@ No implementation deltas.
 | M12 Dither + Disk | UI/Rust/api-types/Web/Playwright | passed | 45 UI + 27 engine + 36 RM + 17 API + 19 DTO + 136 Web tests |
 | UI refinement | UI/Web/Playwright | passed | 40 Dither + 139 Web tests; Web typecheck/lint; Host/Disk/Atmos App flow passed on Chromium and mobile Chromium |
 | Gauge/Footer follow-up | UI/Web/Playwright | passed | 147 Bun tests; Web typecheck/lint; wide Gauge, hover transition, Footer order, and CPU/Memory alignment passed on Chromium and mobile Chromium |
+| Workspace/Footer polish | Web/Playwright | passed | localized Workspace badge tests + Web typecheck; compact-to-expanded Footer width passed on Chromium and mobile Chromium |
 | Full repository | `just test` / `just typecheck` | unrelated failures | APP-066 surfaces pass; see `TEST.md` Coverage Status |
 | Agent Browser/manual | exploratory | partial | Connect gate blocked Agent Browser; host-specific checks remain |
 
