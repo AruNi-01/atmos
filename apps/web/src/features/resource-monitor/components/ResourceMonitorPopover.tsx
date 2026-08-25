@@ -13,6 +13,7 @@ import {
 import { cn } from "@/shared/lib/utils";
 import type { ResourceMonitorSnapshot } from "@atmos/api-types/ws/dto/resource-monitor";
 import type { DesktopShellMetricsSnapshot } from "@/features/resource-monitor/lib/desktop-shell-metrics";
+import { ResourceMonitorDiskSection } from "@/features/resource-monitor/components/ResourceMonitorDiskSection";
 import { ResourceMonitorHierarchy } from "@/features/resource-monitor/components/ResourceMonitorHierarchy";
 import { ResourceMonitorHostSection } from "@/features/resource-monitor/components/ResourceMonitorHostSection";
 import { isUsageVisible } from "@/features/resource-monitor/lib/resource-monitor-format";
@@ -151,6 +152,12 @@ export function ResourceMonitorPopover({
             nowMs={nowMs}
           />
         </div>
+
+        {showSnapshot && snapshot && snapshot.disks.length > 0 ? (
+          <div className="shrink-0">
+            <ResourceMonitorDiskSection disks={snapshot.disks} />
+          </div>
+        ) : null}
 
         {showSnapshot && snapshot ? (
           <ScrollArea className="min-h-0 flex-1">

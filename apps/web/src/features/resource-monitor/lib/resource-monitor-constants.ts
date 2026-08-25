@@ -5,5 +5,5 @@ export const RESOURCE_MONITOR_STALE_MS = 45_000;
 export const RESOURCE_MONITOR_CLOCK_MS = 8_000;
 /** Client-side Host trend ring. Existing Query snapshots only. */
 export const RESOURCE_MONITOR_HISTORY_CAP = 60;
-/** Usage bars switch from info/foreground to warning at this percent. */
-export const RESOURCE_MONITOR_HIGH_USAGE_PERCENT = 80;
+/** Matches the Server disk list cap. */
+export const RESOURCE_MONITOR_DISK_CAP = 16;

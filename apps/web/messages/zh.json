@@ -8228,6 +8228,10 @@
       "coreIndex": "CPU {index}",
       "expandHost": "展开主机",
       "collapseHost": "收起主机",
+      "disk": "磁盘",
+      "volumes": "{count} 个卷",
+      "expandDisk": "展开磁盘",
+      "collapseDisk": "收起磁盘",
       "expandAtmos": "展开 Atmos",
       "collapseAtmos": "收起 Atmos",
       "accounting": {

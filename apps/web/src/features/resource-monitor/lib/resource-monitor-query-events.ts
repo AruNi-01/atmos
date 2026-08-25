@@ -5,6 +5,7 @@ import { queryKeys } from "@/api/query/query-keys";
 import type { ComputerQueryScope } from "@/api/query/query-scope";
 import type {
   ResourceAttributionStatus,
+  ResourceDiskMetrics,
   ResourceHostCpuCore,
   ResourceHostMemoryMetrics,
   ResourceHostMetrics,
@@ -13,8 +14,18 @@ import type {
   ResourceProcessMetrics,
   ResourceUsage,
 } from "@atmos/api-types/ws/dto/resource-monitor";
+import { RESOURCE_MONITOR_DISK_CAP } from "@/features/resource-monitor/lib/resource-monitor-constants";
 
 const PROCESS_ALLOWED_KEYS = new Set(["name", "usage", "ports"]);
+const DISK_ALLOWED_KEYS = new Set([
+  "name",
+  "mount_point",
+  "total_bytes",
+  "used_bytes",
+  "available_bytes",
+  "usage_percent",
+  "removable",
+]);
 
 function isFiniteNonNegative(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value) && value >= 0;
@@ -209,6 +220,40 @@ function isAttributionStatus(value: unknown): value is ResourceAttributionStatus
   return value === "complete" || value === "partial" || value === "unsupported";
 }
 
+function isDiskName(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+export function isResourceDiskMetrics(value: unknown): value is ResourceDiskMetrics {
+  if (!value || typeof value !== "object") return false;
+  const disk = value as Record<string, unknown>;
+  const keys = Object.keys(disk);
+  if (keys.length !== DISK_ALLOWED_KEYS.size) return false;
+  if (keys.some((key) => !DISK_ALLOWED_KEYS.has(key))) return false;
+  if (!isDiskName(disk.name)) return false;
+  if (typeof disk.mount_point !== "string" || disk.mount_point.length === 0) {
+    return false;
+  }
+  if (
+    !isFiniteNonNegative(disk.total_bytes) ||
+    !isFiniteNonNegative(disk.used_bytes) ||
+    !isFiniteNonNegative(disk.available_bytes) ||
+    !isCpuPercent(disk.usage_percent) ||
+    typeof disk.removable !== "boolean"
+  ) {
+    return false;
+  }
+  return disk.used_bytes + disk.available_bytes === disk.total_bytes;
+}
+
+function isDiskList(value: unknown): value is ResourceDiskMetrics[] {
+  return (
+    Array.isArray(value) &&
+    value.length <= RESOURCE_MONITOR_DISK_CAP &&
+    value.every(isResourceDiskMetrics)
+  );
+}
+
 export function isResourceMonitorSnapshot(
   data: unknown,
 ): data is ResourceMonitorSnapshot {
@@ -217,6 +262,7 @@ export function isResourceMonitorSnapshot(
   return (
     isFiniteNonNegative(value.collected_at_ms) &&
     isResourceHostMetrics(value.host) &&
+    isDiskList(value.disks) &&
     isResourceUsage(value.server) &&
     isResourceUsage(value.shared_runtime) &&
     isResourceUsage(value.unattributed) &&

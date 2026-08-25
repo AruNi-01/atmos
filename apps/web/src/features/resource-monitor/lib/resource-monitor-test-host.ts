@@ -1,4 +1,5 @@
 import type {
+  ResourceDiskMetrics,
   ResourceHostCpuCore,
   ResourceHostMemoryMetrics,
   ResourceHostMetrics,
@@ -40,6 +41,22 @@ export function testHostCores(count: number, cpuPercent = 10): ResourceHostCpuCo
   }));
 }
 
+export function testDiskMetrics(
+  overrides: Partial<ResourceDiskMetrics> = {},
+): ResourceDiskMetrics {
+  const total = overrides.total_bytes ?? 1_000_000_000_000;
+  const used = overrides.used_bytes ?? 400_000_000_000;
+  return {
+    name: overrides.name ?? "Macintosh HD",
+    mount_point: overrides.mount_point ?? "/",
+    total_bytes: total,
+    used_bytes: used,
+    available_bytes: overrides.available_bytes ?? total - used,
+    usage_percent: overrides.usage_percent ?? 40,
+    removable: overrides.removable ?? false,
+  };
+}
+
 export function testHostMetrics(
   overrides: Partial<ResourceHostMetrics> = {},
 ): ResourceHostMetrics {
@@ -75,6 +92,7 @@ export function testSnapshot(
   return {
     collected_at_ms: 1_700_000_000,
     host: testHostMetrics(),
+    disks: [],
     server: usage,
     shared_runtime: usage,
     projects: [],

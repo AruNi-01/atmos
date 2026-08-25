@@ -4,6 +4,7 @@ import type { ComputerQueryScope } from "@/api/query/query-scope";
 import type { ResourceMonitorSnapshot } from "@atmos/api-types/ws/dto/resource-monitor";
 import {
   applyResourceMonitorUpdated,
+  isResourceDiskMetrics,
   isResourceHostMetrics,
   isResourceMemoryAccounting,
   isResourceMonitorSnapshot,
@@ -11,6 +12,7 @@ import {
 } from "@/features/resource-monitor/lib/resource-monitor-query-events";
 import {
   TEST_ACCOUNTING,
+  testDiskMetrics,
   testHostMemory,
   testHostMetrics,
   testSnapshot,
@@ -571,6 +573,61 @@ describe("isResourceHostMetrics", () => {
         ...makeSnapshot(),
         host: { ...host, memory: { ...memory, cached_bytes: 12 } },
       }),
+    ).toBe(true);
+  });
+});
+
+describe("isResourceDiskMetrics", () => {
+  test("requires snapshot.disks and accepts empty or valid volumes", () => {
+    const valid = makeSnapshot();
+    expect(isResourceMonitorSnapshot(valid)).toBe(true);
+    expect(isResourceMonitorSnapshot({ ...valid, disks: [] })).toBe(true);
+    expect(
+      isResourceMonitorSnapshot({
+        ...valid,
+        disks: [testDiskMetrics({ mount_point: "/System/Volumes/Data" })],
+      }),
+    ).toBe(true);
+    const missing = { ...valid } as Record<string, unknown>;
+    delete missing.disks;
+    expect(isResourceMonitorSnapshot(missing)).toBe(false);
+    expect(isResourceMonitorSnapshot({ ...valid, disks: null })).toBe(false);
+    expect(isResourceMonitorSnapshot({ ...valid, disks: undefined })).toBe(false);
+  });
+
+  test("rejects extra fields, bad name/mount/bytes/percent, and used+available mismatch", () => {
+    const disk = testDiskMetrics();
+    expect(isResourceDiskMetrics(disk)).toBe(true);
+    expect(isResourceDiskMetrics({ ...disk, name: "   " })).toBe(false);
+    expect(isResourceDiskMetrics({ ...disk, mount_point: 12 })).toBe(false);
+    expect(isResourceDiskMetrics({ ...disk, mount_point: "" })).toBe(false);
+    expect(isResourceDiskMetrics({ ...disk, removable: "false" })).toBe(false);
+    expect(isResourceDiskMetrics({ ...disk, usage_percent: 101 })).toBe(false);
+    expect(isResourceDiskMetrics({ ...disk, usage_percent: -1 })).toBe(false);
+    expect(
+      isResourceDiskMetrics({
+        ...disk,
+        used_bytes: disk.used_bytes + 1,
+      }),
+    ).toBe(false);
+    expect(isResourceDiskMetrics({ ...disk, io_bytes: 8 })).toBe(false);
+    expect(isResourceDiskMetrics({ ...disk, device: "/dev/disk0" })).toBe(false);
+    const missingField = { ...disk } as Record<string, unknown>;
+    delete missingField.removable;
+    expect(isResourceDiskMetrics(missingField)).toBe(false);
+  });
+
+  test("rejects more than 16 volumes", () => {
+    const valid = makeSnapshot();
+    const disks = Array.from({ length: 17 }, (_, index) =>
+      testDiskMetrics({
+        name: `vol-${index}`,
+        mount_point: `/${index}`,
+      }),
+    );
+    expect(isResourceMonitorSnapshot({ ...valid, disks })).toBe(false);
+    expect(
+      isResourceMonitorSnapshot({ ...valid, disks: disks.slice(0, 16) }),
     ).toBe(true);
   });
 });

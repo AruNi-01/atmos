@@ -2,8 +2,8 @@
 
 import React from "react";
 import { useTranslations } from "next-intl";
-import { useReducedMotion } from "motion/react";
-import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { useTheme } from "next-themes";
+import { DitherRevenueLines } from "@workspace/ui";
 import {
   formatHostHistoryLocalTime,
   hostHistoryAgeSeconds,
@@ -12,64 +12,46 @@ import {
 import { formatPercent } from "@/features/resource-monitor/lib/resource-monitor-format";
 import type { ResourceHostHistoryPoint } from "@/features/resource-monitor/lib/resource-monitor-host-history";
 import {
-  RESOURCE_MONITOR_CHART_DURATION_MS,
-  RESOURCE_MONITOR_CHART_EASING,
-  resourceMonitorChartAnimationActive,
-} from "@/features/resource-monitor/lib/resource-monitor-motion";
+  resourceMonitorDitherColor,
+  resourceMonitorDitherTheme,
+} from "@/features/resource-monitor/lib/resource-monitor-pressure";
 
-const CHART_HEIGHT_CLASS = "h-[52px]";
+const TRACK_HEIGHT_CLASS = "h-9";
 
-function HostTrendTooltip({
-  active,
-  payload,
+function HostChartTrack({
+  seriesId,
   label,
-  nowMs,
+  values,
+  labels,
+  color,
+  theme,
 }: {
-  active?: boolean;
-  payload?: Array<{ dataKey?: string | number; value?: number }>;
-  label?: string | number;
-  nowMs: number;
+  seriesId: string;
+  label: string;
+  values: number[];
+  labels: string[];
+  color: string;
+  theme: "light" | "dark";
 }) {
-  const t = useTranslations("resourceMonitor.popover");
-  if (!active || !payload?.length) return null;
-  const receivedAtMs = typeof label === "number" ? label : Number(label);
-  const localTime = formatHostHistoryLocalTime(receivedAtMs);
-  const relative = hostHistoryRelative(hostHistoryAgeSeconds(receivedAtMs, nowMs));
-  const relativeLabel =
-    relative.kind === "now"
-      ? t("chartJustNow")
-      : relative.kind === "seconds"
-        ? t("chartSecondsAgo", { count: relative.count })
-        : t("chartMinutesAgo", { count: relative.count });
-  const cpu = payload.find((item) => item.dataKey === "cpu_percent")?.value;
-  const memory = payload.find((item) => item.dataKey === "memory_percent")?.value;
   return (
-    <div className="rounded-md border border-border bg-popover px-2 py-1.5 text-[11px] text-popover-foreground shadow-md">
-      {localTime ? (
-        <div className="text-muted-foreground">
-          {localTime} · {relativeLabel}
-        </div>
-      ) : null}
-      {cpu != null ? <div>{t("chartCpu", { value: formatPercent(cpu) })}</div> : null}
-      {memory != null ? (
-        <div>{t("chartMemory", { value: formatPercent(memory) })}</div>
-      ) : null}
-    </div>
-  );
-}
-
-function ChartLegend() {
-  const t = useTranslations("resourceMonitor.popover");
-  return (
-    <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
-      <span className="inline-flex items-center gap-1">
-        <span className="size-2.5 rounded-[2px] bg-info" aria-hidden />
-        {t("cpu")}
-      </span>
-      <span className="inline-flex items-center gap-1">
-        <span className="size-2.5 rounded-[2px] bg-foreground/60" aria-hidden />
-        {t("memory")}
-      </span>
+    <div className="min-w-0 space-y-0.5">
+      <p className="text-[10px] text-muted-foreground">{label}</p>
+      <div className={`${TRACK_HEIGHT_CLASS} w-full`}>
+        <DitherRevenueLines
+          series={[
+            {
+              id: seriesId,
+              values,
+              color,
+              label,
+            },
+          ]}
+          labels={labels}
+          yMax={100}
+          theme={theme}
+          formatValue={formatPercent}
+        />
+      </div>
     </div>
   );
 }
@@ -82,14 +64,31 @@ export function ResourceMonitorHostChart({
   nowMs?: number;
 }) {
   const t = useTranslations("resourceMonitor.popover");
-  const reduceMotion = useReducedMotion();
-  const animateLines = resourceMonitorChartAnimationActive(reduceMotion);
-  const chartData = React.useMemo(() => [...history], [history]);
+  const { resolvedTheme } = useTheme();
+  const theme = resourceMonitorDitherTheme(resolvedTheme);
+  const labels = React.useMemo(
+    () =>
+      history.map((point) => {
+        const localTime = formatHostHistoryLocalTime(point.received_at_ms);
+        const relative = hostHistoryRelative(
+          hostHistoryAgeSeconds(point.received_at_ms, nowMs),
+        );
+        const relativeLabel =
+          relative.kind === "now"
+            ? t("chartJustNow")
+            : relative.kind === "seconds"
+              ? t("chartSecondsAgo", { count: relative.count })
+              : t("chartMinutesAgo", { count: relative.count });
+        return localTime ? `${localTime} · ${relativeLabel}` : relativeLabel;
+      }),
+    [history, nowMs, t],
+  );
+  const latest = history.at(-1);
 
-  if (chartData.length < 2) {
+  if (history.length < 2 || latest == null) {
     return (
       <p
-        className={`flex ${CHART_HEIGHT_CLASS} items-center text-[11px] text-muted-foreground`}
+        className={`flex ${TRACK_HEIGHT_CLASS} items-center text-[11px] text-muted-foreground`}
         data-resource-monitor-collecting=""
       >
         {t("collectingSamples")}
@@ -98,56 +97,32 @@ export function ResourceMonitorHostChart({
   }
 
   return (
-    <div className="space-y-1">
-      <ChartLegend />
-      <div
-        role="img"
-        aria-label={t("chartAriaLabel")}
-        className={`${CHART_HEIGHT_CLASS} w-full`}
-        data-resource-monitor-chart=""
-      >
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={chartData} margin={{ top: 4, right: 4, bottom: 2, left: 4 }}>
-            <XAxis
-              dataKey="received_at_ms"
-              type="number"
-              domain={["dataMin", "dataMax"]}
-              hide
-            />
-            <YAxis domain={[0, 100]} hide />
-            <Tooltip
-              content={<HostTrendTooltip nowMs={nowMs} />}
-              isAnimationActive={false}
-              allowEscapeViewBox={{ x: true, y: true }}
-              cursor={{ stroke: "var(--color-border)" }}
-              wrapperStyle={{ zIndex: 20, pointerEvents: "none" }}
-            />
-            <Line
-              type="monotone"
-              dataKey="cpu_percent"
-              stroke="var(--color-info)"
-              strokeWidth={1.5}
-              dot={false}
-              isAnimationActive={animateLines}
-              animationDuration={RESOURCE_MONITOR_CHART_DURATION_MS}
-              animationEasing={RESOURCE_MONITOR_CHART_EASING}
-              name={t("cpu")}
-            />
-            <Line
-              type="monotone"
-              dataKey="memory_percent"
-              stroke="var(--color-foreground)"
-              strokeOpacity={0.55}
-              strokeWidth={1.5}
-              dot={false}
-              isAnimationActive={animateLines}
-              animationDuration={RESOURCE_MONITOR_CHART_DURATION_MS}
-              animationEasing={RESOURCE_MONITOR_CHART_EASING}
-              name={t("memory")}
-            />
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
+    <div
+      role="img"
+      aria-label={t("chartAriaLabel")}
+      className="space-y-1.5"
+      data-resource-monitor-chart=""
+    >
+      <HostChartTrack
+        seriesId="cpu"
+        label={t("cpu")}
+        values={history.map((point) => point.cpu_percent)}
+        labels={labels}
+        color={resourceMonitorDitherColor(theme, "pressure", latest.cpu_percent)}
+        theme={theme}
+      />
+      <HostChartTrack
+        seriesId="memory"
+        label={t("memory")}
+        values={history.map((point) => point.memory_percent)}
+        labels={labels}
+        color={resourceMonitorDitherColor(
+          theme,
+          "pressure",
+          latest.memory_percent,
+        )}
+        theme={theme}
+      />
     </div>
   );
 }

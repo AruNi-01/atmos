@@ -195,6 +195,7 @@ describe("ResourceMonitorPopover structure", () => {
     );
     expect(popoverSrc).toContain('data-resource-monitor-state={state}');
     expect(popoverSrc).toContain("ResourceMonitorHostSection");
+    expect(popoverSrc).toContain("ResourceMonitorDiskSection");
     expect(popoverSrc).toContain("showDesktop");
     expect(popoverSrc).toContain("desktopLoading");
     expect(popoverSrc).toContain("lastUpdatedAtMs");
@@ -207,13 +208,15 @@ describe("ResourceMonitorPopover structure", () => {
     expect(popoverSrc).toContain("h-[min(max-content,min(520px,90vh))]");
     expect(popoverSrc).toContain("ResourceMonitorHostSection");
     expect(popoverSrc).not.toContain("border-b border-border");
-    expect(chartSrc).toContain('dataKey="received_at_ms"');
-    expect(chartSrc).toContain('type="number"');
-    expect(chartSrc).toContain('domain={["dataMin", "dataMax"]}');
+    expect(popoverSrc.indexOf("<ResourceMonitorDiskSection")).toBeLessThan(
+      popoverSrc.indexOf("<ScrollArea"),
+    );
+    expect(chartSrc).toContain("DitherRevenueLines");
+    expect(chartSrc).toContain("yMax={100}");
     expect(chartSrc).toContain("formatPercent");
     expect(chartSrc).toContain("useMemo");
-    expect(chartSrc).toContain("h-[52px]");
     expect(chartSrc).not.toContain("formatCpuPercent");
+    expect(chartSrc).not.toContain("recharts");
     expect(popoverSrc).not.toContain('role="toolbar"');
     expect(popoverSrc).not.toMatch(/uppercase|text-transform:\s*uppercase/);
     expect(hierarchySrc).toContain("data-resource-monitor-sort");

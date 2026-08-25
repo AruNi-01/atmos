@@ -16,6 +16,7 @@ import {
  * S14/S15 — real default-space Terminal session click. Extra/custom Center
  * Space hops stay in Bun locator/navigation tests; this file does not fake UI.
  * S14/S18 expand helpers only open project/workspace/session rows.
+ * Host/Disk/Atmos triggers stay excluded.
  */
 
 async function computerWsRequest<T>(
@@ -244,7 +245,7 @@ async function expandClosedGroupRows(
   popover: import("@playwright/test").Locator,
 ): Promise<void> {
   const closed = popover.locator(
-    "[data-resource-monitor-table] button[aria-expanded='false']:not([data-resource-monitor-session-trigger]):not([data-resource-monitor-host-trigger]):not([data-resource-monitor-atmos-trigger])",
+    "[data-resource-monitor-table] button[aria-expanded='false']:not([data-resource-monitor-session-trigger]):not([data-resource-monitor-host-trigger]):not([data-resource-monitor-atmos-trigger]):not([data-resource-monitor-disk-trigger])",
   );
   if ((await closed.count()) > 0) {
     await closed.first().click();
@@ -392,6 +393,17 @@ test.describe("APP-066 resource monitor", () => {
     const collecting = popover.locator("[data-resource-monitor-collecting]");
     const chart = popover.locator("[data-resource-monitor-chart]");
     await expect(collecting.or(chart)).toBeVisible();
+    await expect(popover.locator("[data-resource-monitor-host] canvas").first()).toBeVisible();
+    await expect(popover.locator("svg.recharts-surface")).toHaveCount(0);
+    await expect(popover.locator(".recharts-responsive-container")).toHaveCount(0);
+
+    const diskTrigger = popover.locator("[data-resource-monitor-disk-trigger]");
+    if ((await diskTrigger.count()) > 0) {
+      await expect(diskTrigger).toHaveAttribute("aria-expanded", "false");
+      await diskTrigger.click();
+      await expect(diskTrigger).toHaveAttribute("aria-expanded", "true");
+      await expect(popover.locator("[data-resource-monitor-disk-row]").first()).toBeVisible();
+    }
 
     const cpuDetails = popover.locator("[data-resource-monitor-details='cpu']");
     await expect(cpuDetails).toBeVisible();

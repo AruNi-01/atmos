@@ -61,7 +61,8 @@ function MemoryMeter({
       {missing ? null : (
         <ResourceMonitorUsageBar
           value={hostMemoryPercent(value, total)}
-          tone="memory"
+          tone={kind === "used" || kind === "swap" ? "pressure" : "neutral"}
+          label={label}
         />
       )}
     </div>
@@ -91,7 +92,11 @@ function CpuDetailPanel({ host }: { host: ResourceHostMetrics }) {
                   {formatCpuPercent(core.cpu_percent)}
                 </span>
               </div>
-              <ResourceMonitorUsageBar value={core.cpu_percent} tone="cpu" />
+              <ResourceMonitorUsageBar
+                value={core.cpu_percent}
+                tone="pressure"
+                label={t("coreIndex", { index: core.index })}
+              />
             </div>
           ))}
         </div>
@@ -287,7 +292,12 @@ export function ResourceMonitorHostSection({
             <div className="grid grid-cols-2 gap-3">
               <div className="min-w-0 space-y-1">
                 <p className="text-[10px] text-muted-foreground">{t("cpu")}</p>
-                <ResourceMonitorUsageBar value={host.cpu_percent} tone="cpu" />
+                <ResourceMonitorUsageBar
+                  value={host.cpu_percent}
+                  tone="pressure"
+                  label={t("cpu")}
+                  className="h-2.5"
+                />
               </div>
               <div className="min-w-0 space-y-1">
                 <p className="text-[10px] text-muted-foreground">{t("memory")}</p>
@@ -296,7 +306,9 @@ export function ResourceMonitorHostSection({
                     host.memory_used_bytes,
                     host.memory_total_bytes,
                   )}
-                  tone="memory"
+                  tone="pressure"
+                  label={t("memory")}
+                  className="h-2.5"
                 />
               </div>
             </div>
