@@ -8234,7 +8234,7 @@
       "expandAtmos": "展开 Atmos",
       "collapseAtmos": "收起 Atmos",
       "accounting": {
-        "btop_mach": "macOS Mach（btop）",
+        "btop_mach": "macOS Mach",
         "linux_memavailable": "Linux MemAvailable",
         "windows_avail_phys": "Windows 可用物理内存",
         "fallback_total_minus_available": "回退：总量减可用"

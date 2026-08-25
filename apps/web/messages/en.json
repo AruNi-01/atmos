@@ -8234,7 +8234,7 @@
       "expandAtmos": "Expand Atmos",
       "collapseAtmos": "Collapse Atmos",
       "accounting": {
-        "btop_mach": "macOS Mach (btop)",
+        "btop_mach": "macOS Mach",
         "linux_memavailable": "Linux MemAvailable",
         "windows_avail_phys": "Windows available physical",
         "fallback_total_minus_available": "Fallback: total minus available"
