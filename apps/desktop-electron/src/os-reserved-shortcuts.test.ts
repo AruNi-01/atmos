@@ -4,9 +4,10 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   chordForDigit,
+  HOST_DIGIT_SHORTCUT_EVENT,
   isOsReservedHostDigit,
-  keyboardInputEventsForChord,
   osReservedShortcutChords,
+  parseElectronInputDigitShortcut,
 } from "./os-reserved-shortcuts.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -23,13 +24,62 @@ describe("os-reserved shortcuts", () => {
     expect(isOsReservedHostDigit(3, "win32")).toBe(false);
   });
 
-  it("replays cmd+shift+digit as keyDown then keyUp", () => {
+  it("notifies the renderer over IPC instead of synthesizing the key", () => {
     const chord = chordForDigit(4, "darwin");
     expect(chord?.accelerator).toBe("Command+Shift+4");
-    expect(keyboardInputEventsForChord(chord!)).toEqual([
-      { type: "keyDown", keyCode: "4", modifiers: ["cmd", "shift"] },
-      { type: "keyUp", keyCode: "4", modifiers: ["cmd", "shift"] },
-    ]);
+    expect(HOST_DIGIT_SHORTCUT_EVENT).toBe("host-shortcut");
+    const guard = readFileSync(join(here, "host-shortcuts.ts"), "utf8");
+    expect(guard).toContain("atmos:desktop-event:${HOST_DIGIT_SHORTCUT_EVENT}");
+    expect(guard).not.toContain(".sendInputEvent(");
+    expect(guard).toContain("before-input-event");
+    expect(guard).toContain('getType() !== "webview"');
+  });
+
+  it("parses cmd/ctrl digit chords from Electron before-input-event", () => {
+    expect(
+      parseElectronInputDigitShortcut({
+        type: "keyDown",
+        code: "Digit4",
+        key: "4",
+        meta: true,
+        shift: true,
+      }),
+    ).toEqual({ digit: 4, shift: true });
+    expect(
+      parseElectronInputDigitShortcut({
+        type: "keyDown",
+        code: "Digit1",
+        key: "1",
+        meta: true,
+        shift: false,
+      }),
+    ).toEqual({ digit: 1, shift: false });
+    expect(
+      parseElectronInputDigitShortcut({
+        type: "keyUp",
+        code: "Digit4",
+        meta: true,
+        shift: true,
+      }),
+    ).toBeNull();
+    expect(
+      parseElectronInputDigitShortcut({
+        type: "keyDown",
+        code: "Digit4",
+        meta: true,
+        alt: true,
+        shift: true,
+      }),
+    ).toBeNull();
+    expect(
+      parseElectronInputDigitShortcut({
+        type: "keyDown",
+        code: "Digit4",
+        meta: true,
+        shift: true,
+        isAutoRepeat: true,
+      }),
+    ).toBeNull();
   });
 
   it("native tap swallows the same ANSI keycodes as the JS catalog", () => {
@@ -42,6 +92,8 @@ describe("os-reserved shortcuts", () => {
     expect(src).toContain("VK_ANSI_5 = 0x17");
     expect(src).toContain("VK_ANSI_6 = 0x16");
     expect(src).toContain("kCGEventTapOptionDefault");
+    expect(src).toContain("kCGEventKeyUp");
+    expect(src).toContain("kCGKeyboardEventAutorepeat");
     expect(src).toContain("return NULL");
   });
 

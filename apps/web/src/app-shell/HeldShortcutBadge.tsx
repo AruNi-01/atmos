@@ -65,6 +65,18 @@ export function CenterTabHeldShortcut({
   className?: string;
 }) {
   const prefix = useHeldShortcutPrefix();
-  if (prefix !== "mod") return null;
-  return <CenterHeldShortcutBadge digit={digit} className={className} />;
+  if (prefix !== "mod" || digit == null || digit === "") return null;
+  return (
+    <span
+      className={cn(
+        // Cover the trailing edge of the existing tab. Stay out of flow so
+        // ⌘1–9 cannot widen the pill or shift neighbors.
+        "pointer-events-none absolute inset-y-0 right-0 z-10 flex items-center justify-end rounded-r-full pl-3 pr-1.5",
+        "bg-gradient-to-l from-background from-40% to-transparent",
+        "in-[[aria-selected=true]]:from-active",
+      )}
+    >
+      <CenterHeldShortcutBadge digit={digit} className={className} />
+    </span>
+  );
 }

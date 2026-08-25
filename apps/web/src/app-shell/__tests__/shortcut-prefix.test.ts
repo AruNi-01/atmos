@@ -4,9 +4,18 @@ import { join } from "node:path";
 import { Window } from "happy-dom";
 import {
   collectSidebarShortcutTargets,
+  dispatchCenterRegionDigitShortcut,
+  elementIsInCenterHotkeyScope,
   heldShortcutPrefixFromModifiers,
+  HOST_DIGIT_SHORTCUT_EVENT,
   isCenterStageHotkeyTarget,
   modifiersFromKeyboardEvent,
+  noteCenterRegionFocusTarget,
+  noteCenterRegionPointerTarget,
+  parseHostDigitShortcutPayload,
+  registerCenterStripShortcutHandler,
+  registerSidebarStripShortcutHandler,
+  resetCenterRegionPointerActiveForTests,
   parseSidebarShortcutTarget,
   serializeSidebarShortcutTarget,
   sidebarShortcutDigitsFromTargets,
@@ -121,9 +130,11 @@ describe("center hotkey scope", () => {
       value: win.document,
       writable: true,
     });
+    resetCenterRegionPointerActiveForTests();
   });
 
   afterEach(() => {
+    resetCenterRegionPointerActiveForTests();
     if (previousWindow) Object.defineProperty(globalThis, "window", previousWindow);
     else Reflect.deleteProperty(globalThis, "window");
     if (previousDocument) Object.defineProperty(globalThis, "document", previousDocument);
@@ -131,12 +142,115 @@ describe("center hotkey scope", () => {
   });
 
   test("only matches center stage chrome", () => {
+    resetCenterRegionPointerActiveForTests();
     document.body.innerHTML = `
       <aside id="sidebar"><input id="side" /></aside>
       <div data-center-stage-card=""><textarea id="term"></textarea></div>
     `;
     expect(isCenterStageHotkeyTarget(document.getElementById("term"))).toBe(true);
     expect(isCenterStageHotkeyTarget(document.getElementById("side"))).toBe(false);
+  });
+
+  test("matches any center pane, not only the terminal grid", () => {
+    resetCenterRegionPointerActiveForTests();
+    document.body.innerHTML = `
+      <div data-app-shell-center-column="">
+        <div data-center-pane-owner="files"><div id="files"></div></div>
+      </div>
+      <aside id="sidebar"><button id="side"></button></aside>
+    `;
+    expect(elementIsInCenterHotkeyScope(document.getElementById("files"))).toBe(true);
+    expect(isCenterStageHotkeyTarget(document.getElementById("files"))).toBe(true);
+    expect(elementIsInCenterHotkeyScope(document.getElementById("side"))).toBe(false);
+  });
+
+  test("keeps center shortcuts armed after a click on a non-focusable pane", () => {
+    resetCenterRegionPointerActiveForTests();
+    document.body.innerHTML = `
+      <div data-center-pane-owner="changes"><div id="changes"></div></div>
+      <aside id="sidebar"><div id="side"></div></aside>
+    `;
+    noteCenterRegionPointerTarget(document.getElementById("changes"));
+    expect(isCenterStageHotkeyTarget(document.body)).toBe(true);
+    noteCenterRegionPointerTarget(document.getElementById("side"));
+    expect(isCenterStageHotkeyTarget(document.body)).toBe(false);
+  });
+
+  test("focus in the sidebar disarms center shortcuts; body focus does not", () => {
+    resetCenterRegionPointerActiveForTests();
+    document.body.innerHTML = `
+      <div data-center-stage-card=""><div id="files"></div></div>
+      <aside><button id="side"></button></aside>
+    `;
+    noteCenterRegionPointerTarget(document.getElementById("files"));
+    noteCenterRegionFocusTarget(document.body);
+    expect(isCenterStageHotkeyTarget(document.body)).toBe(true);
+    noteCenterRegionFocusTarget(document.getElementById("side"));
+    expect(isCenterStageHotkeyTarget(document.body)).toBe(false);
+  });
+});
+
+describe("center region digit dispatch", () => {
+  let previousDocument: PropertyDescriptor | undefined;
+  let previousWindow: PropertyDescriptor | undefined;
+
+  beforeEach(() => {
+    previousWindow = Object.getOwnPropertyDescriptor(globalThis, "window");
+    previousDocument = Object.getOwnPropertyDescriptor(globalThis, "document");
+    const win = new Window();
+    Object.defineProperty(globalThis, "window", {
+      configurable: true,
+      value: win,
+      writable: true,
+    });
+    Object.defineProperty(globalThis, "document", {
+      configurable: true,
+      value: win.document,
+      writable: true,
+    });
+    resetCenterRegionPointerActiveForTests();
+    registerCenterStripShortcutHandler(null);
+    registerSidebarStripShortcutHandler(null);
+  });
+
+  afterEach(() => {
+    resetCenterRegionPointerActiveForTests();
+    registerCenterStripShortcutHandler(null);
+    registerSidebarStripShortcutHandler(null);
+    if (previousWindow) Object.defineProperty(globalThis, "window", previousWindow);
+    else Reflect.deleteProperty(globalThis, "window");
+    if (previousDocument) Object.defineProperty(globalThis, "document", previousDocument);
+    else Reflect.deleteProperty(globalThis, "document");
+  });
+
+  test("routes cmd digits to center tabs and cmd+shift digits to the sidebar", () => {
+    const center: number[] = [];
+    const sidebar: number[] = [];
+    registerCenterStripShortcutHandler((digit) => {
+      center.push(digit);
+      return true;
+    });
+    registerSidebarStripShortcutHandler((digit) => {
+      sidebar.push(digit);
+      return true;
+    });
+    noteCenterRegionPointerTarget(null);
+    expect(dispatchCenterRegionDigitShortcut({ digit: 2, shift: false })).toBe(false);
+    document.body.innerHTML = `<div data-center-stage-card="" id="card"></div>`;
+    noteCenterRegionPointerTarget(document.getElementById("card"));
+    expect(dispatchCenterRegionDigitShortcut({ digit: 2, shift: false })).toBe(true);
+    expect(dispatchCenterRegionDigitShortcut({ digit: 3, shift: true })).toBe(true);
+    expect(center).toEqual([2]);
+    expect(sidebar).toEqual([3]);
+  });
+
+  test("parses host-shortcut IPC payloads", () => {
+    expect(HOST_DIGIT_SHORTCUT_EVENT).toBe("host-shortcut");
+    expect(parseHostDigitShortcutPayload({ digit: 4, shift: true })).toEqual({
+      digit: 4,
+      shift: true,
+    });
+    expect(parseHostDigitShortcutPayload({ digit: "4", shift: true })).toBeNull();
   });
 });
 
@@ -178,6 +292,14 @@ describe("shortcut prefix wiring", () => {
     expect(controls).toContain('data-sidebar-shortcut-scope="secondary"');
     const shell = readFileSync(join(import.meta.dir, "../AppShellMain.tsx"), "utf8");
     expect(shell).toContain("HeldShortcutPrefixListener");
+    const listener = readFileSync(
+      join(import.meta.dir, "../HeldShortcutPrefixListener.tsx"),
+      "utf8",
+    );
+    expect(listener).toContain("HOST_DIGIT_SHORTCUT_EVENT");
+    expect(listener).toContain("noteCenterRegionPointerTarget");
+    expect(sidebar).toContain("CENTER_REGION_DIGIT_HOTKEY_OPTIONS");
+    expect(sidebar).toContain("registerSidebarStripShortcutHandler");
   });
 
   test("workspace rows overlay shortcut hints so the list height does not jump", () => {
@@ -194,6 +316,7 @@ describe("shortcut prefix wiring", () => {
     );
     expect(badge).toContain("leading-none");
     expect(badge).toContain("h-4");
+    expect(badge).toContain("absolute inset-y-0 right-0");
   });
 });
 

@@ -48,7 +48,6 @@ import { AgentIcon } from "@/features/agent/components/AgentIcon";
 import { useTerminalCenterTabPresentation } from "@/features/terminal/hooks/use-terminal-center-tab-presentation";
 import { cn } from "@/shared/lib/utils";
 import { CenterTabHeldShortcut } from "@/app-shell/HeldShortcutBadge";
-import { useHeldShortcutPrefix } from "@/app-shell/held-shortcut-prefix-store";
 import {
   CenterStageShortcutTooltipBody,
   TerminalTabAgentIndicatorWithPanes,
@@ -363,8 +362,6 @@ export function CenterStageSurfaceContentTab({
 }) {
   const t = useTranslations("appShell.centerStageSharedTabs");
   const resolvedTooltip = tooltip ?? path;
-  const prefix = useHeldShortcutPrefix();
-  const showHeldShortcut = prefix === "mod" && shortcutDigit != null;
 
   return (
     <Tooltip>
@@ -410,11 +407,10 @@ export function CenterStageSurfaceContentTab({
           >
             {name}
           </span>
-          {showHeldShortcut ? (
-            <CenterTabHeldShortcut digit={shortcutDigit} />
-          ) : isDirty ? (
+          {isDirty ? (
             <Circle className="size-1.5 shrink-0 fill-current group-hover:invisible" />
           ) : null}
+          <CenterTabHeldShortcut digit={shortcutDigit} />
         </CenterStageTab>
       </TooltipTrigger>
       <TooltipContent side="bottom" className="max-w-md break-all">
