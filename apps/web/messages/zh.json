@@ -5013,9 +5013,6 @@
             "footerLayout": {
               "label": "Footer 布局"
             },
-            "webSocketConnectionStatus": {
-              "label": "WebSocket 连接状态"
-            },
             "localServices": {
               "label": "本地服务"
             },
@@ -6037,11 +6034,9 @@
       },
       "footer": {
         "title": "页脚布局",
-        "description": "选择应用页脚中显示哪些状态条。若下方所有项目都关闭，且布局设置中也关闭了 ACP Chat，则页脚会隐藏。",
+        "description": "选择应用页脚中的可选状态条；连接异常会自动显示。若下方所有项目都关闭，且布局设置中也关闭了 ACP Chat，则页脚会隐藏。",
         "enabledCount": "已启用 {count} 项",
         "hidden": "已隐藏",
-        "wsConnectionTitle": "WebSocket 连接状态",
-        "wsConnectionDescription": "在页脚显示实时连接状态和活动 WebSocket 客户端。",
         "localServicesTitle": "本地服务",
         "localServicesDescription": "在页脚显示 Project 和 Workspace 的本地服务。",
         "resourceMonitorTitle": "资源监视器",
@@ -8189,6 +8184,7 @@
   "resourceMonitor": {
     "footerItem": {
       "title": "资源监视器",
+      "monitor": "监视器",
       "compact": "CPU {cpu} · 内存 {memory}",
       "cpuValue": "CPU {value}",
       "memoryValue": "内存 {value}",

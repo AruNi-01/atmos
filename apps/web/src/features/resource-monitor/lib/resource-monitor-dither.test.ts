@@ -92,4 +92,13 @@ describe("resource monitor dither structure", () => {
     expect(sessionNameSrc).toContain('iconType === "custom"');
     expect(sessionNameSrc).toContain("TerminalIcon");
   });
+
+  test("Footer swaps Monitor for usage on hover with reduced-motion support", () => {
+    expect(footerSrc).toContain("AnimatePresence");
+    expect(footerSrc).toContain("useReducedMotion");
+    expect(footerSrc).toContain("previewing");
+    expect(footerSrc).toContain('key="label"');
+    expect(footerSrc).toContain('key="usage"');
+    expect(footerSrc).toContain('t("monitor")');
+  });
 });

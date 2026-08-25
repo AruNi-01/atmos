@@ -28,7 +28,6 @@ export function LayoutSettingsSection() {
     workspaceSidebarLabelTwoColumn,
     workspaceSidebarGroupTwoColumn,
     workspaceSidebarAgentTwoColumn,
-    showWsConnection,
     showLocalServices,
     showResourceMonitor,
     showUsageCarousel,
@@ -44,7 +43,6 @@ export function LayoutSettingsSection() {
     setWorkspaceSidebarLabelTwoColumn,
     setWorkspaceSidebarGroupTwoColumn,
     setWorkspaceSidebarAgentTwoColumn,
-    setFooterShowWsConnection,
     setFooterShowLocalServices,
     setFooterShowResourceMonitor,
     setFooterShowUsageCarousel,
@@ -66,9 +64,8 @@ export function LayoutSettingsSection() {
     workspaceSidebarGroupTwoColumn ||
     workspaceSidebarAgentTwoColumn;
   const footerEnabledCount =
-    Number(showWsConnection) +
-    Number(showLocalServices) +
     Number(showResourceMonitor) +
+    Number(showLocalServices) +
     Number(showUsageCarousel) +
     Number(showAgentStatus);
 
@@ -176,22 +173,16 @@ export function LayoutSettingsSection() {
         }
       >
         <SettingsToggleRow
-          title={t('footer.wsConnectionTitle')}
-          description={t('footer.wsConnectionDescription')}
-          checked={showWsConnection}
-          onCheckedChange={(checked) => void setFooterShowWsConnection(checked)}
+          title={t('footer.resourceMonitorTitle')}
+          description={t('footer.resourceMonitorDescription')}
+          checked={showResourceMonitor}
+          onCheckedChange={(checked) => void setFooterShowResourceMonitor(checked)}
         />
         <SettingsToggleRow
           title={t('footer.localServicesTitle')}
           description={t('footer.localServicesDescription')}
           checked={showLocalServices}
           onCheckedChange={(checked) => void setFooterShowLocalServices(checked)}
-        />
-        <SettingsToggleRow
-          title={t('footer.resourceMonitorTitle')}
-          description={t('footer.resourceMonitorDescription')}
-          checked={showResourceMonitor}
-          onCheckedChange={(checked) => void setFooterShowResourceMonitor(checked)}
         />
         <SettingsToggleRow
           title={t('footer.usageCarouselTitle')}

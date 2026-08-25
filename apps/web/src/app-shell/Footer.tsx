@@ -12,10 +12,8 @@ import {
 import { cn } from "@/shared/lib/utils";
 import { useWebSocketStore } from '@/features/connection/hooks/use-websocket';
 import { useAgentChatUrl } from '@/features/agent/hooks/use-agent-chat-url';
-import type { WsConnectionInfo } from '@/api/rest-api';
 import { buildUsageCarouselItems } from '@/features/quota-usage/lib/quota-display';
 import { useQuotaOverviewQuery } from '@/features/quota-usage/hooks/use-quota-overview-query';
-import { useWsConnectionsQuery } from '@/features/system/hooks/use-system-status-queries';
 import {
   useAgentHooksStore,
   type AgentHookSession,
@@ -420,7 +418,6 @@ const Footer: React.FC = () => {
   const [, setAgentChatOpen] = useAgentChatUrl();
   const launchpadAgentsEnabled = useExperimentSettingsStore((s) => s.launchpadAgentsEnabled);
   const loadExperimentSettings = useExperimentSettingsStore((s) => s.loadSettings);
-  const showWsConnection = useLayoutSettingsStore((s) => s.showWsConnection);
   const showLocalServices = useLayoutSettingsStore((s) => s.showLocalServices);
   const layoutLoaded = useLayoutSettingsStore((s) => s.loaded);
   const showResourceMonitor = useLayoutSettingsStore((s) => s.showResourceMonitor);
@@ -435,11 +432,6 @@ const Footer: React.FC = () => {
     enabled: connectionState === 'connected' && showUsageCarousel,
   });
   const quotaOverview = usageQuery.data ?? null;
-  const [connectionsEnabled, setConnectionsEnabled] = useState(false);
-  const wsConnectionsQuery = useWsConnectionsQuery({
-    enabled: connectionState === 'connected' && showWsConnection && connectionsEnabled,
-  });
-  const connections: WsConnectionInfo[] = wsConnectionsQuery.data?.connections ?? [];
   const [usageIndex, setUsageIndex] = useState(0);
   const [isUsageCarouselHovered, setIsUsageCarouselHovered] = useState(false);
 
@@ -477,12 +469,6 @@ const Footer: React.FC = () => {
     return () => window.clearInterval(timer);
   }, [isUsageCarouselHovered, usageCarouselItems.length]);
 
-  const fetchConnections = useCallback(() => {
-    if (connectionState !== 'connected') return;
-    setConnectionsEnabled(true);
-    void wsConnectionsQuery.refetch();
-  }, [connectionState, wsConnectionsQuery.refetch]);
-
   const statusColors: Record<typeof connectionState, string> = {
     connected: 'bg-emerald-500',
     connecting: 'bg-yellow-500',
@@ -498,7 +484,7 @@ const Footer: React.FC = () => {
   };
 
   const showLeftCarousel = showUsageCarousel && Boolean(usageCarouselItem);
-  const showWsStatus = showWsConnection && connectionState !== "connected";
+  const showWsStatus = connectionState !== "connected";
   const showLeft = showWsStatus || showLocalServices || effectiveShowResourceMonitor || showLeftCarousel;
   const showRightAgent = showAgentStatus;
   const showRightAcp = launchpadAgentsEnabled;
@@ -517,7 +503,6 @@ const Footer: React.FC = () => {
               <TooltipTrigger asChild>
                 <div
                   className="flex items-center hover:text-foreground cursor-pointer"
-                  onMouseEnter={fetchConnections}
                 >
                   <div className={cn(
                     "size-2 rounded-full mr-2",
@@ -531,28 +516,25 @@ const Footer: React.FC = () => {
                 <div className="px-3 py-2 text-[11px] font-mono">
                   <div className="font-semibold mb-1.5 flex items-center justify-between gap-4">
                     <span>{t("footer.activeWebSocket")}</span>
-                    {connections.length > 0 && (
-                      <span className="font-normal text-background/90">{connections.length}</span>
-                    )}
                   </div>
                   <div className="text-background/90">{t("footer.notConnected")}</div>
                 </div>
               </TooltipContent>
             </Tooltip>
           ) : null}
-          {showWsStatus && (showLocalServices || effectiveShowResourceMonitor || showLeftCarousel) ? (
-            <div className="h-3 w-px bg-border" />
-          ) : null}
-          {showLocalServices ? (
-            <LocalServicesFooterItem />
-          ) : null}
-          {showLocalServices && (effectiveShowResourceMonitor || showLeftCarousel) ? (
+          {showWsStatus && (effectiveShowResourceMonitor || showLocalServices || showLeftCarousel) ? (
             <div className="h-3 w-px bg-border" />
           ) : null}
           {effectiveShowResourceMonitor ? (
             <ResourceMonitorFooterItem />
           ) : null}
-          {effectiveShowResourceMonitor && showLeftCarousel ? (
+          {effectiveShowResourceMonitor && (showLocalServices || showLeftCarousel) ? (
+            <div className="h-3 w-px bg-border" />
+          ) : null}
+          {showLocalServices ? (
+            <LocalServicesFooterItem />
+          ) : null}
+          {showLocalServices && showLeftCarousel ? (
             <div className="h-3 w-px bg-border" />
           ) : null}
           {showLeftCarousel && usageCarouselItem ? (

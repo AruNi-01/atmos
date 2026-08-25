@@ -33,22 +33,28 @@ describe("Footer resource monitor visibility", () => {
       "showLeft = showWsStatus || showLocalServices || effectiveShowResourceMonitor || showLeftCarousel",
     );
     expect(footerSrc).toContain(
-      "showWsStatus && (showLocalServices || effectiveShowResourceMonitor || showLeftCarousel)",
+      "showWsStatus && (effectiveShowResourceMonitor || showLocalServices || showLeftCarousel)",
     );
     expect(footerSrc).toContain(
-      "showLocalServices && (effectiveShowResourceMonitor || showLeftCarousel)",
+      "effectiveShowResourceMonitor && (showLocalServices || showLeftCarousel)",
     );
     expect(footerSrc).toContain("{effectiveShowResourceMonitor ? (");
     expect(footerSrc).toContain("<ResourceMonitorFooterItem");
-    expect(footerSrc).toContain("effectiveShowResourceMonitor && showLeftCarousel");
+    expect(footerSrc).toContain("showLocalServices && showLeftCarousel");
   });
 
-  test("does not change other footer items' startup gating", () => {
+  test("shows WebSocket status only on connection problems and puts Monitor first", () => {
     expect(footerSrc).toContain("{showLocalServices ? (");
     expect(footerSrc).toContain("{showWsStatus ? (");
+    expect(footerSrc).toContain(
+      'const showWsStatus = connectionState !== "connected"',
+    );
+    expect(footerSrc).not.toContain("showWsConnection");
+    expect(footerSrc.indexOf("<ResourceMonitorFooterItem")).toBeLessThan(
+      footerSrc.indexOf("<LocalServicesFooterItem"),
+    );
     expect(footerSrc).toContain("showLeftCarousel && usageCarouselItem");
     expect(footerSrc).not.toContain("layoutLoaded && showLocalServices");
     expect(footerSrc).not.toContain("layoutLoaded && showUsageCarousel");
-    expect(footerSrc).not.toContain("layoutLoaded && showWsConnection");
   });
 });

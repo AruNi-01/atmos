@@ -1,10 +1,15 @@
 "use client";
 
-import { useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
+import { useSpring } from "motion/react";
 import { cn } from "../../lib/utils";
-import { clamp, hash, type DitherTheme } from "../../lib/dither/math";
+import {
+  clamp,
+  hash,
+  smoothstep,
+  type DitherTheme,
+} from "../../lib/dither/math";
 import { useDitherCanvas } from "../../lib/dither/use-dither-canvas";
-import { smoothToward } from "../dither/DitherTooltip";
 
 type GaugeMeterProps = {
   label: string;
@@ -24,13 +29,23 @@ function GaugeMeter({
   formatValue,
 }: GaugeMeterProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const valueTextRef = useRef<HTMLDivElement>(null);
   const valueRef = useRef(value);
   valueRef.current = clamp(Number.isFinite(value) ? value : 0, 0, 100);
-  const displayedRef = useRef(valueRef.current);
+  const valueSpring = useSpring(valueRef.current, {
+    stiffness: 120,
+    damping: 20,
+    mass: 0.8,
+  });
+  useEffect(() => {
+    valueSpring.set(valueRef.current);
+  }, [value, valueSpring]);
   const colorRef = useRef(color);
   colorRef.current = color;
   const trackRef = useRef(trackColor);
   trackRef.current = trackColor;
+  const formatRef = useRef(formatValue);
+  formatRef.current = formatValue;
 
   const draw = useCallback(
     ({
@@ -46,42 +61,74 @@ function GaugeMeter({
       time: number;
       reducedMotion: boolean;
     }) => {
-      displayedRef.current = reducedMotion
-        ? valueRef.current
-        : smoothToward(displayedRef.current, valueRef.current, 0.085);
+      const currentValue = clamp(
+        reducedMotion ? valueRef.current : valueSpring.get(),
+        0,
+        100,
+      );
+      if (valueTextRef.current) {
+        valueTextRef.current.textContent = formatRef.current(currentValue);
+      }
 
       const cx = width / 2;
-      const cy = height * 0.56;
-      const radius = Math.max(12, Math.min(width * 0.38, height * 0.43));
-      const start = Math.PI * 0.72;
-      const sweep = Math.PI * 1.56;
-      const segments = 54;
-      const active = (displayedRef.current / 100) * (segments - 1);
-      const baseSize = Math.max(2.2, Math.min(4.1, radius / 13));
+      const cy = height * 0.82;
+      const rOut = Math.max(20, Math.min(width * 0.44, height * 0.7));
+      const thickness = Math.max(10, Math.min(16, rOut * 0.16));
+      const rIn = Math.max(1, rOut - thickness);
+      const startAngle = Math.PI;
+      const endAngle = Math.PI * 2;
+      const valueAngle = startAngle + (currentValue / 100) * Math.PI;
 
-      for (let index = 0; index < segments; index += 1) {
-        const angle = start + (index / (segments - 1)) * sweep;
-        const x = cx + Math.cos(angle) * radius;
-        const y = cy + Math.sin(angle) * radius;
-        const filled = index <= active;
-        const edge = Math.max(0, 1 - Math.abs(index - active));
-        const wave = reducedMotion
-          ? 0
-          : Math.sin(index * 0.63 - time * 1.7) * 0.09;
-        const noise = hash(index, Math.round(radius));
-        const size = baseSize * (0.78 + noise * 0.18 + wave + edge * 0.08);
+      ctx.beginPath();
+      ctx.arc(cx, cy, rOut, startAngle, endAngle);
+      ctx.arc(cx, cy, rIn, endAngle, startAngle, true);
+      ctx.closePath();
+      ctx.globalAlpha = theme === "dark" ? 0.42 : 0.54;
+      ctx.fillStyle = trackRef.current;
+      ctx.fill();
+      ctx.globalAlpha = 1;
 
+      if (currentValue > 0) {
         ctx.save();
-        ctx.translate(x, y);
-        ctx.rotate(angle + Math.PI / 4);
-        ctx.fillStyle = filled ? colorRef.current : trackRef.current;
-        ctx.globalAlpha = filled ? 0.9 : theme === "dark" ? 0.48 : 0.6;
-        ctx.fillRect(-size / 2, -size / 2, size, size);
+        ctx.beginPath();
+        ctx.arc(cx, cy, rOut, startAngle, valueAngle);
+        ctx.arc(cx, cy, rIn, valueAngle, startAngle, true);
+        ctx.closePath();
+        ctx.clip();
+
+        const cell = Math.max(2.4, Math.min(4, width / 58));
+        for (let x = Math.floor(cx - rOut); x <= Math.ceil(cx + rOut); x += cell) {
+          for (let y = Math.floor(cy - rOut); y <= Math.ceil(cy); y += cell) {
+            const centerX = x + cell / 2;
+            const centerY = y + cell / 2;
+            const dx = centerX - cx;
+            const dy = centerY - cy;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            if (distance < rIn - cell || distance > rOut + cell) continue;
+
+            const noise = hash(centerX, centerY);
+            const waveRaw = reducedMotion
+              ? 0
+              : Math.sin(centerX * 0.05 + time * 4) +
+                Math.sin(centerY * 0.05 + time * 2.8);
+            const wave = smoothstep(-1.5, 1.5, waveRaw);
+            const size =
+              cell * (0.42 + 0.38 * wave) * (0.82 + 0.34 * noise);
+            ctx.globalAlpha = 0.9;
+            ctx.fillStyle = colorRef.current;
+            ctx.fillRect(
+              x + (cell - size) / 2,
+              y + (cell - size) / 2,
+              size,
+              size,
+            );
+          }
+        }
         ctx.restore();
       }
       ctx.globalAlpha = 1;
     },
-    [theme],
+    [theme, valueSpring],
   );
 
   useDitherCanvas(canvasRef, draw);
@@ -95,9 +142,12 @@ function GaugeMeter({
       aria-valuemax={100}
       aria-valuenow={Math.round(valueRef.current)}
     >
-      <canvas ref={canvasRef} className="block h-20 w-full" aria-hidden />
-      <div className="pointer-events-none absolute inset-x-0 top-[38%] text-center">
-        <div className="text-sm font-semibold tabular-nums text-foreground">
+      <canvas ref={canvasRef} className="block h-28 w-full" aria-hidden />
+      <div className="pointer-events-none absolute inset-x-0 top-[52%] text-center">
+        <div
+          ref={valueTextRef}
+          className="text-sm font-semibold tabular-nums text-foreground"
+        >
           {formatValue(valueRef.current)}
         </div>
         <div className="text-[10px] text-muted-foreground">{label}</div>

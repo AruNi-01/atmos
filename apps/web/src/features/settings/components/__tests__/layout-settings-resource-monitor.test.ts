@@ -8,7 +8,7 @@ const sectionSrc = readFileSync(
 );
 
 describe("layout settings resource monitor toggle", () => {
-  test("places the Resource Monitor toggle after Local Services and before usage", () => {
+  test("places Resource Monitor before Local Services and usage", () => {
     const localServices = sectionSrc.indexOf("footer.localServicesTitle");
     const resourceMonitor = sectionSrc.indexOf("footer.resourceMonitorTitle");
     const usage = sectionSrc.indexOf("footer.usageCarouselTitle");
@@ -16,11 +16,13 @@ describe("layout settings resource monitor toggle", () => {
     expect(localServices).toBeGreaterThan(-1);
     expect(resourceMonitor).toBeGreaterThan(-1);
     expect(usage).toBeGreaterThan(-1);
-    expect(localServices).toBeLessThan(resourceMonitor);
+    expect(resourceMonitor).toBeLessThan(localServices);
     expect(resourceMonitor).toBeLessThan(usage);
   });
 
   test("includes the Resource Monitor flag in footerEnabledCount", () => {
     expect(sectionSrc).toContain("Number(showResourceMonitor)");
+    expect(sectionSrc).not.toContain("showWsConnection");
+    expect(sectionSrc).not.toContain("footer.wsConnectionTitle");
   });
 });

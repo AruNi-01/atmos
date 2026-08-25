@@ -163,7 +163,6 @@ const SETTINGS_TOPIC_KEYWORDS: Record<string, readonly string[]> = {
     "note section",
     "commit & push section",
     "footer layout",
-    "websocket connection status",
     "local services",
     "resource monitor",
     "cpu",
@@ -582,9 +581,6 @@ const SETTINGS_TOPIC_ITEMS: Record<string, readonly SettingsSearchItemDefinition
     }),
     settingsModalSearchItem("layout.footerLayout", {
       keywords: ["status strips", "app footer"],
-    }),
-    settingsModalSearchItem("layout.webSocketConnectionStatus", {
-      keywords: ["connection state", "active websocket clients"],
     }),
     settingsModalSearchItem("layout.localServices", {
       keywords: ["project local services", "workspace local services"],

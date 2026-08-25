@@ -60,7 +60,7 @@ import {
 import type { LiveResourceSessionPanes } from "@/features/terminal/public";
 
 const PROCESS_ROW =
-  "flex min-h-8 w-full items-start gap-2 px-3 py-1 text-[12px] transition-none";
+  "flex min-h-8 w-full items-start gap-2 px-4 py-1 text-[12px] transition-none";
 
 function NameLabel({
   name,
@@ -87,10 +87,16 @@ function MetricCells({ usage }: { usage: ResourceUsage }) {
   const memory = formatMemoryBytes(usage.memory_rss_bytes);
   return (
     <>
-      <span className={RM_METRIC} aria-label={t("usageAriaLabel", { cpu, memory })}>
+      <span
+        className={RM_METRIC}
+        aria-label={t("usageAriaLabel", { cpu, memory })}
+        data-resource-monitor-metric="cpu"
+      >
         {cpu}
       </span>
-      <span className={RM_MEMORY}>{memory}</span>
+      <span className={RM_MEMORY} data-resource-monitor-metric="memory">
+        {memory}
+      </span>
     </>
   );
 }
@@ -335,7 +341,7 @@ function SessionRow({
               type="button"
               data-resource-monitor-session-locate=""
               aria-label={locateAria}
-              className="flex h-8 min-w-0 flex-1 items-center gap-2 rounded-md px-2 text-left hover:bg-accent"
+              className="flex h-8 min-w-0 flex-1 items-center gap-2 rounded-md px-0 text-left hover:bg-accent"
               onClick={() => onNavigate({ location, routeKind })}
             >
               <span className={cn(RM_NAME, "flex items-center gap-1")}>

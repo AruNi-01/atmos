@@ -12,5 +12,7 @@ describe("layout settings resource monitor", () => {
     );
     expect(storeSrc).toContain("'footer_show_resource_monitor'");
     expect(storeSrc).toContain("setFooterShowResourceMonitor");
+    expect(storeSrc).not.toContain("showWsConnection");
+    expect(storeSrc).not.toContain("footer_show_ws_connection");
   });
 });

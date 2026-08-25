@@ -3,6 +3,7 @@
 import React from "react";
 import { useTranslations } from "next-intl";
 import { Activity } from "lucide-react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import {
   Popover,
   PopoverContent,
@@ -38,6 +39,8 @@ import { useAppRouter } from "@/shared/hooks/use-app-router";
 export function ResourceMonitorFooterItem() {
   const t = useTranslations("resourceMonitor.footerItem");
   const [open, setOpen] = React.useState(false);
+  const [previewing, setPreviewing] = React.useState(false);
+  const reducedMotion = useReducedMotion();
   const navigatingRef = React.useRef(false);
   const router = useAppRouter();
   const {
@@ -95,32 +98,68 @@ export function ResourceMonitorFooterItem() {
             <PopoverTrigger asChild>
               <button
                 type="button"
-                className="inline-flex items-center gap-1.5 text-muted-foreground hover:text-foreground"
+                className="inline-flex h-5 min-w-[7.75rem] items-center gap-1.5 overflow-hidden text-muted-foreground hover:text-foreground"
                 aria-label={`${t("title")}: ${compactAria}`}
                 data-resource-monitor-footer=""
+                onMouseEnter={() => setPreviewing(true)}
+                onMouseLeave={() => setPreviewing(false)}
+                onFocus={() => setPreviewing(true)}
+                onBlur={() => setPreviewing(false)}
               >
                 <Activity className="size-3" />
-                {compact ? (
-                  <span className="inline-flex items-center gap-1 font-medium">
-                    <span
-                      className={resourceMonitorPressureTextClass(
-                        resourceMonitorPressureTone(hostCpuPercent),
-                      )}
-                    >
-                      {t("cpuValue", { value: compact.cpu })}
-                    </span>
-                    <span className="text-muted-foreground/60">·</span>
-                    <span
-                      className={resourceMonitorPressureTextClass(
-                        resourceMonitorPressureTone(hostMemoryUsagePercent),
-                      )}
-                    >
-                      {t("memoryValue", { value: compact.memory })}
-                    </span>
-                  </span>
-                ) : (
-                  <span className="font-medium">{compactAria}</span>
-                )}
+                <span className="relative h-4 w-28 overflow-hidden">
+                  <AnimatePresence initial={false} mode="wait">
+                    {previewing ? (
+                      <motion.span
+                        key="usage"
+                        initial={reducedMotion ? false : { opacity: 0, x: 6 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={reducedMotion ? undefined : { opacity: 0, x: -4 }}
+                        transition={{
+                          duration: reducedMotion ? 0 : 0.16,
+                          ease: [0.22, 1, 0.36, 1],
+                        }}
+                        className="absolute inset-0 inline-flex items-center gap-1 whitespace-nowrap font-medium"
+                      >
+                        {compact ? (
+                          <>
+                            <span
+                              className={resourceMonitorPressureTextClass(
+                                resourceMonitorPressureTone(hostCpuPercent),
+                              )}
+                            >
+                              {t("cpuValue", { value: compact.cpu })}
+                            </span>
+                            <span className="text-muted-foreground/60">·</span>
+                            <span
+                              className={resourceMonitorPressureTextClass(
+                                resourceMonitorPressureTone(hostMemoryUsagePercent),
+                              )}
+                            >
+                              {t("memoryValue", { value: compact.memory })}
+                            </span>
+                          </>
+                        ) : (
+                          compactAria
+                        )}
+                      </motion.span>
+                    ) : (
+                      <motion.span
+                        key="label"
+                        initial={reducedMotion ? false : { opacity: 0, x: -6 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={reducedMotion ? undefined : { opacity: 0, x: 4 }}
+                        transition={{
+                          duration: reducedMotion ? 0 : 0.14,
+                          ease: [0.22, 1, 0.36, 1],
+                        }}
+                        className="absolute inset-0 inline-flex items-center whitespace-nowrap font-medium"
+                      >
+                        {t("monitor")}
+                      </motion.span>
+                    )}
+                  </AnimatePresence>
+                </span>
               </button>
             </PopoverTrigger>
           </TooltipTrigger>

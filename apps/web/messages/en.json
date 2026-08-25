@@ -5013,9 +5013,6 @@
             "footerLayout": {
               "label": "Footer layout"
             },
-            "webSocketConnectionStatus": {
-              "label": "WebSocket connection status"
-            },
             "localServices": {
               "label": "Local Services"
             },
@@ -6037,11 +6034,9 @@
       },
       "footer": {
         "title": "Footer layout",
-        "description": "Choose which status strips appear in the app footer. When every item below is off and ACP Chat is disabled in Layout, the footer is hidden.",
+        "description": "Choose optional status strips for the app footer. Connection problems appear automatically. When every item below is off and ACP Chat is disabled in Layout, the footer is hidden.",
         "enabledCount": "{count} enabled",
         "hidden": "Hidden",
-        "wsConnectionTitle": "WebSocket connection status",
-        "wsConnectionDescription": "Show live connection state and active WebSocket clients in the footer.",
         "localServicesTitle": "Local Services",
         "localServicesDescription": "Show Project and Workspace local services in the footer.",
         "resourceMonitorTitle": "Resource Monitor",
@@ -8189,6 +8184,7 @@
   "resourceMonitor": {
     "footerItem": {
       "title": "Resource Monitor",
+      "monitor": "Monitor",
       "compact": "CPU {cpu} · Memory {memory}",
       "cpuValue": "CPU {value}",
       "memoryValue": "Memory {value}",
