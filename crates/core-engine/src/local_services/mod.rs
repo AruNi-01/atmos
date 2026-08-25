@@ -6,7 +6,9 @@ use std::path::PathBuf;
 
 use crate::error::Result;
 
-pub use process::{orphan_hints, process_snapshot, ProcessSnapshot};
+pub use process::{
+    kill_process_tree, orphan_hints, process_snapshot, terminate_process_tree, ProcessSnapshot,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LocalTcpListener {

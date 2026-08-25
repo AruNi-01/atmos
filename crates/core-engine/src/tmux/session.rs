@@ -53,6 +53,22 @@ pub(super) fn session_name_from_names(project_name: &str, workspace_name: &str) 
     }
 }
 
+/// First candidate that already exists as a live tmux session.
+/// Callers pass candidates in priority order (canonical name first).
+pub fn preferred_existing_session_name<'a>(
+    candidates: &'a [String],
+    existing_names: impl IntoIterator<Item = impl AsRef<str>>,
+) -> Option<&'a str> {
+    let existing: std::collections::HashSet<String> = existing_names
+        .into_iter()
+        .map(|name| name.as_ref().to_string())
+        .collect();
+    candidates
+        .iter()
+        .find(|candidate| existing.contains(*candidate))
+        .map(String::as_str)
+}
+
 fn sanitize_session_component(value: &str) -> String {
     value
         .chars()
@@ -616,7 +632,8 @@ impl TmuxEngine {
 #[cfg(test)]
 mod tests {
     use super::{
-        parse_pane_processes, parse_workspace_id_from_session_name, session_name_from_names,
+        parse_pane_processes, parse_workspace_id_from_session_name,
+        preferred_existing_session_name, session_name_from_names,
     };
 
     #[test]
@@ -639,6 +656,26 @@ mod tests {
         assert_eq!(session_name_from_names("atmos", "other"), "atmos_other");
 
         assert_eq!(session_name_from_names("atmos", "mankey"), "atmos_mankey");
+    }
+
+    #[test]
+    fn preferred_existing_session_name_keeps_candidate_order() {
+        let candidates = vec![
+            "atmos_Main".to_string(),
+            "13c75c87_516a_40ab_b7b8_bda46c0e3e3e".to_string(),
+        ];
+        assert_eq!(
+            preferred_existing_session_name(&candidates, ["atmos_Main", "other"]),
+            Some("atmos_Main")
+        );
+        assert_eq!(
+            preferred_existing_session_name(&candidates, ["13c75c87_516a_40ab_b7b8_bda46c0e3e3e"]),
+            Some("13c75c87_516a_40ab_b7b8_bda46c0e3e3e")
+        );
+        assert_eq!(
+            preferred_existing_session_name(&candidates, ["unrelated"]),
+            None
+        );
     }
 
     #[test]

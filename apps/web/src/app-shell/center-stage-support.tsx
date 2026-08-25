@@ -29,7 +29,10 @@ import {
   registerCenterStripShortcutHandler,
 } from "@/app-shell/shortcut-prefix";
 import { useWorkspaceSurfaceCacheStore } from "@/features/workspace/store/use-workspace-surface-cache-store";
-import { schedulePromoteWorkspaceSurfaceSwitch } from "@/app-shell/workspace-surface-switch";
+import {
+  schedulePromoteWorkspaceSurfaceSwitch,
+  shouldPromoteWorkspaceSurface,
+} from "@/app-shell/workspace-surface-switch";
 import {
   readCenterStageLastTab,
   setCenterStageLastTab,
@@ -147,7 +150,6 @@ export function useTerminalTabMountLifecycle({
   React.useEffect(() => {
     const current = effectiveContextId ?? null;
     const leavingContextId = previousTerminalContextRef.current;
-    previousTerminalContextRef.current = current;
 
     if (leavingContextId && leavingContextId !== current) {
       const prevTab =
@@ -168,6 +170,14 @@ export function useTerminalTabMountLifecycle({
       }
     }
 
+    // `/token-usage`, `/tasks`, and other launchpad routes have no host id.
+    // Do not promote Active→null: that unmounts Terminal grids and can mint a
+    // second empty tmux window on return, orphaning a still-running agent TUI.
+    if (!shouldPromoteWorkspaceSurface(current)) {
+      return;
+    }
+
+    previousTerminalContextRef.current = current;
     return schedulePromoteWorkspaceSurfaceSwitch(current, leavingContextId);
   }, [effectiveContextId, setMountedTerminalTabsByContext]);
 
@@ -330,19 +340,22 @@ export function useCenterStageKeyboardShortcuts({
   orderedTabValues,
 }: {
   effectiveContextId: string | null | undefined;
-  handleCenterStageTabChange: (value: string) => void;
+  handleCenterStageTabChange: (
+    value: string,
+    options?: { placement?: "focused" },
+  ) => void;
   orderedTabValues: readonly string[];
 }) {
   React.useEffect(() => {
     registerCenterStripShortcutHandler((digit) => {
       if (digit === 0) {
         if (!effectiveContextId) return false;
-        handleCenterStageTabChange("overview");
+        handleCenterStageTabChange("overview", { placement: "focused" });
         return true;
       }
       const target = resolveCenterStripShortcutTabId(orderedTabValues, digit);
       if (!target) return false;
-      handleCenterStageTabChange(target);
+      handleCenterStageTabChange(target, { placement: "focused" });
       return true;
     });
     return () => registerCenterStripShortcutHandler(null);

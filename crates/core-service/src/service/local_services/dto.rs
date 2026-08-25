@@ -1,9 +1,10 @@
 use chrono::Utc;
-use core_engine::LocalServicesEngine;
+use core_engine::{process_snapshot, LocalServicesEngine, LocalTcpListener};
 
 use super::classification::{
-    browser_url, can_stop, command_preview, connect_host, display_path, is_protected_listener,
-    looks_like_container_proxy, looks_like_dependency, probe_url, service_id,
+    browser_url, can_stop, command_path_preview, command_preview, command_tokens_have_path,
+    connect_host, display_path, is_protected_listener, looks_like_container_proxy,
+    looks_like_dependency, probe_url, service_id,
 };
 use super::ownership::AttributedListener;
 use super::{LocalServiceDto, LocalServiceKind, LocalServiceOwnerDto, LocalServiceStatus};
@@ -67,6 +68,9 @@ pub(super) async fn build_service_dto(
     };
     let can_stop = can_stop(&listener, protected, attributed.confidence, &status, &kind);
     let id = service_id(&owner, listener.pid, listener.port, &connect_host, &kind);
+    let command_path = resolve_command_path(&listener);
+    let preview = command_preview(&listener.command_line);
+    let cwd_display = listener.cwd.as_deref().map(display_path);
 
     LocalServiceDto {
         id,
@@ -80,8 +84,9 @@ pub(super) async fn build_service_dto(
         port: listener.port,
         pid: listener.pid,
         process_name: listener.process_name,
-        command_preview: command_preview(&listener.command_line),
-        cwd_display: listener.cwd.as_deref().map(display_path),
+        command_preview: preview,
+        command_path,
+        cwd_display,
         launch_dir_display: attributed.launch_dir_display,
         title,
         can_open,
@@ -89,4 +94,15 @@ pub(super) async fn build_service_dto(
         protected,
         last_seen_at: Utc::now().to_rfc3339(),
     }
+}
+
+fn resolve_command_path(listener: &LocalTcpListener) -> Option<String> {
+    if command_tokens_have_path(&listener.command_line) {
+        return None;
+    }
+    let parent_tokens = listener
+        .parent_pids
+        .first()
+        .and_then(|pid| process_snapshot(*pid).map(|snap| snap.command_line));
+    command_path_preview(&listener.command_line, parent_tokens.as_deref())
 }

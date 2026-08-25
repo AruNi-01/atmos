@@ -15,7 +15,10 @@ import {
   cn,
 } from "@workspace/ui";
 
-import { localServiceCommandLabel } from "@/features/local-services/lib/local-service-command-label";
+import {
+  localServiceCommandLabel,
+  localServiceCommandTooltip,
+} from "@/features/local-services/lib/local-service-command-label";
 import type { LocalService } from "@/features/local-services/types";
 
 const STATUS_DOT: Record<string, string> = {
@@ -112,6 +115,7 @@ export function LocalServiceRow({
         <LocalServiceCommandMeta
           processName={service.process_name}
           commandPreview={service.command_preview}
+          commandPath={service.command_path}
           launchDirDisplay={service.launch_dir_display}
         />
       </div>
@@ -199,10 +203,12 @@ export function LocalServiceRow({
 function LocalServiceCommandMeta({
   processName,
   commandPreview,
+  commandPath,
   launchDirDisplay,
 }: {
   processName?: string | null;
   commandPreview?: string | null;
+  commandPath?: string | null;
   launchDirDisplay?: string | null;
 }) {
   const name = processName?.trim() ?? "";
@@ -212,6 +218,10 @@ function LocalServiceCommandMeta({
   const showCommandLabel = Boolean(
     commandLabel && commandLabel.toLowerCase() !== name.toLowerCase(),
   );
+  const tooltip =
+    command || commandPath?.trim()
+      ? localServiceCommandTooltip(command, launchDir, commandPath)
+      : "";
   if (!name && !showCommandLabel && !launchDir) return null;
 
   const content = (
@@ -235,7 +245,7 @@ function LocalServiceCommandMeta({
   const lineClassName =
     "mt-1 flex min-w-0 items-center gap-1.5 text-[10px] text-muted-foreground/80";
 
-  if (!command) {
+  if (!tooltip) {
     return (
       <div className={lineClassName} data-slot="local-service-command">
         {content}
@@ -254,7 +264,7 @@ function LocalServiceCommandMeta({
         side="top"
         className="z-[80] max-w-xs select-text break-all text-left font-mono text-[11px] leading-snug text-pretty"
       >
-        {command}
+        {tooltip}
       </TooltipContent>
     </Tooltip>
   );

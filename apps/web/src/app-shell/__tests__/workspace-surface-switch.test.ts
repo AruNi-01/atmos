@@ -11,6 +11,7 @@ import {
   resetWorkspaceSwitchSchedulersForTests,
   schedulePromoteWorkspaceSurfaceSwitch,
   scheduleVisualActiveSwitch,
+  shouldPromoteWorkspaceSurface,
   VISUAL_SWITCH_COALESCE_MS,
   PROMOTE_COALESCE_MS,
 } from "@/app-shell/workspace-surface-switch";
@@ -22,6 +23,15 @@ import { bindPaintContextIdReader } from "@/app-shell/center-space/center-space-
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
+describe("shouldPromoteWorkspaceSurface", () => {
+  it("keeps the last workspace mounted on launchpad / no-host routes", () => {
+    expect(shouldPromoteWorkspaceSurface("ws-a")).toBe(true);
+    expect(shouldPromoteWorkspaceSurface(null)).toBe(false);
+    expect(shouldPromoteWorkspaceSurface(undefined)).toBe(false);
+    expect(shouldPromoteWorkspaceSurface("")).toBe(false);
+  });
+});
 
 describe("parseWorkspaceContextHref", () => {
   it("parses workspace and project ids", () => {

@@ -1,6 +1,9 @@
 import { describe, expect, test } from "bun:test";
 
-import { localServiceCommandLabel } from "./local-service-command-label";
+import {
+  localServiceCommandLabel,
+  localServiceCommandTooltip,
+} from "./local-service-command-label";
 
 describe("localServiceCommandLabel", () => {
   test("uses only the last path segment plus following args", () => {
@@ -34,5 +37,46 @@ describe("localServiceCommandLabel", () => {
   test("without a path, drops the leading runtime token", () => {
     expect(localServiceCommandLabel("node server.js")).toBe("server.js");
     expect(localServiceCommandLabel("next-server")).toBe("next-server");
+  });
+
+  test("keeps spaces in process titles instead of leaving only the version", () => {
+    expect(localServiceCommandLabel("next-server (v16.3.0)")).toBe("next-server (v16.3.0)");
+    expect(localServiceCommandLabel("node (v16.3.0)")).toBe("node (v16.3.0)");
+  });
+});
+
+describe("localServiceCommandTooltip", () => {
+  test("keeps the full command when it contains a path", () => {
+    const command =
+      "node /Users/aarynlu/OpenSource/atmos/apps/web/node_modules/.bin/next dev --port 3030";
+    expect(localServiceCommandTooltip(command, "/Users/aarynlu/OpenSource/atmos/apps/web")).toBe(
+      command,
+    );
+  });
+
+  test("prefers the recovered launch command over the process title", () => {
+    expect(
+      localServiceCommandTooltip(
+        "next-server (v16.3.0)",
+        "/Users/aarynlu/OpenSource/atmos/apps/web",
+        "node /Users/aarynlu/OpenSource/atmos/apps/web/node_modules/.bin/next dev --port 3030",
+      ),
+    ).toBe(
+      "node /Users/aarynlu/OpenSource/atmos/apps/web/node_modules/.bin/next dev --port 3030",
+    );
+  });
+
+  test("falls back to the launch directory when the command has no path", () => {
+    expect(
+      localServiceCommandTooltip(
+        "next-server (v16.3.0)",
+        "/Users/aarynlu/OpenSource/atmos/apps/web",
+      ),
+    ).toBe("/Users/aarynlu/OpenSource/atmos/apps/web");
+  });
+
+  test("falls back to the command when no path is available", () => {
+    expect(localServiceCommandTooltip("next-server (v16.3.0)")).toBe("next-server (v16.3.0)");
+    expect(localServiceCommandTooltip("next-server (v16.3.0)", "  ")).toBe("next-server (v16.3.0)");
   });
 });

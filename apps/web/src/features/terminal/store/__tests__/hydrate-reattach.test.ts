@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { makeCenterSpaceKey } from "@/app-shell/center-space/center-space";
 import { hydratePersistedTab } from "../terminal-store-helpers";
 import type { PersistedTerminalTabDocument } from "../../lib/terminal-layout-document";
 import {
@@ -63,7 +64,7 @@ describe("hydratePersistedTab reattach preference", () => {
     expect(hydrated?.panes["pane-1"].tmuxWindowName).toBe("3");
   });
 
-  it("creates when the tmux list is present but missing the stored window name", () => {
+  it("still prefers attach when the tmux list is present but missing the stored window name", () => {
     const tab = {
       id: "term",
       title: "Term",
@@ -79,11 +80,11 @@ describe("hydratePersistedTab reattach preference", () => {
       maximizedTerminalId: null,
     } as unknown as PersistedTerminalTabDocument;
 
-    // Other windows exist, but "4" does not — canvas-created layout after the
-    // tmux window was never opened / already killed.
+    // A partial/wrong-session list must not mint a second empty window. Attach
+    // first; Terminal.tsx recovers with create only after attach-not-found.
     const hydrated = hydratePersistedTab("ws-1", tab, new Set(["1", "2", "3"]));
     expect(hydrated).not.toBeNull();
-    expect(hydrated?.panes["pane-1"].isNewPane).toBe(true);
+    expect(hydrated?.panes["pane-1"].isNewPane).toBe(false);
     expect(hydrated?.panes["pane-1"].tmuxWindowName).toBe("4");
   });
 
@@ -217,5 +218,49 @@ describe("hydratePersistedTab reattach preference", () => {
       new Set(["6"]),
     );
     expect(numbered?.panes["pane-1"].dynamicTitle).toBeUndefined();
+  });
+
+  it("hydrates extra-space panes with the host workspace id and namespaced window", () => {
+    const extra = makeCenterSpaceKey("ws-1", "space-abc");
+    const tab = {
+      id: "term",
+      title: "Term",
+      layout: "pane-1",
+      panes: {
+        "pane-1": {
+          id: "pane-1",
+          label: "1",
+          tmuxWindowName: "1",
+          workspaceId: extra,
+        },
+      },
+      maximizedTerminalId: null,
+    } as unknown as PersistedTerminalTabDocument;
+
+    const hydrated = hydratePersistedTab(extra, tab, new Set(["cs__space-abc__1"]));
+    expect(hydrated?.panes["pane-1"].workspaceId).toBe("ws-1");
+    expect(hydrated?.panes["pane-1"].tmuxWindowName).toBe("cs__space-abc__1");
+  });
+
+  it("does not double-prefix an already namespaced extra-space window", () => {
+    const extra = makeCenterSpaceKey("ws-1", "space-abc");
+    const tab = {
+      id: "term",
+      title: "Term",
+      layout: "pane-1",
+      panes: {
+        "pane-1": {
+          id: "pane-1",
+          label: "1",
+          tmuxWindowName: "cs__space-abc__1",
+          workspaceId: "ws-1",
+        },
+      },
+      maximizedTerminalId: null,
+    } as unknown as PersistedTerminalTabDocument;
+
+    const hydrated = hydratePersistedTab(extra, tab, new Set());
+    expect(hydrated?.panes["pane-1"].workspaceId).toBe("ws-1");
+    expect(hydrated?.panes["pane-1"].tmuxWindowName).toBe("cs__space-abc__1");
   });
 });

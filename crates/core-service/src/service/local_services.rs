@@ -170,6 +170,9 @@ pub struct LocalServiceDto {
     pub pid: Option<u32>,
     pub process_name: Option<String>,
     pub command_preview: Option<String>,
+    /// Path-bearing launch command when `command_preview` is a rewritten process title.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub command_path: Option<String>,
     pub cwd_display: Option<String>,
     pub launch_dir_display: Option<String>,
     pub title: Option<String>,
@@ -946,6 +949,7 @@ mod tests {
                 pid: Some(4242),
                 process_name: Some("node".into()),
                 command_preview: None,
+                command_path: None,
                 cwd_display: None,
                 launch_dir_display: None,
                 title: None,
