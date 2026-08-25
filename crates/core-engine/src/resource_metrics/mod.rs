@@ -341,7 +341,7 @@ fn collect_host_memory(system: &System) -> ResourceHostMemorySample {
     #[cfg(target_os = "linux")]
     {
         let used = resolve_host_memory_used(None, total, system.available_memory());
-        return ResourceHostMemorySample::from_parts(
+        ResourceHostMemorySample::from_parts(
             total,
             used,
             system.free_memory(),
@@ -349,14 +349,14 @@ fn collect_host_memory(system: &System) -> ResourceHostMemorySample {
             swap_total,
             swap_used,
             ResourceMemoryAccounting::LinuxMemavailable,
-        );
+        )
     }
 
     #[cfg(target_os = "windows")]
     {
         let used = resolve_host_memory_used(None, total, system.available_memory());
         let available = total.saturating_sub(used);
-        return ResourceHostMemorySample::from_parts(
+        ResourceHostMemorySample::from_parts(
             total,
             used,
             available,
@@ -364,7 +364,7 @@ fn collect_host_memory(system: &System) -> ResourceHostMemorySample {
             swap_total,
             swap_used,
             ResourceMemoryAccounting::WindowsAvailPhys,
-        );
+        )
     }
 
     #[cfg(not(any(target_os = "linux", target_os = "windows")))]
