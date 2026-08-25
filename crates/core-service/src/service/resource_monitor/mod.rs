@@ -12,19 +12,21 @@ use core_engine::ResourceMetricsEngine;
 use parking_lot::Mutex;
 use tracing::warn;
 
+use crate::service::local_services::{LocalServicesScanResponse, LocalServicesService};
 use crate::service::project::ProjectService;
 use crate::service::terminal::{TerminalResourceRoot, TerminalService};
 use crate::service::workspace::WorkspaceService;
 use crate::{Result, ServiceError};
 
 use attribution::{
-    attribute, normalize_path, resolve_terminal_claims, AttributionInput, PathContext,
-    PathContextKind, TerminalRootInput, TmuxPaneInput,
+    attribute, normalize_path, resolve_terminal_claims, AttributionInput, CachedListenerPort,
+    PathContext, PathContextKind, TerminalRootInput, TmuxPaneInput,
 };
 
 pub use types::{
     ResourceAttributionStatus, ResourceHostMetrics, ResourceMonitorSnapshot,
-    ResourceProjectMetrics, ResourceSessionMetrics, ResourceUsage, ResourceWorkspaceMetrics,
+    ResourceProcessMetrics, ResourceProjectMetrics, ResourceSessionMetrics, ResourceUsage,
+    ResourceWorkspaceMetrics,
 };
 
 const SNAPSHOT_CACHE_TTL: Duration = Duration::from_millis(500);
@@ -59,6 +61,7 @@ pub struct ResourceMonitorService {
     project_service: Arc<ProjectService>,
     workspace_service: Arc<WorkspaceService>,
     terminal_service: Arc<TerminalService>,
+    local_services: Arc<LocalServicesService>,
     metrics_engine: Arc<ResourceMetricsEngine>,
     cache: SnapshotCache,
     collect_lock: tokio::sync::Mutex<()>,
@@ -69,12 +72,14 @@ impl ResourceMonitorService {
         project_service: Arc<ProjectService>,
         workspace_service: Arc<WorkspaceService>,
         terminal_service: Arc<TerminalService>,
+        local_services: Arc<LocalServicesService>,
         metrics_engine: Arc<ResourceMetricsEngine>,
     ) -> Self {
         Self {
             project_service,
             workspace_service,
             terminal_service,
+            local_services,
             metrics_engine,
             cache: SnapshotCache::new(),
             collect_lock: tokio::sync::Mutex::new(()),
@@ -106,6 +111,7 @@ impl ResourceMonitorService {
         let metrics_engine = Arc::clone(&self.metrics_engine);
         let terminal_service = Arc::clone(&self.terminal_service);
         let server_pid = std::process::id();
+        let port_cache = peek_resource_port_annotations(&self.local_services).await;
 
         tokio::task::spawn_blocking(move || {
             let sample = metrics_engine.sample();
@@ -139,6 +145,7 @@ impl ResourceMonitorService {
                 server_pid,
                 path_contexts,
                 terminals: claims,
+                port_cache,
             });
 
             ResourceMonitorSnapshot {
@@ -253,6 +260,30 @@ fn finalize_root_path(raw: PathBuf) -> Option<PathBuf> {
     Some(path)
 }
 
+/// Resource Monitor collection may only peek this surface. It never calls scan.
+pub(crate) async fn peek_resource_port_annotations(
+    local_services: &LocalServicesService,
+) -> Option<Vec<CachedListenerPort>> {
+    local_services
+        .peek_latest_all_projects()
+        .await
+        .map(listener_ports_from_snapshot)
+}
+
+fn listener_ports_from_snapshot(snapshot: LocalServicesScanResponse) -> Vec<CachedListenerPort> {
+    snapshot
+        .services
+        .into_iter()
+        .filter_map(|dto| {
+            dto.pid.map(|pid| CachedListenerPort {
+                pid,
+                process_name: dto.process_name,
+                port: dto.port,
+            })
+        })
+        .collect()
+}
+
 fn merge_status(
     status: ResourceAttributionStatus,
     extra_partial: bool,
@@ -268,6 +299,10 @@ fn merge_status(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::service::local_services::{
+        LocalServiceDto, LocalServiceKind, LocalServiceOwnerDto, LocalServiceStatus,
+        LocalServicesScanResponse, LocalServicesScope, LocalServicesService,
+    };
     use crate::service::project::ProjectService;
     use crate::service::workspace::WorkspaceService;
     use infra::Migrator;
@@ -297,12 +332,53 @@ mod tests {
             .expect("sqlite memory");
         Migrator::up(&db, None).await.expect("migrate");
         let db = Arc::new(db);
+        let project_service = Arc::new(ProjectService::new(Arc::clone(&db)));
+        let workspace_service = Arc::new(WorkspaceService::new(db));
         ResourceMonitorService::new(
-            Arc::new(ProjectService::new(Arc::clone(&db))),
-            Arc::new(WorkspaceService::new(db)),
+            Arc::clone(&project_service),
+            Arc::clone(&workspace_service),
             Arc::new(TerminalService::new()),
+            Arc::new(LocalServicesService::new(
+                project_service,
+                workspace_service,
+            )),
             Arc::new(ResourceMetricsEngine::new()),
         )
+    }
+
+    fn dummy_scan(port: u16, pid: u32, name: &str) -> LocalServicesScanResponse {
+        LocalServicesScanResponse {
+            scanned_at: "2026-08-25T00:00:00Z".into(),
+            cache_ttl_ms: 5_000,
+            services: vec![LocalServiceDto {
+                id: format!("svc-{port}"),
+                owner: LocalServiceOwnerDto {
+                    project_id: Some("other".into()),
+                    project_name: Some("Ignored".into()),
+                    workspace_id: None,
+                    workspace_name: None,
+                    root_path: "/ignored".into(),
+                },
+                kind: LocalServiceKind::WorkspaceDevServer,
+                status: LocalServiceStatus::Online,
+                confidence: 1.0,
+                reasons: Vec::new(),
+                url: None,
+                display_url: format!("http://127.0.0.1:{port}"),
+                port,
+                pid: Some(pid),
+                process_name: Some(name.into()),
+                command_preview: None,
+                cwd_display: None,
+                launch_dir_display: None,
+                title: None,
+                can_open: true,
+                can_stop: true,
+                protected: false,
+                last_seen_at: "2026-08-25T00:00:00Z".into(),
+            }],
+            unavailable: None,
+        }
     }
 
     #[test]
@@ -323,6 +399,61 @@ mod tests {
         let c = c.expect("snapshot c");
         assert_eq!(a.collected_at_ms, b.collected_at_ms);
         assert_eq!(a.collected_at_ms, c.collected_at_ms);
+    }
+
+    #[tokio::test]
+    async fn snapshot_path_peeks_latest_all_and_ignores_context_cache() {
+        let db = Database::connect("sqlite::memory:")
+            .await
+            .expect("sqlite memory");
+        Migrator::up(&db, None).await.expect("migrate");
+        let db = Arc::new(db);
+        let project_service = Arc::new(ProjectService::new(Arc::clone(&db)));
+        let workspace_service = Arc::new(WorkspaceService::new(db));
+        let local_services = Arc::new(LocalServicesService::new(
+            Arc::clone(&project_service),
+            Arc::clone(&workspace_service),
+        ));
+        local_services
+            .store_scan_result_for_test(
+                LocalServicesScope::CurrentContext,
+                dummy_scan(4173, 22, "vite"),
+            )
+            .await;
+        assert!(
+            peek_resource_port_annotations(&local_services)
+                .await
+                .is_none(),
+            "context cache must not become the Resource Monitor port snapshot"
+        );
+
+        local_services
+            .store_scan_result_for_test(
+                LocalServicesScope::AllAtmosProjects,
+                dummy_scan(3000, 11, "node"),
+            )
+            .await;
+        local_services
+            .store_scan_result_for_test(
+                LocalServicesScope::CurrentContext,
+                dummy_scan(4173, 22, "vite"),
+            )
+            .await;
+
+        let peeked = peek_resource_port_annotations(&local_services)
+            .await
+            .expect("peek latest-all");
+        assert_eq!(peeked.len(), 1);
+        assert_eq!(peeked[0].pid, 11);
+        assert_eq!(peeked[0].port, 3000);
+        assert_eq!(peeked[0].process_name.as_deref(), Some("node"));
+    }
+
+    #[test]
+    fn listener_ports_skip_missing_pid() {
+        let mut snapshot = dummy_scan(3000, 11, "node");
+        snapshot.services[0].pid = None;
+        assert!(listener_ports_from_snapshot(snapshot).is_empty());
     }
 
     #[test]

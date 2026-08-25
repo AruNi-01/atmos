@@ -40,6 +40,19 @@ impl ResourceUsage {
     }
 }
 
+/// Process-name group inside one exclusive session or cwd leaf.
+///
+/// Wire fields are basename, aggregated usage, and cached local ports only.
+/// Never serialize PID, start time, command line, executable, user, env, or cwd.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct ResourceProcessMetrics {
+    pub name: String,
+    pub usage: ResourceUsage,
+    #[serde(default)]
+    pub ports: Vec<u16>,
+}
+
 /// Active terminal session projection. Usage is display-only at this row.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -48,6 +61,8 @@ pub struct ResourceSessionMetrics {
     pub name: Option<String>,
     pub terminal_kind: String,
     pub usage: ResourceUsage,
+    #[serde(default)]
+    pub processes: Vec<ResourceProcessMetrics>,
 }
 
 /// Workspace row. Usage is the exclusive assignment projection, not a sum of session rows.
@@ -58,6 +73,10 @@ pub struct ResourceWorkspaceMetrics {
     pub name: String,
     pub usage: ResourceUsage,
     pub sessions: Vec<ResourceSessionMetrics>,
+    #[serde(default)]
+    pub other_usage: ResourceUsage,
+    #[serde(default)]
+    pub other_processes: Vec<ResourceProcessMetrics>,
 }
 
 /// Project row. `usage` is unique direct + workspace assignments.
@@ -70,6 +89,10 @@ pub struct ResourceProjectMetrics {
     pub direct_usage: ResourceUsage,
     pub workspaces: Vec<ResourceWorkspaceMetrics>,
     pub sessions: Vec<ResourceSessionMetrics>,
+    #[serde(default)]
+    pub other_usage: ResourceUsage,
+    #[serde(default)]
+    pub other_processes: Vec<ResourceProcessMetrics>,
 }
 
 /// Host totals for the active Computer.
@@ -159,5 +182,30 @@ mod tests {
         assert_eq!(json, "\"partial\"");
         let parsed: ResourceAttributionStatus = serde_json::from_str("\"unsupported\"").unwrap();
         assert_eq!(parsed, ResourceAttributionStatus::Unsupported);
+    }
+
+    #[test]
+    fn process_metrics_serialize_only_name_usage_ports() {
+        let process = ResourceProcessMetrics {
+            name: "node".into(),
+            usage: ResourceUsage {
+                cpu_percent: 1.5,
+                memory_rss_bytes: 20,
+                process_count: 2,
+            },
+            ports: vec![3000, 4173],
+        };
+        let value = serde_json::to_value(&process).unwrap();
+        let object = value.as_object().unwrap();
+        let keys: std::collections::HashSet<_> = object.keys().cloned().collect();
+        assert_eq!(
+            keys,
+            ["name", "usage", "ports"]
+                .into_iter()
+                .map(str::to_string)
+                .collect()
+        );
+        assert_eq!(value["name"], "node");
+        assert_eq!(value["ports"], serde_json::json!([3000, 4173]));
     }
 }

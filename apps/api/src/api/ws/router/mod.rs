@@ -113,6 +113,7 @@ impl WsMessageService {
             Arc::clone(&project_service),
             Arc::clone(&workspace_service),
             Arc::clone(&terminal_service),
+            Arc::clone(&local_services_service),
             Arc::new(ResourceMetricsEngine::new()),
         ));
 

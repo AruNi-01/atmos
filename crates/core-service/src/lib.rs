@@ -57,8 +57,8 @@ pub use service::notification::NotificationService;
 pub use service::project::{ProjectScripts, ProjectService, PROJECT_SCRIPTS_RELATIVE_PATH};
 pub use service::resource_monitor::{
     ResourceAttributionStatus, ResourceHostMetrics, ResourceMonitorService,
-    ResourceMonitorSnapshot, ResourceProjectMetrics, ResourceSessionMetrics, ResourceUsage,
-    ResourceWorkspaceMetrics,
+    ResourceMonitorSnapshot, ResourceProcessMetrics, ResourceProjectMetrics,
+    ResourceSessionMetrics, ResourceUsage, ResourceWorkspaceMetrics,
 };
 pub use service::review::ReviewService;
 pub use service::terminal::{

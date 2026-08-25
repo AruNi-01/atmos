@@ -4,7 +4,8 @@ use std::collections::{HashMap, HashSet};
 
 use super::attribution::{PathContext, PathContextKind};
 use super::types::{
-    ResourceProjectMetrics, ResourceSessionMetrics, ResourceUsage, ResourceWorkspaceMetrics,
+    ResourceProcessMetrics, ResourceProjectMetrics, ResourceSessionMetrics, ResourceUsage,
+    ResourceWorkspaceMetrics,
 };
 
 #[derive(Clone)]
@@ -16,13 +17,23 @@ pub(crate) struct SessionRow {
     pub workspace_id: Option<String>,
 }
 
+#[derive(Default)]
+pub(crate) struct HierarchyUsage {
+    pub session_usage: HashMap<String, ResourceUsage>,
+    pub session_processes: HashMap<String, Vec<ResourceProcessMetrics>>,
+    pub workspace_usage: HashMap<(String, String), ResourceUsage>,
+    pub workspace_other_usage: HashMap<(String, String), ResourceUsage>,
+    pub workspace_other_processes: HashMap<(String, String), Vec<ResourceProcessMetrics>>,
+    pub project_usage: HashMap<String, ResourceUsage>,
+    pub project_direct: HashMap<String, ResourceUsage>,
+    pub project_other_usage: HashMap<String, ResourceUsage>,
+    pub project_other_processes: HashMap<String, Vec<ResourceProcessMetrics>>,
+}
+
 pub(crate) fn build_projects(
     contexts: &[PathContext],
     session_rows: &[SessionRow],
-    session_usage: &HashMap<String, ResourceUsage>,
-    workspace_usage: &HashMap<(String, String), ResourceUsage>,
-    project_usage: &HashMap<String, ResourceUsage>,
-    project_direct: &HashMap<String, ResourceUsage>,
+    usage: &HierarchyUsage,
 ) -> Vec<ResourceProjectMetrics> {
     let mut names: HashMap<String, String> = HashMap::new();
     let mut workspace_names: HashMap<(String, String), String> = HashMap::new();
@@ -44,14 +55,18 @@ pub(crate) fn build_projects(
     }
 
     let mut project_ids: HashSet<String> = HashSet::new();
-    project_ids.extend(project_usage.keys().cloned());
-    project_ids.extend(project_direct.keys().cloned());
+    project_ids.extend(usage.project_usage.keys().cloned());
+    project_ids.extend(usage.project_direct.keys().cloned());
+    project_ids.extend(usage.project_other_usage.keys().cloned());
     for row in session_rows {
         if let Some(project_id) = &row.project_id {
             project_ids.insert(project_id.clone());
         }
     }
-    for (project_id, _) in workspace_usage.keys() {
+    for (project_id, _) in usage.workspace_usage.keys() {
+        project_ids.insert(project_id.clone());
+    }
+    for (project_id, _) in usage.workspace_other_usage.keys() {
         project_ids.insert(project_id.clone());
     }
 
@@ -64,20 +79,17 @@ pub(crate) fn build_projects(
                     row.project_id.as_deref() == Some(project_id.as_str())
                         && row.workspace_id.is_none()
                 })
-                .map(|row| ResourceSessionMetrics {
-                    session_id: row.session_id.clone(),
-                    name: row.name.clone(),
-                    terminal_kind: row.terminal_kind.clone(),
-                    usage: session_usage
-                        .get(&row.session_id)
-                        .cloned()
-                        .unwrap_or_else(ResourceUsage::zero),
-                })
+                .map(|row| session_metrics(row, usage))
                 .collect();
             sort_sessions(&mut sessions);
 
             let mut workspace_ids: HashSet<String> = HashSet::new();
-            for (pid, workspace_id) in workspace_usage.keys() {
+            for (pid, workspace_id) in usage.workspace_usage.keys() {
+                if pid == &project_id {
+                    workspace_ids.insert(workspace_id.clone());
+                }
+            }
+            for (pid, workspace_id) in usage.workspace_other_usage.keys() {
                 if pid == &project_id {
                     workspace_ids.insert(workspace_id.clone());
                 }
@@ -99,26 +111,30 @@ pub(crate) fn build_projects(
                             row.project_id.as_deref() == Some(project_id.as_str())
                                 && row.workspace_id.as_deref() == Some(workspace_id.as_str())
                         })
-                        .map(|row| ResourceSessionMetrics {
-                            session_id: row.session_id.clone(),
-                            name: row.name.clone(),
-                            terminal_kind: row.terminal_kind.clone(),
-                            usage: session_usage
-                                .get(&row.session_id)
-                                .cloned()
-                                .unwrap_or_else(ResourceUsage::zero),
-                        })
+                        .map(|row| session_metrics(row, usage))
                         .collect();
                     sort_sessions(&mut sessions);
+                    let key = (project_id.clone(), workspace_id.clone());
                     ResourceWorkspaceMetrics {
                         name: workspace_names
-                            .get(&(project_id.clone(), workspace_id.clone()))
+                            .get(&key)
                             .cloned()
                             .unwrap_or_else(|| workspace_id.clone()),
-                        usage: workspace_usage
-                            .get(&(project_id.clone(), workspace_id.clone()))
+                        usage: usage
+                            .workspace_usage
+                            .get(&key)
                             .cloned()
                             .unwrap_or_else(ResourceUsage::zero),
+                        other_usage: usage
+                            .workspace_other_usage
+                            .get(&key)
+                            .cloned()
+                            .unwrap_or_else(ResourceUsage::zero),
+                        other_processes: usage
+                            .workspace_other_processes
+                            .get(&key)
+                            .cloned()
+                            .unwrap_or_default(),
                         workspace_id,
                         sessions,
                     }
@@ -135,14 +151,26 @@ pub(crate) fn build_projects(
                     .get(&project_id)
                     .cloned()
                     .unwrap_or_else(|| project_id.clone()),
-                usage: project_usage
+                usage: usage
+                    .project_usage
                     .get(&project_id)
                     .cloned()
                     .unwrap_or_else(ResourceUsage::zero),
-                direct_usage: project_direct
+                direct_usage: usage
+                    .project_direct
                     .get(&project_id)
                     .cloned()
                     .unwrap_or_else(ResourceUsage::zero),
+                other_usage: usage
+                    .project_other_usage
+                    .get(&project_id)
+                    .cloned()
+                    .unwrap_or_else(ResourceUsage::zero),
+                other_processes: usage
+                    .project_other_processes
+                    .get(&project_id)
+                    .cloned()
+                    .unwrap_or_default(),
                 project_id,
                 workspaces,
                 sessions,
@@ -156,6 +184,24 @@ pub(crate) fn build_projects(
             .then_with(|| left.project_id.cmp(&right.project_id))
     });
     projects
+}
+
+fn session_metrics(row: &SessionRow, usage: &HierarchyUsage) -> ResourceSessionMetrics {
+    ResourceSessionMetrics {
+        session_id: row.session_id.clone(),
+        name: row.name.clone(),
+        terminal_kind: row.terminal_kind.clone(),
+        usage: usage
+            .session_usage
+            .get(&row.session_id)
+            .cloned()
+            .unwrap_or_else(ResourceUsage::zero),
+        processes: usage
+            .session_processes
+            .get(&row.session_id)
+            .cloned()
+            .unwrap_or_default(),
+    }
 }
 
 fn sort_sessions(sessions: &mut [ResourceSessionMetrics]) {

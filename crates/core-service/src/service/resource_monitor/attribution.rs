@@ -1,12 +1,12 @@
 //! Exclusive process attribution for Resource Monitor snapshots.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::path::{Component, Path, PathBuf};
 
 use core_engine::ResourceProcessSample;
 
-use super::projection::{build_projects, SessionRow};
-use super::types::{ResourceAttributionStatus, ResourceUsage};
+use super::projection::{build_projects, HierarchyUsage, SessionRow};
+use super::types::{ResourceAttributionStatus, ResourceProcessMetrics, ResourceUsage};
 
 const MAX_PARENT_WALK: usize = 64;
 
@@ -57,12 +57,23 @@ pub(crate) struct TerminalClaim {
     pub missing_root: bool,
 }
 
+/// Cached Local Services listener used only for port annotation.
+///
+/// Resource owner stays authoritative; this never changes assignment.
+#[derive(Debug, Clone)]
+pub(crate) struct CachedListenerPort {
+    pub pid: u32,
+    pub process_name: Option<String>,
+    pub port: u16,
+}
+
 #[derive(Debug, Clone)]
 pub(crate) struct AttributionInput {
     pub processes: Vec<ResourceProcessSample>,
     pub server_pid: u32,
     pub path_contexts: Vec<PathContext>,
     pub terminals: Vec<TerminalClaim>,
+    pub port_cache: Option<Vec<CachedListenerPort>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -103,6 +114,7 @@ struct IndexedProcess {
     key: ProcessKey,
     parent_pid: Option<u32>,
     cwd: Option<PathBuf>,
+    name: Option<String>,
     cpu_percent: f32,
     memory_rss_bytes: u64,
 }
@@ -200,6 +212,7 @@ pub(crate) fn attribute(input: AttributionInput) -> AttributionOutput {
             },
             parent_pid: process.parent_pid,
             cwd: process.cwd.as_ref().map(|path| normalize_path(path)),
+            name: process.name.clone(),
             cpu_percent: process.cpu_percent,
             memory_rss_bytes: process.memory_rss_bytes,
         })
@@ -380,10 +393,13 @@ pub(crate) fn attribute(input: AttributionInput) -> AttributionOutput {
     let mut server = ResourceUsage::zero();
     let mut shared_runtime = ResourceUsage::zero();
     let mut unattributed = ResourceUsage::zero();
-    let mut session_usage: HashMap<String, ResourceUsage> = HashMap::new();
-    let mut workspace_usage: HashMap<(String, String), ResourceUsage> = HashMap::new();
-    let mut project_usage: HashMap<String, ResourceUsage> = HashMap::new();
-    let mut project_direct: HashMap<String, ResourceUsage> = HashMap::new();
+    let mut usage = HierarchyUsage::default();
+    let mut session_groups: HashMap<String, HashMap<String, ProcessGroupAcc>> = HashMap::new();
+    let mut workspace_other_groups: HashMap<(String, String), HashMap<String, ProcessGroupAcc>> =
+        HashMap::new();
+    let mut project_other_groups: HashMap<String, HashMap<String, ProcessGroupAcc>> =
+        HashMap::new();
+    let port_cache = input.port_cache.as_deref();
 
     for (index, owner) in assigned.iter().enumerate() {
         let Some(owner) = owner else {
@@ -406,57 +422,97 @@ pub(crate) fn attribute(input: AttributionInput) -> AttributionOutput {
                 project_id,
                 workspace_id,
             } => {
-                session_usage
+                usage
+                    .session_usage
                     .entry(session_id.clone())
                     .or_default()
                     .add_process(process.cpu_percent, process.memory_rss_bytes);
-                project_usage
+                usage
+                    .project_usage
                     .entry(project_id.clone())
                     .or_default()
                     .add_process(process.cpu_percent, process.memory_rss_bytes);
                 if let Some(workspace_id) = workspace_id {
-                    workspace_usage
+                    usage
+                        .workspace_usage
                         .entry((project_id.clone(), workspace_id.clone()))
                         .or_default()
                         .add_process(process.cpu_percent, process.memory_rss_bytes);
                 } else {
-                    project_direct
+                    usage
+                        .project_direct
                         .entry(project_id.clone())
                         .or_default()
                         .add_process(process.cpu_percent, process.memory_rss_bytes);
                 }
+                add_process_group(
+                    session_groups.entry(session_id.clone()).or_default(),
+                    process,
+                    ports_for_process(process, port_cache),
+                );
             }
             AssignmentOwner::Cwd {
                 project_id,
                 workspace_id,
             } => {
-                project_usage
+                usage
+                    .project_usage
                     .entry(project_id.clone())
                     .or_default()
                     .add_process(process.cpu_percent, process.memory_rss_bytes);
                 if let Some(workspace_id) = workspace_id {
-                    workspace_usage
+                    usage
+                        .workspace_usage
                         .entry((project_id.clone(), workspace_id.clone()))
                         .or_default()
                         .add_process(process.cpu_percent, process.memory_rss_bytes);
+                    usage
+                        .workspace_other_usage
+                        .entry((project_id.clone(), workspace_id.clone()))
+                        .or_default()
+                        .add_process(process.cpu_percent, process.memory_rss_bytes);
+                    add_process_group(
+                        workspace_other_groups
+                            .entry((project_id.clone(), workspace_id.clone()))
+                            .or_default(),
+                        process,
+                        ports_for_process(process, port_cache),
+                    );
                 } else {
-                    project_direct
+                    usage
+                        .project_direct
                         .entry(project_id.clone())
                         .or_default()
                         .add_process(process.cpu_percent, process.memory_rss_bytes);
+                    usage
+                        .project_other_usage
+                        .entry(project_id.clone())
+                        .or_default()
+                        .add_process(process.cpu_percent, process.memory_rss_bytes);
+                    add_process_group(
+                        project_other_groups.entry(project_id.clone()).or_default(),
+                        process,
+                        ports_for_process(process, port_cache),
+                    );
                 }
             }
         }
     }
 
-    let projects = build_projects(
-        &input.path_contexts,
-        &session_rows,
-        &session_usage,
-        &workspace_usage,
-        &project_usage,
-        &project_direct,
-    );
+    usage.session_processes = session_groups
+        .into_iter()
+        .map(|(session_id, groups)| (session_id, finish_process_groups(groups)))
+        .collect();
+    usage.workspace_other_processes = workspace_other_groups
+        .into_iter()
+        .map(|(key, groups)| (key, finish_process_groups(groups)))
+        .collect();
+    usage.project_other_processes = project_other_groups
+        .into_iter()
+        .map(|(project_id, groups)| (project_id, finish_process_groups(groups)))
+        .collect();
+
+    let projects = build_projects(&input.path_contexts, &session_rows, &usage);
 
     AttributionOutput {
         server,
@@ -668,6 +724,105 @@ fn normalize_path_lexical(path: &Path) -> PathBuf {
         }
     }
     out
+}
+
+#[derive(Default)]
+struct ProcessGroupAcc {
+    name: String,
+    usage: ResourceUsage,
+    ports: BTreeSet<u16>,
+}
+
+fn add_process_group(
+    groups: &mut HashMap<String, ProcessGroupAcc>,
+    process: &IndexedProcess,
+    ports: Vec<u16>,
+) {
+    let Some(display) = process_group_name(process.name.as_deref()) else {
+        return;
+    };
+    let key = display.to_ascii_lowercase();
+    let entry = groups.entry(key).or_insert_with(|| ProcessGroupAcc {
+        name: display,
+        usage: ResourceUsage::zero(),
+        ports: BTreeSet::new(),
+    });
+    entry
+        .usage
+        .add_process(process.cpu_percent, process.memory_rss_bytes);
+    entry.ports.extend(ports);
+}
+
+fn finish_process_groups(groups: HashMap<String, ProcessGroupAcc>) -> Vec<ResourceProcessMetrics> {
+    let mut rows: Vec<ResourceProcessMetrics> = groups
+        .into_values()
+        .map(|group| ResourceProcessMetrics {
+            name: group.name,
+            usage: group.usage,
+            ports: group.ports.into_iter().collect(),
+        })
+        .collect();
+    rows.sort_by(|left, right| {
+        left.name
+            .to_ascii_lowercase()
+            .cmp(&right.name.to_ascii_lowercase())
+            .then_with(|| left.name.cmp(&right.name))
+    });
+    rows
+}
+
+fn ports_for_process(process: &IndexedProcess, cache: Option<&[CachedListenerPort]>) -> Vec<u16> {
+    let Some(cache) = cache else {
+        return Vec::new();
+    };
+    let mut ports: Vec<u16> = cache
+        .iter()
+        .filter(|listener| listener_matches_process(listener, process))
+        .map(|listener| listener.port)
+        .collect();
+    ports.sort_unstable();
+    ports.dedup();
+    ports
+}
+
+fn listener_matches_process(listener: &CachedListenerPort, process: &IndexedProcess) -> bool {
+    if listener.pid != process.key.pid {
+        return false;
+    }
+    match (
+        nonempty_process_name(listener.process_name.as_deref()),
+        nonempty_process_name(process.name.as_deref()),
+    ) {
+        (Some(cached), Some(sample)) => process_names_match(cached, sample),
+        _ => false,
+    }
+}
+
+fn nonempty_process_name(name: Option<&str>) -> Option<&str> {
+    name.map(str::trim).filter(|value| !value.is_empty())
+}
+
+fn process_group_name(name: Option<&str>) -> Option<String> {
+    let display = process_basename(name.unwrap_or(""));
+    if display.trim().is_empty() {
+        None
+    } else {
+        Some(display)
+    }
+}
+
+fn process_names_match(left: &str, right: &str) -> bool {
+    left.eq_ignore_ascii_case(right)
+        || process_basename(left).eq_ignore_ascii_case(&process_basename(right))
+}
+
+fn process_basename(name: &str) -> String {
+    let trimmed = name.trim();
+    Path::new(trimmed)
+        .file_name()
+        .and_then(|value| value.to_str())
+        .unwrap_or(trimmed)
+        .to_string()
 }
 
 #[cfg(test)]

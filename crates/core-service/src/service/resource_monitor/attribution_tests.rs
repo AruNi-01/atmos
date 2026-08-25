@@ -100,6 +100,7 @@ fn exclusive_nested_deepest_and_server_excludes_workspace() {
             simple_claim("shallow", "ws", 10),
             simple_claim("deep", "ws", 20),
         ],
+        port_cache: None,
     });
 
     assert_eq!(
@@ -279,6 +280,7 @@ fn duplicate_tmux_roots_claim_once() {
             workspace("ws", "Feature", "proj", "/proj/ws"),
         ],
         terminals: claims,
+        port_cache: None,
     });
 
     let claimed_keys: HashSet<_> = output.assignments.keys().cloned().collect();
@@ -329,6 +331,7 @@ fn project_workspace_and_unresolved_contexts() {
             simple_claim("ws-session", "ws", 20),
             simple_claim("stale", "missing-guid", 30),
         ],
+        port_cache: None,
     });
 
     assert_eq!(
@@ -377,6 +380,7 @@ fn pid_reuse_uses_start_time_identity() {
             workspace("ws", "Feature", "proj", "/proj/ws"),
         ],
         terminals: vec![simple_claim("term", "ws", 50)],
+        port_cache: None,
     });
 
     assert_eq!(
@@ -419,6 +423,7 @@ fn cwd_boundary_uses_path_prefix_not_string_prefix() {
             workspace("sibling", "Sibling", "proj", "/repo-ws"),
         ],
         terminals: Vec::new(),
+        port_cache: None,
     });
 
     assert_eq!(
@@ -481,6 +486,7 @@ fn missing_terminal_root_is_partial_without_invented_usage() {
             root_pids: vec![4242],
             missing_root: true,
         }],
+        port_cache: None,
     });
     assert_eq!(
         output.attribution_status,
@@ -513,6 +519,7 @@ fn unresolved_live_pid_is_unattributed_missing_pid_adds_nothing() {
                 missing_root: true,
             },
         ],
+        port_cache: None,
     });
     assert_eq!(
         output.attribution_status,
@@ -573,6 +580,7 @@ fn context_prefers_project_guid_over_workspace() {
             workspace("shared", "Workspace", "shared", "/proj/ws"),
         ],
         terminals: vec![simple_claim("sess", "shared", 10)],
+        port_cache: None,
     });
     assert_eq!(output.projects[0].direct_usage.process_count, 1);
     assert!(output.projects[0].workspaces.is_empty());
@@ -589,6 +597,7 @@ fn server_pid_stays_server_when_cwd_is_inside_project() {
         server_pid: 1,
         path_contexts: vec![project("proj", "Demo", "/repo")],
         terminals: Vec::new(),
+        port_cache: None,
     });
 
     assert_eq!(
@@ -628,6 +637,7 @@ fn terminal_root_equal_server_pid_does_not_steal_server() {
         server_pid: 1,
         path_contexts: vec![project("proj", "Demo", "/repo")],
         terminals: vec![simple_claim("rogue", "proj", 1)],
+        port_cache: None,
     });
 
     assert_eq!(
@@ -703,4 +713,506 @@ fn normalize_path_canonicalizes_existing_and_falls_back_lexically() {
         std::os::unix::fs::symlink(&real, &link).unwrap();
         assert_eq!(normalize_path(&link), expected);
     }
+}
+
+fn proc_named(
+    pid: u32,
+    parent: Option<u32>,
+    cwd: Option<&str>,
+    name: &str,
+    cpu: f32,
+    memory: u64,
+) -> ResourceProcessSample {
+    ResourceProcessSample {
+        collected_at_ms: 1,
+        pid,
+        parent_pid: parent,
+        start_time: 1,
+        cwd: cwd.map(PathBuf::from),
+        name: Some(name.to_string()),
+        cpu_percent: cpu,
+        memory_rss_bytes: memory,
+    }
+}
+
+fn listener(pid: u32, process_name: Option<&str>, port: u16) -> CachedListenerPort {
+    CachedListenerPort {
+        pid,
+        process_name: process_name.map(str::to_string),
+        port,
+    }
+}
+
+fn leaf_names(
+    project: &crate::service::resource_monitor::types::ResourceProjectMetrics,
+) -> Vec<String> {
+    let mut names = Vec::new();
+    for session in &project.sessions {
+        names.extend(session.processes.iter().map(|process| process.name.clone()));
+    }
+    names.extend(
+        project
+            .other_processes
+            .iter()
+            .map(|process| process.name.clone()),
+    );
+    for workspace in &project.workspaces {
+        for session in &workspace.sessions {
+            names.extend(session.processes.iter().map(|process| process.name.clone()));
+        }
+        names.extend(
+            workspace
+                .other_processes
+                .iter()
+                .map(|process| process.name.clone()),
+        );
+    }
+    names
+}
+
+fn assert_memory_count_sum(parent: &ResourceUsage, parts: &[&ResourceUsage]) {
+    let memory: u64 = parts.iter().map(|usage| usage.memory_rss_bytes).sum();
+    let count: u32 = parts.iter().map(|usage| usage.process_count).sum();
+    assert_eq!(parent.memory_rss_bytes, memory);
+    assert_eq!(parent.process_count, count);
+}
+
+/// S17 — exclusive session / project-cwd / workspace-cwd leaves and parent reconciliation.
+#[test]
+fn exclusive_leaves_nested_sessions_and_project_direct_workspace_cwd() {
+    let processes = vec![
+        proc_named(10, None, Some("/proj"), "zsh", 1.0, 10),
+        proc_named(11, Some(10), Some("/proj"), "cargo", 2.0, 20),
+        proc_named(40, None, Some("/proj/src"), "eslint", 3.0, 30),
+        proc_named(20, None, Some("/proj/ws"), "bash", 4.0, 40),
+        proc_named(21, Some(20), Some("/proj/ws"), "node", 5.0, 50),
+        proc_named(22, Some(21), Some("/proj/ws"), "node-worker", 1.0, 15),
+        proc_named(50, None, Some("/proj/ws/app"), "vite", 6.0, 60),
+    ];
+    let output = attribute(AttributionInput {
+        processes,
+        server_pid: 99,
+        path_contexts: vec![
+            project("proj", "Demo", "/proj"),
+            workspace("ws", "Feature", "proj", "/proj/ws"),
+        ],
+        terminals: vec![
+            simple_claim("proj-session", "proj", 10),
+            simple_claim("ws-shallow", "ws", 20),
+            simple_claim("ws-deep", "ws", 21),
+        ],
+        port_cache: None,
+    });
+
+    let project = &output.projects[0];
+    assert_eq!(project.sessions.len(), 1);
+    assert_eq!(project.sessions[0].session_id, "proj-session");
+    assert_eq!(
+        project.sessions[0]
+            .processes
+            .iter()
+            .map(|process| process.name.as_str())
+            .collect::<Vec<_>>(),
+        vec!["cargo", "zsh"]
+    );
+    assert_eq!(project.other_processes.len(), 1);
+    assert_eq!(project.other_processes[0].name, "eslint");
+    assert_eq!(project.other_usage.process_count, 1);
+    assert_eq!(project.other_usage.memory_rss_bytes, 30);
+
+    let workspace = &project.workspaces[0];
+    assert_eq!(workspace.sessions.len(), 2);
+    assert_eq!(workspace.sessions[0].session_id, "ws-deep");
+    assert_eq!(
+        workspace.sessions[0]
+            .processes
+            .iter()
+            .map(|process| process.name.as_str())
+            .collect::<Vec<_>>(),
+        vec!["node", "node-worker"]
+    );
+    assert_eq!(workspace.sessions[1].session_id, "ws-shallow");
+    assert_eq!(workspace.sessions[1].processes[0].name, "bash");
+    assert!(!workspace.sessions.iter().any(|session| session
+        .processes
+        .iter()
+        .any(|process| process.name == "vite")));
+    assert_eq!(workspace.other_processes.len(), 1);
+    assert_eq!(workspace.other_processes[0].name, "vite");
+
+    let names = leaf_names(project);
+    let unique: HashSet<_> = names.iter().cloned().collect();
+    assert_eq!(
+        names.len(),
+        unique.len(),
+        "each assigned process has one leaf"
+    );
+    assert_eq!(
+        unique,
+        HashSet::from([
+            "zsh".into(),
+            "cargo".into(),
+            "eslint".into(),
+            "bash".into(),
+            "node".into(),
+            "node-worker".into(),
+            "vite".into(),
+        ])
+    );
+
+    assert_memory_count_sum(
+        &project.direct_usage,
+        &[&project.sessions[0].usage, &project.other_usage],
+    );
+    assert_memory_count_sum(
+        &workspace.usage,
+        &[
+            &workspace.sessions[0].usage,
+            &workspace.sessions[1].usage,
+            &workspace.other_usage,
+        ],
+    );
+    assert_memory_count_sum(&project.usage, &[&project.direct_usage, &workspace.usage]);
+    assert_memory_count_sum(
+        &project.sessions[0].usage,
+        &[
+            &project.sessions[0].processes[0].usage,
+            &project.sessions[0].processes[1].usage,
+        ],
+    );
+}
+
+#[test]
+fn groups_case_insensitive_basename_and_merges_sorted_ports() {
+    let processes = vec![
+        proc_named(70, None, Some("/proj/ws"), "Node", 2.0, 20),
+        proc_named(71, None, Some("/proj/ws"), "node", 3.0, 30),
+        proc_named(72, None, Some("/proj/ws"), "/usr/bin/python", 1.0, 10),
+    ];
+    let output = attribute(AttributionInput {
+        processes,
+        server_pid: 99,
+        path_contexts: vec![
+            project("proj", "Demo", "/proj"),
+            workspace("ws", "Feature", "proj", "/proj/ws"),
+        ],
+        terminals: Vec::new(),
+        port_cache: Some(vec![
+            listener(70, Some("node"), 3000),
+            listener(70, Some("NODE"), 3001),
+            listener(71, Some("Node"), 4173),
+            listener(72, Some("python"), 8000),
+            listener(72, Some("python"), 8000),
+            listener(72, None, 8001),
+        ]),
+    });
+
+    let others = &output.projects[0].workspaces[0].other_processes;
+    assert_eq!(
+        others
+            .iter()
+            .map(|process| process.name.as_str())
+            .collect::<Vec<_>>(),
+        vec!["Node", "python"]
+    );
+    assert_eq!(others[0].usage.process_count, 2);
+    assert_eq!(others[0].usage.memory_rss_bytes, 50);
+    assert_eq!(others[0].ports, vec![3000, 3001, 4173]);
+    assert_eq!(others[1].name, "python");
+    assert_eq!(
+        others[1].ports,
+        vec![8000],
+        "listener without a process name must not attach a port"
+    );
+}
+
+#[test]
+fn name_mismatch_does_not_attach_ports_and_resource_owner_wins() {
+    let processes = vec![proc_named(80, None, Some("/proj/ws"), "python", 1.0, 10)];
+    let output = attribute(AttributionInput {
+        processes,
+        server_pid: 99,
+        path_contexts: vec![
+            project("proj", "Demo", "/proj"),
+            workspace("ws", "Feature", "proj", "/proj/ws"),
+        ],
+        terminals: Vec::new(),
+        port_cache: Some(vec![
+            listener(80, Some("node"), 4000),
+            listener(81, Some("python"), 5000),
+        ]),
+    });
+
+    let process = &output.projects[0].workspaces[0].other_processes[0];
+    assert_eq!(process.name, "python");
+    assert!(process.ports.is_empty());
+    assert_eq!(output.projects[0].workspaces[0].workspace_id, "ws");
+}
+
+#[test]
+fn missing_listener_or_sample_name_does_not_attach_ports() {
+    let processes = vec![
+        proc_named(80, None, Some("/proj/ws"), "node", 1.0, 10),
+        proc_named(81, None, Some("/proj/ws"), "vite", 1.0, 10),
+    ];
+    let output = attribute(AttributionInput {
+        processes,
+        server_pid: 99,
+        path_contexts: vec![
+            project("proj", "Demo", "/proj"),
+            workspace("ws", "Feature", "proj", "/proj/ws"),
+        ],
+        terminals: Vec::new(),
+        port_cache: Some(vec![
+            listener(80, None, 3000),
+            listener(80, Some("   "), 3001),
+            listener(81, Some("vite"), 4173),
+        ]),
+    });
+
+    let others = &output.projects[0].workspaces[0].other_processes;
+    let node = others
+        .iter()
+        .find(|process| process.name == "node")
+        .unwrap();
+    let vite = others
+        .iter()
+        .find(|process| process.name == "vite")
+        .unwrap();
+    assert!(
+        node.ports.is_empty(),
+        "fail-closed: missing or blank listener name must not attach"
+    );
+    assert_eq!(vite.ports, vec![4173]);
+}
+
+#[test]
+fn blank_or_missing_name_skips_leaf_but_keeps_parent_usage() {
+    let processes = vec![
+        proc_named(10, None, Some("/proj"), "zsh", 1.0, 10),
+        ResourceProcessSample {
+            collected_at_ms: 1,
+            pid: 11,
+            parent_pid: Some(10),
+            start_time: 1,
+            cwd: Some(PathBuf::from("/proj")),
+            name: None,
+            cpu_percent: 2.0,
+            memory_rss_bytes: 20,
+        },
+        proc_named(12, Some(10), Some("/proj"), "   ", 3.0, 30),
+        ResourceProcessSample {
+            collected_at_ms: 1,
+            pid: 40,
+            parent_pid: None,
+            start_time: 1,
+            cwd: Some(PathBuf::from("/proj/src")),
+            name: None,
+            cpu_percent: 4.0,
+            memory_rss_bytes: 40,
+        },
+        proc_named(41, None, Some("/proj/lib"), "\t", 5.0, 50),
+    ];
+    let output = attribute(AttributionInput {
+        processes,
+        server_pid: 99,
+        path_contexts: vec![project("proj", "Demo", "/proj")],
+        terminals: vec![simple_claim("proj-session", "proj", 10)],
+        port_cache: Some(vec![
+            listener(11, Some("hidden"), 7000),
+            listener(40, Some("eslint"), 7001),
+        ]),
+    });
+
+    let project = &output.projects[0];
+    assert_eq!(
+        project.sessions[0]
+            .processes
+            .iter()
+            .map(|process| process.name.as_str())
+            .collect::<Vec<_>>(),
+        vec!["zsh"]
+    );
+    assert!(!project.sessions[0]
+        .processes
+        .iter()
+        .any(|process| process.name.trim().is_empty()));
+    assert_eq!(project.sessions[0].usage.process_count, 3);
+    assert_eq!(project.sessions[0].usage.memory_rss_bytes, 60);
+    assert!(
+        project.other_processes.is_empty(),
+        "None/blank cwd names must not emit empty leaf groups"
+    );
+    assert_eq!(project.other_usage.process_count, 2);
+    assert_eq!(project.other_usage.memory_rss_bytes, 90);
+    assert_eq!(project.direct_usage.process_count, 5);
+    assert_eq!(project.direct_usage.memory_rss_bytes, 150);
+}
+
+#[test]
+fn missing_port_cache_still_emits_process_names() {
+    let processes = vec![proc_named(90, None, Some("/proj"), "eslint", 1.0, 10)];
+    let output = attribute(AttributionInput {
+        processes,
+        server_pid: 99,
+        path_contexts: vec![project("proj", "Demo", "/proj")],
+        terminals: Vec::new(),
+        port_cache: None,
+    });
+
+    assert_eq!(output.projects[0].other_processes.len(), 1);
+    assert_eq!(output.projects[0].other_processes[0].name, "eslint");
+    assert!(output.projects[0].other_processes[0].ports.is_empty());
+}
+
+#[test]
+fn snapshot_json_omits_process_identity_fields() {
+    let processes = vec![
+        proc_named(10, None, Some("/proj"), "zsh", 1.0, 10),
+        proc_named(1, None, Some("/atmos"), "atmos", 2.0, 20),
+        proc_named(2, Some(1), Some("/atmos"), "helper", 1.0, 5),
+        proc_named(30, None, None, "orphan", 3.0, 30),
+    ];
+    let output = attribute(AttributionInput {
+        processes,
+        server_pid: 1,
+        path_contexts: vec![project("proj", "Demo", "/proj")],
+        terminals: vec![
+            simple_claim("proj-session", "proj", 10),
+            simple_claim("stale", "missing-guid", 30),
+        ],
+        port_cache: Some(vec![listener(10, Some("zsh"), 9229)]),
+    });
+
+    let snapshot = crate::service::resource_monitor::types::ResourceMonitorSnapshot {
+        collected_at_ms: 1,
+        host: crate::service::resource_monitor::types::ResourceHostMetrics {
+            cpu_percent: 1.0,
+            memory_used_bytes: 2,
+            memory_total_bytes: 3,
+            logical_cpu_count: 4,
+        },
+        server: output.server.clone(),
+        shared_runtime: output.shared_runtime.clone(),
+        projects: output.projects.clone(),
+        unattributed: output.unattributed.clone(),
+        attribution_status: output.attribution_status,
+    };
+    let value = serde_json::to_value(&snapshot).unwrap();
+    let keys = json_object_keys(&value);
+    for forbidden in [
+        "pid",
+        "start_time",
+        "cmdline",
+        "command",
+        "command_line",
+        "exe",
+        "user",
+        "env",
+        "cwd",
+    ] {
+        assert!(
+            !keys.contains(forbidden),
+            "snapshot leaked identity key {forbidden}"
+        );
+    }
+    assert!(keys.contains("processes"));
+    assert!(keys.contains("other_processes"));
+    assert!(keys.contains("other_usage"));
+    assert!(keys.contains("ports"));
+    assert_eq!(
+        value["projects"][0]["sessions"][0]["processes"][0]["ports"],
+        serde_json::json!([9229])
+    );
+
+    for bucket in ["server", "shared_runtime", "unattributed"] {
+        let object = value[bucket].as_object().unwrap();
+        assert!(
+            !object.contains_key("processes"),
+            "{bucket} exposed process names"
+        );
+        assert!(!object.contains_key("name"));
+        assert!(!object.contains_key("ports"));
+    }
+}
+
+fn json_object_keys(value: &serde_json::Value) -> HashSet<String> {
+    let mut keys = HashSet::new();
+    collect_json_keys(value, &mut keys);
+    keys
+}
+
+fn collect_json_keys(value: &serde_json::Value, keys: &mut HashSet<String>) {
+    match value {
+        serde_json::Value::Object(map) => {
+            for (key, child) in map {
+                keys.insert(key.clone());
+                collect_json_keys(child, keys);
+            }
+        }
+        serde_json::Value::Array(items) => {
+            for child in items {
+                collect_json_keys(child, keys);
+            }
+        }
+        _ => {}
+    }
+}
+
+#[test]
+fn hundred_sessions_five_process_groups_stay_under_payload_budget() {
+    const SESSION_COUNT: u32 = 100;
+    const GROUPS: [&str; 5] = ["node", "vite", "eslint", "cargo", "python"];
+    const BUDGET_BYTES: usize = 256 * 1024;
+
+    let mut processes = Vec::new();
+    let mut terminals = Vec::new();
+    let mut pid = 1_000_u32;
+    for index in 0..SESSION_COUNT {
+        let root = pid;
+        terminals.push(simple_claim(&format!("sess-{index:03}"), "proj", root));
+        for (offset, name) in GROUPS.iter().enumerate() {
+            let parent = (offset > 0).then_some(root);
+            processes.push(proc_named(pid, parent, Some("/proj"), name, 0.1, 1024));
+            pid += 1;
+        }
+    }
+
+    let output = attribute(AttributionInput {
+        processes,
+        server_pid: 1,
+        path_contexts: vec![project("proj", "Demo", "/proj")],
+        terminals,
+        port_cache: None,
+    });
+    assert_eq!(output.projects[0].sessions.len(), SESSION_COUNT as usize);
+    assert!(output.projects[0].sessions.iter().all(|session| {
+        session.processes.len() == GROUPS.len()
+            && session
+                .processes
+                .iter()
+                .all(|process| GROUPS.contains(&process.name.as_str()))
+    }));
+
+    let snapshot = crate::service::resource_monitor::types::ResourceMonitorSnapshot {
+        collected_at_ms: 1,
+        host: crate::service::resource_monitor::types::ResourceHostMetrics {
+            cpu_percent: 1.0,
+            memory_used_bytes: 2,
+            memory_total_bytes: 3,
+            logical_cpu_count: 4,
+        },
+        server: output.server,
+        shared_runtime: output.shared_runtime,
+        projects: output.projects,
+        unattributed: output.unattributed,
+        attribution_status: output.attribution_status,
+    };
+    let bytes = serde_json::to_vec(&snapshot).expect("serialize snapshot");
+    assert!(
+        bytes.len() < BUDGET_BYTES,
+        "100 sessions × 5 process groups serialized to {} bytes (budget {} bytes). Do not truncate; shrink names or grouping if this regresses.",
+        bytes.len(),
+        BUDGET_BYTES
+    );
 }
