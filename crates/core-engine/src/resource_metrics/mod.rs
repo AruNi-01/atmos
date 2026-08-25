@@ -1,7 +1,9 @@
 //! Host and process resource sampling.
 //!
 //! Process samples are independent from stop-oriented [`crate::ProcessSnapshot`].
-//! CPU values use total-host 0–100 semantics.
+//! Host `cpu_percent` is the mean of per-core 0–100 samples (machine fullness).
+//! Process `cpu_percent` uses per-core units: 100% = one full logical core
+//! and may exceed 100%.
 
 use std::path::PathBuf;
 use std::sync::Mutex;
@@ -53,6 +55,7 @@ pub struct ResourceSample {
 #[derive(Debug, Clone, PartialEq)]
 pub struct ResourceHostSample {
     pub collected_at_ms: u64,
+    /// Mean of per-core 0–100 samples (100 = all logical cores fully used).
     pub cpu_percent: f32,
     /// Platform host-used memory. See [`ResourceHostSample`].
     pub memory_used_bytes: u64,
@@ -107,7 +110,7 @@ pub struct ResourceProcessSample {
     pub start_time: u64,
     pub cwd: Option<PathBuf>,
     pub name: Option<String>,
-    /// CPU as a share of total logical host capacity (0–100).
+    /// CPU in per-core units (100 = one full logical core). May exceed 100.
     pub cpu_percent: f32,
     /// Process resident set. Independent of host `memory_used_bytes`.
     pub memory_rss_bytes: u64,
@@ -211,7 +214,7 @@ fn collect_sample(system: &System) -> ResourceSample {
     let memory = collect_host_memory(system);
     let host = ResourceHostSample {
         collected_at_ms,
-        cpu_percent: normalize_host_cpu(system.global_cpu_usage()),
+        cpu_percent: collect_host_cpu_percent(system, logical_cpu_count),
         memory_used_bytes: memory.used,
         memory_total_bytes: memory.total,
         logical_cpu_count,
@@ -239,7 +242,7 @@ fn collect_sample(system: &System) -> ResourceSample {
                 } else {
                     Some(name.into_owned())
                 },
-                cpu_percent: normalize_process_cpu(process.cpu_usage(), logical_cpu_count),
+                cpu_percent: normalize_process_cpu(process.cpu_usage()),
                 memory_rss_bytes: process.memory(),
             })
         })
@@ -263,11 +266,39 @@ fn logical_cpu_count(system: &System) -> u32 {
         .unwrap_or(1)
 }
 
-fn normalize_host_cpu(raw_percent: f32) -> f32 {
+fn clamp_core_cpu(raw_percent: f32) -> f32 {
     if !raw_percent.is_finite() || raw_percent <= 0.0 {
         return 0.0;
     }
     raw_percent.clamp(0.0, 100.0)
+}
+
+/// Host CPU as the mean of per-core 0–100 samples (100 = the whole machine).
+///
+/// Falls back to `global_cpu_usage` when `system.cpus()` is empty.
+fn collect_host_cpu_percent(system: &System, _logical_cpu_count: u32) -> f32 {
+    if !system.cpus().is_empty() {
+        return average_core_cpu(system.cpus().iter().map(|cpu| cpu.cpu_usage()));
+    }
+    clamp_core_cpu(system.global_cpu_usage())
+}
+
+fn average_core_cpu(cores: impl IntoIterator<Item = f32>) -> f32 {
+    let mut sum = 0.0;
+    let mut n = 0u32;
+    for raw in cores {
+        sum += clamp_core_cpu(raw);
+        n += 1;
+    }
+    if n == 0 {
+        return 0.0;
+    }
+    let avg = sum / n as f32;
+    if avg.is_finite() {
+        avg.clamp(0.0, 100.0)
+    } else {
+        0.0
+    }
 }
 
 /// Per-logical-core samples from `system.cpus()`. Each core is already 0–100
@@ -285,7 +316,7 @@ fn collect_host_cores(system: &System) -> Vec<ResourceHostCpuCoreSample> {
 fn host_core_sample(index: usize, raw_percent: f32) -> ResourceHostCpuCoreSample {
     ResourceHostCpuCoreSample {
         index: index as u32,
-        cpu_percent: normalize_host_cpu(raw_percent),
+        cpu_percent: clamp_core_cpu(raw_percent),
     }
 }
 
@@ -456,12 +487,12 @@ fn mach_active_wired_used_bytes(active_count: u64, wire_count: u64, page_size: i
     mach_page_memory(active_count, wire_count, 0, 0, page_size).map(|memory| memory.used)
 }
 
-/// Convert a sysinfo per-core process CPU percentage into total-host 0–100.
-pub fn normalize_process_cpu(raw_percent: f32, logical_cpu_count: u32) -> f32 {
-    if !raw_percent.is_finite() || raw_percent <= 0.0 || logical_cpu_count == 0 {
+/// Keep sysinfo's per-core process CPU (100 = one full logical core).
+pub fn normalize_process_cpu(raw_percent: f32) -> f32 {
+    if !raw_percent.is_finite() || raw_percent <= 0.0 {
         return 0.0;
     }
-    (raw_percent / logical_cpu_count as f32).clamp(0.0, 100.0)
+    raw_percent
 }
 
 #[cfg(test)]
@@ -469,15 +500,23 @@ mod tests {
     use super::*;
 
     #[test]
-    fn normalize_process_cpu_uses_total_host_capacity() {
-        assert_eq!(normalize_process_cpu(200.0, 4), 50.0);
-        assert_eq!(normalize_process_cpu(400.0, 4), 100.0);
-        assert_eq!(normalize_process_cpu(50.0, 1), 50.0);
-        assert_eq!(normalize_process_cpu(0.0, 8), 0.0);
-        assert_eq!(normalize_process_cpu(80.0, 0), 0.0);
-        assert_eq!(normalize_process_cpu(f32::NAN, 8), 0.0);
-        assert_eq!(normalize_process_cpu(-10.0, 4), 0.0);
-        assert_eq!(normalize_process_cpu(1000.0, 4), 100.0);
+    fn average_core_cpu_is_mean_of_clamped_cores() {
+        assert_eq!(average_core_cpu([100.0, 100.0, 0.0, 0.0]), 50.0);
+        assert_eq!(average_core_cpu([100.0, 100.0, 100.0, 100.0]), 100.0);
+        assert_eq!(average_core_cpu([50.0, 150.0]), 75.0);
+        assert_eq!(average_core_cpu([]), 0.0);
+        assert_eq!(average_core_cpu([f32::NAN, 80.0]), 40.0);
+    }
+
+    #[test]
+    fn normalize_process_cpu_keeps_per_core_units() {
+        assert_eq!(normalize_process_cpu(200.0), 200.0);
+        assert_eq!(normalize_process_cpu(400.0), 400.0);
+        assert_eq!(normalize_process_cpu(50.0), 50.0);
+        assert_eq!(normalize_process_cpu(0.0), 0.0);
+        assert_eq!(normalize_process_cpu(f32::NAN), 0.0);
+        assert_eq!(normalize_process_cpu(-10.0), 0.0);
+        assert_eq!(normalize_process_cpu(1000.0), 1000.0);
     }
 
     #[test]
@@ -682,7 +721,7 @@ Buffers:          256 kB
         for process in &sample.processes {
             assert_eq!(process.collected_at_ms, sample.collected_at_ms);
             assert!(process.pid > 0);
-            assert!(process.cpu_percent >= 0.0 && process.cpu_percent <= 100.0);
+            assert!(process.cpu_percent >= 0.0 && process.cpu_percent.is_finite());
         }
     }
 

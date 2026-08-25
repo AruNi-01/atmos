@@ -35,6 +35,7 @@ export type NavigateToLocatedPaneDeps = {
   ensureHost?: (hostId: string) => void;
   listSpaceIds?: (hostId: string) => readonly string[];
   currentHostId?: () => string | null;
+  currentSpaceId?: (hostId: string) => string | null;
   switchCenterSpace?: (
     hostId: string,
     spaceId: string,
@@ -124,9 +125,12 @@ export function commitLocatedPaneNavigation(
 }
 
 /**
- * Dest is committed when pathname / id / tab match and:
+ * Dest is committed when pathname / id match and:
  * - dest has terminalTmux → current equals that value
  * - dest has no terminalTmux (simple PTY) → leftover terminalTmux is gone
+ *
+ * CenterStage consumes dest `tab` as live chrome on the next paint, so a
+ * missing tab is still committed. A leftover *different* tab is not.
  */
 export function locationMatchesDestination(
   href: LocatedPaneHref,
@@ -135,7 +139,8 @@ export function locationMatchesDestination(
   if (normalizeCenterPathname(href.pathname) !== dest.pathname) return false;
   const params = new URLSearchParams(href.search.startsWith("?") ? href.search.slice(1) : href.search);
   if ((params.get("id") ?? "").trim() !== dest.id) return false;
-  if ((params.get("tab") ?? "").trim() !== dest.tab) return false;
+  const currentTab = (params.get("tab") ?? "").trim();
+  if (currentTab && currentTab !== dest.tab) return false;
   const currentTmux = (params.get("terminalTmux") ?? "").trim();
   if (dest.terminalTmux) return currentTmux === dest.terminalTmux;
   return currentTmux === "";
@@ -166,6 +171,7 @@ export async function waitForDestination(
 type PreparedHost = {
   ok: true;
   currentHostId: string | null;
+  currentSpaceId: string | null;
 } | {
   ok: false;
 };
@@ -182,6 +188,7 @@ async function prepareHostAndSpace(
     return {
       ok: true,
       currentHostId: deps.currentHostId?.() ?? currentHostIdFromLocation(),
+      currentSpaceId: deps.currentSpaceId?.(location.hostId) ?? null,
     };
   }
 
@@ -197,6 +204,7 @@ async function prepareHostAndSpace(
   return {
     ok: true,
     currentHostId: deps.currentHostId?.() ?? currentHostIdFromLocation(),
+    currentSpaceId: store.getActiveSpaceId(location.hostId),
   };
 }
 
@@ -221,8 +229,11 @@ async function switchSameHostSpace(
 /**
  * Commit the dest query before a same-host Center Space switch so leftover
  * `terminalTmux` cannot bounce the incoming space back to default.
- * Locate is requested only after the dest space exists and before switch,
- * while a warm hidden pane still cannot arrive. Never touches agent attention.
+ * Already-on dest space skips that wait: CenterStage strips dest `tab` (and
+ * later `terminalTmux`) as live chrome, which would otherwise time out and
+ * reopen Resource Monitor. Locate is requested only after the dest space
+ * exists and before switch, while a warm hidden pane still cannot arrive.
+ * Never touches agent attention.
  */
 export async function navigateToLocatedPane(
   location: LiveResourceSessionLocation,
@@ -256,6 +267,7 @@ export async function navigateToLocatedPane(
   const dest = locatedPaneDestination(location, options.routeKind);
   const path = buildLocatedPanePath(location, options.routeKind);
   const sameHost = prepared.currentHostId === location.hostId;
+  const alreadyOnDestSpace = sameHost && prepared.currentSpaceId === location.spaceId;
 
   if (!sameHost) {
     if (deps.setActiveSpace) {
@@ -271,20 +283,22 @@ export async function navigateToLocatedPane(
   requestLocate(location);
   commitLocatedPaneNavigation(options.router, path);
 
-  const committed = deps.waitForDestination
-    ? await deps.waitForDestination(dest)
-    : await waitForDestination(dest, {
-        getLocation: deps.getLocation,
-        sleep: deps.sleep,
-        attempts: deps.waitAttempts,
-        intervalMs: deps.waitIntervalMs,
-      });
-  if (!committed) {
-    clearLocate();
-    return false;
+  if (!alreadyOnDestSpace) {
+    const committed = deps.waitForDestination
+      ? await deps.waitForDestination(dest)
+      : await waitForDestination(dest, {
+          getLocation: deps.getLocation,
+          sleep: deps.sleep,
+          attempts: deps.waitAttempts,
+          intervalMs: deps.waitIntervalMs,
+        });
+    if (!committed) {
+      clearLocate();
+      return false;
+    }
   }
 
-  if (sameHost) {
+  if (sameHost && !alreadyOnDestSpace) {
     await switchSameHostSpace(location, deps);
   }
   return true;

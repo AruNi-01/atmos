@@ -203,20 +203,19 @@
 }
 
 /*
- * Resource Monitor one-shot locate pulse. After attention so a locate
- * ::after overrides the sticky green/amber ring while the store is active.
- * Semantic info blue; no scale and no box-shadow. Store clear restores
- * attention after ~2400ms.
+ * Resource Monitor locate pulse. Same breathing overlay as
+ * agent-attention-pane-border-pulse (transparent → color → transparent,
+ * 2.4s ease-in-out). After attention so a locate ::after overrides the
+ * sticky green/amber ring while the store is active. Semantic info blue;
+ * no scale and no box-shadow. Store clear restores attention after ~2400ms.
  */
 @keyframes resource-locate-pane-border-pulse {
-  0% {
-    border-color: color-mix(in oklch, var(--info) 72%, transparent);
-  }
-  35% {
-    border-color: color-mix(in oklch, var(--info) 88%, transparent);
-  }
+  0%,
   100% {
     border-color: transparent;
+  }
+  50% {
+    border-color: color-mix(in oklch, var(--info) 80%, transparent);
   }
 }
 
@@ -231,9 +230,9 @@
   z-index: 8;
   pointer-events: none;
   box-sizing: border-box;
-  border: 1.5px solid color-mix(in oklch, var(--info) 72%, transparent);
+  border: 1.5px solid transparent;
   border-radius: 2px;
-  animation: resource-locate-pane-border-pulse 2400ms ease-out forwards;
+  animation: resource-locate-pane-border-pulse 2.4s ease-in-out infinite;
 }
 
 [data-edge-bottom][data-edge-left] .terminal-pane.resource-locate-ring::after {
@@ -518,6 +517,8 @@
  *
  * Mute the whole overlay host — and beat `.is-maximized { pointer-events: auto }`
  * — while the menu is open so Layout / split / fullscreen clicks stay on it.
+ * Restore the portaled menu *and its descendants*; a parent-only restore still
+ * leaves buttons `pointer-events: none` when the menu is under the host.
  */
 body:has([data-center-stage-plus-menu][data-state="open"]) [data-center-panel-host],
 body:has([data-center-stage-plus-menu][data-state="open"]) [data-center-panel-host] *,
@@ -528,12 +529,17 @@ html[data-center-stage-plus-menu-open] [data-center-panel-host],
 html[data-center-stage-plus-menu-open] [data-center-panel-host] *,
 html[data-center-stage-plus-menu-open] .terminal-grid-container,
 html[data-center-stage-plus-menu-open] .terminal-grid-container *,
-html[data-center-stage-plus-menu-open] .terminal-grid-container[data-maximized-id] .terminal-pane.is-maximized {
+html[data-center-stage-plus-menu-open] .terminal-grid-container[data-maximized-id] .terminal-pane.is-maximized,
+html[data-center-stage-plus-menu-open] canvas,
+html[data-center-stage-plus-menu-open] webview,
+html[data-center-stage-plus-menu-open] iframe {
   pointer-events: none !important;
 }
 
 [data-center-stage-plus-menu],
-[data-center-stage-layouts-menu] {
+[data-center-stage-plus-menu] *,
+[data-center-stage-layouts-menu],
+[data-center-stage-layouts-menu] * {
   pointer-events: auto !important;
 }
 

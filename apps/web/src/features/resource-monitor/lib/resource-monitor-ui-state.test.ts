@@ -219,7 +219,6 @@ describe("ResourceMonitorPopover structure", () => {
     expect(chartSrc).not.toContain("DitherRevenueLines");
     expect(chartSrc).toContain("formatPercent");
     expect(chartSrc).toContain("useMemo");
-    expect(chartSrc).not.toContain("formatCpuPercent");
     expect(chartSrc).not.toContain("recharts");
     expect(popoverSrc).not.toContain('role="toolbar"');
     expect(popoverSrc).not.toMatch(/uppercase|text-transform:\s*uppercase/);

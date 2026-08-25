@@ -8192,8 +8192,8 @@
       "title": "资源监视器",
       "monitor": "监视器",
       "compact": "CPU {cpu} · 内存 {memory}",
-      "cpuValue": "CPU {value}",
-      "memoryValue": "内存 {value}",
+      "cpuValue": "CPU <value></value>",
+      "memoryValue": "内存 <value></value>",
       "compactUnavailable": "CPU — · —"
     },
     "popover": {
