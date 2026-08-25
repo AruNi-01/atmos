@@ -42,6 +42,7 @@
 - **M7 — Discoverable UI**: A configurable Footer item shows compact CPU and memory values and opens a popover containing the hierarchy and per-scope values. User-facing copy is localized in every web locale.
 - **M8 — Terminal navigation**: An attributed terminal-session row is actionable. Selecting it navigates to the owning Project or Workspace, activates the exact Center Space and Terminal tab, focuses the matching panel, and plays a short blue locate pulse distinct from agent-attention state.
 - **M9 — Diagnostic presentation**: The popover provides a clear Host summary, a useful client-side CPU/memory trend, aligned CPU and memory columns, and Name/CPU/Memory sorting without increasing Server sampling frequency.
+- **M10 — Explainable scope totals**: Every Project and Workspace can explain its aggregate usage through exclusive terminal-session and non-session process groups. Project-direct resources appear before Workspaces. Attributed listening programs show their local ports without exposing PID, command line, environment, username, or absolute host paths.
 
 ### Nice to Have
 
@@ -56,6 +57,7 @@
 - **Exact OS isolation**: No cgroup, job-object, container, or launch-model migration.
 - **Disk, network, GPU utilization, or energy impact**: v1 is CPU and resident memory only; the Electron GPU process is a grouping label, not GPU utilization.
 - **Arbitrary process explorer**: Do not expose the full host process table, command lines, or unrelated user processes.
+- **Process control from Resource Monitor**: Process and port rows are read-only. Stop/kill escalation remains owned by Local Services.
 - **Mobile-specific UI**: Shared wire types may be consumed later, but v1 UI targets web and Desktop.
 - **Local shell while viewing remote Computer**: The local Electron shell is not merged into a remote host hierarchy.
 - **Cold terminal reconstruction**: A session that is no longer represented in the active frontend terminal store cannot be deep-linked by its ephemeral session ID; the UI must not guess a Center Space or panel.
@@ -65,6 +67,7 @@
 - **Leading**: A user can identify the highest attributed Project or Workspace from the Resource Monitor without opening an external process tool.
 - **Correctness**: Switching Computers or closing the popover never shows live values under the wrong Computer scope.
 - **Navigation**: Selecting a live terminal row lands on the correct Workspace/Project, Center Space, Terminal tab, and panel without reusing the agent-attention signal.
+- **Explainability**: Project memory and process-count totals reconcile with Project-direct plus Workspace totals, and Workspace totals reconcile with session plus non-session process buckets.
 - **Performance**: Interactive and idle overhead stay within the budgets defined by TEST.md.
 - **Qualitative**: Shared and unattributed rows make attribution limitations understandable rather than appearing as missing data.
 
@@ -81,4 +84,5 @@
 - **Phase 2**: M3 — Electron shell source.
 - **Phase 3**: M6, M7 — localized Footer and hierarchy popover.
 - **Phase 4**: M8, M9 — cross-Space terminal navigation, blue locate feedback, live Host trend, and sortable hierarchy.
-- **Phase 5**: N1 and N2 after the dense hierarchy is exercised at scale.
+- **Phase 5**: M10 — Project resources, Workspace non-session processes, session process drilldown, and cached Local Services port annotations.
+- **Phase 6**: N1 and N2 after the dense hierarchy is exercised at scale.

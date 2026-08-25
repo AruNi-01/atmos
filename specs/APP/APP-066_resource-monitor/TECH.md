@@ -24,6 +24,8 @@ This design implements M1–M7 with no new crate, database table, REST endpoint,
 | Memory meaning | On macOS, Host used matches btop: `(active + wired) × page_size` from Mach. Linux/Windows use `total − available`. Process groups use summed RSS/working-set bytes and need not add exactly to Host used. |
 | Terminal navigation | Resolve the live pane by ephemeral `session_id`, then navigate through the owning host, Center Space, Terminal tab, and stable tmux deep link. Never guess when the live pane cannot be resolved. |
 | Locate feedback | Use a short-lived blue terminal locate signal. Do not reuse agent-attention state, colors, persistence, filters, or API events. |
+| Process detail | Emit only Atmos-attributed process-name groups. Never emit PID, start time, command line, executable path, username, environment, or absolute cwd. |
+| Port detail | Join ports from the latest cached all-projects Local Services snapshot by PID + process-name check. Resource sampling never starts `lsof`, `/proc` listener scans, or HTTP probes. |
 
 ## Architecture overview
 
@@ -110,6 +112,7 @@ crates/core-service/src/service/resource_monitor/
 - `Arc<ProjectService>`
 - `Arc<WorkspaceService>`
 - `Arc<TerminalService>`
+- `Arc<LocalServicesService>`
 - `ResourceMetricsEngine`
 
 It exposes:
@@ -128,7 +131,9 @@ The method uses inflight coalescing and a short cache:
 6. Build an exclusive process assignment and aggregate.
 7. Store and return the immutable snapshot.
 
-There is no background job in `core-service`; WS connection ownership remains in `apps/api`.
+Resource Monitor adds no background job of its own; WS connection ownership remains in `apps/api`.
+
+`LocalServicesService` keeps a separate latest non-diagnostic `AllAtmosProjects` snapshot in addition to its request cache. Resource Monitor only peeks this snapshot. The existing 30-second Local Services job fires once at startup so port annotations become available without opening the Local Services Footer. A missing snapshot produces process rows with empty ports and does not block Resource Monitor.
 
 #### Attribution algorithm
 
@@ -143,6 +148,15 @@ Ownership priority:
 5. **Unattributed** — active terminal roots whose context cannot be resolved or whose ownership conflicts.
 
 Every `(pid, start_time)` may be assigned to at most one aggregate. Nested terminal roots use the deepest process root. Project totals are computed from project-direct usage plus unique Workspace/session claims; never sum a session twice merely because it also appears under a Workspace.
+
+After exclusive assignment, process leaves are grouped by normalized process basename within exactly one owner:
+
+- Project-direct session → that Project session's `processes`.
+- Project-direct cwd → Project `other_processes` and `other_usage`.
+- Workspace session → that Workspace session's `processes`.
+- Workspace cwd → Workspace `other_processes` and `other_usage`.
+
+Process rows are member drilldown. Their usage is already included in the enclosing session or `other_usage` bucket and must not be added to the parent a second time.
 
 Processes that are neither Atmos-managed nor under a Project/Workspace root contribute to host totals only and are not exposed.
 
@@ -382,6 +396,13 @@ pub struct ResourceSessionMetrics {
     pub name: Option<String>,
     pub terminal_kind: String,
     pub usage: ResourceUsage,
+    pub processes: Vec<ResourceProcessMetrics>,
+}
+
+pub struct ResourceProcessMetrics {
+    pub name: String,
+    pub usage: ResourceUsage,
+    pub ports: Vec<u16>,
 }
 
 pub struct ResourceWorkspaceMetrics {
@@ -389,6 +410,8 @@ pub struct ResourceWorkspaceMetrics {
     pub name: String,
     pub usage: ResourceUsage,
     pub sessions: Vec<ResourceSessionMetrics>,
+    pub other_usage: ResourceUsage,
+    pub other_processes: Vec<ResourceProcessMetrics>,
 }
 
 pub struct ResourceProjectMetrics {
@@ -398,6 +421,8 @@ pub struct ResourceProjectMetrics {
     pub direct_usage: ResourceUsage,
     pub workspaces: Vec<ResourceWorkspaceMetrics>,
     pub sessions: Vec<ResourceSessionMetrics>,
+    pub other_usage: ResourceUsage,
+    pub other_processes: Vec<ResourceProcessMetrics>,
 }
 
 pub struct ResourceHostMetrics {
@@ -469,8 +494,8 @@ No REST endpoint is introduced.
 ## Security & privacy
 
 - Existing WS origin and Computer authentication rules apply.
-- Wire payloads contain aggregate usage, names already visible in the active Computer, and opaque session IDs.
-- Do not return PIDs, command lines, environment variables, usernames, unrelated process names, or host paths.
+- Wire payloads contain aggregate usage, opaque session IDs, and process basenames/ports only for processes already assigned to an Atmos Project, Workspace, or session.
+- Do not return PIDs, start times, command lines, executable paths, environment variables, usernames, unrelated process names, or absolute host paths.
 - Structured logs may include collection status and counts, never full process metadata.
 - Relay receives only snapshots requested or subscribed by its own connection.
 
@@ -481,8 +506,10 @@ No REST endpoint is introduced.
 - Hidden Footer with no subscriber: no resource collection.
 - One process-table refresh per coalesced snapshot.
 - One tmux `list-panes -a` call per coalesced snapshot at most.
+- Zero listener scans or HTTP probes from the Resource Monitor path; port annotation is cache-only.
 - No per-session `ps`, `/proc` walk, or tmux command.
 - Each PID contributes to at most one exclusive ownership bucket.
+- Process leaves are grouped by basename within their exclusive owner before serialization.
 - Snapshot payload remains below 256 KiB for 100 active sessions.
 
 ## Rollout plan

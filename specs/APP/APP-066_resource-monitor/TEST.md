@@ -22,6 +22,7 @@
 | M7 | S11, S13 |
 | M8 | S14, S15 |
 | M9 | S16 |
+| M10 | S17, S18 |
 
 ## Execution map
 
@@ -43,6 +44,8 @@
 | S14 | Bun test + E2E | `bun test`, Playwright | terminal pane locate helpers and APP-066 E2E | one host with default and extra Center Spaces | exact host/Space/tab/pane route; session row is actionable | planned |
 | S15 | Bun test + E2E | `bun test`, Playwright | locate signal store/CSS and pane integration | repeated locate requests and reduced-motion mode | only target panel receives a finite blue pulse; agent attention is unchanged | planned |
 | S16 | Bun test + E2E | `bun test`, Playwright | history/sort helpers and APP-066 popover | 61 snapshots across two Computer scopes | 60-point isolated history; useful chart; stable Name/CPU/Memory sorting | planned |
+| S17 | Rust unit/integration | `cargo test` | `cargo test -p core-service resource_monitor` | Project-direct and Workspace session/cwd process graph | exclusive process leaves; parent memory/count reconciliation; no duplicate owner rows | planned |
+| S18 | Rust/Bun test + E2E | `cargo test`, `bun test`, Playwright | Local Services cache join + hierarchy rendering | attributed listeners with matching/mismatching process identities | process basenames and cached ports under correct scope/session; no PID/path/command leak; no listener scan from hot path | planned |
 
 ## Scenarios
 
@@ -173,6 +176,22 @@
 - **When**: the popover is opened and sorting changes between Name, CPU, and Memory.
 - **Then**: the Host chart contains at most 60 existing snapshot points, never mixes Computers, creates no extra subscription, and the hierarchy uses stable sorting with aligned CPU/memory columns.
 - **Signals**: history ring contents, subscription count, sort output, visible chart/table controls.
+
+### S17 — Project and Workspace totals expose exclusive process leaves
+
+- **Level**: Rust unit/integration
+- **Given**: one Project-direct terminal, one Project-direct cwd process, one Workspace terminal subtree, and one Workspace cwd process.
+- **When**: Resource Monitor builds the hierarchy.
+- **Then**: Project resources appear before Workspaces; session processes appear only inside their owning session; cwd processes appear only in the matching `other_processes`; memory and process count reconcile with the enclosing exclusive buckets.
+- **Signals**: unique process membership, `direct_usage`, `other_usage`, Workspace usage, process-group usage.
+
+### S18 — Cached Local Services ports annotate only matching attributed processes
+
+- **Level**: Rust/Bun test + E2E
+- **Given**: a cached all-projects Local Services snapshot containing attributed listeners, one stale PID/name mismatch, and one unrelated listener.
+- **When**: the next Resource Monitor snapshot and hierarchy render.
+- **Then**: matching attributed process rows show sorted local ports; stale/unrelated listeners do not attach; snapshot JSON contains no PID, command, absolute cwd, executable path, username, or environment; Resource Monitor performs no listener scan or HTTP probe.
+- **Signals**: process rows/port chips, cache-only call count, serialized payload keys, Project resources/Workspace sections.
 
 ## Performance & load budgets
 
