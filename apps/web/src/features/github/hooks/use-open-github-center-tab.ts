@@ -35,7 +35,7 @@ export function useOpenGithubCenterTab() {
    */
   const activateTab = React.useCallback(
     (value: string, contextId: string) => {
-      activateCenterChromeTab(contextId, value);
+      activateCenterChromeTab(contextId, value, { placement: "focused" });
       const targetHost = hostIdFromCenterKey(contextId);
       const currentHost = hostContextId ? hostIdFromCenterKey(hostContextId) : "";
       if (targetHost && targetHost !== currentHost) {

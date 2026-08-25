@@ -4,6 +4,7 @@ import {
   CENTER_STRIP_SHORTCUT_LIMIT,
   collectDefaultCenterStripTabIds,
   getCenterStripShortcutDigit,
+  getCenterStripShortcutDigitForTab,
   orderCenterTabsBySavedOrder,
   orderIdsBySavedOrder,
   resolveCenterStripShortcutTabId,
@@ -157,5 +158,14 @@ describe("center strip position shortcuts", () => {
     expect(centerStripShortcutDigitFromEvent({ code: "Numpad9" })).toBe(9);
     expect(centerStripShortcutDigitFromEvent({ key: "7" })).toBe(7);
     expect(centerStripShortcutDigitFromEvent({ code: "Digit0" })).toBeNull();
+  });
+
+  test("held digits follow the focused strip and hide on unfocused panes", () => {
+    const focused = ["src/a.ts", "files", "terminal"];
+    expect(getCenterStripShortcutDigitForTab(focused, "src/a.ts")).toBe(1);
+    expect(getCenterStripShortcutDigitForTab(focused, "files")).toBe(2);
+    expect(getCenterStripShortcutDigitForTab(focused, "wiki")).toBeNull();
+    expect(getCenterStripShortcutDigitForTab([], "files")).toBeNull();
+    expect(getCenterStripShortcutDigitForTab(null, "files")).toBeNull();
   });
 });

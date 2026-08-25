@@ -108,4 +108,11 @@ describe("empty pane launcher layout", () => {
       "!compact && action.shortcutKeys && action.shortcutKeys.length > 0",
     );
   });
+
+  it("puts overview first in the empty-pane launcher", () => {
+    expect(emptyState).toContain('id: "overview"');
+    expect(emptyState.indexOf('id: "overview"')).toBeLessThan(
+      emptyState.indexOf('id: "terminal"'),
+    );
+  });
 });

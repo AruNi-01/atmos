@@ -176,7 +176,7 @@ const ReviewView: React.FC<ReviewViewProps> = ({
         reviewMessageGuid,
       });
       if (reviewEditorKey) {
-        attachCenterTab(reviewEditorKey, reviewGroupPath);
+        attachCenterTab(reviewEditorKey, reviewGroupPath, { placement: "focused" });
       }
       if (!preview) {
         pinFile(reviewGroupPath, reviewEditorKey ?? undefined);

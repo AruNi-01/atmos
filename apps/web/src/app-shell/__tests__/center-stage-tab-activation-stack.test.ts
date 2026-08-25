@@ -95,7 +95,7 @@ describe("center-stage-tab-activation-stack", () => {
       wikiEnabled: true,
       exclude: ["/b.ts", "term-2"],
     });
-    expect(open.has("overview")).toBe(true);
+    expect(open.has("overview")).toBe(false);
     expect(open.has("wiki")).toBe(true);
     expect(open.has("project-wiki")).toBe(true);
     expect(open.has("code-review")).toBe(false);
@@ -112,5 +112,19 @@ describe("center-stage-tab-activation-stack", () => {
     expect(open.has("term-2")).toBe(false);
     expect(open.has("github-pr:1")).toBe(true);
     expect(open.has("browser:x")).toBe(true);
+  });
+
+  test("buildOpenCenterTabValues only includes overview when opted in", () => {
+    const open = buildOpenCenterTabValues({
+      openFilePaths: [],
+      terminalTabIds: ["terminal"],
+      githubTabValues: [],
+      browserTabValues: [],
+      projectWikiVisible: false,
+      codeReviewVisible: false,
+      wikiEnabled: false,
+      fixedAlwaysOpen: ["overview"],
+    });
+    expect(open.has("overview")).toBe(true);
   });
 });

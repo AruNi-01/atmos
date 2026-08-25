@@ -14,9 +14,23 @@ import {
 export const MAX_CENTER_PANES = 4;
 export const MIN_FRACTION = 0.15;
 export const DEFAULT_PANE_ID = "pane-main";
-/** Overview is only allowed on the primary (first) center pane. */
 export const OVERVIEW_TAB_ID = "overview";
 export const FALLBACK_SECONDARY_TAB_ID = "terminal";
+const TERMINAL_TAB_PREFIX = "terminal-tab:";
+const BROWSER_TAB_PREFIX = "browser:";
+
+/**
+ * Live sessions cannot be cloned across panes (one PTY / one webview).
+ * Everything else (Files, Changes, the same editor path, Overview, …) can
+ * live in multiple isolated pane strips at once.
+ */
+export function isShareableCenterTabId(tabId: string): boolean {
+  if (!tabId) return false;
+  if (tabId === "terminal" || tabId.startsWith(TERMINAL_TAB_PREFIX)) return false;
+  if (tabId.startsWith(BROWSER_TAB_PREFIX)) return false;
+  if (tabId === "project-wiki" || tabId === "code-review") return false;
+  return true;
+}
 /** Sentinel active id for a pane that has no tabs yet (empty launcher state). */
 export const EMPTY_PANE_ACTIVE_TAB_ID = "";
 
@@ -235,8 +249,14 @@ export function isPrimaryPane(layout: CenterPaneLayout, paneId: string): boolean
   return getPrimaryPaneId(layout) === paneId;
 }
 
-function stripOverviewFromTabIds(tabIds: string[]): string[] {
-  return tabIds.filter((id) => id !== OVERVIEW_TAB_ID);
+/** Keep a single Overview tab pinned at the front of the pane strip. */
+export function pinOverviewFront(tabIds: readonly string[]): string[] {
+  if (!tabIds.includes(OVERVIEW_TAB_ID)) return [...tabIds];
+  return [OVERVIEW_TAB_ID, ...tabIds.filter((id) => id !== OVERVIEW_TAB_ID)];
+}
+
+function addPinnedOverview(tabIds: readonly string[]): string[] {
+  return [OVERVIEW_TAB_ID, ...tabIds.filter((id) => id !== OVERVIEW_TAB_ID)];
 }
 
 function pickNonOverviewTab(tabIds: readonly string[], preferred?: string | null): string | null {
@@ -260,45 +280,18 @@ function pickReplacementActiveTab(
 }
 
 /**
- * Move Overview onto primary only; strip it from every other pane.
- * Empty secondary panes are kept (launcher empty state) — they are only closed
- * when the last tab is removed via {@link removeTabFromLayout}.
+ * Pin Overview at the front of any pane that owns it. Each pane keeps its own
+ * Overview independently — it is no longer forced onto the primary pane.
  */
 export function enforceOverviewPrimaryOnly(layout: CenterPaneLayout): CenterPaneLayout {
-  const primaryId = getPrimaryPaneId(layout);
-  let panes = layout.panes.map((p) => {
-    if (p.id === primaryId) {
-      // Primary may keep overview.
-      return p;
-    }
+  const panes = layout.panes.map((p) => {
     if (!p.tabIds.includes(OVERVIEW_TAB_ID) && p.activeTabId !== OVERVIEW_TAB_ID) {
       return p;
     }
-    const tabIds = stripOverviewFromTabIds(p.tabIds);
-    if (tabIds.length === 0) {
-      return createEmptyPane(p.id);
-    }
-    const activeTabId =
-      p.activeTabId === OVERVIEW_TAB_ID || !tabIds.includes(p.activeTabId)
-        ? tabIds[0]!
-        : p.activeTabId;
-    return { ...p, tabIds, activeTabId };
+    const tabIds = pinOverviewFront(p.tabIds);
+    if (sameStringList(p.tabIds, tabIds)) return p;
+    return { ...p, tabIds };
   });
-
-  // Ensure primary owns overview when any pane had it (or it was active somewhere).
-  const overviewWasPresent = layout.panes.some(
-    (p) => p.tabIds.includes(OVERVIEW_TAB_ID) || p.activeTabId === OVERVIEW_TAB_ID,
-  );
-  if (overviewWasPresent) {
-    panes = panes.map((p) => {
-      if (p.id !== primaryId) return p;
-      const tabIds = p.tabIds.includes(OVERVIEW_TAB_ID)
-        ? p.tabIds
-        : [...p.tabIds, OVERVIEW_TAB_ID];
-      return p.tabIds === tabIds ? p : { ...p, tabIds };
-    });
-  }
-
   const next: CenterPaneLayout = { ...layout, panes };
   return centerPaneLayoutsEqual(layout, next) ? layout : next;
 }
@@ -348,6 +341,10 @@ export function collectActiveTabIds(layout: CenterPaneLayout): string[] {
 }
 
 export function findPaneIdForTab(layout: CenterPaneLayout, tabId: string): string | null {
+  const focused = getPane(layout, layout.focusedPaneId);
+  if (focused && (focused.tabIds.includes(tabId) || focused.activeTabId === tabId)) {
+    return focused.id;
+  }
   for (const pane of layout.panes) {
     if (pane.tabIds.includes(tabId) || pane.activeTabId === tabId) {
       return pane.id;
@@ -368,6 +365,46 @@ export function buildTabToPaneId(layout: CenterPaneLayout): Record<string, strin
     }
   }
   return map;
+}
+
+/** Tab id → every pane that lists it (isolated strips may share shareable tabs). */
+export function buildTabHostPaneIds(layout: CenterPaneLayout): Record<string, string[]> {
+  const map: Record<string, string[]> = {};
+  const add = (tabId: string, paneId: string) => {
+    if (!tabId) return;
+    const list = map[tabId] ?? (map[tabId] = []);
+    if (!list.includes(paneId)) list.push(paneId);
+  };
+  for (const pane of layout.panes) {
+    for (const tabId of pane.tabIds) add(tabId, pane.id);
+    if (pane.activeTabId) add(pane.activeTabId, pane.id);
+  }
+  return map;
+}
+
+export function buildPaneActiveTabById(layout: CenterPaneLayout): Record<string, string> {
+  const map: Record<string, string> = {};
+  for (const pane of layout.panes) {
+    if (pane.activeTabId) map[pane.id] = pane.activeTabId;
+  }
+  return map;
+}
+
+export function layoutOwnsTab(layout: CenterPaneLayout, tabId: string): boolean {
+  return layout.panes.some(
+    (pane) => pane.tabIds.includes(tabId) || pane.activeTabId === tabId,
+  );
+}
+
+function addTabToPane(pane: CenterPane, tabId: string): CenterPane {
+  const tabIds =
+    tabId === OVERVIEW_TAB_ID
+      ? addPinnedOverview(pane.tabIds)
+      : pane.tabIds.includes(tabId)
+        ? pane.tabIds
+        : [...pane.tabIds, tabId];
+  if (pane.activeTabId === tabId && sameStringList(pane.tabIds, tabIds)) return pane;
+  return { ...pane, tabIds, activeTabId: tabId };
 }
 
 export function withCanonicalTabStrip(layout: CenterPaneLayout): CenterPaneLayout {
@@ -588,15 +625,14 @@ export function closePane(layout: CenterPaneLayout, paneId: string): CenterPaneL
       ? primaryId
       : (order[Math.max(0, layout.order.indexOf(paneId) - 1)] ?? order[0]!);
 
-  // Merge closed pane tabs into primary/neighbor (dedupe, append). Overview stays primary-only.
+  // Merge closed pane tabs into the neighbor (dedupe, append).
   const panes = remainingPanes.map((p) => {
     if (p.id !== neighborId) return p;
     const merged = [...p.tabIds];
     for (const tabId of closing.tabIds) {
-      if (tabId === OVERVIEW_TAB_ID && p.id !== primaryId) continue;
       if (!merged.includes(tabId)) merged.push(tabId);
     }
-    return { ...p, tabIds: merged };
+    return { ...p, tabIds: pinOverviewFront(merged) };
   });
 
   const focusedPaneId =
@@ -625,54 +661,38 @@ export function focusPane(layout: CenterPaneLayout, paneId: string): CenterPaneL
 }
 
 /**
- * Activate `tabId` on `paneId` with **exclusive** ownership: remove it from every
- * other pane so multi-pane layouts stay isolated (one surface → one pane).
+ * Activate `tabId` on `paneId` without taking it off sibling panes.
+ * Shareable surfaces (Files, editors, Overview) can live in every strip.
+ * Live sessions (terminal / browser) stay in the pane that already owns them.
  */
 export function setPaneActiveTab(
   layout: CenterPaneLayout,
   paneId: string,
   tabId: string,
 ): CenterPaneLayout {
-  // Overview can only be activated on the primary pane.
-  const primaryId = getPrimaryPaneId(layout);
-  const targetPaneId = tabId === OVERVIEW_TAB_ID ? primaryId : paneId;
-  const pane = getPane(layout, targetPaneId);
+  const pane = getPane(layout, paneId);
   if (!pane) return layout;
-  if (tabId === OVERVIEW_TAB_ID && !isPrimaryPane(layout, targetPaneId)) {
+
+  if (
+    pane.tabIds.includes(tabId) &&
+    pane.activeTabId === tabId &&
+    layout.focusedPaneId === paneId
+  ) {
     return layout;
   }
 
-  const ownedOnlyHere =
-    pane.tabIds.includes(tabId) &&
-    pane.activeTabId === tabId &&
-    layout.focusedPaneId === targetPaneId &&
-    !layout.panes.some((p) => p.id !== targetPaneId && p.tabIds.includes(tabId));
-  if (ownedOnlyHere) return layout;
+  const shareable = isShareableCenterTabId(tabId);
+  const ownedElsewhere = layout.panes.some(
+    (p) => p.id !== paneId && p.tabIds.includes(tabId),
+  );
+  if (!shareable && ownedElsewhere) {
+    return layout.focusedPaneId === paneId ? layout : focusPane(layout, paneId);
+  }
 
-  const panes = layout.panes.map((p) => {
-    if (p.id === targetPaneId) {
-      const tabIds = p.tabIds.includes(tabId) ? p.tabIds : [...p.tabIds, tabId];
-      if (p.activeTabId === tabId && sameStringList(p.tabIds, tabIds)) return p;
-      return { ...p, tabIds, activeTabId: tabId };
-    }
-    if (!p.tabIds.includes(tabId)) return p;
-    const tabIds = p.tabIds.filter((id) => id !== tabId);
-    if (tabIds.length === 0) {
-      if (p.id === primaryId) {
-        return { ...p, tabIds: [OVERVIEW_TAB_ID], activeTabId: OVERVIEW_TAB_ID };
-      }
-      return createEmptyPane(p.id);
-    }
-    return {
-      ...p,
-      tabIds,
-      activeTabId: p.activeTabId === tabId ? pickReplacementActiveTab(tabIds) : p.activeTabId,
-    };
-  });
-
+  const panes = layout.panes.map((p) => (p.id === paneId ? addTabToPane(p, tabId) : p));
   let next: CenterPaneLayout = {
     ...layout,
-    focusedPaneId: targetPaneId,
+    focusedPaneId: paneId,
     panes,
   };
   next = pruneEmptySecondaryPanes(next, layout);
@@ -746,15 +766,24 @@ export type CenterTabAttachPlan =
   | { action: "open" }
   | { action: "reveal"; paneId: string };
 
+export type CenterTabAttachPlacement = "reveal" | "focused";
+
 /**
- * URL/chrome activation must not steal an already-owned tab onto the focused
- * pane. Reveal the owning pane instead; only brand-new tabs attach there.
+ * Decide whether a tab should attach to the focused pane or jump to the pane
+ * that already owns it.
+ *
+ * Default `reveal` is URL / one-shot chrome: do not copy an already-owned tab
+ * onto a split empty launcher. `focused` is an explicit open from that pane
+ * (launcher, plus menu, file tree): shareable tabs are copied onto the
+ * focused pane; exclusive sessions stay where they are.
  */
 export function planCenterTabAttach(
   layout: CenterPaneLayout | null | undefined,
   tabId: string | null | undefined,
+  opts?: { placement?: CenterTabAttachPlacement },
 ): CenterTabAttachPlan {
   if (!tabId) return { action: "open" };
+  if (opts?.placement === "focused") return { action: "open" };
   if (!layout || shouldAttachActiveTabToFocusedPane(layout, tabId)) {
     return { action: "open" };
   }
@@ -763,49 +792,61 @@ export function planCenterTabAttach(
   return { action: "reveal", paneId };
 }
 
-/** Open or activate a tab on the focused pane; remove from any other pane. */
+/** Open or activate a tab on the focused pane without taking it off siblings. */
 export function openTabOnFocusedPane(layout: CenterPaneLayout, tabId: string): CenterPaneLayout {
-  // Overview always lands on the primary pane.
-  const focusedId =
-    tabId === OVERVIEW_TAB_ID ? getPrimaryPaneId(layout) : layout.focusedPaneId;
+  const focusedId = layout.focusedPaneId;
   const focused = getPane(layout, focusedId);
-  // Fast path: already active only on focused pane, nowhere else owns it.
-  if (focused && focused.activeTabId === tabId && focused.tabIds.includes(tabId)) {
-    const ownedElsewhere = layout.panes.some(
-      (p) => p.id !== focusedId && p.tabIds.includes(tabId),
-    );
-    if (!ownedElsewhere) return layout;
+  if (!focused) return layout;
+  if (focused.activeTabId === tabId && focused.tabIds.includes(tabId)) {
+    return layout;
   }
 
-  const primaryId = getPrimaryPaneId(layout);
-  const panes = layout.panes.map((p) => {
-    if (p.id === focusedId) {
-      // Secondary panes must never own Overview.
-      if (tabId === OVERVIEW_TAB_ID && p.id !== primaryId) return p;
-      const tabIds = p.tabIds.includes(tabId) ? p.tabIds : [...p.tabIds, tabId];
-      if (p.activeTabId === tabId && sameStringList(p.tabIds, tabIds)) return p;
-      return { ...p, tabIds, activeTabId: tabId };
-    }
-    if (!p.tabIds.includes(tabId)) return p;
-    const tabIds = p.tabIds.filter((id) => id !== tabId);
-    if (tabIds.length === 0) {
-      // Empty secondary → mark empty (pruned below). Primary falls back to overview.
-      if (p.id === primaryId) {
-        return { ...p, tabIds: [OVERVIEW_TAB_ID], activeTabId: OVERVIEW_TAB_ID };
-      }
-      return createEmptyPane(p.id);
-    }
-    return {
-      ...p,
-      tabIds,
-      activeTabId: p.activeTabId === tabId ? pickReplacementActiveTab(tabIds) : p.activeTabId,
-    };
-  });
+  const shareable = isShareableCenterTabId(tabId);
+  const ownedElsewhere = layout.panes.some(
+    (p) => p.id !== focusedId && p.tabIds.includes(tabId),
+  );
+  if (!shareable && ownedElsewhere) {
+    return layout;
+  }
 
+  const panes = layout.panes.map((p) =>
+    p.id === focusedId ? addTabToPane(p, tabId) : p,
+  );
   let next: CenterPaneLayout = { ...layout, panes, focusedPaneId: focusedId };
   next = pruneEmptySecondaryPanes(next, layout);
   next = enforceOverviewPrimaryOnly(next);
   return centerPaneLayoutsEqual(layout, next) ? layout : next;
+}
+
+/** Remove a tab from one pane; sibling strips that also list it are untouched. */
+export function removeTabFromPane(
+  layout: CenterPaneLayout,
+  paneId: string,
+  tabId: string,
+  preferredNextActiveId?: string | null,
+): CenterPaneLayout {
+  const pane = getPane(layout, paneId);
+  if (!pane) return layout;
+  if (!pane.tabIds.includes(tabId) && pane.activeTabId !== tabId) return layout;
+
+  const panes = layout.panes.map((p) => {
+    if (p.id !== paneId) return p;
+    const tabIds = p.tabIds.filter((id) => id !== tabId);
+    if (tabIds.length === 0) return createEmptyPane(p.id);
+    return {
+      ...p,
+      tabIds,
+      activeTabId:
+        p.activeTabId === tabId
+          ? pickReplacementActiveTab(tabIds, preferredNextActiveId)
+          : p.activeTabId,
+    };
+  });
+
+  let next: CenterPaneLayout = { ...layout, panes };
+  next = pruneEmptySecondaryPanes(next, layout);
+  next = enforceOverviewPrimaryOnly(next);
+  return withCanonicalTabStrip(next);
 }
 
 /** Remove a tab from whichever pane owns it; auto-close empty secondary panes. */
@@ -821,15 +862,6 @@ export function removeTabFromLayout(
     changed = true;
     const tabIds = p.tabIds.filter((id) => id !== tabId);
     if (tabIds.length === 0) {
-      if (p.id === primaryId) {
-        // Primary never closes; keep Overview as the residual surface.
-        return {
-          ...p,
-          tabIds: [OVERVIEW_TAB_ID],
-          activeTabId: OVERVIEW_TAB_ID,
-        };
-      }
-      // Secondary becomes empty after last tab closed → prune.
       return createEmptyPane(p.id);
     }
     return {
@@ -863,14 +895,6 @@ export function reconcileOpenTabs(
   if (open.size === 0 && preferredActiveTabId) {
     open.add(preferredActiveTabId);
   }
-  if (open.size === 0) {
-    open.add("terminal");
-  }
-  // Extra spaces omit Overview from the chrome open-tab list. Keep it when a
-  // pane already owns it so reconcile cannot strip it and steal a sibling tab.
-  for (const pane of layout.panes) {
-    if (pane.tabIds.includes(OVERVIEW_TAB_ID)) open.add(OVERVIEW_TAB_ID);
-  }
 
   const primaryId = getPrimaryPaneId(layout);
   const ownedByOtherPane = (paneId: string, tabId: string) =>
@@ -880,15 +904,12 @@ export function reconcileOpenTabs(
     layout.panes.filter((p) => p.tabIds.length === 0).map((p) => p.id),
   );
 
-  // Strip closed tabs; Overview never stays on secondary panes.
+  // Strip closed tabs. Overview may live on any pane.
   let panes = layout.panes.map((p) => {
     if (intentionallyEmpty.has(p.id) && p.id !== primaryId) {
       return createEmptyPane(p.id);
     }
-    let tabIds = p.tabIds.filter((id) => open.has(id));
-    if (p.id !== primaryId) {
-      tabIds = stripOverviewFromTabIds(tabIds);
-    }
+    const tabIds = pinOverviewFront(p.tabIds.filter((id) => open.has(id)));
     if (tabIds.length === 0) {
       if (p.id === primaryId) {
         const unownedPreferred =
@@ -898,31 +919,21 @@ export function reconcileOpenTabs(
           !ownedByOtherPane(p.id, preferredActiveTabId)
             ? preferredActiveTabId
             : null;
-        // Overview-only primary: keep Overview instead of copying a sibling tab.
-        if (p.tabIds.includes(OVERVIEW_TAB_ID)) {
-          if (
-            p.tabIds.length === 1 &&
-            p.tabIds[0] === OVERVIEW_TAB_ID &&
-            p.activeTabId === OVERVIEW_TAB_ID
-          ) {
-            return p;
-          }
-          return { ...p, tabIds: [OVERVIEW_TAB_ID], activeTabId: OVERVIEW_TAB_ID };
-        }
-        // Empty launcher primary: stay empty when the new tab already lives elsewhere.
-        if (p.tabIds.length === 0) {
+        if (intentionallyEmpty.has(p.id) || p.tabIds.length === 0) {
           if (!unownedPreferred) return createEmptyPane(p.id);
           return { ...p, tabIds: [unownedPreferred], activeTabId: unownedPreferred };
         }
         const fallback =
           unownedPreferred ??
-          (open.has(OVERVIEW_TAB_ID)
-            ? OVERVIEW_TAB_ID
-            : ([...open].find((id) => !ownedByOtherPane(p.id, id)) ?? OVERVIEW_TAB_ID));
+          (open.has(OVERVIEW_TAB_ID) ? OVERVIEW_TAB_ID : null) ??
+          [...open].find((id) => !ownedByOtherPane(p.id, id)) ??
+          null;
+        if (!fallback) return createEmptyPane(p.id);
+        const nextIds = fallback === OVERVIEW_TAB_ID ? [OVERVIEW_TAB_ID] : [fallback];
         if (p.tabIds.length === 1 && p.tabIds[0] === fallback && p.activeTabId === fallback) {
           return p;
         }
-        return { ...p, tabIds: [fallback], activeTabId: fallback };
+        return { ...p, tabIds: nextIds, activeTabId: fallback };
       }
       // Became empty because owned tabs closed — mark for prune.
       return createEmptyPane(p.id);
@@ -941,29 +952,18 @@ export function reconcileOpenTabs(
   const owned = new Set(panes.flatMap((p) => p.tabIds));
   const missing = openTabIds.filter((id) => !owned.has(id));
   if (missing.length > 0) {
-    const targetId =
-      preferredActiveTabId === OVERVIEW_TAB_ID ||
-      (missing.includes(OVERVIEW_TAB_ID) && layout.focusedPaneId !== primaryId)
-        ? primaryId
-        : layout.focusedPaneId;
+    const targetId = layout.focusedPaneId;
     panes = panes.map((p) => {
       if (p.id !== targetId) return p;
-      const extra = missing.filter((id) => {
-        if (p.tabIds.includes(id)) return false;
-        // Secondary panes cannot receive Overview.
-        if (id === OVERVIEW_TAB_ID && p.id !== primaryId) return false;
-        return true;
-      });
+      const extra = missing.filter((id) => !p.tabIds.includes(id));
       if (extra.length === 0) return p;
       const nextActive =
         preferredActiveTabId && missing.includes(preferredActiveTabId)
-          ? preferredActiveTabId === OVERVIEW_TAB_ID && p.id !== primaryId
-            ? p.activeTabId || extra[0]!
-            : preferredActiveTabId
+          ? preferredActiveTabId
           : p.activeTabId || extra[0]!;
       return {
         ...p,
-        tabIds: [...p.tabIds, ...extra],
+        tabIds: pinOverviewFront([...p.tabIds, ...extra]),
         activeTabId: nextActive,
       };
     });

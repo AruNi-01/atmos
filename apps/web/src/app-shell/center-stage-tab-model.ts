@@ -158,6 +158,15 @@ export function getCenterStripShortcutDigit(index: number): number | null {
   return index + 1;
 }
 
+/** Digit for a tab in the live Cmd+1–9 list. Missing / unfocused strips get none. */
+export function getCenterStripShortcutDigitForTab(
+  orderedTabIds: readonly string[] | null | undefined,
+  tabId: string,
+): number | null {
+  if (!orderedTabIds || orderedTabIds.length === 0) return null;
+  return getCenterStripShortcutDigit(orderedTabIds.indexOf(tabId));
+}
+
 export function resolveCenterStripShortcutTabId(
   orderedTabIds: readonly string[],
   digit: number,

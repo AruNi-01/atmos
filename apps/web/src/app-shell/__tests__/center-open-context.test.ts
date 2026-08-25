@@ -36,8 +36,11 @@ describe("attachCenterTab isolation", () => {
   it("reveals the owning pane instead of openTabOnFocusedPane", () => {
     const src = readFileSync(join(import.meta.dir, "../center-space/center-open-context.ts"), "utf8");
     expect(src).toContain("planCenterTabAttach");
+    expect(src).toContain("store.getLayout(contextId), tabId, opts");
     expect(src).toContain('if (plan.action === "reveal")');
     expect(src).toContain("store.focus(contextId, plan.paneId)");
     expect(src).toContain("store.setActiveTab(contextId, plan.paneId, tabId)");
+    expect(src).toContain("dismissCenterTabInPane");
+    expect(src).toContain("removeTabFromPane");
   });
 });

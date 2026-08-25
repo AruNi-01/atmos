@@ -156,7 +156,7 @@ export function useTerminalLinks({
         column: resolved.column,
       });
       if (targetContextId) {
-        attachCenterTab(targetContextId, resolved.path);
+        attachCenterTab(targetContextId, resolved.path, { placement: "focused" });
       }
     } catch (error) {
       reportTerminalLinkError(

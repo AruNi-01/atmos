@@ -14,7 +14,9 @@ export function useOpenGitHistoryCenterTab() {
     (commitHash?: string | null) => {
       if (!paintContextId) return;
       if (commitHash) selectCommit(paintContextId, commitHash);
-      activateCenterChromeTab(paintContextId, GIT_HISTORY_TAB_VALUE);
+      activateCenterChromeTab(paintContextId, GIT_HISTORY_TAB_VALUE, {
+        placement: "focused",
+      });
     },
     [paintContextId, selectCommit],
   );

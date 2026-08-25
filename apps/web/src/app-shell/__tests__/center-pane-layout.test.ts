@@ -21,7 +21,9 @@ import {
   resizeAdjacentFractions,
   rowCountFor,
   setPaneActiveTab,
+  isShareableCenterTabId,
   planCenterTabAttach,
+  removeTabFromPane,
   shouldAttachActiveTabToFocusedPane,
   splitPane,
   syncFractionsToPaneCount,
@@ -88,6 +90,56 @@ describe("center-pane-layout", () => {
       paneId: primaryId,
     });
     expect(planCenterTabAttach(next, "brand-new-tab")).toEqual({ action: "open" });
+  });
+
+  it("opens on the focused pane when placement is focused even if a sibling owns the tab", () => {
+    let layout = createDefaultLayout(["files", "terminal"], "files");
+    layout = splitPane(layout, { direction: "right" });
+    layout = splitPane(layout, { direction: "down" });
+    expect(layout.panes).toHaveLength(3);
+    expect(planCenterTabAttach(layout, "files")).toEqual({
+      action: "reveal",
+      paneId: DEFAULT_PANE_ID,
+    });
+    expect(planCenterTabAttach(layout, "files", { placement: "focused" })).toEqual({
+      action: "open",
+    });
+
+    const opened = openTabOnFocusedPane(layout, "files");
+    expect(getPane(opened, layout.focusedPaneId)!.tabIds).toContain("files");
+    expect(getPane(opened, layout.focusedPaneId)!.activeTabId).toBe("files");
+    expect(getPane(opened, DEFAULT_PANE_ID)!.tabIds).toContain("files");
+  });
+
+  it("does not clone a live terminal session onto another pane", () => {
+    expect(isShareableCenterTabId("files")).toBe(true);
+    expect(isShareableCenterTabId("AGENTS.md")).toBe(true);
+    expect(isShareableCenterTabId("terminal")).toBe(false);
+    expect(isShareableCenterTabId("terminal-tab:abc")).toBe(false);
+    expect(isShareableCenterTabId("browser:1")).toBe(false);
+
+    let layout = createDefaultLayout(["terminal", "files"], "files");
+    layout = splitPane(layout, { direction: "right" });
+    layout = openTabOnFocusedPane(layout, "terminal");
+    const secondaryId = layout.focusedPaneId;
+    expect(getPane(layout, secondaryId)!.tabIds).not.toContain("terminal");
+    expect(getPane(layout, DEFAULT_PANE_ID)!.tabIds).toContain("terminal");
+  });
+
+  it("closes a shareable tab in one pane without removing it from siblings", () => {
+    let layout = createDefaultLayout(["files", "terminal", "wiki"], "files");
+    layout = splitPane(layout, { direction: "right" });
+    const secondaryId = layout.focusedPaneId;
+    layout = openTabOnFocusedPane(layout, "files");
+    layout = openTabOnFocusedPane(layout, "wiki");
+    expect(getPane(layout, DEFAULT_PANE_ID)!.tabIds).toContain("files");
+    expect(getPane(layout, secondaryId)!.tabIds).toContain("files");
+    expect(getPane(layout, secondaryId)!.tabIds).toContain("wiki");
+
+    layout = removeTabFromPane(layout, secondaryId, "files");
+    expect(getPane(layout, DEFAULT_PANE_ID)!.tabIds).toContain("files");
+    expect(getPane(layout, secondaryId)!.tabIds).not.toContain("files");
+    expect(getPane(layout, secondaryId)!.tabIds).toContain("wiki");
   });
 
   it("ignores moveTabId and still creates an empty pane", () => {
@@ -174,18 +226,17 @@ describe("center-pane-layout", () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  it("opens a tab on the focused empty pane", () => {
+  it("opens a tab on the focused empty pane without taking it off the source pane", () => {
     let layout = createDefaultLayout(["terminal", "wiki"], "terminal");
     layout = splitPane(layout, { direction: "right" });
     const secondaryId = layout.order.find((id) => id !== DEFAULT_PANE_ID)!;
     expect(layout.focusedPaneId).toBe(secondaryId);
     layout = openTabOnFocusedPane(layout, "wiki");
-    expect(findPaneIdForTab(layout, "wiki")).toBe(secondaryId);
-    const secondary = layout.panes.find((p) => p.id === secondaryId)!;
-    expect(secondary.tabIds).toContain("wiki");
+    expect(getPane(layout, secondaryId)!.tabIds).toContain("wiki");
+    expect(getPane(layout, DEFAULT_PANE_ID)!.tabIds).toContain("wiki");
   });
 
-  it("setPaneActiveTab steals exclusive ownership from sibling panes", () => {
+  it("setPaneActiveTab copies a shareable tab onto the target pane", () => {
     let layout = createDefaultLayout(["terminal", "overview", "files"], "files");
     layout = splitPane(layout, { direction: "right" });
     const secondaryId = layout.order.find((id) => id !== DEFAULT_PANE_ID)!;
@@ -194,7 +245,7 @@ describe("center-pane-layout", () => {
     const primary = layout.panes.find((p) => p.id === DEFAULT_PANE_ID)!;
     expect(secondary.tabIds).toContain("files");
     expect(secondary.activeTabId).toBe("files");
-    expect(primary.tabIds).not.toContain("files");
+    expect(primary.tabIds).toContain("files");
   });
 
   it("activating a tab on primary does not collapse an empty secondary launcher", () => {
@@ -208,16 +259,39 @@ describe("center-pane-layout", () => {
     expect(isEmptyPane(secondary)).toBe(true);
   });
 
-  it("routes Overview open to the primary pane only", () => {
+  it("findPaneIdForTab prefers the focused pane when several panes own the tab", () => {
+    let layout = createDefaultLayout(["files", "terminal"], "files");
+    layout = splitPane(layout, { direction: "right" });
+    layout = openTabOnFocusedPane(layout, "files");
+    expect(findPaneIdForTab(layout, "files")).toBe(layout.focusedPaneId);
+    layout = focusPane(layout, DEFAULT_PANE_ID);
+    expect(findPaneIdForTab(layout, "files")).toBe(DEFAULT_PANE_ID);
+  });
+
+  it("opens Overview on the focused pane without taking it off siblings", () => {
     let layout = createDefaultLayout(["terminal", "overview", "wiki"], "wiki");
     layout = splitPane(layout, { direction: "right" });
-    layout = focusPane(layout, layout.order.find((id) => id !== DEFAULT_PANE_ID)!);
+    const secondaryId = layout.order.find((id) => id !== DEFAULT_PANE_ID)!;
+    layout = focusPane(layout, secondaryId);
     layout = openTabOnFocusedPane(layout, OVERVIEW_TAB_ID);
-    expect(findPaneIdForTab(layout, OVERVIEW_TAB_ID)).toBe(DEFAULT_PANE_ID);
-    const secondary = layout.panes.find((p) => p.id !== DEFAULT_PANE_ID);
-    if (secondary && secondary.tabIds.length > 0) {
-      expect(secondary.tabIds).not.toContain(OVERVIEW_TAB_ID);
-    }
+    expect(getPane(layout, secondaryId)!.tabIds).toContain(OVERVIEW_TAB_ID);
+    expect(getPane(layout, DEFAULT_PANE_ID)!.tabIds).toContain(OVERVIEW_TAB_ID);
+  });
+
+  it("pins Overview at the front and keeps a single Overview tab", () => {
+    let layout = createDefaultLayout(["terminal", "files"], "files");
+    layout = openTabOnFocusedPane(layout, OVERVIEW_TAB_ID);
+    expect(layout.panes[0]!.tabIds[0]).toBe(OVERVIEW_TAB_ID);
+    expect(layout.panes[0]!.tabIds.filter((id) => id === OVERVIEW_TAB_ID)).toHaveLength(1);
+    layout = openTabOnFocusedPane(layout, OVERVIEW_TAB_ID);
+    expect(layout.panes[0]!.tabIds.filter((id) => id === OVERVIEW_TAB_ID)).toHaveLength(1);
+  });
+
+  it("does not inject Overview when the primary pane loses its last tab", () => {
+    const layout = createDefaultLayout(["terminal"], "terminal");
+    const next = removeTabFromLayout(layout, "terminal");
+    expect(isEmptyPane(next.panes[0])).toBe(true);
+    expect(next.panes[0]!.tabIds).not.toContain(OVERVIEW_TAB_ID);
   });
 
   it("reconciles missing open tabs onto the focused pane", () => {
@@ -244,7 +318,7 @@ describe("center-pane-layout", () => {
     overviewPrimary = openTabOnFocusedPane(overviewPrimary, "AGENTS.md");
     const afterOverview = reconcileOpenTabs(overviewPrimary, ["AGENTS.md"], "AGENTS.md");
     expect(findPaneIdForTab(afterOverview, "AGENTS.md")).toBe(overviewSecondaryId);
-    expect(getPane(afterOverview, DEFAULT_PANE_ID)!.tabIds).toEqual(["overview"]);
+    expect(isEmptyPane(getPane(afterOverview, DEFAULT_PANE_ID))).toBe(true);
     expect(getPane(afterOverview, overviewSecondaryId)!.tabIds).toEqual(["AGENTS.md"]);
   });
 
@@ -252,6 +326,7 @@ describe("center-pane-layout", () => {
     const layout = createDefaultLayout(["terminal", "overview"], "overview");
     const next = removeTabFromLayout(layout, "overview");
     expect(next.panes[0]!.tabIds).toContain("terminal");
+    expect(next.panes[0]!.tabIds).not.toContain("overview");
     expect(next.panes[0]!.activeTabId).toBe("terminal");
   });
 
@@ -324,8 +399,8 @@ describe("center-pane-layout", () => {
   });
 
   it("returns the same layout reference when reconcile/open are no-ops", () => {
-    const layout = createDefaultLayout(["terminal", "overview"], "terminal");
-    const reconciled = reconcileOpenTabs(layout, ["terminal", "overview"], "terminal");
+    const layout = createDefaultLayout(["overview", "terminal"], "terminal");
+    const reconciled = reconcileOpenTabs(layout, ["overview", "terminal"], "terminal");
     expect(reconciled).toBe(layout);
     const opened = openTabOnFocusedPane(layout, "terminal");
     expect(opened).toBe(layout);

@@ -37,8 +37,10 @@ import {
   refreshActiveCenterSpacePreview,
   switchCenterSpace,
 } from "@/app-shell/center-space/center-space-switch";
+import { prefetchCenterSpaceSnapdom } from "@/app-shell/center-space/center-space-thumbnail";
 import { useCenterStageLastTab } from "@/shared/stores/use-ui-pref-hooks";
 import { useAgentAttentionStore } from "@/features/agent/store/agent-attention-store";
+import { HEADER_CHIP_SURFACE_CLASS } from "@/app-shell/header-parts";
 import "./center-space-fan.css";
 
 const EMPTY_CENTER_SPACES: CenterSpaceRecord[] = [];
@@ -93,7 +95,11 @@ export function CenterSpaceSwitcher() {
     if (previewPromiseRef.current) return previewPromiseRef.current;
     const pending = refreshActiveCenterSpacePreview(hostId)
       .then(() => {
-        previewReadyRef.current = true;
+        const store = useCenterSpaceStore.getState();
+        const activeId = store.getActiveSpaceId(hostId);
+        previewReadyRef.current = Boolean(
+          store.list(hostId).find((space) => space.id === activeId)?.thumbnailDataUrl,
+        );
       })
       .finally(() => {
         previewPromiseRef.current = null;
@@ -138,7 +144,6 @@ export function CenterSpaceSwitcher() {
     setSpread(false);
     setOpen(false);
     setConfirmDeleteId(null);
-    previewReadyRef.current = false;
     if (opts?.immediate) setMounted(false);
   }, []);
 
@@ -166,7 +171,18 @@ export function CenterSpaceSwitcher() {
     setMounted(true);
     setOpen(true);
     openingRef.current = false;
-    void ensurePreview(true);
+    // Snap after the fan paints. Walking the center tree on this click hitches.
+    requestAnimationFrame(() => {
+      if (typeof requestIdleCallback === "function") {
+        requestIdleCallback(() => {
+          void ensurePreview(true);
+        }, { timeout: 240 });
+        return;
+      }
+      window.setTimeout(() => {
+        void ensurePreview(true);
+      }, 0);
+    });
   }, [closeFan, ensurePreview, open, readFanOrigin]);
 
   React.useEffect(() => {
@@ -183,6 +199,7 @@ export function CenterSpaceSwitcher() {
     // first workspace hydrate prunes tabs / blanks the center. Skip once.
     if (!allowIdleCaptureRef.current) {
       allowIdleCaptureRef.current = true;
+      prefetchCenterSpaceSnapdom();
       return;
     }
     let idle = 0;
@@ -295,9 +312,11 @@ export function CenterSpaceSwitcher() {
           void handleToggleOpen();
         }}
         className={cn(
-          "flex h-8 w-full min-w-0 max-w-[220px] items-center gap-1.5 rounded-md px-2.5 text-[12px] font-medium",
+          "flex h-8 w-full min-w-0 max-w-[220px] cursor-pointer items-center gap-1.5 rounded-md px-2.5 text-[12px] font-medium",
           "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
-          open && "bg-accent text-accent-foreground",
+          "dark:hover:bg-accent dark:hover:text-accent-foreground",
+          HEADER_CHIP_SURFACE_CLASS,
+          open && "border-border bg-accent text-accent-foreground dark:bg-accent",
         )}
       >
         <span className="relative size-3.5 shrink-0">

@@ -47,6 +47,7 @@ import {
   Github,
   Globe,
   Layers,
+  LayoutDashboard,
   LayoutTemplate,
   LoaderCircle,
   Maximize2,
@@ -104,7 +105,7 @@ import { stableAgentPaneId } from "@/features/terminal/store/terminal-store-help
 import { useShallow } from "zustand/react/shallow";
 import type { CenterTabContextMenuState, CenterTabDescriptor } from "@/app-shell/center-stage-tab-model";
 import {
-  getCenterStripShortcutDigit,
+  getCenterStripShortcutDigitForTab,
   orderCenterTabsBySavedOrder,
   preventNonPrimaryTabActivate,
 } from "@/app-shell/center-stage-tab-model";
@@ -157,6 +158,7 @@ interface CenterStageTabBarProps {
   handleCreateSimulatorCenterTab: () => void;
   handleCreateTerminalCenterTab: () => void;
   handleCreateToolCenterTab: (tab: CenterToolTabValue) => void;
+  handleCreateOverview?: () => void;
   handleCloseSimulatorTab: () => void;
   handleCloseGitHistoryTab: () => void;
   handleCloseToolTab: (tab: CenterToolTabValue) => void;
@@ -178,6 +180,11 @@ interface CenterStageTabBarProps {
   setWikiRefreshTrigger: React.Dispatch<React.SetStateAction<number>>;
   /** Owning mosaic pane — fullscreen expands this pane over sibling center regions. */
   paneId?: string;
+  /**
+   * Cmd+1–9 targets for this strip. Empty when the pane is not focused so
+   * held-⌘ overlays stay isolated to the live pane.
+   */
+  stripShortcutTabIds?: readonly string[];
   /** Show a tab-bar fullscreen toggle (multi-pane only). */
   isMultiPane?: boolean;
   /** Split the center stage into another pane (right). */
@@ -221,7 +228,7 @@ export function CenterStageTabBar({
   visibleTerminalTabs,
   wikiCenterEligible,
   wikiRefreshing,
-  overviewVisible = true,
+  overviewVisible = false,
   handleCenterStageTabChange,
   handleCloseTabGroupItem,
   handleCloseBrowserTab,
@@ -232,6 +239,7 @@ export function CenterStageTabBar({
   handleCreateSimulatorCenterTab,
   handleCreateTerminalCenterTab,
   handleCreateToolCenterTab,
+  handleCreateOverview,
   handleCloseSimulatorTab,
   handleCloseGitHistoryTab,
   handleCloseToolTab,
@@ -246,6 +254,7 @@ export function CenterStageTabBar({
   setWikiRefreshing,
   setWikiRefreshTrigger,
   paneId,
+  stripShortcutTabIds,
   isMultiPane = false,
   onSplitRight,
   onSplitDown,
@@ -546,8 +555,11 @@ export function CenterStageTabBar({
     visibleTerminalTabs.length,
   ]);
 
-  const renderDescriptorTab = (tab: CenterTabDescriptor, index: number) => {
-    const shortcutDigit = getCenterStripShortcutDigit(index);
+  const renderDescriptorTab = (tab: CenterTabDescriptor) => {
+    const shortcutDigit = getCenterStripShortcutDigitForTab(
+      stripShortcutTabIds,
+      tab.id,
+    );
     if (tab.kind === "terminal") {
       const source = visibleTerminalTabs.find((item) => item.id === tab.value);
       if (!source) return null;
@@ -814,11 +826,14 @@ export function CenterStageTabBar({
             splitDownLabel={t("centerStageTabBar.splitDown")}
             splitRightLabel={t("centerStageTabBar.splitRight")}
             terminalLabel={newTerminalTabLabel}
+            overviewLabel={t("centerStageTabBar.overview")}
+            overviewAlreadyOpen={overviewVisible}
             savedLayouts={savedLayouts}
             onCreateBrowser={handleCreateBrowserCenterTab}
             onCreateSimulator={handleCreateSimulatorCenterTab}
             onCreateTerminal={handleCreateTerminalCenterTab}
             onCreateToolTab={handleCreateToolCenterTab}
+            onCreateOverview={handleCreateOverview}
             onSplitDown={onSplitDown}
             onSplitRight={onSplitRight}
             onSaveLayout={onSaveLayout}
@@ -942,9 +957,9 @@ export function CenterStageTabBar({
             items={orderedDescriptors.map((tab) => tab.id)}
             strategy={horizontalListSortingStrategy}
           >
-            {orderedDescriptors.map((tab, index) => (
+            {orderedDescriptors.map((tab) => (
               <SortableCenterStripTab key={tab.id} id={tab.id}>
-                {renderDescriptorTab(tab, index)}
+                {renderDescriptorTab(tab)}
               </SortableCenterStripTab>
             ))}
           </SortableContext>
@@ -1167,12 +1182,9 @@ function PlusMenuTabPanels({
             scale: tab === "tabs" ? 1 : 0.96,
           }}
           transition={{ duration: reduce ? 0 : 0.22, ease: PLUS_MENU_TAB_EASE }}
-          className={cn(
-            "origin-top",
-            tab === "tabs"
-              ? "relative"
-              : "pointer-events-none invisible absolute inset-x-0 top-0 [&_*]:pointer-events-none",
-          )}
+          className={cn("origin-top", tab === "tabs" ? "relative" : "hidden")}
+          data-plus-menu-layer={tab === "tabs" ? "active" : "inactive"}
+          hidden={tab !== "tabs" ? true : undefined}
           aria-hidden={tab !== "tabs"}
           inert={tab !== "tabs" ? true : undefined}
         >
@@ -1186,12 +1198,9 @@ function PlusMenuTabPanels({
             scale: tab === "layout" ? 1 : 0.96,
           }}
           transition={{ duration: reduce ? 0 : 0.22, ease: PLUS_MENU_TAB_EASE }}
-          className={cn(
-            "origin-top",
-            tab === "layout"
-              ? "relative"
-              : "pointer-events-none invisible absolute inset-x-0 top-0 [&_*]:pointer-events-none",
-          )}
+          className={cn("origin-top", tab === "layout" ? "relative" : "hidden")}
+          data-plus-menu-layer={tab === "layout" ? "active" : "inactive"}
+          hidden={tab !== "layout" ? true : undefined}
           aria-hidden={tab !== "layout"}
           inert={tab !== "layout" ? true : undefined}
         >
@@ -1272,11 +1281,14 @@ function CenterStageNewTabMenu({
   splitDownLabel,
   splitRightLabel,
   terminalLabel,
+  overviewLabel,
+  overviewAlreadyOpen,
   savedLayouts,
   onCreateBrowser,
   onCreateSimulator,
   onCreateTerminal,
   onCreateToolTab,
+  onCreateOverview,
   onSplitDown,
   onSplitRight,
   onSaveLayout,
@@ -1317,11 +1329,14 @@ function CenterStageNewTabMenu({
   splitDownLabel: string;
   splitRightLabel: string;
   terminalLabel: string;
+  overviewLabel: string;
+  overviewAlreadyOpen?: boolean;
   savedLayouts?: Array<{ id: string; name: string }>;
   onCreateBrowser: () => void;
   onCreateSimulator: () => void;
   onCreateTerminal: () => void;
   onCreateToolTab: (tab: CenterToolTabValue) => void;
+  onCreateOverview?: () => void;
   onSplitDown?: () => void;
   onSplitRight?: () => void;
   onSaveLayout?: (name: string) => void;
@@ -1392,7 +1407,10 @@ function CenterStageNewTabMenu({
     [clearCloseTimer, clearLayoutsLeaveTimer],
   );
 
-  useCenterStagePlusMenuOverlayGuard(open);
+  useCenterStagePlusMenuOverlayGuard(open, {
+    onPointerOverChrome: clearCloseTimer,
+    onPointerLeaveChrome: scheduleClose,
+  });
 
   const handlePlusMenuMouseLeave = React.useCallback(
     (event: React.MouseEvent) => {
@@ -1513,7 +1531,7 @@ function CenterStageNewTabMenu({
           side="bottom"
           sideOffset={4}
           data-center-stage-plus-menu=""
-          className="z-[300] w-48 overflow-hidden border-border/70 bg-popover/90 p-1 shadow-lg backdrop-blur-xl"
+          className="z-[2147483646] w-48 overflow-hidden border-border/70 bg-popover/90 p-1 shadow-lg backdrop-blur-xl"
           onOpenAutoFocus={(event) => event.preventDefault()}
           onCloseAutoFocus={(event) => event.preventDefault()}
           onMouseEnter={clearCloseTimer}
@@ -1521,7 +1539,11 @@ function CenterStageNewTabMenu({
           onPointerDown={(event) => event.stopPropagation()}
           onMouseDown={(event) => event.stopPropagation()}
           onPointerDownOutside={retainPlusMenuIfPointerOverIt}
-          onFocusOutside={retainPlusMenuIfPointerOverIt}
+          onFocusOutside={(event) => {
+            // xterm keeps focus while this menu is hover-open. Treat that as
+            // in-menu, not a dismiss.
+            event.preventDefault();
+          }}
           onInteractOutside={retainPlusMenuIfPointerOverIt}
         >
           <MotionTabs
@@ -1555,6 +1577,20 @@ function CenterStageNewTabMenu({
               tab={plusTab}
               tabs={
                 <>
+          {onCreateOverview && !overviewAlreadyOpen ? (
+          <button
+            type="button"
+            className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
+            onClick={() => {
+              onCreateOverview();
+              setOpen(false);
+            }}
+          >
+            <LayoutDashboard className="size-3.5 shrink-0 text-muted-foreground" />
+            <span className="min-w-0 flex-1 truncate">{overviewLabel}</span>
+            <ShortcutHint digit={0} />
+          </button>
+          ) : null}
           <button
             type="button"
             className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
@@ -1692,7 +1728,7 @@ function CenterStageNewTabMenu({
                 side="left"
                 sideOffset={4}
                 data-center-stage-layouts-menu=""
-                className="z-[310] w-48 border-border/70 bg-popover/90 p-1 shadow-lg backdrop-blur-xl"
+                className="z-[2147483647] w-48 border-border/70 bg-popover/90 p-1 shadow-lg backdrop-blur-xl"
                 onOpenAutoFocus={(event) => event.preventDefault()}
                 onCloseAutoFocus={(event) => event.preventDefault()}
                 onPointerDown={(event) => event.stopPropagation()}

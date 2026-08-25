@@ -11,7 +11,7 @@ export function useOpenToolCenterTab() {
   const openToolTab = React.useCallback(
     (tab: CenterToolTabValue) => {
       if (!paintContextId) return;
-      activateCenterChromeTab(paintContextId, tab);
+      activateCenterChromeTab(paintContextId, tab, { placement: "focused" });
     },
     [paintContextId],
   );

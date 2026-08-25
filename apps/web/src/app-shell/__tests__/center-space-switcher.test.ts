@@ -33,6 +33,8 @@ describe("center space switcher open path", () => {
     expect(switcher).toContain("requestIdleCallback");
     expect(switcher).toContain("void ensurePreview(true)");
     expect(switcher).not.toContain("await ensurePreview()");
+    expect(switcher).toContain("prefetchCenterSpaceSnapdom");
+    expect(switcher).toContain("previewReadyRef.current = Boolean(");
     expect(switcher).toContain("useCenterStageLastTab");
     expect(switcher).toContain("captureActiveCenterSpaceThumbnail");
     expect(switcher).toContain("allowIdleCaptureRef");
@@ -62,13 +64,18 @@ describe("center space switcher open path", () => {
     );
     expect(thumb).toContain('@zumer/snapdom');
     expect(thumb).toContain("snapdom.toCanvas");
-    expect(thumb).toContain("clip:");
-    expect(thumb).toContain('filterMode: "remove"');
+    expect(thumb).toContain("burst: true");
+    expect(thumb).toContain("queryCenterWorkArea");
+    expect(thumb).toContain("data-center-stage-body");
+    expect(thumb).toContain("coverDest");
+    expect(thumb).toContain("opaqueBackground");
+    expect(thumb).toContain("shouldKeepSnapPreviewNode");
     expect(thumb).toContain("paintXtermBufferInto");
     expect(thumb).toContain("listXtermPreviewHosts");
     expect(thumb).toContain("snapshotMountedCenterSpaceThumbnails");
     expect(thumb).toContain("data-workspace-frame");
     expect(thumb).toContain("THUMB_WIDTH = 136");
+    expect(thumb).not.toContain("document.readyState");
     expect(thumb).not.toContain("html2canvas");
     expect(thumb).not.toContain("html-to-image");
     expect(thumb).not.toContain("use-react-screenshot");
@@ -89,6 +96,8 @@ describe("center space switcher open path", () => {
     );
     expect(switcher).toContain("CenterSpacePreview");
     expect(switcher).toContain("live={open && selected}");
+    expect(preview).toContain("object-contain");
+    expect(preview).toContain("queryCenterWorkArea");
   });
 
   it("cascades space delete through pane, run, tmux, and chrome state", () => {
@@ -114,7 +123,7 @@ describe("center space switcher open path", () => {
     expect(runScript).toContain("hostIdFromCenterKey");
     expect(runScript).toContain("tmuxWindowName={runWindowName(tab.id)}");
     const frame = readFileSync(join(dir, "workspace-center-frame.tsx"), "utf8");
-    const runBlock = frame.slice(frame.indexOf("<RunScript"));
+    const runBlock = frame.slice(frame.indexOf("<KeptRunScript"));
     expect(runBlock).toContain("workspaceId={isUrlSyncedActive ? contextId : null}");
     expect(runBlock).not.toContain("currentWorkspace?.id");
   });

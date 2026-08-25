@@ -252,7 +252,17 @@ export function buildDefaultEmptyPaneActions(input: {
   onOpenOverview?: () => void;
 }): CenterPaneEmptyAction[] {
   const { labels, modKey } = input;
-  const actions: CenterPaneEmptyAction[] = [
+  const actions: CenterPaneEmptyAction[] = [];
+  if (input.includeOverview !== false && input.onOpenOverview) {
+    actions.push({
+      id: "overview",
+      label: input.overviewLabel ?? "Overview",
+      icon: <LayoutDashboard />,
+      shortcutKeys: [modKey, "0"],
+      onSelect: input.onOpenOverview,
+    });
+  }
+  actions.push(
     {
       id: "terminal",
       label: labels.terminal,
@@ -297,17 +307,7 @@ export function buildDefaultEmptyPaneActions(input: {
       icon: <Smartphone />,
       onSelect: input.onCreateSimulator,
     },
-  ];
-
-  if (input.includeOverview && input.onOpenOverview) {
-    actions.unshift({
-      id: "overview",
-      label: input.overviewLabel ?? "Overview",
-      icon: <LayoutDashboard />,
-      shortcutKeys: [modKey, "0"],
-      onSelect: input.onOpenOverview,
-    });
-  }
+  );
 
   return actions;
 }

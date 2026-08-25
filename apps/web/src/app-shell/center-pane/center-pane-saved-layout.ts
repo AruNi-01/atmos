@@ -11,6 +11,7 @@ import {
   createEmptyPane,
   DEFAULT_PANE_ID,
   OVERVIEW_TAB_ID,
+  pinOverviewFront,
   normalizeCenterPaneLayout,
   type CenterPane,
   type CenterPaneLayout,
@@ -248,20 +249,15 @@ export function materializeSavedLayout(
       seen.add(tabId);
       tabIds.push(tabId);
     }
-    if (tabIds.length === 0) {
-      return isPrimary
-        ? {
-            id: pane.id,
-            tabIds: [OVERVIEW_TAB_ID],
-            activeTabId: OVERVIEW_TAB_ID,
-          }
-        : createEmptyPane(pane.id);
+    const pinnedTabIds = pinOverviewFront(tabIds);
+    if (pinnedTabIds.length === 0) {
+      return createEmptyPane(pane.id);
     }
     const activeTabId = resolveTabId(pane.activeSurface);
     return {
       id: pane.id,
-      tabIds,
-      activeTabId: tabIds.includes(activeTabId) ? activeTabId : tabIds[0]!,
+      tabIds: pinnedTabIds,
+      activeTabId: pinnedTabIds.includes(activeTabId) ? activeTabId : pinnedTabIds[0]!,
     };
   });
 

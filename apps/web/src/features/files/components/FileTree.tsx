@@ -282,7 +282,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
         void onOpenFile(item.path, { preview: true });
       } else if (editorContextId) {
         void openFile(item.path, editorContextId, { preview: true });
-        attachCenterTab(editorContextId, item.path);
+        attachCenterTab(editorContextId, item.path, { placement: "focused" });
       }
     }
   }, [beforeOpenFile, editorContextId, onOpenFile, openFile]);
@@ -426,7 +426,9 @@ export const FileTree: React.FC<FileTreeProps> = ({
           await onOpenFile(nextPath, { preview: false });
         } else {
           await openFile(nextPath, editorContextId || undefined, { preview: false });
-          if (editorContextId) attachCenterTab(editorContextId, nextPath);
+          if (editorContextId) {
+            attachCenterTab(editorContextId, nextPath, { placement: "focused" });
+          }
         }
       } else if (panelState.mode === 'create-folder') {
         await fsApi.createDir(joinPath(panelState.parentPath, trimmedName));

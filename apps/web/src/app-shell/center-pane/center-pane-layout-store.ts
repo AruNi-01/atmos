@@ -26,6 +26,7 @@ import {
   type SplitDirection,
   reconcileOpenTabs,
   removeTabFromLayout,
+  removeTabFromPane as dropTabFromPane,
   MAX_CENTER_PANES,
 } from "@/app-shell/center-pane/center-pane-layout";
 import { isExtraCenterSpaceKey } from "@/app-shell/center-space/center-space";
@@ -66,6 +67,12 @@ type CenterPaneLayoutStore = {
   openTab: (contextId: string, tabId: string) => void;
   removeTab: (
     contextId: string,
+    tabId: string,
+    preferredNextActiveId?: string | null,
+  ) => void;
+  removeTabFromPane: (
+    contextId: string,
+    paneId: string,
     tabId: string,
     preferredNextActiveId?: string | null,
   ) => void;
@@ -243,6 +250,12 @@ export const useCenterPaneLayoutStore = create<CenterPaneLayoutStore>((set, get)
   removeTab: (contextId, tabId, preferredNextActiveId) => {
     get().patchLayout(contextId, (layout) =>
       removeTabFromLayout(layout, tabId, preferredNextActiveId),
+    );
+  },
+
+  removeTabFromPane: (contextId, paneId, tabId, preferredNextActiveId) => {
+    get().patchLayout(contextId, (layout) =>
+      dropTabFromPane(layout, paneId, tabId, preferredNextActiveId),
     );
   },
 
