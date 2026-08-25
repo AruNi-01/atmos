@@ -1,0 +1,32 @@
+apps/web/src/features/agent/store/agent-attention-store.test.ts
+  h_5be255725524c8 1,3-4,28,32-33,76-190
+apps/web/src/features/agent/store/agent-attention-store.ts
+  h_5be255725524c8 32-38,55-63,118-124,161-172,179-183,188,292-293,304-311,313-314,325-326
+apps/web/src/features/agent/store/agent-hooks-store.ts
+  h_5be255725524c8 184-185
+apps/web/src/features/canvas/components/CanvasTerminalCard.tsx
+  h_5be255725524c8 338-340
+apps/web/src/features/canvas/lib/canvas-terminal-focus.ts
+  h_5be255725524c8 93-96
+apps/web/src/features/terminal/components/TerminalGrid.tsx
+  h_5be255725524c8 41-44,272,288,293-296,298-300
+apps/web/src/features/terminal/components/TerminalScopedPane.tsx
+  h_5be255725524c8 16-19,81,236,399
+apps/web/src/features/terminal/components/TerminalSideChatModal.tsx
+  h_5be255725524c8 19-22,124-129,136,199-209,234
+apps/web/src/features/terminal/components/TerminalWorkspacePane.tsx
+  h_5be255725524c8 17-20,86,308-310,341,511
+apps/web/src/features/terminal/components/__tests__/agent-attention-pane-focus.test.ts
+  h_5be255725524c8 1-64
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "3195b6ed97047cd0294453c99224615429aed43c",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
