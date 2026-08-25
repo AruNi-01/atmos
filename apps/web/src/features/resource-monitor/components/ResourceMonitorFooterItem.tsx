@@ -87,10 +87,6 @@ export function ResourceMonitorFooterItem() {
     },
     [router],
   );
-  const handleOpenDiskAnalyzer = React.useCallback(() => {
-    router.push("/disk-analyzer");
-  }, [router]);
-
   return (
     <TooltipProvider delayDuration={250}>
       <Popover open={open} onOpenChange={setOpen}>
@@ -161,7 +157,6 @@ export function ResourceMonitorFooterItem() {
             desktop={desktop}
             desktopLoading={desktopLoading}
             onNavigateSession={handleSessionNavigate}
-            onOpenDiskAnalyzer={handleOpenDiskAnalyzer}
           />
         </PopoverContent>
       </Popover>

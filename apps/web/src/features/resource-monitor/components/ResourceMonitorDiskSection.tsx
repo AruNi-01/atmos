@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { ChevronRight, HardDrive } from "lucide-react";
 import {
@@ -30,10 +31,8 @@ import {
 
 export function ResourceMonitorDiskSection({
   disks,
-  onOpenDiskAnalyzer,
 }: {
   disks: readonly ResourceDiskMetrics[];
-  onOpenDiskAnalyzer?: () => void;
 }) {
   const t = useTranslations("resourceMonitor.popover");
   const [open, setOpen] = React.useState(diskDefaultOpen);
@@ -107,21 +106,23 @@ export function ResourceMonitorDiskSection({
             label={disk.name}
             className="h-2.5"
           />
-          {onOpenDiskAnalyzer ? (
-            <div className="flex justify-end pt-1">
-              <Button
-                type="button"
-                size="xs"
-                variant="secondary"
-                className="border-transparent"
+          <div className="flex justify-end pt-1">
+            <Button
+              asChild
+              size="xs"
+              variant="secondary"
+              className="border-transparent"
+            >
+              <Link
+                href="/disk-analyzer"
                 data-resource-monitor-disk-analyzer=""
-                onClick={onOpenDiskAnalyzer}
+                onClick={(event) => event.stopPropagation()}
               >
                 <HardDrive aria-hidden />
                 {t("diskAnalysis")}
-              </Button>
-            </div>
-          ) : null}
+              </Link>
+            </Button>
+          </div>
         </div>
       </CollapsibleContent>
     </Collapsible>

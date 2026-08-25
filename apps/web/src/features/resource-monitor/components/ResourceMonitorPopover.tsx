@@ -97,7 +97,6 @@ export function ResourceMonitorPopover({
   desktop,
   desktopLoading = false,
   onNavigateSession,
-  onOpenDiskAnalyzer,
 }: {
   connectionState: string;
   isLoading: boolean;
@@ -109,7 +108,6 @@ export function ResourceMonitorPopover({
   desktop?: DesktopShellMetricsSnapshot;
   desktopLoading?: boolean;
   onNavigateSession?: (target: ResourceMonitorSessionNavigationTarget) => void;
-  onOpenDiskAnalyzer?: () => void;
 }) {
   const t = useTranslations("resourceMonitor.popover");
   const workspacePanes = useTerminalStore((s) => s.workspacePanes);
@@ -156,10 +154,7 @@ export function ResourceMonitorPopover({
             />
 
             {showSnapshot && snapshot && snapshot.disks.length > 0 ? (
-              <ResourceMonitorDiskSection
-                disks={snapshot.disks}
-                onOpenDiskAnalyzer={onOpenDiskAnalyzer}
-              />
+              <ResourceMonitorDiskSection disks={snapshot.disks} />
             ) : null}
 
             {showSnapshot && snapshot ? (

@@ -78,7 +78,7 @@ describe("resource monitor dither structure", () => {
     expect(diskSrc).toContain("diskDefaultOpen");
     expect(hierarchySrc).not.toContain("ResourceMonitorUsageBar");
     expect(hierarchySrc).not.toContain("DitherFunnel");
-    expect(footerSrc).toContain('router.push("/disk-analyzer")');
+    expect(diskSrc).toContain('href="/disk-analyzer"');
     expect(footerSrc).not.toContain("DitherFunnel");
   });
 });
