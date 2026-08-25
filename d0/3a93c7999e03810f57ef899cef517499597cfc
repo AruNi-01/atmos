@@ -1,0 +1,56 @@
+apps/desktop-electron/src/metrics/desktop-shell-metrics.test.ts
+  h_5be255725524c8 34,45,51,57,63,70,83,88,93,98,103,108,133,280-281,285,313-315,319-336,351
+apps/desktop-electron/src/metrics/desktop-shell-metrics.ts
+  h_5be255725524c8 7-11,120-128,131,190,203
+apps/web/messages/en.json
+  h_5be255725524c8 8195-8196
+apps/web/messages/zh.json
+  h_5be255725524c8 8195-8196
+apps/web/src/features/resource-monitor/components/ResourceMonitorFooterItem.tsx
+  h_5be255725524c8 4,11,21,40-42,45,76,96-103,111-118,146-150,167,219,223-230,239-246
+apps/web/src/features/resource-monitor/components/ResourceMonitorHostChart.tsx
+  h_5be255725524c8 29-30,37-38,49-50,54,115-116,132-133
+apps/web/src/features/resource-monitor/components/ResourceMonitorHostSection.tsx
+  h_5be255725524c8 35,99,258,302,321,348
+apps/web/src/features/resource-monitor/hooks/use-resource-monitor.structural.test.ts
+  h_5be255725524c8 59-61
+apps/web/src/features/resource-monitor/lib/resource-monitor-dither.test.ts
+  h_5be255725524c8 102-107
+apps/web/src/features/resource-monitor/lib/resource-monitor-format.test.ts
+  h_5be255725524c8 3,18,22,25-33,39-40
+apps/web/src/features/resource-monitor/lib/resource-monitor-format.ts
+  h_5be255725524c8 2,14,16-38
+apps/web/src/features/resource-monitor/lib/resource-monitor-host-history.test.ts
+  h_5be255725524c8 54-67
+apps/web/src/features/resource-monitor/lib/resource-monitor-pressure.test.ts
+  h_5be255725524c8 57-71
+apps/web/src/features/resource-monitor/lib/resource-monitor-pressure.ts
+  h_5be255725524c8 55-79,82,85-86,88-93
+apps/web/src/features/resource-monitor/lib/resource-monitor-session-navigation.test.ts
+  h_5be255725524c8 63,88-89,268-311,560-580,689-690
+apps/web/src/features/terminal/components/__tests__/resource-locate-ring.test.ts
+  h_5be255725524c8 158,172-179
+apps/web/src/features/terminal/components/terminal-grid.css
+  h_5be255725524c8 206-210,213,217-219,233,235,520-521,532-535,540-542
+apps/web/src/features/terminal/public/navigate-to-located-pane.ts
+  h_5be255725524c8 38,128,131-133,142-143,174,191,207,232-236,270,286-298,301
+crates/core-engine/src/resource_metrics/mod.rs
+  h_5be255725524c8 4-6,58,113,217,245,269,276-303,319,490-492,495,503-519,724
+crates/core-service/src/service/resource_monitor/types.rs
+  h_5be255725524c8 31-32,34,106,221,226
+specs/APP/APP-066_resource-monitor/TECH.md
+  h_5be255725524c8 23,31,66,254
+specs/APP/APP-066_resource-monitor/TEST.md
+  h_5be255725524c8 53,71,135,223,301
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "d03a93c7999e03810f57ef899cef517499597cfc",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
