@@ -127,9 +127,9 @@ export function ResourceMonitorFooterItem() {
                     {previewing ? (
                       <motion.span
                         key="usage"
-                        initial={reducedMotion ? false : { x: 12 }}
-                        animate={{ x: 0 }}
-                        exit={reducedMotion ? undefined : { x: 12 }}
+                        initial={reducedMotion ? false : { opacity: 0, x: 12 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={reducedMotion ? undefined : { opacity: 0, x: 12 }}
                         transition={{
                           duration: reducedMotion ? 0 : 0.16,
                           ease: [0.22, 1, 0.36, 1],
@@ -161,9 +161,9 @@ export function ResourceMonitorFooterItem() {
                     ) : (
                       <motion.span
                         key="label"
-                        initial={reducedMotion ? false : { x: -12 }}
-                        animate={{ x: 0 }}
-                        exit={reducedMotion ? undefined : { x: -12 }}
+                        initial={reducedMotion ? false : { opacity: 0, x: -12 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={reducedMotion ? undefined : { opacity: 0, x: -12 }}
                         transition={{
                           duration: reducedMotion ? 0 : 0.14,
                           ease: [0.22, 1, 0.36, 1],
