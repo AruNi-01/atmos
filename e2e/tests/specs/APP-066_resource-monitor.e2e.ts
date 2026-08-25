@@ -369,6 +369,12 @@ test.describe("APP-066 resource monitor", () => {
 
     const footerItem = page.getByRole("button", { name: "Resource Monitor" });
     await expect(footerItem).toBeVisible({ timeout: 45_000 });
+    await expect(footerItem.getByText("Monitor", { exact: true })).toBeVisible();
+    await footerItem.hover();
+    await expect(footerItem.getByText(/^CPU \d/)).toBeVisible();
+    await expect(footerItem.getByText(/^Memory \d/)).toBeVisible();
+    await page.mouse.move(0, 0);
+    await expect(footerItem.getByText("Monitor", { exact: true })).toBeVisible();
     await expect(footerItem).toHaveAttribute(
       "aria-label",
       /CPU .*%.*Memory .*%/,
@@ -401,6 +407,10 @@ test.describe("APP-066 resource monitor", () => {
     const serverGauge = popover.locator("[data-server-gauge]");
     await expect(serverGauge).toBeVisible();
     await expect(serverGauge.locator("canvas")).toHaveCount(2);
+    const gaugeBox = await serverGauge.locator("canvas").first().boundingBox();
+    expect(gaugeBox).not.toBeNull();
+    expect(gaugeBox!.height).toBeGreaterThanOrEqual(100);
+    expect(gaugeBox!.width).toBeGreaterThan(gaugeBox!.height * 1.5);
     if (await chart.isVisible()) {
       await expect(chart.locator("canvas").first()).toBeVisible();
     }
@@ -469,6 +479,29 @@ test.describe("APP-066 resource monitor", () => {
       "true",
     );
     await expect(sort.getByRole("button", { name: /Name, ascending/i })).toBeVisible();
+    const firstProject = popover.locator("[data-resource-monitor-project]").first();
+    await expect(firstProject).toBeVisible();
+    for (const column of ["CPU", "Memory"] as const) {
+      const headerLabel = sort.locator(
+        `[data-resource-monitor-column-label="${column}"]`,
+      );
+      const metric = firstProject.locator(
+        `[data-resource-monitor-metric="${column.toLowerCase()}"]`,
+      );
+      const [headerBox, metricBox] = await Promise.all([
+        headerLabel.boundingBox(),
+        metric.boundingBox(),
+      ]);
+      expect(headerBox).not.toBeNull();
+      expect(metricBox).not.toBeNull();
+      expect(
+        Math.abs(
+          headerBox!.x +
+            headerBox!.width -
+            (metricBox!.x + metricBox!.width),
+        ),
+      ).toBeLessThanOrEqual(1.5);
+    }
 
     const current = page.viewportSize();
     if (!current || current.width > 390) {

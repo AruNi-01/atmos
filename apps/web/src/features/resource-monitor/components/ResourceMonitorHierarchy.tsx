@@ -135,7 +135,7 @@ function SortHeaderButton({
       )}
       onClick={onClick}
     >
-      {children}
+      <span data-resource-monitor-column-label={column}>{children}</span>
     </button>
   );
 }
@@ -575,6 +575,7 @@ function ProjectBlock({
       name={project.name}
       usage={project.usage}
       defaultOpen={defaultOpen}
+      dataAttr={{ "data-resource-monitor-project": project.project_id }}
     >
       {shouldShowProjectResources(project) ? (
         <GroupRow
