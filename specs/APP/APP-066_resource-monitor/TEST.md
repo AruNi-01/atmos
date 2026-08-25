@@ -405,6 +405,10 @@ just test
 - M11 Host details: `cargo test -p core-engine resource_metrics` (15), `cargo test -p core-service resource_monitor` (34), API (17), api-types (18), and Resource Monitor Web tests (126) passed.
 - S20 Playwright passed on Chromium and mobile Chromium; the parent Resource Monitor remains open while CPU/Memory detail popovers open and close.
 - Dither/Disk verification: shared UI (45), engine (27), service (36), API (17), api-types (19), and Resource Monitor Web (136) tests passed; APP-066 Playwright remained green.
+- UI refinement verification: `bun test packages/ui/src/lib/dither packages/ui/src/components/dither` passed 40 tests; `bun test apps/web/src/features/resource-monitor` passed 139 tests; Web typecheck and lint passed (lint retains 700 unrelated warnings, 0 errors).
+- S20/S21/S22 browser verification: the Host/Atmos App/Disk scenario passed on Chromium and mobile Chromium, including dynamic ServerGauge canvases, responsive no-horizontal-overflow layout, right-aligned detail actions, percentage Footer memory, Disk Analysis navigation, and the parent Resource Monitor remaining visible after navigation.
+- The full APP-066 Playwright rerun did not complete cleanly in the shared dev environment: the deterministic Host/Disk UI scenario and live-listener scenario passed, while the session-locate fixture timed out waiting for a locatable session after `workspace_mark_visited` / terminal-side-chat WebSocket timeouts. The previously recorded clean S14/S15 run remains the latest valid locate proof; this rerun did not expose a production regression in the changed icon/display code.
+- Root `@workspace/ui` typecheck remains blocked by the pre-existing `DrawerContentBare` TS2883 portability error; Web typecheck, which consumes the new `ServerGauge` and Dither props, is green.
 
 ### Test-run files changed
 

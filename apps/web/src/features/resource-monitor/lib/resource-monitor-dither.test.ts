@@ -26,6 +26,10 @@ const footerSrc = readFileSync(
   join(import.meta.dir, "../components/ResourceMonitorFooterItem.tsx"),
   "utf8",
 );
+const sessionNameSrc = readFileSync(
+  join(import.meta.dir, "../components/ResourceMonitorSessionName.tsx"),
+  "utf8",
+);
 
 describe("resource monitor dither structure", () => {
   test("UsageBar is a single-stage DitherFunnel without CSS scaleX", () => {
@@ -80,5 +84,12 @@ describe("resource monitor dither structure", () => {
     expect(hierarchySrc).not.toContain("DitherFunnel");
     expect(diskSrc).toContain('href="/disk-analyzer"');
     expect(footerSrc).not.toContain("DitherFunnel");
+  });
+
+  test("session titles reuse agent icons and fall back to the Terminal icon", () => {
+    expect(sessionNameSrc).toContain("AgentIcon");
+    expect(sessionNameSrc).toContain('iconType === "built-in"');
+    expect(sessionNameSrc).toContain('iconType === "custom"');
+    expect(sessionNameSrc).toContain("TerminalIcon");
   });
 });

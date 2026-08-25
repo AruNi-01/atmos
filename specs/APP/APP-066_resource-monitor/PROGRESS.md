@@ -31,6 +31,7 @@
 - [x] Project/Workspace process leaves and cached Local Services ports
 - [x] Per-core CPU, memory breakdown, collapsed Host/Atmos, and metric motion
 - [x] Shared Dither pressure charts and default-collapsed Disk capacity
+- [x] Dynamic ServerGauge, threshold-gradient history, agent icons, responsive scrolling, and Disk Analysis entry
 - [x] Automated tests
 - [ ] Agent Browser / manual verification
 - [x] Architecture and implementation review
@@ -51,6 +52,7 @@
 - Completed explainable Project/Workspace totals through session-owned and non-session process groups with cached Local Services port annotations.
 - Completed default-collapsed Host/Atmos summaries, animated metrics, and btop-style CPU/memory detail popovers.
 - Completed Token Usage Dither reuse, semantic pressure colors, and filtered cross-platform Disk capacity.
+- Refined the monitor with an Amicro-derived dynamic ServerGauge, vertical threshold gradients, concrete hover amounts, agent-aware session icons, percentage-only Footer memory, one responsive scroll surface, and a non-dismissing Disk Analysis link.
 
 ## Decisions Since TECH
 
@@ -68,6 +70,7 @@ No implementation deltas.
 | M10 process detail | Rust/api-types/Web/Playwright | passed | 30 RM + 22 LS + 17 DTO + 118 Web tests; real listener port E2E |
 | M11 Host details | Rust/api-types/Web/Playwright | passed | 15 engine + 34 RM + 17 API + 18 DTO + 126 Web tests; S20 E2E |
 | M12 Dither + Disk | UI/Rust/api-types/Web/Playwright | passed | 45 UI + 27 engine + 36 RM + 17 API + 19 DTO + 136 Web tests |
+| UI refinement | UI/Web/Playwright | passed | 40 Dither + 139 Web tests; Web typecheck/lint; Host/Disk/Atmos App flow passed on Chromium and mobile Chromium |
 | Full repository | `just test` / `just typecheck` | unrelated failures | APP-066 surfaces pass; see `TEST.md` Coverage Status |
 | Agent Browser/manual | exploratory | partial | Connect gate blocked Agent Browser; host-specific checks remain |
 
