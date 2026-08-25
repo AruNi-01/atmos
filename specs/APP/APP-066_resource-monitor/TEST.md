@@ -274,7 +274,7 @@ The test-run agent must load the installed Agent Browser skill before these chec
 
 ## Coverage Status
 
-_Last run: 2026-08-25 · Grok 4.6 + coordinator verification. Covered: S1, S3, S4, S6, S8, S10, S12, S14–S18. Partial: S2, S5, S7, S9, S11, S13. Targeted Rust/Bun/E2E green._
+_Last run: 2026-08-25 · Grok 4.6 + coordinator verification. Covered: S1, S3, S4, S6, S8, S10, S12, S14–S20. Partial: S2, S5, S7, S9, S11, S13. Targeted Rust/Bun/E2E green._
 
 ### Scenario status
 
@@ -296,6 +296,8 @@ _Last run: 2026-08-25 · Grok 4.6 + coordinator verification. Covered: S1, S3, S
 - S16 — ✅ covered by 60-point scope-isolated history tests, stable hierarchy sort tests, scoped subscription tests, and Playwright Host metrics/sort/chart-or-collecting assertions on Chromium and mobile Chromium.
 - S17 — ✅ covered by exclusive nested-session/Project-direct/Workspace-cwd process-leaf tests and memory/process-count reconciliation assertions in `attribution_tests.rs`.
 - S18 — ✅ covered by fail-closed Local Services port-join/cache/privacy tests, recursive Web validator/process hierarchy tests, and a real Chromium E2E that starts an HTTP listener in a live terminal, force-refreshes Local Services, verifies the process/port row and expanded 390px layout, then deletes the Workspace and confirms the port closes.
+- S19 — ✅ covered by 15 engine tests plus service/API/api-types serialization tests for per-core range/index, macOS/Linux/Windows/fallback accounting, headline/nested equality, used/available and swap invariants, and nullable cached memory.
+- S20 — ✅ covered by motion/reduced-motion, collapse/default, focus/Escape, and validator tests plus Chromium/mobile E2E for default-collapsed Host/Atmos summaries, Host details, CPU/Memory popovers, sticky sort, and 390px layout.
 
 ### Structural-only (not treated as scenario proof)
 
@@ -379,6 +381,8 @@ just test
 - Extra Center Space and custom Terminal tab routing are deterministic Bun coverage; the committed E2E intentionally does not manufacture those UI layouts.
 - M10 process detail: `cargo test -p core-service resource_monitor` (30), `cargo test -p core-service local_services` (22), `@atmos/api-types` (17), and Resource Monitor Web tests (118) passed.
 - S18 Playwright passed on Chromium; the live-listener case is intentionally skipped on mobile Chromium while the existing Host and Terminal locate journeys still run there.
+- M11 Host details: `cargo test -p core-engine resource_metrics` (15), `cargo test -p core-service resource_monitor` (34), API (17), api-types (18), and Resource Monitor Web tests (126) passed.
+- S20 Playwright passed on Chromium and mobile Chromium; the parent Resource Monitor remains open while CPU/Memory detail popovers open and close.
 
 ### Test-run files changed
 

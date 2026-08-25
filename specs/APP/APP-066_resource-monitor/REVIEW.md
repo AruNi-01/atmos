@@ -23,6 +23,7 @@
 | REV-009 | P1 | frontend | Resource hierarchy was visually flat and terminal rows were not actionable | verified |
 | REV-010 | P1 | frontend | Cross-host locate deep links could be stripped as leftover chrome | verified |
 | REV-011 | P1 | full-stack | Project and Workspace totals lacked explainable process leaves | verified |
+| REV-012 | P1 | full-stack | Host and Atmos lacked compact summaries and diagnostic detail | verified |
 
 ---
 
@@ -384,3 +385,38 @@ Project resources must appear before Workspaces and partition direct sessions fr
 
 - 2026-08-25 — Added exclusive process-name groups, `other_usage`, session process drilldown, a TTL'd Local Services all-projects cache, fail-closed PID/name port joins, and Project resources/Workspace UI sections.
 - Verified by 30 Resource Monitor Rust tests, 22 Local Services tests, 17 api-types tests, 118 Web tests, strict touched Clippy, and real S18 HTTP-listener/port Playwright coverage.
+
+---
+
+## REV-012 · Host and Atmos lacked compact summaries and diagnostic detail
+
+| Field | Value |
+|-------|-------|
+| **Status** | verified |
+| **Severity** | P1 |
+| **Area** | full-stack |
+| **Reported by** | user review |
+| **Owner** | APP-066 implementation |
+
+### Finding
+
+Host was always expanded and consumed most of the popover, Atmos was a flat section, metric changes jumped without easing, and there was no way to inspect logical-core utilization or btop-style memory categories.
+
+### Required fix
+
+Make Host and Atmos default-collapsed summary rows; remove adjacent separators; keep sticky sortable columns and inset rounded hover controls; animate bars/chart with reduced-motion support; add CPU and memory detail popovers backed by per-core and explicit platform memory accounting.
+
+### Acceptance
+
+- [x] Host and Atmos default to collapsed rows with CPU/memory summaries.
+- [x] Host expansion reveals chart, bars, and CPU/Memory detail triggers.
+- [x] CPU detail renders every sampled logical core.
+- [x] Memory detail renders independent Used, Available, Cached, Free, and Swap meters with accounting context.
+- [x] Internal adjacent section borders are removed and interactive rows use inset rounded hover.
+- [x] Bar/chart changes ease between samples and disable animation under reduced motion.
+- [x] Detail Escape/focus behavior does not close or steal focus from the parent monitor.
+
+### Fix log
+
+- 2026-08-25 — Added per-core and nested memory DTOs, Mach/Linux/Windows accounting, collapsed Host/Atmos sections, nested detail popovers, and motion tokens.
+- Verified by 15 engine tests, 34 Resource Monitor service tests, 17 API tests, 18 api-types tests, 126 Web tests, strict touched Clippy, and S20 Playwright on Chromium/mobile Chromium.
