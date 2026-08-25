@@ -29,6 +29,12 @@ export const SIDEBAR_PEEK_INSET_BOTTOM_PX =
   APP_FOOTER_HEIGHT_PX + CENTER_STAGE_GUTTER_Y_PX;
 
 /**
+ * Inner top inset of the peek card. Matches Launchpad's `ml-2.5` so the
+ * first row is not flush against the rounded overlay edge.
+ */
+export const SIDEBAR_PEEK_CONTENT_PT_CLASS = "pt-2.5";
+
+/**
  * Left sidebar inset against the root sidebar↔center divider.
  * Keep this equal to the center card's left gutter so the split is even.
  */

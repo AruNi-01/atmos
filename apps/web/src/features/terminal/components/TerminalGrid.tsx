@@ -38,7 +38,10 @@ import { TerminalGridEmptyState, TerminalGridLoadingState } from "./terminal-gri
 import { useTerminalGridCanvasPins } from "../hooks/use-terminal-grid-canvas-pins";
 import { useTerminalGridHotkeys } from "../hooks/use-terminal-grid-hotkeys";
 import { useContestedCliOwners } from "../hooks/use-contested-cli-owners";
-import { useAgentAttentionStore } from "@/features/agent/store/agent-attention-store";
+import {
+  useAgentAttentionStore,
+  type PaneFocusAck,
+} from "@/features/agent/store/agent-attention-store";
 import { useAgentAttentionSummaryStore } from "@/features/agent/store/agent-attention-summary-store";
 import { useAgentHooksStore } from "@/features/agent/store/agent-hooks-store";
 import { hostIdFromCenterKey } from "@/app-shell/center-space/center-space";
@@ -266,7 +269,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     : paneOrder[0] ?? null;
 
   const setActivePaneIdWithAttention = useCallback(
-    (paneId: string | null) => {
+    (paneId: string | null, ack: PaneFocusAck = "immediate") => {
       setActivePaneId(paneId);
       // Mirror into the store so center-stage tab titles can follow the active pane.
       if (!isProjectWiki && !isCodeReview) {
@@ -282,14 +285,19 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
       const stablePaneId = pane.tmuxWindowName
         ? `${hostIdFromCenterKey(workspaceId)}:${pane.tmuxWindowName}`
         : pane.sessionId;
-      useAgentAttentionStore.getState().notifyPaneFocused(stablePaneId);
+      useAgentAttentionStore.getState().notifyPaneFocused(stablePaneId, { ack });
     },
     [isCodeReview, isProjectWiki, panes, terminalTabId, workspaceId],
   );
 
-  const focusPane = useCallback((paneId: string | undefined | null) => {
+  const focusPane = useCallback((
+    paneId: string | undefined | null,
+    ack: PaneFocusAck = "deferred",
+  ) => {
     if (!paneId || !panes[paneId]) return;
-    setActivePaneIdWithAttention(paneId);
+    // Programmatic focus (toast jump, URL tmux, restore) must not drop the
+    // attention ring immediately — keep it for the 3s auto-clear dwell.
+    setActivePaneIdWithAttention(paneId, ack);
     window.setTimeout(() => {
       terminalRefsMap.current.get(paneId)?.focus();
     }, 0);

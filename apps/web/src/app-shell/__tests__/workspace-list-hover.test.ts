@@ -12,6 +12,12 @@ const surfaceSwitch = readFileSync(
 );
 
 describe("left sidebar workspace list hover", () => {
+  it("keeps one info popover session so moving down the list swaps content", () => {
+    expect(workspaceContent).toContain("workspaceInfoHoverSession.enter");
+    expect(workspaceContent).toContain("workspaceInfoHoverSession.leave");
+    expect(workspaceContent).not.toContain("setIsInfoPopoverOpen");
+  });
+
   it("uses instant full-accent hover like settings, not a delayed color fade", () => {
     const rowClass = workspaceContent.slice(
       workspaceContent.indexOf("data-ws-row="),

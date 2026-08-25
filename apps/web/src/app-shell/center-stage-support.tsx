@@ -21,7 +21,13 @@ import {
   centerStripShortcutDigitFromEvent,
   resolveCenterStripShortcutTabId,
 } from "@/app-shell/center-stage-tab-model";
-import { isCenterStageHotkeyTarget } from "@/app-shell/shortcut-prefix";
+import {
+  CENTER_REGION_DIGIT_HOTKEY_OPTIONS,
+  consumeCenterRegionDigitEvent,
+  dispatchCenterRegionDigitShortcut,
+  isCenterStageHotkeyTarget,
+  registerCenterStripShortcutHandler,
+} from "@/app-shell/shortcut-prefix";
 import { useWorkspaceSurfaceCacheStore } from "@/features/workspace/store/use-workspace-surface-cache-store";
 import { schedulePromoteWorkspaceSurfaceSwitch } from "@/app-shell/workspace-surface-switch";
 import {
@@ -327,16 +333,30 @@ export function useCenterStageKeyboardShortcuts({
   handleCenterStageTabChange: (value: string) => void;
   orderedTabValues: readonly string[];
 }) {
+  React.useEffect(() => {
+    registerCenterStripShortcutHandler((digit) => {
+      if (digit === 0) {
+        if (!effectiveContextId) return false;
+        handleCenterStageTabChange("overview");
+        return true;
+      }
+      const target = resolveCenterStripShortcutTabId(orderedTabValues, digit);
+      if (!target) return false;
+      handleCenterStageTabChange(target);
+      return true;
+    });
+    return () => registerCenterStripShortcutHandler(null);
+  }, [effectiveContextId, handleCenterStageTabChange, orderedTabValues]);
+
   useHotkeys(
     "mod+0",
     (event) => {
       if (event.shiftKey) return;
       if (!isCenterStageHotkeyTarget(event.target)) return;
-      if (!effectiveContextId) return;
-      event.preventDefault();
-      handleCenterStageTabChange("overview");
+      if (!dispatchCenterRegionDigitShortcut({ digit: 0, shift: false })) return;
+      consumeCenterRegionDigitEvent(event);
     },
-    { enableOnContentEditable: true, enableOnFormTags: true },
+    CENTER_REGION_DIGIT_HOTKEY_OPTIONS,
     [effectiveContextId, handleCenterStageTabChange],
   );
 
@@ -347,12 +367,10 @@ export function useCenterStageKeyboardShortcuts({
       if (!isCenterStageHotkeyTarget(event.target)) return;
       const digit = centerStripShortcutDigitFromEvent(event);
       if (digit == null) return;
-      const target = resolveCenterStripShortcutTabId(orderedTabValues, digit);
-      if (!target) return;
-      event.preventDefault();
-      handleCenterStageTabChange(target);
+      if (!dispatchCenterRegionDigitShortcut({ digit, shift: false })) return;
+      consumeCenterRegionDigitEvent(event);
     },
-    { enableOnContentEditable: true, enableOnFormTags: true },
+    CENTER_REGION_DIGIT_HOTKEY_OPTIONS,
     [handleCenterStageTabChange, orderedTabValues],
   );
 }

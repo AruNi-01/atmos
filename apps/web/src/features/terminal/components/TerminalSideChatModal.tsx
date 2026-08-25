@@ -16,7 +16,10 @@ import {
 } from "@workspace/ui/components/motion/tabs";
 
 import { AgentIcon } from "@/features/agent/components/AgentIcon";
-import { useAgentAttentionStore } from "@/features/agent/store/agent-attention-store";
+import {
+  useAgentAttentionStore,
+  type PaneFocusAck,
+} from "@/features/agent/store/agent-attention-store";
 import { useTerminalRichInputSettingsStore } from "@/features/settings/store/terminal-rich-input-settings-store";
 import {
   useSideChatModalLayout,
@@ -118,14 +121,19 @@ export function TerminalSideChatModal({
 
   const recordsRef = React.useRef(records);
   recordsRef.current = records;
-  const claimSideChatFocus = React.useCallback((sideChatId: string) => {
+  const activeSideChatIdRef = React.useRef(activeSideChatId);
+  activeSideChatIdRef.current = activeSideChatId;
+  const claimSideChatFocus = React.useCallback((
+    sideChatId: string,
+    ack: PaneFocusAck = "deferred",
+  ) => {
     holdFocusUntilRef.current = Date.now() + 500;
     setIsFocusedWithin(true);
     modalRef.current?.focus({ preventScroll: true });
     terminalRefs.current.get(sideChatId)?.focus();
     const record = recordsRef.current.find((item) => item.side_chat_id === sideChatId);
     const paneId = record ? sideChatStablePaneId(record) : null;
-    if (paneId) useAgentAttentionStore.getState().notifyPaneFocused(paneId);
+    if (paneId) useAgentAttentionStore.getState().notifyPaneFocused(paneId, { ack });
   }, [terminalRefs]);
   const {
     handleDragStart,
@@ -188,7 +196,17 @@ export function TerminalSideChatModal({
     };
     // Capture: header drag/resize call stopPropagation, so a bubble listener
     // never sees those clicks and the modal would stay dimmed.
-    const handlePointerDownCapture = () => setIsFocusedWithin(true);
+    const handlePointerDownCapture = () => {
+      setIsFocusedWithin(true);
+      const sideChatId = activeSideChatIdRef.current;
+      const record = recordsRef.current.find((item) => item.side_chat_id === sideChatId);
+      const paneId = record ? sideChatStablePaneId(record) : null;
+      if (paneId) {
+        useAgentAttentionStore.getState().notifyPaneFocused(paneId, {
+          ack: "immediate",
+        });
+      }
+    };
     modal.addEventListener("focusin", handleFocusIn);
     modal.addEventListener("focusout", handleFocusOut);
     modal.addEventListener("pointerdown", handlePointerDownCapture, true);
@@ -213,7 +231,7 @@ export function TerminalSideChatModal({
   const handleHeaderClick = React.useCallback(
     (event: React.MouseEvent<HTMLDivElement>) => {
       if (isSideChatControlTarget(event.target)) return;
-      claimSideChatFocus(activeSideChatId);
+      claimSideChatFocus(activeSideChatId, "immediate");
     },
     [activeSideChatId, claimSideChatFocus],
   );

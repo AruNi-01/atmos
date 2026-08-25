@@ -1,23 +1,25 @@
 /**
  * While Atmos is the active app, claim OS-reserved chords (macOS screenshots
- * ⌘⇧3/4/5/6) so product shortcuts win, then replay the key into the focused
- * window for the existing renderer hotkeys.
+ * ⌘⇧3/4/5/6) so product shortcuts win, then notify the focused renderer over
+ * IPC. Do not synthesize the key — sendInputEvent can re-trigger Screenshot.app.
  *
  * Primary: in-process CGEventTap (needs Accessibility, same as AppShot).
  * Fallback: Electron globalShortcut if the tap cannot start.
+ * Guest webviews: before-input-event forwards ⌘/⌘⇧ digits into the host page.
  */
 
 import { createRequire } from "node:module";
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { BrowserWindow, WebContents } from "electron";
+import type { WebContents } from "electron";
 import { mainLog } from "./main-log.js";
 import {
   chordForDigit,
-  keyboardInputEventsForChord,
+  HOST_DIGIT_SHORTCUT_EVENT,
   osReservedShortcutChords,
-  type OsReservedShortcutChord,
+  parseElectronInputDigitShortcut,
+  type HostDigitShortcutPayload,
 } from "./os-reserved-shortcuts.js";
 
 const nodeRequire = createRequire(import.meta.url);
@@ -88,10 +90,12 @@ function loadNative(): HostShortcutNative | null {
     ]) as (enabled: number) => void;
     const takeDigit = lib.func("atmos_host_shortcuts_take_digit", "int", []) as () => number;
     const status = lib.func("atmos_host_shortcuts_status", "int", []) as () => number;
+    const axTrusted = lib.func("atmos_host_shortcuts_ax_trusted", "int", []) as () => number;
     const rc = start();
+    const ax = axTrusted();
     if (status() !== 2) {
       mainLog(
-        `[host-shortcuts] native start failed rc=${rc} status=${status()}`,
+        `[host-shortcuts] native start failed rc=${rc} status=${status()} ax=${ax}`,
         "warn",
       );
       try {
@@ -101,7 +105,7 @@ function loadNative(): HostShortcutNative | null {
       }
       return null;
     }
-    mainLog(`[host-shortcuts] native tap ready dylib=${dylib}`);
+    mainLog(`[host-shortcuts] native tap ready dylib=${dylib} ax=${ax}`);
     return { stop, setEnabled, takeDigit };
   } catch (error) {
     mainLog(
@@ -112,31 +116,41 @@ function loadNative(): HostShortcutNative | null {
   }
 }
 
-export function replayChordIntoWindow(
-  win: BrowserWindow,
-  chord: OsReservedShortcutChord,
-): void {
-  if (win.isDestroyed()) return;
-  const contents: WebContents = win.webContents;
-  if (contents.isDestroyed()) return;
-  for (const event of keyboardInputEventsForChord(chord)) {
-    try {
-      contents.sendInputEvent(event);
-    } catch (error) {
-      mainLog(
-        `[host-shortcuts] replay ${chord.accelerator} failed: ${error instanceof Error ? error.message : String(error)}`,
-        "warn",
-      );
-    }
+function hostWebContentsOf(contents: WebContents): WebContents {
+  try {
+    return contents.hostWebContents ?? contents;
+  } catch {
+    return contents;
   }
 }
 
-function replayDigit(api: ElectronApi, digit: number): void {
+export function emitHostDigitShortcut(
+  contents: WebContents,
+  payload: HostDigitShortcutPayload,
+): void {
+  if (contents.isDestroyed()) return;
+  const host = hostWebContentsOf(contents);
+  if (host.isDestroyed()) return;
+  host.send(`atmos:desktop-event:${HOST_DIGIT_SHORTCUT_EVENT}`, payload);
+}
+
+function emitDigitToFocusedWindow(api: ElectronApi, digit: number): void {
   const chord = chordForDigit(digit);
   if (!chord) return;
-  const win = api.BrowserWindow.getFocusedWindow();
+  const win =
+    api.BrowserWindow.getFocusedWindow() ??
+    api.BrowserWindow.getAllWindows().find((w) => !w.isDestroyed() && w.isVisible());
   if (!win || win.isDestroyed()) return;
-  replayChordIntoWindow(win, chord);
+  emitHostDigitShortcut(win.webContents, { digit, shift: true });
+}
+
+function installGuestDigitShortcutForward(contents: WebContents): void {
+  contents.on("before-input-event", (event, input) => {
+    const parsed = parseElectronInputDigitShortcut(input);
+    if (!parsed) return;
+    event.preventDefault();
+    emitHostDigitShortcut(contents, parsed);
+  });
 }
 
 function registerGlobalFallback(api: ElectronApi): void {
@@ -145,7 +159,7 @@ function registerGlobalFallback(api: ElectronApi): void {
   for (const chord of osReservedShortcutChords()) {
     try {
       const ok = api.globalShortcut.register(chord.accelerator, () => {
-        replayDigit(api, chord.digit);
+        emitDigitToFocusedWindow(api, chord.digit);
       });
       if (ok) any = true;
       else {
@@ -192,7 +206,7 @@ function drainNative(api: ElectronApi): void {
   for (let i = 0; i < 8; i += 1) {
     const digit = native.takeDigit();
     if (!digit) break;
-    replayDigit(api, digit);
+    emitDigitToFocusedWindow(api, digit);
   }
 }
 
@@ -210,15 +224,26 @@ function atmosIsActive(api: ElectronApi): boolean {
 export function installAppShortcutGuard(): void {
   if (installed) return;
   installed = true;
-  if (osReservedShortcutChords().length === 0) return;
 
   const api = getElectronApi();
   if (!api) return;
+
+  api.app.on("web-contents-created", (_event, contents) => {
+    if (contents.getType() !== "webview") return;
+    installGuestDigitShortcutForward(contents);
+  });
+
+  if (osReservedShortcutChords().length === 0) return;
 
   native = loadNative();
   if (native) {
     nativePoll = setInterval(() => drainNative(api), 20);
     nativePoll.unref?.();
+  } else {
+    mainLog(
+      "[host-shortcuts] HID tap unavailable; ⌘⇧3-6 still fire macOS screenshots. Grant Accessibility to Atmos.",
+      "warn",
+    );
   }
 
   const sync = () => setClaimEnabled(api, atmosIsActive(api));

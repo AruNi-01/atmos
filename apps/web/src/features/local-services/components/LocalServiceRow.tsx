@@ -9,9 +9,13 @@ import {
   PopoverContent,
   PopoverTrigger,
   Skeleton,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
   cn,
 } from "@workspace/ui";
 
+import { localServiceCommandLabel } from "@/features/local-services/lib/local-service-command-label";
 import type { LocalService } from "@/features/local-services/types";
 
 const STATUS_DOT: Record<string, string> = {
@@ -105,14 +109,11 @@ export function LocalServiceRow({
         <div className="mt-1 truncate text-xs text-muted-foreground" title={subtitle}>
           {subtitle}
         </div>
-        {service.process_name || service.launch_dir_display ? (
-          <div className="mt-1 flex min-w-0 items-center gap-1.5 text-[10px] text-muted-foreground/80">
-            <Terminal className="size-3 shrink-0" />
-            <span className="truncate" title={service.command_preview ?? undefined}>
-              {[service.process_name, service.launch_dir_display].filter(Boolean).join(" · ")}
-            </span>
-          </div>
-        ) : null}
+        <LocalServiceCommandMeta
+          processName={service.process_name}
+          commandPreview={service.command_preview}
+          launchDirDisplay={service.launch_dir_display}
+        />
       </div>
 
       <div className="flex items-center gap-2">
@@ -192,5 +193,69 @@ export function LocalServiceRow({
         ) : null}
       </div>
     </div>
+  );
+}
+
+function LocalServiceCommandMeta({
+  processName,
+  commandPreview,
+  launchDirDisplay,
+}: {
+  processName?: string | null;
+  commandPreview?: string | null;
+  launchDirDisplay?: string | null;
+}) {
+  const name = processName?.trim() ?? "";
+  const command = commandPreview?.trim() ?? "";
+  const launchDir = launchDirDisplay?.trim() ?? "";
+  const commandLabel = command ? localServiceCommandLabel(command) : null;
+  const showCommandLabel = Boolean(
+    commandLabel && commandLabel.toLowerCase() !== name.toLowerCase(),
+  );
+  if (!name && !showCommandLabel && !launchDir) return null;
+
+  const content = (
+    <>
+      <Terminal className="size-3 shrink-0" />
+      <span className="flex min-w-0 flex-1 items-center">
+        {name ? <span className="shrink-0">{name}</span> : null}
+        {showCommandLabel && commandLabel ? (
+          <span className="min-w-0 truncate">
+            {name ? " (" : "("}
+            {commandLabel}
+            {")"}
+          </span>
+        ) : !showCommandLabel && launchDir ? (
+          <span className="min-w-0 truncate">{name ? ` · ${launchDir}` : launchDir}</span>
+        ) : null}
+      </span>
+    </>
+  );
+
+  const lineClassName =
+    "mt-1 flex min-w-0 items-center gap-1.5 text-[10px] text-muted-foreground/80";
+
+  if (!command) {
+    return (
+      <div className={lineClassName} data-slot="local-service-command">
+        {content}
+      </div>
+    );
+  }
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <div className={cn(lineClassName, "cursor-default")} data-slot="local-service-command">
+          {content}
+        </div>
+      </TooltipTrigger>
+      <TooltipContent
+        side="top"
+        className="z-[80] max-w-xs select-text break-all text-left font-mono text-[11px] leading-snug text-pretty"
+      >
+        {command}
+      </TooltipContent>
+    </Tooltip>
   );
 }

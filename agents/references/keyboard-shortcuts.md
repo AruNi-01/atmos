@@ -25,7 +25,9 @@ useHotkeys(
 
 ### macOS system chords (Desktop)
 
-`preventDefault` in the renderer cannot stop OS-reserved hotkeys such as screenshot **⌘⇧3 / ⌘⇧4 / ⌘⇧5 / ⌘⇧6**. Desktop claims those chords while Atmos is the active app (`apps/desktop-electron/src/host-shortcuts.ts`) and replays them into the focused window so the product shortcut runs instead. Add new OS-colliding accelerators to `os-reserved-shortcuts.ts` (and the native tap keycode list) rather than only handling them in React.
+`preventDefault` in the renderer cannot stop OS-reserved hotkeys such as screenshot **⌘⇧3 / ⌘⇧4 / ⌘⇧5 / ⌘⇧6**. Desktop claims those chords while Atmos is the active app (`apps/desktop-electron/src/host-shortcuts.ts`) via a consuming CGEventTap (Accessibility) and notifies the renderer over the `host-shortcut` IPC event. Do **not** replay the chord with `sendInputEvent` — that can re-trigger Screenshot.app. Add new OS-colliding accelerators to `os-reserved-shortcuts.ts` (and the native tap keycode list) rather than only handling them in React.
+
+⌘1–9 / ⌘⇧1–9 are center-region shortcuts (any center tab, not only Terminal). They must use capture-phase listeners plus last-pointer tracking so a click on a non-focusable Files/Overview/GitHub panel still counts as center focus.
 
 ---
 

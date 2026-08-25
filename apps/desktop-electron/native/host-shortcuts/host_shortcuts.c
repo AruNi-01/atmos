@@ -68,7 +68,9 @@ static CGEventRef tap_callback(CGEventTapProxy proxy, CGEventType type,
     if (g_tap) CGEventTapEnable(g_tap, true);
     return event;
   }
-  if (type != kCGEventKeyDown || !event) return event;
+  if ((type != kCGEventKeyDown && type != kCGEventKeyUp) || !event) {
+    return event;
+  }
   if (!atomic_load(&g_enabled)) return event;
   if (!is_cmd_shift_only(CGEventGetFlags(event))) return event;
 
@@ -76,7 +78,11 @@ static CGEventRef tap_callback(CGEventTapProxy proxy, CGEventType type,
       CGEventGetIntegerValueField(event, kCGKeyboardEventKeycode));
   if (digit == 0) return event;
 
-  atomic_store(&g_pending_digit, digit);
+  /* Swallow keyUp too so Screenshot.app does not start on release. */
+  if (type == kCGEventKeyDown &&
+      !CGEventGetIntegerValueField(event, kCGKeyboardEventAutorepeat)) {
+    atomic_store(&g_pending_digit, digit);
+  }
   return NULL;
 }
 
@@ -87,7 +93,8 @@ static void *thread_main(void *arg) {
 #endif
   atomic_store(&g_status, 1);
 
-  CGEventMask mask = CGEventMaskBit(kCGEventKeyDown);
+  CGEventMask mask =
+      CGEventMaskBit(kCGEventKeyDown) | CGEventMaskBit(kCGEventKeyUp);
   /* Default options (not listen-only) so returning NULL can consume the chord. */
   g_tap = CGEventTapCreate(kCGHIDEventTap, kCGHeadInsertEventTap,
                            kCGEventTapOptionDefault, mask, tap_callback, NULL);

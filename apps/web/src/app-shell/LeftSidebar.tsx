@@ -99,8 +99,12 @@ import { useLeftSidebarTwoColumnResize } from '@/app-shell/use-left-sidebar-two-
 import { useLeftSidebarWorkspaceDerived } from '@/app-shell/use-left-sidebar-workspace-derived';
 import { useLeftSidebarWorkspaceRenderers } from '@/app-shell/use-left-sidebar-workspace-renderers';
 import {
+    CENTER_REGION_DIGIT_HOTKEY_OPTIONS,
     collectSidebarShortcutTargets,
+    consumeCenterRegionDigitEvent,
+    dispatchCenterRegionDigitShortcut,
     isCenterStageHotkeyTarget,
+    registerSidebarStripShortcutHandler,
     SIDEBAR_STRIP_POSITION_HOTKEYS,
 } from '@/app-shell/shortcut-prefix';
 import { centerStripShortcutDigitFromEvent } from '@/app-shell/center-stage-tab-model';
@@ -113,6 +117,7 @@ import {
 } from '@/features/agent/store/agent-attention-store';
 import { useWorkspaceAgentGroupKeyMap } from '@/features/agent/hooks/use-workspace-agent-status';
 import { Bell } from 'lucide-react';
+import { WorkspaceInfoHoverHost } from '@/app-shell/sidebar/WorkspaceInfoHoverHost';
 
 interface LeftSidebarProps {
     projects?: Project[];
@@ -1015,22 +1020,30 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         [router],
     );
 
+    useEffect(() => {
+        registerSidebarStripShortcutHandler((digit) => {
+            const target = collectSidebarShortcutTargets(document)[digit - 1];
+            if (!target) return false;
+            if (target.kind === "workspace") {
+                router.push(`/workspace?id=${target.id}`);
+                return true;
+            }
+            router.push(`/project?id=${target.id}`);
+            return true;
+        });
+        return () => registerSidebarStripShortcutHandler(null);
+    }, [router]);
+
     useHotkeys(
         SIDEBAR_STRIP_POSITION_HOTKEYS,
         (event) => {
             if (!isCenterStageHotkeyTarget(event.target)) return;
             const digit = centerStripShortcutDigitFromEvent(event);
             if (digit == null) return;
-            const target = collectSidebarShortcutTargets(document)[digit - 1];
-            if (!target) return;
-            event.preventDefault();
-            if (target.kind === "workspace") {
-                router.push(`/workspace?id=${target.id}`);
-                return;
-            }
-            router.push(`/project?id=${target.id}`);
+            if (!dispatchCenterRegionDigitShortcut({ digit, shift: true })) return;
+            consumeCenterRegionDigitEvent(event);
         },
-        { enableOnContentEditable: true, enableOnFormTags: true },
+        CENTER_REGION_DIGIT_HOTKEY_OPTIONS,
         [router],
     );
 
@@ -1554,6 +1567,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                     onGroupingModeChange={setGroupingMode}
                 />
             </aside >
+            <WorkspaceInfoHoverHost />
             <CreateProjectDialog
                 isOpen={isCreateProjectOpen}
                 onClose={() => setCreateProjectOpen(false)}
