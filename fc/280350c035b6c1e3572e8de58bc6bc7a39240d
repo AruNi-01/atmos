@@ -1,0 +1,18 @@
+apps/web/src/app-shell/SidebarPeekShell.tsx
+  h_5be255725524c8 7,107-109
+apps/web/src/app-shell/__tests__/center-stage-chrome.test.ts
+  h_5be255725524c8 22,136-137,141
+apps/web/src/app-shell/sidebar-layout-constants.ts
+  h_5be255725524c8 31-36
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "fc280350c035b6c1e3572e8de58bc6bc7a39240d",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
