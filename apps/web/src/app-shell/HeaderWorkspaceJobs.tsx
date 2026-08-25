@@ -29,6 +29,10 @@ import {
 } from "@/features/workspace/lib/workspace-setup";
 import { WorkspaceStatusPopover } from "./WorkspaceStatusPopover";
 import {
+  HEADER_CHIP_HOVER_CLASS,
+  HEADER_CHIP_SURFACE_CLASS,
+} from "./header-parts";
+import {
   collectHeaderWorkspaceSetupItems,
   isHeaderWorkspaceSetupReadyToOpen,
   selectHeaderWorkspaceSetupChipItem,
@@ -111,7 +115,8 @@ function AutoEnterChip({
       <div
         ref={innerRef}
         className={cn(
-          "flex h-7 w-max items-center rounded-md border border-transparent bg-muted/40",
+          "flex h-7 w-max items-center rounded-md",
+          HEADER_CHIP_SURFACE_CLASS,
           hovered ? "gap-1 px-1" : "px-2",
         )}
         role="status"
@@ -351,7 +356,11 @@ function ReadyWorkspaceChip({
     <button
       type="button"
       onClick={onOpen}
-      className="grid h-7 max-w-[280px] grid-cols-[16px_minmax(0,1fr)_auto] items-center gap-2 rounded-md border border-transparent bg-muted/40 px-2 text-left hover:border-border hover:bg-muted/60"
+      className={cn(
+        "grid h-7 max-w-[280px] grid-cols-[16px_minmax(0,1fr)_auto] items-center gap-2 rounded-md px-2 text-left",
+        HEADER_CHIP_SURFACE_CLASS,
+        HEADER_CHIP_HOVER_CLASS,
+      )}
       aria-label={t("ready")}
     >
       <CheckCircle2 className="size-3.5 text-emerald-500" />
@@ -383,7 +392,11 @@ function CreatingJobPopover({
       <PopoverTrigger asChild>
         <button
           type="button"
-          className="grid h-7 max-w-[280px] grid-cols-[16px_minmax(0,1fr)_auto] items-center gap-2 rounded-md border border-transparent bg-muted/40 px-2 text-left hover:border-border hover:bg-muted/60"
+          className={cn(
+            "grid h-7 max-w-[280px] grid-cols-[16px_minmax(0,1fr)_auto] items-center gap-2 rounded-md px-2 text-left",
+            HEADER_CHIP_SURFACE_CLASS,
+            HEADER_CHIP_HOVER_CLASS,
+          )}
           aria-label={title}
         >
           <Loader2 className="size-3.5 animate-spin text-primary" />
@@ -567,7 +580,11 @@ export function HeaderWorkspaceJobs() {
           <PopoverTrigger asChild>
             <button
               type="button"
-              className="grid h-7 max-w-[280px] grid-cols-[16px_minmax(0,1fr)_auto] items-center gap-2 rounded-md border border-transparent bg-muted/40 px-2 text-left hover:border-border hover:bg-muted/60"
+              className={cn(
+                "grid h-7 max-w-[280px] grid-cols-[16px_minmax(0,1fr)_auto] items-center gap-2 rounded-md px-2 text-left",
+                HEADER_CHIP_SURFACE_CLASS,
+                HEADER_CHIP_HOVER_CLASS,
+              )}
               aria-label={
                 allReady
                   ? t("countAriaReady", { count: items.length })

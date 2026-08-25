@@ -18,6 +18,10 @@ import {
   getWorkspaceSetupProgressValue,
   getWorkspaceSetupSteps,
 } from "@/features/workspace/lib/workspace-setup";
+import {
+  HEADER_CHIP_HOVER_CLASS,
+  HEADER_CHIP_SURFACE_CLASS,
+} from "@/app-shell/header-parts";
 
 function SetupPopoverSizeFrame({
   width,
@@ -164,7 +168,11 @@ export function WorkspaceStatusPopover({
       <PopoverTrigger asChild>
         <button
           type="button"
-          className="grid h-7 max-w-[280px] grid-cols-[22px_minmax(0,1fr)_2px] items-center gap-2 rounded-md border border-transparent bg-muted/40 pl-2 pr-1 text-left hover:border-border hover:bg-muted/60"
+          className={cn(
+            "grid h-7 max-w-[280px] grid-cols-[22px_minmax(0,1fr)_2px] items-center gap-2 rounded-md pl-2 pr-1 text-left",
+            HEADER_CHIP_SURFACE_CLASS,
+            HEADER_CHIP_HOVER_CLASS,
+          )}
           aria-label={`Workspace status: ${progress.stepTitle}`}
         >
           <ProgressRing

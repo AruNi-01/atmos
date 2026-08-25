@@ -38,12 +38,13 @@ describe("left sidebar outside launchpad hover", () => {
     expect(launchpad).toContain("RocketIcon");
     expect(launchpad).toContain("rocketRef.current?.startAnimation");
     const headerClass = launchpad.slice(
-      launchpad.indexOf("flex h-[calc(2.25rem+1px)]"),
+      launchpad.indexOf("flex h-9 w-full cursor-pointer"),
       launchpad.indexOf("onClick={() => onExpandedChange"),
     );
     expect(headerClass).toContain("hover:bg-sidebar-accent");
     expect(headerClass).toContain("rounded-2xl");
-    expect(headerClass).toContain("border-[0.5px] border-border/40");
+    expect(headerClass).not.toContain("border-[0.5px]");
+    expect(headerClass).not.toContain("-mt-[0.5px]");
     expect(headerClass).not.toContain("rounded-b-xl");
     expect(headerClass).not.toContain("px-1.5");
     expect(headerClass).not.toContain("bg-background/50");
@@ -54,7 +55,9 @@ describe("left sidebar outside launchpad hover", () => {
   it("uses a persistent rounded-2xl card with an always-visible border and a 2-column tile grid", () => {
     expect(launchpad).toContain("rounded-2xl");
     expect(launchpad).not.toContain("rounded-[min(1.5rem,50%)]");
-    expect(launchpad).toContain("border-[0.5px] border-border/40 bg-muted/20");
+    expect(launchpad).toContain("border border-border/50 bg-muted/30");
+    expect(launchpad).not.toContain("border-[0.5px]");
+    expect(launchpad).not.toContain("-mt-[0.5px]");
     expect(launchpad).not.toContain("border-transparent");
     expect(launchpad).not.toContain("hover:border-border/40");
     expect(launchpad).toContain("grid-cols-2");

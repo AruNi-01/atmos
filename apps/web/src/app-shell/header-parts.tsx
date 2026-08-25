@@ -26,6 +26,12 @@ import { useTranslations } from "next-intl";
 
 export { getSessionUrgency };
 
+/** Header chip fill. Light uses solid muted; dark keeps the /40 wash. */
+export const HEADER_CHIP_SURFACE_CLASS =
+  "border border-border/50 bg-muted dark:border-transparent dark:bg-muted/40";
+export const HEADER_CHIP_HOVER_CLASS =
+  "hover:border-border hover:bg-muted/80 dark:hover:bg-muted/60";
+
 type BranchSyncDirection = "ahead" | "behind" | "equal" | "unknown" | "diverged";
 
 interface BranchSyncIndicatorState {

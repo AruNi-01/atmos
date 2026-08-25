@@ -4,6 +4,7 @@ import { join } from "node:path";
 import {
   applyGlobalSearchTypedKey,
   isGlobalSearchShortcutKey,
+  resolveGlobalSearchSelectedValue,
   resolveGlobalSearchTypeahead,
 } from "@/app-shell/global-search-focus";
 
@@ -100,5 +101,67 @@ describe("global search focus", () => {
     );
     expect(command).toContain("onOpenAutoFocus");
     expect(command).toContain("ref={ref}");
+  });
+
+  it("preselects the first filtered result after the query is non-empty", () => {
+    expect(
+      resolveGlobalSearchSelectedValue({
+        isOpen: true,
+        tab: "app",
+        query: "theme",
+        firstAppItemId: "theme-dark",
+      }),
+    ).toBe("theme-dark");
+
+    expect(
+      resolveGlobalSearchSelectedValue({
+        isOpen: true,
+        tab: "files",
+        query: "readme",
+        firstFilePath: "README.md",
+      }),
+    ).toBe("README.md");
+
+    expect(
+      resolveGlobalSearchSelectedValue({
+        isOpen: true,
+        tab: "code",
+        query: "TODO",
+        firstCodeValue: "src/lib.rs:12",
+      }),
+    ).toBe("src/lib.rs:12");
+
+    expect(
+      resolveGlobalSearchSelectedValue({
+        isOpen: true,
+        tab: "app",
+        query: "missing",
+      }),
+    ).toBe("");
+
+    expect(
+      resolveGlobalSearchSelectedValue({
+        isOpen: true,
+        tab: "app",
+        query: "",
+        firstAppItemId: "theme-dark",
+      }),
+    ).toBe("");
+  });
+
+  it("disables cmdk filtering and keeps the selected value controlled", () => {
+    const search = read("../GlobalSearch.tsx");
+    expect(search).toContain("shouldFilter={false}");
+    expect(search).toContain("value={selectedValue}");
+    expect(search).toContain("onValueChange={setSelectedValue}");
+    expect(search).toContain("resolveGlobalSearchSelectedValue");
+
+    const command = readFileSync(
+      join(import.meta.dir, "../../../../../packages/ui/src/components/ui/command.tsx"),
+      "utf8",
+    );
+    expect(command).toContain("shouldFilter={shouldFilter}");
+    expect(command).toContain("value={value}");
+    expect(command).toContain("onValueChange={onValueChange}");
   });
 });

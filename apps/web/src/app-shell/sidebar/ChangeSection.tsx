@@ -371,7 +371,7 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
       diffFilePath: filePath,
     });
     if (editorContextId) {
-      attachCenterTab(editorContextId, groupPath);
+      attachCenterTab(editorContextId, groupPath, { placement: "focused" });
     }
     if (!preview) {
       pinFile(groupPath, editorContextId || undefined);

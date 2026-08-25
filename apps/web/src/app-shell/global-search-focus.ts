@@ -40,6 +40,27 @@ function isEditableTarget(target: EventTarget | null, input: HTMLInputElement): 
   return element.isContentEditable === true;
 }
 
+export function resolveGlobalSearchSelectedValue({
+  isOpen,
+  tab,
+  query,
+  firstAppItemId,
+  firstFilePath,
+  firstCodeValue,
+}: {
+  isOpen: boolean;
+  tab: "app" | "files" | "code";
+  query: string;
+  firstAppItemId?: string;
+  firstFilePath?: string;
+  firstCodeValue?: string;
+}): string {
+  if (!isOpen || query.trim() === "") return "";
+  if (tab === "app") return firstAppItemId ?? "";
+  if (tab === "files") return firstFilePath ?? "";
+  return firstCodeValue ?? "";
+}
+
 export function resolveGlobalSearchTypeahead(
   event: GlobalSearchTypeaheadEvent,
   input: HTMLInputElement | null,

@@ -26,6 +26,8 @@ import {
 import type { Project, Workspace } from "@/shared/types/domain";
 import {
   BranchSyncIndicator,
+  HEADER_CHIP_HOVER_CLASS,
+  HEADER_CHIP_SURFACE_CLASS,
   getBranchSyncIndicatorState,
 } from "./header-parts";
 
@@ -105,10 +107,11 @@ export function HeaderGitContext({
   return (
     <div
       className={cn(
-        "relative z-10 desktop-no-drag flex items-center space-x-1.5 bg-muted/40 px-2 py-1.5 rounded-md border border-transparent h-8",
+        "relative z-10 desktop-no-drag flex items-center space-x-1.5 px-2 py-1.5 rounded-md h-8",
+        HEADER_CHIP_SURFACE_CLASS,
         currentWorkspace && isEditingCurrentBranch
           ? "border-sidebar-border bg-background shadow-xs w-fit"
-          : "hover:bg-muted/60 hover:border-border w-fit max-w-[500px]",
+          : cn(HEADER_CHIP_HOVER_CLASS, "w-fit max-w-[500px]"),
       )}
     >
       {currentBranchPR && (

@@ -11,12 +11,40 @@ import { useSyncExternalStore } from "react";
  */
 
 export const WORKSPACE_INFO_HOVER_OPEN_DELAY_MS = 1000;
-export const WORKSPACE_INFO_HOVER_CLOSE_DELAY_MS = 150;
+export const WORKSPACE_INFO_HOVER_CLOSE_DELAY_MS = 220;
+
+export const WORKSPACE_INFO_HOVER_KEEP_ALIVE_SELECTOR = [
+  "[data-workspace-popover-surface='true']",
+  "[data-workspace-info-hover-host]",
+  "[data-ws-row]",
+  "[data-radix-popper-content-wrapper]",
+  "[data-slot='popover-content']",
+  "[data-slot='dropdown-menu-content']",
+  "[data-slot='dropdown-menu-sub-content']",
+  "[data-slot='select-content']",
+  "[data-slot='tooltip-content']",
+  "[data-slot='hover-card-content']",
+].join(",");
+
+export function isWorkspaceInfoHoverKeepAliveTarget(target: EventTarget | null): boolean {
+  return (
+    target instanceof Element &&
+    Boolean(target.closest(WORKSPACE_INFO_HOVER_KEEP_ALIVE_SELECTOR))
+  );
+}
+
+export function isWorkspaceInfoHoverKeepAliveHovered(): boolean {
+  if (typeof document === "undefined") return false;
+  return Boolean(
+    document.querySelector(
+      WORKSPACE_INFO_HOVER_KEEP_ALIVE_SELECTOR.split(",").map((selector) => `${selector}:hover`).join(","),
+    ),
+  );
+}
 
 export type WorkspaceInfoHoverHostSnapshot = {
   openId: string | null;
   trigger: HTMLElement | null;
-  slotEl: HTMLElement | null;
 };
 
 type Clock = {
@@ -27,15 +55,25 @@ type Clock = {
 const EMPTY_HOST_SNAPSHOT: WorkspaceInfoHoverHostSnapshot = {
   openId: null,
   trigger: null,
-  slotEl: null,
 };
 
-export function createWorkspaceInfoHoverSession(clock: Clock = {
-  setTimeout,
-  clearTimeout,
-}) {
-  let hoveredId: string | null = null;
+// Browser `window.setTimeout` is a host method: `{ setTimeout }` then
+// `clock.setTimeout()` throws TypeError: Illegal invocation.
+const DEFAULT_CLOCK: Clock = {
+  setTimeout: globalThis.setTimeout.bind(globalThis),
+  clearTimeout: globalThis.clearTimeout.bind(globalThis),
+};
+
+export type WorkspaceInfoHoverEnterOptions = {
+  immediate?: boolean;
+  /** Distinguishes duplicate rows that share a workspace id (pinned + list). */
+  instanceId?: string;
+};
+
+export function createWorkspaceInfoHoverSession(clock: Clock = DEFAULT_CLOCK) {
+  let hoveredInstanceId: string | null = null;
   let openId: string | null = null;
+  let openInstanceId: string | null = null;
   let holding = false;
   let openTimer: ReturnType<typeof setTimeout> | null = null;
   let closeTimer: ReturnType<typeof setTimeout> | null = null;
@@ -45,17 +83,28 @@ export function createWorkspaceInfoHoverSession(clock: Clock = {
   const locks = new Set<string>();
   const listeners = new Set<() => void>();
 
-  const notify = () => {
-    const trigger = openId ? triggers.get(openId) ?? null : null;
-    if (
-      hostSnapshot.openId === openId &&
-      hostSnapshot.trigger === trigger &&
-      hostSnapshot.slotEl === slotEl
-    ) {
-      return;
-    }
-    hostSnapshot = { openId, trigger, slotEl };
+  const emit = () => {
     for (const listener of listeners) listener();
+  };
+
+  // Host only cares about openId/trigger. Slot changes must notify portal
+  // readers without replacing this object, or the host re-renders, React 19
+  // re-runs the slot ref, and the popover never stays open.
+  const syncHostSnapshot = () => {
+    const trigger = openInstanceId ? triggers.get(openInstanceId) ?? null : null;
+    if (hostSnapshot.openId === openId && hostSnapshot.trigger === trigger) {
+      return false;
+    }
+    hostSnapshot =
+      openId == null && trigger == null
+        ? EMPTY_HOST_SNAPSHOT
+        : { openId, trigger };
+    return true;
+  };
+
+  const notify = () => {
+    syncHostSnapshot();
+    emit();
   };
 
   const clearOpenTimer = () => {
@@ -71,7 +120,7 @@ export function createWorkspaceInfoHoverSession(clock: Clock = {
   };
 
   const canClose = () =>
-    hoveredId == null && !holding && locks.size === 0;
+    hoveredInstanceId == null && !holding && locks.size === 0;
 
   const scheduleClose = () => {
     clearCloseTimer();
@@ -80,19 +129,21 @@ export function createWorkspaceInfoHoverSession(clock: Clock = {
       closeTimer = null;
       if (!canClose()) return;
       openId = null;
+      openInstanceId = null;
       notify();
     }, WORKSPACE_INFO_HOVER_CLOSE_DELAY_MS);
   };
 
-  const openNow = (id: string) => {
+  const openNow = (id: string, instanceId: string) => {
     clearOpenTimer();
     clearCloseTimer();
-    if (openId === id) {
+    if (openId === id && openInstanceId === instanceId) {
       notify();
       return;
     }
     locks.clear();
     openId = id;
+    openInstanceId = instanceId;
     notify();
   };
 
@@ -108,30 +159,37 @@ export function createWorkspaceInfoHoverSession(clock: Clock = {
     getHostSnapshot: (): WorkspaceInfoHoverHostSnapshot => hostSnapshot,
     getServerSnapshot: (): WorkspaceInfoHoverHostSnapshot => EMPTY_HOST_SNAPSHOT,
     getOpenId: () => openId,
+    getOpenInstanceId: () => openInstanceId,
     getSlotEl: () => slotEl,
+    getPortalElForInstance: (instanceId: string) =>
+      openInstanceId === instanceId ? slotEl : null,
+    shouldIgnoreRootDismiss: () =>
+      holding || locks.size > 0 || hoveredInstanceId != null,
 
-    enter(id: string, trigger: HTMLElement, options?: { immediate?: boolean }) {
-      hoveredId = id;
-      triggers.set(id, trigger);
+    enter(id: string, trigger: HTMLElement, options?: WorkspaceInfoHoverEnterOptions) {
+      const instanceId = options?.instanceId ?? id;
+      hoveredInstanceId = instanceId;
+      triggers.set(instanceId, trigger);
       holding = false;
       clearCloseTimer();
 
       if (openId != null || options?.immediate) {
-        openNow(id);
+        openNow(id, instanceId);
         return;
       }
 
       clearOpenTimer();
       openTimer = clock.setTimeout(() => {
         openTimer = null;
-        if (hoveredId !== id) return;
+        if (hoveredInstanceId !== instanceId) return;
         openId = id;
+        openInstanceId = instanceId;
         notify();
       }, WORKSPACE_INFO_HOVER_OPEN_DELAY_MS);
     },
 
-    leave(id: string) {
-      if (hoveredId === id) hoveredId = null;
+    leave(instanceId: string) {
+      if (hoveredInstanceId === instanceId) hoveredInstanceId = null;
       clearOpenTimer();
       scheduleClose();
     },
@@ -159,37 +217,40 @@ export function createWorkspaceInfoHoverSession(clock: Clock = {
     dismiss() {
       clearOpenTimer();
       clearCloseTimer();
-      hoveredId = null;
+      hoveredInstanceId = null;
       holding = false;
       locks.clear();
       if (openId == null) return;
       openId = null;
+      openInstanceId = null;
       notify();
     },
 
-    suppress(id: string) {
-      if (hoveredId === id) hoveredId = null;
-      triggers.delete(id);
+    suppress(instanceId: string) {
+      if (hoveredInstanceId === instanceId) hoveredInstanceId = null;
+      triggers.delete(instanceId);
       clearOpenTimer();
-      if (openId === id) {
+      if (openInstanceId === instanceId) {
         holding = false;
         locks.clear();
         openId = null;
+        openInstanceId = null;
         notify();
       } else {
         scheduleClose();
       }
     },
 
-    detach(id: string) {
-      triggers.delete(id);
-      if (hoveredId === id) hoveredId = null;
-      if (openId === id) {
+    detach(instanceId: string) {
+      triggers.delete(instanceId);
+      if (hoveredInstanceId === instanceId) hoveredInstanceId = null;
+      if (openInstanceId === instanceId) {
         clearOpenTimer();
         clearCloseTimer();
         holding = false;
         locks.clear();
         openId = null;
+        openInstanceId = null;
         notify();
         return;
       }
@@ -200,19 +261,21 @@ export function createWorkspaceInfoHoverSession(clock: Clock = {
     setSlotEl(el: HTMLElement | null) {
       if (slotEl === el) return;
       slotEl = el;
-      notify();
+      emit();
     },
 
     reset() {
       clearOpenTimer();
       clearCloseTimer();
-      hoveredId = null;
+      hoveredInstanceId = null;
       holding = false;
       locks.clear();
       triggers.clear();
+      const hadSlot = slotEl != null;
       slotEl = null;
-      if (openId == null && hostSnapshot === EMPTY_HOST_SNAPSHOT) return;
+      if (openId == null && hostSnapshot === EMPTY_HOST_SNAPSHOT && !hadSlot) return;
       openId = null;
+      openInstanceId = null;
       notify();
     },
   };
@@ -226,23 +289,22 @@ export function subscribeWorkspaceInfoHover(listener: () => void) {
   return workspaceInfoHoverSession.subscribe(listener);
 }
 
-export function getWorkspaceInfoHoverPortalEl(workspaceId: string): HTMLElement | null {
-  if (workspaceInfoHoverSession.getOpenId() !== workspaceId) return null;
-  return workspaceInfoHoverSession.getSlotEl();
+export function getWorkspaceInfoHoverPortalEl(instanceId: string): HTMLElement | null {
+  return workspaceInfoHoverSession.getPortalElForInstance(instanceId);
 }
 
-export function useWorkspaceInfoHoverPortal(workspaceId: string): HTMLElement | null {
+export function useWorkspaceInfoHoverPortal(instanceId: string): HTMLElement | null {
   return useSyncExternalStore(
     subscribeWorkspaceInfoHover,
-    () => getWorkspaceInfoHoverPortalEl(workspaceId),
+    () => getWorkspaceInfoHoverPortalEl(instanceId),
     () => null,
   );
 }
 
-export function useWorkspaceInfoHoverOpen(workspaceId: string): boolean {
+export function useWorkspaceInfoHoverOpen(instanceId: string): boolean {
   return useSyncExternalStore(
     subscribeWorkspaceInfoHover,
-    () => workspaceInfoHoverSession.getOpenId() === workspaceId,
+    () => workspaceInfoHoverSession.getOpenInstanceId() === instanceId,
     () => false,
   );
 }

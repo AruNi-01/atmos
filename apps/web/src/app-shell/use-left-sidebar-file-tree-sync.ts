@@ -78,7 +78,7 @@ export function useLeftSidebarFileTreeSync({
       return;
     }
     const targetContextId = paintContextId || effectiveContextId;
-    activateCenterChromeTab(targetContextId, "files");
+    activateCenterChromeTab(targetContextId, "files", { placement: "focused" });
   }, [
     currentEffectivePath,
     effectiveContextId,
