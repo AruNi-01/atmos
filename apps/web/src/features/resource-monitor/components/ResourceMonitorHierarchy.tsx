@@ -398,7 +398,7 @@ function GroupRow({
   return (
     <Collapsible defaultOpen={defaultOpen}>
       <CollapsibleTrigger
-        className={cn(RM_ROW, RM_ROW_INTERACTIVE, "group w-full text-left")}
+        className={cn(RM_ROW, RM_ROW_INTERACTIVE, "group text-left")}
         {...dataAttr}
       >
         <span
