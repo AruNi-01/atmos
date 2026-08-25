@@ -1,0 +1,20 @@
+apps/web/src/features/local-services/components/LocalServiceRow.tsx
+  h_5be255725524c8 12-14,18,112-116,198-261
+apps/web/src/features/local-services/components/__tests__/local-service-row-command.dom.test.tsx
+  h_5be255725524c8 1-148
+apps/web/src/features/local-services/lib/local-service-command-label.test.ts
+  h_5be255725524c8 1-38
+apps/web/src/features/local-services/lib/local-service-command-label.ts
+  h_5be255725524c8 1-38
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "90cfd550d01c661c2dca9892c887c130e1987da8",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
