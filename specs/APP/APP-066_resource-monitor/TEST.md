@@ -23,6 +23,7 @@
 | M8 | S14, S15 |
 | M9 | S16 |
 | M10 | S17, S18 |
+| M11 | S19, S20 |
 
 ## Execution map
 
@@ -46,6 +47,8 @@
 | S16 | Bun test + E2E | `bun test`, Playwright | history/sort helpers and APP-066 popover | 61 snapshots across two Computer scopes | 60-point isolated history; useful chart; stable Name/CPU/Memory sorting | planned |
 | S17 | Rust unit/integration | `cargo test` | `cargo test -p core-service resource_monitor` | Project-direct and Workspace session/cwd process graph | exclusive process leaves; parent memory/count reconciliation; no duplicate owner rows | planned |
 | S18 | Rust/Bun test + E2E | `cargo test`, `bun test`, Playwright | Local Services cache join + hierarchy rendering | attributed listeners with matching/mismatching process identities | process basenames and cached ports under correct scope/session; no PID/path/command leak; no listener scan from hot path | planned |
+| S19 | Rust/Bun test | `cargo test`, `bun test` | Host detail sampling/DTO/validator | per-core samples and macOS/Linux/Windows memory fixtures | core count and range; explicit accounting; used/available and swap invariants; cached nullable | planned |
+| S20 | Bun test + E2E | `bun test`, Playwright | collapsible Host/Atmos and detail popovers | repeated snapshots, reduced-motion, narrow viewport | default-collapsed summaries; sticky sort; rounded hover; animated bars/chart; CPU/memory details remain inside parent monitor | planned |
 
 ## Scenarios
 
@@ -192,6 +195,22 @@
 - **When**: the next Resource Monitor snapshot and hierarchy render.
 - **Then**: matching attributed process rows show sorted local ports; stale/unrelated listeners do not attach; snapshot JSON contains no PID, command, absolute cwd, executable path, username, or environment; Resource Monitor performs no listener scan or HTTP probe.
 - **Signals**: process rows/port chips, cache-only call count, serialized payload keys, Project resources/Workspace sections.
+
+### S19 — Host detail metrics preserve explicit platform semantics
+
+- **Level**: Rust/Bun test
+- **Given**: a host sample with per-core CPU, RAM, cache/free information, and swap.
+- **When**: the snapshot is serialized and validated.
+- **Then**: each logical core is present once at 0–100%; headline used/total matches nested memory; used plus available equals total; swap used plus free equals total; cached may be unavailable; accounting identifies the platform formula.
+- **Signals**: `cores`, nested memory DTO, accounting enum, invariant tests.
+
+### S20 — Collapsed summaries and detail popovers remain smooth and usable
+
+- **Level**: Bun test + E2E
+- **Given**: a connected Resource Monitor receiving 2.5-second updates.
+- **When**: the user expands Host/Atmos, changes sort, and opens CPU or memory details.
+- **Then**: Host and Atmos start collapsed with right-aligned summaries; no adjacent separator lines appear; all interactive rows have inset rounded hover; sticky CPU/Memory headers sort; bars/chart ease between samples; reduced-motion disables metric animation; CPU detail shows every core and memory detail shows btop-style independent meters without closing the parent monitor.
+- **Signals**: collapsed state, hover classes, sticky header, transform/chart animation settings, detail popover DOM/focus, 390px overflow.
 
 ## Performance & load budgets
 

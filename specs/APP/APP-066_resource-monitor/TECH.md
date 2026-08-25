@@ -26,6 +26,8 @@ This design implements M1–M7 with no new crate, database table, REST endpoint,
 | Locate feedback | Use a short-lived blue terminal locate signal. Do not reuse agent-attention state, colors, persistence, filters, or API events. |
 | Process detail | Emit only Atmos-attributed process-name groups. Never emit PID, start time, command line, executable path, username, environment, or absolute cwd. |
 | Port detail | Join ports from the latest cached all-projects Local Services snapshot by PID + process-name check. Resource sampling never starts `lsof`, `/proc` listener scans, or HTTP probes. |
+| Host detail | Keep headline Host fields and add per-logical-core CPU plus a nested memory breakdown with an explicit accounting enum. Do not expose CPU brand/frequency or host identity. |
+| Metric motion | Animate usage-bar transform and chart updates for less than one 2.5-second sample interval. Disable metric animation under reduced motion; hover fills remain instant. |
 
 ## Architecture overview
 
@@ -323,6 +325,18 @@ Popover:
 - Active session rows enrich the Server fallback name with the current frontend terminal title by `session_id`: `customLabel`, then canonical dynamic/OSC/agent display title. Numeric tmux window names are attach identities, not preferred display titles.
 - Host summary uses aligned CPU/memory values, bounded usage bars, and one 60-point CPU/memory percentage chart. The chart consumes existing Query/subscription snapshots and creates no additional timer or transport.
 - The hierarchy is a dense Name/CPU/Memory table with stable Name/CPU/Memory sorting. Only terminal-session rows are navigation actions.
+- Internal adjacent sections use spacing and rounded hover rows instead of separator borders.
+- Host and Atmos are default-collapsed rows. Their right edge uses the same CPU/Memory columns as the hierarchy. Host expanded content owns the trend, animated headline bars, and CPU/Memory detail triggers; Atmos expanded content owns Desktop/Server/shared rows.
+- CPU/Memory detail triggers open controlled nested detail popovers. CPU detail renders every logical core as a labeled meter. Memory detail renders independent Used, Available, Cached, Free, and Swap meters; cached/free are informational and must not be stacked with used as if they sum to total.
+- Sort controls remain sticky table-column buttons at the top of the only scrolling hierarchy.
+
+Memory accounting:
+
+- macOS Mach success: `used=(active+wired)×page`, `cached=external×page`, `free=free×page`, `available=total−used`, accounting `btop_mach`.
+- Linux: `used=total−MemAvailable`, `available=MemAvailable`, `free=MemFree`, cached from `/proc/meminfo Cached`, accounting `linux_memavailable`.
+- Windows: `used=total−available physical`, `available=free=available physical`, cached unavailable, accounting `windows_avail_phys`.
+- Any fallback: `used=total−sysinfo.available`, cached unavailable, accounting `fallback_total_minus_available`.
+- `used + available == total`. Cached and free overlap/describe available memory and are never added to used. Swap is a separate pool.
 
 #### Terminal navigation and locate pulse
 
@@ -430,6 +444,25 @@ pub struct ResourceHostMetrics {
     pub memory_used_bytes: u64,
     pub memory_total_bytes: u64,
     pub logical_cpu_count: u32,
+    pub cores: Vec<ResourceHostCpuCore>,
+    pub memory: ResourceHostMemoryMetrics,
+}
+
+pub struct ResourceHostCpuCore {
+    pub index: u32,
+    pub cpu_percent: f32,
+}
+
+pub struct ResourceHostMemoryMetrics {
+    pub total_bytes: u64,
+    pub used_bytes: u64,
+    pub available_bytes: u64,
+    pub free_bytes: u64,
+    pub cached_bytes: Option<u64>,
+    pub swap_total_bytes: u64,
+    pub swap_used_bytes: u64,
+    pub swap_free_bytes: u64,
+    pub accounting: ResourceMemoryAccounting,
 }
 
 pub struct ResourceMonitorSnapshot {

@@ -4,11 +4,11 @@
 
 ## Status
 
-- **State**: ready_for_review
+- **State**: in_progress
 - **Branch**: `aarynlu/resource-monitor-8c97`
 - **Last updated**: 2026-08-25
 - **Current owner**: coordinator with Grok 4.6 implementation workers
-- **Current phase**: review
+- **Current phase**: service
 
 ## Snapshot
 
@@ -29,6 +29,7 @@
 - [x] Activity Monitor + Raycast visual redesign and 60-point Host trend
 - [x] Cross-Center-Space Terminal locate and blue one-shot feedback
 - [x] Project/Workspace process leaves and cached Local Services ports
+- [ ] Per-core CPU, memory breakdown, collapsed Host/Atmos, and metric motion
 - [x] Automated tests
 - [ ] Agent Browser / manual verification
 - [x] Architecture and implementation review
@@ -47,6 +48,7 @@
 - Completed Activity Monitor + Raycast visual redesign, client Host history, sortable hierarchy, and cross-Center-Space terminal locate navigation.
 - Added a real Playwright terminal-session click that verifies route, focus, blue pulse, attention isolation, and test Workspace cleanup.
 - Completed explainable Project/Workspace totals through session-owned and non-session process groups with cached Local Services port annotations.
+- In progress: default-collapsed Host/Atmos summaries, animated metrics, and btop-style CPU/memory detail popovers.
 
 ## Decisions Since TECH
 
