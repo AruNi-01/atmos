@@ -369,6 +369,10 @@ test.describe("APP-066 resource monitor", () => {
 
     const footerItem = page.getByRole("button", { name: "Resource Monitor" });
     await expect(footerItem).toBeVisible({ timeout: 45_000 });
+    await expect(footerItem).toHaveAttribute(
+      "aria-label",
+      /CPU .*%.*Memory .*%/,
+    );
 
     await footerItem.click();
 
@@ -385,6 +389,7 @@ test.describe("APP-066 resource monitor", () => {
 
     const atmosTrigger = popover.locator("[data-resource-monitor-atmos-trigger]");
     await expect(atmosTrigger).toBeVisible();
+    await expect(atmosTrigger.getByText("Atmos App", { exact: true })).toBeVisible();
     await expect(atmosTrigger).toHaveAttribute("aria-expanded", "false");
     await expect(popover.getByText("Atmos Server", { exact: true })).toHaveCount(0);
 
@@ -393,7 +398,9 @@ test.describe("APP-066 resource monitor", () => {
     const collecting = popover.locator("[data-resource-monitor-collecting]");
     const chart = popover.locator("[data-resource-monitor-chart]");
     await expect(collecting.or(chart)).toBeVisible();
-    await expect(popover.locator("[data-resource-monitor-usage-bar] canvas").first()).toBeVisible();
+    const serverGauge = popover.locator("[data-server-gauge]");
+    await expect(serverGauge).toBeVisible();
+    await expect(serverGauge.locator("canvas")).toHaveCount(2);
     if (await chart.isVisible()) {
       await expect(chart.locator("canvas").first()).toBeVisible();
     }
@@ -412,12 +419,20 @@ test.describe("APP-066 resource monitor", () => {
       expect(diskText).not.toContain("/System/Volumes/Data");
       expect(diskText).not.toContain("/Volumes/Atmos");
       expect(diskText).not.toContain("/Volumes/Dray");
+      const diskAnalysis = popover.locator(
+        "[data-resource-monitor-disk-analyzer]",
+      );
+      await expect(diskAnalysis).toBeVisible();
+      await diskAnalysis.click();
+      await expect(page).toHaveURL(/\/disk-analyzer\/?(?:\?|$)/);
+      await expect(popover).toBeVisible();
     } else {
       await expect(diskRows).toHaveCount(0);
     }
 
     const cpuDetails = popover.locator("[data-resource-monitor-details='cpu']");
     await expect(cpuDetails).toBeVisible();
+    await expect(cpuDetails).toHaveCSS("border-color", "rgba(0, 0, 0, 0)");
     await cpuDetails.click();
     const cpuDetail = page.locator("[data-resource-monitor-detail='cpu']");
     await expect(cpuDetail).toBeVisible();
