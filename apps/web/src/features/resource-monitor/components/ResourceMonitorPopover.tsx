@@ -19,7 +19,7 @@ import { ResourceMonitorHostSection } from "@/features/resource-monitor/componen
 import { isUsageVisible } from "@/features/resource-monitor/lib/resource-monitor-format";
 import type { ResourceHostHistoryPoint } from "@/features/resource-monitor/lib/resource-monitor-host-history";
 import type { ResourceMonitorSessionNavigationTarget } from "@/features/resource-monitor/lib/resource-monitor-session-navigation";
-import { buildResourceMonitorSessionTitleMap } from "@/features/resource-monitor/lib/resource-monitor-session-titles";
+import { buildResourceMonitorSessionDisplayMap } from "@/features/resource-monitor/lib/resource-monitor-session-titles";
 import { type ResourceMonitorSortKey } from "@/features/resource-monitor/lib/resource-monitor-sort";
 import {
   resolveResourceMonitorUiState,
@@ -97,6 +97,7 @@ export function ResourceMonitorPopover({
   desktop,
   desktopLoading = false,
   onNavigateSession,
+  onOpenDiskAnalyzer,
 }: {
   connectionState: string;
   isLoading: boolean;
@@ -108,11 +109,12 @@ export function ResourceMonitorPopover({
   desktop?: DesktopShellMetricsSnapshot;
   desktopLoading?: boolean;
   onNavigateSession?: (target: ResourceMonitorSessionNavigationTarget) => void;
+  onOpenDiskAnalyzer?: () => void;
 }) {
   const t = useTranslations("resourceMonitor.popover");
   const workspacePanes = useTerminalStore((s) => s.workspacePanes);
-  const liveTitles = React.useMemo(
-    () => buildResourceMonitorSessionTitleMap(workspacePanes),
+  const liveDisplays = React.useMemo(
+    () => buildResourceMonitorSessionDisplayMap(workspacePanes),
     [workspacePanes],
   );
   const [sortKey, setSortKey] = React.useState<ResourceMonitorSortKey>("cpu");
@@ -134,7 +136,7 @@ export function ResourceMonitorPopover({
   return (
     <TooltipProvider delayDuration={250}>
       <div
-        className="flex h-[min(max-content,min(520px,90vh))] max-h-[min(520px,90vh)] min-h-0 min-w-0 flex-col overflow-x-hidden overflow-y-hidden"
+        className="flex max-h-[min(620px,calc(100vh-1.5rem))] min-h-0 min-w-0 flex-col overflow-hidden"
         data-resource-monitor-state={state}
       >
         <header className="shrink-0 px-3 py-2">
@@ -144,44 +146,45 @@ export function ResourceMonitorPopover({
           </div>
         </header>
 
-        <div className="shrink-0">
-          <ResourceMonitorHostSection
-            host={showSnapshot ? snapshot?.host : undefined}
-            isLoading={isLoading}
-            history={history}
-            nowMs={nowMs}
-          />
-        </div>
-
-        {showSnapshot && snapshot && snapshot.disks.length > 0 ? (
-          <div className="shrink-0">
-            <ResourceMonitorDiskSection disks={snapshot.disks} />
-          </div>
-        ) : null}
-
-        {showSnapshot && snapshot ? (
-          <ScrollArea className="min-h-0 flex-1">
-            <ResourceMonitorHierarchy
-              sortKey={sortKey}
-              onSortKeyChange={setSortKey}
-              snapshotProjects={snapshot.projects}
-              snapshotServer={snapshot.server}
-              snapshotShared={snapshot.shared_runtime}
-              snapshotUnattributed={snapshot.unattributed}
-              showUnattributed={showUnattributed}
-              showProjectsEmpty={shouldShowProjectsEmptyCopy(
-                state,
-                snapshot.projects.length,
-              )}
-              showDesktop={showDesktop}
-              desktop={desktop}
-              desktopLoading={desktopLoading}
-              liveTitles={liveTitles}
-              workspacePanes={workspacePanes}
-              onNavigate={onNavigateSession}
+        <ScrollArea className="min-h-0 w-full max-w-full flex-1 overflow-x-hidden">
+          <div className="min-w-0 max-w-full overflow-x-hidden pb-1">
+            <ResourceMonitorHostSection
+              host={showSnapshot ? snapshot?.host : undefined}
+              isLoading={isLoading}
+              history={history}
+              nowMs={nowMs}
             />
-          </ScrollArea>
-        ) : null}
+
+            {showSnapshot && snapshot && snapshot.disks.length > 0 ? (
+              <ResourceMonitorDiskSection
+                disks={snapshot.disks}
+                onOpenDiskAnalyzer={onOpenDiskAnalyzer}
+              />
+            ) : null}
+
+            {showSnapshot && snapshot ? (
+              <ResourceMonitorHierarchy
+                sortKey={sortKey}
+                onSortKeyChange={setSortKey}
+                snapshotProjects={snapshot.projects}
+                snapshotServer={snapshot.server}
+                snapshotShared={snapshot.shared_runtime}
+                snapshotUnattributed={snapshot.unattributed}
+                showUnattributed={showUnattributed}
+                showProjectsEmpty={shouldShowProjectsEmptyCopy(
+                  state,
+                  snapshot.projects.length,
+                )}
+                showDesktop={showDesktop}
+                desktop={desktop}
+                desktopLoading={desktopLoading}
+                liveDisplays={liveDisplays}
+                workspacePanes={workspacePanes}
+                onNavigate={onNavigateSession}
+              />
+            ) : null}
+          </div>
+        </ScrollArea>
       </div>
     </TooltipProvider>
   );

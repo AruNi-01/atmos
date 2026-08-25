@@ -8190,6 +8190,8 @@
     "footerItem": {
       "title": "Resource Monitor",
       "compact": "CPU {cpu} · {memory}",
+      "cpuValue": "CPU {value}",
+      "memoryValue": "Memory {value}",
       "compactUnavailable": "CPU — · —"
     },
     "popover": {
@@ -8216,6 +8218,7 @@
       "sessionRowAria": "{action}, {name}, CPU {cpu}, Memory {memory}",
       "logicalCpus": "{count} logical CPUs",
       "coresInline": "{count, plural, one {# core} other {# cores}}",
+      "cpuUsageAmount": "{used} of {total, plural, one {# core} other {# cores}}",
       "memoryOfTotal": "of {total}",
       "cpuDetails": "CPU details",
       "memoryDetails": "Memory details",
@@ -8229,6 +8232,7 @@
       "expandHost": "Expand Host",
       "collapseHost": "Collapse Host",
       "disk": "Disk",
+      "diskAnalysis": "Disk Analysis",
       "expandDisk": "Expand Disk",
       "collapseDisk": "Collapse Disk",
       "expandAtmos": "Expand Atmos",
@@ -8250,7 +8254,7 @@
       },
       "desktopLoading": "Loading desktop shell metrics",
       "desktopUnsupported": "Desktop shell metrics are unavailable.",
-      "atmos": "Atmos",
+      "atmos": "Atmos App",
       "server": "Atmos Server",
       "sharedRuntime": "Shared runtime",
       "projects": "Projects",

@@ -43,8 +43,10 @@ describe("useResourceMonitor lifecycle wiring", () => {
     expect(footerSrc).toContain("interactive: open");
     expect(footerSrc).toContain("enabled: true");
     expect(footerSrc).toContain("formatCpuPercent");
-    expect(footerSrc).toContain("formatMemoryBytes");
-    expect(footerSrc).toContain('aria-label={t("title")}');
+    expect(footerSrc).toContain("hostMemoryPercent");
+    expect(footerSrc).toContain("formatPercent");
+    expect(footerSrc).toContain("resourceMonitorPressureTextClass");
+    expect(footerSrc).toContain("compactAria");
     expect(footerSrc).toContain("lastUpdatedAtMs={lastUpdatedAtMs}");
     expect(footerSrc).toContain("desktopLoading={desktopLoading}");
     expect(footerSrc).toContain("history={history}");
@@ -65,10 +67,11 @@ describe("useResourceMonitor lifecycle wiring", () => {
 describe("Resource Monitor live session titles", () => {
   test("popover subscribes to workspacePanes and resolves display-only titles", () => {
     expect(popoverSrc).toContain('useTerminalStore((s) => s.workspacePanes)');
-    expect(popoverSrc).toContain("buildResourceMonitorSessionTitleMap(workspacePanes)");
-    expect(popoverSrc).toContain("liveTitles={liveTitles}");
+    expect(popoverSrc).toContain("buildResourceMonitorSessionDisplayMap(workspacePanes)");
+    expect(popoverSrc).toContain("liveDisplays={liveDisplays}");
     expect(popoverSrc).toContain("onNavigateSession");
-    expect(hierarchySrc).toContain("resolveResourceMonitorSessionTitle");
+    expect(hierarchySrc).toContain("resolveResourceMonitorSessionDisplay");
+    expect(hierarchySrc).toContain("ResourceMonitorSessionName");
     expect(hierarchySrc).toContain("findResourceMonitorSessionLocation");
     expect(hierarchySrc).toContain('routeKind="project"');
     expect(hierarchySrc).toContain("project.project_id");

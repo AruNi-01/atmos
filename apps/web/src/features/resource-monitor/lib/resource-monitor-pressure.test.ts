@@ -3,6 +3,8 @@ import {
   resourceMonitorDitherColor,
   resourceMonitorDitherTheme,
   resourceMonitorDitherTrackColor,
+  resourceMonitorGrowthColorStops,
+  resourceMonitorPressureTextClass,
   resourceMonitorPressureTone,
 } from "@/features/resource-monitor/lib/resource-monitor-pressure";
 
@@ -50,5 +52,22 @@ describe("resourceMonitorDitherColor", () => {
     expect(resourceMonitorDitherTrackColor("dark")).not.toBe(
       resourceMonitorDitherColor("dark", "neutral", 80),
     );
+  });
+
+  test("builds low/medium/high Growth stops with blended transition ranges", () => {
+    expect(resourceMonitorGrowthColorStops("light")).toEqual([
+      { value: 0, color: "#0AA543" },
+      { value: 56, color: "#0AA543" },
+      { value: 64, color: "#D99600" },
+      { value: 76, color: "#D99600" },
+      { value: 84, color: "#E7000B" },
+      { value: 100, color: "#E7000B" },
+    ]);
+  });
+
+  test("uses semantic text colors for compact footer pressure", () => {
+    expect(resourceMonitorPressureTextClass("low")).toBe("text-success");
+    expect(resourceMonitorPressureTextClass("medium")).toBe("text-warning");
+    expect(resourceMonitorPressureTextClass("high")).toBe("text-destructive");
   });
 });

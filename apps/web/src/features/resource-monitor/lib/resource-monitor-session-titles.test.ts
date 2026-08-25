@@ -1,8 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import { getTerminalDisplayMeta } from "@atmos/shared/terminal";
 import {
+  buildResourceMonitorSessionDisplayMap,
   buildResourceMonitorSessionTitleMap,
+  resolveLivePaneDisplay,
   resolveLivePaneDisplayTitle,
+  resolveResourceMonitorSessionDisplay,
   resolveResourceMonitorSessionTitle,
   type ResourceMonitorPaneTitleSource,
 } from "@/features/resource-monitor/lib/resource-monitor-session-titles";
@@ -95,6 +98,22 @@ describe("buildResourceMonitorSessionTitleMap", () => {
     expect(
       resolveResourceMonitorSessionTitle("sess-agent", "1", titles, "Unnamed session"),
     ).toBe(expected);
+
+    const displays = buildResourceMonitorSessionDisplayMap({
+      "ws-a": { pane1: source },
+    });
+    expect(displays.get("sess-agent")).toEqual({
+      displayTitle: expected,
+      toolbarAgent: claudeAgent,
+    });
+    expect(
+      resolveResourceMonitorSessionDisplay(
+        "sess-agent",
+        "1",
+        displays,
+        "Unnamed session",
+      ).toolbarAgent,
+    ).toBe(claudeAgent);
   });
 
   test("customLabel wins over live dynamic and OSC", () => {
@@ -169,5 +188,18 @@ describe("buildResourceMonitorSessionTitleMap", () => {
     });
     expect(titles.size).toBe(1);
     expect(titles.get("kept")).toBe("vim");
+  });
+
+  test("keeps the configured agent icon for custom labels", () => {
+    expect(
+      resolveLivePaneDisplay({
+        sessionId: "custom-agent",
+        customLabel: "Review",
+        agent: claudeAgent,
+      }),
+    ).toEqual({
+      displayTitle: "Review",
+      toolbarAgent: claudeAgent,
+    });
   });
 });

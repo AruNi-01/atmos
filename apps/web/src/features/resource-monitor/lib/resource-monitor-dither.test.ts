@@ -51,7 +51,10 @@ describe("resource monitor dither structure", () => {
     expect(chartSrc).toContain("yMax={100}");
     expect(chartSrc).toContain("compact");
     expect(chartSrc).toContain("valueLabel={label}");
-    expect(chartSrc).toContain("resourceMonitorDitherColor");
+    expect(chartSrc).toContain("resourceMonitorGrowthColorStops");
+    expect(chartSrc).toContain("colorStops=");
+    expect(chartSrc).toContain("getTooltipLines=");
+    expect(chartSrc).toContain("formatMemoryPair");
     expect(chartSrc).toContain('data-resource-monitor-chart=""');
     expect(chartSrc).toContain('role="img"');
     expect(chartSrc).toContain('data-resource-monitor-collecting=""');
@@ -69,12 +72,13 @@ describe("resource monitor dither structure", () => {
     expect(hostSrc).toContain('tone="pressure"');
     expect(hostSrc).toContain('tone={kind === "used" || kind === "swap" ? "pressure" : "neutral"}');
     expect(hostSrc).toContain("ResourceMonitorUsageBar");
+    expect(hostSrc).toContain("ServerGauge");
     expect(diskSrc).toContain("ResourceMonitorUsageBar");
     expect(diskSrc).toContain('tone="pressure"');
     expect(diskSrc).toContain("diskDefaultOpen");
     expect(hierarchySrc).not.toContain("ResourceMonitorUsageBar");
     expect(hierarchySrc).not.toContain("DitherFunnel");
-    expect(footerSrc).not.toContain("disk");
+    expect(footerSrc).toContain('router.push("/disk-analyzer")');
     expect(footerSrc).not.toContain("DitherFunnel");
   });
 });

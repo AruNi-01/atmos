@@ -205,11 +205,13 @@ describe("ResourceMonitorPopover structure", () => {
       "utf8",
     );
     expect(popoverSrc).toContain("min-h-0 flex-1");
-    expect(popoverSrc).toContain("h-[min(max-content,min(520px,90vh))]");
+    expect(popoverSrc).toContain(
+      "max-h-[min(620px,calc(100vh-1.5rem))]",
+    );
     expect(popoverSrc).toContain("ResourceMonitorHostSection");
     expect(popoverSrc).not.toContain("border-b border-border");
-    expect(popoverSrc.indexOf("<ResourceMonitorDiskSection")).toBeLessThan(
-      popoverSrc.indexOf("<ScrollArea"),
+    expect(popoverSrc.indexOf("<ScrollArea")).toBeLessThan(
+      popoverSrc.indexOf("<ResourceMonitorDiskSection"),
     );
     expect(chartSrc).toContain("DitherGrowth");
     expect(chartSrc).toContain("yMax={100}");

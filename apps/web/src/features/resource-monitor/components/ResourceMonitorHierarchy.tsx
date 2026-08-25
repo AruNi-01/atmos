@@ -20,6 +20,7 @@ import type {
   ResourceWorkspaceMetrics,
 } from "@atmos/api-types/ws/dto/resource-monitor";
 import type { DesktopShellMetricsSnapshot } from "@/features/resource-monitor/lib/desktop-shell-metrics";
+import { ResourceMonitorSessionName } from "@/features/resource-monitor/components/ResourceMonitorSessionName";
 import {
   RM_MEMORY,
   RM_METRIC,
@@ -47,7 +48,10 @@ import {
 } from "@/features/resource-monitor/lib/resource-monitor-hierarchy";
 import { findResourceMonitorSessionLocation } from "@/features/resource-monitor/lib/resource-monitor-session-locator";
 import type { ResourceMonitorSessionNavigationTarget } from "@/features/resource-monitor/lib/resource-monitor-session-navigation";
-import { resolveResourceMonitorSessionTitle } from "@/features/resource-monitor/lib/resource-monitor-session-titles";
+import {
+  resolveResourceMonitorSessionDisplay,
+  type ResourceMonitorSessionDisplay,
+} from "@/features/resource-monitor/lib/resource-monitor-session-titles";
 import {
   sortDesktopShellGroups,
   sortResourceMonitorProjects,
@@ -207,7 +211,7 @@ function SessionRow({
   session,
   hostId,
   routeKind,
-  liveTitles,
+  liveDisplays,
   workspacePanes,
   indent,
   onNavigate,
@@ -215,18 +219,19 @@ function SessionRow({
   session: ResourceSessionMetrics;
   hostId: string;
   routeKind: ResourceMonitorSessionNavigationTarget["routeKind"];
-  liveTitles: ReadonlyMap<string, string>;
+  liveDisplays: ReadonlyMap<string, ResourceMonitorSessionDisplay>;
   workspacePanes: LiveResourceSessionPanes | null;
   indent: number;
   onNavigate?: (target: ResourceMonitorSessionNavigationTarget) => void;
 }) {
   const t = useTranslations("resourceMonitor.popover");
-  const name = resolveResourceMonitorSessionTitle(
+  const display = resolveResourceMonitorSessionDisplay(
     session.session_id,
     session.name,
-    liveTitles,
+    liveDisplays,
     t("unnamedSession"),
   );
+  const name = display.displayTitle;
   const location = findResourceMonitorSessionLocation(
     workspacePanes,
     hostId,
@@ -249,7 +254,17 @@ function SessionRow({
       style={{ paddingLeft: indent * 12 }}
     >
       {leading}
-      <NameLabel name={name} />
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <ResourceMonitorSessionName
+            name={name}
+            toolbarAgent={display.toolbarAgent}
+          />
+        </TooltipTrigger>
+        <TooltipContent side="top" className="max-w-xs">
+          {name}
+        </TooltipContent>
+      </Tooltip>
     </span>
   );
 
@@ -325,7 +340,10 @@ function SessionRow({
             >
               <span className={cn(RM_NAME, "flex items-center gap-1")}>
                 <Locate className="size-3 shrink-0 text-muted-foreground" aria-hidden />
-                <NameLabel name={name} />
+                <ResourceMonitorSessionName
+                  name={name}
+                  toolbarAgent={display.toolbarAgent}
+                />
               </span>
               <MetricCells usage={session.usage} />
             </button>
@@ -333,7 +351,10 @@ function SessionRow({
             <div className="flex h-8 min-w-0 flex-1 items-center gap-2">
               <span className={cn(RM_NAME, "flex items-center gap-1")}>
                 <span className="size-3 shrink-0" aria-hidden />
-                <NameLabel name={name} />
+                <ResourceMonitorSessionName
+                  name={name}
+                  toolbarAgent={display.toolbarAgent}
+                />
               </span>
               <MetricCells usage={session.usage} />
             </div>
@@ -413,7 +434,7 @@ function ScopeSections({
   otherProcesses,
   sessionHostId,
   routeKind,
-  liveTitles,
+  liveDisplays,
   workspacePanes,
   indent,
   onNavigate,
@@ -423,7 +444,7 @@ function ScopeSections({
   otherProcesses: ResourceProcessMetrics[];
   sessionHostId: string;
   routeKind: ResourceMonitorSessionNavigationTarget["routeKind"];
-  liveTitles: ReadonlyMap<string, string>;
+  liveDisplays: ReadonlyMap<string, ResourceMonitorSessionDisplay>;
   workspacePanes: LiveResourceSessionPanes | null;
   indent: number;
   onNavigate?: (target: ResourceMonitorSessionNavigationTarget) => void;
@@ -458,7 +479,7 @@ function ScopeSections({
                   session={session}
                   hostId={sessionHostId}
                   routeKind={routeKind}
-                  liveTitles={liveTitles}
+                  liveDisplays={liveDisplays}
                   workspacePanes={workspacePanes}
                   indent={indent}
                   onNavigate={onNavigate}
@@ -497,12 +518,12 @@ function ScopeSections({
 
 function WorkspaceBlock({
   workspace,
-  liveTitles,
+  liveDisplays,
   workspacePanes,
   onNavigate,
 }: {
   workspace: ResourceWorkspaceMetrics;
-  liveTitles: ReadonlyMap<string, string>;
+  liveDisplays: ReadonlyMap<string, ResourceMonitorSessionDisplay>;
   workspacePanes: LiveResourceSessionPanes | null;
   onNavigate?: (target: ResourceMonitorSessionNavigationTarget) => void;
 }) {
@@ -520,7 +541,7 @@ function WorkspaceBlock({
         otherProcesses={workspace.other_processes}
         sessionHostId={workspace.workspace_id}
         routeKind="workspace"
-        liveTitles={liveTitles}
+        liveDisplays={liveDisplays}
         workspacePanes={workspacePanes}
         indent={2}
         onNavigate={onNavigate}
@@ -531,13 +552,13 @@ function WorkspaceBlock({
 
 function ProjectBlock({
   project,
-  liveTitles,
+  liveDisplays,
   workspacePanes,
   defaultOpen,
   onNavigate,
 }: {
   project: ResourceProjectMetrics;
-  liveTitles: ReadonlyMap<string, string>;
+  liveDisplays: ReadonlyMap<string, ResourceMonitorSessionDisplay>;
   workspacePanes: LiveResourceSessionPanes | null;
   defaultOpen: boolean;
   onNavigate?: (target: ResourceMonitorSessionNavigationTarget) => void;
@@ -563,7 +584,7 @@ function ProjectBlock({
             otherProcesses={project.other_processes}
             sessionHostId={project.project_id}
             routeKind="project"
-            liveTitles={liveTitles}
+            liveDisplays={liveDisplays}
             workspacePanes={workspacePanes}
             indent={2}
             onNavigate={onNavigate}
@@ -574,7 +595,7 @@ function ProjectBlock({
         <WorkspaceBlock
           key={workspace.workspace_id}
           workspace={workspace}
-          liveTitles={liveTitles}
+          liveDisplays={liveDisplays}
           workspacePanes={workspacePanes}
           onNavigate={onNavigate}
         />
@@ -693,7 +714,7 @@ export function ResourceMonitorHierarchy({
   showDesktop,
   desktop,
   desktopLoading,
-  liveTitles,
+  liveDisplays,
   workspacePanes,
   onNavigate,
 }: {
@@ -708,20 +729,20 @@ export function ResourceMonitorHierarchy({
   showDesktop: boolean;
   desktop?: DesktopShellMetricsSnapshot;
   desktopLoading: boolean;
-  liveTitles: ReadonlyMap<string, string>;
+  liveDisplays: ReadonlyMap<string, ResourceMonitorSessionDisplay>;
   workspacePanes: LiveResourceSessionPanes | null;
   onNavigate?: (target: ResourceMonitorSessionNavigationTarget) => void;
 }) {
   const t = useTranslations("resourceMonitor.popover");
   const resolveSessionName = React.useCallback(
     (session: ResourceSessionMetrics) =>
-      resolveResourceMonitorSessionTitle(
+      resolveResourceMonitorSessionDisplay(
         session.session_id,
         session.name,
-        liveTitles,
+        liveDisplays,
         t("unnamedSession"),
-      ),
-    [liveTitles, t],
+      ).displayTitle,
+    [liveDisplays, t],
   );
   const projects = sortResourceMonitorProjects(
     snapshotProjects,
@@ -792,7 +813,7 @@ export function ResourceMonitorHierarchy({
           <ProjectBlock
             key={project.project_id}
             project={project}
-            liveTitles={liveTitles}
+            liveDisplays={liveDisplays}
             workspacePanes={workspacePanes}
             defaultOpen={index === 0}
             onNavigate={onNavigate}

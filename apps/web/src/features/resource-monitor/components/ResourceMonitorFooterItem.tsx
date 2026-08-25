@@ -16,8 +16,13 @@ import { useResourceMonitor } from "@/features/resource-monitor/hooks/use-resour
 import { ResourceMonitorPopover } from "@/features/resource-monitor/components/ResourceMonitorPopover";
 import {
   formatCpuPercent,
-  formatMemoryBytes,
+  formatPercent,
 } from "@/features/resource-monitor/lib/resource-monitor-format";
+import { hostMemoryPercent } from "@/features/resource-monitor/lib/resource-monitor-host-history";
+import {
+  resourceMonitorPressureTextClass,
+  resourceMonitorPressureTone,
+} from "@/features/resource-monitor/lib/resource-monitor-pressure";
 import {
   isResourceMonitorDetailOpen,
   preventResourceMonitorCloseAutoFocus,
@@ -50,13 +55,23 @@ export function ResourceMonitorFooterItem() {
     interactive: open,
   });
 
+  const hostCpuPercent = snapshot?.host.cpu_percent ?? 0;
+  const hostMemoryUsagePercent = snapshot
+    ? hostMemoryPercent(
+        snapshot.host.memory_used_bytes,
+        snapshot.host.memory_total_bytes,
+      )
+    : 0;
   const compact =
     connectionState === "connected" && snapshot
-      ? t("compact", {
-          cpu: formatCpuPercent(snapshot.host.cpu_percent),
-          memory: formatMemoryBytes(snapshot.host.memory_used_bytes),
-        })
-      : t("compactUnavailable");
+      ? {
+          cpu: formatCpuPercent(hostCpuPercent),
+          memory: formatPercent(hostMemoryUsagePercent),
+        }
+      : null;
+  const compactAria = compact
+    ? t("compact", compact)
+    : t("compactUnavailable");
 
   const handleSessionNavigate = React.useCallback(
     (target: ResourceMonitorSessionNavigationTarget) => {
@@ -72,6 +87,9 @@ export function ResourceMonitorFooterItem() {
     },
     [router],
   );
+  const handleOpenDiskAnalyzer = React.useCallback(() => {
+    router.push("/disk-analyzer");
+  }, [router]);
 
   return (
     <TooltipProvider delayDuration={250}>
@@ -82,11 +100,31 @@ export function ResourceMonitorFooterItem() {
               <button
                 type="button"
                 className="inline-flex items-center gap-1.5 text-muted-foreground hover:text-foreground"
-                aria-label={t("title")}
+                aria-label={`${t("title")}: ${compactAria}`}
                 data-resource-monitor-footer=""
               >
                 <Activity className="size-3" />
-                <span className="font-medium">{compact}</span>
+                {compact ? (
+                  <span className="inline-flex items-center gap-1 font-medium">
+                    <span
+                      className={resourceMonitorPressureTextClass(
+                        resourceMonitorPressureTone(hostCpuPercent),
+                      )}
+                    >
+                      {t("cpuValue", { value: compact.cpu })}
+                    </span>
+                    <span className="text-muted-foreground/60">·</span>
+                    <span
+                      className={resourceMonitorPressureTextClass(
+                        resourceMonitorPressureTone(hostMemoryUsagePercent),
+                      )}
+                    >
+                      {t("memoryValue", { value: compact.memory })}
+                    </span>
+                  </span>
+                ) : (
+                  <span className="font-medium">{compactAria}</span>
+                )}
               </button>
             </PopoverTrigger>
           </TooltipTrigger>
@@ -95,7 +133,7 @@ export function ResourceMonitorFooterItem() {
         <PopoverContent
           side="top"
           align="start"
-          className="w-[min(400px,calc(100vw-1.5rem))] max-w-[min(400px,100vw)] overflow-hidden p-0"
+          className="w-[clamp(24rem,42vw,32rem)] max-w-[calc(100vw-1.5rem)] overflow-hidden p-0"
           onCloseAutoFocus={(event) => {
             preventResourceMonitorCloseAutoFocus(navigatingRef, event);
           }}
@@ -123,6 +161,7 @@ export function ResourceMonitorFooterItem() {
             desktop={desktop}
             desktopLoading={desktopLoading}
             onNavigateSession={handleSessionNavigate}
+            onOpenDiskAnalyzer={handleOpenDiskAnalyzer}
           />
         </PopoverContent>
       </Popover>

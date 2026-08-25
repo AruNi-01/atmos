@@ -8190,6 +8190,8 @@
     "footerItem": {
       "title": "资源监视器",
       "compact": "CPU {cpu} · {memory}",
+      "cpuValue": "CPU {value}",
+      "memoryValue": "内存 {value}",
       "compactUnavailable": "CPU — · —"
     },
     "popover": {
@@ -8216,6 +8218,7 @@
       "sessionRowAria": "{action}，{name}，CPU {cpu}，内存 {memory}",
       "logicalCpus": "{count} 个逻辑 CPU",
       "coresInline": "{count} 核",
+      "cpuUsageAmount": "{used} / {total} 核",
       "memoryOfTotal": "共 {total}",
       "cpuDetails": "CPU 详情",
       "memoryDetails": "内存详情",
@@ -8229,6 +8232,7 @@
       "expandHost": "展开主机",
       "collapseHost": "收起主机",
       "disk": "磁盘",
+      "diskAnalysis": "磁盘分析",
       "expandDisk": "展开磁盘",
       "collapseDisk": "收起磁盘",
       "expandAtmos": "展开 Atmos",
@@ -8250,7 +8254,7 @@
       },
       "desktopLoading": "正在加载 Desktop 壳层指标",
       "desktopUnsupported": "无法获取 Desktop 壳层指标。",
-      "atmos": "Atmos",
+      "atmos": "Atmos App",
       "server": "Atmos Server",
       "sharedRuntime": "共享运行时",
       "projects": "项目",

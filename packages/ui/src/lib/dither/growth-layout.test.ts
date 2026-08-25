@@ -5,6 +5,7 @@ import {
   GROWTH_AUTO_HEADROOM,
   growthAxisMax,
   resolveGrowthAxisMax,
+  resolveGrowthColor,
   resolveGrowthInk,
   resolveGrowthPlotPadding,
   shouldPaintGrowthGuides,
@@ -51,6 +52,32 @@ describe("resolveGrowthInk", () => {
     expect(resolveGrowthInk(undefined, "light")).toBe("#0F172A");
     expect(resolveGrowthInk("blue", "dark")).toBe("#FFFFFF");
     expect(resolveGrowthInk("", "light")).toBe("#0F172A");
+  });
+});
+
+describe("resolveGrowthColor", () => {
+  const stops = [
+    { value: 0, color: "#00AA00" },
+    { value: 60, color: "#00AA00" },
+    { value: 70, color: "#FFAA00" },
+    { value: 80, color: "#FFAA00" },
+    { value: 90, color: "#FF0000" },
+  ];
+
+  test("keeps flat bands and blends only through transition ranges", () => {
+    expect(resolveGrowthColor(undefined, stops, 20, "dark")).toBe("#00AA00");
+    expect(resolveGrowthColor(undefined, stops, 60, "dark")).toBe("#00AA00");
+    expect(resolveGrowthColor(undefined, stops, 65, "dark")).toBe(
+      "rgb(128, 170, 0)",
+    );
+    expect(resolveGrowthColor(undefined, stops, 75, "dark")).toBe("#FFAA00");
+    expect(resolveGrowthColor(undefined, stops, 95, "dark")).toBe("#FF0000");
+  });
+
+  test("falls back to the single chart ink when stops are invalid", () => {
+    expect(
+      resolveGrowthColor("#38BDF8", [{ value: 0, color: "blue" }], 50, "dark"),
+    ).toBe("#38BDF8");
   });
 });
 

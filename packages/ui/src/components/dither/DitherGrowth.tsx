@@ -6,9 +6,10 @@ import { clampToDomain } from "../../lib/dither/domain";
 import {
   growthAxisMax,
   resolveGrowthAxisMax,
-  resolveGrowthInk,
+  resolveGrowthColor,
   resolveGrowthPlotPadding,
   shouldPaintGrowthGuides,
+  type GrowthColorStop,
 } from "../../lib/dither/growth-layout";
 import { type DitherTheme } from "../../lib/dither/math";
 import {
@@ -20,9 +21,12 @@ import { useDitherCanvas } from "../../lib/dither/use-dither-canvas";
 import {
   DitherTooltip,
   smoothToward,
+  type DitherTooltipLine,
   type DitherTooltipSliding,
   type DitherTooltipState,
 } from "./DitherTooltip";
+
+export type DitherGrowthColorStop = GrowthColorStop;
 
 export type DitherGrowthProps = {
   values: number[];
@@ -47,6 +51,10 @@ export type DitherGrowthProps = {
   yMax?: number;
   /** Hex fill / scrub-dot ink. Omitted keeps theme ink. */
   color?: string;
+  /** Vertical value-to-color gradient stops for threshold-aware fills. */
+  colorStops?: DitherGrowthColorStop[];
+  /** Additional tooltip rows for concrete amounts behind the primary value. */
+  getTooltipLines?: (value: number, index: number) => DitherTooltipLine[];
   /**
    * Hide Y guides/labels and X labels, with ~2/0 padding for a 40–50px
    * area chart. Default is the labeled Token Usage layout.
@@ -82,6 +90,8 @@ export function DitherGrowth({
   domainKey,
   yMax,
   color,
+  colorStops,
+  getTooltipLines,
   compact = false,
 }: DitherGrowthProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -107,6 +117,10 @@ export function DitherGrowth({
   yMaxRef.current = yMax;
   const colorRef = useRef(color);
   colorRef.current = color;
+  const colorStopsRef = useRef(colorStops);
+  colorStopsRef.current = colorStops;
+  const getTooltipLinesRef = useRef(getTooltipLines);
+  getTooltipLinesRef.current = getTooltipLines;
   const compactRef = useRef(compact);
   compactRef.current = compact;
   const clientRef = useRef({ x: 0, y: 0 });
@@ -153,7 +167,23 @@ export function DitherGrowth({
     // mid-morph floats while the curve is still animating.
     const label = labelsRef.current?.[idx];
     const value = valuesRef.current[idx] ?? 0;
-    const contentKey = `${idx}:${value}`;
+    const lines: DitherTooltipLine[] = [
+      {
+        label: valueLabelRef.current,
+        value: formatRef.current(value),
+        sliding: formatSlidingRef.current?.(value) ?? undefined,
+        color: resolveGrowthColor(
+          colorRef.current,
+          colorStopsRef.current,
+          value,
+          theme,
+        ),
+      },
+      ...(getTooltipLinesRef.current?.(value, idx) ?? []),
+    ];
+    const contentKey = `${idx}:${value}:${JSON.stringify(
+      lines.map((line) => [line.label, line.value]),
+    )}`;
     if (lastTipKey.current === contentKey) {
       setTooltip((prev) =>
         prev
@@ -171,15 +201,9 @@ export function DitherGrowth({
       clientX: clientRef.current.x,
       clientY: clientRef.current.y,
       title: label,
-      lines: [
-        {
-          label: valueLabelRef.current,
-          value: formatRef.current(value),
-          sliding: formatSlidingRef.current?.(value) ?? undefined,
-        },
-      ],
+      lines,
     });
-  }, []);
+  }, [theme]);
 
   const draw = useCallback(
     ({
@@ -256,7 +280,12 @@ export function DitherGrowth({
       }
 
       const glowStrength = ptr.active;
-      const ink = resolveGrowthInk(colorRef.current, theme);
+      const ink = resolveGrowthColor(
+        colorRef.current,
+        colorStopsRef.current,
+        data[ptr.scrubIdx] ?? 0,
+        theme,
+      );
       const axisMuted =
         theme === "dark" ? "rgba(255,255,255,0.38)" : "rgba(15,23,42,0.42)";
       const gridMuted =
@@ -309,7 +338,13 @@ export function DitherGrowth({
             : (Math.sin(plotX * 0.05 + time) +
                 Math.sin(y * 0.05 + time * 0.7)) *
               0.035;
-          ctx.fillStyle = ink;
+          const fillValue = ((plotBottom - y) / plotH) * axisMax;
+          ctx.fillStyle = resolveGrowthColor(
+            colorRef.current,
+            colorStopsRef.current,
+            fillValue,
+            theme,
+          );
           const sz = cell * (0.55 + gradient * 0.22 + shimmer);
           const alpha = 0.18 + gradient * 0.62;
           ctx.globalAlpha = Math.min(1, alpha);

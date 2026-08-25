@@ -2,6 +2,7 @@
 
 import React from "react";
 import { useTranslations } from "next-intl";
+import { useTheme } from "next-themes";
 import { ChevronRight } from "lucide-react";
 import {
   Button,
@@ -11,6 +12,7 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
+  ServerGauge,
   Skeleton,
 } from "@workspace/ui";
 import { cn } from "@/shared/lib/utils";
@@ -35,6 +37,11 @@ import {
 import { hostDefaultOpen } from "@/features/resource-monitor/lib/resource-monitor-hierarchy";
 import type { ResourceHostHistoryPoint } from "@/features/resource-monitor/lib/resource-monitor-host-history";
 import { hostMemoryPercent } from "@/features/resource-monitor/lib/resource-monitor-host-history";
+import {
+  resourceMonitorDitherColor,
+  resourceMonitorDitherTheme,
+  resourceMonitorDitherTrackColor,
+} from "@/features/resource-monitor/lib/resource-monitor-pressure";
 
 function MemoryMeter({
   label,
@@ -71,6 +78,8 @@ function MemoryMeter({
 
 function CpuDetailPanel({ host }: { host: ResourceHostMetrics }) {
   const t = useTranslations("resourceMonitor.popover");
+  const { resolvedTheme } = useTheme();
+  const ditherTheme = resourceMonitorDitherTheme(resolvedTheme);
   return (
     <div className="space-y-2">
       <p className="text-[11px] font-medium text-foreground">{t("cpuDetails")}</p>
@@ -192,10 +201,10 @@ function HostDetailPopover({
       <PopoverTrigger asChild>
         <Button
           type="button"
-          variant="outline"
+          variant="secondary"
           size="xs"
           data-resource-monitor-details={kind}
-          className="rounded-md hover:bg-accent"
+          className="border-transparent"
         >
           {triggerLabel}
         </Button>
@@ -254,6 +263,9 @@ export function ResourceMonitorHostSection({
   const ofTotal = host
     ? t("memoryOfTotal", { total: formatMemoryBytes(host.memory_total_bytes) })
     : null;
+  const memoryPercent = host
+    ? hostMemoryPercent(host.memory_used_bytes, host.memory_total_bytes)
+    : 0;
 
   return (
     <Collapsible
@@ -289,31 +301,32 @@ export function ResourceMonitorHostSection({
       <CollapsibleContent className="px-3 pb-2">
         {host ? (
           <div className="space-y-2 pt-1">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="min-w-0 space-y-1">
-                <p className="text-[10px] text-muted-foreground">{t("cpu")}</p>
-                <ResourceMonitorUsageBar
-                  value={host.cpu_percent}
-                  tone="pressure"
-                  label={t("cpu")}
-                  className="h-2.5"
-                />
-              </div>
-              <div className="min-w-0 space-y-1">
-                <p className="text-[10px] text-muted-foreground">{t("memory")}</p>
-                <ResourceMonitorUsageBar
-                  value={hostMemoryPercent(
-                    host.memory_used_bytes,
-                    host.memory_total_bytes,
-                  )}
-                  tone="pressure"
-                  label={t("memory")}
-                  className="h-2.5"
-                />
-              </div>
-            </div>
-            <ResourceMonitorHostChart history={history} nowMs={nowMs} />
-            <div className="flex flex-wrap gap-2">
+            <ServerGauge
+              cpuPercent={host.cpu_percent}
+              memoryPercent={memoryPercent}
+              cpuLabel={t("cpu")}
+              memoryLabel={t("memory")}
+              cpuColor={resourceMonitorDitherColor(
+                ditherTheme,
+                "pressure",
+                host.cpu_percent,
+              )}
+              memoryColor={resourceMonitorDitherColor(
+                ditherTheme,
+                "pressure",
+                memoryPercent,
+              )}
+              trackColor={resourceMonitorDitherTrackColor(ditherTheme)}
+              theme={ditherTheme}
+              formatValue={formatCpuPercent}
+            />
+            <ResourceMonitorHostChart
+              history={history}
+              logicalCpuCount={host.logical_cpu_count}
+              memoryTotalBytes={host.memory_total_bytes}
+              nowMs={nowMs}
+            />
+            <div className="flex flex-wrap justify-end gap-2">
               <HostDetailPopover
                 kind="cpu"
                 open={cpuDetailOpen}

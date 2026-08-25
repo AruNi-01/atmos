@@ -3,16 +3,20 @@
 import React from "react";
 import { useTranslations } from "next-intl";
 import { useTheme } from "next-themes";
-import { DitherGrowth } from "@workspace/ui";
+import { DitherGrowth, type DitherTooltipLine } from "@workspace/ui";
 import {
   formatHostHistoryLocalTime,
   hostHistoryAgeSeconds,
   hostHistoryRelative,
 } from "@/features/resource-monitor/lib/resource-monitor-chart-time";
-import { formatPercent } from "@/features/resource-monitor/lib/resource-monitor-format";
+import {
+  formatMemoryBytes,
+  formatMemoryPair,
+  formatPercent,
+} from "@/features/resource-monitor/lib/resource-monitor-format";
 import type { ResourceHostHistoryPoint } from "@/features/resource-monitor/lib/resource-monitor-host-history";
 import {
-  resourceMonitorDitherColor,
+  resourceMonitorGrowthColorStops,
   resourceMonitorDitherTheme,
 } from "@/features/resource-monitor/lib/resource-monitor-pressure";
 
@@ -22,13 +26,13 @@ function HostChartTrack({
   label,
   values,
   labels,
-  color,
+  getTooltipLines,
   theme,
 }: {
   label: string;
   values: number[];
   labels: string[];
-  color: string;
+  getTooltipLines: (value: number, index: number) => DitherTooltipLine[];
   theme: "light" | "dark";
 }) {
   return (
@@ -39,11 +43,12 @@ function HostChartTrack({
           values={values}
           labels={labels}
           yMax={100}
-          color={color}
+          colorStops={resourceMonitorGrowthColorStops(theme)}
           compact
           theme={theme}
           valueLabel={label}
           formatValue={formatPercent}
+          getTooltipLines={getTooltipLines}
         />
       </div>
     </div>
@@ -52,9 +57,13 @@ function HostChartTrack({
 
 export function ResourceMonitorHostChart({
   history,
+  logicalCpuCount,
+  memoryTotalBytes,
   nowMs = 0,
 }: {
   history: readonly ResourceHostHistoryPoint[];
+  logicalCpuCount: number;
+  memoryTotalBytes: number;
   nowMs?: number;
 }) {
   const t = useTranslations("resourceMonitor.popover");
@@ -77,9 +86,7 @@ export function ResourceMonitorHostChart({
       }),
     [history, nowMs, t],
   );
-  const latest = history.at(-1);
-
-  if (history.length < 2 || latest == null) {
+  if (history.length < 2) {
     return (
       <p
         className={`flex ${TRACK_HEIGHT_CLASS} items-center text-[11px] text-muted-foreground`}
@@ -101,18 +108,34 @@ export function ResourceMonitorHostChart({
         label={t("cpu")}
         values={history.map((point) => point.cpu_percent)}
         labels={labels}
-        color={resourceMonitorDitherColor(theme, "pressure", latest.cpu_percent)}
+        getTooltipLines={(value) => [
+          {
+            label: t("used"),
+            value: t("cpuUsageAmount", {
+              used: ((value / 100) * logicalCpuCount).toFixed(1),
+              total: logicalCpuCount,
+            }),
+          },
+        ]}
         theme={theme}
       />
       <HostChartTrack
         label={t("memory")}
         values={history.map((point) => point.memory_percent)}
         labels={labels}
-        color={resourceMonitorDitherColor(
-          theme,
-          "pressure",
-          latest.memory_percent,
-        )}
+        getTooltipLines={(value) => [
+          {
+            label: t("used"),
+            value: formatMemoryPair(
+              (value / 100) * memoryTotalBytes,
+              memoryTotalBytes,
+            ),
+          },
+          {
+            label: t("available"),
+            value: formatMemoryBytes((1 - value / 100) * memoryTotalBytes),
+          },
+        ]}
         theme={theme}
       />
     </div>

@@ -2,8 +2,13 @@
 
 import React from "react";
 import { useTranslations } from "next-intl";
-import { ChevronRight } from "lucide-react";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@workspace/ui";
+import { ChevronRight, HardDrive } from "lucide-react";
+import {
+  Button,
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@workspace/ui";
 import { cn } from "@/shared/lib/utils";
 import type { ResourceDiskMetrics } from "@atmos/api-types/ws/dto/resource-monitor";
 import { ResourceMonitorUsageBar } from "@/features/resource-monitor/components/ResourceMonitorUsageBar";
@@ -25,8 +30,10 @@ import {
 
 export function ResourceMonitorDiskSection({
   disks,
+  onOpenDiskAnalyzer,
 }: {
   disks: readonly ResourceDiskMetrics[];
+  onOpenDiskAnalyzer?: () => void;
 }) {
   const t = useTranslations("resourceMonitor.popover");
   const [open, setOpen] = React.useState(diskDefaultOpen);
@@ -100,6 +107,21 @@ export function ResourceMonitorDiskSection({
             label={disk.name}
             className="h-2.5"
           />
+          {onOpenDiskAnalyzer ? (
+            <div className="flex justify-end pt-1">
+              <Button
+                type="button"
+                size="xs"
+                variant="secondary"
+                className="border-transparent"
+                data-resource-monitor-disk-analyzer=""
+                onClick={onOpenDiskAnalyzer}
+              >
+                <HardDrive aria-hidden />
+                {t("diskAnalysis")}
+              </Button>
+            </div>
+          ) : null}
         </div>
       </CollapsibleContent>
     </Collapsible>

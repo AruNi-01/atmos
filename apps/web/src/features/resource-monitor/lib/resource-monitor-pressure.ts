@@ -1,4 +1,4 @@
-import type { DitherTheme } from "@workspace/ui";
+import type { DitherGrowthColorStop, DitherTheme } from "@workspace/ui";
 
 export type ResourceMonitorPressureTone = "low" | "medium" | "high";
 export type ResourceMonitorMeterTone = "pressure" | "neutral";
@@ -50,4 +50,26 @@ export function resourceMonitorDitherColor(
 
 export function resourceMonitorDitherTrackColor(theme: DitherTheme): string {
   return TRACK_HEX[theme];
+}
+
+export function resourceMonitorGrowthColorStops(
+  theme: DitherTheme,
+): DitherGrowthColorStop[] {
+  const colors = PRESSURE_HEX[theme];
+  return [
+    { value: 0, color: colors.low },
+    { value: 56, color: colors.low },
+    { value: 64, color: colors.medium },
+    { value: 76, color: colors.medium },
+    { value: 84, color: colors.high },
+    { value: 100, color: colors.high },
+  ];
+}
+
+export function resourceMonitorPressureTextClass(
+  tone: ResourceMonitorPressureTone,
+): string {
+  if (tone === "medium") return "text-warning";
+  if (tone === "high") return "text-destructive";
+  return "text-success";
 }
