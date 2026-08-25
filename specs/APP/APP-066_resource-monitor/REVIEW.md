@@ -22,6 +22,7 @@
 | REV-008 | P2 | frontend | Session rows displayed numeric tmux identities as titles | verified |
 | REV-009 | P1 | frontend | Resource hierarchy was visually flat and terminal rows were not actionable | verified |
 | REV-010 | P1 | frontend | Cross-host locate deep links could be stripped as leftover chrome | verified |
+| REV-011 | P1 | full-stack | Project and Workspace totals lacked explainable process leaves | verified |
 
 ---
 
@@ -349,3 +350,37 @@ Provide a guarded app-router method for explicit Workspace deep links, commit th
 
 - 2026-08-25 — Added `pushWorkspaceDeepLink`, bounded destination URL confirmation, exact Center Space/tab/pane resolution, and terminal-owned locate state/CSS.
 - Verified by cross-host/extra-Space/simple-PTY behavior tests and a real default-Space terminal click/focus/blue-pulse Playwright journey.
+
+---
+
+## REV-011 · Project and Workspace totals lacked explainable process leaves
+
+| Field | Value |
+|-------|-------|
+| **Status** | verified |
+| **Severity** | P1 |
+| **Area** | full-stack |
+| **Reported by** | user review |
+| **Owner** | APP-066 implementation |
+
+### Finding
+
+Project and Workspace aggregates already included cwd-attributed programs such as local API/Web servers, but the hierarchy only displayed terminal sessions and Workspaces. Parent memory therefore appeared not to equal visible children, and listening programs/ports were invisible.
+
+### Required fix
+
+Project resources must appear before Workspaces and partition direct sessions from non-session processes. Workspaces require the same session/non-session partition. Session-owned processes must drill down inside their session. Cached Local Services ports may annotate matching attributed process groups without starting listener scans from the 2.5-second resource path.
+
+### Acceptance
+
+- [x] Project memory/process count reconciles as direct resources plus Workspaces.
+- [x] Workspace memory/process count reconciles as sessions plus other processes.
+- [x] Each assigned process appears in one session or cwd leaf only.
+- [x] Process rows show basename, aggregate count/usage, and matching cached local ports.
+- [x] Snapshot process detail contains no PID, command line, path, executable, user, or environment.
+- [x] Resource Monitor performs no listener scan or HTTP probe.
+
+### Fix log
+
+- 2026-08-25 — Added exclusive process-name groups, `other_usage`, session process drilldown, a TTL'd Local Services all-projects cache, fail-closed PID/name port joins, and Project resources/Workspace UI sections.
+- Verified by 30 Resource Monitor Rust tests, 22 Local Services tests, 17 api-types tests, 118 Web tests, strict touched Clippy, and real S18 HTTP-listener/port Playwright coverage.

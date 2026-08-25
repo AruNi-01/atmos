@@ -4,11 +4,11 @@
 
 ## Status
 
-- **State**: in_progress
+- **State**: ready_for_review
 - **Branch**: `aarynlu/resource-monitor-8c97`
 - **Last updated**: 2026-08-25
 - **Current owner**: coordinator with Grok 4.6 implementation workers
-- **Current phase**: service
+- **Current phase**: review
 
 ## Snapshot
 
@@ -28,7 +28,7 @@
 - [x] Web Query, Footer, popover, settings, and i18n
 - [x] Activity Monitor + Raycast visual redesign and 60-point Host trend
 - [x] Cross-Center-Space Terminal locate and blue one-shot feedback
-- [ ] Project/Workspace process leaves and cached Local Services ports
+- [x] Project/Workspace process leaves and cached Local Services ports
 - [x] Automated tests
 - [ ] Agent Browser / manual verification
 - [x] Architecture and implementation review
@@ -46,7 +46,7 @@
 - Aligned macOS Host memory with btop's Mach accounting and enriched session rows with live terminal titles.
 - Completed Activity Monitor + Raycast visual redesign, client Host history, sortable hierarchy, and cross-Center-Space terminal locate navigation.
 - Added a real Playwright terminal-session click that verifies route, focus, blue pulse, attention isolation, and test Workspace cleanup.
-- In progress: explain Project/Workspace totals through session-owned and non-session process groups with cached Local Services port annotations.
+- Completed explainable Project/Workspace totals through session-owned and non-session process groups with cached Local Services port annotations.
 
 ## Decisions Since TECH
 
@@ -61,6 +61,7 @@ No implementation deltas.
 | Web tests | 138 targeted `bun test` + typecheck + lint | passed | UI, history, sorting, exact deep links, locate generation |
 | Electron | full `bun test` + typecheck + build | passed | shell collector and IPC |
 | E2E | targeted Playwright | passed | 4 tests: Host/sort/chart + real Terminal locate on Chromium/mobile |
+| M10 process detail | Rust/api-types/Web/Playwright | passed | 30 RM + 22 LS + 17 DTO + 118 Web tests; real listener port E2E |
 | Full repository | `just test` / `just typecheck` | unrelated failures | APP-066 surfaces pass; see `TEST.md` Coverage Status |
 | Agent Browser/manual | exploratory | partial | Connect gate blocked Agent Browser; host-specific checks remain |
 
