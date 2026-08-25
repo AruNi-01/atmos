@@ -9,7 +9,8 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use core_engine::{
-    ResourceHostSample, ResourceMemoryAccounting as EngineMemoryAccounting, ResourceMetricsEngine,
+    ResourceDiskSample, ResourceHostSample, ResourceMemoryAccounting as EngineMemoryAccounting,
+    ResourceMetricsEngine,
 };
 use parking_lot::Mutex;
 use tracing::warn;
@@ -26,8 +27,8 @@ use attribution::{
 };
 
 pub use types::{
-    ResourceAttributionStatus, ResourceHostCpuCore, ResourceHostMemoryMetrics, ResourceHostMetrics,
-    ResourceMemoryAccounting, ResourceMonitorSnapshot, ResourceProcessMetrics,
+    ResourceAttributionStatus, ResourceDiskMetrics, ResourceHostCpuCore, ResourceHostMemoryMetrics,
+    ResourceHostMetrics, ResourceMemoryAccounting, ResourceMonitorSnapshot, ResourceProcessMetrics,
     ResourceProjectMetrics, ResourceSessionMetrics, ResourceUsage, ResourceWorkspaceMetrics,
 };
 
@@ -153,6 +154,7 @@ impl ResourceMonitorService {
             ResourceMonitorSnapshot {
                 collected_at_ms: sample.collected_at_ms,
                 host: host_metrics_from_sample(&sample.host),
+                disks: sample.disks.iter().map(disk_metrics_from_sample).collect(),
                 server: output.server,
                 shared_runtime: output.shared_runtime,
                 projects: output.projects,
@@ -315,6 +317,19 @@ fn host_metrics_from_sample(host: &ResourceHostSample) -> ResourceHostMetrics {
     }
 }
 
+/// Copy engine disk samples onto the wire. Values are pass-through.
+fn disk_metrics_from_sample(disk: &ResourceDiskSample) -> ResourceDiskMetrics {
+    ResourceDiskMetrics {
+        name: disk.name.clone(),
+        mount_point: disk.mount_point.clone(),
+        total_bytes: disk.total_bytes,
+        used_bytes: disk.used_bytes,
+        available_bytes: disk.available_bytes,
+        usage_percent: disk.usage_percent,
+        removable: disk.removable,
+    }
+}
+
 fn memory_accounting_from_engine(accounting: EngineMemoryAccounting) -> ResourceMemoryAccounting {
     match accounting {
         EngineMemoryAccounting::BtopMach => ResourceMemoryAccounting::BtopMach,
@@ -372,6 +387,7 @@ mod tests {
                     accounting: ResourceMemoryAccounting::FallbackTotalMinusAvailable,
                 },
             },
+            disks: Vec::new(),
             server: ResourceUsage::zero(),
             shared_runtime: ResourceUsage::zero(),
             projects: Vec::new(),
@@ -453,6 +469,18 @@ mod tests {
         let c = c.expect("snapshot c");
         assert_eq!(a.collected_at_ms, b.collected_at_ms);
         assert_eq!(a.collected_at_ms, c.collected_at_ms);
+        assert_eq!(a.disks, b.disks);
+        for disk in &a.disks {
+            assert!(!disk.name.is_empty());
+            assert!(!disk.mount_point.is_empty());
+            assert!(disk.total_bytes > 0);
+            assert_eq!(
+                disk.used_bytes,
+                disk.total_bytes.saturating_sub(disk.available_bytes)
+            );
+            assert_eq!(disk.used_bytes + disk.available_bytes, disk.total_bytes);
+            assert!(disk.usage_percent >= 0.0 && disk.usage_percent <= 100.0);
+        }
     }
 
     #[tokio::test]
@@ -554,6 +582,27 @@ mod tests {
         assert_eq!(metrics.cores.len(), 2);
         assert_eq!(metrics.cores[1].index, 1);
         assert_eq!(metrics.cores[1].cpu_percent, 16.0);
+    }
+
+    #[test]
+    fn disk_metrics_from_sample_are_pass_through() {
+        let disk = ResourceDiskSample {
+            name: "root".into(),
+            mount_point: "/".into(),
+            total_bytes: 100,
+            used_bytes: 40,
+            available_bytes: 60,
+            usage_percent: 40.0,
+            removable: false,
+        };
+        let metrics = disk_metrics_from_sample(&disk);
+        assert_eq!(metrics.name, "root");
+        assert_eq!(metrics.mount_point, "/");
+        assert_eq!(metrics.total_bytes, 100);
+        assert_eq!(metrics.used_bytes, 40);
+        assert_eq!(metrics.available_bytes, 60);
+        assert_eq!(metrics.usage_percent, 40.0);
+        assert!(!metrics.removable);
     }
 
     #[test]

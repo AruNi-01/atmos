@@ -11,12 +11,17 @@ use sysinfo::{
     CpuRefreshKind, MemoryRefreshKind, ProcessRefreshKind, RefreshKind, System, UpdateKind,
 };
 
+mod disks;
 #[cfg(target_os = "macos")]
 mod macos;
 
+pub use disks::{ResourceDiskSample, DISK_CACHE_TTL};
+
 /// Persistent sampler. Process CPU is delta-based, so the inner [`System`] is reused.
+/// Disk capacity uses a separate [`sysinfo::Disks`] sampler and 2.5s cache.
 pub struct ResourceMetricsEngine {
     system: Mutex<SystemState>,
+    disks: Mutex<disks::DiskState>,
 }
 
 struct SystemState {
@@ -29,6 +34,7 @@ struct SystemState {
 pub struct ResourceSample {
     pub collected_at_ms: u64,
     pub host: ResourceHostSample,
+    pub disks: Vec<ResourceDiskSample>,
     pub processes: Vec<ResourceProcessSample>,
 }
 
@@ -120,6 +126,7 @@ impl ResourceMetricsEngine {
                 system: System::new(),
                 primed: false,
             }),
+            disks: Mutex::new(disks::DiskState::new()),
         }
     }
 
@@ -127,7 +134,15 @@ impl ResourceMetricsEngine {
     ///
     /// The first call primes delta CPU counters (sleeping
     /// [`sysinfo::MINIMUM_CPU_UPDATE_INTERVAL`]) before collecting.
+    /// Disk capacity shares this `spawn_blocking` caller and uses its own
+    /// 2.5-second cache; a disk failure yields an empty `disks` vec.
     pub fn sample(&self) -> ResourceSample {
+        let mut sample = self.sample_system();
+        sample.disks = self.sample_disks();
+        sample
+    }
+
+    fn sample_system(&self) -> ResourceSample {
         let mut state = self
             .system
             .lock()
@@ -146,6 +161,23 @@ impl ResourceMetricsEngine {
 
         refresh_system(&mut state.system);
         collect_sample(&state.system)
+    }
+
+    fn sample_disks(&self) -> Vec<ResourceDiskSample> {
+        let mut state = match self.disks.lock() {
+            Ok(state) => state,
+            Err(poisoned) => poisoned.into_inner(),
+        };
+        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| state.sample_cached()))
+            .unwrap_or_default()
+    }
+
+    #[cfg(test)]
+    fn disk_refresh_count(&self) -> u32 {
+        self.disks
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .refresh_count()
     }
 }
 
@@ -216,6 +248,7 @@ fn collect_sample(system: &System) -> ResourceSample {
     ResourceSample {
         collected_at_ms,
         host,
+        disks: Vec::new(),
         processes,
     }
 }
@@ -631,6 +664,7 @@ Buffers:          256 kB
         assert!(sample.host.cpu_percent >= 0.0 && sample.host.cpu_percent <= 100.0);
         assert_host_cores(&sample.host);
         assert_platform_accounting(sample.host.memory.accounting);
+        assert_disk_samples(&sample.disks);
         assert!(
             !sample.processes.is_empty(),
             "supported hosts should expose at least the current process"
@@ -661,8 +695,20 @@ Buffers:          256 kB
         assert!(second.host.logical_cpu_count > 0);
         assert!(!second.processes.is_empty());
         assert_host_cores(&second.host);
+        assert_disk_samples(&second.disks);
         assert_eq!(second.host.memory_used_bytes, second.host.memory.used);
         assert_eq!(second.host.memory_total_bytes, second.host.memory.total);
+    }
+
+    #[test]
+    fn disk_sample_reuses_cache_within_ttl() {
+        let engine = ResourceMetricsEngine::new();
+        let first = engine.sample();
+        assert_eq!(engine.disk_refresh_count(), 1);
+        let second = engine.sample();
+        assert_eq!(engine.disk_refresh_count(), 1);
+        assert_eq!(first.disks, second.disks);
+        assert_disk_samples(&first.disks);
     }
 
     fn assert_host_cores(host: &ResourceHostSample) {
@@ -675,6 +721,28 @@ Buffers:          256 kB
         for (index, core) in host.cores.iter().enumerate() {
             assert_eq!(core.index as usize, index);
             assert!(core.cpu_percent >= 0.0 && core.cpu_percent <= 100.0);
+        }
+    }
+
+    fn assert_disk_samples(disks: &[ResourceDiskSample]) {
+        assert!(disks.len() <= 16);
+        let mut mounts = std::collections::HashSet::new();
+        for disk in disks {
+            assert!(!disk.name.is_empty());
+            assert!(!disk.mount_point.is_empty());
+            assert!(disk.total_bytes > 0);
+            assert_eq!(
+                disk.used_bytes,
+                disk.total_bytes.saturating_sub(disk.available_bytes)
+            );
+            assert_eq!(disk.used_bytes + disk.available_bytes, disk.total_bytes);
+            assert!(disk.used_bytes <= disk.total_bytes);
+            assert!(disk.usage_percent >= 0.0 && disk.usage_percent <= 100.0);
+            assert!(
+                mounts.insert(disk.mount_point.clone()),
+                "duplicate mount {}",
+                disk.mount_point
+            );
         }
     }
 

@@ -229,8 +229,9 @@ mod tests {
     #[test]
     fn snapshot_serializes_core_service_snake_case_fields() {
         use core_service::{
-            ResourceAttributionStatus, ResourceHostCpuCore, ResourceHostMemoryMetrics,
-            ResourceHostMetrics, ResourceMemoryAccounting, ResourceMonitorSnapshot, ResourceUsage,
+            ResourceAttributionStatus, ResourceDiskMetrics, ResourceHostCpuCore,
+            ResourceHostMemoryMetrics, ResourceHostMetrics, ResourceMemoryAccounting,
+            ResourceMonitorSnapshot, ResourceUsage,
         };
 
         let snapshot = ResourceMonitorSnapshot {
@@ -256,6 +257,15 @@ mod tests {
                     accounting: ResourceMemoryAccounting::LinuxMemavailable,
                 },
             },
+            disks: vec![ResourceDiskMetrics {
+                name: "root".into(),
+                mount_point: "/".into(),
+                total_bytes: 100,
+                used_bytes: 40,
+                available_bytes: 60,
+                usage_percent: 40.0,
+                removable: false,
+            }],
             server: ResourceUsage::zero(),
             shared_runtime: ResourceUsage::zero(),
             projects: Vec::new(),
@@ -267,6 +277,7 @@ mod tests {
         for key in [
             "collected_at_ms",
             "host",
+            "disks",
             "server",
             "shared_runtime",
             "projects",
@@ -317,6 +328,33 @@ mod tests {
         assert_eq!(value["host"]["memory"]["accounting"], "linux_memavailable");
         assert_eq!(value["host"]["cores"][0]["index"], 0);
         assert_eq!(value["host"]["cores"][0]["cpu_percent"], 1.5);
+        let disk = value["disks"][0].as_object().expect("disk object");
+        for key in [
+            "name",
+            "mount_point",
+            "total_bytes",
+            "used_bytes",
+            "available_bytes",
+            "usage_percent",
+            "removable",
+        ] {
+            assert!(disk.contains_key(key), "missing disks[0].{key}");
+        }
+        for forbidden in [
+            "device",
+            "file_system",
+            "filesystem",
+            "uuid",
+            "serial",
+            "kind",
+        ] {
+            assert!(!disk.contains_key(forbidden), "disk leaked {forbidden}");
+        }
+        assert_eq!(value["disks"][0]["name"], "root");
+        assert_eq!(value["disks"][0]["mount_point"], "/");
+        assert_eq!(value["disks"][0]["total_bytes"], 100);
+        assert_eq!(value["disks"][0]["used_bytes"], 40);
+        assert_eq!(value["disks"][0]["available_bytes"], 60);
         assert_eq!(value["server"]["memory_rss_bytes"], 0);
         assert_eq!(value["server"]["process_count"], 0);
         assert_eq!(value["server"]["cpu_percent"], 0.0);

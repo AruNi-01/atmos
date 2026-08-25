@@ -1116,6 +1116,17 @@ fn snapshot_json_omits_process_identity_fields() {
     let snapshot = crate::service::resource_monitor::types::ResourceMonitorSnapshot {
         collected_at_ms: 1,
         host: test_host_metrics(),
+        disks: vec![
+            crate::service::resource_monitor::types::ResourceDiskMetrics {
+                name: "root".into(),
+                mount_point: "/".into(),
+                total_bytes: 100,
+                used_bytes: 40,
+                available_bytes: 60,
+                usage_percent: 40.0,
+                removable: false,
+            },
+        ],
         server: output.server.clone(),
         shared_runtime: output.shared_runtime.clone(),
         projects: output.projects.clone(),
@@ -1134,6 +1145,11 @@ fn snapshot_json_omits_process_identity_fields() {
         "user",
         "env",
         "cwd",
+        "device",
+        "file_system",
+        "filesystem",
+        "uuid",
+        "serial",
     ] {
         assert!(
             !keys.contains(forbidden),
@@ -1144,6 +1160,8 @@ fn snapshot_json_omits_process_identity_fields() {
     assert!(keys.contains("other_processes"));
     assert!(keys.contains("other_usage"));
     assert!(keys.contains("ports"));
+    assert!(keys.contains("disks"));
+    assert!(keys.contains("mount_point"));
     assert_eq!(
         value["projects"][0]["sessions"][0]["processes"][0]["ports"],
         serde_json::json!([9229])
@@ -1221,6 +1239,7 @@ fn hundred_sessions_five_process_groups_stay_under_payload_budget() {
     let snapshot = crate::service::resource_monitor::types::ResourceMonitorSnapshot {
         collected_at_ms: 1,
         host: test_host_metrics(),
+        disks: Vec::new(),
         server: output.server,
         shared_runtime: output.shared_runtime,
         projects: output.projects,

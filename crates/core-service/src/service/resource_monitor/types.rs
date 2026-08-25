@@ -148,12 +148,28 @@ pub enum ResourceMemoryAccounting {
     FallbackTotalMinusAvailable,
 }
 
+/// One filtered local volume. Mount root is the only path allowed on the wire.
+///
+/// Never serialize device path, filesystem type, UUID, serial, kind, or I/O.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct ResourceDiskMetrics {
+    pub name: String,
+    pub mount_point: String,
+    pub total_bytes: u64,
+    pub used_bytes: u64,
+    pub available_bytes: u64,
+    pub usage_percent: f32,
+    pub removable: bool,
+}
+
 /// One coalesced Computer snapshot. Wire shape is serde snake_case.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub struct ResourceMonitorSnapshot {
     pub collected_at_ms: u64,
     pub host: ResourceHostMetrics,
+    pub disks: Vec<ResourceDiskMetrics>,
     pub server: ResourceUsage,
     pub shared_runtime: ResourceUsage,
     pub projects: Vec<ResourceProjectMetrics>,
@@ -348,6 +364,58 @@ mod tests {
                 serde_json::from_str(&format!("\"{expected}\"")).unwrap();
             assert_eq!(parsed, value);
         }
+    }
+
+    #[test]
+    fn disk_metrics_serialize_only_capacity_fields() {
+        let disk = ResourceDiskMetrics {
+            name: "root".into(),
+            mount_point: "/".into(),
+            total_bytes: 100,
+            used_bytes: 40,
+            available_bytes: 60,
+            usage_percent: 40.0,
+            removable: false,
+        };
+        let value = serde_json::to_value(&disk).unwrap();
+        let object = value.as_object().unwrap();
+        let keys: std::collections::HashSet<_> = object.keys().cloned().collect();
+        assert_eq!(
+            keys,
+            [
+                "name",
+                "mount_point",
+                "total_bytes",
+                "used_bytes",
+                "available_bytes",
+                "usage_percent",
+                "removable"
+            ]
+            .into_iter()
+            .map(str::to_string)
+            .collect()
+        );
+        for forbidden in [
+            "device",
+            "device_name",
+            "file_system",
+            "filesystem",
+            "fs",
+            "uuid",
+            "kind",
+            "serial",
+            "io",
+            "usage",
+        ] {
+            assert!(!object.contains_key(forbidden), "leaked {forbidden}");
+        }
+        assert_eq!(value["name"], "root");
+        assert_eq!(value["mount_point"], "/");
+        assert_eq!(value["total_bytes"], 100);
+        assert_eq!(value["used_bytes"], 40);
+        assert_eq!(value["available_bytes"], 60);
+        assert_eq!(value["usage_percent"], 40.0);
+        assert_eq!(value["removable"], false);
     }
 
     #[test]
