@@ -3,6 +3,7 @@
 import React from "react";
 import {
   CENTER_STAGE_CARD_CLASS,
+  CENTER_STAGE_CARD_CLIP_CLASS,
   CENTER_STAGE_GUTTER_CLASS,
   CENTER_STAGE_SHELL_CLASS,
 } from "@/app-shell/sidebar-layout-constants";
@@ -31,7 +32,7 @@ export function CenterStageSurface({
         data-center-stage-card=""
         className={cn(CENTER_STAGE_CARD_CLASS, isolate && "isolate", cardClassName)}
       >
-        {children}
+        <div className={CENTER_STAGE_CARD_CLIP_CLASS}>{children}</div>
       </div>
     </main>
   );

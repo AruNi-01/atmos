@@ -63,9 +63,15 @@ export const RESIZE_HAIRLINE_CORNER_INSET_CSS = CENTER_STAGE_RADIUS_CSS;
 export const ROOT_RESIZE_HAIRLINE_TOP_CSS = `calc(${CENTER_STAGE_GUTTER_Y_PX}px + ${CENTER_STAGE_RADIUS_CSS})`;
 export const ROOT_RESIZE_HAIRLINE_BOTTOM_CSS = `calc(${APP_FOOTER_HEIGHT_PX}px + ${CENTER_STAGE_GUTTER_Y_PX}px + ${CENTER_STAGE_RADIUS_CSS})`;
 
-/** Floating card: clip children to the radius and ring the inset stage. */
+/**
+ * Floating card chrome. Keep overflow-hidden off this node — clipping the
+ * ring against the radius double-paints the left edge in light mode.
+ */
 export const CENTER_STAGE_CARD_CLASS =
-  "desktop-no-drag h-full min-h-0 overflow-hidden rounded-xl bg-background ring-1 ring-border/40";
+  "desktop-no-drag relative h-full min-h-0 rounded-xl bg-background ring-1 ring-border/40";
+/** Inner clip so pane content follows the card radius without eating the ring. */
+export const CENTER_STAGE_CARD_CLIP_CLASS =
+  "h-full min-h-0 overflow-hidden rounded-[inherit]";
 
 /** Column above the center-stage footer — drawer insets and stage fullscreen fill this. */
 export const CENTER_STAGE_BODY_ATTR = "data-center-stage-body";
