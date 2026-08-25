@@ -1,11 +1,15 @@
 import { describe, expect, test } from "bun:test";
 import {
   formatCpuPercent,
+  formatListeningPort,
   formatMemoryBytes,
   formatMemoryPair,
   formatPercent,
+  formatProcessCountSuffix,
   isSnapshotStale,
   isUsageVisible,
+  normalizeProcessPorts,
+  processBasename,
 } from "@/features/resource-monitor/lib/resource-monitor-format";
 
 describe("resource-monitor-format", () => {
@@ -53,6 +57,18 @@ describe("resource-monitor-format", () => {
     expect(
       isUsageVisible({ cpu_percent: 0, memory_rss_bytes: 0, process_count: 1 }),
     ).toBe(true);
+  });
+
+  test("process display uses basename, count suffix, and compact ports", () => {
+    expect(processBasename("/usr/local/bin/node")).toBe("node");
+    expect(processBasename("C:\\\\Program Files\\\\node.exe")).toBe("node.exe");
+    expect(processBasename("  vite  ")).toBe("vite");
+    expect(formatProcessCountSuffix(1)).toBeNull();
+    expect(formatProcessCountSuffix(3)).toBe("×3");
+    expect(formatListeningPort(3030)).toBe(":3030");
+    expect(normalizeProcessPorts([4173, 3000, 3000, 65536, -1, 80])).toEqual([
+      80, 3000, 4173,
+    ]);
   });
 
   test("stale detection uses local receive time, not server collected_at", () => {

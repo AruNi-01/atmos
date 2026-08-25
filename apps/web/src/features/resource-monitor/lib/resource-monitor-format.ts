@@ -39,6 +39,31 @@ export function isUsageVisible(usage: ResourceUsage): boolean {
   );
 }
 
+export function processBasename(name: string): string {
+  const trimmed = name.trim();
+  const parts = trimmed.split(/[/\\]+/).filter(Boolean);
+  return parts.at(-1) || trimmed;
+}
+
+export function formatProcessCountSuffix(count: number): string | null {
+  if (!Number.isFinite(count) || count <= 1) return null;
+  return `×${Math.round(count)}`;
+}
+
+export function normalizeProcessPorts(ports: readonly number[]): number[] {
+  const unique = new Set<number>();
+  for (const port of ports) {
+    if (Number.isInteger(port) && port >= 0 && port <= 65535) {
+      unique.add(port);
+    }
+  }
+  return [...unique].sort((left, right) => left - right);
+}
+
+export function formatListeningPort(port: number): string {
+  return `:${port}`;
+}
+
 /** Stale uses local receive time (`dataUpdatedAt`), never server `collected_at_ms`. */
 export function isSnapshotStale(
   lastUpdatedAtMs: number,

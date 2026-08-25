@@ -1,10 +1,12 @@
 import type {
+  ResourceProcessMetrics,
   ResourceProjectMetrics,
   ResourceSessionMetrics,
   ResourceUsage,
   ResourceWorkspaceMetrics,
 } from "@atmos/api-types/ws/dto/resource-monitor";
 import type { DesktopShellGroupMetrics } from "@/features/resource-monitor/lib/desktop-shell-metrics";
+import { processBasename } from "@/features/resource-monitor/lib/resource-monitor-format";
 
 export type ResourceMonitorSortKey = "name" | "cpu" | "memory";
 
@@ -49,26 +51,59 @@ function sessionSortName(
   return resolveName?.(session) ?? session.name ?? "";
 }
 
+export function sortResourceMonitorProcesses(
+  processes: readonly ResourceProcessMetrics[],
+  key: ResourceMonitorSortKey,
+): ResourceProcessMetrics[] {
+  return [...processes].sort((left, right) =>
+    compareUsage(
+      key,
+      {
+        name: processBasename(left.name),
+        id: left.name,
+        usage: left.usage,
+      },
+      {
+        name: processBasename(right.name),
+        id: right.name,
+        usage: right.usage,
+      },
+    ),
+  );
+}
+
+function sortSessionWithProcesses(
+  session: ResourceSessionMetrics,
+  key: ResourceMonitorSortKey,
+): ResourceSessionMetrics {
+  return {
+    ...session,
+    processes: sortResourceMonitorProcesses(session.processes, key),
+  };
+}
+
 export function sortResourceMonitorSessions(
   sessions: readonly ResourceSessionMetrics[],
   key: ResourceMonitorSortKey,
   resolveName?: ResourceMonitorSessionNameResolver,
 ): ResourceSessionMetrics[] {
-  return [...sessions].sort((left, right) =>
-    compareUsage(
-      key,
-      {
-        name: sessionSortName(left, resolveName),
-        id: left.session_id,
-        usage: left.usage,
-      },
-      {
-        name: sessionSortName(right, resolveName),
-        id: right.session_id,
-        usage: right.usage,
-      },
-    ),
-  );
+  return [...sessions]
+    .sort((left, right) =>
+      compareUsage(
+        key,
+        {
+          name: sessionSortName(left, resolveName),
+          id: left.session_id,
+          usage: left.usage,
+        },
+        {
+          name: sessionSortName(right, resolveName),
+          id: right.session_id,
+          usage: right.usage,
+        },
+      ),
+    )
+    .map((session) => sortSessionWithProcesses(session, key));
 }
 
 export function sortResourceMonitorWorkspaces(
@@ -87,6 +122,7 @@ export function sortResourceMonitorWorkspaces(
     .map((workspace) => ({
       ...workspace,
       sessions: sortResourceMonitorSessions(workspace.sessions, key, resolveName),
+      other_processes: sortResourceMonitorProcesses(workspace.other_processes, key),
     }));
 }
 
@@ -106,6 +142,7 @@ export function sortResourceMonitorProjects(
     .map((project) => ({
       ...project,
       sessions: sortResourceMonitorSessions(project.sessions, key, resolveName),
+      other_processes: sortResourceMonitorProcesses(project.other_processes, key),
       workspaces: sortResourceMonitorWorkspaces(project.workspaces, key, resolveName),
     }));
 }

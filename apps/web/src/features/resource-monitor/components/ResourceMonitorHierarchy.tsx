@@ -13,6 +13,7 @@ import {
 } from "@workspace/ui";
 import { cn } from "@/shared/lib/utils";
 import type {
+  ResourceProcessMetrics,
   ResourceProjectMetrics,
   ResourceSessionMetrics,
   ResourceUsage,
@@ -21,9 +22,19 @@ import type {
 import type { DesktopShellMetricsSnapshot } from "@/features/resource-monitor/lib/desktop-shell-metrics";
 import {
   formatCpuPercent,
+  formatListeningPort,
   formatMemoryBytes,
+  formatProcessCountSuffix,
   isUsageVisible,
+  normalizeProcessPorts,
+  processBasename,
 } from "@/features/resource-monitor/lib/resource-monitor-format";
+import {
+  buildResourceMonitorScopeSections,
+  projectResourcesDefaultOpen,
+  shouldShowProjectResources,
+  workspaceDefaultOpen,
+} from "@/features/resource-monitor/lib/resource-monitor-hierarchy";
 import { findResourceMonitorSessionLocation } from "@/features/resource-monitor/lib/resource-monitor-session-locator";
 import type { ResourceMonitorSessionNavigationTarget } from "@/features/resource-monitor/lib/resource-monitor-session-navigation";
 import { resolveResourceMonitorSessionTitle } from "@/features/resource-monitor/lib/resource-monitor-session-titles";
@@ -36,6 +47,8 @@ import type { LiveResourceSessionPanes } from "@/features/terminal/public";
 
 const ROW =
   "flex h-8 w-full items-center gap-2 px-3 text-[12px] transition-none";
+const PROCESS_ROW =
+  "flex min-h-8 w-full items-start gap-2 px-3 py-1 text-[12px] transition-none";
 const NAME = "min-w-0 flex-1";
 const METRIC = "w-[3.25rem] shrink-0 text-right tabular-nums text-muted-foreground";
 const MEMORY = "w-[4.25rem] shrink-0 text-right tabular-nums text-muted-foreground";
@@ -112,6 +125,79 @@ function SortHeaderButton({
   );
 }
 
+function ProcessRow({
+  process,
+  indent,
+  residual = false,
+}: {
+  process: ResourceProcessMetrics;
+  indent: number;
+  residual?: boolean;
+}) {
+  const t = useTranslations("resourceMonitor.popover");
+  const name = residual ? t("ungroupedProcesses") : processBasename(process.name);
+  const countSuffix = formatProcessCountSuffix(process.usage.process_count);
+  const ports = normalizeProcessPorts(process.ports);
+  return (
+    <div
+      className={cn(PROCESS_ROW, "cursor-default text-muted-foreground")}
+      data-resource-monitor-process={residual ? "residual" : ""}
+      data-process-name={name}
+    >
+      <span
+        className={cn(NAME, "flex min-w-0 items-start")}
+        style={{ paddingLeft: indent * 12 }}
+      >
+        <span className="flex min-w-0 max-h-9 flex-wrap content-start items-center gap-x-1 gap-y-0.5 overflow-hidden">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="truncate text-muted-foreground">{name}</span>
+            </TooltipTrigger>
+            <TooltipContent side="top">{t("includedInTotal")}</TooltipContent>
+          </Tooltip>
+          {countSuffix ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="shrink-0 text-muted-foreground">{countSuffix}</span>
+              </TooltipTrigger>
+              <TooltipContent side="top">
+                {t("processCount", { count: process.usage.process_count })}
+              </TooltipContent>
+            </Tooltip>
+          ) : null}
+          {ports.map((port) => (
+            <Tooltip key={port}>
+              <TooltipTrigger asChild>
+                <span
+                  data-resource-monitor-port={String(port)}
+                  className="inline-flex h-4 shrink-0 items-center rounded-sm bg-muted px-1 font-mono text-[10px] text-muted-foreground"
+                >
+                  {formatListeningPort(port)}
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="top">
+                {t("listeningPort", { port })}
+              </TooltipContent>
+            </Tooltip>
+          ))}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span
+                data-resource-monitor-included=""
+                className="shrink-0 text-[10px] leading-4 text-muted-foreground/80"
+              >
+                ⊂ {t("includedCaption")}
+              </span>
+            </TooltipTrigger>
+            <TooltipContent side="top">{t("includedInTotal")}</TooltipContent>
+          </Tooltip>
+        </span>
+      </span>
+      <MetricCells usage={process.usage} />
+    </div>
+  );
+}
+
 function SessionRow({
   session,
   hostId,
@@ -144,49 +230,121 @@ function SessionRow({
   const locatable = location != null && onNavigate != null;
   const cpu = formatCpuPercent(session.usage.cpu_percent);
   const memory = formatMemoryBytes(session.usage.memory_rss_bytes);
+  const hasProcesses = session.processes.length > 0;
+  const locateAria = t("sessionRowAria", {
+    action: t("locateSession"),
+    name,
+    cpu,
+    memory,
+  });
 
-  const body = (
-    <>
-      <span
-        className={cn(NAME, "flex items-center gap-1")}
-        style={{ paddingLeft: indent * 12 }}
-      >
-        {locatable ? (
-          <Locate className="size-3 shrink-0 text-muted-foreground" aria-hidden />
-        ) : (
-          <span className="size-3 shrink-0" aria-hidden />
-        )}
-        <NameLabel name={name} />
-      </span>
-      <MetricCells usage={session.usage} />
-    </>
+  const nameCluster = (leading: React.ReactNode) => (
+    <span
+      className={cn(NAME, "flex items-center gap-1")}
+      style={{ paddingLeft: indent * 12 }}
+    >
+      {leading}
+      <NameLabel name={name} />
+    </span>
   );
 
-  if (locatable) {
+  if (!hasProcesses) {
+    const body = (
+      <>
+        {nameCluster(
+          locatable ? (
+            <Locate className="size-3 shrink-0 text-muted-foreground" aria-hidden />
+          ) : (
+            <span className="size-3 shrink-0" aria-hidden />
+          ),
+        )}
+        <MetricCells usage={session.usage} />
+      </>
+    );
+    if (locatable) {
+      return (
+        <button
+          type="button"
+          data-resource-monitor-session=""
+          data-session-id={session.session_id}
+          aria-label={locateAria}
+          className={cn(ROW, "justify-start text-left hover:bg-accent")}
+          onClick={() => onNavigate({ location, routeKind })}
+        >
+          {body}
+        </button>
+      );
+    }
     return (
-      <button
-        type="button"
-        aria-label={t("sessionRowAria", {
-          action: t("locateSession"),
-          name,
-          cpu,
-          memory,
-        })}
-        className={cn(ROW, "justify-start text-left hover:bg-accent")}
-        onClick={() => onNavigate({ location, routeKind })}
-      >
-        {body}
-      </button>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div
+            className={ROW}
+            data-resource-monitor-session=""
+            data-session-id={session.session_id}
+          >
+            {body}
+          </div>
+        </TooltipTrigger>
+        <TooltipContent side="top">{t("sessionUnavailable")}</TooltipContent>
+      </Tooltip>
     );
   }
 
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <div className={ROW}>{body}</div>
-      </TooltipTrigger>
-      <TooltipContent side="top">{t("sessionUnavailable")}</TooltipContent>
-    </Tooltip>
+    <Collapsible
+      defaultOpen={false}
+      data-resource-monitor-session=""
+      data-session-id={session.session_id}
+    >
+      <div className={cn(ROW, "gap-1")}>
+        <span
+          className="flex min-h-6 min-w-0 flex-1 items-center gap-1"
+          style={{ paddingLeft: indent * 12 }}
+        >
+          <CollapsibleTrigger
+            type="button"
+            data-resource-monitor-session-trigger=""
+            aria-label={t("sessionProcessesAria", { name })}
+            className="group inline-flex size-6 shrink-0 items-center justify-center text-muted-foreground hover:bg-accent"
+          >
+            <ChevronRight className="size-3 transition-transform group-data-[state=open]:rotate-90" />
+          </CollapsibleTrigger>
+          {locatable ? (
+            <button
+              type="button"
+              data-resource-monitor-session-locate=""
+              aria-label={locateAria}
+              className="flex h-8 min-w-0 flex-1 items-center gap-2 text-left hover:bg-accent"
+              onClick={() => onNavigate({ location, routeKind })}
+            >
+              <span className={cn(NAME, "flex items-center gap-1")}>
+                <Locate className="size-3 shrink-0 text-muted-foreground" aria-hidden />
+                <NameLabel name={name} />
+              </span>
+              <MetricCells usage={session.usage} />
+            </button>
+          ) : (
+            <div className="flex h-8 min-w-0 flex-1 items-center gap-2">
+              <span className={cn(NAME, "flex items-center gap-1")}>
+                <span className="size-3 shrink-0" aria-hidden />
+                <NameLabel name={name} />
+              </span>
+              <MetricCells usage={session.usage} />
+            </div>
+          )}
+        </span>
+      </div>
+      <CollapsibleContent>
+        {session.processes.map((process) => (
+          <ProcessRow
+            key={`${session.session_id}:${process.name}`}
+            process={process}
+            indent={indent + 1}
+          />
+        ))}
+      </CollapsibleContent>
+    </Collapsible>
   );
 }
 
@@ -195,18 +353,21 @@ function GroupRow({
   usage,
   indent = 0,
   defaultOpen = false,
+  dataAttr,
   children,
 }: {
   name: string;
   usage: ResourceUsage;
   indent?: number;
   defaultOpen?: boolean;
+  dataAttr?: Record<string, string>;
   children: React.ReactNode;
 }) {
   return (
     <Collapsible defaultOpen={defaultOpen}>
       <CollapsibleTrigger
         className={cn(ROW, "group w-full text-left hover:bg-accent")}
+        {...dataAttr}
       >
         <span
           className={cn(NAME, "flex items-center gap-1")}
@@ -241,6 +402,94 @@ function StaticRow({
   );
 }
 
+function ScopeSections({
+  sessions,
+  otherUsage,
+  otherProcesses,
+  sessionHostId,
+  routeKind,
+  liveTitles,
+  workspacePanes,
+  indent,
+  onNavigate,
+}: {
+  sessions: ResourceSessionMetrics[];
+  otherUsage: ResourceUsage;
+  otherProcesses: ResourceProcessMetrics[];
+  sessionHostId: string;
+  routeKind: ResourceMonitorSessionNavigationTarget["routeKind"];
+  liveTitles: ReadonlyMap<string, string>;
+  workspacePanes: LiveResourceSessionPanes | null;
+  indent: number;
+  onNavigate?: (target: ResourceMonitorSessionNavigationTarget) => void;
+}) {
+  const t = useTranslations("resourceMonitor.popover");
+  const sections = buildResourceMonitorScopeSections(
+    sessions,
+    otherUsage,
+    otherProcesses,
+  );
+  return (
+    <>
+      {sections.map((section) => {
+        if (section.kind === "empty") {
+          return (
+            <div
+              key="empty"
+              className="px-3 py-1 text-[11px] text-muted-foreground"
+              style={{ paddingLeft: 12 + indent * 12 }}
+            >
+              {t("noAttributedResources")}
+            </div>
+          );
+        }
+        if (section.kind === "sessions") {
+          return (
+            <div key="sessions">
+              <SectionLabel indent={indent}>{t("sessions")}</SectionLabel>
+              {section.sessions.map((session) => (
+                <SessionRow
+                  key={session.session_id}
+                  session={session}
+                  hostId={sessionHostId}
+                  routeKind={routeKind}
+                  liveTitles={liveTitles}
+                  workspacePanes={workspacePanes}
+                  indent={indent}
+                  onNavigate={onNavigate}
+                />
+              ))}
+            </div>
+          );
+        }
+        return (
+          <div key="other-processes">
+            <SectionLabel indent={indent}>{t("otherProcesses")}</SectionLabel>
+            {section.processes.map((process) => (
+              <ProcessRow
+                key={`other:${process.name}`}
+                process={process}
+                indent={indent}
+              />
+            ))}
+            {section.residual ? (
+              <ProcessRow
+                process={{
+                  name: "ungrouped-processes",
+                  usage: section.residualUsage,
+                  ports: [],
+                }}
+                indent={indent}
+                residual
+              />
+            ) : null}
+          </div>
+        );
+      })}
+    </>
+  );
+}
+
 function WorkspaceBlock({
   workspace,
   liveTitles,
@@ -252,27 +501,25 @@ function WorkspaceBlock({
   workspacePanes: LiveResourceSessionPanes | null;
   onNavigate?: (target: ResourceMonitorSessionNavigationTarget) => void;
 }) {
-  const t = useTranslations("resourceMonitor.popover");
   return (
-    <GroupRow name={workspace.name} usage={workspace.usage} indent={1}>
-      {workspace.sessions.length === 0 ? (
-        <div className="px-3 py-1 pl-10 text-[11px] text-muted-foreground">
-          {t("noSessions")}
-        </div>
-      ) : (
-        workspace.sessions.map((session) => (
-          <SessionRow
-            key={session.session_id}
-            session={session}
-            hostId={workspace.workspace_id}
-            routeKind="workspace"
-            liveTitles={liveTitles}
-            workspacePanes={workspacePanes}
-            indent={2}
-            onNavigate={onNavigate}
-          />
-        ))
-      )}
+    <GroupRow
+      name={workspace.name}
+      usage={workspace.usage}
+      indent={1}
+      defaultOpen={workspaceDefaultOpen()}
+      dataAttr={{ "data-resource-monitor-workspace": workspace.workspace_id }}
+    >
+      <ScopeSections
+        sessions={workspace.sessions}
+        otherUsage={workspace.other_usage}
+        otherProcesses={workspace.other_processes}
+        sessionHostId={workspace.workspace_id}
+        routeKind="workspace"
+        liveTitles={liveTitles}
+        workspacePanes={workspacePanes}
+        indent={2}
+        onNavigate={onNavigate}
+      />
     </GroupRow>
   );
 }
@@ -290,24 +537,34 @@ function ProjectBlock({
   defaultOpen: boolean;
   onNavigate?: (target: ResourceMonitorSessionNavigationTarget) => void;
 }) {
+  const t = useTranslations("resourceMonitor.popover");
   return (
     <GroupRow
       name={project.name}
       usage={project.usage}
       defaultOpen={defaultOpen}
     >
-      {project.sessions.map((session) => (
-        <SessionRow
-          key={session.session_id}
-          session={session}
-          hostId={project.project_id}
-          routeKind="project"
-          liveTitles={liveTitles}
-          workspacePanes={workspacePanes}
+      {shouldShowProjectResources(project) ? (
+        <GroupRow
+          name={t("projectResources")}
+          usage={project.direct_usage}
           indent={1}
-          onNavigate={onNavigate}
-        />
-      ))}
+          defaultOpen={projectResourcesDefaultOpen(project)}
+          dataAttr={{ "data-resource-monitor-project-resources": "" }}
+        >
+          <ScopeSections
+            sessions={project.sessions}
+            otherUsage={project.other_usage}
+            otherProcesses={project.other_processes}
+            sessionHostId={project.project_id}
+            routeKind="project"
+            liveTitles={liveTitles}
+            workspacePanes={workspacePanes}
+            indent={2}
+            onNavigate={onNavigate}
+          />
+        </GroupRow>
+      ) : null}
       {project.workspaces.map((workspace) => (
         <WorkspaceBlock
           key={workspace.workspace_id}
@@ -321,9 +578,18 @@ function ProjectBlock({
   );
 }
 
-function SectionLabel({ children }: { children: React.ReactNode }) {
+function SectionLabel({
+  children,
+  indent = 0,
+}: {
+  children: React.ReactNode;
+  indent?: number;
+}) {
   return (
-    <div className="px-3 pt-2 pb-0.5 text-[10px] font-medium text-muted-foreground">
+    <div
+      className="px-3 pt-2 pb-0.5 text-[10px] font-medium text-muted-foreground"
+      style={indent > 0 ? { paddingLeft: 12 + indent * 12 } : undefined}
+    >
       {children}
     </div>
   );

@@ -126,15 +126,17 @@ async function openWorkspaceTerminalTab(
   workspaceGuid: string,
 ): Promise<void> {
   const workspaceUrl = `${new URL(page.url()).origin}/workspace?id=${workspaceGuid}`;
-  await gotoContextRoute(
-    page,
-    withSearchParams(workspaceUrl, {
-      tab: "terminal",
-      activeSettingTab: null,
-      settingsModal: null,
-    }),
-    { locale: "en" },
-  );
+  const dest = withSearchParams(workspaceUrl, {
+    tab: "terminal",
+    activeSettingTab: null,
+    settingsModal: null,
+  });
+  try {
+    await gotoContextRoute(page, dest, { locale: "en" });
+  } catch {
+    await page.reload({ waitUntil: "domcontentloaded" }).catch(() => undefined);
+    await gotoContextRoute(page, dest, { locale: "en" });
+  }
   await expect
     .poll(async () => normalizePathname(new URL(page.url()).pathname), { timeout: 45_000 })
     .toBe("/workspace");
@@ -224,22 +226,49 @@ async function waitForLiveTerminalTarget(page: import("@playwright/test").Page):
   };
 }
 
+function quoteAttr(value: string): string {
+  return value.replaceAll("\\", "\\\\").replaceAll('"', '\\"');
+}
+
+function sessionRoot(
+  popover: import("@playwright/test").Locator,
+  sessionId: string,
+): import("@playwright/test").Locator {
+  return popover.locator(
+    `[data-resource-monitor-session][data-session-id="${quoteAttr(sessionId)}"]`,
+  );
+}
+
+async function expandClosedGroupRows(
+  popover: import("@playwright/test").Locator,
+): Promise<void> {
+  const closed = popover.locator(
+    "[data-resource-monitor-table] button[aria-expanded='false']:not([data-resource-monitor-session-trigger])",
+  );
+  if ((await closed.count()) > 0) {
+    await closed.first().click();
+  }
+}
+
 async function revealLocatableSessionButton(
   popover: import("@playwright/test").Locator,
   page: import("@playwright/test").Page,
+  sessionId?: string,
 ): Promise<import("@playwright/test").Locator> {
-  const sessionButton = popover.getByRole("button", { name: /Show this terminal/ });
+  const sessionButton = sessionId
+    ? sessionRoot(popover, sessionId).locator("[data-resource-monitor-session-locate]").or(
+        sessionRoot(popover, sessionId).getByRole("button", { name: /Show this terminal/ }),
+      )
+    : popover.getByRole("button", { name: /Show this terminal/ });
   try {
     await expect
       .poll(
         async () => {
-          if ((await sessionButton.count()) > 0) return "visible";
-          const closed = popover.locator("[data-resource-monitor-table] button[aria-expanded='false']");
-          if ((await closed.count()) > 0) {
-            await closed.first().click();
-            return "expanded";
+          if ((await sessionButton.count()) > 0 && (await sessionButton.first().isVisible())) {
+            return "visible";
           }
-          return "waiting";
+          await expandClosedGroupRows(popover);
+          return "expanded";
         },
         { timeout: 45_000 },
       )
@@ -257,6 +286,74 @@ async function revealLocatableSessionButton(
   }
   await sessionButton.first().scrollIntoViewIfNeeded();
   return sessionButton.first();
+}
+
+async function expandSessionProcesses(
+  popover: import("@playwright/test").Locator,
+  sessionId: string,
+): Promise<void> {
+  const root = sessionRoot(popover, sessionId);
+  await expect(root).toBeVisible({ timeout: 15_000 });
+  const trigger = root.locator("[data-resource-monitor-session-trigger]");
+  await expect(trigger, "session process trigger must exist after listener starts").toHaveCount(1);
+  if ((await trigger.getAttribute("aria-expanded")) === "false") {
+    await trigger.click();
+  }
+  await expect(trigger).toHaveAttribute("aria-expanded", "true");
+}
+
+async function readHorizontalOverflow(page: import("@playwright/test").Page) {
+  return page.evaluate(() => {
+    const root = document.documentElement;
+    const body = document.body;
+    const panel = document.querySelector("[data-resource-monitor-state]");
+    return {
+      document: root.scrollWidth - root.clientWidth,
+      body: body.scrollWidth - body.clientWidth,
+      popover: panel ? panel.scrollWidth - panel.clientWidth : 0,
+    };
+  });
+}
+
+type ResourceMonitorProcessLeaf = { name?: string; ports?: number[] };
+type ResourceMonitorSnapshotProbe = {
+  projects?: Array<{
+    sessions?: Array<{ session_id?: string; processes?: ResourceMonitorProcessLeaf[] }>;
+    other_processes?: ResourceMonitorProcessLeaf[];
+    workspaces?: Array<{
+      workspace_id?: string;
+      sessions?: Array<{ session_id?: string; processes?: ResourceMonitorProcessLeaf[] }>;
+      other_processes?: ResourceMonitorProcessLeaf[];
+    }>;
+  }>;
+};
+
+function snapshotListsPort(snapshot: ResourceMonitorSnapshotProbe, port: number): boolean {
+  const leaves: ResourceMonitorProcessLeaf[] = [];
+  for (const project of snapshot.projects ?? []) {
+    for (const session of project.sessions ?? []) leaves.push(...(session.processes ?? []));
+    leaves.push(...(project.other_processes ?? []));
+    for (const workspace of project.workspaces ?? []) {
+      for (const session of workspace.sessions ?? []) leaves.push(...(session.processes ?? []));
+      leaves.push(...(workspace.other_processes ?? []));
+    }
+  }
+  return leaves.some((leaf) => (leaf.ports ?? []).includes(port));
+}
+
+async function isHttpOpen(port: number): Promise<boolean> {
+  try {
+    const response = await fetch(`http://127.0.0.1:${port}/`, {
+      signal: AbortSignal.timeout(800),
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+function workerHttpPort(workerIndex: number): number {
+  return 49152 + (workerIndex % 24) * 640 + Math.floor(Math.random() * 500);
 }
 
 test.describe("APP-066 resource monitor", () => {
@@ -316,16 +413,7 @@ test.describe("APP-066 resource monitor", () => {
       await expect(popover.getByRole("heading", { name: "Host" })).toBeVisible();
     }
 
-    const overflow = await page.evaluate(() => {
-      const root = document.documentElement;
-      const body = document.body;
-      const panel = document.querySelector("[data-resource-monitor-state]");
-      return {
-        document: root.scrollWidth - root.clientWidth,
-        body: body.scrollWidth - body.clientWidth,
-        popover: panel ? panel.scrollWidth - panel.clientWidth : 0,
-      };
-    });
+    const overflow = await readHorizontalOverflow(page);
     expect(overflow.document, "document must not scroll horizontally").toBeLessThanOrEqual(1);
     expect(overflow.body, "body must not scroll horizontally").toBeLessThanOrEqual(1);
     expect(overflow.popover, "popover body must not overflow horizontally").toBeLessThanOrEqual(1);
@@ -371,8 +459,9 @@ test.describe("APP-066 resource monitor", () => {
         timeout: 30_000,
       });
 
-      const sessionButton = await revealLocatableSessionButton(popover, page);
+      const sessionButton = await revealLocatableSessionButton(popover, page, target.sessionId);
       await expect(sessionButton).toBeVisible();
+      await expect(sessionButton).toHaveAttribute("aria-label", /Show this terminal/);
 
       let committedTmux: string | null = null;
       const destCommitted = page.waitForURL((url) => {
@@ -451,6 +540,155 @@ test.describe("APP-066 resource monitor", () => {
           if (!testError) throw cleanupError;
         }
       }
+    }
+  });
+
+  test("@spec S18 — session process row shows the live listener port", async ({ page }, testInfo) => {
+    test.skip(
+      testInfo.project.name !== "chromium",
+      "S18 proves the live listener and 390px overflow on chromium",
+    );
+    test.setTimeout(150_000);
+
+    await stubComputerClientSettingsApi(page);
+    await connectLocalComputer(page, { locale: "en" });
+
+    const projectDeepLink = await buildProjectWorkspaceDeepLink(page);
+    const projectGuid = new URL(projectDeepLink).searchParams.get("id")?.trim() ?? "";
+    expect(projectGuid, "missing project id in seed deep link").not.toBe("");
+
+    const port = workerHttpPort(testInfo.parallelIndex);
+    let createdGuid = "";
+    let testError: unknown;
+    try {
+      createdGuid = await createIsolatedWorkspace(page, projectGuid);
+      await openWorkspaceTerminalTab(page, createdGuid);
+      const target = await waitForLiveTerminalTarget(page);
+      const targetPane = page.locator(".terminal-pane").filter({
+        has: page.locator(`[data-pane-id="${target.paneId}"]`),
+      });
+      await expect(targetPane).toBeVisible();
+
+      const terminal = targetPane.locator(`.atmos-terminal[data-session-id="${target.sessionId}"]`);
+      await expect(terminal).toBeVisible();
+      const helper = targetPane.locator("textarea.xterm-helper-textarea");
+      if ((await helper.count()) > 0) {
+        await helper.click();
+      } else {
+        await terminal.click();
+      }
+      const command = `node -e "require('http').createServer((q,s)=>s.end('ok')).listen(${port},'127.0.0.1')"`;
+      await page.keyboard.type(command, { delay: 8 });
+      await page.keyboard.press("Enter");
+
+      await expect
+        .poll(() => isHttpOpen(port), { timeout: 45_000 })
+        .toBe(true);
+
+      const scan = await computerWsRequest<{ services?: Array<{ port?: number }> }>(
+        page,
+        "local_services_scan",
+        { scope: "all_atmos_projects", force: true },
+      );
+      expect(scan, "local_services_scan must return a payload").toBeTruthy();
+
+      await expect
+        .poll(
+          async () => {
+            const snapshot = await computerWsRequest<ResourceMonitorSnapshotProbe>(
+              page,
+              "resource_monitor_get",
+              {},
+            );
+            return snapshotListsPort(snapshot, port);
+          },
+          { timeout: 60_000 },
+        )
+        .toBe(true);
+
+      const footerItem = page.getByRole("button", { name: "Resource Monitor" });
+      await expect(footerItem).toBeVisible({ timeout: 45_000 });
+      await footerItem.click();
+      const popover = page.locator("[data-resource-monitor-state]");
+      await expect(popover).toBeVisible({ timeout: 15_000 });
+      await expect(popover.getByRole("heading", { name: "Host" })).toBeVisible({
+        timeout: 30_000,
+      });
+
+      const workspaceTrigger = popover.locator(
+        `[data-resource-monitor-workspace="${quoteAttr(createdGuid)}"]`,
+      );
+      await expect
+        .poll(
+          async () => {
+            if ((await workspaceTrigger.count()) > 0) return "ready";
+            await expandClosedGroupRows(popover);
+            return "expanding";
+          },
+          { timeout: 45_000 },
+        )
+        .toBe("ready");
+      if ((await workspaceTrigger.getAttribute("aria-expanded")) === "false") {
+        await workspaceTrigger.click();
+      }
+
+      const resourcesTrigger = popover.locator("[data-resource-monitor-project-resources]");
+      if ((await resourcesTrigger.count()) > 0) {
+        if ((await resourcesTrigger.getAttribute("aria-expanded")) === "false") {
+          await resourcesTrigger.click();
+        }
+      }
+
+      await revealLocatableSessionButton(popover, page, target.sessionId);
+      await expandSessionProcesses(popover, target.sessionId);
+
+      const processRows = sessionRoot(popover, target.sessionId).locator(
+        "[data-resource-monitor-process]",
+      );
+      await expect(processRows.first(), "session must expose a process row").toBeVisible({
+        timeout: 15_000,
+      });
+      await expect(
+        popover.locator(`[data-resource-monitor-port="${port}"]`).first(),
+        `listening port :${port} must be visible`,
+      ).toBeVisible();
+      await expect(popover.locator(`[data-resource-monitor-port="${port}"]`).first()).toHaveText(
+        `:${port}`,
+      );
+
+      const processText = (await processRows.allInnerTexts()).join(" ").replace(/\s+/g, " ");
+      expect(processText, "process rows must show a basename").toMatch(/[A-Za-z0-9._-]+/);
+      expect(processText, "process rows must not show a PID").not.toMatch(/\bpid\b/i);
+      expect(processText, "process rows must not show a command line").not.toMatch(
+        /\b(cmd|cmdline|command_line)\b/i,
+      );
+      expect(processText, "process rows must not show a host path").not.toMatch(
+        /\/Users\/|\/home\/|[A-Za-z]:\\/i,
+      );
+
+      await page.setViewportSize({ width: 390, height: 844 });
+      await expect(popover).toBeVisible();
+      const overflow = await readHorizontalOverflow(page);
+      expect(overflow.document, "document must not scroll horizontally").toBeLessThanOrEqual(1);
+      expect(overflow.body, "body must not scroll horizontally").toBeLessThanOrEqual(1);
+      expect(overflow.popover, "expanded popover must not overflow horizontally").toBeLessThanOrEqual(
+        1,
+      );
+    } catch (error) {
+      testError = error;
+      throw error;
+    } finally {
+      await page.keyboard.press("Control+C").catch(() => undefined);
+      if (createdGuid) {
+        try {
+          await deleteIsolatedWorkspace(page, createdGuid, projectGuid);
+        } catch (cleanupError) {
+          if (!testError) throw cleanupError;
+        }
+      }
+      await expect
+        .poll(() => isHttpOpen(port), { timeout: 20_000 })
+        .toBe(false);
     }
   });
 });

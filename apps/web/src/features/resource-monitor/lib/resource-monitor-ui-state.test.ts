@@ -33,6 +33,8 @@ function snapshot(
         direct_usage: usage,
         sessions: [],
         workspaces: [],
+        other_usage: { cpu_percent: 0, memory_rss_bytes: 0, process_count: 0 },
+        other_processes: [],
       },
     ],
     unattributed: { cpu_percent: 0, memory_rss_bytes: 0, process_count: 0 },
@@ -224,6 +226,12 @@ describe("ResourceMonitorPopover structure", () => {
     expect(hierarchySrc).toContain('t("server")');
     expect(hierarchySrc).toContain('t("sharedRuntime")');
     expect(hierarchySrc).toContain('t("projects")');
+    expect(hierarchySrc).toContain('t("projectResources")');
+    expect(hierarchySrc).toContain('t("sessions")');
+    expect(hierarchySrc).toContain('t("otherProcesses")');
+    expect(hierarchySrc).toContain('t("noAttributedResources")');
+    expect(hierarchySrc).toContain('t("ungroupedProcesses")');
+    expect(hierarchySrc).toContain('t("includedCaption")');
     expect(hierarchySrc).toContain('t("other")');
     expect(hierarchySrc).toContain('t("unattributed")');
     expect(hierarchySrc).toContain('t("desktopLoading")');

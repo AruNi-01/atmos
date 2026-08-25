@@ -7,9 +7,11 @@ import type {
 } from "@atmos/api-types/ws/dto/resource-monitor";
 import {
   sortDesktopShellGroups,
+  sortResourceMonitorProcesses,
   sortResourceMonitorProjects,
   sortResourceMonitorSessions,
 } from "@/features/resource-monitor/lib/resource-monitor-sort";
+import { EMPTY_RESOURCE_USAGE } from "@/features/resource-monitor/lib/resource-monitor-hierarchy";
 
 const usage = (cpu: number, memory: number): ResourceUsage => ({
   cpu_percent: cpu,
@@ -23,7 +25,13 @@ function session(
   cpu: number,
   memory: number,
 ): ResourceSessionMetrics {
-  return { session_id: id, name, terminal_kind: "tmux", usage: usage(cpu, memory) };
+  return {
+    session_id: id,
+    name,
+    terminal_kind: "tmux",
+    usage: usage(cpu, memory),
+    processes: [],
+  };
 }
 
 function workspace(
@@ -33,7 +41,14 @@ function workspace(
   memory: number,
   sessions: ResourceSessionMetrics[],
 ): ResourceWorkspaceMetrics {
-  return { workspace_id: id, name, usage: usage(cpu, memory), sessions };
+  return {
+    workspace_id: id,
+    name,
+    usage: usage(cpu, memory),
+    sessions,
+    other_usage: EMPTY_RESOURCE_USAGE,
+    other_processes: [],
+  };
 }
 
 function project(
@@ -51,6 +66,8 @@ function project(
     direct_usage: usage(0, 0),
     workspaces,
     sessions,
+    other_usage: EMPTY_RESOURCE_USAGE,
+    other_processes: [],
   };
 }
 
@@ -161,6 +178,68 @@ describe("sortResourceMonitorProjects", () => {
     expect(sortResourceMonitorProjects(twins, "cpu").map((item) => item.project_id)).toEqual([
       "p-a",
       "p-b",
+    ]);
+  });
+});
+
+describe("sortResourceMonitorProcesses", () => {
+  const processes = [
+    { name: "vite", usage: usage(2, 40), ports: [5173] },
+    { name: "eslint", usage: usage(8, 10), ports: [] },
+    { name: "node", usage: usage(8, 30), ports: [3030] },
+  ];
+
+  test("sorts process groups by name ascending without flattening parents", () => {
+    expect(sortResourceMonitorProcesses(processes, "name").map((item) => item.name)).toEqual([
+      "eslint",
+      "node",
+      "vite",
+    ]);
+    const tree = [
+      project(
+        "p",
+        "P",
+        1,
+        1,
+        [
+          {
+            ...workspace("w", "W", 1, 1, [session("s-1", "1", 1, 1)]),
+            other_processes: processes,
+          },
+        ],
+        [
+          {
+            ...session("s-direct", "Direct", 1, 1),
+            processes: processes,
+          },
+        ],
+      ),
+    ];
+    const sorted = sortResourceMonitorProjects(tree, "name");
+    expect(sorted[0]?.sessions.map((item) => item.session_id)).toEqual(["s-direct"]);
+    expect(sorted[0]?.workspaces.map((item) => item.workspace_id)).toEqual(["w"]);
+    expect(sorted[0]?.sessions[0]?.processes.map((item) => item.name)).toEqual([
+      "eslint",
+      "node",
+      "vite",
+    ]);
+    expect(sorted[0]?.workspaces[0]?.other_processes.map((item) => item.name)).toEqual([
+      "eslint",
+      "node",
+      "vite",
+    ]);
+  });
+
+  test("sorts process CPU and memory descending with a stable name tie-break", () => {
+    expect(sortResourceMonitorProcesses(processes, "cpu").map((item) => item.name)).toEqual([
+      "eslint",
+      "node",
+      "vite",
+    ]);
+    expect(sortResourceMonitorProcesses(processes, "memory").map((item) => item.name)).toEqual([
+      "vite",
+      "node",
+      "eslint",
     ]);
   });
 });

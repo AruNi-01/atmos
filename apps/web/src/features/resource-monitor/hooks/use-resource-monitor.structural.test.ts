@@ -74,6 +74,15 @@ describe("Resource Monitor live session titles", () => {
     expect(hierarchySrc).toContain("project.project_id");
     expect(hierarchySrc).toContain('routeKind="workspace"');
     expect(hierarchySrc).toContain("workspace.workspace_id");
+    expect(hierarchySrc).toContain('t("projectResources")');
+    expect(hierarchySrc).toContain("data-resource-monitor-session");
+    expect(hierarchySrc).toContain("data-resource-monitor-session-trigger");
+    expect(hierarchySrc).toContain("data-resource-monitor-session-locate");
+    expect(hierarchySrc).toContain("data-session-id");
+    expect(hierarchySrc).toContain("data-resource-monitor-process");
+    expect(hierarchySrc).toContain('t("sessionProcessesAria"');
+    expect(hierarchySrc).toContain('t("includedCaption")');
+    expect(hierarchySrc).toContain('t("ungroupedProcesses")');
     expect(titlesSrc).toContain("getTerminalDisplayMeta");
     expect(titlesSrc).toContain("isTmuxIndexTitle");
     expect(titlesSrc).toContain("never write this back onto the WS snapshot DTO");

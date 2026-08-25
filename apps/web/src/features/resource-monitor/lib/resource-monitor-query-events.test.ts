@@ -5,6 +5,7 @@ import type { ResourceMonitorSnapshot } from "@atmos/api-types/ws/dto/resource-m
 import {
   applyResourceMonitorUpdated,
   isResourceMonitorSnapshot,
+  isSafeProcessName,
 } from "@/features/resource-monitor/lib/resource-monitor-query-events";
 import { createAtmosWebQueryClient } from "@/providers/app/query-client";
 
@@ -127,8 +128,11 @@ describe("isResourceMonitorSnapshot", () => {
               name: null,
               terminal_kind: "simple",
               usage,
+              processes: [],
             },
           ],
+          other_usage: { cpu_percent: 0, memory_rss_bytes: 0, process_count: 0 },
+          other_processes: [],
           workspaces: [
             {
               workspace_id: "w1",
@@ -140,8 +144,11 @@ describe("isResourceMonitorSnapshot", () => {
                   name: "pty",
                   terminal_kind: "simple",
                   usage,
+                  processes: [],
                 },
               ],
+              other_usage: { cpu_percent: 0, memory_rss_bytes: 0, process_count: 0 },
+              other_processes: [],
             },
           ],
         },
@@ -222,5 +229,236 @@ describe("isResourceMonitorSnapshot", () => {
         collected_at_ms: Number.NaN,
       }),
     ).toBe(false);
+  });
+
+  test("requires processes, other_usage, and other_processes recursively", () => {
+    const valid = nestedSnapshot();
+    const project = valid.projects[0];
+    expect(project).toBeDefined();
+    expect(
+      isResourceMonitorSnapshot({
+        ...valid,
+        projects: [{ ...project, sessions: [{ ...project.sessions[0], processes: undefined }] }],
+      }),
+    ).toBe(false);
+    expect(
+      isResourceMonitorSnapshot({
+        ...valid,
+        projects: [{ ...project, other_usage: undefined, other_processes: [] }],
+      }),
+    ).toBe(false);
+    expect(
+      isResourceMonitorSnapshot({
+        ...valid,
+        projects: [{ ...project, other_usage: usage, other_processes: undefined }],
+      }),
+    ).toBe(false);
+    expect(
+      isResourceMonitorSnapshot({
+        ...valid,
+        projects: [
+          {
+            ...project,
+            workspaces: [{ ...project.workspaces[0], other_processes: undefined }],
+          },
+        ],
+      }),
+    ).toBe(false);
+  });
+
+  test("rejects unknown process fields, path names, and invalid ports", () => {
+    const valid = nestedSnapshot();
+    const project = valid.projects[0];
+    const process = {
+      name: "node",
+      usage,
+      ports: [3030],
+    };
+    expect(
+      isResourceMonitorSnapshot({
+        ...valid,
+        projects: [
+          {
+            ...project,
+            other_usage: usage,
+            other_processes: [process],
+          },
+        ],
+      }),
+    ).toBe(true);
+    expect(
+      isResourceMonitorSnapshot({
+        ...valid,
+        projects: [
+          {
+            ...project,
+            other_usage: usage,
+            other_processes: [{ ...process, name: "   " }],
+          },
+        ],
+      }),
+    ).toBe(false);
+    expect(
+      isResourceMonitorSnapshot({
+        ...valid,
+        projects: [
+          {
+            ...project,
+            other_usage: usage,
+            other_processes: [{ ...process, pid: 12 }],
+          },
+        ],
+      }),
+    ).toBe(false);
+    expect(
+      isResourceMonitorSnapshot({
+        ...valid,
+        projects: [
+          {
+            ...project,
+            other_usage: usage,
+            other_processes: [{ ...process, cwd: "/Users/demo", command: "node server" }],
+          },
+        ],
+      }),
+    ).toBe(false);
+    expect(
+      isResourceMonitorSnapshot({
+        ...valid,
+        projects: [
+          {
+            ...project,
+            other_usage: usage,
+            other_processes: [{ ...process, ports: [65536] }],
+          },
+        ],
+      }),
+    ).toBe(false);
+    expect(
+      isResourceMonitorSnapshot({
+        ...valid,
+        projects: [
+          {
+            ...project,
+            other_usage: usage,
+            other_processes: [{ ...process, ports: [-1] }],
+          },
+        ],
+      }),
+    ).toBe(false);
+    expect(
+      isResourceMonitorSnapshot({
+        ...valid,
+        projects: [
+          {
+            ...project,
+            other_usage: usage,
+            other_processes: [{ ...process, ports: [3030.5] }],
+          },
+        ],
+      }),
+    ).toBe(false);
+    expect(
+      isResourceMonitorSnapshot({
+        ...valid,
+        projects: [
+          {
+            ...project,
+            sessions: [
+              {
+                ...project.sessions[0],
+                processes: [{ ...process, ports: [0, 65535] }],
+              },
+            ],
+          },
+        ],
+      }),
+    ).toBe(true);
+    expect(
+      isResourceMonitorSnapshot({
+        ...valid,
+        projects: [
+          {
+            ...project,
+            other_usage: usage,
+            other_processes: [{ ...process, extra: true }],
+          },
+        ],
+      }),
+    ).toBe(false);
+    expect(
+      isResourceMonitorSnapshot({
+        ...valid,
+        projects: [
+          {
+            ...project,
+            other_usage: usage,
+            other_processes: [{ name: process.name, usage: process.usage }],
+          },
+        ],
+      }),
+    ).toBe(false);
+    expect(
+      isResourceMonitorSnapshot({
+        ...valid,
+        projects: [
+          {
+            ...project,
+            other_usage: usage,
+            other_processes: [{ ...process, name: "/usr/bin/node" }],
+          },
+        ],
+      }),
+    ).toBe(false);
+    expect(
+      isResourceMonitorSnapshot({
+        ...valid,
+        projects: [
+          {
+            ...project,
+            other_usage: usage,
+            other_processes: [{ ...process, name: "C:\\Windows\\node.exe" }],
+          },
+        ],
+      }),
+    ).toBe(false);
+    expect(
+      isResourceMonitorSnapshot({
+        ...valid,
+        projects: [
+          {
+            ...project,
+            other_usage: usage,
+            other_processes: [{ ...process, name: "bin/node" }],
+          },
+        ],
+      }),
+    ).toBe(false);
+    expect(
+      isResourceMonitorSnapshot({
+        ...valid,
+        projects: [
+          {
+            ...project,
+            other_usage: usage,
+            other_processes: [{ ...process, name: ".." }],
+          },
+        ],
+      }),
+    ).toBe(false);
+  });
+
+  test("accepts basename-only process names and rejects path-like names", () => {
+    expect(isSafeProcessName("node")).toBe(true);
+    expect(isSafeProcessName("python3")).toBe(true);
+    expect(isSafeProcessName("node.exe")).toBe(true);
+    expect(isSafeProcessName("   ")).toBe(false);
+    expect(isSafeProcessName("/usr/bin/node")).toBe(false);
+    expect(isSafeProcessName("C:\\Program Files\\node.exe")).toBe(false);
+    expect(isSafeProcessName("C:\\\\Program Files\\\\node.exe")).toBe(false);
+    expect(isSafeProcessName("bin/node")).toBe(false);
+    expect(isSafeProcessName("bin\\\\node")).toBe(false);
+    expect(isSafeProcessName("..")).toBe(false);
+    expect(isSafeProcessName("../node")).toBe(false);
   });
 });
