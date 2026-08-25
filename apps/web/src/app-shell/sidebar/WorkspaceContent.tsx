@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { createPortal } from "react-dom";
 import { useLocale, useTranslations } from "next-intl";
 import type { DraggableAttributes, DraggableSyntheticListeners } from "@workspace/ui";
 import { useAppRouter } from "@/shared/hooks/use-app-router";
@@ -56,6 +57,11 @@ import { GitBranch } from "lucide-react";
 import { SidebarHeldShortcutBadge } from "@/app-shell/HeldShortcutBadge";
 import { useSidebarShortcutDigit } from "@/app-shell/held-shortcut-prefix-store";
 import { SIDEBAR_SHORTCUT_TARGET_ATTR } from "@/app-shell/shortcut-prefix";
+import {
+  useWorkspaceInfoHoverOpen,
+  useWorkspaceInfoHoverPortal,
+  workspaceInfoHoverSession,
+} from "./workspace-info-hover-session";
 
 export interface WorkspaceContentProps {
   workspace: Workspace;
@@ -190,16 +196,12 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
   const [isEditingName, setIsEditingName] = useState(false);
   const [editableName, setEditableName] = useState("");
   const [isSavingName, setIsSavingName] = useState(false);
-  const [isInfoPopoverOpen, setIsInfoPopoverOpen] = useState(false);
   const [isRowHovered, setIsRowHovered] = useState(false);
-  const [isStatusMenuOpen, setIsStatusMenuOpen] = useState(false);
-  const [isPriorityMenuOpen, setIsPriorityMenuOpen] = useState(false);
-  const [isGroupMenuOpen, setIsGroupMenuOpen] = useState(false);
-  const [isLabelPopoverOpen, setIsLabelPopoverOpen] = useState(false);
+  const isInfoPopoverOpen = useWorkspaceInfoHoverOpen(workspace.id);
+  const infoPopoverPortalEl = useWorkspaceInfoHoverPortal(workspace.id);
   const workspaceGroupId = findGroupIdForMember(groups, "workspace", workspace.id);
   const workspaceShortcutKey = `workspace:${workspace.id}`;
   const shortcutDigit = useSidebarShortcutDigit(workspaceShortcutKey);
-  const infoPopoverTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const infoPopoverTriggerRef = React.useRef<HTMLDivElement | null>(null);
   const ignoreNextClickRef = React.useRef(false);
   const prStatusInterested = isRowHovered || isInfoPopoverOpen;
@@ -217,108 +219,28 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
   );
   
 
-  const cancelInfoPopoverClose = React.useCallback(() => {
-    if (infoPopoverTimerRef.current) {
-      clearTimeout(infoPopoverTimerRef.current);
-      infoPopoverTimerRef.current = null;
-    }
-  }, []);
-
-  const openInfoPopover = React.useCallback(() => {
-    if (suppressInfoPopover) {
-      cancelInfoPopoverClose();
-      setIsInfoPopoverOpen(false);
+  const enterInfoPopover = React.useCallback((options?: { immediate?: boolean }) => {
+    if (suppressInfoPopover || isDragging || isPlaceholder) {
+      workspaceInfoHoverSession.suppress(workspace.id);
       return;
     }
-    cancelInfoPopoverClose();
-    infoPopoverTimerRef.current = setTimeout(() => {
-      if (suppressInfoPopover) {
-        infoPopoverTimerRef.current = null;
-        setIsInfoPopoverOpen(false);
-        return;
-      }
-      if (!infoPopoverTriggerRef.current?.matches(":hover")) {
-        infoPopoverTimerRef.current = null;
-        return;
-      }
-      setIsInfoPopoverOpen(true);
-      infoPopoverTimerRef.current = null;
-    }, 1000);
-  }, [cancelInfoPopoverClose, suppressInfoPopover]);
-
-  const openInfoPopoverNow = React.useCallback(() => {
-    if (suppressInfoPopover) {
-      cancelInfoPopoverClose();
-      setIsInfoPopoverOpen(false);
-      return;
-    }
-    cancelInfoPopoverClose();
-    setIsInfoPopoverOpen(true);
-  }, [cancelInfoPopoverClose, suppressInfoPopover]);
+    const trigger = infoPopoverTriggerRef.current;
+    if (!trigger) return;
+    workspaceInfoHoverSession.enter(workspace.id, trigger, options);
+  }, [isDragging, isPlaceholder, suppressInfoPopover, workspace.id]);
 
   React.useEffect(() => {
-    if (suppressInfoPopover) {
-      cancelInfoPopoverClose();
-      setIsInfoPopoverOpen(false);
-      setIsStatusMenuOpen(false);
-      setIsPriorityMenuOpen(false);
-      setIsGroupMenuOpen(false);
-      setIsLabelPopoverOpen(false);
+    if (suppressInfoPopover || isDragging || isPlaceholder) {
+      workspaceInfoHoverSession.suppress(workspace.id);
     }
-  }, [cancelInfoPopoverClose, suppressInfoPopover]);
-
-  const scheduleInfoPopoverClose = React.useCallback(() => {
-    cancelInfoPopoverClose();
-    infoPopoverTimerRef.current = setTimeout(() => {
-      if (
-        isStatusMenuOpen ||
-        isPriorityMenuOpen ||
-        isGroupMenuOpen ||
-        isLabelPopoverOpen ||
-        isEditingName
-      ) {
-        infoPopoverTimerRef.current = null;
-        return;
-      }
-      setIsInfoPopoverOpen(false);
-      infoPopoverTimerRef.current = null;
-    }, 150);
-  }, [
-    cancelInfoPopoverClose,
-    isEditingName,
-    isGroupMenuOpen,
-    isLabelPopoverOpen,
-    isPriorityMenuOpen,
-    isStatusMenuOpen,
-  ]);
+  }, [isDragging, isPlaceholder, suppressInfoPopover, workspace.id]);
 
   React.useEffect(() => {
+    const id = workspace.id;
     return () => {
-      cancelInfoPopoverClose();
+      workspaceInfoHoverSession.detach(id);
     };
-  }, [cancelInfoPopoverClose]);
-
-  React.useEffect(() => {
-    if (!isInfoPopoverOpen) return;
-
-    const handlePointerDown = (event: PointerEvent) => {
-      const target = event.target;
-      if (!(target instanceof Element)) return;
-      if (infoPopoverTriggerRef.current?.contains(target)) return;
-      if (target.closest("[data-workspace-popover-surface='true']")) return;
-
-      cancelInfoPopoverClose();
-      setIsInfoPopoverOpen(false);
-      setIsStatusMenuOpen(false);
-      setIsPriorityMenuOpen(false);
-      setIsGroupMenuOpen(false);
-      setIsLabelPopoverOpen(false);
-      setIsEditingName(false);
-    };
-
-    document.addEventListener("pointerdown", handlePointerDown, true);
-    return () => document.removeEventListener("pointerdown", handlePointerDown, true);
-  }, [cancelInfoPopoverClose, isInfoPopoverOpen]);
+  }, [workspace.id]);
 
   const handleClick = () => {
     if (ignoreNextClickRef.current) {
@@ -326,24 +248,20 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
       return;
     }
     // Click is a navigation intent — never open/expand info chrome mid-switch.
-    cancelInfoPopoverClose();
-    setIsInfoPopoverOpen(false);
-    setIsStatusMenuOpen(false);
-    setIsPriorityMenuOpen(false);
-    setIsGroupMenuOpen(false);
-    setIsLabelPopoverOpen(false);
+    workspaceInfoHoverSession.dismiss();
+    setIsEditingName(false);
     router.push(`/workspace?id=${workspace.id}`);
   };
 
   const handleTouchStart = React.useCallback(() => {
     if (!isInfoPopoverOpen) {
       ignoreNextClickRef.current = true;
-      openInfoPopoverNow();
+      enterInfoPopover({ immediate: true });
       window.setTimeout(() => {
         ignoreNextClickRef.current = false;
       }, 500);
     }
-  }, [isInfoPopoverOpen, openInfoPopoverNow]);
+  }, [enterInfoPopover, isInfoPopoverOpen]);
 
   const handlePinClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -480,7 +398,7 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
       branch: workspace.branch,
       contextId: workspace.id,
     });
-    setIsInfoPopoverOpen(false);
+    workspaceInfoHoverSession.dismiss();
   }, [managedPr, openPullRequestTab, workspace.branch, workspace.id]);
 
   const openManagedChecks = React.useCallback(() => {
@@ -511,7 +429,7 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
         contextId: workspace.id,
       });
     }
-    setIsInfoPopoverOpen(false);
+    workspaceInfoHoverSession.dismiss();
   }, [
     managedPr,
     openActionRunTab,
@@ -531,6 +449,7 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
     if (nextName === rawDisplayName || !onUpdateName) {
       setEditableName(rawDisplayName);
       setIsEditingName(false);
+      workspaceInfoHoverSession.setLock("edit-name", false);
       return;
     }
 
@@ -538,6 +457,7 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
       setIsSavingName(true);
       await onUpdateName(workspace.id, nextName);
       setIsEditingName(false);
+      workspaceInfoHoverSession.setLock("edit-name", false);
     } finally {
       setIsSavingName(false);
     }
@@ -545,8 +465,6 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
 
   return (
     <>
-      <Popover open={isInfoPopoverOpen}>
-        <PopoverTrigger asChild>
           <div
             ref={infoPopoverTriggerRef}
             {...attributes}
@@ -556,11 +474,11 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
             // which previously mounted popover chrome and competed with navigation.
             onMouseEnter={() => {
               setIsRowHovered(true);
-              openInfoPopover();
+              enterInfoPopover();
             }}
             onMouseLeave={() => {
               setIsRowHovered(false);
-              scheduleInfoPopoverClose();
+              workspaceInfoHoverSession.leave(workspace.id);
             }}
             onTouchStart={handleTouchStart}
             onKeyDown={(event) => {
@@ -686,32 +604,21 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
               ) : null}
             </div>
           </div>
-        </PopoverTrigger>
-        {/* Mount heavy popover body only while open — avoids per-row portal work on every switch. */}
-        {!isDragging && isInfoPopoverOpen && (
-          <PopoverContent
-            data-workspace-popover-surface="true"
-            side="right"
-            align="start"
-            sideOffset={10}
-            className="w-72 space-y-3 p-3"
-            onOpenAutoFocus={(event) => event.preventDefault()}
-            onCloseAutoFocus={(event) => event.preventDefault()}
-            onMouseEnter={cancelInfoPopoverClose}
-            onMouseLeave={scheduleInfoPopoverClose}
-          >
+        {!isDragging && !isPlaceholder && infoPopoverPortalEl
+          ? createPortal(
+            <>
             <div className="space-y-2">
               <div className="flex flex-wrap items-center gap-1.5">
                 <WorkspacePrioritySelect
                   value={workspace.priority}
                   onChange={onUpdatePriority ? (value) => onUpdatePriority(workspace.id, value) : undefined}
-                  onOpenChange={setIsPriorityMenuOpen}
+                  onOpenChange={(open) => workspaceInfoHoverSession.setLock("priority", open)}
                   surface
                 />
                 <WorkspaceStatusSelect
                   value={workspace.workflowStatus}
                   onChange={onUpdateWorkflowStatus ? (value) => onUpdateWorkflowStatus(workspace.id, value) : undefined}
-                  onOpenChange={setIsStatusMenuOpen}
+                  onOpenChange={(open) => workspaceInfoHoverSession.setLock("status", open)}
                   surface
                 />
                 {onSetWorkspaceGroup || groups.length > 0 || onCreateGroup ? (
@@ -724,7 +631,7 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
                         : undefined
                     }
                     onCreateGroup={onCreateGroup}
-                    onOpenChange={setIsGroupMenuOpen}
+                    onOpenChange={(open) => workspaceInfoHoverSession.setLock("group", open)}
                     surface
                   />
                 ) : null}
@@ -739,7 +646,7 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
                     onChange={(nextLabels) => onUpdateLabels(workspace.id, nextLabels)}
                     onCreateLabel={onCreateLabel}
                     onUpdateLabel={onUpdateLabel}
-                    onOpenChange={setIsLabelPopoverOpen}
+                    onOpenChange={(open) => workspaceInfoHoverSession.setLock("labels", open)}
                     surface
                   />
                 ) : null}
@@ -785,6 +692,7 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
                           setEditableName(rawDisplayName);
                         }
                         setIsEditingName(open);
+                        workspaceInfoHoverSession.setLock("edit-name", open);
                       }}
                     >
                       <PopoverTrigger asChild>
@@ -801,8 +709,8 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
                         side="right"
                         align="start"
                         className="w-56 p-2"
-                        onMouseEnter={cancelInfoPopoverClose}
-                        onMouseLeave={scheduleInfoPopoverClose}
+                        onMouseEnter={() => workspaceInfoHoverSession.hold()}
+                        onMouseLeave={() => workspaceInfoHoverSession.unhold()}
                       >
                         <div className="flex items-center gap-2">
                           <Input
@@ -814,6 +722,7 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
                               }
                               if (e.key === "Escape") {
                                 setIsEditingName(false);
+                                workspaceInfoHoverSession.setLock("edit-name", false);
                               }
                             }}
                             className="h-7 flex-1 text-xs"
@@ -880,9 +789,10 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
                 </button>
               )}
             </div>
-          </PopoverContent>
-        )}
-      </Popover>
+            </>,
+            infoPopoverPortalEl,
+          )
+          : null}
 
       <Dialog open={showGitWarningDialog} onOpenChange={setShowGitWarningDialog}>
         <DialogContent showCloseButton={false}>
