@@ -13,6 +13,7 @@ export type ResourceProcessMetrics = {
   name: string;
   usage: ResourceUsage;
   ports: number[];
+  leaked: boolean;
 };
 
 /** Mirrors `core_service::ResourceSessionMetrics`. */

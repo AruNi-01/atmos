@@ -23,6 +23,7 @@ import type {
 import { ResourceMonitorHostChart } from "@/features/resource-monitor/components/ResourceMonitorHostChart";
 import { ResourceMonitorUsageBar } from "@/features/resource-monitor/components/ResourceMonitorUsageBar";
 import {
+  RM_COLLAPSIBLE_BODY,
   RM_HOST_MEMORY,
   RM_HOST_METRIC,
   RM_NAME,
@@ -298,8 +299,8 @@ export function ResourceMonitorHostSection({
           </span>
         ) : null}
       </CollapsibleTrigger>
-      <CollapsibleContent className="px-3 pb-2">
-        {hostOpen && host ? (
+      <CollapsibleContent className={RM_COLLAPSIBLE_BODY}>
+        {host ? (
           <div className="space-y-2 pt-1">
             <ServerGauge
               cpuPercent={host.cpu_percent}
@@ -345,7 +346,7 @@ export function ResourceMonitorHostSection({
               </HostDetailPopover>
             </div>
           </div>
-        ) : hostOpen && isLoading ? (
+        ) : isLoading ? (
           <div className="grid grid-cols-2 gap-3 pt-1">
             <Skeleton className="h-10" />
             <Skeleton className="h-10" />

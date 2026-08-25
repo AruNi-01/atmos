@@ -212,9 +212,9 @@ describe("sortResourceMonitorProjects", () => {
 
 describe("sortResourceMonitorProcesses", () => {
   const processes = [
-    { name: "vite", usage: usage(2, 40), ports: [5173] },
-    { name: "eslint", usage: usage(8, 10), ports: [] },
-    { name: "node", usage: usage(8, 30), ports: [3030] },
+    { name: "vite", usage: usage(2, 40), ports: [5173], leaked: false },
+    { name: "eslint", usage: usage(8, 10), ports: [], leaked: false },
+    { name: "node", usage: usage(8, 30), ports: [3030], leaked: false },
   ];
 
   test("sorts process groups by name ascending without flattening parents", () => {

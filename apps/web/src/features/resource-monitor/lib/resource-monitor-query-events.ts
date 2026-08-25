@@ -16,7 +16,7 @@ import type {
 } from "@atmos/api-types/ws/dto/resource-monitor";
 import { RESOURCE_MONITOR_DISK_CAP } from "@/features/resource-monitor/lib/resource-monitor-constants";
 
-const PROCESS_ALLOWED_KEYS = new Set(["name", "usage", "ports"]);
+const PROCESS_ALLOWED_KEYS = new Set(["name", "usage", "ports", "leaked"]);
 const DISK_ALLOWED_KEYS = new Set([
   "name",
   "mount_point",
@@ -164,7 +164,8 @@ function isProcessMetrics(value: unknown): value is ResourceProcessMetrics {
     isSafeProcessName(process.name) &&
     isResourceUsage(process.usage) &&
     Array.isArray(process.ports) &&
-    process.ports.every(isListeningPort)
+    process.ports.every(isListeningPort) &&
+    typeof process.leaked === "boolean"
   );
 }
 

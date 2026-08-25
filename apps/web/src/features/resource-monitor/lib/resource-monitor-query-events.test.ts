@@ -269,6 +269,7 @@ describe("isResourceMonitorSnapshot", () => {
       name: "node",
       usage,
       ports: [3030],
+      leaked: false,
     };
     expect(
       isResourceMonitorSnapshot({
@@ -278,6 +279,20 @@ describe("isResourceMonitorSnapshot", () => {
             ...project,
             other_usage: usage,
             other_processes: [process],
+          },
+        ],
+      }),
+    ).toBe(true);
+    expect(
+      isResourceMonitorSnapshot({
+        ...valid,
+        projects: [
+          {
+            ...project,
+            other_usage: usage,
+            other_processes: [
+              { ...process, name: "Google Chrome for Testing", leaked: true },
+            ],
           },
         ],
       }),

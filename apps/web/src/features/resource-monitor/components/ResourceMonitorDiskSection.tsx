@@ -14,6 +14,7 @@ import { cn } from "@/shared/lib/utils";
 import type { ResourceDiskMetrics } from "@atmos/api-types/ws/dto/resource-monitor";
 import { ResourceMonitorUsageBar } from "@/features/resource-monitor/components/ResourceMonitorUsageBar";
 import {
+  RM_COLLAPSIBLE_BODY,
   RM_HOST_MEMORY,
   RM_HOST_METRIC,
   RM_NAME,
@@ -75,7 +76,7 @@ export function ResourceMonitorDiskSection({
           <span className="text-muted-foreground/80"> · {ofTotal}</span>
         </span>
       </CollapsibleTrigger>
-      <CollapsibleContent className="px-3 pb-2">
+      <CollapsibleContent className={RM_COLLAPSIBLE_BODY}>
         <div
           className="min-w-0 space-y-1 pt-1"
           data-resource-monitor-disk-row=""

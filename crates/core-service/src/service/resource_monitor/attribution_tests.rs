@@ -3,7 +3,7 @@ use std::path::PathBuf;
 
 use core_engine::ResourceProcessSample;
 
-use super::*;
+use super::{leaked_kill_roots, *};
 use crate::service::resource_monitor::types::{
     ResourceAttributionStatus, ResourceHostCpuCore, ResourceHostMemoryMetrics, ResourceHostMetrics,
     ResourceMemoryAccounting, ResourceUsage,
@@ -1233,6 +1233,166 @@ fn desktop_use_helper_and_children_are_atmos_app_owned() {
     assert_eq!(output.desktop_use.memory_rss_bytes, 38);
     assert_eq!(output.server.process_count, 1);
     assert_eq!(output.shared_runtime.process_count, 0);
+}
+
+#[test]
+fn missing_parent_pid_from_sample_is_not_treated_as_dead() {
+    let output = attribute(AttributionInput {
+        processes: vec![proc_named(11, Some(99), Some("/proj"), "node", 0.1, 20)],
+        server_pid: 99,
+        path_contexts: vec![project("proj", "Atmos", "/proj")],
+        terminals: Vec::new(),
+        port_cache: None,
+        desktop_use_root: None,
+    });
+    let node = output.projects[0]
+        .other_processes
+        .iter()
+        .find(|process| process.name == "node")
+        .expect("node");
+    assert!(!node.leaked);
+}
+
+#[test]
+fn mixed_live_and_orphan_same_name_does_not_mark_the_group_leaked() {
+    let output = attribute(AttributionInput {
+        processes: vec![
+            proc_named(5, Some(1), Some("/tmp"), "daemon", 0.0, 1),
+            proc_named(20, Some(5), Some("/proj"), "bash", 0.0, 2),
+            proc_named(11, Some(20), Some("/proj"), "node", 0.1, 20),
+            proc_named(10, Some(1), Some("/proj"), "node", 1.0, 20),
+        ],
+        server_pid: 99,
+        path_contexts: vec![project("proj", "Atmos", "/proj")],
+        terminals: Vec::new(),
+        port_cache: None,
+        desktop_use_root: None,
+    });
+    let node = output.projects[0]
+        .other_processes
+        .iter()
+        .find(|process| process.name == "node")
+        .expect("node");
+    assert_eq!(node.usage.process_count, 2);
+    assert!(!node.leaked);
+}
+
+#[test]
+fn orphaned_other_processes_are_leaked_regardless_of_name() {
+    let output = attribute(AttributionInput {
+        processes: vec![
+            proc_named(
+                10,
+                Some(1),
+                Some("/proj"),
+                "Google Chrome for Testing Helper (GPU)",
+                30.0,
+                100,
+            ),
+            proc_named(11, Some(1), Some("/proj"), "node", 1.0, 20),
+        ],
+        server_pid: 99,
+        path_contexts: vec![project("proj", "Atmos", "/proj")],
+        terminals: Vec::new(),
+        port_cache: None,
+        desktop_use_root: None,
+    });
+    let others = &output.projects[0].other_processes;
+    assert!(others.iter().all(|process| process.leaked));
+}
+
+#[test]
+fn session_owned_process_is_not_leaked() {
+    let output = attribute(AttributionInput {
+        processes: vec![
+            proc_named(10, Some(1), Some("/proj"), "zsh", 0.1, 4),
+            proc_named(
+                11,
+                Some(10),
+                Some("/proj"),
+                "Google Chrome for Testing",
+                20.0,
+                80,
+            ),
+        ],
+        server_pid: 99,
+        path_contexts: vec![project("proj", "Atmos", "/proj")],
+        terminals: vec![simple_claim("sess", "proj", 10)],
+        port_cache: None,
+        desktop_use_root: None,
+    });
+    let session = &output.projects[0].sessions[0];
+    assert!(session.processes.iter().all(|process| !process.leaked));
+    assert!(output.projects[0].other_processes.is_empty());
+}
+
+#[test]
+fn other_process_with_living_parent_outside_bucket_is_not_leaked() {
+    let output = attribute(AttributionInput {
+        processes: vec![
+            proc_named(5, Some(1), Some("/tmp"), "daemon", 0.1, 4),
+            proc_named(21, Some(5), Some("/proj"), "node", 1.0, 20),
+        ],
+        server_pid: 99,
+        path_contexts: vec![project("proj", "Atmos", "/proj")],
+        terminals: Vec::new(),
+        port_cache: None,
+        desktop_use_root: None,
+    });
+    let node = output.projects[0]
+        .other_processes
+        .iter()
+        .find(|process| process.name == "node")
+        .expect("node");
+    assert!(!node.leaked);
+}
+
+#[test]
+fn leaked_kill_roots_only_the_clicked_tree() {
+    let input = AttributionInput {
+        processes: vec![
+            proc_named(
+                10,
+                Some(1),
+                Some("/proj"),
+                "agent-browser-darwin-arm64",
+                1.0,
+                10,
+            ),
+            proc_named(
+                11,
+                Some(10),
+                Some("/proj"),
+                "Google Chrome for Testing",
+                2.0,
+                20,
+            ),
+            proc_named(
+                12,
+                Some(11),
+                Some("/proj"),
+                "Google Chrome for Testing Helper (GPU)",
+                30.0,
+                100,
+            ),
+            proc_named(20, Some(1), Some("/proj"), "node", 1.0, 20),
+        ],
+        server_pid: 99,
+        path_contexts: vec![project("proj", "Atmos", "/proj")],
+        terminals: Vec::new(),
+        port_cache: None,
+        desktop_use_root: None,
+    };
+    let chrome_roots = leaked_kill_roots(
+        input.clone(),
+        "proj",
+        None,
+        "Google Chrome for Testing Helper (GPU)",
+    )
+    .expect("chrome roots");
+    assert_eq!(chrome_roots, vec![10]);
+    let node_roots = leaked_kill_roots(input, "proj", None, "node").expect("node roots");
+    assert_eq!(node_roots, vec![20]);
 }
 
 fn json_object_keys(value: &serde_json::Value) -> HashSet<String> {

@@ -33,6 +33,10 @@ type _ProjectOtherRequired = AssertNever<
   Extract<OptionalKeys<ResourceProjectMetrics>, "other_usage" | "other_processes">
 >;
 type _PortsAreNumbers = AssertTrue<Same<ResourceProcessMetrics["ports"], number[]>>;
+type _LeakedIsBoolean = AssertTrue<Same<ResourceProcessMetrics["leaked"], boolean>>;
+type _KillLeakedOutput = AssertTrue<
+  Same<WsOutput<"resource_monitor_kill_leaked">, { killed_count: number }>
+>;
 type _HostCoresMemoryRequired = AssertNever<
   Extract<OptionalKeys<ResourceHostMetrics>, "cores" | "memory">
 >;
@@ -77,6 +81,7 @@ function processMetrics(): ResourceProcessMetrics {
     name: "node",
     usage,
     ports: [3000, 4173],
+    leaked: false,
   };
 }
 
@@ -130,7 +135,7 @@ function hostMetrics(
 describe("@atmos/api-types resource-monitor dto", () => {
   test("process metrics expose name, usage, and ports number[]", () => {
     const process = processMetrics();
-    expect(Object.keys(process).sort()).toEqual(["name", "ports", "usage"]);
+    expect(Object.keys(process).sort()).toEqual(["leaked", "name", "ports", "usage"]);
     expect(process.name).toBe("node");
     expect(process.usage).toEqual(usage);
     expect(process.ports).toEqual([3000, 4173]);

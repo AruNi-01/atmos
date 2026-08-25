@@ -231,12 +231,22 @@ describe("ResourceMonitorPopover structure", () => {
     expect(popoverSrc).toContain("defaultResourceMonitorSortDirection");
     expect(hierarchySrc).toContain("data-resource-monitor-atmos-trigger");
     expect(hierarchySrc).toContain("sumAtmosUsage");
+    expect(hierarchySrc).toContain("data-resource-monitor-kill-leaked");
+    expect(popoverSrc).toContain("killLeaked");
+    expect(hierarchySrc).toContain(
+      "showDesktop && desktop?.supported ? desktop.total : undefined",
+    );
     expect(hierarchySrc).toContain("atmosDefaultOpen");
     expect(hierarchySrc).toContain("sticky top-0");
     expect(hierarchySrc).not.toContain("border-b border-border");
     expect(hierarchySrc).toContain('t("desktop")');
     expect(hierarchySrc).toContain('t("server")');
     expect(hierarchySrc).toContain('t("desktopUse")');
+    expect(hierarchySrc).toMatch(
+      /name=\{t\("desktopUse"\)\}[\s\S]*?indent=\{1\}/,
+    );
+    expect(hierarchySrc).toContain("RM_NESTED_COPY");
+    expect(hierarchySrc).toContain("<SectionLabel indent={1}>{t(\"desktop\")}</SectionLabel>");
     expect(hierarchySrc).toContain('t("sharedRuntime")');
     expect(hierarchySrc).toContain('t("projects")');
     expect(hierarchySrc).toContain('t("projectResources")');
@@ -263,5 +273,8 @@ describe("ResourceMonitorPopover structure", () => {
     expect(hostSrc).toContain("data-resource-monitor-details");
     expect(hostSrc).toContain("modal={false}");
     expect(hostSrc).toContain("coresInline");
+    expect(hostSrc).toContain("RM_COLLAPSIBLE_BODY");
+    expect(hostSrc).not.toContain("hostOpen && host");
+    expect(hostSrc).not.toContain("hostOpen && isLoading");
   });
 });

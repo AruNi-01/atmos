@@ -58,6 +58,11 @@ describe("resource monitor dither structure", () => {
     expect(chartSrc).toContain("resourceMonitorGrowthColorStops");
     expect(chartSrc).toContain("colorStops=");
     expect(chartSrc).toContain("getTooltipLines=");
+    expect(chartSrc).toContain("formatSliding={formatSliding}");
+    expect(chartSrc).toContain("hostPercentSlidingParts");
+    expect(chartSrc).toContain("memoryPairSlidingParts");
+    expect(chartSrc).toContain("memoryBytesSlidingParts");
+    expect(chartSrc).toContain("slidingPartsFromFormatted");
     expect(chartSrc).toContain("formatMemoryPair");
     expect(chartSrc).toContain('data-resource-monitor-chart=""');
     expect(chartSrc).toContain('role="img"');
@@ -77,11 +82,35 @@ describe("resource monitor dither structure", () => {
     expect(hostSrc).toContain('tone={kind === "used" || kind === "swap" ? "pressure" : "neutral"}');
     expect(hostSrc).toContain("ResourceMonitorUsageBar");
     expect(hostSrc).toContain("ServerGauge");
+    expect(hostSrc).toContain("RM_COLLAPSIBLE_BODY");
     expect(diskSrc).toContain("ResourceMonitorUsageBar");
     expect(diskSrc).toContain('tone="pressure"');
     expect(diskSrc).toContain("diskDefaultOpen");
+    expect(diskSrc).toContain("RM_COLLAPSIBLE_BODY");
     expect(hierarchySrc).not.toContain("ResourceMonitorUsageBar");
     expect(hierarchySrc).not.toContain("DitherFunnel");
+    expect(hierarchySrc).toContain("RM_NESTED_COPY");
+    expect(hierarchySrc).toContain("data-resource-monitor-kill-leaked");
+    expect(hierarchySrc).toContain("data-resource-monitor-kill-leaked-confirm");
+    expect(hierarchySrc).toContain("data-resource-monitor-detail=\"kill-leaked\"");
+    expect(hierarchySrc).toContain("Skull");
+    expect(hierarchySrc).toContain('t("killLeakedConfirm")');
+    expect(hierarchySrc).toContain('t("killLeakedConfirmAction")');
+    expect(hierarchySrc).toContain("process.leaked");
+    expect(hierarchySrc).toContain("onKillLeaked");
+    expect(hierarchySrc).toContain(
+      "showDesktop && desktop?.supported ? desktop.total : undefined",
+    );
+    expect(hierarchySrc).toContain('<SectionLabel indent={1}>{t("desktop")}</SectionLabel>');
+    expect(hierarchySrc).toMatch(
+      /name=\{t\("server"\)\} usage=\{snapshotServer\} indent=\{1\}/,
+    );
+    expect(hierarchySrc).toMatch(
+      /name=\{t\("desktopUse"\)\}[\s\S]*?indent=\{1\}/,
+    );
+    expect(hierarchySrc).toMatch(
+      /name=\{t\("sharedRuntime"\)\} usage=\{snapshotShared\} indent=\{1\}/,
+    );
     expect(diskSrc).toContain('href="/disk-analyzer"');
     expect(footerSrc).not.toContain("DitherFunnel");
   });
