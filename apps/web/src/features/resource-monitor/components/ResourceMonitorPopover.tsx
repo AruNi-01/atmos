@@ -5,7 +5,6 @@ import { useTranslations } from "next-intl";
 import {
   Badge,
   ScrollArea,
-  Skeleton,
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -15,15 +14,9 @@ import { cn } from "@/shared/lib/utils";
 import type { ResourceMonitorSnapshot } from "@atmos/api-types/ws/dto/resource-monitor";
 import type { DesktopShellMetricsSnapshot } from "@/features/resource-monitor/lib/desktop-shell-metrics";
 import { ResourceMonitorHierarchy } from "@/features/resource-monitor/components/ResourceMonitorHierarchy";
-import { ResourceMonitorHostChart } from "@/features/resource-monitor/components/ResourceMonitorHostChart";
-import { ResourceMonitorUsageBar } from "@/features/resource-monitor/components/ResourceMonitorUsageBar";
-import {
-  formatCpuPercent,
-  formatMemoryBytes,
-  isUsageVisible,
-} from "@/features/resource-monitor/lib/resource-monitor-format";
+import { ResourceMonitorHostSection } from "@/features/resource-monitor/components/ResourceMonitorHostSection";
+import { isUsageVisible } from "@/features/resource-monitor/lib/resource-monitor-format";
 import type { ResourceHostHistoryPoint } from "@/features/resource-monitor/lib/resource-monitor-host-history";
-import { hostMemoryPercent } from "@/features/resource-monitor/lib/resource-monitor-host-history";
 import type { ResourceMonitorSessionNavigationTarget } from "@/features/resource-monitor/lib/resource-monitor-session-navigation";
 import { buildResourceMonitorSessionTitleMap } from "@/features/resource-monitor/lib/resource-monitor-session-titles";
 import { type ResourceMonitorSortKey } from "@/features/resource-monitor/lib/resource-monitor-sort";
@@ -92,31 +85,6 @@ function StatusBadges({ banners }: { banners: ResourceMonitorStatusBanner[] }) {
   );
 }
 
-function HostMetricColumn({
-  label,
-  value,
-  caption,
-  barValue,
-  tone,
-}: {
-  label: string;
-  value: string;
-  caption: string;
-  barValue: number;
-  tone: "cpu" | "memory";
-}) {
-  return (
-    <div className="flex min-w-0 flex-col gap-1">
-      <p className="text-[10px] text-muted-foreground">{label}</p>
-      <p className="text-base font-semibold leading-none tabular-nums">{value}</p>
-      <p className="min-h-[14px] truncate text-[10px] tabular-nums text-muted-foreground">
-        {caption}
-      </p>
-      <ResourceMonitorUsageBar value={barValue} tone={tone} />
-    </div>
-  );
-}
-
 export function ResourceMonitorPopover({
   connectionState,
   isLoading,
@@ -165,56 +133,27 @@ export function ResourceMonitorPopover({
   return (
     <TooltipProvider delayDuration={250}>
       <div
-        className="flex max-h-[min(520px,90vh)] min-w-0 flex-col overflow-hidden"
+        className="flex h-[min(max-content,min(520px,90vh))] max-h-[min(520px,90vh)] min-h-0 min-w-0 flex-col overflow-x-hidden overflow-y-hidden"
         data-resource-monitor-state={state}
       >
-        <header className="shrink-0 space-y-2 border-b border-border px-3 py-2">
+        <header className="shrink-0 px-3 py-2">
           <div className="flex items-center justify-between gap-2">
             <h3 className="text-xs font-medium text-foreground">{t("title")}</h3>
             <StatusBadges banners={banners} />
           </div>
         </header>
 
-        <section className="shrink-0 space-y-2 border-b border-border px-3 py-2">
-          <h4 className="text-[10px] font-medium text-muted-foreground">{t("host")}</h4>
-          {showSnapshot && snapshot ? (
-            <>
-              <div
-                className="grid grid-cols-2 gap-3"
-                data-resource-monitor-host=""
-              >
-                <HostMetricColumn
-                  label={t("cpu")}
-                  value={formatCpuPercent(snapshot.host.cpu_percent)}
-                  caption={t("logicalCpus", { count: snapshot.host.logical_cpu_count })}
-                  barValue={snapshot.host.cpu_percent}
-                  tone="cpu"
-                />
-                <HostMetricColumn
-                  label={t("memory")}
-                  value={formatMemoryBytes(snapshot.host.memory_used_bytes)}
-                  caption={t("memoryOfTotal", {
-                    total: formatMemoryBytes(snapshot.host.memory_total_bytes),
-                  })}
-                  barValue={hostMemoryPercent(
-                    snapshot.host.memory_used_bytes,
-                    snapshot.host.memory_total_bytes,
-                  )}
-                  tone="memory"
-                />
-              </div>
-              <ResourceMonitorHostChart history={history} nowMs={nowMs} />
-            </>
-          ) : isLoading ? (
-            <div className="grid grid-cols-2 gap-3" data-resource-monitor-host="">
-              <Skeleton className="h-10" />
-              <Skeleton className="h-10" />
-            </div>
-          ) : null}
-        </section>
+        <div className="shrink-0">
+          <ResourceMonitorHostSection
+            host={showSnapshot ? snapshot?.host : undefined}
+            isLoading={isLoading}
+            history={history}
+            nowMs={nowMs}
+          />
+        </div>
 
         {showSnapshot && snapshot ? (
-          <ScrollArea className="h-[min(250px,38vh)]">
+          <ScrollArea className="min-h-0 flex-1">
             <ResourceMonitorHierarchy
               sortKey={sortKey}
               onSortKeyChange={setSortKey}

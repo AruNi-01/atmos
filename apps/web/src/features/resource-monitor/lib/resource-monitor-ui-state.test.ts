@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { ResourceMonitorSnapshot } from "@atmos/api-types/ws/dto/resource-monitor";
+import { testHostMetrics, testSnapshot } from "@/features/resource-monitor/lib/resource-monitor-test-host";
 import {
   resolveResourceMonitorUiState,
   resourceMonitorStatusBanners,
@@ -15,14 +16,9 @@ const usage = { cpu_percent: 4, memory_rss_bytes: 2048, process_count: 1 };
 function snapshot(
   overrides: Partial<ResourceMonitorSnapshot> = {},
 ): ResourceMonitorSnapshot {
-  return {
+  return testSnapshot({
     collected_at_ms: Date.now(),
-    host: {
-      cpu_percent: 18,
-      memory_used_bytes: 8 * 1024 * 1024 * 1024,
-      memory_total_bytes: 16 * 1024 * 1024 * 1024,
-      logical_cpu_count: 10,
-    },
+    host: testHostMetrics({ logical_cpu_count: 10, cpu_percent: 18 }),
     server: usage,
     shared_runtime: usage,
     projects: [
@@ -37,10 +33,8 @@ function snapshot(
         other_processes: [],
       },
     ],
-    unattributed: { cpu_percent: 0, memory_rss_bytes: 0, process_count: 0 },
-    attribution_status: "complete",
     ...overrides,
-  };
+  });
 }
 
 const popoverSrc = readFileSync(
@@ -200,18 +194,19 @@ describe("ResourceMonitorPopover structure", () => {
       "utf8",
     );
     expect(popoverSrc).toContain('data-resource-monitor-state={state}');
-    expect(popoverSrc).toContain('t("host")');
+    expect(popoverSrc).toContain("ResourceMonitorHostSection");
     expect(popoverSrc).toContain("showDesktop");
     expect(popoverSrc).toContain("desktopLoading");
     expect(popoverSrc).toContain("lastUpdatedAtMs");
     expect(popoverSrc).toContain("ScrollArea");
-    expect(popoverSrc).toContain("data-resource-monitor-host");
     const chartSrc = readFileSync(
       join(import.meta.dir, "../components/ResourceMonitorHostChart.tsx"),
       "utf8",
     );
-    expect(popoverSrc).toContain("h-[min(250px,38vh)]");
-    expect(popoverSrc).toContain("ResourceMonitorHostChart");
+    expect(popoverSrc).toContain("min-h-0 flex-1");
+    expect(popoverSrc).toContain("h-[min(max-content,min(520px,90vh))]");
+    expect(popoverSrc).toContain("ResourceMonitorHostSection");
+    expect(popoverSrc).not.toContain("border-b border-border");
     expect(chartSrc).toContain('dataKey="received_at_ms"');
     expect(chartSrc).toContain('type="number"');
     expect(chartSrc).toContain('domain={["dataMin", "dataMax"]}');
@@ -222,6 +217,11 @@ describe("ResourceMonitorPopover structure", () => {
     expect(popoverSrc).not.toContain('role="toolbar"');
     expect(popoverSrc).not.toMatch(/uppercase|text-transform:\s*uppercase/);
     expect(hierarchySrc).toContain("data-resource-monitor-sort");
+    expect(hierarchySrc).toContain("data-resource-monitor-atmos-trigger");
+    expect(hierarchySrc).toContain("sumAtmosUsage");
+    expect(hierarchySrc).toContain("atmosDefaultOpen");
+    expect(hierarchySrc).toContain("sticky top-0");
+    expect(hierarchySrc).not.toContain("border-b border-border");
     expect(hierarchySrc).toContain('t("desktop")');
     expect(hierarchySrc).toContain('t("server")');
     expect(hierarchySrc).toContain('t("sharedRuntime")');
@@ -237,8 +237,18 @@ describe("ResourceMonitorPopover structure", () => {
     expect(hierarchySrc).toContain('t("desktopLoading")');
     expect(hierarchySrc).toContain("transition-none");
     expect(hierarchySrc).toContain("hover:bg-accent");
+    expect(hierarchySrc).toContain("rounded-md");
     expect(hierarchySrc).not.toContain("hover:bg-info/10");
     expect(hierarchySrc).not.toContain('role="row"');
     expect(hierarchySrc).not.toContain("ResourceMonitorUsageBar");
+    const hostSrc = readFileSync(
+      join(import.meta.dir, "../components/ResourceMonitorHostSection.tsx"),
+      "utf8",
+    );
+    expect(hostSrc).toContain("hostDefaultOpen");
+    expect(hostSrc).toContain("data-resource-monitor-host-trigger");
+    expect(hostSrc).toContain("data-resource-monitor-details");
+    expect(hostSrc).toContain("modal={false}");
+    expect(hostSrc).toContain("coresInline");
   });
 });

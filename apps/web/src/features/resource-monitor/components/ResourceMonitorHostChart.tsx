@@ -2,6 +2,7 @@
 
 import React from "react";
 import { useTranslations } from "next-intl";
+import { useReducedMotion } from "motion/react";
 import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import {
   formatHostHistoryLocalTime,
@@ -10,6 +11,11 @@ import {
 } from "@/features/resource-monitor/lib/resource-monitor-chart-time";
 import { formatPercent } from "@/features/resource-monitor/lib/resource-monitor-format";
 import type { ResourceHostHistoryPoint } from "@/features/resource-monitor/lib/resource-monitor-host-history";
+import {
+  RESOURCE_MONITOR_CHART_DURATION_MS,
+  RESOURCE_MONITOR_CHART_EASING,
+  resourceMonitorChartAnimationActive,
+} from "@/features/resource-monitor/lib/resource-monitor-motion";
 
 const CHART_HEIGHT_CLASS = "h-[52px]";
 
@@ -76,6 +82,8 @@ export function ResourceMonitorHostChart({
   nowMs?: number;
 }) {
   const t = useTranslations("resourceMonitor.popover");
+  const reduceMotion = useReducedMotion();
+  const animateLines = resourceMonitorChartAnimationActive(reduceMotion);
   const chartData = React.useMemo(() => [...history], [history]);
 
   if (chartData.length < 2) {
@@ -120,7 +128,9 @@ export function ResourceMonitorHostChart({
               stroke="var(--color-info)"
               strokeWidth={1.5}
               dot={false}
-              isAnimationActive={false}
+              isAnimationActive={animateLines}
+              animationDuration={RESOURCE_MONITOR_CHART_DURATION_MS}
+              animationEasing={RESOURCE_MONITOR_CHART_EASING}
               name={t("cpu")}
             />
             <Line
@@ -130,7 +140,9 @@ export function ResourceMonitorHostChart({
               strokeOpacity={0.55}
               strokeWidth={1.5}
               dot={false}
-              isAnimationActive={false}
+              isAnimationActive={animateLines}
+              animationDuration={RESOURCE_MONITOR_CHART_DURATION_MS}
+              animationEasing={RESOURCE_MONITOR_CHART_EASING}
               name={t("memory")}
             />
           </LineChart>

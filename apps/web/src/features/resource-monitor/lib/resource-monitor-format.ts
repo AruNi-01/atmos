@@ -31,6 +31,17 @@ export function formatMemoryPair(usedBytes: number, totalBytes: number): string 
   return `${formatMemoryBytes(usedBytes)} / ${formatMemoryBytes(totalBytes)}`;
 }
 
+export function sumAtmosUsage(
+  server: ResourceUsage,
+  shared: ResourceUsage,
+): ResourceUsage {
+  return {
+    cpu_percent: server.cpu_percent + shared.cpu_percent,
+    memory_rss_bytes: server.memory_rss_bytes + shared.memory_rss_bytes,
+    process_count: server.process_count + shared.process_count,
+  };
+}
+
 export function isUsageVisible(usage: ResourceUsage): boolean {
   return (
     usage.process_count > 0 ||

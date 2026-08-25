@@ -81,3 +81,11 @@ export function projectResourcesDefaultOpen(project: ResourceProjectMetrics): bo
 export function workspaceDefaultOpen(): boolean {
   return false;
 }
+
+export function hostDefaultOpen(): boolean {
+  return false;
+}
+
+export function atmosDefaultOpen(): boolean {
+  return false;
+}

@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { ComputerQueryScope } from "@/api/query/query-scope";
 import type { ResourceMonitorSnapshot } from "@atmos/api-types/ws/dto/resource-monitor";
+import { testHostMetrics, testSnapshot } from "@/features/resource-monitor/lib/resource-monitor-test-host";
 import { createResourceMonitorSubscriptionController } from "@/features/resource-monitor/lib/resource-monitor-subscription";
 
 const localScope: ComputerQueryScope = {
@@ -16,20 +17,17 @@ const relayScope: ComputerQueryScope = {
 };
 
 function snapshot(id: number): ResourceMonitorSnapshot {
-  return {
+  return testSnapshot({
     collected_at_ms: id,
-    host: {
+    host: testHostMetrics({
       cpu_percent: 1,
       memory_used_bytes: 2,
       memory_total_bytes: 3,
       logical_cpu_count: 4,
-    },
+    }),
     server: { cpu_percent: 0, memory_rss_bytes: 0, process_count: 0 },
     shared_runtime: { cpu_percent: 0, memory_rss_bytes: 0, process_count: 0 },
-    projects: [],
-    unattributed: { cpu_percent: 0, memory_rss_bytes: 0, process_count: 0 },
-    attribution_status: "complete",
-  };
+  });
 }
 
 function flushMicrotasks() {

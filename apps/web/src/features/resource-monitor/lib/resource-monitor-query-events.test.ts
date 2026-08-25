@@ -4,9 +4,17 @@ import type { ComputerQueryScope } from "@/api/query/query-scope";
 import type { ResourceMonitorSnapshot } from "@atmos/api-types/ws/dto/resource-monitor";
 import {
   applyResourceMonitorUpdated,
+  isResourceHostMetrics,
+  isResourceMemoryAccounting,
   isResourceMonitorSnapshot,
   isSafeProcessName,
 } from "@/features/resource-monitor/lib/resource-monitor-query-events";
+import {
+  TEST_ACCOUNTING,
+  testHostMemory,
+  testHostMetrics,
+  testSnapshot,
+} from "@/features/resource-monitor/lib/resource-monitor-test-host";
 import { createAtmosWebQueryClient } from "@/providers/app/query-client";
 
 const scope: ComputerQueryScope = {
@@ -16,21 +24,7 @@ const scope: ComputerQueryScope = {
 };
 
 function makeSnapshot(collectedAtMs = 1_700_000_000): ResourceMonitorSnapshot {
-  const usage = { cpu_percent: 1.5, memory_rss_bytes: 1024, process_count: 1 };
-  return {
-    collected_at_ms: collectedAtMs,
-    host: {
-      cpu_percent: 12,
-      memory_used_bytes: 8_000_000_000,
-      memory_total_bytes: 16_000_000_000,
-      logical_cpu_count: 8,
-    },
-    server: usage,
-    shared_runtime: usage,
-    projects: [],
-    unattributed: { cpu_percent: 0, memory_rss_bytes: 0, process_count: 0 },
-    attribution_status: "complete",
-  };
+  return testSnapshot({ collected_at_ms: collectedAtMs });
 }
 
 describe("applyResourceMonitorUpdated", () => {
@@ -460,5 +454,123 @@ describe("isResourceMonitorSnapshot", () => {
     expect(isSafeProcessName("bin\\\\node")).toBe(false);
     expect(isSafeProcessName("..")).toBe(false);
     expect(isSafeProcessName("../node")).toBe(false);
+  });
+});
+
+describe("isResourceHostMetrics", () => {
+  test("accepts empty cores or a unique stably ordered 0–100 core list", () => {
+    expect(
+      isResourceHostMetrics(
+        testHostMetrics({ logical_cpu_count: 8, cores: [] }),
+      ),
+    ).toBe(true);
+    expect(isResourceHostMetrics(testHostMetrics({ logical_cpu_count: 2 }))).toBe(
+      true,
+    );
+    expect(isResourceMemoryAccounting("btop_mach")).toBe(true);
+    expect(TEST_ACCOUNTING).toHaveLength(4);
+  });
+
+  test("rejects core length, index, range, and order violations", () => {
+    const host = testHostMetrics({ logical_cpu_count: 2 });
+    expect(
+      isResourceHostMetrics({
+        ...host,
+        cores: [{ index: 0, cpu_percent: 1 }],
+      }),
+    ).toBe(false);
+    expect(
+      isResourceHostMetrics({
+        ...host,
+        cores: [
+          { index: 0, cpu_percent: 1 },
+          { index: 0, cpu_percent: 2 },
+        ],
+      }),
+    ).toBe(false);
+    expect(
+      isResourceHostMetrics({
+        ...host,
+        cores: [
+          { index: 1, cpu_percent: 1 },
+          { index: 0, cpu_percent: 2 },
+        ],
+      }),
+    ).toBe(false);
+    expect(
+      isResourceHostMetrics({
+        ...host,
+        cores: [
+          { index: 0, cpu_percent: -1 },
+          { index: 1, cpu_percent: 2 },
+        ],
+      }),
+    ).toBe(false);
+    expect(
+      isResourceHostMetrics({
+        ...host,
+        cores: [
+          { index: 0, cpu_percent: 101 },
+          { index: 1, cpu_percent: 2 },
+        ],
+      }),
+    ).toBe(false);
+  });
+
+  test("requires headline used/total to match nested memory and platform invariants", () => {
+    const memory = testHostMemory({
+      total_bytes: 100,
+      used_bytes: 40,
+      available_bytes: 60,
+      cached_bytes: null,
+      swap_total_bytes: 50,
+      swap_used_bytes: 10,
+      swap_free_bytes: 40,
+      accounting: "windows_avail_phys",
+    });
+    const host = testHostMetrics({
+      logical_cpu_count: 0,
+      cores: [],
+      memory_used_bytes: 40,
+      memory_total_bytes: 100,
+      memory,
+    });
+    expect(isResourceHostMetrics(host)).toBe(true);
+    expect(
+      isResourceHostMetrics({
+        ...host,
+        memory_used_bytes: 41,
+      }),
+    ).toBe(false);
+    expect(
+      isResourceHostMetrics({
+        ...host,
+        memory: { ...memory, available_bytes: 59 },
+      }),
+    ).toBe(false);
+    expect(
+      isResourceHostMetrics({
+        ...host,
+        memory: { ...memory, swap_free_bytes: 39 },
+      }),
+    ).toBe(false);
+    expect(
+      isResourceHostMetrics({
+        ...host,
+        memory: { ...memory, cached_bytes: -1 },
+      }),
+    ).toBe(false);
+    expect(
+      isResourceHostMetrics({
+        ...host,
+        memory: { ...memory, accounting: "unknown" },
+      }),
+    ).toBe(false);
+    expect(
+      isResourceMonitorSnapshot({
+        ...makeSnapshot(),
+        host: { ...host, memory: { ...memory, cached_bytes: 12 } },
+      }),
+    ).toBe(true);
   });
 });

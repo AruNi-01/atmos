@@ -10,6 +10,7 @@ import {
   isUsageVisible,
   normalizeProcessPorts,
   processBasename,
+  sumAtmosUsage,
 } from "@/features/resource-monitor/lib/resource-monitor-format";
 
 describe("resource-monitor-format", () => {
@@ -69,6 +70,15 @@ describe("resource-monitor-format", () => {
     expect(normalizeProcessPorts([4173, 3000, 3000, 65536, -1, 80])).toEqual([
       80, 3000, 4173,
     ]);
+  });
+
+  test("sumAtmosUsage adds Server and shared only", () => {
+    expect(
+      sumAtmosUsage(
+        { cpu_percent: 2, memory_rss_bytes: 100, process_count: 1 },
+        { cpu_percent: 3.5, memory_rss_bytes: 40, process_count: 2 },
+      ),
+    ).toEqual({ cpu_percent: 5.5, memory_rss_bytes: 140, process_count: 3 });
   });
 
   test("stale detection uses local receive time, not server collected_at", () => {

@@ -12,9 +12,10 @@ import {
 /**
  * APP-066: Resource Monitor
  *
- * S11/S13/S16 — Footer + Host metrics / sort / chart, 390px, close.
+ * S11/S13/S16/S20 — Footer + collapsed Host/Atmos, details, sort, 390px.
  * S14/S15 — real default-space Terminal session click. Extra/custom Center
  * Space hops stay in Bun locator/navigation tests; this file does not fake UI.
+ * S14/S18 expand helpers only open project/workspace/session rows.
  */
 
 async function computerWsRequest<T>(
@@ -243,7 +244,7 @@ async function expandClosedGroupRows(
   popover: import("@playwright/test").Locator,
 ): Promise<void> {
   const closed = popover.locator(
-    "[data-resource-monitor-table] button[aria-expanded='false']:not([data-resource-monitor-session-trigger])",
+    "[data-resource-monitor-table] button[aria-expanded='false']:not([data-resource-monitor-session-trigger]):not([data-resource-monitor-host-trigger]):not([data-resource-monitor-atmos-trigger])",
   );
   if ((await closed.count()) > 0) {
     await closed.first().click();
@@ -357,7 +358,7 @@ function workerHttpPort(workerIndex: number): number {
 }
 
 test.describe("APP-066 resource monitor", () => {
-  test("@spec S11/S13/S16 — Footer opens Host metrics, sort, and chart without overflow", async ({
+  test("@spec S11/S13/S16/S20 — collapsed Host/Atmos summaries, details, sort, and 390px", async ({
     page,
   }) => {
     test.setTimeout(90_000);
@@ -373,21 +374,54 @@ test.describe("APP-066 resource monitor", () => {
     const popover = page.locator("[data-resource-monitor-state]");
     await expect(popover).toBeVisible({ timeout: 15_000 });
     await expect(popover.getByRole("heading", { name: "Resource Monitor" })).toBeVisible();
-    await expect(popover.getByRole("heading", { name: "Host" })).toBeVisible({
-      timeout: 30_000,
-    });
 
-    const host = popover.locator("[data-resource-monitor-host]");
-    await expect(host).toBeVisible();
-    await expect(host.getByText("CPU", { exact: true })).toBeVisible();
-    await expect(host.getByText("Memory", { exact: true })).toBeVisible();
-    await expect(host.getByText(/%/)).toBeVisible();
-    await expect(host.getByText(/^of /)).toBeVisible();
-    await expect(host.getByText(/logical CPU/i)).toBeVisible();
+    const hostTrigger = popover.locator("[data-resource-monitor-host-trigger]");
+    await expect(hostTrigger).toBeVisible({ timeout: 30_000 });
+    await expect(hostTrigger).toHaveAttribute("aria-expanded", "false");
+    await expect(hostTrigger.getByText(/%/)).toBeVisible();
+    await expect(hostTrigger.getByText(/cores?/i)).toBeVisible();
+    await expect(hostTrigger.getByText(/of /)).toBeVisible();
+
+    const atmosTrigger = popover.locator("[data-resource-monitor-atmos-trigger]");
+    await expect(atmosTrigger).toBeVisible();
+    await expect(atmosTrigger).toHaveAttribute("aria-expanded", "false");
+    await expect(popover.getByText("Atmos Server", { exact: true })).toHaveCount(0);
+
+    await hostTrigger.click();
+    await expect(hostTrigger).toHaveAttribute("aria-expanded", "true");
+    const collecting = popover.locator("[data-resource-monitor-collecting]");
+    const chart = popover.locator("[data-resource-monitor-chart]");
+    await expect(collecting.or(chart)).toBeVisible();
+
+    const cpuDetails = popover.locator("[data-resource-monitor-details='cpu']");
+    await expect(cpuDetails).toBeVisible();
+    await cpuDetails.click();
+    const cpuDetail = page.locator("[data-resource-monitor-detail='cpu']");
+    await expect(cpuDetail).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(cpuDetail).toBeHidden();
+    await expect(popover).toBeVisible();
+    await expect(cpuDetails).toBeFocused();
+
+    const memoryDetails = popover.locator("[data-resource-monitor-details='memory']");
+    await memoryDetails.click();
+    const memoryDetail = page.locator("[data-resource-monitor-detail='memory']");
+    await expect(memoryDetail).toBeVisible();
+    await expect(memoryDetail.getByText("Used")).toBeVisible();
+    await hostTrigger.click({ force: true });
+    await expect(hostTrigger).toHaveAttribute("aria-expanded", "false");
+    await expect(memoryDetail).toBeHidden();
+
+    await atmosTrigger.click();
+    await expect(atmosTrigger).toHaveAttribute("aria-expanded", "true");
+    await expect(popover.getByText("Atmos Server", { exact: true })).toBeVisible();
+    await expect(popover.getByText("Shared runtime", { exact: true })).toBeVisible();
+    await expect(popover.getByRole("heading", { name: "Desktop" })).toHaveCount(0);
 
     const sort = popover.locator("[data-resource-monitor-sort]");
     await expect(sort).toBeVisible();
     await expect(popover.getByRole("toolbar")).toHaveCount(0);
+    await expect(sort).toHaveCSS("position", "sticky");
     await expect(sort.getByRole("button", { name: /Name/ })).toBeVisible();
     await expect(sort.getByRole("button", { name: /CPU/ })).toBeVisible();
     await expect(sort.getByRole("button", { name: /Memory/ })).toBeVisible();
@@ -398,19 +432,11 @@ test.describe("APP-066 resource monitor", () => {
     );
     await expect(sort.getByRole("button", { name: /Name, ascending/i })).toBeVisible();
 
-    const collecting = popover.locator("[data-resource-monitor-collecting]");
-    const chart = popover.locator("[data-resource-monitor-chart]");
-    await expect(collecting.or(chart)).toBeVisible();
-
-    await expect(popover.getByText("Atmos Server", { exact: true })).toBeVisible();
-    await expect(popover.getByText("Shared runtime", { exact: true })).toBeVisible();
-    await expect(popover.getByRole("heading", { name: "Desktop" })).toHaveCount(0);
-
     const current = page.viewportSize();
     if (!current || current.width > 390) {
       await page.setViewportSize({ width: 390, height: 844 });
       await expect(popover).toBeVisible();
-      await expect(popover.getByRole("heading", { name: "Host" })).toBeVisible();
+      await expect(hostTrigger).toBeVisible();
     }
 
     const overflow = await readHorizontalOverflow(page);
@@ -455,7 +481,7 @@ test.describe("APP-066 resource monitor", () => {
 
       const popover = page.locator("[data-resource-monitor-state]");
       await expect(popover).toBeVisible({ timeout: 15_000 });
-      await expect(popover.getByRole("heading", { name: "Host" })).toBeVisible({
+      await expect(popover.locator("[data-resource-monitor-host-trigger]")).toBeVisible({
         timeout: 30_000,
       });
 
@@ -611,7 +637,7 @@ test.describe("APP-066 resource monitor", () => {
       await footerItem.click();
       const popover = page.locator("[data-resource-monitor-state]");
       await expect(popover).toBeVisible({ timeout: 15_000 });
-      await expect(popover.getByRole("heading", { name: "Host" })).toBeVisible({
+      await expect(popover.locator("[data-resource-monitor-host-trigger]")).toBeVisible({
         timeout: 30_000,
       });
 

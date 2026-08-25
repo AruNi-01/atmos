@@ -1,6 +1,10 @@
 import { cn } from "@/shared/lib/utils";
 import { RESOURCE_MONITOR_HIGH_USAGE_PERCENT } from "@/features/resource-monitor/lib/resource-monitor-constants";
 import { clampPercent } from "@/features/resource-monitor/lib/resource-monitor-host-history";
+import {
+  RESOURCE_MONITOR_BAR_DURATION_MS,
+  RESOURCE_MONITOR_BAR_EASING,
+} from "@/features/resource-monitor/lib/resource-monitor-motion";
 
 export function ResourceMonitorUsageBar({
   value,
@@ -20,10 +24,14 @@ export function ResourceMonitorUsageBar({
     >
       <div
         className={cn(
-          "h-full",
+          "h-full w-full origin-left transition-transform motion-reduce:transition-none",
           high ? "bg-warning" : tone === "cpu" ? "bg-info" : "bg-foreground/60",
         )}
-        style={{ width: `${percent}%` }}
+        style={{
+          transform: `scaleX(${percent / 100})`,
+          transitionDuration: `${RESOURCE_MONITOR_BAR_DURATION_MS}ms`,
+          transitionTimingFunction: RESOURCE_MONITOR_BAR_EASING,
+        }}
       />
     </div>
   );

@@ -10,6 +10,8 @@ import {
   buildResourceMonitorScopeSections,
   EMPTY_RESOURCE_USAGE,
   projectChildKinds,
+  atmosDefaultOpen,
+  hostDefaultOpen,
   projectResourcesDefaultOpen,
   shouldShowOtherProcessesResidual,
   shouldShowProjectResources,
@@ -90,6 +92,8 @@ describe("projectChildKinds", () => {
     expect(shouldShowProjectResources(tree)).toBe(true);
     expect(projectResourcesDefaultOpen(tree)).toBe(true);
     expect(workspaceDefaultOpen()).toBe(false);
+    expect(hostDefaultOpen()).toBe(false);
+    expect(atmosDefaultOpen()).toBe(false);
   });
 
   test("hides Project resources when direct usage, sessions, and processes are empty", () => {

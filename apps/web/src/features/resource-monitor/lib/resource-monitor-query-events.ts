@@ -5,6 +5,10 @@ import { queryKeys } from "@/api/query/query-keys";
 import type { ComputerQueryScope } from "@/api/query/query-scope";
 import type {
   ResourceAttributionStatus,
+  ResourceHostCpuCore,
+  ResourceHostMemoryMetrics,
+  ResourceHostMetrics,
+  ResourceMemoryAccounting,
   ResourceMonitorSnapshot,
   ResourceProcessMetrics,
   ResourceUsage,
@@ -14,6 +18,103 @@ const PROCESS_ALLOWED_KEYS = new Set(["name", "usage", "ports"]);
 
 function isFiniteNonNegative(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value) && value >= 0;
+}
+
+function isFiniteIntegerNonNegative(value: unknown): value is number {
+  return isFiniteNonNegative(value) && Number.isInteger(value);
+}
+
+const MEMORY_ACCOUNTING: ReadonlySet<ResourceMemoryAccounting> = new Set([
+  "btop_mach",
+  "linux_memavailable",
+  "windows_avail_phys",
+  "fallback_total_minus_available",
+]);
+
+export function isResourceMemoryAccounting(
+  value: unknown,
+): value is ResourceMemoryAccounting {
+  return (
+    typeof value === "string" &&
+    MEMORY_ACCOUNTING.has(value as ResourceMemoryAccounting)
+  );
+}
+
+function isCpuPercent(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 100;
+}
+
+function isHostCores(
+  value: unknown,
+  logicalCpuCount: number,
+): value is ResourceHostCpuCore[] {
+  if (!Array.isArray(value)) return false;
+  if (value.length === 0) return true;
+  if (value.length !== logicalCpuCount) return false;
+  let previousIndex = Number.NEGATIVE_INFINITY;
+  const seen = new Set<number>();
+  for (const entry of value) {
+    if (!entry || typeof entry !== "object") return false;
+    const core = entry as Record<string, unknown>;
+    if (!Number.isInteger(core.index) || (core.index as number) < 0) return false;
+    const index = core.index as number;
+    if (seen.has(index) || index <= previousIndex) return false;
+    seen.add(index);
+    previousIndex = index;
+    if (!isCpuPercent(core.cpu_percent)) return false;
+  }
+  return true;
+}
+
+function isHostMemory(
+  value: unknown,
+  headlineUsed: number,
+  headlineTotal: number,
+): value is ResourceHostMemoryMetrics {
+  if (!value || typeof value !== "object") return false;
+  const memory = value as Record<string, unknown>;
+  if (
+    !isFiniteNonNegative(memory.total_bytes) ||
+    !isFiniteNonNegative(memory.used_bytes) ||
+    !isFiniteNonNegative(memory.available_bytes) ||
+    !isFiniteNonNegative(memory.free_bytes) ||
+    !isFiniteNonNegative(memory.swap_total_bytes) ||
+    !isFiniteNonNegative(memory.swap_used_bytes) ||
+    !isFiniteNonNegative(memory.swap_free_bytes) ||
+    !isResourceMemoryAccounting(memory.accounting)
+  ) {
+    return false;
+  }
+  if (memory.cached_bytes !== null && !isFiniteNonNegative(memory.cached_bytes)) {
+    return false;
+  }
+  if (memory.used_bytes !== headlineUsed || memory.total_bytes !== headlineTotal) {
+    return false;
+  }
+  if (memory.used_bytes + memory.available_bytes !== memory.total_bytes) {
+    return false;
+  }
+  if (memory.swap_used_bytes + memory.swap_free_bytes !== memory.swap_total_bytes) {
+    return false;
+  }
+  return true;
+}
+
+export function isResourceHostMetrics(value: unknown): value is ResourceHostMetrics {
+  if (!value || typeof value !== "object") return false;
+  const host = value as Record<string, unknown>;
+  if (
+    !isFiniteNonNegative(host.cpu_percent) ||
+    !isFiniteNonNegative(host.memory_used_bytes) ||
+    !isFiniteNonNegative(host.memory_total_bytes) ||
+    !isFiniteIntegerNonNegative(host.logical_cpu_count)
+  ) {
+    return false;
+  }
+  return (
+    isHostCores(host.cores, host.logical_cpu_count) &&
+    isHostMemory(host.memory, host.memory_used_bytes, host.memory_total_bytes)
+  );
 }
 
 function isListeningPort(value: unknown): value is number {
@@ -103,16 +204,6 @@ function isProjectMetrics(value: unknown): boolean {
   );
 }
 
-function isHostMetrics(value: unknown): boolean {
-  if (!value || typeof value !== "object") return false;
-  const host = value as Record<string, unknown>;
-  return (
-    isFiniteNonNegative(host.cpu_percent) &&
-    isFiniteNonNegative(host.memory_used_bytes) &&
-    isFiniteNonNegative(host.memory_total_bytes) &&
-    isFiniteNonNegative(host.logical_cpu_count)
-  );
-}
 
 function isAttributionStatus(value: unknown): value is ResourceAttributionStatus {
   return value === "complete" || value === "partial" || value === "unsupported";
@@ -125,7 +216,7 @@ export function isResourceMonitorSnapshot(
   const value = data as Record<string, unknown>;
   return (
     isFiniteNonNegative(value.collected_at_ms) &&
-    isHostMetrics(value.host) &&
+    isResourceHostMetrics(value.host) &&
     isResourceUsage(value.server) &&
     isResourceUsage(value.shared_runtime) &&
     isResourceUsage(value.unattributed) &&

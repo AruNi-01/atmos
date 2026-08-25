@@ -18,7 +18,12 @@ import {
   formatCpuPercent,
   formatMemoryBytes,
 } from "@/features/resource-monitor/lib/resource-monitor-format";
-import { preventResourceMonitorCloseAutoFocus } from "@/features/resource-monitor/lib/resource-monitor-close-autofocus";
+import {
+  isResourceMonitorDetailOpen,
+  preventResourceMonitorCloseAutoFocus,
+  preventResourceMonitorParentDismiss,
+  preventResourceMonitorParentEscape,
+} from "@/features/resource-monitor/lib/resource-monitor-close-autofocus";
 import {
   runResourceMonitorSessionNavigation,
   type ResourceMonitorSessionNavigationTarget,
@@ -93,6 +98,18 @@ export function ResourceMonitorFooterItem() {
           className="w-[min(400px,calc(100vw-1.5rem))] max-w-[min(400px,100vw)] overflow-hidden p-0"
           onCloseAutoFocus={(event) => {
             preventResourceMonitorCloseAutoFocus(navigatingRef, event);
+          }}
+          onPointerDownOutside={(event) => {
+            preventResourceMonitorParentDismiss(event);
+          }}
+          onFocusOutside={(event) => {
+            preventResourceMonitorParentDismiss(event);
+          }}
+          onInteractOutside={(event) => {
+            preventResourceMonitorParentDismiss(event);
+          }}
+          onEscapeKeyDown={(event) => {
+            preventResourceMonitorParentEscape(event, isResourceMonitorDetailOpen());
           }}
         >
           <ResourceMonitorPopover
