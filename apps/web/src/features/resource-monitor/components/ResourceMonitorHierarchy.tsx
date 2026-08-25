@@ -428,7 +428,6 @@ function StaticRow({
   usage: ResourceUsage;
   indent?: number;
 }) {
-  const t = useTranslations("resourceMonitor.popover");
   return (
     <div className={cn(RM_ROW, RM_ROW_PAD)}>
       <span className={RM_NAME} style={{ paddingLeft: indent * 12 }}>
@@ -538,6 +537,7 @@ function WorkspaceBlock({
   workspacePanes: LiveResourceSessionPanes | null;
   onNavigate?: (target: ResourceMonitorSessionNavigationTarget) => void;
 }) {
+  const t = useTranslations("resourceMonitor.popover");
   return (
     <GroupRow
       name={workspace.name}
