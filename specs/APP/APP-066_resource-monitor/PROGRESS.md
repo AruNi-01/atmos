@@ -55,6 +55,7 @@
 - Refined the monitor with an Amicro-derived dynamic ServerGauge, vertical threshold gradients, concrete hover amounts, agent-aware session icons, percentage-only Footer memory, one responsive scroll surface, and a non-dismissing Disk Analysis link.
 - Matched the upstream Amicro ServerGauge semicircle geometry, added spring-driven live updates, changed the Footer to a Monitor-to-usage hover/focus transition, made unhealthy WebSocket status automatic, moved Monitor before Local Services, and corrected the 16px Project metric-column offset.
 - Added a localized Workspace badge to Workspace-owned rows and removed the Footer Monitor's expanded idle footprint; its width now springs from the compact label to live usage only on hover/focus.
+- Session rows no longer show a locate crosshair; expand chevron and title share one padded hover surface, and the chevron only highlights its icon.
 
 ## Decisions Since TECH
 

@@ -81,7 +81,10 @@ describe("Resource Monitor live session titles", () => {
     expect(hierarchySrc).toContain("data-resource-monitor-session");
     expect(hierarchySrc).toContain("data-resource-monitor-session-trigger");
     expect(hierarchySrc).toContain("data-resource-monitor-session-locate");
+    expect(hierarchySrc).toContain("data-resource-monitor-session-row");
     expect(hierarchySrc).toContain("data-session-id");
+    expect(hierarchySrc).not.toContain("<Locate");
+    expect(hierarchySrc).toContain("hover:text-foreground");
     expect(hierarchySrc).toContain("data-resource-monitor-process");
     expect(hierarchySrc).toContain('t("sessionProcessesAria"');
     expect(hierarchySrc).toContain('t("includedCaption")');

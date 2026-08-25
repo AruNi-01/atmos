@@ -112,4 +112,18 @@ describe("resource monitor dither structure", () => {
     expect(hierarchySrc).toContain("data-resource-monitor-workspace-badge");
     expect(hierarchySrc).toContain('t("workspaceBadge")');
   });
+
+  test("session rows share one padded hover surface and hide the locate icon", () => {
+    expect(hierarchySrc).toContain("data-resource-monitor-session-row");
+    expect(hierarchySrc).toContain("RM_ROW_INTERACTIVE");
+    expect(hierarchySrc).not.toContain("<Locate");
+    expect(hierarchySrc).toContain(
+      "group inline-flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:text-foreground",
+    );
+    expect(hierarchySrc).not.toContain(
+      "group inline-flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent",
+    );
+    expect(hierarchySrc).not.toContain("rounded-md px-0 text-left hover:bg-accent");
+    expect(hierarchySrc).toContain("event.stopPropagation()");
+  });
 });

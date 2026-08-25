@@ -7,7 +7,6 @@ import {
   ArrowUp,
   ArrowUpDown,
   ChevronRight,
-  Locate,
 } from "lucide-react";
 import {
   Badge,
@@ -232,6 +231,25 @@ function ProcessRow({
   );
 }
 
+function SessionName({
+  name,
+  toolbarAgent,
+}: {
+  name: string;
+  toolbarAgent: ResourceMonitorSessionDisplay["toolbarAgent"];
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <ResourceMonitorSessionName name={name} toolbarAgent={toolbarAgent} />
+      </TooltipTrigger>
+      <TooltipContent side="top" className="max-w-xs">
+        {name}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
 function SessionRow({
   session,
   hostId,
@@ -272,37 +290,19 @@ function SessionRow({
     cpu,
     memory,
   });
-
-  const nameCluster = (leading: React.ReactNode) => (
+  const nameCell = (
     <span
-      className={cn(RM_NAME, "flex items-center gap-1")}
+      className={cn(RM_NAME, "flex items-center")}
       style={{ paddingLeft: indent * 12 }}
     >
-      {leading}
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <ResourceMonitorSessionName
-            name={name}
-            toolbarAgent={display.toolbarAgent}
-          />
-        </TooltipTrigger>
-        <TooltipContent side="top" className="max-w-xs">
-          {name}
-        </TooltipContent>
-      </Tooltip>
+      <SessionName name={name} toolbarAgent={display.toolbarAgent} />
     </span>
   );
 
   if (!hasProcesses) {
     const body = (
       <>
-        {nameCluster(
-          locatable ? (
-            <Locate className="size-3 shrink-0 text-muted-foreground" aria-hidden />
-          ) : (
-            <span className="size-3 shrink-0" aria-hidden />
-          ),
-        )}
+        {nameCell}
         <MetricCells usage={session.usage} />
       </>
     );
@@ -342,16 +342,23 @@ function SessionRow({
       data-resource-monitor-session=""
       data-session-id={session.session_id}
     >
-      <div className={cn(RM_ROW, RM_ROW_PAD, "gap-1")}>
+      <div
+        className={cn(RM_ROW, RM_ROW_INTERACTIVE, locatable && "cursor-pointer")}
+        data-resource-monitor-session-row=""
+        onClick={
+          locatable ? () => onNavigate({ location, routeKind }) : undefined
+        }
+      >
         <span
-          className="flex min-h-6 min-w-0 flex-1 items-center gap-1"
+          className={cn(RM_NAME, "flex items-center gap-1")}
           style={{ paddingLeft: indent * 12 }}
         >
           <CollapsibleTrigger
             type="button"
             data-resource-monitor-session-trigger=""
             aria-label={t("sessionProcessesAria", { name })}
-            className="group inline-flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent"
+            className="group inline-flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:text-foreground"
+            onClick={(event) => event.stopPropagation()}
           >
             <ChevronRight className="size-3 transition-transform group-data-[state=open]:rotate-90" />
           </CollapsibleTrigger>
@@ -360,31 +367,19 @@ function SessionRow({
               type="button"
               data-resource-monitor-session-locate=""
               aria-label={locateAria}
-              className="flex h-8 min-w-0 flex-1 items-center gap-2 rounded-md px-0 text-left hover:bg-accent"
-              onClick={() => onNavigate({ location, routeKind })}
+              className="min-w-0 flex-1 truncate text-left"
+              onClick={(event) => {
+                event.stopPropagation();
+                onNavigate({ location, routeKind });
+              }}
             >
-              <span className={cn(RM_NAME, "flex items-center gap-1")}>
-                <Locate className="size-3 shrink-0 text-muted-foreground" aria-hidden />
-                <ResourceMonitorSessionName
-                  name={name}
-                  toolbarAgent={display.toolbarAgent}
-                />
-              </span>
-              <MetricCells usage={session.usage} />
+              <SessionName name={name} toolbarAgent={display.toolbarAgent} />
             </button>
           ) : (
-            <div className="flex h-8 min-w-0 flex-1 items-center gap-2">
-              <span className={cn(RM_NAME, "flex items-center gap-1")}>
-                <span className="size-3 shrink-0" aria-hidden />
-                <ResourceMonitorSessionName
-                  name={name}
-                  toolbarAgent={display.toolbarAgent}
-                />
-              </span>
-              <MetricCells usage={session.usage} />
-            </div>
+            <SessionName name={name} toolbarAgent={display.toolbarAgent} />
           )}
         </span>
+        <MetricCells usage={session.usage} />
       </div>
       <CollapsibleContent>
         {session.processes.map((process) => (

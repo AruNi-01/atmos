@@ -584,6 +584,9 @@ test.describe("APP-066 resource monitor", () => {
       const sessionButton = await revealLocatableSessionButton(popover, page, target.sessionId);
       await expect(sessionButton).toBeVisible();
       await expect(sessionButton).toHaveAttribute("aria-label", /Show this terminal/);
+      await expect(
+        sessionRoot(popover, target.sessionId).locator("svg.lucide-locate"),
+      ).toHaveCount(0);
 
       let committedTmux: string | null = null;
       const destCommitted = page.waitForURL((url) => {
