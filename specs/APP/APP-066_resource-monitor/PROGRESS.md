@@ -67,7 +67,7 @@ No implementation deltas.
 | E2E | targeted Playwright | passed | 4 tests: Host/sort/chart + real Terminal locate on Chromium/mobile |
 | M10 process detail | Rust/api-types/Web/Playwright | passed | 30 RM + 22 LS + 17 DTO + 118 Web tests; real listener port E2E |
 | M11 Host details | Rust/api-types/Web/Playwright | passed | 15 engine + 34 RM + 17 API + 18 DTO + 126 Web tests; S20 E2E |
-| M12 Dither + Disk | UI/Rust/api-types/Web/Playwright | passed | 28 UI + 26 engine + 36 RM + 17 API + 19 DTO + 142 Web tests |
+| M12 Dither + Disk | UI/Rust/api-types/Web/Playwright | passed | 45 UI + 27 engine + 36 RM + 17 API + 19 DTO + 136 Web tests |
 | Full repository | `just test` / `just typecheck` | unrelated failures | APP-066 surfaces pass; see `TEST.md` Coverage Status |
 | Agent Browser/manual | exploratory | partial | Connect gate blocked Agent Browser; host-specific checks remain |
 

@@ -444,14 +444,15 @@ Reuse shared Dither canvases for Host history and every Resource Monitor meter, 
 
 ### Acceptance
 
-- [x] Host history uses fixed-domain shared Dither lines.
+- [x] Host history uses compact fixed-domain shared Dither Area Growth.
 - [x] Host/core/memory/disk meters use shared Dither morph and reduced-motion behavior.
+- [x] Every meter retains a shallow full-length Dither track behind its pressure fill.
 - [x] Pressure resolves to success below 60%, warning at 60–79%, and destructive at 80%+; informational available/cached/free remain neutral.
-- [x] Disk defaults collapsed and lists filtered, stable local volumes with used/available/total.
-- [x] Disk sampling is storage-only, cached for 2.5 seconds, capped, and never invokes Disk Analyzer or I/O tracing.
+- [x] Disk defaults collapsed and displays exactly one primary system disk; APFS Data, mounted Atmos/Dray images, removable volumes, and duplicate mounts are absent.
+- [x] Disk sampling is storage-only, cached for 2.5 seconds, and never invokes Disk Analyzer or I/O tracing.
 - [x] Device path, filesystem, UUID, serial, and I/O data are absent from the wire.
 
 ### Fix log
 
-- 2026-08-25 — Added fixed-domain Dither line support, feature-local pressure tones, Dither usage meters/history, cached cross-platform disk sampling, and the Disk UI module.
-- Verified by 28 shared UI tests, 26 engine tests, 36 service tests, 17 API tests, 19 api-types tests, 142 Web tests, strict touched Clippy, and APP-066 Playwright.
+- 2026-08-25 — Added full-track Dither Funnel support, compact fixed-domain Dither Growth, feature-local pressure tones, cached primary-system-disk sampling, and the Disk UI module.
+- Verified by 45 shared UI tests, 27 engine tests, 36 service tests, 17 API tests, 19 api-types tests, 136 Web tests, strict touched Clippy, and APP-066 Playwright.
