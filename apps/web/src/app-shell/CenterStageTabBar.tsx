@@ -71,6 +71,7 @@ import {
   shouldRetainPlusMenuForOutsidePointer,
   shouldSchedulePlusMenuClose,
   useCenterStagePlusMenuOverlayGuard,
+  type PlusMenuOutsideDismissEvent,
 } from "@/app-shell/center-stage-plus-menu-pointer";
 import { useTranslations } from "next-intl";
 import type { OpenFile } from "@/features/editor/store/use-editor-store";
@@ -1405,13 +1406,7 @@ function CenterStageNewTabMenu({
   );
 
   const retainPlusMenuIfPointerOverIt = React.useCallback(
-    (event: {
-      target: EventTarget | null;
-      preventDefault: () => void;
-      clientX?: number;
-      clientY?: number;
-      detail?: { originalEvent?: { clientX?: number; clientY?: number } };
-    }) => {
+    (event: PlusMenuOutsideDismissEvent) => {
       if (shouldRetainPlusMenuForOutsidePointer(event)) {
         event.preventDefault();
       }

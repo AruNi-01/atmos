@@ -91,6 +91,18 @@ describe("center stage plus-menu pointer", () => {
       }),
     ).toBe(true);
     expect(
+      shouldRetainPlusMenuForOutsidePointer({
+        target: canvas,
+        detail: { originalEvent: { clientX: 120, clientY: 90 } },
+      }),
+    ).toBe(true);
+    expect(
+      shouldRetainPlusMenuForOutsidePointer({
+        target: canvas,
+        detail: { originalEvent: { type: "focusin" } },
+      }),
+    ).toBe(false);
+    expect(
       shouldSchedulePlusMenuClose({
         clientX: 120,
         clientY: 90,
