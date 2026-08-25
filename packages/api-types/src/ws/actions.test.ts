@@ -45,4 +45,14 @@ describe("@atmos/api-types actions", () => {
   test("includes server-only terminal_workspace_candidates", () => {
     expect(WS_ACTIONS).toContain("terminal_workspace_candidates");
   });
+
+  test("resource_monitor actions stay the existing trio", () => {
+    expect(
+      WS_ACTIONS.filter((action) => action.startsWith("resource_monitor_")),
+    ).toEqual([
+      "resource_monitor_get",
+      "resource_monitor_subscribe",
+      "resource_monitor_unsubscribe",
+    ]);
+  });
 });

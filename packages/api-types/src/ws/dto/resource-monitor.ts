@@ -8,12 +8,20 @@ export type ResourceUsage = {
 /** Mirrors `core_service::ResourceAttributionStatus`. */
 export type ResourceAttributionStatus = "complete" | "partial" | "unsupported";
 
+/** Mirrors `core_service::ResourceProcessMetrics`. */
+export type ResourceProcessMetrics = {
+  name: string;
+  usage: ResourceUsage;
+  ports: number[];
+};
+
 /** Mirrors `core_service::ResourceSessionMetrics`. */
 export type ResourceSessionMetrics = {
   session_id: string;
   name: string | null;
   terminal_kind: string;
   usage: ResourceUsage;
+  processes: ResourceProcessMetrics[];
 };
 
 /** Mirrors `core_service::ResourceWorkspaceMetrics`. */
@@ -22,6 +30,8 @@ export type ResourceWorkspaceMetrics = {
   name: string;
   usage: ResourceUsage;
   sessions: ResourceSessionMetrics[];
+  other_usage: ResourceUsage;
+  other_processes: ResourceProcessMetrics[];
 };
 
 /** Mirrors `core_service::ResourceProjectMetrics`. */
@@ -32,6 +42,8 @@ export type ResourceProjectMetrics = {
   direct_usage: ResourceUsage;
   workspaces: ResourceWorkspaceMetrics[];
   sessions: ResourceSessionMetrics[];
+  other_usage: ResourceUsage;
+  other_processes: ResourceProcessMetrics[];
 };
 
 /** Mirrors `core_service::ResourceHostMetrics`. */
