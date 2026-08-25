@@ -229,7 +229,8 @@ mod tests {
     #[test]
     fn snapshot_serializes_core_service_snake_case_fields() {
         use core_service::{
-            ResourceAttributionStatus, ResourceHostMetrics, ResourceMonitorSnapshot, ResourceUsage,
+            ResourceAttributionStatus, ResourceHostCpuCore, ResourceHostMemoryMetrics,
+            ResourceHostMetrics, ResourceMemoryAccounting, ResourceMonitorSnapshot, ResourceUsage,
         };
 
         let snapshot = ResourceMonitorSnapshot {
@@ -238,7 +239,22 @@ mod tests {
                 cpu_percent: 1.5,
                 memory_used_bytes: 2,
                 memory_total_bytes: 3,
-                logical_cpu_count: 4,
+                logical_cpu_count: 1,
+                cores: vec![ResourceHostCpuCore {
+                    index: 0,
+                    cpu_percent: 1.5,
+                }],
+                memory: ResourceHostMemoryMetrics {
+                    total_bytes: 3,
+                    used_bytes: 2,
+                    available_bytes: 1,
+                    free_bytes: 1,
+                    cached_bytes: None,
+                    swap_total_bytes: 4,
+                    swap_used_bytes: 1,
+                    swap_free_bytes: 3,
+                    accounting: ResourceMemoryAccounting::LinuxMemavailable,
+                },
             },
             server: ResourceUsage::zero(),
             shared_runtime: ResourceUsage::zero(),
@@ -259,8 +275,48 @@ mod tests {
         ] {
             assert!(object.contains_key(key), "missing {key}");
         }
+        let host = value["host"].as_object().expect("host object");
+        for key in [
+            "cpu_percent",
+            "memory_used_bytes",
+            "memory_total_bytes",
+            "logical_cpu_count",
+            "cores",
+            "memory",
+        ] {
+            assert!(host.contains_key(key), "missing host.{key}");
+        }
+        let memory = value["host"]["memory"].as_object().expect("memory object");
+        for key in [
+            "total_bytes",
+            "used_bytes",
+            "available_bytes",
+            "free_bytes",
+            "cached_bytes",
+            "swap_total_bytes",
+            "swap_used_bytes",
+            "swap_free_bytes",
+            "accounting",
+        ] {
+            assert!(memory.contains_key(key), "missing host.memory.{key}");
+        }
         assert_eq!(value["attribution_status"], "partial");
         assert_eq!(value["host"]["memory_used_bytes"], 2);
+        assert_eq!(value["host"]["memory_total_bytes"], 3);
+        assert_eq!(value["host"]["memory"]["used_bytes"], 2);
+        assert_eq!(value["host"]["memory"]["total_bytes"], 3);
+        assert_eq!(
+            value["host"]["memory_used_bytes"],
+            value["host"]["memory"]["used_bytes"]
+        );
+        assert_eq!(
+            value["host"]["memory_total_bytes"],
+            value["host"]["memory"]["total_bytes"]
+        );
+        assert!(value["host"]["memory"]["cached_bytes"].is_null());
+        assert_eq!(value["host"]["memory"]["accounting"], "linux_memavailable");
+        assert_eq!(value["host"]["cores"][0]["index"], 0);
+        assert_eq!(value["host"]["cores"][0]["cpu_percent"], 1.5);
         assert_eq!(value["server"]["memory_rss_bytes"], 0);
         assert_eq!(value["server"]["process_count"], 0);
         assert_eq!(value["server"]["cpu_percent"], 0.0);

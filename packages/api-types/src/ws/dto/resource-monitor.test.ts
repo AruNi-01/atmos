@@ -3,6 +3,10 @@ import type { WsEmpty } from "./common";
 import type { WsOutput } from "../contract";
 import type { WsEventPayload } from "../event-contract";
 import type {
+  ResourceHostCpuCore,
+  ResourceHostMemoryMetrics,
+  ResourceHostMetrics,
+  ResourceMemoryAccounting,
   ResourceMonitorSnapshot,
   ResourceProcessMetrics,
   ResourceProjectMetrics,
@@ -28,6 +32,23 @@ type _ProjectOtherRequired = AssertNever<
   Extract<OptionalKeys<ResourceProjectMetrics>, "other_usage" | "other_processes">
 >;
 type _PortsAreNumbers = AssertTrue<Same<ResourceProcessMetrics["ports"], number[]>>;
+type _HostCoresMemoryRequired = AssertNever<
+  Extract<OptionalKeys<ResourceHostMetrics>, "cores" | "memory">
+>;
+type _CoreFieldsRequired = AssertNever<OptionalKeys<ResourceHostCpuCore>>;
+type _MemoryFieldsRequired = AssertNever<OptionalKeys<ResourceHostMemoryMetrics>>;
+type _CachedNullable = AssertTrue<
+  Same<ResourceHostMemoryMetrics["cached_bytes"], number | null>
+>;
+type _AccountingUnion = AssertTrue<
+  Same<
+    ResourceMemoryAccounting,
+    | "btop_mach"
+    | "linux_memavailable"
+    | "windows_avail_phys"
+    | "fallback_total_minus_available"
+  >
+>;
 type _GetSnapshot = AssertTrue<
   Same<WsOutput<"resource_monitor_get">, ResourceMonitorSnapshot>
 >;
@@ -48,6 +69,38 @@ function processMetrics(): ResourceProcessMetrics {
     name: "node",
     usage,
     ports: [3000, 4173],
+  };
+}
+
+function hostMemory(
+  overrides: Partial<ResourceHostMemoryMetrics> = {},
+): ResourceHostMemoryMetrics {
+  return {
+    total_bytes: 3,
+    used_bytes: 2,
+    available_bytes: 1,
+    free_bytes: 1,
+    cached_bytes: null,
+    swap_total_bytes: 4,
+    swap_used_bytes: 1,
+    swap_free_bytes: 3,
+    accounting: "linux_memavailable",
+    ...overrides,
+  };
+}
+
+function hostMetrics(
+  overrides: Partial<ResourceHostMetrics> = {},
+): ResourceHostMetrics {
+  const memory = overrides.memory ?? hostMemory();
+  return {
+    cpu_percent: 1.5,
+    memory_used_bytes: memory.used_bytes,
+    memory_total_bytes: memory.total_bytes,
+    logical_cpu_count: 1,
+    cores: [{ index: 0, cpu_percent: 1.5 }],
+    memory,
+    ...overrides,
   };
 }
 
@@ -89,12 +142,24 @@ describe("@atmos/api-types resource-monitor dto", () => {
     };
     const snapshot: ResourceMonitorSnapshot = {
       collected_at_ms: 1,
-      host: {
+      host: hostMetrics({
         cpu_percent: 0,
         memory_used_bytes: 0,
         memory_total_bytes: 0,
         logical_cpu_count: 1,
-      },
+        cores: [{ index: 0, cpu_percent: 0 }],
+        memory: hostMemory({
+          total_bytes: 0,
+          used_bytes: 0,
+          available_bytes: 0,
+          free_bytes: 0,
+          cached_bytes: null,
+          swap_total_bytes: 0,
+          swap_used_bytes: 0,
+          swap_free_bytes: 0,
+          accounting: "fallback_total_minus_available",
+        }),
+      }),
       server: usage,
       shared_runtime: usage,
       projects: [project],
@@ -108,5 +173,69 @@ describe("@atmos/api-types resource-monitor dto", () => {
     expect(project.other_usage).toEqual(usage);
     expect(project.other_processes[0]?.name).toBe("node");
     expect(snapshot.projects[0]?.sessions[0]?.processes).toHaveLength(1);
+    expect(snapshot.host.cores).toHaveLength(1);
+    expect(snapshot.host.memory.cached_bytes).toBeNull();
+    expect(snapshot.host.memory.accounting).toBe(
+      "fallback_total_minus_available",
+    );
+  });
+
+  test("host cores, nullable cached, and accounting stay snake_case", () => {
+    const cores: ResourceHostCpuCore[] = [
+      { index: 0, cpu_percent: 10 },
+      { index: 1, cpu_percent: 15 },
+    ];
+    const accountingValues: ResourceMemoryAccounting[] = [
+      "btop_mach",
+      "linux_memavailable",
+      "windows_avail_phys",
+      "fallback_total_minus_available",
+    ];
+    const host = hostMetrics({
+      logical_cpu_count: 2,
+      cores,
+      memory: hostMemory({
+        total_bytes: 100,
+        used_bytes: 40,
+        available_bytes: 60,
+        free_bytes: 20,
+        cached_bytes: null,
+        swap_total_bytes: 50,
+        swap_used_bytes: 10,
+        swap_free_bytes: 40,
+        accounting: "btop_mach",
+      }),
+    });
+
+    expect(Object.keys(host).sort()).toEqual([
+      "cores",
+      "cpu_percent",
+      "logical_cpu_count",
+      "memory",
+      "memory_total_bytes",
+      "memory_used_bytes",
+    ]);
+    expect(Object.keys(host.cores[0] ?? {}).sort()).toEqual([
+      "cpu_percent",
+      "index",
+    ]);
+    expect(Object.keys(host.memory).sort()).toEqual([
+      "accounting",
+      "available_bytes",
+      "cached_bytes",
+      "free_bytes",
+      "swap_free_bytes",
+      "swap_total_bytes",
+      "swap_used_bytes",
+      "total_bytes",
+      "used_bytes",
+    ]);
+    expect(host.cores).toEqual(cores);
+    expect(host.cores).toHaveLength(host.logical_cpu_count);
+    expect(host.memory_used_bytes).toBe(host.memory.used_bytes);
+    expect(host.memory_total_bytes).toBe(host.memory.total_bytes);
+    expect(host.memory.cached_bytes).toBeNull();
+    expect(host.memory.accounting).toBe("btop_mach");
+    expect(accountingValues).toContain(host.memory.accounting);
   });
 });

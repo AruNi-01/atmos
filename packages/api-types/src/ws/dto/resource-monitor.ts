@@ -46,12 +46,40 @@ export type ResourceProjectMetrics = {
   other_processes: ResourceProcessMetrics[];
 };
 
+/** Mirrors `core_service::ResourceHostCpuCore`. */
+export type ResourceHostCpuCore = {
+  index: number;
+  cpu_percent: number;
+};
+
+/** Mirrors `core_service::ResourceMemoryAccounting`. */
+export type ResourceMemoryAccounting =
+  | "btop_mach"
+  | "linux_memavailable"
+  | "windows_avail_phys"
+  | "fallback_total_minus_available";
+
+/** Mirrors `core_service::ResourceHostMemoryMetrics`. */
+export type ResourceHostMemoryMetrics = {
+  total_bytes: number;
+  used_bytes: number;
+  available_bytes: number;
+  free_bytes: number;
+  cached_bytes: number | null;
+  swap_total_bytes: number;
+  swap_used_bytes: number;
+  swap_free_bytes: number;
+  accounting: ResourceMemoryAccounting;
+};
+
 /** Mirrors `core_service::ResourceHostMetrics`. */
 export type ResourceHostMetrics = {
   cpu_percent: number;
   memory_used_bytes: number;
   memory_total_bytes: number;
   logical_cpu_count: number;
+  cores: ResourceHostCpuCore[];
+  memory: ResourceHostMemoryMetrics;
 };
 
 /** Mirrors `core_service::ResourceMonitorSnapshot`. */
