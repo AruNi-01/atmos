@@ -226,11 +226,19 @@ struct CacheEntry {
     response: LocalServicesScanResponse,
 }
 
+#[derive(Debug, Clone)]
+struct LatestAllEntry {
+    recorded_at: Instant,
+    response: LocalServicesScanResponse,
+}
+
 pub struct LocalServicesService {
     engine: LocalServicesEngine,
     project_service: Arc<ProjectService>,
     workspace_service: Arc<WorkspaceService>,
     cache: RwLock<Option<CacheEntry>>,
+    /// Latest non-diagnostic AllAtmosProjects snapshot. Independent of `cache`.
+    latest_all: RwLock<Option<LatestAllEntry>>,
     update_tx: broadcast::Sender<LocalServicesScanResponse>,
 }
 
@@ -245,6 +253,7 @@ impl LocalServicesService {
             project_service,
             workspace_service,
             cache: RwLock::new(None),
+            latest_all: RwLock::new(None),
             update_tx,
         }
     }
@@ -255,12 +264,7 @@ impl LocalServicesService {
         if let Err(error) = jobs
             .set_interval_job(
                 JobId::new(LOCAL_SERVICES_AUTO_REFRESH_JOB_ID),
-                IntervalSpec {
-                    every: AUTO_REFRESH_INTERVAL,
-                    skip_if_running: true,
-                    // Initial load is owned by the client's first `local_services_scan` request.
-                    fire_immediately: false,
-                },
+                auto_refresh_interval_spec(),
                 RetryPolicy::none(),
                 move || {
                     let service = Arc::clone(&service);
@@ -285,6 +289,44 @@ impl LocalServicesService {
 
     pub fn subscribe_updates(&self) -> broadcast::Receiver<LocalServicesScanResponse> {
         self.update_tx.subscribe()
+    }
+
+    /// Peek the latest non-diagnostic AllAtmosProjects snapshot.
+    ///
+    /// Resource Monitor must only call this. It never scans, probes, or refreshes.
+    /// Expired entries (older than `2 * AUTO_REFRESH_INTERVAL`) return `None`.
+    pub async fn peek_latest_all_projects(&self) -> Option<LocalServicesScanResponse> {
+        let guard = self.latest_all.read().await;
+        let entry = guard.as_ref()?;
+        latest_all_is_fresh(entry.recorded_at, Instant::now(), latest_all_ttl())
+            .then(|| entry.response.clone())
+    }
+
+    #[cfg(test)]
+    pub(crate) async fn store_scan_result_for_test(
+        &self,
+        scope: LocalServicesScope,
+        response: LocalServicesScanResponse,
+    ) {
+        let key = format!("{scope:?}");
+        let request = LocalServicesScanRequest {
+            scope,
+            include_diagnostics: false,
+            ..Default::default()
+        };
+        self.store_scan_result(&request, key, response).await;
+    }
+
+    #[cfg(test)]
+    pub(crate) async fn store_latest_all_at_for_test(
+        &self,
+        response: LocalServicesScanResponse,
+        recorded_at: Instant,
+    ) {
+        *self.latest_all.write().await = Some(LatestAllEntry {
+            recorded_at,
+            response,
+        });
     }
 
     /// Force-scan all Atmos projects and push the snapshot to WS subscribers.
@@ -325,12 +367,28 @@ impl LocalServicesService {
         }
 
         let response = self.scan_uncached(&request).await?;
+        self.store_scan_result(&request, key, response.clone())
+            .await;
+        Ok(response)
+    }
+
+    async fn store_scan_result(
+        &self,
+        request: &LocalServicesScanRequest,
+        key: String,
+        response: LocalServicesScanResponse,
+    ) {
         *self.cache.write().await = Some(CacheEntry {
             key,
             created_at: Instant::now(),
             response: response.clone(),
         });
-        Ok(response)
+        if records_latest_all(request, &response) {
+            *self.latest_all.write().await = Some(LatestAllEntry {
+                recorded_at: Instant::now(),
+                response,
+            });
+        }
     }
 
     pub async fn stop(
@@ -792,6 +850,31 @@ impl LocalServicesService {
     }
 }
 
+pub(crate) fn auto_refresh_interval_spec() -> IntervalSpec {
+    IntervalSpec {
+        every: AUTO_REFRESH_INTERVAL,
+        skip_if_running: true,
+        fire_immediately: true,
+    }
+}
+
+fn latest_all_ttl() -> Duration {
+    AUTO_REFRESH_INTERVAL * 2
+}
+
+fn latest_all_is_fresh(recorded_at: Instant, now: Instant, ttl: Duration) -> bool {
+    now.saturating_duration_since(recorded_at) <= ttl
+}
+
+fn records_latest_all(
+    request: &LocalServicesScanRequest,
+    response: &LocalServicesScanResponse,
+) -> bool {
+    request.scope == LocalServicesScope::AllAtmosProjects
+        && !request.include_diagnostics
+        && response.unavailable.is_none()
+}
+
 fn empty_response(unavailable: Option<LocalServicesUnavailableDto>) -> LocalServicesScanResponse {
     LocalServicesScanResponse {
         scanned_at: Utc::now().to_rfc3339(),
@@ -829,4 +912,298 @@ fn unique_strings(items: Vec<String>) -> Vec<String> {
         }
     }
     out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::service::project::ProjectService;
+    use crate::service::workspace::WorkspaceService;
+    use infra::Migrator;
+    use sea_orm::Database;
+    use sea_orm_migration::MigratorTrait;
+
+    fn dummy_response(port: u16) -> LocalServicesScanResponse {
+        LocalServicesScanResponse {
+            scanned_at: "2026-08-25T00:00:00Z".into(),
+            cache_ttl_ms: 5_000,
+            services: vec![LocalServiceDto {
+                id: format!("svc-{port}"),
+                owner: LocalServiceOwnerDto {
+                    project_id: Some("proj".into()),
+                    project_name: Some("Demo".into()),
+                    workspace_id: Some("ws".into()),
+                    workspace_name: Some("Feature".into()),
+                    root_path: "/proj/ws".into(),
+                },
+                kind: LocalServiceKind::WorkspaceDevServer,
+                status: LocalServiceStatus::Online,
+                confidence: 1.0,
+                reasons: Vec::new(),
+                url: None,
+                display_url: format!("http://127.0.0.1:{port}"),
+                port,
+                pid: Some(4242),
+                process_name: Some("node".into()),
+                command_preview: None,
+                cwd_display: None,
+                launch_dir_display: None,
+                title: None,
+                can_open: true,
+                can_stop: true,
+                protected: false,
+                last_seen_at: "2026-08-25T00:00:00Z".into(),
+            }],
+            unavailable: None,
+        }
+    }
+
+    fn empty_available_response() -> LocalServicesScanResponse {
+        LocalServicesScanResponse {
+            scanned_at: "2026-08-25T00:00:00Z".into(),
+            cache_ttl_ms: 5_000,
+            services: Vec::new(),
+            unavailable: None,
+        }
+    }
+
+    fn unavailable_response() -> LocalServicesScanResponse {
+        LocalServicesScanResponse {
+            scanned_at: "2026-08-25T00:00:01Z".into(),
+            cache_ttl_ms: 5_000,
+            services: Vec::new(),
+            unavailable: Some(LocalServicesUnavailableDto {
+                reason: "scanner_unavailable".into(),
+                message: "lsof failed".into(),
+            }),
+        }
+    }
+
+    async fn service() -> LocalServicesService {
+        let db = Database::connect("sqlite::memory:")
+            .await
+            .expect("sqlite memory");
+        Migrator::up(&db, None).await.expect("migrate");
+        let db = Arc::new(db);
+        LocalServicesService::new(
+            Arc::new(ProjectService::new(Arc::clone(&db))),
+            Arc::new(WorkspaceService::new(db)),
+        )
+    }
+
+    #[test]
+    fn auto_refresh_fires_immediately() {
+        let spec = auto_refresh_interval_spec();
+        assert!(spec.fire_immediately);
+        assert_eq!(spec.every, Duration::from_secs(30));
+        assert!(spec.skip_if_running);
+    }
+
+    #[test]
+    fn latest_all_records_only_non_diagnostic_available_all_projects() {
+        let available = dummy_response(3000);
+        let empty_available = empty_available_response();
+        let unavailable = unavailable_response();
+        assert!(records_latest_all(
+            &LocalServicesScanRequest {
+                scope: LocalServicesScope::AllAtmosProjects,
+                include_diagnostics: false,
+                ..Default::default()
+            },
+            &available
+        ));
+        assert!(
+            records_latest_all(
+                &LocalServicesScanRequest {
+                    scope: LocalServicesScope::AllAtmosProjects,
+                    include_diagnostics: false,
+                    ..Default::default()
+                },
+                &empty_available
+            ),
+            "empty roots with unavailable=None may refresh latest-all"
+        );
+        assert!(!records_latest_all(
+            &LocalServicesScanRequest {
+                scope: LocalServicesScope::AllAtmosProjects,
+                include_diagnostics: false,
+                ..Default::default()
+            },
+            &unavailable
+        ));
+        assert!(!records_latest_all(
+            &LocalServicesScanRequest {
+                scope: LocalServicesScope::AllAtmosProjects,
+                include_diagnostics: true,
+                ..Default::default()
+            },
+            &available
+        ));
+        assert!(!records_latest_all(
+            &LocalServicesScanRequest {
+                scope: LocalServicesScope::CurrentContext,
+                include_diagnostics: false,
+                project_id: Some("proj".into()),
+                ..Default::default()
+            },
+            &available
+        ));
+    }
+
+    #[test]
+    fn latest_all_freshness_expires_after_two_refresh_intervals() {
+        let recorded = Instant::now();
+        let ttl = latest_all_ttl();
+        assert_eq!(ttl, Duration::from_secs(60));
+        assert!(latest_all_is_fresh(recorded, recorded, ttl));
+        assert!(latest_all_is_fresh(recorded, recorded + ttl, ttl));
+        assert!(!latest_all_is_fresh(
+            recorded,
+            recorded + ttl + Duration::from_nanos(1),
+            ttl
+        ));
+    }
+
+    #[tokio::test]
+    async fn latest_all_is_not_overwritten_by_context_cache() {
+        let service = service().await;
+        let all = dummy_response(3000);
+        let context = dummy_response(4173);
+        service
+            .store_scan_result(
+                &LocalServicesScanRequest {
+                    scope: LocalServicesScope::AllAtmosProjects,
+                    include_diagnostics: false,
+                    ..Default::default()
+                },
+                "all".into(),
+                all.clone(),
+            )
+            .await;
+        service
+            .store_scan_result(
+                &LocalServicesScanRequest {
+                    scope: LocalServicesScope::CurrentContext,
+                    include_diagnostics: false,
+                    project_id: Some("proj".into()),
+                    workspace_id: Some("ws".into()),
+                    ..Default::default()
+                },
+                "context".into(),
+                context,
+            )
+            .await;
+
+        let peeked = service
+            .peek_latest_all_projects()
+            .await
+            .expect("latest-all snapshot");
+        assert_eq!(peeked.services[0].port, 3000);
+        assert_eq!(peeked.services[0].pid, Some(4242));
+
+        let cache = service.cache.read().await;
+        assert_eq!(cache.as_ref().unwrap().key, "context");
+        assert_eq!(cache.as_ref().unwrap().response.services[0].port, 4173);
+    }
+
+    #[tokio::test]
+    async fn peek_does_not_write_or_require_request_cache() {
+        let service = service().await;
+        assert!(service.peek_latest_all_projects().await.is_none());
+        service
+            .store_scan_result(
+                &LocalServicesScanRequest {
+                    scope: LocalServicesScope::AllAtmosProjects,
+                    include_diagnostics: true,
+                    ..Default::default()
+                },
+                "diag".into(),
+                dummy_response(9),
+            )
+            .await;
+        assert!(
+            service.peek_latest_all_projects().await.is_none(),
+            "diagnostic all-projects must not become the Resource Monitor snapshot"
+        );
+    }
+
+    #[tokio::test]
+    async fn unavailable_scan_keeps_previous_good_latest_all() {
+        let service = service().await;
+        service
+            .store_scan_result(
+                &LocalServicesScanRequest {
+                    scope: LocalServicesScope::AllAtmosProjects,
+                    include_diagnostics: false,
+                    ..Default::default()
+                },
+                "all".into(),
+                dummy_response(3000),
+            )
+            .await;
+        service
+            .store_scan_result(
+                &LocalServicesScanRequest {
+                    scope: LocalServicesScope::AllAtmosProjects,
+                    include_diagnostics: false,
+                    ..Default::default()
+                },
+                "all".into(),
+                unavailable_response(),
+            )
+            .await;
+
+        let peeked = service
+            .peek_latest_all_projects()
+            .await
+            .expect("previous good snapshot");
+        assert_eq!(peeked.services[0].port, 3000);
+        assert!(peeked.unavailable.is_none());
+    }
+
+    #[tokio::test]
+    async fn empty_available_all_projects_can_record_latest_all() {
+        let service = service().await;
+        service
+            .store_scan_result(
+                &LocalServicesScanRequest {
+                    scope: LocalServicesScope::AllAtmosProjects,
+                    include_diagnostics: false,
+                    ..Default::default()
+                },
+                "all".into(),
+                dummy_response(3000),
+            )
+            .await;
+        service
+            .store_scan_result(
+                &LocalServicesScanRequest {
+                    scope: LocalServicesScope::AllAtmosProjects,
+                    include_diagnostics: false,
+                    ..Default::default()
+                },
+                "all".into(),
+                empty_available_response(),
+            )
+            .await;
+
+        let peeked = service
+            .peek_latest_all_projects()
+            .await
+            .expect("empty available snapshot");
+        assert!(peeked.services.is_empty());
+        assert!(peeked.unavailable.is_none());
+    }
+
+    #[tokio::test]
+    async fn peek_returns_none_when_latest_all_is_expired() {
+        let service = service().await;
+        let recorded_at = Instant::now()
+            .checked_sub(latest_all_ttl() + Duration::from_secs(1))
+            .expect("clock can subtract latest-all ttl");
+        service
+            .store_latest_all_at_for_test(dummy_response(3000), recorded_at)
+            .await;
+        assert!(service.peek_latest_all_projects().await.is_none());
+    }
 }

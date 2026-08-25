@@ -202,6 +202,55 @@
   --agent-attention-ring-color: rgb(16 185 129 / 0.48);
 }
 
+/*
+ * Resource Monitor one-shot locate pulse. After attention so a locate
+ * ::after overrides the sticky green/amber ring while the store is active.
+ * Semantic info blue; no scale and no box-shadow. Store clear restores
+ * attention after ~2400ms.
+ */
+@keyframes resource-locate-pane-border-pulse {
+  0% {
+    border-color: color-mix(in oklch, var(--info) 72%, transparent);
+  }
+  35% {
+    border-color: color-mix(in oklch, var(--info) 88%, transparent);
+  }
+  100% {
+    border-color: transparent;
+  }
+}
+
+.terminal-split-theme .terminal-pane.resource-locate-ring {
+  animation: none;
+}
+
+.terminal-split-theme .terminal-pane.resource-locate-ring::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  pointer-events: none;
+  box-sizing: border-box;
+  border: 1.5px solid color-mix(in oklch, var(--info) 72%, transparent);
+  border-radius: 2px;
+  animation: resource-locate-pane-border-pulse 2400ms ease-out forwards;
+}
+
+[data-edge-bottom][data-edge-left] .terminal-pane.resource-locate-ring::after {
+  border-bottom-left-radius: var(--radius-xl);
+}
+
+[data-edge-bottom][data-edge-right] .terminal-pane.resource-locate-ring::after {
+  border-bottom-right-radius: var(--radius-xl);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .terminal-split-theme .terminal-pane.resource-locate-ring::after {
+    animation: none;
+    border-color: color-mix(in oklch, var(--info) 80%, transparent);
+  }
+}
+
 /* Dim inactive panes with an overlay instead of filter — CSS filter on terminal-pane
    causes a half-pixel white seam at split edges in WKWebView (Tauri desktop). */
 .terminal-split-theme .terminal-pane.is-inactive-pane::before {

@@ -174,6 +174,36 @@ describe("queryKeys", () => {
     ]);
   });
 
+  test("resource monitor snapshot is scoped by instance, epoch, and revision", () => {
+    expect(queryKeys.computer.resourceMonitorSnapshot(scope)).toEqual([
+      "atmos",
+      "computer",
+      "local",
+      2,
+      3,
+      "resourceMonitor",
+      "snapshot",
+    ]);
+    expect(
+      queryKeys.computer.resourceMonitorSnapshot({
+        ...scope,
+        activeInstanceId: "relay:abc",
+      }),
+    ).not.toEqual(queryKeys.computer.resourceMonitorSnapshot(scope));
+    expect(
+      queryKeys.computer.resourceMonitorSnapshot({
+        ...scope,
+        connectionEpoch: 9,
+      }),
+    ).not.toEqual(queryKeys.computer.resourceMonitorSnapshot(scope));
+    expect(
+      queryKeys.computer.resourceMonitorSnapshot({
+        ...scope,
+        relaySessionRevision: 12,
+      }),
+    ).not.toEqual(queryKeys.computer.resourceMonitorSnapshot(scope));
+  });
+
   test("epoch or session revision change yields a different computer root", () => {
     expect(queryKeys.computer.root({ ...scope, connectionEpoch: 4 })).not.toEqual(
       queryKeys.computer.root(scope),

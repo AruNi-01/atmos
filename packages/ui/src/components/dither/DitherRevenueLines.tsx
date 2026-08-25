@@ -2,6 +2,7 @@
 
 import { useCallback, useRef, useState } from "react";
 import { cn } from "../../lib/utils";
+import { clampToDomain, resolveDomainMax } from "../../lib/dither/domain";
 import {
   bandColor,
   hash,
@@ -35,6 +36,13 @@ export type DitherRevenueLinesProps = {
   theme?: DitherTheme;
   className?: string;
   formatValue?: (value: number) => string;
+  /**
+   * Optional fixed positive Y domain. When finite and > 0, draw uses this
+   * max instead of data-peak × 1.2 and clamps plotted points to 0..yMax.
+   * Omitted / invalid keeps the auto domain. Read via ref so updates apply
+   * on the next frame without restarting the canvas loop.
+   */
+  yMax?: number;
 };
 
 /** Multi-series revenue lines with scrub tooltip + soft scrub glow. */
@@ -44,6 +52,7 @@ export function DitherRevenueLines({
   theme = "dark",
   className,
   formatValue = (v) => Math.round(v).toLocaleString(),
+  yMax,
 }: DitherRevenueLinesProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const seriesRef = useRef(series);
@@ -52,6 +61,8 @@ export function DitherRevenueLines({
   labelsRef.current = labels;
   const formatRef = useRef(formatValue);
   formatRef.current = formatValue;
+  const yMaxRef = useRef(yMax);
+  yMaxRef.current = yMax;
   const pointerRef = useRef({
     x: 0,
     want: false,
@@ -100,15 +111,18 @@ export function DitherRevenueLines({
         .filter((s) => s.values.length > 0);
       if (all.length === 0) return;
 
-      let maxVal = 1;
+      let dataPeak = 0;
       let maxLen = 2;
       for (const s of all) {
         maxLen = Math.max(maxLen, s.values.length);
         for (const v of s.values) {
-          if (v > maxVal) maxVal = v;
+          if (v > dataPeak) dataPeak = v;
         }
       }
-      maxVal *= 1.2;
+      const domainMax = yMaxRef.current;
+      const maxVal = resolveDomainMax(domainMax, dataPeak);
+      const plotY = (value: number) =>
+        h - (clampToDomain(value, domainMax) / maxVal) * h;
 
       const cell = Math.max(2, Math.round(w / 200));
       const tAnim = reducedMotion ? 0 : time;
@@ -162,7 +176,7 @@ export function DitherRevenueLines({
         ctx.beginPath();
         for (let i = 0; i < points; i++) {
           const x = i * stepX;
-          const y = h - (values[i]! / maxVal) * h;
+          const y = plotY(values[i]!);
           if (i === 0) ctx.moveTo(x, y);
           else ctx.lineTo(x, y);
         }
@@ -189,7 +203,7 @@ export function DitherRevenueLines({
           const i1 = Math.min(i0 + 1, points - 1);
           const frac = exactIdx - i0;
           const val = values[i0]! + (values[i1]! - values[i0]!) * frac;
-          const curveY = h - (val / maxVal) * h;
+          const curveY = plotY(val);
 
           // Soft scrub column boost
           const scrubBoost =
@@ -240,7 +254,7 @@ export function DitherRevenueLines({
         all.forEach((s, si) => {
           const values = s.values;
           const vi = Math.min(idx, values.length - 1);
-          const y = h - ((values[vi] ?? 0) / maxVal) * h;
+          const y = plotY(values[vi] ?? 0);
           const color = s.color ?? bandColor(si, theme);
           ctx.beginPath();
           ctx.arc(sx, y, 3, 0, Math.PI * 2);

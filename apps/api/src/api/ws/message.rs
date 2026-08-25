@@ -19,6 +19,7 @@ mod fs;
 mod git;
 mod github;
 mod linear;
+mod resource_monitor;
 mod review;
 mod skills;
 mod terminal;
@@ -30,6 +31,7 @@ pub use fs::*;
 pub use git::*;
 pub use github::*;
 pub use linear::*;
+pub use resource_monitor::*;
 pub use review::*;
 pub use skills::*;
 pub use terminal::*;
@@ -790,6 +792,14 @@ pub enum WsAction {
     SimulatorStop,
     /// Current claim for a workspace, if any
     SimulatorStatus,
+
+    // ===== Resource Monitor (APP-066) =====
+    /// One-shot Computer resource snapshot
+    ResourceMonitorGet,
+    /// Subscribe this connection to live resource snapshots
+    ResourceMonitorSubscribe,
+    /// Stop live updates for this connection
+    ResourceMonitorUnsubscribe,
 }
 
 /// 服务端主动推送的事件类型
@@ -856,6 +866,8 @@ pub enum WsEvent {
     DiskAnalyzerScanProgress,
     /// serve-sim helper download progress (APP-060)
     SimulatorDownloadProgress,
+    /// Connection-scoped Computer resource snapshot (APP-066)
+    ResourceMonitorUpdated,
 }
 
 /// 项目删除进度通知数据
@@ -951,6 +963,35 @@ mod tests {
                 action
             );
         }
+    }
+
+    #[test]
+    fn resource_monitor_action_and_event_use_expected_wire_names() {
+        use super::WsEvent;
+
+        let actions = [
+            (WsAction::ResourceMonitorGet, "resource_monitor_get"),
+            (
+                WsAction::ResourceMonitorSubscribe,
+                "resource_monitor_subscribe",
+            ),
+            (
+                WsAction::ResourceMonitorUnsubscribe,
+                "resource_monitor_unsubscribe",
+            ),
+        ];
+        for (action, wire_name) in actions {
+            assert_eq!(serde_json::to_value(&action).unwrap(), json!(wire_name));
+            assert_eq!(
+                serde_json::from_value::<WsAction>(json!(wire_name)).unwrap(),
+                action
+            );
+        }
+
+        assert_eq!(
+            serde_json::to_value(&WsEvent::ResourceMonitorUpdated).unwrap(),
+            json!("resource_monitor_updated")
+        );
     }
 
     #[test]

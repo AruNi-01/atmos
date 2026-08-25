@@ -15,6 +15,7 @@ import type {
   AutomationRunOutputEvent,
   AutomationRunUpdatedEvent,
 } from "./dto/automation";
+import type { ResourceMonitorSnapshot } from "./dto/resource-monitor";
 import type { SimulatorDownloadProgress } from "./dto/simulator";
 import type {
   ProjectDeleteProgressNotification,
@@ -56,6 +57,7 @@ export type WsEventContract = {
   automation_notification: { payload: AutomationNotificationPayload };
   disk_analyzer_scan_progress: { payload: DiskScanProgress };
   simulator_download_progress: { payload: SimulatorDownloadProgress };
+  resource_monitor_updated: { payload: ResourceMonitorSnapshot };
 };
 
 export type MappedWsEvent = keyof WsEventContract & WsEvent;

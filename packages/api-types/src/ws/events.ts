@@ -31,6 +31,7 @@ export const WS_EVENTS = [
   "automation_notification",
   "disk_analyzer_scan_progress",
   "simulator_download_progress",
+  "resource_monitor_updated",
 ] as const;
 
 export type WsEvent = (typeof WS_EVENTS)[number];

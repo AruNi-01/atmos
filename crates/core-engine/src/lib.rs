@@ -8,6 +8,7 @@ pub mod github;
 pub mod linear;
 pub mod local_services;
 pub mod project_atmos;
+pub mod resource_metrics;
 pub mod search;
 pub mod shims;
 pub mod test_engine;
@@ -46,12 +47,17 @@ pub use project_atmos::{
     ensure_project_atmos_dir, ensure_project_atmos_gitignore, ensure_project_atmos_ignore_rule,
     PROJECT_ATMOS_DIR, PROJECT_ATMOS_IGNORED_ENTRIES,
 };
+pub use resource_metrics::{
+    normalize_process_cpu, ResourceDiskSample, ResourceHostCpuCoreSample, ResourceHostMemorySample,
+    ResourceHostSample, ResourceMemoryAccounting, ResourceMetricsEngine, ResourceProcessSample,
+    ResourceSample, DISK_CACHE_TTL,
+};
 pub use search::{search_content, SearchMatch, SearchResult};
 pub use test_engine::TestEngine;
 pub use tmux::{
-    is_inline_mouse_tui_command, is_shell_command, pane_command_basename,
+    is_inline_mouse_tui_command, is_shell_command, pane_command_basename, parse_pane_processes,
     resolve_mouse_tracking_restore, should_restore_tui_mouse_tracking, MouseEventMode, MouseFormat,
-    MouseModeState, TmuxEngine, TmuxInstallPlan, TmuxPaneCapturePage, TmuxPaneSnapshot,
-    TmuxSessionInfo, TmuxVersion, TmuxWindowAtmosMetadata, TmuxWindowInfo,
+    MouseModeState, TmuxEngine, TmuxInstallPlan, TmuxPaneCapturePage, TmuxPaneProcess,
+    TmuxPaneSnapshot, TmuxSessionInfo, TmuxVersion, TmuxWindowAtmosMetadata, TmuxWindowInfo,
     ATMOS_MOUSE_TRACKING_OPTION, DEFAULT_TUI_MOUSE_RESTORE,
 };

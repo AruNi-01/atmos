@@ -104,6 +104,10 @@ export const WS_ACTIONS = [
   "workspace_confirm_todos",
   "project_check_can_delete",
   "terminal_workspace_candidates",
+  "terminal_session_create",
+  "terminal_session_list",
+  "terminal_session_close",
+  "terminal_session_destroy",
   "run_log_start",
   "run_log_resolve_latest",
   "terminal_side_context_capture",
@@ -274,6 +278,9 @@ export const WS_ACTIONS = [
   "simulator_start",
   "simulator_stop",
   "simulator_status",
+  "resource_monitor_get",
+  "resource_monitor_subscribe",
+  "resource_monitor_unsubscribe",
 ] as const;
 
 export type WsAction = (typeof WS_ACTIONS)[number];

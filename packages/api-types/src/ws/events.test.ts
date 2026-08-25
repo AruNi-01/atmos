@@ -13,7 +13,7 @@ const fixturePath = join(packageRoot, "fixtures/events.server.json");
 
 describe("@atmos/api-types events", () => {
   test("WS_EVENTS has unique entries", () => {
-    expect(WS_EVENTS.length).toBe(30);
+    expect(WS_EVENTS.length).toBe(31);
     expect(new Set(WS_EVENTS).size).toBe(WS_EVENTS.length);
     expect(isWsEvent("workspace_setup_progress")).toBe(true);
     expect(isWsEvent("not_a_real_event")).toBe(false);
@@ -40,5 +40,11 @@ describe("@atmos/api-types events", () => {
       fixture,
     );
     expect(missingInTs).toContain("workspace_setup_progress");
+  });
+
+  test("resource_monitor events stay the existing snapshot event", () => {
+    expect(
+      WS_EVENTS.filter((event) => event.startsWith("resource_monitor_")),
+    ).toEqual(["resource_monitor_updated"]);
   });
 });

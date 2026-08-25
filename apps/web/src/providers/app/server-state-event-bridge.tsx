@@ -9,6 +9,7 @@ import { invalidateTokenUsageQueries } from "@/features/quota-usage/lib/token-us
 import { applyLocalServicesUpdated } from "@/features/local-services/lib/local-services-query-events";
 import { invalidateLocalModelQueries } from "@/features/local-services/lib/local-model-query-options";
 import { invalidateAutomationDefinitionQueries, invalidateAutomationRunQueries } from "@/features/automations/lib/automations-query-options";
+import { applyResourceMonitorUpdated } from "@/features/resource-monitor/lib/resource-monitor-query-events";
 
 let quotaOverviewSubscriberCount = 0;
 let tokenUsageSubscriberCount = 0;
@@ -16,6 +17,7 @@ let localServicesSubscriberCount = 0;
 let localModelSubscriberCount = 0;
 let automationDefinitionSubscriberCount = 0;
 let automationRunSubscriberCount = 0;
+let resourceMonitorSubscriberCount = 0;
 
 /** Test helpers: expose per-domain subscription counts. */
 export function getQuotaOverviewBridgeSubscriberCount(): number {
@@ -35,6 +37,9 @@ export function getAutomationDefinitionBridgeSubscriberCount(): number {
 }
 export function getAutomationRunBridgeSubscriberCount(): number {
   return automationRunSubscriberCount;
+}
+export function getResourceMonitorBridgeSubscriberCount(): number {
+  return resourceMonitorSubscriberCount;
 }
 
 function subscribeOnce(
@@ -75,6 +80,7 @@ export function ServerStateEventBridge() {
     const localModelCounter = { value: localModelSubscriberCount };
     const automationDefinitionCounter = { value: automationDefinitionSubscriberCount };
     const automationRunCounter = { value: automationRunSubscriberCount };
+    const resourceMonitorCounter = { value: resourceMonitorSubscriberCount };
 
     const unsubQuotaOverview = subscribeOnce(
       store,
@@ -138,6 +144,17 @@ export function ServerStateEventBridge() {
     );
     automationRunSubscriberCount = automationRunCounter.value;
 
+    const unsubResourceMonitor = subscribeOnce(
+      store,
+      "resource_monitor_updated",
+      (data: unknown) => {
+        const client = getAtmosWebQueryClient();
+        applyResourceMonitorUpdated(client, getComputerQueryScope(), data);
+      },
+      resourceMonitorCounter,
+    );
+    resourceMonitorSubscriberCount = resourceMonitorCounter.value;
+
     cleanupRef.current = () => {
       unsubQuotaOverview();
       quotaOverviewSubscriberCount = Math.max(0, quotaOverviewSubscriberCount - 1);
@@ -151,6 +168,8 @@ export function ServerStateEventBridge() {
       automationDefinitionSubscriberCount = Math.max(0, automationDefinitionSubscriberCount - 1);
       unsubAutomationRun();
       automationRunSubscriberCount = Math.max(0, automationRunSubscriberCount - 1);
+      unsubResourceMonitor();
+      resourceMonitorSubscriberCount = Math.max(0, resourceMonitorSubscriberCount - 1);
     };
 
     return () => {

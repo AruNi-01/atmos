@@ -28,6 +28,67 @@ export type TerminalWorkspaceCandidatesResponse = {
   candidates: TerminalWorkspaceCandidate[];
 };
 
+export type TerminalSessionCreateRequest = {
+  workspace_id: string;
+  session_id?: string | null;
+  shell?: string | null;
+  name?: string | null;
+  cwd?: string | null;
+  project_name?: string | null;
+  workspace_name?: string | null;
+  cols?: number | null;
+  rows?: number | null;
+  detach_after_create?: boolean;
+};
+
+export type TerminalSessionCreateResponse = {
+  session_id: string;
+  workspace_id: string;
+  detached: boolean;
+};
+
+export type TerminalSessionListRequest = {
+  workspace_id?: string | null;
+};
+
+export type TerminalSessionType = "tmux" | "simple";
+
+export type TerminalKind = "standard" | "side_chat";
+
+export type TerminalSessionDetail = {
+  session_id: string;
+  workspace_id: string;
+  session_type: TerminalSessionType;
+  project_name: string | null;
+  workspace_name: string | null;
+  terminal_name: string | null;
+  tmux_session: string | null;
+  tmux_window_index: number | null;
+  cwd: string | null;
+  terminal_kind: TerminalKind;
+  side_chat_id: string | null;
+  source_pane_id: string | null;
+  source_tmux_window_name: string | null;
+  uptime_secs: number;
+};
+
+export type TerminalSessionListResponse = {
+  sessions: TerminalSessionDetail[];
+};
+
+export type TerminalSessionCloseRequest = {
+  session_id: string;
+};
+
+export type TerminalSessionDestroyRequest = {
+  session_id: string;
+};
+
+export type TerminalSessionCloseResponse = {
+  success: boolean;
+  session_id: string;
+};
+
 export type RunLogStartRequest = {
   project_root: string;
   window_name: string;

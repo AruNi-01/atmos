@@ -2,6 +2,12 @@
 
 import { useCallback, useRef } from "react";
 import { cn } from "../../lib/utils";
+import { isFixedDomainMax } from "../../lib/dither/domain";
+import {
+  FUNNEL_FOREGROUND_ALPHA,
+  funnelValueWidth,
+  resolveFunnelTrack,
+} from "../../lib/dither/funnel-track";
 import {
   bandColor,
   hash,
@@ -33,7 +39,59 @@ export type DitherFunnelProps = {
   className?: string;
   /** Vertical gap between stages in CSS pixels. Default 6. */
   gap?: number;
+  /**
+   * Full-width light dither track behind each stage. Omitted / empty keeps
+   * the previous paint (value bar only). Track is static — it does not
+   * morph with the stage value.
+   */
+  trackColor?: string;
 };
+
+function paintFunnelBand(
+  ctx: CanvasRenderingContext2D,
+  {
+    width,
+    yTop,
+    rowH,
+    cell,
+    color,
+    alpha,
+    tAnim,
+  }: {
+    width: number;
+    yTop: number;
+    rowH: number;
+    cell: number;
+    color: string;
+    alpha: number;
+    tAnim: number;
+  },
+) {
+  if (width < 0.5) return;
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(0, yTop, width, rowH);
+  ctx.clip();
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = color;
+  for (let bx = 0; bx <= Math.ceil(width); bx += cell) {
+    for (
+      let by = Math.floor(yTop);
+      by <= Math.ceil(yTop + rowH);
+      by += cell
+    ) {
+      const jx = bx + cell / 2;
+      const jy = by + cell / 2;
+      const jit = hash(jx, jy);
+      const waveRaw =
+        Math.sin(jx * 0.05 + tAnim) + Math.sin(jy * 0.05 + tAnim * 0.7);
+      const mod = smoothstep(-1.5, 1.5, waveRaw);
+      const sz = cell * (0.35 + 0.35 * mod) * (0.8 + 0.4 * jit);
+      ctx.fillRect(bx + (cell - sz) / 2, by + (cell - sz) / 2, sz, sz);
+    }
+  }
+  ctx.restore();
+}
 
 /**
  * Conversion-funnel dither bars (Amicro DitherFunnelChart).
@@ -46,6 +104,7 @@ export function DitherFunnel({
   theme = "dark",
   className,
   gap = 6,
+  trackColor,
 }: DitherFunnelProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const stagesRef = useRef(stages);
@@ -54,6 +113,8 @@ export function DitherFunnel({
   maxRef.current = maxValue;
   const gapRef = useRef(gap);
   gapRef.current = gap;
+  const trackColorRef = useRef(trackColor);
+  trackColorRef.current = trackColor;
   const colorsRef = useRef<string[]>([]);
   const morphRef = useRef<SeriesMorph | null>(null);
   if (!morphRef.current) morphRef.current = createSeriesMorph();
@@ -99,46 +160,40 @@ export function DitherFunnel({
       // Prefer explicit maxValue; otherwise use the largest stage value.
       const explicitMax = maxRef.current;
       const stageMax = Math.max(0, ...values);
-      const scaleMax =
-        explicitMax != null && Number.isFinite(explicitMax) && explicitMax > 0
-          ? explicitMax
-          : stageMax > 0
-            ? stageMax
-            : 1;
+      const scaleMax = isFixedDomainMax(explicitMax)
+        ? explicitMax
+        : stageMax > 0
+          ? stageMax
+          : 1;
       const tAnim = reducedMotion ? 0 : time;
+      const track = resolveFunnelTrack(trackColorRef.current);
 
       for (let i = 0; i < count; i++) {
         const val = values[i] ?? 0;
-        const stageW = Math.max(0, Math.min(w, (val / scaleMax) * w));
+        const stageW = funnelValueWidth(w, val, scaleMax);
         const yTop = i * (rowH + stageGap);
 
-        if (stageW < 0.5) continue;
-
-        ctx.save();
-        ctx.beginPath();
-        ctx.rect(0, yTop, stageW, rowH);
-        ctx.clip();
-
-        ctx.globalAlpha = 0.85;
-        ctx.fillStyle = colors[i] ?? bandColor(i, theme);
-
-        for (let bx = 0; bx <= Math.ceil(stageW); bx += cell) {
-          for (
-            let by = Math.floor(yTop);
-            by <= Math.ceil(yTop + rowH);
-            by += cell
-          ) {
-            const jx = bx + cell / 2;
-            const jy = by + cell / 2;
-            const jit = hash(jx, jy);
-            const waveRaw =
-              Math.sin(jx * 0.05 + tAnim) + Math.sin(jy * 0.05 + tAnim * 0.7);
-            const mod = smoothstep(-1.5, 1.5, waveRaw);
-            const sz = cell * (0.35 + 0.35 * mod) * (0.8 + 0.4 * jit);
-            ctx.fillRect(bx + (cell - sz) / 2, by + (cell - sz) / 2, sz, sz);
-          }
+        if (track) {
+          paintFunnelBand(ctx, {
+            width: w,
+            yTop,
+            rowH,
+            cell,
+            color: track.color,
+            alpha: track.alpha,
+            tAnim,
+          });
         }
-        ctx.restore();
+
+        paintFunnelBand(ctx, {
+          width: stageW,
+          yTop,
+          rowH,
+          cell,
+          color: colors[i] ?? bandColor(i, theme),
+          alpha: FUNNEL_FOREGROUND_ALPHA,
+          tAnim,
+        });
       }
     },
     [theme],

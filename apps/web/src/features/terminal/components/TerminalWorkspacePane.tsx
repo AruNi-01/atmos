@@ -36,6 +36,12 @@ import {
 } from "@/shared/lib/agent-context-drag";
 import { useTerminalRichInputSettingsStore } from "@/features/settings/store/terminal-rich-input-settings-store";
 import { hostIdFromCenterKey } from "@/app-shell/center-space/center-space";
+import {
+  applyResourceLocateArrival,
+  shouldArriveResourceLocate,
+  shouldShowResourceLocateRing,
+} from "@/features/terminal/public/pane-location";
+import { useTerminalPaneLocateStore } from "@/features/terminal/store/terminal-pane-locate-store";
 
 export { TerminalPaneAgentStatus } from "./TerminalPaneAgentStatus";
 
@@ -262,6 +268,61 @@ export function TerminalWorkspacePane(props: TerminalWorkspacePaneProps) {
   const attentionReason = useAgentAttentionStore(
     (s) => s.panes.get(stablePaneId)?.reason ?? null,
   );
+  const locateGeneration = useTerminalPaneLocateStore((s) => s.generation);
+  const locatePhase = useTerminalPaneLocateStore((s) => s.phase);
+  const locateTarget = useTerminalPaneLocateStore((s) => s.target);
+  const locateCandidate = useMemo(
+    () => ({
+      hostId: hostWorkspaceId,
+      paintContextId: workspaceId,
+      terminalTabId,
+      paneId: id,
+      sessionId: pane.sessionId,
+      tmuxWindowName: pane.tmuxWindowName,
+    }),
+    [hostWorkspaceId, workspaceId, terminalTabId, id, pane.sessionId, pane.tmuxWindowName],
+  );
+  const showLocateRing = shouldShowResourceLocateRing({
+    phase: locatePhase,
+    target: locateTarget,
+    candidate: locateCandidate,
+  });
+
+  React.useEffect(() => {
+    if (
+      !shouldArriveResourceLocate({
+        surfaceActive,
+        phase: locatePhase,
+        target: locateTarget,
+        candidate: locateCandidate,
+      })
+    ) {
+      return;
+    }
+    applyResourceLocateArrival({
+      paneId: id,
+      generation: locateGeneration,
+      setActivePaneId,
+      scheduleFocus: (run) => {
+        requestAnimationFrame(run);
+      },
+      focusPane: () => {
+        terminalRefsMap.current.get(id)?.focus();
+      },
+      arrive: (generation) => {
+        useTerminalPaneLocateStore.getState().arrive(generation);
+      },
+    });
+  }, [
+    id,
+    locateCandidate,
+    locateGeneration,
+    locatePhase,
+    locateTarget,
+    setActivePaneId,
+    surfaceActive,
+    terminalRefsMap,
+  ]);
 
   return (
     <div
@@ -270,7 +331,9 @@ export function TerminalWorkspacePane(props: TerminalWorkspacePaneProps) {
         maximizedId === id && "is-maximized",
         hasMultiplePanes && (effectiveActivePaneId === id ? "is-active-pane" : "is-inactive-pane"),
         attentionBorderClass(attentionReason),
+        showLocateRing && "resource-locate-ring",
       )}
+      {...(showLocateRing ? { "data-resource-locate-ring": "" } : {})}
     >
           <div
             className={cn(

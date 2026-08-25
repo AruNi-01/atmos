@@ -1,0 +1,75 @@
+import type { DitherGrowthColorStop, DitherTheme } from "@workspace/ui";
+
+export type ResourceMonitorPressureTone = "low" | "medium" | "high";
+export type ResourceMonitorMeterTone = "pressure" | "neutral";
+
+/** DESIGN success / warning / destructive + muted-foreground, as Dither hex. */
+const PRESSURE_HEX = {
+  light: {
+    low: "#0AA543",
+    medium: "#D99600",
+    high: "#E7000B",
+    neutral: "#71717B",
+  },
+  dark: {
+    low: "#5FCC74",
+    medium: "#EEB245",
+    high: "#FF6467",
+    neutral: "#9F9FA9",
+  },
+} as const;
+
+/** Full-length Funnel track — lighter than the moderate neutral foreground. */
+const TRACK_HEX = {
+  light: "#C3C3C9",
+  dark: "#47474C",
+} as const;
+
+export function resourceMonitorPressureTone(
+  percent: number,
+): ResourceMonitorPressureTone {
+  if (percent < 60) return "low";
+  if (percent < 80) return "medium";
+  return "high";
+}
+
+export function resourceMonitorDitherTheme(
+  resolvedTheme: string | undefined,
+): DitherTheme {
+  return resolvedTheme === "light" ? "light" : "dark";
+}
+
+export function resourceMonitorDitherColor(
+  theme: DitherTheme,
+  meter: ResourceMonitorMeterTone,
+  percent: number,
+): string {
+  if (meter === "neutral") return PRESSURE_HEX[theme].neutral;
+  return PRESSURE_HEX[theme][resourceMonitorPressureTone(percent)];
+}
+
+export function resourceMonitorDitherTrackColor(theme: DitherTheme): string {
+  return TRACK_HEX[theme];
+}
+
+export function resourceMonitorGrowthColorStops(
+  theme: DitherTheme,
+): DitherGrowthColorStop[] {
+  const colors = PRESSURE_HEX[theme];
+  return [
+    { value: 0, color: colors.low },
+    { value: 56, color: colors.low },
+    { value: 64, color: colors.medium },
+    { value: 76, color: colors.medium },
+    { value: 84, color: colors.high },
+    { value: 100, color: colors.high },
+  ];
+}
+
+export function resourceMonitorPressureTextClass(
+  tone: ResourceMonitorPressureTone,
+): string {
+  if (tone === "medium") return "text-warning";
+  if (tone === "high") return "text-destructive";
+  return "text-success";
+}

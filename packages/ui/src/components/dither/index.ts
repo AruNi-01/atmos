@@ -2,7 +2,10 @@ export { DitherPanel } from "./DitherPanel";
 export type { DitherPanelProps } from "./DitherPanel";
 
 export { DitherGrowth } from "./DitherGrowth";
-export type { DitherGrowthProps } from "./DitherGrowth";
+export type {
+  DitherGrowthColorStop,
+  DitherGrowthProps,
+} from "./DitherGrowth";
 
 export { DitherHeatmap } from "./DitherHeatmap";
 export type {

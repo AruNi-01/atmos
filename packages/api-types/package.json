@@ -27,6 +27,7 @@
     "./ws/dto/local-services": "./src/ws/dto/local-services.ts",
     "./ws/dto/permission": "./src/ws/dto/permission.ts",
     "./ws/dto/quota": "./src/ws/dto/quota.ts",
+    "./ws/dto/resource-monitor": "./src/ws/dto/resource-monitor.ts",
     "./ws/dto/review": "./src/ws/dto/review.ts",
     "./ws/dto/settings": "./src/ws/dto/settings.ts",
     "./ws/dto/simulator": "./src/ws/dto/simulator.ts",

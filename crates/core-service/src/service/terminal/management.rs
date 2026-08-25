@@ -16,8 +16,8 @@ use super::text_capture::{
 };
 use super::{
     CapturePanePlainTextParams, CaptureSideContextParams, CapturedPanePlainText,
-    CapturedSideContext, SessionCommand, SessionDetail, SessionHandle, TerminalService,
-    TerminalSideChatRecord, TerminalSideChatStatus, UpsertTerminalSideChatParams,
+    CapturedSideContext, SessionCommand, SessionDetail, SessionHandle, TerminalResourceRoot,
+    TerminalService, TerminalSideChatRecord, TerminalSideChatStatus, UpsertTerminalSideChatParams,
 };
 
 impl TerminalService {
@@ -741,6 +741,15 @@ impl TerminalService {
         sessions
             .iter()
             .map(|(id, handle)| handle.to_detail(id))
+            .collect()
+    }
+
+    /// Clone-only resource roots. PIDs stay inside this projection.
+    pub async fn list_resource_roots(&self) -> Vec<TerminalResourceRoot> {
+        let sessions = self.sessions.lock().await;
+        sessions
+            .iter()
+            .map(|(id, handle)| handle.to_resource_root(id))
             .collect()
     }
 

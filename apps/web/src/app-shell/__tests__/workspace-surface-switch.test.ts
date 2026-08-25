@@ -215,6 +215,22 @@ describe("promoteWorkspaceSurfaceSwitch + prepareWorkspaceContextNavigation", ()
     expect(useWorkspaceSurfaceCacheStore.getState().activeContextId).toBe("ws-b");
   });
 
+  it("prepareAndPrime(null) keeps dest tab and terminalTmux on a host hop", () => {
+    const dest = "/workspace?id=ws-b&tab=terminal&terminalTmux=1";
+    const leftover = "/workspace?id=ws-a&tab=terminal&terminalTmux=1";
+    expect(prepareAndPrimeWorkspaceNavigation(dest, leftover)).not.toContain("tab=");
+    expect(prepareAndPrimeWorkspaceNavigation(dest, leftover)).not.toContain("terminalTmux");
+    expect(prepareAndPrimeWorkspaceNavigation(dest, null)).toBe(dest);
+  });
+
+  it("prepareAndPrime(null) keeps dest tab for a simple PTY host hop", () => {
+    const dest = "/workspace?id=ws-b&tab=terminal";
+    const leftover = "/workspace?id=ws-a&tab=terminal";
+    expect(prepareAndPrimeWorkspaceNavigation(dest, leftover)).not.toContain("tab=");
+    expect(prepareAndPrimeWorkspaceNavigation(dest, leftover)).not.toContain("terminalTmux");
+    expect(prepareAndPrimeWorkspaceNavigation(dest, null)).toBe(dest);
+  });
+
   it("rapid visual switches coalesce to the latest target", async () => {
     const store = useWorkspaceSurfaceCacheStore.getState();
     store.switchContext("ws-a");

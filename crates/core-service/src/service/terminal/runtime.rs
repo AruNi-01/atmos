@@ -12,7 +12,7 @@ use core_engine::tmux::control::{
     ControlModeEvent, TmuxPassthroughUnwrapper,
 };
 use core_engine::TmuxEngine;
-use portable_pty::{native_pty_system, CommandBuilder, PtySize};
+use portable_pty::{native_pty_system, Child, CommandBuilder, PtySize};
 use tokio::sync::{mpsc, oneshot};
 use tracing::{debug, info, warn};
 
@@ -24,6 +24,7 @@ type PtySetup = (
     Box<dyn portable_pty::MasterPty + Send>,
     Box<dyn std::io::Read + Send>,
     Box<dyn std::io::Write + Send>,
+    Box<dyn Child + Send + Sync>,
 );
 
 // Control mode emits one response for attach-session itself, followed by one
@@ -150,21 +151,49 @@ fn setup_pty(cols: u16, rows: u16, cmd: CommandBuilder) -> std::result::Result<P
         })
         .map_err(|e| format!("Failed to open PTY: {}", e))?;
 
-    pair.slave
+    let mut child = pair
+        .slave
         .spawn_command(cmd)
         .map_err(|e| format!("Failed to spawn command: {}", e))?;
+    // Closing the slave lets the master see EOF when the child exits.
     drop(pair.slave);
 
-    let reader = pair
-        .master
-        .try_clone_reader()
-        .map_err(|e| format!("Failed to clone PTY reader: {}", e))?;
-    let writer = pair
-        .master
-        .take_writer()
-        .map_err(|e| format!("Failed to get PTY writer: {}", e))?;
+    let reader = match pair.master.try_clone_reader() {
+        Ok(reader) => reader,
+        Err(e) => {
+            let _ = child.kill();
+            let _ = child.wait();
+            return Err(format!("Failed to clone PTY reader: {}", e));
+        }
+    };
+    let writer = match pair.master.take_writer() {
+        Ok(writer) => writer,
+        Err(e) => {
+            let _ = child.kill();
+            let _ = child.wait();
+            return Err(format!("Failed to get PTY writer: {}", e));
+        }
+    };
 
-    Ok((pair.master, reader, writer))
+    Ok((pair.master, reader, writer, child))
+}
+
+fn reap_pty_child(child: &mut Box<dyn Child + Send + Sync>) {
+    if matches!(child.try_wait(), Ok(Some(_))) {
+        return;
+    }
+
+    let deadline = std::time::Instant::now() + std::time::Duration::from_millis(750);
+    while std::time::Instant::now() < deadline {
+        match child.try_wait() {
+            Ok(Some(_)) => return,
+            Ok(None) => std::thread::sleep(std::time::Duration::from_millis(25)),
+            Err(_) => return,
+        }
+    }
+
+    let _ = child.kill();
+    let _ = child.wait();
 }
 
 /// Spawn a thread that reads from the PTY and forwards output to the channel.
@@ -670,7 +699,7 @@ pub(super) fn run_simple_pty_session(
     shims_dir: Option<PathBuf>,
     mut command_rx: mpsc::UnboundedReceiver<SessionCommand>,
     output_tx: mpsc::UnboundedSender<Vec<u8>>,
-    init_tx: oneshot::Sender<Result<()>>,
+    init_tx: oneshot::Sender<Result<Option<u32>>>,
 ) {
     // Build shell command with optional shim injection for dynamic title support
     let shell_command = shims_dir
@@ -696,7 +725,7 @@ pub(super) fn run_simple_pty_session(
     cmd.env("COLORTERM", "truecolor");
     apply_utf8_env_to_pty_command(&mut cmd);
 
-    let (master, reader, mut writer) = match setup_pty(cols, rows, cmd) {
+    let (master, reader, mut writer, mut child) = match setup_pty(cols, rows, cmd) {
         Ok(parts) => parts,
         Err(e) => {
             let _ = init_tx.send(Err(ServiceError::Processing(e)));
@@ -704,8 +733,11 @@ pub(super) fn run_simple_pty_session(
         }
     };
 
-    // Signal successful initialization
-    if init_tx.send(Ok(())).is_err() {
+    let root_pid = child.process_id();
+    if init_tx.send(Ok(root_pid)).is_err() {
+        // Caller dropped the init channel; still reap the child.
+        let _ = child.kill();
+        let _ = child.wait();
         return;
     }
 
@@ -778,7 +810,11 @@ pub(super) fn run_simple_pty_session(
         }
     });
 
-    // Wait for reader thread to finish
+    // Dropping the master sends SIGHUP to the child (same as the previous
+    // lifecycle). Keep the Child handle so we can reap it instead of leaking.
+    drop(writer);
+    drop(master);
+    reap_pty_child(&mut child);
     let _ = reader_handle.join();
     debug!("PTY session thread exited for session: {}", session_id);
 }

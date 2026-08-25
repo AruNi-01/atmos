@@ -9,7 +9,7 @@
 //! - Closing a session detaches the PTY but keeps the tmux window alive
 
 use crate::error::{Result, ServiceError};
-use core_engine::{TmuxEngine, TmuxPaneSnapshot, TmuxWindowAtmosMetadata};
+use core_engine::{TmuxEngine, TmuxPaneProcess, TmuxPaneSnapshot, TmuxWindowAtmosMetadata};
 use infra::db::repo::{ProjectRepo, WorkspaceRepo};
 use sea_orm::DatabaseConnection;
 use std::collections::HashMap;
@@ -37,8 +37,8 @@ pub use text_capture::{
 pub use types::{
     AttachSessionParams, CapturePanePlainTextParams, CaptureSideContextParams,
     CapturedPanePlainText, CapturedSideContext, CreateSessionParams, CreateSimpleSessionParams,
-    SessionDetail, SessionType, TerminalKind, TerminalMessage, TerminalResponse,
-    TerminalSideChatRecord, TerminalSideChatStatus, UpsertTerminalSideChatParams,
+    SessionDetail, SessionType, TerminalKind, TerminalMessage, TerminalResourceRoot,
+    TerminalResponse, TerminalSideChatRecord, TerminalSideChatStatus, UpsertTerminalSideChatParams,
 };
 use types::{SessionCommand, SessionHandle};
 
@@ -289,6 +289,20 @@ impl TerminalService {
     /// Get the TmuxEngine reference
     pub fn tmux_engine(&self) -> Arc<TmuxEngine> {
         self.tmux_engine.clone()
+    }
+
+    /// Best-effort batched pane roots for resource attribution.
+    ///
+    /// Returns `None` when tmux is missing or the server cannot be queried so
+    /// host snapshots can still succeed with `partial` attribution.
+    pub fn list_pane_processes_best_effort(&self) -> Option<Vec<TmuxPaneProcess>> {
+        match self.tmux_engine.list_pane_processes() {
+            Ok(panes) => Some(panes),
+            Err(error) => {
+                debug!(%error, "tmux list_pane_processes unavailable");
+                None
+            }
+        }
     }
 
     /// Get or create a lock for a specific tmux session
@@ -783,7 +797,7 @@ impl TerminalService {
             self.maybe_bridge_run_log_output(raw_output_tx, cwd.clone(), terminal_name.clone());
 
         // Channel for receiving initialization result
-        let (init_tx, init_rx) = oneshot::channel::<Result<()>>();
+        let (init_tx, init_rx) = oneshot::channel::<Result<Option<u32>>>();
 
         let session_id_clone = session_id.clone();
         let cwd_for_handle = cwd.clone();
@@ -806,7 +820,7 @@ impl TerminalService {
 
         // Wait for initialization result
         match init_rx.await {
-            Ok(Ok(())) => {
+            Ok(Ok(simple_root_pid)) => {
                 // Store session handle with metadata
                 let handle = SessionHandle {
                     command_tx,
@@ -824,6 +838,7 @@ impl TerminalService {
                     source_pane_id: None,
                     source_tmux_window_name: None,
                     created_at: Instant::now(),
+                    simple_root_pid,
                 };
 
                 self.sessions
@@ -1158,6 +1173,7 @@ impl TerminalService {
                     source_pane_id,
                     source_tmux_window_name,
                     created_at: Instant::now(),
+                    simple_root_pid: None,
                 };
 
                 self.sessions
@@ -1310,6 +1326,7 @@ mod tests {
     async fn test_session_list_empty() {
         let service = TerminalService::new();
         assert!(service.list_sessions().await.is_empty());
+        assert!(service.list_resource_roots().await.is_empty());
     }
 
     #[test]
@@ -1346,5 +1363,58 @@ mod tests {
                 .tmux_engine
                 .get_session_name("13c75c87-516a-40ab-b7b8-bda46c0e3e3e")
         );
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn simple_pty_captures_nonzero_root_pid_without_session_detail_leak() {
+        let shell = ["/bin/sh", "/usr/bin/sh"]
+            .into_iter()
+            .find(|path| std::path::Path::new(path).exists())
+            .expect("safe unix shell");
+        let service = TerminalService::new();
+        let session_id = "s4-simple-pty";
+        let _output = service
+            .create_simple_session(CreateSimpleSessionParams {
+                session_id: session_id.to_string(),
+                workspace_id: "ws-s4".to_string(),
+                shell: Some(shell.to_string()),
+                cols: Some(80),
+                rows: Some(24),
+                cwd: None,
+                project_name: None,
+                workspace_name: None,
+                terminal_name: Some("s4".to_string()),
+            })
+            .await
+            .expect("create simple session");
+
+        let roots = service.list_resource_roots().await;
+        let root = roots
+            .iter()
+            .find(|root| root.session_id == session_id)
+            .expect("resource root");
+        let pid = root.simple_root_pid.expect("simple root pid");
+        assert!(pid > 0, "simple_root_pid must be captured");
+
+        let details = service.list_session_details().await;
+        let detail = details
+            .iter()
+            .find(|detail| detail.session_id == session_id)
+            .expect("session detail");
+        let json = serde_json::to_string(detail).expect("session detail serializes");
+        assert!(
+            !json.contains(&pid.to_string()),
+            "SessionDetail must not expose the simple PTY pid: {json}"
+        );
+        assert!(
+            !json.to_ascii_lowercase().contains("pid"),
+            "SessionDetail JSON must not grow a pid field: {json}"
+        );
+
+        service.close_session(session_id).await.expect("close");
+        assert!(!service.session_exists(session_id).await);
+        assert_eq!(service.session_count().await, 0);
+        assert!(service.list_resource_roots().await.is_empty());
     }
 }

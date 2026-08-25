@@ -326,12 +326,14 @@ Source:   https://github.com/Subhan-code/Amicro--Micro-transitions-
           (src/components/simple-comp — ordered-dither canvas charts)
 Location: packages/ui/src/lib/dither/
           packages/ui/src/components/dither/
+          packages/ui/src/components/ui/dither-gauge.tsx
 License:  MIT
 Copyright (c) 2026 SYED SUBHAN UDDIN
 
 Notes:    Adapted into data-driven React primitives (DitherGrowth,
           DitherHeatmap, DitherStackedBars, DitherDonut, DitherFunnel,
-          DitherShareBar, helpers). Not a verbatim vendor of the showcase grid.
+          DitherShareBar, ServerGauge, helpers). Not a verbatim vendor of the
+          showcase grid.
 
 The MIT License (MIT)
 

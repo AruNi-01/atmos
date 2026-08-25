@@ -148,6 +148,7 @@ describe("api-operation-inventory", () => {
       "review",
       "localServices",
       "localModels",
+      "resourceMonitor",
       "agentRegistry",
       // deferred
       "acpSessions",
