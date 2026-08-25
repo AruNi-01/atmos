@@ -224,6 +224,12 @@ describe("ResourceMonitorPopover structure", () => {
     expect(popoverSrc).not.toContain('role="toolbar"');
     expect(popoverSrc).not.toMatch(/uppercase|text-transform:\s*uppercase/);
     expect(hierarchySrc).toContain("data-resource-monitor-sort");
+    expect(hierarchySrc).toContain("data-resource-monitor-sort-direction");
+    expect(hierarchySrc).toContain("ArrowUp");
+    expect(hierarchySrc).toContain("ArrowDown");
+    expect(hierarchySrc).toContain("ArrowUpDown");
+    expect(popoverSrc).toContain("handleSortKeyChange");
+    expect(popoverSrc).toContain("defaultResourceMonitorSortDirection");
     expect(hierarchySrc).toContain("data-resource-monitor-atmos-trigger");
     expect(hierarchySrc).toContain("sumAtmosUsage");
     expect(hierarchySrc).toContain("atmosDefaultOpen");

@@ -9,6 +9,7 @@ import type { DesktopShellGroupMetrics } from "@/features/resource-monitor/lib/d
 import { processBasename } from "@/features/resource-monitor/lib/resource-monitor-format";
 
 export type ResourceMonitorSortKey = "name" | "cpu" | "memory";
+export type ResourceMonitorSortDirection = "ascending" | "descending";
 
 export const RESOURCE_MONITOR_SORT_KEYS = [
   "name",
@@ -16,28 +17,44 @@ export const RESOURCE_MONITOR_SORT_KEYS = [
   "memory",
 ] as const satisfies readonly ResourceMonitorSortKey[];
 
-function compareNameAndId(leftName: string, leftId: string, rightName: string, rightId: string): number {
+export function defaultResourceMonitorSortDirection(
+  key: ResourceMonitorSortKey,
+): ResourceMonitorSortDirection {
+  return key === "name" ? "ascending" : "descending";
+}
+
+function compareNameAndId(
+  leftName: string,
+  leftId: string,
+  rightName: string,
+  rightId: string,
+  direction: ResourceMonitorSortDirection,
+): number {
   const byName = leftName.localeCompare(rightName, undefined, {
     numeric: true,
     sensitivity: "base",
   });
-  if (byName !== 0) return byName;
-  return leftId.localeCompare(rightId);
+  const result = byName !== 0 ? byName : leftId.localeCompare(rightId);
+  return direction === "ascending" ? result : -result;
 }
 
 function compareUsage(
   key: ResourceMonitorSortKey,
+  direction: ResourceMonitorSortDirection,
   left: { name: string; id: string; usage: ResourceUsage },
   right: { name: string; id: string; usage: ResourceUsage },
 ): number {
-  if (key === "cpu") {
-    const byCpu = right.usage.cpu_percent - left.usage.cpu_percent;
-    if (byCpu !== 0) return byCpu;
-  } else if (key === "memory") {
-    const byMemory = right.usage.memory_rss_bytes - left.usage.memory_rss_bytes;
-    if (byMemory !== 0) return byMemory;
+  if (key === "name") {
+    return compareNameAndId(left.name, left.id, right.name, right.id, direction);
   }
-  return compareNameAndId(left.name, left.id, right.name, right.id);
+  const usageResult =
+    key === "cpu"
+      ? left.usage.cpu_percent - right.usage.cpu_percent
+      : left.usage.memory_rss_bytes - right.usage.memory_rss_bytes;
+  if (usageResult !== 0) {
+    return direction === "ascending" ? usageResult : -usageResult;
+  }
+  return compareNameAndId(left.name, left.id, right.name, right.id, "ascending");
 }
 
 export type ResourceMonitorSessionNameResolver = (
@@ -54,10 +71,12 @@ function sessionSortName(
 export function sortResourceMonitorProcesses(
   processes: readonly ResourceProcessMetrics[],
   key: ResourceMonitorSortKey,
+  direction = defaultResourceMonitorSortDirection(key),
 ): ResourceProcessMetrics[] {
   return [...processes].sort((left, right) =>
     compareUsage(
       key,
+      direction,
       {
         name: processBasename(left.name),
         id: left.name,
@@ -75,10 +94,11 @@ export function sortResourceMonitorProcesses(
 function sortSessionWithProcesses(
   session: ResourceSessionMetrics,
   key: ResourceMonitorSortKey,
+  direction: ResourceMonitorSortDirection,
 ): ResourceSessionMetrics {
   return {
     ...session,
-    processes: sortResourceMonitorProcesses(session.processes, key),
+    processes: sortResourceMonitorProcesses(session.processes, key, direction),
   };
 }
 
@@ -86,11 +106,13 @@ export function sortResourceMonitorSessions(
   sessions: readonly ResourceSessionMetrics[],
   key: ResourceMonitorSortKey,
   resolveName?: ResourceMonitorSessionNameResolver,
+  direction = defaultResourceMonitorSortDirection(key),
 ): ResourceSessionMetrics[] {
   return [...sessions]
     .sort((left, right) =>
       compareUsage(
         key,
+        direction,
         {
           name: sessionSortName(left, resolveName),
           id: left.session_id,
@@ -103,26 +125,37 @@ export function sortResourceMonitorSessions(
         },
       ),
     )
-    .map((session) => sortSessionWithProcesses(session, key));
+    .map((session) => sortSessionWithProcesses(session, key, direction));
 }
 
 export function sortResourceMonitorWorkspaces(
   workspaces: readonly ResourceWorkspaceMetrics[],
   key: ResourceMonitorSortKey,
   resolveName?: ResourceMonitorSessionNameResolver,
+  direction = defaultResourceMonitorSortDirection(key),
 ): ResourceWorkspaceMetrics[] {
   return [...workspaces]
     .sort((left, right) =>
       compareUsage(
         key,
+        direction,
         { name: left.name, id: left.workspace_id, usage: left.usage },
         { name: right.name, id: right.workspace_id, usage: right.usage },
       ),
     )
     .map((workspace) => ({
       ...workspace,
-      sessions: sortResourceMonitorSessions(workspace.sessions, key, resolveName),
-      other_processes: sortResourceMonitorProcesses(workspace.other_processes, key),
+      sessions: sortResourceMonitorSessions(
+        workspace.sessions,
+        key,
+        resolveName,
+        direction,
+      ),
+      other_processes: sortResourceMonitorProcesses(
+        workspace.other_processes,
+        key,
+        direction,
+      ),
     }));
 }
 
@@ -130,30 +163,48 @@ export function sortResourceMonitorProjects(
   projects: readonly ResourceProjectMetrics[],
   key: ResourceMonitorSortKey,
   resolveName?: ResourceMonitorSessionNameResolver,
+  direction = defaultResourceMonitorSortDirection(key),
 ): ResourceProjectMetrics[] {
   return [...projects]
     .sort((left, right) =>
       compareUsage(
         key,
+        direction,
         { name: left.name, id: left.project_id, usage: left.usage },
         { name: right.name, id: right.project_id, usage: right.usage },
       ),
     )
     .map((project) => ({
       ...project,
-      sessions: sortResourceMonitorSessions(project.sessions, key, resolveName),
-      other_processes: sortResourceMonitorProcesses(project.other_processes, key),
-      workspaces: sortResourceMonitorWorkspaces(project.workspaces, key, resolveName),
+      sessions: sortResourceMonitorSessions(
+        project.sessions,
+        key,
+        resolveName,
+        direction,
+      ),
+      other_processes: sortResourceMonitorProcesses(
+        project.other_processes,
+        key,
+        direction,
+      ),
+      workspaces: sortResourceMonitorWorkspaces(
+        project.workspaces,
+        key,
+        resolveName,
+        direction,
+      ),
     }));
 }
 
 export function sortDesktopShellGroups(
   groups: readonly DesktopShellGroupMetrics[],
   key: ResourceMonitorSortKey,
+  direction = defaultResourceMonitorSortDirection(key),
 ): DesktopShellGroupMetrics[] {
   return [...groups].sort((left, right) =>
     compareUsage(
       key,
+      direction,
       { name: left.kind, id: left.kind, usage: left.usage },
       { name: right.kind, id: right.kind, usage: right.usage },
     ),

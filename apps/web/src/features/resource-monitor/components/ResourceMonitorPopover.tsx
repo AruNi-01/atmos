@@ -20,7 +20,11 @@ import { isUsageVisible } from "@/features/resource-monitor/lib/resource-monitor
 import type { ResourceHostHistoryPoint } from "@/features/resource-monitor/lib/resource-monitor-host-history";
 import type { ResourceMonitorSessionNavigationTarget } from "@/features/resource-monitor/lib/resource-monitor-session-navigation";
 import { buildResourceMonitorSessionDisplayMap } from "@/features/resource-monitor/lib/resource-monitor-session-titles";
-import { type ResourceMonitorSortKey } from "@/features/resource-monitor/lib/resource-monitor-sort";
+import {
+  defaultResourceMonitorSortDirection,
+  type ResourceMonitorSortDirection,
+  type ResourceMonitorSortKey,
+} from "@/features/resource-monitor/lib/resource-monitor-sort";
 import {
   resolveResourceMonitorUiState,
   resourceMonitorStatusBanners,
@@ -115,7 +119,21 @@ export function ResourceMonitorPopover({
     () => buildResourceMonitorSessionDisplayMap(workspacePanes),
     [workspacePanes],
   );
-  const [sortKey, setSortKey] = React.useState<ResourceMonitorSortKey>("cpu");
+  const [sort, setSort] = React.useState<{
+    key: ResourceMonitorSortKey;
+    direction: ResourceMonitorSortDirection;
+  }>({ key: "cpu", direction: "descending" });
+  const handleSortKeyChange = React.useCallback((key: ResourceMonitorSortKey) => {
+    setSort((current) =>
+      current.key === key
+        ? {
+            key,
+            direction:
+              current.direction === "ascending" ? "descending" : "ascending",
+          }
+        : { key, direction: defaultResourceMonitorSortDirection(key) },
+    );
+  }, []);
   const state = resolveResourceMonitorUiState({
     connectionState,
     isLoading,
@@ -159,8 +177,9 @@ export function ResourceMonitorPopover({
 
             {showSnapshot && snapshot ? (
               <ResourceMonitorHierarchy
-                sortKey={sortKey}
-                onSortKeyChange={setSortKey}
+                sortKey={sort.key}
+                sortDirection={sort.direction}
+                onSortKeyChange={handleSortKeyChange}
                 snapshotProjects={snapshot.projects}
                 snapshotServer={snapshot.server}
                 snapshotShared={snapshot.shared_runtime}

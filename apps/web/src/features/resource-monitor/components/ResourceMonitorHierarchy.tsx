@@ -2,7 +2,13 @@
 
 import React from "react";
 import { useTranslations } from "next-intl";
-import { ChevronRight, Locate } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  ChevronRight,
+  Locate,
+} from "lucide-react";
 import {
   Badge,
   Collapsible,
@@ -56,6 +62,7 @@ import {
 import {
   sortDesktopShellGroups,
   sortResourceMonitorProjects,
+  type ResourceMonitorSortDirection,
   type ResourceMonitorSortKey,
 } from "@/features/resource-monitor/lib/resource-monitor-sort";
 import type { LiveResourceSessionPanes } from "@/features/terminal/public";
@@ -134,8 +141,19 @@ function SortHeaderButton({
         active ? "text-foreground" : "text-muted-foreground",
         className,
       )}
+      data-resource-monitor-sort-column={column}
+      data-resource-monitor-sort-direction={active ? direction : undefined}
       onClick={onClick}
     >
+      {active ? (
+        direction === "ascending" ? (
+          <ArrowUp className="size-3" aria-hidden />
+        ) : (
+          <ArrowDown className="size-3" aria-hidden />
+        )
+      ) : (
+        <ArrowUpDown className="size-3 opacity-45" aria-hidden />
+      )}
       <span data-resource-monitor-column-label={column}>{children}</span>
     </button>
   );
@@ -725,6 +743,7 @@ function SectionLabel({
 
 export function ResourceMonitorHierarchy({
   sortKey,
+  sortDirection,
   onSortKeyChange,
   snapshotProjects,
   snapshotServer,
@@ -740,6 +759,7 @@ export function ResourceMonitorHierarchy({
   onNavigate,
 }: {
   sortKey: ResourceMonitorSortKey;
+  sortDirection: ResourceMonitorSortDirection;
   onSortKeyChange: (key: ResourceMonitorSortKey) => void;
   snapshotProjects: ResourceProjectMetrics[];
   snapshotServer: ResourceUsage;
@@ -769,6 +789,7 @@ export function ResourceMonitorHierarchy({
     snapshotProjects,
     sortKey,
     resolveSessionName,
+    sortDirection,
   );
   const desktopForSort = desktop?.supported
     ? {
@@ -776,6 +797,7 @@ export function ResourceMonitorHierarchy({
         groups: sortDesktopShellGroups(
           desktop.groups.filter((group) => isUsageVisible(group.usage)),
           sortKey,
+          sortDirection,
         ),
       }
     : desktop;
@@ -790,7 +812,7 @@ export function ResourceMonitorHierarchy({
         <SortHeaderButton
           column={t("name")}
           active={sortKey === "name"}
-          direction="ascending"
+          direction={sortDirection}
           className={cn(RM_NAME, "justify-start")}
           onClick={() => onSortKeyChange("name")}
         >
@@ -799,7 +821,7 @@ export function ResourceMonitorHierarchy({
         <SortHeaderButton
           column={t("cpu")}
           active={sortKey === "cpu"}
-          direction="descending"
+          direction={sortDirection}
           className={cn(RM_METRIC, "justify-end")}
           onClick={() => onSortKeyChange("cpu")}
         >
@@ -808,7 +830,7 @@ export function ResourceMonitorHierarchy({
         <SortHeaderButton
           column={t("memory")}
           active={sortKey === "memory"}
-          direction="descending"
+          direction={sortDirection}
           className={cn(RM_MEMORY, "justify-end")}
           onClick={() => onSortKeyChange("memory")}
         >

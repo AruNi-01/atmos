@@ -482,6 +482,17 @@ test.describe("APP-066 resource monitor", () => {
     await expect(sort.getByRole("button", { name: /Name/ })).toBeVisible();
     await expect(sort.getByRole("button", { name: /CPU/ })).toBeVisible();
     await expect(sort.getByRole("button", { name: /Memory/ })).toBeVisible();
+    const cpuSort = sort.getByRole("button", { name: /CPU/ });
+    await expect(cpuSort).toHaveAttribute(
+      "data-resource-monitor-sort-direction",
+      "descending",
+    );
+    await expect(cpuSort.locator("svg")).toBeVisible();
+    await cpuSort.click();
+    await expect(cpuSort).toHaveAttribute(
+      "data-resource-monitor-sort-direction",
+      "ascending",
+    );
     await sort.getByRole("button", { name: /Name/ }).click();
     await expect(sort.getByRole("button", { name: /Name/ })).toHaveAttribute(
       "aria-pressed",
@@ -511,6 +522,11 @@ test.describe("APP-066 resource monitor", () => {
         ),
       ).toBeLessThanOrEqual(1.5);
     }
+    const nameSort = sort.getByRole("button", { name: /Name, ascending/i });
+    await nameSort.click();
+    await expect(
+      sort.getByRole("button", { name: /Name, descending/i }),
+    ).toHaveAttribute("data-resource-monitor-sort-direction", "descending");
 
     const current = page.viewportSize();
     if (!current || current.width > 390) {

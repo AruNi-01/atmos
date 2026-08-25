@@ -6,6 +6,7 @@ import type {
   ResourceWorkspaceMetrics,
 } from "@atmos/api-types/ws/dto/resource-monitor";
 import {
+  defaultResourceMonitorSortDirection,
   sortDesktopShellGroups,
   sortResourceMonitorProcesses,
   sortResourceMonitorProjects,
@@ -180,6 +181,33 @@ describe("sortResourceMonitorProjects", () => {
       "p-b",
     ]);
   });
+
+  test("reverses every sibling layer when the active direction toggles", () => {
+    const sorted = sortResourceMonitorProjects(
+      tree,
+      "name",
+      undefined,
+      "descending",
+    );
+    expect(sorted.map((item) => item.project_id)).toEqual(["p-beta", "p-alpha"]);
+    expect(sorted[0]?.workspaces.map((item) => item.workspace_id)).toEqual([
+      "w-2",
+      "w-1",
+    ]);
+    expect(
+      sorted[0]?.workspaces[0]?.sessions.map((item) => item.session_id),
+    ).toEqual(["s-high", "s-low"]);
+    expect(sorted[0]?.sessions.map((item) => item.session_id)).toEqual([
+      "s-direct-b",
+      "s-direct-a",
+    ]);
+  });
+
+  test("uses ascending for Name and descending for resource columns by default", () => {
+    expect(defaultResourceMonitorSortDirection("name")).toBe("ascending");
+    expect(defaultResourceMonitorSortDirection("cpu")).toBe("descending");
+    expect(defaultResourceMonitorSortDirection("memory")).toBe("descending");
+  });
 });
 
 describe("sortResourceMonitorProcesses", () => {
@@ -241,6 +269,14 @@ describe("sortResourceMonitorProcesses", () => {
       "node",
       "eslint",
     ]);
+  });
+
+  test("supports ascending process usage within each process group", () => {
+    expect(
+      sortResourceMonitorProcesses(processes, "memory", "ascending").map(
+        (item) => item.name,
+      ),
+    ).toEqual(["eslint", "node", "vite"]);
   });
 });
 
