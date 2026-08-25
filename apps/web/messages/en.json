@@ -8189,7 +8189,7 @@
   "resourceMonitor": {
     "footerItem": {
       "title": "Resource Monitor",
-      "compact": "CPU {cpu} · {memory}",
+      "compact": "CPU {cpu} · Memory {memory}",
       "cpuValue": "CPU {value}",
       "memoryValue": "Memory {value}",
       "compactUnavailable": "CPU — · —"
