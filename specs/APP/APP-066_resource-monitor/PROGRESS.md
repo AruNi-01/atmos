@@ -76,6 +76,7 @@ No implementation deltas.
 | UI refinement | UI/Web/Playwright | passed | 40 Dither + 139 Web tests; Web typecheck/lint; Host/Disk/Atmos App flow passed on Chromium and mobile Chromium |
 | Gauge/Footer follow-up | UI/Web/Playwright | passed | 147 Bun tests; Web typecheck/lint; wide Gauge, hover transition, Footer order, and CPU/Memory alignment passed on Chromium and mobile Chromium |
 | Workspace/Footer polish | Web/Playwright | passed | localized Workspace badge tests + Web typecheck; compact-to-expanded Footer width passed on Chromium and mobile Chromium |
+| Session-row hover | Web typecheck + structural tests | passed | 18 targeted Bun tests; locate icon removed; unified padded hover; chevron icon-only highlight |
 | Full repository | `just test` / `just typecheck` | unrelated failures | APP-066 surfaces pass; see `TEST.md` Coverage Status |
 | Agent Browser/manual | exploratory | partial | Connect gate blocked Agent Browser; host-specific checks remain |
 
