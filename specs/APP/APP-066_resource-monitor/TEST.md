@@ -50,7 +50,7 @@
 | S18 | Rust/Bun test + E2E | `cargo test`, `bun test`, Playwright | Local Services cache join + hierarchy rendering | attributed listeners with matching/mismatching process identities | process basenames and cached ports under correct scope/session; no PID/path/command leak; no listener scan from hot path | planned |
 | S19 | Rust/Bun test | `cargo test`, `bun test` | Host detail sampling/DTO/validator | per-core samples and macOS/Linux/Windows memory fixtures | core count and range; explicit accounting; used/available and swap invariants; cached nullable | planned |
 | S20 | Bun test + E2E | `bun test`, Playwright | collapsible Host/Atmos and detail popovers | repeated snapshots, reduced-motion, narrow viewport | default-collapsed summaries; sticky sort; rounded hover; animated bars/chart; CPU/memory details remain inside parent monitor | planned |
-| S21 | Bun/UI test + E2E | `bun test`, Playwright | shared Dither Funnel/Growth and feature thresholds | low/mid/high values and reduced-motion | full-length shallow track; compact fixed 0–100 Growth; success/warning/destructive pressure tones; morph/snap behavior | planned |
+| S21 | Bun/UI test + E2E | `bun test`, Playwright | shared Dither Funnel/Growth and feature thresholds | low/mid/high values and reduced-motion | full-length shallow track; compact Host CPU Growth 0–100; success/warning/destructive pressure on host average; morph/snap behavior | planned |
 | S22 | Rust/Bun test + E2E | `cargo test`, `bun test`, Playwright | primary-disk sampler and default-collapsed Disk UI | root/system drive, APFS Data, removable, disk-image, pseudo, duplicate fixtures | exactly one primary system disk; used/available invariant; 2.5s cache; collapsed/expanded summary | planned |
 
 ## Scenarios
@@ -68,7 +68,7 @@
 - **Level**: Rust unit
 - **Given**: process samples spanning multiple logical cores and one process that exits during refresh.
 - **When**: the engine normalizes the sample.
-- **Then**: group CPU uses total-host 0–100 semantics, memory uses bytes, and the exited process is omitted without failing the host sample.
+- **Then**: group CPU uses per-core units (100 = one core, may exceed 100%), memory uses bytes, and the exited process is omitted without failing the host sample.
 - **Signals**: deterministic normalized values and collection-health status.
 
 ### S3 — Exclusive attribution prevents double counting
@@ -132,7 +132,7 @@
 - **Level**: Bun test
 - **Given**: synthetic Electron metrics for Browser, Tab, GPU, Utility, and an unknown process type.
 - **When**: the Desktop collector creates a snapshot.
-- **Then**: every process enters the expected group, working-set KB becomes bytes, CPU is normalized by logical CPUs, and the result contains no PID or creation time.
+- **Then**: every process enters the expected group, working-set KB becomes bytes, CPU is scaled from Electron host-share back to per-core units, and the result contains no PID or creation time.
 - **Signals**: group totals and serialized payload keys.
 
 ### S11 — Shell metrics appear only for local Electron
@@ -220,7 +220,7 @@
 - **Level**: Bun/UI test + E2E
 - **Given**: Host, core, memory, and history values crossing low, medium, and high thresholds.
 - **When**: snapshots update.
-- **Then**: every resource chart/meter uses the shared Token Usage Dither engine; meters retain a shallow full-length track; pressure colors resolve to success below 60%, warning at 60–79%, and destructive at 80%+; Host history uses compact Dither Area Growth fixed to 0–100; reduced-motion snaps without shimmer/morph.
+- **Then**: every resource chart/meter uses the shared Token Usage Dither engine; meters retain a shallow full-length track; pressure colors resolve to success below 60% of the host average, warning at 60–79%, and destructive at 80%+; Host CPU history uses compact Dither Area Growth fixed to 0–100; reduced-motion snaps without shimmer/morph.
 - **Signals**: shared Dither props/domain, feature threshold tests, absence of Recharts/CSS width bars, stable data attributes.
 
 ### S22 — Disk capacity selects the primary system disk
@@ -298,7 +298,7 @@ _Last run: 2026-08-25 · Grok 4.6 + coordinator verification. Covered: S1, S3, S
 ### Scenario status
 
 - S1 — ✅ covered by `crates/core-engine/src/resource_metrics/mod.rs::first_sample_is_primed_and_satisfies_invariants` and `second_sample_reuses_primed_counters`. Behavioral host snapshot (positive totals, logical CPUs > 0, primed timestamp, current PID present).
-- S2 — ◐ partial. CPU 0–100 / bytes / `pid > 0` covered by `normalize_process_cpu_uses_total_host_capacity` and first-sample invariants. Then also requires an exit-during-refresh omit without failing the host sample; there is no process-exit injection, so that race is a gap.
+- S2 — ◐ partial. Per-core CPU / bytes / `pid > 0` covered by `normalize_process_cpu_keeps_per_core_units` and first-sample invariants. Then also requires an exit-during-refresh omit without failing the host sample; there is no process-exit injection, so that race is a gap.
 - S3 — ✅ covered by `crates/core-service/src/service/resource_monitor/attribution_tests.rs::exclusive_nested_deepest_and_server_excludes_workspace`.
 - S4 — ✅ covered by `crates/core-service/src/service/terminal.rs::simple_pty_captures_nonzero_root_pid_without_session_detail_leak` and `terminal/types.rs::resource_root_keeps_pid_and_session_detail_does_not`.
 - S5 — ◐ partial. Parser + exclusive claim covered by `duplicate_tmux_roots_claim_once`, `tmux::session::parse_pane_processes_*`, and `list_pane_processes_returns_tmux_error_or_empty_when_server_is_absent`. Then also requires one batched pane-list supplying both windows; no live `tmux list-panes -a` against a real server is asserted.

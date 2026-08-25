@@ -8192,8 +8192,8 @@
       "title": "Resource Monitor",
       "monitor": "Monitor",
       "compact": "CPU {cpu} · Memory {memory}",
-      "cpuValue": "CPU {value}",
-      "memoryValue": "Memory {value}",
+      "cpuValue": "CPU <value></value>",
+      "memoryValue": "Memory <value></value>",
       "compactUnavailable": "CPU — · —"
     },
     "popover": {

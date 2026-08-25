@@ -99,7 +99,12 @@ describe("resource monitor dither structure", () => {
     expect(footerSrc).toContain("previewing");
     expect(footerSrc).toContain('key="label"');
     expect(footerSrc).toContain('key="usage"');
-    expect(footerSrc).toContain('mode="sync"');
+    expect(footerSrc).toContain('mode="wait"');
+    expect(footerSrc).toContain("SlidingMetric");
+    expect(footerSrc).toContain("hostPercentSlidingParts");
+    expect(footerSrc).toContain("FOOTER_SWAP_TRANSITION");
+    expect(footerSrc).toContain("y: 6");
+    expect(footerSrc).toContain("y: -6");
     expect(footerSrc).toContain("opacity: 0");
     expect(footerSrc).toContain("opacity: 1");
     expect(footerSrc).toContain('t("monitor")');

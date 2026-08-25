@@ -155,7 +155,7 @@ describe("resource locate pane wiring", () => {
     expect(pane).not.toContain("useAgentAttentionStore.getState().arrive");
   });
 
-  it("keeps locate CSS after attention and uses a one-shot semantic info pulse", () => {
+  it("keeps locate CSS after attention and breathes like the agent-attention border", () => {
     const css = readSibling("terminal-grid.css");
     const attentionAfter = css.indexOf(
       ".terminal-split-theme .terminal-pane.agent-attention-ring::after",
@@ -169,14 +169,20 @@ describe("resource locate pane wiring", () => {
     expect(locateAfter).toBeGreaterThan(attentionAfter);
     expect(locateKeyframes).toBeGreaterThan(attentionAfter);
     expect(css).toContain("var(--info)");
-    expect(css).toContain("2400ms ease-out forwards");
+    expect(css.slice(locateKeyframes, locateKeyframes + 280)).toContain("0%,");
+    expect(css.slice(locateKeyframes, locateKeyframes + 280)).toContain("100%");
+    expect(css.slice(locateKeyframes, locateKeyframes + 280)).toContain("50%");
+    expect(css.slice(locateAfter, locateAfter + 500)).toContain(
+      "resource-locate-pane-border-pulse 2.4s ease-in-out infinite",
+    );
+    expect(css.slice(locateAfter, locateAfter + 500)).toContain("border: 1.5px solid transparent");
+    expect(css).not.toContain("2400ms ease-out forwards");
     expect(css).not.toMatch(
       /\.terminal-pane\.resource-locate-ring::after[\s\S]{0,400}box-shadow/,
     );
     expect(css).not.toMatch(
       /\.resource-locate-ring[\s\S]{0,400}transform:\s*scale/,
     );
-    expect(css.slice(locateAfter, locateAfter + 500)).not.toContain("infinite");
     expect(css).toContain("agent-attention-pane-border-pulse 2.4s ease-in-out infinite");
     expect(reducedMotion).toBeGreaterThan(locateAfter);
     const reducedBlock = css.slice(reducedMotion, reducedMotion + 280);

@@ -26,12 +26,16 @@ function HostChartTrack({
   label,
   values,
   labels,
+  yMax,
+  formatValue,
   getTooltipLines,
   theme,
 }: {
   label: string;
   values: number[];
   labels: string[];
+  yMax: number;
+  formatValue: (value: number) => string;
   getTooltipLines: (value: number, index: number) => DitherTooltipLine[];
   theme: "light" | "dark";
 }) {
@@ -42,12 +46,12 @@ function HostChartTrack({
         <DitherGrowth
           values={values}
           labels={labels}
-          yMax={100}
-          colorStops={resourceMonitorGrowthColorStops(theme)}
+          yMax={yMax}
+          colorStops={resourceMonitorGrowthColorStops(theme, yMax)}
           compact
           theme={theme}
           valueLabel={label}
-          formatValue={formatPercent}
+          formatValue={formatValue}
           getTooltipLines={getTooltipLines}
         />
       </div>
@@ -108,6 +112,8 @@ export function ResourceMonitorHostChart({
         label={t("cpu")}
         values={history.map((point) => point.cpu_percent)}
         labels={labels}
+        yMax={100}
+        formatValue={formatPercent}
         getTooltipLines={(value) => [
           {
             label: t("used"),
@@ -123,6 +129,8 @@ export function ResourceMonitorHostChart({
         label={t("memory")}
         values={history.map((point) => point.memory_percent)}
         labels={labels}
+        yMax={100}
+        formatValue={formatPercent}
         getTooltipLines={(value) => [
           {
             label: t("used"),

@@ -52,17 +52,45 @@ export function resourceMonitorDitherTrackColor(theme: DitherTheme): string {
   return TRACK_HEX[theme];
 }
 
+function mixHex(from: string, to: string, amount: number): string {
+  const t = Math.max(0, Math.min(1, amount));
+  const parse = (hex: string): [number, number, number] | null => {
+    if (!/^#[0-9a-fA-F]{6}$/.test(hex)) return null;
+    return [
+      Number.parseInt(hex.slice(1, 3), 16),
+      Number.parseInt(hex.slice(3, 5), 16),
+      Number.parseInt(hex.slice(5, 7), 16),
+    ];
+  };
+  const a = parse(from);
+  const b = parse(to);
+  if (!a || !b) return from;
+  const channel = (index: number) =>
+    Math.round(a[index]! + (b[index]! - a[index]!) * t)
+      .toString(16)
+      .padStart(2, "0");
+  return `#${channel(0)}${channel(1)}${channel(2)}`;
+}
+
+/**
+ * Vertical fill ramp for Host trend charts (btop-style):
+ * green → light green → light yellow → yellow → light red → red.
+ * Adjacent stops stay different so Growth interpolates instead of banding.
+ */
 export function resourceMonitorGrowthColorStops(
   theme: DitherTheme,
+  yMax = 100,
 ): DitherGrowthColorStop[] {
   const colors = PRESSURE_HEX[theme];
+  const cap = Number.isFinite(yMax) && yMax > 0 ? yMax : 100;
+  const scale = cap / 100;
   return [
-    { value: 0, color: colors.low },
-    { value: 56, color: colors.low },
-    { value: 64, color: colors.medium },
-    { value: 76, color: colors.medium },
-    { value: 84, color: colors.high },
-    { value: 100, color: colors.high },
+    { value: 0 * scale, color: colors.low },
+    { value: 18 * scale, color: mixHex(colors.low, colors.medium, 0.22) },
+    { value: 38 * scale, color: mixHex(colors.low, colors.medium, 0.55) },
+    { value: 55 * scale, color: colors.medium },
+    { value: 78 * scale, color: mixHex(colors.medium, colors.high, 0.42) },
+    { value: 100 * scale, color: colors.high },
   ];
 }
 

@@ -31,7 +31,7 @@ function collectKeys(value: unknown, keys = new Set<string>()): Set<string> {
 }
 
 describe("collectDesktopShellMetrics", () => {
-  it("groups Electron types, converts KB to bytes, and normalizes CPU", () => {
+  it("groups Electron types, converts KB to bytes, and scales CPU to per-core", () => {
     const snapshot = collectDesktopShellMetrics({
       logicalCpuCount: 8,
       nowMs: () => 1_700_000_000_123,
@@ -42,32 +42,32 @@ describe("collectDesktopShellMetrics", () => {
           creationTime: 100,
           name: "Atmos",
           memory: { workingSetSize: 100 },
-          cpu: { percentCPUUsage: 80 },
+          cpu: { percentCPUUsage: 10 },
         },
         {
           type: "Tab",
           pid: 22,
           memory: { workingSetSize: 250 },
-          cpu: { percentCPUUsage: 40 },
+          cpu: { percentCPUUsage: 5 },
         },
         {
           type: "GPU",
           pid: 33,
           memory: { workingSetSize: 50 },
-          cpu: { percentCPUUsage: 16 },
+          cpu: { percentCPUUsage: 2 },
         },
         {
           type: "Utility",
           pid: 44,
           memory: { workingSetSize: 25 },
-          cpu: { percentCPUUsage: 8 },
+          cpu: { percentCPUUsage: 1 },
         },
         {
           type: "Zygote",
           pid: 55,
           name: "sandbox helper",
           memory: { workingSetSize: 10 },
-          cpu: { percentCPUUsage: 8 },
+          cpu: { percentCPUUsage: 1 },
         },
       ],
     });
@@ -80,32 +80,32 @@ describe("collectDesktopShellMetrics", () => {
     ]);
 
     expect(usageOf(snapshot, "main")).toEqual({
-      cpu_percent: 10,
+      cpu_percent: 80,
       memory_rss_bytes: 100 * 1024,
       process_count: 1,
     });
     expect(usageOf(snapshot, "renderer")).toEqual({
-      cpu_percent: 5,
+      cpu_percent: 40,
       memory_rss_bytes: 250 * 1024,
       process_count: 1,
     });
     expect(usageOf(snapshot, "gpu")).toEqual({
-      cpu_percent: 2,
+      cpu_percent: 16,
       memory_rss_bytes: 50 * 1024,
       process_count: 1,
     });
     expect(usageOf(snapshot, "utility")).toEqual({
-      cpu_percent: 1,
+      cpu_percent: 8,
       memory_rss_bytes: 25 * 1024,
       process_count: 1,
     });
     expect(usageOf(snapshot, "other")).toEqual({
-      cpu_percent: 1,
+      cpu_percent: 8,
       memory_rss_bytes: 10 * 1024,
       process_count: 1,
     });
     expect(snapshot.total).toEqual({
-      cpu_percent: 19,
+      cpu_percent: 152,
       memory_rss_bytes: (100 + 250 + 50 + 25 + 10) * 1024,
       process_count: 5,
     });
@@ -130,7 +130,7 @@ describe("collectDesktopShellMetrics", () => {
     });
 
     expect(usageOf(snapshot, "renderer")).toEqual({
-      cpu_percent: 10,
+      cpu_percent: 160,
       memory_rss_bytes: 40 * 1024,
       process_count: 2,
     });
@@ -277,12 +277,12 @@ describe("collectDesktopShellMetrics", () => {
       ],
     });
 
-    expect(usageOf(snapshot, "main").cpu_percent).toBe(100);
-    expect(usageOf(snapshot, "renderer").cpu_percent).toBe(100);
+    expect(usageOf(snapshot, "main").cpu_percent).toBe(0);
+    expect(usageOf(snapshot, "renderer").cpu_percent).toBe(0);
     expect(snapshot.total.cpu_percent).toBe(0);
   });
 
-  it("clamps over-aggregated CPU to the host 0..100 range", () => {
+  it("clamps over-aggregated CPU to 100 × logical CPUs", () => {
     const snapshot = collectDesktopShellMetrics({
       logicalCpuCount: 2,
       nowMs: () => 12,
@@ -310,13 +310,30 @@ describe("collectDesktopShellMetrics", () => {
       ],
     });
 
-    expect(usageOf(snapshot, "renderer").cpu_percent).toBe(100);
-    expect(snapshot.total.cpu_percent).toBe(100);
-    expect(snapshot.total.cpu_percent).toBeLessThanOrEqual(100);
+    expect(usageOf(snapshot, "renderer").cpu_percent).toBe(200);
+    expect(snapshot.total.cpu_percent).toBe(200);
+    expect(snapshot.total.cpu_percent).toBeLessThanOrEqual(200);
     expect(snapshot.total.cpu_percent).toBeGreaterThanOrEqual(0);
   });
 
-  it("sanitizes a non-finite logical CPU count and still reports memory", () => {
+  it("scales Electron host-share percentCPUUsage back to per-core units", () => {
+    const snapshot = collectDesktopShellMetrics({
+      logicalCpuCount: 8,
+      nowMs: () => 1,
+      readProcessMetrics: () => [
+        {
+          type: "Tab",
+          memory: { workingSetSize: 1 },
+          cpu: { percentCPUUsage: 7.3 },
+        },
+      ],
+    });
+
+    expect(usageOf(snapshot, "renderer").cpu_percent).toBe(58.4);
+    expect(snapshot.total.cpu_percent).toBe(58.4);
+  });
+
+  it("sanitizes a non-finite logical CPU count and still reports CPU and memory", () => {
     const snapshot = collectDesktopShellMetrics({
       logicalCpuCount: Number.NaN,
       nowMs: () => 9,
@@ -331,7 +348,7 @@ describe("collectDesktopShellMetrics", () => {
 
     expect(snapshot.supported).toBe(true);
     expect(snapshot.logical_cpu_count).toBe(0);
-    expect(snapshot.total.cpu_percent).toBe(0);
+    expect(snapshot.total.cpu_percent).toBe(50);
     expect(snapshot.total.memory_rss_bytes).toBe(4 * 1024);
     expect(snapshot.total.process_count).toBe(1);
   });

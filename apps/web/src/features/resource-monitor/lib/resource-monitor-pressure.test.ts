@@ -54,15 +54,21 @@ describe("resourceMonitorDitherColor", () => {
     );
   });
 
-  test("builds low/medium/high Growth stops with blended transition ranges", () => {
-    expect(resourceMonitorGrowthColorStops("light")).toEqual([
-      { value: 0, color: "#0AA543" },
-      { value: 56, color: "#0AA543" },
-      { value: 64, color: "#D99600" },
-      { value: 76, color: "#D99600" },
-      { value: 84, color: "#E7000B" },
-      { value: 100, color: "#E7000B" },
-    ]);
+  test("builds a continuous green→yellow→red Growth ramp", () => {
+    const stops = resourceMonitorGrowthColorStops("light");
+    expect(stops.map((stop) => stop.value)).toEqual([0, 18, 38, 55, 78, 100]);
+    expect(stops[0]?.color).toBe("#0AA543");
+    expect(stops[3]?.color).toBe("#D99600");
+    expect(stops.at(-1)?.color).toBe("#E7000B");
+    const unique = new Set(stops.map((stop) => stop.color.toLowerCase()));
+    expect(unique.size).toBe(stops.length);
+  });
+
+  test("scales the continuous Growth ramp with yMax", () => {
+    const stops = resourceMonitorGrowthColorStops("light", 1000);
+    expect(stops.map((stop) => stop.value)).toEqual([0, 180, 380, 550, 780, 1000]);
+    expect(stops[0]?.color).toBe("#0AA543");
+    expect(stops.at(-1)?.color).toBe("#E7000B");
   });
 
   test("uses semantic text colors for compact footer pressure", () => {

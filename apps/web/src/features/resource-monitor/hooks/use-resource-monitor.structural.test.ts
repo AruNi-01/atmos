@@ -42,7 +42,6 @@ describe("useResourceMonitor lifecycle wiring", () => {
   test("Footer item owns popover open state as the interactive flag", () => {
     expect(footerSrc).toContain("interactive: open");
     expect(footerSrc).toContain("enabled: true");
-    expect(footerSrc).toContain("formatCpuPercent");
     expect(footerSrc).toContain("hostMemoryPercent");
     expect(footerSrc).toContain("formatPercent");
     expect(footerSrc).toContain("resourceMonitorPressureTextClass");
@@ -57,6 +56,9 @@ describe("useResourceMonitor lifecycle wiring", () => {
     expect(footerSrc).toContain("preventResourceMonitorCloseAutoFocus");
     expect(footerSrc).toContain("runResourceMonitorSessionNavigation");
     expect(footerSrc).toContain("useAppRouter");
+    expect(footerSrc).toContain("handleOpenChange");
+    expect(footerSrc).toContain("if (next && navigatingRef.current) return");
+    expect(footerSrc).toContain("onOpenChange={handleOpenChange}");
     expect(footerSrc).toMatch(/reopen:\s*\(\)\s*=>\s*setOpen\(true\)/);
     expect(footerSrc).not.toMatch(
       /reopen:\s*\(\)\s*=>\s*\{[\s\S]*navigatingRef\.current\s*=\s*false/,
