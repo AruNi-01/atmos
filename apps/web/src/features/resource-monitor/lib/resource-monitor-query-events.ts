@@ -265,6 +265,7 @@ export function isResourceMonitorSnapshot(
     isDiskList(value.disks) &&
     isResourceUsage(value.server) &&
     isResourceUsage(value.shared_runtime) &&
+    isResourceUsage(value.desktop_use) &&
     isResourceUsage(value.unattributed) &&
     Array.isArray(value.projects) &&
     value.projects.every(isProjectMetrics) &&

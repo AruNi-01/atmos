@@ -58,11 +58,18 @@ export function formatMemoryPair(usedBytes: number, totalBytes: number): string 
 export function sumAtmosUsage(
   server: ResourceUsage,
   shared: ResourceUsage,
+  desktopUse: ResourceUsage = {
+    cpu_percent: 0,
+    memory_rss_bytes: 0,
+    process_count: 0,
+  },
 ): ResourceUsage {
   return {
-    cpu_percent: server.cpu_percent + shared.cpu_percent,
-    memory_rss_bytes: server.memory_rss_bytes + shared.memory_rss_bytes,
-    process_count: server.process_count + shared.process_count,
+    cpu_percent: server.cpu_percent + shared.cpu_percent + desktopUse.cpu_percent,
+    memory_rss_bytes:
+      server.memory_rss_bytes + shared.memory_rss_bytes + desktopUse.memory_rss_bytes,
+    process_count:
+      server.process_count + shared.process_count + desktopUse.process_count,
   };
 }
 

@@ -319,7 +319,7 @@ Popover:
 
 - Host summary.
 - Local-only Desktop shell rows.
-- Atmos Server and shared runtime rows.
+- Atmos Server, Desktop Use helper, and shared runtime rows.
 - Collapsible Project → Workspace → active terminal session hierarchy.
 - Unattributed row when non-zero or attribution is partial.
 - Loading, stale, unsupported, disconnected, and empty states.

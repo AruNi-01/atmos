@@ -8258,6 +8258,7 @@
       "desktopUnsupported": "无法获取 Desktop 壳层指标。",
       "atmos": "Atmos App",
       "server": "Atmos Server",
+      "desktopUse": "Desktop Use",
       "sharedRuntime": "共享运行时",
       "projects": "项目",
       "workspaceBadge": "工作区",

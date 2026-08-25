@@ -170,6 +170,9 @@ pub struct ResourceMonitorSnapshot {
     pub disks: Vec<ResourceDiskMetrics>,
     pub server: ResourceUsage,
     pub shared_runtime: ResourceUsage,
+    /// Atmos Desktop Use host/engine helpers. Zero when the helper is not running.
+    #[serde(default)]
+    pub desktop_use: ResourceUsage,
     pub projects: Vec<ResourceProjectMetrics>,
     pub unattributed: ResourceUsage,
     pub attribution_status: ResourceAttributionStatus,

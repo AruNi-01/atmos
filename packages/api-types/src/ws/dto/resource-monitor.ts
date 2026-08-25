@@ -100,6 +100,7 @@ export type ResourceMonitorSnapshot = {
   disks: ResourceDiskMetrics[];
   server: ResourceUsage;
   shared_runtime: ResourceUsage;
+  desktop_use: ResourceUsage;
   projects: ResourceProjectMetrics[];
   unattributed: ResourceUsage;
   attribution_status: ResourceAttributionStatus;
