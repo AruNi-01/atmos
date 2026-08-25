@@ -3,8 +3,10 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   containedDest,
+  coverDest,
   isVisibleInClip,
   mapInnerRectToDest,
+  shouldKeepSnapPreviewNode,
 } from "@/app-shell/center-space/center-space-thumbnail";
 
 const dir = join(import.meta.dir, "..");
@@ -16,6 +18,14 @@ describe("center space thumbnail mapping", () => {
     expect(box.w).toBe(136);
     expect(box.h).toBeCloseTo(85);
     expect(box.y).toBeCloseTo(3.5);
+  });
+
+  it("covers the card without letterbox bars", () => {
+    const box = coverDest(1600, 1000, 136, 92);
+    expect(box.y).toBe(0);
+    expect(box.h).toBe(92);
+    expect(box.w).toBeCloseTo(147.2);
+    expect(box.x).toBeCloseTo(-5.6);
   });
 
   it("maps a canvas rect into a mosaic cell", () => {
@@ -38,6 +48,11 @@ describe("center space thumbnail mapping", () => {
     ).toBe(false);
   });
 
+  it("keeps the capture root so display-contents wrappers are not dropped", () => {
+    const root = {} as HTMLElement;
+    expect(shouldKeepSnapPreviewNode(root, root)).toBe(true);
+  });
+
   it("fills the cell when the pane has no layout size", () => {
     expect(
       mapInnerRectToDest(
@@ -55,13 +70,23 @@ describe("center space thumbnail mapping", () => {
     );
     expect(thumb).toContain('@zumer/snapdom');
     expect(thumb).toContain("snapdom.toCanvas");
-    expect(thumb).toContain("clip:");
-    expect(thumb).toContain('filterMode: "remove"');
+    expect(thumb).toContain("burst: true");
+    expect(thumb).toContain("width: outW");
+    expect(thumb).toContain("queryCenterWorkArea");
+    expect(thumb).toContain("data-center-stage-body");
+    expect(thumb).toContain("opaqueBackground");
+    expect(thumb).toContain("coverDest");
+    expect(thumb).toContain("shouldKeepSnapPreviewNode");
+    expect(thumb).toContain("isCheapHiddenPane");
+    expect(thumb).toContain("isSkippedPreviewNode");
     expect(thumb).toContain("isVisibleInClip");
+    expect(thumb).not.toContain("rect.width <= 1");
+    expect(thumb).not.toContain("window.scrollX");
+    expect(thumb).not.toContain("filterMode");
     expect(thumb).toContain("paintXtermBufferInto");
-    expect(thumb).toContain("excludeMode");
     expect(thumb).toContain("iframe");
     expect(thumb).toContain("webview");
+    expect(thumb).not.toContain("document.readyState");
     expect(thumb).not.toContain("html2canvas");
     expect(thumb).not.toContain("use-react-screenshot");
     expect(thumb).not.toContain("react-screen-capture");
@@ -85,6 +110,8 @@ describe("center space thumbnail mapping", () => {
     );
     expect(thumb).toContain("isActiveCaptureFrame");
     expect(thumb).toContain('data-tier") === "active"');
+    expect(thumb).toContain("frame.isConnected");
+    expect(switchSrc).toContain("await rememberMountedThumbnails(hostId)");
     const createAt = switchSrc.indexOf("export async function openNewCenterSpace");
     const switchAt = switchSrc.indexOf("export async function switchCenterSpace");
     const createBody = switchSrc.slice(createAt, switchAt);
@@ -101,5 +128,12 @@ describe("center space thumbnail mapping", () => {
     expect(createBody.indexOf("await rememberMountedThumbnails(hostId)")).toBeLessThan(
       createBody.indexOf("invalidateCenterSpaceThumbnailCapture()"),
     );
+    const rememberAt = switchSrc.indexOf("async function rememberMountedThumbnails");
+    const rememberBody = switchSrc.slice(
+      rememberAt,
+      switchSrc.indexOf("export async function captureActiveCenterSpaceThumbnail"),
+    );
+    expect(rememberBody).toContain("invalidate: true");
+    expect(rememberBody).toContain("snapshotMountedCenterSpaceThumbnails");
   });
 });

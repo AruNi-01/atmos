@@ -8,7 +8,7 @@ import {
   useInView,
   useReducedMotion,
 } from "motion/react";
-import { useEffect, useId, useMemo, type ElementType, type ReactNode } from "react";
+import { useEffect, useId, useMemo, useState, type ElementType, type ReactNode } from "react";
 
 const CHAR_SELECTOR = "[data-typewriter-char]";
 
@@ -24,6 +24,11 @@ export type TypewriterEffectProps = {
   className?: string;
   cursorClassName?: string;
   as?: ElementType;
+};
+
+export type TypewriterEffectSmoothProps = TypewriterEffectProps & {
+  /** Fade the caret out after type-in finishes. Default keeps blinking. */
+  hideCursorWhenComplete?: boolean;
 };
 
 function splitWordChars(word: TypewriterWord): string[] {
@@ -165,10 +170,13 @@ export function TypewriterEffectSmooth({
   words,
   className,
   cursorClassName,
+  hideCursorWhenComplete = false,
   as: Component = "div",
-}: TypewriterEffectProps) {
+}: TypewriterEffectSmoothProps) {
   const labelId = useId();
   const prefersReducedMotion = useReducedMotion();
+  const [typed, setTyped] = useState(false);
+  const hideCursor = hideCursorWhenComplete && (Boolean(prefersReducedMotion) || typed);
   const wordsArray = useMemo(
     () =>
       words.map((word) => ({
@@ -204,6 +212,7 @@ export function TypewriterEffectSmooth({
                 delay: 1,
               }
         }
+        onAnimationComplete={hideCursorWhenComplete ? () => setTyped(true) : undefined}
       >
         <div style={{ whiteSpace: "nowrap" }}>
           {wordsArray.map((word, wordIndex) => (
@@ -229,16 +238,18 @@ export function TypewriterEffectSmooth({
       </motion.div>
       <motion.span
         aria-hidden="true"
-        initial={{ opacity: prefersReducedMotion ? 1 : 0 }}
-        animate={{ opacity: 1 }}
+        initial={{ opacity: prefersReducedMotion && !hideCursorWhenComplete ? 1 : 0 }}
+        animate={{ opacity: hideCursor ? 0 : 1 }}
         transition={
-          prefersReducedMotion
-            ? { duration: 0 }
-            : {
-                duration: 0.8,
-                repeat: Infinity,
-                repeatType: "reverse",
-              }
+          hideCursor
+            ? { duration: 0.28, ease: [0.22, 1, 0.36, 1] }
+            : prefersReducedMotion
+              ? { duration: 0 }
+              : {
+                  duration: 0.8,
+                  repeat: Infinity,
+                  repeatType: "reverse",
+                }
         }
         className={cn(
           "block h-4 w-[4px] rounded-sm bg-primary sm:h-6 xl:h-12",

@@ -534,7 +534,7 @@ export async function copyRecord(
   if (!existsSync(dir)) throw new Error("record not found");
   const protocolText = formatProtocolPrompt(timestamp);
   const { clipboard } = await import("electron");
-  clipboard.writeText(protocolText);
+  await clipboard.writeText(protocolText);
   return { timestamp, protocol_text: protocolText, copied: true };
 }
 
@@ -899,7 +899,7 @@ export async function acceptPending(previewId: string): Promise<{
         const protocol_text = formatProtocolPrompt(previewId);
         try {
           const { clipboard } = await import("electron");
-          clipboard.writeText(protocol_text);
+          await clipboard.writeText(protocol_text);
         } catch {
           /* tests */
         }
@@ -918,7 +918,7 @@ export async function acceptPending(previewId: string): Promise<{
     const protocol_text = formatProtocolPrompt(entry.savedTimestamp);
     try {
       const { clipboard } = await import("electron");
-      clipboard.writeText(protocol_text);
+      await clipboard.writeText(protocol_text);
     } catch {
       /* tests */
     }
@@ -937,7 +937,7 @@ export async function acceptPending(previewId: string): Promise<{
     const written = writeRecordFromCapture(entry.capture);
     try {
       const { clipboard } = await import("electron");
-      clipboard.writeText(written.protocol_text);
+      await clipboard.writeText(written.protocol_text);
     } catch {
       /* unit tests without electron */
     }

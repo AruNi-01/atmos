@@ -735,7 +735,128 @@ html[lang^="zh"] .excalidraw .pt-design-library-sidebar .sidebar-triggers .sideb
   font-size: 13px;
 }
 
+/*
+  Excalidraw 0.18's phone chrome puts tools on top and the hamburger in a
+  full-width bottom island. Match current excalidraw.com: hamburger top-left,
+  compact top-right actions, drawing tools in a bottom dock.
+*/
+.excalidraw.excalidraw--mobile .App-bottom-bar > .Island {
+  position: absolute;
+  inset: 0;
+  width: auto;
+  min-width: 0;
+  max-width: none;
+  background: transparent;
+  box-shadow: none;
+  pointer-events: none;
+}
 
+.excalidraw.excalidraw--mobile footer.App-toolbar {
+  position: absolute;
+  inset: 0;
+  width: auto;
+  background: transparent;
+  box-shadow: none;
+  pointer-events: none;
+}
+
+.excalidraw.excalidraw--mobile .App-toolbar-content {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  gap: 2px;
+  padding: 0 12px 4.75rem;
+  pointer-events: none;
+}
+
+.excalidraw.excalidraw--mobile .App-toolbar-content > * {
+  pointer-events: auto;
+}
+
+.excalidraw.excalidraw--mobile .App-toolbar-content > .main-menu-trigger {
+  position: absolute;
+  top: var(--editor-container-padding, 1rem);
+  left: var(--editor-container-padding, 1rem);
+  bottom: auto;
+  z-index: 5;
+  width: var(--lg-button-size, 2.25rem);
+  height: var(--lg-button-size, 2.25rem);
+  border-radius: var(--border-radius-lg, 0.625rem);
+  background: var(--island-bg-color, var(--card));
+  box-shadow: var(--shadow-island);
+}
+
+.excalidraw.excalidraw--mobile .App-toolbar-content .dropdown-menu--mobile {
+  top: calc(var(--editor-container-padding, 1rem) + var(--lg-button-size, 2.25rem) + 0.5rem);
+  left: var(--editor-container-padding, 1rem);
+  right: auto;
+  bottom: auto;
+  width: max-content;
+  min-width: 14rem;
+  max-width: min(18rem, calc(100% - 2 * var(--editor-container-padding, 1rem)));
+}
+
+.excalidraw.excalidraw--mobile .pt-design-top-right {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 5;
+}
+
+.excalidraw.excalidraw--mobile .App-toolbar-container {
+  position: static;
+  width: 100%;
+  padding: 0;
+}
+
+.excalidraw.excalidraw--mobile .App-toolbar--mobile {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 12px;
+  z-index: 5;
+  width: max-content;
+  max-width: calc(100% - 24px);
+  margin-inline: auto;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+
+.excalidraw.excalidraw--mobile .App-toolbar--mobile::-webkit-scrollbar {
+  display: none;
+}
+
+.excalidraw.excalidraw--mobile .App-toolbar--mobile .dropdown-menu {
+  top: auto;
+  bottom: 100%;
+  margin-top: 0;
+  margin-bottom: 0.375rem;
+}
+
+.excalidraw.excalidraw--mobile .mobile-misc-tools-container {
+  top: calc(var(--lg-button-size, 2.25rem) + 8px);
+  right: 0;
+  border-right: 1px solid var(--sidebar-border-color);
+  border-radius: var(--border-radius-lg, 0.625rem);
+}
+
+.excalidraw.excalidraw--mobile .App-mobile-menu {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 4.75rem;
+  width: auto;
+  max-height: min(50%, 280px);
+  margin: 0;
+  overflow: auto;
+  background: var(--island-bg-color);
+  box-shadow: var(--shadow-island);
+  border-radius: 12px;
+  pointer-events: auto;
+}
 
 @keyframes pt-design-menu-in {
   from {

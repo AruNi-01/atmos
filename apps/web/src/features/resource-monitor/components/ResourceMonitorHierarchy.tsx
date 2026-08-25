@@ -8,12 +8,18 @@ import {
   ArrowUpDown,
   ChevronRight,
   Layers,
+  LoaderCircle,
+  Skull,
 } from "lucide-react";
 import {
   Badge,
+  Button,
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
   Tooltip,
   TooltipContent,
   TooltipTrigger,
@@ -34,6 +40,7 @@ import {
   RM_MEMORY,
   RM_METRIC,
   RM_NAME,
+  RM_NESTED_COPY,
   RM_ROW,
   RM_ROW_INTERACTIVE,
   RM_ROW_PAD,
@@ -166,14 +173,106 @@ function SortHeaderButton({
   );
 }
 
+function KillLeakedButton({
+  name,
+  killing,
+  onKillLeaked,
+}: {
+  name: string;
+  killing: boolean;
+  onKillLeaked: () => void;
+}) {
+  const t = useTranslations("resourceMonitor.popover");
+  const [confirmOpen, setConfirmOpen] = React.useState(false);
+  React.useEffect(() => {
+    if (killing) setConfirmOpen(false);
+  }, [killing]);
+  return (
+    <Popover
+      open={confirmOpen}
+      onOpenChange={(open) => {
+        if (!killing) setConfirmOpen(open);
+      }}
+      modal={false}
+    >
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              data-resource-monitor-kill-leaked=""
+              aria-expanded={confirmOpen}
+              aria-label={t("killLeakedAria", { name })}
+              disabled={killing}
+              className="inline-flex size-5 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
+              onClick={(event) => event.stopPropagation()}
+            >
+              {killing ? (
+                <LoaderCircle className="size-3 animate-spin" aria-hidden />
+              ) : (
+                <Skull className="size-3" aria-hidden />
+              )}
+            </button>
+          </PopoverTrigger>
+        </TooltipTrigger>
+        <TooltipContent side="top">{t("killLeaked")}</TooltipContent>
+      </Tooltip>
+      <PopoverContent
+        data-resource-monitor-detail="kill-leaked"
+        side="bottom"
+        align="end"
+        className="w-[min(16rem,calc(100vw-2rem))] p-3"
+        onOpenAutoFocus={() => undefined}
+        onEscapeKeyDown={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          setConfirmOpen(false);
+        }}
+        onCloseAutoFocus={(event) => {
+          event.preventDefault();
+        }}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <p className="text-[11px] text-foreground">{t("killLeakedConfirm")}</p>
+        <div className="mt-2 flex justify-end gap-1.5">
+          <Button
+            type="button"
+            variant="ghost"
+            size="xs"
+            onClick={() => setConfirmOpen(false)}
+          >
+            {t("killLeakedCancel")}
+          </Button>
+          <Button
+            type="button"
+            variant="destructive"
+            size="xs"
+            data-resource-monitor-kill-leaked-confirm=""
+            onClick={() => {
+              setConfirmOpen(false);
+              onKillLeaked();
+            }}
+          >
+            {t("killLeakedConfirmAction")}
+          </Button>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 function ProcessRow({
   process,
   indent,
   residual = false,
+  killing = false,
+  onKillLeaked,
 }: {
   process: ResourceProcessMetrics;
   indent: number;
   residual?: boolean;
+  killing?: boolean;
+  onKillLeaked?: () => void;
 }) {
   const t = useTranslations("resourceMonitor.popover");
   const name = residual ? t("ungroupedProcesses") : processBasename(process.name);
@@ -234,6 +333,13 @@ function ProcessRow({
           </Tooltip>
         </span>
       </span>
+      {process.leaked && onKillLeaked ? (
+        <KillLeakedButton
+          name={name}
+          killing={killing}
+          onKillLeaked={onKillLeaked}
+        />
+      ) : null}
       <MetricCells usage={process.usage} />
     </div>
   );
@@ -489,6 +595,14 @@ function StaticRow({
   );
 }
 
+function leakKillKey(
+  projectId: string,
+  workspaceId: string | null,
+  name: string,
+): string {
+  return `${projectId}:${workspaceId ?? ""}:${name}`;
+}
+
 function ScopeSections({
   sessions,
   otherUsage,
@@ -498,6 +612,10 @@ function ScopeSections({
   liveDisplays,
   workspacePanes,
   indent,
+  projectId,
+  workspaceId,
+  killingKey,
+  onKillLeaked,
   onNavigate,
 }: {
   sessions: ResourceSessionMetrics[];
@@ -508,6 +626,14 @@ function ScopeSections({
   liveDisplays: ReadonlyMap<string, ResourceMonitorSessionDisplay>;
   workspacePanes: LiveResourceSessionPanes | null;
   indent: number;
+  projectId: string;
+  workspaceId: string | null;
+  killingKey: string | null;
+  onKillLeaked?: (target: {
+    name: string;
+    projectId: string;
+    workspaceId: string | null;
+  }) => void;
   onNavigate?: (target: ResourceMonitorSessionNavigationTarget) => void;
 }) {
   const t = useTranslations("resourceMonitor.popover");
@@ -557,6 +683,19 @@ function ScopeSections({
                 key={`other:${process.name}`}
                 process={process}
                 indent={indent}
+                killing={
+                  killingKey === leakKillKey(projectId, workspaceId, process.name)
+                }
+                onKillLeaked={
+                  onKillLeaked
+                    ? () =>
+                        onKillLeaked({
+                          name: process.name,
+                          projectId,
+                          workspaceId,
+                        })
+                    : undefined
+                }
               />
             ))}
             {section.residual ? (
@@ -565,6 +704,7 @@ function ScopeSections({
                   name: "ungrouped-processes",
                   usage: section.residualUsage,
                   ports: [],
+                  leaked: false,
                 }}
                 indent={indent}
                 residual
@@ -579,13 +719,23 @@ function ScopeSections({
 
 function WorkspaceBlock({
   workspace,
+  projectId,
   liveDisplays,
   workspacePanes,
+  killingKey,
+  onKillLeaked,
   onNavigate,
 }: {
   workspace: ResourceWorkspaceMetrics;
+  projectId: string;
   liveDisplays: ReadonlyMap<string, ResourceMonitorSessionDisplay>;
   workspacePanes: LiveResourceSessionPanes | null;
+  killingKey: string | null;
+  onKillLeaked?: (target: {
+    name: string;
+    projectId: string;
+    workspaceId: string | null;
+  }) => void;
   onNavigate?: (target: ResourceMonitorSessionNavigationTarget) => void;
 }) {
   const t = useTranslations("resourceMonitor.popover");
@@ -615,6 +765,10 @@ function WorkspaceBlock({
         liveDisplays={liveDisplays}
         workspacePanes={workspacePanes}
         indent={2}
+        projectId={projectId}
+        workspaceId={workspace.workspace_id}
+        killingKey={killingKey}
+        onKillLeaked={onKillLeaked}
         onNavigate={onNavigate}
       />
     </GroupRow>
@@ -626,12 +780,20 @@ function ProjectBlock({
   liveDisplays,
   workspacePanes,
   defaultOpen,
+  killingKey,
+  onKillLeaked,
   onNavigate,
 }: {
   project: ResourceProjectMetrics;
   liveDisplays: ReadonlyMap<string, ResourceMonitorSessionDisplay>;
   workspacePanes: LiveResourceSessionPanes | null;
   defaultOpen: boolean;
+  killingKey: string | null;
+  onKillLeaked?: (target: {
+    name: string;
+    projectId: string;
+    workspaceId: string | null;
+  }) => void;
   onNavigate?: (target: ResourceMonitorSessionNavigationTarget) => void;
 }) {
   const t = useTranslations("resourceMonitor.popover");
@@ -659,6 +821,10 @@ function ProjectBlock({
             liveDisplays={liveDisplays}
             workspacePanes={workspacePanes}
             indent={2}
+            projectId={project.project_id}
+            workspaceId={null}
+            killingKey={killingKey}
+            onKillLeaked={onKillLeaked}
             onNavigate={onNavigate}
           />
         </GroupRow>
@@ -667,8 +833,11 @@ function ProjectBlock({
         <WorkspaceBlock
           key={workspace.workspace_id}
           workspace={workspace}
+          projectId={project.project_id}
           liveDisplays={liveDisplays}
           workspacePanes={workspacePanes}
+          killingKey={killingKey}
+          onKillLeaked={onKillLeaked}
           onNavigate={onNavigate}
         />
       ))}
@@ -697,6 +866,7 @@ function AtmosBlock({
     snapshotServer,
     snapshotShared,
     snapshotDesktopUse,
+    showDesktop && desktop?.supported ? desktop.total : undefined,
   );
   const desktopGroups = desktop?.supported
     ? desktop.groups.filter((group) => isUsageVisible(group.usage))
@@ -732,35 +902,43 @@ function AtmosBlock({
       <CollapsibleContent>
         {showDesktop ? (
           <>
-            <SectionLabel>{t("desktop")}</SectionLabel>
+            <SectionLabel indent={1}>{t("desktop")}</SectionLabel>
             {desktopLoading ? (
-              <div className="px-3 py-1 text-[11px] text-muted-foreground">
+              <div className={RM_NESTED_COPY}>
                 {t("desktopLoading")}
               </div>
             ) : desktop?.supported ? (
               <>
-                <StaticRow name={t("desktopTotal")} usage={desktop.total} />
+                <StaticRow
+                  name={t("desktopTotal")}
+                  usage={desktop.total}
+                  indent={1}
+                />
                 {desktopGroups.map((group) => (
                   <StaticRow
                     key={group.kind}
                     name={desktopLabel(group.kind)}
                     usage={group.usage}
-                    indent={1}
+                    indent={2}
                   />
                 ))}
               </>
             ) : (
-              <div className="px-3 py-1 text-[11px] text-muted-foreground">
+              <div className={RM_NESTED_COPY}>
                 {t("desktopUnsupported")}
               </div>
             )}
           </>
         ) : null}
-        <StaticRow name={t("server")} usage={snapshotServer} />
+        <StaticRow name={t("server")} usage={snapshotServer} indent={1} />
         {isUsageVisible(snapshotDesktopUse) ? (
-          <StaticRow name={t("desktopUse")} usage={snapshotDesktopUse} />
+          <StaticRow
+            name={t("desktopUse")}
+            usage={snapshotDesktopUse}
+            indent={1}
+          />
         ) : null}
-        <StaticRow name={t("sharedRuntime")} usage={snapshotShared} />
+        <StaticRow name={t("sharedRuntime")} usage={snapshotShared} indent={1} />
       </CollapsibleContent>
     </Collapsible>
   );
@@ -799,6 +977,8 @@ export function ResourceMonitorHierarchy({
   desktopLoading,
   liveDisplays,
   workspacePanes,
+  killingKey = null,
+  onKillLeaked,
   onNavigate,
 }: {
   sortKey: ResourceMonitorSortKey;
@@ -816,6 +996,12 @@ export function ResourceMonitorHierarchy({
   desktopLoading: boolean;
   liveDisplays: ReadonlyMap<string, ResourceMonitorSessionDisplay>;
   workspacePanes: LiveResourceSessionPanes | null;
+  killingKey?: string | null;
+  onKillLeaked?: (target: {
+    name: string;
+    projectId: string;
+    workspaceId: string | null;
+  }) => void;
   onNavigate?: (target: ResourceMonitorSessionNavigationTarget) => void;
 }) {
   const t = useTranslations("resourceMonitor.popover");
@@ -904,6 +1090,8 @@ export function ResourceMonitorHierarchy({
             liveDisplays={liveDisplays}
             workspacePanes={workspacePanes}
             defaultOpen={index === 0}
+            killingKey={killingKey}
+            onKillLeaked={onKillLeaked}
             onNavigate={onNavigate}
           />
         ))

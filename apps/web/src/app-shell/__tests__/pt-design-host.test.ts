@@ -131,7 +131,7 @@ describe("PT Design Atmos host wiring", () => {
       join(import.meta.dir, "../workspace-center-frame.tsx"),
       "utf8",
     );
-    expect(frame).toContain("<PtDesignCenterPanel contextId={contextId} />");
+    expect(frame).toContain("<KeptPtDesignCenterPanel contextId={contextId} />");
   });
 
   test("hosted collab invites skip onboarding and open a fullscreen guest board", () => {

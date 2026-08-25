@@ -1163,6 +1163,9 @@ impl WsMessageService {
             WsAction::ResourceMonitorUnsubscribe => {
                 self.handle_resource_monitor_unsubscribe(conn_id, request.data)
             }
+            WsAction::ResourceMonitorKillLeaked => {
+                self.handle_resource_monitor_kill_leaked(request.data).await
+            }
         }
     }
 

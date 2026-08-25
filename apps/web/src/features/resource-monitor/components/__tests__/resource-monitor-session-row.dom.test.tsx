@@ -100,6 +100,7 @@ const project: ResourceProjectMetrics = {
             process_count: 1,
           },
           ports: [],
+          leaked: false,
         },
       ],
     },

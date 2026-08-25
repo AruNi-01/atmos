@@ -46,6 +46,10 @@ export type WorkspaceCenterFrameProps = {
   activeTabIds?: readonly string[] | null;
   /** Multi-pane: map tab id → pane id for slot positioning. */
   tabToPaneId?: Readonly<Record<string, string>> | null;
+  /** Multi-pane: every pane that lists a tab (shareable tabs may have many). */
+  tabHostPaneIds?: Readonly<Record<string, readonly string[]>> | null;
+  /** Multi-pane: pane id → that pane's active tab. */
+  paneActiveTabById?: Readonly<Record<string, string>> | null;
   /** Multi-pane: content-slot boxes relative to the panel host. */
   paneSlotBoxes?: Readonly<Record<string, PaneSlotBox>> | null;
   /** Mosaic pane filling the center body; sibling overlay content is hidden. */
@@ -119,6 +123,8 @@ export function workspaceCenterFramePropsAreEqual(
     return (
       sameStringList(prev.activeTabIds ?? [], next.activeTabIds ?? []) &&
       prev.tabToPaneId === next.tabToPaneId &&
+      prev.tabHostPaneIds === next.tabHostPaneIds &&
+      prev.paneActiveTabById === next.paneActiveTabById &&
       prev.paneSlotBoxes === next.paneSlotBoxes &&
       prev.fullscreenPaneId === next.fullscreenPaneId
     );
@@ -128,6 +134,8 @@ export function workspaceCenterFramePropsAreEqual(
     prev.activeValue === next.activeValue &&
     sameStringList(prev.activeTabIds ?? [], next.activeTabIds ?? []) &&
     prev.tabToPaneId === next.tabToPaneId &&
+    prev.tabHostPaneIds === next.tabHostPaneIds &&
+    prev.paneActiveTabById === next.paneActiveTabById &&
     prev.paneSlotBoxes === next.paneSlotBoxes &&
     prev.fullscreenPaneId === next.fullscreenPaneId &&
     prev.visibleTerminalTabs === next.visibleTerminalTabs &&

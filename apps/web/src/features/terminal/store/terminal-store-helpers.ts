@@ -503,7 +503,7 @@ export function getUniqueTerminalTabTitle(
 export function hydratePersistedTab(
   workspaceId: string,
   tab: PersistedTerminalTabDocument,
-  existingWindowNames: Set<string>,
+  _existingWindowNames: Set<string>,
   /**
    * Optional in-memory panes for this scope. When present, prefer live
    * `dynamicTitle` over localStorage / leftover layout fields. `sessionId`
@@ -525,7 +525,6 @@ export function hydratePersistedTab(
     // Fall back to it so old persisted layouts still resolve the correct window name.
     const legacyTitle = (pane as unknown as { title?: string }).title;
     const windowName = pane.tmuxWindowName || pane.label || legacyTitle || getNextWindowName(validatedPanes);
-    const windowExists = existingWindowNames.has(windowName);
     const live = livePanes?.[id];
     // Match live pane by id first, then by tmux window name (ids can churn).
     const liveByWindow =
@@ -547,28 +546,20 @@ export function hydratePersistedTab(
 
     validatedPanes[id] = {
       ...pane,
-      workspaceId,
+      // Extra-space paint ids must not become tmux workspace_id; attach uses
+      // the host GUID so session resolution matches listTmuxWindows / create.
+      workspaceId: hostIdFromCenterKey(workspaceId),
       // Ensure label is always set — old data only has `title`, not `label`.
       label: pane.label || legacyTitle || windowName,
-      tmuxWindowName: windowName,
+      tmuxWindowName: namespacedTmuxWindowName(workspaceId, windowName),
       // Always mint a new frontend session id (WS attach identity).
       sessionId: uuidv4(),
-      // Reconnect strategy:
-      // - Live in-memory pane → attach
-      // - Window confirmed present in tmux list → attach
-      // - Window confirmed absent from a non-empty list → create (same name);
-      //   backend create is idempotent and will attach if the window reappears
-      // - Empty list (startup race) → prefer attach by name so we don't mint a
-      //   second window that orphans a still-running TUI agent
-      isNewPane: liveByWindow
-        ? false
-        : windowExists
-          ? false
-          : existingWindowNames.size > 0
-            ? true
-            : windowName
-              ? false
-              : true,
+      // Reconnect strategy: always attach when we have a stored window name.
+      // A non-empty tmux list that is missing this name used to force create,
+      // which minted a second empty shell in a newly-resolved session and
+      // orphaned the still-running TUI agent. Missing windows recover via the
+      // attach-not-found → create path in Terminal.tsx (same name, attach-if-exists).
+      isNewPane: liveByWindow || Boolean(windowName) ? false : true,
       // Titles: live pane, then leftover layout fields, then localStorage.
       // Not written to the terminal-layout API (title changes are too chatty).
       dynamicTitle: normalizeStoredDynamicTitle(

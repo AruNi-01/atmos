@@ -3,11 +3,12 @@ import * as React from "react";
 /**
  * The plus-menu popover is portaled above center content, but xterm WebGL /
  * Electron `<webview>` can still win hit-testing. DOM `event.target` then
- * points at the overlay, Radix treats the click as outside, and the menu
- * closes without activating the item the user actually clicked.
+ * points at the overlay: CSS `:hover` never applies, Radix treats the click
+ * as outside, and the menu closes without activating the item.
  *
  * Coordinate checks against the menu boxes are the source of truth — not
- * the event target.
+ * the event target. While open we also mute overlay hit targets so the
+ * portaled menu can receive native pointer events.
  */
 
 export const CENTER_STAGE_PLUS_MENU_CHROME_SELECTOR =
@@ -15,6 +16,23 @@ export const CENTER_STAGE_PLUS_MENU_CHROME_SELECTOR =
 
 export const CENTER_STAGE_PLUS_MENU_BOX_SELECTOR =
   "[data-center-stage-plus-menu], [data-center-stage-layouts-menu]";
+
+export const PLUS_MENU_HOT_ATTR = "data-plus-menu-hot";
+
+export const PLUS_MENU_OVERLAY_MUTE_SELECTOR = [
+  "canvas",
+  "webview",
+  "iframe",
+  ".xterm",
+  ".xterm-screen",
+  ".xterm-helper-textarea",
+  ".atmos-terminal",
+  ".atmos-terminal-panel-active",
+  ".terminal-pane",
+  ".terminal-pane-toolbar",
+  ".terminal-pane-body",
+  "[data-center-panel-host]",
+].join(",");
 
 /** Covers the 4px popover `sideOffset` so hover-close does not fire in the gap. */
 export const PLUS_MENU_HOVER_SLOP_PX = 6;
@@ -48,12 +66,25 @@ export function elementFromEventTarget(target: EventTarget | null): Element | nu
 
 export function isCenterStagePlusMenuEventTarget(target: EventTarget | null): boolean {
   const el = elementFromEventTarget(target);
-  return Boolean(el?.closest(CENTER_STAGE_PLUS_MENU_CHROME_SELECTOR));
+  if (!el?.closest(CENTER_STAGE_PLUS_MENU_CHROME_SELECTOR)) return false;
+  // Stacked inactive plus-menu panels must not count as a real hit.
+  return !el.closest('[data-plus-menu-layer="inactive"]');
+}
+
+let plusMenuOpenCount = 0;
+
+export function resetPlusMenuOpenCountForTests(): void {
+  plusMenuOpenCount = 0;
+  if (typeof document !== "undefined") {
+    document.documentElement.removeAttribute("data-center-stage-plus-menu-open");
+  }
 }
 
 export function markCenterStagePlusMenuOpen(open: boolean): void {
+  if (open) plusMenuOpenCount += 1;
+  else plusMenuOpenCount = Math.max(0, plusMenuOpenCount - 1);
   const root = document.documentElement;
-  if (open) {
+  if (plusMenuOpenCount > 0) {
     root.setAttribute("data-center-stage-plus-menu-open", "");
     return;
   }
@@ -75,7 +106,16 @@ export function isPointerOverPlusMenuChrome(
 }
 
 function isPlusMenuControlBlocked(el: Element): boolean {
-  return Boolean(el.closest("[inert], [aria-hidden='true']"));
+  if (el.closest('[data-plus-menu-layer="inactive"]')) return true;
+  if (el.closest("[inert]")) return true;
+  if (el.closest("[aria-hidden='true']")) return true;
+  if (typeof window === "undefined") return false;
+  try {
+    const style = window.getComputedStyle(el);
+    return style.visibility === "hidden" || style.display === "none";
+  } catch {
+    return false;
+  }
 }
 
 export function hitPlusMenuControl(
@@ -96,6 +136,61 @@ export function hitPlusMenuControl(
     }
   }
   return null;
+}
+
+export function syncPlusMenuHover(
+  x: number,
+  y: number,
+  root: ParentNode = document,
+): HTMLElement | null {
+  const hot = hitPlusMenuControl(x, y, root);
+  const previous = root.querySelectorAll(`[${PLUS_MENU_HOT_ATTR}]`);
+  for (const node of previous) {
+    if (node !== hot) node.removeAttribute(PLUS_MENU_HOT_ATTR);
+  }
+  if (hot && !hot.hasAttribute(PLUS_MENU_HOT_ATTR)) {
+    hot.setAttribute(PLUS_MENU_HOT_ATTR, "");
+  }
+  return hot;
+}
+
+export function clearPlusMenuHover(root: ParentNode = document): void {
+  for (const node of root.querySelectorAll(`[${PLUS_MENU_HOT_ATTR}]`)) {
+    node.removeAttribute(PLUS_MENU_HOT_ATTR);
+  }
+}
+
+type SavedPointerEvents = {
+  el: HTMLElement;
+  value: string;
+  priority: string;
+};
+
+export function muteCenterOverlayHits(
+  root: ParentNode = document,
+): () => void {
+  const saved: SavedPointerEvents[] = [];
+  const nodes = root.querySelectorAll(PLUS_MENU_OVERLAY_MUTE_SELECTOR);
+  for (const node of nodes) {
+    const el = node as HTMLElement;
+    if (typeof el.style?.setProperty !== "function") continue;
+    if (el.closest(CENTER_STAGE_PLUS_MENU_CHROME_SELECTOR)) continue;
+    saved.push({
+      el,
+      value: el.style.getPropertyValue("pointer-events"),
+      priority: el.style.getPropertyPriority("pointer-events"),
+    });
+    el.style.setProperty("pointer-events", "none", "important");
+  }
+  return () => {
+    for (const entry of saved) {
+      if (entry.value) {
+        entry.el.style.setProperty("pointer-events", entry.value, entry.priority);
+      } else {
+        entry.el.style.removeProperty("pointer-events");
+      }
+    }
+  };
 }
 
 type ClientPointLike = {
@@ -155,12 +250,22 @@ export function shouldSchedulePlusMenuClose(event: {
   });
 }
 
+export type PlusMenuPointerLike = {
+  button: number;
+  clientX: number;
+  clientY: number;
+  target: EventTarget | null;
+  preventDefault: () => void;
+  stopImmediatePropagation: () => void;
+  stopPropagation?: () => void;
+};
+
 /**
  * When the pointer is geometrically over the plus menu but the event targeted
  * an overlay (canvas / webview / toolbar), stop that overlay from dismissing
  * the menu and activate the real control.
  */
-export function stealPlusMenuClickFromOverlay(event: PointerEvent): boolean {
+export function stealPlusMenuClickFromOverlay(event: PlusMenuPointerLike): boolean {
   if (event.button !== 0) return false;
   if (isCenterStagePlusMenuEventTarget(event.target)) return false;
   if (
@@ -172,23 +277,74 @@ export function stealPlusMenuClickFromOverlay(event: PointerEvent): boolean {
   }
   event.preventDefault();
   event.stopImmediatePropagation();
+  event.stopPropagation?.();
   hitPlusMenuControl(event.clientX, event.clientY)?.click();
   return true;
 }
 
-export function useCenterStagePlusMenuOverlayGuard(open: boolean): void {
+export function useCenterStagePlusMenuOverlayGuard(
+  open: boolean,
+  options: {
+    onPointerOverChrome?: () => void;
+    onPointerLeaveChrome?: () => void;
+  } = {},
+): void {
+  const optionsRef = React.useRef(options);
+  optionsRef.current = options;
+
   React.useLayoutEffect(() => {
-    markCenterStagePlusMenuOpen(open);
-    return () => markCenterStagePlusMenuOpen(false);
+    if (!open) return;
+    markCenterStagePlusMenuOpen(true);
+    const unmute = muteCenterOverlayHits();
+    return () => {
+      unmute();
+      markCenterStagePlusMenuOpen(false);
+      clearPlusMenuHover();
+    };
   }, [open]);
 
   React.useLayoutEffect(() => {
     if (!open) return;
+    let overChrome = true;
+    let stoleClick = false;
+
+    const onPointerMove = (event: PointerEvent) => {
+      const over = isPointerOverPlusMenuChrome(event.clientX, event.clientY, {
+        slop: PLUS_MENU_HOVER_SLOP_PX,
+      });
+      syncPlusMenuHover(event.clientX, event.clientY);
+      if (over) {
+        overChrome = true;
+        optionsRef.current.onPointerOverChrome?.();
+        return;
+      }
+      if (!overChrome) return;
+      overChrome = false;
+      optionsRef.current.onPointerLeaveChrome?.();
+    };
+
     const onPointerDown = (event: PointerEvent) => {
+      stoleClick = stealPlusMenuClickFromOverlay(event);
+    };
+
+    const onMouseDown = (event: MouseEvent) => {
+      if (stoleClick) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        stoleClick = false;
+        return;
+      }
       stealPlusMenuClickFromOverlay(event);
     };
+
     // Window capture runs before document listeners (Radix dismiss, pane focus).
+    window.addEventListener("pointermove", onPointerMove, true);
     window.addEventListener("pointerdown", onPointerDown, true);
-    return () => window.removeEventListener("pointerdown", onPointerDown, true);
+    window.addEventListener("mousedown", onMouseDown, true);
+    return () => {
+      window.removeEventListener("pointermove", onPointerMove, true);
+      window.removeEventListener("pointerdown", onPointerDown, true);
+      window.removeEventListener("mousedown", onMouseDown, true);
+    };
   }, [open]);
 }

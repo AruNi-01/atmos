@@ -39,7 +39,10 @@ import {
   type GroupedAppItems,
   type SubView,
 } from '@/app-shell/global-search-content';
-import { resolveGlobalSearchTypeahead } from '@/app-shell/global-search-focus';
+import {
+  resolveGlobalSearchSelectedValue,
+  resolveGlobalSearchTypeahead,
+} from '@/app-shell/global-search-focus';
 
 function normalizeGlobalSearchValue(value: string) {
   return value
@@ -310,11 +313,6 @@ export function GlobalSearch() {
     return () => document.removeEventListener('keydown', onKeyDown, true);
   }, [isGlobalSearchOpen, subView]);
 
-  // Reset selection when tab or query changes
-  useEffect(() => {
-    setSelectedValue('');
-  }, [globalSearchTab, searchQuery]);
-
   // Auto-scroll to selected item
   useEffect(() => {
     if (selectedValue) {
@@ -471,25 +469,25 @@ export function GlobalSearch() {
     return groups;
   }, [filteredAppItems]);
 
-  // Select first result when results change
+  const firstAppItemId = filteredAppItems[0]?.id;
+  const firstFilePath = filteredFiles[0]?.path;
+  const firstCodeValue = codeSearchResults[0]
+    ? `${codeSearchResults[0].file_path}:${codeSearchResults[0].line_number}`
+    : undefined;
+
+  // Select first result when results change so arrow keys have an active item.
   useEffect(() => {
-    if (!isGlobalSearchOpen) return;
-
-    // Clear selection when no results or query is empty
-    if (searchQuery.trim() === '') {
-      setSelectedValue('');
-      return;
-    }
-
-    // Select first result based on current tab
-    if (globalSearchTab === 'app' && filteredAppItems.length > 0) {
-      setSelectedValue(filteredAppItems[0].id);
-    } else if (globalSearchTab === 'files' && filteredFiles.length > 0) {
-      setSelectedValue(filteredFiles[0].path);
-    } else if (globalSearchTab === 'code' && codeSearchResults.length > 0) {
-      setSelectedValue(`${codeSearchResults[0].file_path}:${codeSearchResults[0].line_number}`);
-    }
-  }, [globalSearchTab, searchQuery, filteredAppItems, filteredFiles, codeSearchResults, isGlobalSearchOpen]);
+    setSelectedValue(
+      resolveGlobalSearchSelectedValue({
+        isOpen: isGlobalSearchOpen,
+        tab: globalSearchTab,
+        query: searchQuery,
+        firstAppItemId,
+        firstFilePath,
+        firstCodeValue,
+      }),
+    );
+  }, [globalSearchTab, searchQuery, isGlobalSearchOpen, firstAppItemId, firstFilePath, firstCodeValue]);
 
   const handleFileSelect = (path: string) => {
     // Search results open in pinned mode since user explicitly searched for them
@@ -509,6 +507,9 @@ export function GlobalSearch() {
   return (
     <CommandDialog
       showCloseButton={false}
+      shouldFilter={false}
+      value={selectedValue}
+      onValueChange={setSelectedValue}
       open={isGlobalSearchOpen}
       onOpenChange={(open) => {
         if (!open && subView) {

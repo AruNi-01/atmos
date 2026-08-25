@@ -144,9 +144,13 @@ export function SettingsModalSidebar({
         localizedDescription = t(`sections.${camelSectionId}.description`);
       } else {
         localizedLabel = entry.translationKey ? t(`search.items.${entry.translationKey}.label`) : entry.label;
-        localizedDescription = entry.translationKey && entry.description
-          ? t(`search.items.${entry.translationKey}.description`)
-          : t(`sections.${camelSectionId}.description`);
+        const itemDescriptionKey = entry.translationKey
+          ? `search.items.${entry.translationKey}.description`
+          : null;
+        localizedDescription =
+          itemDescriptionKey && t.has(itemDescriptionKey)
+            ? t(itemDescriptionKey)
+            : t(`sections.${camelSectionId}.description`);
       }
 
       const localizedEntry = {

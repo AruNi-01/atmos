@@ -89,6 +89,32 @@ describe("LocalServiceRow command meta", () => {
     expect(container.querySelector("[data-testid=command-tooltip]")?.textContent).toBe(command);
   });
 
+  it("keeps spaces in process titles and tooltips the original command path", async () => {
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
+    const commandPath =
+      "node /Users/aarynlu/OpenSource/atmos/apps/web/node_modules/.bin/next dev --port 3030";
+
+    await act(async () => {
+      root?.render(
+        <LocalServiceRow
+          service={{
+            ...service,
+            command_preview: "next-server (v16.3.0)",
+            command_path: commandPath,
+            launch_dir_display: "/Users/aarynlu/OpenSource/atmos/apps/web",
+          }}
+        />,
+      );
+    });
+
+    const line = container.querySelector("[data-slot=local-service-command]");
+    expect(line?.textContent).toContain("node (next-server (v16.3.0))");
+    expect(line?.textContent).not.toContain("node ((v16.3.0))");
+    expect(container.querySelector("[data-testid=command-tooltip]")?.textContent).toBe(commandPath);
+  });
+
   it("falls back to launch dir when command preview is missing", async () => {
     const container = document.createElement("div");
     document.body.appendChild(container);

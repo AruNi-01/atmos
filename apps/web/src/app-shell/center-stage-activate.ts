@@ -4,6 +4,8 @@
  */
 
 import { attachCenterTab } from "@/app-shell/center-space/center-open-context";
+import type { CenterTabAttachPlacement } from "@/app-shell/center-pane/center-pane-layout";
+import { useOverviewCenterTabStore } from "@/app-shell/center-overview-tab";
 import { recordCenterTabActivation } from "@/app-shell/center-stage-tab-activation-stack";
 import { FIXED_TABS } from "@/app-shell/center-stage-fixed-tabs";
 import {
@@ -47,12 +49,15 @@ function isEditorFileTab(tab: string): boolean {
 export function activateCenterChromeTab(
   contextId: string,
   tab: string,
-  opts?: { attach?: boolean },
+  opts?: { attach?: boolean; placement?: CenterTabAttachPlacement },
 ): void {
   if (!contextId || !tab) return;
   setCenterStageLastTab(contextId, tab);
   recordCenterTabActivation(contextId, tab);
 
+  if (tab === "overview") {
+    useOverviewCenterTabStore.getState().open(contextId);
+  }
   if (isCenterToolTabValue(tab)) {
     useToolCenterTabsStore.getState().open(contextId, tab);
   }
@@ -74,6 +79,6 @@ export function activateCenterChromeTab(
   }
 
   if (opts?.attach !== false) {
-    attachCenterTab(contextId, tab);
+    attachCenterTab(contextId, tab, { placement: opts?.placement });
   }
 }

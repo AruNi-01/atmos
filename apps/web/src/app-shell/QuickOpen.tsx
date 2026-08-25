@@ -13,7 +13,8 @@ import {
   Copy,
   ChevronDown,
   Blocks,
-  toastManager
+  toastManager,
+  cn,
 } from '@workspace/ui';
 
 import { useEffect, useState } from 'react';
@@ -34,6 +35,10 @@ interface QuickOpenProps {
 }
 
 import { readQuickOpenLastUsed, writeQuickOpenLastUsed } from '@/shared/stores/use-ui-pref-hooks';
+import {
+  HEADER_CHIP_HOVER_CLASS,
+  HEADER_CHIP_SURFACE_CLASS,
+} from '@/app-shell/header-parts';
 
 export const QuickOpen = ({ workspace, path }: QuickOpenProps) => {
   const t = useTranslations('appShell');
@@ -126,7 +131,11 @@ export const QuickOpen = ({ workspace, path }: QuickOpenProps) => {
 
   return (
     <div
-      className="flex h-7 items-stretch rounded-md border border-transparent bg-muted/40 hover:border-border hover:bg-muted/60"
+      className={cn(
+        "flex h-7 items-stretch rounded-md",
+        HEADER_CHIP_SURFACE_CLASS,
+        HEADER_CHIP_HOVER_CLASS,
+      )}
       onMouseLeave={() => { if (!isDropdownOpen) setIsExpanded(false); }}
     >
       {/* Main Action Button */}

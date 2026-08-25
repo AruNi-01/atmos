@@ -30,7 +30,7 @@ function processRow(
   memory = 10,
   ports: number[] = [],
 ): ResourceProcessMetrics {
-  return { name, usage: usage(cpu, memory), ports };
+  return { name, usage: usage(cpu, memory), ports, leaked: false };
 }
 
 function session(

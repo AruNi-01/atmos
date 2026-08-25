@@ -59,6 +59,8 @@ interface CenterStagePanelsProps {
   activeTabIds?: readonly string[] | null;
   /** Multi-pane: tab id → pane id for slot positioning. */
   tabToPaneId?: Readonly<Record<string, string>> | null;
+  tabHostPaneIds?: Readonly<Record<string, readonly string[]>> | null;
+  paneActiveTabById?: Readonly<Record<string, string>> | null;
   /** Multi-pane: content slot boxes relative to the panel host. */
   paneSlotBoxes?: Readonly<
     Record<string, { top: number; left: number; width: number; height: number }>
@@ -125,6 +127,8 @@ export function CenterStagePanels({
   activeValue,
   activeTabIds,
   tabToPaneId,
+  tabHostPaneIds,
+  paneActiveTabById,
   paneSlotBoxes,
   fullscreenPaneId,
   browserTabs,
@@ -463,6 +467,8 @@ export function CenterStagePanels({
               retainedActiveTabIds,
             })}
             tabToPaneId={isUrlSyncedActive ? tabToPaneId : null}
+            tabHostPaneIds={isUrlSyncedActive ? tabHostPaneIds : null}
+            paneActiveTabById={isUrlSyncedActive ? paneActiveTabById : null}
             paneSlotBoxes={isUrlSyncedActive ? paneSlotBoxes : null}
             fullscreenPaneId={isUrlSyncedActive ? fullscreenPaneId : null}
             visibleTerminalTabs={isUrlSyncedActive ? visibleTerminalTabs : undefined}
@@ -515,31 +521,37 @@ export function CenterStagePanels({
         Absolute overlay — never a flex-1 sibling of frames (that split the stage 50/50).
         display:none when inactive is fine: wiki has no xterm WebGL keep-alive need.
       */}
-      {wikiCenterEligible && (
+      {wikiCenterEligible &&
+        (tabHostPaneIds?.wiki?.length
+          ? tabHostPaneIds.wiki
+          : tabToPaneId?.wiki
+            ? [tabToPaneId.wiki]
+            : [undefined]
+        ).map((wikiPaneId) => {
+          const wikiVisible = wikiPaneId
+            ? paneActiveTabById?.[wikiPaneId] === "wiki"
+            : activeValue === "wiki" || Boolean(activeTabIds?.includes("wiki"));
+          const wikiBox = wikiPaneId ? paneSlotBoxes?.[wikiPaneId] : undefined;
+          return (
         <div
-          data-center-pane-owner={tabToPaneId?.wiki}
+          key={`wiki-${wikiPaneId ?? "root"}`}
+          data-center-pane-owner={wikiPaneId ?? tabToPaneId?.wiki}
           className={cn(
             "absolute inset-0 z-[2] min-h-0 min-w-0 overflow-hidden bg-background",
-            (!(
-              activeValue === "wiki" ||
-              (activeTabIds && activeTabIds.includes("wiki"))
-            ) ||
-              paneHiddenByCenterFullscreen(fullscreenPaneId, tabToPaneId?.wiki)) &&
+            (!wikiVisible ||
+              paneHiddenByCenterFullscreen(fullscreenPaneId, wikiPaneId ?? tabToPaneId?.wiki)) &&
               "hidden",
-            activeTabIds && activeTabIds.includes("wiki") && "pointer-events-auto",
+            wikiVisible && "pointer-events-auto",
           )}
           style={
-            activeTabIds &&
-            activeTabIds.includes("wiki") &&
-            tabToPaneId?.wiki &&
-            paneSlotBoxes?.[tabToPaneId.wiki]
+            wikiVisible && wikiBox
               ? {
-                  top: paneSlotBoxes[tabToPaneId.wiki]!.top,
+                  top: wikiBox.top,
                   right: "auto",
                   bottom: "auto",
-                  left: paneSlotBoxes[tabToPaneId.wiki]!.left,
-                  width: paneSlotBoxes[tabToPaneId.wiki]!.width,
-                  height: paneSlotBoxes[tabToPaneId.wiki]!.height,
+                  left: wikiBox.left,
+                  width: wikiBox.width,
+                  height: wikiBox.height,
                 }
               : undefined
           }
@@ -589,10 +601,11 @@ export function CenterStagePanels({
             }}
             wikiPage={wikiPageFromUrl ?? undefined}
             onWikiPageChange={setWikiPage}
-            isWikiTabActive={activeValue === "wiki"}
+            isWikiTabActive={wikiVisible}
           />
         </div>
-      )}
+          );
+        })}
     </div>
   );
 }

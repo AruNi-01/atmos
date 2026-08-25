@@ -110,11 +110,11 @@ export function buildOpenCenterTabValues(input: {
   filesVisible?: boolean;
   ptDesignVisible?: boolean;
   wikiEnabled: boolean;
-  /** Always-available fixed surfaces (defaults to overview). */
+  /** Opt-in fixed surfaces such as Overview. Empty by default. */
   fixedAlwaysOpen?: readonly string[];
   exclude?: Iterable<string>;
 }): Set<string> {
-  const open = new Set<string>(input.fixedAlwaysOpen ?? ["overview"]);
+  const open = new Set<string>(input.fixedAlwaysOpen ?? []);
   if (input.wikiEnabled) open.add("wiki");
   if (input.projectWikiVisible) open.add("project-wiki");
   if (input.codeReviewVisible) open.add("code-review");

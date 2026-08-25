@@ -10,6 +10,7 @@ import {
   type SlashTriggerContext,
 } from "@/features/welcome/components/PromptComposer";
 import { WelcomeComposerControls } from "@/features/welcome/components/WelcomeComposerControls";
+import { WelcomeComposerSparkles } from "@/features/welcome/components/WelcomeComposerSparkles";
 import { promptCardNotchSurfaceStyle } from "@/features/welcome/lib/welcome-page-helpers";
 import type {
   Project,
@@ -89,11 +90,11 @@ export function WelcomeComposerCard({
     <div className="relative overflow-visible p-1.5">
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0 rounded-[2rem] border border-border/50 bg-muted/20 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-md"
+        className="pointer-events-none absolute inset-0 rounded-[2rem] border border-border/80 bg-muted/70 shadow-[0_12px_40px_rgba(0,0,0,0.08)] backdrop-blur-md dark:border-border/50 dark:bg-muted/20 dark:shadow-[0_18px_50px_rgba(0,0,0,0.16)]"
       />
-      <div className="relative">
+      <div className="relative z-10">
         <div
-          className="space-y-4 rounded-[1.55rem] bg-background/90 p-4 sm:p-5"
+          className="relative space-y-4 rounded-[1.55rem] bg-background p-4 sm:p-5 dark:bg-background/90"
           style={promptCardNotchSurfaceStyle}
         >
           <PromptComposer
@@ -139,6 +140,7 @@ export function WelcomeComposerCard({
         </div>
         {footer}
       </div>
+      <WelcomeComposerSparkles className="absolute left-1/2 top-full z-0 -translate-x-1/2 -translate-y-px" />
     </div>
   );
 }

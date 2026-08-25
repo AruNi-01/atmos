@@ -1,6 +1,7 @@
 //! Resource Monitor service — host sample + exclusive Project/Workspace attribution.
 
 mod attribution;
+mod leak;
 mod projection;
 mod types;
 
@@ -9,8 +10,8 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use core_engine::{
-    ResourceDiskSample, ResourceHostSample, ResourceMemoryAccounting as EngineMemoryAccounting,
-    ResourceMetricsEngine,
+    kill_process_tree, terminate_process_tree, ResourceDiskSample, ResourceHostSample,
+    ResourceMemoryAccounting as EngineMemoryAccounting, ResourceMetricsEngine,
 };
 use parking_lot::Mutex;
 use tracing::warn;
@@ -22,8 +23,9 @@ use crate::service::workspace::WorkspaceService;
 use crate::{Result, ServiceError};
 
 use attribution::{
-    attribute, normalize_path, resolve_terminal_claims, AttributionInput, CachedListenerPort,
-    PathContext, PathContextKind, TerminalRootInput, TmuxPaneInput,
+    attribute, leaked_kill_roots, normalize_path, resolve_terminal_claims, AttributionInput,
+    CachedListenerPort, KillLeakedError, PathContext, PathContextKind, TerminalRootInput,
+    TmuxPaneInput,
 };
 
 pub use types::{
@@ -57,6 +59,10 @@ impl SnapshotCache {
 
     fn store(&self, snapshot: ResourceMonitorSnapshot) {
         *self.slot.lock() = Some((Instant::now(), snapshot));
+    }
+
+    fn invalidate(&self) {
+        *self.slot.lock() = None;
     }
 }
 
@@ -103,6 +109,93 @@ impl ResourceMonitorService {
         let snapshot = self.collect().await?;
         self.cache.store(snapshot.clone());
         Ok(snapshot)
+    }
+
+    /// Kill a leaked other-process tree. Resolves PIDs server-side.
+    pub async fn kill_leaked(
+        &self,
+        project_id: String,
+        workspace_id: Option<String>,
+        name: String,
+    ) -> Result<u32> {
+        let project_id = project_id.trim().to_string();
+        let name = name.trim().to_string();
+        if project_id.is_empty() || name.is_empty() {
+            return Err(ServiceError::Validation(
+                "resource_monitor_kill_leaked_invalid".into(),
+            ));
+        }
+
+        let (raw_contexts, _) = self.collect_path_contexts().await;
+        let terminal_roots = self.terminal_service.list_resource_roots().await;
+        let root_inputs: Vec<TerminalRootInput> =
+            terminal_roots.iter().map(terminal_root_input).collect();
+        let metrics_engine = Arc::clone(&self.metrics_engine);
+        let terminal_service = Arc::clone(&self.terminal_service);
+        let server_pid = std::process::id();
+        let workspace_id = workspace_id.and_then(|id| {
+            let trimmed = id.trim().to_string();
+            if trimmed.is_empty() {
+                None
+            } else {
+                Some(trimmed)
+            }
+        });
+
+        let killed = tokio::task::spawn_blocking(move || {
+            let sample = metrics_engine.sample();
+            let panes = terminal_service.list_pane_processes_best_effort();
+            let path_contexts = raw_contexts
+                .into_iter()
+                .map(finalize_path_context)
+                .collect();
+            let pane_inputs = panes.as_ref().map(|panes| {
+                panes
+                    .iter()
+                    .map(|pane| TmuxPaneInput {
+                        session_name: pane.session_name.clone(),
+                        window_index: pane.window_index,
+                        pane_pid: pane.pane_pid,
+                    })
+                    .collect::<Vec<_>>()
+            });
+            let (claims, _) =
+                resolve_terminal_claims(root_inputs.as_slice(), pane_inputs.as_deref());
+            let desktop_use_root =
+                dirs::home_dir().map(|home| home.join(".atmos").join("data").join("desktop-use"));
+            let input = AttributionInput {
+                processes: sample.processes,
+                server_pid,
+                path_contexts,
+                terminals: claims,
+                port_cache: None,
+                desktop_use_root,
+            };
+            let roots = leaked_kill_roots(input, &project_id, workspace_id.as_deref(), &name)
+                .map_err(|error| match error {
+                    KillLeakedError::NotLeaked => {
+                        ServiceError::Validation("resource_monitor_kill_leaked_not_leaked".into())
+                    }
+                    KillLeakedError::NotFound => {
+                        ServiceError::Validation("resource_monitor_kill_leaked_not_found".into())
+                    }
+                })?;
+            for pid in &roots {
+                let _ = terminate_process_tree(*pid);
+            }
+            std::thread::sleep(Duration::from_millis(200));
+            for pid in &roots {
+                let _ = kill_process_tree(*pid);
+            }
+            Ok::<u32, ServiceError>(roots.len() as u32)
+        })
+        .await
+        .map_err(|error| {
+            ServiceError::Processing(format!("resource kill join failed: {error}"))
+        })??;
+
+        self.cache.invalidate();
+        Ok(killed)
     }
 
     async fn collect(&self) -> Result<ResourceMonitorSnapshot> {
@@ -444,6 +537,7 @@ mod tests {
                 pid: Some(pid),
                 process_name: Some(name.into()),
                 command_preview: None,
+                command_path: None,
                 cwd_display: None,
                 launch_dir_display: None,
                 title: None,

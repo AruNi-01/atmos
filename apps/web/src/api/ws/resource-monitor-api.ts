@@ -24,4 +24,14 @@ export const resourceMonitorApi = {
   unsubscribe: (scope: ComputerQueryScope): Promise<Record<string, never>> => {
     return wsRequestForComputerScope(scope, "resource_monitor_unsubscribe", {});
   },
+  killLeaked: (
+    scope: ComputerQueryScope,
+    input: {
+      name: string;
+      project_id: string;
+      workspace_id: string | null;
+    },
+  ) => {
+    return wsRequestForComputerScope(scope, "resource_monitor_kill_leaked", input);
+  },
 };

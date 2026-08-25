@@ -1,9 +1,13 @@
 "use client";
 
 import React from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useTheme } from "next-themes";
-import { DitherGrowth, type DitherTooltipLine } from "@workspace/ui";
+import {
+  DitherGrowth,
+  type DitherTooltipLine,
+  type DitherTooltipSliding,
+} from "@workspace/ui";
 import {
   formatHostHistoryLocalTime,
   hostHistoryAgeSeconds,
@@ -13,6 +17,10 @@ import {
   formatMemoryBytes,
   formatMemoryPair,
   formatPercent,
+  hostPercentSlidingParts,
+  memoryBytesSlidingParts,
+  memoryPairSlidingParts,
+  slidingPartsFromFormatted,
 } from "@/features/resource-monitor/lib/resource-monitor-format";
 import type { ResourceHostHistoryPoint } from "@/features/resource-monitor/lib/resource-monitor-host-history";
 import {
@@ -28,6 +36,7 @@ function HostChartTrack({
   labels,
   yMax,
   formatValue,
+  formatSliding,
   getTooltipLines,
   theme,
 }: {
@@ -36,6 +45,7 @@ function HostChartTrack({
   labels: string[];
   yMax: number;
   formatValue: (value: number) => string;
+  formatSliding: (value: number) => DitherTooltipSliding;
   getTooltipLines: (value: number, index: number) => DitherTooltipLine[];
   theme: "light" | "dark";
 }) {
@@ -52,6 +62,7 @@ function HostChartTrack({
           theme={theme}
           valueLabel={label}
           formatValue={formatValue}
+          formatSliding={formatSliding}
           getTooltipLines={getTooltipLines}
         />
       </div>
@@ -71,8 +82,13 @@ export function ResourceMonitorHostChart({
   nowMs?: number;
 }) {
   const t = useTranslations("resourceMonitor.popover");
+  const locale = useLocale();
   const { resolvedTheme } = useTheme();
   const theme = resourceMonitorDitherTheme(resolvedTheme);
+  const formatSliding = React.useCallback(
+    (value: number) => hostPercentSlidingParts(value, locale),
+    [locale],
+  );
   const labels = React.useMemo(
     () =>
       history.map((point) => {
@@ -114,15 +130,27 @@ export function ResourceMonitorHostChart({
         labels={labels}
         yMax={100}
         formatValue={formatPercent}
-        getTooltipLines={(value) => [
-          {
-            label: t("used"),
-            value: t("cpuUsageAmount", {
-              used: ((value / 100) * logicalCpuCount).toFixed(1),
-              total: logicalCpuCount,
-            }),
-          },
-        ]}
+        formatSliding={formatSliding}
+        getTooltipLines={(value) => {
+          const usedCores = (value / 100) * logicalCpuCount;
+          const usedLabel = usedCores.toFixed(1);
+          const formatted = t("cpuUsageAmount", {
+            used: usedLabel,
+            total: logicalCpuCount,
+          });
+          return [
+            {
+              label: t("used"),
+              value: formatted,
+              sliding: slidingPartsFromFormatted(
+                formatted,
+                usedCores,
+                1,
+                locale,
+              ),
+            },
+          ];
+        }}
         theme={theme}
       />
       <HostChartTrack
@@ -131,19 +159,27 @@ export function ResourceMonitorHostChart({
         labels={labels}
         yMax={100}
         formatValue={formatPercent}
-        getTooltipLines={(value) => [
-          {
-            label: t("used"),
-            value: formatMemoryPair(
-              (value / 100) * memoryTotalBytes,
-              memoryTotalBytes,
-            ),
-          },
-          {
-            label: t("available"),
-            value: formatMemoryBytes((1 - value / 100) * memoryTotalBytes),
-          },
-        ]}
+        formatSliding={formatSliding}
+        getTooltipLines={(value) => {
+          const usedBytes = (value / 100) * memoryTotalBytes;
+          const availableBytes = (1 - value / 100) * memoryTotalBytes;
+          return [
+            {
+              label: t("used"),
+              value: formatMemoryPair(usedBytes, memoryTotalBytes),
+              sliding: memoryPairSlidingParts(
+                usedBytes,
+                memoryTotalBytes,
+                locale,
+              ),
+            },
+            {
+              label: t("available"),
+              value: formatMemoryBytes(availableBytes),
+              sliding: memoryBytesSlidingParts(availableBytes, locale),
+            },
+          ];
+        }}
         theme={theme}
       />
     </div>

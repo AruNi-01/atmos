@@ -76,7 +76,6 @@ describe("workspace info hover session", () => {
     expect(session.getHostSnapshot()).toEqual({
       openId: "a",
       trigger: a,
-      slotEl: null,
     });
 
     session.leave("a");
@@ -84,7 +83,6 @@ describe("workspace info hover session", () => {
     expect(session.getHostSnapshot()).toEqual({
       openId: "b",
       trigger: b,
-      slotEl: null,
     });
     advance(WORKSPACE_INFO_HOVER_OPEN_DELAY_MS);
     expect(session.getOpenId()).toBe("b");
@@ -150,6 +148,80 @@ describe("workspace info hover session", () => {
     advance(WORKSPACE_INFO_HOVER_OPEN_DELAY_MS);
     expect(session.getOpenId()).toBeNull();
   });
+
+  it("schedules with the default clock without Illegal invocation", () => {
+    const session = createWorkspaceInfoHoverSession();
+    expect(() => {
+      session.enter("a", trigger("a"));
+      session.leave("a");
+      session.reset();
+    }).not.toThrow();
+  });
+
+  it("only the hovered row instance gets the portal, even for the same workspace id", () => {
+    const { clock, advance } = createClock();
+    const session = createWorkspaceInfoHoverSession(clock);
+    const first = trigger("first");
+    const second = trigger("second");
+    const slot = { id: "slot" } as unknown as HTMLElement;
+
+    session.enter("ws", first, { instanceId: "row-1", immediate: true });
+    session.setSlotEl(slot);
+    expect(session.getPortalElForInstance("row-1")).toBe(slot);
+    expect(session.getPortalElForInstance("row-2")).toBeNull();
+    expect(session.getHostSnapshot()).toEqual({
+      openId: "ws",
+      trigger: first,
+    });
+
+    session.leave("row-1");
+    session.enter("ws", second, { instanceId: "row-2" });
+    expect(session.getOpenId()).toBe("ws");
+    expect(session.getPortalElForInstance("row-1")).toBeNull();
+    expect(session.getPortalElForInstance("row-2")).toBe(slot);
+    expect(session.getHostSnapshot()).toEqual({
+      openId: "ws",
+      trigger: second,
+    });
+    advance(WORKSPACE_INFO_HOVER_CLOSE_DELAY_MS);
+    expect(session.getOpenId()).toBe("ws");
+  });
+
+  it("ignores radix root dismiss while the pointer is on a row, the card, or a nested menu", () => {
+    const { clock } = createClock();
+    const session = createWorkspaceInfoHoverSession(clock);
+    session.enter("a", trigger("a"), { immediate: true });
+    expect(session.shouldIgnoreRootDismiss()).toBe(true);
+    session.leave("a");
+    expect(session.shouldIgnoreRootDismiss()).toBe(false);
+    session.hold();
+    expect(session.shouldIgnoreRootDismiss()).toBe(true);
+    session.unhold();
+    expect(session.shouldIgnoreRootDismiss()).toBe(false);
+    session.setLock("status", true);
+    expect(session.shouldIgnoreRootDismiss()).toBe(true);
+  });
+
+  it("keeps the host snapshot identity when only the portal slot changes", () => {
+    const { clock } = createClock();
+    const session = createWorkspaceInfoHoverSession(clock);
+    const a = trigger("a");
+    session.enter("a", a, { immediate: true });
+    const snapshot = session.getHostSnapshot();
+    let notified = 0;
+    session.subscribe(() => {
+      notified += 1;
+    });
+
+    const slot = { id: "slot" } as unknown as HTMLElement;
+    session.setSlotEl(slot);
+    expect(session.getSlotEl()).toBe(slot);
+    expect(session.getHostSnapshot()).toBe(snapshot);
+    expect(notified).toBe(1);
+
+    session.setSlotEl(slot);
+    expect(notified).toBe(1);
+  });
 });
 
 describe("left sidebar workspace info hover wiring", () => {
@@ -168,10 +240,28 @@ describe("left sidebar workspace info hover wiring", () => {
     );
 
     expect(content).toContain("workspaceInfoHoverSession.enter");
+    expect(content).toContain("instanceId: hoverInstanceId");
     expect(content).toContain("createPortal");
     expect(content).not.toContain(", 1000)");
     expect(host).toContain("PopoverAnchor");
     expect(host).toContain("data-workspace-info-hover-host");
+    expect(host).toContain('followMotion ? "follow"');
+    expect(host).toContain("data-radix-popper-content-wrapper");
+    expect(host).toContain("transition: transform");
+    expect(host).toContain("onPointerDownOutside");
+    expect(host).toContain("onInteractOutside");
+    expect(host).toContain("shouldIgnoreRootDismiss");
+    expect(host).toContain("pointerover");
+    expect(content).toContain("isWorkspaceInfoHoverKeepAliveTarget");
+    expect(host).not.toContain("setSlotEl(el)");
     expect(sidebar).toContain("WorkspaceInfoHoverHost");
+
+    const session = readFileSync(
+      join(import.meta.dir, "../sidebar/workspace-info-hover-session.ts"),
+      "utf8",
+    );
+    expect(session).toContain("dropdown-menu-content");
+    expect(session).toContain("bind(globalThis)");
+    expect(session).not.toMatch(/Clock = \{\s*setTimeout,\s*clearTimeout,/);
   });
 });

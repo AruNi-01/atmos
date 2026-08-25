@@ -509,16 +509,11 @@
 }
 
 /*
- * The center plus-menu popover sits over overlay panels (xterm WebGL, toolbar,
- * webview). GPU canvases can win hit-testing even when the popover is portaled
- * above them: skipping only `.terminal-grid-container` still leaves the
- * `pointer-events: auto` panel parent (`.atmos-terminal-panel-active`) to
- * swallow the click, which dismisses the menu with no action.
- *
- * Mute the whole overlay host — and beat `.is-maximized { pointer-events: auto }`
- * — while the menu is open so Layout / split / fullscreen clicks stay on it.
- * Restore the portaled menu *and its descendants*; a parent-only restore still
- * leaves buttons `pointer-events: none` when the menu is under the host.
+ * Mute center overlay hosts while the plus menu is open. Do NOT restore
+ * `pointer-events: auto` on `[data-center-stage-plus-menu] *` — that rule
+ * re-enables the stacked inactive Tabs/Layout panel and swallows hover/click
+ * on the visible items. The popover is portaled to `document.body`, so it is
+ * not a descendant of `[data-center-panel-host]` and needs no restore.
  */
 body:has([data-center-stage-plus-menu][data-state="open"]) [data-center-panel-host],
 body:has([data-center-stage-plus-menu][data-state="open"]) [data-center-panel-host] *,
@@ -536,11 +531,10 @@ html[data-center-stage-plus-menu-open] iframe {
   pointer-events: none !important;
 }
 
-[data-center-stage-plus-menu],
-[data-center-stage-plus-menu] *,
-[data-center-stage-layouts-menu],
-[data-center-stage-layouts-menu] * {
-  pointer-events: auto !important;
+[data-center-stage-plus-menu] [data-plus-menu-hot]:not([aria-selected="true"]),
+[data-center-stage-layouts-menu] [data-plus-menu-hot]:not([aria-selected="true"]) {
+  background: var(--accent);
+  color: var(--accent-foreground);
 }
 
 .terminal-pane-btn {
@@ -908,4 +902,16 @@ html[data-center-stage-plus-menu-open] iframe {
   pointer-events: auto !important;
   box-shadow: none !important;
   transform: none !important;
+}
+
+/*
+ * Repeat after `.is-maximized { pointer-events: auto }` so the mute still
+ * wins when a maximized pane is the stacking context under the plus menu.
+ */
+html[data-center-stage-plus-menu-open] .terminal-grid-container[data-maximized-id] .terminal-pane.is-maximized,
+html[data-center-stage-plus-menu-open] .terminal-grid-container[data-maximized-id] .terminal-pane.is-maximized *,
+html[data-center-stage-plus-menu-open] canvas,
+html[data-center-stage-plus-menu-open] webview,
+html[data-center-stage-plus-menu-open] iframe {
+  pointer-events: none !important;
 }

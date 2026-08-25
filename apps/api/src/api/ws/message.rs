@@ -800,6 +800,8 @@ pub enum WsAction {
     ResourceMonitorSubscribe,
     /// Stop live updates for this connection
     ResourceMonitorUnsubscribe,
+    /// Kill leftover Chrome-for-Testing / agent-browser trees
+    ResourceMonitorKillLeaked,
 }
 
 /// 服务端主动推送的事件类型
@@ -978,6 +980,10 @@ mod tests {
             (
                 WsAction::ResourceMonitorUnsubscribe,
                 "resource_monitor_unsubscribe",
+            ),
+            (
+                WsAction::ResourceMonitorKillLeaked,
+                "resource_monitor_kill_leaked",
             ),
         ];
         for (action, wire_name) in actions {

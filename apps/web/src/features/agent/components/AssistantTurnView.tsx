@@ -40,7 +40,7 @@ function useReviewLinkComponents() {
     const handleOpen = (path: string) => {
       if (!paintContextId) return;
       void openFile(path, paintContextId, { preview: true });
-      attachCenterTab(paintContextId, path);
+      attachCenterTab(paintContextId, path, { placement: "focused" });
     };
 
     const ReviewCode = (props: React.ComponentPropsWithoutRef<"code"> & { node?: unknown }) => {

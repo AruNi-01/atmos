@@ -7,7 +7,8 @@ use tokio::time::{interval, Interval, MissedTickBehavior};
 use core_service::{Result, ServiceError};
 
 use super::{
-    parse_request, ResourceMonitorGetRequest, ResourceMonitorSubscribeRequest,
+    parse_request, ResourceMonitorGetRequest, ResourceMonitorKillLeakedRequest,
+    ResourceMonitorKillLeakedResponse, ResourceMonitorSubscribeRequest,
     ResourceMonitorUnsubscribeRequest, WsMessageService,
 };
 use crate::api::ws::error::WsError;
@@ -111,6 +112,16 @@ impl WsMessageService {
     pub(super) fn abort_resource_monitor_subscription(&self, conn_id: &str) {
         self.resource_monitor_subscriptions
             .abort_and_remove(conn_id);
+    }
+
+    pub(super) async fn handle_resource_monitor_kill_leaked(&self, data: Value) -> Result<Value> {
+        let request: ResourceMonitorKillLeakedRequest = parse_request(data)?;
+        let killed_count = self
+            .resource_monitor_service
+            .kill_leaked(request.project_id, request.workspace_id, request.name)
+            .await?;
+        serde_json::to_value(ResourceMonitorKillLeakedResponse { killed_count })
+            .map_err(|error| ServiceError::Processing(error.to_string()))
     }
 }
 

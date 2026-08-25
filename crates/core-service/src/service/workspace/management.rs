@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use core_engine::{GitEngine, TmuxEngine};
+use core_engine::{preferred_existing_session_name, GitEngine, TmuxEngine};
 use infra::db::repo::{ProjectRepo, WorkspaceRepo};
 
 use crate::error::{Result, ServiceError};
@@ -176,24 +176,51 @@ impl WorkspaceService {
         Ok(None)
     }
 
-    /// Resolve the tmux session name used for a workspace.
+    /// Resolve the tmux session name used for a workspace or project.
     ///
-    /// This prefers the human-readable `{project}_{workspace}` naming scheme and
-    /// falls back to the legacy workspace-id-based session name when lookup fails.
+    /// Prefer `{project}_{workspace}` (or `{project}_Main` for a project GUID),
+    /// then the legacy workspace-id-based name. If more than one candidate is
+    /// live, pick the first that already has a tmux session so list/attach stay
+    /// on the same session.
     pub async fn resolve_tmux_session_name(
         &self,
         guid: &str,
         tmux_engine: &TmuxEngine,
     ) -> Result<String> {
         let workspace_repo = WorkspaceRepo::new(&self.db);
+        let project_repo = ProjectRepo::new(&self.db);
+        let mut candidates = Vec::new();
+
         if let Some(workspace) = workspace_repo.find_by_guid(guid).await? {
-            let project_repo = ProjectRepo::new(&self.db);
             if let Some(project) = project_repo.find_by_guid(&workspace.project_guid).await? {
-                return Ok(tmux_engine.get_session_name_from_names(&project.name, &workspace.name));
+                candidates
+                    .push(tmux_engine.get_session_name_from_names(&project.name, &workspace.name));
+            }
+        } else if let Some(project) = project_repo.find_by_guid(guid).await? {
+            // `/project` uses the project GUID as workspace_id. Attach names
+            // that session `{project}_Main`; listing must use the same name.
+            candidates.push(tmux_engine.get_session_name_from_names(&project.name, "Main"));
+        }
+        candidates.push(tmux_engine.get_session_name(guid));
+
+        let mut deduped = Vec::new();
+        for candidate in candidates {
+            if !deduped.iter().any(|existing| existing == &candidate) {
+                deduped.push(candidate);
             }
         }
 
-        Ok(tmux_engine.get_session_name(guid))
+        if let Ok(sessions) = tmux_engine.list_sessions() {
+            let existing = sessions.iter().map(|session| session.name.as_str());
+            if let Some(name) = preferred_existing_session_name(&deduped, existing) {
+                return Ok(name.to_string());
+            }
+        }
+
+        Ok(deduped
+            .into_iter()
+            .next()
+            .unwrap_or_else(|| tmux_engine.get_session_name(guid)))
     }
 
     /// 删除工作区（软删除 + 后台清理 worktree）

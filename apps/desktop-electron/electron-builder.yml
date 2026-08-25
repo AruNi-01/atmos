@@ -65,6 +65,8 @@ afterPack: scripts/after-pack-macos-icon.cjs
 
 mac:
   category: public.app-category.developer-tools
+  # Electron 44 dropped macOS 12 (Monterey); Chromium requires Ventura+.
+  minimumSystemVersion: "13.0"
   # Legacy ICNS for CFBundleIconFile + pre-Tahoe Dock (full-bleed plate).
   # macOS 26 Liquid Glass: afterPack compiles resources/icons/icon.icon → Assets.car.
   icon: resources/icons/icon.icns

@@ -14,6 +14,7 @@ import {
   selectEditorMountSet,
   sweepWarmByTtl,
   browserKeepAlivePanelClass,
+  githubKeepAlivePanelClass,
   lightSurfacePanelClass,
   terminalKeepAlivePanelClass,
   terminalMountKey,
@@ -139,8 +140,11 @@ describe("resolveFrameActiveTab / panel visibility", () => {
     expect(lightSurfacePanelClass(true)).toContain("absolute");
     expect(lightSurfacePanelClass(true)).toContain("bg-background");
     expect(lightSurfacePanelClass(true)).not.toContain("hidden");
-    expect(lightSurfacePanelClass(false)).toContain("hidden");
+    expect(lightSurfacePanelClass(false).split(/\s+/)).not.toContain("hidden");
+    expect(lightSurfacePanelClass(false)).toContain("opacity-0");
     expect(lightSurfacePanelClass(false)).toContain("bg-background");
+    expect(lightSurfacePanelClass(true)).toBe(browserKeepAlivePanelClass(true));
+    expect(lightSurfacePanelClass(false)).toBe(browserKeepAlivePanelClass(false));
     expect(browserKeepAlivePanelClass(true)).toContain("absolute");
     expect(browserKeepAlivePanelClass(true)).toContain("bg-background");
     expect(browserKeepAlivePanelClass(true).split(/\s+/)).not.toContain("hidden");
@@ -149,6 +153,8 @@ describe("resolveFrameActiveTab / panel visibility", () => {
     expect(browserKeepAlivePanelClass(false)).toContain("opacity-0");
     expect(browserKeepAlivePanelClass(false)).toContain("pointer-events-none");
     expect(browserKeepAlivePanelClass(false)).toContain("bg-background");
+    expect(githubKeepAlivePanelClass(false)).toBe(browserKeepAlivePanelClass(false));
+    expect(githubKeepAlivePanelClass(false).split(/\s+/)).not.toContain("hidden");
   });
 });
 

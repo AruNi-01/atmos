@@ -278,5 +278,6 @@
   "simulator_status",
   "resource_monitor_get",
   "resource_monitor_subscribe",
-  "resource_monitor_unsubscribe"
+  "resource_monitor_unsubscribe",
+  "resource_monitor_kill_leaked"
 ]

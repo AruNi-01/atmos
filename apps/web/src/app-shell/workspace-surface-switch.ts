@@ -248,6 +248,18 @@ function flushPendingPromote(): void {
 }
 
 /**
+ * Launchpad / no-host routes (`/token-usage`, `/tasks`, …) have a null center
+ * context. Promoting that null would drop the last workspace out of Active and
+ * let CenterStage unmount live Terminal grids (orphaning a running TUI agent).
+ * Keep the previous surface mounted and overlay the launchpad view instead.
+ */
+export function shouldPromoteWorkspaceSurface(
+  nextContextId: string | null | undefined,
+): boolean {
+  return Boolean(nextContextId);
+}
+
+/**
  * Coalesce URL-driven promotes during rapid route commits.
  * Sticky leave bookkeeping still runs per hop in the caller; this only batches
  * `switchContext` / intermediate `touch` work.

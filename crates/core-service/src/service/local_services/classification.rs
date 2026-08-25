@@ -122,6 +122,36 @@ pub(super) fn command_preview(tokens: &[String]) -> Option<String> {
     Some(redacted.chars().take(220).collect())
 }
 
+pub(super) fn command_tokens_have_path(tokens: &[String]) -> bool {
+    tokens.iter().any(|token| token_looks_like_path(token))
+}
+
+/// Prefer a path-bearing command (self, else parent) for hover tooltips.
+pub(super) fn command_path_preview(
+    tokens: &[String],
+    parent_tokens: Option<&[String]>,
+) -> Option<String> {
+    if command_tokens_have_path(tokens) {
+        return command_preview(tokens);
+    }
+    let parent = parent_tokens?;
+    if command_tokens_have_path(parent) {
+        return command_preview(parent);
+    }
+    None
+}
+
+fn token_looks_like_path(token: &str) -> bool {
+    let cleaned = token.trim_matches(['"', '\'']);
+    if cleaned.is_empty() || cleaned.starts_with('-') {
+        return false;
+    }
+    cleaned.starts_with('/')
+        || cleaned.starts_with('~')
+        || cleaned.contains('/')
+        || cleaned.contains('\\')
+}
+
 fn redact_token(token: &str) -> String {
     let lower = token.to_ascii_lowercase();
     let secretish = [
@@ -226,7 +256,7 @@ pub(super) fn service_kind_rank(service: &LocalServiceDto) -> u8 {
 
 #[cfg(test)]
 mod tests {
-    use super::{browser_url, can_stop, command_preview, probe_url};
+    use super::{browser_url, can_stop, command_path_preview, command_preview, probe_url};
     use crate::service::local_services::{LocalServiceKind, LocalServiceStatus};
     use core_engine::LocalTcpListener;
 
@@ -236,6 +266,36 @@ mod tests {
             command_preview(&["node".into(), "API_TOKEN=abc".into()]).as_deref(),
             Some("node [redacted]")
         );
+    }
+
+    #[test]
+    fn command_path_preview_keeps_self_when_it_has_a_path() {
+        let tokens = vec![
+            "node".into(),
+            "/repo/apps/web/node_modules/.bin/next".into(),
+            "dev".into(),
+        ];
+        assert_eq!(
+            command_path_preview(&tokens, None).as_deref(),
+            Some("node /repo/apps/web/node_modules/.bin/next dev")
+        );
+    }
+
+    #[test]
+    fn command_path_preview_falls_back_to_parent_when_title_has_no_path() {
+        let tokens = vec!["next-server".into(), "(v16.3.0)".into()];
+        let parent = vec![
+            "node".into(),
+            "/repo/apps/web/node_modules/.bin/next".into(),
+            "dev".into(),
+            "--port".into(),
+            "3030".into(),
+        ];
+        assert_eq!(
+            command_path_preview(&tokens, Some(&parent)).as_deref(),
+            Some("node /repo/apps/web/node_modules/.bin/next dev --port 3030")
+        );
+        assert_eq!(command_path_preview(&tokens, None), None);
     }
 
     #[test]

@@ -1,10 +1,24 @@
+const RUNTIME_TOKENS = new Set([
+  "node",
+  "nodejs",
+  "python",
+  "python3",
+  "java",
+  "ruby",
+  "php",
+  "perl",
+  "deno",
+  "bun",
+  "tsx",
+  "ts-node",
+]);
+
 /** Last path segment plus following non-path args, for the Local Services row. */
 export function localServiceCommandLabel(commandPreview: string): string | null {
-  const tokens = commandPreview
-    .trim()
-    .split(/\s+/)
-    .map(stripQuotes)
-    .filter(Boolean);
+  const original = commandPreview.trim();
+  if (!original) return null;
+
+  const tokens = original.split(/\s+/).map(stripQuotes).filter(Boolean);
   if (tokens.length === 0) return null;
 
   const pathIndex = tokens.findIndex(looksLikePath);
@@ -19,7 +33,46 @@ export function localServiceCommandLabel(commandPreview: string): string | null 
     return [base, ...trailing].join(" ");
   }
 
-  return tokens.length > 1 ? tokens.slice(1).join(" ") : tokens[0];
+  // Process titles such as `next-server (v16.3.0)` keep their spaces. Only drop a
+  // leading runtime when the remainder looks like a real argument, not `(v1.2.3)`.
+  if (shouldStripLeadingRuntime(tokens)) {
+    return tokens.slice(1).join(" ");
+  }
+  return original;
+}
+
+/** Full launch command when present; otherwise the launch directory shown before. */
+export function localServiceCommandTooltip(
+  commandPreview: string,
+  launchDirDisplay?: string | null,
+  commandPath?: string | null,
+): string {
+  const path = commandPath?.trim() ?? "";
+  if (path) return path;
+  const command = commandPreview.trim();
+  const launchDir = launchDirDisplay?.trim() ?? "";
+  if (commandHasFilesystemPath(command)) return command;
+  if (launchDir) return launchDir;
+  return command;
+}
+
+function commandHasFilesystemPath(commandPreview: string): boolean {
+  return commandPreview
+    .trim()
+    .split(/\s+/)
+    .map(stripQuotes)
+    .some(looksLikePath);
+}
+
+function shouldStripLeadingRuntime(tokens: string[]): boolean {
+  if (tokens.length < 2) return false;
+  if (!RUNTIME_TOKENS.has(tokens[0].toLowerCase())) return false;
+  const rest = tokens.slice(1).join(" ");
+  return !isParentheticalVersion(rest);
+}
+
+function isParentheticalVersion(value: string): boolean {
+  return /^\(v?\d[\w.+-]*\)$/i.test(value);
 }
 
 function stripQuotes(token: string): string {

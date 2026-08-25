@@ -2,6 +2,7 @@
 
 import React from "react";
 import { useTranslations } from "next-intl";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Badge,
   ScrollArea,
@@ -9,7 +10,11 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
+  toastManager,
 } from "@workspace/ui";
+import { queryKeys } from "@/api/query/query-keys";
+import { useComputerQueryScope } from "@/api/query/query-scope";
+import { resourceMonitorApi } from "@/api/ws/resource-monitor-api";
 import { cn } from "@/shared/lib/utils";
 import type { ResourceMonitorSnapshot } from "@atmos/api-types/ws/dto/resource-monitor";
 import type { DesktopShellMetricsSnapshot } from "@/features/resource-monitor/lib/desktop-shell-metrics";
@@ -114,6 +119,9 @@ export function ResourceMonitorPopover({
   onNavigateSession?: (target: ResourceMonitorSessionNavigationTarget) => void;
 }) {
   const t = useTranslations("resourceMonitor.popover");
+  const scope = useComputerQueryScope();
+  const queryClient = useQueryClient();
+  const [killingKey, setKillingKey] = React.useState<string | null>(null);
   const workspacePanes = useTerminalStore((s) => s.workspacePanes);
   const liveDisplays = React.useMemo(
     () => buildResourceMonitorSessionDisplayMap(workspacePanes),
@@ -123,6 +131,38 @@ export function ResourceMonitorPopover({
     key: ResourceMonitorSortKey;
     direction: ResourceMonitorSortDirection;
   }>({ key: "cpu", direction: "descending" });
+  const handleKillLeaked = React.useCallback(
+    (target: {
+      name: string;
+      projectId: string;
+      workspaceId: string | null;
+    }) => {
+      const key = `${target.projectId}:${target.workspaceId ?? ""}:${target.name}`;
+      if (killingKey) return;
+      setKillingKey(key);
+      void resourceMonitorApi
+        .killLeaked(scope, {
+          name: target.name,
+          project_id: target.projectId,
+          workspace_id: target.workspaceId,
+        })
+        .then(() => {
+          void queryClient.invalidateQueries({
+            queryKey: queryKeys.computer.resourceMonitorSnapshot(scope),
+          });
+        })
+        .catch(() => {
+          toastManager.add({
+            type: "error",
+            title: t("killLeakedFailed"),
+          });
+        })
+        .finally(() => {
+          setKillingKey(null);
+        });
+    },
+    [killingKey, queryClient, scope, t],
+  );
   const handleSortKeyChange = React.useCallback((key: ResourceMonitorSortKey) => {
     setSort((current) =>
       current.key === key
@@ -195,6 +235,8 @@ export function ResourceMonitorPopover({
                 desktopLoading={desktopLoading}
                 liveDisplays={liveDisplays}
                 workspacePanes={workspacePanes}
+                killingKey={killingKey}
+                onKillLeaked={handleKillLeaked}
                 onNavigate={onNavigateSession}
               />
             ) : null}

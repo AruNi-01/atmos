@@ -192,7 +192,10 @@ export function CenterStageTabList({
         variant="pill"
         className="flex min-h-0 min-w-0 flex-1 items-center"
       >
-        <MotionTabsList className="flex h-8 w-full min-w-0 justify-start gap-0.5 overflow-hidden bg-background p-0.5">
+        <MotionTabsList
+          className="flex h-8 w-full min-w-0 justify-start gap-0.5 overflow-hidden bg-background p-0.5"
+          indicatorClassName={CENTER_STAGE_TAB_INDICATOR_CLASS}
+        >
           {children}
           {actions}
         </MotionTabsList>

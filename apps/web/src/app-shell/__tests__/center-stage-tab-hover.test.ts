@@ -12,6 +12,21 @@ const tabBar = readFileSync(
 );
 
 describe("center stage tab hover", () => {
+  it("slides the pill with CSS transform instead of layoutId", () => {
+    const motionTabs = readFileSync(
+      join(import.meta.dir, "../../../../../packages/ui/src/components/motion/tabs.tsx"),
+      "utf8",
+    );
+    expect(motionTabs).not.toContain("layoutId=");
+    expect(motionTabs).toContain("translate3d");
+    expect(motionTabs).toContain("scale(");
+    expect(motionTabs).toContain("placeIndicator");
+    expect(motionTabs).toContain("measureSelectedTab");
+    expect(motionTabs).toContain("ResizeObserver");
+    expect(motionTabs).toContain("MutationObserver");
+    expect(shared).toContain("indicatorClassName={CENTER_STAGE_TAB_INDICATOR_CLASS}");
+  });
+
   it("uses the tasks-page motion pill tabs without a bottom divider", () => {
     expect(shared).toContain('@workspace/ui/components/motion/tabs');
     expect(shared).toContain('variant="pill"');
@@ -78,20 +93,29 @@ describe("center stage tab hover", () => {
     );
     expect(pointer).toContain("function stealPlusMenuClickFromOverlay");
     expect(pointer).toContain("function hitPlusMenuControl");
+    expect(pointer).toContain("function syncPlusMenuHover");
+    expect(pointer).toContain("function muteCenterOverlayHits");
+    expect(pointer).toContain("window.addEventListener(\"pointermove\", onPointerMove, true)");
     expect(pointer).toContain("window.addEventListener(\"pointerdown\", onPointerDown, true)");
+    expect(pointer).toContain("window.addEventListener(\"mousedown\", onMouseDown, true)");
     expect(pointer).toContain("markCenterStagePlusMenuOpen");
-    expect(menuBlock).toContain("useCenterStagePlusMenuOverlayGuard(open)");
+    expect(menuBlock).toContain("useCenterStagePlusMenuOverlayGuard(open");
+    expect(menuBlock).toContain("onPointerOverChrome: clearCloseTimer");
+    expect(menuBlock).toContain("onPointerLeaveChrome: scheduleClose");
     expect(menuBlock).toContain("shouldRetainPlusMenuForOutsidePointer");
     expect(menuBlock).toContain("shouldSchedulePlusMenuClose");
     expect(menuBlock).toContain('data-center-stage-plus-menu=""');
     expect(menuBlock).toContain('data-center-stage-plus-trigger=""');
+    expect(tabBar).toContain('data-plus-menu-layer={tab === "tabs" ? "active" : "inactive"}');
     expect(menuBlock).toContain("isCenterStagePlusMenuEventTarget(next)");
     expect(menuBlock).toContain("onPointerDown={(event) => event.stopPropagation()}");
-    expect(menuBlock).toContain('className="z-[300] w-48 overflow-hidden border-border/70');
-    expect(menuBlock).toContain("z-[310]");
+    expect(menuBlock).toContain('className="z-[2147483646] w-48 overflow-hidden border-border/70');
+    expect(menuBlock).toContain("z-[2147483647]");
     expect(menuBlock).toContain("modal={false}");
     expect(menuBlock).toContain("onInteractOutside");
-    expect(tabBar).toContain("[&_*]:pointer-events-none");
+    expect(menuBlock).toContain("xterm keeps focus while this menu is hover-open");
+    expect(tabBar).toContain('hidden={tab !== "tabs" ? true : undefined}');
+    expect(tabBar).not.toContain("[&_*]:pointer-events-none");
 
     const terminalGridCss = readFileSync(
       join(import.meta.dir, "../../features/terminal/components/terminal-grid.css"),
@@ -110,10 +134,11 @@ describe("center stage tab hover", () => {
       "html[data-center-stage-plus-menu-open] .terminal-grid-container[data-maximized-id] .terminal-pane.is-maximized",
     );
     expect(terminalGridCss).toContain("html[data-center-stage-plus-menu-open] canvas");
-    expect(terminalGridCss).toContain("[data-center-stage-plus-menu] *");
-    expect(terminalGridCss).toContain("[data-center-stage-layouts-menu] *");
+    expect(terminalGridCss).not.toContain(
+      "[data-center-stage-plus-menu] * {\n  pointer-events: auto !important;",
+    );
+    expect(terminalGridCss).toContain("[data-plus-menu-hot]");
     expect(terminalGridCss).toContain("pointer-events: none !important;");
-    expect(terminalGridCss).toContain("pointer-events: auto !important;");
 
     const globalsCss = readFileSync(
       join(import.meta.dir, "../../app/globals.css"),
@@ -121,6 +146,15 @@ describe("center stage tab hover", () => {
     );
     expect(globalsCss).toContain("html[data-center-stage-plus-menu-open] canvas");
     expect(globalsCss).toContain("html[data-center-stage-plus-menu-open] webview");
+    expect(globalsCss).toContain(
+      "[data-radix-popper-content-wrapper]:has([data-center-stage-plus-menu])",
+    );
+    expect(globalsCss).toContain(
+      '[data-center-stage-plus-menu] [data-plus-menu-hot]:not([aria-selected="true"])',
+    );
+    expect(terminalGridCss).toContain(
+      '[data-center-stage-plus-menu] [data-plus-menu-hot]:not([aria-selected="true"])',
+    );
   });
 
   it("splits the plus menu into click-switch pill tabs that fill the popover", () => {
@@ -142,6 +176,10 @@ describe("center stage tab hover", () => {
     expect(menuBlock).toContain('value="layout"');
     expect(menuBlock).toContain("plusMenuTabsLabel");
     expect(menuBlock).toContain("plusMenuLayoutLabel");
+    expect(menuBlock).toContain("onCreateOverview");
+    expect(menuBlock).toContain("overviewAlreadyOpen");
+    expect(menuBlock.indexOf("LayoutDashboard")).toBeLessThan(menuBlock.indexOf("TerminalIcon"));
+    expect(menuBlock.indexOf("{overviewLabel}")).toBeLessThan(menuBlock.indexOf("{terminalLabel}"));
   });
 
   it("animates plus-menu popover height when switching tabs", () => {

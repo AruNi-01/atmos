@@ -15,6 +15,7 @@ describe("center stage tab position shortcuts", () => {
     expect(support).toContain("resolveCenterStripShortcutTabId");
     expect(support).toContain("isCenterStageHotkeyTarget");
     expect(support).toContain("registerCenterStripShortcutHandler");
+    expect(support).toContain('placement: "focused"');
     expect(support).toContain("CENTER_REGION_DIGIT_HOTKEY_OPTIONS");
     expect(support).toContain("event.shiftKey");
     expect(support).not.toContain("visibleTerminalTabs[0]");
@@ -27,6 +28,8 @@ describe("center stage tab position shortcuts", () => {
     expect(stage).toContain("resolveCenterStripShortcutTabIds");
     expect(stage).toContain("orderedTabValues: focusedStripTabIds");
     expect(stage).toContain("constrainToPane: isMultiPane");
+    expect(stage).toContain("stripShortcutTabIds=");
+    expect(stage).toContain("layoutPaneId === resolvedPaneLayout.focusedPaneId");
     expect(CENTER_STRIP_POSITION_HOTKEYS).toBe(
       "mod+1,mod+2,mod+3,mod+4,mod+5,mod+6,mod+7,mod+8,mod+9",
     );
@@ -34,8 +37,9 @@ describe("center stage tab position shortcuts", () => {
 
   test("tab bar shortcut hints follow strip index, not terminal index", () => {
     const tabBar = read("../CenterStageTabBar.tsx");
-    expect(tabBar).toContain("getCenterStripShortcutDigit(index)");
-    expect(tabBar).toContain("renderDescriptorTab(tab, index)");
+    expect(tabBar).toContain("getCenterStripShortcutDigitForTab");
+    expect(tabBar).toContain("stripShortcutTabIds");
+    expect(tabBar).toContain("renderDescriptorTab(tab)");
     expect(tabBar).not.toContain("CENTER_TERMINAL_SHORTCUT_LIMIT");
     expect(tabBar).not.toContain("visibleTerminalTabs.findIndex");
     expect(tabBar).toContain("CenterTabHeldShortcut");

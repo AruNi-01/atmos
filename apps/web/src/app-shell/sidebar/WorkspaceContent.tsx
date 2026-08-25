@@ -58,6 +58,7 @@ import { SidebarHeldShortcutBadge } from "@/app-shell/HeldShortcutBadge";
 import { useSidebarShortcutDigit } from "@/app-shell/held-shortcut-prefix-store";
 import { SIDEBAR_SHORTCUT_TARGET_ATTR } from "@/app-shell/shortcut-prefix";
 import {
+  isWorkspaceInfoHoverKeepAliveTarget,
   useWorkspaceInfoHoverOpen,
   useWorkspaceInfoHoverPortal,
   workspaceInfoHoverSession,
@@ -197,12 +198,12 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
   const [editableName, setEditableName] = useState("");
   const [isSavingName, setIsSavingName] = useState(false);
   const [isRowHovered, setIsRowHovered] = useState(false);
-  const isInfoPopoverOpen = useWorkspaceInfoHoverOpen(workspace.id);
-  const infoPopoverPortalEl = useWorkspaceInfoHoverPortal(workspace.id);
+  const hoverInstanceId = React.useId();
+  const isInfoPopoverOpen = useWorkspaceInfoHoverOpen(hoverInstanceId);
+  const infoPopoverPortalEl = useWorkspaceInfoHoverPortal(hoverInstanceId);
   const workspaceGroupId = findGroupIdForMember(groups, "workspace", workspace.id);
   const workspaceShortcutKey = `workspace:${workspace.id}`;
   const shortcutDigit = useSidebarShortcutDigit(workspaceShortcutKey);
-  const infoPopoverTriggerRef = React.useRef<HTMLDivElement | null>(null);
   const ignoreNextClickRef = React.useRef(false);
   const prStatusInterested = isRowHovered || isInfoPopoverOpen;
   // Prefer worktree path so branch-linked PRs resolve like Header (git status + PR list).
@@ -219,28 +220,31 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
   );
   
 
-  const enterInfoPopover = React.useCallback((options?: { immediate?: boolean }) => {
+  const enterInfoPopover = React.useCallback((
+    trigger: HTMLElement,
+    options?: { immediate?: boolean },
+  ) => {
     if (suppressInfoPopover || isDragging || isPlaceholder) {
-      workspaceInfoHoverSession.suppress(workspace.id);
+      workspaceInfoHoverSession.suppress(hoverInstanceId);
       return;
     }
-    const trigger = infoPopoverTriggerRef.current;
-    if (!trigger) return;
-    workspaceInfoHoverSession.enter(workspace.id, trigger, options);
-  }, [isDragging, isPlaceholder, suppressInfoPopover, workspace.id]);
+    workspaceInfoHoverSession.enter(workspace.id, trigger, {
+      ...options,
+      instanceId: hoverInstanceId,
+    });
+  }, [hoverInstanceId, isDragging, isPlaceholder, suppressInfoPopover, workspace.id]);
 
   React.useEffect(() => {
     if (suppressInfoPopover || isDragging || isPlaceholder) {
-      workspaceInfoHoverSession.suppress(workspace.id);
+      workspaceInfoHoverSession.suppress(hoverInstanceId);
     }
-  }, [isDragging, isPlaceholder, suppressInfoPopover, workspace.id]);
+  }, [hoverInstanceId, isDragging, isPlaceholder, suppressInfoPopover]);
 
   React.useEffect(() => {
-    const id = workspace.id;
     return () => {
-      workspaceInfoHoverSession.detach(id);
+      workspaceInfoHoverSession.detach(hoverInstanceId);
     };
-  }, [workspace.id]);
+  }, [hoverInstanceId]);
 
   const handleClick = () => {
     if (ignoreNextClickRef.current) {
@@ -253,10 +257,10 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
     router.push(`/workspace?id=${workspace.id}`);
   };
 
-  const handleTouchStart = React.useCallback(() => {
+  const handleTouchStart = React.useCallback((event: React.TouchEvent<HTMLDivElement>) => {
     if (!isInfoPopoverOpen) {
       ignoreNextClickRef.current = true;
-      enterInfoPopover({ immediate: true });
+      enterInfoPopover(event.currentTarget, { immediate: true });
       window.setTimeout(() => {
         ignoreNextClickRef.current = false;
       }, 500);
@@ -466,19 +470,21 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
   return (
     <>
           <div
-            ref={infoPopoverTriggerRef}
             {...attributes}
             {...listeners}
             onClick={handleClick}
             // Do NOT open the info popover on focus: a click focuses the row first,
             // which previously mounted popover chrome and competed with navigation.
-            onMouseEnter={() => {
+            onMouseEnter={(event) => {
               setIsRowHovered(true);
-              enterInfoPopover();
+              enterInfoPopover(event.currentTarget);
             }}
-            onMouseLeave={() => {
+            onMouseLeave={(event) => {
               setIsRowHovered(false);
-              workspaceInfoHoverSession.leave(workspace.id);
+              if (isWorkspaceInfoHoverKeepAliveTarget(event.relatedTarget)) {
+                workspaceInfoHoverSession.hold();
+              }
+              workspaceInfoHoverSession.leave(hoverInstanceId);
             }}
             onTouchStart={handleTouchStart}
             onKeyDown={(event) => {

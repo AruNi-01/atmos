@@ -39,8 +39,9 @@ impl ResourceUsage {
 
 /// Process-name group inside one exclusive session or cwd leaf.
 ///
-/// Wire fields are basename, aggregated usage, and cached local ports only.
-/// Never serialize PID, start time, command line, executable, user, env, or cwd.
+/// Wire fields are basename, aggregated usage, cached local ports, and an
+/// optional leak flag. Never serialize PID, start time, command line,
+/// executable, user, env, or cwd.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub struct ResourceProcessMetrics {
@@ -48,6 +49,9 @@ pub struct ResourceProcessMetrics {
     pub usage: ResourceUsage,
     #[serde(default)]
     pub ports: Vec<u16>,
+    /// True when this cwd-attributed group outlived its launching session.
+    #[serde(default)]
+    pub leaked: bool,
 }
 
 /// Active terminal session projection. Usage is display-only at this row.
@@ -416,7 +420,7 @@ mod tests {
     }
 
     #[test]
-    fn process_metrics_serialize_only_name_usage_ports() {
+    fn process_metrics_serialize_only_name_usage_ports_leaked() {
         let process = ResourceProcessMetrics {
             name: "node".into(),
             usage: ResourceUsage {
@@ -425,18 +429,20 @@ mod tests {
                 process_count: 2,
             },
             ports: vec![3000, 4173],
+            leaked: false,
         };
         let value = serde_json::to_value(&process).unwrap();
         let object = value.as_object().unwrap();
         let keys: std::collections::HashSet<_> = object.keys().cloned().collect();
         assert_eq!(
             keys,
-            ["name", "usage", "ports"]
+            ["name", "usage", "ports", "leaked"]
                 .into_iter()
                 .map(str::to_string)
                 .collect()
         );
         assert_eq!(value["name"], "node");
         assert_eq!(value["ports"], serde_json::json!([3000, 4173]));
+        assert_eq!(value["leaked"], false);
     }
 }

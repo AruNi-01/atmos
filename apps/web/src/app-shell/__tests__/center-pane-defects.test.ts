@@ -150,8 +150,9 @@ describe("pane-local close fallback", () => {
     expect(after.panes).toHaveLength(2);
     expect(getPane(after, DEFAULT_PANE_ID)!.tabIds).toEqual(["a"]);
 
-    const stolen = openTabOnFocusedPane(after, "c");
-    expect(getPane(stolen, secondaryId)?.tabIds ?? []).not.toContain("c");
+    const copied = openTabOnFocusedPane(after, "c");
+    expect(getPane(copied, secondaryId)!.tabIds).toContain("c");
+    expect(getPane(copied, DEFAULT_PANE_ID)!.tabIds).toContain("c");
   });
 
   it("does not steal a sibling when closing several tabs in the primary pane", () => {

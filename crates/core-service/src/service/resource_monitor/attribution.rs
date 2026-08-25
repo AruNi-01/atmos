@@ -5,6 +5,7 @@ use std::path::{Component, Path, PathBuf};
 
 use core_engine::ResourceProcessSample;
 
+use super::leak::{mark_leaked_other_processes, parent_is_init};
 use super::projection::{build_projects, HierarchyUsage, SessionRow};
 use super::types::{ResourceAttributionStatus, ResourceProcessMetrics, ResourceUsage};
 
@@ -401,6 +402,14 @@ pub(crate) fn attribute(input: AttributionInput) -> AttributionOutput {
         input.desktop_use_root.as_deref(),
     );
 
+    let cwd_other: Vec<bool> = assigned
+        .iter()
+        .map(|owner| matches!(owner, Some(AssignmentOwner::Cwd { .. })))
+        .collect();
+    let parent_pids: Vec<Option<u32>> =
+        processes.iter().map(|process| process.parent_pid).collect();
+    let leaked = mark_leaked_other_processes(&parent_pids, &cwd_other, &by_pid);
+
     let mut assignments = HashMap::new();
     let mut server = ResourceUsage::zero();
     let mut shared_runtime = ResourceUsage::zero();
@@ -465,6 +474,7 @@ pub(crate) fn attribute(input: AttributionInput) -> AttributionOutput {
                     session_groups.entry(session_id.clone()).or_default(),
                     process,
                     ports_for_process(process, port_cache),
+                    false,
                 );
             }
             AssignmentOwner::Cwd {
@@ -493,6 +503,7 @@ pub(crate) fn attribute(input: AttributionInput) -> AttributionOutput {
                             .or_default(),
                         process,
                         ports_for_process(process, port_cache),
+                        leaked[index],
                     );
                 } else {
                     usage
@@ -509,6 +520,7 @@ pub(crate) fn attribute(input: AttributionInput) -> AttributionOutput {
                         project_other_groups.entry(project_id.clone()).or_default(),
                         process,
                         ports_for_process(process, port_cache),
+                        leaked[index],
                     );
                 }
             }
@@ -788,12 +800,15 @@ struct ProcessGroupAcc {
     name: String,
     usage: ResourceUsage,
     ports: BTreeSet<u16>,
+    members: u32,
+    leaked_members: u32,
 }
 
 fn add_process_group(
     groups: &mut HashMap<String, ProcessGroupAcc>,
     process: &IndexedProcess,
     ports: Vec<u16>,
+    mark_leaked: bool,
 ) {
     let Some(display) = process_group_name(process.name.as_deref()) else {
         return;
@@ -803,11 +818,17 @@ fn add_process_group(
         name: display,
         usage: ResourceUsage::zero(),
         ports: BTreeSet::new(),
+        members: 0,
+        leaked_members: 0,
     });
     entry
         .usage
         .add_process(process.cpu_percent, process.memory_rss_bytes);
     entry.ports.extend(ports);
+    entry.members = entry.members.saturating_add(1);
+    if mark_leaked {
+        entry.leaked_members = entry.leaked_members.saturating_add(1);
+    }
 }
 
 fn finish_process_groups(groups: HashMap<String, ProcessGroupAcc>) -> Vec<ResourceProcessMetrics> {
@@ -817,6 +838,7 @@ fn finish_process_groups(groups: HashMap<String, ProcessGroupAcc>) -> Vec<Resour
             name: group.name,
             usage: group.usage,
             ports: group.ports.into_iter().collect(),
+            leaked: group.members > 0 && group.leaked_members == group.members,
         })
         .collect();
     rows.sort_by(|left, right| {
@@ -880,6 +902,128 @@ fn process_basename(name: &str) -> String {
         .and_then(|value| value.to_str())
         .unwrap_or(trimmed)
         .to_string()
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum KillLeakedError {
+    NotLeaked,
+    NotFound,
+}
+
+/// Roots of the leaked tree that contains `clicked_name` in one other-process bucket.
+///
+/// Clicking a leaked row kills that connected leftover tree, not unrelated
+/// leaked processes in the same project. PIDs stay off the wire.
+pub(crate) fn leaked_kill_roots(
+    input: AttributionInput,
+    project_id: &str,
+    workspace_id: Option<&str>,
+    clicked_name: &str,
+) -> Result<Vec<u32>, KillLeakedError> {
+    let clicked = process_basename(clicked_name);
+    if clicked.trim().is_empty() {
+        return Err(KillLeakedError::NotLeaked);
+    }
+    let processes = input.processes.clone();
+    let output = attribute(input);
+
+    let mut members: HashMap<u32, Option<u32>> = HashMap::new();
+    let mut clicked_pids: Vec<u32> = Vec::new();
+    for process in &processes {
+        if process.pid <= 1 {
+            continue;
+        }
+        let key = ProcessKey {
+            pid: process.pid,
+            start_time: process.start_time,
+        };
+        let Some(AssignmentOwner::Cwd {
+            project_id: assigned_project,
+            workspace_id: assigned_workspace,
+        }) = output.assignments.get(&key)
+        else {
+            continue;
+        };
+        if assigned_project != project_id || assigned_workspace.as_deref() != workspace_id {
+            continue;
+        }
+        let Some(name) = process.name.as_deref() else {
+            continue;
+        };
+        members.insert(process.pid, process.parent_pid);
+        if process_basename(name).eq_ignore_ascii_case(&clicked) {
+            clicked_pids.push(process.pid);
+        }
+    }
+
+    // Restrict to leaked members: orphaned or descendant of an orphan in this bucket.
+    let leaked_members: HashMap<u32, Option<u32>> = members
+        .iter()
+        .filter(|(pid, _)| member_is_leaked(**pid, &members))
+        .map(|(pid, parent)| (*pid, *parent))
+        .collect();
+    clicked_pids.retain(|pid| leaked_members.contains_key(pid));
+    if clicked_pids.is_empty() {
+        return Err(KillLeakedError::NotFound);
+    }
+
+    let mut neighbors: HashMap<u32, Vec<u32>> = HashMap::new();
+    for (&pid, parent) in &leaked_members {
+        if let Some(ppid) = parent {
+            if leaked_members.contains_key(ppid) {
+                neighbors.entry(pid).or_default().push(*ppid);
+                neighbors.entry(*ppid).or_default().push(pid);
+            }
+        }
+    }
+
+    let mut stack = clicked_pids;
+    let mut component: HashSet<u32> = HashSet::new();
+    while let Some(pid) = stack.pop() {
+        if !component.insert(pid) {
+            continue;
+        }
+        if let Some(next) = neighbors.get(&pid) {
+            stack.extend(next.iter().copied());
+        }
+    }
+
+    let mut roots: Vec<u32> = component
+        .iter()
+        .copied()
+        .filter(|pid| match leaked_members.get(pid).copied().flatten() {
+            None | Some(0) | Some(1) => true,
+            Some(parent_pid) => !component.contains(&parent_pid),
+        })
+        .collect();
+    roots.sort_unstable();
+    roots.dedup();
+    if roots.is_empty() {
+        return Err(KillLeakedError::NotFound);
+    }
+    Ok(roots)
+}
+
+fn member_is_leaked(pid: u32, members: &HashMap<u32, Option<u32>>) -> bool {
+    let mut current = Some(pid);
+    let mut seen = HashSet::new();
+    while let Some(node) = current {
+        if !seen.insert(node) {
+            return false;
+        }
+        let Some(parent_pid) = members.get(&node).copied() else {
+            return false;
+        };
+        if parent_is_init(parent_pid) {
+            return true;
+        }
+        match parent_pid {
+            Some(ppid) if !members.contains_key(&ppid) => return false,
+            Some(ppid) => current = Some(ppid),
+            None => return true,
+        }
+    }
+    false
 }
 
 #[cfg(test)]

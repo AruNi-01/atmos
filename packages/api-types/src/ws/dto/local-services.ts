@@ -44,6 +44,7 @@ export type LocalService = {
   pid?: number | null;
   process_name?: string | null;
   command_preview?: string | null;
+  command_path?: string | null;
   cwd_display?: string | null;
   launch_dir_display?: string | null;
   title?: string | null;

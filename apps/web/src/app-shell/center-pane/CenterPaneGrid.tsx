@@ -405,7 +405,7 @@ function SplitLeaf({
         data-center-split-leaf={pane.id}
         data-focused={isFocused ? "true" : "false"}
         className={cn(
-          "relative flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-background ring-1 transition-[box-shadow,ring-color,opacity]",
+          "relative flex h-full min-h-0 min-w-0 flex-col bg-background ring-1 transition-[box-shadow,ring-color,opacity]",
           CENTER_STAGE_RADIUS_CLASS,
           "isolate",
           isOnlyPane
@@ -426,7 +426,7 @@ function SplitLeaf({
             {...listeners}
           />
         ) : null}
-        <div className="relative z-20 flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div className={cn("relative z-20 flex min-h-0 flex-1 flex-col overflow-hidden", CENTER_STAGE_RADIUS_CLASS)}>
           {renderPaneChrome(pane, { isFocused })}
         </div>
       </div>

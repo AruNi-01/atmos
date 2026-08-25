@@ -27,7 +27,7 @@ pub use mouse_modes::{
     resolve_mouse_tracking_restore, MouseEventMode, MouseFormat, MouseModeState,
     ATMOS_MOUSE_TRACKING_OPTION, DEFAULT_TUI_MOUSE_RESTORE,
 };
-pub use session::parse_pane_processes;
+pub use session::{parse_pane_processes, preferred_existing_session_name};
 pub use types::{
     is_inline_mouse_tui_command, is_shell_command, pane_command_basename,
     should_restore_tui_mouse_tracking, TmuxInstallPlan, TmuxPaneCapturePage, TmuxPaneProcess,

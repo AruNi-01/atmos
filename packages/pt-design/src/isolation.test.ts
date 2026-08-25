@@ -66,6 +66,8 @@ describe("package isolation", () => {
     expect(board).toContain("BlockSidebarIcon");
     expect(board).toContain("pt-design-library-sidebar");
     expect(board).toContain("renderTopRightUI");
+    expect(board).toContain("pt-design-top-right");
+    expect(board).toContain("iconOnly={isMobile}");
     expect(board).toContain("toggleSidebar");
     expect(board).toContain("pt-design-component-trigger");
     expect(board).toContain("pt-design-library-trigger");

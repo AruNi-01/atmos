@@ -319,7 +319,7 @@ function LaunchpadInsideDroppable({
     <div
       ref={setNodeRef}
       className={cn(
-        "mb-1.5 ml-2.5 rounded-2xl border-[0.5px] border-border/40 bg-muted/20",
+        "mb-1.5 ml-2.5 rounded-2xl border border-border/50 bg-muted/30 dark:border-border/40 dark:bg-muted/20",
         LEFT_SIDEBAR_DIVIDER_GUTTER_MR_CLASS,
       )}
     >
@@ -424,7 +424,7 @@ export function LeftSidebarLaunchpad({
       <button
         type="button"
         aria-expanded={isExpanded}
-        className="-mx-[0.5px] -mb-[0.5px] -mt-[0.5px] flex h-[calc(2.25rem+1px)] w-[calc(100%+1px)] cursor-pointer select-none items-center gap-2 rounded-2xl border-[0.5px] border-border/40 px-3 text-sm font-medium outline-none hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-1 focus-visible:ring-ring"
+        className="flex h-9 w-full cursor-pointer select-none items-center gap-2 rounded-2xl px-3 text-sm font-medium outline-none hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-1 focus-visible:ring-ring"
         onClick={() => onExpandedChange(!isExpanded)}
         onMouseEnter={() => rocketRef.current?.startAnimation?.()}
         onMouseLeave={() => rocketRef.current?.stopAnimation?.()}

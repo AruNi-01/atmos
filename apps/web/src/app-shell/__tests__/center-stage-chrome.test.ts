@@ -8,6 +8,7 @@ import {
   APP_SHELL_CENTER_COLUMN_ATTR,
   APP_SHELL_PANEL_LAYOUT_ATTR,
   CENTER_STAGE_CARD_CLASS,
+  CENTER_STAGE_CARD_CLIP_CLASS,
   CENTER_STAGE_GUTTER_CLASS,
   CENTER_STAGE_GUTTER_X_PX,
   CENTER_STAGE_GUTTER_Y_PX,
@@ -33,9 +34,28 @@ describe("center-stage chrome", () => {
     expect(CENTER_STAGE_RADIUS_CLASS).toBe("rounded-xl");
     expect(CENTER_STAGE_RADIUS_CSS).toBe("var(--radius-xl)");
     expect(CENTER_STAGE_CARD_CLASS).toContain(CENTER_STAGE_RADIUS_CLASS);
-    expect(CENTER_STAGE_CARD_CLASS).toContain("overflow-hidden");
     expect(CENTER_STAGE_CARD_CLASS).toContain("ring-1");
     expect(CENTER_STAGE_CARD_CLASS).toContain("desktop-no-drag");
+    // Ring and overflow-hidden must not share a node — that double-paints
+    // the rounded left edge in light mode as stacked shadow lines.
+    expect(CENTER_STAGE_CARD_CLASS).not.toContain("overflow-hidden");
+    expect(CENTER_STAGE_CARD_CLIP_CLASS).toContain("overflow-hidden");
+    expect(CENTER_STAGE_CARD_CLIP_CLASS).toContain("rounded-[inherit]");
+  });
+
+  test("launchpad overlay keeps a previously mounted workspace instead of unmounting it", () => {
+    const stage = read("../CenterStage.tsx");
+    expect(stage).toContain("keepAliveCenterContextId");
+    expect(stage).toContain("isLaunchpadCenter");
+    expect(stage).toContain("data-launchpad-center-overlay");
+    expect(stage).toContain("CenterStageNoContextView");
+    // Cold launchpad (no prior workspace) still early-returns. A warm workspace
+    // must fall through so Terminal grids stay mounted under the overlay.
+    expect(stage).toContain("if (!paintContextId)");
+    expect(stage).not.toContain("if (!liveHostContextId || !paintContextId)");
+
+    const support = read("../center-stage-support.tsx");
+    expect(support).toContain("shouldPromoteWorkspaceSurface");
   });
 
   test("every no-context center view goes through CenterStageSurface", () => {
@@ -54,6 +74,39 @@ describe("center-stage chrome", () => {
     expect(support).not.toContain('className="h-full overflow-hidden"');
   });
 
+  test("center panel surfaces defer until after tab chrome paints", () => {
+    const stage = read("../CenterStage.tsx");
+    expect(stage).toContain("useDeferredValue");
+    expect(stage).toContain("panelActiveValue");
+    expect(stage).toContain("activeValue={panelActiveValue}");
+    expect(stage).toContain("activeTabIds={panelActiveTabIds}");
+    expect(stage).toContain("paneActiveTabById={panelPaneActiveTabById}");
+    expect(stage).toContain("activeValue={opts?.activeTabId ?? activeValue}");
+
+    const frame = read("../workspace-center-frame.tsx");
+    expect(frame).toContain("DiscardableHeavySurface");
+    expect(frame).toContain("keptGithubTabValuesRef");
+    expect(frame).toContain("githubKeepAlivePanelClass");
+    expect(frame).toContain('retainSurface("run"');
+    expect(frame).toContain('retainSurface("github"');
+    expect(frame).toContain('retainSurface("files"');
+    expect(frame).toContain('retainSurface("changes"');
+    expect(frame).toContain("GithubKeptSurface");
+    expect(frame).toContain("<KeptRunScript");
+    const githubKept = frame.slice(
+      frame.indexOf("<GithubKeptSurface"),
+      frame.indexOf("</GithubKeptSurface>"),
+    );
+    expect(githubKept).toContain("active={isActiveContext}");
+    expect(githubKept).not.toContain("paneVisible");
+    expect(frame).toContain("isActive={isActiveContext}");
+    expect(frame).toContain("surfaceActive={isActiveContext}");
+    expect(frame).toContain("revealEnabled={isActiveContext}");
+    expect(frame).not.toMatch(/isActive=\{\s*\n\s*isActiveContext &&/);
+    expect(frame).not.toMatch(/surfaceActive=\{\s*\n\s*isActiveContext &&/);
+    expect(frame).not.toMatch(/revealEnabled=\{\s*\n\s*isActiveContext &&/);
+  });
+
   test("workspace and setup surfaces reuse the shared card class", () => {
     const stage = read("../CenterStage.tsx");
     expect(stage).toContain("CenterStageSurface");
@@ -61,6 +114,7 @@ describe("center-stage chrome", () => {
     expect(stage).toContain('data-center-stage-card=""');
     const chrome = read("../center-stage-chrome.tsx");
     expect(chrome).toContain("CENTER_STAGE_CARD_CLASS");
+    expect(chrome).toContain("CENTER_STAGE_CARD_CLIP_CLASS");
   });
 
   test("center-stage card chrome is tagged for drawer insets", () => {
@@ -113,6 +167,8 @@ describe("center-stage chrome", () => {
     expect(layout).not.toContain("hover:bg-border/50 group touch-none");
 
     const grid = read("../center-pane/CenterPaneGrid.tsx");
+    expect(grid).not.toContain("flex-col overflow-hidden bg-background ring-1");
+    expect(grid).toContain("flex-col bg-background ring-1");
     expect(grid).toContain('data-resize-hairline={orientation}');
     expect(grid).toContain("RESIZE_HAIRLINE_CORNER_INSET_CSS");
     expect(grid).toContain("group-hover:bg-border/50");

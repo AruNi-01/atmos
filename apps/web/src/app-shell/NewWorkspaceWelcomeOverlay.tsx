@@ -45,7 +45,7 @@ export function NewWorkspaceWelcomeOverlay() {
       aria-modal="true"
       aria-label="New workspace"
       className={cn(
-        "absolute z-[49] overflow-hidden bg-background will-change-[translate]",
+        "absolute z-[49] bg-background will-change-[translate]",
         CENTER_STAGE_RADIUS_CLASS,
         "ring-1 ring-border/40 shadow-[0_-8px_30px_rgba(0,0,0,0.12)]",
         // Prefer reduced motion: kill the slide without fighting inline transition props.
@@ -64,11 +64,13 @@ export function NewWorkspaceWelcomeOverlay() {
         transitionTimingFunction: "cubic-bezier(0.16, 1, 0.3, 1)",
       }}
     >
-      <HostedWelcomeGate
-        onAddProject={welcomeOverlay.openCreateProject}
-        onConnectAgent={welcomeOverlay.connectAgent}
-        onClose={welcomeOverlay.close}
-      />
+      <div className={cn("h-full min-h-0 overflow-hidden", CENTER_STAGE_RADIUS_CLASS)}>
+        <HostedWelcomeGate
+          onAddProject={welcomeOverlay.openCreateProject}
+          onConnectAgent={welcomeOverlay.connectAgent}
+          onClose={welcomeOverlay.close}
+        />
+      </div>
     </div>
   );
 }

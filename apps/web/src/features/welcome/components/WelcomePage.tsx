@@ -826,7 +826,7 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
       <AtmosWordmark
         className="inline-flex w-auto"
         layout="compact"
-        letterClassName="w-auto items-center gap-x-[0.04em] gap-y-0 text-[1em] leading-none font-semibold sm:gap-x-[0.04em] md:gap-x-[0.04em]"
+        letterClassName="w-auto items-center gap-x-[0.04em] gap-y-0 text-[1em] font-semibold leading-none sm:gap-x-[0.04em] md:gap-x-[0.04em]"
         logoClassName="mx-0 h-[0.55em] self-center"
         sloganClassName="hidden"
       />
@@ -1239,6 +1239,7 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
             words={headlineWords}
             className="my-0 items-end text-3xl font-semibold leading-none tracking-tight text-foreground sm:text-4xl md:text-5xl"
             cursorClassName="h-[0.82em] w-[4px] bg-foreground"
+            hideCursorWhenComplete
           />
         </div>
 

@@ -54,7 +54,7 @@ import { isHostedAtmosOrigin } from "@/shared/lib/desktop-runtime";
 import { useOpenSettings } from "@/features/settings/lib/open-settings";
 import { LocalModelDownloadProgress } from "@/app-shell/LocalModelDownloadProgress";
 import { QuotaPopover } from "./QuotaPopover";
-import { TunnelItem } from "./header-parts";
+import { HEADER_CHIP_HOVER_CLASS, HEADER_CHIP_SURFACE_CLASS, TunnelItem } from "./header-parts";
 import { HeaderWorkspaceSummaryButton } from "./header-workspace-widgets";
 import { useLayoutSettingsStore } from "@/features/settings/store/layout-settings-store";
 import { useWorkbenchLocale } from "@/providers/app/workbench-intl-provider";
@@ -615,7 +615,11 @@ export function HeaderActionControls({
       {showGlobalSearch ? (
         <button
           aria-label={t("searchAria")}
-          className="desktop-no-drag flex items-center gap-3 px-3 py-1.5 h-8 min-w-[180px] bg-muted/40 hover:bg-muted/60 text-muted-foreground text-[12px] rounded-md border border-transparent hover:border-border cursor-pointer"
+          className={cn(
+            "desktop-no-drag flex h-8 min-w-[180px] cursor-pointer items-center gap-3 rounded-md px-3 py-1.5 text-[12px] text-muted-foreground",
+            HEADER_CHIP_SURFACE_CLASS,
+            HEADER_CHIP_HOVER_CLASS,
+          )}
           onClick={() => setGlobalSearchOpen(true)}
         >
           <Search className="size-3.5" />

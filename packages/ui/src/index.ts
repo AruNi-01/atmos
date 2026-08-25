@@ -216,6 +216,7 @@ export {
 } from "./components/ui/typewriter-effect";
 export type {
   TypewriterEffectProps,
+  TypewriterEffectSmoothProps,
   TypewriterWord,
 } from "./components/ui/typewriter-effect";
 export {
@@ -228,6 +229,8 @@ export type {
   ShootingStarsProps,
   StarsBackgroundProps,
 } from "./components/ui/shooting-stars-background";
+export { SparklesCore } from "./components/ui/sparkles";
+export type { SparklesCoreProps } from "./components/ui/sparkles";
 export { NativeFollowCursor } from "./components/native/native-follow-cursor";
 export type { NativeFollowCursorProps } from "./components/native/native-follow-cursor";
 export { AnimatedNumber } from "./components/ui/animated-number";

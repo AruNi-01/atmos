@@ -184,20 +184,20 @@ export function terminalKeepAlivePanelClass(visible: boolean): string {
   return visible ? "atmos-terminal-panel-active" : "atmos-terminal-panel-keepalive";
 }
 
-/**
- * Full-bleed opaque stacker for non-terminal center panels (overview, PR,
- * files, …). Terminal keep-alive sits at z-0 with opacity stacking;
- * these panels must cover it with an opaque layer so transparent layout gaps
- * cannot show the xterm canvas underneath.
- *
- * Uses `hidden` when inactive — safe here because these surfaces are not WebGL
- * or Electron `<webview>`. Browser tabs use `browserKeepAlivePanelClass`.
- */
-export function lightSurfacePanelClass(visible: boolean): string {
+function opaqueKeepAlivePanelClass(visible: boolean): string {
   return [
     "absolute inset-0 z-[1] flex min-h-0 min-w-0 flex-col bg-background",
-    visible ? "overflow-auto" : "hidden pointer-events-none",
+    visible ? "overflow-auto" : "pointer-events-none overflow-hidden opacity-0",
   ].join(" ");
+}
+
+/**
+ * Full-bleed opaque stacker for non-terminal center panels (overview, files,
+ * GitHub hub, Run, PR, …). Inactive views stay in layout with opacity
+ * stacking — `display:none` reflows a loaded tree on the next hop.
+ */
+export function lightSurfacePanelClass(visible: boolean): string {
+  return opaqueKeepAlivePanelClass(visible);
 }
 
 /**
@@ -206,10 +206,12 @@ export function lightSurfacePanelClass(visible: boolean): string {
  * and reload the page on the next tab hop.
  */
 export function browserKeepAlivePanelClass(visible: boolean): string {
-  return [
-    "absolute inset-0 z-[1] flex min-h-0 min-w-0 flex-col bg-background",
-    visible ? "overflow-auto" : "pointer-events-none overflow-hidden opacity-0",
-  ].join(" ");
+  return opaqueKeepAlivePanelClass(visible);
+}
+
+/** PR / CI / issue / commit — same hide strategy as other loaded light surfaces. */
+export function githubKeepAlivePanelClass(visible: boolean): string {
+  return opaqueKeepAlivePanelClass(visible);
 }
 
 /**

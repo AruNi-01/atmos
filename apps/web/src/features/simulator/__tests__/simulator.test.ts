@@ -172,7 +172,7 @@ describe("center simulator tab", () => {
       join(import.meta.dir, "../../../app-shell/workspace-center-frame.tsx"),
       "utf8",
     );
-    expect(frame).toContain("<SimulatorPanel");
+    expect(frame).toContain("<KeptSimulatorPanel");
 
     const tabs = readFileSync(
       join(import.meta.dir, "../../../shared/lib/nuqs/searchParams.ts"),

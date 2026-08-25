@@ -281,6 +281,7 @@ export const WS_ACTIONS = [
   "resource_monitor_get",
   "resource_monitor_subscribe",
   "resource_monitor_unsubscribe",
+  "resource_monitor_kill_leaked",
 ] as const;
 
 export type WsAction = (typeof WS_ACTIONS)[number];

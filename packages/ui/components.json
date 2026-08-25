@@ -19,6 +19,7 @@
     "hooks": "@/hooks"
   },
   "registries": {
+    "@aceternity": "https://ui.aceternity.com/registry/{name}.json",
     "@coss": "https://coss.com/ui/r/{name}.json",
     "@basecn": "https://basecn.dev/r/{name}.json",
     "@ai-elements": "https://ai-sdk.dev/elements/api/registry/{name}.json",

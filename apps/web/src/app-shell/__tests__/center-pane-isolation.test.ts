@@ -41,10 +41,15 @@ describe("center pane tab isolation", () => {
 
   it("runs create and popover select on the pane that owns the tab bar", () => {
     const stage = readSibling("CenterStage.tsx");
+    const activate = readSibling("center-stage-activate.ts");
     expect(stage).toContain("const runOnThisPane = (run: () => void) => {");
     expect(stage).toContain("focusCenterPane(mosaicWriteContextId, opts.paneId)");
     expect(stage).toContain("handleCreateTerminalCenterTab={() =>");
     expect(stage).toContain("runOnThisPane(handleCreateTerminalCenterTab)");
+    expect(stage).toContain('placement: "focused"');
+    expect(stage).toContain("buildTabHostPaneIds");
+    expect(stage).toContain("dismissCenterTabInPane");
+    expect(activate).toContain("placement: opts?.placement");
     expect(stage).toContain("appendTabToStripOrder(nextTab.id)");
     expect(stage).toContain("appendTabToStripOrder(tab.value)");
     expect(stage).toContain("appendTabToStripOrder(SIMULATOR_TAB_VALUE)");
@@ -215,5 +220,15 @@ describe("center pane tab isolation", () => {
         slotBox: undefined,
       }),
     ).toBe(false);
+  });
+
+  it("does not default-open overview in host center chrome", () => {
+    const stage = readSibling("CenterStage.tsx");
+    expect(stage).toContain("useOverviewCenterTabStore");
+    expect(stage).toContain("overviewTabVisible");
+    expect(stage).toContain("handleCreateOverview");
+    expect(stage).toContain("Overview is opt-in");
+    expect(stage).not.toContain("storedLastTab === OVERVIEW_TAB_ID");
+    expect(stage).not.toContain(': ["overview"]');
   });
 });

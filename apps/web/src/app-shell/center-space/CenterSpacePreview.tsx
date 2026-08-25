@@ -4,6 +4,7 @@ import React from "react";
 import {
   paintCenterSpaceTerminalOverlay,
   queryCenterSpaceFrame,
+  queryCenterWorkArea,
   THUMB_HEIGHT,
   THUMB_WIDTH,
 } from "@/app-shell/center-space/center-space-thumbnail";
@@ -37,7 +38,8 @@ export function CenterSpacePreview({
 
     const paint = () => {
       if (cancelled) return false;
-      const frame = queryCenterSpaceFrame(hostId, spaceId);
+      const frame =
+        queryCenterWorkArea() ?? queryCenterSpaceFrame(hostId, spaceId);
       if (!frame) return false;
       const dpr = Math.min(2, window.devicePixelRatio || 1);
       const width = Math.round(THUMB_WIDTH * dpr);

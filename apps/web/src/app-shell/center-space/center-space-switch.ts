@@ -40,7 +40,9 @@ function applyThumbnails(
 
 async function rememberMountedThumbnails(hostId: string): Promise<void> {
   if (!hostId) return;
-  const thumbs = await snapshotMountedCenterSpaceThumbnails(hostId);
+  const thumbs = await snapshotMountedCenterSpaceThumbnails(hostId, {
+    invalidate: true,
+  });
   applyThumbnails(hostId, thumbs);
 }
 
