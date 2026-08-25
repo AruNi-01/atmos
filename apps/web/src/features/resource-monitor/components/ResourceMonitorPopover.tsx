@@ -183,6 +183,7 @@ export function ResourceMonitorPopover({
                 snapshotProjects={snapshot.projects}
                 snapshotServer={snapshot.server}
                 snapshotShared={snapshot.shared_runtime}
+                snapshotDesktopUse={snapshot.desktop_use}
                 snapshotUnattributed={snapshot.unattributed}
                 showUnattributed={showUnattributed}
                 showProjectsEmpty={shouldShowProjectsEmptyCopy(

@@ -143,12 +143,15 @@ impl ResourceMonitorService {
             let (claims, join_partial) =
                 resolve_terminal_claims(root_inputs.as_slice(), pane_inputs.as_deref());
 
+            let desktop_use_root =
+                dirs::home_dir().map(|home| home.join(".atmos").join("data").join("desktop-use"));
             let output = attribute(AttributionInput {
                 processes: sample.processes,
                 server_pid,
                 path_contexts,
                 terminals: claims,
                 port_cache,
+                desktop_use_root,
             });
 
             ResourceMonitorSnapshot {
@@ -157,6 +160,7 @@ impl ResourceMonitorService {
                 disks: sample.disks.iter().map(disk_metrics_from_sample).collect(),
                 server: output.server,
                 shared_runtime: output.shared_runtime,
+                desktop_use: output.desktop_use,
                 projects: output.projects,
                 unattributed: output.unattributed,
                 attribution_status: merge_status(
@@ -390,6 +394,7 @@ mod tests {
             disks: Vec::new(),
             server: ResourceUsage::zero(),
             shared_runtime: ResourceUsage::zero(),
+            desktop_use: ResourceUsage::zero(),
             projects: Vec::new(),
             unattributed: ResourceUsage::zero(),
             attribution_status: ResourceAttributionStatus::Unsupported,

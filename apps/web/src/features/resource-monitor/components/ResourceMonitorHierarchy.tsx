@@ -679,19 +679,25 @@ function ProjectBlock({
 function AtmosBlock({
   snapshotServer,
   snapshotShared,
+  snapshotDesktopUse,
   showDesktop,
   desktop,
   desktopLoading,
 }: {
   snapshotServer: ResourceUsage;
   snapshotShared: ResourceUsage;
+  snapshotDesktopUse: ResourceUsage;
   showDesktop: boolean;
   desktop?: DesktopShellMetricsSnapshot;
   desktopLoading: boolean;
 }) {
   const t = useTranslations("resourceMonitor.popover");
   const [open, setOpen] = React.useState(atmosDefaultOpen);
-  const atmosUsage = sumAtmosUsage(snapshotServer, snapshotShared);
+  const atmosUsage = sumAtmosUsage(
+    snapshotServer,
+    snapshotShared,
+    snapshotDesktopUse,
+  );
   const desktopGroups = desktop?.supported
     ? desktop.groups.filter((group) => isUsageVisible(group.usage))
     : [];
@@ -751,6 +757,9 @@ function AtmosBlock({
           </>
         ) : null}
         <StaticRow name={t("server")} usage={snapshotServer} />
+        {isUsageVisible(snapshotDesktopUse) ? (
+          <StaticRow name={t("desktopUse")} usage={snapshotDesktopUse} />
+        ) : null}
         <StaticRow name={t("sharedRuntime")} usage={snapshotShared} />
       </CollapsibleContent>
     </Collapsible>
@@ -781,6 +790,7 @@ export function ResourceMonitorHierarchy({
   snapshotProjects,
   snapshotServer,
   snapshotShared,
+  snapshotDesktopUse,
   snapshotUnattributed,
   showUnattributed,
   showProjectsEmpty,
@@ -797,6 +807,7 @@ export function ResourceMonitorHierarchy({
   snapshotProjects: ResourceProjectMetrics[];
   snapshotServer: ResourceUsage;
   snapshotShared: ResourceUsage;
+  snapshotDesktopUse: ResourceUsage;
   snapshotUnattributed: ResourceUsage;
   showUnattributed: boolean;
   showProjectsEmpty: boolean;
@@ -874,6 +885,7 @@ export function ResourceMonitorHierarchy({
       <AtmosBlock
         snapshotServer={snapshotServer}
         snapshotShared={snapshotShared}
+        snapshotDesktopUse={snapshotDesktopUse}
         showDesktop={showDesktop}
         desktop={desktopForSort}
         desktopLoading={desktopLoading}

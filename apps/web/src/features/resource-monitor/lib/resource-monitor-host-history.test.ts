@@ -51,6 +51,20 @@ describe("resourceHostHistoryPointFromSnapshot", () => {
     expect(resourceHostHistoryPointFromSnapshot(0, host)).toBeNull();
     expect(resourceHostHistoryPointFromSnapshot(Number.NaN, host)).toBeNull();
   });
+
+  test("clamps host CPU history to 0–100", () => {
+    expect(
+      resourceHostHistoryPointFromSnapshot(1_700_000_042, {
+        cpu_percent: 530,
+        memory_used_bytes: 8,
+        memory_total_bytes: 16,
+      }),
+    ).toEqual({
+      received_at_ms: 1_700_000_042,
+      cpu_percent: 100,
+      memory_percent: 50,
+    });
+  });
 });
 
 describe("appendResourceHostHistoryPoint", () => {

@@ -130,6 +130,11 @@ function renderHierarchy(
       snapshotProjects={[project]}
       snapshotServer={USAGE}
       snapshotShared={USAGE}
+      snapshotDesktopUse={{
+        cpu_percent: 0,
+        memory_rss_bytes: 0,
+        process_count: 0,
+      }}
       snapshotUnattributed={{
         cpu_percent: 0,
         memory_rss_bytes: 0,
@@ -180,6 +185,11 @@ describe("ResourceMonitorHierarchy session row hover", () => {
           snapshotProjects={[project]}
           snapshotServer={USAGE}
           snapshotShared={USAGE}
+          snapshotDesktopUse={{
+            cpu_percent: 0,
+            memory_rss_bytes: 0,
+            process_count: 0,
+          }}
           snapshotUnattributed={{
             cpu_percent: 0,
             memory_rss_bytes: 0,

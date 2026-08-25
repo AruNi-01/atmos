@@ -60,6 +60,7 @@ function hrefFromPath(path: string): LocatedPaneHref {
 
 function createHarness(options?: {
   currentHostId?: string | null;
+  currentSpaceId?: string | null;
   spaceIds?: string[];
   initialHref?: LocatedPaneHref;
   commitOnPush?: boolean;
@@ -84,6 +85,8 @@ function createHarness(options?: {
     listSpaceIds: () => options?.spaceIds ?? [DEFAULT_CENTER_SPACE_ID, EXTRA],
     currentHostId: () =>
       options?.currentHostId === undefined ? HOST : options.currentHostId,
+    currentSpaceId: () =>
+      options?.currentSpaceId === undefined ? null : options.currentSpaceId,
     switchCenterSpace: async (hostId, spaceId, switchOptions) => {
       order.push(`switch:${hostId}:${spaceId}:${String(switchOptions.preserveDeepLink)}`);
     },
@@ -261,6 +264,50 @@ describe("locationMatchesDestination / waitForDestination", () => {
     );
     expect(ok).toBe(true);
     expect(sleeps).toBe(2);
+  });
+
+  test("treats dest as committed after CenterStage strips tab and keeps dest tmux", () => {
+    expect(
+      locationMatchesDestination(
+        {
+          pathname: "/workspace",
+          search: `?id=${HOST}&terminalTmux=1`,
+        },
+        {
+          pathname: "/workspace",
+          id: HOST,
+          tab: FIXED_TERMINAL_TAB_VALUE,
+          terminalTmux: "1",
+        },
+      ),
+    ).toBe(true);
+    expect(
+      locationMatchesDestination(
+        {
+          pathname: "/workspace",
+          search: `?id=${HOST}`,
+        },
+        {
+          pathname: "/workspace",
+          id: HOST,
+          tab: FIXED_TERMINAL_TAB_VALUE,
+        },
+      ),
+    ).toBe(true);
+    expect(
+      locationMatchesDestination(
+        {
+          pathname: "/workspace",
+          search: `?id=${HOST}&tab=github&terminalTmux=1`,
+        },
+        {
+          pathname: "/workspace",
+          id: HOST,
+          tab: FIXED_TERMINAL_TAB_VALUE,
+          terminalTmux: "1",
+        },
+      ),
+    ).toBe(false);
   });
 });
 
@@ -510,6 +557,27 @@ describe("navigateToResourceMonitorSession", () => {
     expect(deps.order.some((step) => step.startsWith("switch:"))).toBe(false);
   });
 
+  test("already-on dest space keeps locate when CenterStage strips dest tab", async () => {
+    const { deps, router } = createHarness({
+      currentSpaceId: DEFAULT_CENTER_SPACE_ID,
+      commitOnPush: false,
+      waitAttempts: 3,
+    });
+    const dest = location();
+    const path = buildLocatedPanePath(dest, "workspace");
+    const ok = await navigateToResourceMonitorSession(dest, "workspace", router, deps);
+
+    expect(ok).toBe(true);
+    expect(deps.order).toEqual([
+      "hydrate",
+      `ensureHost:${HOST}`,
+      "request:sess-1",
+      `push:${path}`,
+    ]);
+    expect(deps.order.includes("clear")).toBe(false);
+    expect(deps.order.some((step) => step.startsWith("switch:"))).toBe(false);
+  });
+
   test("switches only after dest commit, not immediately after push", async () => {
     const href: LocatedPaneHref = {
       pathname: "/workspace",
@@ -618,6 +686,8 @@ describe("navigate dest-commit-before-switch contract", () => {
     expect(requestAt).toBeGreaterThan(0);
     expect(switchAt).toBeGreaterThan(commitAt);
     expect(switchAt).toBeGreaterThan(src.lastIndexOf("if (!committed)"));
+    expect(src).toContain("alreadyOnDestSpace");
+    expect(src).toContain("prepared.currentSpaceId === location.spaceId");
     expect(src).toContain("pushWorkspaceDeepLink");
     expect(src).toContain("router.push(path)");
     expect(src).toContain("preserveDeepLink: true");

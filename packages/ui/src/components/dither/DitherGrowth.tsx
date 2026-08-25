@@ -259,7 +259,9 @@ export function DitherGrowth({
       const plotY = (value: number) =>
         plotBottom - plotH * (clampToDomain(value, domainMax) / axisMax);
 
-      const cell = Math.max(3, Math.round(plotW / 180));
+      const cell = compact
+        ? Math.max(4, Math.round(plotW / 100))
+        : Math.max(3, Math.round(plotW / 180));
 
       const ptr = pointerRef.current;
       const rate = reducedMotion ? 1 : 0.16;
@@ -396,6 +398,13 @@ export function DitherGrowth({
         ctx.fill();
         ctx.globalAlpha = 1;
       }
+
+      return {
+        busy:
+          (!reducedMotion && morphRef.current!.progress(reducedMotion) < 0.999) ||
+          ptr.want ||
+          ptr.active > 0.05,
+      };
     },
     [publishTooltip, theme],
   );

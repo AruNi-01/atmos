@@ -30,9 +30,9 @@ import {
   RM_ROW_INTERACTIVE,
 } from "@/features/resource-monitor/lib/resource-monitor-classes";
 import {
-  formatCpuPercent,
   formatMemoryBytes,
   formatMemoryPair,
+  formatPercent,
 } from "@/features/resource-monitor/lib/resource-monitor-format";
 import { hostDefaultOpen } from "@/features/resource-monitor/lib/resource-monitor-hierarchy";
 import type { ResourceHostHistoryPoint } from "@/features/resource-monitor/lib/resource-monitor-host-history";
@@ -96,7 +96,7 @@ function CpuDetailPanel({ host }: { host: ResourceHostMetrics }) {
                   {t("coreIndex", { index: core.index })}
                 </span>
                 <span className="tabular-nums">
-                  {formatCpuPercent(core.cpu_percent)}
+                  {formatPercent(core.cpu_percent)}
                 </span>
               </div>
               <ResourceMonitorUsageBar
@@ -255,7 +255,7 @@ export function ResourceMonitorHostSection({
     }
   }, []);
 
-  const cpu = host ? formatCpuPercent(host.cpu_percent) : null;
+  const cpu = host ? formatPercent(host.cpu_percent) : null;
   const memory = host ? formatMemoryBytes(host.memory_used_bytes) : null;
   const coresInline = host
     ? t("coresInline", { count: host.logical_cpu_count })
@@ -299,7 +299,7 @@ export function ResourceMonitorHostSection({
         ) : null}
       </CollapsibleTrigger>
       <CollapsibleContent className="px-3 pb-2">
-        {host ? (
+        {hostOpen && host ? (
           <div className="space-y-2 pt-1">
             <ServerGauge
               cpuPercent={host.cpu_percent}
@@ -318,7 +318,7 @@ export function ResourceMonitorHostSection({
               )}
               trackColor={resourceMonitorDitherTrackColor(ditherTheme)}
               theme={ditherTheme}
-              formatValue={formatCpuPercent}
+              formatValue={formatPercent}
             />
             <ResourceMonitorHostChart
               history={history}
@@ -345,7 +345,7 @@ export function ResourceMonitorHostSection({
               </HostDetailPopover>
             </div>
           </div>
-        ) : isLoading ? (
+        ) : hostOpen && isLoading ? (
           <div className="grid grid-cols-2 gap-3 pt-1">
             <Skeleton className="h-10" />
             <Skeleton className="h-10" />

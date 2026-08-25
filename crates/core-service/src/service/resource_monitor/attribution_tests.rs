@@ -130,6 +130,7 @@ fn exclusive_nested_deepest_and_server_excludes_workspace() {
             simple_claim("deep", "ws", 20),
         ],
         port_cache: None,
+        desktop_use_root: None,
     });
 
     assert_eq!(
@@ -310,6 +311,7 @@ fn duplicate_tmux_roots_claim_once() {
         ],
         terminals: claims,
         port_cache: None,
+        desktop_use_root: None,
     });
 
     let claimed_keys: HashSet<_> = output.assignments.keys().cloned().collect();
@@ -361,6 +363,7 @@ fn project_workspace_and_unresolved_contexts() {
             simple_claim("stale", "missing-guid", 30),
         ],
         port_cache: None,
+        desktop_use_root: None,
     });
 
     assert_eq!(
@@ -410,6 +413,7 @@ fn pid_reuse_uses_start_time_identity() {
         ],
         terminals: vec![simple_claim("term", "ws", 50)],
         port_cache: None,
+        desktop_use_root: None,
     });
 
     assert_eq!(
@@ -453,6 +457,7 @@ fn cwd_boundary_uses_path_prefix_not_string_prefix() {
         ],
         terminals: Vec::new(),
         port_cache: None,
+        desktop_use_root: None,
     });
 
     assert_eq!(
@@ -516,6 +521,7 @@ fn missing_terminal_root_is_partial_without_invented_usage() {
             missing_root: true,
         }],
         port_cache: None,
+        desktop_use_root: None,
     });
     assert_eq!(
         output.attribution_status,
@@ -549,6 +555,7 @@ fn unresolved_live_pid_is_unattributed_missing_pid_adds_nothing() {
             },
         ],
         port_cache: None,
+        desktop_use_root: None,
     });
     assert_eq!(
         output.attribution_status,
@@ -610,6 +617,7 @@ fn context_prefers_project_guid_over_workspace() {
         ],
         terminals: vec![simple_claim("sess", "shared", 10)],
         port_cache: None,
+        desktop_use_root: None,
     });
     assert_eq!(output.projects[0].direct_usage.process_count, 1);
     assert!(output.projects[0].workspaces.is_empty());
@@ -627,6 +635,7 @@ fn server_pid_stays_server_when_cwd_is_inside_project() {
         path_contexts: vec![project("proj", "Demo", "/repo")],
         terminals: Vec::new(),
         port_cache: None,
+        desktop_use_root: None,
     });
 
     assert_eq!(
@@ -667,6 +676,7 @@ fn terminal_root_equal_server_pid_does_not_steal_server() {
         path_contexts: vec![project("proj", "Demo", "/repo")],
         terminals: vec![simple_claim("rogue", "proj", 1)],
         port_cache: None,
+        desktop_use_root: None,
     });
 
     assert_eq!(
@@ -831,6 +841,7 @@ fn exclusive_leaves_nested_sessions_and_project_direct_workspace_cwd() {
             simple_claim("ws-deep", "ws", 21),
         ],
         port_cache: None,
+        desktop_use_root: None,
     });
 
     let project = &output.projects[0];
@@ -934,6 +945,7 @@ fn groups_case_insensitive_basename_and_merges_sorted_ports() {
             listener(72, Some("python"), 8000),
             listener(72, None, 8001),
         ]),
+        desktop_use_root: None,
     });
 
     let others = &output.projects[0].workspaces[0].other_processes;
@@ -970,6 +982,7 @@ fn name_mismatch_does_not_attach_ports_and_resource_owner_wins() {
             listener(80, Some("node"), 4000),
             listener(81, Some("python"), 5000),
         ]),
+        desktop_use_root: None,
     });
 
     let process = &output.projects[0].workspaces[0].other_processes[0];
@@ -997,6 +1010,7 @@ fn missing_listener_or_sample_name_does_not_attach_ports() {
             listener(80, Some("   "), 3001),
             listener(81, Some("vite"), 4173),
         ]),
+        desktop_use_root: None,
     });
 
     let others = &output.projects[0].workspaces[0].other_processes;
@@ -1051,6 +1065,7 @@ fn blank_or_missing_name_skips_leaf_but_keeps_parent_usage() {
             listener(11, Some("hidden"), 7000),
             listener(40, Some("eslint"), 7001),
         ]),
+        desktop_use_root: None,
     });
 
     let project = &output.projects[0];
@@ -1087,6 +1102,7 @@ fn missing_port_cache_still_emits_process_names() {
         path_contexts: vec![project("proj", "Demo", "/proj")],
         terminals: Vec::new(),
         port_cache: None,
+        desktop_use_root: None,
     });
 
     assert_eq!(output.projects[0].other_processes.len(), 1);
@@ -1111,6 +1127,7 @@ fn snapshot_json_omits_process_identity_fields() {
             simple_claim("stale", "missing-guid", 30),
         ],
         port_cache: Some(vec![listener(10, Some("zsh"), 9229)]),
+        desktop_use_root: None,
     });
 
     let snapshot = crate::service::resource_monitor::types::ResourceMonitorSnapshot {
@@ -1129,6 +1146,7 @@ fn snapshot_json_omits_process_identity_fields() {
         ],
         server: output.server.clone(),
         shared_runtime: output.shared_runtime.clone(),
+        desktop_use: output.desktop_use.clone(),
         projects: output.projects.clone(),
         unattributed: output.unattributed.clone(),
         attribution_status: output.attribution_status,
@@ -1168,7 +1186,7 @@ fn snapshot_json_omits_process_identity_fields() {
         serde_json::json!([9229])
     );
 
-    for bucket in ["server", "shared_runtime", "unattributed"] {
+    for bucket in ["server", "shared_runtime", "desktop_use", "unattributed"] {
         let object = value[bucket].as_object().unwrap();
         assert!(
             !object.contains_key("processes"),
@@ -1177,6 +1195,44 @@ fn snapshot_json_omits_process_identity_fields() {
         assert!(!object.contains_key("name"));
         assert!(!object.contains_key("ports"));
     }
+}
+
+#[test]
+fn desktop_use_helper_and_children_are_atmos_app_owned() {
+    let root = PathBuf::from("/Users/demo/.atmos/data/desktop-use");
+    let processes = vec![
+        proc_named(1, None, Some("/atmos"), "atmos", 1.0, 10),
+        proc_named(
+            40,
+            None,
+            Some("/Users/demo/.atmos/data/desktop-use/host"),
+            "Atmos Desktop Use",
+            2.0,
+            30,
+        ),
+        proc_named(
+            41,
+            Some(40),
+            Some("/Users/demo/.atmos/data/desktop-use/host"),
+            "atmos-desktop-control",
+            3.0,
+            8,
+        ),
+        proc_named(50, None, Some("/unrelated"), "Chrome", 9.0, 90),
+    ];
+    let output = attribute(AttributionInput {
+        processes,
+        server_pid: 1,
+        path_contexts: Vec::new(),
+        terminals: Vec::new(),
+        port_cache: None,
+        desktop_use_root: Some(root),
+    });
+    assert_eq!(output.desktop_use.process_count, 2);
+    assert_eq!(output.desktop_use.cpu_percent, 5.0);
+    assert_eq!(output.desktop_use.memory_rss_bytes, 38);
+    assert_eq!(output.server.process_count, 1);
+    assert_eq!(output.shared_runtime.process_count, 0);
 }
 
 fn json_object_keys(value: &serde_json::Value) -> HashSet<String> {
@@ -1227,6 +1283,7 @@ fn hundred_sessions_five_process_groups_stay_under_payload_budget() {
         path_contexts: vec![project("proj", "Demo", "/proj")],
         terminals,
         port_cache: None,
+        desktop_use_root: None,
     });
     assert_eq!(output.projects[0].sessions.len(), SESSION_COUNT as usize);
     assert!(output.projects[0].sessions.iter().all(|session| {
@@ -1243,6 +1300,7 @@ fn hundred_sessions_five_process_groups_stay_under_payload_budget() {
         disks: Vec::new(),
         server: output.server,
         shared_runtime: output.shared_runtime,
+        desktop_use: output.desktop_use,
         projects: output.projects,
         unattributed: output.unattributed,
         attribution_status: output.attribution_status,

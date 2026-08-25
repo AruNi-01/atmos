@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+  cpuSlidingParts,
   formatCpuPercent,
   formatListeningPort,
   formatMemoryBytes,
@@ -14,19 +15,29 @@ import {
 } from "@/features/resource-monitor/lib/resource-monitor-format";
 
 describe("resource-monitor-format", () => {
-  test("formats a generic percent the same way as CPU", () => {
+  test("formats a generic 0–100 percent for memory and disks", () => {
     expect(formatPercent(3.42)).toBe("3.4%");
     expect(formatPercent(12.4)).toBe("12%");
     expect(formatPercent(0)).toBe("0%");
+    expect(formatPercent(150)).toBe("100%");
   });
 
-  test("formats CPU with one decimal below 10% and integers at or above", () => {
+  test("cpu sliding parts keep formatCpuPercent decimals", () => {
+    expect(cpuSlidingParts(3.42).decimals).toBe(1);
+    expect(cpuSlidingParts(3.42).suffix).toBe("%");
+    expect(cpuSlidingParts(12.4).decimals).toBe(0);
+    expect(cpuSlidingParts(12.4).value).toBe(12);
+    expect(cpuSlidingParts(150).value).toBe(150);
+  });
+
+  test("formats per-core CPU past 100% with one decimal below 10%", () => {
     expect(formatCpuPercent(0)).toBe("0%");
     expect(formatCpuPercent(-1)).toBe("0%");
     expect(formatCpuPercent(3.42)).toBe("3.4%");
     expect(formatCpuPercent(12.4)).toBe("12%");
     expect(formatCpuPercent(100)).toBe("100%");
-    expect(formatCpuPercent(150)).toBe("100%");
+    expect(formatCpuPercent(150)).toBe("150%");
+    expect(formatCpuPercent(1032.4)).toBe("1032%");
     expect(formatCpuPercent(Number.POSITIVE_INFINITY)).toBe("0%");
     expect(formatCpuPercent(Number.NaN)).toBe("0%");
   });
@@ -72,13 +83,14 @@ describe("resource-monitor-format", () => {
     ]);
   });
 
-  test("sumAtmosUsage adds Server and shared only", () => {
+  test("sumAtmosUsage adds Server, shared, and Desktop Use", () => {
     expect(
       sumAtmosUsage(
         { cpu_percent: 2, memory_rss_bytes: 100, process_count: 1 },
         { cpu_percent: 3.5, memory_rss_bytes: 40, process_count: 2 },
+        { cpu_percent: 0.2, memory_rss_bytes: 33, process_count: 1 },
       ),
-    ).toEqual({ cpu_percent: 5.5, memory_rss_bytes: 140, process_count: 3 });
+    ).toEqual({ cpu_percent: 5.7, memory_rss_bytes: 173, process_count: 4 });
   });
 
   test("stale detection uses local receive time, not server collected_at", () => {

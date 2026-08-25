@@ -1,4 +1,5 @@
 import type { ResourceUsage } from "@atmos/api-types/ws/dto/resource-monitor";
+import { percentSlidingParts, type SlidingMetricParts } from "@workspace/ui";
 import { RESOURCE_MONITOR_STALE_MS } from "@/features/resource-monitor/lib/resource-monitor-constants";
 
 const MEMORY_UNITS = ["B", "KB", "MB", "GB", "TB"] as const;
@@ -10,8 +11,31 @@ export function formatPercent(value: number): string {
   return `${Math.round(clamped)}%`;
 }
 
+/** Per-core CPU: 100% = one full logical core and may exceed 100%. */
 export function formatCpuPercent(value: number): string {
-  return formatPercent(value);
+  if (!Number.isFinite(value) || value <= 0) return "0%";
+  const amount = Math.max(0, value);
+  if (amount < 10) return `${amount.toFixed(1)}%`;
+  return `${Math.round(amount)}%`;
+}
+
+/** Sliding-number parts matching {@link formatCpuPercent} decimals. */
+export function cpuSlidingParts(
+  value: number,
+  locale = "en",
+): SlidingMetricParts {
+  const amount = Number.isFinite(value) && value > 0 ? value : 0;
+  return percentSlidingParts(amount, locale, amount > 0 && amount < 10 ? 1 : 0);
+}
+
+/** Sliding-number parts matching {@link formatPercent} decimals. */
+export function hostPercentSlidingParts(
+  value: number,
+  locale = "en",
+): SlidingMetricParts {
+  const amount =
+    Number.isFinite(value) && value > 0 ? Math.min(100, Math.max(0, value)) : 0;
+  return percentSlidingParts(amount, locale, amount > 0 && amount < 10 ? 1 : 0);
 }
 
 export function formatMemoryBytes(bytes: number): string {
@@ -34,11 +58,18 @@ export function formatMemoryPair(usedBytes: number, totalBytes: number): string 
 export function sumAtmosUsage(
   server: ResourceUsage,
   shared: ResourceUsage,
+  desktopUse: ResourceUsage = {
+    cpu_percent: 0,
+    memory_rss_bytes: 0,
+    process_count: 0,
+  },
 ): ResourceUsage {
   return {
-    cpu_percent: server.cpu_percent + shared.cpu_percent,
-    memory_rss_bytes: server.memory_rss_bytes + shared.memory_rss_bytes,
-    process_count: server.process_count + shared.process_count,
+    cpu_percent: server.cpu_percent + shared.cpu_percent + desktopUse.cpu_percent,
+    memory_rss_bytes:
+      server.memory_rss_bytes + shared.memory_rss_bytes + desktopUse.memory_rss_bytes,
+    process_count:
+      server.process_count + shared.process_count + desktopUse.process_count,
   };
 }
 

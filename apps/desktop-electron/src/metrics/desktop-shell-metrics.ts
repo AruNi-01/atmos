@@ -4,6 +4,11 @@
  * Pure collector: callers inject a ProcessMetric-like reader, logical CPU
  * count, and clock. Electron's first `percentCPUUsage` sample is 0; this
  * module never sleeps or re-samples to "prime" that counter.
+ *
+ * `app.getAppMetrics().cpu.percentCPUUsage` is already a share of total
+ * host capacity (0–100). Chromium's per-core usage is divided by
+ * `SysInfo::NumberOfProcessors()` before Electron exposes it. Multiply
+ * by logical CPU count to restore per-core units (100 = one core).
  */
 
 export type ResourceUsageView = {
@@ -112,11 +117,18 @@ function unsupportedSnapshot(
   };
 }
 
-function normalizeCpu(rawPercent: number, logicalCpuCount: number): number {
-  if (!Number.isFinite(rawPercent) || rawPercent < 0 || logicalCpuCount <= 0) {
+function toPerCoreCpu(hostSharePercent: number, logicalCpuCount: number): number {
+  if (!Number.isFinite(hostSharePercent) || hostSharePercent <= 0) {
     return 0;
   }
-  return Math.min(100, rawPercent / logicalCpuCount);
+  if (logicalCpuCount <= 0) {
+    return Math.min(100, hostSharePercent);
+  }
+  const perCore = hostSharePercent * logicalCpuCount;
+  if (!Number.isFinite(perCore)) {
+    return 0;
+  }
+  return Math.min(100 * logicalCpuCount, perCore);
 }
 
 export function collectDesktopShellMetrics(
@@ -175,7 +187,7 @@ export function collectDesktopShellMetrics(
       return {
         kind,
         usage: {
-          cpu_percent: normalizeCpu(cpu, logicalCpuCount),
+          cpu_percent: toPerCoreCpu(cpu, logicalCpuCount),
           memory_rss_bytes: memory,
           process_count: count,
         },
@@ -188,7 +200,7 @@ export function collectDesktopShellMetrics(
     collected_at_ms: collectedAtMs,
     logical_cpu_count: logicalCpuCount,
     total: {
-      cpu_percent: normalizeCpu(totalRawCpu, logicalCpuCount),
+      cpu_percent: toPerCoreCpu(totalRawCpu, logicalCpuCount),
       memory_rss_bytes: totalMemory,
       process_count: totalCount,
     },

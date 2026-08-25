@@ -1,13 +1,14 @@
 "use client";
 
 import React from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { Activity } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
+  SlidingMetric,
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -16,8 +17,8 @@ import {
 import { useResourceMonitor } from "@/features/resource-monitor/hooks/use-resource-monitor";
 import { ResourceMonitorPopover } from "@/features/resource-monitor/components/ResourceMonitorPopover";
 import {
-  formatCpuPercent,
   formatPercent,
+  hostPercentSlidingParts,
 } from "@/features/resource-monitor/lib/resource-monitor-format";
 import { hostMemoryPercent } from "@/features/resource-monitor/lib/resource-monitor-host-history";
 import {
@@ -36,8 +37,12 @@ import {
 } from "@/features/resource-monitor/lib/resource-monitor-session-navigation";
 import { useAppRouter } from "@/shared/hooks/use-app-router";
 
+const FOOTER_SWAP_EASE = [0.22, 1, 0.36, 1] as const;
+const FOOTER_SWAP_TRANSITION = { duration: 0.2, ease: FOOTER_SWAP_EASE } as const;
+
 export function ResourceMonitorFooterItem() {
   const t = useTranslations("resourceMonitor.footerItem");
+  const locale = useLocale();
   const [open, setOpen] = React.useState(false);
   const [previewing, setPreviewing] = React.useState(false);
   const reducedMotion = useReducedMotion();
@@ -68,7 +73,7 @@ export function ResourceMonitorFooterItem() {
   const compact =
     connectionState === "connected" && snapshot
       ? {
-          cpu: formatCpuPercent(hostCpuPercent),
+          cpu: formatPercent(hostCpuPercent),
           memory: formatPercent(hostMemoryUsagePercent),
         }
       : null;
@@ -88,7 +93,14 @@ export function ResourceMonitorFooterItem() {
           resourceMonitorPressureTone(hostCpuPercent),
         )}
       >
-        {t("cpuValue", { value: compact.cpu })}
+        {t.rich("cpuValue", {
+          value: () => (
+            <SlidingMetric
+              {...hostPercentSlidingParts(hostCpuPercent, locale)}
+              className="text-inherit"
+            />
+          ),
+        })}
       </span>
       <span className="text-muted-foreground/60">·</span>
       <span
@@ -96,7 +108,14 @@ export function ResourceMonitorFooterItem() {
           resourceMonitorPressureTone(hostMemoryUsagePercent),
         )}
       >
-        {t("memoryValue", { value: compact.memory })}
+        {t.rich("memoryValue", {
+          value: () => (
+            <SlidingMetric
+              {...hostPercentSlidingParts(hostMemoryUsagePercent, locale)}
+              className="text-inherit"
+            />
+          ),
+        })}
       </span>
     </>
   ) : (
@@ -124,6 +143,11 @@ export function ResourceMonitorFooterItem() {
     ? usageWidth || labelWidth
     : labelWidth;
 
+  const handleOpenChange = React.useCallback((next: boolean) => {
+    if (next && navigatingRef.current) return;
+    setOpen(next);
+  }, []);
+
   const handleSessionNavigate = React.useCallback(
     (target: ResourceMonitorSessionNavigationTarget) => {
       void runResourceMonitorSessionNavigation({
@@ -140,7 +164,7 @@ export function ResourceMonitorFooterItem() {
   );
   return (
     <TooltipProvider delayDuration={250}>
-      <Popover open={open} onOpenChange={setOpen}>
+      <Popover open={open} onOpenChange={handleOpenChange}>
         <Tooltip>
           <TooltipTrigger asChild>
             <PopoverTrigger asChild>
@@ -192,17 +216,18 @@ export function ResourceMonitorFooterItem() {
                   >
                     {previewing ? usageContent : labelText}
                   </span>
-                  <AnimatePresence initial={false} mode="sync">
+                  <AnimatePresence initial={false} mode="wait">
                     {previewing ? (
                       <motion.span
                         key="usage"
-                        initial={reducedMotion ? false : { opacity: 0, x: 12 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={reducedMotion ? undefined : { opacity: 0, x: 12 }}
-                        transition={{
-                          duration: reducedMotion ? 0 : 0.16,
-                          ease: [0.22, 1, 0.36, 1],
-                        }}
+                        initial={reducedMotion ? false : { opacity: 0, y: 6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={reducedMotion ? undefined : { opacity: 0, y: -6 }}
+                        transition={
+                          reducedMotion
+                            ? { duration: 0 }
+                            : FOOTER_SWAP_TRANSITION
+                        }
                         className="absolute inset-0 inline-flex items-center gap-1 whitespace-nowrap font-medium"
                         data-resource-monitor-footer-usage=""
                       >
@@ -211,13 +236,14 @@ export function ResourceMonitorFooterItem() {
                     ) : (
                       <motion.span
                         key="label"
-                        initial={reducedMotion ? false : { opacity: 0, x: -12 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={reducedMotion ? undefined : { opacity: 0, x: -12 }}
-                        transition={{
-                          duration: reducedMotion ? 0 : 0.14,
-                          ease: [0.22, 1, 0.36, 1],
-                        }}
+                        initial={reducedMotion ? false : { opacity: 0, y: 6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={reducedMotion ? undefined : { opacity: 0, y: -6 }}
+                        transition={
+                          reducedMotion
+                            ? { duration: 0 }
+                            : FOOTER_SWAP_TRANSITION
+                        }
                         className="absolute inset-0 inline-flex items-center whitespace-nowrap font-medium"
                         data-resource-monitor-footer-label=""
                       >

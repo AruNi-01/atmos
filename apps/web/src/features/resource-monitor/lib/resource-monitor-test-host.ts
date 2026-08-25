@@ -95,6 +95,7 @@ export function testSnapshot(
     disks: [],
     server: usage,
     shared_runtime: usage,
+    desktop_use: EMPTY_USAGE,
     projects: [],
     unattributed: EMPTY_USAGE,
     attribution_status: "complete",

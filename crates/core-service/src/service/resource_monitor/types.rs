@@ -28,13 +28,10 @@ impl ResourceUsage {
 
     /// Add one process sample using saturating / finite-safe aggregation.
     ///
-    /// `cpu_percent` is a share of total host capacity and stays in `0..=100`.
-    /// Memory and process count are not clamped.
+    /// `cpu_percent` is per-core (100 = one full logical core) and is not
+    /// clamped to 100. Memory and process count are not clamped.
     pub fn add_process(&mut self, cpu_percent: f32, memory_rss_bytes: u64) {
-        self.cpu_percent = clamp_host_cpu(saturating_cpu_add(
-            self.cpu_percent,
-            finite_non_negative(cpu_percent),
-        ));
+        self.cpu_percent = saturating_cpu_add(self.cpu_percent, finite_non_negative(cpu_percent));
         self.memory_rss_bytes = self.memory_rss_bytes.saturating_add(memory_rss_bytes);
         self.process_count = self.process_count.saturating_add(1);
     }
@@ -106,6 +103,7 @@ pub struct ResourceProjectMetrics {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub struct ResourceHostMetrics {
+    /// Mean of per-core 0–100 samples (100 = all logical cores fully used).
     pub cpu_percent: f32,
     pub memory_used_bytes: u64,
     pub memory_total_bytes: u64,
@@ -172,6 +170,9 @@ pub struct ResourceMonitorSnapshot {
     pub disks: Vec<ResourceDiskMetrics>,
     pub server: ResourceUsage,
     pub shared_runtime: ResourceUsage,
+    /// Atmos Desktop Use host/engine helpers. Zero when the helper is not running.
+    #[serde(default)]
+    pub desktop_use: ResourceUsage,
     pub projects: Vec<ResourceProjectMetrics>,
     pub unattributed: ResourceUsage,
     pub attribution_status: ResourceAttributionStatus,
@@ -203,10 +204,6 @@ fn saturating_cpu_add(left: f32, right: f32) -> f32 {
     }
 }
 
-fn clamp_host_cpu(value: f32) -> f32 {
-    finite_non_negative(value).clamp(0.0, 100.0)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -224,12 +221,12 @@ mod tests {
     }
 
     #[test]
-    fn usage_clamps_aggregated_cpu_to_host_capacity() {
+    fn usage_sums_per_core_cpu_without_100_cap() {
         let mut usage = ResourceUsage::zero();
         usage.add_process(60.0, 10);
         usage.add_process(60.0, 20);
         usage.add_process(150.0, 30);
-        assert_eq!(usage.cpu_percent, 100.0);
+        assert_eq!(usage.cpu_percent, 270.0);
         assert!(usage.cpu_percent.is_finite());
         assert_eq!(usage.memory_rss_bytes, 60);
         assert_eq!(usage.process_count, 3);

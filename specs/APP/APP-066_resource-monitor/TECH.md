@@ -20,7 +20,7 @@ This design implements M1–M7 with no new crate, database table, REST endpoint,
 | Process types | Resource samples are separate from stop-oriented `ProcessSnapshot`. |
 | PID exposure | Root PIDs stay inside Rust services; wire DTOs contain aggregates only. |
 | Precision | Attribution is best-effort. Shared and unattributed usage remain visible. |
-| CPU meaning | `cpu_percent` is normalized to total logical host capacity, where the host is 0–100%. |
+| CPU meaning | Host `cpu_percent` is the mean of per-core 0–100 samples (machine fullness, 0–100). Process / session / project / desktop group `cpu_percent` uses per-core units: 100% = one full logical core and may exceed 100%. Per-core Host detail rows stay 0–100 of that core. Host pressure/bars use the 0–100 host average. |
 | Memory meaning | On macOS, Host used matches btop: `(active + wired) × page_size` from Mach. Linux/Windows use `total − available`. Process groups use summed RSS/working-set bytes and need not add exactly to Host used. |
 | Terminal navigation | Resolve the live pane by ephemeral `session_id`, then navigate through the owning host, Center Space, Terminal tab, and stable tmux deep link. Never guess when the live pane cannot be resolved. |
 | Locate feedback | Use a short-lived blue terminal locate signal. Do not reuse agent-attention state, colors, persistence, filters, or API events. |
@@ -28,7 +28,7 @@ This design implements M1–M7 with no new crate, database table, REST endpoint,
 | Port detail | Join ports from the latest cached all-projects Local Services snapshot by PID + process-name check. Resource sampling never starts `lsof`, `/proc` listener scans, or HTTP probes. |
 | Host detail | Keep headline Host fields and add per-logical-core CPU plus a nested memory breakdown with an explicit accounting enum. Do not expose CPU brand/frequency or host identity. |
 | Metric motion | Animate usage-bar transform and chart updates for less than one 2.5-second sample interval. Disable metric animation under reduced motion; hover fills remain instant. |
-| Dither visualization | Resource pressure charts/meters reuse the Token Usage Dither canvas engine. Threshold selection stays feature-local: low `<60` success, medium `60–79` warning, high `≥80` destructive. |
+| Dither visualization | Resource pressure charts/meters reuse the Token Usage Dither canvas engine. Host pressure uses the 0–100 host average: low `<60` success, medium `60–79` warning, high `≥80` destructive. |
 | Disk capacity | Sample storage-only mounts through `sysinfo::Disks`, then select one primary system disk (`/` on Unix, system drive on Windows) with a 2.5-second engine cache. Do not expose disk images, secondary APFS views, removable/network/tmpfs mounts, Disk Analyzer, or disk I/O. |
 
 ## Architecture overview
@@ -63,7 +63,7 @@ Responsibilities:
 - Prime CPU counters on the first call before returning a useful sample.
 - Return process identity and resource values without Project, Workspace, or session concepts.
 - Capture `pid`, `parent_pid`, `start_time`, `cwd`, process name, CPU, and RSS.
-- Normalize process CPU to total logical host capacity.
+- Keep process CPU in sysinfo per-core units (100 = one core, may exceed 100%). Host `cpu_percent` is the mean of per-core 0–100 samples.
 - Include only data available to the current user; missing process metadata is best-effort, not a whole-snapshot failure.
 
 Add a batched tmux capability beside existing tmux helpers:
@@ -251,7 +251,7 @@ The collector accepts an injectable `app.getAppMetrics` reader and logical CPU c
 Rules:
 
 - Sum `memory.workingSetSize * 1024`.
-- Normalize summed `cpu.percentCPUUsage` by logical CPU count.
+- Multiply summed `cpu.percentCPUUsage` by logical CPU count to restore per-core units (Electron already divided Chromium per-core usage by processor count). Clamp the result to `100 × N`.
 - Preserve process count.
 - Use `(pid, creationTime)` only internally; do not return PIDs.
 - Return `supported: false` rather than throwing when Electron metrics are unavailable.
@@ -319,7 +319,7 @@ Popover:
 
 - Host summary.
 - Local-only Desktop shell rows.
-- Atmos Server and shared runtime rows.
+- Atmos Server, Desktop Use helper, and shared runtime rows.
 - Collapsible Project → Workspace → active terminal session hierarchy.
 - Unattributed row when non-zero or attribution is partial.
 - Loading, stale, unsupported, disconnected, and empty states.
