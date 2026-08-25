@@ -18,11 +18,11 @@ fn cmd_str(parts: &[&str]) -> String {
     parts.join(" ")
 }
 
-fn require_yes(yes: bool, command: &str, what: &str) -> Result<(), CliEnvelope> {
+fn confirmation_required(yes: bool, command: &str, what: &str) -> Option<CliEnvelope> {
     if yes {
-        return Ok(());
+        return None;
     }
-    Err(CliEnvelope::failure(
+    Some(CliEnvelope::failure(
         command,
         "CONFIRMATION_REQUIRED",
         format!("Refusing to {what} without --yes"),
@@ -263,7 +263,7 @@ pub async fn execute_project(api: ApiClientArgs, command: ProjectCommand) -> Cli
         }
         ProjectCommand::Delete(args) => {
             let command = format!("atmos project delete --id {}", args.id);
-            if let Err(env) = require_yes(args.yes, &command, "delete project") {
+            if let Some(env) = confirmation_required(args.yes, &command, "delete project") {
                 return env;
             }
             invoke_env(
@@ -464,7 +464,7 @@ pub async fn execute_workspace(api: ApiClientArgs, command: WorkspaceCommand) ->
         }
         WorkspaceCommand::Delete(args) => {
             let command = format!("atmos workspace delete --id {}", args.id);
-            if let Err(env) = require_yes(args.yes, &command, "delete workspace") {
+            if let Some(env) = confirmation_required(args.yes, &command, "delete workspace") {
                 return env;
             }
             invoke_env(
@@ -585,7 +585,7 @@ pub async fn execute_group(api: ApiClientArgs, command: GroupCommand) -> CliEnve
         }
         GroupCommand::Delete(args) => {
             let command = format!("atmos group delete --id {}", args.id);
-            if let Err(env) = require_yes(args.yes, &command, "delete group") {
+            if let Some(env) = confirmation_required(args.yes, &command, "delete group") {
                 return env;
             }
             invoke_env(
@@ -803,7 +803,7 @@ pub async fn execute_terminal(api: ApiClientArgs, command: TerminalCommand) -> C
         }
         TerminalCommand::Destroy(args) => {
             let command = format!("atmos terminal destroy --session {}", args.session);
-            if let Err(env) = require_yes(args.yes, &command, "destroy terminal") {
+            if let Some(env) = confirmation_required(args.yes, &command, "destroy terminal") {
                 return env;
             }
             invoke_env(
@@ -917,7 +917,7 @@ pub async fn execute_run(api: ApiClientArgs, command: RunCommand) -> CliEnvelope
                     "command": args.command,
                 }),
                 vec![next(
-                    &format!("atmos run logs --project-root {root}"),
+                    format!("atmos run logs --project-root {root}"),
                     "Read run logs",
                 )],
             )

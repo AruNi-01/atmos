@@ -81,6 +81,7 @@ impl CliEnvelope {
         }
     }
 
+    #[cfg(test)]
     pub fn to_value(&self) -> Value {
         serde_json::to_value(self).unwrap_or_else(
             |_| json!({"ok": false, "error": {"message": "serialize failed", "code": "INTERNAL"}}),

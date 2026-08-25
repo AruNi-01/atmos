@@ -192,13 +192,6 @@ async fn run() -> i32 {
         Some(Commands::Update(args)) => wrap_legacy("atmos update", execute_update(args).await),
     };
 
-    // Optional update hint on stderr only for host update path noise avoidance.
-    if !matches!(
-        // re-parse is not available; skip update hint in JSON-always mode except stderr after success
-        false, true
-    ) {
-        // no-op placeholder
-    }
     let _ = update_hint_if_needed().await;
 
     envelope.print_and_exit_code()

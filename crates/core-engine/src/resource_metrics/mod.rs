@@ -222,6 +222,7 @@ fn resolve_host_memory_used(
 /// btop macOS used: `(active_count + wire_count) * page_size`.
 ///
 /// `page_size <= 0` or arithmetic overflow returns `None`.
+#[cfg(any(target_os = "macos", test))]
 fn mach_active_wired_used_bytes(active_count: u64, wire_count: u64, page_size: i64) -> Option<u64> {
     if page_size <= 0 {
         return None;
