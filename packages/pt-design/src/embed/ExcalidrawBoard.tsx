@@ -429,8 +429,8 @@ export default function ExcalidrawBoard({
         }}
         isCollaborating={isCollaborating}
         onPointerUpdate={onPointerUpdate}
-        renderTopRightUI={(_mobile, appState) => (
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        renderTopRightUI={(isMobile, appState) => (
+          <div className="pt-design-top-right" style={{ display: "flex", alignItems: "center", gap: 8 }}>
             {onShare ? (
               <ShareTrigger
                 active={Boolean(sharePanel?.open)}
@@ -455,6 +455,7 @@ export default function ExcalidrawBoard({
                 active={appState.openSidebar?.name === "components"}
                 title="Component"
                 testId="pt-design-component-trigger"
+                iconOnly={isMobile}
                 onClick={() => {
                   const open = appState.openSidebar;
                   if (open?.name === "components") {
@@ -468,7 +469,7 @@ export default function ExcalidrawBoard({
                 }}
               >
                 <ComponentSidebarIcon size={16} strokeWidth={2} />
-                Component
+                {isMobile ? null : "Component"}
               </IslandTrigger>
             ) : null}
           </div>

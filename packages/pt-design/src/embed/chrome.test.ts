@@ -94,6 +94,17 @@ describe("excalidraw Atmos chrome", () => {
     expect(css).toContain("var(--pt-menu-hover)");
     expect(css).toContain(".context-menu-item-separator");
     expect(css).toContain(".dropdown-menu .dropdown-menu-container");
+    expect(css).toContain(".excalidraw.excalidraw--mobile .App-bottom-bar > .Island");
+    expect(css).toContain("min-width: 0");
+    expect(css).toContain(".App-toolbar-content > .main-menu-trigger");
+    expect(css).toContain(".App-toolbar--mobile");
+    expect(css).toContain("bottom: 12px");
+    expect(css).toContain(".App-toolbar-content .dropdown-menu--mobile");
+    expect(css).toContain("width: max-content");
+    expect(css).toContain(".pt-design-top-right");
+    expect(css).not.toContain("@media (pointer: fine)");
+    expect(board).toContain("pt-design-top-right");
+    expect(board).toContain("iconOnly={isMobile}");
     expect(css).not.toContain("background-color: var(--select-highlight-color)");
     expect(css).toContain(".context-menu-item__shortcut > kbd");
     expect(board).toContain("observeShortcutDecorations");
