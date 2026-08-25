@@ -96,6 +96,13 @@ pub struct ResourceProjectMetrics {
 }
 
 /// Host totals for the active Computer.
+///
+/// Headline `memory_*` fields match [`ResourceHostMemoryMetrics`] used/total.
+/// `cores.len()` equals `logical_cpu_count` when the engine enumerated
+/// `system.cpus()`. If that list is empty, `cores` stays empty while
+/// `logical_cpu_count` may still fall back to `available_parallelism`.
+/// Downstream validators should treat that mismatch as an unsupported edge
+/// and must not invent synthetic core rows.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub struct ResourceHostMetrics {
@@ -103,6 +110,42 @@ pub struct ResourceHostMetrics {
     pub memory_used_bytes: u64,
     pub memory_total_bytes: u64,
     pub logical_cpu_count: u32,
+    pub cores: Vec<ResourceHostCpuCore>,
+    pub memory: ResourceHostMemoryMetrics,
+}
+
+/// One logical core on the wire. `cpu_percent` is already 0–100 for that core.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct ResourceHostCpuCore {
+    pub index: u32,
+    pub cpu_percent: f32,
+}
+
+/// Nested host memory breakdown. Cached and free are informational and are
+/// never added to used as if they summed to total.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct ResourceHostMemoryMetrics {
+    pub total_bytes: u64,
+    pub used_bytes: u64,
+    pub available_bytes: u64,
+    pub free_bytes: u64,
+    pub cached_bytes: Option<u64>,
+    pub swap_total_bytes: u64,
+    pub swap_used_bytes: u64,
+    pub swap_free_bytes: u64,
+    pub accounting: ResourceMemoryAccounting,
+}
+
+/// Platform formula that produced host used/available.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ResourceMemoryAccounting {
+    BtopMach,
+    LinuxMemavailable,
+    WindowsAvailPhys,
+    FallbackTotalMinusAvailable,
 }
 
 /// One coalesced Computer snapshot. Wire shape is serde snake_case.
@@ -182,6 +225,129 @@ mod tests {
         assert_eq!(json, "\"partial\"");
         let parsed: ResourceAttributionStatus = serde_json::from_str("\"unsupported\"").unwrap();
         assert_eq!(parsed, ResourceAttributionStatus::Unsupported);
+    }
+
+    #[test]
+    fn host_metrics_nested_memory_matches_headline_and_invariants() {
+        let host = ResourceHostMetrics {
+            cpu_percent: 12.5,
+            memory_used_bytes: 40,
+            memory_total_bytes: 100,
+            logical_cpu_count: 2,
+            cores: vec![
+                ResourceHostCpuCore {
+                    index: 0,
+                    cpu_percent: 10.0,
+                },
+                ResourceHostCpuCore {
+                    index: 1,
+                    cpu_percent: 15.0,
+                },
+            ],
+            memory: ResourceHostMemoryMetrics {
+                total_bytes: 100,
+                used_bytes: 40,
+                available_bytes: 60,
+                free_bytes: 20,
+                cached_bytes: Some(8),
+                swap_total_bytes: 50,
+                swap_used_bytes: 10,
+                swap_free_bytes: 40,
+                accounting: ResourceMemoryAccounting::BtopMach,
+            },
+        };
+        assert_eq!(host.memory_used_bytes, host.memory.used_bytes);
+        assert_eq!(host.memory_total_bytes, host.memory.total_bytes);
+        assert_eq!(
+            host.memory.used_bytes + host.memory.available_bytes,
+            host.memory.total_bytes
+        );
+        assert_eq!(
+            host.memory.swap_used_bytes + host.memory.swap_free_bytes,
+            host.memory.swap_total_bytes
+        );
+        assert_eq!(host.cores.len(), host.logical_cpu_count as usize);
+    }
+
+    #[test]
+    fn host_metrics_serialize_snake_case_cores_memory_and_null_cached() {
+        let host = ResourceHostMetrics {
+            cpu_percent: 1.5,
+            memory_used_bytes: 2,
+            memory_total_bytes: 3,
+            logical_cpu_count: 1,
+            cores: vec![ResourceHostCpuCore {
+                index: 0,
+                cpu_percent: 1.5,
+            }],
+            memory: ResourceHostMemoryMetrics {
+                total_bytes: 3,
+                used_bytes: 2,
+                available_bytes: 1,
+                free_bytes: 1,
+                cached_bytes: None,
+                swap_total_bytes: 4,
+                swap_used_bytes: 1,
+                swap_free_bytes: 3,
+                accounting: ResourceMemoryAccounting::LinuxMemavailable,
+            },
+        };
+        let value = serde_json::to_value(&host).unwrap();
+        let object = value.as_object().unwrap();
+        for key in [
+            "cpu_percent",
+            "memory_used_bytes",
+            "memory_total_bytes",
+            "logical_cpu_count",
+            "cores",
+            "memory",
+        ] {
+            assert!(object.contains_key(key), "missing {key}");
+        }
+        let memory = value["memory"].as_object().unwrap();
+        for key in [
+            "total_bytes",
+            "used_bytes",
+            "available_bytes",
+            "free_bytes",
+            "cached_bytes",
+            "swap_total_bytes",
+            "swap_used_bytes",
+            "swap_free_bytes",
+            "accounting",
+        ] {
+            assert!(memory.contains_key(key), "missing memory.{key}");
+        }
+        assert_eq!(value["memory"]["accounting"], "linux_memavailable");
+        assert!(value["memory"]["cached_bytes"].is_null());
+        assert_eq!(value["cores"][0]["index"], 0);
+        assert_eq!(value["cores"][0]["cpu_percent"], 1.5);
+    }
+
+    #[test]
+    fn memory_accounting_serializes_snake_case() {
+        let cases = [
+            (ResourceMemoryAccounting::BtopMach, "btop_mach"),
+            (
+                ResourceMemoryAccounting::LinuxMemavailable,
+                "linux_memavailable",
+            ),
+            (
+                ResourceMemoryAccounting::WindowsAvailPhys,
+                "windows_avail_phys",
+            ),
+            (
+                ResourceMemoryAccounting::FallbackTotalMinusAvailable,
+                "fallback_total_minus_available",
+            ),
+        ];
+        for (value, expected) in cases {
+            let json = serde_json::to_string(&value).unwrap();
+            assert_eq!(json, format!("\"{expected}\""));
+            let parsed: ResourceMemoryAccounting =
+                serde_json::from_str(&format!("\"{expected}\"")).unwrap();
+            assert_eq!(parsed, value);
+        }
     }
 
     #[test]

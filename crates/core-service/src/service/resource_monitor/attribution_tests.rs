@@ -4,7 +4,36 @@ use std::path::PathBuf;
 use core_engine::ResourceProcessSample;
 
 use super::*;
-use crate::service::resource_monitor::types::{ResourceAttributionStatus, ResourceUsage};
+use crate::service::resource_monitor::types::{
+    ResourceAttributionStatus, ResourceHostCpuCore, ResourceHostMemoryMetrics, ResourceHostMetrics,
+    ResourceMemoryAccounting, ResourceUsage,
+};
+
+fn test_host_metrics() -> ResourceHostMetrics {
+    ResourceHostMetrics {
+        cpu_percent: 1.0,
+        memory_used_bytes: 2,
+        memory_total_bytes: 3,
+        logical_cpu_count: 4,
+        cores: (0..4)
+            .map(|index| ResourceHostCpuCore {
+                index,
+                cpu_percent: 1.0,
+            })
+            .collect(),
+        memory: ResourceHostMemoryMetrics {
+            total_bytes: 3,
+            used_bytes: 2,
+            available_bytes: 1,
+            free_bytes: 1,
+            cached_bytes: None,
+            swap_total_bytes: 0,
+            swap_used_bytes: 0,
+            swap_free_bytes: 0,
+            accounting: ResourceMemoryAccounting::FallbackTotalMinusAvailable,
+        },
+    }
+}
 
 fn proc(
     pid: u32,
@@ -1086,12 +1115,7 @@ fn snapshot_json_omits_process_identity_fields() {
 
     let snapshot = crate::service::resource_monitor::types::ResourceMonitorSnapshot {
         collected_at_ms: 1,
-        host: crate::service::resource_monitor::types::ResourceHostMetrics {
-            cpu_percent: 1.0,
-            memory_used_bytes: 2,
-            memory_total_bytes: 3,
-            logical_cpu_count: 4,
-        },
+        host: test_host_metrics(),
         server: output.server.clone(),
         shared_runtime: output.shared_runtime.clone(),
         projects: output.projects.clone(),
@@ -1196,12 +1220,7 @@ fn hundred_sessions_five_process_groups_stay_under_payload_budget() {
 
     let snapshot = crate::service::resource_monitor::types::ResourceMonitorSnapshot {
         collected_at_ms: 1,
-        host: crate::service::resource_monitor::types::ResourceHostMetrics {
-            cpu_percent: 1.0,
-            memory_used_bytes: 2,
-            memory_total_bytes: 3,
-            logical_cpu_count: 4,
-        },
+        host: test_host_metrics(),
         server: output.server,
         shared_runtime: output.shared_runtime,
         projects: output.projects,

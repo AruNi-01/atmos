@@ -48,8 +48,8 @@ pub use project_atmos::{
     PROJECT_ATMOS_DIR, PROJECT_ATMOS_IGNORED_ENTRIES,
 };
 pub use resource_metrics::{
-    normalize_process_cpu, ResourceHostSample, ResourceMetricsEngine, ResourceProcessSample,
-    ResourceSample,
+    normalize_process_cpu, ResourceHostCpuCoreSample, ResourceHostMemorySample, ResourceHostSample,
+    ResourceMemoryAccounting, ResourceMetricsEngine, ResourceProcessSample, ResourceSample,
 };
 pub use search::{search_content, SearchMatch, SearchResult};
 pub use test_engine::TestEngine;

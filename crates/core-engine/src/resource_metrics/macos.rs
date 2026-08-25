@@ -1,18 +1,24 @@
 //! macOS host memory via Mach, matching btop's OSX collector.
 //!
-//! btop `src/osx/btop_collect.cpp`:
-//! `used = (active_count + wire_count) * page_size`
-//! from `host_statistics64(HOST_VM_INFO64)`.
+//! One `host_statistics64(HOST_VM_INFO64)` sample yields:
+//! - `used = (active_count + wire_count) * page_size`
+//! - `cached = external_page_count * page_size`
+//! - `free = free_count * page_size`
+//!
+//! Any missing Mach/`sysconf` value or page-size overflow is `None` so the
+//! caller can fall back as a whole sample.
 
-use super::mach_active_wired_used_bytes;
+use super::{mach_page_memory, MachPageMemory};
 
-/// btop-aligned used bytes, or `None` if Mach/`sysconf` fails.
-pub(super) fn btop_used_memory() -> Option<u64> {
+/// btop-aligned used/cached/free, or `None` if any key field fails.
+pub(super) fn btop_mach_memory() -> Option<MachPageMemory> {
     let stats = host_vm_info64()?;
     let page_size = sysconf_page_size()?;
-    mach_active_wired_used_bytes(
+    mach_page_memory(
         u64::from(stats.active_count),
         u64::from(stats.wire_count),
+        u64::from(stats.external_page_count),
+        u64::from(stats.free_count),
         page_size,
     )
 }

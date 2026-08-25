@@ -8,7 +8,9 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use core_engine::ResourceMetricsEngine;
+use core_engine::{
+    ResourceHostSample, ResourceMemoryAccounting as EngineMemoryAccounting, ResourceMetricsEngine,
+};
 use parking_lot::Mutex;
 use tracing::warn;
 
@@ -24,9 +26,9 @@ use attribution::{
 };
 
 pub use types::{
-    ResourceAttributionStatus, ResourceHostMetrics, ResourceMonitorSnapshot,
-    ResourceProcessMetrics, ResourceProjectMetrics, ResourceSessionMetrics, ResourceUsage,
-    ResourceWorkspaceMetrics,
+    ResourceAttributionStatus, ResourceHostCpuCore, ResourceHostMemoryMetrics, ResourceHostMetrics,
+    ResourceMemoryAccounting, ResourceMonitorSnapshot, ResourceProcessMetrics,
+    ResourceProjectMetrics, ResourceSessionMetrics, ResourceUsage, ResourceWorkspaceMetrics,
 };
 
 const SNAPSHOT_CACHE_TTL: Duration = Duration::from_millis(500);
@@ -150,12 +152,7 @@ impl ResourceMonitorService {
 
             ResourceMonitorSnapshot {
                 collected_at_ms: sample.collected_at_ms,
-                host: ResourceHostMetrics {
-                    cpu_percent: sample.host.cpu_percent,
-                    memory_used_bytes: sample.host.memory_used_bytes,
-                    memory_total_bytes: sample.host.memory_total_bytes,
-                    logical_cpu_count: sample.host.logical_cpu_count,
-                },
+                host: host_metrics_from_sample(&sample.host),
                 server: output.server,
                 shared_runtime: output.shared_runtime,
                 projects: output.projects,
@@ -284,6 +281,51 @@ fn listener_ports_from_snapshot(snapshot: LocalServicesScanResponse) -> Vec<Cach
         .collect()
 }
 
+/// Copy engine host detail onto the wire model.
+///
+/// Headline used/total come from the nested memory sample so they cannot drift.
+/// When `cores` is empty, `logical_cpu_count` may still be a parallelism
+/// fallback; validators should treat that mismatch as unsupported, not fill
+/// synthetic cores.
+fn host_metrics_from_sample(host: &ResourceHostSample) -> ResourceHostMetrics {
+    ResourceHostMetrics {
+        cpu_percent: host.cpu_percent,
+        memory_used_bytes: host.memory.used,
+        memory_total_bytes: host.memory.total,
+        logical_cpu_count: host.logical_cpu_count,
+        cores: host
+            .cores
+            .iter()
+            .map(|core| ResourceHostCpuCore {
+                index: core.index,
+                cpu_percent: core.cpu_percent,
+            })
+            .collect(),
+        memory: ResourceHostMemoryMetrics {
+            total_bytes: host.memory.total,
+            used_bytes: host.memory.used,
+            available_bytes: host.memory.available,
+            free_bytes: host.memory.free,
+            cached_bytes: host.memory.cached,
+            swap_total_bytes: host.memory.swap_total,
+            swap_used_bytes: host.memory.swap_used,
+            swap_free_bytes: host.memory.swap_free,
+            accounting: memory_accounting_from_engine(host.memory.accounting),
+        },
+    }
+}
+
+fn memory_accounting_from_engine(accounting: EngineMemoryAccounting) -> ResourceMemoryAccounting {
+    match accounting {
+        EngineMemoryAccounting::BtopMach => ResourceMemoryAccounting::BtopMach,
+        EngineMemoryAccounting::LinuxMemavailable => ResourceMemoryAccounting::LinuxMemavailable,
+        EngineMemoryAccounting::WindowsAvailPhys => ResourceMemoryAccounting::WindowsAvailPhys,
+        EngineMemoryAccounting::FallbackTotalMinusAvailable => {
+            ResourceMemoryAccounting::FallbackTotalMinusAvailable
+        }
+    }
+}
+
 fn merge_status(
     status: ResourceAttributionStatus,
     extra_partial: bool,
@@ -317,6 +359,18 @@ mod tests {
                 memory_used_bytes: 0,
                 memory_total_bytes: 0,
                 logical_cpu_count: 0,
+                cores: Vec::new(),
+                memory: ResourceHostMemoryMetrics {
+                    total_bytes: 0,
+                    used_bytes: 0,
+                    available_bytes: 0,
+                    free_bytes: 0,
+                    cached_bytes: None,
+                    swap_total_bytes: 0,
+                    swap_used_bytes: 0,
+                    swap_free_bytes: 0,
+                    accounting: ResourceMemoryAccounting::FallbackTotalMinusAvailable,
+                },
             },
             server: ResourceUsage::zero(),
             shared_runtime: ResourceUsage::zero(),
@@ -454,6 +508,52 @@ mod tests {
         let mut snapshot = dummy_scan(3000, 11, "node");
         snapshot.services[0].pid = None;
         assert!(listener_ports_from_snapshot(snapshot).is_empty());
+    }
+
+    #[test]
+    fn host_metrics_from_sample_copies_nested_memory_onto_headline() {
+        let host = ResourceHostSample {
+            collected_at_ms: 9,
+            cpu_percent: 12.0,
+            memory_used_bytes: 99,
+            memory_total_bytes: 99,
+            logical_cpu_count: 2,
+            cores: vec![
+                core_engine::ResourceHostCpuCoreSample {
+                    index: 0,
+                    cpu_percent: 8.0,
+                },
+                core_engine::ResourceHostCpuCoreSample {
+                    index: 1,
+                    cpu_percent: 16.0,
+                },
+            ],
+            memory: core_engine::ResourceHostMemorySample {
+                total: 100,
+                used: 40,
+                available: 60,
+                free: 20,
+                cached: None,
+                swap_total: 10,
+                swap_used: 3,
+                swap_free: 7,
+                accounting: EngineMemoryAccounting::WindowsAvailPhys,
+            },
+        };
+        let metrics = host_metrics_from_sample(&host);
+        assert_eq!(metrics.cpu_percent, 12.0);
+        assert_eq!(metrics.memory_used_bytes, 40);
+        assert_eq!(metrics.memory_total_bytes, 100);
+        assert_eq!(metrics.memory.used_bytes, 40);
+        assert_eq!(metrics.memory.available_bytes, 60);
+        assert_eq!(metrics.memory.cached_bytes, None);
+        assert_eq!(
+            metrics.memory.accounting,
+            ResourceMemoryAccounting::WindowsAvailPhys
+        );
+        assert_eq!(metrics.cores.len(), 2);
+        assert_eq!(metrics.cores[1].index, 1);
+        assert_eq!(metrics.cores[1].cpu_percent, 16.0);
     }
 
     #[test]
