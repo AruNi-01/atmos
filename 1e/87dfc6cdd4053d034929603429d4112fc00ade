@@ -1,0 +1,22 @@
+apps/web/src/app-shell/__tests__/workspace-info-hover-session.test.ts
+  h_5be255725524c8 1-177
+apps/web/src/app-shell/__tests__/workspace-list-hover.test.ts
+  h_5be255725524c8 15-20
+apps/web/src/app-shell/sidebar/WorkspaceContent.tsx
+  h_5be255725524c8 4,60-64,200-201,222-224,227-230,233-234,236,239,241,243,251-252,259,264,401,432,452,460,477,481,607-609,615,621,634,649,695,712-713,725,792-795
+apps/web/src/app-shell/sidebar/WorkspaceInfoHoverHost.tsx
+  h_5be255725524c8 1-95
+apps/web/src/app-shell/sidebar/workspace-info-hover-session.ts
+  h_5be255725524c8 1-248
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "1e87dfc6cdd4053d034929603429d4112fc00ade",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
