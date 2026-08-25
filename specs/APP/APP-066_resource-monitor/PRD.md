@@ -44,6 +44,7 @@
 - **M9 — Diagnostic presentation**: The popover provides a clear Host summary, a useful client-side CPU/memory trend, aligned CPU and memory columns, and Name/CPU/Memory sorting without increasing Server sampling frequency.
 - **M10 — Explainable scope totals**: Every Project and Workspace can explain its aggregate usage through exclusive terminal-session and non-session process groups. Project-direct resources appear before Workspaces. Attributed listening programs show their local ports without exposing PID, command line, environment, username, or absolute host paths.
 - **M11 — Progressive Host and Atmos inspection**: Host and Atmos are compact, default-collapsed rows with CPU/memory summaries. Expanding Host reveals animated usage/trend surfaces plus CPU and memory detail panels. CPU detail shows every logical core; memory detail shows used, available, cached/free information, and swap using explicit platform accounting semantics.
+- **M12 — Disk capacity**: A default-collapsed Disk module shows local physical/removable volumes, their capacity, used/available bytes, and pressure percentage. Expanding it reveals per-volume rows without invoking directory analysis or disk-I/O tracing.
 
 ### Nice to Have
 
@@ -56,7 +57,7 @@
 - **Persistent history**: No database, long-term retention, or historical analytics in v1.
 - **Alerts and enforcement**: No CPU/memory limits, process killing, notifications, or automatic remediation.
 - **Exact OS isolation**: No cgroup, job-object, container, or launch-model migration.
-- **Disk, network, GPU utilization, or energy impact**: v1 is CPU and resident memory only; the Electron GPU process is a grouping label, not GPU utilization.
+- **Network, GPU utilization, disk I/O, or energy impact**: Disk capacity is included, but throughput/latency and the Electron GPU process remain outside v1 monitoring.
 - **Hardware fingerprinting**: CPU brand/vendor/frequency, physical-core topology, host name, and device identifiers are not exposed.
 - **Arbitrary process explorer**: Do not expose the full host process table, command lines, or unrelated user processes.
 - **Process control from Resource Monitor**: Process and port rows are read-only. Stop/kill escalation remains owned by Local Services.
@@ -71,6 +72,7 @@
 - **Navigation**: Selecting a live terminal row lands on the correct Workspace/Project, Center Space, Terminal tab, and panel without reusing the agent-attention signal.
 - **Explainability**: Project memory and process-count totals reconcile with Project-direct plus Workspace totals, and Workspace totals reconcile with session plus non-session process buckets.
 - **Inspection UX**: Collapsed Host/Atmos rows preserve table space while still showing current totals; detail panels remain keyboard accessible and do not close the parent Resource Monitor.
+- **Disk clarity**: Users can identify the fullest local volume without opening Disk Analyzer, while pseudo/network mounts and device identifiers remain hidden.
 - **Performance**: Interactive and idle overhead stay within the budgets defined by TEST.md.
 - **Qualitative**: Shared and unattributed rows make attribution limitations understandable rather than appearing as missing data.
 
@@ -89,4 +91,5 @@
 - **Phase 4**: M8, M9 — cross-Space terminal navigation, blue locate feedback, live Host trend, and sortable hierarchy.
 - **Phase 5**: M10 — Project resources, Workspace non-session processes, session process drilldown, and cached Local Services port annotations.
 - **Phase 6**: M11 — default-collapsed Host/Atmos summaries, animated metrics, per-core CPU and btop-style memory detail panels.
-- **Phase 7**: N1 and N2 after the dense hierarchy is exercised at scale.
+- **Phase 7**: M12 — default-collapsed local disk-capacity module using the same pressure visualization.
+- **Phase 8**: N1 and N2 after the dense hierarchy is exercised at scale.

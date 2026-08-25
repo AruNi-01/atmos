@@ -24,6 +24,7 @@
 | M9 | S16 |
 | M10 | S17, S18 |
 | M11 | S19, S20 |
+| M12 | S21, S22 |
 
 ## Execution map
 
@@ -49,6 +50,8 @@
 | S18 | Rust/Bun test + E2E | `cargo test`, `bun test`, Playwright | Local Services cache join + hierarchy rendering | attributed listeners with matching/mismatching process identities | process basenames and cached ports under correct scope/session; no PID/path/command leak; no listener scan from hot path | planned |
 | S19 | Rust/Bun test | `cargo test`, `bun test` | Host detail sampling/DTO/validator | per-core samples and macOS/Linux/Windows memory fixtures | core count and range; explicit accounting; used/available and swap invariants; cached nullable | planned |
 | S20 | Bun test + E2E | `bun test`, Playwright | collapsible Host/Atmos and detail popovers | repeated snapshots, reduced-motion, narrow viewport | default-collapsed summaries; sticky sort; rounded hover; animated bars/chart; CPU/memory details remain inside parent monitor | planned |
+| S21 | Bun/UI test + E2E | `bun test`, Playwright | shared Dither usage/history/grid and feature thresholds | low/mid/high values and reduced-motion | Token Usage Dither engine reused; fixed 0–100 domain; success/warning/destructive pressure tones; morph/snap behavior | planned |
+| S22 | Rust/Bun test + E2E | `cargo test`, `bun test`, Playwright | disk storage sampler and default-collapsed Disk UI | physical/removable/pseudo/duplicate mount fixtures | filtered stable volumes; used/available invariant; 2.5s cache; collapsed fullest-volume summary; expanded per-volume rows | planned |
 
 ## Scenarios
 
@@ -211,6 +214,22 @@
 - **When**: the user expands Host/Atmos, changes sort, and opens CPU or memory details.
 - **Then**: Host and Atmos start collapsed with right-aligned summaries; no adjacent separator lines appear; all interactive rows have inset rounded hover; sticky CPU/Memory headers sort; bars/chart ease between samples; reduced-motion disables metric animation; CPU detail shows every core and memory detail shows btop-style independent meters without closing the parent monitor.
 - **Signals**: collapsed state, hover classes, sticky header, transform/chart animation settings, detail popover DOM/focus, 390px overflow.
+
+### S21 — Resource pressure uses one animated Dither language
+
+- **Level**: Bun/UI test + E2E
+- **Given**: Host, core, memory, and history values crossing low, medium, and high thresholds.
+- **When**: snapshots update.
+- **Then**: every resource chart/meter uses the shared Token Usage Dither engine; pressure colors resolve to success below 60%, warning at 60–79%, and destructive at 80%+; history remains fixed to 0–100; reduced-motion snaps without shimmer/morph.
+- **Signals**: shared Dither props/domain, feature threshold tests, absence of Recharts/CSS width bars, stable data attributes.
+
+### S22 — Disk capacity lists useful local volumes
+
+- **Level**: Rust/Bun test + E2E
+- **Given**: local physical/removable, duplicate, zero-capacity, pseudo, tmpfs/overlay, hidden-system, and network mounts.
+- **When**: Resource Monitor samples and opens Disk.
+- **Then**: only useful filtered volumes appear, capped and stably sorted; each has total/used/available and 0–100 percentage; Disk defaults collapsed with the fullest-volume summary; expansion shows animated Dither capacity rows without running Disk Analyzer or collecting I/O.
+- **Signals**: disk filter/cache tests, snapshot DTO/validator, Disk trigger/rows, no analyzer/IO calls, 390px layout.
 
 ## Performance & load budgets
 

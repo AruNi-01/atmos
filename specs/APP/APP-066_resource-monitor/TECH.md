@@ -28,6 +28,8 @@ This design implements M1–M7 with no new crate, database table, REST endpoint,
 | Port detail | Join ports from the latest cached all-projects Local Services snapshot by PID + process-name check. Resource sampling never starts `lsof`, `/proc` listener scans, or HTTP probes. |
 | Host detail | Keep headline Host fields and add per-logical-core CPU plus a nested memory breakdown with an explicit accounting enum. Do not expose CPU brand/frequency or host identity. |
 | Metric motion | Animate usage-bar transform and chart updates for less than one 2.5-second sample interval. Disable metric animation under reduced motion; hover fills remain instant. |
+| Dither visualization | Resource pressure charts/meters reuse the Token Usage Dither canvas engine. Threshold selection stays feature-local: low `<60` success, medium `60–79` warning, high `≥80` destructive. |
+| Disk capacity | Sample storage-only local volumes through `sysinfo::Disks` with a 2.5-second engine cache. Do not reuse Disk Analyzer, collect disk I/O, or enumerate network/tmpfs mounts. |
 
 ## Architecture overview
 
@@ -338,6 +340,16 @@ Memory accounting:
 - Any fallback: `used=total−sysinfo.available`, cached unavailable, accounting `fallback_total_minus_available`.
 - `used + available == total`. Cached and free overlap/describe available memory and are never added to used. Swap is a separate pool.
 
+Dither and Disk:
+
+- Shared UI provides generic `DitherUsageBar`, fixed-domain two-series `DitherUsageHistory`, and single-canvas `DitherUsageGrid`; these contain no Resource Monitor thresholds.
+- Resource Monitor resolves semantic Dither colors from theme tokens and applies low/success, medium/warning, and high/destructive thresholds. Available/cached/free remain neutral because they are not pressure.
+- Dither morph duration remains below the interactive 2.5-second sample interval and snaps under reduced motion.
+- `ResourceMetricsEngine` owns a `sysinfo::Disks` sampler separate from `System`, refreshes only storage capacity, and caches the filtered result for 2.5 seconds.
+- Drop zero-capacity, pseudo, hidden system, network, tmpfs/overlay-style mounts; deduplicate equivalent mounts; preserve `/` and macOS Data when they are distinct volumes; sort stable and cap at 16.
+- Disk wire may expose the filtered mount root as a narrow exception to the process-path privacy rule. Device path, filesystem UUID, serial, and directory contents are never emitted.
+- Disk is a default-collapsed row directly below Host and outside the Project hierarchy. The collapsed summary uses the fullest volume; expansion shows independent per-volume capacity meters. Disk Analyzer remains separate.
+
 #### Terminal navigation and locate pulse
 
 ```text
@@ -465,9 +477,20 @@ pub struct ResourceHostMemoryMetrics {
     pub accounting: ResourceMemoryAccounting,
 }
 
+pub struct ResourceDiskMetrics {
+    pub name: String,
+    pub mount_point: String,
+    pub total_bytes: u64,
+    pub used_bytes: u64,
+    pub available_bytes: u64,
+    pub usage_percent: f32,
+    pub removable: bool,
+}
+
 pub struct ResourceMonitorSnapshot {
     pub collected_at_ms: u64,
     pub host: ResourceHostMetrics,
+    pub disks: Vec<ResourceDiskMetrics>,
     pub server: ResourceUsage,
     pub shared_runtime: ResourceUsage,
     pub projects: Vec<ResourceProjectMetrics>,
@@ -539,6 +562,7 @@ No REST endpoint is introduced.
 - Hidden Footer with no subscriber: no resource collection.
 - One process-table refresh per coalesced snapshot.
 - One tmux `list-panes -a` call per coalesced snapshot at most.
+- Disk capacity refresh is storage-only and occurs at most once per 2.5 seconds; no I/O counters or directory walk.
 - Zero listener scans or HTTP probes from the Resource Monitor path; port annotation is cache-only.
 - No per-session `ps`, `/proc` walk, or tmux command.
 - Each PID contributes to at most one exclusive ownership bucket.
