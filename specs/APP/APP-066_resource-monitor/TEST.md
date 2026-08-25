@@ -409,6 +409,8 @@ just test
 - S20/S21/S22 browser verification: the Host/Atmos App/Disk scenario passed on Chromium and mobile Chromium, including dynamic ServerGauge canvases, responsive no-horizontal-overflow layout, right-aligned detail actions, percentage Footer memory, Disk Analysis navigation, and the parent Resource Monitor remaining visible after navigation.
 - The full APP-066 Playwright rerun did not complete cleanly in the shared dev environment: the deterministic Host/Disk UI scenario and live-listener scenario passed, while the session-locate fixture timed out waiting for a locatable session after `workspace_mark_visited` / terminal-side-chat WebSocket timeouts. The previously recorded clean S14/S15 run remains the latest valid locate proof; this rerun did not expose a production regression in the changed icon/display code.
 - Root `@workspace/ui` typecheck remains blocked by the pre-existing `DrawerContentBare` TS2883 portability error; Web typecheck, which consumes the new `ServerGauge` and Dither props, is green.
+- Gauge/Footer follow-up: 147 targeted Bun tests passed across shared Gauge, Resource Monitor, and Layout settings; Web and E2E typechecks passed; Web lint completed with 0 errors (699 unrelated warnings).
+- The S11/S13/S16/S20 Playwright path passed on Chromium and mobile Chromium after asserting the wider 120px-style semicircle Gauge canvas, Monitor-to-usage hover transition, retained reduced-motion path, no horizontal overflow, and exact Project CPU/Memory header alignment. The test first reproduced a real 16px row-width conflict and passed after removing the overriding `w-full`.
 
 ### Test-run files changed
 
