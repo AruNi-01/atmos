@@ -123,13 +123,13 @@ export function ResourceMonitorFooterItem() {
                   className="relative h-4 shrink-0 overflow-hidden"
                   data-resource-monitor-footer-content=""
                 >
-                  <AnimatePresence initial={false} mode="wait">
+                  <AnimatePresence initial={false} mode="sync">
                     {previewing ? (
                       <motion.span
                         key="usage"
-                        initial={reducedMotion ? false : { opacity: 0, x: 6 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={reducedMotion ? undefined : { opacity: 0, x: -4 }}
+                        initial={reducedMotion ? false : { x: 12 }}
+                        animate={{ x: 0 }}
+                        exit={reducedMotion ? undefined : { x: 12 }}
                         transition={{
                           duration: reducedMotion ? 0 : 0.16,
                           ease: [0.22, 1, 0.36, 1],
@@ -161,9 +161,9 @@ export function ResourceMonitorFooterItem() {
                     ) : (
                       <motion.span
                         key="label"
-                        initial={reducedMotion ? false : { opacity: 0, x: -6 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={reducedMotion ? undefined : { opacity: 0, x: 4 }}
+                        initial={reducedMotion ? false : { x: -12 }}
+                        animate={{ x: 0 }}
+                        exit={reducedMotion ? undefined : { x: -12 }}
                         transition={{
                           duration: reducedMotion ? 0 : 0.14,
                           ease: [0.22, 1, 0.36, 1],
