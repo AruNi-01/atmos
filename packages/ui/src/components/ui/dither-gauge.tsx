@@ -14,6 +14,8 @@ import { useDitherCanvas } from "../../lib/dither/use-dither-canvas";
 type GaugeMeterProps = {
   label: string;
   value: number;
+  /** Fill is `value / capacity`. Defaults to 100 (one core / 0–100 meters). */
+  capacity?: number;
   color: string;
   trackColor: string;
   theme: DitherTheme;
@@ -23,6 +25,7 @@ type GaugeMeterProps = {
 function GaugeMeter({
   label,
   value,
+  capacity = 100,
   color,
   trackColor,
   theme,
@@ -31,7 +34,10 @@ function GaugeMeter({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const valueTextRef = useRef<HTMLDivElement>(null);
   const valueRef = useRef(value);
-  valueRef.current = clamp(Number.isFinite(value) ? value : 0, 0, 100);
+  const capacityRef = useRef(capacity);
+  valueRef.current = Number.isFinite(value) && value > 0 ? value : 0;
+  capacityRef.current =
+    Number.isFinite(capacity) && capacity > 0 ? capacity : 100;
   const valueSpring = useSpring(valueRef.current, {
     stiffness: 120,
     damping: 20,
@@ -61,10 +67,9 @@ function GaugeMeter({
       time: number;
       reducedMotion: boolean;
     }) => {
-      const currentValue = clamp(
-        reducedMotion ? valueRef.current : valueSpring.get(),
+      const currentValue = Math.max(
         0,
-        100,
+        reducedMotion ? valueRef.current : valueSpring.get(),
       );
       if (valueTextRef.current) {
         valueTextRef.current.textContent = formatRef.current(currentValue);
@@ -77,7 +82,8 @@ function GaugeMeter({
       const rIn = Math.max(1, rOut - thickness);
       const startAngle = Math.PI;
       const endAngle = Math.PI * 2;
-      const valueAngle = startAngle + (currentValue / 100) * Math.PI;
+      const fill = clamp(currentValue / capacityRef.current, 0, 1);
+      const valueAngle = startAngle + fill * Math.PI;
 
       ctx.beginPath();
       ctx.arc(cx, cy, rOut, startAngle, endAngle);
@@ -96,7 +102,7 @@ function GaugeMeter({
         ctx.closePath();
         ctx.clip();
 
-        const cell = Math.max(2.4, Math.min(4, width / 58));
+        const cell = Math.max(3.5, Math.min(6, width / 36));
         for (let x = Math.floor(cx - rOut); x <= Math.ceil(cx + rOut); x += cell) {
           for (let y = Math.floor(cy - rOut); y <= Math.ceil(cy); y += cell) {
             const centerX = x + cell / 2;
@@ -127,6 +133,10 @@ function GaugeMeter({
         ctx.restore();
       }
       ctx.globalAlpha = 1;
+      return {
+        busy:
+          !reducedMotion && Math.abs(currentValue - valueRef.current) > 0.08,
+      };
     },
     [theme, valueSpring],
   );
@@ -139,7 +149,7 @@ function GaugeMeter({
       role="meter"
       aria-label={label}
       aria-valuemin={0}
-      aria-valuemax={100}
+      aria-valuemax={Math.round(capacityRef.current)}
       aria-valuenow={Math.round(valueRef.current)}
     >
       <canvas ref={canvasRef} className="block h-28 w-full" aria-hidden />
@@ -158,6 +168,8 @@ function GaugeMeter({
 
 export type ServerGaugeProps = {
   cpuPercent?: number;
+  /** Per-core host capacity (`100 × logical CPUs`). Defaults to 100. */
+  cpuCapacity?: number;
   memoryPercent?: number;
   cpuLabel?: string;
   memoryLabel?: string;
@@ -175,6 +187,7 @@ export type ServerGaugeProps = {
  */
 export function ServerGauge({
   cpuPercent = 0,
+  cpuCapacity = 100,
   memoryPercent = 0,
   cpuLabel = "CPU",
   memoryLabel = "Memory",
@@ -195,6 +208,7 @@ export function ServerGauge({
       <GaugeMeter
         label={cpuLabel}
         value={cpuPercent}
+        capacity={cpuCapacity}
         color={cpuColor}
         trackColor={resolvedTrack}
         theme={theme}

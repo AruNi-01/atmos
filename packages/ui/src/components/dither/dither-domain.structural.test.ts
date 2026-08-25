@@ -25,6 +25,23 @@ describe("DitherRevenueLines yMax", () => {
   });
 });
 
+describe("useDitherCanvas scheduling", () => {
+  const src = readFileSync(
+    join(import.meta.dir, "../../lib/dither/use-dither-canvas.ts"),
+    "utf8",
+  );
+
+  test("sizes with ResizeObserver and idles after draw reports not busy", () => {
+    expect(src).toContain("ResizeObserver");
+    expect(src).toContain("IDLE_FRAME_MS");
+    expect(src).toContain("drawIsBusy");
+    expect(src).toContain("SHIMMER_PER_MS");
+    expect(src).toContain("contentRect");
+    expect(src).toContain("if (visible) kick()");
+    expect(src).toContain("else cancelSchedules()");
+  });
+});
+
 describe("DitherFunnel single-stage bar", () => {
   const src = readDither("DitherFunnel.tsx");
 

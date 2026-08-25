@@ -195,6 +195,10 @@ export function DitherFunnel({
           tAnim,
         });
       }
+      return {
+        busy:
+          !reducedMotion && morphRef.current!.progress(reducedMotion) < 0.999,
+      };
     },
     [theme],
   );
