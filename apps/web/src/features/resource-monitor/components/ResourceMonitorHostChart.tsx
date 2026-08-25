@@ -3,7 +3,7 @@
 import React from "react";
 import { useTranslations } from "next-intl";
 import { useTheme } from "next-themes";
-import { DitherRevenueLines } from "@workspace/ui";
+import { DitherGrowth } from "@workspace/ui";
 import {
   formatHostHistoryLocalTime,
   hostHistoryAgeSeconds,
@@ -16,17 +16,15 @@ import {
   resourceMonitorDitherTheme,
 } from "@/features/resource-monitor/lib/resource-monitor-pressure";
 
-const TRACK_HEIGHT_CLASS = "h-9";
+const TRACK_HEIGHT_CLASS = "h-11";
 
 function HostChartTrack({
-  seriesId,
   label,
   values,
   labels,
   color,
   theme,
 }: {
-  seriesId: string;
   label: string;
   values: number[];
   labels: string[];
@@ -37,18 +35,14 @@ function HostChartTrack({
     <div className="min-w-0 space-y-0.5">
       <p className="text-[10px] text-muted-foreground">{label}</p>
       <div className={`${TRACK_HEIGHT_CLASS} w-full`}>
-        <DitherRevenueLines
-          series={[
-            {
-              id: seriesId,
-              values,
-              color,
-              label,
-            },
-          ]}
+        <DitherGrowth
+          values={values}
           labels={labels}
           yMax={100}
+          color={color}
+          compact
           theme={theme}
+          valueLabel={label}
           formatValue={formatPercent}
         />
       </div>
@@ -104,7 +98,6 @@ export function ResourceMonitorHostChart({
       data-resource-monitor-chart=""
     >
       <HostChartTrack
-        seriesId="cpu"
         label={t("cpu")}
         values={history.map((point) => point.cpu_percent)}
         labels={labels}
@@ -112,7 +105,6 @@ export function ResourceMonitorHostChart({
         theme={theme}
       />
       <HostChartTrack
-        seriesId="memory"
         label={t("memory")}
         values={history.map((point) => point.memory_percent)}
         labels={labels}

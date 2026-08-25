@@ -211,8 +211,9 @@ describe("ResourceMonitorPopover structure", () => {
     expect(popoverSrc.indexOf("<ResourceMonitorDiskSection")).toBeLessThan(
       popoverSrc.indexOf("<ScrollArea"),
     );
-    expect(chartSrc).toContain("DitherRevenueLines");
+    expect(chartSrc).toContain("DitherGrowth");
     expect(chartSrc).toContain("yMax={100}");
+    expect(chartSrc).not.toContain("DitherRevenueLines");
     expect(chartSrc).toContain("formatPercent");
     expect(chartSrc).toContain("useMemo");
     expect(chartSrc).not.toContain("formatCpuPercent");

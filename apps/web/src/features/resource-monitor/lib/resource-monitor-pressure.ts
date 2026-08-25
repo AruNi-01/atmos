@@ -19,6 +19,12 @@ const PRESSURE_HEX = {
   },
 } as const;
 
+/** Full-length Funnel track — lighter than the moderate neutral foreground. */
+const TRACK_HEX = {
+  light: "#C3C3C9",
+  dark: "#47474C",
+} as const;
+
 export function resourceMonitorPressureTone(
   percent: number,
 ): ResourceMonitorPressureTone {
@@ -40,4 +46,8 @@ export function resourceMonitorDitherColor(
 ): string {
   if (meter === "neutral") return PRESSURE_HEX[theme].neutral;
   return PRESSURE_HEX[theme][resourceMonitorPressureTone(percent)];
+}
+
+export function resourceMonitorDitherTrackColor(theme: DitherTheme): string {
+  return TRACK_HEX[theme];
 }

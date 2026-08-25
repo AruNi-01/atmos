@@ -7,6 +7,7 @@ import { clampPercent } from "@/features/resource-monitor/lib/resource-monitor-h
 import {
   resourceMonitorDitherColor,
   resourceMonitorDitherTheme,
+  resourceMonitorDitherTrackColor,
   type ResourceMonitorMeterTone,
 } from "@/features/resource-monitor/lib/resource-monitor-pressure";
 
@@ -25,6 +26,7 @@ export function ResourceMonitorUsageBar({
   const theme = resourceMonitorDitherTheme(resolvedTheme);
   const percent = clampPercent(value);
   const color = resourceMonitorDitherColor(theme, tone, percent);
+  const trackColor = resourceMonitorDitherTrackColor(theme);
   return (
     <div
       className={cn("h-2 w-full", className)}
@@ -43,6 +45,7 @@ export function ResourceMonitorUsageBar({
         maxValue={1}
         gap={0}
         theme={theme}
+        trackColor={trackColor}
       />
     </div>
   );

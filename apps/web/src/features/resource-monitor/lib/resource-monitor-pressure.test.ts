@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   resourceMonitorDitherColor,
   resourceMonitorDitherTheme,
+  resourceMonitorDitherTrackColor,
   resourceMonitorPressureTone,
 } from "@/features/resource-monitor/lib/resource-monitor-pressure";
 
@@ -38,5 +39,16 @@ describe("resourceMonitorDitherColor", () => {
     expect(resourceMonitorDitherTheme(undefined)).toBe("dark");
     expect(resourceMonitorDitherTheme("system")).toBe("dark");
     expect(resourceMonitorDitherTheme("light")).toBe("light");
+  });
+
+  test("track color is a lighter full-length rail than the moderate neutral", () => {
+    expect(resourceMonitorDitherTrackColor("light")).toBe("#C3C3C9");
+    expect(resourceMonitorDitherTrackColor("dark")).toBe("#47474C");
+    expect(resourceMonitorDitherTrackColor("light")).not.toBe(
+      resourceMonitorDitherColor("light", "neutral", 80),
+    );
+    expect(resourceMonitorDitherTrackColor("dark")).not.toBe(
+      resourceMonitorDitherColor("dark", "neutral", 80),
+    );
   });
 });

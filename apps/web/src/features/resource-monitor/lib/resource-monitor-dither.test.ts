@@ -35,25 +35,29 @@ describe("resource monitor dither structure", () => {
     expect(barSrc).toContain("percent / 100");
     expect(barSrc).toContain("useTheme");
     expect(barSrc).toContain("resourceMonitorDitherColor");
+    expect(barSrc).toContain("resourceMonitorDitherTrackColor");
+    expect(barSrc).toContain("trackColor={trackColor}");
     expect(barSrc).toContain('data-resource-monitor-usage-bar=""');
     expect(barSrc).toContain("aria-hidden");
     expect(barSrc).not.toContain("scaleX");
     expect(barSrc).not.toContain("origin-left");
     expect(barSrc).not.toContain("resource-monitor-motion");
     expect(barSrc).not.toContain("recharts");
+    expect((barSrc.match(/DitherFunnel/g) ?? []).length).toBe(2);
   });
 
-  test("Host chart uses two single-series DitherRevenueLines tracks and no Recharts", () => {
-    expect(chartSrc).toContain("DitherRevenueLines");
+  test("Host chart uses two compact DitherGrowth tracks and no RevenueLines/Recharts", () => {
+    expect(chartSrc).toContain("DitherGrowth");
     expect(chartSrc).toContain("yMax={100}");
-    expect(chartSrc).toContain('seriesId="cpu"');
-    expect(chartSrc).toContain('seriesId="memory"');
+    expect(chartSrc).toContain("compact");
+    expect(chartSrc).toContain("valueLabel={label}");
     expect(chartSrc).toContain("resourceMonitorDitherColor");
     expect(chartSrc).toContain('data-resource-monitor-chart=""');
     expect(chartSrc).toContain('role="img"');
     expect(chartSrc).toContain('data-resource-monitor-collecting=""');
     expect(chartSrc).toContain("formatHostHistoryLocalTime");
     expect(chartSrc).toContain("formatPercent");
+    expect(chartSrc).not.toContain("DitherRevenueLines");
     expect(chartSrc).not.toContain("recharts");
     expect(chartSrc).not.toContain("LineChart");
     expect(chartSrc).not.toContain("useReducedMotion");

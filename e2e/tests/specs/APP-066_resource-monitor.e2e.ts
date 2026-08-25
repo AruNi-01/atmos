@@ -393,7 +393,10 @@ test.describe("APP-066 resource monitor", () => {
     const collecting = popover.locator("[data-resource-monitor-collecting]");
     const chart = popover.locator("[data-resource-monitor-chart]");
     await expect(collecting.or(chart)).toBeVisible();
-    await expect(popover.locator("[data-resource-monitor-host] canvas").first()).toBeVisible();
+    await expect(popover.locator("[data-resource-monitor-usage-bar] canvas").first()).toBeVisible();
+    if (await chart.isVisible()) {
+      await expect(chart.locator("canvas").first()).toBeVisible();
+    }
     await expect(popover.locator("svg.recharts-surface")).toHaveCount(0);
     await expect(popover.locator(".recharts-responsive-container")).toHaveCount(0);
 
