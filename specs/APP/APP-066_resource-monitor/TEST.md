@@ -293,7 +293,7 @@ The test-run agent must load the installed Agent Browser skill before these chec
 
 ## Coverage Status
 
-_Last run: 2026-08-25 · Grok 4.6 + coordinator verification. Covered: S1, S3, S4, S6, S8, S10, S12, S14–S20. Partial: S2, S5, S7, S9, S11, S13. Targeted Rust/Bun/E2E green._
+_Last run: 2026-08-25 · Grok 4.6 + coordinator verification. Covered: S1, S3, S4, S6, S8, S10, S12, S14–S22. Partial: S2, S5, S7, S9, S11, S13. Targeted Rust/Bun/E2E green._
 
 ### Scenario status
 
@@ -317,6 +317,8 @@ _Last run: 2026-08-25 · Grok 4.6 + coordinator verification. Covered: S1, S3, S
 - S18 — ✅ covered by fail-closed Local Services port-join/cache/privacy tests, recursive Web validator/process hierarchy tests, and a real Chromium E2E that starts an HTTP listener in a live terminal, force-refreshes Local Services, verifies the process/port row and expanded 390px layout, then deletes the Workspace and confirms the port closes.
 - S19 — ✅ covered by 15 engine tests plus service/API/api-types serialization tests for per-core range/index, macOS/Linux/Windows/fallback accounting, headline/nested equality, used/available and swap invariants, and nullable cached memory.
 - S20 — ✅ covered by motion/reduced-motion, collapse/default, focus/Escape, and validator tests plus Chromium/mobile E2E for default-collapsed Host/Atmos summaries, Host details, CPU/Memory popovers, sticky sort, and 390px layout.
+- S21 — ✅ covered by shared Dither fixed-domain/morph tests and Resource Monitor threshold/theme/structure tests. Web source and E2E confirm Host history and meters use Dither and no Recharts/CSS width bar remains.
+- S22 — ✅ covered by disk filter/dedup/sort/cap/cache/invariant Rust tests, strict DTO/validator tests, default-collapsed Disk UI tests, and Playwright expansion when local volumes are available.
 
 ### Structural-only (not treated as scenario proof)
 
@@ -402,6 +404,7 @@ just test
 - S18 Playwright passed on Chromium; the live-listener case is intentionally skipped on mobile Chromium while the existing Host and Terminal locate journeys still run there.
 - M11 Host details: `cargo test -p core-engine resource_metrics` (15), `cargo test -p core-service resource_monitor` (34), API (17), api-types (18), and Resource Monitor Web tests (126) passed.
 - S20 Playwright passed on Chromium and mobile Chromium; the parent Resource Monitor remains open while CPU/Memory detail popovers open and close.
+- Dither/Disk verification: shared UI (28), engine (26), service (36), API (17), api-types (19), and Resource Monitor Web (142) tests passed; APP-066 Playwright remained green.
 
 ### Test-run files changed
 

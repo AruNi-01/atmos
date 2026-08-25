@@ -4,11 +4,11 @@
 
 ## Status
 
-- **State**: in_progress
+- **State**: ready_for_review
 - **Branch**: `aarynlu/resource-monitor-8c97`
 - **Last updated**: 2026-08-25
 - **Current owner**: coordinator with Grok 4.6 implementation workers
-- **Current phase**: service
+- **Current phase**: review
 
 ## Snapshot
 
@@ -30,7 +30,7 @@
 - [x] Cross-Center-Space Terminal locate and blue one-shot feedback
 - [x] Project/Workspace process leaves and cached Local Services ports
 - [x] Per-core CPU, memory breakdown, collapsed Host/Atmos, and metric motion
-- [ ] Shared Dither pressure charts and default-collapsed Disk capacity
+- [x] Shared Dither pressure charts and default-collapsed Disk capacity
 - [x] Automated tests
 - [ ] Agent Browser / manual verification
 - [x] Architecture and implementation review
@@ -50,7 +50,7 @@
 - Added a real Playwright terminal-session click that verifies route, focus, blue pulse, attention isolation, and test Workspace cleanup.
 - Completed explainable Project/Workspace totals through session-owned and non-session process groups with cached Local Services port annotations.
 - Completed default-collapsed Host/Atmos summaries, animated metrics, and btop-style CPU/memory detail popovers.
-- In progress: Token Usage Dither reuse, semantic pressure colors, and filtered cross-platform Disk capacity.
+- Completed Token Usage Dither reuse, semantic pressure colors, and filtered cross-platform Disk capacity.
 
 ## Decisions Since TECH
 
@@ -67,6 +67,7 @@ No implementation deltas.
 | E2E | targeted Playwright | passed | 4 tests: Host/sort/chart + real Terminal locate on Chromium/mobile |
 | M10 process detail | Rust/api-types/Web/Playwright | passed | 30 RM + 22 LS + 17 DTO + 118 Web tests; real listener port E2E |
 | M11 Host details | Rust/api-types/Web/Playwright | passed | 15 engine + 34 RM + 17 API + 18 DTO + 126 Web tests; S20 E2E |
+| M12 Dither + Disk | UI/Rust/api-types/Web/Playwright | passed | 28 UI + 26 engine + 36 RM + 17 API + 19 DTO + 142 Web tests |
 | Full repository | `just test` / `just typecheck` | unrelated failures | APP-066 surfaces pass; see `TEST.md` Coverage Status |
 | Agent Browser/manual | exploratory | partial | Connect gate blocked Agent Browser; host-specific checks remain |
 

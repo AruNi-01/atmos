@@ -24,6 +24,7 @@
 | REV-010 | P1 | frontend | Cross-host locate deep links could be stripped as leftover chrome | verified |
 | REV-011 | P1 | full-stack | Project and Workspace totals lacked explainable process leaves | verified |
 | REV-012 | P1 | full-stack | Host and Atmos lacked compact summaries and diagnostic detail | verified |
+| REV-013 | P1 | full-stack | Resource charts lacked a unified pressure language and disk capacity | verified |
 
 ---
 
@@ -420,3 +421,37 @@ Make Host and Atmos default-collapsed summary rows; remove adjacent separators; 
 
 - 2026-08-25 — Added per-core and nested memory DTOs, Mach/Linux/Windows accounting, collapsed Host/Atmos sections, nested detail popovers, and motion tokens.
 - Verified by 15 engine tests, 34 Resource Monitor service tests, 17 API tests, 18 api-types tests, 126 Web tests, strict touched Clippy, and S20 Playwright on Chromium/mobile Chromium.
+
+---
+
+## REV-013 · Resource charts lacked a unified pressure language and disk capacity
+
+| Field | Value |
+|-------|-------|
+| **Status** | verified |
+| **Severity** | P1 |
+| **Area** | full-stack |
+| **Reported by** | user review |
+| **Owner** | APP-066 implementation |
+
+### Finding
+
+Resource Monitor used bespoke CSS bars and Recharts while Token Usage already provided the product Dither language. Pressure had no consistent low/medium/high color mapping, and users could not inspect local volume capacity without opening Disk Analyzer or an external btop session.
+
+### Required fix
+
+Reuse shared Dither canvases for Host history and every Resource Monitor meter, keep pressure thresholds feature-local, and add a default-collapsed local Disk capacity module backed by storage-only cached sampling.
+
+### Acceptance
+
+- [x] Host history uses fixed-domain shared Dither lines.
+- [x] Host/core/memory/disk meters use shared Dither morph and reduced-motion behavior.
+- [x] Pressure resolves to success below 60%, warning at 60–79%, and destructive at 80%+; informational available/cached/free remain neutral.
+- [x] Disk defaults collapsed and lists filtered, stable local volumes with used/available/total.
+- [x] Disk sampling is storage-only, cached for 2.5 seconds, capped, and never invokes Disk Analyzer or I/O tracing.
+- [x] Device path, filesystem, UUID, serial, and I/O data are absent from the wire.
+
+### Fix log
+
+- 2026-08-25 — Added fixed-domain Dither line support, feature-local pressure tones, Dither usage meters/history, cached cross-platform disk sampling, and the Disk UI module.
+- Verified by 28 shared UI tests, 26 engine tests, 36 service tests, 17 API tests, 19 api-types tests, 142 Web tests, strict touched Clippy, and APP-066 Playwright.
