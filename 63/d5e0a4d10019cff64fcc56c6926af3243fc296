@@ -1,0 +1,32 @@
+apps/web/src/app-shell/CenterStage.tsx
+  h_5be255725524c8 140,278-289,873,883-886,1135,1149,1155,1166-1177,1318-1319,1327-1329,1349-1352
+apps/web/src/app-shell/__tests__/center-pane-defects.test.ts
+  h_5be255725524c8 262-291
+apps/web/src/app-shell/__tests__/center-pane-isolation.test.ts
+  h_5be255725524c8 51-55
+apps/web/src/app-shell/__tests__/center-stage-tab-activation-stack.test.ts
+  h_5be255725524c8 2-3,133-152
+apps/web/src/app-shell/sidebar/ChangeSection.tsx
+  h_5be255725524c8 20,374
+apps/web/src/features/agent/components/AssistantTurnView.tsx
+  h_5be255725524c8 16,43
+apps/web/src/features/diff/components/ReviewView.tsx
+  h_5be255725524c8 16,179
+apps/web/src/features/files/components/FileTree.tsx
+  h_5be255725524c8 24,285,430
+apps/web/src/features/terminal/hooks/use-terminal-links.ts
+  h_5be255725524c8 6,159
+apps/web/src/features/workspace/components/OverviewTab.tsx
+  h_5be255725524c8 60,687
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "63d5e0a4d10019cff64fcc56c6926af3243fc296",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
