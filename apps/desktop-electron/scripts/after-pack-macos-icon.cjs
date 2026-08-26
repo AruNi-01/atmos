@@ -1,5 +1,5 @@
 /**
- * electron-builder afterPack: inject macOS 26 Liquid Glass Assets.car.
+ * Invoked from after-pack.cjs: inject macOS 26 Liquid Glass Assets.car.
  *
  * Why not mac.icon = *.icon?
  * electron-builder 26.x runs actool and then requires BOTH Assets.car and

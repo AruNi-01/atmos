@@ -66,7 +66,7 @@ Release notes: `releasenotes/Atmos Desktop <version>.md`.
 - Tunnel: shared local gateway + share URL
 - Quit: stop Server when this process started it
 - Dev Dock branding: `scripts/prepare-dev-app.ts` → `.cache/dev-app/Atmos.app`
-- Packaging: `electron-builder.yml`; ad-hoc sign by default (`identity: "-"`)
+- Packaging: `electron-builder.yml`; ad-hoc sign by default (`identity: "-"`). afterPack keeps Chromium locales `en` / `zh_CN` / `zh_TW` (plus gender variants) and drops SwiftShader — other locales fall back to English inside Chromium.
 - macOS icons: `resources/icons/icon.icon` (Liquid Glass / macOS 26+ via Xcode `actool` ≥ 26) + legacy `icon.icns` (app) + `dmg-icon.icns` (Finder volume / downloaded DMG, padded); `bun run regen-legacy-icns` also refreshes Desktop Use host icns + web `notification-icon.png` so brand surfaces stay unified; CI uses `macos-26` / `macos-26-intel` runners
 - **CLI floor for CLI-backed features** (Desktop Use, etc.): package pin `desktop-use/cli-requirement.json` (`min_cli_version`); do not gate on channel latest. Details: [agents/references/cli-feature-versions.md](../../agents/references/cli-feature-versions.md)
 

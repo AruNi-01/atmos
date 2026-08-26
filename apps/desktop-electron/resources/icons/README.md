@@ -39,7 +39,7 @@ Tahoe shrinks plain `.icns` into a tiny glyph on the Dock. Packaging must embed:
 
 - `electron-builder.yml` → `mac.icon: icon.icns` (legacy **app** icon, full-bleed)
 - `dmg.icon: dmg-icon.icns` — Finder disk-image icon **cannot** use Liquid Glass `Assets.car`; this icns is the same plate with canvas margin
-- `afterPack: scripts/after-pack-macos-icon.cjs` runs `actool` on `icon.icon/` and injects `Assets.car` + `CFBundleIconName=Icon` into the `.app`
+- `afterPack: scripts/after-pack.cjs` (via `after-pack-macos-icon.cjs`) runs `actool` on `icon.icon/` and injects `Assets.car` + `CFBundleIconName=Icon` into the `.app`
 - Tahoe Dock/Finder for the **running/installed app** → `Assets.car`; **DMG volume / downloaded .dmg** → `dmg-icon.icns`; older macOS app icon → `icon.icns`
 
 When you change `icon.icon/Assets/Logo.png`, regenerate **every** classic surface so nothing drifts:

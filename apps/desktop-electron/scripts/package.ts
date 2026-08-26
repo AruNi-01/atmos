@@ -23,6 +23,15 @@ import { STAGED_CLI_REQUIREMENT_REL } from "./prepare-package.ts";
 
 const appRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const require = createRequire(join(appRoot, "package.json"));
+const requireScript = createRequire(import.meta.url);
+const { verifySlimPackagedApp } = requireScript(
+  "./slim-electron-runtime.cjs",
+) as {
+  verifySlimPackagedApp: (
+    appOutDir: string,
+    platform: string,
+  ) => { ok: boolean; problems: string[] };
+};
 
 function run(cmd: string, args: string[], opts: { cwd?: string } = {}) {
   const r = spawnSync(cmd, args, {
@@ -49,6 +58,31 @@ function builderArgsIncludeMac(extra: string[]): boolean {
   const hasMac = extra.some((a) => a === "--mac" || a.startsWith("--mac"));
   if (hasOther && !hasMac) return false;
   return process.platform === "darwin" || hasMac;
+}
+
+function builderArgsIncludeWin(extra: string[]): boolean {
+  if (extra.some((a) => a === "--win" || a.startsWith("--win"))) return true;
+  if (extra.length === 0) return process.platform === "win32";
+  return false;
+}
+
+function builderArgsIncludeLinux(extra: string[]): boolean {
+  if (extra.some((a) => a === "--linux" || a.startsWith("--linux"))) return true;
+  if (extra.length === 0) return process.platform === "linux";
+  return false;
+}
+
+function assertSlimOk(appOutDir: string, platform: string, label: string): void {
+  const slim = verifySlimPackagedApp(appOutDir, platform);
+  if (!slim.ok) {
+    console.error(
+      `[package] Electron runtime slim check failed for ${label}: ${slim.problems.join("; ")}`,
+    );
+    process.exit(1);
+  }
+  console.log(
+    `[package] Chromium locales en/zh_CN/zh_TW + SwiftShader stripped OK (${label})`,
+  );
 }
 
 function requireLiquidGlass(): boolean {
@@ -196,6 +230,21 @@ function main() {
       if (v.ok) {
         console.log("[package] macOS Liquid Glass + legacy ICNS icons OK");
       }
+
+      assertSlimOk(dirname(app), "darwin", app);
+    }
+  }
+
+  if (builderArgsIncludeWin(extra)) {
+    const unpacked = join(appRoot, "release/win-unpacked");
+    if (existsSync(unpacked)) {
+      assertSlimOk(unpacked, "win32", unpacked);
+    }
+  }
+  if (builderArgsIncludeLinux(extra)) {
+    const unpacked = join(appRoot, "release/linux-unpacked");
+    if (existsSync(unpacked)) {
+      assertSlimOk(unpacked, "linux", unpacked);
     }
   }
 }

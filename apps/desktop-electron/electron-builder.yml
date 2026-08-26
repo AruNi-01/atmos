@@ -58,10 +58,16 @@ asarUnpack:
   - "**/node_modules/koffi/**"
   - "**/dist/shift-helper-main.js"
 
-# afterPack injects Assets.car + CFBundleIconName when actool ≥ 26 is available.
-# (electron-builder's mac.icon=.icon path expects actool to also emit Icon.icns,
-# which Xcode 26.3 does not — so we compile Liquid Glass ourselves.)
-afterPack: scripts/after-pack-macos-icon.cjs
+# afterPack:
+# 1. Keep Chromium locales en / zh_CN / zh_TW (plus gender variants); drop the rest.
+#    Chromium falls back to en-US for missing locale.pak. Do not use
+#    electronLanguages — builder 26.x matching drops en_FEMININE and Windows
+#    en-US.pak.
+# 2. Remove SwiftShader (CPU Vulkan WebGL fallback). GPU path is Metal/ANGLE.
+# 3. Inject Assets.car + CFBundleIconName when actool ≥ 26 is available.
+#    (electron-builder's mac.icon=.icon path expects actool to also emit Icon.icns,
+#    which Xcode 26.3 does not — so we compile Liquid Glass ourselves.)
+afterPack: scripts/after-pack.cjs
 
 mac:
   category: public.app-category.developer-tools
