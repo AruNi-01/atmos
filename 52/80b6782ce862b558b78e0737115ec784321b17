@@ -1,0 +1,32 @@
+apps/web/src/app-shell/HeaderWorkspaceJobs.tsx
+  h_5be255725524c8 31-34,155,165,169-173,237-243,276-277,281-282,287-297,306-308,314-316,321-327,329-355,370-372,425-426,428,431-440,450,454,461-463,470,476-477,487-489,494-536,538-561
+apps/web/src/app-shell/WorkspaceStatusPopover.tsx
+  h_5be255725524c8 22-27,55-57,133-135,138-145,180-193,195-238
+apps/web/src/app-shell/__tests__/workspace-status-popover.test.ts
+  h_5be255725524c8 30-34,40-43,79,84-87,92-95,97-104,107-109
+apps/web/src/app-shell/header-setup-chip.tsx
+  h_5be255725524c8 1-156
+apps/web/src/app-shell/header-workspace-jobs.test.ts
+  h_5be255725524c8 11,158-160
+apps/web/src/app-shell/header-workspace-jobs.ts
+  h_5be255725524c8 72
+apps/web/src/app-shell/use-paused-deadline-countdown.test.ts
+  h_5be255725524c8 1-94
+apps/web/src/app-shell/use-paused-deadline-countdown.ts
+  h_5be255725524c8 1-95
+apps/web/src/app-shell/use-workspace-create-auto-open.ts
+  h_5be255725524c8 3,12-13,16,49-55,60
+apps/web/src/features/workspace/components/WorkspaceSetupProgress.tsx
+  h_5be255725524c8 47-48,56-57,223-231,239-240,316-320,323-332,334-359,658-665,668-669
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "5280b6782ce862b558b78e0737115ec784321b17",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
