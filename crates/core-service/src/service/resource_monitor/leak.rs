@@ -21,8 +21,8 @@ pub(crate) fn mark_leaked_other_processes(
     let mut leaked = vec![false; n];
     let mut memo = vec![None; n];
     let mut visiting = vec![false; n];
-    for index in 0..n {
-        leaked[index] = cwd_other_is_leaked(
+    for (index, slot) in leaked.iter_mut().enumerate() {
+        *slot = cwd_other_is_leaked(
             index,
             parent_pid,
             cwd_other,
