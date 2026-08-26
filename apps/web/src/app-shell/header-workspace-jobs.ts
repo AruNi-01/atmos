@@ -69,12 +69,7 @@ export function visibleHeaderWorkspaceSetupItems(
 }
 
 export const WORKSPACE_AUTO_ENTER_DELAY_MS = 5_000;
-export const WORKSPACE_AUTO_ENTER_GROUPED_RESUME_GRACE_MS = 3_000;
-export const WORKSPACE_AUTO_ENTER_HOVER_LEAVE_MS = 100;
-
-export function getWorkspaceAutoEnterResumeGraceMs(grouped: boolean): number {
-  return grouped ? WORKSPACE_AUTO_ENTER_GROUPED_RESUME_GRACE_MS : 0;
-}
+export const WORKSPACE_SETUP_AUTO_FINISH_DELAY_MS = 5_000;
 
 export function getWorkspaceAutoEnterSeconds(remainingMs: number): number {
   return Math.max(0, Math.ceil(remainingMs / 1_000));

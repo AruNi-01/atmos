@@ -27,8 +27,6 @@ pub struct Model {
     pub priority: String,
     /// JSON-encoded array of workspace label GUIDs
     pub label_guids: Option<String>,
-    /// JSON-encoded terminal layout configuration
-    pub terminal_layout: Option<String>,
     /// The ID of the currently maximized terminal pane, if any
     pub maximized_terminal_id: Option<String>,
     /// Linked GitHub issue URL

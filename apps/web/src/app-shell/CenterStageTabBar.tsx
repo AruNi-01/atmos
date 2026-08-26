@@ -1237,10 +1237,7 @@ function CenterStagePaneFullscreenButton({
           aria-label={label}
           aria-pressed={isCenterFullscreen}
           title={label}
-          className={cn(
-            PANE_FULLSCREEN_BUTTON_CLASS,
-            isCenterFullscreen && "bg-active text-foreground",
-          )}
+          className={PANE_FULLSCREEN_BUTTON_CLASS}
           onClick={() => toggleCenterFullscreen(paneId)}
         >
           {isCenterFullscreen ? (

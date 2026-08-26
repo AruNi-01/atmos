@@ -12,6 +12,13 @@ import {
 } from "@/app-shell/center-stage-fullscreen";
 import { APP_FOOTER_HEIGHT_PX } from "@/app-shell/sidebar-layout-constants";
 import { centerPaneFullscreenTileStyle } from "@/app-shell/center-pane/center-pane-leaf-metrics";
+import {
+  createDefaultLayout,
+  DEFAULT_PANE_ID,
+  splitPane,
+} from "@/app-shell/center-pane/center-pane-layout";
+import { useCenterPaneLayoutStore } from "@/app-shell/center-pane/center-pane-layout-store";
+import { useCenterStageFullscreenStore } from "@/app-shell/use-center-stage-fullscreen";
 
 describe("center stage fullscreen geometry", () => {
   it("expands a left pane across sibling center regions, not the footer or sidebar", () => {
@@ -143,6 +150,85 @@ describe("center stage fullscreen wiring", () => {
     expect(tabBar).toContain('data-center-stage-pane-fullscreen=""');
     expect(tabBar).toContain("showPaneFullscreenButton={isMultiPane}");
     expect(stage).toContain("isMultiPane={isMultiPane}");
+    expect(tabBar).not.toContain('isCenterFullscreen && "bg-active text-foreground"');
+  });
+
+  it("persists pane fullscreen on the mosaic layout instead of clearing it on workspace hop", () => {
+    const stage = readFileSync(join(import.meta.dir, "../CenterStage.tsx"), "utf8");
+    const hook = readFileSync(
+      join(import.meta.dir, "../use-center-stage-fullscreen.ts"),
+      "utf8",
+    );
+    const layout = readFileSync(
+      join(import.meta.dir, "../center-pane/center-pane-layout.ts"),
+      "utf8",
+    );
+    const store = readFileSync(
+      join(import.meta.dir, "../center-pane/center-pane-layout-store.ts"),
+      "utf8",
+    );
+    expect(layout).toContain("fullscreenPaneId?: string | null");
+    expect(store).toContain("setFullscreenPane");
+    expect(hook).toContain("persistFullscreenPane");
+    expect(hook).toContain("syncFromLayout");
+    expect(hook).not.toContain("if (isFullscreen) setFullscreen(false)");
+    expect(stage).toContain("resolvedPaneLayout.fullscreenPaneId");
+    expect(stage).toContain("syncFromLayout");
+    expect(stage).not.toContain("setCenterFullscreen(false)");
+    expect(stage).not.toContain("[mosaicContextId, setCenterFullscreen]");
+  });
+
+  it("keeps pane fullscreen on the mosaic when hopping away and syncing back", () => {
+    const contextA = "ws-a";
+    const contextB = "ws-b";
+    useCenterPaneLayoutStore.setState({ byContext: {}, hydrated: true });
+    useCenterStageFullscreenStore.setState({
+      isFullscreen: false,
+      paneId: null,
+      contextId: null,
+    });
+    try {
+      const layoutA = splitPane(
+        createDefaultLayout(["terminal"], "terminal"),
+        { direction: "right" },
+      );
+      const paneId = layoutA.order.find((id) => id !== DEFAULT_PANE_ID)!;
+      useCenterPaneLayoutStore.getState().setLayout(contextA, layoutA);
+      useCenterPaneLayoutStore.getState().setLayout(
+        contextB,
+        splitPane(createDefaultLayout(["files"], "files"), { direction: "right" }),
+      );
+
+      useCenterStageFullscreenStore.getState().syncFromLayout(contextA, null);
+      useCenterStageFullscreenStore.getState().toggleFullscreen(paneId);
+      expect(useCenterPaneLayoutStore.getState().getLayout(contextA)?.fullscreenPaneId).toBe(
+        paneId,
+      );
+
+      const layoutB = useCenterPaneLayoutStore.getState().getLayout(contextB);
+      useCenterStageFullscreenStore.getState().syncFromLayout(
+        contextB,
+        layoutB?.fullscreenPaneId ?? null,
+      );
+      expect(useCenterStageFullscreenStore.getState().isFullscreen).toBe(false);
+
+      const restored = useCenterPaneLayoutStore.getState().getLayout(contextA);
+      useCenterStageFullscreenStore.getState().syncFromLayout(
+        contextA,
+        restored?.fullscreenPaneId ?? null,
+      );
+      expect(useCenterStageFullscreenStore.getState().isFullscreen).toBe(true);
+      expect(useCenterStageFullscreenStore.getState().paneId).toBe(paneId);
+    } finally {
+      useCenterPaneLayoutStore.getState().forgetContext(contextA);
+      useCenterPaneLayoutStore.getState().forgetContext(contextB);
+      useCenterPaneLayoutStore.setState({ byContext: {}, hydrated: true });
+      useCenterStageFullscreenStore.setState({
+        isFullscreen: false,
+        paneId: null,
+        contextId: null,
+      });
+    }
   });
 
   it("keeps floating-card gutters while a pane is fullscreen", () => {

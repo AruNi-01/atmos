@@ -86,6 +86,13 @@ describe("extra-space tmux window isolation", () => {
     expect(
       createLayoutFromTmuxWindows("ws-1", [{ index: 0, name: "cs__space-abc__1" }]),
     ).toBeNull();
+    const extraLayout = createLayoutFromTmuxWindows(extra, [
+      { index: 0, name: "1" },
+      { index: 1, name: "cs__space-abc__1" },
+    ]);
+    expect(Object.values(extraLayout!.panes).map((pane) => pane.tmuxWindowName)).toEqual([
+      "cs__space-abc__1",
+    ]);
   });
 
   it("finds an extra-space pane when the paint context has no tab list yet", () => {

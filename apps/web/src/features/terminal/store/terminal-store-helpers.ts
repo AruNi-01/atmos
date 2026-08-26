@@ -561,7 +561,7 @@ export function hydratePersistedTab(
       // attach-not-found → create path in Terminal.tsx (same name, attach-if-exists).
       isNewPane: liveByWindow || Boolean(windowName) ? false : true,
       // Titles: live pane, then leftover layout fields, then localStorage.
-      // Not written to the terminal-layout API (title changes are too chatty).
+      // Not written to the center layout document (title changes are too chatty).
       dynamicTitle: normalizeStoredDynamicTitle(
         liveByWindow?.dynamicTitle ??
           (pane as { dynamicTitle?: string }).dynamicTitle ??
@@ -617,8 +617,13 @@ export function createLayoutFromTmuxWindows(
   const panes: Record<string, TerminalPaneProps> = {};
   const paneIds: string[] = [];
 
+  const extraPrefix = extraCenterSpaceTmuxWindowPrefix(workspaceId);
   for (const win of windows) {
-    if (isExtraCenterSpaceTmuxWindowName(win.name)) continue;
+    if (extraPrefix) {
+      if (!win.name.startsWith(extraPrefix)) continue;
+    } else if (isExtraCenterSpaceTmuxWindowName(win.name)) {
+      continue;
+    }
     const id = uuidv4();
     paneIds.push(id);
     panes[id] = createTerminalPane(workspaceId, win.name, {

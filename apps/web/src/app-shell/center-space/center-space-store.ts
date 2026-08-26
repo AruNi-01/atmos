@@ -1,8 +1,11 @@
 "use client";
 
 import { create } from "zustand";
-import { globalKey, readJson, writeJson } from "@/shared/lib/browser-store";
-import { functionSettingsApi } from "@/api/ws/settings-api";
+import {
+  hydrateCenterLayoutCache,
+  markCenterLayoutDirty,
+  syncCenterLayoutFromDisk,
+} from "@/app-shell/center-layout/center-layout-persist";
 import {
   createCenterSpaceId,
   DEFAULT_CENTER_SPACE_ID,
@@ -11,19 +14,12 @@ import {
   makeCenterSpaceKey,
   neighborSpaceIdAfterDelete,
   nextSpaceName,
-  normalizeCenterSpacesByHost,
   normalizeHostCenterSpaces,
-  omitCenterSpaceThumbnails,
   type CenterSpaceRecord,
   type HostCenterSpaces,
 } from "@/app-shell/center-space/center-space";
 import { bindPaintContextIdReader } from "@/app-shell/center-space/center-space-url";
 
-/**
- * Fast cache (including JPEG thumbnails). Metadata copy:
- * function_settings.json → center_stage.spaces (thumbnails stripped).
- */
-const STORAGE_KEY = globalKey("center-spaces");
 const EMPTY_SPACES: CenterSpaceRecord[] = [];
 
 type CenterSpaceStore = {
@@ -51,40 +47,12 @@ type CenterSpaceStore = {
   removeSpace: (hostId: string, spaceId: string) => string | null;
 };
 
-function persistLocal(byHost: Record<string, HostCenterSpaces>) {
-  if (writeJson(STORAGE_KEY, byHost)) return;
-  writeJson(STORAGE_KEY, omitCenterSpaceThumbnails(byHost));
-}
-
-function readLocal(): Record<string, HostCenterSpaces> {
-  return normalizeCenterSpacesByHost(
-    readJson<Record<string, HostCenterSpaces> | null>(STORAGE_KEY, null),
-  );
-}
-
-async function persistDisk(byHost: Record<string, HostCenterSpaces>): Promise<void> {
-  await functionSettingsApi.update(
-    "center_stage",
-    "spaces",
-    omitCenterSpaceThumbnails(byHost),
-  );
-}
-
-async function readDiskSpaces(): Promise<Record<string, HostCenterSpaces>> {
-  const settings = await functionSettingsApi.get();
-  const centerStage = settings.center_stage as { spaces?: unknown } | undefined;
-  return normalizeCenterSpacesByHost(centerStage?.spaces);
-}
-
 function commit(
   set: (partial: Partial<CenterSpaceStore>) => void,
   byHost: Record<string, HostCenterSpaces>,
 ) {
-  persistLocal(byHost);
   set({ byHost, hydrated: true });
-  void persistDisk(byHost).catch(() => {
-    // Offline / WS not ready: local cache still holds the latest edit.
-  });
+  markCenterLayoutDirty();
 }
 
 export const useCenterSpaceStore = create<CenterSpaceStore>((set, get) => ({
@@ -94,29 +62,10 @@ export const useCenterSpaceStore = create<CenterSpaceStore>((set, get) => ({
 
   hydrate: () => {
     if (get().hydrated) return;
-    set({ byHost: readLocal(), hydrated: true });
+    hydrateCenterLayoutCache();
   },
 
-  syncFromDisk: async () => {
-    if (!get().hydrated) get().hydrate();
-    try {
-      const disk = await readDiskSpaces();
-      const local = get().byHost;
-      if (Object.keys(local).length === 0 && Object.keys(disk).length > 0) {
-        persistLocal(disk);
-        set({ byHost: disk, diskSynced: true });
-        return;
-      }
-      if (Object.keys(local).length > 0 && Object.keys(disk).length === 0) {
-        await persistDisk(local);
-        set({ diskSynced: true });
-        return;
-      }
-      set({ diskSynced: true });
-    } catch {
-      set({ diskSynced: true });
-    }
-  },
+  syncFromDisk: () => syncCenterLayoutFromDisk(),
 
   ensureHost: (hostId) => {
     if (!hostId) return defaultHostSpaces();
@@ -203,7 +152,7 @@ export const useCenterSpaceStore = create<CenterSpaceStore>((set, get) => ({
     if (!changed) return;
     const byHost = { ...get().byHost, [hostId]: { ...current, spaces } };
     set({ byHost });
-    persistLocal(byHost);
+    markCenterLayoutDirty({ disk: false });
   },
 
   renameSpace: (hostId, spaceId, name) => {

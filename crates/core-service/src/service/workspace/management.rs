@@ -335,18 +335,6 @@ impl WorkspaceService {
         Ok(())
     }
 
-    /// 获取工作区终端布局
-    pub async fn get_terminal_layout(&self, guid: String) -> Result<Option<String>> {
-        let repo = WorkspaceRepo::new(&self.db);
-        Ok(repo.get_terminal_layout(&guid).await?)
-    }
-
-    /// 更新工作区终端布局
-    pub async fn update_terminal_layout(&self, guid: String, layout: Option<String>) -> Result<()> {
-        let repo = WorkspaceRepo::new(&self.db);
-        Ok(repo.update_terminal_layout(&guid, layout).await?)
-    }
-
     /// 更新工作区最大化终端 ID
     pub async fn update_maximized_terminal_id(
         &self,

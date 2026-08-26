@@ -44,6 +44,8 @@ interface WorkspaceSetupProgressProps {
   onFinish: () => void;
   compact?: boolean;
   pauseAutoFinishEnabled?: boolean;
+  autoFinishSeconds?: number;
+  onAutoFinishHoverChange?: (hovered: boolean) => void;
 }
 
 export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> = ({
@@ -51,6 +53,8 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
   onFinish,
   compact = false,
   pauseAutoFinishEnabled = true,
+  autoFinishSeconds,
+  onAutoFinishHoverChange,
 }) => {
   const t = useTranslations("Workspace.components.setupProgress");
   const stepT = useTranslations("Workspace.components.workspaceSetup.steps");
@@ -215,8 +219,16 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
       ? 100
       : (currentStepIndex + 0.5) * (100 / Math.max(1, steps.length));
 
-  const [localCountdownState, setLocalCountdownState] = useState({ status, value: 5 });
   const [isHovered, setIsHovered] = useState(false);
+  const localRemainingRef = useRef(5_000);
+  const localDeadlineRef = useRef<number | null>(null);
+  const localCompletedRef = useRef(false);
+  const [countdownStatus, setCountdownStatus] = useState(status);
+  const [localRemainingMs, setLocalRemainingMs] = useState(5_000);
+  if (countdownStatus !== status) {
+    setCountdownStatus(status);
+    setLocalRemainingMs(5_000);
+  }
   const confirmationKey = `${workspaceId ?? ""}:${stepKey ?? ""}:${progress.requiresConfirmation ? "confirm" : "idle"}`;
   const [confirmingTodosState, setConfirmingTodosState] = useState({ key: confirmationKey, value: false });
   const [skippingFailedStepState, setSkippingFailedStepState] = useState({ workspaceId, value: false });
@@ -224,9 +236,8 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
   const [editedTodoOutput, setEditedTodoOutput] = useState<string | null>(null);
   const staleKey = `${status}:${stepKey ?? ""}:${stepTitle}:${output.length}:${progress.requiresConfirmation ? "confirm" : "run"}`;
   const [staleState, setStaleState] = useState({ key: staleKey, value: false });
-  const localCountdown = status === "completed" && localCountdownState.status === status
-    ? localCountdownState.value
-    : 5;
+  const localCountdown = Math.max(0, Math.ceil(localRemainingMs / 1_000));
+  const displayedCountdown = autoFinishSeconds ?? localCountdown;
   const isConfirmingTodos = progress.requiresConfirmation && confirmingTodosState.key === confirmationKey
     ? confirmingTodosState.value
     : false;
@@ -302,24 +313,50 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
   }, [output]);
 
   useEffect(() => {
-    if (status !== "completed") return;
-
-    if (localCountdown > 0 && !(isHovered && pauseAutoFinishEnabled)) {
-      const timer = setInterval(() => {
-        setLocalCountdownState((prev) => ({
-          status,
-          value: prev.status === status ? prev.value - 1 : 4,
-        }));
-      }, 1000);
-      return () => clearInterval(timer);
+    if (autoFinishSeconds != null || status !== "completed") {
+      localRemainingRef.current = 5_000;
+      localDeadlineRef.current = null;
+      localCompletedRef.current = false;
+      return;
     }
-  }, [isHovered, localCountdown, pauseAutoFinishEnabled, status]);
 
-  useEffect(() => {
-    if (status === "completed" && localCountdown === 0) {
+    const captureRemaining = () => {
+      if (localDeadlineRef.current == null) return;
+      localRemainingRef.current = Math.max(0, localDeadlineRef.current - Date.now());
+      localDeadlineRef.current = null;
+      setLocalRemainingMs(localRemainingRef.current);
+    };
+
+    if (isHovered && pauseAutoFinishEnabled) {
+      captureRemaining();
+      return;
+    }
+
+    if (localRemainingRef.current <= 0) {
+      if (!localCompletedRef.current) {
+        localCompletedRef.current = true;
+        onFinish();
+      }
+      return;
+    }
+
+    localDeadlineRef.current = Date.now() + localRemainingRef.current;
+    const timer = window.setInterval(() => {
+      const next = Math.max(0, (localDeadlineRef.current ?? 0) - Date.now());
+      localRemainingRef.current = next;
+      setLocalRemainingMs(next);
+      if (next > 0 || localCompletedRef.current) return;
+      localCompletedRef.current = true;
+      localDeadlineRef.current = null;
+      window.clearInterval(timer);
       onFinish();
-    }
-  }, [localCountdown, onFinish, status]);
+    }, 100);
+
+    return () => {
+      captureRemaining();
+      window.clearInterval(timer);
+    };
+  }, [autoFinishSeconds, isHovered, onFinish, pauseAutoFinishEnabled, status]);
 
   // Detect stale progress: if no update arrives for 30s while in-progress,
   // the backend may have finished silently (e.g. plan build failure, lost WS events).
@@ -618,12 +655,18 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
         <Button
           size={actionSize}
           onClick={onFinish}
-          onMouseEnter={() => setIsHovered(true)}
-          onMouseLeave={() => setIsHovered(false)}
+          onMouseEnter={() => {
+            setIsHovered(true);
+            onAutoFinishHoverChange?.(true);
+          }}
+          onMouseLeave={() => {
+            setIsHovered(false);
+            onAutoFinishHoverChange?.(false);
+          }}
         >
           <Clock />
-          {localCountdown > 0
-            ? t("actions.startBuildingWithCountdown", { seconds: localCountdown })
+          {displayedCountdown > 0
+            ? t("actions.startBuildingWithCountdown", { seconds: displayedCountdown })
             : t("actions.startBuilding")}
           <ArrowRight />
         </Button>

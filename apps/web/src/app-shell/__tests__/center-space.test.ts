@@ -146,12 +146,11 @@ describe("center space keys", () => {
     expect(
       useCenterSpaceStore.getState().list(host)[0]?.thumbnailDataUrl,
     ).toBe("data:image/jpeg;base64,qq");
-    const stored = readJson<Record<
-      string,
-      { spaces?: { thumbnailDataUrl?: string | null }[] }
-    > | null>(globalKey("center-spaces"), null);
+    const stored = readJson<{
+      spaces?: Record<string, { spaces?: { thumbnailDataUrl?: string | null }[] }>;
+    } | null>(globalKey("center-layout"), null);
     if (typeof localStorage !== "undefined") {
-      expect(stored?.[host]?.spaces?.[0]?.thumbnailDataUrl).toBe(
+      expect(stored?.spaces?.[host]?.spaces?.[0]?.thumbnailDataUrl).toBe(
         "data:image/jpeg;base64,qq",
       );
     }
@@ -268,19 +267,21 @@ describe("center space wiring", () => {
     expect(fanCss).toContain("translate3d(var(--fan-x), var(--fan-y), 0)");
     expect(fanCss).toContain("will-change: transform, opacity");
     const storeSrc = readFileSync(join(dir, "center-space/center-space-store.ts"), "utf8");
-    expect(storeSrc).toContain("omitCenterSpaceThumbnails");
-    expect(storeSrc).toContain("writeJson(STORAGE_KEY, byHost)");
-    const persistDiskAt = storeSrc.indexOf("async function persistDisk");
-    const persistLocalAt = storeSrc.indexOf("function persistLocal");
-    expect(persistLocalAt).toBeGreaterThan(0);
-    expect(persistDiskAt).toBeGreaterThan(persistLocalAt);
-    const persistDiskBlock = storeSrc.slice(persistDiskAt, storeSrc.indexOf("function commit"));
-    expect(persistDiskBlock).toContain("omitCenterSpaceThumbnails(byHost)");
+    const persistSrc = readFileSync(join(dir, "center-layout/center-layout-persist.ts"), "utf8");
+    const documentSrc = readFileSync(
+      join(dir, "center-layout/center-layout-document.ts"),
+      "utf8",
+    );
+    expect(storeSrc).toContain("markCenterLayoutDirty");
+    expect(storeSrc).not.toContain("function_settings");
+    expect(documentSrc).toContain("omitCenterSpaceThumbnails");
+    expect(persistSrc).toContain('globalKey("center-layout")');
+    expect(persistSrc).toContain("centerLayoutApi.put");
     const setThumbAt = storeSrc.indexOf("setThumbnails: (hostId, thumbs)");
     const renameAt = storeSrc.indexOf("renameSpace: (hostId, spaceId, name)", setThumbAt);
     const setThumbBlock = storeSrc.slice(setThumbAt, renameAt);
     expect(setThumbBlock).not.toContain("commit(");
-    expect(setThumbBlock).toContain("persistLocal(byHost)");
+    expect(setThumbBlock).toContain("markCenterLayoutDirty({ disk: false })");
   });
 
   it("does not invent a default terminal tab for extra spaces", () => {

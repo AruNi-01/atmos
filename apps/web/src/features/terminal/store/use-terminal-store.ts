@@ -4,7 +4,7 @@ import { create } from "zustand";
 import { v4 as uuidv4 } from "uuid";
 import type { TerminalLayoutNode } from "@/features/terminal/types/index";
 import { getLeaves } from "@/features/terminal/lib/terminal-layout-tree";
-import { workspaceLayoutApi, projectLayoutApi, systemApi } from "@/api/rest-api";
+import { systemApi } from "@/api/rest-api";
 import type { TerminalPaneProps } from "@/features/terminal/types/index";
 import { createTerminalAuxiliaryActions } from "@/features/terminal/store/terminal-store-auxiliary-actions";
 import {
@@ -43,11 +43,7 @@ import {
   writeCachedDynamicTitle,
   writeCachedOscTitle,
 } from "@/features/terminal/lib/terminal-dynamic-title-cache";
-import {
-  DEFAULT_CENTER_SPACE_ID,
-  hostIdFromCenterKey,
-  parseCenterSpaceKey,
-} from "@/app-shell/center-space/center-space";
+import { hostIdFromCenterKey } from "@/app-shell/center-space/center-space";
 
 export { FIXED_TERMINAL_TAB_VALUE } from "@/features/terminal/lib/terminal-layout-document";
 export {
@@ -60,8 +56,6 @@ export {
   getWorkspacePaneLiveFieldsByTmuxWindow,
   type TerminalCenterTab,
 } from "@/features/terminal/store/terminal-store-helpers";
-
-const SAVE_DEBOUNCE_MS = 500;
 
 export const useTerminalStore = create<TerminalStore>()((set, get) => {
   const clearWorkspaceSaveTimeouts = (workspaceId: string) => {
@@ -608,38 +602,11 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => {
   loadFromBackend: async (workspaceId, isProjectContext = false, terminalTabId = null) => {
     if (typeof window === "undefined") return;
 
-    const space = parseCenterSpaceKey(workspaceId);
-    if (space.spaceId !== DEFAULT_CENTER_SPACE_ID) {
-      ensureWorkspaceContext(workspaceId, isProjectContext);
-      const workspaceScopeKey = getTerminalWorkspaceScopeKey(workspaceId, isProjectContext);
-      if (!get().loadedWorkspaces.has(workspaceScopeKey)) {
-        const existingTabs = Object.prototype.hasOwnProperty.call(
-          get().workspaceTerminalTabs,
-          workspaceId,
-        )
-          ? get().workspaceTerminalTabs[workspaceId] ?? []
-          : [];
-        set((currentState) => ({
-          workspaceTerminalTabs: {
-            ...currentState.workspaceTerminalTabs,
-            [workspaceId]: existingTabs,
-          },
-          loadedWorkspaces: new Set([...currentState.loadedWorkspaces, workspaceScopeKey]),
-          initializingWorkspaces: new Set(
-            [...currentState.initializingWorkspaces].filter((id) => id !== workspaceScopeKey),
-          ),
-          isHydrated: true,
-        }));
-      }
-      return;
-    }
-
     ensureWorkspaceContext(workspaceId, isProjectContext);
 
     const workspaceScopeKey = getTerminalWorkspaceScopeKey(workspaceId, isProjectContext);
     const targetTabId = terminalTabId ?? null;
     const targetScopeKey = targetTabId ? getScopeKey(workspaceId, targetTabId) : null;
-    const layoutApi = isProjectContext ? projectLayoutApi : workspaceLayoutApi;
     const isCurrentContext = () => (get().workspaceContexts[workspaceId] ?? false) === isProjectContext;
 
     const clearWorkspaceInitializing = () => {
@@ -667,10 +634,7 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => {
       let loadedMetadataThisCall = false;
 
       if (!state.loadedWorkspaces.has(workspaceScopeKey)) {
-        const [layoutResult, fetchedWindows] = await Promise.all([
-          layoutApi.getLayout(workspaceId).catch(() => null),
-          get().fetchTmuxWindows(workspaceId, isProjectContext),
-        ]);
+        const fetchedWindows = await get().fetchTmuxWindows(workspaceId, isProjectContext);
 
         existingWindows = fetchedWindows;
         if (!isCurrentContext()) {
@@ -679,51 +643,47 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => {
           return;
         }
 
-        if (layoutResult?.layout) {
-          const parsed = JSON.parse(layoutResult.layout) as unknown;
-          const migrated = migrateTerminalLayoutDocument(parsed);
-          if (migrated) {
-            persistedLayout = migrated.layout;
-            const availableTabs = migrated.layout.tabs.map((tab) => ({
-              id: tab.id,
-              title: tab.id === FIXED_TERMINAL_TAB_VALUE ? "Term" : tab.title,
-              closable: true,
-              customTitle: tab.customTitle,
-            }));
-            const activeTabId =
-              migrated.layout.activeTabId && availableTabs.some((tab) => tab.id === migrated.layout.activeTabId)
-                ? migrated.layout.activeTabId
-                : availableTabs[0]?.id ?? "";
+        persistedLayout =
+          get().persistedTerminalLayouts[workspaceScopeKey] ??
+          get().persistedTerminalLayouts[getTerminalWorkspaceScopeKey(workspaceId, !isProjectContext)] ??
+          persistedLayout;
+        const migrated = persistedLayout
+          ? migrateTerminalLayoutDocument(persistedLayout)
+          : null;
+        if (migrated) {
+          persistedLayout = migrated.layout;
+          const availableTabs = migrated.layout.tabs.map((tab) => ({
+            id: tab.id,
+            title: tab.id === FIXED_TERMINAL_TAB_VALUE ? "Term" : tab.title,
+            closable: true,
+            customTitle: tab.customTitle,
+          }));
+          const activeTabId =
+            migrated.layout.activeTabId && availableTabs.some((tab) => tab.id === migrated.layout.activeTabId)
+              ? migrated.layout.activeTabId
+              : availableTabs[0]?.id ?? "";
 
-            set((currentState) => ({
-              workspaceTerminalTabs: {
-                ...currentState.workspaceTerminalTabs,
-                [workspaceId]: availableTabs,
-              },
-              workspaceActiveTerminalTabIds: {
-                ...currentState.workspaceActiveTerminalTabIds,
-                [workspaceId]: activeTabId,
-              },
-              persistedTerminalLayouts: {
-                ...currentState.persistedTerminalLayouts,
-                [workspaceScopeKey]: migrated.layout,
-              },
-              loadedWorkspaces: new Set([...currentState.loadedWorkspaces, workspaceScopeKey]),
-              initializingWorkspaces: new Set(
-                [...currentState.initializingWorkspaces].filter((id) => id !== workspaceScopeKey),
-              ),
-              isHydrated: true,
-            }));
-            loadedMetadataThisCall = true;
-
-            if (migrated.migrated) {
-              void layoutApi.updateLayout(workspaceId, JSON.stringify(migrated.layout)).catch((error) => {
-                console.debug("Failed to rewrite terminal layout to canonical schema:", error);
-              });
-            }
-          } else {
-            console.debug("Persisted terminal layout contained no valid tab states, falling back");
-          }
+          set((currentState) => ({
+            workspaceTerminalTabs: {
+              ...currentState.workspaceTerminalTabs,
+              [workspaceId]: availableTabs,
+            },
+            workspaceActiveTerminalTabIds: {
+              ...currentState.workspaceActiveTerminalTabIds,
+              [workspaceId]: activeTabId,
+            },
+            persistedTerminalLayouts: {
+              ...currentState.persistedTerminalLayouts,
+              [getTerminalWorkspaceScopeKey(workspaceId, false)]: migrated.layout,
+              [getTerminalWorkspaceScopeKey(workspaceId, true)]: migrated.layout,
+            },
+            loadedWorkspaces: new Set([...currentState.loadedWorkspaces, workspaceScopeKey]),
+            initializingWorkspaces: new Set(
+              [...currentState.initializingWorkspaces].filter((id) => id !== workspaceScopeKey),
+            ),
+            isHydrated: true,
+          }));
+          loadedMetadataThisCall = true;
         }
 
         if (!persistedLayout) {
@@ -896,59 +856,29 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => {
   },
 
   saveToBackend: (workspaceId, isProjectContextOverride) => {
-    if (typeof window === 'undefined') return;
-    if (parseCenterSpaceKey(workspaceId).spaceId !== DEFAULT_CENTER_SPACE_ID) return;
-
+    if (typeof window === "undefined") return;
     const state = get();
-    const isProjectContext = isProjectContextOverride ?? state.workspaceContexts[workspaceId] ?? false;
+    const isProjectContext =
+      isProjectContextOverride ?? state.workspaceContexts[workspaceId] ?? false;
     const workspaceScopeKey = getTerminalWorkspaceScopeKey(workspaceId, isProjectContext);
-
     if (
       !state.loadedWorkspaces.has(workspaceScopeKey) ||
       state.initializingWorkspaces.has(workspaceScopeKey)
     ) {
       return;
     }
-    if (state.saveTimeouts[workspaceScopeKey]) {
-      clearTimeout(state.saveTimeouts[workspaceScopeKey]);
-    }
-
-    const timeout = setTimeout(async () => {
-      const currentState = get();
-      if ((currentState.workspaceContexts[workspaceId] ?? false) !== isProjectContext) {
-        return;
-      }
-
-      try {
-        // Never overwrite a persisted workspace/project layout with an empty shell.
-        // This can happen during early mount when tab UI state is ready before the
-        // actual pane/layout state has hydrated from backend.
-        const payload = buildPersistedTerminalWorkspaceLayout(currentState, workspaceId);
-        if (!payload) {
-          console.debug('Skipping terminal layout save because no valid tab states are available yet');
-          return;
-        }
-
-        const layoutApi = isProjectContext ? projectLayoutApi : workspaceLayoutApi;
-        set((state) => ({
-          persistedTerminalLayouts: {
-            ...state.persistedTerminalLayouts,
-            [workspaceScopeKey]: payload,
-          },
-        }));
-
-        await layoutApi.updateLayout(workspaceId, JSON.stringify(payload));
-      } catch (error) {
-        console.debug('Failed to save terminal layout to backend:', error);
-      }
-    }, SAVE_DEBOUNCE_MS);
-    
-    set((state) => ({
-      saveTimeouts: {
-        ...state.saveTimeouts,
-        [workspaceScopeKey]: timeout,
+    const payload = buildPersistedTerminalWorkspaceLayout(state, workspaceId);
+    if (!payload) return;
+    set((current) => ({
+      persistedTerminalLayouts: {
+        ...current.persistedTerminalLayouts,
+        [getTerminalWorkspaceScopeKey(workspaceId, false)]: payload,
+        [getTerminalWorkspaceScopeKey(workspaceId, true)]: payload,
       },
     }));
+    void import("@/app-shell/center-layout/center-layout-persist").then((mod) => {
+      mod.markCenterLayoutDirty();
+    });
   },
 
   setTmuxWindowName: (workspaceId, paneId, tmuxWindowName, terminalTabId = FIXED_TERMINAL_TAB_VALUE) => {
@@ -1020,7 +950,7 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => {
         },
       },
     }));
-    // localStorage only — title changes must not PUT terminal-layout.
+    // localStorage only — title changes must not dirty the center layout document.
     writeCachedDynamicTitle(
       workspaceId,
       panes[paneId].tmuxWindowName || panes[paneId].label,
@@ -1049,7 +979,7 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => {
         },
       },
     }));
-    // localStorage only — live OSC (spinners/activity) must not PUT terminal-layout.
+    // localStorage only — live OSC (spinners/activity) must not dirty the center layout document.
     writeCachedOscTitle(
       workspaceId,
       panes[paneId].tmuxWindowName || panes[paneId].label,

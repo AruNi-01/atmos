@@ -241,6 +241,8 @@ export const WS_ACTIONS = [
   "settings_bootstrap_get",
   "function_settings_get",
   "function_settings_update",
+  "center_layout_get",
+  "center_layout_put",
   "terminal_agent_models_get",
   "workspace_gitignore_dirs_get",
   "workspace_gitignore_dirs_update",

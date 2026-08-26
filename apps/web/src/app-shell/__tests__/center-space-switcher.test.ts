@@ -255,20 +255,21 @@ describe("center space switcher open path", () => {
     )).toBe("space-1");
   });
 
-  it("keeps jpeg thumbnails in the local cache and strips them for function settings", () => {
+  it("keeps jpeg thumbnails in the local cache and strips them for disk writes", () => {
     const storeSrc = readFileSync(join(dir, "center-space/center-space-store.ts"), "utf8");
-    const persistLocalAt = storeSrc.indexOf("function persistLocal");
-    const persistDiskAt = storeSrc.indexOf("async function persistDisk");
-    const persistLocalBlock = storeSrc.slice(persistLocalAt, persistDiskAt);
-    expect(persistLocalBlock).toContain("writeJson(STORAGE_KEY, byHost)");
-    expect(persistDiskAt).toBeGreaterThan(persistLocalAt);
-    expect(storeSrc.slice(persistDiskAt, storeSrc.indexOf("function commit"))).toContain(
-      "omitCenterSpaceThumbnails(byHost)",
+    const persistSrc = readFileSync(join(dir, "center-layout/center-layout-persist.ts"), "utf8");
+    const documentSrc = readFileSync(
+      join(dir, "center-layout/center-layout-document.ts"),
+      "utf8",
     );
+    expect(storeSrc).toContain("markCenterLayoutDirty({ disk: false })");
+    expect(documentSrc).toContain("omitCenterSpaceThumbnails");
+    expect(persistSrc).toContain("toCenterLayoutWire");
+    expect(persistSrc).not.toContain("function_settings");
     const setThumbAt = storeSrc.indexOf("setThumbnails: (hostId, thumbs)");
     const renameAt = storeSrc.indexOf("renameSpace: (hostId, spaceId, name)", setThumbAt);
     expect(setThumbAt).toBeGreaterThan(0);
-    expect(storeSrc.slice(setThumbAt, renameAt)).toContain("persistLocal(byHost)");
+    expect(storeSrc.slice(setThumbAt, renameAt)).toContain("markCenterLayoutDirty({ disk: false })");
 
     const stripped = omitCenterSpaceThumbnails({
       "ws-1": {

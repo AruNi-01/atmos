@@ -111,6 +111,22 @@ pub fn workspaces_data_dir() -> Result<PathBuf, String> {
     Ok(data_dir()?.join("workspaces"))
 }
 
+/// Durable UI layout root: `~/.atmos/data/layout/`.
+pub fn layout_data_dir() -> Result<PathBuf, String> {
+    Ok(data_dir()?.join("layout"))
+}
+
+/// Center-stage layouts: `~/.atmos/data/layout/center/{hostId}/space-layout.json`.
+pub fn center_layout_data_dir() -> Result<PathBuf, String> {
+    if let Ok(raw) = std::env::var("ATMOS_CENTER_LAYOUT_DIR") {
+        let trimmed = raw.trim();
+        if !trimmed.is_empty() {
+            return Ok(PathBuf::from(trimmed));
+        }
+    }
+    Ok(layout_data_dir()?.join("center"))
+}
+
 /// Saved Prototype Design documents: `~/.atmos/data/pt-design/`.
 pub fn pt_design_data_dir() -> Result<PathBuf, String> {
     if let Ok(raw) = std::env::var("ATMOS_PT_DESIGN_DIR") {
@@ -188,6 +204,9 @@ mod tests {
         assert!(quota_usage_data_dir()
             .unwrap()
             .starts_with(home.join("data")));
+        assert!(center_layout_data_dir()
+            .unwrap()
+            .starts_with(home.join("data").join("layout").join("center")));
         assert!(browser_use_state_dir()
             .unwrap()
             .starts_with(home.join("state")));

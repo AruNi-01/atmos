@@ -39,6 +39,11 @@ pub use service::canvas_agent_relay::{
     CompleteDispatchResult, DuplicateRequestError, ResolveTarget, DEFAULT_RELAY_TIMEOUT_MS,
     MAX_RELAY_TIMEOUT_MS,
 };
+pub use service::center_layout::{
+    center_layout_dir, load_center_layout, load_center_layout_from_dir, save_center_layout,
+    save_center_layout_to_dir, CenterLayoutDocument, CENTER_LAYOUT_VERSION, MAX_SAVED_LAYOUTS,
+    MAX_SPACES_PER_HOST,
+};
 pub use service::disk_analyzer::{DiskAnalyzerScanEvent, DiskAnalyzerService};
 pub use service::group::{GroupDto, GroupMemberDto, GroupService};
 pub use service::linear::{

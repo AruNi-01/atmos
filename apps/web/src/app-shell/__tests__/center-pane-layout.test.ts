@@ -20,6 +20,7 @@ import {
   reorderPanes,
   resizeAdjacentFractions,
   rowCountFor,
+  setLayoutFullscreenPane,
   setPaneActiveTab,
   isShareableCenterTabId,
   planCenterTabAttach,
@@ -404,5 +405,60 @@ describe("center-pane-layout", () => {
     expect(reconciled).toBe(layout);
     const opened = openTabOnFocusedPane(layout, "terminal");
     expect(opened).toBe(layout);
+  });
+
+  it("persists a multi-pane fullscreen id and drops it when the mosaic collapses", () => {
+    const split = splitPane(
+      createDefaultLayout(["terminal", "files"], "files"),
+      { direction: "right" },
+    );
+    const secondaryId = split.order.find((id) => id !== DEFAULT_PANE_ID)!;
+    const expanded = setLayoutFullscreenPane(split, secondaryId);
+    expect(expanded.fullscreenPaneId).toBe(secondaryId);
+    expect(expanded).not.toBe(split);
+
+    const ignored = setLayoutFullscreenPane(expanded, secondaryId);
+    expect(ignored).toBe(expanded);
+
+    const single = createDefaultLayout(["terminal"], "terminal");
+    expect(setLayoutFullscreenPane(single, DEFAULT_PANE_ID)).toBe(single);
+
+    const collapsed = closePane(expanded, secondaryId);
+    expect(collapsed.order).toHaveLength(1);
+    expect(collapsed.fullscreenPaneId ?? null).toBeNull();
+  });
+
+  it("clears fullscreen when that pane is closed and keeps it when a sibling closes", () => {
+    let layout = createDefaultLayout(["terminal"], "terminal");
+    layout = splitPane(layout, { direction: "right" });
+    layout = splitPane(layout, { direction: "down" });
+    expect(layout.order).toHaveLength(3);
+    const secondaryIds = layout.order.filter((id) => id !== DEFAULT_PANE_ID);
+    expect(secondaryIds).toHaveLength(2);
+    const expandedId = secondaryIds[0]!;
+    const siblingId = secondaryIds[1]!;
+    const expanded = setLayoutFullscreenPane(layout, expandedId);
+    expect(expanded.fullscreenPaneId).toBe(expandedId);
+
+    const closedSelf = closePane(expanded, expandedId);
+    expect(closedSelf.fullscreenPaneId ?? null).toBeNull();
+    expect(closedSelf.order).not.toContain(expandedId);
+
+    const closedSibling = closePane(expanded, siblingId);
+    expect(closedSibling.fullscreenPaneId).toBe(expandedId);
+    expect(closedSibling.order).toContain(expandedId);
+    expect(closedSibling.order).toContain(DEFAULT_PANE_ID);
+  });
+
+  it("normalizes a stale fullscreen pane id off the layout", () => {
+    const split = splitPane(
+      createDefaultLayout(["terminal"], "terminal"),
+      { direction: "right" },
+    );
+    const stale = normalizeCenterPaneLayout({
+      ...split,
+      fullscreenPaneId: "pane-missing",
+    });
+    expect(stale.fullscreenPaneId).toBeNull();
   });
 });
