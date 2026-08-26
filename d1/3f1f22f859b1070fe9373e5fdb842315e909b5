@@ -1,0 +1,32 @@
+apps/web/src/app-shell/Footer.tsx
+  h_5be255725524c8 15,410-411,478-504,563,583,589,660-670,672-708
+apps/web/src/app-shell/__tests__/footer-usage-carousel-order.test.ts
+  h_5be255725524c8 26-32
+apps/web/src/app-shell/quota-popover-utils.ts
+  h_5be255725524c8 389-392
+apps/web/src/features/quota-usage/lib/__tests__/quota-display.test.ts
+  h_5be255725524c8 1-53
+apps/web/src/features/quota-usage/lib/quota-display.ts
+  h_5be255725524c8 42,89,93,107
+crates/quota-usage/src/constants.rs
+  h_5be255725524c8 24-26,30,33-34
+crates/quota-usage/src/providers/factory/mod.rs
+  h_5be255725524c8 10-13,16,24,223-224,240-381,885-887,889,892-914
+crates/quota-usage/src/providers/factory/storage.rs
+  h_5be255725524c8 3-4,8-9,12,15,29-37,80-88,91-94,96,98-99,101-142,153-268,270-271,273-274,276-282,284-288,298,300,302-307,366-443,873-990
+crates/quota-usage/src/providers/grok.rs
+  h_5be255725524c8 4-5,14,28,87-94,97-105,108-112,127-128,184-190,195-196,199-203,216-218,249-261,263-268,277,279,284-297,302,331-355,430,448,475,478,481,492,495,500,561,595-596,608,610-612,614-620,625-633,653,673-702,709,713,716-725
+crates/quota-usage/src/runtime.rs
+  h_5be255725524c8 727,733-737
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "d13f1f22f859b1070fe9373e5fdb842315e909b5",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
