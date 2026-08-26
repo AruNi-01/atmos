@@ -55,10 +55,10 @@ pub(super) fn session_name_from_names(project_name: &str, workspace_name: &str) 
 
 /// First candidate that already exists as a live tmux session.
 /// Callers pass candidates in priority order (canonical name first).
-pub fn preferred_existing_session_name<'a>(
-    candidates: &'a [String],
+pub fn preferred_existing_session_name(
+    candidates: &[String],
     existing_names: impl IntoIterator<Item = impl AsRef<str>>,
-) -> Option<&'a str> {
+) -> Option<&str> {
     let existing: std::collections::HashSet<String> = existing_names
         .into_iter()
         .map(|name| name.as_ref().to_string())
