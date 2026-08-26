@@ -173,6 +173,33 @@ export function resolveWorkspaceFrameActiveTabIds(input: {
 }
 
 /**
+ * Live host props vs deferred URL-sync during a left-sidebar hop (IMP-013).
+ *
+ * `paintContextId` is urgent (chrome + DOM data-tier). `deferredContextId` is
+ * the keep-alive rebind. Tying URL-sync to paint settling demoted the leaving
+ * frame on the first click commit and walked every mounted Files/PR/Run tree.
+ *
+ * - `live`: deferred caught up — this frame owns host chrome/geometry.
+ * - `frozen`: hop in flight — keep last settled live props (do not demote).
+ * - `warm`: not the deferred context — store-local identity only.
+ */
+export type WorkspaceFrameLiveBinding = "live" | "frozen" | "warm";
+
+export function resolveWorkspaceFrameLiveBinding(input: {
+  contextId: string;
+  paintContextId: string | null | undefined;
+  deferredContextId: string | null | undefined;
+}): WorkspaceFrameLiveBinding {
+  if (!input.deferredContextId || input.contextId !== input.deferredContextId) {
+    return "warm";
+  }
+  if (input.paintContextId && input.deferredContextId !== input.paintContextId) {
+    return "frozen";
+  }
+  return "live";
+}
+
+/**
  * Class list for terminal-like keep-alive panels (xterm WebGL).
  *
  * Prefer opacity stacking over Tailwind `hidden` (`display:none`) and over

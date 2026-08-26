@@ -28,6 +28,7 @@ import {
   resolveContextIdsToRender,
   resolveFrameActiveTab,
   resolveWorkspaceFrameActiveTabIds,
+  resolveWorkspaceFrameLiveBinding,
   mountedKeysForContext,
 } from "@/app-shell/workspace-surface-policies";
 import { scheduleIdle } from "@/app-shell/workspace-surface-switch";
@@ -36,9 +37,14 @@ import { useEditorStore } from "@/features/editor/store/use-editor-store";
 import { useGithubCenterTabsStore } from "@/features/github/store/use-github-center-tabs";
 import { useBrowserCenterTabsStore } from "@/features/browser/store/use-browser-center-tabs";
 import {
+  buildPaneActiveTabById,
+  buildTabHostPaneIds,
+  buildTabToPaneId,
   collectActiveTabIds,
   isFreshEmptyCenterLayout,
+  type CenterPaneLayout,
 } from "@/app-shell/center-pane/center-pane-layout";
+import type { PaneSlotBoxCache } from "@/app-shell/center-pane/use-center-pane-slot-boxes";
 import { isExtraCenterSpaceKey } from "@/app-shell/center-space/center-space";
 import { useCenterPaneLayoutStore } from "@/app-shell/center-pane/center-pane-layout-store";
 import { paneHiddenByCenterFullscreen } from "@/app-shell/center-stage-fullscreen";
@@ -53,6 +59,41 @@ const WikiTab = dynamic(
   { ssr: false },
 );
 
+type FrameMosaicGeometry = {
+  tabToPaneId: Readonly<Record<string, string>> | null;
+  tabHostPaneIds: Readonly<Record<string, readonly string[]>> | null;
+  paneActiveTabById: Readonly<Record<string, string>> | null;
+  paneSlotBoxes: Readonly<
+    Record<string, { top: number; left: number; width: number; height: number }>
+  > | null;
+  fullscreenPaneId: string | null;
+};
+
+type LayoutMaps = {
+  layout: CenterPaneLayout;
+  tabToPaneId: Record<string, string>;
+  tabHostPaneIds: Record<string, string[]>;
+  paneActiveTabById: Record<string, string>;
+};
+
+function layoutMapsFor(
+  cache: Map<string, LayoutMaps>,
+  contextId: string,
+  layout: CenterPaneLayout | null | undefined,
+): LayoutMaps | null {
+  if (!layout) return null;
+  const prev = cache.get(contextId);
+  if (prev && prev.layout === layout) return prev;
+  const next: LayoutMaps = {
+    layout,
+    tabToPaneId: buildTabToPaneId(layout),
+    tabHostPaneIds: buildTabHostPaneIds(layout),
+    paneActiveTabById: buildPaneActiveTabById(layout),
+  };
+  cache.set(contextId, next);
+  return next;
+}
+
 interface CenterStagePanelsProps {
   activeValue: string;
   /** Multi-pane: all pane active tabs (focused first). */
@@ -65,6 +106,8 @@ interface CenterStagePanelsProps {
   paneSlotBoxes?: Readonly<
     Record<string, { top: number; left: number; width: number; height: number }>
   > | null;
+  /** Last measured boxes per workspace so warm frames keep mosaic layout. */
+  paneSlotBoxCache?: PaneSlotBoxCache | null;
   /** Mosaic pane currently filling the center body. */
   fullscreenPaneId?: string | null;
   browserTabs: BrowserCenterTab[];
@@ -130,6 +173,7 @@ export function CenterStagePanels({
   tabHostPaneIds,
   paneActiveTabById,
   paneSlotBoxes,
+  paneSlotBoxCache,
   fullscreenPaneId,
   browserTabs,
   codeReviewTabVisible,
@@ -202,6 +246,11 @@ export function CenterStagePanels({
   const githubTabsByContext = useGithubCenterTabsStore((s) => s.tabsByContext);
   const browserTabsByContext = useBrowserCenterTabsStore((s) => s.tabsByContext);
   const layoutsByContext = useCenterPaneLayoutStore((s) => s.byContext);
+  const layoutMapsCacheRef = React.useRef(new Map<string, LayoutMaps>());
+  const lastLiveGeometryRef = React.useRef<{
+    contextId: string;
+    geometry: FrameMosaicGeometry;
+  } | null>(null);
 
   // Sticky leave tracks paint (live) id so the shell we just left stays mounted
   // while deferred URL-sync catches up.
@@ -426,6 +475,19 @@ export function CenterStagePanels({
   ]);
 
   const fallbackTerminalTitle = t("fallbackTerminalTitle");
+  const liveGeometry: FrameMosaicGeometry = {
+    tabToPaneId: tabToPaneId ?? null,
+    tabHostPaneIds: tabHostPaneIds ?? null,
+    paneActiveTabById: paneActiveTabById ?? null,
+    paneSlotBoxes: paneSlotBoxes ?? null,
+    fullscreenPaneId: fullscreenPaneId ?? null,
+  };
+  if (effectiveContextId && effectiveContextId === paintContextId) {
+    lastLiveGeometryRef.current = {
+      contextId: effectiveContextId,
+      geometry: liveGeometry,
+    };
+  }
 
   return (
     // Single flex child so wiki does not share height 50/50 with workspace frames.
@@ -435,11 +497,14 @@ export function CenterStagePanels({
       {contextIdsToRender.map((contextId) => {
         // Shell paint follows live paint / visual id (not deferred rebind).
         const isActiveContext = contextId === displayContextId;
-        // Heavy live props only after deferred URL context catches paint (IMP-013).
-        const isUrlSyncedActive =
-          isActiveContext &&
-          contextId === effectiveContextId &&
-          effectiveContextId === paintContextId;
+        const liveBinding = resolveWorkspaceFrameLiveBinding({
+          contextId,
+          paintContextId,
+          deferredContextId: effectiveContextId,
+        });
+        // Keep the leaving frame URL-synced until deferred IDs catch up so the
+        // first hop commit does not demote keep-alive Files/PR/Run trees.
+        const isUrlSyncedActive = liveBinding !== "warm";
         const mountedTabIds =
           mountedTerminalTabsByContext[contextId] ?? EMPTY_MOUNTED_TAB_IDS;
         const mountPlanKeys = mountedKeysForContext(mountPlan, contextId).join("\0");
@@ -448,6 +513,39 @@ export function CenterStagePanels({
           contextLayout && contextLayout.order.length > 1
             ? collectActiveTabIds(contextLayout)
             : null;
+        const contextMaps = layoutMapsFor(
+          layoutMapsCacheRef.current,
+          contextId,
+          contextLayout,
+        );
+        const frozenGeometry =
+          liveBinding === "frozen" &&
+          lastLiveGeometryRef.current?.contextId === contextId
+            ? lastLiveGeometryRef.current.geometry
+            : null;
+        const cachedBoxes = paneSlotBoxCache?.[contextId];
+        const hasWarmGeometry = Boolean(
+          cachedBoxes && Object.keys(cachedBoxes).length > 0,
+        );
+        const mosaicGeometry: FrameMosaicGeometry =
+          liveBinding === "live"
+            ? liveGeometry
+            : frozenGeometry ??
+              (hasWarmGeometry
+                ? {
+                    tabToPaneId: contextMaps?.tabToPaneId ?? null,
+                    tabHostPaneIds: contextMaps?.tabHostPaneIds ?? null,
+                    paneActiveTabById: contextMaps?.paneActiveTabById ?? null,
+                    paneSlotBoxes: cachedBoxes ?? null,
+                    fullscreenPaneId: null,
+                  }
+                : {
+                    tabToPaneId: null,
+                    tabHostPaneIds: null,
+                    paneActiveTabById: null,
+                    paneSlotBoxes: null,
+                    fullscreenPaneId: null,
+                  });
 
         return (
           <WorkspaceCenterFrame
@@ -461,16 +559,19 @@ export function CenterStagePanels({
             fallbackTerminalTitle={fallbackTerminalTitle}
             activeValue={isUrlSyncedActive ? activeValue : null}
             activeTabIds={resolveWorkspaceFrameActiveTabIds({
-              isActiveContext,
+              // Hop-mode (null) only when the incoming warm frame has no
+              // cached mosaic boxes — otherwise CSS reveal keeps retained
+              // panes slotted and the keep-alive tree can skip this commit.
+              isActiveContext: isActiveContext && !hasWarmGeometry,
               isUrlSyncedActive,
               liveActiveTabIds: activeTabIds,
               retainedActiveTabIds,
             })}
-            tabToPaneId={isUrlSyncedActive ? tabToPaneId : null}
-            tabHostPaneIds={isUrlSyncedActive ? tabHostPaneIds : null}
-            paneActiveTabById={isUrlSyncedActive ? paneActiveTabById : null}
-            paneSlotBoxes={isUrlSyncedActive ? paneSlotBoxes : null}
-            fullscreenPaneId={isUrlSyncedActive ? fullscreenPaneId : null}
+            tabToPaneId={mosaicGeometry.tabToPaneId}
+            tabHostPaneIds={mosaicGeometry.tabHostPaneIds}
+            paneActiveTabById={mosaicGeometry.paneActiveTabById}
+            paneSlotBoxes={mosaicGeometry.paneSlotBoxes}
+            fullscreenPaneId={mosaicGeometry.fullscreenPaneId}
             visibleTerminalTabs={isUrlSyncedActive ? visibleTerminalTabs : undefined}
             openFiles={isUrlSyncedActive ? openFiles : undefined}
             githubTabs={isUrlSyncedActive ? githubTabs : undefined}

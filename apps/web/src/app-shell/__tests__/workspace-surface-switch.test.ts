@@ -1,5 +1,7 @@
 // @ts-expect-error bun:test is available at runtime but not in tsconfig types
 import { describe, expect, it, beforeEach } from "bun:test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import {
   applyWorkspaceFrameVisualDom,
   injectLastCenterTabIfMissing,
@@ -211,6 +213,16 @@ describe("promoteWorkspaceSurfaceSwitch + prepareWorkspaceContextNavigation", ()
     expect(s.visualActiveContextId).toBe("ws-b");
     expect(s.activeContextId).toBe("ws-b");
     expect(s.warm.map((w) => w.contextId)).toContain("ws-a");
+  });
+
+  it("prepareAndPrime does not snapDOM the incoming frame on the click path", () => {
+    const src = readFileSync(join(import.meta.dir, "../workspace-surface-switch.ts"), "utf8");
+    const fnAt = src.indexOf("export function prepareAndPrimeWorkspaceNavigation");
+    const nextAt = src.indexOf("export function scheduleAfterCommit");
+    const body = src.slice(fnAt, nextAt);
+    expect(body).not.toContain("captureActiveCenterSpaceThumbnail");
+    expect(body).toContain("prepareWorkspaceContextNavigation");
+    expect(body).toContain("primeWorkspaceSurfaceNavigation");
   });
 
   it("prepareAndPrime primes warm paint without injecting tab", () => {

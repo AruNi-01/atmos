@@ -127,6 +127,10 @@ describe("center pane tab isolation", () => {
     expect(slots).toContain("paneSlotBoxesForContextSwitch");
     expect(slots).toContain("mergePaneSlotBoxes");
     expect(slots).not.toContain("layout.order.length <= 1");
+    // Context switch must not setState during render — that extra commit
+    // hitches every left-sidebar hop while keep-alive trees stay mounted.
+    expect(slots).not.toContain("setBoxes(switched");
+    expect(slots).toContain("setSnapshot");
     expect(frame).toContain("shouldWithholdUnmeasuredPaneTerminal");
     expect(frame).toContain("applySlotGeometry: isUrlSyncedActive");
   });

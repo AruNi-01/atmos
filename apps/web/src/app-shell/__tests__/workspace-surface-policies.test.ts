@@ -11,6 +11,7 @@ import {
   resolveContextIdsToRender,
   resolveFrameActiveTab,
   resolveWorkspaceFrameActiveTabIds,
+  resolveWorkspaceFrameLiveBinding,
   selectEditorMountSet,
   sweepWarmByTtl,
   browserKeepAlivePanelClass,
@@ -131,6 +132,30 @@ describe("resolveFrameActiveTab / panel visibility", () => {
         panelTabId: "overview",
       }),
     ).toBe(true);
+  });
+
+  it("keeps the leaving frame live-bound until deferred URL-sync catches paint", () => {
+    expect(
+      resolveWorkspaceFrameLiveBinding({
+        contextId: "ws-a",
+        paintContextId: "ws-b",
+        deferredContextId: "ws-a",
+      }),
+    ).toBe("frozen");
+    expect(
+      resolveWorkspaceFrameLiveBinding({
+        contextId: "ws-b",
+        paintContextId: "ws-b",
+        deferredContextId: "ws-a",
+      }),
+    ).toBe("warm");
+    expect(
+      resolveWorkspaceFrameLiveBinding({
+        contextId: "ws-b",
+        paintContextId: "ws-b",
+        deferredContextId: "ws-b",
+      }),
+    ).toBe("live");
   });
 
   it("terminal keep-alive panels avoid display:none class names", () => {

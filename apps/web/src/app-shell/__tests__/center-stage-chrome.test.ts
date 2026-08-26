@@ -77,6 +77,11 @@ describe("center-stage chrome", () => {
   test("center panel surfaces defer until after tab chrome paints", () => {
     const stage = read("../CenterStage.tsx");
     expect(stage).toContain("useDeferredValue");
+    const panels = read("../CenterStagePanels.tsx");
+    expect(panels).toContain("resolveWorkspaceFrameLiveBinding");
+    expect(panels).toContain("lastLiveGeometryRef");
+    expect(panels).toContain("paneSlotBoxCache");
+    expect(stage).toContain("paneSlotBoxCache");
     expect(stage).toContain("panelActiveValue");
     expect(stage).toContain("activeValue={panelActiveValue}");
     expect(stage).toContain("activeTabIds={panelActiveTabIds}");

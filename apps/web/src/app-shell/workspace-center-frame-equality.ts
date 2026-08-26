@@ -104,13 +104,17 @@ function sameStringList(a: readonly string[], b: readonly string[]): boolean {
 /**
  * Warm frames only care about paint + mount identity. URL/host props are ignored
  * so parent re-renders (tab bar, open files on the active hop) do not walk warm trees.
+ *
+ * `isActiveContext` is not compared: click paint flips `data-tier` / inert in the
+ * DOM (IMP-010). Re-rendering keep-alive Files/PR/Run/terminal trees just to
+ * echo that bit is the left-sidebar hop hitch. `isSurfaceActive` / query pause
+ * catch up when URL-sync or mount identity changes (IMP-013).
  */
 export function workspaceCenterFramePropsAreEqual(
   prev: WorkspaceCenterFrameProps,
   next: WorkspaceCenterFrameProps,
 ): boolean {
   if (prev.contextId !== next.contextId) return false;
-  if (prev.isActiveContext !== next.isActiveContext) return false;
   if (prev.isUrlSyncedActive !== next.isUrlSyncedActive) return false;
   if (prev.mountPlanKeys !== next.mountPlanKeys) return false;
   if (prev.fallbackTerminalTitle !== next.fallbackTerminalTitle) return false;

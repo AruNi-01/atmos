@@ -2668,7 +2668,7 @@ const CenterStage: React.FC = () => {
   }, [activeFullscreenPaneId, resolvedPaneLayout.order, setCenterFullscreen]);
   // Always overlay-host keep-alive panels (even for one pane). Switching
   // them between in-flow Tabs and the overlay remounts xterm/webview.
-  const paneSlotBoxes = useCenterPaneSlotBoxes(
+  const { boxes: paneSlotBoxes, cache: paneSlotBoxCache } = useCenterPaneSlotBoxes(
     panelHostRef,
     resolvedPaneLayout,
     true,
@@ -3003,6 +3003,7 @@ const CenterStage: React.FC = () => {
       tabHostPaneIds={tabHostPaneIds}
       paneActiveTabById={panelPaneActiveTabById}
       paneSlotBoxes={paneSlotBoxes}
+      paneSlotBoxCache={paneSlotBoxCache}
       fullscreenPaneId={activeFullscreenPaneId}
       browserTabs={browserTabs}
       codeReviewTabVisible={codeReviewTabVisible}

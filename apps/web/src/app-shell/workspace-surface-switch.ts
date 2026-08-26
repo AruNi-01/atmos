@@ -15,6 +15,10 @@
  *    (IMP-010) so the retained shell shows before React commits multi-frame work.
  * 6. Switch-time React store updates are non-urgent (startTransition) and mount
  *    budgets run on idle (IMP-012) so sidebar hover/click stay interruptible.
+ * 7. Never snapDOM / screenshot on the sidebar click path. Visual paint has
+ *    already flipped data-tier, so a click-path capture screenshots the incoming
+ *    keep-alive tree and freezes the hop. Thumbnails belong to the space switcher
+ *    and to space slides (before they hide the outgoing frame).
  */
 
 import { startTransition } from "react";
@@ -519,17 +523,9 @@ export function prepareAndPrimeWorkspaceNavigation(
   path: string,
   currentHref?: string | null,
 ): string {
-  const current = useWorkspaceSurfaceCacheStore.getState().activeContextId;
-  if (current) {
-    const host = hostIdFromCenterKey(current);
-    void import("@/app-shell/center-space/center-space-switch")
-      .then((mod) => {
-        void mod.captureActiveCenterSpaceThumbnail(host);
-      })
-      .catch(() => {
-        /* thumbnail capture is best-effort */
-      });
-  }
+  // Do not snapDOM here. Visual paint already flipped data-tier, so a click-path
+  // capture screenshots the incoming frame and freezes the sidebar hop. The
+  // space switcher snapshots on open; space slides snapshot before they hide.
   const prepared = prepareWorkspaceContextNavigation(path, currentHref);
   primeWorkspaceSurfaceNavigation(prepared);
   return prepared;

@@ -133,10 +133,21 @@ export function paneSlotBoxesForContextSwitch(input: {
   };
 }
 
+export type PaneSlotBoxCache = Record<string, Record<string, PaneSlotBox>>;
+
+export type CenterPaneSlotBoxesState = {
+  boxes: Record<string, PaneSlotBox>;
+  cache: PaneSlotBoxCache;
+};
+
 /**
  * Measure `[data-center-pane-content-slot]` boxes relative to `hostRef`.
  * Used to position keep-alive panels into pane content slots without remounting.
  * `remeasureKey` re-runs the observer when overlay geometry changes (e.g. pane fullscreen).
+ *
+ * Context switches restore the destination's last boxes from `cache` during
+ * render — do not `setState` here. A synchronous extra commit on every
+ * left-sidebar hop walked keep-alive trees before paint.
  */
 export function useCenterPaneSlotBoxes(
   hostRef: React.RefObject<HTMLElement | null>,
@@ -144,23 +155,30 @@ export function useCenterPaneSlotBoxes(
   enabled: boolean,
   contextId?: string | null,
   remeasureKey?: string | null,
-): Record<string, PaneSlotBox> {
-  const [boxes, setBoxes] = React.useState<Record<string, PaneSlotBox>>({});
-  const cacheRef = React.useRef<Record<string, Record<string, PaneSlotBox>>>({});
-  const contextRef = React.useRef(contextId ?? "");
-  if (contextRef.current !== (contextId ?? "")) {
+): CenterPaneSlotBoxesState {
+  const [snapshot, setSnapshot] = React.useState<{
+    contextId: string;
+    boxes: Record<string, PaneSlotBox>;
+  }>({ contextId: contextId ?? "", boxes: {} });
+  const cacheRef = React.useRef<PaneSlotBoxCache>({});
+  const prevContextRef = React.useRef(contextId ?? "");
+  if (prevContextRef.current !== (contextId ?? "")) {
     const switched = paneSlotBoxesForContextSwitch({
-      prevContextId: contextRef.current,
+      prevContextId: prevContextRef.current,
       nextContextId: contextId,
-      currentBoxes: boxes,
+      currentBoxes:
+        snapshot.contextId === prevContextRef.current
+          ? snapshot.boxes
+          : EMPTY_PANE_SLOT_BOXES,
       cache: cacheRef.current,
     });
-    contextRef.current = contextId ?? "";
+    prevContextRef.current = contextId ?? "";
     cacheRef.current = switched.cache;
-    if (switched.boxes !== boxes) {
-      setBoxes(switched.boxes);
-    }
   }
+  const boxes =
+    snapshot.contextId === (contextId ?? "")
+      ? snapshot.boxes
+      : (contextId && cacheRef.current[contextId]) || EMPTY_PANE_SLOT_BOXES;
   const orderKey = layout?.order.join("\0") ?? "";
   const fractionKey = layout
     ? `${layout.columnFractions.join(",")}|${layout.rowFractions.join(",")}|${layout.columnCount}`
@@ -178,7 +196,13 @@ export function useCenterPaneSlotBoxes(
     // Clearing on N→1 withholds the remaining terminal and remounts it.
     if (!enabled || !layout || layout.order.length < 1) {
       // Avoid setState({}) every render — empty object identity would loop.
-      setBoxes((prev) => (Object.keys(prev).length === 0 ? prev : {}));
+      setSnapshot((prev) => {
+        const id = contextId ?? "";
+        if (prev.contextId === id && Object.keys(prev.boxes).length === 0) {
+          return prev;
+        }
+        return { contextId: id, boxes: EMPTY_PANE_SLOT_BOXES };
+      });
       return;
     }
 
@@ -186,6 +210,7 @@ export function useCenterPaneSlotBoxes(
     if (!host) return;
 
     const order = layout.order;
+    const id = contextId ?? "";
 
     const measure = () => {
       const hostRect = host.getBoundingClientRect();
@@ -204,13 +229,19 @@ export function useCenterPaneSlotBoxes(
           height: r.height,
         };
       }
-      setBoxes((prev) => {
-        const next = mergePaneSlotBoxes(prev, measured, order);
-        if (paneSlotBoxesEqual(prev, next)) return prev;
-        if (contextId) {
-          cacheRef.current = { ...cacheRef.current, [contextId]: next };
+      setSnapshot((prev) => {
+        const base =
+          prev.contextId === id
+            ? prev.boxes
+            : (id && cacheRef.current[id]) || EMPTY_PANE_SLOT_BOXES;
+        const next = mergePaneSlotBoxes(base, measured, order);
+        if (prev.contextId === id && paneSlotBoxesEqual(prev.boxes, next)) {
+          return prev;
         }
-        return next;
+        if (id) {
+          cacheRef.current = { ...cacheRef.current, [id]: next };
+        }
+        return { contextId: id, boxes: next };
       });
     };
 
@@ -244,5 +275,5 @@ export function useCenterPaneSlotBoxes(
     treeKey,
   ]);
 
-  return boxes;
+  return { boxes, cache: cacheRef.current };
 }

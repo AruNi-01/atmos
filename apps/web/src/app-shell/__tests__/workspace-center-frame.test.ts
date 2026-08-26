@@ -65,10 +65,10 @@ describe("workspaceCenterFramePropsAreEqual", () => {
     expect(workspaceCenterFramePropsAreEqual(prev, next)).toBe(true);
   });
 
-  it("re-renders when paint identity flips", () => {
+  it("skips when only paint identity flips", () => {
     const prev = baseWarm({ isActiveContext: false });
     const next = baseWarm({ isActiveContext: true });
-    expect(workspaceCenterFramePropsAreEqual(prev, next)).toBe(false);
+    expect(workspaceCenterFramePropsAreEqual(prev, next)).toBe(true);
   });
 
   it("treats hop-frame retained tab ids as paint identity, not ignored host chrome", () => {
@@ -90,6 +90,12 @@ describe("workspaceCenterFramePropsAreEqual", () => {
         activeTabIds: ["terminal", "overview"],
       }),
     ).toBe(false);
+  });
+
+  it("re-renders when URL-sync flips even if paint identity already matched", () => {
+    const prev = baseWarm({ isUrlSyncedActive: true, isActiveContext: true });
+    const next = baseWarm({ isUrlSyncedActive: false, isActiveContext: false });
+    expect(workspaceCenterFramePropsAreEqual(prev, next)).toBe(false);
   });
 
   it("re-renders when this frame becomes URL-synced", () => {
