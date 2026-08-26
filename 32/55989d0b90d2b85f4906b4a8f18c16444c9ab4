@@ -1,0 +1,18 @@
+apps/web/src/app-shell/__tests__/center-stage-chrome.test.ts
+  h_5be255725524c8 115-132
+apps/web/src/app-shell/workspace-center-frame.tsx
+  h_5be255725524c8 234-236
+apps/web/src/features/workspace/components/OverviewTab.tsx
+  h_5be255725524c8 505
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "3255989d0b90d2b85f4906b4a8f18c16444c9ab4",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
