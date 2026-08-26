@@ -143,7 +143,10 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         return filterProjectsByAttention(projects, ids);
     }, [attentionContextKey, attentionFilterMode, projects]);
     const workspaceAgentContextIds = React.useMemo(
-        () => listProjects.flatMap((project) => project.workspaces.map((workspace) => workspace.id)),
+        () => listProjects.flatMap((project) => [
+            project.id,
+            ...project.workspaces.map((workspace) => workspace.id),
+        ]),
         [listProjects],
     );
     const agentGroupKeyByWorkspaceId = useWorkspaceAgentGroupKeyMap(workspaceAgentContextIds);
@@ -1208,6 +1211,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         renderWorkspaceItemRow,
         renderWorkspaceKanbanCard,
     } = useLeftSidebarWorkspaceRenderers({
+        activeProjectId: currentProjectId,
         activeWorkspaceId: currentWorkspaceId,
         archiveWorkspace,
         createWorkspaceLabel,

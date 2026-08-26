@@ -120,12 +120,26 @@ function StatusCanceled({ className }: { className?: string }) {
   );
 }
 
-type WorkflowStatusMeta = {
-  value: WorkspaceWorkflowStatus;
+/** Remainder bucket for missing / unknown workflow status (not a settable status). */
+function StatusNone({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" className={className}>
+      <circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.5" opacity="0.35" />
+    </svg>
+  );
+}
+
+export const NO_STATUS_WORKSPACE_GROUP_KEY = "__no_status__";
+
+type WorkflowStatusVisual = {
   label: string;
   labelKey: string;
   icon: React.ComponentType<{ className?: string }>;
   className: string;
+};
+
+type WorkflowStatusMeta = WorkflowStatusVisual & {
+  value: WorkspaceWorkflowStatus;
 };
 
 const WORKFLOW_STATUS_META: Record<WorkspaceWorkflowStatus, WorkflowStatusMeta> = {
@@ -249,8 +263,25 @@ export function getWorkspaceAgentGroupMeta(key: string): AgentGroupMeta {
 
 export const WORKSPACE_WORKFLOW_STATUS_OPTIONS = Object.values(WORKFLOW_STATUS_META);
 
-export function getWorkspaceWorkflowStatusMeta(status: WorkspaceWorkflowStatus): WorkflowStatusMeta {
-  return WORKFLOW_STATUS_META[status];
+const NO_STATUS_META: WorkflowStatusVisual = {
+  label: "No status",
+  labelKey: "status.noStatus",
+  icon: StatusNone,
+  className: "text-muted-foreground/70",
+};
+
+const WORKSPACE_WORKFLOW_STATUS_VALUES = new Set<string>(
+  Object.keys(WORKFLOW_STATUS_META),
+);
+
+export function isWorkspaceWorkflowStatus(value: unknown): value is WorkspaceWorkflowStatus {
+  return typeof value === "string" && WORKSPACE_WORKFLOW_STATUS_VALUES.has(value);
+}
+
+export function getWorkspaceWorkflowStatusMeta(
+  status: WorkspaceWorkflowStatus | string,
+): WorkflowStatusVisual {
+  return isWorkspaceWorkflowStatus(status) ? WORKFLOW_STATUS_META[status] : NO_STATUS_META;
 }
 
 function getWorkspaceRecencyTimestamp(workspace: Workspace): number {

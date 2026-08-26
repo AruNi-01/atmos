@@ -690,8 +690,8 @@ export function WorkspaceKanbanView({
                     const ModeIcon =
                       SIDEBAR_GROUPING_OPTIONS.find((option) => option.value === groupingMode)?.icon ??
                       null;
-                    const statusMeta = column.status
-                      ? getWorkspaceWorkflowStatusMeta(column.status)
+                    const statusMeta = groupingMode === "status"
+                      ? getWorkspaceWorkflowStatusMeta(column.status ?? column.key)
                       : null;
                     const priorityMeta = column.priority
                       ? getWorkspacePriorityMeta(column.priority)
@@ -800,8 +800,8 @@ export function WorkspaceKanbanView({
                         {hiddenColumnList.map((column) => {
                           const title = columnTitle(column);
                           const hiddenCount = (grouped.get(column.key) ?? []).length;
-                          const statusMeta = column.status
-                            ? getWorkspaceWorkflowStatusMeta(column.status)
+                          const statusMeta = groupingMode === "status"
+                            ? getWorkspaceWorkflowStatusMeta(column.status ?? column.key)
                             : null;
                           const priorityMeta = column.priority
                             ? getWorkspacePriorityMeta(column.priority)

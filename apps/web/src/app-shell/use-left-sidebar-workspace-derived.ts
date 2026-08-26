@@ -9,17 +9,22 @@ import {
     getUnpinnedWorkspaceEntries,
 } from '@/app-shell/left-sidebar-derived';
 import {
+    filterProjectSidebarEntries,
     filterWorkspaceKanbanEntries,
     getActiveWorkspaceKanbanFilterCount,
     shouldApplyWorkspaceKanbanVisibilityFilter,
     type WorkspaceKanbanFilters,
 } from '@/app-shell/sidebar/WorkspaceKanbanFilterMenu';
 import {
+    flattenProjects,
     flattenProjectWorkspaces,
+    getProjectSidebarGroupKey,
     getWorkspaceLabelGroupKey,
+    getWorkspaceStatusGroupKey,
     getWorkspaceTimeGroupKey,
     groupWorkspaces,
 } from '@/app-shell/sidebar/workspace-grouping';
+import { parseWorkspacePriority } from '@/app-shell/sidebar/workspace-metadata-controls';
 import {
     buildUserGroupViews,
     findGroupIdForMember,
@@ -106,14 +111,29 @@ export function useLeftSidebarWorkspaceDerived({
         () => getUnpinnedWorkspaceEntries(filteredFlattenedWorkspaces),
         [filteredFlattenedWorkspaces],
     );
+    const filteredProjectEntries = useMemo(
+        () => filterProjectSidebarEntries(flattenProjects(projects), kanbanFilters, groups),
+        [groups, kanbanFilters, projects],
+    );
     const groupedWorkspaces = useMemo(() => {
         if (groupingMode === 'project' || groupingMode === 'group') return [];
-        return groupWorkspaces(unpinnedFlattenedWorkspaces, groupingMode, {
-            availableLabels: workspaceLabels,
-            labelGroupOrder,
-            agentGroupKeyByWorkspaceId,
-        });
-    }, [agentGroupKeyByWorkspaceId, groupingMode, labelGroupOrder, unpinnedFlattenedWorkspaces, workspaceLabels]);
+        return groupWorkspaces(
+            [...unpinnedFlattenedWorkspaces, ...filteredProjectEntries],
+            groupingMode,
+            {
+                availableLabels: workspaceLabels,
+                labelGroupOrder,
+                agentGroupKeyByWorkspaceId,
+            },
+        );
+    }, [
+        agentGroupKeyByWorkspaceId,
+        filteredProjectEntries,
+        groupingMode,
+        labelGroupOrder,
+        unpinnedFlattenedWorkspaces,
+        workspaceLabels,
+    ]);
     const userGroupViews = useMemo((): UserGroupView[] => {
         if (groupingMode !== 'group') return [];
         return buildUserGroupViews(groups, projectModeProjects, ungroupedLabel);
@@ -135,39 +155,58 @@ export function useLeftSidebarWorkspaceDerived({
         isAgentTwoColumn;
     const shouldShowGlobalPinnedSection = pinnedWorkspaces.length > 0;
     const currentWorkspaceGroupKey = useMemo(() => {
-        if (!currentWorkspace || currentWorkspace.isPinned) return null;
-        if (groupingMode === 'group') {
-            // Ungrouped workspaces must resolve to the ungrouped bucket so two-column
-            // mode does not fall through to the first named group.
-            return (
-                findGroupIdForMember(groups, 'workspace', currentWorkspace.id) ??
-                findGroupIdForMember(groups, 'project', currentWorkspace.projectId) ??
-                UNGROUPED_USER_GROUP_KEY
-            );
+        if (groupingMode === 'project') return null;
+        if (currentWorkspace && !currentWorkspace.isPinned) {
+            if (groupingMode === 'group') {
+                // Ungrouped workspaces must resolve to the ungrouped bucket so two-column
+                // mode does not fall through to the first named group.
+                return (
+                    findGroupIdForMember(groups, 'workspace', currentWorkspace.id) ??
+                    findGroupIdForMember(groups, 'project', currentWorkspace.projectId) ??
+                    UNGROUPED_USER_GROUP_KEY
+                );
+            }
+            if (groupingMode === 'status') {
+                return getWorkspaceStatusGroupKey(currentWorkspace.workflowStatus);
+            }
+            if (groupingMode === 'time') {
+                return getWorkspaceTimeGroupKey(currentWorkspace);
+            }
+            if (groupingMode === 'priority') {
+                return parseWorkspacePriority(currentWorkspace.priority);
+            }
+            if (groupingMode === 'label') {
+                return getWorkspaceLabelGroupKey(
+                    currentWorkspace,
+                    labelGroupOrder,
+                    workspaceLabels,
+                );
+            }
+            if (groupingMode === 'agent') {
+                return parseWorkspaceAgentGroupKey(
+                    agentGroupKeyByWorkspaceId?.[currentWorkspace.id],
+                );
+            }
+            return null;
         }
-        if (groupingMode === 'status') {
-            return currentWorkspace.workflowStatus;
-        }
-        if (groupingMode === 'time') {
-            return getWorkspaceTimeGroupKey(currentWorkspace);
-        }
-        if (groupingMode === 'priority') {
-            return currentWorkspace.priority;
-        }
-        if (groupingMode === 'label') {
-            return getWorkspaceLabelGroupKey(
-                currentWorkspace,
-                labelGroupOrder,
-                workspaceLabels,
-            );
-        }
-        if (groupingMode === 'agent') {
-            return parseWorkspaceAgentGroupKey(
-                agentGroupKeyByWorkspaceId?.[currentWorkspace.id],
-            );
-        }
-        return null;
-    }, [agentGroupKeyByWorkspaceId, currentWorkspace, groupingMode, groups, labelGroupOrder, workspaceLabels]);
+        if (!currentProjectId || groupingMode === 'group') return null;
+        const currentProject = projects.find((project) => project.id === currentProjectId);
+        if (!currentProject) return null;
+        return getProjectSidebarGroupKey(currentProject, groupingMode, {
+            availableLabels: workspaceLabels,
+            labelGroupOrder,
+            agentGroupKeyByWorkspaceId,
+        });
+    }, [
+        agentGroupKeyByWorkspaceId,
+        currentProjectId,
+        currentWorkspace,
+        groupingMode,
+        groups,
+        labelGroupOrder,
+        projects,
+        workspaceLabels,
+    ]);
     const effectiveSelectedProjectSidebarId = useMemo(() => {
         if (!isProjectTwoColumn || projectModeProjects.length === 0) return null;
         const visibleIds = new Set(projectModeProjects.map((project) => project.id));

@@ -458,6 +458,10 @@
       "napping": "Napping ~",
       "sideChat": "Side chat",
       "agentIdle": "Agent: Idle",
+      "overviewRunning": "Running",
+      "overviewIdle": "Idle",
+      "overviewNeedAttention": "Need attention",
+      "overviewNeedPermission": "Need permission",
       "status": {
         "normal": "NORMAL",
         "connecting": "CONNECTING",
@@ -1264,6 +1268,7 @@
         "blocked": "Blocked",
         "completed": "Completed",
         "canceled": "Canceled",
+        "noStatus": "No status",
         "trigger": "Status"
       },
       "priority": {
@@ -1718,6 +1723,18 @@
           "selectLogoImage": "Select logo image",
           "useFile": "Use File"
         }
+      },
+      "groupedProject": {
+        "chip": "Project",
+        "name": "Name",
+        "currentBranch": "Current branch",
+        "path": "Path",
+        "workspaces": "Workspaces",
+        "workspaceCount": "{count}",
+        "targetBranch": "Target branch",
+        "notSet": "Not set",
+        "group": "Group",
+        "lastActive": "Last active"
       },
       "workspaceContent": {
         "automationWorkspace": "Automation Workspace",

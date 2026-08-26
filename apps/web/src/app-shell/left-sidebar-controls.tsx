@@ -42,7 +42,9 @@ import {
 import { getWorkspacePriorityMeta } from "@/app-shell/sidebar/workspace-metadata-controls";
 import type { WorkspaceAgentGroupKey } from "@/features/agent/lib/workspace-agent-status";
 import {
+  getSidebarEntryKey,
   UNTAGGED_WORKSPACE_GROUP_KEY,
+  type FlattenedSidebarEntry,
   type FlattenedWorkspaceEntry,
   type WorkspaceGroup,
 } from "@/app-shell/sidebar/workspace-grouping";
@@ -371,14 +373,10 @@ function WorkspaceGroupMarker({
   groupingMode: SidebarGroupingMode;
 }) {
   const statusMeta = groupingMode === "status"
-    ? getWorkspaceWorkflowStatusMeta(
-        group.key as Parameters<typeof getWorkspaceWorkflowStatusMeta>[0],
-      )
+    ? getWorkspaceWorkflowStatusMeta(group.key)
     : null;
   const priorityMeta = groupingMode === "priority"
-    ? getWorkspacePriorityMeta(
-        group.key as Parameters<typeof getWorkspacePriorityMeta>[0],
-      )
+    ? getWorkspacePriorityMeta(group.key)
     : null;
   const agentMeta = groupingMode === "agent"
     ? getWorkspaceAgentGroupMeta(group.key as WorkspaceAgentGroupKey)
@@ -421,7 +419,7 @@ function SortableWorkspaceGroupSection({
   groupingMode: SidebarGroupingMode;
   isCollapsed: boolean;
   renderWorkspaceContentRow: (
-    entry: FlattenedWorkspaceEntry,
+    entry: FlattenedSidebarEntry,
     options?: { showProjectName?: boolean; rightContext?: React.ReactNode },
   ) => React.ReactNode;
   sortingEnabled: boolean;
@@ -538,7 +536,7 @@ export function GroupedWorkspaceOneColumnContent({
   groups: WorkspaceGroup[];
   onLabelGroupOrderChange?: (labelIds: string[]) => void;
   renderWorkspaceContentRow: (
-    entry: FlattenedWorkspaceEntry,
+    entry: FlattenedSidebarEntry,
     options?: { showProjectName?: boolean; rightContext?: React.ReactNode },
   ) => React.ReactNode;
   sensors: DndSensors;
@@ -673,10 +671,10 @@ export function GroupedWorkspaceTwoColumnRightContent({
   selectedGroup: WorkspaceGroup | null;
   secondColumnKanban: boolean;
   renderWorkspaceContentRow: (
-    entry: FlattenedWorkspaceEntry,
+    entry: FlattenedSidebarEntry,
     options?: { showProjectName?: boolean; rightContext?: React.ReactNode },
   ) => React.ReactNode;
-  renderWorkspaceKanbanCard: (entry: FlattenedWorkspaceEntry) => React.ReactNode;
+  renderWorkspaceKanbanCard: (entry: FlattenedSidebarEntry) => React.ReactNode;
   onTogglePrimaryPanel: () => void;
 }) {
   const t = useTranslations("AppShell.chrome");
@@ -730,7 +728,7 @@ export function GroupedWorkspaceTwoColumnRightContent({
           <div className={cn("space-y-1", secondColumnKanban && "space-y-2")}>
             {visibleItems.map((entry) =>
               secondColumnKanban ? (
-                <div key={entry.workspace.id}>
+                <div key={getSidebarEntryKey(entry)}>
                   {renderWorkspaceKanbanCard(entry)}
                 </div>
               ) : (

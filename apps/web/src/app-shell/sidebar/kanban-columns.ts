@@ -18,6 +18,7 @@ import {
   type WorkspaceAgentGroupKey,
 } from "@/features/agent/lib/workspace-agent-status";
 import {
+  parseWorkspacePriority,
   WORKSPACE_PRIORITY_OPTIONS,
   WORKSPACE_PRIORITY_SORT_WEIGHT,
 } from "@/app-shell/sidebar/workspace-metadata-controls";
@@ -25,6 +26,8 @@ import {
   getWorkspaceTimeGroupKey,
   getWorkspaceTimeGroupLabel,
   getWorkspaceAgentGroupLabel,
+  getWorkspaceStatusGroupKey,
+  NO_STATUS_WORKSPACE_GROUP_KEY,
   UNTAGGED_WORKSPACE_GROUP_KEY,
 } from "@/app-shell/sidebar/workspace-grouping";
 import { findGroupIdForMember, UNGROUPED_USER_GROUP_KEY } from "@/app-shell/sidebar/user-groups";
@@ -177,13 +180,27 @@ export function buildKanbanBoardColumns(params: {
   }
 
   if (groupingMode === "status") {
-    return WORKSPACE_WORKFLOW_STATUS_OPTIONS.map((option) => ({
+    const columns: KanbanBoardColumn[] = WORKSPACE_WORKFLOW_STATUS_OPTIONS.map((option) => ({
       key: option.value,
       label: option.labelKey,
       labelIsI18nKey: true,
       color: STATUS_COLOR_MAP[option.value],
       status: option.value,
     }));
+    const hasNoStatusWorkspace = projects.some((project) =>
+      project.workspaces.some(
+        (workspace) => getWorkspaceStatusGroupKey(workspace.workflowStatus) === NO_STATUS_WORKSPACE_GROUP_KEY,
+      ),
+    );
+    if (hasNoStatusWorkspace) {
+      columns.push({
+        key: NO_STATUS_WORKSPACE_GROUP_KEY,
+        label: "status.noStatus",
+        labelIsI18nKey: true,
+        color: NEUTRAL_COLUMN_COLOR,
+      });
+    }
+    return columns;
   }
 
   if (groupingMode === "priority") {
@@ -246,7 +263,18 @@ export function buildKanbanBoardColumns(params: {
   }
 
   if (groupingMode === "label") {
-    const columns: KanbanBoardColumn[] = availableLabels.map((label) => ({
+    const labelsById = new Map<string, WorkspaceLabel>();
+    for (const label of availableLabels) {
+      if (!labelsById.has(label.id)) labelsById.set(label.id, label);
+    }
+    for (const project of projects) {
+      for (const workspace of project.workspaces) {
+        for (const label of workspace.labels) {
+          if (!labelsById.has(label.id)) labelsById.set(label.id, label);
+        }
+      }
+    }
+    const columns: KanbanBoardColumn[] = [...labelsById.values()].map((label) => ({
       key: label.id,
       label: label.name,
       labelIsI18nKey: false,
@@ -303,16 +331,17 @@ export function resolveKanbanColumnKeys(params: {
   const { groupingMode, projectId, workspace, groups, agentGroupKey } = params;
 
   if (groupingMode === "agent") return [parseWorkspaceAgentGroupKey(agentGroupKey)];
-  if (groupingMode === "status") return [workspace.workflowStatus];
-  if (groupingMode === "priority") return [workspace.priority];
+  if (groupingMode === "status") return [getWorkspaceStatusGroupKey(workspace.workflowStatus)];
+  if (groupingMode === "priority") return [parseWorkspacePriority(workspace.priority)];
   if (groupingMode === "project") return [projectId];
   if (groupingMode === "group") {
     const groupId = resolveWorkspaceGroupId(groups, projectId, workspace.id);
     return [groupId ?? UNGROUPED_USER_GROUP_KEY];
   }
   if (groupingMode === "label") {
-    if (workspace.labels.length === 0) return [UNTAGGED_WORKSPACE_GROUP_KEY];
-    return workspace.labels.map((label) => label.id);
+    const labelIds = workspace.labels.map((label) => label.id).filter(Boolean);
+    if (labelIds.length === 0) return [UNTAGGED_WORKSPACE_GROUP_KEY];
+    return labelIds;
   }
   return [getWorkspaceTimeGroupKey(workspace)];
 }
@@ -323,6 +352,9 @@ export function isKanbanDragAssignable(groupingMode: SidebarGroupingMode): boole
 
 export function getColumnStatusIconClass(column: KanbanBoardColumn): string | undefined {
   if (column.agentGroup) return getWorkspaceAgentGroupMeta(column.agentGroup).className;
-  if (!column.status) return undefined;
-  return getWorkspaceWorkflowStatusMeta(column.status).className;
+  if (column.status) return getWorkspaceWorkflowStatusMeta(column.status).className;
+  if (column.key === NO_STATUS_WORKSPACE_GROUP_KEY) {
+    return getWorkspaceWorkflowStatusMeta(NO_STATUS_WORKSPACE_GROUP_KEY).className;
+  }
+  return undefined;
 }

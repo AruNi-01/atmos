@@ -2,11 +2,17 @@ import React, { useCallback } from 'react';
 
 import { WorkspaceContent } from '@/app-shell/sidebar/WorkspaceContent';
 import { WorkspaceItem } from '@/app-shell/sidebar/WorkspaceItem';
+import { GroupedProjectRow } from '@/app-shell/sidebar/GroupedProjectRow';
 import {
     KanbanWorkspaceCard,
     type KanbanCardProperties,
 } from '@/app-shell/sidebar/WorkspaceKanbanView';
-import type { FlattenedWorkspaceEntry } from '@/app-shell/sidebar/workspace-grouping';
+import {
+    getSidebarEntryKey,
+    isFlattenedProjectEntry,
+    type FlattenedSidebarEntry,
+    type FlattenedWorkspaceEntry,
+} from '@/app-shell/sidebar/workspace-grouping';
 import type {
     Group,
     WorkspaceLabel,
@@ -15,6 +21,7 @@ import type {
 } from '@/shared/types/domain';
 
 interface UseLeftSidebarWorkspaceRenderersParams {
+    activeProjectId?: string | null;
     activeWorkspaceId: string | null;
     archiveWorkspace: (projectId: string, workspaceId: string) => Promise<void>;
     createWorkspaceLabel: (data: { name: string; color: string; source?: WorkspaceLabel['source'] }) => Promise<WorkspaceLabel>;
@@ -47,12 +54,29 @@ interface WorkspaceContentRowOptions {
     rightContext?: React.ReactNode;
 }
 
+function renderProjectSidebarRow(
+    entry: Extract<FlattenedSidebarEntry, { kind: "project" }>,
+    activeProjectId: string | null | undefined,
+    activeWorkspaceId: string | null,
+    groups: Group[],
+) {
+    return (
+        <GroupedProjectRow
+            key={getSidebarEntryKey(entry)}
+            project={entry.project}
+            groups={groups}
+            isActive={activeProjectId === entry.projectId && !activeWorkspaceId}
+        />
+    );
+}
+
 interface WorkspaceKanbanCardOptions {
     cardProperties?: KanbanCardProperties;
     showUnpinnedBorder?: boolean;
 }
 
 export function useLeftSidebarWorkspaceRenderers({
+    activeProjectId,
     activeWorkspaceId,
     archiveWorkspace,
     createWorkspaceLabel,
@@ -129,9 +153,14 @@ export function useLeftSidebarWorkspaceRenderers({
     ]);
 
     const renderWorkspaceContentRow = useCallback((
-        entry: FlattenedWorkspaceEntry,
+        entry: FlattenedSidebarEntry,
         options?: WorkspaceContentRowOptions,
-    ) => (
+    ) => isFlattenedProjectEntry(entry) ? renderProjectSidebarRow(
+        entry,
+        activeProjectId,
+        activeWorkspaceId,
+        groups,
+    ) : (
         <WorkspaceContent
             key={entry.workspace.id}
             workspace={entry.workspace}
@@ -165,6 +194,7 @@ export function useLeftSidebarWorkspaceRenderers({
             onCreateGroup={onCreateGroup}
         />
     ), [
+        activeProjectId,
         activeWorkspaceId,
         archiveWorkspace,
         createWorkspaceLabel,
@@ -183,9 +213,14 @@ export function useLeftSidebarWorkspaceRenderers({
     ]);
 
     const renderWorkspaceKanbanCard = useCallback((
-        entry: FlattenedWorkspaceEntry,
+        entry: FlattenedSidebarEntry,
         options?: WorkspaceKanbanCardOptions,
-    ) => (
+    ) => isFlattenedProjectEntry(entry) ? renderProjectSidebarRow(
+        entry,
+        activeProjectId,
+        activeWorkspaceId,
+        groups,
+    ) : (
         <KanbanWorkspaceCard
             workspace={entry.workspace}
             projectId={entry.projectId}
@@ -215,6 +250,8 @@ export function useLeftSidebarWorkspaceRenderers({
             onDeleteWorkspace={(projectId, workspaceId) => deleteWorkspace(projectId, workspaceId)}
         />
     ), [
+        activeProjectId,
+        activeWorkspaceId,
         archiveWorkspace,
         createWorkspaceLabel,
         deleteWorkspace,

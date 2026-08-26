@@ -17,11 +17,14 @@ import type { FlattenedWorkspaceEntry } from "@/app-shell/sidebar/workspace-grou
 import type { WorkspaceLabel } from "@/shared/types/domain";
 import {
   getWorkspaceLabelGroupKey,
+  getWorkspaceStatusGroupKey,
   getWorkspaceTimeGroupLabel,
+  NO_STATUS_WORKSPACE_GROUP_KEY,
   UNTAGGED_WORKSPACE_GROUP_KEY,
 } from "@/app-shell/sidebar/workspace-grouping";
 import {
   getWorkspacePriorityMeta,
+  parseWorkspacePriority,
   WorkspaceLabelDots,
 } from "@/app-shell/sidebar/workspace-metadata-controls";
 import {
@@ -123,14 +126,16 @@ export function LeftSidebarPinnedSection({
                     ),
                   );
                   const AgentIcon = agentMeta.icon;
-                  // Only show right-side context when there is a real value (no "No label" / no priority).
+                  const statusGroupKey = getWorkspaceStatusGroupKey(entry.workspace.workflowStatus);
+                  // Only show right-side context when there is a real value (no "No label" / no priority / no status).
                   const rightContext =
-                    groupingMode === "status" ? (
+                    groupingMode === "status" &&
+                    statusGroupKey !== NO_STATUS_WORKSPACE_GROUP_KEY ? (
                       <StatusIcon className={cn("size-3.5 shrink-0", statusMeta.className)} />
                     ) : groupingMode === "time" ? (
                       <span className="truncate">{getWorkspaceTimeGroupLabel(entry.workspace)}</span>
                     ) : groupingMode === "priority" &&
-                      entry.workspace.priority !== "no_priority" ? (
+                      parseWorkspacePriority(entry.workspace.priority) !== "no_priority" ? (
                       <PriorityIcon className={cn("size-3.5 shrink-0", priorityMeta.className)} />
                     ) : groupingMode === "label" &&
                       labelGroupKey !== UNTAGGED_WORKSPACE_GROUP_KEY &&

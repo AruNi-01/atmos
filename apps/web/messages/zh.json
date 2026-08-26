@@ -458,6 +458,10 @@
       "napping": "休眠中 ~",
       "sideChat": "侧聊",
       "agentIdle": "Agent：空闲",
+      "overviewRunning": "运行中",
+      "overviewIdle": "空闲",
+      "overviewNeedAttention": "需要关注",
+      "overviewNeedPermission": "需要授权",
       "status": {
         "normal": "正常",
         "connecting": "连接中",
@@ -1264,6 +1268,7 @@
         "blocked": "阻塞",
         "completed": "已完成",
         "canceled": "已取消",
+        "noStatus": "无状态",
         "trigger": "状态"
       },
       "priority": {
@@ -1718,6 +1723,18 @@
           "selectLogoImage": "选择 Logo 图片",
           "useFile": "使用文件"
         }
+      },
+      "groupedProject": {
+        "chip": "项目",
+        "name": "名称",
+        "currentBranch": "当前分支",
+        "path": "路径",
+        "workspaces": "工作区",
+        "workspaceCount": "{count} 个",
+        "targetBranch": "目标分支",
+        "notSet": "未设置",
+        "group": "分组",
+        "lastActive": "最近活跃"
       },
       "workspaceContent": {
         "automationWorkspace": "自动化工作区",

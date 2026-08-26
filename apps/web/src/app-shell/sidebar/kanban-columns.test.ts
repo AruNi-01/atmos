@@ -5,7 +5,8 @@ import {
   isKanbanDragAssignable,
   resolveKanbanColumnKeys,
 } from "@/app-shell/sidebar/kanban-columns";
-import type { Workspace } from "@/shared/types/domain";
+import { NO_STATUS_WORKSPACE_GROUP_KEY } from "@/app-shell/sidebar/workspace-grouping";
+import type { Project, Workspace } from "@/shared/types/domain";
 
 function workspace(overrides: Partial<Workspace> = {}): Workspace {
   return {
@@ -67,5 +68,90 @@ describe("kanban agent grouping", () => {
         groups: [],
       }),
     ).toEqual(["done"]);
+  });
+});
+
+describe("kanban remainder buckets", () => {
+  it("adds a No status column when a workspace has no valid status", () => {
+    const emptyColumns = buildKanbanBoardColumns({
+      groupingMode: "status",
+      projects: [],
+      groups: [],
+      availableLabels: [],
+      ungroupedLabel: "Ungrouped",
+      untaggedLabel: "No label",
+    });
+    expect(emptyColumns.map((column) => column.key)).not.toContain(NO_STATUS_WORKSPACE_GROUP_KEY);
+
+    const columns = buildKanbanBoardColumns({
+      groupingMode: "status",
+      projects: [{
+        id: "project-1",
+        name: "Project",
+        isOpen: true,
+        mainFilePath: "/tmp/project",
+        sidebarOrder: 0,
+        borderColor: null,
+        logoPath: null,
+        workspaces: [workspace({ workflowStatus: "custom_pipeline" as never })],
+      }],
+      groups: [],
+      availableLabels: [],
+      ungroupedLabel: "Ungrouped",
+      untaggedLabel: "No label",
+    });
+
+    expect(columns.at(-1)).toMatchObject({
+      key: NO_STATUS_WORKSPACE_GROUP_KEY,
+      label: "status.noStatus",
+    });
+    expect(
+      resolveKanbanColumnKeys({
+        groupingMode: "status",
+        projectId: "project-1",
+        workspace: workspace({ workflowStatus: "custom_pipeline" as never }),
+        groups: [],
+      }),
+    ).toEqual([NO_STATUS_WORKSPACE_GROUP_KEY]);
+    expect(
+      resolveKanbanColumnKeys({
+        groupingMode: "priority",
+        projectId: "project-1",
+        workspace: workspace({ priority: "critical" as never }),
+        groups: [],
+      }),
+    ).toEqual(["no_priority"]);
+  });
+
+  it("creates label columns for workspace-only labels so those cards stay on the board", () => {
+    const extraLabel = {
+      id: "label-extra",
+      name: "Extra",
+      color: "#3b82f6",
+      source: "manual" as const,
+    };
+    const project: Project = {
+      id: "project-1",
+      name: "Project",
+      isOpen: true,
+      mainFilePath: "/tmp/project",
+      sidebarOrder: 0,
+      borderColor: null,
+      logoPath: null,
+      workspaces: [workspace({ labels: [extraLabel] })],
+    };
+    const columns = buildKanbanBoardColumns({
+      groupingMode: "label",
+      projects: [project],
+      groups: [],
+      availableLabels: [],
+      ungroupedLabel: "Ungrouped",
+      untaggedLabel: "No label",
+    });
+
+    expect(columns.map((column) => column.key)).toEqual([
+      extraLabel.id,
+      "__untagged__",
+    ]);
   });
 });

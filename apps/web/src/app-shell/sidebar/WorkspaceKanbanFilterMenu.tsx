@@ -41,7 +41,13 @@ import {
   Timer,
 } from "lucide-react";
 import { resolveBoardColor, resolveWorkspaceGroupId } from "@/app-shell/sidebar/kanban-columns";
-import { UNGROUPED_USER_GROUP_KEY } from "@/app-shell/sidebar/user-groups";
+import { findGroupIdForMember, UNGROUPED_USER_GROUP_KEY } from "@/app-shell/sidebar/user-groups";
+import {
+  getProjectGroupingWorkspace,
+  type FlattenedProjectEntry,
+} from "@/app-shell/sidebar/workspace-grouping";
+import { getProjectWorkflowStatus } from "@/app-shell/sidebar/workspace-status";
+import { parseWorkspacePriority } from "@/app-shell/sidebar/workspace-metadata-controls";
 
 export type WorkspaceKanbanFilters = {
   statuses: WorkspaceWorkflowStatus[];
@@ -101,6 +107,51 @@ export function filterWorkspaceKanbanEntries<T extends {
       if (!filters.groupIds.includes(key)) return false;
     }
 
+    return true;
+  });
+}
+
+export function filterProjectSidebarEntries(
+  items: FlattenedProjectEntry[],
+  filters: WorkspaceKanbanFilters,
+  groups: Group[] = [],
+): FlattenedProjectEntry[] {
+  const hasExplicitDimensionFilter =
+    filters.statuses.length +
+      filters.priorities.length +
+      filters.labelIds.length +
+      filters.projectIds.length +
+      filters.groupIds.length >
+    0;
+  if (!hasExplicitDimensionFilter) return items;
+
+  return items.filter((item) => {
+    if (filters.projectIds.length > 0 && !filters.projectIds.includes(item.projectId)) return false;
+
+    const representative = getProjectGroupingWorkspace(item.project);
+    if (
+      filters.statuses.length > 0 &&
+      !filters.statuses.includes(getProjectWorkflowStatus(item.project))
+    ) {
+      return false;
+    }
+    if (
+      filters.priorities.length > 0 &&
+      !filters.priorities.includes(parseWorkspacePriority(representative?.priority))
+    ) {
+      return false;
+    }
+    if (
+      filters.labelIds.length > 0 &&
+      !(representative?.labels ?? []).some((label) => filters.labelIds.includes(label.id))
+    ) {
+      return false;
+    }
+    if (filters.groupIds.length > 0) {
+      const groupId = findGroupIdForMember(groups, "project", item.projectId);
+      const key = groupId ?? UNGROUPED_USER_GROUP_KEY;
+      if (!filters.groupIds.includes(key)) return false;
+    }
     return true;
   });
 }

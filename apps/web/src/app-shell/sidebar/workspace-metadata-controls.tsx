@@ -61,6 +61,17 @@ export const WORKSPACE_PRIORITY_SORT_WEIGHT: Record<WorkspacePriority, number> =
   urgent: 4,
 };
 
+const WORKSPACE_PRIORITY_VALUES = new Set<string>(
+  WORKSPACE_PRIORITY_OPTIONS.map((option) => option.value),
+);
+
+export function parseWorkspacePriority(value: unknown): WorkspacePriority {
+  if (typeof value === "string" && WORKSPACE_PRIORITY_VALUES.has(value)) {
+    return value as WorkspacePriority;
+  }
+  return "no_priority";
+}
+
 /** One row of common presets (fits the 280px color panel without wrapping). */
 const LABEL_COLOR_SWATCHES = [
   "#6b7280", // Gray
@@ -121,8 +132,9 @@ function PriorityBarsLowIcon({ className }: { className?: string }) {
   return <PriorityBarsIcon className={className} activeBars={1} />;
 }
 
-export function getWorkspacePriorityMeta(priority: WorkspacePriority) {
-  return WORKSPACE_PRIORITY_OPTIONS.find((option) => option.value === priority) ?? WORKSPACE_PRIORITY_OPTIONS[0];
+export function getWorkspacePriorityMeta(priority: WorkspacePriority | string) {
+  const parsed = parseWorkspacePriority(priority);
+  return WORKSPACE_PRIORITY_OPTIONS.find((option) => option.value === parsed) ?? WORKSPACE_PRIORITY_OPTIONS[0];
 }
 
 type MetadataSelectTriggerVariant = "chip" | "icon";
