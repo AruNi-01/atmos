@@ -1,0 +1,26 @@
+specs/APP/APP-067_document-editor/BRAINSTORM.md
+  h_5be255725524c8 1-131
+specs/APP/APP-067_document-editor/PRD.md
+  h_5be255725524c8 1-157
+specs/APP/APP-067_document-editor/TECH.md
+  h_5be255725524c8 1-415
+specs/APP/APP-067_document-editor/TEST.md
+  h_5be255725524c8 1-203
+specs/APP/APP-067_document-editor/source/Atmos-Editor-PRD-v1.md
+  h_5be255725524c8 1-1100
+specs/APP/APP-067_document-editor/source/Atmos-Editor-PRD-v2.md
+  h_5be255725524c8 1-1499
+specs/README.md
+  h_5be255725524c8 146
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "0619b111af9d2ee4c3d5074156387f5461442e65",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
