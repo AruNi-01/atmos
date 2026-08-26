@@ -141,18 +141,6 @@ export interface FunctionSettings {
     >;
     [key: string]: unknown;
   };
-  /**
-   * Center-stage named multi-pane layouts.
-   * Durable on disk: `~/.atmos/config/function_settings.json` → center_stage.saved_layouts.
-   * Frontend also caches the same array in localStorage for instant load.
-   */
-  center_stage?: {
-    /** Portable layout snapshots (geometry + surface kinds). */
-    saved_layouts?: unknown[];
-    /** Per-workspace/project named center spaces. */
-    spaces?: unknown;
-    [key: string]: unknown;
-  };
   [key: string]: unknown;
 }
 

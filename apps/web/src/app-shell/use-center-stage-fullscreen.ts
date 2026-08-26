@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, type RefObject } from "react";
 import { create } from "zustand";
 
+import { useCenterPaneLayoutStore } from "@/app-shell/center-pane/center-pane-layout-store";
 import {
   CENTER_STAGE_FULLSCREEN_ATTR,
 } from "@/app-shell/center-stage-fullscreen";
@@ -10,25 +11,53 @@ import {
 type CenterStageFullscreenState = {
   isFullscreen: boolean;
   paneId: string | null;
+  contextId: string | null;
+  /** Restore from the mosaic persisted for `contextId`. Does not write layout. */
+  syncFromLayout: (contextId: string, fullscreenPaneId: string | null) => void;
   setFullscreen: (next: boolean, paneId?: string | null) => void;
   toggleFullscreen: (paneId?: string | null) => void;
 };
 
-export const useCenterStageFullscreenStore = create<CenterStageFullscreenState>((set) => ({
+function persistFullscreenPane(contextId: string | null, paneId: string | null): void {
+  if (!contextId) return;
+  useCenterPaneLayoutStore.getState().setFullscreenPane(contextId, paneId);
+}
+
+export const useCenterStageFullscreenStore = create<CenterStageFullscreenState>((set, get) => ({
   isFullscreen: false,
   paneId: null,
-  setFullscreen: (next, paneId) =>
-    set(
+  contextId: null,
+  syncFromLayout: (contextId, fullscreenPaneId) =>
+    set((state) => {
+      const paneId = fullscreenPaneId ?? null;
+      const isFullscreen = Boolean(paneId);
+      if (
+        state.contextId === contextId &&
+        state.paneId === paneId &&
+        state.isFullscreen === isFullscreen
+      ) {
+        return state;
+      }
+      return { ...state, contextId, paneId, isFullscreen };
+    }),
+  setFullscreen: (next, paneId) => {
+    set((state) =>
       next
-        ? { isFullscreen: true, paneId: paneId ?? null }
-        : { isFullscreen: false, paneId: null },
-    ),
-  toggleFullscreen: (paneId) =>
+        ? { ...state, isFullscreen: true, paneId: paneId ?? null }
+        : { ...state, isFullscreen: false, paneId: null },
+    );
+    const state = get();
+    persistFullscreenPane(state.contextId, state.isFullscreen ? state.paneId : null);
+  },
+  toggleFullscreen: (paneId) => {
     set((state) =>
       state.isFullscreen
-        ? { isFullscreen: false, paneId: null }
-        : { isFullscreen: true, paneId: paneId ?? state.paneId },
-    ),
+        ? { ...state, isFullscreen: false, paneId: null }
+        : { ...state, isFullscreen: true, paneId: paneId ?? state.paneId },
+    );
+    const state = get();
+    persistFullscreenPane(state.contextId, state.isFullscreen ? state.paneId : null);
+  },
 }));
 
 function markFullscreen(element: HTMLElement, active: boolean): void {
@@ -51,12 +80,12 @@ export function useCenterStageFullscreenMotion(
 
   useLayoutEffect(() => {
     const element = stageRef.current;
-    if (!element) {
-      if (isFullscreen) setFullscreen(false);
-      return;
-    }
+    if (!element) return;
     markFullscreen(element, isFullscreen);
-  }, [isFullscreen, setFullscreen, stageRef]);
+    return () => {
+      markFullscreen(element, false);
+    };
+  }, [isFullscreen, stageRef]);
 
   useEffect(() => {
     if (!isFullscreen) return;

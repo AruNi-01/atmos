@@ -32,13 +32,6 @@ pub struct MessageResponse {
     pub message: &'static str,
 }
 
-/// Response for terminal layout queries.
-#[derive(Debug, Serialize)]
-pub struct TerminalLayoutResponse {
-    pub layout: Option<String>,
-    pub maximized_terminal_id: Option<String>,
-}
-
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
 pub struct AtmosCanvasScriptPayload {
     #[serde(default = "default_script_entry")]

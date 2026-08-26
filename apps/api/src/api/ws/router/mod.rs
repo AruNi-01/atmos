@@ -5,6 +5,7 @@
 
 mod agents;
 mod automation;
+mod center_layout;
 mod disk_analyzer;
 mod fs;
 mod git;
@@ -1038,6 +1039,10 @@ impl WsMessageService {
             WsAction::FunctionSettingsUpdate => {
                 self.handle_function_settings_update(parse_request(request.data)?)
                     .await
+            }
+            WsAction::CenterLayoutGet => self.handle_center_layout_get(),
+            WsAction::CenterLayoutPut => {
+                self.handle_center_layout_put(parse_request(request.data)?)
             }
             WsAction::TerminalAgentModelsGet => {
                 self.handle_terminal_agent_models_get(parse_request(request.data)?)

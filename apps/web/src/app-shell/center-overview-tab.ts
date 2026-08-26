@@ -1,9 +1,10 @@
 "use client";
 
 import { create } from "zustand";
-import { readJson, writeJson } from "@/shared/lib/browser-store";
-
-const STORAGE_KEY = "atmos.center-overview-tab.v1";
+import {
+  hydrateCenterLayoutCache,
+  markCenterLayoutDirty,
+} from "@/app-shell/center-layout/center-layout-persist";
 
 type OverviewCenterTabStore = {
   visibleByContext: Record<string, boolean>;
@@ -14,50 +15,30 @@ type OverviewCenterTabStore = {
   isOpen: (contextId: string) => boolean;
 };
 
-function persist(visibleByContext: Record<string, boolean>) {
-  const pruned: Record<string, boolean> = {};
-  for (const [contextId, open] of Object.entries(visibleByContext)) {
-    if (open) pruned[contextId] = true;
-  }
-  writeJson(STORAGE_KEY, pruned);
-}
-
-function readStored(): Record<string, boolean> {
-  const raw = readJson<Record<string, boolean> | null>(STORAGE_KEY, null);
-  if (!raw || typeof raw !== "object") return {};
-  const next: Record<string, boolean> = {};
-  for (const [contextId, open] of Object.entries(raw)) {
-    if (open) next[contextId] = true;
-  }
-  return next;
-}
-
 export const useOverviewCenterTabStore = create<OverviewCenterTabStore>((set, get) => ({
   visibleByContext: {},
   hydrated: false,
 
   hydrate: () => {
     if (get().hydrated) return;
-    set({ visibleByContext: readStored(), hydrated: true });
+    hydrateCenterLayoutCache();
   },
 
   open: (contextId) => {
     if (!contextId) return;
-    set((state) => {
-      if (state.visibleByContext[contextId]) return state;
-      const visibleByContext = { ...state.visibleByContext, [contextId]: true };
-      persist(visibleByContext);
-      return { visibleByContext };
-    });
+    if (get().visibleByContext[contextId]) return;
+    set((state) => ({
+      visibleByContext: { ...state.visibleByContext, [contextId]: true },
+    }));
+    markCenterLayoutDirty();
   },
   close: (contextId) => {
     if (!contextId) return;
-    set((state) => {
-      if (!state.visibleByContext[contextId]) return state;
-      const visibleByContext = { ...state.visibleByContext, [contextId]: false };
-      persist(visibleByContext);
-      return { visibleByContext };
-    });
+    if (!get().visibleByContext[contextId]) return;
+    set((state) => ({
+      visibleByContext: { ...state.visibleByContext, [contextId]: false },
+    }));
+    markCenterLayoutDirty();
   },
   isOpen: (contextId) => Boolean(get().visibleByContext[contextId]),
 }));

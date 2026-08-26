@@ -348,18 +348,6 @@ impl ProjectService {
         Ok(repo.update_name(&guid, &name).await?)
     }
 
-    /// Get project terminal layout
-    pub async fn get_terminal_layout(&self, guid: String) -> Result<Option<String>> {
-        let repo = ProjectRepo::new(&self.db);
-        Ok(repo.get_terminal_layout(&guid).await?)
-    }
-
-    /// Update project terminal layout
-    pub async fn update_terminal_layout(&self, guid: String, layout: Option<String>) -> Result<()> {
-        let repo = ProjectRepo::new(&self.db);
-        Ok(repo.update_terminal_layout(&guid, layout).await?)
-    }
-
     /// Get project maximized terminal ID
     pub async fn get_maximized_terminal_id(&self, guid: String) -> Result<Option<String>> {
         let repo = ProjectRepo::new(&self.db);
@@ -406,7 +394,6 @@ mod tests {
             logo_path: Set(None),
             is_open: Set(true),
             target_branch: Set(None),
-            terminal_layout: Set(None),
             maximized_terminal_id: Set(None),
             trusted_scripts_hash: Set(None),
         }

@@ -110,11 +110,6 @@ export interface TmuxWindow {
   current_command?: string | null;
 }
 
-export interface TerminalLayoutResponse {
-  layout: string | null;
-  maximized_terminal_id?: string | null;
-}
-
 export interface AtmosCanvasScript {
   entry: string;
   files: Record<string, string>;
@@ -959,23 +954,6 @@ export const agentApi = {
 
 export const projectLayoutApi = {
   /**
-   * Get terminal layout for a project
-   */
-  getLayout: async (projectId: string): Promise<TerminalLayoutResponse> => {
-    return fetchApi<TerminalLayoutResponse>(`/api/project/${projectId}/terminal-layout`);
-  },
-
-  /**
-   * Update terminal layout for a project
-   */
-  updateLayout: async (projectId: string, layout: string | null): Promise<void> => {
-    await fetchApi<{ message: string }>(`/api/project/${projectId}/terminal-layout`, {
-      method: 'PUT',
-      body: JSON.stringify({ layout }),
-    });
-  },
-
-  /**
    * Update maximized terminal ID for a project
    */
   updateMaximizedTerminalId: async (projectId: string, terminalId: string | null): Promise<void> => {
@@ -989,23 +967,6 @@ export const projectLayoutApi = {
 // ===== Workspace Terminal Layout API =====
 
 export const workspaceLayoutApi = {
-  /**
-   * Get terminal layout for a workspace
-   */
-  getLayout: async (workspaceId: string): Promise<TerminalLayoutResponse> => {
-    return fetchApi<TerminalLayoutResponse>(`/api/workspace/${workspaceId}/terminal-layout`);
-  },
-
-  /**
-   * Update terminal layout for a workspace
-   */
-  updateLayout: async (workspaceId: string, layout: string | null): Promise<void> => {
-    await fetchApi<{ message: string }>(`/api/workspace/${workspaceId}/terminal-layout`, {
-      method: 'PUT',
-      body: JSON.stringify({ layout }),
-    });
-  },
-
   /**
    * Update maximized terminal ID for a workspace
    */

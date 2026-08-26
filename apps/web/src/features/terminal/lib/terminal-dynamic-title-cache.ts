@@ -3,7 +3,7 @@ import { globalKey, readJson, writeJson } from "@/shared/lib/browser-store";
 
 /**
  * Last cwd/command + stable OSC session topic per tmux window.
- * Browser localStorage only — not the workspace/project terminal-layout API.
+ * Browser localStorage only — not the persisted center layout document.
  */
 const STORAGE_KEY = globalKey("terminalDynamicTitles");
 

@@ -719,7 +719,6 @@ mod tests {
             logo_path: Set(None),
             is_open: Set(true),
             target_branch: Set(None),
-            terminal_layout: Set(None),
             maximized_terminal_id: Set(None),
             trusted_scripts_hash: Set(None),
         }
@@ -749,7 +748,6 @@ mod tests {
             workflow_status: Set("todo".into()),
             priority: Set("none".into()),
             label_guids: Set(None),
-            terminal_layout: Set(None),
             maximized_terminal_id: Set(None),
             github_issue_url: Set(None),
             github_issue_data: Set(None),

@@ -20,8 +20,6 @@ pub struct Model {
     /// Target branch for merge/PR operations
     /// If None, uses the repository's default branch
     pub target_branch: Option<String>,
-    /// JSON-encoded terminal layout configuration
-    pub terminal_layout: Option<String>,
     /// The ID of the currently maximized terminal pane, if any
     pub maximized_terminal_id: Option<String>,
     /// SHA-256 of the `.atmos/scripts/atmos.json` content the user explicitly

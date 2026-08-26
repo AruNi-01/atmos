@@ -101,7 +101,7 @@ export function createSavedLayoutId(): string {
   return `layout-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-/** Cap shared by localStorage cache and ~/.atmos function_settings disk store. */
+/** Cap shared by localStorage cache and ~/.atmos/data/center-layout disk store. */
 export const MAX_SAVED_CENTER_LAYOUTS = 40;
 
 /** Accept only well-shaped layout snapshots from cache or disk. */

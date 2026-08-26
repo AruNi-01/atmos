@@ -83,6 +83,12 @@ export type CenterPaneLayout = {
   rowFractions: number[];
   focusedPaneId: string;
   /**
+   * Multi-pane only: the pane currently filling the mosaic. Persisted per
+   * workspace/space so a hop away and back restores the same expanded pane.
+   * Absent or null means the split is showing normally.
+   */
+  fullscreenPaneId?: string | null;
+  /**
    * Once true, `pane.tabIds` is the strip source of truth. Absent on layouts
    * persisted before this field existed so {@link migrateLegacySinglePaneStripOrder}
    * can apply stored `tabStripOrder` exactly once.
@@ -228,7 +234,34 @@ export function normalizeCenterPaneLayout(layout: CenterPaneLayout): CenterPaneL
     tree,
     order,
     focusedPaneId,
+    fullscreenPaneId: resolvedCenterFullscreenPaneId({
+      ...layout,
+      order,
+    }),
   });
+}
+
+/** Valid expanded pane, or null when the mosaic is a single tile / the id is gone. */
+export function resolvedCenterFullscreenPaneId(
+  layout: Pick<CenterPaneLayout, "fullscreenPaneId" | "order">,
+): string | null {
+  const id = layout.fullscreenPaneId ?? null;
+  if (!id || layout.order.length <= 1) return null;
+  return layout.order.includes(id) ? id : null;
+}
+
+/** Expand `paneId` over siblings, or pass null to restore the split. */
+export function setLayoutFullscreenPane(
+  layout: CenterPaneLayout,
+  paneId: string | null,
+): CenterPaneLayout {
+  const next = resolvedCenterFullscreenPaneId({
+    ...layout,
+    fullscreenPaneId: paneId,
+  });
+  const current = layout.fullscreenPaneId ?? null;
+  if (current === next) return layout;
+  return { ...layout, fullscreenPaneId: next };
 }
 
 export function getPane(layout: CenterPaneLayout, paneId: string): CenterPane | undefined {
@@ -715,6 +748,7 @@ export function centerPaneLayoutsEqual(a: CenterPaneLayout, b: CenterPaneLayout)
   if (
     a.focusedPaneId !== b.focusedPaneId ||
     a.columnCount !== b.columnCount ||
+    (a.fullscreenPaneId ?? null) !== (b.fullscreenPaneId ?? null) ||
     Boolean(a.tabStripCanonical) !== Boolean(b.tabStripCanonical) ||
     !sameStringList(a.order, b.order) ||
     !centerPaneTreesEqual(
