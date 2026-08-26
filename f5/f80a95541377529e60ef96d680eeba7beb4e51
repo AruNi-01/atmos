@@ -1,0 +1,44 @@
+apps/web/messages/en.json
+  h_5be255725524c8 461-464,1271,1727-1738
+apps/web/messages/zh.json
+  h_5be255725524c8 461-464,1271,1727-1738
+apps/web/src/app-shell/LeftSidebar.tsx
+  h_5be255725524c8 146-149,1214
+apps/web/src/app-shell/LeftSidebarPinnedSection.tsx
+  h_5be255725524c8 20,22,27,129-130,132-133,138
+apps/web/src/app-shell/left-sidebar-controls.tsx
+  h_5be255725524c8 45,47,376,379,422,539,674,677,731
+apps/web/src/app-shell/sidebar/GroupedProjectRow.tsx
+  h_5be255725524c8 1-380
+apps/web/src/app-shell/sidebar/WorkspaceKanbanFilterMenu.tsx
+  h_5be255725524c8 44-50,114-158
+apps/web/src/app-shell/sidebar/WorkspaceKanbanView.tsx
+  h_5be255725524c8 693-694,803-804
+apps/web/src/app-shell/sidebar/kanban-columns.test.ts
+  h_5be255725524c8 8-9,73-157
+apps/web/src/app-shell/sidebar/kanban-columns.ts
+  h_5be255725524c8 21,29-30,183,190-203,266-277,334-335,342-344,355-359
+apps/web/src/app-shell/sidebar/workspace-grouping.test.ts
+  h_5be255725524c8 4,6-7,9,11-12,20,66,74-95,149-268
+apps/web/src/app-shell/sidebar/workspace-grouping.ts
+  h_5be255725524c8 11-17,24,30,37-46,50,54-63,67,98,107-124,162-219,221-222,224,251,258,275-281,288-324,326,337,339,353,356-357,359,362-365,367-375,379,381-382,384,413,416-417,423-424,427-430,432,449
+apps/web/src/app-shell/sidebar/workspace-metadata-controls.tsx
+  h_5be255725524c8 64-74,135-137
+apps/web/src/app-shell/sidebar/workspace-status.tsx
+  h_5be255725524c8 123-134,141-144,266-284
+apps/web/src/app-shell/use-left-sidebar-workspace-derived.ts
+  h_5be255725524c8 12,19,21,23,27,114-117,120-136,158-190,192-209
+apps/web/src/app-shell/use-left-sidebar-workspace-renderers.tsx
+  h_5be255725524c8 5,10-15,24,57-72,79,156,158-163,197,216,218-223,253-254
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "f5f80a95541377529e60ef96d680eeba7beb4e51",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
