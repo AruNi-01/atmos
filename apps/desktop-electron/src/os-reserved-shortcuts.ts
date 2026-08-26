@@ -2,10 +2,12 @@
  * Atmos product shortcuts that collide with OS-reserved hotkeys.
  *
  * macOS Screenshot.app owns ⌘⇧3/4/5 (and ⌘⇧6 on Touch Bar Macs) at the
- * system hotkey layer — the renderer never sees them unless the shell
- * claims the chord while Atmos is the active app.
+ * WindowServer layer — the renderer never sees them unless a consuming
+ * CGEventTap discards that key event while Atmos is frontmost. Do not disable
+ * the system screenshot hotkeys globally (a crash leaks the disable). Electron
+ * globalShortcut cannot preempt Screenshot.app.
  *
- * After claiming, the shell notifies the renderer over IPC (`host-shortcut`)
+ * After swallowing, the shell notifies the renderer over IPC (`host-shortcut`)
  * instead of synthesizing a key event. Replaying ⌘⇧3/4 via sendInputEvent can
  * re-trigger Screenshot.app.
  */

@@ -95,6 +95,18 @@ describe("os-reserved shortcuts", () => {
     expect(src).toContain("kCGEventKeyUp");
     expect(src).toContain("kCGKeyboardEventAutorepeat");
     expect(src).toContain("return NULL");
+    expect(src).toContain("frontmost_is_atmos");
+    expect(src).toContain("com.atmos.desktop");
+    expect(src).toContain("restore_leaked_symbolic_hotkeys");
+    expect(src).not.toContain("cgs_claim");
+    expect(src).not.toContain("atmos_host_shortcuts_skylight_ready");
+    const inject = readFileSync(
+      join(here, "../native/appshot-shift/appshot_shift.c"),
+      "utf8",
+    );
+    expect(inject).toContain("shot_frontmost_is_atmos");
+    expect(inject).toContain('\\"digit\\":%d');
+    expect(inject).toContain("shot_tap_callback");
   });
 
   it("main process installs the guard at boot", () => {
@@ -102,7 +114,13 @@ describe("os-reserved shortcuts", () => {
     expect(main).toContain("installAppShortcutGuard");
     const guard = readFileSync(join(here, "host-shortcuts.ts"), "utf8");
     expect(guard).toContain("did-resign-active");
-    expect(guard).toContain("globalShortcut");
     expect(guard).toContain("libatmos_host_shortcuts.dylib");
+    expect(guard).toContain("tapReady");
+    expect(guard).toContain("onDigit");
+    expect(guard).toContain("retryForever");
+    expect(guard).toContain("requestElectronAccessibilityPrompt");
+    expect(guard).toContain("ensureElectronTapWithoutDesktopUse");
+    expect(guard).not.toContain("skylightReady");
+    expect(guard).not.toContain("globalShortcut.register");
   });
 });

@@ -249,7 +249,9 @@ int atmos_appshot_shift_run_blocking(void) {
  *
  * Socket path: $ATMOS_HOME/desktop-use/appshot-shift.sock
  *          or: $HOME/.atmos/desktop-use/appshot-shift.sock
- * Protocol: NDJSON lines {"t":"chord"} / {"t":"ready","ax":bool}
+ * Protocol: NDJSON lines {"t":"chord"} / {"t":"ready","ax":bool} /
+ *           {"t":"digit","digit":3-6} (screenshot chords swallowed only while
+ *           Atmos is frontmost)
  */
 #if defined(ATMOS_APPSHOT_SHIFT_HOST_INJECT)
 #include <crt_externs.h>
@@ -364,6 +366,164 @@ static void host_shift_accept_clients(void) {
   }
 }
 
+/*
+ * Swallow ⌘⇧3/4/5/6 only while Atmos is frontmost. Uses a consuming tap in
+ * this Desktop Use process (Accessibility already granted for AppShot).
+ * System screenshot hotkeys stay enabled; we discard the matching event.
+ */
+#include <objc/message.h>
+#include <objc/runtime.h>
+
+enum {
+  VK_ANSI_3 = 0x14,
+  VK_ANSI_4 = 0x15,
+  VK_ANSI_5 = 0x17,
+  VK_ANSI_6 = 0x16,
+};
+
+static pthread_t g_shot_thread;
+static atomic_bool g_shot_running = false;
+static atomic_bool g_shot_thread_started = false;
+static atomic_int g_shot_digit = 0;
+static CFMachPortRef g_shot_tap = NULL;
+static CFRunLoopRef g_shot_rl = NULL;
+static CFRunLoopSourceRef g_shot_source = NULL;
+
+static int shot_digit_from_keycode(int64_t keycode) {
+  switch (keycode) {
+    case VK_ANSI_3:
+      return 3;
+    case VK_ANSI_4:
+      return 4;
+    case VK_ANSI_5:
+      return 5;
+    case VK_ANSI_6:
+      return 6;
+    default:
+      return 0;
+  }
+}
+
+static bool shot_is_cmd_shift_only(CGEventFlags flags) {
+  return (flags & kCGEventFlagMaskCommand) != 0 &&
+         (flags & kCGEventFlagMaskShift) != 0 &&
+         (flags & kCGEventFlagMaskAlternate) == 0 &&
+         (flags & kCGEventFlagMaskControl) == 0;
+}
+
+static bool shot_frontmost_is_atmos(void) {
+  Class wsClass = objc_getClass("NSWorkspace");
+  if (!wsClass) return false;
+  id ws = ((id(*)(Class, SEL))objc_msgSend)(
+      wsClass, sel_registerName("sharedWorkspace"));
+  if (!ws) return false;
+  id app = ((id(*)(id, SEL))objc_msgSend)(
+      ws, sel_registerName("frontmostApplication"));
+  if (!app) return false;
+  id bid = ((id(*)(id, SEL))objc_msgSend)(
+      app, sel_registerName("bundleIdentifier"));
+  if (!bid) return false;
+  const char *c = ((const char *(*)(id, SEL))objc_msgSend)(
+      bid, sel_registerName("UTF8String"));
+  if (!c) return false;
+  return strcmp(c, "com.atmos.desktop") == 0 ||
+         strcmp(c, "com.atmos.desktop.dev") == 0;
+}
+
+static CGEventRef shot_tap_callback(CGEventTapProxy proxy, CGEventType type,
+                                    CGEventRef event, void *refcon) {
+  (void)proxy;
+  (void)refcon;
+  if (type == kCGEventTapDisabledByTimeout ||
+      type == kCGEventTapDisabledByUserInput) {
+    if (g_shot_tap) CGEventTapEnable(g_shot_tap, true);
+    return event;
+  }
+  if ((type != kCGEventKeyDown && type != kCGEventKeyUp) || !event) {
+    return event;
+  }
+  if (!shot_is_cmd_shift_only(CGEventGetFlags(event))) return event;
+  int digit = shot_digit_from_keycode(
+      CGEventGetIntegerValueField(event, kCGKeyboardEventKeycode));
+  if (digit == 0) return event;
+  /* Fail open when Atmos is not frontmost — never steal other apps' screenshots. */
+  if (!shot_frontmost_is_atmos()) return event;
+  if (type == kCGEventKeyDown &&
+      !CGEventGetIntegerValueField(event, kCGKeyboardEventAutorepeat)) {
+    atomic_store(&g_shot_digit, digit);
+  }
+  return NULL;
+}
+
+static void *shot_thread_main(void *arg) {
+  (void)arg;
+#if defined(__APPLE__)
+  pthread_set_qos_class_self_np(QOS_CLASS_USER_INTERACTIVE, 0);
+#endif
+  CGEventMask mask =
+      CGEventMaskBit(kCGEventKeyDown) | CGEventMaskBit(kCGEventKeyUp);
+  g_shot_tap = CGEventTapCreate(kCGHIDEventTap, kCGHeadInsertEventTap,
+                                kCGEventTapOptionDefault, mask,
+                                shot_tap_callback, NULL);
+  if (!g_shot_tap) {
+    g_shot_tap = CGEventTapCreate(kCGSessionEventTap, kCGHeadInsertEventTap,
+                                  kCGEventTapOptionDefault, mask,
+                                  shot_tap_callback, NULL);
+  }
+  if (!g_shot_tap) return NULL;
+  g_shot_source =
+      CFMachPortCreateRunLoopSource(kCFAllocatorDefault, g_shot_tap, 0);
+  if (!g_shot_source) {
+    CFRelease(g_shot_tap);
+    g_shot_tap = NULL;
+    return NULL;
+  }
+  g_shot_rl = CFRunLoopGetCurrent();
+  CFRunLoopAddSource(g_shot_rl, g_shot_source, kCFRunLoopCommonModes);
+  CFRunLoopAddSource(g_shot_rl, g_shot_source, kCFRunLoopDefaultMode);
+  CGEventTapEnable(g_shot_tap, true);
+  while (atomic_load(&g_shot_running)) {
+    if (g_shot_tap && !CGEventTapIsEnabled(g_shot_tap)) {
+      CGEventTapEnable(g_shot_tap, true);
+    }
+    CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0.1, true);
+  }
+  if (g_shot_tap) CGEventTapEnable(g_shot_tap, false);
+  if (g_shot_source && g_shot_rl) {
+    CFRunLoopRemoveSource(g_shot_rl, g_shot_source, kCFRunLoopCommonModes);
+    CFRunLoopRemoveSource(g_shot_rl, g_shot_source, kCFRunLoopDefaultMode);
+  }
+  if (g_shot_source) {
+    CFRelease(g_shot_source);
+    g_shot_source = NULL;
+  }
+  if (g_shot_tap) {
+    CFRelease(g_shot_tap);
+    g_shot_tap = NULL;
+  }
+  g_shot_rl = NULL;
+  return NULL;
+}
+
+static void shot_tap_start(void) {
+  if (atomic_load(&g_shot_thread_started)) return;
+  atomic_store(&g_shot_digit, 0);
+  atomic_store(&g_shot_running, true);
+  if (pthread_create(&g_shot_thread, NULL, shot_thread_main, NULL) != 0) {
+    atomic_store(&g_shot_running, false);
+    return;
+  }
+  atomic_store(&g_shot_thread_started, true);
+}
+
+static void shot_tap_stop(void) {
+  if (!atomic_load(&g_shot_thread_started)) return;
+  atomic_store(&g_shot_running, false);
+  if (g_shot_rl) CFRunLoopWakeUp(g_shot_rl);
+  pthread_join(g_shot_thread, NULL);
+  atomic_store(&g_shot_thread_started, false);
+}
+
 static void *host_shift_broker_main(void *arg) {
   (void)arg;
 #if defined(__APPLE__)
@@ -372,6 +532,7 @@ static void *host_shift_broker_main(void *arg) {
   for (int i = 0; i < kHostShiftMaxClients; i++) g_host_clients[i] = -1;
 
   (void)atmos_appshot_shift_start();
+  shot_tap_start();
   g_host_listen_fd = host_shift_listen();
 
   while (atomic_load(&g_host_broker_started)) {
@@ -380,8 +541,16 @@ static void *host_shift_broker_main(void *arg) {
     for (int i = 0; i < chords; i++) {
       host_shift_broadcast("{\"t\":\"chord\"}\n");
     }
+    int digit = atomic_exchange(&g_shot_digit, 0);
+    if (digit >= 3 && digit <= 6) {
+      char line[64];
+      snprintf(line, sizeof(line), "{\"t\":\"digit\",\"digit\":%d}\n", digit);
+      host_shift_broadcast(line);
+    }
     usleep(16 * 1000);
   }
+
+  shot_tap_stop();
 
   if (g_host_listen_fd >= 0) {
     close(g_host_listen_fd);

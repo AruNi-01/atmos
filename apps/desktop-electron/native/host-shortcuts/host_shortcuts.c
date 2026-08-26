@@ -1,24 +1,30 @@
 /*
- * Swallow macOS-reserved chords (⌘⇧3/4/5/6 screenshots) while Atmos is active,
- * then surface the digit to JS so product shortcuts can run instead.
+ * Swallow macOS screenshot chords (⌘⇧3/4/5/6) only for the key events that
+ * happen while Atmos is frontmost. Returning NULL from a consuming CGEventTap
+ * discards that event so Screenshot.app never sees it. System screenshot
+ * hotkeys stay enabled — we do not toggle WindowServer symbolic hotkeys.
  *
- * CGEventTap must NOT be listen-only — returning NULL consumes the event
- * before Screenshot.app's hotkey. Dedicated CFRunLoop thread; JS polls
- * atmos_host_shortcuts_take_digit() (no koffi callbacks from the CF thread).
+ * Needs Accessibility on this process. Desktop Use inject is the usual path
+ * (Atmos Electron often has no AX). JS polls atmos_host_shortcuts_take_digit().
  */
 #include <ApplicationServices/ApplicationServices.h>
 #include <CoreFoundation/CoreFoundation.h>
+#include <dlfcn.h>
+#include <objc/message.h>
+#include <objc/runtime.h>
 #include <pthread.h>
 #include <stdatomic.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 
 #if defined(__APPLE__)
 #include <pthread/qos.h>
 #endif
 
-/* HIToolbox ANSI digit keycodes. */
 enum {
   VK_ANSI_3 = 0x14,
   VK_ANSI_4 = 0x15,
@@ -30,8 +36,8 @@ static pthread_t g_thread;
 static atomic_bool g_running = false;
 static atomic_bool g_thread_started = false;
 static atomic_bool g_enabled = false;
-static atomic_int g_pending_digit = 0; /* 0 empty, else 3-6 */
-static atomic_int g_status = 0;        /* 0 idle, 1 starting, 2 ready, 3 failed */
+static atomic_int g_pending_digit = 0;
+static atomic_int g_status = 0; /* 0 idle, 1 starting, 2 ready, 3 failed */
 static CFMachPortRef g_tap = NULL;
 static CFRunLoopRef g_rl = NULL;
 static CFRunLoopSourceRef g_source = NULL;
@@ -59,6 +65,30 @@ static bool is_cmd_shift_only(CGEventFlags flags) {
   return cmd && shift && !alt && !ctrl;
 }
 
+static bool bundle_id_is_atmos(const char *bid) {
+  if (!bid) return false;
+  return strcmp(bid, "com.atmos.desktop") == 0 ||
+         strcmp(bid, "com.atmos.desktop.dev") == 0;
+}
+
+/* Fail open: if we cannot read the frontmost app, do not swallow. */
+static bool frontmost_is_atmos(void) {
+  Class wsClass = objc_getClass("NSWorkspace");
+  if (!wsClass) return false;
+  id ws = ((id(*)(Class, SEL))objc_msgSend)(
+      wsClass, sel_registerName("sharedWorkspace"));
+  if (!ws) return false;
+  id app = ((id(*)(id, SEL))objc_msgSend)(
+      ws, sel_registerName("frontmostApplication"));
+  if (!app) return false;
+  id bid = ((id(*)(id, SEL))objc_msgSend)(
+      app, sel_registerName("bundleIdentifier"));
+  if (!bid) return false;
+  const char *c = ((const char *(*)(id, SEL))objc_msgSend)(
+      bid, sel_registerName("UTF8String"));
+  return bundle_id_is_atmos(c);
+}
+
 static CGEventRef tap_callback(CGEventTapProxy proxy, CGEventType type,
                                CGEventRef event, void *refcon) {
   (void)proxy;
@@ -77,8 +107,8 @@ static CGEventRef tap_callback(CGEventTapProxy proxy, CGEventType type,
   int digit = digit_from_keycode(
       CGEventGetIntegerValueField(event, kCGKeyboardEventKeycode));
   if (digit == 0) return event;
+  if (!frontmost_is_atmos()) return event;
 
-  /* Swallow keyUp too so Screenshot.app does not start on release. */
   if (type == kCGEventKeyDown &&
       !CGEventGetIntegerValueField(event, kCGKeyboardEventAutorepeat)) {
     atomic_store(&g_pending_digit, digit);
@@ -95,7 +125,6 @@ static void *thread_main(void *arg) {
 
   CGEventMask mask =
       CGEventMaskBit(kCGEventKeyDown) | CGEventMaskBit(kCGEventKeyUp);
-  /* Default options (not listen-only) so returning NULL can consume the chord. */
   g_tap = CGEventTapCreate(kCGHIDEventTap, kCGHeadInsertEventTap,
                            kCGEventTapOptionDefault, mask, tap_callback, NULL);
   if (!g_tap) {
@@ -149,9 +178,47 @@ static void *thread_main(void *arg) {
   return NULL;
 }
 
+/* Previous builds toggled WindowServer screenshot hotkeys and could leak that
+ * disable across a crash. Restore once from the sentinel, then never write it. */
+static void restore_leaked_symbolic_hotkeys(void) {
+  char path[512];
+  const char *atmos = getenv("ATMOS_HOME");
+  if (atmos && atmos[0]) {
+    snprintf(path, sizeof(path), "%s/state/host-shortcuts-symhotkeys", atmos);
+  } else {
+    const char *home = getenv("HOME");
+    if (home && home[0]) {
+      snprintf(path, sizeof(path), "%s/.atmos/state/host-shortcuts-symhotkeys",
+               home);
+    } else {
+      snprintf(path, sizeof(path), "/tmp/atmos-host-shortcuts-symhotkeys");
+    }
+  }
+  FILE *f = fopen(path, "r");
+  if (!f) return;
+  void *handle =
+      dlopen("/System/Library/PrivateFrameworks/SkyLight.framework/SkyLight",
+             RTLD_LAZY);
+  typedef int (*set_fn)(int, bool);
+  set_fn set = handle ? (set_fn)dlsym(handle, "CGSSetSymbolicHotKeyEnabled")
+                      : NULL;
+  int key = 0;
+  int enabled = 0;
+  while (fscanf(f, "%d %d", &key, &enabled) == 2) {
+    if (set) set(key, enabled != 0);
+  }
+  fclose(f);
+  unlink(path);
+}
+
 int atmos_host_shortcuts_start(void) {
+  restore_leaked_symbolic_hotkeys();
   if (atomic_load(&g_thread_started) || atomic_load(&g_running)) {
     return atomic_load(&g_status) == 2 ? 0 : -1;
+  }
+  if (!AXIsProcessTrusted()) {
+    atomic_store(&g_status, 3);
+    return -3;
   }
   atomic_store(&g_pending_digit, 0);
   atomic_store(&g_running, true);
@@ -166,6 +233,7 @@ int atmos_host_shortcuts_start(void) {
     int st = atomic_load(&g_status);
     if (st == 2) return 0;
     if (st == 3) {
+      pthread_join(g_thread, NULL);
       atomic_store(&g_thread_started, false);
       return -3;
     }
@@ -175,8 +243,11 @@ int atmos_host_shortcuts_start(void) {
 }
 
 void atmos_host_shortcuts_stop(void) {
-  if (!atomic_load(&g_thread_started)) return;
   atomic_store(&g_enabled, false);
+  if (!atomic_load(&g_thread_started)) {
+    atomic_store(&g_status, 0);
+    return;
+  }
   atomic_store(&g_running, false);
   if (g_rl) CFRunLoopWakeUp(g_rl);
   pthread_join(g_thread, NULL);
@@ -198,4 +269,8 @@ int atmos_host_shortcuts_status(void) {
 
 int atmos_host_shortcuts_ax_trusted(void) {
   return AXIsProcessTrusted() ? 1 : 0;
+}
+
+int atmos_host_shortcuts_tap_ready(void) {
+  return (g_tap != NULL && atomic_load(&g_status) == 2) ? 1 : 0;
 }

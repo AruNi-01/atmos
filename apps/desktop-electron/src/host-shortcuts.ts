@@ -1,11 +1,17 @@
 /**
- * While Atmos is the active app, claim OS-reserved chords (macOS screenshots
- * ⌘⇧3/4/5/6) so product shortcuts win, then notify the focused renderer over
- * IPC. Do not synthesize the key — sendInputEvent can re-trigger Screenshot.app.
+ * While Atmos is frontmost, swallow macOS screenshot chords (⌘⇧3/4/5/6) for
+ * that key event only so product shortcuts win. Do not disable system
+ * screenshot hotkeys globally — a crash would leak that disable.
  *
- * Primary: in-process CGEventTap (needs Accessibility, same as AppShot).
- * Fallback: Electron globalShortcut if the tap cannot start.
+ * Desktop Use is not required. A consuming CGEventTap needs Accessibility on
+ * the process that installs it:
+ *   - Atmos (Electron) tap when this app is trusted
+ *   - Desktop Use inject tap when that host is already installed (same AX
+ *     grant AppShot uses) — optional, not a download gate
  * Guest webviews: before-input-event forwards ⌘/⌘⇧ digits into the host page.
+ *
+ * Do not synthesize the key with sendInputEvent — that can re-trigger
+ * Screenshot.app. Electron globalShortcut cannot preempt Screenshot.app.
  */
 
 import { createRequire } from "node:module";
@@ -31,13 +37,16 @@ type HostShortcutNative = {
   stop: () => void;
   setEnabled: (enabled: number) => void;
   takeDigit: () => number;
+  tapReady: () => number;
 };
 
 let installed = false;
 let native: HostShortcutNative | null = null;
 let nativePoll: ReturnType<typeof setInterval> | null = null;
-let globalClaimed = false;
 let enabled = false;
+let tornDown = false;
+let injectListenStop: (() => void) | null = null;
+let electronAxPrompted = false;
 
 function getElectronApi(): ElectronApi | null {
   if (typeof process.versions.electron !== "string") return null;
@@ -91,11 +100,13 @@ function loadNative(): HostShortcutNative | null {
     const takeDigit = lib.func("atmos_host_shortcuts_take_digit", "int", []) as () => number;
     const status = lib.func("atmos_host_shortcuts_status", "int", []) as () => number;
     const axTrusted = lib.func("atmos_host_shortcuts_ax_trusted", "int", []) as () => number;
+    const tapReady = lib.func("atmos_host_shortcuts_tap_ready", "int", []) as () => number;
     const rc = start();
     const ax = axTrusted();
-    if (status() !== 2) {
+    const tap = tapReady();
+    if (status() !== 2 && !tap) {
       mainLog(
-        `[host-shortcuts] native start failed rc=${rc} status=${status()} ax=${ax}`,
+        `[host-shortcuts] electron tap unavailable rc=${rc} status=${status()} ax=${ax}`,
         "warn",
       );
       try {
@@ -105,8 +116,8 @@ function loadNative(): HostShortcutNative | null {
       }
       return null;
     }
-    mainLog(`[host-shortcuts] native tap ready dylib=${dylib} ax=${ax}`);
-    return { stop, setEnabled, takeDigit };
+    mainLog(`[host-shortcuts] electron tap ready dylib=${dylib} ax=${ax}`);
+    return { stop, setEnabled, takeDigit, tapReady };
   } catch (error) {
     mainLog(
       `[host-shortcuts] native load failed: ${error instanceof Error ? error.message : String(error)}`,
@@ -153,52 +164,18 @@ function installGuestDigitShortcutForward(contents: WebContents): void {
   });
 }
 
-function registerGlobalFallback(api: ElectronApi): void {
-  if (globalClaimed) return;
-  let any = false;
-  for (const chord of osReservedShortcutChords()) {
-    try {
-      const ok = api.globalShortcut.register(chord.accelerator, () => {
-        emitDigitToFocusedWindow(api, chord.digit);
-      });
-      if (ok) any = true;
-      else {
-        mainLog(
-          `[host-shortcuts] globalShortcut refused ${chord.accelerator}`,
-          "warn",
-        );
-      }
-    } catch (error) {
-      mainLog(
-        `[host-shortcuts] globalShortcut ${chord.accelerator}: ${error instanceof Error ? error.message : String(error)}`,
-        "warn",
-      );
-    }
+function tapIsReady(): boolean {
+  try {
+    return native?.tapReady() === 1;
+  } catch {
+    return false;
   }
-  globalClaimed = any;
-}
-
-function unregisterGlobalFallback(api: ElectronApi): void {
-  if (!globalClaimed) return;
-  for (const chord of osReservedShortcutChords()) {
-    try {
-      api.globalShortcut.unregister(chord.accelerator);
-    } catch {
-      /* ignore */
-    }
-  }
-  globalClaimed = false;
 }
 
 function setClaimEnabled(api: ElectronApi, next: boolean): void {
   native?.setEnabled(next ? 1 : 0);
   if (enabled === next) return;
   enabled = next;
-  if (next) {
-    if (!native) registerGlobalFallback(api);
-  } else {
-    unregisterGlobalFallback(api);
-  }
 }
 
 function drainNative(api: ElectronApi): void {
@@ -211,10 +188,83 @@ function drainNative(api: ElectronApi): void {
 }
 
 function atmosIsActive(api: ElectronApi): boolean {
-  if (api.BrowserWindow.getFocusedWindow()) return true;
-  return api.BrowserWindow.getAllWindows().some(
-    (win) => !win.isDestroyed() && win.isVisible() && !win.isMinimized(),
-  );
+  return Boolean(api.BrowserWindow.getFocusedWindow());
+}
+
+function ensureElectronTap(api: ElectronApi): void {
+  if (tapIsReady() || tornDown) return;
+  const next = loadNative();
+  if (!next) return;
+  native = next;
+  native.setEnabled(enabled ? 1 : 0);
+  if (!nativePoll) {
+    nativePoll = setInterval(() => drainNative(api), 20);
+    nativePoll.unref?.();
+  }
+}
+
+async function desktopUseHostInstalled(): Promise<boolean> {
+  try {
+    const { desktopUseStatus } = await import("./desktop-use/client.js");
+    const st = await desktopUseStatus();
+    return st?.driver?.installed === true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * No Desktop Use: the Electron process must be Accessibility-trusted so its
+ * own tap can discard ⌘⇧3-6. Prompt once; retry when the user returns.
+ */
+async function ensureElectronTapWithoutDesktopUse(api: ElectronApi): Promise<void> {
+  if (tornDown) return;
+  ensureElectronTap(api);
+  if (tapIsReady() || tornDown) return;
+  if (electronAxPrompted) return;
+  if (await desktopUseHostInstalled()) return;
+  electronAxPrompted = true;
+  try {
+    const { requestElectronAccessibilityPrompt } = await import(
+      "./appshot/service.js"
+    );
+    const granted = await requestElectronAccessibilityPrompt();
+    mainLog(
+      `[host-shortcuts] electron accessibility prompt granted=${granted ? 1 : 0}`,
+    );
+  } catch (error) {
+    mainLog(
+      `[host-shortcuts] electron accessibility prompt failed: ${error instanceof Error ? error.message : String(error)}`,
+      "warn",
+    );
+  }
+  if (tornDown) return;
+  ensureElectronTap(api);
+}
+
+function startInjectDigitListener(api: ElectronApi): void {
+  void import("./appshot/host-shift.js")
+    .then(async (mod) => {
+      if (tornDown) return;
+      const handle = await mod.startHostShiftSocketListener(() => {}, {
+        retryForever: true,
+        onDigit: (digit) => emitDigitToFocusedWindow(api, digit),
+      });
+      if (tornDown) {
+        handle?.stop();
+        return;
+      }
+      if (handle) {
+        injectListenStop = () => handle.stop();
+        mainLog("[host-shortcuts] listening for inject digit swallows");
+      }
+    })
+    .catch((error) => {
+      mainLog(
+        `[host-shortcuts] inject digit listener failed: ${error instanceof Error ? error.message : String(error)}`,
+        "warn",
+      );
+    });
 }
 
 /**
@@ -239,27 +289,44 @@ export function installAppShortcutGuard(): void {
   if (native) {
     nativePoll = setInterval(() => drainNative(api), 20);
     nativePoll.unref?.();
-  } else {
-    mainLog(
-      "[host-shortcuts] HID tap unavailable; ⌘⇧3-6 still fire macOS screenshots. Grant Accessibility to Atmos.",
-      "warn",
-    );
   }
+
+  startInjectDigitListener(api);
+  /* After the window is up: if Desktop Use is not installed, ask for Atmos
+   * Accessibility so the in-process tap can swallow screenshot chords. */
+  setTimeout(() => {
+    void ensureElectronTapWithoutDesktopUse(api);
+  }, 1500);
 
   const sync = () => setClaimEnabled(api, atmosIsActive(api));
 
-  api.app.on("browser-window-focus", () => setClaimEnabled(api, true));
+  api.app.on("browser-window-focus", () => {
+    ensureElectronTap(api);
+    setClaimEnabled(api, true);
+  });
   api.app.on("browser-window-blur", () => {
     setImmediate(() => {
       if (!api.BrowserWindow.getFocusedWindow()) setClaimEnabled(api, false);
     });
   });
   if (process.platform === "darwin") {
-    api.app.on("did-become-active", () => setClaimEnabled(api, true));
+    api.app.on("did-become-active", () => {
+      ensureElectronTap(api);
+      if (!tapIsReady()) void ensureElectronTapWithoutDesktopUse(api);
+      setClaimEnabled(api, true);
+    });
     api.app.on("did-resign-active", () => setClaimEnabled(api, false));
   }
-  api.app.on("will-quit", () => {
+  const teardown = () => {
+    if (tornDown) return;
+    tornDown = true;
     setClaimEnabled(api, false);
+    try {
+      injectListenStop?.();
+    } catch {
+      /* ignore */
+    }
+    injectListenStop = null;
     if (nativePoll) {
       clearInterval(nativePoll);
       nativePoll = null;
@@ -270,7 +337,10 @@ export function installAppShortcutGuard(): void {
       /* ignore */
     }
     native = null;
-  });
+  };
+
+  api.app.on("will-quit", teardown);
+  process.once("exit", teardown);
 
   sync();
 }

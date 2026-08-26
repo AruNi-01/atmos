@@ -93,6 +93,10 @@ function main(): void {
     "CoreFoundation",
     "-framework",
     "CoreGraphics",
+    "-framework",
+    "AppKit",
+    "-framework",
+    "Foundation",
     "-install_name",
     "@rpath/libatmos_host_shortcuts.dylib",
   ]);
@@ -111,6 +115,10 @@ function main(): void {
     "CoreFoundation",
     "-framework",
     "CoreGraphics",
+    "-framework",
+    "AppKit",
+    "-framework",
+    "Foundation",
     "-install_name",
     "@rpath/libatmos_appshot_shift_inject.dylib",
   ]);

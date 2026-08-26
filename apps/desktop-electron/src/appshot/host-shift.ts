@@ -5,7 +5,8 @@
  * serve process (DYLD_INSERT) so Accessibility for **Atmos Desktop Use** covers
  * both capture and the Left⇧+Right⇧ shortcut — no separate Atmos grant.
  *
- * Chord protocol: Unix socket NDJSON at ~/.atmos/desktop-use/appshot-shift.sock
+ * Socket protocol: Unix socket NDJSON at ~/.atmos/desktop-use/appshot-shift.sock
+ *   {"t":"chord"} / {"t":"ready","ax":bool} / {"t":"digit","digit":3-6}
  */
 
 import { copyFileSync, existsSync, mkdirSync, statSync } from "node:fs";
@@ -109,8 +110,11 @@ function resolveBundledInjectDylib(): string | null {
  * Copy packaged inject dylib into ~/.atmos/desktop-use/lib so host serve can
  * DYLD_INSERT it. Returns true when the install path exists after the call.
  */
-export function ensureHostShiftInjectInstalled(): boolean {
-  if (process.platform !== "darwin") return false;
+export function ensureHostShiftInjectInstalled(): {
+  installed: boolean;
+  replaced: boolean;
+} {
+  if (process.platform !== "darwin") return { installed: false, replaced: false };
   const dest = appshotShiftInjectInstallPath();
   const src = resolveBundledInjectDylib();
   if (!src) {
@@ -118,7 +122,7 @@ export function ensureHostShiftInjectInstalled(): boolean {
       "[appshot-host-shift] inject dylib missing from package resources",
       "warn",
     );
-    return existsSync(dest);
+    return { installed: existsSync(dest), replaced: false };
   }
   try {
     mkdirSync(dirname(dest), { recursive: true });
@@ -134,13 +138,13 @@ export function ensureHostShiftInjectInstalled(): boolean {
       copyFileSync(src, dest);
       mainLog(`[appshot-host-shift] installed inject → ${dest}`);
     }
-    return existsSync(dest);
+    return { installed: existsSync(dest), replaced: needCopy && existsSync(dest) };
   } catch (e) {
     mainLog(
       `[appshot-host-shift] install inject failed: ${e instanceof Error ? e.message : String(e)}`,
       "error",
     );
-    return existsSync(dest);
+    return { installed: existsSync(dest), replaced: false };
   }
 }
 
@@ -154,7 +158,11 @@ export function ensureHostShiftInjectInstalled(): boolean {
  */
 export function startHostShiftSocketListener(
   onChord: () => void,
-  options: { timeoutMs?: number } = {},
+  options: {
+    timeoutMs?: number;
+    onDigit?: (digit: number) => void;
+    retryForever?: boolean;
+  } = {},
 ): Promise<HostShiftHandle | null> {
   if (process.platform !== "darwin") return Promise.resolve(null);
   const sockPath = appshotShiftSocketPath();
@@ -209,7 +217,7 @@ export function startHostShiftSocketListener(
     const handleLine = (line: string) => {
       const trimmed = line.trim();
       if (!trimmed) return;
-      let msg: { t?: string; ax?: boolean; msg?: string };
+      let msg: { t?: string; ax?: boolean; msg?: string; digit?: number };
       try {
         msg = JSON.parse(trimmed) as typeof msg;
       } catch {
@@ -224,6 +232,20 @@ export function startHostShiftSocketListener(
             "error",
           );
         }
+      } else if (
+        msg.t === "digit" &&
+        typeof msg.digit === "number" &&
+        msg.digit >= 3 &&
+        msg.digit <= 6
+      ) {
+        try {
+          options.onDigit?.(msg.digit);
+        } catch (e) {
+          mainLog(
+            `[appshot-host-shift] onDigit error: ${e instanceof Error ? e.message : String(e)}`,
+            "error",
+          );
+        }
       } else if (msg.t === "error") {
         mainLog(`[appshot-host-shift] ${msg.msg ?? "error"}`, "error");
       }
@@ -233,7 +255,11 @@ export function startHostShiftSocketListener(
       if (stopped || connecting) return;
 
       // Initial-connect deadline only. Reconnect after success never times out.
-      if (!settled && Date.now() - started > timeoutMs) {
+      if (
+        !settled &&
+        !options.retryForever &&
+        Date.now() - started > timeoutMs
+      ) {
         mainLog(
           `[appshot-host-shift] socket not ready within ${timeoutMs}ms (${sockPath})`,
           "warn",
@@ -313,7 +339,7 @@ export function startHostShiftSocketListener(
  */
 export async function ensureHostShiftReady(): Promise<boolean> {
   if (process.platform !== "darwin") return false;
-  const installed = ensureHostShiftInjectInstalled();
+  const { installed, replaced } = ensureHostShiftInjectInstalled();
   if (!installed) return false;
 
   try {
@@ -325,11 +351,14 @@ export async function ensureHostShiftReady(): Promise<boolean> {
     // Existing serve (launched via open -a or without inject) has no socket.
     // Probe with a brief connect — a stale sock file after crash looks "present"
     // to existsSync but is not accept()ing.
+    // Also restart when we just replaced the inject dylib so the new tap loads.
     const sock = appshotShiftSocketPath();
     const live = await probeHostShiftSocket(sock, 400);
-    if (!live) {
+    if (!live || replaced) {
       mainLog(
-        "[appshot-host-shift] chord socket missing/stale — restarting host with inject",
+        replaced
+          ? "[appshot-host-shift] inject updated — restarting host with inject"
+          : "[appshot-host-shift] chord socket missing/stale — restarting host with inject",
       );
       try {
         await client.desktopUseDriverStop();
