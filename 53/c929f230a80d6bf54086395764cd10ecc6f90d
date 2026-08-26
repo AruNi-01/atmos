@@ -1,0 +1,42 @@
+apps/web/src/app-shell/CenterStage.tsx
+  h_5be255725524c8 224,2198-2203,2207-2209,2211-2212,2214-2215,2220,2232,2234,2240,2251,2255,2260
+apps/web/src/features/agent/lib/__tests__/agent-hook-navigation.test.ts
+  h_5be255725524c8 168,170-171,174-177
+apps/web/src/features/agent/lib/agent-hook-navigation.ts
+  h_5be255725524c8 7,11-16,87-95,97,121-124,142,148,150,153,156,159-161,166-217
+apps/web/src/features/canvas/AGENTS.md
+  h_5be255725524c8 29-64
+apps/web/src/features/canvas/__tests__/canvas-terminal-source.test.ts
+  h_5be255725524c8 1-175
+apps/web/src/features/canvas/components/CanvasTerminalCard.tsx
+  h_5be255725524c8 38,52-55,109-118,149-154,156,177,179-182,201-202,205,233,235,240,254-261,458,460,590-591,631,688
+apps/web/src/features/canvas/components/CanvasView.tsx
+  h_5be255725524c8 51-54,203,310,313,316-317,323,586-596,598-599,614-615,653,657,662,664,1039,1057,1095
+apps/web/src/features/canvas/components/CanvasWidgetCard.tsx
+  h_5be255725524c8 10,144-145
+apps/web/src/features/canvas/components/widgets/CanvasAgentStatusWidget.tsx
+  h_5be255725524c8 19,50-53
+apps/web/src/features/canvas/components/widgets/CanvasContextOverview.tsx
+  h_5be255725524c8 14-15,30-35,46,52,105,112
+apps/web/src/features/canvas/hooks/use-add-canvas-terminal.ts
+  h_5be255725524c8 28-30,33-34,54-55,58-59,131,133
+apps/web/src/features/canvas/hooks/use-create-related-canvas-terminal.ts
+  h_5be255725524c8 8-11,50,52-53,64-68,98-103
+apps/web/src/features/canvas/lib/canvas-terminal-copy.ts
+  h_5be255725524c8 2,51-60
+apps/web/src/features/canvas/lib/canvas-terminal-focus.ts
+  h_5be255725524c8 5,12,60-61,81-85
+apps/web/src/features/canvas/lib/canvas-terminal-source.ts
+  h_5be255725524c8 1-170
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "53c929f230a80d6bf54086395764cd10ecc6f90d",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
