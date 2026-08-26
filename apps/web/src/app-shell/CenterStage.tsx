@@ -45,7 +45,6 @@ import {
 import { WorkspaceSetupProgressView } from "@/features/workspace/components/WorkspaceSetupProgress";
 import { isWorkspaceSetupBlocking } from "@/features/workspace/lib/workspace-setup";
 import { activateCenterChromeTab } from "@/app-shell/center-stage-activate";
-import { dismissCenterTabInPane } from "@/app-shell/center-space/center-open-context";
 import { useOverviewCenterTabStore } from "@/app-shell/center-overview-tab";
 import {
   scheduleAfterPaint,
@@ -138,6 +137,7 @@ import {
   isEmptyPane,
   isFreshEmptyCenterLayout,
   isPrimaryPane,
+  layoutOwnsTab,
   MAX_CENTER_PANES,
   OVERVIEW_TAB_ID,
   resolvePaneTabStripOrder,
@@ -274,6 +274,18 @@ const EMPTY_TERMINAL_TABS: Array<{
   closable: boolean;
   customTitle?: string;
 }> = [];
+
+/** Drop the store entry only after the last pane that listed this tab is gone. */
+function closeSurfaceIfUnowned(
+  contextId: string,
+  tabId: string,
+  closeSurface: () => void,
+): void {
+  const layout = useCenterPaneLayoutStore.getState().getLayout(contextId);
+  if (!layout || !layoutOwnsTab(layout, tabId)) {
+    closeSurface();
+  }
+}
 
 const CenterStage: React.FC = () => {
   const t = useTranslations("appShell.centerStage");
@@ -858,7 +870,7 @@ const CenterStage: React.FC = () => {
   const activateNextAfterClosingRef = React.useRef<
     (
       closed: string | string[],
-      opts?: { paneId?: string; skipLayoutRemove?: boolean },
+      opts?: { paneId?: string },
     ) => void
   >(() => {});
 
@@ -868,12 +880,10 @@ const CenterStage: React.FC = () => {
     } else {
       const contextId = liveCenterContextId ?? effectiveContextId;
       if (contextId) {
-        const { stillOwned } = dismissCenterTabInPane(contextId, paneId, file.path);
-        if (!stillOwned) closeFile(file.path);
-        activateNextAfterClosingRef.current(file.path, {
-          paneId,
-          skipLayoutRemove: true,
-        });
+        // Remove from this pane with MRU next — do not snap to visual neighbor
+        // first. Shareable editor tabs may still live on a sibling pane.
+        activateNextAfterClosingRef.current(file.path, { paneId });
+        closeSurfaceIfUnowned(contextId, file.path, () => closeFile(file.path));
         return;
       }
       closeFile(file.path);
@@ -1122,7 +1132,7 @@ const CenterStage: React.FC = () => {
   const activateNextAfterClosing = React.useCallback(
     (
       closedValues: string | string[],
-      opts?: { paneId?: string; skipLayoutRemove?: boolean },
+      opts?: { paneId?: string },
     ) => {
       if (!effectiveContextId) return;
       const closedList = Array.isArray(closedValues) ? closedValues : [closedValues];
@@ -1131,21 +1141,18 @@ const CenterStage: React.FC = () => {
       const layoutBefore =
         useCenterPaneLayoutStore.getState().getLayout(effectiveContextId);
       const active = activeValueRef.current;
-      const skipLayoutRemove = Boolean(opts?.skipLayoutRemove);
 
       for (const value of closedList) {
         removeCenterTabFromActivationStack(effectiveContextId, value);
       }
 
-      const open = collectOpenCenterTabValues(skipLayoutRemove ? undefined : closedList);
+      const open = collectOpenCenterTabValues(closedList);
       const liveTerminalIds = useTerminalStore
         .getState()
         .getTerminalTabs(effectiveContextId)
         .map((tab) => tab.id);
       for (const id of liveTerminalIds) open.add(id);
-      if (!skipLayoutRemove) {
-        for (const value of closedList) open.delete(value);
-      }
+      for (const value of closedList) open.delete(value);
 
       const fallback = resolvePaneLocalCloseFallback({
         layoutBefore,
@@ -1156,22 +1163,18 @@ const CenterStage: React.FC = () => {
         fallbackTab: fallbackCenterTab,
       });
 
-      // Apply MRU to the owning pane before chrome navigates. removeTab used
-      // to snap activeTabId to tabIds[0] (Overview), and attach:false would
-      // leave mosaic chrome stuck there.
-      if (!skipLayoutRemove) {
-        const store = useCenterPaneLayoutStore.getState();
-        for (const value of closedList) {
-          if (opts?.paneId) {
-            store.removeTabFromPane(
-              effectiveContextId,
-              opts.paneId,
-              value,
-              fallback.nextTabId,
-            );
-          } else {
-            store.removeTab(effectiveContextId, value, fallback.nextTabId);
-          }
+      // Apply MRU to the owning pane before chrome navigates with attach:false.
+      const store = useCenterPaneLayoutStore.getState();
+      for (const value of closedList) {
+        if (opts?.paneId) {
+          store.removeTabFromPane(
+            effectiveContextId,
+            opts.paneId,
+            value,
+            fallback.nextTabId,
+          );
+        } else {
+          store.removeTab(effectiveContextId, value, fallback.nextTabId);
         }
       }
 
@@ -1312,32 +1315,18 @@ const CenterStage: React.FC = () => {
 
   const handleCloseSimulatorTab = React.useCallback((paneId?: string) => {
     if (!effectiveContextId) return;
-    const { stillOwned } = dismissCenterTabInPane(
-      effectiveContextId,
-      paneId,
-      SIMULATOR_TAB_VALUE,
-    );
-    if (!stillOwned) {
+    activateNextAfterClosing(SIMULATOR_TAB_VALUE, { paneId });
+    closeSurfaceIfUnowned(effectiveContextId, SIMULATOR_TAB_VALUE, () => {
       closeSimulatorTab(effectiveContextId);
       void simulatorApi.stop(effectiveContextId).catch(() => {});
-    }
-    activateNextAfterClosing(SIMULATOR_TAB_VALUE, {
-      paneId,
-      skipLayoutRemove: true,
     });
   }, [activateNextAfterClosing, closeSimulatorTab, effectiveContextId]);
 
   const handleCloseGitHistoryTab = React.useCallback((paneId?: string) => {
     if (!effectiveContextId) return;
-    const { stillOwned } = dismissCenterTabInPane(
-      effectiveContextId,
-      paneId,
-      GIT_HISTORY_TAB_VALUE,
-    );
-    if (!stillOwned) closeGitHistoryTab(effectiveContextId);
-    activateNextAfterClosing(GIT_HISTORY_TAB_VALUE, {
-      paneId,
-      skipLayoutRemove: true,
+    activateNextAfterClosing(GIT_HISTORY_TAB_VALUE, { paneId });
+    closeSurfaceIfUnowned(effectiveContextId, GIT_HISTORY_TAB_VALUE, () => {
+      closeGitHistoryTab(effectiveContextId);
     });
   }, [activateNextAfterClosing, closeGitHistoryTab, effectiveContextId]);
 
@@ -1357,9 +1346,10 @@ const CenterStage: React.FC = () => {
     paneId?: string,
   ) => {
     if (!effectiveContextId) return;
-    const { stillOwned } = dismissCenterTabInPane(effectiveContextId, paneId, tab);
-    if (!stillOwned) closeToolTab(effectiveContextId, tab);
-    activateNextAfterClosing(tab, { paneId, skipLayoutRemove: true });
+    activateNextAfterClosing(tab, { paneId });
+    closeSurfaceIfUnowned(effectiveContextId, tab, () => {
+      closeToolTab(effectiveContextId, tab);
+    });
   }, [activateNextAfterClosing, closeToolTab, effectiveContextId]);
 
   React.useEffect(() => {

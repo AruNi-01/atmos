@@ -259,6 +259,36 @@ describe("pane-local close fallback", () => {
     const after = removeTabFromLayout(layout, "b", fallback.nextTabId);
     expect(after.panes[0]!.activeTabId).toBe("a");
   });
+
+  it("returns to Files when closing an editor that was opened from Files", () => {
+    const layout = createDefaultLayout(["files", "/src/a.ts", "terminal"], "/src/a.ts");
+    const fallback = resolvePaneLocalCloseFallback({
+      layoutBefore: layout,
+      closedTabIds: ["/src/a.ts"],
+      activeTabId: "/src/a.ts",
+      openTabValues: new Set(["files", "terminal", "overview"]),
+      mruOrder: ["/src/a.ts", "files", "terminal"],
+      fallbackTab: "overview",
+    });
+    expect(fallback.nextTabId).toBe("files");
+    const after = removeTabFromLayout(layout, "/src/a.ts", fallback.nextTabId);
+    expect(after.panes[0]!.activeTabId).toBe("files");
+  });
+
+  it("returns to Files when closing the tab that was entered from Files", () => {
+    const layout = createDefaultLayout(["files", "changes", "terminal"], "changes");
+    const fallback = resolvePaneLocalCloseFallback({
+      layoutBefore: layout,
+      closedTabIds: ["changes"],
+      activeTabId: "changes",
+      openTabValues: new Set(["files", "terminal", "overview"]),
+      mruOrder: ["changes", "files", "terminal"],
+      fallbackTab: "overview",
+    });
+    expect(fallback.nextTabId).toBe("files");
+    const after = removeTabFromLayout(layout, "changes", fallback.nextTabId);
+    expect(after.panes[0]!.activeTabId).toBe("files");
+  });
 });
 
 describe("warm multi-pane active retention", () => {

@@ -48,7 +48,11 @@ describe("center pane tab isolation", () => {
     expect(stage).toContain("runOnThisPane(handleCreateTerminalCenterTab)");
     expect(stage).toContain('placement: "focused"');
     expect(stage).toContain("buildTabHostPaneIds");
-    expect(stage).toContain("dismissCenterTabInPane");
+    expect(stage).toContain("removeTabFromPane");
+    expect(stage).toContain("layoutOwnsTab");
+    expect(stage).toContain("closeSurfaceIfUnowned");
+    expect(stage).not.toContain("skipLayoutRemove");
+    expect(stage).not.toContain("dismissCenterTabInPane");
     expect(activate).toContain("placement: opts?.placement");
     expect(stage).toContain("appendTabToStripOrder(nextTab.id)");
     expect(stage).toContain("appendTabToStripOrder(tab.value)");

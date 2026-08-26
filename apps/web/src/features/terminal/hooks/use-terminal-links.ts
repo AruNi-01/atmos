@@ -3,7 +3,7 @@ import type { Terminal as XTerm } from "@xterm/xterm";
 import { toastManager } from "@workspace/ui";
 
 import { appApi } from "@/api/ws-api";
-import { attachCenterTab } from "@/app-shell/center-space/center-open-context";
+import { activateCenterChromeTab } from "@/app-shell/center-stage-activate";
 import { useEditorStore } from "@/features/editor/store/use-editor-store";
 import { useTerminalLinkSettingsStore } from "@/features/settings/store/terminal-link-settings-store";
 import { openDesktopExternalUrl } from "@/shared/lib/desktop-external-url";
@@ -156,7 +156,7 @@ export function useTerminalLinks({
         column: resolved.column,
       });
       if (targetContextId) {
-        attachCenterTab(targetContextId, resolved.path, { placement: "focused" });
+        activateCenterChromeTab(targetContextId, resolved.path, { placement: "focused" });
       }
     } catch (error) {
       reportTerminalLinkError(

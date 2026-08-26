@@ -17,7 +17,7 @@ import {
   CollapsibleTrigger,
 } from "@workspace/ui";
 import { cn } from "@/shared/lib/utils";
-import { attachCenterTab } from "@/app-shell/center-space/center-open-context";
+import { activateCenterChromeTab } from "@/app-shell/center-stage-activate";
 import { useEditorStore } from "@/features/editor/store/use-editor-store";
 import type { GitChangedFile } from "@/api/ws-api";
 import { buildDiffGroupPath, type DiffChangeGroupKind } from "@/features/diff/lib/diff-editor-paths";
@@ -371,7 +371,7 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
       diffFilePath: filePath,
     });
     if (editorContextId) {
-      attachCenterTab(editorContextId, groupPath, { placement: "focused" });
+      activateCenterChromeTab(editorContextId, groupPath, { placement: "focused" });
     }
     if (!preview) {
       pinFile(groupPath, editorContextId || undefined);

@@ -13,7 +13,7 @@ import { MessageSquarePlus, ChevronRight, LoaderCircle, List, ListTree } from "l
 import { cn } from "@/shared/lib/utils";
 import { useReviewCtx } from "@/features/diff/components/review/ReviewContextProvider";
 import { useReviewSnapshotStore } from "@/features/code-review/store/review-snapshot-store";
-import { attachCenterTab } from "@/app-shell/center-space/center-open-context";
+import { activateCenterChromeTab } from "@/app-shell/center-stage-activate";
 import { useCenterPaintContextId } from "@/app-shell/center-space/use-center-paint-context-id";
 import {
   useEditorStore,
@@ -176,7 +176,7 @@ const ReviewView: React.FC<ReviewViewProps> = ({
         reviewMessageGuid,
       });
       if (reviewEditorKey) {
-        attachCenterTab(reviewEditorKey, reviewGroupPath, { placement: "focused" });
+        activateCenterChromeTab(reviewEditorKey, reviewGroupPath, { placement: "focused" });
       }
       if (!preview) {
         pinFile(reviewGroupPath, reviewEditorKey ?? undefined);

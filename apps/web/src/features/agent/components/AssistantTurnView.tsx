@@ -13,7 +13,7 @@ import {
   TextMorph,
 } from "@workspace/ui";
 import { ChevronRight, FileText } from "lucide-react";
-import { attachCenterTab } from "@/app-shell/center-space/center-open-context";
+import { activateCenterChromeTab } from "@/app-shell/center-stage-activate";
 import { useCenterPaintContextId } from "@/app-shell/center-space/use-center-paint-context-id";
 import { useEditorStore } from "@/features/editor/store/use-editor-store";
 import { MarkdownCodeBlock } from "@/shared/components/markdown/MarkdownRenderer";
@@ -40,7 +40,7 @@ function useReviewLinkComponents() {
     const handleOpen = (path: string) => {
       if (!paintContextId) return;
       void openFile(path, paintContextId, { preview: true });
-      attachCenterTab(paintContextId, path, { placement: "focused" });
+      activateCenterChromeTab(paintContextId, path, { placement: "focused" });
     };
 
     const ReviewCode = (props: React.ComponentPropsWithoutRef<"code"> & { node?: unknown }) => {

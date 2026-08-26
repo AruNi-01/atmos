@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import {
   buildOpenCenterTabValues,
   getCenterTabActivationStack,
@@ -126,5 +128,25 @@ describe("center-stage-tab-activation-stack", () => {
       fixedAlwaysOpen: ["overview"],
     });
     expect(open.has("overview")).toBe(true);
+  });
+});
+
+describe("close returns to the tab that opened the closed tab", () => {
+  test("FileTree records chrome activation so closing the editor can return to Files", () => {
+    const tree = readFileSync(
+      join(import.meta.dir, "../../features/files/components/FileTree.tsx"),
+      "utf8",
+    );
+    expect(tree).toContain("activateCenterChromeTab");
+    expect(tree).not.toContain("attachCenterTab");
+  });
+
+  test("close handlers apply MRU to the pane instead of snapping to a visual neighbor first", () => {
+    const stage = readFileSync(join(import.meta.dir, "../CenterStage.tsx"), "utf8");
+    expect(stage).toContain("closeSurfaceIfUnowned");
+    expect(stage).toContain("fallback.nextTabId");
+    expect(stage).not.toContain("skipLayoutRemove");
+    expect(stage).toContain("activateNextAfterClosingRef.current(file.path, { paneId })");
+    expect(stage).toContain("activateNextAfterClosing(tab, { paneId })");
   });
 });

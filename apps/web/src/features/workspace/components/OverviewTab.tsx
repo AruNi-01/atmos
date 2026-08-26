@@ -57,7 +57,7 @@ import {
 import { formatLocalDateTime } from '@atmos/shared';
 import { MarkdownRenderer } from '@/shared/components/markdown/MarkdownRenderer';
 import { useWorkspaceContext, type TaskStatus } from '@/features/workspace/hooks/use-workspace-context';
-import { attachCenterTab } from "@/app-shell/center-space/center-open-context";
+import { activateCenterChromeTab } from "@/app-shell/center-stage-activate";
 import { useEditorStore } from '@/features/editor/store/use-editor-store';
 import { useProjectStore } from '@/features/project/store/use-project-store';
 import { useWorkspaceLabels } from '@/features/project/hooks/use-project-bootstrap-query';
@@ -684,7 +684,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                             <div
                               onClick={() => {
                                 void openFile(file.path, fileOpenContextId, { preview: true });
-                                attachCenterTab(fileOpenContextId, file.path, { placement: "focused" });
+                                activateCenterChromeTab(fileOpenContextId, file.path, { placement: "focused" });
                               }}
                               className="flex items-center gap-2.5 p-2 rounded-md bg-muted/20 hover:bg-muted/40 cursor-pointer group min-w-0"
                             >

@@ -21,7 +21,7 @@ import {
   type FileTreeMenuState,
   type PendingPanelState,
 } from '../lib/file-tree-utils';
-import { attachCenterTab } from "@/app-shell/center-space/center-open-context";
+import { activateCenterChromeTab } from "@/app-shell/center-stage-activate";
 import { FileTreeContextMenu } from './FileTreeContextMenu';
 import { FileTreeRow } from './FileTreeRow';
 
@@ -282,7 +282,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
         void onOpenFile(item.path, { preview: true });
       } else if (editorContextId) {
         void openFile(item.path, editorContextId, { preview: true });
-        attachCenterTab(editorContextId, item.path, { placement: "focused" });
+        activateCenterChromeTab(editorContextId, item.path, { placement: "focused" });
       }
     }
   }, [beforeOpenFile, editorContextId, onOpenFile, openFile]);
@@ -427,7 +427,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
         } else {
           await openFile(nextPath, editorContextId || undefined, { preview: false });
           if (editorContextId) {
-            attachCenterTab(editorContextId, nextPath, { placement: "focused" });
+            activateCenterChromeTab(editorContextId, nextPath, { placement: "focused" });
           }
         }
       } else if (panelState.mode === 'create-folder') {
