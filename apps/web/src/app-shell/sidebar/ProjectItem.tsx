@@ -697,14 +697,14 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
                     <ImageIcon className="size-4" />
                     <span>{t("projectItem.logo.setLogo")}</span>
                   </DropdownMenuItem>
-                  <DropdownMenuSeparator />
+                  <DropdownMenuSeparator className="mx-2" />
                   <DropdownMenuItem onClick={() => onConfigureScripts(project.id)} className="cursor-pointer">
                     <FileCode className="size-4" />
                     <span>{t("projectItem.workspaceScripts")}</span>
                   </DropdownMenuItem>
                   {(onAddProjectToGroup || onRemoveProjectFromGroup || onCreateGroup) ? (
                     <>
-                      <DropdownMenuSeparator />
+                      <DropdownMenuSeparator className="mx-2" />
                       <DropdownMenuSub>
                         <DropdownMenuSubTrigger className="cursor-pointer">
                           <FolderPlus className="size-4" />
@@ -723,7 +723,7 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
                           ))}
                           {onCreateGroup ? (
                             <>
-                              {groups.length > 0 ? <DropdownMenuSeparator /> : null}
+                              {groups.length > 0 ? <DropdownMenuSeparator className="mx-2" /> : null}
                               <DropdownMenuSub>
                                 <DropdownMenuSubTrigger className="cursor-pointer">
                                   <Plus className="size-4" />
@@ -762,7 +762,7 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
                       ) : null}
                     </>
                   ) : null}
-                  <DropdownMenuSeparator />
+                  <DropdownMenuSeparator className="mx-2" />
                   <DropdownMenuItem
                     variant="destructive"
                     className="cursor-pointer"
