@@ -231,12 +231,11 @@ function multiPanePanelStyleForPane(
     width: box.width,
     height: box.height,
     zIndex: 1,
-    // Multi-pane panels sit in a host sibling of the rounded pane card, so
-    // they are not clipped by the card. Round the bottom so square terminal
-    // canvas does not cover the pane's rounded-xl corners.
+    // Round the overlay so square canvases don't cover the pane card corners.
+    // Leave overflow to the panel class: inline `hidden` would override
+    // Overview's `overflow-auto`. Terminals clip via `.atmos-terminal-panel-*`.
     borderBottomLeftRadius: CENTER_STAGE_RADIUS_CSS,
     borderBottomRightRadius: CENTER_STAGE_RADIUS_CSS,
-    overflow: "hidden",
   };
 }
 

@@ -112,6 +112,24 @@ describe("center-stage chrome", () => {
     expect(frame).not.toMatch(/revealEnabled=\{\s*\n\s*isActiveContext &&/);
   });
 
+  test("overlay-hosted Overview can scroll past the fold", () => {
+    const frame = read("../workspace-center-frame.tsx");
+    const visibleBox = frame.slice(
+      frame.indexOf("width: box.width,"),
+      frame.indexOf("function hostPaneIdsForTab"),
+    );
+    expect(visibleBox).toContain("borderBottomLeftRadius");
+    expect(visibleBox).not.toMatch(/overflow:\s*"hidden"/);
+
+    const overview = read("../../features/workspace/components/OverviewTab.tsx");
+    const root = overview.match(
+      /return \(\s*<>\s*<div className="([^"]+)"/,
+    )?.[1];
+    expect(root).toContain("overflow-y-auto");
+    expect(root).toContain("min-h-0");
+    expect(root).toContain("flex-1");
+  });
+
   test("workspace and setup surfaces reuse the shared card class", () => {
     const stage = read("../CenterStage.tsx");
     expect(stage).toContain("CenterStageSurface");
