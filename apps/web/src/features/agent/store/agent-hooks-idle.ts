@@ -8,6 +8,58 @@ export type IdleDismissableSession = {
 
 export type AgentPaneState = "idle" | "running" | "permission_request";
 
+export type CollectSessionIdsForPaneOptions = {
+  /** Default true. Idle-only is used when focusing a pane to drop stale idle rows. */
+  idleOnly?: boolean;
+  /**
+   * Default true. Pane destroy should also drop side-chat sessions sourced
+   * from this pane. Title-based agent-exit cleanup should leave those alone.
+   */
+  includeSource?: boolean;
+};
+
+function sessionBelongsToPane(
+  mapKey: string,
+  session: IdleDismissableSession,
+  paneId: string,
+  includeSource: boolean,
+): boolean {
+  if (
+    mapKey === paneId ||
+    session.session_id === paneId ||
+    session.pane_id === paneId
+  ) {
+    return true;
+  }
+  return includeSource && session.source_pane_id === paneId;
+}
+
+/**
+ * Session map keys attributed to a stable pane id (`{context}:{tmuxWindowName}`).
+ * Matches map key / session_id / pane_id, and optionally source_pane_id.
+ */
+export function collectSessionIdsForPane(
+  sessions:
+    | ReadonlyMap<string, IdleDismissableSession>
+    | Iterable<[string, IdleDismissableSession]>,
+  stablePaneId: string,
+  options: CollectSessionIdsForPaneOptions = {},
+): string[] {
+  const paneId = stablePaneId?.trim();
+  if (!paneId) return [];
+  const idleOnly = options.idleOnly === true;
+  const includeSource = options.includeSource !== false;
+  const entries = sessions instanceof Map ? sessions.entries() : sessions;
+  const toRemove: string[] = [];
+  for (const [id, session] of entries) {
+    if (idleOnly && session.state !== "idle") continue;
+    if (sessionBelongsToPane(id, session, paneId, includeSource)) {
+      toRemove.push(id);
+    }
+  }
+  return toRemove;
+}
+
 /** Pure helper: idle session map keys that belong to a stable pane id. */
 export function collectIdleSessionIdsForPane(
   sessions:
@@ -15,22 +67,30 @@ export function collectIdleSessionIdsForPane(
     | Iterable<[string, IdleDismissableSession]>,
   stablePaneId: string,
 ): string[] {
+  return collectSessionIdsForPane(sessions, stablePaneId, {
+    idleOnly: true,
+    includeSource: true,
+  });
+}
+
+/** First session whose map key / session_id / pane_id matches a stable pane id. */
+export function findSessionForPaneId<T extends IdleDismissableSession>(
+  sessions: ReadonlyMap<string, T> | Iterable<[string, T]>,
+  stablePaneId: string,
+): T | undefined {
   const paneId = stablePaneId?.trim();
-  if (!paneId) return [];
+  if (!paneId) return undefined;
+  if (sessions instanceof Map) {
+    const direct = sessions.get(paneId);
+    if (direct) return direct;
+  }
   const entries = sessions instanceof Map ? sessions.entries() : sessions;
-  const toRemove: string[] = [];
   for (const [id, session] of entries) {
-    if (session.state !== "idle") continue;
-    if (
-      id === paneId ||
-      session.session_id === paneId ||
-      session.pane_id === paneId ||
-      session.source_pane_id === paneId
-    ) {
-      toRemove.push(id);
+    if (sessionBelongsToPane(id, session, paneId, false)) {
+      return session;
     }
   }
-  return toRemove;
+  return undefined;
 }
 
 /**

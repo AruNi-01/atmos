@@ -19,12 +19,15 @@ import {
 } from "@/features/agent/store/agent-attention-summary-store";
 import {
   collectIdleSessionIdsForPane,
+  collectSessionIdsForPane,
   resolveAgentStateForPaneId,
 } from "@/features/agent/store/agent-hooks-idle";
 import { useWorkspaceAgentGroupingHoldStore } from "@/features/agent/store/workspace-agent-grouping-hold";
 
 export {
   collectIdleSessionIdsForPane,
+  collectSessionIdsForPane,
+  findSessionForPaneId,
   resolveAgentStateForPaneId,
 } from "@/features/agent/store/agent-hooks-idle";
 
@@ -135,6 +138,11 @@ interface AgentHooksStore {
    * wait for the backend idle sweeper after the user has looked at the pane.
    */
   dismissIdleSessionsForPane: (stablePaneId: string) => void;
+  /**
+   * Drop every hook session attributed to a destroyed pane (running + idle,
+   * including side-chats sourced from it). Map key may differ from pane_id.
+   */
+  removeSessionsForPane: (stablePaneId: string) => void;
   clearIdleSessions: () => Promise<void>;
 }
 
@@ -482,6 +490,15 @@ export const useAgentHooksStore = create<AgentHooksStore>((set, get) => ({
 
   dismissIdleSessionsForPane: (stablePaneId) => {
     const toRemove = collectIdleSessionIdsForPane(get().sessions, stablePaneId);
+    for (const id of toRemove) {
+      void get().removeSession(id);
+    }
+  },
+
+  removeSessionsForPane: (stablePaneId) => {
+    const toRemove = collectSessionIdsForPane(get().sessions, stablePaneId, {
+      includeSource: true,
+    });
     for (const id of toRemove) {
       void get().removeSession(id);
     }

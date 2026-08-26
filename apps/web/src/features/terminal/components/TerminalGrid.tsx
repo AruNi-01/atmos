@@ -426,7 +426,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
       .catch((error) => {
         console.warn("[TerminalGrid] Failed to dismiss attention summary on pane close:", error);
       });
-    void useAgentHooksStore.getState().removeSession(stablePaneId);
+    useAgentHooksStore.getState().removeSessionsForPane(stablePaneId);
   }, [workspaceId]);
 
   const removeTerminalFromScope = useCallback((id: string) => {

@@ -116,17 +116,62 @@ export function resolvePaneTitleForCenterTab(
     showAgentName,
   });
 
-  if (!hasCustom) {
-    // Primary agent/brand + stable session topic (not live OSC churn).
-    // Agent icon-only + empty text is valid when name is hidden and no session.
+  return {
+    displayTitle: composePaneDisplayTitle(pane, auto, showAgentName),
+    toolbarAgent: toPaneAgent(auto.toolbarAgent),
+    sessionOscTitle: hasCustom ? undefined : sessionOscTitle,
+  };
+}
+
+/**
+ * Same chrome as the terminal pane toolbar: live OSC (spinners / session
+ * topics), custom labels, and leftover-brand drop after the process exits.
+ */
+export function resolvePaneToolbarTitle(
+  pane: TerminalPaneProps,
+  options?: {
+    configuredAgents?: TerminalTitleAgent[];
+    contestedOwners?: ContestedOwnersMap;
+    showAgentName?: boolean;
+  },
+): {
+  displayTitle: string;
+  toolbarAgent: TerminalPaneAgent | undefined;
+} {
+  const configuredAgents = options?.configuredAgents ?? [];
+  const showAgentName = options?.showAgentName !== false;
+  const customLabel = pane.customLabel?.trim();
+  const hasCustom = Boolean(customLabel);
+  const shapeAgent =
+    pane.agent ??
+    configuredAgents.find(
+      (agent) => agent.label.trim().toLowerCase() === pane.label.trim().toLowerCase(),
+    );
+  const auto = getTerminalDisplayMeta({
+    baseTitle: pane.label,
+    dynamicTitle: pane.dynamicTitle,
+    configuredAgents,
+    agent: shapeAgent,
+    contestedOwners: options?.contestedOwners,
+    oscTitle: pane.oscTitle,
+    suppressOscTitle: hasCustom,
+    showAgentName,
+  });
+  return {
+    displayTitle: composePaneDisplayTitle(pane, auto, showAgentName),
+    toolbarAgent: toPaneAgent(auto.toolbarAgent),
+  };
+}
+
+function composePaneDisplayTitle(
+  pane: TerminalPaneProps,
+  auto: ReturnType<typeof getTerminalDisplayMeta>,
+  showAgentName: boolean,
+): string {
+  const customLabel = pane.customLabel?.trim();
+  if (!customLabel) {
     const displayTitle = (auto.displayTitle || auto.primaryTitle || "").trim();
-    return {
-      displayTitle:
-        displayTitle ||
-        (auto.toolbarAgent ? "" : pane.label?.trim() || "Terminal"),
-      toolbarAgent: toPaneAgent(auto.toolbarAgent),
-      sessionOscTitle,
-    };
+    return displayTitle || (auto.toolbarAgent ? "" : pane.label?.trim() || "Terminal");
   }
 
   const wantAgent = pane.keepAgentName !== false && showAgentName;
@@ -139,16 +184,9 @@ export function resolvePaneTitleForCenterTab(
         : pane.dynamicTitle
       : undefined;
 
-  const displayTitle = [customLabel, showAgentLabel ? auto.toolbarAgent!.label : undefined, cwdSuffix]
+  return [customLabel, showAgentLabel ? auto.toolbarAgent!.label : undefined, cwdSuffix]
     .filter(Boolean)
     .join(" · ");
-
-  return {
-    displayTitle,
-    // Keep agent for the tab icon even when brand text is hidden.
-    toolbarAgent: toPaneAgent(auto.toolbarAgent),
-    sessionOscTitle: undefined,
-  };
 }
 
 function toPaneAgent(

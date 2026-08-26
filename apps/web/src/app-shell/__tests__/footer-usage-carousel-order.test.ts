@@ -18,9 +18,9 @@ describe("footer usage carousel order", () => {
     expect(localServices).toBeGreaterThan(-1);
     expect(resourceMonitor).toBeGreaterThan(-1);
     expect(carousel).toBeGreaterThan(-1);
-    expect(wsStatus).toBeLessThan(localServices);
-    expect(localServices).toBeLessThan(resourceMonitor);
-    expect(resourceMonitor).toBeLessThan(carousel);
+    expect(wsStatus).toBeLessThan(resourceMonitor);
+    expect(resourceMonitor).toBeLessThan(localServices);
+    expect(localServices).toBeLessThan(carousel);
     expect(footerSrc).not.toContain("ml-auto");
   });
 });

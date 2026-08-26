@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import {
   collectIdleSessionIdsForPane,
+  collectSessionIdsForPane,
+  findSessionForPaneId,
   resolveAgentStateForPaneId,
   type IdleDismissableSession,
 } from "./agent-hooks-idle";
@@ -48,6 +50,56 @@ describe("collectIdleSessionIdsForPane", () => {
       ["ws-1:main", idleSession({ session_id: "ws-1:main" })],
     ]);
     expect(collectIdleSessionIdsForPane(sessions, "  ")).toEqual([]);
+  });
+});
+
+describe("collectSessionIdsForPane", () => {
+  test("removes running and uuid-keyed sessions when a pane is destroyed", () => {
+    const sessions = new Map<string, IdleDismissableSession>([
+      ["ws-1:main", { session_id: "ws-1:main", state: "running", pane_id: "ws-1:main" }],
+      [
+        "agent-uuid",
+        idleSession({
+          session_id: "agent-uuid",
+          pane_id: "ws-1:main",
+        }),
+      ],
+      [
+        "side-chat-1",
+        {
+          session_id: "side-chat-1",
+          state: "running",
+          pane_id: "side-chat-1",
+          source_pane_id: "ws-1:main",
+        },
+      ],
+      ["ws-1:other", { session_id: "ws-1:other", state: "running", pane_id: "ws-1:other" }],
+    ]);
+
+    expect(collectSessionIdsForPane(sessions, "ws-1:main").sort()).toEqual([
+      "agent-uuid",
+      "side-chat-1",
+      "ws-1:main",
+    ]);
+    expect(
+      collectSessionIdsForPane(sessions, "ws-1:main", { includeSource: false }).sort(),
+    ).toEqual(["agent-uuid", "ws-1:main"]);
+  });
+});
+
+describe("findSessionForPaneId", () => {
+  test("finds a uuid-keyed session by pane_id", () => {
+    const sessions = new Map([
+      [
+        "agent-uuid",
+        {
+          session_id: "agent-uuid",
+          state: "running",
+          pane_id: "ws-1:main",
+        },
+      ],
+    ]);
+    expect(findSessionForPaneId(sessions, "ws-1:main")?.session_id).toBe("agent-uuid");
   });
 });
 

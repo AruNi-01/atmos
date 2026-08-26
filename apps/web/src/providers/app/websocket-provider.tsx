@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { useWebSocketStore } from '@/features/connection/hooks/use-websocket';
 import { useAgentHooksStore } from '@/features/agent/store/agent-hooks-store';
 import { useAgentNotifications } from '@/features/agent/hooks/use-agent-notifications';
+import { useDismissExitedAgentHookSessions } from '@/features/agent/hooks/use-dismiss-exited-agent-hook-sessions';
 import { useLayoutSettingsStore } from '@/features/settings/store/layout-settings-store';
 import { useAgentTitleSettingsStore } from '@/features/settings/store/agent-title-settings-store';
 import { useAgentActivityIndicatorSettingsStore } from '@/features/settings/store/agent-activity-indicator-settings-store';
@@ -122,6 +123,7 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
   }, [connectionState]);
 
   useAgentNotifications();
+  useDismissExitedAgentHookSessions();
 
   return <>{children}</>;
 }

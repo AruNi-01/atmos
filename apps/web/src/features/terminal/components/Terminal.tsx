@@ -92,7 +92,10 @@ import {
 } from "../lib/terminal-ai-context-protocol";
 import type { TerminalSelectionSnapshot } from "../types";
 import { createAgentHookInterruptInference } from "@/features/agent/lib/agent-hook-interrupt-inference";
-import { useAgentHooksStore } from "@/features/agent/store/agent-hooks-store";
+import {
+  findSessionForPaneId,
+  useAgentHooksStore,
+} from "@/features/agent/store/agent-hooks-store";
 import {
   isShellPreexecCommandOscTitle,
   isTmuxIndexTitle,
@@ -288,9 +291,15 @@ const Terminal = ({
         if (!windowName || !wsId) return null;
         return `${wsId}:${windowName}`;
       },
-      getSession: (id) => useAgentHooksStore.getState().sessions.get(id),
+      getSession: (id) => {
+        const sessions = useAgentHooksStore.getState().sessions;
+        return sessions.get(id) ?? findSessionForPaneId(sessions, id);
+      },
       forceSessionIdle: (id) => {
-        void useAgentHooksStore.getState().forceSessionIdle(id);
+        const sessions = useAgentHooksStore.getState().sessions;
+        const session = sessions.get(id) ?? findSessionForPaneId(sessions, id);
+        if (!session) return;
+        void useAgentHooksStore.getState().forceSessionIdle(session.session_id);
       },
     });
     interruptInferenceRef.current = inference;

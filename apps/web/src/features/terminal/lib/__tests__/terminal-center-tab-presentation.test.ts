@@ -4,6 +4,7 @@ import type { TerminalPaneProps } from "../../types/index";
 import {
   pickRepresentativeTerminalPaneId,
   resolvePaneTitleForCenterTab,
+  resolvePaneToolbarTitle,
   resolveTerminalCenterTabPresentation,
 } from "../terminal-center-tab-presentation";
 
@@ -292,6 +293,24 @@ describe("resolveTerminalCenterTabPresentation", () => {
     expect(result.displayTitle).toBe("Codex");
     expect(result.toolbarAgent?.id).toBe("codex");
     expect(result.sourcePaneId).toBe("b");
+  });
+
+  it("follows live OSC on the pane toolbar, not the sticky center-tab topic", () => {
+    expect(
+      resolvePaneToolbarTitle(
+        pane({
+          id: "a",
+          label: "Claude Code",
+          agent: claudeAgent,
+          dynamicTitle: "claude",
+          oscTitle: "debugging auth",
+        }),
+        { configuredAgents: [claudeAgent] },
+      ),
+    ).toEqual({
+      displayTitle: "Claude Code | debugging auth",
+      toolbarAgent: expect.objectContaining({ id: "claude" }),
+    });
   });
 
   it("composes pane custom labels like the toolbar", () => {

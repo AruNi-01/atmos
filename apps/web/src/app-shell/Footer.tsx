@@ -20,8 +20,8 @@ import {
   AGENT_STATE,
   AGENT_TOOL_LABELS,
   AGENT_TOOL_ICON_IDS,
-  type AgentToolType,
 } from '@/features/agent/store/agent-hooks-store';
+import { useAgentAttentionStore } from '@/features/agent/store/agent-attention-store';
 import { useShallow } from 'zustand/react/shallow';
 import { AgentHookStatusIndicator } from '@/features/agent/components/AgentHookStatusIndicator';
 import { AgentIcon } from '@/features/agent/components/AgentIcon';
@@ -29,11 +29,11 @@ import { AnimatePresence, motion } from 'motion/react';
 import { useProjects } from '@/features/project/hooks/use-project-bootstrap-query';
 import { LayoutDashboard, X } from 'lucide-react';
 import { ProviderGlyph } from '@/app-shell/QuotaPopover';
-import { BotMessageSquareIcon, type BotMessageSquareHandle, TextShimmer, FilledBellIcon } from '@workspace/ui';
-import type { AnimatedIconHandle } from '@workspace/ui';
+import { BotMessageSquareIcon, type BotMessageSquareHandle } from '@workspace/ui';
 import { NappingBotIcon } from '@/app-shell/NappingBotIcon';
 import { useExperimentSettingsStore } from '@/features/settings/store/experiment-settings-store';
 import { useLayoutSettingsStore } from '@/features/settings/store/layout-settings-store';
+import { useAgentTitleSettingsStore } from '@/features/settings/store/agent-title-settings-store';
 import { useAppRouter } from '@/shared/hooks/use-app-router';
 import { LocalServicesFooterItem } from '@/features/local-services/components/LocalServicesFooterItem';
 import { ResourceMonitorFooterItem } from '@/features/resource-monitor/components/ResourceMonitorFooterItem';
@@ -43,6 +43,20 @@ import {
   navigateToAgentHookSessionPane,
   resolveAgentHookContextNames,
 } from '@/features/agent/lib/agent-hook-navigation';
+import {
+  buildFooterAgentOverview,
+  FOOTER_AGENT_OVERVIEW_ORDER,
+  footerAgentOverviewTotal,
+  type FooterAgentOverviewBucket,
+} from '@/features/agent/lib/footer-agent-overview';
+import {
+  findTerminalPaneByStableAgentPaneId,
+  uniquePaneTitleForAgentStatus,
+} from '@/features/agent/lib/agent-hook-pane-title';
+import { resolvePaneToolbarTitle } from '@/features/terminal/lib/terminal-center-tab-presentation';
+import { useContestedCliOwners } from '@/features/terminal/hooks/use-contested-cli-owners';
+import { useTerminalStore } from '@/features/terminal/store/use-terminal-store';
+import { getWorkspaceAgentGroupMeta } from '@/app-shell/sidebar/workspace-status';
 import { useTranslations } from 'next-intl';
 import { APP_FOOTER_HEIGHT_CLASS } from '@/app-shell/sidebar-layout-constants';
 
@@ -114,26 +128,17 @@ function SessionStateBadge({ state, hoverAction, onAction }: {
   );
 }
 
-function AgentToolName({
-  tool,
-  iconSize = 12,
-  className,
+function SessionRow({
+  session,
+  onNavigate,
+  onCanvas = false,
+  paneTitle,
 }: {
-  tool: AgentToolType;
-  iconSize?: number;
-  className?: string;
+  session: AgentHookSession;
+  onNavigate: () => void;
+  onCanvas?: boolean;
+  paneTitle?: string | null;
 }) {
-  const label = AGENT_TOOL_LABELS[tool] ?? tool;
-  const iconId = AGENT_TOOL_ICON_IDS[tool] ?? tool;
-  return (
-    <span className={cn("inline-flex min-w-0 items-center gap-1", className)}>
-      <AgentIcon registryId={iconId} name={label} size={iconSize} />
-      <span className="truncate">{label}</span>
-    </span>
-  );
-}
-
-function SessionRow({ session, onNavigate, onCanvas = false }: { session: AgentHookSession; onNavigate: () => void; onCanvas?: boolean }) {
   const t = useTranslations("appShell");
   const [hovered, setHovered] = React.useState(false);
   const forceIdle = useAgentHooksStore((s) => s.forceSessionIdle);
@@ -149,6 +154,8 @@ function SessionRow({ session, onNavigate, onCanvas = false }: { session: AgentH
     }
   };
 
+  const title = paneTitle?.trim();
+
   return (
     <div
       className="flex items-center justify-between gap-2 px-1 py-0.5 rounded-sm hover:bg-accent/50 cursor-pointer"
@@ -156,9 +163,19 @@ function SessionRow({ session, onNavigate, onCanvas = false }: { session: AgentH
       onMouseLeave={() => setHovered(false)}
       onClick={onNavigate}
     >
-      <div className="flex items-center gap-1.5 min-w-0">
+      <div className="flex min-w-0 items-center gap-1.5">
         <AgentHookStatusIndicator state={session.state} variant="compact" placement="footer" />
-        <AgentToolName tool={session.tool} iconSize={11} className="text-[10px] font-medium" />
+        <AgentIcon
+          registryId={AGENT_TOOL_ICON_IDS[session.tool] ?? session.tool}
+          name={AGENT_TOOL_LABELS[session.tool] ?? session.tool}
+          size={11}
+          className="shrink-0"
+        />
+        {title ? (
+          <span className="min-w-0 truncate text-[10px] text-muted-foreground" title={title}>
+            {title}
+          </span>
+        ) : null}
         {isAgentHookSideChatSession(session) ? (
           <span className="shrink-0 rounded-sm bg-cyan-500/15 px-1 text-[9px] font-medium text-cyan-700 dark:text-cyan-300">
             {t("footer.sideChat")}
@@ -206,18 +223,76 @@ function useContextNameResolver() {
   );
 }
 
-// Cycling ticker: rotates through active sessions, showing each for `intervalMs`.
-function useSessionTicker(sessions: AgentHookSession[], intervalMs = 3000) {
-  const [index, setIndex] = useState(0);
+function footerOverviewBucketLabel(
+  t: (key: "footer.overviewRunning" | "footer.overviewIdle" | "footer.overviewNeedAttention" | "footer.overviewNeedPermission") => string,
+  bucket: FooterAgentOverviewBucket,
+): string {
+  if (bucket === "running") return t("footer.overviewRunning");
+  if (bucket === "idle") return t("footer.overviewIdle");
+  if (bucket === "attention") return t("footer.overviewNeedAttention");
+  return t("footer.overviewNeedPermission");
+}
 
-  useEffect(() => {
-    if (sessions.length <= 1) return;
-    const t = setInterval(() => setIndex((i) => i + 1), intervalMs);
-    return () => clearInterval(t);
-  }, [sessions.length, intervalMs]);
+function FooterOverviewBucketIcon({
+  bucket,
+}: {
+  bucket: FooterAgentOverviewBucket;
+}) {
+  if (bucket === "running") {
+    return (
+      <AgentHookStatusIndicator
+        state={AGENT_STATE.RUNNING}
+        variant="compact"
+        placement="footer"
+      />
+    );
+  }
+  const meta = getWorkspaceAgentGroupMeta(bucket === "idle" ? "done" : bucket);
+  const Icon = meta.icon;
+  return <Icon className={cn("size-3 shrink-0", meta.className)} />;
+}
 
-  if (sessions.length === 0) return null;
-  return sessions[index % sessions.length];
+function useFooterAgentOverview() {
+  const sessionsMap = useAgentHooksStore(useShallow((s) => s.sessions));
+  const attentionPanes = useAgentAttentionStore(useShallow((s) => s.panes));
+  return useMemo(
+    () => buildFooterAgentOverview(sessionsMap.values(), attentionPanes.values()),
+    [sessionsMap, attentionPanes],
+  );
+}
+
+function useAgentHookSessionPaneTitles(
+  sessions: AgentHookSession[],
+): Readonly<Record<string, string>> {
+  const showAgentName = useAgentTitleSettingsStore((s) => s.showAgentNameInTerminalTitles);
+  const contestedOwners = useContestedCliOwners();
+  const workspacePanes = useTerminalStore((s) => s.workspacePanes);
+  const projectWikiPanes = useTerminalStore((s) => s.projectWikiPanes);
+  const codeReviewPanes = useTerminalStore((s) => s.codeReviewPanes);
+
+  return useMemo(() => {
+    const out: Record<string, string> = {};
+    const state = { workspacePanes, projectWikiPanes, codeReviewPanes };
+    for (const session of sessions) {
+      const paneId = session.pane_id?.trim() || session.session_id;
+      const pane = findTerminalPaneByStableAgentPaneId(state, paneId);
+      if (!pane) continue;
+      const resolved = resolvePaneToolbarTitle(pane, { contestedOwners, showAgentName });
+      const suffix = uniquePaneTitleForAgentStatus(
+        resolved.displayTitle,
+        AGENT_TOOL_LABELS[session.tool] ?? session.tool,
+      );
+      if (suffix) out[session.session_id] = suffix;
+    }
+    return out;
+  }, [
+    sessions,
+    workspacePanes,
+    projectWikiPanes,
+    codeReviewPanes,
+    showAgentName,
+    contestedOwners,
+  ]);
 }
 
 export function AgentStatusPopoverContent({
@@ -237,7 +312,8 @@ export function AgentStatusPopoverContent({
 
   const sessions = useMemo(() => Array.from(sessionsMap.values()), [sessionsMap]);
   const grouped = useMemo(() => groupSessionsByContext(sessions), [sessions]);
-  const hasIdleSessions = sessions.some(s => s.state === AGENT_STATE.IDLE);
+  const paneTitles = useAgentHookSessionPaneTitles(sessions);
+  const hasIdleSessions = sessions.some((s) => s.state === AGENT_STATE.IDLE);
   const resolveContextDisplayName = useContextDisplayNameResolver();
   const resolveContextName = useContextNameResolver();
 
@@ -300,6 +376,7 @@ export function AgentStatusPopoverContent({
                 <SessionRow
                   key={session.session_id}
                   session={session}
+                  paneTitle={paneTitles[session.session_id]}
                   onCanvas={isSessionOnCanvas?.(session) ?? false}
                   onNavigate={() => navigateToSessionPane(session)}
                 />
@@ -309,22 +386,6 @@ export function AgentStatusPopoverContent({
         })}
       </div>
     </div>
-  );
-}
-
-function PermissionBellFooter() {
-  const t = useTranslations("appShell");
-
-  const iconRef = useRef<AnimatedIconHandle>(null);
-  useEffect(() => {
-    const t = setInterval(() => { iconRef.current?.startAnimation(); }, 2000);
-    iconRef.current?.startAnimation();
-    return () => clearInterval(t);
-  }, []);
-  return (
-    <span className="inline-flex items-center text-amber-400/70 ml-0.5" title={t("footer.permissionRequested")}>
-      <FilledBellIcon ref={iconRef} size={12} color="currentColor" strokeWidth={0} />
-    </span>
   );
 }
 
@@ -412,6 +473,42 @@ function HoverScrollText({ text, active }: { text: string; active: boolean }) {
   );
 }
 
+function AgentStatusOverviewTrigger() {
+  const t = useTranslations("appShell");
+  const { counts } = useFooterAgentOverview();
+  const total = footerAgentOverviewTotal(counts);
+
+  if (total === 0) {
+    return (
+      <span className="text-muted-foreground whitespace-nowrap inline-flex items-center gap-1.5">
+        <NappingBotIcon />
+        <span>{t("footer.napping")}</span>
+      </span>
+    );
+  }
+
+  return (
+    <span className="flex items-center gap-2">
+      {FOOTER_AGENT_OVERVIEW_ORDER.map((bucket) => {
+        const count = counts[bucket];
+        if (count <= 0) return null;
+        const label = footerOverviewBucketLabel(t, bucket);
+        return (
+          <span
+            key={bucket}
+            className="inline-flex items-center gap-0.5 whitespace-nowrap text-foreground"
+            title={`${count} ${label}`}
+            aria-label={`${count} ${label}`}
+          >
+            <FooterOverviewBucketIcon bucket={bucket} />
+            <span className="tabular-nums">{count}</span>
+          </span>
+        );
+      })}
+    </span>
+  );
+}
+
 const Footer: React.FC = () => {
   const t = useTranslations("appShell");
   const connectionState = useWebSocketStore(s => s.connectionState);
@@ -435,14 +532,6 @@ const Footer: React.FC = () => {
   const [usageIndex, setUsageIndex] = useState(0);
   const [isUsageCarouselHovered, setIsUsageCarouselHovered] = useState(false);
 
-  const resolveContextName = useContextNameResolver();
-
-  // Global: all non-idle sessions for the ticker, permission flag for the bell.
-  const activeSessions = useAgentHooksStore(useShallow((s) =>
-    Array.from(s.sessions.values()).filter((s) => s.state !== AGENT_STATE.IDLE)
-  ));
-  const hasPermission = activeSessions.some((s) => s.state === AGENT_STATE.PERMISSION_REQUEST);
-  const tickerSession = useSessionTicker(activeSessions);
   const usageCarouselItems = useMemo(
     () => buildUsageCarouselItems(quotaOverview),
     [quotaOverview]
@@ -582,76 +671,18 @@ const Footer: React.FC = () => {
           {showRightAgent ? (
             <Popover>
               <PopoverTrigger asChild>
-                <button className="flex items-center gap-1.5 hover:text-foreground cursor-pointer">
-                  {tickerSession ? (
-                    <>
-                      <AgentHookStatusIndicator
-                        state={tickerSession.state}
-                        variant="compact"
-                        placement="footer"
-                      />
-                      <span
-                        key={tickerSession.session_id}
-                        className="flex items-center gap-0 animate-in fade-in slide-in-from-bottom-1 duration-200"
-                      >
-                        {(() => {
-                          const { projectName, workspaceName, workspaceDisplayName } =
-                            resolveContextName(tickerSession.context_id);
-                          const workspaceTickerLabel = workspaceDisplayName ?? workspaceName;
-                          return projectName ? (
-                            <span className="font-medium whitespace-nowrap text-foreground">
-                              {projectName}
-                              {workspaceTickerLabel && (
-                                <>
-                                  <span className="text-muted-foreground mx-0.5">-</span>
-                                  <span>{workspaceTickerLabel}</span>
-                                </>
-                              )}
-                            </span>
-                          ) : null;
-                        })()}
-                        {isAgentHookSideChatSession(tickerSession) ? (
-                          <>
-                            <span className="text-muted-foreground mx-1">/</span>
-                            <span className="whitespace-nowrap text-cyan-700 dark:text-cyan-300">
-                              {t("footer.sideChat")}
-                            </span>
-                          </>
-                        ) : null}
-                        <span className="text-muted-foreground mx-1">/</span>
-                        <span className="inline-flex items-center gap-1 whitespace-nowrap">
-                          <AgentIcon
-                            registryId={AGENT_TOOL_ICON_IDS[tickerSession.tool] ?? tickerSession.tool}
-                            name={AGENT_TOOL_LABELS[tickerSession.tool] ?? tickerSession.tool}
-                            size={12}
-                          />
-                          <TextShimmer
-                            as="span"
-                            className={cn(
-                              "text-[10px] whitespace-nowrap",
-                              tickerSession.state === AGENT_STATE.PERMISSION_REQUEST && "text-amber-400/60",
-                            )}
-                            duration={tickerSession.state === AGENT_STATE.PERMISSION_REQUEST ? 2 : 1.5}
-                          >
-                            {`${AGENT_TOOL_LABELS[tickerSession.tool] ?? tickerSession.tool}: ${tickerSession.state === AGENT_STATE.PERMISSION_REQUEST ? t("footer.waitingForPermission") : t("footer.running")}`}
-                          </TextShimmer>
-                        </span>
-                      </span>
-                      {hasPermission && <PermissionBellFooter />}
-                    </>
-                  ) : (
-                    activeSessions.length === 0 ? (
-                      <span className="text-muted-foreground whitespace-nowrap inline-flex items-center gap-1.5">
-                        <NappingBotIcon />
-                        <span>{t("footer.napping")}</span>
-                      </span>
-                    ) : (
-                      <span className="text-muted-foreground whitespace-nowrap">{t("footer.agentIdle")}</span>
-                    )
-                  )}
+                <button
+                  type="button"
+                  className="flex items-center gap-1.5 hover:text-foreground cursor-pointer"
+                >
+                  <AgentStatusOverviewTrigger />
                 </button>
               </PopoverTrigger>
-              <PopoverContent side="top" align="end" className="w-72 p-0">
+              <PopoverContent
+                side="top"
+                align="end"
+                className="w-[28rem] max-w-[calc(100vw-1.5rem)] p-0"
+              >
                 <AgentStatusPopoverContent />
               </PopoverContent>
             </Popover>
