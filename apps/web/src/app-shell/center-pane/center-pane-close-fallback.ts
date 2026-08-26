@@ -6,6 +6,24 @@ import {
   type CenterPaneLayout,
 } from "@/app-shell/center-pane/center-pane-layout";
 
+/**
+ * Treat every tab already in a pane strip as open for close-time MRU.
+ * New center tabs become eligible as soon as they attach — no per-tab list.
+ */
+export function unionOpenTabValuesWithLayout(
+  open: Set<string>,
+  layout: CenterPaneLayout | null | undefined,
+): Set<string> {
+  if (!layout) return open;
+  for (const pane of layout.panes) {
+    for (const id of pane.tabIds) {
+      if (id) open.add(id);
+    }
+    if (pane.activeTabId) open.add(pane.activeTabId);
+  }
+  return open;
+}
+
 export type CloseFallbackResult = {
   /** Tab to show in URL/chrome after close. Null = leave chrome unchanged. */
   nextTabId: string | null;

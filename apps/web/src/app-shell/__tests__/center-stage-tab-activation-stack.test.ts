@@ -85,15 +85,16 @@ describe("center-stage-tab-activation-stack", () => {
       terminalTabIds: ["terminal", "term-2"],
       githubTabValues: ["github-pr:1"],
       browserTabValues: ["browser:x"],
-      projectWikiVisible: true,
-      codeReviewVisible: false,
-      simulatorVisible: true,
-      gitHistoryVisible: true,
-      changesVisible: true,
-      reviewVisible: true,
-      runVisible: false,
-      githubHubVisible: true,
-      filesVisible: true,
+      extraOpenTabValues: [
+        "project-wiki",
+        "simulator",
+        "git-history",
+        "changes",
+        "review",
+        "github",
+        "files",
+        "future-tool",
+      ],
       wikiEnabled: true,
       exclude: ["/b.ts", "term-2"],
     });
@@ -108,6 +109,7 @@ describe("center-stage-tab-activation-stack", () => {
     expect(open.has("run")).toBe(false);
     expect(open.has("github")).toBe(true);
     expect(open.has("files")).toBe(true);
+    expect(open.has("future-tool")).toBe(true);
     expect(open.has("/a.ts")).toBe(true);
     expect(open.has("/b.ts")).toBe(false);
     expect(open.has("terminal")).toBe(true);
@@ -122,8 +124,6 @@ describe("center-stage-tab-activation-stack", () => {
       terminalTabIds: ["terminal"],
       githubTabValues: [],
       browserTabValues: [],
-      projectWikiVisible: false,
-      codeReviewVisible: false,
       wikiEnabled: false,
       fixedAlwaysOpen: ["overview"],
     });
@@ -145,8 +145,19 @@ describe("close returns to the tab that opened the closed tab", () => {
     const stage = readFileSync(join(import.meta.dir, "../CenterStage.tsx"), "utf8");
     expect(stage).toContain("closeSurfaceIfUnowned");
     expect(stage).toContain("fallback.nextTabId");
+    expect(stage).toContain("unionOpenTabValuesWithLayout");
+    expect(stage).toContain("CENTER_TOOL_TAB_VALUES");
     expect(stage).not.toContain("skipLayoutRemove");
     expect(stage).toContain("activateNextAfterClosingRef.current(file.path, { paneId })");
     expect(stage).toContain("activateNextAfterClosing(tab, { paneId })");
+  });
+
+  test("content-triggered opens record chrome activation instead of attaching only", () => {
+    const activate = readFileSync(
+      join(import.meta.dir, "../center-stage-activate.ts"),
+      "utf8",
+    );
+    expect(activate).toContain("recordCenterTabActivation(contextId, tab)");
+    expect(activate).toContain("attachCenterTab(contextId, tab");
   });
 });

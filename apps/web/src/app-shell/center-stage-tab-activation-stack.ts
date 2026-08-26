@@ -1,9 +1,9 @@
 /**
- * Per-context MRU activation stack for center-stage tabs.
+ * Per-context MRU activation stack for every center-stage tab value.
  *
- * When the active tab is closed, the next surface should be the most recently
- * activated still-open tab (VS Code / browser style) — not a visual neighbor
- * or the first item in the strip.
+ * Tab ids are opaque strings (Files, Changes, terminals, editor paths, …).
+ * Close navigates to the most recently activated still-open tab — not a visual
+ * neighbor, the first strip item, or a Files-specific path.
  *
  * Session-scoped only (in-memory). Context switch restore still uses
  * `lastTabByContext` prefs; this stack is for close-time navigation.
@@ -93,22 +93,16 @@ export function resetCenterTabActivationStacksForTests(): void {
 /**
  * Build the set of currently open/activatable center tab values for a context,
  * then remove any just-closed values (hook state may still be stale).
+ *
+ * Extra surfaces (tool tabs, simulator, …) are passed as ids — do not add
+ * per-tab booleans here or new tabs will be invisible to close-time MRU.
  */
 export function buildOpenCenterTabValues(input: {
   openFilePaths: readonly string[];
   terminalTabIds: readonly string[];
   githubTabValues: readonly string[];
   browserTabValues: readonly string[];
-  projectWikiVisible: boolean;
-  codeReviewVisible: boolean;
-  simulatorVisible?: boolean;
-  gitHistoryVisible?: boolean;
-  changesVisible?: boolean;
-  reviewVisible?: boolean;
-  runVisible?: boolean;
-  githubHubVisible?: boolean;
-  filesVisible?: boolean;
-  ptDesignVisible?: boolean;
+  extraOpenTabValues?: readonly string[];
   wikiEnabled: boolean;
   /** Opt-in fixed surfaces such as Overview. Empty by default. */
   fixedAlwaysOpen?: readonly string[];
@@ -116,16 +110,11 @@ export function buildOpenCenterTabValues(input: {
 }): Set<string> {
   const open = new Set<string>(input.fixedAlwaysOpen ?? []);
   if (input.wikiEnabled) open.add("wiki");
-  if (input.projectWikiVisible) open.add("project-wiki");
-  if (input.codeReviewVisible) open.add("code-review");
-  if (input.simulatorVisible) open.add("simulator");
-  if (input.gitHistoryVisible) open.add("git-history");
-  if (input.changesVisible) open.add("changes");
-  if (input.reviewVisible) open.add("review");
-  if (input.runVisible) open.add("run");
-  if (input.githubHubVisible) open.add("github");
-  if (input.filesVisible) open.add("files");
-  if (input.ptDesignVisible) open.add("pt-design");
+  if (input.extraOpenTabValues) {
+    for (const value of input.extraOpenTabValues) {
+      if (value) open.add(value);
+    }
+  }
   for (const id of input.terminalTabIds) open.add(id);
   for (const value of input.githubTabValues) open.add(value);
   for (const value of input.browserTabValues) open.add(value);

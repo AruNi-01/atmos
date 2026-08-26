@@ -26,7 +26,10 @@ import {
   shouldSnapPaneTilesOnContextChange,
 } from "@/app-shell/center-pane/center-pane-collapse-persist";
 import { resolveStripOrderForContext } from "@/app-shell/center-pane/center-pane-strip-prefs";
-import { resolvePaneLocalCloseFallback } from "@/app-shell/center-pane/center-pane-close-fallback";
+import {
+  resolvePaneLocalCloseFallback,
+  unionOpenTabValuesWithLayout,
+} from "@/app-shell/center-pane/center-pane-close-fallback";
 import {
   isBrowserHostFocusTarget,
   paneIdFromOverlayEventTarget,
@@ -288,6 +291,40 @@ describe("pane-local close fallback", () => {
     expect(fallback.nextTabId).toBe("files");
     const after = removeTabFromLayout(layout, "changes", fallback.nextTabId);
     expect(after.panes[0]!.activeTabId).toBe("files");
+  });
+
+  it("returns to any previously activated tab, not only Files", () => {
+    const layout = createDefaultLayout(
+      ["review", "future-tool", "terminal"],
+      "future-tool",
+    );
+    const fallback = resolvePaneLocalCloseFallback({
+      layoutBefore: layout,
+      closedTabIds: ["future-tool"],
+      activeTabId: "future-tool",
+      openTabValues: new Set(["review", "terminal", "overview"]),
+      mruOrder: ["future-tool", "review", "terminal"],
+      fallbackTab: "overview",
+    });
+    expect(fallback.nextTabId).toBe("review");
+    const after = removeTabFromLayout(layout, "future-tool", fallback.nextTabId);
+    expect(after.panes[0]!.activeTabId).toBe("review");
+  });
+
+  it("treats strip-owned tabs as open even when visibility flags omit them", () => {
+    const layout = createDefaultLayout(["notes", "terminal"], "notes");
+    const open = unionOpenTabValuesWithLayout(new Set(["terminal"]), layout);
+    expect(open.has("notes")).toBe(true);
+    open.delete("notes");
+    const fallback = resolvePaneLocalCloseFallback({
+      layoutBefore: layout,
+      closedTabIds: ["notes"],
+      activeTabId: "notes",
+      openTabValues: open,
+      mruOrder: ["notes", "terminal"],
+      fallbackTab: "overview",
+    });
+    expect(fallback.nextTabId).toBe("terminal");
   });
 });
 

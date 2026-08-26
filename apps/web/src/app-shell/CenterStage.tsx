@@ -148,7 +148,10 @@ import {
   shouldSeedMosaicFromFullPane,
 } from "@/app-shell/center-pane/center-pane-collapse-persist";
 import { resolveStripOrderForContext } from "@/app-shell/center-pane/center-pane-strip-prefs";
-import { resolvePaneLocalCloseFallback } from "@/app-shell/center-pane/center-pane-close-fallback";
+import {
+  resolvePaneLocalCloseFallback,
+  unionOpenTabValuesWithLayout,
+} from "@/app-shell/center-pane/center-pane-close-fallback";
 import {
   paneIdFromOverlayEventTarget,
   shouldFocusOwningPane,
@@ -192,6 +195,7 @@ import { simulatorApi } from "@/api/ws/simulator-api";
 import { GIT_HISTORY_TAB_VALUE } from "@/features/git/types";
 import { useGitHistoryCenterTabStore } from "@/features/git/store/use-git-history-center-tab";
 import {
+  CENTER_TOOL_TAB_VALUES,
   isCenterToolTabValue,
   useToolCenterTabsStore,
   type CenterToolTabValue,
@@ -1067,6 +1071,29 @@ const CenterStage: React.FC = () => {
     (val: string, options?: { attach?: boolean }) => void
   >(() => {});
 
+  const extraOpenCenterTabValues = React.useMemo(() => {
+    const ids: string[] = [];
+    if (projectWikiTabVisible) ids.push("project-wiki");
+    if (codeReviewTabVisible) ids.push("code-review");
+    if (simulatorTabVisible) ids.push("simulator");
+    if (gitHistoryTabVisible) ids.push("git-history");
+    if (effectiveContextId) {
+      const visible = toolTabsVisibleByContext[effectiveContextId];
+      for (const tab of CENTER_TOOL_TAB_VALUES) {
+        if (visible?.[tab] || storedLastTab === tab) ids.push(tab);
+      }
+    }
+    return ids;
+  }, [
+    codeReviewTabVisible,
+    effectiveContextId,
+    gitHistoryTabVisible,
+    projectWikiTabVisible,
+    simulatorTabVisible,
+    storedLastTab,
+    toolTabsVisibleByContext,
+  ]);
+
   const collectOpenCenterTabValues = React.useCallback(
     (exclude?: Iterable<string>) =>
       buildOpenCenterTabValues({
@@ -1074,16 +1101,7 @@ const CenterStage: React.FC = () => {
         terminalTabIds: visibleTerminalTabs.map((tab) => tab.id),
         githubTabValues: githubTabs.map((tab) => tab.value),
         browserTabValues: browserTabs.map((tab) => tab.value),
-        projectWikiVisible: projectWikiTabVisible,
-        codeReviewVisible: codeReviewTabVisible,
-        simulatorVisible: simulatorTabVisible,
-        gitHistoryVisible: gitHistoryTabVisible,
-        changesVisible: changesTabVisible,
-        reviewVisible: reviewTabVisible,
-        runVisible: runTabVisible,
-        githubHubVisible: githubHubTabVisible,
-        filesVisible: filesTabVisible,
-        ptDesignVisible: ptDesignTabVisible,
+        extraOpenTabValues: extraOpenCenterTabValues,
         wikiEnabled:
           centerWikiTabEnabled &&
           !(
@@ -1105,18 +1123,9 @@ const CenterStage: React.FC = () => {
     [
       browserTabs,
       centerWikiTabEnabled,
-      codeReviewTabVisible,
+      extraOpenCenterTabValues,
       githubTabs,
       openFiles,
-      projectWikiTabVisible,
-      simulatorTabVisible,
-      gitHistoryTabVisible,
-      changesTabVisible,
-      reviewTabVisible,
-      runTabVisible,
-      githubHubTabVisible,
-      filesTabVisible,
-      ptDesignTabVisible,
       effectiveContextId,
       liveExtraSpaceEmpty,
       overviewTabVisible,
@@ -1147,6 +1156,7 @@ const CenterStage: React.FC = () => {
       }
 
       const open = collectOpenCenterTabValues(closedList);
+      unionOpenTabValuesWithLayout(open, layoutBefore);
       const liveTerminalIds = useTerminalStore
         .getState()
         .getTerminalTabs(effectiveContextId)

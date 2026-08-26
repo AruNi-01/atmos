@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { CENTER_TOOL_TAB_VALUES } from "@/app-shell/center-tool-tabs";
 import {
   FIXED_TABS,
   shouldSkipLastTabRestoreForUrlTab,
@@ -21,5 +22,11 @@ describe("shouldSkipLastTabRestoreForUrlTab", () => {
 
   test("pt-design is a fixed center tab so strip clicks are not treated as files", () => {
     expect(FIXED_TABS.has("pt-design")).toBe(true);
+  });
+
+  test("every registered tool tab is a fixed surface, not an editor path", () => {
+    for (const tab of CENTER_TOOL_TAB_VALUES) {
+      expect(FIXED_TABS.has(tab)).toBe(true);
+    }
   });
 });
