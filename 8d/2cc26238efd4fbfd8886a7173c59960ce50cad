@@ -1,0 +1,14 @@
+apps/web/src/app-shell/sidebar/ProjectItem.tsx
+  h_5be255725524c8 700,707,726,765
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "8d2cc26238efd4fbfd8886a7173c59960ce50cad",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
