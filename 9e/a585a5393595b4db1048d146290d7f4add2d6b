@@ -1,0 +1,44 @@
+apps/web/src/app-shell/Footer.tsx
+  h_5be255725524c8 24,32,36,46-59,131-135,137-140,157-158,166,168-178,226-234,236-253,255-295,315-316,379,476-511,674-678,681-685
+apps/web/src/app-shell/__tests__/footer-agent-status-overview.test.ts
+  h_5be255725524c8 1-30
+apps/web/src/app-shell/__tests__/footer-usage-carousel-order.test.ts
+  h_5be255725524c8 21-23
+apps/web/src/features/agent/hooks/use-dismiss-exited-agent-hook-sessions.ts
+  h_5be255725524c8 1-90
+apps/web/src/features/agent/lib/__tests__/agent-hook-pane-title.test.ts
+  h_5be255725524c8 1-89
+apps/web/src/features/agent/lib/__tests__/footer-agent-overview.test.ts
+  h_5be255725524c8 1-75
+apps/web/src/features/agent/lib/agent-hook-pane-title.ts
+  h_5be255725524c8 1-107
+apps/web/src/features/agent/lib/footer-agent-overview.ts
+  h_5be255725524c8 1-150
+apps/web/src/features/agent/store/agent-hooks-idle.ts
+  h_5be255725524c8 11-41,46,50-51,55-56,63-95
+apps/web/src/features/agent/store/agent-hooks-store.dismiss.test.ts
+  h_5be255725524c8 4-5,56-105
+apps/web/src/features/agent/store/agent-hooks-store.ts
+  h_5be255725524c8 22,29-30,141-145,498-506
+apps/web/src/features/terminal/components/Terminal.tsx
+  h_5be255725524c8 95-98,294-297,299-302
+apps/web/src/features/terminal/components/TerminalGrid.tsx
+  h_5be255725524c8 429
+apps/web/src/features/terminal/lib/__tests__/terminal-center-tab-presentation.test.ts
+  h_5be255725524c8 7,298-315
+apps/web/src/features/terminal/lib/terminal-center-tab-presentation.ts
+  h_5be255725524c8 119-172,174,187
+apps/web/src/providers/app/websocket-provider.tsx
+  h_5be255725524c8 8,126
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "9ea585a5393595b4db1048d146290d7f4add2d6b",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
