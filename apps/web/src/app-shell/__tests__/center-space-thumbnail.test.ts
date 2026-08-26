@@ -4,6 +4,7 @@ import { join } from "node:path";
 import {
   containedDest,
   coverDest,
+  isRemoteSnapPreviewSrc,
   isVisibleInClip,
   mapInnerRectToDest,
   shouldKeepSnapPreviewNode,
@@ -53,6 +54,35 @@ describe("center space thumbnail mapping", () => {
     expect(shouldKeepSnapPreviewNode(root, root)).toBe(true);
   });
 
+  it("treats GitHub and Google avatars as remote so snapdom does not CORS-fetch them", () => {
+    const page = "http://localhost:3030/workspace";
+    expect(
+      isRemoteSnapPreviewSrc("https://github.com/AruNi-01.png?size=32", page),
+    ).toBe(true);
+    expect(
+      isRemoteSnapPreviewSrc(
+        "https://avatars.githubusercontent.com/u/76934779?s=32&v=4",
+        page,
+      ),
+    ).toBe(true);
+    expect(
+      isRemoteSnapPreviewSrc(
+        "https://lh3.googleusercontent.com/a/ACg8ocKexample",
+        page,
+      ),
+    ).toBe(true);
+    expect(isRemoteSnapPreviewSrc("/icon.png", page)).toBe(false);
+    expect(isRemoteSnapPreviewSrc("http://localhost:3030/icon.png", page)).toBe(
+      false,
+    );
+    expect(isRemoteSnapPreviewSrc("data:image/png;base64,abc", page)).toBe(
+      false,
+    );
+    expect(
+      isRemoteSnapPreviewSrc("blob:http://localhost:3030/abc", page),
+    ).toBe(false);
+  });
+
   it("fills the cell when the pane has no layout size", () => {
     expect(
       mapInnerRectToDest(
@@ -80,6 +110,10 @@ describe("center space thumbnail mapping", () => {
     expect(thumb).toContain("isCheapHiddenPane");
     expect(thumb).toContain("isSkippedPreviewNode");
     expect(thumb).toContain("isVisibleInClip");
+    expect(thumb).toContain("isRemoteSnapPreviewImage");
+    expect(thumb).toContain("filter: (node) => !isRemoteSnapPreviewImage(node)");
+    expect(thumb).toContain("placeholders: false");
+    expect(thumb).toContain("resolvePicturePlaceholders: false");
     expect(thumb).not.toContain("rect.width <= 1");
     expect(thumb).not.toContain("window.scrollX");
     expect(thumb).not.toContain("filterMode");

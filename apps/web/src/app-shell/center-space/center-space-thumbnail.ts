@@ -33,6 +33,53 @@ const SNAP_EXCLUDE = [
 export type ThumbBox = { left: number; top: number; width: number; height: number };
 export type ThumbDest = { x: number; y: number; w: number; h: number };
 
+function snapPreviewBaseHref(): string {
+  if (typeof location !== "undefined" && location.href) return location.href;
+  return "http://localhost/";
+}
+
+/** snapDOM inlines <img> via CORS fetch. Skip cross-origin avatars and CDNs. */
+export function isRemoteSnapPreviewSrc(
+  src: string | null | undefined,
+  baseHref = snapPreviewBaseHref(),
+): boolean {
+  if (!src) return false;
+  const value = src.trim();
+  if (!value || value.startsWith("data:") || value.startsWith("blob:")) {
+    return false;
+  }
+  try {
+    return new URL(value, baseHref).origin !== new URL(baseHref).origin;
+  } catch {
+    return true;
+  }
+}
+
+function firstSrcsetUrl(srcset: string | null | undefined): string | null {
+  if (!srcset) return null;
+  const first = srcset.split(",")[0]?.trim().split(/\s+/)[0];
+  return first || null;
+}
+
+export function isRemoteSnapPreviewImage(node: Element): boolean {
+  if (typeof HTMLImageElement !== "undefined" && node instanceof HTMLImageElement) {
+    return isRemoteSnapPreviewSrc(
+      node.currentSrc ||
+        node.getAttribute("src") ||
+        node.src ||
+        firstSrcsetUrl(node.getAttribute("srcset")),
+    );
+  }
+  if (typeof SVGImageElement !== "undefined" && node instanceof SVGImageElement) {
+    return isRemoteSnapPreviewSrc(
+      node.getAttribute("href") ||
+        node.getAttribute("xlink:href") ||
+        node.href?.baseVal,
+    );
+  }
+  return false;
+}
+
 let captureEpoch = 0;
 let captureLock: Promise<void> = Promise.resolve();
 let snapdomLoader: Promise<typeof import("@zumer/snapdom")> | null = null;
@@ -329,6 +376,9 @@ async function snapshotFrameToJpeg(
         width: outW,
         backgroundColor: fill,
         exclude: SNAP_EXCLUDE,
+        filter: (node) => !isRemoteSnapPreviewImage(node),
+        placeholders: false,
+        resolvePicturePlaceholders: false,
       });
     } catch {
       canvas = null;
