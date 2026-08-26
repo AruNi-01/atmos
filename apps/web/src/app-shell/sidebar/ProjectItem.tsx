@@ -56,6 +56,7 @@ import {
 } from "@/features/agent/store/agent-attention-store";
 import type { WorkspaceWorkflowStatus } from "@/shared/types/domain";
 import { FileBrowser } from "@/features/files/components/FileBrowser";
+import { ProjectLogoMark } from "@/features/project/components/ProjectLogoMark";
 import { useAtmosComputerStore } from "@/features/connection/lib/atmos-computer-store";
 import { pickLocalFile } from "@/shared/lib/desktop-directory-picker";
 import { getRuntimeApiConfig, httpBase } from "@/shared/lib/desktop-runtime";
@@ -500,11 +501,9 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
               style={{ borderLeft: project.borderColor ? `2px solid ${project.borderColor}` : undefined }}
             >
               {logoUrl && !hasLogoLoadError ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
+                <ProjectLogoMark
                   src={logoUrl}
-                  alt=""
-                  className="size-full rounded-[inherit] object-cover group-hover/project:hidden"
+                  className="group-hover/project:hidden"
                   onError={() => setHasLogoLoadError(true)}
                 />
               ) : (
