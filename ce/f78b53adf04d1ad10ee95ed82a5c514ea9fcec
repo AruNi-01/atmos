@@ -1,0 +1,14 @@
+crates/core-service/src/service/resource_monitor/leak.rs
+  h_5be255725524c8 24-25
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "cef78b53adf04d1ad10ee95ed82a5c514ea9fcec",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
