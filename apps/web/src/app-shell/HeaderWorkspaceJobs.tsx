@@ -3,7 +3,6 @@
 import React from "react";
 import { useTranslations } from "next-intl";
 import { CheckCircle2, Loader2 } from "lucide-react";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import {
   Button,
   Popover,
@@ -29,20 +28,18 @@ import {
 } from "@/features/workspace/lib/workspace-setup";
 import { WorkspaceStatusPopover } from "./WorkspaceStatusPopover";
 import {
-  HEADER_CHIP_HOVER_CLASS,
-  HEADER_CHIP_SURFACE_CLASS,
-} from "./header-parts";
+  HEADER_SETUP_CHIP_TRIGGER_CLASS,
+  HeaderSetupChipFrame,
+  type HeaderSetupAutoEnter,
+} from "./header-setup-chip";
 import {
   collectHeaderWorkspaceSetupItems,
   isHeaderWorkspaceSetupReadyToOpen,
   selectHeaderWorkspaceSetupChipItem,
   visibleHeaderWorkspaceSetupItems,
-  WORKSPACE_AUTO_ENTER_HOVER_LEAVE_MS,
   type HeaderWorkspaceSetupItem,
 } from "./header-workspace-jobs";
 import { useWorkspaceCreateAutoOpen } from "./use-workspace-create-auto-open";
-
-const AUTO_ENTER_CHIP_TRANSITION = { duration: 0.22, ease: [0.22, 1, 0.36, 1] as const };
 
 function jobTitle(
   job: WorkspaceCreateJob,
@@ -72,89 +69,6 @@ function itemTitle(
 
 function chipLabel(item: HeaderWorkspaceSetupItem, title: string): string {
   return item.progress?.stepTitle || title;
-}
-
-function AutoEnterChip({
-  remainingSeconds,
-  hovered,
-  grouped,
-  onStay,
-  onEnter,
-}: {
-  remainingSeconds: number;
-  hovered: boolean;
-  grouped: boolean;
-  onStay: () => void;
-  onEnter: () => void;
-}) {
-  const t = useTranslations("header.workspaceJobs");
-  const reduceMotion = useReducedMotion();
-  const innerRef = React.useRef<HTMLDivElement>(null);
-  const [width, setWidth] = React.useState(0);
-  const transition = reduceMotion ? { duration: 0 } : AUTO_ENTER_CHIP_TRANSITION;
-
-  React.useLayoutEffect(() => {
-    const node = innerRef.current;
-    if (!node) return;
-    const update = () => setWidth(node.scrollWidth);
-    update();
-    if (typeof ResizeObserver === "undefined") return;
-    const observer = new ResizeObserver(update);
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [grouped, hovered, remainingSeconds]);
-
-  return (
-    <motion.div
-      initial={reduceMotion ? { width, opacity: 1 } : { width: 0, opacity: 0 }}
-      animate={{ width, opacity: 1 }}
-      exit={reduceMotion ? { opacity: 0 } : { width: 0, opacity: 0 }}
-      transition={transition}
-      className="h-7 shrink-0 overflow-hidden"
-    >
-      <div
-        ref={innerRef}
-        className={cn(
-          "flex h-7 w-max items-center rounded-md",
-          HEADER_CHIP_SURFACE_CLASS,
-          hovered ? "gap-1 px-1" : "px-2",
-        )}
-        role="status"
-        aria-label={
-          hovered
-            ? grouped
-              ? t("autoEnterStayAllAria")
-              : t("autoEnterPausedAria")
-            : t("autoEnterCountdownAria", { seconds: remainingSeconds })
-        }
-      >
-        {hovered ? (
-          <>
-            <button
-              type="button"
-              onClick={onStay}
-              className="inline-flex h-6 items-center rounded-md px-2 text-[11px] font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-            >
-              {grouped ? t("autoEnterStayAll") : t("autoEnterStay")}
-            </button>
-            {grouped ? null : (
-              <button
-                type="button"
-                onClick={onEnter}
-                className="inline-flex h-6 items-center rounded-md bg-primary px-2 text-[11px] font-medium text-primary-foreground hover:bg-primary/90"
-              >
-                {t("autoEnterNow")}
-              </button>
-            )}
-          </>
-        ) : (
-          <span className="whitespace-nowrap text-[12px] font-medium tabular-nums">
-            {t("autoEnterCountdown", { seconds: remainingSeconds })}
-          </span>
-        )}
-      </div>
-    </motion.div>
-  );
 }
 
 function SetupDetailPanel({
@@ -238,6 +152,7 @@ function WorkspaceSetupListRow({
   onFinish,
   autoEnterWorkspaceId,
   remainingSeconds,
+  onDetailOpenChange,
 }: {
   item: HeaderWorkspaceSetupItem;
   title: string;
@@ -247,9 +162,15 @@ function WorkspaceSetupListRow({
   onFinish: (workspaceId: string) => void;
   autoEnterWorkspaceId: string | null;
   remainingSeconds: number;
+  onDetailOpenChange?: (open: boolean) => void;
 }) {
   const t = useTranslations("header.workspaceJobs");
   const [open, setOpen] = React.useState(false);
+  React.useEffect(() => {
+    return () => {
+      if (open) onDetailOpenChange?.(false);
+    };
+  }, [onDetailOpenChange, open]);
   const workspaceId = item.workspaceId;
   const ready = isHeaderWorkspaceSetupReadyToOpen(item);
   const enterable =
@@ -313,7 +234,13 @@ function WorkspaceSetupListRow({
   return (
     <div className="flex min-w-0 items-start gap-1">
       <div className="min-w-0 flex-1">
-        <Popover open={open} onOpenChange={setOpen}>
+        <Popover
+          open={open}
+          onOpenChange={(next) => {
+            setOpen(next);
+            onDetailOpenChange?.(next);
+          }}
+        >
           <PopoverTrigger asChild>{rowButton(open)}</PopoverTrigger>
           <PopoverContent
             align="start"
@@ -346,27 +273,28 @@ function WorkspaceSetupListRow({
 function ReadyWorkspaceChip({
   title,
   onOpen,
+  autoEnter,
+  onHoverChange,
 }: {
   title: string;
   onOpen: () => void;
+  autoEnter?: HeaderSetupAutoEnter | null;
+  onHoverChange?: (hovered: boolean) => void;
 }) {
   const t = useTranslations("header.workspaceJobs");
 
   return (
-    <button
-      type="button"
-      onClick={onOpen}
-      className={cn(
-        "grid h-7 max-w-[280px] grid-cols-[16px_minmax(0,1fr)_auto] items-center gap-2 rounded-md px-2 text-left",
-        HEADER_CHIP_SURFACE_CLASS,
-        HEADER_CHIP_HOVER_CLASS,
-      )}
-      aria-label={t("ready")}
-    >
-      <CheckCircle2 className="size-3.5 text-emerald-500" />
-      <span className="block min-w-0 truncate text-[12px] font-medium">{title}</span>
-      <span aria-hidden="true" className="w-0" />
-    </button>
+    <HeaderSetupChipFrame autoEnter={autoEnter} onHoverChange={onHoverChange}>
+      <button
+        type="button"
+        onClick={onOpen}
+        className={HEADER_SETUP_CHIP_TRIGGER_CLASS}
+        aria-label={t("ready")}
+      >
+        <CheckCircle2 className="size-3.5 shrink-0 text-emerald-500" />
+        <span className="block min-w-0 truncate text-[12px] font-medium">{title}</span>
+      </button>
+    </HeaderSetupChipFrame>
   );
 }
 
@@ -375,57 +303,56 @@ function CreatingJobPopover({
   title,
   viewportWidth,
   onFinish,
-  onContentMouseEnter,
-  onContentMouseLeave,
+  autoEnter,
+  onHoverChange,
+  onOpenChange,
 }: {
   item: HeaderWorkspaceSetupItem;
   title: string;
   viewportWidth: number;
   onFinish: (workspaceId: string) => void;
-  onContentMouseEnter?: () => void;
-  onContentMouseLeave?: () => void;
+  autoEnter?: HeaderSetupAutoEnter | null;
+  onHoverChange?: (hovered: boolean) => void;
+  onOpenChange?: (open: boolean) => void;
 }) {
   const [open, setOpen] = React.useState(false);
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          className={cn(
-            "grid h-7 max-w-[280px] grid-cols-[16px_minmax(0,1fr)_auto] items-center gap-2 rounded-md px-2 text-left",
-            HEADER_CHIP_SURFACE_CLASS,
-            HEADER_CHIP_HOVER_CLASS,
-          )}
-          aria-label={title}
-        >
-          <Loader2 className="size-3.5 animate-spin text-primary" />
-          <TextShimmer as="span" duration={1.6} className="block min-w-0 truncate text-[12px] font-medium">
-            {title}
-          </TextShimmer>
-          <span aria-hidden="true" className="w-0" />
-        </button>
-      </PopoverTrigger>
-      <PopoverContent
-        align="start"
-        sideOffset={8}
-        className="w-auto max-w-[calc(100vw-24px)] overflow-visible border-0 bg-transparent p-0 shadow-none"
-        onMouseEnter={onContentMouseEnter}
-        onMouseLeave={onContentMouseLeave}
+    <HeaderSetupChipFrame autoEnter={autoEnter} onHoverChange={onHoverChange}>
+      <Popover
+        open={open}
+        onOpenChange={(next) => {
+          setOpen(next);
+          onOpenChange?.(next);
+        }}
       >
-        <div className="min-w-0 overflow-hidden rounded-md border border-border/70 bg-popover/96 shadow-md">
-          <SetupDetailPanel
-            item={item}
-            title={title}
-            isCurrent={false}
-            nestedOpen={open}
-            viewportWidth={viewportWidth}
-            onFinish={onFinish}
-            showHeader={false}
-          />
-        </div>
-      </PopoverContent>
-    </Popover>
+        <PopoverTrigger asChild>
+          <button type="button" className={HEADER_SETUP_CHIP_TRIGGER_CLASS} aria-label={title}>
+            <Loader2 className="size-3.5 shrink-0 animate-spin text-primary" />
+            <TextShimmer as="span" duration={1.6} className="block min-w-0 truncate text-[12px] font-medium">
+              {title}
+            </TextShimmer>
+          </button>
+        </PopoverTrigger>
+        <PopoverContent
+          align="start"
+          sideOffset={8}
+          className="w-auto max-w-[calc(100vw-24px)] overflow-visible border-0 bg-transparent p-0 shadow-none"
+        >
+          <div className="min-w-0 overflow-hidden rounded-md border border-border/70 bg-popover/96 shadow-md">
+            <SetupDetailPanel
+              item={item}
+              title={title}
+              isCurrent={false}
+              nestedOpen={open}
+              viewportWidth={viewportWidth}
+              onFinish={onFinish}
+              showHeader={false}
+            />
+          </div>
+        </PopoverContent>
+      </Popover>
+    </HeaderSetupChipFrame>
   );
 }
 
@@ -440,8 +367,9 @@ export function HeaderWorkspaceJobs() {
   const setupProgress = useProjectStore((state) => state.setupProgress);
   const clearSetupProgress = useProjectStore((state) => state.clearSetupProgress);
   const [open, setOpen] = React.useState(false);
-  const [headerHovering, setHeaderHovering] = React.useState(false);
-  const hoverLeaveTimerRef = React.useRef<number | null>(null);
+  const [chipHovering, setChipHovering] = React.useState(false);
+  const [singlePopoverOpen, setSinglePopoverOpen] = React.useState(false);
+  const [nestedOpen, setNestedOpen] = React.useState(false);
   const [viewportWidth, setViewportWidth] = React.useState(() =>
     typeof window === "undefined" ? 1200 : window.innerWidth,
   );
@@ -451,29 +379,6 @@ export function HeaderWorkspaceJobs() {
     updateViewportWidth();
     window.addEventListener("resize", updateViewportWidth);
     return () => window.removeEventListener("resize", updateViewportWidth);
-  }, []);
-
-  React.useEffect(() => {
-    return () => {
-      if (hoverLeaveTimerRef.current != null) {
-        window.clearTimeout(hoverLeaveTimerRef.current);
-      }
-    };
-  }, []);
-
-  const markHeaderHovering = React.useCallback((next: boolean) => {
-    if (hoverLeaveTimerRef.current != null) {
-      window.clearTimeout(hoverLeaveTimerRef.current);
-      hoverLeaveTimerRef.current = null;
-    }
-    if (next) {
-      setHeaderHovering(true);
-      return;
-    }
-    hoverLeaveTimerRef.current = window.setTimeout(() => {
-      setHeaderHovering(false);
-      hoverLeaveTimerRef.current = null;
-    }, WORKSPACE_AUTO_ENTER_HOVER_LEAVE_MS);
   }, []);
 
   const workspaceNameById = React.useMemo(() => {
@@ -517,12 +422,22 @@ export function HeaderWorkspaceJobs() {
   };
 
   const grouped = items.length > 1;
+  const single = items.length === 1 ? items[0] : null;
+  const autoEnterPaused = chipHovering || open || singlePopoverOpen || nestedOpen;
   const autoEnter = useWorkspaceCreateAutoOpen({
-    grouped,
-    hovering: headerHovering,
+    paused: autoEnterPaused,
     onAutoEnter: openWorkspace,
   });
-  const single = items.length === 1 ? items[0] : null;
+  const autoEnterModel: HeaderSetupAutoEnter | null = autoEnter.workspaceId
+    ? {
+        remainingSeconds: autoEnter.remainingSeconds,
+        grouped,
+        onStay: () => cancelAutoOpen(autoEnter.workspaceId!),
+        onEnter: () => openWorkspace(autoEnter.workspaceId!),
+      }
+    : null;
+  const singleAutoEnter =
+    single?.workspaceId && single.workspaceId === autoEnter.workspaceId ? autoEnterModel : null;
   const allReady = grouped && items.every((item) => isHeaderWorkspaceSetupReadyToOpen(item));
   const groupedTitle = allReady
     ? t("ready")
@@ -532,35 +447,34 @@ export function HeaderWorkspaceJobs() {
 
   React.useEffect(() => {
     if (!grouped && open) setOpen(false);
+    if (!grouped) setNestedOpen(false);
   }, [grouped, open]);
 
   return (
-    <div
-      className="desktop-no-drag flex min-w-0 items-center gap-1"
-      onMouseEnter={() => markHeaderHovering(true)}
-      onMouseLeave={() => markHeaderHovering(false)}
-    >
+    <div className="desktop-no-drag flex min-w-0 items-center">
       {single?.progress ? (
         <WorkspaceStatusPopover
           progress={single.progress}
           onFinish={() => {
             if (single.workspaceId) finishSetup(single.workspaceId);
           }}
-          onContentMouseEnter={() => markHeaderHovering(true)}
-          onContentMouseLeave={() => markHeaderHovering(false)}
+          autoEnter={singleAutoEnter}
+          onChipHoverChange={setChipHovering}
+          onOpenChange={setSinglePopoverOpen}
         />
       ) : null}
 
       {single &&
       !single.progress &&
       isHeaderWorkspaceSetupReadyToOpen(single) &&
-      single.workspaceId &&
-      single.workspaceId !== autoEnter.workspaceId ? (
+      single.workspaceId ? (
         <ReadyWorkspaceChip
           title={titleForItem(single)}
           onOpen={() => {
             if (single.workspaceId) openWorkspace(single.workspaceId, true);
           }}
+          autoEnter={singleAutoEnter}
+          onHoverChange={setChipHovering}
         />
       ) : null}
 
@@ -570,95 +484,82 @@ export function HeaderWorkspaceJobs() {
           title={titleForItem(single)}
           viewportWidth={viewportWidth}
           onFinish={finishSetup}
-          onContentMouseEnter={() => markHeaderHovering(true)}
-          onContentMouseLeave={() => markHeaderHovering(false)}
+          autoEnter={singleAutoEnter}
+          onHoverChange={setChipHovering}
+          onOpenChange={setSinglePopoverOpen}
         />
       ) : null}
 
       {grouped && chipItem ? (
-        <Popover open={open} onOpenChange={setOpen}>
-          <PopoverTrigger asChild>
-            <button
-              type="button"
-              className={cn(
-                "grid h-7 max-w-[280px] grid-cols-[16px_minmax(0,1fr)_auto] items-center gap-2 rounded-md px-2 text-left",
-                HEADER_CHIP_SURFACE_CLASS,
-                HEADER_CHIP_HOVER_CLASS,
-              )}
-              aria-label={
-                allReady
-                  ? t("countAriaReady", { count: items.length })
-                  : t("countAria", { count: items.length })
-              }
+        <HeaderSetupChipFrame autoEnter={autoEnterModel} onHoverChange={setChipHovering}>
+          <Popover open={open} onOpenChange={setOpen}>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                className={HEADER_SETUP_CHIP_TRIGGER_CLASS}
+                aria-label={
+                  allReady
+                    ? t("countAriaReady", { count: items.length })
+                    : t("countAria", { count: items.length })
+                }
+              >
+                {allReady ? (
+                  <CheckCircle2 className="size-3.5 shrink-0 text-emerald-500" />
+                ) : (
+                  <Loader2 className="size-3.5 shrink-0 animate-spin text-primary" />
+                )}
+                {allReady ? (
+                  <span className="block min-w-0 truncate text-[12px] font-medium">{groupedTitle}</span>
+                ) : (
+                  <TextShimmer
+                    as="span"
+                    duration={1.6}
+                    className="block min-w-0 truncate text-[12px] font-medium"
+                  >
+                    {groupedTitle}
+                  </TextShimmer>
+                )}
+                <span className="rounded bg-muted px-1 text-[10px] font-medium text-muted-foreground">
+                  {items.length}
+                </span>
+              </button>
+            </PopoverTrigger>
+            <PopoverContent
+              align="start"
+              sideOffset={8}
+              className="w-[280px] max-w-[calc(100vw-24px)] overflow-visible p-0"
+              onInteractOutside={(event) => {
+                const target = event.target;
+                if (target instanceof HTMLElement && target.closest("[data-header-setup-nested]")) {
+                  event.preventDefault();
+                }
+              }}
             >
-              {allReady ? (
-                <CheckCircle2 className="size-3.5 text-emerald-500" />
-              ) : (
-                <Loader2 className="size-3.5 animate-spin text-primary" />
-              )}
-              {allReady ? (
-                <span className="block min-w-0 truncate text-[12px] font-medium">{groupedTitle}</span>
-              ) : (
-                <TextShimmer
-                  as="span"
-                  duration={1.6}
-                  className="block min-w-0 truncate text-[12px] font-medium"
-                >
-                  {groupedTitle}
-                </TextShimmer>
-              )}
-              <span className="rounded bg-muted px-1 text-[10px] font-medium text-muted-foreground">
-                {items.length}
-              </span>
-            </button>
-          </PopoverTrigger>
-          <PopoverContent
-            align="start"
-            sideOffset={8}
-            className="w-[280px] max-w-[calc(100vw-24px)] overflow-visible p-0"
-            onInteractOutside={(event) => {
-              const target = event.target;
-              if (target instanceof HTMLElement && target.closest("[data-header-setup-nested]")) {
-                event.preventDefault();
-              }
-            }}
-          >
-            <div className="px-3 py-2 text-xs font-medium text-muted-foreground">
-              {allReady
-                ? t("listTitleReady", { count: items.length })
-                : t("listTitle", { count: items.length })}
-            </div>
-            <div className="flex flex-col gap-1 p-2 pt-0">
-              {items.map((item) => (
-                <WorkspaceSetupListRow
-                  key={item.id}
-                  item={item}
-                  title={titleForItem(item)}
-                  isCurrent={item.workspaceId === currentWorkspaceId}
-                  viewportWidth={viewportWidth}
-                  onOpenWorkspace={openWorkspace}
-                  onFinish={finishSetup}
-                  autoEnterWorkspaceId={autoEnter.workspaceId}
-                  remainingSeconds={autoEnter.remainingSeconds}
-                />
-              ))}
-            </div>
-          </PopoverContent>
-        </Popover>
+              <div className="px-3 py-2 text-xs font-medium text-muted-foreground">
+                {allReady
+                  ? t("listTitleReady", { count: items.length })
+                  : t("listTitle", { count: items.length })}
+              </div>
+              <div className="flex flex-col gap-1 p-2 pt-0">
+                {items.map((item) => (
+                  <WorkspaceSetupListRow
+                    key={item.id}
+                    item={item}
+                    title={titleForItem(item)}
+                    isCurrent={item.workspaceId === currentWorkspaceId}
+                    viewportWidth={viewportWidth}
+                    onOpenWorkspace={openWorkspace}
+                    onFinish={finishSetup}
+                    autoEnterWorkspaceId={autoEnter.workspaceId}
+                    remainingSeconds={autoEnter.remainingSeconds}
+                    onDetailOpenChange={setNestedOpen}
+                  />
+                ))}
+              </div>
+            </PopoverContent>
+          </Popover>
+        </HeaderSetupChipFrame>
       ) : null}
-
-      <AnimatePresence initial={false}>
-        {autoEnter.workspaceId ? (
-          <AutoEnterChip
-            key={autoEnter.workspaceId}
-            remainingSeconds={autoEnter.remainingSeconds}
-            hovered={headerHovering}
-            grouped={grouped}
-            onStay={() => cancelAutoOpen(autoEnter.workspaceId!)}
-            onEnter={() => openWorkspace(autoEnter.workspaceId!)}
-          />
-        ) : null}
-      </AnimatePresence>
     </div>
   );
 }

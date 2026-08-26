@@ -3,13 +3,12 @@ import type { WorkspaceSetupProgress } from "@/features/project/store/use-projec
 import type { WorkspaceCreateJob } from "@/features/workspace/store/workspace-creation-store";
 import {
   collectHeaderWorkspaceSetupItems,
-  getWorkspaceAutoEnterResumeGraceMs,
   getWorkspaceAutoEnterSeconds,
   isHeaderWorkspaceSetupReadyToOpen,
   selectHeaderWorkspaceSetupChipItem,
   visibleHeaderWorkspaceSetupItems,
   WORKSPACE_AUTO_ENTER_DELAY_MS,
-  WORKSPACE_AUTO_ENTER_GROUPED_RESUME_GRACE_MS,
+  WORKSPACE_SETUP_AUTO_FINISH_DELAY_MS,
 } from "./header-workspace-jobs";
 
 function job(
@@ -156,11 +155,9 @@ describe("workspace auto-enter countdown policy", () => {
     expect(getWorkspaceAutoEnterSeconds(0)).toBe(0);
   });
 
-  test("only grouped header leave waits before resuming", () => {
-    expect(getWorkspaceAutoEnterResumeGraceMs(false)).toBe(0);
-    expect(getWorkspaceAutoEnterResumeGraceMs(true)).toBe(
-      WORKSPACE_AUTO_ENTER_GROUPED_RESUME_GRACE_MS,
-    );
+  test("auto-finish uses the same 5s window as auto-enter", () => {
+    expect(WORKSPACE_SETUP_AUTO_FINISH_DELAY_MS).toBe(5_000);
+    expect(WORKSPACE_SETUP_AUTO_FINISH_DELAY_MS).toBe(WORKSPACE_AUTO_ENTER_DELAY_MS);
   });
 });
 

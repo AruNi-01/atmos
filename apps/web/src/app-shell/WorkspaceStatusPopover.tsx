@@ -19,9 +19,12 @@ import {
   getWorkspaceSetupSteps,
 } from "@/features/workspace/lib/workspace-setup";
 import {
-  HEADER_CHIP_HOVER_CLASS,
-  HEADER_CHIP_SURFACE_CLASS,
-} from "@/app-shell/header-parts";
+  HEADER_SETUP_CHIP_TRIGGER_CLASS,
+  HeaderSetupChipFrame,
+  type HeaderSetupAutoEnter,
+} from "@/app-shell/header-setup-chip";
+import { WORKSPACE_SETUP_AUTO_FINISH_DELAY_MS } from "@/app-shell/header-workspace-jobs";
+import { usePausedDeadlineCountdown } from "@/app-shell/use-paused-deadline-countdown";
 
 function SetupPopoverSizeFrame({
   width,
@@ -49,8 +52,9 @@ function SetupPopoverSizeFrame({
 interface WorkspaceStatusPopoverProps {
   progress: WorkspaceSetupProgress;
   onFinish: () => void;
-  onContentMouseEnter?: () => void;
-  onContentMouseLeave?: () => void;
+  autoEnter?: HeaderSetupAutoEnter | null;
+  onChipHoverChange?: (hovered: boolean) => void;
+  onOpenChange?: (open: boolean) => void;
 }
 
 function ProgressRing({
@@ -126,10 +130,19 @@ function ProgressRing({
 export function WorkspaceStatusPopover({
   progress,
   onFinish,
-  onContentMouseEnter,
-  onContentMouseLeave,
+  autoEnter,
+  onChipHoverChange,
+  onOpenChange,
 }: WorkspaceStatusPopoverProps) {
   const [open, setOpen] = React.useState(false);
+  const [chipHovering, setChipHovering] = React.useState(false);
+  const [actionHovering, setActionHovering] = React.useState(false);
+  const autoFinish = usePausedDeadlineCountdown({
+    sessionKey: progress.status === "completed" ? `${progress.workspaceId}:setup-auto-finish` : null,
+    durationMs: WORKSPACE_SETUP_AUTO_FINISH_DELAY_MS,
+    paused: chipHovering || actionHovering,
+    onComplete: onFinish,
+  });
   const progressValue = Math.round(getWorkspaceSetupProgressValue(progress));
   const isReviewingTodos = progress.requiresConfirmation === true;
   const needsScriptTrust = progress.requiresScriptTrust === true;
@@ -164,53 +177,64 @@ export function WorkspaceStatusPopover({
   }, []);
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          className={cn(
-            "grid h-7 max-w-[280px] grid-cols-[22px_minmax(0,1fr)_2px] items-center gap-2 rounded-md pl-2 pr-1 text-left",
-            HEADER_CHIP_SURFACE_CLASS,
-            HEADER_CHIP_HOVER_CLASS,
-          )}
-          aria-label={`Workspace status: ${progress.stepTitle}`}
-        >
-          <ProgressRing
-            progress={progressValue}
-            status={progress.status}
-            highlightReview={isReviewingTodos}
-            highlightScriptTrust={needsScriptTrust}
-          />
-          <div className="min-w-0 overflow-hidden text-center">
-            <TextShimmer
-              as="span"
-              duration={1.6}
-              className="block truncate text-center text-[12px] font-medium"
-              style={shimmerToneStyle}
-            >
-              {progress.stepTitle}
-            </TextShimmer>
-          </div>
-          <span aria-hidden="true" className="block h-[22px] w-0.5 shrink-0" />
-        </button>
-      </PopoverTrigger>
-      <PopoverContent
-        align="start"
-        sideOffset={8}
-        forceMount={progress.status === "completed" ? true : undefined}
-        className="w-auto max-w-[calc(100vw-24px)] overflow-x-hidden border border-border/70 bg-popover/96 p-0 data-[state=closed]:hidden"
-        onMouseEnter={onContentMouseEnter}
-        onMouseLeave={onContentMouseLeave}
+    <HeaderSetupChipFrame
+      autoEnter={autoEnter}
+      onHoverChange={(hovered) => {
+        setChipHovering(hovered);
+        onChipHoverChange?.(hovered);
+      }}
+    >
+      <Popover
+        open={open}
+        onOpenChange={(next) => {
+          setOpen(next);
+          if (!next) setActionHovering(false);
+          onOpenChange?.(next);
+        }}
       >
-        <SetupPopoverSizeFrame width={popoverWidth}>
-          <WorkspaceSetupProgressView
-            progress={progress}
-            onFinish={onFinish}
-            compact
-            pauseAutoFinishEnabled={open}
-          />
-        </SetupPopoverSizeFrame>
-      </PopoverContent>
-    </Popover>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            className={HEADER_SETUP_CHIP_TRIGGER_CLASS}
+            aria-label={`Workspace status: ${progress.stepTitle}`}
+          >
+            <ProgressRing
+              progress={progressValue}
+              status={progress.status}
+              highlightReview={isReviewingTodos}
+              highlightScriptTrust={needsScriptTrust}
+            />
+            <div className="min-w-0 overflow-hidden text-center">
+              <TextShimmer
+                as="span"
+                duration={1.6}
+                className="block truncate text-center text-[12px] font-medium"
+                style={shimmerToneStyle}
+              >
+                {progress.stepTitle}
+              </TextShimmer>
+            </div>
+          </button>
+        </PopoverTrigger>
+        <PopoverContent
+          align="start"
+          sideOffset={8}
+          className="w-auto max-w-[calc(100vw-24px)] overflow-x-hidden border border-border/70 bg-popover/96 p-0"
+        >
+          <SetupPopoverSizeFrame width={popoverWidth}>
+            <WorkspaceSetupProgressView
+              progress={progress}
+              onFinish={onFinish}
+              compact
+              pauseAutoFinishEnabled={false}
+              autoFinishSeconds={
+                progress.status === "completed" ? autoFinish.remainingSeconds : undefined
+              }
+              onAutoFinishHoverChange={setActionHovering}
+            />
+          </SetupPopoverSizeFrame>
+        </PopoverContent>
+      </Popover>
+    </HeaderSetupChipFrame>
   );
 }
