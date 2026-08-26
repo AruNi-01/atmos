@@ -2,6 +2,7 @@ import type { WsAction } from "./actions";
 import type { AgentContract } from "./contract/agent";
 import type { AutomationContract } from "./contract/automation";
 import type { CanvasContract } from "./contract/canvas";
+import type { CenterLayoutContract } from "./contract/center-layout";
 import type { DiskAnalyzerContract } from "./contract/disk-analyzer";
 import type { FsContract } from "./contract/fs";
 import type { GitContract } from "./contract/git";
@@ -30,6 +31,7 @@ export type WsContract = FsContract &
   ProjectContract &
   WorkspaceContract &
   CanvasContract &
+  CenterLayoutContract &
   QuotaContract &
   TokenUsageContract &
   PermissionContract &

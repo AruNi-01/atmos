@@ -125,6 +125,7 @@ import {
   CenterPaneContentSlot,
   CenterPaneGrid,
 } from "@/app-shell/center-pane/CenterPaneGrid";
+import { syncCenterLayoutFromDisk } from "@/app-shell/center-layout/center-layout-persist";
 import { useCenterPaneLayoutStore } from "@/app-shell/center-pane/center-pane-layout-store";
 import {
   applyLegacyStripOrder,
@@ -357,11 +358,9 @@ const CenterStage: React.FC = () => {
     currentView,
   } = useContextParams();
   const hydrateCenterSpaces = useCenterSpaceStore((s) => s.hydrate);
-  const syncCenterSpacesFromDisk = useCenterSpaceStore((s) => s.syncFromDisk);
   React.useLayoutEffect(() => {
     hydrateCenterSpaces();
-    void syncCenterSpacesFromDisk();
-  }, [hydrateCenterSpaces, syncCenterSpacesFromDisk]);
+  }, [hydrateCenterSpaces]);
   const liveActiveSpaceId = useCenterSpaceStore((s) =>
     liveHostContextId
       ? s.getActiveSpaceId(liveHostContextId)
@@ -2503,32 +2502,18 @@ const CenterStage: React.FC = () => {
   const setPaneActiveTab = useCenterPaneLayoutStore((s) => s.setActiveTab);
   const setCenterPaneLayout = useCenterPaneLayoutStore((s) => s.setLayout);
   const hydrateSavedLayouts = useCenterPaneSavedLayoutStore((s) => s.hydrate);
-  const syncSavedLayoutsFromDisk = useCenterPaneSavedLayoutStore(
-    (s) => s.syncFromDisk,
-  );
   const savedLayouts = useCenterPaneSavedLayoutStore((s) => s.layouts);
   const saveCenterLayout = useCenterPaneSavedLayoutStore((s) => s.save);
   const panelHostRef = React.useRef<HTMLDivElement>(null);
   const centerStageFullscreenRef = React.useRef<HTMLElement | null>(null);
   useCenterStageFullscreenMotion(centerStageFullscreenRef);
-  const isCenterFullscreen = useCenterStageFullscreenStore((s) => s.isFullscreen);
-  const fullscreenPaneId = useCenterStageFullscreenStore((s) => s.paneId);
-  const setCenterFullscreen = useCenterStageFullscreenStore((s) => s.setFullscreen);
-  const activeFullscreenPaneId =
-    isCenterFullscreen ? fullscreenPaneId : null;
 
   React.useLayoutEffect(() => {
     hydratePaneLayout();
     hydrateOverviewTabs();
-    // Instant localStorage cache, then fill/migrate from ~/.atmos when empty.
     hydrateSavedLayouts();
-    void syncSavedLayoutsFromDisk();
-  }, [
-    hydrateOverviewTabs,
-    hydratePaneLayout,
-    hydrateSavedLayouts,
-    syncSavedLayoutsFromDisk,
-  ]);
+    void syncCenterLayoutFromDisk();
+  }, [hydrateOverviewTabs, hydratePaneLayout, hydrateSavedLayouts]);
 
   // Content-stable key so array identity churn from open-file lists cannot loop effects.
   const openTabIdKey = React.useMemo(() => {
@@ -2595,6 +2580,7 @@ const CenterStage: React.FC = () => {
     renderContextId,
   ]);
   const isMultiPane = resolvedPaneLayout.order.length > 1;
+  const activeFullscreenPaneId = resolvedPaneLayout.fullscreenPaneId ?? null;
   const focusedStripTabIds = React.useMemo(() => {
     const focusedPane =
       resolvedPaneLayout.panes.find((pane) => pane.id === resolvedPaneLayout.focusedPaneId) ??
@@ -2661,15 +2647,13 @@ const CenterStage: React.FC = () => {
       setTabStripState({ contextId: pending.contextId, order: pending.order });
     }
   }, [paneCount, renderContextId]);
-  React.useEffect(() => {
-    setCenterFullscreen(false);
-  }, [mosaicContextId, setCenterFullscreen]);
-  React.useEffect(() => {
-    if (!activeFullscreenPaneId) return;
-    if (!resolvedPaneLayout.order.includes(activeFullscreenPaneId)) {
-      setCenterFullscreen(false);
-    }
-  }, [activeFullscreenPaneId, resolvedPaneLayout.order, setCenterFullscreen]);
+  React.useLayoutEffect(() => {
+    if (!mosaicContextId) return;
+    useCenterStageFullscreenStore.getState().syncFromLayout(
+      mosaicContextId,
+      activeFullscreenPaneId,
+    );
+  }, [activeFullscreenPaneId, mosaicContextId]);
   // Always overlay-host keep-alive panels (even for one pane). Switching
   // them between in-flow Tabs and the overlay remounts xterm/webview.
   const { boxes: paneSlotBoxes, cache: paneSlotBoxCache } = useCenterPaneSlotBoxes(

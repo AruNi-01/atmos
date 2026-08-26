@@ -41,6 +41,7 @@ mod m20260801_000034_create_queue_event_table;
 mod m20260809_000035_soft_delete_issue_only_workspaces;
 mod m20260810_000036_create_workspace_external_issue;
 mod m20260813_000037_add_project_trusted_scripts_hash;
+mod m20260826_000038_drop_terminal_layout;
 
 pub struct Migrator;
 
@@ -84,6 +85,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260809_000035_soft_delete_issue_only_workspaces::Migration),
             Box::new(m20260810_000036_create_workspace_external_issue::Migration),
             Box::new(m20260813_000037_add_project_trusted_scripts_hash::Migration),
+            Box::new(m20260826_000038_drop_terminal_layout::Migration),
         ]
     }
 }

@@ -16,7 +16,7 @@ Canonical on-disk layout (no legacy root-level secret/config files).
     simulator/              # APP-060 claims / leases (not under data/desktop/)
 
   config/               # non-secret preferences
-    function_settings.json   # includes center_stage.saved_layouts (named multi-pane layouts)
+    function_settings.json   # product preferences (not center layout)
     agent/              # terminal_code_agent.json, acp_registry.json, …
     llm/providers.json
 
@@ -34,6 +34,10 @@ Canonical on-disk layout (no legacy root-level secret/config files).
     local-model-runtime/
     agent/sessions/
     pt-design/          # saved Prototype Design documents (*.ptdesign.json)
+    layout/             # durable UI layouts
+      center/           # per-workspace/project space mosaics
+        saved-layouts.json
+        {hostId}/space-layout.json
 
   bin/ runtime/ shims/ skills/   # install artifacts
                                  # runtime/serve-sim/<version>/  (APP-060 helper)
@@ -69,5 +73,6 @@ Desktop may set `ATMOS_DATA_DIR=~/.atmos/data/desktop` for **shell-scoped** Serv
 | SQLite | `~/.atmos/data/db/atmos.db` | (infra path) |
 | Workspaces | `~/.atmos/data/workspaces` | — |
 | Prototype Design | `~/.atmos/data/pt-design` | `ATMOS_PT_DESIGN_DIR` |
+| Center layout | `~/.atmos/data/layout/center` | `ATMOS_CENTER_LAYOUT_DIR` |
 
 Wrong (historical): `$ATMOS_DATA_DIR/token-usage` → `data/desktop/token-usage`.

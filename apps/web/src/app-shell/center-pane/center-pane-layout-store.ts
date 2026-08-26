@@ -1,7 +1,10 @@
 "use client";
 
 import { create } from "zustand";
-import { readJson, writeJson } from "@/shared/lib/browser-store";
+import {
+  hydrateCenterLayoutCache,
+  markCenterLayoutDirty,
+} from "@/app-shell/center-layout/center-layout-persist";
 import {
   applyCenterPaneTree,
   centerPaneLayoutsEqual,
@@ -18,6 +21,7 @@ import {
   reorderPanes,
   resizeAdjacentFractions,
   setColumnCount,
+  setLayoutFullscreenPane,
   setPaneActiveTab,
   splitPane,
   syncFractionsToPaneCount,
@@ -30,9 +34,6 @@ import {
   MAX_CENTER_PANES,
 } from "@/app-shell/center-pane/center-pane-layout";
 import { isExtraCenterSpaceKey } from "@/app-shell/center-space/center-space";
-
-const STORAGE_KEY = "atmos.center-pane-layout.v1";
-const MAX_CONTEXTS = 24;
 
 type LayoutByContext = Record<string, CenterPaneLayout>;
 
@@ -83,34 +84,11 @@ type CenterPaneLayoutStore = {
   ) => void;
   setColumns: (contextId: string, columnCount: number) => void;
   setTree: (contextId: string, tree: CenterPaneTree) => void;
+  /** Expand a mosaic pane, or pass null to restore the split. Persisted per context. */
+  setFullscreenPane: (contextId: string, paneId: string | null) => void;
   /** Drop a context's mosaic (used when deleting a center space). */
   forgetContext: (contextId: string) => void;
 };
-
-function persist(byContext: LayoutByContext) {
-  const keys = Object.keys(byContext);
-  if (keys.length <= MAX_CONTEXTS) {
-    writeJson(STORAGE_KEY, byContext);
-    return;
-  }
-  // Drop oldest arbitrary overflow (object key order is insertion order).
-  const trimmed: LayoutByContext = {};
-  for (const key of keys.slice(keys.length - MAX_CONTEXTS)) {
-    trimmed[key] = byContext[key]!;
-  }
-  writeJson(STORAGE_KEY, trimmed);
-}
-
-function readStored(): LayoutByContext {
-  const raw = readJson<LayoutByContext | null>(STORAGE_KEY, null);
-  if (!raw || typeof raw !== "object") return {};
-  const next: LayoutByContext = {};
-  for (const [contextId, layout] of Object.entries(raw)) {
-    if (!layout || typeof layout !== "object" || !Array.isArray(layout.panes)) continue;
-    next[contextId] = normalizeCenterPaneLayout(layout);
-  }
-  return next;
-}
 
 export const useCenterPaneLayoutStore = create<CenterPaneLayoutStore>((set, get) => ({
   byContext: {},
@@ -118,7 +96,7 @@ export const useCenterPaneLayoutStore = create<CenterPaneLayoutStore>((set, get)
 
   hydrate: () => {
     if (get().hydrated) return;
-    set({ byContext: readStored(), hydrated: true });
+    hydrateCenterLayoutCache();
   },
 
   getLayout: (contextId) => {
@@ -174,9 +152,9 @@ export const useCenterPaneLayoutStore = create<CenterPaneLayoutStore>((set, get)
     }
     set((state) => {
       const byContext = { ...state.byContext, [contextId]: synced };
-      persist(byContext);
       return { byContext, hydrated: true };
     });
+    markCenterLayoutDirty();
   },
 
   patchLayout: (contextId, updater) => {
@@ -273,13 +251,17 @@ export const useCenterPaneLayoutStore = create<CenterPaneLayoutStore>((set, get)
     get().patchLayout(contextId, (layout) => applyCenterPaneTree(layout, tree));
   },
 
+  setFullscreenPane: (contextId, paneId) => {
+    get().patchLayout(contextId, (layout) => setLayoutFullscreenPane(layout, paneId));
+  },
+
   forgetContext: (contextId) => {
     if (!contextId) return;
     const current = get().byContext;
     if (!(contextId in current)) return;
     const byContext = { ...current };
     delete byContext[contextId];
-    persist(byContext);
     set({ byContext, hydrated: true });
+    markCenterLayoutDirty();
   },
 }));

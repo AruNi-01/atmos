@@ -130,7 +130,6 @@ impl<'a> WorkspaceRepo<'a> {
             workflow_status: Set(workflow_status.unwrap_or_else(|| "in_progress".to_string())),
             priority: Set(priority.unwrap_or_else(|| "no_priority".to_string())),
             label_guids: Set(serialized_labels),
-            terminal_layout: Set(None),
             maximized_terminal_id: Set(None),
             github_issue_url: Set(github_issue_url),
             github_issue_data: Set(github_issue_data),
@@ -715,35 +714,6 @@ impl<'a> WorkspaceRepo<'a> {
                 workspace::Column::ArchivedAt,
                 Expr::value(None::<chrono::NaiveDateTime>),
             )
-            .col_expr(
-                workspace::Column::UpdatedAt,
-                Expr::value(chrono::Utc::now().naive_utc()),
-            )
-            .filter(workspace::Column::Guid.eq(guid))
-            .filter(workspace::Column::IsDeleted.eq(false))
-            .exec(self.db)
-            .await?;
-        if result.rows_affected == 0 {
-            return Err(crate::error::InfraError::Custom(
-                "Workspace not found".into(),
-            ));
-        }
-        Ok(())
-    }
-
-    /// 获取工作区终端布局
-    pub async fn get_terminal_layout(&self, guid: &str) -> Result<Option<String>> {
-        let workspace = workspace::Entity::find_by_id(guid.to_string())
-            .filter(workspace::Column::IsDeleted.eq(false))
-            .one(self.db)
-            .await?;
-        Ok(workspace.and_then(|w| w.terminal_layout))
-    }
-
-    /// 更新工作区终端布局
-    pub async fn update_terminal_layout(&self, guid: &str, layout: Option<String>) -> Result<()> {
-        let result = workspace::Entity::update_many()
-            .col_expr(workspace::Column::TerminalLayout, Expr::value(layout))
             .col_expr(
                 workspace::Column::UpdatedAt,
                 Expr::value(chrono::Utc::now().naive_utc()),

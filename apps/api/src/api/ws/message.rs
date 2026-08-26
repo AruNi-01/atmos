@@ -706,6 +706,10 @@ pub enum WsAction {
     FunctionSettingsGet,
     /// Update a field in ~/.atmos/function_settings.json
     FunctionSettingsUpdate,
+    /// Read ~/.atmos/data/layout/center/{hostId}/space-layout.json
+    CenterLayoutGet,
+    /// Overwrite ~/.atmos/data/layout/center/{hostId}/space-layout.json
+    CenterLayoutPut,
     /// Probe a terminal agent's live model catalog
     TerminalAgentModelsGet,
     /// Read the merged GitIgnore-dirs compensation config (built-ins + user customs)
@@ -1208,6 +1212,11 @@ pub struct FunctionSettingsUpdateRequest {
     pub function_name: String,
     pub key: String,
     pub value: serde_json::Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CenterLayoutPutRequest {
+    pub document: serde_json::Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

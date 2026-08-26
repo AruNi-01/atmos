@@ -26,18 +26,21 @@ describe("workspace status popover size animation", () => {
       "utf8",
     );
 
-    expect(source).not.toContain("5000");
     expect(source).not.toContain("setTimeout");
-    expect(source).toContain('forceMount={progress.status === "completed" ? true : undefined}');
+    expect(source).not.toContain("forceMount");
+    expect(source).toContain("usePausedDeadlineCountdown");
+    expect(source).toContain("paused: chipHovering || actionHovering");
+    expect(source).toContain("autoFinishSeconds");
+    expect(source).not.toContain("pauseAutoFinishEnabled={open}");
 
     const view = readFileSync(
       join(import.meta.dir, "../../features/workspace/components/WorkspaceSetupProgress.tsx"),
       "utf8",
     );
-    expect(view).toContain("onMouseEnter={() => setIsHovered(true)}");
-    expect(view).toContain("onMouseLeave={() => setIsHovered(false)}");
-    expect(view).toContain("localCountdown > 0 && !(isHovered && pauseAutoFinishEnabled)");
-    expect(source).toContain("pauseAutoFinishEnabled={open}");
+    expect(view).toContain("onAutoFinishHoverChange?.(true)");
+    expect(view).toContain("onAutoFinishHoverChange?.(false)");
+    expect(view).toContain("autoFinishSeconds");
+    expect(view).toContain("displayedCountdown");
   });
 });
 
@@ -73,26 +76,37 @@ describe("header workspace setup grouping", () => {
     expect(source).not.toContain("showList");
   });
 
-  test("delays auto-enter behind a hover-pausable countdown chip", () => {
+  test("delays auto-enter behind a hover-pausable countdown inside the setup chip", () => {
     const source = readFileSync(
       join(import.meta.dir, "../HeaderWorkspaceJobs.tsx"),
+      "utf8",
+    );
+    const chip = readFileSync(
+      join(import.meta.dir, "../header-setup-chip.tsx"),
       "utf8",
     );
     const hook = readFileSync(
       join(import.meta.dir, "../use-workspace-create-auto-open.ts"),
       "utf8",
     );
+    const countdown = readFileSync(
+      join(import.meta.dir, "../use-paused-deadline-countdown.ts"),
+      "utf8",
+    );
 
-    expect(source).toContain("function AutoEnterChip");
-    expect(source).toContain('t("autoEnterStayAll")');
-    expect(source).toContain('t("autoEnterStay")');
-    expect(source).toContain('t("autoEnterNow")');
-    expect(source).toContain("hovered={headerHovering}");
+    expect(source).toContain("HeaderSetupChipFrame");
+    expect(source).toContain("autoEnterPaused");
+    expect(source).toContain("chipHovering || open || singlePopoverOpen || nestedOpen");
+    expect(source).not.toContain("function AutoEnterChip");
+    expect(chip).toContain('t("autoEnterStayAll")');
+    expect(chip).toContain('t("autoEnterStay")');
+    expect(chip).toContain('t("autoEnterNow")');
+    expect(chip).toContain("HEADER_CHIP_SURFACE_CLASS");
     expect(source).toContain("cancelAutoOpen");
-    expect(source).toContain("WORKSPACE_AUTO_ENTER_HOVER_LEAVE_MS");
     expect(hook).toContain("WORKSPACE_AUTO_ENTER_DELAY_MS");
-    expect(hook).toContain("getWorkspaceAutoEnterResumeGraceMs");
-    expect(hook).toContain("setInterval");
+    expect(hook).toContain("paused:");
+    expect(hook).toContain("usePausedDeadlineCountdown");
+    expect(countdown).toContain("setInterval");
     expect(hook).not.toMatch(/markOpened\(nextWorkspaceId\);\s*router\.push/);
   });
 });

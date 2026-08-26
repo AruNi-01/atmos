@@ -134,14 +134,14 @@ export interface TerminalPaneProps {
   /**
    * Dynamic title from shell shim (e.g., running command name or current directory).
    * In-memory for the live pane; last value is cached in localStorage so refresh
-   * and unmounted tabs keep cwd/command titles. Not written to terminal-layout.
+   * and unmounted tabs keep cwd/command titles. Not written to the center layout document.
    * Tmux window indexes (`1`, `6`) are not stored — those are attach identities.
    */
   dynamicTitle?: string;
   /**
    * Native OSC 0/2 title from the foreground process (agent session topic).
    * In-memory for the live pane toolbar; the stable topic is cached in
-   * localStorage so refresh keeps it. Not written to terminal-layout.
+   * localStorage so refresh keeps it. Not written to the center layout document.
    * Never used for agent detection. Shell host/path noise is not stored.
    */
   oscTitle?: string;
