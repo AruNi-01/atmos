@@ -1,0 +1,38 @@
+apps/web/messages/en.json
+  h_5be255725524c8 7490-7575
+apps/web/messages/zh.json
+  h_5be255725524c8 7490-7575
+apps/web/src/features/github/components/IssueDetailView.tsx
+  h_5be255725524c8 16,50,70-74,76-77,176,353-364,706,711,716,752-769,771,774-783
+apps/web/src/features/github/components/PRDetailView.tsx
+  h_5be255725524c8 41-42,59-63,269,271,681-693,809-829,833-865,867-869
+apps/web/src/features/github/components/TimelineActivityEvent.tsx
+  h_5be255725524c8 1-425
+apps/web/src/features/github/components/TimelineReferencesEvent.tsx
+  h_5be255725524c8 1-220
+apps/web/src/features/github/lib/__tests__/timeline-commits.test.ts
+  h_5be255725524c8 36-79
+apps/web/src/features/github/lib/__tests__/timeline-event-map.test.ts
+  h_5be255725524c8 1-559
+apps/web/src/features/github/lib/__tests__/timeline-refs.test.ts
+  h_5be255725524c8 1-176
+apps/web/src/features/github/lib/pr-detail-parts.tsx
+  h_5be255725524c8 196-218,226-252
+apps/web/src/features/github/lib/timeline-commits.ts
+  h_5be255725524c8 1-3,28-29,38-41,57-64
+apps/web/src/features/github/lib/timeline-event-map.ts
+  h_5be255725524c8 1-666
+apps/web/src/features/github/lib/timeline-refs.ts
+  h_5be255725524c8 1-179
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "31286c54946a0b2d9d9e76bb98bb828b98e8d10e",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
