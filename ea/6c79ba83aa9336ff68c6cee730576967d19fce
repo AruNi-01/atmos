@@ -1,0 +1,120 @@
+agents/references/runtime/atmos-home-layout.md
+  h_5be255725524c8 19,37-40,76
+apps/api/src/api/project/handlers.rs
+  h_5be255725524c8 7
+apps/api/src/api/project/mod.rs
+  h_5be255725524c8 3,8-11
+apps/api/src/api/workspace/handlers.rs
+  h_5be255725524c8 7
+apps/api/src/api/workspace/mod.rs
+  h_5be255725524c8 3,8-11
+apps/api/src/api/ws/message.rs
+  h_5be255725524c8 709-712,1217-1221
+apps/api/src/api/ws/router/center_layout.rs
+  h_5be255725524c8 1-20
+apps/api/src/api/ws/router/mod.rs
+  h_5be255725524c8 8,1043-1046
+apps/web/src/api/ws/center-layout-api.ts
+  h_5be255725524c8 1-13
+apps/web/src/app-shell/CenterStage.tsx
+  h_5be255725524c8 128,363,2515-2516,2583,2650-2656
+apps/web/src/app-shell/CenterStageTabBar.tsx
+  h_5be255725524c8 1240
+apps/web/src/app-shell/HeaderWorkspaceJobs.tsx
+  h_5be255725524c8 31-34,155,165,169-173,237-243,276-277,281-282,287-297,306-308,314-316,321-327,329-355,370-372,425-426,428,431-440,450,454,461-463,470,476-477,487-489,494-536,538-561
+apps/web/src/app-shell/WorkspaceStatusPopover.tsx
+  h_5be255725524c8 22-27,55-57,133-135,138-145,180-193,195-238
+apps/web/src/app-shell/__tests__/center-layout-document.test.ts
+  h_5be255725524c8 1-167
+apps/web/src/app-shell/__tests__/center-pane-layout.test.ts
+  h_5be255725524c8 23,409-463
+apps/web/src/app-shell/__tests__/center-space-switcher.test.ts
+  h_5be255725524c8 258,260-263,265-268,272
+apps/web/src/app-shell/__tests__/center-space.test.ts
+  h_5be255725524c8 149-151,153,270-279,284
+apps/web/src/app-shell/__tests__/center-stage-fullscreen.test.ts
+  h_5be255725524c8 15-21,153-231
+apps/web/src/app-shell/__tests__/workspace-status-popover.test.ts
+  h_5be255725524c8 30-34,40-43,79,84-87,92-95,97-104,107-109
+apps/web/src/app-shell/center-layout/center-layout-document.ts
+  h_5be255725524c8 1-183
+apps/web/src/app-shell/center-layout/center-layout-persist.ts
+  h_5be255725524c8 1-205
+apps/web/src/app-shell/center-overview-tab.ts
+  h_5be255725524c8 4-7,24,29-33,37-41
+apps/web/src/app-shell/center-pane/center-pane-layout-store.ts
+  h_5be255725524c8 4-7,24,87-88,99,157,254-257,265
+apps/web/src/app-shell/center-pane/center-pane-layout.ts
+  h_5be255725524c8 85-90,237-260,262-264,751
+apps/web/src/app-shell/center-pane/center-pane-saved-layout-store.ts
+  h_5be255725524c8 4-8,35,46,49
+apps/web/src/app-shell/center-pane/center-pane-saved-layout.ts
+  h_5be255725524c8 104
+apps/web/src/app-shell/center-space/center-space-store.ts
+  h_5be255725524c8 4-8,55,65,68,155
+apps/web/src/app-shell/center-space/center-space.ts
+  h_5be255725524c8 174
+apps/web/src/app-shell/header-setup-chip.tsx
+  h_5be255725524c8 1-156
+apps/web/src/app-shell/header-workspace-jobs.test.ts
+  h_5be255725524c8 11,158-160
+apps/web/src/app-shell/header-workspace-jobs.ts
+  h_5be255725524c8 72
+apps/web/src/app-shell/use-center-stage-fullscreen.ts
+  h_5be255725524c8 6,14-16,21-26,29-44,46-52,55-60,83,85-88
+apps/web/src/app-shell/use-paused-deadline-countdown.test.ts
+  h_5be255725524c8 1-94
+apps/web/src/app-shell/use-paused-deadline-countdown.ts
+  h_5be255725524c8 1-95
+apps/web/src/app-shell/use-workspace-create-auto-open.ts
+  h_5be255725524c8 3,12-13,16,49-55,60
+apps/web/src/features/terminal/lib/terminal-dynamic-title-cache.ts
+  h_5be255725524c8 6
+apps/web/src/features/terminal/store/__tests__/extra-space-tmux-isolation.test.ts
+  h_5be255725524c8 89-95
+apps/web/src/features/terminal/store/terminal-store-helpers.ts
+  h_5be255725524c8 564,620,622-626
+apps/web/src/features/terminal/store/use-terminal-store.ts
+  h_5be255725524c8 7,46,637,646-664,666-686,859,861-862,870-876,879-881,953,982
+apps/web/src/features/terminal/types/index.ts
+  h_5be255725524c8 137,144
+apps/web/src/features/workspace/components/WorkspaceSetupProgress.tsx
+  h_5be255725524c8 47-48,56-57,223-231,239-240,316-320,323-332,334-359,658-665,668-669
+crates/core-service/src/lib.rs
+  h_5be255725524c8 42-46
+crates/core-service/src/service/center_layout.rs
+  h_5be255725524c8 1-545
+crates/core-service/src/service/mod.rs
+  h_5be255725524c8 7
+crates/infra/src/db/migration/m20260826_000038_drop_terminal_layout.rs
+  h_5be255725524c8 1-112
+crates/infra/src/db/migration/mod.rs
+  h_5be255725524c8 44,88
+crates/runtime-manager/src/layout.rs
+  h_5be255725524c8 114-129,207-209
+crates/runtime-manager/src/lib.rs
+  h_5be255725524c8 44-49
+packages/api-types/fixtures/actions.server.json
+  h_5be255725524c8 242-243
+packages/api-types/package.json
+  h_5be255725524c8 23
+packages/api-types/src/ws/actions.ts
+  h_5be255725524c8 244-245
+packages/api-types/src/ws/contract.ts
+  h_5be255725524c8 5,34
+packages/api-types/src/ws/contract/center-layout.ts
+  h_5be255725524c8 1-14
+packages/api-types/src/ws/dto/center-layout.ts
+  h_5be255725524c8 1-19
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "ea6c79ba83aa9336ff68c6cee730576967d19fce",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
