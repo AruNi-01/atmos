@@ -8,10 +8,7 @@ import {
   AvatarImage,
   AvatarFallback,
   Skeleton,
-  Tooltip,
-  TooltipContent,
   TooltipProvider,
-  TooltipTrigger,
   cn,
   useDrawerCloseReserve,
 } from '@workspace/ui';
@@ -20,24 +17,11 @@ import { useGithubPRDetail, useGithubPRDetailSidebar, useGithubPRTimeline, useGi
 import { useWebSocketStore } from '@/features/connection/hooks/use-websocket';
 import {
   Github,
-  ExternalLink,
-  GitMerge,
-  XCircle,
   MessageSquare,
-  RotateCw,
-  CheckCircle2,
-  AlertCircle,
   GitPullRequest,
   GitCommit,
-  Rocket,
   Check,
   Copy,
-  Eye,
-  Tag,
-  GitBranch,
-  User,
-  Milestone,
-  Edit2,
   FileCode,
   FileText,
   PanelRightClose,
@@ -54,6 +38,8 @@ import { buildPrReviewFixPrompt, buildPrReviewThreadFixPrompt } from '@/features
 import { useOpenGithubCenterTab } from '@/features/github/hooks/use-open-github-center-tab';
 import { CommitList } from './CommitList';
 import { TimelineCommitsGroup } from './TimelineCommitsGroup';
+import { TimelineReferencesEvent } from './TimelineReferencesEvent';
+import { TimelineActivityEvent } from './TimelineActivityEvent';
 import { PRFilesTab } from './PRFilesTab';
 import { usePrContextHeader } from './use-pr-context-header';
 import { PRActionBar, type PRMergeStrategy } from '../lib/pr-detail-actions';
@@ -70,6 +56,11 @@ import {
   type TimelineItem,
 } from '../lib/pr-detail-parts';
 import { groupConsecutiveTimelineCommits } from '../lib/timeline-commits';
+import {
+  isReferenceTimelineClassification,
+  mapTimelineEvent,
+  retainVisibleTimelineItems,
+} from '../lib/timeline-event-map';
 import { PRMetadataSidebar } from '../lib/pr-detail-sidebar';
 import { PRChecksTab } from './PRChecksTab';
 
@@ -275,9 +266,9 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
       .sort((a: ConversationItem, b: ConversationItem) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
   }, [pr, timelineItems, reviewCommentThreadsByReviewId]);
 
-  // Group consecutive commits into GitHub-style "added N commits" batches.
+  // Drop GitHub-hidden events, then group commits / cross-references.
   const groupedConversation = React.useMemo(
-    () => groupConsecutiveTimelineCommits(conversation),
+    () => groupConsecutiveTimelineCommits(retainVisibleTimelineItems(conversation)),
     [conversation],
   );
 
@@ -687,6 +678,19 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
                               );
                             }
 
+                            if (entry.kind === 'cross-referenced') {
+                              return (
+                                <TimelineReferencesEvent
+                                  key={`cross-ref-${entry.startIndex}`}
+                                  event="cross-referenced"
+                                  items={entry.items}
+                                  owner={owner}
+                                  repo={repo}
+                                  locale={relativeTimeLocale}
+                                />
+                              );
+                            }
+
                             const item = entry.item;
                             const hasReviewThreads = item.reviewCommentThreads && item.reviewCommentThreads.length > 0;
                             const isMainComment = item.type === 'comment' || (item.type === 'review' && (item.body || hasReviewThreads));
@@ -802,264 +806,67 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
                               );
                             }
 
-                            // Activity Row (Commit, Merge, Close, etc)
-                            // Unified neutral timeline icon treatment (same shell for every event).
-                            // Glyph is smaller than the shell so it isn't tight; rail matches reviewer avatar width.
-                            const timelineIconClass = "size-3 text-muted-foreground";
-                            let icon = <GitCommit className={timelineIconClass} />;
-                            let actionText: React.ReactNode = "";
-
-                            switch (item.event) {
-                              case 'closed':
-                                icon = <XCircle className={timelineIconClass} />;
-                                actionText = t('activity.closed');
-                                break;
-                              case 'reopened':
-                                icon = <RotateCw className={timelineIconClass} />;
-                                actionText = t('activity.reopened');
-                                break;
-                              case 'merged':
-                                icon = <GitMerge className={timelineIconClass} />;
-                                const commitId = item.commit_id || item.merge_commit_sha || item.commit_sha;
-                                const shortId = commitId?.substring(0, 7);
-                                actionText = (
-                                  <>
-                                    {t('activity.mergedCommit')}{' '}
-                                    {commitId ? (
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          openCommitTab({
-                                            owner,
-                                            repo,
-                                            sha: commitId,
-                                            subject: item.body || shortId || t('activity.unknownCommit'),
-                                            authorName: item.author?.login || pr.author?.login || '',
-                                          });
-                                        }}
-                                        className="font-mono bg-muted/50 px-1 rounded hover:bg-muted hover:text-foreground"
-                                      >
-                                        {shortId}
-                                      </button>
-                                    ) : (
-                                      <span className="font-mono bg-muted/50 px-1 rounded">{t('activity.unknownCommit')}</span>
-                                    )}{' '}
-                                    {t('activity.intoBase')}{' '}
-                                    <span className="font-semibold text-foreground/80">{pr.baseRefName || 'main'}</span>
-                                  </>
-                                );
-                                break;
-                              case 'committed':
-                                // Consecutive commits are rendered via TimelineCommitsGroup;
-                                // this is a fallback for any ungrouped commit event.
-                                icon = <GitCommit className={timelineIconClass} />;
-                                actionText = t('activity.committed');
-                                break;
-                              case 'head_ref_force_pushed':
-                                icon = <GitCommit className={timelineIconClass} />;
-                                actionText = t('activity.forcePushed');
-                                break;
-                              case 'reviewed':
-                                if (item.state === 'APPROVED') {
-                                  icon = <CheckCircle2 className={timelineIconClass} />;
-                                  actionText = t('activity.approvedPr');
-                                } else {
-                                  icon = <MessageSquare className={timelineIconClass} />;
-                                  actionText = t('activity.leftReview');
-                                }
-                                break;
-                              case 'referenced':
-                              case 'cross-referenced':
-                                icon = <ExternalLink className={timelineIconClass} />;
-                                actionText = item.event === 'cross-referenced' ? t('activity.crossReferenced') : t('activity.referenced');
-                                break;
-                              case 'ready_for_review':
-                                icon = <Eye className={timelineIconClass} />;
-                                actionText = t('activity.readyForReview');
-                                break;
-                              case 'converted_to_draft':
-                              case 'convert_to_draft':
-                                icon = <GitPullRequest className={timelineIconClass} />;
-                                actionText = t('activity.convertedToDraft');
-                                break;
-                              case 'assigned':
-                              case 'unassigned':
-                                icon = <User className={timelineIconClass} />;
-                                const isSelf = item.assignee?.login === (item.actor?.login || item.author?.login);
-                                actionText = item.event === 'assigned'
-                                  ? (isSelf ? t('activity.selfAssigned') : t('activity.assigned', { login: item.assignee?.login || '' }))
-                                  : (isSelf ? t('activity.removedOwnAssignment') : t('activity.unassigned', { login: item.assignee?.login || '' }));
-                                break;
-                              case 'labeled':
-                              case 'unlabeled':
-                                icon = <Tag className={timelineIconClass} />;
-                                actionText = item.event === 'labeled'
-                                  ? t('activity.addedLabelShort')
-                                  : t('activity.removedLabelShort');
-                                break;
-                              case 'review_requested':
-                              case 'review_request_removed':
-                                icon = <Eye className={timelineIconClass} />;
-                                actionText = item.event === 'review_requested'
-                                  ? t('activity.requestedReview', { login: item.requested_reviewer?.login || t('activity.someone') })
-                                  : t('activity.removedReviewRequest', { login: item.requested_reviewer?.login || t('activity.someone') });
-                                break;
-                              case 'milestoned':
-                              case 'demilestoned':
-                                icon = <Milestone className={timelineIconClass} />;
-                                actionText = item.event === 'milestoned'
-                                  ? t('activity.addedToMilestone', { title: item.milestone?.title || '' })
-                                  : t('activity.removedFromMilestone', { title: item.milestone?.title || '' });
-                                break;
-                              case 'renamed':
-                                icon = <Edit2 className={timelineIconClass} />;
-                                actionText = t('activity.renamed', {
-                                  from: item.rename?.from || '',
-                                  to: item.rename?.to || '',
-                                });
-                                break;
-                              case 'deployed':
-                              case 'deployment_status':
-                                icon = <Rocket className={timelineIconClass} />;
-                                const env = item.deployment?.environment || item.environment || t('activity.preview');
-                                actionText = (
-                                  <>
-                                    {t('activity.deployedTo')} <span className="font-bold">{env}</span>
-                                    {item.deployment_status?.target_url && (
-                                      <a
-                                        href={item.deployment_status.target_url}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        className="ml-2 px-1.5 py-0.5 bg-muted hover:bg-muted-foreground/20 rounded border border-border/40 inline-flex items-center gap-1"
-                                      >
-                                        {t('activity.viewDeployment')} <ExternalLink className="size-2.5" />
-                                      </a>
-                                    )}
-                                  </>
-                                );
-                                break;
-                              case 'head_ref_deleted':
-                                icon = <GitBranch className={timelineIconClass} />;
-                                actionText = t('activity.deletedBranch');
-                                break;
-                              default:
-                                actionText = (item.event || '').replace(/_/g, ' ');
-                                break;
+                            const mapped = mapTimelineEvent(item, { owner, repo });
+                            if (mapped.classification === 'omit') return null;
+                            if (isReferenceTimelineClassification(mapped.classification)) {
+                              return (
+                                <TimelineReferencesEvent
+                                  key={i}
+                                  event={
+                                    mapped.classification === 'cross-referenced'
+                                      ? 'cross-referenced'
+                                      : mapped.canonicalEvent === 'disconnected'
+                                        ? 'disconnected'
+                                        : 'connected'
+                                  }
+                                  items={[item]}
+                                  owner={owner}
+                                  repo={repo}
+                                  locale={relativeTimeLocale}
+                                  actorLogin={item.author?.login}
+                                  actorAvatarUrl={item.author?.avatar_url || item.author?.avatarUrl}
+                                />
+                              );
                             }
 
                             return (
-                              <div key={i} className="relative flex flex-col gap-1.5">
-                                <div className="flex items-center gap-3">
-                                  <div className="z-10 flex w-8 shrink-0 items-center justify-center">
-                                    <div className="flex size-5 items-center justify-center rounded-full border border-border/50 bg-muted ring-4 ring-background">
-                                      {icon}
-                                    </div>
-                                  </div>
-                                  <div className="flex items-center gap-2 text-xs truncate flex-1">
-                                    <GithubUserAvatar
-                                      username={item.author?.login}
-                                      avatarUrl={item.author?.avatar_url || item.author?.avatarUrl}
-                                      disabled={isBot}
-                                      className="size-5 shrink-0 border border-border/50"
-                                      fallbackClassName="text-[7px]"
-                                      label={item.author?.login}
-                                      labelClassName="font-semibold text-foreground/90"
-                                    />
-                                    {isBot && (
-                                      <span className="text-[9px] px-1 rounded-sm border border-border bg-muted/50 text-muted-foreground font-medium py-0 leading-none h-3.5 flex items-center shrink-0">
-                                        {t('states.bot')}
-                                      </span>
+                              <TimelineActivityEvent
+                                key={i}
+                                mapped={mapped}
+                                actorLogin={item.author?.login}
+                                actorAvatarUrl={item.author?.avatar_url || item.author?.avatarUrl}
+                                isBot={isBot}
+                                locale={relativeTimeLocale}
+                                createdAt={item.createdAt}
+                                baseRefName={pr.baseRefName || 'main'}
+                                onCommitClick={({ sha, subject, authorName }) => {
+                                  openCommitTab({ owner, repo, sha, subject, authorName });
+                                }}
+                                footer={
+                                  <>
+                                    {item.event === 'merged' &&
+                                      Array.isArray(pr.statusCheckRollup) &&
+                                      pr.statusCheckRollup.length > 0 && (
+                                        <TimelineMergedChecks
+                                          checks={pr.statusCheckRollup}
+                                          owner={owner}
+                                          repo={repo}
+                                        />
+                                      )}
+                                    {item.reviewCommentThreads && item.reviewCommentThreads.length > 0 && (
+                                      <div className="mt-1 flex flex-col gap-2">
+                                        {item.reviewCommentThreads.map((thread: ReviewCommentThread, threadIdx: number) => (
+                                          <ReviewCommentThreadView
+                                            key={threadIdx}
+                                            thread={thread}
+                                            agentFixSource={buildThreadAgentFixSource(thread)}
+                                          />
+                                        ))}
+                                      </div>
                                     )}
-                                    <span className="text-muted-foreground">{actionText}</span>
-                                    {(item.event === 'labeled' || item.event === 'unlabeled') && item.label && (
-                                      <span
-                                        className="shrink-0 text-[10px] px-1.5 py-0.5 rounded-full font-medium"
-                                        style={{
-                                          backgroundColor: `#${item.label.color}20`,
-                                          color: `#${item.label.color}`,
-                                          border: `1px solid #${item.label.color}40`,
-                                        }}
-                                      >
-                                        {item.label.name}
-                                      </span>
-                                    )}
-                                    {(item.event === 'committed' || item.event === 'referenced') && item.body && (() => {
-                                      const refSha = item.sha || item.commit_sha || item.commit_id;
-                                      const openRefCommit = refSha
-                                        ? () =>
-                                            openCommitTab({
-                                              owner,
-                                              repo,
-                                              sha: refSha,
-                                              subject: item.body || refSha.slice(0, 7),
-                                              authorName: item.author?.login || '',
-                                            })
-                                        : undefined;
-                                      return (
-                                        <Tooltip>
-                                          <TooltipTrigger asChild>
-                                            <span
-                                              role={openRefCommit ? 'button' : undefined}
-                                              tabIndex={openRefCommit ? 0 : undefined}
-                                              onClick={openRefCommit}
-                                              onKeyDown={
-                                                openRefCommit
-                                                  ? (e) => {
-                                                      if (e.key === 'Enter' || e.key === ' ') {
-                                                        e.preventDefault();
-                                                        openRefCommit();
-                                                      }
-                                                    }
-                                                  : undefined
-                                              }
-                                              className={cn(
-                                                'text-foreground/70 font-medium truncate max-w-[280px]',
-                                                openRefCommit
-                                                  ? 'cursor-pointer hover:text-foreground hover:underline underline-offset-2'
-                                                  : 'cursor-help',
-                                              )}
-                                            >
-                                              {item.body}
-                                            </span>
-                                          </TooltipTrigger>
-                                          <TooltipContent side="top" className="max-w-md text-xs break-all">
-                                            {item.body}
-                                          </TooltipContent>
-                                        </Tooltip>
-                                      );
-                                    })()}
-                                    <span className="text-muted-foreground opacity-60 ml-auto whitespace-nowrap">
-                                      {formatDistanceToNow(new Date(item.createdAt), {
-                                        addSuffix: true,
-                                        locale: relativeTimeLocale,
-                                      })}
-                                    </span>
-                                  </div>
-                                </div>
-
-                                {/* GitHub-style CI list under merged events (jump to Actions). */}
-                                {item.event === 'merged' &&
-                                  Array.isArray(pr.statusCheckRollup) &&
-                                  pr.statusCheckRollup.length > 0 && (
-                                    <TimelineMergedChecks
-                                      checks={pr.statusCheckRollup}
-                                      owner={owner}
-                                      repo={repo}
-                                    />
-                                  )}
-
-                                {item.reviewCommentThreads && item.reviewCommentThreads.length > 0 && (
-                                  <div className="flex flex-col gap-2 mt-1">
-                                    {item.reviewCommentThreads.map((thread: ReviewCommentThread, threadIdx: number) => (
-                                      <ReviewCommentThreadView
-                                        key={threadIdx}
-                                        thread={thread}
-                                        agentFixSource={buildThreadAgentFixSource(thread)}
-                                      />
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
+                                  </>
+                                }
+                              />
                             );
                           })}
                         </div>

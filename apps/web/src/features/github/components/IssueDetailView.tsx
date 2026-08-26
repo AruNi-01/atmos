@@ -13,19 +13,15 @@ import {
   TabsSubtleItem,
   useDrawerCloseReserve,
 } from "@workspace/ui";
-import { GithubUserAvatar, GithubUserHoverCard } from "@/features/github/components/GithubUserHoverCard";
+import { GithubUserHoverCard } from "@/features/github/components/GithubUserHoverCard";
 import {
   CircleDot,
-  CheckCircle2,
   Check,
-  ExternalLink,
   Eye,
   FileText,
   Github,
   GitBranch,
-  GitCommit,
   GitPullRequest,
-  Milestone,
   MessageSquare,
   Loader2,
   PanelRightClose,
@@ -51,6 +47,7 @@ import {
   PopoverTrigger,
 } from "@workspace/ui";
 import { formatDistanceToNow } from "date-fns";
+import type { Locale } from "date-fns";
 import { enUS, zhCN } from "date-fns/locale";
 import {
   useGithubIssueDetail,
@@ -70,7 +67,14 @@ import {
 import { useOpenGithubCenterTab } from "@/features/github/hooks/use-open-github-center-tab";
 import { useRepoPrListQuery } from "@/features/github/hooks/use-github-pr-query";
 import { groupConsecutiveTimelineCommits } from "@/features/github/lib/timeline-commits";
+import {
+  isReferenceTimelineClassification,
+  mapTimelineEvent,
+  retainVisibleTimelineItems,
+} from "@/features/github/lib/timeline-event-map";
 import { TimelineCommitsGroup } from "@/features/github/components/TimelineCommitsGroup";
+import { TimelineReferencesEvent } from "@/features/github/components/TimelineReferencesEvent";
+import { TimelineActivityEvent } from "@/features/github/components/TimelineActivityEvent";
 import { wsRequest } from "@/api/ws/request";
 import { useComputerQueryScope } from "@/api/query/query-scope";
 import { useQueryClient } from "@tanstack/react-query";
@@ -169,7 +173,7 @@ export function IssueDetailView({
   );
 
   const groupedDiscussion = React.useMemo(
-    () => groupConsecutiveTimelineCommits(discussion),
+    () => groupConsecutiveTimelineCommits(retainVisibleTimelineItems(discussion)),
     [discussion],
   );
 
@@ -343,6 +347,18 @@ export function IssueDetailView({
                                     authorName,
                                   });
                                 }}
+                              />
+                            );
+                          }
+                          if (entry.kind === "cross-referenced") {
+                            return (
+                              <TimelineReferencesEvent
+                                key={`cross-ref-${entry.startIndex}`}
+                                event="cross-referenced"
+                                items={entry.items}
+                                owner={owner}
+                                repo={repo}
+                                locale={relativeTimeLocale}
                               />
                             );
                           }
@@ -687,16 +703,17 @@ function IssueTimelineItem({
   repo,
 }: {
   item: IssueTimelineModel;
-  locale: typeof enUS;
+  locale: Locale;
   t: ReturnType<typeof useTranslations<"github.issueDetail">>;
   owner: string;
   repo: string;
 }) {
-  const { openPullRequestTab, openCommitTab } = useOpenGithubCenterTab();
+  const { openCommitTab } = useOpenGithubCenterTab();
   const login = item.author?.login ?? t("unknownUser");
   const time = item.createdAt
     ? formatDistanceToNow(new Date(item.createdAt), { addSuffix: true, locale })
     : "";
+  const mapped = mapTimelineEvent(item, { owner, repo });
   if (item.isComment) {
     return (
       <div className="flex gap-4">
@@ -732,158 +749,38 @@ function IssueTimelineItem({
       </div>
     );
   }
-  const event = item.event ?? "";
-  const label = item.label?.name ?? t("activity");
-  const assignee = item.assignee?.login ?? t("unknownUser");
-  const linkedPullRequest =
-    event === "cross-referenced" && item.source?.issue?.pull_request
-      ? item.source.issue
-      : null;
-  const activity = {
-    closed: t("activityEvents.closed"),
-    reopened: t("activityEvents.reopened"),
-    assigned: t("activityEvents.assigned", { login: assignee }),
-    unassigned: t("activityEvents.unassigned", { login: assignee }),
-    labeled: t("activityEvents.labelAdded"),
-    unlabeled: t("activityEvents.labelRemoved"),
-    referenced: t("activityEvents.referenced"),
-    "cross-referenced": linkedPullRequest
-      ? t("activityEvents.linkedPullRequest")
-      : t("activityEvents.crossReferenced"),
-    milestoned: t("activityEvents.milestoned", {
-      title: item.milestone?.title ?? "",
-    }),
-    demilestoned: t("activityEvents.demilestoned", {
-      title: item.milestone?.title ?? "",
-    }),
-  } as const;
-  const activityText =
-    event in activity
-      ? activity[event as keyof typeof activity]
-      : event.replace(/_/g, " ") || t("activity");
-  // Unified neutral timeline icon treatment (same shell for every event).
-  // Glyph is smaller than the shell so it isn't tight; rail matches reviewer avatar width.
-  const timelineIconClass = "size-3 text-muted-foreground";
-  const eventIcon =
-    event === "closed" ? (
-      <XCircle className={timelineIconClass} />
-    ) : event === "reopened" ? (
-      <RotateCw className={timelineIconClass} />
-    ) : event === "assigned" || event === "unassigned" ? (
-      <User className={timelineIconClass} />
-    ) : event === "labeled" || event === "unlabeled" ? (
-      <Tag className={timelineIconClass} />
-    ) : event === "referenced" || event === "cross-referenced" ? (
-      <ExternalLink className={timelineIconClass} />
-    ) : event === "milestoned" || event === "demilestoned" ? (
-      <Milestone className={timelineIconClass} />
-    ) : event === "committed" ? (
-      <GitCommit className={timelineIconClass} />
-    ) : (
-      <CheckCircle2 className={timelineIconClass} />
+  if (mapped.classification === "omit") return null;
+  if (isReferenceTimelineClassification(mapped.classification)) {
+    return (
+      <TimelineReferencesEvent
+        event={
+          mapped.classification === "cross-referenced"
+            ? "cross-referenced"
+            : mapped.canonicalEvent === "disconnected"
+              ? "disconnected"
+              : "connected"
+        }
+        items={[item]}
+        owner={owner}
+        repo={repo}
+        locale={locale}
+        actorLogin={login}
+        actorAvatarUrl={item.author?.avatar_url ?? item.author?.avatarUrl}
+      />
     );
-
-  const refSha = item.sha || item.commit_sha || item.commit_id;
-  const canOpenCommit =
-    Boolean(refSha) &&
-    (event === "referenced" || event === "committed");
+  }
 
   return (
-    <div className="relative flex flex-col gap-1.5">
-      <div className="flex items-center gap-3">
-        <div className="z-10 flex w-8 shrink-0 items-center justify-center">
-          <div className="flex size-5 items-center justify-center rounded-full border border-border/50 bg-muted ring-4 ring-background">
-            {eventIcon}
-          </div>
-        </div>
-        <GithubUserAvatar
-          username={item.author?.login}
-          avatarUrl={item.author?.avatar_url ?? item.author?.avatarUrl}
-          className="size-5 shrink-0 border border-border/50"
-          fallbackClassName="text-[7px]"
-          label={login}
-          labelClassName="font-semibold text-foreground/90"
-        />
-        <span className="min-w-0 truncate text-muted-foreground">
-          {activityText}
-        </span>
-        {(event === "labeled" || event === "unlabeled") && item.label ? (
-          <span
-            className="shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium"
-            style={{
-              backgroundColor: item.label.color
-                ? `#${item.label.color.replace(/^#/, "")}20`
-                : undefined,
-              color: item.label.color
-                ? `#${item.label.color.replace(/^#/, "")}`
-                : undefined,
-              border: item.label.color
-                ? `1px solid #${item.label.color.replace(/^#/, "")}40`
-                : "1px solid var(--border)",
-            }}
-          >
-            {item.label.name}
-          </span>
-        ) : null}
-        {canOpenCommit && item.body ? (
-          <button
-            type="button"
-            onClick={() =>
-              openCommitTab({
-                owner,
-                repo,
-                sha: refSha!,
-                subject: item.body,
-                authorName: login,
-              })
-            }
-            className="min-w-0 max-w-[280px] truncate text-left font-medium text-foreground/70 hover:text-foreground hover:underline underline-offset-2"
-          >
-            {item.body}
-          </button>
-        ) : null}
-        {canOpenCommit && refSha ? (
-          <button
-            type="button"
-            onClick={() =>
-              openCommitTab({
-                owner,
-                repo,
-                sha: refSha,
-                subject: item.body || refSha.slice(0, 7),
-                authorName: login,
-              })
-            }
-            className="shrink-0 font-mono text-[10px] text-muted-foreground/70 hover:text-foreground"
-          >
-            {refSha.slice(0, 7)}
-          </button>
-        ) : null}
-        <span className="ml-auto whitespace-nowrap text-xs text-muted-foreground/60">
-          {time}
-        </span>
-      </div>
-      {linkedPullRequest ? (
-        <button
-          type="button"
-          onClick={() =>
-            openPullRequestTab({
-              owner,
-              repo,
-              prNumber: linkedPullRequest.number ?? 0,
-              branch: "",
-              title: linkedPullRequest.title ?? "",
-            })
-          }
-          className="ml-7 flex min-w-0 items-center gap-1.5 rounded-md px-1.5 py-1 text-left text-[13px] font-medium text-foreground underline decoration-border underline-offset-2 hover:bg-muted/60 hover:text-primary"
-        >
-          <GitPullRequest className="size-3.5 shrink-0 text-purple-500" />
-          <span className="truncate">
-            {linkedPullRequest.title} #{linkedPullRequest.number}
-          </span>
-        </button>
-      ) : null}
-    </div>
+    <TimelineActivityEvent
+      mapped={mapped}
+      actorLogin={item.author?.login}
+      actorAvatarUrl={item.author?.avatar_url ?? item.author?.avatarUrl}
+      locale={locale}
+      createdAt={item.createdAt}
+      onCommitClick={({ sha, subject, authorName }) => {
+        openCommitTab({ owner, repo, sha, subject, authorName });
+      }}
+    />
   );
 }
 

@@ -169,10 +169,10 @@ describe("navigateToAgentHookSessionPane space handoff", () => {
     const src = readFileSync(join(import.meta.dir, "../agent-hook-navigation.ts"), "utf8");
     expect(src).toContain("navigateToLocatedPane(");
     expect(src).toContain("commitLocatedPaneNavigation(router, path)");
-    expect(src).toContain("makeCenterSpaceKey(target.contextId, target.spaceId)");
+    expect(src).toContain("makeCenterSpaceKey(contextId, target.spaceId)");
     expect(src).toContain("preserveDeepLink: true");
     const commitAt = src.indexOf("commitLocatedPaneNavigation(router, path)");
-    const switchAt = src.indexOf("switchCenterSpace(target.contextId, target.spaceId");
+    const switchAt = src.indexOf("switchCenterSpace(contextId, target.spaceId");
     expect(commitAt).toBeGreaterThan(0);
     expect(switchAt).toBeGreaterThan(commitAt);
   });

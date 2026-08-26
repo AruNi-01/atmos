@@ -193,6 +193,29 @@ export interface TimelineItem {
   deployment?: { environment?: string };
   deployment_status?: { target_url?: string };
   environment?: string;
+  state_reason?: string;
+  lock_reason?: string | null;
+  requested_team?: { name?: string; slug?: string };
+  dismissed_review?: {
+    state?: string;
+    review_id?: string | number;
+    dismissal_message?: string | null;
+    dismissal_commit_id?: string | null;
+  };
+  issue_type?: { id?: number; name?: string; color?: string } | null;
+  prev_issue_type?: { id?: number; name?: string; color?: string } | null;
+  sub_issue?: { number?: number; title?: string; state?: string };
+  parent_issue?: { number?: number; title?: string; state?: string };
+  blocked_by?: { number?: number; title?: string; state?: string };
+  blocking?: { number?: number; title?: string; state?: string };
+  project_card?: {
+    id?: number;
+    column_name?: string;
+    previous_column_name?: string;
+    project_id?: number;
+    project_url?: string;
+  };
+  comments?: unknown[];
   createdAt?: string;
   source?: {
     type?: string;
@@ -200,7 +223,33 @@ export interface TimelineItem {
       number?: number;
       title?: string;
       html_url?: string;
-      pull_request?: unknown;
+      url?: string;
+      state?: string;
+      draft?: boolean;
+      pull_request?: {
+        url?: string;
+        html_url?: string;
+        merged_at?: string | null;
+      } | null;
+      repository?: {
+        full_name?: string;
+        name?: string;
+        owner?: { login?: string } | string;
+      };
+    };
+  };
+  subject?: {
+    type?: string | null;
+    number?: number;
+    title?: string;
+    state?: string;
+    url?: string;
+    merged_at?: string | null;
+    draft?: boolean | null;
+    repository?: {
+      full_name?: string;
+      name?: string;
+      owner?: { login?: string } | string;
     };
   };
 }

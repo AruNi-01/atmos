@@ -143,10 +143,11 @@ export function navigateToAgentHookSessionPane(
   projects: Project[],
 ) {
   const target = resolveAgentHookNavigationTarget(session);
-  if (!target.contextId) return;
+  const contextId = target.contextId;
+  if (!contextId) return;
 
-  const routeKind = routeKindForContext(target.contextId, projects);
-  const paintContextId = makeCenterSpaceKey(target.contextId, target.spaceId);
+  const routeKind = routeKindForContext(contextId, projects);
+  const paintContextId = makeCenterSpaceKey(contextId, target.spaceId);
   const state = useTerminalStore.getState();
   const hit = target.tmuxWindowName
     ? findWorkspacePaneIdsByTmuxWindowName(
@@ -167,7 +168,7 @@ export function navigateToAgentHookSessionPane(
     if (hit && pane?.sessionId && !target.sideChatId) {
       await navigateToLocatedPane(
         {
-          hostId: target.contextId,
+          hostId: contextId,
           spaceId: target.spaceId,
           paintContextId,
           terminalTabId: hit.terminalTabId,
@@ -185,14 +186,14 @@ export function navigateToAgentHookSessionPane(
     );
     const store = useCenterSpaceStore.getState();
     if (!store.hydrated) store.hydrate();
-    store.ensureHost(target.contextId);
+    store.ensureHost(contextId);
 
-    const sameHost = currentHostIdFromLocation() === target.contextId;
+    const sameHost = currentHostIdFromLocation() === contextId;
     const alreadyOnDestSpace =
-      sameHost && store.getActiveSpaceId(target.contextId) === target.spaceId;
+      sameHost && store.getActiveSpaceId(contextId) === target.spaceId;
 
     if (!sameHost) {
-      store.setActiveSpace(target.contextId, target.spaceId);
+      store.setActiveSpace(contextId, target.spaceId);
       commitLocatedPaneNavigation(router, path);
       return;
     }
@@ -202,7 +203,7 @@ export function navigateToAgentHookSessionPane(
 
     const committed = await waitForDestination({
       pathname: routeKind === "project" ? "/project" : "/workspace",
-      id: target.contextId,
+      id: contextId,
       tab: hit?.terminalTabId || FIXED_TERMINAL_TAB_VALUE,
       ...(target.tmuxWindowName ? { terminalTmux: target.tmuxWindowName } : {}),
     });
@@ -211,7 +212,7 @@ export function navigateToAgentHookSessionPane(
     const { switchCenterSpace } = await import(
       "@/app-shell/center-space/center-space-switch"
     );
-    await switchCenterSpace(target.contextId, target.spaceId, {
+    await switchCenterSpace(contextId, target.spaceId, {
       preserveDeepLink: true,
     });
   })();

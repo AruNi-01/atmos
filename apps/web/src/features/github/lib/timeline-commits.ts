@@ -1,4 +1,6 @@
-/** Shared helpers for PR/Issue timeline commit grouping (GitHub-style "added N commits"). */
+/** Shared helpers for PR/Issue timeline grouping (commits + cross-references). */
+
+import { isTimelineCrossReferencedItem } from "./timeline-refs";
 
 export type TimelineCommitLike = {
   event?: string;
@@ -23,7 +25,8 @@ export type TimelineCommitLike = {
 
 export type GroupedTimelineEntry<T> =
   | { kind: "item"; item: T; index: number }
-  | { kind: "commits"; commits: T[]; startIndex: number };
+  | { kind: "commits"; commits: T[]; startIndex: number }
+  | { kind: "cross-referenced"; items: T[]; startIndex: number };
 
 export function isTimelineCommitItem(item: {
   event?: string;
@@ -32,7 +35,10 @@ export function isTimelineCommitItem(item: {
   return item.event === "committed" || item.type === "commit";
 }
 
-/** Fold consecutive committed events into a single "added N commits" group. */
+/**
+ * Fold consecutive committed events into a GitHub-style "added N commits"
+ * group, and consecutive `cross-referenced` events into "This was referenced".
+ */
 export function groupConsecutiveTimelineCommits<T extends TimelineCommitLike>(
   items: T[],
 ): GroupedTimelineEntry<T>[] {
@@ -48,6 +54,14 @@ export function groupConsecutiveTimelineCommits<T extends TimelineCommitLike>(
         i += 1;
       }
       result.push({ kind: "commits", commits, startIndex });
+    } else if (isTimelineCrossReferencedItem(current)) {
+      const startIndex = i;
+      const refs: T[] = [];
+      while (i < items.length && isTimelineCrossReferencedItem(items[i])) {
+        refs.push(items[i]);
+        i += 1;
+      }
+      result.push({ kind: "cross-referenced", items: refs, startIndex });
     } else {
       result.push({ kind: "item", item: current, index: i });
       i += 1;
