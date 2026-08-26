@@ -221,6 +221,7 @@ import {
   dispatchCanvasTerminalShapesRemoved,
   removeCanvasTerminalShapesFromDocument,
 } from "@/features/canvas/lib/canvas-terminal-shape";
+import { resolveCanvasTerminalSourceTarget } from "@/features/canvas/lib/canvas-terminal-source";
 import {
   loadPinTargetDocument,
   savePinTargetDocument,
@@ -2194,26 +2195,29 @@ const CenterStage: React.FC = () => {
       return;
     }
 
+    const target = resolveCanvasTerminalSourceTarget({
+      workspaceId: detail.workspaceId,
+      tmuxWindowName: detail.tmuxWindowName,
+      contextScope: detail.contextScope,
+      sourceTerminalTabId: detail.sourceTerminalTabId,
+    });
     const terminalState = useTerminalStore.getState();
     const hit = findWorkspacePaneIdsByTmuxWindowName(
       terminalState,
-      detail.workspaceId,
-      detail.tmuxWindowName,
-      detail.contextScope === "project",
+      target.paintContextId,
+      target.tmuxWindowName,
+      target.contextScope === "project",
     );
-    const terminalTabId = hit?.terminalTabId || detail.sourceTerminalTabId || FIXED_TERMINAL_TAB_VALUE;
-    const panes = terminalState.getPanes(detail.workspaceId, terminalTabId);
+    const terminalTabId = hit?.terminalTabId || target.sourceTerminalTabId;
+    const panes = terminalState.getPanes(target.paintContextId, terminalTabId);
     const paneId = hit?.paneId ?? Object.entries(panes).find(([, pane]) =>
-      pane.tmuxWindowName === detail.tmuxWindowName ||
-      pane.label === detail.tmuxWindowName
+      pane.tmuxWindowName === target.tmuxWindowName ||
+      pane.label === target.tmuxWindowName
     )?.[0];
 
     if (!paneId) {
       try {
-        await systemApi.killTmuxWindow(
-          hostIdFromCenterKey(detail.workspaceId),
-          detail.tmuxWindowName,
-        );
+        await systemApi.killTmuxWindow(target.hostId, target.tmuxWindowName);
       } catch (error) {
         console.warn("Failed to kill tmux window from Canvas close", error);
         toastManager.add({
@@ -2225,15 +2229,15 @@ const CenterStage: React.FC = () => {
       return;
     }
 
-    if (detail.workspaceId === effectiveContextId) {
+    if (target.paintContextId === effectiveContextId) {
       const grid = getTerminalGridForTab(terminalTabId);
-      if (grid?.removeTerminalByTmuxWindowName(detail.tmuxWindowName)) {
+      if (grid?.removeTerminalByTmuxWindowName(target.tmuxWindowName)) {
         return;
       }
     }
 
     try {
-      await systemApi.killTmuxWindow(detail.workspaceId, detail.tmuxWindowName);
+      await systemApi.killTmuxWindow(target.hostId, target.tmuxWindowName);
     } catch (error) {
       console.warn("Failed to kill tmux window from Canvas close", error);
       toastManager.add({
@@ -2244,16 +2248,16 @@ const CenterStage: React.FC = () => {
     }
 
     if (Object.keys(panes).length <= 1) {
-      if (detail.workspaceId === effectiveContextId) {
+      if (target.paintContextId === effectiveContextId) {
         // Pane already closed from canvas; force tab teardown without a second confirm.
         void handleCloseTerminalCenterTab(terminalTabId, { force: true });
       } else {
-        terminalState.closeTerminalTab(detail.workspaceId, terminalTabId);
+        terminalState.closeTerminalTab(target.paintContextId, terminalTabId);
       }
       return;
     }
 
-    terminalState.removeTerminal(detail.workspaceId, paneId, terminalTabId);
+    terminalState.removeTerminal(target.paintContextId, paneId, terminalTabId);
   }, [effectiveContextId, getTerminalGridForTab, handleCloseTerminalCenterTab, t]);
 
   React.useEffect(() => {

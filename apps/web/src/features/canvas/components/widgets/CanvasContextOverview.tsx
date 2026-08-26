@@ -11,6 +11,8 @@ import {
   getCanvasContextId,
   type CanvasContextRef,
 } from "@/features/canvas/lib/canvas-widget-shape";
+import { hostIdFromCenterKey } from "@/app-shell/center-space/center-space";
+import { useCenterPaintContextId } from "@/app-shell/center-space/use-center-paint-context-id";
 import {
   buildGithubActionTabValue,
   buildGithubPullRequestTabValue,
@@ -25,6 +27,12 @@ export function CanvasContextOverview({ context }: { context: CanvasContextRef }
   const currentBranch = statusQuery.data?.current_branch ?? null;
   const [portalRoot, setPortalRoot] = React.useState<HTMLElement | null>(null);
   const contextId = getCanvasContextId(context);
+  const paintContextId = useCenterPaintContextId();
+  const hostId = hostIdFromCenterKey(contextId);
+  const tabContextId =
+    paintContextId && hostIdFromCenterKey(paintContextId) === hostId
+      ? paintContextId
+      : hostId;
 
   React.useEffect(() => {
     const container = editor.getContainer();
@@ -35,13 +43,13 @@ export function CanvasContextOverview({ context }: { context: CanvasContextRef }
   const buildMainAppTargetPath = React.useCallback(
     (params: Record<string, string | number>) => {
       const searchParams = new URLSearchParams();
-      searchParams.set("id", contextId);
+      searchParams.set("id", hostId);
       for (const [key, value] of Object.entries(params)) {
         searchParams.set(key, String(value));
       }
       return `/${context.contextScope}?${searchParams.toString()}`;
     },
-    [context.contextScope, contextId],
+    [context.contextScope, hostId],
   );
   const { project, workspace } = React.useMemo(() => {
     const projectById = context.projectId
@@ -94,14 +102,14 @@ export function CanvasContextOverview({ context }: { context: CanvasContextRef }
         onOpenPullRequest={(pr) => {
           host?.notifyUnsupported({
             targetPath: buildMainAppTargetPath({
-              tab: buildGithubPullRequestTabValue(contextId, pr.number),
+              tab: buildGithubPullRequestTabValue(tabContextId, pr.number),
             }),
           });
         }}
         onOpenActionRun={(run) => {
           host?.notifyUnsupported({
             targetPath: buildMainAppTargetPath({
-              tab: buildGithubActionTabValue(contextId, run.databaseId),
+              tab: buildGithubActionTabValue(tabContextId, run.databaseId),
             }),
           });
         }}

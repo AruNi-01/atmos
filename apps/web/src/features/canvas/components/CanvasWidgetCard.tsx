@@ -7,6 +7,7 @@ import { ArrowUpRight, RefreshCcw, X } from "lucide-react";
 import { cn } from "@workspace/ui";
 
 import { useAppRouter } from "@/shared/hooks/use-app-router";
+import { hostIdFromCenterKey } from "@/app-shell/center-space/center-space";
 import {
   EDITOR_REVIEW_DIFF_PREFIX,
   EDITOR_REVIEW_GROUP_PREFIX,
@@ -140,7 +141,8 @@ function CanvasWidgetCardInner({ shape }: { shape: CanvasWidgetShape }) {
       event.stopPropagation();
       const source = shape.props.source;
       const context = source.context;
-      const id = context.contextScope === "project" ? context.projectId : context.workspaceId;
+      const rawId = context.contextScope === "project" ? context.projectId : context.workspaceId;
+      const id = rawId ? hostIdFromCenterKey(rawId) : rawId;
       if (!id) {
         return;
       }

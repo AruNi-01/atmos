@@ -2,12 +2,14 @@ import type { Editor, TLShapeId } from "tldraw";
 
 import { resolveAgentHookNavigationTarget } from "@/features/agent/lib/agent-hook-navigation";
 import { useAgentAttentionStore } from "@/features/agent/store/agent-attention-store";
+import { stableAgentPaneId } from "@/features/terminal/store/terminal-store-helpers";
 import { writeLastPinnedTerminal, type CanvasLastPinnedTerminal } from "@/shared/stores/use-ui-pref-hooks";
 
 import {
   getCanvasTerminalShapes,
   type CanvasTerminalShape,
 } from "./canvas-terminal-shape";
+import { canvasTerminalMatchesAgentTarget } from "./canvas-terminal-source";
 import { promoteRenderedShapeId } from "./canvas-terminal-rendering";
 import { focusCanvasShapes } from "./canvas-shape-focus";
 
@@ -55,10 +57,8 @@ export function findCanvasTerminalShapeForAgentSession(
   const target = resolveAgentHookNavigationTarget(session);
   if (!target.contextId || !target.tmuxWindowName) return null;
   return (
-    getCanvasTerminalShapes(editor).find(
-      (shape) =>
-        shape.props.workspaceId === target.contextId &&
-        shape.props.tmuxWindowName === target.tmuxWindowName,
+    getCanvasTerminalShapes(editor).find((shape) =>
+      canvasTerminalMatchesAgentTarget(shape.props, target),
     ) ?? null
   );
 }
@@ -78,8 +78,11 @@ export function focusCanvasTerminalShape(
 ): void {
   const shapeId = shape.id as TLShapeId;
   const attachedAt = Date.now();
-  // Same stable pane key as terminal panes / agent hooks.
-  const stablePaneId = `${shape.props.workspaceId}:${shape.props.tmuxWindowName}`;
+  // Same stable pane key as terminal panes / agent hooks (host, never paint id).
+  const stablePaneId = stableAgentPaneId(
+    shape.props.workspaceId,
+    shape.props.tmuxWindowName,
+  );
 
   const nextRendered = promoteRenderedShapeId(
     getCanvasTerminalShapes(editor),

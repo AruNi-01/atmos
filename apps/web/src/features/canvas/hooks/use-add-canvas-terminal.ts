@@ -25,8 +25,13 @@ import {
 import { useCanvasSettingsStore } from "@/features/canvas/store/canvas-settings-store";
 import { useCanvasRuntimeStore } from "@/features/canvas/store/canvas-runtime-store";
 import { useTerminalStore } from "@/features/terminal/store/use-terminal-store";
+import { useContextParams } from "@/shared/hooks/use-context-params";
+import { resolveCenterOpenContextId } from "@/app-shell/center-space/center-open-context";
+import { useCenterPaintContextId } from "@/app-shell/center-space/use-center-paint-context-id";
 
 export function useAddCanvasTerminal(editor: Editor | null) {
+  const { effectiveContextId: hostContextId } = useContextParams();
+  const paintContextId = useCenterPaintContextId();
   const createTerminalTabWithInitialPane = useTerminalStore(
     (state) => state.createTerminalTabWithInitialPane,
   );
@@ -46,10 +51,12 @@ export function useAddCanvasTerminal(editor: Editor | null) {
         return null;
       }
 
-      const contextId = getCanvasContextId(input.context);
-      if (!contextId) {
+      const hostId = getCanvasContextId(input.context);
+      if (!hostId) {
         return null;
       }
+      const contextId =
+        resolveCenterOpenContextId(hostId, hostContextId, paintContextId) ?? hostId;
 
       const created = await createTerminalTabWithInitialPane(
         contextId,
@@ -121,7 +128,9 @@ export function useAddCanvasTerminal(editor: Editor | null) {
     [
       createTerminalTabWithInitialPane,
       editor,
+      hostContextId,
       maxRenderedTerminals,
+      paintContextId,
       setActiveShapeId,
       setRenderedShapeIds,
     ],

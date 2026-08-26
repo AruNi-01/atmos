@@ -16,6 +16,7 @@ import {
   focusCanvasTerminalShape,
 } from "@/features/canvas/lib/canvas-terminal-focus";
 import { getCanvasTerminalShapes } from "@/features/canvas/lib/canvas-terminal-shape";
+import { hostIdFromCenterKey } from "@/app-shell/center-space/center-space";
 import { useCanvasRuntimeStore } from "@/features/canvas/store/canvas-runtime-store";
 import { useCanvasSettingsStore } from "@/features/canvas/store/canvas-settings-store";
 import type {
@@ -46,7 +47,10 @@ export function CanvasAgentStatusWidget({ shape }: { shape: CanvasWidgetShape })
     () =>
       getCanvasTerminalShapes(editor)
         .map((terminal) =>
-          canvasTerminalKey(terminal.props.workspaceId, terminal.props.tmuxWindowName),
+          canvasTerminalKey(
+            hostIdFromCenterKey(terminal.props.workspaceId),
+            terminal.props.tmuxWindowName,
+          ),
         )
         .sort()
         .join("|"),

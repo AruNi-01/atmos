@@ -5,6 +5,10 @@ import { useEditor, type TLShapeId } from "tldraw";
 import { useAppRouter } from "@/shared/hooks/use-app-router";
 import { useProjects } from "@/features/project/hooks/use-project-bootstrap-query";
 import { useTerminalStore } from "@/features/terminal/store/use-terminal-store";
+import {
+  buildCanvasTerminalSourcePath,
+  resolveCanvasTerminalSourceTarget,
+} from "@/features/canvas/lib/canvas-terminal-source";
 import { useCanvasSettingsStore } from "@/features/canvas/store/canvas-settings-store";
 import { useCanvasRuntimeStore } from "@/features/canvas/store/canvas-runtime-store";
 import {
@@ -43,9 +47,10 @@ export function useCreateRelatedCanvasTerminal(shape: CanvasTerminalShape) {
       return { status: "placement-failed" };
     }
 
+    const sourceTarget = resolveCanvasTerminalSourceTarget(shape.props);
     const created = await createTerminalTabWithInitialPane(
-      shape.props.workspaceId,
-      shape.props.contextScope,
+      sourceTarget.paintContextId,
+      sourceTarget.contextScope,
     );
     if (!created) {
       return { status: "terminal-create-failed" };
@@ -56,7 +61,11 @@ export function useCreateRelatedCanvasTerminal(shape: CanvasTerminalShape) {
       shape,
       created,
       frameName: resolveRelatedCanvasTerminalFrameName(projects, shape.props),
-      sourceContext: shape.props,
+      sourceContext: {
+        ...shape.props,
+        workspaceId: sourceTarget.paintContextId,
+        contextScope: sourceTarget.contextScope,
+      },
       currentBounds,
     });
     if (!result) {
@@ -86,13 +95,12 @@ export function useCreateRelatedCanvasTerminal(shape: CanvasTerminalShape) {
       },
     });
 
-    const base = shape.props.contextScope === "project" ? "/project" : "/workspace";
-    const params = new URLSearchParams();
-    params.set("id", shape.props.workspaceId);
-    params.set("tab", result.terminalTabId);
-    params.set("terminalTmux", result.tmuxWindowName);
-    params.set("canvas", "true");
-    router.replace(`${base}?${params.toString()}`);
+    router.replace(
+      buildCanvasTerminalSourcePath(
+        { ...sourceTarget, tmuxWindowName: result.tmuxWindowName },
+        { terminalTabId: result.terminalTabId, canvas: true },
+      ),
+    );
 
     return { status: "created" };
   }, [

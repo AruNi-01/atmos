@@ -48,6 +48,10 @@ import {
 import { AGENT_OPTIONS, getInteractiveAgentParams } from "@/features/wiki/components/AgentSelect";
 import { useContextParams } from "@/shared/hooks/use-context-params";
 import { useAppRouter } from "@/shared/hooks/use-app-router";
+import { hostIdFromCenterKey } from "@/app-shell/center-space/center-space";
+import { resolveCenterOpenContextId } from "@/app-shell/center-space/center-open-context";
+import { useCenterPaintContextId } from "@/app-shell/center-space/use-center-paint-context-id";
+import { resolveCanvasTerminalSourceTarget } from "@/features/canvas/lib/canvas-terminal-source";
 import { useCanvasRuntimeStore } from "../store/canvas-runtime-store";
 import {
   ATMOS_CANVAS_FILE_SCHEMA,
@@ -196,6 +200,7 @@ export const CanvasView: React.FC = () => {
   const t = useTranslations("canvas.view");
   const loadErrorDescription = t("loadError.description");
   const { currentView, effectiveContextId } = useContextParams();
+  const paintContextId = useCenterPaintContextId();
   const router = useAppRouter();
   const {
     isStylePanelEnabled,
@@ -302,20 +307,20 @@ export const CanvasView: React.FC = () => {
   const [addAtmosWidgetOpen, setAddAtmosWidgetOpen] = React.useState(false);
   const shapeUtils = React.useMemo(() => [CanvasTerminalShapeUtil, CanvasWidgetShapeUtil], []);
   const canvasTerminalTabs = useTerminalStore((state) =>
-    effectiveContextId ? state.workspaceTerminalTabs[effectiveContextId] : undefined,
+    paintContextId ? state.workspaceTerminalTabs[paintContextId] : undefined,
   );
   const canvasTerminalWorkspaceLoaded = useTerminalStore((state) =>
-    effectiveContextId
+    paintContextId
       ? state.loadedWorkspaces.has(
           getTerminalWorkspaceScopeKey(
-            effectiveContextId,
-            state.workspaceContexts[effectiveContextId] ?? currentView === "project",
+            paintContextId,
+            state.workspaceContexts[paintContextId] ?? currentView === "project",
           ),
         )
       : false,
   );
   const canvasWorkspaceIsProject = useTerminalStore((state) =>
-    effectiveContextId ? state.workspaceContexts[effectiveContextId] : undefined,
+    paintContextId ? state.workspaceContexts[paintContextId] : undefined,
   );
   const topLeftToolbarContextValue = React.useMemo(
     () => ({
@@ -578,9 +583,20 @@ export const CanvasView: React.FC = () => {
         throw new Error(t("errors.selectWidgetBeforeAgentFix"));
       }
 
+      const tabContextId = isCanvasTerminalShapeRecord(source.shape)
+        ? resolveCanvasTerminalSourceTarget(source.shape.props).paintContextId
+        : (resolveCenterOpenContextId(
+            source.sourceContext.workspaceId,
+            effectiveContextId,
+            paintContextId,
+          ) ?? source.sourceContext.workspaceId);
+      const sourceContext = {
+        ...source.sourceContext,
+        workspaceId: tabContextId,
+      };
       const created = await createTerminalTabWithInitialPane(
-        source.sourceContext.workspaceId,
-        source.sourceContext.contextScope,
+        tabContextId,
+        sourceContext.contextScope,
         {
           title: label,
           paneLabel: label,
@@ -595,8 +611,8 @@ export const CanvasView: React.FC = () => {
         editor,
         shape: source.shape,
         created,
-        frameName: resolveRelatedCanvasTerminalFrameName(projects, source.sourceContext),
-        sourceContext: source.sourceContext,
+        frameName: resolveRelatedCanvasTerminalFrameName(projects, sourceContext),
+        sourceContext,
       });
       if (!result) {
         throw new Error(t("errors.terminalPlacementFailed"));
@@ -634,16 +650,18 @@ export const CanvasView: React.FC = () => {
       });
 
       const params = new URLSearchParams();
-      params.set("id", source.sourceContext.workspaceId);
+      params.set("id", hostIdFromCenterKey(sourceContext.workspaceId));
       params.set("tab", result.terminalTabId);
       params.set("terminalTmux", result.tmuxWindowName);
       params.set("canvas", "true");
-      const base = source.sourceContext.contextScope === "project" ? "/project" : "/workspace";
+      const base = sourceContext.contextScope === "project" ? "/project" : "/workspace";
       router.replace(`${base}?${params.toString()}`);
     },
     [
       createTerminalTabWithInitialPane,
+      effectiveContextId,
       maxRenderedTerminals,
+      paintContextId,
       projects,
       queuePendingTerminalRun,
       resolveCanvasTerminalSource,
@@ -1018,7 +1036,7 @@ export const CanvasView: React.FC = () => {
   }, [editorReady]);
 
   React.useEffect(() => {
-    if (!editorReady || !effectiveContextId || !canvasTerminalWorkspaceLoaded) {
+    if (!editorReady || !paintContextId || !canvasTerminalWorkspaceLoaded) {
       return;
     }
     if (currentView !== "workspace" && currentView !== "project") {
@@ -1036,7 +1054,7 @@ export const CanvasView: React.FC = () => {
       : "workspace";
     const staleShapes = getCanvasTerminalShapes(editor).filter((shape) => (
       shape.props.contextScope === contextScope &&
-      shape.props.workspaceId === effectiveContextId &&
+      resolveCanvasTerminalSourceTarget(shape.props).paintContextId === paintContextId &&
       !validTabIds.has(shape.props.sourceTerminalTabId)
     ));
 
@@ -1073,8 +1091,8 @@ export const CanvasView: React.FC = () => {
     canvasTerminalWorkspaceLoaded,
     canvasWorkspaceIsProject,
     currentView,
-    effectiveContextId,
     editorReady,
+    paintContextId,
     overlayActive,
   ]);
 

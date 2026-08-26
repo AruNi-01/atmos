@@ -4,9 +4,16 @@ import { createTranslator } from "next-intl";
 import { makeCenterSpaceKey } from "@/app-shell/center-space/center-space";
 import {
   findWorkspacePaneIdsByTmuxWindowName,
+  FIXED_TERMINAL_TAB_VALUE,
   useTerminalStore,
 } from "@/features/terminal/store/use-terminal-store";
 import { spaceIdFromTmuxWindowName } from "@/features/terminal/store/terminal-store-helpers";
+import {
+  commitLocatedPaneNavigation,
+  navigateToLocatedPane,
+  waitForDestination,
+  type NavigateToLocatedPaneRouter,
+} from "@/features/terminal/public/navigate-to-located-pane";
 import type { AgentHookSession } from "@/features/agent/store/agent-hooks-store";
 import { currentAppLocale } from "@/shared/lib/current-app-locale";
 import type { Project } from "@/shared/types/domain";
@@ -77,28 +84,17 @@ function currentHostIdFromLocation(): string | null {
   return new URLSearchParams(window.location.search).get("id")?.trim() || null;
 }
 
-/** Switch to the pane's space first (animated when already on that host). */
-async function activateCenterSpaceForAgentHook(
-  hostId: string,
-  spaceId: string,
-): Promise<void> {
-  if (!hostId || !spaceId) return;
-  const { useCenterSpaceStore } = await import(
-    "@/app-shell/center-space/center-space-store"
-  );
-  const store = useCenterSpaceStore.getState();
-  if (!store.hydrated) store.hydrate();
-  store.ensureHost(hostId);
-  if (store.getActiveSpaceId(hostId) === spaceId) return;
-  if (!store.list(hostId).some((space) => space.id === spaceId)) return;
-  if (currentHostIdFromLocation() === hostId) {
-    const { switchCenterSpace } = await import(
-      "@/app-shell/center-space/center-space-switch"
-    );
-    await switchCenterSpace(hostId, spaceId, { preserveDeepLink: true });
-    return;
+function routeKindForContext(
+  contextId: string,
+  projects: Project[],
+): "project" | "workspace" {
+  for (const project of projects) {
+    if (project.id === contextId) return "project";
+    if (project.workspaces.some((workspace) => workspace.id === contextId)) {
+      return "workspace";
+    }
   }
-  store.setActiveSpace(hostId, spaceId);
+  return "workspace";
 }
 
 export function canNavigateToAgentHookSession(session: {
@@ -122,18 +118,10 @@ export function buildAgentHookSessionPath(
     return null;
   }
 
-  let basePath = "/workspace";
-  for (const project of projects) {
-    if (project.id === target.contextId) {
-      basePath = "/project";
-      break;
-    }
-    const ws = project.workspaces.find((w) => w.id === target.contextId);
-    if (ws) {
-      basePath = "/workspace";
-      break;
-    }
-  }
+  const basePath =
+    routeKindForContext(target.contextId, projects) === "project"
+      ? "/project"
+      : "/workspace";
 
   const params = new URLSearchParams();
   params.set("id", target.contextId);
@@ -151,41 +139,82 @@ export function buildAgentHookSessionPath(
 
 export function navigateToAgentHookSessionPane(
   session: AgentHookSession,
-  router: { push: (path: string) => void },
+  router: NavigateToLocatedPaneRouter,
   projects: Project[],
 ) {
   const target = resolveAgentHookNavigationTarget(session);
   if (!target.contextId) return;
 
-  let basePath = "/workspace";
-  for (const project of projects) {
-    if (project.id === target.contextId) {
-      basePath = "/project";
-      break;
-    }
-    const ws = project.workspaces.find((w) => w.id === target.contextId);
-    if (ws) {
-      basePath = "/workspace";
-      break;
-    }
-  }
-
+  const routeKind = routeKindForContext(target.contextId, projects);
   const paintContextId = makeCenterSpaceKey(target.contextId, target.spaceId);
+  const state = useTerminalStore.getState();
   const hit = target.tmuxWindowName
     ? findWorkspacePaneIdsByTmuxWindowName(
-        useTerminalStore.getState(),
+        state,
         paintContextId,
         target.tmuxWindowName,
-        basePath === "/project",
+        routeKind === "project",
       )
     : null;
+  const pane = hit
+    ? state.getPanes(paintContextId, hit.terminalTabId)[hit.paneId]
+    : undefined;
 
   const path = buildAgentHookSessionPath(session, projects, hit);
   if (!path) return;
 
-  void activateCenterSpaceForAgentHook(target.contextId, target.spaceId).then(() => {
-    router.push(path);
-  });
+  void (async () => {
+    if (hit && pane?.sessionId && !target.sideChatId) {
+      await navigateToLocatedPane(
+        {
+          hostId: target.contextId,
+          spaceId: target.spaceId,
+          paintContextId,
+          terminalTabId: hit.terminalTabId,
+          paneId: hit.paneId,
+          sessionId: pane.sessionId,
+          ...(target.tmuxWindowName ? { tmuxWindowName: target.tmuxWindowName } : {}),
+        },
+        { routeKind, router },
+      );
+      return;
+    }
+
+    const { useCenterSpaceStore } = await import(
+      "@/app-shell/center-space/center-space-store"
+    );
+    const store = useCenterSpaceStore.getState();
+    if (!store.hydrated) store.hydrate();
+    store.ensureHost(target.contextId);
+
+    const sameHost = currentHostIdFromLocation() === target.contextId;
+    const alreadyOnDestSpace =
+      sameHost && store.getActiveSpaceId(target.contextId) === target.spaceId;
+
+    if (!sameHost) {
+      store.setActiveSpace(target.contextId, target.spaceId);
+      commitLocatedPaneNavigation(router, path);
+      return;
+    }
+
+    commitLocatedPaneNavigation(router, path);
+    if (alreadyOnDestSpace) return;
+
+    const committed = await waitForDestination({
+      pathname: routeKind === "project" ? "/project" : "/workspace",
+      id: target.contextId,
+      tab: hit?.terminalTabId || FIXED_TERMINAL_TAB_VALUE,
+      ...(target.tmuxWindowName ? { terminalTmux: target.tmuxWindowName } : {}),
+    });
+    if (!committed) return;
+
+    const { switchCenterSpace } = await import(
+      "@/app-shell/center-space/center-space-switch"
+    );
+    await switchCenterSpace(target.contextId, target.spaceId, {
+      preserveDeepLink: true,
+    });
+  })();
 }
 
 export function resolveAgentHookContextNames(

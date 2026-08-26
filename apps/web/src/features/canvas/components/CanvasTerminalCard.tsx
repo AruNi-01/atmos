@@ -35,6 +35,7 @@ import {
   FIXED_TERMINAL_TAB_VALUE,
   useTerminalStore,
 } from "@/features/terminal/store/use-terminal-store";
+import { stableAgentPaneId } from "@/features/terminal/store/terminal-store-helpers";
 import { clearLastPinnedTerminal } from "@/shared/stores/use-ui-pref-hooks";
 import { useCanvasSettingsStore } from "@/features/canvas/store/canvas-settings-store";
 import { useCanvasBoard } from "../hooks/use-canvas-board";
@@ -48,6 +49,10 @@ import {
   getCanvasTerminalShapes,
   type CanvasTerminalShape,
 } from "../lib/canvas-terminal-shape";
+import {
+  navigateToCanvasTerminalSource,
+  resolveCanvasTerminalSourceTarget,
+} from "../lib/canvas-terminal-source";
 import {
   areShapeIdListsEqual,
   promoteRenderedShapeId,
@@ -101,7 +106,16 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
   const [terminalViewport, setTerminalViewport] =
     React.useState<TerminalOverlayViewport | null>(null);
   const { board } = useCanvasBoard();
-  const { workspaceId, tmuxWindowName, contextScope } = shape.props;
+  const { tmuxWindowName, contextScope } = shape.props;
+  const sourceTarget = React.useMemo(
+    () => resolveCanvasTerminalSourceTarget(shape.props),
+    [
+      shape.props.workspaceId,
+      shape.props.tmuxWindowName,
+      shape.props.contextScope,
+      shape.props.sourceTerminalTabId,
+    ],
+  );
   const editor = useEditor();
   const router = useAppRouter();
   const terminalHostRef = React.useRef<HTMLDivElement | null>(null);
@@ -132,9 +146,14 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
   const storeWrite = React.useMemo(
     () =>
       contextScope === "workspace" || contextScope === "project"
-        ? ({ kind: "tmux-window" as const, workspaceId, tmuxWindowName, contextScope })
+        ? ({
+            kind: "tmux-window" as const,
+            workspaceId: sourceTarget.paintContextId,
+            tmuxWindowName,
+            contextScope,
+          })
         : ({ kind: "none" as const }),
-    [contextScope, workspaceId, tmuxWindowName],
+    [contextScope, sourceTarget.paintContextId, tmuxWindowName],
   );
 
   const { displayTitle, toolbarAgent, onTitleChange, onOscTitleChange } = useTerminalToolbarTitle({
@@ -155,9 +174,12 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
   );
   const isActive = activeShapeId === shape.id;
   const isRendered = renderedShapeIds.includes(shape.id);
-  // Same stable pane key as center-stage terminal panes (`contextId:tmuxWindowName`).
+  // Same stable pane key as center-stage terminal panes (`hostId:tmuxWindowName`).
   // Agent hooks + sticky attention are keyed by this id, so canvas terminals must reuse it.
-  const stablePaneId = `${shape.props.workspaceId}:${shape.props.tmuxWindowName}`;
+  const stablePaneId = stableAgentPaneId(
+    sourceTarget.hostId,
+    shape.props.tmuxWindowName,
+  );
   const sourcePaneId = stablePaneId;
   const attentionReason = useAgentAttentionStore(
     (s) => s.panes.get(stablePaneId)?.reason ?? null,
@@ -176,12 +198,11 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
     sideChatLayer,
     startSideChat,
   } = useTerminalSideChats({
-    workspaceId: shape.props.workspaceId,
-    // Canvas terminals store the scope id in `workspaceId` (project id when
-    // contextScope === "project"). Do not set projectRootPath for workplace
+    workspaceId: sourceTarget.hostId,
+    // Host id for tmux/API. Do not set projectRootPath for workplace
     // terminals — equating it to localPath makes side-chat skills treat every
     // canvas terminal as project-root and drop workspace Dynamic Skills.
-    projectId: shape.props.contextScope === "project" ? shape.props.workspaceId : null,
+    projectId: shape.props.contextScope === "project" ? sourceTarget.hostId : null,
     projectName: shape.props.projectName,
     workspaceName: shape.props.workspaceName,
     localPath: shape.props.localPath || null,
@@ -209,14 +230,14 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
     // Keep store layout in sync with the live tmux window. Without this, center
     // tabs rehydrate as attach-only and fail with "window 'N' not found" when
     // the canvas pane never flipped isNewPane → false before refresh.
-    const tabId = shape.props.sourceTerminalTabId || FIXED_TERMINAL_TAB_VALUE;
+    const tabId = sourceTarget.sourceTerminalTabId;
     const paneId = getPaneIdByTmuxWindowName(
-      shape.props.workspaceId,
+      sourceTarget.paintContextId,
       shape.props.tmuxWindowName,
       tabId,
     );
     if (paneId) {
-      markPaneAttached(shape.props.workspaceId, paneId, tabId);
+      markPaneAttached(sourceTarget.paintContextId, paneId, tabId);
     }
 
     if (!shape.props.isNewTerminal) {
@@ -230,7 +251,14 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
         isNewTerminal: false,
       },
     });
-  }, [editor, getPaneIdByTmuxWindowName, markPaneAttached, shape]);
+  }, [
+    editor,
+    getPaneIdByTmuxWindowName,
+    markPaneAttached,
+    shape,
+    sourceTarget.paintContextId,
+    sourceTarget.sourceTerminalTabId,
+  ]);
 
   const handleSessionReady = React.useCallback(() => {
     markAttached();
@@ -427,20 +455,9 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
     (event: React.MouseEvent<HTMLButtonElement>) => {
       event.preventDefault();
       event.stopPropagation();
-      const base = shape.props.contextScope === "project" ? "/project" : "/workspace";
-      const params = new URLSearchParams();
-      params.set("id", shape.props.workspaceId);
-      params.set("tab", shape.props.sourceTerminalTabId || FIXED_TERMINAL_TAB_VALUE);
-      params.set("terminalTmux", shape.props.tmuxWindowName);
-      router.push(`${base}?${params.toString()}`);
+      void navigateToCanvasTerminalSource(shape.props, router);
     },
-    [
-      router,
-      shape.props.contextScope,
-      shape.props.workspaceId,
-      shape.props.sourceTerminalTabId,
-      shape.props.tmuxWindowName,
-    ],
+    [router, shape.props],
   );
 
   const handleCreateRelatedTerminal = React.useCallback(
@@ -570,7 +587,8 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
             <Terminal
               ref={bindTerminalRef}
               sessionId={sessionId}
-              workspaceId={shape.props.workspaceId}
+              workspaceId={sourceTarget.hostId}
+              openContextId={sourceTarget.paintContextId}
               tmuxWindowName={shape.props.tmuxWindowName}
               terminalName={shape.props.terminalName}
               projectName={shape.props.projectName}
@@ -610,7 +628,7 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
             />
             <TerminalAgentInputOverlay
               ref={agentInputOverlayRef}
-              activeProjectId={shape.props.contextScope === "project" ? shape.props.workspaceId : null}
+              activeProjectId={shape.props.contextScope === "project" ? sourceTarget.hostId : null}
               agent={agentForSubmit ?? null}
               getTerminalCursorClientPoint={() => terminalApiRef.current?.getCursorClientPoint() ?? null}
               isTerminalReady={isTerminalReady}
@@ -667,7 +685,7 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
         <div className="flex items-center gap-1.5">
           <TerminalPaneAgentStatus
             paneId={stablePaneId}
-            contextId={shape.props.workspaceId}
+            contextId={sourceTarget.hostId}
           />
           <button
             type="button"

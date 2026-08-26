@@ -165,13 +165,15 @@ describe("canNavigateToAgentHookSession", () => {
 });
 
 describe("navigateToAgentHookSessionPane space handoff", () => {
-  it("switches the owning space before pushing the pane deep link", () => {
+  it("commits dest deep link before switching the owning space", () => {
     const src = readFileSync(join(import.meta.dir, "../agent-hook-navigation.ts"), "utf8");
-    const activateAt = src.indexOf("activateCenterSpaceForAgentHook(target.contextId, target.spaceId)");
-    const pushAt = src.indexOf("router.push(path)");
-    expect(activateAt).toBeGreaterThan(0);
-    expect(pushAt).toBeGreaterThan(activateAt);
+    expect(src).toContain("navigateToLocatedPane(");
+    expect(src).toContain("commitLocatedPaneNavigation(router, path)");
     expect(src).toContain("makeCenterSpaceKey(target.contextId, target.spaceId)");
     expect(src).toContain("preserveDeepLink: true");
+    const commitAt = src.indexOf("commitLocatedPaneNavigation(router, path)");
+    const switchAt = src.indexOf("switchCenterSpace(target.contextId, target.spaceId");
+    expect(commitAt).toBeGreaterThan(0);
+    expect(switchAt).toBeGreaterThan(commitAt);
   });
 });
