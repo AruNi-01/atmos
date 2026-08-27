@@ -446,6 +446,7 @@
       "noActiveAgentSessions": "No active agent sessions",
       "agentSessions": "Agent Sessions ({count})",
       "clearIdle": "Clear idle",
+      "clearSession": "Clear",
       "permissionRequested": "Permission requested",
       "openAgentChat": "Open Agent Chat",
       "acpChat": "ACP Chat",

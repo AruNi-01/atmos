@@ -446,6 +446,7 @@
       "noActiveAgentSessions": "暂无活动的 Agent 会话",
       "agentSessions": "Agent 会话 ({count})",
       "clearIdle": "清理空闲",
+      "clearSession": "清除",
       "permissionRequested": "权限请求中",
       "openAgentChat": "打开 Agent Chat",
       "acpChat": "ACP Chat",
