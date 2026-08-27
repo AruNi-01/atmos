@@ -20,17 +20,30 @@ async function activateWorkspaceToolTab(page: Page, name: RegExp) {
       .locator("[data-center-stage-plus-trigger]")
       .filter({ visible: true })
       .first();
-    await plusTrigger.hover();
+    await expect(plusTrigger).toBeVisible({ timeout: 15_000 });
     const plusMenu = page.locator("[data-center-stage-plus-menu]");
-    if (!(await plusMenu.isVisible().catch(() => false))) {
+    // Hover + click toggles the popover closed; open only when collapsed.
+    if ((await plusTrigger.getAttribute("aria-expanded")) !== "true") {
       await plusTrigger.click();
     }
     await expect(plusMenu).toBeVisible({ timeout: 15_000 });
-    const item = plusMenu.getByRole("button", { name });
-    await expect(item).toBeVisible({ timeout: 15_000 });
-    // Hover-open popover unmounts on item click; native click skips Playwright
-    // actionability so the handler still runs while the node is animating out.
-    await item.evaluate((el) => (el as HTMLButtonElement).click());
+    await plusMenu.hover({ position: { x: 12, y: 12 } }).catch(() => undefined);
+
+    const tabsTab = plusMenu.getByRole("tab", { name: /^(标签|Tabs)$/ });
+    if (
+      (await tabsTab.count()) > 0 &&
+      (await tabsTab.getAttribute("aria-selected")) !== "true"
+    ) {
+      await tabsTab.click();
+    }
+
+    const item = plusMenu.locator("button").filter({ hasText: name }).first();
+    await expect(item).toHaveCount(1, { timeout: 10_000 });
+    // Lower items (Run, GitHub) are clipped by overflow:hidden; skip visibility.
+    await item.evaluate((el) => {
+      (el as HTMLElement).scrollIntoView({ block: "nearest" });
+      (el as HTMLButtonElement).click();
+    });
   }
 
   await expect(toolTab.first()).toBeVisible({ timeout: 45_000 });
