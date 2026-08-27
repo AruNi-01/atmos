@@ -1,0 +1,16 @@
+apps/web/src/app-shell/__tests__/list-hover.test.ts
+  h_5be255725524c8 58-74
+apps/web/src/app-shell/sidebar/ChangeSection.tsx
+  h_5be255725524c8 662,668,671,725-727,746
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "2c74659b8272a3dce7285fb4ac13edc1e23ec99d",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
