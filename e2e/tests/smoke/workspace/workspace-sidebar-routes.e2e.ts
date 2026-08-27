@@ -13,24 +13,38 @@ import {
   withSearchParams,
 } from "../support/app-smoke";
 
-async function activateWorkspaceToolTab(
-  page: Page,
-  workspaceUrl: string,
-  tab: "changes" | "review" | "run" | "github",
-  name: RegExp,
-) {
-  await gotoContextRoute(page, withSearchParams(workspaceUrl, { tab }), {
-    locale: "zh",
-  });
+async function activateWorkspaceToolTab(page: Page, name: RegExp) {
   const toolTab = page.getByRole("tab", { name });
   if (!(await toolTab.first().isVisible().catch(() => false))) {
-    await page.getByRole("button", { name: /新建标签页|New tab/ }).click();
+    const plusTrigger = page
+      .locator("[data-center-stage-plus-trigger]")
+      .filter({ visible: true })
+      .first();
+    await plusTrigger.hover();
     const plusMenu = page.locator("[data-center-stage-plus-menu]");
+    if (!(await plusMenu.isVisible().catch(() => false))) {
+      await plusTrigger.click();
+    }
     await expect(plusMenu).toBeVisible({ timeout: 15_000 });
-    await plusMenu.getByRole("button", { name }).click();
+    const item = plusMenu.getByRole("button", { name });
+    await expect(item).toBeVisible({ timeout: 15_000 });
+    // Hover-open popover unmounts on item click; native click skips Playwright
+    // actionability so the handler still runs while the node is animating out.
+    await item.evaluate((el) => (el as HTMLButtonElement).click());
   }
+
   await expect(toolTab.first()).toBeVisible({ timeout: 45_000 });
-  await toolTab.first().click();
+  await expect
+    .poll(
+      async () => {
+        const tab = toolTab.first();
+        if ((await tab.getAttribute("aria-selected")) === "true") return true;
+        await tab.click({ timeout: 5_000 }).catch(() => undefined);
+        return (await tab.getAttribute("aria-selected")) === "true";
+      },
+      { timeout: 20_000 },
+    )
+    .toBe(true);
 }
 
 test.describe("smoke workspace", () => {
@@ -48,8 +62,6 @@ test.describe("smoke workspace", () => {
     const contextUrl = withSearchParams(await buildProjectWorkspaceDeepLink(page), {
       activeSettingTab: null,
     });
-    const workspaceUrl = new URL(contextUrl).searchParams.get("pvUrl");
-    expect(workspaceUrl, "missing workspace url in project deep link").toBeTruthy();
 
     await gotoContextRoute(page, withSearchParams(contextUrl, { tab: "files" }), {
       locale: "zh",
@@ -61,10 +73,9 @@ test.describe("smoke workspace", () => {
       .poll(async () => new URL(page.url()).searchParams.get("tab"))
       .toBeNull();
 
-    // `?tab=` is a one-shot deep link: it may add the tool tab without selecting
-    // it (terminal can stay the painted surface). Click, and fall back to the
-    // plus menu when leftover URL chrome strips the hop.
-    await activateWorkspaceToolTab(page, workspaceUrl!, "changes", /变更|Changes/);
+    // Stay on this paint context: `?tab=` hops are leftover chrome after last-tab
+    // files, and a full navigation remounts the strip. Open tools from plus.
+    await activateWorkspaceToolTab(page, /变更|Changes/);
     const changesStage = await getCenterStage(page);
     const scopeTrigger = changesStage.getByRole("button", {
       name: /选择变更范围|Select changes scope/,
@@ -75,16 +86,16 @@ test.describe("smoke workspace", () => {
     // The tab's computed name can include the close control; do not require an exact match.
     await expect(page.getByRole("tab", { name: /图形历史|Graph History/ })).toBeVisible();
 
-    await activateWorkspaceToolTab(page, workspaceUrl!, "review", /评审|Review/);
+    await activateWorkspaceToolTab(page, /评审|Review/);
 
-    await activateWorkspaceToolTab(page, workspaceUrl!, "run", /运行|Run/);
+    await activateWorkspaceToolTab(page, /运行|Run/);
     const runStage = await getCenterStage(page);
     // The Run surface's inner terminal strip reuses the same 运行/Run tab name.
     await expect(
       runStage.getByRole("tablist").first().getByRole("tab", { name: /运行|Run/ }),
     ).toBeVisible({ timeout: 45_000 });
 
-    await activateWorkspaceToolTab(page, workspaceUrl!, "github", /GitHub/);
+    await activateWorkspaceToolTab(page, /GitHub/);
     const githubStage = await getCenterStage(page);
     await expect(githubStage.getByRole("tab", { name: "拉取请求" })).toBeVisible();
     await expect(githubStage.getByRole("tab", { name: "议题" })).toBeVisible();
