@@ -445,6 +445,7 @@
       "unknownProject": "未知项目",
       "noActiveAgentSessions": "暂无活动的 Agent 会话",
       "agentSessions": "Agent 会话 ({count})",
+      "openAgentObserver": "打开 Agent Observer",
       "clearIdle": "清理空闲",
       "clearSession": "清除",
       "permissionRequested": "权限请求中",
@@ -1061,6 +1062,7 @@
       "automations": "自动化 - ATMOS",
       "diskAnalyzer": "磁盘分析器 - ATMOS",
       "tokenUsage": "Token 用量 - ATMOS",
+      "agentObserver": "Agent Observer - ATMOS",
       "tasks": "任务 - ATMOS",
       "ptDesign": "Prototype Design - ATMOS",
       "settings": "设置 - ATMOS"
@@ -1160,6 +1162,10 @@
         "tokenUsage": {
           "title": "Token 用量",
           "description": "查看模型 Token 使用和活动"
+        },
+        "agentObserver": {
+          "title": "Agent Observer",
+          "description": "查看这台 Computer 上每个 Agent 以及它在做什么"
         },
         "ptDesign": {
           "title": "Launchpad：Prototype Design",
@@ -1693,6 +1699,7 @@
           "newWorkspace": "新建工作区",
           "diskAnalyzer": "磁盘分析器",
           "tokenUsage": "Token 用量",
+          "agentObserver": "Agent Observer",
           "tasks": "任务"
         }
       },
@@ -2763,6 +2770,23 @@
         }
       }
     }
+  },
+  "AgentObserver": {
+    "title": "Agent Observer",
+    "subtitle": "这台 Computer 上正在运行和已经结束的 Agent 轮次",
+    "empty": "终端里的 hooks 触发后，Agent 会出现在这里。如果还没有安装，请到设置里安装 hooks。",
+    "disconnected": "请先连接一台 Computer，再查看 Agent Observer。",
+    "relayout": "重新布局",
+    "openPane": "打开面板",
+    "expand": "展开",
+    "fold": "折叠",
+    "sideChat": "侧栏对话",
+    "turns": "{count} 轮",
+    "children": "{count} 个子 Agent",
+    "members": "{count} 个",
+    "emptyPrompt": "（没有 prompt 文本）",
+    "moreTurns": "更早还有 {count} 轮",
+    "openObserver": "打开 Agent Observer"
   },
   "Agent": {
     "attention": {
@@ -6118,6 +6142,10 @@
           "tokenUsage": {
             "title": "Token 用量",
             "description": "查看模型 Token 使用与本地会话活动。"
+          },
+          "agentObserver": {
+            "title": "Agent Observer",
+            "description": "以 Computer 为范围，查看正在运行和已经结束的 Agent 轮次。"
           },
           "canvas": {
             "title": "Canvas",

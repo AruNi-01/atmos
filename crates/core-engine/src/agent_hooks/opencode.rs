@@ -85,22 +85,33 @@ export const AtmosPlugin = async (_ctx: any) => {{
         await post(event)
         return
       }}
-
-      if (
-        t === "message.part.delta" ||
-        t === "message.part.updated" ||
-        t === "message.updated" ||
-        t === "tool.execute.before" ||
-        t === "tool.execute.after"
-      ) {{
-        if (phase !== "running") {{
-          if (now - lastStateTs < 500) return
-          phase = "running"
-          lastStateTs = now
-          await post({{ type: "agent.running", properties: event.properties ?? {{}} }})
-        }}
-        return
-      }}
+    }},
+    "chat.message": async (input: any, output: any) => {{
+      const role = output?.message?.role
+      if (role && role !== "user") return
+      phase = "running"
+      lastStateTs = Date.now()
+      void post({{
+        type: "chat.message",
+        input,
+        output: {{ message: output?.message, parts: output?.parts }},
+      }})
+    }},
+    "tool.execute.before": async (input: any, output: any) => {{
+      phase = "running"
+      lastStateTs = Date.now()
+      void post({{
+        type: "tool.execute.before",
+        input,
+        output,
+      }})
+    }},
+    "tool.execute.after": async (input: any, output: any) => {{
+      void post({{
+        type: "tool.execute.after",
+        input,
+        output,
+      }})
     }},
   }}
 }}
@@ -214,4 +225,24 @@ fn which_exists(cmd: &str) -> bool {
         .status()
         .map(|s| s.success())
         .unwrap_or(false)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn plugin_posts_chat_message_and_tool_execute_hooks() {
+        let source = build_plugin_source(4310);
+        assert!(source.contains(r#""chat.message""#), "{source}");
+        assert!(source.contains("output?.message"), "{source}");
+        assert!(source.contains("output?.parts"), "{source}");
+        assert!(source.contains(r#""tool.execute.before""#), "{source}");
+        assert!(source.contains("type: \"tool.execute.before\""), "{source}");
+        assert!(source.contains("void post({"), "{source}");
+        assert!(source.contains("input,"), "{source}");
+        assert!(source.contains("output,"), "{source}");
+        assert!(!source.contains("UserPromptSubmit"), "{source}");
+        assert!(!source.contains("message.updated"), "{source}");
+    }
 }

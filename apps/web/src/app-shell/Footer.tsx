@@ -392,6 +392,15 @@ export function AgentStatusPopoverContent({
         <span className="text-[11px] font-semibold text-foreground">
           {t("footer.agentSessions", { count: rows.length })}
         </span>
+        <div className="flex items-center gap-1">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-5 px-1.5 text-[10px] text-muted-foreground hover:text-foreground"
+          onClick={() => router.push("/agent-observer")}
+        >
+          {t("footer.openAgentObserver")}
+        </Button>
         {hasIdleSessions && (
           <Button
             variant="ghost"
@@ -403,6 +412,7 @@ export function AgentStatusPopoverContent({
           {t("footer.clearIdle")}
         </Button>
       )}
+        </div>
     </div>
 
       <div className="space-y-2">

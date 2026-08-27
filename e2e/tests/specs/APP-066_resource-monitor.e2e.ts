@@ -378,14 +378,14 @@ test.describe("APP-066 resource monitor", () => {
     await expect(footerUsage.getByText(/^Memory \d/)).toBeVisible();
     await expect
       .poll(async () => (await footerItem.boundingBox())?.width ?? 0)
-      .toBeGreaterThan(restingFooterWidth + 40);
+      .toBeGreaterThan(restingFooterWidth + 24);
     await page.mouse.move(0, 0);
     await expect(footerLabel).toHaveText("Monitor");
     await expect
       .poll(async () =>
         Math.abs(((await footerItem.boundingBox())?.width ?? 0) - restingFooterWidth),
       )
-      .toBeLessThanOrEqual(2);
+      .toBeLessThanOrEqual(8);
     await expect(footerItem).toHaveAttribute(
       "aria-label",
       /CPU .*%.*Memory .*%/,

@@ -3,11 +3,46 @@ use tracing::debug;
 
 use super::{AgentHookState, AgentHooksService, AgentToolType, AtmosContext, StateUpdateKind};
 
-pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &AtmosContext) {
-    let hook_event = payload
+pub(super) fn with_inferred_event_name(payload: &Value) -> Value {
+    let name = antigravity_event_name(payload);
+    if name.is_empty() {
+        return payload.clone();
+    }
+    let mut next = payload.clone();
+    if let Some(obj) = next.as_object_mut() {
+        if obj
+            .get("hook_event_name")
+            .or_else(|| obj.get("hookEventName"))
+            .and_then(|v| v.as_str())
+            .is_none_or(|s| s.is_empty())
+        {
+            obj.insert("hook_event_name".to_string(), Value::String(name));
+        }
+    }
+    next
+}
+
+fn antigravity_event_name(payload: &Value) -> String {
+    if let Some(name) = payload
         .get("hook_event_name")
+        .or_else(|| payload.get("hookEventName"))
         .and_then(|v| v.as_str())
-        .unwrap_or("");
+        .filter(|s| !s.is_empty())
+    {
+        return name.to_string();
+    }
+    if payload.get("toolCall").is_some() {
+        return "PreToolUse".to_string();
+    }
+    if payload.get("invocationNum").is_some() || payload.get("invocation_num").is_some() {
+        return "PreInvocation".to_string();
+    }
+    String::new()
+}
+
+pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &AtmosContext) {
+    let hook_event_owned = antigravity_event_name(payload);
+    let hook_event = hook_event_owned.as_str();
 
     let session_id = service.resolve_session_id(payload, AgentToolType::Antigravity, ctx);
     let project_path = AgentHooksService::extract_cwd(payload).map(String::from);

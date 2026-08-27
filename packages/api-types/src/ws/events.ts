@@ -12,6 +12,8 @@ export const WS_EVENTS = [
   "project_delete_progress",
   "agent_hook_state_changed",
   "agent_hook_sessions_cleared",
+  "agent_activity_updated",
+  "agent_activity_cleared",
   "agent_attention_raised",
   "agent_attention_cleared",
   "agent_attention_summary_updated",

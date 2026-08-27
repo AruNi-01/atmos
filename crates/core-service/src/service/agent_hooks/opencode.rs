@@ -57,6 +57,16 @@ pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &A
                 },
             );
         }
+        "chat.message" | "UserPromptSubmit" => {
+            service.update_state(
+                &session_id,
+                AgentToolType::Opencode,
+                AgentHookState::Running,
+                project_path,
+                ctx,
+                StateUpdateKind::NewTurn,
+            );
+        }
         "agent.running"
         | "message.part.delta"
         | "message.part.updated"

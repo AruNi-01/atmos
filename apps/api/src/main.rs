@@ -100,6 +100,13 @@ fn spawn_agent_hook_forwarder(
                             WsEvent::AgentHookSessionsCleared,
                             json!({ "session_ids": session_ids }),
                         ),
+                        AgentHookEvent::ActivityUpdated(activity) => {
+                            (WsEvent::AgentActivityUpdated, json!(activity))
+                        }
+                        AgentHookEvent::ActivityCleared { session_ids } => (
+                            WsEvent::AgentActivityCleared,
+                            json!({ "session_ids": session_ids }),
+                        ),
                         AgentHookEvent::AttentionRaised(latch) => {
                             (WsEvent::AgentAttentionRaised, json!(latch))
                         }

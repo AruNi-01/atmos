@@ -125,7 +125,7 @@ fn build_hook_entries(port: u16) -> Value {
     json!({
         // Session boundaries only need the event name.
         "SessionStart": [build_fixed_cmd(port, "SessionStart", false)],
-        "UserPromptSubmit": [build_fixed_cmd(port, "UserPromptSubmit", false)],
+        "UserPromptSubmit": [build_stdin_cmd(port, false)],
         // Tool + lifecycle: forward full stdin so agent_id / tool_name arrive.
         "PreToolUse": [build_stdin_cmd(port, true)],
         "PostToolUse": [build_stdin_cmd(port, true)],
@@ -271,4 +271,23 @@ pub(super) fn check() -> AgentHookToolStatus {
 fn write_json(path: &std::path::Path, value: &Value) -> std::result::Result<(), String> {
     let content = serde_json::to_string_pretty(value).map_err(|e| e.to_string())?;
     std::fs::write(path, content).map_err(|e| e.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn user_prompt_submit_forwards_stdin() {
+        let entries = build_hook_entries(4310);
+        let cmd = entries["UserPromptSubmit"][0]["hooks"][0]["command"]
+            .as_str()
+            .unwrap();
+        assert!(cmd.contains("cat | curl"), "{cmd}");
+        assert!(cmd.contains("-d @-"), "{cmd}");
+        assert!(
+            !cmd.contains(r#"{"hook_event_name":"UserPromptSubmit"}"#),
+            "{cmd}"
+        );
+    }
 }

@@ -358,6 +358,7 @@ const CenterStage: React.FC = () => {
     currentView,
   } = useContextParams();
   const hydrateCenterSpaces = useCenterSpaceStore((s) => s.hydrate);
+  const layoutDiskSynced = useCenterSpaceStore((s) => s.diskSynced);
   React.useLayoutEffect(() => {
     hydrateCenterSpaces();
   }, [hydrateCenterSpaces]);
@@ -632,6 +633,18 @@ const CenterStage: React.FC = () => {
     setUrlParams,
     tabFromUrl,
     wikiPageFromUrl,
+  ]);
+
+  React.useEffect(() => {
+    if (!layoutDiskSynced || !isCenterContextSettled || !effectiveContextId) return;
+    const tab = tabFromUrl || readCenterStageLastTab(effectiveContextId);
+    if (!tab) return;
+    activateCenterChromeTab(effectiveContextId, tab);
+  }, [
+    effectiveContextId,
+    isCenterContextSettled,
+    layoutDiskSynced,
+    tabFromUrl,
   ]);
 
   React.useEffect(() => {

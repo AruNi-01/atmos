@@ -18,6 +18,7 @@ export type CurrentView =
   | "automations"
   | "disk-analyzer"
   | "token-usage"
+  | "agent-observer"
   | "tasks"
   | "pt-design"
   | "settings";
@@ -87,6 +88,7 @@ export function parseContextParams(
   if (firstSegment === "automations") return { ...EMPTY, currentView: "automations" };
   if (firstSegment === "disk-analyzer") return { ...EMPTY, currentView: "disk-analyzer" };
   if (firstSegment === "token-usage") return { ...EMPTY, currentView: "token-usage" };
+  if (firstSegment === "agent-observer") return { ...EMPTY, currentView: "agent-observer" };
   if (firstSegment === "tasks") return { ...EMPTY, currentView: "tasks" };
   if (firstSegment === "pt-design") return { ...EMPTY, currentView: "pt-design" };
   if (firstSegment === "settings") return { ...EMPTY, currentView: "settings" };

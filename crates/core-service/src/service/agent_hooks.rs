@@ -1,3 +1,4 @@
+mod activity;
 mod ampcode;
 mod antigravity;
 mod attention;
@@ -30,6 +31,7 @@ use tracing::{debug, info, warn};
 
 use super::notification::NotificationService;
 
+pub use activity::{AgentActivity, AgentChildActivity, AgentTodoItem, AgentToolLine, AgentTurn};
 pub use attention::{AgentAttentionLatch, AgentAttentionReason};
 pub use attention_summary::{
     AgentAttentionSummary, AttentionSummaryPayload, AttentionSummarySettings,
@@ -178,6 +180,8 @@ pub struct AgentHookStateUpdate {
 pub enum AgentHookEvent {
     StateChanged(AgentHookStateUpdate),
     SessionsCleared { session_ids: Vec<String> },
+    ActivityUpdated(Box<AgentActivity>),
+    ActivityCleared { session_ids: Vec<String> },
     AttentionRaised(AgentAttentionLatch),
     AttentionCleared { stable_pane_ids: Vec<String> },
     AttentionSummaryUpdated(AgentAttentionSummary),
@@ -197,6 +201,8 @@ pub(super) struct PendingTerminalIdle {
 
 pub struct AgentHooksService {
     sessions: RwLock<HashMap<String, AgentHookSession>>,
+    /// Observer turn history. Outlives idle session-row sweep.
+    activity: RwLock<HashMap<String, AgentActivity>>,
     /// Sticky attention latches keyed by stable pane id (`{context}:{tmux_window}`).
     /// Independent of idle session rows so refresh still shows need-attention.
     attention: RwLock<HashMap<String, AgentAttentionLatch>>,
@@ -222,9 +228,10 @@ pub struct AgentHooksService {
 
 impl AgentHooksService {
     pub fn new() -> Self {
-        let (event_tx, _) = broadcast::channel(64);
+        let (event_tx, _) = broadcast::channel(256);
         Self {
             sessions: RwLock::new(HashMap::new()),
+            activity: RwLock::new(HashMap::new()),
             attention: RwLock::new(HashMap::new()),
             summaries: RwLock::new(HashMap::new()),
             summary_generation: RwLock::new(0),
@@ -246,6 +253,13 @@ impl AgentHooksService {
     #[cfg(test)]
     pub(crate) fn test_remove_attention_latch_only(&self, stable_pane_id: &str) {
         self.attention.write().remove(stable_pane_id);
+    }
+
+    #[cfg(test)]
+    pub(crate) fn test_backdate_session(&self, session_id: &str, timestamp: &str) {
+        if let Some(session) = self.sessions.write().get_mut(session_id) {
+            session.timestamp = timestamp.to_string();
+        }
     }
 
     /// Test-only: rewrite summary timestamps so stale pruning can be exercised.
@@ -287,6 +301,24 @@ impl AgentHooksService {
     }
 
     pub fn remove_session(&self, session_id: &str) -> bool {
+        self.remove_session_with_activity(session_id, true)
+    }
+
+    /// Drop an activity row even when the coarse session is already gone
+    /// (idle sweep / pane-focus dismiss). Returns true if a record was removed.
+    pub fn drop_orphaned_activity(&self, session_id: &str) -> bool {
+        let had = self.activity.read().contains_key(session_id);
+        if had {
+            self.drop_activity(&[session_id.to_string()]);
+        }
+        had
+    }
+
+    pub fn remove_session_keep_activity(&self, session_id: &str) -> bool {
+        self.remove_session_with_activity(session_id, false)
+    }
+
+    fn remove_session_with_activity(&self, session_id: &str, drop_activity: bool) -> bool {
         let removed = self.sessions.write().remove(session_id).is_some();
         self.suppress_running_until.write().remove(session_id);
         self.force_closed_sessions.write().remove(session_id);
@@ -297,6 +329,9 @@ impl AgentHooksService {
             // chrome — the pane may still exist, so the user can still read the
             // recap. Only explicit Dismiss / send / pane destroy drop it.
             self.clear_attention_matching_ids(&[session_id.to_string()]);
+        }
+        if drop_activity {
+            self.drop_activity(&[session_id.to_string()]);
         }
         removed
     }
@@ -340,6 +375,8 @@ impl AgentHooksService {
             );
             self.broadcast_sessions_cleared(removed.clone());
         }
+        self.drop_activity(&removed);
+        self.drop_activity_matching_pane(stable_pane_id);
         // Pane is gone — drop sticky attention and auto-summary for this pane
         // and session aliases.
         let mut attention_ids = removed.clone();
@@ -411,6 +448,7 @@ impl AgentHooksService {
         }
         if !idle_ids.is_empty() {
             self.broadcast_sessions_cleared(idle_ids.clone());
+            self.drop_activity(&idle_ids);
         }
         idle_ids
     }
@@ -628,6 +666,7 @@ impl AgentHooksService {
             self.suppress_running_until
                 .write()
                 .insert(session_id.to_string(), until);
+            self.close_activity_turn(session_id);
         }
 
         let update = AgentHookStateUpdate {
@@ -703,50 +742,68 @@ impl AgentHooksService {
 
     pub fn handle_claude_code_event(&self, payload: &Value, ctx: &AtmosContext) {
         claude_code::handle_event(self, payload, ctx);
+        self.observe_if_owned(payload, AgentToolType::ClaudeCode, ctx);
     }
 
     pub fn handle_codex_event(&self, payload: &Value, ctx: &AtmosContext) {
         codex::handle_event(self, payload, ctx);
+        self.observe_if_owned(payload, AgentToolType::Codex, ctx);
     }
 
     pub fn handle_cursor_event(&self, payload: &Value, ctx: &AtmosContext) {
         cursor::handle_event(self, payload, ctx);
+        self.observe_if_owned(payload, AgentToolType::Cursor, ctx);
     }
 
     pub fn handle_gemini_event(&self, payload: &Value, ctx: &AtmosContext) {
         gemini::handle_event(self, payload, ctx);
+        self.observe_if_owned(payload, AgentToolType::Gemini, ctx);
     }
 
     pub fn handle_antigravity_event(&self, payload: &Value, ctx: &AtmosContext) {
-        antigravity::handle_event(self, payload, ctx);
+        let payload = antigravity::with_inferred_event_name(payload);
+        antigravity::handle_event(self, &payload, ctx);
+        self.observe_if_owned(&payload, AgentToolType::Antigravity, ctx);
     }
 
     pub fn handle_factory_droid_event(&self, payload: &Value, ctx: &AtmosContext) {
         factory_droid::handle_event(self, payload, ctx);
+        self.observe_if_owned(payload, AgentToolType::FactoryDroid, ctx);
     }
 
     pub fn handle_kiro_event(&self, payload: &Value, ctx: &AtmosContext) {
         kiro::handle_event(self, payload, ctx);
+        self.observe_if_owned(payload, AgentToolType::Kiro, ctx);
     }
 
     pub fn handle_opencode_event(&self, payload: &Value, ctx: &AtmosContext) {
         opencode::handle_event(self, payload, ctx);
+        self.observe_if_owned(payload, AgentToolType::Opencode, ctx);
     }
 
     pub fn handle_ampcode_event(&self, payload: &Value, ctx: &AtmosContext) {
         ampcode::handle_event(self, payload, ctx);
+        self.observe_if_owned(payload, AgentToolType::Ampcode, ctx);
     }
 
     pub fn handle_pi_event(&self, payload: &Value, ctx: &AtmosContext) {
         pi::handle_event(self, payload, ctx);
+        self.observe_if_owned(payload, AgentToolType::Pi, ctx);
     }
 
     pub fn handle_hermes_event(&self, payload: &Value, ctx: &AtmosContext) {
         hermes::handle_event(self, payload, ctx);
+        self.observe_if_owned(payload, AgentToolType::Hermes, ctx);
     }
 
     pub fn handle_grok_build_event(&self, payload: &Value, ctx: &AtmosContext) {
         grok_build::handle_event(self, payload, ctx);
+        self.observe_if_owned(payload, AgentToolType::GrokBuild, ctx);
+    }
+
+    fn observe_if_owned(&self, payload: &Value, tool: AgentToolType, ctx: &AtmosContext) {
+        let session_id = self.resolve_session_id(payload, tool, ctx);
+        self.observe_hook(&session_id, tool, payload, ctx);
     }
 
     /// Prefer Atmos pane_id (stable, per-terminal-pane) > payload session_id > fallback.

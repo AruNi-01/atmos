@@ -1,5 +1,5 @@
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::{HeaderMap, StatusCode},
     response::IntoResponse,
     routing::{delete, get, post},
@@ -61,6 +61,7 @@ pub fn routes() -> Router<AppState> {
         .route("/grok-build", post(handle_grok_build_hook))
         .route("/cli-identity", get(cli_identity))
         .route("/sessions", get(list_hook_sessions))
+        .route("/activity", get(list_hook_activity))
         .route("/sessions/clear-idle", post(clear_idle_sessions))
         .route(
             "/sessions/{session_id}/force-idle",
@@ -210,12 +211,38 @@ async fn handle_gemini_hook(
     Json(serde_json::json!({ "ok": true }))
 }
 
+fn inject_hook_event_name(headers: &HeaderMap, mut payload: Value) -> Value {
+    let has_name = payload
+        .get("hook_event_name")
+        .or_else(|| payload.get("hookEventName"))
+        .and_then(|v| v.as_str())
+        .is_some_and(|s| !s.is_empty());
+    if has_name {
+        return payload;
+    }
+    let Some(event) = headers
+        .get("x-atmos-hook-event")
+        .and_then(|v| v.to_str().ok())
+        .filter(|s| !s.is_empty())
+    else {
+        return payload;
+    };
+    if let Some(obj) = payload.as_object_mut() {
+        obj.insert(
+            "hook_event_name".to_string(),
+            serde_json::Value::String(event.to_string()),
+        );
+    }
+    payload
+}
+
 async fn handle_antigravity_hook(
     State(state): State<AppState>,
     headers: HeaderMap,
     Json(payload): Json<Value>,
 ) -> Json<Value> {
     let ctx = extract_atmos_context(&headers);
+    let payload = inject_hook_event_name(&headers, payload);
     state
         .agent_hooks_service
         .handle_antigravity_event(&payload, &ctx);
@@ -246,6 +273,11 @@ async fn handle_kiro_hook(
 
 async fn list_hook_sessions(State(state): State<AppState>) -> Json<Value> {
     let sessions = state.agent_hooks_service.get_all_sessions();
+    Json(serde_json::json!({ "sessions": sessions }))
+}
+
+async fn list_hook_activity(State(state): State<AppState>) -> Json<Value> {
+    let sessions = state.agent_hooks_service.get_all_activity();
     Json(serde_json::json!({ "sessions": sessions }))
 }
 
@@ -326,11 +358,35 @@ async fn force_session_idle(
     }
 }
 
+#[derive(Deserialize)]
+struct RemoveSessionQuery {
+    keep_activity: Option<String>,
+}
+
 async fn remove_hook_session(
     State(state): State<AppState>,
     Path(session_id): Path<String>,
+    Query(query): Query<RemoveSessionQuery>,
 ) -> impl IntoResponse {
-    if state.agent_hooks_service.remove_session(&session_id) {
+    let keep_activity = matches!(
+        query.keep_activity.as_deref(),
+        Some("1") | Some("true") | Some("yes")
+    );
+    let removed = if keep_activity {
+        state
+            .agent_hooks_service
+            .remove_session_keep_activity(&session_id)
+    } else {
+        state.agent_hooks_service.remove_session(&session_id)
+    };
+    let dropped_activity = if keep_activity {
+        false
+    } else {
+        state
+            .agent_hooks_service
+            .drop_orphaned_activity(&session_id)
+    };
+    if removed || dropped_activity {
         (
             StatusCode::OK,
             Json(serde_json::json!({ "ok": true, "removed": session_id })),

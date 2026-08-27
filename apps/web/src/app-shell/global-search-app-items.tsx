@@ -23,7 +23,7 @@ import {
   toastManager,
   Zap,
 } from "@workspace/ui";
-import { HardDrive, PencilRuler, Presentation } from "lucide-react";
+import { Eye, HardDrive, PencilRuler, Presentation } from "lucide-react";
 import { appApi } from "@/api/ws-api";
 import type { GithubPrPayload } from "@/api/ws/github-api";
 import { currentAppLocale } from "@/shared/lib/current-app-locale";
@@ -381,6 +381,19 @@ export function buildGlobalSearchItems({
     icon: <ChartColumnBig className="size-4 text-muted-foreground" />,
     action: () => {
       router.push("/token-usage");
+      setGlobalSearchOpen(false);
+    },
+  });
+
+  items.push({
+    id: "launchpad-agent-observer",
+    type: "launchpad",
+    title: globalSearchItemsT("launchpad.agentObserver.title"),
+    description: globalSearchItemsT("launchpad.agentObserver.description"),
+    keywords: ["launchpad", "agent", "observer", "graph", "activity", "hooks", "turns"],
+    icon: <Eye className="size-4 text-muted-foreground" />,
+    action: () => {
+      router.push("/agent-observer");
       setGlobalSearchOpen(false);
     },
   });

@@ -38,16 +38,31 @@ fn build_cmd(port: u16, event_name: &str) -> String {
     )
 }
 
+fn build_stdin_cmd(port: u16, event_name: &str) -> String {
+    let url = hook_url(port);
+    let hook_version = hook_version_assignment();
+    let hook_version_header = hook_version_header_shell();
+    format!(
+        r#"{guard} && {hook_version} && cat | curl -sf -X POST -H 'Content-Type: application/json' {context_headers} {hook_version_header} -H 'X-Atmos-Hook-Event: {event_name}' -d @- '{url}' >/dev/null 2>&1 || true"#,
+        guard = atmos_managed_guard(),
+        hook_version = hook_version,
+        context_headers = atmos_context_curl_headers(),
+        hook_version_header = hook_version_header,
+        event_name = event_name,
+        url = url,
+    )
+}
+
 fn build_atmos_hook_namespace(port: u16) -> Value {
     json!({
         "PreInvocation": [
-            { "type": "command", "command": build_cmd(port, "BeforeAgent"), "async": true }
+            { "type": "command", "command": build_stdin_cmd(port, "PreInvocation"), "async": true }
         ],
         "PreToolUse": [
             {
                 "matcher": "*",
                 "hooks": [
-                    { "type": "command", "command": build_cmd(port, "BeforeTool"), "async": true }
+                    { "type": "command", "command": build_stdin_cmd(port, "PreToolUse"), "async": true }
                 ]
             }
         ],
@@ -55,7 +70,7 @@ fn build_atmos_hook_namespace(port: u16) -> Value {
             {
                 "matcher": "*",
                 "hooks": [
-                    { "type": "command", "command": build_cmd(port, "AfterTool"), "async": true }
+                    { "type": "command", "command": build_stdin_cmd(port, "PostToolUse"), "async": true }
                 ]
             }
         ],
@@ -223,4 +238,24 @@ fn which_exists(cmd: &str) -> bool {
         .status()
         .map(|s| s.success())
         .unwrap_or(false)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn invocation_and_tool_hooks_forward_stdin() {
+        let entries = build_atmos_hook_namespace(4310);
+        let pre = entries["PreInvocation"][0]["command"].as_str().unwrap();
+        assert!(pre.contains("cat | curl"), "{pre}");
+        assert!(pre.contains("-d @-"), "{pre}");
+        assert!(pre.contains("X-Atmos-Hook-Event: PreInvocation"), "{pre}");
+        let tool = entries["PreToolUse"][0]["hooks"][0]["command"]
+            .as_str()
+            .unwrap();
+        assert!(tool.contains("cat | curl"), "{tool}");
+        assert!(tool.contains("-d @-"), "{tool}");
+        assert!(tool.contains("X-Atmos-Hook-Event: PreToolUse"), "{tool}");
+    }
 }

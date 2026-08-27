@@ -339,9 +339,7 @@ fn host_entry<'a>(
     by_host: &'a mut BTreeMap<String, HostSpaceLayoutFile>,
     host_id: &str,
 ) -> &'a mut HostSpaceLayoutFile {
-    by_host
-        .entry(host_id.to_string())
-        .or_insert_with(HostSpaceLayoutFile::default)
+    by_host.entry(host_id.to_string()).or_default()
 }
 
 fn object_slot(value: &mut Value) -> &mut Map<String, Value> {
@@ -467,35 +465,37 @@ mod tests {
     #[test]
     fn round_trip_splits_hosts_and_keeps_extra_space_terminal() {
         let dir = tempdir().unwrap();
-        let mut doc = CenterLayoutDocument::default();
-        doc.spaces = json!({
-            "ws-1": {
-                "activeSpaceId": "space-abc",
-                "spaces": [
-                    { "id": "main", "name": "Default", "thumbnailDataUrl": "data:image/jpeg;base64,qq" },
-                    { "id": "space-abc", "name": "Review" }
-                ]
-            }
-        });
-        doc.mosaics = json!({
-            "ws-1": { "panes": [{ "id": "pane-main" }], "fullscreenPaneId": null },
-            "ws-1::space::space-abc": {
-                "panes": [{ "id": "pane-main" }, { "id": "pane-1" }],
-                "fullscreenPaneId": "pane-1"
-            }
-        });
-        doc.overview_tabs = json!({ "ws-1": true });
-        doc.terminals = json!({
-            "ws-1": {
-                "schema": "terminal-layout.v1",
-                "tabs": [{ "id": "terminal", "layout": "pane-host" }]
-            },
-            "ws-1::space::space-abc": {
-                "schema": "terminal-layout.v1",
-                "tabs": [{ "id": "terminal", "layout": "pane-a" }]
-            }
-        });
-        doc.saved_layouts = json!([{ "id": "layout-1", "name": "Split" }]);
+        let doc = CenterLayoutDocument {
+            spaces: json!({
+                "ws-1": {
+                    "activeSpaceId": "space-abc",
+                    "spaces": [
+                        { "id": "main", "name": "Default", "thumbnailDataUrl": "data:image/jpeg;base64,qq" },
+                        { "id": "space-abc", "name": "Review" }
+                    ]
+                }
+            }),
+            mosaics: json!({
+                "ws-1": { "panes": [{ "id": "pane-main" }], "fullscreenPaneId": null },
+                "ws-1::space::space-abc": {
+                    "panes": [{ "id": "pane-main" }, { "id": "pane-1" }],
+                    "fullscreenPaneId": "pane-1"
+                }
+            }),
+            overview_tabs: json!({ "ws-1": true }),
+            terminals: json!({
+                "ws-1": {
+                    "schema": "terminal-layout.v1",
+                    "tabs": [{ "id": "terminal", "layout": "pane-host" }]
+                },
+                "ws-1::space::space-abc": {
+                    "schema": "terminal-layout.v1",
+                    "tabs": [{ "id": "terminal", "layout": "pane-a" }]
+                }
+            }),
+            saved_layouts: json!([{ "id": "layout-1", "name": "Split" }]),
+            ..Default::default()
+        };
 
         let saved = save_center_layout_to_dir(dir.path(), doc).unwrap();
         assert!(saved.updated_at > 0);
