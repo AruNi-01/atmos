@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { remarkMdLiveDetails } from "./toggle-remark";
+import { htmlToPlainText, remarkMdLiveDetails } from "./toggle-remark";
 
 function apply(children: unknown[]) {
   const tree = { type: "root", children };
@@ -57,5 +57,24 @@ describe("remarkMdLiveDetails", () => {
     expect(details.type).toBe("details");
     expect(details.children[0]?.children?.[0]?.value).toBe("Fold");
     expect(details.children.some((child) => child.children?.[0]?.value === "inner")).toBe(true);
+  });
+
+  test("summary html collapses to plain text and cannot re-form tags", () => {
+    expect(htmlToPlainText("<b>hello</b>")).toBe("hello");
+    expect(htmlToPlainText("<script>alert(1)</script>hi")).toBe("alert(1)hi");
+    expect(htmlToPlainText("<<script>alert(1)")).toBe("alert(1)");
+    expect(htmlToPlainText("<script")).toBe("");
+    expect(htmlToPlainText("&lt;script&gt;")).toBe("script");
+    const children = apply([
+      {
+        type: "html",
+        value: "<details>\n<summary><script>x</script>hello</summary>\n</details>",
+      },
+    ]);
+    const details = children[0] as {
+      children: Array<{ children?: Array<{ value?: string }> }>;
+    };
+    expect(details.children[0]?.children?.[0]?.value).toBe("xhello");
+    expect(details.children[0]?.children?.[0]?.value).not.toMatch(/<script/i);
   });
 });

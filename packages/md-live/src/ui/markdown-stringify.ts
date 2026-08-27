@@ -105,6 +105,14 @@ function phrasingOf(state: StringifyState, node: MdastLike): string {
   return typeof node.value === "string" ? node.value : "";
 }
 
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
 export function stringifyMdLiveDetails(
   node: MdastLike,
   _parent: unknown,
@@ -114,7 +122,7 @@ export function stringifyMdLiveDetails(
   const children = node.children ?? [];
   const summary = children.find((child) => child.type === "detailsSummary");
   const rest = children.filter((child) => child.type !== "detailsSummary");
-  const summaryText = summary ? phrasingOf(state, summary) : "";
+  const summaryText = escapeHtml(summary ? phrasingOf(state, summary) : "");
   const inner = rest.length
     ? state.containerFlow({ type: "root", children: rest }, info).trim()
     : "";
@@ -127,7 +135,7 @@ export function stringifyMdLiveDetailsSummary(
   _parent: unknown,
   state: StringifyState,
 ): string {
-  return `<summary>${phrasingOf(state, node)}</summary>`;
+  return `<summary>${escapeHtml(phrasingOf(state, node))}</summary>`;
 }
 
 export function applyMdLiveRemarkConfig(ctx: Ctx): void {

@@ -1,5 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { formatMdLiveSerializedMarkdown } from "./markdown-stringify";
+import {
+  formatMdLiveSerializedMarkdown,
+  stringifyMdLiveDetails,
+} from "./markdown-stringify";
 
 describe("formatMdLiveSerializedMarkdown", () => {
   test("drops standalone empty-paragraph br sentinels", () => {
@@ -25,5 +28,24 @@ describe("formatMdLiveSerializedMarkdown", () => {
   test("does not rewrite br inside fenced code", () => {
     const source = "```html\n<br />\n```\n";
     expect(formatMdLiveSerializedMarkdown(source)).toBe(source);
+  });
+});
+
+describe("stringifyMdLiveDetails", () => {
+  test("escapes summary text so it cannot re-open html tags", () => {
+    const markdown = stringifyMdLiveDetails(
+      {
+        type: "details",
+        children: [{ type: "detailsSummary", value: "<script>x" }],
+      },
+      null,
+      {
+        containerPhrasing: (node) => (typeof node.value === "string" ? node.value : ""),
+        containerFlow: () => "",
+      },
+      {},
+    );
+    expect(markdown).toContain("<summary>&lt;script&gt;x</summary>");
+    expect(markdown).not.toContain("<script");
   });
 });

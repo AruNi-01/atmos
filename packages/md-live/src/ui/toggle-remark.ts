@@ -14,8 +14,27 @@ function decodeHtml(text: string): string {
     .replace(/&amp;/g, "&");
 }
 
-function stripTags(html: string): string {
-  return decodeHtml(html.replace(/<[^>]+>/g, "")).trim();
+/**
+ * Pull visible characters out of an HTML fragment.
+ * Tags are skipped with a linear scan (unclosed `<...` is dropped), then
+ * leftover `<` / `>` after entity decoding are stripped so the result cannot
+ * re-form markup. Summary text is plain text, never HTML.
+ */
+export function htmlToPlainText(html: string): string {
+  let out = "";
+  let index = 0;
+  while (index < html.length) {
+    const open = html.indexOf("<", index);
+    if (open < 0) {
+      out += html.slice(index);
+      break;
+    }
+    out += html.slice(index, open);
+    const close = html.indexOf(">", open + 1);
+    if (close < 0) break;
+    index = close + 1;
+  }
+  return decodeHtml(out).replace(/[<>]/g, "").trim();
 }
 
 function htmlBlob(node: Mdast): string | null {
@@ -37,7 +56,7 @@ function extractSummary(html: string): { summary: string; rest: string } {
     return { summary: "", rest: html.replace(/<details\b[^>]*>/i, "") };
   }
   const after = html.slice((match.index ?? 0) + match[0].length);
-  return { summary: stripTags(match[1] ?? ""), rest: after.replace(/<\/details>/gi, "") };
+  return { summary: htmlToPlainText(match[1] ?? ""), rest: after.replace(/<\/details>/gi, "") };
 }
 
 function makeDetails(summary: string, body: Mdast[]): Mdast {
@@ -61,7 +80,7 @@ function mdastFromCompleteHtml(html: string): Mdast {
   const innerMatch = html.match(/<details\b[^>]*>([\s\S]*)<\/details>/i);
   const inner = innerMatch?.[1] ?? "";
   const { summary, rest } = extractSummary(`<details>${inner}</details>`);
-  const leftover = stripTags(rest);
+  const leftover = htmlToPlainText(rest);
   const body: Mdast[] = leftover
     ? leftover.split(/\n{2,}/).map((part) => ({
         type: "paragraph",
@@ -89,7 +108,7 @@ function groupDetails(children: Mdast[]): Mdast[] {
     if (html && /<details\b/i.test(html)) {
       let { summary, rest } = extractSummary(html);
       const body: Mdast[] = [];
-      const leftover = stripTags(rest);
+      const leftover = htmlToPlainText(rest);
       if (leftover) {
         body.push({ type: "paragraph", children: [{ type: "text", value: leftover }] });
       }
@@ -99,7 +118,7 @@ function groupDetails(children: Mdast[]): Mdast[] {
         const nextHtml = next ? htmlBlob(next) : null;
         const onlySummary = nextHtml?.match(/^\s*<summary\b[^>]*>([\s\S]*?)<\/summary>\s*$/i);
         if (onlySummary) {
-          summary = stripTags(onlySummary[1] ?? "");
+          summary = htmlToPlainText(onlySummary[1] ?? "");
           cursor += 1;
         }
       }
