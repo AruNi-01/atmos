@@ -94,12 +94,15 @@ function createPlaceholderLayer(
       return;
     }
     const hostBox = host.getBoundingClientRect();
-    layer.style.left = `${coords.left - hostBox.left + host.scrollLeft}px`;
+    const caretHeight = Math.max(coords.bottom - coords.top, 1);
+    const fontSizePx = info.nodeDOM ? Number.parseFloat(getComputedStyle(info.nodeDOM).fontSize) : Number.NaN;
+    const gap = Math.max(6, Math.round((Number.isFinite(fontSizePx) ? fontSizePx : 14) * 0.4));
+    layer.style.left = `${coords.left - hostBox.left + host.scrollLeft + gap}px`;
     layer.style.top = `${coords.top - hostBox.top + host.scrollTop}px`;
+    layer.style.height = `${caretHeight}px`;
     if (info.nodeDOM) {
       const style = getComputedStyle(info.nodeDOM);
       labelEl.style.fontSize = style.fontSize;
-      labelEl.style.lineHeight = style.lineHeight;
       labelEl.style.fontWeight = style.fontWeight;
       labelEl.style.fontFamily = style.fontFamily;
       labelEl.style.letterSpacing = style.letterSpacing;

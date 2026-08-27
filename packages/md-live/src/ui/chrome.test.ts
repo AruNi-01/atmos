@@ -88,7 +88,12 @@ describe("md-live ui chrome", () => {
     expect(css).toContain("li.md-live-task-item p");
     expect(css).toContain(".md-live-toggle-chevron-icon");
     expect(css).toContain(".md-live-placeholder-label.is-visible");
+    expect(css).toContain("align-items: center");
+    expect(css).toContain("line-height: 1");
     expect(css).toContain("opacity 180ms ease");
+    expect(css).toContain(".md-live .editor pre.md-live-preview-code-editor");
+    expect(css).toContain("white-space: pre !important");
+    expect(css).toContain("pre.shiki span.line");
   });
 
   test("overlay selector ignores clicks outside hosts", () => {

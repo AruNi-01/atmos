@@ -9,6 +9,8 @@ import {
   scheduleEditorUiSave,
 } from '@/features/editor/lib/editor-ui-persistence';
 import { fsApi } from '@/api/ws-api';
+import { nextUntitledMarkdownName } from '@atmos/md-live';
+import { createUntitledMarkdownPath } from '@/features/md-live/lib/md-live-paths';
 import { invalidateGitQueries } from '@/features/git/hooks/use-git-changed-files-query';
 import { toastManager } from '@workspace/ui';
 import { createTranslator } from 'next-intl';
@@ -461,10 +463,12 @@ export const useEditorStore = create<EditorStore>()((set, get) => ({
         const id = workspaceId || get().currentWorkspaceId;
         if (!id) return null;
         const timestamp = nowTimestamp();
-        const path = `untitled:${crypto.randomUUID()}.md`;
+        const currentState = get().workspaceStates[id] || { openFiles: [], activeFilePath: null };
+        const name = nextUntitledMarkdownName(currentState.openFiles.map((file) => file.name));
+        const path = createUntitledMarkdownPath(name);
         const newFile: OpenFile = {
           path,
-          name: 'Untitled.md',
+          name,
           content: '',
           originalContent: '',
           language: 'markdown',
@@ -476,13 +480,13 @@ export const useEditorStore = create<EditorStore>()((set, get) => ({
           lastFocusedAt: timestamp,
         };
         set((state) => {
-          const currentState = state.workspaceStates[id] || { openFiles: [], activeFilePath: null };
+          const nextState = state.workspaceStates[id] || { openFiles: [], activeFilePath: null };
           return {
             workspaceStates: {
               ...state.workspaceStates,
               [id]: {
-                ...currentState,
-                openFiles: [...currentState.openFiles, newFile],
+                ...nextState,
+                openFiles: [...nextState.openFiles, newFile],
                 activeFilePath: path,
               },
             },

@@ -381,6 +381,7 @@
     },
     "centerStageTabBar": {
       "newTerminalTab": "终端",
+      "newMarkdown": "Markdown",
       "newBrowser": "浏览器",
       "newChanges": "变更",
       "newReview": "评审",

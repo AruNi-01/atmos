@@ -18,7 +18,6 @@ import {
   Command,
   CommandEmpty,
   CommandGroup,
-  CommandInput,
   CommandItem,
   CommandList,
   Popover,
@@ -132,7 +131,6 @@ function CodeLanguagePicker({
         onMouseDown={preventEditorBlur}
       >
         <Command>
-          <CommandInput placeholder={t("codeLanguageSelect")} />
           <CommandList className="max-h-72">
             <CommandEmpty>{t("slashNoResults")}</CommandEmpty>
             <CommandGroup>
@@ -222,7 +220,7 @@ export const mdLiveCodeBlockView = $view(codeBlockSchema.node, () => (node, view
               <CopyButton content={text} />
             </CodeBlockGroup>
           </CodeBlockHeader>
-          <CodeBlockContent>
+          <CodeBlockContent className="max-h-none overflow-x-auto text-[13px] leading-5">
             <div
               ref={(el) => {
                 if (el && surface.parentNode !== el) el.append(surface);

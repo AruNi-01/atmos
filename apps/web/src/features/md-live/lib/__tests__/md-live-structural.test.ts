@@ -47,6 +47,13 @@ describe("md-live structural gates", () => {
     expect(source).toContain("defaultToggleOpen");
     expect(source).toContain("setToggleDefaultOpen");
     expect(source).toContain("mdToggleDefaultOpen");
+    const tabBar = readFileSync(
+      join(import.meta.dir, "../../../../app-shell/CenterStageTabBar.tsx"),
+      "utf8",
+    );
+    expect(tabBar).toContain("onCreateMarkdownNote");
+    expect(tabBar).toContain("newMarkdown");
+    expect(tabBar).toContain("openUntitledMarkdown");
     const blocks = readFileSync(
       join(import.meta.dir, "../md-live-preview-blocks.tsx"),
       "utf8",
@@ -58,6 +65,7 @@ describe("md-live structural gates", () => {
     expect(blocks).toContain("tableSchema");
     expect(blocks).toContain("codeBlockSchema");
     expect(blocks).toContain("CodeLanguagePicker");
+    expect(blocks).not.toContain("CommandInput");
     expect(blocks).toContain("setNodeMarkup");
     expect(blocks).toContain("onLanguageChange");
     expect(blocks).not.toContain("@milkdown/components/code-block");

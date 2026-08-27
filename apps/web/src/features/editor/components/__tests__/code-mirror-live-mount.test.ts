@@ -16,6 +16,8 @@ describe("CodeMirrorEditor live mount", () => {
     expect(source).toContain("relative flex h-full min-h-0 w-full flex-col overflow-hidden");
     expect(source).toContain("absolute inset-0 overflow-y-auto overscroll-contain");
     expect(source).toContain("MdLiveAgentDock");
+    expect(source).not.toContain("renderNewNoteButton");
+    expect(source).not.toContain("openUntitledMarkdown");
     expect(source).not.toContain("showFloatingMarkdownEditorChrome");
     expect(source).not.toContain("setBreadcrumbs");
     expect(source).not.toContain("breadcrumbs && !isPreview");

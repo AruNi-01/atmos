@@ -381,6 +381,7 @@
     },
     "centerStageTabBar": {
       "newTerminalTab": "Terminal",
+      "newMarkdown": "Markdown",
       "newBrowser": "Browser",
       "newChanges": "Changes",
       "newReview": "Review",

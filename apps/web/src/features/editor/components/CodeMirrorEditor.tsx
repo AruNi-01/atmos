@@ -19,7 +19,7 @@ import {
   toastManager,
   getFileIconProps,
 } from '@workspace/ui';
-import { Loader2 as LucideLoader2, Eye, FileText, Settings2, ChevronRight, Folder, File, Search, Plus } from 'lucide-react';
+import { Loader2 as LucideLoader2, Eye, FileText, Settings2, ChevronRight, Folder, File, Search } from 'lucide-react';
 import { useEditorStore, OpenFile } from '@/features/editor/store/use-editor-store';
 import { invalidateGitQueries } from '@/features/git/hooks/use-git-changed-files-query';
 import { useFileTreeStore } from '@/features/files/store/use-file-tree-store';
@@ -88,7 +88,7 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
   const updateFileContent = useEditorStore(s => s.updateFileContent);
   const saveFile = useEditorStore(s => s.saveFile);
   const replaceOpenFilePath = useEditorStore((s) => s.replaceOpenFilePath);
-  const openUntitledMarkdown = useEditorStore((s) => s.openUntitledMarkdown);
+
   const reloadFileContent = useEditorStore((s) => s.reloadFileContent);
   const clearNavigationTarget = useEditorStore(s => s.clearNavigationTarget);
   const navigationTarget = useEditorStore((state) =>
@@ -571,21 +571,6 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
   const toolbarIconBtnClass =
     'flex size-6 items-center justify-center rounded hover:bg-accent hover:text-foreground cursor-pointer select-none';
 
-  const renderNewNoteButton = (buttonClassName: string) =>
-    isLiveEligible ? (
-      <button
-        type="button"
-        onClick={() => {
-          openUntitledMarkdown(editorContextId || undefined);
-        }}
-        className={buttonClassName}
-        title={mdLiveT('newNote')}
-        aria-label={mdLiveT('newNote')}
-      >
-        <Plus className="size-3.5" />
-      </button>
-    ) : null;
-
   const renderMarkdownPreviewButton = (buttonClassName: string) =>
     isMarkdown ? (
       <button
@@ -903,7 +888,6 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
                     </button>
                   ) : null}
 
-                  {renderNewNoteButton(toolbarIconBtnClass)}
                   {renderMarkdownPreviewButton(toolbarIconBtnClass)}
                   {renderEditorSettingsMenu(toolbarIconBtnClass)}
                 </div>

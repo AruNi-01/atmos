@@ -26,6 +26,11 @@ export function isLiveEligibleMarkdownPath(
   return language === "markdown" || name.endsWith(".md");
 }
 
-export function createUntitledMarkdownPath(id: string): string {
-  return `${MD_LIVE_UNTITLED_PREFIX}${id}.md`;
+export function createUntitledMarkdownPath(fileName: string): string {
+  return `${MD_LIVE_UNTITLED_PREFIX}${fileName}`;
+}
+
+export function untitledMarkdownFileName(path: string): string {
+  if (!isUntitledMarkdownPath(path)) return "";
+  return path.slice(MD_LIVE_UNTITLED_PREFIX.length);
 }

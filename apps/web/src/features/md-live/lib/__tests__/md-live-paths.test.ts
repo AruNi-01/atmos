@@ -7,8 +7,8 @@ import {
 
 describe("md-live path eligibility", () => {
   test("untitled notes are live-eligible", () => {
-    const path = createUntitledMarkdownPath("abc123");
-    expect(path).toBe("untitled:abc123.md");
+    const path = createUntitledMarkdownPath("Untitled.md");
+    expect(path).toBe("untitled:Untitled.md");
     expect(isUntitledMarkdownPath(path)).toBe(true);
     expect(isLiveEligibleMarkdownPath(path)).toBe(true);
   });
