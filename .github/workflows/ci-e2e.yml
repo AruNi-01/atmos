@@ -266,8 +266,24 @@ jobs:
               exit 1
             fi
           done
+          # merge-reports only reads zip files in the top-level dir.
+          while IFS= read -r -d '' blob; do
+            base="$(basename "$blob")"
+            if [ -e "$dest/$base" ]; then
+              echo "Blob name collision: ${base}" >&2
+              exit 1
+            fi
+            mv "$blob" "$dest/$base"
+          done < <(find "$dest" -mindepth 2 -type f -name '*.zip' -print0)
+          find "$dest" -mindepth 1 -type d -empty -delete
           echo "Downloaded blob reports:"
           find "$dest" -type f | sort
+          shopt -s nullglob
+          blobs=("$dest"/*.zip)
+          if [ "${#blobs[@]}" -eq 0 ]; then
+            echo "No blob zip files in ${dest}" >&2
+            exit 1
+          fi
 
       - name: Merge Playwright reports
         working-directory: e2e
