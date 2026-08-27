@@ -1,6 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import { formatEmbedDirective } from "./format";
-import { parseEmbedDirective, parseEmbedDirectiveText } from "./parse";
+import {
+  parseAttributeBlob,
+  parseEmbedDirective,
+  parseEmbedDirectiveText,
+} from "./parse";
 
 describe("embed directives", () => {
   test("round-trips inline and card forms", () => {
@@ -25,6 +29,25 @@ describe("embed directives", () => {
     expect(parseEmbedDirectiveText(formatEmbedDirective(card))).toEqual(card);
     expect(formatEmbedDirective(inline).startsWith(":md-live[")).toBe(true);
     expect(formatEmbedDirective(card).startsWith("::md-live[")).toBe(true);
+  });
+
+  test("parses quoted, unquoted, and escaped attribute values", () => {
+    expect(
+      parseAttributeBlob('{kind=file path=src/auth.ts title="auth ts" note=\'a b\'}'),
+    ).toEqual({
+      kind: "file",
+      path: "src/auth.ts",
+      title: "auth ts",
+      note: "a b",
+    });
+    expect(parseAttributeBlob('{msg="say \\"hi\\""}')).toEqual({
+      msg: 'say "hi"',
+    });
+  });
+
+  test("does not hang on a long unmatched identifier prefix", () => {
+    const blob = `A${"A".repeat(5000)}`;
+    expect(parseAttributeBlob(blob)).toEqual({});
   });
 
   test("rejects other directive names", () => {

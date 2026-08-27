@@ -7,6 +7,20 @@ export type EmbedDirectiveInput = {
   attributes?: Record<string, string>;
 };
 
+function isWs(c: string | undefined): boolean {
+  return c === " " || c === "\t" || c === "\n" || c === "\r" || c === "\f" || c === "\v";
+}
+
+function isIdentStart(c: string | undefined): boolean {
+  if (!c) return false;
+  return (c >= "A" && c <= "Z") || (c >= "a" && c <= "z") || c === "_";
+}
+
+function isIdentContinue(c: string | undefined): boolean {
+  if (!c) return false;
+  return isIdentStart(c) || (c >= "0" && c <= "9") || c === "-";
+}
+
 function parseAttrValue(raw: string): string {
   const trimmed = raw.trim();
   if (
@@ -18,14 +32,59 @@ function parseAttrValue(raw: string): string {
   return trimmed;
 }
 
+function skipWs(input: string, i: number): number {
+  while (i < input.length && isWs(input[i])) i++;
+  return i;
+}
+
 /** Parse `{key=value key2="a b"}` attribute blob from a serialized directive. */
 export function parseAttributeBlob(blob: string): Record<string, string> {
   const attrs: Record<string, string> = {};
-  const inner = blob.trim().replace(/^\{/, "").replace(/\}$/, "");
-  const re = /([A-Za-z_][\w-]*)\s*=\s*("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|[^\s}]+)/g;
-  let match: RegExpExecArray | null;
-  while ((match = re.exec(inner))) {
-    attrs[match[1]] = parseAttrValue(match[2]);
+  let inner = blob.trim();
+  if (inner.startsWith("{")) inner = inner.slice(1);
+  if (inner.endsWith("}")) inner = inner.slice(0, -1);
+
+  let i = 0;
+  while (i < inner.length) {
+    i = skipWs(inner, i);
+    if (i >= inner.length) break;
+    if (!isIdentStart(inner[i])) {
+      i++;
+      continue;
+    }
+    const keyStart = i;
+    i++;
+    while (isIdentContinue(inner[i])) i++;
+    const key = inner.slice(keyStart, i);
+    i = skipWs(inner, i);
+    if (inner[i] !== "=") continue;
+    i++;
+    i = skipWs(inner, i);
+    if (i >= inner.length) break;
+
+    const quote = inner[i];
+    if (quote === '"' || quote === "'") {
+      let j = i + 1;
+      while (j < inner.length) {
+        const c = inner[j];
+        if (c === "\\") {
+          j += 2;
+          continue;
+        }
+        if (c === quote) {
+          j++;
+          break;
+        }
+        j++;
+      }
+      attrs[key] = parseAttrValue(inner.slice(i, j));
+      i = j;
+      continue;
+    }
+
+    const valStart = i;
+    while (i < inner.length && !isWs(inner[i]) && inner[i] !== "}") i++;
+    if (i > valStart) attrs[key] = inner.slice(valStart, i);
   }
   return attrs;
 }
