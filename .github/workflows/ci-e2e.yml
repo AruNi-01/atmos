@@ -219,6 +219,7 @@ jobs:
       group: ci-e2e-pages-report
       cancel-in-progress: false
     permissions:
+      actions: read
       contents: write
       pull-requests: write
     outputs:
@@ -229,12 +230,44 @@ jobs:
 
       - uses: ./.github/actions/setup-bun
 
+      # download-artifact@v5 + merge-multiple downloads in parallel into one
+      # directory and has been flaking with "Artifact download failed after 5
+      # retries" even when every blob is valid. Sequential gh download isolates
+      # each suite and retries per artifact.
       - name: Download blob reports
-        uses: actions/download-artifact@v5
-        with:
-          pattern: playwright-blob-*
-          merge-multiple: true
-          path: e2e/reports/blob-merged
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SUITES: ${{ needs.plan.outputs.suites }}
+        run: |
+          set -euo pipefail
+          dest="e2e/reports/blob-merged"
+          mkdir -p "$dest"
+          if ! echo "$SUITES" | jq -e 'type == "array" and length > 0' >/dev/null; then
+            echo "No E2E suites in plan output: ${SUITES}" >&2
+            exit 1
+          fi
+          mapfile -t suites < <(echo "$SUITES" | jq -r '.[]')
+          for suite in "${suites[@]}"; do
+            name="playwright-blob-${suite}"
+            target="${dest}/${name}"
+            ok=0
+            for attempt in 1 2 3 4 5; do
+              rm -rf "$target"
+              mkdir -p "$target"
+              echo "Downloading ${name} (attempt ${attempt}/5)"
+              if gh run download "${GITHUB_RUN_ID}" --name "$name" --dir "$target"; then
+                ok=1
+                break
+              fi
+              sleep 8
+            done
+            if [ "$ok" -ne 1 ]; then
+              echo "Failed to download ${name} after 5 attempts" >&2
+              exit 1
+            fi
+          done
+          echo "Downloaded blob reports:"
+          find "$dest" -type f | sort
 
       - name: Merge Playwright reports
         working-directory: e2e
