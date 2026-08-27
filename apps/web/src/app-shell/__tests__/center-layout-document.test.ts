@@ -152,6 +152,7 @@ describe("center layout document", () => {
     );
     expect(stage).toContain("syncCenterLayoutFromDisk");
     expect(stage).toContain("layoutDiskSynced");
+    expect(stage).toContain("readCenterStageLastTab");
     expect(stage).not.toContain("syncSavedLayoutsFromDisk");
     expect(persist).not.toMatch(
       /useCenterSpaceStore\.setState\(\{\s*byHost: spaces,\s*hydrated: true,\s*diskSynced: true/,
