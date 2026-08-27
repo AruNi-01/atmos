@@ -32,7 +32,8 @@ export {
   applyMdLiveToggleDefaultOpen,
   mdLiveToggleDefaultOpenCtx,
 } from "./ui/toggle";
-export { mdLivePlaceholderPlugin, mdLivePlaceholderCopyKey } from "./ui/placeholder";
+export { mdLivePlaceholderPlugin, mdLivePlaceholderCopyKey, mdLivePlaceholderTravel } from "./ui/placeholder";
+export { mdLiveBlockBackspacePlugin, mdLiveBlockBackspace } from "./ui/block-backspace";
 export { remarkMdLiveDetails, detailsHasOpenAttr } from "./ui/toggle-remark";
 export { slugMdLiveHeading, mdLiveHeadingIdPlugin } from "./ui/heading-id";
 export { isMdLiveOverlayEventTarget, shouldShowMdLiveSelectionToolbar } from "./ui/selection";

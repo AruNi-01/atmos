@@ -56,6 +56,7 @@ import {
   applyMdLiveRemarkConfig,
   formatMdLiveSerializedMarkdown,
 } from "./markdown-stringify";
+import { mdLiveBlockBackspacePlugin } from "./block-backspace";
 import { mdLivePlaceholderPlugin } from "./placeholder";
 import { mdLiveTaskListPlugins } from "./task-list";
 import {
@@ -336,6 +337,7 @@ export function MdLiveEditor({
       })
       .use(commonmark)
       .use(gfm)
+      .use(pluginsOf(mdLiveBlockBackspacePlugin))
       .use(pluginsOf(mdLiveHeadingIdPlugin))
       .use(listener)
       .use(pluginsOf(history))

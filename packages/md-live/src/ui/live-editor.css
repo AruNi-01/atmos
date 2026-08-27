@@ -538,23 +538,70 @@
 
 .md-live-placeholder-layer {
   position: absolute;
+  left: 0;
+  top: 0;
   z-index: 1;
+  overflow: visible;
+  pointer-events: none;
+  transform-origin: left top;
+}
+
+.md-live-placeholder-morph {
   display: flex;
   align-items: center;
-  pointer-events: none;
+  height: 100%;
+  transform-origin: left top;
+}
+
+.md-live-placeholder-layer.is-moving,
+.md-live-placeholder-morph.is-moving {
+  will-change: transform;
+  transition: transform 200ms ease-out;
 }
 
 .md-live-placeholder-label {
-  display: block;
+  position: absolute;
+  left: 0;
+  top: 50%;
   color: var(--muted-foreground);
   font-style: italic;
+  font-size: inherit;
+  font-weight: inherit;
+  font-family: inherit;
+  letter-spacing: inherit;
   line-height: 1;
   opacity: 0;
-  transition: opacity 180ms ease;
   white-space: nowrap;
   user-select: none;
+  transform: translateY(-50%);
+  transform-origin: left center;
+  transition: opacity 160ms ease-out, transform 200ms ease-out;
 }
 
 .md-live-placeholder-label.is-visible {
   opacity: 0.48;
+  transform: translateY(-50%) scale(1);
+}
+
+.md-live-placeholder-label.is-leave {
+  opacity: 0;
+  transform: translateY(calc(-50% + var(--md-live-ph-leave, 0px))) scale(0.88);
+}
+
+.md-live-placeholder-label.is-enter {
+  opacity: 0;
+  transform: translateY(calc(-50% + var(--md-live-ph-enter, 0px))) scale(0.88);
+}
+
+.md-live-placeholder-label.is-enter.is-visible {
+  opacity: 0.48;
+  transform: translateY(-50%) scale(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .md-live-placeholder-layer.is-moving,
+  .md-live-placeholder-morph.is-moving,
+  .md-live-placeholder-label {
+    transition: none;
+  }
 }
