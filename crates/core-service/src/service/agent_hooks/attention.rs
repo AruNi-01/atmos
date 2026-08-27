@@ -78,7 +78,9 @@ impl AgentHooksService {
         kind: StateUpdateKind,
     ) {
         // QuietIdle settles child-only work without a new task-complete signal.
-        if kind == StateUpdateKind::QuietIdle {
+        // ForcedIdle is a user interrupt (footer mark-idle, Ctrl+C) — do not
+        // treat it as an unattended finish that needs attention.
+        if kind == StateUpdateKind::QuietIdle || kind == StateUpdateKind::ForcedIdle {
             return;
         }
 
@@ -356,6 +358,26 @@ mod tests {
         assert_eq!(attention[0].context_id, "ws-1");
         assert_eq!(attention[0].reason, AgentAttentionReason::TaskComplete);
         assert_eq!(attention[0].project_path.as_deref(), Some("/tmp/p"));
+    }
+
+    #[test]
+    fn forced_idle_from_running_does_not_raise_task_complete() {
+        let service = AgentHooksService::new();
+        let ctx = ctx_with_pane("ws-1:main");
+        service.update_state(
+            "ws-1:main",
+            AgentToolType::ClaudeCode,
+            AgentHookState::Running,
+            Some("/tmp/p".into()),
+            &ctx,
+            StateUpdateKind::NewTurn,
+        );
+        service.force_session_idle("ws-1:main");
+        assert!(
+            service.get_all_attention().is_empty(),
+            "user-forced idle must not raise need-attention"
+        );
+        assert_eq!(service.get_all_sessions()[0].state, AgentHookState::Idle);
     }
 
     #[test]

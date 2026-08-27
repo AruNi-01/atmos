@@ -1,9 +1,7 @@
 "use client";
 
-import React, { useState, useSyncExternalStore } from "react";
+import React, { useState } from "react";
 import { useTranslations } from "next-intl";
-import { useTheme } from "next-themes";
-import { MultiFileDiff } from "@pierre/diffs/react";
 import {
   Collapsible,
   CollapsibleContent,
@@ -13,6 +11,7 @@ import { ChevronDown } from "lucide-react";
 import type { AtmosSubAgentMessage } from "@/features/agent/lib/agent/subagent";
 import { MarkdownRenderer } from "@/shared/components/markdown/MarkdownRenderer";
 import { ToolOrSkillBlock } from "./ToolOrSkillBlock";
+import { AgentToolDiffResult } from "./tool-results";
 
 function SubAgentLabelRow({
   labels,
@@ -38,13 +37,6 @@ function SubAgentLabelRow({
 
 export function SubAgentBlockView({ message }: { message: AtmosSubAgentMessage }) {
   const t = useTranslations("Agent.components");
-  const { resolvedTheme } = useTheme();
-  const isMounted = useSyncExternalStore(
-    () => () => {},
-    () => true,
-    () => false,
-  );
-  const diffTheme = resolvedTheme === "dark" ? "pierre-dark" : "pierre-light";
   const [isOpen, setIsOpen] = useState(true);
   const [isPromptOpen, setIsPromptOpen] = useState(false);
   const [isToolUsesOpen, setIsToolUsesOpen] = useState(false);
@@ -157,38 +149,13 @@ export function SubAgentBlockView({ message }: { message: AtmosSubAgentMessage }
                   );
                 }
                 if (item.type === "diff") {
-                  const diffFiles = {
-                    oldFile: {
-                      name: item.path ?? "file",
-                      contents: item.oldContent ?? "",
-                    },
-                    newFile: {
-                      name: item.path ?? "file",
-                      contents: item.newContent,
-                    },
-                  };
                   return (
-                    <div key={`subagent-diff-${idx}`} className="overflow-hidden rounded-lg border border-border/60 bg-background/70">
-                      <div className="max-h-[360px] overflow-auto">
-                        {isMounted ? (
-                          <MultiFileDiff
-                            oldFile={{ ...diffFiles.oldFile, cacheKey: `${diffFiles.oldFile.name}:old` }}
-                            newFile={{ ...diffFiles.newFile, cacheKey: `${diffFiles.newFile.name}:new` }}
-                            options={{
-                              theme: diffTheme,
-                              diffStyle: "unified",
-                              overflow: "wrap",
-                              disableLineNumbers: false,
-                              disableFileHeader: false,
-                            }}
-                          />
-                        ) : (
-                          <div className="px-3 py-2 text-xs text-muted-foreground">
-                            {t("subAgent.loadingDiff")}
-                          </div>
-                        )}
-                      </div>
-                    </div>
+                    <AgentToolDiffResult
+                      key={`subagent-diff-${idx}`}
+                      path={item.path ?? t("toolResults.file")}
+                      oldContent={item.oldContent ?? ""}
+                      newContent={item.newContent}
+                    />
                   );
                 }
                 return (

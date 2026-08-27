@@ -87,8 +87,6 @@ export function ChangesPanel({
     unstageFiles,
     discardUnstagedChanges,
     discardUntrackedFiles,
-    stageAllUnstaged,
-    stageAllUntracked,
     unstageAll,
     discardAllUnstaged,
     discardAllUntracked,
@@ -239,14 +237,6 @@ export function ChangesPanel({
       selectHistoryCommit,
     ],
   );
-
-  const stageAllUnstagedFn = useCallback(async () => {
-    await stageAllUnstaged(unstagedFiles.map((f) => f.path));
-  }, [stageAllUnstaged, unstagedFiles]);
-
-  const stageAllUntrackedFn = useCallback(async () => {
-    await stageAllUntracked(untrackedFiles.map((f) => f.path));
-  }, [stageAllUntracked, untrackedFiles]);
 
   const stageAllChangesFn = useCallback(async () => {
     await stageFiles(collectStageAllPaths(unstagedFiles, untrackedFiles));
@@ -418,7 +408,6 @@ export function ChangesPanel({
               viewMode={changesFileViewMode}
               hideHeader
               onUnstage={unstageFiles}
-              onUnstageAll={unstageAllFn}
             />
           ) : (
             <>
@@ -432,8 +421,6 @@ export function ChangesPanel({
                 hideHeader
                 onStage={stageFiles}
                 onDiscard={discardUnstagedChanges}
-                onStageAll={stageAllUnstagedFn}
-                onDiscardAll={discardAllUnstagedFn}
               />
               <ChangeSection
                 kind="untracked"
@@ -445,8 +432,6 @@ export function ChangesPanel({
                 hideHeader
                 onStage={stageFiles}
                 onDiscard={discardUntrackedFiles}
-                onStageAll={stageAllUntrackedFn}
-                onDiscardAll={discardAllUntrackedFn}
               />
             </>
           )}

@@ -27,4 +27,16 @@ describe("footer agent status overview", () => {
     expect(footerSrc).toContain("forceSessionIdle");
     expect(footerSrc).toContain("removeSession");
   });
+
+  test("session rows show every overview bucket icon and badge, and can mark non-idle as idle", () => {
+    expect(footerSrc).toContain("FooterOverviewBucketIcon bucket={bucket}");
+    expect(footerSrc).toContain("footerOverviewBadgeClass");
+    expect(footerSrc).toContain("overviewNeedAttention");
+    expect(footerSrc).toContain("overviewNeedPermission");
+    expect(footerSrc).toContain("markFooterSessionIdle");
+    expect(footerSrc).toContain("clearMatchingSessionIds");
+    expect(footerSrc).toContain("clearHold");
+    expect(footerSrc).not.toContain("state.toUpperCase()");
+    expect(footerSrc).not.toContain('"PERM"');
+  });
 });

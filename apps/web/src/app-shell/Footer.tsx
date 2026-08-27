@@ -10,6 +10,7 @@ import {
   Button,
 } from '@workspace/ui';
 import { cn } from "@/shared/lib/utils";
+import { agentHooksApi } from '@/api/rest-api';
 import { useWebSocketStore } from '@/features/connection/hooks/use-websocket';
 import { useAgentChatUrl } from '@/features/agent/hooks/use-agent-chat-url';
 import { buildUsageCarouselItems } from '@/features/quota-usage/lib/quota-display';
@@ -22,6 +23,8 @@ import {
   AGENT_TOOL_ICON_IDS,
 } from '@/features/agent/store/agent-hooks-store';
 import { useAgentAttentionStore } from '@/features/agent/store/agent-attention-store';
+import { useAgentAttentionSummaryStore } from '@/features/agent/store/agent-attention-summary-store';
+import { useWorkspaceAgentGroupingHoldStore } from '@/features/agent/store/workspace-agent-grouping-hold';
 import { useShallow } from 'zustand/react/shallow';
 import { AgentHookStatusIndicator } from '@/features/agent/components/AgentHookStatusIndicator';
 import { AgentIcon } from '@/features/agent/components/AgentIcon';
@@ -47,7 +50,10 @@ import {
   buildFooterAgentOverview,
   FOOTER_AGENT_OVERVIEW_ORDER,
   footerAgentOverviewTotal,
+  footerSessionIdentityKeys,
+  groupFooterOverviewRowsByContext,
   type FooterAgentOverviewBucket,
+  type FooterAgentOverviewRow,
 } from '@/features/agent/lib/footer-agent-overview';
 import {
   findTerminalPaneByStableAgentPaneId,
@@ -60,27 +66,96 @@ import { getWorkspaceAgentGroupMeta } from '@/app-shell/sidebar/workspace-status
 import { useTranslations } from 'next-intl';
 import { APP_FOOTER_HEIGHT_CLASS } from '@/app-shell/sidebar-layout-constants';
 
-function groupSessionsByContext(sessions: AgentHookSession[]): Map<string, AgentHookSession[]> {
-  const grouped = new Map<string, AgentHookSession[]>();
-  for (const session of sessions) {
-    const key = session.context_id || session.project_path || "unknown";
-    const list = grouped.get(key) ?? [];
-    list.push(session);
-    grouped.set(key, list);
-  }
-  return grouped;
+function groupSessionsByContext(
+  rows: FooterAgentOverviewRow[],
+): Map<string, FooterAgentOverviewRow[]> {
+  return groupFooterOverviewRowsByContext(rows);
 }
 
-function SessionStateBadge({ state, hoverAction, onAction }: {
-  state: string;
+function footerOverviewBadgeClass(bucket: FooterAgentOverviewBucket): string {
+  if (bucket === "running") return "text-blue-400 bg-blue-500/10";
+  if (bucket === "attention") return "text-emerald-500 bg-emerald-500/10";
+  if (bucket === "permission") return "text-amber-500 bg-amber-500/10";
+  return "text-emerald-500";
+}
+
+function footerOverviewBucketLabel(
+  t: (key: "footer.overviewRunning" | "footer.overviewIdle" | "footer.overviewNeedAttention" | "footer.overviewNeedPermission") => string,
+  bucket: FooterAgentOverviewBucket,
+): string {
+  if (bucket === "running") return t("footer.overviewRunning");
+  if (bucket === "idle") return t("footer.overviewIdle");
+  if (bucket === "attention") return t("footer.overviewNeedAttention");
+  return t("footer.overviewNeedPermission");
+}
+
+function FooterOverviewBucketIcon({
+  bucket,
+}: {
+  bucket: FooterAgentOverviewBucket;
+}) {
+  if (bucket === "running") {
+    return (
+      <span className="inline-flex size-5 shrink-0 items-center justify-center">
+        <AgentHookStatusIndicator
+          state={AGENT_STATE.RUNNING}
+          variant="compact"
+          placement="footer"
+        />
+      </span>
+    );
+  }
+  const meta = getWorkspaceAgentGroupMeta(bucket === "idle" ? "done" : bucket);
+  const Icon = meta.icon;
+  return (
+    <span className="inline-flex size-5 shrink-0 items-center justify-center">
+      <Icon className={cn("size-3.5", meta.className)} />
+    </span>
+  );
+}
+
+function markFooterSessionIdle(session: AgentHookSession) {
+  const keys = footerSessionIdentityKeys(session);
+  const hooks = useAgentHooksStore.getState();
+  const live = hooks.sessions.get(session.session_id);
+  if (live && live.state !== AGENT_STATE.IDLE) {
+    void hooks.forceSessionIdle(session.session_id);
+  }
+  if (keys.length > 0) {
+    const summaries = useAgentAttentionSummaryStore.getState();
+    useAgentAttentionStore.getState().clearMatchingSessionIds(keys);
+    for (const key of keys) summaries.clearPane(key);
+    void agentHooksApi
+      .clearAttention({ stablePaneIds: keys, dismissSummary: true })
+      .catch((error) => {
+        console.warn("[Footer] Failed to clear attention after mark idle:", error);
+      });
+  }
+  const contextId = session.context_id?.trim();
+  if (contextId) {
+    useWorkspaceAgentGroupingHoldStore.getState().clearHold(contextId);
+  }
+}
+
+function SessionStateBadge({
+  bucket,
+  label,
+  idleLabel,
+  clearLabel,
+  hoverAction,
+  onAction,
+}: {
+  bucket: FooterAgentOverviewBucket;
+  label: string;
+  idleLabel: string;
+  clearLabel: string;
   hoverAction: "idle" | "clear" | null;
   onAction: () => void;
 }) {
-  const label = state === AGENT_STATE.PERMISSION_REQUEST ? "PERM" : state.toUpperCase();
   const springTransition = { type: "spring" as const, stiffness: 500, damping: 30 };
 
   return (
-    <div className="relative overflow-hidden shrink-0 h-5 w-[52px]">
+    <div className="relative h-5 min-w-[7.25rem] shrink-0 overflow-hidden">
       <AnimatePresence mode="popLayout" initial={false}>
         {hoverAction === "idle" ? (
           <motion.button
@@ -89,10 +164,10 @@ function SessionStateBadge({ state, hoverAction, onAction }: {
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: -40, opacity: 0 }}
             transition={springTransition}
-            className="absolute inset-0 flex items-center justify-center text-[9px] font-mono px-1 py-px rounded text-emerald-500 bg-emerald-500/10 cursor-pointer hover:bg-emerald-500/20"
+            className="absolute inset-0 flex cursor-pointer items-center justify-center rounded px-1.5 py-px font-mono text-[9px] text-emerald-500 bg-emerald-500/10 hover:bg-emerald-500/20"
             onClick={(e) => { e.stopPropagation(); onAction(); }}
           >
-            IDLE
+            {idleLabel}
           </motion.button>
         ) : hoverAction === "clear" ? (
           <motion.button
@@ -101,23 +176,21 @@ function SessionStateBadge({ state, hoverAction, onAction }: {
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: -40, opacity: 0 }}
             transition={springTransition}
-            className="absolute inset-0 flex items-center justify-center text-[9px] font-mono px-1 py-px rounded text-red-400 bg-red-500/10 cursor-pointer hover:bg-red-500/20"
+            className="absolute inset-0 flex cursor-pointer items-center justify-center rounded px-1.5 py-px font-mono text-[9px] text-red-400 bg-red-500/10 hover:bg-red-500/20"
             onClick={(e) => { e.stopPropagation(); onAction(); }}
           >
-            CLEAR
+            {clearLabel}
           </motion.button>
         ) : (
           <motion.span
-            key={state}
+            key={bucket}
             initial={{ x: 40, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: 40, opacity: 0 }}
             transition={springTransition}
             className={cn(
-              "absolute inset-0 flex items-center justify-center text-[9px] font-mono px-1 py-px rounded",
-              state === AGENT_STATE.IDLE && "text-emerald-500",
-              state === AGENT_STATE.RUNNING && "text-blue-400 bg-blue-500/10",
-              state === AGENT_STATE.PERMISSION_REQUEST && "text-amber-500 bg-amber-500/10",
+              "absolute inset-0 flex items-center justify-center rounded px-1.5 py-px font-mono text-[9px]",
+              footerOverviewBadgeClass(bucket),
             )}
           >
             {label}
@@ -130,27 +203,28 @@ function SessionStateBadge({ state, hoverAction, onAction }: {
 
 function SessionRow({
   session,
+  bucket,
   onNavigate,
   onCanvas = false,
   paneTitle,
 }: {
   session: AgentHookSession;
+  bucket: FooterAgentOverviewBucket;
   onNavigate: () => void;
   onCanvas?: boolean;
   paneTitle?: string | null;
 }) {
   const t = useTranslations("appShell");
   const [hovered, setHovered] = React.useState(false);
-  const forceIdle = useAgentHooksStore((s) => s.forceSessionIdle);
   const removeSession = useAgentHooksStore((s) => s.removeSession);
-  const isIdle = session.state === AGENT_STATE.IDLE;
+  const isIdle = bucket === "idle";
 
   const hoverAction = !hovered ? null : isIdle ? "clear" as const : "idle" as const;
   const handleAction = () => {
     if (isIdle) {
       void removeSession(session.session_id);
     } else {
-      void forceIdle(session.session_id);
+      markFooterSessionIdle(session);
     }
   };
 
@@ -164,7 +238,7 @@ function SessionRow({
       onClick={onNavigate}
     >
       <div className="flex min-w-0 items-center gap-1.5">
-        <AgentHookStatusIndicator state={session.state} variant="compact" placement="footer" />
+        <FooterOverviewBucketIcon bucket={bucket} />
         <AgentIcon
           registryId={AGENT_TOOL_ICON_IDS[session.tool] ?? session.tool}
           name={AGENT_TOOL_LABELS[session.tool] ?? session.tool}
@@ -188,7 +262,10 @@ function SessionRow({
         )}
       </div>
       <SessionStateBadge
-        state={session.state}
+        bucket={bucket}
+        label={footerOverviewBucketLabel(t, bucket)}
+        idleLabel={t("footer.overviewIdle")}
+        clearLabel={t("footer.clearSession")}
         hoverAction={hoverAction}
         onAction={handleAction}
       />
@@ -221,35 +298,6 @@ function useContextNameResolver() {
       resolveAgentHookContextNames(contextId, null, projects),
     [projects],
   );
-}
-
-function footerOverviewBucketLabel(
-  t: (key: "footer.overviewRunning" | "footer.overviewIdle" | "footer.overviewNeedAttention" | "footer.overviewNeedPermission") => string,
-  bucket: FooterAgentOverviewBucket,
-): string {
-  if (bucket === "running") return t("footer.overviewRunning");
-  if (bucket === "idle") return t("footer.overviewIdle");
-  if (bucket === "attention") return t("footer.overviewNeedAttention");
-  return t("footer.overviewNeedPermission");
-}
-
-function FooterOverviewBucketIcon({
-  bucket,
-}: {
-  bucket: FooterAgentOverviewBucket;
-}) {
-  if (bucket === "running") {
-    return (
-      <AgentHookStatusIndicator
-        state={AGENT_STATE.RUNNING}
-        variant="compact"
-        placement="footer"
-      />
-    );
-  }
-  const meta = getWorkspaceAgentGroupMeta(bucket === "idle" ? "done" : bucket);
-  const Icon = meta.icon;
-  return <Icon className={cn("size-3 shrink-0", meta.className)} />;
 }
 
 function useFooterAgentOverview() {
@@ -305,15 +353,15 @@ export function AgentStatusPopoverContent({
   isSessionOnCanvas?: (session: AgentHookSession) => boolean;
 } = {}) {
   const t = useTranslations("appShell");
-  const sessionsMap = useAgentHooksStore(useShallow((s) => s.sessions));
+  const { rows } = useFooterAgentOverview();
   const clearIdleSessions = useAgentHooksStore((s) => s.clearIdleSessions);
   const router = useAppRouter();
   const projects = useProjects();
 
-  const sessions = useMemo(() => Array.from(sessionsMap.values()), [sessionsMap]);
-  const grouped = useMemo(() => groupSessionsByContext(sessions), [sessions]);
+  const sessions = useMemo(() => rows.map((row) => row.session), [rows]);
+  const grouped = useMemo(() => groupSessionsByContext(rows), [rows]);
   const paneTitles = useAgentHookSessionPaneTitles(sessions);
-  const hasIdleSessions = sessions.some((s) => s.state === AGENT_STATE.IDLE);
+  const hasIdleSessions = rows.some((row) => row.bucket === "idle");
   const resolveContextDisplayName = useContextDisplayNameResolver();
   const resolveContextName = useContextNameResolver();
 
@@ -325,7 +373,7 @@ export function AgentStatusPopoverContent({
     navigateToAgentHookSessionPane(session, router, projects);
   }, [onNavigateSession, router, projects]);
 
-  if (sessions.length === 0) {
+  if (rows.length === 0) {
     return (
       <div
         className={cn(
@@ -342,7 +390,7 @@ export function AgentStatusPopoverContent({
       <div className={cn("p-2 overflow-y-auto", embedded ? "h-full" : "max-h-64")}>
       <div className="flex items-center justify-between mb-2 px-1">
         <span className="text-[11px] font-semibold text-foreground">
-          {t("footer.agentSessions", { count: sessions.length })}
+          {t("footer.agentSessions", { count: rows.length })}
         </span>
         {hasIdleSessions && (
           <Button
@@ -358,7 +406,7 @@ export function AgentStatusPopoverContent({
     </div>
 
       <div className="space-y-2">
-        {Array.from(grouped.entries()).map(([contextKey, pathSessions]) => {
+        {Array.from(grouped.entries()).map(([contextKey, pathRows]) => {
           const displayName = resolveContextDisplayName(contextKey);
           const { projectName, workspaceName, workspaceDisplayName } = resolveContextName(contextKey);
           const contextLabel = projectName
@@ -372,13 +420,14 @@ export function AgentStatusPopoverContent({
               >
                 {contextLabel}
               </div>
-              {pathSessions.map((session) => (
+              {pathRows.map((row) => (
                 <SessionRow
-                  key={session.session_id}
-                  session={session}
-                  paneTitle={paneTitles[session.session_id]}
-                  onCanvas={isSessionOnCanvas?.(session) ?? false}
-                  onNavigate={() => navigateToSessionPane(session)}
+                  key={row.session.session_id}
+                  session={row.session}
+                  bucket={row.bucket}
+                  paneTitle={paneTitles[row.session.session_id]}
+                  onCanvas={isSessionOnCanvas?.(row.session) ?? false}
+                  onNavigate={() => navigateToSessionPane(row.session)}
                 />
               ))}
             </div>

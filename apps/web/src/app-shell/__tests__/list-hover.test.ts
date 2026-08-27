@@ -55,6 +55,23 @@ describe("center list hover", () => {
     expect(rowClass).not.toContain("duration-");
   });
 
+  it("does not overlay bulk stage/discard on hideHeader file rows", () => {
+    expect(changeSection).not.toContain("group/headerless");
+    expect(changeSection).not.toContain('renderSectionActions("headerless")');
+    expect(changeSection).toContain("onStage([file.path])");
+    expect(changeSection).toContain("onDiscard?.([file.path])");
+
+    const changeSectionUsages = [
+      ...changesPanel.matchAll(/<ChangeSection[\s\S]*?\/>/g),
+    ].map((match) => match[0]);
+    expect(changeSectionUsages.length).toBeGreaterThan(0);
+    for (const usage of changeSectionUsages) {
+      expect(usage).not.toContain("onStageAll");
+      expect(usage).not.toContain("onUnstageAll");
+      expect(usage).not.toContain("onDiscardAll");
+    }
+  });
+
   it("uses instant hover on changes file rows, not a delayed color fade", () => {
     const rowClass = changeSection.slice(
       changeSection.indexOf("group flex items-center px-2 py-1.5"),
