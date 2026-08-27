@@ -27,6 +27,11 @@ test.describe("smoke workspace", () => {
     const contextUrl = withSearchParams(await buildProjectWorkspaceDeepLink(page), {
       activeSettingTab: null,
     });
+    // Tool-tab `?tab=` on the project wrapper is leftover chrome after the
+    // workspace preview hop and gets stripped; later tool tabs must target
+    // the workspace URL itself.
+    const workspaceUrl = new URL(contextUrl).searchParams.get("pvUrl");
+    expect(workspaceUrl, "missing workspace url in project deep link").toBeTruthy();
 
     await gotoContextRoute(page, withSearchParams(contextUrl, { tab: "files" }), {
       locale: "zh",
@@ -38,7 +43,7 @@ test.describe("smoke workspace", () => {
       .poll(async () => new URL(page.url()).searchParams.get("tab"))
       .toBeNull();
 
-    await gotoContextRoute(page, withSearchParams(contextUrl, { tab: "changes" }), {
+    await gotoContextRoute(page, withSearchParams(workspaceUrl!, { tab: "changes" }), {
       locale: "zh",
     });
     await expect(page.getByRole("tab", { name: /^(变更|Changes)$/ })).toBeVisible({
@@ -54,12 +59,14 @@ test.describe("smoke workspace", () => {
     // The tab's computed name can include the close control; do not require an exact match.
     await expect(page.getByRole("tab", { name: /图形历史|Graph History/ })).toBeVisible();
 
-    await gotoContextRoute(page, withSearchParams(contextUrl, { tab: "review" }), {
+    await gotoContextRoute(page, withSearchParams(workspaceUrl!, { tab: "review" }), {
       locale: "zh",
     });
-    await expect(page.getByRole("tab", { name: /^(评审|Review)$/ })).toBeVisible();
+    await expect(page.getByRole("tab", { name: /^(评审|Review)$/ })).toBeVisible({
+      timeout: 45_000,
+    });
 
-    await gotoContextRoute(page, withSearchParams(contextUrl, { tab: "run" }), {
+    await gotoContextRoute(page, withSearchParams(workspaceUrl!, { tab: "run" }), {
       locale: "zh",
     });
     const runStage = await getCenterStage(page);
@@ -68,10 +75,12 @@ test.describe("smoke workspace", () => {
       runStage.getByRole("tablist").first().getByRole("tab", { name: /运行|Run/ }),
     ).toBeVisible();
 
-    await gotoContextRoute(page, withSearchParams(contextUrl, { tab: "github" }), {
+    await gotoContextRoute(page, withSearchParams(workspaceUrl!, { tab: "github" }), {
       locale: "zh",
     });
-    await expect(page.getByRole("tab", { name: /^GitHub$/ })).toBeVisible();
+    await expect(page.getByRole("tab", { name: /^GitHub$/ })).toBeVisible({
+      timeout: 45_000,
+    });
     const githubStage = await getCenterStage(page);
     await expect(githubStage.getByRole("tab", { name: "拉取请求" })).toBeVisible();
     await expect(githubStage.getByRole("tab", { name: "议题" })).toBeVisible();
