@@ -3169,6 +3169,24 @@
         "parameters": "Parameters",
         "loadingDiff": "Loading diff..."
       },
+      "toolResults": {
+        "file": "file",
+        "loadingDiff": "Loading diff...",
+        "processing": "Processing...",
+        "noOutput": "No output",
+        "executionFailed": "Execution failed",
+        "skillTitle": "Skill: {name}",
+        "parameters": "Parameters",
+        "newFile": "New",
+        "deletedFile": "Deleted",
+        "deletedFileLabel": "Deleted {path}",
+        "to": "To",
+        "todo": {
+          "pending": "Pending",
+          "inProgress": "In progress",
+          "completed": "Completed"
+        }
+      },
       "hookStatus": {
         "permissionRequested": "Permission requested",
         "waitingForPermissionWithTool": "{tool}: Waiting for permission",
