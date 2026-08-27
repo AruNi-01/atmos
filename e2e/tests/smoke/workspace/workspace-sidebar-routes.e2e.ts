@@ -1,3 +1,4 @@
+import type { Page } from "@playwright/test";
 import { expect, test } from "../../../fixtures/test";
 import {
   buildProjectWorkspaceDeepLink,
@@ -11,6 +12,26 @@ import {
   stubComputerClientSettingsApi,
   withSearchParams,
 } from "../support/app-smoke";
+
+async function activateWorkspaceToolTab(
+  page: Page,
+  workspaceUrl: string,
+  tab: "changes" | "review" | "run" | "github",
+  name: RegExp,
+) {
+  await gotoContextRoute(page, withSearchParams(workspaceUrl, { tab }), {
+    locale: "zh",
+  });
+  const toolTab = page.getByRole("tab", { name });
+  if (!(await toolTab.first().isVisible().catch(() => false))) {
+    await page.getByRole("button", { name: /新建标签页|New tab/ }).click();
+    const plusMenu = page.locator("[data-center-stage-plus-menu]");
+    await expect(plusMenu).toBeVisible({ timeout: 15_000 });
+    await plusMenu.getByRole("button", { name }).click();
+  }
+  await expect(toolTab.first()).toBeVisible({ timeout: 45_000 });
+  await toolTab.first().click();
+}
 
 test.describe("smoke workspace", () => {
   test("@smoke @stateful exercises workspace center tool tabs and read-only subtabs", async ({
@@ -40,15 +61,10 @@ test.describe("smoke workspace", () => {
       .poll(async () => new URL(page.url()).searchParams.get("tab"))
       .toBeNull();
 
-    // Later tool-tab hops must use the workspace URL. Re-entering `/project?tab=`
-    // after last-tab is `files` is treated as leftover deep-link chrome and
-    // never opens Changes/Review/Run/GitHub.
-    await gotoContextRoute(page, withSearchParams(workspaceUrl!, { tab: "changes" }), {
-      locale: "zh",
-    });
-    await expect(page.getByRole("tab", { name: /变更|Changes/ })).toBeVisible({
-      timeout: 45_000,
-    });
+    // `?tab=` is a one-shot deep link: it may add the tool tab without selecting
+    // it (terminal can stay the painted surface). Click, and fall back to the
+    // plus menu when leftover URL chrome strips the hop.
+    await activateWorkspaceToolTab(page, workspaceUrl!, "changes", /变更|Changes/);
     const changesStage = await getCenterStage(page);
     const scopeTrigger = changesStage.getByRole("button", {
       name: /选择变更范围|Select changes scope/,
@@ -59,28 +75,16 @@ test.describe("smoke workspace", () => {
     // The tab's computed name can include the close control; do not require an exact match.
     await expect(page.getByRole("tab", { name: /图形历史|Graph History/ })).toBeVisible();
 
-    await gotoContextRoute(page, withSearchParams(workspaceUrl!, { tab: "review" }), {
-      locale: "zh",
-    });
-    await expect(page.getByRole("tab", { name: /评审|Review/ })).toBeVisible({
-      timeout: 45_000,
-    });
+    await activateWorkspaceToolTab(page, workspaceUrl!, "review", /评审|Review/);
 
-    await gotoContextRoute(page, withSearchParams(workspaceUrl!, { tab: "run" }), {
-      locale: "zh",
-    });
+    await activateWorkspaceToolTab(page, workspaceUrl!, "run", /运行|Run/);
     const runStage = await getCenterStage(page);
     // The Run surface's inner terminal strip reuses the same 运行/Run tab name.
     await expect(
       runStage.getByRole("tablist").first().getByRole("tab", { name: /运行|Run/ }),
     ).toBeVisible({ timeout: 45_000 });
 
-    await gotoContextRoute(page, withSearchParams(workspaceUrl!, { tab: "github" }), {
-      locale: "zh",
-    });
-    await expect(page.getByRole("tab", { name: /GitHub/ })).toBeVisible({
-      timeout: 45_000,
-    });
+    await activateWorkspaceToolTab(page, workspaceUrl!, "github", /GitHub/);
     const githubStage = await getCenterStage(page);
     await expect(githubStage.getByRole("tab", { name: "拉取请求" })).toBeVisible();
     await expect(githubStage.getByRole("tab", { name: "议题" })).toBeVisible();
