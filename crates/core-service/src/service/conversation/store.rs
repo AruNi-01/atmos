@@ -238,7 +238,7 @@ impl ConversationStore {
         } else {
             entries.push(entry);
         }
-        entries.sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
+        entries.sort_by_key(|a| std::cmp::Reverse(a.updated_at));
         atomic_write_json(&self.root.join("index.json"), &entries)
     }
 
@@ -260,7 +260,7 @@ impl ConversationStore {
                 }
             }
         }
-        entries.sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
+        entries.sort_by_key(|a| std::cmp::Reverse(a.updated_at));
         atomic_write_json(&self.root.join("index.json"), &entries)?;
         Ok(entries)
     }
