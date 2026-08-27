@@ -1,0 +1,50 @@
+apps/web/messages/en.json
+  h_5be255725524c8 450,3174-3191
+apps/web/messages/zh.json
+  h_5be255725524c8 450,3174-3191
+apps/web/src/app-shell/Footer.tsx
+  h_5be255725524c8 13,26-27,53-54,56,69-136,140-151,158,167,170,179,182,186,192-193,206,212,220,227,241,265-268,356,361-362,364,376,393,409,423,425-430
+apps/web/src/app-shell/__tests__/footer-agent-status-overview.test.ts
+  h_5be255725524c8 30-41
+apps/web/src/app-shell/__tests__/list-hover.test.ts
+  h_5be255725524c8 58-74
+apps/web/src/app-shell/sidebar/ChangeSection.tsx
+  h_5be255725524c8 662,668,671,725-727,746
+apps/web/src/features/agent/components/SubAgentBlockView.tsx
+  h_5be255725524c8 3,14,153-158
+apps/web/src/features/agent/components/ToolOrSkillBlock.tsx
+  h_5be255725524c8 4,6,9,12
+apps/web/src/features/agent/components/tool-results/AgentToolBodies.tsx
+  h_5be255725524c8 1-180
+apps/web/src/features/agent/components/tool-results/AgentToolCard.tsx
+  h_5be255725524c8 1-123
+apps/web/src/features/agent/components/tool-results/AgentToolCodePreview.tsx
+  h_5be255725524c8 1-139
+apps/web/src/features/agent/components/tool-results/AgentToolDiffResult.tsx
+  h_5be255725524c8 1-146
+apps/web/src/features/agent/components/tool-results/AgentToolResultBlock.tsx
+  h_5be255725524c8 1-196
+apps/web/src/features/agent/components/tool-results/index.ts
+  h_5be255725524c8 1-3
+apps/web/src/features/agent/lib/__tests__/footer-agent-overview.test.ts
+  h_5be255725524c8 8-9,64-77
+apps/web/src/features/agent/lib/footer-agent-overview.ts
+  h_5be255725524c8 1-3,40,43-44,51-54,80,86-87,153-166
+apps/web/src/features/agent/lib/tool-results/__tests__/parse-tool-result.test.ts
+  h_5be255725524c8 1-380
+apps/web/src/features/agent/lib/tool-results/parse-tool-result.ts
+  h_5be255725524c8 1-579
+crates/core-service/src/service/agent_hooks/attention.rs
+  h_5be255725524c8 81-83,363-382
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "51479d21c20b0c5dd4ce7ba41ac1d7e13af8a81c",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
