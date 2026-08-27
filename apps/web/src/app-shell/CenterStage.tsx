@@ -358,6 +358,7 @@ const CenterStage: React.FC = () => {
     currentView,
   } = useContextParams();
   const hydrateCenterSpaces = useCenterSpaceStore((s) => s.hydrate);
+  const layoutDiskSynced = useCenterSpaceStore((s) => s.diskSynced);
   React.useLayoutEffect(() => {
     hydrateCenterSpaces();
   }, [hydrateCenterSpaces]);
@@ -599,6 +600,9 @@ const CenterStage: React.FC = () => {
 
   React.useEffect(() => {
     if (!isCenterContextSettled || !effectiveContextId) return;
+    // Disk restore replaces mosaics wholesale. Wait so `?tab=` is not
+    // activated then clobbered, and so we do not strip the deep link early.
+    if (!layoutDiskSynced && (tabFromUrl || wikiPageFromUrl)) return;
     if (isExtraCenterSpace && liveExtraSpaceEmpty && !followUrlToolTab) {
       if (tabFromUrl || wikiPageFromUrl) {
         void setUrlParams({ tab: null, wikiPage: null });
@@ -629,6 +633,7 @@ const CenterStage: React.FC = () => {
     isCenterContextSettled,
     isExtraCenterSpace,
     liveExtraSpaceEmpty,
+    layoutDiskSynced,
     setUrlParams,
     tabFromUrl,
     wikiPageFromUrl,

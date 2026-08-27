@@ -151,7 +151,11 @@ describe("center layout document", () => {
       "utf8",
     );
     expect(stage).toContain("syncCenterLayoutFromDisk");
+    expect(stage).toContain("layoutDiskSynced");
     expect(stage).not.toContain("syncSavedLayoutsFromDisk");
+    expect(persist).not.toMatch(
+      /useCenterSpaceStore\.setState\(\{\s*byHost: spaces,\s*hydrated: true,\s*diskSynced: true/,
+    );
     expect(persist).toContain("centerLayoutApi.put");
     expect(persist).not.toContain("function_settings");
     expect(layoutStore).toContain("markCenterLayoutDirty");

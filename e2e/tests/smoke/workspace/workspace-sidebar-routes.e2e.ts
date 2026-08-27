@@ -41,12 +41,14 @@ test.describe("smoke workspace", () => {
     await gotoContextRoute(page, withSearchParams(contextUrl, { tab: "changes" }), {
       locale: "zh",
     });
-    await expect(page.getByRole("tab", { name: /^(变更|Changes)$/ })).toBeVisible();
+    await expect(page.getByRole("tab", { name: /^(变更|Changes)$/ })).toBeVisible({
+      timeout: 45_000,
+    });
     const changesStage = await getCenterStage(page);
     const scopeTrigger = changesStage.getByRole("button", {
       name: /选择变更范围|Select changes scope/,
     });
-    await expect(scopeTrigger).toBeVisible();
+    await expect(scopeTrigger).toBeVisible({ timeout: 45_000 });
     await scopeTrigger.click();
     await page.getByRole("menuitem", { name: /^(图形历史|Graph History)$/ }).click();
     // The tab's computed name can include the close control; do not require an exact match.
