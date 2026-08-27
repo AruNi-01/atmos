@@ -1,0 +1,18 @@
+{
+  "name": "@atmos/md-live",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "Live markdown embed directives, document-edit fence, and AgentRequest prompts (APP-067).",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "bun ../../scripts/run-tsc7.ts --noEmit",
+    "test": "bun test src"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "typescript": "6.0.3"
+  }
+}

@@ -7,6 +7,7 @@ import type { TerminalRef } from "./Terminal";
 import type { TerminalLayoutNode, TerminalPaneAgent } from "../types/index";
 import { agentHooksApi, systemApi } from "@/api/rest-api";
 import { useTerminalStore, FIXED_TERMINAL_TAB_VALUE } from "@/features/terminal/store/use-terminal-store";
+import { getScopeKey } from "@/features/terminal/store/terminal-store-helpers";
 import { useTerminalSplitPrefsStore } from "@/features/settings/store/terminal-split-prefs-store";
 import { resolveDefaultSplitAgent } from "@/features/terminal/lib/terminal-split-prefs";
 import {
@@ -61,6 +62,7 @@ function isRestorableTerminalFocusElement(element: HTMLElement): boolean {
 }
 
 export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridProps>(({ workspaceId, className, terminalTabId, quickOpenAgents = [], scope = "default", toolbarActions, isProjectContext = false, onNewTerminalTab, onTerminalPaneClosed, isSurfaceActive = true }, ref) => {
+  const [hiddenConnectPaneIds, setHiddenConnectPaneIds] = React.useState<Set<string>>(() => new Set());
   // Track terminal refs for each pane to call destroy on close
   const terminalRefsMap = React.useRef<Map<string, TerminalRef>>(new Map());
   const agentInputOverlayRefsMap = React.useRef<Map<string, TerminalAgentInputOverlayHandle>>(new Map());
@@ -363,7 +365,11 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     );
     return entry?.[0] ?? getPaneId(workspaceId, labelOrWindowName);
   }, [getPaneId, panes, workspaceId]);
-  const addTerminal = useCallback((label?: string, agent?: TerminalPaneAgent) => {
+  const addTerminal = useCallback((
+    label?: string,
+    agent?: TerminalPaneAgent,
+    options?: { focus?: boolean },
+  ) => {
     const result = (() => {
       if (isCodeReview) {
         return addCodeReviewTerminal(workspaceId, label, agent);
@@ -373,7 +379,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
       }
       return addTerminalToStore(workspaceId, label, terminalTabId, agent);
     })();
-    if (result) {
+    if (result && options?.focus !== false) {
       focusPane(result);
     }
     return result;
@@ -443,12 +449,25 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
 
   React.useImperativeHandle(ref, () => ({
     addTerminal: (label?: string, agent?: TerminalPaneAgent) => addTerminal(label, agent),
-    createAndRunTerminal: async ({ label, command, agent, agentId, tuiFollowUpPrompt }) => {
+    createAndRunTerminal: async ({
+      label,
+      command,
+      agent,
+      agentId,
+      tuiFollowUpPrompt,
+      reuseIdlePane = true,
+      focus = true,
+      connectWhileHidden = false,
+    }) => {
       const runOptions = { agentId: agent?.id ?? agentId, tuiFollowUpPrompt };
+      const sessionIdOf = (paneId: string) =>
+        useTerminalStore.getState().workspacePanes[
+          getScopeKey(workspaceId, terminalTabId ?? FIXED_TERMINAL_TAB_VALUE)
+        ]?.[paneId]?.sessionId;
       // If there's exactly one fresh default pane (no agent, no pending command),
       // reuse it directly instead of creating a second terminal window.
       const currentPanes = Object.entries(panes);
-      if (currentPanes.length === 1) {
+      if (reuseIdlePane && currentPanes.length === 1) {
         const [existingId, existingPane] = currentPanes[0];
         if (!existingPane.agent && !pendingRunsRef.current.has(existingId)) {
           if (agent) {
@@ -458,16 +477,34 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
           // Only send immediately when the underlying tmux session has reported
           // input-ready. Otherwise the websocket is still attaching and the
           // input would be silently dropped — queue it for onSessionReady.
+          if (connectWhileHidden) {
+            setHiddenConnectPaneIds((current) => {
+              if (current.has(existingId)) return current;
+              const next = new Set(current);
+              next.add(existingId);
+              return next;
+            });
+          }
           if (termRef && readyPanesRef.current.has(existingId)) {
             deliverPendingRun(existingId, toPendingTerminalRun(command, runOptions));
           } else {
             queuePendingRun(existingId, command, runOptions);
           }
-          return;
+          return { paneId: existingId, sessionId: existingPane.sessionId };
         }
       }
-      const paneId = addTerminal(label, agent);
+      const paneId = addTerminal(label, agent, { focus });
+      if (!paneId) return null;
+      if (connectWhileHidden) {
+        setHiddenConnectPaneIds((current) => {
+          if (current.has(paneId)) return current;
+          const next = new Set(current);
+          next.add(paneId);
+          return next;
+        });
+      }
       queuePendingRun(paneId, command, runOptions);
+      return { paneId, sessionId: sessionIdOf(paneId) };
     },
     createOrFocusAndRunTerminal: async ({ label, command, agent, agentId, tuiFollowUpPrompt }) => {
       const runOptions = { agentId: agent?.id ?? agentId, tuiFollowUpPrompt };
@@ -931,6 +968,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
           markPaneAttached={markPaneAttached}
           spawnTerminalWithRun={spawnTerminalWithRun}
           surfaceActive={isSurfaceActive}
+          connectWhileHidden={hiddenConnectPaneIds.has(id)}
         />
       );
     }
@@ -971,6 +1009,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
         setPaneAgent={setPaneAgentForScope}
         markPaneAttached={isCodeReview ? markCodeReviewPaneAttached : markProjectWikiPaneAttached}
         surfaceActive={isSurfaceActive}
+        connectWhileHidden={hiddenConnectPaneIds.has(id)}
       />
     );
   }, [
@@ -1007,6 +1046,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     deliverPendingRunForPane,
     pendingRunsRef,
     spawnTerminalWithRun,
+    hiddenConnectPaneIds,
   ]);
 
   // Prefer keeping existing panes mounted (APP-043 warm switch). If we already have

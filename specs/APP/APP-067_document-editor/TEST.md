@@ -4,199 +4,243 @@
 
 ## Test strategy
 
-- **Package (`@atmos/docs`)**: Bun tests for markdown round-trip, reference URIs, `renderAgentPrompt`, isolation (no forbidden imports).
-- **Host**: Bun tests for path helpers, dirty/conflict logic, adapter payload construction, center-tab registration (`"docs"`).
-- **WebSocket**: reuse existing `fs_*` and terminal tests; do **not** add `docs_*` actions. Contract check should stay green with zero new actions.
-- **UI**: agent-browser / manual for Live edit, slash, chips, streaming Accept/Reject, Copy Prompt, Send to Terminal. Playwright only if e2e harness already covers file tabs cheaply (QUALITY-003).
-- **License**: lockfile has no `@blocknote/*`, `@tiptap-pro`, or Tiptap Notion-like template. Milkdown (or chosen MIT markdown-first lib) is present.
+- **Package (`@atmos/md-live`)**: Bun tests for embed directive parse/format, fence extractor, `renderAgentPrompt` (copy citation vs headless output contract; `text` vs `markdown`), isolation (no forbidden imports).
+- **Host**: Bun tests for Live-eligible helpers, D22 no-edit preserve bytes, stream lock, adapter payload construction. Structural grep: no `CenterTabKind` `"docs"`, no launchpad Docs item, no `terminal-current` adapter, no `@atmos/docs`.
+- **Read-only**: `MarkdownPatchDiff` extracted; GitHub / review / `.atmos/reviews/**` still use `MarkdownRenderer`, never `MarkdownLiveEditor`.
+- **WebSocket**: reuse existing `fs_*` and terminal tests; do **not** add `md_live_*` / `docs_*` actions.
+- **UI**: agent-browser / manual for Live edit, slash focus routing, chips, streaming Accept/Reject, Copy Prompt citation. Playwright only if e2e already covers file tabs cheaply.
+- **License**: lockfile has `@milkdown/kit` ≥ 7.22 and **no** `@blocknote/*`, `@tiptap-pro`, `@milkdown/crepe`.
 
 ## Coverage map
 
 | PRD item | Scenario IDs |
 |----------|--------------|
 | M1 identity / naming | S1, S2 |
-| M2 shell entry | S3, S4 |
+| M2 shell entry / default Live | S3, S4 |
 | M3 worktree markdown | S5, S6, S7 |
 | M4 no document DB | S8 |
 | M5 live markdown | S9, S10, S11 |
 | M6 basic blocks | S11 |
-| M7 Live vs Source | S12 |
-| M8 save / dirty | S13, S14 |
-| M9 shared composer | S15 |
-| M10 default context | S16 |
-| M11 mentions | S17 |
-| M12 references | S18, S19 |
-| M13 AgentRequest | S16, S20 |
-| M14 adapters | S20, S21, S22 |
-| M15 selection actions | S23 |
-| M16 streaming + Accept/Reject | S24, S27, S28 |
+| M7 Live vs Source | S12, S12b |
+| M8 save / dirty | S13, S14, S14b |
+| M9 document slash | S15b |
+| M10 selection toolbar | S23 |
+| M11 shared composer | S15 |
+| M12 default context | S16 |
+| M13 mentions | S17 |
+| M14 embeds | S18, S19, S18b |
+| M15 adapters | S20, S21, S22 |
+| M16 streaming + Accept/Reject | S24, S27, S28, S29 |
 | M17 local FS | S5, S7 |
 | M18 i18n | S25 |
 | M19 Wiki unchanged | S26 |
+| M20 read-only surfaces | S4b, S4c, S31 |
 | N* deferred | not required to ship |
 
 ## Execution map
 
 | Scenario | Level | Tool | Target | Fixture | Signals | Status |
 |----------|-------|------|--------|---------|---------|--------|
-| S1 | Bun | `bun test` | live editor mounts from CodeMirror preview | src | `MarkdownLiveEditor` used when markdown preview | planned |
-| S2 | grep | review | messages + launchpad | en/zh | label **Docs**, not EDITOR | planned |
-| S3 | agent-browser | web | `.md` file tab | workspace | Live pane is editable | planned |
-| S4 | Bun | structural | `CodeMirrorEditor.tsx` | source | mounts `MarkdownLiveEditor` in preview; no launchpad `docs` | planned |
-| S5 | Bun | `bun test` | codec + fs helper | temp dir | writes `{root}/docs/{slug}.md` | planned |
-| S6 | Bun | `bun test` | parse files w/o frontmatter | fixture | opens in Live | planned |
+| S1 | Bun | structural | `CodeMirrorEditor.tsx` | src | mounts `MarkdownLiveEditor` from `features/md-live` | planned |
+| S2 | grep | review | messages + packages | en/zh, package.json | Live / Source sentence case; `@atmos/md-live`; **no** `@atmos/docs`; **no** product brand Docs | planned |
+| S3 | agent-browser | web | `.md` file tab | workspace README | opens in **Live**, editable | planned |
+| S4 | grep / Bun | structural | launchpad + `CenterTabKind` | source | **no** launchpad docs; **no** `"docs"` tab kind | planned |
+| S4b | agent-browser | web | `.atmos/reviews/*.md` and `.mdx` | fixtures | `MarkdownRenderer`; **no** Live; **no** composer dock | planned |
+| S4c | grep | structural | `features/github`, `features/code-review` | src | no import of `MarkdownLiveEditor` | planned |
+| S5 | Bun | `bun test` | `nextUntitledMarkdownName` + new-note | temp dir | untitled tab (no write); Save as defaults `{root}/Untitled.md`; collision → `Untitled-1.md` | planned |
+| S6 | Bun | `bun test` | no frontmatter | fixture | opens in Live | planned |
 | S7 | Bun | existing fs tests | `fs_write_file` | worktree | no new WsAction | planned |
-| S8 | grep | review | migrations | crates/infra | no `docs_` / `editor_document` table | planned |
-| S9 | lockfile | grep | package.json | — | Milkdown (or successor); no `@blocknote/*`, no `@tiptap-pro` | planned |
-| S10 | Bun | isolation | `packages/docs` | src | forbidden imports fail test | planned |
-| S11 | Bun | roundtrip | fixtures | gfm+table+task | serialize ≈ parse | planned |
-| S12 | agent-browser | Live ↔ Source | CodeMirrorEditor | one .md | same file; toggle works | planned |
-| S13 | Bun | dirty | serialize equality | edited doc | switch prompts | planned |
-| S14 | agent-browser | Cmd-S | markdown tab | dirty file | disk matches Live markdown | planned |
-| S15 | grep / Bun | import | markdown live host | source | PromptComposer only if dock ships | planned |
-| S16 | Bun | `renderAgentPrompt` | AgentRequest | fixture | path + body + workspace | planned |
+| S8 | grep | review | migrations | crates/infra | no `docs_` / `md_live_` / `editor_document` table | planned |
+| S9 | lockfile | grep | package.json | — | `@milkdown/kit` ≥ 7.22; no `@blocknote/*`, `@tiptap-pro`, `@milkdown/crepe` | planned |
+| S10 | Bun | isolation | `packages/md-live` | src | forbidden imports fail | planned |
+| S11 | Bun | roundtrip | Milkdown fixtures | gfm+chips | serialize ≈ parse | planned |
+| S12 | agent-browser | Live ↔ Source | one `.md` | same file | one editor mounted | planned |
+| S12b | Bun | D22 | real README | open, no edits | disk unchanged; not dirty | planned |
+| S13 | Bun / agent-browser | dirty | switch file | edited doc | save / discard / cancel | planned |
+| S14 | agent-browser | Cmd-S | markdown tab | dirty file | disk matches Live | planned |
+| S14b | Bun | stream lock | `mdLiveStreamLock` | in-flight | autosave/Cmd-S no-op until Accept/Reject | planned |
+| S15 | grep / Bun | import | `MdLiveAgentDock` | source | `PromptComposer` from welcome; no Terminal send control | planned |
+| S15b | agent-browser | focus | Live body vs dock | one `.md` | two different slash menus | planned |
+| S16 | Bun | `renderAgentPrompt` | headless vs copy | fixture | headless has output contract; copy does **not** | planned |
 | S17 | Bun / agent-browser | mentions | composer | mock lists | file/github/linear chips | planned |
-| S18 | Bun | URI | `format/parse` | all kinds | round-trip | planned |
-| S19 | agent-browser | click chip | Docs | github ref | native GitHub surface, not iframe | planned |
-| S20 | Bun | copy adapter | clipboard text | request | contains Instructions + Document | planned |
-| S21 | unit / manual | terminal-current | mock send_input | session | payload written | planned |
-| S22 | manual / agent-browser | terminal-cli | installed agent | workspace | Terminal shows run; Docs has no tool trace | planned |
-| S23 | agent-browser | selection | Docs | paragraph | composer gets `doc-selection` | planned |
-| S24 | agent-browser | Rewrite selection | Live | paragraph | streams in place; highlight; Accept/Reject | planned |
-| S27 | Bun / agent-browser | Generate at cursor | streaming plugin | mock chunks | insertAt cursor; Esc cancels restore | planned |
-| S28 | Bun | diff + chips | customBlockTypes | docRef fixture | Accept keeps atmos:// link | planned |
-| S25 | grep | i18n | en.json + zh.json | `docs` ns | zh is translated, not English paste | planned |
-| S26 | agent-browser | file tab menu | `.md` | README.md | Open in Docs loads same path | planned |
+| S18 | Bun | embed codec | format/parse | inline + card | `:md-live` / `::md-live`; `kind`+`url`/`path` survive | planned |
+| S18b | Bun / agent-browser | GitHub card | Live | issue embed | card with title/state + Open; not a lone chip | planned |
+| S19 | agent-browser | Open on card | Live | github embed | native GitHub surface; `https://example.com` stays a link | planned |
+| S20 | Bun | copy adapter | clipboard | request | Context / Selection / References; **no** Output contract; **no** “do not modify the file” | planned |
+| S21 | grep | review | `md-live-adapters.ts` | source | adapters are `copy` \| `headless` only | planned |
+| S22 | manual / agent-browser | headless | installed agent | workspace | user stays on the markdown tab; Live streams; no tool trace in Live | planned |
+| S23 | agent-browser | Live selection | paragraph | toolbar | Ask inserts `doc-selection`; no `SelectionPopover` on Live | planned |
+| S24 | Bun + agent-browser | Rewrite markdown | fenced mock | paragraph | stream + Accept/Reject | planned |
+| S27 | Bun | text hint + Esc | extractor + streaming | mock | `outputHint: text`; Esc restores | planned |
+| S28 | Bun | diff + embeds | customBlockTypes | card fixture | Accept keeps `::md-live`; `mdLiveEmbedBlock` in customBlockTypes | planned |
+| S29 | Bun | fence | `createFenceExtractor` | PTY-like chunks | inner payload only; no-fence abort; junk abort | planned |
+| S25 | grep | i18n | en.json + zh.json | `mdLive` ns | zh translated | planned |
+| S26 | agent-browser | Wiki | `.atmos/wiki/` | existing wiki | unchanged | planned |
+| S31 | Bun / grep | `MarkdownPatchDiff` | markdown + github | src | extracted component; `MarkdownRenderer` uses it; Live editor does not | planned |
 
 ## Scenarios
 
 ### S1 — Code ownership
-Live editor is wired from the markdown file tab preview pane. Source remains `BaseCodeMirrorEditor`. Widgets/slash/AgentRequest may live in `features/docs` / `packages/docs`.
+Live mounts from `features/md-live`. Source remains `BaseCodeMirrorEditor` and is unmounted while Live is shown.
 
 ### S2 — Naming
-Launchpad, tab, and empty states say **Docs**. No `uppercase` CSS on those labels.
+Toggle copy is **Live** / **Source**. Package is `@atmos/md-live`. No `@atmos/docs`. No Docs product brand in UI.
 
-### S3 — Launchpad
-Docs item opens the Docs surface. With no Project/Workspace, empty state asks the user to open one (no `~/.atmos` library).
+### S3 — Default Live
+Opening a Live-eligible `.md` starts in Live.
 
-### S4 — Center tab
-`CenterTabKind` includes `"docs"`. Tab is closable like `pt-design`.
+### S4 — No second workbench
+No launchpad Docs item. No `CenterTabKind` `"docs"`.
 
-### S5 — Default path
-New document writes under `{effectivePath}/docs/` as `.md`.
+### S4b — Renderer-only file tabs
+`.atmos/reviews/**` still shows the review metadata card + read-only preview. `.mdx` is not Milkdown Live. Neither docks the composer.
+
+### S4c — GitHub / review code
+`features/github` and `features/code-review` do not import `MarkdownLiveEditor`.
+
+### S5 — New-note path
+New note does not write disk and does not create `docs/`. Save as defaults to `{effectivePath}/Untitled.md`. If that file exists, `Untitled-1.md`, then `Untitled-2.md`. User can change directory and filename before confirm.
 
 ### S6 — Plain markdown
-A README without `atmos` frontmatter opens. Save may add frontmatter; body content is preserved.
+A README without `atmos` frontmatter opens in Live.
 
 ### S7 — Transport
-No `docs_*` in `WsAction`. Persistence uses `fs_*`.
+No `docs_*` / `md_live_*` in `WsAction`.
 
 ### S8 — No table
-No migration adding document or EditorAgent tables.
+No document / EditorAgent / md-live tables.
 
-### S9 — License
-Lockfile contains the chosen MIT markdown-first editor and **no** `@blocknote/*`, `@tiptap-pro`, paid Notion-like template, or Tiptap AI Toolkit.
+### S9 — License + engine
+`@milkdown/kit` ≥ 7.22; no BlockNote / Tiptap Pro / Crepe.
 
 ### S10 — Package isolation
-`@atmos/docs` does not import api-*, apps, ui, shared.
+`@atmos/md-live` does not import api-*, apps, ui, shared.
 
 ### S11 — Blocks round-trip
-Headings, lists, tasks, quote, fenced code, table, divider, image alt/src, reference links survive parse → serialize → parse.
+Headings, lists, tasks, quote, fenced code, table, divider, image, canonical chip hrefs.
 
 ### S12 — Modes
-Toggle Live ↔ Source keeps GFM + Atmos refs. Source is CodeMirror.
+Toggle Live ↔ Source. Only one editor mounted.
+
+### S12b — No silent rewrite
+Open README, do not type, close: disk unchanged.
 
 ### S13 — Dirty guard
-Unsaved edits + switch document → save / discard / cancel. Cancel keeps the buffer.
+Unsaved edits + switch document → save / discard / cancel.
 
 ### S14 — Save
-Cmd-S writes the file; dirty indicator clears.
+Cmd-S writes the file.
+
+### S14b — Stream lock
+Autosave and Cmd-S do not write a half-stream.
 
 ### S15 — Composer reuse
-Host imports `PromptComposer` from welcome; no `EditorPromptComposer.tsx`.
+`MdLiveAgentDock` imports `PromptComposer` from welcome. No Send to Terminal control. No `EditorPromptComposer.tsx`.
 
-### S16 — Default context
-Rendered prompt includes document path and current workspace/branch when known.
+### S15b — Two slashes
+Body `/` = GFM slash. Dock `/` = composer slash.
+
+### S16 — Prompt sections
+Headless `renderAgentPrompt` includes `[Output contract]` and the `atmos-md-live` fence. Copy prompt does not.
 
 ### S17 — Mentions
-User can chip `@file` and at least one of `@github` / `@linear` when those APIs are configured. Unresolved free text is not silently treated as a resolved ref.
+`@file` and at least one of `@github` / `@linear` when configured.
 
-### S18 — URI codec and chip round-trip
-Every `DocRef` kind formats and parses. Open → save of `[GitHub #128](atmos://doc-ref/github/issue/128)` keeps the same link. Live shows a chip, not a raw URL. A normal markdown link (`https://…`) is not hijacked into a chip.
+### S18 — Embed directive codec
+`:md-live` (inline) and `::md-live` (card) round-trip. `kind`, `layout`, and `url` or `path` survive parse → format. A normal markdown link is not rewritten into a directive.
 
-### S19 — Navigation
-Clicking a GitHub reference opens the existing GitHub surface, not an embedded issue UI.
+### S18b — GitHub card is a component
+A `::md-live{kind=github-issue layout=card …}` node renders a card (title, state, **Open**), not a single chip. Button clicks do not move the caret.
 
-### S20 — Copy Prompt
-Copy places a structured prompt on the clipboard (Instructions / Document / References sections as applicable).
+### S19 — Open goes to the native surface
+**Open** on a GitHub embed opens the existing GitHub surface. A plain `https://example.com` link stays a link.
 
-### S21 — Send to current Terminal
-With an active terminal, adapter calls the existing input path. With none, the control is disabled with an explanation.
+### S20 — Copy Prompt is citation
+Clipboard has Context / Selection / References. It does **not** tell the Agent to edit the file or wrap a fence.
 
-### S22 — Headless CLI
-Run with an installed non-interactive agent opens/uses a Terminal in the current context. Docs does not render tool-call logs.
+### S21 — Adapters
+Only `copy` and `headless`. No `terminal-current`.
 
-### S23 — Selection
-Selection + Rewrite adds document selection context to the composer.
+### S22 — Headless stays in the editor
+Run does not steal focus to Terminal. Live streams. Tool-call JSON never appears in Live.
 
-### S24 — Rewrite streams then Accept / Reject
-Selection + Rewrite streams markdown into Live (highlighted). **Accept** commits the new span. **Reject** restores the original paragraph. Save after Accept writes the file.
+### S23 — Live selection
+Format + Ask / Rewrite toolbar. `SelectionPopover` is not shown on Live.
 
-### S27 — Generate at cursor / cancel
-Generate at an empty paragraph streams blocks in place. Esc (or cancel) restores the pre-stream document. Tool-call JSON does not appear in Live.
+### S24 — Rewrite markdown then Accept / Reject
+Mock fenced markdown chunks stream in. Accept commits. Reject restores. Save after Accept writes the file.
 
-### S28 — Diff + Atmos chips
-A streamed insert that includes `[GitHub #128](atmos://doc-ref/github/issue/128)` still round-trips after Accept. `docRef` is listed in diff `customBlockTypes`.
+### S27 — Text output hint / cancel
+`outputHint: "text"` streams as text. Esc restores the pre-stream document.
+
+### S28 — Diff review + embeds
+A streamed insert that includes `::md-live[GitHub #128]{kind=github-issue layout=card …}` still round-trips after Accept. `mdLiveEmbedBlock` is listed in diff `customBlockTypes`. Live does not register a `diffFence` custom type.
+
+### S29 — Fence extractor
+Only inner payload is emitted; no-fence and junk abort without Live mutation.
 
 ### S25 — i18n
-`docs` keys exist in en and zh; zh strings are real translations.
+`mdLive` keys in en and zh; zh is translated.
 
-### S26 — Open in Docs
-Opening a `.md` file tab uses Live preview as the editable default (same as today’s preview default). Source toggle still works.
+### S26 — Wiki unchanged
+Wiki setup / viewer / generate / source-toggle as today.
+
+### S31 — Dedicated patch component
+`MarkdownPatchDiff` exists. `MarkdownRenderer` uses it for valid patches. `MarkdownLiveEditor` does not mount it. GitHub/review keep `MarkdownRenderer`.
 
 ## Exploratory agent-browser checks
 
-- Live preview vs Source at desktop and a narrow width.
-- Live prose matches existing markdown preview (Geist, 14px, dark invert); no Crepe Georgia/paper theme. Slash and Accept/Reject use Atmos buttons, not Milkdown default chrome.
-- Streaming highlight + bottom Accept / Reject bar; English sentence case.
-- Document-body slash and PromptComposer `/` are not the same menu.
-- Empty `docs/` folder empty state.
-- Conflict: dirty editor vs Agent-updated file (Keep mine / Load disk).
-- No obvious console errors when opening Docs with GitHub disconnected (mentions degrade).
+- Live vs Source at desktop and a narrow width. Composer dock on Live-eligible tabs only.
+- Live prose matches existing markdown preview; no Crepe Georgia/paper theme.
+- Copy Prompt paste into a text editor: context only, no “do not modify the file”.
+- Rewrite stays on the markdown tab; Accept / Reject sentence case.
+- Open a review report and a GitHub issue: still read-only, no Live, no dock.
+- A working note with a ` ```diff ` fence is fenced code in Live, not a review widget.
+- GitHub `::md-live` card: Open button works; clicking the card chrome does not start a text selection in the middle of the atom.
+- No obvious console errors when GitHub is disconnected (mentions degrade).
 
 Before running agent-browser, load the Agent Browser skill or `agent-browser skills get core --full`. If unavailable, mark `not_run` here.
 
 ## Regression checklist
 
 - [ ] `.md` file tabs still exist; Source is still CodeMirror.
+- [ ] Hidden CodeMirror is **not** mounted during Live.
 - [ ] Wiki `.atmos/wiki/` flows unchanged.
+- [ ] Review reports still render the metadata card.
+- [ ] GitHub issue/PR bodies still `MarkdownRenderer`.
 - [ ] Canvas / PT Design launchpad items unchanged.
-- [ ] Welcome / Terminal / Automations PromptComposer still submit.
+- [ ] Welcome / Terminal PromptComposer still submit.
 - [ ] `just typecheck` and `@atmos/api-types` action check (no stray new actions).
 
 ## Acceptance criteria
 
-- M1–M19 each have at least one scenario above.
-- Markdown round-trip tests are green.
-- Markdown live editor present; no `@blocknote/*`; no Tiptap Pro.
-- No new Agent tables or `docs_*` WS actions.
-- Copy Prompt works without any Agent binary installed.
+- M1–M20 each have at least one scenario above.
+- Markdown round-trip tests are green, including D22 no-edit preserve.
+- Fence extractor tests are green (S29).
+- Copy prompt tests prove citation-only (S16, S20).
+- Adapters are copy + headless only (S21).
+- `MarkdownPatchDiff` extracted (S31).
+- No `@atmos/docs`; package is `@atmos/md-live`.
+- No `@blocknote/*`; no `@milkdown/crepe`; no Tiptap Pro.
+- No new Agent tables or `docs_*` / `md_live_*` WS actions.
 
 ## Manual verification steps
 
-1. Open a Workspace `.md` file → Live → type a heading and task list → Save → confirm disk file.
-2. Toggle Live / Source → content remains.
-3. `@file` a source file in the composer → Copy Prompt → paste into an external editor; confirm path and document body.
-4. Send to current Terminal with a running shell; confirm text arrives.
-5. Insert a GitHub reference (if configured) → click → native GitHub tab.
-6. Open README.md → Live is editable; toggle Source → raw markdown.
+1. Open a Workspace `.md` → Live → type a heading and task list → Save.
+2. Toggle Live / Source without edits → disk unchanged.
+3. Copy Prompt with a selection + `@file` → paste elsewhere: context only, no edit instructions.
+4. Rewrite a paragraph with an installed headless agent → stay on the markdown tab → Reject restores; run again → Accept → Save.
+5. Insert a GitHub embed → card with Open → native GitHub tab; Source shows `::md-live`.
+6. Open `.atmos/reviews/` markdown and a GitHub issue: read-only, no dock, no Live.
+7. Confirm no “Send to current Terminal” in the markdown dock.
 
 ## Non-coverage
 
-- ACP adapter (N1), Automation handoff (N6), hover preview richness (N3), mobile (N9).
-- Multiplayer, Notion-like, BlockNote, cloud library, Tiptap AI Toolkit.
+- ACP adapter (N1), Automation handoff (N6), hover previews (N3), mobile (N9).
+- Multiplayer, Notion-like, BlockNote, Crepe, Tiptap AI Toolkit.
 - Pixel-perfect Obsidian parity.
-- Full Playwright coverage of every block type (package round-trip is the gate).
+- Scraping interactive Terminal stdout into Live.
+- Agent file-write as a product path.
 
 ## Coverage Status
 

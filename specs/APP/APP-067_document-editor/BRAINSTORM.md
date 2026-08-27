@@ -13,7 +13,7 @@ Atmos already has a **CodeMirror file editor** (`apps/web/src/features/editor`),
 
 What is missing is a **document-centric writing surface**: a place to author requirements, plans, and notes, attach real Atmos objects as context, and hand that packet to an existing Agent — without cloning Git, Diff, Terminal, GitHub, Linear, Canvas, or Agent Runtime into a Notion clone.
 
-The two source PRDs agree on the job; they disagree on how Agent work is implemented. v1 leans on Tiptap AI Toolkit as a document AI engine. v2 treats the Editor as a **context builder** that dispatches to Terminal CLI / ACP / current Terminal / Copy Prompt. v2 matches how Atmos actually runs Agents today (APP-004, APP-017, APP-024, APP-063).
+The two source PRDs agree on the job; they disagree on how Agent work is implemented. v1 leans on Tiptap AI Toolkit as a document AI engine. v2 treats the Editor as a **context builder** that dispatches to Terminal CLI / ACP / current Terminal / Copy Prompt. PRD/TECH **narrow** that: composer + **headless CLI in this editor** + Copy Prompt as citation. No send-to-current-Terminal. No agent file writes.
 
 ## Goals (draft)
 
@@ -47,7 +47,8 @@ Secondary:
 **Reject or narrow from v2**
 
 - v1 P0 that includes ACP + headless CLI + selector + hover previews + automation handoff all at once. That is several products.
-- `packages/editor` as the code name. `apps/web/src/features/editor` is already CodeMirror. Colliding will wreck imports and mental models.
+- `packages/editor` **or `packages/docs`** as the code name. `features/editor` is CodeMirror; `docs` reads as a document library / Wiki. Locked name: **`@atmos/md-live`** + `features/md-live`.
+- Dispatching into the user’s **current Terminal** as a first-class editor action. Editor Agent UX is the docked composer only.
 - Embedding a full Execution Selector and Automation/Skill handoff in the first ship.
 
 **The important missing decision (neither PRD locked it)**
@@ -66,7 +67,7 @@ Paid Notion-like template + Tiptap AI Toolkit. Documents as Tiptap JSON. Toolkit
 
 ### Option B — Obsidian-like live markdown (recommended, settled)
 
-Keep the existing `.md` file tab. Today it already **defaults to a read-only `MarkdownRenderer` preview**; edit means flipping to CodeMirror source. v1 makes that preview **editable** (WYSIWYM on markdown). File on disk stays UTF-8 `.md`. Light `/` inserts markdown constructs. Selection/hover toolbar turns paragraphs into headings/lists and sends Ask/Rewrite into the existing composer / selection-popover path. Atmos objects are **markdown links or directives** rendered as chips — not embedded apps.
+Keep the existing `.md` file tab. Today it **opens in CodeMirror Source**; preview is an opt-in read-only `MarkdownRenderer` (auto-on only for `.atmos/reviews/**`). v1 **defaults Live-eligible `.md` to an editable WYSIWYM preview**. File on disk stays UTF-8 `.md`. Light `/` inserts markdown constructs. Selection toolbar turns paragraphs into headings/lists and sends Ask/Rewrite into the docked composer / streaming path. Atmos objects are **`md-live` directives** rendered as inline embeds or block cards (React Node Views) — not hijacked `<a>` chips, and not embedded GitHub/Diff apps.
 
 **Pros**: Matches how Atmos already opens markdown; agents and git see the same file; no Notion-like product; reuses `MarkdownRenderer`, CodeMirror source toggle, Wiki `SelectionPopover`.
 **Cons**: Live preview must map caret/selection back to markdown offsets; some GFM (complex tables) stays easier in source.
@@ -93,22 +94,23 @@ Fold this into APP-006 Wiki.
 
 ## Key forks in the road
 
-- **Fork 1 — Persistence**: worktree markdown vs `~/.atmos/data/docs` library vs Tiptap JSON in SQLite. **Decide in PRD.** Recommendation: worktree markdown; no new document table.
-- **Fork 2 — Writing engine**: Notion-like / BlockNote vs **editable markdown preview** vs source-only. **Decide in PRD.** Recommendation: editable live preview; keep CodeMirror as source; no BlockNote.
-- **Fork 3 — Agent runtime**: BlockNote XL AI / Tiptap AI Toolkit vs existing Atmos adapters. **Decide in PRD.** Recommendation: adapters; all vendor document-AI packages out of v1.
-- **Fork 4 — Shell entry**: launchpad overlay (Canvas-style) vs left-sidebar + center tab (PT Design) vs Wiki-style pinned tab only. **Decide in PRD.** Recommendation: PT Design pattern — launchpad + center-stage tab; not a Canvas overlay.
-- **Fork 5 — Code name**: `editor` vs `docs`. **Decide in PRD.** Recommendation: user-facing **Docs**; code `features/docs` + `packages/docs`; never steal `features/editor`.
-- **Fork 6 — Two modes**: Notion-like vs Simple. **Decide in PRD.** Recommendation: **drop**. Replace with **Live preview** vs **Source** (already in the file tab).
-- **Fork 7 — New WS APIs**: document CRUD messages vs reuse `fs_read_file` / `fs_write_file`. **Decide in TECH.** Recommendation: reuse fs; no Editor session tables.
-- **Fork 8 — Wiki / CodeMirror coexistence**: steal `.md` tabs vs separate Docs surface. **Decide in PRD.** Recommendation: Docs is its own surface; CodeMirror keeps file tabs; “Open in Docs” is available for markdown files.
+- **Fork 1 — Persistence**: worktree markdown vs `~/.atmos/data/docs` library vs Tiptap JSON in SQLite. **Decided in PRD:** worktree markdown; New note is untitled then Save as at `{effectivePath}/Untitled.md`; no `docs/` default; no document table.
+- **Fork 2 — Writing engine**: Notion-like / BlockNote vs **editable markdown preview** vs source-only. **Decided in PRD:** editable Live preview; CodeMirror as Source; no BlockNote.
+- **Fork 3 — Agent runtime**: BlockNote XL AI / Tiptap AI Toolkit vs existing Atmos adapters. **Decided in PRD:** composer + headless CLI in this editor; Copy Prompt is citation; no Terminal send; no agent file writes; stream `text` \| `markdown` + Accept/Reject.
+- **Fork 4 — Shell entry**: launchpad overlay (Canvas-style) vs left-sidebar + center tab (PT Design) vs Wiki-style pinned tab only. **Decided in PRD:** existing `.md` file tab; no launchpad; no `"docs"` center kind. Default view becomes Live.
+- **Fork 5 — Code name**: `editor` vs `docs`. **Decided in PRD/TECH:** `@atmos/md-live` + `features/md-live`. User-facing **Live** / **Source**. Never steal `features/editor`. Never brand Docs.
+- **Fork 6 — Two modes**: Notion-like vs Simple. **Decided in PRD:** dropped. Live vs Source on the file tab (Live becomes the default for eligible `.md`).
+- **Fork 7 — New WS APIs**: document CRUD messages vs reuse `fs_read_file` / `fs_write_file`. **Decided in TECH:** reuse `fs_*`; PTY tap only; no Editor session tables.
+- **Fork 8 — Wiki / CodeMirror coexistence**: steal `.md` tabs vs separate Docs surface. **Decided in PRD:** Live only on Live-eligible `.md` tabs; review / GitHub / diffs stay dedicated read-only components; Wiki unchanged.
 
 ## Open questions
 
 - [x] Zone / number — APP-067 (next after APP-066).
-- [ ] Default new-file directory inside a worktree — recommend `docs/` at the effective Project / Workspace root. Confirm in PRD.
-- [ ] ACP as v1 Must Have or Nice — recommend Nice (composer + copy + current terminal + headless CLI are enough to prove the model).
-- [ ] Whether Docs needs an MCP/CLI in v1 (PT Design did). Recommend **no** — markdown on disk is already the Agent API.
-- [ ] Mobile Docs UI — both source PRDs defer it. Keep out of v1.
+- [x] Default new-file — untitled buffer; Save as `{effectivePath}/Untitled.md` (Canvas `Untitled-N`); no `docs/` folder (PRD M3, TECH D4/D33).
+- [x] ACP as v1 Must Have or Nice — Nice (N1). Streaming v1 = headless PTY + `atmos-md-live` fence (TECH D24–D26).
+- [x] md-live MCP/CLI in v1 — **no**. Canonical hrefs + worktree markdown are the Agent API.
+- [x] Mobile Live markdown — out of v1 (N9).
+- [x] How CLI output becomes Live markdown — fence extractor; no Terminal send; Copy is citation-only.
 
 ## References
 
@@ -127,5 +129,5 @@ Fold this into APP-006 Wiki.
 
 ## Ready to promote
 
-- Promote to PRD: full Must Have set (no shrink); shared `PromptComposer` + existing Agent Select; Wiki untouched; streaming + Accept/Reject.
-- Promote to TECH: Milkdown live editor; `plugin/streaming` + `plugin/diff`; provider = Atmos adapters; chips = `$node` + React `$view`; no `docs_*` WS.
+- Promote to PRD: Live markdown + Agent composer (headless only) + Copy as citation; M20 read-only surfaces; Wiki untouched.
+- Promote to TECH: `@atmos/md-live`; Milkdown kit ≥ 7.22; default Live; one mounted editor; `atmos-md-live` fence; `text` \| `markdown`; `MarkdownPatchDiff`; no Terminal send; no `docs_*` WS.

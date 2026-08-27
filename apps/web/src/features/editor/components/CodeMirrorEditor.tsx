@@ -19,13 +19,19 @@ import {
   toastManager,
   getFileIconProps,
 } from '@workspace/ui';
-import { Loader2 as LucideLoader2, Eye, FileText, Settings2, ChevronRight, Folder, File, Search } from 'lucide-react';
+import { Loader2 as LucideLoader2, Eye, FileText, Settings2, ChevronRight, Folder, File, Search, Plus } from 'lucide-react';
 import { useEditorStore, OpenFile } from '@/features/editor/store/use-editor-store';
 import { invalidateGitQueries } from '@/features/git/hooks/use-git-changed-files-query';
 import { useFileTreeStore } from '@/features/files/store/use-file-tree-store';
 import { useFileTreeQuery, useListDirQuery } from '@/features/files/hooks/use-file-tree-query';
 import { MarkdownRenderer } from '@/shared/components/markdown/MarkdownRenderer';
 import { MarkdownToc } from '@/shared/components/markdown/MarkdownToc';
+import { MarkdownLiveEditor } from '@/features/md-live/components/MarkdownLiveEditor';
+import { MdLiveAgentDock } from '@/features/md-live/components/MdLiveAgentDock';
+import { MdLiveSaveAsDialog } from '@/features/md-live/components/MdLiveSaveAsDialog';
+import { isLiveEligibleMarkdownPath, isUntitledMarkdownPath } from '@/features/md-live/lib/md-live-paths';
+import { isMdLiveStreamLocked, useMdLiveStreamLocked } from '@/features/md-live/lib/md-live-stream-lock';
+import { fsApi } from '@/api/ws-api';
 import { BaseCodeMirrorEditor } from './BaseCodeMirrorEditor';
 import { setCodeMirrorSearchPanelMessages } from './codemirror-search-panel';
 import { useSelectionPopover } from '@/features/selection/hooks/use-selection-popover';
@@ -74,12 +80,15 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
   surfaceActive = true,
 }) => {
   const t = useTranslations("Editor.components");
+  const mdLiveT = useTranslations("mdLive");
   const pathname = usePathname();
   const { effectiveContextId } = useContextParams();
   const editorContextId = contextId ?? effectiveContextId;
   const workspaceActivePath = useEditorStore((s) => s.getActiveFilePath(editorContextId || undefined));
   const updateFileContent = useEditorStore(s => s.updateFileContent);
   const saveFile = useEditorStore(s => s.saveFile);
+  const replaceOpenFilePath = useEditorStore((s) => s.replaceOpenFilePath);
+  const openUntitledMarkdown = useEditorStore((s) => s.openUntitledMarkdown);
   const reloadFileContent = useEditorStore((s) => s.reloadFileContent);
   const clearNavigationTarget = useEditorStore(s => s.clearNavigationTarget);
   const navigationTarget = useEditorStore((state) =>
@@ -127,6 +136,8 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
   const editorRef = useRef<EditorView | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [previewFilePath, setPreviewFilePath] = useState<string | null>(null);
+  const [markdownView, setMarkdownView] = useState<'live' | 'source'>('live');
+  const [saveAsOpen, setSaveAsOpen] = useState(false);
   const [debouncedContent, setDebouncedContent] = useState(file.content);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [editorSettingsSettled, setEditorSettingsSettled] = useState(editorSettingsLoaded);
@@ -347,7 +358,13 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
   }, [file.isLoading]);
 
   const isMarkdown = file.language === 'markdown' || file.name.endsWith('.md') || file.name.endsWith('.mdx');
-  const isPreview = isMarkdown && previewFilePath === file.path;
+  const isLiveEligible = isLiveEligibleMarkdownPath(file.path, {
+    fileName: file.name,
+    language: file.language,
+  });
+  const isLive = isLiveEligible && markdownView === 'live';
+  const streamLocked = useMdLiveStreamLocked(file.path);
+  const isPreview = !isLiveEligible && isMarkdown && previewFilePath === file.path;
   const isReviewReport = isMarkdown && file.path.includes('/.atmos/reviews/');
 
   // When previewing an Atmos review report, pull the `atmos_review:` frontmatter out so we
@@ -367,6 +384,10 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
       setPreviewFilePath(file.path);
       setDebouncedContent(file.content);
     }
+    setMarkdownView(isLiveEligibleMarkdownPath(file.path, {
+      fileName: file.name,
+      language: file.language,
+    }) ? 'live' : 'source');
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [file.path]);
 
@@ -442,7 +463,7 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
   const selectionPopover = useSelectionPopover({
     getSelectionInfo,
     containerRef,
-    enabled: surfaceActive && !file.isLoading,
+    enabled: surfaceActive && !file.isLoading && !isLive,
   });
 
   useEffect(() => {
@@ -466,6 +487,8 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
 
   useEffect(() => {
     if (!autoSave || file.isLoading || !file.isDirty) return;
+    if (isUntitledMarkdownPath(file.path)) return;
+    if (isMdLiveStreamLocked(file.path)) return;
 
     const timer = setTimeout(() => {
       void saveFile(file.path, editorContextId || undefined)
@@ -495,13 +518,22 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
 
   // Toggle preview
   const togglePreview = useCallback(() => {
+    if (isLiveEligible) {
+      setMarkdownView((prev) => (prev === 'live' ? 'source' : 'live'));
+      return;
+    }
     if (!isMarkdown) return;
     setPreviewFilePath((prev) => (prev === file.path ? null : file.path));
     setDebouncedContent(file.content);
-  }, [file.content, file.path, isMarkdown]);
+  }, [file.content, file.path, isLiveEligible, isMarkdown]);
 
   // Handle save
   const handleSave = useCallback(async () => {
+    if (isUntitledMarkdownPath(file.path)) {
+      setSaveAsOpen(true);
+      return;
+    }
+    if (isMdLiveStreamLocked(file.path)) return;
     try {
       await saveFile(file.path, editorContextId || undefined);
       await refreshEditorGitGutter();
@@ -519,6 +551,12 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
     }
   }, [editorContextId, file.path, file.name, refreshEditorGitGutter, saveFile, t]);
 
+  const handleSaveAsConfirm = useCallback(async (fullPath: string) => {
+    await fsApi.writeFile(fullPath, file.content);
+    replaceOpenFilePath(file.path, fullPath, editorContextId || undefined);
+    await refreshEditorGitGutter();
+  }, [editorContextId, file.content, file.path, refreshEditorGitGutter, replaceOpenFilePath]);
+
   const handleEditorCreate = useCallback((editor: EditorView) => {
     editorRef.current = editor;
     editorViewRef.current = editor;
@@ -535,18 +573,44 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
     'flex size-8 items-center justify-center rounded-md border border-border bg-muted/80 text-muted-foreground shadow-sm backdrop-blur-sm hover:bg-muted hover:text-foreground cursor-pointer select-none';
 
   /** When the breadcrumb strip is hidden, surface preview + settings in the top-right overlay. */
-  const showFloatingMarkdownEditorChrome = !breadcrumbs || isPreview;
+  const showFloatingMarkdownEditorChrome = !breadcrumbs || isPreview || isLive;
+
+  const renderNewNoteButton = (buttonClassName: string) =>
+    isLiveEligible ? (
+      <button
+        type="button"
+        onClick={() => {
+          openUntitledMarkdown(editorContextId || undefined);
+        }}
+        className={buttonClassName}
+        title={mdLiveT('newNote')}
+        aria-label={mdLiveT('newNote')}
+      >
+        <Plus className="size-3.5" />
+      </button>
+    ) : null;
 
   const renderMarkdownPreviewButton = (buttonClassName: string) =>
     isMarkdown ? (
       <button
         type="button"
-        onClick={togglePreview}
+        onClick={() => {
+          if (streamLocked) return;
+          togglePreview();
+        }}
         className={buttonClassName}
-        title={isPreview ? t('codeMirror.showEditor') : t('codeMirror.showPreview')}
-        aria-label={isPreview ? t('codeMirror.showEditor') : t('codeMirror.showPreview')}
+        title={
+          isLiveEligible
+            ? (isLive ? mdLiveT('source') : mdLiveT('live'))
+            : (isPreview ? t('codeMirror.showEditor') : t('codeMirror.showPreview'))
+        }
+        aria-label={
+          isLiveEligible
+            ? (isLive ? mdLiveT('source') : mdLiveT('live'))
+            : (isPreview ? t('codeMirror.showEditor') : t('codeMirror.showPreview'))
+        }
       >
-        {isPreview ? <FileText className="size-3.5" /> : <Eye className="size-3.5" />}
+        {isLive || isPreview ? <FileText className="size-3.5" /> : <Eye className="size-3.5" />}
       </button>
     ) : null;
 
@@ -738,7 +802,7 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
         <>
           {/* Selection Popover for AI */}
           <SelectionPopover
-            isVisible={selectionPopover.isVisible}
+            isVisible={selectionPopover.isVisible && !isLive}
             position={selectionPopover.position}
             selectionInfo={selectionPopover.selectionInfo}
             isExpanded={selectionPopover.isExpanded}
@@ -854,6 +918,7 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
                     <Search className="size-3.5" />
                   </button>
 
+                  {renderNewNoteButton(toolbarIconBtnClass)}
                   {renderMarkdownPreviewButton(toolbarIconBtnClass)}
                   {renderEditorSettingsMenu(toolbarIconBtnClass)}
                 </div>
@@ -866,8 +931,19 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
               </div>
             ) : (
               <>
-            <div className={cn("flex-1 min-h-0 relative", isPreview && "hidden")}>
-              {editorSettingsSettled ? (
+            {isLive && surfaceActive ? (
+              <div id="editor-preview-root" className="flex-1 min-h-0 overflow-hidden">
+                <MarkdownLiveEditor
+                  key={file.path}
+                  filePath={file.path}
+                  value={file.content}
+                  onChange={handleEditorChange}
+                  onSave={() => void handleSave()}
+                />
+              </div>
+            ) : null}
+            <div className={cn("flex-1 min-h-0 relative", (isPreview || isLive) && "hidden")}>
+              {editorSettingsSettled && !isLive ? (
                 <BaseCodeMirrorEditor
                   language={file.language}
                   value={file.content}
@@ -915,9 +991,25 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
             {isPreview && isMarkdown && (
               <MarkdownToc markdown={previewBody} scrollContainerId="editor-preview-root" />
             )}
+            {isLive && (
+              <MarkdownToc markdown={file.content} scrollContainerId="editor-preview-root" />
+            )}
+            {isLiveEligible && surfaceActive ? (
+              <MdLiveAgentDock
+                filePath={file.path}
+                markdown={file.content}
+                ensureLive={() => setMarkdownView("live")}
+              />
+            ) : null}
               </>
             )}
           </div>
+    <MdLiveSaveAsDialog
+      open={saveAsOpen}
+      defaultDirectory={currentProjectPath || '/'}
+      onOpenChange={setSaveAsOpen}
+      onConfirm={handleSaveAsConfirm}
+    />
     </div>
   );
 };

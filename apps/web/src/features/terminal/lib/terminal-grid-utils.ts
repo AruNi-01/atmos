@@ -60,7 +60,13 @@ export interface TerminalGridHandle {
     agent?: TerminalPaneAgent;
     agentId?: string;
     tuiFollowUpPrompt?: string;
-  }) => Promise<void>;
+    /** Default true. Live/headless runs pass false so we never steal the user's shell. */
+    reuseIdlePane?: boolean;
+    /** Default true. Live/headless runs pass false so the editor keeps focus. */
+    focus?: boolean;
+    /** Connect the new pane even if the grid is keep-mounted and off-screen. */
+    connectWhileHidden?: boolean;
+  }) => Promise<{ paneId: string; sessionId?: string } | null>;
   /** Create or focus terminal by label/window name (e.g. "Generate Project Wiki") and run command. Reuses existing pane if found. */
   createOrFocusAndRunTerminal: (options: {
     label: string;

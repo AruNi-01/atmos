@@ -11,9 +11,8 @@ import remarkBreaks from 'remark-breaks';
 import { useTheme } from 'next-themes';
 import { cn } from '@workspace/ui';
 import { Images, ArrowRightLeft, FileDiff, Code } from 'lucide-react';
-import { parsePatchFiles } from '@pierre/diffs';
-import { PatchDiff } from '@pierre/diffs/react';
 import { MermaidViewerModal } from './MermaidViewerModal';
+import { isMarkdownPatchCode, MarkdownPatchDiff } from './MarkdownPatchDiff';
 import {
   CodeBlock,
   CodeBlockHeader,
@@ -311,36 +310,6 @@ function MermaidBlock({ code, isDark }: { code: string; isDark: boolean }) {
   );
 }
 
-function isValidSingleFilePatch(patch: string): boolean {
-  try {
-    const parsed = parsePatchFiles(patch);
-    return parsed.length === 1 && parsed[0].files.length === 1;
-  } catch {
-    return false;
-  }
-}
-
-function SafePatchDiff({ code, isDark }: { code: string; isDark: boolean }) {
-  const isValid = React.useMemo(() => isValidSingleFilePatch(code), [code]);
-
-  if (!isValid) {
-    return <PlainTextWithLineNumbers code={code} />;
-  }
-
-  return (
-    <PatchDiff
-      patch={code}
-      options={{
-        theme: isDark ? 'pierre-dark' : 'pierre-light',
-        diffStyle: 'unified',
-        overflow: 'wrap',
-        disableLineNumbers: false,
-        disableFileHeader: true,
-      }}
-    />
-  );
-}
-
 export function MarkdownCodeBlock({ className, children, ...props }: React.ComponentPropsWithoutRef<'code'>) {
   const t = useTranslations("shared.markdownRenderer");
   const match = /language-(\w+)/.exec(className || '');
@@ -370,9 +339,6 @@ export function MarkdownCodeBlock({ className, children, ...props }: React.Compo
 
   const normalizedLang = language ? normalizeLang(language) : '';
   const isDiffLang = normalizedLang === 'diff';
-  const isValidPatch = /^@@\s[+-]/m.test(codeText) && (
-    codeText.includes('--- ') || codeText.includes('diff --git ')
-  );
 
   const isInline = !className && !String(children).includes('\n');
 
@@ -388,23 +354,8 @@ export function MarkdownCodeBlock({ className, children, ...props }: React.Compo
     return <MermaidBlock code={codeText} isDark={!!isDark} />;
   }
 
-  if (isValidPatch) {
-    return (
-      <CodeBlock className="my-4">
-        <CodeBlockHeader>
-          <CodeBlockGroup>
-            <FileDiff className="size-4 shrink-0" />
-            <span className="text-xs uppercase tracking-wider">{t("common.diff")}</span>
-          </CodeBlockGroup>
-          <CodeBlockGroup>
-            <CopyButton content={codeText} />
-          </CodeBlockGroup>
-        </CodeBlockHeader>
-        <CodeBlockContent ref={contentRef} expanded={expanded} className="!px-0">
-          <SafePatchDiff code={codeText} isDark={!!isDark} />
-        </CodeBlockContent>
-      </CodeBlock>
-    );
+  if (isMarkdownPatchCode(codeText)) {
+    return <MarkdownPatchDiff code={codeText} />;
   }
 
   const hasLang = !!language;

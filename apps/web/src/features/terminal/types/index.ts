@@ -76,6 +76,11 @@ export interface TerminalProps {
    * Default true for standalone / canvas embeds.
    */
   surfaceActive?: boolean;
+  /**
+   * Connect the PTY even while `surfaceActive` is false (headless Live Run).
+   * Uses a fixed 80x24 grid — never FitAddon on an opacity:0 pane.
+   */
+  connectWhileHidden?: boolean;
   /** Called when the terminal has a non-empty text selection that can become AI context. */
   onSelectionSnapshotChange?: (snapshot: TerminalSelectionSnapshot | null) => void;
   /** Adds the current terminal selection to terminal AI Input context. */

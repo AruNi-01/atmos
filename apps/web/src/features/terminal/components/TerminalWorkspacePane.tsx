@@ -93,6 +93,8 @@ type TerminalWorkspacePaneProps = {
   spawnTerminalWithRun: (request: SpawnTerminalRequest) => void;
   /** False when host frame/tab is off-screen (warm keep-alive). */
   surfaceActive?: boolean;
+  /** Headless Live Run: connect the PTY even while this grid is off-screen. */
+  connectWhileHidden?: boolean;
 };
 
 /** Default-scope terminal pane chrome + xterm surface. */
@@ -131,6 +133,7 @@ export function TerminalWorkspacePane(props: TerminalWorkspacePaneProps) {
     markPaneAttached,
     spawnTerminalWithRun,
     surfaceActive = true,
+    connectWhileHidden = false,
   } = props;
 
   const { toolbarHovered, onToolbarMouseEnter, onToolbarMouseLeave } = useToolbarHoverExpand(400);
@@ -543,6 +546,7 @@ export function TerminalWorkspacePane(props: TerminalWorkspacePaneProps) {
           cwd={workspaceInfo?.localPath}
           projectRootPath={activeProject?.mainFilePath}
           surfaceActive={surfaceActive}
+          connectWhileHidden={connectWhileHidden}
           onTitleChange={onTitleChange}
           onOscTitleChange={onOscTitleChange}
           onAddSelectionAsContext={

@@ -18,6 +18,7 @@
 | **config** | `@atmos/config` | tsconfig bases | Runtime product code | Tooling |
 | **relay** | `@atmos/relay` (private) | Cloudflare Worker/DO | App business logic / client SDK | Relay edge |
 | **pt-design** | `@atmos/pt-design` | Prototype wireframe canvas, Design IR, MCP/CLI (APP-062) | api-*/shared/ui, Atmos Rust CLI | Isolated product |
+| **md-live** | `@atmos/md-live` | Live markdown embed directives, document-edit fence, AgentRequest prompts (APP-067) | api-*/shared/ui, apps, React | Isolated codec |
 
 Apps (`apps/web`, `apps/mobile`, `apps/desktop-electron`, …) own UI, feature state, platform bootstrap, and **desktop IPC**.
 
@@ -40,7 +41,8 @@ Apps (`apps/web`, `apps/mobile`, `apps/desktop-electron`, …) own UI, feature s
 9. **Electron IPC / preload bridge?** → `apps/desktop-electron` only  
 10. **TanStack Query keys / server-state?** → app (APP-035)  
 11. **UI prototype wireframe / Design IR / PT Design MCP or CLI?** → `@atmos/pt-design` (APP-062). Not Canvas (APP-014), not `@workspace/ui`, not `apps/cli`.
-12. **Else** → owning app  
+12. **Live markdown embed directives / `atmos-md-live` fence / AgentRequest?** → `@atmos/md-live` (APP-067). Host UI is `apps/web/src/features/md-live`. Not Wiki, not `@workspace/ui`.
+13. **Else** → owning app  
 
 ---
 
