@@ -10,7 +10,7 @@ import {
 import { listener, listenerCtx } from "@milkdown/kit/plugin/listener";
 import { commonmark } from "@milkdown/kit/preset/commonmark";
 import { gfm } from "@milkdown/kit/preset/gfm";
-import { createMdLiveOnChangeGate } from "../md-live-onchange-gate";
+import { createMdLiveOnChangeGate } from "@atmos/md-live/ui";
 
 const SOURCE = `# Hi
 

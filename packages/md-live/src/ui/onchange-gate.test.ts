@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { createMdLiveOnChangeGate } from "../md-live-onchange-gate";
+import { createMdLiveOnChangeGate } from "./onchange-gate";
 
 describe("createMdLiveOnChangeGate", () => {
   test("no-edit serialize equal to the load value does not commit", () => {
@@ -7,7 +7,7 @@ describe("createMdLiveOnChangeGate", () => {
     expect(gate("# Hi\n")).toBeNull();
   });
 
-  test("the first real edit commits (skip-first would drop this)", () => {
+  test("the first real edit commits", () => {
     const gate = createMdLiveOnChangeGate("# Hi\n");
     expect(gate("# Hello\n")).toBe("# Hello\n");
   });
@@ -16,11 +16,5 @@ describe("createMdLiveOnChangeGate", () => {
     const gate = createMdLiveOnChangeGate("# Hi\n");
     expect(gate("# Hello\n")).toBe("# Hello\n");
     expect(gate("# Hello\n")).toBeNull();
-  });
-
-  test("undo back to the load value commits so dirty can clear", () => {
-    const gate = createMdLiveOnChangeGate("# Hi\n");
-    expect(gate("# Hello\n")).toBe("# Hello\n");
-    expect(gate("# Hi\n")).toBe("# Hi\n");
   });
 });

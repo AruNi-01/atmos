@@ -3,16 +3,32 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "description": "Live markdown embed directives, document-edit fence, and AgentRequest prompts (APP-067).",
+  "description": "Live markdown codec, Milkdown editor chrome, slash/toolbar (APP-067).",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./ui": "./src/ui.ts"
   },
   "scripts": {
     "typecheck": "bun ../../scripts/run-tsc7.ts --noEmit",
     "test": "bun test src"
   },
+  "peerDependencies": {
+    "react": ">=18",
+    "react-dom": ">=18"
+  },
+  "dependencies": {
+    "@emoji-mart/data": "1.2.1",
+    "@milkdown/kit": "^7.22.0",
+    "emoji-mart": "5.6.0",
+    "github-slugger": "^2.0.0",
+    "lucide-react": "^0.563.0"
+  },
   "devDependencies": {
     "@types/node": "^20",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
     "typescript": "6.0.3"
   }
 }

@@ -16,17 +16,18 @@ No BlockNote, no Crepe, no new `WsAction`, no document DB, no Wiki changes, no L
 
 ```text
 apps/web  features/editor/CodeMirrorEditor.tsx
-            Live pane  →  MarkdownLiveEditor   (Milkdown kit, one mounted view)
+            Live pane  →  MarkdownLiveEditor   (host wrap of @atmos/md-live/ui)
             Source pane → BaseCodeMirrorEditor (unmounted while Live)
             MdLiveAgentDock → PromptComposer + existing Agent Select
-apps/web  features/md-live              # slash, embeds, dock, adapters, fence host
+apps/web  features/md-live              # dock, embeds, adapters, fence host
+packages/md-live  @atmos/md-live/ui     # Milkdown editor, slash, selection toolbar
 apps/web  features/terminal             # output bus tap (no user Terminal UX)
 apps/web  features/selection            # Source-mode SelectionPopover only
 apps/web  shared/components/markdown    # MarkdownRenderer + extracted MarkdownPatchDiff
 apps/web  features/github | code-review | diff   # stay read-only consumers
           │
-packages/md-live  @atmos/md-live        # embed directive codec, fence extractor, AgentRequest
-          │                             # MUST NOT import api-*, PromptComposer, apps/*, ui
+packages/md-live  @atmos/md-live        # codec + ./ui chrome
+          │                             # MUST NOT import api-*, PromptComposer, apps/*, @workspace/ui
           ▼
 existing fs_* + headless PTY (APP-024) + GitHub/Linear list APIs
 ```
@@ -87,7 +88,7 @@ Banned: `@milkdown/crepe`, `@milkdown/plugin-block`, `@blocknote/*`, `@tiptap-pr
 | ID | Decision |
 |----|----------|
 | D1 | Home = existing `.md` file tab. No `"docs"` center kind and no launchpad in v1. |
-| D2 | Package **`@atmos/md-live`**. Host **`features/md-live`**. Codec + fence + `AgentRequest` in the package; React plugins in the host. |
+| D2 | Package **`@atmos/md-live`**. Codec + fence + `AgentRequest` on `.`. Generic Live chrome (Milkdown editor, `/` menu, selection toolbar, format commands) on **`@atmos/md-live/ui`**. Host **`features/md-live`** wires Agent dock, Save as, Atmos embeds, PTY. <!-- updated 2026-08-27: generic slash/toolbar/editor moved into the package --> |
 | D3 | Persist the markdown string. Never persist ProseMirror/Milkdown JSON. |
 | D4 | **New note** opens an untitled Live tab. No disk write, no `docs/` directory. Proposed save location = `{effectivePath}/` (Project / Workspace root). Proposed name = next free `Untitled.md` / `Untitled-1.md` / `Untitled-2.md` in the **currently selected** save directory (same stem rule as Canvas). |
 | D5 | Two views only: Live vs Source. |
@@ -103,7 +104,7 @@ Banned: `@milkdown/crepe`, `@milkdown/plugin-block`, `@blocknote/*`, `@tiptap-pr
 | D15 | Frontmatter: Source-editable. Live may hide YAML behind a one-line title. |
 | D16 | **Embeds, not hijacked links.** Milkdown custom **atoms** + React `$view` via a host **registry**. Two schema nodes: `mdLiveEmbedInline` (`group: inline`) and `mdLiveEmbedBlock` (`group: block`). Same `kind` registry. Disk = Generic Directive (`:md-live` inline / `::md-live` card). Ordinary `https://` stays a link. Cards may fetch title/status and render **Open** (and later actions). Do not iframe native surfaces. Unknown kind → generic fallback card. |
 | D17 | In-document AI = kit `plugin/streaming` + `plugin/diff`. Provider = fence extractor. `outputHint: "text"` inserts as plain text; `outputHint: "markdown"` parses GFM. `customBlockTypes`: `mdLiveEmbedBlock`, `table`, `image`, `code_block`. **Not** mermaid / patch widgets (D35). Esc = `abortStreamingCmd({ keep: false })`. |
-| D18 | Atmos UI, not Crepe/Nord. Live prose = existing `MarkdownRenderer` Tailwind. Chrome = `@workspace/ui`. Scope leftovers to `.md-live`. |
+| D18 | Atmos UI, not Crepe/Nord. Live prose = existing `MarkdownRenderer` Tailwind. Generic slash/toolbar/editor chrome = `@atmos/md-live/ui`. Host dock chrome = `@workspace/ui`. Scope leftovers to `.md-live`. |
 | D19 | **Default Live** for Live-eligible files. Persist per-path `live` \| `source`. |
 | D20 | **Mount exactly one editor.** Inactive `surfaceActive=false` tabs unmount Milkdown + dock. |
 | D21 | **Live-eligible** = untitled `untitled:{uuid}.md` tabs, or worktree `.md` the user is **authoring**, and **not** `.mdx`, **not** `.atmos/reviews/**`. Live is **never** mounted for GitHub issue/PR bodies, review-report preview, or patch/diff hunks (M20). Those stay read-only components. Renderer-only file tabs do **not** dock the composer. |
@@ -115,7 +116,7 @@ Banned: `@milkdown/crepe`, `@milkdown/plugin-block`, `@blocknote/*`, `@tiptap-pr
 | D27 | `mdLiveStreamLock` while streaming or diff-review pending. Disable autosave, Cmd-S, Live↔Source, file switch except Discard. Accept commits to `file.content`; then existing save. Reject restores the pre-stream snapshot. |
 | D28 | Embed disk form is a **directive**, not `[](atmos://...)`. Public objects still carry `url="https://..."` (or `path="..."`) so Agents can read them. See Embedded components. |
 | D29 | Slash = **focus**. Milkdown slash only when Live body is focused. Composer slash / Cmd-Enter only when the md-live composer is focused. Mosaic with Terminal may show two composers; each submits only itself. |
-| D30 | No string-offset `applyMarkdownTransform`. Format actions are Milkdown commands in the host. |
+| D30 | No string-offset `applyMarkdownTransform`. Format actions are Milkdown commands in `@atmos/md-live/ui`. |
 | D31 | Prompt files for `file_flag` go to `~/.atmos/cache/md-live-prompts/{uuid}.md`. Delete on run end. Never write a prompt file into the worktree. |
 | D32 | No `fs_watch` in v1. Re-read on run end + focus only as an unexpected-change guard (D11). |
 | D33 | Untitled tab id: `OpenFile.path = "untitled:{uuid}.md"` (not a real FS path). Skip `fs_read_file` / autosave until Save as. Cmd-S or dock **Save** on untitled → **Save as** dialog (directory + filename, defaults D4). Confirm → `fs_write_file` at the chosen path → replace the untitled tab with a normal file tab (`openFile` that path, drop the synthetic id). Close untitled while dirty → save / discard / cancel; save opens Save as. Disk stem is always English `Untitled` (Canvas); tab label may use `mdLive.untitled`. |
@@ -410,7 +411,7 @@ Diff chrome: Milkdown behavior, Atmos tokens, sentence-case **Accept** / **Rejec
 
 | Area | Path |
 |------|------|
-| Live editor | `features/md-live/components/MarkdownLiveEditor.tsx` |
+| Live editor | `@atmos/md-live/ui` `MdLiveEditor`; host wrap `features/md-live/components/MarkdownLiveEditor.tsx` |
 | Dock | `features/md-live/components/MdLiveAgentDock.tsx` — `PromptComposer` + existing Agent Select + **Copy prompt** / **Run**. No Terminal send. Shell pattern: `TerminalAgentInputShell` |
 | Slash | Milkdown React slash; GFM + insert embed directive |
 | Toolbar | Ask → `doc-selection` chip in dock. Rewrite / Generate / Continue → headless stream (`text` or `markdown` from the action) |

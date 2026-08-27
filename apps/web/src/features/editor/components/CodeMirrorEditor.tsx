@@ -101,7 +101,6 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
     lineWrap,
     bracketMatching,
     minimap,
-    breadcrumbs,
     lineHighlight,
     gitIntegration,
     loaded: editorSettingsLoaded,
@@ -110,7 +109,6 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
     setLineWrap,
     setBracketMatching,
     setMinimap,
-    setBreadcrumbs,
     setLineHighlight,
     setGitIntegration,
   } = useEditorSettingsStore(
@@ -119,7 +117,6 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
       lineWrap: s.lineWrap,
       bracketMatching: s.bracketMatching,
       minimap: s.minimap,
-      breadcrumbs: s.breadcrumbs,
       lineHighlight: s.lineHighlight,
       gitIntegration: s.gitIntegration,
       loaded: s.loaded,
@@ -128,13 +125,13 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
       setLineWrap: s.setLineWrap,
       setBracketMatching: s.setBracketMatching,
       setMinimap: s.setMinimap,
-      setBreadcrumbs: s.setBreadcrumbs,
       setLineHighlight: s.setLineHighlight,
       setGitIntegration: s.setGitIntegration,
     })),
   );
   const editorRef = useRef<EditorView | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const liveChromeRef = useRef<HTMLDivElement | null>(null);
   const [previewFilePath, setPreviewFilePath] = useState<string | null>(null);
   const [markdownView, setMarkdownView] = useState<'live' | 'source'>('live');
   const [saveAsOpen, setSaveAsOpen] = useState(false);
@@ -569,11 +566,6 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
 
   const toolbarIconBtnClass =
     'flex size-6 items-center justify-center rounded hover:bg-accent hover:text-foreground cursor-pointer select-none';
-  const floatingChromeBtnClass =
-    'flex size-8 items-center justify-center rounded-md border border-border bg-muted/80 text-muted-foreground shadow-sm backdrop-blur-sm hover:bg-muted hover:text-foreground cursor-pointer select-none';
-
-  /** When the breadcrumb strip is hidden, surface preview + settings in the top-right overlay. */
-  const showFloatingMarkdownEditorChrome = !breadcrumbs || isPreview || isLive;
 
   const renderNewNoteButton = (buttonClassName: string) =>
     isLiveEligible ? (
@@ -729,29 +721,6 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
             <Tooltip>
               <TooltipTrigger asChild>
                 <span className="cursor-help text-[13px] font-medium leading-none text-popover-foreground">
-                  {t('codeMirror.settings.breadcrumbs')}
-                </span>
-              </TooltipTrigger>
-              <TooltipContent side="left" sideOffset={8} className="max-w-[220px]">
-                {t('codeMirror.settings.breadcrumbsTooltip')}
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-
-          <Switch
-            checked={breadcrumbs}
-            onCheckedChange={(checked) => {
-              void setBreadcrumbs(!!checked);
-            }}
-            className="shrink-0"
-          />
-        </div>
-
-        <div className="flex items-center justify-between gap-2 rounded-md px-2 py-1">
-          <TooltipProvider delayDuration={150}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span className="cursor-help text-[13px] font-medium leading-none text-popover-foreground">
                   {t('codeMirror.settings.lineHighlight')}
                 </span>
               </TooltipTrigger>
@@ -797,7 +766,7 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
   );
 
   return (
-    <div ref={containerRef} className={cn('h-full w-full relative flex flex-col', className)}>
+    <div ref={containerRef} className={cn('relative flex h-full min-h-0 w-full flex-col overflow-hidden', className)}>
       {!surfaceActive || file.isLoading ? null : (
         <>
           {/* Selection Popover for AI */}
@@ -811,25 +780,11 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
             type="editor"
             popoverRef={selectionPopover.popoverRef}
           />
-
-          {showFloatingMarkdownEditorChrome ? (
-            <div
-              className={cn(
-                'absolute top-6 z-20 flex items-center gap-2',
-                // Base editor minimap gutter is 50px; +8px gap — clears overlay when breadcrumbs strip is hidden.
-                minimap ? 'right-[calc(1.5rem+58px)]' : 'right-6',
-              )}
-            >
-              {renderMarkdownPreviewButton(floatingChromeBtnClass)}
-              {renderEditorSettingsMenu(floatingChromeBtnClass)}
-            </div>
-          ) : null}
         </>
       )}
 
-      <div className="flex flex-1 min-h-0 w-full flex-col">
-            {breadcrumbs && !isPreview && (
-              <div className="flex items-center justify-between px-2.5 py-1 text-xs text-muted-foreground border-b border-border bg-background/50 backdrop-blur-sm flex-shrink-0">
+      <div ref={liveChromeRef} className="relative flex min-h-0 w-full flex-1 flex-col overflow-hidden">
+            <div className="flex items-center justify-between px-2.5 py-1 text-xs text-muted-foreground border-b border-border bg-background/50 backdrop-blur-sm flex-shrink-0">
                 {/* Breadcrumbs */}
                 <div className="flex items-center gap-1 flex-1 min-w-0">
                   {breadcrumbParts.map((part, index, array) => {
@@ -907,16 +862,17 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
                 {/* Right side buttons */}
                 {surfaceActive ? (
                 <div className="flex items-center gap-1 shrink-0">
-                  {/* Search button */}
-                  <button
-                    type="button"
-                    onClick={handleSearchClick}
-                    className={toolbarIconBtnClass}
-                    title={t('codeMirror.searchWithShortcut')}
-                    aria-label={t('codeMirror.search')}
-                  >
-                    <Search className="size-3.5" />
-                  </button>
+                  {!isLive && !isPreview ? (
+                    <button
+                      type="button"
+                      onClick={handleSearchClick}
+                      className={toolbarIconBtnClass}
+                      title={t('codeMirror.searchWithShortcut')}
+                      aria-label={t('codeMirror.search')}
+                    >
+                      <Search className="size-3.5" />
+                    </button>
+                  ) : null}
 
                   {renderNewNoteButton(toolbarIconBtnClass)}
                   {renderMarkdownPreviewButton(toolbarIconBtnClass)}
@@ -924,15 +880,15 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
                 </div>
                 ) : null}
               </div>
-            )}
             {file.isLoading ? (
               <div className="flex flex-1 min-h-0 items-center justify-center bg-background">
                 <LucideLoader2 className="size-6 animate-spin text-muted-foreground" />
               </div>
             ) : (
               <>
+            <div className="relative min-h-0 flex-1 overflow-hidden">
             {isLive && surfaceActive ? (
-              <div id="editor-preview-root" className="flex-1 min-h-0 overflow-hidden">
+              <div id="editor-preview-root" className="absolute inset-0 overflow-y-auto overscroll-contain scroll-smooth bg-background">
                 <MarkdownLiveEditor
                   key={file.path}
                   filePath={file.path}
@@ -942,7 +898,7 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
                 />
               </div>
             ) : null}
-            <div className={cn("flex-1 min-h-0 relative", (isPreview || isLive) && "hidden")}>
+            <div className={cn("absolute inset-0", (isPreview || isLive) && "hidden")}>
               {editorSettingsSettled && !isLive ? (
                 <BaseCodeMirrorEditor
                   language={file.language}
@@ -950,7 +906,7 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
                   lineWrap={lineWrap}
                   enableBracketMatching={bracketMatching}
                   minimap={minimap}
-                  breadcrumbs={breadcrumbs}
+                  breadcrumbs={true}
                   lineHighlight={lineHighlight}
                   gitIntegration={gitIntegration}
                   gitDiffSource={editorGitDiffSource}
@@ -978,7 +934,7 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
             </div>
 
             {isPreview && isMarkdown && (
-              <div id="editor-preview-root" className="flex-1 overflow-y-auto bg-background px-8 py-12 scroll-smooth">
+              <div id="editor-preview-root" className="absolute inset-0 overflow-y-auto overscroll-contain bg-background px-8 py-12 scroll-smooth">
                   {reportMetadata ? (
                     <ReviewReportMetadataCard metadata={reportMetadata} />
                   ) : null}
@@ -999,8 +955,10 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
                 filePath={file.path}
                 markdown={file.content}
                 ensureLive={() => setMarkdownView("live")}
+                scopeRef={liveChromeRef}
               />
             ) : null}
+            </div>
               </>
             )}
           </div>

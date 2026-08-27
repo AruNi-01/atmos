@@ -23,16 +23,38 @@ describe("md-live structural gates", () => {
     expect(source).not.toContain("terminal_input");
   });
 
-  test("live editor wires slash, tooltip, and streaming commands", () => {
+  test("web host wraps package editor and supplies design-system slash/toolbar", () => {
     const source = readFileSync(
       join(import.meta.dir, "../../components/MarkdownLiveEditor.tsx"),
       "utf8",
     );
-    expect(source).toContain("slashFactory");
-    expect(source).toContain("tooltipFactory");
-    expect(source).toContain("startStream");
-    expect(source).toContain("createMdLiveOnChangeGate");
-    expect(source).not.toContain("skipFirstRef");
+    const slash = readFileSync(
+      join(import.meta.dir, "../../components/MdLiveSlashMenu.tsx"),
+      "utf8",
+    );
+    const toolbar = readFileSync(
+      join(import.meta.dir, "../../components/MdLiveSelectionToolbar.tsx"),
+      "utf8",
+    );
+    expect(source).toContain('@atmos/md-live/ui');
+    expect(source).toContain("MdLiveEditor");
+    expect(source).toContain("mdLiveEmbedBlock");
+    expect(source).toContain("slashMenu={MdLiveSlashMenu}");
+    expect(source).toContain("selectionToolbar={MdLiveSelectionToolbar}");
+    expect(source).toContain("onOpenMedia");
+    expect(source).toContain("mdLiveMediaViewPlugin");
+    expect(source).not.toContain("slashFactory");
+    expect(slash).toContain("CommandItem");
+    expect(slash).toContain("ArrowDown");
+    expect(slash).toContain("slashOverlayIsOpen");
+    expect(slash).toContain("scrollActiveListItemIntoView");
+    expect(slash).toContain("disablePointerSelection");
+    expect(slash).toContain("itemRefs.current, selectedIndex, 3");
+    expect(slash).toContain('kind: "open"');
+    expect(slash).not.toContain("slashFilter");
+    expect(slash).not.toContain("onMouseEnter={() => setSelectedIndex");
+    expect(toolbar).toContain("DropdownMenu");
+    expect(toolbar).toContain("DropdownMenuContent");
   });
 
   test("github embed open uses the native center tab", () => {
@@ -52,8 +74,18 @@ describe("md-live structural gates", () => {
     );
     expect(source).toContain("PromptComposer");
     expect(source).toContain("@/features/welcome/components/PromptComposer");
+    expect(source).toContain("WelcomeAgentSelector");
+    expect(source).toContain('placeholder={t("placeholder")}');
+    expect(source).toContain("ArrowUp");
+    expect(source).not.toContain("copyMdLivePrompt");
     expect(source).not.toContain("Send to terminal");
     expect(source).not.toContain("EditorPromptComposer");
+    expect(source).not.toContain("{t(\"run\")}\n        </Button>");
+    expect(source).toContain("isTerminalAgentInputShortcut");
+    expect(source).toContain("h-1 w-28 rounded-full");
+    expect(source).toContain("pointer-events-none absolute inset-x-0 bottom-1.5");
+    expect(source).toContain("grid-rows-[0fr]");
+    expect(source).toContain("grid-rows-[1fr]");
     expect(source).toContain("MD_LIVE_HEADLESS_PTY");
     expect(source).toContain("connectWhileHidden");
     expect(source).toContain("shouldFireMdLiveFenceTimeout");

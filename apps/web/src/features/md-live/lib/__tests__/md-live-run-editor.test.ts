@@ -7,6 +7,7 @@ function stubApi(): MdLiveEditorApi {
     getMarkdown: () => "hi",
     getSelectionMarkdown: () => "",
     insertMarkdown: () => {},
+    insertText: () => {},
     runBlockAction: () => {},
     startStream: () => true,
     pushChunk: () => {},

@@ -1,8 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import { useTranslations } from "next-intl";
+import { ArrowUp, Loader2 } from "lucide-react";
 import { Button, cn } from "@workspace/ui";
+import { isTerminalAgentInputShortcut } from "@/features/terminal/lib/terminal-runtime-utils";
 import {
   createFenceExtractor,
   parseGithubResourceUrl,
@@ -22,7 +24,7 @@ import { useWelcomeAgentOptions } from "@/features/welcome/hooks/use-welcome-age
 import { buildInteractiveAgentRunPlan } from "@/features/agent/lib/terminal-agent-run-config";
 import { useEditorStore } from "@/features/editor/store/use-editor-store";
 import { registerAiContextPrompt } from "@/shared/lib/ai-context-protocol";
-import { copyMdLivePrompt, buildHeadlessPrompt } from "../lib/md-live-adapters";
+import { buildHeadlessPrompt } from "../lib/md-live-adapters";
 import { MD_LIVE_HEADLESS_PTY } from "../lib/md-live-terminal-bridge";
 import { resolveMdLiveRunGrid } from "../lib/md-live-run-grid";
 import {
@@ -43,21 +45,23 @@ export function MdLiveAgentDock({
   filePath,
   markdown,
   ensureLive,
+  scopeRef,
   className,
 }: {
   filePath: string;
   markdown: string;
   ensureLive?: () => void;
+  scopeRef?: RefObject<HTMLElement | null>;
   className?: string;
 }) {
   const t = useTranslations("mdLive");
   const composerRef = useRef<ComposerHandle | null>(null);
   const [instruction, setInstruction] = useState("");
-  const [copied, setCopied] = useState(false);
   const [pending, setPending] = useState<"idle" | "streaming" | "review">("idle");
   const [snapshot, setSnapshot] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [mentionPopover, setMentionPopover] = useState<MentionPopoverState>(null);
+  const [inputOpen, setInputOpen] = useState(false);
   const selectionRef = useRef("");
   const fenceTimerRef = useRef<number | null>(null);
   const runGenerationRef = useRef(0);
@@ -91,12 +95,6 @@ export function MdLiveAgentDock({
     },
     [currentProjectPath, filePath, instruction, markdown],
   );
-
-  const onCopy = async () => {
-    await copyMdLivePrompt(buildRequest({ kind: "copy" }, "markdown"));
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1200);
-  };
 
   const clearFenceTimer = useCallback(() => {
     if (fenceTimerRef.current != null) {
@@ -280,6 +278,7 @@ export function MdLiveAgentDock({
           const token = registerAiContextPrompt("doc-selection", event.selection);
           const current = composerRef.current?.getText() ?? "";
           const next = `${current} ${token} `.replace(/^\s+/, "");
+          setInputOpen(true);
           composerRef.current?.setText(next);
           composerRef.current?.focus();
           return;
@@ -288,6 +287,7 @@ export function MdLiveAgentDock({
           event.kind === "rewrite"
             ? t("rewriteInstruction")
             : t("summarizeInstruction");
+        setInputOpen(true);
         setInstruction(preset);
         composerRef.current?.setText(preset);
         void onRunRef.current(preset);
@@ -372,52 +372,118 @@ export function MdLiveAgentDock({
     selectedProjectPath: currentProjectPath,
   });
 
+  const canSubmit = instruction.trim().length > 0 && pending !== "streaming";
+  const showReview = pending === "review" || pending === "streaming";
+  const expanded = inputOpen || showReview;
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!isTerminalAgentInputShortcut(event)) return;
+      const scope = scopeRef?.current;
+      const eventTarget = event.target instanceof Node ? event.target : null;
+      const activeTarget = document.activeElement;
+      const inScope = !scope
+        ? false
+        : (eventTarget !== null && scope.contains(eventTarget))
+          || (activeTarget !== null && scope.contains(activeTarget));
+      if (!inScope) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      setInputOpen((current) => {
+        const next = !current;
+        if (next) window.requestAnimationFrame(() => composerRef.current?.focus());
+        return next;
+      });
+    };
+    window.addEventListener("keydown", onKeyDown, true);
+    return () => window.removeEventListener("keydown", onKeyDown, true);
+  }, [scopeRef]);
+
   return (
-    <div className={cn("border-t border-border bg-background px-3 py-2", className)}>
-      <div className="flex items-end gap-2">
-        <div className="min-w-0 flex-1">
-          <PromptComposer
-            ref={composerRef}
-            placeholder={t("copyPrompt")}
-            onSubmit={() => void onRun()}
-            onTextChange={setInstruction}
-            onAtTrigger={(ctx) => {
-              setMentionPopover({
-                top: ctx.caretRect.bottom + 4,
-                left: ctx.caretRect.left,
-                atOffset: ctx.atOffset,
-                query: ctx.query,
-              });
-            }}
-            onAtCancel={() => setMentionPopover(null)}
-          />
+    <div
+      className={cn(
+        "pointer-events-none absolute inset-x-0 bottom-1.5 z-20 flex justify-center px-3",
+        className,
+      )}
+    >
+      <div
+        className="pointer-events-auto relative flex w-full max-w-3xl flex-col items-center"
+        onMouseLeave={() => {
+          if (showReview || instruction.trim()) return;
+          setInputOpen(false);
+        }}
+      >
+      <div
+        className={cn(
+          "grid w-full transition-[grid-template-rows,opacity,transform] duration-200 ease-out",
+          expanded
+            ? "mb-1 grid-rows-[1fr] opacity-100 translate-y-0"
+            : "pointer-events-none grid-rows-[0fr] opacity-0 translate-y-1",
+        )}
+      >
+        <div className="min-h-0 overflow-hidden">
+          <div className="w-full overflow-hidden rounded-[1.65rem] bg-background/95 p-1.5 shadow-[0_18px_50px_rgba(0,0,0,0.28)] backdrop-blur-md dark:bg-[#151515]">
+            <div className="flex items-end gap-2 overflow-hidden rounded-[1.25rem] bg-muted/30 px-4 py-2 dark:bg-[#0b0b0b]">
+              <div className="min-w-0 flex-1">
+                <PromptComposer
+                  ref={composerRef}
+                  placeholder={t("placeholder")}
+                  placeholderClassName="left-0 top-1/2 -translate-y-1/2 truncate text-sm leading-5"
+                  editorClassName="min-h-9 max-h-[92px] rounded-none py-2 pr-1 text-sm leading-5"
+                  onSubmit={() => void onRun()}
+                  onTextChange={setInstruction}
+                  onAtTrigger={(ctx) => {
+                    setMentionPopover({
+                      top: ctx.caretRect.bottom + 4,
+                      left: ctx.caretRect.left,
+                      atOffset: ctx.atOffset,
+                      query: ctx.query,
+                    });
+                  }}
+                  onAtCancel={() => setMentionPopover(null)}
+                />
+              </div>
+              <button
+                type="button"
+                className="flex size-9 shrink-0 items-center justify-center rounded-full border border-border/70 bg-foreground text-background shadow-sm hover:bg-foreground/90 disabled:cursor-not-allowed disabled:opacity-45"
+                disabled={!canSubmit}
+                onClick={() => void onRun()}
+                aria-label={t("run")}
+                title={t("run")}
+              >
+                {pending === "streaming" ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <ArrowUp className="size-4" />
+                )}
+              </button>
+            </div>
+            <div className="flex items-center gap-2 px-3 pb-1.5 pt-1.5">
+              {showReview ? (
+                <div className="flex items-center gap-2">
+                  <Button type="button" size="sm" onClick={onAccept} disabled={pending !== "review"}>
+                    {t("accept")}
+                  </Button>
+                  <Button type="button" size="sm" variant="ghost" onClick={onReject}>
+                    {t("reject")}
+                  </Button>
+                </div>
+              ) : null}
+              <div className="ml-auto flex shrink-0 items-center">
+                <WelcomeAgentSelector
+                  availableAgents={availableAgents}
+                  selectedAgentId={selectedAgentId}
+                  onSelectAgent={setSelectedAgentId}
+                  runConfigByAgentId={{}}
+                  onRunConfigChange={() => {}}
+                  variant="menu"
+                />
+              </div>
+            </div>
+          </div>
+          {status ? <p className="mt-1 text-xs text-muted-foreground">{status}</p> : null}
         </div>
-        <WelcomeAgentSelector
-          availableAgents={availableAgents}
-          selectedAgentId={selectedAgentId}
-          onSelectAgent={setSelectedAgentId}
-          runConfigByAgentId={{}}
-          onRunConfigChange={() => {}}
-          variant="menu"
-        />
-        <Button type="button" variant="ghost" size="sm" onClick={() => void onCopy()}>
-          {copied ? t("copied") : t("copyPrompt")}
-        </Button>
-        <Button type="button" size="sm" onClick={() => void onRun()} disabled={!instruction.trim()}>
-          {t("run")}
-        </Button>
       </div>
-      {pending === "review" || pending === "streaming" ? (
-        <div className="mt-2 flex items-center gap-2">
-          <Button type="button" size="sm" onClick={onAccept} disabled={pending !== "review"}>
-            {t("accept")}
-          </Button>
-          <Button type="button" size="sm" variant="ghost" onClick={onReject}>
-            {t("reject")}
-          </Button>
-        </div>
-      ) : null}
-      {status ? <p className="mt-1 text-xs text-muted-foreground">{status}</p> : null}
       <WelcomeMentionPopover
         activeIndex={activeMentionFileIndex}
         issuePreview={issuePreview}
@@ -428,9 +494,24 @@ export function MdLiveAgentDock({
         onSelectFile={(file) => selectMentionNavItem({ type: "file", file })}
         onSelectNavItem={selectMentionNavItem}
         onSetItemRef={setMentionItemRef}
-        popover={mentionPopover}
+        popover={expanded ? mentionPopover : null}
         prPreview={prPreview}
       />
+      <button
+        type="button"
+        aria-label={t("placeholder")}
+        className={cn(
+          "h-1 w-28 rounded-full bg-foreground/25 shadow-[0_0_2px_rgba(0,0,0,0.16)] transition-[opacity,box-shadow] duration-200",
+          expanded ? "pointer-events-none opacity-0" : "opacity-100 hover:bg-foreground/35",
+        )}
+        onFocus={() => setInputOpen(true)}
+        onClick={() => {
+          setInputOpen(true);
+          window.requestAnimationFrame(() => composerRef.current?.focus());
+        }}
+        onMouseEnter={() => setInputOpen(true)}
+      />
+      </div>
     </div>
   );
 }

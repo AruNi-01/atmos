@@ -1,81 +1,187 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Button, Input, cn } from "@workspace/ui";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
-  formatEmbedDirective,
-  parseGithubResourceUrl,
-} from "@atmos/md-live";
-import { mdLiveCopy } from "../lib/md-live-copy";
-import type { MdLiveBlockAction } from "../lib/md-live-editor-registry";
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandItem,
+  CommandList,
+} from "@workspace/ui";
+import { scrollActiveListItemIntoView } from "@/features/welcome/lib/popover-list-scroll";
+import {
+  Code,
+  File,
+  Film,
+  Image as ImageIcon,
+  List,
+  ListChecks,
+  ListOrdered,
+  Minus,
+  Smile,
+  Table,
+  Volume2,
+  TextQuote,
+} from "lucide-react";
+import {
+  MD_LIVE_SLASH_GROUPS,
+  MD_LIVE_SLASH_ITEMS,
+  MdLiveEmojiPicker,
+  mdLiveLabel,
+  type MdLiveHeadingLevel,
+  type MdLiveSlashItem,
+  type MdLiveSlashMenuProps,
+} from "@atmos/md-live/ui";
 
-export type MdLiveSlashPick =
-  | { kind: "block"; action: MdLiveBlockAction }
-  | { kind: "markdown"; markdown: string };
+function HeadingMark({ level }: { level: MdLiveHeadingLevel }) {
+  return (
+    <span className="flex size-4 shrink-0 items-center justify-center text-[11px] font-semibold tracking-tight text-muted-foreground">
+      H{level}
+    </span>
+  );
+}
 
-type SlashItem = {
-  id: string;
-  label: string;
-  keywords: string;
-  pick: MdLiveSlashPick | { kind: "github" } | { kind: "file" };
-};
+function headingLevelOf(id: string): MdLiveHeadingLevel | null {
+  const match = /^h([1-6])$/.exec(id);
+  if (!match) return null;
+  return Number(match[1]) as MdLiveHeadingLevel;
+}
 
-const ITEMS: SlashItem[] = [
-  { id: "h1", label: "slashHeading1", keywords: "heading 1 h1 title", pick: { kind: "block", action: { type: "heading", level: 1 } } },
-  { id: "h2", label: "slashHeading2", keywords: "heading 2 h2 title", pick: { kind: "block", action: { type: "heading", level: 2 } } },
-  { id: "h3", label: "slashHeading3", keywords: "heading 3 h3 title", pick: { kind: "block", action: { type: "heading", level: 3 } } },
-  { id: "ul", label: "slashBulletList", keywords: "bullet list unordered", pick: { kind: "block", action: { type: "bullet-list" } } },
-  { id: "ol", label: "slashOrderedList", keywords: "ordered numbered list", pick: { kind: "block", action: { type: "ordered-list" } } },
-  { id: "quote", label: "slashQuote", keywords: "quote blockquote", pick: { kind: "block", action: { type: "quote" } } },
-  { id: "code", label: "slashCode", keywords: "code fence block", pick: { kind: "block", action: { type: "code" } } },
-  { id: "table", label: "slashTable", keywords: "table grid", pick: { kind: "block", action: { type: "table" } } },
-  { id: "hr", label: "slashDivider", keywords: "divider hr rule", pick: { kind: "block", action: { type: "divider" } } },
-  { id: "github", label: "slashGithubIssue", keywords: "github issue pr embed", pick: { kind: "github" } },
-  { id: "file", label: "slashFile", keywords: "file embed path", pick: { kind: "file" } },
-];
+function ItemIcon({ id }: { id: string }): ReactNode {
+  const headingLevel = headingLevelOf(id);
+  if (headingLevel) return <HeadingMark level={headingLevel} />;
+  if (id === "quote") return <TextQuote className="size-4 text-muted-foreground" />;
+  if (id === "ul") return <List className="size-4 text-muted-foreground" />;
+  if (id === "ol") return <ListOrdered className="size-4 text-muted-foreground" />;
+  if (id === "todo") return <ListChecks className="size-4 text-muted-foreground" />;
+  if (id === "code") return <Code className="size-4 text-muted-foreground" />;
+  if (id === "inline-code") {
+    return (
+      <span className="flex size-4 shrink-0 items-center justify-center font-mono text-[12px] font-semibold text-muted-foreground">
+        `
+      </span>
+    );
+  }
+  if (id === "hr") return <Minus className="size-4 text-muted-foreground" />;
+  if (id === "table") return <Table className="size-4 text-muted-foreground" />;
+  if (id === "image") return <ImageIcon className="size-4 text-muted-foreground" />;
+  if (id === "video") return <Film className="size-4 text-muted-foreground" />;
+  if (id === "audio") return <Volume2 className="size-4 text-muted-foreground" />;
+  if (id === "file") return <File className="size-4 text-muted-foreground" />;
+  if (id === "emoji") return <Smile className="size-4 text-muted-foreground" />;
+  return null;
+}
 
-export function MdLiveSlashMenu({
-  query,
-  onPick,
-}: {
-  query: string;
-  onPick: (pick: MdLiveSlashPick) => void;
-}) {
-  const [mode, setMode] = useState<"list" | "github" | "file">("list");
-  const [value, setValue] = useState("");
+function slashOverlayIsOpen(node: HTMLElement | null): boolean {
+  const host = node?.parentElement;
+  return host?.dataset.show === "true" && host.style.display !== "none";
+}
+
+export function MdLiveSlashMenu({ query, onPick, copy }: MdLiveSlashMenuProps) {
+  const label = useCallback((key: string) => mdLiveLabel(key, copy), [copy]);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+  const itemRefs = useRef<Array<HTMLElement | null>>([]);
+  const [mode, setMode] = useState<"list" | "emoji">("list");
+  const [selectedIndex, setSelectedIndex] = useState(0);
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return ITEMS;
-    return ITEMS.filter((item) => item.keywords.includes(q) || mdLiveCopy(item.label).toLowerCase().includes(q));
-  }, [query]);
+    if (!q) return MD_LIVE_SLASH_ITEMS;
+    return MD_LIVE_SLASH_ITEMS.filter((item) => {
+      const itemLabel = label(item.label).toLowerCase();
+      return item.keywords.includes(q) || itemLabel.includes(q) || item.id.includes(q);
+    });
+  }, [label, query]);
 
-  if (mode === "github" || mode === "file") {
+  const selectedKey = `${mode}:${filtered.map((item) => item.id).join(",")}`;
+  const [selectionKey, setSelectionKey] = useState(selectedKey);
+  if (selectionKey !== selectedKey) {
+    setSelectionKey(selectedKey);
+    setSelectedIndex(0);
+  }
+
+  const grouped = useMemo(
+    () =>
+      MD_LIVE_SLASH_GROUPS.map((group) => ({
+        ...group,
+        items: filtered.filter((item) => item.group === group.id),
+      })).filter((group) => group.items.length > 0),
+    [filtered],
+  );
+
+  const activateItem = useCallback(async (item: MdLiveSlashItem) => {
+    if (item.open === "emoji") {
+      setMode("emoji");
+      return;
+    }
+    if (item.open) {
+      onPick({ kind: "open", open: item.open });
+      return;
+    }
+    if (item.pick) onPick(item.pick);
+  }, [onPick]);
+
+  const selectedId = filtered[Math.min(selectedIndex, Math.max(filtered.length - 1, 0))]?.id ?? "";
+
+  useEffect(() => {
+    if (mode !== "list") return;
+    if (!slashOverlayIsOpen(rootRef.current)) return;
+    const container = listRef.current;
+    if (!container) return;
+    scrollActiveListItemIntoView(container, itemRefs.current, selectedIndex, 3);
+  }, [filtered, mode, selectedIndex]);
+
+  useEffect(() => {
+    if (mode !== "list") return;
+    const onKey = (event: KeyboardEvent) => {
+      if (!slashOverlayIsOpen(rootRef.current)) return;
+      if (event.key !== "ArrowDown" && event.key !== "ArrowUp" && event.key !== "Enter") return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (event.key === "ArrowDown") {
+        setSelectedIndex((index) => Math.min(index + 1, Math.max(filtered.length - 1, 0)));
+        return;
+      }
+      if (event.key === "ArrowUp") {
+        setSelectedIndex((index) => Math.max(index - 1, 0));
+        return;
+      }
+      const item = filtered[Math.min(selectedIndex, Math.max(filtered.length - 1, 0))];
+      if (item) void activateItem(item);
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [activateItem, filtered, mode, selectedIndex]);
+
+  if (mode === "emoji") {
     return (
       <div
-        data-md-live-slash="form"
-        className="w-64 rounded-md border border-border bg-popover p-2 text-sm shadow-md"
+        ref={rootRef}
+        data-md-live-slash="emoji"
+        data-state="open"
+        data-side="bottom"
+        className="bg-popover text-popover-foreground data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 z-50 w-80 origin-(--radix-popover-content-transform-origin) rounded-md border p-1 shadow-md outline-none"
       >
-        <p className="mb-1 text-xs text-muted-foreground">
-          {mdLiveCopy(mode === "github" ? "slashGithubUrl" : "slashFilePath")}
-        </p>
-        <Input
-          autoFocus
-          value={value}
-          onChange={(event) => setValue(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") {
-              event.preventDefault();
-              submitInsert(mode, value, onPick);
-            }
-          }}
-        />
-        <div className="mt-2 flex justify-end gap-1">
-          <Button type="button" size="sm" variant="ghost" onClick={() => setMode("list")}>
-            {mdLiveCopy("cancel")}
-          </Button>
-          <Button type="button" size="sm" onClick={() => submitInsert(mode, value, onPick)}>
-            {mdLiveCopy("slashInsert")}
-          </Button>
+        <Command shouldFilter={false}>
+          <CommandList>
+            <CommandGroup>
+              <CommandItem
+                value="back"
+                onMouseDown={(event) => event.preventDefault()}
+                onSelect={() => setMode("list")}
+              >
+                ← {label("slashEmoji")}
+              </CommandItem>
+            </CommandGroup>
+          </CommandList>
+        </Command>
+        <div className="p-1">
+          <MdLiveEmojiPicker
+            loadingLabel={label("slashEmojiLoading")}
+            errorLabel={label("slashNoResults")}
+            onSelect={(native) => onPick({ kind: "text", text: native })}
+          />
         </div>
       </div>
     );
@@ -83,70 +189,45 @@ export function MdLiveSlashMenu({
 
   return (
     <div
+      ref={rootRef}
       data-md-live-slash="menu"
-      className="min-w-48 overflow-hidden rounded-md border border-border bg-popover p-1 text-sm shadow-md"
+      data-state="open"
+      data-side="bottom"
+      className="bg-popover text-popover-foreground data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 z-50 w-56 origin-(--radix-popover-content-transform-origin) overflow-hidden rounded-md border shadow-md outline-none"
     >
-      {filtered.map((item) => (
-        <button
-          key={item.id}
-          type="button"
-          className={cn(
-            "flex w-full rounded px-2 py-1.5 text-left text-foreground hover:bg-accent",
-          )}
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={() => {
-            if (item.pick.kind === "github") {
-              setMode("github");
-              return;
-            }
-            if (item.pick.kind === "file") {
-              setMode("file");
-              return;
-            }
-            onPick(item.pick);
-          }}
-        >
-          {mdLiveCopy(item.label)}
-        </button>
-      ))}
+      <Command
+        shouldFilter={false}
+        value={selectedId}
+        disablePointerSelection
+        onValueChange={() => {}}
+      >
+        <CommandList ref={listRef} className="max-h-80">
+          {grouped.length === 0 ? (
+            <CommandEmpty>{label("slashNoResults")}</CommandEmpty>
+          ) : grouped.map((group) => (
+            <CommandGroup key={group.id} heading={label(group.label)}>
+              {group.items.map((item) => {
+                const index = filtered.findIndex((entry) => entry.id === item.id);
+                return (
+                  <CommandItem
+                    key={item.id}
+                    ref={(el) => {
+                      itemRefs.current[index] = el;
+                    }}
+                    value={item.id}
+                    data-selected={item.id === selectedId}
+                    onMouseDown={(event) => event.preventDefault()}
+                    onSelect={() => void activateItem(item)}
+                  >
+                    <ItemIcon id={item.id} />
+                    <span className="min-w-0 truncate">{label(item.label)}</span>
+                  </CommandItem>
+                );
+              })}
+            </CommandGroup>
+          ))}
+        </CommandList>
+      </Command>
     </div>
   );
-}
-
-function submitInsert(
-  mode: "github" | "file",
-  raw: string,
-  onPick: (pick: MdLiveSlashPick) => void,
-): void {
-  const value = raw.trim();
-  if (!value) return;
-  if (mode === "github") {
-    const target = parseGithubResourceUrl(value);
-    if (!target) return;
-    onPick({
-      kind: "markdown",
-      markdown: formatEmbedDirective({
-        kind: target.kind === "pr" ? "github-pr" : "github-issue",
-        layout: "card",
-        title: `GitHub #${target.number}`,
-        attrs: {
-          owner: target.owner,
-          repo: target.repo,
-          n: String(target.number),
-          url: target.url,
-        },
-      }),
-    });
-    return;
-  }
-  const name = value.split("/").pop() || value;
-  onPick({
-    kind: "markdown",
-    markdown: formatEmbedDirective({
-      kind: "file",
-      layout: "inline",
-      title: name,
-      attrs: { path: value },
-    }),
-  });
 }

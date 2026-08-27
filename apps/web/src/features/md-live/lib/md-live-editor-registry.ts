@@ -1,31 +1,14 @@
-export type MdLiveBlockAction =
-  | { type: "heading"; level: 1 | 2 | 3 }
-  | { type: "bullet-list" }
-  | { type: "ordered-list" }
-  | { type: "quote" }
-  | { type: "code" }
-  | { type: "table" }
-  | { type: "divider" };
-
-export type MdLiveAiActionKind = "ask" | "rewrite" | "summarize";
+export type {
+  MdLiveAiActionKind,
+  MdLiveBlockAction,
+  MdLiveEditorHandle as MdLiveEditorApi,
+} from "@atmos/md-live/ui";
+import type { MdLiveAiActionKind, MdLiveEditorHandle as MdLiveEditorApi } from "@atmos/md-live/ui";
 
 export type MdLiveEditorEvent =
   | { type: "stream-aborted" }
   | { type: "stream-ended" }
   | { type: "ai-action"; kind: MdLiveAiActionKind; selection: string };
-
-export type MdLiveEditorApi = {
-  getMarkdown: () => string;
-  getSelectionMarkdown: () => string;
-  insertMarkdown: (markdown: string, options?: { replaceSlash?: boolean }) => void;
-  runBlockAction: (action: MdLiveBlockAction) => void;
-  startStream: (insertAt: "cursor" | "selection") => boolean;
-  pushChunk: (token: string) => void;
-  endStream: (diffReview?: boolean) => void;
-  abortStream: (keep?: boolean) => void;
-  acceptAllDiffs: () => void;
-  clearDiffReview: () => void;
-};
 
 type Listener = (event: MdLiveEditorEvent) => void;
 

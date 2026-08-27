@@ -117,7 +117,6 @@ export function EditorSettingsSection() {
     lineWrap,
     bracketMatching,
     minimap,
-    breadcrumbs,
     lineHighlight,
     gitIntegration,
     loadSettings,
@@ -125,7 +124,6 @@ export function EditorSettingsSection() {
     setLineWrap,
     setBracketMatching,
     setMinimap,
-    setBreadcrumbs,
     setLineHighlight,
     setGitIntegration,
   } = useEditorSettingsStore();
@@ -184,12 +182,6 @@ export function EditorSettingsSection() {
           description={t('rows.minimap.description')}
         >
           <Switch checked={minimap} onCheckedChange={(checked) => void setMinimap(!!checked)} />
-        </SettingsGroupRow>
-        <SettingsGroupRow
-          title={t('rows.breadcrumbs.title')}
-          description={t('rows.breadcrumbs.description')}
-        >
-          <Switch checked={breadcrumbs} onCheckedChange={(checked) => void setBreadcrumbs(!!checked)} />
         </SettingsGroupRow>
         <SettingsGroupRow
           title={t('rows.lineHighlight.title')}
