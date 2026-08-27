@@ -34,6 +34,9 @@ describe("parseContextParams", () => {
     expect(parseContextParams("/token-usage", new URLSearchParams()).currentView).toBe(
       "token-usage",
     );
+    expect(parseContextParams("/agent-observer", new URLSearchParams()).currentView).toBe(
+      "agent-observer",
+    );
     expect(parseContextParams("/pt-design", new URLSearchParams()).currentView).toBe(
       "pt-design",
     );

@@ -646,11 +646,21 @@ export const agentHooksApi = {
     );
   },
 
-  removeSession: async (sessionId: string): Promise<{ ok: boolean }> => {
+  removeSession: async (
+    sessionId: string,
+    options?: { keepActivity?: boolean },
+  ): Promise<{ ok: boolean }> => {
+    const suffix = options?.keepActivity ? "?keep_activity=1" : "";
     return fetchHooksApi<{ ok: boolean }>(
-      `/hooks/sessions/${encodeURIComponent(sessionId)}`,
-      { method: 'DELETE' },
+      `/hooks/sessions/${encodeURIComponent(sessionId)}${suffix}`,
+      { method: "DELETE" },
     );
+  },
+
+  listActivity: async (): Promise<{
+    sessions: import("@atmos/api-types/ws/dto/events").AgentActivity[];
+  }> => {
+    return fetchHooksApi("/hooks/activity");
   },
 
   /** Sticky need-attention latches held in API memory (survives browser refresh). */

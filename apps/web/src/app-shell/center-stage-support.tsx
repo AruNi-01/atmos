@@ -13,6 +13,7 @@ import { HostedWelcomeGate } from "@/features/welcome/components/HostedWelcomeGa
 import { WorkspacesManagementView } from "@/features/workspace/components/WorkspacesManagementView";
 import { TaskManagementView } from "@/features/task/components/TaskManagementView";
 import { TokenUsagePage } from "@/app-shell/TokenUsagePage";
+import { AgentObserverView } from "@/features/agent/components/observer/AgentObserverView";
 import type { OpenFile } from "@/features/editor/store/use-editor-store";
 import type { TerminalCenterTab } from "@/features/terminal/store/use-terminal-store";
 import { isTerminalCenterTabValue } from "@/app-shell/center-stage-tabs";
@@ -76,6 +77,7 @@ export function CenterStageNoContextView({
     if (currentView === "automations" && automationsEnabled) return <AutomationPage />;
     if (currentView === "disk-analyzer") return <DiskAnalyzerPage />;
     if (currentView === "token-usage") return <TokenUsagePage />;
+    if (currentView === "agent-observer") return <AgentObserverView />;
     if (currentView === "tasks") return <TaskManagementView />;
     return (
       <HostedWelcomeGate onAddProject={onAddProject} onConnectAgent={onConnectAgent} />

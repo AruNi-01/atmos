@@ -55,28 +55,43 @@ fn build_cmd(port: u16, event_name: &str) -> String {
     )
 }
 
+fn build_stdin_cmd(port: u16) -> String {
+    let url = hook_url(port);
+    let hook_version = hook_version_assignment();
+    let hook_version_header = hook_version_header_shell();
+    format!(
+        r#"{guard} && {hook_version} && cat | curl -sf -X POST -H 'Content-Type: application/json' {context_headers} {hook_version_header} -d @- '{url}' >/dev/null 2>&1 || true"#,
+        guard = atmos_managed_guard(),
+        hook_version = hook_version,
+        context_headers = atmos_context_curl_headers(),
+        hook_version_header = hook_version_header,
+        url = url,
+    )
+}
+
 fn build_hook_entries(port: u16) -> Value {
+    let stdin = build_stdin_cmd(port);
     json!({
         "SessionStart": [{
             "hooks": [{ "type": "command", "command": build_cmd(port, "SessionStart"), "timeout": 5 }]
         }],
         "BeforeAgent": [{
-            "hooks": [{ "type": "command", "command": build_cmd(port, "BeforeAgent"), "async": true }]
+            "hooks": [{ "type": "command", "command": stdin.clone(), "async": true }]
         }],
         "AfterAgent": [{
-            "hooks": [{ "type": "command", "command": build_cmd(port, "AfterAgent"), "async": true }]
+            "hooks": [{ "type": "command", "command": stdin.clone(), "async": true }]
         }],
         "BeforeToolSelection": [{
             "hooks": [{ "type": "command", "command": build_cmd(port, "BeforeToolSelection"), "async": true }]
         }],
         "BeforeTool": [{
-            "hooks": [{ "type": "command", "command": build_cmd(port, "BeforeTool"), "async": true }]
+            "hooks": [{ "type": "command", "command": stdin.clone(), "async": true }]
         }],
         "AfterTool": [{
-            "hooks": [{ "type": "command", "command": build_cmd(port, "AfterTool"), "async": true }]
+            "hooks": [{ "type": "command", "command": stdin.clone(), "async": true }]
         }],
         "Notification": [{
-            "hooks": [{ "type": "command", "command": build_cmd(port, "Notification"), "async": true }]
+            "hooks": [{ "type": "command", "command": stdin, "async": true }]
         }]
     })
 }
@@ -228,4 +243,19 @@ fn which_exists(cmd: &str) -> bool {
         .status()
         .map(|s| s.success())
         .unwrap_or(false)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn before_agent_and_tool_hooks_forward_stdin() {
+        let entries = build_hook_entries(4310);
+        for event in ["BeforeAgent", "BeforeTool", "AfterTool"] {
+            let cmd = entries[event][0]["hooks"][0]["command"].as_str().unwrap();
+            assert!(cmd.contains("cat | curl"), "{event}: {cmd}");
+            assert!(cmd.contains("-d @-"), "{event}: {cmd}");
+        }
+    }
 }

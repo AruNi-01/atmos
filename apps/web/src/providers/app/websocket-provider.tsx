@@ -4,6 +4,7 @@ import { useEffect, ReactNode, useRef } from 'react';
 import { usePathname } from 'next/navigation';
 import { useWebSocketStore } from '@/features/connection/hooks/use-websocket';
 import { useAgentHooksStore } from '@/features/agent/store/agent-hooks-store';
+import { useAgentActivityStore } from '@/features/agent/store/agent-activity-store';
 import { useAgentNotifications } from '@/features/agent/hooks/use-agent-notifications';
 import { useDismissExitedAgentHookSessions } from '@/features/agent/hooks/use-dismiss-exited-agent-hook-sessions';
 import { useLayoutSettingsStore } from '@/features/settings/store/layout-settings-store';
@@ -100,6 +101,7 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
     // the event listener persists across reconnections (same Map ref).
     if (connectionState === 'connected') {
       useAgentHooksStore.getState().init();
+      useAgentActivityStore.getState().init();
       useLayoutSettingsStore.getState().loadSettings();
       void useExperimentSettingsStore.getState().loadSettings();
       void useAgentTitleSettingsStore.getState().loadSettings();

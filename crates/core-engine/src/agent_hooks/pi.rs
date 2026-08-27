@@ -54,13 +54,23 @@ export default function (pi: any) {{
   pi.on("session_start", (event: any) =>
     post("SessionStart", {{ reason: event?.reason }})
   )
-  pi.on("before_agent_start", () => post("BeforeAgentStart"))
+  pi.on("before_agent_start", (event: any) =>
+    post("BeforeAgentStart", {{ prompt: event?.prompt }})
+  )
   pi.on("agent_start", () => post("AgentStart"))
   pi.on("tool_call", (event: any) => {{
-    post("ToolCall", {{ tool: event?.toolName, tool_call_id: event?.toolCallId }})
+    post("ToolCall", {{
+      tool: event?.toolName,
+      tool_call_id: event?.toolCallId,
+      arguments: event?.args ?? event?.arguments ?? event?.input,
+    }})
   }})
   pi.on("tool_result", (event: any) =>
-    post("ToolResult", {{ tool: event?.toolName, tool_call_id: event?.toolCallId }})
+    post("ToolResult", {{
+      tool: event?.toolName,
+      tool_call_id: event?.toolCallId,
+      arguments: event?.args ?? event?.arguments ?? event?.input,
+    }})
   )
   pi.on("agent_end", () => post("AgentEnd"))
   pi.on("session_shutdown", (event: any) =>
@@ -175,4 +185,25 @@ fn which_exists(cmd: &str) -> bool {
         .status()
         .map(|s| s.success())
         .unwrap_or(false)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn extension_posts_prompt_from_before_agent_start() {
+        let source = build_extension_source(4310);
+        assert!(source.contains(r#"pi.on("before_agent_start""#), "{source}");
+        assert!(source.contains(r#"post("BeforeAgentStart""#), "{source}");
+        assert!(source.contains("prompt: event?.prompt"), "{source}");
+        assert!(source.contains(r#"pi.on("agent_start""#), "{source}");
+        assert!(source.contains(r#"post("AgentStart")"#), "{source}");
+        assert!(
+            !source.contains(r#"post("AgentStart", { prompt:"#),
+            "{source}"
+        );
+        assert!(source.contains(r#"post("ToolCall""#), "{source}");
+        assert!(source.contains("tool: event?.toolName"), "{source}");
+    }
 }

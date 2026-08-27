@@ -12,6 +12,7 @@ export async function resetLegacyServerStateForConnectionChange(): Promise<void>
     { invalidateLocalComputerStatusCache },
     { clearWelcomeGithubCaches },
     { useAgentHooksStore },
+    { useAgentActivityStore },
   ] = await Promise.all([
     import("@/features/git/store/use-git-store"),
     import("@/features/wiki/store/use-wiki-store"),
@@ -19,6 +20,7 @@ export async function resetLegacyServerStateForConnectionChange(): Promise<void>
     import("@/features/connection/lib/atmos-computer-local"),
     import("@/features/welcome/lib/welcome-page-helpers"),
     import("@/features/agent/store/agent-hooks-store"),
+    import("@/features/agent/store/agent-activity-store"),
   ]);
 
   // Git snapshots (status, changedFiles, fileDiff, branches) are now owned by
@@ -35,4 +37,5 @@ export async function resetLegacyServerStateForConnectionChange(): Promise<void>
   // Agent hook sessions / attention / grouping snapshot are Computer-scoped
   // in-memory maps. WS listeners stay; hydrate re-reads the new target.
   useAgentHooksStore.getState().resetForConnectionChange();
+  useAgentActivityStore.getState().resetForConnectionChange();
 }

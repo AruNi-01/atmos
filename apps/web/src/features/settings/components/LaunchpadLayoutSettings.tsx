@@ -11,6 +11,7 @@ import {
 import {
   Bot,
   ChartColumnBig,
+  Eye,
   FolderKanban,
   HardDrive,
   LayoutGrid,
@@ -47,6 +48,7 @@ const ITEM_I18N_KEYS: Record<LaunchpadItemId, string> = {
   automations: 'items.automations',
   'disk-analyzer': 'items.diskAnalyzer',
   'token-usage': 'items.tokenUsage',
+  'agent-observer': 'items.agentObserver',
   canvas: 'items.canvas',
   'pt-design': 'items.ptDesign',
   tasks: 'items.tasks',
@@ -62,6 +64,7 @@ const ITEM_ICONS: Record<LaunchpadItemId, LucideIcon> = {
   automations: Timer,
   'disk-analyzer': HardDrive,
   'token-usage': ChartColumnBig,
+  'agent-observer': Eye,
   canvas: Presentation,
   'pt-design': PencilRuler,
   tasks: ListTodo,

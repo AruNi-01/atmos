@@ -834,6 +834,10 @@ pub enum WsEvent {
     AgentHookStateChanged,
     /// Idle agent hook sessions were cleared; payload contains removed session IDs
     AgentHookSessionsCleared,
+    /// Fine-grained Observer activity (turns/tools/todos/children)
+    AgentActivityUpdated,
+    /// Observer activity records dropped (explicit clear / pane destroy)
+    AgentActivityCleared,
     /// Sticky need-attention latch raised (permission / task complete)
     AgentAttentionRaised,
     /// Sticky need-attention latch(es) cleared after user acknowledge

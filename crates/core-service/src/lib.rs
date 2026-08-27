@@ -6,8 +6,9 @@ pub mod utils;
 pub use error::{Result, ServiceError};
 pub use service::agent::AgentService;
 pub use service::agent_hooks::{
-    generate_attention_summary, resolve_workspace_agent_group_key, AgentAttentionLatch,
-    AgentAttentionReason, AgentAttentionSummary, AgentHookEvent, AgentHooksService,
+    generate_attention_summary, resolve_workspace_agent_group_key, AgentActivity,
+    AgentAttentionLatch, AgentAttentionReason, AgentAttentionSummary, AgentChildActivity,
+    AgentHookEvent, AgentHooksService, AgentTodoItem, AgentToolLine, AgentTurn,
     AttentionSummaryPayload, AttentionSummarySettings, AttentionSummaryStatus,
     WorkspaceAgentGroupKey, WorkspaceAgentGroupSnapshot,
 };

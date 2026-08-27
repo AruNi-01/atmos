@@ -131,7 +131,7 @@ interface AgentHooksStore {
   hasPermissionRequest: () => boolean;
   getGlobalState: () => AgentHookState;
   forceSessionIdle: (sessionId: string) => Promise<void>;
-  removeSession: (sessionId: string) => Promise<void>;
+  removeSession: (sessionId: string, options?: { keepActivity?: boolean }) => Promise<void>;
   /**
    * Drop idle hook sessions for a focused/acknowledged pane.
    * Sticky attention already holds "needs attention"; idle rows do not need to
@@ -461,7 +461,7 @@ export const useAgentHooksStore = create<AgentHooksStore>((set, get) => ({
     }
   },
 
-  removeSession: async (sessionId: string) => {
+  removeSession: async (sessionId: string, options?: { keepActivity?: boolean }) => {
     let previous: AgentHookSession | undefined;
 
     set((state) => {
@@ -476,7 +476,7 @@ export const useAgentHooksStore = create<AgentHooksStore>((set, get) => ({
     const previousSession = previous;
 
     try {
-      await agentHooksApi.removeSession(sessionId);
+      await agentHooksApi.removeSession(sessionId, options);
     } catch (error) {
       console.warn("[AgentHooksStore] Failed to remove session:", error);
       set((state) => {
@@ -491,7 +491,7 @@ export const useAgentHooksStore = create<AgentHooksStore>((set, get) => ({
   dismissIdleSessionsForPane: (stablePaneId) => {
     const toRemove = collectIdleSessionIdsForPane(get().sessions, stablePaneId);
     for (const id of toRemove) {
-      void get().removeSession(id);
+      void get().removeSession(id, { keepActivity: true });
     }
   },
 

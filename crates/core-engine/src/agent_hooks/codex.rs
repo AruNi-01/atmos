@@ -53,20 +53,46 @@ fn build_cmd(port: u16, event_name: &str) -> String {
     )
 }
 
+fn build_stdin_cmd(port: u16) -> String {
+    let url = hook_url(port);
+    let hook_version = hook_version_assignment();
+    let hook_version_header = hook_version_header_shell();
+    format!(
+        r#"{guard} && {hook_version} && cat | curl -sf -X POST -H 'Content-Type: application/json' {context_headers} {hook_version_header} -d @- '{url}' >/dev/null 2>&1 || true"#,
+        guard = atmos_managed_guard(),
+        hook_version = hook_version,
+        context_headers = atmos_context_curl_headers(),
+        hook_version_header = hook_version_header,
+        url = url,
+    )
+}
+
 fn build_hook_entries(port: u16) -> Value {
+    let stdin = build_stdin_cmd(port);
     json!({
         "SessionStart": [{
             "hooks": [{ "type": "command", "command": build_cmd(port, "SessionStart"), "timeout": 5 }]
         }],
         "UserPromptSubmit": [{
-            "hooks": [{ "type": "command", "command": build_cmd(port, "UserPromptSubmit"), "timeout": 5 }]
+            "hooks": [{ "type": "command", "command": stdin.clone(), "timeout": 5 }]
         }],
         "PreToolUse": [{
-            "matcher": "Bash",
-            "hooks": [{ "type": "command", "command": build_cmd(port, "PreToolUse"), "timeout": 3 }]
+            "hooks": [{ "type": "command", "command": stdin.clone(), "timeout": 3 }]
+        }],
+        "PostToolUse": [{
+            "hooks": [{ "type": "command", "command": stdin.clone(), "timeout": 3 }]
+        }],
+        "PermissionRequest": [{
+            "hooks": [{ "type": "command", "command": stdin.clone(), "timeout": 3 }]
+        }],
+        "SubagentStart": [{
+            "hooks": [{ "type": "command", "command": stdin.clone(), "timeout": 3 }]
+        }],
+        "SubagentStop": [{
+            "hooks": [{ "type": "command", "command": stdin.clone(), "timeout": 3 }]
         }],
         "Stop": [{
-            "hooks": [{ "type": "command", "command": build_cmd(port, "Stop"), "timeout": 3 }]
+            "hooks": [{ "type": "command", "command": stdin, "timeout": 3 }]
         }]
     })
 }
@@ -207,6 +233,25 @@ pub(super) fn check() -> AgentHookToolStatus {
 fn write_json(path: &std::path::Path, value: &Value) -> std::result::Result<(), String> {
     let content = serde_json::to_string_pretty(value).map_err(|e| e.to_string())?;
     std::fs::write(path, content).map_err(|e| e.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn tool_hooks_are_stdin_and_not_bash_only() {
+        let entries = build_hook_entries(4310);
+        let pre = &entries["PreToolUse"][0];
+        assert!(pre.get("matcher").is_none());
+        let cmd = pre["hooks"][0]["command"].as_str().unwrap();
+        assert!(cmd.contains("cat | curl"));
+        assert!(entries.get("PostToolUse").is_some());
+        let prompt = entries["UserPromptSubmit"][0]["hooks"][0]["command"]
+            .as_str()
+            .unwrap();
+        assert!(prompt.contains("cat | curl"));
+    }
 }
 
 fn which_exists(cmd: &str) -> bool {

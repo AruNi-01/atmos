@@ -445,6 +445,7 @@
       "unknownProject": "Unknown project",
       "noActiveAgentSessions": "No active agent sessions",
       "agentSessions": "Agent Sessions ({count})",
+      "openAgentObserver": "Open Agent Observer",
       "clearIdle": "Clear idle",
       "permissionRequested": "Permission requested",
       "openAgentChat": "Open Agent Chat",
@@ -1060,6 +1061,7 @@
       "automations": "Automations - ATMOS",
       "diskAnalyzer": "Disk Analyzer - ATMOS",
       "tokenUsage": "Token Usage - ATMOS",
+      "agentObserver": "Agent Observer - ATMOS",
       "tasks": "Task - ATMOS",
       "ptDesign": "Prototype Design - ATMOS",
       "settings": "Settings - ATMOS"
@@ -1159,6 +1161,10 @@
         "tokenUsage": {
           "title": "Token Usage",
           "description": "Review model token usage and activity"
+        },
+        "agentObserver": {
+          "title": "Agent Observer",
+          "description": "See every agent on this Computer and what it is doing"
         },
         "ptDesign": {
           "title": "Launchpad: Prototype Design",
@@ -1692,6 +1698,7 @@
           "newWorkspace": "New Workspace",
           "diskAnalyzer": "Disk Analyzer",
           "tokenUsage": "Token Usage",
+          "agentObserver": "Agent Observer",
           "tasks": "Task"
         }
       },
@@ -2762,6 +2769,23 @@
         }
       }
     }
+  },
+  "AgentObserver": {
+    "title": "Agent Observer",
+    "subtitle": "This Computer’s live and finished agent turns",
+    "empty": "Agents appear here when hooks fire in a terminal. Install hooks in Settings if none are installed.",
+    "disconnected": "Connect a Computer to see Agent Observer.",
+    "relayout": "Relayout",
+    "openPane": "Open pane",
+    "expand": "Expand",
+    "fold": "Fold",
+    "sideChat": "Side chat",
+    "turns": "{count} turns",
+    "children": "{count} children",
+    "members": "{count} live",
+    "emptyPrompt": "(no prompt text)",
+    "moreTurns": "+{count} earlier",
+    "openObserver": "Open Agent Observer"
   },
   "Agent": {
     "attention": {
@@ -6117,6 +6141,10 @@
           "tokenUsage": {
             "title": "Token Usage",
             "description": "Review model token usage and local session activity."
+          },
+          "agentObserver": {
+            "title": "Agent Observer",
+            "description": "A computer-scoped board of live and finished agent turns."
           },
           "canvas": {
             "title": "Canvas",
