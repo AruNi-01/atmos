@@ -829,69 +829,39 @@ export const agentApi = {
    * - Without both: General AI assistant, temp context
    */
   createSession: async (
-    workspaceId: string | null | undefined,
-    projectId: string | null | undefined,
-    registryId: string,
-    authMethodId?: string | null,
+    _workspaceId: string | null | undefined,
+    _projectId: string | null | undefined,
+    _registryId: string,
+    _authMethodId?: string | null,
   ): Promise<CreateAgentSessionResponse> => {
-    return fetchApi<CreateAgentSessionResponse>('/api/agent/session', {
-      method: 'POST',
-      body: JSON.stringify({
-        workspace_id: workspaceId || null,
-        project_id: projectId || null,
-        registry_id: registryId,
-        auth_method_id: authMethodId || null,
-      }),
-    });
+    throw new Error("Agent Chat uses conversation_create on main /ws; REST session create is gone");
   },
 
   /**
    * Resume an existing native ACP session by agent-owned session id.
    */
   resumeSession: async (
-    registryId: string,
-    acpSessionId: string,
-    cwd?: string | null,
-    workspaceId?: string | null,
-    projectId?: string | null,
-    authMethodId?: string | null,
+    _registryId: string,
+    _acpSessionId: string,
+    _cwd?: string | null,
+    _workspaceId?: string | null,
+    _projectId?: string | null,
+    _authMethodId?: string | null,
   ): Promise<ResumeAgentSessionResponse> => {
-    return fetchApi<ResumeAgentSessionResponse>(
-      '/api/agent/session/resume',
-      {
-        method: 'POST',
-        body: JSON.stringify({
-          registry_id: registryId,
-          acp_session_id: acpSessionId,
-          cwd: cwd || null,
-          workspace_id: workspaceId || null,
-          project_id: projectId || null,
-          auth_method_id: authMethodId || null,
-        }),
-      }
-    );
+    throw new Error("Agent Chat uses conversation_send to continue; REST session resume is gone");
   },
 
   /**
    * List native ACP sessions for one agent.
    */
-  listSessions: async (params: {
+  listSessions: async (_params: {
     registry_id: string;
     cwd?: string | null;
     limit?: number;
     cursor?: string;
     auth_method_id?: string | null;
   }): Promise<ListAgentSessionsResponse> => {
-    const search = new URLSearchParams();
-    search.set('registry_id', params.registry_id);
-    if (params.cwd) search.set('cwd', params.cwd);
-    if (params.limit) search.set('limit', String(params.limit));
-    if (params.cursor) search.set('cursor', params.cursor);
-    if (params.auth_method_id) search.set('auth_method_id', params.auth_method_id);
-    const qs = search.toString();
-    return fetchApi<ListAgentSessionsResponse>(
-      `/api/agent/sessions${qs ? `?${qs}` : ''}`
-    );
+    throw new Error("Agent Chat lists Atmos conversations; REST session list is gone");
   },
 
   logoutAgent: async (

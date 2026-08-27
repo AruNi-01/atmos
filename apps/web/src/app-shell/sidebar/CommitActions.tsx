@@ -38,6 +38,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
+import { useAgentChatCenterTabsStore } from "@/features/agent/store/use-agent-chat-center-tabs";
 import { useEditorStore, EDITOR_CONFLICT_RESOLVE_ALL_PATH } from "@/features/editor/store/use-editor-store";
 import {
   formatGitActionErrorForDisplay,
@@ -127,7 +128,6 @@ export interface CommitActionsProps {
 
   enqueueAgentChatPrompt: (data: Omit<QueuedAgentPrompt, "id" | "createdAt">) => string;
   setPendingAgentChatMode: (mode: AgentChatMode | null) => void;
-  setAgentChatOpen: (open: boolean) => void;
 }
 
 export const CommitActions: React.FC<CommitActionsProps> = ({
@@ -155,7 +155,6 @@ export const CommitActions: React.FC<CommitActionsProps> = ({
   agentIsBusy,
   enqueueAgentChatPrompt,
   setPendingAgentChatMode,
-  setAgentChatOpen,
 }) => {
   const t = useTranslations("AppShell.chrome");
   const { resolvedTheme } = useTheme();
@@ -541,7 +540,7 @@ export const CommitActions: React.FC<CommitActionsProps> = ({
         : {}),
     });
     setPendingAgentChatMode("default");
-    setAgentChatOpen(true);
+    useAgentChatCenterTabsStore.getState().requestNewChat();
     toastManager.add({
       title: t("commitActions.commitPromptQueuedTitle"),
       description:

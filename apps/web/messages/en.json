@@ -381,6 +381,7 @@
     },
     "centerStageTabBar": {
       "newTerminalTab": "Terminal",
+      "newAgentChat": "Agent Chat",
       "newMarkdown": "Markdown",
       "newBrowser": "Browser",
       "newChanges": "Changes",
@@ -2766,6 +2767,35 @@
     }
   },
   "Agent": {
+    "workspace": {
+      "history": "Conversations",
+      "newConversation": "New conversation",
+      "untitled": "Untitled",
+      "noFolder": "No folder",
+      "emptyTitle": "Start chatting",
+      "emptyDescription": "Send a message to begin this conversation.",
+      "placeholder": "Message the agent",
+      "queue": "Queue",
+      "steer": "Steer",
+      "stop": "Stop",
+      "rename": "Rename conversation",
+      "permissionTitle": "Permission needed",
+      "allow": "Allow",
+      "reject": "Reject",
+      "agent": "Agent",
+      "model": "Model",
+      "thinking": "Thinking",
+      "tool": "Tool",
+      "queued": "Queued",
+      "edit": "Edit",
+      "pause": "Pause",
+      "resume": "Resume",
+      "moveUp": "Move up",
+      "delete": "Delete",
+      "oneShotQueue": "Queue this once",
+      "oneShotSteer": "Steer this once",
+      "sendFailed": "Could not send that message"
+    },
     "attention": {
       "permissionNeeded": "Permission needed",
       "taskComplete": "Task complete — needs review",
@@ -2893,6 +2923,7 @@
         "switchToSessions": "Switch to sessions",
         "sessionsTitle": "Sessions",
         "agentsTitle": "Agents",
+        "sessionsMoved": "Agent Chat history now lives in the Agent Chat workspace. Open it from the plus menu or New Workspace.",
         "sessionsDescription": "Manage recent chat sessions.",
         "agentsDescription": "Browse installed and available agents.",
         "searchPlaceholder": "Search agents",
@@ -3762,6 +3793,7 @@
   },
   "Welcome": {
     "components": {
+      "startAgentChat": "Start Agent Chat",
       "helpers": {
         "placeholderTemplates": {
           "makeInside": "What should {agent} make inside {project}?",

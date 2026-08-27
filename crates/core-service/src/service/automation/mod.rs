@@ -14,7 +14,7 @@ mod runner;
 mod scheduler;
 mod scheduler_service;
 mod target;
-mod terminal_agent_manifest;
+pub(crate) mod terminal_agent_manifest;
 mod validation;
 
 use chrono::NaiveDateTime;

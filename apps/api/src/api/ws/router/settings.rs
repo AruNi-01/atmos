@@ -101,12 +101,17 @@ impl WsMessageService {
             .and_then(|v| v.as_u64())
             .unwrap_or(30);
         let summary_settings = core_service::AttentionSummarySettings::from_json(&val);
+        let followup_policy = val
+            .get("followup_policy")
+            .and_then(|v| v.as_str())
+            .unwrap_or("queue");
         Ok(json!({
             "idle_session_timeout_mins": timeout,
             "attention_summary_enabled": summary_settings.enabled,
             "attention_summary_delay_mins": summary_settings.delay_mins,
             "attention_summary_agent_id": summary_settings.agent_id,
             "attention_summary_model": summary_settings.model,
+            "followup_policy": followup_policy,
         }))
     }
 
@@ -261,6 +266,13 @@ impl WsMessageService {
             } else {
                 val["attention_summary_agent_id"] = json!(trimmed);
             }
+        }
+        if let Some(policy) = req.followup_policy {
+            let normalized = match policy.trim() {
+                "steer" => "steer",
+                _ => "queue",
+            };
+            val["followup_policy"] = json!(normalized);
         }
         if let Some(model) = req.attention_summary_model {
             let trimmed = model.trim();

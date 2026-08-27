@@ -12,7 +12,7 @@ import {
 import { cn } from "@/shared/lib/utils";
 import { agentHooksApi } from '@/api/rest-api';
 import { useWebSocketStore } from '@/features/connection/hooks/use-websocket';
-import { useAgentChatUrl } from '@/features/agent/hooks/use-agent-chat-url';
+
 import { buildUsageCarouselItems } from '@/features/quota-usage/lib/quota-display';
 import { useQuotaOverviewQuery } from '@/features/quota-usage/hooks/use-quota-overview-query';
 import {
@@ -560,8 +560,8 @@ function AgentStatusOverviewTrigger() {
 
 const Footer: React.FC = () => {
   const t = useTranslations("appShell");
+  const router = useAppRouter();
   const connectionState = useWebSocketStore(s => s.connectionState);
-  const [, setAgentChatOpen] = useAgentChatUrl();
   const launchpadAgentsEnabled = useExperimentSettingsStore((s) => s.launchpadAgentsEnabled);
   const loadExperimentSettings = useExperimentSettingsStore((s) => s.loadSettings);
   const showLocalServices = useLayoutSettingsStore((s) => s.showLocalServices);
@@ -740,7 +740,7 @@ const Footer: React.FC = () => {
             <div className="h-3 w-px bg-border" />
           ) : null}
           {showRightAcp ? (
-            <AcpChatButton onClick={() => setAgentChatOpen(true)} />
+            <AcpChatButton onClick={() => router.push("/agent-chat")} />
           ) : null}
         </div>
       ) : null}

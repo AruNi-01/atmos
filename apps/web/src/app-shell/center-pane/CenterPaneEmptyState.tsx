@@ -11,6 +11,7 @@ import {
   Play,
   Smartphone,
   SquareTerminal as TerminalIcon,
+  Bot,
   X,
 } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
@@ -26,6 +27,7 @@ import {
 
 export type CenterPaneEmptyActionId =
   | "terminal"
+  | "agent-chat"
   | "files"
   | "changes"
   | "review"
@@ -235,6 +237,7 @@ export function CenterPaneEmptyState({
 export function buildDefaultEmptyPaneActions(input: {
   labels: {
     terminal: string;
+    agentChat?: string;
     files: string;
     changes: string;
     review: string;
@@ -247,6 +250,7 @@ export function buildDefaultEmptyPaneActions(input: {
   includeOverview?: boolean;
   overviewLabel?: string;
   onCreateTerminal: () => void;
+  onCreateAgentChat?: () => void;
   onCreateToolTab: (tab: CenterToolTabValue) => void;
   onCreateSimulator: () => void;
   onOpenOverview?: () => void;
@@ -271,6 +275,16 @@ export function buildDefaultEmptyPaneActions(input: {
       shortcutKeys: [modKey, "T"],
       onSelect: input.onCreateTerminal,
     },
+    ...(input.onCreateAgentChat
+      ? [
+          {
+            id: "agent-chat" as const,
+            label: labels.agentChat ?? "Agent Chat",
+            icon: <Bot />,
+            onSelect: input.onCreateAgentChat,
+          },
+        ]
+      : []),
     {
       id: "files",
       label: labels.files,

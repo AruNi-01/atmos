@@ -32,6 +32,11 @@ import { isDiffGroupEditorPath } from "@/features/diff/lib/diff-editor-paths";
 import { useGithubCenterTabsStore } from "@/features/github/store/use-github-center-tabs";
 import { useBrowserCenterTabsStore } from "@/features/browser/store/use-browser-center-tabs";
 import {
+  EMPTY_AGENT_CHAT_TABS,
+  useAgentChatCenterTabsStore,
+} from "@/features/agent/store/use-agent-chat-center-tabs";
+import { AgentChatWorkspace } from "@/features/agent/components/AgentChatWorkspace";
+import {
   browserMountKey,
   editorMountKey,
   isFramePanelVisible,
@@ -359,12 +364,17 @@ function WorkspaceCenterFrameImpl({
   const contextBrowserTabs = isUrlSyncedActive
     ? (browserTabs ?? [])
     : (storeBrowserTabs ?? []);
+  const contextAgentChatTabs =
+    useAgentChatCenterTabsStore(
+      (state) => state.tabsByContext[contextId] ?? EMPTY_AGENT_CHAT_TABS,
+    );
 
   const validTabs = [
     ...tabs.map((tab) => tab.id),
     ...contextOpenFiles.map((f) => f.path),
     ...contextGithubTabs.map((tab) => tab.value),
     ...contextBrowserTabs.map((tab) => tab.value),
+    ...contextAgentChatTabs.map((tab) => tab.value),
     "overview",
     "wiki",
     "project-wiki",
@@ -771,6 +781,32 @@ function WorkspaceCenterFrameImpl({
               keepInactiveTabsMounted
               syncUrlQueryParam={false}
               centerPaneOwnerId={paneOwner(tab.value)}
+            />
+          </div>
+        );
+      })}
+
+      {contextAgentChatTabs.map((tab) => {
+        const visible = panelVisible(tab.value);
+        return (
+          <div
+            key={`${contextId}-${tab.value}`}
+            data-agent-chat-tab={tab.conversationId}
+            data-center-pane-owner={paneOwner(tab.value)}
+            aria-hidden={!visible}
+            inert={!visible ? true : undefined}
+            className={cn(lightSurfacePanelClass(visible), interactivePaneClass(visible))}
+            style={panelStyle(tab.value, visible)}
+          >
+            <AgentChatWorkspace
+              conversationId={tab.conversationId}
+              onOpenConversation={(conversationId) => {
+                const opened = useAgentChatCenterTabsStore.getState().openTab({
+                  contextId,
+                  conversationId,
+                });
+                useAgentChatCenterTabsStore.getState().requestActivate(contextId, opened.value);
+              }}
             />
           </div>
         );

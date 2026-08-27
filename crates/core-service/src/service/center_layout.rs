@@ -339,9 +339,7 @@ fn host_entry<'a>(
     by_host: &'a mut BTreeMap<String, HostSpaceLayoutFile>,
     host_id: &str,
 ) -> &'a mut HostSpaceLayoutFile {
-    by_host
-        .entry(host_id.to_string())
-        .or_insert_with(HostSpaceLayoutFile::default)
+    by_host.entry(host_id.to_string()).or_default()
 }
 
 fn object_slot(value: &mut Value) -> &mut Map<String, Value> {

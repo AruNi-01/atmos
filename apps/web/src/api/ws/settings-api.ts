@@ -313,6 +313,7 @@ export interface AgentBehaviourSettings {
   attention_summary_delay_mins?: number;
   attention_summary_agent_id?: string | null;
   attention_summary_model?: string | null;
+  followup_policy?: "queue" | "steer";
 }
 
 export const agentBehaviourSettingsApi = {

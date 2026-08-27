@@ -381,6 +381,7 @@
     },
     "centerStageTabBar": {
       "newTerminalTab": "终端",
+      "newAgentChat": "Agent Chat",
       "newMarkdown": "Markdown",
       "newBrowser": "浏览器",
       "newChanges": "变更",
@@ -2766,6 +2767,35 @@
     }
   },
   "Agent": {
+    "workspace": {
+      "history": "对话",
+      "newConversation": "新建对话",
+      "untitled": "未命名",
+      "noFolder": "无文件夹",
+      "emptyTitle": "开始对话",
+      "emptyDescription": "发送一条消息即可开始这段对话。",
+      "placeholder": "向 Agent 发送消息",
+      "queue": "排队",
+      "steer": "引导",
+      "stop": "停止",
+      "rename": "重命名对话",
+      "permissionTitle": "需要授权",
+      "allow": "允许",
+      "reject": "拒绝",
+      "agent": "Agent",
+      "model": "模型",
+      "thinking": "思考深度",
+      "tool": "工具",
+      "queued": "已排队",
+      "edit": "编辑",
+      "pause": "暂停",
+      "resume": "继续",
+      "moveUp": "上移",
+      "delete": "删除",
+      "oneShotQueue": "仅这次排队",
+      "oneShotSteer": "仅这次引导",
+      "sendFailed": "消息发送失败"
+    },
     "attention": {
       "permissionNeeded": "需要授权",
       "taskComplete": "任务完成 — 待查看",
@@ -2893,6 +2923,7 @@
         "switchToSessions": "切换到会话列表",
         "sessionsTitle": "会话",
         "agentsTitle": "Agent",
+        "sessionsMoved": "Agent Chat 历史已移到 Agent Chat 工作区。请从加号菜单或新建工作区打开。",
         "sessionsDescription": "管理最近的聊天会话。",
         "agentsDescription": "浏览已安装和可用的 Agent。",
         "searchPlaceholder": "搜索 Agent",
@@ -3762,6 +3793,7 @@
   },
   "Welcome": {
     "components": {
+      "startAgentChat": "开始 Agent Chat",
       "helpers": {
         "placeholderTemplates": {
           "makeInside": "你希望 {agent} 在 {project} 里做什么？",

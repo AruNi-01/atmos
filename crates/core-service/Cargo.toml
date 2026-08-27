@@ -35,6 +35,7 @@ base64 = "0.22"
 cron = "0.12"
 
 [dev-dependencies]
+agent = { path = "../agent", features = ["test-support"] }
 tempfile = "3"
 tracing-subscriber = { version = "0.3", features = ["fmt"] }
 sea-orm-migration = { version = "1.1", default-features = false, features = ["sqlx-sqlite", "runtime-tokio-rustls"] }

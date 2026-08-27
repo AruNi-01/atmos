@@ -102,6 +102,7 @@ export type AgentBehaviourSettings = {
   attention_summary_delay_mins?: number;
   attention_summary_agent_id?: string | null;
   attention_summary_model?: string | null;
+  followup_policy?: "queue" | "steer";
 };
 
 export type AgentBehaviourSettingsUpdateRequest = {
@@ -110,6 +111,7 @@ export type AgentBehaviourSettingsUpdateRequest = {
   attention_summary_delay_mins?: number | null;
   attention_summary_agent_id?: string | null;
   attention_summary_model?: string | null;
+  followup_policy?: "queue" | "steer" | null;
 };
 
 export type PushServerType = "ntfy" | "bark" | "gotify" | "custom_webhook";

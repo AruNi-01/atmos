@@ -114,7 +114,6 @@ interface BuildGlobalSearchItemsParams {
   automationsEnabled: boolean;
   isLeftCollapsed: boolean;
   setLlmProvidersOpen: (open: boolean) => void;
-  setAgentChatOpen: (open: boolean) => void;
   setLeftSidebarTab: (tab: "projects") => void;
   setCanvasOpen: (open: boolean) => void;
 
@@ -146,7 +145,6 @@ export function buildGlobalSearchItems({
   automationsEnabled,
   isLeftCollapsed,
   setLlmProvidersOpen,
-  setAgentChatOpen,
   setLeftSidebarTab,
   setCanvasOpen,
   setIsLeftCollapsed,
@@ -338,7 +336,7 @@ export function buildGlobalSearchItems({
       keywords: ["chat", "agent", "panel", "ai", "assistant", "message", "conversation", "open", "acp"],
       icon: <Bot className="size-4 text-muted-foreground" />,
       action: () => {
-        setAgentChatOpen(true);
+        router.push("/agent-chat");
         setGlobalSearchOpen(false);
       },
     });

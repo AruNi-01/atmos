@@ -14,6 +14,7 @@ where
 use serde_json::Value;
 
 mod agents;
+mod conversation;
 mod disk_analyzer;
 mod fs;
 mod git;
@@ -26,6 +27,7 @@ mod terminal;
 mod workspace;
 
 pub use agents::*;
+pub use conversation::*;
 pub use disk_analyzer::*;
 pub use fs::*;
 pub use git::*;
@@ -564,6 +566,25 @@ pub enum WsAction {
     /// 获取 acp_servers.json 文件路径
     CustomAgentGetManifestPath,
 
+    ConversationCreate,
+    ConversationList,
+    ConversationGet,
+    ConversationMessages,
+    ConversationRename,
+    ConversationConfigure,
+    ConversationDelete,
+    ConversationSubscribe,
+    ConversationUnsubscribe,
+    ConversationSend,
+    ConversationSteer,
+    ConversationQueueAdd,
+    ConversationQueueUpdate,
+    ConversationQueueReorder,
+    ConversationQueueDelete,
+    ConversationCancel,
+    ConversationPermissionRespond,
+    AgentModelCatalogGet,
+
     // ===== Automation 操作 =====
     AutomationList,
     AutomationGet,
@@ -874,6 +895,8 @@ pub enum WsEvent {
     SimulatorDownloadProgress,
     /// Connection-scoped Computer resource snapshot (APP-066)
     ResourceMonitorUpdated,
+    ConversationEvent,
+    AgentModelCatalogUpdated,
 }
 
 /// 项目删除进度通知数据
@@ -1255,6 +1278,8 @@ pub struct AgentBehaviourSettingsUpdateRequest {
     pub attention_summary_agent_id: Option<String>,
     #[serde(default)]
     pub attention_summary_model: Option<String>,
+    #[serde(default)]
+    pub followup_policy: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

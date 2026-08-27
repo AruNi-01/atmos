@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { AppShellMain } from "@/app-shell/AppShellMain";
 import GlobalSearch from "@/app-shell/GlobalSearch";
-import { ModalAgentChatPanel } from "@/features/agent/components/ModalAgentChatPanel";
+
 import { HostedBootstrapBoundary } from "@/app-shell/HostedAppShellGate";
 import { DocumentTitle } from "@/app-shell/DocumentTitle";
 import { SidebarLayoutProvider } from "@/app-shell/SidebarLayoutContext";
@@ -51,8 +51,6 @@ export default function AppLayout({ children }: Props) {
                 <AppShellMain />
 
                 <GlobalSearch />
-
-                <ModalAgentChatPanel />
 
                 <DocumentTitle />
 

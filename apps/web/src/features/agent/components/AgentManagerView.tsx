@@ -27,7 +27,7 @@ import {
   MessageSquare,
 } from "lucide-react";
 import { LaunchpadPageTabs } from "@/shared/components/LaunchpadPageTabs";
-import { ChatSessionsManagementView } from "@/features/chat-sessions/components/ChatSessionsManagementView";
+
 import { motion, AnimatePresence } from "motion/react";
 import {
   AgentCard,
@@ -210,7 +210,9 @@ export const AgentManagerView: React.FC = () => {
             transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
             className="flex-1 overflow-hidden"
           >
-            <ChatSessionsManagementView hideHeader />
+            <div className="flex h-full items-center justify-center px-8 text-center text-sm text-muted-foreground">
+              {t("manager.sessionsMoved")}
+            </div>
           </motion.div>
         ) : (
           <motion.div

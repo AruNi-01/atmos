@@ -6,6 +6,7 @@
 mod agents;
 mod automation;
 mod center_layout;
+mod conversation;
 mod disk_analyzer;
 mod fs;
 mod git;
@@ -31,6 +32,7 @@ mod workspace_gitignore;
 mod workspace_notifications;
 mod workspace_setup;
 
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use super::{message::*, subscription::ConnectionTaskRegistry, WsManager, WsMessageHandler};
@@ -42,14 +44,16 @@ use core_service::service::canvas_agent_relay::{
 use local_model_runtime::LocalRuntimeManager;
 use quota_usage::QuotaUsageService;
 use serde_json::{json, Value};
-use tokio::sync::OnceCell;
+use tokio::sync::{OnceCell, RwLock};
 
 use crate::simulator::SimulatorRuntime;
 
 use core_service::{
-    AgentService, AgentSessionService, AutomationService, DiskAnalyzerService, GroupService,
-    LinearService, LocalServicesService, NotificationService, ProjectService,
-    ResourceMonitorService, ReviewService, TerminalService, WorkspaceService,
+    builtin_catalog_specs, catalog_probe_dir, default_agent_data_dir, default_conversations_dir,
+    AgentService, AgentSessionService, AutomationService, CatalogPrefetchWorker,
+    ConversationService, ConversationStore, DefaultAgentProviderFactory, DiskAnalyzerService,
+    GroupService, LinearService, LocalServicesService, NotificationService, ProjectService,
+    ResourceMonitorService, ReviewService, TerminalService, WorkspaceService, PREFETCH_POLL,
 };
 use core_service::{Result, ServiceError};
 use sea_orm_migration::sea_orm::DatabaseConnection;
@@ -82,6 +86,9 @@ pub struct WsMessageService {
     ws_manager: OnceCell<Arc<WsManager>>,
     local_model_manager: Arc<LocalRuntimeManager>,
     simulator: Arc<SimulatorRuntime>,
+    conversation_service: Arc<ConversationService>,
+    catalog_worker: Arc<CatalogPrefetchWorker>,
+    conversation_subs: Arc<RwLock<HashMap<String, HashSet<String>>>>,
 }
 
 impl WsMessageService {
@@ -117,6 +124,16 @@ impl WsMessageService {
             Arc::clone(&local_services_service),
             Arc::new(ResourceMetricsEngine::new()),
         ));
+        let conversation_service = Arc::new(ConversationService::new(
+            Arc::new(ConversationStore::new(default_conversations_dir())),
+            Arc::new(DefaultAgentProviderFactory::new(Arc::clone(&agent_service))),
+        ));
+        let catalog_worker = Arc::new(CatalogPrefetchWorker::with_specs(
+            default_agent_data_dir(),
+            agent::CatalogEngine::new(catalog_probe_dir()),
+            PREFETCH_POLL,
+            builtin_catalog_specs(),
+        ));
 
         Self {
             fs_engine: FsEngine::new(),
@@ -144,6 +161,9 @@ impl WsMessageService {
             ws_manager: OnceCell::new(),
             local_model_manager: Arc::new(LocalRuntimeManager::new()),
             simulator: Arc::new(SimulatorRuntime::new()),
+            conversation_service,
+            catalog_worker,
+            conversation_subs: Arc::new(RwLock::new(HashMap::new())),
         }
     }
 
@@ -159,7 +179,55 @@ impl WsMessageService {
         self.ws_manager
             .set(manager)
             .map_err(|_| ServiceError::Processing("WS Manager already set".to_string()))?;
+        self.spawn_conversation_fanout();
         Ok(())
+    }
+
+    fn spawn_conversation_fanout(&self) {
+        let Some(manager) = self.ws_manager.get().cloned() else {
+            return;
+        };
+        let mut events = self.conversation_service.subscribe();
+        let subs = Arc::clone(&self.conversation_subs);
+        let manager_events = Arc::clone(&manager);
+        tokio::spawn(async move {
+            loop {
+                match events.recv().await {
+                    Ok(event) => {
+                        let conns = {
+                            let map = subs.read().await;
+                            map.get(&event.conversation_id).cloned().unwrap_or_default()
+                        };
+                        if let Ok(payload) = serde_json::to_value(&event) {
+                            let message =
+                                WsMessage::notification(WsEvent::ConversationEvent, payload);
+                            for conn_id in conns {
+                                let _ = manager_events.send_to(&conn_id, &message).await;
+                            }
+                        }
+                    }
+                    Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => continue,
+                    Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
+                }
+            }
+        });
+        let mut catalog_rx = self.catalog_worker.subscribe();
+        let manager_catalog = manager;
+        tokio::spawn(async move {
+            loop {
+                match catalog_rx.recv().await {
+                    Ok(update) => {
+                        if let Ok(payload) = serde_json::to_value(&update) {
+                            let message =
+                                WsMessage::notification(WsEvent::AgentModelCatalogUpdated, payload);
+                            let _ = manager_catalog.broadcast(&message).await;
+                        }
+                    }
+                    Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => continue,
+                    Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
+                }
+            }
+        });
     }
 
     /// Process a WebSocket request and return a response.
@@ -730,6 +798,79 @@ impl WsMessageService {
             }
             WsAction::CustomAgentGetManifestPath => {
                 self.handle_custom_agent_get_manifest_path().await
+            }
+
+            WsAction::ConversationCreate => {
+                self.handle_conversation_create(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::ConversationList => {
+                self.handle_conversation_list(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::ConversationGet => {
+                self.handle_conversation_get(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::ConversationMessages => {
+                self.handle_conversation_messages(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::ConversationRename => {
+                self.handle_conversation_rename(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::ConversationConfigure => {
+                self.handle_conversation_configure(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::ConversationDelete => {
+                self.handle_conversation_delete(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::ConversationSubscribe => {
+                self.handle_conversation_subscribe(conn_id, parse_request(request.data)?)
+                    .await
+            }
+            WsAction::ConversationUnsubscribe => {
+                self.handle_conversation_unsubscribe(conn_id, parse_request(request.data)?)
+                    .await
+            }
+            WsAction::ConversationSend => {
+                self.handle_conversation_send(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::ConversationSteer => {
+                self.handle_conversation_steer(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::ConversationQueueAdd => {
+                self.handle_conversation_queue_add(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::ConversationQueueUpdate => {
+                self.handle_conversation_queue_update(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::ConversationQueueReorder => {
+                self.handle_conversation_queue_reorder(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::ConversationQueueDelete => {
+                self.handle_conversation_queue_delete(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::ConversationCancel => {
+                self.handle_conversation_cancel(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::ConversationPermissionRespond => {
+                self.handle_conversation_permission_respond(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::AgentModelCatalogGet => {
+                self.handle_agent_model_catalog_get(parse_request(request.data)?)
+                    .await
             }
 
             // Automation
@@ -1368,6 +1509,9 @@ impl WsMessageHandler for WsMessageService {
 
     async fn on_connect(&self, conn_id: &str) {
         tracing::info!("[WsMessageService] Client connected: {}", conn_id);
+        if conn_id.starts_with("web-") || conn_id.starts_with("desktop-") {
+            self.catalog_worker.on_web_connect();
+        }
     }
 
     async fn on_disconnect(&self, conn_id: &str) {
@@ -1378,6 +1522,13 @@ impl WsMessageHandler for WsMessageService {
         self.disk_analyzer_service
             .remove_connection_sessions(conn_id);
         self.abort_resource_monitor_subscription(conn_id);
+        if conn_id.starts_with("web-") || conn_id.starts_with("desktop-") {
+            self.catalog_worker.on_web_disconnect();
+        }
+        let mut subs = self.conversation_subs.write().await;
+        for conns in subs.values_mut() {
+            conns.remove(conn_id);
+        }
     }
 }
 
