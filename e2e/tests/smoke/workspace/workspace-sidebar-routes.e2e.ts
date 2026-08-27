@@ -17,33 +17,46 @@ async function activateWorkspaceToolTab(page: Page, name: RegExp) {
   const toolTab = page.getByRole("tab", { name });
   if (!(await toolTab.first().isVisible().catch(() => false))) {
     const plusTrigger = page
-      .locator("[data-center-stage-plus-trigger]")
+      .locator("main [data-center-stage-plus-trigger]")
       .filter({ visible: true })
       .first();
     await expect(plusTrigger).toBeVisible({ timeout: 15_000 });
     const plusMenu = page.locator("[data-center-stage-plus-menu]");
-    // Hover + click toggles the popover closed; open only when collapsed.
+    // Playwright click() hovers first: trigger onMouseEnter opens, then the
+    // click toggles Radix closed. Native click does not move the pointer.
     if ((await plusTrigger.getAttribute("aria-expanded")) !== "true") {
-      await plusTrigger.click();
+      await plusTrigger.evaluate((el) => (el as HTMLButtonElement).click());
     }
     await expect(plusMenu).toBeVisible({ timeout: 15_000 });
-    await plusMenu.hover({ position: { x: 12, y: 12 } }).catch(() => undefined);
 
-    const tabsTab = plusMenu.getByRole("tab", { name: /^(标签|Tabs)$/ });
-    if (
-      (await tabsTab.count()) > 0 &&
-      (await tabsTab.getAttribute("aria-selected")) !== "true"
-    ) {
-      await tabsTab.click();
-    }
+    await expect
+      .poll(
+        async () =>
+          plusMenu.evaluate((menu, source) => {
+            const tabsTab = Array.from(menu.querySelectorAll('[role="tab"]')).find((node) =>
+              /^(标签|Tabs)$/.test((node.textContent ?? "").trim()),
+            ) as HTMLElement | undefined;
+            if (tabsTab && tabsTab.getAttribute("aria-selected") !== "true") {
+              tabsTab.click();
+            }
+            return Array.from(menu.querySelectorAll("button")).some((button) =>
+              new RegExp(source).test(button.textContent ?? ""),
+            );
+          }, name.source),
+        { timeout: 10_000 },
+      )
+      .toBe(true);
 
-    const item = plusMenu.locator("button").filter({ hasText: name }).first();
-    await expect(item).toHaveCount(1, { timeout: 10_000 });
-    // Lower items (Run, GitHub) are clipped by overflow:hidden; skip visibility.
-    await item.evaluate((el) => {
-      (el as HTMLElement).scrollIntoView({ block: "nearest" });
-      (el as HTMLButtonElement).click();
-    });
+    const clicked = await plusMenu.evaluate((menu, source) => {
+      const match = Array.from(menu.querySelectorAll("button")).find((button) =>
+        new RegExp(source).test(button.textContent ?? ""),
+      );
+      if (!match) return false;
+      match.scrollIntoView({ block: "nearest" });
+      match.click();
+      return true;
+    }, name.source);
+    expect(clicked, `plus menu missing item ${name}`).toBe(true);
   }
 
   await expect(toolTab.first()).toBeVisible({ timeout: 45_000 });
