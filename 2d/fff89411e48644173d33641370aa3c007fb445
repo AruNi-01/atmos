@@ -1,0 +1,80 @@
+apps/web/messages/en.json
+  h_5be255725524c8 10785-10786,10826-10828
+apps/web/messages/zh.json
+  h_5be255725524c8 10786-10787,10827-10829
+apps/web/src/features/md-live/components/MarkdownLiveEditor.tsx
+  h_5be255725524c8 17,49
+apps/web/src/features/md-live/components/MdLiveAgentDock.tsx
+  h_5be255725524c8 24,72,74-82,484-485,489-491
+apps/web/src/features/md-live/components/MdLiveSelectionToolbar.tsx
+  h_5be255725524c8 9-12,99,174,197-224,258-273
+apps/web/src/features/md-live/components/MdLiveSlashMenu.tsx
+  h_5be255725524c8 19,58
+apps/web/src/features/md-live/lib/__tests__/md-live-code-languages.test.ts
+  h_5be255725524c8 1-36
+apps/web/src/features/md-live/lib/__tests__/md-live-gfm-roundtrip.test.ts
+  h_5be255725524c8 13-19,26,56-86,98,100-103,113-172
+apps/web/src/features/md-live/lib/__tests__/md-live-headless-agents.test.ts
+  h_5be255725524c8 1-20
+apps/web/src/features/md-live/lib/__tests__/md-live-structural.test.ts
+  h_5be255725524c8 46-60,69-70,75-77,98-101
+apps/web/src/features/md-live/lib/md-live-code-languages.ts
+  h_5be255725524c8 1-103
+apps/web/src/features/md-live/lib/md-live-headless-agents.ts
+  h_5be255725524c8 1-10
+apps/web/src/features/md-live/lib/md-live-preview-blocks.tsx
+  h_5be255725524c8 1-313
+apps/web/src/shared/components/markdown/MarkdownRenderer.tsx
+  h_5be255725524c8 27-34,416-417,421,424,427,430
+apps/web/src/shared/components/markdown/markdown-table.ts
+  h_5be255725524c8 1-10
+packages/md-live/src/ui.ts
+  h_5be255725524c8 22-31
+packages/md-live/src/ui/LiveEditor.tsx
+  h_5be255725524c8 10,55-59,61,287-296,323,334-335,385-386,449
+packages/md-live/src/ui/actions.ts
+  h_5be255725524c8 33-34,38,110-112
+packages/md-live/src/ui/chrome.test.ts
+  h_5be255725524c8 25,46-68,79-90
+packages/md-live/src/ui/copy.ts
+  h_5be255725524c8 19,21
+packages/md-live/src/ui/live-editor.css
+  h_5be255725524c8 1-4,74-78,80,83-88,96-114,116-117,120-127,198,200-205,214,220,223-240,246-254,257-333,337,340,348,356,370-379,450-529
+packages/md-live/src/ui/markdown-stringify.test.ts
+  h_5be255725524c8 1-29
+packages/md-live/src/ui/markdown-stringify.ts
+  h_5be255725524c8 1-149
+packages/md-live/src/ui/onchange-gate.test.ts
+  h_5be255725524c8 8-16,19,21-22,28,32-41
+packages/md-live/src/ui/onchange-gate.ts
+  h_5be255725524c8 2-7,9-13,15-22,24-30,33-36,38-39
+packages/md-live/src/ui/placeholder.test.ts
+  h_5be255725524c8 1-31
+packages/md-live/src/ui/placeholder.ts
+  h_5be255725524c8 1-161
+packages/md-live/src/ui/slash-catalog.ts
+  h_5be255725524c8 35
+packages/md-live/src/ui/task-list.test.ts
+  h_5be255725524c8 4,6,21-27,35-42
+packages/md-live/src/ui/task-list.ts
+  h_5be255725524c8 11,38-45,97,106-108,110-112,116-118,199,216,234-238,241-303,337-341,388
+packages/md-live/src/ui/toggle-remark.test.ts
+  h_5be255725524c8 1-61
+packages/md-live/src/ui/toggle-remark.ts
+  h_5be255725524c8 1-152
+packages/md-live/src/ui/toggle.ts
+  h_5be255725524c8 1-269
+packages/md-live/src/ui/types.ts
+  h_5be255725524c8 11
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "2dfff89411e48644173d33641370aa3c007fb445",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
