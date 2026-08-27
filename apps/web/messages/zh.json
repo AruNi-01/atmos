@@ -10783,6 +10783,8 @@
     "slashBulletList": "无序列表",
     "slashOrderedList": "有序列表",
     "slashTaskList": "待办列表",
+    "slashToggle": "折叠块",
+    "placeholderEmptyLine": "输入文字，或输入 / 使用命令",
     "slashQuote": "引用",
     "slashCode": "代码块",
     "slashInlineCode": "行内代码",
@@ -10822,6 +10824,8 @@
     "rewriteInstruction": "改写选中的 Markdown。",
     "summarizeInstruction": "总结选中的 Markdown。",
     "githubIssue": "Issue #{number}",
-    "githubPullRequest": "Pull request #{number}"
+    "githubPullRequest": "Pull request #{number}",
+    "codeLanguagePlain": "纯文本",
+    "codeLanguageSelect": "选择语言"
   }
 }

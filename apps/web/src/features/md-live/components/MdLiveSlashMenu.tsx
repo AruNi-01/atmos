@@ -16,6 +16,7 @@ import {
   Image as ImageIcon,
   List,
   ListChecks,
+  ListCollapse,
   ListOrdered,
   Minus,
   Smile,
@@ -54,6 +55,7 @@ function ItemIcon({ id }: { id: string }): ReactNode {
   if (id === "ul") return <List className="size-4 text-muted-foreground" />;
   if (id === "ol") return <ListOrdered className="size-4 text-muted-foreground" />;
   if (id === "todo") return <ListChecks className="size-4 text-muted-foreground" />;
+  if (id === "toggle") return <ListCollapse className="size-4 text-muted-foreground" />;
   if (id === "code") return <Code className="size-4 text-muted-foreground" />;
   if (id === "inline-code") {
     return (

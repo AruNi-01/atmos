@@ -24,6 +24,14 @@ import { resolveRelativeMarkdownPath } from "@/shared/lib/markdown-links";
 import { CopyButton } from '@/shared/components/code-block/copy-button';
 import { ExpandButton } from '@/shared/components/code-block/expand-button';
 import { highlight, DualThemes, type Languages } from '@/shared/utils/shiki';
+import {
+  MARKDOWN_TABLE_CLASS,
+  MARKDOWN_TABLE_HEAD_CLASS,
+  MARKDOWN_TABLE_ROW_CLASS,
+  MARKDOWN_TABLE_TD_CLASS,
+  MARKDOWN_TABLE_TH_CLASS,
+  MARKDOWN_TABLE_WRAP_CLASS,
+} from '@/shared/components/markdown/markdown-table';
 
 const LANG_ALIASES: Record<string, string> = {
   sh: 'bash',
@@ -405,21 +413,21 @@ const DEFAULT_MARKDOWN_COMPONENTS: Components = {
   code: MarkdownCodeBlock,
   pre: ({ children }) => <>{children}</>,
   table: ({ children }) => (
-    <div className="not-prose my-4 overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-700/50">
-      <table className="w-full text-sm">{children}</table>
+    <div className={MARKDOWN_TABLE_WRAP_CLASS}>
+      <table className={MARKDOWN_TABLE_CLASS}>{children}</table>
     </div>
   ),
   thead: ({ children }) => (
-    <thead className="bg-zinc-100 dark:bg-zinc-800/80">{children}</thead>
+    <thead className={MARKDOWN_TABLE_HEAD_CLASS}>{children}</thead>
   ),
   th: ({ children, style }) => (
-    <th className="px-4 py-2.5 text-left font-semibold text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700/50" style={style}>{children}</th>
+    <th className={MARKDOWN_TABLE_TH_CLASS} style={style}>{children}</th>
   ),
   td: ({ children, style }) => (
-    <td className="px-4 py-2.5 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700/50" style={style}>{children}</td>
+    <td className={MARKDOWN_TABLE_TD_CLASS} style={style}>{children}</td>
   ),
   tr: ({ children }) => (
-    <tr className="even:bg-zinc-50 dark:even:bg-zinc-800/40">{children}</tr>
+    <tr className={MARKDOWN_TABLE_ROW_CLASS}>{children}</tr>
   ),
 };
 

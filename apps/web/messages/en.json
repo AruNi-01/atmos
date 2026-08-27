@@ -10782,6 +10782,8 @@
     "slashBulletList": "Bullet list",
     "slashOrderedList": "Numbered list",
     "slashTaskList": "To-do list",
+    "slashToggle": "Toggle",
+    "placeholderEmptyLine": "Enter text or type '/' for commands",
     "slashQuote": "Blockquote",
     "slashCode": "Code block",
     "slashInlineCode": "Inline code",
@@ -10821,6 +10823,8 @@
     "rewriteInstruction": "Rewrite the selected markdown.",
     "summarizeInstruction": "Summarize the selected markdown.",
     "githubIssue": "Issue #{number}",
-    "githubPullRequest": "Pull request #{number}"
+    "githubPullRequest": "Pull request #{number}",
+    "codeLanguagePlain": "Plain text",
+    "codeLanguageSelect": "Select language"
   }
 }

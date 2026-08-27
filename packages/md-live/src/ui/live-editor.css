@@ -1,3 +1,7 @@
+.md-live {
+  position: relative;
+}
+
 .md-live,
 .md-live .milkdown,
 .md-live .editor {
@@ -67,13 +71,21 @@
   text-decoration: line-through;
 }
 
+.md-live .editor li.md-live-task-item p {
+  margin: 0;
+  line-height: 1.75;
+}
+
 .md-live-task-check {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  margin-top: 0.2rem;
-  width: 1rem;
-  height: 1rem;
+  flex-shrink: 0;
+  align-self: start;
+  box-sizing: border-box;
+  margin: 0;
+  width: 1.25rem;
+  height: 1.75em;
   padding: 0;
   border: 0;
   background: transparent;
@@ -81,9 +93,38 @@
   cursor: pointer;
 }
 
-.md-live-task-icon {
+.md-live-task-check--todo,
+.md-live-task-check--cancelled {
+  color: var(--muted-foreground);
+}
+
+.md-live-task-check--progress {
+  color: #3b82f6;
+}
+
+.md-live-task-check--done {
+  color: #6366f1;
+}
+
+.md-live-task-icons {
+  position: relative;
   width: 1rem;
   height: 1rem;
+}
+
+.md-live-task-icon {
+  position: absolute;
+  inset: 0;
+  width: 1rem;
+  height: 1rem;
+  opacity: 0;
+  transform: scale(0.72) rotate(-50deg);
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+
+.md-live-task-icon.is-active {
+  opacity: 1;
+  transform: scale(1) rotate(0deg);
 }
 
 .md-live-task-body {
@@ -154,8 +195,127 @@
   color: rgb(228 228 231);
 }
 
+.md-live-preview-code {
+  margin: 1rem 0;
+}
+
+.md-live-preview-code-shell {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  overflow: clip;
+  border-radius: 0.5rem;
+  border: 1px solid rgb(229 229 229);
+  background: rgb(229 229 229 / 0.4);
+  color: rgb(10 10 10);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.04);
+}
+
+.dark .md-live-preview-code-shell {
+  border-color: rgb(38 38 38);
+  background: rgb(38 38 38 / 0.7);
+  color: rgb(250 250 250);
+}
+
+.md-live-preview-code-header {
+  display: flex;
+  height: 2.25rem;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.375rem 0.5rem;
+  font-size: 0.875rem;
+  color: rgb(82 82 82);
+}
+
+.dark .md-live-preview-code-header {
+  color: rgb(163 163 163);
+}
+
+.md-live-preview-code-header-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.md-live-preview-code-lang {
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.md-live-preview-code-copy {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.md-live-preview-code-body {
+  position: relative;
+  background: var(--background);
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace);
+  font-size: 13px;
+  line-height: 1.625;
+  white-space: pre;
+}
+
+.md-live-code-surface {
+  position: relative;
+}
+
+.md-live-preview-code-overlay {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.md-live-preview-code-overlay pre.shiki,
+.md-live-preview-code-overlay pre,
+.md-live-preview-code-overlay code {
+  margin: 0 !important;
+  padding: 0.75rem 1rem !important;
+  background: transparent !important;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+  font-size: 13px !important;
+  line-height: 1.625 !important;
+  white-space: pre !important;
+}
+
+.md-live-preview-code-overlay span.line {
+  display: inline !important;
+  padding: 0 !important;
+}
+
+.md-live-preview-code-overlay span.line::before {
+  content: none !important;
+  display: none !important;
+}
+
+.md-live-preview-code-editor {
+  position: relative;
+  display: block;
+  margin: 0;
+  overflow-x: auto;
+  padding: 0.75rem 1rem;
+  background: transparent;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 13px;
+  line-height: 1.625;
+  white-space: pre;
+  caret-color: var(--foreground);
+}
+
+.md-live-preview-code.is-highlighted .md-live-preview-code-editor {
+  color: transparent;
+}
+
 .md-live .editor pre.md-live-pre,
-.md-live .editor pre {
+.md-live .editor pre:not(.md-live-preview-code-editor):not(.md-live-preview-code-overlay pre) {
   margin: 1rem 0;
   padding: 0;
   overflow: clip;
@@ -167,41 +327,17 @@
 }
 
 .dark .md-live .editor pre.md-live-pre,
-.dark .md-live .editor pre {
+.dark .md-live .editor pre:not(.md-live-preview-code-editor):not(.md-live-preview-code-overlay pre) {
   border-color: rgb(38 38 38);
   background: rgb(38 38 38 / 0.7);
   color: rgb(250 250 250);
 }
 
-.md-live .editor pre.md-live-pre::before,
-.md-live .editor pre::before {
-  display: flex;
-  align-items: center;
-  height: 2.25rem;
-  padding: 0 0.5rem;
-  font-size: 12px;
-  font-weight: 500;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: rgb(82 82 82);
-  content: "Code";
-}
-
-.md-live .editor pre.md-live-pre[data-language]::before,
-.md-live .editor pre[data-language]::before {
-  content: attr(data-language);
-}
-
-.dark .md-live .editor pre.md-live-pre::before,
-.dark .md-live .editor pre::before {
-  color: rgb(163 163 163);
-}
-
 .md-live .editor pre.md-live-pre > code,
-.md-live .editor pre > code {
+.md-live .editor pre:not(.md-live-preview-code-editor) > code {
   display: block;
   overflow-x: auto;
-  padding: 0.75rem 0.75rem;
+  padding: 0.75rem;
   background: var(--background);
   font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace);
   font-size: 13px;
@@ -209,6 +345,7 @@
   white-space: pre;
 }
 
+.md-live-preview-table,
 .md-live .editor .tableWrapper {
   margin: 1rem 0;
   overflow-x: auto;
@@ -216,6 +353,7 @@
   border: 1px solid rgb(228 228 231);
 }
 
+.dark .md-live-preview-table,
 .dark .md-live .editor .tableWrapper {
   border-color: rgb(63 63 70 / 0.5);
 }
@@ -227,6 +365,16 @@
   border-collapse: collapse;
   table-layout: auto;
   font-size: 0.875rem;
+}
+
+.md-live .editor thead,
+.md-live .editor tr:first-child th {
+  background: rgb(244 244 245);
+}
+
+.dark .md-live .editor thead,
+.dark .md-live .editor tr:first-child th {
+  background: rgb(39 39 42 / 0.8);
 }
 
 .md-live .editor th,
@@ -242,13 +390,11 @@
 }
 
 .md-live .editor th {
-  background: rgb(244 244 245);
   font-weight: 600;
   color: rgb(63 63 70);
 }
 
 .dark .md-live .editor th {
-  background: rgb(39 39 42 / 0.8);
   color: rgb(212 212 216);
 }
 
@@ -300,4 +446,84 @@
   --shadow: none;
   --font-family: inherit;
   --font-size: 13px;
+}
+
+.md-live-toggle {
+  display: grid;
+  grid-template-columns: 1.25rem minmax(0, 1fr);
+  column-gap: 0.4rem;
+  align-items: start;
+  margin: 0.25rem 0;
+}
+
+.md-live-toggle-chevron {
+  grid-column: 1;
+  grid-row: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.75em;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted-foreground);
+  cursor: pointer;
+}
+
+.md-live-toggle-chevron-icon {
+  display: block;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 5px 0 5px 7px;
+  border-color: transparent transparent transparent currentColor;
+  transform-origin: 30% 50%;
+  transform: rotate(0deg);
+  transition: transform 180ms ease;
+}
+
+.md-live-toggle[data-open="true"] .md-live-toggle-chevron-icon {
+  transform: rotate(90deg);
+}
+
+.md-live-toggle-main {
+  grid-column: 2;
+  min-width: 0;
+}
+
+.md-live-toggle-summary {
+  min-height: 1.75em;
+  line-height: 1.75;
+}
+
+.md-live-toggle-summary p {
+  margin: 0;
+}
+
+.md-live-toggle[data-open="false"] .md-live-toggle-main > :not(.md-live-toggle-summary) {
+  display: none;
+}
+
+.md-live-placeholder-layer {
+  position: absolute;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.md-live-placeholder-label {
+  display: block;
+  color: var(--muted-foreground);
+  font-style: italic;
+  opacity: 0;
+  transform: translateY(0.18em);
+  transition: opacity 180ms ease, transform 180ms ease;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.md-live-placeholder-label.is-visible {
+  opacity: 0.48;
+  transform: translateY(0);
 }

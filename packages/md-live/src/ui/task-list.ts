@@ -8,6 +8,7 @@ import type { MdLiveTaskMarker } from "./types";
 
 const TASK_MARKERS: MdLiveTaskMarker[] = [" ", "/", "x", "-"];
 const MARKER_RE = /^\[([ xX/\-])\]\s+/;
+const TYPED_TASK_RE = /^\[([ xX/\-])\](?:\s+|$)/;
 
 export function normalizeMdLiveTaskMarker(raw: string | null | undefined): MdLiveTaskMarker | null {
   if (raw == null) return null;
@@ -32,6 +33,14 @@ export function mdLiveTaskMarkerOf(attrs: {
 export function cycleMdLiveTaskMarker(marker: MdLiveTaskMarker): MdLiveTaskMarker {
   const index = TASK_MARKERS.indexOf(marker);
   return TASK_MARKERS[(index + 1) % TASK_MARKERS.length] ?? " ";
+}
+
+export function matchTypedTaskMarker(text: string): { marker: MdLiveTaskMarker; length: number } | null {
+  const match = text.match(TYPED_TASK_RE);
+  if (!match) return null;
+  const marker = normalizeMdLiveTaskMarker(match[1]);
+  if (marker == null) return null;
+  return { marker, length: match[0].length };
 }
 
 function firstTextNode(node: { type?: string; value?: string; children?: unknown[] }): { value: string } | null {
@@ -85,6 +94,7 @@ export const mdLiveTaskListItem = listItemSchema.extendSchema((prev) => {
       attrs: {
         ...base.attrs,
         taskMarker: { default: null },
+        spread: { default: false, validate: "boolean" },
       },
       parseMarkdown: {
         match: ({ type }) => type === "listItem",
@@ -93,14 +103,19 @@ export const mdLiveTaskListItem = listItemSchema.extendSchema((prev) => {
             (node as { taskMarker?: string }).taskMarker
               ?? (node.checked === true ? "x" : node.checked === false ? " " : null),
           );
+          const spread = node.spread ?? false;
+          const label = node.label != null ? `${node.label}.` : "•";
+          const listType = node.label != null ? "ordered" : "bullet";
           if (marker == null) {
-            base.parseMarkdown.runner(state, node, type);
+            state.openNode(type, { label, listType, spread });
+            state.next(node.children);
+            state.closeNode();
             return;
           }
           state.openNode(type, {
-            label: node.label != null ? `${node.label}.` : "•",
-            listType: node.label != null ? "ordered" : "bullet",
-            spread: node.spread ?? true,
+            label,
+            listType,
+            spread,
             checked: marker === "x",
             taskMarker: marker,
           });
@@ -181,7 +196,7 @@ function applyTaskMarkerNear(tr: Transaction, around: number, marker: MdLiveTask
 }
 
 export const mdLiveTaskFromParagraphRule = $inputRule((ctx) => {
-  return new InputRule(/^[-*]\s+\[([ xX/\-])\]\s$/, (state, match, start, end) => {
+  return new InputRule(/^[-*]\s+\[([ xX/\-])\](?:\s|$)/, (state, match, start, end) => {
     const marker = normalizeMdLiveTaskMarker(match[1]);
     if (marker == null) return null;
     const $start = state.doc.resolve(start);
@@ -198,7 +213,7 @@ export const mdLiveTaskFromParagraphRule = $inputRule((ctx) => {
 });
 
 export const mdLiveTaskMarkerRule = $inputRule(() => {
-  return new InputRule(/^\[([ xX/\-])\]\s$/, (state, match, start, end) => {
+  return new InputRule(/^\[([ xX/\-])\](?:\s|$)/, (state, match, start, end) => {
     const marker = normalizeMdLiveTaskMarker(match[1]);
     if (marker == null) return null;
     const pos = state.doc.resolve(start);
@@ -216,18 +231,75 @@ export const mdLiveTaskMarkerRule = $inputRule(() => {
   });
 });
 
-function markerIcon(marker: MdLiveTaskMarker): string {
-  if (marker === "x") {
-    return '<svg viewBox="0 0 16 16" fill="none" class="md-live-task-icon"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.5"/><path d="M5.5 8L7.2 9.7L10.5 6.3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-  }
-  if (marker === "/") {
-    return '<svg viewBox="0 0 16 16" fill="none" class="md-live-task-icon"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.5" opacity="0.3"/><path d="M8 1.5 A6.5 6.5 0 0 1 14.5 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
-  }
-  if (marker === "-") {
-    return '<svg viewBox="0 0 16 16" fill="none" class="md-live-task-icon"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.5"/><path d="M6 6l4 4M10 6l-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
-  }
-  return '<svg viewBox="0 0 16 16" fill="none" class="md-live-task-icon"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.5"/></svg>';
+export function mdLiveTaskToneClass(marker: MdLiveTaskMarker): string {
+  if (marker === "/") return "md-live-task-check--progress";
+  if (marker === "x") return "md-live-task-check--done";
+  if (marker === "-") return "md-live-task-check--cancelled";
+  return "md-live-task-check--todo";
 }
+
+const TASK_ICON_SVGS: Record<MdLiveTaskMarker, string> = {
+  " ": '<svg viewBox="0 0 16 16" fill="none" data-icon="todo" class="md-live-task-icon"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.5"/></svg>',
+  "/": '<svg viewBox="0 0 16 16" fill="none" data-icon="progress" class="md-live-task-icon"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.5" opacity="0.3"/><path d="M8 1.5 A6.5 6.5 0 0 1 14.5 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
+  x: '<svg viewBox="0 0 16 16" fill="none" data-icon="done" class="md-live-task-icon"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.5"/><path d="M5.5 8L7.2 9.7L10.5 6.3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  "-": '<svg viewBox="0 0 16 16" fill="none" data-icon="cancelled" class="md-live-task-icon"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.5"/><path d="M6 6l4 4M10 6l-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
+};
+
+function taskIconStack(): string {
+  return `<span class="md-live-task-icons">${TASK_ICON_SVGS[" "]}${TASK_ICON_SVGS["/"]}${TASK_ICON_SVGS.x}${TASK_ICON_SVGS["-"]}</span>`;
+}
+
+function activateTaskIcon(button: HTMLElement, marker: MdLiveTaskMarker): void {
+  const active =
+    marker === "/" ? "progress" : marker === "x" ? "done" : marker === "-" ? "cancelled" : "todo";
+  button.querySelectorAll(".md-live-task-icon").forEach((icon) => {
+    icon.classList.toggle("is-active", icon.getAttribute("data-icon") === active);
+  });
+}
+
+export const mdLiveTaskTypedDetect = $prose(() => {
+  return new Plugin({
+    key: new PluginKey("md-live-task-typed-detect"),
+    appendTransaction(transactions, _oldState, newState) {
+      if (!transactions.some((transaction) => transaction.docChanged)) return null;
+      let tr: Transaction | null = null;
+      const apply = () => {
+        tr ??= newState.tr;
+        return tr;
+      };
+      newState.doc.descendants((node, pos) => {
+        if (node.type.name !== "list_item") return;
+        const mappedPos = tr ? tr.mapping.map(pos) : pos;
+        const current = (tr ?? newState).doc.nodeAt(mappedPos);
+        if (!current || current.type.name !== "list_item") return;
+        const existing = mdLiveTaskMarkerOf(current.attrs);
+        if (existing != null && typeof current.attrs.taskMarker === "string") return;
+        if (existing != null && current.attrs.taskMarker == null) {
+          apply().setNodeMarkup(mappedPos, undefined, {
+            ...current.attrs,
+            taskMarker: existing,
+            checked: existing === "x",
+          });
+          return;
+        }
+        const para = current.firstChild;
+        if (!para || para.type.name !== "paragraph") return;
+        const typed = matchTypedTaskMarker(para.textContent);
+        if (!typed) return;
+        const from = mappedPos + 2;
+        const to = from + typed.length;
+        apply()
+          .delete(from, to)
+          .setNodeMarkup(mappedPos, undefined, {
+            ...current.attrs,
+            checked: typed.marker === "x",
+            taskMarker: typed.marker,
+          });
+      });
+      return tr;
+    },
+  });
+});
 
 export const mdLiveTaskItemView = $prose(() => {
   return new Plugin({
@@ -262,7 +334,11 @@ export const mdLiveTaskItemView = $prose(() => {
             dom.dataset.itemType = "task";
             dom.dataset.taskMarker = marker;
             button.dataset.marker = marker;
-            button.innerHTML = markerIcon(marker);
+            button.className = `md-live-task-check ${mdLiveTaskToneClass(marker)}`;
+            if (!button.querySelector(".md-live-task-icons")) {
+              button.innerHTML = taskIconStack();
+            }
+            activateTaskIcon(button, marker);
             if (button.parentNode !== dom) {
               dom.prepend(button);
             }
@@ -309,5 +385,6 @@ export const mdLiveTaskListPlugins = [
   mdLiveTaskListItem,
   mdLiveTaskFromParagraphRule,
   mdLiveTaskMarkerRule,
+  mdLiveTaskTypedDetect,
   mdLiveTaskItemView,
 ].flat();

@@ -6,6 +6,10 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
 } from "@workspace/ui";
 import {
   Bold,
@@ -92,6 +96,7 @@ export function MdLiveSelectionToolbar({
   };
 
   return (
+    <TooltipProvider delayDuration={400}>
     <div data-md-live-toolbar="true" className="flex items-center gap-0.5 rounded-md border bg-popover p-1 shadow-md">
       <OverlayMenu
         label={label("toolbarParagraph")}
@@ -166,6 +171,7 @@ export function MdLiveSelectionToolbar({
         </>
       ) : null}
     </div>
+    </TooltipProvider>
   );
 }
 
@@ -188,29 +194,34 @@ function OverlayMenu({
 }) {
   return (
     <DropdownMenu modal={false}>
-      <DropdownMenuTrigger asChild>
-        {iconTrigger ? (
-          <button
-            type="button"
-            title={label}
-            aria-label={label}
-            className="flex size-8 items-center justify-center rounded-sm text-foreground hover:bg-accent hover:text-accent-foreground"
-            onMouseDown={preventFocusSteal}
-          >
-            {iconTrigger}
-          </button>
-        ) : (
-          <button
-            type="button"
-            title={label}
-            aria-label={label}
-            className="flex h-8 items-center gap-1 rounded-sm px-2 text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
-            onMouseDown={preventFocusSteal}
-          >
-            {trigger}
-          </button>
-        )}
-      </DropdownMenuTrigger>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <DropdownMenuTrigger asChild>
+            {iconTrigger ? (
+              <button
+                type="button"
+                aria-label={label}
+                className="flex size-8 items-center justify-center rounded-sm text-foreground hover:bg-accent hover:text-accent-foreground"
+                onMouseDown={preventFocusSteal}
+              >
+                {iconTrigger}
+              </button>
+            ) : (
+              <button
+                type="button"
+                aria-label={label}
+                className="flex h-8 items-center gap-1 rounded-sm px-2 text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
+                onMouseDown={preventFocusSteal}
+              >
+                {trigger}
+              </button>
+            )}
+          </DropdownMenuTrigger>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="z-[80]">
+          {label}
+        </TooltipContent>
+      </Tooltip>
       <DropdownMenuContent
         align="start"
         sideOffset={6}
@@ -244,16 +255,22 @@ function IconButton({
   children: ReactNode;
 }) {
   return (
-    <button
-      type="button"
-      title={label}
-      aria-label={label}
-      className="flex size-8 items-center justify-center rounded-sm text-foreground hover:bg-accent hover:text-accent-foreground"
-      onMouseDown={onMouseDown}
-      onClick={onClick}
-    >
-      {children}
-    </button>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          aria-label={label}
+          className="flex size-8 items-center justify-center rounded-sm text-foreground hover:bg-accent hover:text-accent-foreground"
+          onMouseDown={onMouseDown}
+          onClick={onClick}
+        >
+          {children}
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="top" className="z-[80]">
+        {label}
+      </TooltipContent>
+    </Tooltip>
   );
 }
 

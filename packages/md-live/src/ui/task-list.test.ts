@@ -1,7 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import {
   cycleMdLiveTaskMarker,
+  matchTypedTaskMarker,
   mdLiveTaskMarkerOf,
+  mdLiveTaskToneClass,
   normalizeMdLiveTaskMarker,
   remarkMdLiveTasks,
 } from "./task-list";
@@ -16,11 +18,26 @@ describe("md-live task markers", () => {
     expect(normalizeMdLiveTaskMarker("?")).toBeNull();
   });
 
+  test("uses overview status tones", () => {
+    expect(mdLiveTaskToneClass(" ")).toBe("md-live-task-check--todo");
+    expect(mdLiveTaskToneClass("/")).toBe("md-live-task-check--progress");
+    expect(mdLiveTaskToneClass("x")).toBe("md-live-task-check--done");
+    expect(mdLiveTaskToneClass("-")).toBe("md-live-task-check--cancelled");
+  });
+
   test("cycles todo -> progress -> done -> cancelled", () => {
     expect(cycleMdLiveTaskMarker(" ")).toBe("/");
     expect(cycleMdLiveTaskMarker("/")).toBe("x");
     expect(cycleMdLiveTaskMarker("x")).toBe("-");
     expect(cycleMdLiveTaskMarker("-")).toBe(" ");
+  });
+
+  test("detects typed checkbox prefixes after a bullet list", () => {
+    expect(matchTypedTaskMarker("[ ] ")?.marker).toBe(" ");
+    expect(matchTypedTaskMarker("[x] ")?.marker).toBe("x");
+    expect(matchTypedTaskMarker("[/] todo")?.marker).toBe("/");
+    expect(matchTypedTaskMarker("[-] ")?.marker).toBe("-");
+    expect(matchTypedTaskMarker("[link]")).toBeNull();
   });
 
   test("reads marker from attrs", () => {

@@ -14,6 +14,7 @@ import {
 } from "../lib/md-live-embed-plugin";
 import { insertMdLiveMedia } from "../lib/md-live-media-insert";
 import { mdLiveMediaViewPlugin } from "../lib/md-live-media-plugin";
+import { mdLivePreviewBlockPlugins } from "../lib/md-live-preview-blocks";
 import {
   emitMdLiveEditorEvent,
   getMdLiveEditor,
@@ -45,6 +46,7 @@ export function MarkdownLiveEditor({
       mdLiveEmbedBlockView,
       mdLiveEmbedInlineView,
       mdLiveMediaViewPlugin(filePath, workspaceRoot),
+      ...mdLivePreviewBlockPlugins(),
     ],
     [filePath, workspaceRoot],
   );

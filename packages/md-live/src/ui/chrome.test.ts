@@ -22,6 +22,7 @@ describe("md-live ui chrome", () => {
     expect(MD_LIVE_SLASH_ITEMS.some((item) => item.id === "video")).toBe(true);
     expect(MD_LIVE_SLASH_ITEMS.some((item) => item.id === "audio")).toBe(true);
     expect(MD_LIVE_SLASH_ITEMS.some((item) => item.id === "inline-code")).toBe(true);
+    expect(MD_LIVE_SLASH_ITEMS.some((item) => item.id === "toggle")).toBe(true);
   });
 
   test("emoji picker uses emoji-mart data", () => {
@@ -42,6 +43,29 @@ describe("md-live ui chrome", () => {
     expect(editor).toContain("selectionToolbar");
     expect(editor).toContain("newGroupDelay: 0");
     expect(editor).toContain("undoCommand");
+    expect(editor).toContain('spellcheck: "false"');
+    expect(editor).toContain("editorViewOptionsCtx");
+    expect(editor).toContain("applyMdLiveRemarkConfig");
+    expect(editor).toContain("formatMdLiveSerializedMarkdown");
+    expect(editor).toContain("commitMarkdown.arm()");
+    expect(editor).toContain("mdLiveTogglePlugins");
+    expect(editor).toContain("mdLivePlaceholderPlugin");
+  });
+
+  test("stringify uses hyphen bullets, tight lists, and compact tables", () => {
+    const stringify = readFileSync(join(here, "markdown-stringify.ts"), "utf8");
+    expect(stringify).toContain('bullet: "-"');
+    expect(stringify).toContain('listItemIndent: "one"');
+    expect(stringify).toContain("tablePipeAlign: false");
+    expect(stringify).toContain("tableCellPadding: true");
+    expect(stringify).toContain("formatMdLiveSerializedMarkdown");
+    expect(stringify).toContain("applyMdLiveRemarkConfig");
+    expect(stringify).toContain("stringifyMdLiveDetails");
+    expect(stringify).toContain("<details>");
+    expect(stringify).toContain("<summary>");
+    const tasks = readFileSync(join(here, "task-list.ts"), "utf8");
+    expect(tasks).toContain("spread: { default: false");
+    expect(tasks).toContain("const spread = node.spread ?? false");
   });
 
   test("blockquotes keep the left rule and drop typography quote marks", () => {
@@ -50,6 +74,18 @@ describe("md-live ui chrome", () => {
     expect(css).toContain("quotes: none");
     expect(css).toContain("blockquote p:first-of-type::before");
     expect(css).toContain("content: none");
+  });
+
+  test("task checks sit on the first text line and use overview tones", () => {
+    const css = readFileSync(join(here, "live-editor.css"), "utf8");
+    expect(css).toContain("height: 1.75em");
+    expect(css).toContain(".md-live-task-icon.is-active");
+    expect(css).toContain(".md-live-task-check--progress");
+    expect(css).toContain(".md-live-task-check--done");
+    expect(css).toContain("li.md-live-task-item p");
+    expect(css).toContain(".md-live-toggle-chevron-icon");
+    expect(css).toContain(".md-live-placeholder-label.is-visible");
+    expect(css).toContain("opacity 180ms ease");
   });
 
   test("overlay selector ignores clicks outside hosts", () => {

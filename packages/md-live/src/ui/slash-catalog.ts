@@ -32,6 +32,7 @@ export const MD_LIVE_SLASH_ITEMS: MdLiveSlashItem[] = [
   { id: "ul", label: "slashBulletList", keywords: "bullet list unordered", group: "basic", pick: { kind: "block", action: { type: "bullet-list" } } },
   { id: "ol", label: "slashOrderedList", keywords: "ordered numbered list", group: "basic", pick: { kind: "block", action: { type: "ordered-list" } } },
   { id: "todo", label: "slashTaskList", keywords: "todo task check checklist", group: "basic", pick: { kind: "block", action: { type: "task-list" } } },
+  { id: "toggle", label: "slashToggle", keywords: "toggle fold details summary collapse accordion", group: "basic", pick: { kind: "block", action: { type: "toggle" } } },
   { id: "code", label: "slashCode", keywords: "code fence block", group: "basic", pick: { kind: "block", action: { type: "code" } } },
   { id: "inline-code", label: "slashInlineCode", keywords: "inline code backtick", group: "basic", pick: { kind: "block", action: { type: "inline-code" } } },
   { id: "hr", label: "slashDivider", keywords: "divider hr rule", group: "basic", pick: { kind: "block", action: { type: "divider" } } },

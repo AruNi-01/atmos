@@ -30,10 +30,12 @@ import {
   clearDiffReviewCmd,
 } from "@milkdown/kit/plugin/diff";
 import type { MdLiveBlockAction } from "./types";
+import { formatMdLiveSerializedMarkdown } from "./markdown-stringify";
+import { insertMdLiveToggle } from "./toggle";
 
 export function getEditorMarkdown(ctx: Ctx): string {
   const view = ctx.get(editorViewCtx);
-  return ctx.get(serializerCtx)(view.state.doc);
+  return formatMdLiveSerializedMarkdown(ctx.get(serializerCtx)(view.state.doc));
 }
 
 export function getSelectionMarkdown(ctx: Ctx): string {
@@ -104,6 +106,9 @@ export function runBlockAction(ctx: Ctx, action: MdLiveBlockAction, replaceSlash
     }
     case "quote":
       commands.call(wrapInBlockquoteCommand.key);
+      return;
+    case "toggle":
+      insertMdLiveToggle(ctx);
       return;
     case "code":
       commands.call(createCodeBlockCommand.key);

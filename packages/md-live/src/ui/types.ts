@@ -8,6 +8,7 @@ export type MdLiveBlockAction =
   | { type: "ordered-list" }
   | { type: "task-list" }
   | { type: "quote" }
+  | { type: "toggle" }
   | { type: "code" }
   | { type: "inline-code" }
   | { type: "bold" }

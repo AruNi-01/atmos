@@ -7,6 +7,7 @@ import {
   commandsCtx,
   defaultValueCtx,
   editorViewCtx,
+  editorViewOptionsCtx,
   rootCtx,
 } from "@milkdown/kit/core";
 import type { Ctx, MilkdownPlugin } from "@milkdown/kit/ctx";
@@ -51,7 +52,13 @@ import { cn } from "./cn";
 import { createMdLiveOnChangeGate } from "./onchange-gate";
 import { mdLiveHeadingIdPlugin, slugMdLiveHeading } from "./heading-id";
 import { isMdLiveOverlayEventTarget, shouldShowMdLiveSelectionToolbar } from "./selection";
+import {
+  applyMdLiveRemarkConfig,
+  formatMdLiveSerializedMarkdown,
+} from "./markdown-stringify";
+import { mdLivePlaceholderPlugin } from "./placeholder";
 import { mdLiveTaskListPlugins } from "./task-list";
+import { mdLiveTogglePlugins } from "./toggle";
 import type {
   MdLiveAiActionKind,
   MdLiveCopyFn,
@@ -277,6 +284,16 @@ export function MdLiveEditor({
       .config((ctx) => {
         ctx.set(rootCtx, el);
         ctx.set(defaultValueCtx, value);
+        ctx.set(editorViewOptionsCtx, {
+          attributes: {
+            class: "editor",
+            spellcheck: "false",
+            autocapitalize: "off",
+            autocorrect: "off",
+            translate: "no",
+          },
+        });
+        applyMdLiveRemarkConfig(ctx);
         ctx.set(headingIdGenerator.key, (node) => slugMdLiveHeading(node.textContent));
         ctx.set(codeBlockAttr.key, () => ({
           pre: { class: "md-live-pre" },
@@ -303,7 +320,7 @@ export function MdLiveEditor({
           }),
         });
         ctx.get(listenerCtx).markdownUpdated((_ctx, markdown) => {
-          const next = commitMarkdown(markdown);
+          const next = commitMarkdown(formatMdLiveSerializedMarkdown(markdown));
           if (next == null) return;
           onChangeRef.current(next);
         });
@@ -314,6 +331,8 @@ export function MdLiveEditor({
       .use(listener)
       .use(pluginsOf(history))
       .use(pluginsOf(mdLiveTaskListPlugins))
+      .use(pluginsOf(mdLiveTogglePlugins))
+      .use(pluginsOf(mdLivePlaceholderPlugin(() => copyRef.current)))
       .use(clipboard)
       .use(pluginsOf(streaming))
       .use(pluginsOf(diff))
@@ -363,6 +382,8 @@ export function MdLiveEditor({
         void editor.destroy();
         return;
       }
+      commitMarkdown(handle.getMarkdown());
+      commitMarkdown.arm();
       onReadyRef.current?.(handle);
     });
 
@@ -425,6 +446,7 @@ export function MdLiveEditor({
   return (
     <div
       ref={hostRef}
+      spellCheck={false}
       className={cn(
         "md-live prose prose-[14px] dark:prose-invert max-w-none bg-background",
         "prose-code:before:content-none prose-code:after:content-none prose-blockquote:before:content-none prose-blockquote:after:content-none prose-p:my-2 prose-a:break-all",

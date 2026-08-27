@@ -43,6 +43,21 @@ describe("md-live structural gates", () => {
     expect(source).toContain("selectionToolbar={MdLiveSelectionToolbar}");
     expect(source).toContain("onOpenMedia");
     expect(source).toContain("mdLiveMediaViewPlugin");
+    expect(source).toContain("mdLivePreviewBlockPlugins");
+    const blocks = readFileSync(
+      join(import.meta.dir, "../md-live-preview-blocks.tsx"),
+      "utf8",
+    );
+    expect(blocks).toContain("CodeBlockHeader");
+    expect(blocks).toContain("CodeBlockContent");
+    expect(blocks).toContain("MARKDOWN_TABLE_WRAP_CLASS");
+    expect(blocks).toContain("CopyButton");
+    expect(blocks).toContain("tableSchema");
+    expect(blocks).toContain("codeBlockSchema");
+    expect(blocks).toContain("CodeLanguagePicker");
+    expect(blocks).toContain("setNodeMarkup");
+    expect(blocks).toContain("onLanguageChange");
+    expect(blocks).not.toContain("@milkdown/components/code-block");
     expect(source).not.toContain("slashFactory");
     expect(slash).toContain("CommandItem");
     expect(slash).toContain("ArrowDown");
@@ -51,10 +66,15 @@ describe("md-live structural gates", () => {
     expect(slash).toContain("disablePointerSelection");
     expect(slash).toContain("itemRefs.current, selectedIndex, 3");
     expect(slash).toContain('kind: "open"');
+    expect(slash).toContain("ListCollapse");
+    expect(slash).toContain('id === "toggle"');
     expect(slash).not.toContain("slashFilter");
     expect(slash).not.toContain("onMouseEnter={() => setSelectedIndex");
     expect(toolbar).toContain("DropdownMenu");
     expect(toolbar).toContain("DropdownMenuContent");
+    expect(toolbar).toContain("Tooltip");
+    expect(toolbar).toContain("TooltipContent");
+    expect(toolbar).toContain("TooltipProvider");
   });
 
   test("github embed open uses the native center tab", () => {
@@ -75,6 +95,10 @@ describe("md-live structural gates", () => {
     expect(source).toContain("PromptComposer");
     expect(source).toContain("@/features/welcome/components/PromptComposer");
     expect(source).toContain("WelcomeAgentSelector");
+    expect(source).toContain("filterHeadlessAgents");
+    expect(source).toContain('triggerPlacement="inline"');
+    expect(source).toContain('purpose="automation"');
+    expect(source).not.toContain('variant="menu"');
     expect(source).toContain('placeholder={t("placeholder")}');
     expect(source).toContain("ArrowUp");
     expect(source).not.toContain("copyMdLivePrompt");

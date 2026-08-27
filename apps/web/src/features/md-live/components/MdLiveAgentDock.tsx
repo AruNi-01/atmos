@@ -21,6 +21,7 @@ import {
 } from "@/features/welcome/components/WelcomeMentionPopover";
 import { useWelcomeMentionSearch } from "@/features/welcome/hooks/use-welcome-mention-search";
 import { useWelcomeAgentOptions } from "@/features/welcome/hooks/use-welcome-agent-options";
+import { filterHeadlessAgents } from "../lib/md-live-headless-agents";
 import { buildInteractiveAgentRunPlan } from "@/features/agent/lib/terminal-agent-run-config";
 import { useEditorStore } from "@/features/editor/store/use-editor-store";
 import { registerAiContextPrompt } from "@/shared/lib/ai-context-protocol";
@@ -68,8 +69,17 @@ export function MdLiveAgentDock({
   const outputUnsubRef = useRef<(() => void) | null>(null);
   const updateFileContent = useEditorStore((s) => s.updateFileContent);
   const currentProjectPath = useEditorStore((s) => s.currentProjectPath);
-  const { availableAgents, selectedAgentId, setSelectedAgentId, selectedAgent } =
+  const { availableAgents, selectedAgentId, setSelectedAgentId } =
     useWelcomeAgentOptions();
+  const headlessAgents = filterHeadlessAgents(availableAgents);
+  const selectedAgent =
+    headlessAgents.find((agent) => agent.id === selectedAgentId) ?? headlessAgents[0] ?? null;
+
+  useEffect(() => {
+    if (!selectedAgent) return;
+    if (selectedAgent.id === selectedAgentId) return;
+    setSelectedAgentId(selectedAgent.id);
+  }, [selectedAgent, selectedAgentId, setSelectedAgentId]);
 
   const syncFromEditor = useCallback(() => {
     const api = getMdLiveEditor(filePath);
@@ -471,12 +481,14 @@ export function MdLiveAgentDock({
               ) : null}
               <div className="ml-auto flex shrink-0 items-center">
                 <WelcomeAgentSelector
-                  availableAgents={availableAgents}
-                  selectedAgentId={selectedAgentId}
+                  availableAgents={headlessAgents}
+                  selectedAgentId={selectedAgent?.id ?? ""}
                   onSelectAgent={setSelectedAgentId}
                   runConfigByAgentId={{}}
                   onRunConfigChange={() => {}}
-                  variant="menu"
+                  purpose="automation"
+                  triggerPlacement="inline"
+                  contentAlign="end"
                 />
               </div>
             </div>
