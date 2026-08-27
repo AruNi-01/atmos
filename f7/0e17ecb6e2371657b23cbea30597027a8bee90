@@ -1,0 +1,42 @@
+apps/web/messages/en.json
+  h_5be255725524c8 384
+apps/web/messages/zh.json
+  h_5be255725524c8 384
+apps/web/src/app-shell/CenterStageTabBar.tsx
+  h_5be255725524c8 50,79,830-834,1293-1294,1343-1344,1613-1625
+apps/web/src/app-shell/__tests__/center-stage-tab-hover.test.ts
+  h_5be255725524c8 183-185
+apps/web/src/features/editor/components/CodeMirrorEditor.tsx
+  h_5be255725524c8 22,91
+apps/web/src/features/editor/components/__tests__/code-mirror-live-mount.test.ts
+  h_5be255725524c8 19-20
+apps/web/src/features/editor/store/editor-store-paths.ts
+  h_5be255725524c8 193
+apps/web/src/features/editor/store/use-editor-store.ts
+  h_5be255725524c8 12-13,466-468,471,483,488-489
+apps/web/src/features/md-live/lib/__tests__/md-live-paths.test.ts
+  h_5be255725524c8 10-11
+apps/web/src/features/md-live/lib/__tests__/md-live-structural.test.ts
+  h_5be255725524c8 50-56,68
+apps/web/src/features/md-live/lib/md-live-paths.ts
+  h_5be255725524c8 29-35
+apps/web/src/features/md-live/lib/md-live-preview-blocks.tsx
+  h_5be255725524c8 223
+packages/md-live/src/ui/chrome.test.ts
+  h_5be255725524c8 91-92,94-96
+packages/md-live/src/ui/live-editor.css
+  h_5be255725524c8 268-272,284-286,289,291-296,299-307,309-317,325-329,334,338-342,542-543,551,553
+packages/md-live/src/ui/placeholder.ts
+  h_5be255725524c8 97-100,102
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "f70e17ecb6e2371657b23cbea30597027a8bee90",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
