@@ -235,6 +235,16 @@ fn write_json(path: &std::path::Path, value: &Value) -> std::result::Result<(), 
     std::fs::write(path, content).map_err(|e| e.to_string())
 }
 
+fn which_exists(cmd: &str) -> bool {
+    std::process::Command::new("which")
+        .arg(cmd)
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status()
+        .map(|s| s.success())
+        .unwrap_or(false)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -252,14 +262,4 @@ mod tests {
             .unwrap();
         assert!(prompt.contains("cat | curl"));
     }
-}
-
-fn which_exists(cmd: &str) -> bool {
-    std::process::Command::new("which")
-        .arg(cmd)
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .status()
-        .map(|s| s.success())
-        .unwrap_or(false)
 }

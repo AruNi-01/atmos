@@ -180,7 +180,7 @@ pub struct AgentHookStateUpdate {
 pub enum AgentHookEvent {
     StateChanged(AgentHookStateUpdate),
     SessionsCleared { session_ids: Vec<String> },
-    ActivityUpdated(AgentActivity),
+    ActivityUpdated(Box<AgentActivity>),
     ActivityCleared { session_ids: Vec<String> },
     AttentionRaised(AgentAttentionLatch),
     AttentionCleared { stable_pane_ids: Vec<String> },

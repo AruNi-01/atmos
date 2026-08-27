@@ -150,9 +150,9 @@ impl AgentHooksService {
                 let mut map = self.activity.write();
                 map.insert(session_id.to_string(), replacement.clone());
             }
-            let _ = self
-                .event_tx
-                .send(AgentHookEvent::ActivityUpdated(replacement.clone()));
+            let _ = self.event_tx.send(AgentHookEvent::ActivityUpdated(Box::new(
+                replacement.clone(),
+            )));
             if kind == ActivityKind::Ignore && extract_prompt(payload).is_none() {
                 return;
             }
@@ -198,7 +198,10 @@ impl AgentHooksService {
         }
 
         if changed {
-            if let Err(error) = self.event_tx.send(AgentHookEvent::ActivityUpdated(next)) {
+            if let Err(error) = self
+                .event_tx
+                .send(AgentHookEvent::ActivityUpdated(Box::new(next)))
+            {
                 tracing::warn!("Failed to publish agent activity update: {}", error);
             }
         }
@@ -221,7 +224,7 @@ impl AgentHooksService {
             drop(map);
             let _ = self
                 .event_tx
-                .send(AgentHookEvent::ActivityUpdated(snapshot));
+                .send(AgentHookEvent::ActivityUpdated(Box::new(snapshot)));
         }
     }
 
@@ -780,7 +783,7 @@ fn tool_name(payload: &Value) -> Option<String> {
         })
 }
 
-fn tool_input<'a>(payload: &'a Value) -> Option<&'a Value> {
+fn tool_input(payload: &Value) -> Option<&Value> {
     payload
         .get("output")
         .and_then(|output| output.get("args").or_else(|| output.get("arguments")))
