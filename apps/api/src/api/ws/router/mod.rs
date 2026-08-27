@@ -50,10 +50,11 @@ use crate::simulator::SimulatorRuntime;
 
 use core_service::{
     builtin_catalog_specs, catalog_probe_dir, default_agent_data_dir, default_conversations_dir,
-    AgentService, AgentSessionService, AutomationService, CatalogPrefetchWorker,
-    ConversationService, ConversationStore, DefaultAgentProviderFactory, DiskAnalyzerService,
-    GroupService, LinearService, LocalServicesService, NotificationService, ProjectService,
-    ResourceMonitorService, ReviewService, TerminalService, WorkspaceService, PREFETCH_POLL,
+    AgentService, AgentServiceCatalogResolver, AgentSessionService, AutomationService,
+    CatalogPrefetchWorker, ConversationService, ConversationStore, DefaultAgentProviderFactory,
+    DiskAnalyzerService, GroupService, LinearService, LocalServicesService, NotificationService,
+    ProjectService, ResourceMonitorService, ReviewService, TerminalService, WorkspaceService,
+    PREFETCH_POLL,
 };
 use core_service::{Result, ServiceError};
 use sea_orm_migration::sea_orm::DatabaseConnection;
@@ -130,7 +131,12 @@ impl WsMessageService {
         ));
         let catalog_worker = Arc::new(CatalogPrefetchWorker::with_specs(
             default_agent_data_dir(),
-            agent::CatalogEngine::new(catalog_probe_dir()),
+            agent::CatalogEngine::with_acp_probe(
+                catalog_probe_dir(),
+                Box::new(agent::StdioAcpCatalogProbe::new(Arc::new(
+                    AgentServiceCatalogResolver::new(Arc::clone(&agent_service)),
+                ))),
+            ),
             PREFETCH_POLL,
             builtin_catalog_specs(),
         ));

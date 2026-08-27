@@ -46,7 +46,10 @@ struct AcpCommands {
 #[async_trait]
 impl AgentSessionCommands for AcpCommands {
     async fn prompt(&self, input: AgentPrompt) -> AgentResult<AgentTurnHandle> {
-        let turn_id = uuid::Uuid::new_v4().to_string();
+        let turn_id = input
+            .turn_id
+            .clone()
+            .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
         *self.running_turn.lock().await = Some(turn_id.clone());
         self.control.send_prompt(input.text);
         Ok(AgentTurnHandle { turn_id })

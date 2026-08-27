@@ -146,14 +146,99 @@ async fn s9_queue_reloads_and_dispatch_skips_paused() {
 
     provider.set_auto_complete(true);
     service.cancel(&meta.id).await.unwrap();
-    tokio::time::sleep(Duration::from_millis(50)).await;
+    timeout(Duration::from_secs(2), async {
+        loop {
+            let queue = service.store().read_queue(&meta.id).unwrap();
+            let snapshot = service.get(&meta.id).unwrap();
+            let next_gone = queue.iter().all(|item| item.prompt != "next");
+            let hold_paused = queue
+                .iter()
+                .any(|item| item.prompt == "hold" && item.status == QueueItemStatus::Paused);
+            if next_gone && hold_paused && snapshot.turns.len() >= 2 {
+                return;
+            }
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+    })
+    .await
+    .expect("unpaused next item should dispatch as a new turn");
     let queue = service.store().read_queue(&meta.id).unwrap();
-    assert!(
-        queue
-            .iter()
-            .all(|item| item.status == QueueItemStatus::Paused || item.prompt != "next")
-            || queue.iter().any(|item| item.prompt == "hold")
-    );
+    assert!(queue.iter().all(|item| item.prompt != "next"));
+    assert!(queue
+        .iter()
+        .any(|item| item.prompt == "hold" && item.status == QueueItemStatus::Paused));
+    assert!(service.get(&meta.id).unwrap().turns.len() >= 2);
+}
+
+#[tokio::test]
+async fn send_after_turn_completed_starts_a_new_turn() {
+    let provider = Arc::new(FakeAgentProvider::new("claude"));
+    let (_dir, service) = make_service(Arc::clone(&provider));
+    let meta = service.create(create_req("/tmp/proj")).unwrap();
+    let mut events = service.subscribe();
+    let first = service.send(&meta.id, "one", Vec::new()).await.unwrap();
+    timeout(Duration::from_secs(2), async {
+        loop {
+            let event = events.recv().await.expect("event");
+            if matches!(
+                event.payload,
+                ConversationClientPayload::TurnCompleted { ref turn_id, .. } if turn_id == &first
+            ) {
+                return;
+            }
+        }
+    })
+    .await
+    .expect("first turn completed");
+    let second = service
+        .send(&meta.id, "two", Vec::new())
+        .await
+        .expect("idle send after complete must start a new turn");
+    assert_ne!(first, second);
+}
+
+#[tokio::test]
+async fn s16_two_subscribers_see_the_same_send() {
+    let provider = Arc::new(FakeAgentProvider::new("claude"));
+    let (_dir, service) = make_service(Arc::clone(&provider));
+    let meta = service.create(create_req("/tmp/proj")).unwrap();
+    let mut first = service.subscribe();
+    let mut second = service.subscribe();
+    let _ = service
+        .send(&meta.id, "hello-s16", Vec::new())
+        .await
+        .unwrap();
+    let id_a = timeout(Duration::from_secs(2), async {
+        loop {
+            let event = first.recv().await.expect("event");
+            if let ConversationClientPayload::UserMessage {
+                message_id, text, ..
+            } = event.payload
+            {
+                if text == "hello-s16" {
+                    return message_id;
+                }
+            }
+        }
+    })
+    .await
+    .expect("first subscriber saw send");
+    let id_b = timeout(Duration::from_secs(2), async {
+        loop {
+            let event = second.recv().await.expect("event");
+            if let ConversationClientPayload::UserMessage {
+                message_id, text, ..
+            } = event.payload
+            {
+                if text == "hello-s16" {
+                    return message_id;
+                }
+            }
+        }
+    })
+    .await
+    .expect("second subscriber saw send");
+    assert_eq!(id_a, id_b);
 }
 
 #[tokio::test]

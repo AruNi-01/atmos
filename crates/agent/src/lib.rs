@@ -16,9 +16,10 @@ pub use acp_client::{
     StreamDelta, StreamUsage, ToolCallStatus, ToolCallUpdate, AUTH_REQUIRED_ERROR_PREFIX,
 };
 pub use catalog::{
-    catalog_cache_dir, merge_catalogs, thinking_from_builtin, AcpCatalogProbe, AcpProbeResult,
-    AgentCatalogSpec, CatalogCache, CatalogEngine, CatalogFragment, CatalogParserKind,
-    CommandOutput, CommandRunner, ERROR_CACHE_TTL, OK_CACHE_TTL,
+    catalog_cache_dir, merge_catalogs, probe_result_from_config_options, thinking_from_builtin,
+    AcpCatalogProbe, AcpLaunchResolved, AcpLaunchResolver, AcpProbeResult, AgentCatalogSpec,
+    CatalogCache, CatalogEngine, CatalogFragment, CatalogParserKind, CommandOutput, CommandRunner,
+    StdioAcpCatalogProbe, ERROR_CACHE_TTL, OK_CACHE_TTL,
 };
 pub use domain::{
     AgentCapabilities, AgentCatalogContext, AgentEvent, AgentMode, AgentModel, AgentModelCatalog,

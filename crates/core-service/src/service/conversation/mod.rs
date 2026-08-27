@@ -7,7 +7,7 @@ pub mod types;
 #[cfg(test)]
 mod tests;
 
-pub use acp_factory::DefaultAgentProviderFactory;
+pub use acp_factory::{AgentServiceCatalogResolver, DefaultAgentProviderFactory};
 pub use catalog::{
     builtin_catalog_specs, parse_followup_policy, terminal_catalog_from, CatalogPrefetchWorker,
     CatalogUpdated, FollowupPolicy, PREFETCH_POLL,

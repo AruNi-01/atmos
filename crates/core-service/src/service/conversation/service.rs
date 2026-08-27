@@ -138,19 +138,7 @@ impl ConversationService {
                 ));
             }
         }
-        let control = self.ensure_runtime(conversation_id).await?;
-        let handle = control
-            .prompt(AgentPrompt {
-                text: text.to_string(),
-                attachments: attachments.clone(),
-                kind: UserMessageKind::Normal,
-            })
-            .await
-            .map_err(|e| ServiceError::Processing(e.to_string()))?;
-        let turn_id = handle.turn_id;
-        if let Some(runtime) = self.runtimes.lock().await.get(conversation_id) {
-            runtime.state.lock().await.current_turn_id = Some(turn_id.clone());
-        }
+        let turn_id = uuid::Uuid::new_v4().to_string();
         self.store.append_record(
             conversation_id,
             &TranscriptRecord::TurnStarted {
@@ -193,10 +181,55 @@ impl ConversationService {
                 message_id,
                 kind: UserMessageKind::Normal,
                 text: text.to_string(),
-                attachments,
+                attachments: attachments.clone(),
             },
         )?;
         let _ = meta;
+        let control = match self.ensure_runtime(conversation_id).await {
+            Ok(control) => control,
+            Err(error) => {
+                let _ = self.store.append_record(
+                    conversation_id,
+                    &TranscriptRecord::TurnCompleted {
+                        turn_id: turn_id.clone(),
+                        status: TurnStatus::Failed,
+                        error: Some(error.to_string()),
+                        created_at: Utc::now(),
+                    },
+                );
+                let _ = self.store.update_meta(conversation_id, |meta| {
+                    meta.runtime_status = RuntimeStatus::Detached;
+                });
+                let _ = self.emit(
+                    conversation_id,
+                    ConversationClientPayload::TurnCompleted {
+                        turn_id: turn_id.clone(),
+                        status: TurnStatus::Failed,
+                    },
+                );
+                return Err(error);
+            }
+        };
+        if let Some(runtime) = self.runtimes.lock().await.get(conversation_id) {
+            runtime.state.lock().await.current_turn_id = Some(turn_id.clone());
+        }
+        if let Err(error) = control
+            .prompt(AgentPrompt {
+                text: text.to_string(),
+                attachments,
+                kind: UserMessageKind::Normal,
+                turn_id: Some(turn_id.clone()),
+            })
+            .await
+        {
+            if let Some(runtime) = self.runtimes.lock().await.get(conversation_id) {
+                let mut state = runtime.state.lock().await;
+                if state.current_turn_id.as_deref() == Some(turn_id.as_str()) {
+                    state.current_turn_id = None;
+                }
+            }
+            return Err(ServiceError::Processing(error.to_string()));
+        }
         Ok(turn_id)
     }
 
@@ -234,6 +267,7 @@ impl ConversationService {
                 text: text.to_string(),
                 attachments: Vec::new(),
                 kind: UserMessageKind::Steer,
+                turn_id: Some(expected_turn_id.to_string()),
             })
             .await
             .map_err(|e| ServiceError::Processing(e.to_string()))?;
@@ -902,15 +936,7 @@ async fn maybe_dispatch_queue(
     };
     let item = items.remove(index);
     store.write_queue(conversation_id, &items)?;
-    let handle = control
-        .prompt(AgentPrompt {
-            text: item.prompt.clone(),
-            attachments: item.attachments.clone(),
-            kind: UserMessageKind::Normal,
-        })
-        .await
-        .map_err(|e| ServiceError::Processing(e.to_string()))?;
-    let turn_id = handle.turn_id;
+    let turn_id = uuid::Uuid::new_v4().to_string();
     state.lock().await.current_turn_id = Some(turn_id.clone());
     store.append_record(
         conversation_id,
@@ -930,6 +956,15 @@ async fn maybe_dispatch_queue(
             created_at: Utc::now(),
         },
     )?;
+    control
+        .prompt(AgentPrompt {
+            text: item.prompt.clone(),
+            attachments: item.attachments.clone(),
+            kind: UserMessageKind::Normal,
+            turn_id: Some(turn_id.clone()),
+        })
+        .await
+        .map_err(|e| ServiceError::Processing(e.to_string()))?;
     store.update_meta(conversation_id, |meta| {
         meta.runtime_status = RuntimeStatus::RunningTurn;
         meta.last_message_at = Some(Utc::now());

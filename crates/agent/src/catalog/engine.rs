@@ -80,9 +80,13 @@ pub struct CatalogEngine {
 
 impl CatalogEngine {
     pub fn new(probe_root: PathBuf) -> Self {
+        Self::with_acp_probe(probe_root, Box::new(NoopAcpProbe))
+    }
+
+    pub fn with_acp_probe(probe_root: PathBuf, acp_probe: Box<dyn AcpCatalogProbe>) -> Self {
         Self {
             command_runner: Box::new(ProcessCommandRunner),
-            acp_probe: Box::new(NoopAcpProbe),
+            acp_probe,
             probe_root,
         }
     }
@@ -288,5 +292,20 @@ mod tests {
         assert_eq!(catalog.status, CatalogStatus::Ok);
         assert_eq!(catalog.models[0].id, "acp-model");
         assert!(root.path().join("claude").exists());
+    }
+
+    #[tokio::test]
+    async fn with_acp_probe_uses_the_provided_probe_not_noop() {
+        let root = tempfile::tempdir().unwrap();
+        let engine =
+            CatalogEngine::with_acp_probe(root.path().to_path_buf(), Box::new(IsolatedAcp));
+        let spec = AgentCatalogSpec {
+            agent_id: "claude".into(),
+            strategies: vec![CatalogStrategyKind::Acp],
+            acp: true,
+            ..Default::default()
+        };
+        let catalog = engine.probe(&spec).await;
+        assert_eq!(catalog.models[0].id, "acp-model");
     }
 }

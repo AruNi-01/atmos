@@ -84,7 +84,10 @@ struct FakeSessionInner {
 impl AgentSessionCommands for FakeSessionInner {
     async fn prompt(&self, input: AgentPrompt) -> AgentResult<AgentTurnHandle> {
         self.counters.prompt.fetch_add(1, Ordering::SeqCst);
-        let turn_id = uuid::Uuid::new_v4().to_string();
+        let turn_id = input
+            .turn_id
+            .clone()
+            .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
         *self.running_turn.lock().await = Some(turn_id.clone());
         let _ = input;
         if self.emit_permission_on_prompt {

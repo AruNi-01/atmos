@@ -24,5 +24,13 @@ describe("S2 Agent Chat entry points", () => {
 
     const welcome = readFileSync(join(ROOT, "NewWorkspaceWelcomeOverlay.tsx"), "utf8");
     expect(welcome).toContain("onStartAgentChat");
+
+    const workspace = readFileSync(
+      join(ROOT, "../features/agent/components/AgentChatWorkspace.tsx"),
+      "utf8",
+    );
+    expect(workspace).toContain("cwd: cwd || null");
+    expect(workspace).toContain("workspace_id: workspaceId");
+    expect(workspace).toContain("project_id: projectId");
   });
 });

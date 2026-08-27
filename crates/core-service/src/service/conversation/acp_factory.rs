@@ -3,9 +3,9 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use agent::{
-    AcpAgentProvider, AcpProviderParams, AcpToolHandler, AgentCatalogContext, AgentLaunchSpec,
-    AgentPersistenceHandle, AgentProvider, AgentProviderError, AgentProviderFactory, AgentResult,
-    AgentSession, AgentSessionConfig,
+    AcpAgentProvider, AcpLaunchResolved, AcpLaunchResolver, AcpProviderParams, AcpToolHandler,
+    AgentCatalogContext, AgentLaunchSpec, AgentPersistenceHandle, AgentProvider,
+    AgentProviderError, AgentProviderFactory, AgentResult, AgentSession, AgentSessionConfig,
 };
 use async_trait::async_trait;
 use core_engine::FsEngine;
@@ -58,6 +58,34 @@ impl AcpToolHandler for ConversationToolHandler {
 
 pub struct DefaultAgentProviderFactory {
     agent_service: Arc<AgentService>,
+}
+
+pub struct AgentServiceCatalogResolver {
+    agent_service: Arc<AgentService>,
+}
+
+impl AgentServiceCatalogResolver {
+    pub fn new(agent_service: Arc<AgentService>) -> Self {
+        Self { agent_service }
+    }
+}
+
+#[async_trait]
+impl AcpLaunchResolver for AgentServiceCatalogResolver {
+    async fn resolve(&self, agent_id: &str) -> std::result::Result<AcpLaunchResolved, String> {
+        let launch_spec = self
+            .agent_service
+            .get_registry_agent_launch_spec(agent_id)
+            .await
+            .or_else(|_| self.agent_service.get_custom_agent_launch_spec(agent_id))
+            .map_err(|error| error.to_string())?;
+        Ok(AcpLaunchResolved {
+            launch_spec,
+            env_overrides: self
+                .agent_service
+                .get_registry_agent_env_overrides(agent_id),
+        })
+    }
 }
 
 impl DefaultAgentProviderFactory {

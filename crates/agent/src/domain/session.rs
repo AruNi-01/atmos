@@ -31,6 +31,7 @@ pub struct AgentPrompt {
     pub text: String,
     pub attachments: Vec<String>,
     pub kind: UserMessageKind,
+    pub turn_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Default)]

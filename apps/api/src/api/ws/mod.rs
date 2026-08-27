@@ -50,4 +50,12 @@ mod tests {
         assert!(!routes.contains("/agent/{session_id}"));
         assert!(routes.contains("terminal_ws_handler"));
     }
+
+    #[test]
+    fn s20_catalog_engine_uses_temp_acp_probe() {
+        let router = include_str!("router/mod.rs");
+        assert!(router.contains("StdioAcpCatalogProbe"));
+        assert!(router.contains("CatalogEngine::with_acp_probe"));
+        assert!(router.contains("catalog_probe_dir"));
+    }
 }

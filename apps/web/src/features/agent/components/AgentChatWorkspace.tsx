@@ -19,6 +19,11 @@ import {
 import { agentApi } from "@/api/ws/agent-api";
 import { groupConversationsByCwd } from "@/features/agent/lib/group-conversations";
 import { routeBusySubmit, resolveFollowupPolicy } from "@/features/agent/lib/followup-policy";
+import {
+  conversationEventFor,
+  foldUserRowsFromEvent,
+  type ConversationFanoutRow,
+} from "@/features/agent/lib/conversation-events";
 import { agentBehaviourSettingsApi } from "@/api/ws/settings-api";
 import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
 import {
@@ -103,6 +108,8 @@ export function AgentChatWorkspace({
   const [agents, setAgents] = useState<Array<{ id: string; name: string }>>([]);
   const [workspaceId, setWorkspaceId] = useState<string | null>(null);
   const [projectId, setProjectId] = useState<string | null>(null);
+  const [cwd, setCwd] = useState("");
+  const [sendError, setSendError] = useState<string | null>(null);
   const [permission, setPermission] = useState<{
     request_id: string;
     tool: string;
@@ -110,6 +117,7 @@ export function AgentChatWorkspace({
     options: Array<{ option_id: string; name: string }>;
   } | null>(null);
   const consumedPrompts = useRef(new Set<string>());
+  const liveUserRows = useRef<ConversationFanoutRow[]>([]);
 
   const load = useCallback(async () => {
     const snapshot = await conversationApi.get(conversationId);
@@ -122,6 +130,7 @@ export function AgentChatWorkspace({
       selected_thinking?: string | null;
       workspace_id?: string | null;
       project_id?: string | null;
+      cwd?: string;
     };
     setTitle(meta.title?.trim() || t("untitled"));
     setSupportsSteer(Boolean(meta.supports_steer));
@@ -138,6 +147,7 @@ export function AgentChatWorkspace({
     setThinkingId(meta.selected_thinking ?? "");
     setWorkspaceId(meta.workspace_id ?? null);
     setProjectId(meta.project_id ?? null);
+    setCwd(meta.cwd ?? "");
     const pending = snapshot.pending_permission as typeof permission;
     setPermission(pending && pending.request_id ? pending : null);
     const listed = await conversationApi.list({});
@@ -159,9 +169,10 @@ export function AgentChatWorkspace({
     const off = useWebSocketStore.getState().onEvent("conversation_event", (payload) => {
       const event = payload as {
         conversation_id?: string;
-        payload?: { type?: string; turn_id?: string };
+        payload?: { type?: string; turn_id?: string; message_id?: string; text?: string };
       };
-      if (event.conversation_id !== conversationId) return;
+      if (!conversationEventFor(event, conversationId)) return;
+      liveUserRows.current = foldUserRowsFromEvent(liveUserRows.current, event, conversationId);
       if (event.payload?.type === "turn_started") {
         setBusy(true);
         setRunningTurnId(event.payload.turn_id ?? null);
@@ -242,6 +253,7 @@ export function AgentChatWorkspace({
   const submit = async (mode?: "queue" | "steer") => {
     const text = draft.trim();
     if (!text) return;
+    setSendError(null);
     try {
       if (busy) {
         const action = routeBusySubmit({ policy, oneShot: mode ?? null });
@@ -256,7 +268,7 @@ export function AgentChatWorkspace({
       }
       setDraft("");
     } catch (error) {
-      window.alert(error instanceof Error ? error.message : t("sendFailed"));
+      setSendError(error instanceof Error ? error.message : t("sendFailed"));
     }
   };
 
@@ -271,7 +283,9 @@ export function AgentChatWorkspace({
             onClick={async () => {
               const created = await conversationApi.create({
                 provider_id: providerId,
-                cwd: undefined,
+                cwd: cwd || null,
+                workspace_id: workspaceId,
+                project_id: projectId,
               });
               onOpenConversation?.(created.id);
             }}
@@ -389,7 +403,8 @@ export function AgentChatWorkspace({
             ) : (
               turns.flatMap((turn) =>
                 turn.messages.map((message) => (
-                  <Message key={message.id} from={message.role === "user" ? "user" : "assistant"}>
+                  <div key={message.id} data-agent-chat-message={message.id}>
+                  <Message from={message.role === "user" ? "user" : "assistant"}>
                     <MessageContent>
                       {message.parts.map((part, index) => {
                         if (part.type === "thinking") {
@@ -425,6 +440,7 @@ export function AgentChatWorkspace({
                       })}
                     </MessageContent>
                   </Message>
+                  </div>
                 )),
               )
             )}
@@ -531,7 +547,11 @@ export function AgentChatWorkspace({
             void submit();
           }}
         >
+          {sendError ? (
+            <p className="mb-2 text-xs text-destructive">{sendError}</p>
+          ) : null}
           <textarea
+            data-agent-chat-composer=""
             className="min-h-16 w-full resize-none rounded-md border border-border bg-background px-3 py-2 text-sm"
             value={draft}
             onChange={(event) => setDraft(event.target.value)}

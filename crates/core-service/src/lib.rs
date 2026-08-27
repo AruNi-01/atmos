@@ -46,9 +46,9 @@ pub use service::center_layout::{
 };
 pub use service::conversation::{
     builtin_catalog_specs, catalog_probe_dir, default_agent_data_dir, default_conversations_dir,
-    parse_followup_policy, CatalogPrefetchWorker, CatalogUpdated, ConversationClientEvent,
-    ConversationClientPayload, ConversationIndexEntry, ConversationMeta, ConversationService,
-    ConversationSnapshot, ConversationStore, CreateConversationRequest,
+    parse_followup_policy, AgentServiceCatalogResolver, CatalogPrefetchWorker, CatalogUpdated,
+    ConversationClientEvent, ConversationClientPayload, ConversationIndexEntry, ConversationMeta,
+    ConversationService, ConversationSnapshot, ConversationStore, CreateConversationRequest,
     DefaultAgentProviderFactory, FollowupPolicy, MessagePart, QueueItem, QueueItemStatus,
     RuntimeStatus, TurnStatus, PREFETCH_POLL,
 };

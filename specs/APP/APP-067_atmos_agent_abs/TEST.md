@@ -287,11 +287,13 @@ Implemented 2026-08-28 on `feat/APP-067-agent-chat`.
 |----------|---------|--------|
 | S3–S7 store/identity | `cargo test -p core-service --lib conversation` | pass (`s3_conversation_id_is_not_persistence_handle`, `s4_*`, `s5_list_groups_by_cwd`, `s6_rename_and_soft_delete`, `s7_continue_*`) |
 | S8 idle send | same | pass `s8_idle_send_starts_turn` |
-| S9–S14 queue/steer/cancel/permission/policy | same | pass |
-| S18–S20 catalog prefetch/cache/merge | same + `cargo test -p agent --lib` | pass (11 agent tests + conversation catalog tests) |
-| S2/S5/S12/S15 web | `bun test apps/web/src/app-shell/__tests__/agent-chat-entry-points.test.ts apps/web/src/features/agent/lib/__tests__/{followup-policy,group-conversations,no-acp-schema}.test.ts` | pass |
+| S9–S14 queue/steer/cancel/permission/policy | same | pass (`s9_queue_reloads_and_dispatch_skips_paused` asserts `next` dispatched + `hold` paused) |
+| S16 fan-out | `cargo test -p core-service --lib s16_two_subscribers_see_the_same_send` + bun `conversation-events.test.ts` + Playwright S16 send | pass |
+| S18–S20 catalog prefetch/cache/merge | same + `cargo test -p agent --lib` | pass (incl. `maps_model_mode_and_thinking_from_config_options`, `with_acp_probe_uses_the_provided_probe_not_noop`) |
+| S2/S5/S12/S15 web | `bun test apps/web/src/app-shell/__tests__/agent-chat-entry-points.test.ts apps/web/src/features/agent/lib/__tests__/{followup-policy,group-conversations,no-acp-schema,conversation-events}.test.ts` | pass |
 | S17 old transport | `cargo test -p api -- --test-threads=1 s17` | pass (`s17_rest_session_crud_removed`, `s17_dedicated_agent_ws_removed`) |
-| S1/S16 Playwright | `E2E_SINGLE_SERVER=0 bun run --cwd e2e test tests/specs/APP-067_atmos-agent-chat.e2e.ts --project=chromium --workers=1` | pass twice (Next dev; production static export blocked by unrelated md-live/prosemirror-view typecheck on main) |
+| S20 production ACP probe wiring | `cargo test -p api -- --test-threads=1 s20_catalog_engine_uses_temp_acp_probe` | pass (`StdioAcpCatalogProbe` + `CatalogEngine::with_acp_probe`) |
+| S1/S16 Playwright | `E2E_SINGLE_SERVER=0 bun run --cwd e2e test tests/specs/APP-067_atmos-agent-chat.e2e.ts --project=chromium --workers=1` | pass twice (Next dev; S16 sends and both pages show `[data-agent-chat-message]`) |
 | api-types | `bun run --filter @atmos/api-types extract-actions && extract-events && check-actions && check-events && test` | pass (301 actions, 33 events) |
 | clippy | `cargo clippy -p agent -p core-service -p api --offline -- -D warnings` | pass |
 
