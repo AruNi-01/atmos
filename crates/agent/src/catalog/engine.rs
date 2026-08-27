@@ -79,10 +79,6 @@ pub struct CatalogEngine {
 }
 
 impl CatalogEngine {
-    pub fn new(probe_root: PathBuf) -> Self {
-        Self::with_acp_probe(probe_root, Box::new(NoopAcpProbe))
-    }
-
     pub fn with_acp_probe(probe_root: PathBuf, acp_probe: Box<dyn AcpCatalogProbe>) -> Self {
         Self {
             command_runner: Box::new(ProcessCommandRunner),

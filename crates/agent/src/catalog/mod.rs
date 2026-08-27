@@ -9,6 +9,8 @@ pub use acp_probe::{
     probe_result_from_config_options, AcpLaunchResolved, AcpLaunchResolver, StdioAcpCatalogProbe,
 };
 pub use cache::{catalog_cache_dir, CatalogCache, ERROR_CACHE_TTL, OK_CACHE_TTL};
-pub use engine::{AcpCatalogProbe, AcpProbeResult, CatalogEngine, CommandOutput, CommandRunner};
+pub use engine::{
+    AcpCatalogProbe, AcpProbeResult, CatalogEngine, CommandOutput, CommandRunner, NoopAcpProbe,
+};
 pub use merge::{merge_catalogs, CatalogFragment};
 pub use spec::{thinking_from_builtin, AgentCatalogSpec, CatalogParserKind};

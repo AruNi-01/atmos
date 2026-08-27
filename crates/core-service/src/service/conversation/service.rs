@@ -186,7 +186,12 @@ impl ConversationService {
         )?;
         let _ = meta;
         let control = match self.ensure_runtime(conversation_id).await {
-            Ok(control) => control,
+            Ok(control) => {
+                if let Some(runtime) = self.runtimes.lock().await.get(conversation_id) {
+                    runtime.state.lock().await.current_turn_id = Some(turn_id.clone());
+                }
+                control
+            }
             Err(error) => {
                 let _ = self.store.append_record(
                     conversation_id,
@@ -210,9 +215,6 @@ impl ConversationService {
                 return Err(error);
             }
         };
-        if let Some(runtime) = self.runtimes.lock().await.get(conversation_id) {
-            runtime.state.lock().await.current_turn_id = Some(turn_id.clone());
-        }
         if let Err(error) = control
             .prompt(AgentPrompt {
                 text: text.to_string(),

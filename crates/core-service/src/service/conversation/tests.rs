@@ -4,7 +4,7 @@ use std::time::Duration;
 use agent::testing::{FakeAgentProvider, StaticProviderFactory};
 use agent::{
     AgentCatalogSpec, AgentModel, AgentProvider, AgentThinkingSupport, CatalogEngine,
-    CatalogStatus, CatalogStrategyKind, UserMessageKind,
+    CatalogStatus, CatalogStrategyKind, NoopAcpProbe, UserMessageKind,
 };
 use tokio::time::timeout;
 
@@ -370,7 +370,8 @@ async fn s14_permission_blocks_queue_allows_steer() {
 #[tokio::test]
 async fn s18_prefetch_worker_starts_once() {
     let root = tempfile::tempdir().unwrap();
-    let engine = CatalogEngine::new(root.path().join("catalog-probe"));
+    let engine =
+        CatalogEngine::with_acp_probe(root.path().join("catalog-probe"), Box::new(NoopAcpProbe));
     let worker = Arc::new(CatalogPrefetchWorker::new(
         root.path().to_path_buf(),
         engine,
@@ -423,7 +424,8 @@ async fn s18_prefetch_worker_starts_once() {
 #[tokio::test]
 async fn s19_fresh_ok_cache_skips_probe() {
     let root = tempfile::tempdir().unwrap();
-    let engine = CatalogEngine::new(root.path().join("catalog-probe"));
+    let engine =
+        CatalogEngine::with_acp_probe(root.path().join("catalog-probe"), Box::new(NoopAcpProbe));
     let worker = Arc::new(CatalogPrefetchWorker::new(
         root.path().to_path_buf(),
         engine,
