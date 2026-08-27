@@ -1,0 +1,28 @@
+apps/web/src/features/md-live/lib/__tests__/md-live-block-backspace.test.ts
+  h_5be255725524c8 1-199
+packages/md-live/src/ui.ts
+  h_5be255725524c8 35-36
+packages/md-live/src/ui/LiveEditor.tsx
+  h_5be255725524c8 59,340
+packages/md-live/src/ui/block-backspace.ts
+  h_5be255725524c8 1-105
+packages/md-live/src/ui/chrome.test.ts
+  h_5be255725524c8 53-61,100-102,105-107
+packages/md-live/src/ui/live-editor.css
+  h_5be255725524c8 541-542,544-549,552-559,563-565,568-571,576-578,583-606
+packages/md-live/src/ui/placeholder.test.ts
+  h_5be255725524c8 2,32-50
+packages/md-live/src/ui/placeholder.ts
+  h_5be255725524c8 9-51,110-118,124-130,132-184,186-193,196-208,211-232,235-242,245-247,250-282,284-292,295,302,305,307
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "a3828df3db3e502c041da7dc409004d1c2ed2e9b",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
