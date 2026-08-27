@@ -1,0 +1,14 @@
+e2e/tests/specs/APP-066_resource-monitor.e2e.ts
+  h_5be255725524c8 376-378,384,387,392,428-429
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "61ea8adfe7a936998a6ea5f77b305f999409acb5",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
