@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { MdLiveEditor } from "@atmos/md-live/ui";
 import { useEditorStore } from "@/features/editor/store/use-editor-store";
+import { useEditorSettingsStore } from "@/features/settings/store/editor-settings-store";
 import { MdLiveSelectionToolbar } from "./MdLiveSelectionToolbar";
 import { MdLiveSlashMenu } from "./MdLiveSlashMenu";
 import {
@@ -38,6 +39,7 @@ export function MarkdownLiveEditor({
   className?: string;
 }) {
   const workspaceRoot = useEditorStore((state) => state.currentProjectPath);
+  const mdToggleDefaultOpen = useEditorSettingsStore((state) => state.mdToggleDefaultOpen);
   const extraPlugins = useMemo(
     () => [
       mdLiveRemarkDirective,
@@ -51,6 +53,10 @@ export function MarkdownLiveEditor({
     [filePath, workspaceRoot],
   );
 
+  useEffect(() => {
+    getMdLiveEditor(filePath)?.setToggleDefaultOpen(mdToggleDefaultOpen);
+  }, [filePath, mdToggleDefaultOpen]);
+
   return (
     <MdLiveEditor
       value={value}
@@ -61,6 +67,7 @@ export function MarkdownLiveEditor({
       slashMenu={MdLiveSlashMenu}
       selectionToolbar={MdLiveSelectionToolbar}
       extraPlugins={extraPlugins}
+      defaultToggleOpen={mdToggleDefaultOpen}
       onOpenMedia={(kind) => {
         void insertMdLiveMedia({
           kind,

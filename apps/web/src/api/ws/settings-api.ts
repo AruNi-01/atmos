@@ -39,6 +39,7 @@ export interface FunctionSettings {
     breadcrumbs?: boolean;
     line_highlight?: boolean;
     git_integration?: boolean;
+    md_toggle_default_open?: boolean;
   };
   diff?: {
     diff_style?: "split" | "unified";

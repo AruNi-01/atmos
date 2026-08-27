@@ -39,6 +39,7 @@ export type MdLiveEditorHandle = {
   abortStream: (keep?: boolean) => void;
   acceptAllDiffs: () => void;
   clearDiffReview: () => void;
+  setToggleDefaultOpen: (open: boolean) => void;
 };
 
 export type MdLiveCopyFn = (key: string) => string;

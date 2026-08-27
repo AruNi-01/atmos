@@ -2,7 +2,15 @@ type Mdast = {
   type: string;
   value?: string;
   children?: Mdast[];
+  open?: boolean;
 };
+
+export function detailsHasOpenAttr(html: string): boolean {
+  const match = html.match(/<details\b([^>]*)>/i);
+  if (!match) return false;
+  const attrs = ` ${match[1] ?? ""} `;
+  return /(?:^|\s)open(?:\s|=|$)/i.test(attrs);
+}
 
 function decodeHtml(text: string): string {
   return text
@@ -59,13 +67,14 @@ function extractSummary(html: string): { summary: string; rest: string } {
   return { summary: htmlToPlainText(match[1] ?? ""), rest: after.replace(/<\/details>/gi, "") };
 }
 
-function makeDetails(summary: string, body: Mdast[]): Mdast {
+function makeDetails(summary: string, body: Mdast[], open = false): Mdast {
   const blocks = body.filter((node) => {
     if (node.type === "html" && !String(node.value ?? "").trim()) return false;
     return true;
   });
   return {
     type: "details",
+    open,
     children: [
       {
         type: "detailsSummary",
@@ -87,7 +96,7 @@ function mdastFromCompleteHtml(html: string): Mdast {
         children: [{ type: "text", value: part.replace(/\s+/g, " ").trim() }],
       }))
     : [];
-  return makeDetails(summary, body);
+  return makeDetails(summary, body, detailsHasOpenAttr(html));
 }
 
 function isClosingDetails(html: string): boolean {
@@ -147,7 +156,7 @@ function groupDetails(children: Mdast[]): Mdast[] {
         }
         body.push(next);
       }
-      out.push(makeDetails(summary, groupDetails(body)));
+      out.push(makeDetails(summary, groupDetails(body), detailsHasOpenAttr(html)));
       index = cursor - 1;
       continue;
     }

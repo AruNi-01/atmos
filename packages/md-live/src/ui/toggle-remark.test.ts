@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { htmlToPlainText, remarkMdLiveDetails } from "./toggle-remark";
+import { detailsHasOpenAttr, htmlToPlainText, remarkMdLiveDetails } from "./toggle-remark";
 
 function apply(children: unknown[]) {
   const tree = { type: "root", children };
@@ -76,5 +76,16 @@ describe("remarkMdLiveDetails", () => {
     };
     expect(details.children[0]?.children?.[0]?.value).toBe("xhello");
     expect(details.children[0]?.children?.[0]?.value).not.toMatch(/<script/i);
+  });
+
+  test("reads the html open attribute without matching class names", () => {
+    expect(detailsHasOpenAttr("<details>")).toBe(false);
+    expect(detailsHasOpenAttr("<details open>")).toBe(true);
+    expect(detailsHasOpenAttr('<details open="">')).toBe(true);
+    expect(detailsHasOpenAttr("<details class=\"opened\">")).toBe(false);
+    const children = apply([
+      { type: "html", value: "<details open>\n<summary>hello</summary>\n</details>" },
+    ]);
+    expect((children[0] as { open?: boolean }).open).toBe(true);
   });
 });

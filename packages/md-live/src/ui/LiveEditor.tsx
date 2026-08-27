@@ -58,7 +58,11 @@ import {
 } from "./markdown-stringify";
 import { mdLivePlaceholderPlugin } from "./placeholder";
 import { mdLiveTaskListPlugins } from "./task-list";
-import { mdLiveTogglePlugins } from "./toggle";
+import {
+  applyMdLiveToggleDefaultOpen,
+  mdLiveToggleDefaultOpenCtx,
+  mdLiveTogglePlugins,
+} from "./toggle";
 import type {
   MdLiveAiActionKind,
   MdLiveCopyFn,
@@ -94,6 +98,7 @@ export type MdLiveEditorProps = {
   onOpenMedia?: (kind: MdLiveMediaOpenKind) => void;
   onStreamEnded?: () => void;
   onStreamAborted?: () => void;
+  defaultToggleOpen?: boolean;
   className?: string;
 };
 
@@ -126,6 +131,7 @@ export function MdLiveEditor({
   onOpenMedia,
   onStreamEnded,
   onStreamAborted,
+  defaultToggleOpen = true,
   className,
 }: MdLiveEditorProps) {
   const hostRef = useRef<HTMLDivElement>(null);
@@ -141,6 +147,7 @@ export function MdLiveEditor({
   const onStreamAbortedRef = useRef(onStreamAborted);
   const slashMenuRef = useRef(SlashMenu);
   const selectionToolbarRef = useRef(SelectionToolbar);
+  const defaultToggleOpenRef = useRef(defaultToggleOpen);
   onChangeRef.current = onChange;
   onSaveRef.current = onSave;
   copyRef.current = copy;
@@ -153,6 +160,7 @@ export function MdLiveEditor({
   onStreamAbortedRef.current = onStreamAborted;
   slashMenuRef.current = SlashMenu;
   selectionToolbarRef.current = SelectionToolbar;
+  defaultToggleOpenRef.current = defaultToggleOpen;
 
   useEffect(() => {
     const el = hostRef.current;
@@ -294,6 +302,7 @@ export function MdLiveEditor({
           },
         });
         applyMdLiveRemarkConfig(ctx);
+        ctx.set(mdLiveToggleDefaultOpenCtx.key, defaultToggleOpenRef.current);
         ctx.set(headingIdGenerator.key, (node) => slugMdLiveHeading(node.textContent));
         ctx.set(codeBlockAttr.key, () => ({
           pre: { class: "md-live-pre" },
@@ -374,6 +383,9 @@ export function MdLiveEditor({
       },
       clearDiffReview: () => {
         run((ctx) => clearDiffReview(ctx));
+      },
+      setToggleDefaultOpen: (open) => {
+        run((ctx) => applyMdLiveToggleDefaultOpen(ctx, open));
       },
     };
 

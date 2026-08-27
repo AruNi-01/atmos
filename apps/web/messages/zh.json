@@ -4080,7 +4080,9 @@
           "lineHighlight": "当前行高亮",
           "lineHighlightTooltip": "高亮当前行。",
           "gitIntegration": "Git 集成",
-          "gitIntegrationTooltip": "在边栏中显示 Git 变更。"
+          "gitIntegrationTooltip": "在边栏中显示 Git 变更。",
+          "expandToggles": "默认展开折叠块",
+          "expandTogglesTooltip": "在实时编辑和预览中默认展开 Markdown 折叠块。"
         }
       },
       "searchPanel": {
@@ -5649,6 +5651,10 @@
         "gitIntegration": {
           "title": "Git 集成",
           "description": "在编辑器中显示 Git 变更和 diff 信息。"
+        },
+        "expandToggles": {
+          "title": "默认展开折叠块",
+          "description": "在实时编辑和预览中默认展开 Markdown 折叠块。不会改写文件。"
         },
         "layout": {
           "title": "布局",

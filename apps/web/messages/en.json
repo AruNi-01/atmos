@@ -4080,7 +4080,9 @@
           "lineHighlight": "Active line highlight",
           "lineHighlightTooltip": "Highlight the current line.",
           "gitIntegration": "Git integration",
-          "gitIntegrationTooltip": "Show git changes in the gutter."
+          "gitIntegrationTooltip": "Show git changes in the gutter.",
+          "expandToggles": "Expand toggles",
+          "expandTogglesTooltip": "Open markdown toggle blocks by default in Live and preview."
         }
       },
       "searchPanel": {
@@ -5649,6 +5651,10 @@
         "gitIntegration": {
           "title": "Git Integration",
           "description": "Show git changes and diff information in the editor."
+        },
+        "expandToggles": {
+          "title": "Expand toggles",
+          "description": "Open markdown toggle blocks by default in Live and preview. Does not change the file."
         },
         "layout": {
           "title": "Layout",

@@ -2,8 +2,18 @@ import type { Ctx } from "@milkdown/kit/ctx";
 import { editorViewCtx } from "@milkdown/kit/core";
 import type { Node } from "@milkdown/kit/prose/model";
 import { Plugin, PluginKey, TextSelection } from "@milkdown/kit/prose/state";
-import { $nodeSchema, $prose, $remark } from "@milkdown/kit/utils";
+import { $ctx, $nodeSchema, $prose, $remark } from "@milkdown/kit/utils";
 import { remarkMdLiveDetails } from "./toggle-remark";
+
+export const mdLiveToggleDefaultOpenCtx = $ctx(true, "mdLiveToggleDefaultOpen");
+
+function toggleDefaultOpen(ctx: Ctx): boolean {
+  try {
+    return ctx.get(mdLiveToggleDefaultOpenCtx.key) !== false;
+  } catch {
+    return true;
+  }
+}
 
 export const mdLiveDetailsRemark = $remark("mdLiveDetails", () => remarkMdLiveDetails);
 
@@ -56,7 +66,8 @@ export const detailsSchema = $nodeSchema("details", (ctx) => ({
   parseMarkdown: {
     match: (node) => node.type === "details",
     runner: (state, node, type) => {
-      state.openNode(type, { open: true });
+      const fileOpen = (node as { open?: boolean }).open === true;
+      state.openNode(type, { open: fileOpen || toggleDefaultOpen(ctx) });
       const children = node.children ?? [];
       if (children[0]?.type !== "detailsSummary") {
         state.openNode(detailsSummarySchema.type(ctx)).closeNode();
@@ -104,7 +115,10 @@ export function insertMdLiveToggle(ctx: Ctx): boolean {
     null,
     hasTitle ? $from.parent.content : undefined,
   );
-  const created = details.create({ open: hasTitle }, [summary, paragraph.create()]);
+  const created = details.create({ open: hasTitle || toggleDefaultOpen(ctx) }, [
+    summary,
+    paragraph.create(),
+  ]);
   const tr = state.tr.replaceWith(from, to, created);
   tr.setSelection(TextSelection.create(tr.doc, from + 2));
   view.dispatch(tr.scrollIntoView());
@@ -260,7 +274,25 @@ export const mdLiveToggleKeys = $prose((ctx) => {
   });
 });
 
+export function applyMdLiveToggleDefaultOpen(ctx: Ctx, open: boolean): void {
+  ctx.set(mdLiveToggleDefaultOpenCtx.key, open);
+  const view = ctx.get(editorViewCtx);
+  const positions: number[] = [];
+  view.state.doc.descendants((node, pos) => {
+    if (node.type.name === "details" && node.attrs.open !== open) positions.push(pos);
+  });
+  if (positions.length === 0) return;
+  let tr = view.state.tr.setMeta("addToHistory", false);
+  for (const pos of positions) {
+    const node = tr.doc.nodeAt(pos);
+    if (!node || node.type.name !== "details") continue;
+    tr = tr.setNodeMarkup(pos, undefined, { ...node.attrs, open });
+  }
+  view.dispatch(tr);
+}
+
 export const mdLiveTogglePlugins = [
+  mdLiveToggleDefaultOpenCtx,
   mdLiveDetailsRemark,
   detailsSummarySchema,
   detailsSchema,

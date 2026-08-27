@@ -119,6 +119,7 @@ export function EditorSettingsSection() {
     minimap,
     lineHighlight,
     gitIntegration,
+    mdToggleDefaultOpen,
     loadSettings,
     setAutoSave,
     setLineWrap,
@@ -126,6 +127,7 @@ export function EditorSettingsSection() {
     setMinimap,
     setLineHighlight,
     setGitIntegration,
+    setMdToggleDefaultOpen,
   } = useEditorSettingsStore();
   const {
     diffStyle,
@@ -199,6 +201,15 @@ export function EditorSettingsSection() {
           <Switch
             checked={gitIntegration}
             onCheckedChange={(checked) => void setGitIntegration(!!checked)}
+          />
+        </SettingsGroupRow>
+        <SettingsGroupRow
+          title={t('rows.expandToggles.title')}
+          description={t('rows.expandToggles.description')}
+        >
+          <Switch
+            checked={mdToggleDefaultOpen}
+            onCheckedChange={(checked) => void setMdToggleDefaultOpen(!!checked)}
           />
         </SettingsGroupRow>
       </SettingsGroupCard>

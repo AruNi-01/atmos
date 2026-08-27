@@ -437,15 +437,54 @@ interface MarkdownRendererProps {
   /** When set, intercepts relative .md links and calls this instead of navigating */
   wikiBasePath?: string;
   onWikiLinkNavigate?: (slug: string, hash?: string) => void;
+  /** Expand `<details>` blocks on first render unless the file already set `open`. */
+  detailsOpenByDefault?: boolean;
 }
 
-export function MarkdownRenderer({ children, className, wikiBasePath, onWikiLinkNavigate }: MarkdownRendererProps) {
+function detailsFileOpen(open: unknown): boolean {
+  return open === true || open === "" || open === "open";
+}
+
+function MarkdownDetails({
+  children,
+  open,
+  startOpen = false,
+  ...props
+}: React.ComponentProps<"details"> & { startOpen?: boolean }) {
+  const ref = React.useRef<HTMLDetailsElement>(null);
+  React.useLayoutEffect(() => {
+    const node = ref.current;
+    if (node) node.open = startOpen;
+  }, [startOpen]);
+  return (
+    <details {...props} ref={ref}>
+      {children}
+    </details>
+  );
+}
+
+export function MarkdownRenderer({
+  children,
+  className,
+  wikiBasePath,
+  onWikiLinkNavigate,
+  detailsOpenByDefault = false,
+}: MarkdownRendererProps) {
   const { resolvedTheme } = useTheme();
 
   const components = React.useMemo(() => {
-    if (!wikiBasePath || !onWikiLinkNavigate) return DEFAULT_MARKDOWN_COMPONENTS;
+    const details: Components["details"] = ({ children, open, ...props }) => (
+      <MarkdownDetails
+        {...props}
+        startOpen={detailsFileOpen(open) || detailsOpenByDefault}
+      >
+        {children}
+      </MarkdownDetails>
+    );
+    const base: Components = { ...DEFAULT_MARKDOWN_COMPONENTS, details };
+    if (!wikiBasePath || !onWikiLinkNavigate) return base;
     return {
-      ...DEFAULT_MARKDOWN_COMPONENTS,
+      ...base,
       a: ({ href, children, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement>) => {
         if (!href) return <a {...props}>{children}</a>;
         const resolved = resolveRelativeMarkdownPath(wikiBasePath, href);
@@ -472,7 +511,7 @@ export function MarkdownRenderer({ children, className, wikiBasePath, onWikiLink
         return <a href={href} {...props}>{children}</a>;
       },
     };
-  }, [wikiBasePath, onWikiLinkNavigate]);
+  }, [wikiBasePath, onWikiLinkNavigate, detailsOpenByDefault]);
 
   return (
     <div className={cn(

@@ -26,9 +26,14 @@ export {
   formatMdLiveSerializedMarkdown,
 } from "./ui/markdown-stringify";
 export { mdLiveTaskListPlugins } from "./ui/task-list";
-export { mdLiveTogglePlugins, insertMdLiveToggle } from "./ui/toggle";
+export {
+  mdLiveTogglePlugins,
+  insertMdLiveToggle,
+  applyMdLiveToggleDefaultOpen,
+  mdLiveToggleDefaultOpenCtx,
+} from "./ui/toggle";
 export { mdLivePlaceholderPlugin, mdLivePlaceholderCopyKey } from "./ui/placeholder";
-export { remarkMdLiveDetails } from "./ui/toggle-remark";
+export { remarkMdLiveDetails, detailsHasOpenAttr } from "./ui/toggle-remark";
 export { slugMdLiveHeading, mdLiveHeadingIdPlugin } from "./ui/heading-id";
 export { isMdLiveOverlayEventTarget, shouldShowMdLiveSelectionToolbar } from "./ui/selection";
 export { MdLiveEmojiPicker } from "./ui/EmojiPicker";

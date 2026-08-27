@@ -44,6 +44,9 @@ describe("md-live structural gates", () => {
     expect(source).toContain("onOpenMedia");
     expect(source).toContain("mdLiveMediaViewPlugin");
     expect(source).toContain("mdLivePreviewBlockPlugins");
+    expect(source).toContain("defaultToggleOpen");
+    expect(source).toContain("setToggleDefaultOpen");
+    expect(source).toContain("mdToggleDefaultOpen");
     const blocks = readFileSync(
       join(import.meta.dir, "../md-live-preview-blocks.tsx"),
       "utf8",
@@ -75,6 +78,12 @@ describe("md-live structural gates", () => {
     expect(toolbar).toContain("Tooltip");
     expect(toolbar).toContain("TooltipContent");
     expect(toolbar).toContain("TooltipProvider");
+    const settings = readFileSync(
+      join(import.meta.dir, "../../../settings/components/EditorSettingsSection.tsx"),
+      "utf8",
+    );
+    expect(settings).toContain("expandToggles");
+    expect(settings).toContain("mdToggleDefaultOpen");
   });
 
   test("github embed open uses the native center tab", () => {

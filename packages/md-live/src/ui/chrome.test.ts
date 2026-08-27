@@ -50,6 +50,9 @@ describe("md-live ui chrome", () => {
     expect(editor).toContain("commitMarkdown.arm()");
     expect(editor).toContain("mdLiveTogglePlugins");
     expect(editor).toContain("mdLivePlaceholderPlugin");
+    expect(editor).toContain("defaultToggleOpen");
+    expect(editor).toContain("setToggleDefaultOpen");
+    expect(editor).toContain("applyMdLiveToggleDefaultOpen");
   });
 
   test("stringify uses hyphen bullets, tight lists, and compact tables", () => {

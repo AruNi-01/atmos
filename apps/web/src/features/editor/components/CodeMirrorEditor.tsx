@@ -103,6 +103,7 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
     minimap,
     lineHighlight,
     gitIntegration,
+    mdToggleDefaultOpen,
     loaded: editorSettingsLoaded,
     loadSettings,
     setAutoSave,
@@ -111,6 +112,7 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
     setMinimap,
     setLineHighlight,
     setGitIntegration,
+    setMdToggleDefaultOpen,
   } = useEditorSettingsStore(
     useShallow((s) => ({
       autoSave: s.autoSave,
@@ -119,6 +121,7 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
       minimap: s.minimap,
       lineHighlight: s.lineHighlight,
       gitIntegration: s.gitIntegration,
+      mdToggleDefaultOpen: s.mdToggleDefaultOpen,
       loaded: s.loaded,
       loadSettings: s.loadSettings,
       setAutoSave: s.setAutoSave,
@@ -127,6 +130,7 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
       setMinimap: s.setMinimap,
       setLineHighlight: s.setLineHighlight,
       setGitIntegration: s.setGitIntegration,
+      setMdToggleDefaultOpen: s.setMdToggleDefaultOpen,
     })),
   );
   const editorRef = useRef<EditorView | null>(null);
@@ -761,6 +765,31 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
             className="shrink-0"
           />
         </div>
+
+        {isLiveEligible ? (
+          <div className="flex items-center justify-between gap-2 rounded-md px-2 py-1">
+            <TooltipProvider delayDuration={150}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="cursor-help text-[13px] font-medium leading-none text-popover-foreground">
+                    {t('codeMirror.settings.expandToggles')}
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="left" sideOffset={8} className="max-w-[220px]">
+                  {t('codeMirror.settings.expandTogglesTooltip')}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
+            <Switch
+              checked={mdToggleDefaultOpen}
+              onCheckedChange={(checked) => {
+                void setMdToggleDefaultOpen(!!checked);
+              }}
+              className="shrink-0"
+            />
+          </div>
+        ) : null}
       </PopoverContent>
     </Popover>
   );
@@ -938,7 +967,10 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
                   {reportMetadata ? (
                     <ReviewReportMetadataCard metadata={reportMetadata} />
                   ) : null}
-                  <MarkdownRenderer>
+                  <MarkdownRenderer
+                    key={mdToggleDefaultOpen ? "details-open" : "details-closed"}
+                    detailsOpenByDefault={mdToggleDefaultOpen}
+                  >
                     {previewBody}
                   </MarkdownRenderer>
                 </div>
