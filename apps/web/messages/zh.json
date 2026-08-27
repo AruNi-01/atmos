@@ -3170,6 +3170,24 @@
         "parameters": "参数",
         "loadingDiff": "正在加载 diff..."
       },
+      "toolResults": {
+        "file": "文件",
+        "loadingDiff": "正在加载 diff...",
+        "processing": "处理中...",
+        "noOutput": "没有输出",
+        "executionFailed": "执行失败",
+        "skillTitle": "技能：{name}",
+        "parameters": "参数",
+        "newFile": "新文件",
+        "deletedFile": "已删除",
+        "deletedFileLabel": "已删除 {path}",
+        "to": "到",
+        "todo": {
+          "pending": "待办",
+          "inProgress": "进行中",
+          "completed": "已完成"
+        }
+      },
       "hookStatus": {
         "permissionRequested": "权限请求中",
         "waitingForPermissionWithTool": "{tool}：等待权限中",
