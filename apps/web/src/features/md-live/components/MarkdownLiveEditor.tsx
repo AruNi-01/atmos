@@ -116,13 +116,15 @@ export function MarkdownLiveEditor({
     };
     renderSlash("");
 
-    let slashProvider: SlashProvider | undefined;
-    slashProvider = new SlashProvider({
+    const slashProviderRef: { current: SlashProvider | undefined } = {
+      current: undefined,
+    };
+    const slashProvider = new SlashProvider({
       content: slashHost,
       debounce: 20,
       trigger: "/",
       shouldShow: (view) => {
-        const content = slashProvider?.getContent(view) ?? "";
+        const content = slashProviderRef.current?.getContent(view) ?? "";
         const match = content.match(/(?:^|\s)\/([^\s]*)$/);
         if (!match) return false;
         renderSlash(match[1] ?? "");
@@ -130,6 +132,7 @@ export function MarkdownLiveEditor({
       },
       floatingUIOptions: { strategy: "fixed" },
     });
+    slashProviderRef.current = slashProvider;
 
     tooltipRoot.render(
       <MdLiveSelectionToolbar
