@@ -297,7 +297,7 @@ export const FileViewer: React.FC<FileViewerProps> = ({ file, className, context
   return (
     <CodeMirrorEditor
       file={file}
-      className={className}
+      className={cn("min-h-0 overflow-hidden", className)}
       contextId={contextId}
       surfaceActive={surfaceActive}
     />

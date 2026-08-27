@@ -90,6 +90,7 @@ export function ShortcutsSettingsSection() {
         shortcuts={[
           { keys: ['⌘', 'S'], description: t('groups.editor.items.saveCurrentFile') },
           { keys: ['⌘', 'F'], description: t('groups.editor.items.findInEditor') },
+          { keys: ['⌘', 'G'], description: t('groups.editor.items.toggleAgentInput') },
         ]}
       />
       <ShortcutGroup

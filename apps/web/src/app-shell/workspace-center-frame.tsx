@@ -57,6 +57,11 @@ import {
 import { cn } from "@/shared/lib/utils";
 import { hostIdFromCenterKey } from "@/app-shell/center-space/center-space";
 import {
+  registerMdLiveTerminalGrid,
+  unregisterMdLiveTerminalGrid,
+} from "@/features/md-live/lib/md-live-terminal-bridge";
+import type { TerminalGridHandle } from "@/features/terminal/components/TerminalGrid";
+import {
   workspaceCenterFramePropsAreEqual,
   type TerminalQuickOpenAgent,
   type WorkspaceCenterFrameProps,
@@ -64,6 +69,17 @@ import {
 
 export type { TerminalQuickOpenAgent, WorkspaceCenterFrameProps };
 export { workspaceCenterFramePropsAreEqual };
+
+function publishMdLiveTerminalGrid(
+  previous: TerminalGridHandle | null,
+  next: TerminalGridHandle | null,
+): void {
+  if (next) {
+    registerMdLiveTerminalGrid(next);
+    return;
+  }
+  if (previous) unregisterMdLiveTerminalGrid(previous);
+}
 
 function TerminalGridLoadingFallback() {
   return (
@@ -483,13 +499,19 @@ function WorkspaceCenterFrameImpl({
               <TerminalGrid
                 ref={
                   isUrlSyncedActive
-                    ? tab.id === FIXED_TERMINAL_TAB_VALUE
-                      ? terminalGridRef
-                      : (instance) => {
-                          if (terminalGridRefs?.current) {
-                            terminalGridRefs.current[tab.id] = instance;
-                          }
+                    ? (instance) => {
+                        if (tab.id === FIXED_TERMINAL_TAB_VALUE) {
+                          const previous = terminalGridRef?.current ?? null;
+                          if (terminalGridRef) terminalGridRef.current = instance;
+                          publishMdLiveTerminalGrid(previous, instance);
+                          return;
                         }
+                        const previous = terminalGridRefs?.current?.[tab.id] ?? null;
+                        if (terminalGridRefs?.current) {
+                          terminalGridRefs.current[tab.id] = instance;
+                        }
+                        publishMdLiveTerminalGrid(previous, instance);
+                      }
                     : undefined
                 }
                 workspaceId={contextId}

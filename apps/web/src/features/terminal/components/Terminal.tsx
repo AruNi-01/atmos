@@ -26,6 +26,11 @@ import {
 } from "../lib/terminal-xterm-preview";
 import { useTerminalAppearanceSettingsStore } from "@/features/settings/store/terminal-appearance-settings-store";
 import { useTerminalWebSocket } from "../hooks/use-terminal-websocket";
+import { publishTerminalOutput } from "../lib/terminal-output-bus";
+import {
+  HIDDEN_PTY_CONNECT_GRID,
+  shouldConnectHiddenPty,
+} from "../lib/terminal-hidden-connect";
 import type { TerminalProps, TerminalSnapshot } from "../types/index";
 import { getRuntimeApiConfig, wsBase } from "@/shared/lib/desktop-runtime";
 import { createTerminalLinkProvider } from "../lib/terminal-link-routing";
@@ -237,6 +242,7 @@ const Terminal = ({
   onAddSelectionAsContext,
   onStartSideChatForSelection,
   surfaceActive = true,
+  connectWhileHidden = false,
   ref,
 }: TerminalProps & { ref?: React.Ref<TerminalRef>; onInputWhileReadOnly?: () => void }) => {
   const cursorStyle = useTerminalAppearanceSettingsStore((state) => state.cursorStyle);
@@ -261,6 +267,8 @@ const Terminal = ({
   // this over reading layout so hop does not force reflow for hidden xterms.
   const surfaceActiveRef = useRef(surfaceActive);
   surfaceActiveRef.current = surfaceActive;
+  const connectWhileHiddenRef = useRef(connectWhileHidden);
+  connectWhileHiddenRef.current = connectWhileHidden;
   // Keep title callbacks in sync to avoid stale closures in OSC handlers
   const onTitleChangeRef = useRef(onTitleChange);
   useEffect(() => { onTitleChangeRef.current = onTitleChange; });
@@ -539,6 +547,7 @@ const Terminal = ({
   }, []);
 
   const handleOutput = useCallback((data: string | Uint8Array) => {
+    publishTerminalOutput(sessionId, data);
     if (data.length > 0) {
       const term = terminalRef.current;
       const destructive = shouldAvoidTerminalWriteFastPath(data);
@@ -1541,6 +1550,22 @@ const Terminal = ({
     };
     const connectWhenVisible = () => {
       if (cancelled || connectStarted) return;
+      if (
+        shouldConnectHiddenPty({
+          surfaceActive: surfaceActiveRef.current,
+          connectWhileHidden: connectWhileHiddenRef.current,
+        })
+      ) {
+        connectStarted = true;
+        void (async () => {
+          const runtimeWsUrl = await buildRuntimeWsUrl();
+          if (cancelled) return;
+          const separator = runtimeWsUrl.includes("?") ? "&" : "?";
+          const { cols, rows } = HIDDEN_PTY_CONNECT_GRID;
+          connect(`${runtimeWsUrl}${separator}cols=${cols}&rows=${rows}`);
+        })();
+        return;
+      }
       scheduleConnectCheck();
     };
     const scheduleVisibilityPoll = () => {

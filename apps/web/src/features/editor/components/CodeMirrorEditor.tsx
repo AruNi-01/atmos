@@ -26,6 +26,12 @@ import { useFileTreeStore } from '@/features/files/store/use-file-tree-store';
 import { useFileTreeQuery, useListDirQuery } from '@/features/files/hooks/use-file-tree-query';
 import { MarkdownRenderer } from '@/shared/components/markdown/MarkdownRenderer';
 import { MarkdownToc } from '@/shared/components/markdown/MarkdownToc';
+import { MarkdownLiveEditor } from '@/features/md-live/components/MarkdownLiveEditor';
+import { MdLiveAgentDock } from '@/features/md-live/components/MdLiveAgentDock';
+import { MdLiveSaveAsDialog } from '@/features/md-live/components/MdLiveSaveAsDialog';
+import { isLiveEligibleMarkdownPath, isUntitledMarkdownPath } from '@/features/md-live/lib/md-live-paths';
+import { isMdLiveStreamLocked, useMdLiveStreamLocked } from '@/features/md-live/lib/md-live-stream-lock';
+import { fsApi } from '@/api/ws-api';
 import { BaseCodeMirrorEditor } from './BaseCodeMirrorEditor';
 import { setCodeMirrorSearchPanelMessages } from './codemirror-search-panel';
 import { useSelectionPopover } from '@/features/selection/hooks/use-selection-popover';
@@ -74,12 +80,15 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
   surfaceActive = true,
 }) => {
   const t = useTranslations("Editor.components");
+  const mdLiveT = useTranslations("mdLive");
   const pathname = usePathname();
   const { effectiveContextId } = useContextParams();
   const editorContextId = contextId ?? effectiveContextId;
   const workspaceActivePath = useEditorStore((s) => s.getActiveFilePath(editorContextId || undefined));
   const updateFileContent = useEditorStore(s => s.updateFileContent);
   const saveFile = useEditorStore(s => s.saveFile);
+  const replaceOpenFilePath = useEditorStore((s) => s.replaceOpenFilePath);
+
   const reloadFileContent = useEditorStore((s) => s.reloadFileContent);
   const clearNavigationTarget = useEditorStore(s => s.clearNavigationTarget);
   const navigationTarget = useEditorStore((state) =>
@@ -92,41 +101,44 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
     lineWrap,
     bracketMatching,
     minimap,
-    breadcrumbs,
     lineHighlight,
     gitIntegration,
+    mdToggleDefaultOpen,
     loaded: editorSettingsLoaded,
     loadSettings,
     setAutoSave,
     setLineWrap,
     setBracketMatching,
     setMinimap,
-    setBreadcrumbs,
     setLineHighlight,
     setGitIntegration,
+    setMdToggleDefaultOpen,
   } = useEditorSettingsStore(
     useShallow((s) => ({
       autoSave: s.autoSave,
       lineWrap: s.lineWrap,
       bracketMatching: s.bracketMatching,
       minimap: s.minimap,
-      breadcrumbs: s.breadcrumbs,
       lineHighlight: s.lineHighlight,
       gitIntegration: s.gitIntegration,
+      mdToggleDefaultOpen: s.mdToggleDefaultOpen,
       loaded: s.loaded,
       loadSettings: s.loadSettings,
       setAutoSave: s.setAutoSave,
       setLineWrap: s.setLineWrap,
       setBracketMatching: s.setBracketMatching,
       setMinimap: s.setMinimap,
-      setBreadcrumbs: s.setBreadcrumbs,
       setLineHighlight: s.setLineHighlight,
       setGitIntegration: s.setGitIntegration,
+      setMdToggleDefaultOpen: s.setMdToggleDefaultOpen,
     })),
   );
   const editorRef = useRef<EditorView | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const liveChromeRef = useRef<HTMLDivElement | null>(null);
   const [previewFilePath, setPreviewFilePath] = useState<string | null>(null);
+  const [markdownView, setMarkdownView] = useState<'live' | 'source'>('live');
+  const [saveAsOpen, setSaveAsOpen] = useState(false);
   const [debouncedContent, setDebouncedContent] = useState(file.content);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [editorSettingsSettled, setEditorSettingsSettled] = useState(editorSettingsLoaded);
@@ -347,7 +359,13 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
   }, [file.isLoading]);
 
   const isMarkdown = file.language === 'markdown' || file.name.endsWith('.md') || file.name.endsWith('.mdx');
-  const isPreview = isMarkdown && previewFilePath === file.path;
+  const isLiveEligible = isLiveEligibleMarkdownPath(file.path, {
+    fileName: file.name,
+    language: file.language,
+  });
+  const isLive = isLiveEligible && markdownView === 'live';
+  const streamLocked = useMdLiveStreamLocked(file.path);
+  const isPreview = !isLiveEligible && isMarkdown && previewFilePath === file.path;
   const isReviewReport = isMarkdown && file.path.includes('/.atmos/reviews/');
 
   // When previewing an Atmos review report, pull the `atmos_review:` frontmatter out so we
@@ -367,6 +385,10 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
       setPreviewFilePath(file.path);
       setDebouncedContent(file.content);
     }
+    setMarkdownView(isLiveEligibleMarkdownPath(file.path, {
+      fileName: file.name,
+      language: file.language,
+    }) ? 'live' : 'source');
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [file.path]);
 
@@ -442,7 +464,7 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
   const selectionPopover = useSelectionPopover({
     getSelectionInfo,
     containerRef,
-    enabled: surfaceActive && !file.isLoading,
+    enabled: surfaceActive && !file.isLoading && !isLive,
   });
 
   useEffect(() => {
@@ -466,6 +488,8 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
 
   useEffect(() => {
     if (!autoSave || file.isLoading || !file.isDirty) return;
+    if (isUntitledMarkdownPath(file.path)) return;
+    if (isMdLiveStreamLocked(file.path)) return;
 
     const timer = setTimeout(() => {
       void saveFile(file.path, editorContextId || undefined)
@@ -495,13 +519,22 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
 
   // Toggle preview
   const togglePreview = useCallback(() => {
+    if (isLiveEligible) {
+      setMarkdownView((prev) => (prev === 'live' ? 'source' : 'live'));
+      return;
+    }
     if (!isMarkdown) return;
     setPreviewFilePath((prev) => (prev === file.path ? null : file.path));
     setDebouncedContent(file.content);
-  }, [file.content, file.path, isMarkdown]);
+  }, [file.content, file.path, isLiveEligible, isMarkdown]);
 
   // Handle save
   const handleSave = useCallback(async () => {
+    if (isUntitledMarkdownPath(file.path)) {
+      setSaveAsOpen(true);
+      return;
+    }
+    if (isMdLiveStreamLocked(file.path)) return;
     try {
       await saveFile(file.path, editorContextId || undefined);
       await refreshEditorGitGutter();
@@ -519,6 +552,12 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
     }
   }, [editorContextId, file.path, file.name, refreshEditorGitGutter, saveFile, t]);
 
+  const handleSaveAsConfirm = useCallback(async (fullPath: string) => {
+    await fsApi.writeFile(fullPath, file.content);
+    replaceOpenFilePath(file.path, fullPath, editorContextId || undefined);
+    await refreshEditorGitGutter();
+  }, [editorContextId, file.content, file.path, refreshEditorGitGutter, replaceOpenFilePath]);
+
   const handleEditorCreate = useCallback((editor: EditorView) => {
     editorRef.current = editor;
     editorViewRef.current = editor;
@@ -531,22 +570,28 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
 
   const toolbarIconBtnClass =
     'flex size-6 items-center justify-center rounded hover:bg-accent hover:text-foreground cursor-pointer select-none';
-  const floatingChromeBtnClass =
-    'flex size-8 items-center justify-center rounded-md border border-border bg-muted/80 text-muted-foreground shadow-sm backdrop-blur-sm hover:bg-muted hover:text-foreground cursor-pointer select-none';
-
-  /** When the breadcrumb strip is hidden, surface preview + settings in the top-right overlay. */
-  const showFloatingMarkdownEditorChrome = !breadcrumbs || isPreview;
 
   const renderMarkdownPreviewButton = (buttonClassName: string) =>
     isMarkdown ? (
       <button
         type="button"
-        onClick={togglePreview}
+        onClick={() => {
+          if (streamLocked) return;
+          togglePreview();
+        }}
         className={buttonClassName}
-        title={isPreview ? t('codeMirror.showEditor') : t('codeMirror.showPreview')}
-        aria-label={isPreview ? t('codeMirror.showEditor') : t('codeMirror.showPreview')}
+        title={
+          isLiveEligible
+            ? (isLive ? mdLiveT('source') : mdLiveT('live'))
+            : (isPreview ? t('codeMirror.showEditor') : t('codeMirror.showPreview'))
+        }
+        aria-label={
+          isLiveEligible
+            ? (isLive ? mdLiveT('source') : mdLiveT('live'))
+            : (isPreview ? t('codeMirror.showEditor') : t('codeMirror.showPreview'))
+        }
       >
-        {isPreview ? <FileText className="size-3.5" /> : <Eye className="size-3.5" />}
+        {isLive || isPreview ? <FileText className="size-3.5" /> : <Eye className="size-3.5" />}
       </button>
     ) : null;
 
@@ -665,29 +710,6 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
             <Tooltip>
               <TooltipTrigger asChild>
                 <span className="cursor-help text-[13px] font-medium leading-none text-popover-foreground">
-                  {t('codeMirror.settings.breadcrumbs')}
-                </span>
-              </TooltipTrigger>
-              <TooltipContent side="left" sideOffset={8} className="max-w-[220px]">
-                {t('codeMirror.settings.breadcrumbsTooltip')}
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-
-          <Switch
-            checked={breadcrumbs}
-            onCheckedChange={(checked) => {
-              void setBreadcrumbs(!!checked);
-            }}
-            className="shrink-0"
-          />
-        </div>
-
-        <div className="flex items-center justify-between gap-2 rounded-md px-2 py-1">
-          <TooltipProvider delayDuration={150}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span className="cursor-help text-[13px] font-medium leading-none text-popover-foreground">
                   {t('codeMirror.settings.lineHighlight')}
                 </span>
               </TooltipTrigger>
@@ -728,17 +750,42 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
             className="shrink-0"
           />
         </div>
+
+        {isLiveEligible ? (
+          <div className="flex items-center justify-between gap-2 rounded-md px-2 py-1">
+            <TooltipProvider delayDuration={150}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="cursor-help text-[13px] font-medium leading-none text-popover-foreground">
+                    {t('codeMirror.settings.expandToggles')}
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="left" sideOffset={8} className="max-w-[220px]">
+                  {t('codeMirror.settings.expandTogglesTooltip')}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
+            <Switch
+              checked={mdToggleDefaultOpen}
+              onCheckedChange={(checked) => {
+                void setMdToggleDefaultOpen(!!checked);
+              }}
+              className="shrink-0"
+            />
+          </div>
+        ) : null}
       </PopoverContent>
     </Popover>
   );
 
   return (
-    <div ref={containerRef} className={cn('h-full w-full relative flex flex-col', className)}>
+    <div ref={containerRef} className={cn('relative flex h-full min-h-0 w-full flex-col overflow-hidden', className)}>
       {!surfaceActive || file.isLoading ? null : (
         <>
           {/* Selection Popover for AI */}
           <SelectionPopover
-            isVisible={selectionPopover.isVisible}
+            isVisible={selectionPopover.isVisible && !isLive}
             position={selectionPopover.position}
             selectionInfo={selectionPopover.selectionInfo}
             isExpanded={selectionPopover.isExpanded}
@@ -747,25 +794,11 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
             type="editor"
             popoverRef={selectionPopover.popoverRef}
           />
-
-          {showFloatingMarkdownEditorChrome ? (
-            <div
-              className={cn(
-                'absolute top-6 z-20 flex items-center gap-2',
-                // Base editor minimap gutter is 50px; +8px gap — clears overlay when breadcrumbs strip is hidden.
-                minimap ? 'right-[calc(1.5rem+58px)]' : 'right-6',
-              )}
-            >
-              {renderMarkdownPreviewButton(floatingChromeBtnClass)}
-              {renderEditorSettingsMenu(floatingChromeBtnClass)}
-            </div>
-          ) : null}
         </>
       )}
 
-      <div className="flex flex-1 min-h-0 w-full flex-col">
-            {breadcrumbs && !isPreview && (
-              <div className="flex items-center justify-between px-2.5 py-1 text-xs text-muted-foreground border-b border-border bg-background/50 backdrop-blur-sm flex-shrink-0">
+      <div ref={liveChromeRef} className="relative flex min-h-0 w-full flex-1 flex-col overflow-hidden">
+            <div className="flex items-center justify-between px-2.5 py-1 text-xs text-muted-foreground border-b border-border bg-background/50 backdrop-blur-sm flex-shrink-0">
                 {/* Breadcrumbs */}
                 <div className="flex items-center gap-1 flex-1 min-w-0">
                   {breadcrumbParts.map((part, index, array) => {
@@ -843,38 +876,50 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
                 {/* Right side buttons */}
                 {surfaceActive ? (
                 <div className="flex items-center gap-1 shrink-0">
-                  {/* Search button */}
-                  <button
-                    type="button"
-                    onClick={handleSearchClick}
-                    className={toolbarIconBtnClass}
-                    title={t('codeMirror.searchWithShortcut')}
-                    aria-label={t('codeMirror.search')}
-                  >
-                    <Search className="size-3.5" />
-                  </button>
+                  {!isLive && !isPreview ? (
+                    <button
+                      type="button"
+                      onClick={handleSearchClick}
+                      className={toolbarIconBtnClass}
+                      title={t('codeMirror.searchWithShortcut')}
+                      aria-label={t('codeMirror.search')}
+                    >
+                      <Search className="size-3.5" />
+                    </button>
+                  ) : null}
 
                   {renderMarkdownPreviewButton(toolbarIconBtnClass)}
                   {renderEditorSettingsMenu(toolbarIconBtnClass)}
                 </div>
                 ) : null}
               </div>
-            )}
             {file.isLoading ? (
               <div className="flex flex-1 min-h-0 items-center justify-center bg-background">
                 <LucideLoader2 className="size-6 animate-spin text-muted-foreground" />
               </div>
             ) : (
               <>
-            <div className={cn("flex-1 min-h-0 relative", isPreview && "hidden")}>
-              {editorSettingsSettled ? (
+            <div className="relative min-h-0 flex-1 overflow-hidden">
+            {isLive && surfaceActive ? (
+              <div id="editor-preview-root" className="absolute inset-0 overflow-y-auto overscroll-contain scroll-smooth bg-background">
+                <MarkdownLiveEditor
+                  key={file.path}
+                  filePath={file.path}
+                  value={file.content}
+                  onChange={handleEditorChange}
+                  onSave={() => void handleSave()}
+                />
+              </div>
+            ) : null}
+            <div className={cn("absolute inset-0", (isPreview || isLive) && "hidden")}>
+              {editorSettingsSettled && !isLive ? (
                 <BaseCodeMirrorEditor
                   language={file.language}
                   value={file.content}
                   lineWrap={lineWrap}
                   enableBracketMatching={bracketMatching}
                   minimap={minimap}
-                  breadcrumbs={breadcrumbs}
+                  breadcrumbs={true}
                   lineHighlight={lineHighlight}
                   gitIntegration={gitIntegration}
                   gitDiffSource={editorGitDiffSource}
@@ -902,11 +947,14 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
             </div>
 
             {isPreview && isMarkdown && (
-              <div id="editor-preview-root" className="flex-1 overflow-y-auto bg-background px-8 py-12 scroll-smooth">
+              <div id="editor-preview-root" className="absolute inset-0 overflow-y-auto overscroll-contain bg-background px-8 py-12 scroll-smooth">
                   {reportMetadata ? (
                     <ReviewReportMetadataCard metadata={reportMetadata} />
                   ) : null}
-                  <MarkdownRenderer>
+                  <MarkdownRenderer
+                    key={mdToggleDefaultOpen ? "details-open" : "details-closed"}
+                    detailsOpenByDefault={mdToggleDefaultOpen}
+                  >
                     {previewBody}
                   </MarkdownRenderer>
                 </div>
@@ -915,9 +963,27 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
             {isPreview && isMarkdown && (
               <MarkdownToc markdown={previewBody} scrollContainerId="editor-preview-root" />
             )}
+            {isLive && (
+              <MarkdownToc markdown={file.content} scrollContainerId="editor-preview-root" />
+            )}
+            {isLiveEligible && surfaceActive ? (
+              <MdLiveAgentDock
+                filePath={file.path}
+                markdown={file.content}
+                ensureLive={() => setMarkdownView("live")}
+                scopeRef={liveChromeRef}
+              />
+            ) : null}
+            </div>
               </>
             )}
           </div>
+    <MdLiveSaveAsDialog
+      open={saveAsOpen}
+      defaultDirectory={currentProjectPath || '/'}
+      onOpenChange={setSaveAsOpen}
+      onConfirm={handleSaveAsConfirm}
+    />
     </div>
   );
 };

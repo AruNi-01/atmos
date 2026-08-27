@@ -28,6 +28,7 @@ export const AI_CONTEXT_KINDS = [
   "canvas-agent",
   "pt-design-agent",
   "run-log",
+  "doc-selection",
 ] as const;
 
 export type AiContextKind = (typeof AI_CONTEXT_KINDS)[number];
@@ -141,6 +142,12 @@ const KIND_DEFAULTS: Record<
     tooltip: "Prototype Design agent instructions",
     tone: "violet",
     icon: "layout",
+  },
+  "doc-selection": {
+    label: "Selection",
+    tooltip: "Document selection",
+    tone: "blue",
+    icon: "book",
   },
   "run-log": {
     label: "Run log",
@@ -340,6 +347,8 @@ function deriveChipLabel(kind: AiContextKind, promptText: string): string | null
     }
     case "run-log":
       // Keep stable product label; do not derive from path/prompt first line.
+      return null;
+    case "doc-selection":
       return null;
   }
 }

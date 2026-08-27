@@ -77,6 +77,10 @@ import { useReviewSnapshotStore } from "@/features/code-review/store/review-snap
 import { usePrewarmCodeLanguages } from "@/shared/hooks/use-prewarm-code-languages";
 import { useAppRouter } from "@/shared/hooks/use-app-router";
 import { buildInteractiveAgentRunPlan } from "@/features/agent/lib/terminal-agent-run-config";
+import {
+  registerMdLiveTerminalGrid,
+  subscribeMdLiveTerminalGridMount,
+} from "@/features/md-live/lib/md-live-terminal-bridge";
 import { resolveDefaultSplitAgent } from "@/features/terminal/lib/terminal-split-prefs";
 import { useTerminalSplitPrefsStore } from "@/features/settings/store/terminal-split-prefs-store";
 import { resolveAgentFixLaunchPrompt } from "@/features/agent-fix/lib/agent-fix-prompt-file";
@@ -1496,6 +1500,24 @@ const CenterStage: React.FC = () => {
 
     attempt(attemptsLeft);
   }, []);
+
+  React.useEffect(() => {
+    return subscribeMdLiveTerminalGridMount(() => {
+      if (!effectiveContextId) return;
+      const tabs = useTerminalStore.getState().getTerminalTabs(effectiveContextId);
+      const tabId = tabs.some((tab) => tab.id === FIXED_TERMINAL_TAB_VALUE)
+        ? FIXED_TERMINAL_TAB_VALUE
+        : (tabs[0]?.id ?? createTerminalTab(effectiveContextId).id);
+      setMountedTerminalTabsByContext((current) => {
+        const ids = current[effectiveContextId] ?? [];
+        if (ids.includes(tabId)) return current;
+        return { ...current, [effectiveContextId]: [...ids, tabId] };
+      });
+      runWhenTerminalGridReady(tabId, (grid) => {
+        registerMdLiveTerminalGrid(grid);
+      }, 40);
+    });
+  }, [createTerminalTab, effectiveContextId, runWhenTerminalGridReady]);
 
   // Try to focus pane by tmux window name across all terminal tabs
   const focusPaneByTmuxAcrossAllTabs = React.useCallback((tmuxWindowName: string) => {

@@ -189,6 +189,10 @@ export function isBinaryFile(path: string): boolean {
 }
 
 export function getFileNameFromPath(path: string): string {
+  if (path.startsWith('untitled:')) {
+    return path.slice('untitled:'.length) || 'Untitled.md';
+  }
+
   if (isReviewGroupEditorPath(path)) {
     return editorPathsT('review');
   }

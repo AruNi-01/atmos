@@ -381,6 +381,7 @@
     },
     "centerStageTabBar": {
       "newTerminalTab": "Terminal",
+      "newMarkdown": "Markdown",
       "newBrowser": "Browser",
       "newChanges": "Changes",
       "newReview": "Review",
@@ -4099,7 +4100,9 @@
           "lineHighlight": "Active line highlight",
           "lineHighlightTooltip": "Highlight the current line.",
           "gitIntegration": "Git integration",
-          "gitIntegrationTooltip": "Show git changes in the gutter."
+          "gitIntegrationTooltip": "Show git changes in the gutter.",
+          "expandToggles": "Expand toggles",
+          "expandTogglesTooltip": "Open markdown toggle blocks by default in Live and preview."
         }
       },
       "searchPanel": {
@@ -5669,6 +5672,10 @@
           "title": "Git Integration",
           "description": "Show git changes and diff information in the editor."
         },
+        "expandToggles": {
+          "title": "Expand toggles",
+          "description": "Open markdown toggle blocks by default in Live and preview. Does not change the file."
+        },
         "layout": {
           "title": "Layout",
           "description": "Choose the default layout used by center review diffs and pull request diffs."
@@ -5760,7 +5767,8 @@
           "title": "Editor",
           "items": {
             "saveCurrentFile": "Save current file",
-            "findInEditor": "Find in editor"
+            "findInEditor": "Find in editor",
+            "toggleAgentInput": "Toggle Live AI input"
           }
         },
         "submitCommit": {
@@ -10760,5 +10768,89 @@
         }
       }
     }
+  },
+  "mdLive": {
+    "untitled": "Untitled",
+    "live": "Live",
+    "source": "Source",
+    "newNote": "New note",
+    "saveAs": "Save as",
+    "save": "Save",
+    "directory": "Directory",
+    "fileName": "File name",
+    "cancel": "Cancel",
+    "copyPrompt": "Copy prompt",
+    "copied": "Copied",
+    "placeholder": "Ask the agent to rewrite or generate…",
+    "run": "Run",
+    "accept": "Accept",
+    "reject": "Reject",
+    "acceptAll": "Accept all",
+    "rejectAll": "Reject all",
+    "open": "Open",
+    "agentDidNotReturnEdit": "Agent did not return a document edit.",
+    "runNeedsLive": "Switch to Live to run.",
+    "runNeedsTerminal": "Could not start a background terminal.",
+    "fileExists": "A file with that name already exists. Try the suggested name.",
+    "saveAsFailed": "Could not save the note.",
+    "slashFilter": "Filter...",
+    "slashGroupHeading": "Heading",
+    "slashGroupBasic": "Basic",
+    "slashGroupAdvanced": "Advanced",
+    "slashGroupMedia": "Media",
+    "slashGroupOthers": "Others",
+    "slashHeading1": "Heading 1",
+    "slashHeading2": "Heading 2",
+    "slashHeading3": "Heading 3",
+    "slashHeading4": "Heading 4",
+    "slashHeading5": "Heading 5",
+    "slashHeading6": "Heading 6",
+    "slashBulletList": "Bullet list",
+    "slashOrderedList": "Numbered list",
+    "slashTaskList": "To-do list",
+    "slashToggle": "Toggle",
+    "placeholderEmptyLine": "Enter text or type '/' for commands",
+    "slashQuote": "Blockquote",
+    "slashCode": "Code block",
+    "slashInlineCode": "Inline code",
+    "slashTable": "Table",
+    "slashDivider": "Divider",
+    "slashImage": "Image",
+    "slashVideo": "Video",
+    "slashAudio": "Audio",
+    "slashFile": "File",
+    "slashEmoji": "Emoji",
+    "slashEmojiLoading": "Loading...",
+    "slashNoResults": "No results",
+    "slashGithubIssue": "GitHub issue",
+    "slashGithubUrl": "GitHub issue or pull request URL",
+    "slashFilePath": "File path",
+    "slashInsert": "Insert",
+    "toolbarGroupOperate": "Operate",
+    "toolbarGroupConvert": "Convert",
+    "toolbarParagraph": "Paragraph",
+    "toolbarHeading": "Heading",
+    "toolbarList": "List",
+    "toolbarQuote": "Quote",
+    "toolbarCode": "Code",
+    "toolbarBulletList": "Bullet list",
+    "toolbarOrderedList": "Numbered list",
+    "toolbarTaskList": "To-do list",
+    "toolbarAi": "Ask AI",
+    "toolbarInlineCode": "Inline code",
+    "toolbarBold": "Bold",
+    "toolbarItalic": "Italic",
+    "toolbarStrikethrough": "Strikethrough",
+    "toolbarCopy": "Copy",
+    "toolbarCopyPrompt": "Copy prompt",
+    "toolbarAsk": "Ask",
+    "toolbarRewrite": "Rewrite",
+    "toolbarSummarize": "Summarize",
+    "rewriteInstruction": "Rewrite the selected markdown.",
+    "summarizeInstruction": "Summarize the selected markdown.",
+    "githubIssue": "Issue #{number}",
+    "githubPullRequest": "Pull request #{number}",
+    "codeLanguagePlain": "Plain text",
+    "codeLanguageSelect": "Select language"
   }
 }

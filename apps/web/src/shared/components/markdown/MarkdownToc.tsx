@@ -10,6 +10,46 @@ export interface TocHeading {
   id: string;
 }
 
+function escapeCssIdent(value: string): string {
+  if (typeof CSS !== "undefined" && typeof CSS.escape === "function") {
+    return CSS.escape(value);
+  }
+  return value.replace(/([^\w-])/g, "\\$1");
+}
+
+export function findTocHeadingElement(
+  root: ParentNode,
+  heading: Pick<TocHeading, "id" | "text" | "level">,
+): Element | null {
+  const byId = root.querySelector(`#${escapeCssIdent(heading.id)}`);
+  if (byId) return byId;
+  const tag = `h${heading.level}`;
+  return Array.from(root.querySelectorAll(tag)).find(
+    (el) => (el.textContent ?? "").trim() === heading.text,
+  ) ?? null;
+}
+
+function scrollParentWithin(el: HTMLElement, boundary: HTMLElement): HTMLElement {
+  let node: HTMLElement | null = el.parentElement;
+  while (node && node !== boundary) {
+    const overflowY = getComputedStyle(node).overflowY;
+    if ((overflowY === "auto" || overflowY === "scroll") && node.scrollHeight > node.clientHeight) {
+      return node;
+    }
+    node = node.parentElement;
+  }
+  return boundary;
+}
+
+export function scrollTocHeadingIntoView(root: HTMLElement, el: Element): void {
+  const target = el as HTMLElement;
+  const scroller = scrollParentWithin(target, root);
+  const rootRect = scroller.getBoundingClientRect();
+  const elRect = target.getBoundingClientRect();
+  const top = elRect.top - rootRect.top + scroller.scrollTop - 16;
+  scroller.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+}
+
 export function extractTocHeadings(markdown: string): TocHeading[] {
   const headings: TocHeading[] = [];
   const slugger = new BananaSlug();
@@ -91,7 +131,7 @@ export const MarkdownToc: React.FC<MarkdownTocProps> = ({
     );
 
     headings.forEach((h) => {
-      const el = root.querySelector(`#${CSS.escape(h.id)}`);
+      const el = findTocHeadingElement(root, h);
       if (el) observer.observe(el);
     });
 
@@ -251,11 +291,11 @@ const TocLink: React.FC<{
   const handleClick = (e: React.MouseEvent) => {
     e.preventDefault();
     const root = document.getElementById(scrollContainerId);
-    const el = root?.querySelector(`#${CSS.escape(heading.id)}`);
-    if (el) {
-      el.scrollIntoView({ behavior: "smooth", block: "start" });
-      window.history.replaceState(null, "", `#${heading.id}`);
-    }
+    if (!root) return;
+    const el = findTocHeadingElement(root, heading);
+    if (!el) return;
+    scrollTocHeadingIntoView(root, el);
+    window.history.replaceState(null, "", `#${heading.id}`);
   };
 
   return (

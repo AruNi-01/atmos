@@ -13,26 +13,64 @@ import {
   withSearchParams,
 } from "../support/app-smoke";
 
-/**
- * `?tab=` is leftover chrome across paint hops and may attach a tool tab
- * without selecting it. Open from the plus menu, or click an existing tab.
- */
-async function openCenterToolTab(page: Page, tabName: RegExp): Promise<void> {
-  const stage = page.locator("main").first();
-  const tab = stage.getByRole("tablist").first().getByRole("tab", { name: tabName });
-  if (await tab.isVisible()) {
-    await tab.click();
-    return;
+async function activateWorkspaceToolTab(page: Page, name: RegExp) {
+  const toolTab = page.getByRole("tab", { name });
+  if (!(await toolTab.first().isVisible().catch(() => false))) {
+    const plusTrigger = page
+      .locator("main [data-center-stage-plus-trigger]")
+      .filter({ visible: true })
+      .first();
+    await expect(plusTrigger).toBeVisible({ timeout: 15_000 });
+    const plusMenu = page.locator("[data-center-stage-plus-menu]");
+    // Playwright click() hovers first: trigger onMouseEnter opens, then the
+    // click toggles Radix closed. Native click does not move the pointer.
+    if ((await plusTrigger.getAttribute("aria-expanded")) !== "true") {
+      await plusTrigger.evaluate((el) => (el as HTMLButtonElement).click());
+    }
+    await expect(plusMenu).toBeVisible({ timeout: 15_000 });
+
+    await expect
+      .poll(
+        async () =>
+          plusMenu.evaluate((menu, source) => {
+            const tabsTab = Array.from(menu.querySelectorAll('[role="tab"]')).find((node) =>
+              /^(标签|Tabs)$/.test((node.textContent ?? "").trim()),
+            ) as HTMLElement | undefined;
+            if (tabsTab && tabsTab.getAttribute("aria-selected") !== "true") {
+              tabsTab.click();
+            }
+            return Array.from(menu.querySelectorAll("button")).some((button) =>
+              new RegExp(source).test(button.textContent ?? ""),
+            );
+          }, name.source),
+        { timeout: 10_000 },
+      )
+      .toBe(true);
+
+    const clicked = await plusMenu.evaluate((menu, source) => {
+      const match = Array.from(menu.querySelectorAll("button")).find((button) =>
+        new RegExp(source).test(button.textContent ?? ""),
+      );
+      if (!match) return false;
+      match.scrollIntoView({ block: "nearest" });
+      match.click();
+      return true;
+    }, name.source);
+    expect(clicked, `plus menu missing item ${name}`).toBe(true);
   }
 
-  const plus = stage.getByRole("button", { name: /^(新建标签页|New tab)$/ });
-  await plus.hover();
-  const menu = page.locator("[data-center-stage-plus-menu]");
-  await expect(menu).toBeVisible();
-  const item = menu.getByRole("button", { name: tabName });
-  await item.hover();
-  await item.click();
-  await expect(tab).toBeVisible({ timeout: 45_000 });
+  await expect(toolTab.first()).toBeVisible({ timeout: 45_000 });
+  await expect
+    .poll(
+      async () => {
+        const tab = toolTab.first();
+        if ((await tab.getAttribute("aria-selected")) === "true") return true;
+        await tab.click({ timeout: 5_000 }).catch(() => undefined);
+        return (await tab.getAttribute("aria-selected")) === "true";
+      },
+      { timeout: 20_000 },
+    )
+    .toBe(true);
 }
 
 test.describe("smoke workspace", () => {
@@ -61,7 +99,9 @@ test.describe("smoke workspace", () => {
       .poll(async () => new URL(page.url()).searchParams.get("tab"))
       .toBeNull();
 
-    await openCenterToolTab(page, /^(变更|Changes)$/);
+    // Stay on this paint context: `?tab=` hops are leftover chrome after last-tab
+    // files, and a full navigation remounts the strip. Open tools from plus.
+    await activateWorkspaceToolTab(page, /变更|Changes/);
     const changesStage = await getCenterStage(page);
     const scopeTrigger = changesStage.getByRole("button", {
       name: /选择变更范围|Select changes scope/,
@@ -72,18 +112,16 @@ test.describe("smoke workspace", () => {
     // The tab's computed name can include the close control; do not require an exact match.
     await expect(page.getByRole("tab", { name: /图形历史|Graph History/ })).toBeVisible();
 
-    await openCenterToolTab(page, /^(评审|Review)$/);
-    await expect(page.getByRole("tab", { name: /^(评审|Review)$/ })).toBeVisible();
+    await activateWorkspaceToolTab(page, /评审|Review/);
 
-    await openCenterToolTab(page, /^(运行|Run)$/);
+    await activateWorkspaceToolTab(page, /运行|Run/);
     const runStage = await getCenterStage(page);
     // The Run surface's inner terminal strip reuses the same 运行/Run tab name.
     await expect(
       runStage.getByRole("tablist").first().getByRole("tab", { name: /运行|Run/ }),
-    ).toBeVisible();
+    ).toBeVisible({ timeout: 45_000 });
 
-    await openCenterToolTab(page, /^GitHub$/);
-    await expect(page.getByRole("tab", { name: /^GitHub$/ })).toBeVisible();
+    await activateWorkspaceToolTab(page, /GitHub/);
     const githubStage = await getCenterStage(page);
     await expect(githubStage.getByRole("tab", { name: "拉取请求" })).toBeVisible();
     await expect(githubStage.getByRole("tab", { name: "议题" })).toBeVisible();

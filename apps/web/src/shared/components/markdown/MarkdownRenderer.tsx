@@ -11,9 +11,8 @@ import remarkBreaks from 'remark-breaks';
 import { useTheme } from 'next-themes';
 import { cn } from '@workspace/ui';
 import { Images, ArrowRightLeft, FileDiff, Code } from 'lucide-react';
-import { parsePatchFiles } from '@pierre/diffs';
-import { PatchDiff } from '@pierre/diffs/react';
 import { MermaidViewerModal } from './MermaidViewerModal';
+import { isMarkdownPatchCode, MarkdownPatchDiff } from './MarkdownPatchDiff';
 import {
   CodeBlock,
   CodeBlockHeader,
@@ -25,6 +24,14 @@ import { resolveRelativeMarkdownPath } from "@/shared/lib/markdown-links";
 import { CopyButton } from '@/shared/components/code-block/copy-button';
 import { ExpandButton } from '@/shared/components/code-block/expand-button';
 import { highlight, DualThemes, type Languages } from '@/shared/utils/shiki';
+import {
+  MARKDOWN_TABLE_CLASS,
+  MARKDOWN_TABLE_HEAD_CLASS,
+  MARKDOWN_TABLE_ROW_CLASS,
+  MARKDOWN_TABLE_TD_CLASS,
+  MARKDOWN_TABLE_TH_CLASS,
+  MARKDOWN_TABLE_WRAP_CLASS,
+} from '@/shared/components/markdown/markdown-table';
 
 const LANG_ALIASES: Record<string, string> = {
   sh: 'bash',
@@ -311,36 +318,6 @@ function MermaidBlock({ code, isDark }: { code: string; isDark: boolean }) {
   );
 }
 
-function isValidSingleFilePatch(patch: string): boolean {
-  try {
-    const parsed = parsePatchFiles(patch);
-    return parsed.length === 1 && parsed[0].files.length === 1;
-  } catch {
-    return false;
-  }
-}
-
-function SafePatchDiff({ code, isDark }: { code: string; isDark: boolean }) {
-  const isValid = React.useMemo(() => isValidSingleFilePatch(code), [code]);
-
-  if (!isValid) {
-    return <PlainTextWithLineNumbers code={code} />;
-  }
-
-  return (
-    <PatchDiff
-      patch={code}
-      options={{
-        theme: isDark ? 'pierre-dark' : 'pierre-light',
-        diffStyle: 'unified',
-        overflow: 'wrap',
-        disableLineNumbers: false,
-        disableFileHeader: true,
-      }}
-    />
-  );
-}
-
 export function MarkdownCodeBlock({ className, children, ...props }: React.ComponentPropsWithoutRef<'code'>) {
   const t = useTranslations("shared.markdownRenderer");
   const match = /language-(\w+)/.exec(className || '');
@@ -370,9 +347,6 @@ export function MarkdownCodeBlock({ className, children, ...props }: React.Compo
 
   const normalizedLang = language ? normalizeLang(language) : '';
   const isDiffLang = normalizedLang === 'diff';
-  const isValidPatch = /^@@\s[+-]/m.test(codeText) && (
-    codeText.includes('--- ') || codeText.includes('diff --git ')
-  );
 
   const isInline = !className && !String(children).includes('\n');
 
@@ -388,23 +362,8 @@ export function MarkdownCodeBlock({ className, children, ...props }: React.Compo
     return <MermaidBlock code={codeText} isDark={!!isDark} />;
   }
 
-  if (isValidPatch) {
-    return (
-      <CodeBlock className="my-4">
-        <CodeBlockHeader>
-          <CodeBlockGroup>
-            <FileDiff className="size-4 shrink-0" />
-            <span className="text-xs uppercase tracking-wider">{t("common.diff")}</span>
-          </CodeBlockGroup>
-          <CodeBlockGroup>
-            <CopyButton content={codeText} />
-          </CodeBlockGroup>
-        </CodeBlockHeader>
-        <CodeBlockContent ref={contentRef} expanded={expanded} className="!px-0">
-          <SafePatchDiff code={codeText} isDark={!!isDark} />
-        </CodeBlockContent>
-      </CodeBlock>
-    );
+  if (isMarkdownPatchCode(codeText)) {
+    return <MarkdownPatchDiff code={codeText} />;
   }
 
   const hasLang = !!language;
@@ -454,21 +413,21 @@ const DEFAULT_MARKDOWN_COMPONENTS: Components = {
   code: MarkdownCodeBlock,
   pre: ({ children }) => <>{children}</>,
   table: ({ children }) => (
-    <div className="not-prose my-4 overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-700/50">
-      <table className="w-full text-sm">{children}</table>
+    <div className={MARKDOWN_TABLE_WRAP_CLASS}>
+      <table className={MARKDOWN_TABLE_CLASS}>{children}</table>
     </div>
   ),
   thead: ({ children }) => (
-    <thead className="bg-zinc-100 dark:bg-zinc-800/80">{children}</thead>
+    <thead className={MARKDOWN_TABLE_HEAD_CLASS}>{children}</thead>
   ),
   th: ({ children, style }) => (
-    <th className="px-4 py-2.5 text-left font-semibold text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700/50" style={style}>{children}</th>
+    <th className={MARKDOWN_TABLE_TH_CLASS} style={style}>{children}</th>
   ),
   td: ({ children, style }) => (
-    <td className="px-4 py-2.5 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700/50" style={style}>{children}</td>
+    <td className={MARKDOWN_TABLE_TD_CLASS} style={style}>{children}</td>
   ),
   tr: ({ children }) => (
-    <tr className="even:bg-zinc-50 dark:even:bg-zinc-800/40">{children}</tr>
+    <tr className={MARKDOWN_TABLE_ROW_CLASS}>{children}</tr>
   ),
 };
 
@@ -478,15 +437,54 @@ interface MarkdownRendererProps {
   /** When set, intercepts relative .md links and calls this instead of navigating */
   wikiBasePath?: string;
   onWikiLinkNavigate?: (slug: string, hash?: string) => void;
+  /** Expand `<details>` blocks on first render unless the file already set `open`. */
+  detailsOpenByDefault?: boolean;
 }
 
-export function MarkdownRenderer({ children, className, wikiBasePath, onWikiLinkNavigate }: MarkdownRendererProps) {
+function detailsFileOpen(open: unknown): boolean {
+  return open === true || open === "" || open === "open";
+}
+
+function MarkdownDetails({
+  children,
+  open,
+  startOpen = false,
+  ...props
+}: React.ComponentProps<"details"> & { startOpen?: boolean }) {
+  const ref = React.useRef<HTMLDetailsElement>(null);
+  React.useLayoutEffect(() => {
+    const node = ref.current;
+    if (node) node.open = startOpen;
+  }, [startOpen]);
+  return (
+    <details {...props} ref={ref}>
+      {children}
+    </details>
+  );
+}
+
+export function MarkdownRenderer({
+  children,
+  className,
+  wikiBasePath,
+  onWikiLinkNavigate,
+  detailsOpenByDefault = false,
+}: MarkdownRendererProps) {
   const { resolvedTheme } = useTheme();
 
   const components = React.useMemo(() => {
-    if (!wikiBasePath || !onWikiLinkNavigate) return DEFAULT_MARKDOWN_COMPONENTS;
+    const details: Components["details"] = ({ children, open, ...props }) => (
+      <MarkdownDetails
+        {...props}
+        startOpen={detailsFileOpen(open) || detailsOpenByDefault}
+      >
+        {children}
+      </MarkdownDetails>
+    );
+    const base: Components = { ...DEFAULT_MARKDOWN_COMPONENTS, details };
+    if (!wikiBasePath || !onWikiLinkNavigate) return base;
     return {
-      ...DEFAULT_MARKDOWN_COMPONENTS,
+      ...base,
       a: ({ href, children, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement>) => {
         if (!href) return <a {...props}>{children}</a>;
         const resolved = resolveRelativeMarkdownPath(wikiBasePath, href);
@@ -513,7 +511,7 @@ export function MarkdownRenderer({ children, className, wikiBasePath, onWikiLink
         return <a href={href} {...props}>{children}</a>;
       },
     };
-  }, [wikiBasePath, onWikiLinkNavigate]);
+  }, [wikiBasePath, onWikiLinkNavigate, detailsOpenByDefault]);
 
   return (
     <div className={cn(

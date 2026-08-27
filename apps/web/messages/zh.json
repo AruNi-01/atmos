@@ -381,6 +381,7 @@
     },
     "centerStageTabBar": {
       "newTerminalTab": "终端",
+      "newMarkdown": "Markdown",
       "newBrowser": "浏览器",
       "newChanges": "变更",
       "newReview": "评审",
@@ -4099,7 +4100,9 @@
           "lineHighlight": "当前行高亮",
           "lineHighlightTooltip": "高亮当前行。",
           "gitIntegration": "Git 集成",
-          "gitIntegrationTooltip": "在边栏中显示 Git 变更。"
+          "gitIntegrationTooltip": "在边栏中显示 Git 变更。",
+          "expandToggles": "默认展开折叠块",
+          "expandTogglesTooltip": "在实时编辑和预览中默认展开 Markdown 折叠块。"
         }
       },
       "searchPanel": {
@@ -5669,6 +5672,10 @@
           "title": "Git 集成",
           "description": "在编辑器中显示 Git 变更和 diff 信息。"
         },
+        "expandToggles": {
+          "title": "默认展开折叠块",
+          "description": "在实时编辑和预览中默认展开 Markdown 折叠块。不会改写文件。"
+        },
         "layout": {
           "title": "布局",
           "description": "选择中心评审 diff 和拉取请求 diff 的默认布局。"
@@ -5760,7 +5767,8 @@
           "title": "编辑器",
           "items": {
             "saveCurrentFile": "保存当前文件",
-            "findInEditor": "在编辑器中查找"
+            "findInEditor": "在编辑器中查找",
+            "toggleAgentInput": "展开 / 收起 Live AI 输入框"
           }
         },
         "submitCommit": {
@@ -10761,5 +10769,89 @@
         }
       }
     }
+  },
+  "mdLive": {
+    "untitled": "未命名",
+    "live": "实时",
+    "source": "源码",
+    "newNote": "新建笔记",
+    "saveAs": "另存为",
+    "save": "保存",
+    "directory": "目录",
+    "fileName": "文件名",
+    "cancel": "取消",
+    "copyPrompt": "复制提示",
+    "copied": "已复制",
+    "placeholder": "让 Agent 改写或生成…",
+    "run": "运行",
+    "accept": "接受",
+    "reject": "拒绝",
+    "acceptAll": "全部接受",
+    "rejectAll": "全部拒绝",
+    "open": "打开",
+    "agentDidNotReturnEdit": "Agent 没有返回文档编辑。",
+    "runNeedsLive": "请切换到实时模式再运行。",
+    "runNeedsTerminal": "无法启动后台终端。",
+    "fileExists": "已有同名文件。请使用建议的名称。",
+    "saveAsFailed": "无法保存笔记。",
+    "slashFilter": "筛选...",
+    "slashGroupHeading": "标题",
+    "slashGroupBasic": "基础",
+    "slashGroupAdvanced": "高级",
+    "slashGroupMedia": "媒体",
+    "slashGroupOthers": "其他",
+    "slashHeading1": "标题 1",
+    "slashHeading2": "标题 2",
+    "slashHeading3": "标题 3",
+    "slashHeading4": "标题 4",
+    "slashHeading5": "标题 5",
+    "slashHeading6": "标题 6",
+    "slashBulletList": "无序列表",
+    "slashOrderedList": "有序列表",
+    "slashTaskList": "待办列表",
+    "slashToggle": "折叠块",
+    "placeholderEmptyLine": "输入文字，或输入 / 使用命令",
+    "slashQuote": "引用",
+    "slashCode": "代码块",
+    "slashInlineCode": "行内代码",
+    "slashTable": "表格",
+    "slashDivider": "分隔线",
+    "slashImage": "图片",
+    "slashVideo": "视频",
+    "slashAudio": "音频",
+    "slashFile": "文件",
+    "slashEmoji": "Emoji",
+    "slashEmojiLoading": "加载中...",
+    "slashNoResults": "没有匹配项",
+    "slashGithubIssue": "GitHub issue",
+    "slashGithubUrl": "GitHub issue 或 pull request 链接",
+    "slashFilePath": "文件路径",
+    "slashInsert": "插入",
+    "toolbarGroupOperate": "操作",
+    "toolbarGroupConvert": "转换",
+    "toolbarParagraph": "段落",
+    "toolbarHeading": "标题",
+    "toolbarList": "列表",
+    "toolbarQuote": "引用",
+    "toolbarCode": "代码",
+    "toolbarBulletList": "无序列表",
+    "toolbarOrderedList": "有序列表",
+    "toolbarTaskList": "待办列表",
+    "toolbarAi": "问 AI",
+    "toolbarInlineCode": "行内代码",
+    "toolbarBold": "加粗",
+    "toolbarItalic": "斜体",
+    "toolbarStrikethrough": "删除线",
+    "toolbarCopy": "复制",
+    "toolbarCopyPrompt": "复制提示",
+    "toolbarAsk": "提问",
+    "toolbarRewrite": "改写",
+    "toolbarSummarize": "总结",
+    "rewriteInstruction": "改写选中的 Markdown。",
+    "summarizeInstruction": "总结选中的 Markdown。",
+    "githubIssue": "Issue #{number}",
+    "githubPullRequest": "Pull request #{number}",
+    "codeLanguagePlain": "纯文本",
+    "codeLanguageSelect": "选择语言"
   }
 }

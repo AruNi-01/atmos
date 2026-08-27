@@ -180,6 +180,9 @@ describe("center stage tab hover", () => {
     expect(menuBlock).toContain("overviewAlreadyOpen");
     expect(menuBlock.indexOf("LayoutDashboard")).toBeLessThan(menuBlock.indexOf("TerminalIcon"));
     expect(menuBlock.indexOf("{overviewLabel}")).toBeLessThan(menuBlock.indexOf("{terminalLabel}"));
+    expect(menuBlock).toContain("onCreateMarkdownNote");
+    expect(menuBlock).toContain("FileText");
+    expect(menuBlock.indexOf("{terminalLabel}")).toBeLessThan(menuBlock.indexOf("{markdownLabel}"));
   });
 
   it("animates plus-menu popover height when switching tabs", () => {

@@ -9,6 +9,8 @@ import {
   scheduleEditorUiSave,
 } from '@/features/editor/lib/editor-ui-persistence';
 import { fsApi } from '@/api/ws-api';
+import { nextUntitledMarkdownName } from '@atmos/md-live';
+import { createUntitledMarkdownPath } from '@/features/md-live/lib/md-live-paths';
 import { invalidateGitQueries } from '@/features/git/hooks/use-git-changed-files-query';
 import { toastManager } from '@workspace/ui';
 import { createTranslator } from 'next-intl';
@@ -133,11 +135,15 @@ export const useEditorStore = create<EditorStore>()((set, get) => ({
 
           const nextOpenFiles = ws.openFiles.map((file) => {
             if (file.path === from) {
+              const committed = from.startsWith('untitled:');
               return {
                 ...file,
                 path: to,
                 name: getFileNameFromPath(to),
                 language: getLanguageFromPath(to),
+                originalContent: committed ? file.content : file.originalContent,
+                isDirty: committed ? false : file.isDirty,
+                isLoading: false,
               };
             }
 
@@ -431,7 +437,62 @@ export const useEditorStore = create<EditorStore>()((set, get) => ({
              return;
         }
 
+        if (path.startsWith('untitled:')) {
+          set((state) => {
+            const ws = state.workspaceStates[id];
+            if (!ws) return state;
+            return {
+              workspaceStates: {
+                ...state.workspaceStates,
+                [id]: {
+                  ...ws,
+                  openFiles: ws.openFiles.map((f) =>
+                    f.path === path ? { ...f, isLoading: false, language: 'markdown' } : f,
+                  ),
+                },
+              },
+            };
+          });
+          return;
+        }
+
         await get().reloadFileContent(path, id);
+      },
+
+      openUntitledMarkdown: (workspaceId) => {
+        const id = workspaceId || get().currentWorkspaceId;
+        if (!id) return null;
+        const timestamp = nowTimestamp();
+        const currentState = get().workspaceStates[id] || { openFiles: [], activeFilePath: null };
+        const name = nextUntitledMarkdownName(currentState.openFiles.map((file) => file.name));
+        const path = createUntitledMarkdownPath(name);
+        const newFile: OpenFile = {
+          path,
+          name,
+          content: '',
+          originalContent: '',
+          language: 'markdown',
+          isSymlink: false,
+          isDirty: false,
+          isLoading: false,
+          isPreview: false,
+          lastOpenedAt: timestamp,
+          lastFocusedAt: timestamp,
+        };
+        set((state) => {
+          const nextState = state.workspaceStates[id] || { openFiles: [], activeFilePath: null };
+          return {
+            workspaceStates: {
+              ...state.workspaceStates,
+              [id]: {
+                ...nextState,
+                openFiles: [...nextState.openFiles, newFile],
+                activeFilePath: path,
+              },
+            },
+          };
+        });
+        return path;
       },
 
       reloadFileContent: async (path, workspaceId) => {
@@ -669,6 +730,7 @@ export const useEditorStore = create<EditorStore>()((set, get) => ({
         const ws = get().workspaceStates[id];
         const file = ws?.openFiles.find(f => f.path === path);
         if (!file || !file.isDirty) return;
+        if (path.startsWith('untitled:')) return;
         const savedContent = file.content;
 
         const savePromise = (async () => {

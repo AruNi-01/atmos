@@ -89,6 +89,7 @@ type ScopedPaneWindowProps = {
   setPaneAgent: (workspaceId: string, paneId: string, agent: TerminalPaneAgent) => void;
   markPaneAttached: (workspaceId: string, paneId: string) => void;
   surfaceActive?: boolean;
+  connectWhileHidden?: boolean;
 };
 
 export function TerminalScopedPane({
@@ -125,6 +126,7 @@ export function TerminalScopedPane({
   setPaneAgent,
   markPaneAttached,
   surfaceActive = true,
+  connectWhileHidden = false,
 }: ScopedPaneWindowProps) {
   const t = useTranslations("Terminal.chrome");
   const contestedOwners = useContestedCliOwners();
@@ -430,6 +432,7 @@ export function TerminalScopedPane({
           cwd={workspaceInfo?.localPath}
           projectRootPath={activeProject?.mainFilePath}
           surfaceActive={surfaceActive}
+          connectWhileHidden={connectWhileHidden}
           onAddSelectionAsContext={
             richInputActive
               ? (snapshot) => {

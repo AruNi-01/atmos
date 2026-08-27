@@ -62,6 +62,7 @@ export interface EditorStore {
       diffFilePath?: string;
     }
   ) => Promise<void>;
+  openUntitledMarkdown: (workspaceId?: string) => string | null;
   reloadFileContent: (path: string, workspaceId?: string) => Promise<void>;
   pinFile: (path: string, workspaceId?: string) => void;
   closeFile: (path: string, workspaceId?: string) => void;

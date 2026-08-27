@@ -47,6 +47,7 @@ import {
   Github,
   Globe,
   Layers,
+  FileText,
   LayoutDashboard,
   LayoutTemplate,
   LoaderCircle,
@@ -75,7 +76,7 @@ import {
   type PlusMenuOutsideDismissEvent,
 } from "@/app-shell/center-stage-plus-menu-pointer";
 import { useTranslations } from "next-intl";
-import type { OpenFile } from "@/features/editor/store/use-editor-store";
+import { useEditorStore, type OpenFile } from "@/features/editor/store/use-editor-store";
 import { cn } from "@/shared/lib/utils";
 import { CenterTabHeldShortcut } from "@/app-shell/HeldShortcutBadge";
 import {
@@ -826,6 +827,11 @@ export function CenterStageTabBar({
             splitDownLabel={t("centerStageTabBar.splitDown")}
             splitRightLabel={t("centerStageTabBar.splitRight")}
             terminalLabel={newTerminalTabLabel}
+            markdownLabel={t("centerStageTabBar.newMarkdown")}
+            onCreateMarkdownNote={() => {
+              const path = useEditorStore.getState().openUntitledMarkdown(effectiveContextId);
+              if (path) handleCenterStageTabChange(path);
+            }}
             overviewLabel={t("centerStageTabBar.overview")}
             overviewAlreadyOpen={overviewVisible}
             savedLayouts={savedLayouts}
@@ -1284,6 +1290,8 @@ function CenterStageNewTabMenu({
   onCreateBrowser,
   onCreateSimulator,
   onCreateTerminal,
+  onCreateMarkdownNote,
+  markdownLabel,
   onCreateToolTab,
   onCreateOverview,
   onSplitDown,
@@ -1332,6 +1340,8 @@ function CenterStageNewTabMenu({
   onCreateBrowser: () => void;
   onCreateSimulator: () => void;
   onCreateTerminal: () => void;
+  onCreateMarkdownNote?: () => void;
+  markdownLabel?: string;
   onCreateToolTab: (tab: CenterToolTabValue) => void;
   onCreateOverview?: () => void;
   onSplitDown?: () => void;
@@ -1600,6 +1610,19 @@ function CenterStageNewTabMenu({
             <span className="min-w-0 flex-1 truncate">{terminalLabel}</span>
             <ShortcutHint digit="T" />
           </button>
+          {onCreateMarkdownNote && markdownLabel ? (
+          <button
+            type="button"
+            className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
+            onClick={() => {
+              onCreateMarkdownNote();
+              setOpen(false);
+            }}
+          >
+            <FileText className="size-3.5 shrink-0 text-muted-foreground" />
+            <span className="min-w-0 flex-1 truncate">{markdownLabel}</span>
+          </button>
+          ) : null}
           <button
             type="button"
             className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"

@@ -194,7 +194,6 @@ const SETTINGS_TOPIC_KEYWORDS: Record<string, readonly string[]> = {
     "line wrap",
     "bracket matching",
     "minimap",
-    "breadcrumbs",
     "line highlight",
     "git integration",
     "layout",
@@ -650,9 +649,6 @@ const SETTINGS_TOPIC_ITEMS: Record<string, readonly SettingsSearchItemDefinition
     }),
     settingsModalSearchItem("editor.minimap", {
       keywords: ["right side", "quick navigation"],
-    }),
-    settingsModalSearchItem("editor.breadcrumbs", {
-      keywords: ["breadcrumb navigation", "top of editor"],
     }),
     settingsModalSearchItem("editor.lineHighlight", {
       keywords: ["current line", "matching selections"],
