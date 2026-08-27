@@ -659,21 +659,16 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
     </>
   );
 
-  const renderSectionActions = (variant: "header" | "headerless" = "header") => {
+  const renderSectionActions = () => {
     if (!hasSectionActions) return null;
 
     return (
       <div
         className={cn(
-          "absolute z-10 flex items-center gap-1 rounded-sm bg-sidebar-accent/95 transition-opacity",
-          variant === "header"
-            ? "top-1/2 right-2 -translate-y-1/2"
-            : "top-1 right-2",
+          "absolute top-1/2 right-2 z-10 flex -translate-y-1/2 items-center gap-1 rounded-sm bg-sidebar-accent/95 transition-opacity",
           hasActiveSectionAction
             ? "opacity-100 pointer-events-auto"
-            : variant === "header"
-              ? "pointer-events-none opacity-0 group-hover/header:pointer-events-auto group-hover/header:opacity-100"
-              : "pointer-events-none opacity-0 group-hover/headerless:pointer-events-auto group-hover/headerless:opacity-100",
+            : "pointer-events-none opacity-0 group-hover/header:pointer-events-auto group-hover/header:opacity-100",
         )}
       >
         {onStageAll && (
@@ -727,13 +722,9 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
   };
 
   if (hideHeader) {
-    // Right sidebar uses hideHeader; bulk Stage/Unstage/Discard All still need a home.
-    return (
-      <div className="group/headerless relative w-full">
-        {content}
-        {renderSectionActions("headerless")}
-      </div>
-    );
+    // Changes sidebar owns bulk Stage/Unstage/Discard on the toolbar.
+    // Overlaying those buttons on the first file row steals its +/- clicks.
+    return content;
   }
 
   return (
@@ -752,7 +743,7 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
           </span>
         </CollapsibleTrigger>
 
-        {renderSectionActions("header")}
+        {renderSectionActions()}
       </div>
 
       <CollapsibleContent>
