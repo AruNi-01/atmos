@@ -1,0 +1,14 @@
+e2e/tests/smoke/workspace/workspace-sidebar-routes.e2e.ts
+  h_5be255725524c8 1,16-39,59,66,73,77,79,86
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "4c01836d23b177fd09d2c6ffcdd7e5d52940a3aa",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
