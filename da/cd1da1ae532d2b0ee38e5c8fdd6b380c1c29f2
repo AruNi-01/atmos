@@ -1,0 +1,42 @@
+apps/web/src/features/md-live/components/MdLiveSelectionToolbar.tsx
+  h_5be255725524c8 34,54-55,67-68,78-81,83,89,107-134,138-149,162-183,233,242,244,254-259,268-273,291-306,317,323,331-336
+apps/web/src/features/md-live/lib/__tests__/md-live-block-backspace.test.ts
+  h_5be255725524c8 18-24,89-99,112-191,253,273,288-323
+apps/web/src/features/md-live/lib/__tests__/md-live-structural.test.ts
+  h_5be255725524c8 86-91
+packages/md-live/src/ui.ts
+  h_5be255725524c8 39-50,57
+packages/md-live/src/ui/LiveEditor.tsx
+  h_5be255725524c8 48,55-60,232-258,265-266,276-284,420
+packages/md-live/src/ui/actions.ts
+  h_5be255725524c8 9,30-46,95,99
+packages/md-live/src/ui/block-backspace.ts
+  h_5be255725524c8 4,9-41,129
+packages/md-live/src/ui/chrome.test.ts
+  h_5be255725524c8 42-45,55,64-68,72-73,77-80,97,102-104
+packages/md-live/src/ui/convert-block.ts
+  h_5be255725524c8 1-244
+packages/md-live/src/ui/live-editor.css
+  h_5be255725524c8 3,40-61,65-74
+packages/md-live/src/ui/placeholder.ts
+  h_5be255725524c8 2,8-10,54-72,102,116-123,127,189-208,272,290,303,320-330,333-334,339,342,344,347-348
+packages/md-live/src/ui/selection.test.ts
+  h_5be255725524c8 2-6,30-69
+packages/md-live/src/ui/selection.ts
+  h_5be255725524c8 1-3,20-57
+packages/md-live/src/ui/task-list.ts
+  h_5be255725524c8 310-321,383
+packages/md-live/src/ui/types.ts
+  h_5be255725524c8 59-62
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "dacd1da1ae532d2b0ee38e5c8fdd6b380c1c29f2",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
