@@ -27,7 +27,8 @@ describe("S15 Agent Chat modules do not import ACP schema types", () => {
         path.includes("/lib/followup-policy") ||
         path.includes("/lib/group-conversations") ||
         path.includes("/lib/conversation-") ||
-        path.includes("/store/use-agent-chat-center-tabs")
+        path.includes("/store/use-agent-chat-center-tabs") ||
+        path.includes("/hooks/use-conversation-chat-session")
       );
     });
     expect(files.length).toBeGreaterThan(0);

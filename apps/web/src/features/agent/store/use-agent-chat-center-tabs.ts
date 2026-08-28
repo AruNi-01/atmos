@@ -9,9 +9,10 @@ export type AgentChatCenterTab = {
   id: string;
   value: string;
   contextId: string;
-  conversationId: string;
+  conversationId: string | null;
   title: string;
   cwd: string;
+  providerId: string | null;
   openedAt: number;
 };
 
@@ -26,7 +27,24 @@ type AgentChatCenterTabsStore = {
     conversationId: string;
     title?: string | null;
     cwd?: string;
+    providerId?: string | null;
   }) => AgentChatCenterTab;
+  openDraftTab: (input: { contextId: string; title?: string | null }) => AgentChatCenterTab;
+  bindConversation: (input: {
+    contextId: string;
+    value: string;
+    conversationId: string;
+    title?: string | null;
+    cwd?: string;
+    providerId?: string | null;
+  }) => void;
+  patchConversation: (input: {
+    contextId: string;
+    conversationId: string;
+    title?: string | null;
+    providerId?: string | null;
+    cwd?: string;
+  }) => void;
   closeTab: (contextId: string, value: string) => void;
   requestActivate: (contextId: string, value: string) => void;
   clearPendingActivate: () => void;
@@ -53,7 +71,7 @@ export const useAgentChatCenterTabsStore = create<AgentChatCenterTabsStore>()(
       tabsByContext: {},
       pendingActivate: null,
       pendingNewChat: 0,
-      openTab: ({ contextId, conversationId, title, cwd }) => {
+      openTab: ({ contextId, conversationId, title, cwd, providerId }) => {
         const value = buildAgentChatTabValue(conversationId);
         const existing = (get().tabsByContext[contextId] ?? []).find((tab) => tab.value === value);
         if (existing) return existing;
@@ -64,6 +82,7 @@ export const useAgentChatCenterTabsStore = create<AgentChatCenterTabsStore>()(
           conversationId,
           title: title?.trim() || "Agent Chat",
           cwd: cwd ?? "",
+          providerId: providerId ?? null,
           openedAt: Date.now(),
         };
         set((state) => ({
@@ -73,6 +92,66 @@ export const useAgentChatCenterTabsStore = create<AgentChatCenterTabsStore>()(
           },
         }));
         return tab;
+      },
+      openDraftTab: ({ contextId, title }) => {
+        const draftId =
+          globalThis.crypto?.randomUUID?.() ??
+          `draft-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+        const value = buildAgentChatTabValue(`draft:${draftId}`);
+        const existing = (get().tabsByContext[contextId] ?? []).find((tab) => tab.value === value);
+        if (existing) return existing;
+        const tab: AgentChatCenterTab = {
+          id: value,
+          value,
+          contextId,
+          conversationId: null,
+          title: title?.trim() || "Agent Chat",
+          cwd: "",
+          providerId: null,
+          openedAt: Date.now(),
+        };
+        set((state) => ({
+          tabsByContext: {
+            ...state.tabsByContext,
+            [contextId]: [...(state.tabsByContext[contextId] ?? []), tab],
+          },
+        }));
+        return tab;
+      },
+      bindConversation: ({ contextId, value, conversationId, title, cwd, providerId }) => {
+        set((state) => ({
+          tabsByContext: {
+            ...state.tabsByContext,
+            [contextId]: (state.tabsByContext[contextId] ?? []).map((tab) =>
+              tab.value === value
+                ? {
+                    ...tab,
+                    conversationId,
+                    title: title?.trim() || tab.title,
+                    cwd: cwd ?? tab.cwd,
+                    providerId: providerId ?? tab.providerId,
+                  }
+                : tab,
+            ),
+          },
+        }));
+      },
+      patchConversation: ({ contextId, conversationId, title, providerId, cwd }) => {
+        set((state) => ({
+          tabsByContext: {
+            ...state.tabsByContext,
+            [contextId]: (state.tabsByContext[contextId] ?? []).map((tab) =>
+              tab.conversationId === conversationId
+                ? {
+                    ...tab,
+                    title: title?.trim() || tab.title,
+                    cwd: cwd ?? tab.cwd,
+                    providerId: providerId ?? tab.providerId,
+                  }
+                : tab,
+            ),
+          },
+        }));
       },
       closeTab: (contextId, value) => {
         const tabs = get().tabsByContext[contextId] ?? [];

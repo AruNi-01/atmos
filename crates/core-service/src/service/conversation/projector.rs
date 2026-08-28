@@ -281,6 +281,18 @@ pub(super) async fn apply_event(
             })?;
             state.lock().await.pending_permission = None;
         }
+        AgentEvent::SessionTitleUpdated { title } => {
+            store.update_meta(conversation_id, |meta| {
+                meta.title = Some(title.clone());
+            })?;
+            emit(ConversationClientPayload::TitleUpdated { title: Some(title) })?;
+        }
+        AgentEvent::AvailableCommandsUpdated { commands } => {
+            store.update_meta(conversation_id, |meta| {
+                meta.available_commands = commands.clone();
+            })?;
+            emit(ConversationClientPayload::AvailableCommandsUpdated { commands })?;
+        }
         AgentEvent::TurnStarted { .. } | AgentEvent::UserMessage { .. } => {}
         AgentEvent::UsageUpdated { .. } | AgentEvent::ConfigChanged { .. } => {}
     }

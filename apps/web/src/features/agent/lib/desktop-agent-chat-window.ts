@@ -9,10 +9,11 @@ import zhMessages from "../../../../messages/zh.json";
 
 export interface OpenAgentChatWindowOptions {
   agent?: string | null;
-  session?: string | null;
+  conversationId?: string | null;
   sessionCwd?: string | null;
   workspaceId?: string | null;
   projectId?: string | null;
+  instanceKey?: string | null;
   handoffToken?: string | null;
 }
 
@@ -42,13 +43,16 @@ export async function openAgentChatWindow(
       await desktopInvoke("open_agent_chat_window", {
         locale,
         agent: options.agent || null,
-        session: options.session || null,
+        conversation_id: options.conversationId || null,
+        conversationId: options.conversationId || null,
         session_cwd: options.sessionCwd || null,
         sessionCwd: options.sessionCwd || null,
         workspace_id: options.workspaceId || null,
         workspaceId: options.workspaceId || null,
         project_id: options.projectId || null,
         projectId: options.projectId || null,
+        instance_key: options.instanceKey || null,
+        instanceKey: options.instanceKey || null,
         handoff_token: options.handoffToken || null,
         handoffToken: options.handoffToken || null,
       });
@@ -73,10 +77,11 @@ export async function openAgentChatWindow(
 function buildBrowserAgentChatUrl(options: OpenAgentChatWindowOptions): string {
   const params = new URLSearchParams();
   if (options.agent) params.set("agent", options.agent);
-  if (options.session) params.set("session", options.session);
+  if (options.conversationId) params.set("conversationId", options.conversationId);
   if (options.sessionCwd) params.set("sessionCwd", options.sessionCwd);
   if (options.workspaceId) params.set("workspaceId", options.workspaceId);
   if (options.projectId) params.set("projectId", options.projectId);
+  if (options.instanceKey) params.set("instanceKey", options.instanceKey);
   if (options.handoffToken) params.set("handoffToken", options.handoffToken);
   const query = params.toString();
   return `/agent-chat/${query ? `?${query}` : ""}`;

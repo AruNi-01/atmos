@@ -55,6 +55,15 @@ pub struct AgentPermissionOption {
     pub kind: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub struct AgentAvailableCommand {
+    pub name: String,
+    pub description: String,
+    #[serde(default)]
+    pub hint: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum AgentEvent {
@@ -128,4 +137,10 @@ pub enum AgentEvent {
         turn_id: String,
     },
     SessionClosed,
+    SessionTitleUpdated {
+        title: String,
+    },
+    AvailableCommandsUpdated {
+        commands: Vec<AgentAvailableCommand>,
+    },
 }

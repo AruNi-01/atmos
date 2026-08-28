@@ -23,13 +23,71 @@ fn format_tool_kind(kind: Option<&schema::ToolKind>) -> String {
     }
 }
 
+fn is_generic_tool_label(value: &str) -> bool {
+    matches!(
+        value.trim().to_ascii_lowercase().as_str(),
+        "tool" | "other" | "unknown" | ""
+    )
+}
+
+fn extract_vendor_tool_type(input: Option<&serde_json::Value>) -> Option<String> {
+    let input = input?;
+    let ty = input
+        .get("type")
+        .and_then(|value| value.as_str())
+        .or_else(|| input.get("variant").and_then(|value| value.as_str()))
+        .map(str::trim)?;
+    if ty.is_empty() || is_generic_tool_label(ty) {
+        return None;
+    }
+    Some(ty.to_string())
+}
+
+fn vendor_payload(input: Option<&serde_json::Value>) -> Option<&serde_json::Value> {
+    let input = input?;
+    input
+        .get("FileContent")
+        .or_else(|| input.get("file_content"))
+        .or_else(|| input.get("Content"))
+        .or_else(|| input.get("content").filter(|value| value.is_object()))
+        .or_else(|| input.get("result").filter(|value| value.is_object()))
+        .or(Some(input))
+}
+
+fn vendor_nested_path(input: Option<&serde_json::Value>) -> Option<String> {
+    let payload = vendor_payload(input)?;
+    for key in [
+        "absolute_path",
+        "absolute_root_path",
+        "target_file",
+        "target_directory",
+        "file_path",
+        "path",
+        "dir_path",
+        "directory",
+    ] {
+        if let Some(path) = payload
+            .get(key)
+            .and_then(|value| value.as_str())
+            .filter(|value| !value.is_empty())
+        {
+            return Some(path.to_string());
+        }
+    }
+    None
+}
+
 fn format_description(
     title: Option<&str>,
     tool: &str,
     locations: Option<&[schema::ToolCallLocation]>,
     raw_input: Option<&serde_json::Value>,
+    raw_output: Option<&serde_json::Value>,
 ) -> String {
-    if let Some(t) = title.filter(|s| !s.is_empty()) {
+    let vendor_type =
+        extract_vendor_tool_type(raw_input).or_else(|| extract_vendor_tool_type(raw_output));
+    let tool_label = vendor_type.as_deref().unwrap_or(tool);
+    if let Some(t) = title.filter(|s| !s.is_empty() && !is_generic_tool_label(s)) {
         return t.to_string();
     }
     // Fallback: use first location path (e.g. for Read: "path/to/file.rs")
@@ -37,25 +95,38 @@ fn format_description(
         if let Some(loc) = locs.first() {
             let path = loc.path.to_string_lossy();
             if !path.is_empty() {
-                return format!("{tool}: {path}");
+                return format!("{tool_label}: {path}");
             }
         }
+    }
+    if let Some(path) = vendor_nested_path(raw_input).or_else(|| vendor_nested_path(raw_output)) {
+        return format!("{tool_label}: {path}");
     }
     // Fallback: extract from raw_input
     if let Some(input) = raw_input {
         if let Some(path) = input.get("path").and_then(|v| v.as_str()) {
             if !path.is_empty() {
-                return format!("{tool}: {path}");
+                return format!("{tool_label}: {path}");
             }
         }
         if let Some(path) = input.get("file_path").and_then(|v| v.as_str()) {
             if !path.is_empty() {
-                return format!("{tool}: {path}");
+                return format!("{tool_label}: {path}");
             }
         }
         if let Some(url) = input.get("url").and_then(|v| v.as_str()) {
             if !url.is_empty() {
-                return format!("{tool}: {url}");
+                return format!("{tool_label}: {url}");
+            }
+        }
+        if let Some(pattern) = input.get("pattern").and_then(|v| v.as_str()) {
+            if !pattern.is_empty() {
+                let short = if pattern.len() > 80 {
+                    &pattern[..77]
+                } else {
+                    pattern
+                };
+                return format!("{tool_label}: {short}");
             }
         }
         if let Some(description) = input.get("description").and_then(|v| v.as_str()) {
@@ -82,7 +153,7 @@ fn format_description(
             }
         }
     }
-    tool.to_string()
+    tool_label.to_string()
 }
 
 fn extract_claude_code_meta<T: Serialize>(
@@ -200,6 +271,7 @@ pub enum AcpSessionEvent {
         acp_session_id: String,
     },
     SessionInfoUpdate(AgentSessionInfoUpdate),
+    AvailableCommandsUpdate(Vec<crate::domain::AgentAvailableCommand>),
     Stream(StreamDelta),
     ToolCall(ToolCallUpdate),
     PermissionRequest(PermissionRequest),
@@ -469,12 +541,15 @@ impl AtmosAcpClient {
                     _ => ToolCallStatus::Running,
                 };
                 let tool = extract_claude_tool_name(claude_code_meta.as_ref())
+                    .or_else(|| extract_vendor_tool_type(tool_call.raw_input.as_ref()))
+                    .or_else(|| extract_vendor_tool_type(tool_call.raw_output.as_ref()))
                     .unwrap_or_else(|| format_tool_kind(Some(&tool_call.kind)));
                 let description = format_description(
                     Some(tool_call.title.as_str()),
                     &tool,
                     Some(tool_call.locations.as_slice()),
                     tool_call.raw_input.as_ref(),
+                    tool_call.raw_output.as_ref(),
                 );
                 let _ = self
                     .event_tx
@@ -505,12 +580,15 @@ impl AtmosAcpClient {
                     _ => ToolCallStatus::Running,
                 };
                 let tool = extract_claude_tool_name(claude_code_meta.as_ref())
+                    .or_else(|| extract_vendor_tool_type(update.fields.raw_input.as_ref()))
+                    .or_else(|| extract_vendor_tool_type(update.fields.raw_output.as_ref()))
                     .unwrap_or_else(|| format_tool_kind(update.fields.kind.as_ref()));
                 let description = format_description(
                     update.fields.title.as_deref(),
                     &tool,
                     update.fields.locations.as_deref(),
                     update.fields.raw_input.as_ref(),
+                    update.fields.raw_output.as_ref(),
                 );
                 let _ = self
                     .event_tx
@@ -579,6 +657,30 @@ impl AtmosAcpClient {
                 let _ = self
                     .event_tx
                     .send(AcpSessionEvent::ConfigOptionsUpdate(out));
+            }
+            schema::SessionUpdate::AvailableCommandsUpdate(update) => {
+                let commands = update
+                    .available_commands
+                    .into_iter()
+                    .map(|command| crate::domain::AgentAvailableCommand {
+                        name: command.name,
+                        description: command.description,
+                        hint: match command.input {
+                            Some(schema::AvailableCommandInput::Unstructured(input)) => {
+                                let hint = input.hint.trim().to_string();
+                                if hint.is_empty() {
+                                    None
+                                } else {
+                                    Some(hint)
+                                }
+                            }
+                            _ => None,
+                        },
+                    })
+                    .collect();
+                let _ = self
+                    .event_tx
+                    .send(AcpSessionEvent::AvailableCommandsUpdate(commands));
             }
             schema::SessionUpdate::SessionInfoUpdate(update) => {
                 fn maybe_update<T>(value: acp_schema::MaybeUndefined<T>) -> Option<Option<T>> {
@@ -695,5 +797,77 @@ mod tests {
             }
             other => panic!("expected session_info_update, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn available_commands_update_deserializes_name_description_and_hint() {
+        let notification: schema::SessionNotification = serde_json::from_value(json!({
+            "sessionId": "session-1",
+            "update": {
+                "sessionUpdate": "available_commands_update",
+                "availableCommands": [
+                    {
+                        "name": "plan",
+                        "description": "Create a plan",
+                        "input": { "hint": "what to plan" }
+                    },
+                    {
+                        "name": "test",
+                        "description": "Run tests"
+                    }
+                ]
+            }
+        }))
+        .expect("available_commands_update should deserialize");
+
+        match notification.update {
+            schema::SessionUpdate::AvailableCommandsUpdate(update) => {
+                assert_eq!(update.available_commands.len(), 2);
+                assert_eq!(update.available_commands[0].name, "plan");
+                assert_eq!(update.available_commands[0].description, "Create a plan");
+                assert_eq!(update.available_commands[1].name, "test");
+            }
+            other => panic!("expected available_commands_update, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn grok_listdir_envelope_becomes_a_concrete_title() {
+        let input = json!({
+            "type": "ListDir",
+            "Content": {
+                "content": "- /tmp/app/\n - README.md",
+                "absolute_root_path": "/tmp/app"
+            }
+        });
+        assert_eq!(
+            super::extract_vendor_tool_type(Some(&input)).as_deref(),
+            Some("ListDir")
+        );
+        assert_eq!(
+            super::format_description(Some("Tool"), "Tool", None, Some(&input), None),
+            "ListDir: /tmp/app"
+        );
+    }
+
+    #[test]
+    fn grok_readfile_envelope_uses_absolute_path() {
+        let output = json!({
+            "type": "ReadFile",
+            "FileContent": {
+                "absolute_path": "/tmp/app/README.md",
+                "raw_output": "# hi\n",
+                "limit": 40,
+                "total_lines": 80
+            }
+        });
+        assert_eq!(
+            super::extract_vendor_tool_type(Some(&output)).as_deref(),
+            Some("ReadFile")
+        );
+        assert_eq!(
+            super::format_description(Some("Tool"), "Tool", None, None, Some(&output)),
+            "ReadFile: /tmp/app/README.md"
+        );
     }
 }

@@ -382,6 +382,7 @@
     "centerStageTabBar": {
       "newTerminalTab": "Terminal",
       "newAgentChat": "Agent Chat",
+      "agentChatDraft": "New chat",
       "newMarkdown": "Markdown",
       "newBrowser": "Browser",
       "newChanges": "Changes",
@@ -2850,7 +2851,13 @@
           "connected": "Message the connected agent...",
           "selectAgent": "Select an agent to start chatting..."
         },
-        "noAgent": "No agent"
+        "noAgent": "No agent",
+        "selectAgent": "Agent",
+        "queue": "Queue",
+        "steer": "Steer",
+        "oneShotQueue": "Queue this once",
+        "oneShotSteer": "Steer this once",
+        "steerUnavailable": "Steer unavailable"
       },
       "terminalBlock": {
         "title": "Run Script"
@@ -7082,11 +7089,14 @@
         "edit": "Edit",
         "move": "Move",
         "search": "Search",
+        "grep": "Grep",
+        "listDirectory": "List directory",
         "execute": "Execute",
         "fetch": "Fetch",
         "delete": "Delete",
         "think": "Think",
         "labelWithPath": "{tool}: {path}",
+        "labelWithPattern": "{tool}: {pattern}",
         "executeWithCommand": "Execute: {command}",
         "fetchWithUrl": "Fetch: {url}"
       },

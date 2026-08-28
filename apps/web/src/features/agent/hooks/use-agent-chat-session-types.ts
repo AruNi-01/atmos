@@ -30,8 +30,10 @@ export type AgentChatSessionBinding = {
   sessionCwd?: string | null;
 };
 
+export type AgentChatSurfaceVariant = "modal" | "sidebar" | "standalone" | "center";
+
 export interface UseAgentChatSessionOptions {
-  variant: "modal" | "sidebar" | "standalone";
+  variant: AgentChatSurfaceVariant;
   mode: AgentChatMode;
   publishStatus: boolean;
   active?: boolean;

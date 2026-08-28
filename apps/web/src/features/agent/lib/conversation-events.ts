@@ -13,7 +13,8 @@ export type ConversationClientEventPayload = {
       request_id?: string;
       tool?: string;
       description?: string;
-      options?: Array<{ option_id: string; name: string }>;
+      content_markdown?: string;
+      options?: Array<{ option_id: string; name: string; kind?: string }>;
     };
     request_id?: string;
     items?: Array<{ id: string; seq: number; status: string; prompt: string }>;
@@ -22,9 +23,32 @@ export type ConversationClientEventPayload = {
       name?: string;
       title?: string;
       status?: string;
+      kind?: string;
+      input?: unknown;
+      output?: unknown;
+      content?: unknown;
     };
     plan?: unknown;
+    attachments?: string[];
+    title?: string | null;
+    commands?: Array<{ name?: string; description?: string; hint?: string | null }>;
   };
+};
+
+export type ConversationPart = {
+  type: string;
+  text?: string;
+  name?: string;
+  title?: string;
+  status?: string;
+  message?: string;
+  tool_call_id?: string;
+  kind?: string;
+  input?: unknown;
+  output?: unknown;
+  content?: unknown;
+  plan?: unknown;
+  path?: string;
 };
 
 export type LiveTurn = {
@@ -34,15 +58,7 @@ export type LiveTurn = {
     id: string;
     role: string;
     kind?: string;
-    parts: Array<{
-      type: string;
-      text?: string;
-      name?: string;
-      title?: string;
-      status?: string;
-      message?: string;
-      tool_call_id?: string;
-    }>;
+    parts: ConversationPart[];
   }>;
 };
 
@@ -70,6 +86,29 @@ export function foldUserRowsFromEvent(
   if (!id || !text) return rows;
   if (rows.some((row) => row.id === id)) return rows;
   return [...rows, { id, text }];
+}
+
+function isGenericToolLabel(value?: string | null): boolean {
+  const label = (value || "").trim().toLowerCase();
+  return !label || label === "tool" || label === "other" || label === "unknown";
+}
+
+function mergeToolPart(existing: ConversationPart, incoming: ConversationPart): ConversationPart {
+  return {
+    ...existing,
+    ...incoming,
+    name: isGenericToolLabel(incoming.name) && existing.name
+      ? existing.name
+      : (incoming.name ?? existing.name),
+    title: isGenericToolLabel(incoming.title) && existing.title
+      ? existing.title
+      : (incoming.title ?? existing.title),
+    kind: incoming.kind ?? existing.kind,
+    input: incoming.input == null ? existing.input : incoming.input,
+    output: incoming.output == null ? existing.output : incoming.output,
+    content: incoming.content == null ? existing.content : incoming.content,
+    status: incoming.status ?? existing.status,
+  };
 }
 
 function upsertTurn(turns: LiveTurn[], turnId: string): LiveTurn[] {
@@ -109,11 +148,15 @@ export function foldTurnsFromEvent(
     );
   }
   if (payload.type === "user_message" && payload.turn_id && payload.message_id) {
+    const parts: ConversationPart[] = [{ type: "text", text: payload.text ?? "" }];
+    for (const path of payload.attachments ?? []) {
+      parts.push({ type: "attachment", path, name: path.split(/[\\/]/).at(-1) });
+    }
     return upsertMessage(turns, payload.turn_id, {
       id: payload.message_id,
       role: "user",
       kind: payload.kind,
-      parts: [{ type: "text", text: payload.text ?? "" }],
+      parts,
     });
   }
   if (
@@ -172,12 +215,16 @@ export function foldTurnsFromEvent(
     const turnId = payload.turn_id ?? turns[turns.length - 1]?.id;
     if (!turnId) return turns;
     const tool = payload.tool_call;
-    const part = {
+    const part: ConversationPart = {
       type: "tool_call",
       tool_call_id: tool.tool_call_id,
       name: tool.name,
       title: tool.title,
       status: tool.status,
+      kind: tool.kind,
+      input: tool.input,
+      output: tool.output,
+      content: tool.content,
     };
     const next = upsertTurn(turns, turnId);
     return next.map((turn) => {
@@ -205,7 +252,7 @@ export function foldTurnsFromEvent(
             (row) => row.type === "tool_call" && row.tool_call_id === tool.tool_call_id,
           );
           if (existing >= 0) {
-            parts[existing] = { ...parts[existing], ...part };
+            parts[existing] = mergeToolPart(parts[existing], part);
           } else {
             parts.push(part);
           }
@@ -226,7 +273,11 @@ export function foldTurnsFromEvent(
           ...turn,
           messages: [
             ...turn.messages,
-            { id: `plan-${turnId}`, role: "assistant", parts: [{ type: "plan" }] },
+            {
+              id: `plan-${turnId}`,
+              role: "assistant",
+              parts: [{ type: "plan", plan: payload.plan }],
+            },
           ],
         };
       }
@@ -234,8 +285,14 @@ export function foldTurnsFromEvent(
         ...turn,
         messages: turn.messages.map((item) => {
           if (item.id !== assistant.id) return item;
-          if (item.parts.some((row) => row.type === "plan")) return item;
-          return { ...item, parts: [...item.parts, { type: "plan" }] };
+          const planPart: ConversationPart = { type: "plan", plan: payload.plan };
+          const existing = item.parts.findIndex((row) => row.type === "plan");
+          if (existing >= 0) {
+            const parts = [...item.parts];
+            parts[existing] = planPart;
+            return { ...item, parts };
+          }
+          return { ...item, parts: [...item.parts, planPart] };
         }),
       };
     });

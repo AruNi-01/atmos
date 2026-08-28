@@ -100,14 +100,12 @@ export type CanvasWidgetSourceRef =
       type: "agent-chat";
       context: CanvasContextRef;
       /**
-       * Stable per-widget instance id (isolates ACP session storage).
+       * Stable per-widget instance id (isolates conversation storage).
        * Older shapes may omit this — fall back to shape id at runtime.
        */
       instanceId?: string;
-      /** Last ACP session bound to this widget (persisted in the document file). */
-      acpSessionId?: string | null;
-      registryId?: string | null;
-      sessionCwd?: string | null;
+      /** Atmos conversation bound to this widget (persisted in the document file). */
+      conversationId?: string | null;
     };
 
 export type CanvasWidgetShapeProps = {

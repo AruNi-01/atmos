@@ -4,7 +4,7 @@ import type { AssistantEntry, ThreadEntry } from "./types";
 export function getAssistantCopyText(entry: AssistantEntry): string {
   const parts: string[] = [];
   for (const block of entry.blocks) {
-    if (block.type === "text" || block.type === "thinking") {
+    if (block.type === "text") {
       if (block.content?.trim()) parts.push(block.content.trim());
       continue;
     }

@@ -58,32 +58,28 @@ test.describe("APP-067 Atmos Agent Chat", () => {
     await expect(page.locator("[data-agent-chat-workspace]").first()).toBeVisible({
       timeout: 30_000,
     });
+    const composer = page.locator("[data-agent-chat-composer]").first();
+    await expect(composer).toBeVisible({ timeout: 15_000 });
+    await expect(composer).toBeEnabled({ timeout: 20_000 });
+
+    const marker = `s16-fanout-${Date.now()}`;
+    await composer.fill(marker);
+    await composer.press("Enter");
+    await expect(page.locator("[data-agent-chat-message]").getByText(marker)).toBeVisible({
+      timeout: 30_000,
+    });
+
     const conversationId = await page
       .locator("[data-agent-chat-workspace]")
       .first()
       .getAttribute("data-agent-chat-workspace");
-    expect(conversationId).toBeTruthy();
+    expect(conversationId && conversationId !== "draft").toBeTruthy();
 
     const page2 = await page.context().newPage();
     await page2.goto(`/agent-chat?conversationId=${conversationId}`);
     await expect(
       page2.locator(`[data-agent-chat-workspace="${conversationId}"]`),
     ).toBeVisible({ timeout: 20_000 });
-    await expect(page.locator("[data-agent-chat-composer]").first()).toBeVisible({
-      timeout: 15_000,
-    });
-    await expect(page2.locator("[data-agent-chat-composer]").first()).toBeVisible({
-      timeout: 15_000,
-    });
-
-    const marker = `s16-fanout-${Date.now()}`;
-    const composer = page.locator("[data-agent-chat-composer]").first();
-    await composer.fill(marker);
-    await composer.press("Enter");
-
-    await expect(page.locator("[data-agent-chat-message]").getByText(marker)).toBeVisible({
-      timeout: 20_000,
-    });
     await expect(page2.locator("[data-agent-chat-message]").getByText(marker)).toBeVisible({
       timeout: 20_000,
     });

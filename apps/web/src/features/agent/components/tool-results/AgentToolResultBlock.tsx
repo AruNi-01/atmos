@@ -7,18 +7,22 @@ import type { ToolCallBlock } from "@/features/agent/lib/agent/thread";
 import {
   deriveToolDisplayName,
   getSkillName,
+  getTerminalCommandString,
   getToolIcon,
   isSkillCommand,
   isSkillInvocation,
+  isTerminalCommand,
 } from "@/features/agent/lib/chat-helpers";
-import { parseToolResult } from "@/features/agent/lib/tool-results/parse-tool-result";
-import { CopyButton } from "@/shared/components/code-block/copy-button";
+import {
+  parseToolResult,
+  type ToolLineRange,
+} from "@/features/agent/lib/tool-results/parse-tool-result";
+import { MarkdownRenderer } from "@/shared/components/markdown/MarkdownRenderer";
 import {
   AgentToolCard,
   AgentToolDiffStats,
   AgentToolFileGlyph,
 } from "./AgentToolCard";
-import { AgentToolCodePreview } from "./AgentToolCodePreview";
 import { AgentToolDiffResult } from "./AgentToolDiffResult";
 import {
   AgentToolCopyAction,
@@ -33,11 +37,23 @@ import {
   AgentToolSearchBody,
   AgentToolTextBody,
   AgentToolTodosBody,
+  AgentToolTreeBody,
 } from "./AgentToolBodies";
 
 function countLines(text: string): number {
   if (!text) return 0;
   return text.split("\n").length - (text.endsWith("\n") ? 1 : 0);
+}
+
+function fenceForMarkdown(code: string, language: string): string {
+  let ticks = "```";
+  while (code.includes(ticks)) ticks += "`";
+  return `${ticks}${language}\n${code}\n${ticks}`;
+}
+
+function titleWithRange(title: string, range: ToolLineRange | null): string {
+  if (!range) return title;
+  return `${title} (${range.start}–${range.end})`;
 }
 
 function AgentToolCodeResult({
@@ -49,8 +65,9 @@ function AgentToolCodeResult({
   inputRows,
   showInput,
   asSkill,
-  fallbackTitle,
+  title,
   fallbackIcon,
+  startLine,
 }: {
   path: string | null;
   language: string;
@@ -60,13 +77,13 @@ function AgentToolCodeResult({
   inputRows: { key: string; value: string }[];
   showInput: boolean;
   asSkill: boolean;
-  fallbackTitle: string;
+  title: string;
   fallbackIcon: React.ReactNode;
+  startLine?: number;
 }) {
   const t = useTranslations("Agent.components.toolResults");
   const additions = hint === "new" ? countLines(code) : 0;
   const deletions = hint === "deleted" ? countLines(code) : 0;
-  const title = path ?? fallbackTitle;
   const icon = path
     ? <AgentToolFileGlyph path={path} />
     : asSkill
@@ -75,11 +92,11 @@ function AgentToolCodeResult({
 
   return (
     <AgentToolCard
-      variant={path ? "file" : "tool"}
+      variant="tool"
       tone={asSkill ? "skill" : status?.toLowerCase() === "failed" ? "error" : "default"}
       icon={icon}
       title={title}
-      titleTooltip={path ?? undefined}
+      titleTooltip={path ? `${title}\n${path}` : title}
       status={status}
       meta={
         hint ? (
@@ -91,10 +108,18 @@ function AgentToolCodeResult({
           </span>
         ) : null
       }
-      actions={<CopyButton content={code} />}
     >
       {showInput ? <AgentToolInputRows rows={inputRows} /> : null}
-      <AgentToolCodePreview code={code} language={language} />
+      <div
+        className="px-2 pb-2 [&_.my-4]:my-2"
+        style={{
+          ["--shiki-line-offset" as string]: Math.max(0, (startLine ?? 1) - 1),
+        }}
+      >
+        <MarkdownRenderer>
+          {fenceForMarkdown(code, language)}
+        </MarkdownRenderer>
+      </div>
     </AgentToolCard>
   );
 }
@@ -103,13 +128,22 @@ export function AgentToolResultBlock(props: ToolCallBlock) {
   const t = useTranslations("Agent.components.toolResults");
   const parsed = parseToolResult(props);
   const asSkill = isSkillInvocation(props.raw_input) || isSkillCommand(props.raw_input);
-  const toolDisplayName = deriveToolDisplayName(props.tool, props.description, props.raw_input);
+  const toolDisplayName = deriveToolDisplayName(
+    parsed.resolvedTool || props.tool,
+    props.description,
+    props.raw_input,
+    props.raw_output,
+  );
   const skillName = asSkill && props.raw_input && typeof props.raw_input === "object"
     ? getSkillName(props.raw_input as Record<string, unknown>)
     : toolDisplayName;
-  const title = asSkill ? t("skillTitle", { name: skillName }) : toolDisplayName;
-  const icon = asSkill ? <Sparkles className="size-4" /> : getToolIcon(props.tool);
+  const title = titleWithRange(
+    asSkill ? t("skillTitle", { name: skillName }) : toolDisplayName,
+    parsed.lineRange,
+  );
+  const icon = asSkill ? <Sparkles className="size-4" /> : getToolIcon(parsed.resolvedTool || props.tool);
   const { presentation, inputRows, showInput, path } = parsed;
+  const showCopy = isTerminalCommand(parsed.resolvedTool) || isTerminalCommand(props.tool);
 
   if (presentation.kind === "diff") {
     return (
@@ -118,6 +152,7 @@ export function AgentToolResultBlock(props: ToolCallBlock) {
           <AgentToolDiffResult
             key={`${file.path}-${index}`}
             path={file.path}
+            title={presentation.files.length === 1 ? title : file.path}
             oldContent={file.oldContent}
             newContent={file.newContent}
             status={props.status}
@@ -131,6 +166,7 @@ export function AgentToolResultBlock(props: ToolCallBlock) {
     return (
       <AgentToolDiffResult
         path={presentation.path || path || t("file")}
+        title={title}
         patch={presentation.patch}
         status={props.status}
       />
@@ -148,25 +184,18 @@ export function AgentToolResultBlock(props: ToolCallBlock) {
         inputRows={inputRows}
         showInput={showInput}
         asSkill={asSkill}
-        fallbackTitle={title}
+        title={title}
         fallbackIcon={icon}
+        startLine={parsed.lineRange?.start}
       />
     );
   }
 
-  const copyText = presentation.kind === "json"
-    ? presentation.json
-    : presentation.kind === "markdown"
-      ? presentation.markdown
-      : presentation.kind === "text" || presentation.kind === "error"
-        ? presentation.text
-        : presentation.kind === "search"
-          ? presentation.hits
-            .map((hit) => (hit.line != null ? `${hit.path}:${hit.line}:${hit.text}` : hit.path))
-            .join("\n")
-          : presentation.kind === "files"
-            ? presentation.paths.join("\n")
-            : "";
+  const copyText = showCopy
+    ? (getTerminalCommandString(props.raw_input)
+      || (presentation.kind === "text" || presentation.kind === "error" ? presentation.text : "")
+      || (presentation.kind === "json" ? presentation.json : ""))
+    : "";
 
   return (
     <AgentToolCard
@@ -174,13 +203,14 @@ export function AgentToolResultBlock(props: ToolCallBlock) {
       tone={asSkill ? "skill" : presentation.kind === "error" ? "error" : "default"}
       icon={icon}
       title={title}
-      titleTooltip={title}
+      titleTooltip={path ? `${title}\n${path}` : title}
       status={props.status}
-      actions={<AgentToolCopyAction text={copyText} />}
+      actions={showCopy ? <AgentToolCopyAction text={copyText} /> : undefined}
     >
       {showInput ? <AgentToolInputRows rows={inputRows} /> : null}
       {presentation.kind === "search" ? <AgentToolSearchBody hits={presentation.hits} /> : null}
       {presentation.kind === "files" ? <AgentToolFilesBody paths={presentation.paths} /> : null}
+      {presentation.kind === "tree" ? <AgentToolTreeBody entries={presentation.entries} /> : null}
       {presentation.kind === "markdown" ? <AgentToolMarkdownBody markdown={presentation.markdown} /> : null}
       {presentation.kind === "json" ? <AgentToolJsonBody json={presentation.json} /> : null}
       {presentation.kind === "text" ? <AgentToolTextBody text={presentation.text} /> : null}

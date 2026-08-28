@@ -382,6 +382,7 @@
     "centerStageTabBar": {
       "newTerminalTab": "终端",
       "newAgentChat": "Agent Chat",
+      "agentChatDraft": "新对话",
       "newMarkdown": "Markdown",
       "newBrowser": "浏览器",
       "newChanges": "变更",
@@ -2850,7 +2851,13 @@
           "connected": "给当前连接的 Agent 发送消息...",
           "selectAgent": "选择一个 Agent 后开始聊天..."
         },
-        "noAgent": "没有 Agent"
+        "noAgent": "没有 Agent",
+        "selectAgent": "Agent",
+        "queue": "排队",
+        "steer": "引导",
+        "oneShotQueue": "这次排队",
+        "oneShotSteer": "这次引导",
+        "steerUnavailable": "当前 Agent 不支持引导"
       },
       "terminalBlock": {
         "title": "运行脚本"
@@ -7082,11 +7089,14 @@
         "edit": "编辑",
         "move": "移动",
         "search": "搜索",
+        "grep": "Grep",
+        "listDirectory": "列出目录",
         "execute": "执行",
         "fetch": "获取",
         "delete": "删除",
         "think": "思考",
         "labelWithPath": "{tool}: {path}",
+        "labelWithPattern": "{tool}: {pattern}",
         "executeWithCommand": "执行：{command}",
         "fetchWithUrl": "获取：{url}"
       },

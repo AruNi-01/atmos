@@ -64,6 +64,7 @@ import {
   SquareTerminal as TerminalIcon,
 } from "lucide-react";
 import type { CenterToolTabValue } from "@/app-shell/center-tool-tabs";
+import { AgentIcon } from "@/features/agent/components/AgentIcon";
 import {
   EMPTY_AGENT_CHAT_TABS,
   useAgentChatCenterTabsStore,
@@ -102,7 +103,6 @@ import {
   CENTER_STAGE_ICON_TAB_CLASS,
   getCenterStageSurfaceTabVariant,
 } from "@/app-shell/center-stage-shared-tabs";
-import { AgentIcon } from "@/features/agent/components/AgentIcon";
 import { useAgentAttentionStore } from "@/features/agent/store/agent-attention-store";
 import { useTerminalCenterTabPresentation } from "@/features/terminal/hooks/use-terminal-center-tab-presentation";
 import { useTerminalStore } from "@/features/terminal/store/use-terminal-store";
@@ -770,20 +770,28 @@ export function CenterStageTabBar({
     }
 
     if (tab.kind === "agent-chat") {
+      const agentTab = agentChatTabs.find((item) => item.value === tab.value);
+      const providerId = agentTab?.providerId?.trim() || "";
       return (
-        <CenterStageSurfaceContentTab
+        <SpecialTerminalTab
           key={tab.id}
           closeLabel={t("centerStageTabBar.closeTab", { tab: tab.label })}
-          name={tab.label}
+          icon={
+            providerId ? (
+              <AgentIcon registryId={providerId} name={providerId} size={14} />
+            ) : (
+              <Bot className="size-3.5 shrink-0" />
+            )
+          }
+          label={tab.label}
+          shortcutDigit={shortcutDigit}
+          tooltip={tab.label}
+          value={tab.value}
           onClose={() => {
             useAgentChatCenterTabsStore.getState().closeTab(effectiveContextId, tab.value);
             handleCenterStageTabChange(visibleTerminalTabs[0]?.id ?? "overview");
           }}
           onContextMenu={(event) => openContextMenu(event, tab)}
-          path={tab.label}
-          shortcutDigit={shortcutDigit}
-          tooltip={tab.label}
-          value={tab.value}
         />
       );
     }
@@ -2054,7 +2062,7 @@ function SpecialTerminalTab({
           <CenterStageTabIconSlot closeLabel={closeLabel} onClose={onClose}>
             {icon}
           </CenterStageTabIconSlot>
-          <span className="text-pretty">{label}</span>
+          <span className="max-w-[180px] truncate whitespace-nowrap">{label}</span>
           <CenterTabHeldShortcut digit={shortcutDigit} />
         </CenterStageTab>
       </TooltipTrigger>

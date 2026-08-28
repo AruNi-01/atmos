@@ -92,10 +92,12 @@ export function AgentToolCodePreview({
   code,
   language,
   className,
+  startLine = 1,
 }: {
   code: string;
   language: string;
   className?: string;
+  startLine?: number;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [hasOverflow, setHasOverflow] = useState(false);
@@ -116,7 +118,12 @@ export function AgentToolCodePreview({
   }, [checkOverflow, code]);
 
   return (
-    <div className={cn("relative bg-background", className)}>
+    <div
+      className={cn("relative bg-background", className)}
+      style={{
+        ["--shiki-line-offset" as string]: Math.max(0, startLine - 1),
+      }}
+    >
       {(hasOverflow || expanded) ? (
         <div className="absolute right-2 top-1.5 z-10">
           <ExpandButton

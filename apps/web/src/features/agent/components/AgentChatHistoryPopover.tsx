@@ -15,19 +15,19 @@ import {
 } from "@workspace/ui";
 import { History, Loader2 } from "lucide-react";
 import { formatLocalDateTime } from "@atmos/shared";
-import type { AgentChatSessionItem } from "@/api/rest-api";
+import type { ConversationHistoryRow } from "@/features/agent/lib/conversation-thread";
 
 interface AgentChatHistoryPopoverProps {
   historyOpen: boolean;
   setHistoryOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  historySessions: AgentChatSessionItem[];
+  historySessions: ConversationHistoryRow[];
   historyHasMore: boolean;
   historyLoading: boolean;
   historyCursor: string | null;
   historyResumeUnsupportedReason: string | null;
   historyUnsupportedReason: string | null;
   loadHistorySessions: (cursor?: string) => Promise<void>;
-  handleSelectHistorySession: (s: AgentChatSessionItem) => void;
+  handleSelectHistorySession: (row: ConversationHistoryRow) => void;
   isConnecting: boolean;
   triggerClassName?: string;
 }
@@ -120,7 +120,7 @@ export function AgentChatHistoryPopover({
                   : null;
                 return (
                   <button
-                    key={s.acp_session_id}
+                    key={s.conversation_id}
                     type="button"
                     className="flex w-full flex-col items-start gap-0.5 rounded-md px-3 py-2 text-left text-sm hover:bg-muted"
                     onClick={() => handleSelectHistorySession(s)}

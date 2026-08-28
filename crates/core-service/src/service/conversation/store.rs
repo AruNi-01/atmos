@@ -61,6 +61,7 @@ impl ConversationStore {
             selected_thinking: req.thinking,
             selected_mode: None,
             supports_steer: false,
+            available_commands: Vec::new(),
         };
         if meta
             .persistence_handle
@@ -678,6 +679,28 @@ mod tests {
         .unwrap();
         assert_eq!(on_disk.id, meta.id);
         assert!(on_disk.persistence_handle.is_none());
+    }
+
+    #[test]
+    fn available_commands_round_trip_on_meta() {
+        let (_dir, store) = store();
+        let meta = create(&store, "/tmp/a");
+        store
+            .update_meta(&meta.id, |row| {
+                row.available_commands = vec![agent::AgentAvailableCommand {
+                    name: "plan".into(),
+                    description: "Create a plan".into(),
+                    hint: Some("what to plan".into()),
+                }];
+            })
+            .unwrap();
+        let snapshot = store.get_snapshot(&meta.id).unwrap();
+        assert_eq!(snapshot.meta.available_commands.len(), 1);
+        assert_eq!(snapshot.meta.available_commands[0].name, "plan");
+        assert_eq!(
+            snapshot.meta.available_commands[0].hint.as_deref(),
+            Some("what to plan")
+        );
     }
 
     #[test]

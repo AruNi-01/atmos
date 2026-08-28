@@ -249,7 +249,6 @@ import {
   EMPTY_AGENT_CHAT_TABS,
   useAgentChatCenterTabsStore,
 } from "@/features/agent/store/use-agent-chat-center-tabs";
-import { conversationApi } from "@/api/ws/conversation-api";
 import {
   DEFAULT_PREVIEW_BROWSER_PREFS,
   type PreviewBrowserPrefs,
@@ -1792,26 +1791,17 @@ const CenterStage: React.FC = () => {
   const handleCreateAgentChatCenterTab = React.useCallback(() => {
     const contextId = liveCenterContextId ?? effectiveContextId;
     if (!contextId) return;
-    void (async () => {
-      const created = await conversationApi.create({
-        provider_id: "claude",
-        workspace_id: currentView === "workspace" ? contextId : null,
-        project_id: currentView === "project" ? contextId : null,
-      });
-      const tab = useAgentChatCenterTabsStore.getState().openTab({
-        contextId,
-        conversationId: created.id,
-        title: created.title,
-        cwd: created.cwd,
-      });
-      appendTabToStripOrder(tab.value);
-      activateCenterChromeTab(contextId, tab.value, { placement: "focused" });
-    })();
+    const tab = useAgentChatCenterTabsStore.getState().openDraftTab({
+      contextId,
+      title: tabBarT("newAgentChat"),
+    });
+    appendTabToStripOrder(tab.value);
+    activateCenterChromeTab(contextId, tab.value, { placement: "focused" });
   }, [
     appendTabToStripOrder,
-    currentView,
     effectiveContextId,
     liveCenterContextId,
+    tabBarT,
   ]);
 
   const pendingAgentChatActivate = useAgentChatCenterTabsStore((state) => state.pendingActivate);

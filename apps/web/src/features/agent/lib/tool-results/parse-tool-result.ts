@@ -7,6 +7,19 @@ export type SearchHit = {
   text: string;
 };
 
+export type TreeEntry = {
+  name: string;
+  indent: number;
+  isDir: boolean;
+  kind: "item" | "note";
+};
+
+export type ToolLineRange = {
+  start: number;
+  end: number;
+  total?: number;
+};
+
 export type TodoItem = {
   content: string;
   status: string;
@@ -24,6 +37,7 @@ export type ToolPresentation =
   | { kind: "code"; path: string | null; language: string; code: string; hint?: "new" | "deleted" }
   | { kind: "search"; hits: SearchHit[] }
   | { kind: "files"; paths: string[] }
+  | { kind: "tree"; entries: TreeEntry[] }
   | { kind: "markdown"; markdown: string }
   | { kind: "todos"; todos: TodoItem[] }
   | { kind: "json"; json: string }
@@ -43,6 +57,8 @@ export type ParsedToolResult = {
   presentation: ToolPresentation;
   inputRows: ToolInputRow[];
   showInput: boolean;
+  resolvedTool: string;
+  lineRange: ToolLineRange | null;
 };
 
 const EXT_TO_LANG: Record<string, string> = {
@@ -81,7 +97,19 @@ const EXT_TO_LANG: Record<string, string> = {
   txt: "plaintext",
 };
 
-const PATH_KEYS = ["file_path", "target_file", "path", "file", "filename", "uri"] as const;
+const PATH_KEYS = [
+  "file_path",
+  "target_file",
+  "absolute_path",
+  "path",
+  "file",
+  "filename",
+  "uri",
+  "absolute_root_path",
+  "dir_path",
+  "directory",
+  "target_directory",
+] as const;
 const FROM_KEYS = ["from", "old_path", "source", "src"] as const;
 const TO_KEYS = ["to", "new_path", "destination", "dest", "dst"] as const;
 const SKIP_INPUT_KEYS = new Set([
@@ -97,6 +125,29 @@ const SKIP_INPUT_KEYS = new Set([
   "content",
   "new_content",
   "old_content",
+  "type",
+  "variant",
+  "Content",
+  "FileContent",
+  "file_content",
+  "EditsApplied",
+  "edits_applied",
+  "edits",
+  "old_string",
+  "new_string",
+  "tool_output_for_prompt",
+  "tool_output_for_prompt_concise",
+  "result",
+  "file_matches",
+  "match_count",
+  "stdout",
+  "stderr",
+  "exit_code",
+  "content_concise",
+  "raw_output",
+  "total_lines",
+  "offset",
+  "limit",
 ]);
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -110,8 +161,81 @@ function asNonEmptyString(value: unknown): string | null {
   return trimmed ? value : null;
 }
 
+const GENERIC_TOOL_NAMES = new Set(["tool", "other", "unknown", ""]);
+
+function isGenericToolName(value: string | null | undefined): boolean {
+  if (!value) return true;
+  return GENERIC_TOOL_NAMES.has(normalizeTool(value));
+}
+
+function isVendorToolType(value: string): boolean {
+  if (isGenericToolName(value)) return false;
+  const normalized = normalizeTool(value);
+  if (
+    [
+      "listdir",
+      "list_dir",
+      "list_directory",
+      "readfile",
+      "read_file",
+      "grep",
+      "grepsearch",
+      "grep_search",
+      "glob",
+      "search",
+      "edit",
+      "write",
+      "delete",
+      "shell",
+      "bash",
+      "execute",
+      "fetch",
+      "webfetch",
+      "read",
+      "ls",
+    ].includes(normalized)
+  ) {
+    return true;
+  }
+  return /^[A-Z][A-Za-z0-9]+$/.test(value.trim());
+}
+
+export function unwrapVendorToolEnvelope(value: unknown): {
+  toolType: string;
+  payload: Record<string, unknown>;
+} | null {
+  let record = asRecord(value);
+  if (!record && typeof value === "string" && looksLikeJson(value)) {
+    try {
+      record = asRecord(JSON.parse(value) as unknown);
+    } catch {
+      record = null;
+    }
+  }
+  if (!record) return null;
+  const toolType = asNonEmptyString(record.type)
+    ?? asNonEmptyString(record.variant)
+    ?? asNonEmptyString(record.tool);
+  if (!toolType || !isVendorToolType(toolType)) return null;
+  const nested = asRecord(record.FileContent)
+    ?? asRecord(record.file_content)
+    ?? asRecord(record.EditsApplied)
+    ?? asRecord(record.edits_applied)
+    ?? asRecord(record.Content)
+    ?? asRecord(record.content)
+    ?? asRecord(record.result);
+  return {
+    toolType,
+    payload: nested ?? record,
+  };
+}
+
 function normalizeTool(tool: string): string {
-  return (tool || "").trim().toLowerCase().replace(/[\s-]+/g, "_");
+  return (tool || "")
+    .trim()
+    .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
 }
 
 function toolEquals(tool: string, ...names: string[]): boolean {
@@ -132,6 +256,7 @@ function isEditTool(tool: string): boolean {
     "str_replace",
     "strreplace",
     "search_replace",
+    "searchreplace",
     "apply_patch",
     "notebook_edit",
     "notebookedit",
@@ -144,7 +269,23 @@ function isFetchTool(tool: string): boolean {
 
 function isSearchTool(tool: string): boolean {
   if (isFetchTool(tool)) return false;
-  return toolEquals(tool, "search", "grep", "glob", "glob_file_search", "ripgrep", "find", "rg", "search_files");
+  return toolEquals(
+    tool,
+    "search",
+    "grep",
+    "grepsearch",
+    "grep_search",
+    "glob",
+    "glob_file_search",
+    "ripgrep",
+    "find",
+    "rg",
+    "search_files",
+  );
+}
+
+function isListDirTool(tool: string): boolean {
+  return toolEquals(tool, "listdir", "list_dir", "list_directory", "ls");
 }
 
 function isMoveTool(tool: string): boolean {
@@ -172,6 +313,18 @@ function stringField(record: Record<string, unknown> | null, keys: readonly stri
   return null;
 }
 
+function numberField(record: Record<string, unknown> | null, keys: readonly string[]): number | null {
+  if (!record) return null;
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+    if (typeof value === "string" && value.trim() && Number.isFinite(Number(value))) {
+      return Number(value);
+    }
+  }
+  return null;
+}
+
 export function languageFromPath(path: string | null | undefined): string {
   if (!path) return "plaintext";
   const base = path.split(/[\\/]/).pop() || path;
@@ -182,13 +335,19 @@ export function languageFromPath(path: string | null | undefined): string {
 }
 
 // Claude Read prefixes (`     1|`) and `cat -n` tabs. Do not match `N:` —
-// that is valid Go/JSON/YAML content.
+// that is valid Go/JSON/YAML content. Grok `content_concise` injects `N→`
+// on every tenth line.
 const READ_LINE_PREFIX = /^\s*\d+[|\t]/;
+const READ_LINE_ARROW = /^\s*\d+→/;
 
 export function stripReadLineNumbers(text: string): string {
   const lines = text.split("\n");
   const candidates = lines.filter((line) => line.trim().length > 0);
   if (candidates.length === 0) return text;
+  const arrowMatches = candidates.filter((line) => READ_LINE_ARROW.test(line)).length;
+  if (arrowMatches > 0) {
+    return lines.map((line) => line.replace(READ_LINE_ARROW, "")).join("\n");
+  }
   const matched = candidates.filter((line) => READ_LINE_PREFIX.test(line)).length;
   if (matched / candidates.length < 0.8) return text;
   return lines
@@ -230,6 +389,141 @@ export function parseSearchOutput(text: string): { hits: SearchHit[] } | { paths
     return { paths: lines.map((line) => line.trim()) };
   }
   return null;
+}
+
+function asLineNumber(value: unknown): number | undefined {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim() && Number.isFinite(Number(value))) {
+    return Number(value);
+  }
+  return undefined;
+}
+
+export function parseStructuredSearchHits(value: unknown): SearchHit[] | null {
+  const record = asRecord(value);
+  if (!record) return null;
+  const files = record.file_matches ?? record.matches ?? record.results ?? record.hits;
+  if (!Array.isArray(files) || files.length === 0) return null;
+
+  const hits: SearchHit[] = [];
+  for (const file of files) {
+    if (typeof file === "string") {
+      const match = SEARCH_HIT_RE.exec(file.trim());
+      if (match?.[1]) {
+        hits.push({
+          path: match[1].trim(),
+          line: Number(match[2]),
+          text: (match[3] ?? "").trim(),
+        });
+      } else if (looksLikePath(file.trim())) {
+        hits.push({ path: file.trim(), text: "" });
+      }
+      continue;
+    }
+    const row = asRecord(file);
+    if (!row) continue;
+    const path = stringField(row, ["path", "file", "filename", "uri"]);
+    const nested = row.matches ?? row.hits ?? row.lines;
+    if (path && Array.isArray(nested) && nested.length > 0) {
+      for (const item of nested) {
+        if (typeof item === "string") {
+          hits.push({ path, text: item.trim() });
+          continue;
+        }
+        const hit = asRecord(item);
+        if (!hit) continue;
+        hits.push({
+          path,
+          line: asLineNumber(hit.line_number ?? hit.line ?? hit.lineNumber),
+          text: asNonEmptyString(hit.content ?? hit.text ?? hit.line_text) ?? "",
+        });
+      }
+      continue;
+    }
+    if (path) {
+      hits.push({
+        path,
+        line: asLineNumber(row.line_number ?? row.line ?? row.lineNumber),
+        text: asNonEmptyString(row.content ?? row.text ?? row.line_text) ?? "",
+      });
+    }
+  }
+  return hits.length > 0 ? hits : null;
+}
+
+export function commonDirectoryPrefix(paths: string[]): string {
+  if (paths.length === 0) return "";
+  const dirs = paths.map((path) => {
+    const normalized = path.replace(/\\/g, "/");
+    const index = normalized.lastIndexOf("/");
+    return index >= 0 ? normalized.slice(0, index + 1) : "";
+  });
+  let prefix = dirs[0] ?? "";
+  for (const dir of dirs.slice(1)) {
+    while (prefix && !dir.startsWith(prefix)) {
+      const index = prefix.slice(0, -1).lastIndexOf("/");
+      prefix = index >= 0 ? prefix.slice(0, index + 1) : "";
+    }
+  }
+  return prefix;
+}
+
+export function relativeDisplayPath(path: string, paths: string[]): string {
+  const prefix = commonDirectoryPrefix(paths);
+  if (prefix && path.replace(/\\/g, "/").startsWith(prefix)) {
+    const rest = path.replace(/\\/g, "/").slice(prefix.length);
+    return rest || path.split(/[\\/]/).pop() || path;
+  }
+  const parts = path.split(/[\\/]/).filter(Boolean);
+  if (parts.length > 3) return parts.slice(-3).join("/");
+  return path;
+}
+
+export function parseListDirTree(text: string): TreeEntry[] | null {
+  const entries: TreeEntry[] = [];
+  let items = 0;
+  for (const raw of text.split("\n")) {
+    if (!raw.trim()) continue;
+    const item = /^( *)(?:[-*] )(.+)$/.exec(raw);
+    if (item) {
+      let name = item[2].trim();
+      const isDir = /[/\\]$/.test(name);
+      if (isDir) name = name.replace(/[/\\]+$/, "");
+      entries.push({
+        name,
+        indent: item[1].length,
+        isDir,
+        kind: "item",
+      });
+      items += 1;
+      continue;
+    }
+    const note = /^( *)\[(.+)\]\s*$/.exec(raw);
+    if (note) {
+      entries.push({
+        name: note[2],
+        indent: note[1].length,
+        isDir: false,
+        kind: "note",
+      });
+    }
+  }
+  return items >= 2 ? entries : null;
+}
+
+function lineRangeFrom(
+  input: Record<string, unknown> | null,
+  output: Record<string, unknown> | null,
+): ToolLineRange | null {
+  const offset = numberField(output, ["offset"]) ?? numberField(input, ["offset"]);
+  const limit = numberField(output, ["limit"]) ?? numberField(input, ["limit"]);
+  const total = numberField(output, ["total_lines", "totalLines"]) ?? undefined;
+  if (offset == null && limit == null) return null;
+  const start = Math.max(1, offset ?? 1);
+  const requestedEnd = limit != null ? start + Math.max(0, limit) - 1 : (total ?? start);
+  const end = total != null ? Math.min(requestedEnd, total) : requestedEnd;
+  if (start <= 1 && total != null && end >= total) return null;
+  return { start, end, total };
 }
 
 function looksLikeJson(text: string): boolean {
@@ -288,7 +582,7 @@ export function extractOutputText(raw: unknown): string | null {
   }
   const record = asRecord(raw);
   if (!record) return null;
-  for (const key of ["output", "stdout", "content", "result", "text", "data"]) {
+  for (const key of ["raw_output", "output", "stdout", "content", "result", "text", "data"]) {
     const value = asNonEmptyString(record[key]);
     if (value) return value;
   }
@@ -359,6 +653,30 @@ function collectDiffFiles(
       newContent: rawOutput.new_content,
     }];
   }
+  const record = asRecord(rawOutput);
+  if (record) {
+    const oldContent = typeof record.old_string === "string"
+      ? record.old_string
+      : typeof record.old_content === "string"
+        ? record.old_content
+        : typeof record.oldText === "string"
+          ? record.oldText
+          : null;
+    const newContent = typeof record.new_string === "string"
+      ? record.new_string
+      : typeof record.new_content === "string"
+        ? record.new_content
+        : typeof record.newText === "string"
+          ? record.newText
+          : null;
+    if (oldContent != null || newContent != null) {
+      return [{
+        path: fallbackPath || "file",
+        oldContent: oldContent ?? "",
+        newContent: newContent ?? "",
+      }];
+    }
+  }
   return [];
 }
 
@@ -425,6 +743,10 @@ function presentationHidesInput(presentation: ToolPresentation): boolean {
     case "todos":
     case "move":
     case "delete":
+    case "markdown":
+    case "files":
+    case "search":
+    case "tree":
       return true;
     default:
       return false;
@@ -440,85 +762,84 @@ export function parseToolResult(block: {
   raw_output?: unknown;
   detail?: unknown;
 }): ParsedToolResult {
-  const path = extractPath(block.raw_input, block.content);
-  const inputRows = flattenInputRows(block.raw_input);
+  const inputEnvelope = unwrapVendorToolEnvelope(block.raw_input);
+  const outputEnvelope = unwrapVendorToolEnvelope(block.raw_output)
+    ?? unwrapVendorToolEnvelope(block.detail);
+  const resolvedTool = !isGenericToolName(block.tool)
+    ? block.tool
+    : (inputEnvelope?.toolType ?? outputEnvelope?.toolType ?? block.tool);
+  const resolvedInput = inputEnvelope?.payload ?? block.raw_input;
+  const resolvedOutput = outputEnvelope?.payload ?? block.raw_output;
+  const path = extractPath(resolvedInput, block.content)
+    ?? extractPath(resolvedOutput, block.content);
+  const inputRows = flattenInputRows(resolvedInput);
   const failed = (block.status ?? "").toLowerCase() === "failed";
   const contentText = extractContentText(block.content);
-  const outputText = extractOutputText(block.raw_output);
-  const primaryText = contentText ?? outputText;
-  const inputRecord = asRecord(block.raw_input);
+  const outputText = extractOutputText(resolvedOutput);
+  const inputRecord = asRecord(resolvedInput);
+  const primaryText = isReadTool(resolvedTool)
+    ? (outputText ?? contentText)
+    : (contentText ?? outputText);
 
-  const diffs = collectDiffFiles(block.content, block.raw_output, path);
+  const diffs = collectDiffFiles(block.content, resolvedOutput, path);
   let presentation: ToolPresentation = { kind: "empty" };
 
-  if (diffs.length === 1 && !diffs[0].oldContent.trim() && diffs[0].newContent.trim()) {
-    presentation = {
-      kind: "code",
-      path: diffs[0].path,
-      language: languageFromPath(diffs[0].path),
-      code: diffs[0].newContent,
-      hint: "new",
-    };
-  } else if (diffs.length === 1 && diffs[0].oldContent.trim() && !diffs[0].newContent.trim()) {
-    presentation = {
-      kind: "code",
-      path: diffs[0].path,
-      language: languageFromPath(diffs[0].path),
-      code: diffs[0].oldContent,
-      hint: "deleted",
-    };
-  } else if (diffs.length > 0) {
+  if (diffs.length > 0) {
     presentation = { kind: "diff", files: diffs };
   } else if (
-    typeof block.raw_output === "string" &&
-    isDiffString(block.raw_output)
+    typeof resolvedOutput === "string" &&
+    isDiffString(resolvedOutput)
   ) {
-    presentation = { kind: "patch", path, patch: block.raw_output };
+    presentation = { kind: "patch", path, patch: resolvedOutput };
   } else {
-    const todos = parseTodos(block.raw_input) ?? parseTodos(block.raw_output);
+    const todos = parseTodos(resolvedInput) ?? parseTodos(resolvedOutput);
     const from = stringField(inputRecord, FROM_KEYS);
     const to = stringField(inputRecord, TO_KEYS);
 
-    const written = stringField(inputRecord, ["contents", "new_content", "new_string"]);
-    const searchPresentation = primaryText ? applySearchOutput(primaryText) : null;
+    const written = stringField(inputRecord, ["contents", "content", "new_content", "new_string"]);
+    const structuredHits = parseStructuredSearchHits(resolvedOutput);
+    const searchPresentation = structuredHits
+      ? { kind: "search" as const, hits: structuredHits }
+      : (primaryText ? applySearchOutput(primaryText) : null);
+    const treeEntries = primaryText ? parseListDirTree(primaryText) : null;
 
-    if (todos && (isTodoTool(block.tool) || parseTodos(block.raw_input))) {
+    if (todos && (isTodoTool(resolvedTool) || parseTodos(resolvedInput))) {
       presentation = { kind: "todos", todos };
-    } else if (isMoveTool(block.tool) && from && to) {
+    } else if (isMoveTool(resolvedTool) && from && to) {
       presentation = { kind: "move", from, to };
-    } else if (isDeleteTool(block.tool) && path) {
+    } else if (isDeleteTool(resolvedTool) && path) {
       presentation = { kind: "delete", path };
-    } else if (isFetchTool(block.tool) && primaryText) {
+    } else if (isListDirTool(resolvedTool) && treeEntries) {
+      presentation = { kind: "tree", entries: treeEntries };
+    } else if (isListDirTool(resolvedTool) && primaryText) {
+      presentation = { kind: "text", text: primaryText };
+    } else if (isFetchTool(resolvedTool) && primaryText) {
       presentation = looksLikeMarkdown(primaryText)
         ? { kind: "markdown", markdown: primaryText }
         : { kind: "text", text: primaryText };
-    } else if (isSearchTool(block.tool) && primaryText) {
-      presentation = searchPresentation ?? { kind: "text", text: primaryText };
+    } else if (isSearchTool(resolvedTool) && searchPresentation) {
+      presentation = searchPresentation;
+    } else if (isSearchTool(resolvedTool) && primaryText) {
+      presentation = { kind: "text", text: primaryText };
     } else if (searchPresentation && (hasSearchQuery(inputRecord) || searchPresentation.kind === "search")) {
       presentation = searchPresentation;
-    } else if (isReadTool(block.tool) && primaryText) {
+    } else if (isReadTool(resolvedTool) && primaryText) {
       presentation = {
         kind: "code",
         path,
         language: languageFromPath(path),
         code: stripReadLineNumbers(primaryText),
       };
-    } else if (isEditTool(block.tool) && path && written) {
+    } else if (isEditTool(resolvedTool) && path && written) {
       presentation = {
-        kind: "code",
-        path,
-        language: languageFromPath(path),
-        code: written,
-        hint: "new",
+        kind: "diff",
+        files: [{
+          path,
+          oldContent: stringField(inputRecord, ["old_string", "old_content", "oldText"]) ?? "",
+          newContent: written,
+        }],
       };
-    } else if (isEditTool(block.tool) && path && primaryText && looksLikeFileBody(primaryText)) {
-      presentation = {
-        kind: "code",
-        path,
-        language: languageFromPath(path),
-        code: stripReadLineNumbers(primaryText),
-      };
-    } else if (isThinkTool(block.tool) && primaryText) {
+    } else if (isThinkTool(resolvedTool) && primaryText) {
       presentation = looksLikeMarkdown(primaryText)
         ? { kind: "markdown", markdown: primaryText }
         : { kind: "text", text: primaryText };
@@ -537,7 +858,7 @@ export function parseToolResult(block: {
         code: stripReadLineNumbers(primaryText),
       };
     } else {
-      const jsonFromObject = !primaryText ? prettyJson(block.raw_output) : null;
+      const jsonFromObject = !primaryText ? prettyJson(resolvedOutput) : null;
       const jsonFromText = primaryText ? prettyJson(primaryText) : null;
       if (jsonFromObject) {
         presentation = { kind: "json", json: jsonFromObject };
@@ -563,17 +884,14 @@ export function parseToolResult(block: {
     }
   }
 
-  const showInput = inputRows.length > 0 && (
-    !presentationHidesInput(presentation) ||
-    (presentation.kind === "code" && inputRows.some((row) => row.key === "offset" || row.key === "limit")) ||
-    ((presentation.kind === "search" || presentation.kind === "files") &&
-      inputRows.some((row) => row.key === "pattern" || row.key === "glob" || row.key === "query"))
-  );
+  const showInput = inputRows.length > 0 && !presentationHidesInput(presentation);
 
   return {
     path: path ?? (presentation.kind === "diff" ? presentation.files[0]?.path ?? null : null),
     presentation,
     inputRows,
     showInput,
+    resolvedTool,
+    lineRange: lineRangeFrom(inputRecord, asRecord(resolvedOutput)),
   };
 }

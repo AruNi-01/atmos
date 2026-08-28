@@ -5,8 +5,8 @@ pub mod session;
 
 pub use error::{AgentProviderError, AgentResult};
 pub use event::{
-    AgentEvent, AgentPermissionOption, AgentPermissionRequest, AgentToolCall, TurnStop,
-    UserMessageKind,
+    AgentAvailableCommand, AgentEvent, AgentPermissionOption, AgentPermissionRequest,
+    AgentToolCall, TurnStop, UserMessageKind,
 };
 pub use model::{
     AgentMode, AgentModel, AgentModelCatalog, AgentThinkingSupport, CatalogSource, CatalogStatus,

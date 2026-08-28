@@ -123,18 +123,20 @@ pre.shiki span.line {
   @apply px-4 py-0.5;
 }
 
-/* Shiki Line Numbers */
+/* Shiki Line Numbers. --shiki-line-offset is the 0-based counter
+   start (fileLine - 1) so a Read of lines 40–80 numbers from 40. */
 pre.shiki-line-numbers code {
-  counter-reset: step;
+  counter-reset: step var(--shiki-line-offset, 0);
   counter-increment: step 0;
 }
 
 pre.shiki-line-numbers code:has(.line:nth-child(2)) .line::before {
   content: counter(step);
   counter-increment: step;
-  width: 0.9rem;
+  min-width: 3ch;
+  width: auto;
   margin-right: 1rem;
-  margin-left: 0.1rem;
+  margin-left: 0.25rem;
   display: inline-block;
   @apply text-right font-mono text-xs text-muted-foreground;
 }

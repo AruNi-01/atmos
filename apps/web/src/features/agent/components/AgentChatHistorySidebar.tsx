@@ -10,28 +10,28 @@ import {
   DropdownMenuTrigger,
 } from "@workspace/ui/components/ui/dropdown-menu";
 import { Bot, Check, ChevronDown, Folder, FolderOpen, Loader2, MessageCircle, Plus } from "lucide-react";
-import type { AgentChatSessionItem } from "@/api/rest-api";
 import type { RegistryAgent } from "@/api/ws-api";
 import type { Project } from "@/shared/types/domain";
+import type { ConversationHistoryRow } from "@/features/agent/lib/conversation-thread";
 import { AgentIcon } from "./AgentIcon";
 
 interface AgentChatHistorySidebarProps {
   className?: string;
   reserveTrafficLightsInset?: boolean;
-  historySessions: AgentChatSessionItem[];
+  historySessions: ConversationHistoryRow[];
   historyHasMore: boolean;
   historyLoading: boolean;
   historyCursor: string | null;
   historyResumeUnsupportedReason: string | null;
   historyUnsupportedReason: string | null;
   loadHistorySessions: (cursor?: string) => Promise<void>;
-  handleSelectHistorySession: (s: AgentChatSessionItem) => void;
+  handleSelectHistorySession: (row: ConversationHistoryRow) => void;
   handleCreateNewSession: (targetRegistryId?: string) => Promise<void>;
   isConnecting: boolean;
   installedAgents: RegistryAgent[];
   defaultRegistryId: string;
   activeRegistryId: string;
-  activeAcpSessionId: string | null;
+  activeConversationId: string | null;
   activeAgentName: string | null;
   canCreateNewSession: boolean;
   projects: Project[];
@@ -42,7 +42,7 @@ type HistoryGroup = {
   cwd: string | null;
   name: string;
   newestTime: number;
-  sessions: AgentChatSessionItem[];
+  sessions: ConversationHistoryRow[];
 };
 
 function normalizeCwd(cwd: string | null | undefined): string | null {
@@ -131,7 +131,7 @@ function resolveCwdGroupName(
   return unknownAtmosWorkspaceLabel(normalizedCwd, atmosWorkspaceLabel) ?? cwdGroupName(cwd, noCwdLabel);
 }
 
-function sessionTimeValue(session: AgentChatSessionItem): number {
+function sessionTimeValue(session: ConversationHistoryRow): number {
   return session.updated_at ? Date.parse(session.updated_at) || 0 : 0;
 }
 
@@ -159,7 +159,7 @@ function formatRelativeTime(
 }
 
 function groupHistorySessions(
-  sessions: AgentChatSessionItem[],
+  sessions: ConversationHistoryRow[],
   noCwdLabel: string,
   atmosWorkspaceLabel: string,
   projects: Project[],
@@ -210,7 +210,7 @@ export function AgentChatHistorySidebar({
   installedAgents,
   defaultRegistryId,
   activeRegistryId,
-  activeAcpSessionId,
+  activeConversationId,
   activeAgentName,
   canCreateNewSession,
   projects,
@@ -435,13 +435,11 @@ export function AgentChatHistorySidebar({
                     <div className="min-h-0 overflow-hidden">
                       <div className="ml-5 space-y-0.5 pl-2">
                         {group.sessions.map((session) => {
-                          const isActive =
-                            activeAcpSessionId === session.acp_session_id &&
-                            (!activeRegistryId || activeRegistryId === session.registry_id);
+                          const isActive = activeConversationId === session.conversation_id;
                           const relativeTime = formatRelativeTime(session.updated_at, t);
                           return (
                             <button
-                              key={`${session.registry_id}:${session.acp_session_id}`}
+                              key={session.conversation_id}
                               type="button"
                               className={cn(
                                 "group flex h-9 w-full min-w-0 items-center gap-2 rounded-md px-2 text-left text-sm",

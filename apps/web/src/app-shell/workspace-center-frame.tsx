@@ -791,7 +791,7 @@ function WorkspaceCenterFrameImpl({
         return (
           <div
             key={`${contextId}-${tab.value}`}
-            data-agent-chat-tab={tab.conversationId}
+            data-agent-chat-tab={tab.value}
             data-center-pane-owner={paneOwner(tab.value)}
             aria-hidden={!visible}
             inert={!visible ? true : undefined}
@@ -799,13 +799,27 @@ function WorkspaceCenterFrameImpl({
             style={panelStyle(tab.value, visible)}
           >
             <AgentChatWorkspace
+              variant="center"
+              instanceKey={tab.value}
               conversationId={tab.conversationId}
-              onOpenConversation={(conversationId) => {
-                const opened = useAgentChatCenterTabsStore.getState().openTab({
+              onConversationStarted={(conversationId, meta) => {
+                useAgentChatCenterTabsStore.getState().bindConversation({
+                  contextId,
+                  value: tab.value,
+                  conversationId,
+                  title: meta?.title,
+                  cwd: meta?.cwd,
+                  providerId: meta?.providerId,
+                });
+              }}
+              onConversationUpdated={(conversationId, meta) => {
+                useAgentChatCenterTabsStore.getState().patchConversation({
                   contextId,
                   conversationId,
+                  title: meta.title,
+                  providerId: meta.providerId,
+                  cwd: meta.cwd,
                 });
-                useAgentChatCenterTabsStore.getState().requestActivate(contextId, opened.value);
               }}
             />
           </div>

@@ -238,16 +238,25 @@ impl ConversationService {
                 created_at: Utc::now(),
             },
         )?;
+        let mut seeded_title: Option<String> = None;
         self.store.update_meta(conversation_id, |meta| {
             meta.runtime_status = RuntimeStatus::RunningTurn;
             meta.last_message_at = Some(Utc::now());
             if meta.title.is_none() {
-                let trimmed = text.trim();
-                if !trimmed.is_empty() {
-                    meta.title = Some(trimmed.chars().take(60).collect());
+                let line = text.trim().lines().next().unwrap_or("").trim();
+                if !line.is_empty() {
+                    let title: String = line.chars().take(60).collect();
+                    meta.title = Some(title.clone());
+                    seeded_title = Some(title);
                 }
             }
         })?;
+        if let Some(title) = seeded_title {
+            self.emit(
+                conversation_id,
+                ConversationClientPayload::TitleUpdated { title: Some(title) },
+            )?;
+        }
         self.emit(
             conversation_id,
             ConversationClientPayload::TurnStarted {

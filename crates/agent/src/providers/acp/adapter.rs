@@ -283,6 +283,20 @@ impl AcpMappedSession {
             AcpSessionEvent::SessionClosed { .. } | AcpSessionEvent::SessionEnded => {
                 Some(AgentEvent::SessionClosed)
             }
+            AcpSessionEvent::SessionInfoUpdate(update) => match update.title {
+                Some(Some(title)) => {
+                    let title = title.trim().to_string();
+                    if title.is_empty() {
+                        None
+                    } else {
+                        Some(AgentEvent::SessionTitleUpdated { title })
+                    }
+                }
+                _ => None,
+            },
+            AcpSessionEvent::AvailableCommandsUpdate(commands) => {
+                Some(AgentEvent::AvailableCommandsUpdated { commands })
+            }
             _ => None,
         }
     }
@@ -296,6 +310,7 @@ fn should_drop_replay(replaying: bool, event: &AcpSessionEvent) -> bool {
                 | AcpSessionEvent::SessionReady { .. }
                 | AcpSessionEvent::SessionClosed { .. }
                 | AcpSessionEvent::SessionEnded
+                | AcpSessionEvent::AvailableCommandsUpdate(_)
         )
 }
 
@@ -303,9 +318,9 @@ fn map_tool_call(update: ToolCallUpdate) -> AgentEvent {
     let status = update.status;
     let tool_call = AgentToolCall {
         tool_call_id: update.tool_call_id,
-        name: update.tool,
+        name: update.tool.clone(),
         title: Some(update.description).filter(|s| !s.is_empty()),
-        kind: None,
+        kind: Some(update.tool.clone()).filter(|value| !value.is_empty() && value != "Tool"),
         status: Some(
             match status {
                 ToolCallStatus::Running => "running",
@@ -447,5 +462,13 @@ mod tests {
             })
         ));
         assert!(!should_drop_replay(false, &AcpSessionEvent::LoadCompleted));
+        assert!(!should_drop_replay(
+            true,
+            &AcpSessionEvent::AvailableCommandsUpdate(vec![crate::domain::AgentAvailableCommand {
+                name: "plan".into(),
+                description: "Create a plan".into(),
+                hint: None,
+            }])
+        ));
     }
 }

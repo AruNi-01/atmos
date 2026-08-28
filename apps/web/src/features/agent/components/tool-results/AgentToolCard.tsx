@@ -8,14 +8,16 @@ import { cn } from "@/shared/lib/utils";
 export function AgentToolFileGlyph({
   path,
   className,
+  isDir = false,
 }: {
   path: string;
   className?: string;
+  isDir?: boolean;
 }) {
   const name = path.split(/[\\/]/).pop() || path;
   const iconProps = getFileIconProps({
     name,
-    isDir: false,
+    isDir,
     className: cn("size-4 shrink-0", className),
   });
   return (

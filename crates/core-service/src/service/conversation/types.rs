@@ -65,6 +65,8 @@ pub struct ConversationMeta {
     pub selected_mode: Option<String>,
     #[serde(default)]
     pub supports_steer: bool,
+    #[serde(default)]
+    pub available_commands: Vec<agent::AgentAvailableCommand>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -317,6 +319,9 @@ pub enum ConversationClientPayload {
     },
     TitleUpdated {
         title: Option<String>,
+    },
+    AvailableCommandsUpdated {
+        commands: Vec<agent::AgentAvailableCommand>,
     },
 }
 

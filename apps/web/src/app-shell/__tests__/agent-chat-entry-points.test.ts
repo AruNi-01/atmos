@@ -25,12 +25,47 @@ describe("S2 Agent Chat entry points", () => {
     const welcome = readFileSync(join(ROOT, "NewWorkspaceWelcomeOverlay.tsx"), "utf8");
     expect(welcome).toContain("onStartAgentChat");
 
-    const workspace = readFileSync(
-      join(ROOT, "../features/agent/components/AgentChatWorkspace.tsx"),
+    const session = readFileSync(
+      join(ROOT, "../features/agent/hooks/use-conversation-chat-session.ts"),
       "utf8",
     );
-    expect(workspace).toContain("cwd: cwd || null");
-    expect(workspace).toContain("workspace_id: workspaceId");
-    expect(workspace).toContain("project_id: projectId");
+    expect(session).toContain("cwd: cwd || null");
+    expect(session).toContain("workspace_id: workspaceId");
+    expect(session).toContain("project_id: projectId");
+
+    const centerStage = readFileSync(join(ROOT, "CenterStage.tsx"), "utf8");
+    expect(centerStage).toContain("openDraftTab");
+    expect(centerStage).not.toContain("conversationApi.create");
+
+    const workspaceFrame = readFileSync(join(ROOT, "workspace-center-frame.tsx"), "utf8");
+    expect(workspaceFrame).toContain('variant="center"');
+    expect(workspaceFrame).toContain("instanceKey={tab.value}");
+
+    const panel = readFileSync(
+      join(ROOT, "../features/agent/components/AgentChatPanel.tsx"),
+      "utf8",
+    );
+    expect(panel).toContain('variant === "center"');
+    expect(panel).toContain("flex h-full min-h-0 min-w-0 w-full flex-1 flex-col");
+    expect(panel).toContain("isEmbeddedPausedForStandalone");
+    expect(panel).toContain('variant !== "standalone" && isStandaloneChatOpen');
+    expect(panel).toContain('data-agent-chat-standalone-paused="true"');
+    expect(panel).toContain("header.standaloneWindow.returnHere");
+    expect(panel).toContain("border-dashed");
+    expect(panel).toContain("if (!active || (variant === \"modal\" && !layoutLoaded)) return null");
+    expect(panel).not.toContain("if (!session.isPanelOpen || (variant === \"modal\" && !layoutLoaded)) return null");
+    expect(panel).toContain("instanceKey || liveConversationId || conversationId || null");
+
+    const activate = readFileSync(join(ROOT, "center-stage-activate.ts"), "utf8");
+    expect(activate).toContain("isAgentChatTabValue");
+
+    expect(tabBar).toContain("max-w-[180px] truncate whitespace-nowrap");
+    expect(tabBar).not.toContain("truncate text-pretty");
+
+    const header = readFileSync(
+      join(ROOT, "../features/agent/components/AgentChatHeader.tsx"),
+      "utf8",
+    );
+    expect(header).toContain("constrainWidth && \"mx-auto w-full max-w-3xl\"");
   });
 });

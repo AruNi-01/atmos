@@ -27,16 +27,17 @@ import { Bot, Download, Folder, Heart, LogOut, Maximize2, Minimize2, MoreHorizon
 import type { RegistryAgent } from "@/api/ws-api";
 import type {
   AgentCapabilities,
-  AgentChatSessionItem,
   AgentImplementationInfo,
 } from "@/api/rest-api";
+import type { AgentChatSurfaceVariant } from "@/features/agent/hooks/use-agent-chat-session-types";
+import type { ConversationHistoryRow } from "@/features/agent/lib/conversation-thread";
 import type { ConversationMessage } from "@workspace/ui";
 import { useDesktopWindowDrag } from "@/shared/hooks/use-desktop-window-drag";
 import { AgentIcon } from "./AgentIcon";
 import { AgentChatHistoryPopover } from "./AgentChatHistoryPopover";
 
 interface AgentChatHeaderProps {
-  variant: "modal" | "sidebar" | "standalone";
+  variant: AgentChatSurfaceVariant;
   handleDragStart?: (e: React.MouseEvent) => void;
   handleOpenStandaloneWindow?: () => Promise<void>;
   handleReturnToEmbeddedWindow?: () => void;
@@ -58,6 +59,8 @@ interface AgentChatHeaderProps {
   installedAgents: RegistryAgent[];
   defaultRegistryId: string;
   registryId: string;
+
+  allowNewSession?: boolean;
 
   // New session agents menu
   newSessionAgentsOpen: boolean;
@@ -81,7 +84,7 @@ interface AgentChatHeaderProps {
   // History
   historyOpen: boolean;
   setHistoryOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  historySessions: AgentChatSessionItem[];
+  historySessions: ConversationHistoryRow[];
   historyHasMore: boolean;
   historyLoading: boolean;
   historyCursor: string | null;
@@ -89,7 +92,7 @@ interface AgentChatHeaderProps {
   historyUnsupportedReason: string | null;
   trafficLightsContentInset?: boolean;
   loadHistorySessions: (cursor?: string) => Promise<void>;
-  handleSelectHistorySession: (s: AgentChatSessionItem) => void;
+  handleSelectHistorySession: (row: ConversationHistoryRow) => void;
   historyTriggerClassName?: string;
   historySidebarControl?: React.ReactNode;
 
@@ -103,7 +106,8 @@ interface AgentChatHeaderProps {
   shouldScrambleAutoTitle: boolean;
   setShouldScrambleAutoTitle: React.Dispatch<React.SetStateAction<boolean>>;
   sessionTitleSource: string | null;
-  sessionId: string | null;
+  conversationId: string | null;
+  constrainWidth?: boolean;
 }
 
 export function AgentChatHeader({
@@ -122,6 +126,7 @@ export function AgentChatHeader({
   capabilities,
   installedAgents,
   defaultRegistryId,
+  allowNewSession = true,
   newSessionAgentsOpen,
   setNewSessionAgentsOpen,
   handleCreateNewSession,
@@ -153,7 +158,8 @@ export function AgentChatHeader({
   shouldScrambleAutoTitle,
   setShouldScrambleAutoTitle,
   sessionTitleSource,
-  sessionId,
+  conversationId,
+  constrainWidth = false,
 }: AgentChatHeaderProps) {
   const t = useTranslations("Agent.components");
   const [logoutConfirmOpen, setLogoutConfirmOpen] = React.useState(false);
@@ -185,8 +191,9 @@ export function AgentChatHeader({
       data-tauri-drag-region={useNativeWindowDrag ? "true" : undefined}
       className={cn(
         // Match main Header: animate traffic-light inset on enter/leave fullscreen.
-        "flex shrink-0 flex-col gap-1 py-3 pr-4 transition-[padding] duration-300 ease-out",
+        "flex w-full shrink-0 flex-col gap-1 py-3 pr-4 transition-[padding] duration-300 ease-out",
         trafficLightsContentInset ? "pl-[124px]" : "pl-4",
+        constrainWidth && "mx-auto w-full max-w-3xl",
         useNativeWindowDrag && "desktop-drag-region select-none",
         variant === "modal" && handleDragStart && "cursor-grab active:cursor-grabbing"
       )}
@@ -199,10 +206,11 @@ export function AgentChatHeader({
             {historySidebarControl}
             <div className="relative size-5">
               <div
-                className={`pointer-events-none absolute inset-0 flex items-center justify-center transition-[opacity,transform] duration-200 ease-out ${headerHovered}
-                  ? "translate-y-[-2px] scale-90 opacity-0"
-                  : "translate-y-0 scale-100 opacity-100"
-                  }`}
+                className={`pointer-events-none absolute inset-0 flex items-center justify-center transition-[opacity,transform] duration-200 ease-out ${
+                  allowNewSession && headerHovered
+                    ? "translate-y-[-2px] scale-90 opacity-0"
+                    : "translate-y-0 scale-100 opacity-100"
+                }`}
               >
                 {isConnected && activeAgent ? (
                   <AgentIcon
@@ -216,6 +224,7 @@ export function AgentChatHeader({
                   <Bot className="size-4 shrink-0 text-foreground" />
                 )}
               </div>
+              {allowNewSession ? (
               <Popover open={newSessionAgentsOpen} onOpenChange={setNewSessionAgentsOpen}>
                 <PopoverTrigger asChild>
                   <button
@@ -301,6 +310,7 @@ export function AgentChatHeader({
                   </div>
                 </PopoverContent>
               </Popover>
+              ) : null}
             </div>
             {isConnected && activeAgent ? (
               <div className="flex items-center gap-1.5 shrink-0 min-w-0">
@@ -356,6 +366,7 @@ export function AgentChatHeader({
           )}
         </div>
         <div className="flex items-center gap-0.5">
+          {historyTriggerClassName === "hidden" ? null : (
           <AgentChatHistoryPopover
             triggerClassName={historyTriggerClassName}
             historyOpen={historyOpen}
@@ -370,7 +381,8 @@ export function AgentChatHeader({
             handleSelectHistorySession={handleSelectHistorySession}
             isConnecting={isConnecting}
           />
-          {variant === "modal" && handleOpenStandaloneWindow ? (
+          )}
+          {variant !== "standalone" && handleOpenStandaloneWindow ? (
             <TooltipProvider delayDuration={200}>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -521,7 +533,7 @@ export function AgentChatHeader({
                   </span>
                 ) : animatedSessionTitle ? (
                   <TextScramble
-                    key={`session-title-${sessionTitleSource ?? "unknown"}-${sessionId ?? "session"}-${
+                    key={`session-title-${sessionTitleSource ?? "unknown"}-${conversationId ?? "conversation"}-${
                       animatedSessionTitle
                     }`}
                     as="span"

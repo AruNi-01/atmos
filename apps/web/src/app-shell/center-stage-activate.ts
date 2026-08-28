@@ -17,6 +17,7 @@ import { useGitHistoryCenterTabStore } from "@/features/git/store/use-git-histor
 import { GIT_HISTORY_TAB_VALUE } from "@/features/git/types";
 import { useSimulatorCenterTabStore } from "@/features/simulator/store/use-simulator-center-tab";
 import { SIMULATOR_TAB_VALUE } from "@/features/simulator/types";
+import { isAgentChatTabValue } from "@/features/agent/store/use-agent-chat-center-tabs";
 import {
   FIXED_TERMINAL_TAB_VALUE,
   TERMINAL_TAB_VALUE_PREFIX,
@@ -34,7 +35,8 @@ function isEncodedContextTab(tab: string): boolean {
     tab.startsWith("github-issue:") ||
     tab.startsWith("github-action:") ||
     tab.startsWith("github-commit:") ||
-    tab.startsWith("browser:")
+    tab.startsWith("browser:") ||
+    isAgentChatTabValue(tab)
   );
 }
 

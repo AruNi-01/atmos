@@ -34,6 +34,7 @@ export const AgentChatEntryView = React.memo(function AgentChatEntryView({
   return (
     <div
       data-entry-index={entryIndex}
+      data-agent-chat-message={entryIndex}
       className="w-full min-w-0"
       style={entryVisibilityStyle}
     >
@@ -70,7 +71,7 @@ export const AgentChatEntryView = React.memo(function AgentChatEntryView({
         <Message from="assistant">
           <MessageContent>
             <AssistantTurnView entry={entry} registryId={registryId} />
-            {!entry.isStreaming && (
+            {!entry.isStreaming && entry.blocks.some((block) => block.type === "text" && block.content.trim()) ? (
               <div className="mt-2 flex items-center gap-2">
                 <MessageCopyButton
                   text={getAssistantCopyText(entry)}
@@ -82,7 +83,7 @@ export const AgentChatEntryView = React.memo(function AgentChatEntryView({
                   <MessageTurnUsageBadge usage={entry.usage} />
                 )}
               </div>
-            )}
+            ) : null}
           </MessageContent>
         </Message>
       )}

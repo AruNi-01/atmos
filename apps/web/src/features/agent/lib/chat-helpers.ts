@@ -40,11 +40,14 @@ function chatHelpersT(
     | "tool.edit"
     | "tool.move"
     | "tool.search"
+    | "tool.grep"
+    | "tool.listDirectory"
     | "tool.execute"
     | "tool.fetch"
     | "tool.delete"
     | "tool.think"
     | "tool.labelWithPath"
+    | "tool.labelWithPattern"
     | "tool.executeWithCommand"
     | "tool.fetchWithUrl"
     | "activity.generating"
@@ -80,21 +83,44 @@ function chatHelpersT(
 }
 
 function localizeToolLabel(tool: string): string {
-  switch (tool.toLowerCase()) {
+  switch (tool.toLowerCase().replace(/[\s-]+/g, "_")) {
     case "read":
+    case "readfile":
+    case "read_file":
+    case "view":
+    case "view_file":
       return chatHelpersT("tool.read", "Read");
     case "edit":
+    case "write":
+    case "write_file":
+    case "searchreplace":
+    case "search_replace":
+    case "str_replace":
+    case "strreplace":
       return chatHelpersT("tool.edit", "Edit");
     case "move":
       return chatHelpersT("tool.move", "Move");
     case "search":
+    case "glob":
       return chatHelpersT("tool.search", "Search");
+    case "grep":
+    case "grepsearch":
+    case "grep_search":
+      return chatHelpersT("tool.grep", "Grep");
     case "execute":
+    case "bash":
+    case "shell":
+    case "terminal":
       return chatHelpersT("tool.execute", "Execute");
     case "fetch":
       return chatHelpersT("tool.fetch", "Fetch");
     case "delete":
       return chatHelpersT("tool.delete", "Delete");
+    case "listdir":
+    case "list_dir":
+    case "list_directory":
+    case "ls":
+      return chatHelpersT("tool.listDirectory", "List directory");
     case "think":
     case "thought":
     case "reasoning":
@@ -117,18 +143,40 @@ export {
 } from '@/shared/stores/use-ui-pref-hooks';
 
 export function getToolIcon(tool: string): React.ReactNode {
-  switch ((tool || "").toLowerCase()) {
+  switch ((tool || "").toLowerCase().replace(/[\s-]+/g, "_")) {
     case "read":
+    case "readfile":
+    case "read_file":
+    case "view":
+    case "view_file":
       return React.createElement(FileText);
     case "edit":
+    case "write":
+    case "write_file":
+    case "searchreplace":
+    case "search_replace":
+    case "str_replace":
       return React.createElement(Pencil);
     case "delete":
       return React.createElement(Trash2);
     case "move":
       return React.createElement(FolderInput);
     case "search":
+    case "grep":
+    case "grepsearch":
+    case "grep_search":
+    case "glob":
       return React.createElement(Search);
+    case "listdir":
+    case "list_dir":
+    case "list_directory":
+    case "ls":
+      return React.createElement(FolderInput);
     case "execute":
+    case "bash":
+    case "shell":
+    case "terminal":
+    case "run_command":
       return React.createElement(Terminal);
     case "think":
       return React.createElement(Brain);
@@ -175,8 +223,20 @@ export function getSkillName(raw_input: Record<string, unknown>): string {
 }
 
 export function isTerminalCommand(tool: string): boolean {
-  const t = (tool || "").toLowerCase();
-  return t === "execute" || t === "run_command" || t === "bash" || t === "shell" || t === "terminal";
+  const t = (tool || "").toLowerCase().replace(/[\s-]+/g, "_");
+  return (
+    t === "execute"
+    || t === "run_command"
+    || t === "bash"
+    || t === "shell"
+    || t === "terminal"
+    || t === "command"
+    || t === "run_terminal_cmd"
+    || t === "powershell"
+    || t === "cmd"
+    || t.endsWith("_bash")
+    || t.endsWith("_shell")
+  );
 }
 
 export function getTerminalCommandString(raw_input?: unknown): string {
@@ -186,27 +246,96 @@ export function getTerminalCommandString(raw_input?: unknown): string {
   return typeof cmd === "string" ? cmd : "";
 }
 
-export function deriveToolDisplayName(tool: string, description: string, raw_input?: unknown): string {
+function isGenericToolLabel(value: string | null | undefined): boolean {
+  if (!value) return true;
+  return /^(tool|other|unknown)$/i.test(value.trim());
+}
+
+function vendorToolType(value: unknown): string | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const record = value as Record<string, unknown>;
+  const type = (
+    (typeof record.type === "string" && record.type.trim())
+    || (typeof record.variant === "string" && record.variant.trim())
+    || ""
+  );
+  if (!type || isGenericToolLabel(type)) return null;
+  if (/^[A-Z][A-Za-z0-9]+$/.test(type)) return type;
+  return null;
+}
+
+function vendorToolPayload(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const record = value as Record<string, unknown>;
+  const nested = record.FileContent
+    ?? record.file_content
+    ?? record.EditsApplied
+    ?? record.edits_applied
+    ?? record.Content
+    ?? record.content
+    ?? record.result;
+  if (nested && typeof nested === "object" && !Array.isArray(nested)) {
+    return nested as Record<string, unknown>;
+  }
+  return record;
+}
+
+function shortPathLabel(path: string): string {
+  const parts = path.split(/[\\/]/).filter(Boolean);
+  return parts.slice(-2).join("/") || path;
+}
+
+export function deriveToolDisplayName(
+  tool: string,
+  description: string,
+  raw_input?: unknown,
+  raw_output?: unknown,
+): string {
+  const typeName = vendorToolType(raw_input) ?? vendorToolType(raw_output);
+  const resolvedTool = isGenericToolLabel(tool) && typeName ? typeName : tool;
   if (
     description &&
     description !== tool &&
+    description !== resolvedTool &&
     !/^(Processing|Executing|Running|Tool)\b/i.test(description)
   ) {
     return description;
   }
-  if (raw_input && typeof raw_input === "object") {
-    const input = raw_input as Record<string, unknown>;
-    const path = (input.file_path ?? input.path) as string | undefined;
-    const command = input.command as string | undefined;
-    const url = input.url as string | undefined;
-    const toolName = (input.tool ?? input.name) as string | undefined;
+  const payload = vendorToolPayload(raw_input) ?? vendorToolPayload(raw_output);
+  if (payload) {
+    const path = (
+      payload.file_path
+      ?? payload.path
+      ?? payload.target_file
+      ?? payload.absolute_path
+      ?? payload.absolute_root_path
+      ?? payload.dir_path
+      ?? payload.directory
+      ?? payload.target_directory
+    ) as string | undefined;
+    const command = payload.command as string | undefined;
+    const url = payload.url as string | undefined;
+    const pattern = (
+      payload.pattern
+      ?? payload.query
+      ?? payload.regex
+    ) as string | undefined;
+    const toolName = (payload.tool ?? payload.name) as string | undefined;
 
     if (path) {
-      const shortPath = path.split("/").slice(-2).join("/");
-      const verb = localizeToolLabel(tool);
-      return tool && !["tool", "other"].includes(tool.toLowerCase())
+      const shortPath = shortPathLabel(path);
+      const verb = localizeToolLabel(resolvedTool);
+      return resolvedTool && !isGenericToolLabel(resolvedTool)
         ? chatHelpersT("tool.labelWithPath", "{tool}: {path}", { tool: verb, path: shortPath })
         : shortPath;
+    }
+    if (pattern && typeof pattern === "string" && pattern.trim()) {
+      const shortPattern = pattern.length > 48 ? `${pattern.slice(0, 45)}...` : pattern;
+      const verb = localizeToolLabel(resolvedTool);
+      return chatHelpersT("tool.labelWithPattern", "{tool}: {pattern}", {
+        tool: verb,
+        pattern: shortPattern,
+      });
     }
     if (command) {
       const shortCmd = command.length > 60 ? `${command.slice(0, 57)}...` : command;
@@ -216,10 +345,14 @@ export function deriveToolDisplayName(tool: string, description: string, raw_inp
       const shortUrl = url.length > 50 ? `${url.slice(0, 47)}...` : url;
       return chatHelpersT("tool.fetchWithUrl", "Fetch: {url}", { url: shortUrl });
     }
-    if (toolName) return String(toolName);
+    if (toolName && !isGenericToolLabel(String(toolName))) {
+      return localizeToolLabel(String(toolName));
+    }
   }
-  if (tool && !["tool", "other"].includes(tool.toLowerCase())) return localizeToolLabel(tool);
-  return description || chatHelpersT("tool.generic", "Tool");
+  if (resolvedTool && !isGenericToolLabel(resolvedTool)) return localizeToolLabel(resolvedTool);
+  return description && !isGenericToolLabel(description)
+    ? description
+    : chatHelpersT("tool.generic", "Tool");
 }
 
 export function isDiffString(s: string): boolean {

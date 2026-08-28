@@ -5,7 +5,13 @@ import { useTranslations } from "next-intl";
 import { ArrowRight, CheckCircle2, Circle, CircleDashed } from "lucide-react";
 import { MarkdownRenderer } from "@/shared/components/markdown/MarkdownRenderer";
 import { CopyButton } from "@/shared/components/code-block/copy-button";
-import type { SearchHit, TodoItem, ToolInputRow } from "@/features/agent/lib/tool-results/parse-tool-result";
+import {
+  relativeDisplayPath,
+  type SearchHit,
+  type TodoItem,
+  type ToolInputRow,
+  type TreeEntry,
+} from "@/features/agent/lib/tool-results/parse-tool-result";
 import { AgentToolFileGlyph } from "./AgentToolCard";
 import { AgentToolCodePreview } from "./AgentToolCodePreview";
 
@@ -32,25 +38,70 @@ export function AgentToolInputRows({ rows }: { rows: ToolInputRow[] }) {
 }
 
 export function AgentToolSearchBody({ hits }: { hits: SearchHit[] }) {
+  const grouped = new Map<string, SearchHit[]>();
+  for (const hit of hits) {
+    const list = grouped.get(hit.path) ?? [];
+    list.push(hit);
+    grouped.set(hit.path, list);
+  }
+  const paths = [...grouped.keys()];
   return (
     <ul className="max-h-72 overflow-auto py-1">
-      {hits.map((hit, index) => (
-        <li
-          key={`${hit.path}:${hit.line ?? 0}:${index}`}
-          className="flex items-baseline gap-2 px-3 py-1 text-[12px]"
-        >
-          <AgentToolFileGlyph path={hit.path} className="relative top-0.5" />
-          <span className="min-w-0 truncate font-mono text-foreground/80" title={hit.path}>
-            {hit.path}
-          </span>
-          {hit.line != null ? (
-            <span className="shrink-0 font-mono text-muted-foreground">{hit.line}</span>
-          ) : null}
-          {hit.text ? (
-            <span className="min-w-0 truncate font-mono text-muted-foreground" title={hit.text}>
-              {hit.text}
+      {[...grouped.entries()].map(([path, pathHits]) => (
+        <li key={path} className="px-3 py-1.5">
+          <div className="flex min-w-0 items-center gap-2 text-[12px]">
+            <AgentToolFileGlyph path={path} />
+            <span className="min-w-0 truncate font-mono text-foreground/80" title={path}>
+              {relativeDisplayPath(path, paths)}
             </span>
-          ) : null}
+          </div>
+          <ul className="mt-0.5 space-y-0.5 pl-6">
+            {pathHits.map((hit, index) => (
+              <li
+                key={`${path}:${hit.line ?? 0}:${index}`}
+                className="flex min-w-0 items-baseline gap-2 font-mono text-[12px] text-muted-foreground"
+              >
+                {hit.line != null ? (
+                  <span className="w-10 shrink-0 text-right tabular-nums">{hit.line}</span>
+                ) : null}
+                {hit.text ? (
+                  <span className="min-w-0 truncate" title={hit.text}>
+                    {hit.text}
+                  </span>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+export function AgentToolTreeBody({ entries }: { entries: TreeEntry[] }) {
+  return (
+    <ul className="max-h-96 overflow-auto py-1">
+      {entries.map((entry, index) => (
+        <li
+          key={`${entry.indent}:${entry.name}:${index}`}
+          className="flex min-w-0 items-center gap-2 py-0.5 pr-3 text-[12px]"
+          style={{ paddingLeft: 12 + entry.indent * 8 }}
+        >
+          {entry.kind === "note" ? (
+            <span className="truncate text-muted-foreground" title={entry.name}>
+              {entry.name}
+            </span>
+          ) : (
+            <>
+              <AgentToolFileGlyph path={entry.name} isDir={entry.isDir} />
+              <span
+                className="min-w-0 truncate font-mono text-foreground/80"
+                title={entry.name}
+              >
+                {entry.name}
+              </span>
+            </>
+          )}
         </li>
       ))}
     </ul>
@@ -64,7 +115,7 @@ export function AgentToolFilesBody({ paths }: { paths: string[] }) {
         <li key={`${path}-${index}`} className="flex items-center gap-2 px-3 py-1.5 text-[12px]">
           <AgentToolFileGlyph path={path} />
           <span className="min-w-0 truncate font-mono text-foreground/80" title={path}>
-            {path}
+            {relativeDisplayPath(path, paths)}
           </span>
         </li>
       ))}

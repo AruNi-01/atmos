@@ -5,7 +5,6 @@ import { useTranslations } from "next-intl";
 import { useTheme } from "next-themes";
 import { MultiFileDiff, PatchDiff } from "@pierre/diffs/react";
 import { parseDiffFromFile, parsePatchFiles, type FileContents } from "@pierre/diffs";
-import { CopyButton } from "@/shared/components/code-block/copy-button";
 import { diffSideCacheKey } from "@/features/diff/lib/diff-code-view-shared";
 import {
   ATMOS_DIFF_THEME,
@@ -55,6 +54,7 @@ function isValidPatch(patch: string): boolean {
 
 export function AgentToolDiffResult({
   path,
+  title,
   oldContent,
   newContent,
   patch,
@@ -62,6 +62,7 @@ export function AgentToolDiffResult({
   defaultOpen = false,
 }: {
   path: string;
+  title?: string;
   oldContent?: string;
   newContent?: string;
   patch?: string;
@@ -107,18 +108,15 @@ export function AgentToolDiffResult({
     expansionLineCount: 20,
   }), [resolvedTheme]);
 
-  const copyText = newContent || patch || oldContent || "";
-
   return (
     <AgentToolCard
-      variant="file"
+      variant="tool"
       icon={<AgentToolFileGlyph path={path} />}
-      title={path}
+      title={title || path}
       titleTooltip={path}
       status={status}
       defaultOpen={defaultOpen}
       meta={<AgentToolDiffStats additions={stats.additions} deletions={stats.deletions} />}
-      actions={copyText ? <CopyButton content={copyText} /> : null}
     >
       <div className="max-h-[28rem] overflow-auto">
         {isMounted ? (

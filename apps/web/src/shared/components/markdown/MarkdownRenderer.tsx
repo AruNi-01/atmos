@@ -138,7 +138,7 @@ function PlainTextWithLineNumbers({ code }: { code: string }) {
   const lines = code.split('\n');
 
   return (
-    <pre className="py-3">
+    <pre className="shiki-line-numbers py-3">
       <code>
         {lines.map((line, idx) => (
           <span key={idx} className="line block px-3 py-0.5 text-[13px] leading-relaxed">

@@ -108,6 +108,11 @@ export type ConversationMeta = {
   selected_thinking: string | null;
   selected_mode: string | null;
   supports_steer: boolean;
+  available_commands?: Array<{
+    name: string;
+    description: string;
+    hint?: string | null;
+  }>;
 };
 
 export type ConversationIndexEntry = {

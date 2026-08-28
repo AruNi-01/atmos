@@ -3,6 +3,7 @@ import {
   languageFromPath,
   parseSearchOutput,
   parseToolResult,
+  relativeDisplayPath,
   stripReadLineNumbers,
 } from "../parse-tool-result";
 
@@ -45,6 +46,29 @@ describe("stripReadLineNumbers", () => {
     ].join("\n");
     expect(stripReadLineNumbers(raw)).toBe(raw);
   });
+
+  it("strips sparse Grok content_concise arrows", () => {
+    const raw = [
+      "1→# Title",
+      "",
+      "body",
+      "10→next section",
+    ].join("\n");
+    expect(stripReadLineNumbers(raw)).toBe("# Title\n\nbody\nnext section");
+  });
+});
+
+describe("relativeDisplayPath", () => {
+  it("strips the shared directory prefix from grep hits", () => {
+    const paths = [
+      "/tmp/app/specs/README.md",
+      "/tmp/app/e2e/README.md",
+      "/tmp/app/README.md",
+    ];
+    expect(relativeDisplayPath(paths[0]!, paths)).toBe("specs/README.md");
+    expect(relativeDisplayPath(paths[1]!, paths)).toBe("e2e/README.md");
+    expect(relativeDisplayPath(paths[2]!, paths)).toBe("README.md");
+  });
 });
 
 describe("parseSearchOutput", () => {
@@ -68,6 +92,97 @@ describe("parseSearchOutput", () => {
 });
 
 describe("parseToolResult", () => {
+  it("unwraps Grok ListDir envelopes into a titled directory listing", () => {
+    const parsed = parseToolResult({
+      tool: "Tool",
+      description: "Tool",
+      raw_output: {
+        type: "ListDir",
+        Content: {
+          content: "- /tmp/app/\n  - README.md\n  - src/\n    - main.ts\n      [2 files in subtree: 2 *.ts]",
+          absolute_root_path: "/tmp/app",
+        },
+      },
+    });
+    expect(parsed.resolvedTool).toBe("ListDir");
+    expect(parsed.path).toBe("/tmp/app");
+    expect(parsed.presentation.kind).toBe("tree");
+    if (parsed.presentation.kind === "tree") {
+      expect(parsed.presentation.entries.map((entry) => entry.name)).toEqual([
+        "/tmp/app",
+        "README.md",
+        "src",
+        "main.ts",
+        "2 files in subtree: 2 *.ts",
+      ]);
+      expect(parsed.presentation.entries[2]?.isDir).toBe(true);
+      expect(parsed.presentation.entries[4]?.kind).toBe("note");
+    }
+    expect(parsed.showInput).toBe(false);
+  });
+
+  it("parses Grok GrepSearch file_matches instead of the summary line", () => {
+    const parsed = parseToolResult({
+      tool: "Tool",
+      description: "Tool",
+      content: [{ type: "text", text: "found 17 matches" }],
+      raw_output: {
+        type: "GrepSearch",
+        match_count: 17,
+        file_matches: [
+          {
+            path: "README.md",
+            matches: [
+              { line_number: 3, content: "# ATMOS" },
+              { line_number: 211, content: "# Run in desktop" },
+            ],
+          },
+          {
+            path: "specs/README.md",
+            matches: [{ line_number: 1, content: "# Specifications" }],
+          },
+        ],
+      },
+    });
+    expect(parsed.resolvedTool).toBe("GrepSearch");
+    expect(parsed.presentation.kind).toBe("search");
+    if (parsed.presentation.kind === "search") {
+      expect(parsed.presentation.hits).toEqual([
+        { path: "README.md", line: 3, text: "# ATMOS" },
+        { path: "README.md", line: 211, text: "# Run in desktop" },
+        { path: "specs/README.md", line: 1, text: "# Specifications" },
+      ]);
+    }
+  });
+
+  it("unwraps Grok ReadFile envelopes and prefers raw file content", () => {
+    const parsed = parseToolResult({
+      tool: "Tool",
+      description: "Tool",
+      content: [{ type: "text", text: "1→# Title\n\nbody\n10→more" }],
+      raw_output: {
+        type: "ReadFile",
+        FileContent: {
+          content: "1→# Title\n\nbody\n10→more",
+          absolute_path: "/tmp/app/README.md",
+          offset: null,
+          limit: 150,
+          raw_output: "# Title\n\nbody\nmore",
+          total_lines: 300,
+        },
+      },
+    });
+    expect(parsed.resolvedTool).toBe("ReadFile");
+    expect(parsed.path).toBe("/tmp/app/README.md");
+    expect(parsed.lineRange).toEqual({ start: 1, end: 150, total: 300 });
+    expect(parsed.presentation).toEqual({
+      kind: "code",
+      path: "/tmp/app/README.md",
+      language: "markdown",
+      code: "# Title\n\nbody\nmore",
+    });
+  });
+
   it("renders Read content as code and strips line prefixes", () => {
     const parsed = parseToolResult({
       tool: "Read",
@@ -119,7 +234,7 @@ describe("parseToolResult", () => {
     });
   });
 
-  it("treats a brand-new file as code instead of an all-green diff", () => {
+  it("renders a brand-new file as a Pierre diff against empty old content", () => {
     const parsed = parseToolResult({
       tool: "Write",
       content: [{
@@ -130,11 +245,12 @@ describe("parseToolResult", () => {
       }],
     });
     expect(parsed.presentation).toEqual({
-      kind: "code",
-      path: "src/new.ts",
-      language: "typescript",
-      code: "export const n = 1;\n",
-      hint: "new",
+      kind: "diff",
+      files: [{
+        path: "src/new.ts",
+        oldContent: "",
+        newContent: "export const n = 1;\n",
+      }],
     });
   });
 
@@ -295,17 +411,18 @@ describe("parseToolResult", () => {
     });
   });
 
-  it("uses Write input contents as a new file when there is no diff payload", () => {
+  it("uses Write input contents as a diff against empty old content", () => {
     const parsed = parseToolResult({
       tool: "Write",
       raw_input: { path: "src/a.ts", contents: "export const n = 1;\n" },
     });
     expect(parsed.presentation).toEqual({
-      kind: "code",
-      path: "src/a.ts",
-      language: "typescript",
-      code: "export const n = 1;\n",
-      hint: "new",
+      kind: "diff",
+      files: [{
+        path: "src/a.ts",
+        oldContent: "",
+        newContent: "export const n = 1;\n",
+      }],
     });
   });
 
@@ -327,7 +444,7 @@ describe("parseToolResult", () => {
     });
   });
 
-  it("treats a deleted-file diff as code with a deleted hint", () => {
+  it("treats a deleted-file diff as a Pierre diff", () => {
     const parsed = parseToolResult({
       tool: "Edit",
       content: [{
@@ -338,25 +455,99 @@ describe("parseToolResult", () => {
       }],
     });
     expect(parsed.presentation).toEqual({
-      kind: "code",
-      path: "src/gone.ts",
-      language: "typescript",
-      code: "export const n = 1;\n",
-      hint: "deleted",
+      kind: "diff",
+      files: [{
+        path: "src/gone.ts",
+        oldContent: "export const n = 1;\n",
+        newContent: "",
+      }],
     });
   });
 
-  it("shows Read offset and limit as input rows", () => {
+  it("unwraps Grok SearchReplace envelopes into a Pierre diff", () => {
+    const parsed = parseToolResult({
+      tool: "Tool",
+      content: [{
+        type: "diff",
+        path: "/tmp/app/INTRO.md",
+        old_content: "",
+        new_content: "# Atmos\n",
+      }],
+      raw_output: {
+        type: "SearchReplace",
+        EditsApplied: {
+          old_string: "",
+          new_string: "# Atmos\n",
+          absolute_path: "/tmp/app/INTRO.md",
+        },
+      },
+    });
+    expect(parsed.resolvedTool).toBe("SearchReplace");
+    expect(parsed.path).toBe("/tmp/app/INTRO.md");
+    expect(parsed.presentation).toEqual({
+      kind: "diff",
+      files: [{
+        path: "/tmp/app/INTRO.md",
+        oldContent: "",
+        newContent: "# Atmos\n",
+      }],
+    });
+  });
+
+  it("builds a SearchReplace diff from old_string/new_string when ACP content is missing", () => {
+    const parsed = parseToolResult({
+      tool: "Tool",
+      raw_output: {
+        type: "SearchReplace",
+        EditsApplied: {
+          old_string: "const a = 1;\n",
+          new_string: "const a = 2;\n",
+          absolute_path: "/tmp/app/src/a.ts",
+        },
+      },
+    });
+    expect(parsed.presentation).toEqual({
+      kind: "diff",
+      files: [{
+        path: "/tmp/app/src/a.ts",
+        oldContent: "const a = 1;\n",
+        newContent: "const a = 2;\n",
+      }],
+    });
+  });
+
+  it("captures Read offset and limit as a line range instead of input rows", () => {
     const parsed = parseToolResult({
       tool: "Read",
       raw_input: { path: "src/a.ts", offset: 10, limit: 40 },
       content: [{ type: "text", text: "fn main() {}\n" }],
     });
-    expect(parsed.showInput).toBe(true);
-    expect(parsed.inputRows).toEqual([
-      { key: "offset", value: "10" },
-      { key: "limit", value: "40" },
-    ]);
+    expect(parsed.showInput).toBe(false);
+    expect(parsed.lineRange).toEqual({ start: 10, end: 49 });
+    expect(parsed.presentation.kind).toBe("code");
+  });
+
+  it("uses FileContent offset so a partial Read keeps its real start line", () => {
+    const parsed = parseToolResult({
+      tool: "Tool",
+      raw_output: {
+        type: "ReadFile",
+        FileContent: {
+          absolute_path: "/tmp/app/src/a.ts",
+          offset: 40,
+          limit: 20,
+          total_lines: 200,
+          raw_output: "export function foo() {\n  return 1;\n}\n",
+        },
+      },
+    });
+    expect(parsed.lineRange).toEqual({ start: 40, end: 59, total: 200 });
+    expect(parsed.presentation).toEqual({
+      kind: "code",
+      path: "/tmp/app/src/a.ts",
+      language: "typescript",
+      code: "export function foo() {\n  return 1;\n}\n",
+    });
   });
 
   it("collects a diff object from raw_output", () => {

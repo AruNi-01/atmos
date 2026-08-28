@@ -15,11 +15,17 @@ import {
   PromptInputSubmit,
   PromptInputTextarea,
   PromptInputTools,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   usePromptInputAttachments,
 } from "@workspace/ui";
 import { Square } from "lucide-react";
+import { AgentIcon } from "./AgentIcon";
 import { useDialogStore, type QueuedAgentPrompt } from "@/app-shell/state/use-dialog-store";
-import type { AgentPlan, AgentUsage, AgentTurnUsage, AgentConfigOption } from "@/features/agent/hooks/use-agent-session";
+import type { AgentPlan, AgentConfigOption } from "@/features/agent/hooks/use-agent-session";
 import type { RegistryAgent } from "@/api/ws-api";
 import type { AgentChatMode } from "@/features/agent/types/index";
 import { registerActiveAgentComposer } from "@/features/agent/lib/agent/active-composer";
@@ -28,6 +34,8 @@ import type { AgentActivity } from "../lib/chat-helpers";
 import { PlanBlockView } from "./PlanBlockView";
 import { MessageQueueDock } from "./MessageQueueDock";
 import { ConfigOptionDropdown } from "./ConfigOptionDropdown";
+import { useAgentComposerPopovers } from "../hooks/use-agent-composer-popovers";
+import type { AgentChatSlashCommand } from "../hooks/use-conversation-chat-session";
 
 function PromptInputAttachmentsSection() {
   const attachments = usePromptInputAttachments();
@@ -54,6 +62,8 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
   onUpdateQueuedPrompt,
   onMoveQueuedPrompt,
   onSubmit,
+  agentLocked = false,
+  onProviderChange,
   canUseCurrentMode,
   isConnected,
   chatMode,
@@ -75,6 +85,8 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
   setWaitingForResponse,
   setEntries,
   stoppedRef,
+  projectPath = null,
+  availableCommands = [],
 }: {
   currentPlan: AgentPlan | null;
   isResumedSession: boolean;
@@ -82,7 +94,12 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
   onRemoveQueuedPrompt: (id: string) => void;
   onUpdateQueuedPrompt: (id: string, prompt: string) => void;
   onMoveQueuedPrompt: (id: string, toIndex: number) => void;
-  onSubmit: (message: { text: string; files?: import("ai").FileUIPart[] }) => Promise<void>;
+  onSubmit: (
+    message: { text: string; files?: import("ai").FileUIPart[] },
+    options?: { oneShot?: "queue" | "steer" },
+  ) => Promise<void>;
+  agentLocked?: boolean;
+  onProviderChange?: (providerId: string) => void;
   canUseCurrentMode: boolean;
   isConnected: boolean;
   chatMode: AgentChatMode;
@@ -104,9 +121,12 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
   setWaitingForResponse: React.Dispatch<React.SetStateAction<boolean>>;
   setEntries: React.Dispatch<React.SetStateAction<ThreadEntry[]>>;
   stoppedRef: React.MutableRefObject<boolean>;
+  projectPath?: string | null;
+  availableCommands?: AgentChatSlashCommand[];
 }) {
   const t = useTranslations("Agent.components");
   const setAgentChatDraft = useDialogStore((s) => s.setAgentChatDraft);
+  const clearAgentChatDraft = useDialogStore((s) => s.clearAgentChatDraft);
   const [localDraft, setLocalDraft] = useState(() =>
     useDialogStore.getState().getAgentChatDraft(
       sessionWorkspaceId,
@@ -116,6 +136,12 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
     ),
   );
   const persistedDraftRef = useRef(localDraft);
+  const showStop = Boolean(agentActivity.busy && !localDraft.trim());
+  const { handleComposerKeyDown, popovers, syncTriggers } = useAgentComposerPopovers({
+    availableCommands,
+    projectPath,
+    setDraft: setLocalDraft,
+  });
 
   useEffect(() => {
     return registerActiveAgentComposer(
@@ -178,9 +204,22 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
       )}
       <PromptInput
         onSubmit={async (msg) => {
-          await onSubmit({ text: msg.text, files: msg.files });
+          const previous = localDraft;
           setLocalDraft("");
           persistedDraftRef.current = "";
+          clearAgentChatDraft(
+            sessionWorkspaceId,
+            sessionProjectId,
+            chatMode,
+            instanceKey,
+          );
+          try {
+            await onSubmit({ text: msg.text, files: msg.files });
+          } catch (error) {
+            setLocalDraft(previous);
+            persistedDraftRef.current = previous;
+            throw error;
+          }
         }}
         className={`w-full border-0 shadow-none rounded-none ${(currentPlan || queuedPrompts.length > 0) ? "rounded-t-none" : "rounded-t-xl"}`}
         multiple
@@ -189,6 +228,7 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
         <PromptInputBody>
           <PromptInputTextarea
             data-agent-chat-input="true"
+            data-agent-chat-composer=""
             data-agent-chat-mode={chatMode}
             data-agent-chat-instance-key={instanceKey?.trim() || undefined}
             data-agent-chat-workspace-id={sessionWorkspaceId ?? undefined}
@@ -202,7 +242,13 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
             }
             disabled={!isConnected || !canUseCurrentMode}
             value={localDraft}
-            onChange={(e) => setLocalDraft(e.currentTarget.value)}
+            onChange={(e) => {
+              setLocalDraft(e.currentTarget.value);
+              syncTriggers(e.currentTarget);
+            }}
+            onKeyUp={(e) => syncTriggers(e.currentTarget)}
+            onClick={(e) => syncTriggers(e.currentTarget)}
+            onKeyDown={handleComposerKeyDown}
           />
         </PromptInputBody>
         <PromptInputFooter>
@@ -213,6 +259,32 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
             ) : null}
           </PromptInputTools>
           <div className="flex items-center gap-2">
+            {!agentLocked && installedAgents.length > 0 && onProviderChange ? (
+              <Select
+                value={registryId || installedAgents[0]?.id || ""}
+                onValueChange={onProviderChange}
+              >
+                <SelectTrigger className="h-8 text-xs min-w-[120px] border-border/50 bg-muted/20">
+                  <SelectValue placeholder={t("composer.selectAgent")} />
+                </SelectTrigger>
+                <SelectContent>
+                  {installedAgents.map((agent) => (
+                    <SelectItem key={agent.id} value={agent.id}>
+                      <span className="flex items-center gap-1.5">
+                        <AgentIcon
+                          registryId={agent.id}
+                          name={agent.name}
+                          size={14}
+                          isCustom={agent.install_method === "custom"}
+                          registryIcon={agent.icon}
+                        />
+                        <span className="truncate">{agent.name}</span>
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : null}
             {configOptions?.length > 0 && isConnected && (
               <div className="flex items-center gap-2">
                 {configOptions
@@ -231,9 +303,9 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
               </div>
             )}
             <PromptInputSubmit
-              status={agentActivity.busy ? "streaming" : undefined}
+              status={showStop ? "streaming" : undefined}
               onStop={
-                agentActivity.busy
+                showStop
                   ? () => {
                     stoppedRef.current = true;
                     sendCancel();
@@ -257,9 +329,9 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
                   : undefined
               }
               disabled={!isConnected || !canUseCurrentMode}
-              size={agentActivity.busy ? "sm" : "icon-sm"}
+              size="icon-sm"
             >
-              {agentActivity.busy ? (
+              {showStop ? (
                 <span className="flex items-center gap-1.5">
                   <Square className="size-4 shrink-0" />
                 </span>
@@ -268,6 +340,7 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
           </div>
         </PromptInputFooter>
       </PromptInput>
+      {popovers}
     </div>
   );
 });
