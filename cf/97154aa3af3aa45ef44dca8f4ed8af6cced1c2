@@ -1,0 +1,130 @@
+apps/desktop-electron/src/windows/secondary.ts
+  h_5be255725524c8 87-89,93,96,100
+apps/web/messages/en.json
+  h_5be255725524c8 385,2854-2860,7092-7093,7099
+apps/web/messages/zh.json
+  h_5be255725524c8 385,2854-2860,7092-7093,7099
+apps/web/src/app-shell/CenterStage.tsx
+  h_5be255725524c8 1794-1799,1804
+apps/web/src/app-shell/CenterStageTabBar.tsx
+  h_5be255725524c8 67,773-774,776,779-789,2065
+apps/web/src/app-shell/__tests__/agent-chat-entry-points.test.ts
+  h_5be255725524c8 28-29,32-69
+apps/web/src/app-shell/center-stage-activate.ts
+  h_5be255725524c8 20,38-39
+apps/web/src/app-shell/workspace-center-frame.tsx
+  h_5be255725524c8 794,802-803,805-806,808,810-821
+apps/web/src/app/globals.css
+  h_5be255725524c8 126-127,129,136-137,139
+apps/web/src/features/agent/components/AgentChatEntryView.tsx
+  h_5be255725524c8 37,74,86
+apps/web/src/features/agent/components/AgentChatHeader.tsx
+  h_5be255725524c8 32-33,40,63-64,87,95,109-110,129,161-162,194,196,209-213,227,313,369,384-385,536
+apps/web/src/features/agent/components/AgentChatHistoryPopover.tsx
+  h_5be255725524c8 18,23,30,123
+apps/web/src/features/agent/components/AgentChatHistorySidebar.tsx
+  h_5be255725524c8 15,21,28,34,45,134,162,213,438,442
+apps/web/src/features/agent/components/AgentChatPanel.tsx
+  h_5be255725524c8 3-47,49-51,54-55,59,62-73,76-77,79-83,85-90,92-272,275-397,399-414,416-543,545-546,548-551,553-605,608-942
+apps/web/src/features/agent/components/AgentChatStandalonePage.tsx
+  h_5be255725524c8 12,17-18,23,25,27-29
+apps/web/src/features/agent/components/AgentChatWorkspace.tsx
+  h_5be255725524c8 3,7-9,11,13-24,26,28-36,38,40-41
+apps/web/src/features/agent/components/AgentPromptComposer.tsx
+  h_5be255725524c8 18-22,26,28,37-38,65-66,88-89,97-102,124-125,129,139-144,207,210-222,231,245-251,262-287,306,308,332,334,343
+apps/web/src/features/agent/components/ToolOrSkillBlock.tsx
+  h_5be255725524c8 5,10-13
+apps/web/src/features/agent/components/tool-results/AgentToolBodies.tsx
+  h_5be255725524c8 8-14,41-47,50-84,86-88,90-92,94-104,118
+apps/web/src/features/agent/components/tool-results/AgentToolCard.tsx
+  h_5be255725524c8 11,15,20
+apps/web/src/features/agent/components/tool-results/AgentToolCodePreview.tsx
+  h_5be255725524c8 95,100,121-126
+apps/web/src/features/agent/components/tool-results/AgentToolDiffResult.tsx
+  h_5be255725524c8 57,65,113,115
+apps/web/src/features/agent/components/tool-results/AgentToolResultBlock.tsx
+  h_5be255725524c8 10,14,16-20,40,48-58,68,70,80,82,95,99,113-122,131-136,140-144,146,155,169,187,189,194-198,206,208,213
+apps/web/src/features/agent/hooks/use-agent-chat-session-types.ts
+  h_5be255725524c8 33-34,36
+apps/web/src/features/agent/hooks/use-agent-composer-popovers.ts
+  h_5be255725524c8 1-228
+apps/web/src/features/agent/hooks/use-conversation-chat-session.ts
+  h_5be255725524c8 1-774
+apps/web/src/features/agent/lib/__tests__/composer-triggers.test.ts
+  h_5be255725524c8 1-14
+apps/web/src/features/agent/lib/__tests__/conversation-events.test.ts
+  h_5be255725524c8 7-19,89-140
+apps/web/src/features/agent/lib/__tests__/conversation-thread.test.ts
+  h_5be255725524c8 1-133
+apps/web/src/features/agent/lib/__tests__/no-acp-schema.test.ts
+  h_5be255725524c8 30-31
+apps/web/src/features/agent/lib/agent/thread/copy.ts
+  h_5be255725524c8 7
+apps/web/src/features/agent/lib/chat-helpers.ts
+  h_5be255725524c8 43-44,50,86,88-91,94-99,104,106-109,111-113,119-123,146,148-151,154-158,165-168,170-174,176-179,226-239,249-295,299,304-323,326-328,332-339,348-350,352-355
+apps/web/src/features/agent/lib/composer-triggers.ts
+  h_5be255725524c8 1-72
+apps/web/src/features/agent/lib/conversation-events.ts
+  h_5be255725524c8 16-17,26-29,32-34,38-53,61,91-113,151-154,159,218,224-227,255,276-280,288-295
+apps/web/src/features/agent/lib/conversation-thread.ts
+  h_5be255725524c8 1-262
+apps/web/src/features/agent/lib/desktop-agent-chat-window.ts
+  h_5be255725524c8 12,16,46-47,54-55,80,84
+apps/web/src/features/agent/lib/tool-results/__tests__/parse-tool-result.test.ts
+  h_5be255725524c8 6,49-71,95-185,237,248-253,414,420-425,447,458-515,519,525-550
+apps/web/src/features/agent/lib/tool-results/parse-tool-result.ts
+  h_5be255725524c8 10-22,40,60-61,100-112,128-150,164-232,234-238,259,272-288,316-327,338-339,341,347-350,394-528,585,656-679,746-749,765-775,778-782,784,787,790-791,793,795,799-804,806,808,810,812-816,820-823,826,833,835-840,842,861,887,894-895
+apps/web/src/features/agent/store/use-agent-chat-center-tabs.test.ts
+  h_5be255725524c8 1-56
+apps/web/src/features/agent/store/use-agent-chat-center-tabs.ts
+  h_5be255725524c8 12,15,30,32-47,74,85,96-155
+apps/web/src/features/canvas/components/widgets/CanvasAgentChatWidget.tsx
+  h_5be255725524c8 51-52,58,69,89-90
+apps/web/src/features/canvas/hooks/use-add-atmos-widget.ts
+  h_5be255725524c8 99
+apps/web/src/features/canvas/lib/canvas-widget-shape.ts
+  h_5be255725524c8 103,107-108
+apps/web/src/shared/components/markdown/MarkdownRenderer.tsx
+  h_5be255725524c8 141
+apps/web/src/shared/lib/standalone-window-handoff.test.ts
+  h_5be255725524c8 1-11
+apps/web/src/shared/lib/standalone-window-handoff.ts
+  h_5be255725524c8 105-106,112,114-120
+bun.lock
+  h_5be255725524c8 561
+crates/agent/src/acp_client/client.rs
+  h_5be255725524c8 26-79,85,87-90,98,102-104,109,114,119-129,156,274,544-545,552,583-584,591,661-684,801-872
+crates/agent/src/domain/event.rs
+  h_5be255725524c8 58-66,140-145
+crates/agent/src/domain/mod.rs
+  h_5be255725524c8 8-9
+crates/agent/src/lib.rs
+  h_5be255725524c8 25-30
+crates/agent/src/providers/acp/adapter.rs
+  h_5be255725524c8 286-299,313,321,323,465-472
+crates/core-service/src/service/conversation/projector.rs
+  h_5be255725524c8 284-295
+crates/core-service/src/service/conversation/service.rs
+  h_5be255725524c8 241,246-250,254-259
+crates/core-service/src/service/conversation/store.rs
+  h_5be255725524c8 64,684-705
+crates/core-service/src/service/conversation/types.rs
+  h_5be255725524c8 68-69,323-325
+e2e/tests/specs/APP-067_atmos-agent-chat.e2e.ts
+  h_5be255725524c8 61-71,76
+package.json
+  h_5be255725524c8 72
+packages/api-types/src/ws/dto/conversation.ts
+  h_5be255725524c8 111-115
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "cf97154aa3af3aa45ef44dca8f4ed8af6cced1c2",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
