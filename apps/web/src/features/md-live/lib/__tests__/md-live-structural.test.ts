@@ -83,6 +83,12 @@ describe("md-live structural gates", () => {
     expect(slash).not.toContain("onMouseEnter={() => setSelectedIndex");
     expect(toolbar).toContain("DropdownMenu");
     expect(toolbar).toContain("DropdownMenuContent");
+    expect(toolbar).toContain("activeBlockId");
+    expect(toolbar).toContain("convertIds");
+    expect(toolbar).toContain("toolbarOrderedList");
+    expect(toolbar).toContain("slashToggle");
+    expect(toolbar).toContain("data-selected");
+    expect(toolbar).toContain("aria-current");
     expect(toolbar).toContain("Tooltip");
     expect(toolbar).toContain("TooltipContent");
     expect(toolbar).toContain("TooltipProvider");

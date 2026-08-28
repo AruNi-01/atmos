@@ -307,6 +307,18 @@ export const mdLiveTaskItemView = $prose(() => {
     props: {
       nodeViews: {
         list_item: (node, view, getPos) => {
+          if (mdLiveTaskMarkerOf(node.attrs) == null) {
+            const dom = document.createElement("li");
+            return {
+              dom,
+              contentDOM: dom,
+              update: (updated: Node) => {
+                if (updated.type.name !== "list_item") return false;
+                return mdLiveTaskMarkerOf(updated.attrs) == null;
+              },
+            };
+          }
+
           const dom = document.createElement("li");
           const button = document.createElement("button");
           button.type = "button";
@@ -368,6 +380,7 @@ export const mdLiveTaskItemView = $prose(() => {
             contentDOM: body,
             update: (updated: Node) => {
               if (updated.type.name !== "list_item") return false;
+              if (mdLiveTaskMarkerOf(updated.attrs) == null) return false;
               paint(updated);
               return true;
             },

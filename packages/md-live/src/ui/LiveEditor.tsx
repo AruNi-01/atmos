@@ -45,13 +45,19 @@ import {
   insertText,
   pushStreamChunk,
   deleteSlashQuery,
+  focusEditorCaret,
   runBlockAction,
   startStream,
 } from "./actions";
 import { cn } from "./cn";
 import { createMdLiveOnChangeGate } from "./onchange-gate";
 import { mdLiveHeadingIdPlugin, slugMdLiveHeading } from "./heading-id";
-import { isMdLiveOverlayEventTarget, shouldShowMdLiveSelectionToolbar } from "./selection";
+import {
+  isMdLiveOverlayEventTarget,
+  mdLiveSelectionBlockKindId,
+  shouldShowMdLiveSelectionToolbar,
+} from "./selection";
+import { mdLiveVisibleConvertIds } from "./convert-block";
 import {
   applyMdLiveRemarkConfig,
   formatMdLiveSerializedMarkdown,
@@ -223,36 +229,41 @@ export function MdLiveEditor({
     slashProvider.onHide = () => setOverlayVisible(slashHost, false);
     slashProviderRef.current = slashProvider;
 
-    const Toolbar = selectionToolbarRef.current;
-    tooltipRoot.render(
-      <Toolbar
-        copy={copyRef.current}
-        onBlock={(action) => run((ctx) => runBlockAction(ctx, action))}
-        onCopy={() => {
-          const selection = run((ctx) => getSelectionMarkdown(ctx)) ?? "";
-          if (!selection.trim()) return;
-          void navigator.clipboard.writeText(selection);
-        }}
-        onCopyPrompt={onCopyPromptRef.current}
-        onAi={
-          onAiActionRef.current
-            ? (kind) => {
-                const selection = run((ctx) => getSelectionMarkdown(ctx)) ?? "";
-                if (!selection.trim()) return;
-                onAiActionRef.current?.(kind, selection);
-              }
-            : undefined
-        }
-      />,
-    );
+    const renderToolbar = (activeBlockId: string | null = null, convertIds: string[] = []) => {
+      const Toolbar = selectionToolbarRef.current;
+      tooltipRoot?.render(
+        <Toolbar
+          copy={copyRef.current}
+          activeBlockId={activeBlockId}
+          convertIds={convertIds}
+          onBlock={(action) => run((ctx) => runBlockAction(ctx, action))}
+          onCopy={() => {
+            const selection = run((ctx) => getSelectionMarkdown(ctx)) ?? "";
+            if (!selection.trim()) return;
+            void navigator.clipboard.writeText(selection);
+          }}
+          onCopyPrompt={onCopyPromptRef.current}
+          onAi={
+            onAiActionRef.current
+              ? (kind) => {
+                  const selection = run((ctx) => getSelectionMarkdown(ctx)) ?? "";
+                  if (!selection.trim()) return;
+                  onAiActionRef.current?.(kind, selection);
+                }
+              : undefined
+          }
+        />,
+      );
+    };
+    renderToolbar();
 
     const pointerSelecting = { current: false };
     const tooltipProvider = new TooltipProvider({
       content: tooltipHost,
       debounce: 20,
       floatingUIOptions: { strategy: "fixed" },
-      shouldShow: (view) =>
-        shouldShowMdLiveSelectionToolbar({
+      shouldShow: (view) => {
+        const show = shouldShowMdLiveSelectionToolbar({
           pointerSelecting: pointerSelecting.current,
           selectionEmpty: view.state.selection.empty,
           selectedText: view.state.doc.textBetween(
@@ -262,7 +273,15 @@ export function MdLiveEditor({
           editable: view.editable,
           editorFocused: view.hasFocus(),
           tooltipFocused: tooltipHost.contains(document.activeElement),
-        }),
+        });
+        if (show) {
+          renderToolbar(
+            mdLiveSelectionBlockKindId(view.state.doc, view.state.selection.from, view.state.selection.to),
+            mdLiveVisibleConvertIds(view.state),
+          );
+        }
+        return show;
+      },
     });
     tooltipProvider.onShow = () => setOverlayVisible(tooltipHost, true);
     tooltipProvider.onHide = () => setOverlayVisible(tooltipHost, false);
@@ -398,6 +417,7 @@ export function MdLiveEditor({
       }
       commitMarkdown(handle.getMarkdown());
       commitMarkdown.arm();
+      run((ctx) => focusEditorCaret(ctx));
       onReadyRef.current?.(handle);
     });
 

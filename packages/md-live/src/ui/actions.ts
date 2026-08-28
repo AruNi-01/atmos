@@ -6,16 +6,12 @@ import {
   serializerCtx,
 } from "@milkdown/kit/core";
 import { Slice } from "@milkdown/kit/prose/model";
+import { TextSelection } from "@milkdown/kit/prose/state";
 import {
-  createCodeBlockCommand,
   insertHrCommand,
   toggleEmphasisCommand,
   toggleInlineCodeCommand,
   toggleStrongCommand,
-  wrapInBlockquoteCommand,
-  wrapInBulletListCommand,
-  wrapInHeadingCommand,
-  wrapInOrderedListCommand,
 } from "@milkdown/kit/preset/commonmark";
 import { insertTableCommand, toggleStrikethroughCommand } from "@milkdown/kit/preset/gfm";
 import {
@@ -31,7 +27,23 @@ import {
 } from "@milkdown/kit/plugin/diff";
 import type { MdLiveBlockAction } from "./types";
 import { formatMdLiveSerializedMarkdown } from "./markdown-stringify";
-import { insertMdLiveToggle } from "./toggle";
+import { applyMdLiveBlockConvert } from "./convert-block";
+
+export function focusEditorCaret(ctx: Ctx): void {
+  const view = ctx.get(editorViewCtx);
+  const { state } = view;
+  let pos: number | null = null;
+  state.doc.descendants((node, nodePos) => {
+    if (pos != null) return false;
+    if (!node.isTextblock) return;
+    pos = nodePos + 1;
+    return false;
+  });
+  if (pos != null && (!state.selection.empty || state.selection.from !== pos)) {
+    view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, pos)));
+  }
+  view.focus();
+}
 
 export function getEditorMarkdown(ctx: Ctx): string {
   const view = ctx.get(editorViewCtx);
@@ -77,41 +89,14 @@ export function runBlockAction(ctx: Ctx, action: MdLiveBlockAction, replaceSlash
   const commands = ctx.get(commandsCtx);
   switch (action.type) {
     case "paragraph":
-      commands.call(wrapInHeadingCommand.key, 0);
-      return;
     case "heading":
-      commands.call(wrapInHeadingCommand.key, action.level);
-      return;
     case "bullet-list":
-      commands.call(wrapInBulletListCommand.key);
-      return;
     case "ordered-list":
-      commands.call(wrapInOrderedListCommand.key);
-      return;
-    case "task-list": {
-      commands.call(wrapInBulletListCommand.key);
-      const view = ctx.get(editorViewCtx);
-      const { $from } = view.state.selection;
-      for (let depth = $from.depth; depth > 0; depth -= 1) {
-        if ($from.node(depth).type.name !== "list_item") continue;
-        view.dispatch(view.state.tr.setNodeMarkup($from.before(depth), undefined, {
-          ...$from.node(depth).attrs,
-          checked: false,
-          taskMarker: " ",
-        }));
-        return;
-      }
-      insertMarkdown(ctx, "- [ ] \n");
-      return;
-    }
+    case "task-list":
     case "quote":
-      commands.call(wrapInBlockquoteCommand.key);
-      return;
     case "toggle":
-      insertMdLiveToggle(ctx);
-      return;
     case "code":
-      commands.call(createCodeBlockCommand.key);
+      applyMdLiveBlockConvert(ctx, action);
       return;
     case "inline-code": {
       const view = ctx.get(editorViewCtx);

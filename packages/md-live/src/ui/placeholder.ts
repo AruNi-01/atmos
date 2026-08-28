@@ -1,10 +1,12 @@
 import type { Node } from "@milkdown/kit/prose/model";
-import type { EditorView } from "@milkdown/kit/prose/view";
-import { Plugin, PluginKey } from "@milkdown/kit/prose/state";
+import { Plugin, PluginKey, type PluginSpec } from "@milkdown/kit/prose/state";
 import { $prose } from "@milkdown/kit/utils";
 import { mdLiveLabel } from "./copy";
 import { mdLiveTaskMarkerOf } from "./task-list";
 import type { MdLiveCopyFn } from "./types";
+
+/** Same `EditorView` as `PluginSpec.view`, not `@milkdown/kit/prose/view` (duplicate copies). */
+type MdLiveEditorView = Parameters<NonNullable<PluginSpec<unknown>["view"]>>[0];
 
 export function mdLivePlaceholderTravel(
   fromY: number,
@@ -49,6 +51,25 @@ type PlaceholderPose = {
 const MOVE_MS = 200;
 const TEXT_MS = 160;
 
+function placeholderTypeStyle(key: string): { fontSize: string; fontWeight: string } {
+  switch (key) {
+    case "slashHeading1":
+      return { fontSize: "2.25em", fontWeight: "800" };
+    case "slashHeading2":
+      return { fontSize: "1.5em", fontWeight: "700" };
+    case "slashHeading3":
+      return { fontSize: "1.25em", fontWeight: "600" };
+    case "slashHeading4":
+      return { fontSize: "1em", fontWeight: "600" };
+    case "slashHeading5":
+      return { fontSize: "0.875em", fontWeight: "600" };
+    case "slashHeading6":
+      return { fontSize: "0.85em", fontWeight: "600" };
+    default:
+      return { fontSize: "14px", fontWeight: "400" };
+  }
+}
+
 export function mdLivePlaceholderCopyKey(node: Node, parent: Node | null): string | null {
   switch (node.type.name) {
     case "heading": {
@@ -78,7 +99,7 @@ export function mdLivePlaceholderCopyKey(node: Node, parent: Node | null): strin
   }
 }
 
-function placeholderAt(view: EditorView): {
+function placeholderAt(view: MdLiveEditorView): {
   pos: number;
   key: string;
   nodeDOM: HTMLElement | null;
@@ -92,16 +113,18 @@ function placeholderAt(view: EditorView): {
   const key = mdLivePlaceholderCopyKey(node, parent);
   if (!key) return null;
   const pos = $from.start();
-  const nodeDOM = view.nodeDOM($from.before($from.depth));
-  return {
-    pos,
-    key,
-    nodeDOM: nodeDOM instanceof HTMLElement ? nodeDOM : null,
-  };
+  let nodeDOM: HTMLElement | null = null;
+  try {
+    const raw = view.nodeDOM($from.before($from.depth));
+    nodeDOM = raw instanceof HTMLElement ? raw : null;
+  } catch {
+    nodeDOM = null;
+  }
+  return { pos, key, nodeDOM };
 }
 
 function createPlaceholderLayer(
-  view: EditorView,
+  view: MdLiveEditorView,
   getCopy: () => MdLiveCopyFn | undefined,
 ) {
   const layer = document.createElement("div");
@@ -163,22 +186,26 @@ function createPlaceholderLayer(
   const poseAt = (): PlaceholderPose | null => {
     const info = placeholderAt(view);
     if (!info) return null;
-    const coords = view.coordsAtPos(info.pos);
-    const clip = view.dom.getBoundingClientRect();
-    if (coords.top < clip.top - 8 || coords.top > clip.bottom - 4) return null;
-    const hostBox = host.getBoundingClientRect();
-    const style = info.nodeDOM ? getComputedStyle(info.nodeDOM) : null;
-    return {
-      x: coords.left - hostBox.left + host.scrollLeft,
-      y: coords.top - hostBox.top + host.scrollTop,
-      h: Math.max(coords.bottom - coords.top, 1),
-      fontSize: style?.fontSize ?? "14px",
-      fontWeight: style?.fontWeight ?? "400",
-      fontFamily: style?.fontFamily ?? "inherit",
-      letterSpacing: style?.letterSpacing ?? "normal",
-      key: info.key,
-      text: mdLiveLabel(info.key, getCopy()),
-    };
+    try {
+      const coords = view.coordsAtPos(info.pos);
+      const clip = view.dom.getBoundingClientRect();
+      if (coords.top < clip.top - 8 || coords.top > clip.bottom - 4) return null;
+      const hostBox = host.getBoundingClientRect();
+      const type = placeholderTypeStyle(info.key);
+      return {
+        x: coords.left - hostBox.left + host.scrollLeft,
+        y: coords.top - hostBox.top + host.scrollTop,
+        h: Math.max(coords.bottom - coords.top, 1),
+        fontSize: type.fontSize,
+        fontWeight: type.fontWeight,
+        fontFamily: "inherit",
+        letterSpacing: "normal",
+        key: info.key,
+        text: mdLiveLabel(info.key, getCopy()),
+      };
+    } catch {
+      return null;
+    }
   };
 
   const hide = (animate: boolean) => {
@@ -242,6 +269,7 @@ function createPlaceholderLayer(
       applyType(pose);
       return;
     }
+    const keyChanged = pose.key !== currentKey;
     const canMorph = animate && !reduced && visible && currentKey != null;
     if (!canMorph) {
       snapTo(pose);
@@ -252,17 +280,14 @@ function createPlaceholderLayer(
     const liveScale = readMatrix(morph).scale;
     const fromFont = targetFontPx * liveScale;
     const travel = mdLivePlaceholderTravel(live.y, pose.y, fromFont, parsePx(pose.fontSize));
-    const keyChanged = pose.key !== currentKey;
 
     clearTimers();
     applyType(pose);
-    setTranslate(live.x, live.y, false);
-    setScale(travel.startScale, false);
-    void layer.offsetWidth;
     setTranslate(pose.x, pose.y, true);
     setScale(1, true);
 
     if (keyChanged) {
+      setScale(travel.startScale, false);
       const outgoing = labels[active];
       const incoming = labels[1 - active];
       outgoing.style.setProperty("--md-live-ph-leave", `${travel.dir * 8}px`);
@@ -273,9 +298,9 @@ function createPlaceholderLayer(
       incoming.classList.remove("is-visible", "is-leave");
       incoming.classList.add("is-enter");
       morph.append(incoming);
-      void incoming.offsetWidth;
       incoming.classList.add("is-visible");
       active = 1 - active;
+      setScale(1, true);
       swapTimer = window.setTimeout(() => {
         resetLabel(outgoing);
         outgoing.textContent = "";
@@ -292,20 +317,35 @@ function createPlaceholderLayer(
     }, MOVE_MS);
   };
 
-  const onScroll = () => sync(false);
+  let raf = 0;
+  const schedule = (animate: boolean) => {
+    window.cancelAnimationFrame(raf);
+    raf = window.requestAnimationFrame(() => {
+      raf = 0;
+      sync(animate);
+    });
+  };
+
+  const onScroll = () => schedule(false);
+  const onFocusChange = () => schedule(false);
   const scroller = view.dom.closest("#editor-preview-root") ?? host;
   view.dom.addEventListener("scroll", onScroll, true);
+  view.dom.addEventListener("focusin", onFocusChange);
+  view.dom.addEventListener("focusout", onFocusChange);
   scroller.addEventListener("scroll", onScroll);
   window.addEventListener("scroll", onScroll, true);
   window.addEventListener("resize", onScroll);
 
-  sync(false);
+  schedule(false);
 
   return {
-    update: () => sync(true),
+    update: () => schedule(true),
     destroy: () => {
+      window.cancelAnimationFrame(raf);
       clearTimers();
       view.dom.removeEventListener("scroll", onScroll, true);
+      view.dom.removeEventListener("focusin", onFocusChange);
+      view.dom.removeEventListener("focusout", onFocusChange);
       scroller.removeEventListener("scroll", onScroll);
       window.removeEventListener("scroll", onScroll, true);
       window.removeEventListener("resize", onScroll);
