@@ -122,6 +122,8 @@ export function AgentChatWorkspace({
   const lastSeq = useRef(0);
   const [renameId, setRenameId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
+  const [editingQueueId, setEditingQueueId] = useState<string | null>(null);
+  const [editingQueueValue, setEditingQueueValue] = useState("");
 
   const load = useCallback(async () => {
     const snapshot = await conversationApi.get(conversationId);
@@ -525,17 +527,39 @@ export function AgentChatWorkspace({
             <div className="mb-1 font-medium">{t("queued")}</div>
             {queue.map((item, index) => (
               <div key={item.id} className="mb-1 flex items-center gap-2">
-                <span className="min-w-0 flex-1 truncate">{item.prompt}</span>
+                {editingQueueId === item.id ? (
+                  <input
+                    className="min-w-0 flex-1 rounded-sm border border-border bg-background px-1 text-xs"
+                    value={editingQueueValue}
+                    autoFocus
+                    aria-label={t("edit")}
+                    onChange={(event) => setEditingQueueValue(event.target.value)}
+                    onBlur={async () => {
+                      if (editingQueueValue.trim() && editingQueueValue.trim() !== item.prompt) {
+                        await conversationApi.queueUpdate(conversationId, item.id, {
+                          text: editingQueueValue.trim(),
+                        });
+                        void load();
+                      }
+                      setEditingQueueId(null);
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.currentTarget.blur();
+                      }
+                      if (event.key === "Escape") {
+                        setEditingQueueId(null);
+                      }
+                    }}
+                  />
+                ) : (
+                  <span className="min-w-0 flex-1 truncate">{item.prompt}</span>
+                )}
                 <button
                   type="button"
-                  onClick={async () => {
-                    const edited = window.prompt(t("edit"), item.prompt);
-                    if (edited && edited.trim()) {
-                      await conversationApi.queueUpdate(conversationId, item.id, {
-                        text: edited.trim(),
-                      });
-                      void load();
-                    }
+                  onClick={() => {
+                    setEditingQueueId(item.id);
+                    setEditingQueueValue(item.prompt);
                   }}
                 >
                   {t("edit")}

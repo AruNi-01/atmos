@@ -8,6 +8,7 @@ use chrono::Utc;
 use serde::Serialize;
 
 use crate::error::{Result, ServiceError};
+use crate::utils::path_boundary::{path_or_existing_parent_within_root, path_within_root};
 
 use super::types::{
     ConversationIndexEntry, ConversationMeta, ConversationSnapshot, CreateConversationRequest,
@@ -72,6 +73,7 @@ impl ConversationStore {
         }
         let dir = self.dir_for(&id);
         fs::create_dir_all(&dir).map_err(io_err)?;
+        fs::create_dir_all(dir.join("attachments")).map_err(io_err)?;
         self.write_meta(&meta)?;
         self.write_queue_unlocked(&id, &[])?;
         File::create(dir.join("transcript.jsonl")).map_err(io_err)?;
@@ -221,8 +223,53 @@ impl ConversationStore {
         read_json(&path)
     }
 
-    fn dir_for(&self, id: &str) -> PathBuf {
+    pub fn dir_for(&self, id: &str) -> PathBuf {
         self.root.join(id)
+    }
+
+    pub fn save_attachment(&self, id: &str, filename: &str, data: &[u8]) -> Result<PathBuf> {
+        require_conversation_id(id)?;
+        let _meta = self.get_meta(id)?;
+        let lock = self.lock_arc(id);
+        let _guard = lock.lock().expect("conversation lock");
+        let root = self.dir_for(id);
+        let dir = root.join("attachments");
+        fs::create_dir_all(&dir).map_err(io_err)?;
+        let ts = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis();
+        let safe_filename = filename.replace(['/', '\\', '\0'], "_");
+        let path = dir.join(format!("{ts}_{safe_filename}"));
+        if !path_or_existing_parent_within_root(&path, &root) {
+            return Err(ServiceError::Validation(
+                "attachment path escapes conversation directory".into(),
+            ));
+        }
+        fs::write(&path, data).map_err(io_err)?;
+        Ok(path)
+    }
+
+    pub fn validate_attachment_paths(&self, id: &str, paths: &[String]) -> Result<()> {
+        require_conversation_id(id)?;
+        if paths.is_empty() {
+            return Ok(());
+        }
+        let root = self.dir_for(id);
+        for path in paths {
+            let candidate = PathBuf::from(path);
+            if !path_within_root(&candidate, &root) {
+                return Err(ServiceError::Validation(
+                    "attachment is outside the conversation directory".into(),
+                ));
+            }
+            if !candidate.is_file() {
+                return Err(ServiceError::Validation(format!(
+                    "attachment not found: {path}"
+                )));
+            }
+        }
+        Ok(())
     }
 
     fn lock_arc(&self, id: &str) -> Arc<Mutex<()>> {
@@ -567,6 +614,25 @@ mod tests {
                 title: None,
             })
             .unwrap()
+    }
+
+    #[test]
+    fn save_attachment_stays_in_conversation_dir() {
+        let (_dir, store) = store();
+        let meta = create(&store, "/tmp/a");
+        let path = store
+            .save_attachment(&meta.id, "note.txt", b"hello")
+            .unwrap();
+        assert!(path.starts_with(store.dir_for(&meta.id).join("attachments")));
+        assert_eq!(fs::read(&path).unwrap(), b"hello");
+        store
+            .validate_attachment_paths(&meta.id, &[path.to_string_lossy().into()])
+            .unwrap();
+        let escaped = _dir.path().join("outside.txt");
+        fs::write(&escaped, b"nope").unwrap();
+        assert!(store
+            .validate_attachment_paths(&meta.id, &[escaped.to_string_lossy().into()])
+            .is_err());
     }
 
     #[test]

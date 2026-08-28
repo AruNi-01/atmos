@@ -880,14 +880,18 @@ export const agentApi = {
   },
 
   /**
-   * Upload attachment files to workspace .atmos/attachments/ directory.
-   * Returns the saved file paths that can be referenced in agent prompts.
+   * Upload attachment files. Pass `conversationId` to store under the
+   * conversation directory; otherwise files go to `{localPath}/.atmos/attachments/`.
    */
   uploadAttachments: async (
     localPath: string,
-    files: { url: string; filename?: string; mediaType?: string }[]
+    files: { url: string; filename?: string; mediaType?: string }[],
+    conversationId?: string | null,
   ): Promise<{ paths: string[] }> => {
     const formData = new FormData();
+    if (conversationId) {
+      formData.append('conversation_id', conversationId);
+    }
     formData.append('local_path', localPath);
 
     for (const file of files) {

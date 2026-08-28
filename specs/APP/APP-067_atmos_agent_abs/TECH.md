@@ -187,7 +187,7 @@ pub enum AgentEvent {
 
 `UserMessageKind` is `Normal | Steer`. Queue items are **not** provider events until dispatched as a new turn.
 
-ACP mapper (`providers/acp`) is the only module allowed to import `vendor/agent-client-protocol-schema`. It converts `AcpSessionEvent` → `AgentEvent` and maps `steer` to a second `session/prompt` only when capabilities say the agent will accept it while running.
+ACP mapper (`providers/acp` + `acp_client`) is the only module allowed to import `agent-client-protocol` schema types. It converts `AcpSessionEvent` → `AgentEvent` and maps `steer` to a second `session/prompt` only when capabilities say the agent will accept it while running. Claude `usage_update` null `used`/`size` values are coerced on the stdio JSON-RPC stream (`acp_client::usage_normalize`); do not vendor the schema crate for that.
 
 ### crates/infra
 

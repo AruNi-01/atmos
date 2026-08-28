@@ -5,7 +5,9 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::thread;
 
-use agent_client_protocol::{self as acp, schema, Agent, ByteStreams, ConnectionTo};
+use agent_client_protocol::schema::v1 as schema;
+use agent_client_protocol::schema::ProtocolVersion;
+use agent_client_protocol::{self as acp, Agent, ByteStreams, ConnectionTo};
 use tokio::io::AsyncReadExt;
 use tokio::runtime::Builder;
 use tokio::sync::{mpsc, oneshot};
@@ -17,9 +19,10 @@ use crate::acp_client::logging::append_acp_log;
 use crate::acp_client::tools::AcpToolHandler;
 use crate::acp_client::types::{
     AgentCapabilitiesSnapshot, AgentCapabilityState, AgentImplementationInfo, AgentLogoutResult,
-    AgentTurnUsage, AuthMethodSummary, AuthRequiredPayload, NativeAgentSession,
-    NativeAgentSessionList, PermissionRequest,
+    AuthMethodSummary, AuthRequiredPayload, NativeAgentSession, NativeAgentSessionList,
+    PermissionRequest,
 };
+use crate::acp_client::usage_normalize::spawn_usage_normalizer;
 use crate::acp_client::{AcpSessionEvent, AtmosAcpClient};
 use crate::models::AgentLaunchSpec;
 
@@ -57,36 +60,12 @@ pub(crate) fn map_modes_to_config_option(
     }
 }
 
-/// Convert legacy `models` (from the unstable Session Models API) into an AgentConfigOption.
-pub(crate) fn map_models_to_config_option(
-    models: schema::SessionModelState,
-) -> crate::acp_client::types::AgentConfigOption {
-    let options = models
-        .available_models
-        .into_iter()
-        .map(|m| crate::acp_client::types::AgentConfigOptionValue {
-            value: m.model_id.to_string(),
-            name: Some(m.name),
-            description: m.description,
-        })
-        .collect();
-    crate::acp_client::types::AgentConfigOption {
-        id: "model".to_string(),
-        name: Some("Model".to_string()),
-        description: None,
-        category: Some("model".to_string()),
-        r#type: "select".to_string(),
-        current_value: Some(models.current_model_id.to_string()),
-        options,
-    }
-}
-
 pub(crate) fn map_config_options(
     opts: Vec<schema::SessionConfigOption>,
 ) -> Vec<crate::acp_client::types::AgentConfigOption> {
     opts.into_iter()
         .map(|opt| {
-            let (current_value, options_vec) = match opt.kind {
+            let (current_value, options_vec, option_type) = match opt.kind {
                 schema::SessionConfigKind::Select(s) => {
                     let current = Some(s.current_value.to_string());
                     let mut options = Vec::new();
@@ -115,15 +94,24 @@ pub(crate) fn map_config_options(
                         }
                         _ => {}
                     }
-                    (current, options)
+                    (current, options, "select")
                 }
+                schema::SessionConfigKind::Boolean(b) => (
+                    Some(if b.current_value {
+                        "true".to_string()
+                    } else {
+                        "false".to_string()
+                    }),
+                    Vec::new(),
+                    "boolean",
+                ),
                 sc_kind => {
                     tracing::warn!(
                         "Unsupported config option kind for config_id {}: {:?}",
                         opt.id,
                         sc_kind
                     );
-                    (None, Vec::new())
+                    (None, Vec::new(), "select")
                 }
             };
 
@@ -135,7 +123,7 @@ pub(crate) fn map_config_options(
                     let json = serde_json::to_value(&c).unwrap_or(serde_json::Value::Null);
                     json.as_str().unwrap_or("").to_string()
                 }),
-                r#type: "select".to_string(),
+                r#type: option_type.to_string(),
                 current_value,
                 options: options_vec,
             }
@@ -177,7 +165,6 @@ async fn apply_config_values(
     session_id_acp: &schema::SessionId,
     values: HashMap<String, String>,
     uses_legacy_modes: bool,
-    uses_legacy_models: bool,
     event_tx: &mpsc::UnboundedSender<AcpSessionEvent>,
     context: &str,
 ) {
@@ -204,27 +191,6 @@ async fn apply_config_values(
                 Err(e) => {
                     warn!(
                         "Failed to apply {} mode for {}: {}",
-                        context, &session_id_text, e
-                    );
-                }
-            }
-        } else if uses_legacy_models && config_id == "model" {
-            match conn
-                .send_request(schema::SetSessionModelRequest::new(
-                    session_id_acp.clone(),
-                    value.clone(),
-                ))
-                .block_task()
-                .await
-            {
-                Ok(_) => {
-                    let _ = event_tx.send(AcpSessionEvent::ConfigOptionsUpdate(vec![
-                        current_value_only_config_option("model", value),
-                    ]));
-                }
-                Err(e) => {
-                    warn!(
-                        "Failed to apply {} model for {}: {}",
                         context, &session_id_text, e
                     );
                 }
@@ -333,7 +299,6 @@ enum SessionRestoreMethod {
 #[derive(Debug, Clone, Copy, Default)]
 struct SessionConfigEmitResult {
     uses_legacy_modes: bool,
-    uses_legacy_models: bool,
     has_any: bool,
 }
 
@@ -592,7 +557,10 @@ async fn run_session_inner(
         permission_tx,
         event_tx.clone(),
     ));
-    let transport = ByteStreams::new(stdin.compat_write(), stdout.compat());
+    let transport = ByteStreams::new(
+        stdin.compat_write(),
+        spawn_usage_normalizer(stdout).compat(),
+    );
     let cwd = cwd.to_path_buf();
 
     let permission_client = client.clone();
@@ -667,7 +635,7 @@ async fn run_session_inner(
         .connect_with(transport, async move |conn: ConnectionTo<Agent>| {
             let init_response = match conn
                 .send_request(
-                    schema::InitializeRequest::new(schema::ProtocolVersion::V1)
+                    schema::InitializeRequest::new(ProtocolVersion::V1)
                         .client_info(schema::Implementation::new("atmos", "0.1.0").title("ATMOS")),
                 )
                 .block_task()
@@ -718,15 +686,12 @@ async fn run_session_inner(
             // Track whether the agent uses legacy APIs so we can translate
             // SetConfigOption("mode"/"model", ..) → set_session_mode/set_session_model.
             let mut uses_legacy_modes = false;
-            let mut uses_legacy_models = false;
 
             /// Helper: emit config options from a session response, checking
-            /// the new `config_options` and the legacy `modes`/`models` fields.
-            /// Returns (uses_legacy_modes, uses_legacy_models).
+            /// the new `config_options` and the legacy `modes` field.
             fn emit_session_config(
                 config_options: Option<Vec<schema::SessionConfigOption>>,
                 modes: Option<schema::SessionModeState>,
-                models: Option<schema::SessionModelState>,
                 event_tx: &mpsc::UnboundedSender<AcpSessionEvent>,
             ) -> SessionConfigEmitResult {
                 if let Some(opts) = config_options {
@@ -736,13 +701,11 @@ async fn run_session_inner(
                     let _ = event_tx.send(AcpSessionEvent::ConfigOptionsUpdate(out));
                     SessionConfigEmitResult {
                         uses_legacy_modes: false,
-                        uses_legacy_models: false,
                         has_any,
                     }
                 } else {
                     let mut legacy_opts = Vec::new();
                     let mut leg_modes = false;
-                    let mut leg_models = false;
                     if let Some(modes) = modes {
                         info!(
                             "Session returned legacy modes ({} available)",
@@ -751,23 +714,14 @@ async fn run_session_inner(
                         legacy_opts.push(map_modes_to_config_option(modes));
                         leg_modes = true;
                     }
-                    if let Some(models) = models {
-                        info!(
-                            "Session returned legacy models ({} available)",
-                            models.available_models.len()
-                        );
-                        legacy_opts.push(map_models_to_config_option(models));
-                        leg_models = true;
-                    }
                     if legacy_opts.is_empty() {
-                        info!("Session returned NO config options, modes, or models");
+                        info!("Session returned NO config options or modes");
                     } else {
                         let _ = event_tx.send(AcpSessionEvent::ConfigOptionsUpdate(legacy_opts));
                     }
                     SessionConfigEmitResult {
                         uses_legacy_modes: leg_modes,
-                        uses_legacy_models: leg_models,
-                        has_any: leg_modes || leg_models,
+                        has_any: leg_modes,
                     }
                 }
             }
@@ -815,11 +769,9 @@ async fn run_session_inner(
                                 let emitted = emit_session_config(
                                     response.config_options,
                                     response.modes,
-                                    response.models,
                                     &event_tx,
                                 );
                                 uses_legacy_modes = emitted.uses_legacy_modes;
-                                uses_legacy_models = emitted.uses_legacy_models;
 
                                 if should_probe_resume_for_config {
                                     match conn
@@ -838,12 +790,10 @@ async fn run_session_inner(
                                             let emitted = emit_session_config(
                                                 response.config_options,
                                                 response.modes,
-                                                response.models,
                                                 &event_tx,
                                             );
                                             if emitted.has_any {
                                                 uses_legacy_modes = emitted.uses_legacy_modes;
-                                                uses_legacy_models = emitted.uses_legacy_models;
                                             }
                                         }
                                         Err(e) => {
@@ -873,11 +823,9 @@ async fn run_session_inner(
                             let emitted = emit_session_config(
                                 response.config_options,
                                 response.modes,
-                                response.models,
                                 &event_tx,
                             );
                             uses_legacy_modes = emitted.uses_legacy_modes;
-                            uses_legacy_models = emitted.uses_legacy_models;
                             requested
                         })
                     } else {
@@ -898,11 +846,9 @@ async fn run_session_inner(
                             let emitted = emit_session_config(
                                 response.config_options,
                                 response.modes,
-                                response.models,
                                 &event_tx,
                             );
                             uses_legacy_modes = emitted.uses_legacy_modes;
-                            uses_legacy_models = emitted.uses_legacy_models;
                             response.session_id
                         })
                 };
@@ -931,7 +877,6 @@ async fn run_session_inner(
                         &session_id_acp,
                         snapshot,
                         uses_legacy_modes,
-                        uses_legacy_models,
                         &event_tx,
                         "session snapshot",
                     )
@@ -943,7 +888,6 @@ async fn run_session_inner(
                     &session_id_acp,
                     defaults,
                     uses_legacy_modes,
-                    uses_legacy_models,
                     &event_tx,
                     "default",
                 )
@@ -995,16 +939,8 @@ async fn run_session_inner(
                             .block_task()
                             .await
                         {
-                            Ok(res) => {
-                                let usage = res.usage.map(|u| AgentTurnUsage {
-                                    total_tokens: Some(u.total_tokens),
-                                    input_tokens: Some(u.input_tokens),
-                                    output_tokens: Some(u.output_tokens),
-                                    thought_tokens: u.thought_tokens,
-                                    cached_read_tokens: u.cached_read_tokens,
-                                    cached_write_tokens: u.cached_write_tokens,
-                                });
-                                let _ = event_tx.send(AcpSessionEvent::TurnEnd(usage));
+                            Ok(_res) => {
+                                let _ = event_tx.send(AcpSessionEvent::TurnEnd(None));
                             }
                             Err(e) => {
                                 warn!("Prompt failed: {}", e);
@@ -1077,24 +1013,6 @@ async fn run_session_inner(
                                 }
                                 Err(e) => warn!("Set session mode failed: {}", e),
                             }
-                        } else if uses_legacy_models && config_id == "model" {
-                            info!("Using legacy set_session_model: {}", value);
-                            match conn
-                                .send_request(schema::SetSessionModelRequest::new(
-                                    session_id_acp.clone(),
-                                    value.clone(),
-                                ))
-                                .block_task()
-                                .await
-                            {
-                                Ok(_) => {
-                                    let _ =
-                                        event_tx.send(AcpSessionEvent::ConfigOptionsUpdate(vec![
-                                            current_value_only_config_option("model", value),
-                                        ]));
-                                }
-                                Err(e) => warn!("Set session model failed: {}", e),
-                            }
                         } else {
                             match conn
                                 .send_request(schema::SetSessionConfigOptionRequest::new(
@@ -1144,14 +1062,17 @@ pub async fn list_acp_sessions(
         let _ = stderr_tx.send(text);
     });
 
-    let transport = ByteStreams::new(stdin.compat_write(), stdout.compat());
+    let transport = ByteStreams::new(
+        stdin.compat_write(),
+        spawn_usage_normalizer(stdout).compat(),
+    );
     acp::Client
         .builder()
         .name("atmos")
         .connect_with(transport, async move |conn: ConnectionTo<Agent>| {
             let init_response = match conn
                 .send_request(
-                    schema::InitializeRequest::new(schema::ProtocolVersion::V1)
+                    schema::InitializeRequest::new(ProtocolVersion::V1)
                         .client_info(schema::Implementation::new("atmos", "0.1.0").title("ATMOS")),
                 )
                 .block_task()
@@ -1249,14 +1170,17 @@ pub async fn logout_acp_agent(
         let _ = stderr_tx.send(text);
     });
 
-    let transport = ByteStreams::new(stdin.compat_write(), stdout.compat());
+    let transport = ByteStreams::new(
+        stdin.compat_write(),
+        spawn_usage_normalizer(stdout).compat(),
+    );
     acp::Client
         .builder()
         .name("atmos")
         .connect_with(transport, async move |conn: ConnectionTo<Agent>| {
             let init_response = match conn
                 .send_request(
-                    schema::InitializeRequest::new(schema::ProtocolVersion::V1)
+                    schema::InitializeRequest::new(ProtocolVersion::V1)
                         .client_info(schema::Implementation::new("atmos", "0.1.0").title("ATMOS")),
                 )
                 .block_task()

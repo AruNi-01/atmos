@@ -3,7 +3,8 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use agent_client_protocol::{self as acp, schema};
+use agent_client_protocol::schema::v1 as schema;
+use agent_client_protocol::{self as acp, schema as acp_schema};
 use serde::Serialize;
 
 fn format_tool_kind(kind: Option<&schema::ToolKind>) -> String {
@@ -573,11 +574,11 @@ impl AtmosAcpClient {
                     .send(AcpSessionEvent::ConfigOptionsUpdate(out));
             }
             schema::SessionUpdate::SessionInfoUpdate(update) => {
-                fn maybe_update<T>(value: schema::MaybeUndefined<T>) -> Option<Option<T>> {
+                fn maybe_update<T>(value: acp_schema::MaybeUndefined<T>) -> Option<Option<T>> {
                     match value {
-                        schema::MaybeUndefined::Undefined => None,
-                        schema::MaybeUndefined::Null => Some(None),
-                        schema::MaybeUndefined::Value(value) => Some(Some(value)),
+                        acp_schema::MaybeUndefined::Undefined => None,
+                        acp_schema::MaybeUndefined::Null => Some(None),
+                        acp_schema::MaybeUndefined::Value(value) => Some(Some(value)),
                     }
                 }
 
@@ -591,8 +592,8 @@ impl AtmosAcpClient {
             }
             schema::SessionUpdate::UsageUpdate(update) => {
                 let usage = AgentUsage {
-                    used: update.used,
-                    size: update.size,
+                    used: Some(update.used),
+                    size: Some(update.size),
                     cost: update.cost.map(|c| crate::acp_client::types::AgentCost {
                         amount: Some(c.amount),
                         currency: Some(c.currency),
@@ -616,25 +617,39 @@ impl AtmosAcpClient {
 
 #[cfg(test)]
 mod tests {
-    use agent_client_protocol::schema;
+    use agent_client_protocol::schema::v1 as schema;
     use serde_json::json;
+
+    use crate::acp_client::usage_normalize::normalize_acp_json_line;
+
+    fn usage_notification(update: serde_json::Value) -> schema::SessionNotification {
+        let line = serde_json::to_string(&json!({
+            "jsonrpc": "2.0",
+            "method": "session/update",
+            "params": {
+                "sessionId": "session-1",
+                "update": update
+            }
+        }))
+        .unwrap();
+        let normalized: serde_json::Value =
+            serde_json::from_str(&normalize_acp_json_line(&line)).unwrap();
+        serde_json::from_value(normalized["params"].clone())
+            .expect("normalized usage_update should deserialize")
+    }
 
     #[test]
     fn usage_update_allows_null_usage_fields() {
-        let notification: schema::SessionNotification = serde_json::from_value(json!({
-            "sessionId": "session-1",
-            "update": {
-                "sessionUpdate": "usage_update",
-                "used": null,
-                "size": null
-            }
-        }))
-        .expect("nullable usage_update should deserialize");
+        let notification = usage_notification(json!({
+            "sessionUpdate": "usage_update",
+            "used": null,
+            "size": null
+        }));
 
         match notification.update {
             schema::SessionUpdate::UsageUpdate(update) => {
-                assert_eq!(update.used, None);
-                assert_eq!(update.size, None);
+                assert_eq!(update.used, 0);
+                assert_eq!(update.size, 0);
             }
             other => panic!("expected usage_update, got {other:?}"),
         }
@@ -642,18 +657,14 @@ mod tests {
 
     #[test]
     fn usage_update_allows_missing_usage_fields() {
-        let notification: schema::SessionNotification = serde_json::from_value(json!({
-            "sessionId": "session-1",
-            "update": {
-                "sessionUpdate": "usage_update"
-            }
-        }))
-        .expect("missing usage_update counters should deserialize");
+        let notification = usage_notification(json!({
+            "sessionUpdate": "usage_update"
+        }));
 
         match notification.update {
             schema::SessionUpdate::UsageUpdate(update) => {
-                assert_eq!(update.used, None);
-                assert_eq!(update.size, None);
+                assert_eq!(update.used, 0);
+                assert_eq!(update.size, 0);
             }
             other => panic!("expected usage_update, got {other:?}"),
         }

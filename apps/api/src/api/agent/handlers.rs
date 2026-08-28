@@ -8,6 +8,7 @@ use crate::api::dto::ApiResponse;
 use crate::app_state::AppState;
 use crate::error::ApiResult;
 use axum::Json;
+use core_service::utils::path_boundary::path_or_existing_parent_within_root;
 
 #[derive(Deserialize)]
 pub struct LogoutAgentPayload {
@@ -16,9 +17,15 @@ pub struct LogoutAgentPayload {
     pub auth_method_id: Option<String>,
 }
 
-/// POST /api/agent/upload-attachments - Upload attachment files to .atmos/attachments/ under the given path
-pub async fn upload_attachments(mut multipart: Multipart) -> ApiResult<Json<ApiResponse<Value>>> {
+/// POST /api/agent/upload-attachments — conversation files go under
+/// `conversations/{id}/attachments/`; terminal-agent uploads may still use a
+/// bounded workspace `.atmos/attachments/` directory.
+pub async fn upload_attachments(
+    State(state): State<AppState>,
+    mut multipart: Multipart,
+) -> ApiResult<Json<ApiResponse<Value>>> {
     let mut local_path: Option<String> = None;
+    let mut conversation_id: Option<String> = None;
     let mut saved_paths: Vec<String> = Vec::new();
 
     while let Some(field) = multipart
@@ -27,6 +34,14 @@ pub async fn upload_attachments(mut multipart: Multipart) -> ApiResult<Json<ApiR
         .map_err(|e| crate::error::ApiError::BadRequest(format!("Multipart error: {}", e)))?
     {
         let name = field.name().unwrap_or("").to_string();
+
+        if name == "conversation_id" {
+            let text = field.text().await.map_err(|e| {
+                crate::error::ApiError::BadRequest(format!("Failed to read conversation_id: {}", e))
+            })?;
+            conversation_id = Some(text);
+            continue;
+        }
 
         if name == "local_path" {
             let text = field.text().await.map_err(|e| {
@@ -37,13 +52,36 @@ pub async fn upload_attachments(mut multipart: Multipart) -> ApiResult<Json<ApiR
         }
 
         if name == "files" {
-            let base_path = local_path.clone().ok_or_else(|| {
-                crate::error::ApiError::BadRequest(
-                    "local_path must be sent before files in multipart form".to_string(),
-                )
+            let filename = field
+                .file_name()
+                .map(|s| s.to_string())
+                .unwrap_or_else(|| format!("attachment_{}", uuid::Uuid::new_v4()));
+            let data = field.bytes().await.map_err(|e| {
+                crate::error::ApiError::BadRequest(format!("Failed to read file data: {}", e))
             })?;
 
-            let attachment_dir = PathBuf::from(&base_path).join(".atmos").join("attachments");
+            if let Some(conversation_id) = conversation_id.as_deref() {
+                let path = state
+                    .ws_message_service
+                    .conversation()
+                    .save_attachment(conversation_id, &filename, &data)
+                    .map_err(|e| crate::error::ApiError::BadRequest(e.to_string()))?;
+                saved_paths.push(path.to_string_lossy().to_string());
+                continue;
+            }
+
+            let base_path = local_path.clone().ok_or_else(|| {
+                crate::error::ApiError::BadRequest(
+                    "conversation_id or local_path is required before files".to_string(),
+                )
+            })?;
+            let root = PathBuf::from(&base_path);
+            let attachment_dir = root.join(".atmos").join("attachments");
+            if !path_or_existing_parent_within_root(&attachment_dir, &root) {
+                return Err(crate::error::ApiError::BadRequest(
+                    "attachment path escapes workspace".into(),
+                ));
+            }
             core_engine::ensure_project_atmos_dir(FsPath::new(&base_path)).map_err(|e| {
                 crate::error::ApiError::InternalError(format!(
                     "Failed to ensure project .atmos layout: {}",
@@ -57,26 +95,20 @@ pub async fn upload_attachments(mut multipart: Multipart) -> ApiResult<Json<ApiR
                 ))
             })?;
 
-            let filename = field
-                .file_name()
-                .map(|s| s.to_string())
-                .unwrap_or_else(|| format!("attachment_{}", uuid::Uuid::new_v4()));
-
             let ts = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap_or_default()
                 .as_millis();
             let safe_filename = format!("{}_{}", ts, filename.replace(['/', '\\', '\0'], "_"));
-
             let file_path = attachment_dir.join(&safe_filename);
-            let data = field.bytes().await.map_err(|e| {
-                crate::error::ApiError::BadRequest(format!("Failed to read file data: {}", e))
-            })?;
-
+            if !path_or_existing_parent_within_root(&file_path, &root) {
+                return Err(crate::error::ApiError::BadRequest(
+                    "attachment path escapes workspace".into(),
+                ));
+            }
             std::fs::write(&file_path, &data).map_err(|e| {
                 crate::error::ApiError::InternalError(format!("Failed to write attachment: {}", e))
             })?;
-
             saved_paths.push(file_path.to_string_lossy().to_string());
         }
     }

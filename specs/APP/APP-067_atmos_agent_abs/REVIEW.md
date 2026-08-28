@@ -26,7 +26,7 @@
 
 Host/WS/file path for a Conversation workspace is real: Atmos ids, file SOT, restore-without-spawn, main `/ws` `conversation_*`, catalog worker with production `StdioAcpCatalogProbe`, Queue/Stop, old dedicated `/ws/agent` handler and REST session CRUD removed on the server, PR 278 CI green.
 
-Review fixes landed 2026-08-28 on `feat/APP-067-agent-chat`: resume replay gate, turn mutex, permission option_id, prompt/queue failure rollback, pump death, catalog non-blocking get, cwd bounds, followup settings UI, live delta fold, Conversation-backed `AgentChatPanel`. REV-006 (full projector/queue file split) remains open as a follow-up refactor.
+Review fixes landed 2026-08-28 on `feat/APP-067-agent-chat`: resume replay gate, turn mutex, permission option_id, prompt/queue failure rollback, pump death, catalog non-blocking get, cwd bounds, followup settings UI, live delta fold, Conversation-backed `AgentChatPanel`, projector/queue split, conversation-dir attachments, inline queue edit. ACP client upgraded to `agent-client-protocol` 2.0.0 (schema 1.5.0); the vendored schema crate was removed because upstream still requires `used`/`size: u64` and Atmos now coerces Claude `usage_update` nulls on the stdio JSON-RPC stream.
 
 ---
 
@@ -46,7 +46,7 @@ Review fixes landed 2026-08-28 on `feat/APP-067-agent-chat`: resume replay gate,
 | REV-017 | P1 | api | cwd/attachments not bounded to workspace/project | fixed |
 | REV-004 | P2 | test | S15 ACP-schema guard only scans the new modules | fixed |
 | REV-005 | P2 | test | TEST Coverage Status overstates S2/S6/S12/S16 levels | fixed |
-| REV-006 | P2 | backend | TECH module split (projector/queue) not done; ConversationService is one file | open |
+| REV-006 | P2 | backend | TECH module split (projector/queue) not done; ConversationService is one file | fixed |
 | REV-007 | P2 | backend | Terminal model catalog is still a second parser/cache | fixed |
 | REV-008 | P2 | api | `conversation_subscribe.after_sequence` and `conversation_messages` pagination ignored | fixed |
 | REV-012 | P2 | backend | `next_seq` rewrites meta.json + index.json on every token delta | fixed |
@@ -244,7 +244,7 @@ Align Coverage Status with the declared level, or add the missing tests. Mark S2
 
 | Field | Value |
 |-------|--------|
-| **Status** | open |
+| **Status** | fixed |
 | **Severity** | P2 |
 | **Area** | backend |
 | **Reported by** | internal review |
@@ -265,11 +265,12 @@ Extract `apply_event` / snapshot flush and queue dispatch from `ConversationServ
 
 ### Acceptance
 
-- [ ] Pump/projector and queue dispatch are separate modules with existing `cargo test -p core-service --lib conversation` still green.
+- [x] Pump/projector and queue dispatch are separate modules with existing `cargo test -p core-service --lib conversation` still green.
 
 ### Fix log
 
 - 2026-08-28 - opened in APP-067 implementation review.
+- 2026-08-28 - extracted `projector.rs` (`apply_event` / snapshot flush) and `queue.rs` (`maybe_dispatch_queue`). `ConversationService` keeps spawn/pump/public API.
 
 ---
 
@@ -376,7 +377,8 @@ Inline rename; scope list to current workspace/project (plus cwd groups). Reuse 
 ### Fix log
 
 - 2026-08-28 - opened in APP-067 implementation review.
-- 2026-08-28 - implemented review fix.
+- 2026-08-28 - implemented review fix (inline rename + scoped list).
+- 2026-08-28 - queue edit no longer uses `window.prompt`; inline input matches rename.
 
 ---
 
@@ -658,11 +660,12 @@ Resolve cwd from workspace/project then `path_within_root`. Reject create/send/u
 
 ### Acceptance
 
-- [ ] `cwd=/etc` with a workspace id fails validation.
-- [ ] Upload cannot write outside the project.
-- [ ] Standalone new chat is not `$HOME` with file tools off by accident (or is explicitly a no-files assistant).
+- [x] `cwd=/etc` with a workspace id fails validation.
+- [x] Upload cannot write outside the project.
+- [x] Standalone new chat is not `$HOME` with file tools off by accident (or is explicitly a no-files assistant).
 
 ### Fix log
 
 - 2026-08-28 - opened in APP-067 implementation review.
-- 2026-08-28 - implemented review fix.
+- 2026-08-28 - implemented review fix (cwd bound to workspace/project/scratch).
+- 2026-08-28 - conversation uploads write `conversations/{id}/attachments/`; send/queue reject paths outside that dir. Terminal overlay may still use bounded `{local_path}/.atmos/attachments`.

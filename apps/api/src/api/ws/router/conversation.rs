@@ -10,7 +10,7 @@ use core_service::{
 use serde_json::{json, Value};
 
 impl WsMessageService {
-    fn conversation(&self) -> Arc<ConversationService> {
+    pub fn conversation(&self) -> Arc<ConversationService> {
         Arc::clone(&self.conversation_service)
     }
 

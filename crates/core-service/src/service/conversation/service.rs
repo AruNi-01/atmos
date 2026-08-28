@@ -4,7 +4,7 @@ use std::time::{Duration, Instant};
 
 use agent::{
     AgentEvent, AgentPersistenceHandle, AgentPrompt, AgentProviderFactory, AgentSession,
-    AgentSessionConfig, AgentSessionControl, TurnStop, UserMessageKind,
+    AgentSessionConfig, AgentSessionControl, UserMessageKind,
 };
 use chrono::Utc;
 use tokio::sync::{broadcast, Mutex};
@@ -12,23 +12,16 @@ use tracing::warn;
 
 use crate::error::{Result, ServiceError};
 
+use super::projector::{
+    apply_event, emit_live, finish_turn, nonempty_opt, push_recent, RuntimeState,
+};
+use super::queue::maybe_dispatch_queue;
 use super::store::ConversationStore;
 use super::types::{
     ConversationClientEvent, ConversationClientPayload, ConversationMeta, ConversationSnapshot,
     CreateConversationRequest, PendingPermission, QueueItem, QueueItemStatus, RuntimeStatus,
     TranscriptRecord, TurnStatus,
 };
-
-const ASSISTANT_SNAPSHOT_INTERVAL: Duration = Duration::from_millis(100);
-const RECENT_EVENT_CAP: usize = 2048;
-
-struct RuntimeState {
-    current_turn_id: Option<String>,
-    pending_permission: Option<PendingPermission>,
-    assistant_text: HashMap<String, (String, String)>,
-    thinking_text: HashMap<String, (String, String)>,
-    last_snapshot: Instant,
-}
 
 struct LiveRuntime {
     control: AgentSessionControl,
@@ -87,6 +80,15 @@ impl ConversationService {
 
     pub fn store(&self) -> &ConversationStore {
         &self.store
+    }
+
+    pub fn save_attachment(
+        &self,
+        conversation_id: &str,
+        filename: &str,
+        data: &[u8],
+    ) -> Result<std::path::PathBuf> {
+        self.store.save_attachment(conversation_id, filename, data)
     }
 
     pub fn subscribe(&self) -> broadcast::Receiver<ConversationClientEvent> {
@@ -161,6 +163,8 @@ impl ConversationService {
         if text.trim().is_empty() {
             return Err(ServiceError::Validation("text is required".into()));
         }
+        self.store
+            .validate_attachment_paths(conversation_id, &attachments)?;
         let gate = self.turn_gate(conversation_id).await;
         let _turn = gate.lock().await;
         let meta = self.store.get_meta(conversation_id)?;
@@ -382,6 +386,8 @@ impl ConversationService {
         if text.trim().is_empty() {
             return Err(ServiceError::Validation("text is required".into()));
         }
+        self.store
+            .validate_attachment_paths(conversation_id, &attachments)?;
         let mut items = self.store.read_queue(conversation_id)?;
         let seq = items.iter().map(|item| item.seq).max().unwrap_or(0) + 1;
         let item = QueueItem {
@@ -745,456 +751,4 @@ async fn pump_session(
     let _ = store.update_meta(&conversation_id, |meta| {
         meta.runtime_status = status;
     });
-}
-
-#[allow(clippy::too_many_arguments)]
-async fn apply_event(
-    conversation_id: &str,
-    event: AgentEvent,
-    store: &ConversationStore,
-    state: &Mutex<RuntimeState>,
-    events: &broadcast::Sender<ConversationClientEvent>,
-    recent_events: &std::sync::Mutex<HashMap<String, VecDeque<ConversationClientEvent>>>,
-) -> Result<()> {
-    let emit = |payload: ConversationClientPayload| -> Result<()> {
-        emit_live(conversation_id, payload, store, events, recent_events)
-    };
-    match event {
-        AgentEvent::SessionStarted { persistence_handle } => {
-            store.update_meta(conversation_id, |meta| {
-                if let Some(handle) = persistence_handle.clone() {
-                    if meta.id == handle {
-                        warn!("refusing to store persistence handle equal to conversation id");
-                    } else {
-                        meta.persistence_handle = Some(handle);
-                    }
-                }
-                if meta.runtime_status == RuntimeStatus::Starting {
-                    meta.runtime_status = RuntimeStatus::Ready;
-                }
-            })?;
-            emit(ConversationClientPayload::RuntimeStatus {
-                status: RuntimeStatus::Ready,
-                persistence_handle,
-            })?;
-        }
-        AgentEvent::AssistantMessageDelta { message_id, delta } => {
-            {
-                let snapshot = {
-                    let mut state = state.lock().await;
-                    let turn_id = state
-                        .current_turn_id
-                        .clone()
-                        .unwrap_or_else(|| "unknown".into());
-                    {
-                        let entry = state
-                            .assistant_text
-                            .entry(message_id.clone())
-                            .or_insert_with(|| (turn_id, String::new()));
-                        entry.1.push_str(&delta);
-                    }
-                    if state.last_snapshot.elapsed() >= ASSISTANT_SNAPSHOT_INTERVAL {
-                        let snapshot = state.assistant_text.get(&message_id).cloned();
-                        state.last_snapshot = Instant::now();
-                        snapshot
-                    } else {
-                        None
-                    }
-                };
-                if let Some((turn_id, text)) = snapshot {
-                    store.append_record(
-                        conversation_id,
-                        &TranscriptRecord::AssistantSnapshot {
-                            turn_id,
-                            message_id: message_id.clone(),
-                            text,
-                            created_at: Utc::now(),
-                        },
-                    )?;
-                }
-            }
-            emit(ConversationClientPayload::AssistantMessageDelta { message_id, delta })?;
-        }
-        AgentEvent::AssistantMessageCompleted { message_id } => {
-            if let Some((turn_id, text)) = state.lock().await.assistant_text.remove(&message_id) {
-                store.append_record(
-                    conversation_id,
-                    &TranscriptRecord::AssistantSnapshot {
-                        turn_id,
-                        message_id: message_id.clone(),
-                        text,
-                        created_at: Utc::now(),
-                    },
-                )?;
-            }
-            emit(ConversationClientPayload::AssistantMessageCompleted { message_id })?;
-        }
-        AgentEvent::ThinkingDelta { message_id, delta } => {
-            {
-                let mut state = state.lock().await;
-                let turn_id = state
-                    .current_turn_id
-                    .clone()
-                    .unwrap_or_else(|| "unknown".into());
-                state
-                    .thinking_text
-                    .entry(message_id.clone())
-                    .or_insert_with(|| (turn_id, String::new()))
-                    .1
-                    .push_str(&delta);
-            }
-            emit(ConversationClientPayload::ThinkingDelta { message_id, delta })?;
-        }
-        AgentEvent::ThinkingCompleted { message_id } => {
-            if let Some((turn_id, text)) = state.lock().await.thinking_text.remove(&message_id) {
-                store.append_record(
-                    conversation_id,
-                    &TranscriptRecord::ThinkingSnapshot {
-                        turn_id,
-                        message_id: message_id.clone(),
-                        text,
-                        created_at: Utc::now(),
-                    },
-                )?;
-            }
-            emit(ConversationClientPayload::ThinkingCompleted { message_id })?;
-        }
-        AgentEvent::ToolCallStarted { tool_call } => {
-            persist_tool(store, state, conversation_id, tool_call.clone()).await?;
-            emit(ConversationClientPayload::ToolCallStarted { tool_call })?;
-        }
-        AgentEvent::ToolCallUpdated { tool_call } => {
-            persist_tool(store, state, conversation_id, tool_call.clone()).await?;
-            emit(ConversationClientPayload::ToolCallUpdated { tool_call })?;
-        }
-        AgentEvent::ToolCallCompleted { tool_call } => {
-            persist_tool(store, state, conversation_id, tool_call.clone()).await?;
-            emit(ConversationClientPayload::ToolCallCompleted { tool_call })?;
-        }
-        AgentEvent::ToolCallFailed { tool_call, error } => {
-            persist_tool(store, state, conversation_id, tool_call.clone()).await?;
-            emit(ConversationClientPayload::ToolCallFailed { tool_call, error })?;
-        }
-        AgentEvent::PlanUpdated { plan } => {
-            let turn_id = state
-                .lock()
-                .await
-                .current_turn_id
-                .clone()
-                .unwrap_or_else(|| "unknown".into());
-            store.append_record(
-                conversation_id,
-                &TranscriptRecord::Plan {
-                    turn_id,
-                    plan: plan.clone(),
-                    created_at: Utc::now(),
-                },
-            )?;
-            emit(ConversationClientPayload::PlanUpdated { plan })?;
-        }
-        AgentEvent::PermissionRequested { request } => {
-            let turn_id = state
-                .lock()
-                .await
-                .current_turn_id
-                .clone()
-                .unwrap_or_else(|| "unknown".into());
-            let pending = PendingPermission {
-                request_id: request.request_id,
-                tool: request.tool,
-                description: request.description,
-                content_markdown: request.content_markdown,
-                options: request.options,
-                status: "pending".into(),
-            };
-            state.lock().await.pending_permission = Some(pending.clone());
-            store.append_record(
-                conversation_id,
-                &TranscriptRecord::Permission {
-                    turn_id,
-                    request: pending.clone(),
-                    created_at: Utc::now(),
-                },
-            )?;
-            store.update_meta(conversation_id, |meta| {
-                meta.runtime_status = RuntimeStatus::WaitingPermission;
-            })?;
-            emit(ConversationClientPayload::PermissionRequested { request: pending })?;
-        }
-        AgentEvent::PermissionResolved {
-            request_id,
-            option_id,
-        } => {
-            let turn_id = state
-                .lock()
-                .await
-                .current_turn_id
-                .clone()
-                .unwrap_or_else(|| "unknown".into());
-            let mut resolved = state.lock().await.pending_permission.clone().unwrap_or(
-                super::types::PendingPermission {
-                    request_id: request_id.clone(),
-                    tool: String::new(),
-                    description: String::new(),
-                    content_markdown: None,
-                    options: Vec::new(),
-                    status: "resolved".into(),
-                },
-            );
-            resolved.status = "resolved".into();
-            state.lock().await.pending_permission = None;
-            store.append_record(
-                conversation_id,
-                &TranscriptRecord::Permission {
-                    turn_id,
-                    request: resolved,
-                    created_at: Utc::now(),
-                },
-            )?;
-            emit(ConversationClientPayload::PermissionResolved {
-                request_id,
-                option_id,
-            })?;
-        }
-        AgentEvent::TurnCompleted { turn_id, stop } => {
-            finish_turn(
-                conversation_id,
-                turn_id,
-                match stop {
-                    TurnStop::Canceled => TurnStatus::Canceled,
-                    TurnStop::Failed => TurnStatus::Failed,
-                    TurnStop::Completed => TurnStatus::Completed,
-                },
-                None,
-                store,
-                state,
-                &emit,
-            )
-            .await?;
-        }
-        AgentEvent::TurnCanceled { turn_id } => {
-            finish_turn(
-                conversation_id,
-                turn_id,
-                TurnStatus::Canceled,
-                None,
-                store,
-                state,
-                &emit,
-            )
-            .await?;
-        }
-        AgentEvent::TurnFailed { turn_id, error } => {
-            finish_turn(
-                conversation_id,
-                turn_id,
-                TurnStatus::Failed,
-                Some(error),
-                store,
-                state,
-                &emit,
-            )
-            .await?;
-        }
-        AgentEvent::SessionClosed => {
-            store.update_meta(conversation_id, |meta| {
-                meta.runtime_status = RuntimeStatus::Closed;
-            })?;
-            state.lock().await.pending_permission = None;
-        }
-        AgentEvent::TurnStarted { .. } | AgentEvent::UserMessage { .. } => {}
-        AgentEvent::UsageUpdated { .. } | AgentEvent::ConfigChanged { .. } => {}
-    }
-    Ok(())
-}
-
-async fn persist_tool(
-    store: &ConversationStore,
-    state: &Mutex<RuntimeState>,
-    conversation_id: &str,
-    tool_call: agent::AgentToolCall,
-) -> Result<()> {
-    let turn_id = state
-        .lock()
-        .await
-        .current_turn_id
-        .clone()
-        .unwrap_or_else(|| "unknown".into());
-    store.append_record(
-        conversation_id,
-        &TranscriptRecord::ToolCall {
-            turn_id,
-            tool_call,
-            created_at: Utc::now(),
-        },
-    )
-}
-
-async fn finish_turn(
-    conversation_id: &str,
-    turn_id: String,
-    status: TurnStatus,
-    error: Option<String>,
-    store: &ConversationStore,
-    state: &Mutex<RuntimeState>,
-    emit: &impl Fn(ConversationClientPayload) -> Result<()>,
-) -> Result<()> {
-    state.lock().await.current_turn_id = None;
-    store.append_record(
-        conversation_id,
-        &TranscriptRecord::TurnCompleted {
-            turn_id: turn_id.clone(),
-            status,
-            error,
-            created_at: Utc::now(),
-        },
-    )?;
-    store.update_meta(conversation_id, |meta| {
-        meta.runtime_status = RuntimeStatus::Ready;
-    })?;
-    emit(ConversationClientPayload::TurnCompleted { turn_id, status })
-}
-
-#[allow(clippy::too_many_arguments)]
-async fn maybe_dispatch_queue(
-    conversation_id: &str,
-    store: &ConversationStore,
-    state: &Mutex<RuntimeState>,
-    events: &broadcast::Sender<ConversationClientEvent>,
-    control: &AgentSessionControl,
-    recent_events: &std::sync::Mutex<HashMap<String, VecDeque<ConversationClientEvent>>>,
-    turn_gates: &Mutex<HashMap<String, Arc<Mutex<()>>>>,
-) -> Result<()> {
-    let gate = {
-        let mut gates = turn_gates.lock().await;
-        gates
-            .entry(conversation_id.to_string())
-            .or_insert_with(|| Arc::new(Mutex::new(())))
-            .clone()
-    };
-    let _turn = gate.lock().await;
-    if state.lock().await.pending_permission.is_some() {
-        return Ok(());
-    }
-    if state.lock().await.current_turn_id.is_some() {
-        return Ok(());
-    }
-    let mut items = store.read_queue(conversation_id)?;
-    let Some(index) = items
-        .iter()
-        .position(|item| item.status == QueueItemStatus::Pending)
-    else {
-        return Ok(());
-    };
-    let item = items.remove(index);
-    store.write_queue(conversation_id, &items)?;
-    let turn_id = uuid::Uuid::new_v4().to_string();
-    state.lock().await.current_turn_id = Some(turn_id.clone());
-    store.append_record(
-        conversation_id,
-        &TranscriptRecord::TurnStarted {
-            turn_id: turn_id.clone(),
-            created_at: Utc::now(),
-        },
-    )?;
-    store.append_record(
-        conversation_id,
-        &TranscriptRecord::UserMessage {
-            turn_id: turn_id.clone(),
-            message_id: uuid::Uuid::new_v4().to_string(),
-            kind: UserMessageKind::Normal,
-            text: item.prompt.clone(),
-            attachments: item.attachments.clone(),
-            created_at: Utc::now(),
-        },
-    )?;
-    if let Err(error) = control
-        .prompt(AgentPrompt {
-            text: item.prompt.clone(),
-            attachments: item.attachments.clone(),
-            kind: UserMessageKind::Normal,
-            turn_id: Some(turn_id.clone()),
-        })
-        .await
-    {
-        state.lock().await.current_turn_id = None;
-        let mut restored = store.read_queue(conversation_id)?;
-        restored.insert(0, item);
-        let _ = store.write_queue(conversation_id, &restored);
-        let _ = store.append_record(
-            conversation_id,
-            &TranscriptRecord::TurnCompleted {
-                turn_id: turn_id.clone(),
-                status: TurnStatus::Failed,
-                error: Some(error.to_string()),
-                created_at: Utc::now(),
-            },
-        );
-        let _ = store.update_meta(conversation_id, |meta| {
-            meta.runtime_status = RuntimeStatus::Ready;
-        });
-        return Err(ServiceError::Processing(error.to_string()));
-    }
-    store.update_meta(conversation_id, |meta| {
-        meta.runtime_status = RuntimeStatus::RunningTurn;
-        meta.last_message_at = Some(Utc::now());
-    })?;
-    emit_live(
-        conversation_id,
-        ConversationClientPayload::TurnStarted { turn_id },
-        store,
-        events,
-        recent_events,
-    )?;
-    emit_live(
-        conversation_id,
-        ConversationClientPayload::QueueUpdated { items },
-        store,
-        events,
-        recent_events,
-    )?;
-    Ok(())
-}
-
-fn emit_live(
-    conversation_id: &str,
-    payload: ConversationClientPayload,
-    store: &ConversationStore,
-    events: &broadcast::Sender<ConversationClientEvent>,
-    recent_events: &std::sync::Mutex<HashMap<String, VecDeque<ConversationClientEvent>>>,
-) -> Result<()> {
-    let sequence = store.next_seq(conversation_id)?;
-    let event = ConversationClientEvent {
-        conversation_id: conversation_id.to_string(),
-        event_id: uuid::Uuid::new_v4().to_string(),
-        sequence,
-        payload,
-    };
-    push_recent(recent_events, &event);
-    let _ = events.send(event);
-    Ok(())
-}
-
-fn push_recent(
-    recent_events: &std::sync::Mutex<HashMap<String, VecDeque<ConversationClientEvent>>>,
-    event: &ConversationClientEvent,
-) {
-    if let Ok(mut map) = recent_events.lock() {
-        let queue = map
-            .entry(event.conversation_id.clone())
-            .or_insert_with(VecDeque::new);
-        queue.push_back(event.clone());
-        while queue.len() > RECENT_EVENT_CAP {
-            queue.pop_front();
-        }
-    }
-}
-
-fn nonempty_opt(value: String) -> Option<String> {
-    let trimmed = value.trim();
-    if trimmed.is_empty() {
-        None
-    } else {
-        Some(trimmed.to_string())
-    }
 }

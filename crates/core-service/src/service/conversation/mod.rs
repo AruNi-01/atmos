@@ -1,5 +1,7 @@
 pub mod acp_factory;
 pub mod catalog;
+mod projector;
+mod queue;
 pub mod service;
 pub mod store;
 pub mod types;
