@@ -23,6 +23,7 @@ import {
   conversationEventFor,
   foldTurnsFromEvent,
   foldUserRowsFromEvent,
+  type ConversationClientEventPayload,
   type ConversationFanoutRow,
 } from "@/features/agent/lib/conversation-events";
 import { agentBehaviourSettingsApi } from "@/api/ws/settings-api";
@@ -181,28 +182,11 @@ export function AgentChatWorkspace({
       setAgents(installed);
     });
     const off = useWebSocketStore.getState().onEvent("conversation_event", (payload) => {
-      const event = payload as {
-        conversation_id?: string;
-        sequence?: number;
-        payload?: {
-          type?: string;
-          turn_id?: string;
-          message_id?: string;
-          text?: string;
-          delta?: string;
-          status?: string;
-          request?: {
-            request_id?: string;
-            tool?: string;
-            description?: string;
-            options?: Array<{ option_id: string; name: string }>;
-          };
-          items?: QueueRow[];
-        };
-      };
+      const event = payload as ConversationClientEventPayload;
       if (!conversationEventFor(event, conversationId)) return;
       if (typeof event.sequence === "number") {
-        lastSeq.current = Math.max(lastSeq.current, event.sequence);
+        if (event.sequence <= lastSeq.current) return;
+        lastSeq.current = event.sequence;
       }
       liveUserRows.current = foldUserRowsFromEvent(liveUserRows.current, event, conversationId);
       setTurns((current) => foldTurnsFromEvent(current as never, event, conversationId) as typeof current);
@@ -306,7 +290,11 @@ export function AgentChatWorkspace({
     setSendError(null);
     try {
       if (busy) {
-        const action = routeBusySubmit({ policy, oneShot: mode ?? null });
+        const action = routeBusySubmit({
+          policy,
+          oneShot: mode ?? null,
+          supportsSteer,
+        });
         if (action === "steer") {
           if (!supportsSteer || !runningTurnId) return;
           await conversationApi.steer(conversationId, runningTurnId, text);
@@ -415,6 +403,15 @@ export function AgentChatWorkspace({
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <header className="flex h-10 items-center gap-2 border-b border-border/60 px-4 text-sm">
           <span className="min-w-0 flex-1 truncate font-medium">{title}</span>
+          <button
+            type="button"
+            className="rounded-md border border-border px-1.5 py-0.5 text-xs"
+            onClick={() => {
+              window.open(`/agent-chat?conversationId=${encodeURIComponent(conversationId)}`, "_blank");
+            }}
+          >
+            {t("openStandalone")}
+          </button>
           <select
             className="max-w-36 rounded-md border border-border bg-background px-1.5 py-1 text-xs"
             value={providerId}
@@ -504,6 +501,16 @@ export function AgentChatWorkspace({
                                 {part.status ? ` · ${part.status}` : ""}
                               </div>
                             </div>
+                          );
+                        }
+                        if (part.type === "plan") {
+                          return (
+                            <p
+                              key={`${message.id}-plan-${index}`}
+                              className="text-xs text-muted-foreground"
+                            >
+                              {t("plan")}
+                            </p>
                           );
                         }
                         const text = partText(part);
@@ -611,13 +618,9 @@ export function AgentChatWorkspace({
               {permission.tool}: {permission.description}
             </p>
             <div className="mt-2 flex flex-wrap gap-2">
-              {(permission.options.length > 0
-                ? permission.options
-                : [
-                    { option_id: "allow", name: t("allow") },
-                    { option_id: "reject", name: t("reject") },
-                  ]
-              ).map((option) => (
+              {permission.options.length === 0 ? (
+                <p className="text-xs text-muted-foreground">{t("permissionNoOptions")}</p>
+              ) : permission.options.map((option) => (
                 <button
                   key={option.option_id}
                   type="button"
@@ -655,27 +658,35 @@ export function AgentChatWorkspace({
             onChange={(event) => setDraft(event.target.value)}
             placeholder={t("placeholder")}
             onKeyDown={(event) => {
-              if (event.key === "Enter" && !event.shiftKey) {
+              if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
                 event.preventDefault();
                 void submit();
               }
             }}
           />
-          {busy ? (
-            <div className="mt-2 flex gap-2 text-xs">
-              <button type="button" onClick={() => void submit("queue")}>
-                {policy === "queue" ? t("queue") : t("oneShotQueue")}
-              </button>
-              {supportsSteer ? (
-                <button type="button" onClick={() => void submit("steer")}>
-                  {policy === "steer" ? t("steer") : t("oneShotSteer")}
+          <div className="mt-2 flex gap-2 text-xs">
+            {busy ? (
+              <>
+                <button type="button" onClick={() => void submit("queue")}>
+                  {policy === "queue" ? t("queue") : t("oneShotQueue")}
                 </button>
-              ) : null}
-              <button type="button" onClick={() => void conversationApi.cancel(conversationId)}>
-                {t("stop")}
-              </button>
-            </div>
-          ) : null}
+                {supportsSteer ? (
+                  <button type="button" onClick={() => void submit("steer")}>
+                    {policy === "steer" ? t("steer") : t("oneShotSteer")}
+                  </button>
+                ) : (
+                  <button type="button" disabled className="cursor-not-allowed opacity-50">
+                    {t("steerUnavailable")}
+                  </button>
+                )}
+                <button type="button" onClick={() => void conversationApi.cancel(conversationId)}>
+                  {t("stop")}
+                </button>
+              </>
+            ) : (
+              <button type="submit">{t("send")}</button>
+            )}
+          </div>
         </form>
       </div>
     </div>

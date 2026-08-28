@@ -2794,7 +2794,12 @@
       "delete": "Delete",
       "oneShotQueue": "Queue this once",
       "oneShotSteer": "Steer this once",
-      "sendFailed": "Could not send that message"
+      "sendFailed": "Could not send that message",
+      "send": "Send",
+      "openStandalone": "Open in window",
+      "permissionNoOptions": "This agent did not provide permission options.",
+      "steerUnavailable": "Steer unavailable",
+      "plan": "Plan"
     },
     "attention": {
       "permissionNeeded": "Permission needed",
@@ -6064,9 +6069,10 @@
         "summaryAgentTitle": "Summary agent",
         "summaryAgentDescription": "Terminal agent used for the headless session (same as Automations). Configure model via the agent run config. Leave unselected to use the default LLM provider.",
         "followupTitle": "Busy composer follow-up",
-        "followupDescription": "When a turn is running, Enter queues the next turn or steers the current one. The other action stays available as a one-shot.",
+        "followupDescription": "When a turn is running, Enter queues the next turn. Steer is closed until an agent can inject into a running turn.",
         "followupQueue": "Queue",
-        "followupSteer": "Steer"
+        "followupSteer": "Steer",
+        "followupSteerUnavailable": "Steer (unavailable)"
       }
     },
     "canvasSection": {

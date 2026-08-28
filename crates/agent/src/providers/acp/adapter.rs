@@ -51,7 +51,9 @@ impl AgentSessionCommands for AcpCommands {
             .clone()
             .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
         *self.running_turn.lock().await = Some(turn_id.clone());
-        self.control.send_prompt(input.text);
+        self.control
+            .send_prompt(input.text, input.attachments)
+            .map_err(AgentProviderError::message)?;
         Ok(AgentTurnHandle { turn_id })
     }
 
@@ -64,17 +66,23 @@ impl AgentSessionCommands for AcpCommands {
         if self.running_turn.lock().await.is_none() {
             return Err(AgentProviderError::SteerTurnMismatch);
         }
-        self.control.send_prompt(input.text);
+        self.control
+            .send_prompt(input.text, input.attachments)
+            .map_err(AgentProviderError::message)?;
         Ok(())
     }
 
     async fn cancel(&self) -> AgentResult<()> {
-        self.control.send_cancel();
+        self.control
+            .send_cancel()
+            .map_err(AgentProviderError::message)?;
         Ok(())
     }
 
     async fn close(&self) -> AgentResult<()> {
-        self.control.send_close();
+        self.control
+            .send_close()
+            .map_err(AgentProviderError::message)?;
         Ok(())
     }
 
@@ -189,7 +197,7 @@ impl AcpMappedSession {
                         message_id,
                         delta: delta.delta,
                     })
-                } else if delta.role == "assistant" || delta.kind == "message" {
+                } else if delta.role == "assistant" {
                     let message_id = self
                         .assistant_message_id
                         .get_or_insert_with(|| uuid::Uuid::new_v4().to_string())
@@ -234,11 +242,22 @@ impl AcpMappedSession {
                         .collect(),
                 },
             }),
-            AcpSessionEvent::TurnEnd(_) => {
+            AcpSessionEvent::TurnEnd(stop) => {
                 let turn_id = self.commands.running_turn.lock().await.take();
-                turn_id.map(|turn_id| AgentEvent::TurnCompleted {
-                    turn_id,
-                    stop: TurnStop::Completed,
+                turn_id.map(|turn_id| match stop {
+                    crate::acp_client::client::AcpTurnStop::Canceled => {
+                        AgentEvent::TurnCanceled { turn_id }
+                    }
+                    crate::acp_client::client::AcpTurnStop::Failed => AgentEvent::TurnFailed {
+                        turn_id,
+                        error: "turn failed".into(),
+                    },
+                    crate::acp_client::client::AcpTurnStop::Completed => {
+                        AgentEvent::TurnCompleted {
+                            turn_id,
+                            stop: TurnStop::Completed,
+                        }
+                    }
                 })
             }
             AcpSessionEvent::Error { message, .. } => {

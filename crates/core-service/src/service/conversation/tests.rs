@@ -145,7 +145,7 @@ async fn s9_queue_reloads_and_dispatch_skips_paused() {
         .any(|item| item.status == QueueItemStatus::Paused));
 
     provider.set_auto_complete(true);
-    service.cancel(&meta.id).await.unwrap();
+    provider.complete_current().await;
     timeout(Duration::from_secs(2), async {
         loop {
             let queue = service.store().read_queue(&meta.id).unwrap();

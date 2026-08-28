@@ -2794,7 +2794,12 @@
       "delete": "删除",
       "oneShotQueue": "仅这次排队",
       "oneShotSteer": "仅这次引导",
-      "sendFailed": "消息发送失败"
+      "sendFailed": "消息发送失败",
+      "send": "发送",
+      "openStandalone": "在新窗口打开",
+      "permissionNoOptions": "该 agent 没有提供权限选项。",
+      "steerUnavailable": "引导不可用",
+      "plan": "计划"
     },
     "attention": {
       "permissionNeeded": "需要授权",
@@ -6064,9 +6069,10 @@
         "summaryAgentTitle": "总结 Agent",
         "summaryAgentDescription": "无头总结使用的终端 Agent（与 Automations 相同）。可在 Agent 运行配置中设置模型。不选择则使用默认 LLM 提供方。",
         "followupTitle": "忙碌时的后续输入",
-        "followupDescription": "当前轮次进行中时，Enter 会把下一条排队，或注入当前轮次。另一种操作仍可作为一次性动作使用。",
+        "followupDescription": "当前轮次进行中时，Enter 会把下一条排队。在 agent 支持运行中注入之前，引导保持关闭。",
         "followupQueue": "排队",
-        "followupSteer": "引导"
+        "followupSteer": "引导",
+        "followupSteerUnavailable": "引导（不可用）"
       }
     },
     "canvasSection": {

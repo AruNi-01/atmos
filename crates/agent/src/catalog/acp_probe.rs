@@ -143,7 +143,7 @@ impl AcpCatalogProbe for StdioAcpCatalogProbe {
         .map_err(|error| error.to_string())?;
 
         let options = drain_config_options(&mut handle, PROBE_TIMEOUT).await;
-        handle.send_close();
+        let _ = handle.send_close();
         let closed = timeout(Duration::from_secs(2), wait_session_end(&mut handle))
             .await
             .is_ok();

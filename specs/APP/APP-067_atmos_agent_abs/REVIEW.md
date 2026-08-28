@@ -26,9 +26,9 @@
 
 Host/WS/file path for a Conversation workspace is real: Atmos ids, file SOT, restore-without-spawn, main `/ws` `conversation_*`, catalog worker with production `StdioAcpCatalogProbe`, Queue/Stop, old dedicated `/ws/agent` handler and REST session CRUD removed on the server.
 
-A second cross-review at `732d19e12` (after ACP crate 2.0 + REV-001..017) found a **P0**: Stop cannot interrupt a live ACP `session/prompt` because the runner serializes cancel behind `block_task()`, and a completed `PromptResponse` is always treated as `TurnCompleted`. Text-only happy path (new tab, Enter, stream, Queue) is human-testable; a real Claude/Codex pass that needs Stop, tools, attachments, or Steer-as-default is not a complete M1–M19 sign-off.
+A second cross-review at `732d19e12` (after ACP crate 2.0 + REV-001..017) found a **P0**: Stop could not interrupt a live ACP `session/prompt`. Those residuals (REV-018..028) were implemented: cancel runs during prompt, `stop_reason` maps to canceled, Steer is shown closed when unsupported, attachments become ACP resource links, live tools fold, and subscribe no longer duplicates deltas.
 
-REV-001..017 stay `fixed` for their original bugs. New residuals are REV-018 onward.
+REV-001..028 are `fixed`. A human can now verify Stop, Queue, tools, and standalone pop-out on a live agent.
 
 ---
 
@@ -53,17 +53,17 @@ REV-001..017 stay `fixed` for their original bugs. New residuals are REV-018 onw
 | REV-008 | P2 | api | `conversation_subscribe.after_sequence` and `conversation_messages` pagination ignored | fixed |
 | REV-012 | P2 | backend | `next_seq` rewrites meta.json + index.json on every token delta | fixed |
 | REV-009 | P3 | frontend | Rename/queue edit use `window.prompt`; list is unscoped | fixed |
-| REV-018 | P0 | backend | Stop cannot interrupt live ACP `session/prompt`; queue still fires | open |
-| REV-019 | P1 | frontend | Live fold ignores tool/plan events | open |
-| REV-020 | P1 | backend | Assistant snapshot clobbers tool/plan parts on restore | open |
-| REV-021 | P1 | frontend | Settings Steer + ACP `supports_steer=false` drops busy Enter | open |
-| REV-022 | P1 | backend | Attachment paths never become ACP prompt content | open |
-| REV-023 | P1 | backend | Dead ACP control still accepts `prompt`; next send can ghost-run | open |
-| REV-024 | P1 | api | Subscribe inserts then replays; client appends duplicate deltas | open |
-| REV-025 | P1 | frontend | `AgentChatPanel` creates a new Conversation on every mount | open |
-| REV-026 | P2 | frontend | Standalone list is unscoped; no pop-out of the open conversation | open |
-| REV-027 | P2 | backend | Catalog prefetch is static builtins, not user-enabled Chat agents | open |
-| REV-028 | P2 | backend | Queue dispatch omits live `UserMessage` and can lose concurrent adds | open |
+| REV-018 | P0 | backend | Stop cannot interrupt live ACP `session/prompt`; queue still fires | fixed |
+| REV-019 | P1 | frontend | Live fold ignores tool/plan events | fixed |
+| REV-020 | P1 | backend | Assistant snapshot clobbers tool/plan parts on restore | fixed |
+| REV-021 | P1 | frontend | Settings Steer + ACP `supports_steer=false` drops busy Enter | fixed |
+| REV-022 | P1 | backend | Attachment paths never become ACP prompt content | fixed |
+| REV-023 | P1 | backend | Dead ACP control still accepts `prompt`; next send can ghost-run | fixed |
+| REV-024 | P1 | api | Subscribe inserts then replays; client appends duplicate deltas | fixed |
+| REV-025 | P1 | frontend | `AgentChatPanel` creates a new Conversation on every mount | fixed |
+| REV-026 | P2 | frontend | Standalone list is unscoped; no pop-out of the open conversation | fixed |
+| REV-027 | P2 | backend | Catalog prefetch is static builtins, not user-enabled Chat agents | fixed |
+| REV-028 | P2 | backend | Queue dispatch omits live `UserMessage` and can lose concurrent adds | fixed |
 
 ---
 
@@ -689,7 +689,7 @@ Resolve cwd from workspace/project then `path_within_root`. Reject create/send/u
 
 | Field | Value |
 |-------|--------|
-| **Status** | open |
+| **Status** | fixed |
 | **Severity** | P0 |
 | **Area** | backend |
 | **Reported by** | internal review |
@@ -718,6 +718,7 @@ Send `session/cancel` (and close/config) while `session/prompt` is in flight. Ma
 ### Fix log
 
 - 2026-08-28 - opened in second APP-067 cross-review.
+- 2026-08-28 - implemented review fix.
 
 ---
 
@@ -725,7 +726,7 @@ Send `session/cancel` (and close/config) while `session/prompt` is in flight. Ma
 
 | Field | Value |
 |-------|--------|
-| **Status** | open |
+| **Status** | fixed |
 | **Severity** | P1 |
 | **Area** | frontend |
 | **Reported by** | internal review |
@@ -752,6 +753,7 @@ Fold host `tool_call_*` / `plan_updated` into the current assistant message. Do 
 ### Fix log
 
 - 2026-08-28 - opened in second APP-067 cross-review.
+- 2026-08-28 - implemented review fix.
 
 ---
 
@@ -759,7 +761,7 @@ Fold host `tool_call_*` / `plan_updated` into the current assistant message. Do 
 
 | Field | Value |
 |-------|--------|
-| **Status** | open |
+| **Status** | fixed |
 | **Severity** | P1 |
 | **Area** | backend |
 | **Reported by** | internal review |
@@ -786,6 +788,7 @@ Merge snapshot text into existing parts; never drop tool/plan/attachment parts a
 ### Fix log
 
 - 2026-08-28 - opened in second APP-067 cross-review.
+- 2026-08-28 - implemented review fix.
 
 ---
 
@@ -793,7 +796,7 @@ Merge snapshot text into existing parts; never drop tool/plan/attachment parts a
 
 | Field | Value |
 |-------|--------|
-| **Status** | open |
+| **Status** | fixed |
 | **Severity** | P1 |
 | **Area** | frontend |
 | **Reported by** | internal review |
@@ -821,6 +824,7 @@ When `!supports_steer`, force Queue for Enter and one-shot. Do not let the setti
 ### Fix log
 
 - 2026-08-28 - opened in second APP-067 cross-review.
+- 2026-08-28 - implemented review fix.
 
 ---
 
@@ -828,7 +832,7 @@ When `!supports_steer`, force Queue for Enter and one-shot. Do not let the setti
 
 | Field | Value |
 |-------|--------|
-| **Status** | open |
+| **Status** | fixed |
 | **Severity** | P1 |
 | **Area** | backend |
 | **Reported by** | internal review |
@@ -856,6 +860,7 @@ Map attachment paths to ACP content blocks in the mapper only. Wire Chat compose
 ### Fix log
 
 - 2026-08-28 - opened in second APP-067 cross-review.
+- 2026-08-28 - implemented review fix.
 
 ---
 
@@ -863,7 +868,7 @@ Map attachment paths to ACP content blocks in the mapper only. Wire Chat compose
 
 | Field | Value |
 |-------|--------|
-| **Status** | open |
+| **Status** | fixed |
 | **Severity** | P1 |
 | **Area** | backend |
 | **Reported by** | internal review |
@@ -890,6 +895,7 @@ Treat a closed command channel as prompt failure. Do not return a dead runtime f
 ### Fix log
 
 - 2026-08-28 - opened in second APP-067 cross-review.
+- 2026-08-28 - implemented review fix.
 
 ---
 
@@ -897,7 +903,7 @@ Treat a closed command channel as prompt failure. Do not return a dead runtime f
 
 | Field | Value |
 |-------|--------|
-| **Status** | open |
+| **Status** | fixed |
 | **Severity** | P1 |
 | **Area** | api |
 | **Reported by** | internal review |
@@ -925,6 +931,7 @@ Replay first, then insert; and/or skip events with `sequence <= lastSeq` on the 
 ### Fix log
 
 - 2026-08-28 - opened in second APP-067 cross-review.
+- 2026-08-28 - implemented review fix.
 
 ---
 
@@ -932,7 +939,7 @@ Replay first, then insert; and/or skip events with `sequence <= lastSeq` on the 
 
 | Field | Value |
 |-------|--------|
-| **Status** | open |
+| **Status** | fixed |
 | **Severity** | P1 |
 | **Area** | frontend |
 | **Reported by** | internal review |
@@ -960,6 +967,7 @@ Persist and reopen `conversation_id`. Do not create on every mount. Until N5, do
 ### Fix log
 
 - 2026-08-28 - opened in second APP-067 cross-review.
+- 2026-08-28 - implemented review fix.
 
 ---
 
@@ -967,7 +975,7 @@ Persist and reopen `conversation_id`. Do not create on every mount. Until N5, do
 
 | Field | Value |
 |-------|--------|
-| **Status** | open |
+| **Status** | fixed |
 | **Severity** | P2 |
 | **Area** | frontend |
 | **Reported by** | internal review |
@@ -995,6 +1003,7 @@ Distinguish “no filter” from “only null workspace.” Pop-out must pass th
 ### Fix log
 
 - 2026-08-28 - opened in second APP-067 cross-review.
+- 2026-08-28 - implemented review fix.
 
 ---
 
@@ -1002,7 +1011,7 @@ Distinguish “no filter” from “only null workspace.” Pop-out must pass th
 
 | Field | Value |
 |-------|--------|
-| **Status** | open |
+| **Status** | fixed |
 | **Severity** | P2 |
 | **Area** | backend |
 | **Reported by** | internal review |
@@ -1029,6 +1038,7 @@ Prefetch installed, not-disabled Chat providers only. Do not default unknown ids
 ### Fix log
 
 - 2026-08-28 - opened in second APP-067 cross-review.
+- 2026-08-28 - implemented review fix.
 
 ---
 
@@ -1036,7 +1046,7 @@ Prefetch installed, not-disabled Chat providers only. Do not default unknown ids
 
 | Field | Value |
 |-------|--------|
-| **Status** | open |
+| **Status** | fixed |
 | **Severity** | P2 |
 | **Area** | backend |
 | **Reported by** | internal review |
@@ -1063,4 +1073,5 @@ Emit `UserMessage` like `send`. Make queue read-modify-write atomic with dispatc
 ### Fix log
 
 - 2026-08-28 - opened in second APP-067 cross-review.
+- 2026-08-28 - implemented review fix.
 

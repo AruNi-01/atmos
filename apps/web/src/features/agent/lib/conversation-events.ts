@@ -17,6 +17,13 @@ export type ConversationClientEventPayload = {
     };
     request_id?: string;
     items?: Array<{ id: string; seq: number; status: string; prompt: string }>;
+    tool_call?: {
+      tool_call_id?: string;
+      name?: string;
+      title?: string;
+      status?: string;
+    };
+    plan?: unknown;
   };
 };
 
@@ -27,7 +34,15 @@ export type LiveTurn = {
     id: string;
     role: string;
     kind?: string;
-    parts: Array<{ type: string; text?: string; name?: string; title?: string; status?: string; message?: string }>;
+    parts: Array<{
+      type: string;
+      text?: string;
+      name?: string;
+      title?: string;
+      status?: string;
+      message?: string;
+      tool_call_id?: string;
+    }>;
   }>;
 };
 
@@ -146,6 +161,84 @@ export function foldTurnsFromEvent(
     return turns.map((turn) =>
       turn.id === payload.turn_id ? { ...turn, status: payload.status ?? "completed" } : turn,
     );
+  }
+  if (
+    (payload.type === "tool_call_started" ||
+      payload.type === "tool_call_updated" ||
+      payload.type === "tool_call_completed" ||
+      payload.type === "tool_call_failed") &&
+    payload.tool_call?.tool_call_id
+  ) {
+    const turnId = payload.turn_id ?? turns[turns.length - 1]?.id;
+    if (!turnId) return turns;
+    const tool = payload.tool_call;
+    const part = {
+      type: "tool_call",
+      tool_call_id: tool.tool_call_id,
+      name: tool.name,
+      title: tool.title,
+      status: tool.status,
+    };
+    const next = upsertTurn(turns, turnId);
+    return next.map((turn) => {
+      if (turn.id !== turnId) return turn;
+      const assistant = [...turn.messages].reverse().find((item) => item.role === "assistant");
+      if (!assistant) {
+        return {
+          ...turn,
+          messages: [
+            ...turn.messages,
+            {
+              id: `tool-${tool.tool_call_id}`,
+              role: "assistant",
+              parts: [part],
+            },
+          ],
+        };
+      }
+      return {
+        ...turn,
+        messages: turn.messages.map((item) => {
+          if (item.id !== assistant.id) return item;
+          const parts = [...item.parts];
+          const existing = parts.findIndex(
+            (row) => row.type === "tool_call" && row.tool_call_id === tool.tool_call_id,
+          );
+          if (existing >= 0) {
+            parts[existing] = { ...parts[existing], ...part };
+          } else {
+            parts.push(part);
+          }
+          return { ...item, parts };
+        }),
+      };
+    });
+  }
+  if (payload.type === "plan_updated") {
+    const turnId = payload.turn_id ?? turns[turns.length - 1]?.id;
+    if (!turnId) return turns;
+    const next = upsertTurn(turns, turnId);
+    return next.map((turn) => {
+      if (turn.id !== turnId) return turn;
+      const assistant = [...turn.messages].reverse().find((item) => item.role === "assistant");
+      if (!assistant) {
+        return {
+          ...turn,
+          messages: [
+            ...turn.messages,
+            { id: `plan-${turnId}`, role: "assistant", parts: [{ type: "plan" }] },
+          ],
+        };
+      }
+      return {
+        ...turn,
+        messages: turn.messages.map((item) => {
+          if (item.id !== assistant.id) return item;
+          if (item.parts.some((row) => row.type === "plan")) return item;
+          return { ...item, parts: [...item.parts, { type: "plan" }] };
+        }),
+      };
+    });
   }
   return turns;
 }

@@ -15,6 +15,7 @@ use tokio::time::{timeout, Duration};
 use tokio_util::compat::{TokioAsyncReadCompatExt, TokioAsyncWriteCompatExt};
 use tracing::{error, info, warn};
 
+use crate::acp_client::client::AcpTurnStop;
 use crate::acp_client::logging::append_acp_log;
 use crate::acp_client::tools::AcpToolHandler;
 use crate::acp_client::types::{
@@ -30,7 +31,10 @@ use super::process::spawn_agent;
 
 /// Command sent to the ACP session loop
 enum SessionCommand {
-    Prompt(String),
+    Prompt {
+        text: String,
+        attachments: Vec<String>,
+    },
     Cancel,
     Close,
     SetConfigOption(String, String),
@@ -290,6 +294,45 @@ fn internal_error(message: impl Into<String>) -> acp::Error {
     acp::Error::new(-32603, message.into())
 }
 
+fn prompt_content_blocks(text: &str, attachments: &[String]) -> Vec<schema::ContentBlock> {
+    let mut blocks = Vec::new();
+    if !text.trim().is_empty() {
+        blocks.push(schema::ContentBlock::Text(schema::TextContent::new(
+            text.to_string(),
+        )));
+    }
+    for path in attachments {
+        let name = std::path::Path::new(path)
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or("attachment");
+        let uri = if path.starts_with("file:") {
+            path.clone()
+        } else {
+            format!("file://{path}")
+        };
+        blocks.push(schema::ContentBlock::ResourceLink(
+            schema::ResourceLink::new(name, uri),
+        ));
+    }
+    if blocks.is_empty() {
+        blocks.push(schema::ContentBlock::Text(schema::TextContent::new(
+            String::new(),
+        )));
+    }
+    blocks
+}
+
+pub(crate) fn map_prompt_stop(cancel_requested: bool, reason: schema::StopReason) -> AcpTurnStop {
+    if cancel_requested || matches!(reason, schema::StopReason::Cancelled) {
+        AcpTurnStop::Canceled
+    } else if matches!(reason, schema::StopReason::Refusal) {
+        AcpTurnStop::Failed
+    } else {
+        AcpTurnStop::Completed
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum SessionRestoreMethod {
     LoadWithHistory,
@@ -299,7 +342,6 @@ enum SessionRestoreMethod {
 #[derive(Debug, Clone, Copy, Default)]
 struct SessionConfigEmitResult {
     uses_legacy_modes: bool,
-    has_any: bool,
 }
 
 fn select_session_restore_method(
@@ -362,16 +404,25 @@ pub struct AcpSessionControl {
 }
 
 impl AcpSessionControl {
-    pub fn send_prompt(&self, message: String) {
-        let _ = self.cmd_tx.send(SessionCommand::Prompt(message));
+    pub fn send_prompt(&self, message: String, attachments: Vec<String>) -> Result<(), String> {
+        self.cmd_tx
+            .send(SessionCommand::Prompt {
+                text: message,
+                attachments,
+            })
+            .map_err(|_| "ACP session is no longer running".to_string())
     }
 
-    pub fn send_cancel(&self) {
-        let _ = self.cmd_tx.send(SessionCommand::Cancel);
+    pub fn send_cancel(&self) -> Result<(), String> {
+        self.cmd_tx
+            .send(SessionCommand::Cancel)
+            .map_err(|_| "ACP session is no longer running".to_string())
     }
 
-    pub fn send_close(&self) {
-        let _ = self.cmd_tx.send(SessionCommand::Close);
+    pub fn send_close(&self) -> Result<(), String> {
+        self.cmd_tx
+            .send(SessionCommand::Close)
+            .map_err(|_| "ACP session is no longer running".to_string())
     }
 
     pub fn send_set_config_option(&self, config_id: String, value: String) {
@@ -388,18 +439,27 @@ impl AcpSessionHandle {
         }
     }
 
-    pub fn send_prompt(&self, message: String) {
-        let _ = self.cmd_tx.send(SessionCommand::Prompt(message));
+    pub fn send_prompt(&self, message: String, attachments: Vec<String>) -> Result<(), String> {
+        self.cmd_tx
+            .send(SessionCommand::Prompt {
+                text: message,
+                attachments,
+            })
+            .map_err(|_| "ACP session is no longer running".to_string())
     }
 
     /// Send a session/cancel notification to interrupt the current turn
-    pub fn send_cancel(&self) {
-        let _ = self.cmd_tx.send(SessionCommand::Cancel);
+    pub fn send_cancel(&self) -> Result<(), String> {
+        self.cmd_tx
+            .send(SessionCommand::Cancel)
+            .map_err(|_| "ACP session is no longer running".to_string())
     }
 
     /// Send ACP session/close when the active agent advertises support.
-    pub fn send_close(&self) {
-        let _ = self.cmd_tx.send(SessionCommand::Close);
+    pub fn send_close(&self) -> Result<(), String> {
+        self.cmd_tx
+            .send(SessionCommand::Close)
+            .map_err(|_| "ACP session is no longer running".to_string())
     }
 
     pub fn send_set_config_option(&self, config_id: String, value: String) {
@@ -697,11 +757,9 @@ async fn run_session_inner(
                 if let Some(opts) = config_options {
                     info!("Session returned {} config options", opts.len());
                     let out = map_config_options(opts);
-                    let has_any = !out.is_empty();
                     let _ = event_tx.send(AcpSessionEvent::ConfigOptionsUpdate(out));
                     SessionConfigEmitResult {
                         uses_legacy_modes: false,
-                        has_any,
                     }
                 } else {
                     let mut legacy_opts = Vec::new();
@@ -721,137 +779,81 @@ async fn run_session_inner(
                     }
                     SessionConfigEmitResult {
                         uses_legacy_modes: leg_modes,
-                        has_any: leg_modes,
                     }
                 }
             }
 
-            let mut restored_existing_session = false;
             let mut replayed_loaded_history = false;
-            let create_or_load_result: acp::Result<schema::SessionId> =
-                if let Some(resume_id) = resume_session_id.clone() {
-                    let requested = schema::SessionId::new(resume_id.clone());
-                    let restore_method = select_session_restore_method(
-                        init_response.agent_capabilities.load_session,
-                        init_response
-                            .agent_capabilities
-                            .session_capabilities
-                            .resume
-                            .is_some(),
-                    );
-                    if restore_method == Some(SessionRestoreMethod::LoadWithHistory) {
-                        match conn
-                            .send_request(schema::LoadSessionRequest::new(
-                                requested.clone(),
-                                cwd.clone(),
-                            ))
-                            .block_task()
-                            .await
-                        {
-                            Ok(response) => {
-                                info!(
-                                    "Loaded ACP session via legacy session/load: {}",
-                                    resume_id
-                                );
-                                restored_existing_session = true;
-                                replayed_loaded_history = true;
-                                let should_probe_resume_for_config =
-                                    init_response
-                                        .agent_capabilities
-                                        .session_capabilities
-                                        .resume
-                                        .is_some()
-                                        && response
-                                            .config_options
-                                            .as_ref()
-                                            .map(|opts| opts.is_empty())
-                                            .unwrap_or(true);
-                                let emitted = emit_session_config(
-                                    response.config_options,
-                                    response.modes,
-                                    &event_tx,
-                                );
-                                uses_legacy_modes = emitted.uses_legacy_modes;
-
-                                if should_probe_resume_for_config {
-                                    match conn
-                                        .send_request(schema::ResumeSessionRequest::new(
-                                            requested.clone(),
-                                            cwd.clone(),
-                                        ))
-                                        .block_task()
-                                        .await
-                                    {
-                                        Ok(response) => {
-                                            info!(
-                                                "Probed ACP session/resume for config after load: {}",
-                                                resume_id
-                                            );
-                                            let emitted = emit_session_config(
-                                                response.config_options,
-                                                response.modes,
-                                                &event_tx,
-                                            );
-                                            if emitted.has_any {
-                                                uses_legacy_modes = emitted.uses_legacy_modes;
-                                            }
-                                        }
-                                        Err(e) => {
-                                            warn!(
-                                                "Failed to probe session/resume config after load for {}: {}",
-                                                resume_id, e
-                                            );
-                                        }
-                                    }
-                                }
-
-                                Ok(requested)
-                            }
-                            Err(err) => Err(err),
-                        }
-                    } else if restore_method == Some(SessionRestoreMethod::ResumeContextOnly) {
-                        conn.send_request(schema::ResumeSessionRequest::new(
+            let create_or_load_result: acp::Result<schema::SessionId> = if let Some(resume_id) =
+                resume_session_id.clone()
+            {
+                let requested = schema::SessionId::new(resume_id.clone());
+                let restore_method = select_session_restore_method(
+                    init_response.agent_capabilities.load_session,
+                    init_response
+                        .agent_capabilities
+                        .session_capabilities
+                        .resume
+                        .is_some(),
+                );
+                if restore_method == Some(SessionRestoreMethod::LoadWithHistory) {
+                    match conn
+                        .send_request(schema::LoadSessionRequest::new(
                             requested.clone(),
                             cwd.clone(),
                         ))
                         .block_task()
                         .await
-                        .map(|response| {
-                            info!("Resumed ACP session without history replay: {}", resume_id);
-                            restored_existing_session = true;
-                            replayed_loaded_history = false;
+                    {
+                        Ok(response) => {
+                            info!("Loaded ACP session via legacy session/load: {}", resume_id);
+                            replayed_loaded_history = true;
                             let emitted = emit_session_config(
                                 response.config_options,
                                 response.modes,
                                 &event_tx,
                             );
                             uses_legacy_modes = emitted.uses_legacy_modes;
-                            requested
-                        })
-                    } else {
-                        let msg = format!(
+                            Ok(requested)
+                        }
+                        Err(err) => Err(err),
+                    }
+                } else if restore_method == Some(SessionRestoreMethod::ResumeContextOnly) {
+                    conn.send_request(schema::ResumeSessionRequest::new(
+                        requested.clone(),
+                        cwd.clone(),
+                    ))
+                    .block_task()
+                    .await
+                    .map(|response| {
+                        info!("Resumed ACP session without history replay: {}", resume_id);
+                        replayed_loaded_history = false;
+                        let emitted =
+                            emit_session_config(response.config_options, response.modes, &event_tx);
+                        uses_legacy_modes = emitted.uses_legacy_modes;
+                        requested
+                    })
+                } else {
+                    let msg = format!(
                         "Agent does not support ACP session/resume or legacy session/load for {}",
                         resume_id
                     );
-                        if let Some(tx) = ready_tx.take() {
-                            let _ = tx.send(Err(msg.clone()));
-                        }
-                        return Err(internal_error(msg));
+                    if let Some(tx) = ready_tx.take() {
+                        let _ = tx.send(Err(msg.clone()));
                     }
-                } else {
-                    conn.send_request(schema::NewSessionRequest::new(cwd.clone()))
-                        .block_task()
-                        .await
-                        .map(|response| {
-                            let emitted = emit_session_config(
-                                response.config_options,
-                                response.modes,
-                                &event_tx,
-                            );
-                            uses_legacy_modes = emitted.uses_legacy_modes;
-                            response.session_id
-                        })
-                };
+                    return Err(internal_error(msg));
+                }
+            } else {
+                conn.send_request(schema::NewSessionRequest::new(cwd.clone()))
+                    .block_task()
+                    .await
+                    .map(|response| {
+                        let emitted =
+                            emit_session_config(response.config_options, response.modes, &event_tx);
+                        uses_legacy_modes = emitted.uses_legacy_modes;
+                        response.session_id
+                    })
+            };
 
             let session_id_acp = match create_or_load_result {
                 Ok(session_id) => session_id,
@@ -870,18 +872,16 @@ async fn run_session_inner(
                 }
             };
 
-            if restored_existing_session {
-                if let Some(snapshot) = session_config_snapshot {
-                    apply_config_values(
-                        &conn,
-                        &session_id_acp,
-                        snapshot,
-                        uses_legacy_modes,
-                        &event_tx,
-                        "session snapshot",
-                    )
-                    .await;
-                }
+            if let Some(snapshot) = session_config_snapshot {
+                apply_config_values(
+                    &conn,
+                    &session_id_acp,
+                    snapshot,
+                    uses_legacy_modes,
+                    &event_tx,
+                    "session snapshot",
+                )
+                .await;
             } else if let Some(defaults) = default_config {
                 apply_config_values(
                     &conn,
@@ -916,8 +916,8 @@ async fn run_session_inner(
 
             while let Some(cmd) = cmd_rx.recv().await {
                 match cmd {
-                    SessionCommand::Prompt(msg) => {
-                        if msg.trim().is_empty() {
+                    SessionCommand::Prompt { text, attachments } => {
+                        if text.trim().is_empty() && attachments.is_empty() {
                             continue;
                         }
                         append_acp_log(
@@ -926,21 +926,65 @@ async fn run_session_inner(
                             "prompt_request",
                             &serde_json::json!({
                                 "session_id": session_id_acp.to_string(),
-                                "message": msg.clone(),
+                                "message": text.clone(),
+                                "attachments": attachments,
                             }),
                         );
-                        match conn
+                        let prompt_fut = conn
                             .send_request(schema::PromptRequest::new(
                                 session_id_acp.clone(),
-                                vec![schema::ContentBlock::Text(schema::TextContent::new(
-                                    msg.clone(),
-                                ))],
+                                prompt_content_blocks(&text, &attachments),
                             ))
-                            .block_task()
-                            .await
-                        {
-                            Ok(_res) => {
-                                let _ = event_tx.send(AcpSessionEvent::TurnEnd(None));
+                            .block_task();
+                        tokio::pin!(prompt_fut);
+                        let mut cancel_requested = false;
+                        let mut pending_close = false;
+                        let mut pending_configs = Vec::new();
+                        let prompt_result = loop {
+                            tokio::select! {
+                                res = &mut prompt_fut => break res,
+                                next = cmd_rx.recv() => {
+                                    match next {
+                                        Some(SessionCommand::Cancel) => {
+                                            cancel_requested = true;
+                                            if let Err(e) = conn.send_notification(
+                                                schema::CancelNotification::new(
+                                                    session_id_acp.clone(),
+                                                ),
+                                            ) {
+                                                warn!("Cancel failed: {}", e);
+                                            }
+                                        }
+                                        Some(SessionCommand::Close) => {
+                                            cancel_requested = true;
+                                            pending_close = true;
+                                            if let Err(e) = conn.send_notification(
+                                                schema::CancelNotification::new(
+                                                    session_id_acp.clone(),
+                                                ),
+                                            ) {
+                                                warn!("Cancel failed: {}", e);
+                                            }
+                                        }
+                                        Some(SessionCommand::SetConfigOption(id, value)) => {
+                                            pending_configs.push((id, value));
+                                        }
+                                        Some(SessionCommand::Prompt { .. }) => {}
+                                        None => {
+                                            break Err(internal_error(
+                                                "ACP command channel closed",
+                                            ));
+                                        }
+                                    }
+                                }
+                            }
+                        };
+                        match prompt_result {
+                            Ok(res) => {
+                                let _ = event_tx.send(AcpSessionEvent::TurnEnd(map_prompt_stop(
+                                    cancel_requested,
+                                    res.stop_reason,
+                                )));
                             }
                             Err(e) => {
                                 warn!("Prompt failed: {}", e);
@@ -949,8 +993,56 @@ async fn run_session_inner(
                                     message: e.to_string(),
                                     recoverable: true,
                                 });
-                                let _ = event_tx.send(AcpSessionEvent::TurnEnd(None));
+                                let _ =
+                                    event_tx.send(AcpSessionEvent::TurnEnd(if cancel_requested {
+                                        AcpTurnStop::Canceled
+                                    } else {
+                                        AcpTurnStop::Failed
+                                    }));
                             }
+                        }
+                        for (config_id, value) in pending_configs {
+                            if uses_legacy_modes && config_id == "mode" {
+                                let _ = conn
+                                    .send_request(schema::SetSessionModeRequest::new(
+                                        session_id_acp.clone(),
+                                        value,
+                                    ))
+                                    .block_task()
+                                    .await;
+                            } else {
+                                let _ = conn
+                                    .send_request(schema::SetSessionConfigOptionRequest::new(
+                                        session_id_acp.clone(),
+                                        schema::SessionConfigId::new(config_id),
+                                        schema::SessionConfigValueId::new(value),
+                                    ))
+                                    .block_task()
+                                    .await;
+                            }
+                        }
+                        if pending_close {
+                            if init_response
+                                .agent_capabilities
+                                .session_capabilities
+                                .close
+                                .is_none()
+                            {
+                                let _ = event_tx.send(AcpSessionEvent::SessionClosed {
+                                    reason: Some(
+                                        "Agent does not advertise ACP session/close".to_string(),
+                                    ),
+                                });
+                                break;
+                            }
+                            let _ = conn
+                                .send_request(schema::CloseSessionRequest::new(
+                                    session_id_acp.clone(),
+                                ))
+                                .block_task()
+                                .await;
+                            let _ = event_tx.send(AcpSessionEvent::SessionClosed { reason: None });
+                            break;
                         }
                     }
                     SessionCommand::Cancel => {
@@ -1246,7 +1338,11 @@ pub async fn logout_acp_agent(
 
 #[cfg(test)]
 mod tests {
-    use super::{ordered_config_values, select_session_restore_method, SessionRestoreMethod};
+    use super::{
+        map_prompt_stop, ordered_config_values, select_session_restore_method, SessionRestoreMethod,
+    };
+    use crate::acp_client::client::AcpTurnStop;
+    use agent_client_protocol::schema::v1 as schema;
     use std::collections::HashMap;
 
     #[test]
@@ -1288,6 +1384,26 @@ mod tests {
         assert_eq!(
             ordered,
             vec!["mode", "model", "reasoning_effort", "fast-mode", "custom"]
+        );
+    }
+
+    #[test]
+    fn prompt_stop_maps_cancel_and_refusal() {
+        assert_eq!(
+            map_prompt_stop(true, schema::StopReason::EndTurn),
+            AcpTurnStop::Canceled
+        );
+        assert_eq!(
+            map_prompt_stop(false, schema::StopReason::Cancelled),
+            AcpTurnStop::Canceled
+        );
+        assert_eq!(
+            map_prompt_stop(false, schema::StopReason::Refusal),
+            AcpTurnStop::Failed
+        );
+        assert_eq!(
+            map_prompt_stop(false, schema::StopReason::EndTurn),
+            AcpTurnStop::Completed
         );
     }
 }

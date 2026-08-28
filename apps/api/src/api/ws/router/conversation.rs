@@ -165,11 +165,6 @@ impl WsMessageService {
         req: ConversationSubscribeRequest,
     ) -> Result<Value> {
         let snapshot = self.conversation().get(&req.conversation_id)?;
-        let mut subs = self.conversation_subs.write().await;
-        subs.entry(req.conversation_id.clone())
-            .or_default()
-            .insert(conn_id.to_string());
-        drop(subs);
         let after = req.after_sequence.unwrap_or(0);
         let missed = self
             .conversation()
@@ -185,6 +180,10 @@ impl WsMessageService {
                 }
             }
         }
+        let mut subs = self.conversation_subs.write().await;
+        subs.entry(req.conversation_id.clone())
+            .or_default()
+            .insert(conn_id.to_string());
         Ok(json!({ "last_event_seq": snapshot.meta.last_event_seq }))
     }
 
@@ -312,18 +311,14 @@ impl WsMessageService {
         req: AgentModelCatalogGetRequest,
     ) -> Result<Value> {
         let worker = Arc::clone(&self.catalog_worker);
-        let spec = builtin_catalog_specs()
-            .into_iter()
-            .find(|spec| spec.agent_id == req.agent_id)
-            .unwrap_or(agent::AgentCatalogSpec {
-                agent_id: req.agent_id.clone(),
-                acp: true,
-                ..Default::default()
-            });
         if req.agent_id.contains('/') || req.agent_id.contains('\\') || req.agent_id.contains("..")
         {
             return Err(ServiceError::Validation("invalid agent_id".into()));
         }
+        let spec = builtin_catalog_specs()
+            .into_iter()
+            .find(|spec| spec.agent_id == req.agent_id)
+            .ok_or_else(|| ServiceError::Validation("unknown agent_id".into()))?;
         let catalog = worker.get_cached_or_probing(&spec, req.refresh.unwrap_or(false));
         serde_json::to_value(catalog)
             .map_err(|e| ServiceError::Processing(format!("serialize catalog: {e}")))

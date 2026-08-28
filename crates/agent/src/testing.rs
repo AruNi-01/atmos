@@ -32,6 +32,8 @@ pub struct FakeAgentProvider {
     pub auto_complete: Arc<AtomicBool>,
     pub emit_permission_on_prompt: bool,
     last_resume: Arc<Mutex<Option<String>>>,
+    running_turn: Arc<Mutex<Option<String>>>,
+    events_tx: Arc<Mutex<Option<mpsc::UnboundedSender<AgentEvent>>>>,
 }
 
 impl FakeAgentProvider {
@@ -43,6 +45,8 @@ impl FakeAgentProvider {
             auto_complete: Arc::new(AtomicBool::new(true)),
             emit_permission_on_prompt: false,
             last_resume: Arc::new(Mutex::new(None)),
+            running_turn: Arc::new(Mutex::new(None)),
+            events_tx: Arc::new(Mutex::new(None)),
         }
     }
 
@@ -69,6 +73,17 @@ impl FakeAgentProvider {
     pub fn set_auto_complete(&self, value: bool) {
         self.auto_complete.store(value, Ordering::SeqCst);
     }
+
+    pub async fn complete_current(&self) {
+        if let Some(turn_id) = self.running_turn.lock().await.take() {
+            if let Some(tx) = self.events_tx.lock().await.clone() {
+                let _ = tx.send(AgentEvent::TurnCompleted {
+                    turn_id,
+                    stop: TurnStop::Completed,
+                });
+            }
+        }
+    }
 }
 
 struct FakeSessionInner {
@@ -77,7 +92,7 @@ struct FakeSessionInner {
     auto_complete: Arc<AtomicBool>,
     emit_permission_on_prompt: bool,
     events_tx: mpsc::UnboundedSender<AgentEvent>,
-    running_turn: Mutex<Option<String>>,
+    running_turn: Arc<Mutex<Option<String>>>,
 }
 
 #[async_trait]
@@ -219,9 +234,12 @@ fn open_session(
         supports_steer: provider.supports_steer,
         auto_complete: Arc::clone(&provider.auto_complete),
         emit_permission_on_prompt: provider.emit_permission_on_prompt,
-        events_tx: tx,
-        running_turn: Mutex::new(None),
+        events_tx: tx.clone(),
+        running_turn: Arc::clone(&provider.running_turn),
     });
+    if let Ok(mut slot) = provider.events_tx.try_lock() {
+        *slot = Some(tx);
+    }
     Box::new(FakeSession {
         control: AgentSessionControl::new(inner),
         events_rx: rx,

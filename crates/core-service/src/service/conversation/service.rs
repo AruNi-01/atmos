@@ -1,4 +1,5 @@
 use std::collections::{HashMap, HashSet, VecDeque};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -26,6 +27,7 @@ use super::types::{
 struct LiveRuntime {
     control: AgentSessionControl,
     state: Arc<Mutex<RuntimeState>>,
+    alive: Arc<AtomicBool>,
 }
 
 pub struct ConversationService {
@@ -169,11 +171,52 @@ impl ConversationService {
         let _turn = gate.lock().await;
         let meta = self.store.get_meta(conversation_id)?;
         if let Some(runtime) = self.runtimes.lock().await.get(conversation_id) {
-            if runtime.state.lock().await.current_turn_id.is_some() {
+            if !runtime.alive.load(Ordering::SeqCst) {
+                // Pump is gone; fall through to a fresh spawn after the stale map entry is dropped.
+            } else if runtime.state.lock().await.current_turn_id.is_some() {
                 return Err(ServiceError::Validation(
                     "turn already running; queue or steer instead".into(),
                 ));
             }
+        }
+        let snapshot = self.store.get_snapshot(conversation_id)?;
+        if let Some(turn) = snapshot.turns.iter().rev().find(|turn| {
+            matches!(
+                turn.status,
+                TurnStatus::Running | TurnStatus::WaitingPermission
+            )
+        }) {
+            let runtime_busy =
+                if let Some(runtime) = self.runtimes.lock().await.get(conversation_id) {
+                    runtime.alive.load(Ordering::SeqCst)
+                        && runtime.state.lock().await.current_turn_id.is_some()
+                } else {
+                    false
+                };
+            if runtime_busy {
+                return Err(ServiceError::Validation(
+                    "turn already running; queue or steer instead".into(),
+                ));
+            }
+            self.store.append_record(
+                conversation_id,
+                &TranscriptRecord::TurnCompleted {
+                    turn_id: turn.id.clone(),
+                    status: TurnStatus::Failed,
+                    error: Some("previous turn did not complete".into()),
+                    created_at: Utc::now(),
+                },
+            )?;
+            self.store.update_meta(conversation_id, |meta| {
+                meta.runtime_status = RuntimeStatus::Ready;
+            })?;
+            self.emit(
+                conversation_id,
+                ConversationClientPayload::TurnCompleted {
+                    turn_id: turn.id.clone(),
+                    status: TurnStatus::Failed,
+                },
+            )?;
         }
         let turn_id = uuid::Uuid::new_v4().to_string();
         self.store.append_record(
@@ -365,11 +408,32 @@ impl ConversationService {
                 .await
                 .map_err(|e| ServiceError::Processing(e.to_string()))?;
         } else {
+            let snapshot = self.store.get_snapshot(conversation_id)?;
+            if let Some(turn) = snapshot.turns.iter().rev().find(|turn| {
+                matches!(
+                    turn.status,
+                    TurnStatus::Running | TurnStatus::WaitingPermission
+                )
+            }) {
+                self.store.append_record(
+                    conversation_id,
+                    &TranscriptRecord::TurnCompleted {
+                        turn_id: turn.id.clone(),
+                        status: TurnStatus::Canceled,
+                        error: None,
+                        created_at: Utc::now(),
+                    },
+                )?;
+                self.emit(
+                    conversation_id,
+                    ConversationClientPayload::TurnCompleted {
+                        turn_id: turn.id.clone(),
+                        status: TurnStatus::Canceled,
+                    },
+                )?;
+            }
             self.store.update_meta(conversation_id, |meta| {
-                if !matches!(
-                    meta.runtime_status,
-                    RuntimeStatus::Closed | RuntimeStatus::Detached
-                ) {
+                if !matches!(meta.runtime_status, RuntimeStatus::Closed) {
                     meta.runtime_status = RuntimeStatus::Detached;
                 }
             })?;
@@ -388,18 +452,19 @@ impl ConversationService {
         }
         self.store
             .validate_attachment_paths(conversation_id, &attachments)?;
-        let mut items = self.store.read_queue(conversation_id)?;
-        let seq = items.iter().map(|item| item.seq).max().unwrap_or(0) + 1;
-        let item = QueueItem {
-            id: uuid::Uuid::new_v4().to_string(),
-            seq,
-            status: QueueItemStatus::Pending,
-            prompt: text.to_string(),
-            display_prompt: None,
-            attachments,
-        };
-        items.push(item.clone());
-        self.store.write_queue(conversation_id, &items)?;
+        let (item, items) = self.store.mutate_queue(conversation_id, |items| {
+            let seq = items.iter().map(|item| item.seq).max().unwrap_or(0) + 1;
+            let item = QueueItem {
+                id: uuid::Uuid::new_v4().to_string(),
+                seq,
+                status: QueueItemStatus::Pending,
+                prompt: text.to_string(),
+                display_prompt: None,
+                attachments: attachments.clone(),
+            };
+            items.push(item.clone());
+            Ok((item, items.clone()))
+        })?;
         self.emit(
             conversation_id,
             ConversationClientPayload::QueueUpdated { items },
@@ -414,22 +479,22 @@ impl ConversationService {
         text: Option<String>,
         status: Option<QueueItemStatus>,
     ) -> Result<QueueItem> {
-        let mut items = self.store.read_queue(conversation_id)?;
-        let item = items
-            .iter_mut()
-            .find(|item| item.id == item_id)
-            .ok_or_else(|| ServiceError::NotFound(format!("queue item {item_id}")))?;
-        if let Some(text) = text {
-            if text.trim().is_empty() {
-                return Err(ServiceError::Validation("text is required".into()));
+        let (cloned, items) = self.store.mutate_queue(conversation_id, |items| {
+            let item = items
+                .iter_mut()
+                .find(|item| item.id == item_id)
+                .ok_or_else(|| ServiceError::NotFound(format!("queue item {item_id}")))?;
+            if let Some(text) = text {
+                if text.trim().is_empty() {
+                    return Err(ServiceError::Validation("text is required".into()));
+                }
+                item.prompt = text;
             }
-            item.prompt = text;
-        }
-        if let Some(status) = status {
-            item.status = status;
-        }
-        let cloned = item.clone();
-        self.store.write_queue(conversation_id, &items)?;
+            if let Some(status) = status {
+                item.status = status;
+            }
+            Ok((item.clone(), items.clone()))
+        })?;
         self.emit(
             conversation_id,
             ConversationClientPayload::QueueUpdated { items },
@@ -442,22 +507,24 @@ impl ConversationService {
         conversation_id: &str,
         item_ids: &[String],
     ) -> Result<Vec<QueueItem>> {
-        let current = self.store.read_queue(conversation_id)?;
-        let mut next = Vec::new();
-        for id in item_ids {
-            if let Some(item) = current.iter().find(|item| item.id == *id) {
-                next.push(item.clone());
+        let next = self.store.mutate_queue(conversation_id, |current| {
+            let mut next = Vec::new();
+            for id in item_ids {
+                if let Some(item) = current.iter().find(|item| item.id == *id) {
+                    next.push(item.clone());
+                }
             }
-        }
-        for item in current {
-            if !next.iter().any(|existing| existing.id == item.id) {
-                next.push(item);
+            for item in current.iter() {
+                if !next.iter().any(|existing| existing.id == item.id) {
+                    next.push(item.clone());
+                }
             }
-        }
-        for (index, item) in next.iter_mut().enumerate() {
-            item.seq = (index as u64) + 1;
-        }
-        self.store.write_queue(conversation_id, &next)?;
+            for (index, item) in next.iter_mut().enumerate() {
+                item.seq = (index as u64) + 1;
+            }
+            *current = next.clone();
+            Ok(next)
+        })?;
         self.emit(
             conversation_id,
             ConversationClientPayload::QueueUpdated {
@@ -468,9 +535,10 @@ impl ConversationService {
     }
 
     pub fn queue_delete(&self, conversation_id: &str, item_id: &str) -> Result<()> {
-        let mut items = self.store.read_queue(conversation_id)?;
-        items.retain(|item| item.id != item_id);
-        self.store.write_queue(conversation_id, &items)?;
+        let items = self.store.mutate_queue(conversation_id, |items| {
+            items.retain(|item| item.id != item_id);
+            Ok(items.clone())
+        })?;
         self.emit(
             conversation_id,
             ConversationClientPayload::QueueUpdated { items },
@@ -539,10 +607,12 @@ impl ConversationService {
             {
                 let map = self.runtimes.lock().await;
                 if let Some(runtime) = map.get(conversation_id) {
-                    if let Some(turn_id) = &initial_turn_id {
-                        runtime.state.lock().await.current_turn_id = Some(turn_id.clone());
+                    if runtime.alive.load(Ordering::SeqCst) {
+                        if let Some(turn_id) = &initial_turn_id {
+                            runtime.state.lock().await.current_turn_id = Some(turn_id.clone());
+                        }
+                        return Ok(runtime.control.clone());
                     }
-                    return Ok(runtime.control.clone());
                 }
             }
             let mut spawning = self.spawning.lock().await;
@@ -566,7 +636,12 @@ impl ConversationService {
         initial_turn_id: Option<String>,
     ) -> Result<AgentSessionControl> {
         if let Some(runtime) = self.runtimes.lock().await.get(conversation_id) {
-            return Ok(runtime.control.clone());
+            if runtime.alive.load(Ordering::SeqCst) {
+                if let Some(turn_id) = &initial_turn_id {
+                    runtime.state.lock().await.current_turn_id = Some(turn_id.clone());
+                }
+                return Ok(runtime.control.clone());
+            }
         }
         let meta = self.store.get_meta(conversation_id)?;
         let provider = self
@@ -601,6 +676,7 @@ impl ConversationService {
             }
         })?;
         let control = session.control();
+        let alive = Arc::new(AtomicBool::new(true));
         let state = Arc::new(Mutex::new(RuntimeState {
             current_turn_id: initial_turn_id,
             pending_permission: None,
@@ -613,6 +689,7 @@ impl ConversationService {
             LiveRuntime {
                 control: control.clone(),
                 state: Arc::clone(&state),
+                alive: Arc::clone(&alive),
             },
         );
         let store = Arc::clone(&self.store);
@@ -634,6 +711,8 @@ impl ConversationService {
                 turn_gates,
             )
             .await;
+            alive.store(false, Ordering::SeqCst);
+            runtimes.lock().await.remove(&conversation_id_owned);
             let status = store
                 .get_meta(&conversation_id_owned)
                 .map(|meta| meta.runtime_status)
@@ -659,7 +738,6 @@ impl ConversationService {
             };
             push_recent(&recent_events, &event);
             let _ = events.send(event);
-            runtimes.lock().await.remove(&conversation_id_owned);
         });
         Ok(control)
     }
@@ -694,11 +772,12 @@ async fn pump_session(
         if matches!(event, AgentEvent::SessionClosed) {
             closed_cleanly = true;
         }
-        let completed = matches!(
-            event,
-            AgentEvent::TurnCompleted { .. }
-                | AgentEvent::TurnCanceled { .. }
-                | AgentEvent::TurnFailed { .. }
+        let should_dispatch = matches!(
+            &event,
+            AgentEvent::TurnCompleted {
+                stop: agent::TurnStop::Completed,
+                ..
+            }
         );
         if let Err(error) = apply_event(
             &conversation_id,
@@ -712,7 +791,7 @@ async fn pump_session(
         {
             warn!("conversation pump error: {error}");
         }
-        if completed {
+        if should_dispatch {
             if let Err(error) = maybe_dispatch_queue(
                 &conversation_id,
                 &store,

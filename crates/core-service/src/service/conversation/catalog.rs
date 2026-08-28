@@ -11,6 +11,8 @@ use chrono::Utc;
 use tokio::sync::{broadcast, Mutex};
 use tracing::warn;
 
+use crate::service::agent::AgentService;
+
 pub const PREFETCH_POLL: Duration = Duration::from_secs(30 * 60);
 
 #[derive(Clone, serde::Serialize)]
@@ -28,6 +30,7 @@ pub struct CatalogPrefetchWorker {
     poll: Duration,
     web_clients: AtomicUsize,
     probe_count: AtomicUsize,
+    agent_service: Option<Arc<AgentService>>,
 }
 
 impl CatalogPrefetchWorker {
@@ -52,7 +55,13 @@ impl CatalogPrefetchWorker {
             poll,
             web_clients: AtomicUsize::new(0),
             probe_count: AtomicUsize::new(0),
+            agent_service: None,
         }
+    }
+
+    pub fn attach_agent_service(mut self, service: Arc<AgentService>) -> Self {
+        self.agent_service = Some(service);
+        self
     }
 
     pub fn subscribe(&self) -> broadcast::Receiver<CatalogUpdated> {
@@ -110,7 +119,27 @@ impl CatalogPrefetchWorker {
     }
 
     async fn probe_enabled(self: Arc<Self>) {
-        let specs = self.specs.lock().await.clone();
+        let mut specs = self.specs.lock().await.clone();
+        if let Some(service) = &self.agent_service {
+            let mut installed = std::collections::HashSet::new();
+            for agent in service.list_agents() {
+                if agent.installed {
+                    installed.insert(agent.registry_id);
+                }
+            }
+            if let Ok(custom) = service.list_custom_agents() {
+                for agent in custom {
+                    installed.insert(agent.name);
+                }
+            }
+            if installed.is_empty() {
+                for spec in &mut specs {
+                    spec.acp = false;
+                }
+            } else {
+                specs.retain(|spec| installed.contains(&spec.agent_id));
+            }
+        }
         let now = Utc::now();
         let permit = Arc::new(tokio::sync::Semaphore::new(2));
         let mut joins = Vec::new();

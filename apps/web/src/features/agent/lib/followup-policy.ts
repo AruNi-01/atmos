@@ -16,6 +16,11 @@ export function oneShotAction(policy: FollowupPolicy): Exclude<BusyComposerActio
 export function routeBusySubmit(input: {
   policy: FollowupPolicy;
   oneShot?: Exclude<BusyComposerAction, "stop"> | null;
+  supportsSteer?: boolean;
 }): Exclude<BusyComposerAction, "stop"> {
-  return input.oneShot ?? busyEnterAction(input.policy);
+  const action = input.oneShot ?? busyEnterAction(input.policy);
+  if (action === "steer" && input.supportsSteer === false) {
+    return "queue";
+  }
+  return action;
 }

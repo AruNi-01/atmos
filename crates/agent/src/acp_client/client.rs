@@ -186,8 +186,8 @@ use crate::acp_client::logging::append_acp_log;
 use crate::acp_client::tools::AcpToolHandler;
 use crate::acp_client::types::{
     AgentCapabilitiesSnapshot, AgentConfigOption, AgentImplementationInfo, AgentPlan,
-    AgentPlanEntry, AgentSessionInfoUpdate, AgentTurnUsage, AgentUsage, StreamDelta,
-    ToolCallStatus, ToolCallUpdate,
+    AgentPlanEntry, AgentSessionInfoUpdate, AgentUsage, StreamDelta, ToolCallStatus,
+    ToolCallUpdate,
 };
 use crate::acp_client::types::{PermissionOption, PermissionRequest, RiskLevel};
 
@@ -208,7 +208,7 @@ pub enum AcpSessionEvent {
         message: String,
         recoverable: bool,
     },
-    TurnEnd(Option<AgentTurnUsage>),
+    TurnEnd(AcpTurnStop),
     SessionClosed {
         reason: Option<String>,
     },
@@ -217,6 +217,13 @@ pub enum AcpSessionEvent {
     ConfigOptionsUpdate(Vec<AgentConfigOption>),
     Plan(AgentPlan),
     Usage(AgentUsage),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AcpTurnStop {
+    Completed,
+    Canceled,
+    Failed,
 }
 
 /// Atmos ACP Client - implements the Client trait, routes tool calls to handler

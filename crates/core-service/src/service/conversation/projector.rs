@@ -318,7 +318,53 @@ pub(super) async fn finish_turn(
     state: &Mutex<RuntimeState>,
     emit: &impl Fn(ConversationClientPayload) -> Result<()>,
 ) -> Result<()> {
-    state.lock().await.current_turn_id = None;
+    let (assistant, thinking) = {
+        let mut state = state.lock().await;
+        if state.current_turn_id.as_deref() == Some(turn_id.as_str()) {
+            state.current_turn_id = None;
+        }
+        let mut assistant = HashMap::new();
+        state.assistant_text.retain(|id, (snap_turn, text)| {
+            if snap_turn == &turn_id {
+                assistant.insert(id.clone(), (snap_turn.clone(), text.clone()));
+                false
+            } else {
+                true
+            }
+        });
+        let mut thinking = HashMap::new();
+        state.thinking_text.retain(|id, (snap_turn, text)| {
+            if snap_turn == &turn_id {
+                thinking.insert(id.clone(), (snap_turn.clone(), text.clone()));
+                false
+            } else {
+                true
+            }
+        });
+        (assistant, thinking)
+    };
+    for (message_id, (snap_turn, text)) in assistant {
+        store.append_record(
+            conversation_id,
+            &TranscriptRecord::AssistantSnapshot {
+                turn_id: snap_turn,
+                message_id,
+                text,
+                created_at: Utc::now(),
+            },
+        )?;
+    }
+    for (message_id, (snap_turn, text)) in thinking {
+        store.append_record(
+            conversation_id,
+            &TranscriptRecord::ThinkingSnapshot {
+                turn_id: snap_turn,
+                message_id,
+                text,
+                created_at: Utc::now(),
+            },
+        )?;
+    }
     store.append_record(
         conversation_id,
         &TranscriptRecord::TurnCompleted {

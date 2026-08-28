@@ -423,7 +423,7 @@ impl AgentSessionService {
         let mut closed = 0;
         for session_id in active_ids {
             if let Some(session) = active_sessions.remove(&session_id) {
-                session.control.send_close();
+                let _ = session.control.send_close();
                 closed += 1;
             }
         }

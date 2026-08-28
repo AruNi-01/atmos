@@ -38,16 +38,21 @@ pub(super) async fn maybe_dispatch_queue(
     if state.lock().await.current_turn_id.is_some() {
         return Ok(());
     }
-    let mut items = store.read_queue(conversation_id)?;
-    let Some(index) = items
-        .iter()
-        .position(|item| item.status == QueueItemStatus::Pending)
-    else {
-        return Ok(());
+    let (item, items) = match store.mutate_queue(conversation_id, |items| {
+        let Some(index) = items
+            .iter()
+            .position(|row| row.status == QueueItemStatus::Pending)
+        else {
+            return Ok(None);
+        };
+        let item = items.remove(index);
+        Ok(Some((item, items.clone())))
+    })? {
+        Some(pair) => pair,
+        None => return Ok(()),
     };
-    let item = items.remove(index);
-    store.write_queue(conversation_id, &items)?;
     let turn_id = uuid::Uuid::new_v4().to_string();
+    let message_id = uuid::Uuid::new_v4().to_string();
     state.lock().await.current_turn_id = Some(turn_id.clone());
     store.append_record(
         conversation_id,
@@ -60,7 +65,7 @@ pub(super) async fn maybe_dispatch_queue(
         conversation_id,
         &TranscriptRecord::UserMessage {
             turn_id: turn_id.clone(),
-            message_id: uuid::Uuid::new_v4().to_string(),
+            message_id: message_id.clone(),
             kind: UserMessageKind::Normal,
             text: item.prompt.clone(),
             attachments: item.attachments.clone(),
@@ -77,9 +82,10 @@ pub(super) async fn maybe_dispatch_queue(
         .await
     {
         state.lock().await.current_turn_id = None;
-        let mut restored = store.read_queue(conversation_id)?;
-        restored.insert(0, item);
-        let _ = store.write_queue(conversation_id, &restored);
+        let _ = store.mutate_queue(conversation_id, |restored| {
+            restored.insert(0, item.clone());
+            Ok(())
+        });
         let _ = store.append_record(
             conversation_id,
             &TranscriptRecord::TurnCompleted {
@@ -100,7 +106,22 @@ pub(super) async fn maybe_dispatch_queue(
     })?;
     emit_live(
         conversation_id,
-        ConversationClientPayload::TurnStarted { turn_id },
+        ConversationClientPayload::TurnStarted {
+            turn_id: turn_id.clone(),
+        },
+        store,
+        events,
+        recent_events,
+    )?;
+    emit_live(
+        conversation_id,
+        ConversationClientPayload::UserMessage {
+            turn_id,
+            message_id,
+            kind: UserMessageKind::Normal,
+            text: item.prompt,
+            attachments: item.attachments,
+        },
         store,
         events,
         recent_events,

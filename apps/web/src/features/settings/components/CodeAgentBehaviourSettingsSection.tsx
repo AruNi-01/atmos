@@ -271,16 +271,14 @@ export function CodeAgentBehaviourSettingsSection({
               </div>
               <select
                 className="h-8 rounded-md border border-border bg-background px-2 text-sm"
-                value={followupPolicy}
-                onChange={(event) => {
-                  const next = event.target.value === "steer" ? "steer" : "queue";
-                  setFollowupPolicy(next);
-                  commitBehaviour({ followupPolicy: next });
-                }}
+                value="queue"
+                disabled
                 aria-label={t("behavior.followupTitle")}
               >
                 <option value="queue">{t("behavior.followupQueue")}</option>
-                <option value="steer">{t("behavior.followupSteer")}</option>
+                <option value="steer" disabled>
+                  {t("behavior.followupSteerUnavailable")}
+                </option>
               </select>
             </div>
           </div>

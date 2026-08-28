@@ -24,26 +24,40 @@ interface AgentChatPanelProps {
 
 export function AgentChatPanel({
   contextOverride,
+  instanceKey,
 }: AgentChatPanelProps = {}) {
   const workspaceId = contextOverride?.workspaceId ?? null;
   const projectId = contextOverride?.projectId ?? null;
   const [conversationId, setConversationId] = useState<string | null>(null);
+  const storageKey = `atmos.conversation:${instanceKey ?? `ws:${workspaceId ?? ""}:pj:${projectId ?? ""}`}`;
 
   useEffect(() => {
     let cancelled = false;
-    void conversationApi
-      .create({
+    const existing =
+      typeof window !== "undefined" ? window.sessionStorage.getItem(storageKey) : null;
+    const boot = async () => {
+      if (existing) {
+        try {
+          await conversationApi.get(existing);
+          if (!cancelled) setConversationId(existing);
+          return;
+        } catch {
+          window.sessionStorage.removeItem(storageKey);
+        }
+      }
+      const created = await conversationApi.create({
         provider_id: "claude",
         workspace_id: workspaceId,
         project_id: projectId,
-      })
-      .then((created) => {
-        if (!cancelled) setConversationId(created.id);
       });
+      window.sessionStorage.setItem(storageKey, created.id);
+      if (!cancelled) setConversationId(created.id);
+    };
+    void boot();
     return () => {
       cancelled = true;
     };
-  }, [projectId, workspaceId]);
+  }, [projectId, storageKey, workspaceId]);
 
   if (!conversationId) return null;
   return (

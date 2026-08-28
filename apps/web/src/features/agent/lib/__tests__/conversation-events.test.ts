@@ -52,4 +52,25 @@ describe("S16 standalone and center-stage share conversation events", () => {
     const next = foldTurnsFromEvent(turns, more, "conv-1");
     expect(next[0]?.messages[1]?.parts[0]?.text).toBe("hello");
   });
+
+  it("folds tool calls into the live assistant message", () => {
+    const started = {
+      conversation_id: "conv-1",
+      payload: { type: "turn_started", turn_id: "t1" },
+    };
+    const tool = {
+      conversation_id: "conv-1",
+      payload: {
+        type: "tool_call_started",
+        turn_id: "t1",
+        tool_call: { tool_call_id: "tool-1", name: "Read", title: "Read file", status: "running" },
+      },
+    };
+    const turns = foldTurnsFromEvent(foldTurnsFromEvent([], started, "conv-1"), tool, "conv-1");
+    expect(turns[0]?.messages[0]?.parts[0]).toMatchObject({
+      type: "tool_call",
+      tool_call_id: "tool-1",
+      name: "Read",
+    });
+  });
 });

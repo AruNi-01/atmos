@@ -121,9 +121,14 @@ impl ConversationStore {
         Ok(entries
             .into_iter()
             .filter(|entry| include_deleted || !entry.deleted)
-            .filter(|entry| cwd.is_none_or(|cwd| entry.cwd == cwd))
-            .filter(|entry| workspace_id.is_none_or(|id| entry.workspace_id.as_deref() == Some(id)))
-            .filter(|entry| project_id.is_none_or(|id| entry.project_id.as_deref() == Some(id)))
+            .filter(|entry| match (cwd, workspace_id, project_id) {
+                (None, None, None) => entry.workspace_id.is_none() && entry.project_id.is_none(),
+                _ => {
+                    cwd.is_none_or(|cwd| entry.cwd == cwd)
+                        && workspace_id.is_none_or(|id| entry.workspace_id.as_deref() == Some(id))
+                        && project_id.is_none_or(|id| entry.project_id.as_deref() == Some(id))
+                }
+            })
             .collect())
     }
 
@@ -190,6 +195,19 @@ impl ConversationStore {
         let lock = self.lock_arc(id);
         let _guard = lock.lock().expect("conversation lock");
         self.write_queue_unlocked(id, items)
+    }
+
+    pub fn mutate_queue<F, T>(&self, id: &str, mutate: F) -> Result<T>
+    where
+        F: FnOnce(&mut Vec<QueueItem>) -> Result<T>,
+    {
+        require_conversation_id(id)?;
+        let lock = self.lock_arc(id);
+        let _guard = lock.lock().expect("conversation lock");
+        let mut items = self.read_queue_unlocked(id)?;
+        let value = mutate(&mut items)?;
+        self.write_queue_unlocked(id, &items)?;
+        Ok(value)
     }
 
     fn read_queue_unlocked(&self, id: &str) -> Result<Vec<QueueItem>> {
@@ -417,16 +435,28 @@ fn apply_record(turns: &mut Vec<FoldedTurn>, record: TranscriptRecord) {
             created_at,
         } => {
             let turn = upsert_turn(turns, &turn_id, created_at);
-            upsert_message(
-                turn,
-                FoldedMessage {
-                    id: message_id,
-                    role: "assistant".into(),
-                    kind: agent::UserMessageKind::Normal,
-                    parts: vec![MessagePart::Text { text }],
-                    created_at,
-                },
-            );
+            if let Some(message) = turn.messages.iter_mut().find(|item| item.id == message_id) {
+                if let Some(MessagePart::Text { text: existing }) = message
+                    .parts
+                    .iter_mut()
+                    .find(|part| matches!(part, MessagePart::Text { .. }))
+                {
+                    *existing = text;
+                } else {
+                    message.parts.insert(0, MessagePart::Text { text });
+                }
+            } else {
+                upsert_message(
+                    turn,
+                    FoldedMessage {
+                        id: message_id,
+                        role: "assistant".into(),
+                        kind: agent::UserMessageKind::Normal,
+                        parts: vec![MessagePart::Text { text }],
+                        created_at,
+                    },
+                );
+            }
         }
         TranscriptRecord::ThinkingSnapshot {
             turn_id,
@@ -695,6 +725,66 @@ mod tests {
             MessagePart::Text { text } => assert_eq!(text, "world"),
             other => panic!("expected text part, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn assistant_snapshot_keeps_tool_parts() {
+        let (_dir, store) = store();
+        let meta = create(&store, "/tmp/a");
+        let turn_id = "t1";
+        store
+            .append_record(
+                &meta.id,
+                &TranscriptRecord::TurnStarted {
+                    turn_id: turn_id.into(),
+                    created_at: Utc::now(),
+                },
+            )
+            .unwrap();
+        store
+            .append_record(
+                &meta.id,
+                &TranscriptRecord::ToolCall {
+                    turn_id: turn_id.into(),
+                    tool_call: agent::AgentToolCall {
+                        tool_call_id: "tool-1".into(),
+                        name: "Read".into(),
+                        title: Some("Read file".into()),
+                        kind: None,
+                        status: Some("completed".into()),
+                        input: None,
+                        output: None,
+                        content: None,
+                    },
+                    created_at: Utc::now(),
+                },
+            )
+            .unwrap();
+        store
+            .append_record(
+                &meta.id,
+                &TranscriptRecord::AssistantSnapshot {
+                    turn_id: turn_id.into(),
+                    message_id: "tool-tool-1".to_string(),
+                    text: "done".into(),
+                    created_at: Utc::now(),
+                },
+            )
+            .unwrap();
+        let snapshot = store.get_snapshot(&meta.id).unwrap();
+        let parts = &snapshot.turns[0].messages[0].parts;
+        assert!(
+            parts
+                .iter()
+                .any(|part| matches!(part, MessagePart::ToolCall { tool_call_id, .. } if tool_call_id == "tool-1")),
+            "tool part dropped: {parts:?}"
+        );
+        assert!(
+            parts
+                .iter()
+                .any(|part| matches!(part, MessagePart::Text { text } if text == "done")),
+            "text part missing: {parts:?}"
+        );
     }
 
     #[test]

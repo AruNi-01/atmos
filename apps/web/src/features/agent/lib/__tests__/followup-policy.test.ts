@@ -14,5 +14,9 @@ describe("S12 follow-up policy", () => {
     expect(routeBusySubmit({ policy: "steer" })).toBe("steer");
     expect(oneShotAction("steer")).toBe("queue");
     expect(routeBusySubmit({ policy: "queue", oneShot: "steer" })).toBe("steer");
+    expect(routeBusySubmit({ policy: "steer", supportsSteer: false })).toBe("queue");
+    expect(routeBusySubmit({ policy: "steer", oneShot: "steer", supportsSteer: false })).toBe(
+      "queue",
+    );
   });
 });

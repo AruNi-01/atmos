@@ -129,17 +129,20 @@ impl WsMessageService {
             Arc::new(ConversationStore::new(default_conversations_dir())),
             Arc::new(DefaultAgentProviderFactory::new(Arc::clone(&agent_service))),
         ));
-        let catalog_worker = Arc::new(CatalogPrefetchWorker::with_specs(
-            default_agent_data_dir(),
-            agent::CatalogEngine::with_acp_probe(
-                catalog_probe_dir(),
-                Box::new(agent::StdioAcpCatalogProbe::new(Arc::new(
-                    AgentServiceCatalogResolver::new(Arc::clone(&agent_service)),
-                ))),
-            ),
-            PREFETCH_POLL,
-            builtin_catalog_specs(),
-        ));
+        let catalog_worker = Arc::new(
+            CatalogPrefetchWorker::with_specs(
+                default_agent_data_dir(),
+                agent::CatalogEngine::with_acp_probe(
+                    catalog_probe_dir(),
+                    Box::new(agent::StdioAcpCatalogProbe::new(Arc::new(
+                        AgentServiceCatalogResolver::new(Arc::clone(&agent_service)),
+                    ))),
+                ),
+                PREFETCH_POLL,
+                builtin_catalog_specs(),
+            )
+            .attach_agent_service(Arc::clone(&agent_service)),
+        );
 
         Self {
             fs_engine: FsEngine::new(),
