@@ -2799,7 +2799,9 @@
       "openStandalone": "Open in window",
       "permissionNoOptions": "This agent did not provide permission options.",
       "steerUnavailable": "Steer unavailable",
-      "plan": "Plan"
+      "plan": "Plan",
+      "attach": "Attach",
+      "attachmentsCount": "{count} attached"
     },
     "attention": {
       "permissionNeeded": "Permission needed",

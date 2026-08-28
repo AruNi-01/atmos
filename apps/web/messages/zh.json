@@ -2799,7 +2799,9 @@
       "openStandalone": "在新窗口打开",
       "permissionNoOptions": "该 agent 没有提供权限选项。",
       "steerUnavailable": "引导不可用",
-      "plan": "计划"
+      "plan": "计划",
+      "attach": "添加附件",
+      "attachmentsCount": "已添加 {count} 个附件"
     },
     "attention": {
       "permissionNeeded": "需要授权",

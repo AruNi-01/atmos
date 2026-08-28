@@ -17,6 +17,7 @@ import {
   type ConversationIndexEntry,
 } from "@/api/ws/conversation-api";
 import { agentApi } from "@/api/ws/agent-api";
+import { agentApi as agentRestApi } from "@/api/rest-api";
 import { groupConversationsByCwd } from "@/features/agent/lib/group-conversations";
 import { routeBusySubmit, resolveFollowupPolicy } from "@/features/agent/lib/followup-policy";
 import {
@@ -125,6 +126,8 @@ export function AgentChatWorkspace({
   const [renameValue, setRenameValue] = useState("");
   const [editingQueueId, setEditingQueueId] = useState<string | null>(null);
   const [editingQueueValue, setEditingQueueValue] = useState("");
+  const [attachmentPaths, setAttachmentPaths] = useState<string[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
     const snapshot = await conversationApi.get(conversationId);
@@ -284,9 +287,29 @@ export function AgentChatWorkspace({
     void load();
   };
 
+  const attachFiles = async (list: FileList | null) => {
+    if (!list || list.length === 0) return;
+    setSendError(null);
+    try {
+      const files = Array.from(list).map((file) => ({
+        url: URL.createObjectURL(file),
+        filename: file.name,
+        mediaType: file.type,
+      }));
+      const { paths } = await agentRestApi.uploadAttachments(
+        cwd || ".",
+        files,
+        conversationId,
+      );
+      setAttachmentPaths((current) => [...current, ...paths]);
+    } catch (error) {
+      setSendError(error instanceof Error ? error.message : t("sendFailed"));
+    }
+  };
+
   const submit = async (mode?: "queue" | "steer") => {
     const text = draft.trim();
-    if (!text) return;
+    if (!text && attachmentPaths.length === 0) return;
     setSendError(null);
     try {
       if (busy) {
@@ -299,12 +322,13 @@ export function AgentChatWorkspace({
           if (!supportsSteer || !runningTurnId) return;
           await conversationApi.steer(conversationId, runningTurnId, text);
         } else {
-          await conversationApi.queueAdd(conversationId, text);
+          await conversationApi.queueAdd(conversationId, text, attachmentPaths);
         }
       } else {
-        await conversationApi.send(conversationId, text);
+        await conversationApi.send(conversationId, text, attachmentPaths);
       }
       setDraft("");
+      setAttachmentPaths([]);
     } catch (error) {
       setSendError(error instanceof Error ? error.message : t("sendFailed"));
     }
@@ -664,7 +688,28 @@ export function AgentChatWorkspace({
               }
             }}
           />
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            className="hidden"
+            onChange={(event) => {
+              void attachFiles(event.target.files);
+              event.currentTarget.value = "";
+            }}
+          />
+          {attachmentPaths.length > 0 ? (
+            <p className="mt-2 text-xs text-muted-foreground">
+              {t("attachmentsCount", { count: attachmentPaths.length })}
+            </p>
+          ) : null}
           <div className="mt-2 flex gap-2 text-xs">
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              {t("attach")}
+            </button>
             {busy ? (
               <>
                 <button type="button" onClick={() => void submit("queue")}>

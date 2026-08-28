@@ -162,7 +162,7 @@ impl ConversationService {
         text: &str,
         attachments: Vec<String>,
     ) -> Result<String> {
-        if text.trim().is_empty() {
+        if text.trim().is_empty() && attachments.is_empty() {
             return Err(ServiceError::Validation("text is required".into()));
         }
         self.store
@@ -447,7 +447,7 @@ impl ConversationService {
         text: &str,
         attachments: Vec<String>,
     ) -> Result<QueueItem> {
-        if text.trim().is_empty() {
+        if text.trim().is_empty() && attachments.is_empty() {
             return Err(ServiceError::Validation("text is required".into()));
         }
         self.store
