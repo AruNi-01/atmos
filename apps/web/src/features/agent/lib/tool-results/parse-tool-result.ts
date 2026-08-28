@@ -148,6 +148,15 @@ const SKIP_INPUT_KEYS = new Set([
   "total_lines",
   "offset",
   "limit",
+  "output",
+  "output_for_prompt",
+  "current_dir",
+  "working_directory",
+  "output_file",
+  "total_bytes",
+  "truncated",
+  "timed_out",
+  "signal",
 ]);
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -298,6 +307,21 @@ function isDeleteTool(tool: string): boolean {
 
 function isThinkTool(tool: string): boolean {
   return toolEquals(tool, "think", "thought", "reasoning", "reason");
+}
+
+function isShellTool(tool: string): boolean {
+  return toolEquals(
+    tool,
+    "bash",
+    "shell",
+    "execute",
+    "run_command",
+    "terminal",
+    "command",
+    "run_terminal_cmd",
+    "powershell",
+    "cmd",
+  );
 }
 
 function isTodoTool(tool: string): boolean {
@@ -479,6 +503,76 @@ export function relativeDisplayPath(path: string, paths: string[]): string {
   return path;
 }
 
+export function normalizeFsPath(path: string | null | undefined): string | null {
+  if (!path) return null;
+  let value = path.trim();
+  if (!value) return null;
+  if (value.startsWith("file://")) {
+    try {
+      value = decodeURIComponent(value.slice("file://".length));
+    } catch {
+      value = value.slice("file://".length);
+    }
+  }
+  value = value.replace(/\\/g, "/").replace(/\/{2,}/g, "/");
+  if (value !== "/") value = value.replace(/\/+$/, "");
+  return value || null;
+}
+
+function pathCompareKey(path: string): string {
+  return /^[A-Za-z]:\//.test(path) ? path.toLowerCase() : path;
+}
+
+export function pathRelativeToCwd(path: string, cwd?: string | null): string {
+  const normalizedPath = normalizeFsPath(path);
+  const normalizedCwd = normalizeFsPath(cwd);
+  if (!normalizedPath) return path;
+  if (!normalizedCwd || normalizedCwd === "/") return normalizedPath;
+  const pathKey = pathCompareKey(normalizedPath);
+  const cwdKey = pathCompareKey(normalizedCwd);
+  if (pathKey === cwdKey) return ".";
+  const prefix = `${cwdKey}/`;
+  if (pathKey.startsWith(prefix)) {
+    return normalizedPath.slice(normalizedCwd.length).replace(/^\/+/, "") || ".";
+  }
+  return normalizedPath;
+}
+
+export function displayToolPath(path: string, cwd?: string | null): string {
+  return pathRelativeToCwd(path, cwd);
+}
+
+export function displayToolTitle(
+  title: string,
+  cwd?: string | null,
+  path?: string | null,
+): string {
+  if (!title) return title;
+  let result = title;
+  if (path) {
+    const abs = normalizeFsPath(path);
+    const rel = displayToolPath(path, cwd);
+    if (abs && rel !== abs) {
+      const pathAliases = new Set([path, abs, abs.replace(/\//g, "\\")]);
+      for (const alias of pathAliases) {
+        if (alias && result.includes(alias)) result = result.split(alias).join(rel);
+      }
+    }
+  }
+  const normalizedCwd = normalizeFsPath(cwd);
+  if (normalizedCwd && normalizedCwd !== "/") {
+    const prefixes = [
+      `${normalizedCwd}/`,
+      `${normalizedCwd}\\`,
+      `${normalizedCwd.replace(/\//g, "\\")}\\`,
+    ];
+    for (const prefix of prefixes) {
+      if (result.includes(prefix)) result = result.split(prefix).join("");
+    }
+  }
+  return result;
+}
+
 export function parseListDirTree(text: string): TreeEntry[] | null {
   const entries: TreeEntry[] = [];
   let items = 0;
@@ -542,19 +636,54 @@ function looksLikeMarkdown(text: string): boolean {
   );
 }
 
+function isByteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= 255;
+}
+
+function decodeByteSource(value: unknown): string | null {
+  if (value instanceof Uint8Array) {
+    return new TextDecoder("utf-8", { fatal: false }).decode(value);
+  }
+  const record = asRecord(value);
+  if (record && record.type === "Buffer" && Array.isArray(record.data)) {
+    return decodeByteSource(record.data);
+  }
+  if (Array.isArray(value) && value.length > 0 && value.every(isByteNumber)) {
+    return new TextDecoder("utf-8", { fatal: false }).decode(Uint8Array.from(value));
+  }
+  return null;
+}
+
+function decodeToolText(value: unknown): string | null {
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  return decodeByteSource(value);
+}
+
+function stripPromptExitPrefix(text: string): string {
+  return text.replace(/^exit:\s*-?\d+\s*\n/, "");
+}
+
+function jsonReplacer(_key: string, value: unknown): unknown {
+  if (Array.isArray(value) && value.length > 24 && value.every(isByteNumber)) {
+    return `<bytes ${value.length}>`;
+  }
+  return value;
+}
+
 function prettyJson(value: unknown): string | null {
   if (typeof value === "string") {
     const trimmed = value.trim();
     if (!looksLikeJson(trimmed)) return null;
     try {
-      return JSON.stringify(JSON.parse(trimmed), null, 2);
+      return JSON.stringify(JSON.parse(trimmed), jsonReplacer, 2);
     } catch {
       return null;
     }
   }
   if (value && typeof value === "object") {
     try {
-      return JSON.stringify(value, null, 2);
+      return JSON.stringify(value, jsonReplacer, 2);
     } catch {
       return null;
     }
@@ -570,29 +699,55 @@ function extractContentText(content?: AgentToolCallContentItem[]): string | null
   return parts.length > 0 ? parts.join("\n\n") : null;
 }
 
-export function extractOutputText(raw: unknown): string | null {
+const OUTPUT_TEXT_KEYS = [
+  "stdout",
+  "raw_output",
+  "output",
+  "output_for_prompt",
+  "text",
+  "data",
+  "result",
+  "content",
+] as const;
+
+function extractOutputTextFromValue(raw: unknown): string | null {
   if (raw == null) return null;
-  if (typeof raw === "string") return raw;
-  if (typeof raw === "number" || typeof raw === "boolean") return String(raw);
-  if (Array.isArray(raw)) {
-    if (raw.length > 0 && raw.every((item) => typeof item === "string")) {
-      return raw.join("\n");
-    }
-    return null;
+  if (Array.isArray(raw) && raw.length > 0 && raw.every((item) => typeof item === "string")) {
+    return raw.join("\n");
   }
+  const direct = decodeToolText(raw);
+  if (direct != null && direct.trim() && !asRecord(raw)) return direct;
+
   const record = asRecord(raw);
-  if (!record) return null;
-  for (const key of ["raw_output", "output", "stdout", "content", "result", "text", "data"]) {
-    const value = asNonEmptyString(record[key]);
-    if (value) return value;
+  if (!record) return direct?.trim() ? direct : null;
+
+  for (const key of OUTPUT_TEXT_KEYS) {
+    const decoded = decodeToolText(record[key]);
+    if (decoded == null || !decoded.trim()) continue;
+    return key === "output_for_prompt" ? stripPromptExitPrefix(decoded) : decoded;
   }
   const file = asRecord(record.file);
   if (file) {
-    const nested = asNonEmptyString(file.content) ?? asNonEmptyString(file.text);
-    if (nested) return nested;
+    const nested = decodeToolText(file.content) ?? decodeToolText(file.text);
+    if (nested?.trim()) return nested;
   }
-  const stderr = asNonEmptyString(record.stderr);
-  return stderr;
+  const stderr = decodeToolText(record.stderr);
+  return stderr?.trim() ? stderr : null;
+}
+
+export function extractOutputText(raw: unknown): string | null {
+  if (typeof raw === "string" && looksLikeJson(raw)) {
+    try {
+      const parsed = JSON.parse(raw) as unknown;
+      if (parsed && typeof parsed === "object") {
+        const nested = extractOutputTextFromValue(parsed);
+        if (nested?.trim()) return nested;
+      }
+    } catch {
+      // Fall through to the original string.
+    }
+  }
+  return extractOutputTextFromValue(raw);
 }
 
 function extractErrorText(args: {
@@ -777,7 +932,7 @@ export function parseToolResult(block: {
   const contentText = extractContentText(block.content);
   const outputText = extractOutputText(resolvedOutput);
   const inputRecord = asRecord(resolvedInput);
-  const primaryText = isReadTool(resolvedTool)
+  const primaryText = isReadTool(resolvedTool) || isShellTool(resolvedTool)
     ? (outputText ?? contentText)
     : (contentText ?? outputText);
 

@@ -10,9 +10,9 @@ import {
   cn,
 } from "@workspace/ui";
 import { Gauge, Coins } from "lucide-react";
-import type { AgentUsage, AgentTurnUsage } from "@/features/agent/hooks/use-agent-session";
+import type { AgentSessionUsage, AgentTurnUsage } from "@atmos/api-types/ws/dto/agent-chat";
 
-export function SessionUsageBadge({ usage, className }: { usage: AgentUsage; className?: string }) {
+export function SessionUsageBadge({ usage, className }: { usage: AgentSessionUsage; className?: string }) {
   const t = useTranslations("Agent.components");
   const locale = useLocale();
   const hasContextWindow = usage.used != null && usage.size != null && usage.size > 0;
@@ -84,7 +84,7 @@ export function SessionUsageBadge({ usage, className }: { usage: AgentUsage; cla
             {hasCost ? (
               <div className="flex flex-col">
                 {hasContextWindow ? <div className="mb-2 h-px w-full bg-background/20" /> : null}
-                <span className="text-[10px] uppercase">{t("usageBadges.session.estimatedCost")}</span>
+                <span className="text-[10px]">{t("usageBadges.session.estimatedCost")}</span>
                 <span className="text-xs font-mono font-semibold">
                   {(usage.cost?.amount ?? 0).toFixed(4)} {usage.cost?.currency ?? "USD"}
                 </span>
@@ -100,10 +100,12 @@ export function SessionUsageBadge({ usage, className }: { usage: AgentUsage; cla
 export function MessageTurnUsageBadge({ usage }: { usage: AgentTurnUsage }) {
   const t = useTranslations("Agent.components");
   const locale = useLocale();
-  const totalTokens = usage.totalTokens ?? 0;
+  const totalTokens = usage.total_tokens ?? ((usage.input_tokens ?? 0) + (usage.output_tokens ?? 0));
   const total = totalTokens >= 1000 ? `${(totalTokens / 1000).toFixed(1)}k` : totalTokens;
 
-  if (usage.totalTokens === undefined) return null;
+  if (usage.total_tokens == null && usage.input_tokens == null && usage.output_tokens == null) {
+    return null;
+  }
 
   return (
     <TooltipProvider>
@@ -122,31 +124,31 @@ export function MessageTurnUsageBadge({ usage }: { usage: AgentTurnUsage }) {
             <div className="h-px w-full bg-background/20" />
             <div className="flex justify-between text-[11px]">
               <span>{t("usageBadges.turn.input")}</span>
-              <span className="font-mono">{(usage.inputTokens ?? 0).toLocaleString(locale)}</span>
+              <span className="font-mono">{(usage.input_tokens ?? 0).toLocaleString(locale)}</span>
             </div>
             <div className="flex justify-between text-[11px]">
               <span>{t("usageBadges.turn.output")}</span>
-              <span className="font-mono">{(usage.outputTokens ?? 0).toLocaleString(locale)}</span>
+              <span className="font-mono">{(usage.output_tokens ?? 0).toLocaleString(locale)}</span>
             </div>
-            {usage.thoughtTokens != null && (
+            {usage.thought_tokens != null && (
               <div className="flex justify-between text-[11px]">
                 <span>{t("usageBadges.turn.thought")}</span>
-                <span className="font-mono">{(usage.thoughtTokens ?? 0).toLocaleString(locale)}</span>
+                <span className="font-mono">{(usage.thought_tokens ?? 0).toLocaleString(locale)}</span>
               </div>
             )}
-            {(usage.cachedReadTokens != null || usage.cachedWriteTokens != null) && (
+            {(usage.cached_read_tokens != null || usage.cached_write_tokens != null) && (
               <div className="mt-1 space-y-1 pt-1">
                 <div className="h-px w-full bg-background/20" />
-                {usage.cachedReadTokens != null && (
+                {usage.cached_read_tokens != null && (
                   <div className="flex justify-between text-[11px]">
                     <span>{t("usageBadges.turn.cacheRead")}</span>
-                    <span className="font-mono">{(usage.cachedReadTokens ?? 0).toLocaleString(locale)}</span>
+                    <span className="font-mono">{(usage.cached_read_tokens ?? 0).toLocaleString(locale)}</span>
                   </div>
                 )}
-                {usage.cachedWriteTokens != null && (
+                {usage.cached_write_tokens != null && (
                   <div className="flex justify-between text-[11px]">
                     <span>{t("usageBadges.turn.cacheWrite")}</span>
-                    <span className="font-mono">{(usage.cachedWriteTokens ?? 0).toLocaleString(locale)}</span>
+                    <span className="font-mono">{(usage.cached_write_tokens ?? 0).toLocaleString(locale)}</span>
                   </div>
                 )}
               </div>
@@ -155,7 +157,7 @@ export function MessageTurnUsageBadge({ usage }: { usage: AgentTurnUsage }) {
               <div className="mb-1 h-px w-full bg-background/20" />
               <div className="flex justify-between">
                 <span>{t("usageBadges.turn.total")}</span>
-                <span className="font-mono">{(usage.totalTokens ?? 0).toLocaleString(locale)}</span>
+                <span className="font-mono">{totalTokens.toLocaleString(locale)}</span>
               </div>
             </div>
           </div>

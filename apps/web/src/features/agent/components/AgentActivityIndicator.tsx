@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { TextShimmer } from "@workspace/ui";
 import type { AgentActivity } from "../lib/chat-helpers";
+import { formatWorkDuration } from "../lib/agent-chat-timing";
 
 const SPINNER_NAMES = [
   "braille", "helix", "scan", "cascade", "orbit",
@@ -39,7 +40,13 @@ function useUnicodeSpinner() {
   return spinner.frames[frame % spinner.frames.length];
 }
 
-export function AgentActivityIndicator({ activity }: { activity: AgentActivity & { busy: true } }) {
+export function AgentActivityIndicator({
+  activity,
+  elapsedMs = 0,
+}: {
+  activity: AgentActivity & { busy: true };
+  elapsedMs?: number;
+}) {
   const spinnerChar = useUnicodeSpinner();
 
   return (
@@ -54,6 +61,9 @@ export function AgentActivityIndicator({ activity }: { activity: AgentActivity &
       >
         {`${activity.label}...`}
       </TextShimmer>
+      <span className="translate-y-px font-mono text-xs tabular-nums text-muted-foreground">
+        {formatWorkDuration(elapsedMs)}
+      </span>
     </div>
   );
 }

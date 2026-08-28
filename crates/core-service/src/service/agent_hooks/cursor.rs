@@ -84,7 +84,7 @@ mod tests {
         let service = AgentHooksService::new();
         let payload = serde_json::json!({
             "hook_event_name": "sessionStart",
-            "conversation_id": "cursor-conv-1",
+            "chat_id": "cursor-conv-1",
             "cwd": "/tmp/project",
         });
 
@@ -101,7 +101,7 @@ mod tests {
         let service = AgentHooksService::new();
         let payload = serde_json::json!({
             "hook_event_name": "preToolUse",
-            "conversation_id": "cursor-conv-1",
+            "chat_id": "cursor-conv-1",
             "cwd": "/tmp/project",
         });
 
@@ -118,12 +118,12 @@ mod tests {
         let service = AgentHooksService::new();
         let running = serde_json::json!({
             "hook_event_name": "preToolUse",
-            "conversation_id": "cursor-conv-1",
+            "chat_id": "cursor-conv-1",
             "cwd": "/tmp/project",
         });
         let stop = serde_json::json!({
             "hook_event_name": "stop",
-            "conversation_id": "cursor-conv-1",
+            "chat_id": "cursor-conv-1",
             "cwd": "/tmp/project",
         });
 
@@ -140,12 +140,12 @@ mod tests {
         let service = AgentHooksService::new();
         let running = serde_json::json!({
             "hook_event_name": "beforeSubmitPrompt",
-            "conversation_id": "cursor-conv-2",
+            "chat_id": "cursor-conv-2",
             "cwd": "/tmp/project",
         });
         let after = serde_json::json!({
             "hook_event_name": "afterAgentResponse",
-            "conversation_id": "cursor-conv-2",
+            "chat_id": "cursor-conv-2",
             "cwd": "/tmp/project",
         });
 
@@ -162,12 +162,12 @@ mod tests {
         let service = AgentHooksService::new();
         let running = serde_json::json!({
             "hook_event_name": "preToolUse",
-            "conversation_id": "cursor-conv-2",
+            "chat_id": "cursor-conv-2",
             "cwd": "/tmp/project",
         });
         let end = serde_json::json!({
             "hook_event_name": "sessionEnd",
-            "conversation_id": "cursor-conv-2",
+            "chat_id": "cursor-conv-2",
             "cwd": "/tmp/project",
         });
 

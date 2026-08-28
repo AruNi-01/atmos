@@ -9,8 +9,8 @@ use tokio::sync::{mpsc, Mutex};
 
 use crate::domain::{
     AgentCapabilities, AgentCatalogContext, AgentEvent, AgentPersistenceHandle, AgentPrompt,
-    AgentProvider, AgentProviderError, AgentResult, AgentSession, AgentSessionCommands,
-    AgentSessionConfig, AgentSessionConfigUpdate, AgentSessionControl, AgentTurnHandle, TurnStop,
+    AgentProvider, AgentProviderError, AgentResult, AgentRuntime, AgentRuntimeCommands,
+    AgentRuntimeConfig, AgentRuntimeConfigUpdate, AgentRuntimeControl, AgentTurnHandle, TurnStop,
 };
 
 #[derive(Default)]
@@ -62,6 +62,10 @@ impl FakeAgentProvider {
         self.counters.cancel.load(Ordering::SeqCst)
     }
 
+    pub fn close_count(&self) -> usize {
+        self.counters.close.load(Ordering::SeqCst)
+    }
+
     pub fn steer_count(&self) -> usize {
         self.counters.steer.load(Ordering::SeqCst)
     }
@@ -96,7 +100,7 @@ struct FakeSessionInner {
 }
 
 #[async_trait]
-impl AgentSessionCommands for FakeSessionInner {
+impl AgentRuntimeCommands for FakeSessionInner {
     async fn prompt(&self, input: AgentPrompt) -> AgentResult<AgentTurnHandle> {
         self.counters.prompt.fetch_add(1, Ordering::SeqCst);
         let turn_id = input
@@ -167,7 +171,7 @@ impl AgentSessionCommands for FakeSessionInner {
         Ok(())
     }
 
-    async fn set_config(&self, _update: AgentSessionConfigUpdate) -> AgentResult<()> {
+    async fn set_config(&self, _update: AgentRuntimeConfigUpdate) -> AgentResult<()> {
         Ok(())
     }
 
@@ -190,15 +194,15 @@ impl AgentSessionCommands for FakeSessionInner {
 }
 
 struct FakeSession {
-    control: AgentSessionControl,
+    control: AgentRuntimeControl,
     events_rx: mpsc::UnboundedReceiver<AgentEvent>,
     persistence: Option<AgentPersistenceHandle>,
     capabilities: AgentCapabilities,
 }
 
 #[async_trait]
-impl AgentSession for FakeSession {
-    fn control(&self) -> AgentSessionControl {
+impl AgentRuntime for FakeSession {
+    fn control(&self) -> AgentRuntimeControl {
         self.control.clone()
     }
 
@@ -218,7 +222,7 @@ impl AgentSession for FakeSession {
 fn open_session(
     provider: &FakeAgentProvider,
     persistence: Option<AgentPersistenceHandle>,
-) -> Box<dyn AgentSession> {
+) -> Box<dyn AgentRuntime> {
     let (tx, rx) = mpsc::unbounded_channel();
     let persistence = persistence.or_else(|| {
         Some(AgentPersistenceHandle::new(format!(
@@ -241,7 +245,7 @@ fn open_session(
         *slot = Some(tx);
     }
     Box::new(FakeSession {
-        control: AgentSessionControl::new(inner),
+        control: AgentRuntimeControl::new(inner),
         events_rx: rx,
         persistence,
         capabilities: AgentCapabilities {
@@ -266,16 +270,16 @@ impl AgentProvider for FakeAgentProvider {
         })
     }
 
-    async fn create_session(&self, _cfg: AgentSessionConfig) -> AgentResult<Box<dyn AgentSession>> {
+    async fn create_runtime(&self, _cfg: AgentRuntimeConfig) -> AgentResult<Box<dyn AgentRuntime>> {
         self.counters.create.fetch_add(1, Ordering::SeqCst);
         Ok(open_session(self, None))
     }
 
-    async fn resume_session(
+    async fn resume_runtime(
         &self,
         handle: AgentPersistenceHandle,
-        _cfg: AgentSessionConfig,
-    ) -> AgentResult<Box<dyn AgentSession>> {
+        _cfg: AgentRuntimeConfig,
+    ) -> AgentResult<Box<dyn AgentRuntime>> {
         self.counters.resume.fetch_add(1, Ordering::SeqCst);
         *self.last_resume.lock().await = Some(handle.as_str().to_string());
         Ok(open_session(self, Some(handle)))

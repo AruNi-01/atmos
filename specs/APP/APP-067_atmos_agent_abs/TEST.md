@@ -4,11 +4,11 @@
 
 ## Test strategy
 
-- **Rust unit/integration** owns Conversation projector rules, queue dispatch, steer turn-id matching, catalog merge/cache, and “restore does not spawn”.
-- **WS/API-level** owns `conversation_*` / `agent_model_catalog_*` contracts, subscribe fan-out, and the prefetch worker lifecycle (first web `/ws`, no `IntervalSpec`).
+- **Rust unit/integration** owns Agent Chat apply-event rules, queue dispatch, steer turn-id matching, catalog merge/cache, and “restore does not spawn”.
+- **WS/API-level** owns `agent_chat_*` / `agent_model_catalog_*` contracts, subscribe fan-out, and the prefetch worker lifecycle (first web `/ws`, no `IntervalSpec`).
 - **Bun tests** own web tab model, follow-up setting default, composer busy routing, and “no ACP schema in client”.
 - **Playwright** covers New Agent Chat, list restore without resume, rename/delete, and composer Queue vs Steer chrome. File: `e2e/tests/specs/APP-067_atmos-agent-chat.e2e.ts` via `just test-e2e`.
-- **agent-browser** explores copy, empty list, busy composer, and permission vs steer. Not a substitute for projector/WS tests.
+- **agent-browser** explores copy, empty list, busy composer, and permission vs steer. Not a substitute for apply-event/WS tests.
 - **Manual**: real ACP agent spawn, temp catalog probe, and standalone multi-window — process + CLI variance is too flaky for CI.
 
 ## Coverage map
@@ -42,21 +42,21 @@
 |----------|-------|---------------|-------------------------|----------------|---------|--------|
 | S1 | E2E | Playwright | `just test-e2e -- tests/specs/APP-067_atmos-agent-chat.e2e.ts` | local Server + web; empty mosaic | Agent Chat tab in strip; plus menu has New Agent Chat next to New Terminal | planned |
 | S2 | Bun + E2E | `bun test`, Playwright | tab/launcher tests; same e2e file | New Workspace overlay; ⌘N | launcher/New Workspace can start Chat; ⌘N still New Workspace | planned |
-| S3 | Rust | `cargo test` | `cargo test -p core-service conversation` | create conversation | `meta.json` id ≠ persistence_handle; handle null until spawn | planned |
+| S3 | Rust | `cargo test` | `cargo test -p core-service --lib agent_chat` | create chat | `meta.json` id ≠ persistence_handle; handle null until spawn | planned |
 | S4 | Rust + WS | `cargo test` | conversation get + runtime map | persisted messages; no provider | get returns parts; no `AgentProvider::create/resume` | planned |
 | S5 | Rust + Bun | `cargo test`, `bun test` | list grouping | two cwd groups | sidebar groups by cwd; new from list creates row | planned |
 | S6 | WS/API | `cargo test -p api` | rename/delete actions | one conversation | title changes; soft-delete hidden from list | planned |
-| S7 | Rust | `cargo test` | continue after restore | handle present vs absent | same conversation_id; resume vs create_session | planned |
-| S8 | WS/API | `cargo test -p api` | `conversation_send` idle | idle conversation | new turn running; `conversation_event` TurnStarted | planned |
+| S7 | Rust | `cargo test` | continue after restore | handle present vs absent | same chat_id; resume vs create_session | planned |
+| S8 | WS/API | `cargo test -p api` | `agent_chat_send` idle | idle conversation | new turn running; `agent_chat_event` TurnStarted | planned |
 | S9 | Rust | `cargo test` | queue table | busy turn + reload | items survive; dispatch on complete; pause holds | planned |
 | S10 | Rust | `cargo test` | steer | running turn matching id | user message kind=steer; no new turn; no cancel | planned |
 | S11 | Rust | `cargo test` | steer unsupported / stale turn | ACP v1 stub; completed turn | error; no cancel+resend; UI hides Steer | planned |
 | S12 | Bun + WS | `bun test`, `cargo test` | `followup_policy` | default unset; two chats | default queue; setting applies to both | planned |
-| S13 | WS/API | `cargo test` | `conversation_cancel` | running turn + draft | turn canceled; draft not sent | planned |
+| S13 | WS/API | `cargo test` | `agent_chat_cancel` | running turn + draft | turn canceled; draft not sent | planned |
 | S14 | Rust | `cargo test` | permission + queue + steer | pending permission | queue waits; steer stored; permission unresolved | planned |
 | S15 | Bun | `bun test` | client import/lint guard | web agent-chat module | no ACP schema imports | planned |
-| S16 | Bun + E2E | `bun test`, Playwright | `/agent-chat?conversationId=` | existing conversation | same rows; events fan-out | planned |
-| S17 | WS/API | `cargo test -p api` | no `/ws/agent` chat; no REST session list | after rollout step 4 | conversation_* only; identity not acp_session_id | planned |
+| S16 | Bun + E2E | `bun test`, Playwright | `/agent-chat?chatId=` | existing conversation | same rows; events fan-out | planned |
+| S17 | WS/API | `cargo test -p api` | no `/ws/agent` chat; no REST session list | after rollout step 4 | `agent_chat_*` only; identity not acp_session_id | planned |
 | S18 | Rust + WS | `cargo test` | prefetch worker | first web `/ws`; two enabled agents | worker starts once; catalogs cached; `agent_model_catalog_updated` | planned |
 | S19 | Rust | `cargo test` | 4h cache skip | fresh ok cache | second loop skips probe | planned |
 | S20 | Rust | `cargo test` | strategy merge | fake CLI/config/ACP | CLI ids win; config thinking; temp ACP isolated cwd; no IntervalSpec job | planned |
@@ -82,16 +82,16 @@
 ### S3 — Conversation id is not the ACP id
 
 - **Level**: Rust
-- **Given**: `conversation_create` for provider `claude`.
+- **Given**: `agent_chat_create` for provider `claude`.
 - **When**: the row is inserted.
 - **Then**: `meta.json` `id` is an Atmos UUID; `persistence_handle` is null and never copied into `id`.
-- **Signals**: `~/.atmos/data/agent/conversations/{id}/meta.json`; create WS output.
+- **Signals**: `~/.atmos/data/agent/chats/{id}/meta.json`; create WS output.
 
 ### S4 — Opening history does not spawn the provider
 
 - **Level**: Rust + WS
 - **Given**: a conversation with stored messages and no live runtime.
-- **When**: the client calls `conversation_get` / opens the list row.
+- **When**: the client calls `agent_chat_get` / opens the list row.
 - **Then**: messages including structured parts render from folded `transcript.jsonl`; `create_session` / `resume_session` are not called.
 - **Signals**: fixture provider call counts remain 0; get payload has parts.
 
@@ -99,7 +99,7 @@
 
 - **Level**: Rust + Bun
 - **Given**: two conversations with different `cwd` values.
-- **When**: `conversation_list` runs.
+- **When**: `agent_chat_list` runs.
 - **Then**: the history sidebar groups by cwd and can create a new conversation in the current cwd.
 - **Signals**: group keys; new row `cwd`.
 
@@ -109,25 +109,25 @@
 - **Given**: one listed conversation.
 - **When**: rename then delete.
 - **Then**: title updates in `meta.json` / `index.json`; delete sets `deleted` and leaves the default list.
-- **Signals**: `conversation_rename` / `conversation_delete` outputs; `meta.deleted`.
+- **Signals**: `agent_chat_rename` / `agent_chat_delete` outputs; `meta.deleted`.
 
-### S7 — Continue uses the same conversation
+### S7 — Continue uses the same chat
 
 - **Level**: Rust
 - **Given**: restored conversation with a persistence handle.
 - **When**: the user sends.
-- **Then**: `resume_session` is used with that handle; a new conversation is not created. If no handle, `create_session` attaches to the same `conversation_id`.
-- **Signals**: same directory `conversation_id`; `meta.persistence_handle` used for resume.
+- **Then**: `resume_session` is used with that handle; a new conversation is not created. If no handle, `create_session` attaches to the same `chat_id`.
+- **Signals**: same directory `chat_id`; `meta.persistence_handle` used for resume.
 
 ### S8 — Idle send starts a turn
 
 - **Level**: WS/API
 - **Given**: idle conversation, no running turn.
-- **When**: `conversation_send`.
+- **When**: `agent_chat_send`.
 - **Then**: a new turn is `running` and subscribers see `turn_started` then deltas.
-- **Signals**: `conversation_turn.status`; `conversation_event` sequence.
+- **Signals**: `running_turn_id`; `agent_chat_event` sequence.
 
-### S9 — Queue is conversation-owned
+### S9 — Queue is chat-owned
 
 - **Level**: Rust
 - **Given**: a running turn and a queued follow-up.
@@ -139,7 +139,7 @@
 
 - **Level**: Rust
 - **Given**: running turn `T` and `supports_steer`.
-- **When**: `conversation_steer` with `expected_turn_id = T`.
+- **When**: `agent_chat_steer` with `expected_turn_id = T`.
 - **Then**: a user message `kind=steer` is on turn `T`; no `TurnStarted`; provider `steer` is called; `cancel` is not.
 - **Signals**: message row; provider mock.
 
@@ -163,7 +163,7 @@
 
 - **Level**: WS/API
 - **Given**: running turn and non-empty composer draft.
-- **When**: `conversation_cancel`.
+- **When**: `agent_chat_cancel`.
 - **Then**: the turn is canceled; no new user message from the draft; next idle send starts a new turn.
 - **Signals**: turn `canceled`; message count.
 
@@ -183,20 +183,20 @@
 - **Then**: UI types are Conversation/Turn/Message; ACP session DTOs are not imported outside the deleted adapter.
 - **Signals**: test or lint deny-list; `tsc` on web.
 
-### S16 — Standalone window shares the conversation
+### S16 — Standalone window shares the chat
 
 - **Level**: Bun + E2E
 - **Given**: a conversation open in center-stage.
-- **When**: `/agent-chat` opens with that `conversationId` and a send occurs.
+- **When**: `/agent-chat` opens with that `chatId` and a send occurs.
 - **Then**: both surfaces show the same rows; events fan out to both subscribers.
-- **Signals**: two `conversation_subscribe` connections; shared message ids.
+- **Signals**: two `agent_chat_subscribe` connections; shared message ids.
 
 ### S17 — Old chat transport is gone
 
 - **Level**: WS/API
 - **Given**: rollout step 4 complete.
 - **When**: a client lists/opens chat.
-- **Then**: identity is `conversation_id`; dedicated `/ws/agent/{id}` is not the chat model; REST session list/create/resume are gone.
+- **Then**: identity is `chat_id`; dedicated `/ws/agent/{id}` is not the chat model; REST session list/create/resume are gone.
 - **Signals**: router table; 404 or unused routes; list payload.
 
 ### S18 — Entering the app prefetches enabled agents
@@ -225,10 +225,10 @@
 
 ## Performance & load budgets
 
-- `conversation_get` of a 200-record transcript: p95 < 200ms in-process (no provider).
+- `agent_chat_get` of a 200-record transcript: p95 < 200ms in-process (no provider).
 - Assistant jsonl snapshot ≤ 100ms behind last delta (TECH).
 - Catalog prefetch: ≤ 2 concurrent probes; picker remains interactive.
-- Live `conversation_event` fan-out does not block other `/ws` actions on the same connection.
+- Live `agent_chat_event` fan-out does not block other `/ws` actions on the same connection.
 
 ## Regression checklist
 
@@ -253,7 +253,7 @@ Load Agent Browser skill or `agent-browser skills get core --full` first.
 3. Busy composer: default Queue vs one-shot Steer; Stop leaves the draft.
 4. Permission dialog: steer does not approve; queue stays docked.
 5. Narrow viewport: list, transcript, and composer remain usable; no overlap.
-6. Console/network: no `/ws/agent/` chat frames; `conversation_event` on main `/ws`.
+6. Console/network: no `/ws/agent/` chat frames; `agent_chat_event` on main `/ws`.
 
 ## Acceptance criteria
 
@@ -285,12 +285,12 @@ Implemented 2026-08-28 on `feat/APP-067-agent-chat`.
 
 | Scenario | Command | Result |
 |----------|---------|--------|
-| S3–S7 store/identity | `cargo test -p core-service --lib conversation` | pass (`s3_conversation_id_is_not_persistence_handle`, `s4_*`, `s5_list_groups_by_cwd`, `s6_rename_and_soft_delete`, `s7_continue_*`) |
+| S3–S7 store/identity | `cargo test -p core-service --lib agent_chat` | pass (`s3_chat_id_is_not_persistence_handle`, `s4_*`, `s5_list_groups_by_cwd`, `s6_rename_and_soft_delete`, `s7_continue_*`) |
 | S8 idle send | same | pass `s8_idle_send_starts_turn` |
 | S9–S14 queue/steer/cancel/permission/policy | same | pass (`s9_queue_reloads_and_dispatch_skips_paused` asserts `next` dispatched + `hold` paused) |
-| S16 fan-out | `cargo test -p core-service --lib s16_two_subscribers_see_the_same_send` + bun `conversation-events.test.ts` + Playwright S16 send | pass |
+| S16 fan-out | `cargo test -p core-service --lib s16_two_subscribers_see_the_same_send` + bun `agent-chat-events.test.ts` + Playwright S16 send | pass |
 | S18–S20 catalog prefetch/cache/merge | same + `cargo test -p agent --lib` | pass (incl. `maps_model_mode_and_thinking_from_config_options`, `with_acp_probe_uses_the_provided_probe_not_noop`) |
-| S2/S5/S12/S15 web | `bun test apps/web/src/app-shell/__tests__/agent-chat-entry-points.test.ts apps/web/src/features/agent/lib/__tests__/{followup-policy,group-conversations,no-acp-schema,conversation-events}.test.ts` | pass |
+| S2/S5/S12/S15 web | `bun test apps/web/src/app-shell/__tests__/agent-chat-entry-points.test.ts apps/web/src/features/agent/lib/__tests__/{followup-policy,group-agent-chats,no-acp-schema,agent-chat-events}.test.ts` | pass |
 | S17 old transport | `cargo test -p api -- --test-threads=1 s17` | pass (`s17_rest_session_crud_removed`, `s17_dedicated_agent_ws_removed`) |
 | S20 production ACP probe wiring | `cargo test -p api -- --test-threads=1 s20_catalog_engine_uses_temp_acp_probe` | pass (`StdioAcpCatalogProbe` + `CatalogEngine::with_acp_probe`) |
 | S1/S16 Playwright | `E2E_SINGLE_SERVER=0 bun run --cwd e2e test tests/specs/APP-067_atmos-agent-chat.e2e.ts --project=chromium --workers=1` | pass twice (Next dev; S16 sends and both pages show `[data-agent-chat-message]`) |

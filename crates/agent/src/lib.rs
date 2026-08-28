@@ -22,12 +22,13 @@ pub use catalog::{
     NoopAcpProbe, StdioAcpCatalogProbe, ERROR_CACHE_TTL, OK_CACHE_TTL,
 };
 pub use domain::{
+    classify_tool, deserialize_tool_kind, plan_from_tool_input, thinking_text,
     AgentAvailableCommand, AgentCapabilities, AgentCatalogContext, AgentEvent, AgentMode,
     AgentModel, AgentModelCatalog, AgentPermissionOption, AgentPermissionRequest,
     AgentPersistenceHandle, AgentPrompt, AgentProvider, AgentProviderError, AgentProviderFactory,
-    AgentResult, AgentSession, AgentSessionConfig, AgentSessionConfigUpdate, AgentSessionControl,
-    AgentThinkingSupport, AgentToolCall, AgentTurnHandle, CatalogSource, CatalogStatus,
-    CatalogStrategyKind, TurnStop, UserMessageKind,
+    AgentResult, AgentRuntime, AgentRuntimeConfig, AgentRuntimeConfigUpdate, AgentRuntimeControl,
+    AgentThinkingSupport, AgentToolCall, AgentToolKind, AgentTurnHandle, CatalogSource,
+    CatalogStatus, CatalogStrategyKind, ClassifiedTool, TurnStop, UserMessageKind,
 };
 pub use manager::AgentManager;
 pub use models::{

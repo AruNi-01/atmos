@@ -19,16 +19,18 @@ import {
   readTextareaSlashTrigger,
   replaceTextareaTrigger,
 } from "@/features/agent/lib/composer-triggers";
-import type { AgentChatSlashCommand } from "@/features/agent/hooks/use-conversation-chat-session";
+import type { AgentChatSlashCommand } from "@/features/agent/hooks/use-agent-chat-session";
 
 export function useAgentComposerPopovers({
   availableCommands,
   projectPath,
   setDraft,
+  onSelectSlashCommand,
 }: {
   availableCommands: AgentChatSlashCommand[];
   projectPath: string | null;
   setDraft: React.Dispatch<React.SetStateAction<string>>;
+  onSelectSlashCommand: (command: AgentChatSlashCommand) => void;
 }) {
   const [mentionPopover, setMentionPopover] = React.useState<MentionPopoverState>(null);
   const [slashPopover, setSlashPopover] = React.useState<WelcomeSlashPopoverState>(null);
@@ -99,12 +101,14 @@ export function useAgentComposerPopovers({
     (command: SlashCommandOption) => {
       const popover = slashPopover;
       if (!popover) return;
+      const matched = availableCommands.find((item) => item.name === command.id);
       setDraft((current) =>
-        replaceTextareaTrigger(current, popover.slashOffset, popover.query.length, `/${command.id} `),
+        replaceTextareaTrigger(current, popover.slashOffset, popover.query.length, ""),
       );
+      if (matched) onSelectSlashCommand(matched);
       setSlashPopover(null);
     },
-    [setDraft, slashPopover],
+    [availableCommands, onSelectSlashCommand, setDraft, slashPopover],
   );
 
   const {

@@ -22,20 +22,68 @@ import {
   SelectValue,
   usePromptInputAttachments,
 } from "@workspace/ui";
-import { Square } from "lucide-react";
+import { Bot, Brain, Square, X, Zap } from "lucide-react";
 import { AgentIcon } from "./AgentIcon";
 import { useDialogStore, type QueuedAgentPrompt } from "@/app-shell/state/use-dialog-store";
 import type { AgentPlan, AgentConfigOption } from "@/features/agent/hooks/use-agent-session";
 import type { RegistryAgent } from "@/api/ws-api";
 import type { AgentChatMode } from "@/features/agent/types/index";
 import { registerActiveAgentComposer } from "@/features/agent/lib/agent/active-composer";
-import type { ThreadEntry } from "@/features/agent/lib/agent/thread";
+import type { AgentMessage } from "@atmos/api-types/ws/dto/agent-chat";
+import { stopStreamingMessages } from "@/features/agent/lib/agent-chat-events";
+import {
+  composeAgentChatPrompt,
+  parseLeadingAgentSlashCommand,
+} from "@/features/agent/lib/agent-chat-slash-command";
 import type { AgentActivity } from "../lib/chat-helpers";
 import { PlanBlockView } from "./PlanBlockView";
 import { MessageQueueDock } from "./MessageQueueDock";
 import { ConfigOptionDropdown } from "./ConfigOptionDropdown";
 import { useAgentComposerPopovers } from "../hooks/use-agent-composer-popovers";
-import type { AgentChatSlashCommand } from "../hooks/use-conversation-chat-session";
+import type { AgentChatSlashCommand } from "../hooks/use-agent-chat-session";
+import { splitComposerConfigOptions } from "../lib/agent-chat-thread";
+
+function composerConfigIcon(optionId: string) {
+  const id = optionId.trim().toLowerCase();
+  if (id === "thinking" || id === "think") {
+    return <Brain className="size-3.5 shrink-0 text-muted-foreground" />;
+  }
+  if (id === "mode" || id === "modes") {
+    return <Bot className="size-3.5 shrink-0 text-muted-foreground" />;
+  }
+  return null;
+}
+
+function SlashCommandChip({
+  name,
+  description,
+  onRemove,
+  removeLabel,
+}: {
+  name: string;
+  description?: string;
+  onRemove: () => void;
+  removeLabel: string;
+}) {
+  return (
+    <span
+      data-agent-chat-slash-chip={name}
+      title={description}
+      className="mt-0.5 inline-flex max-w-full shrink-0 items-center gap-1 rounded-md border border-border/70 bg-muted/60 px-1.5 py-px text-[12px] leading-[18px] font-medium text-foreground"
+    >
+      <Zap className="size-3.5 shrink-0" />
+      <span className="min-w-0 truncate">/{name}</span>
+      <button
+        type="button"
+        className="inline-flex size-4 shrink-0 items-center justify-center rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground"
+        aria-label={removeLabel}
+        onClick={onRemove}
+      >
+        <X className="size-3" />
+      </button>
+    </span>
+  );
+}
 
 function PromptInputAttachmentsSection() {
   const attachments = usePromptInputAttachments();
@@ -83,7 +131,7 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
   agentActivity,
   sendCancel,
   setWaitingForResponse,
-  setEntries,
+  setMessages,
   stoppedRef,
   projectPath = null,
   availableCommands = [],
@@ -119,7 +167,7 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
   agentActivity: AgentActivity;
   sendCancel: () => void;
   setWaitingForResponse: React.Dispatch<React.SetStateAction<boolean>>;
-  setEntries: React.Dispatch<React.SetStateAction<ThreadEntry[]>>;
+  setMessages: React.Dispatch<React.SetStateAction<AgentMessage[]>>;
   stoppedRef: React.MutableRefObject<boolean>;
   projectPath?: string | null;
   availableCommands?: AgentChatSlashCommand[];
@@ -135,12 +183,18 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
       instanceKey,
     ),
   );
+  const [slashCommand, setSlashCommand] = useState<AgentChatSlashCommand | null>(null);
   const persistedDraftRef = useRef(localDraft);
-  const showStop = Boolean(agentActivity.busy && !localDraft.trim());
+  const slashHydratedRef = useRef(false);
+  const composedDraft = composeAgentChatPrompt(slashCommand, localDraft);
+  const showStop = Boolean(agentActivity.busy && !composedDraft);
+  const { leading: leadingConfigOptions, trailing: trailingConfigOptions } =
+    splitComposerConfigOptions(configOptions);
   const { handleComposerKeyDown, popovers, syncTriggers } = useAgentComposerPopovers({
     availableCommands,
     projectPath,
     setDraft: setLocalDraft,
+    onSelectSlashCommand: setSlashCommand,
   });
 
   useEffect(() => {
@@ -160,24 +214,34 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
   }, [chatMode, instanceKey, sessionProjectId, sessionWorkspaceId]);
 
   useEffect(() => {
-    if (localDraft === persistedDraftRef.current) return;
+    if (slashHydratedRef.current || availableCommands.length === 0) return;
+    slashHydratedRef.current = true;
+    const parsed = parseLeadingAgentSlashCommand(localDraft, availableCommands);
+    if (!parsed.command) return;
+    setSlashCommand(parsed.command);
+    setLocalDraft(parsed.rest);
+    persistedDraftRef.current = composeAgentChatPrompt(parsed.command, parsed.rest);
+  }, [availableCommands, localDraft]);
+
+  useEffect(() => {
+    if (composedDraft === persistedDraftRef.current) return;
 
     const timer = window.setTimeout(() => {
       setAgentChatDraft(
         sessionWorkspaceId,
         sessionProjectId,
         chatMode,
-        localDraft,
+        composedDraft,
         instanceKey,
       );
-      persistedDraftRef.current = localDraft;
+      persistedDraftRef.current = composedDraft;
     }, 180);
 
     return () => window.clearTimeout(timer);
   }, [
     chatMode,
+    composedDraft,
     instanceKey,
-    localDraft,
     sessionProjectId,
     sessionWorkspaceId,
     setAgentChatDraft,
@@ -204,7 +268,15 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
       )}
       <PromptInput
         onSubmit={async (msg) => {
-          const previous = localDraft;
+          const text = composeAgentChatPrompt(slashCommand, msg.text);
+          const previousCommand = slashCommand;
+          const previousDraft = localDraft;
+          const previousComposed = composedDraft;
+          if (!text && (msg.files?.length ?? 0) === 0) {
+            setLocalDraft(previousDraft);
+            return;
+          }
+          setSlashCommand(null);
           setLocalDraft("");
           persistedDraftRef.current = "";
           clearAgentChatDraft(
@@ -214,10 +286,11 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
             instanceKey,
           );
           try {
-            await onSubmit({ text: msg.text, files: msg.files });
+            await onSubmit({ text, files: msg.files });
           } catch (error) {
-            setLocalDraft(previous);
-            persistedDraftRef.current = previous;
+            setSlashCommand(previousCommand);
+            setLocalDraft(previousDraft);
+            persistedDraftRef.current = previousComposed;
             throw error;
           }
         }}
@@ -226,82 +299,134 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
       >
         <PromptInputAttachmentsSection />
         <PromptInputBody>
-          <PromptInputTextarea
-            data-agent-chat-input="true"
-            data-agent-chat-composer=""
-            data-agent-chat-mode={chatMode}
-            data-agent-chat-instance-key={instanceKey?.trim() || undefined}
-            data-agent-chat-workspace-id={sessionWorkspaceId ?? undefined}
-            data-agent-chat-project-id={sessionProjectId ?? undefined}
-            placeholder={
-              !canUseCurrentMode
-                ? t("composer.placeholder.unavailable")
-                : isConnected
-                  ? t("composer.placeholder.connected")
-                  : t("composer.placeholder.selectAgent")
-            }
-            disabled={!isConnected || !canUseCurrentMode}
-            value={localDraft}
-            onChange={(e) => {
-              setLocalDraft(e.currentTarget.value);
-              syncTriggers(e.currentTarget);
+          <div
+            className="flex w-full min-w-0 items-start gap-1.5 px-3 py-3"
+            onClick={(event) => {
+              if ((event.target as HTMLElement).closest("button")) return;
+              event.currentTarget.querySelector("textarea")?.focus();
             }}
-            onKeyUp={(e) => syncTriggers(e.currentTarget)}
-            onClick={(e) => syncTriggers(e.currentTarget)}
-            onKeyDown={handleComposerKeyDown}
-          />
+          >
+            {slashCommand ? (
+              <SlashCommandChip
+                name={slashCommand.name}
+                description={slashCommand.description}
+                onRemove={() => setSlashCommand(null)}
+                removeLabel={t("composer.removeSlashCommand", {
+                  name: `/${slashCommand.name}`,
+                })}
+              />
+            ) : null}
+            <PromptInputTextarea
+              data-agent-chat-input="true"
+              data-agent-chat-composer=""
+              data-agent-chat-mode={chatMode}
+              data-agent-chat-instance-key={instanceKey?.trim() || undefined}
+              data-agent-chat-workspace-id={sessionWorkspaceId ?? undefined}
+              data-agent-chat-project-id={sessionProjectId ?? undefined}
+              className="min-h-16 min-w-0 flex-1 px-0 py-0"
+              placeholder={
+                !canUseCurrentMode
+                  ? t("composer.placeholder.unavailable")
+                  : slashCommand?.hint?.trim()
+                    ? slashCommand.hint
+                    : isConnected
+                      ? t("composer.placeholder.connected")
+                      : t("composer.placeholder.selectAgent")
+              }
+              disabled={!isConnected || !canUseCurrentMode}
+              value={localDraft}
+              onChange={(e) => {
+                setLocalDraft(e.currentTarget.value);
+                syncTriggers(e.currentTarget);
+              }}
+              onKeyUp={(e) => syncTriggers(e.currentTarget)}
+              onClick={(e) => syncTriggers(e.currentTarget)}
+              onKeyDown={(e) => {
+                if (e.key === "Backspace" && e.currentTarget.value === "" && slashCommand) {
+                  e.preventDefault();
+                  setSlashCommand(null);
+                  return;
+                }
+                handleComposerKeyDown(e);
+              }}
+            />
+          </div>
         </PromptInputBody>
-        <PromptInputFooter>
-          <PromptInputTools>
+        <PromptInputFooter className="gap-2">
+          <PromptInputTools className="gap-2">
             <PromptInputAddAttachmentsButton />
+            {isConnected
+              ? leadingConfigOptions.map((opt) => (
+                  <ConfigOptionDropdown
+                    key={opt.id}
+                    opt={opt}
+                    icon={composerConfigIcon(opt.id)}
+                    registryId={registryId}
+                    activeAgent={activeAgent}
+                    setConfigOption={setConfigOption}
+                    setAgentDefaultConfig={setAgentDefaultConfig}
+                    setInstalledAgents={setInstalledAgents}
+                  />
+                ))
+              : null}
             {(loadingAgents || isConnecting || isResumingHistory) && !isConnected ? null : installedAgents.length === 0 ? (
               <span className="px-2 text-xs text-muted-foreground">{t("composer.noAgent")}</span>
             ) : null}
           </PromptInputTools>
-          <div className="flex items-center gap-2">
-            {!agentLocked && installedAgents.length > 0 && onProviderChange ? (
-              <Select
-                value={registryId || installedAgents[0]?.id || ""}
-                onValueChange={onProviderChange}
-              >
-                <SelectTrigger className="h-8 text-xs min-w-[120px] border-border/50 bg-muted/20">
-                  <SelectValue placeholder={t("composer.selectAgent")} />
-                </SelectTrigger>
-                <SelectContent>
-                  {installedAgents.map((agent) => (
-                    <SelectItem key={agent.id} value={agent.id}>
-                      <span className="flex items-center gap-1.5">
-                        <AgentIcon
-                          registryId={agent.id}
-                          name={agent.name}
-                          size={14}
-                          isCustom={agent.install_method === "custom"}
-                          registryIcon={agent.icon}
-                        />
-                        <span className="truncate">{agent.name}</span>
-                      </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+          <div className="flex min-w-0 items-center gap-2">
+            {installedAgents.length > 0 ? (
+              agentLocked || !onProviderChange ? (
+                <span className="inline-flex h-8 max-w-[9rem] items-center gap-1.5 px-2 text-xs text-foreground">
+                  <AgentIcon
+                    registryId={activeAgent?.id || registryId}
+                    name={activeAgent?.name || registryId}
+                    size={14}
+                    isCustom={activeAgent?.install_method === "custom"}
+                    registryIcon={activeAgent?.icon}
+                  />
+                  <span className="truncate">{activeAgent?.name || t("composer.selectAgent")}</span>
+                </span>
+              ) : (
+                <Select
+                  value={registryId || installedAgents[0]?.id || ""}
+                  onValueChange={onProviderChange}
+                >
+                  <SelectTrigger className="h-8 w-auto min-w-0 gap-1.5 border-0 bg-transparent px-2 text-xs shadow-none hover:bg-muted/60">
+                    <SelectValue placeholder={t("composer.selectAgent")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {installedAgents.map((agent) => (
+                      <SelectItem key={agent.id} value={agent.id}>
+                        <span className="flex items-center gap-1.5">
+                          <AgentIcon
+                            registryId={agent.id}
+                            name={agent.name}
+                            size={14}
+                            isCustom={agent.install_method === "custom"}
+                            registryIcon={agent.icon}
+                          />
+                          <span className="truncate">{agent.name}</span>
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )
             ) : null}
-            {configOptions?.length > 0 && isConnected && (
-              <div className="flex items-center gap-2">
-                {configOptions
-                  .filter(opt => opt.type === 'select' && opt.options.length > 0)
-                  .map(opt => (
-                    <ConfigOptionDropdown
-                      key={opt.id}
-                      opt={opt}
-                      registryId={registryId}
-                      activeAgent={activeAgent}
-                      setConfigOption={setConfigOption}
-                      setAgentDefaultConfig={setAgentDefaultConfig}
-                      setInstalledAgents={setInstalledAgents}
-                    />
-                  ))}
-              </div>
-            )}
+            {isConnected
+              ? trailingConfigOptions.map((opt) => (
+                  <ConfigOptionDropdown
+                    key={opt.id}
+                    opt={opt}
+                    icon={composerConfigIcon(opt.id)}
+                    registryId={registryId}
+                    activeAgent={activeAgent}
+                    setConfigOption={setConfigOption}
+                    setAgentDefaultConfig={setAgentDefaultConfig}
+                    setInstalledAgents={setInstalledAgents}
+                  />
+                ))
+              : null}
             <PromptInputSubmit
               status={showStop ? "streaming" : undefined}
               onStop={
@@ -310,21 +435,7 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
                     stoppedRef.current = true;
                     sendCancel();
                     setWaitingForResponse(false);
-                    setEntries((prev) => {
-                      const last = prev[prev.length - 1];
-                      if (last?.role === "assistant") {
-                        const updatedBlocks = last.blocks.map((block) =>
-                          block.type === "tool_call" && block.status === "running"
-                            ? { ...block, status: "completed" as const }
-                            : block
-                        );
-                        return [
-                          ...prev.slice(0, -1),
-                          { ...last, isStreaming: false, blocks: updatedBlocks },
-                        ];
-                      }
-                      return prev;
-                    });
+                    setMessages(stopStreamingMessages);
                   }
                   : undefined
               }

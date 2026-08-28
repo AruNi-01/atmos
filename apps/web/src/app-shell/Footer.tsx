@@ -30,9 +30,8 @@ import { AgentHookStatusIndicator } from '@/features/agent/components/AgentHookS
 import { AgentIcon } from '@/features/agent/components/AgentIcon';
 import { AnimatePresence, motion } from 'motion/react';
 import { useProjects } from '@/features/project/hooks/use-project-bootstrap-query';
-import { LayoutDashboard, X } from 'lucide-react';
+import { LayoutDashboard, MessagesSquare, X } from 'lucide-react';
 import { ProviderGlyph } from '@/app-shell/QuotaPopover';
-import { BotMessageSquareIcon, type BotMessageSquareHandle } from '@workspace/ui';
 import { NappingBotIcon } from '@/app-shell/NappingBotIcon';
 import { useExperimentSettingsStore } from '@/features/settings/store/experiment-settings-store';
 import { useLayoutSettingsStore } from '@/features/settings/store/layout-settings-store';
@@ -440,17 +439,14 @@ export function AgentStatusPopoverContent({
 
 function AcpChatButton({ onClick }: { onClick: () => void }) {
   const t = useTranslations("appShell");
-  const iconRef = useRef<BotMessageSquareHandle>(null);
   return (
     <button
       type="button"
       aria-label={t("footer.openAgentChat")}
       className="inline-flex h-5 items-center gap-1 rounded-sm bg-transparent px-1 text-[10px] text-muted-foreground hover:bg-accent/60 hover:text-foreground"
       onClick={onClick}
-      onMouseEnter={() => iconRef.current?.startAnimation()}
-      onMouseLeave={() => iconRef.current?.stopAnimation()}
     >
-      <BotMessageSquareIcon ref={iconRef} size={12} />
+      <MessagesSquare className="size-3" />
       <span className="whitespace-nowrap">{t("footer.acpChat")}</span>
     </button>
   );

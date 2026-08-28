@@ -11,7 +11,7 @@ import {
   Play,
   Smartphone,
   SquareTerminal as TerminalIcon,
-  Bot,
+  MessagesSquare,
   X,
 } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
@@ -279,8 +279,8 @@ export function buildDefaultEmptyPaneActions(input: {
       ? [
           {
             id: "agent-chat" as const,
-            label: labels.agentChat ?? "Agent Chat",
-            icon: <Bot />,
+            label: labels.agentChat ?? "Chat",
+            icon: <MessagesSquare />,
             onSelect: input.onCreateAgentChat,
           },
         ]

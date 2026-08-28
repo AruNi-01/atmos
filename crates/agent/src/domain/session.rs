@@ -35,7 +35,7 @@ pub struct AgentPrompt {
 }
 
 #[derive(Debug, Clone, Default)]
-pub struct AgentSessionConfig {
+pub struct AgentRuntimeConfig {
     pub cwd: PathBuf,
     pub model: Option<String>,
     pub thinking: Option<String>,
@@ -47,7 +47,7 @@ pub struct AgentSessionConfig {
 }
 
 #[derive(Debug, Clone, Default)]
-pub struct AgentSessionConfigUpdate {
+pub struct AgentRuntimeConfigUpdate {
     pub model: Option<String>,
     pub thinking: Option<String>,
     pub mode: Option<String>,
@@ -67,22 +67,22 @@ pub struct AgentCatalogContext {
 }
 
 #[async_trait]
-pub trait AgentSessionCommands: Send + Sync {
+pub trait AgentRuntimeCommands: Send + Sync {
     async fn prompt(&self, input: AgentPrompt) -> AgentResult<AgentTurnHandle>;
     async fn steer(&self, input: AgentPrompt) -> AgentResult<()>;
     async fn cancel(&self) -> AgentResult<()>;
     async fn close(&self) -> AgentResult<()>;
-    async fn set_config(&self, update: AgentSessionConfigUpdate) -> AgentResult<()>;
+    async fn set_config(&self, update: AgentRuntimeConfigUpdate) -> AgentResult<()>;
     async fn respond_permission(&self, request_id: &str, option_id: &str) -> AgentResult<()>;
 }
 
 #[derive(Clone)]
-pub struct AgentSessionControl {
-    inner: Arc<dyn AgentSessionCommands>,
+pub struct AgentRuntimeControl {
+    inner: Arc<dyn AgentRuntimeCommands>,
 }
 
-impl AgentSessionControl {
-    pub fn new(inner: Arc<dyn AgentSessionCommands>) -> Self {
+impl AgentRuntimeControl {
+    pub fn new(inner: Arc<dyn AgentRuntimeCommands>) -> Self {
         Self { inner }
     }
 
@@ -102,7 +102,7 @@ impl AgentSessionControl {
         self.inner.close().await
     }
 
-    pub async fn set_config(&self, update: AgentSessionConfigUpdate) -> AgentResult<()> {
+    pub async fn set_config(&self, update: AgentRuntimeConfigUpdate) -> AgentResult<()> {
         self.inner.set_config(update).await
     }
 
@@ -112,8 +112,8 @@ impl AgentSessionControl {
 }
 
 #[async_trait]
-pub trait AgentSession: Send {
-    fn control(&self) -> AgentSessionControl;
+pub trait AgentRuntime: Send {
+    fn control(&self) -> AgentRuntimeControl;
     fn persistence_handle(&self) -> Option<AgentPersistenceHandle>;
     fn capabilities(&self) -> AgentCapabilities;
     async fn next_event(&mut self) -> Option<AgentEvent>;
@@ -123,12 +123,12 @@ pub trait AgentSession: Send {
 pub trait AgentProvider: Send + Sync {
     fn id(&self) -> &str;
     async fn capabilities(&self, ctx: &AgentCatalogContext) -> AgentResult<AgentCapabilities>;
-    async fn create_session(&self, cfg: AgentSessionConfig) -> AgentResult<Box<dyn AgentSession>>;
-    async fn resume_session(
+    async fn create_runtime(&self, cfg: AgentRuntimeConfig) -> AgentResult<Box<dyn AgentRuntime>>;
+    async fn resume_runtime(
         &self,
         handle: AgentPersistenceHandle,
-        cfg: AgentSessionConfig,
-    ) -> AgentResult<Box<dyn AgentSession>>;
+        cfg: AgentRuntimeConfig,
+    ) -> AgentResult<Box<dyn AgentRuntime>>;
 }
 
 #[async_trait]

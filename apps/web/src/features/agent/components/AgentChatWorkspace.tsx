@@ -3,36 +3,36 @@
 import { AgentChatPanel } from "@/features/agent/components/AgentChatPanel";
 
 export function AgentChatWorkspace({
-  conversationId,
+  chatId,
   instanceKey,
-  onConversationStarted,
-  onConversationUpdated,
-  onOpenConversation,
+  onChatStarted,
+  onChatUpdated,
+  onOpenChat,
   variant = "sidebar",
 }: {
-  conversationId?: string | null;
+  chatId?: string | null;
   instanceKey?: string | null;
-  onConversationStarted?: (id: string, meta?: {
+  onChatStarted?: (id: string, meta?: {
     title?: string | null;
     cwd?: string;
     providerId?: string | null;
   }) => void;
-  onConversationUpdated?: (id: string, meta: {
+  onChatUpdated?: (id: string, meta: {
     title?: string | null;
     providerId?: string | null;
     cwd?: string;
   }) => void;
-  onOpenConversation?: (id: string) => void;
+  onOpenChat?: (id: string) => void;
   variant?: "sidebar" | "standalone" | "center";
 }) {
   const panel = (
     <AgentChatPanel
       variant={variant}
       instanceKey={instanceKey}
-      conversationId={conversationId}
-      onConversationStarted={onConversationStarted}
-      onConversationUpdated={onConversationUpdated}
-      onOpenConversation={onOpenConversation}
+      chatId={chatId}
+      onChatStarted={onChatStarted}
+      onChatUpdated={onChatUpdated}
+      onOpenChat={onOpenChat}
     />
   );
   if (variant !== "center") return panel;

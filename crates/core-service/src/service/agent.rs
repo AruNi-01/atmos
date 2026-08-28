@@ -1,6 +1,9 @@
+use std::path::PathBuf;
+
 use agent::{
-    AgentConfigState, AgentId, AgentInstallResult, AgentLaunchSpec, AgentManager, AgentStatus,
-    CustomAgent, RegistryAgent, RegistryInstallResult,
+    logout_acp_agent, AgentConfigState, AgentId, AgentInstallResult, AgentLaunchSpec,
+    AgentLogoutResult, AgentManager, AgentStatus, CustomAgent, RegistryAgent,
+    RegistryInstallResult,
 };
 
 use crate::error::Result;
@@ -117,5 +120,21 @@ impl AgentService {
         registry_id: &str,
     ) -> Option<std::collections::HashMap<String, String>> {
         self.manager.get_agent_default_config(registry_id)
+    }
+
+    pub async fn logout_agent(
+        &self,
+        registry_id: &str,
+        cwd: Option<PathBuf>,
+        auth_method_id: Option<String>,
+    ) -> Result<AgentLogoutResult> {
+        let launch_spec = self
+            .get_registry_agent_launch_spec(registry_id)
+            .await
+            .or_else(|_| self.get_custom_agent_launch_spec(registry_id))?;
+        let env_overrides = self.get_registry_agent_env_overrides(registry_id);
+        logout_acp_agent(launch_spec, cwd, env_overrides, auth_method_id)
+            .await
+            .map_err(crate::error::ServiceError::Processing)
     }
 }

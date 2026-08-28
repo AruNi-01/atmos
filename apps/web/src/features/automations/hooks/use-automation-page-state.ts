@@ -544,7 +544,7 @@ export function useAutomationPageState() {
         if (!contextId) {
           setStandaloneChatRunGuid(run.guid);
           toastManager.add({
-            title: t("toasts.openingStandaloneConversation"),
+            title: t("toasts.openingStandaloneChat"),
             description: copied
               ? t("toasts.promptCopied")
               : t("toasts.clipboardUnavailable", {

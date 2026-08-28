@@ -15,7 +15,7 @@
 | Rule | Detail |
 |------|--------|
 | **When to add** | After code implementation reaches review or post-review and the findings need durable tracking before cleanup. |
-| **Entry id** | `REV-NNN` - zero-padded, monotonic in this file (next: **REV-029**). |
+| **Entry id** | `REV-NNN` - zero-padded, monotonic in this file (next: **REV-037**). |
 | **Status** | `open` -> `in_progress` -> `fixed` -> `verified` (or `wont-fix` with reason). |
 | **Do not** | Duplicate full TECH/TEST content; link to baseline docs and record only review findings plus fix status. |
 | **Fix proof** | Each fixed item should name the code change and the verification command or manual check. |
@@ -29,6 +29,8 @@ Host/WS/file path for a Conversation workspace is real: Atmos ids, file SOT, res
 A second cross-review at `732d19e12` (after ACP crate 2.0 + REV-001..017) found a **P0**: Stop could not interrupt a live ACP `session/prompt`. Those residuals (REV-018..028) were implemented: cancel runs during prompt, `stop_reason` maps to canceled, Steer is shown closed when unsupported, attachments become ACP resource links, live tools fold, and subscribe no longer duplicates deltas.
 
 REV-001..028 are `fixed`. A human can now verify Stop, Queue, tools, and standalone pop-out on a live agent.
+
+A third architecture pass (2026-08-28, quality review against current tree) found the host shape is right but cutover is incomplete. REV-029..036 were implemented in the same pass: idle/archive teardown, generation-safe pump remove, lagged fan-out replay, canvas/automation id bind, WS no longer owns `AgentSessionService`, dead ACP chat files removed, in-memory seq, inject/subscribe churn. Status: `fixed`. Remaining: REST `agent_logout` still uses leftover `AgentSessionService`; `ThreadEntry` stays a view projection of host events.
 
 ---
 
@@ -48,9 +50,9 @@ REV-001..028 are `fixed`. A human can now verify Stop, Queue, tools, and standal
 | REV-017 | P1 | api | cwd/attachments not bounded to workspace/project | fixed |
 | REV-004 | P2 | test | S15 ACP-schema guard only scans the new modules | fixed |
 | REV-005 | P2 | test | TEST Coverage Status overstates S2/S6/S12/S16 levels | fixed |
-| REV-006 | P2 | backend | TECH module split (projector/queue) not done; ConversationService is one file | fixed |
+| REV-006 | P2 | backend | TECH module split (projector/queue) not done; AgentChatService is one file | fixed |
 | REV-007 | P2 | backend | Terminal model catalog is still a second parser/cache | fixed |
-| REV-008 | P2 | api | `conversation_subscribe.after_sequence` and `conversation_messages` pagination ignored | fixed |
+| REV-008 | P2 | api | `agent_chat_subscribe.after_sequence` and `agent_chat_messages` pagination ignored | fixed |
 | REV-012 | P2 | backend | `next_seq` rewrites meta.json + index.json on every token delta | fixed |
 | REV-009 | P3 | frontend | Rename/queue edit use `window.prompt`; list is unscoped | fixed |
 | REV-018 | P0 | backend | Stop cannot interrupt live ACP `session/prompt`; queue still fires | fixed |
@@ -64,6 +66,14 @@ REV-001..028 are `fixed`. A human can now verify Stop, Queue, tools, and standal
 | REV-026 | P2 | frontend | Standalone list is unscoped; no pop-out of the open conversation | fixed |
 | REV-027 | P2 | backend | Catalog prefetch is static builtins, not user-enabled Chat agents | fixed |
 | REV-028 | P2 | backend | Queue dispatch omits live `UserMessage` and can lose concurrent adds | fixed |
+| REV-029 | P1 | backend | Conversation ACP processes never idle-unload; archive closes the wrong map | fixed |
+| REV-030 | P1 | backend | Pump teardown can drop a replacement runtime | fixed |
+| REV-031 | P1 | api | Live agent_chat_event fan-out silently drops on broadcast lag | fixed |
+| REV-032 | P1 | frontend | Canvas/automation still mint orphan conversations | fixed |
+| REV-033 | P2 | backend | Dual host: AgentSessionService + crates/agent public ACP API | fixed |
+| REV-034 | P2 | frontend | ACP session façade and dead chat stack still in the tree | fixed |
+| REV-035 | P2 | backend | next_seq still fsyncs meta.json per delta; messages pagination incomplete | fixed |
+| REV-036 | P2 | frontend | Cross-feature prompt inject and subscribe effect churn | fixed |
 
 ---
 
@@ -118,18 +128,18 @@ Add Queue/Steer to Agent Behaviour settings (en+zh). Composer already routes on 
 
 ### Finding
 
-TECH says the client appends `assistant_message_delta` into the current assistant part and re-renders Streamdown `MessageResponse`. `AgentChatWorkspace` ignores delta payloads for rendering: it records user rows in a ref that is never displayed, then `void load()` on **every** `conversation_event`, refetching `conversation_get`. That is correct enough to show messages after disk snapshots, but it misses token streaming, hammers get on high-frequency deltas, and can lose in-flight UI if get races.
+TECH says the client appends `assistant_message_delta` into the current assistant part and re-renders Streamdown `MessageResponse`. `AgentChatWorkspace` ignores delta payloads for rendering: it records user rows in a ref that is never displayed, then `void load()` on **every** `agent_chat_event`, refetching `agent_chat_get`. That is correct enough to show messages after disk snapshots, but it misses token streaming, hammers get on high-frequency deltas, and can lose in-flight UI if get races.
 
 ### Evidence
 
 - [TECH.md](./TECH.md) “Streaming: keep Streamdown… Client appends to the current assistant text part”.
 - `apps/web/src/features/agent/components/AgentChatWorkspace.tsx:169-198` — event handler; `void load()` at 198.
-- `apps/web/src/features/agent/lib/conversation-events.ts:23-35` — only folds `user_message`.
+- `apps/web/src/features/agent/lib/agent-chat-events.ts:23-35` — only folds `user_message`.
 - Render path uses `turns` from snapshot (`AgentChatWorkspace.tsx:404-406`), not `liveUserRows`.
 
 ### Required fix
 
-Fold `user_message` / `assistant_message_delta` / `thinking_delta` / tool/permission events into local turn state. Use `conversation_get` for initial hydrate and reconnect, not per-delta.
+Fold `user_message` / `assistant_message_delta` / `thinking_delta` / tool/permission events into local turn state. Use `agent_chat_get` for initial hydrate and reconnect, not per-delta.
 
 ### Acceptance
 
@@ -253,7 +263,7 @@ Align Coverage Status with the declared level, or add the missing tests. Mark S2
 
 ---
 
-## REV-006 · TECH module split not done; ConversationService is one file
+## REV-006 · TECH module split not done; AgentChatService is one file
 
 | Field | Value |
 |-------|--------|
@@ -274,7 +284,7 @@ TECH lists `projector.rs` + `queue.rs` under `conversation/`. Implementation is 
 
 ### Required fix
 
-Extract `apply_event` / snapshot flush and queue dispatch from `ConversationService` without changing WS contracts.
+Extract `apply_event` / snapshot flush and queue dispatch from `AgentChatService` without changing WS contracts.
 
 ### Acceptance
 
@@ -283,7 +293,7 @@ Extract `apply_event` / snapshot flush and queue dispatch from `ConversationServ
 ### Fix log
 
 - 2026-08-28 - opened in APP-067 implementation review.
-- 2026-08-28 - extracted `projector.rs` (`apply_event` / snapshot flush) and `queue.rs` (`maybe_dispatch_queue`). `ConversationService` keeps spawn/pump/public API.
+- 2026-08-28 - extracted `projector.rs` (`apply_event` / snapshot flush) and `queue.rs` (`maybe_dispatch_queue`). `AgentChatService` keeps spawn/pump/public API.
 
 ---
 
@@ -334,14 +344,14 @@ Route APP-024 catalog get through `CatalogEngine` / `CatalogCache` (shape-map at
 
 ### Finding
 
-TECH hydrate: snapshot then subscribe from `after_sequence`. DTO has `after_sequence`, `before_seq`, `limit`. Handler returns `last_event_seq` but does not replay missed events; `conversation_messages` dumps all turns and ignores pagination. Reconnect can miss deltas if the snapshot is taken between events.
+TECH hydrate: snapshot then subscribe from `after_sequence`. DTO has `after_sequence`, `before_seq`, `limit`. Handler returns `last_event_seq` but does not replay missed events; `agent_chat_messages` dumps all turns and ignores pagination. Reconnect can miss deltas if the snapshot is taken between events.
 
 ### Evidence
 
-- `packages/api-types/src/ws/dto/conversation.ts:23-27`, `:41-44`.
+- `packages/api-types/src/ws/dto/agent-chat.ts:23-27`, `:41-44`.
 - `apps/api/src/api/ws/router/conversation.rs:96-104` (`let _ = req.before_seq; let _ = req.limit`).
 - `apps/api/src/api/ws/router/conversation.rs:142-152` — subscribe does not read `after_sequence`.
-- `apps/web/src/features/agent/components/AgentChatWorkspace.tsx:159` — `subscribe(conversationId)` without seq.
+- `apps/web/src/features/agent/components/AgentChatWorkspace.tsx:159` — `subscribe(chatId)` without seq.
 
 ### Required fix
 
@@ -371,7 +381,7 @@ Honor `after_sequence` (replay or document that clients must get-then-subscribe 
 
 ### Finding
 
-M7 rename/delete work, but rename and queue edit use `window.prompt`. History sidebar calls `conversationApi.list({})` with no workspace/project/cwd, so every conversation on the machine appears in every Chat tab. TECH asked to reuse `AgentChatHistorySidebar` cwd grouping chrome.
+M7 rename/delete work, but rename and queue edit use `window.prompt`. History sidebar calls `agentChatApi.list({})` with no workspace/project/cwd, so every conversation on the machine appears in every Chat tab. TECH asked to reuse `AgentChatHistorySidebar` cwd grouping chrome.
 
 ### Evidence
 
@@ -738,7 +748,7 @@ REV-002 still folds text/thinking deltas without a per-event `get`. `foldTurnsFr
 
 ### Evidence
 
-- `apps/web/src/features/agent/lib/conversation-events.ts:83-151`
+- `apps/web/src/features/agent/lib/agent-chat-events.ts:83-151`
 - `apps/web/src/features/agent/components/AgentChatWorkspace.tsx:183-208`, `:485-515`
 
 ### Required fix
@@ -747,7 +757,7 @@ Fold host `tool_call_*` / `plan_updated` into the current assistant message. Do 
 
 ### Acceptance
 
-- [ ] A live tool call appears in the transcript without `conversation_get`.
+- [ ] A live tool call appears in the transcript without `agent_chat_get`.
 - [ ] Plan updates appear in the same turn.
 
 ### Fix log
@@ -782,7 +792,7 @@ Merge snapshot text into existing parts; never drop tool/plan/attachment parts a
 
 ### Acceptance
 
-- [ ] `conversation_get` after a tool-using turn still includes the tool parts.
+- [ ] `agent_chat_get` after a tool-using turn still includes the tool parts.
 - [ ] Store unit test: snapshot after tool keeps both text and tool.
 
 ### Fix log
@@ -850,7 +860,7 @@ Upload and `send` persist conversation-dir attachment paths, but `AcpCommands::p
 
 ### Required fix
 
-Map attachment paths to ACP content blocks in the mapper only. Wire Chat composer upload to `conversation_id` when M4 attachments are in the pass.
+Map attachment paths to ACP content blocks in the mapper only. Wire Chat composer upload to `chat_id` when M4 attachments are in the pass.
 
 ### Acceptance
 
@@ -890,7 +900,7 @@ Treat a closed command channel as prompt failure. Do not return a dead runtime f
 ### Acceptance
 
 - [ ] Kill the agent process, send again: either a new spawn with a completed previous turn, or a visible error — not a ghost running turn.
-- [ ] Service test: jsonl `TurnStarted` without complete, new `ConversationService`, `send` does not leave two running turns.
+- [ ] Service test: jsonl `TurnStarted` without complete, new `AgentChatService`, `send` does not leave two running turns.
 
 ### Fix log
 
@@ -911,13 +921,13 @@ Treat a closed command channel as prompt failure. Do not return a dead runtime f
 
 ### Finding
 
-`conversation_subscribe` adds the socket to `conversation_subs` before `events_after` replay. Live fan-out can deliver a seq, then replay delivers it again. The client records `lastSeq` but still appends assistant deltas, so text can stutter (`hellohello`).
+`agent_chat_subscribe` adds the socket to `agent_chat_subs` before `events_after` replay. Live fan-out can deliver a seq, then replay delivers it again. The client records `lastSeq` but still appends assistant deltas, so text can stutter (`hellohello`).
 
 ### Evidence
 
 - `apps/api/src/api/ws/router/conversation.rs:162-188`
 - `apps/web/src/features/agent/components/AgentChatWorkspace.tsx:204-208`
-- `apps/web/src/features/agent/lib/conversation-events.ts:135-136`
+- `apps/web/src/features/agent/lib/agent-chat-events.ts:135-136`
 
 ### Required fix
 
@@ -947,7 +957,7 @@ Replay first, then insert; and/or skip events with `sequence <= lastSeq` on the 
 
 ### Finding
 
-REV-003 converted the panel to Conversation but dropped identity. Mount always `conversation_create`. Canvas still passes `acpSessionId` (ignored). Automation drawer remounts spawn orphan chats in the Chat-first list. Center-stage does not use this panel.
+REV-003 converted the panel to Conversation but dropped identity. Mount always `agent_chat_create`. Canvas still passes `acpSessionId` (ignored). Automation drawer remounts spawn orphan chats in the Chat-first list. Center-stage does not use this panel.
 
 ### Evidence
 
@@ -957,7 +967,7 @@ REV-003 converted the panel to Conversation but dropped identity. Mount always `
 
 ### Required fix
 
-Persist and reopen `conversation_id`. Do not create on every mount. Until N5, do not mint chats as a widget side effect.
+Persist and reopen `chat_id`. Do not create on every mount. Until N5, do not mint chats as a widget side effect.
 
 ### Acceptance
 
@@ -983,7 +993,7 @@ Persist and reopen `conversation_id`. Do not create on every mount. Until N5, do
 
 ### Finding
 
-`list` with `workspace_id: null` matches every row. `/agent-chat` without query creates a scratch chat and shows all conversations. Footer/command palette open `/agent-chat` with no id. There is no control that pops the current tab with `?conversationId=`.
+`list` with `workspace_id: null` matches every row. `/agent-chat` without query creates a scratch chat and shows all conversations. Footer/command palette open `/agent-chat` with no id. There is no control that pops the current tab with `?chatId=`.
 
 ### Evidence
 
@@ -993,7 +1003,7 @@ Persist and reopen `conversation_id`. Do not create on every mount. Until N5, do
 
 ### Required fix
 
-Distinguish “no filter” from “only null workspace.” Pop-out must pass the current `conversationId`.
+Distinguish “no filter” from “only null workspace.” Pop-out must pass the current `chatId`.
 
 ### Acceptance
 
@@ -1067,11 +1077,314 @@ Emit `UserMessage` like `send`. Make queue read-modify-write atomic with dispatc
 
 ### Acceptance
 
-- [ ] Dispatched queue item appears as a user row without `conversation_get`.
+- [ ] Dispatched queue item appears as a user row without `agent_chat_get`.
 - [ ] Add-during-dispatch does not drop the new item.
 
 ### Fix log
 
 - 2026-08-28 - opened in second APP-067 cross-review.
 - 2026-08-28 - implemented review fix.
+
+---
+
+## REV-029 · Conversation ACP processes never idle-unload; archive closes the wrong map
+
+| Field | Value |
+|-------|--------|
+| **Status** | fixed |
+| **Severity** | P1 |
+| **Area** | backend |
+| **Reported by** | internal review |
+| **Owner** | unassigned |
+
+### Finding
+
+TECH requires unloading the provider after the existing agent-behaviour idle timeout, and treating AgentChatService as the runtime owner. The conversation module has no idle timer. Workspace archive with `close_acp_on_archive` still calls `AgentSessionService::close_workspace_sessions`, whose session map is empty for Chat. ACP child processes therefore live until they exit, the conversation is deleted, or the API process dies.
+
+### Evidence
+
+- [TECH.md](./TECH.md) “Unload provider after idle timeout using existing agent behaviour idle setting”.
+- `crates/core-service/src/service/conversation/` — no idle / unload / behaviour-settings read.
+- `apps/api/src/api/ws/router/workspace.rs:414-417` — archive closes `agent_session_service`.
+- `crates/core-service/src/service/agent_session.rs:410-441` — `close_workspace_sessions` only walks the leftover ACP map.
+- `crates/core-service/src/service/conversation/service.rs:148-156` — `delete` is the only Conversation close path.
+
+### Required fix
+
+Drive process lifetime from `AgentChatService.runtimes`. On idle timeout and workspace archive, `close()` those runtimes. Stop using `AgentSessionService` as the Chat process owner.
+
+### Acceptance
+
+- [ ] After the configured idle timeout, the ACP process is gone and `runtime_status` is `detached`; transcript remains.
+- [ ] Archiving a workspace with `close_acp_on_archive` closes Conversation ACP processes for that workspace.
+- [ ] Targeted `cargo test -p core-service --lib conversation` covers idle or archive teardown.
+
+### Fix log
+
+- 2026-08-28 - opened in APP-067 architecture quality review.
+- 2026-08-28 - implemented: idle reaper + `AgentChatService::close_workspace`; pump generation token; fan-out lag replay; canvas/automation bind `onChatStarted`; WS dropped `AgentSessionService`; deleted unused ACP chat files; in-memory `next_seq` + dropped `before_seq`; inject drains context key and hydrate no longer depends on `providerId`. Verified `cargo test -p core-service --lib conversation` (28 passed), `cargo check -p api`, bun Agent Chat unit tests (18 passed).
+
+---
+
+## REV-030 · Pump teardown can drop a replacement runtime
+
+| Field | Value |
+|-------|--------|
+| **Status** | fixed |
+| **Severity** | P1 |
+| **Area** | backend |
+| **Reported by** | internal review |
+| **Owner** | unassigned |
+
+### Finding
+
+When `pump_session` ends, the task sets `alive = false` then `runtimes.remove(chat_id)`. A concurrent `send` can spawn a replacement, insert it under the same key, and then the old pump removes that new entry. The next prompt either has no registered pump or a second ACP process. This is a remaining ghost-run hole after REV-023.
+
+### Evidence
+
+- `crates/core-service/src/service/conversation/service.rs:711-724` — pump always `remove`s by conversation id after `alive=false`.
+- `crates/core-service/src/service/conversation/service.rs:610-654` and `:696-703` — `spawn_runtime` inserts/overwrites the same map key when the previous entry is not `alive`.
+
+### Required fix
+
+Remove only the runtime generation that this pump owns (token / `Arc` identity). Do not `remove` a map entry that a later spawn already replaced.
+
+### Acceptance
+
+- [ ] Kill the agent mid-turn, send immediately: one live runtime remains in the map and its pump is the one that receives events.
+- [ ] Service test covers pump-end overlapping `ensure_runtime`.
+
+### Fix log
+
+- 2026-08-28 - opened in APP-067 architecture quality review.
+- 2026-08-28 - implemented: idle reaper + `AgentChatService::close_workspace`; pump generation token; fan-out lag replay; canvas/automation bind `onChatStarted`; WS dropped `AgentSessionService`; deleted unused ACP chat files; in-memory `next_seq` + dropped `before_seq`; inject drains context key and hydrate no longer depends on `providerId`. Verified `cargo test -p core-service --lib conversation` (28 passed), `cargo check -p api`, bun Agent Chat unit tests (18 passed).
+
+---
+
+## REV-031 · Live agent_chat_event fan-out silently drops on broadcast lag
+
+| Field | Value |
+|-------|--------|
+| **Status** | fixed |
+| **Severity** | P1 |
+| **Area** | api |
+| **Reported by** | internal review |
+| **Owner** | unassigned |
+
+### Finding
+
+All live Chat sockets are fed by one `broadcast` subscriber in `spawn_agent_chat_fanout`. On `RecvError::Lagged` it `continue`s with no log and no replay. `recent_events` only helps a later `agent_chat_subscribe`. A token flood plus slow `send_to` can desync every open tab until the next `agent_chat_get`.
+
+### Evidence
+
+- `apps/api/src/api/ws/router/mod.rs:195-221` — single consumer; `Lagged(_) => continue`.
+- `crates/core-service/src/service/conversation/service.rs:45` — `broadcast::channel(4096)`.
+- `crates/core-service/src/service/conversation/projector.rs:17`, `:414-426` — in-memory replay cap 2048, used only at subscribe.
+
+### Required fix
+
+On lag, replay from `events_after(last_sent_seq)` (or per-connection seq) instead of dropping. Log lag. Do not make the only live path a lossy broadcast.
+
+### Acceptance
+
+- [ ] A lagged fan-out recovers missed deltas for already-subscribed sockets without a full `agent_chat_get`.
+- [ ] Lag is visible in logs.
+
+### Fix log
+
+- 2026-08-28 - opened in APP-067 architecture quality review.
+- 2026-08-28 - implemented: idle reaper + `AgentChatService::close_workspace`; pump generation token; fan-out lag replay; canvas/automation bind `onChatStarted`; WS dropped `AgentSessionService`; deleted unused ACP chat files; in-memory `next_seq` + dropped `before_seq`; inject drains context key and hydrate no longer depends on `providerId`. Verified `cargo test -p core-service --lib conversation` (28 passed), `cargo check -p api`, bun Agent Chat unit tests (18 passed).
+
+---
+
+## REV-032 · Canvas/automation still mint orphan conversations
+
+| Field | Value |
+|-------|--------|
+| **Status** | fixed |
+| **Severity** | P1 |
+| **Area** | frontend |
+| **Reported by** | internal review |
+| **Owner** | unassigned |
+
+### Finding
+
+REV-025 required remounts not to mint a new conversation id. Center-stage binds via `onChatStarted`. Canvas persists only `onOpenChat`, which first send never calls. Automation mounts `AgentChatPanel` with no `chatId` and no start callback. Those surfaces still create orphan rows in the Chat-first list (N5 is not a v1 layout goal, but the widgets are still in the product).
+
+### Evidence
+
+- `apps/web/src/features/canvas/components/widgets/CanvasAgentChatWidget.tsx:80-91` — `onOpenChat={persistChatId}` only.
+- `apps/web/src/features/agent/hooks/use-agent-chat-session.ts:484-488` — first send calls `onChatStarted`.
+- `apps/web/src/features/agent/hooks/use-agent-chat-session.ts:540-547` — `onOpenChat` is history / new-session only.
+- `apps/web/src/features/automations/components/AutomationRunDrawer.tsx:150-154` and `AutomationHistoryPage.tsx:278` — no `chatId`.
+
+### Required fix
+
+Persist canvas `chatId` from `onChatStarted`. Until N5, automation should bind a stable id or not mint chats as a side effect.
+
+### Acceptance
+
+- [ ] Remounting a canvas agent-chat widget reopens the same conversation id after first send.
+- [ ] Opening the automation chat drawer twice does not create two list rows.
+
+### Fix log
+
+- 2026-08-28 - opened in APP-067 architecture quality review.
+- 2026-08-28 - implemented: idle reaper + `AgentChatService::close_workspace`; pump generation token; fan-out lag replay; canvas/automation bind `onChatStarted`; WS dropped `AgentSessionService`; deleted unused ACP chat files; in-memory `next_seq` + dropped `before_seq`; inject drains context key and hydrate no longer depends on `providerId`. Verified `cargo test -p core-service --lib conversation` (28 passed), `cargo check -p api`, bun Agent Chat unit tests (18 passed).
+
+---
+
+## REV-033 · Dual host: AgentSessionService + crates/agent public ACP API
+
+| Field | Value |
+|-------|--------|
+| **Status** | fixed |
+| **Severity** | P2 |
+| **Area** | backend |
+| **Reported by** | internal review |
+| **Owner** | unassigned |
+
+### Finding
+
+TECH locked `AgentProvider` as the public crate API (no ACP types) and said `AgentSessionService` stops being chat identity. Chat now goes through `AgentChatService`, but `crates/agent` still `pub use`s `run_acp_session` / `AcpSessionEvent`, core-service still implements two `AcpToolHandler`s, and `AgentSessionService` remains on `AppState` for logout plus dead `session_config_snapshots.json`. A second provider has to fight ACP types in L3.
+
+### Evidence
+
+- [TECH.md](./TECH.md) public API and “AgentSessionService stops being the chat identity”.
+- `crates/agent/src/lib.rs:11-17` — ACP types still public.
+- `crates/agent/AGENTS.md:51-57` — still documents `acp_client` as the crate API.
+- `crates/core-service/src/service/agent_session.rs` — leftover host, `list_native_sessions`, snapshots.
+- `crates/core-service/src/service/conversation/acp_factory.rs:16-57` vs `agent_session.rs:27-74` — duplicate FS tool handlers.
+- `apps/api/src/api/agent/handlers.rs:121-129` — REST logout still uses the leftover service.
+
+### Required fix
+
+Make `domain::{AgentProvider, AgentSession, AgentEvent}` the only Chat-facing crate API. Keep ACP types inside `providers/acp` / `acp_client`. Route logout/close through Conversation runtimes. Delete or isolate `AgentSessionService` chat methods and the duplicate tool handler.
+
+### Acceptance
+
+- [ ] Chat/logout/archive do not import `AcpSessionEvent` / `run_acp_session` from core-service.
+- [ ] One `AcpToolHandler` implementation for Conversation FS tools.
+- [ ] `crates/agent/AGENTS.md` matches the Conversation host.
+
+### Fix log
+
+- 2026-08-28 - opened in APP-067 architecture quality review.
+- 2026-08-28 - implemented: idle reaper + `AgentChatService::close_workspace`; pump generation token; fan-out lag replay; canvas/automation bind `onChatStarted`; WS dropped `AgentSessionService`; deleted unused ACP chat files; in-memory `next_seq` + dropped `before_seq`; inject drains context key and hydrate no longer depends on `providerId`. Verified `cargo test -p core-service --lib conversation` (28 passed), `cargo check -p api`, bun Agent Chat unit tests (18 passed).
+
+---
+
+## REV-034 · ACP session façade and dead chat stack still in the tree
+
+| Field | Value |
+|-------|--------|
+| **Status** | fixed |
+| **Severity** | P2 |
+| **Area** | frontend |
+| **Reported by** | internal review |
+| **Owner** | unassigned |
+
+### Finding
+
+The live kernel is `useAgentChatSession`, but it returns the old `useAgentChatSession` bag: fake ACP `capabilities`, no-op `setEntries` / `startSession` / logout, and modal drag leftover in `AgentChatPanel`. `use-agent-chat-session.ts` (~1196 lines), `agent-runtime-socket.ts` (`/ws/agent`), `thread/reducer.ts`, and `ChatSessionsManagementView` have no product mount, yet S15 still only scans the new host files. Tool chrome still guesses vendor type from `raw_input`.
+
+### Evidence
+
+- `apps/web/src/features/agent/hooks/use-agent-chat-session.ts:436-438`, `:694-702`, `:759-772`.
+- `apps/web/src/features/agent/hooks/use-agent-chat-session.ts` — no callers.
+- `apps/web/src/features/agent/lib/agent-runtime-socket.ts:258` — still builds `/ws/agent/${runtimeSessionId}`.
+- `apps/web/src/features/chat-sessions/components/ChatSessionsManagementView.tsx` — zero importers; uses `agentApi.listSessions` which throws.
+- `apps/web/src/features/agent/lib/agent-chat-thread.ts:135-192` — vendor-type guess from input/output.
+- `apps/web/src/features/agent/lib/__tests__/no-acp-schema.test.ts:22-32` — allowlist excludes the dead stack.
+- `apps/web/src/features/agent/components/AgentChatPanel.tsx` — modal drag/resize still compiled for the center-stage host.
+
+### Required fix
+
+Delete or quarantine the unused ACP chat island. Shrink the session contract to Conversation fields. Render from `LiveTurn` (stable ids) instead of shimming `ThreadEntry` forever. Fail S15 if `/ws/agent` or `acp_session_id` re-enter host modules.
+
+### Acceptance
+
+- [ ] `useAgentChatSession` / `ChatSessionsManagementView` are gone or explicitly N5-gated with no runtime throw path.
+- [ ] Composer/panel do not require fake ACP capabilities.
+- [ ] S15 covers the whole `features/agent` tree except a documented allowlist.
+
+### Fix log
+
+- 2026-08-28 - opened in APP-067 architecture quality review.
+- 2026-08-28 - implemented: idle reaper + `AgentChatService::close_workspace`; pump generation token; fan-out lag replay; canvas/automation bind `onChatStarted`; WS dropped `AgentSessionService`; deleted unused ACP chat files; in-memory `next_seq` + dropped `before_seq`; inject drains context key and hydrate no longer depends on `providerId`. Verified `cargo test -p core-service --lib conversation` (28 passed), `cargo check -p api`, bun Agent Chat unit tests (18 passed).
+
+---
+
+## REV-035 · next_seq still fsyncs meta.json per delta; messages pagination incomplete
+
+| Field | Value |
+|-------|--------|
+| **Status** | fixed |
+| **Severity** | P2 |
+| **Area** | backend |
+| **Reported by** | internal review |
+| **Owner** | unassigned |
+
+### Finding
+
+REV-012 stopped rewriting `index.json` per token, but `next_seq` still does temp+fsync+rename of `meta.json` on every outbound event, including `assistant_message_delta`, on the async pump (std mutex + blocking IO). REV-008 subscribe replay works; `agent_chat_messages` still ignores `before_seq` and only truncates the last N turns while the DTO advertises pagination.
+
+### Evidence
+
+- `crates/core-service/src/service/conversation/store.rs:226-235` — `next_seq` writes `meta.json`.
+- `crates/core-service/src/service/conversation/projector.rs:95`, `:395-411` — `emit_live` calls `next_seq` per delta.
+- `apps/api/src/api/ws/router/conversation.rs:110-124` — `let _ = req.before_seq`.
+- `packages/api-types/src/ws/dto/agent-chat.ts:23-27`.
+
+### Required fix
+
+Keep `last_event_seq` in memory (or a tiny seq file) and flush with the 100ms snapshot / turn boundary. Either implement `before_seq` pagination or drop the field from the contract and TECH in the same change.
+
+### Acceptance
+
+- [ ] A 1k-token stream does not fsync `meta.json` per token.
+- [ ] TECH, DTO, and handler agree on messages pagination.
+
+### Fix log
+
+- 2026-08-28 - opened in APP-067 architecture quality review.
+- 2026-08-28 - implemented: idle reaper + `AgentChatService::close_workspace`; pump generation token; fan-out lag replay; canvas/automation bind `onChatStarted`; WS dropped `AgentSessionService`; deleted unused ACP chat files; in-memory `next_seq` + dropped `before_seq`; inject drains context key and hydrate no longer depends on `providerId`. Verified `cargo test -p core-service --lib conversation` (28 passed), `cargo check -p api`, bun Agent Chat unit tests (18 passed).
+
+---
+
+## REV-036 · Cross-feature prompt inject and subscribe effect churn
+
+| Field | Value |
+|-------|--------|
+| **Status** | fixed |
+| **Severity** | P2 |
+| **Area** | frontend |
+| **Reported by** | internal review |
+| **Owner** | unassigned |
+
+### Finding
+
+Commit / code-review still `enqueueAgentChatPrompt` into the dialog store, then open a draft center tab. Drain uses `getAgentPromptQueueKey(..., instanceKey)` while injectors omit `instanceKey`, so queues never meet; a draft drain also `continue`s when `!activeConversationId`. Separately, the hydrate/subscribe effect depends on `providerId`, so `load()` writing the provider from meta unsubscribes and resubscribes. Follow-up policy is polled every 15s per mounted chat instead of a shared store.
+
+### Evidence
+
+- `apps/web/src/app-shell/sidebar/CommitActions.tsx:526` and `apps/web/src/features/code-review/components/CodeReviewDialog.tsx:357` — enqueue without instance key.
+- `apps/web/src/features/agent/hooks/use-agent-chat-session.ts:404-424` — drain key includes `instanceKey`; drops prompts on draft.
+- `apps/web/src/features/agent/hooks/use-agent-chat-session.ts:275-391` — effect deps include `providerId`.
+- `apps/web/src/features/agent/hooks/use-agent-chat-session.ts:276-283` — 15s `followup_policy` poll.
+
+### Required fix
+
+Inject by creating/sending on a Conversation (or drain the context key without instance). Remove `providerId` from the subscribe effect. Read follow-up policy from a shared settings source, not a per-tab interval.
+
+### Acceptance
+
+- [ ] Commit “ask agent” lands in the new center Chat as a user turn.
+- [ ] Opening a bound tab does not double `agent_chat_get` / resubscribe solely because meta.provider_id was applied.
+- [ ] Changing follow-up policy updates open chats without a 15s wait.
+
+### Fix log
+
+- 2026-08-28 - opened in APP-067 architecture quality review.
+- 2026-08-28 - implemented: idle reaper + `AgentChatService::close_workspace`; pump generation token; fan-out lag replay; canvas/automation bind `onChatStarted`; WS dropped `AgentSessionService`; deleted unused ACP chat files; in-memory `next_seq` + dropped `before_seq`; inject drains context key and hydrate no longer depends on `providerId`. Verified `cargo test -p core-service --lib conversation` (28 passed), `cargo check -p api`, bun Agent Chat unit tests (18 passed).
 

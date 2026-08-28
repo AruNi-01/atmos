@@ -23,7 +23,7 @@ import { SessionUsageBadge } from "./UsageBadges";
 import { AgentActivityIndicator } from "./AgentActivityIndicator";
 import { PermissionActionButton } from "./MessageQueueDock";
 import { AgentPromptComposer } from "./AgentPromptComposer";
-import { useConversationChatSession } from "../hooks/use-conversation-chat-session";
+import { useAgentChatSession } from "../hooks/use-agent-chat-session";
 import type { AgentChatSurfaceVariant, UseAgentChatSessionOptions } from "../hooks/use-agent-chat-session-types";
 import { AgentChatHeader } from "./AgentChatHeader";
 import { AgentAuthDialog } from "./AgentAuthDialog";
@@ -33,7 +33,8 @@ import {
   AgentChatHistorySidebarFrame,
   AgentChatHistorySidebarToggle,
 } from "./AgentChatHistorySidebarFrame";
-import { AgentChatEntryView } from "./AgentChatEntryView";
+import { AgentChatMessageView } from "./AgentChatMessageView";
+import { AgentChatCwdProvider } from "./agent-chat-cwd-context";
 import { openAgentChatWindow } from "../lib/desktop-agent-chat-window";
 import { useAgentChatHistorySidebarLayout } from "../hooks/use-agent-chat-history-sidebar-layout";
 import {
@@ -59,18 +60,18 @@ interface AgentChatPanelProps {
   contextOverride?: UseAgentChatSessionOptions["contextOverride"];
   transformPrompt?: (prompt: string) => string;
   instanceKey?: string | null;
-  conversationId?: string | null;
-  onConversationStarted?: (id: string, meta?: {
+  chatId?: string | null;
+  onChatStarted?: (id: string, meta?: {
     title?: string | null;
     cwd?: string;
     providerId?: string | null;
   }) => void;
-  onConversationUpdated?: (id: string, meta: {
+  onChatUpdated?: (id: string, meta: {
     title?: string | null;
     providerId?: string | null;
     cwd?: string;
   }) => void;
-  onOpenConversation?: (id: string) => void;
+  onOpenChat?: (id: string) => void;
 }
 
 const WIDE_HISTORY_LAYOUT_MIN_WIDTH = 900;
@@ -84,10 +85,10 @@ export function AgentChatPanel({
   contextOverride,
   transformPrompt,
   instanceKey = null,
-  conversationId: conversationIdProp = null,
-  onConversationStarted,
-  onConversationUpdated,
-  onOpenConversation,
+  chatId: chatIdProp = null,
+  onChatStarted,
+  onChatUpdated,
+  onOpenChat,
 }: AgentChatPanelProps = {}) {
   const t = useTranslations("Agent.components.chatPanel");
   const canFullscreen = variant !== "standalone" && variant !== "center" && (allowFullscreen ?? true);
@@ -101,9 +102,9 @@ export function AgentChatPanel({
   const [panelWidth, setPanelWidth] = useState(0);
   const showHistoryChrome = variant === "standalone";
   const showsWideHistoryLayout = showHistoryChrome && panelWidth >= WIDE_HISTORY_LAYOUT_MIN_WIDTH;
-  const conversationId = conversationIdProp || "";
+  const chatId = chatIdProp || "";
 
-  const session = useConversationChatSession({
+  const session = useAgentChatSession({
     variant,
     mode,
     publishStatus,
@@ -111,10 +112,10 @@ export function AgentChatPanel({
     contextOverride,
     transformPrompt,
     instanceKey,
-    conversationId,
-    onConversationStarted,
-    onConversationUpdated,
-    onOpenConversation,
+    chatId,
+    onChatStarted,
+    onChatUpdated,
+    onOpenChat,
   });
 
   // ---------------------------------------------------------------------------
@@ -293,12 +294,12 @@ export function AgentChatPanel({
     isConnected,
     isConnecting,
     error,
-    conversationId: liveConversationId,
+    chatId: liveChatId,
     agentLocked,
     sessionCwd,
     availableCommands,
-    entries,
-    setEntries,
+    messages,
+    setMessages,
     currentPlan,
     pendingPermission,
     pendingPermissionMarkdown,
@@ -318,8 +319,10 @@ export function AgentChatPanel({
     configOptions,
     setConfigOption,
     setProviderId,
+    persistPreferredRegistry,
     setAgentDefaultConfig,
     sessionUsage,
+    elapsedMs,
     historyOpen,
     setHistoryOpen,
     historySessions,
@@ -351,14 +354,14 @@ export function AgentChatPanel({
     headerHovered,
     setHeaderHovered,
     bottomRef,
-    conversationRef,
+    transcriptRef,
     authRequest,
     selectedAuthMethodId,
     setSelectedAuthMethodId,
     clearAuthRequest,
     startSession,
     exportableMessages,
-    userEntryIndices,
+    userMessageIndices,
     messageNavIndex,
     handleSubmit,
     handleClose,
@@ -370,7 +373,7 @@ export function AgentChatPanel({
     handleSetDefaultAgent,
     handleOpenNewSessionAgentsMenu,
     handleScheduleCloseNewSessionAgentsMenu,
-    handleExportConversation,
+    handleExportChat,
     persistHandoffSnapshot,
     restoreHandoffSnapshot,
     sendCancel,
@@ -381,9 +384,9 @@ export function AgentChatPanel({
         "agent-chat",
         sessionWorkspaceId,
         sessionProjectId,
-        instanceKey || liveConversationId || conversationId || null,
+        instanceKey || liveChatId || chatId || null,
       ),
-    [conversationId, instanceKey, liveConversationId, sessionProjectId, sessionWorkspaceId],
+    [chatId, instanceKey, liveChatId, sessionProjectId, sessionWorkspaceId],
   );
 
   useEffect(() => {
@@ -435,20 +438,20 @@ export function AgentChatPanel({
     const handoffToken = await persistHandoffSnapshot();
     await openAgentChatWindow({
       agent: registryId || defaultRegistryId || null,
-      conversationId: liveConversationId || conversationId,
+      chatId: liveChatId || chatId,
       sessionCwd: sessionCwd ?? localPath,
       workspaceId: sessionWorkspaceId,
       projectId: sessionProjectId,
-      instanceKey: instanceKey || liveConversationId || conversationId || null,
+      instanceKey: instanceKey || liveChatId || chatId || null,
       handoffToken,
     });
     markStandaloneSurfaceOpen(standaloneSurfaceKey);
     setIsStandaloneChatOpen(true);
   }, [
-    conversationId,
+    chatId,
     defaultRegistryId,
     instanceKey,
-    liveConversationId,
+    liveChatId,
     localPath,
     persistHandoffSnapshot,
     registryId,
@@ -519,11 +522,11 @@ export function AgentChatPanel({
     !showHistoryChrome || (showsWideHistoryLayout && !historySidebarCollapsed)
       ? "hidden"
       : undefined;
-  const constrainConversationWidth = variant === "center" || showsWideHistoryLayout;
-  const wideContentClassName = constrainConversationWidth
+  const constrainChatWidth = variant === "center" || showsWideHistoryLayout;
+  const wideContentClassName = constrainChatWidth
     ? "mx-auto w-full max-w-3xl"
     : "w-full";
-  const floatingControlRailClassName = constrainConversationWidth
+  const floatingControlRailClassName = constrainChatWidth
     ? "left-1/2 w-full max-w-3xl -translate-x-1/2 px-3"
     : "inset-x-0 px-3";
   const wasResumingHistoryRef = useRef(false);
@@ -534,7 +537,7 @@ export function AgentChatPanel({
       return;
     }
 
-    if (!wasResumingHistoryRef.current || entries.length === 0) return;
+    if (!wasResumingHistoryRef.current || messages.length === 0) return;
     wasResumingHistoryRef.current = false;
 
     let secondFrame: number | null = null;
@@ -550,7 +553,7 @@ export function AgentChatPanel({
         window.cancelAnimationFrame(secondFrame);
       }
     };
-  }, [bottomRef, entries.length, isResumingHistory]);
+  }, [bottomRef, isResumingHistory, messages.length]);
 
   // Host `active`, not pause-gated session.isPanelOpen (that returned null before the placeholder).
   if (!active || (variant === "modal" && !layoutLoaded)) return null;
@@ -561,7 +564,7 @@ export function AgentChatPanel({
     return (
       <div
         ref={panelRef}
-        data-agent-chat-workspace={liveConversationId || conversationId || "draft"}
+        data-agent-chat-workspace={liveChatId || chatId || "draft"}
         data-agent-chat-standalone-paused="true"
         data-atmos-native-surface-overlay={shouldMarkAsNativeSurfaceOverlay ? "true" : undefined}
         className={cn(
@@ -607,7 +610,7 @@ export function AgentChatPanel({
   return (
     <div
       ref={panelRef}
-      data-agent-chat-workspace={liveConversationId || conversationId || "draft"}
+      data-agent-chat-workspace={liveChatId || chatId || "draft"}
       data-atmos-native-surface-overlay={shouldMarkAsNativeSurfaceOverlay ? "true" : undefined}
       className={cn(
         "relative flex overflow-hidden bg-background",
@@ -676,11 +679,12 @@ export function AgentChatPanel({
             loadHistorySessions={loadHistorySessions}
             handleSelectHistorySession={handleSelectHistorySession}
             handleCreateNewSession={handleCreateNewSession}
+            onPreferredRegistryChange={persistPreferredRegistry}
             isConnecting={isConnecting}
             installedAgents={installedAgents}
             defaultRegistryId={defaultRegistryId}
             activeRegistryId={registryId}
-            activeConversationId={liveConversationId || conversationId}
+            activeChatId={liveChatId || chatId}
             activeAgentName={
               activeAgent ? (agentInfo?.title ?? agentInfo?.name ?? activeAgent.name) : null
             }
@@ -698,7 +702,7 @@ export function AgentChatPanel({
       >
         <AgentChatHeader
           variant={variant}
-          constrainWidth={constrainConversationWidth}
+          constrainWidth={constrainChatWidth}
           handleDragStart={variant === "modal" && !isFullscreen ? handleDragStart : undefined}
           handleOpenStandaloneWindow={canOpenStandaloneWindow ? handleOpenStandaloneWindow : undefined}
           handleReturnToEmbeddedWindow={variant === "standalone" ? handleCloseStandaloneChatWindow : undefined}
@@ -725,7 +729,7 @@ export function AgentChatPanel({
           localPath={localPath}
           sessionCwd={sessionCwd}
           exportableMessages={exportableMessages}
-          handleExportConversation={handleExportConversation}
+          handleExportChat={handleExportChat}
           historyOpen={historyOpen}
           setHistoryOpen={setHistoryOpen}
           historySessions={historySessions}
@@ -746,11 +750,12 @@ export function AgentChatPanel({
           shouldScrambleAutoTitle={shouldScrambleAutoTitle}
           setShouldScrambleAutoTitle={setShouldScrambleAutoTitle}
           sessionTitleSource={sessionTitleSource}
-          conversationId={liveConversationId || conversationId}
+          chatId={liveChatId || chatId}
         />
 
-      <div ref={conversationRef} className="min-h-0 flex-1 overflow-hidden">
-        <Conversation
+      <div ref={transcriptRef} className="min-h-0 flex-1 overflow-hidden">
+        <AgentChatCwdProvider cwd={sessionCwd || localPath}>
+          <Conversation
           key={isResumingHistory ? "restoring-history" : "live-chat"}
           className="min-h-0 h-full overflow-hidden"
           initial={isResumingHistory ? false : "smooth"}
@@ -780,7 +785,7 @@ export function AgentChatPanel({
                 {error}
               </div>
             )}
-            {canUseCurrentMode && isConnected && entries.length === 0 && !isConnecting && !error && (
+            {canUseCurrentMode && isConnected && messages.length === 0 && !isConnecting && !error && (
               <ConversationEmptyState
                 icon={<MessageSquare className="size-12" />}
                 title={isResumedSession ? t("empty.resumedTitle") : t("empty.startTitle")}
@@ -791,16 +796,16 @@ export function AgentChatPanel({
                 }
               />
             )}
-            {entries.map((entry, i) => (
-              <AgentChatEntryView
-                key={i}
-                entry={entry}
-                entryIndex={i}
+            {messages.map((message, i) => (
+              <AgentChatMessageView
+                key={message.id || i}
+                message={message}
+                index={i}
                 registryId={registryId}
               />
             ))}
             {agentActivity.busy && (
-              <AgentActivityIndicator activity={agentActivity} />
+              <AgentActivityIndicator activity={agentActivity} elapsedMs={elapsedMs} />
             )}
             <div ref={bottomRef} className="h-10" />
           </ConversationContent>
@@ -827,13 +832,14 @@ export function AgentChatPanel({
           {!isResumingHistory && (
             <AgentMessageTimelineNav
               activeAgent={activeAgent}
-              entries={entries}
-              userEntryIndices={userEntryIndices}
-              activeEntryIndex={messageNavIndex}
-              onSelectEntry={handleSelectMessage}
+              messages={messages}
+              userMessageIndices={userMessageIndices}
+              activeMessageIndex={messageNavIndex}
+              onSelectMessage={handleSelectMessage}
             />
           )}
-        </Conversation>
+          </Conversation>
+        </AgentChatCwdProvider>
       </div>
 
       <div className="flex min-h-0 shrink flex-col overflow-y-auto overscroll-contain">
@@ -923,7 +929,7 @@ export function AgentChatPanel({
             agentActivity={agentActivity}
             sendCancel={sendCancel}
             setWaitingForResponse={setWaitingForResponse}
-            setEntries={setEntries}
+            setMessages={setMessages}
             stoppedRef={stoppedRef}
             projectPath={sessionCwd ?? localPath}
             availableCommands={availableCommands}

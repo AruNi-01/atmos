@@ -1,8 +1,12 @@
 import { describe, expect, it } from "bun:test";
 import {
+  displayToolPath,
+  displayToolTitle,
+  extractOutputText,
   languageFromPath,
   parseSearchOutput,
   parseToolResult,
+  pathRelativeToCwd,
   relativeDisplayPath,
   stripReadLineNumbers,
 } from "../parse-tool-result";
@@ -68,6 +72,38 @@ describe("relativeDisplayPath", () => {
     expect(relativeDisplayPath(paths[0]!, paths)).toBe("specs/README.md");
     expect(relativeDisplayPath(paths[1]!, paths)).toBe("e2e/README.md");
     expect(relativeDisplayPath(paths[2]!, paths)).toBe("README.md");
+  });
+});
+
+describe("pathRelativeToCwd", () => {
+  const cwd = "/Users/aarynlu/OpenSource/atmos";
+
+  it("strips the session cwd prefix", () => {
+    expect(pathRelativeToCwd(`${cwd}/apps/web/src/foo.ts`, cwd)).toBe("apps/web/src/foo.ts");
+  });
+
+  it("returns . for the cwd itself", () => {
+    expect(pathRelativeToCwd(cwd, cwd)).toBe(".");
+  });
+
+  it("leaves paths outside the cwd alone", () => {
+    expect(pathRelativeToCwd("/tmp/app/README.md", cwd)).toBe("/tmp/app/README.md");
+  });
+
+  it("unwraps file URIs", () => {
+    expect(displayToolPath(`file://${cwd}/README.md`, cwd)).toBe("README.md");
+  });
+});
+
+describe("displayToolTitle", () => {
+  const cwd = "/Users/aarynlu/OpenSource/atmos";
+
+  it("rewrites an absolute path in a ReadFile title", () => {
+    expect(displayToolTitle(
+      `ReadFile: ${cwd}/apps/web/src/features/agent/lib/foo.ts`,
+      cwd,
+      `${cwd}/apps/web/src/features/agent/lib/foo.ts`,
+    )).toBe("ReadFile: apps/web/src/features/agent/lib/foo.ts");
   });
 });
 
@@ -567,5 +603,45 @@ describe("parseToolResult", () => {
         newContent: "b\n",
       }],
     });
+  });
+
+  it("decodes Grok Bash byte output instead of dumping the envelope JSON", () => {
+    const stdout = "     774 apps/web/src/foo.ts\n    1196 apps/web/src/bar.ts\n";
+    const parsed = parseToolResult({
+      tool: "Tool",
+      raw_input: { command: "wc -l apps/web/src/foo.ts" },
+      raw_output: {
+        type: "Bash",
+        output: Array.from(new TextEncoder().encode(stdout)),
+        output_for_prompt: `exit: 0\n${stdout}`,
+        exit_code: 0,
+        command: "wc -l apps/web/src/foo.ts",
+        current_dir: "/Users/aarynlu/OpenSource/atmos",
+        truncated: false,
+        signal: null,
+        timed_out: false,
+      },
+    });
+    expect(parsed.resolvedTool).toBe("Bash");
+    expect(parsed.presentation).toEqual({ kind: "text", text: stdout });
+  });
+});
+
+describe("extractOutputText", () => {
+  it("decodes a byte array as UTF-8 stdout", () => {
+    const stdout = "hello from bash\n";
+    expect(extractOutputText({
+      type: "Bash",
+      output: Array.from(new TextEncoder().encode(stdout)),
+      output_for_prompt: "exit: 0\nignored",
+    })).toBe(stdout);
+  });
+
+  it("falls back to output_for_prompt without the exit prefix", () => {
+    expect(extractOutputText({
+      type: "Bash",
+      output: [],
+      output_for_prompt: "exit: 0\nreal output\n",
+    })).toBe("real output\n");
   });
 });

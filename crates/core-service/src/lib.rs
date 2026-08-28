@@ -11,7 +11,15 @@ pub use service::agent_hooks::{
     AttentionSummaryPayload, AttentionSummarySettings, AttentionSummaryStatus,
     WorkspaceAgentGroupKey, WorkspaceAgentGroupSnapshot,
 };
-pub use service::agent_session::{AgentSessionService, LazySessionSpec, ResumeNativeSessionSpec};
+
+pub use service::agent_chat::{
+    builtin_catalog_specs, catalog_probe_dir, default_agent_data_dir, default_chats_dir,
+    parse_followup_policy, terminal_catalog_from, AgentChatEvent, AgentChatIndexEntry,
+    AgentChatMeta, AgentChatPayload, AgentChatService, AgentChatSnapshot, AgentChatStore,
+    AgentServiceCatalogResolver, CatalogPrefetchWorker, CatalogUpdated, CreateAgentChatRequest,
+    DefaultAgentProviderFactory, FollowupPolicy, MessagePart, QueueItem, QueueItemStatus,
+    RuntimeStatus, TurnStatus, PREFETCH_POLL,
+};
 pub use service::automation::{
     ensure_builtin_terminal_agents_upgraded, AutomationAgentCapability, TerminalAgentCliStatus,
     TerminalAgentModelCatalog, TerminalAgentModelCatalogSource, TerminalAgentModelCatalogStatus,
@@ -43,14 +51,6 @@ pub use service::center_layout::{
     center_layout_dir, load_center_layout, load_center_layout_from_dir, save_center_layout,
     save_center_layout_to_dir, CenterLayoutDocument, CENTER_LAYOUT_VERSION, MAX_SAVED_LAYOUTS,
     MAX_SPACES_PER_HOST,
-};
-pub use service::conversation::{
-    builtin_catalog_specs, catalog_probe_dir, default_agent_data_dir, default_conversations_dir,
-    parse_followup_policy, terminal_catalog_from, AgentServiceCatalogResolver,
-    CatalogPrefetchWorker, CatalogUpdated, ConversationClientEvent, ConversationClientPayload,
-    ConversationIndexEntry, ConversationMeta, ConversationService, ConversationSnapshot,
-    ConversationStore, CreateConversationRequest, DefaultAgentProviderFactory, FollowupPolicy,
-    MessagePart, QueueItem, QueueItemStatus, RuntimeStatus, TurnStatus, PREFETCH_POLL,
 };
 pub use service::disk_analyzer::{DiskAnalyzerScanEvent, DiskAnalyzerService};
 pub use service::group::{GroupDto, GroupMemberDto, GroupService};

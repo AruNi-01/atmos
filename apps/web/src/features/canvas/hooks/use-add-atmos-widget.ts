@@ -96,7 +96,7 @@ function createSourceForWidgetType(
           typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
             ? crypto.randomUUID()
             : `agent-chat-${Date.now().toString(36)}`,
-        conversationId: null,
+        chatId: null,
       };
   }
 }

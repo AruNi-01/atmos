@@ -834,7 +834,7 @@ export const agentApi = {
     _registryId: string,
     _authMethodId?: string | null,
   ): Promise<CreateAgentSessionResponse> => {
-    throw new Error("Agent Chat uses conversation_create on main /ws; REST session create is gone");
+    throw new Error("Agent Chat uses agent_chat_create on main /ws; REST session create is gone");
   },
 
   /**
@@ -848,7 +848,7 @@ export const agentApi = {
     _projectId?: string | null,
     _authMethodId?: string | null,
   ): Promise<ResumeAgentSessionResponse> => {
-    throw new Error("Agent Chat uses conversation_send to continue; REST session resume is gone");
+    throw new Error("Agent Chat uses agent_chat_send to continue; REST session resume is gone");
   },
 
   /**
@@ -880,17 +880,17 @@ export const agentApi = {
   },
 
   /**
-   * Upload attachment files. Pass `conversationId` to store under the
+   * Upload attachment files. Pass `chatId` to store under the
    * conversation directory; otherwise files go to `{localPath}/.atmos/attachments/`.
    */
   uploadAttachments: async (
     localPath: string,
     files: { url: string; filename?: string; mediaType?: string }[],
-    conversationId?: string | null,
+    chatId?: string | null,
   ): Promise<{ paths: string[] }> => {
     const formData = new FormData();
-    if (conversationId) {
-      formData.append('conversation_id', conversationId);
+    if (chatId) {
+      formData.append('chat_id', chatId);
     }
     formData.append('local_path', localPath);
 

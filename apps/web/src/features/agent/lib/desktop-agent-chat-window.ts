@@ -9,7 +9,7 @@ import zhMessages from "../../../../messages/zh.json";
 
 export interface OpenAgentChatWindowOptions {
   agent?: string | null;
-  conversationId?: string | null;
+  chatId?: string | null;
   sessionCwd?: string | null;
   workspaceId?: string | null;
   projectId?: string | null;
@@ -43,8 +43,8 @@ export async function openAgentChatWindow(
       await desktopInvoke("open_agent_chat_window", {
         locale,
         agent: options.agent || null,
-        conversation_id: options.conversationId || null,
-        conversationId: options.conversationId || null,
+        chat_id: options.chatId || null,
+        chatId: options.chatId || null,
         session_cwd: options.sessionCwd || null,
         sessionCwd: options.sessionCwd || null,
         workspace_id: options.workspaceId || null,
@@ -77,7 +77,7 @@ export async function openAgentChatWindow(
 function buildBrowserAgentChatUrl(options: OpenAgentChatWindowOptions): string {
   const params = new URLSearchParams();
   if (options.agent) params.set("agent", options.agent);
-  if (options.conversationId) params.set("conversationId", options.conversationId);
+  if (options.chatId) params.set("chatId", options.chatId);
   if (options.sessionCwd) params.set("sessionCwd", options.sessionCwd);
   if (options.workspaceId) params.set("workspaceId", options.workspaceId);
   if (options.projectId) params.set("projectId", options.projectId);

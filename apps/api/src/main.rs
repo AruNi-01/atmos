@@ -27,10 +27,9 @@ use clap::{ArgAction, Parser};
 use config::ServerConfig;
 use core_engine::TestEngine;
 use core_service::{
-    AgentHookEvent, AgentHooksService, AgentService, AgentSessionService, AutomationEvent,
-    AutomationService, CanvasAgentRelay, CanvasDocumentService, GroupService, MessagePushService,
-    NotificationService, ProjectService, ReviewService, ServiceError, TerminalService, TestService,
-    WorkspaceService,
+    AgentHookEvent, AgentHooksService, AgentService, AutomationEvent, AutomationService,
+    CanvasAgentRelay, CanvasDocumentService, GroupService, MessagePushService, NotificationService,
+    ProjectService, ReviewService, ServiceError, TerminalService, TestService, WorkspaceService,
 };
 use infra::jobs::{IntervalSpec, JobError, JobId, LocalScheduler, RetryPolicy};
 use infra::queue::{topics, LocalPersistentQueue, QueueError, Topic};
@@ -562,8 +561,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Arc::clone(&notification_service),
     ));
 
-    let agent_session_service = Arc::new(AgentSessionService::new(Arc::clone(&agent_service)));
-
     // APP-015: in-memory bridge registry + pending-dispatch waiters for the
     // Canvas terminal-agent relay. Shared between WsMessageService (browser
     // uplink) and the HTTP invoke handler (CLI ingress).
@@ -577,7 +574,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Arc::clone(&group_service),
         Arc::clone(&terminal_service),
         Arc::clone(&agent_service),
-        Arc::clone(&agent_session_service),
         Arc::clone(&automation_service),
         Arc::clone(&review_service),
         Arc::clone(&quota_usage_service),
@@ -618,7 +614,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             canvas_service,
             workspace_service,
             agent_service,
-            agent_session_service,
             automation_service: Arc::clone(&automation_service),
             ws_message_service: ws_message_service.clone(),
             message_push_service,

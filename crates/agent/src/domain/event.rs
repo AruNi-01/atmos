@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use super::tool_kind::{deserialize_tool_kind, AgentToolKind};
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum UserMessageKind {
@@ -23,8 +25,8 @@ pub struct AgentToolCall {
     pub name: String,
     #[serde(default)]
     pub title: Option<String>,
-    #[serde(default)]
-    pub kind: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_tool_kind")]
+    pub kind: AgentToolKind,
     #[serde(default)]
     pub status: Option<String>,
     #[serde(default)]

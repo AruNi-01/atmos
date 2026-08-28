@@ -2,6 +2,7 @@ pub mod error;
 pub mod event;
 pub mod model;
 pub mod session;
+pub mod tool_kind;
 
 pub use error::{AgentProviderError, AgentResult};
 pub use event::{
@@ -14,6 +15,10 @@ pub use model::{
 };
 pub use session::{
     AgentCapabilities, AgentCatalogContext, AgentPersistenceHandle, AgentPrompt, AgentProvider,
-    AgentProviderFactory, AgentSession, AgentSessionCommands, AgentSessionConfig,
-    AgentSessionConfigUpdate, AgentSessionControl, AgentTurnHandle,
+    AgentProviderFactory, AgentRuntime, AgentRuntimeCommands, AgentRuntimeConfig,
+    AgentRuntimeConfigUpdate, AgentRuntimeControl, AgentTurnHandle,
+};
+pub use tool_kind::{
+    classify_tool, deserialize_tool_kind, plan_from_tool_input, thinking_text, AgentToolKind,
+    ClassifiedTool,
 };

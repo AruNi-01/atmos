@@ -21,7 +21,7 @@
     "./ws/dto/automation": "./src/ws/dto/automation.ts",
     "./ws/dto/canvas": "./src/ws/dto/canvas.ts",
     "./ws/dto/center-layout": "./src/ws/dto/center-layout.ts",
-    "./ws/dto/conversation": "./src/ws/dto/conversation.ts",
+    "./ws/dto/agent-chat": "./src/ws/dto/agent-chat.ts",
     "./ws/dto/common": "./src/ws/dto/common.ts",
     "./ws/dto/disk-analyzer": "./src/ws/dto/disk-analyzer.ts",
     "./ws/dto/events": "./src/ws/dto/events.ts",

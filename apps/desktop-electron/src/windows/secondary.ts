@@ -84,8 +84,8 @@ export function openAgentChatWindow(
 ): void {
   const q = new URLSearchParams();
   const agent = trimQuery(args.agent);
-  const conversationId = trimQuery(
-    args.conversation_id ?? args.conversationId ?? args.session,
+  const chatId = trimQuery(
+    args.chat_id ?? args.chatId ?? args.session,
   );
   const sessionCwd = trimQuery(args.session_cwd ?? args.sessionCwd);
   const workspaceId = trimQuery(args.workspace_id ?? args.workspaceId);
@@ -93,7 +93,7 @@ export function openAgentChatWindow(
   const instanceKey = trimQuery(args.instance_key ?? args.instanceKey);
   const handoffToken = trimQuery(args.handoff_token ?? args.handoffToken);
   if (agent) q.set("agent", agent);
-  if (conversationId) q.set("conversationId", conversationId);
+  if (chatId) q.set("chatId", chatId);
   if (sessionCwd) q.set("sessionCwd", sessionCwd);
   if (workspaceId) q.set("workspaceId", workspaceId);
   if (projectId) q.set("projectId", projectId);

@@ -9,7 +9,7 @@ export type AgentChatCenterTab = {
   id: string;
   value: string;
   contextId: string;
-  conversationId: string | null;
+  chatId: string | null;
   title: string;
   cwd: string;
   providerId: string | null;
@@ -24,23 +24,23 @@ type AgentChatCenterTabsStore = {
   pendingNewChat: number;
   openTab: (input: {
     contextId: string;
-    conversationId: string;
+    chatId: string;
     title?: string | null;
     cwd?: string;
     providerId?: string | null;
   }) => AgentChatCenterTab;
   openDraftTab: (input: { contextId: string; title?: string | null }) => AgentChatCenterTab;
-  bindConversation: (input: {
+  bindChat: (input: {
     contextId: string;
     value: string;
-    conversationId: string;
+    chatId: string;
     title?: string | null;
     cwd?: string;
     providerId?: string | null;
   }) => void;
-  patchConversation: (input: {
+  patchChat: (input: {
     contextId: string;
-    conversationId: string;
+    chatId: string;
     title?: string | null;
     providerId?: string | null;
     cwd?: string;
@@ -52,8 +52,8 @@ type AgentChatCenterTabsStore = {
   consumePendingNewChat: () => boolean;
 };
 
-export function buildAgentChatTabValue(conversationId: string): string {
-  return `${AGENT_CHAT_TAB_PREFIX}${conversationId}`;
+export function buildAgentChatTabValue(chatId: string): string {
+  return `${AGENT_CHAT_TAB_PREFIX}${chatId}`;
 }
 
 export function isAgentChatTabValue(value: string | null | undefined): value is string {
@@ -71,16 +71,16 @@ export const useAgentChatCenterTabsStore = create<AgentChatCenterTabsStore>()(
       tabsByContext: {},
       pendingActivate: null,
       pendingNewChat: 0,
-      openTab: ({ contextId, conversationId, title, cwd, providerId }) => {
-        const value = buildAgentChatTabValue(conversationId);
+      openTab: ({ contextId, chatId, title, cwd, providerId }) => {
+        const value = buildAgentChatTabValue(chatId);
         const existing = (get().tabsByContext[contextId] ?? []).find((tab) => tab.value === value);
         if (existing) return existing;
         const tab: AgentChatCenterTab = {
           id: value,
           value,
           contextId,
-          conversationId,
-          title: title?.trim() || "Agent Chat",
+          chatId,
+          title: title?.trim() || "Chat",
           cwd: cwd ?? "",
           providerId: providerId ?? null,
           openedAt: Date.now(),
@@ -104,8 +104,8 @@ export const useAgentChatCenterTabsStore = create<AgentChatCenterTabsStore>()(
           id: value,
           value,
           contextId,
-          conversationId: null,
-          title: title?.trim() || "Agent Chat",
+          chatId: null,
+          title: title?.trim() || "Chat",
           cwd: "",
           providerId: null,
           openedAt: Date.now(),
@@ -118,7 +118,7 @@ export const useAgentChatCenterTabsStore = create<AgentChatCenterTabsStore>()(
         }));
         return tab;
       },
-      bindConversation: ({ contextId, value, conversationId, title, cwd, providerId }) => {
+      bindChat: ({ contextId, value, chatId, title, cwd, providerId }) => {
         set((state) => ({
           tabsByContext: {
             ...state.tabsByContext,
@@ -126,7 +126,7 @@ export const useAgentChatCenterTabsStore = create<AgentChatCenterTabsStore>()(
               tab.value === value
                 ? {
                     ...tab,
-                    conversationId,
+                    chatId,
                     title: title?.trim() || tab.title,
                     cwd: cwd ?? tab.cwd,
                     providerId: providerId ?? tab.providerId,
@@ -136,12 +136,12 @@ export const useAgentChatCenterTabsStore = create<AgentChatCenterTabsStore>()(
           },
         }));
       },
-      patchConversation: ({ contextId, conversationId, title, providerId, cwd }) => {
+      patchChat: ({ contextId, chatId, title, providerId, cwd }) => {
         set((state) => ({
           tabsByContext: {
             ...state.tabsByContext,
             [contextId]: (state.tabsByContext[contextId] ?? []).map((tab) =>
-              tab.conversationId === conversationId
+              tab.chatId === chatId
                 ? {
                     ...tab,
                     title: title?.trim() || tab.title,

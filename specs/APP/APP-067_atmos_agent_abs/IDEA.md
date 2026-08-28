@@ -198,7 +198,7 @@ Conversation
 例如：
 
 ```text
-conversation_id = conv_xxx
+chat_id = conv_xxx
 agent_session_id = agent_session_xxx
 provider = claude
 native_session_id = claude_xxx
@@ -207,7 +207,7 @@ native_session_id = claude_xxx
 不要出现：
 
 ```text
-conversation_id == acp_session_id
+chat_id == acp_session_id
 ```
 
 ---
@@ -445,7 +445,7 @@ enum AgentEvent {
 每个事件至少需要合理的：
 
 ```text
-conversation_id
+chat_id
 agent_session_id
 turn_id
 message_id
@@ -542,7 +542,7 @@ event_id
 sequence
 turn_id
 message_id
-conversation_id
+chat_id
 ```
 
 必要时设计 event journal / append log，但不要为了复杂而复杂。
@@ -574,7 +574,7 @@ WebSocket / SSE / future transport
 ```json
 {
   "type": "agent.event",
-  "conversation_id": "conv_xxx",
+  "chat_id": "conv_xxx",
   "event_id": "evt_xxx",
   "sequence": 123,
   "payload": {

@@ -51,6 +51,7 @@ import {
   LayoutDashboard,
   LayoutTemplate,
   LoaderCircle,
+  MessagesSquare,
   Maximize2,
   Minimize2,
   PencilRuler,
@@ -780,7 +781,7 @@ export function CenterStageTabBar({
             providerId ? (
               <AgentIcon registryId={providerId} name={providerId} size={14} />
             ) : (
-              <Bot className="size-3.5 shrink-0" />
+              <MessagesSquare className="size-3.5 shrink-0" />
             )
           }
           label={tab.label}
@@ -1672,7 +1673,7 @@ function CenterStageNewTabMenu({
               setOpen(false);
             }}
           >
-            <Bot className="size-3.5 shrink-0 text-muted-foreground" />
+            <MessagesSquare className="size-3.5 shrink-0 text-muted-foreground" />
             <span className="min-w-0 flex-1 truncate">{agentChatLabel}</span>
           </button>
           {onCreateMarkdownNote && markdownLabel ? (

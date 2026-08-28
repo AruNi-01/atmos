@@ -12,8 +12,8 @@ use crate::acp_client::{
 use crate::domain::{
     AgentCapabilities, AgentCatalogContext, AgentEvent, AgentPermissionOption,
     AgentPermissionRequest, AgentPersistenceHandle, AgentPrompt, AgentProvider, AgentProviderError,
-    AgentResult, AgentSession, AgentSessionCommands, AgentSessionConfig, AgentSessionConfigUpdate,
-    AgentSessionControl, AgentToolCall, AgentTurnHandle, TurnStop,
+    AgentResult, AgentRuntime, AgentRuntimeCommands, AgentRuntimeConfig, AgentRuntimeConfigUpdate,
+    AgentRuntimeControl, AgentToolCall, AgentTurnHandle, TurnStop,
 };
 use crate::models::AgentLaunchSpec;
 
@@ -44,7 +44,7 @@ struct AcpCommands {
 }
 
 #[async_trait]
-impl AgentSessionCommands for AcpCommands {
+impl AgentRuntimeCommands for AcpCommands {
     async fn prompt(&self, input: AgentPrompt) -> AgentResult<AgentTurnHandle> {
         let turn_id = input
             .turn_id
@@ -86,7 +86,7 @@ impl AgentSessionCommands for AcpCommands {
         Ok(())
     }
 
-    async fn set_config(&self, update: AgentSessionConfigUpdate) -> AgentResult<()> {
+    async fn set_config(&self, update: AgentRuntimeConfigUpdate) -> AgentResult<()> {
         if let Some(model) = update.model {
             self.control.send_set_config_option("model".into(), model);
         }
@@ -127,9 +127,9 @@ struct AcpMappedSession {
 }
 
 #[async_trait]
-impl AgentSession for AcpMappedSession {
-    fn control(&self) -> AgentSessionControl {
-        AgentSessionControl::new(self.commands.clone())
+impl AgentRuntime for AcpMappedSession {
+    fn control(&self) -> AgentRuntimeControl {
+        AgentRuntimeControl::new(self.commands.clone())
     }
 
     fn persistence_handle(&self) -> Option<AgentPersistenceHandle> {
@@ -319,8 +319,15 @@ fn map_tool_call(update: ToolCallUpdate) -> AgentEvent {
     let tool_call = AgentToolCall {
         tool_call_id: update.tool_call_id,
         name: update.tool.clone(),
-        title: Some(update.description).filter(|s| !s.is_empty()),
-        kind: Some(update.tool.clone()).filter(|value| !value.is_empty() && value != "Tool"),
+        title: Some(update.description.clone()).filter(|s| !s.is_empty()),
+        kind: match crate::domain::classify_tool(
+            &update.tool,
+            Some(update.description.as_str()).filter(|value| !value.is_empty()),
+            update.raw_input.as_ref(),
+        ) {
+            crate::domain::ClassifiedTool::Call(kind) => kind,
+            _ => crate::domain::AgentToolKind::Other,
+        },
         status: Some(
             match status {
                 ToolCallStatus::Running => "running",
@@ -349,9 +356,9 @@ fn map_tool_call(update: ToolCallUpdate) -> AgentEvent {
 
 async fn open_acp_session(
     params: &AcpProviderParams,
-    cfg: AgentSessionConfig,
+    cfg: AgentRuntimeConfig,
     resume: Option<String>,
-) -> AgentResult<Box<dyn AgentSession>> {
+) -> AgentResult<Box<dyn AgentRuntime>> {
     let mut extra = cfg.extra_config.clone();
     if let Some(model) = cfg.model {
         extra.insert("model".into(), model);
@@ -425,15 +432,15 @@ impl AgentProvider for AcpAgentProvider {
         })
     }
 
-    async fn create_session(&self, cfg: AgentSessionConfig) -> AgentResult<Box<dyn AgentSession>> {
+    async fn create_runtime(&self, cfg: AgentRuntimeConfig) -> AgentResult<Box<dyn AgentRuntime>> {
         open_acp_session(&self.params, cfg, None).await
     }
 
-    async fn resume_session(
+    async fn resume_runtime(
         &self,
         handle: AgentPersistenceHandle,
-        cfg: AgentSessionConfig,
-    ) -> AgentResult<Box<dyn AgentSession>> {
+        cfg: AgentRuntimeConfig,
+    ) -> AgentResult<Box<dyn AgentRuntime>> {
         open_acp_session(&self.params, cfg, Some(handle.0)).await
     }
 }

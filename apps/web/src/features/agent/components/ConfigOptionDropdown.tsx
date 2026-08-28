@@ -23,6 +23,7 @@ export function ConfigOptionDropdown({
   setConfigOption,
   setAgentDefaultConfig,
   setInstalledAgents,
+  icon,
 }: {
   opt: AgentConfigOption;
   registryId: string;
@@ -30,6 +31,7 @@ export function ConfigOptionDropdown({
   setConfigOption: (id: string, val: string) => void;
   setAgentDefaultConfig: (id: string, val: string) => void;
   setInstalledAgents: React.Dispatch<React.SetStateAction<RegistryAgent[]>>;
+  icon?: React.ReactNode;
 }) {
   const t = useTranslations("Agent.components");
   const [search, setSearch] = useState("");
@@ -56,7 +58,8 @@ export function ConfigOptionDropdown({
           if (!open) setSearch("");
         }}
       >
-        <SelectTrigger className="h-8 text-xs min-w-[100px] border-border/50 bg-muted/20">
+        <SelectTrigger className="h-8 w-auto min-w-0 gap-1.5 border-0 bg-transparent px-2 text-xs shadow-none hover:bg-muted/60">
+          {icon}
           <SelectValue placeholder={opt.name || opt.id} />
         </SelectTrigger>
         <SelectContent>

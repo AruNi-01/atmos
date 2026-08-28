@@ -1,12 +1,11 @@
 import React from "react";
 import type { ToolState } from "@workspace/ui";
-import { Brain, FileText, FolderInput, Globe, Pencil, Search, Terminal, Trash2, Wrench } from "lucide-react";
+import { Brain, FileText, FolderInput, Globe, Pencil, Search, Sparkles, Terminal, Trash2, Wrench } from "lucide-react";
 import { createTranslator } from "next-intl";
 import enMessages from "../../../../messages/en.json";
 import zhMessages from "../../../../messages/zh.json";
 import type { AcpPermissionOption } from "@/features/agent/hooks/use-agent-session";
-import type { AssistantEntry, ThreadEntry, ToolCallBlock } from "@/features/agent/lib/agent/thread";
-import { isPlanUpdateToolCall } from "@/features/agent/lib/agent/thread";
+import type { AgentMessage, AgentPart, AgentToolKind } from "@atmos/api-types/ws/dto/agent-chat";
 import { currentAppLocale } from "@/shared/lib/current-app-locale";
 
 export interface PendingPermission {
@@ -60,7 +59,7 @@ function chatHelpersT(
     | "activity.thinking"
     | "activity.working"
     | "activity.streaming"
-    | "download.defaultConversationName",
+    | "download.defaultChatName",
   fallback: string,
   values?: Record<string, string | number>,
 ): string {
@@ -141,6 +140,31 @@ export {
   writeDefaultAgentRegistryId,
   writeAgentLastSession,
 } from '@/shared/stores/use-ui-pref-hooks';
+
+export function getToolKindIcon(kind: AgentToolKind): React.ReactNode {
+  switch (kind) {
+    case "read":
+      return React.createElement(FileText);
+    case "edit":
+      return React.createElement(Pencil);
+    case "delete":
+      return React.createElement(Trash2);
+    case "move":
+      return React.createElement(FolderInput);
+    case "search":
+      return React.createElement(Search);
+    case "execute":
+      return React.createElement(Terminal);
+    case "fetch":
+      return React.createElement(Globe);
+    case "skill":
+      return React.createElement(Sparkles);
+    case "subagent":
+      return React.createElement(Brain);
+    default:
+      return React.createElement(Wrench);
+  }
+}
 
 export function getToolIcon(tool: string): React.ReactNode {
   switch ((tool || "").toLowerCase().replace(/[\s-]+/g, "_")) {
@@ -374,16 +398,26 @@ export function isDiffObject(o: unknown): o is DiffFileOutput {
 export function getSessionContextKey(
   workspaceId: string | null,
   projectId: string | null,
-  _mode: string
+  mode: string,
+): string {
+  const suffix = mode.trim() || "default";
+  if (workspaceId) return `workspace:${workspaceId}:${suffix}`;
+  if (projectId) return `project:${projectId}:${suffix}`;
+  return `temp:${suffix}`;
+}
+
+export function legacySessionContextKey(
+  workspaceId: string | null,
+  projectId: string | null,
 ): string {
   if (workspaceId) return `workspace:${workspaceId}`;
   if (projectId) return `project:${projectId}`;
   return "temp";
 }
 
-export function sanitizeConversationFilename(value: string): string {
+export function sanitizeChatFilename(value: string): string {
   const trimmed = value.trim().replace(/[\\/:*?"<>|]/g, "-");
-  return trimmed.length > 0 ? trimmed : chatHelpersT("download.defaultConversationName", "conversation");
+  return trimmed.length > 0 ? trimmed : chatHelpersT("download.defaultChatName", "chat");
 }
 
 export function getLocalTimestampForFilename(date = new Date()): string {
@@ -396,7 +430,7 @@ export function getLocalTimestampForFilename(date = new Date()): string {
   return `${year}-${month}-${day}_${hours}-${minutes}-${seconds}`;
 }
 
-export function downloadConversationMarkdown(filename: string, markdown: string) {
+export function downloadChatMarkdown(filename: string, markdown: string) {
   const blob = new Blob([markdown], { type: "text/markdown" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
@@ -408,40 +442,34 @@ export function downloadConversationMarkdown(filename: string, markdown: string)
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-export function deriveAgentActivity(entries: ThreadEntry[], waitingFirst: boolean): AgentActivity {
-  const last = entries[entries.length - 1];
+export function deriveAgentActivity(messages: AgentMessage[], waitingFirst: boolean): AgentActivity {
+  const last = messages[messages.length - 1];
   if (!last || last.role !== "assistant") {
     if (waitingFirst) return { busy: true, label: chatHelpersT("activity.generating", "Generating") };
     return { busy: false };
   }
 
-  const assistant = last;
-  for (let i = assistant.blocks.length - 1; i >= 0; i--) {
-    const block = assistant.blocks[i];
-    if (block.type === "tool_call") {
-      if (isPlanUpdateToolCall(block)) continue;
-      if (block.status === "running") {
-        const tool = block.tool;
-        const label =
-          tool === "Read" ? chatHelpersT("activity.reading", "Reading") :
-            tool === "Edit" ? chatHelpersT("activity.writing", "Writing") :
-              tool === "Search" ? chatHelpersT("activity.searching", "Searching") :
-                tool === "Execute" ? chatHelpersT("activity.runningCommand", "Running command") :
-                  tool === "Fetch" ? chatHelpersT("activity.fetching", "Fetching") :
-                    tool === "Delete" ? chatHelpersT("activity.deleting", "Deleting") :
-                      tool === "Think" || tool === "Thought" || tool === "Reasoning" || tool === "Reason" ? chatHelpersT("activity.thinking", "Thinking") :
-                        tool === "Tool" ? (block.description || chatHelpersT("activity.working", "Working")) :
-                          tool;
-        return { busy: true, label };
-      }
+  for (let i = last.parts.length - 1; i >= 0; i--) {
+    const part = last.parts[i];
+    if (part.type !== "tool_call") continue;
+    if (part.status === "running") {
+      const label =
+        part.kind === "read" ? chatHelpersT("activity.reading", "Reading") :
+          part.kind === "edit" ? chatHelpersT("activity.writing", "Writing") :
+            part.kind === "search" ? chatHelpersT("activity.searching", "Searching") :
+              part.kind === "execute" ? chatHelpersT("activity.runningCommand", "Running command") :
+                part.kind === "fetch" ? chatHelpersT("activity.fetching", "Fetching") :
+                  part.kind === "delete" ? chatHelpersT("activity.deleting", "Deleting") :
+                    part.title || chatHelpersT("activity.working", "Working");
+      return { busy: true, label };
     }
   }
 
-  if (assistant.isStreaming) {
-    for (let i = assistant.blocks.length - 1; i >= 0; i--) {
-      const block = assistant.blocks[i];
-      if (block.type === "thinking") return { busy: true, label: chatHelpersT("activity.thinking", "Thinking") };
-      if (block.type === "text") return { busy: true, label: chatHelpersT("activity.streaming", "Streaming") };
+  if (last.streaming) {
+    for (let i = last.parts.length - 1; i >= 0; i--) {
+      const part = last.parts[i];
+      if (part.type === "thinking") return { busy: true, label: chatHelpersT("activity.thinking", "Thinking") };
+      if (part.type === "text") return { busy: true, label: chatHelpersT("activity.streaming", "Streaming") };
     }
     return { busy: true, label: chatHelpersT("activity.streaming", "Streaming") };
   }

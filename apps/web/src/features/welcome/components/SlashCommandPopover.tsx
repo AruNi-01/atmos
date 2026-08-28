@@ -7,10 +7,10 @@ import {
   EyeOff,
   Folder,
   Loader2,
-  MessageCirclePlus,
   MessagesSquare,
   Puzzle,
   ScrollText,
+  Zap,
 } from "lucide-react";
 import { BrowserUseIconStatic } from "@workspace/ui/components/icons/browser-use-icon-static";
 import { DesktopUseIconStatic } from "@workspace/ui/components/icons/desktop-use-icon-static";
@@ -262,7 +262,7 @@ export function SlashCommandPopover({
               ) : command.id === VIEW_RUN_LOGS_SLASH_COMMAND_ID ? (
                 <ScrollText className="size-4 text-emerald-600 dark:text-emerald-400" />
               ) : (
-                <MessageCirclePlus className="size-4 text-cyan-600 dark:text-cyan-300" />
+                <Zap className="size-4" />
               )}
               <span className="min-w-0 flex-1">
                 <span className="block truncate font-medium">{command.label}</span>

@@ -26,7 +26,7 @@ describe("S2 Agent Chat entry points", () => {
     expect(welcome).toContain("onStartAgentChat");
 
     const session = readFileSync(
-      join(ROOT, "../features/agent/hooks/use-conversation-chat-session.ts"),
+      join(ROOT, "../features/agent/hooks/use-agent-chat-session.ts"),
       "utf8",
     );
     expect(session).toContain("cwd: cwd || null");
@@ -35,7 +35,7 @@ describe("S2 Agent Chat entry points", () => {
 
     const centerStage = readFileSync(join(ROOT, "CenterStage.tsx"), "utf8");
     expect(centerStage).toContain("openDraftTab");
-    expect(centerStage).not.toContain("conversationApi.create");
+    expect(centerStage).not.toContain("agentChatApi.create");
 
     const workspaceFrame = readFileSync(join(ROOT, "workspace-center-frame.tsx"), "utf8");
     expect(workspaceFrame).toContain('variant="center"');
@@ -54,7 +54,7 @@ describe("S2 Agent Chat entry points", () => {
     expect(panel).toContain("border-dashed");
     expect(panel).toContain("if (!active || (variant === \"modal\" && !layoutLoaded)) return null");
     expect(panel).not.toContain("if (!session.isPanelOpen || (variant === \"modal\" && !layoutLoaded)) return null");
-    expect(panel).toContain("instanceKey || liveConversationId || conversationId || null");
+    expect(panel).toContain("instanceKey || liveChatId || chatId || null");
 
     const activate = readFileSync(join(ROOT, "center-stage-activate.ts"), "utf8");
     expect(activate).toContain("isAgentChatTabValue");

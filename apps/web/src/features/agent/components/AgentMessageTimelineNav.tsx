@@ -12,23 +12,21 @@ import {
 } from "@workspace/ui/components/ui/hover-card";
 import { Bot, User } from "lucide-react";
 import type { RegistryAgent } from "@/api/ws-api";
-import {
-  getAssistantCopyText,
-  type ThreadEntry,
-} from "@/features/agent/lib/agent/thread";
+import type { AgentMessage } from "@atmos/api-types/ws/dto/agent-chat";
+import { assistantCopyText, textFromParts } from "@/features/agent/lib/agent-chat-events";
 import { AgentIcon } from "./AgentIcon";
 
 interface AgentMessageTimelineNavProps {
   activeAgent: RegistryAgent | null;
-  entries: ThreadEntry[];
-  userEntryIndices: number[];
-  activeEntryIndex: number;
-  onSelectEntry: (entryIndex: number) => void;
+  messages: AgentMessage[];
+  userMessageIndices: number[];
+  activeMessageIndex: number;
+  onSelectMessage: (messageIndex: number) => void;
 }
 
 interface MessageTimelineItem {
-  entryIndex: number;
-  turnNumber: number;
+  messageIndex: number;
+  messageNumber: number;
   userText: string;
   assistantSummary: string;
   fileCount: number;
@@ -55,64 +53,43 @@ function normalizePreviewText(value: string): string {
   return value.replace(/\s+/g, " ").trim();
 }
 
-function getLastAssistantText(entry: Extract<ThreadEntry, { role: "assistant" }>): string {
-  for (let index = entry.blocks.length - 1; index >= 0; index -= 1) {
-    const block = entry.blocks[index];
-    if (block.type !== "text") continue;
-
-    const text = normalizePreviewText(block.content);
-    if (text) return text;
-  }
-
-  return "";
-}
-
 function getAssistantSummary(
-  entries: ThreadEntry[],
+  messages: AgentMessage[],
   startIndex: number,
   endIndex: number,
 ): { summary: string; isStreaming: boolean } {
-  const fallbackParts: string[] = [];
-  let finalText = "";
+  let summary = "";
   let isStreaming = false;
 
   for (let index = startIndex + 1; index < endIndex; index += 1) {
-    const entry = entries[index];
-    if (!entry || entry.role !== "assistant") continue;
-    if (entry.isStreaming) isStreaming = true;
-
-    const text = getLastAssistantText(entry);
-    if (text) finalText = text;
-
-    const fallbackText = normalizePreviewText(getAssistantCopyText(entry));
-    if (fallbackText) fallbackParts.push(fallbackText);
+    const message = messages[index];
+    if (!message || message.role !== "assistant") continue;
+    if (message.streaming) isStreaming = true;
+    const text = normalizePreviewText(assistantCopyText(message));
+    if (text) summary = text;
   }
 
-  return {
-    summary: finalText || fallbackParts.join(" "),
-    isStreaming,
-  };
+  return { summary, isStreaming };
 }
 
 function buildTimelineItems(
-  entries: ThreadEntry[],
-  userEntryIndices: number[],
+  messages: AgentMessage[],
+  userMessageIndices: number[],
   emptyUserMessage: string,
 ): MessageTimelineItem[] {
-  return userEntryIndices.flatMap((entryIndex, navIndex) => {
-    const entry = entries[entryIndex];
-    if (!entry || entry.role !== "user") return [];
+  return userMessageIndices.flatMap((messageIndex, navIndex) => {
+    const message = messages[messageIndex];
+    if (!message || message.role !== "user") return [];
 
-    const nextUserEntryIndex = userEntryIndices[navIndex + 1] ?? entries.length;
-    const assistant = getAssistantSummary(entries, entryIndex, nextUserEntryIndex);
-    const userText = normalizePreviewText(entry.content) || emptyUserMessage;
+    const nextUserIndex = userMessageIndices[navIndex + 1] ?? messages.length;
+    const assistant = getAssistantSummary(messages, messageIndex, nextUserIndex);
 
     return [{
-      entryIndex,
-      turnNumber: navIndex + 1,
-      userText,
+      messageIndex,
+      messageNumber: navIndex + 1,
+      userText: normalizePreviewText(textFromParts(message.parts)) || emptyUserMessage,
       assistantSummary: assistant.summary,
-      fileCount: entry.files?.length ?? 0,
+      fileCount: message.parts.filter((part) => part.type === "attachment").length,
       isStreaming: assistant.isStreaming,
     }];
   });
@@ -141,21 +118,21 @@ function getTimelineBarScale(navIndex: number, activeNavIndex: number, hoveredNa
 
 export function AgentMessageTimelineNav({
   activeAgent,
-  entries,
-  userEntryIndices,
-  activeEntryIndex,
-  onSelectEntry,
+  messages,
+  userMessageIndices,
+  activeMessageIndex,
+  onSelectMessage,
 }: AgentMessageTimelineNavProps) {
   const t = useTranslations("Agent.components.timelineNav");
   const [hoveredNavIndex, setHoveredNavIndex] = React.useState<number | null>(null);
   const items = React.useMemo(
-    () => buildTimelineItems(entries, userEntryIndices, t("untitledMessage")),
-    [entries, t, userEntryIndices],
+    () => buildTimelineItems(messages, userMessageIndices, t("untitledMessage")),
+    [messages, t, userMessageIndices],
   );
 
   if (items.length === 0) return null;
 
-  const selectedNavIndex = items.findIndex((item) => item.entryIndex === activeEntryIndex);
+  const selectedNavIndex = items.findIndex((item) => item.messageIndex === activeMessageIndex);
   const activeNavIndex = selectedNavIndex >= 0 ? selectedNavIndex : items.length - 1;
 
   return (
@@ -174,14 +151,14 @@ export function AgentMessageTimelineNav({
           item.assistantSummary || (item.isStreaming ? t("assistantResponding") : t("assistantPending"));
 
         return (
-          <HoverCard key={item.entryIndex} closeDelay={120} openDelay={80}>
+          <HoverCard key={item.messageIndex} closeDelay={120} openDelay={80}>
             <HoverCardTrigger asChild>
               <button
                 type="button"
                 aria-current={isActive ? "true" : undefined}
-                aria-label={t("jumpToMessage", { turnNumber: item.turnNumber, userText: item.userText })}
+                aria-label={t("jumpToMessage", { messageNumber: item.messageNumber, userText: item.userText })}
                 className={timelineItemClassName}
-                onClick={() => onSelectEntry(item.entryIndex)}
+                onClick={() => onSelectMessage(item.messageIndex)}
                 onPointerEnter={() => setHoveredNavIndex(navIndex)}
                 onPointerLeave={() => setHoveredNavIndex(null)}
               >

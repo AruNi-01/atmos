@@ -2,9 +2,9 @@ use std::sync::Arc;
 
 use crate::api::ws::{PtDesignHub, WsMessageHandler, WsMessageService, WsService};
 use core_service::{
-    AgentHooksService, AgentService, AgentSessionService, AutomationService, CanvasAgentRelay,
-    CanvasDocumentService, MessagePushService, NotificationService, ProjectService, ReviewService,
-    TerminalService, TestService, WorkspaceService,
+    AgentHooksService, AgentService, AutomationService, CanvasAgentRelay, CanvasDocumentService,
+    MessagePushService, NotificationService, ProjectService, ReviewService, TerminalService,
+    TestService, WorkspaceService,
 };
 use infra::queue::LocalPersistentQueue;
 use token_usage::TokenUsageService;
@@ -17,7 +17,6 @@ pub struct AppServices {
     pub canvas_service: Arc<CanvasDocumentService>,
     pub workspace_service: Arc<WorkspaceService>,
     pub agent_service: Arc<AgentService>,
-    pub agent_session_service: Arc<AgentSessionService>,
     pub automation_service: Arc<AutomationService>,
     pub ws_message_service: Arc<WsMessageService>,
     pub message_push_service: Arc<MessagePushService>,
@@ -36,7 +35,6 @@ pub struct AppState {
     pub canvas_service: Arc<CanvasDocumentService>,
     pub workspace_service: Arc<WorkspaceService>,
     pub agent_service: Arc<AgentService>,
-    pub agent_session_service: Arc<AgentSessionService>,
     pub automation_service: Arc<AutomationService>,
     pub message_push_service: Arc<MessagePushService>,
     pub terminal_service: Arc<TerminalService>,
@@ -65,7 +63,6 @@ impl Clone for AppState {
             canvas_service: Arc::clone(&self.canvas_service),
             workspace_service: Arc::clone(&self.workspace_service),
             agent_service: Arc::clone(&self.agent_service),
-            agent_session_service: Arc::clone(&self.agent_session_service),
             automation_service: Arc::clone(&self.automation_service),
             message_push_service: Arc::clone(&self.message_push_service),
             terminal_service: Arc::clone(&self.terminal_service),
@@ -101,7 +98,6 @@ impl AppState {
             canvas_service: services.canvas_service,
             workspace_service: services.workspace_service,
             agent_service: services.agent_service,
-            agent_session_service: services.agent_session_service,
             automation_service: services.automation_service,
             message_push_service: services.message_push_service,
             terminal_service: services.terminal_service,

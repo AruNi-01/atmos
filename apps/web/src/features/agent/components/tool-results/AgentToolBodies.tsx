@@ -12,11 +12,13 @@ import {
   type ToolInputRow,
   type TreeEntry,
 } from "@/features/agent/lib/tool-results/parse-tool-result";
+import { useDisplayToolPath } from "../agent-chat-cwd-context";
 import { AgentToolFileGlyph } from "./AgentToolCard";
 import { AgentToolCodePreview } from "./AgentToolCodePreview";
 
 export function AgentToolInputRows({ rows }: { rows: ToolInputRow[] }) {
   const t = useTranslations("Agent.components.toolResults");
+  const displayPath = useDisplayToolPath();
   if (rows.length === 0) return null;
   return (
     <div className="border-b border-border/40 px-3 py-2">
@@ -24,20 +26,24 @@ export function AgentToolInputRows({ rows }: { rows: ToolInputRow[] }) {
         {t("parameters")}
       </p>
       <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
-        {rows.map((row) => (
-          <React.Fragment key={row.key}>
-            <dt className="font-mono text-muted-foreground">{row.key}</dt>
-            <dd className="min-w-0 truncate font-mono text-foreground/80" title={row.value}>
-              {row.value}
-            </dd>
-          </React.Fragment>
-        ))}
+        {rows.map((row) => {
+          const shown = displayPath(row.value);
+          return (
+            <React.Fragment key={row.key}>
+              <dt className="font-mono text-muted-foreground">{row.key}</dt>
+              <dd className="min-w-0 truncate font-mono text-foreground/80" title={row.value}>
+                {shown}
+              </dd>
+            </React.Fragment>
+          );
+        })}
       </dl>
     </div>
   );
 }
 
 export function AgentToolSearchBody({ hits }: { hits: SearchHit[] }) {
+  const displayPath = useDisplayToolPath();
   const grouped = new Map<string, SearchHit[]>();
   for (const hit of hits) {
     const list = grouped.get(hit.path) ?? [];
@@ -45,6 +51,7 @@ export function AgentToolSearchBody({ hits }: { hits: SearchHit[] }) {
     grouped.set(hit.path, list);
   }
   const paths = [...grouped.keys()];
+  const displayedPaths = paths.map((item) => displayPath(item));
   return (
     <ul className="max-h-72 overflow-auto py-1">
       {[...grouped.entries()].map(([path, pathHits]) => (
@@ -52,7 +59,7 @@ export function AgentToolSearchBody({ hits }: { hits: SearchHit[] }) {
           <div className="flex min-w-0 items-center gap-2 text-[12px]">
             <AgentToolFileGlyph path={path} />
             <span className="min-w-0 truncate font-mono text-foreground/80" title={path}>
-              {relativeDisplayPath(path, paths)}
+              {relativeDisplayPath(displayPath(path), displayedPaths)}
             </span>
           </div>
           <ul className="mt-0.5 space-y-0.5 pl-6">
@@ -79,43 +86,49 @@ export function AgentToolSearchBody({ hits }: { hits: SearchHit[] }) {
 }
 
 export function AgentToolTreeBody({ entries }: { entries: TreeEntry[] }) {
+  const displayPath = useDisplayToolPath();
   return (
     <ul className="max-h-96 overflow-auto py-1">
-      {entries.map((entry, index) => (
-        <li
-          key={`${entry.indent}:${entry.name}:${index}`}
-          className="flex min-w-0 items-center gap-2 py-0.5 pr-3 text-[12px]"
-          style={{ paddingLeft: 12 + entry.indent * 8 }}
-        >
-          {entry.kind === "note" ? (
-            <span className="truncate text-muted-foreground" title={entry.name}>
-              {entry.name}
-            </span>
-          ) : (
-            <>
-              <AgentToolFileGlyph path={entry.name} isDir={entry.isDir} />
-              <span
-                className="min-w-0 truncate font-mono text-foreground/80"
-                title={entry.name}
-              >
+      {entries.map((entry, index) => {
+        const shown = displayPath(entry.name);
+        return (
+          <li
+            key={`${entry.indent}:${entry.name}:${index}`}
+            className="flex min-w-0 items-center gap-2 py-0.5 pr-3 text-[12px]"
+            style={{ paddingLeft: 12 + entry.indent * 8 }}
+          >
+            {entry.kind === "note" ? (
+              <span className="truncate text-muted-foreground" title={entry.name}>
                 {entry.name}
               </span>
-            </>
-          )}
-        </li>
-      ))}
+            ) : (
+              <>
+                <AgentToolFileGlyph path={entry.name} isDir={entry.isDir} />
+                <span
+                  className="min-w-0 truncate font-mono text-foreground/80"
+                  title={entry.name}
+                >
+                  {shown}
+                </span>
+              </>
+            )}
+          </li>
+        );
+      })}
     </ul>
   );
 }
 
 export function AgentToolFilesBody({ paths }: { paths: string[] }) {
+  const displayPath = useDisplayToolPath();
+  const displayedPaths = paths.map((item) => displayPath(item));
   return (
     <ul className="max-h-72 overflow-auto py-1">
       {paths.map((path, index) => (
         <li key={`${path}-${index}`} className="flex items-center gap-2 px-3 py-1.5 text-[12px]">
           <AgentToolFileGlyph path={path} />
           <span className="min-w-0 truncate font-mono text-foreground/80" title={path}>
-            {relativeDisplayPath(path, paths)}
+            {relativeDisplayPath(displayPath(path), displayedPaths)}
           </span>
         </li>
       ))}
@@ -193,14 +206,15 @@ export function AgentToolTodosBody({ todos }: { todos: TodoItem[] }) {
 
 export function AgentToolMoveBody({ from, to }: { from: string; to: string }) {
   const t = useTranslations("Agent.components.toolResults");
+  const displayPath = useDisplayToolPath();
   return (
     <div className="flex items-center gap-2 px-3 py-2 text-[12px]">
       <span className="min-w-0 truncate font-mono text-foreground/80" title={from}>
-        {from}
+        {displayPath(from)}
       </span>
       <ArrowRight className="size-3.5 shrink-0 text-muted-foreground" aria-label={t("to")} />
       <span className="min-w-0 truncate font-mono text-foreground/80" title={to}>
-        {to}
+        {displayPath(to)}
       </span>
     </div>
   );
@@ -208,9 +222,10 @@ export function AgentToolMoveBody({ from, to }: { from: string; to: string }) {
 
 export function AgentToolDeleteBody({ path }: { path: string }) {
   const t = useTranslations("Agent.components.toolResults");
+  const displayPath = useDisplayToolPath();
   return (
     <p className="px-3 py-2 text-sm text-muted-foreground">
-      {t("deletedFileLabel", { path })}
+      {t("deletedFileLabel", { path: displayPath(path) })}
     </p>
   );
 }

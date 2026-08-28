@@ -18,8 +18,8 @@ import type {
 import type { ResourceMonitorSnapshot } from "./dto/resource-monitor";
 import type {
   AgentModelCatalogUpdated,
-  ConversationClientEvent,
-} from "./dto/conversation";
+  AgentChatEvent,
+} from "./dto/agent-chat";
 import type { SimulatorDownloadProgress } from "./dto/simulator";
 import type {
   ProjectDeleteProgressNotification,
@@ -62,7 +62,7 @@ export type WsEventContract = {
   disk_analyzer_scan_progress: { payload: DiskScanProgress };
   simulator_download_progress: { payload: SimulatorDownloadProgress };
   resource_monitor_updated: { payload: ResourceMonitorSnapshot };
-  conversation_event: { payload: ConversationClientEvent };
+  agent_chat_event: { payload: AgentChatEvent };
   agent_model_catalog_updated: { payload: AgentModelCatalogUpdated };
 };
 

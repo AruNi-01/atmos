@@ -30,7 +30,7 @@ import type {
   AgentImplementationInfo,
 } from "@/api/rest-api";
 import type { AgentChatSurfaceVariant } from "@/features/agent/hooks/use-agent-chat-session-types";
-import type { ConversationHistoryRow } from "@/features/agent/lib/conversation-thread";
+import type { AgentChatHistoryRow } from "@/features/agent/lib/agent-chat-thread";
 import type { ConversationMessage } from "@workspace/ui";
 import { useDesktopWindowDrag } from "@/shared/hooks/use-desktop-window-drag";
 import { AgentIcon } from "./AgentIcon";
@@ -79,12 +79,12 @@ interface AgentChatHeaderProps {
 
   // Export
   exportableMessages: ConversationMessage[];
-  handleExportConversation: () => void;
+  handleExportChat: () => void;
 
   // History
   historyOpen: boolean;
   setHistoryOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  historySessions: ConversationHistoryRow[];
+  historySessions: AgentChatHistoryRow[];
   historyHasMore: boolean;
   historyLoading: boolean;
   historyCursor: string | null;
@@ -92,7 +92,7 @@ interface AgentChatHeaderProps {
   historyUnsupportedReason: string | null;
   trafficLightsContentInset?: boolean;
   loadHistorySessions: (cursor?: string) => Promise<void>;
-  handleSelectHistorySession: (row: ConversationHistoryRow) => void;
+  handleSelectHistorySession: (row: AgentChatHistoryRow) => void;
   historyTriggerClassName?: string;
   historySidebarControl?: React.ReactNode;
 
@@ -106,7 +106,7 @@ interface AgentChatHeaderProps {
   shouldScrambleAutoTitle: boolean;
   setShouldScrambleAutoTitle: React.Dispatch<React.SetStateAction<boolean>>;
   sessionTitleSource: string | null;
-  conversationId: string | null;
+  chatId: string | null;
   constrainWidth?: boolean;
 }
 
@@ -137,7 +137,7 @@ export function AgentChatHeader({
   localPath,
   sessionCwd,
   exportableMessages,
-  handleExportConversation,
+  handleExportChat,
   historyOpen,
   setHistoryOpen,
   historySessions,
@@ -158,7 +158,7 @@ export function AgentChatHeader({
   shouldScrambleAutoTitle,
   setShouldScrambleAutoTitle,
   sessionTitleSource,
-  conversationId,
+  chatId,
   constrainWidth = false,
 }: AgentChatHeaderProps) {
   const t = useTranslations("Agent.components");
@@ -462,10 +462,10 @@ export function AgentChatHeader({
               <DropdownMenuItem
                 className="cursor-pointer"
                 disabled={exportableMessages.length === 0}
-                onSelect={handleExportConversation}
+                onSelect={handleExportChat}
               >
                 <Download className="size-4" />
-                <span>{t("header.actions.exportConversation")}</span>
+                <span>{t("header.actions.exportChat")}</span>
               </DropdownMenuItem>
               {canLogout ? (
                 <DropdownMenuItem
@@ -533,7 +533,7 @@ export function AgentChatHeader({
                   </span>
                 ) : animatedSessionTitle ? (
                   <TextScramble
-                    key={`session-title-${sessionTitleSource ?? "unknown"}-${conversationId ?? "conversation"}-${
+                    key={`session-title-${sessionTitleSource ?? "unknown"}-${chatId ?? "chat"}-${
                       animatedSessionTitle
                     }`}
                     as="span"

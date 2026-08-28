@@ -32,7 +32,7 @@ export const WS_EVENTS = [
   "disk_analyzer_scan_progress",
   "simulator_download_progress",
   "resource_monitor_updated",
-  "conversation_event",
+  "agent_chat_event",
   "agent_model_catalog_updated",
 ] as const;
 

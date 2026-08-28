@@ -64,6 +64,11 @@ export function AutomationRunDrawer({
 }) {
   const t = useTranslations("automation.runDrawer");
   const insets = useTaskDrawerInsets();
+  const runKey = run?.guid ?? "none";
+  const [chatId, setChatId] = React.useState<string | null>(null);
+  React.useEffect(() => {
+    setChatId(null);
+  }, [runKey]);
 
   const sheetWidth = `calc(100vw - ${insets.left}px - ${insets.right}px - 48px)`;
   const contentStyle = {
@@ -151,6 +156,10 @@ export function AutomationRunDrawer({
                       variant="sidebar"
                       publishStatus={false}
                       active={standaloneChatOpen}
+                      instanceKey={runKey}
+                      chatId={chatId}
+                      onChatStarted={setChatId}
+                      onOpenChat={setChatId}
                     />
                   </div>
                 </section>

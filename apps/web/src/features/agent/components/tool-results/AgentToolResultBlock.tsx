@@ -3,21 +3,21 @@
 import React from "react";
 import { useTranslations } from "next-intl";
 import { Sparkles } from "lucide-react";
-import type { ToolCallBlock } from "@/features/agent/lib/agent/thread";
+import type { AgentToolCallPart } from "@/features/agent/lib/agent-tool-kind";
 import {
   deriveToolDisplayName,
   getSkillName,
   getTerminalCommandString,
-  getToolIcon,
+  getToolKindIcon,
   isSkillCommand,
   isSkillInvocation,
-  isTerminalCommand,
 } from "@/features/agent/lib/chat-helpers";
 import {
   parseToolResult,
   type ToolLineRange,
 } from "@/features/agent/lib/tool-results/parse-tool-result";
 import { MarkdownRenderer } from "@/shared/components/markdown/MarkdownRenderer";
+import { useDisplayToolTitle } from "../agent-chat-cwd-context";
 import {
   AgentToolCard,
   AgentToolDiffStats,
@@ -82,6 +82,7 @@ function AgentToolCodeResult({
   startLine?: number;
 }) {
   const t = useTranslations("Agent.components.toolResults");
+  const displayTitle = useDisplayToolTitle();
   const additions = hint === "new" ? countLines(code) : 0;
   const deletions = hint === "deleted" ? countLines(code) : 0;
   const icon = path
@@ -89,14 +90,15 @@ function AgentToolCodeResult({
     : asSkill
       ? <Sparkles className="size-4" />
       : fallbackIcon;
+  const shownTitle = displayTitle(title, path);
 
   return (
     <AgentToolCard
       variant="tool"
       tone={asSkill ? "skill" : status?.toLowerCase() === "failed" ? "error" : "default"}
       icon={icon}
-      title={title}
-      titleTooltip={path ? `${title}\n${path}` : title}
+      title={shownTitle}
+      titleTooltip={path ? `${shownTitle}\n${path}` : shownTitle}
       status={status}
       meta={
         hint ? (
@@ -124,26 +126,38 @@ function AgentToolCodeResult({
   );
 }
 
-export function AgentToolResultBlock(props: ToolCallBlock) {
+export function AgentToolResultBlock({ part }: { part: AgentToolCallPart }) {
   const t = useTranslations("Agent.components.toolResults");
-  const parsed = parseToolResult(props);
-  const asSkill = isSkillInvocation(props.raw_input) || isSkillCommand(props.raw_input);
-  const toolDisplayName = deriveToolDisplayName(
-    parsed.resolvedTool || props.tool,
-    props.description,
-    props.raw_input,
-    props.raw_output,
-  );
-  const skillName = asSkill && props.raw_input && typeof props.raw_input === "object"
-    ? getSkillName(props.raw_input as Record<string, unknown>)
+  const displayTitle = useDisplayToolTitle();
+  const parsed = parseToolResult({
+    tool: part.name,
+    description: part.title ?? undefined,
+    status: part.status ?? undefined,
+    raw_input: part.input,
+    raw_output: part.output,
+    content: Array.isArray(part.content) ? part.content as never : undefined,
+    detail: part.content,
+  });
+  const asSkill = part.kind === "skill"
+    || isSkillInvocation(part.input)
+    || isSkillCommand(part.input);
+  const toolDisplayName = displayTitle(deriveToolDisplayName(
+    parsed.resolvedTool || part.name,
+    part.title || part.name,
+    part.input,
+    part.output,
+  ), parsed.path);
+  const skillName = asSkill && part.input && typeof part.input === "object"
+    ? getSkillName(part.input as Record<string, unknown>)
     : toolDisplayName;
   const title = titleWithRange(
     asSkill ? t("skillTitle", { name: skillName }) : toolDisplayName,
     parsed.lineRange,
   );
-  const icon = asSkill ? <Sparkles className="size-4" /> : getToolIcon(parsed.resolvedTool || props.tool);
+  const icon = asSkill ? <Sparkles className="size-4" /> : getToolKindIcon(part.kind);
   const { presentation, inputRows, showInput, path } = parsed;
-  const showCopy = isTerminalCommand(parsed.resolvedTool) || isTerminalCommand(props.tool);
+  const showCopy = part.kind === "execute";
+  const status = part.status ?? undefined;
 
   if (presentation.kind === "diff") {
     return (
@@ -152,10 +166,13 @@ export function AgentToolResultBlock(props: ToolCallBlock) {
           <AgentToolDiffResult
             key={`${file.path}-${index}`}
             path={file.path}
-            title={presentation.files.length === 1 ? title : file.path}
+            title={displayTitle(
+              presentation.files.length === 1 ? title : file.path,
+              file.path,
+            )}
             oldContent={file.oldContent}
             newContent={file.newContent}
-            status={props.status}
+            status={status}
           />
         ))}
       </div>
@@ -166,9 +183,9 @@ export function AgentToolResultBlock(props: ToolCallBlock) {
     return (
       <AgentToolDiffResult
         path={presentation.path || path || t("file")}
-        title={title}
+        title={displayTitle(title, presentation.path || path)}
         patch={presentation.patch}
-        status={props.status}
+        status={status}
       />
     );
   }
@@ -180,7 +197,7 @@ export function AgentToolResultBlock(props: ToolCallBlock) {
         language={presentation.language}
         code={presentation.code}
         hint={presentation.hint}
-        status={props.status}
+        status={status}
         inputRows={inputRows}
         showInput={showInput}
         asSkill={asSkill}
@@ -192,7 +209,7 @@ export function AgentToolResultBlock(props: ToolCallBlock) {
   }
 
   const copyText = showCopy
-    ? (getTerminalCommandString(props.raw_input)
+    ? (getTerminalCommandString(part.input)
       || (presentation.kind === "text" || presentation.kind === "error" ? presentation.text : "")
       || (presentation.kind === "json" ? presentation.json : ""))
     : "";
@@ -204,7 +221,7 @@ export function AgentToolResultBlock(props: ToolCallBlock) {
       icon={icon}
       title={title}
       titleTooltip={path ? `${title}\n${path}` : title}
-      status={props.status}
+      status={status}
       actions={showCopy ? <AgentToolCopyAction text={copyText} /> : undefined}
     >
       {showInput ? <AgentToolInputRows rows={inputRows} /> : null}
@@ -220,7 +237,7 @@ export function AgentToolResultBlock(props: ToolCallBlock) {
       ) : null}
       {presentation.kind === "delete" ? <AgentToolDeleteBody path={presentation.path} /> : null}
       {presentation.kind === "error" ? <AgentToolErrorBody text={presentation.text} /> : null}
-      {presentation.kind === "empty" ? <AgentToolEmptyBody status={props.status} /> : null}
+      {presentation.kind === "empty" ? <AgentToolEmptyBody status={status} /> : null}
     </AgentToolCard>
   );
 }

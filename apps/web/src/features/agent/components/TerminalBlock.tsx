@@ -1,91 +1,80 @@
 "use client";
 
-import React from "react";
 import { useTranslations } from "next-intl";
 import {
   AcpTerminal,
-  AcpTerminalHeader,
-  AcpTerminalStatus,
-  AcpTerminalActions,
-  AcpTerminalCopyButton,
   AcpTerminalContent,
 } from "@workspace/ui";
-import type { ToolCallBlock } from "@/features/agent/lib/agent/thread";
-import { toolStatusToState, getTerminalCommandString } from "../lib/chat-helpers";
-import { CommandCopyButton } from "./CopyButtons";
-import { ChevronRight, TerminalIcon } from "lucide-react";
+import type { AgentToolCallPart } from "@/features/agent/lib/agent-tool-kind";
+import { getTerminalCommandString, getToolKindIcon } from "../lib/chat-helpers";
+import {
+  extractOutputText,
+  unwrapVendorToolEnvelope,
+} from "../lib/tool-results/parse-tool-result";
+import { AgentToolCard } from "./tool-results/AgentToolCard";
+import { AgentToolCopyAction, AgentToolEmptyBody } from "./tool-results/AgentToolBodies";
 
-export function TerminalBlock({
-  status,
-  raw_input,
-  raw_output,
-}: ToolCallBlock) {
+function terminalCommand(rawInput: unknown, rawOutput: unknown): string {
+  return (
+    getTerminalCommandString(rawInput)
+    || getTerminalCommandString(rawOutput)
+    || getTerminalCommandString(unwrapVendorToolEnvelope(rawOutput)?.payload)
+    || ""
+  );
+}
+
+function terminalOutput(rawOutput: unknown): string {
+  return (
+    extractOutputText(rawOutput)
+    ?? extractOutputText(unwrapVendorToolEnvelope(rawOutput)?.payload)
+    ?? ""
+  );
+}
+
+function collapsedCommand(command: string): string {
+  return command.replace(/\s+/g, " ").trim();
+}
+
+export function TerminalBlock({ part }: { part: AgentToolCallPart }) {
   const t = useTranslations("Agent.components");
-  const [isOpen, setIsOpen] = React.useState(false);
-  const state = toolStatusToState(status);
-  const isRunning = state === "input-available";
-  const isError = state === "output-error";
-  const commandStr = getTerminalCommandString(raw_input);
-
-  const terminalOutput = (() => {
-    if (raw_output === undefined || raw_output === null) return "";
-    if (typeof raw_output === "string") return raw_output;
-    if (typeof raw_output === "object") {
-      const o = raw_output as Record<string, unknown>;
-      const parts: string[] = [];
-      for (const key of ["output", "stdout", "content", "result", "text"]) {
-        if (typeof o[key] === "string" && o[key]) parts.push(o[key] as string);
-      }
-      if (typeof o["stderr"] === "string" && o["stderr"]) {
-        parts.push(o["stderr"] as string);
-      }
-      if (parts.length > 0) return parts.join("\n");
-      return JSON.stringify(raw_output, null, 2);
-    }
-    return String(raw_output);
-  })();
+  const commandStr = terminalCommand(part.input, part.output);
+  const output = terminalOutput(part.output);
+  const status = part.status ?? undefined;
+  const running = (status ?? "").toLowerCase() === "running";
+  const failed = (status ?? "").toLowerCase() === "failed";
+  const title = commandStr
+    ? `${t("terminalBlock.title")}: ${collapsedCommand(commandStr)}`
+    : t("terminalBlock.title");
+  const copyText = [commandStr && `$ ${commandStr}`, output].filter(Boolean).join("\n");
 
   return (
-    <AcpTerminal
-      output={terminalOutput}
-      isStreaming={isRunning}
-      autoScroll
-      className={isError ? "border-red-500/50 w-full" : "w-full"}
+    <AgentToolCard
+      variant="tool"
+      tone={failed ? "error" : "default"}
+      icon={getToolKindIcon("execute")}
+      title={title}
+      titleTooltip={commandStr || title}
+      status={status}
+      actions={copyText ? <AgentToolCopyAction text={copyText} /> : undefined}
     >
-      <AcpTerminalHeader>
-        <button
-          type="button"
-          aria-expanded={isOpen}
-          onClick={() => setIsOpen((value) => !value)}
-          className="flex min-w-0 flex-1 items-center gap-2 text-left text-sm text-zinc-400 hover:text-zinc-100"
+      {commandStr ? (
+        <div className="flex items-start gap-2 border-b border-border/40 px-3 py-2 font-mono text-[12px] text-foreground/80">
+          <span className="shrink-0 text-emerald-600 dark:text-emerald-400">$</span>
+          <span className="min-w-0 whitespace-pre-wrap break-all">{commandStr}</span>
+        </div>
+      ) : null}
+      {output ? (
+        <AcpTerminal
+          output={output}
+          isStreaming={running}
+          autoScroll={running}
+          className="rounded-none border-0 bg-transparent text-inherit shadow-none"
         >
-          <ChevronRight
-            className={`size-4 shrink-0 transition-transform ${isOpen ? "rotate-90" : ""}`}
-          />
-          <TerminalIcon className="size-4 shrink-0" />
-          <span className="shrink-0">{t("terminalBlock.title")}</span>
-          {!isOpen && commandStr ? (
-            <span className="min-w-0 truncate font-mono text-zinc-300">
-              <span className="text-green-400">$</span> {commandStr}
-            </span>
-          ) : null}
-        </button>
-        <div className="flex items-center gap-1">
-          <AcpTerminalStatus />
-          <AcpTerminalActions>
-            <AcpTerminalCopyButton />
-          </AcpTerminalActions>
-        </div>
-      </AcpTerminalHeader>
-      {isOpen && commandStr && (
-        <div className="flex items-center border-b border-zinc-800">
-          <div className="flex-1 min-w-0 overflow-x-auto px-4 py-2 font-mono text-sm text-zinc-300">
-            <span className="whitespace-nowrap"><span className="text-green-400">$</span> {commandStr}</span>
-          </div>
-          <CommandCopyButton text={commandStr} />
-        </div>
+          <AcpTerminalContent className="max-h-96 px-3 py-2 text-[13px] text-foreground" />
+        </AcpTerminal>
+      ) : (
+        <AgentToolEmptyBody status={status} />
       )}
-      {isOpen ? <AcpTerminalContent className="max-h-60" /> : null}
-    </AcpTerminal>
+    </AgentToolCard>
   );
 }

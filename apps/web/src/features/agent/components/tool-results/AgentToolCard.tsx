@@ -70,7 +70,7 @@ export function AgentToolCard({
       >
         <CollapsibleTrigger
           className={cn(
-            "group flex min-w-0 flex-1 items-center gap-2 px-3 py-2 text-left",
+            "group flex min-w-0 flex-1 cursor-pointer items-center gap-2 px-3 py-2 text-left",
             "hover:bg-muted/50",
           )}
         >

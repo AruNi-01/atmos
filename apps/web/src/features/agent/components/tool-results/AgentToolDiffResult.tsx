@@ -11,6 +11,7 @@ import {
   buildSharedDiffViewOptions,
   getAtmosDiffThemeType,
 } from "@/features/diff/lib/diff-view-constants";
+import { useDisplayToolTitle } from "../agent-chat-cwd-context";
 import { AgentToolCodePreview } from "./AgentToolCodePreview";
 import {
   AgentToolCard,
@@ -70,6 +71,7 @@ export function AgentToolDiffResult({
   defaultOpen?: boolean;
 }) {
   const t = useTranslations("Agent.components.toolResults");
+  const displayTitle = useDisplayToolTitle();
   const { resolvedTheme } = useTheme();
   const isMounted = useSyncExternalStore(
     () => () => {},
@@ -112,7 +114,7 @@ export function AgentToolDiffResult({
     <AgentToolCard
       variant="tool"
       icon={<AgentToolFileGlyph path={path} />}
-      title={title || path}
+      title={displayTitle(title || path, path)}
       titleTooltip={path}
       status={status}
       defaultOpen={defaultOpen}

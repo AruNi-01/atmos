@@ -73,7 +73,7 @@ Two layers must not be confused:
 **Pros**: simple one-way generation; proxy-friendly.
 **Cons**: steer, permission, cancel, and queue dispatch are bidirectional and interleaved; two protocols for one conversation; reconnect is snapshot + new SSE; fights Atmos WS-first + APP-048/049.
 
-**C — Main `/ws` `WsContract` actions + sequenced `agent.event` notifications.** One Computer connection. Actions: create/list/get/send/steer/queue/cancel/permission. Events: `{ conversation_id, event_id, sequence, payload }`. History hydrate is a WS snapshot request (Get Conversation), then subscribe from last sequence.
+**C — Main `/ws` `WsContract` actions + sequenced `agent.event` notifications.** One Computer connection. Actions: create/list/get/send/steer/queue/cancel/permission. Events: `{ chat_id, event_id, sequence, payload }`. History hydrate is a WS snapshot request (Get Conversation), then subscribe from last sequence.
 
 **Pros**: matches Codex/AHP *semantics* without a second RPC dialect; multiplexes many conversations; permission/steer/cancel ride the same channel; Mobile/CLI later reuse the catalog; reconnect is snapshot + sequence; deletes `/ws/agent`.
 **Cons**: event journal / sequence must be honest; high-rate deltas need coalescing in TECH.
@@ -143,7 +143,7 @@ ChatGPT web mostly cannot send while generating (extensions add queues). ChatGPT
 - [ ] Decide in PRD: Auto-steer policy scoped per conversation, per agent, or per user?
 - [ ] Decide in TECH: ACP v2 concurrent `session/prompt` → steer mapping vs capability=false.
 - [ ] Decide in TECH: delta coalescing and reconnect (`after_sequence` vs full snapshot).
-- [ ] Decide in TECH: which new tables vs event log; never `conversation_id == acp_session_id`.
+- [ ] Decide in TECH: which new tables vs event log; never `chat_id == acp_session_id`.
 
 ## References
 

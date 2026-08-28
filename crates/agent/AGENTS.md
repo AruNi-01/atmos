@@ -49,13 +49,10 @@ crates/agent/
 
 ### Public API
 ```rust
-pub use acp_client::{
-    run_acp_session,      // Run ACP session
-    AcpSessionHandle,     // Session handle
-    AcpSessionEvent,      // Session events
-    AtmosAcpClient,       // ACP client
-    AcpToolHandler,       // Tool call handler
+pub use domain::{
+    AgentEvent, AgentProvider, AgentRuntime, AgentRuntimeControl, AgentPrompt,
 };
+// Agent Chat talks to AgentProvider. ACP types stay in acp_client / providers/acp.
 
 pub use manager::AgentManager;
 // AgentManager provides:

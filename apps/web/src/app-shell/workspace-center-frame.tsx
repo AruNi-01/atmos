@@ -801,24 +801,32 @@ function WorkspaceCenterFrameImpl({
             <AgentChatWorkspace
               variant="center"
               instanceKey={tab.value}
-              conversationId={tab.conversationId}
-              onConversationStarted={(conversationId, meta) => {
-                useAgentChatCenterTabsStore.getState().bindConversation({
+              chatId={tab.chatId}
+              onChatStarted={(chatId, meta) => {
+                useAgentChatCenterTabsStore.getState().bindChat({
                   contextId,
                   value: tab.value,
-                  conversationId,
+                  chatId,
                   title: meta?.title,
                   cwd: meta?.cwd,
                   providerId: meta?.providerId,
                 });
               }}
-              onConversationUpdated={(conversationId, meta) => {
-                useAgentChatCenterTabsStore.getState().patchConversation({
+              onChatUpdated={(chatId, meta) => {
+                useAgentChatCenterTabsStore.getState().patchChat({
                   contextId,
-                  conversationId,
+                  chatId,
                   title: meta.title,
                   providerId: meta.providerId,
                   cwd: meta.cwd,
+                });
+              }}
+              onOpenChat={(chatId) => {
+                if (!chatId) return;
+                useAgentChatCenterTabsStore.getState().bindChat({
+                  contextId,
+                  value: tab.value,
+                  chatId,
                 });
               }}
             />

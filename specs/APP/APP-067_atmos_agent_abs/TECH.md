@@ -12,18 +12,47 @@ Addresses **M1–M19**. N1–N6 deferred. APP-024 terminal-agent run-config UI s
 
 | Fork | Decision |
 |------|----------|
-| Client transport | Main `/ws` `WsContract` actions + `conversation_event` notifications. Delete dedicated `/ws/agent/{session_id}` as the chat model. |
-| History hydrate | WS `conversation_get` / `conversation_messages` snapshot, then subscribe from `after_sequence`. No REST list/get for v1. |
-| Persistence | **Files, not SQLite.** One directory per conversation under `~/.atmos/data/agent/conversations/`. `meta.json` for identity/runtime; **append-only `transcript.jsonl`** for messages/turns/tools/permissions (Claude/Codex-style). `queue.json` for follow-ups. No conversation tables in `atmos.db`. |
+| Client transport | Main `/ws` `WsContract` actions + `agent_chat_event` notifications. Delete dedicated `/ws/agent/{session_id}` as the chat model. |
+| History hydrate | WS `agent_chat_get` / `agent_chat_messages` snapshot, then subscribe from `after_sequence`. No REST list/get for v1. |
+| Persistence | **Files, not SQLite.** One directory per conversation under `~/.atmos/data/agent/chats/`. `meta.json` for identity/runtime; **append-only `transcript.jsonl`** for messages/turns/tools/permissions (Claude/Codex-style). `queue.json` for follow-ups. No conversation tables in `atmos.db`. |
 | Steer | Capability-gated same-turn inject. ACP v1 → `supports_steer = false`. ACP v2 concurrent `session/prompt` only if the agent accepts it while running. Never cancel+resend. |
 | Follow-up policy | Extend existing `AgentBehaviourSettings` with `followup_policy: "queue" \| "steer"`, default `"queue"`, global for the Atmos session. |
 | Pre-spawn catalog | On first web `/ws` (enter app), start **one** in-process prefetch worker for every **user-enabled** agent. Same worker keeps polling; do **not** register an APP-051 `IntervalSpec` timer. Cache TTL **4 hours**. Strategies: CLI discovery, local config files, temporary ACP session (model/mode `configOptions`). |
-| IDs | Atmos `guid` UUIDs (same as other tables). Never `conversation_id == acp_session_id`. |
+| IDs | Atmos `guid` UUIDs (same as other tables). Never `chat_id == acp_session_id`. |
+| Host model | One Atmos **Agent Chat** document. Wire: `agent_chat_*` + `agent_chat_event`. Id: `chat_id`. Disk: `~/.atmos/data/agent/chats/`. Provider trait: `AgentRuntime`. Clients fold **`AgentEvent[]`**. Turn / Message / Part are projections. |
 | Modal host | Remove `ModalAgentChatPanel` as a global host. Keep history sidebar + `/agent-chat` standalone. |
 | APP-018 leftover | `session/resume`, `session/close`, capability honesty stay **inside** the ACP adapter. |
 | Cursor list argv | Canonical: `cursor-agent --list-models` (already in `builtin_agents.json`). Resolve the executable the same way as other agents (`cmd` / PATH). Do not also ship a `cursor models` spec unless the installed binary’s `--help` requires it. |
 | Prefetch poll | Worker sleep **30 minutes**; cache TTL **4 hours**. |
 | Delta persist | Projector flushes assistant text to rows at most every **100ms**. |
+
+## Unified Agent host
+
+Clients (Web / Desktop now; Mobile / CLI later) speak one host document and one event log. ACP / CLI / SDK stay behind a provider adapter.
+
+```text
+Client  Web / Mobile / CLI / Desktop
+              │
+              ▼
+        Agent Chat          // Atmos chat_id; wire: agent_chat_*
+              │
+        AgentEvent[]        // one log for persist, WS, and live fold
+              │
+        Persistence         // meta.json + transcript.jsonl + queue.json
+              │
+              ▼
+        AgentProvider
+              │
+        Provider runtime    // process handle; not an ACP session id
+              │
+        Adapter
+              │
+        ACP / CLI / SDK
+```
+
+Do **not** call the host `AgentSession`. That name collides with ACP `session/new`. The provider handle is `AgentRuntime`.
+
+Legacy names that must not grow: `ChatSession`, `ThreadEntry` as SOT, `LiveTurn`, `AgentSessionService` ACP host, `AgentChatPayload` as a second event enum (wire payload is the host `AgentEvent` envelope). `agent_chat_get` and the live fold share `AgentMessage` / `AgentPart`. `FoldedTurn` stays internal to the host for steer/cancel.
 
 ## Architecture overview
 
@@ -31,19 +60,16 @@ Addresses **M1–M19**. N1–N6 deferred. APP-024 terminal-agent run-config UI s
 apps/web  (center-stage tab + list + standalone)
     │  main /ws  (APP-048/049)
     ▼
-apps/api  conversation router + event adapter
+apps/api  agent_chat router + event adapter
     │
     ▼
-crates/core-service  ConversationService + Projector + Queue
-    │                         │
-    │                         ▼
-    │              crates/infra  conversation tables
+crates/core-service  AgentChatService + Projector + Queue
+    │
     ▼
 crates/agent
-    domain/          AgentProvider, AgentSession, AgentEvent, AgentModel
+    domain/          AgentProvider, AgentRuntime, AgentEvent, AgentModel
     catalog/         strategies: config | cli | acp  + parsers + cache
     providers/acp/   ACP process, stdio JSON-RPC, permission, resume handle
-    runtime/         in-process session map
 apps/api            first /ws connect starts catalog prefetch worker (same job loops)
 ```
 
@@ -64,23 +90,23 @@ flowchart TB
   end
 
   subgraph ws [Main /ws · APP-048/049]
-    Actions["conversation_* · agent_model_catalog_get"]
-    Events["conversation_event · agent_model_catalog_updated"]
+    Actions["agent_chat_* · agent_model_catalog_get"]
+    Events["agent_chat_event · agent_model_catalog_updated"]
   end
 
   subgraph api [apps/api]
-    Router["ws/router/conversation.rs"]
+    Router["ws/router/agent_chat.rs"]
     Prefetch["CatalogPrefetchWorker · first web /ws · same loop"]
     Upload["POST /api/agent/upload-attachments"]
   end
 
   subgraph svc [crates/core-service]
-    Conv["ConversationService"]
+    Conv["AgentChatService"]
     Proj["Projector · AgentEvent to jsonl/json"]
     Queue["Follow-up queue.json"]
   end
 
-  subgraph data ["~/.atmos/data/agent/conversations"]
+  subgraph data ["~/.atmos/data/agent/chats"]
     Tables["meta.json · transcript.jsonl · queue.json · attachments/"]
   end
 
@@ -198,39 +224,39 @@ Optional: a tiny FS helper in `crates/infra/src/utils/` only if atomic write/ren
 ### crates/core-service
 
 ```text
-crates/core-service/src/service/conversation/
-  mod.rs              # ConversationService
+crates/core-service/src/service/agent_chat/
+  mod.rs              # AgentChatService
   store.rs            # meta.json / transcript.jsonl / queue.json / index.json
-  projector.rs        # AgentEvent → jsonl + outbound ConversationClientEvent
+  apply_event.rs      # AgentEvent → jsonl + outbound AgentChatEvent
   queue.rs            # pending follow-ups in queue.json, dispatch on turn complete
   catalog.rs          # thin wrap of crates/agent catalog + cwd/agent resolution
 ```
 
-`AgentSessionService` (`crates/core-service/src/service/agent_session.rs`) stops being the chat identity. Runtime spawn/resume becomes `ConversationService` calling `AgentProvider`. Delete `~/.atmos/data/agent/session_config_snapshots.json` as SOT (selected model lives in `meta.json`).
+`AgentSessionService` (`crates/core-service/src/service/agent_session.rs`) stops being the chat identity. Runtime spawn/resume becomes `AgentChatService` calling `AgentProvider`. Delete `~/.atmos/data/agent/session_config_snapshots.json` as SOT (selected model lives in `meta.json`).
 
 `terminal_agent_model_catalog` in `crates/core-service/src/service/automation/agents.rs` becomes a facade over `crates/agent` catalog for command-spec agents so APP-024 keeps its WS action but not a second parser.
 
 ### apps/api
 
-- New router `apps/api/src/api/ws/router/conversation.rs`.
-- DTOs in `apps/api/src/api/ws/message/conversation.rs` (or `message.rs` module split).
-- Map service events → `WsEvent::ConversationEvent`.
+- New router `apps/api/src/api/ws/router/agent_chat.rs`.
+- DTOs in `apps/api/src/api/ws/message/agent_chat.rs` (or `message.rs` module split).
+- Map service events → `WsEvent::AgentChatEvent`.
 - Delete chat path: `apps/api/src/api/ws/agent_handler.rs`, `POST /api/agent/session`, `POST /api/agent/session/resume`, `GET /api/agent/sessions`.
 - Keep `POST /api/agent/upload-attachments` (multipart; WS is a poor fit). Paths stored as attachment parts on send.
 - Keep existing `AgentContract` rows: `agent_list` / install / config / registry / custom_agent_*. Logout: WS `agent_logout` if not already mapped; do not keep REST logout as the chat API.
 
 ### packages/api-types + api-client
 
-Same PR as Rust: extract actions/events, add `contract/conversation.ts`, `dto/conversation.ts`, `WsEventContract` row for `conversation_event`. Apps call `wsRequest("conversation_send", { ... })` with no extra `<T>`. Feature wrappers stay in `apps/web`.
+Same PR as Rust: extract actions/events, add `contract/agent-chat.ts`, `dto/agent-chat.ts`, `WsEventContract` row for `agent_chat_event`. Apps call `wsRequest("agent_chat_send", { ... })` with no extra `<T>`. Feature wrappers stay in `apps/web`.
 
 ### apps/web
 
-- `CenterTabKind` += `"agent-chat"` in `apps/web/src/app-shell/center-stage-tab-model.ts`. Tab id binds `conversation_id`.
+- `CenterTabKind` += `"agent-chat"` in `apps/web/src/app-shell/center-stage-tab-model.ts`. Tab id binds `chat_id`.
 - Plus menu New Agent Chat next to New Terminal (`CenterStageTabBar.tsx`). Empty launcher + New Workspace can create a conversation tab (M2).
-- Chat chrome: transcript + composer + existing history sidebar, now fed by `conversation_list` grouped by `cwd`.
+- Chat chrome: transcript + composer + existing history sidebar, now fed by `agent_chat_list` grouped by `cwd`.
 - Remove `ModalAgentChatPanel` from `apps/web/src/app/(app)/layout.tsx`.
-- Standalone `apps/web/src/app/agent-chat/page.tsx` takes `conversationId` (create if missing).
-- Composer: idle send → `conversation_send`; busy Enter follows `followup_policy`; one-shot for the other action; Stop → `conversation_cancel` (does not send draft).
+- Standalone `apps/web/src/app/agent-chat/page.tsx` takes `chatId` (create if missing).
+- Composer: idle send → `agent_chat_send`; busy Enter follows `followup_policy`; one-shot for the other action; Stop → `agent_chat_cancel` (does not send draft).
 - New Chat header: agent picker → `agent_model_catalog_get` → model + thinking (if catalog says so) **before** first send.
 - Do not import ACP schemas.
 
@@ -238,23 +264,21 @@ Same PR as Rust: extract actions/events, add `contract/conversation.ts`, `dto/co
 
 | Keep | Adapt (thin mapper) | Replace |
 |------|---------------------|---------|
-| `@workspace/ui` ai-elements: `Conversation` / `ConversationContent` (stick-to-bottom), `Message` / `MessageContent` / `MessageResponse` (**Streamdown** token animation), `Reasoning`, `Tool` / `Skill`, `Attachments`, `Confirmation`, prompt-input primitives | `AgentChatEntryView`, `AssistantTurnView`, `ToolOrSkillBlock`, `PlanBlockView`, `TerminalBlock`, `SubAgentBlockView` — keep rendering; feed them **MessagePart** (or a UI view mapped from it), not ACP `raw_input` | `use-agent-chat-session`, `use-agent-chat-message-handler`, `use-agent-chat-history-handlers`, `agent-runtime-socket.ts` (`/ws/agent`), `thread/reducer.ts` folding `AgentServerMessage`, restore-replay batching |
-| History sidebar chrome + cwd grouping UI (`AgentChatHistorySidebar*`) | List rows bind `conversation_id` + Atmos title/cwd; drop `acp_session_id` as identity | `use-acp-session-list` / ACP `session/list` |
+| `@workspace/ui` ai-elements: `Conversation` / `ConversationContent` (stick-to-bottom), `Message` / `MessageContent` / `MessageResponse` (**Streamdown** token animation), `Reasoning`, `Tool` / `Skill`, `Attachments`, `Confirmation`, prompt-input primitives | `AgentChatMessageView`, `AssistantMessageView`, `ToolOrSkillBlock`, `PlanBlockView`, `TerminalBlock`, `SubAgentBlockView` — render `AgentMessage.parts` (`AgentPart`); tool skin may adapt a `tool_call` part locally | `ThreadEntry` / `LiveTurn` / `turnsToThreadEntries`; ACP `/ws/agent` handlers; `thread/reducer.ts` on the live path |
+| History sidebar chrome + cwd grouping UI (`AgentChatHistorySidebar*`) | List rows bind `chat_id` + Atmos title/cwd; drop `acp_session_id` as identity | `use-acp-session-list` / ACP `session/list` |
 | `AgentPromptComposer`, `MessageQueueDock`, copy/usage/activity chrome | Enter routes via global `followup_policy`; dock reads conversation queue WS | Local dialog-store queue as SOT; idle-only dispatch in the panel |
 | `AgentChatPanel` layout (header + list + transcript + composer) | Add center-stage `agent-chat` tab host; keep standalone page | `ModalAgentChatPanel` as global host; `variant: modal` as the product default |
 
-Streaming: keep Streamdown. Deltas arrive as `conversation_event` `assistant_message_delta` on main `/ws`. Client appends to the current assistant text part and re-renders `MessageResponse`. Do not keep a second socket or replay ACP `stream` frames into `ThreadEntry`.
-
-`ThreadEntry` may remain as a **view model** (`UserEntry` / `AssistantEntry` blocks) if a mapper `MessagePart[] → AssistantBlock[]` is cheaper than rewriting `AssistantTurnView`. That mapper lives in `apps/web`; it must not import ACP schema or guess tool types from `raw_input` — tool kind comes from host `ToolCall` payload.
+Streaming: keep Streamdown. Deltas arrive as `agent_chat_event` `assistant_message_delta` on main `/ws`. Snapshot `messages` and live `foldMessagesFromEvent` share `@atmos/api-types` `AgentEvent` → `AgentMessage` / `AgentPart`. Fold normalizes think tools into `thinking` parts, todo/switch-mode tools into `plan` parts, and remaining tools onto closed `AgentToolKind`. `AgentPartView` / `ToolView` render parts; host chrome (plan/permission/queue) stays outside the transcript. Do not keep a second socket, `LiveTurn`, `ThreadEntry`, or `ToolCallBlock` on the live path.
 
 ## Data model
 
 File-backed, matching local coding agents (Claude Code `~/.claude/projects/**/*.jsonl`, Codex `~/.codex/sessions/**/*.jsonl`, Grok `summary.json` + `chat_history.jsonl`). Not `atmos.db`. Layout follows `agents/references/runtime/atmos-home-layout.md` (`data/` = durable product data):
 
 ```text
-~/.atmos/data/agent/conversations/
+~/.atmos/data/agent/chats/
   index.json                         # list summaries (rebuildable from meta.json)
-  {conversation_id}/
+  {chat_id}/
     meta.json                        # identity, cwd, provider, runtime, seq
     transcript.jsonl                 # append-only transcript (SOT for turns/messages)
     queue.json                       # pending follow-ups
@@ -412,7 +436,7 @@ Documented CLI / config (examples in the product prompt were not exhaustive; thi
 
 ### Apply selection
 
-`conversation_create` / first `conversation_send` copy `selected_model` + `selected_thinking` (+ mode if any) onto `agent_runtime_session` and into `AgentSessionConfig`. Process starts on that model.
+`agent_chat_create` / first `agent_chat_send` copy `selected_model` + `selected_thinking` (+ mode if any) onto `agent_runtime_session` and into `AgentSessionConfig`. Process starts on that model.
 
 ## Transport
 
@@ -422,25 +446,25 @@ All names are serde snake_case `WsAction` / `WsEvent` variants in `apps/api/src/
 
 | Action | Input (core) | Output |
 |--------|----------------|--------|
-| `conversation_create` | `workspace_id?`, `project_id?`, `cwd?`, `provider_id`, `model?`, `thinking?`, `title?` | Conversation summary (no spawn) |
-| `conversation_list` | `workspace_id?`, `project_id?`, `cwd?`, `cursor?`, `limit?` | page of summaries |
-| `conversation_get` | `conversation_id` | conversation + latest turns/messages enough to paint |
-| `conversation_messages` | `conversation_id`, `before_seq?`, `limit?` | older page |
-| `conversation_rename` | `conversation_id`, `title` | summary |
-| `conversation_delete` | `conversation_id` | `{ ok }` (soft-delete; close runtime if any) |
-| `conversation_subscribe` | `conversation_id`, `after_sequence?` | `{ last_event_seq }` |
-| `conversation_unsubscribe` | `conversation_id` | `{ ok }` |
-| `conversation_send` | `conversation_id`, `text`, `attachment_paths?` | `{ turn_id }` — idle: new turn; spawns provider if detached |
-| `conversation_steer` | `conversation_id`, `expected_turn_id`, `text` | `{ turn_id }` or error |
-| `conversation_queue_add` | `conversation_id`, `text`, `attachment_paths?` | queue item |
-| `conversation_queue_update` | `item_id`, `text?`, `status?` | item |
-| `conversation_queue_reorder` | `conversation_id`, `item_ids` | items |
-| `conversation_queue_delete` | `item_id` | `{ ok }` |
-| `conversation_cancel` | `conversation_id` | `{ ok }` interrupt current turn |
-| `conversation_permission_respond` | `conversation_id`, `request_id`, `option_id` / allow+remember | `{ ok }` |
+| `agent_chat_create` | `workspace_id?`, `project_id?`, `cwd?`, `provider_id`, `model?`, `thinking?`, `title?` | Conversation summary (no spawn) |
+| `agent_chat_list` | `workspace_id?`, `project_id?`, `cwd?`, `cursor?`, `limit?` | page of summaries |
+| `agent_chat_get` | `chat_id` | conversation + latest turns/messages enough to paint |
+| `agent_chat_messages` | `chat_id`, `limit?` | last N folded turns |
+| `agent_chat_rename` | `chat_id`, `title` | summary |
+| `agent_chat_delete` | `chat_id` | `{ ok }` (soft-delete; close runtime if any) |
+| `agent_chat_subscribe` | `chat_id`, `after_sequence?` | `{ last_event_seq }` |
+| `agent_chat_unsubscribe` | `chat_id` | `{ ok }` |
+| `agent_chat_send` | `chat_id`, `text`, `attachment_paths?` | `{ turn_id }` — idle: new turn; spawns provider if detached |
+| `agent_chat_steer` | `chat_id`, `expected_turn_id`, `text` | `{ turn_id }` or error |
+| `agent_chat_queue_add` | `chat_id`, `text`, `attachment_paths?` | queue item |
+| `agent_chat_queue_update` | `item_id`, `text?`, `status?` | item |
+| `agent_chat_queue_reorder` | `chat_id`, `item_ids` | items |
+| `agent_chat_queue_delete` | `item_id` | `{ ok }` |
+| `agent_chat_cancel` | `chat_id` | `{ ok }` interrupt current turn |
+| `agent_chat_permission_respond` | `chat_id`, `request_id`, `option_id` / allow+remember | `{ ok }` |
 | `agent_model_catalog_get` | `agent_id`, `refresh?` | `AgentModelCatalog` (cache-first) |
 
-Busy Enter: client reads `followup_policy` and calls `conversation_queue_add` or `conversation_steer`. One-shot uses the other action. If `supports_steer` is false, hide Steer and force Queue.
+Busy Enter: client reads `followup_policy` and calls `agent_chat_queue_add` or `agent_chat_steer`. One-shot uses the other action. If `supports_steer` is false, hide Steer and force Queue.
 
 Follow-up setting: add `followup_policy` to `agent_behaviour_settings_get` / `_update` (`packages/api-types/src/ws/dto/settings.ts`). Default `"queue"`.
 
@@ -448,9 +472,9 @@ Follow-up setting: add `followup_policy` to `agent_behaviour_settings_get` / `_u
 
 ```json
 {
-  "type": "conversation_event",
+  "type": "agent_chat_event",
   "payload": {
-    "conversation_id": "…",
+    "chat_id": "…",
     "event_id": "…",
     "sequence": 123,
     "payload": { "type": "assistant_message_delta", "message_id": "…", "delta": "…" }
@@ -460,7 +484,7 @@ Follow-up setting: add `followup_policy` to `agent_behaviour_settings_get` / `_u
 
 Also emit `agent_model_catalog_updated` `{ agent_id, catalog }` when the prefetch worker (or a refresh) writes a live catalog so open pickers update without a second request.
 
-Subscribe is per connection. Fan-out conversation events to every subscriber of that `conversation_id` (standalone + center-stage). Unload provider after idle timeout using existing agent behaviour idle setting; conversation rows remain.
+Subscribe is per connection. Fan-out conversation events to every subscriber of that `chat_id` (standalone + center-stage). Unload provider after idle timeout using existing agent behaviour idle setting; conversation rows remain.
 
 ### REST (exception)
 
@@ -470,15 +494,15 @@ No new REST for conversation CRUD.
 
 ## Persistence & reconnect
 
-1. Open tab → `conversation_get` (fold `meta.json` + `transcript.jsonl`, including last assistant snapshot) → `conversation_subscribe(after_sequence: last_event_seq)`.
+1. Open tab → `agent_chat_get` (fold `meta.json` + `transcript.jsonl`, including last assistant snapshot) → `agent_chat_subscribe(after_sequence: last_event_seq)`.
 2. No provider start on get (`M5`).
-3. First `conversation_send` / `conversation_steer` / queue dispatch → `create_session` or `resume_session(persistence_handle)` from `meta.json`.
+3. First `agent_chat_send` / `agent_chat_steer` / queue dispatch → `create_session` or `resume_session(persistence_handle)` from `meta.json`.
 4. Reload during a running turn: disk has ≤100ms-lag snapshots; subscribe catches new events. If the process died, `runtime_status` is `detached`; UI shows stored messages until the user continues.
 
 ## Steer mapping
 
 ```text
-conversation_steer
+agent_chat_steer
   → require running turn and expected_turn_id match
   → persist user message kind=steer on that turn
   → AgentSession.steer()
@@ -503,8 +527,8 @@ Permission open (`waiting_permission`): queue dispatch waits; steer is allowed a
 
 1. Conversation file store (`meta.json` / `transcript.jsonl` / `queue.json` / `index.json`) + tests. No UI.
 2. `crates/agent` domain + ACP adapter emitting `AgentEvent`. Catalog strategies + parsers + 4h cache. Prefetch worker on first web `/ws`. `agent_model_catalog_get` + `agent_model_catalog_updated`. Facade APP-024 catalog.
-3. `ConversationService` CRUD + restore. WS list/get/rename/delete. Web history sidebar + center-stage tab + plus menu. No live spawn yet.
-4. Projector + spawn/resume on send. Permission. `queue.json` + dock. Delete `/ws/agent` and REST session create/list/resume. Standalone on `conversation_id`.
+3. `AgentChatService` CRUD + restore. WS list/get/rename/delete. Web history sidebar + center-stage tab + plus menu. No live spawn yet.
+4. Projector + spawn/resume on send. Permission. `queue.json` + dock. Delete `/ws/agent` and REST session create/list/resume. Standalone on `chat_id`.
 5. Steer + `followup_policy`. Hide Steer when unsupported.
 6. Remove `ModalAgentChatPanel`. Composer pre-spawn model/thinking. Drop `ThreadEntry` ACP types.
 

@@ -221,7 +221,7 @@
       "fullScreenEnter": "进入全屏",
       "fullScreenExit": "退出全屏",
       "acpAgent": "ACP 助手",
-      "openAgentChat": "打开 Agent Chat",
+      "openAgentChat": "打开对话",
       "opacity": "不透明度",
       "tokenUsage": "Token 用量"
     },
@@ -381,7 +381,7 @@
     },
     "centerStageTabBar": {
       "newTerminalTab": "终端",
-      "newAgentChat": "Agent Chat",
+      "newAgentChat": "对话",
       "agentChatDraft": "新对话",
       "newMarkdown": "Markdown",
       "newBrowser": "浏览器",
@@ -451,8 +451,8 @@
       "clearIdle": "清理空闲",
       "clearSession": "清除",
       "permissionRequested": "权限请求中",
-      "openAgentChat": "打开 Agent Chat",
-      "acpChat": "ACP Chat",
+      "openAgentChat": "打开对话",
+      "acpChat": "对话",
       "activeWebSocket": "活跃 WebSocket",
       "notConnected": "未连接",
       "loading": "加载中...",
@@ -2058,9 +2058,9 @@
       "titleNamed": "运行 {id}",
       "close": "关闭运行详情",
       "standalone": {
-        "title": "独立会话",
-        "description": "在本地对话中继续这次运行。",
-        "close": "关闭会话"
+        "title": "独立聊天",
+        "description": "在本地聊天中继续这次运行。",
+        "close": "关闭聊天"
       }
     },
     "setup": {
@@ -2373,7 +2373,7 @@
         "enabled": "自动化已启用",
         "disabled": "自动化已停用",
         "runCancelled": "运行已取消",
-        "openingStandaloneConversation": "正在打开独立会话",
+        "openingStandaloneChat": "正在打开独立聊天",
         "promptCopied": "续写提示词已复制到剪贴板。",
         "clipboardUnavailable": "无法使用剪贴板。提示词已保存到 {promptPath}",
         "openingTerminal": "正在打开终端"
@@ -2491,7 +2491,7 @@
         "back": "返回",
         "refresh": "刷新",
         "runNow": "立即运行",
-        "closeConversation": "关闭会话"
+        "closeChat": "关闭聊天"
       },
       "empty": {
         "unavailableTitle": "自动化不可用",
@@ -2769,17 +2769,17 @@
   },
   "Agent": {
     "workspace": {
-      "history": "对话",
-      "newConversation": "新建对话",
+      "history": "聊天",
+      "newChat": "新建聊天",
       "untitled": "未命名",
       "noFolder": "无文件夹",
-      "emptyTitle": "开始对话",
-      "emptyDescription": "发送一条消息即可开始这段对话。",
+      "emptyTitle": "开始聊天",
+      "emptyDescription": "发送一条消息即可开始这段聊天。",
       "placeholder": "向 Agent 发送消息",
       "queue": "排队",
       "steer": "引导",
       "stop": "停止",
-      "rename": "重命名对话",
+      "rename": "重命名聊天",
       "permissionTitle": "需要授权",
       "allow": "允许",
       "reject": "拒绝",
@@ -2851,6 +2851,7 @@
           "connected": "给当前连接的 Agent 发送消息...",
           "selectAgent": "选择一个 Agent 后开始聊天..."
         },
+        "removeSlashCommand": "移除 {name}",
         "noAgent": "没有 Agent",
         "selectAgent": "Agent",
         "queue": "排队",
@@ -2904,7 +2905,7 @@
           "tooltip": "更多操作"
         },
         "actions": {
-          "exportConversation": "导出会话",
+          "exportChat": "导出聊天",
           "openInWindow": "在窗口中打开",
           "returnToEmbedded": "回到嵌入聊天",
           "logoutAgent": "退出 Agent 登录"
@@ -3171,7 +3172,7 @@
         "restoringSession": "正在恢复会话...",
         "empty": {
           "resumedTitle": "会话已恢复",
-          "startTitle": "开始对话",
+          "startTitle": "开始聊天",
           "resumedDescription": "这个 Agent 已恢复会话上下文。发送一条消息以继续。",
           "startDescription": "在下方输入消息即可开始聊天"
         },
@@ -3181,10 +3182,13 @@
         "allow": "允许",
         "copy": {
           "userAria": "复制用户消息",
-          "message": "复制消息",
-          "turnAria": "复制当前轮消息",
-          "turn": "复制当前轮"
-        }
+          "assistantAria": "复制助手消息",
+          "message": "复制消息"
+        },
+        "workedFor": "工作了 {duration}",
+        "thinking": "思考中...",
+        "thoughtFor": "思考了 {duration}",
+        "thoughtForFew": "思考了几秒"
       },
       "selector": {
         "selectAgent": "选择 Agent",
@@ -3205,7 +3209,7 @@
         "navigation": "消息导航",
         "assistantResponding": "助手正在回复...",
         "assistantPending": "正在等待助手回复。",
-        "jumpToMessage": "跳转到第 {turnNumber} 条消息：{userText}"
+        "jumpToMessage": "跳转到第 {messageNumber} 条消息：{userText}"
       },
       "toolOrSkill": {
         "file": "文件",
@@ -3807,7 +3811,7 @@
   },
   "Welcome": {
     "components": {
-      "startAgentChat": "开始 Agent Chat",
+      "startAgentChat": "开始对话",
       "helpers": {
         "placeholderTemplates": {
           "makeInside": "你希望 {agent} 在 {project} 里做什么？",
@@ -6182,7 +6186,7 @@
           },
           "agents": {
             "title": "ACP Agents",
-            "description": "启用 ACP Chat 面板，用于图形界面的 Agent 对话，并可从 Launchpad 和底部区域快速访问。"
+            "description": "启用 Agent Chat，用于图形界面的 Agent 聊天，并可从 Launchpad 和底部区域快速访问。"
           },
           "automations": {
             "title": "Automations",
@@ -7113,7 +7117,7 @@
         "streaming": "输出中"
       },
       "download": {
-        "defaultConversationName": "对话"
+        "defaultChatName": "聊天"
       }
     }
   },

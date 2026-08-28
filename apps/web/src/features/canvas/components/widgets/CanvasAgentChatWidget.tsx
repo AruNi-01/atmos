@@ -48,14 +48,14 @@ function CanvasAgentChatWidgetContent({
   // Isolate this card from sidebar chat and other agent-chat widgets.
   const instanceKey = source.instanceId?.trim() || String(shape.id);
 
-  const persistConversationId = React.useCallback(
-    (conversationId: string) => {
+  const persistChatId = React.useCallback(
+    (chatId: string) => {
       const current = editor.getShape(shape.id as TLShapeId);
       if (!current || current.type !== "canvas-widget") return;
       const props = current.props as CanvasWidgetShape["props"];
       const src = props.source;
       if (!src || src.type !== "agent-chat") return;
-      if ((src.conversationId ?? null) === conversationId) return;
+      if ((src.chatId ?? null) === chatId) return;
       editor.run(
         () => {
           editor.updateShape({
@@ -66,7 +66,7 @@ function CanvasAgentChatWidgetContent({
               source: {
                 ...src,
                 instanceId: src.instanceId ?? instanceKey,
-                conversationId,
+                chatId,
               },
             },
           });
@@ -86,8 +86,9 @@ function CanvasAgentChatWidgetContent({
         allowFullscreen={false}
         contextOverride={contextOverride}
         instanceKey={instanceKey}
-        conversationId={source.conversationId ?? null}
-        onOpenConversation={persistConversationId}
+        chatId={source.chatId ?? null}
+        onChatStarted={persistChatId}
+        onOpenChat={persistChatId}
       />
     </div>
   );

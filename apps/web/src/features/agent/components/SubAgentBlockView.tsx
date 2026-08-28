@@ -10,7 +10,7 @@ import {
 import { ChevronDown } from "lucide-react";
 import type { AtmosSubAgentMessage } from "@/features/agent/lib/agent/subagent";
 import { MarkdownRenderer } from "@/shared/components/markdown/MarkdownRenderer";
-import { ToolOrSkillBlock } from "./ToolOrSkillBlock";
+import { childToolToPart, ToolView } from "./ToolView";
 import { AgentToolDiffResult } from "./tool-results";
 
 function SubAgentLabelRow({
@@ -127,7 +127,7 @@ export function SubAgentBlockView({ message }: { message: AtmosSubAgentMessage }
               {isToolUsesOpen ? (
                 <div className="space-y-3 border-t border-border/50 p-3">
                   {message.childToolCalls.map((toolCall) => (
-                    <ToolOrSkillBlock key={toolCall.tool_call_id} type="tool_call" {...toolCall} />
+                    <ToolView key={toolCall.tool_call_id} part={childToolToPart(toolCall)} />
                   ))}
                 </div>
               ) : null}

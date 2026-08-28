@@ -8,13 +8,13 @@ import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
 
 export function AgentChatStandalonePage() {
   const searchParams = useSearchParams();
-  const requested = searchParams.get("conversationId")?.trim() || null;
+  const requested = searchParams.get("chatId")?.trim() || null;
   const instanceKey = searchParams.get("instanceKey")?.trim() || null;
-  const [conversationId, setConversationId] = useState<string | null>(requested);
+  const [chatId, setChatId] = useState<string | null>(requested);
   const connected = useWebSocketStore((state) => state.connectionState === "connected");
 
   useEffect(() => {
-    if (requested) setConversationId(requested);
+    if (requested) setChatId(requested);
   }, [requested]);
 
   return (
@@ -23,10 +23,10 @@ export function AgentChatStandalonePage() {
       {connected ? (
         <AgentChatWorkspace
           variant="standalone"
-          conversationId={conversationId}
+          chatId={chatId}
           instanceKey={instanceKey}
-          onConversationStarted={setConversationId}
-          onOpenConversation={(id) => setConversationId(id || null)}
+          onChatStarted={setChatId}
+          onOpenChat={(id) => setChatId(id || null)}
         />
       ) : null}
     </main>

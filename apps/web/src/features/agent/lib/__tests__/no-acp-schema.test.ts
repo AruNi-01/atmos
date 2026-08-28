@@ -17,19 +17,17 @@ function walk(dir: string, acc: string[] = []): string[] {
   return acc;
 }
 
+const ALLOW_ACP_ADAPTER = [
+  "/hooks/use-agent-session.ts",
+  "/lib/agent-runtime-socket.ts",
+  "/lib/agent/thread/reducer.ts",
+  "/lib/agent-chat-session-handoff.ts",
+];
+
 describe("S15 Agent Chat modules do not import ACP schema types", () => {
   it("denies vendor ACP schema and session/list identity imports in host modules", () => {
     const files = walk(ROOT).filter((path) => {
-      return (
-        path.includes("/components/AgentChatWorkspace") ||
-        path.includes("/components/AgentChatPanel") ||
-        path.includes("/components/AgentChatStandalonePage") ||
-        path.includes("/lib/followup-policy") ||
-        path.includes("/lib/group-conversations") ||
-        path.includes("/lib/conversation-") ||
-        path.includes("/store/use-agent-chat-center-tabs") ||
-        path.includes("/hooks/use-conversation-chat-session")
-      );
+      return !ALLOW_ACP_ADAPTER.some((suffix) => path.endsWith(suffix));
     });
     expect(files.length).toBeGreaterThan(0);
     for (const file of files) {

@@ -17,15 +17,15 @@ pub struct LogoutAgentPayload {
     pub auth_method_id: Option<String>,
 }
 
-/// POST /api/agent/upload-attachments — conversation files go under
-/// `conversations/{id}/attachments/`; terminal-agent uploads may still use a
+/// POST /api/agent/upload-attachments — Agent Chat files go under
+/// `chats/{id}/attachments/`; terminal-agent uploads may still use a
 /// bounded workspace `.atmos/attachments/` directory.
 pub async fn upload_attachments(
     State(state): State<AppState>,
     mut multipart: Multipart,
 ) -> ApiResult<Json<ApiResponse<Value>>> {
     let mut local_path: Option<String> = None;
-    let mut conversation_id: Option<String> = None;
+    let mut chat_id: Option<String> = None;
     let mut saved_paths: Vec<String> = Vec::new();
 
     while let Some(field) = multipart
@@ -35,11 +35,11 @@ pub async fn upload_attachments(
     {
         let name = field.name().unwrap_or("").to_string();
 
-        if name == "conversation_id" {
+        if name == "chat_id" {
             let text = field.text().await.map_err(|e| {
-                crate::error::ApiError::BadRequest(format!("Failed to read conversation_id: {}", e))
+                crate::error::ApiError::BadRequest(format!("Failed to read chat_id: {}", e))
             })?;
-            conversation_id = Some(text);
+            chat_id = Some(text);
             continue;
         }
 
@@ -60,11 +60,11 @@ pub async fn upload_attachments(
                 crate::error::ApiError::BadRequest(format!("Failed to read file data: {}", e))
             })?;
 
-            if let Some(conversation_id) = conversation_id.as_deref() {
+            if let Some(chat_id) = chat_id.as_deref() {
                 let path = state
                     .ws_message_service
-                    .conversation()
-                    .save_attachment(conversation_id, &filename, &data)
+                    .agent_chat()
+                    .save_attachment(chat_id, &filename, &data)
                     .map_err(|e| crate::error::ApiError::BadRequest(e.to_string()))?;
                 saved_paths.push(path.to_string_lossy().to_string());
                 continue;
@@ -72,7 +72,7 @@ pub async fn upload_attachments(
 
             let base_path = local_path.clone().ok_or_else(|| {
                 crate::error::ApiError::BadRequest(
-                    "conversation_id or local_path is required before files".to_string(),
+                    "chat_id or local_path is required before files".to_string(),
                 )
             })?;
             let root = PathBuf::from(&base_path);
@@ -125,7 +125,7 @@ pub async fn logout_agent(
 ) -> ApiResult<Json<ApiResponse<Value>>> {
     let cwd = payload.cwd.as_ref().map(PathBuf::from);
     let result = state
-        .agent_session_service
+        .agent_service
         .logout_agent(&payload.registry_id, cwd, payload.auth_method_id)
         .await?;
 

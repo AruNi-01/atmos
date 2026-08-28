@@ -788,7 +788,7 @@ impl AgentHooksService {
             .get("session_id")
             .and_then(|v| v.as_str())
             .or_else(|| payload.get("sessionId").and_then(|v| v.as_str()))
-            .or_else(|| payload.get("conversation_id").and_then(|v| v.as_str()))
+            .or_else(|| payload.get("chat_id").and_then(|v| v.as_str()))
     }
 }
 

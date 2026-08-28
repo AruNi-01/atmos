@@ -221,7 +221,7 @@
       "fullScreenEnter": "Enter Full Screen",
       "fullScreenExit": "Exit Full Screen",
       "acpAgent": "ACP Agent",
-      "openAgentChat": "Open Agent Chat",
+      "openAgentChat": "Open Chat",
       "opacity": "Opacity",
       "tokenUsage": "Token Usage"
     },
@@ -381,7 +381,7 @@
     },
     "centerStageTabBar": {
       "newTerminalTab": "Terminal",
-      "newAgentChat": "Agent Chat",
+      "newAgentChat": "Chat",
       "agentChatDraft": "New chat",
       "newMarkdown": "Markdown",
       "newBrowser": "Browser",
@@ -451,8 +451,8 @@
       "clearIdle": "Clear idle",
       "clearSession": "Clear",
       "permissionRequested": "Permission requested",
-      "openAgentChat": "Open Agent Chat",
-      "acpChat": "ACP Chat",
+      "openAgentChat": "Open Chat",
+      "acpChat": "Chat",
       "activeWebSocket": "Active WebSocket",
       "notConnected": "Not connected",
       "loading": "Loading...",
@@ -2058,9 +2058,9 @@
       "titleNamed": "Run {id}",
       "close": "Close run details",
       "standalone": {
-        "title": "Standalone conversation",
+        "title": "Standalone chat",
         "description": "Continue this run in a local chat.",
-        "close": "Close conversation"
+        "close": "Close chat"
       }
     },
     "setup": {
@@ -2373,7 +2373,7 @@
         "enabled": "Automation enabled",
         "disabled": "Automation disabled",
         "runCancelled": "Run cancelled",
-        "openingStandaloneConversation": "Opening standalone conversation",
+        "openingStandaloneChat": "Opening standalone chat",
         "promptCopied": "Continuation prompt copied to clipboard.",
         "clipboardUnavailable": "Clipboard unavailable. Prompt saved at {promptPath}",
         "openingTerminal": "Opening terminal"
@@ -2491,7 +2491,7 @@
         "back": "Back",
         "refresh": "Refresh",
         "runNow": "Run Now",
-        "closeConversation": "Close conversation"
+        "closeChat": "Close chat"
       },
       "empty": {
         "unavailableTitle": "Automation unavailable",
@@ -2769,17 +2769,17 @@
   },
   "Agent": {
     "workspace": {
-      "history": "Conversations",
-      "newConversation": "New conversation",
+      "history": "Chats",
+      "newChat": "New chat",
       "untitled": "Untitled",
       "noFolder": "No folder",
       "emptyTitle": "Start chatting",
-      "emptyDescription": "Send a message to begin this conversation.",
+      "emptyDescription": "Send a message to begin this chat.",
       "placeholder": "Message the agent",
       "queue": "Queue",
       "steer": "Steer",
       "stop": "Stop",
-      "rename": "Rename conversation",
+      "rename": "Rename chat",
       "permissionTitle": "Permission needed",
       "allow": "Allow",
       "reject": "Reject",
@@ -2851,6 +2851,7 @@
           "connected": "Message the connected agent...",
           "selectAgent": "Select an agent to start chatting..."
         },
+        "removeSlashCommand": "Remove {name}",
         "noAgent": "No agent",
         "selectAgent": "Agent",
         "queue": "Queue",
@@ -2904,7 +2905,7 @@
           "tooltip": "More actions"
         },
         "actions": {
-          "exportConversation": "Export conversation",
+          "exportChat": "Export chat",
           "openInWindow": "Open in window",
           "returnToEmbedded": "Return to embedded chat",
           "logoutAgent": "Log out agent"
@@ -3171,7 +3172,7 @@
         "restoringSession": "Restoring session...",
         "empty": {
           "resumedTitle": "Session resumed",
-          "startTitle": "Start a conversation",
+          "startTitle": "Start a chat",
           "resumedDescription": "This agent restored the session context. Send a message to continue.",
           "startDescription": "Type a message below to begin chatting"
         },
@@ -3181,10 +3182,13 @@
         "allow": "Allow",
         "copy": {
           "userAria": "Copy user message",
-          "message": "Copy message",
-          "turnAria": "Copy current turn message",
-          "turn": "Copy turn"
-        }
+          "assistantAria": "Copy assistant message",
+          "message": "Copy message"
+        },
+        "workedFor": "Worked for {duration}",
+        "thinking": "Thinking...",
+        "thoughtFor": "Thought for {duration}",
+        "thoughtForFew": "Thought for a few seconds"
       },
       "selector": {
         "selectAgent": "Select agent",
@@ -3205,7 +3209,7 @@
         "navigation": "Message navigation",
         "assistantResponding": "Assistant is responding...",
         "assistantPending": "Assistant response pending.",
-        "jumpToMessage": "Jump to message {turnNumber}: {userText}"
+        "jumpToMessage": "Jump to message {messageNumber}: {userText}"
       },
       "toolOrSkill": {
         "file": "file",
@@ -3807,7 +3811,7 @@
   },
   "Welcome": {
     "components": {
-      "startAgentChat": "Start Agent Chat",
+      "startAgentChat": "Start Chat",
       "helpers": {
         "placeholderTemplates": {
           "makeInside": "What should {agent} make inside {project}?",
@@ -6182,7 +6186,7 @@
           },
           "agents": {
             "title": "ACP Agents",
-            "description": "Enable ACP Chat panel for GUI-based agent conversations with quick access from Launchpad and footer."
+            "description": "Enable Agent Chat for GUI-based chats with quick access from Launchpad and footer."
           },
           "automations": {
             "title": "Automations",
@@ -7113,7 +7117,7 @@
         "streaming": "Streaming"
       },
       "download": {
-        "defaultConversationName": "conversation"
+        "defaultChatName": "chat"
       }
     }
   },
