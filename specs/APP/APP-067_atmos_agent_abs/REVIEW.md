@@ -4,9 +4,9 @@
 
 **Review date**: 2026-08-28  
 **Review scope**: functional review | quality review | architecture review  
-**Related code**: `crates/agent/src/{domain,catalog,providers}`, `crates/core-service/src/service/conversation/`, `apps/api/src/api/ws/{message,router}/conversation.rs`, `packages/api-types/src/ws/{dto,contract}/conversation.ts`, `apps/web/src/features/agent/components/AgentChatWorkspace.tsx`, `e2e/tests/specs/APP-067_atmos-agent-chat.e2e.ts`  
-**PR**: https://github.com/AruNi-01/atmos/pull/278 (`feat/APP-067-agent-chat`, HEAD `38255027e`)  
-**Cross-review**: four parallel subagents (functional spec, architecture/quality, runtime bugs, frontend/WS contract), then parent synthesis.
+**Related code**: `crates/agent/src/{domain,catalog,providers,acp_client}`, `crates/core-service/src/service/conversation/`, `apps/api/src/api/ws/{message,router}/conversation.rs`, `packages/api-types/src/ws/{dto,contract}/conversation.ts`, `apps/web/src/features/agent/components/AgentChatWorkspace.tsx`, `e2e/tests/specs/APP-067_atmos-agent-chat.e2e.ts`  
+**PR**: https://github.com/AruNi-01/atmos/pull/278 (`feat/APP-067-agent-chat`, HEAD `732d19e12`)  
+**Cross-review**: two rounds of four parallel subagents (functional spec, architecture/quality, runtime bugs, frontend/WS contract), then parent synthesis. Latest round after ACP 2.0 + REV-001..017 fixes.
 
 ---
 
@@ -15,7 +15,7 @@
 | Rule | Detail |
 |------|--------|
 | **When to add** | After code implementation reaches review or post-review and the findings need durable tracking before cleanup. |
-| **Entry id** | `REV-NNN` - zero-padded, monotonic in this file (next: **REV-018**). |
+| **Entry id** | `REV-NNN` - zero-padded, monotonic in this file (next: **REV-029**). |
 | **Status** | `open` -> `in_progress` -> `fixed` -> `verified` (or `wont-fix` with reason). |
 | **Do not** | Duplicate full TECH/TEST content; link to baseline docs and record only review findings plus fix status. |
 | **Fix proof** | Each fixed item should name the code change and the verification command or manual check. |
@@ -24,9 +24,11 @@
 
 ## Verdict
 
-Host/WS/file path for a Conversation workspace is real: Atmos ids, file SOT, restore-without-spawn, main `/ws` `conversation_*`, catalog worker with production `StdioAcpCatalogProbe`, Queue/Stop, old dedicated `/ws/agent` handler and REST session CRUD removed on the server, PR 278 CI green.
+Host/WS/file path for a Conversation workspace is real: Atmos ids, file SOT, restore-without-spawn, main `/ws` `conversation_*`, catalog worker with production `StdioAcpCatalogProbe`, Queue/Stop, old dedicated `/ws/agent` handler and REST session CRUD removed on the server.
 
-Review fixes landed 2026-08-28 on `feat/APP-067-agent-chat`: resume replay gate, turn mutex, permission option_id, prompt/queue failure rollback, pump death, catalog non-blocking get, cwd bounds, followup settings UI, live delta fold, Conversation-backed `AgentChatPanel`, projector/queue split, conversation-dir attachments, inline queue edit. ACP client upgraded to `agent-client-protocol` 2.0.0 (schema 1.5.0); the vendored schema crate was removed because upstream still requires `used`/`size: u64` and Atmos now coerces Claude `usage_update` nulls on the stdio JSON-RPC stream.
+A second cross-review at `732d19e12` (after ACP crate 2.0 + REV-001..017) found a **P0**: Stop cannot interrupt a live ACP `session/prompt` because the runner serializes cancel behind `block_task()`, and a completed `PromptResponse` is always treated as `TurnCompleted`. Text-only happy path (new tab, Enter, stream, Queue) is human-testable; a real Claude/Codex pass that needs Stop, tools, attachments, or Steer-as-default is not a complete M1–M19 sign-off.
+
+REV-001..017 stay `fixed` for their original bugs. New residuals are REV-018 onward.
 
 ---
 
@@ -51,6 +53,17 @@ Review fixes landed 2026-08-28 on `feat/APP-067-agent-chat`: resume replay gate,
 | REV-008 | P2 | api | `conversation_subscribe.after_sequence` and `conversation_messages` pagination ignored | fixed |
 | REV-012 | P2 | backend | `next_seq` rewrites meta.json + index.json on every token delta | fixed |
 | REV-009 | P3 | frontend | Rename/queue edit use `window.prompt`; list is unscoped | fixed |
+| REV-018 | P0 | backend | Stop cannot interrupt live ACP `session/prompt`; queue still fires | open |
+| REV-019 | P1 | frontend | Live fold ignores tool/plan events | open |
+| REV-020 | P1 | backend | Assistant snapshot clobbers tool/plan parts on restore | open |
+| REV-021 | P1 | frontend | Settings Steer + ACP `supports_steer=false` drops busy Enter | open |
+| REV-022 | P1 | backend | Attachment paths never become ACP prompt content | open |
+| REV-023 | P1 | backend | Dead ACP control still accepts `prompt`; next send can ghost-run | open |
+| REV-024 | P1 | api | Subscribe inserts then replays; client appends duplicate deltas | open |
+| REV-025 | P1 | frontend | `AgentChatPanel` creates a new Conversation on every mount | open |
+| REV-026 | P2 | frontend | Standalone list is unscoped; no pop-out of the open conversation | open |
+| REV-027 | P2 | backend | Catalog prefetch is static builtins, not user-enabled Chat agents | open |
+| REV-028 | P2 | backend | Queue dispatch omits live `UserMessage` and can lose concurrent adds | open |
 
 ---
 
@@ -669,3 +682,385 @@ Resolve cwd from workspace/project then `path_within_root`. Reject create/send/u
 - 2026-08-28 - opened in APP-067 implementation review.
 - 2026-08-28 - implemented review fix (cwd bound to workspace/project/scratch).
 - 2026-08-28 - conversation uploads write `conversations/{id}/attachments/`; send/queue reject paths outside that dir. Terminal overlay may still use bounded `{local_path}/.atmos/attachments`.
+
+---
+
+## REV-018 · Stop cannot interrupt live ACP `session/prompt`
+
+| Field | Value |
+|-------|--------|
+| **Status** | open |
+| **Severity** | P0 |
+| **Area** | backend |
+| **Reported by** | internal review |
+| **Owner** | unassigned |
+
+### Finding
+
+The ACP session loop `await`s `PromptRequest` with `block_task()` before reading the next `SessionCommand`. `send_cancel` only enqueues `SessionCommand::Cancel`, so `session/cancel` is not written while a turn is in flight. When the prompt RPC later returns, the runner always emits `TurnEnd(None)` and the adapter maps every `TurnEnd` to `TurnStop::Completed`, so Queue dispatch still runs. Fake-provider cancel tests never hit this loop.
+
+### Evidence
+
+- `crates/agent/src/acp_client/runner.rs:917-962` — prompt `block_task` then cancel arm.
+- `crates/agent/src/providers/acp/adapter.rs:237-242` — any `TurnEnd` → `TurnCompleted`.
+- `crates/core-service/src/service/conversation/queue.rs` — dispatch on completed turn.
+
+### Required fix
+
+Send `session/cancel` (and close/config) while `session/prompt` is in flight. Map `PromptResponse.stop_reason` (`cancelled` → `TurnCanceled`). Do not dispatch the queue after a user Stop.
+
+### Acceptance
+
+- [ ] Stop during a live Claude/Codex turn sends `session/cancel` before the prompt RPC returns.
+- [ ] A stopped turn is `canceled`, not `completed`, and queued items stay queued.
+- [ ] Fake-provider tests stay green; add an ACP-loop test that cancel is observed during an in-flight prompt.
+
+### Fix log
+
+- 2026-08-28 - opened in second APP-067 cross-review.
+
+---
+
+## REV-019 · Live fold ignores tool/plan events
+
+| Field | Value |
+|-------|--------|
+| **Status** | open |
+| **Severity** | P1 |
+| **Area** | frontend |
+| **Reported by** | internal review |
+| **Owner** | unassigned |
+
+### Finding
+
+REV-002 still folds text/thinking deltas without a per-event `get`. `foldTurnsFromEvent` does not handle `tool_call_*` or `plan_updated`, and the workspace never `load()`s those events, so tool/plan chrome is blank for the whole live turn.
+
+### Evidence
+
+- `apps/web/src/features/agent/lib/conversation-events.ts:83-151`
+- `apps/web/src/features/agent/components/AgentChatWorkspace.tsx:183-208`, `:485-515`
+
+### Required fix
+
+Fold host `tool_call_*` / `plan_updated` into the current assistant message. Do not import ACP schema. Do not refetch on each tool event.
+
+### Acceptance
+
+- [ ] A live tool call appears in the transcript without `conversation_get`.
+- [ ] Plan updates appear in the same turn.
+
+### Fix log
+
+- 2026-08-28 - opened in second APP-067 cross-review.
+
+---
+
+## REV-020 · Assistant snapshot clobbers tool/plan parts on restore
+
+| Field | Value |
+|-------|--------|
+| **Status** | open |
+| **Severity** | P1 |
+| **Area** | backend |
+| **Reported by** | internal review |
+| **Owner** | unassigned |
+
+### Finding
+
+`AssistantSnapshot` replaces the whole assistant message with `[Text]`. Later snapshots after a tool record wipe tool/plan parts. Reload of a tool-using turn shows text only.
+
+### Evidence
+
+- `crates/core-service/src/service/conversation/store.rs:413-429`
+- `crates/core-service/src/service/conversation/store.rs:549-554` — `upsert_message` overwrites `parts`.
+
+### Required fix
+
+Merge snapshot text into existing parts; never drop tool/plan/attachment parts already on that message.
+
+### Acceptance
+
+- [ ] `conversation_get` after a tool-using turn still includes the tool parts.
+- [ ] Store unit test: snapshot after tool keeps both text and tool.
+
+### Fix log
+
+- 2026-08-28 - opened in second APP-067 cross-review.
+
+---
+
+## REV-021 · Settings Steer + ACP `supports_steer=false` drops busy Enter
+
+| Field | Value |
+|-------|--------|
+| **Status** | open |
+| **Severity** | P1 |
+| **Area** | frontend |
+| **Reported by** | internal review |
+| **Owner** | unassigned |
+
+### Finding
+
+TECH: hide Steer and force Queue when the agent cannot inject. The one-shot Steer button is hidden, but Enter still follows the global setting. If the user sets Steer and ACP `supports_steer` is false, busy Enter returns without queueing and without clearing the draft.
+
+### Evidence
+
+- `apps/web/src/features/agent/components/AgentChatWorkspace.tsx:308-312`
+- `crates/core-service/src/service/conversation/acp_factory.rs:133-134`, `:172`
+- `apps/web/src/features/settings/components/CodeAgentBehaviourSettingsSection.tsx:272-284`
+
+### Required fix
+
+When `!supports_steer`, force Queue for Enter and one-shot. Do not let the settings value swallow the draft.
+
+### Acceptance
+
+- [ ] With policy=Steer and `supports_steer=false`, busy Enter queues.
+- [ ] Default Queue still queues.
+
+### Fix log
+
+- 2026-08-28 - opened in second APP-067 cross-review.
+
+---
+
+## REV-022 · Attachment paths never become ACP prompt content
+
+| Field | Value |
+|-------|--------|
+| **Status** | open |
+| **Severity** | P1 |
+| **Area** | backend |
+| **Reported by** | internal review |
+| **Owner** | unassigned |
+
+### Finding
+
+Upload and `send` persist conversation-dir attachment paths, but `AcpCommands::prompt` only sends `input.text` as one `ContentBlock::Text`. The agent never sees the files. Center-stage Chat also has no file picker yet.
+
+### Evidence
+
+- `crates/agent/src/providers/acp/adapter.rs:48-55`
+- `crates/agent/src/acp_client/runner.rs:933-938`
+- `crates/core-service/src/service/conversation/service.rs:166-195`
+
+### Required fix
+
+Map attachment paths to ACP content blocks in the mapper only. Wire Chat composer upload to `conversation_id` when M4 attachments are in the pass.
+
+### Acceptance
+
+- [ ] A non-empty `AgentPrompt.attachments` vec is not dropped (mapper test).
+- [ ] Uploaded files under `conversations/{id}/attachments/` are referenced on the prompt.
+
+### Fix log
+
+- 2026-08-28 - opened in second APP-067 cross-review.
+
+---
+
+## REV-023 · Dead ACP control still accepts `prompt`
+
+| Field | Value |
+|-------|--------|
+| **Status** | open |
+| **Severity** | P1 |
+| **Area** | backend |
+| **Reported by** | internal review |
+| **Owner** | unassigned |
+
+### Finding
+
+`prompt()` always `Ok` after `cmd_tx.send`, even if the ACP thread is dead. `ensure_runtime` reuses a map entry until post-pump disk IO finishes `remove`. A send during that window writes `TurnStarted` / `RunningTurn` with no pump. Cancel with no runtime only sets `Detached` and does not complete the turn. After API restart, a folded `running` turn does not block a second `send`.
+
+### Evidence
+
+- `crates/agent/src/providers/acp/adapter.rs:47-55`
+- `crates/core-service/src/service/conversation/service.rs:171-185`, `:355-377`, `:541-545`, `:625-662`
+
+### Required fix
+
+Treat a closed command channel as prompt failure. Do not return a dead runtime from `ensure_runtime`. Complete-as-failed any transcript turn still running before starting a new one.
+
+### Acceptance
+
+- [ ] Kill the agent process, send again: either a new spawn with a completed previous turn, or a visible error — not a ghost running turn.
+- [ ] Service test: jsonl `TurnStarted` without complete, new `ConversationService`, `send` does not leave two running turns.
+
+### Fix log
+
+- 2026-08-28 - opened in second APP-067 cross-review.
+
+---
+
+## REV-024 · Subscribe inserts then replays; client appends duplicate deltas
+
+| Field | Value |
+|-------|--------|
+| **Status** | open |
+| **Severity** | P1 |
+| **Area** | api |
+| **Reported by** | internal review |
+| **Owner** | unassigned |
+
+### Finding
+
+`conversation_subscribe` adds the socket to `conversation_subs` before `events_after` replay. Live fan-out can deliver a seq, then replay delivers it again. The client records `lastSeq` but still appends assistant deltas, so text can stutter (`hellohello`).
+
+### Evidence
+
+- `apps/api/src/api/ws/router/conversation.rs:162-188`
+- `apps/web/src/features/agent/components/AgentChatWorkspace.tsx:204-208`
+- `apps/web/src/features/agent/lib/conversation-events.ts:135-136`
+
+### Required fix
+
+Replay first, then insert; and/or skip events with `sequence <= lastSeq` on the client.
+
+### Acceptance
+
+- [ ] Send immediately after open does not duplicate assistant tokens.
+- [ ] Subscribe after `after_sequence` still fills the gap.
+
+### Fix log
+
+- 2026-08-28 - opened in second APP-067 cross-review.
+
+---
+
+## REV-025 · `AgentChatPanel` creates a new Conversation on every mount
+
+| Field | Value |
+|-------|--------|
+| **Status** | open |
+| **Severity** | P1 |
+| **Area** | frontend |
+| **Reported by** | internal review |
+| **Owner** | unassigned |
+
+### Finding
+
+REV-003 converted the panel to Conversation but dropped identity. Mount always `conversation_create`. Canvas still passes `acpSessionId` (ignored). Automation drawer remounts spawn orphan chats in the Chat-first list. Center-stage does not use this panel.
+
+### Evidence
+
+- `apps/web/src/features/agent/components/AgentChatPanel.tsx:32-46`
+- `apps/web/src/features/canvas/components/widgets/CanvasAgentChatWidget.tsx:104-113`
+- `apps/web/src/features/automations/components/AutomationRunDrawer.tsx:150`
+
+### Required fix
+
+Persist and reopen `conversation_id`. Do not create on every mount. Until N5, do not mint chats as a widget side effect.
+
+### Acceptance
+
+- [ ] Remounting the canvas/automation chat does not create a new conversation id.
+- [ ] Center-stage Chat is unchanged.
+
+### Fix log
+
+- 2026-08-28 - opened in second APP-067 cross-review.
+
+---
+
+## REV-026 · Standalone list is unscoped; no pop-out of the open conversation
+
+| Field | Value |
+|-------|--------|
+| **Status** | open |
+| **Severity** | P2 |
+| **Area** | frontend |
+| **Reported by** | internal review |
+| **Owner** | unassigned |
+
+### Finding
+
+`list` with `workspace_id: null` matches every row. `/agent-chat` without query creates a scratch chat and shows all conversations. Footer/command palette open `/agent-chat` with no id. There is no control that pops the current tab with `?conversationId=`.
+
+### Evidence
+
+- `crates/core-service/src/service/conversation/store.rs:124-126`
+- `apps/web/src/features/agent/components/AgentChatStandalonePage.tsx:21-25`
+- `apps/web/src/app-shell/Footer.tsx:743`
+
+### Required fix
+
+Distinguish “no filter” from “only null workspace.” Pop-out must pass the current `conversationId`.
+
+### Acceptance
+
+- [ ] Scratch `/agent-chat` does not list workspace A/B chats.
+- [ ] Opening standalone from an existing tab shows that conversation.
+
+### Fix log
+
+- 2026-08-28 - opened in second APP-067 cross-review.
+
+---
+
+## REV-027 · Catalog prefetch is static builtins, not user-enabled Chat agents
+
+| Field | Value |
+|-------|--------|
+| **Status** | open |
+| **Severity** | P2 |
+| **Area** | backend |
+| **Reported by** | internal review |
+| **Owner** | unassigned |
+
+### Finding
+
+Production worker is constructed with `builtin_catalog_specs()`. `set_specs` is tests-only. Disabled/terminal-only/custom registry agents are not the prefetch set. Unknown `agent_model_catalog_get` can still default `acp: true`.
+
+### Evidence
+
+- `apps/api/src/api/ws/router/mod.rs:132-141`
+- `crates/core-service/src/service/conversation/catalog.rs:233-285`
+
+### Required fix
+
+Prefetch installed, not-disabled Chat providers only. Do not default unknown ids to temp ACP.
+
+### Acceptance
+
+- [ ] Disabled agents are not temp-ACP probed on first `/ws`.
+- [ ] Custom ACP agents can appear in the catalog path.
+
+### Fix log
+
+- 2026-08-28 - opened in second APP-067 cross-review.
+
+---
+
+## REV-028 · Queue dispatch omits live `UserMessage` and can lose concurrent adds
+
+| Field | Value |
+|-------|--------|
+| **Status** | open |
+| **Severity** | P2 |
+| **Area** | backend |
+| **Reported by** | internal review |
+| **Owner** | unassigned |
+
+### Finding
+
+Dispatch writes `UserMessage` to jsonl but emits only `TurnStarted` and `QueueUpdated`, so the live fold shows an empty running turn until reload. `queue_add` does not share the dispatch snapshot lock, so a concurrent add can be overwritten.
+
+### Evidence
+
+- `crates/core-service/src/service/conversation/queue.rs:52-114`
+- `crates/core-service/src/service/conversation/service.rs:391-402`
+
+### Required fix
+
+Emit `UserMessage` like `send`. Make queue read-modify-write atomic with dispatch.
+
+### Acceptance
+
+- [ ] Dispatched queue item appears as a user row without `conversation_get`.
+- [ ] Add-during-dispatch does not drop the new item.
+
+### Fix log
+
+- 2026-08-28 - opened in second APP-067 cross-review.
+
