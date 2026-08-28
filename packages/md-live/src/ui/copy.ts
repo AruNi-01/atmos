@@ -50,6 +50,16 @@ export const MD_LIVE_COPY_EN: Record<string, string> = {
   toolbarAsk: "Ask",
   toolbarRewrite: "Rewrite",
   toolbarSummarize: "Summarize",
+  tableRowMenu: "Row actions",
+  tableColMenu: "Column actions",
+  tableAddRowAbove: "Add row above",
+  tableAddRowBelow: "Add row below",
+  tableDeleteRow: "Delete row",
+  tableAddColLeft: "Add column left",
+  tableAddColRight: "Add column right",
+  tableDeleteCol: "Delete column",
+  tableAddRow: "Add row",
+  tableAddCol: "Add column",
 };
 
 export function mdLiveLabel(key: string, copy?: MdLiveCopyFn): string {

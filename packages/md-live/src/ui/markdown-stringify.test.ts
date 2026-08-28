@@ -25,6 +25,11 @@ describe("formatMdLiveSerializedMarkdown", () => {
     );
   });
 
+  test("strips empty inline-code placeholders", () => {
+    expect(formatMdLiveSerializedMarkdown("hi `\u200B` there\n")).toBe("hi  there\n");
+    expect(formatMdLiveSerializedMarkdown("`fo\u200Bo`\n")).toBe("`foo`\n");
+  });
+
   test("does not rewrite br inside fenced code", () => {
     const source = "```html\n<br />\n```\n";
     expect(formatMdLiveSerializedMarkdown(source)).toBe(source);

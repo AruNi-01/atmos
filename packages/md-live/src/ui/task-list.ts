@@ -4,6 +4,7 @@ import { Plugin, PluginKey, type Transaction } from "@milkdown/kit/prose/state";
 import { findWrapping } from "@milkdown/kit/prose/transform";
 import { bulletListSchema, listItemSchema } from "@milkdown/kit/preset/commonmark";
 import { $inputRule, $prose, $remark } from "@milkdown/kit/utils";
+import { isMdLiveComposing, mdLiveCompositionDomHandlers } from "./composing";
 import type { MdLiveTaskMarker } from "./types";
 
 const TASK_MARKERS: MdLiveTaskMarker[] = [" ", "/", "x", "-"];
@@ -260,7 +261,11 @@ function activateTaskIcon(button: HTMLElement, marker: MdLiveTaskMarker): void {
 export const mdLiveTaskTypedDetect = $prose(() => {
   return new Plugin({
     key: new PluginKey("md-live-task-typed-detect"),
+    props: {
+      handleDOMEvents: mdLiveCompositionDomHandlers,
+    },
     appendTransaction(transactions, _oldState, newState) {
+      if (isMdLiveComposing()) return null;
       if (!transactions.some((transaction) => transaction.docChanged)) return null;
       let tr: Transaction | null = null;
       const apply = () => {

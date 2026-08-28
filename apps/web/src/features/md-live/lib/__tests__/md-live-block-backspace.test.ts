@@ -15,11 +15,14 @@ import {
 import { gfm } from "@milkdown/kit/preset/gfm";
 import type { Node } from "@milkdown/kit/prose/model";
 import { TextSelection } from "@milkdown/kit/prose/state";
+import { splitBlock } from "@milkdown/kit/prose/commands";
 import {
+  MD_LIVE_INLINE_CODE_ZWSP,
   focusEditorCaret,
   isolateSelectedTextblock,
   mdLiveBlockBackspace,
   mdLiveBlockBackspacePlugin,
+  mdLiveInlineCodePlugin,
   mdLiveVisibleConvertIds,
 } from "@atmos/md-live/ui";
 
@@ -70,6 +73,7 @@ async function createEditor(source = "") {
       ctx.set(defaultValueCtx, source);
     })
     .use(commonmark)
+    .use(mdLiveInlineCodePlugin)
     .use(gfm)
     .use(mdLiveBlockBackspacePlugin);
   await editor.create();
@@ -290,6 +294,30 @@ describe("md-live block backspace", () => {
     const editor = await createEditor("");
     typeChars(editor, "## ");
     expect(blockAtCaret(editor)).toMatchObject({ name: "heading", level: 2, text: "" });
+    await editor.destroy();
+  });
+
+  test("after enter, ## space still becomes an H2", async () => {
+    const editor = await createEditor("Hello\n");
+    editor.action((ctx) => {
+      const view = ctx.get(editorViewCtx);
+      const end = Math.max(1, view.state.doc.content.size - 1);
+      view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, end)));
+      splitBlock(view.state, view.dispatch);
+    });
+    typeChars(editor, "## ");
+    expect(blockAtCaret(editor)).toMatchObject({ name: "heading", level: 2, text: "" });
+    await editor.destroy();
+  });
+
+  test("an unmarked zwsp does not block heading shortcuts", async () => {
+    const editor = await createEditor("");
+    editor.action((ctx) => {
+      const view = ctx.get(editorViewCtx);
+      view.dispatch(view.state.tr.insertText(`${MD_LIVE_INLINE_CODE_ZWSP}##`));
+    });
+    typeChars(editor, " ");
+    expect(blockAtCaret(editor)).toMatchObject({ name: "heading", level: 2 });
     await editor.destroy();
   });
 

@@ -8,7 +8,7 @@ import { MD_LIVE_SLASH_GROUPS, MD_LIVE_SLASH_ITEMS } from "./slash-catalog";
 const here = dirname(fileURLToPath(import.meta.url));
 
 describe("md-live ui chrome", () => {
-  test("slash catalog groups heading basic advanced media others through h6", () => {
+  test("slash catalog groups heading basic advanced media others through h4", () => {
     expect(MD_LIVE_SLASH_GROUPS.map((group) => group.id)).toEqual([
       "heading",
       "basic",
@@ -16,8 +16,10 @@ describe("md-live ui chrome", () => {
       "media",
       "others",
     ]);
-    expect(MD_LIVE_HEADING_LEVELS).toEqual([1, 2, 3, 4, 5, 6]);
-    expect(MD_LIVE_SLASH_ITEMS.some((item) => item.id === "h6")).toBe(true);
+    expect(MD_LIVE_HEADING_LEVELS).toEqual([1, 2, 3, 4]);
+    expect(MD_LIVE_SLASH_ITEMS.some((item) => item.id === "h4")).toBe(true);
+    expect(MD_LIVE_SLASH_ITEMS.some((item) => item.id === "h5")).toBe(false);
+    expect(MD_LIVE_SLASH_ITEMS.some((item) => item.id === "h6")).toBe(false);
     expect(MD_LIVE_SLASH_ITEMS.some((item) => item.id === "emoji")).toBe(true);
     expect(MD_LIVE_SLASH_ITEMS.some((item) => item.id === "video")).toBe(true);
     expect(MD_LIVE_SLASH_ITEMS.some((item) => item.id === "audio")).toBe(true);
@@ -56,6 +58,52 @@ describe("md-live ui chrome", () => {
     expect(editor).toContain("mdLiveTogglePlugins");
     expect(editor).toContain("mdLivePlaceholderPlugin");
     expect(editor).toContain("mdLiveBlockBackspacePlugin");
+    expect(editor).toContain("mdLiveTableDeletePlugin");
+    expect(editor).toContain("mdLiveTableViewPlugin");
+    expect(editor).toContain("mdLiveDeleteTableSelection");
+    expect(editor).toContain("mdLiveInlineCodePlugin");
+    expect(editor).toContain("mdLiveComposingPlugin");
+    expect(editor).toContain("mdLiveCommonmark");
+    expect(editor).toContain("mdLiveCompositionDomHandlers");
+    expect(editor).toContain("isMdLiveComposing");
+    expect(editor).not.toContain(".use(commonmark)");
+    const headingId = readFileSync(join(here, "heading-id.ts"), "utf8");
+    expect(headingId).toContain("isMdLiveComposing");
+    expect(headingId).toContain("nodeViews");
+    expect(headingId).toContain("syncHeadingIdPlugin");
+    expect(headingId).not.toContain("appendTransaction");
+    const composing = readFileSync(join(here, "composing.ts"), "utf8");
+    expect(composing).toContain("compositionstart");
+    expect(composing).toContain("beforeinput");
+    const inlineCode = readFileSync(join(here, "inline-code.ts"), "utf8");
+    expect(inlineCode).toContain("isMdLiveComposing");
+    expect(inlineCode).toContain("mdLiveCompositionDomHandlers");
+    const taskList = readFileSync(join(here, "task-list.ts"), "utf8");
+    expect(taskList).toContain("isMdLiveComposing");
+    expect(taskList).toContain("mdLiveCompositionDomHandlers");
+    const toggle = readFileSync(join(here, "toggle.ts"), "utf8");
+    expect(toggle).toContain("isMdLiveComposing");
+    expect(editor).toContain("mdLiveInlineCodeDelete");
+    expect(editor).toContain("handleKeyDown(view, event)");
+    const actions = readFileSync(join(here, "actions.ts"), "utf8");
+    expect(actions).not.toContain("`code`");
+    expect(actions).toContain("mdLiveInsertEmptyInlineCode");
+    const tableChrome = readFileSync(join(here, "table-chrome.ts"), "utf8");
+    expect(tableChrome).toContain("md-live-table-handle");
+    expect(tableChrome).toContain("tableAddRowAbove");
+    expect(tableChrome).toContain("tableAddColLeft");
+    expect(tableChrome).toContain("add-row");
+    expect(tableChrome).toContain("add-col");
+    expect(tableChrome).toContain("scroll.scrollLeft");
+    expect(tableChrome).toContain("wheel");
+    expect(tableChrome).toContain("mdLiveTableAtScrollEnd");
+    expect(tableChrome).toContain("lastColInView");
+    const tableOps = readFileSync(join(here, "table-ops.ts"), "utf8");
+    expect(tableOps).toContain("isMdLiveFullTableSelection");
+    expect(tableOps).toContain("mdLiveDeleteTableSelection");
+    expect(tableOps).toContain("isColSelection");
+    expect(tableOps).toContain("isRowSelection");
+    expect(tableOps).toContain('event.key !== "Delete"');
     const placeholder = readFileSync(join(here, "placeholder.ts"), "utf8");
     expect(placeholder).not.toContain("const gap");
     expect(placeholder).toContain("mdLivePlaceholderTravel");
@@ -65,7 +113,8 @@ describe("md-live ui chrome", () => {
     expect(placeholder).toContain("focusin");
     expect(placeholder).toContain("focusout");
     expect(placeholder).not.toContain("void layer.offsetWidth");
-    expect(placeholder).not.toContain("getComputedStyle(info.nodeDOM)");
+    expect(placeholder).toContain("getComputedStyle(info.nodeDOM)");
+    expect(placeholder).toContain("paddingLeft");
     const backspace = readFileSync(join(here, "block-backspace.ts"), "utf8");
     expect(backspace).toContain('key: "Backspace"');
     expect(backspace).toContain("priority: 100");
@@ -78,6 +127,8 @@ describe("md-live ui chrome", () => {
     expect(convert).toContain("isolateSelectedTextblock");
     expect(convert).toContain("MD_LIVE_TOOLBAR_CONVERT_IDS");
     expect(convert).toContain('"toggle"');
+    expect(convert).not.toContain('"h5"');
+    expect(convert).not.toContain('"h6"');
   });
 
   test("stringify uses hyphen bullets, tight lists, and compact tables", () => {
@@ -128,11 +179,24 @@ describe("md-live ui chrome", () => {
     expect(css).toContain(".md-live .editor pre.md-live-preview-code-editor");
     expect(css).toContain("white-space: pre !important");
     expect(css).toContain("pre.shiki span.line");
+    expect(css).toContain("font-size: 2.5em");
+    expect(css).toContain("font-size: 1.75em");
+    expect(css).toContain("font-size: 1.4em");
+    expect(css).toContain("font-size: 1.2em");
+    expect(css).toContain(".md-live-table-handle");
+    expect(css).toContain(".md-live-table-add--row");
+    expect(css).toContain(".md-live-table-add--col");
+    expect(css).toContain("scrollbar-width: none");
+    expect(css).toContain(".md-live-table-scroll::-webkit-scrollbar");
+    expect(css).toContain("width: max-content");
+    expect(css).toContain("white-space: nowrap");
+    expect(css).toContain("overscroll-behavior-x: contain");
   });
 
   test("overlay selector ignores clicks outside hosts", () => {
     const selection = readFileSync(join(here, "selection.ts"), "utf8");
     expect(selection).toContain("dropdown-menu-content");
     expect(selection).toContain("isMdLiveOverlayEventTarget");
+    expect(selection).toContain("data-md-live-table-chrome");
   });
 });
