@@ -40,7 +40,7 @@ struct AcpCommands {
     control: AcpSessionControl,
     supports_steer: AtomicBool,
     running_turn: Mutex<Option<String>>,
-    pending_permissions: Mutex<HashMap<String, oneshot::Sender<bool>>>,
+    pending_permissions: Mutex<HashMap<String, oneshot::Sender<String>>>,
 }
 
 #[async_trait]
@@ -102,8 +102,7 @@ impl AgentSessionCommands for AcpCommands {
             .await
             .remove(request_id)
             .ok_or_else(|| AgentProviderError::NotFound(request_id.to_string()))?;
-        let allowed = !option_id.to_ascii_lowercase().contains("reject");
-        let _ = tx.send(allowed);
+        let _ = tx.send(option_id.to_string());
         Ok(())
     }
 }
@@ -155,19 +154,12 @@ impl AgentSession for AcpMappedSession {
 
 impl AcpMappedSession {
     async fn map_event(&mut self, event: AcpSessionEvent) -> Option<AgentEvent> {
-        if self.replaying
-            && !matches!(
-                event,
-                AcpSessionEvent::LoadCompleted
-                    | AcpSessionEvent::SessionReady { .. }
-                    | AcpSessionEvent::SessionClosed { .. }
-                    | AcpSessionEvent::SessionEnded
-            )
-        {
+        if should_drop_replay(self.replaying, &event) {
             return None;
         }
         match event {
             AcpSessionEvent::SessionReady { acp_session_id } => {
+                self.replaying = false;
                 self.persistence = Some(AgentPersistenceHandle::new(acp_session_id.clone()));
                 Some(AgentEvent::SessionStarted {
                     persistence_handle: Some(acp_session_id),
@@ -275,6 +267,17 @@ impl AcpMappedSession {
             _ => None,
         }
     }
+}
+
+fn should_drop_replay(replaying: bool, event: &AcpSessionEvent) -> bool {
+    replaying
+        && !matches!(
+            event,
+            AcpSessionEvent::LoadCompleted
+                | AcpSessionEvent::SessionReady { .. }
+                | AcpSessionEvent::SessionClosed { .. }
+                | AcpSessionEvent::SessionEnded
+        )
 }
 
 fn map_tool_call(update: ToolCallUpdate) -> AgentEvent {
@@ -398,5 +401,32 @@ impl AgentProvider for AcpAgentProvider {
         cfg: AgentSessionConfig,
     ) -> AgentResult<Box<dyn AgentSession>> {
         open_acp_session(&self.params, cfg, Some(handle.0)).await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::should_drop_replay;
+    use crate::acp_client::AcpSessionEvent;
+
+    #[test]
+    fn session_ready_is_not_dropped_during_replay() {
+        assert!(!should_drop_replay(
+            true,
+            &AcpSessionEvent::SessionReady {
+                acp_session_id: "s".into(),
+            }
+        ));
+        assert!(should_drop_replay(
+            true,
+            &AcpSessionEvent::Stream(crate::acp_client::types::StreamDelta {
+                role: "assistant".into(),
+                kind: "message".into(),
+                delta: "x".into(),
+                done: false,
+                usage: None,
+            })
+        ));
+        assert!(!should_drop_replay(false, &AcpSessionEvent::LoadCompleted));
     }
 }

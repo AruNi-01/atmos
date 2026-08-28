@@ -222,7 +222,7 @@ pub enum AcpSessionEvent {
 pub struct AtmosAcpClient {
     handler: Arc<dyn AcpToolHandler>,
     cwd: PathBuf,
-    permission_tx: mpsc::UnboundedSender<(PermissionRequest, oneshot::Sender<bool>)>,
+    permission_tx: mpsc::UnboundedSender<(PermissionRequest, oneshot::Sender<String>)>,
     event_tx: mpsc::UnboundedSender<AcpSessionEvent>,
 }
 
@@ -230,7 +230,7 @@ impl AtmosAcpClient {
     pub fn new(
         handler: Arc<dyn AcpToolHandler>,
         cwd: PathBuf,
-        permission_tx: mpsc::UnboundedSender<(PermissionRequest, oneshot::Sender<bool>)>,
+        permission_tx: mpsc::UnboundedSender<(PermissionRequest, oneshot::Sender<String>)>,
         event_tx: mpsc::UnboundedSender<AcpSessionEvent>,
     ) -> Self {
         Self {
@@ -317,20 +317,13 @@ impl AtmosAcpClient {
             warn!("Failed to forward permission request: {}", e);
         }
 
-        let allowed = response_rx.await.unwrap_or(false);
-
-        // Pick option_id from args.options - first for allow, last for deny (common pattern)
-        let option_id = if allowed {
-            args.options
-                .first()
-                .map(|o| o.option_id.clone())
-                .unwrap_or_else(|| schema::PermissionOptionId::from("allow"))
-        } else {
-            args.options
-                .last()
-                .map(|o| o.option_id.clone())
-                .unwrap_or_else(|| schema::PermissionOptionId::from("deny"))
-        };
+        let selected = response_rx.await.unwrap_or_else(|_| "reject".to_string());
+        let option_id = args
+            .options
+            .iter()
+            .find(|option| option.option_id.0.as_ref() == selected)
+            .map(|option| option.option_id.clone())
+            .unwrap_or_else(|| schema::PermissionOptionId::new(selected));
 
         Ok(schema::RequestPermissionResponse::new(
             schema::RequestPermissionOutcome::Selected(schema::SelectedPermissionOutcome::new(

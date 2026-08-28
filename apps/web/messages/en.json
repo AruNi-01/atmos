@@ -6062,7 +6062,11 @@
         "summaryDelayTitle": "Wait before summarizing",
         "summaryDelayDescription": "How long a task-complete attention latch can sit unacknowledged before summarizing.",
         "summaryAgentTitle": "Summary agent",
-        "summaryAgentDescription": "Terminal agent used for the headless session (same as Automations). Configure model via the agent run config. Leave unselected to use the default LLM provider."
+        "summaryAgentDescription": "Terminal agent used for the headless session (same as Automations). Configure model via the agent run config. Leave unselected to use the default LLM provider.",
+        "followupTitle": "Busy composer follow-up",
+        "followupDescription": "When a turn is running, Enter queues the next turn or steers the current one. The other action stays available as a one-shot.",
+        "followupQueue": "Queue",
+        "followupSteer": "Steer"
       }
     },
     "canvasSection": {

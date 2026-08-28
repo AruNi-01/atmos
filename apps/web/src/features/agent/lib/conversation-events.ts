@@ -1,11 +1,34 @@
 export type ConversationClientEventPayload = {
   conversation_id?: string;
+  sequence?: number;
   payload?: {
     type?: string;
     message_id?: string;
     text?: string;
     turn_id?: string;
+    kind?: string;
+    delta?: string;
+    status?: string;
+    request?: {
+      request_id?: string;
+      tool?: string;
+      description?: string;
+      options?: Array<{ option_id: string; name: string }>;
+    };
+    request_id?: string;
+    items?: Array<{ id: string; seq: number; status: string; prompt: string }>;
   };
+};
+
+export type LiveTurn = {
+  id: string;
+  status: string;
+  messages: Array<{
+    id: string;
+    role: string;
+    kind?: string;
+    parts: Array<{ type: string; text?: string; name?: string; title?: string; status?: string; message?: string }>;
+  }>;
 };
 
 export type ConversationFanoutRow = {
@@ -32,4 +55,97 @@ export function foldUserRowsFromEvent(
   if (!id || !text) return rows;
   if (rows.some((row) => row.id === id)) return rows;
   return [...rows, { id, text }];
+}
+
+function upsertTurn(turns: LiveTurn[], turnId: string): LiveTurn[] {
+  if (turns.some((turn) => turn.id === turnId)) return turns;
+  return [...turns, { id: turnId, status: "running", messages: [] }];
+}
+
+function upsertMessage(
+  turns: LiveTurn[],
+  turnId: string,
+  message: LiveTurn["messages"][number],
+): LiveTurn[] {
+  const next = upsertTurn(turns, turnId);
+  return next.map((turn) => {
+    if (turn.id !== turnId) return turn;
+    const exists = turn.messages.some((item) => item.id === message.id);
+    return {
+      ...turn,
+      messages: exists
+        ? turn.messages.map((item) => (item.id === message.id ? message : item))
+        : [...turn.messages, message],
+    };
+  });
+}
+
+export function foldTurnsFromEvent(
+  turns: LiveTurn[],
+  event: ConversationClientEventPayload,
+  conversationId: string,
+): LiveTurn[] {
+  if (!conversationEventFor(event, conversationId)) return turns;
+  const payload = event.payload;
+  if (!payload?.type) return turns;
+  if (payload.type === "turn_started" && payload.turn_id) {
+    return upsertTurn(turns, payload.turn_id).map((turn) =>
+      turn.id === payload.turn_id ? { ...turn, status: "running" } : turn,
+    );
+  }
+  if (payload.type === "user_message" && payload.turn_id && payload.message_id) {
+    return upsertMessage(turns, payload.turn_id, {
+      id: payload.message_id,
+      role: "user",
+      kind: payload.kind,
+      parts: [{ type: "text", text: payload.text ?? "" }],
+    });
+  }
+  if (
+    (payload.type === "assistant_message_delta" || payload.type === "thinking_delta") &&
+    payload.message_id
+  ) {
+    const partType = payload.type === "thinking_delta" ? "thinking" : "text";
+    const delta = payload.delta ?? payload.text ?? "";
+    const turnId = payload.turn_id ?? turns[turns.length - 1]?.id;
+    if (!turnId) return turns;
+    const next = upsertTurn(turns, turnId);
+    return next.map((turn) => {
+      if (turn.id !== turnId) return turn;
+      const existing = turn.messages.find((item) => item.id === payload.message_id);
+      if (!existing) {
+        return {
+          ...turn,
+          messages: [
+            ...turn.messages,
+            {
+              id: payload.message_id!,
+              role: "assistant",
+              parts: [{ type: partType, text: delta }],
+            },
+          ],
+        };
+      }
+      return {
+        ...turn,
+        messages: turn.messages.map((item) => {
+          if (item.id !== payload.message_id) return item;
+          const parts = [...item.parts];
+          const last = parts[parts.length - 1];
+          if (last && last.type === partType) {
+            parts[parts.length - 1] = { ...last, text: `${last.text ?? ""}${delta}` };
+          } else {
+            parts.push({ type: partType, text: delta });
+          }
+          return { ...item, parts };
+        }),
+      };
+    });
+  }
+  if (payload.type === "turn_completed" && payload.turn_id) {
+    return turns.map((turn) =>
+      turn.id === payload.turn_id ? { ...turn, status: payload.status ?? "completed" } : turn,
+    );
+  }
+  return turns;
 }

@@ -2,8 +2,10 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use super::*;
+use core_service::utils::path_boundary::path_or_existing_parent_within_root;
 use core_service::{
-    builtin_catalog_specs, ConversationService, CreateConversationRequest, QueueItemStatus,
+    builtin_catalog_specs, default_agent_data_dir, ConversationService, CreateConversationRequest,
+    QueueItemStatus,
 };
 use serde_json::{json, Value};
 
@@ -18,18 +20,18 @@ impl WsMessageService {
         project_id: Option<&str>,
         cwd: Option<&str>,
     ) -> Result<String> {
-        if let Some(path) = cwd {
-            if !path.trim().is_empty() {
-                return Ok(path.to_string());
-            }
-        }
+        let requested = cwd
+            .map(str::trim)
+            .filter(|path| !path.is_empty())
+            .map(PathBuf::from);
         if let Some(wid) = workspace_id {
             let workspace = self
                 .workspace_service
                 .get_workspace(wid.to_string())
                 .await?
                 .ok_or_else(|| ServiceError::NotFound("Workspace not found".into()))?;
-            return Ok(workspace.local_path);
+            let root = PathBuf::from(&workspace.local_path);
+            return bound_cwd(requested, root);
         }
         if let Some(pid) = project_id {
             let project = self
@@ -38,14 +40,16 @@ impl WsMessageService {
                 .await?
                 .ok_or_else(|| ServiceError::NotFound("Project not found".into()))?;
             let main_path = PathBuf::from(&project.main_file_path);
-            let cwd = if main_path.is_dir() {
+            let root = if main_path.is_dir() {
                 main_path
             } else {
                 main_path.parent().map(PathBuf::from).unwrap_or(main_path)
             };
-            return Ok(cwd.to_string_lossy().to_string());
+            return bound_cwd(requested, root);
         }
-        Ok(std::env::var("HOME").unwrap_or_else(|_| "/tmp".into()))
+        let scratch = default_agent_data_dir().join("scratch");
+        std::fs::create_dir_all(&scratch).ok();
+        bound_cwd(requested, scratch)
     }
 
     pub(super) async fn handle_conversation_create(
@@ -76,11 +80,22 @@ impl WsMessageService {
         &self,
         req: ConversationListRequest,
     ) -> Result<Value> {
-        let items = self.conversation().list(
+        let mut items = self.conversation().list(
             req.cwd.as_deref(),
             req.workspace_id.as_deref(),
             req.project_id.as_deref(),
         )?;
+        let limit = req.limit.unwrap_or(100).clamp(1, 200) as usize;
+        let skip = req
+            .cursor
+            .as_deref()
+            .and_then(|cursor| items.iter().position(|item| item.id == cursor))
+            .map(|index| index + 1)
+            .unwrap_or(0);
+        if skip > 0 {
+            items = items.into_iter().skip(skip).collect();
+        }
+        items.truncate(limit);
         Ok(json!({ "items": items }))
     }
 
@@ -98,9 +113,14 @@ impl WsMessageService {
         req: ConversationMessagesRequest,
     ) -> Result<Value> {
         let snapshot = self.conversation().get(&req.conversation_id)?;
+        let mut turns = snapshot.turns;
+        if let Some(limit) = req.limit {
+            let keep = (limit as usize).max(1);
+            let start = turns.len().saturating_sub(keep);
+            turns = turns.split_off(start);
+        }
         let _ = req.before_seq;
-        let _ = req.limit;
-        Ok(json!({ "turns": snapshot.turns }))
+        Ok(json!({ "turns": turns }))
     }
 
     pub(super) async fn handle_conversation_rename(
@@ -149,6 +169,22 @@ impl WsMessageService {
         subs.entry(req.conversation_id.clone())
             .or_default()
             .insert(conn_id.to_string());
+        drop(subs);
+        let after = req.after_sequence.unwrap_or(0);
+        let missed = self
+            .conversation()
+            .events_after(&req.conversation_id, after);
+        if let Some(manager) = self.ws_manager.get() {
+            for event in missed {
+                if let Ok(payload) = serde_json::to_value(&event) {
+                    let message = crate::api::ws::message::WsMessage::notification(
+                        crate::api::ws::message::WsEvent::ConversationEvent,
+                        payload,
+                    );
+                    let _ = manager.send_to(conn_id, &message).await;
+                }
+            }
+        }
         Ok(json!({ "last_event_seq": snapshot.meta.last_event_seq }))
     }
 
@@ -284,8 +320,24 @@ impl WsMessageService {
                 acp: true,
                 ..Default::default()
             });
-        let catalog = worker.get(&spec, req.refresh.unwrap_or(false)).await;
+        if req.agent_id.contains('/') || req.agent_id.contains('\\') || req.agent_id.contains("..")
+        {
+            return Err(ServiceError::Validation("invalid agent_id".into()));
+        }
+        let catalog = worker.get_cached_or_probing(&spec, req.refresh.unwrap_or(false));
         serde_json::to_value(catalog)
             .map_err(|e| ServiceError::Processing(format!("serialize catalog: {e}")))
     }
+}
+
+fn bound_cwd(requested: Option<PathBuf>, root: PathBuf) -> Result<String> {
+    let Some(candidate) = requested else {
+        return Ok(root.to_string_lossy().to_string());
+    };
+    if path_or_existing_parent_within_root(&candidate, &root) {
+        return Ok(candidate.to_string_lossy().to_string());
+    }
+    Err(ServiceError::Validation(
+        "cwd must be inside the workspace or project".into(),
+    ))
 }

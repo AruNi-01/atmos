@@ -144,11 +144,14 @@ impl AcpCatalogProbe for StdioAcpCatalogProbe {
 
         let options = drain_config_options(&mut handle, PROBE_TIMEOUT).await;
         handle.send_close();
-        let _ = timeout(Duration::from_secs(2), wait_session_end(&mut handle)).await;
+        let closed = timeout(Duration::from_secs(2), wait_session_end(&mut handle))
+            .await
+            .is_ok();
+        drop(handle);
         Ok(probe_result_from_config_options(
             &options,
             isolated_cwd.to_path_buf(),
-            true,
+            closed,
         ))
     }
 }

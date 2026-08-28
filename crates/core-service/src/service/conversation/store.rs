@@ -35,6 +35,7 @@ impl ConversationStore {
 
     pub fn create(&self, req: CreateConversationRequest) -> Result<ConversationMeta> {
         let id = uuid::Uuid::new_v4().to_string();
+        require_conversation_id(&id)?;
         if req.provider_id.trim().is_empty() {
             return Err(ServiceError::Validation(
                 "provider_id is required".to_string(),
@@ -79,6 +80,7 @@ impl ConversationStore {
     }
 
     pub fn get_meta(&self, id: &str) -> Result<ConversationMeta> {
+        require_conversation_id(id)?;
         let path = self.dir_for(id).join("meta.json");
         if !path.exists() {
             return Err(ServiceError::NotFound(format!("conversation {id}")));
@@ -87,6 +89,7 @@ impl ConversationStore {
     }
 
     pub fn get_snapshot(&self, id: &str) -> Result<ConversationSnapshot> {
+        require_conversation_id(id)?;
         let lock = self.lock_arc(id);
         let _guard = lock.lock().expect("conversation lock");
         let meta = self.get_meta(id)?;
@@ -109,10 +112,10 @@ impl ConversationStore {
         project_id: Option<&str>,
         include_deleted: bool,
     ) -> Result<Vec<ConversationIndexEntry>> {
-        let mut entries = self.read_index()?;
-        if entries.is_empty() {
-            entries = self.rebuild_index()?;
-        }
+        let entries = match self.read_index() {
+            Ok(entries) if !entries.is_empty() => entries,
+            _ => self.rebuild_index()?,
+        };
         Ok(entries
             .into_iter()
             .filter(|entry| include_deleted || !entry.deleted)
@@ -200,10 +203,22 @@ impl ConversationStore {
     }
 
     pub fn next_seq(&self, id: &str) -> Result<u64> {
-        self.update_meta(id, |meta| {
-            meta.last_event_seq = meta.last_event_seq.saturating_add(1);
-        })
-        .map(|meta| meta.last_event_seq)
+        require_conversation_id(id)?;
+        let lock = self.lock_arc(id);
+        let _guard = lock.lock().expect("conversation lock");
+        let mut meta = self.get_meta_unlocked(id)?;
+        meta.last_event_seq = meta.last_event_seq.saturating_add(1);
+        meta.updated_at = Utc::now();
+        self.write_meta(&meta)?;
+        Ok(meta.last_event_seq)
+    }
+
+    fn get_meta_unlocked(&self, id: &str) -> Result<ConversationMeta> {
+        let path = self.dir_for(id).join("meta.json");
+        if !path.exists() {
+            return Err(ServiceError::NotFound(format!("conversation {id}")));
+        }
+        read_json(&path)
     }
 
     fn dir_for(&self, id: &str) -> PathBuf {
@@ -301,8 +316,9 @@ pub fn fold_transcript(path: &Path) -> Result<Vec<FoldedTurn>> {
         if line.trim().is_empty() {
             continue;
         }
-        let record: TranscriptRecord = serde_json::from_str(&line)
-            .map_err(|e| ServiceError::Processing(format!("invalid transcript line: {e}")))?;
+        let Ok(record) = serde_json::from_str::<TranscriptRecord>(&line) else {
+            continue;
+        };
         apply_record(&mut turns, record);
     }
     Ok(turns)
@@ -491,11 +507,22 @@ fn upsert_message(turn: &mut FoldedTurn, message: FoldedMessage) {
     }
 }
 
+fn require_conversation_id(id: &str) -> Result<()> {
+    uuid::Uuid::parse_str(id)
+        .map(|_| ())
+        .map_err(|_| ServiceError::Validation("conversation id must be a UUID".into()))
+}
+
 fn atomic_write_json<T: Serialize>(path: &Path, value: &T) -> Result<()> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).map_err(io_err)?;
     }
-    let tmp = path.with_extension("tmp");
+    let tmp = path.with_file_name(format!(
+        "{}.tmp",
+        path.file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or("file")
+    ));
     let body = serde_json::to_vec_pretty(value)
         .map_err(|e| ServiceError::Processing(format!("json encode: {e}")))?;
     {

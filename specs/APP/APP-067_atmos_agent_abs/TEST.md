@@ -297,4 +297,4 @@ Implemented 2026-08-28 on `feat/APP-067-agent-chat`.
 | api-types | `bun run --filter @atmos/api-types extract-actions && extract-events && check-actions && check-events && test` | pass (301 actions, 33 events) |
 | clippy | `cargo clippy -p agent -p core-service -p api --offline -- -D warnings` | pass |
 
-Remaining gaps: live ACP spawn / real CLI model lists (TEST.md Non-coverage); agent-browser exploratory checks recorded separately if the CLI is unavailable; Playwright S1/S16 recorded after a fresh static export.
+Remaining gaps: live ACP spawn / real CLI model lists (TEST.md Non-coverage); agent-browser exploratory checks if the CLI is unavailable; Playwright S2 launcher/⌘N and S16 center-stage+standalone pairing (current S16 is two standalone pages); S12 UI persist is covered by settings wiring, not a two-chat Playwright. Review fixes 2026-08-28 also added `overlapping_send_rejects_second_turn` and live delta fold unit tests.

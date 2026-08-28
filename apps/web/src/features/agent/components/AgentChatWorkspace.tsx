@@ -21,6 +21,7 @@ import { groupConversationsByCwd } from "@/features/agent/lib/group-conversation
 import { routeBusySubmit, resolveFollowupPolicy } from "@/features/agent/lib/followup-policy";
 import {
   conversationEventFor,
+  foldTurnsFromEvent,
   foldUserRowsFromEvent,
   type ConversationFanoutRow,
 } from "@/features/agent/lib/conversation-events";
@@ -118,6 +119,9 @@ export function AgentChatWorkspace({
   } | null>(null);
   const consumedPrompts = useRef(new Set<string>());
   const liveUserRows = useRef<ConversationFanoutRow[]>([]);
+  const lastSeq = useRef(0);
+  const [renameId, setRenameId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
 
   const load = useCallback(async () => {
     const snapshot = await conversationApi.get(conversationId);
@@ -150,16 +154,24 @@ export function AgentChatWorkspace({
     setCwd(meta.cwd ?? "");
     const pending = snapshot.pending_permission as typeof permission;
     setPermission(pending && pending.request_id ? pending : null);
-    const listed = await conversationApi.list({});
+    const listed = await conversationApi.list({
+      workspace_id: meta.workspace_id ?? null,
+      project_id: meta.project_id ?? null,
+    });
     setList(listed.items ?? []);
+    lastSeq.current = Number((snapshot.meta as { last_event_seq?: number }).last_event_seq ?? 0);
   }, [conversationId, t]);
 
   useEffect(() => {
-    void load();
-    void conversationApi.subscribe(conversationId);
+    void load().then(() => conversationApi.subscribe(conversationId, lastSeq.current));
     void agentBehaviourSettingsApi.get().then((settings) => {
       setPolicy(resolveFollowupPolicy(settings.followup_policy));
     });
+    const policyTimer = window.setInterval(() => {
+      void agentBehaviourSettingsApi.get().then((settings) => {
+        setPolicy(resolveFollowupPolicy(settings.followup_policy));
+      });
+    }, 15_000);
     void agentApi.listRegistry().then((result) => {
       const installed = (result.agents ?? [])
         .filter((agent) => agent.installed)
@@ -169,10 +181,29 @@ export function AgentChatWorkspace({
     const off = useWebSocketStore.getState().onEvent("conversation_event", (payload) => {
       const event = payload as {
         conversation_id?: string;
-        payload?: { type?: string; turn_id?: string; message_id?: string; text?: string };
+        sequence?: number;
+        payload?: {
+          type?: string;
+          turn_id?: string;
+          message_id?: string;
+          text?: string;
+          delta?: string;
+          status?: string;
+          request?: {
+            request_id?: string;
+            tool?: string;
+            description?: string;
+            options?: Array<{ option_id: string; name: string }>;
+          };
+          items?: QueueRow[];
+        };
       };
       if (!conversationEventFor(event, conversationId)) return;
+      if (typeof event.sequence === "number") {
+        lastSeq.current = Math.max(lastSeq.current, event.sequence);
+      }
       liveUserRows.current = foldUserRowsFromEvent(liveUserRows.current, event, conversationId);
+      setTurns((current) => foldTurnsFromEvent(current as never, event, conversationId) as typeof current);
       if (event.payload?.type === "turn_started") {
         setBusy(true);
         setRunningTurnId(event.payload.turn_id ?? null);
@@ -182,26 +213,43 @@ export function AgentChatWorkspace({
         setRunningTurnId(null);
         setPermission(null);
       }
-      if (event.payload?.type === "permission_requested") {
+      if (event.payload?.type === "permission_requested" && event.payload.request?.request_id) {
         setBusy(true);
+        setPermission({
+          request_id: event.payload.request.request_id,
+          tool: event.payload.request.tool ?? "",
+          description: event.payload.request.description ?? "",
+          options: event.payload.request.options ?? [],
+        });
+      }
+      if (event.payload?.type === "permission_resolved") {
+        setPermission(null);
+      }
+      if (event.payload?.type === "queue_updated" && event.payload.items) {
+        setQueue(event.payload.items);
       }
       if (event.payload?.type === "runtime_status") {
         const status = (event.payload as { status?: string }).status;
-        if (status === "detached" || status === "closed" || status === "ready") {
-          if (status !== "ready") {
-            setBusy(false);
-            setRunningTurnId(null);
-            setPermission(null);
-          }
+        if (status === "detached" || status === "closed") {
+          setBusy(false);
+          setRunningTurnId(null);
+          setPermission(null);
         }
       }
-      void load();
+    });
+    const offCatalog = useWebSocketStore.getState().onEvent("agent_model_catalog_updated", (payload) => {
+      const update = payload as { agent_id?: string; catalog?: AgentModelCatalog };
+      if (update.agent_id && update.catalog && update.agent_id === providerId) {
+        setCatalog(update.catalog);
+      }
     });
     return () => {
       off();
+      offCatalog();
+      window.clearInterval(policyTimer);
       void conversationApi.unsubscribe(conversationId);
     };
-  }, [conversationId, load]);
+  }, [conversationId, load, providerId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -308,16 +356,42 @@ export function AgentChatWorkspace({
                     row.id === conversationId ? "bg-accent" : "hover:bg-accent/60"
                   }`}
                   onClick={() => onOpenConversation?.(row.id)}
-                  onContextMenu={async (event) => {
-                    event.preventDefault();
-                    const next = window.prompt(t("rename"), row.title || "");
-                    if (next && next.trim()) {
-                      await conversationApi.rename(row.id, next.trim());
-                      void load();
-                    }
-                  }}
                 >
-                  <span className="min-w-0 flex-1 truncate">{row.title || t("untitled")}</span>
+                  {renameId === row.id ? (
+                    <input
+                      className="min-w-0 flex-1 rounded-sm border border-border bg-background px-1 text-sm"
+                      value={renameValue}
+                      autoFocus
+                      onChange={(event) => setRenameValue(event.target.value)}
+                      onClick={(event) => event.stopPropagation()}
+                      onBlur={async () => {
+                        if (renameValue.trim()) {
+                          await conversationApi.rename(row.id, renameValue.trim());
+                          void load();
+                        }
+                        setRenameId(null);
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          event.currentTarget.blur();
+                        }
+                        if (event.key === "Escape") {
+                          setRenameId(null);
+                        }
+                      }}
+                    />
+                  ) : (
+                    <span
+                      className="min-w-0 flex-1 truncate"
+                      onDoubleClick={(event) => {
+                        event.stopPropagation();
+                        setRenameId(row.id);
+                        setRenameValue(row.title || "");
+                      }}
+                    >
+                      {row.title || t("untitled")}
+                    </span>
+                  )}
                   <span
                     role="button"
                     tabIndex={0}
@@ -455,10 +529,10 @@ export function AgentChatWorkspace({
                 <button
                   type="button"
                   onClick={async () => {
-                    const next = window.prompt(t("edit"), item.prompt);
-                    if (next && next.trim()) {
+                    const edited = window.prompt(t("edit"), item.prompt);
+                    if (edited && edited.trim()) {
                       await conversationApi.queueUpdate(conversationId, item.id, {
-                        text: next.trim(),
+                        text: edited.trim(),
                       });
                       void load();
                     }

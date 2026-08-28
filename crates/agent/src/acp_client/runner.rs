@@ -386,7 +386,7 @@ pub struct AcpSessionHandle {
     pub session_id: String,
     cmd_tx: mpsc::UnboundedSender<SessionCommand>,
     event_rx: mpsc::UnboundedReceiver<AcpSessionEvent>,
-    permission_rx: mpsc::UnboundedReceiver<(PermissionRequest, oneshot::Sender<bool>)>,
+    permission_rx: mpsc::UnboundedReceiver<(PermissionRequest, oneshot::Sender<String>)>,
 }
 
 pub const AUTH_REQUIRED_ERROR_PREFIX: &str = "ACP_AUTH_REQUIRED::";
@@ -452,7 +452,7 @@ impl AcpSessionHandle {
     }
 
     /// Receive pending permission request (non-blocking)
-    pub fn try_recv_permission(&mut self) -> Option<(PermissionRequest, oneshot::Sender<bool>)> {
+    pub fn try_recv_permission(&mut self) -> Option<(PermissionRequest, oneshot::Sender<String>)> {
         self.permission_rx.try_recv().ok()
     }
 }
@@ -559,7 +559,7 @@ async fn run_session_inner(
     auth_method_id: Option<String>,
     cmd_rx: &mut mpsc::UnboundedReceiver<SessionCommand>,
     event_tx: mpsc::UnboundedSender<AcpSessionEvent>,
-    permission_tx: mpsc::UnboundedSender<(PermissionRequest, oneshot::Sender<bool>)>,
+    permission_tx: mpsc::UnboundedSender<(PermissionRequest, oneshot::Sender<String>)>,
     mut ready_tx: Option<oneshot::Sender<Result<String, String>>>,
     default_config: Option<std::collections::HashMap<String, String>>,
     session_config_snapshot: Option<HashMap<String, String>>,
@@ -869,6 +869,7 @@ async fn run_session_inner(
                         .map(|response| {
                             info!("Resumed ACP session without history replay: {}", resume_id);
                             restored_existing_session = true;
+                            replayed_loaded_history = false;
                             let emitted = emit_session_config(
                                 response.config_options,
                                 response.modes,
@@ -958,8 +959,8 @@ async fn run_session_inner(
                 for _ in 0..20 {
                     tokio::task::yield_now().await;
                 }
-                let _ = event_tx.send(AcpSessionEvent::LoadCompleted);
             }
+            let _ = event_tx.send(AcpSessionEvent::LoadCompleted);
 
             let _ = event_tx.send(AcpSessionEvent::SessionReady {
                 acp_session_id: session_id_acp.to_string(),
@@ -972,8 +973,8 @@ async fn run_session_inner(
             while let Some(cmd) = cmd_rx.recv().await {
                 match cmd {
                     SessionCommand::Prompt(msg) => {
-                        if msg.is_empty() {
-                            break;
+                        if msg.trim().is_empty() {
+                            continue;
                         }
                         append_acp_log(
                             &session_id_acp.to_string(),

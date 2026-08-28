@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -20,6 +20,7 @@ use super::types::{
 };
 
 const ASSISTANT_SNAPSHOT_INTERVAL: Duration = Duration::from_millis(100);
+const RECENT_EVENT_CAP: usize = 2048;
 
 struct RuntimeState {
     current_turn_id: Option<String>,
@@ -39,19 +40,49 @@ pub struct ConversationService {
     factory: Arc<dyn AgentProviderFactory>,
     runtimes: Arc<Mutex<HashMap<String, LiveRuntime>>>,
     spawning: Mutex<HashSet<String>>,
+    turn_gates: Arc<Mutex<HashMap<String, Arc<Mutex<()>>>>>,
+    recent_events: Arc<std::sync::Mutex<HashMap<String, VecDeque<ConversationClientEvent>>>>,
     events: broadcast::Sender<ConversationClientEvent>,
 }
 
 impl ConversationService {
     pub fn new(store: Arc<ConversationStore>, factory: Arc<dyn AgentProviderFactory>) -> Self {
-        let (events, _) = broadcast::channel(512);
+        let (events, _) = broadcast::channel(4096);
         Self {
             store,
             factory,
             runtimes: Arc::new(Mutex::new(HashMap::new())),
             spawning: Mutex::new(HashSet::new()),
+            turn_gates: Arc::new(Mutex::new(HashMap::new())),
+            recent_events: Arc::new(std::sync::Mutex::new(HashMap::new())),
             events,
         }
+    }
+
+    async fn turn_gate(&self, conversation_id: &str) -> Arc<Mutex<()>> {
+        let mut gates = self.turn_gates.lock().await;
+        gates
+            .entry(conversation_id.to_string())
+            .or_insert_with(|| Arc::new(Mutex::new(())))
+            .clone()
+    }
+
+    pub fn events_after(
+        &self,
+        conversation_id: &str,
+        after_sequence: u64,
+    ) -> Vec<ConversationClientEvent> {
+        self.recent_events
+            .lock()
+            .map(|map| {
+                map.get(conversation_id)
+                    .into_iter()
+                    .flatten()
+                    .filter(|event| event.sequence > after_sequence)
+                    .cloned()
+                    .collect()
+            })
+            .unwrap_or_default()
     }
 
     pub fn store(&self) -> &ConversationStore {
@@ -130,6 +161,8 @@ impl ConversationService {
         if text.trim().is_empty() {
             return Err(ServiceError::Validation("text is required".into()));
         }
+        let gate = self.turn_gate(conversation_id).await;
+        let _turn = gate.lock().await;
         let meta = self.store.get_meta(conversation_id)?;
         if let Some(runtime) = self.runtimes.lock().await.get(conversation_id) {
             if runtime.state.lock().await.current_turn_id.is_some() {
@@ -185,13 +218,11 @@ impl ConversationService {
             },
         )?;
         let _ = meta;
-        let control = match self.ensure_runtime(conversation_id).await {
-            Ok(control) => {
-                if let Some(runtime) = self.runtimes.lock().await.get(conversation_id) {
-                    runtime.state.lock().await.current_turn_id = Some(turn_id.clone());
-                }
-                control
-            }
+        let control = match self
+            .ensure_runtime(conversation_id, Some(turn_id.clone()))
+            .await
+        {
+            Ok(control) => control,
             Err(error) => {
                 let _ = self.store.append_record(
                     conversation_id,
@@ -230,6 +261,25 @@ impl ConversationService {
                     state.current_turn_id = None;
                 }
             }
+            let _ = self.store.append_record(
+                conversation_id,
+                &TranscriptRecord::TurnCompleted {
+                    turn_id: turn_id.clone(),
+                    status: TurnStatus::Failed,
+                    error: Some(error.to_string()),
+                    created_at: Utc::now(),
+                },
+            );
+            let _ = self.store.update_meta(conversation_id, |meta| {
+                meta.runtime_status = RuntimeStatus::Detached;
+            });
+            let _ = self.emit(
+                conversation_id,
+                ConversationClientPayload::TurnCompleted {
+                    turn_id: turn_id.clone(),
+                    status: TurnStatus::Failed,
+                },
+            );
             return Err(ServiceError::Processing(error.to_string()));
         }
         Ok(turn_id)
@@ -364,6 +414,9 @@ impl ConversationService {
             .find(|item| item.id == item_id)
             .ok_or_else(|| ServiceError::NotFound(format!("queue item {item_id}")))?;
         if let Some(text) = text {
+            if text.trim().is_empty() {
+                return Err(ServiceError::Validation("text is required".into()));
+            }
             item.prompt = text;
         }
         if let Some(status) = status {
@@ -436,9 +489,31 @@ impl ConversationService {
             .respond_permission(request_id, option_id)
             .await
             .map_err(|e| ServiceError::Processing(e.to_string()))?;
-        if let Some(runtime) = self.runtimes.lock().await.get(conversation_id) {
-            runtime.state.lock().await.pending_permission = None;
-        }
+        let turn_id = if let Some(runtime) = self.runtimes.lock().await.get(conversation_id) {
+            let mut state = runtime.state.lock().await;
+            state.pending_permission = None;
+            state
+                .current_turn_id
+                .clone()
+                .unwrap_or_else(|| "unknown".into())
+        } else {
+            "unknown".into()
+        };
+        let _ = self.store.append_record(
+            conversation_id,
+            &TranscriptRecord::Permission {
+                turn_id,
+                request: PendingPermission {
+                    request_id: request_id.to_string(),
+                    tool: String::new(),
+                    description: String::new(),
+                    content_markdown: None,
+                    options: Vec::new(),
+                    status: "resolved".into(),
+                },
+                created_at: Utc::now(),
+            },
+        );
         self.emit(
             conversation_id,
             ConversationClientPayload::PermissionResolved {
@@ -449,11 +524,18 @@ impl ConversationService {
         Ok(())
     }
 
-    async fn ensure_runtime(&self, conversation_id: &str) -> Result<AgentSessionControl> {
+    async fn ensure_runtime(
+        &self,
+        conversation_id: &str,
+        initial_turn_id: Option<String>,
+    ) -> Result<AgentSessionControl> {
         loop {
             {
                 let map = self.runtimes.lock().await;
                 if let Some(runtime) = map.get(conversation_id) {
+                    if let Some(turn_id) = &initial_turn_id {
+                        runtime.state.lock().await.current_turn_id = Some(turn_id.clone());
+                    }
                     return Ok(runtime.control.clone());
                 }
             }
@@ -467,12 +549,16 @@ impl ConversationService {
             drop(spawning);
             break;
         }
-        let result = self.spawn_runtime(conversation_id).await;
+        let result = self.spawn_runtime(conversation_id, initial_turn_id).await;
         self.spawning.lock().await.remove(conversation_id);
         result
     }
 
-    async fn spawn_runtime(&self, conversation_id: &str) -> Result<AgentSessionControl> {
+    async fn spawn_runtime(
+        &self,
+        conversation_id: &str,
+        initial_turn_id: Option<String>,
+    ) -> Result<AgentSessionControl> {
         if let Some(runtime) = self.runtimes.lock().await.get(conversation_id) {
             return Ok(runtime.control.clone());
         }
@@ -510,7 +596,7 @@ impl ConversationService {
         })?;
         let control = session.control();
         let state = Arc::new(Mutex::new(RuntimeState {
-            current_turn_id: None,
+            current_turn_id: initial_turn_id,
             pending_permission: None,
             assistant_text: HashMap::new(),
             thinking_text: HashMap::new(),
@@ -528,6 +614,8 @@ impl ConversationService {
         let conversation_id_owned = conversation_id.to_string();
         let pump_control = control.clone();
         let runtimes = Arc::clone(&self.runtimes);
+        let recent_events = Arc::clone(&self.recent_events);
+        let turn_gates = Arc::clone(&self.turn_gates);
         tokio::spawn(async move {
             pump_session(
                 conversation_id_owned.clone(),
@@ -536,26 +624,35 @@ impl ConversationService {
                 state,
                 events.clone(),
                 pump_control,
+                Arc::clone(&recent_events),
+                turn_gates,
             )
             .await;
-            let _ = store.update_meta(&conversation_id_owned, |meta| {
-                if !matches!(
-                    meta.runtime_status,
-                    RuntimeStatus::Closed | RuntimeStatus::Detached
-                ) {
+            let status = store
+                .get_meta(&conversation_id_owned)
+                .map(|meta| meta.runtime_status)
+                .unwrap_or(RuntimeStatus::Detached);
+            if !matches!(status, RuntimeStatus::Closed | RuntimeStatus::Detached) {
+                let _ = store.update_meta(&conversation_id_owned, |meta| {
                     meta.runtime_status = RuntimeStatus::Detached;
-                }
-            });
+                });
+            }
             let sequence = store.next_seq(&conversation_id_owned).unwrap_or(0);
-            let _ = events.send(ConversationClientEvent {
+            let event = ConversationClientEvent {
                 conversation_id: conversation_id_owned.clone(),
                 event_id: uuid::Uuid::new_v4().to_string(),
                 sequence,
                 payload: ConversationClientPayload::RuntimeStatus {
-                    status: RuntimeStatus::Detached,
+                    status: if matches!(status, RuntimeStatus::Closed) {
+                        RuntimeStatus::Closed
+                    } else {
+                        RuntimeStatus::Detached
+                    },
                     persistence_handle: None,
                 },
-            });
+            };
+            push_recent(&recent_events, &event);
+            let _ = events.send(event);
             runtimes.lock().await.remove(&conversation_id_owned);
         });
         Ok(control)
@@ -569,11 +666,13 @@ impl ConversationService {
             sequence,
             payload,
         };
+        push_recent(&self.recent_events, &event);
         let _ = self.events.send(event);
         Ok(())
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn pump_session(
     conversation_id: String,
     mut session: Box<dyn AgentSession>,
@@ -581,43 +680,84 @@ async fn pump_session(
     state: Arc<Mutex<RuntimeState>>,
     events: broadcast::Sender<ConversationClientEvent>,
     control: AgentSessionControl,
+    recent_events: Arc<std::sync::Mutex<HashMap<String, VecDeque<ConversationClientEvent>>>>,
+    turn_gates: Arc<Mutex<HashMap<String, Arc<Mutex<()>>>>>,
 ) {
+    let mut closed_cleanly = false;
     while let Some(event) = session.next_event().await {
+        if matches!(event, AgentEvent::SessionClosed) {
+            closed_cleanly = true;
+        }
         let completed = matches!(
             event,
             AgentEvent::TurnCompleted { .. }
                 | AgentEvent::TurnCanceled { .. }
                 | AgentEvent::TurnFailed { .. }
         );
-        if let Err(error) = apply_event(&conversation_id, event, &store, &state, &events).await {
+        if let Err(error) = apply_event(
+            &conversation_id,
+            event,
+            &store,
+            &state,
+            &events,
+            &recent_events,
+        )
+        .await
+        {
             warn!("conversation pump error: {error}");
         }
         if completed {
-            if let Err(error) =
-                maybe_dispatch_queue(&conversation_id, &store, &state, &events, &control).await
+            if let Err(error) = maybe_dispatch_queue(
+                &conversation_id,
+                &store,
+                &state,
+                &events,
+                &control,
+                &recent_events,
+                &turn_gates,
+            )
+            .await
             {
                 warn!("queue dispatch error: {error}");
             }
         }
     }
+    if let Some(turn_id) = state.lock().await.current_turn_id.clone() {
+        let emit = |payload: ConversationClientPayload| -> Result<()> {
+            emit_live(&conversation_id, payload, &store, &events, &recent_events)
+        };
+        let _ = finish_turn(
+            &conversation_id,
+            turn_id,
+            TurnStatus::Failed,
+            Some("agent session ended".into()),
+            &store,
+            &state,
+            &emit,
+        )
+        .await;
+    }
+    let status = if closed_cleanly {
+        RuntimeStatus::Closed
+    } else {
+        RuntimeStatus::Detached
+    };
+    let _ = store.update_meta(&conversation_id, |meta| {
+        meta.runtime_status = status;
+    });
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn apply_event(
     conversation_id: &str,
     event: AgentEvent,
     store: &ConversationStore,
     state: &Mutex<RuntimeState>,
     events: &broadcast::Sender<ConversationClientEvent>,
+    recent_events: &std::sync::Mutex<HashMap<String, VecDeque<ConversationClientEvent>>>,
 ) -> Result<()> {
     let emit = |payload: ConversationClientPayload| -> Result<()> {
-        let sequence = store.next_seq(conversation_id)?;
-        let _ = events.send(ConversationClientEvent {
-            conversation_id: conversation_id.to_string(),
-            event_id: uuid::Uuid::new_v4().to_string(),
-            sequence,
-            payload,
-        });
-        Ok(())
+        emit_live(conversation_id, payload, store, events, recent_events)
     };
     match event {
         AgentEvent::SessionStarted { persistence_handle } => {
@@ -858,9 +998,8 @@ async fn apply_event(
         }
         AgentEvent::SessionClosed => {
             store.update_meta(conversation_id, |meta| {
-                meta.runtime_status = RuntimeStatus::Detached;
+                meta.runtime_status = RuntimeStatus::Closed;
             })?;
-            state.lock().await.current_turn_id = None;
             state.lock().await.pending_permission = None;
         }
         AgentEvent::TurnStarted { .. } | AgentEvent::UserMessage { .. } => {}
@@ -916,13 +1055,24 @@ async fn finish_turn(
     emit(ConversationClientPayload::TurnCompleted { turn_id, status })
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn maybe_dispatch_queue(
     conversation_id: &str,
     store: &ConversationStore,
     state: &Mutex<RuntimeState>,
     events: &broadcast::Sender<ConversationClientEvent>,
     control: &AgentSessionControl,
+    recent_events: &std::sync::Mutex<HashMap<String, VecDeque<ConversationClientEvent>>>,
+    turn_gates: &Mutex<HashMap<String, Arc<Mutex<()>>>>,
 ) -> Result<()> {
+    let gate = {
+        let mut gates = turn_gates.lock().await;
+        gates
+            .entry(conversation_id.to_string())
+            .or_insert_with(|| Arc::new(Mutex::new(())))
+            .clone()
+    };
+    let _turn = gate.lock().await;
     if state.lock().await.pending_permission.is_some() {
         return Ok(());
     }
@@ -958,7 +1108,7 @@ async fn maybe_dispatch_queue(
             created_at: Utc::now(),
         },
     )?;
-    control
+    if let Err(error) = control
         .prompt(AgentPrompt {
             text: item.prompt.clone(),
             attachments: item.attachments.clone(),
@@ -966,26 +1116,78 @@ async fn maybe_dispatch_queue(
             turn_id: Some(turn_id.clone()),
         })
         .await
-        .map_err(|e| ServiceError::Processing(e.to_string()))?;
+    {
+        state.lock().await.current_turn_id = None;
+        let mut restored = store.read_queue(conversation_id)?;
+        restored.insert(0, item);
+        let _ = store.write_queue(conversation_id, &restored);
+        let _ = store.append_record(
+            conversation_id,
+            &TranscriptRecord::TurnCompleted {
+                turn_id: turn_id.clone(),
+                status: TurnStatus::Failed,
+                error: Some(error.to_string()),
+                created_at: Utc::now(),
+            },
+        );
+        let _ = store.update_meta(conversation_id, |meta| {
+            meta.runtime_status = RuntimeStatus::Ready;
+        });
+        return Err(ServiceError::Processing(error.to_string()));
+    }
     store.update_meta(conversation_id, |meta| {
         meta.runtime_status = RuntimeStatus::RunningTurn;
         meta.last_message_at = Some(Utc::now());
     })?;
-    let sequence = store.next_seq(conversation_id)?;
-    let _ = events.send(ConversationClientEvent {
-        conversation_id: conversation_id.to_string(),
-        event_id: uuid::Uuid::new_v4().to_string(),
-        sequence,
-        payload: ConversationClientPayload::TurnStarted { turn_id },
-    });
-    let sequence = store.next_seq(conversation_id)?;
-    let _ = events.send(ConversationClientEvent {
-        conversation_id: conversation_id.to_string(),
-        event_id: uuid::Uuid::new_v4().to_string(),
-        sequence,
-        payload: ConversationClientPayload::QueueUpdated { items },
-    });
+    emit_live(
+        conversation_id,
+        ConversationClientPayload::TurnStarted { turn_id },
+        store,
+        events,
+        recent_events,
+    )?;
+    emit_live(
+        conversation_id,
+        ConversationClientPayload::QueueUpdated { items },
+        store,
+        events,
+        recent_events,
+    )?;
     Ok(())
+}
+
+fn emit_live(
+    conversation_id: &str,
+    payload: ConversationClientPayload,
+    store: &ConversationStore,
+    events: &broadcast::Sender<ConversationClientEvent>,
+    recent_events: &std::sync::Mutex<HashMap<String, VecDeque<ConversationClientEvent>>>,
+) -> Result<()> {
+    let sequence = store.next_seq(conversation_id)?;
+    let event = ConversationClientEvent {
+        conversation_id: conversation_id.to_string(),
+        event_id: uuid::Uuid::new_v4().to_string(),
+        sequence,
+        payload,
+    };
+    push_recent(recent_events, &event);
+    let _ = events.send(event);
+    Ok(())
+}
+
+fn push_recent(
+    recent_events: &std::sync::Mutex<HashMap<String, VecDeque<ConversationClientEvent>>>,
+    event: &ConversationClientEvent,
+) {
+    if let Ok(mut map) = recent_events.lock() {
+        let queue = map
+            .entry(event.conversation_id.clone())
+            .or_insert_with(VecDeque::new);
+        queue.push_back(event.clone());
+        while queue.len() > RECENT_EVENT_CAP {
+            queue.pop_front();
+        }
+    }
 }
 
 fn nonempty_opt(value: String) -> Option<String> {

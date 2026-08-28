@@ -6062,7 +6062,11 @@
         "summaryDelayTitle": "总结前等待",
         "summaryDelayDescription": "task-complete 的 attention 在未被确认后，等待多久再触发总结。",
         "summaryAgentTitle": "总结 Agent",
-        "summaryAgentDescription": "无头总结使用的终端 Agent（与 Automations 相同）。可在 Agent 运行配置中设置模型。不选择则使用默认 LLM 提供方。"
+        "summaryAgentDescription": "无头总结使用的终端 Agent（与 Automations 相同）。可在 Agent 运行配置中设置模型。不选择则使用默认 LLM 提供方。",
+        "followupTitle": "忙碌时的后续输入",
+        "followupDescription": "当前轮次进行中时，Enter 会把下一条排队，或注入当前轮次。另一种操作仍可作为一次性动作使用。",
+        "followupQueue": "排队",
+        "followupSteer": "引导"
       }
     },
     "canvasSection": {

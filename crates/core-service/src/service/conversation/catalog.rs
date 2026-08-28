@@ -22,7 +22,7 @@ pub struct CatalogUpdated {
 pub struct CatalogPrefetchWorker {
     started: AtomicBool,
     cache: CatalogCache,
-    engine: Mutex<CatalogEngine>,
+    engine: Arc<CatalogEngine>,
     specs: Mutex<Vec<AgentCatalogSpec>>,
     events: broadcast::Sender<CatalogUpdated>,
     poll: Duration,
@@ -46,7 +46,7 @@ impl CatalogPrefetchWorker {
         Self {
             started: AtomicBool::new(false),
             cache,
-            engine: Mutex::new(engine),
+            engine: Arc::new(engine),
             specs: Mutex::new(specs),
             events,
             poll,
@@ -100,7 +100,7 @@ impl CatalogPrefetchWorker {
 
     async fn run_loop(self: Arc<Self>) {
         loop {
-            self.probe_enabled().await;
+            Arc::clone(&self).probe_enabled().await;
             tokio::time::sleep(self.poll).await;
             if self.web_clients.load(Ordering::SeqCst) == 0 {
                 self.started.store(false, Ordering::SeqCst);
@@ -109,26 +109,46 @@ impl CatalogPrefetchWorker {
         }
     }
 
-    async fn probe_enabled(&self) {
+    async fn probe_enabled(self: Arc<Self>) {
         let specs = self.specs.lock().await.clone();
         let now = Utc::now();
+        let permit = Arc::new(tokio::sync::Semaphore::new(2));
+        let mut joins = Vec::new();
         for spec in specs {
             if self.cache.should_skip_probe(&spec.agent_id, now) {
                 continue;
             }
-            self.probe_count.fetch_add(1, Ordering::SeqCst);
-            let catalog = {
-                let engine = self.engine.lock().await;
-                engine.probe(&spec).await
+            let Ok(owned) = permit.clone().acquire_owned().await else {
+                continue;
             };
-            if let Err(error) = self.cache.put(&catalog) {
-                warn!("failed to cache catalog for {}: {error}", spec.agent_id);
-            }
-            let _ = self.events.send(CatalogUpdated {
-                agent_id: spec.agent_id,
-                catalog,
-            });
+            let worker = Arc::clone(&self);
+            joins.push(tokio::spawn(async move {
+                let _permit = owned;
+                worker.probe_one(spec).await;
+            }));
         }
+        for join in joins {
+            let _ = join.await;
+        }
+    }
+
+    async fn probe_one(&self, spec: AgentCatalogSpec) {
+        self.probe_count.fetch_add(1, Ordering::SeqCst);
+        let catalog = self.engine.probe(&spec).await;
+        if let Err(error) = self.cache.put(&catalog) {
+            warn!("failed to cache catalog for {}: {error}", spec.agent_id);
+        }
+        let _ = self.events.send(CatalogUpdated {
+            agent_id: spec.agent_id,
+            catalog,
+        });
+    }
+
+    pub fn request_probe(self: &Arc<Self>, spec: AgentCatalogSpec) {
+        let worker = Arc::clone(self);
+        tokio::spawn(async move {
+            worker.probe_one(spec).await;
+        });
     }
 
     pub async fn get(&self, spec: &AgentCatalogSpec, refresh: bool) -> AgentModelCatalog {
@@ -139,13 +159,24 @@ impl CatalogPrefetchWorker {
             }
         }
         self.probe_count.fetch_add(1, Ordering::SeqCst);
-        let mut catalog = {
-            let engine = self.engine.lock().await;
-            engine.probe(spec).await
-        };
+        let mut catalog = self.engine.probe(spec).await;
         catalog.source = CatalogSource::Live;
         let _ = self.cache.put(&catalog);
         catalog
+    }
+
+    pub fn get_cached_or_probing(
+        self: &Arc<Self>,
+        spec: &AgentCatalogSpec,
+        refresh: bool,
+    ) -> AgentModelCatalog {
+        if !refresh {
+            if let Some(cached) = self.cache.get(&spec.agent_id, Utc::now()) {
+                return cached;
+            }
+        }
+        self.request_probe(spec.clone());
+        AgentModelCatalog::probing(&spec.agent_id)
     }
 
     pub fn cache_get(&self, agent_id: &str) -> Option<AgentModelCatalog> {
@@ -231,7 +262,7 @@ pub fn builtin_catalog_specs() -> Vec<AgentCatalogSpec> {
             };
             let thinking = thinking_from_builtin(&value);
             Some(AgentCatalogSpec {
-                agent_id: id,
+                agent_id: id.clone(),
                 strategies: if cli_command.is_empty() {
                     vec![CatalogStrategyKind::Config, CatalogStrategyKind::Acp]
                 } else {
@@ -245,7 +276,10 @@ pub fn builtin_catalog_specs() -> Vec<AgentCatalogSpec> {
                 parser,
                 thinking,
                 static_models: Vec::new(),
-                acp: true,
+                acp: matches!(
+                    id.as_str(),
+                    "claude" | "gemini" | "codex" | "copilot" | "cursor" | "kiro" | "amp"
+                ),
             })
         })
         .collect()

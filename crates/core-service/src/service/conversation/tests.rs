@@ -171,6 +171,21 @@ async fn s9_queue_reloads_and_dispatch_skips_paused() {
 }
 
 #[tokio::test]
+async fn overlapping_send_rejects_second_turn() {
+    let provider = FakeAgentProvider::new("claude");
+    provider.set_auto_complete(false);
+    let provider = Arc::new(provider);
+    let (_dir, service) = make_service(Arc::clone(&provider));
+    let meta = service.create(create_req("/tmp/proj")).unwrap();
+    let first = service.send(&meta.id, "one", Vec::new());
+    let second = service.send(&meta.id, "two", Vec::new());
+    let (a, b) = tokio::join!(first, second);
+    let ok = a.is_ok() as u8 + b.is_ok() as u8;
+    assert_eq!(ok, 1);
+    assert!(a.is_err() || b.is_err());
+}
+
+#[tokio::test]
 async fn send_after_turn_completed_starts_a_new_turn() {
     let provider = Arc::new(FakeAgentProvider::new("claude"));
     let (_dir, service) = make_service(Arc::clone(&provider));

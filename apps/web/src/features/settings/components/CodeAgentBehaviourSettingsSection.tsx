@@ -19,6 +19,7 @@ export type BehaviourSettingsValues = {
   attentionSummaryDelayMins: number;
   attentionSummaryAgentId: string;
   attentionSummaryModel: string;
+  followupPolicy: "queue" | "steer";
 };
 
 export type CodeAgentBehaviourSettingsSectionProps = {
@@ -27,11 +28,13 @@ export type CodeAgentBehaviourSettingsSectionProps = {
   attentionSummaryDelayMins: number;
   attentionSummaryAgentId: string;
   attentionSummaryModel: string;
+  followupPolicy: "queue" | "steer";
   savedIdleSessionTimeoutMins: number;
   savedAttentionSummaryEnabled: boolean;
   savedAttentionSummaryDelayMins: number;
   savedAttentionSummaryAgentId: string;
   savedAttentionSummaryModel: string;
+  savedFollowupPolicy: "queue" | "steer";
   savingIdleTimeout: boolean;
   onCommitBehaviourSettings: (values: BehaviourSettingsValues) => void | Promise<void>;
   setIdleSessionTimeoutMins: React.Dispatch<React.SetStateAction<number>>;
@@ -39,6 +42,7 @@ export type CodeAgentBehaviourSettingsSectionProps = {
   setAttentionSummaryDelayMins: React.Dispatch<React.SetStateAction<number>>;
   setAttentionSummaryAgentId: React.Dispatch<React.SetStateAction<string>>;
   setAttentionSummaryModel: React.Dispatch<React.SetStateAction<string>>;
+  setFollowupPolicy: React.Dispatch<React.SetStateAction<"queue" | "steer">>;
 };
 
 /**
@@ -52,11 +56,13 @@ export function CodeAgentBehaviourSettingsSection({
   attentionSummaryDelayMins,
   attentionSummaryAgentId,
   attentionSummaryModel,
+  followupPolicy,
   savedIdleSessionTimeoutMins,
   savedAttentionSummaryEnabled,
   savedAttentionSummaryDelayMins,
   savedAttentionSummaryAgentId,
   savedAttentionSummaryModel,
+  savedFollowupPolicy,
   savingIdleTimeout,
   onCommitBehaviourSettings,
   setIdleSessionTimeoutMins,
@@ -64,6 +70,7 @@ export function CodeAgentBehaviourSettingsSection({
   setAttentionSummaryDelayMins,
   setAttentionSummaryAgentId,
   setAttentionSummaryModel,
+  setFollowupPolicy,
 }: CodeAgentBehaviourSettingsSectionProps) {
   const t = useTranslations("settings.codeAgentSection");
   const tAutomationAgents = useTranslations("automation.setup.agentOptions");
@@ -77,6 +84,7 @@ export function CodeAgentBehaviourSettingsSection({
       attentionSummaryDelayMins,
       attentionSummaryAgentId,
       attentionSummaryModel,
+      followupPolicy,
       ...patch,
     }),
     [
@@ -85,6 +93,7 @@ export function CodeAgentBehaviourSettingsSection({
       attentionSummaryDelayMins,
       attentionSummaryAgentId,
       attentionSummaryModel,
+      followupPolicy,
     ],
   );
 
@@ -94,13 +103,15 @@ export function CodeAgentBehaviourSettingsSection({
       values.attentionSummaryEnabled !== savedAttentionSummaryEnabled ||
       values.attentionSummaryDelayMins !== savedAttentionSummaryDelayMins ||
       values.attentionSummaryAgentId !== savedAttentionSummaryAgentId ||
-      values.attentionSummaryModel !== savedAttentionSummaryModel,
+      values.attentionSummaryModel !== savedAttentionSummaryModel ||
+      values.followupPolicy !== savedFollowupPolicy,
     [
       savedIdleSessionTimeoutMins,
       savedAttentionSummaryEnabled,
       savedAttentionSummaryDelayMins,
       savedAttentionSummaryAgentId,
       savedAttentionSummaryModel,
+      savedFollowupPolicy,
     ],
   );
 
@@ -246,6 +257,31 @@ export function CodeAgentBehaviourSettingsSection({
                   {t("behavior.minutes")}
                 </span>
               </div>
+            </div>
+          </div>
+          <div className="border-b border-border px-2 py-4">
+            <div className="flex items-center gap-3">
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-foreground">
+                  {t("behavior.followupTitle")}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {t("behavior.followupDescription")}
+                </p>
+              </div>
+              <select
+                className="h-8 rounded-md border border-border bg-background px-2 text-sm"
+                value={followupPolicy}
+                onChange={(event) => {
+                  const next = event.target.value === "steer" ? "steer" : "queue";
+                  setFollowupPolicy(next);
+                  commitBehaviour({ followupPolicy: next });
+                }}
+                aria-label={t("behavior.followupTitle")}
+              >
+                <option value="queue">{t("behavior.followupQueue")}</option>
+                <option value="steer">{t("behavior.followupSteer")}</option>
+              </select>
             </div>
           </div>
 
