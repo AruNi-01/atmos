@@ -60,13 +60,14 @@ describe("md-live structural gates", () => {
     );
     expect(blocks).toContain("CodeBlockHeader");
     expect(blocks).toContain("CodeBlockContent");
-    expect(blocks).toContain("MARKDOWN_TABLE_WRAP_CLASS");
+    expect(blocks).toContain("MARKDOWN_TABLE_TH_CLASS");
     expect(blocks).toContain("CopyButton");
-    expect(blocks).toContain("tableSchema");
+    expect(blocks).toContain("tableHeaderRowSchema");
     expect(blocks).toContain("codeBlockSchema");
     expect(blocks).toContain("CodeLanguagePicker");
     expect(blocks).not.toContain("CommandInput");
     expect(blocks).toContain("setNodeMarkup");
+    expect(blocks).toContain("isMdLiveComposing");
     expect(blocks).toContain("onLanguageChange");
     expect(blocks).not.toContain("@milkdown/components/code-block");
     expect(source).not.toContain("slashFactory");

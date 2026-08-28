@@ -3,6 +3,7 @@ import { editorViewCtx } from "@milkdown/kit/core";
 import type { Node } from "@milkdown/kit/prose/model";
 import { Plugin, PluginKey, TextSelection } from "@milkdown/kit/prose/state";
 import { $ctx, $nodeSchema, $prose, $remark } from "@milkdown/kit/utils";
+import { isMdLiveComposing } from "./composing";
 import { remarkMdLiveDetails } from "./toggle-remark";
 
 export const mdLiveToggleDefaultOpenCtx = $ctx(true, "mdLiveToggleDefaultOpen");
@@ -198,6 +199,7 @@ export const mdLiveToggleKeys = $prose((ctx) => {
     key: new PluginKey("mdLiveToggleKeys"),
     props: {
       handleKeyDown(view, event) {
+        if (isMdLiveComposing(view)) return false;
         if (event.key !== "Enter" && event.key !== "Backspace") return false;
         if (event.key === "Enter" && event.shiftKey) return false;
         const { state } = view;

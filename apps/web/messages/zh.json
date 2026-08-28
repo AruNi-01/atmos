@@ -10906,6 +10906,16 @@
     "githubIssue": "Issue #{number}",
     "githubPullRequest": "Pull request #{number}",
     "codeLanguagePlain": "纯文本",
-    "codeLanguageSelect": "选择语言"
+    "codeLanguageSelect": "选择语言",
+    "tableRowMenu": "行操作",
+    "tableColMenu": "列操作",
+    "tableAddRowAbove": "上面添加一行",
+    "tableAddRowBelow": "下面添加一行",
+    "tableDeleteRow": "删除这一行",
+    "tableAddColLeft": "左边添加一列",
+    "tableAddColRight": "右边添加一列",
+    "tableDeleteCol": "删除这一列",
+    "tableAddRow": "添加一行",
+    "tableAddCol": "添加一列"
   }
 }

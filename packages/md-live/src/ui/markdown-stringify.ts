@@ -90,7 +90,7 @@ export function formatMdLiveSerializedMarkdown(markdown: string): string {
     out.push(formatted);
   }
 
-  return out.join("\n");
+  return out.join("\n").replace(/`\u200B+`/g, "").replaceAll("\u200B", "");
 }
 
 type MdastLike = { type: string; children?: MdastLike[]; value?: string };

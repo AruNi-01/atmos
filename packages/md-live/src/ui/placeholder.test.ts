@@ -14,6 +14,8 @@ describe("mdLivePlaceholderCopyKey", () => {
   test("uses block names for headings, toggle, lists, quote, and code", () => {
     expect(mdLivePlaceholderCopyKey(node("heading", { level: 1 }), null)).toBe("slashHeading1");
     expect(mdLivePlaceholderCopyKey(node("heading", { level: 3 }), null)).toBe("slashHeading3");
+    expect(mdLivePlaceholderCopyKey(node("heading", { level: 4 }), null)).toBe("slashHeading4");
+    expect(mdLivePlaceholderCopyKey(node("heading", { level: 6 }), null)).toBe("slashHeading4");
     expect(mdLivePlaceholderCopyKey(node("details_summary"), null)).toBe("slashToggle");
     expect(mdLivePlaceholderCopyKey(node("code_block"), null)).toBe("slashCode");
     expect(mdLivePlaceholderCopyKey(node("paragraph"), node("blockquote"))).toBe("slashQuote");

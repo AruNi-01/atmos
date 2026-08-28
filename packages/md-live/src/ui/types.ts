@@ -1,4 +1,4 @@
-export const MD_LIVE_HEADING_LEVELS = [1, 2, 3, 4, 5, 6] as const;
+export const MD_LIVE_HEADING_LEVELS = [1, 2, 3, 4] as const;
 export type MdLiveHeadingLevel = (typeof MD_LIVE_HEADING_LEVELS)[number];
 
 export type MdLiveBlockAction =

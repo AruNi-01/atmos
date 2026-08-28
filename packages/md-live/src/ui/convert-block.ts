@@ -18,8 +18,6 @@ export const MD_LIVE_TOOLBAR_CONVERT_IDS = [
   "h2",
   "h3",
   "h4",
-  "h5",
-  "h6",
   "quote",
   "ul",
   "ol",

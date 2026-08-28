@@ -43,7 +43,7 @@ function HeadingMark({ level }: { level: MdLiveHeadingLevel }) {
 }
 
 function headingLevelOf(id: string): MdLiveHeadingLevel | null {
-  const match = /^h([1-6])$/.exec(id);
+  const match = /^h([1-4])$/.exec(id);
   if (!match) return null;
   return Number(match[1]) as MdLiveHeadingLevel;
 }
