@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import {
   MD_LIVE_HEADING_LEVELS,
+  MD_LIVE_TOOLBAR_CONVERT_IDS,
   mdLiveLabel,
   type MdLiveBlockAction,
   type MdLiveHeadingLevel,
@@ -50,6 +51,8 @@ export function MdLiveSelectionToolbar({
   onCopy,
   onCopyPrompt,
   copy,
+  activeBlockId = null,
+  convertIds,
 }: MdLiveSelectionToolbarProps) {
   const [copied, setCopied] = useState<"copy" | "prompt" | null>(null);
   const label = (key: string) => mdLiveLabel(key, copy);
@@ -61,6 +64,8 @@ export function MdLiveSelectionToolbar({
 
   const preventFocusSteal = (event: { preventDefault(): void }) => event.preventDefault();
 
+  const allowed = new Set(convertIds ?? MD_LIVE_TOOLBAR_CONVERT_IDS);
+
   const blockItems: MenuItem[] = [
     { id: "paragraph", label: "toolbarParagraph", icon: <Type className="size-4" />, action: { type: "paragraph" } },
     ...MD_LIVE_HEADING_LEVELS.map((level) => ({
@@ -70,14 +75,18 @@ export function MdLiveSelectionToolbar({
       action: { type: "heading" as const, level },
     })),
     { id: "quote", label: "toolbarQuote", icon: <TextQuote className="size-4" />, action: { type: "quote" } },
+    { id: "ul", label: "toolbarBulletList", icon: <List className="size-4" />, action: { type: "bullet-list" } },
+    { id: "ol", label: "toolbarOrderedList", icon: <ListOrdered className="size-4" />, action: { type: "ordered-list" } },
+    { id: "todo", label: "toolbarTaskList", icon: <ListChecks className="size-4" />, action: { type: "task-list" } },
+    { id: "toggle", label: "slashToggle", icon: <ListCollapse className="size-4" />, action: { type: "toggle" } },
     { id: "code", label: "toolbarCode", icon: <Code className="size-4" />, action: { type: "code" } },
-  ];
+  ].filter((item) => allowed.has(item.id));
 
   const listItems: MenuItem[] = [
     { id: "ul", label: "toolbarBulletList", icon: <List className="size-4" />, action: { type: "bullet-list" } },
     { id: "ol", label: "toolbarOrderedList", icon: <ListOrdered className="size-4" />, action: { type: "ordered-list" } },
     { id: "todo", label: "toolbarTaskList", icon: <ListChecks className="size-4" />, action: { type: "task-list" } },
-  ];
+  ].filter((item) => allowed.has(item.id));
 
   const aiItems: MenuItem[] = onAi
     ? [
@@ -95,24 +104,49 @@ export function MdLiveSelectionToolbar({
     onBlock(item.action);
   };
 
+  const activeBlock = blockItems.find((item) => item.id === activeBlockId) ?? null;
+  const headingLevel = activeBlockId && /^h([1-6])$/.exec(activeBlockId);
+  const blockTrigger = (
+    <>
+      {headingLevel ? (
+        <HeadingMark level={Number(headingLevel[1]) as MdLiveHeadingLevel} />
+      ) : activeBlockId === "quote" ? (
+        <TextQuote className="size-3.5" />
+      ) : activeBlockId === "code" ? (
+        <Code className="size-3.5" />
+      ) : activeBlockId === "ul" ? (
+        <List className="size-3.5" />
+      ) : activeBlockId === "ol" ? (
+        <ListOrdered className="size-3.5" />
+      ) : activeBlockId === "todo" ? (
+        <ListChecks className="size-3.5" />
+      ) : activeBlockId === "toggle" ? (
+        <ListCollapse className="size-3.5" />
+      ) : (
+        <Type className="size-3.5" />
+      )}
+      <span className="max-w-24 truncate">
+        {label(activeBlock?.label ?? "toolbarParagraph")}
+      </span>
+      <ChevronDown className="size-3 opacity-70" />
+    </>
+  );
+
   return (
     <TooltipProvider delayDuration={400}>
     <div data-md-live-toolbar="true" className="flex items-center gap-0.5 rounded-md border bg-popover p-1 shadow-md">
-      <OverlayMenu
-        label={label("toolbarParagraph")}
-        trigger={
-          <>
-            <Type className="size-3.5" />
-            <span className="max-w-24 truncate">{label("toolbarParagraph")}</span>
-            <ChevronDown className="size-3 opacity-70" />
-          </>
-        }
-        items={blockItems}
-        onSelect={runItem}
-        resolveLabel={label}
-        preventFocusSteal={preventFocusSteal}
-      />
-      <span className="mx-0.5 h-5 w-px bg-border" />
+      {blockItems.length > 0 ? (
+        <OverlayMenu
+          label={activeBlock ? label(activeBlock.label) : label("toolbarParagraph")}
+          trigger={blockTrigger}
+          activeId={activeBlock ? activeBlockId : null}
+          items={blockItems}
+          onSelect={runItem}
+          resolveLabel={label}
+          preventFocusSteal={preventFocusSteal}
+        />
+      ) : null}
+      {blockItems.length > 0 ? <span className="mx-0.5 h-5 w-px bg-border" /> : null}
       <IconButton label={label("toolbarBold")} onMouseDown={preventFocusSteal} onClick={() => onBlock({ type: "bold" })}>
         <Bold className="size-3.5" />
       </IconButton>
@@ -125,15 +159,28 @@ export function MdLiveSelectionToolbar({
       <IconButton label={label("toolbarInlineCode")} onMouseDown={preventFocusSteal} onClick={() => onBlock({ type: "inline-code" })}>
         <span className="flex size-3.5 items-center justify-center font-mono text-[12px] font-semibold">`</span>
       </IconButton>
-      <span className="mx-0.5 h-5 w-px bg-border" />
-      <OverlayMenu
-        label={label("toolbarList")}
-        iconTrigger={<List className="size-3.5" />}
-        items={listItems}
-        onSelect={runItem}
-        resolveLabel={label}
-        preventFocusSteal={preventFocusSteal}
-      />
+      {listItems.length > 0 ? (
+        <>
+          <span className="mx-0.5 h-5 w-px bg-border" />
+          {listItems.map((item) => (
+            <IconButton
+              key={item.id}
+              label={label(item.label)}
+              active={item.id === activeBlockId}
+              onMouseDown={preventFocusSteal}
+              onClick={() => runItem(item)}
+            >
+              {item.id === "ol" ? (
+                <ListOrdered className="size-3.5" />
+              ) : item.id === "todo" ? (
+                <ListChecks className="size-3.5" />
+              ) : (
+                <List className="size-3.5" />
+              )}
+            </IconButton>
+          ))}
+        </>
+      ) : null}
       <span className="mx-0.5 h-5 w-px bg-border" />
       <IconButton
         label={copied === "copy" ? label("copied") : label("toolbarCopy")}
@@ -183,6 +230,7 @@ function OverlayMenu({
   onSelect,
   resolveLabel,
   preventFocusSteal,
+  activeId = null,
 }: {
   label: string;
   trigger?: ReactNode;
@@ -191,7 +239,9 @@ function OverlayMenu({
   onSelect: (item: MenuItem) => void;
   resolveLabel: (key: string) => string;
   preventFocusSteal: (event: { preventDefault(): void }) => void;
+  activeId?: string | null;
 }) {
+  const triggerActive = activeId != null && items.some((item) => item.id === activeId);
   return (
     <DropdownMenu modal={false}>
       <Tooltip>
@@ -201,7 +251,12 @@ function OverlayMenu({
               <button
                 type="button"
                 aria-label={label}
-                className="flex size-8 items-center justify-center rounded-sm text-foreground hover:bg-accent hover:text-accent-foreground"
+                aria-current={triggerActive ? "true" : undefined}
+                className={
+                  triggerActive
+                    ? "flex size-8 items-center justify-center rounded-sm bg-accent text-accent-foreground"
+                    : "flex size-8 items-center justify-center rounded-sm text-foreground hover:bg-accent hover:text-accent-foreground"
+                }
                 onMouseDown={preventFocusSteal}
               >
                 {iconTrigger}
@@ -210,7 +265,12 @@ function OverlayMenu({
               <button
                 type="button"
                 aria-label={label}
-                className="flex h-8 items-center gap-1 rounded-sm px-2 text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
+                aria-current={triggerActive ? "true" : undefined}
+                className={
+                  triggerActive
+                    ? "flex h-8 items-center gap-1 rounded-sm bg-accent px-2 text-sm text-accent-foreground"
+                    : "flex h-8 items-center gap-1 rounded-sm px-2 text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
+                }
                 onMouseDown={preventFocusSteal}
               >
                 {trigger}
@@ -228,16 +288,22 @@ function OverlayMenu({
         className="w-56"
         onCloseAutoFocus={(event) => event.preventDefault()}
       >
-        {items.map((item) => (
-          <DropdownMenuItem
-            key={item.id}
-            onMouseDown={preventFocusSteal}
-            onSelect={() => onSelect(item)}
-          >
-            {item.icon}
-            <span className="min-w-0 truncate">{resolveLabel(item.label)}</span>
-          </DropdownMenuItem>
-        ))}
+        {items.map((item) => {
+          const selected = item.id === activeId;
+          return (
+            <DropdownMenuItem
+              key={item.id}
+              data-selected={selected ? "true" : undefined}
+              className={selected ? "bg-accent text-accent-foreground" : undefined}
+              onMouseDown={preventFocusSteal}
+              onSelect={() => onSelect(item)}
+            >
+              {item.icon}
+              <span className="min-w-0 flex-1 truncate">{resolveLabel(item.label)}</span>
+              <Check className={selected ? "size-3.5 opacity-100" : "size-3.5 opacity-0"} />
+            </DropdownMenuItem>
+          );
+        })}
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -248,11 +314,13 @@ function IconButton({
   onClick,
   onMouseDown,
   children,
+  active = false,
 }: {
   label: string;
   onClick: () => void;
   onMouseDown: (event: { preventDefault(): void }) => void;
   children: ReactNode;
+  active?: boolean;
 }) {
   return (
     <Tooltip>
@@ -260,7 +328,12 @@ function IconButton({
         <button
           type="button"
           aria-label={label}
-          className="flex size-8 items-center justify-center rounded-sm text-foreground hover:bg-accent hover:text-accent-foreground"
+          aria-current={active ? "true" : undefined}
+          className={
+            active
+              ? "flex size-8 items-center justify-center rounded-sm bg-accent text-accent-foreground"
+              : "flex size-8 items-center justify-center rounded-sm text-foreground hover:bg-accent hover:text-accent-foreground"
+          }
           onMouseDown={onMouseDown}
           onClick={onClick}
         >

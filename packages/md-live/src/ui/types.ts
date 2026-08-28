@@ -56,6 +56,10 @@ export type MdLiveSelectionToolbarProps = {
   onAi?: (kind: MdLiveAiActionKind) => void;
   onCopyPrompt?: () => void;
   copy?: MdLiveCopyFn;
+  /** Uniform block kind under the selection, or null when mixed. */
+  activeBlockId?: string | null;
+  /** Convertible text block ids for this selection. Empty hides convert controls. */
+  convertIds?: string[];
 };
 
 export type MdLiveTaskMarker = " " | "x" | "/" | "-";

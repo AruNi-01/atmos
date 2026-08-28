@@ -1,5 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { shouldShowMdLiveSelectionToolbar } from "./selection";
+import {
+  mdLiveBlockKindId,
+  mdLiveUnifyBlockKindId,
+  shouldShowMdLiveSelectionToolbar,
+} from "./selection";
 
 describe("shouldShowMdLiveSelectionToolbar", () => {
   const ready = {
@@ -21,5 +25,45 @@ describe("shouldShowMdLiveSelectionToolbar", () => {
 
   test("hides when the editor is unfocused and the toolbar is not focused", () => {
     expect(shouldShowMdLiveSelectionToolbar({ ...ready, editorFocused: false, tooltipFocused: false })).toBe(false);
+  });
+});
+
+describe("mdLiveBlockKindId", () => {
+  test("maps heading, code, quote, lists, and paragraph", () => {
+    expect(mdLiveBlockKindId({ type: { name: "heading" }, attrs: { level: 2 } }, null)).toBe("h2");
+    expect(mdLiveBlockKindId({ type: { name: "code_block" }, attrs: {} }, null)).toBe("code");
+    expect(
+      mdLiveBlockKindId(
+        { type: { name: "paragraph" }, attrs: {} },
+        { type: { name: "blockquote" }, attrs: {} },
+      ),
+    ).toBe("quote");
+    expect(
+      mdLiveBlockKindId(
+        { type: { name: "paragraph" }, attrs: {} },
+        { type: { name: "list_item" }, attrs: { listType: "bullet" } },
+      ),
+    ).toBe("ul");
+    expect(
+      mdLiveBlockKindId(
+        { type: { name: "paragraph" }, attrs: {} },
+        { type: { name: "list_item" }, attrs: { listType: "ordered" } },
+      ),
+    ).toBe("ol");
+    expect(
+      mdLiveBlockKindId(
+        { type: { name: "paragraph" }, attrs: {} },
+        { type: { name: "list_item" }, attrs: { taskMarker: " " } },
+      ),
+    ).toBe("todo");
+    expect(mdLiveBlockKindId({ type: { name: "paragraph" }, attrs: {} }, null)).toBe("paragraph");
+  });
+});
+
+describe("mdLiveUnifyBlockKindId", () => {
+  test("keeps a uniform kind and drops mixed selections", () => {
+    expect(mdLiveUnifyBlockKindId(["h2", "h2"])).toBe("h2");
+    expect(mdLiveUnifyBlockKindId(["h2", "paragraph"])).toBeNull();
+    expect(mdLiveUnifyBlockKindId([])).toBeNull();
   });
 });
