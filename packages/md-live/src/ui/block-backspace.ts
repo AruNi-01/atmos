@@ -1,10 +1,43 @@
 import { lift, setBlockType } from "@milkdown/kit/prose/commands";
 import type { Node, ResolvedPos } from "@milkdown/kit/prose/model";
 import { Fragment } from "@milkdown/kit/prose/model";
-import type { Command, EditorState, Transaction } from "@milkdown/kit/prose/state";
+import type { Command, EditorState, Plugin, Transaction } from "@milkdown/kit/prose/state";
 import { TextSelection } from "@milkdown/kit/prose/state";
 import { liftListItem } from "@milkdown/kit/prose/schema-list";
 import { $shortcut } from "@milkdown/kit/utils";
+
+type UndoableInputRule = {
+  transform: Transaction;
+  from: number;
+  to: number;
+  text: string;
+};
+
+function undoInputRule(state: EditorState, dispatch?: (tr: Transaction) => void): boolean {
+  for (const plugin of state.plugins as Array<Plugin & { spec: { isInputRules?: boolean } }>) {
+    if (!plugin.spec.isInputRules) continue;
+    const undoable = plugin.getState(state) as UndoableInputRule | null;
+    if (!undoable) continue;
+    if (dispatch) {
+      let tr = state.tr;
+      for (let index = undoable.transform.steps.length - 1; index >= 0; index -= 1) {
+        const step = undoable.transform.steps[index];
+        const doc = undoable.transform.docs[index];
+        if (!step || !doc) continue;
+        tr = tr.step(step.invert(doc));
+      }
+      if (undoable.text) {
+        const marks = tr.doc.resolve(undoable.from).marks();
+        tr = tr.replaceWith(undoable.from, undoable.to, state.schema.text(undoable.text, marks));
+      } else {
+        tr = tr.delete(undoable.from, undoable.to);
+      }
+      dispatch(tr);
+    }
+    return true;
+  }
+  return false;
+}
 
 function depthOf($from: ResolvedPos, name: string): number {
   for (let depth = $from.depth; depth > 0; depth -= 1) {
@@ -93,6 +126,7 @@ export function mdLiveBlockBackspace(state: EditorState): Transaction | null {
 }
 
 const runBlockBackspace: Command = (state, dispatch) => {
+  if (undoInputRule(state, dispatch)) return true;
   const tr = mdLiveBlockBackspace(state);
   if (!tr) return false;
   dispatch?.(tr.scrollIntoView());
@@ -101,5 +135,4 @@ const runBlockBackspace: Command = (state, dispatch) => {
 
 export const mdLiveBlockBackspacePlugin = $shortcut(() => ({
   Backspace: { key: "Backspace", priority: 100, onRun: () => runBlockBackspace },
-  Delete: { key: "Delete", priority: 100, onRun: () => runBlockBackspace },
 }));

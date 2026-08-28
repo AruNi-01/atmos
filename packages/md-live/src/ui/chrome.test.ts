@@ -39,6 +39,10 @@ describe("md-live ui chrome", () => {
     expect(editor).toContain("isMdLiveOverlayEventTarget");
     expect(editor).toContain("pointerdown");
     expect(editor).toContain("shouldShowMdLiveSelectionToolbar");
+    expect(editor).toContain("mdLiveSelectionBlockKindId");
+    expect(editor).toContain("mdLiveVisibleConvertIds");
+    expect(editor).toContain("activeBlockId");
+    expect(editor).toContain("convertIds");
     expect(editor).toContain("slashMenu");
     expect(editor).toContain("selectionToolbar");
     expect(editor).toContain("newGroupDelay: 0");
@@ -48,6 +52,7 @@ describe("md-live ui chrome", () => {
     expect(editor).toContain("applyMdLiveRemarkConfig");
     expect(editor).toContain("formatMdLiveSerializedMarkdown");
     expect(editor).toContain("commitMarkdown.arm()");
+    expect(editor).toContain("focusEditorCaret");
     expect(editor).toContain("mdLiveTogglePlugins");
     expect(editor).toContain("mdLivePlaceholderPlugin");
     expect(editor).toContain("mdLiveBlockBackspacePlugin");
@@ -56,12 +61,23 @@ describe("md-live ui chrome", () => {
     expect(placeholder).toContain("mdLivePlaceholderTravel");
     expect(placeholder).toContain("translate3d");
     expect(placeholder).toContain("prefers-reduced-motion");
+    expect(placeholder).toContain("requestAnimationFrame");
+    expect(placeholder).toContain("focusin");
+    expect(placeholder).toContain("focusout");
+    expect(placeholder).not.toContain("void layer.offsetWidth");
+    expect(placeholder).not.toContain("getComputedStyle(info.nodeDOM)");
     const backspace = readFileSync(join(here, "block-backspace.ts"), "utf8");
     expect(backspace).toContain('key: "Backspace"');
     expect(backspace).toContain("priority: 100");
+    expect(backspace).toContain("isInputRules");
+    expect(backspace).not.toContain('key: "Delete"');
     expect(editor).toContain("defaultToggleOpen");
     expect(editor).toContain("setToggleDefaultOpen");
     expect(editor).toContain("applyMdLiveToggleDefaultOpen");
+    const convert = readFileSync(join(here, "convert-block.ts"), "utf8");
+    expect(convert).toContain("isolateSelectedTextblock");
+    expect(convert).toContain("MD_LIVE_TOOLBAR_CONVERT_IDS");
+    expect(convert).toContain('"toggle"');
   });
 
   test("stringify uses hyphen bullets, tight lists, and compact tables", () => {
@@ -78,10 +94,14 @@ describe("md-live ui chrome", () => {
     const tasks = readFileSync(join(here, "task-list.ts"), "utf8");
     expect(tasks).toContain("spread: { default: false");
     expect(tasks).toContain("const spread = node.spread ?? false");
+    expect(tasks).toContain("mdLiveTaskMarkerOf(node.attrs) == null");
   });
 
   test("blockquotes keep the left rule and drop typography quote marks", () => {
     const css = readFileSync(join(here, "live-editor.css"), "utf8");
+    expect(css).toContain("min-height: 100%");
+    expect(css).toContain("ProseMirror-trailingBreak");
+    expect(css).toContain("min-height: 1.75em");
     expect(css).toContain("border-left: 2px solid var(--border)");
     expect(css).toContain("quotes: none");
     expect(css).toContain("blockquote p:first-of-type::before");

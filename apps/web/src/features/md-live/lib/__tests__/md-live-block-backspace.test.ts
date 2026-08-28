@@ -10,14 +10,18 @@ import {
 import {
   commonmark,
   createCodeBlockCommand,
-  wrapInBlockquoteCommand,
-  wrapInBulletListCommand,
   wrapInHeadingCommand,
 } from "@milkdown/kit/preset/commonmark";
 import { gfm } from "@milkdown/kit/preset/gfm";
 import type { Node } from "@milkdown/kit/prose/model";
 import { TextSelection } from "@milkdown/kit/prose/state";
-import { mdLiveBlockBackspace, mdLiveBlockBackspacePlugin } from "@atmos/md-live/ui";
+import {
+  focusEditorCaret,
+  isolateSelectedTextblock,
+  mdLiveBlockBackspace,
+  mdLiveBlockBackspacePlugin,
+  mdLiveVisibleConvertIds,
+} from "@atmos/md-live/ui";
 
 let previousWindow: PropertyDescriptor | undefined;
 let previousDocument: PropertyDescriptor | undefined;
@@ -82,6 +86,17 @@ function dispatchBackspace(editor: Editor): boolean {
   });
 }
 
+function typeChars(editor: Editor, text: string): void {
+  editor.action((ctx) => {
+    const view = ctx.get(editorViewCtx);
+    for (const char of text) {
+      const { from, to } = view.state.selection;
+      const handled = view.someProp("handleTextInput", (fn) => fn(view, from, to, char));
+      if (!handled) view.dispatch(view.state.tr.insertText(char));
+    }
+  });
+}
+
 function blockAtCaret(editor: Editor): { name: string; level?: number; text: string } {
   return editor.action((ctx) => {
     const { $from } = ctx.get(editorViewCtx).state.selection;
@@ -93,6 +108,86 @@ function blockAtCaret(editor: Editor): { name: string; level?: number; text: str
     };
   });
 }
+
+describe("md-live convert isolate", () => {
+  beforeEach(() => {
+    installDom();
+  });
+
+  afterEach(() => {
+    restoreDom();
+  });
+
+  test("mid-line selection becomes its own paragraph", async () => {
+    const editor = await createEditor("hello world foo\n");
+    editor.action((ctx) => {
+      const view = ctx.get(editorViewCtx);
+      const start = textblockStart(view.state.doc, "paragraph");
+      if (start == null) throw new Error("missing paragraph");
+      view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, start + 6, start + 11)));
+      const tr = isolateSelectedTextblock(view.state);
+      expect(tr).not.toBeNull();
+      if (tr) view.dispatch(tr);
+      expect(view.state.selection.$from.parent.textContent).toBe("world");
+    });
+    const texts: string[] = [];
+    editor.action((ctx) => {
+      ctx.get(editorViewCtx).state.doc.descendants((node) => {
+        if (node.isTextblock) texts.push(node.textContent);
+      });
+    });
+    expect(texts).toEqual(["hello ", "world", " foo"]);
+    await editor.destroy();
+  });
+
+  test("whole-block selection does not split", async () => {
+    const editor = await createEditor("hello\n");
+    const split = editor.action((ctx) => {
+      const view = ctx.get(editorViewCtx);
+      const start = textblockStart(view.state.doc, "paragraph");
+      if (start == null) throw new Error("missing paragraph");
+      const end = start + 5;
+      view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, start, end)));
+      return isolateSelectedTextblock(view.state);
+    });
+    expect(split).toBeNull();
+    await editor.destroy();
+  });
+
+  test("paragraph selection can convert to lists, toggle, and headings", async () => {
+    const editor = await createEditor("hello\n");
+    const ids = editor.action((ctx) => mdLiveVisibleConvertIds(ctx.get(editorViewCtx).state));
+    expect(ids).toContain("ul");
+    expect(ids).toContain("ol");
+    expect(ids).toContain("todo");
+    expect(ids).toContain("toggle");
+    expect(ids).toContain("h2");
+    await editor.destroy();
+  });
+});
+
+describe("md-live editor caret", () => {
+  beforeEach(() => {
+    installDom();
+  });
+
+  afterEach(() => {
+    restoreDom();
+  });
+
+  test("focusEditorCaret puts the caret at the start of the first textblock", async () => {
+    const editor = await createEditor("Hello\n");
+    editor.action((ctx) => {
+      const view = ctx.get(editorViewCtx);
+      const inside = Math.min(view.state.doc.content.size - 1, 4);
+      view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, inside)));
+      focusEditorCaret(ctx);
+    });
+    const from = editor.action((ctx) => ctx.get(editorViewCtx).state.selection.from);
+    expect(from).toBe(1);
+    await editor.destroy();
+  });
+});
 
 describe("md-live block backspace", () => {
   beforeEach(() => {
@@ -155,10 +250,7 @@ describe("md-live block backspace", () => {
   });
 
   test("empty quote backspace removes the quote block", async () => {
-    const editor = await createEditor("");
-    editor.action((ctx) => {
-      ctx.get(commandsCtx).call(wrapInBlockquoteCommand.key);
-    });
+    const editor = await createEditor("> \n");
     const quoted = editor.action((ctx) => {
       const { $from } = ctx.get(editorViewCtx).state.selection;
       return $from.node($from.depth - 1)?.type.name;
@@ -178,10 +270,7 @@ describe("md-live block backspace", () => {
   });
 
   test("empty single-item list backspace removes the list", async () => {
-    const editor = await createEditor("");
-    editor.action((ctx) => {
-      ctx.get(commandsCtx).call(wrapInBulletListCommand.key);
-    });
+    const editor = await createEditor("- \n");
     const listed = editor.action((ctx) => {
       const { $from } = ctx.get(editorViewCtx).state.selection;
       return $from.node($from.depth - 1)?.type.name;
@@ -193,6 +282,42 @@ describe("md-live block backspace", () => {
       return $from.node($from.depth - 1)?.type.name ?? $from.parent.type.name;
     });
     expect(after).not.toBe("list_item");
+    expect(blockAtCaret(editor).name).toBe("paragraph");
+    await editor.destroy();
+  });
+
+  test("typing '## ' keeps an H2 instead of dropping back to a paragraph", async () => {
+    const editor = await createEditor("");
+    typeChars(editor, "## ");
+    expect(blockAtCaret(editor)).toMatchObject({ name: "heading", level: 2, text: "" });
+    await editor.destroy();
+  });
+
+  test("typing '/' keeps the slash instead of deleting it", async () => {
+    const editor = await createEditor("");
+    typeChars(editor, "/");
+    expect(blockAtCaret(editor)).toMatchObject({ name: "paragraph", text: "/" });
+    await editor.destroy();
+  });
+
+  test("an inserted empty paragraph stays in the document", async () => {
+    const editor = await createEditor("Hello\n");
+    editor.action((ctx) => {
+      const view = ctx.get(editorViewCtx);
+      const paragraph = view.state.schema.nodes.paragraph;
+      if (!paragraph) throw new Error("missing paragraph");
+      const end = view.state.doc.content.size;
+      const tr = view.state.tr.insert(end, paragraph.create());
+      view.dispatch(tr.setSelection(TextSelection.create(tr.doc, end + 1)));
+    });
+    const paragraphs = editor.action((ctx) => {
+      let count = 0;
+      ctx.get(editorViewCtx).state.doc.descendants((node) => {
+        if (node.type.name === "paragraph") count += 1;
+      });
+      return count;
+    });
+    expect(paragraphs).toBeGreaterThanOrEqual(2);
     expect(blockAtCaret(editor).name).toBe("paragraph");
     await editor.destroy();
   });

@@ -36,13 +36,25 @@ export { mdLivePlaceholderPlugin, mdLivePlaceholderCopyKey, mdLivePlaceholderTra
 export { mdLiveBlockBackspacePlugin, mdLiveBlockBackspace } from "./ui/block-backspace";
 export { remarkMdLiveDetails, detailsHasOpenAttr } from "./ui/toggle-remark";
 export { slugMdLiveHeading, mdLiveHeadingIdPlugin } from "./ui/heading-id";
-export { isMdLiveOverlayEventTarget, shouldShowMdLiveSelectionToolbar } from "./ui/selection";
+export {
+  isMdLiveOverlayEventTarget,
+  mdLiveBlockKindId,
+  mdLiveSelectionBlockKindId,
+  mdLiveUnifyBlockKindId,
+  shouldShowMdLiveSelectionToolbar,
+} from "./ui/selection";
+export {
+  MD_LIVE_TOOLBAR_CONVERT_IDS,
+  isolateSelectedTextblock,
+  mdLiveVisibleConvertIds,
+} from "./ui/convert-block";
 export { MdLiveEmojiPicker } from "./ui/EmojiPicker";
 export { classifyMdLiveMedia, mdLiveMediaMarkdown, type MdLiveMediaKind } from "./ui/media";
 export { MdLiveEditor, type MdLiveEditorProps } from "./ui/LiveEditor";
 export {
   getEditorMarkdown,
   getSelectionMarkdown,
+  focusEditorCaret,
   insertMarkdown,
   insertText,
   runBlockAction,
