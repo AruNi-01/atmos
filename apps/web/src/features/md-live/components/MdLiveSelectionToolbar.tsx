@@ -45,6 +45,15 @@ type MenuItem = {
   action: MdLiveBlockAction | { type: "ai"; kind: "ask" | "rewrite" | "summarize" };
 };
 
+function menuItem(
+  id: string,
+  label: string,
+  icon: ReactNode,
+  action: MenuItem["action"],
+): MenuItem {
+  return { id, label, icon, action };
+}
+
 export function MdLiveSelectionToolbar({
   onBlock,
   onAi,
@@ -67,25 +76,22 @@ export function MdLiveSelectionToolbar({
   const allowed = new Set(convertIds ?? MD_LIVE_TOOLBAR_CONVERT_IDS);
 
   const blockItems: MenuItem[] = [
-    { id: "paragraph", label: "toolbarParagraph", icon: <Type className="size-4" />, action: { type: "paragraph" } },
-    ...MD_LIVE_HEADING_LEVELS.map((level) => ({
-      id: `h${level}`,
-      label: `slashHeading${level}`,
-      icon: <HeadingMark level={level} />,
-      action: { type: "heading" as const, level },
-    })),
-    { id: "quote", label: "toolbarQuote", icon: <TextQuote className="size-4" />, action: { type: "quote" } },
-    { id: "ul", label: "toolbarBulletList", icon: <List className="size-4" />, action: { type: "bullet-list" } },
-    { id: "ol", label: "toolbarOrderedList", icon: <ListOrdered className="size-4" />, action: { type: "ordered-list" } },
-    { id: "todo", label: "toolbarTaskList", icon: <ListChecks className="size-4" />, action: { type: "task-list" } },
-    { id: "toggle", label: "slashToggle", icon: <ListCollapse className="size-4" />, action: { type: "toggle" } },
-    { id: "code", label: "toolbarCode", icon: <Code className="size-4" />, action: { type: "code" } },
+    menuItem("paragraph", "toolbarParagraph", <Type className="size-4" />, { type: "paragraph" }),
+    ...MD_LIVE_HEADING_LEVELS.map((level) =>
+      menuItem(`h${level}`, `slashHeading${level}`, <HeadingMark level={level} />, { type: "heading", level }),
+    ),
+    menuItem("quote", "toolbarQuote", <TextQuote className="size-4" />, { type: "quote" }),
+    menuItem("ul", "toolbarBulletList", <List className="size-4" />, { type: "bullet-list" }),
+    menuItem("ol", "toolbarOrderedList", <ListOrdered className="size-4" />, { type: "ordered-list" }),
+    menuItem("todo", "toolbarTaskList", <ListChecks className="size-4" />, { type: "task-list" }),
+    menuItem("toggle", "slashToggle", <ListCollapse className="size-4" />, { type: "toggle" }),
+    menuItem("code", "toolbarCode", <Code className="size-4" />, { type: "code" }),
   ].filter((item) => allowed.has(item.id));
 
   const listItems: MenuItem[] = [
-    { id: "ul", label: "toolbarBulletList", icon: <List className="size-4" />, action: { type: "bullet-list" } },
-    { id: "ol", label: "toolbarOrderedList", icon: <ListOrdered className="size-4" />, action: { type: "ordered-list" } },
-    { id: "todo", label: "toolbarTaskList", icon: <ListChecks className="size-4" />, action: { type: "task-list" } },
+    menuItem("ul", "toolbarBulletList", <List className="size-4" />, { type: "bullet-list" }),
+    menuItem("ol", "toolbarOrderedList", <ListOrdered className="size-4" />, { type: "ordered-list" }),
+    menuItem("todo", "toolbarTaskList", <ListChecks className="size-4" />, { type: "task-list" }),
   ].filter((item) => allowed.has(item.id));
 
   const aiItems: MenuItem[] = onAi
@@ -105,7 +111,7 @@ export function MdLiveSelectionToolbar({
   };
 
   const activeBlock = blockItems.find((item) => item.id === activeBlockId) ?? null;
-  const headingLevel = activeBlockId && /^h([1-6])$/.exec(activeBlockId);
+  const headingLevel = activeBlockId && /^h([1-4])$/.exec(activeBlockId);
   const blockTrigger = (
     <>
       {headingLevel ? (

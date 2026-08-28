@@ -34,8 +34,35 @@ export {
 } from "./ui/toggle";
 export { mdLivePlaceholderPlugin, mdLivePlaceholderCopyKey, mdLivePlaceholderTravel } from "./ui/placeholder";
 export { mdLiveBlockBackspacePlugin, mdLiveBlockBackspace } from "./ui/block-backspace";
+export {
+  mdLiveInlineCodePlugin,
+  mdLiveInlineCodeDelete,
+  mdLiveInsertEmptyInlineCode,
+  mdLiveInlineCodeRange,
+  MD_LIVE_INLINE_CODE_ZWSP,
+} from "./ui/inline-code";
+export {
+  mdLiveTablePlugins,
+  mdLiveTableDeletePlugin,
+  mdLiveTableViewPlugin,
+  mdLiveDeleteFullTable,
+  mdLiveDeleteTableSelection,
+  mdLiveTableAddCol,
+  mdLiveTableAddRow,
+  mdLiveTableDeleteCol,
+  mdLiveTableDeleteRow,
+  isMdLiveFullTableSelection,
+  mdLiveFirstTablePos,
+  mdLiveTableAtScrollEnd,
+} from "./ui/table";
 export { remarkMdLiveDetails, detailsHasOpenAttr } from "./ui/toggle-remark";
-export { slugMdLiveHeading, mdLiveHeadingIdPlugin } from "./ui/heading-id";
+export { slugMdLiveHeading, mdLiveHeadingIdPlugin, mdLiveCommonmark } from "./ui/heading-id";
+export {
+  isMdLiveComposing,
+  mdLiveMarkComposing,
+  mdLiveComposingPlugin,
+  mdLiveCompositionDomHandlers,
+} from "./ui/composing";
 export {
   isMdLiveOverlayEventTarget,
   mdLiveBlockKindId,

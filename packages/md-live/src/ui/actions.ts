@@ -28,6 +28,7 @@ import {
 import type { MdLiveBlockAction } from "./types";
 import { formatMdLiveSerializedMarkdown } from "./markdown-stringify";
 import { applyMdLiveBlockConvert } from "./convert-block";
+import { mdLiveInsertEmptyInlineCode } from "./inline-code";
 
 export function focusEditorCaret(ctx: Ctx): void {
   const view = ctx.get(editorViewCtx);
@@ -101,7 +102,8 @@ export function runBlockAction(ctx: Ctx, action: MdLiveBlockAction, replaceSlash
     case "inline-code": {
       const view = ctx.get(editorViewCtx);
       if (view.state.selection.empty) {
-        insertMarkdown(ctx, "`code`");
+        const tr = mdLiveInsertEmptyInlineCode(view.state);
+        if (tr) view.dispatch(tr.scrollIntoView());
         return;
       }
       commands.call(toggleInlineCodeCommand.key);

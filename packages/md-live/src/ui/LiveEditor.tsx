@@ -29,7 +29,6 @@ import {
 import { tooltipFactory, TooltipProvider } from "@milkdown/kit/plugin/tooltip";
 import {
   codeBlockAttr,
-  commonmark,
   headingIdGenerator,
   inlineCodeAttr,
 } from "@milkdown/kit/preset/commonmark";
@@ -51,7 +50,8 @@ import {
 } from "./actions";
 import { cn } from "./cn";
 import { createMdLiveOnChangeGate } from "./onchange-gate";
-import { mdLiveHeadingIdPlugin, slugMdLiveHeading } from "./heading-id";
+import { isMdLiveComposing, mdLiveCompositionDomHandlers, mdLiveComposingPlugin } from "./composing";
+import { mdLiveCommonmark, mdLiveHeadingIdPlugin, slugMdLiveHeading } from "./heading-id";
 import {
   isMdLiveOverlayEventTarget,
   mdLiveSelectionBlockKindId,
@@ -64,6 +64,8 @@ import {
 } from "./markdown-stringify";
 import { mdLiveBlockBackspacePlugin } from "./block-backspace";
 import { mdLivePlaceholderPlugin } from "./placeholder";
+import { mdLiveInlineCodeDelete, mdLiveInlineCodePlugin } from "./inline-code";
+import { mdLiveDeleteTableSelection, mdLiveTableDeletePlugin, mdLiveTableViewPlugin } from "./table";
 import { mdLiveTaskListPlugins } from "./task-list";
 import {
   applyMdLiveToggleDefaultOpen,
@@ -320,6 +322,22 @@ export function MdLiveEditor({
             autocorrect: "off",
             translate: "no",
           },
+          handleDOMEvents: mdLiveCompositionDomHandlers,
+          handleKeyDown(view, event) {
+            if (isMdLiveComposing(view)) return false;
+            if (event.key !== "Backspace" && event.key !== "Delete") return false;
+            const tableTr = mdLiveDeleteTableSelection(view.state);
+            if (tableTr) {
+              event.preventDefault();
+              view.dispatch(tableTr.scrollIntoView());
+              return true;
+            }
+            const codeTr = mdLiveInlineCodeDelete(view.state, event.key === "Backspace" ? -1 : 1);
+            if (!codeTr) return false;
+            event.preventDefault();
+            view.dispatch(codeTr.scrollIntoView());
+            return true;
+          },
         });
         applyMdLiveRemarkConfig(ctx);
         ctx.set(mdLiveToggleDefaultOpenCtx.key, defaultToggleOpenRef.current);
@@ -354,8 +372,12 @@ export function MdLiveEditor({
           onChangeRef.current(next);
         });
       })
-      .use(commonmark)
+      .use(pluginsOf(mdLiveComposingPlugin))
+      .use(mdLiveCommonmark)
+      .use(pluginsOf(mdLiveTableDeletePlugin))
+      .use(pluginsOf(mdLiveInlineCodePlugin))
       .use(gfm)
+      .use(pluginsOf(mdLiveTableViewPlugin(() => copyRef.current)))
       .use(pluginsOf(mdLiveBlockBackspacePlugin))
       .use(pluginsOf(mdLiveHeadingIdPlugin))
       .use(listener)

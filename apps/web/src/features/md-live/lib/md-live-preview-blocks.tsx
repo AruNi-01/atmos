@@ -3,6 +3,7 @@
 import { createRoot, type Root } from "react-dom/client";
 import { NextIntlClientProvider, useTranslations } from "next-intl";
 import { Check, ChevronDown, Code } from "lucide-react";
+import { isMdLiveComposing } from "@atmos/md-live/ui";
 import { $view } from "@milkdown/kit/utils";
 import { codeBlockSchema } from "@milkdown/kit/preset/commonmark";
 import {
@@ -10,7 +11,6 @@ import {
   tableHeaderRowSchema,
   tableHeaderSchema,
   tableRowSchema,
-  tableSchema,
 } from "@milkdown/kit/preset/gfm";
 import type { Node } from "@milkdown/kit/prose/model";
 import type { EditorView } from "@milkdown/kit/prose/view";
@@ -38,12 +38,10 @@ import { DualThemes, highlight, type Languages } from "@/shared/utils/shiki";
 import enMessages from "../../../../messages/en.json";
 import zhMessages from "../../../../messages/zh.json";
 import {
-  MARKDOWN_TABLE_CLASS,
   MARKDOWN_TABLE_HEAD_CLASS,
   MARKDOWN_TABLE_ROW_CLASS,
   MARKDOWN_TABLE_TD_CLASS,
   MARKDOWN_TABLE_TH_CLASS,
-  MARKDOWN_TABLE_WRAP_CLASS,
 } from "@/shared/components/markdown/markdown-table";
 import {
   MD_LIVE_CODE_LANG_TO_EXT,
@@ -244,6 +242,7 @@ export const mdLiveCodeBlockView = $view(codeBlockSchema.node, () => (node, view
     contentDOM: content,
     update: (updated: Node) => {
       if (updated.type.name !== "code_block") return false;
+      if (isMdLiveComposing(view)) return true;
       refresh(updated);
       return true;
     },
@@ -273,20 +272,6 @@ function tablePartView(tag: string, className: string) {
   };
 }
 
-export const mdLiveTableView = $view(tableSchema.node, () => () => {
-  const wrap = document.createElement("div");
-  wrap.className = MARKDOWN_TABLE_WRAP_CLASS;
-  const table = document.createElement("table");
-  table.className = MARKDOWN_TABLE_CLASS;
-  wrap.append(table);
-  return {
-    dom: wrap,
-    contentDOM: table,
-    ignoreMutation: (mutation: { type: string; target: globalThis.Node }) =>
-      mutation.type === "selection" ? false : !table.contains(mutation.target),
-  };
-});
-
 export const mdLiveTableHeadView = $view(tableHeaderRowSchema.node, () => () => {
   const head = document.createElement("thead");
   head.className = MARKDOWN_TABLE_HEAD_CLASS;
@@ -302,7 +287,6 @@ export const mdLiveTableCellView = $view(tableCellSchema.node, () => tablePartVi
 export function mdLivePreviewBlockPlugins() {
   return [
     mdLiveCodeBlockView,
-    mdLiveTableView,
     mdLiveTableHeadView,
     mdLiveTableRowView,
     mdLiveTableHeaderCellView,

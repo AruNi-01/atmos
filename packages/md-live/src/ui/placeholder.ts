@@ -54,17 +54,13 @@ const TEXT_MS = 160;
 function placeholderTypeStyle(key: string): { fontSize: string; fontWeight: string } {
   switch (key) {
     case "slashHeading1":
-      return { fontSize: "2.25em", fontWeight: "800" };
+      return { fontSize: "2.5em", fontWeight: "700" };
     case "slashHeading2":
-      return { fontSize: "1.5em", fontWeight: "700" };
+      return { fontSize: "1.75em", fontWeight: "700" };
     case "slashHeading3":
-      return { fontSize: "1.25em", fontWeight: "600" };
+      return { fontSize: "1.4em", fontWeight: "600" };
     case "slashHeading4":
-      return { fontSize: "1em", fontWeight: "600" };
-    case "slashHeading5":
-      return { fontSize: "0.875em", fontWeight: "600" };
-    case "slashHeading6":
-      return { fontSize: "0.85em", fontWeight: "600" };
+      return { fontSize: "1.2em", fontWeight: "600" };
     default:
       return { fontSize: "14px", fontWeight: "400" };
   }
@@ -74,7 +70,8 @@ export function mdLivePlaceholderCopyKey(node: Node, parent: Node | null): strin
   switch (node.type.name) {
     case "heading": {
       const level = Number(node.attrs.level);
-      if (level >= 1 && level <= 6) return `slashHeading${level}`;
+      if (level >= 1 && level <= 4) return `slashHeading${level}`;
+      if (level === 5 || level === 6) return "slashHeading4";
       return "slashHeading1";
     }
     case "details_summary":
@@ -192,8 +189,13 @@ function createPlaceholderLayer(
       if (coords.top < clip.top - 8 || coords.top > clip.bottom - 4) return null;
       const hostBox = host.getBoundingClientRect();
       const type = placeholderTypeStyle(info.key);
+      let x = coords.left - hostBox.left + host.scrollLeft;
+      if (info.nodeDOM) {
+        const paddingLeft = parsePx(getComputedStyle(info.nodeDOM).paddingLeft);
+        x = info.nodeDOM.getBoundingClientRect().left + paddingLeft - hostBox.left + host.scrollLeft;
+      }
       return {
-        x: coords.left - hostBox.left + host.scrollLeft,
+        x,
         y: coords.top - hostBox.top + host.scrollTop,
         h: Math.max(coords.bottom - coords.top, 1),
         fontSize: type.fontSize,

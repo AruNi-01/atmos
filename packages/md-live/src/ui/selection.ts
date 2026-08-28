@@ -1,4 +1,4 @@
-import type { Node } from "@milkdown/kit/prose/model";
+import type { Node as ProseNode } from "@milkdown/kit/prose/model";
 import { mdLiveTaskMarkerOf } from "./task-list";
 
 const OVERLAY_CLOSE_SELECTOR = [
@@ -7,6 +7,7 @@ const OVERLAY_CLOSE_SELECTOR = [
   "[data-slot='popover-content']",
   "[data-md-live-slash]",
   "[data-md-live-toolbar]",
+  "[data-md-live-table-chrome]",
   "em-emoji-picker",
 ].join(",");
 
@@ -45,7 +46,7 @@ export function mdLiveUnifyBlockKindId(ids: Iterable<string>): string | null {
   return found;
 }
 
-export function mdLiveSelectionBlockKindId(doc: Node, from: number, to: number): string | null {
+export function mdLiveSelectionBlockKindId(doc: ProseNode, from: number, to: number): string | null {
   const ids: string[] = [];
   doc.nodesBetween(from, to, (node, _pos, parent) => {
     if (!node.isTextblock) return true;
