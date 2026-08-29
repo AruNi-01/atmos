@@ -245,7 +245,7 @@ function ComposerPromptInput({
   }));
   const canSubmit = Boolean(
     expandAgentComposerText(localDraft) || attachments.files.length,
-  ) && isConnected && canUseCurrentMode && !showStop;
+  ) && isConnected && !showStop;
 
   useEffect(() => {
     if (hydratedRef.current) return;
@@ -259,7 +259,7 @@ function ComposerPromptInput({
       <AgentsPromptInput
         value={localDraft}
         onValueChange={setLocalDraft}
-        disabled={!isConnected || !canUseCurrentMode}
+        disabled={!isConnected}
         loading={showStop}
         canSubmit={canSubmit}
         minRows={2}
@@ -270,7 +270,7 @@ function ComposerPromptInput({
           <PromptComposer
             ref={composerRef}
             submitOnEnter
-            disabled={!isConnected || !canUseCurrentMode}
+            disabled={!isConnected}
             placeholder={placeholder}
             editorClassName="min-h-16 max-h-40 rounded-none border-0 bg-transparent px-0 py-0 text-sm leading-5"
             placeholderClassName="left-0 top-0 text-sm leading-5 text-muted-foreground/55"

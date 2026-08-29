@@ -370,13 +370,25 @@ export function useAgentChatSession({
     if (!wsConnected) return;
     setLoadingAgents(true);
     void agentApi.listRegistry().then((result) => {
-      const installed = (result.agents ?? []).filter((agent) => agent.installed);
+      const agents = result.agents ?? [];
+      const installed = agents.filter((agent) => agent.installed);
       setInstalledAgents(installed);
-      const fallback = readDefaultAgentRegistryId() || installed[0]?.id || "";
+      const fallback =
+        readDefaultAgentRegistryId() ||
+        installed[0]?.id ||
+        agents[0]?.id ||
+        "claude";
       setDefaultRegistryId(fallback);
-      setProviderIdState((current) => current || fallback);
+      setProviderIdState((current) => {
+        if (current && installed.some((agent) => agent.id === current)) return current;
+        if (installed[0]) return installed[0].id;
+        return current || fallback;
+      });
       setLoadingAgents(false);
     }).catch(() => {
+      const fallback = readDefaultAgentRegistryId() || "claude";
+      setDefaultRegistryId((current) => current || fallback);
+      setProviderIdState((current) => current || fallback);
       setLoadingAgents(false);
     });
   }, [wsConnected]);
@@ -444,6 +456,7 @@ export function useAgentChatSession({
     if (!activeChatId) {
       setHydrated(true);
       setIsResumingHistory(false);
+      setProviderIdState((current) => current || readDefaultAgentRegistryId() || "claude");
       setHistoryLoading(true);
       void agentChatApi.list({
         workspace_id: workspaceId ?? urlWorkspaceId ?? null,
@@ -1146,7 +1159,7 @@ export function useAgentChatSession({
     localPath,
     sessionWorkspaceId: workspaceId,
     sessionProjectId: projectId,
-    canUseCurrentMode: Boolean(providerId),
+    canUseCurrentMode: Boolean(providerId) || hydrated,
     panelTitle: activeAgent?.name ?? "Chat",
     connectionPhaseLabel: hydrated ? t("connectionPhase.connected") : t("connectionPhase.connectingWs"),
     queueKey: getAgentPromptQueueKey(workspaceId, projectId, chatMode, instanceKey),

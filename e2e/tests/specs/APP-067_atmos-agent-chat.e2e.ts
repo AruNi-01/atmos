@@ -60,9 +60,19 @@ test.describe("APP-067 Atmos Agent Chat", () => {
     });
     const composerRoot = page.locator("[data-agent-chat-composer]").first();
     await expect(composerRoot).toBeVisible({ timeout: 15_000 });
+    const cwdTrigger = composerRoot.getByRole("button", { name: "Working directory" });
+    if (await cwdTrigger.isVisible().catch(() => false)) {
+      await cwdTrigger.click();
+      const projectItem = page.getByRole("menuitem").nth(1);
+      if (await projectItem.isVisible().catch(() => false)) {
+        await projectItem.click();
+      } else {
+        await page.keyboard.press("Escape");
+      }
+    }
     const composer = composerRoot.locator("[data-prompt-composer-editor]").first();
     await expect(composer).toBeVisible({ timeout: 15_000 });
-    await expect(composer).toHaveAttribute("contenteditable", "true", { timeout: 45_000 });
+    await expect(composer).toHaveAttribute("contenteditable", "true", { timeout: 30_000 });
     await expect(composer).toBeEnabled();
 
     const marker = `s16-fanout-${Date.now()}`;

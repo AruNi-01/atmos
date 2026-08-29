@@ -1032,7 +1032,7 @@ export function AgentChatPanel({
             projectPath={sessionCwd ?? localPath}
             availableCommands={availableCommands}
             workingDirectoryPicker={
-              variant === "modal"
+              variant === "modal" || variant === "standalone"
                 ? {
                     projects,
                     selection: {
