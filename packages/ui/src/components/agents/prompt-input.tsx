@@ -569,12 +569,12 @@ function PromptAgentConfigMenu({
   }, [flyout, models, search]);
   const cancelHideFlyout = useCallback(() => {
     if (hideFlyoutTimer.current == null) return;
-    window.clearTimeout(hideFlyoutTimer.current);
+    clearTimeout(hideFlyoutTimer.current);
     hideFlyoutTimer.current = null;
   }, []);
   const scheduleHideFlyout = useCallback(() => {
     cancelHideFlyout();
-    hideFlyoutTimer.current = window.setTimeout(() => {
+    hideFlyoutTimer.current = setTimeout(() => {
       hideFlyoutTimer.current = null;
       setFlyout(null);
       setSearch("");
