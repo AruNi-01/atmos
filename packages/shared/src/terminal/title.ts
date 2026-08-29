@@ -15,20 +15,51 @@ const MULTI_WORD_COMMANDS = new Set([
   "node",
 ]);
 
-export function extractCommandName(fullCommand: string): string {
-  const stripped = fullCommand
-    .replace(/^(\s*(sudo|command|env)\s+)*/g, "")
-    .replace(/^\s*\S+=\S+\s+/g, "")
-    .trim();
+const COMMAND_PREFIX_TOKENS = new Set(["sudo", "command", "env"]);
 
-  const parts = stripped.split(/\s+/);
-  if (parts.length === 0 || !parts[0]) return fullCommand;
-
-  const command = parts[0];
-  if (MULTI_WORD_COMMANDS.has(command) && parts.length > 1) {
-    return `${command} ${parts[1]}`;
+function skipCommandWhitespace(value: string, index: number): number {
+  while (index < value.length && /\s/.test(value.charAt(index))) {
+    index += 1;
   }
-  return command;
+  return index;
+}
+
+function scanCommandToken(value: string, index: number): { token: string; next: number } {
+  const start = index;
+  while (index < value.length && !/\s/.test(value.charAt(index))) {
+    index += 1;
+  }
+  return { token: value.slice(start, index), next: index };
+}
+
+export function extractCommandName(fullCommand: string): string {
+  let index = 0;
+  // Linear strip of leading `sudo` / `command` / `env` (must be followed by whitespace).
+  while (true) {
+    const start = skipCommandWhitespace(fullCommand, index);
+    const { token, next } = scanCommandToken(fullCommand, start);
+    if (!COMMAND_PREFIX_TOKENS.has(token)) break;
+    const after = skipCommandWhitespace(fullCommand, next);
+    if (after === next) break;
+    index = after;
+  }
+
+  index = skipCommandWhitespace(fullCommand, index);
+  const assignment = scanCommandToken(fullCommand, index);
+  const eq = assignment.token.indexOf("=");
+  // One leading `FOO=bar` assignment, only when whitespace follows (same as `\S+=\S+\s+`).
+  if (eq > 0 && eq < assignment.token.length - 1) {
+    const after = skipCommandWhitespace(fullCommand, assignment.next);
+    if (after > assignment.next) {
+      index = after;
+    }
+  }
+
+  const command = scanCommandToken(fullCommand, skipCommandWhitespace(fullCommand, index));
+  if (!command.token) return fullCommand;
+  if (!MULTI_WORD_COMMANDS.has(command.token)) return command.token;
+  const arg = scanCommandToken(fullCommand, skipCommandWhitespace(fullCommand, command.next));
+  return arg.token ? `${command.token} ${arg.token}` : command.token;
 }
 
 export function shortenPath(fullPath: string): string {
