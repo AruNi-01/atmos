@@ -1749,6 +1749,7 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
         ) : null}
         <div
           ref={editorRef}
+          data-prompt-composer-editor=""
           contentEditable={!disabled}
           aria-disabled={disabled || undefined}
           suppressContentEditableWarning
