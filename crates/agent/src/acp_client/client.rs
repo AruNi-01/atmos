@@ -24,10 +24,68 @@ fn format_tool_kind(kind: Option<&schema::ToolKind>) -> String {
 }
 
 fn is_generic_tool_label(value: &str) -> bool {
-    matches!(
-        value.trim().to_ascii_lowercase().as_str(),
-        "tool" | "other" | "unknown" | ""
-    )
+    crate::domain::is_generic_tool_label(value)
+}
+
+const INPUT_PATH_KEYS: &[&str] = &[
+    "absolute_path",
+    "absolute_root_path",
+    "target_file",
+    "targetFile",
+    "target_directory",
+    "file_path",
+    "filePath",
+    "path",
+    "dir_path",
+    "directory",
+    "file",
+    "uri",
+];
+
+fn map_has_path(map: &serde_json::Map<String, serde_json::Value>) -> bool {
+    INPUT_PATH_KEYS.iter().any(|key| {
+        map.get(*key)
+            .and_then(|item| item.as_str())
+            .is_some_and(|path| !path.is_empty())
+    })
+}
+
+/// Cursor-style ACP calls often put the file on `locations` and leave `rawInput` empty.
+fn enrich_tool_input(
+    raw_input: Option<serde_json::Value>,
+    locations: Option<&[schema::ToolCallLocation]>,
+) -> Option<serde_json::Value> {
+    let location = locations.and_then(|locs| locs.first());
+    let path = location
+        .map(|loc| loc.path.to_string_lossy().into_owned())
+        .filter(|path| !path.is_empty());
+    let line = location.and_then(|loc| loc.line);
+
+    match raw_input {
+        None if path.is_none() && line.is_none() => None,
+        Some(value) if !value.is_object() => Some(value),
+        value => {
+            let mut map = match value {
+                Some(serde_json::Value::Object(map)) => map,
+                _ => serde_json::Map::new(),
+            };
+            if let Some(path) = path {
+                if !map_has_path(&map) {
+                    map.insert("path".into(), serde_json::Value::String(path));
+                }
+            }
+            if let Some(line) = line {
+                if !map.contains_key("line") && !map.contains_key("offset") {
+                    map.insert("line".into(), serde_json::json!(line));
+                }
+            }
+            if map.is_empty() {
+                None
+            } else {
+                Some(serde_json::Value::Object(map))
+            }
+        }
+    }
 }
 
 fn extract_vendor_tool_type(input: Option<&serde_json::Value>) -> Option<String> {
@@ -256,9 +314,9 @@ use tracing::warn;
 use crate::acp_client::logging::append_acp_log;
 use crate::acp_client::tools::AcpToolHandler;
 use crate::acp_client::types::{
-    AgentCapabilitiesSnapshot, AgentConfigOption, AgentImplementationInfo, AgentPlan,
-    AgentPlanEntry, AgentSessionInfoUpdate, AgentUsage, StreamDelta, ToolCallStatus,
-    ToolCallUpdate,
+    AgentCapabilitiesSnapshot, AgentConfigOption, AgentCost, AgentImplementationInfo, AgentPlan,
+    AgentPlanEntry, AgentSessionInfoUpdate, AgentTurnUsage, AgentUsage, StreamDelta,
+    ToolCallStatus, ToolCallUpdate,
 };
 use crate::acp_client::types::{PermissionOption, PermissionRequest, RiskLevel};
 
@@ -289,6 +347,7 @@ pub enum AcpSessionEvent {
     ConfigOptionsUpdate(Vec<AgentConfigOption>),
     Plan(AgentPlan),
     Usage(AgentUsage),
+    TurnUsage(AgentTurnUsage),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -296,6 +355,35 @@ pub enum AcpTurnStop {
     Completed,
     Canceled,
     Failed,
+}
+
+/// Map ACP `usage_update` (context window + cumulative cost). Coerced `used=0,size=0`
+/// from Claude null/missing counters is treated as absent, not a real empty window.
+pub(crate) fn map_session_usage(update: &schema::UsageUpdate) -> AgentUsage {
+    let has_window = update.used > 0 || update.size > 0;
+    AgentUsage {
+        used: has_window.then_some(update.used),
+        size: (update.size > 0).then_some(update.size),
+        cost: update.cost.as_ref().map(|cost| AgentCost {
+            amount: Some(cost.amount),
+            currency: Some(cost.currency.clone()),
+        }),
+    }
+}
+
+pub(crate) fn map_turn_usage(usage: schema::Usage) -> AgentTurnUsage {
+    AgentTurnUsage {
+        total_tokens: Some(usage.total_tokens),
+        input_tokens: Some(usage.input_tokens),
+        output_tokens: Some(usage.output_tokens),
+        thought_tokens: usage.thought_tokens,
+        cached_read_tokens: usage.cached_read_tokens,
+        cached_write_tokens: usage.cached_write_tokens,
+    }
+}
+
+pub(crate) fn session_usage_is_empty(usage: &AgentUsage) -> bool {
+    usage.used.is_none() && usage.size.is_none() && usage.cost.is_none()
 }
 
 /// Atmos ACP Client - implements the Client trait, routes tool calls to handler
@@ -544,11 +632,15 @@ impl AtmosAcpClient {
                     .or_else(|| extract_vendor_tool_type(tool_call.raw_input.as_ref()))
                     .or_else(|| extract_vendor_tool_type(tool_call.raw_output.as_ref()))
                     .unwrap_or_else(|| format_tool_kind(Some(&tool_call.kind)));
+                let raw_input = enrich_tool_input(
+                    tool_call.raw_input.clone(),
+                    Some(tool_call.locations.as_slice()),
+                );
                 let description = format_description(
                     Some(tool_call.title.as_str()),
                     &tool,
                     Some(tool_call.locations.as_slice()),
-                    tool_call.raw_input.as_ref(),
+                    raw_input.as_ref(),
                     tool_call.raw_output.as_ref(),
                 );
                 let _ = self
@@ -559,7 +651,7 @@ impl AtmosAcpClient {
                         tool,
                         description,
                         status,
-                        raw_input: tool_call.raw_input.clone(),
+                        raw_input,
                         content: map_tool_call_content(&tool_call.content),
                         raw_output: tool_call.raw_output.clone(),
                         detail: build_tool_call_detail(claude_code_meta.as_ref()),
@@ -583,11 +675,15 @@ impl AtmosAcpClient {
                     .or_else(|| extract_vendor_tool_type(update.fields.raw_input.as_ref()))
                     .or_else(|| extract_vendor_tool_type(update.fields.raw_output.as_ref()))
                     .unwrap_or_else(|| format_tool_kind(update.fields.kind.as_ref()));
+                let raw_input = enrich_tool_input(
+                    update.fields.raw_input.clone(),
+                    update.fields.locations.as_deref(),
+                );
                 let description = format_description(
                     update.fields.title.as_deref(),
                     &tool,
                     update.fields.locations.as_deref(),
-                    update.fields.raw_input.as_ref(),
+                    raw_input.as_ref(),
                     update.fields.raw_output.as_ref(),
                 );
                 let _ = self
@@ -598,7 +694,7 @@ impl AtmosAcpClient {
                         tool,
                         description,
                         status,
-                        raw_input: update.fields.raw_input.clone(),
+                        raw_input,
                         content: update
                             .fields
                             .content
@@ -700,15 +796,10 @@ impl AtmosAcpClient {
                 ));
             }
             schema::SessionUpdate::UsageUpdate(update) => {
-                let usage = AgentUsage {
-                    used: Some(update.used),
-                    size: Some(update.size),
-                    cost: update.cost.map(|c| crate::acp_client::types::AgentCost {
-                        amount: Some(c.amount),
-                        currency: Some(c.currency),
-                    }),
-                };
-                let _ = self.event_tx.send(AcpSessionEvent::Usage(usage));
+                let usage = map_session_usage(&update);
+                if !session_usage_is_empty(&usage) {
+                    let _ = self.event_tx.send(AcpSessionEvent::Usage(usage));
+                }
             }
             _ => {}
         }
@@ -777,6 +868,50 @@ mod tests {
             }
             other => panic!("expected usage_update, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn coerced_empty_usage_update_is_not_a_session_window() {
+        let usage = super::map_session_usage(&schema::UsageUpdate::new(0, 0));
+        assert!(usage.used.is_none());
+        assert!(usage.size.is_none());
+        assert!(usage.cost.is_none());
+        assert!(super::session_usage_is_empty(&usage));
+    }
+
+    #[test]
+    fn compaction_usage_keeps_zero_used_with_real_window() {
+        let usage = super::map_session_usage(&schema::UsageUpdate::new(0, 200_000));
+        assert_eq!(usage.used, Some(0));
+        assert_eq!(usage.size, Some(200_000));
+    }
+
+    #[test]
+    fn session_usage_keeps_cost_when_window_is_absent() {
+        let update = schema::UsageUpdate::new(0, 0).cost(schema::Cost::new(0.045, "USD"));
+        let usage = super::map_session_usage(&update);
+        assert!(usage.used.is_none());
+        assert!(usage.size.is_none());
+        assert_eq!(
+            usage.cost.as_ref().and_then(|cost| cost.amount),
+            Some(0.045)
+        );
+        assert_eq!(
+            usage
+                .cost
+                .as_ref()
+                .and_then(|cost| cost.currency.as_deref()),
+            Some("USD")
+        );
+    }
+
+    #[test]
+    fn prompt_usage_maps_turn_token_fields() {
+        let mapped = super::map_turn_usage(schema::Usage::new(150, 100, 40).thought_tokens(10));
+        assert_eq!(mapped.total_tokens, Some(150));
+        assert_eq!(mapped.input_tokens, Some(100));
+        assert_eq!(mapped.output_tokens, Some(40));
+        assert_eq!(mapped.thought_tokens, Some(10));
     }
 
     #[test]
@@ -868,6 +1003,35 @@ mod tests {
         assert_eq!(
             super::format_description(Some("Tool"), "Tool", None, None, Some(&output)),
             "ReadFile: /tmp/app/README.md"
+        );
+    }
+
+    #[test]
+    fn cursor_kind_title_does_not_hide_location_path() {
+        let loc = schema::ToolCallLocation::new("/tmp/app/README.md");
+        assert_eq!(
+            super::format_description(
+                Some("Read"),
+                "Read",
+                Some(std::slice::from_ref(&loc)),
+                None,
+                None,
+            ),
+            "Read: /tmp/app/README.md"
+        );
+        let input = super::enrich_tool_input(None, Some(std::slice::from_ref(&loc))).unwrap();
+        assert_eq!(
+            input.get("path").and_then(|v| v.as_str()),
+            Some("/tmp/app/README.md")
+        );
+    }
+
+    #[test]
+    fn cursor_execute_title_does_not_hide_command() {
+        let input = json!({ "command": "echo hello" });
+        assert_eq!(
+            super::format_description(Some("Run Script"), "Execute", None, Some(&input), None),
+            "Execute: echo hello"
         );
     }
 }

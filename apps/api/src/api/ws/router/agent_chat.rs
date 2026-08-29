@@ -67,6 +67,7 @@ impl WsMessageService {
         let meta = self.agent_chat().create(CreateAgentChatRequest {
             workspace_id: req.workspace_id,
             project_id: req.project_id,
+            space_id: req.space_id,
             cwd,
             provider_id: req.provider_id,
             model: req.model,
@@ -99,7 +100,7 @@ impl WsMessageService {
     }
 
     pub(super) async fn handle_agent_chat_get(&self, req: AgentChatIdRequest) -> Result<Value> {
-        let snapshot = self.agent_chat().get(&req.chat_id)?;
+        let snapshot = self.agent_chat().get(&req.chat_id).await?;
         serde_json::to_value(snapshot)
             .map_err(|e| ServiceError::Processing(format!("serialize snapshot: {e}")))
     }
@@ -108,7 +109,7 @@ impl WsMessageService {
         &self,
         req: AgentChatMessagesRequest,
     ) -> Result<Value> {
-        let snapshot = self.agent_chat().get(&req.chat_id)?;
+        let snapshot = self.agent_chat().get(&req.chat_id).await?;
         let mut messages = snapshot.messages;
         if let Some(limit) = req.limit {
             let keep = (limit as usize).max(1);
@@ -155,7 +156,7 @@ impl WsMessageService {
         conn_id: &str,
         req: AgentChatSubscribeRequest,
     ) -> Result<Value> {
-        let snapshot = self.agent_chat().get(&req.chat_id)?;
+        let snapshot = self.agent_chat().get(&req.chat_id).await?;
         let after = req.after_sequence.unwrap_or(0);
         let missed = self.agent_chat().events_after(&req.chat_id, after);
         if let Some(manager) = self.ws_manager.get() {

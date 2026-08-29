@@ -27,9 +27,10 @@ use clap::{ArgAction, Parser};
 use config::ServerConfig;
 use core_engine::TestEngine;
 use core_service::{
-    AgentHookEvent, AgentHooksService, AgentService, AutomationEvent, AutomationService,
-    CanvasAgentRelay, CanvasDocumentService, GroupService, MessagePushService, NotificationService,
-    ProjectService, ReviewService, ServiceError, TerminalService, TestService, WorkspaceService,
+    AgentHooksService, AgentService, AgentStatusEvent, AgentStatusService, AutomationEvent,
+    AutomationService, CanvasAgentRelay, CanvasDocumentService, GroupService, MessagePushService,
+    NotificationService, ProjectService, ReviewService, ServiceError, TerminalService, TestService,
+    WorkspaceService,
 };
 use infra::jobs::{IntervalSpec, JobError, JobId, LocalScheduler, RetryPolicy};
 use infra::queue::{topics, LocalPersistentQueue, QueueError, Topic};
@@ -83,8 +84,8 @@ fn spawn_ws_forwarder<T: serde::Serialize + Clone + Send + 'static>(
     })
 }
 
-fn spawn_agent_hook_forwarder(
-    mut rx: tokio::sync::broadcast::Receiver<AgentHookEvent>,
+fn spawn_agent_status_forwarder(
+    mut rx: tokio::sync::broadcast::Receiver<AgentStatusEvent>,
     ws_manager: Arc<WsManager>,
 ) -> tokio::task::JoinHandle<()> {
     tokio::spawn(async move {
@@ -92,24 +93,24 @@ fn spawn_agent_hook_forwarder(
             match rx.recv().await {
                 Ok(event) => {
                     let (ws_event, data) = match event {
-                        AgentHookEvent::StateChanged(update) => {
-                            (WsEvent::AgentHookStateChanged, json!(update))
+                        AgentStatusEvent::StateChanged(update) => {
+                            (WsEvent::AgentStatusChanged, json!(update))
                         }
-                        AgentHookEvent::SessionsCleared { session_ids } => (
-                            WsEvent::AgentHookSessionsCleared,
+                        AgentStatusEvent::SessionsCleared { session_ids } => (
+                            WsEvent::AgentStatusCleared,
                             json!({ "session_ids": session_ids }),
                         ),
-                        AgentHookEvent::AttentionRaised(latch) => {
+                        AgentStatusEvent::AttentionRaised(latch) => {
                             (WsEvent::AgentAttentionRaised, json!(latch))
                         }
-                        AgentHookEvent::AttentionCleared { stable_pane_ids } => (
+                        AgentStatusEvent::AttentionCleared { stable_pane_ids } => (
                             WsEvent::AgentAttentionCleared,
                             json!({ "stable_pane_ids": stable_pane_ids }),
                         ),
-                        AgentHookEvent::AttentionSummaryUpdated(summary) => {
+                        AgentStatusEvent::AttentionSummaryUpdated(summary) => {
                             (WsEvent::AgentAttentionSummaryUpdated, json!(summary))
                         }
-                        AgentHookEvent::AttentionSummaryCleared { stable_pane_ids } => (
+                        AgentStatusEvent::AttentionSummaryCleared { stable_pane_ids } => (
                             WsEvent::AgentAttentionSummaryCleared,
                             json!({ "stable_pane_ids": stable_pane_ids }),
                         ),
@@ -118,11 +119,14 @@ fn spawn_agent_hook_forwarder(
                         .broadcast(&WsMessage::notification(ws_event, data))
                         .await
                     {
-                        warn!("Failed to broadcast agent hook event: {}", error);
+                        warn!("Failed to broadcast agent status event: {}", error);
                     }
                 }
                 Err(tokio::sync::broadcast::error::RecvError::Lagged(skipped)) => {
-                    warn!("Lagged on agent hook events, skipped {} messages", skipped);
+                    warn!(
+                        "Lagged on agent status events, skipped {} messages",
+                        skipped
+                    );
                 }
                 Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
             }
@@ -185,7 +189,7 @@ fn spawn_automation_forwarder(
 fn spawn_non_critical_startup_tasks(
     agent_service: Arc<AgentService>,
     project_service: Arc<ProjectService>,
-    agent_hooks_service: Arc<core_service::AgentHooksService>,
+    agent_status_service: Arc<core_service::AgentStatusService>,
     api_port: u16,
 ) {
     tokio::task::spawn_blocking(|| {
@@ -244,7 +248,7 @@ fn spawn_non_critical_startup_tasks(
         match project_service.list_projects().await {
             Ok(projects) => {
                 let paths: Vec<String> = projects.into_iter().map(|p| p.main_file_path).collect();
-                agent_hooks_service.set_known_project_paths(paths);
+                agent_status_service.set_known_project_paths(paths);
             }
             Err(e) => {
                 warn!(
@@ -264,7 +268,7 @@ const AGENT_HOOKS_ATTENTION_SUMMARY_JOB_ID: &str = "agent-hooks.attention_auto_s
 /// Register the agent-hook session cleanup interval job (every 5 minutes).
 async fn register_idle_session_cleanup_job(
     jobs: Arc<LocalScheduler>,
-    agent_hooks_service: Arc<core_service::AgentHooksService>,
+    agent_status_service: Arc<core_service::AgentStatusService>,
 ) {
     if let Err(error) = jobs
         .set_interval_job(
@@ -276,13 +280,13 @@ async fn register_idle_session_cleanup_job(
             },
             RetryPolicy::none(),
             move || {
-                let agent_hooks_service = Arc::clone(&agent_hooks_service);
+                let agent_status_service = Arc::clone(&agent_status_service);
                 async move {
                     let timeouts = read_agent_hook_session_timeouts();
-                    agent_hooks_service.clear_idle_older_than(timeouts.idle_mins);
+                    agent_status_service.clear_idle_older_than(timeouts.idle_mins);
                     // Force stuck running / permission sessions idle when hooks never
                     // reported a terminal event after interrupt or process death.
-                    agent_hooks_service.clear_stale_active_older_than(timeouts.active_stale_mins);
+                    agent_status_service.clear_stale_active_older_than(timeouts.active_stale_mins);
                     Ok(())
                 }
             },
@@ -299,7 +303,7 @@ async fn register_idle_session_cleanup_job(
 /// Poll sticky task-complete attention and spawn headless auto-summaries.
 async fn register_attention_summary_job(
     jobs: Arc<LocalScheduler>,
-    agent_hooks_service: Arc<core_service::AgentHooksService>,
+    agent_status_service: Arc<core_service::AgentStatusService>,
     terminal_service: Arc<core_service::TerminalService>,
 ) {
     if let Err(error) = jobs
@@ -313,10 +317,10 @@ async fn register_attention_summary_job(
             },
             RetryPolicy::none(),
             move || {
-                let agent_hooks_service = Arc::clone(&agent_hooks_service);
+                let agent_status_service = Arc::clone(&agent_status_service);
                 let terminal_service = Arc::clone(&terminal_service);
                 async move {
-                    tick_attention_auto_summary(agent_hooks_service, terminal_service).await;
+                    tick_attention_auto_summary(agent_status_service, terminal_service).await;
                     Ok(())
                 }
             },
@@ -331,7 +335,7 @@ async fn register_attention_summary_job(
 }
 
 async fn tick_attention_auto_summary(
-    agent_hooks_service: Arc<core_service::AgentHooksService>,
+    agent_status_service: Arc<core_service::AgentStatusService>,
     terminal_service: Arc<core_service::TerminalService>,
 ) {
     let settings = read_attention_summary_settings();
@@ -341,14 +345,14 @@ async fn tick_attention_auto_summary(
     // Bound concurrent headless summaries so one idle burst cannot spawn
     // an agent-cli process per pane in a single tick.
     const MAX_SUMMARIES_PER_TICK: usize = 3;
-    let due = agent_hooks_service.attention_due_for_summary(settings.delay());
+    let due = agent_status_service.attention_due_for_summary(settings.delay());
     for latch in due.into_iter().take(MAX_SUMMARIES_PER_TICK) {
         let Some((latch, _row, generation)) =
-            agent_hooks_service.begin_attention_summary(&latch.stable_pane_id)
+            agent_status_service.begin_attention_summary(&latch.stable_pane_id)
         else {
             continue;
         };
-        let service = Arc::clone(&agent_hooks_service);
+        let service = Arc::clone(&agent_status_service);
         let terminal = Arc::clone(&terminal_service);
         let settings = settings.clone();
         tokio::spawn(async move {
@@ -382,7 +386,7 @@ async fn tick_attention_auto_summary(
     }
 }
 
-struct AgentHookSessionTimeouts {
+struct AgentStatusSessionTimeouts {
     idle_mins: u64,
     active_stale_mins: u64,
 }
@@ -396,23 +400,23 @@ fn terminal_code_agent_settings_path() -> std::path::PathBuf {
         .join("terminal_code_agent.json")
 }
 
-fn read_agent_hook_session_timeouts() -> AgentHookSessionTimeouts {
+fn read_agent_hook_session_timeouts() -> AgentStatusSessionTimeouts {
     const DEFAULT_IDLE: u64 = 30;
     const DEFAULT_ACTIVE_STALE: u64 = 30;
     let path = terminal_code_agent_settings_path();
     let Ok(content) = std::fs::read_to_string(&path) else {
-        return AgentHookSessionTimeouts {
+        return AgentStatusSessionTimeouts {
             idle_mins: DEFAULT_IDLE,
             active_stale_mins: DEFAULT_ACTIVE_STALE,
         };
     };
     let Ok(val) = serde_json::from_str::<serde_json::Value>(&content) else {
-        return AgentHookSessionTimeouts {
+        return AgentStatusSessionTimeouts {
             idle_mins: DEFAULT_IDLE,
             active_stale_mins: DEFAULT_ACTIVE_STALE,
         };
     };
-    AgentHookSessionTimeouts {
+    AgentStatusSessionTimeouts {
         idle_mins: val
             .get("idle_session_timeout_mins")
             .and_then(|v| v.as_u64())
@@ -551,7 +555,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let token_usage_service = Arc::new(TokenUsageService::default());
     token_usage::import_legacy_cookie_consents();
     let terminal_service = Arc::new(TerminalService::new_with_db(Arc::clone(&db)));
-    let agent_hooks_service = Arc::new(AgentHooksService::new());
+    let agent_status_service = Arc::new(AgentStatusService::new());
+    let agent_hooks_service = Arc::new(AgentHooksService::new(Arc::clone(&agent_status_service)));
     let notification_service = Arc::new(NotificationService::new());
     let automation_service = Arc::new(AutomationService::new(
         Arc::clone(&db),
@@ -619,6 +624,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             message_push_service,
             terminal_service,
             token_usage_service: Arc::clone(&token_usage_service),
+            agent_status_service: Arc::clone(&agent_status_service),
             agent_hooks_service: Arc::clone(&agent_hooks_service),
             notification_service: Arc::clone(&notification_service),
             canvas_agent_relay: Arc::clone(&canvas_agent_relay),
@@ -715,14 +721,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let ws_manager = app_state.ws_service.manager();
 
-    agent_hooks_service.set_notification_service(Arc::clone(&notification_service));
-    // Pane destroy / kill-window paths clear matching hook sessions.
+    agent_status_service.set_notification_service(Arc::clone(&notification_service));
+    ws_message_service
+        .agent_chat()
+        .set_status_service(Arc::clone(&agent_status_service));
     app_state
         .terminal_service
-        .set_agent_hooks_service(Arc::clone(&agent_hooks_service));
+        .set_agent_status_service(Arc::clone(&agent_status_service));
 
-    spawn_agent_hook_forwarder(
-        agent_hooks_service.subscribe_events(),
+    spawn_agent_status_forwarder(
+        agent_status_service.subscribe_events(),
         Arc::clone(&ws_manager),
     );
 
@@ -818,7 +826,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }));
 
     let project_service_for_startup = Arc::clone(&app_state.project_service);
-    let agent_hooks_for_startup = Arc::clone(&app_state.agent_hooks_service);
+    let agent_status_for_startup = Arc::clone(&app_state.agent_status_service);
     let terminal_service_for_startup = Arc::clone(&app_state.terminal_service);
 
     // Outermost layer: a WebSocket handshake bypasses CORS entirely, so untrusted
@@ -899,14 +907,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     spawn_non_critical_startup_tasks(
         agent_service_for_startup,
         project_service_for_startup,
-        Arc::clone(&agent_hooks_for_startup),
+        Arc::clone(&agent_status_for_startup),
         actual_addr.port(),
     );
-    register_idle_session_cleanup_job(Arc::clone(&jobs), Arc::clone(&agent_hooks_for_startup))
+    register_idle_session_cleanup_job(Arc::clone(&jobs), Arc::clone(&agent_status_for_startup))
         .await;
     register_attention_summary_job(
         Arc::clone(&jobs),
-        agent_hooks_for_startup,
+        agent_status_for_startup,
         terminal_service_for_startup,
     )
     .await;

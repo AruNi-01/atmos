@@ -13,7 +13,7 @@ use crate::utils::path_boundary::{path_or_existing_parent_within_root, path_with
 use super::types::{
     flatten_messages, AgentChatIndexEntry, AgentChatMeta, AgentChatSnapshot,
     CreateAgentChatRequest, FoldedMessage, FoldedTurn, MessagePart, QueueItem, RuntimeStatus,
-    TranscriptRecord, TurnStatus,
+    SessionLifecycleAction, SessionLifecycleStatus, TranscriptRecord, TurnStatus,
 };
 
 pub struct AgentChatStore {
@@ -55,6 +55,7 @@ impl AgentChatStore {
             cwd: req.cwd,
             workspace_id: req.workspace_id,
             project_id: req.project_id,
+            space_id: req.space_id,
             provider_id: req.provider_id,
             last_message_at: None,
             last_event_seq: 0,
@@ -530,29 +531,7 @@ fn apply_record(turns: &mut Vec<FoldedTurn>, record: TranscriptRecord) {
             let turn = upsert_turn(turns, &turn_id, created_at);
             apply_thinking_timing(turn, started_at, duration_ms, created_at);
             if let Some(index) = assistant_message_index(turn, &message_id) {
-                let message = &mut turn.messages[index];
-                if let Some(MessagePart::Thinking {
-                    tool_call_id: None,
-                    text: existing,
-                }) = message.parts.iter_mut().find(|item| {
-                    matches!(
-                        item,
-                        MessagePart::Thinking {
-                            tool_call_id: None,
-                            ..
-                        }
-                    )
-                }) {
-                    *existing = text;
-                } else {
-                    message.parts.insert(
-                        0,
-                        MessagePart::Thinking {
-                            text,
-                            tool_call_id: None,
-                        },
-                    );
-                }
+                apply_thinking_snapshot_part(&mut turn.messages[index], text, duration_ms);
             } else {
                 upsert_message(
                     turn,
@@ -563,6 +542,7 @@ fn apply_record(turns: &mut Vec<FoldedTurn>, record: TranscriptRecord) {
                         parts: vec![MessagePart::Thinking {
                             text,
                             tool_call_id: None,
+                            duration_ms,
                         }],
                         created_at,
                         streaming: false,
@@ -645,6 +625,26 @@ fn apply_record(turns: &mut Vec<FoldedTurn>, record: TranscriptRecord) {
             }
             let _ = created_at;
         }
+        TranscriptRecord::SessionLifecycle {
+            turn_id,
+            message_id,
+            action,
+            status,
+            duration_ms,
+            error,
+            created_at,
+        } => {
+            let turn = upsert_turn(turns, &turn_id, created_at);
+            apply_session_lifecycle(
+                turn,
+                message_id,
+                action,
+                status,
+                duration_ms,
+                error,
+                created_at,
+            );
+        }
     }
 }
 
@@ -699,8 +699,129 @@ fn apply_thinking_timing(
         mark_thinking(turn, at);
     }
     if let Some(ms) = duration_ms.filter(|ms| *ms > 0) {
-        turn.thinking_ms = Some(turn.thinking_ms.unwrap_or(0).max(ms));
+        turn.thinking_ms = Some(turn.thinking_ms.unwrap_or(0).saturating_add(ms));
     }
+}
+
+fn apply_thinking_snapshot_part(
+    message: &mut FoldedMessage,
+    text: String,
+    duration_ms: Option<u64>,
+) {
+    if let Some(MessagePart::Thinking {
+        tool_call_id: None,
+        duration_ms: existing_duration,
+        text: existing,
+    }) = message.parts.last_mut()
+    {
+        if existing_duration.is_none() {
+            *existing = text;
+            *existing_duration = duration_ms;
+            return;
+        }
+    }
+    message.parts.push(MessagePart::Thinking {
+        text,
+        tool_call_id: None,
+        duration_ms,
+    });
+}
+
+fn merge_tool_call_part(existing: &MessagePart, incoming: MessagePart) -> MessagePart {
+    let MessagePart::ToolCall {
+        tool_call_id: existing_id,
+        name: existing_name,
+        title: existing_title,
+        kind: existing_kind,
+        status: existing_status,
+        input: existing_input,
+        output: existing_output,
+        content: existing_content,
+    } = existing
+    else {
+        return incoming;
+    };
+    let MessagePart::ToolCall {
+        name,
+        title,
+        kind,
+        status,
+        input,
+        output,
+        content,
+        ..
+    } = incoming
+    else {
+        return incoming;
+    };
+    MessagePart::ToolCall {
+        tool_call_id: existing_id.clone(),
+        name: if agent::is_generic_tool_label(&name) && !existing_name.is_empty() {
+            existing_name.clone()
+        } else {
+            name
+        },
+        title: match &title {
+            Some(value) if agent::is_generic_tool_label(value) && existing_title.is_some() => {
+                existing_title.clone()
+            }
+            Some(_) => title,
+            None => existing_title.clone(),
+        },
+        kind: if kind == agent::AgentToolKind::Other
+            && *existing_kind != agent::AgentToolKind::Other
+        {
+            *existing_kind
+        } else {
+            kind
+        },
+        status: status.or_else(|| existing_status.clone()),
+        input: input.or_else(|| existing_input.clone()),
+        output: output.or_else(|| existing_output.clone()),
+        content: content.or_else(|| existing_content.clone()),
+    }
+}
+
+fn apply_session_lifecycle(
+    turn: &mut FoldedTurn,
+    message_id: String,
+    action: SessionLifecycleAction,
+    status: SessionLifecycleStatus,
+    duration_ms: Option<u64>,
+    error: Option<String>,
+    created_at: chrono::DateTime<Utc>,
+) {
+    let part = MessagePart::SessionLifecycle {
+        action,
+        status,
+        duration_ms,
+        error,
+    };
+    if let Some(index) = assistant_message_index(turn, &message_id) {
+        let message = &mut turn.messages[index];
+        if let Some(existing) = message
+            .parts
+            .iter_mut()
+            .find(|item| matches!(item, MessagePart::SessionLifecycle { .. }))
+        {
+            *existing = part;
+            return;
+        }
+        message.parts.insert(0, part);
+        return;
+    }
+    upsert_message(
+        turn,
+        FoldedMessage {
+            id: message_id,
+            role: "assistant".into(),
+            kind: agent::UserMessageKind::Normal,
+            parts: vec![part],
+            created_at,
+            streaming: false,
+            ..Default::default()
+        },
+    );
 }
 
 fn apply_tool_call(
@@ -758,6 +879,7 @@ fn apply_tool_call(
                 tool_call.output.as_ref(),
             ),
             tool_call_id: Some(tool_call.tool_call_id.clone()),
+            duration_ms: None,
         },
         agent::ClassifiedTool::Plan => {
             let plan = agent::plan_from_tool_input(tool_call.input.as_ref())
@@ -813,7 +935,7 @@ fn apply_tool_call(
                 if let Some(existing) = message.parts.iter_mut().find(|item| {
                     matches!(item, MessagePart::ToolCall { tool_call_id: existing_id, .. } if existing_id == tool_call_id)
                 }) {
-                    *existing = part;
+                    *existing = merge_tool_call_part(existing, part);
                     return;
                 }
             }
@@ -897,6 +1019,7 @@ mod tests {
             .create(CreateAgentChatRequest {
                 workspace_id: None,
                 project_id: None,
+                space_id: None,
                 cwd: cwd.into(),
                 provider_id: "claude".into(),
                 model: Some("opus".into()),
@@ -1080,6 +1203,86 @@ mod tests {
     }
 
     #[test]
+    fn tool_call_update_keeps_input_when_later_event_omits_it() {
+        let (_dir, store) = store();
+        let meta = create(&store, "/tmp/a");
+        let turn_id = "t1";
+        store
+            .append_record(
+                &meta.id,
+                &TranscriptRecord::TurnStarted {
+                    turn_id: turn_id.into(),
+                    created_at: Utc::now(),
+                },
+            )
+            .unwrap();
+        store
+            .append_record(
+                &meta.id,
+                &TranscriptRecord::ToolCall {
+                    turn_id: turn_id.into(),
+                    tool_call: agent::AgentToolCall {
+                        tool_call_id: "tool-1".into(),
+                        name: "Read".into(),
+                        title: Some("Read".into()),
+                        kind: agent::AgentToolKind::Read,
+                        status: Some("running".into()),
+                        input: Some(serde_json::json!({
+                            "path": "/tmp/app/README.md",
+                            "offset": 1,
+                            "limit": 200
+                        })),
+                        output: None,
+                        content: None,
+                    },
+                    created_at: Utc::now(),
+                },
+            )
+            .unwrap();
+        store
+            .append_record(
+                &meta.id,
+                &TranscriptRecord::ToolCall {
+                    turn_id: turn_id.into(),
+                    tool_call: agent::AgentToolCall {
+                        tool_call_id: "tool-1".into(),
+                        name: "Read".into(),
+                        title: Some("Read".into()),
+                        kind: agent::AgentToolKind::Read,
+                        status: Some("completed".into()),
+                        input: None,
+                        output: Some(serde_json::json!("# hi\n")),
+                        content: None,
+                    },
+                    created_at: Utc::now(),
+                },
+            )
+            .unwrap();
+        let snapshot = store.get_snapshot(&meta.id).unwrap();
+        let MessagePart::ToolCall {
+            input,
+            output,
+            status,
+            ..
+        } = &snapshot.messages[0].parts[0]
+        else {
+            panic!("expected tool call");
+        };
+        assert_eq!(status.as_deref(), Some("completed"));
+        assert_eq!(
+            input
+                .as_ref()
+                .and_then(|value| value.get("path"))
+                .and_then(|value| value.as_str()),
+            Some("/tmp/app/README.md")
+        );
+        assert_eq!(
+            output.as_ref().and_then(|value| value.as_str()),
+            Some("# hi\n")
+        );
+    }
+
+    #[test]
     fn restored_assistant_keeps_process_parts_above_answer() {
         let (_dir, store) = store();
         let meta = create(&store, "/tmp/a");
@@ -1158,7 +1361,7 @@ mod tests {
                 _ => "other",
             })
             .collect();
-        assert_eq!(kinds, ["thinking", "tool", "final answer"]);
+        assert_eq!(kinds, ["tool", "thinking", "final answer"]);
     }
 
     #[test]
@@ -1286,6 +1489,274 @@ mod tests {
             .find(|message| message.role == "assistant")
             .expect("assistant");
         assert_eq!(assistant.thinking_ms, Some(12_000));
+    }
+
+    #[test]
+    fn interleaved_thinking_snapshots_keep_their_own_durations() {
+        let (_dir, store) = store();
+        let meta = create(&store, "/tmp/a");
+        let turn_id = "t1";
+        let started = Utc::now() - chrono::Duration::seconds(45);
+        store
+            .append_record(
+                &meta.id,
+                &TranscriptRecord::TurnStarted {
+                    turn_id: turn_id.into(),
+                    created_at: started,
+                },
+            )
+            .unwrap();
+        store
+            .append_record(
+                &meta.id,
+                &TranscriptRecord::ThinkingSnapshot {
+                    turn_id: turn_id.into(),
+                    message_id: "a1".into(),
+                    text: "first pass".into(),
+                    started_at: Some(started),
+                    duration_ms: Some(5_000),
+                    created_at: started + chrono::Duration::seconds(5),
+                },
+            )
+            .unwrap();
+        store
+            .append_record(
+                &meta.id,
+                &TranscriptRecord::ToolCall {
+                    turn_id: turn_id.into(),
+                    tool_call: agent::AgentToolCall {
+                        tool_call_id: "tool-1".into(),
+                        name: "Read".into(),
+                        title: Some("Read file".into()),
+                        kind: agent::AgentToolKind::Read,
+                        status: Some("completed".into()),
+                        input: None,
+                        output: None,
+                        content: None,
+                    },
+                    created_at: started + chrono::Duration::seconds(10),
+                },
+            )
+            .unwrap();
+        store
+            .append_record(
+                &meta.id,
+                &TranscriptRecord::ThinkingSnapshot {
+                    turn_id: turn_id.into(),
+                    message_id: "a1".into(),
+                    text: "second pass".into(),
+                    started_at: Some(started + chrono::Duration::seconds(12)),
+                    duration_ms: Some(8_000),
+                    created_at: started + chrono::Duration::seconds(20),
+                },
+            )
+            .unwrap();
+        store
+            .append_record(
+                &meta.id,
+                &TranscriptRecord::TurnCompleted {
+                    turn_id: turn_id.into(),
+                    status: TurnStatus::Completed,
+                    error: None,
+                    worked_ms: Some(45_000),
+                    thinking_ms: Some(13_000),
+                    usage: None,
+                    created_at: started + chrono::Duration::seconds(45),
+                },
+            )
+            .unwrap();
+        let snapshot = store.get_snapshot(&meta.id).unwrap();
+        let assistant = snapshot
+            .messages
+            .iter()
+            .find(|message| message.role == "assistant")
+            .expect("assistant");
+        assert_eq!(assistant.thinking_ms, Some(13_000));
+        let thinking: Vec<_> = assistant
+            .parts
+            .iter()
+            .filter_map(|part| match part {
+                MessagePart::Thinking {
+                    text, duration_ms, ..
+                } => Some((text.as_str(), *duration_ms)),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(
+            thinking,
+            vec![("first pass", Some(5_000)), ("second pass", Some(8_000)),]
+        );
+    }
+
+    #[test]
+    fn session_lifecycle_folds_to_one_part_and_stays_first() {
+        let (_dir, store) = store();
+        let meta = create(&store, "/tmp/a");
+        let turn_id = "t-session";
+        store
+            .append_record(
+                &meta.id,
+                &TranscriptRecord::TurnStarted {
+                    turn_id: turn_id.into(),
+                    created_at: Utc::now(),
+                },
+            )
+            .unwrap();
+        store
+            .append_record(
+                &meta.id,
+                &TranscriptRecord::UserMessage {
+                    turn_id: turn_id.into(),
+                    message_id: "u1".into(),
+                    kind: UserMessageKind::Normal,
+                    text: "hello".into(),
+                    attachments: Vec::new(),
+                    created_at: Utc::now(),
+                },
+            )
+            .unwrap();
+        store
+            .append_record(
+                &meta.id,
+                &TranscriptRecord::SessionLifecycle {
+                    turn_id: turn_id.into(),
+                    message_id: "session-t-session".into(),
+                    action: SessionLifecycleAction::Create,
+                    status: SessionLifecycleStatus::Running,
+                    duration_ms: None,
+                    error: None,
+                    created_at: Utc::now(),
+                },
+            )
+            .unwrap();
+        store
+            .append_record(
+                &meta.id,
+                &TranscriptRecord::ThinkingSnapshot {
+                    turn_id: turn_id.into(),
+                    message_id: "a1".into(),
+                    text: "hmm".into(),
+                    started_at: None,
+                    duration_ms: None,
+                    created_at: Utc::now(),
+                },
+            )
+            .unwrap();
+        store
+            .append_record(
+                &meta.id,
+                &TranscriptRecord::SessionLifecycle {
+                    turn_id: turn_id.into(),
+                    message_id: "session-t-session".into(),
+                    action: SessionLifecycleAction::Create,
+                    status: SessionLifecycleStatus::Completed,
+                    duration_ms: Some(2400),
+                    error: None,
+                    created_at: Utc::now(),
+                },
+            )
+            .unwrap();
+        let snapshot = store.get_snapshot(&meta.id).unwrap();
+        let assistant = snapshot
+            .messages
+            .iter()
+            .find(|message| message.role == "assistant")
+            .expect("assistant");
+        let kinds: Vec<&str> = assistant
+            .parts
+            .iter()
+            .map(|part| match part {
+                MessagePart::SessionLifecycle { .. } => "session",
+                MessagePart::Thinking { .. } => "thinking",
+                other => panic!("unexpected part {other:?}"),
+            })
+            .collect();
+        assert_eq!(kinds, ["session", "thinking"]);
+        match &assistant.parts[0] {
+            MessagePart::SessionLifecycle {
+                action,
+                status,
+                duration_ms,
+                ..
+            } => {
+                assert_eq!(*action, SessionLifecycleAction::Create);
+                assert_eq!(*status, SessionLifecycleStatus::Completed);
+                assert_eq!(*duration_ms, Some(2400));
+            }
+            other => panic!("expected session lifecycle, got {other:?}"),
+        }
+        let jsonl = fs::read_to_string(store.dir_for(&meta.id).join("transcript.jsonl")).unwrap();
+        assert_eq!(
+            jsonl
+                .lines()
+                .filter(|line| line.contains("\"type\":\"session_lifecycle\""))
+                .count(),
+            2
+        );
+    }
+
+    #[test]
+    fn flatten_uniqueifies_reused_assistant_ids_across_turns() {
+        let (_dir, store) = store();
+        let meta = create(&store, "/tmp/a");
+        for (turn_id, user_id, text) in [("t1", "u1", "first"), ("t2", "u2", "second")] {
+            store
+                .append_record(
+                    &meta.id,
+                    &TranscriptRecord::TurnStarted {
+                        turn_id: turn_id.into(),
+                        created_at: Utc::now(),
+                    },
+                )
+                .unwrap();
+            store
+                .append_record(
+                    &meta.id,
+                    &TranscriptRecord::UserMessage {
+                        turn_id: turn_id.into(),
+                        message_id: user_id.into(),
+                        kind: UserMessageKind::Normal,
+                        text: text.into(),
+                        attachments: Vec::new(),
+                        created_at: Utc::now(),
+                    },
+                )
+                .unwrap();
+            store
+                .append_record(
+                    &meta.id,
+                    &TranscriptRecord::AssistantSnapshot {
+                        turn_id: turn_id.into(),
+                        message_id: "a-reused".into(),
+                        text: text.into(),
+                        created_at: Utc::now(),
+                    },
+                )
+                .unwrap();
+            store
+                .append_record(
+                    &meta.id,
+                    &TranscriptRecord::TurnCompleted {
+                        turn_id: turn_id.into(),
+                        status: TurnStatus::Completed,
+                        error: None,
+                        worked_ms: None,
+                        thinking_ms: None,
+                        usage: None,
+                        created_at: Utc::now(),
+                    },
+                )
+                .unwrap();
+        }
+        let snapshot = store.get_snapshot(&meta.id).unwrap();
+        let ids: Vec<_> = snapshot
+            .messages
+            .iter()
+            .map(|message| message.id.as_str())
+            .collect();
+        let unique: std::collections::HashSet<_> = ids.iter().copied().collect();
+        assert_eq!(ids.len(), unique.len(), "duplicate message ids: {ids:?}");
+        assert_eq!(snapshot.messages.len(), 4);
     }
 
     #[test]

@@ -7,6 +7,8 @@ pub struct AgentChatCreateRequest {
     #[serde(default)]
     pub project_id: Option<String>,
     #[serde(default)]
+    pub space_id: Option<String>,
+    #[serde(default)]
     pub cwd: Option<String>,
     pub provider_id: String,
     #[serde(default)]

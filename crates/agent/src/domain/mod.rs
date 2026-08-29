@@ -19,6 +19,6 @@ pub use session::{
     AgentRuntimeConfigUpdate, AgentRuntimeControl, AgentTurnHandle,
 };
 pub use tool_kind::{
-    classify_tool, deserialize_tool_kind, plan_from_tool_input, thinking_text, AgentToolKind,
-    ClassifiedTool,
+    classify_tool, deserialize_tool_kind, is_generic_tool_label, plan_from_tool_input,
+    thinking_text, AgentToolKind, ClassifiedTool,
 };

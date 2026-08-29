@@ -22,6 +22,7 @@ pub struct FakeProviderCounters {
     pub cancel: AtomicUsize,
     pub close: AtomicUsize,
     pub permission: AtomicUsize,
+    pub set_config: AtomicUsize,
 }
 
 #[derive(Clone)]
@@ -32,6 +33,7 @@ pub struct FakeAgentProvider {
     pub auto_complete: Arc<AtomicBool>,
     pub emit_permission_on_prompt: bool,
     last_resume: Arc<Mutex<Option<String>>>,
+    last_config: Arc<Mutex<Option<AgentRuntimeConfigUpdate>>>,
     running_turn: Arc<Mutex<Option<String>>>,
     events_tx: Arc<Mutex<Option<mpsc::UnboundedSender<AgentEvent>>>>,
 }
@@ -45,6 +47,7 @@ impl FakeAgentProvider {
             auto_complete: Arc::new(AtomicBool::new(true)),
             emit_permission_on_prompt: false,
             last_resume: Arc::new(Mutex::new(None)),
+            last_config: Arc::new(Mutex::new(None)),
             running_turn: Arc::new(Mutex::new(None)),
             events_tx: Arc::new(Mutex::new(None)),
         }
@@ -74,8 +77,26 @@ impl FakeAgentProvider {
         self.last_resume.lock().await.clone()
     }
 
+    pub fn config_count(&self) -> usize {
+        self.counters.set_config.load(Ordering::SeqCst)
+    }
+
+    pub async fn last_config(&self) -> Option<AgentRuntimeConfigUpdate> {
+        self.last_config.lock().await.clone()
+    }
+
     pub fn set_auto_complete(&self, value: bool) {
         self.auto_complete.store(value, Ordering::SeqCst);
+    }
+
+    pub async fn events_ready(&self) -> bool {
+        self.events_tx.lock().await.is_some()
+    }
+
+    pub async fn push_event(&self, event: AgentEvent) {
+        if let Some(tx) = self.events_tx.lock().await.clone() {
+            let _ = tx.send(event);
+        }
     }
 
     pub async fn complete_current(&self) {
@@ -97,6 +118,7 @@ struct FakeSessionInner {
     emit_permission_on_prompt: bool,
     events_tx: mpsc::UnboundedSender<AgentEvent>,
     running_turn: Arc<Mutex<Option<String>>>,
+    last_config: Arc<Mutex<Option<AgentRuntimeConfigUpdate>>>,
 }
 
 #[async_trait]
@@ -171,7 +193,9 @@ impl AgentRuntimeCommands for FakeSessionInner {
         Ok(())
     }
 
-    async fn set_config(&self, _update: AgentRuntimeConfigUpdate) -> AgentResult<()> {
+    async fn set_config(&self, update: AgentRuntimeConfigUpdate) -> AgentResult<()> {
+        self.counters.set_config.fetch_add(1, Ordering::SeqCst);
+        *self.last_config.lock().await = Some(update);
         Ok(())
     }
 
@@ -240,6 +264,7 @@ fn open_session(
         emit_permission_on_prompt: provider.emit_permission_on_prompt,
         events_tx: tx.clone(),
         running_turn: Arc::clone(&provider.running_turn),
+        last_config: Arc::clone(&provider.last_config),
     });
     if let Ok(mut slot) = provider.events_tx.try_lock() {
         *slot = Some(tx);

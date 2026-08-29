@@ -15,7 +15,7 @@ use tokio::time::{timeout, Duration};
 use tokio_util::compat::{TokioAsyncReadCompatExt, TokioAsyncWriteCompatExt};
 use tracing::{error, info, warn};
 
-use crate::acp_client::client::AcpTurnStop;
+use crate::acp_client::client::{map_turn_usage, AcpTurnStop};
 use crate::acp_client::logging::append_acp_log;
 use crate::acp_client::tools::AcpToolHandler;
 use crate::acp_client::types::{
@@ -981,6 +981,10 @@ async fn run_session_inner(
                         };
                         match prompt_result {
                             Ok(res) => {
+                                if let Some(usage) = res.usage {
+                                    let _ = event_tx
+                                        .send(AcpSessionEvent::TurnUsage(map_turn_usage(usage)));
+                                }
                                 let _ = event_tx.send(AcpSessionEvent::TurnEnd(map_prompt_stop(
                                     cancel_requested,
                                     res.stop_reason,

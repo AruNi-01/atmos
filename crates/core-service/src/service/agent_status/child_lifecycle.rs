@@ -7,19 +7,19 @@
 use tracing::debug;
 
 use super::{
-    AgentHookState, AgentHooksService, AgentToolType, AtmosContext, PendingTerminalIdle,
-    StateUpdateKind,
+    AgentOccupancy, AgentStatusContext, AgentStatusService, AgentToolType, OccupancyUpdateKind,
+    PendingTerminalIdle,
 };
 
-impl AgentHooksService {
+impl AgentStatusService {
     /// Track SubagentStart / SubagentStop under the lead session. Child start
     /// keeps the pane Running; last child stop flushes a deferred TerminalIdle.
-    pub(super) fn handle_child_lifecycle(
+    pub fn handle_child_lifecycle(
         &self,
         session_id: &str,
         tool: AgentToolType,
         project_path: Option<String>,
-        ctx: &AtmosContext,
+        ctx: &AgentStatusContext,
         child_id: &str,
         started: bool,
     ) {
@@ -59,19 +59,19 @@ impl AgentHooksService {
             // If the lead already settled, re-arm a quiet pending idle so the
             // pane returns to Idle when children drain — without a second
             // task-complete notification.
-            if current == Some(AgentHookState::Idle)
+            if current == Some(AgentOccupancy::Idle)
                 && !self.pending_terminal_idle.read().contains_key(session_id)
             {
                 self.arm_pending_terminal_idle(session_id, tool, project_path.clone(), ctx, false);
             }
-            if current != Some(AgentHookState::PermissionRequest) {
+            if current != Some(AgentOccupancy::PermissionRequest) {
                 self.update_state(
                     session_id,
                     tool,
-                    AgentHookState::Running,
+                    AgentOccupancy::Running,
                     project_path,
                     ctx,
-                    StateUpdateKind::Progress,
+                    OccupancyUpdateKind::Progress,
                 );
             }
             return;
@@ -104,9 +104,9 @@ impl AgentHooksService {
         let pending = self.pending_terminal_idle.write().remove(session_id);
         if let Some(pending) = pending {
             let kind = if pending.fire_completion {
-                StateUpdateKind::TerminalIdle
+                OccupancyUpdateKind::TerminalIdle
             } else {
-                StateUpdateKind::QuietIdle
+                OccupancyUpdateKind::QuietIdle
             };
             debug!(
                 "Flushing deferred idle for session {} after last child stopped (completion={})",
@@ -115,7 +115,7 @@ impl AgentHooksService {
             self.update_state(
                 session_id,
                 pending.tool,
-                AgentHookState::Idle,
+                AgentOccupancy::Idle,
                 pending.project_path.or(project_path),
                 &pending.ctx,
                 kind,
@@ -126,20 +126,20 @@ impl AgentHooksService {
     /// Child-origin tool / permission traffic shares the lead pane but must not
     /// own lead completion. Never invents roster rows (only lifecycle does).
     #[allow(clippy::too_many_arguments)] // mirrors update_state; keep call sites explicit
-    pub(super) fn handle_child_origin_event(
+    pub fn handle_child_origin_event(
         &self,
         session_id: &str,
         tool: AgentToolType,
         project_path: Option<String>,
-        ctx: &AtmosContext,
+        ctx: &AgentStatusContext,
         child_id: &str,
-        state: AgentHookState,
-        kind: StateUpdateKind,
+        state: AgentOccupancy,
+        kind: OccupancyUpdateKind,
     ) {
         if matches!(
             kind,
-            StateUpdateKind::TerminalIdle | StateUpdateKind::ForcedIdle
-        ) || state == AgentHookState::Idle
+            OccupancyUpdateKind::TerminalIdle | OccupancyUpdateKind::ForcedIdle
+        ) || state == AgentOccupancy::Idle
         {
             debug!(
                 "Ignoring child-origin idle for session {} child={} (tool={})",
@@ -160,7 +160,7 @@ impl AgentHooksService {
             .sessions
             .read()
             .get(session_id)
-            .is_some_and(|s| s.state != AgentHookState::Idle);
+            .is_some_and(|s| s.state != AgentOccupancy::Idle);
         let force_closed = self.force_closed_sessions.read().contains(session_id);
         if force_closed || !(tracked || lead_busy || self.has_active_children(session_id)) {
             debug!(
@@ -171,26 +171,26 @@ impl AgentHooksService {
         }
 
         // Permission from a child still needs user attention on this pane.
-        if state == AgentHookState::PermissionRequest {
+        if state == AgentOccupancy::PermissionRequest {
             self.update_state(
                 session_id,
                 tool,
-                AgentHookState::PermissionRequest,
+                AgentOccupancy::PermissionRequest,
                 project_path,
                 ctx,
-                StateUpdateKind::Permission,
+                OccupancyUpdateKind::Permission,
             );
             return;
         }
 
-        if state == AgentHookState::Running {
+        if state == AgentOccupancy::Running {
             self.update_state(
                 session_id,
                 tool,
-                AgentHookState::Running,
+                AgentOccupancy::Running,
                 project_path,
                 ctx,
-                StateUpdateKind::Progress,
+                OccupancyUpdateKind::Progress,
             );
         }
     }
@@ -220,7 +220,7 @@ impl AgentHooksService {
         session_id: &str,
         tool: AgentToolType,
         project_path: Option<String>,
-        ctx: &AtmosContext,
+        ctx: &AgentStatusContext,
         fire_completion: bool,
     ) {
         debug!(
@@ -243,14 +243,7 @@ impl AgentHooksService {
             PendingTerminalIdle {
                 tool,
                 project_path,
-                ctx: AtmosContext {
-                    context_id: ctx.context_id.clone(),
-                    pane_id: ctx.pane_id.clone(),
-                    terminal_kind: ctx.terminal_kind.clone(),
-                    side_chat_id: ctx.side_chat_id.clone(),
-                    source_pane_id: ctx.source_pane_id.clone(),
-                    hook_version: ctx.hook_version,
-                },
+                ctx: ctx.clone(),
                 fire_completion,
             },
         );
@@ -264,29 +257,29 @@ impl AgentHooksService {
         session_id: &str,
         tool: AgentToolType,
         project_path: Option<String>,
-        ctx: &AtmosContext,
+        ctx: &AgentStatusContext,
     ) {
         let current = self.sessions.read().get(session_id).map(|s| s.state);
         match current {
-            Some(AgentHookState::PermissionRequest) => {
+            Some(AgentOccupancy::PermissionRequest) => {
                 // Keep permission attention; only bump timestamp via same state.
                 self.update_state(
                     session_id,
                     tool,
-                    AgentHookState::PermissionRequest,
+                    AgentOccupancy::PermissionRequest,
                     project_path,
                     ctx,
-                    StateUpdateKind::Permission,
+                    OccupancyUpdateKind::Permission,
                 );
             }
-            Some(AgentHookState::Running) | Some(AgentHookState::Idle) | None => {
+            Some(AgentOccupancy::Running) | Some(AgentOccupancy::Idle) | None => {
                 self.update_state(
                     session_id,
                     tool,
-                    AgentHookState::Running,
+                    AgentOccupancy::Running,
                     project_path,
                     ctx,
-                    StateUpdateKind::Progress,
+                    OccupancyUpdateKind::Progress,
                 );
             }
         }

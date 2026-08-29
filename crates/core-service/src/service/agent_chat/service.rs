@@ -1,11 +1,11 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 use std::time::{Duration, Instant};
 
 use agent::{
     AgentEvent, AgentPersistenceHandle, AgentPrompt, AgentProviderFactory, AgentRuntime,
-    AgentRuntimeConfig, AgentRuntimeControl, UserMessageKind,
+    AgentRuntimeConfig, AgentRuntimeConfigUpdate, AgentRuntimeControl, UserMessageKind,
 };
 use chrono::Utc;
 use tokio::sync::{broadcast, Mutex};
@@ -13,13 +13,17 @@ use tracing::warn;
 
 use crate::error::{Result, ServiceError};
 
-use super::apply_event::{apply_event, emit_live, finish_turn, nonempty_opt, RuntimeState};
+use super::apply_event::{
+    apply_event, emit_live, finish_turn, nonempty_opt, overlay_live_state, RuntimeState,
+};
 use super::queue::maybe_dispatch_queue;
 use super::store::AgentChatStore;
 use super::types::{
     AgentChatEvent, AgentChatMeta, AgentChatPayload, AgentChatSnapshot, CreateAgentChatRequest,
-    PendingPermission, QueueItem, QueueItemStatus, RuntimeStatus, TranscriptRecord, TurnStatus,
+    PendingPermission, QueueItem, QueueItemStatus, RuntimeStatus, SessionLifecycleAction,
+    SessionLifecycleStatus, TranscriptRecord, TurnStatus,
 };
+use crate::service::agent_status::{self, AgentStatusService};
 
 struct LiveRuntime {
     control: AgentRuntimeControl,
@@ -37,6 +41,7 @@ pub struct AgentChatService {
     recent_events: Arc<std::sync::Mutex<HashMap<String, VecDeque<AgentChatEvent>>>>,
     events: broadcast::Sender<AgentChatEvent>,
     generations: AtomicU64,
+    status: OnceLock<Arc<AgentStatusService>>,
 }
 
 impl AgentChatService {
@@ -51,7 +56,12 @@ impl AgentChatService {
             recent_events: Arc::new(std::sync::Mutex::new(HashMap::new())),
             events,
             generations: AtomicU64::new(1),
+            status: OnceLock::new(),
         }
+    }
+
+    pub fn set_status_service(&self, status: Arc<AgentStatusService>) {
+        let _ = self.status.set(status);
     }
 
     async fn turn_gate(&self, chat_id: &str) -> Arc<Mutex<()>> {
@@ -106,8 +116,22 @@ impl AgentChatService {
         self.store.list(cwd, workspace_id, project_id, false)
     }
 
-    pub fn get(&self, id: &str) -> Result<AgentChatSnapshot> {
-        self.store.get_snapshot(id)
+    pub async fn get(&self, id: &str) -> Result<AgentChatSnapshot> {
+        let mut snapshot = self.store.get_snapshot(id)?;
+        let state = {
+            let map = self.runtimes.lock().await;
+            map.get(id).and_then(|runtime| {
+                runtime
+                    .alive
+                    .load(Ordering::SeqCst)
+                    .then(|| Arc::clone(&runtime.state))
+            })
+        };
+        if let Some(state) = state {
+            let state = state.lock().await;
+            overlay_live_state(&mut snapshot, &state);
+        }
+        Ok(snapshot)
     }
 
     pub fn rename(&self, id: &str, title: &str) -> Result<AgentChatMeta> {
@@ -122,27 +146,68 @@ impl AgentChatService {
         thinking: Option<String>,
         mode: Option<String>,
     ) -> Result<AgentChatMeta> {
-        if self.runtimes.lock().await.contains_key(id) {
-            return Err(ServiceError::Validation(
-                "cannot change model while the agent is running".into(),
-            ));
-        }
-        self.store.update_meta(id, |meta| {
-            if let Some(provider) = provider_id {
-                if !provider.trim().is_empty() {
-                    meta.provider_id = provider;
+        let live = {
+            let map = self.runtimes.lock().await;
+            map.get(id).and_then(|runtime| {
+                runtime
+                    .alive
+                    .load(Ordering::SeqCst)
+                    .then(|| runtime.control.clone())
+            })
+        };
+
+        if let Some(provider) = provider_id.as_ref() {
+            if !provider.trim().is_empty() && live.is_some() {
+                let current = self.store.get_meta(id)?;
+                if current.provider_id != *provider {
+                    return Err(ServiceError::Validation(
+                        "cannot change agent while the agent is running".into(),
+                    ));
                 }
             }
-            if let Some(value) = model {
-                meta.selected_model = nonempty_opt(value);
+        }
+
+        let next_model = model.as_ref().and_then(|value| nonempty_opt(value.clone()));
+        let next_thinking = thinking
+            .as_ref()
+            .and_then(|value| nonempty_opt(value.clone()));
+        let next_mode = mode.as_ref().and_then(|value| nonempty_opt(value.clone()));
+        let apply_model = model.is_some();
+        let apply_thinking = thinking.is_some();
+        let apply_mode = mode.is_some();
+
+        let meta = self.store.update_meta(id, |meta| {
+            if let Some(provider) = &provider_id {
+                if !provider.trim().is_empty() {
+                    meta.provider_id = provider.clone();
+                }
             }
-            if let Some(value) = thinking {
-                meta.selected_thinking = nonempty_opt(value);
+            if apply_model {
+                meta.selected_model = next_model.clone();
             }
-            if let Some(value) = mode {
-                meta.selected_mode = nonempty_opt(value);
+            if apply_thinking {
+                meta.selected_thinking = next_thinking.clone();
             }
-        })
+            if apply_mode {
+                meta.selected_mode = next_mode.clone();
+            }
+        })?;
+
+        if let Some(control) = live {
+            let update = AgentRuntimeConfigUpdate {
+                model: if apply_model { next_model } else { None },
+                thinking: if apply_thinking { next_thinking } else { None },
+                mode: if apply_mode { next_mode } else { None },
+                extra_config: HashMap::new(),
+            };
+            if update.model.is_some() || update.thinking.is_some() || update.mode.is_some() {
+                if let Err(error) = control.set_config(update).await {
+                    warn!(chat_id = %id, error = %error, "failed to apply live agent config");
+                }
+            }
+        }
+
+        Ok(meta)
     }
 
     pub async fn delete(&self, id: &str) -> Result<AgentChatMeta> {
@@ -152,6 +217,9 @@ impl AgentChatService {
             tokio::spawn(async move {
                 let _ = control.close().await;
             });
+        }
+        if let Some(status) = self.status.get() {
+            status.remove_session(&agent_status::chat_status_session_id(id));
         }
         self.store.delete(id)
     }
@@ -232,6 +300,7 @@ impl AgentChatService {
             },
         )?;
         let message_id = uuid::Uuid::new_v4().to_string();
+        let created_at = Utc::now();
         self.store.append_record(
             chat_id,
             &TranscriptRecord::UserMessage {
@@ -240,7 +309,7 @@ impl AgentChatService {
                 kind: UserMessageKind::Normal,
                 text: text.to_string(),
                 attachments: attachments.clone(),
-                created_at: Utc::now(),
+                created_at,
             },
         )?;
         let mut seeded_title: Option<String> = None;
@@ -268,6 +337,17 @@ impl AgentChatService {
                 turn_id: turn_id.clone(),
             },
         )?;
+        if let Some(status) = self.status.get() {
+            if let Ok(meta) = self.store.get_meta(chat_id) {
+                agent_status::apply_host_event(
+                    status,
+                    &meta,
+                    &AgentEvent::TurnStarted {
+                        turn_id: turn_id.clone(),
+                    },
+                );
+            }
+        }
         self.emit(
             chat_id,
             AgentChatPayload::UserMessage {
@@ -276,6 +356,7 @@ impl AgentChatService {
                 kind: UserMessageKind::Normal,
                 text: text.to_string(),
                 attachments: attachments.clone(),
+                created_at: Some(created_at),
             },
         )?;
         let _ = meta;
@@ -391,6 +472,7 @@ impl AgentChatService {
             .await
             .map_err(|e| ServiceError::Processing(e.to_string()))?;
         let message_id = uuid::Uuid::new_v4().to_string();
+        let created_at = Utc::now();
         self.store.append_record(
             chat_id,
             &TranscriptRecord::UserMessage {
@@ -399,7 +481,7 @@ impl AgentChatService {
                 kind: UserMessageKind::Steer,
                 text: text.to_string(),
                 attachments: Vec::new(),
-                created_at: Utc::now(),
+                created_at,
             },
         )?;
         self.emit(
@@ -410,6 +492,7 @@ impl AgentChatService {
                 kind: UserMessageKind::Steer,
                 text: text.to_string(),
                 attachments: Vec::new(),
+                created_at: Some(created_at),
             },
         )?;
         Ok(expected_turn_id.to_string())
@@ -657,11 +740,36 @@ impl AgentChatService {
             }
         }
         let meta = self.store.get_meta(chat_id)?;
-        let provider = self
-            .factory
-            .provider_for(&meta.provider_id)
-            .await
-            .map_err(|e| ServiceError::Processing(e.to_string()))?;
+        let action = if meta.persistence_handle.is_some() {
+            SessionLifecycleAction::Resume
+        } else {
+            SessionLifecycleAction::Create
+        };
+        let started = Instant::now();
+        if let Some(turn_id) = &initial_turn_id {
+            self.persist_session_lifecycle(
+                chat_id,
+                turn_id,
+                action,
+                SessionLifecycleStatus::Running,
+                None,
+                None,
+            )?;
+        }
+        let provider = match self.factory.provider_for(&meta.provider_id).await {
+            Ok(provider) => provider,
+            Err(error) => {
+                self.finish_session_lifecycle(
+                    chat_id,
+                    initial_turn_id.as_deref(),
+                    action,
+                    started,
+                    SessionLifecycleStatus::Failed,
+                    Some(error.to_string()),
+                );
+                return Err(ServiceError::Processing(error.to_string()));
+            }
+        };
         let cfg = AgentRuntimeConfig {
             cwd: std::path::PathBuf::from(&meta.cwd),
             model: meta.selected_model.clone(),
@@ -672,14 +780,36 @@ impl AgentChatService {
             auth_method_id: None,
             allow_file_access: meta.workspace_id.is_some() || meta.project_id.is_some(),
         };
-        let session = if let Some(handle) = meta.persistence_handle.clone() {
+        let session = match if let Some(handle) = meta.persistence_handle.clone() {
             provider
                 .resume_runtime(AgentPersistenceHandle::new(handle), cfg)
                 .await
         } else {
             provider.create_runtime(cfg).await
-        }
-        .map_err(|e| ServiceError::Processing(e.to_string()))?;
+        } {
+            Ok(session) => {
+                self.finish_session_lifecycle(
+                    chat_id,
+                    initial_turn_id.as_deref(),
+                    action,
+                    started,
+                    SessionLifecycleStatus::Completed,
+                    None,
+                );
+                session
+            }
+            Err(error) => {
+                self.finish_session_lifecycle(
+                    chat_id,
+                    initial_turn_id.as_deref(),
+                    action,
+                    started,
+                    SessionLifecycleStatus::Failed,
+                    Some(error.to_string()),
+                );
+                return Err(ServiceError::Processing(error.to_string()));
+            }
+        };
         let capabilities = session.capabilities();
         self.store.update_meta(chat_id, |meta| {
             meta.runtime_status = RuntimeStatus::Starting;
@@ -700,6 +830,7 @@ impl AgentChatService {
             turn_started_at: None,
             thinking_started_at: None,
             thinking_ms: 0,
+            last_thinking_segment_ms: 0,
             turn_usage: None,
         }));
         let generation = self.generations.fetch_add(1, Ordering::SeqCst);
@@ -719,6 +850,7 @@ impl AgentChatService {
         let runtimes = Arc::clone(&self.runtimes);
         let recent_events = Arc::clone(&self.recent_events);
         let turn_gates = Arc::clone(&self.turn_gates);
+        let status = self.status.get().cloned();
         tokio::spawn(async move {
             pump_session(
                 chat_id_owned.clone(),
@@ -729,6 +861,7 @@ impl AgentChatService {
                 pump_control,
                 Arc::clone(&recent_events),
                 turn_gates,
+                status,
             )
             .await;
             alive.store(false, Ordering::SeqCst);
@@ -775,6 +908,64 @@ impl AgentChatService {
             &self.events,
             &self.recent_events,
         )
+    }
+
+    fn persist_session_lifecycle(
+        &self,
+        chat_id: &str,
+        turn_id: &str,
+        action: SessionLifecycleAction,
+        status: SessionLifecycleStatus,
+        duration_ms: Option<u64>,
+        error: Option<String>,
+    ) -> Result<()> {
+        let message_id = format!("session-{turn_id}");
+        self.store.append_record(
+            chat_id,
+            &TranscriptRecord::SessionLifecycle {
+                turn_id: turn_id.to_string(),
+                message_id: message_id.clone(),
+                action,
+                status,
+                duration_ms,
+                error: error.clone(),
+                created_at: Utc::now(),
+            },
+        )?;
+        self.emit(
+            chat_id,
+            AgentChatPayload::SessionLifecycle {
+                turn_id: turn_id.to_string(),
+                message_id,
+                action,
+                status,
+                duration_ms,
+                error,
+            },
+        )
+    }
+
+    fn finish_session_lifecycle(
+        &self,
+        chat_id: &str,
+        turn_id: Option<&str>,
+        action: SessionLifecycleAction,
+        started: Instant,
+        status: SessionLifecycleStatus,
+        error: Option<String>,
+    ) {
+        let Some(turn_id) = turn_id else {
+            return;
+        };
+        let duration_ms = u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX);
+        let _ = self.persist_session_lifecycle(
+            chat_id,
+            turn_id,
+            action,
+            status,
+            Some(duration_ms),
+            error,
+        );
     }
 
     pub async fn close_workspace(&self, workspace_id: &str) -> usize {
@@ -847,6 +1038,7 @@ async fn pump_session(
     control: AgentRuntimeControl,
     recent_events: Arc<std::sync::Mutex<HashMap<String, VecDeque<AgentChatEvent>>>>,
     turn_gates: Arc<Mutex<HashMap<String, Arc<Mutex<()>>>>>,
+    status: Option<Arc<AgentStatusService>>,
 ) {
     let mut closed_cleanly = false;
     while let Some(event) = session.next_event().await {
@@ -860,6 +1052,11 @@ async fn pump_session(
                 ..
             }
         );
+        if let Some(status) = &status {
+            if let Ok(meta) = store.get_meta(&chat_id) {
+                agent_status::apply_host_event(status, &meta, &event);
+            }
+        }
         if let Err(error) =
             apply_event(&chat_id, event, &store, &state, &events, &recent_events).await
         {

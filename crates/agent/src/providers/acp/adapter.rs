@@ -273,6 +273,9 @@ impl AcpMappedSession {
             AcpSessionEvent::Usage(usage) => Some(AgentEvent::UsageUpdated {
                 usage: serde_json::to_value(usage).unwrap_or(serde_json::Value::Null),
             }),
+            AcpSessionEvent::TurnUsage(usage) => Some(AgentEvent::UsageUpdated {
+                usage: serde_json::to_value(usage).unwrap_or(serde_json::Value::Null),
+            }),
             AcpSessionEvent::ConfigOptionsUpdate(options) => Some(AgentEvent::ConfigChanged {
                 config: serde_json::to_value(options).unwrap_or(serde_json::Value::Null),
             }),

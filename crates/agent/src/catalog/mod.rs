@@ -13,4 +13,5 @@ pub use engine::{
     AcpCatalogProbe, AcpProbeResult, CatalogEngine, CommandOutput, CommandRunner, NoopAcpProbe,
 };
 pub use merge::{merge_catalogs, CatalogFragment};
+pub use parse::parse_line_list;
 pub use spec::{thinking_from_builtin, AgentCatalogSpec, CatalogParserKind};

@@ -7,45 +7,98 @@ pub fn non_empty(value: &str) -> Option<String> {
     (!value.is_empty()).then(|| value.to_string())
 }
 
+struct ModelLineFlags {
+    is_default: bool,
+    is_current: bool,
+}
+
 pub fn strip_default_model_suffix(value: &str) -> (String, bool) {
-    let trimmed = value.trim();
-    let lower = trimmed.to_ascii_lowercase();
-    if let Some(prefix) = lower.strip_suffix(" (default)") {
-        let end = prefix.len();
-        return (trimmed[..end].trim_end().to_string(), true);
+    let (text, flags) = strip_model_line_flags(value);
+    (text, flags.is_default)
+}
+
+fn strip_model_line_flags(value: &str) -> (String, ModelLineFlags) {
+    let mut text = value.trim().to_string();
+    let mut flags = ModelLineFlags {
+        is_default: false,
+        is_current: false,
+    };
+    loop {
+        let lower = text.to_ascii_lowercase();
+        if let Some(prefix) = lower.strip_suffix(" (current)") {
+            text = text[..prefix.len()].trim_end().to_string();
+            flags.is_current = true;
+            continue;
+        }
+        if let Some(prefix) = lower.strip_suffix(" (default)") {
+            text = text[..prefix.len()].trim_end().to_string();
+            flags.is_default = true;
+            continue;
+        }
+        break;
     }
-    (trimmed.to_string(), false)
+    (text, flags)
+}
+
+fn split_id_and_label(line: &str) -> (String, String) {
+    match line.split_once(" - ") {
+        Some((id, label)) => {
+            let id = id.trim();
+            let label = label.trim();
+            if id.is_empty() {
+                (line.to_string(), line.to_string())
+            } else if label.is_empty() {
+                (id.to_string(), id.to_string())
+            } else {
+                (id.to_string(), label.to_string())
+            }
+        }
+        None => (line.to_string(), line.to_string()),
+    }
 }
 
 pub fn parse_line_list(output: &str) -> Vec<AgentModel> {
-    output
-        .lines()
-        .filter_map(|line| {
-            let trimmed = line.trim();
-            if trimmed.is_empty() {
-                return None;
-            }
-            let lower = trimmed.to_ascii_lowercase();
-            if lower.contains("available model") || lower == "models" || lower == "model" {
-                return None;
-            }
-            let normalized = trimmed.trim_start_matches(['-', '*', '•', ' ']).trim();
-            if normalized.is_empty() || normalized.ends_with(':') {
-                return None;
-            }
-            let (id, is_default) = strip_default_model_suffix(normalized);
-            if id.is_empty() {
-                return None;
-            }
-            Some(AgentModel {
-                label: id.clone(),
+    let mut parsed: Vec<(AgentModel, bool)> = Vec::new();
+    for line in output.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        let lower = trimmed.to_ascii_lowercase();
+        if lower.starts_with("tip:") {
+            break;
+        }
+        if lower.contains("available model") || lower == "models" || lower == "model" {
+            continue;
+        }
+        let normalized = trimmed.trim_start_matches(['-', '*', '•', ' ']).trim();
+        if normalized.is_empty() || normalized.ends_with(':') {
+            continue;
+        }
+        let (raw_id, raw_label) = split_id_and_label(normalized);
+        let (id, id_flags) = strip_model_line_flags(&raw_id);
+        let (label, label_flags) = strip_model_line_flags(&raw_label);
+        if id.is_empty() {
+            continue;
+        }
+        let is_current = id_flags.is_current || label_flags.is_current;
+        parsed.push((
+            AgentModel {
+                label: if label.is_empty() { id.clone() } else { label },
                 id,
                 group: None,
-                is_default,
+                is_default: is_current || id_flags.is_default || label_flags.is_default,
                 thinking: None,
-            })
-        })
-        .collect()
+            },
+            is_current,
+        ));
+    }
+    if parsed.iter().any(|(_, is_current)| *is_current) {
+        for (model, is_current) in &mut parsed {
+            model.is_default = *is_current;
+        }
+    }
+    parsed.into_iter().map(|(model, _)| model).collect()
 }
 
 pub fn parse_grok(output: &str) -> Vec<AgentModel> {
@@ -183,5 +236,45 @@ mod tests {
         assert_eq!(models.len(), 2);
         assert!(models[0].is_default);
         assert_eq!(models[0].id, "grok-4.5");
+    }
+
+    #[test]
+    fn line_list_keeps_id_only_rows_and_default_suffix() {
+        let models = parse_line_list(
+            "Available models:\n* grok-4.5 (default)\n- grok-composer-2.5-fast\n\n",
+        );
+        assert_eq!(models.len(), 2);
+        assert_eq!(models[0].id, "grok-4.5");
+        assert_eq!(models[0].label, "grok-4.5");
+        assert!(models[0].is_default);
+        assert_eq!(models[1].id, "grok-composer-2.5-fast");
+        assert!(!models[1].is_default);
+    }
+
+    #[test]
+    fn line_list_parses_cursor_id_label_pairs_and_prefers_current() {
+        let models = parse_line_list(
+            "Available models\n\n\
+             auto - Auto (default)\n\
+             gpt-5.6-luna-high - GPT-5.6 Luna 1M High\n\
+             claude-fable-5-high - Claude Fable 5 1M (NO ZDR)\n\
+             gemini-3.5-flash - Gemini 3.5 Flash (current)\n\
+             kimi-k3-max - Kimi K3\n\n\
+             Tip: use --model <id> (or /model <id> in interactive mode) to switch.\n\
+             should-not-parse - Should Not Parse\n",
+        );
+        assert_eq!(
+            models
+                .iter()
+                .map(|model| (model.id.as_str(), model.label.as_str(), model.is_default))
+                .collect::<Vec<_>>(),
+            vec![
+                ("auto", "Auto", false),
+                ("gpt-5.6-luna-high", "GPT-5.6 Luna 1M High", false),
+                ("claude-fable-5-high", "Claude Fable 5 1M (NO ZDR)", false),
+                ("gemini-3.5-flash", "Gemini 3.5 Flash", true),
+                ("kimi-k3-max", "Kimi K3", false),
+            ]
+        );
     }
 }

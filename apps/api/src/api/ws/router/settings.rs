@@ -47,6 +47,10 @@ impl WsMessageService {
             pane_id: None,
             side_chat_id: None,
             source_pane_id: None,
+            surface: None,
+            surface_id: None,
+            space_id: None,
+            provider_id: None,
         };
 
         match self

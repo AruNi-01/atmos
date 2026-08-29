@@ -48,6 +48,8 @@ pub struct AgentChatMeta {
     pub workspace_id: Option<String>,
     #[serde(default)]
     pub project_id: Option<String>,
+    #[serde(default)]
+    pub space_id: Option<String>,
     pub provider_id: String,
     #[serde(default)]
     pub last_message_at: Option<DateTime<Utc>>,
@@ -115,6 +117,8 @@ pub struct AgentChatIndexEntry {
     pub workspace_id: Option<String>,
     #[serde(default)]
     pub project_id: Option<String>,
+    #[serde(default)]
+    pub space_id: Option<String>,
     pub provider_id: String,
     pub updated_at: DateTime<Utc>,
     #[serde(default)]
@@ -131,12 +135,28 @@ impl From<&AgentChatMeta> for AgentChatIndexEntry {
             cwd: meta.cwd.clone(),
             workspace_id: meta.workspace_id.clone(),
             project_id: meta.project_id.clone(),
+            space_id: meta.space_id.clone(),
             provider_id: meta.provider_id.clone(),
             updated_at: meta.updated_at,
             last_message_at: meta.last_message_at,
             deleted: meta.deleted,
         }
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SessionLifecycleAction {
+    Create,
+    Resume,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SessionLifecycleStatus {
+    Running,
+    Completed,
+    Failed,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -150,6 +170,8 @@ pub enum MessagePart {
         text: String,
         #[serde(default)]
         tool_call_id: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        duration_ms: Option<u64>,
     },
     ToolCall {
         tool_call_id: String,
@@ -177,6 +199,14 @@ pub enum MessagePart {
     },
     Error {
         message: String,
+    },
+    SessionLifecycle {
+        action: SessionLifecycleAction,
+        status: SessionLifecycleStatus,
+        #[serde(default)]
+        duration_ms: Option<u64>,
+        #[serde(default)]
+        error: Option<String>,
     },
 }
 
@@ -320,8 +350,9 @@ pub fn flatten_messages(
                     }
                 }
             }
-            messages.push(message);
-            if messages.last().is_some_and(|item| item.role == "assistant") {
+            let is_assistant = message.role == "assistant";
+            push_unique_message(&mut messages, message);
+            if is_assistant {
                 assistant_index = Some(messages.len() - 1);
             }
         }
@@ -342,19 +373,28 @@ pub fn flatten_messages(
     (messages, running_turn_id, running_turn_started_at)
 }
 
-/// Keep thinking/tools/plan first and the final answer last so restore matches live collapse.
+fn push_unique_message(messages: &mut Vec<FoldedMessage>, mut message: FoldedMessage) {
+    if messages.iter().any(|item| item.id == message.id) {
+        message.id = format!("{}:{}", message.id, messages.len());
+    }
+    messages.push(message);
+}
+
+/// Keep session lifecycle, then thinking/tools/plan, then the final answer.
 pub fn order_assistant_parts(parts: Vec<MessagePart>) -> Vec<MessagePart> {
+    let mut session = Vec::new();
     let mut process = Vec::new();
     let mut answer = Vec::new();
     for part in parts {
-        if matches!(part, MessagePart::Text { .. }) {
-            answer.push(part);
-        } else {
-            process.push(part);
+        match part {
+            MessagePart::Text { .. } => answer.push(part),
+            MessagePart::SessionLifecycle { .. } => session.push(part),
+            _ => process.push(part),
         }
     }
-    process.extend(answer);
-    process
+    session.extend(process);
+    session.extend(answer);
+    session
 }
 
 struct TurnTiming {
@@ -389,8 +429,15 @@ fn turn_timing(turn: &FoldedTurn) -> TurnTiming {
 }
 
 pub fn parse_session_usage(value: &serde_json::Value) -> Option<SessionUsage> {
-    let used = json_u64(value, &["used"]);
-    let size = json_u64(value, &["size"]);
+    let mut used = json_u64(value, &["used"]);
+    let mut size = json_u64(value, &["size"]);
+    // Claude ACP often sends `used`/`size` as null; the stdio normalizer coerces
+    // those to 0 so the SDK can parse. A real empty window after compaction still
+    // has a positive `size`.
+    if used == Some(0) && size == Some(0) {
+        used = None;
+        size = None;
+    }
     let cost_value = value.get("cost");
     let amount = cost_value.and_then(|cost| json_f64(cost, &["amount"]));
     let currency = cost_value.and_then(|cost| {
@@ -412,7 +459,20 @@ pub fn parse_session_usage(value: &serde_json::Value) -> Option<SessionUsage> {
     })
 }
 
+pub fn merge_session_usage(existing: Option<SessionUsage>, incoming: SessionUsage) -> SessionUsage {
+    let prev = existing.unwrap_or_default();
+    SessionUsage {
+        used: incoming.used.or(prev.used),
+        size: incoming.size.or(prev.size),
+        cost: incoming.cost.or(prev.cost),
+    }
+}
+
 pub fn parse_turn_usage(value: &serde_json::Value) -> Option<TurnUsage> {
+    turn_usage_from_object(value).or_else(|| value.get("usage").and_then(turn_usage_from_object))
+}
+
+fn turn_usage_from_object(value: &serde_json::Value) -> Option<TurnUsage> {
     let usage = TurnUsage {
         total_tokens: json_u64(value, &["total_tokens", "totalTokens"]),
         input_tokens: json_u64(value, &["input_tokens", "inputTokens"]),
@@ -534,6 +594,17 @@ pub enum TranscriptRecord {
         usage: serde_json::Value,
         created_at: DateTime<Utc>,
     },
+    SessionLifecycle {
+        turn_id: String,
+        message_id: String,
+        action: SessionLifecycleAction,
+        status: SessionLifecycleStatus,
+        #[serde(default)]
+        duration_ms: Option<u64>,
+        #[serde(default)]
+        error: Option<String>,
+        created_at: DateTime<Utc>,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -557,6 +628,8 @@ pub enum AgentChatPayload {
         text: String,
         #[serde(default)]
         attachments: Vec<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        created_at: Option<DateTime<Utc>>,
     },
     AssistantMessageDelta {
         message_id: String,
@@ -628,16 +701,119 @@ pub enum AgentChatPayload {
     AvailableCommandsUpdated {
         commands: Vec<agent::AgentAvailableCommand>,
     },
+    SessionLifecycle {
+        turn_id: String,
+        message_id: String,
+        action: SessionLifecycleAction,
+        status: SessionLifecycleStatus,
+        #[serde(default)]
+        duration_ms: Option<u64>,
+        #[serde(default)]
+        error: Option<String>,
+    },
 }
 
 #[derive(Debug, Clone)]
 pub struct CreateAgentChatRequest {
     pub workspace_id: Option<String>,
     pub project_id: Option<String>,
+    pub space_id: Option<String>,
     pub cwd: String,
     pub provider_id: String,
     pub model: Option<String>,
     pub thinking: Option<String>,
     pub mode: Option<String>,
     pub title: Option<String>,
+}
+
+#[cfg(test)]
+mod usage_parse_tests {
+    use serde_json::json;
+
+    use super::{merge_session_usage, parse_session_usage, parse_turn_usage, SessionUsage};
+
+    #[test]
+    fn coerced_zero_window_is_not_session_usage() {
+        assert!(parse_session_usage(&json!({ "used": 0, "size": 0 })).is_none());
+    }
+
+    #[test]
+    fn cost_only_usage_update_parses() {
+        let parsed = parse_session_usage(&json!({
+            "used": 0,
+            "size": 0,
+            "cost": { "amount": 0.045, "currency": "USD" }
+        }))
+        .expect("cost");
+        assert!(parsed.used.is_none());
+        assert!(parsed.size.is_none());
+        assert_eq!(
+            parsed.cost.as_ref().and_then(|cost| cost.amount),
+            Some(0.045)
+        );
+    }
+
+    #[test]
+    fn real_context_window_parses_including_compaction_zero() {
+        let parsed = parse_session_usage(&json!({ "used": 0, "size": 200000 })).expect("window");
+        assert_eq!(parsed.used, Some(0));
+        assert_eq!(parsed.size, Some(200_000));
+    }
+
+    #[test]
+    fn merge_keeps_previous_window_when_only_cost_arrives() {
+        let existing = SessionUsage {
+            used: Some(12_000),
+            size: Some(200_000),
+            cost: None,
+        };
+        let incoming = parse_session_usage(&json!({
+            "cost": { "amount": 0.12, "currency": "USD" }
+        }))
+        .unwrap();
+        let merged = merge_session_usage(Some(existing), incoming);
+        assert_eq!(merged.used, Some(12_000));
+        assert_eq!(merged.size, Some(200_000));
+        assert_eq!(
+            merged.cost.as_ref().and_then(|cost| cost.amount),
+            Some(0.12)
+        );
+    }
+
+    #[test]
+    fn prompt_response_camel_case_usage_parses_as_turn() {
+        let parsed = parse_turn_usage(&json!({
+            "totalTokens": 150,
+            "inputTokens": 100,
+            "outputTokens": 40,
+            "thoughtTokens": 10,
+            "cachedReadTokens": 20,
+            "cachedWriteTokens": 5
+        }))
+        .expect("turn");
+        assert_eq!(parsed.total_tokens, Some(150));
+        assert_eq!(parsed.input_tokens, Some(100));
+        assert_eq!(parsed.output_tokens, Some(40));
+        assert_eq!(parsed.thought_tokens, Some(10));
+        assert_eq!(parsed.cached_read_tokens, Some(20));
+        assert_eq!(parsed.cached_write_tokens, Some(5));
+        assert!(parse_session_usage(&json!({
+            "totalTokens": 150,
+            "inputTokens": 100,
+            "outputTokens": 40
+        }))
+        .is_none());
+    }
+
+    #[test]
+    fn nested_usage_object_parses_as_turn() {
+        let parsed = parse_turn_usage(&json!({
+            "stopReason": "end_turn",
+            "usage": { "total_tokens": 12, "input_tokens": 8, "output_tokens": 4 }
+        }))
+        .expect("nested");
+        assert_eq!(parsed.total_tokens, Some(12));
+        assert_eq!(parsed.input_tokens, Some(8));
+        assert_eq!(parsed.output_tokens, Some(4));
+    }
 }

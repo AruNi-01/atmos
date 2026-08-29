@@ -12,8 +12,9 @@ use crate::error::Result;
 
 use super::store::AgentChatStore;
 use super::types::{
-    parse_session_usage, parse_turn_usage, AgentChatEvent, AgentChatPayload, PendingPermission,
-    RuntimeStatus, TranscriptRecord, TurnStatus,
+    merge_session_usage, order_assistant_parts, parse_session_usage, parse_turn_usage,
+    AgentChatEvent, AgentChatPayload, AgentChatSnapshot, FoldedMessage, MessagePart,
+    PendingPermission, RuntimeStatus, TranscriptRecord, TurnStatus,
 };
 
 pub(super) const ASSISTANT_SNAPSHOT_INTERVAL: Duration = Duration::from_millis(100);
@@ -29,6 +30,7 @@ pub(super) struct RuntimeState {
     pub(super) turn_started_at: Option<chrono::DateTime<Utc>>,
     pub(super) thinking_started_at: Option<chrono::DateTime<Utc>>,
     pub(super) thinking_ms: u64,
+    pub(super) last_thinking_segment_ms: u64,
     pub(super) turn_usage: Option<super::types::TurnUsage>,
 }
 
@@ -45,15 +47,32 @@ impl RuntimeState {
         }
     }
 
-    fn close_thinking(&mut self) {
+    fn close_thinking(&mut self) -> u64 {
         if let Some(start) = self.thinking_started_at.take() {
-            self.thinking_ms +=
-                u64::try_from((Utc::now() - start).num_milliseconds().max(0)).unwrap_or(0);
+            let ms = u64::try_from((Utc::now() - start).num_milliseconds().max(0)).unwrap_or(0);
+            self.thinking_ms = self.thinking_ms.saturating_add(ms);
+            if ms > 0 {
+                self.last_thinking_segment_ms = ms;
+            }
+            ms
+        } else {
+            0
         }
     }
 
-    fn finish_timing(&mut self) -> (u64, u64) {
-        self.close_thinking();
+    fn take_last_thinking_segment_ms(&mut self) -> Option<u64> {
+        let ms = self.last_thinking_segment_ms;
+        self.last_thinking_segment_ms = 0;
+        (ms > 0).then_some(ms)
+    }
+
+    fn finish_timing(&mut self) -> (u64, u64, u64) {
+        let closed = self.close_thinking();
+        let last_segment_ms = if closed > 0 {
+            closed
+        } else {
+            self.last_thinking_segment_ms
+        };
         let worked_ms = self
             .turn_started_at
             .take()
@@ -61,7 +80,8 @@ impl RuntimeState {
             .unwrap_or(0);
         let thinking_ms = self.thinking_ms;
         self.thinking_ms = 0;
-        (worked_ms, thinking_ms)
+        self.last_thinking_segment_ms = 0;
+        (worked_ms, thinking_ms, last_segment_ms)
     }
 }
 
@@ -173,14 +193,15 @@ pub(super) async fn apply_event(
         AgentEvent::ThinkingCompleted { message_id } => {
             let snapshot = {
                 let mut state = state.lock().await;
-                let started_at = state.thinking_started_at;
-                let duration_ms = started_at.map(|start| {
-                    u64::try_from((Utc::now() - start).num_milliseconds().max(0)).unwrap_or(0)
-                });
-                state
-                    .thinking_text
-                    .remove(&message_id)
-                    .map(|(turn_id, text)| (turn_id, text, started_at, duration_ms))
+                match state.thinking_text.remove(&message_id) {
+                    Some((turn_id, text)) => {
+                        let started_at = state.thinking_started_at;
+                        state.close_thinking();
+                        let duration_ms = state.take_last_thinking_segment_ms();
+                        Some((turn_id, text, started_at, duration_ms))
+                    }
+                    None => None,
+                }
             };
             let thinking_ms = snapshot.as_ref().and_then(|item| item.3);
             if let Some((turn_id, text, started_at, duration_ms)) = snapshot {
@@ -358,13 +379,17 @@ pub(super) async fn apply_event(
         }
         AgentEvent::TurnStarted { .. } | AgentEvent::UserMessage { .. } => {}
         AgentEvent::UsageUpdated { usage } => {
-            let session = parse_session_usage(&usage);
+            let incoming_session = parse_session_usage(&usage);
             let turn = parse_turn_usage(&usage);
-            if let Some(session) = session.clone() {
-                store.update_meta(chat_id, |meta| {
-                    meta.session_usage = Some(session);
+            let session = if let Some(incoming) = incoming_session {
+                let meta = store.update_meta(chat_id, |meta| {
+                    meta.session_usage =
+                        Some(merge_session_usage(meta.session_usage.clone(), incoming));
                 })?;
-            }
+                meta.session_usage
+            } else {
+                None
+            };
             if let Some(turn) = turn.clone() {
                 let mut state = state.lock().await;
                 state.turn_usage = Some(turn.clone());
@@ -379,7 +404,9 @@ pub(super) async fn apply_event(
                     },
                 )?;
             }
-            emit(AgentChatPayload::UsageUpdated { session, turn })?;
+            if session.is_some() || turn.is_some() {
+                emit(AgentChatPayload::UsageUpdated { session, turn })?;
+            }
         }
         AgentEvent::ConfigChanged { .. } => {}
     }
@@ -432,12 +459,20 @@ pub(super) async fn finish_turn(
     state: &Mutex<RuntimeState>,
     emit: &impl Fn(AgentChatPayload) -> Result<()>,
 ) -> Result<()> {
-    let (assistant, thinking, worked_ms, thinking_ms, usage, completed_at) = {
+    let (
+        assistant,
+        thinking,
+        worked_ms,
+        thinking_ms,
+        last_thinking_segment_ms,
+        usage,
+        completed_at,
+    ) = {
         let mut state = state.lock().await;
         if state.current_turn_id.as_deref() == Some(turn_id.as_str()) {
             state.current_turn_id = None;
         }
-        let (worked_ms, thinking_ms) = state.finish_timing();
+        let (worked_ms, thinking_ms, last_thinking_segment_ms) = state.finish_timing();
         let usage = state.turn_usage.take();
         let completed_at = Utc::now();
         let mut assistant = HashMap::new();
@@ -463,6 +498,7 @@ pub(super) async fn finish_turn(
             thinking,
             worked_ms,
             thinking_ms,
+            last_thinking_segment_ms,
             usage,
             completed_at,
         )
@@ -486,7 +522,7 @@ pub(super) async fn finish_turn(
                 message_id,
                 text,
                 started_at: None,
-                duration_ms: Some(thinking_ms),
+                duration_ms: (last_thinking_segment_ms > 0).then_some(last_thinking_segment_ms),
                 created_at: Utc::now(),
             },
         )?;
@@ -514,6 +550,127 @@ pub(super) async fn finish_turn(
         completed_at: Some(completed_at),
         usage,
     })
+}
+
+enum LiveOverlay {
+    Text(String),
+    Thinking(String),
+}
+
+/// Splice in-memory assistant/thinking text that has not been flushed to jsonl
+/// onto a disk snapshot. Same `message_id` updates in place; a live id that is
+/// not on disk lands on the current-turn assistant instead of a second row.
+pub(super) fn overlay_live_state(snapshot: &mut AgentChatSnapshot, state: &RuntimeState) {
+    for (message_id, (_turn, text)) in &state.thinking_text {
+        overlay_live_part(
+            &mut snapshot.messages,
+            message_id,
+            LiveOverlay::Thinking(text.clone()),
+        );
+    }
+    for (message_id, (_turn, text)) in &state.assistant_text {
+        overlay_live_part(
+            &mut snapshot.messages,
+            message_id,
+            LiveOverlay::Text(text.clone()),
+        );
+    }
+    if state.current_turn_id.is_some() {
+        if snapshot.running_turn_id.is_none() {
+            snapshot.running_turn_id = state.current_turn_id.clone();
+        }
+        if let Some(last) = snapshot.messages.last_mut() {
+            if last.role == "assistant" {
+                last.streaming = true;
+            }
+        }
+    }
+    if snapshot.pending_permission.is_none() {
+        snapshot.pending_permission = state.pending_permission.clone();
+    }
+}
+
+fn overlay_target(messages: &[FoldedMessage], message_id: &str) -> Option<usize> {
+    if let Some(index) = messages.iter().rposition(|item| item.id == message_id) {
+        return Some(index);
+    }
+    let start = messages
+        .iter()
+        .rposition(|item| item.role == "user")
+        .map(|index| index + 1)
+        .unwrap_or(0);
+    messages
+        .iter()
+        .enumerate()
+        .skip(start)
+        .rposition(|(_, item)| item.role == "assistant")
+        .map(|rel| start + rel)
+}
+
+fn overlay_live_part(messages: &mut Vec<FoldedMessage>, message_id: &str, part: LiveOverlay) {
+    if let Some(index) = overlay_target(messages, message_id) {
+        apply_overlay_part(&mut messages[index], part);
+        return;
+    }
+    let parts = match &part {
+        LiveOverlay::Text(text) => vec![MessagePart::Text { text: text.clone() }],
+        LiveOverlay::Thinking(text) => vec![MessagePart::Thinking {
+            text: text.clone(),
+            tool_call_id: None,
+            duration_ms: None,
+        }],
+    };
+    messages.push(FoldedMessage {
+        id: message_id.to_string(),
+        role: "assistant".into(),
+        kind: agent::UserMessageKind::Normal,
+        parts,
+        created_at: Utc::now(),
+        streaming: true,
+        ..Default::default()
+    });
+}
+
+fn apply_overlay_part(message: &mut FoldedMessage, part: LiveOverlay) {
+    match part {
+        LiveOverlay::Text(text) => {
+            if let Some(MessagePart::Text { text: existing }) = message
+                .parts
+                .iter_mut()
+                .rev()
+                .find(|item| matches!(item, MessagePart::Text { .. }))
+            {
+                *existing = text;
+            } else {
+                message.parts.push(MessagePart::Text { text });
+            }
+        }
+        LiveOverlay::Thinking(text) => {
+            if let Some(MessagePart::Thinking {
+                text: existing,
+                tool_call_id: None,
+                ..
+            }) = message.parts.iter_mut().find(|item| {
+                matches!(
+                    item,
+                    MessagePart::Thinking {
+                        tool_call_id: None,
+                        ..
+                    }
+                )
+            }) {
+                *existing = text;
+            } else {
+                message.parts.push(MessagePart::Thinking {
+                    text,
+                    tool_call_id: None,
+                    duration_ms: None,
+                });
+            }
+        }
+    }
+    message.streaming = true;
+    message.parts = order_assistant_parts(std::mem::take(&mut message.parts));
 }
 
 pub(super) fn emit_live(

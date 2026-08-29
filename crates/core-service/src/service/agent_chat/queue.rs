@@ -52,12 +52,13 @@ pub(super) async fn maybe_dispatch_queue(
     };
     let turn_id = uuid::Uuid::new_v4().to_string();
     let message_id = uuid::Uuid::new_v4().to_string();
+    let created_at = Utc::now();
     state.lock().await.current_turn_id = Some(turn_id.clone());
     store.append_record(
         chat_id,
         &TranscriptRecord::TurnStarted {
             turn_id: turn_id.clone(),
-            created_at: Utc::now(),
+            created_at,
         },
     )?;
     store.append_record(
@@ -68,7 +69,7 @@ pub(super) async fn maybe_dispatch_queue(
             kind: UserMessageKind::Normal,
             text: item.prompt.clone(),
             attachments: item.attachments.clone(),
-            created_at: Utc::now(),
+            created_at,
         },
     )?;
     if let Err(error) = control
@@ -123,6 +124,7 @@ pub(super) async fn maybe_dispatch_queue(
             kind: UserMessageKind::Normal,
             text: item.prompt,
             attachments: item.attachments,
+            created_at: Some(created_at),
         },
         store,
         events,

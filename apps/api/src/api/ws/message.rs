@@ -851,10 +851,10 @@ pub enum WsEvent {
     WorkspaceDeleteProgress,
     /// 项目删除进度
     ProjectDeleteProgress,
-    /// Agent hook 状态变更
-    AgentHookStateChanged,
-    /// Idle agent hook sessions were cleared; payload contains removed session IDs
-    AgentHookSessionsCleared,
+    /// Agent occupancy changed
+    AgentStatusChanged,
+    /// Idle agent occupancy rows were cleared; payload contains removed session IDs
+    AgentStatusCleared,
     /// Sticky need-attention latch raised (permission / task complete)
     AgentAttentionRaised,
     /// Sticky need-attention latch(es) cleared after user acknowledge

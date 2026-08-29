@@ -82,6 +82,7 @@ pub(crate) fn npx_command_preview(spec: &RegistryPackageDistribution) -> String 
     parts.join(" ")
 }
 
+#[allow(dead_code)]
 pub(crate) async fn try_install_from_registry_index(
     agent: &KnownAgent,
 ) -> Result<Option<AgentInstallResult>> {
@@ -125,6 +126,7 @@ pub(crate) async fn try_install_from_registry_index(
     Ok(None)
 }
 
+#[allow(dead_code)]
 pub(crate) async fn install_npm_agent(agent: &KnownAgent) -> Result<AgentInstallResult> {
     let output = Command::new("npm")
         .arg("install")
@@ -151,35 +153,64 @@ pub(crate) async fn install_npm_agent(agent: &KnownAgent) -> Result<AgentInstall
     )))
 }
 
+fn register_npx_manifest(
+    registry_id: &str,
+    package_name: &str,
+    installed_version: Option<String>,
+) -> Result<()> {
+    let reg_id = registry_id.to_string();
+    let pkg_name = package_name.to_string();
+    with_manifest(|manifest| {
+        let existing_default = manifest
+            .registry
+            .iter()
+            .find(|entry| entry.registry_id == reg_id)
+            .and_then(|entry| entry.default_config.clone());
+        upsert_manifest_entry(
+            manifest,
+            ManifestEntry {
+                registry_id: reg_id,
+                install_method: "npx".to_string(),
+                binary_path: None,
+                npm_package: Some(pkg_name),
+                installed_version,
+                default_config: existing_default,
+            },
+        );
+        Ok(())
+    })
+}
+
 pub(crate) async fn install_registry_npx_agent(
     entry: &RegistryEntry,
     registry_id: &str,
     npx_package: &str,
     force_overwrite: bool,
 ) -> Result<RegistryInstallResult> {
+    let new_package_name = normalize_npm_package_name(npx_package);
     if !force_overwrite
         && is_npm_package_installed_globally(npx_package)
             .await
             .unwrap_or(false)
     {
+        let installed_version = list_global_npm_packages()
+            .await
+            .ok()
+            .and_then(|pkgs| pkgs.get(&new_package_name).cloned());
+        register_npx_manifest(registry_id, &new_package_name, installed_version.clone())?;
         return Ok(RegistryInstallResult {
             registry_id: registry_id.to_string(),
-            installed: false,
+            installed: true,
             install_method: "npx".to_string(),
-            message: String::new(),
-            needs_confirmation: Some(true),
-            overwrite_message: Some(format!(
-                "{} ({}) is already installed globally via npm. Install will overwrite/update. Continue?",
-                entry.name,
-                normalize_npm_package_name(npx_package)
-            )),
+            message: format!("Registered existing {} ({})", entry.name, new_package_name),
+            needs_confirmation: None,
+            overwrite_message: None,
         });
     }
 
     // Check if there's an old package to uninstall (package name changed)
     let mut uninstalled_old_package = None;
     let manifest = load_install_manifest().unwrap_or_default();
-    let new_package_name = normalize_npm_package_name(npx_package);
     if let Some(old_entry) = manifest
         .registry
         .iter()
@@ -217,30 +248,7 @@ pub(crate) async fn install_registry_npx_agent(
             .await
             .ok()
             .and_then(|pkgs| pkgs.get(&new_package_name).cloned());
-
-        let reg_id = registry_id.to_string();
-        let pkg_name = new_package_name.clone();
-        let ver = installed_version.clone();
-        let _ = with_manifest(|manifest| {
-            let existing_default = manifest
-                .registry
-                .iter()
-                .find(|e| e.registry_id == reg_id && e.install_method == "npx")
-                .and_then(|e| e.default_config.clone());
-
-            upsert_manifest_entry(
-                manifest,
-                ManifestEntry {
-                    registry_id: reg_id,
-                    install_method: "npx".to_string(),
-                    binary_path: None,
-                    npm_package: Some(pkg_name),
-                    installed_version: ver,
-                    default_config: existing_default,
-                },
-            );
-            Ok(())
-        });
+        register_npx_manifest(registry_id, &new_package_name, installed_version)?;
 
         let message = if let Some(old_package) = uninstalled_old_package {
             format!("Upgraded from {} to {}", old_package, npx_package)

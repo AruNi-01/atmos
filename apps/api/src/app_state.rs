@@ -2,9 +2,9 @@ use std::sync::Arc;
 
 use crate::api::ws::{PtDesignHub, WsMessageHandler, WsMessageService, WsService};
 use core_service::{
-    AgentHooksService, AgentService, AutomationService, CanvasAgentRelay, CanvasDocumentService,
-    MessagePushService, NotificationService, ProjectService, ReviewService, TerminalService,
-    TestService, WorkspaceService,
+    AgentHooksService, AgentService, AgentStatusService, AutomationService, CanvasAgentRelay,
+    CanvasDocumentService, MessagePushService, NotificationService, ProjectService, ReviewService,
+    TerminalService, TestService, WorkspaceService,
 };
 use infra::queue::LocalPersistentQueue;
 use token_usage::TokenUsageService;
@@ -22,6 +22,7 @@ pub struct AppServices {
     pub message_push_service: Arc<MessagePushService>,
     pub terminal_service: Arc<TerminalService>,
     pub token_usage_service: Arc<TokenUsageService>,
+    pub agent_status_service: Arc<AgentStatusService>,
     pub agent_hooks_service: Arc<AgentHooksService>,
     pub notification_service: Arc<NotificationService>,
     pub canvas_agent_relay: Arc<CanvasAgentRelay>,
@@ -39,6 +40,7 @@ pub struct AppState {
     pub message_push_service: Arc<MessagePushService>,
     pub terminal_service: Arc<TerminalService>,
     pub token_usage_service: Arc<TokenUsageService>,
+    pub agent_status_service: Arc<AgentStatusService>,
     pub agent_hooks_service: Arc<AgentHooksService>,
     pub notification_service: Arc<NotificationService>,
     pub canvas_agent_relay: Arc<CanvasAgentRelay>,
@@ -67,6 +69,7 @@ impl Clone for AppState {
             message_push_service: Arc::clone(&self.message_push_service),
             terminal_service: Arc::clone(&self.terminal_service),
             token_usage_service: Arc::clone(&self.token_usage_service),
+            agent_status_service: Arc::clone(&self.agent_status_service),
             agent_hooks_service: Arc::clone(&self.agent_hooks_service),
             notification_service: Arc::clone(&self.notification_service),
             canvas_agent_relay: Arc::clone(&self.canvas_agent_relay),
@@ -102,6 +105,7 @@ impl AppState {
             message_push_service: services.message_push_service,
             terminal_service: services.terminal_service,
             token_usage_service: services.token_usage_service,
+            agent_status_service: services.agent_status_service,
             agent_hooks_service: services.agent_hooks_service,
             notification_service: services.notification_service,
             canvas_agent_relay: services.canvas_agent_relay,

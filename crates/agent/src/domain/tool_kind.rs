@@ -64,11 +64,15 @@ pub fn classify_tool(
         | "strreplace" => AgentToolKind::Edit,
         "delete" => AgentToolKind::Delete,
         "move" => AgentToolKind::Move,
-        "search" | "glob" | "grep" | "grepsearch" | "grep_search" => AgentToolKind::Search,
+        "search" | "glob" | "grep" | "grepsearch" | "grep_search" | "web_search" | "websearch" => {
+            AgentToolKind::Search
+        }
         "execute" | "bash" | "shell" | "terminal" | "run_command" | "command"
         | "run_terminal_cmd" | "powershell" | "cmd" => AgentToolKind::Execute,
-        "fetch" => AgentToolKind::Fetch,
+        "fetch" | "web_fetch" | "webfetch" => AgentToolKind::Fetch,
+        _ if name.contains("web_search") => AgentToolKind::Search,
         _ if name.ends_with("_bash") || name.ends_with("_shell") => AgentToolKind::Execute,
+        _ if name.ends_with("_fetch") || name.contains("web_fetch") => AgentToolKind::Fetch,
         _ => AgentToolKind::Other,
     })
 }
@@ -154,6 +158,28 @@ fn normalize_label(value: &str) -> String {
     value.trim().to_ascii_lowercase().replace([' ', '-'], "_")
 }
 
+/// ACP `kind` titles and empty labels. These must not hide path/command/query.
+pub fn is_generic_tool_label(value: &str) -> bool {
+    matches!(
+        normalize_label(value).as_str(),
+        "" | "tool"
+            | "other"
+            | "unknown"
+            | "read"
+            | "search"
+            | "execute"
+            | "edit"
+            | "fetch"
+            | "delete"
+            | "move"
+            | "run_script"
+            | "run_command"
+            | "bash"
+            | "shell"
+            | "command"
+    )
+}
+
 fn has_plan_markdown(input: Option<&serde_json::Value>) -> bool {
     input
         .and_then(|value| value.get("plan"))
@@ -229,6 +255,14 @@ mod tests {
                 Some(&serde_json::json!({"subagent_type": "explore"}))
             ),
             ClassifiedTool::Call(AgentToolKind::Subagent)
+        );
+        assert_eq!(
+            classify_tool("Web search", None, None),
+            ClassifiedTool::Call(AgentToolKind::Search)
+        );
+        assert_eq!(
+            classify_tool("WebFetch", None, None),
+            ClassifiedTool::Call(AgentToolKind::Fetch)
         );
     }
 }

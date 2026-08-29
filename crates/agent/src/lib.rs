@@ -16,15 +16,16 @@ pub use acp_client::{
     StreamDelta, StreamUsage, ToolCallStatus, ToolCallUpdate, AUTH_REQUIRED_ERROR_PREFIX,
 };
 pub use catalog::{
-    catalog_cache_dir, merge_catalogs, probe_result_from_config_options, thinking_from_builtin,
-    AcpCatalogProbe, AcpLaunchResolved, AcpLaunchResolver, AcpProbeResult, AgentCatalogSpec,
-    CatalogCache, CatalogEngine, CatalogFragment, CatalogParserKind, CommandOutput, CommandRunner,
-    NoopAcpProbe, StdioAcpCatalogProbe, ERROR_CACHE_TTL, OK_CACHE_TTL,
+    catalog_cache_dir, merge_catalogs, parse_line_list, probe_result_from_config_options,
+    thinking_from_builtin, AcpCatalogProbe, AcpLaunchResolved, AcpLaunchResolver, AcpProbeResult,
+    AgentCatalogSpec, CatalogCache, CatalogEngine, CatalogFragment, CatalogParserKind,
+    CommandOutput, CommandRunner, NoopAcpProbe, StdioAcpCatalogProbe, ERROR_CACHE_TTL,
+    OK_CACHE_TTL,
 };
 pub use domain::{
-    classify_tool, deserialize_tool_kind, plan_from_tool_input, thinking_text,
-    AgentAvailableCommand, AgentCapabilities, AgentCatalogContext, AgentEvent, AgentMode,
-    AgentModel, AgentModelCatalog, AgentPermissionOption, AgentPermissionRequest,
+    classify_tool, deserialize_tool_kind, is_generic_tool_label, plan_from_tool_input,
+    thinking_text, AgentAvailableCommand, AgentCapabilities, AgentCatalogContext, AgentEvent,
+    AgentMode, AgentModel, AgentModelCatalog, AgentPermissionOption, AgentPermissionRequest,
     AgentPersistenceHandle, AgentPrompt, AgentProvider, AgentProviderError, AgentProviderFactory,
     AgentResult, AgentRuntime, AgentRuntimeConfig, AgentRuntimeConfigUpdate, AgentRuntimeControl,
     AgentThinkingSupport, AgentToolCall, AgentToolKind, AgentTurnHandle, CatalogSource,

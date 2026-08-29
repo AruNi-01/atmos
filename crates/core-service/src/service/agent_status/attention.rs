@@ -9,8 +9,8 @@ use chrono::{DateTime, Utc};
 use tracing::{debug, warn};
 
 use super::{
-    AgentHookEvent, AgentHookState, AgentHookStateUpdate, AgentHooksService, AgentToolType,
-    StateUpdateKind,
+    AgentOccupancy, AgentStatusEvent, AgentStatusService, AgentStatusUpdate, AgentToolType,
+    OccupancyUpdateKind,
 };
 
 /// Sticky "needs attention" reason (mirrors the web client latch).
@@ -47,7 +47,7 @@ pub struct AgentAttentionLatch {
     pub raised_at: String,
 }
 
-impl AgentHooksService {
+impl AgentStatusService {
     pub fn get_all_attention(&self) -> Vec<AgentAttentionLatch> {
         self.attention.read().values().cloned().collect()
     }
@@ -59,7 +59,7 @@ impl AgentHooksService {
         }
     }
 
-    fn resolve_stable_pane_id(update: &AgentHookStateUpdate) -> String {
+    fn resolve_stable_pane_id(update: &AgentStatusUpdate) -> String {
         update
             .pane_id
             .as_deref()
@@ -73,23 +73,23 @@ impl AgentHooksService {
     /// or task complete). Survives browser refresh until acknowledged.
     pub(super) fn maybe_raise_attention(
         &self,
-        previous_state: Option<AgentHookState>,
-        update: &AgentHookStateUpdate,
-        kind: StateUpdateKind,
+        previous_state: Option<AgentOccupancy>,
+        update: &AgentStatusUpdate,
+        kind: OccupancyUpdateKind,
     ) {
         // QuietIdle settles child-only work without a new task-complete signal.
         // ForcedIdle is a user interrupt (footer mark-idle, Ctrl+C) — do not
         // treat it as an unattended finish that needs attention.
-        if kind == StateUpdateKind::QuietIdle || kind == StateUpdateKind::ForcedIdle {
+        if kind == OccupancyUpdateKind::QuietIdle || kind == OccupancyUpdateKind::ForcedIdle {
             return;
         }
 
-        let reason = if update.state == AgentHookState::PermissionRequest
-            && previous_state != Some(AgentHookState::PermissionRequest)
+        let reason = if update.state == AgentOccupancy::PermissionRequest
+            && previous_state != Some(AgentOccupancy::PermissionRequest)
         {
             Some(AgentAttentionReason::PermissionRequest)
-        } else if update.state == AgentHookState::Idle
-            && previous_state == Some(AgentHookState::Running)
+        } else if update.state == AgentOccupancy::Idle
+            && previous_state == Some(AgentOccupancy::Running)
         {
             Some(AgentAttentionReason::TaskComplete)
         } else {
@@ -300,7 +300,7 @@ impl AgentHooksService {
             "Publishing attention raised: pane={} reason={:?}",
             latch.stable_pane_id, latch.reason
         );
-        if let Err(error) = self.event_tx.send(AgentHookEvent::AttentionRaised(latch)) {
+        if let Err(error) = self.event_tx.send(AgentStatusEvent::AttentionRaised(latch)) {
             warn!("Failed to publish agent attention raised: {}", error);
         }
     }
@@ -308,7 +308,7 @@ impl AgentHooksService {
     fn broadcast_attention_cleared(&self, stable_pane_ids: Vec<String>) {
         if let Err(error) = self
             .event_tx
-            .send(AgentHookEvent::AttentionCleared { stable_pane_ids })
+            .send(AgentStatusEvent::AttentionCleared { stable_pane_ids })
         {
             warn!("Failed to publish agent attention cleared: {}", error);
         }
@@ -318,39 +318,39 @@ impl AgentHooksService {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::service::agent_hooks::attention_summary::{
+    use crate::service::agent_status::attention_summary::{
         AttentionSummaryPayload, AttentionSummaryStatus,
     };
-    use crate::service::agent_hooks::{
-        AgentHookState, AgentHooksService, AgentToolType, AtmosContext, StateUpdateKind,
+    use crate::service::agent_status::{
+        AgentOccupancy, AgentStatusContext, AgentStatusService, AgentToolType, OccupancyUpdateKind,
     };
 
-    fn ctx_with_pane(pane_id: &str) -> AtmosContext {
-        AtmosContext {
+    fn ctx_with_pane(pane_id: &str) -> AgentStatusContext {
+        AgentStatusContext {
             pane_id: Some(pane_id.to_string()),
-            ..AtmosContext::default()
+            ..AgentStatusContext::default()
         }
     }
 
     #[test]
     fn running_to_idle_raises_task_complete_attention() {
-        let service = AgentHooksService::new();
+        let service = AgentStatusService::new();
         let ctx = ctx_with_pane("ws-1:main");
         service.update_state(
             "ws-1:main",
             AgentToolType::ClaudeCode,
-            AgentHookState::Running,
+            AgentOccupancy::Running,
             Some("/tmp/p".into()),
             &ctx,
-            StateUpdateKind::NewTurn,
+            OccupancyUpdateKind::NewTurn,
         );
         service.update_state(
             "ws-1:main",
             AgentToolType::ClaudeCode,
-            AgentHookState::Idle,
+            AgentOccupancy::Idle,
             Some("/tmp/p".into()),
             &ctx,
-            StateUpdateKind::TerminalIdle,
+            OccupancyUpdateKind::TerminalIdle,
         );
         let attention = service.get_all_attention();
         assert_eq!(attention.len(), 1);
@@ -362,35 +362,35 @@ mod tests {
 
     #[test]
     fn forced_idle_from_running_does_not_raise_task_complete() {
-        let service = AgentHooksService::new();
+        let service = AgentStatusService::new();
         let ctx = ctx_with_pane("ws-1:main");
         service.update_state(
             "ws-1:main",
             AgentToolType::ClaudeCode,
-            AgentHookState::Running,
+            AgentOccupancy::Running,
             Some("/tmp/p".into()),
             &ctx,
-            StateUpdateKind::NewTurn,
+            OccupancyUpdateKind::NewTurn,
         );
         service.force_session_idle("ws-1:main");
         assert!(
             service.get_all_attention().is_empty(),
             "user-forced idle must not raise need-attention"
         );
-        assert_eq!(service.get_all_sessions()[0].state, AgentHookState::Idle);
+        assert_eq!(service.get_all_sessions()[0].state, AgentOccupancy::Idle);
     }
 
     #[test]
     fn permission_raises_attention_and_survives_idle_session_clear() {
-        let service = AgentHooksService::new();
+        let service = AgentStatusService::new();
         let ctx = ctx_with_pane("ws-1:main");
         service.update_state(
             "ws-1:main",
             AgentToolType::ClaudeCode,
-            AgentHookState::PermissionRequest,
+            AgentOccupancy::PermissionRequest,
             Some("/tmp/p".into()),
             &ctx,
-            StateUpdateKind::Permission,
+            OccupancyUpdateKind::Permission,
         );
         assert_eq!(service.get_all_attention().len(), 1);
         assert_eq!(
@@ -406,23 +406,23 @@ mod tests {
 
     #[test]
     fn clear_attention_for_pane_drops_latch() {
-        let service = AgentHooksService::new();
+        let service = AgentStatusService::new();
         let ctx = ctx_with_pane("ws-1:main");
         service.update_state(
             "ws-1:main",
             AgentToolType::ClaudeCode,
-            AgentHookState::Running,
+            AgentOccupancy::Running,
             Some("/tmp/p".into()),
             &ctx,
-            StateUpdateKind::NewTurn,
+            OccupancyUpdateKind::NewTurn,
         );
         service.update_state(
             "ws-1:main",
             AgentToolType::ClaudeCode,
-            AgentHookState::Idle,
+            AgentOccupancy::Idle,
             Some("/tmp/p".into()),
             &ctx,
-            StateUpdateKind::TerminalIdle,
+            OccupancyUpdateKind::TerminalIdle,
         );
         let cleared = service.clear_attention_for_pane("ws-1:main");
         assert_eq!(cleared, vec!["ws-1:main".to_string()]);
@@ -431,46 +431,46 @@ mod tests {
 
     #[test]
     fn quiet_idle_does_not_raise_task_complete_attention() {
-        let service = AgentHooksService::new();
+        let service = AgentStatusService::new();
         let ctx = ctx_with_pane("ws-1:main");
         service.update_state(
             "ws-1:main",
             AgentToolType::ClaudeCode,
-            AgentHookState::Running,
+            AgentOccupancy::Running,
             Some("/tmp/p".into()),
             &ctx,
-            StateUpdateKind::NewTurn,
+            OccupancyUpdateKind::NewTurn,
         );
         service.update_state(
             "ws-1:main",
             AgentToolType::ClaudeCode,
-            AgentHookState::Idle,
+            AgentOccupancy::Idle,
             Some("/tmp/p".into()),
             &ctx,
-            StateUpdateKind::QuietIdle,
+            OccupancyUpdateKind::QuietIdle,
         );
         assert!(service.get_all_attention().is_empty());
     }
 
     #[test]
     fn new_task_complete_turn_invalidates_in_flight_summary() {
-        let service = AgentHooksService::new();
+        let service = AgentStatusService::new();
         let ctx = ctx_with_pane("ws-1:main");
         service.update_state(
             "ws-1:main",
             AgentToolType::ClaudeCode,
-            AgentHookState::Running,
+            AgentOccupancy::Running,
             Some("/tmp/p".into()),
             &ctx,
-            StateUpdateKind::NewTurn,
+            OccupancyUpdateKind::NewTurn,
         );
         service.update_state(
             "ws-1:main",
             AgentToolType::ClaudeCode,
-            AgentHookState::Idle,
+            AgentOccupancy::Idle,
             Some("/tmp/p".into()),
             &ctx,
-            StateUpdateKind::TerminalIdle,
+            OccupancyUpdateKind::TerminalIdle,
         );
         let (_, _, gen) = service
             .begin_attention_summary("ws-1:main")
@@ -484,18 +484,18 @@ mod tests {
         service.update_state(
             "ws-1:main",
             AgentToolType::ClaudeCode,
-            AgentHookState::Running,
+            AgentOccupancy::Running,
             Some("/tmp/p".into()),
             &ctx,
-            StateUpdateKind::NewTurn,
+            OccupancyUpdateKind::NewTurn,
         );
         service.update_state(
             "ws-1:main",
             AgentToolType::ClaudeCode,
-            AgentHookState::Idle,
+            AgentOccupancy::Idle,
             Some("/tmp/p".into()),
             &ctx,
-            StateUpdateKind::TerminalIdle,
+            OccupancyUpdateKind::TerminalIdle,
         );
         assert!(service.get_attention_summary("ws-1:main").is_none());
 
@@ -516,23 +516,23 @@ mod tests {
 
     #[test]
     fn clear_attention_drops_orphan_summary_without_latch() {
-        let service = AgentHooksService::new();
+        let service = AgentStatusService::new();
         let ctx = ctx_with_pane("ws-1:main");
         service.update_state(
             "ws-1:main",
             AgentToolType::ClaudeCode,
-            AgentHookState::Running,
+            AgentOccupancy::Running,
             Some("/tmp/p".into()),
             &ctx,
-            StateUpdateKind::NewTurn,
+            OccupancyUpdateKind::NewTurn,
         );
         service.update_state(
             "ws-1:main",
             AgentToolType::ClaudeCode,
-            AgentHookState::Idle,
+            AgentOccupancy::Idle,
             Some("/tmp/p".into()),
             &ctx,
-            StateUpdateKind::TerminalIdle,
+            OccupancyUpdateKind::TerminalIdle,
         );
         let (_, _, gen) = service.begin_attention_summary("ws-1:main").expect("begin");
         let _ = service.complete_attention_summary(
@@ -561,23 +561,23 @@ mod tests {
 
     #[test]
     fn clear_not_after_skips_newer_latch() {
-        let service = AgentHooksService::new();
+        let service = AgentStatusService::new();
         let ctx = ctx_with_pane("ws-1:main");
         service.update_state(
             "ws-1:main",
             AgentToolType::ClaudeCode,
-            AgentHookState::Running,
+            AgentOccupancy::Running,
             Some("/tmp/p".into()),
             &ctx,
-            StateUpdateKind::NewTurn,
+            OccupancyUpdateKind::NewTurn,
         );
         service.update_state(
             "ws-1:main",
             AgentToolType::ClaudeCode,
-            AgentHookState::Idle,
+            AgentOccupancy::Idle,
             Some("/tmp/p".into()),
             &ctx,
-            StateUpdateKind::TerminalIdle,
+            OccupancyUpdateKind::TerminalIdle,
         );
         let old_raised = service.get_all_attention()[0].raised_at.clone();
 
@@ -585,18 +585,18 @@ mod tests {
         service.update_state(
             "ws-1:main",
             AgentToolType::ClaudeCode,
-            AgentHookState::Running,
+            AgentOccupancy::Running,
             Some("/tmp/p".into()),
             &ctx,
-            StateUpdateKind::NewTurn,
+            OccupancyUpdateKind::NewTurn,
         );
         service.update_state(
             "ws-1:main",
             AgentToolType::ClaudeCode,
-            AgentHookState::Idle,
+            AgentOccupancy::Idle,
             Some("/tmp/p".into()),
             &ctx,
-            StateUpdateKind::TerminalIdle,
+            OccupancyUpdateKind::TerminalIdle,
         );
         assert_eq!(service.get_all_attention().len(), 1);
         let new_raised = service.get_all_attention()[0].raised_at.clone();
@@ -611,23 +611,23 @@ mod tests {
 
     #[test]
     fn dismiss_summary_not_after_skips_newer_turn() {
-        let service = AgentHooksService::new();
+        let service = AgentStatusService::new();
         let ctx = ctx_with_pane("ws-1:main");
         service.update_state(
             "ws-1:main",
             AgentToolType::ClaudeCode,
-            AgentHookState::Running,
+            AgentOccupancy::Running,
             Some("/tmp/p".into()),
             &ctx,
-            StateUpdateKind::NewTurn,
+            OccupancyUpdateKind::NewTurn,
         );
         service.update_state(
             "ws-1:main",
             AgentToolType::ClaudeCode,
-            AgentHookState::Idle,
+            AgentOccupancy::Idle,
             Some("/tmp/p".into()),
             &ctx,
-            StateUpdateKind::TerminalIdle,
+            OccupancyUpdateKind::TerminalIdle,
         );
         let old_raised = service.get_all_attention()[0].raised_at.clone();
         let (_, _, gen) = service
@@ -647,18 +647,18 @@ mod tests {
         service.update_state(
             "ws-1:main",
             AgentToolType::ClaudeCode,
-            AgentHookState::Running,
+            AgentOccupancy::Running,
             Some("/tmp/p".into()),
             &ctx,
-            StateUpdateKind::NewTurn,
+            OccupancyUpdateKind::NewTurn,
         );
         service.update_state(
             "ws-1:main",
             AgentToolType::ClaudeCode,
-            AgentHookState::Idle,
+            AgentOccupancy::Idle,
             Some("/tmp/p".into()),
             &ctx,
-            StateUpdateKind::TerminalIdle,
+            OccupancyUpdateKind::TerminalIdle,
         );
         let (_, _, gen2) = service
             .begin_attention_summary("ws-1:main")

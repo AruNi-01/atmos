@@ -849,31 +849,13 @@ fn parse_model_catalog_output(
 }
 
 fn parse_line_model_catalog(output: &str) -> Vec<TerminalAgentModelOption> {
-    output
-        .lines()
-        .filter_map(|line| {
-            let trimmed = line.trim();
-            if trimmed.is_empty() {
-                return None;
-            }
-            let lower = trimmed.to_ascii_lowercase();
-            if lower.contains("available model") || lower == "models" || lower == "model" {
-                return None;
-            }
-            let normalized = trimmed.trim_start_matches(['-', '*', '•', ' ']).trim();
-            if normalized.is_empty() || normalized.ends_with(':') {
-                return None;
-            }
-            let (id, is_default) = strip_default_model_suffix(normalized);
-            if id.is_empty() {
-                return None;
-            }
-            Some(TerminalAgentModelOption {
-                id: id.clone(),
-                label: id,
-                group: None,
-                is_default,
-            })
+    agent::parse_line_list(output)
+        .into_iter()
+        .map(|model| TerminalAgentModelOption {
+            id: model.id,
+            label: model.label,
+            group: model.group,
+            is_default: model.is_default,
         })
         .collect()
 }
@@ -1863,6 +1845,20 @@ mod tests {
         assert!(models[0].is_default);
         assert_eq!(models[1].id, "grok-composer-2.5-fast");
         assert!(!models[1].is_default);
+    }
+
+    #[test]
+    fn line_model_catalog_parses_cursor_labels_and_current() {
+        let models = parse_line_model_catalog(
+            "Available models\n\nauto - Auto (default)\ngemini-3.5-flash - Gemini 3.5 Flash (current)\n\nTip: use --model <id>\n",
+        );
+        assert_eq!(models.len(), 2);
+        assert_eq!(models[0].id, "auto");
+        assert_eq!(models[0].label, "Auto");
+        assert!(!models[0].is_default);
+        assert_eq!(models[1].id, "gemini-3.5-flash");
+        assert_eq!(models[1].label, "Gemini 3.5 Flash");
+        assert!(models[1].is_default);
     }
 
     #[test]

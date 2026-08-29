@@ -8,6 +8,10 @@ use crate::models::{KnownAgent, RegistryAgent};
 
 use super::manifest::{load_install_manifest, save_install_manifest};
 use super::npm::{list_global_npm_packages, normalize_npm_package_name, npx_command_preview};
+use super::provision::{
+    classify_registry_agent, native_cli_command, overlay_registry_agent, which_executable,
+    AcpProvisionKind, LOCAL_NATIVE_ACP_AGENTS,
+};
 use super::{AgentError, Result};
 
 pub(crate) const ACP_REGISTRY_URL: &str =
@@ -170,7 +174,7 @@ pub(crate) async fn list_registry_agents_impl(
                         installed_npm.contains_key(&normalize_npm_package_name(&npx.package))
                     })
                     .unwrap_or(false)
-            } else if e.install_method == "binary" {
+            } else if e.install_method == "binary" || e.install_method == "native" {
                 e.binary_path
                     .as_ref()
                     .map(|p| Path::new(p).exists())
@@ -184,67 +188,114 @@ pub(crate) async fn list_registry_agents_impl(
 
     let mut out = Vec::with_capacity(registry.agents.len());
     for agent in registry.agents {
-        if let Some(npx) = &agent.distribution.npx {
-            let id = agent.id.clone();
-            let is_installed = installed_registry_ids.contains(&agent.id);
-            let installed_version = if is_installed {
-                let pkg_name = normalize_npm_package_name(&npx.package);
-                installed_npm.get(&pkg_name).cloned()
-            } else {
-                None
-            };
-            let default_config = if is_installed {
-                manifest
-                    .registry
-                    .iter()
-                    .find(|e| e.registry_id == id && e.install_method == "npx")
-                    .and_then(|e| e.default_config.clone())
-            } else {
-                None
-            };
-            out.push(RegistryAgent {
-                id,
-                name: agent.name,
-                version: agent.version,
-                description: agent.description,
-                repository: agent.repository,
-                icon: agent.icon,
-                cli_command: npx_command_preview(npx),
-                install_method: "npx".to_string(),
-                package: Some(npx.package.clone()),
-                installed: is_installed,
-                installed_version,
-                default_config,
-            });
-        } else if agent.distribution.binary.is_some() {
-            let id = agent.id.clone();
-            let is_installed = installed_registry_ids.contains(&agent.id);
-            let (installed_version, default_config) = if is_installed {
-                let e = manifest
-                    .registry
-                    .iter()
-                    .find(|e| e.registry_id == id && e.install_method == "binary");
-                (
-                    e.and_then(|e| e.installed_version.clone()),
-                    e.and_then(|e| e.default_config.clone()),
-                )
-            } else {
-                (None, None)
-            };
-            out.push(RegistryAgent {
-                id,
-                name: agent.name,
-                version: agent.version,
-                description: agent.description,
-                repository: agent.repository,
-                icon: agent.icon,
-                cli_command: "binary agent (platform package)".to_string(),
-                install_method: "binary".to_string(),
-                package: None,
-                installed: is_installed,
-                installed_version,
-                default_config,
-            });
+        let has_npx = agent.distribution.npx.is_some();
+        let has_binary = agent.distribution.binary.is_some();
+        if !has_npx && !has_binary {
+            continue;
+        }
+
+        let classified = classify_registry_agent(&agent);
+        let path_exe = classified
+            .native_executable
+            .as_deref()
+            .and_then(which_executable);
+        let manifest_entry = manifest
+            .registry
+            .iter()
+            .find(|entry| entry.registry_id == agent.id);
+        let atmos_managed_download = manifest_entry
+            .map(|entry| entry.install_method == "npx" || entry.install_method == "binary")
+            .unwrap_or(false)
+            && installed_registry_ids.contains(&agent.id);
+        let native_bound = manifest_entry
+            .map(|entry| {
+                entry.install_method == "native"
+                    && entry
+                        .binary_path
+                        .as_ref()
+                        .map(|path| Path::new(path).exists())
+                        .unwrap_or(false)
+            })
+            .unwrap_or(false);
+
+        let is_installed = match classified.kind {
+            AcpProvisionKind::Native => {
+                path_exe.is_some() || native_bound || atmos_managed_download
+            }
+            AcpProvisionKind::Adapter => installed_registry_ids.contains(&agent.id),
+        };
+        let can_remove = match classified.kind {
+            AcpProvisionKind::Native => atmos_managed_download && path_exe.is_none(),
+            AcpProvisionKind::Adapter => is_installed,
+        };
+
+        let install_method = if classified.kind == AcpProvisionKind::Native && path_exe.is_some() {
+            "native".to_string()
+        } else if has_npx {
+            "npx".to_string()
+        } else {
+            "binary".to_string()
+        };
+
+        let cli_command = if classified.kind == AcpProvisionKind::Native {
+            let exe = classified.native_executable.as_deref().unwrap_or("agent");
+            native_cli_command(exe, &classified.args)
+        } else if let Some(npx) = &agent.distribution.npx {
+            npx_command_preview(npx)
+        } else {
+            "binary agent (platform package)".to_string()
+        };
+
+        let installed_version = if !is_installed {
+            None
+        } else if let Some(npx) = &agent.distribution.npx {
+            let pkg_name = normalize_npm_package_name(&npx.package);
+            installed_npm
+                .get(&pkg_name)
+                .cloned()
+                .or_else(|| manifest_entry.and_then(|entry| entry.installed_version.clone()))
+        } else {
+            manifest_entry.and_then(|entry| entry.installed_version.clone())
+        };
+
+        let default_config = if is_installed {
+            manifest_entry.and_then(|entry| entry.default_config.clone())
+        } else {
+            None
+        };
+
+        out.push(RegistryAgent {
+            id: agent.id,
+            name: agent.name,
+            version: agent.version,
+            description: agent.description,
+            repository: agent.repository,
+            icon: agent.icon,
+            cli_command,
+            install_method,
+            package: agent
+                .distribution
+                .npx
+                .as_ref()
+                .map(|npx| npx.package.clone()),
+            installed: is_installed,
+            installed_version,
+            default_config,
+            provision_kind: classified.kind.as_str().to_string(),
+            native_executable: classified.native_executable,
+            terminal_agent_id: classified.terminal_agent_id,
+            can_remove,
+        });
+    }
+
+    let existing_ids: HashSet<String> = out.iter().map(|agent| agent.id.clone()).collect();
+    for local in LOCAL_NATIVE_ACP_AGENTS {
+        if existing_ids.contains(local.id) {
+            continue;
+        }
+        let listed = overlay_registry_agent(local, &manifest);
+        if listed.installed {
+            out.push(listed);
         }
     }
 

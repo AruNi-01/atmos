@@ -127,7 +127,7 @@ pub(crate) fn upsert_manifest_entry(manifest: &mut InstallManifest, entry: Manif
     if let Some(existing) = manifest
         .registry
         .iter_mut()
-        .find(|e| e.registry_id == entry.registry_id && e.install_method == entry.install_method)
+        .find(|e| e.registry_id == entry.registry_id)
     {
         let mut entry = entry;
         let default_config = entry

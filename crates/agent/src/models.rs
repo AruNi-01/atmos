@@ -62,6 +62,22 @@ pub struct RegistryAgent {
     pub installed_version: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub default_config: Option<std::collections::HashMap<String, String>>,
+    /// `native` reuses an official CLI with ACP args. `adapter` is a separate ACP package.
+    #[serde(default)]
+    pub provision_kind: String,
+    /// PATH executable to bind for native agents (e.g. `gemini`, `cursor-agent`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub native_executable: Option<String>,
+    /// Built-in terminal agent id this ACP agent corresponds to, when known.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub terminal_agent_id: Option<String>,
+    /// When false, Atmos bound an existing CLI and must not uninstall it.
+    #[serde(default = "default_can_remove")]
+    pub can_remove: bool,
+}
+
+fn default_can_remove() -> bool {
+    true
 }
 
 /// Launch spec for an installed ACP registry agent. Use when spawning the agent process.

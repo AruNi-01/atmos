@@ -5,11 +5,14 @@ pub mod utils;
 
 pub use error::{Result, ServiceError};
 pub use service::agent::AgentService;
-pub use service::agent_hooks::{
-    generate_attention_summary, resolve_workspace_agent_group_key, AgentAttentionLatch,
-    AgentAttentionReason, AgentAttentionSummary, AgentHookEvent, AgentHooksService,
-    AttentionSummaryPayload, AttentionSummarySettings, AttentionSummaryStatus,
-    WorkspaceAgentGroupKey, WorkspaceAgentGroupSnapshot,
+pub use service::agent_hooks::{AgentHooksService, AtmosContext};
+pub use service::agent_status::{
+    apply_host_event, chat_status_session_id, generate_attention_summary,
+    parse_chat_status_session_id, provider_to_tool, resolve_workspace_agent_group_key,
+    AgentAttentionLatch, AgentAttentionReason, AgentAttentionSummary, AgentOccupancy,
+    AgentStatusContext, AgentStatusEvent, AgentStatusRecord, AgentStatusService, AgentStatusUpdate,
+    AgentSurface, AgentToolType, AttentionSummaryPayload, AttentionSummarySettings,
+    AttentionSummaryStatus, WorkspaceAgentGroupKey, WorkspaceAgentGroupSnapshot,
 };
 
 pub use service::agent_chat::{

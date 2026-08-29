@@ -3,7 +3,7 @@ use std::time::Duration;
 
 use agent::testing::{FakeAgentProvider, StaticProviderFactory};
 use agent::{
-    AgentCatalogSpec, AgentModel, AgentProvider, AgentThinkingSupport, CatalogEngine,
+    AgentCatalogSpec, AgentEvent, AgentModel, AgentProvider, AgentThinkingSupport, CatalogEngine,
     CatalogStatus, CatalogStrategyKind, NoopAcpProbe, UserMessageKind,
 };
 use tokio::time::timeout;
@@ -11,7 +11,10 @@ use tokio::time::timeout;
 use super::catalog::{parse_followup_policy, CatalogPrefetchWorker, FollowupPolicy};
 use super::service::AgentChatService;
 use super::store::AgentChatStore;
-use super::types::{AgentChatPayload, CreateAgentChatRequest, QueueItemStatus, RuntimeStatus};
+use super::types::{
+    AgentChatPayload, CreateAgentChatRequest, MessagePart, QueueItemStatus, RuntimeStatus,
+    SessionLifecycleAction, SessionLifecycleStatus,
+};
 
 fn make_service(provider: Arc<FakeAgentProvider>) -> (tempfile::TempDir, AgentChatService) {
     let dir = tempfile::tempdir().unwrap();
@@ -24,6 +27,7 @@ fn create_req(cwd: &str) -> CreateAgentChatRequest {
     CreateAgentChatRequest {
         workspace_id: None,
         project_id: None,
+        space_id: None,
         cwd: cwd.into(),
         provider_id: "claude".into(),
         model: Some("opus".into()),
@@ -38,7 +42,7 @@ async fn s4_get_does_not_spawn_provider() {
     let provider = Arc::new(FakeAgentProvider::new("claude"));
     let (_dir, service) = make_service(Arc::clone(&provider));
     let meta = service.create(create_req("/tmp/proj")).unwrap();
-    let snapshot = service.get(&meta.id).unwrap();
+    let snapshot = service.get(&meta.id).await.unwrap();
     assert_eq!(provider.create_count(), 0);
     assert_eq!(provider.resume_count(), 0);
     assert!(snapshot.messages.is_empty());
@@ -53,7 +57,7 @@ async fn s7_continue_resumes_same_chat() {
     let first = service.send(&meta.id, "hello", Vec::new()).await.unwrap();
     tokio::time::sleep(Duration::from_millis(30)).await;
     assert_eq!(provider.create_count(), 1);
-    let after = service.get(&meta.id).unwrap();
+    let after = service.get(&meta.id).await.unwrap();
     let handle = after
         .meta
         .persistence_handle
@@ -79,7 +83,7 @@ async fn s7_continue_resumes_same_chat() {
     let turn = resumed.send(&meta.id, "again", Vec::new()).await.unwrap();
     assert_eq!(provider2.resume_count(), 1);
     assert_eq!(provider2.create_count(), 0);
-    assert_eq!(resumed.get(&meta.id).unwrap().meta.id, meta.id);
+    assert_eq!(resumed.get(&meta.id).await.unwrap().meta.id, meta.id);
     assert_eq!(
         provider2.last_resume_handle().await.as_deref(),
         Some(handle.as_str())
@@ -88,12 +92,142 @@ async fn s7_continue_resumes_same_chat() {
 }
 
 #[tokio::test]
+async fn send_emits_create_session_lifecycle_and_persists() {
+    let provider = Arc::new(FakeAgentProvider::new("claude"));
+    let (_dir, service) = make_service(Arc::clone(&provider));
+    let meta = service.create(create_req("/tmp/proj")).unwrap();
+    let mut rx = service.subscribe();
+    let _ = service.send(&meta.id, "hello", Vec::new()).await.unwrap();
+    let mut statuses = Vec::new();
+    while let Ok(event) = rx.try_recv() {
+        if let AgentChatPayload::SessionLifecycle { action, status, .. } = event.payload {
+            statuses.push((action, status));
+        }
+    }
+    assert_eq!(
+        statuses,
+        [
+            (
+                SessionLifecycleAction::Create,
+                SessionLifecycleStatus::Running
+            ),
+            (
+                SessionLifecycleAction::Create,
+                SessionLifecycleStatus::Completed
+            )
+        ]
+    );
+    let snapshot = service.get(&meta.id).await.unwrap();
+    let assistant = snapshot
+        .messages
+        .iter()
+        .find(|message| message.role == "assistant")
+        .expect("assistant");
+    match assistant
+        .parts
+        .iter()
+        .find(|part| matches!(part, MessagePart::SessionLifecycle { .. }))
+    {
+        Some(MessagePart::SessionLifecycle { action, status, .. }) => {
+            assert_eq!(*action, SessionLifecycleAction::Create);
+            assert_eq!(*status, SessionLifecycleStatus::Completed);
+        }
+        other => panic!("expected create session part, got {other:?}"),
+    }
+    let jsonl = std::fs::read_to_string(service.store().dir_for(&meta.id).join("transcript.jsonl"))
+        .unwrap();
+    assert!(jsonl.contains("\"type\":\"session_lifecycle\""));
+    assert!(jsonl.contains("\"action\":\"create\""));
+}
+
+#[tokio::test]
+async fn resume_emits_resume_session_lifecycle() {
+    let provider = Arc::new(FakeAgentProvider::new("claude"));
+    let (_dir, service) = make_service(Arc::clone(&provider));
+    let meta = service.create(create_req("/tmp/proj")).unwrap();
+    let _ = service.send(&meta.id, "hello", Vec::new()).await.unwrap();
+    tokio::time::sleep(Duration::from_millis(30)).await;
+    let handle = service
+        .get(&meta.id)
+        .await
+        .unwrap()
+        .meta
+        .persistence_handle
+        .clone()
+        .expect("handle after spawn");
+
+    let provider2 = Arc::new(FakeAgentProvider::new("claude"));
+    let store = Arc::new(AgentChatStore::new(service.store().root().to_path_buf()));
+    store
+        .update_meta(&meta.id, |row| {
+            row.persistence_handle = Some(handle);
+            row.runtime_status = RuntimeStatus::Detached;
+        })
+        .unwrap();
+    let resumed = AgentChatService::new(
+        store,
+        Arc::new(StaticProviderFactory::new(
+            Arc::clone(&provider2) as Arc<dyn AgentProvider>
+        )),
+    );
+    let mut rx = resumed.subscribe();
+    let _ = resumed.send(&meta.id, "again", Vec::new()).await.unwrap();
+    let mut statuses = Vec::new();
+    while let Ok(event) = rx.try_recv() {
+        if let AgentChatPayload::SessionLifecycle { action, status, .. } = event.payload {
+            statuses.push((action, status));
+        }
+    }
+    assert_eq!(
+        statuses,
+        [
+            (
+                SessionLifecycleAction::Resume,
+                SessionLifecycleStatus::Running
+            ),
+            (
+                SessionLifecycleAction::Resume,
+                SessionLifecycleStatus::Completed
+            )
+        ]
+    );
+}
+
+#[tokio::test]
+async fn live_runtime_does_not_emit_another_session_lifecycle() {
+    let provider = Arc::new(FakeAgentProvider::new("claude"));
+    let (_dir, service) = make_service(Arc::clone(&provider));
+    let meta = service.create(create_req("/tmp/proj")).unwrap();
+    let _ = service.send(&meta.id, "hello", Vec::new()).await.unwrap();
+    timeout(Duration::from_secs(2), async {
+        loop {
+            let snapshot = service.get(&meta.id).await.unwrap();
+            if snapshot.running_turn_id.is_none() {
+                return;
+            }
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+    })
+    .await
+    .expect("first turn should finish");
+    let mut rx = service.subscribe();
+    let _ = service.send(&meta.id, "again", Vec::new()).await.unwrap();
+    let mut session_events = 0;
+    while let Ok(event) = rx.try_recv() {
+        if matches!(event.payload, AgentChatPayload::SessionLifecycle { .. }) {
+            session_events += 1;
+        }
+    }
+    assert_eq!(session_events, 0);
+}
+
+#[tokio::test]
 async fn s7_continue_without_handle_creates_on_same_id() {
     let provider = Arc::new(FakeAgentProvider::new("claude"));
     let (_dir, service) = make_service(Arc::clone(&provider));
     let meta = service.create(create_req("/tmp/proj")).unwrap();
     let _ = service.send(&meta.id, "hello", Vec::new()).await.unwrap();
-    assert_eq!(service.get(&meta.id).unwrap().meta.id, meta.id);
+    assert_eq!(service.get(&meta.id).await.unwrap().meta.id, meta.id);
     assert_eq!(provider.create_count(), 1);
 }
 
@@ -147,7 +281,7 @@ async fn s9_queue_reloads_and_dispatch_skips_paused() {
     timeout(Duration::from_secs(2), async {
         loop {
             let queue = service.store().read_queue(&meta.id).unwrap();
-            let snapshot = service.get(&meta.id).unwrap();
+            let snapshot = service.get(&meta.id).await.unwrap();
             let next_gone = queue.iter().all(|item| item.prompt != "next");
             let hold_paused = queue
                 .iter()
@@ -176,6 +310,7 @@ async fn s9_queue_reloads_and_dispatch_skips_paused() {
     assert!(
         service
             .get(&meta.id)
+            .await
             .unwrap()
             .messages
             .iter()
@@ -242,10 +377,14 @@ async fn s16_two_subscribers_see_the_same_send() {
         loop {
             let event = first.recv().await.expect("event");
             if let AgentChatPayload::UserMessage {
-                message_id, text, ..
+                message_id,
+                text,
+                created_at,
+                ..
             } = event.payload
             {
                 if text == "hello-s16" {
+                    assert!(created_at.is_some());
                     return message_id;
                 }
             }
@@ -257,10 +396,14 @@ async fn s16_two_subscribers_see_the_same_send() {
         loop {
             let event = second.recv().await.expect("event");
             if let AgentChatPayload::UserMessage {
-                message_id, text, ..
+                message_id,
+                text,
+                created_at,
+                ..
             } = event.payload
             {
                 if text == "hello-s16" {
+                    assert!(created_at.is_some());
                     return message_id;
                 }
             }
@@ -285,7 +428,7 @@ async fn s10_steer_same_turn_no_cancel() {
         .steer(&meta.id, &turn_id, "do it this way")
         .await
         .unwrap();
-    let snapshot = service.get(&meta.id).unwrap();
+    let snapshot = service.get(&meta.id).await.unwrap();
     let steered = snapshot
         .messages
         .iter()
@@ -346,6 +489,61 @@ async fn configure_sets_model_before_spawn() {
     assert_eq!(updated.selected_thinking.as_deref(), Some("high"));
     assert_eq!(updated.selected_mode.as_deref(), Some("agent"));
     assert_eq!(provider.create_count(), 0);
+    assert_eq!(provider.config_count(), 0);
+}
+
+#[tokio::test]
+async fn configure_applies_model_and_mode_while_running() {
+    let provider = FakeAgentProvider::new("claude");
+    provider.set_auto_complete(false);
+    let provider = Arc::new(provider);
+    let (_dir, service) = make_service(Arc::clone(&provider));
+    let meta = service.create(create_req("/tmp/proj")).unwrap();
+    let _ = service.send(&meta.id, "running", Vec::new()).await.unwrap();
+
+    let updated = service
+        .configure(
+            &meta.id,
+            None,
+            Some("grok-4".into()),
+            Some("high".into()),
+            Some("plan".into()),
+        )
+        .await
+        .unwrap();
+    assert_eq!(updated.provider_id, "claude");
+    assert_eq!(updated.selected_model.as_deref(), Some("grok-4"));
+    assert_eq!(updated.selected_thinking.as_deref(), Some("high"));
+    assert_eq!(updated.selected_mode.as_deref(), Some("plan"));
+    assert_eq!(provider.config_count(), 1);
+    let applied = provider.last_config().await.expect("live set_config");
+    assert_eq!(applied.model.as_deref(), Some("grok-4"));
+    assert_eq!(applied.thinking.as_deref(), Some("high"));
+    assert_eq!(applied.mode.as_deref(), Some("plan"));
+}
+
+#[tokio::test]
+async fn configure_rejects_agent_change_while_running() {
+    let provider = FakeAgentProvider::new("claude");
+    provider.set_auto_complete(false);
+    let provider = Arc::new(provider);
+    let (_dir, service) = make_service(Arc::clone(&provider));
+    let meta = service.create(create_req("/tmp/proj")).unwrap();
+    let _ = service.send(&meta.id, "running", Vec::new()).await.unwrap();
+
+    let err = service
+        .configure(&meta.id, Some("grok".into()), None, None, None)
+        .await
+        .unwrap_err();
+    assert!(
+        err.to_string().contains("cannot change agent"),
+        "unexpected error: {err}"
+    );
+    assert_eq!(
+        service.get(&meta.id).await.unwrap().meta.provider_id,
+        "claude"
+    );
+    assert_eq!(provider.config_count(), 0);
 }
 
 #[test]
@@ -363,10 +561,10 @@ async fn s13_cancel_does_not_persist_draft() {
     let (_dir, service) = make_service(Arc::clone(&provider));
     let meta = service.create(create_req("/tmp/proj")).unwrap();
     let _ = service.send(&meta.id, "running", Vec::new()).await.unwrap();
-    let before = service.get(&meta.id).unwrap().messages.len();
+    let before = service.get(&meta.id).await.unwrap().messages.len();
     service.cancel(&meta.id).await.unwrap();
     tokio::time::sleep(Duration::from_millis(30)).await;
-    let after = service.get(&meta.id).unwrap();
+    let after = service.get(&meta.id).await.unwrap();
     assert_eq!(after.messages.len(), before);
     assert!(after.running_turn_id.is_none());
 }
@@ -387,7 +585,7 @@ async fn s14_permission_blocks_queue_allows_steer() {
     tokio::time::sleep(Duration::from_millis(30)).await;
     service.queue_add(&meta.id, "later", Vec::new()).unwrap();
     service.steer(&meta.id, &turn_id, "guidance").await.unwrap();
-    let snapshot = service.get(&meta.id).unwrap();
+    let snapshot = service.get(&meta.id).await.unwrap();
     assert!(snapshot
         .messages
         .iter()
@@ -565,7 +763,7 @@ async fn unload_idle_closes_ready_runtime_and_keeps_transcript() {
     })
     .await
     .expect("provider close");
-    let snapshot = service.get(&meta.id).unwrap();
+    let snapshot = service.get(&meta.id).await.unwrap();
     assert!(!snapshot.messages.is_empty());
 }
 
@@ -600,7 +798,7 @@ async fn pump_end_does_not_drop_replacement_runtime() {
     service.cancel(&meta.id).await.unwrap();
     timeout(Duration::from_secs(2), async {
         loop {
-            let snapshot = service.get(&meta.id).unwrap();
+            let snapshot = service.get(&meta.id).await.unwrap();
             if snapshot.running_turn_id.is_none() && !snapshot.messages.is_empty() {
                 return;
             }
@@ -615,6 +813,77 @@ async fn pump_end_does_not_drop_replacement_runtime() {
         .expect("replacement send");
     tokio::time::sleep(Duration::from_millis(40)).await;
     assert!(provider.create_count() + provider.resume_count() >= 1);
-    let snapshot = service.get(&meta.id).unwrap();
+    let snapshot = service.get(&meta.id).await.unwrap();
     assert!(snapshot.running_turn_id.is_some() || !snapshot.messages.is_empty());
+}
+
+fn assistant_texts(snapshot: &super::types::AgentChatSnapshot) -> String {
+    snapshot
+        .messages
+        .iter()
+        .filter(|message| message.role == "assistant")
+        .flat_map(|message| &message.parts)
+        .filter_map(|part| match part {
+            MessagePart::Text { text } => Some(text.as_str()),
+            _ => None,
+        })
+        .collect::<Vec<_>>()
+        .join("")
+}
+
+#[tokio::test]
+async fn get_overlays_unpersisted_live_text_without_duplicate_ids() {
+    let provider = Arc::new(FakeAgentProvider::new("claude"));
+    provider.set_auto_complete(false);
+    let (_dir, service) = make_service(Arc::clone(&provider));
+    let meta = service.create(create_req("/tmp/proj")).unwrap();
+    let _ = service.send(&meta.id, "hello", Vec::new()).await.unwrap();
+
+    timeout(Duration::from_secs(2), async {
+        loop {
+            if provider.events_ready().await {
+                return;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .expect("runtime event channel");
+
+    let assistant_id = uuid::Uuid::new_v4().to_string();
+    provider
+        .push_event(AgentEvent::AssistantMessageDelta {
+            message_id: assistant_id.clone(),
+            delta: "DISK".into(),
+        })
+        .await;
+    tokio::time::sleep(Duration::from_millis(20)).await;
+    provider
+        .push_event(AgentEvent::AssistantMessageDelta {
+            message_id: assistant_id,
+            delta: "LIVE".into(),
+        })
+        .await;
+    tokio::time::sleep(Duration::from_millis(20)).await;
+
+    let disk = service.store().get_snapshot(&meta.id).unwrap();
+    let live = service.get(&meta.id).await.unwrap();
+    let disk_text = assistant_texts(&disk);
+    let live_text = assistant_texts(&live);
+    assert!(
+        live_text.contains("DISK") && live_text.contains("LIVE"),
+        "live snapshot should splice persisted + unpersisted text: live={live_text:?} disk={disk_text:?}"
+    );
+    assert!(
+        live_text.len() >= disk_text.len(),
+        "live snapshot should not drop disk text: live={live_text:?} disk={disk_text:?}"
+    );
+    let mut ids = std::collections::HashSet::new();
+    for message in &live.messages {
+        assert!(
+            ids.insert(message.id.as_str()),
+            "duplicate message id {}",
+            message.id
+        );
+    }
 }

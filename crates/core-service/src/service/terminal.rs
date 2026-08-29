@@ -82,7 +82,7 @@ pub struct TerminalService {
     shims_dir: Option<PathBuf>,
     db: Option<Arc<DatabaseConnection>>,
     /// Optional agent-hooks service so pane destroy can clear hook sessions.
-    agent_hooks: std::sync::RwLock<Option<Arc<super::agent_hooks::AgentHooksService>>>,
+    agent_hooks: std::sync::RwLock<Option<Arc<super::agent_status::AgentStatusService>>>,
     /// Detached pane watchers that keep DEC mouse modes fresh while no browser is attached (APP-054).
     mouse_mode_watches: Arc<MouseModeWatchRegistry>,
     /// APP-055: project-local Run terminal log tee (single writer).
@@ -184,7 +184,7 @@ impl TerminalService {
     }
 
     /// Wire agent-hooks cleanup when terminal panes / tmux windows are destroyed.
-    pub fn set_agent_hooks_service(&self, service: Arc<super::agent_hooks::AgentHooksService>) {
+    pub fn set_agent_status_service(&self, service: Arc<super::agent_status::AgentStatusService>) {
         *self.agent_hooks.write().expect("agent_hooks lock") = Some(service);
     }
 

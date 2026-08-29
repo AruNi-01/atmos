@@ -11,7 +11,7 @@ use std::time::Duration;
 use chrono::{DateTime, Utc};
 use tracing::{debug, warn};
 
-use super::{AgentAttentionLatch, AgentAttentionReason, AgentHookEvent, AgentHooksService};
+use super::{AgentAttentionLatch, AgentAttentionReason, AgentStatusEvent, AgentStatusService};
 
 /// Drop abandoned in-flight generations after this bound so a hung provider
 /// cannot permanently suppress retries for the pane.
@@ -154,7 +154,7 @@ fn is_stale_summary_row(row: &AgentAttentionSummary, now: DateTime<Utc>) -> bool
     }
 }
 
-impl AgentHooksService {
+impl AgentStatusService {
     pub fn get_all_attention_summaries(&self) -> Vec<AgentAttentionSummary> {
         self.summaries.read().values().cloned().collect()
     }
@@ -198,6 +198,9 @@ impl AgentHooksService {
         attention
             .values()
             .filter(|latch| latch.reason == AgentAttentionReason::TaskComplete)
+            .filter(|latch| {
+                !latch.stable_pane_id.starts_with("chat:") && !latch.session_id.starts_with("chat:")
+            })
             .filter(|latch| !summaries.contains_key(&latch.stable_pane_id))
             .filter(|latch| {
                 DateTime::parse_from_rfc3339(&latch.raised_at)
@@ -382,7 +385,7 @@ impl AgentHooksService {
     fn broadcast_summary_updated(&self, summary: AgentAttentionSummary) {
         if let Err(error) = self
             .event_tx
-            .send(AgentHookEvent::AttentionSummaryUpdated(summary))
+            .send(AgentStatusEvent::AttentionSummaryUpdated(summary))
         {
             warn!("Failed to publish attention summary update: {}", error);
         }
@@ -391,7 +394,7 @@ impl AgentHooksService {
     pub(crate) fn broadcast_summary_cleared(&self, stable_pane_ids: Vec<String>) {
         if let Err(error) = self
             .event_tx
-            .send(AgentHookEvent::AttentionSummaryCleared { stable_pane_ids })
+            .send(AgentStatusEvent::AttentionSummaryCleared { stable_pane_ids })
         {
             warn!("Failed to publish attention summary cleared: {}", error);
         }
@@ -401,35 +404,35 @@ impl AgentHooksService {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::service::agent_hooks::{
-        AgentHookState, AgentHooksService, AgentToolType, AtmosContext, StateUpdateKind,
+    use crate::service::agent_status::{
+        AgentOccupancy, AgentStatusContext, AgentStatusService, AgentToolType, OccupancyUpdateKind,
     };
 
-    fn ctx_with_pane(pane_id: &str) -> AtmosContext {
-        AtmosContext {
+    fn ctx_with_pane(pane_id: &str) -> AgentStatusContext {
+        AgentStatusContext {
             pane_id: Some(pane_id.to_string()),
             context_id: Some("ws-1".to_string()),
-            ..AtmosContext::default()
+            ..AgentStatusContext::default()
         }
     }
 
-    fn raise_task_complete(service: &AgentHooksService, pane: &str) {
+    fn raise_task_complete(service: &AgentStatusService, pane: &str) {
         let ctx = ctx_with_pane(pane);
         service.update_state(
             pane,
             AgentToolType::ClaudeCode,
-            AgentHookState::Running,
+            AgentOccupancy::Running,
             Some("/tmp/proj".into()),
             &ctx,
-            StateUpdateKind::NewTurn,
+            OccupancyUpdateKind::NewTurn,
         );
         service.update_state(
             pane,
             AgentToolType::ClaudeCode,
-            AgentHookState::Idle,
+            AgentOccupancy::Idle,
             Some("/tmp/proj".into()),
             &ctx,
-            StateUpdateKind::TerminalIdle,
+            OccupancyUpdateKind::TerminalIdle,
         );
     }
 
@@ -454,7 +457,7 @@ mod tests {
 
     #[test]
     fn due_only_after_delay_and_task_complete() {
-        let service = AgentHooksService::new();
+        let service = AgentStatusService::new();
         raise_task_complete(&service, "ws-1:main");
         // Fresh latch is not due yet for a long delay.
         assert!(service
@@ -468,7 +471,7 @@ mod tests {
 
     #[test]
     fn begin_complete_and_clear_summary_flow() {
-        let service = AgentHooksService::new();
+        let service = AgentStatusService::new();
         raise_task_complete(&service, "ws-1:main");
         let (latch, row, gen) = service.begin_attention_summary("ws-1:main").expect("begin");
         assert_eq!(latch.stable_pane_id, "ws-1:main");
@@ -505,7 +508,7 @@ mod tests {
 
     #[test]
     fn stale_generation_is_ignored() {
-        let service = AgentHooksService::new();
+        let service = AgentStatusService::new();
         raise_task_complete(&service, "ws-1:main");
         let (_, _, gen) = service.begin_attention_summary("ws-1:main").expect("begin");
         assert!(service
@@ -527,15 +530,15 @@ mod tests {
 
     #[test]
     fn permission_latches_are_not_summarized() {
-        let service = AgentHooksService::new();
+        let service = AgentStatusService::new();
         let ctx = ctx_with_pane("ws-1:main");
         service.update_state(
             "ws-1:main",
             AgentToolType::ClaudeCode,
-            AgentHookState::PermissionRequest,
+            AgentOccupancy::PermissionRequest,
             Some("/tmp/proj".into()),
             &ctx,
-            StateUpdateKind::Permission,
+            OccupancyUpdateKind::Permission,
         );
         assert!(service
             .attention_due_for_summary(Duration::from_secs(0))
@@ -545,7 +548,7 @@ mod tests {
 
     #[test]
     fn failed_summary_expires_and_becomes_due_again() {
-        let service = AgentHooksService::new();
+        let service = AgentStatusService::new();
         raise_task_complete(&service, "ws-1:main");
         let (_, _, gen) = service.begin_attention_summary("ws-1:main").expect("begin");
         service
@@ -569,7 +572,7 @@ mod tests {
 
     #[test]
     fn complete_after_focus_ack_still_lands_ready() {
-        let service = AgentHooksService::new();
+        let service = AgentStatusService::new();
         raise_task_complete(&service, "ws-1:main");
         let (_, _, gen) = service.begin_attention_summary("ws-1:main").expect("begin");
         service.clear_attention_for_pane("ws-1:main");

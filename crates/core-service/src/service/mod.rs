@@ -1,5 +1,6 @@
 pub mod agent;
 pub mod agent_hooks;
+pub mod agent_status;
 
 pub mod agent_chat;
 pub mod automation;
