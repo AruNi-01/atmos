@@ -156,7 +156,7 @@ export function OnboardingStepActions({
                 className="rounded-full px-6 font-medium cursor-pointer"
               >
                 {agentsSaving ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-                {t('agents.next')}
+                {agentsSaving ? t('agents.provisioning') : t('agents.next')}
               </Button>
               <Button
                 variant="outline"

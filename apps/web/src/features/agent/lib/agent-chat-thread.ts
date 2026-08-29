@@ -20,6 +20,27 @@ export function thinkingChoices(catalog: AgentModelCatalog | null, modelId: stri
   return [];
 }
 
+export function isCatalogModelsLoading(
+  catalog: AgentModelCatalog | null | undefined,
+  providerId: string,
+): boolean {
+  if (!providerId.trim()) return false;
+  if (!catalog) return true;
+  if (catalog.agent_id && catalog.agent_id !== providerId) return true;
+  return catalog.status === "probing";
+}
+
+export function defaultCatalogModelId(
+  catalog: AgentModelCatalog | null | undefined,
+  currentId = "",
+): string {
+  if (!catalog || catalog.models.length === 0) return currentId;
+  if (currentId && catalog.models.some((model) => model.id === currentId)) {
+    return currentId;
+  }
+  return catalog.models.find((model) => model.is_default)?.id || catalog.models[0]?.id || "";
+}
+
 export function catalogToConfigOptions(
   catalog: AgentModelCatalog | null,
   modelId: string,
@@ -42,19 +63,20 @@ export function catalogToConfigOptions(
       })),
     });
   }
+  const resolvedModelId = defaultCatalogModelId(catalog, modelId);
   if (catalog.models.length > 0) {
     options.push({
       id: "model",
       name: "Model",
       type: "select",
-      currentValue: modelId,
+      currentValue: resolvedModelId,
       options: catalog.models.map((model) => ({
         value: model.id,
         name: model.label || model.id,
       })),
     });
   }
-  const thinking = thinkingChoices(catalog, modelId);
+  const thinking = thinkingChoices(catalog, resolvedModelId);
   if (thinking.length > 0) {
     options.push({
       id: "thinking",

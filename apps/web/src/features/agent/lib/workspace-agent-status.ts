@@ -1,4 +1,4 @@
-import type { AgentHookState } from "@/features/agent/store/agent-hooks-store";
+import type { AgentOccupancy } from "@/features/agent/store/agent-status-store";
 import type { AttentionReason } from "@/features/agent/store/agent-attention-store";
 
 /**
@@ -57,7 +57,7 @@ export function parseWorkspaceAgentGroupKey(value: unknown): WorkspaceAgentGroup
  * the latch and does not time out into `done`.
  */
 export function resolveWorkspaceAgentGroupKey(input: {
-  agentState: AgentHookState;
+  agentState: AgentOccupancy;
   attentionReason: AttentionReason | null;
   groupingHoldActive?: boolean;
 }): WorkspaceAgentGroupKey {
@@ -88,10 +88,10 @@ export function resolveWorkspaceAgentGroupKey(input: {
 export function resolveHydratedWorkspaceAgentGroupKey(input: {
   live: WorkspaceAgentGroupKey;
   server?: WorkspaceAgentGroupKey;
-  hooksHydrated: boolean;
+  statusHydrated: boolean;
 }): WorkspaceAgentGroupKey {
   if (input.live !== "done") return input.live;
-  if (!input.hooksHydrated && input.server && input.server !== "done") {
+  if (!input.statusHydrated && input.server && input.server !== "done") {
     return input.server;
   }
   return input.live;
@@ -106,7 +106,7 @@ export function resolveHydratedWorkspaceAgentGroupKey(input: {
  * 4. Otherwise → nothing
  */
 export function resolveWorkspaceAgentStatusView(input: {
-  agentState: AgentHookState;
+  agentState: AgentOccupancy;
   attentionReason: AttentionReason | null;
   attentionFilterMode: boolean;
 }): WorkspaceAgentStatusView {

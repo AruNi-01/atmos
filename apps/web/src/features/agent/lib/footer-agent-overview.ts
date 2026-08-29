@@ -1,7 +1,7 @@
 import type {
-  AgentHookSession,
+  AgentStatusRecord,
   AgentToolType,
-} from "@/features/agent/store/agent-hooks-store";
+} from "@/features/agent/store/agent-status-store";
 import type { PaneAttention } from "@/features/agent/store/agent-attention-store";
 import {
   resolveWorkspaceAgentGroupKey,
@@ -22,7 +22,7 @@ export type FooterAgentOverviewCounts = Record<FooterAgentOverviewBucket, number
 
 export type FooterAgentOverviewRow = {
   bucket: FooterAgentOverviewBucket;
-  session: AgentHookSession;
+  session: AgentStatusRecord;
 };
 
 const EMPTY_COUNTS: FooterAgentOverviewCounts = {
@@ -41,14 +41,14 @@ function isAgentToolType(value: string | undefined): value is AgentToolType {
 }
 
 /** Session / pane ids used to match hook rows to sticky attention latches. */
-export function footerSessionIdentityKeys(session: AgentHookSession): string[] {
+export function footerSessionIdentityKeys(session: AgentStatusRecord): string[] {
   const keys = [session.session_id?.trim(), session.pane_id?.trim()].filter(
     (key): key is string => Boolean(key),
   );
   return [...new Set(keys)];
 }
 
-function sessionIdentityKeys(session: AgentHookSession): string[] {
+function sessionIdentityKeys(session: AgentStatusRecord): string[] {
   return footerSessionIdentityKeys(session);
 }
 
@@ -66,7 +66,7 @@ function footerBucketFromGroupKey(
 }
 
 function findLatchForSession(
-  session: AgentHookSession,
+  session: AgentStatusRecord,
   latches: readonly PaneAttention[],
 ): PaneAttention | undefined {
   const keys = new Set(sessionIdentityKeys(session));
@@ -76,7 +76,7 @@ function findLatchForSession(
   );
 }
 
-function sessionFromAttentionLatch(latch: PaneAttention): AgentHookSession {
+function sessionFromAttentionLatch(latch: PaneAttention): AgentStatusRecord {
   const tool = isAgentToolType(latch.tool) ? latch.tool : "claude-code";
   return {
     session_id: latch.sessionId || latch.stablePaneId,
@@ -92,7 +92,7 @@ function sessionFromAttentionLatch(latch: PaneAttention): AgentHookSession {
 }
 
 function bucketForSession(
-  session: AgentHookSession,
+  session: AgentStatusRecord,
   latch: PaneAttention | undefined,
 ): FooterAgentOverviewBucket {
   return footerBucketFromGroupKey(
@@ -109,7 +109,7 @@ function bucketForSession(
  * Attention latches without a hook session still count (Need attention / permission).
  */
 export function buildFooterAgentOverview(
-  sessions: Iterable<AgentHookSession>,
+  sessions: Iterable<AgentStatusRecord>,
   attentionPanes: Iterable<PaneAttention>,
 ): { counts: FooterAgentOverviewCounts; rows: FooterAgentOverviewRow[] } {
   const counts = emptyCounts();
@@ -141,7 +141,7 @@ export function buildFooterAgentOverview(
 }
 
 export function countFooterAgentOverview(
-  sessions: Iterable<AgentHookSession>,
+  sessions: Iterable<AgentStatusRecord>,
   attentionPanes: Iterable<PaneAttention>,
 ): FooterAgentOverviewCounts {
   return buildFooterAgentOverview(sessions, attentionPanes).counts;

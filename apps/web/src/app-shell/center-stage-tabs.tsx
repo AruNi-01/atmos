@@ -22,12 +22,12 @@ import {
 import { Command, Inbox, List } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
 import { AgentAttentionIndicator } from "@/features/agent/components/AgentAttentionIndicator";
-import { AgentHookStatusIndicator } from "@/features/agent/components/AgentHookStatusIndicator";
+import { AgentStatusIndicator } from "@/features/agent/components/AgentStatusIndicator";
 import {
   type AttentionReason,
   useAgentAttentionStore,
 } from "@/features/agent/store/agent-attention-store";
-import { AGENT_STATE, useAgentHooksStore } from "@/features/agent/store/agent-hooks-store";
+import { AGENT_STATE, useAgentStatusStore } from "@/features/agent/store/agent-status-store";
 import type { OpenFile } from "@/features/editor/store/use-editor-store";
 import type { CenterStageUiPrefs } from "@/shared/stores/use-ui-pref-hooks";
 import {
@@ -77,8 +77,13 @@ export type TabGroupItem = {
     | "review"
     | "run"
     | "files"
-    | "pt-design";
+    | "pt-design"
+    | "agent-chat";
   file?: OpenFile;
+  /** Agent chat id (kind === "agent-chat"). Draft tabs have none. */
+  chatId?: string | null;
+  /** Agent provider id for the chat tab icon (kind === "agent-chat"). */
+  providerId?: string | null;
   /** Center browser instance id (for kind === "browser"). */
   browserId?: string;
   /** Internal preview browser tab id (for kind === "browser"). */
@@ -137,7 +142,7 @@ export function FileIcon({ name, className }: { name: string; className?: string
 
 // Inner component: only subscribes to agent store, receives pane IDs as stable prop.
 function TerminalTabAgentIndicator({ stablePaneIds }: { stablePaneIds: string[] }) {
-  const state = useAgentHooksStore((s) => {
+  const state = useAgentStatusStore((s) => {
     if (stablePaneIds.length === 0) return AGENT_STATE.IDLE;
     let hasRunning = false;
     for (const stablePaneId of stablePaneIds) {
@@ -161,7 +166,7 @@ function TerminalTabAgentIndicator({ stablePaneIds }: { stablePaneIds: string[] 
   // Live run/permission indicator takes precedence when active.
   if (state !== AGENT_STATE.IDLE) {
     return (
-      <AgentHookStatusIndicator
+      <AgentStatusIndicator
         state={state}
         variant="compact"
         placement="center_terminal"
@@ -187,6 +192,36 @@ export function TerminalTabAgentIndicatorWithPanes({ contextId, tabId }: { conte
     })
   );
   return <TerminalTabAgentIndicator stablePaneIds={stablePaneIds} />;
+}
+
+export function AgentChatTabStatusIndicator({ chatId }: { chatId: string }) {
+  const state = useAgentStatusStore((s) => s.getAgentStateForChatId(chatId));
+  const attentionReason = useAgentAttentionStore((s) => {
+    const keys = [`chat:${chatId}`, chatId];
+    let best: AttentionReason | null = null;
+    for (const id of keys) {
+      const reason = s.panes.get(id)?.reason;
+      if (!reason) continue;
+      if (reason === "permission_request") return "permission_request" as const;
+      best = reason;
+    }
+    return best;
+  });
+
+  if (state !== AGENT_STATE.IDLE) {
+    return (
+      <AgentStatusIndicator
+        state={state}
+        variant="compact"
+        placement="center_terminal"
+        className="ml-0.5"
+      />
+    );
+  }
+  if (attentionReason) {
+    return <AgentAttentionIndicator reason={attentionReason} className="ml-0.5" size={12} />;
+  }
+  return null;
 }
 
 const TAB_GROUP_LABEL_SELECTOR = "[data-tab-group-label]";

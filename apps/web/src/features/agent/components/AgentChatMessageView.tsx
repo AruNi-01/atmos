@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import {
   Attachments,
   Attachment,
@@ -12,6 +12,7 @@ import {
 } from "@workspace/ui";
 import type { AgentMessage } from "@atmos/api-types/ws/dto/agent-chat";
 import { assistantCopyText, textFromParts } from "@/features/agent/lib/agent-chat-events";
+import { formatUserMessageTime } from "@/features/agent/lib/agent-chat-timing";
 import { MessageCopyButton } from "./CopyButtons";
 import { AssistantMessageView } from "./AssistantMessageView";
 import { AgentWorkedForLabel } from "./AgentWorkedForLabel";
@@ -32,7 +33,9 @@ export const AgentChatMessageView = React.memo(function AgentChatMessageView({
   registryId: string;
 }) {
   const t = useTranslations("Agent.components.chatPanel");
+  const locale = useLocale();
   const userText = textFromParts(message.parts);
+  const userTime = formatUserMessageTime(message.created_at, locale);
   const assistantText = assistantCopyText(message);
   const files = message.parts.flatMap((part) => {
     if (part.type !== "attachment" || !part.path) return [];
@@ -54,14 +57,8 @@ export const AgentChatMessageView = React.memo(function AgentChatMessageView({
     >
       {message.role === "user" ? (
         <div className="group relative">
-          <MessageCopyButton
-            text={userText}
-            ariaLabel={t("copy.userAria")}
-            title={t("copy.message")}
-            className="absolute right-1 top-1 z-10 inline-flex h-6 w-6 items-center justify-center rounded-md border border-border/60 bg-background/80 p-0 text-muted-foreground opacity-0 transition-all hover:text-foreground group-hover:opacity-100"
-          />
-          <Message from="user">
-            <MessageContent>
+          <Message from="user" className="gap-1">
+            <MessageContent rounded="2xl">
               {files.length > 0 && (
                 <Attachments variant="inline" className="mb-2">
                   {files.map((file) => (
@@ -79,6 +76,26 @@ export const AgentChatMessageView = React.memo(function AgentChatMessageView({
                 {userText}
               </div>
             </MessageContent>
+            {userTime || userText.trim() ? (
+              <div className="flex items-center justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                {userTime ? (
+                  <time
+                    dateTime={message.created_at}
+                    className="whitespace-nowrap text-[11px] text-muted-foreground"
+                  >
+                    {userTime}
+                  </time>
+                ) : null}
+                {userText.trim() ? (
+                  <MessageCopyButton
+                    text={userText}
+                    ariaLabel={t("copy.userAria")}
+                    title={t("copy.message")}
+                    className="inline-flex size-6 items-center justify-center rounded-md p-0 text-muted-foreground hover:bg-muted hover:text-foreground"
+                  />
+                ) : null}
+              </div>
+            ) : null}
           </Message>
         </div>
       ) : (
@@ -92,7 +109,7 @@ export const AgentChatMessageView = React.memo(function AgentChatMessageView({
                     text={assistantText}
                     ariaLabel={t("copy.assistantAria")}
                     title={t("copy.message")}
-                    className="inline-flex items-center gap-1 rounded-md border border-border/60 px-2 py-1 text-xs text-muted-foreground hover:text-foreground"
+                    className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
                   />
                 ) : null}
                 {message.worked_ms != null && message.worked_ms > 0 ? (

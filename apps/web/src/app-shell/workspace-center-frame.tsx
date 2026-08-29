@@ -801,6 +801,7 @@ function WorkspaceCenterFrameImpl({
             <AgentChatWorkspace
               variant="center"
               instanceKey={tab.value}
+              paintContextId={contextId}
               chatId={tab.chatId}
               onChatStarted={(chatId, meta) => {
                 useAgentChatCenterTabsStore.getState().bindChat({

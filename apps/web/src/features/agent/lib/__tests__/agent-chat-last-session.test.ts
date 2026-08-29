@@ -19,6 +19,9 @@ describe("agent chat last session", () => {
       "workspace:ws-1:default:instance:agent-chat:draft:1",
     );
     expect(agentChatInstanceKey("ws-1", null, "default", null)).toBeNull();
+    expect(agentChatInstanceKey(null, null, "default", "footer-modal")).toBe(
+      "temp:default:instance:footer-modal",
+    );
   });
 
   it("restores history for a surface without an instance, but not into a fresh draft tab", () => {

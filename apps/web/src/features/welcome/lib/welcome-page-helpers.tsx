@@ -87,8 +87,14 @@ export function useDebouncedPopoverQuery(
       setDebouncedQuery("");
       return;
     }
+    const next = popover.query.trim();
+    // Empty `@` / `/` should list immediately instead of waiting on debounce.
+    if (!next) {
+      setDebouncedQuery("");
+      return;
+    }
     const timer = setTimeout(() => {
-      setDebouncedQuery(popover.query.trim());
+      setDebouncedQuery(next);
     }, delayMs);
     return () => clearTimeout(timer);
   }, [delayMs, popover]);

@@ -2,12 +2,12 @@ import { beforeEach, describe, expect, test } from "bun:test";
 import { useAgentAttentionStore } from "./agent-attention-store";
 import {
   AGENT_STATE,
-  useAgentHooksStore,
-  type AgentHookSession,
-} from "./agent-hooks-store";
+  useAgentStatusStore,
+  type AgentStatusRecord,
+} from "./agent-status-store";
 import { useWorkspaceAgentGroupingHoldStore } from "./workspace-agent-grouping-hold";
 
-function runningSession(contextId: string): AgentHookSession {
+function runningSession(contextId: string): AgentStatusRecord {
   return {
     session_id: `${contextId}:agent`,
     tool: "claude-code",
@@ -19,10 +19,10 @@ function runningSession(contextId: string): AgentHookSession {
 }
 
 beforeEach(() => {
-  useAgentHooksStore.setState({
+  useAgentStatusStore.setState({
     sessions: new Map(),
     serverWorkspaceGroupKeys: {},
-    hooksHydrated: false,
+    statusHydrated: false,
   });
   useAgentAttentionStore.setState({
     panes: new Map(),
@@ -35,10 +35,10 @@ beforeEach(() => {
 
 describe("resetForConnectionChange", () => {
   test("drops sessions and grouping snapshot so a Computer switch cannot leak buckets", () => {
-    useAgentHooksStore.setState({
+    useAgentStatusStore.setState({
       sessions: new Map([["ws-1:agent", runningSession("ws-1")]]),
       serverWorkspaceGroupKeys: { "ws-1": "running" },
-      hooksHydrated: true,
+      statusHydrated: true,
     });
     useAgentAttentionStore.getState().raise({
       stablePaneId: "ws-1:agent",
@@ -47,12 +47,12 @@ describe("resetForConnectionChange", () => {
     });
     useWorkspaceAgentGroupingHoldStore.getState().beginHold("ws-1");
 
-    useAgentHooksStore.getState().resetForConnectionChange();
+    useAgentStatusStore.getState().resetForConnectionChange();
 
-    const hooks = useAgentHooksStore.getState();
+    const hooks = useAgentStatusStore.getState();
     expect(hooks.sessions.size).toBe(0);
     expect(hooks.serverWorkspaceGroupKeys).toEqual({});
-    expect(hooks.hooksHydrated).toBe(false);
+    expect(hooks.statusHydrated).toBe(false);
     expect(useAgentAttentionStore.getState().panes.size).toBe(0);
     expect(
       useWorkspaceAgentGroupingHoldStore.getState().isHoldActive("ws-1"),

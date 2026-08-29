@@ -7,6 +7,7 @@ import type { SubAgentToolCallBlock } from "@/features/agent/lib/agent/subagent"
 import { SubAgentBlockView } from "./SubAgentBlockView";
 import { TerminalBlock } from "./TerminalBlock";
 import { AgentToolResultBlock } from "./tool-results";
+import type { AgentToolSurface } from "./tool-results/AgentToolCard";
 
 function asSubAgentBlock(part: AgentToolCallPart): SubAgentToolCallBlock {
   return {
@@ -22,7 +23,7 @@ function asSubAgentBlock(part: AgentToolCallPart): SubAgentToolCallBlock {
 }
 
 export function childToolToPart(child: SubAgentToolCallBlock): AgentToolCallPart {
-  const classified = classifyTool(child.tool, child.description, child.raw_input);
+  const classified = classifyTool(child.tool, child.description, child.raw_input, child.raw_output);
   return {
     type: "tool_call",
     tool_call_id: child.tool_call_id,
@@ -39,16 +40,18 @@ export function childToolToPart(child: SubAgentToolCallBlock): AgentToolCallPart
 export function ToolView({
   part,
   registryId,
+  surface = "plain",
 }: {
   part: AgentToolCallPart;
   registryId?: string;
+  surface?: AgentToolSurface;
 }) {
   if (part.kind === "subagent" && registryId) {
     const subAgent = normalizeSubAgent(asSubAgentBlock(part), registryId);
     if (subAgent) return <SubAgentBlockView message={subAgent} />;
   }
   if (part.kind === "execute") {
-    return <TerminalBlock part={part} />;
+    return <TerminalBlock part={part} surface={surface} />;
   }
-  return <AgentToolResultBlock part={part} />;
+  return <AgentToolResultBlock part={part} surface={surface} />;
 }

@@ -1,44 +1,17 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { TextShimmer } from "@workspace/ui";
+import {
+  ActivityIndicator,
+  ActivityIndicatorGroup,
+} from "@workspace/ui";
 import type { AgentActivity } from "../lib/chat-helpers";
 import { formatWorkDuration } from "../lib/agent-chat-timing";
 
-const SPINNER_NAMES = [
-  "braille", "helix", "scan", "cascade", "orbit",
-  "snake", "breathe", "pulse", "dna", "rain",
+const STREAM_ORB_GROUPS = [
+  ActivityIndicatorGroup.Lattice,
+  ActivityIndicatorGroup.Ring,
+  ActivityIndicatorGroup.Helix,
 ] as const;
-
-function useUnicodeSpinner() {
-  const [frame, setFrame] = useState(0);
-  const [spinner, setSpinner] = useState<{ frames: readonly string[]; interval: number } | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    const name = SPINNER_NAMES[Math.floor(Math.random() * SPINNER_NAMES.length)];
-
-    import("unicode-animations").then((mod) => {
-      if (cancelled) return;
-      const spinners = mod.default ?? mod;
-      const s = spinners[name as keyof typeof spinners];
-      if (s) setSpinner(s);
-    });
-
-    return () => { cancelled = true; };
-  }, []);
-
-  useEffect(() => {
-    if (!spinner) return;
-    const timer = setInterval(() => {
-      setFrame((f) => f + 1);
-    }, spinner.interval);
-    return () => clearInterval(timer);
-  }, [spinner]);
-
-  if (!spinner) return "⠋";
-  return spinner.frames[frame % spinner.frames.length];
-}
 
 export function AgentActivityIndicator({
   activity,
@@ -47,23 +20,21 @@ export function AgentActivityIndicator({
   activity: AgentActivity & { busy: true };
   elapsedMs?: number;
 }) {
-  const spinnerChar = useUnicodeSpinner();
+  const thinking = activity.kind === "thinking";
 
   return (
-    <div className="flex items-center gap-2 px-1 py-1.5 text-sm">
-      <span className="inline-flex items-center font-mono text-sm leading-none text-muted-foreground/80 dark:text-muted-foreground">
-        {spinnerChar}
-      </span>
-      <TextShimmer
-        as="span"
-        className="translate-y-px text-sm"
-        duration={1.5}
-      >
-        {`${activity.label}...`}
-      </TextShimmer>
-      <span className="translate-y-px font-mono text-xs tabular-nums text-muted-foreground">
-        {formatWorkDuration(elapsedMs)}
-      </span>
+    <div className="px-1 py-1.5">
+      <ActivityIndicator
+        style={thinking ? "stars" : "random"}
+        random={thinking ? undefined : STREAM_ORB_GROUPS}
+        size={20}
+        label={`${activity.label}...`}
+        trailing={
+          <span className="translate-y-px font-mono text-xs tabular-nums text-muted-foreground">
+            {formatWorkDuration(elapsedMs)}
+          </span>
+        }
+      />
     </div>
   );
 }

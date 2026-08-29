@@ -764,6 +764,7 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
     setSkillDisableFilter("");
     setSkillDisableSessionActions([]);
     setExpandedSections({
+      commands: false,
       skills: false,
       projects: false,
       agents: false,
@@ -777,6 +778,7 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
     setSkillDisableFilter("");
     setSkillDisableSessionActions([]);
     setExpandedSections({
+      commands: false,
       skills: false,
       projects: false,
       agents: false,

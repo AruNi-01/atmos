@@ -19,12 +19,20 @@ describe("agent composer triggers", () => {
     expect(replaceTextareaTrigger("see /comp", 4, 4, "")).toBe("see ");
   });
 
-  it("does not leave the selected ACP command as plain composer text", () => {
+  it("inserts selected slash commands and mentions as PromptComposer chips", () => {
     const source = readFileSync(
       join(import.meta.dir, "../../hooks/use-agent-composer-popovers.tsx"),
       "utf8",
     );
-    expect(source).toContain('replaceTextareaTrigger(current, popover.slashOffset, popover.query.length, "")');
-    expect(source).not.toContain("`/${command.id} `");
+    expect(source).toContain("applyMentionAtRange");
+    expect(source).toContain("applySlashAtRange");
+    expect(source).toContain('kind: "command"');
+    expect(source).toContain('kind: "file"');
+    expect(source).toContain('kind: "skill"');
+    expect(source).not.toContain("replaceTextareaTrigger");
+    expect(source).not.toContain("onAtCancel: closePopovers");
+    expect(source).not.toContain("onSlashCancel: closePopovers");
+    expect(source).toContain("commandsTitle");
+    expect(source).toContain("slashPopover.agentCommands");
   });
 });

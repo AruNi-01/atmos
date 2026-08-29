@@ -15,8 +15,14 @@ import {
   useDebouncedPopoverQuery,
   type MentionFileCandidate,
 } from "@/features/welcome/lib/welcome-page-helpers";
-import { filterMentionFileCandidates } from "@/features/welcome/lib/mention-file-search";
-import { scrollActiveListItemIntoView } from "@/features/welcome/lib/popover-list-scroll";
+import {
+  filterMentionFileCandidates,
+  isImmediateMentionListingQuery,
+} from "@/features/welcome/lib/mention-file-search";
+import {
+  isPopoverConfirmKey,
+  scrollActiveListItemIntoView,
+} from "@/features/welcome/lib/popover-list-scroll";
 
 export function useWelcomeMentionSearch({
   issuePreview,
@@ -34,7 +40,11 @@ export function useWelcomeMentionSearch({
   const [projectTreeEntries, setProjectTreeEntries] = React.useState<MentionFileCandidate[]>([]);
   const [isMentionFilesLoading, setIsMentionFilesLoading] = React.useState(false);
   const [activeMentionFileIndex, setActiveMentionFileIndex] = React.useState(0);
+  const liveMentionQuery = popover?.query ?? "";
   const debouncedMentionQuery = useDebouncedPopoverQuery(popover, 500);
+  const mentionQuery = isImmediateMentionListingQuery(liveMentionQuery)
+    ? liveMentionQuery
+    : debouncedMentionQuery;
   const mentionPopoverListRef = React.useRef<HTMLDivElement | null>(null);
   const mentionItemRefs = React.useRef<Array<HTMLButtonElement | null>>([]);
   const setMentionItemRef = React.useCallback(
@@ -72,8 +82,8 @@ export function useWelcomeMentionSearch({
   }, [selectedProjectPath]);
 
   const mentionFiles = React.useMemo(() => {
-    return filterMentionFileCandidates(projectTreeEntries, debouncedMentionQuery);
-  }, [debouncedMentionQuery, projectTreeEntries]);
+    return filterMentionFileCandidates(projectTreeEntries, mentionQuery);
+  }, [mentionQuery, projectTreeEntries]);
 
   const mentionNavItems = React.useMemo<MentionNavItem[]>(() => {
     const items: MentionNavItem[] = [];
@@ -116,7 +126,10 @@ export function useWelcomeMentionSearch({
         );
         return;
       }
-      if (event.key === "Enter") {
+      if (event.key === "Tab") {
+        event.preventDefault();
+      }
+      if (isPopoverConfirmKey(event)) {
         const item = mentionNavItems[activeMentionFileIndex];
         if (!item) return;
         event.preventDefault();

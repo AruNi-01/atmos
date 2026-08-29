@@ -32,6 +32,7 @@ export const agentChatApi = {
     provider_id: string;
     workspace_id?: string | null;
     project_id?: string | null;
+    space_id?: string | null;
     cwd?: string | null;
     model?: string | null;
     thinking?: string | null;

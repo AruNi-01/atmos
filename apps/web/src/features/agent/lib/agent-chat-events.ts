@@ -43,7 +43,11 @@ function mergeToolPart(
 function upsertMessage(messages: AgentMessage[], message: AgentMessage): AgentMessage[] {
   const exists = messages.some((item) => item.id === message.id);
   if (!exists) return [...messages, message];
-  return messages.map((item) => (item.id === message.id ? message : item));
+  return messages.map((item) =>
+    item.id === message.id
+      ? { ...message, created_at: message.created_at ?? item.created_at }
+      : item,
+  );
 }
 
 function lastUserIndex(messages: AgentMessage[]): number {
@@ -88,6 +92,10 @@ function patchCurrentTurnAssistant(
     ? messages.slice(0, start).some((item) => item.id === preferred)
     : false;
   const id = preferred && !taken ? preferred : `${preferred || "assistant"}:${messages[start - 1]?.id ?? messages.length}`;
+  const duplicate = messages.findIndex((item) => item.id === id);
+  if (duplicate >= 0) {
+    return messages.map((item, index) => (index === duplicate ? patch(item) : item));
+  }
   return [
     ...messages,
     patch({
@@ -103,14 +111,160 @@ function appendTextPart(parts: AgentPart[], type: "text" | "thinking", delta: st
   const next = [...parts];
   const last = next[next.length - 1];
   if (last && last.type === type) {
-    next[next.length - 1] = { type, text: `${last.text ?? ""}${delta}` };
+    next[next.length - 1] = { ...last, type, text: `${last.text ?? ""}${delta}` };
     return next;
   }
   next.push({ type, text: delta });
   return next;
 }
 
+function stampThinkingPart(
+  parts: AgentPart[],
+  durationMs: number | null | undefined,
+): AgentPart[] {
+  if (durationMs == null || durationMs <= 0) return parts;
+  const next = [...parts];
+  for (let index = next.length - 1; index >= 0; index -= 1) {
+    const part = next[index];
+    if (part?.type !== "thinking") continue;
+    next[index] = {
+      ...part,
+      duration_ms: part.duration_ms != null && part.duration_ms > 0
+        ? part.duration_ms + durationMs
+        : durationMs,
+    };
+    break;
+  }
+  return next;
+}
+
+export function dedupeAgentMessages(messages: AgentMessage[]): AgentMessage[] {
+  const seen = new Set<string>();
+  let hasDuplicate = false;
+  for (const message of messages) {
+    if (seen.has(message.id)) {
+      hasDuplicate = true;
+      break;
+    }
+    seen.add(message.id);
+  }
+  if (!hasDuplicate) return messages;
+
+  const result: AgentMessage[] = [];
+  const indexById = new Map<string, number>();
+  for (const message of messages) {
+    const existingIndex = indexById.get(message.id);
+    if (existingIndex === undefined) {
+      indexById.set(message.id, result.length);
+      result.push(message);
+      continue;
+    }
+    const userBetween = result.slice(existingIndex + 1).some((item) => item.role === "user");
+    if (!userBetween) {
+      result[existingIndex] = mergeSameIdMessages(result[existingIndex]!, message);
+      continue;
+    }
+    let nextId = `${message.id}:${result.length}`;
+    while (indexById.has(nextId)) nextId = `${nextId}:dup`;
+    indexById.set(nextId, result.length);
+    result.push({ ...message, id: nextId });
+  }
+  return result;
+}
+
+function mergeSameIdMessages(previous: AgentMessage, incoming: AgentMessage): AgentMessage {
+  const parts = [...previous.parts];
+  for (const part of incoming.parts) {
+    if (part.type === "text") {
+      const index = parts.findIndex((item) => item.type === "text");
+      if (index >= 0 && parts[index]?.type === "text") {
+        const existing = parts[index].text ?? "";
+        const next = part.text ?? "";
+        parts[index] = {
+          type: "text",
+          text: next.startsWith(existing)
+            ? next
+            : existing.startsWith(next)
+              ? existing
+              : next.length >= existing.length
+                ? next
+                : existing,
+        };
+      } else {
+        parts.push(part);
+      }
+      continue;
+    }
+    if (part.type === "tool_call") {
+      const index = parts.findIndex(
+        (item) => item.type === "tool_call" && item.tool_call_id === part.tool_call_id,
+      );
+      if (index >= 0) parts[index] = { ...parts[index], ...part };
+      else parts.push(part);
+      continue;
+    }
+    if (part.type === "thinking") {
+      const index = parts.findIndex(
+        (item) => item.type === "thinking" && item.tool_call_id === part.tool_call_id,
+      );
+      if (index >= 0 && parts[index]?.type === "thinking") {
+        const existing = parts[index].text ?? "";
+        const next = part.text ?? "";
+        parts[index] = {
+          ...parts[index],
+          text: next.startsWith(existing)
+            ? next
+            : existing.startsWith(next)
+              ? existing
+              : next.length >= existing.length
+                ? next
+                : existing,
+        };
+      } else {
+        parts.push(part);
+      }
+      continue;
+    }
+    parts.push(part);
+  }
+  return {
+    ...previous,
+    ...incoming,
+    id: previous.id,
+    created_at: incoming.created_at ?? previous.created_at,
+    parts,
+    streaming: incoming.streaming ?? previous.streaming,
+  };
+}
+
+export function hydrateAgentChatMessages(
+  persisted: AgentMessage[],
+  liveEvents: AgentChatEvent[],
+  chatId: string,
+  afterSequence: number,
+): AgentMessage[] {
+  let messages = dedupeAgentMessages(
+    persisted.map((message) => ({
+      ...message,
+      parts: message.parts ?? [],
+    })),
+  );
+  for (const event of liveEvents) {
+    if (typeof event.sequence === "number" && event.sequence <= afterSequence) continue;
+    messages = foldMessagesFromEvent(messages, event, chatId);
+  }
+  return messages;
+}
+
 export function foldMessagesFromEvent(
+  messages: AgentMessage[],
+  event: AgentChatEvent,
+  chatId: string,
+): AgentMessage[] {
+  return dedupeAgentMessages(foldAgentChatEvent(messages, event, chatId));
+}
+
+function foldAgentChatEvent(
   messages: AgentMessage[],
   event: AgentChatEvent,
   chatId: string,
@@ -133,6 +287,7 @@ export function foldMessagesFromEvent(
       role: "user",
       kind: payload.kind,
       parts,
+      created_at: payload.created_at,
     }).map((item) =>
       item.role === "assistant" ? { ...item, streaming: false } : item,
     );
@@ -160,7 +315,10 @@ export function foldMessagesFromEvent(
   if (payload.type === "thinking_completed") {
     return patchCurrentTurnAssistant(messages, payload.message_id, (message) => ({
       ...message,
-      thinking_ms: payload.thinking_ms ?? message.thinking_ms,
+      parts: stampThinkingPart(message.parts, payload.thinking_ms),
+      thinking_ms: payload.thinking_ms != null
+        ? (message.thinking_ms ?? 0) + payload.thinking_ms
+        : message.thinking_ms,
     }));
   }
 
@@ -210,7 +368,12 @@ export function foldMessagesFromEvent(
     const name = isGenericToolLabel(tool.name) && existingTool ? existingTool.name : (tool.name || "Tool");
     const classified = existingThinking && isGenericToolLabel(tool.name)
       ? { type: "thinking" as const }
-      : classifyTool(name, tool.title ?? existingTool?.title, tool.input ?? existingTool?.input);
+      : classifyTool(
+        name,
+        tool.title ?? existingTool?.title,
+        tool.input ?? existingTool?.input,
+        tool.output ?? existingTool?.output ?? tool.content ?? existingTool?.content,
+      );
     if (classified.type === "hide") return messages;
     if (classified.type === "thinking") {
       const text = thinkingText(tool);
@@ -241,7 +404,14 @@ export function foldMessagesFromEvent(
       tool_call_id: tool.tool_call_id,
       name,
       title: tool.title,
-      status: tool.status,
+      status: tool.status
+        ?? (payload.type === "tool_call_started"
+          ? "running"
+          : payload.type === "tool_call_completed"
+            ? "completed"
+            : payload.type === "tool_call_failed"
+              ? "failed"
+              : undefined),
       kind: classified.kind,
       input: tool.input,
       output: tool.output,
@@ -271,6 +441,23 @@ export function foldMessagesFromEvent(
         return { ...message, streaming: true, parts };
       }
       return { ...message, streaming: true, parts: [...message.parts, planPart] };
+    });
+  }
+
+  if (payload.type === "session_lifecycle") {
+    return patchCurrentTurnAssistant(messages, payload.message_id, (message) => {
+      const next: AgentPart = {
+        type: "session_lifecycle",
+        action: payload.action,
+        status: payload.status,
+        duration_ms: payload.duration_ms,
+        error: payload.error,
+      };
+      const parts = [...message.parts];
+      const existing = parts.findIndex((row) => row.type === "session_lifecycle");
+      if (existing >= 0) parts[existing] = next;
+      else parts.unshift(next);
+      return { ...message, streaming: true, parts };
     });
   }
 

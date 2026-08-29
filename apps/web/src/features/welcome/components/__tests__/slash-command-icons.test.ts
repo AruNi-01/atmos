@@ -25,6 +25,8 @@ describe("composer slash command icons", () => {
     );
     expect(popover).toContain("<Zap className=\"size-4\" />");
     expect(popover).not.toContain("MessageCirclePlus");
+    expect(popover).toContain("expandedSections.commands");
+    expect(popover).toContain("commandsTitle");
   });
 
   it("Browser Use static icon is app-window + pointer (not monitor)", () => {

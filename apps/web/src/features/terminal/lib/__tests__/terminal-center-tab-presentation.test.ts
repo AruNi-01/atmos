@@ -125,7 +125,7 @@ describe("resolveTerminalCenterTabPresentation", () => {
     });
   });
 
-  it("mirrors the single pane agent + stable session OSC (not live churn)", () => {
+  it("mirrors the single pane agent icon + stable session OSC (not live churn)", () => {
     const panes = {
       a: pane({
         id: "a",
@@ -141,7 +141,8 @@ describe("resolveTerminalCenterTabPresentation", () => {
       layout: "a",
       configuredAgents: [claudeAgent],
     });
-    expect(result.displayTitle).toBe("Claude Code | debugging auth");
+    expect(result.displayTitle).toBe("debugging auth");
+    expect(result.displayTitle).not.toContain("|");
     expect(result.sessionOscTitle).toBe("debugging auth");
     expect(result.toolbarAgent?.id).toBe("claude");
     expect(result.sourcePaneId).toBe("a");
@@ -164,7 +165,8 @@ describe("resolveTerminalCenterTabPresentation", () => {
       layout: "a",
       configuredAgents: [grokAgent],
     });
-    expect(result.displayTitle).toBe("Grok Build | Optimize Terminal Tab");
+    expect(result.displayTitle).toBe("Optimize Terminal Tab");
+    expect(result.displayTitle).not.toContain("|");
     expect(result.sessionOscTitle).toBe("Optimize Terminal Tab");
     expect(result.displayTitle).not.toContain("Responding");
     expect(result.displayTitle).not.toContain("Action Required");
@@ -189,7 +191,8 @@ describe("resolveTerminalCenterTabPresentation", () => {
       configuredAgents: [grokAgent],
       previousSessionOscByPaneId: { a: "Optimize Terminal Tab" },
     });
-    expect(result.displayTitle).toBe("Grok Build | Optimize Terminal Tab");
+    expect(result.displayTitle).toBe("Optimize Terminal Tab");
+    expect(result.displayTitle).not.toContain("|");
     expect(result.sessionOscTitle).toBe("Optimize Terminal Tab");
   });
 
@@ -212,9 +215,29 @@ describe("resolveTerminalCenterTabPresentation", () => {
     });
     expect(result.displayTitle).toBe("Grok Build");
     expect(result.sessionOscTitle).toBeUndefined();
+    expect(result.toolbarAgent?.id).toBe("grok-build");
   });
 
-  it("hides agent name but keeps agent icon and stable session OSC without a pipe", () => {
+  it("shows the agent name when the pane has no session topic or cwd", () => {
+    const panes = {
+      a: pane({
+        id: "a",
+        label: "Claude Code",
+        agent: claudeAgent,
+        dynamicTitle: "claude",
+      }),
+    };
+    const result = resolveTerminalCenterTabPresentation({
+      fallbackTitle: "Term",
+      panes,
+      layout: "a",
+      configuredAgents: [claudeAgent],
+    });
+    expect(result.displayTitle).toBe("Claude Code");
+    expect(result.toolbarAgent?.id).toBe("claude");
+  });
+
+  it("does not prefix the agent name onto a session topic", () => {
     const panes = {
       a: pane({
         id: "a",
@@ -229,10 +252,9 @@ describe("resolveTerminalCenterTabPresentation", () => {
       panes,
       layout: "a",
       configuredAgents: [claudeAgent],
-      showAgentName: false,
     });
     expect(result.displayTitle).toBe("debugging auth");
-    expect(result.displayTitle).not.toContain("|");
+    expect(result.displayTitle).not.toContain("Claude Code");
     expect(result.toolbarAgent?.id).toBe("claude");
   });
 
@@ -308,7 +330,24 @@ describe("resolveTerminalCenterTabPresentation", () => {
         { configuredAgents: [claudeAgent] },
       ),
     ).toEqual({
-      displayTitle: "Claude Code | debugging auth",
+      displayTitle: "debugging auth",
+      toolbarAgent: expect.objectContaining({ id: "claude" }),
+    });
+  });
+
+  it("falls back to the agent name on the toolbar when there is no OSC", () => {
+    expect(
+      resolvePaneToolbarTitle(
+        pane({
+          id: "a",
+          label: "Claude Code",
+          agent: claudeAgent,
+          dynamicTitle: "claude",
+        }),
+        { configuredAgents: [claudeAgent] },
+      ),
+    ).toEqual({
+      displayTitle: "Claude Code",
       toolbarAgent: expect.objectContaining({ id: "claude" }),
     });
   });
@@ -328,6 +367,19 @@ describe("resolveTerminalCenterTabPresentation", () => {
       resolvePaneTitleForCenterTab(panes.a, { configuredAgents: [claudeAgent] }),
     ).toEqual({
       displayTitle: "Review · Claude Code",
+      toolbarAgent: expect.objectContaining({ id: "claude" }),
+      sessionOscTitle: undefined,
+    });
+    expect(
+      resolvePaneTitleForCenterTab(
+        pane({
+          ...panes.a,
+          keepAgentName: false,
+        }),
+        { configuredAgents: [claudeAgent] },
+      ),
+    ).toEqual({
+      displayTitle: "Review",
       toolbarAgent: expect.objectContaining({ id: "claude" }),
       sessionOscTitle: undefined,
     });

@@ -11,12 +11,14 @@ import {
   buildSharedDiffViewOptions,
   getAtmosDiffThemeType,
 } from "@/features/diff/lib/diff-view-constants";
+import { getToolKindIcon } from "@/features/agent/lib/chat-helpers";
 import { useDisplayToolTitle } from "../agent-chat-cwd-context";
 import { AgentToolCodePreview } from "./AgentToolCodePreview";
 import {
   AgentToolCard,
   AgentToolDiffStats,
-  AgentToolFileGlyph,
+  AgentToolFileChip,
+  type AgentToolSurface,
 } from "./AgentToolCard";
 
 function countDiffLines(oldFile: FileContents, newFile: FileContents) {
@@ -61,6 +63,7 @@ export function AgentToolDiffResult({
   patch,
   status,
   defaultOpen = false,
+  surface = "card",
 }: {
   path: string;
   title?: string;
@@ -69,6 +72,7 @@ export function AgentToolDiffResult({
   patch?: string;
   status?: string;
   defaultOpen?: boolean;
+  surface?: AgentToolSurface;
 }) {
   const t = useTranslations("Agent.components.toolResults");
   const displayTitle = useDisplayToolTitle();
@@ -113,9 +117,12 @@ export function AgentToolDiffResult({
   return (
     <AgentToolCard
       variant="tool"
-      icon={<AgentToolFileGlyph path={path} />}
-      title={displayTitle(title || path, path)}
+      surface={surface}
+      body="plain"
+      icon={getToolKindIcon("edit")}
+      title={!oldContent && newContent ? t("created") : displayTitle(title || t("file"), path)}
       titleTooltip={path}
+      accessory={<AgentToolFileChip path={path} />}
       status={status}
       defaultOpen={defaultOpen}
       meta={<AgentToolDiffStats additions={stats.additions} deletions={stats.deletions} />}

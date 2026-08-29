@@ -688,13 +688,10 @@ const SETTINGS_TOPIC_ITEMS: Record<string, readonly SettingsSearchItemDefinition
   ],
   agents: [
     settingsModalSearchItem("codeAgent.defaults", {
-      keywords: ["defaults", "launch flags", "yolo", "agent name", "terminal titles"],
+      keywords: ["defaults", "launch flags", "yolo"],
     }),
     settingsModalSearchItem("codeAgent.yoloMode", {
       keywords: ["yolo", "skip-permissions", "auto-approve", "dangerously-skip-permissions", "restore yolo"],
-    }),
-    settingsModalSearchItem("codeAgent.showAgentNameInTerminalTitles", {
-      keywords: ["agent name", "terminal titles", "terminal tabs", "agent icon", "brand name"],
     }),
     settingsModalSearchItem("codeAgent.activityIndicators", {
       keywords: ["running-state icon", "unicode spinner", "orbs", "left sidebar", "footer"],
@@ -1063,7 +1060,7 @@ const SETTINGS_TOPIC_ITEMS: Record<string, readonly SettingsSearchItemDefinition
       ],
     }),
     settingsModalSearchItem("shortcuts.centerStageTabsShortcuts", {
-      keywords: ["overview tab", "tab position", "switch tab", "center stage tab"],
+      keywords: ["overview tab", "tab position", "switch tab", "center stage tab", "agent chat", "focus prompt"],
     }),
     settingsModalSearchItem("shortcuts.terminalShortcuts", {
       keywords: ["split terminal", "new terminal tab", "close terminal pane", "find in terminal"],

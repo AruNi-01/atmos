@@ -83,3 +83,28 @@ export function collectDiffGroupTabs(
 
   return diffTabs;
 }
+
+export type AgentChatGroupTabInput = {
+  id: string;
+  value: string;
+  title: string;
+  chatId: string | null;
+  providerId: string | null;
+  openedAt: number;
+};
+
+/** Chat center tabs in open order (oldest first), matching the strip default. */
+export function collectAgentChatGroupTabs(
+  tabs: readonly AgentChatGroupTabInput[],
+): TabGroupItem[] {
+  return [...tabs]
+    .sort((left, right) => left.openedAt - right.openedAt)
+    .map((tab) => ({
+      id: tab.id,
+      label: tab.title,
+      value: tab.value,
+      kind: "agent-chat" as const,
+      chatId: tab.chatId,
+      providerId: tab.providerId,
+    }));
+}

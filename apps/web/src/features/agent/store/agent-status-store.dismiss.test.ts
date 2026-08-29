@@ -3,9 +3,10 @@ import {
   collectIdleSessionIdsForPane,
   collectSessionIdsForPane,
   findSessionForPaneId,
+  resolveAgentStateForChatId,
   resolveAgentStateForPaneId,
   type IdleDismissableSession,
-} from "./agent-hooks-idle";
+} from "./agent-status-idle";
 
 function idleSession(
   overrides: Partial<IdleDismissableSession> & Pick<IdleDismissableSession, "session_id">,
@@ -143,5 +144,23 @@ describe("resolveAgentStateForPaneId", () => {
       ],
     ]);
     expect(resolveAgentStateForPaneId(sessions, "ws-1:main")).toBe("idle");
+  });
+});
+
+describe("resolveAgentStateForChatId", () => {
+  test("matches chat: session ids and surface_id", () => {
+    const sessions = new Map([
+      [
+        "chat:chat-1",
+        {
+          session_id: "chat:chat-1",
+          state: "running",
+          surface: "chat" as const,
+          surface_id: "chat-1",
+        },
+      ],
+    ]);
+    expect(resolveAgentStateForChatId(sessions, "chat-1")).toBe("running");
+    expect(resolveAgentStateForChatId(sessions, "other")).toBe("idle");
   });
 });

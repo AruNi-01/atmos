@@ -98,7 +98,8 @@ export const AgentCard = React.memo<AgentCardProps>(function AgentCard({
               <p className="text-xs text-muted-foreground/70 tabular-nums">
                 v{item.version}
               </p>
-              {item.installed &&
+              {item.can_remove !== false &&
+                item.installed &&
                 item.installed_version &&
                 needsUpdate(item.installed_version, item.version) && (
                   <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium">
@@ -113,7 +114,8 @@ export const AgentCard = React.memo<AgentCardProps>(function AgentCard({
             "rounded-full border px-2.5 py-0.5 text-[10px] font-medium",
             !item.installed
               ? "border-primary/20 bg-primary/10 text-primary"
-              : item.installed_version &&
+              : item.can_remove !== false &&
+                  item.installed_version &&
                   needsUpdate(item.installed_version, item.version)
                 ? "border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400"
                 : "border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
@@ -121,10 +123,13 @@ export const AgentCard = React.memo<AgentCardProps>(function AgentCard({
         >
           {!item.installed
             ? t("managerCards.status.available")
-            : item.installed_version &&
+            : item.can_remove !== false &&
+                item.installed_version &&
                 needsUpdate(item.installed_version, item.version)
               ? t("managerCards.status.updateAvailable")
-              : t("managerCards.status.installed")}
+              : item.provision_kind === "native" && item.can_remove === false
+                ? t("managerCards.status.usingInstalledCli")
+                : t("managerCards.status.installed")}
         </span>
       </div>
 
@@ -177,7 +182,8 @@ export const AgentCard = React.memo<AgentCardProps>(function AgentCard({
             </Button>
           ) : (
             <div className="flex items-center gap-2">
-              {item.installed_version &&
+              {item.can_remove !== false &&
+                item.installed_version &&
                 needsUpdate(item.installed_version, item.version) && (
                   <Button
                     size="sm"
@@ -199,27 +205,29 @@ export const AgentCard = React.memo<AgentCardProps>(function AgentCard({
                     )}
                   </Button>
                 )}
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() =>
-                  onRemoveRequest({ registryId: item.id, name: item.name })
-                }
-                disabled={removingRegistryId === item.id}
-                className="h-8 rounded-lg px-4 text-xs bg-muted/50 hover:bg-destructive/10 hover:text-destructive hover:border-destructive/20 border-transparent"
-              >
-                {removingRegistryId === item.id ? (
-                  <>
-                    <Loader2 className="mr-1 size-3 animate-spin" />
-                    {t("managerCards.actions.removing")}
-                  </>
-                ) : (
-                  <>
-                    <Trash2 className="mr-1 size-3.5" />
-                    {t("common.remove")}
-                  </>
-                )}
-              </Button>
+              {item.can_remove !== false ? (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() =>
+                    onRemoveRequest({ registryId: item.id, name: item.name })
+                  }
+                  disabled={removingRegistryId === item.id}
+                  className="h-8 rounded-lg px-4 text-xs bg-muted/50 hover:bg-destructive/10 hover:text-destructive hover:border-destructive/20 border-transparent"
+                >
+                  {removingRegistryId === item.id ? (
+                    <>
+                      <Loader2 className="mr-1 size-3 animate-spin" />
+                      {t("managerCards.actions.removing")}
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="mr-1 size-3.5" />
+                      {t("common.remove")}
+                    </>
+                  )}
+                </Button>
+              ) : null}
             </div>
           )}
         </div>

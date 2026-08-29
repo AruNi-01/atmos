@@ -123,6 +123,7 @@ interface BuildGlobalSearchItemsParams {
   bindWorkspace: (jobId: string, workspaceId: string, label?: string | null) => void;
   failCreating: (jobId: string) => void;
   createOriginKey: string;
+  openModalAgentChat?: () => void;
 }
 
 export function buildGlobalSearchItems({
@@ -153,6 +154,7 @@ export function buildGlobalSearchItems({
   bindWorkspace,
   failCreating,
   createOriginKey,
+  openModalAgentChat,
 }: BuildGlobalSearchItemsParams): AppSearchItem[] {
   const items: AppSearchItem[] = [];
   const setPendingSettingsHighlight = (query: string | null) => {
@@ -336,7 +338,7 @@ export function buildGlobalSearchItems({
       keywords: ["chat", "agent", "panel", "ai", "assistant", "message", "conversation", "open", "acp"],
       icon: <Bot className="size-4 text-muted-foreground" />,
       action: () => {
-        router.push("/agent-chat");
+        openModalAgentChat?.();
         setGlobalSearchOpen(false);
       },
     });

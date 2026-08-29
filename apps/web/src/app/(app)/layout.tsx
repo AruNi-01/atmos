@@ -6,6 +6,7 @@ import { HostedBootstrapBoundary } from "@/app-shell/HostedAppShellGate";
 import { DocumentTitle } from "@/app-shell/DocumentTitle";
 import { SidebarLayoutProvider } from "@/app-shell/SidebarLayoutContext";
 import { CanvasOverlay } from "@/features/canvas/components/CanvasOverlay";
+import { ModalAgentChatPanel } from "@/features/agent/components/ModalAgentChatPanel";
 import { ConnectionBootstrapper } from "@/app-shell/bootstrap/ConnectionBootstrapper";
 import { DiffWorkerPoolProvider } from "@/features/diff/components/DiffWorkerPoolProvider";
 import { OnboardingGate } from "@/app-shell/OnboardingGate";
@@ -51,6 +52,8 @@ export default function AppLayout({ children }: Props) {
                 <AppShellMain />
 
                 <GlobalSearch />
+
+                <ModalAgentChatPanel />
 
                 <DocumentTitle />
 

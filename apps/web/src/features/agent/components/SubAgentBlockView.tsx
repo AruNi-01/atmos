@@ -7,7 +7,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@workspace/ui";
-import { ChevronDown } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import type { AtmosSubAgentMessage } from "@/features/agent/lib/agent/subagent";
 import { MarkdownRenderer } from "@/shared/components/markdown/MarkdownRenderer";
 import { childToolToPart, ToolView } from "./ToolView";
@@ -59,7 +59,7 @@ export function SubAgentBlockView({ message }: { message: AtmosSubAgentMessage }
   if (!hasDetails) {
     return (
       <div className="w-full overflow-hidden rounded-xl border border-border/70 bg-muted/10 shadow-sm">
-        <div className="flex items-center gap-3 px-4 py-3 text-left">
+        <div className="flex items-center gap-3 px-4 py-3 text-left" data-tree-header>
           <div className="flex min-w-0 flex-1 flex-col">
             <span className="text-sm font-semibold text-foreground">{message.title}</span>
             <span className="truncate text-xs text-muted-foreground">{message.description}</span>
@@ -78,6 +78,7 @@ export function SubAgentBlockView({ message }: { message: AtmosSubAgentMessage }
         <button
           type="button"
           className="flex w-full items-center gap-3 border-b border-border/50 px-4 py-3 text-left"
+          data-tree-header
         >
           <div className="flex min-w-0 flex-1 flex-col">
             <span className="text-sm font-semibold text-foreground">{message.title}</span>
@@ -86,7 +87,7 @@ export function SubAgentBlockView({ message }: { message: AtmosSubAgentMessage }
           <span className="shrink-0 rounded-full border border-border/60 bg-background px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
             {statusLabel}
           </span>
-          <ChevronDown className={`size-4 shrink-0 text-muted-foreground transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
+          <ChevronRight className={`size-4 shrink-0 text-muted-foreground transition-transform duration-200 ${isOpen ? "rotate-90" : ""}`} />
         </button>
       </CollapsibleTrigger>
 
@@ -100,7 +101,7 @@ export function SubAgentBlockView({ message }: { message: AtmosSubAgentMessage }
                 className="flex w-full items-center gap-3 px-3 py-2 text-left"
               >
                 <span className="flex-1 text-sm font-medium text-muted-foreground">{t("subAgent.promptTitle")}</span>
-                <ChevronDown className={`size-4 shrink-0 text-muted-foreground transition-transform duration-200 ${isPromptOpen ? "rotate-180" : ""}`} />
+                <ChevronRight className={`size-4 shrink-0 text-muted-foreground transition-transform duration-200 ${isPromptOpen ? "rotate-90" : ""}`} />
               </button>
               {isPromptOpen ? (
                 <div className="border-t border-border/50 p-3">
@@ -122,7 +123,7 @@ export function SubAgentBlockView({ message }: { message: AtmosSubAgentMessage }
                 className="flex w-full items-center gap-3 px-3 py-2 text-left"
               >
                 <span className="flex-1 text-sm font-medium text-muted-foreground">{toolUsesLabel}</span>
-                <ChevronDown className={`size-4 shrink-0 text-muted-foreground transition-transform duration-200 ${isToolUsesOpen ? "rotate-180" : ""}`} />
+                <ChevronRight className={`size-4 shrink-0 text-muted-foreground transition-transform duration-200 ${isToolUsesOpen ? "rotate-90" : ""}`} />
               </button>
               {isToolUsesOpen ? (
                 <div className="space-y-3 border-t border-border/50 p-3">

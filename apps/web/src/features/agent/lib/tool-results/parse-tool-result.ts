@@ -1,10 +1,17 @@
 import type { AgentToolCallContentItem } from "@/features/agent/hooks/use-agent-session";
 import { isDiffObject, isDiffString } from "@/features/agent/lib/chat-helpers";
+import { parseLoadedToolNames } from "@/features/agent/lib/agent-tool-kind";
 
 export type SearchHit = {
   path: string;
   line?: number;
   text: string;
+};
+
+export type WebResultLink = {
+  url: string;
+  title: string;
+  snippet?: string;
 };
 
 export type TreeEntry = {
@@ -36,6 +43,8 @@ export type ToolPresentation =
   | { kind: "patch"; path: string | null; patch: string }
   | { kind: "code"; path: string | null; language: string; code: string; hint?: "new" | "deleted" }
   | { kind: "search"; hits: SearchHit[] }
+  | { kind: "web_search"; query: string; links: WebResultLink[] }
+  | { kind: "web_fetch"; url: string; title?: string; markdown?: string; text?: string }
   | { kind: "files"; paths: string[] }
   | { kind: "tree"; entries: TreeEntry[] }
   | { kind: "markdown"; markdown: string }
@@ -99,7 +108,9 @@ const EXT_TO_LANG: Record<string, string> = {
 
 const PATH_KEYS = [
   "file_path",
+  "filePath",
   "target_file",
+  "targetFile",
   "absolute_path",
   "path",
   "file",
@@ -109,7 +120,10 @@ const PATH_KEYS = [
   "dir_path",
   "directory",
   "target_directory",
+  "relative_path",
+  "relativePath",
 ] as const;
+const NESTED_INPUT_KEYS = ["args", "parameters", "input", "FileContent", "file_content", "Content"] as const;
 const FROM_KEYS = ["from", "old_path", "source", "src"] as const;
 const TO_KEYS = ["to", "new_path", "destination", "dest", "dst"] as const;
 const SKIP_INPUT_KEYS = new Set([
@@ -272,12 +286,26 @@ function isEditTool(tool: string): boolean {
   );
 }
 
+function isWebFetchTool(tool: string): boolean {
+  const normalized = normalizeTool(tool);
+  return toolEquals(tool, "fetch", "web_fetch", "webfetch", "html_fetch", "open_url", "browse_page", "browse")
+    || normalized.includes("web_fetch")
+    || normalized.includes("browse_page")
+    || (normalized.endsWith("_fetch") && !normalized.includes("search"));
+}
+
+function isWebSearchTool(tool: string): boolean {
+  const normalized = normalizeTool(tool);
+  return toolEquals(tool, "web_search", "websearch", "web_search_preview")
+    || normalized.includes("web_search");
+}
+
 function isFetchTool(tool: string): boolean {
-  return toolEquals(tool, "fetch", "web_fetch", "webfetch", "web_search", "websearch");
+  return isWebFetchTool(tool);
 }
 
 function isSearchTool(tool: string): boolean {
-  if (isFetchTool(tool)) return false;
+  if (isFetchTool(tool) || isWebSearchTool(tool)) return false;
   return toolEquals(
     tool,
     "search",
@@ -303,6 +331,275 @@ function isMoveTool(tool: string): boolean {
 
 function isDeleteTool(tool: string): boolean {
   return toolEquals(tool, "delete", "remove", "rm");
+}
+
+function looksLikeHttpUrl(value: string): boolean {
+  return /^https?:\/\//i.test(value.trim());
+}
+
+function recordFromUnknown(value: unknown): Record<string, unknown> | null {
+  const direct = asRecord(value);
+  if (direct) return direct;
+  if (typeof value !== "string" || !looksLikeJson(value)) return null;
+  try {
+    return asRecord(JSON.parse(value) as unknown);
+  } catch {
+    return null;
+  }
+}
+
+const WEB_FETCH_ACTIONS = new Set([
+  "fetch",
+  "open",
+  "open_url",
+  "open_page",
+  "visit",
+  "navigate",
+  "browse",
+]);
+
+function webActionTypeOf(input: unknown): string {
+  const action = recordFromUnknown(recordFromUnknown(input)?.action);
+  const type = typeof action?.type === "string" ? action.type.trim().toLowerCase() : "";
+  return type;
+}
+
+export function hostFromUrl(url: string): string | null {
+  try {
+    return new URL(url).hostname || null;
+  } catch {
+    return null;
+  }
+}
+
+function titleFromUrl(url: string): string {
+  try {
+    const parsed = new URL(url);
+    return `${parsed.hostname}${parsed.pathname === "/" ? "" : parsed.pathname}`;
+  } catch {
+    return url;
+  }
+}
+
+function uniqueWebLinks(links: WebResultLink[]): WebResultLink[] {
+  const seen = new Set<string>();
+  const unique: WebResultLink[] = [];
+  for (const link of links) {
+    const key = link.url.trim();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    unique.push(link);
+  }
+  return unique;
+}
+
+function webLinkFromUnknown(value: unknown): WebResultLink | null {
+  if (typeof value === "string" && looksLikeHttpUrl(value)) {
+    const url = value.trim();
+    return { url, title: titleFromUrl(url) };
+  }
+  const record = asRecord(value);
+  if (!record) return null;
+  const url = stringField(record, ["url", "uri", "href", "link", "source"]);
+  if (!url || !looksLikeHttpUrl(url)) return null;
+  const title = stringField(record, ["title", "name", "text"]) ?? titleFromUrl(url);
+  const snippet = stringField(record, ["snippet", "description", "content", "summary"]);
+  return { url, title, snippet: snippet ?? undefined };
+}
+
+function collectWebLinkLists(value: unknown): unknown[] {
+  const items: unknown[] = [];
+  if (Array.isArray(value)) {
+    items.push(...value);
+    return items;
+  }
+  const record = recordFromUnknown(value);
+  if (!record) return items;
+  for (const key of ["results", "sources", "items", "links", "organic", "citations"]) {
+    if (Array.isArray(record[key])) items.push(...(record[key] as unknown[]));
+  }
+  const webPages = asRecord(record.webPages);
+  if (Array.isArray(webPages?.value)) items.push(...(webPages.value as unknown[]));
+  const action = asRecord(record.action);
+  if (Array.isArray(action?.sources)) items.push(...(action.sources as unknown[]));
+  if (Array.isArray(action?.results)) items.push(...(action.results as unknown[]));
+  return items;
+}
+
+function webLinksFromValue(value: unknown): WebResultLink[] {
+  return uniqueWebLinks(collectWebLinkLists(value).flatMap((item) => {
+    const link = webLinkFromUnknown(item);
+    return link ? [link] : [];
+  }));
+}
+
+function webLinksFromMarkdown(text: string): WebResultLink[] {
+  const links: WebResultLink[] = [];
+  const markdown = /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/gi;
+  let match: RegExpExecArray | null = markdown.exec(text);
+  while (match) {
+    links.push({ url: match[2], title: match[1].trim() || titleFromUrl(match[2]) });
+    match = markdown.exec(text);
+  }
+  const bare = /https?:\/\/[^\s)|<\]]+/gi;
+  match = bare.exec(text);
+  while (match) {
+    const url = match[0].replace(/[.,;]+$/, "");
+    links.push({ url, title: titleFromUrl(url) });
+    match = bare.exec(text);
+  }
+  return uniqueWebLinks(links);
+}
+
+function webLinksFromUrlBlocks(text: string): WebResultLink[] {
+  const links: WebResultLink[] = [];
+  const block = /\*\*(.+?)\*\*[^\n]*\n+\s*URL:\s*(https?:\/\/[^\s]+)/gi;
+  let match: RegExpExecArray | null = block.exec(text);
+  while (match) {
+    const url = match[2].replace(/[.,;]+$/, "");
+    if (looksLikeHttpUrl(url)) {
+      links.push({ url, title: match[1].trim() || titleFromUrl(url) });
+    }
+    match = block.exec(text);
+  }
+  return uniqueWebLinks(links);
+}
+
+function extractWebQueryFromText(text: string): string {
+  const match = text.match(/^\s*web search results for:\s*"?([^"\n]+)"?\s*$/im);
+  return match?.[1]?.trim() ?? "";
+}
+
+function looksLikeWebSearchResultsText(text: string): boolean {
+  if (/^\s*web search results for:/im.test(text)) return true;
+  return /\*\*[^*]+\*\*[^\n]*\n+\s*URL:\s*https?:\/\//i.test(text);
+}
+
+function extractWebQuery(input: unknown): string {
+  const record = recordFromUnknown(input);
+  const action = asRecord(record?.action);
+  const keys = ["query", "q", "search_term", "search_query", "search", "question"] as const;
+  return stringField(record, keys)
+    ?? stringField(action, keys)
+    ?? "";
+}
+
+function extractWebUrl(input: unknown, output: unknown): string {
+  const records = [
+    recordFromUnknown(input),
+    asRecord(recordFromUnknown(input)?.action),
+    recordFromUnknown(output),
+    asRecord(recordFromUnknown(output)?.action),
+  ];
+  for (const record of records) {
+    const url = stringField(record, ["url", "uri", "href"]);
+    if (url && looksLikeHttpUrl(url)) return url;
+  }
+  return "";
+}
+
+function looksLikeWebSearch(
+  tool: string,
+  input: unknown,
+  links: WebResultLink[],
+  primaryText: string | null,
+): boolean {
+  if (WEB_FETCH_ACTIONS.has(webActionTypeOf(input))) return false;
+  if (isWebSearchTool(tool)) return true;
+  const actionType = webActionTypeOf(input);
+  if (actionType === "search" || actionType === "web_search") return true;
+  if (primaryText && looksLikeWebSearchResultsText(primaryText) && links.length > 0) return true;
+  return extractWebQuery(input).length > 0 && links.length > 0;
+}
+
+function looksLikeUrlContentDump(text: string): boolean {
+  return /^\s*URL Content from:\s*"?https?:\/\//im.test(text);
+}
+
+function parseUrlContentDump(text: string): {
+  url: string;
+  title?: string;
+  markdown?: string;
+  text?: string;
+} | null {
+  const header = text.match(/^\s*URL Content from:\s*"?(https?:\/\/[^"\s]+)"?\s*$/im);
+  if (!header) return null;
+  const url = header[1];
+  const title = text.match(/^\s*Title:\s*(.+)$/im)?.[1]?.trim();
+  const parts = text.split(/^\s*Markdown content:\s*$/im);
+  const body = parts.length > 1 ? parts.slice(1).join("").trim() : "";
+  if (body && looksLikeMarkdown(body)) {
+    return { url, title, markdown: body };
+  }
+  if (body) return { url, title, text: body };
+  return { url, title };
+}
+
+function looksLikeWebFetch(tool: string, input: unknown, url: string, primaryText: string | null): boolean {
+  if (isWebFetchTool(tool)) return true;
+  if (WEB_FETCH_ACTIONS.has(webActionTypeOf(input))) return true;
+  if (primaryText && looksLikeUrlContentDump(primaryText)) return true;
+  return Boolean(url) && (Boolean(extractWebUrl(input, null)) || isFetchTool(tool));
+}
+
+function parseWebSearchPresentation(
+  tool: string,
+  input: unknown,
+  output: unknown,
+  primaryText: string | null,
+): Extract<ToolPresentation, { kind: "web_search" }> | null {
+  const links = uniqueWebLinks([
+    ...(primaryText ? webLinksFromUrlBlocks(primaryText) : []),
+    ...webLinksFromValue(output),
+    ...(primaryText ? webLinksFromMarkdown(primaryText) : []),
+    ...webLinksFromValue(input),
+  ]);
+  const query = extractWebQuery(input)
+    || (primaryText ? extractWebQueryFromText(primaryText) : "");
+  if (!looksLikeWebSearch(tool, input, links, primaryText)) return null;
+  if (!query && links.length === 0) return null;
+  return { kind: "web_search", query, links };
+}
+
+function parseWebFetchPresentation(
+  tool: string,
+  input: unknown,
+  output: unknown,
+  primaryText: string | null,
+): Extract<ToolPresentation, { kind: "web_fetch" }> | null {
+  const dump = primaryText ? parseUrlContentDump(primaryText) : null;
+  const url = dump?.url
+    || extractWebUrl(input, output)
+    || webLinksFromValue(input)[0]?.url
+    || webLinksFromValue(output)[0]?.url
+    || (primaryText ? webLinksFromMarkdown(primaryText)[0]?.url : "")
+    || "";
+  if (!looksLikeWebFetch(tool, input, url, primaryText) || !url) return null;
+  const title = dump?.title
+    || webLinksFromValue(output)[0]?.title
+    || stringField(asRecord(output), ["title", "name"])
+    || titleFromUrl(url);
+  if (dump) {
+    return {
+      kind: "web_fetch",
+      url,
+      title,
+      markdown: dump.markdown,
+      text: dump.text,
+    };
+  }
+  const actionEnvelope = Boolean(recordFromUnknown(primaryText)?.action)
+    || Boolean(recordFromUnknown(output)?.action);
+  if (actionEnvelope) {
+    return { kind: "web_fetch", url, title };
+  }
+  if (primaryText && looksLikeMarkdown(primaryText)) {
+    return { kind: "web_fetch", url, title, markdown: primaryText };
+  }
+  if (primaryText) {
+    return { kind: "web_fetch", url, title, text: primaryText };
+  }
+  return { kind: "web_fetch", url, title };
 }
 
 function isThinkTool(tool: string): boolean {
@@ -611,10 +908,15 @@ function lineRangeFrom(
 ): ToolLineRange | null {
   const offset = numberField(output, ["offset"]) ?? numberField(input, ["offset"]);
   const limit = numberField(output, ["limit"]) ?? numberField(input, ["limit"]);
+  const startLine = numberField(output, ["start_line", "startLine", "line", "start"])
+    ?? numberField(input, ["start_line", "startLine", "line", "start"]);
+  const endLine = numberField(output, ["end_line", "endLine", "end"])
+    ?? numberField(input, ["end_line", "endLine", "end"]);
   const total = numberField(output, ["total_lines", "totalLines"]) ?? undefined;
-  if (offset == null && limit == null) return null;
-  const start = Math.max(1, offset ?? 1);
-  const requestedEnd = limit != null ? start + Math.max(0, limit) - 1 : (total ?? start);
+  if (offset == null && limit == null && startLine == null && endLine == null) return null;
+  const start = Math.max(1, startLine ?? offset ?? 1);
+  const requestedEnd = endLine
+    ?? (limit != null ? start + Math.max(0, limit) - 1 : (total ?? start));
   const end = total != null ? Math.min(requestedEnd, total) : requestedEnd;
   if (start <= 1 && total != null && end >= total) return null;
   return { start, end, total };
@@ -776,11 +1078,30 @@ function extractErrorText(args: {
   return null;
 }
 
+function pathFromDescription(description?: string): string | null {
+  if (!description) return null;
+  const match = description.match(
+    /^(?:read(?:file)?|view(?:_file)?|read_file|listdir|list_dir):\s+(.+)$/i,
+  );
+  const path = match?.[1]?.trim();
+  return path && looksLikePath(path) ? path : null;
+}
+
+function recordWithNestedInputs(value: unknown): Record<string, unknown> | null {
+  const record = asRecord(value);
+  if (!record) return null;
+  for (const key of NESTED_INPUT_KEYS) {
+    const nested = asRecord(record[key]);
+    if (nested) return { ...record, ...nested };
+  }
+  return record;
+}
+
 export function extractPath(
   rawInput: unknown,
   content?: AgentToolCallContentItem[],
 ): string | null {
-  const fromInput = stringField(asRecord(rawInput), PATH_KEYS);
+  const fromInput = stringField(recordWithNestedInputs(rawInput), PATH_KEYS);
   if (fromInput) return fromInput;
   const diff = (content ?? []).find((item) => item.type === "diff");
   if (diff && diff.type === "diff" && diff.path?.trim()) return diff.path;
@@ -880,7 +1201,7 @@ function looksLikeFileBody(text: string): boolean {
 }
 
 function hasSearchQuery(record: Record<string, unknown> | null): boolean {
-  return stringField(record, ["pattern", "glob", "query", "regex"]) != null;
+  return stringField(record, ["pattern", "glob", "query", "regex", "q", "search", "search_term"]) != null;
 }
 
 function applySearchOutput(text: string): ToolPresentation | null {
@@ -901,6 +1222,8 @@ function presentationHidesInput(presentation: ToolPresentation): boolean {
     case "markdown":
     case "files":
     case "search":
+    case "web_search":
+    case "web_fetch":
     case "tree":
       return true;
     default:
@@ -923,10 +1246,13 @@ export function parseToolResult(block: {
   const resolvedTool = !isGenericToolName(block.tool)
     ? block.tool
     : (inputEnvelope?.toolType ?? outputEnvelope?.toolType ?? block.tool);
-  const resolvedInput = inputEnvelope?.payload ?? block.raw_input;
+  const resolvedInput = recordWithNestedInputs(inputEnvelope?.payload ?? block.raw_input)
+    ?? inputEnvelope?.payload
+    ?? block.raw_input;
   const resolvedOutput = outputEnvelope?.payload ?? block.raw_output;
   const path = extractPath(resolvedInput, block.content)
-    ?? extractPath(resolvedOutput, block.content);
+    ?? extractPath(resolvedOutput, block.content)
+    ?? pathFromDescription(block.description);
   const inputRows = flattenInputRows(resolvedInput);
   const failed = (block.status ?? "").toLowerCase() === "failed";
   const contentText = extractContentText(block.content);
@@ -957,6 +1283,8 @@ export function parseToolResult(block: {
       ? { kind: "search" as const, hits: structuredHits }
       : (primaryText ? applySearchOutput(primaryText) : null);
     const treeEntries = primaryText ? parseListDirTree(primaryText) : null;
+    const webSearch = parseWebSearchPresentation(resolvedTool, resolvedInput, resolvedOutput, primaryText);
+    const webFetch = parseWebFetchPresentation(resolvedTool, resolvedInput, resolvedOutput, primaryText);
 
     if (todos && (isTodoTool(resolvedTool) || parseTodos(resolvedInput))) {
       presentation = { kind: "todos", todos };
@@ -964,20 +1292,23 @@ export function parseToolResult(block: {
       presentation = { kind: "move", from, to };
     } else if (isDeleteTool(resolvedTool) && path) {
       presentation = { kind: "delete", path };
+    } else if (webSearch) {
+      presentation = webSearch;
+    } else if (webFetch) {
+      presentation = webFetch;
     } else if (isListDirTool(resolvedTool) && treeEntries) {
       presentation = { kind: "tree", entries: treeEntries };
     } else if (isListDirTool(resolvedTool) && primaryText) {
       presentation = { kind: "text", text: primaryText };
-    } else if (isFetchTool(resolvedTool) && primaryText) {
-      presentation = looksLikeMarkdown(primaryText)
-        ? { kind: "markdown", markdown: primaryText }
-        : { kind: "text", text: primaryText };
     } else if (isSearchTool(resolvedTool) && searchPresentation) {
       presentation = searchPresentation;
     } else if (isSearchTool(resolvedTool) && primaryText) {
       presentation = { kind: "text", text: primaryText };
     } else if (searchPresentation && (hasSearchQuery(inputRecord) || searchPresentation.kind === "search")) {
       presentation = searchPresentation;
+    } else if (parseLoadedToolNames(primaryText) || parseLoadedToolNames(resolvedOutput)) {
+      const names = parseLoadedToolNames(primaryText) ?? parseLoadedToolNames(resolvedOutput) ?? [];
+      presentation = { kind: "text", text: names.join(", ") };
     } else if (isReadTool(resolvedTool) && primaryText) {
       presentation = {
         kind: "code",
@@ -1034,8 +1365,15 @@ export function parseToolResult(block: {
       description: block.description,
       contentText,
     });
-    if (presentation.kind !== "diff" && presentation.kind !== "patch") {
+    if (
+      presentation.kind !== "diff"
+      && presentation.kind !== "patch"
+      && presentation.kind !== "web_search"
+      && presentation.kind !== "web_fetch"
+    ) {
       presentation = { kind: "error", text: errorText ?? contentText ?? "" };
+    } else if (presentation.kind === "web_fetch" && errorText) {
+      presentation = { ...presentation, text: errorText };
     }
   }
 

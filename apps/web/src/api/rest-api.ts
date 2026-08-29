@@ -639,46 +639,48 @@ export const agentHooksApi = {
     );
   },
 
+  /** Resolve contested short CLI names (e.g. bare `agent`) to a product owner. */
+  getCliIdentity: async (command = 'agent'): Promise<CliIdentityResponse> => {
+    return fetchHooksApi<CliIdentityResponse>(
+      `/hooks/cli-identity?command=${encodeURIComponent(command)}`,
+    );
+  },
+};
+
+export const agentStatusApi = {
   forceSessionIdle: async (sessionId: string): Promise<{ ok: boolean }> => {
     return fetchHooksApi<{ ok: boolean }>(
-      `/hooks/sessions/${encodeURIComponent(sessionId)}/force-idle`,
+      `/agent-status/sessions/${encodeURIComponent(sessionId)}/force-idle`,
       { method: 'POST' },
     );
   },
 
   removeSession: async (sessionId: string): Promise<{ ok: boolean }> => {
     return fetchHooksApi<{ ok: boolean }>(
-      `/hooks/sessions/${encodeURIComponent(sessionId)}`,
+      `/agent-status/sessions/${encodeURIComponent(sessionId)}`,
       { method: 'DELETE' },
     );
   },
 
-  /** Sticky need-attention latches held in API memory (survives browser refresh). */
   listAttention: async (): Promise<{ attention: AgentAttentionLatchDto[] }> => {
-    return fetchHooksApi<{ attention: AgentAttentionLatchDto[] }>('/hooks/attention');
+    return fetchHooksApi<{ attention: AgentAttentionLatchDto[] }>('/agent-status/attention');
   },
 
-  /**
-   * Workspace Agent grouping snapshot held in API memory (sessions + attention).
-   * Survives browser refresh until the local API process restarts.
-   */
   listWorkspaceAgentGroups: async (): Promise<{
     groups: WorkspaceAgentGroupSnapshotDto[];
   }> => {
     return fetchHooksApi<{ groups: WorkspaceAgentGroupSnapshotDto[] }>(
-      '/hooks/workspace-agent-groups',
+      '/agent-status/workspace-agent-groups',
     );
   },
 
   clearAttention: async (input: {
     stablePaneId?: string;
     stablePaneIds?: string[];
-    /** RFC3339: only clear latches raised at or before this (dismiss race guard). */
     notAfter?: string;
-    /** Also drop auto-summary chrome. Focus-ack omits this; Dismiss / send set it. */
     dismissSummary?: boolean;
   }): Promise<{ cleared: string[] }> => {
-    return fetchHooksApi<{ cleared: string[] }>('/hooks/attention/clear', {
+    return fetchHooksApi<{ cleared: string[] }>('/agent-status/attention/clear', {
       method: 'POST',
       body: JSON.stringify({
         stable_pane_id: input.stablePaneId,
@@ -689,19 +691,11 @@ export const agentHooksApi = {
     });
   },
 
-  /** Unattended task-complete auto-summaries held in API memory. */
   listAttentionSummaries: async (): Promise<{
     summaries: AgentAttentionSummaryDto[];
   }> => {
     return fetchHooksApi<{ summaries: AgentAttentionSummaryDto[] }>(
-      '/hooks/attention/summaries',
-    );
-  },
-
-  /** Resolve contested short CLI names (e.g. bare `agent`) to a product owner. */
-  getCliIdentity: async (command = 'agent'): Promise<CliIdentityResponse> => {
-    return fetchHooksApi<CliIdentityResponse>(
-      `/hooks/cli-identity?command=${encodeURIComponent(command)}`,
+      '/agent-status/attention/summaries',
     );
   },
 };

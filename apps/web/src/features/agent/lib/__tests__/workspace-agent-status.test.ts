@@ -174,7 +174,7 @@ describe("resolveHydratedWorkspaceAgentGroupKey", () => {
       resolveHydratedWorkspaceAgentGroupKey({
         live: "done",
         server: "attention",
-        hooksHydrated: false,
+        statusHydrated: false,
       }),
     ).toBe("attention");
   });
@@ -184,7 +184,7 @@ describe("resolveHydratedWorkspaceAgentGroupKey", () => {
       resolveHydratedWorkspaceAgentGroupKey({
         live: "running",
         server: "attention",
-        hooksHydrated: false,
+        statusHydrated: false,
       }),
     ).toBe("running");
   });
@@ -194,7 +194,7 @@ describe("resolveHydratedWorkspaceAgentGroupKey", () => {
       resolveHydratedWorkspaceAgentGroupKey({
         live: "done",
         server: "permission",
-        hooksHydrated: true,
+        statusHydrated: true,
       }),
     ).toBe("done");
   });

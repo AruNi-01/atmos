@@ -438,6 +438,9 @@ Documented CLI / config (examples in the product prompt were not exhaustive; thi
 
 `agent_chat_create` / first `agent_chat_send` copy `selected_model` + `selected_thinking` (+ mode if any) onto `agent_runtime_session` and into `AgentSessionConfig`. Process starts on that model.
 
+<!-- updated 2026-08-29: live configure applies model/mode/thinking -->
+`agent_chat_configure` always writes `selected_model` / `selected_thinking` / `selected_mode` on conversation meta. If a runtime is alive it also calls `AgentRuntimeControl::set_config` (ACP `session/set_config_option`, or legacy `session/set_mode`). Changing `provider_id` while a runtime is alive is rejected. Model, thinking, and mode are not blocked.
+
 ## Transport
 
 All names are serde snake_case `WsAction` / `WsEvent` variants in `apps/api/src/api/ws/message.rs`.

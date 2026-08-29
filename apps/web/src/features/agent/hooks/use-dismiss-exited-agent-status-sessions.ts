@@ -3,13 +3,13 @@
 import { useEffect } from "react";
 import {
   AGENT_STATE,
-  useAgentHooksStore,
-} from "@/features/agent/store/agent-hooks-store";
-import { findSessionForPaneId } from "@/features/agent/store/agent-hooks-idle";
+  useAgentStatusStore,
+} from "@/features/agent/store/agent-status-store";
+import { findSessionForPaneId } from "@/features/agent/store/agent-status-idle";
 import {
   findTerminalPaneByStableAgentPaneId,
   paneTitleIndicatesAgentExited,
-} from "@/features/agent/lib/agent-hook-pane-title";
+} from "@/features/agent/lib/agent-status-pane-title";
 import { useTerminalStore } from "@/features/terminal/store/use-terminal-store";
 
 /** Wait for cwd/command titles to settle before dropping a leftover running row. */
@@ -24,7 +24,7 @@ function paneIdForSession(session: { session_id: string; pane_id?: string | null
  * shell back at cwd), remove leftover hook sessions so footer Agent status
  * cannot keep showing Running after the pane has already moved on.
  */
-export function useDismissExitedAgentHookSessions() {
+export function useDismissExitedAgentStatusSessions() {
   useEffect(() => {
     const pending = new Map<string, ReturnType<typeof setTimeout>>();
 
@@ -35,7 +35,7 @@ export function useDismissExitedAgentHookSessions() {
     };
 
     const scan = () => {
-      const sessions = useAgentHooksStore.getState().sessions;
+      const sessions = useAgentStatusStore.getState().sessions;
       const terminal = useTerminalStore.getState();
       const seen = new Set<string>();
 
@@ -58,7 +58,7 @@ export function useDismissExitedAgentHookSessions() {
           session.session_id,
           setTimeout(() => {
             pending.delete(session.session_id);
-            const hooks = useAgentHooksStore.getState();
+            const hooks = useAgentStatusStore.getState();
             const current =
               hooks.sessions.get(session.session_id) ??
               findSessionForPaneId(hooks.sessions, paneId);
@@ -78,7 +78,7 @@ export function useDismissExitedAgentHookSessions() {
       }
     };
 
-    const unsubHooks = useAgentHooksStore.subscribe(scan);
+    const unsubHooks = useAgentStatusStore.subscribe(scan);
     const unsubTerm = useTerminalStore.subscribe(scan);
     scan();
     return () => {

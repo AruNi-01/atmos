@@ -7,6 +7,7 @@ import zhMessages from "../../../../messages/zh.json";
 import type { AcpPermissionOption } from "@/features/agent/hooks/use-agent-session";
 import type { AgentMessage, AgentPart, AgentToolKind } from "@atmos/api-types/ws/dto/agent-chat";
 import { currentAppLocale } from "@/shared/lib/current-app-locale";
+import { isGenericToolLabel, parseLoadedToolNames } from "@/features/agent/lib/agent-tool-kind";
 
 export interface PendingPermission {
   request_id: string;
@@ -25,7 +26,7 @@ export interface DiffFileOutput {
 
 export type AgentActivity =
   | { busy: false }
-  | { busy: true; label: string };
+  | { busy: true; label: string; kind: "thinking" | "working" };
 
 let cachedChatHelpersLocale: "en" | "zh" | null = null;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -49,6 +50,7 @@ function chatHelpersT(
     | "tool.labelWithPattern"
     | "tool.executeWithCommand"
     | "tool.fetchWithUrl"
+    | "tool.loadedTools"
     | "activity.generating"
     | "activity.reading"
     | "activity.writing"
@@ -59,6 +61,8 @@ function chatHelpersT(
     | "activity.thinking"
     | "activity.working"
     | "activity.streaming"
+    | "activity.creatingSession"
+    | "activity.resumingSession"
     | "download.defaultChatName",
   fallback: string,
   values?: Record<string, string | number>,
@@ -263,16 +267,23 @@ export function isTerminalCommand(tool: string): boolean {
   );
 }
 
-export function getTerminalCommandString(raw_input?: unknown): string {
-  if (!raw_input || typeof raw_input !== "object") return "";
-  const o = raw_input as Record<string, unknown>;
-  const cmd = o.command ?? o.cmd ?? o.input ?? o.script;
-  return typeof cmd === "string" ? cmd : "";
+function commandFromRecord(record: Record<string, unknown> | null | undefined): string {
+  if (!record) return "";
+  for (const key of ["command", "cmd", "script", "bash", "shell"]) {
+    const value = record[key];
+    if (typeof value === "string" && value.trim()) return value;
+  }
+  const nested = record.args ?? record.parameters ?? record.input;
+  if (nested && typeof nested === "object" && !Array.isArray(nested)) {
+    return commandFromRecord(nested as Record<string, unknown>);
+  }
+  return typeof record.input === "string" && record.input.trim() ? record.input : "";
 }
 
-function isGenericToolLabel(value: string | null | undefined): boolean {
-  if (!value) return true;
-  return /^(tool|other|unknown)$/i.test(value.trim());
+export function getTerminalCommandString(raw_input?: unknown): string {
+  if (typeof raw_input === "string" && raw_input.trim()) return raw_input;
+  if (!raw_input || typeof raw_input !== "object") return "";
+  return commandFromRecord(raw_input as Record<string, unknown>);
 }
 
 function vendorToolType(value: unknown): string | null {
@@ -315,12 +326,19 @@ export function deriveToolDisplayName(
   raw_input?: unknown,
   raw_output?: unknown,
 ): string {
+  const loadedTools = parseLoadedToolNames(raw_output) ?? parseLoadedToolNames(raw_input);
+  if (loadedTools) {
+    return chatHelpersT("tool.loadedTools", "Loaded tools: {names}", {
+      names: loadedTools.join(", "),
+    });
+  }
   const typeName = vendorToolType(raw_input) ?? vendorToolType(raw_output);
   const resolvedTool = isGenericToolLabel(tool) && typeName ? typeName : tool;
   if (
     description &&
     description !== tool &&
     description !== resolvedTool &&
+    !isGenericToolLabel(description) &&
     !/^(Processing|Executing|Running|Tool)\b/i.test(description)
   ) {
     return description;
@@ -329,20 +347,25 @@ export function deriveToolDisplayName(
   if (payload) {
     const path = (
       payload.file_path
+      ?? payload.filePath
       ?? payload.path
       ?? payload.target_file
+      ?? payload.targetFile
       ?? payload.absolute_path
       ?? payload.absolute_root_path
       ?? payload.dir_path
       ?? payload.directory
       ?? payload.target_directory
     ) as string | undefined;
-    const command = payload.command as string | undefined;
     const url = payload.url as string | undefined;
+    const command = getTerminalCommandString(payload);
     const pattern = (
       payload.pattern
       ?? payload.query
       ?? payload.regex
+      ?? payload.glob
+      ?? payload.q
+      ?? payload.search_term
     ) as string | undefined;
     const toolName = (payload.tool ?? payload.name) as string | undefined;
 
@@ -442,38 +465,67 @@ export function downloadChatMarkdown(filename: string, markdown: string) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+function toolStatusIsActive(status?: string | null): boolean {
+  const value = (status ?? "").trim().toLowerCase();
+  return value === "running" || value === "in_progress" || value === "pending";
+}
+
+function activityForToolPart(part: Extract<AgentPart, { type: "tool_call" }>): AgentActivity {
+  const label =
+    part.kind === "read" ? chatHelpersT("activity.reading", "Reading") :
+      part.kind === "edit" ? chatHelpersT("activity.writing", "Writing") :
+        part.kind === "search" ? chatHelpersT("activity.searching", "Searching") :
+          part.kind === "execute" ? chatHelpersT("activity.runningCommand", "Running command") :
+            part.kind === "fetch" ? chatHelpersT("activity.fetching", "Fetching") :
+              part.kind === "delete" ? chatHelpersT("activity.deleting", "Deleting") :
+                part.title || chatHelpersT("activity.working", "Working");
+  return { busy: true, label, kind: "working" };
+}
+
 export function deriveAgentActivity(messages: AgentMessage[], waitingFirst: boolean): AgentActivity {
   const last = messages[messages.length - 1];
   if (!last || last.role !== "assistant") {
-    if (waitingFirst) return { busy: true, label: chatHelpersT("activity.generating", "Generating") };
+    if (waitingFirst) {
+      return { busy: true, label: chatHelpersT("activity.generating", "Generating"), kind: "working" };
+    }
     return { busy: false };
+  }
+
+  const session = last.parts.find(
+    (part) => part.type === "session_lifecycle" && toolStatusIsActive(part.status),
+  );
+  if (session?.type === "session_lifecycle") {
+    const label = session.action === "resume"
+      ? chatHelpersT("activity.resumingSession", "Resuming session")
+      : chatHelpersT("activity.creatingSession", "Creating session");
+    return { busy: true, label, kind: "working" };
   }
 
   for (let i = last.parts.length - 1; i >= 0; i--) {
     const part = last.parts[i];
-    if (part.type !== "tool_call") continue;
-    if (part.status === "running") {
-      const label =
-        part.kind === "read" ? chatHelpersT("activity.reading", "Reading") :
-          part.kind === "edit" ? chatHelpersT("activity.writing", "Writing") :
-            part.kind === "search" ? chatHelpersT("activity.searching", "Searching") :
-              part.kind === "execute" ? chatHelpersT("activity.runningCommand", "Running command") :
-                part.kind === "fetch" ? chatHelpersT("activity.fetching", "Fetching") :
-                  part.kind === "delete" ? chatHelpersT("activity.deleting", "Deleting") :
-                    part.title || chatHelpersT("activity.working", "Working");
-      return { busy: true, label };
+    if (part.type === "tool_call" && toolStatusIsActive(part.status)) {
+      return activityForToolPart(part);
     }
   }
 
   if (last.streaming) {
     for (let i = last.parts.length - 1; i >= 0; i--) {
       const part = last.parts[i];
-      if (part.type === "thinking") return { busy: true, label: chatHelpersT("activity.thinking", "Thinking") };
-      if (part.type === "text") return { busy: true, label: chatHelpersT("activity.streaming", "Streaming") };
+      if (part.type === "tool_call") {
+        return activityForToolPart(part);
+      }
+      if (part.type === "thinking") {
+        return { busy: true, label: chatHelpersT("activity.thinking", "Thinking"), kind: "thinking" };
+      }
+      if (part.type === "text") {
+        return { busy: true, label: chatHelpersT("activity.streaming", "Streaming"), kind: "working" };
+      }
     }
-    return { busy: true, label: chatHelpersT("activity.streaming", "Streaming") };
+    return { busy: true, label: chatHelpersT("activity.generating", "Generating"), kind: "working" };
   }
 
-  if (waitingFirst) return { busy: true, label: chatHelpersT("activity.generating", "Generating") };
+  if (waitingFirst) {
+    return { busy: true, label: chatHelpersT("activity.generating", "Generating"), kind: "working" };
+  }
   return { busy: false };
 }

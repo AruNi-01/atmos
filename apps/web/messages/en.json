@@ -107,9 +107,13 @@
       "noneInstalledHint": "No built-in agent CLIs were found on PATH. You can still enable ones you plan to install later, or continue and configure them in Settings.",
       "recheck": "Re-check agents",
       "next": "Save and continue",
+      "provisioning": "Setting up Agent Chat providers…",
       "skip": "Skip for now",
       "checkFailed": "Could not reach the local Atmos Server to detect agents. Make sure it is running, then re-check.",
-      "saveFailed": "Could not save agent preferences. Check your connection and try again."
+      "saveFailed": "Could not save agent preferences. Check your connection and try again.",
+      "provisionFailedTitle": "Some Agent Chat providers were not set up",
+      "provisionFailed": "Saved your agent list, but Agent Chat setup failed for: {names}. You can install them later from Agents.",
+      "provisionFailedGeneric": "Saved your agent list, but Agent Chat providers could not be set up. You can install them later from Agents."
     },
     "quota": {
       "title": "AI Quota Usage",
@@ -1246,6 +1250,7 @@
     "centerStageTabGroups": {
       "groups": {
         "terminal": "Terminal",
+        "chat": "Chat",
         "file": "File",
         "diff": "Diff",
         "review": "Review",
@@ -2848,17 +2853,34 @@
       "composer": {
         "placeholder": {
           "unavailable": "Agent unavailable",
-          "connected": "Message the connected agent...",
-          "selectAgent": "Select an agent to start chatting..."
+          "selectAgent": "Select an agent to start chatting...",
+          "createSession": "Send a message to create a session",
+          "resumeSession": "Send a message to resume the session",
+          "connected": "Do anything with {agent}"
         },
         "removeSlashCommand": "Remove {name}",
         "noAgent": "No agent",
         "selectAgent": "Agent",
+        "model": "Model",
+        "searchModels": "Search models",
+        "searchAgents": "Search agents",
+        "chooseModel": "Choose model",
+        "chooseMode": "Mode",
+        "backToAgents": "Agents",
+        "loadingModels": "Loading models",
+        "thinkingFaster": "Faster",
+        "thinkingSmarter": "Smarter",
+        "thinkingEffort": "Effort",
         "queue": "Queue",
         "steer": "Steer",
         "oneShotQueue": "Queue this once",
         "oneShotSteer": "Steer this once",
-        "steerUnavailable": "Steer unavailable"
+        "steerUnavailable": "Steer unavailable",
+        "workingDirectory": {
+          "aria": "Working directory",
+          "thread": "Thread",
+          "threadDescription": "No project folder"
+        }
       },
       "terminalBlock": {
         "title": "Run Script"
@@ -2932,6 +2954,19 @@
           "collapseAria": "Collapse process",
           "collapseLabel": "Collapse process"
         }
+      },
+      "toolGroup": {
+        "join": ", ",
+        "write": "{count, plural, one {# write} other {# writes}}",
+        "command": "{count, plural, one {ran # command} other {ran # commands}}",
+        "skill": "{count, plural, one {# skill} other {# skills}}",
+        "subagent": "{count, plural, one {# subagent} other {# subagents}}",
+        "other": "{count, plural, one {# tool} other {# tools}}",
+        "fetch": "{count, plural, one {# fetch} other {# fetches}}",
+        "search": "{count, plural, one {# search} other {# searches}}",
+        "read": "{count, plural, one {# read} other {# reads}}",
+        "expandAria": "Show tool calls: {overview}",
+        "collapseAria": "Hide tool calls: {overview}"
       },
       "manager": {
         "switchToAgentManager": "Switch to agent manager",
@@ -3088,6 +3123,7 @@
           "available": "Available",
           "updateAvailable": "Update available",
           "installed": "Installed",
+          "usingInstalledCli": "Using installed CLI",
           "custom": "Custom"
         },
         "repositoryTitle": "Repository",
@@ -3188,7 +3224,17 @@
         "workedFor": "Worked for {duration}",
         "thinking": "Thinking...",
         "thoughtFor": "Thought for {duration}",
-        "thoughtForFew": "Thought for a few seconds"
+        "thoughtForFew": "Thought for a few seconds",
+        "session": {
+          "creating": "Creating session...",
+          "created": "Created session",
+          "createdIn": "Created session in {duration}",
+          "createFailed": "Failed to create session",
+          "resuming": "Resuming session...",
+          "resumed": "Resumed session",
+          "resumedIn": "Resumed session in {duration}",
+          "resumeFailed": "Failed to resume session"
+        }
       },
       "selector": {
         "selectAgent": "Select agent",
@@ -3229,9 +3275,15 @@
         "skillTitle": "Skill: {name}",
         "parameters": "Parameters",
         "newFile": "New",
+        "created": "Created",
         "deletedFile": "Deleted",
         "deletedFileLabel": "Deleted {path}",
         "to": "To",
+        "searchingFor": "Searching for {query}",
+        "webSearch": "Web search",
+        "resultCount": "{count, plural, one {# result} other {# results}}",
+        "sources": "Sources",
+        "fetchUrl": "Fetch {host}",
         "todo": {
           "pending": "Pending",
           "inProgress": "In progress",
@@ -4029,7 +4081,8 @@
         "github": "GitHub",
         "files": "Files",
         "searchingFiles": "Searching files...",
-        "continueTyping": "Continue typing"
+        "noFiles": "No files",
+        "noMatches": "No matching files"
       },
       "page": {
         "errors": {
@@ -4046,6 +4099,7 @@
       },
       "slashPopover": {
         "commands": "Commands",
+        "agentCommands": "{agent} Commands",
         "skills": "Skills",
         "loadingSkills": "Loading skills...",
         "global": "Global",
@@ -5037,7 +5091,6 @@
       "errors": {
         "saveBuiltInAgentTitle": "Failed to save built-in agent",
         "updateYoloModeTitle": "Failed to update YOLO mode",
-        "updateShowAgentNameTitle": "Failed to update agent name display",
         "restoreYoloModeTitle": "Failed to restore YOLO mode",
         "updateAgentVisibilityTitle": "Failed to update agent visibility",
         "removeCustomAgentTitle": "Failed to remove custom agent",
@@ -5222,9 +5275,6 @@
             },
             "yoloMode": {
               "label": "YOLO mode"
-            },
-            "showAgentNameInTerminalTitles": {
-              "label": "Show agent name in terminal titles"
             },
             "activityIndicators": {
               "label": "Agent Activity Indicators"
@@ -5788,7 +5838,8 @@
           "title": "Center Stage Tabs",
           "items": {
             "overview": "Switch to Overview tab",
-            "tabByPosition": "Switch to the tab at that position"
+            "tabByPosition": "Switch to the tab at that position",
+            "focusAgentChat": "Focus Agent Chat prompt"
           }
         },
         "terminal": {
@@ -6013,17 +6064,13 @@
       },
       "defaults": {
         "title": "Defaults",
-        "description": "Launch flags and how agent names appear in terminal titles."
+        "description": "Launch flags for code agents."
       },
       "yolo": {
         "title": "YOLO mode",
         "description": "When enabled, agents launch with skip-permissions / auto-approve flags (e.g. --yolo, --dangerously-skip-permissions). Turn off for safer, approval-gated runs.",
         "restoreHint": "Re-enable YOLO and clear custom flag overrides on all built-in agents so they use the built-in YOLO defaults again.",
         "restoreAll": "Restore YOLO for all agents"
-      },
-      "showAgentName": {
-        "title": "Show agent name in terminal titles",
-        "description": "When a terminal or terminal tab detects an agent, always show its icon. Turn this off to hide the agent brand name and save space — the session topic (OSC) then sits next to the icon with a space instead of a pipe."
       },
       "activityIndicators": {
         "title": "Agent Activity Indicators",
@@ -7102,7 +7149,8 @@
         "labelWithPath": "{tool}: {path}",
         "labelWithPattern": "{tool}: {pattern}",
         "executeWithCommand": "Execute: {command}",
-        "fetchWithUrl": "Fetch: {url}"
+        "fetchWithUrl": "Fetch: {url}",
+        "loadedTools": "Loaded tools: {names}"
       },
       "activity": {
         "generating": "Generating",
@@ -7114,7 +7162,9 @@
         "deleting": "Deleting",
         "thinking": "Thinking",
         "working": "Working",
-        "streaming": "Streaming"
+        "streaming": "Streaming",
+        "creatingSession": "Creating session",
+        "resumingSession": "Resuming session"
       },
       "download": {
         "defaultChatName": "chat"

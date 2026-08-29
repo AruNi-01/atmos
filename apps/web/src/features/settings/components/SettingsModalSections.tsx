@@ -102,9 +102,6 @@ interface SettingsModalSectionsProps {
   yoloModeRestoring: boolean;
   onYoloModeChange: (enabled: boolean) => void;
   onRestoreAllYoloMode: () => void;
-  showAgentNameInTerminalTitles: boolean;
-  showAgentNameInTerminalTitlesSyncing: boolean;
-  onShowAgentNameInTerminalTitlesChange: (enabled: boolean) => void;
   onAddCustomAgent: () => void;
   onAgentSettingChange: (agentId: string, field: 'cmd' | 'flags' | 'interactiveFlags' | 'enabled', value: string | boolean) => void;
   onBuiltInEnabledChange: (agentId: string, enabled: boolean) => void;
@@ -262,9 +259,6 @@ export function SettingsModalSections(props: SettingsModalSectionsProps) {
           yoloModeRestoring={props.yoloModeRestoring}
           onYoloModeChange={props.onYoloModeChange}
           onRestoreAllYoloMode={props.onRestoreAllYoloMode}
-          showAgentNameInTerminalTitles={props.showAgentNameInTerminalTitles}
-          showAgentNameInTerminalTitlesSyncing={props.showAgentNameInTerminalTitlesSyncing}
-          onShowAgentNameInTerminalTitlesChange={props.onShowAgentNameInTerminalTitlesChange}
           onAddCustomAgent={props.onAddCustomAgent}
           onAgentSettingChange={props.onAgentSettingChange}
           onBuiltInEnabledChange={props.onBuiltInEnabledChange}

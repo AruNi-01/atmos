@@ -7,61 +7,73 @@ import {
   type MentionPopoverState,
 } from "@/features/welcome/components/WelcomeMentionPopover";
 import { SlashCommandPopover } from "@/features/welcome/components/SlashCommandPopover";
+import {
+  PromptComposer,
+  type AtTriggerContext,
+  type ComposerHandle,
+  type SlashTriggerContext,
+} from "@/features/welcome/components/PromptComposer";
 import { useWelcomeMentionSearch } from "@/features/welcome/hooks/use-welcome-mention-search";
+import { useWelcomeSlashSearch } from "@/features/welcome/hooks/use-welcome-slash-search";
 import {
   useWelcomeSlashNavigation,
   type SlashCommandOption,
   type WelcomeSlashPopoverState,
 } from "@/features/welcome/hooks/use-welcome-slash-navigation";
-import {
-  popoverAboveRect,
-  readTextareaAtTrigger,
-  readTextareaSlashTrigger,
-  replaceTextareaTrigger,
-} from "@/features/agent/lib/composer-triggers";
+import { getTerminalAgentPopoverAboveCaret } from "@/features/terminal/lib/terminal-agent-input-overlay-utils";
+import { useTranslations } from "next-intl";
 import type { AgentChatSlashCommand } from "@/features/agent/hooks/use-agent-chat-session";
 
 export function useAgentComposerPopovers({
   availableCommands,
   projectPath,
-  setDraft,
-  onSelectSlashCommand,
+  composerRef,
+  activeProjectId = null,
+  agentName = null,
 }: {
   availableCommands: AgentChatSlashCommand[];
   projectPath: string | null;
-  setDraft: React.Dispatch<React.SetStateAction<string>>;
-  onSelectSlashCommand: (command: AgentChatSlashCommand) => void;
+  composerRef: React.RefObject<ComposerHandle | null>;
+  activeProjectId?: string | null;
+  agentName?: string | null;
 }) {
+  const t = useTranslations("Welcome.components");
   const [mentionPopover, setMentionPopover] = React.useState<MentionPopoverState>(null);
   const [slashPopover, setSlashPopover] = React.useState<WelcomeSlashPopoverState>(null);
+  const commandsTitle = agentName?.trim()
+    ? t("slashPopover.agentCommands", { agent: agentName.trim() })
+    : t("slashPopover.commands");
 
   const selectMentionFile = React.useCallback(
     (item: { relativePath: string }) => {
       const popover = mentionPopover;
       if (!popover) return;
-      setDraft((current) =>
-        replaceTextareaTrigger(current, popover.atOffset, popover.query.length, `@file:${item.relativePath} `),
+      composerRef.current?.applyMentionAtRange(
+        popover.atOffset,
+        popover.query.length,
+        { kind: "file", relativePath: item.relativePath },
       );
       setMentionPopover(null);
     },
-    [mentionPopover, setDraft],
+    [composerRef, mentionPopover],
   );
 
   const selectMentionNavItem = React.useCallback(
     (item: MentionNavItem) => {
+      const popover = mentionPopover;
+      if (!popover) return;
       if (item.type === "file") {
         selectMentionFile(item.file);
         return;
       }
-      const popover = mentionPopover;
-      if (!popover) return;
-      const token = item.type === "issue" ? `@issue#${item.issue.number} ` : `@pr#${item.pr.number} `;
-      setDraft((current) =>
-        replaceTextareaTrigger(current, popover.atOffset, popover.query.length, token),
+      composerRef.current?.applyMentionAtRange(
+        popover.atOffset,
+        popover.query.length,
+        { kind: item.type, number: item.type === "issue" ? item.issue.number : item.pr.number },
       );
       setMentionPopover(null);
     },
-    [mentionPopover, selectMentionFile, setDraft],
+    [composerRef, mentionPopover, selectMentionFile],
   );
 
   const {
@@ -76,6 +88,13 @@ export function useAgentComposerPopovers({
     popover: mentionPopover,
     prPreview: null,
     selectedProjectPath: projectPath,
+  });
+
+  const { filteredSkills, isSkillsLoading } = useWelcomeSlashSearch({
+    availableAgents: [],
+    activeProjectId,
+    popover: slashPopover,
+    projects: [],
   });
 
   const filteredCommands = React.useMemo<SlashCommandOption[]>(() => {
@@ -97,18 +116,36 @@ export function useAgentComposerPopovers({
       }));
   }, [availableCommands, slashPopover?.query]);
 
+  const selectSlashSkill = React.useCallback(
+    (skill: { path: string; name: string; status?: string }) => {
+      if (skill.status === "disabled") return;
+      const popover = slashPopover;
+      if (!popover) return;
+      composerRef.current?.applySlashAtRange(
+        popover.slashOffset,
+        popover.query.length,
+        { kind: "skill", absolutePath: skill.path, name: skill.name },
+      );
+      setSlashPopover(null);
+    },
+    [composerRef, slashPopover],
+  );
+
   const selectSlashCommand = React.useCallback(
     (command: SlashCommandOption) => {
       const popover = slashPopover;
       if (!popover) return;
       const matched = availableCommands.find((item) => item.name === command.id);
-      setDraft((current) =>
-        replaceTextareaTrigger(current, popover.slashOffset, popover.query.length, ""),
-      );
-      if (matched) onSelectSlashCommand(matched);
+      if (matched) {
+        composerRef.current?.applySlashAtRange(
+          popover.slashOffset,
+          popover.query.length,
+          { kind: "command", name: matched.name },
+        );
+      }
       setSlashPopover(null);
     },
-    [availableCommands, onSelectSlashCommand, setDraft, slashPopover],
+    [availableCommands, composerRef, slashPopover],
   );
 
   const {
@@ -121,67 +158,48 @@ export function useAgentComposerPopovers({
     filteredAgents: [],
     filteredCommands,
     filteredProjects: [],
-    filteredSkills: [],
+    filteredSkills,
     onSelectAgent: () => undefined,
     onSelectCommand: selectSlashCommand,
     onSelectProject: () => undefined,
-    onSelectSkill: () => undefined,
+    onSelectSkill: selectSlashSkill,
     popover: slashPopover,
   });
 
-  const syncTriggers = React.useCallback(
-    (textarea: HTMLTextAreaElement) => {
-      const at = readTextareaAtTrigger(textarea);
-      if (at) {
-        const position = popoverAboveRect(at.caretRect);
-        setSlashPopover(null);
-        setMentionPopover({
-          bottom: position.bottom,
-          left: position.left,
-          atOffset: at.offset,
-          query: at.query,
-        });
-        return;
-      }
-      const slash = availableCommands.length > 0 ? readTextareaSlashTrigger(textarea) : null;
-      if (slash) {
-        const position = popoverAboveRect(slash.caretRect);
-        setMentionPopover(null);
-        setSlashPopover({
-          bottom: position.bottom,
-          left: position.left,
-          slashOffset: slash.offset,
-          query: slash.query,
-        });
-        return;
-      }
-      setMentionPopover(null);
-      setSlashPopover(null);
-    },
-    [availableCommands.length],
-  );
+  const onAtTrigger = React.useCallback((ctx: AtTriggerContext) => {
+    const position = getTerminalAgentPopoverAboveCaret(ctx.caretRect);
+    setSlashPopover(null);
+    setMentionPopover({
+      bottom: position.bottom,
+      left: position.left,
+      atOffset: ctx.atOffset,
+      query: ctx.query,
+    });
+  }, []);
+
+  const onSlashTrigger = React.useCallback((ctx: SlashTriggerContext) => {
+    const position = getTerminalAgentPopoverAboveCaret(ctx.caretRect);
+    setMentionPopover(null);
+    setSlashPopover({
+      bottom: position.bottom,
+      left: position.left,
+      slashOffset: ctx.slashOffset,
+      query: ctx.query,
+    });
+  }, []);
 
   const closePopovers = React.useCallback(() => {
     setMentionPopover(null);
     setSlashPopover(null);
   }, []);
 
-  const handleComposerKeyDown = React.useCallback(
-    (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
-      if (event.key === "Escape" && (mentionPopover || slashPopover)) {
-        event.preventDefault();
-        closePopovers();
-        return;
-      }
-      if (
-        (event.key === "Enter" || event.key === "ArrowUp" || event.key === "ArrowDown") &&
-        (mentionPopover || slashPopover)
-      ) {
-        event.preventDefault();
-      }
-    },
-    [closePopovers, mentionPopover, slashPopover],
-  );
+  const onAtCancel = React.useCallback(() => {
+    setMentionPopover(null);
+  }, []);
+
+  const onSlashCancel = React.useCallback(() => {
+    setSlashPopover(null);
+  }, []);
 
   const popovers = (
     <>
@@ -204,29 +222,34 @@ export function useAgentComposerPopovers({
         filteredAgents={[]}
         filteredCommands={filteredCommands}
         filteredProjects={[]}
-        filteredSkills={[]}
-        isSkillsLoading={false}
+        filteredSkills={filteredSkills}
+        isSkillsLoading={isSkillsLoading}
         listRef={slashPopoverListRef}
         onClose={() => setSlashPopover(null)}
         onSelectAgent={() => undefined}
         onSelectCommand={selectSlashCommand}
         onSelectProject={() => undefined}
-        onSelectSkill={() => undefined}
+        onSelectSkill={selectSlashSkill}
         popover={slashPopover}
         setExpandedSections={setExpandedSections}
         setItemRef={setSlashItemRef}
         showAgents={false}
         showCommands
         showProjects={false}
-        showSkills={false}
+        showSkills
+        commandsTitle={commandsTitle}
       />
     </>
   );
 
   return {
     closePopovers,
-    handleComposerKeyDown,
+    onAtCancel,
+    onAtTrigger,
+    onSlashCancel,
+    onSlashTrigger,
     popovers,
-    syncTriggers,
   };
 }
+
+export { PromptComposer };

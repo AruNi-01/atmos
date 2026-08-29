@@ -3,6 +3,8 @@ import {
   catalogToConfigOptions,
   chatTitleFromPrompt,
   chatsToHistoryRows,
+  defaultCatalogModelId,
+  isCatalogModelsLoading,
   parsePlan,
   splitComposerConfigOptions,
 } from "@/features/agent/lib/agent-chat-thread";
@@ -19,6 +21,103 @@ describe("agent chat helpers", () => {
     });
     expect(plan?.entries[0]?.content).toBe("Inspect");
     expect(parsePlan(null)).toBeNull();
+  });
+
+  it("treats a missing or probing catalog as models still loading", () => {
+    expect(isCatalogModelsLoading(null, "cursor")).toBe(true);
+    expect(
+      isCatalogModelsLoading(
+        {
+          agent_id: "cursor",
+          status: "probing",
+          models: [],
+          modes: [],
+          thinking: { type: "none" },
+          strategies_used: [],
+          fetched_at: "",
+          source: "live",
+          message: null,
+        },
+        "cursor",
+      ),
+    ).toBe(true);
+    expect(
+      isCatalogModelsLoading(
+        {
+          agent_id: "claude",
+          status: "ok",
+          models: [{ id: "opus", label: "Opus" }],
+          modes: [],
+          thinking: { type: "none" },
+          strategies_used: [],
+          fetched_at: "",
+          source: "cache",
+          message: null,
+        },
+        "cursor",
+      ),
+    ).toBe(true);
+    expect(
+      isCatalogModelsLoading(
+        {
+          agent_id: "cursor",
+          status: "ok",
+          models: [],
+          modes: [],
+          thinking: { type: "none" },
+          strategies_used: [],
+          fetched_at: "",
+          source: "live",
+          message: null,
+        },
+        "cursor",
+      ),
+    ).toBe(false);
+  });
+
+  it("picks the catalog default model when none is selected yet", () => {
+    expect(
+      defaultCatalogModelId(
+        {
+          agent_id: "cursor",
+          status: "ok",
+          models: [
+            { id: "auto", label: "Auto" },
+            { id: "gemini-3.5-flash", label: "Gemini 3.5 Flash", is_default: true },
+          ],
+          modes: [],
+          thinking: { type: "encoded_in_model" },
+          strategies_used: [],
+          fetched_at: "",
+          source: "cache",
+          message: null,
+        },
+        "",
+      ),
+    ).toBe("gemini-3.5-flash");
+    const options = catalogToConfigOptions(
+      {
+        agent_id: "cursor",
+        status: "ok",
+        models: [
+          { id: "auto", label: "Auto" },
+          { id: "gemini-3.5-flash", label: "Gemini 3.5 Flash", is_default: true },
+        ],
+        modes: [],
+        thinking: { type: "encoded_in_model" },
+        strategies_used: [],
+        fetched_at: "",
+        source: "cache",
+        message: null,
+      },
+      "",
+      "",
+    );
+    expect(options[0]?.currentValue).toBe("gemini-3.5-flash");
+    expect(options[0]?.options.map((item) => item.name)).toEqual([
+      "Auto",
+      "Gemini 3.5 Flash",
+    ]);
   });
 
   it("builds model and thinking config options from the catalog", () => {

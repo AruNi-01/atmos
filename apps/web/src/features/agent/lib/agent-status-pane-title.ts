@@ -62,7 +62,8 @@ export function findTerminalPaneByStableAgentPaneId(
 
 /**
  * Strip the agent brand already shown in Agent status so the suffix matches
- * the changing part of the pane toolbar title (`Claude Code | topic` → `topic`).
+ * the changing part of the pane toolbar title (`Claude Code | topic` → `topic`,
+ * or just `topic` when brand text is hidden).
  */
 export function uniquePaneTitleForAgentStatus(
   displayTitle: string | null | undefined,
@@ -97,7 +98,6 @@ export function paneTitleIndicatesAgentExited(
   pane: TerminalPaneProps,
   options?: {
     contestedOwners?: ContestedOwnersMap;
-    showAgentName?: boolean;
   },
 ): boolean {
   const dynamic = pane.dynamicTitle?.trim();

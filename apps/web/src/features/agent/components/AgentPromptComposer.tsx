@@ -1,47 +1,51 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useCallback, useState, useEffect, useRef } from "react";
 import { useTranslations } from "next-intl";
 import {
+  AgentsPromptInput,
   Attachments,
   Attachment,
   AttachmentPreview,
   AttachmentRemove,
-  PromptInput,
   PromptInputAddAttachmentsButton,
-  PromptInputBody,
-  PromptInputFooter,
-  PromptInputHeader,
-  PromptInputSubmit,
-  PromptInputTextarea,
-  PromptInputTools,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  PromptInputProvider,
   usePromptInputAttachments,
+  usePromptInputController,
+  type PromptModel,
 } from "@workspace/ui";
-import { Bot, Brain, Square, X, Zap } from "lucide-react";
+import { Bot, Brain } from "lucide-react";
+import {
+  PromptComposer,
+  type ComposerHandle,
+} from "@/features/welcome/components/PromptComposer";
 import { AgentIcon } from "./AgentIcon";
 import { useDialogStore, type QueuedAgentPrompt } from "@/app-shell/state/use-dialog-store";
 import type { AgentPlan, AgentConfigOption } from "@/features/agent/hooks/use-agent-session";
 import type { RegistryAgent } from "@/api/ws-api";
 import type { AgentChatMode } from "@/features/agent/types/index";
-import { registerActiveAgentComposer } from "@/features/agent/lib/agent/active-composer";
+import {
+  registerActiveAgentComposer,
+  touchActiveAgentComposer,
+} from "@/features/agent/lib/agent/active-composer";
 import type { AgentMessage } from "@atmos/api-types/ws/dto/agent-chat";
 import { stopStreamingMessages } from "@/features/agent/lib/agent-chat-events";
-import {
-  composeAgentChatPrompt,
-  parseLeadingAgentSlashCommand,
-} from "@/features/agent/lib/agent-chat-slash-command";
+import { expandAgentComposerText } from "@/features/agent/lib/agent-chat-slash-command";
+import { resolveAgentComposerPlaceholderKind } from "@/features/agent/lib/agent-composer-placeholder";
 import type { AgentActivity } from "../lib/chat-helpers";
 import { PlanBlockView } from "./PlanBlockView";
 import { MessageQueueDock } from "./MessageQueueDock";
 import { ConfigOptionDropdown } from "./ConfigOptionDropdown";
 import { useAgentComposerPopovers } from "../hooks/use-agent-composer-popovers";
 import type { AgentChatSlashCommand } from "../hooks/use-agent-chat-session";
-import { splitComposerConfigOptions } from "../lib/agent-chat-thread";
+import { isComposerTrailingConfigOption } from "../lib/agent-chat-thread";
+import { AgentChatWorkingDirectoryPicker } from "./AgentChatWorkingDirectoryPicker";
+import type { AgentChatWorkingDirectory } from "@/features/agent/lib/agent-chat-working-directory";
+import type { Project } from "@/shared/types/domain";
+import {
+  getAgentContextDragItems,
+  hasAgentContextDragData,
+} from "@/shared/lib/agent-context-drag";
 
 function composerConfigIcon(optionId: string) {
   const id = optionId.trim().toLowerCase();
@@ -54,34 +58,28 @@ function composerConfigIcon(optionId: string) {
   return null;
 }
 
-function SlashCommandChip({
-  name,
-  description,
-  onRemove,
-  removeLabel,
-}: {
-  name: string;
-  description?: string;
-  onRemove: () => void;
-  removeLabel: string;
-}) {
+function AttachmentFileInput() {
+  const controller = usePromptInputController();
+  const inputRef = useRef<HTMLInputElement>(null);
+  const open = useCallback(() => inputRef.current?.click(), []);
+
+  useEffect(() => {
+    controller.__registerFileInput(inputRef, open);
+  }, [controller, open]);
+
   return (
-    <span
-      data-agent-chat-slash-chip={name}
-      title={description}
-      className="mt-0.5 inline-flex max-w-full shrink-0 items-center gap-1 rounded-md border border-border/70 bg-muted/60 px-1.5 py-px text-[12px] leading-[18px] font-medium text-foreground"
-    >
-      <Zap className="size-3.5 shrink-0" />
-      <span className="min-w-0 truncate">/{name}</span>
-      <button
-        type="button"
-        className="inline-flex size-4 shrink-0 items-center justify-center rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground"
-        aria-label={removeLabel}
-        onClick={onRemove}
-      >
-        <X className="size-3" />
-      </button>
-    </span>
+    <input
+      ref={inputRef}
+      type="file"
+      multiple
+      className="hidden"
+      onChange={(event) => {
+        if (event.currentTarget.files?.length) {
+          controller.attachments.add(event.currentTarget.files);
+        }
+        event.currentTarget.value = "";
+      }}
+    />
   );
 }
 
@@ -89,16 +87,311 @@ function PromptInputAttachmentsSection() {
   const attachments = usePromptInputAttachments();
   if (attachments.files.length === 0) return null;
   return (
-    <PromptInputHeader>
-      <Attachments variant="inline">
-        {attachments.files.map((a) => (
-          <Attachment key={a.id} data={a} onRemove={() => attachments.remove(a.id)}>
-            <AttachmentPreview />
-            <AttachmentRemove />
-          </Attachment>
-        ))}
-      </Attachments>
-    </PromptInputHeader>
+    <Attachments variant="inline" className="px-2 pt-1.5">
+      {attachments.files.map((a) => (
+        <Attachment key={a.id} data={a} onRemove={() => attachments.remove(a.id)}>
+          <AttachmentPreview />
+          <AttachmentRemove />
+        </Attachment>
+      ))}
+    </Attachments>
+  );
+}
+
+function configOptionById(options: AgentConfigOption[], id: string) {
+  const needle = id.trim().toLowerCase();
+  return options.find((option) => option.id.trim().toLowerCase() === needle) ?? null;
+}
+
+function toPromptModels(option: AgentConfigOption | null): PromptModel[] {
+  if (!option) return [];
+  return option.options.map((entry) => ({
+    value: entry.value,
+    label: entry.name || entry.value,
+  }));
+}
+
+async function filesForSubmit(
+  files: Array<{ id: string; url?: string } & import("ai").FileUIPart>,
+): Promise<import("ai").FileUIPart[]> {
+  return Promise.all(
+    files.map(async ({ id: _id, ...item }) => {
+      if (!item.url?.startsWith("blob:")) return item;
+      try {
+        const blob = await fetch(item.url).then((response) => response.blob());
+        const dataUrl = await new Promise<string | null>((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(typeof reader.result === "string" ? reader.result : null);
+          reader.onerror = () => resolve(null);
+          reader.readAsDataURL(blob);
+        });
+        return { ...item, url: dataUrl ?? item.url };
+      } catch {
+        return item;
+      }
+    }),
+  );
+}
+
+function ComposerPromptInput({
+  composerRef,
+  onAtTrigger,
+  onAtCancel,
+  onSlashTrigger,
+  onSlashCancel,
+  localDraft,
+  setLocalDraft,
+  persistedDraftRef,
+  canUseCurrentMode,
+  isConnected,
+  chatMode,
+  instanceKey,
+  sessionWorkspaceId,
+  sessionProjectId,
+  loadingAgents,
+  isConnecting,
+  isResumingHistory,
+  catalogModelsLoading,
+  installedAgents,
+  extraConfigOptions,
+  modeOption,
+  modelOption,
+  thinkingOption,
+  registryId,
+  activeAgent,
+  agentLocked,
+  onProviderChange,
+  setConfigOption,
+  setAgentDefaultConfig,
+  setInstalledAgents,
+  showStop,
+  sendCancel,
+  setWaitingForResponse,
+  setMessages,
+  stoppedRef,
+  workingDirectoryPicker,
+  clearAgentChatDraft,
+  onSubmit,
+  placeholder,
+}: {
+  composerRef: React.RefObject<ComposerHandle | null>;
+  onAtTrigger: (ctx: import("@/features/welcome/components/PromptComposer").AtTriggerContext) => void;
+  onAtCancel: () => void;
+  onSlashTrigger: (ctx: import("@/features/welcome/components/PromptComposer").SlashTriggerContext) => void;
+  onSlashCancel: () => void;
+  localDraft: string;
+  setLocalDraft: React.Dispatch<React.SetStateAction<string>>;
+  persistedDraftRef: React.MutableRefObject<string>;
+  canUseCurrentMode: boolean;
+  isConnected: boolean;
+  chatMode: AgentChatMode;
+  instanceKey?: string | null;
+  sessionWorkspaceId: string | null;
+  sessionProjectId: string | null;
+  loadingAgents: boolean;
+  isConnecting: boolean;
+  isResumingHistory: boolean;
+  catalogModelsLoading: boolean;
+  installedAgents: RegistryAgent[];
+  extraConfigOptions: AgentConfigOption[];
+  modeOption: AgentConfigOption | null;
+  modelOption: AgentConfigOption | null;
+  thinkingOption: AgentConfigOption | null;
+  registryId: string;
+  activeAgent: RegistryAgent | null;
+  agentLocked: boolean;
+  onProviderChange?: (providerId: string) => void;
+  setConfigOption: (id: string, value: string) => void;
+  setAgentDefaultConfig: (id: string, value: string) => void;
+  setInstalledAgents: React.Dispatch<React.SetStateAction<RegistryAgent[]>>;
+  showStop: boolean;
+  sendCancel: () => void;
+  setWaitingForResponse: React.Dispatch<React.SetStateAction<boolean>>;
+  setMessages: React.Dispatch<React.SetStateAction<AgentMessage[]>>;
+  stoppedRef: React.MutableRefObject<boolean>;
+  workingDirectoryPicker: {
+    projects: Project[];
+    selection: AgentChatWorkingDirectory;
+    onSelect: (next: AgentChatWorkingDirectory) => void;
+  } | null;
+  placeholder: string;
+  clearAgentChatDraft: (
+    workspaceId: string | null,
+    projectId: string | null,
+    mode: AgentChatMode,
+    instanceKey?: string | null,
+  ) => void;
+  onSubmit: (
+    message: { text: string; files?: import("ai").FileUIPart[] },
+    options?: { oneShot?: "queue" | "steer" },
+  ) => Promise<void>;
+}) {
+  const t = useTranslations("Agent.components");
+  const attachments = usePromptInputAttachments();
+  const formRef = useRef<HTMLFormElement>(null);
+  const hydratedRef = useRef(false);
+  const agentOptions: PromptModel[] = installedAgents.map((agent) => ({
+    value: agent.id,
+    label: agent.name,
+    icon: (
+      <AgentIcon
+        registryId={agent.id}
+        name={agent.name}
+        size={14}
+        isCustom={agent.install_method === "custom"}
+        registryIcon={agent.icon}
+      />
+    ),
+  }));
+  const canSubmit = Boolean(
+    expandAgentComposerText(localDraft) || attachments.files.length,
+  ) && isConnected && canUseCurrentMode && !showStop;
+
+  useEffect(() => {
+    if (hydratedRef.current) return;
+    hydratedRef.current = true;
+    if (localDraft) composerRef.current?.setText(localDraft);
+  }, [composerRef, localDraft]);
+
+  return (
+    <>
+      <AttachmentFileInput />
+      <AgentsPromptInput
+        value={localDraft}
+        onValueChange={setLocalDraft}
+        disabled={!isConnected || !canUseCurrentMode}
+        loading={showStop}
+        canSubmit={canSubmit}
+        minRows={2}
+        maxRows={8}
+        formRef={formRef}
+        placeholder={placeholder}
+        editor={
+          <PromptComposer
+            ref={composerRef}
+            submitOnEnter
+            disabled={!isConnected || !canUseCurrentMode}
+            placeholder={placeholder}
+            editorClassName="min-h-16 max-h-40 rounded-none border-0 bg-transparent px-0 py-0 text-sm leading-5"
+            placeholderClassName="left-0 top-0 text-sm leading-5 text-muted-foreground/55"
+            onTextChange={setLocalDraft}
+            onAtTrigger={onAtTrigger}
+            onAtCancel={onAtCancel}
+            onSlashTrigger={onSlashTrigger}
+            onSlashCancel={onSlashCancel}
+            onImagePaste={(blob, ext) => {
+              const safeExt = ext.replace(/[^a-zA-Z0-9]/g, "") || "png";
+              attachments.add([
+                new File([blob], `paste.${safeExt}`, {
+                  type: blob.type || `image/${safeExt}`,
+                }),
+              ]);
+            }}
+            onSubmit={() => formRef.current?.requestSubmit()}
+          />
+        }
+        agents={agentOptions}
+        agent={registryId || installedAgents[0]?.id || ""}
+        agentLocked={agentLocked || !onProviderChange}
+        onAgentChange={onProviderChange}
+        models={toPromptModels(modelOption)}
+        model={modelOption?.currentValue || ""}
+        onModelChange={(value) => modelOption && setConfigOption(modelOption.id, value)}
+        modelsLoading={isConnecting || isResumingHistory || catalogModelsLoading}
+        modes={toPromptModels(isConnected ? modeOption : null)}
+        mode={modeOption?.currentValue || ""}
+        onModeChange={(value) => modeOption && setConfigOption(modeOption.id, value)}
+        thinkingLevels={toPromptModels(isConnected ? thinkingOption : null)}
+        thinking={thinkingOption?.currentValue || ""}
+        onThinkingChange={(value) => thinkingOption && setConfigOption(thinkingOption.id, value)}
+        labels={{
+          chooseModel: t("composer.chooseModel"),
+          chooseAgent: t("composer.selectAgent"),
+          chooseMode: t("composer.chooseMode"),
+          model: t("composer.model"),
+          search: t("configOptionDropdown.searchPlaceholder"),
+          searchModels: t("composer.searchModels"),
+          searchAgents: t("composer.searchAgents"),
+          back: t("composer.backToAgents"),
+          noResults: t("configOptionDropdown.noResults"),
+          loadingModels: t("composer.loadingModels"),
+          thinkingFaster: t("composer.thinkingFaster"),
+          thinkingSmarter: t("composer.thinkingSmarter"),
+          thinkingEffort: t("composer.thinkingEffort"),
+        }}
+        leadingAction={
+          <div className="flex min-w-0 items-center gap-1">
+            <PromptInputAddAttachmentsButton className="rounded-2xl bg-transparent shadow-none hover:bg-muted/60 data-pressed:bg-muted/60 dark:bg-transparent dark:hover:bg-muted/60" />
+            {workingDirectoryPicker ? (
+              <AgentChatWorkingDirectoryPicker
+                className="rounded-2xl"
+                projects={workingDirectoryPicker.projects}
+                selection={workingDirectoryPicker.selection}
+                onSelect={workingDirectoryPicker.onSelect}
+              />
+            ) : null}
+            {isConnected
+              ? extraConfigOptions.map((opt) => (
+                  <ConfigOptionDropdown
+                    key={opt.id}
+                    opt={opt}
+                    icon={composerConfigIcon(opt.id)}
+                    triggerClassName="rounded-2xl"
+                    registryId={registryId}
+                    activeAgent={activeAgent}
+                    setConfigOption={setConfigOption}
+                    setAgentDefaultConfig={setAgentDefaultConfig}
+                    setInstalledAgents={setInstalledAgents}
+                  />
+                ))
+              : null}
+            {(loadingAgents || isConnecting || isResumingHistory) && !isConnected ? null : installedAgents.length === 0 ? (
+              <span className="px-2 text-xs text-muted-foreground">{t("composer.noAgent")}</span>
+            ) : null}
+          </div>
+        }
+        header={<PromptInputAttachmentsSection />}
+        onSubmit={async (text) => {
+          const files = attachments.files;
+          const previousDraft = localDraft;
+          const composed = expandAgentComposerText(composerRef.current?.getText() ?? text);
+          if (!composed && files.length === 0) {
+            setLocalDraft(previousDraft);
+            return;
+          }
+          setLocalDraft("");
+          composerRef.current?.clear();
+          persistedDraftRef.current = "";
+          clearAgentChatDraft(
+            sessionWorkspaceId,
+            sessionProjectId,
+            chatMode,
+            instanceKey,
+          );
+          try {
+            await onSubmit({ text: composed, files: await filesForSubmit(files) });
+            attachments.clear();
+          } catch (error) {
+            setLocalDraft(previousDraft);
+            composerRef.current?.setText(previousDraft);
+            persistedDraftRef.current = previousDraft;
+            throw error;
+          }
+        }}
+        onStop={
+          showStop
+            ? () => {
+                stoppedRef.current = true;
+                sendCancel();
+                setWaitingForResponse(false);
+                setMessages(stopStreamingMessages);
+              }
+            : undefined
+        }
+        radius="3xl"
+        className="w-full shadow-none"
+      />
+    </>
   );
 }
 
@@ -121,6 +414,10 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
   loadingAgents,
   isConnecting,
   isResumingHistory,
+  catalogModelsLoading = false,
+  chatId = null,
+  runtimeStatus = null,
+  hasPersistenceHandle = false,
   installedAgents,
   configOptions,
   registryId,
@@ -135,6 +432,7 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
   stoppedRef,
   projectPath = null,
   availableCommands = [],
+  workingDirectoryPicker = null,
 }: {
   currentPlan: AgentPlan | null;
   isResumedSession: boolean;
@@ -157,6 +455,10 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
   loadingAgents: boolean;
   isConnecting: boolean;
   isResumingHistory: boolean;
+  catalogModelsLoading?: boolean;
+  chatId?: string | null;
+  runtimeStatus?: string | null;
+  hasPersistenceHandle?: boolean;
   installedAgents: RegistryAgent[];
   configOptions: AgentConfigOption[];
   registryId: string;
@@ -171,6 +473,11 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
   stoppedRef: React.MutableRefObject<boolean>;
   projectPath?: string | null;
   availableCommands?: AgentChatSlashCommand[];
+  workingDirectoryPicker?: {
+    projects: Project[];
+    selection: AgentChatWorkingDirectory;
+    onSelect: (next: AgentChatWorkingDirectory) => void;
+  } | null;
 }) {
   const t = useTranslations("Agent.components");
   const setAgentChatDraft = useDialogStore((s) => s.setAgentChatDraft);
@@ -183,18 +490,41 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
       instanceKey,
     ),
   );
-  const [slashCommand, setSlashCommand] = useState<AgentChatSlashCommand | null>(null);
   const persistedDraftRef = useRef(localDraft);
-  const slashHydratedRef = useRef(false);
-  const composedDraft = composeAgentChatPrompt(slashCommand, localDraft);
-  const showStop = Boolean(agentActivity.busy && !composedDraft);
-  const { leading: leadingConfigOptions, trailing: trailingConfigOptions } =
-    splitComposerConfigOptions(configOptions);
-  const { handleComposerKeyDown, popovers, syncTriggers } = useAgentComposerPopovers({
+  const composerRef = useRef<ComposerHandle | null>(null);
+  const showStop = Boolean(agentActivity.busy && !localDraft.trim());
+  const modeOption = configOptionById(configOptions, "mode") ?? configOptionById(configOptions, "modes");
+  const modelOption = configOptionById(configOptions, "model") ?? configOptionById(configOptions, "models");
+  const thinkingOption =
+    configOptionById(configOptions, "thinking") ?? configOptionById(configOptions, "think");
+  const extraConfigOptions = configOptions.filter((option) => {
+    const id = option.id.trim().toLowerCase();
+    if (id === "mode" || id === "modes") return false;
+    if (isComposerTrailingConfigOption(option)) return false;
+    return option.type === "select" && option.options.length > 0;
+  });
+  const placeholderKind = resolveAgentComposerPlaceholderKind({
+    canUseCurrentMode,
+    agentName: activeAgent?.name,
+    chatId,
+    runtimeStatus,
+    hasPersistenceHandle,
+  });
+  const placeholder = t(`composer.placeholder.${placeholderKind}`, {
+    agent: activeAgent?.name ?? "",
+  });
+  const {
+    popovers,
+    onAtTrigger,
+    onAtCancel,
+    onSlashTrigger,
+    onSlashCancel,
+  } = useAgentComposerPopovers({
     availableCommands,
     projectPath,
-    setDraft: setLocalDraft,
-    onSelectSlashCommand: setSlashCommand,
+    composerRef,
+    activeProjectId: sessionProjectId,
+    agentName: activeAgent?.name,
   });
 
   useEffect(() => {
@@ -204,53 +534,87 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
       chatMode,
       {
         setDraft: (updater) => {
-          setLocalDraft((previous) =>
-            typeof updater === "function" ? updater(previous) : updater,
-          );
+          const current = composerRef.current?.getText() ?? "";
+          const next = typeof updater === "function" ? updater(current) : updater;
+          setLocalDraft(next);
+          composerRef.current?.setText(next);
         },
+        insertAiContext: (kind, promptText) => {
+          composerRef.current?.focus();
+          composerRef.current?.insertAiContext(kind, promptText);
+        },
+        focus: () => composerRef.current?.focus(),
       },
       instanceKey,
     );
   }, [chatMode, instanceKey, sessionProjectId, sessionWorkspaceId]);
 
   useEffect(() => {
-    if (slashHydratedRef.current || availableCommands.length === 0) return;
-    slashHydratedRef.current = true;
-    const parsed = parseLeadingAgentSlashCommand(localDraft, availableCommands);
-    if (!parsed.command) return;
-    setSlashCommand(parsed.command);
-    setLocalDraft(parsed.rest);
-    persistedDraftRef.current = composeAgentChatPrompt(parsed.command, parsed.rest);
-  }, [availableCommands, localDraft]);
-
-  useEffect(() => {
-    if (composedDraft === persistedDraftRef.current) return;
+    if (localDraft === persistedDraftRef.current) return;
 
     const timer = window.setTimeout(() => {
       setAgentChatDraft(
         sessionWorkspaceId,
         sessionProjectId,
         chatMode,
-        composedDraft,
+        localDraft,
         instanceKey,
       );
-      persistedDraftRef.current = composedDraft;
+      persistedDraftRef.current = localDraft;
     }, 180);
 
     return () => window.clearTimeout(timer);
   }, [
     chatMode,
-    composedDraft,
     instanceKey,
+    localDraft,
     sessionProjectId,
     sessionWorkspaceId,
     setAgentChatDraft,
   ]);
 
   return (
-    <div className="shrink-0 px-3 pb-3 pt-px select-none">
+    <div
+      className="shrink-0 px-3 pb-3 pt-px select-none"
+      data-agent-chat-composer=""
+      data-agent-chat-mode={chatMode}
+      data-agent-chat-instance-key={instanceKey?.trim() || undefined}
+      data-agent-chat-workspace-id={sessionWorkspaceId ?? undefined}
+      data-agent-chat-project-id={sessionProjectId ?? undefined}
+      onFocusCapture={() => {
+        touchActiveAgentComposer(
+          sessionWorkspaceId,
+          sessionProjectId,
+          chatMode,
+          instanceKey,
+        );
+      }}
+      onDragOver={(event) => {
+        if (!isConnected || !canUseCurrentMode) return;
+        if (!hasAgentContextDragData(event.dataTransfer)) return;
+        event.preventDefault();
+        event.stopPropagation();
+        event.dataTransfer.dropEffect = "copy";
+        composerRef.current?.placeCaretAtClientPoint(event.clientX, event.clientY);
+      }}
+      onDrop={(event) => {
+        if (!isConnected || !canUseCurrentMode) return;
+        const items = getAgentContextDragItems(event.dataTransfer);
+        if (!items) return;
+        event.preventDefault();
+        event.stopPropagation();
+        composerRef.current?.placeCaretAtClientPoint(event.clientX, event.clientY);
+        for (const item of items) {
+          const path =
+            item.kind === "directory" && !item.path.endsWith("/")
+              ? `${item.path}/`
+              : item.path;
+          composerRef.current?.insertFileMention(path);
+        }
+      }}
+    >
       {(currentPlan || queuedPrompts.length > 0) && (
-        <div className="mx-auto w-[96%] overflow-hidden rounded-t-2xl border border-border/70 border-b-0 bg-background/95">
+        <div className="mx-6 overflow-hidden rounded-t-3xl border border-border/70 border-b-0 bg-background/95">
           {currentPlan && (
             <div className={queuedPrompts.length > 0 ? "border-b border-border/70" : ""}>
               <PlanBlockView plan={currentPlan} embedded defaultOpen={!isResumedSession} />
@@ -266,191 +630,49 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
           )}
         </div>
       )}
-      <PromptInput
-        onSubmit={async (msg) => {
-          const text = composeAgentChatPrompt(slashCommand, msg.text);
-          const previousCommand = slashCommand;
-          const previousDraft = localDraft;
-          const previousComposed = composedDraft;
-          if (!text && (msg.files?.length ?? 0) === 0) {
-            setLocalDraft(previousDraft);
-            return;
-          }
-          setSlashCommand(null);
-          setLocalDraft("");
-          persistedDraftRef.current = "";
-          clearAgentChatDraft(
-            sessionWorkspaceId,
-            sessionProjectId,
-            chatMode,
-            instanceKey,
-          );
-          try {
-            await onSubmit({ text, files: msg.files });
-          } catch (error) {
-            setSlashCommand(previousCommand);
-            setLocalDraft(previousDraft);
-            persistedDraftRef.current = previousComposed;
-            throw error;
-          }
-        }}
-        className={`w-full border-0 shadow-none rounded-none ${(currentPlan || queuedPrompts.length > 0) ? "rounded-t-none" : "rounded-t-xl"}`}
-        multiple
-      >
-        <PromptInputAttachmentsSection />
-        <PromptInputBody>
-          <div
-            className="flex w-full min-w-0 items-start gap-1.5 px-3 py-3"
-            onClick={(event) => {
-              if ((event.target as HTMLElement).closest("button")) return;
-              event.currentTarget.querySelector("textarea")?.focus();
-            }}
-          >
-            {slashCommand ? (
-              <SlashCommandChip
-                name={slashCommand.name}
-                description={slashCommand.description}
-                onRemove={() => setSlashCommand(null)}
-                removeLabel={t("composer.removeSlashCommand", {
-                  name: `/${slashCommand.name}`,
-                })}
-              />
-            ) : null}
-            <PromptInputTextarea
-              data-agent-chat-input="true"
-              data-agent-chat-composer=""
-              data-agent-chat-mode={chatMode}
-              data-agent-chat-instance-key={instanceKey?.trim() || undefined}
-              data-agent-chat-workspace-id={sessionWorkspaceId ?? undefined}
-              data-agent-chat-project-id={sessionProjectId ?? undefined}
-              className="min-h-16 min-w-0 flex-1 px-0 py-0"
-              placeholder={
-                !canUseCurrentMode
-                  ? t("composer.placeholder.unavailable")
-                  : slashCommand?.hint?.trim()
-                    ? slashCommand.hint
-                    : isConnected
-                      ? t("composer.placeholder.connected")
-                      : t("composer.placeholder.selectAgent")
-              }
-              disabled={!isConnected || !canUseCurrentMode}
-              value={localDraft}
-              onChange={(e) => {
-                setLocalDraft(e.currentTarget.value);
-                syncTriggers(e.currentTarget);
-              }}
-              onKeyUp={(e) => syncTriggers(e.currentTarget)}
-              onClick={(e) => syncTriggers(e.currentTarget)}
-              onKeyDown={(e) => {
-                if (e.key === "Backspace" && e.currentTarget.value === "" && slashCommand) {
-                  e.preventDefault();
-                  setSlashCommand(null);
-                  return;
-                }
-                handleComposerKeyDown(e);
-              }}
-            />
-          </div>
-        </PromptInputBody>
-        <PromptInputFooter className="gap-2">
-          <PromptInputTools className="gap-2">
-            <PromptInputAddAttachmentsButton />
-            {isConnected
-              ? leadingConfigOptions.map((opt) => (
-                  <ConfigOptionDropdown
-                    key={opt.id}
-                    opt={opt}
-                    icon={composerConfigIcon(opt.id)}
-                    registryId={registryId}
-                    activeAgent={activeAgent}
-                    setConfigOption={setConfigOption}
-                    setAgentDefaultConfig={setAgentDefaultConfig}
-                    setInstalledAgents={setInstalledAgents}
-                  />
-                ))
-              : null}
-            {(loadingAgents || isConnecting || isResumingHistory) && !isConnected ? null : installedAgents.length === 0 ? (
-              <span className="px-2 text-xs text-muted-foreground">{t("composer.noAgent")}</span>
-            ) : null}
-          </PromptInputTools>
-          <div className="flex min-w-0 items-center gap-2">
-            {installedAgents.length > 0 ? (
-              agentLocked || !onProviderChange ? (
-                <span className="inline-flex h-8 max-w-[9rem] items-center gap-1.5 px-2 text-xs text-foreground">
-                  <AgentIcon
-                    registryId={activeAgent?.id || registryId}
-                    name={activeAgent?.name || registryId}
-                    size={14}
-                    isCustom={activeAgent?.install_method === "custom"}
-                    registryIcon={activeAgent?.icon}
-                  />
-                  <span className="truncate">{activeAgent?.name || t("composer.selectAgent")}</span>
-                </span>
-              ) : (
-                <Select
-                  value={registryId || installedAgents[0]?.id || ""}
-                  onValueChange={onProviderChange}
-                >
-                  <SelectTrigger className="h-8 w-auto min-w-0 gap-1.5 border-0 bg-transparent px-2 text-xs shadow-none hover:bg-muted/60">
-                    <SelectValue placeholder={t("composer.selectAgent")} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {installedAgents.map((agent) => (
-                      <SelectItem key={agent.id} value={agent.id}>
-                        <span className="flex items-center gap-1.5">
-                          <AgentIcon
-                            registryId={agent.id}
-                            name={agent.name}
-                            size={14}
-                            isCustom={agent.install_method === "custom"}
-                            registryIcon={agent.icon}
-                          />
-                          <span className="truncate">{agent.name}</span>
-                        </span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )
-            ) : null}
-            {isConnected
-              ? trailingConfigOptions.map((opt) => (
-                  <ConfigOptionDropdown
-                    key={opt.id}
-                    opt={opt}
-                    icon={composerConfigIcon(opt.id)}
-                    registryId={registryId}
-                    activeAgent={activeAgent}
-                    setConfigOption={setConfigOption}
-                    setAgentDefaultConfig={setAgentDefaultConfig}
-                    setInstalledAgents={setInstalledAgents}
-                  />
-                ))
-              : null}
-            <PromptInputSubmit
-              status={showStop ? "streaming" : undefined}
-              onStop={
-                showStop
-                  ? () => {
-                    stoppedRef.current = true;
-                    sendCancel();
-                    setWaitingForResponse(false);
-                    setMessages(stopStreamingMessages);
-                  }
-                  : undefined
-              }
-              disabled={!isConnected || !canUseCurrentMode}
-              size="icon-sm"
-            >
-              {showStop ? (
-                <span className="flex items-center gap-1.5">
-                  <Square className="size-4 shrink-0" />
-                </span>
-              ) : undefined}
-            </PromptInputSubmit>
-          </div>
-        </PromptInputFooter>
-      </PromptInput>
+      <PromptInputProvider>
+        <ComposerPromptInput
+          composerRef={composerRef}
+          onAtTrigger={onAtTrigger}
+          onAtCancel={onAtCancel}
+          onSlashTrigger={onSlashTrigger}
+          onSlashCancel={onSlashCancel}
+          localDraft={localDraft}
+          setLocalDraft={setLocalDraft}
+          persistedDraftRef={persistedDraftRef}
+          canUseCurrentMode={canUseCurrentMode}
+          isConnected={isConnected}
+          chatMode={chatMode}
+          instanceKey={instanceKey}
+          sessionWorkspaceId={sessionWorkspaceId}
+          sessionProjectId={sessionProjectId}
+          loadingAgents={loadingAgents}
+          isConnecting={isConnecting}
+          isResumingHistory={isResumingHistory}
+          catalogModelsLoading={catalogModelsLoading}
+          installedAgents={installedAgents}
+          extraConfigOptions={extraConfigOptions}
+          modeOption={modeOption}
+          modelOption={modelOption}
+          thinkingOption={thinkingOption}
+          registryId={registryId}
+          activeAgent={activeAgent}
+          agentLocked={agentLocked}
+          onProviderChange={onProviderChange}
+          setConfigOption={setConfigOption}
+          setAgentDefaultConfig={setAgentDefaultConfig}
+          setInstalledAgents={setInstalledAgents}
+          showStop={showStop}
+          sendCancel={sendCancel}
+          setWaitingForResponse={setWaitingForResponse}
+          setMessages={setMessages}
+          stoppedRef={stoppedRef}
+          workingDirectoryPicker={workingDirectoryPicker}
+          clearAgentChatDraft={clearAgentChatDraft}
+          onSubmit={onSubmit}
+          placeholder={placeholder}
+        />
+      </PromptInputProvider>
       {popovers}
     </div>
   );

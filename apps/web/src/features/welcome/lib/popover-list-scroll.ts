@@ -1,4 +1,13 @@
 /**
+ * Enter or Tab confirms the highlighted `/` or `@` popover row.
+ * Shift/Alt/Meta/Ctrl are ignored so Tab-with-modifiers can still reverse-tab.
+ */
+export function isPopoverConfirmKey(event: KeyboardEvent): boolean {
+  if (event.altKey || event.metaKey || event.ctrlKey || event.shiftKey) return false;
+  return event.key === "Enter" || event.key === "Tab";
+}
+
+/**
  * Scroll the active popover row into view while keeping `paddingItems` extra
  * rows visible past it (both directions). When arrowing down, the selection
  * sits about 4th-from-bottom so the next few results stay readable.

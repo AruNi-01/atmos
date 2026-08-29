@@ -31,7 +31,7 @@ import { useWebSocketStore } from '@/features/connection/hooks/use-websocket';
 import { settingsModalParams } from '@/shared/lib/nuqs/searchParams';
 import { useNotificationSettingsStore } from '@/features/settings/store/notification-settings-store';
 import { useFunctionSettingsStore } from '@/features/settings/store/function-settings-store';
-import { useAgentTitleSettingsStore } from '@/features/settings/store/agent-title-settings-store';
+
 import {
   requestBrowserNotificationPermission,
   sendBrowserNotification,
@@ -308,11 +308,6 @@ export function SettingsPage({ onLeave }: { onLeave?: () => void } = {}) {
   const [yoloMode, setYoloMode] = useState(true);
   const [yoloModeSyncing, setYoloModeSyncing] = useState(false);
   const [yoloModeRestoring, setYoloModeRestoring] = useState(false);
-  const showAgentNameInTerminalTitles = useAgentTitleSettingsStore(
-    (s) => s.showAgentNameInTerminalTitles,
-  );
-  const [showAgentNameInTerminalTitlesSyncing, setShowAgentNameInTerminalTitlesSyncing] =
-    useState(false);
   const getErrorDescription = React.useCallback(
     (error: unknown) => (error instanceof Error ? error.message : t('unknownError')),
     [t],
@@ -409,7 +404,6 @@ export function SettingsPage({ onLeave }: { onLeave?: () => void } = {}) {
       setYoloMode(
         typeof agentCli?.yolo_mode === "boolean" ? agentCli.yolo_mode : true,
       );
-      await useAgentTitleSettingsStore.getState().loadSettings(true);
     } catch {
       // ignore
     } finally {
@@ -518,24 +512,6 @@ export function SettingsPage({ onLeave }: { onLeave?: () => void } = {}) {
       setYoloModeSyncing(false);
     }
   }, [getErrorDescription, t, yoloMode]);
-
-  const handleShowAgentNameInTerminalTitlesChange = React.useCallback(
-    async (enabled: boolean) => {
-      setShowAgentNameInTerminalTitlesSyncing(true);
-      try {
-        await useAgentTitleSettingsStore.getState().setShowAgentNameInTerminalTitles(enabled);
-      } catch (error) {
-        toastManager.add({
-          title: t('errors.updateShowAgentNameTitle'),
-          description: getErrorDescription(error),
-          type: 'error',
-        });
-      } finally {
-        setShowAgentNameInTerminalTitlesSyncing(false);
-      }
-    },
-    [getErrorDescription, t],
-  );
 
   /** Enable YOLO and clear built-in flag overrides so manifests reapply. */
   const handleRestoreAllYoloMode = React.useCallback(async () => {
@@ -1197,11 +1173,6 @@ export function SettingsPage({ onLeave }: { onLeave?: () => void } = {}) {
                     }}
                     onRestoreAllYoloMode={() => {
                       void handleRestoreAllYoloMode();
-                    }}
-                    showAgentNameInTerminalTitles={showAgentNameInTerminalTitles}
-                    showAgentNameInTerminalTitlesSyncing={showAgentNameInTerminalTitlesSyncing}
-                    onShowAgentNameInTerminalTitlesChange={(enabled) => {
-                      void handleShowAgentNameInTerminalTitlesChange(enabled);
                     }}
                     onAddCustomAgent={handleAddCustomAgent}
                     onAgentSettingChange={handleAgentSettingChange}

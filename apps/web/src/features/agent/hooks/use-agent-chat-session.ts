@@ -4,6 +4,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useShallow } from "zustand/react/shallow";
 import { useContextParams } from "@/shared/hooks/use-context-params";
+import {
+  DEFAULT_CENTER_SPACE_ID,
+  parseCenterSpaceKey,
+} from "@/app-shell/center-space/center-space";
+import { useCenterSpaceStore } from "@/app-shell/center-space/center-space-store";
 import { useProjects } from "@/features/project/hooks/use-project-bootstrap-query";
 import {
   buildQueuedAgentPromptContent,
@@ -28,6 +33,11 @@ import {
   resolveRestoredAgentChat,
 } from "@/features/agent/lib/agent-chat-last-session";
 import {
+  FOOTER_MODAL_CHAT_PREF_KEY,
+  workingDirectoriesEqual,
+  type AgentChatWorkingDirectory,
+} from "@/features/agent/lib/agent-chat-working-directory";
+import {
   deriveAgentActivity,
   readDefaultAgentRegistryId,
   writeDefaultAgentRegistryId,
@@ -42,11 +52,23 @@ import { useAgentChatUiHandlers } from "./use-agent-chat-ui-handlers";
 import {
   agentChatEventFor,
   currentPlanFromMessages,
+  dedupeAgentMessages,
   foldMessagesFromEvent,
 } from "@/features/agent/lib/agent-chat-events";
 import { routeBusySubmit, resolveFollowupPolicy } from "@/features/agent/lib/followup-policy";
+import { isLiveAgentRuntimeStatus } from "@/features/agent/lib/agent-composer-placeholder";
+import {
+  EMPTY_AGENT_SLASH_COMMANDS,
+  normalizeAgentSlashCommands,
+  rememberAgentSlashCommands,
+  resolveAgentSlashCommands,
+  useAgentSlashCommandCache,
+  type AgentChatSlashCommand,
+} from "@/features/agent/store/agent-slash-command-cache";
 import {
   catalogToConfigOptions,
+  defaultCatalogModelId,
+  isCatalogModelsLoading,
   chatTitleFromPrompt,
   chatsToHistoryRows,
   parsePlan,
@@ -55,11 +77,19 @@ import {
   type AgentChatHistoryRow,
 } from "@/features/agent/lib/agent-chat-thread";
 
-export type AgentChatSlashCommand = {
-  name: string;
-  description: string;
-  hint?: string | null;
-};
+export type { AgentChatSlashCommand } from "@/features/agent/store/agent-slash-command-cache";
+
+function spaceIdForChatCreate(
+  paintContextId: string | null | undefined,
+  hostId: string | null | undefined,
+): string | null {
+  if (paintContextId?.trim()) {
+    return parseCenterSpaceKey(paintContextId).spaceId;
+  }
+  const host = hostId?.trim();
+  if (!host) return null;
+  return useCenterSpaceStore.getState().getActiveSpaceId(host) || DEFAULT_CENTER_SPACE_ID;
+}
 
 export function useAgentChatSession({
   variant,
@@ -68,6 +98,7 @@ export function useAgentChatSession({
   contextOverride,
   transformPrompt,
   instanceKey = null,
+  paintContextId = null,
   chatId: chatIdProp,
   onChatStarted,
   onChatUpdated,
@@ -94,6 +125,8 @@ export function useAgentChatSession({
   const projects = useProjects();
   const isPanelOpen = variant === "modal" ? active : active;
   const chatMode = mode;
+  const isolatedModal = variant === "modal";
+  const lastSessionPrefKey = isolatedModal ? FOOTER_MODAL_CHAT_PREF_KEY : undefined;
 
   const [messages, setMessages] = useState<AgentMessage[]>([]);
   const [busy, setBusy] = useState(false);
@@ -110,8 +143,10 @@ export function useAgentChatSession({
   const [installedAgents, setInstalledAgents] = useState<RegistryAgent[]>([]);
   const [defaultRegistryId, setDefaultRegistryId] = useState("");
   const [loadingAgents, setLoadingAgents] = useState(true);
-  const [workspaceId, setWorkspaceId] = useState<string | null>(urlWorkspaceId);
-  const [projectId, setProjectId] = useState<string | null>(urlProjectId);
+  const [workspaceId, setWorkspaceId] = useState<string | null>(
+    isolatedModal ? null : urlWorkspaceId,
+  );
+  const [projectId, setProjectId] = useState<string | null>(isolatedModal ? null : urlProjectId);
   const [cwd, setCwd] = useState("");
   const [title, setTitle] = useState<string | null>(null);
   const [sendError, setSendError] = useState<string | null>(null);
@@ -120,15 +155,18 @@ export function useAgentChatSession({
   const [historySessions, setHistorySessions] = useState<AgentChatHistoryRow[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [isResumingHistory, setIsResumingHistory] = useState(true);
-  const [headerHovered, setHeaderHovered] = useState(false);
   const [shouldScrambleAutoTitle, setShouldScrambleAutoTitle] = useState(false);
   const [hydrated, setHydrated] = useState(false);
-  const [availableCommands, setAvailableCommands] = useState<AgentChatSlashCommand[]>([]);
+  const [runtimeStatus, setRuntimeStatus] = useState<string | null>(null);
+  const [hasPersistenceHandle, setHasPersistenceHandle] = useState(false);
+  const [sessionCommands, setSessionCommands] = useState<AgentChatSlashCommand[]>([]);
   const [sessionUsage, setSessionUsage] = useState<AgentSessionUsage | null>(null);
   const [turnStartedAt, setTurnStartedAt] = useState<number | null>(null);
   const [elapsedMs, setElapsedMs] = useState(0);
   const consumedPrompts = useRef(new Set<string>());
   const lastSeq = useRef(0);
+  const hydratingRef = useRef(true);
+  const pendingEventsRef = useRef<AgentChatEvent[]>([]);
   const stoppedRef = useRef(false);
   const pendingSendRef = useRef<{ text: string; attachmentPaths: string[] } | null>(null);
   const activeIdRef = useRef(chatId);
@@ -189,7 +227,7 @@ export function useAgentChatSession({
     const previous = chatIdPropRef.current;
     chatIdPropRef.current = chatId;
     if (chatId) {
-      if (previous !== chatId) setAvailableCommands([]);
+      if (previous !== chatId) setSessionCommands([]);
       setActiveChatId(chatId);
       return;
     }
@@ -201,11 +239,13 @@ export function useAgentChatSession({
       setBusy(false);
       setRunningTurnId(null);
       setPendingPermission(null);
-      setAvailableCommands([]);
+      setSessionCommands([]);
       setSessionUsage(null);
       setTurnStartedAt(null);
       setElapsedMs(0);
       lastSeq.current = 0;
+      setRuntimeStatus("detached");
+      setHasPersistenceHandle(false);
     }
   }, [chatId]);
 
@@ -216,11 +256,15 @@ export function useAgentChatSession({
     setTitle(meta.title?.trim() || null);
     setSupportsSteer(Boolean(meta.supports_steer));
     setMessages(
-      (snapshot.messages ?? []).map((message) => ({
-        ...message,
-        parts: message.parts ?? [],
-      })),
+      dedupeAgentMessages(
+        (snapshot.messages ?? []).map((message) => ({
+          ...message,
+          parts: message.parts ?? [],
+        })),
+      ),
     );
+    setRuntimeStatus(meta.runtime_status ?? "detached");
+    setHasPersistenceHandle(Boolean(meta.persistence_handle));
     const running = meta.runtime_status === "running_turn" || meta.runtime_status === "waiting_permission";
     setBusy(running);
     setRunningTurnId(snapshot.running_turn_id ?? null);
@@ -237,12 +281,12 @@ export function useAgentChatSession({
     setModelId(meta.selected_model ?? "");
     setThinkingId(meta.selected_thinking ?? "");
     setModeId(meta.selected_mode ?? "");
-    setWorkspaceId(meta.workspace_id ?? urlWorkspaceId);
-    setProjectId(meta.project_id ?? urlProjectId);
-    setCwd(meta.cwd ?? "");
-    setAvailableCommands(
-      (meta.available_commands ?? []).filter((command) => command.name.trim()),
-    );
+    setWorkspaceId(meta.workspace_id ?? (isolatedModal ? null : urlWorkspaceId));
+    setProjectId(meta.project_id ?? (isolatedModal ? null : urlProjectId));
+    setCwd(isolatedModal && !meta.workspace_id && !meta.project_id ? "" : (meta.cwd ?? ""));
+    const commands = normalizeAgentSlashCommands(meta.available_commands);
+    setSessionCommands(commands);
+    rememberAgentSlashCommands(meta.provider_id || providerIdRef.current, commands);
     if (meta.title?.trim()) {
       onUpdatedRef.current?.(id, {
         title: meta.title,
@@ -287,17 +331,26 @@ export function useAgentChatSession({
     }
     lastSeq.current = Number(meta.last_event_seq ?? 0);
     persistAgentChatLastSession({
-      workspaceId: meta.workspace_id ?? urlWorkspaceId,
-      projectId: meta.project_id ?? urlProjectId,
+      workspaceId: meta.workspace_id ?? (isolatedModal ? null : urlWorkspaceId),
+      projectId: meta.project_id ?? (isolatedModal ? null : urlProjectId),
       mode: chatMode,
       instanceKey,
       registryId: meta.provider_id || providerIdRef.current,
       chatId: id,
       cwd: meta.cwd ?? null,
+      prefKey: lastSessionPrefKey,
     });
     setHydrated(true);
     setIsResumingHistory(false);
-  }, [activeChatId, chatMode, instanceKey, urlProjectId, urlWorkspaceId]);
+  }, [
+    activeChatId,
+    chatMode,
+    instanceKey,
+    isolatedModal,
+    lastSessionPrefKey,
+    urlProjectId,
+    urlWorkspaceId,
+  ]);
 
   useEffect(() => {
     const readPolicy = () => {
@@ -341,10 +394,11 @@ export function useAgentChatSession({
     if (restoreAttemptedRef.current) return;
     restoreAttemptedRef.current = true;
     const stored = readAgentChatLastSessions({
-      workspaceId: urlWorkspaceId,
-      projectId: urlProjectId,
+      workspaceId: isolatedModal ? null : urlWorkspaceId,
+      projectId: isolatedModal ? null : urlProjectId,
       mode: chatMode,
       instanceKey,
+      prefKey: lastSessionPrefKey,
     });
     const restored = resolveRestoredAgentChat({
       chatIdProp: chatId,
@@ -354,6 +408,12 @@ export function useAgentChatSession({
       installedAgentIds: installedAgents.map((agent) => agent.id),
       defaultRegistryId: defaultRegistryId || installedAgents[0]?.id || "",
     });
+    const last = stored.instanceLast ?? stored.filterLast;
+    if (isolatedModal && last) {
+      setWorkspaceId(last.workspaceId);
+      setProjectId(last.projectId);
+      setCwd(last.workspaceId || last.projectId ? last.cwd ?? "" : "");
+    }
     if (restored.registryId) {
       setProviderIdState((current) => current || restored.registryId);
     }
@@ -372,6 +432,8 @@ export function useAgentChatSession({
     defaultRegistryId,
     installedAgents,
     instanceKey,
+    isolatedModal,
+    lastSessionPrefKey,
     onOpenChat,
     urlProjectId,
     urlWorkspaceId,
@@ -396,18 +458,10 @@ export function useAgentChatSession({
     setHydrated(false);
     setIsResumingHistory(true);
     const id = activeChatId;
-    void load(id).then(async () => {
-      await agentChatApi.subscribe(id, lastSeq.current);
-      const pending = pendingSendRef.current;
-      pendingSendRef.current = null;
-      if (pending) {
-        await agentChatApi.send(id, pending.text, pending.attachmentPaths);
-      }
-    }).catch(() => {
-      setHydrated(true);
-      setIsResumingHistory(false);
-    });
-    const off = useWebSocketStore.getState().onEvent("agent_chat_event", (event: AgentChatEvent) => {
+    hydratingRef.current = true;
+    pendingEventsRef.current = [];
+    lastSeq.current = 0;
+    const applyEvent = (event: AgentChatEvent) => {
       if (!agentChatEventFor(event, activeIdRef.current)) return;
       if (typeof event.sequence === "number") {
         if (event.sequence <= lastSeq.current) return;
@@ -452,16 +506,9 @@ export function useAgentChatSession({
         setQueue(payload.items);
       }
       if (payload.type === "available_commands_updated") {
-        const commands = (payload.commands ?? []).flatMap((command) => {
-          const name = command.name?.trim();
-          if (!name) return [];
-          return [{
-            name,
-            description: command.description?.trim() || name,
-            hint: command.hint ?? null,
-          }];
-        });
-        setAvailableCommands(commands);
+        const commands = normalizeAgentSlashCommands(payload.commands);
+        setSessionCommands(commands);
+        rememberAgentSlashCommands(providerIdRef.current, commands);
       }
       if (payload.type === "title_updated") {
         const nextTitle = payload.title;
@@ -471,7 +518,12 @@ export function useAgentChatSession({
           onUpdatedRef.current?.(activeIdRef.current, { title: nextTitle });
         }
       }
+      if (payload.type === "session_lifecycle" && (payload.status === "running" || payload.status === "completed")) {
+        setRuntimeStatus((current) => (isLiveAgentRuntimeStatus(current) ? current : "starting"));
+      }
       if (payload.type === "runtime_status") {
+        if (payload.status) setRuntimeStatus(payload.status);
+        if (payload.persistence_handle) setHasPersistenceHandle(true);
         if (payload.status === "detached" || payload.status === "closed") {
           setBusy(false);
           setRunningTurnId(null);
@@ -479,9 +531,34 @@ export function useAgentChatSession({
           setTurnStartedAt(null);
         }
       }
+    };
+    void load(id).then(async () => {
+      const pending = pendingEventsRef.current;
+      pendingEventsRef.current = [];
+      hydratingRef.current = false;
+      for (const event of pending) applyEvent(event);
+      await agentChatApi.subscribe(id, lastSeq.current);
+      const queued = pendingSendRef.current;
+      pendingSendRef.current = null;
+      if (queued) {
+        await agentChatApi.send(id, queued.text, queued.attachmentPaths);
+      }
+    }).catch(() => {
+      hydratingRef.current = false;
+      setHydrated(true);
+      setIsResumingHistory(false);
+    });
+    const off = useWebSocketStore.getState().onEvent("agent_chat_event", (event: AgentChatEvent) => {
+      if (!agentChatEventFor(event, activeIdRef.current)) return;
+      if (hydratingRef.current) {
+        pendingEventsRef.current.push(event);
+        return;
+      }
+      applyEvent(event);
     });
     return () => {
       off();
+      hydratingRef.current = true;
       void agentChatApi.unsubscribe(id);
     };
   }, [activeChatId, load, prefsRestored, projectId, urlProjectId, urlWorkspaceId, workspaceId, wsConnected]);
@@ -499,11 +576,14 @@ export function useAgentChatSession({
 
   useEffect(() => {
     if (!catalog) return;
+    if (catalog.agent_id && providerId && catalog.agent_id !== providerId) return;
     setModeId((current) =>
       current || catalog.modes.find((mode) => mode.is_default)?.id || catalog.modes[0]?.id || "",
     );
-    setThinkingId((current) => current || thinkingChoices(catalog, modelId)[0] || "");
-  }, [catalog, modelId]);
+    const resolvedModelId = defaultCatalogModelId(catalog, modelId);
+    setModelId(resolvedModelId);
+    setThinkingId((current) => current || thinkingChoices(catalog, resolvedModelId)[0] || "");
+  }, [catalog, modelId, providerId]);
 
   useEffect(() => {
     const contextKey = getAgentPromptQueueKey(workspaceId, projectId, "default", null);
@@ -530,6 +610,9 @@ export function useAgentChatSession({
             cwd: cwd || null,
             workspace_id: workspaceId,
             project_id: projectId,
+            space_id: isolatedModal
+              ? null
+              : spaceIdForChatCreate(paintContextId, workspaceId || projectId),
             title: item.sessionTitle ?? null,
           });
           id = created.id;
@@ -557,6 +640,8 @@ export function useAgentChatSession({
     cwd,
     defaultRegistryId,
     instanceKey,
+    isolatedModal,
+    paintContextId,
     modeId,
     modelId,
     projectId,
@@ -574,9 +659,12 @@ export function useAgentChatSession({
     mode?: string;
   }) => {
     if (!activeChatId) return;
-    await agentChatApi.configure(activeChatId, patch);
-    void load(activeChatId);
-  }, [activeChatId, load]);
+    const meta = await agentChatApi.configure(activeChatId, patch);
+    setProviderIdState(meta.provider_id || "claude");
+    setModelId(meta.selected_model ?? "");
+    setThinkingId(meta.selected_thinking ?? "");
+    setModeId(meta.selected_mode ?? "");
+  }, [activeChatId]);
 
   const handleSubmit = useCallback(async (
     message: {
@@ -601,6 +689,9 @@ export function useAgentChatSession({
           cwd: cwd || null,
           workspace_id: workspaceId,
           project_id: projectId,
+          space_id: isolatedModal
+            ? null
+            : spaceIdForChatCreate(paintContextId, workspaceId || projectId),
         });
         id = created.id;
         let attachmentPaths: string[] = [];
@@ -666,8 +757,10 @@ export function useAgentChatSession({
     busy,
     cwd,
     defaultRegistryId,
+    isolatedModal,
     modeId,
     modelId,
+    paintContextId,
     onChatStarted,
     policy,
     projectId,
@@ -682,7 +775,7 @@ export function useAgentChatSession({
   const persistPreferredRegistry = useCallback((registryId: string) => {
     const next = registryId.trim();
     if (!next) return;
-    setProviderIdState((current) => (agentLocked ? current : next || current));
+    setProviderIdState((current) => (agentLocked && !isolatedModal ? current : next || current));
     persistAgentChatLastSession({
       workspaceId,
       projectId,
@@ -691,8 +784,19 @@ export function useAgentChatSession({
       registryId: next,
       chatId: activeChatId || null,
       cwd: cwd || null,
+      prefKey: lastSessionPrefKey,
     });
-  }, [activeChatId, agentLocked, chatMode, cwd, instanceKey, projectId, workspaceId]);
+  }, [
+    activeChatId,
+    agentLocked,
+    chatMode,
+    cwd,
+    instanceKey,
+    isolatedModal,
+    lastSessionPrefKey,
+    projectId,
+    workspaceId,
+  ]);
 
   const handleCreateNewSession = useCallback(async (targetRegistryId?: string) => {
     const nextRegistry = targetRegistryId?.trim() || providerId;
@@ -706,6 +810,7 @@ export function useAgentChatSession({
         registryId: nextRegistry,
         chatId: null,
         cwd: cwd || null,
+        prefKey: lastSessionPrefKey,
       });
     }
     setActiveChatId("");
@@ -715,13 +820,24 @@ export function useAgentChatSession({
     setBusy(false);
     setRunningTurnId(null);
     setPendingPermission(null);
-    setAvailableCommands([]);
+    setSessionCommands([]);
     setSessionUsage(null);
     setTurnStartedAt(null);
     setElapsedMs(0);
     lastSeq.current = 0;
+    setRuntimeStatus("detached");
+    setHasPersistenceHandle(false);
     onOpenChat?.("");
-  }, [chatMode, cwd, instanceKey, onOpenChat, projectId, providerId, workspaceId]);
+  }, [
+    chatMode,
+    cwd,
+    instanceKey,
+    lastSessionPrefKey,
+    onOpenChat,
+    projectId,
+    providerId,
+    workspaceId,
+  ]);
 
   const handleSelectHistorySession = useCallback(async (row: AgentChatHistoryRow) => {
     setHistoryOpen(false);
@@ -791,13 +907,18 @@ export function useAgentChatSession({
   }, [activeChatId, persistConfig]);
 
   const setProviderId = useCallback((next: string) => {
-    if (agentLocked) return;
+    if (agentLocked && !isolatedModal) return;
+    if (isolatedModal && agentLocked && next !== providerId) {
+      void handleCreateNewSession(next);
+      return;
+    }
     setProviderIdState(next);
+    setCatalog(null);
     setModelId("");
     setThinkingId("");
     setModeId("");
     persistPreferredRegistry(next);
-  }, [agentLocked, persistPreferredRegistry]);
+  }, [agentLocked, handleCreateNewSession, isolatedModal, persistPreferredRegistry, providerId]);
 
   const setAgentDefaultConfig = useCallback((configId: string, value: string) => {
     setInstalledAgents((current) =>
@@ -811,9 +932,99 @@ export function useAgentChatSession({
 
   const activeAgent = installedAgents.find((agent) => agent.id === providerId) ?? installedAgents[0] ?? null;
   const registryId = activeAgent?.id || providerId;
+  const cachedCommands = useAgentSlashCommandCache((state) => {
+    const id = (providerId || defaultRegistryId).trim();
+    if (!id) return EMPTY_AGENT_SLASH_COMMANDS;
+    return state.byProviderId[id] ?? EMPTY_AGENT_SLASH_COMMANDS;
+  });
+  const availableCommands = resolveAgentSlashCommands(sessionCommands, cachedCommands);
+
+  useEffect(() => {
+    if (activeChatId) return;
+    const id = (providerId || defaultRegistryId).trim();
+    if (!id) return;
+    if (useAgentSlashCommandCache.getState().byProviderId[id]?.length) return;
+    const match = historySessions.find((row) => row.provider_id === id);
+    if (!match?.chat_id) return;
+    let cancelled = false;
+    void agentChatApi
+      .get(match.chat_id)
+      .then((snapshot) => {
+        if (cancelled) return;
+        rememberAgentSlashCommands(
+          id,
+          normalizeAgentSlashCommands(snapshot.meta.available_commands),
+        );
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [activeChatId, defaultRegistryId, historySessions, providerId]);
+  const resetConversation = useCallback(() => {
+    setActiveChatId("");
+    setMessages([]);
+    setTitle(null);
+    setQueue([]);
+    setBusy(false);
+    setRunningTurnId(null);
+    setPendingPermission(null);
+    setSessionCommands([]);
+    setSessionUsage(null);
+    setTurnStartedAt(null);
+    setElapsedMs(0);
+    lastSeq.current = 0;
+    setRuntimeStatus("detached");
+    setHasPersistenceHandle(false);
+    onOpenChat?.("");
+  }, [onOpenChat]);
+
+  const handleSelectWorkingDirectory = useCallback(
+    (selection: AgentChatWorkingDirectory) => {
+      const current: AgentChatWorkingDirectory = {
+        workspaceId,
+        projectId,
+        cwd: cwd || null,
+      };
+      if (workingDirectoriesEqual(current, selection)) return;
+      setWorkspaceId(selection.workspaceId);
+      setProjectId(selection.projectId);
+      setCwd(selection.cwd ?? "");
+      const registry = providerId || defaultRegistryId;
+      if (registry) {
+        persistAgentChatLastSession({
+          workspaceId: selection.workspaceId,
+          projectId: selection.projectId,
+          mode: chatMode,
+          instanceKey,
+          registryId: registry,
+          chatId: null,
+          cwd: selection.cwd,
+          prefKey: lastSessionPrefKey,
+        });
+      }
+      if (activeChatId) resetConversation();
+    },
+    [
+      activeChatId,
+      chatMode,
+      cwd,
+      defaultRegistryId,
+      instanceKey,
+      lastSessionPrefKey,
+      projectId,
+      providerId,
+      resetConversation,
+      workspaceId,
+    ],
+  );
+
   const localPath = useMemo(
-    () => cwd || resolveAgentChatLocalPath(projects, effectiveContextId),
-    [cwd, effectiveContextId, projects],
+    () =>
+      isolatedModal
+        ? cwd || null
+        : cwd || resolveAgentChatLocalPath(projects, effectiveContextId),
+    [cwd, effectiveContextId, isolatedModal, projects],
   );
   const exportableMessages = useMemo(() => buildAgentChatExportableMessages(messages), [messages]);
   const ui = useAgentChatUiHandlers({
@@ -875,6 +1086,8 @@ export function useAgentChatSession({
     stoppedRef,
     isResumingHistory: isResumingHistory && messages.length === 0,
     isResumedSession: messages.length > 0,
+    runtimeStatus,
+    hasPersistenceHandle,
     installedAgents,
     setInstalledAgents,
     activeAgent,
@@ -893,6 +1106,7 @@ export function useAgentChatSession({
       session_info_update: { supported: true, reason: null },
       load_session: { supported: true, reason: null },
     },
+    catalogModelsLoading: isCatalogModelsLoading(catalog, providerId),
     configOptions,
     setConfigOption,
     setProviderId,
@@ -948,8 +1162,6 @@ export function useAgentChatSession({
     },
     newSessionAgentsOpen: ui.newSessionAgentsOpen,
     setNewSessionAgentsOpen: ui.setNewSessionAgentsOpen,
-    headerHovered,
-    setHeaderHovered,
     bottomRef,
     transcriptRef,
     authRequest: null,
@@ -965,6 +1177,7 @@ export function useAgentChatSession({
     handleLogoutAgent: async () => undefined,
     handlePermission,
     handleCreateNewSession,
+    handleSelectWorkingDirectory,
     handleSelectHistorySession,
     handleSelectMessage: ui.handleSelectMessage,
     handleSetDefaultAgent: ui.handleSetDefaultAgent,

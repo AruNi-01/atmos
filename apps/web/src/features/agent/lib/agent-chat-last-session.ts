@@ -72,12 +72,16 @@ export function readAgentChatLastSessions(input: {
   projectId: string | null;
   mode: string;
   instanceKey?: string | null;
+  /** When set, last-session keys ignore the current page workspace/project. */
+  prefKey?: { workspaceId: string | null; projectId: string | null };
 }): { filterLast: AgentLastSession | null; instanceLast: AgentLastSession | null } {
-  const filterKey = agentChatFilterKey(input.workspaceId, input.projectId, input.mode);
-  const legacyKey = legacySessionContextKey(input.workspaceId, input.projectId);
+  const keyWorkspaceId = input.prefKey?.workspaceId ?? input.workspaceId;
+  const keyProjectId = input.prefKey?.projectId ?? input.projectId;
+  const filterKey = agentChatFilterKey(keyWorkspaceId, keyProjectId, input.mode);
+  const legacyKey = legacySessionContextKey(keyWorkspaceId, keyProjectId);
   const instanceKey = agentChatInstanceKey(
-    input.workspaceId,
-    input.projectId,
+    keyWorkspaceId,
+    keyProjectId,
     input.mode,
     input.instanceKey,
   );
@@ -95,12 +99,15 @@ export function persistAgentChatLastSession(input: {
   registryId: string;
   chatId?: string | null;
   cwd?: string | null;
+  prefKey?: { workspaceId: string | null; projectId: string | null };
 }): void {
   const registryId = input.registryId.trim();
   if (!registryId) return;
   const chatId = input.chatId?.trim() || null;
   const now = Date.now();
-  const filterKey = agentChatFilterKey(input.workspaceId, input.projectId, input.mode);
+  const keyWorkspaceId = input.prefKey?.workspaceId ?? input.workspaceId;
+  const keyProjectId = input.prefKey?.projectId ?? input.projectId;
+  const filterKey = agentChatFilterKey(keyWorkspaceId, keyProjectId, input.mode);
   const previousFilter = readAgentLastSession(filterKey);
   writeAgentLastSession(filterKey, {
     registryId,
@@ -112,8 +119,8 @@ export function persistAgentChatLastSession(input: {
   });
 
   const instanceKey = agentChatInstanceKey(
-    input.workspaceId,
-    input.projectId,
+    keyWorkspaceId,
+    keyProjectId,
     input.mode,
     input.instanceKey,
   );

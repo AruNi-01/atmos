@@ -5,6 +5,7 @@ import { AgentChatPanel } from "@/features/agent/components/AgentChatPanel";
 export function AgentChatWorkspace({
   chatId,
   instanceKey,
+  paintContextId,
   onChatStarted,
   onChatUpdated,
   onOpenChat,
@@ -12,6 +13,7 @@ export function AgentChatWorkspace({
 }: {
   chatId?: string | null;
   instanceKey?: string | null;
+  paintContextId?: string | null;
   onChatStarted?: (id: string, meta?: {
     title?: string | null;
     cwd?: string;
@@ -29,6 +31,7 @@ export function AgentChatWorkspace({
     <AgentChatPanel
       variant={variant}
       instanceKey={instanceKey}
+      paintContextId={paintContextId}
       chatId={chatId}
       onChatStarted={onChatStarted}
       onChatUpdated={onChatUpdated}

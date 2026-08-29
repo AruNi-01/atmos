@@ -107,9 +107,13 @@
       "noneInstalledHint": "PATH 上未发现内置 Agent CLI。你仍可勾选计划稍后安装的 Agent，或先继续，之后在设置中配置。",
       "recheck": "重新检测",
       "next": "保存并继续",
+      "provisioning": "正在准备 Agent Chat 提供方…",
       "skip": "暂且跳过",
       "checkFailed": "无法连接本地 Atmos Server 检测 Agent。请确认服务已启动后重新检测。",
-      "saveFailed": "无法保存 Agent 偏好。请检查连接后重试。"
+      "saveFailed": "无法保存 Agent 偏好。请检查连接后重试。",
+      "provisionFailedTitle": "部分 Agent Chat 提供方未就绪",
+      "provisionFailed": "已保存 Agent 列表，但以下 Agent Chat 提供方未能就绪：{names}。你可以稍后在 Agents 页面安装。",
+      "provisionFailedGeneric": "已保存 Agent 列表，但 Agent Chat 提供方未能完成准备。你可以稍后在 Agents 页面安装。"
     },
     "quota": {
       "title": "AI 用量追踪",
@@ -1246,6 +1250,7 @@
     "centerStageTabGroups": {
       "groups": {
         "terminal": "终端",
+        "chat": "对话",
         "file": "文件",
         "diff": "Diff",
         "review": "Review",
@@ -2848,17 +2853,34 @@
       "composer": {
         "placeholder": {
           "unavailable": "Agent 不可用",
-          "connected": "给当前连接的 Agent 发送消息...",
-          "selectAgent": "选择一个 Agent 后开始聊天..."
+          "selectAgent": "选择一个 Agent 后开始聊天...",
+          "createSession": "发送消息以创建会话",
+          "resumeSession": "发送消息以恢复会话",
+          "connected": "用 {agent} 做任何事"
         },
         "removeSlashCommand": "移除 {name}",
         "noAgent": "没有 Agent",
         "selectAgent": "Agent",
+        "model": "模型",
+        "searchModels": "搜索模型",
+        "searchAgents": "搜索 Agent",
+        "chooseModel": "选择模型",
+        "chooseMode": "模式",
+        "backToAgents": "Agent",
+        "loadingModels": "正在加载模型",
+        "thinkingFaster": "更快",
+        "thinkingSmarter": "更强",
+        "thinkingEffort": "思考",
         "queue": "排队",
         "steer": "引导",
         "oneShotQueue": "这次排队",
         "oneShotSteer": "这次引导",
-        "steerUnavailable": "当前 Agent 不支持引导"
+        "steerUnavailable": "当前 Agent 不支持引导",
+        "workingDirectory": {
+          "aria": "工作目录",
+          "thread": "会话",
+          "threadDescription": "不绑定任何目录"
+        }
       },
       "terminalBlock": {
         "title": "运行脚本"
@@ -2932,6 +2954,19 @@
           "collapseAria": "折叠过程",
           "collapseLabel": "折叠过程"
         }
+      },
+      "toolGroup": {
+        "join": "，",
+        "write": "{count} 次写入",
+        "command": "运行了 {count} 条命令",
+        "skill": "{count} 个技能",
+        "subagent": "{count} 个子代理",
+        "other": "{count} 个工具",
+        "fetch": "{count} 次摄取",
+        "search": "{count} 次搜索",
+        "read": "{count} 次读取",
+        "expandAria": "展开工具调用：{overview}",
+        "collapseAria": "收起工具调用：{overview}"
       },
       "manager": {
         "switchToAgentManager": "切换到 Agent 管理器",
@@ -3088,6 +3123,7 @@
           "available": "可用",
           "updateAvailable": "有可用更新",
           "installed": "已安装",
+          "usingInstalledCli": "使用已安装的 CLI",
           "custom": "自定义"
         },
         "repositoryTitle": "仓库",
@@ -3188,7 +3224,17 @@
         "workedFor": "工作了 {duration}",
         "thinking": "思考中...",
         "thoughtFor": "思考了 {duration}",
-        "thoughtForFew": "思考了几秒"
+        "thoughtForFew": "思考了几秒",
+        "session": {
+          "creating": "正在创建会话...",
+          "created": "已创建会话",
+          "createdIn": "创建会话用了 {duration}",
+          "createFailed": "创建会话失败",
+          "resuming": "正在恢复会话...",
+          "resumed": "已恢复会话",
+          "resumedIn": "恢复会话用了 {duration}",
+          "resumeFailed": "恢复会话失败"
+        }
       },
       "selector": {
         "selectAgent": "选择 Agent",
@@ -3229,8 +3275,14 @@
         "skillTitle": "技能：{name}",
         "parameters": "参数",
         "newFile": "新文件",
+        "created": "已创建",
         "deletedFile": "已删除",
         "deletedFileLabel": "已删除 {path}",
+        "searchingFor": "正在搜索 {query}",
+        "webSearch": "网络搜索",
+        "resultCount": "{count} 条结果",
+        "sources": "来源",
+        "fetchUrl": "摄取 {host}",
         "to": "到",
         "todo": {
           "pending": "待办",
@@ -4029,7 +4081,8 @@
         "github": "GitHub",
         "files": "文件",
         "searchingFiles": "正在搜索文件...",
-        "continueTyping": "继续输入"
+        "noFiles": "没有文件",
+        "noMatches": "没有匹配的文件"
       },
       "page": {
         "errors": {
@@ -4046,6 +4099,7 @@
       },
       "slashPopover": {
         "commands": "命令",
+        "agentCommands": "{agent} 命令",
         "skills": "技能",
         "loadingSkills": "正在加载技能...",
         "global": "全局",
@@ -5037,7 +5091,6 @@
       "errors": {
         "saveBuiltInAgentTitle": "保存内置 Agent 失败",
         "updateYoloModeTitle": "更新 YOLO 模式失败",
-        "updateShowAgentNameTitle": "更新 Agent 名称显示失败",
         "restoreYoloModeTitle": "恢复 YOLO 模式失败",
         "updateAgentVisibilityTitle": "更新 Agent 可见性失败",
         "removeCustomAgentTitle": "移除自定义 Agent 失败",
@@ -5222,9 +5275,6 @@
             },
             "yoloMode": {
               "label": "YOLO 模式"
-            },
-            "showAgentNameInTerminalTitles": {
-              "label": "在终端标题中显示 Agent 名称"
             },
             "activityIndicators": {
               "label": "Agent 活动指示器"
@@ -5788,7 +5838,8 @@
           "title": "Center Stage 标签页",
           "items": {
             "overview": "切换到总览标签页",
-            "tabByPosition": "按标签页位置切换"
+            "tabByPosition": "按标签页位置切换",
+            "focusAgentChat": "聚焦 Agent Chat 输入框"
           }
         },
         "terminal": {
@@ -6013,17 +6064,13 @@
       },
       "defaults": {
         "title": "默认设置",
-        "description": "启动参数，以及 Agent 名称在终端标题中的显示方式。"
+        "description": "代码 Agent 的启动参数。"
       },
       "yolo": {
         "title": "YOLO 模式",
         "description": "开启后，Agent 启动会带上跳过权限确认 / 自动批准参数（如 --yolo、--dangerously-skip-permissions）。关闭则使用更安全的需确认模式。",
         "restoreHint": "重新开启 YOLO，并清除所有内置 Agent 的自定义参数覆盖，使其恢复内置 YOLO 默认参数。",
         "restoreAll": "一键恢复全部 Agent 的 YOLO"
-      },
-      "showAgentName": {
-        "title": "在终端标题中显示 Agent 名称",
-        "description": "终端或 Terminal tabs 检测到 Agent 时始终显示图标。关闭后可隐藏 Agent 品牌名称以节省空间——此时会话主题（OSC）会直接跟在图标后，用空格分隔，不再使用竖线。"
       },
       "activityIndicators": {
         "title": "Agent 活动指示器",
@@ -7102,7 +7149,8 @@
         "labelWithPath": "{tool}: {path}",
         "labelWithPattern": "{tool}: {pattern}",
         "executeWithCommand": "执行：{command}",
-        "fetchWithUrl": "获取：{url}"
+        "fetchWithUrl": "获取：{url}",
+        "loadedTools": "已加载工具：{names}"
       },
       "activity": {
         "generating": "生成中",
@@ -7114,7 +7162,9 @@
         "deleting": "删除中",
         "thinking": "思考中",
         "working": "处理中",
-        "streaming": "输出中"
+        "streaming": "输出中",
+        "creatingSession": "正在创建会话",
+        "resumingSession": "正在恢复会话"
       },
       "download": {
         "defaultChatName": "聊天"

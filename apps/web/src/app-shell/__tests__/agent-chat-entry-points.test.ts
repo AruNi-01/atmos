@@ -12,6 +12,7 @@ describe("S2 Agent Chat entry points", () => {
       tabBar.indexOf("id=\"create-agent-chat\""),
     );
     expect(tabBar).toContain("id=\"create-agent-chat\"");
+    expect(tabBar).toContain('tab.kind === "agent-chat"');
 
     const empty = readFileSync(join(ROOT, "center-pane/CenterPaneEmptyState.tsx"), "utf8");
     expect(empty).toContain("onCreateAgentChat");
@@ -25,6 +26,20 @@ describe("S2 Agent Chat entry points", () => {
     const welcome = readFileSync(join(ROOT, "NewWorkspaceWelcomeOverlay.tsx"), "utf8");
     expect(welcome).toContain("onStartAgentChat");
 
+    const footer = readFileSync(join(ROOT, "Footer.tsx"), "utf8");
+    expect(footer).toContain("useAgentChatUrl");
+    expect(footer).toContain("setAgentChatOpen(true)");
+    expect(footer).not.toContain('router.push("/agent-chat")');
+
+    const modal = readFileSync(
+      join(ROOT, "../features/agent/components/ModalAgentChatPanel.tsx"),
+      "utf8",
+    );
+    expect(modal).toContain('variant="modal"');
+    expect(modal).toContain("useAgentChatUrl");
+    expect(modal).toContain("FOOTER_MODAL_CHAT_INSTANCE_KEY");
+    expect(modal).toContain("effectiveContextId: null");
+
     const session = readFileSync(
       join(ROOT, "../features/agent/hooks/use-agent-chat-session.ts"),
       "utf8",
@@ -32,14 +47,27 @@ describe("S2 Agent Chat entry points", () => {
     expect(session).toContain("cwd: cwd || null");
     expect(session).toContain("workspace_id: workspaceId");
     expect(session).toContain("project_id: projectId");
+    expect(session).toContain("spaceIdForChatCreate");
 
     const centerStage = readFileSync(join(ROOT, "CenterStage.tsx"), "utf8");
     expect(centerStage).toContain("openDraftTab");
     expect(centerStage).not.toContain("agentChatApi.create");
+    expect(centerStage).toContain("agentChatTabs");
+    expect(centerStage).toContain('tab.kind === "agent-chat"');
+
+    const tabGroups = readFileSync(join(ROOT, "use-center-stage-tab-groups.ts"), "utf8");
+    expect(tabGroups).toContain("collectAgentChatGroupTabs");
+    expect(tabGroups).toContain('key: "chat"');
+    expect(tabGroups).toContain("groups.chat");
+
+    const groupContent = readFileSync(join(ROOT, "center-stage-shared-tabs.tsx"), "utf8");
+    expect(groupContent).toContain('tab.kind === "agent-chat"');
+    expect(groupContent).toContain("AgentChatTabStatusIndicator");
 
     const workspaceFrame = readFileSync(join(ROOT, "workspace-center-frame.tsx"), "utf8");
     expect(workspaceFrame).toContain('variant="center"');
     expect(workspaceFrame).toContain("instanceKey={tab.value}");
+    expect(workspaceFrame).toContain("paintContextId={contextId}");
 
     const panel = readFileSync(
       join(ROOT, "../features/agent/components/AgentChatPanel.tsx"),
@@ -55,9 +83,14 @@ describe("S2 Agent Chat entry points", () => {
     expect(panel).toContain("if (!active || (variant === \"modal\" && !layoutLoaded)) return null");
     expect(panel).not.toContain("if (!session.isPanelOpen || (variant === \"modal\" && !layoutLoaded)) return null");
     expect(panel).toContain("instanceKey || liveChatId || chatId || null");
+    expect(panel).toContain("onPointerEnter={ackVisibleChatAttention}");
+    expect(panel).toContain("onPointerDown={ackVisibleChatAttention}");
+    expect(panel).toContain("ackAgentChatAttention(liveChatId || chatId)");
 
     const activate = readFileSync(join(ROOT, "center-stage-activate.ts"), "utf8");
     expect(activate).toContain("isAgentChatTabValue");
+    expect(activate).toContain("openTab({ contextId, chatId })");
+    expect(activate).toContain("notifyPaneFocused(`chat:${chatId}`");
 
     expect(tabBar).toContain("max-w-[180px] truncate whitespace-nowrap");
     expect(tabBar).not.toContain("truncate text-pretty");
@@ -67,5 +100,11 @@ describe("S2 Agent Chat entry points", () => {
       "utf8",
     );
     expect(header).toContain("constrainWidth && \"mx-auto w-full max-w-3xl\"");
+    expect(header).toContain("truncate text-sm font-medium");
+    expect(header).toContain("flex min-w-0 flex-col gap-1");
+    expect(header).not.toContain("displayedAgentName");
+    expect(header).not.toContain("AgentIcon");
+    expect(panel).toContain("{variant !== \"center\" ? (");
+    expect(panel).not.toContain("hideCwdChip");
   });
 });

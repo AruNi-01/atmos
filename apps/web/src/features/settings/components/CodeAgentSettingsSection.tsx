@@ -83,9 +83,6 @@ interface CodeAgentSettingsSectionProps {
   yoloModeRestoring: boolean;
   onYoloModeChange: (enabled: boolean) => void;
   onRestoreAllYoloMode: () => void;
-  showAgentNameInTerminalTitles: boolean;
-  showAgentNameInTerminalTitlesSyncing: boolean;
-  onShowAgentNameInTerminalTitlesChange: (enabled: boolean) => void;
   onAddCustomAgent: () => void;
   onAgentSettingChange: (agentId: string, field: "cmd" | "flags" | "interactiveFlags" | "enabled", value: string | boolean) => void;
   onBuiltInEnabledChange: (agentId: string, enabled: boolean) => void;
@@ -145,9 +142,6 @@ export function CodeAgentSettingsSection({
   yoloModeRestoring,
   onYoloModeChange,
   onRestoreAllYoloMode,
-  showAgentNameInTerminalTitles,
-  showAgentNameInTerminalTitlesSyncing,
-  onShowAgentNameInTerminalTitlesChange,
   onAddCustomAgent,
   onAgentSettingChange,
   onBuiltInEnabledChange,
@@ -200,13 +194,6 @@ export function CodeAgentSettingsSection({
             {t("yolo.restoreAll")}
           </Button>
         </SettingsGroupRow>
-        <SettingsToggleRow
-          title={t("showAgentName.title")}
-          description={t("showAgentName.description")}
-          checked={showAgentNameInTerminalTitles}
-          disabled={showAgentNameInTerminalTitlesSyncing}
-          onCheckedChange={(checked) => onShowAgentNameInTerminalTitlesChange(checked)}
-        />
       </SettingsGroupCard>
 
       <AgentActivityIndicatorsSettingsSection />

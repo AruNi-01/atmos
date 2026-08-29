@@ -219,6 +219,35 @@ describe("parseToolResult", () => {
     });
   });
 
+  it("reads Cursor ACP location-style path, offset, and command args", () => {
+    const read = parseToolResult({
+      tool: "Read",
+      description: "Read",
+      raw_input: { path: "/tmp/app/README.md", offset: 1, limit: 200 },
+      content: [{ type: "text", text: "# Title\n" }],
+    });
+    expect(read.path).toBe("/tmp/app/README.md");
+    expect(read.lineRange).toEqual({ start: 1, end: 200, total: undefined });
+    expect(read.presentation.kind).toBe("code");
+
+    const nested = parseToolResult({
+      tool: "Read",
+      description: "Read",
+      raw_input: { args: { path: "apps/web/src/foo.ts", start_line: 10, end_line: 40 } },
+      content: [{ type: "text", text: "export const x = 1;\n" }],
+    });
+    expect(nested.path).toBe("apps/web/src/foo.ts");
+    expect(nested.lineRange).toEqual({ start: 10, end: 40, total: undefined });
+
+    const search = parseToolResult({
+      tool: "Search",
+      description: "Search",
+      raw_input: { pattern: "ActivityIndicator", glob: "*.ts" },
+      content: [{ type: "text", text: "apps/web/src/foo.ts:12:  const x = 1" }],
+    });
+    expect(search.presentation.kind).toBe("search");
+  });
+
   it("renders Read content as code and strips line prefixes", () => {
     const parsed = parseToolResult({
       tool: "Read",
@@ -424,15 +453,143 @@ describe("parseToolResult", () => {
     }
   });
 
+  it("does not treat a loaded-tools notice as a Read file", () => {
+    const parsed = parseToolResult({
+      tool: "Read",
+      raw_output: "Loaded 2 tool(s): WebSearch, FetchUrl",
+    });
+    expect(parsed.presentation).toEqual({
+      kind: "text",
+      text: "WebSearch, FetchUrl",
+    });
+  });
+
+  it("renders URL Content from: dumps as a fetch, not a generic tool", () => {
+    const raw = [
+      'URL Content from: "https://example.com/page"',
+      "Title: Example Page",
+      "Status: 200",
+      "Markdown content:",
+      "# Example",
+      "",
+      "Hello from the page.",
+    ].join("\n");
+    const parsed = parseToolResult({
+      tool: "Tool",
+      description: "Tool",
+      raw_output: raw,
+    });
+    expect(parsed.presentation.kind).toBe("web_fetch");
+    if (parsed.presentation.kind === "web_fetch") {
+      expect(parsed.presentation.url).toBe("https://example.com/page");
+      expect(parsed.presentation.title).toBe("Example Page");
+      expect(parsed.presentation.markdown).toContain("# Example");
+      expect(parsed.presentation.markdown).not.toContain("URL Content from");
+    }
+  });
+
+  it("renders Web Search Results for: dumps as web search, not a code preview", () => {
+    const raw = [
+      'Web Search Results for: "example query"',
+      "",
+      "**Atmos Land**",
+      "URL: https://example.com/page",
+      "A short snippet about the site.",
+      "",
+      "---",
+      "",
+      "**Other Result**",
+      "URL: https://example.com/other",
+    ].join("\n");
+
+    for (const tool of ["search", "Search", "Tool", "web_search"]) {
+      const parsed = parseToolResult({ tool, raw_output: raw });
+      expect(parsed.presentation.kind).toBe("web_search");
+      if (parsed.presentation.kind === "web_search") {
+        expect(parsed.presentation.query).toBe("example query");
+        expect(parsed.presentation.links.map((link) => link.url)).toEqual([
+          "https://example.com/page",
+          "https://example.com/other",
+        ]);
+        expect(parsed.presentation.links[0]?.title).toBe("Atmos Land");
+      }
+    }
+  });
+
   it("renders WebSearch markdown instead of treating it as a search hit list", () => {
     const parsed = parseToolResult({
       tool: "WebSearch",
-      raw_output: "# Results\n\n- [Atmos](https://atmos.land)\n",
+      raw_output: "# Results\n\n- [Example](https://example.com)\n",
     });
-    expect(parsed.presentation).toEqual({
-      kind: "markdown",
-      markdown: "# Results\n\n- [Atmos](https://atmos.land)\n",
+    expect(parsed.presentation.kind).toBe("web_search");
+    if (parsed.presentation.kind === "web_search") {
+      expect(parsed.presentation.links[0]).toEqual({
+        url: "https://example.com",
+        title: "Example",
+      });
+    }
+  });
+
+  it("renders web search input sources instead of raw JSON", () => {
+    const parsed = parseToolResult({
+      tool: "Web search",
+      raw_input: {
+        backend: true,
+        action: {
+          type: "search",
+          query: "example search",
+          sources: [
+            { type: "url", url: "https://example.com/repo" },
+            { type: "url", url: "https://example.com/repo/tags" },
+          ],
+        },
+      },
     });
+    expect(parsed.presentation).toMatchObject({
+      kind: "web_search",
+      query: "example search",
+    });
+    if (parsed.presentation.kind === "web_search") {
+      expect(parsed.presentation.links.map((link) => link.url)).toEqual([
+        "https://example.com/repo",
+        "https://example.com/repo/tags",
+      ]);
+    }
+    expect(parsed.showInput).toBe(false);
+  });
+
+  it("treats a web-search open_page action as a fetch, not raw JSON", () => {
+    const parsed = parseToolResult({
+      tool: "Web search",
+      raw_input: {
+        action: { type: "open_page", url: "https://example.com/page" },
+        id: "ws_call_1",
+      },
+      raw_output: {
+        action: { type: "open_page", url: "https://example.com/page" },
+        id: "ws_call_1",
+      },
+    });
+    expect(parsed.presentation.kind).toBe("web_fetch");
+    if (parsed.presentation.kind === "web_fetch") {
+      expect(parsed.presentation.url).toBe("https://example.com/page");
+      expect(parsed.presentation.text).toBeUndefined();
+    }
+    expect(parsed.showInput).toBe(false);
+  });
+
+  it("keeps a failed fetch on the URL instead of dropping to a generic error card", () => {
+    const parsed = parseToolResult({
+      tool: "Fetch",
+      status: "failed",
+      raw_input: { url: "https://example.com/page" },
+      raw_output: { message: "Request failed" },
+    });
+    expect(parsed.presentation.kind).toBe("web_fetch");
+    if (parsed.presentation.kind === "web_fetch") {
+      expect(parsed.presentation.url).toBe("https://example.com/page");
+      expect(parsed.presentation.text).toContain("Request failed");
+    }
   });
 
   it("does not render a one-line Edit status as a code file", () => {

@@ -1,3 +1,5 @@
+import { resolvePromptPlaceholders } from "@/features/welcome/lib/welcome-page-helpers";
+
 export function composeAgentChatPrompt(
   command: { name: string } | null | undefined,
   text: string,
@@ -6,6 +8,14 @@ export function composeAgentChatPrompt(
   if (!command?.name) return rest;
   const token = `/${command.name}`;
   return rest ? `${token} ${rest}` : token;
+}
+
+export function expandAgentComposerText(text: string): string {
+  return resolvePromptPlaceholders(
+    text.replace(/\u00A0/g, " ").replace(/\/cmd:([^\s]+)/g, "/$1"),
+    [],
+    { preserveFileMentions: true },
+  ).trim();
 }
 
 export function parseLeadingAgentSlashCommand<T extends { name: string }>(

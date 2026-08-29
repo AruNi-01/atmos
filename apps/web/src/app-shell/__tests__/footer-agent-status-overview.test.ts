@@ -19,8 +19,12 @@ describe("footer agent status overview", () => {
     expect(footerSrc).toContain("FooterOverviewBucketIcon");
   });
 
-  test("widens the popover, groups sessions by project/workspace, and appends the live terminal title", () => {
-    expect(footerSrc).toContain("w-[28rem]");
+  test("keeps a compact popover, groups sessions by project/workspace, and appends the live terminal title", () => {
+    expect(footerSrc).toContain('className="w-fit max-w-[calc(100vw-1.5rem)] p-0"');
+    expect(footerSrc).toContain("w-72 max-h-64");
+    expect(footerSrc).not.toContain("w-[24rem]");
+    expect(footerSrc).not.toContain("w-[28rem]");
+    expect(footerSrc).not.toContain("min-w-[7.25rem]");
     expect(footerSrc).toContain("groupSessionsByContext");
     expect(footerSrc).not.toContain("groupedByBucket");
     expect(footerSrc).toContain("paneTitle");

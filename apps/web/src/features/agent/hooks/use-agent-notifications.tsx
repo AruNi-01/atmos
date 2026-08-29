@@ -7,11 +7,11 @@ import type { AgentNotificationPayload } from "@atmos/api-types/ws/dto/events";
 import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
 import {
   AGENT_STATE,
-  useAgentHooksStore,
-  type AgentHookSession,
-  type AgentHookState,
+  useAgentStatusStore,
+  type AgentStatusRecord,
+  type AgentOccupancy,
   type AgentToolType,
-} from "@/features/agent/store/agent-hooks-store";
+} from "@/features/agent/store/agent-status-store";
 import { useNotificationSettingsStore } from "@/features/settings/store/notification-settings-store";
 import {
   automationNotificationHref,
@@ -27,25 +27,28 @@ import { desktopListen, isDesktopRuntime } from "@/shared/lib/desktop-bridge";
 import { getProjectBootstrapSnapshot } from "@/features/project/hooks/use-project-bootstrap-query";
 import { useAppRouter } from "@/shared/hooks/use-app-router";
 import {
-  navigateToAgentHookSessionPane,
-} from "@/features/agent/lib/agent-hook-navigation";
+  navigateToAgentStatusSession,
+} from "@/features/agent/lib/agent-status-navigation";
 import {
-  showAgentHookStateToast,
-  type AgentHookStateUpdatePayload,
-} from "@/features/agent/lib/agent-hook-toast";
+  showAgentStatusToast,
+  type AgentStatusChangedPayload,
+} from "@/features/agent/lib/agent-status-toast";
 
 function agentClickActionFromPayload(
   payload: AgentNotificationPayload,
 ): NotificationClickAction {
   // Prefer payload fields; fall back to the live hooks store (same session).
-  const session = useAgentHooksStore.getState().sessions.get(payload.session_id);
+  const session = useAgentStatusStore.getState().sessions.get(payload.session_id);
   return {
-    kind: "agent_hook",
+    kind: "agent_status",
     session_id: payload.session_id,
     context_id: payload.context_id ?? session?.context_id ?? null,
     pane_id: payload.pane_id ?? session?.pane_id ?? null,
     side_chat_id: payload.side_chat_id ?? session?.side_chat_id ?? null,
     source_pane_id: payload.source_pane_id ?? session?.source_pane_id ?? null,
+    surface: payload.surface ?? session?.surface ?? null,
+    surface_id: payload.surface_id ?? session?.surface_id ?? null,
+    space_id: payload.space_id ?? session?.space_id ?? null,
     tool: payload.tool ?? session?.tool,
     project_path: payload.project_path ?? session?.project_path ?? null,
   };
@@ -62,9 +65,9 @@ function automationClickActionFromPayload(
 }
 
 function sessionFromAgentAction(
-  action: Extract<NotificationClickAction, { kind: "agent_hook" }>,
-): AgentHookSession {
-  const existing = useAgentHooksStore.getState().sessions.get(action.session_id);
+  action: Extract<NotificationClickAction, { kind: "agent_status" }>,
+): AgentStatusRecord {
+  const existing = useAgentStatusStore.getState().sessions.get(action.session_id);
   return {
     session_id: action.session_id,
     tool: (action.tool as AgentToolType | undefined) ?? existing?.tool ?? "claude-code",
@@ -77,6 +80,9 @@ function sessionFromAgentAction(
     source_pane_id: action.source_pane_id ?? existing?.source_pane_id,
     terminal_kind: existing?.terminal_kind,
     hook_version: existing?.hook_version,
+    surface: (action.surface as AgentStatusRecord["surface"]) ?? existing?.surface,
+    surface_id: action.surface_id ?? existing?.surface_id,
+    space_id: action.space_id ?? existing?.space_id,
   };
 }
 
@@ -85,15 +91,15 @@ export function useAgentNotifications() {
   const unsubscribeAgentRef = useRef<(() => void) | null>(null);
   const unsubscribeAutomationRef = useRef<(() => void) | null>(null);
   const unsubscribeAgentHookToastRef = useRef<(() => void) | null>(null);
-  const previousAgentHookStateRef = useRef<Map<string, AgentHookState>>(new Map());
+  const previousAgentOccupancyRef = useRef<Map<string, AgentOccupancy>>(new Map());
   const router = useAppRouter();
   const routerRef = useRef(router);
   routerRef.current = router;
 
   const handleNotificationClickAction = useCallback((action: NotificationClickAction) => {
-    if (action.kind === "agent_hook") {
+    if (action.kind === "agent_status") {
       const projects = getProjectBootstrapSnapshot()?.projects ?? [];
-      navigateToAgentHookSessionPane(
+      navigateToAgentStatusSession(
         sessionFromAgentAction(action),
         routerRef.current,
         projects,
@@ -165,16 +171,16 @@ export function useAgentNotifications() {
     }
   }, [handleNotificationClickAction]);
 
-  const handleAgentHookToastNotification = useCallback((update: AgentHookStateUpdatePayload) => {
+  const handleAgentHookToastNotification = useCallback((update: AgentStatusChangedPayload) => {
     const settings = useNotificationSettingsStore.getState().settings;
-    const previousState = previousAgentHookStateRef.current.get(update.session_id);
-    previousAgentHookStateRef.current.set(update.session_id, update.state);
+    const previousState = previousAgentOccupancyRef.current.get(update.session_id);
+    previousAgentOccupancyRef.current.set(update.session_id, update.state);
 
     if (!settings.app_toast_notification) {
       return;
     }
 
-    showAgentHookStateToast({
+    showAgentStatusToast({
       update,
       previousState,
       notifyOnPermissionRequest: settings.notify_on_permission_request,
@@ -195,15 +201,15 @@ export function useAgentNotifications() {
     unsubscribeAutomationRef.current = useWebSocketStore
       .getState()
       .onEvent("automation_notification", handleAutomationNotification);
-    previousAgentHookStateRef.current = new Map(
-      useAgentHooksStore.getState().getAllSessions().map((session) => [
+    previousAgentOccupancyRef.current = new Map(
+      useAgentStatusStore.getState().getAllSessions().map((session) => [
         session.session_id,
         session.state,
       ]),
     );
     unsubscribeAgentHookToastRef.current = useWebSocketStore
       .getState()
-      .onEvent("agent_hook_state_changed", handleAgentHookToastNotification);
+      .onEvent("agent_status_changed", handleAgentHookToastNotification);
 
     return () => {
       unsubscribeAgentRef.current?.();

@@ -18,6 +18,7 @@ import {
   sanitizeChatFilename,
   writeDefaultAgentRegistryId,
 } from "../lib/chat-helpers";
+import { resolveActiveUserMessageIndex } from "../lib/agent-chat-message-nav";
 
 interface UseAgentChatUiHandlersParams {
   transcriptRef: RefObject<HTMLDivElement | null>;
@@ -81,24 +82,22 @@ export function useAgentChatUiHandlers({
 
     const syncActiveMessageFromScroll = () => {
       const scrollRect = scrollElement.getBoundingClientRect();
-      const activationLine = Math.min(120, Math.max(56, scrollElement.clientHeight * 0.18));
-      let activeIndex = messageElements[0]?.messageIndex ?? userMessageIndices[0];
-      let firstBelowLine: number | null = null;
-
-      for (const { messageIndex, el } of messageElements) {
-        const top = el.getBoundingClientRect().top - scrollRect.top;
-        if (top <= activationLine) {
-          activeIndex = messageIndex;
-          continue;
-        }
-
-        firstBelowLine ??= messageIndex;
-      }
-
-      if (activeIndex === userMessageIndices[0] && firstBelowLine != null && scrollElement.scrollTop <= 4) {
-        activeIndex = firstBelowLine;
-      }
-
+      const activeIndex = resolveActiveUserMessageIndex(
+        messageElements.map(({ messageIndex, el }) => {
+          const rect = el.getBoundingClientRect();
+          return {
+            messageIndex,
+            top: rect.top - scrollRect.top,
+            bottom: rect.bottom - scrollRect.top,
+          };
+        }),
+        {
+          height: scrollElement.clientHeight,
+          scrollTop: scrollElement.scrollTop,
+          scrollHeight: scrollElement.scrollHeight,
+        },
+      );
+      if (activeIndex == null) return;
       setMessageNavIndex((prev) => (prev === activeIndex ? prev : activeIndex));
     };
 

@@ -4,6 +4,7 @@ import React, { useState, useEffect, useLayoutEffect, useCallback, useMemo, useR
 import { useHotkeys } from 'react-hotkeys-hook';
 import { useFocusRestore } from '@/shared/hooks/use-focus-restore';
 import { useAppRouter } from '@/shared/hooks/use-app-router';
+import { useAgentChatUrl } from '@/features/agent/hooks/use-agent-chat-url';
 import { useContextParams } from "@/shared/hooks/use-context-params";
 import { useTheme } from 'next-themes';
 import { useTranslations } from 'next-intl';
@@ -125,6 +126,7 @@ function scoreFileSearchItem(file: { name: string; path: string }, query: string
 export function GlobalSearch() {
   const t = useTranslations('appShell.globalSearch');
   const router = useAppRouter();
+  const [, setAgentChatOpen] = useAgentChatUrl();
   const { workspaceId: currentWorkspaceId, projectId: currentProjectIdFromUrl, currentView } = useContextParams();
   const { setTheme } = useTheme();
 
@@ -405,8 +407,11 @@ export function GlobalSearch() {
       bindWorkspace,
       failCreating,
       createOriginKey,
+      openModalAgentChat: () => {
+        void setAgentChatOpen(true);
+      },
     });
-  }, [projects, router, setTheme, setGlobalSearchOpen, setCreateProjectOpen, setSelectedProjectId, setCreateWorkspaceOpen, quickAddWorkspace, isFullScreen, toggleFullScreen, currentProject, setLlmProvidersOpen, setLeftSidebarTab, setCanvasOpen, isLeftCollapsed, setIsLeftCollapsed, currentWorkspaceId, currentWorkspace, launchpadTerminalsEnabled, launchpadAgentsEnabled, automationsEnabled, currentEffectivePath, startCreating, bindWorkspace, failCreating, createOriginKey]);
+  }, [projects, router, setTheme, setGlobalSearchOpen, setCreateProjectOpen, setSelectedProjectId, setCreateWorkspaceOpen, quickAddWorkspace, isFullScreen, toggleFullScreen, currentProject, setLlmProvidersOpen, setLeftSidebarTab, setCanvasOpen, isLeftCollapsed, setIsLeftCollapsed, currentWorkspaceId, currentWorkspace, launchpadTerminalsEnabled, launchpadAgentsEnabled, automationsEnabled, currentEffectivePath, startCreating, bindWorkspace, failCreating, createOriginKey, setAgentChatOpen]);
 
   // Filter app items with deterministic matching. Single-word keyword hits must be exact
   // to keep broad keyword phrases from pulling unrelated results into the command palette.

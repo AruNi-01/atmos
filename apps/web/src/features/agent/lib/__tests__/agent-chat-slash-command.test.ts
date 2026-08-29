@@ -1,8 +1,13 @@
-import { describe, expect, it } from "bun:test";
+import { afterEach, describe, expect, it } from "bun:test";
 import {
   composeAgentChatPrompt,
+  expandAgentComposerText,
   parseLeadingAgentSlashCommand,
 } from "@/features/agent/lib/agent-chat-slash-command";
+import {
+  __resetAiContextPayloadsForTests,
+  registerAiContextPrompt,
+} from "@/shared/lib/ai-context-protocol";
 
 const commands = [
   { name: "hooks-list", description: "Show hooks" },
@@ -35,5 +40,27 @@ describe("agent chat slash commands", () => {
       command: null,
       rest: "plain text",
     });
+  });
+});
+
+describe("expandAgentComposerText", () => {
+  afterEach(() => {
+    __resetAiContextPayloadsForTests();
+  });
+
+  it("turns /cmd chips into ACP slash text and keeps file mentions", () => {
+    expect(expandAgentComposerText("/cmd:copy-request-id\u00A0how is this?")).toBe(
+      "/copy-request-id how is this?",
+    );
+    expect(expandAgentComposerText("@file:README.md\u00A0please review")).toBe(
+      "@file:README.md please review",
+    );
+  });
+
+  it("materializes AI context chips including terminal selections", () => {
+    const token = registerAiContextPrompt("terminal-selection", "npm test\npass");
+    expect(expandAgentComposerText(`${token}\u00A0why failed?`)).toBe(
+      "npm test\npass why failed?",
+    );
   });
 });

@@ -1,10 +1,10 @@
 "use client";
 
 import { create } from "zustand";
-import type { AgentHookStateNotification } from "@atmos/api-types/ws/dto/events";
+import type { AgentStatusChangedNotification } from "@atmos/api-types/ws/dto/events";
 import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
 import { getRuntimeApiConfig, httpBase } from "@/shared/lib/desktop-runtime";
-import { agentHooksApi } from "@/api/rest-api";
+import { agentStatusApi } from "@/api/rest-api";
 import type {
   AgentAttentionSummaryDto,
   WorkspaceAgentGroupKeyDto,
@@ -20,16 +20,18 @@ import {
 import {
   collectIdleSessionIdsForPane,
   collectSessionIdsForPane,
+  resolveAgentStateForChatId,
   resolveAgentStateForPaneId,
-} from "@/features/agent/store/agent-hooks-idle";
+} from "@/features/agent/store/agent-status-idle";
 import { useWorkspaceAgentGroupingHoldStore } from "@/features/agent/store/workspace-agent-grouping-hold";
 
 export {
   collectIdleSessionIdsForPane,
   collectSessionIdsForPane,
   findSessionForPaneId,
+  resolveAgentStateForChatId,
   resolveAgentStateForPaneId,
-} from "@/features/agent/store/agent-hooks-idle";
+} from "@/features/agent/store/agent-status-idle";
 
 export const AGENT_STATE = {
   IDLE: "idle",
@@ -37,7 +39,7 @@ export const AGENT_STATE = {
   PERMISSION_REQUEST: "permission_request",
 } as const;
 
-export type AgentHookState = (typeof AGENT_STATE)[keyof typeof AGENT_STATE];
+export type AgentOccupancy = (typeof AGENT_STATE)[keyof typeof AGENT_STATE];
 
 export const AGENT_TOOL = {
   CLAUDE_CODE: "claude-code",
@@ -52,6 +54,7 @@ export const AGENT_TOOL = {
   PI: "pi",
   HERMES: "hermes",
   GROK_BUILD: "grok-build",
+  AGENT: "agent",
 } as const;
 
 export type AgentToolType = (typeof AGENT_TOOL)[keyof typeof AGENT_TOOL];
@@ -69,6 +72,7 @@ export const AGENT_TOOL_LABELS: Record<AgentToolType, string> = {
   [AGENT_TOOL.PI]: "Pi",
   [AGENT_TOOL.HERMES]: "Hermes Agent",
   [AGENT_TOOL.GROK_BUILD]: "Grok Build",
+  [AGENT_TOOL.AGENT]: "Agent",
 };
 
 export const AGENT_TOOL_ICON_IDS: Record<AgentToolType, string> = {
@@ -84,13 +88,14 @@ export const AGENT_TOOL_ICON_IDS: Record<AgentToolType, string> = {
   [AGENT_TOOL.PI]: "pi",
   [AGENT_TOOL.HERMES]: "hermes",
   [AGENT_TOOL.GROK_BUILD]: "grok-build",
+  [AGENT_TOOL.AGENT]: "agent",
 };
 
 
-export interface AgentHookSession {
+export interface AgentStatusRecord {
   session_id: string;
   tool: AgentToolType;
-  state: AgentHookState;
+  state: AgentOccupancy;
   timestamp: string;
   project_path?: string | null;
   /** effectiveContextId: workspace GUID or project GUID */
@@ -100,16 +105,20 @@ export interface AgentHookSession {
   side_chat_id?: string | null;
   source_pane_id?: string | null;
   hook_version?: number | null;
+  surface?: "terminal" | "chat" | null;
+  surface_id?: string | null;
+  space_id?: string | null;
+  provider_id?: string | null;
 }
 
-interface AgentHooksStore {
-  sessions: Map<string, AgentHookSession>;
+interface AgentStatusStore {
+  sessions: Map<string, AgentStatusRecord>;
   /**
    * Last grouping snapshot from API memory. Used until live sessions +
    * attention hydrate, so By Agent Status buckets survive a page refresh.
    */
   serverWorkspaceGroupKeys: Readonly<Record<string, WorkspaceAgentGroupKeyDto>>;
-  hooksHydrated: boolean;
+  statusHydrated: boolean;
   _unsubscribe: (() => void) | null;
 
   init: () => void;
@@ -120,16 +129,17 @@ interface AgentHooksStore {
    */
   resetForConnectionChange: () => void;
 
-  getAllSessions: () => AgentHookSession[];
-  getSessionsByProjectPath: (projectPath: string) => AgentHookSession[];
-  getAggregateAgentStateForProjectPath: (projectPath: string) => AgentHookState;
-  getAgentStateForContextId: (contextId: string) => AgentHookState;
-  getAgentStateForTool: (tool: AgentToolType | null) => AgentHookState;
-  getAgentStateForPaneId: (paneId: string) => AgentHookState;
-  getLatestSession: () => AgentHookSession | null;
+  getAllSessions: () => AgentStatusRecord[];
+  getSessionsByProjectPath: (projectPath: string) => AgentStatusRecord[];
+  getAggregateAgentStateForProjectPath: (projectPath: string) => AgentOccupancy;
+  getAgentStateForContextId: (contextId: string) => AgentOccupancy;
+  getAgentStateForTool: (tool: AgentToolType | null) => AgentOccupancy;
+  getAgentStateForPaneId: (paneId: string) => AgentOccupancy;
+  getAgentStateForChatId: (chatId: string) => AgentOccupancy;
+  getLatestSession: () => AgentStatusRecord | null;
   hasRunningSession: () => boolean;
   hasPermissionRequest: () => boolean;
-  getGlobalState: () => AgentHookState;
+  getGlobalState: () => AgentOccupancy;
   forceSessionIdle: (sessionId: string) => Promise<void>;
   removeSession: (sessionId: string) => Promise<void>;
   /**
@@ -146,10 +156,10 @@ interface AgentHooksStore {
   clearIdleSessions: () => Promise<void>;
 }
 
-export const useAgentHooksStore = create<AgentHooksStore>((set, get) => ({
+export const useAgentStatusStore = create<AgentStatusStore>((set, get) => ({
   sessions: new Map(),
   serverWorkspaceGroupKeys: {},
-  hooksHydrated: false,
+  statusHydrated: false,
   _unsubscribe: null,
 
   init: () => {
@@ -168,8 +178,8 @@ export const useAgentHooksStore = create<AgentHooksStore>((set, get) => ({
     });
 
     const unsubscribeStateChanged = useWebSocketStore.getState().onEvent(
-      "agent_hook_state_changed",
-      (update: AgentHookStateNotification) => {
+      "agent_status_changed",
+      (update: AgentStatusChangedNotification) => {
         const previous = get().sessions.get(update.session_id);
         set((state) => {
           const sessions = new Map(state.sessions);
@@ -185,6 +195,10 @@ export const useAgentHooksStore = create<AgentHooksStore>((set, get) => ({
             side_chat_id: update.side_chat_id,
             source_pane_id: update.source_pane_id,
             hook_version: update.hook_version,
+            surface: update.surface ?? previous?.surface ?? "terminal",
+            surface_id: update.surface_id ?? previous?.surface_id,
+            space_id: update.space_id ?? previous?.space_id,
+            provider_id: update.provider_id ?? previous?.provider_id,
           });
           return { sessions };
         });
@@ -230,7 +244,7 @@ export const useAgentHooksStore = create<AgentHooksStore>((set, get) => ({
     );
 
     const unsubscribeCleared = useWebSocketStore.getState().onEvent(
-      "agent_hook_sessions_cleared",
+      "agent_status_cleared",
       (data: unknown) => {
         const { session_ids } = data as { session_ids: string[] };
         if (!session_ids?.length) return;
@@ -331,7 +345,7 @@ export const useAgentHooksStore = create<AgentHooksStore>((set, get) => ({
     set({
       sessions: new Map(),
       serverWorkspaceGroupKeys: {},
-      hooksHydrated: false,
+      statusHydrated: false,
     });
     useAgentAttentionStore.getState().hydrateFromServer([]);
     useAgentAttentionSummaryStore.getState().hydrateFromServer([]);
@@ -350,7 +364,7 @@ export const useAgentHooksStore = create<AgentHooksStore>((set, get) => ({
         _unsubscribe: null,
         sessions: new Map(),
         serverWorkspaceGroupKeys: {},
-        hooksHydrated: false,
+        statusHydrated: false,
       });
       useAgentAttentionSummaryStore.getState().hydrateFromServer([]);
       useWorkspaceAgentGroupingHoldStore.getState().clearAll();
@@ -399,7 +413,11 @@ export const useAgentHooksStore = create<AgentHooksStore>((set, get) => ({
   },
 
   getAgentStateForPaneId: (paneId: string) => {
-    return resolveAgentStateForPaneId(get().sessions, paneId) as AgentHookState;
+    return resolveAgentStateForPaneId(get().sessions, paneId) as AgentOccupancy;
+  },
+
+  getAgentStateForChatId: (chatId: string) => {
+    return resolveAgentStateForChatId(get().sessions, chatId) as AgentOccupancy;
   },
 
   getLatestSession: () => {
@@ -431,8 +449,8 @@ export const useAgentHooksStore = create<AgentHooksStore>((set, get) => ({
   },
 
   forceSessionIdle: async (sessionId: string) => {
-    let previous: AgentHookSession | undefined;
-    let optimistic: AgentHookSession | undefined;
+    let previous: AgentStatusRecord | undefined;
+    let optimistic: AgentStatusRecord | undefined;
 
     set((state) => {
       const session = state.sessions.get(sessionId);
@@ -449,9 +467,9 @@ export const useAgentHooksStore = create<AgentHooksStore>((set, get) => ({
     const optimisticSession = optimistic;
 
     try {
-      await agentHooksApi.forceSessionIdle(sessionId);
+      await agentStatusApi.forceSessionIdle(sessionId);
     } catch (error) {
-      console.warn("[AgentHooksStore] Failed to force session idle:", error);
+      console.warn("[AgentStatusStore] Failed to force session idle:", error);
       set((state) => {
         if (state.sessions.get(sessionId) !== optimisticSession) return state;
         const sessions = new Map(state.sessions);
@@ -462,7 +480,7 @@ export const useAgentHooksStore = create<AgentHooksStore>((set, get) => ({
   },
 
   removeSession: async (sessionId: string) => {
-    let previous: AgentHookSession | undefined;
+    let previous: AgentStatusRecord | undefined;
 
     set((state) => {
       previous = state.sessions.get(sessionId);
@@ -476,9 +494,9 @@ export const useAgentHooksStore = create<AgentHooksStore>((set, get) => ({
     const previousSession = previous;
 
     try {
-      await agentHooksApi.removeSession(sessionId);
+      await agentStatusApi.removeSession(sessionId);
     } catch (error) {
-      console.warn("[AgentHooksStore] Failed to remove session:", error);
+      console.warn("[AgentStatusStore] Failed to remove session:", error);
       set((state) => {
         if (state.sessions.has(sessionId)) return state;
         const sessions = new Map(state.sessions);
@@ -508,7 +526,7 @@ export const useAgentHooksStore = create<AgentHooksStore>((set, get) => ({
     try {
       const config = await getRuntimeApiConfig();
       const base = httpBase(config);
-      const res = await fetch(`${base}/hooks/sessions/clear-idle`, {
+      const res = await fetch(`${base}/agent-status/sessions/clear-idle`, {
         method: "POST",
       });
       if (!res.ok) return;
@@ -549,8 +567,8 @@ function contextIdFromStablePaneId(stablePaneId: string): string {
 }
 
 function dropStaleServerGroupKey(
-  set: (partial: Partial<AgentHooksStore> | ((state: AgentHooksStore) => Partial<AgentHooksStore> | AgentHooksStore)) => void,
-  get: () => AgentHooksStore,
+  set: (partial: Partial<AgentStatusStore> | ((state: AgentStatusStore) => Partial<AgentStatusStore> | AgentStatusStore)) => void,
+  get: () => AgentStatusStore,
   stablePaneId: string,
 ) {
   const contextId = contextIdFromStablePaneId(stablePaneId);
@@ -573,8 +591,8 @@ function dropStaleServerGroupKey(
 }
 
 async function hydrateHookSnapshots(
-  set: (partial: Partial<AgentHooksStore> | ((state: AgentHooksStore) => Partial<AgentHooksStore> | AgentHooksStore)) => void,
-  get: () => AgentHooksStore,
+  set: (partial: Partial<AgentStatusStore> | ((state: AgentStatusStore) => Partial<AgentStatusStore> | AgentStatusStore)) => void,
+  get: () => AgentStatusStore,
   generation: number,
 ): Promise<void> {
   const groupsPromise = fetchWorkspaceAgentGroups();
@@ -632,7 +650,7 @@ async function hydrateHookSnapshots(
     }
     return {
       sessions,
-      hooksHydrated: true,
+      statusHydrated: true,
     };
   });
   if (generation === hydrateGeneration) {
@@ -644,18 +662,18 @@ async function fetchWorkspaceAgentGroups(): Promise<
   import("@/api/rest-api").WorkspaceAgentGroupSnapshotDto[]
 > {
   try {
-    const { groups } = await agentHooksApi.listWorkspaceAgentGroups();
+    const { groups } = await agentStatusApi.listWorkspaceAgentGroups();
     return groups ?? [];
   } catch {
     return [];
   }
 }
 
-async function fetchInitialSessions(): Promise<AgentHookSession[]> {
+async function fetchInitialSessions(): Promise<AgentStatusRecord[]> {
   try {
     const config = await getRuntimeApiConfig();
     const base = httpBase(config);
-    const res = await fetch(`${base}/hooks/sessions`);
+    const res = await fetch(`${base}/agent-status/sessions`);
     if (!res.ok) return [];
     const data = await res.json();
     return data.sessions ?? [];
@@ -668,7 +686,7 @@ async function fetchInitialAttention(): Promise<
   import("@/api/rest-api").AgentAttentionLatchDto[]
 > {
   try {
-    const { attention } = await agentHooksApi.listAttention();
+    const { attention } = await agentStatusApi.listAttention();
     return attention ?? [];
   } catch {
     return [];

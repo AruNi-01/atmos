@@ -49,6 +49,8 @@ export interface UseAgentChatSessionOptions {
    * each document keeps its own ACP session.
    */
   instanceKey?: string | null;
+  /** Center paint id (`host` or `host::space::spaceId`) so status jumps back to this space. */
+  paintContextId?: string | null;
   /** Prefer restoring this binding (from persisted widget source) over UI prefs. */
   initialSessionBinding?: AgentChatSessionBinding | null;
   /** Called when the live chat binding changes (persist to document). */
@@ -78,6 +80,8 @@ export interface UseAgentChatSessionReturn {
   stoppedRef: React.MutableRefObject<boolean>;
   isResumingHistory: boolean;
   isResumedSession: boolean;
+  runtimeStatus: string | null;
+  hasPersistenceHandle: boolean;
   installedAgents: RegistryAgent[];
   setInstalledAgents: React.Dispatch<React.SetStateAction<RegistryAgent[]>>;
   activeAgent: RegistryAgent | null;
@@ -122,8 +126,6 @@ export interface UseAgentChatSessionReturn {
   moveQueuedAgentChatPrompt: (id: string, toIndex: number) => void;
   newSessionAgentsOpen: boolean;
   setNewSessionAgentsOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  headerHovered: boolean;
-  setHeaderHovered: React.Dispatch<React.SetStateAction<boolean>>;
   bottomRef: React.RefObject<HTMLDivElement | null>;
   transcriptRef: React.RefObject<HTMLDivElement | null>;
   authRequest: {
@@ -145,6 +147,11 @@ export interface UseAgentChatSessionReturn {
   handleLogoutAgent: () => Promise<void>;
   handlePermission: (optionKind: string) => void;
   handleCreateNewSession: (targetRegistryId?: string) => Promise<void>;
+  handleSelectWorkingDirectory: (selection: {
+    workspaceId: string | null;
+    projectId: string | null;
+    cwd: string | null;
+  }) => void;
   handleSelectHistorySession: (s: AgentChatSessionItem) => Promise<void>;
   handleSelectMessage: (messageIndex: number) => void;
   handleSetDefaultAgent: (agentId: string) => void;

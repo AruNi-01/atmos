@@ -4,7 +4,7 @@ import {
   findTerminalPaneByStableAgentPaneId,
   paneTitleIndicatesAgentExited,
   uniquePaneTitleForAgentStatus,
-} from "../agent-hook-pane-title";
+} from "../agent-status-pane-title";
 
 const claudeAgent = {
   id: "claude",

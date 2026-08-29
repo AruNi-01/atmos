@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import type { AgentHookSession } from "@/features/agent/store/agent-hooks-store";
+import type { AgentStatusRecord } from "@/features/agent/store/agent-status-store";
 import type { PaneAttention } from "@/features/agent/store/agent-attention-store";
 import {
   buildFooterAgentOverview,
@@ -10,8 +10,8 @@ import {
 } from "../footer-agent-overview";
 
 function session(
-  overrides: Partial<AgentHookSession> & Pick<AgentHookSession, "session_id" | "state">,
-): AgentHookSession {
+  overrides: Partial<AgentStatusRecord> & Pick<AgentStatusRecord, "session_id" | "state">,
+): AgentStatusRecord {
   return {
     tool: "claude-code",
     timestamp: "2026-08-26T00:00:00.000Z",

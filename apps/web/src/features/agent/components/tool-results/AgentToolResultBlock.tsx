@@ -7,25 +7,28 @@ import type { AgentToolCallPart } from "@/features/agent/lib/agent-tool-kind";
 import {
   deriveToolDisplayName,
   getSkillName,
-  getTerminalCommandString,
   getToolKindIcon,
   isSkillCommand,
   isSkillInvocation,
 } from "@/features/agent/lib/chat-helpers";
 import {
+  hostFromUrl,
   parseToolResult,
   type ToolLineRange,
+  type ToolPresentation,
 } from "@/features/agent/lib/tool-results/parse-tool-result";
 import { MarkdownRenderer } from "@/shared/components/markdown/MarkdownRenderer";
 import { useDisplayToolTitle } from "../agent-chat-cwd-context";
 import {
   AgentToolCard,
   AgentToolDiffStats,
-  AgentToolFileGlyph,
+  AgentToolFileChip,
+  SiteFavicon,
+  type AgentToolBody,
+  type AgentToolSurface,
 } from "./AgentToolCard";
 import { AgentToolDiffResult } from "./AgentToolDiffResult";
 import {
-  AgentToolCopyAction,
   AgentToolDeleteBody,
   AgentToolEmptyBody,
   AgentToolErrorBody,
@@ -38,6 +41,8 @@ import {
   AgentToolTextBody,
   AgentToolTodosBody,
   AgentToolTreeBody,
+  AgentToolWebFetchBody,
+  AgentToolWebSearchBody,
 } from "./AgentToolBodies";
 
 function countLines(text: string): number {
@@ -53,7 +58,18 @@ function fenceForMarkdown(code: string, language: string): string {
 
 function titleWithRange(title: string, range: ToolLineRange | null): string {
   if (!range) return title;
+  if (range.start === range.end) return `${title} (${range.start})`;
   return `${title} (${range.start}–${range.end})`;
+}
+
+function toolBodyForKind(kind: ToolPresentation["kind"]): AgentToolBody {
+  switch (kind) {
+    case "markdown":
+    case "json":
+      return "plain";
+    default:
+      return "panel";
+  }
 }
 
 function AgentToolCodeResult({
@@ -68,6 +84,7 @@ function AgentToolCodeResult({
   title,
   fallbackIcon,
   startLine,
+  surface = "card",
 }: {
   path: string | null;
   language: string;
@@ -80,25 +97,24 @@ function AgentToolCodeResult({
   title: string;
   fallbackIcon: React.ReactNode;
   startLine?: number;
+  surface?: AgentToolSurface;
 }) {
   const t = useTranslations("Agent.components.toolResults");
   const displayTitle = useDisplayToolTitle();
   const additions = hint === "new" ? countLines(code) : 0;
   const deletions = hint === "deleted" ? countLines(code) : 0;
-  const icon = path
-    ? <AgentToolFileGlyph path={path} />
-    : asSkill
-      ? <Sparkles className="size-4" />
-      : fallbackIcon;
-  const shownTitle = displayTitle(title, path);
+  const actionTitle = hint === "new" ? t("created") : displayTitle(title, path);
 
   return (
     <AgentToolCard
       variant="tool"
+      surface={surface}
+      body="plain"
       tone={asSkill ? "skill" : status?.toLowerCase() === "failed" ? "error" : "default"}
-      icon={icon}
-      title={shownTitle}
-      titleTooltip={path ? `${shownTitle}\n${path}` : shownTitle}
+      icon={asSkill ? <Sparkles className="size-4" /> : fallbackIcon}
+      title={actionTitle}
+      titleTooltip={path ? `${actionTitle}\n${path}` : actionTitle}
+      accessory={path ? <AgentToolFileChip path={path} /> : null}
       status={status}
       meta={
         hint ? (
@@ -126,7 +142,13 @@ function AgentToolCodeResult({
   );
 }
 
-export function AgentToolResultBlock({ part }: { part: AgentToolCallPart }) {
+export function AgentToolResultBlock({
+  part,
+  surface = "card",
+}: {
+  part: AgentToolCallPart;
+  surface?: AgentToolSurface;
+}) {
   const t = useTranslations("Agent.components.toolResults");
   const displayTitle = useDisplayToolTitle();
   const parsed = parseToolResult({
@@ -145,18 +167,24 @@ export function AgentToolResultBlock({ part }: { part: AgentToolCallPart }) {
     parsed.resolvedTool || part.name,
     part.title || part.name,
     part.input,
-    part.output,
+    part.output ?? part.content,
   ), parsed.path);
   const skillName = asSkill && part.input && typeof part.input === "object"
     ? getSkillName(part.input as Record<string, unknown>)
     : toolDisplayName;
+  const fileChip = parsed.path
+    && (part.kind === "read" || part.kind === "edit" || part.kind === "delete" || parsed.presentation.kind === "code")
+    ? <AgentToolFileChip path={parsed.path} />
+    : null;
+  const actionName = fileChip
+    ? deriveToolDisplayName(parsed.resolvedTool || part.name, parsed.resolvedTool || part.name)
+    : toolDisplayName;
   const title = titleWithRange(
-    asSkill ? t("skillTitle", { name: skillName }) : toolDisplayName,
+    asSkill ? t("skillTitle", { name: skillName }) : actionName,
     parsed.lineRange,
   );
   const icon = asSkill ? <Sparkles className="size-4" /> : getToolKindIcon(part.kind);
   const { presentation, inputRows, showInput, path } = parsed;
-  const showCopy = part.kind === "execute";
   const status = part.status ?? undefined;
 
   if (presentation.kind === "diff") {
@@ -173,6 +201,7 @@ export function AgentToolResultBlock({ part }: { part: AgentToolCallPart }) {
             oldContent={file.oldContent}
             newContent={file.newContent}
             status={status}
+            surface={surface}
           />
         ))}
       </div>
@@ -186,6 +215,7 @@ export function AgentToolResultBlock({ part }: { part: AgentToolCallPart }) {
         title={displayTitle(title, presentation.path || path)}
         patch={presentation.patch}
         status={status}
+        surface={surface}
       />
     );
   }
@@ -204,25 +234,79 @@ export function AgentToolResultBlock({ part }: { part: AgentToolCallPart }) {
         title={title}
         fallbackIcon={icon}
         startLine={parsed.lineRange?.start}
+        surface={surface}
       />
     );
   }
 
-  const copyText = showCopy
-    ? (getTerminalCommandString(part.input)
-      || (presentation.kind === "text" || presentation.kind === "error" ? presentation.text : "")
-      || (presentation.kind === "json" ? presentation.json : ""))
-    : "";
+  if (presentation.kind === "web_search") {
+    const query = presentation.query.trim();
+    const searchTitle = query ? t("searchingFor", { query }) : t("webSearch");
+    return (
+      <AgentToolCard
+        variant="tool"
+        surface={surface}
+        body="plain"
+        tone={status?.toLowerCase() === "failed" ? "error" : "default"}
+        icon={getToolKindIcon("search")}
+        title={searchTitle}
+        titleTooltip={query || searchTitle}
+        status={status}
+        meta={
+          presentation.links.length > 0 ? (
+            <span className="text-[11px] text-muted-foreground">
+              {t("resultCount", { count: presentation.links.length })}
+            </span>
+          ) : null
+        }
+      >
+        <AgentToolWebSearchBody
+          links={presentation.links}
+          sourcesLabel={t("sources")}
+          layoutKey={part.tool_call_id || part.name}
+        />
+      </AgentToolCard>
+    );
+  }
+
+  if (presentation.kind === "web_fetch") {
+    const host = hostFromUrl(presentation.url) ?? presentation.url;
+    const failed = status?.toLowerCase() === "failed";
+    return (
+      <AgentToolCard
+        variant="tool"
+        surface={surface}
+        body={failed || !presentation.markdown ? "panel" : "plain"}
+        tone={failed ? "error" : "default"}
+        icon={<SiteFavicon url={presentation.url} />}
+        title={t("fetchUrl", { host })}
+        titleTooltip={presentation.url}
+        status={status}
+      >
+        {failed && presentation.text ? <AgentToolErrorBody text={presentation.text} /> : null}
+        {!failed ? (
+          <AgentToolWebFetchBody
+            url={presentation.url}
+            markdown={presentation.markdown}
+            text={presentation.text}
+          />
+        ) : null}
+        {failed && !presentation.text ? <AgentToolEmptyBody status={status} /> : null}
+      </AgentToolCard>
+    );
+  }
 
   return (
     <AgentToolCard
       variant="tool"
+      surface={surface}
+      body={toolBodyForKind(presentation.kind)}
       tone={asSkill ? "skill" : presentation.kind === "error" ? "error" : "default"}
       icon={icon}
       title={title}
       titleTooltip={path ? `${title}\n${path}` : title}
+      accessory={fileChip}
       status={status}
-      actions={showCopy ? <AgentToolCopyAction text={copyText} /> : undefined}
     >
       {showInput ? <AgentToolInputRows rows={inputRows} /> : null}
       {presentation.kind === "search" ? <AgentToolSearchBody hits={presentation.hits} /> : null}

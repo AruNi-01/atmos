@@ -61,6 +61,7 @@ export function ShortcutsSettingsSection() {
         shortcuts={[
           { keys: ['⌘', '0'], description: t('groups.centerStageTabs.items.overview') },
           { keys: ['⌘', '1-9'], description: t('groups.centerStageTabs.items.tabByPosition') },
+          { keys: ['⌘', 'L'], description: t('groups.centerStageTabs.items.focusAgentChat') },
         ]}
       />
       <ShortcutGroup

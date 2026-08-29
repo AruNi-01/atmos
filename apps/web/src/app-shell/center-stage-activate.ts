@@ -17,7 +17,15 @@ import { useGitHistoryCenterTabStore } from "@/features/git/store/use-git-histor
 import { GIT_HISTORY_TAB_VALUE } from "@/features/git/types";
 import { useSimulatorCenterTabStore } from "@/features/simulator/store/use-simulator-center-tab";
 import { SIMULATOR_TAB_VALUE } from "@/features/simulator/types";
-import { isAgentChatTabValue } from "@/features/agent/store/use-agent-chat-center-tabs";
+import {
+  isAgentChatTabValue,
+  parseAgentChatTabValue,
+  useAgentChatCenterTabsStore,
+} from "@/features/agent/store/use-agent-chat-center-tabs";
+import {
+  type PaneFocusAck,
+  useAgentAttentionStore,
+} from "@/features/agent/store/agent-attention-store";
 import {
   FIXED_TERMINAL_TAB_VALUE,
   TERMINAL_TAB_VALUE_PREFIX,
@@ -51,7 +59,11 @@ function isEditorFileTab(tab: string): boolean {
 export function activateCenterChromeTab(
   contextId: string,
   tab: string,
-  opts?: { attach?: boolean; placement?: CenterTabAttachPlacement },
+  opts?: {
+    attach?: boolean;
+    placement?: CenterTabAttachPlacement;
+    attentionAck?: PaneFocusAck;
+  },
 ): void {
   if (!contextId || !tab) return;
   setCenterStageLastTab(contextId, tab);
@@ -71,6 +83,18 @@ export function activateCenterChromeTab(
   }
   if (isTerminalTab(tab)) {
     useTerminalStore.getState().setActiveTerminalTab(contextId, tab);
+  }
+  const chatId = parseAgentChatTabValue(tab);
+  if (chatId && !chatId.startsWith("draft:")) {
+    useAgentChatCenterTabsStore.getState().openTab({ contextId, chatId });
+    useAgentAttentionStore.getState().notifyPaneFocused(`chat:${chatId}`, {
+      ack: opts?.attentionAck ?? "immediate",
+    });
+  } else {
+    const focused = useAgentAttentionStore.getState().focusedStablePaneId;
+    if (focused?.startsWith("chat:")) {
+      useAgentAttentionStore.getState().notifyPaneFocused(null);
+    }
   }
 
   const editor = useEditorStore.getState();

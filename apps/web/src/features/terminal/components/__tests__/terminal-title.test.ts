@@ -42,7 +42,7 @@ const cursorAgent: TerminalPaneAgent = {
 const agents = [grokAgent, cursorAgent, hermesAgent];
 
 describe("terminal title runtime wrapper fallback", () => {
-  it("keeps the pane agent title when a Python runtime owns the dynamic title", () => {
+  it("keeps the pane agent icon when a Python runtime owns the dynamic title", () => {
     expect(
       getTerminalDisplayMeta({
         baseTitle: "Hermes Agent",
@@ -51,6 +51,7 @@ describe("terminal title runtime wrapper fallback", () => {
       }),
     ).toMatchObject({
       displayTitle: "Hermes Agent",
+      primaryTitle: "Hermes Agent",
       toolbarAgent: hermesAgent,
     });
   });
@@ -82,7 +83,7 @@ describe("terminal title runtime wrapper fallback", () => {
     });
   });
 
-  it("falls back to the last agent title when the dynamic title is version-like", () => {
+  it("falls back to the last agent icon when the dynamic title is version-like", () => {
     expect(
       getTerminalDisplayMeta({
         baseTitle: "Hermes Agent",
@@ -91,6 +92,7 @@ describe("terminal title runtime wrapper fallback", () => {
       }),
     ).toMatchObject({
       displayTitle: "Hermes Agent",
+      primaryTitle: "Hermes Agent",
       toolbarAgent: hermesAgent,
     });
   });
@@ -152,7 +154,7 @@ describe("terminal title runtime wrapper fallback", () => {
     });
   });
 
-  it("still shows direct agent commands when the dynamic title names the agent", () => {
+  it("keeps the agent icon when the dynamic title names the agent command", () => {
     expect(
       getTerminalDisplayMeta({
         baseTitle: "Hermes Agent",
@@ -273,18 +275,17 @@ describe("terminal title APP-036 unique + contested agent matching", () => {
     }
   });
 
-  it("splits primary title and OSC suffix for toolbar marquee", () => {
+  it("splits OSC onto the toolbar marquee next to the agent icon", () => {
     const meta = getTerminalDisplayMeta({
       baseTitle: "Claude Code",
       dynamicTitle: "claude",
       agent: { id: "claude", label: "Claude Code", command: "claude", iconType: "built-in" },
       oscTitle: "debugging a very long session topic for marquee",
     });
-    expect(meta.primaryTitle).toBe("Claude Code");
+    expect(meta.primaryTitle).toBe("");
     expect(meta.oscSuffix).toBe("debugging a very long session topic for marquee");
-    expect(meta.displayTitle).toBe(
-      "Claude Code | debugging a very long session topic for marquee",
-    );
+    expect(meta.displayTitle).toBe("debugging a very long session topic for marquee");
+    expect(meta.toolbarAgent?.id).toBe("claude");
   });
 
   it("matches command lines with executable paths or path-valued arguments", () => {
@@ -374,29 +375,13 @@ describe("native OSC 0/2 title suffix (APP-047)", () => {
     expect(sanitizeNativeOscTitle(long).length).toBe(MAX_NATIVE_OSC_TITLE_CHARS);
   });
 
-  it("appends OSC title with | after the auto display title", () => {
-    expect(
-      getTerminalDisplayMeta({
-        baseTitle: "Claude Code",
-        dynamicTitle: "claude",
-        configuredAgents: agents,
-        agent: { id: "claude", label: "Claude Code", command: "claude", iconType: "built-in" },
-        oscTitle: "debugging auth",
-      }),
-    ).toMatchObject({
-      displayTitle: "Claude Code | debugging auth",
-      toolbarAgent: expect.objectContaining({ id: "claude" }),
-    });
-  });
-
-  it("hides agent brand text while keeping agent and OSC alone (no pipe)", () => {
+  it("shows OSC next to the agent icon with no brand name or pipe", () => {
     const meta = getTerminalDisplayMeta({
       baseTitle: "Claude Code",
       dynamicTitle: "claude",
       configuredAgents: agents,
       agent: { id: "claude", label: "Claude Code", command: "claude", iconType: "built-in" },
       oscTitle: "debugging auth",
-      showAgentName: false,
     });
     expect(meta).toMatchObject({
       primaryTitle: "",
@@ -427,7 +412,8 @@ describe("native OSC 0/2 title suffix (APP-047)", () => {
       // Looks like another agent brand — must not rebrand the pane.
       oscTitle: "Hermes Agent",
     });
-    expect(meta.displayTitle).toBe("Codex | Hermes Agent");
+    expect(meta.displayTitle).toBe("Hermes Agent");
+    expect(meta.displayTitle).not.toContain("|");
     expect(meta.toolbarAgent?.id).toBe("codex");
     expect(meta.toolbarAgent?.id).not.toBe("hermes");
   });
@@ -669,7 +655,6 @@ describe("native OSC 0/2 title suffix (APP-047)", () => {
         oscTitle: "Claude Code",
       }).displayTitle,
     ).toBe("Claude Code");
-    // Meaningful session topic still appends.
     expect(
       getTerminalDisplayMeta({
         baseTitle: "Claude Code",
@@ -678,7 +663,28 @@ describe("native OSC 0/2 title suffix (APP-047)", () => {
         configuredAgents: [claude],
         oscTitle: "debugging auth",
       }).displayTitle,
-    ).toBe("Claude Code | debugging auth");
+    ).toBe("debugging auth");
+  });
+
+  it("shows the agent name when there is no session topic or cwd", () => {
+    const claude = {
+      id: "claude",
+      label: "Claude Code",
+      command: "claude",
+      iconType: "built-in" as const,
+    };
+    expect(
+      getTerminalDisplayMeta({
+        baseTitle: "Claude Code",
+        dynamicTitle: "claude",
+        agent: claude,
+      }),
+    ).toMatchObject({
+      displayTitle: "Claude Code",
+      primaryTitle: "Claude Code",
+      oscSuffix: "",
+      toolbarAgent: claude,
+    });
   });
 });
 

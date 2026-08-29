@@ -4,6 +4,8 @@ export type IdleDismissableSession = {
   session_id: string;
   pane_id?: string | null;
   source_pane_id?: string | null;
+  surface?: "terminal" | "chat" | null;
+  surface_id?: string | null;
 };
 
 export type AgentPaneState = "idle" | "running" | "permission_request";
@@ -111,6 +113,31 @@ export function resolveAgentStateForPaneId(
     if (key !== id && session.session_id !== id && session.pane_id !== id) {
       continue;
     }
+    if (session.state === "permission_request") return "permission_request";
+    if (session.state === "running") hasRunning = true;
+  }
+  return hasRunning ? "running" : "idle";
+}
+
+/** Aggregate live agent state for one Agent Chat id (`chat:{id}` or surface_id). */
+export function resolveAgentStateForChatId(
+  sessions:
+    | ReadonlyMap<string, IdleDismissableSession>
+    | Iterable<[string, IdleDismissableSession]>,
+  chatId: string,
+): AgentPaneState {
+  const id = chatId?.trim();
+  if (!id) return "idle";
+  const sessionId = `chat:${id}`;
+  const entries = sessions instanceof Map ? sessions.entries() : sessions;
+  let hasRunning = false;
+  for (const [key, session] of entries) {
+    const isChat =
+      key === sessionId ||
+      session.session_id === sessionId ||
+      session.surface_id === id ||
+      (session.surface === "chat" && session.surface_id === id);
+    if (!isChat) continue;
     if (session.state === "permission_request") return "permission_request";
     if (session.state === "running") hasRunning = true;
   }

@@ -1,19 +1,29 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { useTranslations } from "next-intl";
-import { ArrowRight, CheckCircle2, Circle, CircleDashed } from "lucide-react";
+import { ArrowRight, CheckCircle2, ChevronRight, Circle, CircleDashed } from "lucide-react";
+import { LayoutGroup, motion, useReducedMotion } from "motion/react";
+import {
+  AvatarStack,
+  Collapsible,
+  CollapsibleTrigger,
+} from "@workspace/ui";
 import { MarkdownRenderer } from "@/shared/components/markdown/MarkdownRenderer";
 import { CopyButton } from "@/shared/components/code-block/copy-button";
+import { cn } from "@/shared/lib/utils";
 import {
+  hostFromUrl,
   relativeDisplayPath,
   type SearchHit,
   type TodoItem,
   type ToolInputRow,
   type TreeEntry,
+  type WebResultLink,
 } from "@/features/agent/lib/tool-results/parse-tool-result";
 import { useDisplayToolPath } from "../agent-chat-cwd-context";
-import { AgentToolFileGlyph } from "./AgentToolCard";
+import { AgentTreeBranch } from "../AgentTreeBranch";
+import { AgentToolFileGlyph, SiteFavicon } from "./AgentToolCard";
 import { AgentToolCodePreview } from "./AgentToolCodePreview";
 
 export function AgentToolInputRows({ rows }: { rows: ToolInputRow[] }) {
@@ -21,7 +31,7 @@ export function AgentToolInputRows({ rows }: { rows: ToolInputRow[] }) {
   const displayPath = useDisplayToolPath();
   if (rows.length === 0) return null;
   return (
-    <div className="border-b border-border/40 px-3 py-2">
+    <div className="px-3 py-2">
       <p className="mb-1.5 text-[11px] font-medium text-muted-foreground">
         {t("parameters")}
       </p>
@@ -38,6 +48,135 @@ export function AgentToolInputRows({ rows }: { rows: ToolInputRow[] }) {
           );
         })}
       </dl>
+    </div>
+  );
+}
+
+export function AgentToolWebSearchBody({
+  links,
+  sourcesLabel,
+  layoutKey,
+}: {
+  links: WebResultLink[];
+  sourcesLabel: string;
+  layoutKey: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const reduced = useReducedMotion();
+  if (links.length === 0) return null;
+
+  const stacked = links.slice(0, 5);
+  const extra = links.length - stacked.length;
+
+  return (
+    <LayoutGroup id={layoutKey}>
+      <Collapsible open={open} onOpenChange={setOpen} className="min-w-0">
+        <AgentTreeBranch isFirst isLast>
+          <div className="flex min-w-0 items-center gap-2" data-tree-header>
+            <CollapsibleTrigger className="group inline-flex min-w-0 max-w-full items-center gap-1.5 py-0.5 text-left text-[13px] leading-5 text-muted-foreground hover:text-foreground">
+              <span className="min-w-0 truncate">{sourcesLabel}</span>
+              {!open ? (
+                <span className="flex shrink-0 items-center gap-1">
+                  <AvatarStack
+                    size="xs"
+                    variant="spring-tilt"
+                    users={stacked.map((link) => ({
+                      id: `${layoutKey}:${link.url}`,
+                      name: hostFromUrl(link.url) ?? link.title,
+                      content: <SiteFavicon url={link.url} className="size-4" />,
+                    }))}
+                  />
+                  {extra > 0 ? (
+                    <span className="text-[11px] text-muted-foreground">+{extra}</span>
+                  ) : null}
+                </span>
+              ) : null}
+              <ChevronRight
+                className={cn(
+                  "size-3.5 shrink-0 transition-transform duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]",
+                  open && "rotate-90",
+                )}
+              />
+            </CollapsibleTrigger>
+          </div>
+          {open ? (
+            <div className="pt-0.5">
+              {links.map((link, index) => {
+                const host = hostFromUrl(link.url) ?? link.url;
+                const stackedIcon = index < stacked.length;
+                return (
+                  <AgentTreeBranch
+                    key={link.url}
+                    isFirst={index === 0}
+                    isLast={index === links.length - 1}
+                  >
+                    <a
+                      href={link.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      data-tree-header
+                      className="flex min-w-0 items-center gap-2 rounded-md py-1 pr-1.5 text-left leading-5 hover:bg-muted/50"
+                      title={link.url}
+                    >
+                      <motion.div
+                        layoutId={stackedIcon && !reduced ? `${layoutKey}:${link.url}` : undefined}
+                        className="size-4 shrink-0"
+                        transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+                      >
+                        <SiteFavicon url={link.url} className="size-4" />
+                      </motion.div>
+                      <motion.span
+                        initial={reduced ? false : { opacity: 0, y: 4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.2, delay: stackedIcon ? 0.12 : 0.04 * Math.min(index, 6) }}
+                        className="min-w-0 flex-1 truncate text-[13px] text-foreground"
+                      >
+                        {link.title}
+                      </motion.span>
+                      <motion.span
+                        initial={reduced ? false : { opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ duration: 0.2, delay: stackedIcon ? 0.16 : 0.04 * Math.min(index, 6) }}
+                        className="max-w-[40%] shrink-0 truncate text-[12px] text-muted-foreground"
+                      >
+                        {host}
+                      </motion.span>
+                    </a>
+                  </AgentTreeBranch>
+                );
+              })}
+            </div>
+          ) : null}
+        </AgentTreeBranch>
+      </Collapsible>
+    </LayoutGroup>
+  );
+}
+
+export function AgentToolWebFetchBody({
+  url,
+  markdown,
+  text,
+}: {
+  url: string;
+  markdown?: string;
+  text?: string;
+}) {
+  if (!markdown && !text) return null;
+  return (
+    <div>
+      {markdown ? (
+        <div className="max-h-96 overflow-auto px-3 py-2">
+          <MarkdownRenderer className="prose prose-sm dark:prose-invert max-w-none text-[13px] leading-relaxed prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-headings:my-2 [&_pre]:max-w-full [&_.not-prose]:my-2">
+            {markdown}
+          </MarkdownRenderer>
+        </div>
+      ) : (
+        <AgentToolTextBody text={text ?? ""} />
+      )}
+      <p className="truncate px-3 pb-2 text-[11px] text-muted-foreground" title={url}>
+        {url}
+      </p>
     </div>
   );
 }
@@ -152,7 +291,7 @@ export function AgentToolJsonBody({ json }: { json: string }) {
 
 export function AgentToolTextBody({ text }: { text: string }) {
   if (text.includes("\n") || text.length > 160) {
-    return <AgentToolCodePreview code={text} language="plaintext" />;
+    return <AgentToolCodePreview code={text} language="plaintext" className="bg-transparent" />;
   }
   return (
     <p className="px-3 py-2 text-sm leading-relaxed text-muted-foreground whitespace-pre-wrap">

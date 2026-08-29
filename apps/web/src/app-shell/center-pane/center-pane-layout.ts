@@ -28,6 +28,7 @@ export function isShareableCenterTabId(tabId: string): boolean {
   if (!tabId) return false;
   if (tabId === "terminal" || tabId.startsWith(TERMINAL_TAB_PREFIX)) return false;
   if (tabId.startsWith(BROWSER_TAB_PREFIX)) return false;
+  if (tabId.startsWith("agent-chat:")) return false;
   if (tabId === "project-wiki" || tabId === "code-review") return false;
   return true;
 }

@@ -16,6 +16,7 @@ import {
   writeCenterStageTabGroupOrder,
 } from "@/shared/stores/use-ui-pref-hooks";
 import {
+  collectAgentChatGroupTabs,
   collectDiffGroupTabs,
   paneScopedTabGroupKey,
   readPaneTabGroupOrder,
@@ -39,6 +40,15 @@ type TerminalGroupTab = {
   id: string;
   title: string;
   customTitle?: string;
+};
+
+type AgentChatGroupTab = {
+  id: string;
+  value: string;
+  title: string;
+  chatId: string | null;
+  providerId: string | null;
+  openedAt: number;
 };
 
 /** Reorder group tabs only within each section (browser instance / terminal family). */
@@ -173,6 +183,7 @@ export function useCenterStageTabGroups({
   previewBrowserPrefs = DEFAULT_PREVIEW_BROWSER_PREFS,
   projectWikiTabVisible = false,
   terminalTabs = [],
+  agentChatTabs = [],
 }: {
   browserTabs: BrowserCenterTab[];
   codeReviewTabVisible?: boolean;
@@ -189,6 +200,7 @@ export function useCenterStageTabGroups({
   previewBrowserPrefs?: PreviewBrowserPrefs;
   projectWikiTabVisible?: boolean;
   terminalTabs?: TerminalGroupTab[];
+  agentChatTabs?: AgentChatGroupTab[];
 }) {
   const t = useTranslations("appShell.centerStageTabGroups");
   const tabBarT = useTranslations("appShell.centerStageTabBar");
@@ -239,6 +251,11 @@ export function useCenterStageTabGroups({
     }
     if (terminalGroupTabs.length > 0) {
       groups.push({ key: "terminal", label: t("groups.terminal"), tabs: terminalGroupTabs });
+    }
+
+    const chatGroupTabs = collectAgentChatGroupTabs(agentChatTabs);
+    if (chatGroupTabs.length > 0) {
+      groups.push({ key: "chat", label: t("groups.chat"), tabs: chatGroupTabs });
     }
 
     // File tabs (regular editor files, not diffs / reviews / conflicts)
@@ -422,6 +439,7 @@ export function useCenterStageTabGroups({
 
     return groups;
   }, [
+    agentChatTabs,
     browserFallbackLabel,
     browserTabs,
     changesTabVisible,

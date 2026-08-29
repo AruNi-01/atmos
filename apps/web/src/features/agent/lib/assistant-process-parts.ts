@@ -1,10 +1,4 @@
-import type { AgentPart } from "@atmos/api-types/ws/dto/agent-chat";
-
-function isVisibleProcessPart(part: AgentPart): boolean {
-  if (part.type === "plan" || part.type === "attachment") return false;
-  if (part.type === "thinking") return Boolean(part.text);
-  return part.type === "tool_call" || part.type === "error";
-}
+import type { AgentMessage, AgentPart } from "@atmos/api-types/ws/dto/agent-chat";
 
 export function splitAssistantProcessParts(parts: AgentPart[]): {
   processParts: { part: AgentPart; origIndex: number }[];
@@ -21,4 +15,20 @@ export function splitAssistantProcessParts(parts: AgentPart[]): {
     processParts.push({ part, origIndex });
   });
   return { processParts, answerParts };
+}
+
+export function isAssistantTurnSettled(message: Pick<AgentMessage, "streaming" | "completed_at" | "worked_ms">): boolean {
+  if (message.streaming) return false;
+  if (message.completed_at) return true;
+  return message.worked_ms != null && message.worked_ms > 0;
+}
+
+export function shouldCollapseAssistantProcess(
+  message: Pick<AgentMessage, "streaming" | "completed_at" | "worked_ms">,
+  hasRunningTool: boolean,
+  hasProcess: boolean,
+  hasAnswer: boolean,
+): boolean {
+  if (!hasProcess || !hasAnswer || hasRunningTool) return false;
+  return isAssistantTurnSettled(message);
 }

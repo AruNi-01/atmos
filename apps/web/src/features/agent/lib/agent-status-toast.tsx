@@ -2,26 +2,26 @@
 
 import React from "react";
 import { useTranslations } from "next-intl";
-import type { AgentHookStateNotification } from "@atmos/api-types/ws/dto/events";
+import type { AgentStatusChangedNotification } from "@atmos/api-types/ws/dto/events";
 import { agentToastManager } from "@workspace/ui";
 import {
   AGENT_STATE,
   AGENT_TOOL_ICON_IDS,
   AGENT_TOOL_LABELS,
-  type AgentHookSession,
-  type AgentHookState,
-} from "@/features/agent/store/agent-hooks-store";
+  type AgentStatusRecord,
+  type AgentOccupancy,
+} from "@/features/agent/store/agent-status-store";
 import { AgentIcon } from "@/features/agent/components/AgentIcon";
 import { getProjectBootstrapSnapshot } from "@/features/project/hooks/use-project-bootstrap-query";
 import { useAppRouter } from "@/shared/hooks/use-app-router";
 import {
-  canNavigateToAgentHookSession,
-  isAgentHookSideChatSession,
-  navigateToAgentHookSessionPane,
-  resolveAgentHookContextNames,
-} from "@/features/agent/lib/agent-hook-navigation";
+  canNavigateToAgentStatusSession,
+  isAgentStatusSideChatSession,
+  navigateToAgentStatusSession,
+  resolveAgentStatusContextNames,
+} from "@/features/agent/lib/agent-status-navigation";
 
-export type AgentHookStateUpdatePayload = AgentHookStateNotification;
+export type AgentStatusChangedPayload = AgentStatusChangedNotification;
 
 type AgentHookToastT = ReturnType<typeof useTranslations>;
 type AppRouterLike = ReturnType<typeof useAppRouter>;
@@ -30,9 +30,9 @@ type AppRouterLike = ReturnType<typeof useAppRouter>;
  * Build and show an in-app toast for agent permission / task-complete transitions.
  * Extracted from the notification subscription hook so JSX stays out of the WS glue.
  */
-export function showAgentHookStateToast(options: {
-  update: AgentHookStateUpdatePayload;
-  previousState: AgentHookState | undefined;
+export function showAgentStatusToast(options: {
+  update: AgentStatusChangedPayload;
+  previousState: AgentOccupancy | undefined;
   notifyOnPermissionRequest: boolean;
   notifyOnTaskComplete: boolean;
   router: AppRouterLike;
@@ -62,7 +62,7 @@ export function showAgentHookStateToast(options: {
   }
 
   const projects = getProjectBootstrapSnapshot()?.projects ?? [];
-  const session: AgentHookSession = {
+  const session: AgentStatusRecord = {
     session_id: update.session_id,
     tool: update.tool,
     state: update.state,
@@ -74,9 +74,13 @@ export function showAgentHookStateToast(options: {
     side_chat_id: update.side_chat_id,
     source_pane_id: update.source_pane_id,
     hook_version: update.hook_version,
+    surface: update.surface,
+    surface_id: update.surface_id,
+    space_id: update.space_id,
+    provider_id: update.provider_id,
   };
   const { projectName, workspaceName, workspaceDisplayName } =
-    resolveAgentHookContextNames(update.context_id, update.project_path, projects);
+    resolveAgentStatusContextNames(update.context_id, update.project_path, projects);
   const agentName = AGENT_TOOL_LABELS[update.tool] ?? update.tool;
   const statusLabel = isPermissionRequest
     ? t("notifications.permissionRequired")
@@ -85,9 +89,9 @@ export function showAgentHookStateToast(options: {
   const contextLabel = [
     projectName,
     workspaceLabel,
-    isAgentHookSideChatSession(update) ? t("notifications.sideChat") : null,
+    isAgentStatusSideChatSession(update) ? t("notifications.sideChat") : null,
   ].filter(Boolean).join(" / ");
-  const canNavigate = canNavigateToAgentHookSession(update);
+  const canNavigate = canNavigateToAgentStatusSession(update);
   const toastId = `agent-hook-${update.session_id}-${update.state}-${update.timestamp}`;
 
   agentToastManager.add({
@@ -114,7 +118,7 @@ export function showAgentHookStateToast(options: {
               if (!canNavigate) return;
               const latestProjects =
                 getProjectBootstrapSnapshot()?.projects ?? projects;
-              navigateToAgentHookSessionPane(session, router, latestProjects);
+              navigateToAgentStatusSession(session, router, latestProjects);
               agentToastManager.close(toastId);
             }}
           >

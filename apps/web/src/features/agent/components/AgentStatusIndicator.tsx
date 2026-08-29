@@ -4,7 +4,7 @@ import React, { useEffect, useRef } from "react";
 import { useTranslations } from "next-intl";
 import { TextShimmer, FilledBellIcon, cn } from "@workspace/ui";
 import type { AnimatedIconHandle } from "@workspace/ui";
-import { AGENT_STATE, type AgentHookState } from "@/features/agent/store/agent-hooks-store";
+import { AGENT_STATE, type AgentOccupancy } from "@/features/agent/store/agent-status-store";
 import { AgentRunningGlyph } from "@/features/agent/components/AgentRunningGlyph";
 import {
   DEFAULT_INDICATOR_BY_PLACEMENT,
@@ -13,11 +13,11 @@ import {
 } from "@/features/agent/lib/agent-activity-indicator-styles";
 import { useAgentActivityIndicatorSettingsStore } from "@/features/settings/store/agent-activity-indicator-settings-store";
 
-export type AgentHookIndicatorVariant = "compact" | "full";
+export type AgentStatusIndicatorVariant = "compact" | "full";
 
-interface AgentHookStatusIndicatorProps {
-  state: AgentHookState;
-  variant?: AgentHookIndicatorVariant;
+interface AgentStatusIndicatorProps {
+  state: AgentOccupancy;
+  variant?: AgentStatusIndicatorVariant;
   className?: string;
   tool?: string;
   /**
@@ -32,7 +32,7 @@ interface AgentHookStatusIndicatorProps {
   styleId?: AgentActivityIndicatorId;
 }
 
-const STATE_DOT_COLORS: Record<AgentHookState, string> = {
+const STATE_DOT_COLORS: Record<AgentOccupancy, string> = {
   [AGENT_STATE.IDLE]: "bg-emerald-500/70",
   [AGENT_STATE.RUNNING]: "bg-blue-500",
   [AGENT_STATE.PERMISSION_REQUEST]: "bg-amber-500",
@@ -94,7 +94,7 @@ function CompactIndicator({
   state,
   styleId,
 }: {
-  state: AgentHookState;
+  state: AgentOccupancy;
   styleId: AgentActivityIndicatorId;
 }) {
   const t = useTranslations("Agent.components.hookStatus");
@@ -133,7 +133,7 @@ function FullIndicator({
   tool,
   styleId,
 }: {
-  state: AgentHookState;
+  state: AgentOccupancy;
   tool?: string;
   styleId: AgentActivityIndicatorId;
 }) {
@@ -156,14 +156,14 @@ function FullIndicator({
   return <RunningFullSpinner tool={tool} styleId={styleId} />;
 }
 
-export function AgentHookStatusIndicator({
+export function AgentStatusIndicator({
   state,
   variant = "compact",
   className,
   tool,
   placement,
   styleId,
-}: AgentHookStatusIndicatorProps) {
+}: AgentStatusIndicatorProps) {
   const resolvedStyleId = useResolvedStyleId(placement, styleId);
 
   return (

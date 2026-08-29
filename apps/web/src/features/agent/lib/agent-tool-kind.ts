@@ -35,13 +35,132 @@ function hasSkillInput(input: unknown): boolean {
   return typeof skill === "string" && skill.length > 0;
 }
 
+function webActionType(input?: unknown): string | null {
+  const action = asRecord(asRecord(input)?.action);
+  const type = typeof action?.type === "string" ? action.type.trim().toLowerCase() : "";
+  return type || null;
+}
+
+function hasHttpUrl(value: unknown): boolean {
+  return typeof value === "string" && /^https?:\/\//i.test(value.trim());
+}
+
+function isWebSearchInput(input?: unknown): boolean {
+  const record = asRecord(input);
+  if (!record) return false;
+  const action = webActionType(input);
+  if (action === "search" || action === "web_search") return true;
+  if (hasHttpUrl(record.url) || hasHttpUrl(record.uri)) return false;
+  const query = record.query ?? record.q ?? record.search_term;
+  if (typeof query !== "string" || !query.trim()) return false;
+  return Array.isArray(record.sources) || Array.isArray(record.results);
+}
+
+const WEB_FETCH_ACTIONS = new Set([
+  "fetch",
+  "open",
+  "open_url",
+  "open_page",
+  "visit",
+  "navigate",
+  "browse",
+]);
+
+function isWebFetchInput(input?: unknown): boolean {
+  const action = webActionType(input);
+  if (action && WEB_FETCH_ACTIONS.has(action)) return true;
+  const record = asRecord(input);
+  if (!record) return false;
+  const nested = asRecord(record.action);
+  return hasHttpUrl(record.url)
+    || hasHttpUrl(record.uri)
+    || hasHttpUrl(record.href)
+    || hasHttpUrl(nested?.url)
+    || hasHttpUrl(nested?.uri)
+    || hasHttpUrl(nested?.href);
+}
+
+function envelopeType(value?: unknown): string {
+  const record = asRecord(value);
+  const type = typeof record?.type === "string"
+    ? record.type
+    : typeof record?.variant === "string"
+      ? record.variant
+      : "";
+  return normalizeLabel(type);
+}
+
+function toolValueText(value?: unknown): string {
+  if (typeof value === "string") return value;
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => {
+        if (typeof item === "string") return item;
+        const row = asRecord(item);
+        return typeof row?.text === "string" ? row.text : "";
+      })
+      .filter((text) => text.trim())
+      .join("\n");
+  }
+  const record = asRecord(value);
+  if (!record) return "";
+  for (const key of ["text", "content", "output", "result", "markdown"]) {
+    if (typeof record[key] === "string" && record[key].trim()) return record[key];
+  }
+  return "";
+}
+
+const LOADED_TOOLS_RE = /^\s*Loaded\s+(\d+)\s+tools?(?:\(s\))?:\s*(.+)\s*$/i;
+
+export function parseLoadedToolNames(value?: unknown): string[] | null {
+  const text = toolValueText(value).trim();
+  if (!text) return null;
+  const match = text.match(LOADED_TOOLS_RE);
+  if (!match) return null;
+  const names = match[2]
+    .split(/,\s*/)
+    .map((name) => name.trim())
+    .filter(Boolean);
+  return names.length > 0 ? names : null;
+}
+
+function looksLikeWebFetchOutput(output?: unknown): boolean {
+  const type = envelopeType(output);
+  if (
+    type === "fetch"
+    || type === "web_fetch"
+    || type === "webfetch"
+    || type.includes("web_fetch")
+    || type.endsWith("_fetch")
+    || type === "browse_page"
+    || type === "browse"
+  ) {
+    return true;
+  }
+  return /^\s*URL Content from:\s*"?https?:\/\//im.test(toolValueText(output));
+}
+
+function looksLikeWebSearchOutput(output?: unknown): boolean {
+  const type = envelopeType(output);
+  if (type === "web_search" || type === "websearch" || type.includes("web_search")) return true;
+  return /^\s*Web Search Results for:/im.test(toolValueText(output));
+}
+
+function looksLikeReadOutput(output?: unknown): boolean {
+  const type = envelopeType(output);
+  return ["read", "readfile", "read_file", "view", "view_file"].includes(type);
+}
+
 export function classifyTool(
   name?: string | null,
   title?: string | null,
   input?: unknown,
+  output?: unknown,
 ): ClassifiedTool {
   const toolName = normalizeLabel(name);
   const toolTitle = normalizeLabel(title);
+  const inputType = envelopeType(input);
+  const outputType = envelopeType(output);
 
   if (["think", "thought", "thinking", "reasoning", "reason"].includes(toolName)) {
     return { type: "thinking" };
@@ -63,7 +182,16 @@ export function classifyTool(
     return { type: "tool", kind: "skill" };
   }
 
-  if (["read", "readfile", "read_file", "view", "view_file", "listdir", "list_dir", "list_directory", "ls"].includes(toolName)) {
+  if (parseLoadedToolNames(output) || parseLoadedToolNames(input)) {
+    return { type: "tool", kind: "other" };
+  }
+
+  if (
+    ["read", "readfile", "read_file", "view", "view_file", "listdir", "list_dir", "list_directory", "ls"].includes(toolName)
+    || ["read", "readfile", "read_file", "view", "view_file", "listdir", "list_dir", "list_directory", "ls"].includes(inputType)
+    || ["read", "readfile", "read_file", "view", "view_file", "listdir", "list_dir", "list_directory", "ls"].includes(outputType)
+    || looksLikeReadOutput(output)
+  ) {
     return { type: "tool", kind: "read" };
   }
   if (["edit", "write", "write_file", "searchreplace", "search_replace", "str_replace", "strreplace"].includes(toolName)) {
@@ -71,7 +199,15 @@ export function classifyTool(
   }
   if (toolName === "delete") return { type: "tool", kind: "delete" };
   if (toolName === "move") return { type: "tool", kind: "move" };
-  if (["search", "glob", "grep", "grepsearch", "grep_search"].includes(toolName)) {
+  if (isWebFetchInput(input) || looksLikeWebFetchOutput(output)) {
+    return { type: "tool", kind: "fetch" };
+  }
+  if (
+    ["search", "glob", "grep", "grepsearch", "grep_search", "web_search", "websearch"].includes(toolName)
+    || toolName.includes("web_search")
+    || isWebSearchInput(input)
+    || looksLikeWebSearchOutput(output)
+  ) {
     return { type: "tool", kind: "search" };
   }
   if (
@@ -81,7 +217,17 @@ export function classifyTool(
   ) {
     return { type: "tool", kind: "execute" };
   }
-  if (toolName === "fetch") return { type: "tool", kind: "fetch" };
+  if (
+    toolName === "fetch"
+    || toolName === "web_fetch"
+    || toolName === "webfetch"
+    || toolName.includes("web_fetch")
+    || toolName.endsWith("_fetch")
+    || toolName === "browse_page"
+    || toolName.includes("browse_page")
+  ) {
+    return { type: "tool", kind: "fetch" };
+  }
   return { type: "tool", kind: "other" };
 }
 
@@ -131,7 +277,26 @@ export function planFromToolInput(input: unknown): unknown | null {
   return null;
 }
 
+const GENERIC_TOOL_LABELS = new Set([
+  "",
+  "tool",
+  "other",
+  "unknown",
+  "read",
+  "search",
+  "execute",
+  "edit",
+  "fetch",
+  "delete",
+  "move",
+  "run_script",
+  "run_command",
+  "bash",
+  "shell",
+  "command",
+]);
+
+/** ACP kind titles and empty labels — not rich enough to hide path/command/query. */
 export function isGenericToolLabel(value?: string | null): boolean {
-  const label = normalizeLabel(value);
-  return !label || label === "tool" || label === "other" || label === "unknown";
+  return GENERIC_TOOL_LABELS.has(normalizeLabel(value));
 }

@@ -17,9 +17,9 @@ import {
   Terminal as TerminalIcon,
   type LucideIcon,
 } from "lucide-react";
-import { AgentHookStatusIndicator } from "@/features/agent/components/AgentHookStatusIndicator";
+import { AgentStatusIndicator } from "@/features/agent/components/AgentStatusIndicator";
 import { AgentRunningGlyph } from "@/features/agent/components/AgentRunningGlyph";
-import { AGENT_STATE } from "@/features/agent/store/agent-hooks-store";
+import { AGENT_STATE } from "@/features/agent/store/agent-status-store";
 import {
   INDICATOR_PLACEMENTS,
   INDICATOR_STYLE_GROUPS,
@@ -65,7 +65,7 @@ function LeftSidebarMockPreview({ styleId }: { styleId: AgentActivityIndicatorId
       <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-sidebar-foreground">
         atmos
       </span>
-      <AgentHookStatusIndicator
+      <AgentStatusIndicator
         state={AGENT_STATE.RUNNING}
         variant="compact"
         styleId={styleId}
@@ -83,7 +83,7 @@ function CenterTerminalMockPreview({ styleId }: { styleId: AgentActivityIndicato
       <span className="min-w-0 flex-1 truncate text-[13px] font-medium whitespace-nowrap">
         claude
       </span>
-      <AgentHookStatusIndicator
+      <AgentStatusIndicator
         state={AGENT_STATE.RUNNING}
         variant="compact"
         styleId={styleId}
@@ -99,7 +99,7 @@ function TerminalPanelMockPreview({ styleId }: { styleId: AgentActivityIndicator
     <div className="flex min-w-0 max-w-[260px] items-center gap-2 rounded-md border border-border/60 bg-background px-2 py-1.5">
       <TerminalIcon className="size-3 shrink-0 text-muted-foreground" />
       <span className="min-w-0 flex-1 truncate text-[11px] text-muted-foreground">pane</span>
-      <AgentHookStatusIndicator
+      <AgentStatusIndicator
         state={AGENT_STATE.RUNNING}
         variant="full"
         styleId={styleId}
@@ -113,7 +113,7 @@ function TerminalPanelMockPreview({ styleId }: { styleId: AgentActivityIndicator
 function FooterMockPreview({ styleId }: { styleId: AgentActivityIndicatorId }) {
   return (
     <div className="flex min-w-0 max-w-[240px] items-center gap-1.5 rounded-md border border-border/60 bg-muted/30 px-2 py-1 text-xs text-muted-foreground">
-      <AgentHookStatusIndicator
+      <AgentStatusIndicator
         state={AGENT_STATE.RUNNING}
         variant="compact"
         styleId={styleId}

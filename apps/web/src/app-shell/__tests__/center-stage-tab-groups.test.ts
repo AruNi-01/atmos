@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+  collectAgentChatGroupTabs,
   collectDiffGroupTabs,
   filterGroupedTabItemsByAllowedIds,
 } from "@/app-shell/center-stage-tab-groups";
@@ -66,6 +67,51 @@ describe("collectDiffGroupTabs", () => {
       { gitHistory: { visible: false, label: "Graph History" } },
     );
     expect(tabs.map((tab) => tab.kind)).toEqual(["diff-group"]);
+  });
+});
+
+describe("collectAgentChatGroupTabs", () => {
+  test("orders chat tabs by openedAt and keeps draft/provider fields", () => {
+    const tabs = collectAgentChatGroupTabs([
+      {
+        id: "agent-chat:later",
+        value: "agent-chat:later",
+        title: "Later",
+        chatId: "later",
+        providerId: "claude",
+        openedAt: 20,
+      },
+      {
+        id: "agent-chat:draft:1",
+        value: "agent-chat:draft:1",
+        title: "Chat",
+        chatId: null,
+        providerId: null,
+        openedAt: 10,
+      },
+    ]);
+
+    expect(tabs.map((tab) => tab.id)).toEqual([
+      "agent-chat:draft:1",
+      "agent-chat:later",
+    ]);
+    expect(tabs[0]).toMatchObject({
+      kind: "agent-chat",
+      label: "Chat",
+      value: "agent-chat:draft:1",
+      chatId: null,
+      providerId: null,
+    });
+    expect(tabs[1]).toMatchObject({
+      kind: "agent-chat",
+      label: "Later",
+      chatId: "later",
+      providerId: "claude",
+    });
+  });
+
+  test("omits an empty chat group", () => {
+    expect(collectAgentChatGroupTabs([])).toEqual([]);
   });
 });
 

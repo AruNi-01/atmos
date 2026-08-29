@@ -4,21 +4,46 @@ import React, { createContext, useContext, useMemo } from "react";
 import {
   displayToolPath,
   displayToolTitle,
+  normalizeFsPath,
 } from "@/features/agent/lib/tool-results/parse-tool-result";
 
-const AgentChatCwdContext = createContext<string | null>(null);
+type AgentChatCwdContextValue = {
+  cwd: string | null;
+  roots: string[];
+};
+
+const EMPTY_CWD: AgentChatCwdContextValue = { cwd: null, roots: [] };
+
+const AgentChatCwdContext = createContext<AgentChatCwdContextValue>(EMPTY_CWD);
+
+function uniqueRoots(paths: (string | null | undefined)[]): string[] {
+  const roots: string[] = [];
+  const seen = new Set<string>();
+  for (const path of paths) {
+    const normalized = normalizeFsPath(path);
+    if (!normalized || seen.has(normalized)) continue;
+    seen.add(normalized);
+    roots.push(normalized);
+  }
+  return roots;
+}
 
 export function AgentChatCwdProvider({
   cwd,
+  projectOrWorkspacePath,
   children,
 }: {
   cwd?: string | null;
+  projectOrWorkspacePath?: string | null;
   children: React.ReactNode;
 }) {
   const value = useMemo(() => {
-    const trimmed = cwd?.trim();
-    return trimmed ? trimmed : null;
-  }, [cwd]);
+    const trimmed = cwd?.trim() || null;
+    return {
+      cwd: trimmed,
+      roots: uniqueRoots([trimmed, projectOrWorkspacePath]),
+    };
+  }, [cwd, projectOrWorkspacePath]);
   return (
     <AgentChatCwdContext.Provider value={value}>
       {children}
@@ -27,7 +52,11 @@ export function AgentChatCwdProvider({
 }
 
 export function useAgentChatCwd(): string | null {
-  return useContext(AgentChatCwdContext);
+  return useContext(AgentChatCwdContext).cwd;
+}
+
+export function useAgentChatPathRoots(): string[] {
+  return useContext(AgentChatCwdContext).roots;
 }
 
 export function useDisplayToolPath() {
