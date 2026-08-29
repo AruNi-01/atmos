@@ -58,9 +58,11 @@ test.describe("APP-067 Atmos Agent Chat", () => {
     await expect(page.locator("[data-agent-chat-workspace]").first()).toBeVisible({
       timeout: 30_000,
     });
-    const composer = page.locator("[data-agent-chat-composer]").first();
-    await expect(composer).toBeVisible({ timeout: 15_000 });
-    await expect(composer).toBeEnabled({ timeout: 20_000 });
+    const composerRoot = page.locator("[data-agent-chat-composer]").first();
+    await expect(composerRoot).toBeVisible({ timeout: 15_000 });
+    const composer = composerRoot.locator("textarea, [contenteditable='true']").first();
+    await expect(composer).toBeVisible({ timeout: 20_000 });
+    await expect(composer).toBeEnabled();
 
     const marker = `s16-fanout-${Date.now()}`;
     await composer.fill(marker);
