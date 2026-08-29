@@ -1,6 +1,7 @@
 export type AgentChatCreateRequest = {
   workspace_id?: string | null;
   project_id?: string | null;
+  space_id?: string | null;
   cwd?: string | null;
   provider_id: string;
   model?: string | null;
@@ -100,6 +101,7 @@ export type AgentChatMeta = {
   cwd: string;
   workspace_id: string | null;
   project_id: string | null;
+  space_id?: string | null;
   provider_id: string;
   last_message_at: string | null;
   last_event_seq: number;
@@ -141,6 +143,7 @@ export type AgentChatIndexEntry = {
   cwd: string;
   workspace_id: string | null;
   project_id: string | null;
+  space_id?: string | null;
   provider_id: string;
   updated_at: string;
   last_message_at: string | null;
@@ -163,9 +166,12 @@ export type AgentToolKind =
   | "subagent"
   | "other";
 
+export type SessionLifecycleAction = "create" | "resume";
+export type SessionLifecycleStatus = "running" | "completed" | "failed";
+
 export type AgentPart =
   | { type: "text"; text: string }
-  | { type: "thinking"; text: string; tool_call_id?: string }
+  | { type: "thinking"; text: string; tool_call_id?: string; duration_ms?: number | null }
   | {
       type: "tool_call";
       tool_call_id: string;
@@ -179,7 +185,14 @@ export type AgentPart =
     }
   | { type: "plan"; plan: unknown }
   | { type: "attachment"; path: string; name?: string | null }
-  | { type: "error"; message: string };
+  | { type: "error"; message: string }
+  | {
+      type: "session_lifecycle";
+      action: SessionLifecycleAction;
+      status: SessionLifecycleStatus;
+      duration_ms?: number | null;
+      error?: string | null;
+    };
 
 export type AgentMessage = {
   id: string;
@@ -236,6 +249,7 @@ export type AgentChatPayload =
       kind?: string;
       text: string;
       attachments?: string[];
+      created_at?: string;
     }
   | { type: "assistant_message_delta"; message_id: string; delta: string; turn_id?: string }
   | { type: "assistant_message_completed"; message_id: string }
@@ -298,6 +312,15 @@ export type AgentChatPayload =
   | {
       type: "available_commands_updated";
       commands?: Array<{ name?: string; description?: string; hint?: string | null }>;
+    }
+  | {
+      type: "session_lifecycle";
+      turn_id: string;
+      message_id: string;
+      action: SessionLifecycleAction;
+      status: SessionLifecycleStatus;
+      duration_ms?: number | null;
+      error?: string | null;
     };
 
 /** Host event log item. Same tagged union the server emits on `agent_chat_event`. */

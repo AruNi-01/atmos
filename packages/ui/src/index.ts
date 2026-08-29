@@ -110,6 +110,8 @@ export * from "./components/ui/skeleton";
 export * from "./components/ui/preview-card";
 export * from "./components/logo-svg";
 export * from "./components/ui/avatar";
+export { AvatarStack } from "./components/ui/avatar-stack";
+export type { AvatarStackProps, AvatarStackUser } from "./components/ui/avatar-stack";
 export { Badge, badgeVariants } from "./components/ui/badge";
 export * from "./components/ui/craft-button";
 export * from "./components/cta-1";
@@ -166,6 +168,45 @@ export { TerminalLoader } from "./components/ui/terminal-loader";
 export type { TerminalLoaderProps } from "./components/ui/terminal-loader";
 export { ImageGenerationCanvas } from "./components/ui/image-generation";
 export type { ImageGenerationCanvasProps } from "./components/ui/image-generation";
+export { ThinkingStars } from "./components/ui/thinking-stars";
+export {
+  ActivityIndicator,
+  ActivityIndicatorGroup,
+  ACTIVITY_INDICATOR_GROUPS,
+  ACTIVITY_INDICATOR_STYLES,
+  ACTIVITY_STYLES_BY_GROUP,
+  isActivityIndicatorGroup,
+  isActivityIndicatorStyle,
+  isOrbIndicatorId,
+  isUnicodeSpinnerId,
+  ORB_VARIANT_IDS,
+  pickActivityIndicatorStyle,
+  stylesForGroups,
+  UNICODE_SPINNER_IDS,
+} from "./components/ui/activity-indicator";
+export type {
+  ActivityIndicatorProps,
+  ActivityIndicatorStyle,
+  UnicodeSpinnerId,
+} from "./components/ui/activity-indicator";
+export {
+  Orb,
+  HELIX_VARIANTS,
+  LATTICE_VARIANTS,
+  LENS_VARIANTS,
+  MORPH_VARIANTS,
+  RING_VARIANTS,
+  ORB_TASKS,
+} from "./components/ui/orb";
+export type {
+  HelixVariant,
+  LatticeVariant,
+  LensVariant,
+  MorphVariant,
+  OrbProps,
+  OrbVariant,
+  RingVariant,
+} from "./components/ui/orb";
 
 // Dither / ordered-dot charts (MIT-adapted Amicro simple-comp style)
 export {
@@ -268,6 +309,27 @@ export * from "./components/ai-elements/reasoning";
 export * from "./components/ai-elements/confirmation";
 export * from "./components/ai-elements/attachments";
 export * from "./components/ai-elements/prompt-input";
+export {
+  PromptInput as AgentsPromptInput,
+  type PromptInputProps as AgentsPromptInputProps,
+  type PromptInputRadius as AgentsPromptInputRadius,
+  type PromptModel,
+  type PromptAction,
+  type PromptInputLabels,
+} from "./components/agents/prompt-input";
+export {
+  agentConfigFlyoutOffsetTop,
+  agentConfigFlyoutSide,
+  agentConfigTriggerText,
+  initialAgentConfigFlyout,
+} from "./components/agents/prompt-input-view";
+export { RangeSlider } from "./components/motion/range-slider";
+export type { RangeSliderProps } from "./components/motion/range-slider";
+export { PreviewRail } from "./components/motion/preview-rail";
+export type {
+  PreviewRailItem,
+  PreviewRailProps,
+} from "./components/motion/preview-rail";
 export * from "./components/ai-elements/tool";
 export {
   Terminal as AcpTerminal,

@@ -1,0 +1,47 @@
+/* BoardUI Agent Thinking — Stars.
+ * https://www.boardui.com/components/agent-thinking */
+
+@keyframes thinking-stars-twinkle {
+  0%,
+  100% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  60% {
+    transform: scale(0.8);
+    opacity: 0.9;
+  }
+}
+
+.thinking-stars-star {
+  transform: scale(0);
+  animation-name: thinking-stars-twinkle;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+
+.thinking-stars {
+  color: color-mix(in oklab, currentColor 75%, transparent);
+}
+
+.dark .thinking-stars {
+  color: inherit;
+}
+
+.thinking-stars[data-animated="false"] .thinking-stars-star {
+  animation: none;
+  transform: none;
+  opacity: 0.7;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .thinking-stars-star {
+    animation: none;
+    transform: none;
+    opacity: 0.7;
+  }
+}

@@ -487,13 +487,17 @@ export function MdLiveEditor({
       window.removeEventListener("pointerdown", onPointerDown, true);
       window.removeEventListener("pointerup", onPointerUp);
       window.removeEventListener("pointercancel", onPointerUp);
-      void editor.destroy();
-      slashRoot?.unmount();
-      tooltipRoot?.unmount();
+      const slash = slashRoot;
+      const tooltip = tooltipRoot;
       slashRoot = null;
       tooltipRoot = null;
-      slashHost.remove();
-      tooltipHost.remove();
+      queueMicrotask(() => {
+        void editor.destroy();
+        slash?.unmount();
+        tooltip?.unmount();
+        slashHost.remove();
+        tooltipHost.remove();
+      });
     };
     // Recreate when the host remounts (file identity via parent key).
     // eslint-disable-next-line react-hooks/exhaustive-deps

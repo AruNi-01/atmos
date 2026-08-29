@@ -1,7 +1,7 @@
 import type { WsEvent } from "./events";
 import type {
-  AgentHookSessionsClearedNotification,
-  AgentHookStateNotification,
+  AgentStatusClearedNotification,
+  AgentStatusChangedNotification,
   AgentNotificationPayload,
   GitCommitMessageChunkNotification,
   LlmProviderTestChunkNotification,
@@ -40,8 +40,8 @@ export type WsEventContract = {
   llm_provider_test_chunk: { payload: LlmProviderTestChunkNotification };
   workspace_delete_progress: { payload: WorkspaceDeleteProgressNotification };
   project_delete_progress: { payload: ProjectDeleteProgressNotification };
-  agent_hook_state_changed: { payload: AgentHookStateNotification };
-  agent_hook_sessions_cleared: { payload: AgentHookSessionsClearedNotification };
+  agent_status_changed: { payload: AgentStatusChangedNotification };
+  agent_status_cleared: { payload: AgentStatusClearedNotification };
   agent_attention_raised: { payload: RefreshNotification };
   agent_attention_cleared: { payload: RefreshNotification };
   agent_attention_summary_updated: { payload: RefreshNotification };

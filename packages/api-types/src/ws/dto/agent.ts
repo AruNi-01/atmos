@@ -53,6 +53,10 @@ export type RegistryAgent = {
   installed: boolean;
   installed_version?: string;
   default_config?: Record<string, string>;
+  provision_kind?: "native" | "adapter";
+  native_executable?: string | null;
+  terminal_agent_id?: string | null;
+  can_remove?: boolean;
 };
 
 export type AgentRegistryListRequest = {
