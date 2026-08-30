@@ -24,5 +24,8 @@ describe("agent chat working directory picker", () => {
     expect(picker).toContain("project.mainFilePath");
     expect(picker).toContain("autoFocus");
     expect(picker).toContain("max-h-[min(16rem,calc(100dvh-8rem))]");
+    expect(picker).toContain("useRef<ReturnType<typeof setTimeout> | null>(null)");
+    expect(picker).toContain("hideFlyoutTimer.current = setTimeout(");
+    expect(picker).not.toContain("window.setTimeout");
   });
 });
