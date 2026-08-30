@@ -171,10 +171,13 @@ export function TabsList({
   children,
   className,
   indicatorClassName,
+  trailing,
 }: {
   children: ReactNode;
   className?: string;
   indicatorClassName?: string;
+  /** Chrome that must stay outside the sliding pill's clip box (e.g. + / overflow). */
+  trailing?: ReactNode;
 }) {
   const { value, variant } = useTabs();
   const reduce = useReducedMotion();
@@ -244,22 +247,42 @@ export function TabsList({
     };
   }, [reduce, underline, value]);
 
+  const indicator = (
+    <span
+      ref={indicatorRef}
+      aria-hidden
+      className={cn(
+        "pointer-events-none absolute top-0 left-0 z-0",
+        underline ? "bg-primary" : cn("bg-primary", radius),
+        indicatorClassName,
+      )}
+    />
+  );
+  const listClassName = cn(listClasses[variant], className);
+
+  if (!trailing) {
+    return (
+      <div ref={listRef} role="tablist" className={listClassName}>
+        {indicator}
+        {children}
+      </div>
+    );
+  }
+
+  // Keep the pill's containing block on the tab track so overflow scroll
+  // cannot paint the indicator over trailing chrome.
   return (
-    <div
-      ref={listRef}
-      role="tablist"
-      className={cn(listClasses[variant], className)}
-    >
-      <span
-        ref={indicatorRef}
-        aria-hidden
-        className={cn(
-          "pointer-events-none absolute top-0 left-0 z-0",
-          underline ? "bg-primary" : cn("bg-primary", radius),
-          indicatorClassName,
-        )}
-      />
-      {children}
+    <div role="tablist" className={listClassName}>
+      <div
+        ref={listRef}
+        className="relative z-0 flex min-h-0 min-w-0 flex-1 items-center gap-[inherit] self-stretch overflow-hidden"
+      >
+        {indicator}
+        {children}
+      </div>
+      <div className="relative z-20 flex shrink-0 items-center self-stretch">
+        {trailing}
+      </div>
     </div>
   );
 }

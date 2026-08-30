@@ -48,34 +48,14 @@ function CanvasAgentChatWidgetContent({
   // Isolate this card from sidebar chat and other agent-chat widgets.
   const instanceKey = source.instanceId?.trim() || String(shape.id);
 
-  const initialSessionBinding = React.useMemo(
-    () => ({
-      acpSessionId: source.acpSessionId ?? null,
-      registryId: source.registryId ?? null,
-      sessionCwd: source.sessionCwd ?? null,
-    }),
-    [source.acpSessionId, source.registryId, source.sessionCwd],
-  );
-
-  const onSessionBindingChange = React.useCallback(
-    (binding: {
-      acpSessionId: string | null;
-      registryId: string | null;
-      sessionCwd: string | null;
-    }) => {
+  const persistChatId = React.useCallback(
+    (chatId: string) => {
       const current = editor.getShape(shape.id as TLShapeId);
       if (!current || current.type !== "canvas-widget") return;
       const props = current.props as CanvasWidgetShape["props"];
       const src = props.source;
       if (!src || src.type !== "agent-chat") return;
-      if (
-        (src.acpSessionId ?? null) === binding.acpSessionId &&
-        (src.registryId ?? null) === binding.registryId &&
-        (src.sessionCwd ?? null) === binding.sessionCwd
-      ) {
-        return;
-      }
-      // Persist binding into the shape so it lands in the .atmos.tldr on save.
+      if ((src.chatId ?? null) === chatId) return;
       editor.run(
         () => {
           editor.updateShape({
@@ -86,9 +66,7 @@ function CanvasAgentChatWidgetContent({
               source: {
                 ...src,
                 instanceId: src.instanceId ?? instanceKey,
-                acpSessionId: binding.acpSessionId,
-                registryId: binding.registryId,
-                sessionCwd: binding.sessionCwd,
+                chatId,
               },
             },
           });
@@ -108,8 +86,9 @@ function CanvasAgentChatWidgetContent({
         allowFullscreen={false}
         contextOverride={contextOverride}
         instanceKey={instanceKey}
-        initialSessionBinding={initialSessionBinding}
-        onSessionBindingChange={onSessionBindingChange}
+        chatId={source.chatId ?? null}
+        onChatStarted={persistChatId}
+        onOpenChat={persistChatId}
       />
     </div>
   );

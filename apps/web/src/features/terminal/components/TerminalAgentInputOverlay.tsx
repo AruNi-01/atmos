@@ -764,6 +764,7 @@ export const TerminalAgentInputOverlay = React.forwardRef<
     setSkillDisableFilter("");
     setSkillDisableSessionActions([]);
     setExpandedSections({
+      commands: false,
       skills: false,
       projects: false,
       agents: false,
@@ -793,6 +794,7 @@ export const TerminalAgentInputOverlay = React.forwardRef<
     setSkillDisableFilter("");
     setSkillDisableSessionActions([]);
     setExpandedSections({
+      commands: false,
       skills: false,
       projects: false,
       agents: false,

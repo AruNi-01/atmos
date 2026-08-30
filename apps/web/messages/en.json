@@ -107,9 +107,13 @@
       "noneInstalledHint": "No built-in agent CLIs were found on PATH. You can still enable ones you plan to install later, or continue and configure them in Settings.",
       "recheck": "Re-check agents",
       "next": "Save and continue",
+      "provisioning": "Setting up Agent Chat providers…",
       "skip": "Skip for now",
       "checkFailed": "Could not reach the local Atmos Server to detect agents. Make sure it is running, then re-check.",
-      "saveFailed": "Could not save agent preferences. Check your connection and try again."
+      "saveFailed": "Could not save agent preferences. Check your connection and try again.",
+      "provisionFailedTitle": "Some Agent Chat providers were not set up",
+      "provisionFailed": "Saved your agent list, but Agent Chat setup failed for: {names}. You can install them later from Agents.",
+      "provisionFailedGeneric": "Saved your agent list, but Agent Chat providers could not be set up. You can install them later from Agents."
     },
     "quota": {
       "title": "AI Quota Usage",
@@ -221,7 +225,7 @@
       "fullScreenEnter": "Enter Full Screen",
       "fullScreenExit": "Exit Full Screen",
       "acpAgent": "ACP Agent",
-      "openAgentChat": "Open Agent Chat",
+      "openAgentChat": "Open Chat",
       "opacity": "Opacity",
       "tokenUsage": "Token Usage"
     },
@@ -381,6 +385,8 @@
     },
     "centerStageTabBar": {
       "newTerminalTab": "Terminal",
+      "newAgentChat": "Chat",
+      "agentChatDraft": "New chat",
       "newMarkdown": "Markdown",
       "newBrowser": "Browser",
       "newChanges": "Changes",
@@ -449,8 +455,8 @@
       "clearIdle": "Clear idle",
       "clearSession": "Clear",
       "permissionRequested": "Permission requested",
-      "openAgentChat": "Open Agent Chat",
-      "acpChat": "ACP Chat",
+      "openAgentChat": "Open Chat",
+      "acpChat": "Chat",
       "activeWebSocket": "Active WebSocket",
       "notConnected": "Not connected",
       "loading": "Loading...",
@@ -1244,6 +1250,7 @@
     "centerStageTabGroups": {
       "groups": {
         "terminal": "Terminal",
+        "chat": "Chat",
         "file": "File",
         "diff": "Diff",
         "review": "Review",
@@ -2056,9 +2063,9 @@
       "titleNamed": "Run {id}",
       "close": "Close run details",
       "standalone": {
-        "title": "Standalone conversation",
+        "title": "Standalone chat",
         "description": "Continue this run in a local chat.",
-        "close": "Close conversation"
+        "close": "Close chat"
       }
     },
     "setup": {
@@ -2371,7 +2378,7 @@
         "enabled": "Automation enabled",
         "disabled": "Automation disabled",
         "runCancelled": "Run cancelled",
-        "openingStandaloneConversation": "Opening standalone conversation",
+        "openingStandaloneChat": "Opening standalone chat",
         "promptCopied": "Continuation prompt copied to clipboard.",
         "clipboardUnavailable": "Clipboard unavailable. Prompt saved at {promptPath}",
         "openingTerminal": "Opening terminal"
@@ -2489,7 +2496,7 @@
         "back": "Back",
         "refresh": "Refresh",
         "runNow": "Run Now",
-        "closeConversation": "Close conversation"
+        "closeChat": "Close chat"
       },
       "empty": {
         "unavailableTitle": "Automation unavailable",
@@ -2766,6 +2773,42 @@
     }
   },
   "Agent": {
+    "workspace": {
+      "history": "Chats",
+      "newChat": "New chat",
+      "untitled": "Untitled",
+      "noFolder": "No folder",
+      "emptyTitle": "Start chatting",
+      "emptyDescription": "Send a message to begin this chat.",
+      "placeholder": "Message the agent",
+      "queue": "Queue",
+      "steer": "Steer",
+      "stop": "Stop",
+      "rename": "Rename chat",
+      "permissionTitle": "Permission needed",
+      "allow": "Allow",
+      "reject": "Reject",
+      "agent": "Agent",
+      "model": "Model",
+      "thinking": "Thinking",
+      "tool": "Tool",
+      "queued": "Queued",
+      "edit": "Edit",
+      "pause": "Pause",
+      "resume": "Resume",
+      "moveUp": "Move up",
+      "delete": "Delete",
+      "oneShotQueue": "Queue this once",
+      "oneShotSteer": "Steer this once",
+      "sendFailed": "Could not send that message",
+      "send": "Send",
+      "openStandalone": "Open in window",
+      "permissionNoOptions": "This agent did not provide permission options.",
+      "steerUnavailable": "Steer unavailable",
+      "plan": "Plan",
+      "attach": "Attach",
+      "attachmentsCount": "{count} attached"
+    },
     "attention": {
       "permissionNeeded": "Permission needed",
       "taskComplete": "Task complete — needs review",
@@ -2810,10 +2853,38 @@
       "composer": {
         "placeholder": {
           "unavailable": "Agent unavailable",
-          "connected": "Message the connected agent...",
-          "selectAgent": "Select an agent to start chatting..."
+          "selectAgent": "Select an agent to start chatting...",
+          "createSession": "Send a message to create a session",
+          "resumeSession": "Send a message to resume the session",
+          "connected": "Do anything with {agent}"
         },
-        "noAgent": "No agent"
+        "removeSlashCommand": "Remove {name}",
+        "noAgent": "No agent",
+        "selectAgent": "Agent",
+        "model": "Model",
+        "searchModels": "Search models",
+        "searchAgents": "Search agents",
+        "chooseModel": "Choose model",
+        "chooseMode": "Mode",
+        "backToAgents": "Agents",
+        "loadingModels": "Loading models",
+        "thinkingFaster": "Faster",
+        "thinkingSmarter": "Smarter",
+        "thinkingEffort": "Effort",
+        "queue": "Queue",
+        "steer": "Steer",
+        "oneShotQueue": "Queue this once",
+        "oneShotSteer": "Steer this once",
+        "steerUnavailable": "Steer unavailable",
+        "workingDirectory": {
+          "aria": "Working directory",
+          "thread": "Thread",
+          "threadDescription": "Chat without a project folder",
+          "projects": "Projects",
+          "searchPlaceholder": "Search",
+          "searchWorkspaces": "Search workspaces",
+          "noResults": "No results"
+        }
       },
       "terminalBlock": {
         "title": "Run Script"
@@ -2860,7 +2931,7 @@
           "tooltip": "More actions"
         },
         "actions": {
-          "exportConversation": "Export conversation",
+          "exportChat": "Export chat",
           "openInWindow": "Open in window",
           "returnToEmbedded": "Return to embedded chat",
           "logoutAgent": "Log out agent"
@@ -2884,9 +2955,22 @@
           "hide": "Hide process",
           "show": "Show process",
           "label": "Process",
-          "collapseAria": "Collapse process",
-          "collapseLabel": "Collapse process"
+          "collapseAria": "Collapse",
+          "collapseLabel": "Collapse"
         }
+      },
+      "toolGroup": {
+        "join": ", ",
+        "write": "{count, plural, one {# write} other {# writes}}",
+        "command": "{count, plural, one {ran # command} other {ran # commands}}",
+        "skill": "{count, plural, one {# skill} other {# skills}}",
+        "subagent": "{count, plural, one {# subagent} other {# subagents}}",
+        "other": "{count, plural, one {# tool} other {# tools}}",
+        "fetch": "{count, plural, one {# fetch} other {# fetches}}",
+        "search": "{count, plural, one {# search} other {# searches}}",
+        "read": "{count, plural, one {# read} other {# reads}}",
+        "expandAria": "Show tool calls: {overview}",
+        "collapseAria": "Hide tool calls: {overview}"
       },
       "manager": {
         "switchToAgentManager": "Switch to agent manager",
@@ -2994,8 +3078,10 @@
         "triggerAria": "Open chat history",
         "triggerTooltip": "Chat history",
         "title": "Chat history",
-        "sourceLabel": "Source",
-        "sourceTooltip": "Session storage location",
+        "searchAria": "Search chats",
+        "searchPlaceholder": "Search chats",
+        "clearSearchAria": "Clear search",
+        "searchNoResults": "No chats match",
         "empty": "No history yet",
         "newChat": "New chat",
         "loadMore": "Load more"
@@ -3042,6 +3128,7 @@
           "available": "Available",
           "updateAvailable": "Update available",
           "installed": "Installed",
+          "usingInstalledCli": "Using installed CLI",
           "custom": "Custom"
         },
         "repositoryTitle": "Repository",
@@ -3126,7 +3213,7 @@
         "restoringSession": "Restoring session...",
         "empty": {
           "resumedTitle": "Session resumed",
-          "startTitle": "Start a conversation",
+          "startTitle": "Start a chat",
           "resumedDescription": "This agent restored the session context. Send a message to continue.",
           "startDescription": "Type a message below to begin chatting"
         },
@@ -3136,9 +3223,22 @@
         "allow": "Allow",
         "copy": {
           "userAria": "Copy user message",
-          "message": "Copy message",
-          "turnAria": "Copy current turn message",
-          "turn": "Copy turn"
+          "assistantAria": "Copy assistant message",
+          "message": "Copy message"
+        },
+        "workedFor": "Worked for {duration}",
+        "thinking": "Thinking...",
+        "thoughtFor": "Thought for {duration}",
+        "thoughtForFew": "Thought for a few seconds",
+        "session": {
+          "creating": "Creating session...",
+          "created": "Created session",
+          "createdIn": "Created session in {duration}",
+          "createFailed": "Failed to create session",
+          "resuming": "Resuming session...",
+          "resumed": "Resumed session",
+          "resumedIn": "Resumed session in {duration}",
+          "resumeFailed": "Failed to resume session"
         }
       },
       "selector": {
@@ -3160,7 +3260,7 @@
         "navigation": "Message navigation",
         "assistantResponding": "Assistant is responding...",
         "assistantPending": "Assistant response pending.",
-        "jumpToMessage": "Jump to message {turnNumber}: {userText}"
+        "jumpToMessage": "Jump to message {messageNumber}: {userText}"
       },
       "toolOrSkill": {
         "file": "file",
@@ -3180,9 +3280,15 @@
         "skillTitle": "Skill: {name}",
         "parameters": "Parameters",
         "newFile": "New",
+        "created": "Created",
         "deletedFile": "Deleted",
         "deletedFileLabel": "Deleted {path}",
         "to": "To",
+        "searchingFor": "Searching for {query}",
+        "webSearch": "Web search",
+        "resultCount": "{count, plural, one {# result} other {# results}}",
+        "sources": "Sources",
+        "fetchUrl": "Fetch {host}",
         "todo": {
           "pending": "Pending",
           "inProgress": "In progress",
@@ -3762,6 +3868,7 @@
   },
   "Welcome": {
     "components": {
+      "startAgentChat": "Start Chat",
       "helpers": {
         "placeholderTemplates": {
           "makeInside": "What should {agent} make inside {project}?",
@@ -3979,7 +4086,8 @@
         "github": "GitHub",
         "files": "Files",
         "searchingFiles": "Searching files...",
-        "continueTyping": "Continue typing"
+        "noFiles": "No files",
+        "noMatches": "No matching files"
       },
       "page": {
         "errors": {
@@ -3996,6 +4104,7 @@
       },
       "slashPopover": {
         "commands": "Commands",
+        "agentCommands": "{agent} Commands",
         "skills": "Skills",
         "loadingSkills": "Loading skills...",
         "global": "Global",
@@ -4987,7 +5096,6 @@
       "errors": {
         "saveBuiltInAgentTitle": "Failed to save built-in agent",
         "updateYoloModeTitle": "Failed to update YOLO mode",
-        "updateShowAgentNameTitle": "Failed to update agent name display",
         "restoreYoloModeTitle": "Failed to restore YOLO mode",
         "updateAgentVisibilityTitle": "Failed to update agent visibility",
         "removeCustomAgentTitle": "Failed to remove custom agent",
@@ -5172,9 +5280,6 @@
             },
             "yoloMode": {
               "label": "YOLO mode"
-            },
-            "showAgentNameInTerminalTitles": {
-              "label": "Show agent name in terminal titles"
             },
             "activityIndicators": {
               "label": "Agent Activity Indicators"
@@ -5738,7 +5843,8 @@
           "title": "Center Stage Tabs",
           "items": {
             "overview": "Switch to Overview tab",
-            "tabByPosition": "Switch to the tab at that position"
+            "tabByPosition": "Switch to the tab at that position",
+            "focusAgentChat": "Focus Agent Chat prompt"
           }
         },
         "terminal": {
@@ -5963,17 +6069,13 @@
       },
       "defaults": {
         "title": "Defaults",
-        "description": "Launch flags and how agent names appear in terminal titles."
+        "description": "Launch flags for code agents."
       },
       "yolo": {
         "title": "YOLO mode",
         "description": "When enabled, agents launch with skip-permissions / auto-approve flags (e.g. --yolo, --dangerously-skip-permissions). Turn off for safer, approval-gated runs.",
         "restoreHint": "Re-enable YOLO and clear custom flag overrides on all built-in agents so they use the built-in YOLO defaults again.",
         "restoreAll": "Restore YOLO for all agents"
-      },
-      "showAgentName": {
-        "title": "Show agent name in terminal titles",
-        "description": "When a terminal or terminal tab detects an agent, always show its icon. Turn this off to hide the agent brand name and save space — the session topic (OSC) then sits next to the icon with a space instead of a pipe."
       },
       "activityIndicators": {
         "title": "Agent Activity Indicators",
@@ -6030,7 +6132,12 @@
         "summaryDelayTitle": "Wait before summarizing",
         "summaryDelayDescription": "How long a task-complete attention latch can sit unacknowledged before summarizing.",
         "summaryAgentTitle": "Summary agent",
-        "summaryAgentDescription": "Terminal agent used for the headless session (same as Automations). Configure model via the agent run config. Leave unselected to use the default LLM provider."
+        "summaryAgentDescription": "Terminal agent used for the headless session (same as Automations). Configure model via the agent run config. Leave unselected to use the default LLM provider.",
+        "followupTitle": "Busy composer follow-up",
+        "followupDescription": "When a turn is running, Enter queues the next turn. Steer is closed until an agent can inject into a running turn.",
+        "followupQueue": "Queue",
+        "followupSteer": "Steer",
+        "followupSteerUnavailable": "Steer (unavailable)"
       }
     },
     "canvasSection": {
@@ -6131,7 +6238,7 @@
           },
           "agents": {
             "title": "ACP Agents",
-            "description": "Enable ACP Chat panel for GUI-based agent conversations with quick access from Launchpad and footer."
+            "description": "Enable Agent Chat for GUI-based chats with quick access from Launchpad and footer."
           },
           "automations": {
             "title": "Automations",
@@ -7038,13 +7145,17 @@
         "edit": "Edit",
         "move": "Move",
         "search": "Search",
+        "grep": "Grep",
+        "listDirectory": "List directory",
         "execute": "Execute",
         "fetch": "Fetch",
         "delete": "Delete",
         "think": "Think",
         "labelWithPath": "{tool}: {path}",
+        "labelWithPattern": "{tool}: {pattern}",
         "executeWithCommand": "Execute: {command}",
-        "fetchWithUrl": "Fetch: {url}"
+        "fetchWithUrl": "Fetch: {url}",
+        "loadedTools": "Loaded tools: {names}"
       },
       "activity": {
         "generating": "Generating",
@@ -7056,10 +7167,12 @@
         "deleting": "Deleting",
         "thinking": "Thinking",
         "working": "Working",
-        "streaming": "Streaming"
+        "streaming": "Streaming",
+        "creatingSession": "Creating session",
+        "resumingSession": "Resuming session"
       },
       "download": {
-        "defaultConversationName": "conversation"
+        "defaultChatName": "chat"
       }
     }
   },
@@ -9749,6 +9862,7 @@
     "managementView": {
       "sessionContext": {
         "all": "All",
+        "thread": "Thread",
         "project": "Project: {name}"
       },
       "workspaceSelector": {
@@ -9756,7 +9870,7 @@
         "one": "1 workspace",
         "many": "{count} workspaces"
       },
-      "searchPlaceholder": "Search ACP sessions...",
+      "searchPlaceholder": "Search chats...",
       "workspacePopover": {
         "title": "Workspaces",
         "all": "All",
@@ -9769,22 +9883,20 @@
       },
       "agentSelect": {
         "loading": "Loading agents...",
-        "placeholder": "Select ACP agent"
+        "placeholder": "Select an agent",
+        "all": "All agents"
       },
       "refresh": "Refresh",
       "refreshAriaLabel": "Refresh sessions",
-      "headerTitle": "ACP Sessions",
-      "warnings": {
-        "truncatedList": "This agent returned an unpaginated session list. Atmos is showing the first {limit} items."
-      },
+      "headerTitle": "Sessions",
       "emptyState": {
-        "genericAgent": "This agent",
-        "unavailableTitle": "ACP session list unavailable",
-        "noSessionsTitle": "No ACP sessions",
-        "selectAgentTitle": "Select an ACP agent",
-        "noSearchResults": "No sessions match the current search.",
-        "installedAgentsHint": "Installed agents appear here.",
-        "unsupportedDescription": "{agentName} does not expose session history through ACP."
+        "noSessionsTitle": "No chats yet",
+        "noSearchResultsTitle": "No matching chats",
+        "noAgentSessionsTitle": "No chats for this agent",
+        "noSearchResults": "No chats match the current search.",
+        "noAgentSessionsDescription": "{agentName} has no saved chats yet.",
+        "installedAgentsHint": "Start a chat from the plus menu or New Workspace.",
+        "loadFailed": "Could not load chat history."
       },
       "timeGroups": {
         "today": "Today",
@@ -9795,10 +9907,12 @@
         "older": "Older"
       },
       "sessionCard": {
-        "fallbackTitle": "ACP session {sessionId}",
-        "noWorkingDirectory": "No working directory"
+        "fallbackTitle": "Chat {sessionId}",
+        "noWorkingDirectory": "No working directory",
+        "quickChat": "Quick Chat",
+        "normalChat": "Normal Chat"
       },
-      "loadMore": "Load More",
+      "loadMore": "Load more",
       "loadingMore": "Loading..."
     }
   },

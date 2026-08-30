@@ -1,16 +1,23 @@
 use serde_json::Value;
 use tracing::debug;
 
-use super::{AgentHookState, AgentHooksService, AgentToolType, AtmosContext, StateUpdateKind};
+use super::{extract_cwd, resolve_session_id};
+use crate::service::agent_status::{
+    AgentOccupancy, AgentStatusContext, AgentStatusService, AgentToolType, OccupancyUpdateKind,
+};
 
-pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &AtmosContext) {
+pub(super) fn handle_event(
+    service: &AgentStatusService,
+    payload: &Value,
+    ctx: &AgentStatusContext,
+) {
     let hook_event = payload
         .get("hook_event_name")
         .and_then(|v| v.as_str())
         .unwrap_or("");
 
-    let session_id = service.resolve_session_id(payload, AgentToolType::Gemini, ctx);
-    let project_path = AgentHooksService::extract_cwd(payload).map(String::from);
+    let session_id = resolve_session_id(payload, AgentToolType::Gemini, ctx);
+    let project_path = extract_cwd(payload).map(String::from);
 
     debug!(
         "Gemini CLI hook event: {} session_id={}",
@@ -18,7 +25,7 @@ pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &A
     );
 
     if let Some(existing) = service.sessions.read().get(&session_id) {
-        if existing.tool != AgentToolType::Gemini && existing.state != AgentHookState::Idle {
+        if existing.tool != AgentToolType::Gemini && existing.state != AgentOccupancy::Idle {
             debug!(
                 "Skipping Gemini CLI event for session {} actively owned by {}",
                 session_id, existing.tool
@@ -32,10 +39,10 @@ pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &A
             service.update_state(
                 &session_id,
                 AgentToolType::Gemini,
-                AgentHookState::Idle,
+                AgentOccupancy::Idle,
                 project_path,
                 ctx,
-                StateUpdateKind::NewTurn,
+                OccupancyUpdateKind::NewTurn,
             );
         }
         "BeforeAgent"
@@ -47,30 +54,30 @@ pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &A
             service.update_state(
                 &session_id,
                 AgentToolType::Gemini,
-                AgentHookState::Running,
+                AgentOccupancy::Running,
                 project_path,
                 ctx,
-                StateUpdateKind::Progress,
+                OccupancyUpdateKind::Progress,
             );
         }
         "Notification" => {
             service.update_state(
                 &session_id,
                 AgentToolType::Gemini,
-                AgentHookState::PermissionRequest,
+                AgentOccupancy::PermissionRequest,
                 project_path,
                 ctx,
-                StateUpdateKind::Permission,
+                OccupancyUpdateKind::Permission,
             );
         }
         "SessionEnd" | "AfterAgent" | "PreCompress" => {
             service.update_state(
                 &session_id,
                 AgentToolType::Gemini,
-                AgentHookState::Idle,
+                AgentOccupancy::Idle,
                 project_path,
                 ctx,
-                StateUpdateKind::TerminalIdle,
+                OccupancyUpdateKind::TerminalIdle,
             );
         }
         _ => {
@@ -85,40 +92,40 @@ mod tests {
 
     #[test]
     fn gemini_running_events_update_state() {
-        let service = AgentHooksService::new();
+        let service = AgentStatusService::new();
         let payload = serde_json::json!({
             "hook_event_name": "BeforeTool",
             "session_id": "gemini-session",
             "cwd": "/tmp/project",
         });
 
-        handle_event(&service, &payload, &AtmosContext::default());
+        handle_event(&service, &payload, &AgentStatusContext::default());
 
         let sessions = service.get_all_sessions();
         assert_eq!(sessions.len(), 1);
-        assert_eq!(sessions[0].state, AgentHookState::Running);
+        assert_eq!(sessions[0].state, AgentOccupancy::Running);
     }
 
     #[test]
     fn gemini_notification_sets_permission_request() {
-        let service = AgentHooksService::new();
+        let service = AgentStatusService::new();
         let payload = serde_json::json!({
             "hook_event_name": "Notification",
             "session_id": "gemini-session",
             "cwd": "/tmp/project",
         });
 
-        handle_event(&service, &payload, &AtmosContext::default());
+        handle_event(&service, &payload, &AgentStatusContext::default());
 
         assert_eq!(
             service.get_all_sessions()[0].state,
-            AgentHookState::PermissionRequest
+            AgentOccupancy::PermissionRequest
         );
     }
 
     #[test]
     fn gemini_session_end_sets_idle() {
-        let service = AgentHooksService::new();
+        let service = AgentStatusService::new();
         let running = serde_json::json!({
             "hook_event_name": "AfterTool",
             "session_id": "gemini-session",
@@ -130,9 +137,9 @@ mod tests {
             "cwd": "/tmp/project",
         });
 
-        handle_event(&service, &running, &AtmosContext::default());
-        handle_event(&service, &end, &AtmosContext::default());
+        handle_event(&service, &running, &AgentStatusContext::default());
+        handle_event(&service, &end, &AgentStatusContext::default());
 
-        assert_eq!(service.get_all_sessions()[0].state, AgentHookState::Idle);
+        assert_eq!(service.get_all_sessions()[0].state, AgentOccupancy::Idle);
     }
 }

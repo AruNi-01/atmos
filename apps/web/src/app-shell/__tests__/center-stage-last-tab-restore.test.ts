@@ -20,6 +20,10 @@ describe("shouldSkipLastTabRestoreForUrlTab", () => {
     expect(shouldSkipLastTabRestoreForUrlTab("some/file.ts")).toBe(false);
   });
 
+  test("skips restore for an explicit agent-chat deep link", () => {
+    expect(shouldSkipLastTabRestoreForUrlTab("agent-chat:chat-1")).toBe(true);
+  });
+
   test("pt-design is a fixed center tab so strip clicks are not treated as files", () => {
     expect(FIXED_TABS.has("pt-design")).toBe(true);
   });

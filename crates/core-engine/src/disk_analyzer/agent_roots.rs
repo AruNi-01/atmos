@@ -81,9 +81,7 @@ pub fn agent_data_roots(home: &Path) -> Vec<(String, PathBuf)> {
     // Antigravity CLI (agy) conversations sit next to Gemini, not in ~/.gemini/tmp.
     push(
         "antigravity",
-        home.join(".gemini")
-            .join("antigravity-cli")
-            .join("conversations"),
+        home.join(".gemini").join("antigravity-cli").join("chats"),
     );
 
     // Continue: ~/.continue/sessions/<uuid>.json
@@ -188,7 +186,7 @@ pub fn agent_data_roots(home: &Path) -> Vec<(String, PathBuf)> {
 
     // OpenClaw / OpenHands / Mux / Junie / Command Code / CodeBuddy / Augment / Vibe / Kiro
     push("openclaw", home.join(".openclaw").join("agents"));
-    push("openhands", home.join(".openhands").join("conversations"));
+    push("openhands", home.join(".openhands").join("chats"));
     push("mux", home.join(".mux").join("sessions"));
     push("junie", home.join(".junie").join("sessions"));
     push("commandcode", home.join(".commandcode").join("projects"));

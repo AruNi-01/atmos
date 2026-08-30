@@ -10,8 +10,8 @@ export const WS_EVENTS = [
   "llm_provider_test_chunk",
   "workspace_delete_progress",
   "project_delete_progress",
-  "agent_hook_state_changed",
-  "agent_hook_sessions_cleared",
+  "agent_status_changed",
+  "agent_status_cleared",
   "agent_attention_raised",
   "agent_attention_cleared",
   "agent_attention_summary_updated",
@@ -32,6 +32,8 @@ export const WS_EVENTS = [
   "disk_analyzer_scan_progress",
   "simulator_download_progress",
   "resource_monitor_updated",
+  "agent_chat_event",
+  "agent_model_catalog_updated",
 ] as const;
 
 export type WsEvent = (typeof WS_EVENTS)[number];

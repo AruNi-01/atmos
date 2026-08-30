@@ -42,19 +42,17 @@ pub(crate) async fn install_registry_binary_agent(
         .unwrap_or_else(|| sanitize_registry_id(registry_id));
     let target_path = bin_dir.join(&file_name);
 
-    if !force_overwrite && target_path.exists() {
-        return Ok(RegistryInstallResult {
-            registry_id: registry_id.to_string(),
-            installed: false,
-            install_method: "binary".to_string(),
-            message: String::new(),
-            needs_confirmation: Some(true),
-            overwrite_message: Some(format!(
-                "{} already exists at {}. Install will overwrite. Continue?",
-                entry.name,
-                target_path.to_string_lossy()
-            )),
-        });
+    if !force_overwrite {
+        if target_path.exists() {
+            return register_existing_binary(registry_id, &entry.name, &target_path);
+        }
+        let which_name = Path::new(&file_name)
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or(&file_name);
+        if let Ok(existing) = which::which(which_name) {
+            return register_existing_binary(registry_id, &entry.name, &existing);
+        }
     }
 
     let response = reqwest::Client::builder()
@@ -100,30 +98,7 @@ pub(crate) async fn install_registry_binary_agent(
     }
 
     let installed_version = detect_binary_version(&target_path).await;
-
-    let reg_id = registry_id.to_string();
-    let bin_path_str = target_path.to_string_lossy().to_string();
-    let ver = installed_version.clone();
-    with_manifest(|manifest| {
-        let existing_default = manifest
-            .registry
-            .iter()
-            .find(|e| e.registry_id == reg_id && e.install_method == "binary")
-            .and_then(|e| e.default_config.clone());
-
-        upsert_manifest_entry(
-            manifest,
-            ManifestEntry {
-                registry_id: reg_id,
-                install_method: "binary".to_string(),
-                binary_path: Some(bin_path_str),
-                npm_package: None,
-                installed_version: ver,
-                default_config: existing_default,
-            },
-        );
-        Ok(())
-    })?;
+    write_binary_manifest(registry_id, &target_path, installed_version)?;
 
     Ok(RegistryInstallResult {
         registry_id: registry_id.to_string(),
@@ -136,6 +111,50 @@ pub(crate) async fn install_registry_binary_agent(
         ),
         needs_confirmation: None,
         overwrite_message: None,
+    })
+}
+
+fn register_existing_binary(
+    registry_id: &str,
+    name: &str,
+    path: &Path,
+) -> Result<RegistryInstallResult> {
+    write_binary_manifest(registry_id, path, None)?;
+    Ok(RegistryInstallResult {
+        registry_id: registry_id.to_string(),
+        installed: true,
+        install_method: "binary".to_string(),
+        message: format!("Registered existing {} at {}", name, path.display()),
+        needs_confirmation: None,
+        overwrite_message: None,
+    })
+}
+
+fn write_binary_manifest(
+    registry_id: &str,
+    path: &Path,
+    installed_version: Option<String>,
+) -> Result<()> {
+    let reg_id = registry_id.to_string();
+    let bin_path_str = path.to_string_lossy().to_string();
+    with_manifest(|manifest| {
+        let existing_default = manifest
+            .registry
+            .iter()
+            .find(|entry| entry.registry_id == reg_id)
+            .and_then(|entry| entry.default_config.clone());
+        upsert_manifest_entry(
+            manifest,
+            ManifestEntry {
+                registry_id: reg_id,
+                install_method: "binary".to_string(),
+                binary_path: Some(bin_path_str),
+                npm_package: None,
+                installed_version,
+                default_config: existing_default,
+            },
+        );
+        Ok(())
     })
 }
 
@@ -207,6 +226,20 @@ pub(crate) fn remove_registry_binary_agent(
 
 pub(crate) fn resolve_binary_args(distribution: &RegistryDistribution) -> Option<Vec<String>> {
     resolve_binary_asset(&distribution.binary).and_then(|a| a.args)
+}
+
+pub(crate) fn resolve_binary_cmd_and_args(
+    distribution: &RegistryDistribution,
+) -> Option<(String, Vec<String>)> {
+    let asset = resolve_binary_asset(&distribution.binary)?;
+    let cmd = asset.cmd.as_ref().and_then(|raw| {
+        Path::new(raw)
+            .file_name()
+            .and_then(|name| name.to_str())
+            .filter(|name| !name.is_empty())
+            .map(str::to_string)
+    })?;
+    Some((cmd, asset.args.unwrap_or_default()))
 }
 
 fn resolve_binary_asset(binary: &Option<serde_json::Value>) -> Option<BinaryAsset> {

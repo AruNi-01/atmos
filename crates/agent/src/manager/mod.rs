@@ -2,6 +2,7 @@ mod binary;
 mod keyring;
 mod manifest;
 mod npm;
+mod provision;
 mod registry;
 
 use std::fs;
@@ -59,11 +60,11 @@ impl AgentManager {
         vec![
             KnownAgent {
                 id: AgentId::ClaudeCode,
-                registry_id: "claude-code-acp".to_string(),
+                registry_id: "claude-acp".to_string(),
                 name: "Claude Code".to_string(),
                 description: "Anthropic coding agent CLI (ACP compatible)".to_string(),
-                npm_package: "@zed-industries/claude-code-acp".to_string(),
-                executable: "claude-code-acp".to_string(),
+                npm_package: "@agentclientprotocol/claude-agent-acp".to_string(),
+                executable: "claude-agent-acp".to_string(),
                 auth_paths: vec![".claude".to_string()],
             },
             KnownAgent {
@@ -71,8 +72,8 @@ impl AgentManager {
                 registry_id: "codex-acp".to_string(),
                 name: "Codex".to_string(),
                 description: "OpenAI Codex CLI / ACP adapter".to_string(),
-                npm_package: "@openai/codex".to_string(),
-                executable: "codex".to_string(),
+                npm_package: "@agentclientprotocol/codex-acp".to_string(),
+                executable: "codex-acp".to_string(),
                 auth_paths: vec![".codex".to_string()],
             },
             KnownAgent {
@@ -86,10 +87,10 @@ impl AgentManager {
             },
             KnownAgent {
                 id: AgentId::AntigravityCli,
-                registry_id: "antigravity".to_string(),
+                registry_id: "antigravity-acp".to_string(),
                 name: "Antigravity CLI".to_string(),
                 description: "Google Antigravity command line agent".to_string(),
-                npm_package: "@google/antigravity-cli".to_string(),
+                npm_package: String::new(),
                 executable: "agy".to_string(),
                 auth_paths: vec![".gemini/antigravity-cli".to_string()],
             },
@@ -128,11 +129,15 @@ impl AgentManager {
             .find(|a| a.id == id)
             .ok_or_else(|| AgentError::NotFound(id.as_str().to_string()))?;
 
-        if let Some(result) = npm::try_install_from_registry_index(&agent).await? {
-            return Ok(result);
-        }
-
-        npm::install_npm_agent(&agent).await
+        let result = self
+            .install_registry_agent(&agent.registry_id, false)
+            .await?;
+        Ok(AgentInstallResult {
+            id: agent.id,
+            installed: result.installed,
+            install_method: result.install_method,
+            message: result.message,
+        })
     }
 
     pub async fn list_registry_agents(&self, force_refresh: bool) -> Result<Vec<RegistryAgent>> {
@@ -145,12 +150,25 @@ impl AgentManager {
         registry_id: &str,
         force_overwrite: bool,
     ) -> Result<RegistryInstallResult> {
+        if let Some(local) = provision::local_native_by_id(registry_id) {
+            return provision::install_local_native_agent(local);
+        }
+
         let reg = registry::fetch_acp_registry(false).await?;
         let entry = reg
             .agents
             .into_iter()
             .find(|a| a.id == registry_id)
             .ok_or_else(|| AgentError::NotFound(format!("registry agent: {}", registry_id)))?;
+
+        let classified = provision::classify_registry_agent(&entry);
+        if classified.kind == provision::AcpProvisionKind::Native {
+            if let Some(exe) = classified.native_executable.as_deref() {
+                if let Some(path) = provision::which_executable(exe) {
+                    return provision::bind_native_agent(registry_id, &path);
+                }
+            }
+        }
 
         if let Some(npx) = entry.distribution.npx.clone() {
             return npm::install_registry_npx_agent(
@@ -175,30 +193,30 @@ impl AgentManager {
 
     pub async fn remove_registry_agent(&self, registry_id: &str) -> Result<RegistryInstallResult> {
         let m = manifest::load_install_manifest().unwrap_or_default();
-
-        let binary_entry = m
+        let method = m
             .registry
             .iter()
-            .find(|e| e.registry_id == registry_id && e.install_method == "binary");
-        if binary_entry.is_some() {
-            let reg = registry::fetch_acp_registry(false).await?;
-            let r_entry = reg.agents.iter().find(|a| a.id == registry_id);
-            return binary::remove_registry_binary_agent(r_entry.cloned().as_ref(), registry_id);
-        }
+            .find(|e| e.registry_id == registry_id)
+            .map(|e| e.install_method.as_str());
 
-        npm::remove_registry_npx_agent(registry_id).await
+        match method {
+            Some("native") => provision::unbind_native_agent(registry_id),
+            Some("binary") => {
+                let reg = registry::fetch_acp_registry(false).await?;
+                let r_entry = reg.agents.iter().find(|a| a.id == registry_id);
+                binary::remove_registry_binary_agent(r_entry.cloned().as_ref(), registry_id)
+            }
+            _ => npm::remove_registry_npx_agent(registry_id).await,
+        }
     }
 
     pub async fn get_registry_agent_launch_spec(
         &self,
         registry_id: &str,
     ) -> Result<AgentLaunchSpec> {
-        let m = manifest::load_install_manifest()?;
-        let m_entry = m
-            .registry
-            .iter()
-            .find(|e| e.registry_id == registry_id)
-            .ok_or_else(|| AgentError::NotFound(format!("installed agent: {}", registry_id)))?;
+        if let Some(local) = provision::local_native_by_id(registry_id) {
+            return provision::launch_local_native_agent(local);
+        }
 
         let reg = registry::fetch_acp_registry(false).await?;
         let r_entry = reg
@@ -208,6 +226,43 @@ impl AgentManager {
             .ok_or_else(|| {
                 AgentError::NotFound(format!("agent '{}' not in registry", registry_id))
             })?;
+        let classified = provision::classify_registry_agent(r_entry);
+        if classified.kind == provision::AcpProvisionKind::Native {
+            if let Some(exe) = classified.native_executable.as_deref() {
+                if let Some(path) = provision::which_executable(exe) {
+                    return Ok(AgentLaunchSpec {
+                        program: path,
+                        args: classified.args,
+                        env: provision::registry_launch_env(r_entry),
+                    });
+                }
+            }
+        }
+
+        let m = manifest::load_install_manifest()?;
+        let m_entry = m
+            .registry
+            .iter()
+            .find(|e| e.registry_id == registry_id)
+            .ok_or_else(|| AgentError::NotFound(format!("installed agent: {}", registry_id)))?;
+
+        if m_entry.install_method == "native" {
+            let program = m_entry
+                .binary_path
+                .clone()
+                .filter(|path| Path::new(path).exists())
+                .ok_or_else(|| {
+                    AgentError::Command(format!(
+                        "native CLI for '{}' is no longer on disk",
+                        registry_id
+                    ))
+                })?;
+            return Ok(AgentLaunchSpec {
+                program,
+                args: classified.args,
+                env: provision::registry_launch_env(r_entry),
+            });
+        }
 
         if m_entry.install_method == "npx" {
             let npx = r_entry.distribution.npx.as_ref().ok_or_else(|| {
@@ -448,10 +503,10 @@ impl AgentManager {
         registry_id: &str,
     ) -> Option<std::collections::HashMap<String, String>> {
         let (agent_id, env_var) = match registry_id {
-            "claude-code-acp" => (AgentId::ClaudeCode, "ANTHROPIC_API_KEY"),
+            "claude-acp" | "claude-code-acp" => (AgentId::ClaudeCode, "ANTHROPIC_API_KEY"),
             "codex-acp" => (AgentId::Codex, "OPENAI_API_KEY"),
             "gemini" => (AgentId::GeminiCli, "GEMINI_API_KEY"),
-            "antigravity" => (AgentId::AntigravityCli, "GEMINI_API_KEY"),
+            "antigravity-acp" | "antigravity" => (AgentId::AntigravityCli, "GEMINI_API_KEY"),
             _ => return None,
         };
         let key = keyring::keyring_get_api_key(agent_id).ok()?;

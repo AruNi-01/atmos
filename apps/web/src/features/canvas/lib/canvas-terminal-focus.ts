@@ -1,6 +1,6 @@
 import type { Editor, TLShapeId } from "tldraw";
 
-import { resolveAgentHookNavigationTarget } from "@/features/agent/lib/agent-hook-navigation";
+import { resolveAgentStatusNavigationTarget } from "@/features/agent/lib/agent-status-navigation";
 import { useAgentAttentionStore } from "@/features/agent/store/agent-attention-store";
 import { stableAgentPaneId } from "@/features/terminal/store/terminal-store-helpers";
 import { writeLastPinnedTerminal, type CanvasLastPinnedTerminal } from "@/shared/stores/use-ui-pref-hooks";
@@ -54,7 +54,7 @@ export function findCanvasTerminalShapeForAgentSession(
     terminal_kind?: string | null;
   },
 ): CanvasTerminalShape | null {
-  const target = resolveAgentHookNavigationTarget(session);
+  const target = resolveAgentStatusNavigationTarget(session);
   if (!target.contextId || !target.tmuxWindowName) return null;
   return (
     getCanvasTerminalShapes(editor).find((shape) =>

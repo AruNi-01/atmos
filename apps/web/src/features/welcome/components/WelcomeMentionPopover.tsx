@@ -18,7 +18,10 @@ import {
   Loader2,
 } from "lucide-react";
 import type { GithubIssuePayload, GithubPrPayload } from "@/api/ws-api";
-import { splitHighlightParts } from "@/features/welcome/lib/mention-file-search";
+import {
+  isImmediateMentionListingQuery,
+  splitHighlightParts,
+} from "@/features/welcome/lib/mention-file-search";
 import type { MentionFileCandidate } from "@/features/welcome/lib/welcome-page-helpers";
 
 export type MentionPopoverState = {
@@ -251,7 +254,9 @@ export function WelcomeMentionPopover({
           })
         ) : (
           <div className="px-2.5 py-2 text-xs text-muted-foreground">
-            {t("mentionPopover.continueTyping")}
+            {isImmediateMentionListingQuery(popover.query)
+              ? t("mentionPopover.noFiles")
+              : t("mentionPopover.noMatches")}
           </div>
         )}
       </div>

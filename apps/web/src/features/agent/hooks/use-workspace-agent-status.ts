@@ -3,9 +3,9 @@
 import { useMemo } from "react";
 import {
   AGENT_STATE,
-  useAgentHooksStore,
-  type AgentHookState,
-} from "@/features/agent/store/agent-hooks-store";
+  useAgentStatusStore,
+  type AgentOccupancy,
+} from "@/features/agent/store/agent-status-store";
 import {
   selectAttentionFilterMode,
   useAgentAttentionStore,
@@ -24,7 +24,7 @@ import {
 
 export type WorkspaceAgentStatusSnapshot = {
   view: WorkspaceAgentStatusView;
-  agentState: AgentHookState;
+  agentState: AgentOccupancy;
   attentionReason: AttentionReason | null;
 };
 
@@ -36,7 +36,7 @@ export type WorkspaceAgentStatusSnapshot = {
 export function useWorkspaceAgentStatus(
   contextId: string | null | undefined,
 ): WorkspaceAgentStatusSnapshot {
-  const agentState = useAgentHooksStore((s) =>
+  const agentState = useAgentStatusStore((s) =>
     contextId ? s.getAgentStateForContextId(contextId) : AGENT_STATE.IDLE,
   );
   const attentionReason = useAgentAttentionStore((s) =>
@@ -65,11 +65,11 @@ export function useWorkspaceAgentStatus(
 export function useWorkspaceAgentGroupKeyMap(
   contextIds: readonly string[],
 ): Readonly<Record<string, WorkspaceAgentGroupKey>> {
-  const sessions = useAgentHooksStore((s) => s.sessions);
-  const serverWorkspaceGroupKeys = useAgentHooksStore(
+  const sessions = useAgentStatusStore((s) => s.sessions);
+  const serverWorkspaceGroupKeys = useAgentStatusStore(
     (s) => s.serverWorkspaceGroupKeys,
   );
-  const hooksHydrated = useAgentHooksStore((s) => s.hooksHydrated);
+  const statusHydrated = useAgentStatusStore((s) => s.statusHydrated);
   const attentionRevision = useAgentAttentionStore((s) => s.revision);
   const groupingHoldRevision = useWorkspaceAgentGroupingHoldStore(
     (s) => s.revision,
@@ -77,7 +77,7 @@ export function useWorkspaceAgentGroupKeyMap(
   const idsKey = contextIds.join("\n");
 
   return useMemo(() => {
-    const hooks = useAgentHooksStore.getState();
+    const status = useAgentStatusStore.getState();
     const attention = useAgentAttentionStore.getState();
     const groupingHold = useWorkspaceAgentGroupingHoldStore.getState();
     const map: Record<string, WorkspaceAgentGroupKey> = {};
@@ -85,22 +85,22 @@ export function useWorkspaceAgentGroupKeyMap(
     for (const id of idsKey.split("\n")) {
       if (!id) continue;
       const live = resolveWorkspaceAgentGroupKey({
-        agentState: hooks.getAgentStateForContextId(id),
+        agentState: status.getAgentStateForContextId(id),
         attentionReason: attention.getContextReason(id),
         groupingHoldActive: groupingHold.isHoldActive(id),
       });
-      const serverRaw = hooks.serverWorkspaceGroupKeys[id];
+      const serverRaw = status.serverWorkspaceGroupKeys[id];
       map[id] = resolveHydratedWorkspaceAgentGroupKey({
         live,
         server: serverRaw ? parseWorkspaceAgentGroupKey(serverRaw) : undefined,
-        hooksHydrated: hooks.hooksHydrated,
+        statusHydrated: status.statusHydrated,
       });
     }
     return map;
   }, [
     attentionRevision,
     groupingHoldRevision,
-    hooksHydrated,
+    statusHydrated,
     idsKey,
     serverWorkspaceGroupKeys,
     sessions,
@@ -118,7 +118,7 @@ export function useProjectAgentStatusRollup(
   options?: { rollupAttention?: boolean },
 ): WorkspaceAgentStatusSnapshot {
   const rollupAttention = options?.rollupAttention === true;
-  const agentState = useAgentHooksStore((s) =>
+  const agentState = useAgentStatusStore((s) =>
     projectId ? s.getAgentStateForContextId(projectId) : AGENT_STATE.IDLE,
   );
   const attentionFilterMode = useAgentAttentionStore(selectAttentionFilterMode);

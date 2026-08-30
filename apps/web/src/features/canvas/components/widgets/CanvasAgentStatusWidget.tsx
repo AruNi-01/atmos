@@ -6,11 +6,11 @@ import { useEditor, useValue } from "tldraw";
 import { AgentStatusPopoverContent } from "@/app-shell/Footer";
 import { useAppRouter } from "@/shared/hooks/use-app-router";
 import { useProjects } from "@/features/project/hooks/use-project-bootstrap-query";
-import type { AgentHookSession } from "@/features/agent/store/agent-hooks-store";
+import type { AgentStatusRecord } from "@/features/agent/store/agent-status-store";
 import {
-  navigateToAgentHookSessionPane,
-  resolveAgentHookNavigationTarget,
-} from "@/features/agent/lib/agent-hook-navigation";
+  navigateToAgentStatusSession,
+  resolveAgentStatusNavigationTarget,
+} from "@/features/agent/lib/agent-status-navigation";
 import {
   findCanvasTerminalShapeForAgentSession,
   focusCanvasTerminalShape,
@@ -63,8 +63,8 @@ export function CanvasAgentStatusWidget({ shape }: { shape: CanvasWidgetShape })
   );
 
   const isSessionOnCanvas = React.useCallback(
-    (session: AgentHookSession) => {
-      const target = resolveAgentHookNavigationTarget(session);
+    (session: AgentStatusRecord) => {
+      const target = resolveAgentStatusNavigationTarget(session);
       if (!target.contextId || !target.tmuxWindowName) return false;
       return canvasTerminalKeySet.has(
         canvasTerminalKey(target.contextId, target.tmuxWindowName),
@@ -74,7 +74,7 @@ export function CanvasAgentStatusWidget({ shape }: { shape: CanvasWidgetShape })
   );
 
   const handleNavigateSession = React.useCallback(
-    (session: AgentHookSession) => {
+    (session: AgentStatusRecord) => {
       const terminalShape = findCanvasTerminalShapeForAgentSession(editor, session);
       if (terminalShape) {
         focusCanvasTerminalShape(editor, terminalShape, {
@@ -87,7 +87,7 @@ export function CanvasAgentStatusWidget({ shape }: { shape: CanvasWidgetShape })
         });
         return;
       }
-      navigateToAgentHookSessionPane(session, router, projects);
+      navigateToAgentStatusSession(session, router, projects);
     },
     [
       editor,

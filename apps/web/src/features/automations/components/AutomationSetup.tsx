@@ -767,6 +767,7 @@ export function AutomationSetup({
                     onSlashCancel={() => {
                       setSlashPopover(null);
                       setExpandedSections({
+                        commands: false,
                         skills: false,
                         projects: false,
                         agents: false,

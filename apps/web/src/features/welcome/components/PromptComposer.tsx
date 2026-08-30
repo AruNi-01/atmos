@@ -39,6 +39,7 @@ export type MentionRef =
   | { kind: "issue" | "pr"; number: number }
   | { kind: "file"; relativePath: string }
   | { kind: "skill"; absolutePath: string; name: string }
+  | { kind: "command"; name: string }
   | { kind: "side"; contextId: string };
 
 export interface AtTriggerContext {
@@ -92,6 +93,7 @@ export interface ComposerHandle {
     kind: AiContextKind,
     promptText: string,
   ) => void;
+  insertAiContext: (kind: AiContextKind, promptText: string) => void;
   /** Focus the in-chip filter field while the disable popover is open. */
   focusSkillDisableFilter: () => void;
   /** Replace in-chip session action pills (enable/disable results this session). */
@@ -127,10 +129,12 @@ interface PromptComposerProps extends ComposerCallbacks {
   placeholderClassName?: string;
   placeholder?: React.ReactNode;
   onSubmit?: () => void;
+  submitOnEnter?: boolean;
+  disabled?: boolean;
 }
 
 const CHIP_TOKEN_PATTERN =
-  String.raw`@(?:issue|pr)#\d+|@file:[^\s]+|\/skill:[^\s]+|atmos:\/\/terminal-selection\/[a-zA-Z0-9_.:-]+|atmos:\/\/side-chat\/[a-zA-Z0-9_.:-]+|atmos:\/\/spawn\/[a-zA-Z0-9_.:-]+|atmos:\/\/skill-disable|\[#img-\d+\]|\[#appshot:\d{13}\]|\[#ctx:[a-z0-9-]+:[a-zA-Z0-9_-]+\]`;
+  String.raw`@(?:issue|pr)#\d+|@file:[^\s]+|\/skill:[^\s]+|\/cmd:[^\s]+|atmos:\/\/terminal-selection\/[a-zA-Z0-9_.:-]+|atmos:\/\/side-chat\/[a-zA-Z0-9_.:-]+|atmos:\/\/spawn\/[a-zA-Z0-9_.:-]+|atmos:\/\/skill-disable|\[#img-\d+\]|\[#appshot:\d{13}\]|\[#ctx:[a-z0-9-]+:[a-zA-Z0-9_-]+\]`;
 const TOKEN_REGEX = new RegExp(`(${CHIP_TOKEN_PATTERN})`, "g");
 const BACKSPACE_CHIP_REGEX = new RegExp(`(${CHIP_TOKEN_PATTERN})\\u00A0?$`);
 const DELETE_CHIP_REGEX = new RegExp(`^(${CHIP_TOKEN_PATTERN})\\u00A0?`);
@@ -448,6 +452,9 @@ function tokenForMention(mention: MentionRef): string {
   if (mention.kind === "skill") {
     return `/skill:${mention.absolutePath}`;
   }
+  if (mention.kind === "command") {
+    return `/cmd:${mention.name}`;
+  }
   if (mention.kind === "side") {
     return formatSideChatProtocol(mention.contextId);
   }
@@ -518,6 +525,15 @@ function buildChipNode(token: string): HTMLSpanElement {
     }
     const label = document.createElement("span");
     label.textContent = filename;
+    span.appendChild(label);
+  } else if (token.startsWith("/cmd:")) {
+    const name = token.slice("/cmd:".length);
+    span.dataset.kind = "command";
+    span.dataset.tooltip = `/${name}`;
+    span.className += " border-border/70 bg-muted/60 text-foreground";
+    span.appendChild(buildStrokeIcon(["M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"]));
+    const label = document.createElement("span");
+    label.textContent = name;
     span.appendChild(label);
   } else if (parseTerminalSelectionProtocolToken(token)) {
     span.dataset.kind = "terminal-selection";
@@ -1068,6 +1084,8 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
       placeholder,
       placeholderClassName,
       onSubmit,
+      submitOnEnter = false,
+      disabled = false,
     } = props;
     const editorRef = React.useRef<HTMLDivElement | null>(null);
     const skillDisableDismissTimerRef = React.useRef<number | null>(null);
@@ -1147,8 +1165,8 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
         onSkillDisableFilterChangeRef.current?.(filter.textContent ?? "");
       });
       filter.addEventListener("keydown", (event) => {
-        // Keep newlines out of the in-chip filter; Enter is owned by the popover.
-        if (event.key === "Enter") {
+        // Keep newlines/tabs out of the in-chip filter; Enter/Tab belong to the popover.
+        if (event.key === "Enter" || event.key === "Tab") {
           event.preventDefault();
           return;
         }
@@ -1297,11 +1315,10 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
       applySlashAtRange: (slashOffset, queryLength, mention) => {
         if (!editorRef.current) return;
         editorRef.current.focus();
-        const token = tokenForMention(mention);
         const currentText = serialize(editorRef.current);
         const replaceFrom = Math.max(slashOffset - 1, 0);
         const replaceTo = Math.min(slashOffset + queryLength, currentText.length);
-        const insertText = `${token}${CHIP_TRAILING_SPACER}`;
+        const insertText = `${tokenForMention(mention)}${CHIP_TRAILING_SPACER}`;
         const nextText =
           currentText.slice(0, replaceFrom) +
           insertText +
@@ -1426,6 +1443,15 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
         const nextCaretOffset = replaceFrom + insertText.length;
         setCaretAtOffsetAndRemember(nextCaretOffset);
       },
+      insertAiContext: (kind, promptText) => {
+        if (!editorRef.current) return;
+        editorRef.current.focus();
+        const token = registerAiContextPrompt(kind, promptText);
+        insertNodeAtCaret(editorRef.current, buildChipNode(token));
+        insertNodeAtCaret(editorRef.current, document.createTextNode("\u00A0"));
+        fireChange();
+        rememberCaretOffset();
+      },
       focusSkillDisableFilter: () => {
         const chip = findSkillDisableChip(editorRef.current);
         if (!chip) return;
@@ -1525,6 +1551,7 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
     }));
 
     const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+      if (disabled || event.defaultPrevented) return;
       const selection = window.getSelection();
       if (isInsideSkillDisableFilter(selection?.anchorNode ?? null)) {
         // Filter key handling (Enter) is on the filter node; skip chip-deletion
@@ -1548,7 +1575,12 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
         onSlashCancel?.();
         return;
       }
-      if (event.key === "Enter" && !event.shiftKey && (event.metaKey || event.ctrlKey)) {
+      if (
+        event.key === "Enter" &&
+        !event.shiftKey &&
+        !event.nativeEvent.isComposing &&
+        (submitOnEnter || event.metaKey || event.ctrlKey)
+      ) {
         event.preventDefault();
         onSubmit?.();
         return;
@@ -1717,7 +1749,9 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
         ) : null}
         <div
           ref={editorRef}
-          contentEditable
+          data-prompt-composer-editor=""
+          contentEditable={!disabled}
+          aria-disabled={disabled || undefined}
           suppressContentEditableWarning
           onInput={handleInput}
           onKeyDown={handleKeyDown}

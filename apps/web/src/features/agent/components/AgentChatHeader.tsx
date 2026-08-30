@@ -8,13 +8,6 @@ import {
   DialogDescription,
   DialogFooter,
   DialogTitle,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -22,66 +15,54 @@ import {
   TextShimmer,
   TextScramble,
   cn,
+  type ConversationMessage,
 } from "@workspace/ui";
-import { Bot, Download, Folder, Heart, LogOut, Maximize2, Minimize2, MoreHorizontal, PictureInPicture, PictureInPicture2, Plus, X } from "lucide-react";
-import type { RegistryAgent } from "@/api/ws-api";
-import type {
-  AgentCapabilities,
-  AgentChatSessionItem,
-  AgentImplementationInfo,
-} from "@/api/rest-api";
-import type { ConversationMessage } from "@workspace/ui";
+import {
+  MorphPopover,
+  MorphPopoverContent,
+  MorphPopoverTrigger,
+} from "@workspace/ui/components/motion/popover-morph";
+import { Download, Folder, LogOut, Maximize2, Minimize2, MoreHorizontal, MessagesSquare, PictureInPicture, PictureInPicture2, Plus, X } from "lucide-react";
+import type { AgentCapabilities } from "@/api/rest-api";
+import type { AgentChatSurfaceVariant } from "@/features/agent/hooks/use-agent-chat-session-types";
+import type { AgentChatHistoryRow } from "@/features/agent/lib/agent-chat-thread";
+import {
+  agentChatCwdLabel,
+  isAgentScratchCwd,
+  isThreadWorkingDirectory,
+  resolveWorkingDirectoryLabel,
+  type AgentChatWorkingDirectory,
+} from "@/features/agent/lib/agent-chat-working-directory";
+import type { Project } from "@/shared/types/domain";
 import { useDesktopWindowDrag } from "@/shared/hooks/use-desktop-window-drag";
-import { AgentIcon } from "./AgentIcon";
 import { AgentChatHistoryPopover } from "./AgentChatHistoryPopover";
 
 interface AgentChatHeaderProps {
-  variant: "modal" | "sidebar" | "standalone";
+  variant: AgentChatSurfaceVariant;
   handleDragStart?: (e: React.MouseEvent) => void;
   handleOpenStandaloneWindow?: () => Promise<void>;
   handleReturnToEmbeddedWindow?: () => void;
   handleToggleFullscreen?: () => void;
   isFullscreen?: boolean;
 
-  // Hover
-  headerHovered: boolean;
-  setHeaderHovered: React.Dispatch<React.SetStateAction<boolean>>;
-
   // Connection
-  isConnected: boolean;
   isConnecting: boolean;
 
   // Agent
-  activeAgent: RegistryAgent | null;
-  agentInfo: AgentImplementationInfo | null;
   capabilities: AgentCapabilities | null;
-  installedAgents: RegistryAgent[];
-  defaultRegistryId: string;
-  registryId: string;
-
-  // New session agents menu
-  newSessionAgentsOpen: boolean;
-  setNewSessionAgentsOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  handleCreateNewSession: (targetRegistryId?: string) => Promise<void>;
-  handleOpenNewSessionAgentsMenu: () => void;
-  handleScheduleCloseNewSessionAgentsMenu: () => void;
-  handleSetDefaultAgent: (agentId: string) => void;
 
   // Labels
-  panelTitle: string;
-
-  // CWD
   localPath: string | null;
   sessionCwd: string | null;
 
   // Export
   exportableMessages: ConversationMessage[];
-  handleExportConversation: () => void;
+  handleExportChat: () => void;
 
   // History
   historyOpen: boolean;
   setHistoryOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  historySessions: AgentChatSessionItem[];
+  historySessions: AgentChatHistoryRow[];
   historyHasMore: boolean;
   historyLoading: boolean;
   historyCursor: string | null;
@@ -89,13 +70,15 @@ interface AgentChatHeaderProps {
   historyUnsupportedReason: string | null;
   trafficLightsContentInset?: boolean;
   loadHistorySessions: (cursor?: string) => Promise<void>;
-  handleSelectHistorySession: (s: AgentChatSessionItem) => void;
+  handleSelectHistorySession: (row: AgentChatHistoryRow) => void;
   historyTriggerClassName?: string;
   historySidebarControl?: React.ReactNode;
 
   // Close
   handleClose: () => void;
   handleLogoutAgent: () => Promise<void>;
+  handleCreateNewSession: (targetRegistryId?: string) => void | Promise<void>;
+  canCreateNewSession?: boolean;
 
   // Title
   displaySessionTitle: string | null;
@@ -103,8 +86,14 @@ interface AgentChatHeaderProps {
   shouldScrambleAutoTitle: boolean;
   setShouldScrambleAutoTitle: React.Dispatch<React.SetStateAction<boolean>>;
   sessionTitleSource: string | null;
-  sessionId: string | null;
+  chatId: string | null;
+  constrainWidth?: boolean;
+  contextProjects?: Project[];
+  contextSelection?: AgentChatWorkingDirectory | null;
 }
+
+const ICON_BUTTON =
+  "desktop-no-drag rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-50";
 
 export function AgentChatHeader({
   variant,
@@ -113,26 +102,12 @@ export function AgentChatHeader({
   handleReturnToEmbeddedWindow,
   handleToggleFullscreen,
   isFullscreen = false,
-  headerHovered,
-  setHeaderHovered,
-  isConnected,
   isConnecting,
-  activeAgent,
-  agentInfo,
   capabilities,
-  installedAgents,
-  defaultRegistryId,
-  newSessionAgentsOpen,
-  setNewSessionAgentsOpen,
-  handleCreateNewSession,
-  handleOpenNewSessionAgentsMenu,
-  handleScheduleCloseNewSessionAgentsMenu,
-  handleSetDefaultAgent,
-  panelTitle,
   localPath,
   sessionCwd,
   exportableMessages,
-  handleExportConversation,
+  handleExportChat,
   historyOpen,
   setHistoryOpen,
   historySessions,
@@ -148,30 +123,50 @@ export function AgentChatHeader({
   historySidebarControl,
   handleClose,
   handleLogoutAgent,
+  handleCreateNewSession,
+  canCreateNewSession = true,
   displaySessionTitle,
   isAutoGeneratingTitle,
   shouldScrambleAutoTitle,
   setShouldScrambleAutoTitle,
   sessionTitleSource,
-  sessionId,
+  chatId,
+  constrainWidth = false,
+  contextProjects = [],
+  contextSelection = null,
 }: AgentChatHeaderProps) {
   const t = useTranslations("Agent.components");
   const [logoutConfirmOpen, setLogoutConfirmOpen] = React.useState(false);
-  const displayedAgentName = isConnected && activeAgent
-    ? (agentInfo?.title ?? agentInfo?.name ?? activeAgent.name)
-    : panelTitle;
+  const [moreOpen, setMoreOpen] = React.useState(false);
   const canLogout = Boolean(capabilities?.logout.supported);
   const shouldAnimateSessionTitle =
     shouldScrambleAutoTitle &&
     Boolean(displaySessionTitle) &&
     (sessionTitleSource === "auto" || sessionTitleSource === "agent");
   const animatedSessionTitle = shouldAnimateSessionTitle ? displaySessionTitle : null;
-  const displayedCwd = sessionCwd ?? localPath;
+  const threadLabel = t("composer.workingDirectory.thread");
+  const displayedCwd = agentChatCwdLabel(sessionCwd ?? localPath, threadLabel);
   const displayedCwdLabel = sessionCwd
     ? t("header.cwd.current")
     : t("header.cwd.context");
+  const lockedSelection = variant === "modal" && chatId ? contextSelection : null;
+  const lockedContextIsThread = lockedSelection
+    ? isThreadWorkingDirectory(lockedSelection)
+    : false;
+  const lockedContextLabel = lockedSelection
+    ? resolveWorkingDirectoryLabel(lockedSelection, contextProjects, threadLabel)
+    : null;
+  const showPathChip = !lockedSelection && Boolean(displayedCwd);
   const { handleDesktopWindowMouseDown, isDesktopDragEnabled } = useDesktopWindowDrag();
   const useNativeWindowDrag = variant === "standalone" && isDesktopDragEnabled;
+  const sessionTitleText = isAutoGeneratingTitle
+    ? t("header.generatingTitle")
+    : displaySessionTitle || (chatId ? "" : t("header.newSession.defaultTitle"));
+  const showOpenInWindow = variant !== "standalone" && Boolean(handleOpenStandaloneWindow);
+  const showFullscreen = variant !== "standalone" && Boolean(handleToggleFullscreen);
+  const showReturnToEmbedded = variant === "standalone" && Boolean(handleReturnToEmbeddedWindow);
+
+  const closeMore = () => setMoreOpen(false);
 
   return (
     <div
@@ -185,163 +180,89 @@ export function AgentChatHeader({
       data-tauri-drag-region={useNativeWindowDrag ? "true" : undefined}
       className={cn(
         // Match main Header: animate traffic-light inset on enter/leave fullscreen.
-        "flex shrink-0 flex-col gap-1 py-3 pr-4 transition-[padding] duration-300 ease-out",
+        "flex w-full shrink-0 items-start justify-between gap-3 py-3 pr-4 transition-[padding] duration-300 ease-out",
         trafficLightsContentInset ? "pl-[124px]" : "pl-4",
+        constrainWidth && "mx-auto w-full max-w-3xl",
         useNativeWindowDrag && "desktop-drag-region select-none",
         variant === "modal" && handleDragStart && "cursor-grab active:cursor-grabbing"
       )}
-      onMouseEnter={() => setHeaderHovered(true)}
-      onMouseLeave={() => setHeaderHovered(false)}
     >
-      <div className="flex items-center justify-between">
-        <div className="flex min-w-0 flex-1 items-center gap-2">
-          <div className="flex items-center gap-2 shrink-0">
-            {historySidebarControl}
-            <div className="relative size-5">
-              <div
-                className={`pointer-events-none absolute inset-0 flex items-center justify-center transition-[opacity,transform] duration-200 ease-out ${headerHovered}
-                  ? "translate-y-[-2px] scale-90 opacity-0"
-                  : "translate-y-0 scale-100 opacity-100"
-                  }`}
-              >
-                {isConnected && activeAgent ? (
-                  <AgentIcon
-                    registryId={activeAgent.id}
-                    name={activeAgent.name}
-                    size={16}
-                    isCustom={activeAgent.install_method === "custom"}
-                    registryIcon={activeAgent.icon}
-                  />
-                ) : (
-                  <Bot className="size-4 shrink-0 text-foreground" />
-                )}
-              </div>
-              <Popover open={newSessionAgentsOpen} onOpenChange={setNewSessionAgentsOpen}>
-                <PopoverTrigger asChild>
-                  <button
-                    type="button"
-                    onClick={() => void handleCreateNewSession()}
-                    onMouseEnter={handleOpenNewSessionAgentsMenu}
-                    onMouseLeave={handleScheduleCloseNewSessionAgentsMenu}
-                    className={`absolute inset-0 flex size-5 items-center justify-center rounded-sm text-muted-foreground transition-[opacity,transform] duration-200 ease-out hover:bg-muted hover:text-foreground ${headerHovered}
-                      ? "translate-y-0 scale-100 opacity-100"
-                      : "translate-y-[2px] scale-90 opacity-0 pointer-events-none"
+      <div className="flex min-w-0 max-w-[50%] items-start gap-2">
+        {historySidebarControl}
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <TooltipProvider delayDuration={300}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="min-w-0">
+                  {isAutoGeneratingTitle ? (
+                    <span className="block truncate text-sm font-medium">
+                      <TextShimmer as="span" duration={1.5}>
+                        {t("header.generatingTitle")}
+                      </TextShimmer>
+                    </span>
+                  ) : animatedSessionTitle ? (
+                    <TextScramble
+                      key={`session-title-${sessionTitleSource ?? "unknown"}-${chatId ?? "chat"}-${
+                        animatedSessionTitle
                       }`}
-                    aria-label={t("header.newSession.aria")}
-                    title={t("header.newSession.defaultTitle")}
-                  >
-                    <Plus className="size-4 shrink-0" />
-                  </button>
-                </PopoverTrigger>
-                <PopoverContent
-                  className="w-72 p-1"
-                  align="start"
-                  onMouseEnter={handleOpenNewSessionAgentsMenu}
-                  onMouseLeave={handleScheduleCloseNewSessionAgentsMenu}
-                >
-                  <div className="px-2 py-1.5">
-                    <p className="text-xs font-medium text-muted-foreground">{t("header.newSession.createWithAgent")}</p>
-                  </div>
-                  <div className="max-h-56 overflow-auto">
-                    {installedAgents.length === 0 && (
-                      <div className="px-2 py-3 text-xs text-muted-foreground">{t("header.newSession.noInstalledAgent")}</div>
-                    )}
-                    {installedAgents.map((agent) => {
-                      const isDefault = agent.id === defaultRegistryId;
-                      return (
-                        <div
-                          key={agent.id}
-                          className="group flex items-center justify-between gap-1 rounded-sm px-1 py-0.5 hover:bg-muted"
-                        >
-                          <button
-                            type="button"
-                            className="flex min-w-0 flex-1 items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm"
-                            onClick={() => {
-                              setNewSessionAgentsOpen(false);
-                              void handleCreateNewSession(agent.id);
-                            }}
-                          >
-                            <AgentIcon
-                              registryId={agent.id}
-                              name={agent.name}
-                              size={14}
-                              isCustom={agent.install_method === "custom"}
-                              registryIcon={agent.icon}
-                            />
-                            <span className="truncate">{agent.name}</span>
-                          </button>
-                          <TooltipProvider delayDuration={0}>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <button
-                                  type="button"
-                                  className={`rounded-sm p-1.5 transition-opacity ${isDefault}
-                                    ? "text-primary opacity-100"
-                                    : "text-muted-foreground/60 opacity-0 group-hover:opacity-100 hover:text-primary hover:bg-primary/5"
-                                    }`}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleSetDefaultAgent(agent.id);
-                                  }}
-                                  aria-label={isDefault
-                                    ? t("header.defaultAgent.currentAria")
-                                    : t("header.defaultAgent.setAria", { name: agent.name })}
-                                >
-                                  <Heart className={`size-3.5 ${isDefault ? "fill-primary" : ""}`} />
-                                </button>
-                              </TooltipTrigger>
-                              <TooltipContent side="top" className="z-100 text-[10px] py-1 px-2">
-                                {isDefault ? t("header.defaultAgent.tooltipCurrent") : t("header.defaultAgent.tooltipSet")}
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </PopoverContent>
-              </Popover>
-            </div>
-            {isConnected && activeAgent ? (
-              <div className="flex items-center gap-1.5 shrink-0 min-w-0">
-                <TooltipProvider delayDuration={250}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span className="max-w-[200px] shrink-0 truncate text-sm font-medium">
-                        {displayedAgentName}
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom" className="max-w-xs text-xs">
-                      {agentInfo ? (
-                        <div className="space-y-0.5">
-                          <p>{agentInfo.title ?? agentInfo.name}</p>
-                          <p className="text-muted-foreground">
-                            {agentInfo.name}{agentInfo.version ? ` ${agentInfo.version}` : ""}
-                          </p>
-                        </div>
-                      ) : (
-                        activeAgent.name
-                      )}
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </div>
-            ) : (
-              <div className="flex items-center gap-1.5 shrink-0">
-                <span className="text-sm font-medium shrink-0">{panelTitle}</span>
-              </div>
-            )}
-          </div>
+                      as="span"
+                      className="block truncate text-sm font-medium"
+                      duration={0.6}
+                      speed={0.025}
+                      onScrambleComplete={() => setShouldScrambleAutoTitle(false)}
+                    >
+                      {animatedSessionTitle}
+                    </TextScramble>
+                  ) : (
+                    <span className="block truncate text-sm font-medium">{sessionTitleText}</span>
+                  )}
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" align="start" className="z-100 max-w-[300px] break-words text-xs">
+                {sessionTitleText}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
 
-          {displayedCwd && (
+          {lockedContextLabel ? (
             <TooltipProvider delayDuration={200}>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <div className="ml-2 flex min-w-0 max-w-[180px] cursor-help items-center gap-1.5 overflow-hidden rounded-md border border-border/50 bg-muted/40 px-2 py-0.5">
+                  <div className="inline-flex w-fit max-w-full cursor-help items-center gap-1.5 overflow-hidden rounded-md border border-border/50 bg-muted/40 px-2 py-0.5">
+                    {lockedContextIsThread ? (
+                      <MessagesSquare className="size-3 shrink-0 text-muted-foreground/70" />
+                    ) : (
+                      <Folder className="size-3 shrink-0 text-muted-foreground/70" />
+                    )}
+                    <span className="truncate select-none text-[10px] leading-none text-muted-foreground/80">
+                      {lockedContextLabel}
+                    </span>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-xs break-all">
+                  <p className="mb-0.5 text-[11px] text-muted-foreground">
+                    {lockedContextIsThread
+                      ? t("composer.workingDirectory.threadDescription")
+                      : displayedCwdLabel}
+                  </p>
+                  {displayedCwd ? <p className="text-[11px]">{displayedCwd}</p> : null}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          ) : null}
+          {showPathChip ? (
+            <TooltipProvider delayDuration={200}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="inline-flex w-fit max-w-full cursor-help items-center gap-1.5 overflow-hidden rounded-md border border-border/50 bg-muted/40 px-2 py-0.5">
                     <Folder className="size-3 shrink-0 text-muted-foreground/70" />
                     <span
                       className="truncate select-none text-[10px] leading-none text-muted-foreground/80"
-                      style={{ direction: "rtl", textAlign: "left" }}
+                      style={
+                        isAgentScratchCwd(sessionCwd ?? localPath)
+                          ? undefined
+                          : { direction: "rtl", textAlign: "left" }
+                      }
                     >
                       {displayedCwd}
                     </span>
@@ -353,196 +274,195 @@ export function AgentChatHeader({
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
-          )}
-        </div>
-        <div className="flex items-center gap-0.5">
-          <AgentChatHistoryPopover
-            triggerClassName={historyTriggerClassName}
-            historyOpen={historyOpen}
-            setHistoryOpen={setHistoryOpen}
-            historySessions={historySessions}
-            historyHasMore={historyHasMore}
-            historyLoading={historyLoading}
-            historyCursor={historyCursor}
-            historyResumeUnsupportedReason={historyResumeUnsupportedReason}
-            historyUnsupportedReason={historyUnsupportedReason}
-            loadHistorySessions={loadHistorySessions}
-            handleSelectHistorySession={handleSelectHistorySession}
-            isConnecting={isConnecting}
-          />
-          {variant === "modal" && handleOpenStandaloneWindow ? (
-            <TooltipProvider delayDuration={200}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    type="button"
-                    onClick={() => void handleOpenStandaloneWindow()}
-                    className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
-                    aria-label={t("header.actions.openInWindow")}
-                  >
-                    <PictureInPicture2 className="size-4" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">
-                  {t("header.actions.openInWindow")}
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
           ) : null}
-          {variant !== "standalone" && handleToggleFullscreen ? (
-            <TooltipProvider delayDuration={200}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    type="button"
-                    onClick={handleToggleFullscreen}
-                    className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
-                    aria-label={isFullscreen
-                      ? t("header.fullscreen.exitAria")
-                      : t("header.fullscreen.openAria")}
-                  >
-                    {isFullscreen ? <Minimize2 className="size-4" /> : <Maximize2 className="size-4" />}
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">
-                  {isFullscreen ? t("header.fullscreen.exitTooltip") : t("header.fullscreen.openTooltip")}
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          ) : null}
-          {variant === "standalone" && handleReturnToEmbeddedWindow ? (
-            <TooltipProvider delayDuration={200}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    type="button"
-                    onClick={handleReturnToEmbeddedWindow}
-                    className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
-                    aria-label={t("header.actions.returnToEmbedded")}
-                  >
-                    <PictureInPicture className="size-4" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">
-                  {t("header.actions.returnToEmbedded")}
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          ) : null}
-          <DropdownMenu>
-            <TooltipProvider delayDuration={200}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <DropdownMenuTrigger asChild>
-                    <button
-                      type="button"
-                      className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
-                      aria-label={t("header.moreActions.aria")}
-                    >
-                      <MoreHorizontal className="size-4" />
-                    </button>
-                  </DropdownMenuTrigger>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">{t("header.moreActions.tooltip")}</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-            <DropdownMenuContent align="end" className="w-52">
-              <DropdownMenuItem
-                className="cursor-pointer"
-                disabled={exportableMessages.length === 0}
-                onSelect={handleExportConversation}
-              >
-                <Download className="size-4" />
-                <span>{t("header.actions.exportConversation")}</span>
-              </DropdownMenuItem>
-              {canLogout ? (
-                <DropdownMenuItem
-                  className="cursor-pointer"
-                  disabled={isConnecting}
-                  variant="destructive"
-                  onSelect={() => setLogoutConfirmOpen(true)}
-                >
-                  <LogOut className="size-4" />
-                  <span>{t("header.actions.logoutAgent")}</span>
-                </DropdownMenuItem>
-              ) : null}
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <Dialog open={logoutConfirmOpen} onOpenChange={setLogoutConfirmOpen}>
-            <DialogContent className="w-72 gap-3 p-4" showCloseButton={false}>
-              <DialogTitle className="text-sm">{t("header.logout.title")}</DialogTitle>
-              <DialogDescription className="text-xs leading-5">
-                {t("header.logout.description")}
-              </DialogDescription>
-              <DialogFooter className="mt-1 flex-row justify-end gap-2">
-                <button
-                  type="button"
-                  className="rounded-md border border-border px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
-                  onClick={() => setLogoutConfirmOpen(false)}
-                >
-                  {t("common.cancel")}
-                </button>
-                <button
-                  type="button"
-                  className="rounded-md bg-foreground px-2.5 py-1.5 text-xs text-background transition-opacity hover:opacity-90 disabled:pointer-events-none disabled:opacity-50"
-                  disabled={isConnecting}
-                  onClick={() => {
-                    setLogoutConfirmOpen(false);
-                    void handleLogoutAgent();
-                  }}
-                >
-                  {t("header.logout.action")}
-                </button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-          {variant === "modal" && (
-            <button
-              type="button"
-              onClick={handleClose}
-              className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
-              aria-label={t("header.closeChatAria")}
-            >
-              <X className="size-4" />
-            </button>
-          )}
         </div>
       </div>
-      {(displaySessionTitle || isAutoGeneratingTitle) && (
-        <TooltipProvider delayDuration={300}>
+      <div className="flex shrink-0 items-center gap-0.5">
+        <TooltipProvider delayDuration={200}>
           <Tooltip>
             <TooltipTrigger asChild>
-              <div className="flex w-fit max-w-full items-center gap-1 rounded px-1 -mx-1">
-                {isAutoGeneratingTitle ? (
-                  <span className="truncate text-xs">
-                    <TextShimmer as="span" duration={1.5}>
-                      {t("header.generatingTitle")}
-                    </TextShimmer>
-                  </span>
-                ) : animatedSessionTitle ? (
-                  <TextScramble
-                    key={`session-title-${sessionTitleSource ?? "unknown"}-${sessionId ?? "session"}-${
-                      animatedSessionTitle
-                    }`}
-                    as="span"
-                    className="truncate text-xs text-muted-foreground"
-                    duration={0.6}
-                    speed={0.025}
-                    onScrambleComplete={() => setShouldScrambleAutoTitle(false)}
-                  >
-                    {animatedSessionTitle}
-                  </TextScramble>
-                ) : (
-                  <span className="truncate text-xs text-muted-foreground">{displaySessionTitle}</span>
-                )}
-              </div>
+              <button
+                type="button"
+                onClick={() => void handleCreateNewSession()}
+                disabled={!canCreateNewSession || isConnecting}
+                className={ICON_BUTTON}
+                aria-label={t("header.newSession.aria")}
+              >
+                <Plus className="size-4" />
+              </button>
             </TooltipTrigger>
-            <TooltipContent side="bottom" align="start" className="z-100 max-w-[300px] break-words text-xs">
-              {displaySessionTitle ?? t("header.generatingTitle")}
+            <TooltipContent side="bottom">
+              {t("header.newSession.defaultTitle")}
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
-      )}
+        {historyTriggerClassName === "hidden" ? null : (
+        <AgentChatHistoryPopover
+          triggerClassName={historyTriggerClassName}
+          historyOpen={historyOpen}
+          setHistoryOpen={setHistoryOpen}
+          historySessions={historySessions}
+          historyHasMore={historyHasMore}
+          historyLoading={historyLoading}
+          historyCursor={historyCursor}
+          historyResumeUnsupportedReason={historyResumeUnsupportedReason}
+          historyUnsupportedReason={historyUnsupportedReason}
+          loadHistorySessions={loadHistorySessions}
+          handleSelectHistorySession={handleSelectHistorySession}
+          isConnecting={isConnecting}
+        />
+        )}
+        <MorphPopover open={moreOpen} onOpenChange={setMoreOpen}>
+          <MorphPopoverTrigger>
+            <button
+              type="button"
+              className={cn(ICON_BUTTON, moreOpen && "bg-muted text-foreground")}
+              aria-label={t("header.moreActions.aria")}
+              title={t("header.moreActions.tooltip")}
+            >
+              <MoreHorizontal className="size-4" />
+            </button>
+          </MorphPopoverTrigger>
+          <MorphPopoverContent
+            side="bottom"
+            align="end"
+            sideOffset={8}
+            radius={16}
+            className="w-56 p-1.5"
+          >
+            {showOpenInWindow ? (
+              <HeaderMenuItem
+                icon={<PictureInPicture2 />}
+                label={t("header.actions.openInWindow")}
+                onSelect={() => {
+                  closeMore();
+                  void handleOpenStandaloneWindow?.();
+                }}
+              />
+            ) : null}
+            {showFullscreen ? (
+              <HeaderMenuItem
+                icon={isFullscreen ? <Minimize2 /> : <Maximize2 />}
+                label={isFullscreen
+                  ? t("header.fullscreen.exitTooltip")
+                  : t("header.fullscreen.openTooltip")}
+                onSelect={() => {
+                  closeMore();
+                  handleToggleFullscreen?.();
+                }}
+              />
+            ) : null}
+            {showReturnToEmbedded ? (
+              <HeaderMenuItem
+                icon={<PictureInPicture />}
+                label={t("header.actions.returnToEmbedded")}
+                onSelect={() => {
+                  closeMore();
+                  handleReturnToEmbeddedWindow?.();
+                }}
+              />
+            ) : null}
+            <HeaderMenuItem
+              icon={<Download />}
+              label={t("header.actions.exportChat")}
+              disabled={exportableMessages.length === 0}
+              onSelect={() => {
+                closeMore();
+                handleExportChat();
+              }}
+            />
+            {canLogout ? (
+              <HeaderMenuItem
+                icon={<LogOut />}
+                label={t("header.actions.logoutAgent")}
+                disabled={isConnecting}
+                destructive
+                onSelect={() => {
+                  closeMore();
+                  setLogoutConfirmOpen(true);
+                }}
+              />
+            ) : null}
+          </MorphPopoverContent>
+        </MorphPopover>
+        <Dialog open={logoutConfirmOpen} onOpenChange={setLogoutConfirmOpen}>
+          <DialogContent className="w-72 gap-3 p-4" showCloseButton={false}>
+            <DialogTitle className="text-sm">{t("header.logout.title")}</DialogTitle>
+            <DialogDescription className="text-xs leading-5">
+              {t("header.logout.description")}
+            </DialogDescription>
+            <DialogFooter className="mt-1 flex-row justify-end gap-2">
+              <button
+                type="button"
+                className="rounded-md border border-border px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+                onClick={() => setLogoutConfirmOpen(false)}
+              >
+                {t("common.cancel")}
+              </button>
+              <button
+                type="button"
+                className="rounded-md bg-foreground px-2.5 py-1.5 text-xs text-background transition-opacity hover:opacity-90 disabled:pointer-events-none disabled:opacity-50"
+                disabled={isConnecting}
+                onClick={() => {
+                  setLogoutConfirmOpen(false);
+                  void handleLogoutAgent();
+                }}
+              >
+                {t("header.logout.action")}
+              </button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+        {variant === "modal" && (
+          <button
+            type="button"
+            onClick={handleClose}
+            className={ICON_BUTTON}
+            aria-label={t("header.closeChatAria")}
+          >
+            <X className="size-4" />
+          </button>
+        )}
+      </div>
     </div>
+  );
+}
+
+function HeaderMenuItem({
+  icon,
+  label,
+  disabled,
+  destructive = false,
+  onSelect,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  disabled?: boolean;
+  destructive?: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onSelect}
+      className={cn(
+        "flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm outline-none transition-colors",
+        destructive
+          ? "text-destructive hover:bg-destructive/10 focus-visible:bg-destructive/10"
+          : "text-foreground hover:bg-muted focus-visible:bg-muted",
+        "disabled:pointer-events-none disabled:opacity-50",
+      )}
+    >
+      <span
+        className={cn(
+          "grid size-5 shrink-0 place-items-center [&_svg]:size-4",
+          destructive ? "text-destructive" : "text-muted-foreground",
+        )}
+      >
+        {icon}
+      </span>
+      <span className="min-w-0 flex-1 truncate">{label}</span>
+    </button>
   );
 }

@@ -2,17 +2,16 @@ use axum::{
     extract::{Path, State},
     http::{HeaderMap, StatusCode},
     response::IntoResponse,
-    routing::{delete, get, post},
+    routing::{get, post},
     Json, Router,
 };
-use core_service::service::agent_hooks::AtmosContext;
-use serde::Deserialize;
+use core_service::service::agent_hooks::{terminal_hook_context, AtmosContext};
 use serde_json::Value;
 
 use crate::app_state::AppState;
 
 fn extract_atmos_context(headers: &HeaderMap) -> AtmosContext {
-    AtmosContext {
+    let ctx = AtmosContext {
         context_id: headers
             .get("x-atmos-context")
             .and_then(|v| v.to_str().ok())
@@ -42,7 +41,9 @@ fn extract_atmos_context(headers: &HeaderMap) -> AtmosContext {
             .get("x-atmos-hook-version")
             .and_then(|v| v.to_str().ok())
             .and_then(|s| s.parse::<u32>().ok()),
-    }
+        ..AtmosContext::default()
+    };
+    terminal_hook_context(ctx)
 }
 
 pub fn routes() -> Router<AppState> {
@@ -60,21 +61,6 @@ pub fn routes() -> Router<AppState> {
         .route("/hermes", post(handle_hermes_hook))
         .route("/grok-build", post(handle_grok_build_hook))
         .route("/cli-identity", get(cli_identity))
-        .route("/sessions", get(list_hook_sessions))
-        .route("/sessions/clear-idle", post(clear_idle_sessions))
-        .route(
-            "/sessions/{session_id}/force-idle",
-            post(force_session_idle),
-        )
-        .route("/sessions/{session_id}", delete(remove_hook_session))
-        // Attention / grouping snapshot routes before `/{tool}/…` so those
-        // names are not parsed as a tool. REST (not WS): pre-connection
-        // bootstrap so browser refresh can hydrate sticky attention and
-        // By Agent Status buckets from API memory before WS is ready.
-        .route("/workspace-agent-groups", get(list_workspace_agent_groups))
-        .route("/attention", get(list_attention))
-        .route("/attention/clear", post(clear_attention))
-        .route("/attention/summaries", get(list_attention_summaries))
         .route("/install", post(install_hooks))
         .route("/uninstall", post(uninstall_hooks))
         .route("/status", get(hooks_status))
@@ -244,108 +230,6 @@ async fn handle_kiro_hook(
     Json(serde_json::json!({ "ok": true }))
 }
 
-async fn list_hook_sessions(State(state): State<AppState>) -> Json<Value> {
-    let sessions = state.agent_hooks_service.get_all_sessions();
-    Json(serde_json::json!({ "sessions": sessions }))
-}
-
-async fn list_workspace_agent_groups(State(state): State<AppState>) -> Json<Value> {
-    let groups = state.agent_hooks_service.list_workspace_agent_groups();
-    Json(serde_json::json!({ "groups": groups }))
-}
-
-async fn list_attention(State(state): State<AppState>) -> Json<Value> {
-    let attention = state.agent_hooks_service.get_all_attention();
-    Json(serde_json::json!({ "attention": attention }))
-}
-
-async fn list_attention_summaries(State(state): State<AppState>) -> Json<Value> {
-    let summaries = state.agent_hooks_service.get_all_attention_summaries();
-    Json(serde_json::json!({ "summaries": summaries }))
-}
-
-#[derive(Debug, Deserialize)]
-struct ClearAttentionBody {
-    /// Prefer the stable pane id (`{context}:{tmux_window}`) the client focuses.
-    #[serde(default)]
-    stable_pane_id: Option<String>,
-    #[serde(default)]
-    stable_pane_ids: Option<Vec<String>>,
-    /// When set (RFC3339), only clear latches raised at or before this time so a
-    /// late dismiss cannot wipe a newer turn that landed after the client acted.
-    #[serde(default)]
-    not_after: Option<String>,
-    /// When true, also drop auto-summary chrome (explicit Dismiss / send / pane
-    /// destroy). Focus-ack omits this so the user can still read the recap.
-    #[serde(default)]
-    dismiss_summary: bool,
-}
-
-async fn clear_attention(
-    State(state): State<AppState>,
-    Json(body): Json<ClearAttentionBody>,
-) -> Json<Value> {
-    let mut ids: Vec<String> = body.stable_pane_ids.unwrap_or_default();
-    if let Some(id) = body.stable_pane_id {
-        if !id.trim().is_empty() {
-            ids.push(id);
-        }
-    }
-    let not_after = body
-        .not_after
-        .as_deref()
-        .map(str::trim)
-        .filter(|s| !s.is_empty());
-    let cleared = state
-        .agent_hooks_service
-        .clear_attention_matching_ids_not_after(&ids, not_after, body.dismiss_summary);
-    Json(serde_json::json!({ "cleared": cleared }))
-}
-
-async fn clear_idle_sessions(State(state): State<AppState>) -> Json<Value> {
-    let cleared = state.agent_hooks_service.clear_idle_sessions();
-    Json(serde_json::json!({ "cleared": cleared }))
-}
-
-async fn force_session_idle(
-    State(state): State<AppState>,
-    Path(session_id): Path<String>,
-) -> impl IntoResponse {
-    match state.agent_hooks_service.force_session_idle(&session_id) {
-        Some(session) => (
-            StatusCode::OK,
-            Json(serde_json::json!({ "ok": true, "session": session })),
-        ),
-        None => (
-            StatusCode::NOT_FOUND,
-            Json(serde_json::json!({
-                "ok": false,
-                "error": "Agent hook session not found"
-            })),
-        ),
-    }
-}
-
-async fn remove_hook_session(
-    State(state): State<AppState>,
-    Path(session_id): Path<String>,
-) -> impl IntoResponse {
-    if state.agent_hooks_service.remove_session(&session_id) {
-        (
-            StatusCode::OK,
-            Json(serde_json::json!({ "ok": true, "removed": session_id })),
-        )
-    } else {
-        (
-            StatusCode::NOT_FOUND,
-            Json(serde_json::json!({
-                "ok": false,
-                "error": "Agent hook session not found"
-            })),
-        )
-    }
-}
-
 async fn install_hooks(State(state): State<AppState>) -> Json<Value> {
     let port = state.api_port.load(std::sync::atomic::Ordering::SeqCst);
     let report = core_engine::agent_hooks::install_all_hooks(port);
@@ -397,7 +281,7 @@ async fn refresh_project_paths(State(state): State<AppState>) -> Json<Value> {
         Ok(projects) => {
             let paths: Vec<String> = projects.into_iter().map(|p| p.main_file_path).collect();
             let count = paths.len();
-            state.agent_hooks_service.set_known_project_paths(paths);
+            state.agent_status_service.set_known_project_paths(paths);
             Json(serde_json::json!({ "ok": true, "count": count }))
         }
         Err(e) => Json(serde_json::json!({ "ok": false, "error": e.to_string() })),

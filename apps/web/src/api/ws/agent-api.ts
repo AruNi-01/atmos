@@ -45,6 +45,13 @@ export interface RegistryAgent {
   /** The version currently installed (if installed). May differ from `version` which is the latest. */
   installed_version?: string;
   default_config?: Record<string, string>;
+  /** `native` reuses an official CLI with ACP args. `adapter` is a separate ACP package. */
+  provision_kind?: "native" | "adapter";
+  native_executable?: string | null;
+  /** Built-in terminal agent id this ACP agent corresponds to, when known. */
+  terminal_agent_id?: string | null;
+  /** When false, Atmos bound an existing CLI and must not uninstall it. */
+  can_remove?: boolean;
 }
 
 export interface CustomAgent {

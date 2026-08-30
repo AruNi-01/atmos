@@ -59,6 +59,7 @@ interface CodeAgentSettingsSectionProps {
   attentionSummaryDelayMins: number;
   attentionSummaryAgentId: string;
   attentionSummaryModel: string;
+  followupPolicy: "queue" | "steer";
   runConfigAgentOptions: AgentOption[];
   runConfigsLoading: boolean;
   removingCustomAgentIds: Record<string, boolean>;
@@ -70,6 +71,7 @@ interface CodeAgentSettingsSectionProps {
   savedAttentionSummaryDelayMins: number;
   savedAttentionSummaryAgentId: string;
   savedAttentionSummaryModel: string;
+  savedFollowupPolicy: "queue" | "steer";
   savingBuiltInAgentIds: Record<string, boolean>;
   savingCustomAgentIds: Record<string, boolean>;
   savingIdleTimeout: boolean;
@@ -81,9 +83,6 @@ interface CodeAgentSettingsSectionProps {
   yoloModeRestoring: boolean;
   onYoloModeChange: (enabled: boolean) => void;
   onRestoreAllYoloMode: () => void;
-  showAgentNameInTerminalTitles: boolean;
-  showAgentNameInTerminalTitlesSyncing: boolean;
-  onShowAgentNameInTerminalTitlesChange: (enabled: boolean) => void;
   onAddCustomAgent: () => void;
   onAgentSettingChange: (agentId: string, field: "cmd" | "flags" | "interactiveFlags" | "enabled", value: string | boolean) => void;
   onBuiltInEnabledChange: (agentId: string, enabled: boolean) => void;
@@ -103,6 +102,7 @@ interface CodeAgentSettingsSectionProps {
   setAttentionSummaryDelayMins: React.Dispatch<React.SetStateAction<number>>;
   setAttentionSummaryAgentId: React.Dispatch<React.SetStateAction<string>>;
   setAttentionSummaryModel: React.Dispatch<React.SetStateAction<string>>;
+  setFollowupPolicy: React.Dispatch<React.SetStateAction<"queue" | "steer">>;
 }
 
 export function CodeAgentSettingsSection({
@@ -118,6 +118,7 @@ export function CodeAgentSettingsSection({
   attentionSummaryDelayMins,
   attentionSummaryAgentId,
   attentionSummaryModel,
+  followupPolicy,
   runConfigAgentOptions,
   runConfigsLoading,
   removingCustomAgentIds,
@@ -129,6 +130,7 @@ export function CodeAgentSettingsSection({
   savedAttentionSummaryDelayMins,
   savedAttentionSummaryAgentId,
   savedAttentionSummaryModel,
+  savedFollowupPolicy,
   savingBuiltInAgentIds,
   savingCustomAgentIds,
   savingIdleTimeout,
@@ -140,9 +142,6 @@ export function CodeAgentSettingsSection({
   yoloModeRestoring,
   onYoloModeChange,
   onRestoreAllYoloMode,
-  showAgentNameInTerminalTitles,
-  showAgentNameInTerminalTitlesSyncing,
-  onShowAgentNameInTerminalTitlesChange,
   onAddCustomAgent,
   onAgentSettingChange,
   onBuiltInEnabledChange,
@@ -162,6 +161,7 @@ export function CodeAgentSettingsSection({
   setAttentionSummaryDelayMins,
   setAttentionSummaryAgentId,
   setAttentionSummaryModel,
+  setFollowupPolicy,
 }: CodeAgentSettingsSectionProps) {
   const t = useTranslations("settings.codeAgentSection");
 
@@ -194,13 +194,6 @@ export function CodeAgentSettingsSection({
             {t("yolo.restoreAll")}
           </Button>
         </SettingsGroupRow>
-        <SettingsToggleRow
-          title={t("showAgentName.title")}
-          description={t("showAgentName.description")}
-          checked={showAgentNameInTerminalTitles}
-          disabled={showAgentNameInTerminalTitlesSyncing}
-          onCheckedChange={(checked) => onShowAgentNameInTerminalTitlesChange(checked)}
-        />
       </SettingsGroupCard>
 
       <AgentActivityIndicatorsSettingsSection />
@@ -450,11 +443,13 @@ export function CodeAgentSettingsSection({
         attentionSummaryDelayMins={attentionSummaryDelayMins}
         attentionSummaryAgentId={attentionSummaryAgentId}
         attentionSummaryModel={attentionSummaryModel}
+        followupPolicy={followupPolicy}
         savedIdleSessionTimeoutMins={savedIdleSessionTimeoutMins}
         savedAttentionSummaryEnabled={savedAttentionSummaryEnabled}
         savedAttentionSummaryDelayMins={savedAttentionSummaryDelayMins}
         savedAttentionSummaryAgentId={savedAttentionSummaryAgentId}
         savedAttentionSummaryModel={savedAttentionSummaryModel}
+        savedFollowupPolicy={savedFollowupPolicy}
         savingIdleTimeout={savingIdleTimeout}
         onCommitBehaviourSettings={onCommitBehaviourSettings}
         setIdleSessionTimeoutMins={setIdleSessionTimeoutMins}
@@ -462,6 +457,7 @@ export function CodeAgentSettingsSection({
         setAttentionSummaryDelayMins={setAttentionSummaryDelayMins}
         setAttentionSummaryAgentId={setAttentionSummaryAgentId}
         setAttentionSummaryModel={setAttentionSummaryModel}
+        setFollowupPolicy={setFollowupPolicy}
       />
 
       <AgentHookStatusCard />

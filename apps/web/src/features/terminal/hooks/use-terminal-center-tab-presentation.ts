@@ -15,7 +15,6 @@ import {
   resolveTerminalCenterTabPresentation,
   type TerminalCenterTabPresentation,
 } from "@/features/terminal/lib/terminal-center-tab-presentation";
-import { useAgentTitleSettingsStore } from "@/features/settings/store/agent-title-settings-store";
 import type { TerminalPaneAgent, TerminalPaneProps } from "@/features/terminal/types/index";
 import { useContestedCliOwners } from "./use-contested-cli-owners";
 
@@ -28,7 +27,8 @@ const EMPTY_PANES: Record<string, TerminalPaneProps> = {};
  * OSC titles are **stabilized** for the center tab: Grok-style realtime prefixes
  * (spinner / activity) are stripped to the fixed session name, and once a session
  * topic is known, pure realtime updates no longer change the tab text (pane
- * toolbars still follow live OSC).
+ * toolbars still follow live OSC). Agent name is shown only when there is no
+ * session/cwd/command title yet (avoids an icon-only tab).
  *
  * When `customTitle` is omitted, the hook reads the tab's stored `customTitle` so
  * tab-group popovers stay correct without re-threading the prop.
@@ -44,7 +44,6 @@ export function useTerminalCenterTabPresentation(options: {
   const { contextId, tabId, fallbackTitle, customTitle: customTitleProp, configuredAgents = [] } =
     options;
   const contestedOwners = useContestedCliOwners();
-  const showAgentName = useAgentTitleSettingsStore((s) => s.showAgentNameInTerminalTitles);
   const terminalTabId = tabId || FIXED_TERMINAL_TAB_VALUE;
   /** Sticky session topics per pane so realtime OSC churn does not resize the tab. */
   const stickySessionOscByPaneRef = useRef(new Map<string, string>());
@@ -100,7 +99,6 @@ export function useTerminalCenterTabPresentation(options: {
       maximizedPaneId: live.maximizedPaneId,
       configuredAgents,
       contestedOwners,
-      showAgentName,
       previousSessionOscByPaneId: stickySessionOscByPaneRef.current,
     });
 
@@ -126,6 +124,5 @@ export function useTerminalCenterTabPresentation(options: {
     live.maximizedPaneId,
     configuredAgents,
     contestedOwners,
-    showAgentName,
   ]);
 }

@@ -3,11 +3,10 @@
 import { useEffect, ReactNode, useRef } from 'react';
 import { usePathname } from 'next/navigation';
 import { useWebSocketStore } from '@/features/connection/hooks/use-websocket';
-import { useAgentHooksStore } from '@/features/agent/store/agent-hooks-store';
+import { useAgentStatusStore } from '@/features/agent/store/agent-status-store';
 import { useAgentNotifications } from '@/features/agent/hooks/use-agent-notifications';
-import { useDismissExitedAgentHookSessions } from '@/features/agent/hooks/use-dismiss-exited-agent-hook-sessions';
+import { useDismissExitedAgentStatusSessions } from '@/features/agent/hooks/use-dismiss-exited-agent-status-sessions';
 import { useLayoutSettingsStore } from '@/features/settings/store/layout-settings-store';
-import { useAgentTitleSettingsStore } from '@/features/settings/store/agent-title-settings-store';
 import { useAgentActivityIndicatorSettingsStore } from '@/features/settings/store/agent-activity-indicator-settings-store';
 import { useExperimentSettingsStore } from '@/features/settings/store/experiment-settings-store';
 import { useHostedConnectionStore } from '@/features/connection/store/hosted-connection-store';
@@ -99,10 +98,9 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
     // We call it once the WS is connected and never cleanup, because
     // the event listener persists across reconnections (same Map ref).
     if (connectionState === 'connected') {
-      useAgentHooksStore.getState().init();
+      useAgentStatusStore.getState().init();
       useLayoutSettingsStore.getState().loadSettings();
       void useExperimentSettingsStore.getState().loadSettings();
-      void useAgentTitleSettingsStore.getState().loadSettings();
       void useAgentActivityIndicatorSettingsStore.getState().loadSettings();
       // Project bootstrap is now Query-owned; reconnect invalidation handles refresh.
       void ensureProjectBootstrap().catch(() => undefined);
@@ -123,7 +121,7 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
   }, [connectionState]);
 
   useAgentNotifications();
-  useDismissExitedAgentHookSessions();
+  useDismissExitedAgentStatusSessions();
 
   return <>{children}</>;
 }

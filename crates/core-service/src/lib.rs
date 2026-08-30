@@ -5,13 +5,24 @@ pub mod utils;
 
 pub use error::{Result, ServiceError};
 pub use service::agent::AgentService;
-pub use service::agent_hooks::{
-    generate_attention_summary, resolve_workspace_agent_group_key, AgentAttentionLatch,
-    AgentAttentionReason, AgentAttentionSummary, AgentHookEvent, AgentHooksService,
-    AttentionSummaryPayload, AttentionSummarySettings, AttentionSummaryStatus,
-    WorkspaceAgentGroupKey, WorkspaceAgentGroupSnapshot,
+pub use service::agent_hooks::{AgentHooksService, AtmosContext};
+pub use service::agent_status::{
+    apply_host_event, chat_status_session_id, generate_attention_summary,
+    parse_chat_status_session_id, provider_to_tool, resolve_workspace_agent_group_key,
+    AgentAttentionLatch, AgentAttentionReason, AgentAttentionSummary, AgentOccupancy,
+    AgentStatusContext, AgentStatusEvent, AgentStatusRecord, AgentStatusService, AgentStatusUpdate,
+    AgentSurface, AgentToolType, AttentionSummaryPayload, AttentionSummarySettings,
+    AttentionSummaryStatus, WorkspaceAgentGroupKey, WorkspaceAgentGroupSnapshot,
 };
-pub use service::agent_session::{AgentSessionService, LazySessionSpec, ResumeNativeSessionSpec};
+
+pub use service::agent_chat::{
+    builtin_catalog_specs, catalog_probe_dir, catalog_spec_for, default_agent_data_dir,
+    default_chats_dir, parse_followup_policy, terminal_catalog_from, AgentChatEvent,
+    AgentChatIndexEntry, AgentChatMeta, AgentChatOrigin, AgentChatPayload, AgentChatService,
+    AgentChatSnapshot, AgentChatStore, AgentServiceCatalogResolver, CatalogPrefetchWorker,
+    CatalogUpdated, CreateAgentChatRequest, DefaultAgentProviderFactory, FollowupPolicy,
+    MessagePart, QueueItem, QueueItemStatus, RuntimeStatus, TurnStatus, PREFETCH_POLL,
+};
 pub use service::automation::{
     ensure_builtin_terminal_agents_upgraded, AutomationAgentCapability, TerminalAgentCliStatus,
     TerminalAgentModelCatalog, TerminalAgentModelCatalogSource, TerminalAgentModelCatalogStatus,

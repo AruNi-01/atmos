@@ -32,9 +32,18 @@
     "yoloInteractiveParams": "--dangerously-bypass-approvals-and-sandbox",
     "promptStrategy": "arg",
     "stdoutParser": "codex_jsonl",
-    "modelSupport": "manual",
+    "modelSupport": "catalog",
     "reasoningSupport": {
       "mode": "none"
+    },
+    "modelList": {
+      "supported": true,
+      "command": [
+        "codex",
+        "debug",
+        "models"
+      ],
+      "parser": "json"
     }
   },
   {
@@ -132,9 +141,17 @@
     "yoloInteractiveParams": "",
     "promptStrategy": "arg",
     "stdoutParser": "opencode_json",
-    "modelSupport": "manual",
+    "modelSupport": "catalog",
     "reasoningSupport": {
       "mode": "none"
+    },
+    "modelList": {
+      "supported": true,
+      "command": [
+        "opencode",
+        "models"
+      ],
+      "parser": "line_list"
     }
   },
   {
@@ -144,7 +161,7 @@
     "params": "--print -p",
     "interactiveParams": "",
     "promptStrategy": "prompt_flag",
-    "modelSupport": "manual",
+    "modelSupport": "catalog",
     "reasoningSupport": {
       "mode": "enum",
       "arg": "--thinking",
@@ -152,6 +169,16 @@
         "thinking"
       ],
       "valueStyle": "flag_only"
+    },
+    "modelList": {
+      "supported": true,
+      "command": [
+        "kimi",
+        "provider",
+        "list",
+        "--json"
+      ],
+      "parser": "json"
     }
   },
   {

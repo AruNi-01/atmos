@@ -51,6 +51,7 @@ import {
   LayoutDashboard,
   LayoutTemplate,
   LoaderCircle,
+  MessagesSquare,
   Maximize2,
   Minimize2,
   PencilRuler,
@@ -64,6 +65,11 @@ import {
   SquareTerminal as TerminalIcon,
 } from "lucide-react";
 import type { CenterToolTabValue } from "@/app-shell/center-tool-tabs";
+import { AgentIcon } from "@/features/agent/components/AgentIcon";
+import {
+  EMPTY_AGENT_CHAT_TABS,
+  useAgentChatCenterTabsStore,
+} from "@/features/agent/store/use-agent-chat-center-tabs";
 import {
   applyHorizontalTabStripWheel,
   scrollActiveTabIntoStripView,
@@ -83,6 +89,7 @@ import {
   CenterStageShortcutTooltipBody,
   CenterStageTabGroupPopover,
   ShortcutHint,
+  AgentChatTabStatusIndicator,
   TerminalTabAgentIndicatorWithPanes,
   type TabGroupItem,
 } from "@/app-shell/center-stage-tabs";
@@ -98,7 +105,6 @@ import {
   CENTER_STAGE_ICON_TAB_CLASS,
   getCenterStageSurfaceTabVariant,
 } from "@/app-shell/center-stage-shared-tabs";
-import { AgentIcon } from "@/features/agent/components/AgentIcon";
 import { useAgentAttentionStore } from "@/features/agent/store/agent-attention-store";
 import { useTerminalCenterTabPresentation } from "@/features/terminal/hooks/use-terminal-center-tab-presentation";
 import { useTerminalStore } from "@/features/terminal/store/use-terminal-store";
@@ -158,6 +164,7 @@ interface CenterStageTabBarProps {
   handleCreateBrowserCenterTab: () => void;
   handleCreateSimulatorCenterTab: () => void;
   handleCreateTerminalCenterTab: () => void;
+  handleCreateAgentChatCenterTab: () => void;
   handleCreateToolCenterTab: (tab: CenterToolTabValue) => void;
   handleCreateOverview?: () => void;
   handleCloseSimulatorTab: () => void;
@@ -239,6 +246,7 @@ export function CenterStageTabBar({
   handleCreateBrowserCenterTab,
   handleCreateSimulatorCenterTab,
   handleCreateTerminalCenterTab,
+  handleCreateAgentChatCenterTab,
   handleCreateToolCenterTab,
   handleCreateOverview,
   handleCloseSimulatorTab,
@@ -267,6 +275,9 @@ export function CenterStageTabBar({
 }: CenterStageTabBarProps) {
   const t = useTranslations("appShell");
   const newTerminalTabLabel = t("centerStageTabBar.newTerminalTab");
+  const agentChatTabs = useAgentChatCenterTabsStore(
+    (state) => state.tabsByContext[effectiveContextId] ?? EMPTY_AGENT_CHAT_TABS,
+  );
   const newBrowserLabel = t("centerStageTabBar.newBrowser");
   const newTabMenuLabel = t("centerStageTabBar.newTabMenu");
   // Per-instance so split panes do not share one open popover.
@@ -430,6 +441,15 @@ export function CenterStageTabBar({
       });
     }
 
+    for (const tab of agentChatTabs) {
+      descriptors.push({
+        id: tab.value,
+        value: tab.value,
+        kind: "agent-chat",
+        label: tab.title,
+      });
+    }
+
     for (const item of orderedSurfaceTabs) {
       if (item.type === "file") {
         const variant = getCenterStageSurfaceTabVariant(item.file.path);
@@ -480,6 +500,7 @@ export function CenterStageTabBar({
     simulatorTabVisible,
     gitHistoryTabVisible,
     orderedSurfaceTabs,
+    agentChatTabs,
     previewBrowserPrefs,
     projectWikiTabVisible,
     t,
@@ -750,6 +771,35 @@ export function CenterStageTabBar({
       );
     }
 
+    if (tab.kind === "agent-chat") {
+      const agentTab = agentChatTabs.find((item) => item.value === tab.value);
+      const providerId = agentTab?.providerId?.trim() || "";
+      const chatId = agentTab?.chatId?.trim() || "";
+      return (
+        <SpecialTerminalTab
+          key={tab.id}
+          closeLabel={t("centerStageTabBar.closeTab", { tab: tab.label })}
+          icon={
+            providerId ? (
+              <AgentIcon registryId={providerId} name={providerId} size={14} />
+            ) : (
+              <MessagesSquare className="size-3.5 shrink-0" />
+            )
+          }
+          label={tab.label}
+          shortcutDigit={shortcutDigit}
+          tooltip={tab.label}
+          value={tab.value}
+          trailing={chatId ? <AgentChatTabStatusIndicator chatId={chatId} /> : null}
+          onClose={() => {
+            useAgentChatCenterTabsStore.getState().closeTab(effectiveContextId, tab.value);
+            handleCenterStageTabChange(visibleTerminalTabs[0]?.id ?? "overview");
+          }}
+          onContextMenu={(event) => openContextMenu(event, tab)}
+        />
+      );
+    }
+
     if (tab.kind === "browser") {
       const browserTab = browserTabs.find((item) => item.value === tab.value);
       if (!browserTab) return null;
@@ -827,6 +877,8 @@ export function CenterStageTabBar({
             splitDownLabel={t("centerStageTabBar.splitDown")}
             splitRightLabel={t("centerStageTabBar.splitRight")}
             terminalLabel={newTerminalTabLabel}
+            agentChatLabel={t("centerStageTabBar.newAgentChat")}
+            onCreateAgentChat={handleCreateAgentChatCenterTab}
             markdownLabel={t("centerStageTabBar.newMarkdown")}
             onCreateMarkdownNote={() => {
               const path = useEditorStore.getState().openUntitledMarkdown(effectiveContextId);
@@ -996,7 +1048,8 @@ function isTabGroupItemClosable(tab: TabGroupItem) {
     tab.kind === "run" ||
     tab.kind === "github" ||
     tab.kind === "files" ||
-    tab.kind === "pt-design"
+    tab.kind === "pt-design" ||
+    tab.kind === "agent-chat"
   );
 }
 
@@ -1073,7 +1126,8 @@ function TerminalExtraTab({
     fallbackTitle: tab.title,
     customTitle: tab.customTitle,
   });
-  const closeAriaLabel = t("centerStageTabBar.closeTab", { tab: displayTitle });
+  const tabLabel = displayTitle || toolbarAgent?.label || tab.title;
+  const closeAriaLabel = t("centerStageTabBar.closeTab", { tab: tabLabel });
 
   const stablePaneIds = useTerminalStore(
     useShallow((s) => {
@@ -1127,16 +1181,18 @@ function TerminalExtraTab({
           >
             {tabLeadingIcon}
           </CenterStageTabIconSlot>
-          <span className="max-w-[180px] truncate whitespace-nowrap">
-            {displayTitle}
-          </span>
+          {displayTitle ? (
+            <span className="max-w-[180px] truncate whitespace-nowrap">
+              {displayTitle}
+            </span>
+          ) : null}
           <TerminalTabAgentIndicatorWithPanes contextId={effectiveContextId} tabId={tab.id} />
           <CenterTabHeldShortcut digit={shortcutDigit} />
         </CenterStageTab>
       </TooltipTrigger>
       <TooltipContent side="bottom">
         <CenterStageShortcutTooltipBody digit={shortcutDigit}>
-          <span>{displayTitle}</span>
+          <span>{tabLabel}</span>
         </CenterStageShortcutTooltipBody>
       </TooltipContent>
     </Tooltip>
@@ -1290,6 +1346,8 @@ function CenterStageNewTabMenu({
   onCreateBrowser,
   onCreateSimulator,
   onCreateTerminal,
+  onCreateAgentChat,
+  agentChatLabel,
   onCreateMarkdownNote,
   markdownLabel,
   onCreateToolTab,
@@ -1340,6 +1398,8 @@ function CenterStageNewTabMenu({
   onCreateBrowser: () => void;
   onCreateSimulator: () => void;
   onCreateTerminal: () => void;
+  onCreateAgentChat: () => void;
+  agentChatLabel: string;
   onCreateMarkdownNote?: () => void;
   markdownLabel?: string;
   onCreateToolTab: (tab: CenterToolTabValue) => void;
@@ -1600,6 +1660,7 @@ function CenterStageNewTabMenu({
           ) : null}
           <button
             type="button"
+            id="create-terminal"
             className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
             onClick={() => {
               onCreateTerminal();
@@ -1609,6 +1670,18 @@ function CenterStageNewTabMenu({
             <TerminalIcon className="size-3.5 shrink-0 text-muted-foreground" />
             <span className="min-w-0 flex-1 truncate">{terminalLabel}</span>
             <ShortcutHint digit="T" />
+          </button>
+          <button
+            type="button"
+            id="create-agent-chat"
+            className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
+            onClick={() => {
+              onCreateAgentChat();
+              setOpen(false);
+            }}
+          >
+            <MessagesSquare className="size-3.5 shrink-0 text-muted-foreground" />
+            <span className="min-w-0 flex-1 truncate">{agentChatLabel}</span>
           </button>
           {onCreateMarkdownNote && markdownLabel ? (
           <button
@@ -1973,6 +2046,7 @@ function SpecialTerminalTab({
   shortcutDigit,
   tooltip,
   value,
+  trailing,
   onClose,
   onContextMenu,
 }: {
@@ -1982,6 +2056,7 @@ function SpecialTerminalTab({
   shortcutDigit?: number | null;
   tooltip: string;
   value: string;
+  trailing?: React.ReactNode;
   onClose: () => void;
   onContextMenu?: (event: React.MouseEvent) => void;
 }) {
@@ -1997,7 +2072,8 @@ function SpecialTerminalTab({
           <CenterStageTabIconSlot closeLabel={closeLabel} onClose={onClose}>
             {icon}
           </CenterStageTabIconSlot>
-          <span className="text-pretty">{label}</span>
+          <span className="max-w-[180px] truncate whitespace-nowrap">{label}</span>
+          {trailing}
           <CenterTabHeldShortcut digit={shortcutDigit} />
         </CenterStageTab>
       </TooltipTrigger>

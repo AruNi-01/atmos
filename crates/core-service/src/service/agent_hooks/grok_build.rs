@@ -2,8 +2,11 @@ use serde_json::Value;
 use tracing::debug;
 
 use super::{
-    extract_child_agent_id, is_child_start_event, is_child_stop_event, AgentHookState,
-    AgentHooksService, AgentToolType, AtmosContext, StateUpdateKind,
+    extract_child_agent_id, extract_cwd, is_child_start_event, is_child_stop_event,
+    resolve_session_id,
+};
+use crate::service::agent_status::{
+    AgentOccupancy, AgentStatusContext, AgentStatusService, AgentToolType, OccupancyUpdateKind,
 };
 
 fn hook_event_name(payload: &Value) -> &str {
@@ -26,22 +29,24 @@ fn normalize_event(name: &str) -> String {
     name.trim().to_ascii_lowercase().replace('-', "_")
 }
 
-pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &AtmosContext) {
+pub(super) fn handle_event(
+    service: &AgentStatusService,
+    payload: &Value,
+    ctx: &AgentStatusContext,
+) {
     let raw_event = hook_event_name(payload);
     let event = normalize_event(raw_event);
 
-    let session_id = service.resolve_session_id(payload, AgentToolType::GrokBuild, ctx);
+    let session_id = resolve_session_id(payload, AgentToolType::GrokBuild, ctx);
     // Prefer payload cwd; fall back to the existing session path so later events
     // without cwd do not wipe a previously known project path.
-    let project_path = AgentHooksService::extract_cwd(payload)
-        .map(String::from)
-        .or_else(|| {
-            service
-                .sessions
-                .read()
-                .get(&session_id)
-                .and_then(|session| session.project_path.clone())
-        });
+    let project_path = extract_cwd(payload).map(String::from).or_else(|| {
+        service
+            .sessions
+            .read()
+            .get(&session_id)
+            .and_then(|session| session.project_path.clone())
+    });
 
     debug!(
         "Grok Build hook event: {} (normalized={}) session_id={}",
@@ -49,7 +54,7 @@ pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &A
     );
 
     if let Some(existing) = service.sessions.read().get(&session_id) {
-        if existing.tool != AgentToolType::GrokBuild && existing.state != AgentHookState::Idle {
+        if existing.tool != AgentToolType::GrokBuild && existing.state != AgentOccupancy::Idle {
             debug!(
                 "Skipping Grok Build event for session {} actively owned by {}",
                 session_id, existing.tool
@@ -99,8 +104,8 @@ pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &A
                     project_path,
                     ctx,
                     child_id,
-                    AgentHookState::Running,
-                    StateUpdateKind::Progress,
+                    AgentOccupancy::Running,
+                    OccupancyUpdateKind::Progress,
                 );
             }
             "notification" => {
@@ -114,8 +119,8 @@ pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &A
                         project_path,
                         ctx,
                         child_id,
-                        AgentHookState::PermissionRequest,
-                        StateUpdateKind::Permission,
+                        AgentOccupancy::PermissionRequest,
+                        OccupancyUpdateKind::Permission,
                     );
                 }
             }
@@ -135,20 +140,20 @@ pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &A
             service.update_state(
                 &session_id,
                 AgentToolType::GrokBuild,
-                AgentHookState::Idle,
+                AgentOccupancy::Idle,
                 project_path,
                 ctx,
-                StateUpdateKind::NewTurn,
+                OccupancyUpdateKind::NewTurn,
             );
         }
         "userpromptsubmit" | "user_prompt_submit" => {
             service.update_state(
                 &session_id,
                 AgentToolType::GrokBuild,
-                AgentHookState::Running,
+                AgentOccupancy::Running,
                 project_path,
                 ctx,
-                StateUpdateKind::NewTurn,
+                OccupancyUpdateKind::NewTurn,
             );
         }
         "pretooluse"
@@ -160,10 +165,10 @@ pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &A
             service.update_state(
                 &session_id,
                 AgentToolType::GrokBuild,
-                AgentHookState::Running,
+                AgentOccupancy::Running,
                 project_path,
                 ctx,
-                StateUpdateKind::Progress,
+                OccupancyUpdateKind::Progress,
             );
         }
         "notification" => match notification_type(payload) {
@@ -171,10 +176,10 @@ pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &A
                 service.update_state(
                     &session_id,
                     AgentToolType::GrokBuild,
-                    AgentHookState::PermissionRequest,
+                    AgentOccupancy::PermissionRequest,
                     project_path,
                     ctx,
-                    StateUpdateKind::Permission,
+                    OccupancyUpdateKind::Permission,
                 );
             }
             other => {
@@ -191,10 +196,10 @@ pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &A
             service.update_state(
                 &session_id,
                 AgentToolType::GrokBuild,
-                AgentHookState::Idle,
+                AgentOccupancy::Idle,
                 project_path,
                 ctx,
-                StateUpdateKind::TerminalIdle,
+                OccupancyUpdateKind::TerminalIdle,
             );
         }
         "sessionend" | "session_end" => {
@@ -203,10 +208,10 @@ pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &A
                 service.update_state(
                     &session_id,
                     AgentToolType::GrokBuild,
-                    AgentHookState::Idle,
+                    AgentOccupancy::Idle,
                     project_path,
                     ctx,
-                    StateUpdateKind::ForcedIdle,
+                    OccupancyUpdateKind::ForcedIdle,
                 );
             }
         }
@@ -222,15 +227,15 @@ pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &A
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::service::agent_hooks::AgentHookState;
+    use crate::service::agent_status::AgentOccupancy;
 
-    fn fire(service: &AgentHooksService, payload: Value) {
-        handle_event(service, &payload, &AtmosContext::default());
+    fn fire(service: &AgentStatusService, payload: Value) {
+        handle_event(service, &payload, &AgentStatusContext::default());
     }
 
     #[test]
     fn grok_state_mapping_matrix() {
-        let service = AgentHooksService::new();
+        let service = AgentStatusService::new();
         let sid = "grok-session";
 
         fire(
@@ -241,7 +246,7 @@ mod tests {
                 "cwd": "/tmp/proj",
             }),
         );
-        assert_eq!(service.get_all_sessions()[0].state, AgentHookState::Idle);
+        assert_eq!(service.get_all_sessions()[0].state, AgentOccupancy::Idle);
 
         fire(
             &service,
@@ -250,7 +255,7 @@ mod tests {
                 "sessionId": sid,
             }),
         );
-        assert_eq!(service.get_all_sessions()[0].state, AgentHookState::Running);
+        assert_eq!(service.get_all_sessions()[0].state, AgentOccupancy::Running);
 
         fire(
             &service,
@@ -259,7 +264,7 @@ mod tests {
                 "session_id": sid,
             }),
         );
-        assert_eq!(service.get_all_sessions()[0].state, AgentHookState::Running);
+        assert_eq!(service.get_all_sessions()[0].state, AgentOccupancy::Running);
 
         fire(
             &service,
@@ -271,7 +276,7 @@ mod tests {
         );
         assert_eq!(
             service.get_all_sessions()[0].state,
-            AgentHookState::PermissionRequest
+            AgentOccupancy::PermissionRequest
         );
 
         // idle_prompt must not change PermissionRequest
@@ -285,7 +290,7 @@ mod tests {
         );
         assert_eq!(
             service.get_all_sessions()[0].state,
-            AgentHookState::PermissionRequest
+            AgentOccupancy::PermissionRequest
         );
 
         fire(
@@ -295,12 +300,12 @@ mod tests {
                 "sessionId": sid,
             }),
         );
-        assert_eq!(service.get_all_sessions()[0].state, AgentHookState::Idle);
+        assert_eq!(service.get_all_sessions()[0].state, AgentOccupancy::Idle);
     }
 
     #[test]
     fn elicitation_dialog_sets_permission_request() {
-        let service = AgentHooksService::new();
+        let service = AgentStatusService::new();
         fire(
             &service,
             serde_json::json!({
@@ -311,13 +316,13 @@ mod tests {
         );
         assert_eq!(
             service.get_all_sessions()[0].state,
-            AgentHookState::PermissionRequest
+            AgentOccupancy::PermissionRequest
         );
     }
 
     #[test]
     fn task_complete_and_permission_denied_are_noops() {
-        let service = AgentHooksService::new();
+        let service = AgentStatusService::new();
         fire(
             &service,
             serde_json::json!({
@@ -333,7 +338,7 @@ mod tests {
                 "notificationType": "task_complete",
             }),
         );
-        assert_eq!(service.get_all_sessions()[0].state, AgentHookState::Running);
+        assert_eq!(service.get_all_sessions()[0].state, AgentOccupancy::Running);
 
         fire(
             &service,
@@ -342,20 +347,19 @@ mod tests {
                 "sessionId": "g3",
             }),
         );
-        assert_eq!(service.get_all_sessions()[0].state, AgentHookState::Running);
+        assert_eq!(service.get_all_sessions()[0].state, AgentOccupancy::Running);
     }
 
     #[test]
     fn foreign_tool_ownership_blocks_takeover() {
-        let service = AgentHooksService::new();
-        // Seed Claude ownership via its public handler
-        service.handle_claude_code_event(
-            &serde_json::json!({
-                "hook_event_name": "PreToolUse",
-                "session_id": "shared-pane",
-                "cwd": "/tmp",
-            }),
-            &AtmosContext::default(),
+        let service = AgentStatusService::new();
+        service.update_state(
+            "shared-pane",
+            AgentToolType::ClaudeCode,
+            AgentOccupancy::Running,
+            Some("/tmp".into()),
+            &AgentStatusContext::default(),
+            OccupancyUpdateKind::Progress,
         );
 
         fire(
@@ -369,12 +373,12 @@ mod tests {
         let sessions = service.get_all_sessions();
         assert_eq!(sessions.len(), 1);
         assert_eq!(sessions[0].tool, AgentToolType::ClaudeCode);
-        assert_eq!(sessions[0].state, AgentHookState::Running);
+        assert_eq!(sessions[0].state, AgentOccupancy::Running);
     }
 
     #[test]
     fn accepts_workspace_root_cwd_fields() {
-        let service = AgentHooksService::new();
+        let service = AgentStatusService::new();
         fire(
             &service,
             serde_json::json!({
@@ -391,7 +395,7 @@ mod tests {
 
     #[test]
     fn later_events_without_cwd_keep_existing_project_path() {
-        let service = AgentHooksService::new();
+        let service = AgentStatusService::new();
         fire(
             &service,
             serde_json::json!({

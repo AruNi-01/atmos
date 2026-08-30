@@ -17,11 +17,6 @@ export interface FunctionSettings {
     /** When true (default), agents launch with YOLO / skip-permissions flags. */
     yolo_mode?: boolean;
     /**
-     * When true (default), detected agent brand text is shown in terminal pane
-     * and center-stage tab titles. Icon always shows; when false, only icon + OSC.
-     */
-    show_agent_name_in_terminal_titles?: boolean;
-    /**
      * Running-state activity indicator style ids (unicode spinner or AIcss Orb).
      * See `agent-activity-indicator-styles.ts`.
      */
@@ -313,6 +308,7 @@ export interface AgentBehaviourSettings {
   attention_summary_delay_mins?: number;
   attention_summary_agent_id?: string | null;
   attention_summary_model?: string | null;
+  followup_policy?: "queue" | "steer";
 }
 
 export const agentBehaviourSettingsApi = {

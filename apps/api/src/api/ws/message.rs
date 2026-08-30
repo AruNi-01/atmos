@@ -13,6 +13,7 @@ where
 }
 use serde_json::Value;
 
+mod agent_chat;
 mod agents;
 mod disk_analyzer;
 mod fs;
@@ -25,6 +26,7 @@ mod skills;
 mod terminal;
 mod workspace;
 
+pub use agent_chat::*;
 pub use agents::*;
 pub use disk_analyzer::*;
 pub use fs::*;
@@ -564,6 +566,25 @@ pub enum WsAction {
     /// 获取 acp_servers.json 文件路径
     CustomAgentGetManifestPath,
 
+    AgentChatCreate,
+    AgentChatList,
+    AgentChatGet,
+    AgentChatMessages,
+    AgentChatRename,
+    AgentChatConfigure,
+    AgentChatDelete,
+    AgentChatSubscribe,
+    AgentChatUnsubscribe,
+    AgentChatSend,
+    AgentChatSteer,
+    AgentChatQueueAdd,
+    AgentChatQueueUpdate,
+    AgentChatQueueReorder,
+    AgentChatQueueDelete,
+    AgentChatCancel,
+    AgentChatPermissionRespond,
+    AgentModelCatalogGet,
+
     // ===== Automation 操作 =====
     AutomationList,
     AutomationGet,
@@ -830,10 +851,10 @@ pub enum WsEvent {
     WorkspaceDeleteProgress,
     /// 项目删除进度
     ProjectDeleteProgress,
-    /// Agent hook 状态变更
-    AgentHookStateChanged,
-    /// Idle agent hook sessions were cleared; payload contains removed session IDs
-    AgentHookSessionsCleared,
+    /// Agent occupancy changed
+    AgentStatusChanged,
+    /// Idle agent occupancy rows were cleared; payload contains removed session IDs
+    AgentStatusCleared,
     /// Sticky need-attention latch raised (permission / task complete)
     AgentAttentionRaised,
     /// Sticky need-attention latch(es) cleared after user acknowledge
@@ -874,6 +895,8 @@ pub enum WsEvent {
     SimulatorDownloadProgress,
     /// Connection-scoped Computer resource snapshot (APP-066)
     ResourceMonitorUpdated,
+    AgentChatEvent,
+    AgentModelCatalogUpdated,
 }
 
 /// 项目删除进度通知数据
@@ -1255,6 +1278,8 @@ pub struct AgentBehaviourSettingsUpdateRequest {
     pub attention_summary_agent_id: Option<String>,
     #[serde(default)]
     pub attention_summary_model: Option<String>,
+    #[serde(default)]
+    pub followup_policy: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

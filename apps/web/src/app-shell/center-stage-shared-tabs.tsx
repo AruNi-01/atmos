@@ -30,6 +30,7 @@ import {
   GitGraph,
   Github,
   Globe,
+  MessagesSquare,
   Play,
   Smartphone,
   SquareTerminal as TerminalIcon,
@@ -49,6 +50,7 @@ import { useTerminalCenterTabPresentation } from "@/features/terminal/hooks/use-
 import { cn } from "@/shared/lib/utils";
 import { CenterTabHeldShortcut } from "@/app-shell/HeldShortcutBadge";
 import {
+  AgentChatTabStatusIndicator,
   CenterStageShortcutTooltipBody,
   TerminalTabAgentIndicatorWithPanes,
   type TabGroupItem,
@@ -195,9 +197,9 @@ export function CenterStageTabList({
         <MotionTabsList
           className="flex h-8 w-full min-w-0 justify-start gap-0.5 overflow-hidden bg-background p-0.5"
           indicatorClassName={CENTER_STAGE_TAB_INDICATOR_CLASS}
+          trailing={actions}
         >
           {children}
-          {actions}
         </MotionTabsList>
       </MotionTabs>
     </div>
@@ -235,7 +237,8 @@ export function CenterStageStickyTabActions({
   return (
     <div
       className={cn(
-        "pointer-events-auto z-20 flex h-7 shrink-0 items-center gap-0.5",
+        // Above the list-level active pill (z-0); opaque so scroll cannot show it through + / group chrome.
+        "pointer-events-auto relative isolate z-20 flex h-7 shrink-0 items-center gap-0.5 bg-background",
         className,
       )}
       onPointerDown={(event) => event.stopPropagation()}
@@ -637,6 +640,24 @@ export function CenterStageTabGroupItemContent({
       <>
         {leading(<BrowserTabFavicon faviconUrl={tab.faviconUrl} />)}
         {label(tab.label)}
+      </>
+    );
+  }
+
+  if (tab.kind === "agent-chat") {
+    const providerId = tab.providerId?.trim() || "";
+    const chatId = tab.chatId?.trim() || "";
+    return (
+      <>
+        {leading(
+          providerId ? (
+            <AgentIcon registryId={providerId} name={providerId} size={14} />
+          ) : (
+            <MessagesSquare className="size-3.5 shrink-0" />
+          ),
+        )}
+        {label(tab.label)}
+        {chatId ? <AgentChatTabStatusIndicator chatId={chatId} /> : null}
       </>
     );
   }

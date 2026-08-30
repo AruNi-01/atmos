@@ -4,7 +4,7 @@ import { getAgentIconCandidates } from "@/features/agent/lib/agent-icon-candidat
 import {
   AGENT_TOOL_ICON_IDS,
   type AgentToolType,
-} from "@/features/agent/store/agent-hooks-store";
+} from "@/features/agent/store/agent-status-store";
 import { desktopInvoke, isDesktopRuntime } from "@/shared/lib/desktop-bridge";
 
 export interface AppNotificationPayload {
@@ -26,12 +26,15 @@ export interface BrowserNotificationOptions {
  */
 export type NotificationClickAction =
   | {
-      kind: "agent_hook";
+      kind: "agent_status";
       session_id: string;
       context_id?: string | null;
       pane_id?: string | null;
       side_chat_id?: string | null;
       source_pane_id?: string | null;
+      surface?: string | null;
+      surface_id?: string | null;
+      space_id?: string | null;
       tool?: string;
       project_path?: string | null;
     }
@@ -78,7 +81,7 @@ export function isNotificationClickAction(
 ): value is NotificationClickAction {
   if (!value || typeof value !== "object") return false;
   const kind = (value as { kind?: unknown }).kind;
-  if (kind === "agent_hook") {
+  if (kind === "agent_status") {
     return typeof (value as { session_id?: unknown }).session_id === "string";
   }
   if (kind === "automation") {

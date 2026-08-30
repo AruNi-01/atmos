@@ -51,7 +51,9 @@ const DEFAULT_AGENT_PREFS: AgentUiPrefs = {
 
 export interface AgentLastSession {
   registryId: string;
-  acpSessionId: string;
+  chatId?: string | null;
+  /** @deprecated pre-APP-067 ACP identity; ignored when restoring history */
+  acpSessionId?: string;
   cwd: string | null;
   workspaceId: string | null;
   projectId: string | null;
@@ -95,8 +97,11 @@ export function readAgentLastSession(contextKey: string): AgentLastSession | nul
   const value = useUiPrefStore.getState().readSlice(instanceId, 'agent', DEFAULT_AGENT_PREFS)
     .lastSessionByContext[contextKey];
   if (!value || typeof value === 'string') return null;
-  if (!value.registryId || !value.acpSessionId) return null;
-  return value;
+  if (!value.registryId) return null;
+  return {
+    ...value,
+    chatId: value.chatId?.trim() || null,
+  };
 }
 
 export function writeAgentLastSession(contextKey: string, session: AgentLastSession): void {
@@ -119,10 +124,23 @@ export function clearAgentLastSession(contextKey: string): void {
     'agent',
     prev => {
       const next = { ...prev.lastSessionByContext };
-      delete next[contextKey];
+      for (const key of Object.keys(next)) {
+        if (lastSessionKeyMatchesContext(key, contextKey)) {
+          delete next[key];
+        }
+      }
       return { ...prev, lastSessionByContext: next };
     },
     DEFAULT_AGENT_PREFS,
+  );
+}
+
+function lastSessionKeyMatchesContext(key: string, contextKey: string): boolean {
+  if (!contextKey) return false;
+  if (key === contextKey || key.startsWith(`${contextKey}:`)) return true;
+  return (
+    key.startsWith(`workspace:${contextKey}`) ||
+    key.startsWith(`project:${contextKey}`)
   );
 }
 

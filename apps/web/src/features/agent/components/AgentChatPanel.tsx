@@ -4,27 +4,22 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useTranslations } from "next-intl";
 import "streamdown/styles.css";
 import {
-  Confirmation,
-  ConfirmationActions,
-  ConfirmationRequest,
   Conversation,
   ConversationContent,
   ConversationEmptyState,
   ConversationScrollButton,
-  ShineBorder,
   cn,
 } from "@workspace/ui";
 import { ChevronDown, Loader2, MessageSquare, X } from "lucide-react";
 import { useAgentChatLayoutStore } from "@/features/agent/store/agent-chat-layout-store";
 import { DEFAULT_AGENT_CHAT_MODE, type AgentChatMode } from "@/features/agent/types/index";
-import { MarkdownRenderer } from "@/shared/components/markdown/MarkdownRenderer";
 import { useDesktopTrafficLightsPadding } from "@/shared/hooks/use-desktop-traffic-lights-padding";
 import { SessionUsageBadge } from "./UsageBadges";
 import { AgentActivityIndicator } from "./AgentActivityIndicator";
-import { PermissionActionButton } from "./MessageQueueDock";
+import { AgentPermissionCard } from "./AgentPermissionCard";
 import { AgentPromptComposer } from "./AgentPromptComposer";
 import { useAgentChatSession } from "../hooks/use-agent-chat-session";
-import type { UseAgentChatSessionOptions } from "../hooks/use-agent-chat-session-types";
+import type { AgentChatSurfaceVariant, UseAgentChatSessionOptions } from "../hooks/use-agent-chat-session-types";
 import { AgentChatHeader } from "./AgentChatHeader";
 import { AgentAuthDialog } from "./AgentAuthDialog";
 import { AgentMessageTimelineNav } from "./AgentMessageTimelineNav";
@@ -33,8 +28,10 @@ import {
   AgentChatHistorySidebarFrame,
   AgentChatHistorySidebarToggle,
 } from "./AgentChatHistorySidebarFrame";
-import { AgentChatEntryView } from "./AgentChatEntryView";
+import { AgentChatMessageView } from "./AgentChatMessageView";
+import { AgentChatCwdProvider } from "./agent-chat-cwd-context";
 import { openAgentChatWindow } from "../lib/desktop-agent-chat-window";
+import { ackAgentChatAttention } from "../lib/agent-status-ack";
 import { useAgentChatHistorySidebarLayout } from "../hooks/use-agent-chat-history-sidebar-layout";
 import {
   closeCurrentStandaloneWindow,
@@ -51,23 +48,57 @@ import {
 // ---------------------------------------------------------------------------
 
 interface AgentChatPanelProps {
-  variant?: "modal" | "sidebar" | "standalone";
+  variant?: AgentChatSurfaceVariant;
   mode?: AgentChatMode;
   publishStatus?: boolean;
   active?: boolean;
   allowFullscreen?: boolean;
   contextOverride?: UseAgentChatSessionOptions["contextOverride"];
   transformPrompt?: (prompt: string) => string;
-  /** Isolate session storage (canvas widgets: shape instance id). */
   instanceKey?: string | null;
-  initialSessionBinding?: UseAgentChatSessionOptions["initialSessionBinding"];
-  onSessionBindingChange?: UseAgentChatSessionOptions["onSessionBindingChange"];
+  paintContextId?: string | null;
+  chatId?: string | null;
+  onChatStarted?: (id: string, meta?: {
+    title?: string | null;
+    cwd?: string;
+    providerId?: string | null;
+  }) => void;
+  onChatUpdated?: (id: string, meta: {
+    title?: string | null;
+    providerId?: string | null;
+    cwd?: string;
+  }) => void;
+  onOpenChat?: (id: string) => void;
+  onClose?: () => void;
 }
 
 const WIDE_HISTORY_LAYOUT_MIN_WIDTH = 900;
+const MODAL_MIN_WIDTH = 320;
+const MODAL_MIN_HEIGHT = 300;
+
+type ModalFrame = { x: number; y: number; width: number; height: number };
+
+function writeModalFrame(node: HTMLElement | null, frame: ModalFrame) {
+  if (!node) return;
+  node.style.transform = `translate3d(${frame.x}px, ${frame.y}px, 0)`;
+  node.style.width = `${frame.width}px`;
+  node.style.height = `${frame.height}px`;
+}
+
+function modalFrameStyle(frame: ModalFrame, opacity: number): React.CSSProperties {
+  return {
+    left: 0,
+    top: 0,
+    width: frame.width,
+    height: frame.height,
+    opacity: opacity / 100,
+    transform: `translate3d(${frame.x}px, ${frame.y}px, 0)`,
+    willChange: "transform",
+  };
+}
 
 export function AgentChatPanel({
-  variant = "modal",
+  variant = "sidebar",
   mode = DEFAULT_AGENT_CHAT_MODE,
   publishStatus = variant === "modal",
   active = true,
@@ -75,11 +106,16 @@ export function AgentChatPanel({
   contextOverride,
   transformPrompt,
   instanceKey = null,
-  initialSessionBinding = null,
-  onSessionBindingChange,
+  paintContextId = null,
+  chatId: chatIdProp = null,
+  onChatStarted,
+  onChatUpdated,
+  onOpenChat,
+  onClose,
 }: AgentChatPanelProps = {}) {
   const t = useTranslations("Agent.components.chatPanel");
-  const canFullscreen = variant !== "standalone" && (allowFullscreen ?? true);
+  const canFullscreen = variant !== "standalone" && variant !== "center" && (allowFullscreen ?? true);
+  const canOpenStandaloneWindow = variant !== "standalone";
   const [fullscreenRequested, setFullscreenRequested] = useState(false);
   const [isStandaloneChatOpen, setIsStandaloneChatOpen] = useState(false);
   const isFullscreen = canFullscreen && fullscreenRequested;
@@ -87,19 +123,24 @@ export function AgentChatPanel({
   const needsTrafficLightsPadding = useDesktopTrafficLightsPadding();
   const panelRef = useRef<HTMLDivElement>(null);
   const [panelWidth, setPanelWidth] = useState(0);
-  const showsWideHistoryLayout = panelWidth >= WIDE_HISTORY_LAYOUT_MIN_WIDTH;
+  const showHistoryChrome = variant === "standalone" || variant === "modal";
+  const showsWideHistoryLayout =
+    variant === "standalone" && panelWidth >= WIDE_HISTORY_LAYOUT_MIN_WIDTH;
+  const chatId = chatIdProp || "";
 
   const session = useAgentChatSession({
     variant,
     mode,
     publishStatus,
     active: active && !isEmbeddedPausedForStandalone,
-    historyListActive: showsWideHistoryLayout,
     contextOverride,
     transformPrompt,
     instanceKey,
-    initialSessionBinding,
-    onSessionBindingChange,
+    paintContextId,
+    chatId,
+    onChatStarted,
+    onChatUpdated,
+    onOpenChat,
   });
 
   // ---------------------------------------------------------------------------
@@ -108,10 +149,10 @@ export function AgentChatPanel({
   const { layout, updateLayout, loaded: layoutLoaded, loadLayout } = useAgentChatLayoutStore();
 
   useEffect(() => {
-    if (!session.isPanelOpen) {
+    if (!active) {
       setFullscreenRequested(false);
     }
-  }, [session.isPanelOpen]);
+  }, [active]);
 
   useEffect(() => {
     if (variant === "modal") {
@@ -119,10 +160,15 @@ export function AgentChatPanel({
     }
   }, [loadLayout, variant]);
 
-  const dragState = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
+  const dragState = useRef<{ startX: number; startY: number; origX: number; origY: number; width: number; height: number } | null>(null);
   const dragAbortController = useRef<AbortController | null>(null);
   const resizeState = useRef<{ startX: number; startY: number; origW: number; origH: number; origX: number; origY: number; edge: string } | null>(null);
   const resizeAbortController = useRef<AbortController | null>(null);
+  // Visual frame while dragging/resizing. Writing this through React/Zustand
+  // re-renders the whole chat on every pointermove.
+  const liveFrameRef = useRef<ModalFrame | null>(null);
+  const pendingFrameRef = useRef<ModalFrame | null>(null);
+  const frameRafRef = useRef<number | null>(null);
   const {
     historySidebarFrameRef,
     historySidebarWidth,
@@ -132,7 +178,7 @@ export function AgentChatPanel({
     handleHistorySidebarResizeStart,
   } = useAgentChatHistorySidebarLayout({ panelWidth });
 
-  const shouldMeasurePanel = session.isPanelOpen && (variant !== "modal" || layoutLoaded);
+  const shouldMeasurePanel = active && (variant !== "modal" || layoutLoaded);
 
   useEffect(() => {
     if (!shouldMeasurePanel) {
@@ -147,6 +193,7 @@ export function AgentChatPanel({
     }
 
     const updateWidth = (width = node.getBoundingClientRect().width) => {
+      if (liveFrameRef.current) return;
       const nextWidth = Math.round(width);
       setPanelWidth((current) => (current === nextWidth ? current : nextWidth));
     };
@@ -184,21 +231,70 @@ export function AgentChatPanel({
     };
   }, []);
 
+  const scheduleModalFrame = useCallback((frame: ModalFrame) => {
+    pendingFrameRef.current = frame;
+    liveFrameRef.current = frame;
+    if (frameRafRef.current != null) return;
+    frameRafRef.current = window.requestAnimationFrame(() => {
+      frameRafRef.current = null;
+      const next = pendingFrameRef.current;
+      if (!next) return;
+      writeModalFrame(panelRef.current, next);
+    });
+  }, []);
+
+  const commitModalFrame = useCallback((partial: Partial<ModalFrame>) => {
+    if (frameRafRef.current != null) {
+      window.cancelAnimationFrame(frameRafRef.current);
+      frameRafRef.current = null;
+    }
+    const pending = pendingFrameRef.current;
+    pendingFrameRef.current = null;
+    liveFrameRef.current = null;
+    if (pending) {
+      writeModalFrame(panelRef.current, pending);
+    }
+    updateLayout(partial);
+  }, [updateLayout]);
+
   const handleDragStart = useCallback((e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest('button, input, textarea, [role="button"], [data-radix-popper-content-wrapper]')) return;
     e.preventDefault();
     const pos = resolvePosition();
-    dragState.current = { startX: e.clientX, startY: e.clientY, origX: pos.x, origY: pos.y };
+    dragState.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      origX: pos.x,
+      origY: pos.y,
+      width: layout.width,
+      height: layout.height,
+    };
 
     const handleMove = (ev: MouseEvent) => {
       if (!dragState.current) return;
       const dx = ev.clientX - dragState.current.startX;
       const dy = ev.clientY - dragState.current.startY;
-      const clamped = clamp(dragState.current.origX + dx, dragState.current.origY + dy, layout.width, layout.height);
-      updateLayout({ x: clamped.x, y: clamped.y });
+      const clamped = clamp(
+        dragState.current.origX + dx,
+        dragState.current.origY + dy,
+        dragState.current.width,
+        dragState.current.height,
+      );
+      scheduleModalFrame({
+        x: clamped.x,
+        y: clamped.y,
+        width: dragState.current.width,
+        height: dragState.current.height,
+      });
     };
     const handleUp = () => {
+      const pending = pendingFrameRef.current;
       dragState.current = null;
+      if (pending) {
+        commitModalFrame({ x: pending.x, y: pending.y });
+      } else {
+        liveFrameRef.current = null;
+      }
       dragAbortController.current?.abort();
       dragAbortController.current = null;
     };
@@ -207,10 +303,8 @@ export function AgentChatPanel({
     const { signal } = dragAbortController.current;
     document.addEventListener('mousemove', handleMove, { signal });
     document.addEventListener('mouseup', handleUp, { signal });
-  }, [resolvePosition, clamp, layout.width, layout.height, updateLayout]);
+  }, [resolvePosition, clamp, layout.width, layout.height, scheduleModalFrame, commitModalFrame]);
 
-  const MIN_W = 320;
-  const MIN_H = 300;
   const handleResizeStart = useCallback((edge: string) => (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -227,16 +321,27 @@ export function AgentChatPanel({
       let newX = s.origX;
       let newY = s.origY;
 
-      if (s.edge.includes('e')) newW = Math.max(MIN_W, s.origW + dx);
-      if (s.edge.includes('w')) { newW = Math.max(MIN_W, s.origW - dx); newX = s.origX + s.origW - newW; }
-      if (s.edge.includes('s')) newH = Math.max(MIN_H, s.origH + dy);
-      if (s.edge.includes('n')) { newH = Math.max(MIN_H, s.origH - dy); newY = s.origY + s.origH - newH; }
+      if (s.edge.includes('e')) newW = Math.max(MODAL_MIN_WIDTH, s.origW + dx);
+      if (s.edge.includes('w')) { newW = Math.max(MODAL_MIN_WIDTH, s.origW - dx); newX = s.origX + s.origW - newW; }
+      if (s.edge.includes('s')) newH = Math.max(MODAL_MIN_HEIGHT, s.origH + dy);
+      if (s.edge.includes('n')) { newH = Math.max(MODAL_MIN_HEIGHT, s.origH - dy); newY = s.origY + s.origH - newH; }
 
       const clamped = clamp(newX, newY, newW, newH);
-      updateLayout({ width: newW, height: newH, x: clamped.x, y: clamped.y });
+      scheduleModalFrame({ width: newW, height: newH, x: clamped.x, y: clamped.y });
     };
     const handleUp = () => {
+      const pending = pendingFrameRef.current;
       resizeState.current = null;
+      if (pending) {
+        commitModalFrame({
+          width: pending.width,
+          height: pending.height,
+          x: pending.x,
+          y: pending.y,
+        });
+      } else {
+        liveFrameRef.current = null;
+      }
       resizeAbortController.current?.abort();
       resizeAbortController.current = null;
     };
@@ -245,10 +350,14 @@ export function AgentChatPanel({
     const { signal } = resizeAbortController.current;
     document.addEventListener('mousemove', handleMove, { signal });
     document.addEventListener('mouseup', handleUp, { signal });
-  }, [resolvePosition, clamp, layout.width, layout.height, updateLayout]);
+  }, [resolvePosition, clamp, layout.width, layout.height, scheduleModalFrame, commitModalFrame]);
 
   useEffect(() => {
     return () => {
+      if (frameRafRef.current != null) {
+        window.cancelAnimationFrame(frameRafRef.current);
+        frameRafRef.current = null;
+      }
       dragAbortController.current?.abort();
       dragAbortController.current = null;
       resizeAbortController.current?.abort();
@@ -273,16 +382,20 @@ export function AgentChatPanel({
   // ---------------------------------------------------------------------------
 
   const pos = variant === "modal" ? resolvePosition() : null;
+  const modalFrame = pos
+    ? (liveFrameRef.current ?? { x: pos.x, y: pos.y, width: layout.width, height: layout.height })
+    : null;
 
   const {
     isConnected,
     isConnecting,
     error,
-    sessionId,
-    acpSessionId,
+    chatId: liveChatId,
+    agentLocked,
     sessionCwd,
-    entries,
-    setEntries,
+    availableCommands,
+    messages,
+    setMessages,
     currentPlan,
     pendingPermission,
     pendingPermissionMarkdown,
@@ -291,6 +404,8 @@ export function AgentChatPanel({
     stoppedRef,
     isResumingHistory,
     isResumedSession,
+    runtimeStatus,
+    hasPersistenceHandle,
     installedAgents,
     setInstalledAgents,
     activeAgent,
@@ -299,10 +414,15 @@ export function AgentChatPanel({
     loadingAgents,
     agentInfo,
     capabilities,
+    catalogModelsLoading,
+    refreshEmptyCatalog,
     configOptions,
     setConfigOption,
+    setProviderId,
+    persistPreferredRegistry,
     setAgentDefaultConfig,
     sessionUsage,
+    elapsedMs,
     historyOpen,
     setHistoryOpen,
     historySessions,
@@ -321,46 +441,51 @@ export function AgentChatPanel({
     localPath,
     sessionWorkspaceId,
     sessionProjectId,
+    projects,
     canUseCurrentMode,
-    panelTitle,
     connectionPhaseLabel,
     queueKey,
     queuedPrompts,
     removeQueuedAgentChatPrompt,
     updateQueuedAgentChatPrompt,
     moveQueuedAgentChatPrompt,
-    newSessionAgentsOpen,
-    setNewSessionAgentsOpen,
-    headerHovered,
-    setHeaderHovered,
     bottomRef,
-    conversationRef,
+    transcriptRef,
     authRequest,
     selectedAuthMethodId,
     setSelectedAuthMethodId,
     clearAuthRequest,
     startSession,
     exportableMessages,
-    userEntryIndices,
+    userMessageIndices,
     messageNavIndex,
     handleSubmit,
     handleClose,
     handleLogoutAgent,
     handlePermission,
     handleCreateNewSession,
+    handleSelectWorkingDirectory,
     handleSelectHistorySession,
     handleSelectMessage,
-    handleSetDefaultAgent,
-    handleOpenNewSessionAgentsMenu,
-    handleScheduleCloseNewSessionAgentsMenu,
-    handleExportConversation,
+    handleExportChat,
     persistHandoffSnapshot,
     restoreHandoffSnapshot,
     sendCancel,
   } = session;
+
+  const ackVisibleChatAttention = useCallback(() => {
+    ackAgentChatAttention(liveChatId || chatId);
+  }, [chatId, liveChatId]);
+
   const standaloneSurfaceKey = useMemo(
-    () => makeStandaloneSurfaceKey("agent-chat", sessionWorkspaceId, sessionProjectId),
-    [sessionProjectId, sessionWorkspaceId],
+    () =>
+      makeStandaloneSurfaceKey(
+        "agent-chat",
+        sessionWorkspaceId,
+        sessionProjectId,
+        instanceKey || liveChatId || chatId || null,
+      ),
+    [chatId, instanceKey, liveChatId, sessionProjectId, sessionWorkspaceId],
   );
 
   useEffect(() => {
@@ -392,7 +517,12 @@ export function AgentChatPanel({
       }
       setIsStandaloneChatOpen(isOpen);
     });
-  }, [persistHandoffSnapshot, restoreHandoffSnapshot, standaloneSurfaceKey, variant]);
+  }, [
+    persistHandoffSnapshot,
+    restoreHandoffSnapshot,
+    standaloneSurfaceKey,
+    variant,
+  ]);
 
   const handleToggleFullscreen = useCallback(() => {
     setFullscreenRequested((current) => !current);
@@ -400,24 +530,28 @@ export function AgentChatPanel({
 
   const handleClosePanel = useCallback(() => {
     setFullscreenRequested(false);
+    onClose?.();
     handleClose();
-  }, [handleClose]);
+  }, [handleClose, onClose]);
 
   const handleOpenStandaloneWindow = useCallback(async () => {
     const handoffToken = await persistHandoffSnapshot();
     await openAgentChatWindow({
       agent: registryId || defaultRegistryId || null,
-      session: acpSessionId,
+      chatId: liveChatId || chatId,
       sessionCwd: sessionCwd ?? localPath,
       workspaceId: sessionWorkspaceId,
       projectId: sessionProjectId,
+      instanceKey: instanceKey || liveChatId || chatId || null,
       handoffToken,
     });
     markStandaloneSurfaceOpen(standaloneSurfaceKey);
     setIsStandaloneChatOpen(true);
   }, [
-    acpSessionId,
+    chatId,
     defaultRegistryId,
+    instanceKey,
+    liveChatId,
     localPath,
     persistHandoffSnapshot,
     registryId,
@@ -485,12 +619,15 @@ export function AgentChatPanel({
   // When the wide sidebar is open, hide the header History popover trigger.
   // When collapsed (or not wide), keep the session-history button visible.
   const historyTriggerClassName =
-    showsWideHistoryLayout && !historySidebarCollapsed ? "hidden" : undefined;
-  const wideContentClassName = showsWideHistoryLayout
-    ? "mx-auto w-full max-w-4xl"
+    !showHistoryChrome || (showsWideHistoryLayout && !historySidebarCollapsed)
+      ? "hidden"
+      : undefined;
+  const constrainChatWidth = variant === "center" || showsWideHistoryLayout;
+  const wideContentClassName = constrainChatWidth
+    ? "mx-auto w-full max-w-3xl"
     : "w-full";
-  const floatingControlRailClassName = showsWideHistoryLayout
-    ? "left-1/2 w-full max-w-4xl -translate-x-1/2 px-3"
+  const floatingControlRailClassName = constrainChatWidth
+    ? "left-1/2 w-full max-w-3xl -translate-x-1/2 px-3"
     : "inset-x-0 px-3";
   const wasResumingHistoryRef = useRef(false);
 
@@ -500,7 +637,7 @@ export function AgentChatPanel({
       return;
     }
 
-    if (!wasResumingHistoryRef.current || entries.length === 0) return;
+    if (!wasResumingHistoryRef.current || messages.length === 0) return;
     wasResumingHistoryRef.current = false;
 
     let secondFrame: number | null = null;
@@ -516,9 +653,10 @@ export function AgentChatPanel({
         window.cancelAnimationFrame(secondFrame);
       }
     };
-  }, [bottomRef, entries.length, isResumingHistory]);
+  }, [bottomRef, isResumingHistory, messages.length]);
 
-  if (!session.isPanelOpen || (variant === "modal" && !layoutLoaded)) return null;
+  // Host `active`, not pause-gated session.isPanelOpen (that returned null before the placeholder).
+  if (!active || (variant === "modal" && !layoutLoaded)) return null;
 
   const shouldMarkAsNativeSurfaceOverlay = variant === "modal" || isFullscreen;
 
@@ -526,15 +664,16 @@ export function AgentChatPanel({
     return (
       <div
         ref={panelRef}
+        data-agent-chat-workspace={liveChatId || chatId || "draft"}
+        data-agent-chat-standalone-paused="true"
         data-atmos-native-surface-overlay={shouldMarkAsNativeSurfaceOverlay ? "true" : undefined}
         className={cn(
-          "relative flex items-center justify-center overflow-hidden bg-background p-6 text-center",
-          variant === "modal" && !isFullscreen && "fixed z-50 rounded-xl border border-border shadow-lg",
-          variant === "sidebar" && !isFullscreen && "h-full min-h-0",
+          "relative flex h-full min-h-0 min-w-0 w-full flex-1 items-center justify-center overflow-hidden border border-dashed border-border/60 bg-muted/10 px-6 text-center",
+          variant === "modal" && !isFullscreen && "fixed z-50 rounded-xl border-border bg-background shadow-lg",
           isFullscreen && "fixed inset-0 z-50 h-dvh w-full",
         )}
-        style={variant === "modal" && pos && !isFullscreen
-          ? { left: pos.x, top: pos.y, width: layout.width, height: layout.height, opacity: layout.opacity / 100 }
+        style={variant === "modal" && modalFrame && !isFullscreen
+          ? modalFrameStyle(modalFrame, layout.opacity)
           : undefined}
       >
         <div className="max-w-sm">
@@ -547,7 +686,7 @@ export function AgentChatPanel({
           <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
             <button
               type="button"
-              className="inline-flex h-8 items-center justify-center rounded-md border border-border bg-background px-3 text-xs font-medium text-foreground shadow-sm hover:bg-muted"
+              className="inline-flex h-8 items-center justify-center rounded-md border border-border bg-background px-3 text-xs font-medium text-foreground shadow-sm hover:bg-accent"
               onClick={handleReturnChatToEmbedded}
             >
               {t("header.standaloneWindow.returnHere")}
@@ -555,8 +694,8 @@ export function AgentChatPanel({
             {variant === "modal" && (
               <button
                 type="button"
-                className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md border border-border bg-background px-3 text-xs font-medium text-foreground shadow-sm hover:bg-muted"
-                onClick={session.handleClose}
+                className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md border border-border bg-background px-3 text-xs font-medium text-foreground shadow-sm hover:bg-accent"
+                onClick={handleClosePanel}
               >
                 <X className="size-3.5" aria-hidden="true" />
                 {t("header.standaloneWindow.closeModal")}
@@ -571,18 +710,21 @@ export function AgentChatPanel({
   return (
     <div
       ref={panelRef}
+      data-agent-chat-workspace={liveChatId || chatId || "draft"}
       data-atmos-native-surface-overlay={shouldMarkAsNativeSurfaceOverlay ? "true" : undefined}
+      onPointerEnter={ackVisibleChatAttention}
+      onPointerDown={ackVisibleChatAttention}
       className={cn(
         "relative flex overflow-hidden bg-background",
         showsWideHistoryLayout && "bg-muted/20",
         !showsWideHistoryLayout && "flex-col",
         variant === "modal" && !isFullscreen && "fixed z-50 rounded-xl border border-border shadow-lg",
-        variant === "sidebar" && !isFullscreen && "h-full min-h-0",
+        (variant === "sidebar" || variant === "center") && !isFullscreen && "flex h-full min-h-0 min-w-0 w-full flex-1 flex-col",
         variant === "standalone" && "h-dvh min-h-0 w-full",
         isFullscreen && "fixed inset-0 z-50 h-dvh w-full"
       )}
-      style={variant === "modal" && pos && !isFullscreen
-        ? { left: pos.x, top: pos.y, width: layout.width, height: layout.height, opacity: layout.opacity / 100 }
+      style={variant === "modal" && modalFrame && !isFullscreen
+        ? modalFrameStyle(modalFrame, layout.opacity)
         : undefined}
     >
       {variant === "modal" && !isFullscreen && (
@@ -639,11 +781,11 @@ export function AgentChatPanel({
             loadHistorySessions={loadHistorySessions}
             handleSelectHistorySession={handleSelectHistorySession}
             handleCreateNewSession={handleCreateNewSession}
-            isConnecting={isConnecting}
+            onPreferredRegistryChange={persistPreferredRegistry}
             installedAgents={installedAgents}
             defaultRegistryId={defaultRegistryId}
             activeRegistryId={registryId}
-            activeAcpSessionId={acpSessionId}
+            activeChatId={liveChatId || chatId}
             activeAgentName={
               activeAgent ? (agentInfo?.title ?? agentInfo?.name ?? activeAgent.name) : null
             }
@@ -659,59 +801,59 @@ export function AgentChatPanel({
           showsWideHistoryLayout && !historySidebarCollapsed && "rounded-l-xl",
         )}
       >
-        <AgentChatHeader
-          variant={variant}
-          handleDragStart={variant === "modal" && !isFullscreen ? handleDragStart : undefined}
-          handleOpenStandaloneWindow={variant === "modal" ? handleOpenStandaloneWindow : undefined}
-          handleReturnToEmbeddedWindow={variant === "standalone" ? handleCloseStandaloneChatWindow : undefined}
-          handleToggleFullscreen={canFullscreen ? handleToggleFullscreen : undefined}
-          isFullscreen={isFullscreen}
-          headerHovered={headerHovered}
-          setHeaderHovered={setHeaderHovered}
-          isConnected={isConnected}
-          isConnecting={isConnecting}
-          activeAgent={activeAgent}
-          agentInfo={agentInfo}
-          capabilities={capabilities}
-          installedAgents={installedAgents}
-          defaultRegistryId={defaultRegistryId}
-          registryId={registryId}
-          newSessionAgentsOpen={newSessionAgentsOpen}
-          setNewSessionAgentsOpen={setNewSessionAgentsOpen}
-          handleCreateNewSession={handleCreateNewSession}
-          handleOpenNewSessionAgentsMenu={handleOpenNewSessionAgentsMenu}
-          handleScheduleCloseNewSessionAgentsMenu={handleScheduleCloseNewSessionAgentsMenu}
-          handleSetDefaultAgent={handleSetDefaultAgent}
-          panelTitle={panelTitle}
-          localPath={localPath}
-          sessionCwd={sessionCwd}
-          exportableMessages={exportableMessages}
-          handleExportConversation={handleExportConversation}
-          historyOpen={historyOpen}
-          setHistoryOpen={setHistoryOpen}
-          historySessions={historySessions}
-          historyHasMore={historyHasMore}
-          historyLoading={historyLoading}
-          historyCursor={historyCursor}
-          historyResumeUnsupportedReason={historyResumeUnsupportedReason}
-          historyUnsupportedReason={historyUnsupportedReason}
-          trafficLightsContentInset={insetHeaderForTrafficLights}
-          loadHistorySessions={loadHistorySessions}
-          handleSelectHistorySession={handleSelectHistorySession}
-          historyTriggerClassName={historyTriggerClassName}
-          historySidebarControl={historySidebarControl}
-          handleClose={handleClosePanel}
-          handleLogoutAgent={handleLogoutAgent}
-          displaySessionTitle={displaySessionTitle}
-          isAutoGeneratingTitle={isAutoGeneratingTitle}
-          shouldScrambleAutoTitle={shouldScrambleAutoTitle}
-          setShouldScrambleAutoTitle={setShouldScrambleAutoTitle}
-          sessionTitleSource={sessionTitleSource}
-          sessionId={sessionId}
-        />
+        {variant !== "center" ? (
+          <AgentChatHeader
+            variant={variant}
+            constrainWidth={constrainChatWidth}
+            handleDragStart={variant === "modal" && !isFullscreen ? handleDragStart : undefined}
+            handleOpenStandaloneWindow={canOpenStandaloneWindow ? handleOpenStandaloneWindow : undefined}
+            handleReturnToEmbeddedWindow={variant === "standalone" ? handleCloseStandaloneChatWindow : undefined}
+            handleToggleFullscreen={canFullscreen ? handleToggleFullscreen : undefined}
+            isFullscreen={isFullscreen}
+            isConnecting={isConnecting}
+            capabilities={capabilities}
+            localPath={localPath}
+            sessionCwd={sessionCwd}
+            exportableMessages={exportableMessages}
+            handleExportChat={handleExportChat}
+            historyOpen={historyOpen}
+            setHistoryOpen={setHistoryOpen}
+            historySessions={historySessions}
+            historyHasMore={historyHasMore}
+            historyLoading={historyLoading}
+            historyCursor={historyCursor}
+            historyResumeUnsupportedReason={historyResumeUnsupportedReason}
+            historyUnsupportedReason={historyUnsupportedReason}
+            trafficLightsContentInset={insetHeaderForTrafficLights}
+            loadHistorySessions={loadHistorySessions}
+            handleSelectHistorySession={handleSelectHistorySession}
+            historyTriggerClassName={historyTriggerClassName}
+            historySidebarControl={historySidebarControl}
+            handleClose={handleClosePanel}
+            handleLogoutAgent={handleLogoutAgent}
+            handleCreateNewSession={handleCreateNewSession}
+            canCreateNewSession={canUseCurrentMode}
+            displaySessionTitle={displaySessionTitle}
+            isAutoGeneratingTitle={isAutoGeneratingTitle}
+            shouldScrambleAutoTitle={shouldScrambleAutoTitle}
+            setShouldScrambleAutoTitle={setShouldScrambleAutoTitle}
+            sessionTitleSource={sessionTitleSource}
+            chatId={liveChatId || chatId}
+            contextProjects={projects}
+            contextSelection={{
+              workspaceId: sessionWorkspaceId,
+              projectId: sessionProjectId,
+              cwd: sessionCwd,
+            }}
+          />
+        ) : null}
 
-      <div ref={conversationRef} className="min-h-0 flex-1 overflow-hidden">
-        <Conversation
+      <div ref={transcriptRef} className="min-h-0 flex-1 overflow-hidden">
+        <AgentChatCwdProvider
+          cwd={sessionCwd || localPath}
+          projectOrWorkspacePath={localPath}
+        >
+          <Conversation
           key={isResumingHistory ? "restoring-history" : "live-chat"}
           className="min-h-0 h-full overflow-hidden"
           initial={isResumingHistory ? false : "smooth"}
@@ -741,7 +883,7 @@ export function AgentChatPanel({
                 {error}
               </div>
             )}
-            {canUseCurrentMode && isConnected && entries.length === 0 && !isConnecting && !error && (
+            {canUseCurrentMode && isConnected && messages.length === 0 && !isConnecting && !isResumingHistory && !error && (
               <ConversationEmptyState
                 icon={<MessageSquare className="size-12" />}
                 title={isResumedSession ? t("empty.resumedTitle") : t("empty.startTitle")}
@@ -752,22 +894,22 @@ export function AgentChatPanel({
                 }
               />
             )}
-            {entries.map((entry, i) => (
-              <AgentChatEntryView
-                key={i}
-                entry={entry}
-                entryIndex={i}
+            {messages.map((message, i) => (
+              <AgentChatMessageView
+                key={message.id || i}
+                message={message}
+                index={i}
                 registryId={registryId}
               />
             ))}
             {agentActivity.busy && (
-              <AgentActivityIndicator activity={agentActivity} />
+              <AgentActivityIndicator activity={agentActivity} elapsedMs={elapsedMs} />
             )}
             <div ref={bottomRef} className="h-10" />
           </ConversationContent>
           <div
             className={cn(
-              "pointer-events-none absolute bottom-1 z-10 flex items-center justify-between",
+              "pointer-events-none absolute bottom-1 z-10 flex items-center",
               floatingControlRailClassName,
             )}
           >
@@ -776,84 +918,36 @@ export function AgentChatPanel({
                 <SessionUsageBadge usage={sessionUsage} className="static" />
               ) : null}
             </div>
-            <ConversationScrollButton className="group static left-auto bottom-auto right-auto pointer-events-auto inline-flex h-8 w-8 translate-x-0 items-center justify-center gap-0 overflow-hidden rounded-sm border border-dashed border-border/70 bg-background px-0 text-foreground shadow-md transition-[width,padding,gap] duration-300 ease-out [transform-origin:right_center] hover:w-24 hover:px-2 hover:gap-1">
-              <span className="inline-flex size-4 shrink-0 items-center justify-center">
-                <ChevronDown className="size-4" />
-              </span>
-              <span className="max-w-0 whitespace-nowrap text-[11px] text-foreground opacity-0 transition-[max-width,opacity] duration-300 ease-out group-hover:max-w-16 group-hover:opacity-100">
-                {t("bottom")}
-              </span>
-            </ConversationScrollButton>
           </div>
+          <ConversationScrollButton aria-label={t("bottom")}>
+            <ChevronDown className="size-4" />
+          </ConversationScrollButton>
           {!isResumingHistory && (
             <AgentMessageTimelineNav
               activeAgent={activeAgent}
-              entries={entries}
-              userEntryIndices={userEntryIndices}
-              activeEntryIndex={messageNavIndex}
-              onSelectEntry={handleSelectMessage}
+              messages={messages}
+              userMessageIndices={userMessageIndices}
+              activeMessageIndex={messageNavIndex}
+              onSelectMessage={handleSelectMessage}
             />
           )}
-        </Conversation>
+          </Conversation>
+        </AgentChatCwdProvider>
       </div>
 
-      <div className="flex min-h-0 shrink flex-col overflow-y-auto overscroll-contain">
-        {pendingPermission && (
-          <div className={cn("shrink-0 border-t border-border p-3", wideContentClassName)}>
-            <Confirmation
-              approval={{ id: pendingPermission.request_id }}
-              state="approval-requested"
-              className="relative overflow-hidden border-foreground/20 bg-background"
-            >
-              <ShineBorder
-                duration={7}
-                borderWidth={1}
-                shineColor={["#d97706", "#b45309"]}
+      <div className="flex min-h-0 shrink-0 flex-col">
+        {pendingPermission ? (
+          <div className={cn("min-h-0 min-w-0 shrink-0", wideContentClassName)}>
+            <div className="min-w-0 px-3 pb-2">
+              <AgentPermissionCard
+                permission={pendingPermission}
+                markdown={pendingPermissionMarkdown}
+                onRespond={handlePermission}
               />
-              <ConfirmationRequest>
-                <span className="font-medium text-amber-500">{t("permissionRequested")}</span>
-                <p className="mt-1 text-sm text-muted-foreground break-all max-w-full">
-                  {pendingPermission.description}
-                </p>
-                {pendingPermissionMarkdown ? (
-                  <div className="mt-2 min-w-0 max-w-full overflow-hidden rounded-md border border-border bg-muted/20">
-                    <div className="max-h-[45vh] min-w-0 max-w-full overflow-auto px-3 py-1.5 text-sm">
-                      <MarkdownRenderer className="prose-sm min-w-0 max-w-full overflow-hidden [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_pre]:whitespace-pre [&_.not-prose]:max-w-full [&_.not-prose]:overflow-x-auto">
-                      {pendingPermissionMarkdown}
-                      </MarkdownRenderer>
-                    </div>
-                  </div>
-                ) : null}
-              </ConfirmationRequest>
-              <ConfirmationActions className="mt-1 w-full min-w-0 flex-nowrap justify-start self-stretch overflow-hidden">
-                {pendingPermission.options.length > 0 ? (
-                  pendingPermission.options.map((opt) => (
-                    <PermissionActionButton
-                      key={opt.option_id}
-                      label={opt.name}
-                      variant={opt.kind.startsWith("allow") ? "default" : "outline"}
-                      onClick={() => handlePermission(opt.kind)}
-                    />
-                  ))
-                ) : (
-                  <>
-                    <PermissionActionButton
-                      label={t("deny")}
-                      variant="outline"
-                      onClick={() => handlePermission("reject_once")}
-                    />
-                    <PermissionActionButton
-                      label={t("allow")}
-                      onClick={() => handlePermission("allow_once")}
-                    />
-                  </>
-                )}
-              </ConfirmationActions>
-            </Confirmation>
+            </div>
           </div>
-        )}
-
-        <div className={wideContentClassName}>
+        ) : null}
+        <div className={cn("shrink-0", wideContentClassName)}>
           <AgentPromptComposer
             key={queueKey}
             currentPlan={currentPlan}
@@ -863,6 +957,8 @@ export function AgentChatPanel({
             onUpdateQueuedPrompt={(id, prompt) => updateQueuedAgentChatPrompt(id, { prompt })}
             onMoveQueuedPrompt={moveQueuedAgentChatPrompt}
             onSubmit={handleSubmit}
+            agentLocked={agentLocked}
+            onProviderChange={setProviderId}
             canUseCurrentMode={canUseCurrentMode}
             isConnected={isConnected}
             chatMode={chatMode}
@@ -872,6 +968,11 @@ export function AgentChatPanel({
             loadingAgents={loadingAgents}
             isConnecting={isConnecting}
             isResumingHistory={isResumingHistory}
+            catalogModelsLoading={catalogModelsLoading}
+            onEmptyModelsOpen={refreshEmptyCatalog}
+            chatId={liveChatId}
+            runtimeStatus={runtimeStatus}
+            hasPersistenceHandle={hasPersistenceHandle}
             installedAgents={installedAgents}
             configOptions={configOptions}
             registryId={registryId}
@@ -882,8 +983,23 @@ export function AgentChatPanel({
             agentActivity={agentActivity}
             sendCancel={sendCancel}
             setWaitingForResponse={setWaitingForResponse}
-            setEntries={setEntries}
+            setMessages={setMessages}
             stoppedRef={stoppedRef}
+            projectPath={sessionCwd ?? localPath}
+            availableCommands={availableCommands}
+            workingDirectoryPicker={
+              variant === "standalone" || (variant === "modal" && !liveChatId)
+                ? {
+                    projects,
+                    selection: {
+                      workspaceId: sessionWorkspaceId,
+                      projectId: sessionProjectId,
+                      cwd: sessionCwd,
+                    },
+                    onSelect: handleSelectWorkingDirectory,
+                  }
+                : null
+            }
           />
         </div>
       </div>

@@ -3,6 +3,7 @@ import type { AgentContract } from "./contract/agent";
 import type { AutomationContract } from "./contract/automation";
 import type { CanvasContract } from "./contract/canvas";
 import type { CenterLayoutContract } from "./contract/center-layout";
+import type { AgentChatContract } from "./contract/agent-chat";
 import type { DiskAnalyzerContract } from "./contract/disk-analyzer";
 import type { FsContract } from "./contract/fs";
 import type { GitContract } from "./contract/git";
@@ -39,6 +40,7 @@ export type WsContract = FsContract &
   ReviewContract &
   SkillsContract &
   AgentContract &
+  AgentChatContract &
   AutomationContract &
   SettingsContract &
   LocalServicesContract &

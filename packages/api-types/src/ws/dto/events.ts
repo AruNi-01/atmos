@@ -16,13 +16,13 @@ export type LlmProviderTestChunkNotification = {
   error?: string | null;
 };
 
-export type AgentHookSessionsClearedNotification = {
+export type AgentStatusClearedNotification = {
   session_ids?: string[];
 };
 
-export type AgentHookState = "idle" | "running" | "permission_request";
+export type AgentOccupancy = "idle" | "running" | "permission_request";
 
-export type AgentHookToolType =
+export type AgentToolType =
   | "claude-code"
   | "codex"
   | "cursor"
@@ -34,12 +34,15 @@ export type AgentHookToolType =
   | "ampcode"
   | "pi"
   | "hermes"
-  | "grok-build";
+  | "grok-build"
+  | "agent";
 
-export type AgentHookStateNotification = {
+export type AgentSurface = "terminal" | "chat";
+
+export type AgentStatusChangedNotification = {
   session_id: string;
-  tool: AgentHookToolType;
-  state: AgentHookState;
+  tool: AgentToolType;
+  state: AgentOccupancy;
   timestamp: string;
   project_path?: string | null;
   context_id?: string | null;
@@ -48,6 +51,10 @@ export type AgentHookStateNotification = {
   side_chat_id?: string | null;
   source_pane_id?: string | null;
   hook_version?: number | null;
+  surface?: AgentSurface;
+  surface_id?: string | null;
+  space_id?: string | null;
+  provider_id?: string | null;
 };
 
 export type LocalModelStateNotification = {
@@ -65,6 +72,10 @@ export type AgentNotificationPayload = {
   pane_id?: string | null;
   side_chat_id?: string | null;
   source_pane_id?: string | null;
+  surface?: string | null;
+  surface_id?: string | null;
+  space_id?: string | null;
+  provider_id?: string | null;
 };
 
 /** Events that only tell the client to refetch; payload is unused. */

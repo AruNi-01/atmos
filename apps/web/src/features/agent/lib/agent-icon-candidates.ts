@@ -6,6 +6,8 @@
 const AGENT_ICON_ALIASES: Record<string, string[]> = {
   "claude-code-acp": ["claude-code"],
   "claude-acp": ["claude-code-acp", "claude-code"],
+  "antigravity-acp": ["antigravity"],
+  hermes: ["hermes-agent"],
   "codex-acp": ["codex"],
   "github-copilot": ["copilot"],
   "factory-droid": ["droid"],

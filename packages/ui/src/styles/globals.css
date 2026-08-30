@@ -428,6 +428,10 @@
   .push-page-slide-out-y {
     animation-duration: 0ms !important;
   }
+
+  [data-sd-animate] {
+    animation: none !important;
+  }
 }
 
 @keyframes bounce-down {

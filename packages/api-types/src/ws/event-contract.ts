@@ -1,7 +1,7 @@
 import type { WsEvent } from "./events";
 import type {
-  AgentHookSessionsClearedNotification,
-  AgentHookStateNotification,
+  AgentStatusClearedNotification,
+  AgentStatusChangedNotification,
   AgentNotificationPayload,
   GitCommitMessageChunkNotification,
   LlmProviderTestChunkNotification,
@@ -16,6 +16,10 @@ import type {
   AutomationRunUpdatedEvent,
 } from "./dto/automation";
 import type { ResourceMonitorSnapshot } from "./dto/resource-monitor";
+import type {
+  AgentModelCatalogUpdated,
+  AgentChatEvent,
+} from "./dto/agent-chat";
 import type { SimulatorDownloadProgress } from "./dto/simulator";
 import type {
   ProjectDeleteProgressNotification,
@@ -36,8 +40,8 @@ export type WsEventContract = {
   llm_provider_test_chunk: { payload: LlmProviderTestChunkNotification };
   workspace_delete_progress: { payload: WorkspaceDeleteProgressNotification };
   project_delete_progress: { payload: ProjectDeleteProgressNotification };
-  agent_hook_state_changed: { payload: AgentHookStateNotification };
-  agent_hook_sessions_cleared: { payload: AgentHookSessionsClearedNotification };
+  agent_status_changed: { payload: AgentStatusChangedNotification };
+  agent_status_cleared: { payload: AgentStatusClearedNotification };
   agent_attention_raised: { payload: RefreshNotification };
   agent_attention_cleared: { payload: RefreshNotification };
   agent_attention_summary_updated: { payload: RefreshNotification };
@@ -58,6 +62,8 @@ export type WsEventContract = {
   disk_analyzer_scan_progress: { payload: DiskScanProgress };
   simulator_download_progress: { payload: SimulatorDownloadProgress };
   resource_monitor_updated: { payload: ResourceMonitorSnapshot };
+  agent_chat_event: { payload: AgentChatEvent };
+  agent_model_catalog_updated: { payload: AgentModelCatalogUpdated };
 };
 
 export type MappedWsEvent = keyof WsEventContract & WsEvent;

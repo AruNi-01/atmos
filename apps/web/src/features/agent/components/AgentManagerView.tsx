@@ -27,7 +27,8 @@ import {
   MessageSquare,
 } from "lucide-react";
 import { LaunchpadPageTabs } from "@/shared/components/LaunchpadPageTabs";
-import { ChatSessionsManagementView } from "@/features/chat-sessions/components/ChatSessionsManagementView";
+import { AgentChatSessionsView } from "@/features/agent/components/AgentChatSessionsView";
+
 import { motion, AnimatePresence } from "motion/react";
 import {
   AgentCard,
@@ -76,13 +77,15 @@ export const AgentManagerView: React.FC = () => {
     <div className="flex h-full flex-col overflow-hidden bg-background">
       <div
         className="sticky top-0 z-10 cursor-pointer bg-background/50 px-8 py-6 backdrop-blur-sm"
-        onMouseEnter={() => setIconHovered(true)}
-        onMouseLeave={() => setIconHovered(false)}
         onClick={handleViewChange}
       >
         <div className="mx-auto flex w-full max-w-5xl flex-col gap-4">
         <div className="flex items-start justify-between gap-6">
-          <div className="flex min-w-0 items-center gap-4 shrink-0">
+          <div
+            className="flex min-w-0 items-center gap-4 shrink-0"
+            onMouseEnter={() => setIconHovered(true)}
+            onMouseLeave={() => setIconHovered(false)}
+          >
             <TooltipProvider delayDuration={300}>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -210,7 +213,7 @@ export const AgentManagerView: React.FC = () => {
             transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
             className="flex-1 overflow-hidden"
           >
-            <ChatSessionsManagementView hideHeader />
+            <AgentChatSessionsView hideHeader />
           </motion.div>
         ) : (
           <motion.div

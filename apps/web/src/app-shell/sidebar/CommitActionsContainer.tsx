@@ -3,7 +3,6 @@
 import React from "react";
 import { CommitActions } from "@/app-shell/sidebar/CommitActions";
 import { useDialogStore } from "@/app-shell/state/use-dialog-store";
-import { useAgentChatUrl } from "@/features/agent/hooks/use-agent-chat-url";
 import { useAgentChatStatusStore } from "@/features/agent/store/agent-chat-status-store";
 import { useGitStore } from "@/features/git/store/use-git-store";
 import { useGitChangedFilesQuery } from "@/features/git/hooks/use-git-changed-files-query";
@@ -54,7 +53,6 @@ export function CommitActionsContainer({
   } = useGitStore();
 
   const { enqueueAgentChatPrompt, setPendingAgentChatMode } = useDialogStore();
-  const [, setAgentChatOpen] = useAgentChatUrl();
   const agentHasAgents = useAgentChatStatusStore((s) => s.hasInstalledAgents);
   const agentIsConnected = useAgentChatStatusStore((s) => s.isConnected);
   const agentIsBusy = useAgentChatStatusStore((s) => s.isBusy);
@@ -114,7 +112,6 @@ export function CommitActionsContainer({
       agentIsBusy={agentIsBusy}
       enqueueAgentChatPrompt={enqueueAgentChatPrompt}
       setPendingAgentChatMode={setPendingAgentChatMode}
-      setAgentChatOpen={setAgentChatOpen}
     />
   );
 }

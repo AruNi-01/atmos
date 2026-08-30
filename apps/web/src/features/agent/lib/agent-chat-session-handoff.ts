@@ -1,7 +1,7 @@
 "use client";
 
+import type { AgentMessage } from "@atmos/api-types/ws/dto/agent-chat";
 import type { AgentPlan } from "@/features/agent/hooks/use-agent-session";
-import type { ThreadEntry } from "@/features/agent/lib/agent/thread";
 import type { PendingPermission } from "@/features/agent/lib/chat-helpers";
 import { desktopInvoke, isDesktopRuntime } from "@/shared/lib/desktop-bridge";
 
@@ -9,12 +9,11 @@ export interface AgentChatSessionHandoffSnapshot {
   version: 1;
   contextKey: string;
   registryId: string;
-  runtimeSessionId: string | null;
-  acpSessionId: string | null;
+  chatId: string | null;
   sessionCwd: string | null;
   sessionTitle: string | null;
   sessionTitleSource: string | null;
-  entries: ThreadEntry[];
+  messages: AgentMessage[];
   currentPlan: AgentPlan | null;
   pendingPermission: PendingPermission | null;
   waitingForResponse: boolean;
@@ -58,8 +57,7 @@ async function desktopCmdAvailable(): Promise<boolean> {
 function snapshotIdentity(snapshot: AgentChatSessionHandoffSnapshot): string {
   return [
     snapshot.contextKey,
-    snapshot.acpSessionId ?? "",
-    snapshot.runtimeSessionId ?? "",
+    snapshot.chatId ?? "",
     String(snapshot.updatedAt),
   ].join(":");
 }
@@ -77,16 +75,16 @@ function isFreshSnapshot(snapshot: AgentChatSessionHandoffSnapshot): boolean {
 function normalizeSnapshot(
   value: unknown,
   contextKey: string,
-  expectedAcpSessionId?: string | null,
+  expectedChatId?: string | null,
 ): AgentChatSessionHandoffSnapshot | null {
   if (!value || typeof value !== "object") return null;
   const snapshot = value as Partial<AgentChatSessionHandoffSnapshot>;
   if (snapshot.version !== 1) return null;
   if (snapshot.contextKey !== contextKey) return null;
-  if (expectedAcpSessionId && snapshot.acpSessionId !== expectedAcpSessionId) return null;
+  if (expectedChatId && snapshot.chatId !== expectedChatId) return null;
   if (typeof snapshot.updatedAt !== "number") return null;
   if (!isFreshSnapshot(snapshot as AgentChatSessionHandoffSnapshot)) return null;
-  if (!Array.isArray(snapshot.entries)) return null;
+  if (!Array.isArray(snapshot.messages)) return null;
   return snapshot as AgentChatSessionHandoffSnapshot;
 }
 
@@ -95,12 +93,12 @@ function serializeWithinBudget(snapshot: AgentChatSessionHandoffSnapshot): strin
     const full = JSON.stringify(snapshot);
     if (full.length <= SNAPSHOT_STORAGE_BUDGET_CHARS) return full;
 
-    let keep = snapshot.entries.length;
+    let keep = snapshot.messages.length;
     while (keep > MIN_TRUNCATED_ENTRIES) {
       keep = Math.max(MIN_TRUNCATED_ENTRIES, Math.floor(keep * 0.75));
       const trimmed: AgentChatSessionHandoffSnapshot = {
         ...snapshot,
-        entries: snapshot.entries.slice(-keep),
+        messages: snapshot.messages.slice(-keep),
         truncated: true,
       };
       const serialized = JSON.stringify(trimmed);
@@ -176,7 +174,7 @@ export async function writeAgentChatSessionHandoff(
 
 export async function readAgentChatSessionHandoff(
   contextKey: string,
-  expectedAcpSessionId?: string | null,
+  expectedChatId?: string | null,
   token?: string | null,
 ): Promise<AgentChatSessionHandoffSnapshot | null> {
   if (!canUseWindow()) return null;
@@ -187,7 +185,7 @@ export async function readAgentChatSessionHandoff(
       const snapshot = await desktopInvoke<unknown | null>("read_agent_chat_handoff", {
         token,
       });
-      return normalizeSnapshot(snapshot, contextKey, expectedAcpSessionId);
+      return normalizeSnapshot(snapshot, contextKey, expectedChatId);
     } catch {
       return null;
     }
@@ -199,12 +197,12 @@ export async function readAgentChatSessionHandoff(
   try {
     const parsed = JSON.parse(raw) as AgentChatSessionHandoffSnapshot | AgentChatSessionHandoffEvent;
     if ("token" in parsed && parsed.token && isDesktopRuntime()) {
-      return readAgentChatSessionHandoff(contextKey, expectedAcpSessionId, parsed.token);
+      return readAgentChatSessionHandoff(contextKey, expectedChatId, parsed.token);
     }
     if ("snapshot" in parsed && parsed.snapshot) {
-      return normalizeSnapshot(parsed.snapshot, contextKey, expectedAcpSessionId);
+      return normalizeSnapshot(parsed.snapshot, contextKey, expectedChatId);
     }
-    return normalizeSnapshot(parsed, contextKey, expectedAcpSessionId);
+    return normalizeSnapshot(parsed, contextKey, expectedChatId);
   } catch {
     return null;
   }

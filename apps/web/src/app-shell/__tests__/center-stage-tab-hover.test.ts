@@ -45,7 +45,25 @@ describe("center stage tab hover", () => {
       shared.indexOf("<MotionTabsList"),
       shared.indexOf("</MotionTabsList>"),
     );
-    expect(listBlock).toContain("{actions}");
+    expect(listBlock).toContain("trailing={actions}");
+    expect(listBlock).toContain("{children}");
+  });
+
+  it("stacks trailing chrome above the sliding active pill", () => {
+    const motionTabs = readFileSync(
+      join(import.meta.dir, "../../../../../packages/ui/src/components/motion/tabs.tsx"),
+      "utf8",
+    );
+    expect(motionTabs).toContain("trailing?: ReactNode");
+    expect(motionTabs).toContain(
+      'className="relative z-0 flex min-h-0 min-w-0 flex-1 items-center gap-[inherit] self-stretch overflow-hidden"',
+    );
+    expect(motionTabs).toContain(
+      'className="relative z-20 flex shrink-0 items-center self-stretch"',
+    );
+    expect(shared).toContain(
+      "pointer-events-auto relative isolate z-20 flex h-7 shrink-0 items-center gap-0.5 bg-background",
+    );
   });
 
   it("uses Atmos surfaces instead of the motion-tabs card/primary fill", () => {
@@ -182,7 +200,8 @@ describe("center stage tab hover", () => {
     expect(menuBlock.indexOf("{overviewLabel}")).toBeLessThan(menuBlock.indexOf("{terminalLabel}"));
     expect(menuBlock).toContain("onCreateMarkdownNote");
     expect(menuBlock).toContain("FileText");
-    expect(menuBlock.indexOf("{terminalLabel}")).toBeLessThan(menuBlock.indexOf("{markdownLabel}"));
+    expect(menuBlock.indexOf("{terminalLabel}")).toBeLessThan(menuBlock.indexOf("{agentChatLabel}"));
+    expect(menuBlock.indexOf("{agentChatLabel}")).toBeLessThan(menuBlock.indexOf("{markdownLabel}"));
   });
 
   it("animates plus-menu popover height when switching tabs", () => {

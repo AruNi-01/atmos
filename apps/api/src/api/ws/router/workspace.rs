@@ -412,9 +412,7 @@ impl WsMessageService {
         }
 
         if settings.close_acp_on_archive {
-            self.agent_session_service
-                .close_workspace_sessions(&guid)
-                .await;
+            self.agent_chat().close_workspace(&guid).await;
         }
 
         Ok(json!({ "success": true }))

@@ -78,6 +78,7 @@ interface SettingsModalSectionsProps {
   attentionSummaryDelayMins: number;
   attentionSummaryAgentId: string;
   attentionSummaryModel: string;
+  followupPolicy: "queue" | "steer";
   runConfigAgentOptions: AgentOption[];
   runConfigsLoading: boolean;
   removingCustomAgentIds: Record<string, boolean>;
@@ -89,6 +90,7 @@ interface SettingsModalSectionsProps {
   savedAttentionSummaryDelayMins: number;
   savedAttentionSummaryAgentId: string;
   savedAttentionSummaryModel: string;
+  savedFollowupPolicy: "queue" | "steer";
   savingBuiltInAgentIds: Record<string, boolean>;
   savingCustomAgentIds: Record<string, boolean>;
   savingIdleTimeout: boolean;
@@ -100,9 +102,6 @@ interface SettingsModalSectionsProps {
   yoloModeRestoring: boolean;
   onYoloModeChange: (enabled: boolean) => void;
   onRestoreAllYoloMode: () => void;
-  showAgentNameInTerminalTitles: boolean;
-  showAgentNameInTerminalTitlesSyncing: boolean;
-  onShowAgentNameInTerminalTitlesChange: (enabled: boolean) => void;
   onAddCustomAgent: () => void;
   onAgentSettingChange: (agentId: string, field: 'cmd' | 'flags' | 'interactiveFlags' | 'enabled', value: string | boolean) => void;
   onBuiltInEnabledChange: (agentId: string, enabled: boolean) => void;
@@ -117,6 +116,7 @@ interface SettingsModalSectionsProps {
     attentionSummaryDelayMins: number;
     attentionSummaryAgentId: string;
     attentionSummaryModel: string;
+    followupPolicy: "queue" | "steer";
   }) => void | Promise<void>;
   onSaveRunConfigs: (configs: TerminalAgentSavedRunConfig[]) => Promise<void>;
   setBuiltInAgentOpen: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
@@ -128,6 +128,7 @@ interface SettingsModalSectionsProps {
   setAttentionSummaryDelayMins: React.Dispatch<React.SetStateAction<number>>;
   setAttentionSummaryAgentId: React.Dispatch<React.SetStateAction<string>>;
   setAttentionSummaryModel: React.Dispatch<React.SetStateAction<string>>;
+  setFollowupPolicy: React.Dispatch<React.SetStateAction<"queue" | "steer">>;
   handleLlmConfigUpdate: (
     key: string,
     updater: (current: LlmProvidersFile) => LlmProvidersFile,
@@ -234,6 +235,7 @@ export function SettingsModalSections(props: SettingsModalSectionsProps) {
           attentionSummaryDelayMins={props.attentionSummaryDelayMins}
           attentionSummaryAgentId={props.attentionSummaryAgentId}
           attentionSummaryModel={props.attentionSummaryModel}
+          followupPolicy={props.followupPolicy}
           runConfigAgentOptions={props.runConfigAgentOptions}
           runConfigsLoading={props.runConfigsLoading}
           removingCustomAgentIds={props.removingCustomAgentIds}
@@ -245,6 +247,7 @@ export function SettingsModalSections(props: SettingsModalSectionsProps) {
           savedAttentionSummaryDelayMins={props.savedAttentionSummaryDelayMins}
           savedAttentionSummaryAgentId={props.savedAttentionSummaryAgentId}
           savedAttentionSummaryModel={props.savedAttentionSummaryModel}
+          savedFollowupPolicy={props.savedFollowupPolicy}
           savingBuiltInAgentIds={props.savingBuiltInAgentIds}
           savingCustomAgentIds={props.savingCustomAgentIds}
           savingIdleTimeout={props.savingIdleTimeout}
@@ -256,9 +259,6 @@ export function SettingsModalSections(props: SettingsModalSectionsProps) {
           yoloModeRestoring={props.yoloModeRestoring}
           onYoloModeChange={props.onYoloModeChange}
           onRestoreAllYoloMode={props.onRestoreAllYoloMode}
-          showAgentNameInTerminalTitles={props.showAgentNameInTerminalTitles}
-          showAgentNameInTerminalTitlesSyncing={props.showAgentNameInTerminalTitlesSyncing}
-          onShowAgentNameInTerminalTitlesChange={props.onShowAgentNameInTerminalTitlesChange}
           onAddCustomAgent={props.onAddCustomAgent}
           onAgentSettingChange={props.onAgentSettingChange}
           onBuiltInEnabledChange={props.onBuiltInEnabledChange}
@@ -278,6 +278,7 @@ export function SettingsModalSections(props: SettingsModalSectionsProps) {
           setAttentionSummaryDelayMins={props.setAttentionSummaryDelayMins}
           setAttentionSummaryAgentId={props.setAttentionSummaryAgentId}
           setAttentionSummaryModel={props.setAttentionSummaryModel}
+          setFollowupPolicy={props.setFollowupPolicy}
         />
       );
     case 'workspace':

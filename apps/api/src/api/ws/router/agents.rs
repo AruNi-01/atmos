@@ -117,10 +117,10 @@ impl WsMessageService {
         &self,
         req: TerminalAgentModelsGetRequest,
     ) -> Result<Value> {
+        let spec = core_service::catalog_spec_for(&req.agent_id);
         let catalog = self
-            .automation_service
-            .terminal_agent_model_catalog(&req.agent_id, req.refresh.unwrap_or(false))
-            .await?;
-        Ok(json!(catalog))
+            .catalog_worker
+            .get_cached_or_probing(&spec, req.refresh.unwrap_or(false));
+        Ok(json!(core_service::terminal_catalog_from(&catalog)))
     }
 }

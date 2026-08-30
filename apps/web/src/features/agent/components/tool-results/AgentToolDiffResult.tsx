@@ -5,18 +5,20 @@ import { useTranslations } from "next-intl";
 import { useTheme } from "next-themes";
 import { MultiFileDiff, PatchDiff } from "@pierre/diffs/react";
 import { parseDiffFromFile, parsePatchFiles, type FileContents } from "@pierre/diffs";
-import { CopyButton } from "@/shared/components/code-block/copy-button";
 import { diffSideCacheKey } from "@/features/diff/lib/diff-code-view-shared";
 import {
   ATMOS_DIFF_THEME,
   buildSharedDiffViewOptions,
   getAtmosDiffThemeType,
 } from "@/features/diff/lib/diff-view-constants";
+import { getToolKindIcon } from "@/features/agent/lib/chat-helpers";
+import { useDisplayToolTitle } from "../agent-chat-cwd-context";
 import { AgentToolCodePreview } from "./AgentToolCodePreview";
 import {
   AgentToolCard,
   AgentToolDiffStats,
-  AgentToolFileGlyph,
+  AgentToolFileChip,
+  type AgentToolSurface,
 } from "./AgentToolCard";
 
 function countDiffLines(oldFile: FileContents, newFile: FileContents) {
@@ -55,20 +57,25 @@ function isValidPatch(patch: string): boolean {
 
 export function AgentToolDiffResult({
   path,
+  title,
   oldContent,
   newContent,
   patch,
   status,
   defaultOpen = false,
+  surface = "card",
 }: {
   path: string;
+  title?: string;
   oldContent?: string;
   newContent?: string;
   patch?: string;
   status?: string;
   defaultOpen?: boolean;
+  surface?: AgentToolSurface;
 }) {
   const t = useTranslations("Agent.components.toolResults");
+  const displayTitle = useDisplayToolTitle();
   const { resolvedTheme } = useTheme();
   const isMounted = useSyncExternalStore(
     () => () => {},
@@ -107,18 +114,18 @@ export function AgentToolDiffResult({
     expansionLineCount: 20,
   }), [resolvedTheme]);
 
-  const copyText = newContent || patch || oldContent || "";
-
   return (
     <AgentToolCard
-      variant="file"
-      icon={<AgentToolFileGlyph path={path} />}
-      title={path}
+      variant="tool"
+      surface={surface}
+      body="plain"
+      icon={getToolKindIcon("edit")}
+      title={!oldContent && newContent ? t("created") : displayTitle(title || t("file"), path)}
       titleTooltip={path}
+      accessory={<AgentToolFileChip path={path} />}
       status={status}
       defaultOpen={defaultOpen}
       meta={<AgentToolDiffStats additions={stats.additions} deletions={stats.deletions} />}
-      actions={copyText ? <CopyButton content={copyText} /> : null}
     >
       <div className="max-h-[28rem] overflow-auto">
         {isMounted ? (

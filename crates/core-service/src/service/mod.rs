@@ -1,6 +1,8 @@
 pub mod agent;
 pub mod agent_hooks;
-pub mod agent_session;
+pub mod agent_status;
+
+pub mod agent_chat;
 pub mod automation;
 pub mod canvas;
 pub mod canvas_agent_relay;

@@ -65,7 +65,7 @@ describe("isNotificationClickAction", () => {
   test("accepts agent_hook and automation actions", () => {
     expect(
       isNotificationClickAction({
-        kind: "agent_hook",
+        kind: "agent_status",
         session_id: "s1",
         context_id: "ws-1",
         pane_id: "ws-1:win",
@@ -83,7 +83,7 @@ describe("isNotificationClickAction", () => {
   test("rejects incomplete or unknown payloads", () => {
     expect(isNotificationClickAction(null)).toBe(false);
     expect(isNotificationClickAction({})).toBe(false);
-    expect(isNotificationClickAction({ kind: "agent_hook" })).toBe(false);
+    expect(isNotificationClickAction({ kind: "agent_status" })).toBe(false);
     expect(isNotificationClickAction({ kind: "automation" })).toBe(false);
     expect(isNotificationClickAction({ kind: "other", session_id: "x" })).toBe(false);
   });

@@ -14,6 +14,7 @@ import {
   ParticleField,
   TabsSubtle,
   TabsSubtleItem,
+  toastManager,
 } from '@workspace/ui';
 import {
   CheckCircle2,
@@ -69,6 +70,7 @@ import {
   DEFAULT_AGENT_YOLO_MODE,
   setAgentYoloMode,
 } from '@/features/agent/lib/terminal-agent-yolo';
+import { provisionAcpForTerminalAgents } from '@/features/agent/lib/provision-acp-for-terminal-agents';
 
 interface OnboardingPageProps {
   onComplete: () => void;
@@ -331,6 +333,23 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
       // Only persist when detection succeeded; avoid disabling every agent on a failed probe.
       if (agentStatuses.length > 0) {
         await persistAgentPreferences();
+        try {
+          const { failed } = await provisionAcpForTerminalAgents(selectedAgentIds);
+          if (failed.length > 0) {
+            toastManager.add({
+              title: t('agents.provisionFailedTitle'),
+              description: t('agents.provisionFailed', { names: failed.join(', ') }),
+              type: 'error',
+            });
+          }
+        } catch (err) {
+          console.error('Failed to provision ACP providers:', err);
+          toastManager.add({
+            title: t('agents.provisionFailedTitle'),
+            description: t('agents.provisionFailedGeneric'),
+            type: 'error',
+          });
+        }
       }
       // Next: Quota Usage opt-in (Keychain / cookie probe only happens there).
       setCurrentStep('quota');
@@ -340,7 +359,7 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
     } finally {
       setAgentsSaving(false);
     }
-  }, [agentStatuses.length, persistAgentPreferences, t]);
+  }, [agentStatuses.length, persistAgentPreferences, selectedAgentIds, t]);
 
   // Seed Quota Usage selection from agents the user enabled on the previous step.
   useEffect(() => {

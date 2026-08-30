@@ -20,6 +20,7 @@ import { code } from "@streamdown/code";
 import { math } from "@streamdown/math";
 import { mermaid } from "@streamdown/mermaid";
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
+import { useReducedMotion } from "motion/react";
 import {
   createContext,
   memo,
@@ -30,6 +31,8 @@ import {
   useState,
 } from "react";
 import { Streamdown, type PluginConfig } from "streamdown";
+import { resolveStreamdownAnimated } from "./streamdown-animation";
+import { useSmoothStreamText } from "./smooth-stream-text";
 
 export type MessageProps = HTMLAttributes<HTMLDivElement> & {
   from: UIMessage["role"];
@@ -46,17 +49,31 @@ export const Message = ({ className, from, ...props }: MessageProps) => (
   />
 );
 
-export type MessageContentProps = HTMLAttributes<HTMLDivElement>;
+export type MessageContentRounded = "lg" | "xl" | "2xl" | "3xl";
+
+const USER_BUBBLE_ROUNDED: Record<MessageContentRounded, string> = {
+  lg: "group-[.is-user]:rounded-lg",
+  xl: "group-[.is-user]:rounded-xl",
+  "2xl": "group-[.is-user]:rounded-2xl",
+  "3xl": "group-[.is-user]:rounded-3xl",
+};
+
+export type MessageContentProps = HTMLAttributes<HTMLDivElement> & {
+  /** User-bubble corner radius. Default `lg`. */
+  rounded?: MessageContentRounded;
+};
 
 export const MessageContent = ({
   children,
   className,
+  rounded = "lg",
   ...props
 }: MessageContentProps) => (
   <div
     className={cn(
       "is-user:dark flex w-fit min-w-0 max-w-full flex-col gap-2 overflow-hidden text-sm",
-      "group-[.is-user]:ml-auto group-[.is-user]:rounded-lg group-[.is-user]:bg-secondary group-[.is-user]:px-4 group-[.is-user]:py-3 group-[.is-user]:text-foreground",
+      "group-[.is-user]:ml-auto group-[.is-user]:bg-secondary group-[.is-user]:px-4 group-[.is-user]:py-3 group-[.is-user]:text-foreground",
+      USER_BUBBLE_ROUNDED[rounded],
       "group-[.is-assistant]:text-foreground",
       className
     )}
@@ -327,19 +344,32 @@ export type MessageResponseProps = ComponentProps<typeof Streamdown>;
 const streamdownPlugins: PluginConfig = { cjk, code: code as PluginConfig["code"], math, mermaid };
 
 export const MessageResponse = memo(
-  ({ className, ...props }: MessageResponseProps) => (
-    <Streamdown
-      className={cn(
-        "size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0",
-        className
-      )}
-      animated={{
-        stagger: 40
-      }}
-      plugins={streamdownPlugins}
-      {...props}
-    />
-  ),
+  ({
+    className,
+    isAnimating = false,
+    animated,
+    children,
+    ...props
+  }: MessageResponseProps) => {
+    const reducedMotion = Boolean(useReducedMotion());
+    const streaming = !reducedMotion && isAnimating;
+    const source = typeof children === "string" ? children : "";
+    const displayed = useSmoothStreamText(source, streaming);
+    return (
+      <Streamdown
+        className={cn(
+          "size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0",
+          className
+        )}
+        plugins={streamdownPlugins}
+        {...props}
+        animated={resolveStreamdownAnimated(animated, reducedMotion)}
+        isAnimating={streaming}
+      >
+        {typeof children === "string" ? displayed : children}
+      </Streamdown>
+    );
+  },
 );
 
 MessageResponse.displayName = "MessageResponse";

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useCallback, useState, useEffect } from 'react';
+import React, { useMemo, useCallback, useState, useEffect, type ComponentProps } from 'react';
 import { useTree } from '@headless-tree/react';
 import { asyncDataLoaderFeature } from '@headless-tree/core';
 import type { ItemInstance } from '@headless-tree/core';
@@ -21,7 +21,12 @@ import {
   type FileTreeMenuState,
   type PendingPanelState,
 } from '../lib/file-tree-utils';
+import {
+  nestTreeItemsByParent,
+  type NestedTreeNode,
+} from '../lib/file-tree-nest';
 import { activateCenterChromeTab } from "@/app-shell/center-stage-activate";
+import { FileTreeBranch } from './FileTreeBranch';
 import { FileTreeContextMenu } from './FileTreeContextMenu';
 import { FileTreeRow } from './FileTreeRow';
 
@@ -47,6 +52,61 @@ interface FileTreeProps {
     path: string,
     options: { preview: boolean },
   ) => Promise<void> | void;
+}
+
+function FileTreeNodes({
+  nodes,
+  activeFilePath,
+  menuItemPath,
+  highlightedPath,
+  onClick,
+  onDoubleClick,
+  onContextMenu,
+  rootPath,
+}: {
+  nodes: NestedTreeNode<ItemInstance<FileTreeItem>>[];
+  activeFilePath?: string | null;
+  menuItemPath?: string | null;
+  highlightedPath: string | null;
+  onClick: ComponentProps<typeof FileTreeRow>["onClick"];
+  onDoubleClick: ComponentProps<typeof FileTreeRow>["onDoubleClick"];
+  onContextMenu: ComponentProps<typeof FileTreeRow>["onContextMenu"];
+  rootPath?: string | null;
+}) {
+  return nodes.map(({ item, children }) => {
+    const itemData = item.getItemData();
+    if (!itemData) return null;
+
+    return (
+      <React.Fragment key={item.getId()}>
+        <FileTreeRow
+          item={item}
+          itemData={itemData}
+          isActive={activeFilePath === itemData.path}
+          isContextTarget={menuItemPath === itemData.path}
+          isHighlighted={highlightedPath === itemData.path}
+          onClick={onClick}
+          onDoubleClick={onDoubleClick}
+          onContextMenu={onContextMenu}
+          rootPath={rootPath}
+        />
+        {item.isFolder() ? (
+          <FileTreeBranch open={item.isExpanded() && children.length > 0}>
+            <FileTreeNodes
+              nodes={children}
+              activeFilePath={activeFilePath}
+              menuItemPath={menuItemPath}
+              highlightedPath={highlightedPath}
+              onClick={onClick}
+              onDoubleClick={onDoubleClick}
+              onContextMenu={onContextMenu}
+              rootPath={rootPath}
+            />
+          </FileTreeBranch>
+        ) : null}
+      </React.Fragment>
+    );
+  });
 }
 
 export const FileTree: React.FC<FileTreeProps> = ({
@@ -626,7 +686,11 @@ export const FileTree: React.FC<FileTreeProps> = ({
     );
   }
 
-  const items = tree.getItems();
+  const nestedItems = nestTreeItemsByParent(
+    tree.getItems(),
+    (item) => item.getId(),
+    (item) => item.getItemMeta().parentId,
+  );
 
   return (
     <div className="relative">
@@ -638,39 +702,26 @@ export const FileTree: React.FC<FileTreeProps> = ({
           isTreeHighlighted && 'bg-sidebar-accent/35',
         )}
       >
-        {items.map((item) => {
-          const itemData = item.getItemData();
-          if (!itemData) return null;
-
-          const isActive = activeFilePath === itemData.path;
-          const isContextTarget = menuState?.itemPath === itemData.path;
-          const isHighlighted = highlightedPath === itemData.path;
-
-          return (
-            <FileTreeRow
-              key={item.getId()}
-              item={item}
-              itemData={itemData}
-              isActive={isActive}
-              isContextTarget={isContextTarget}
-              isHighlighted={isHighlighted}
-              onClick={handleItemClick}
-              onDoubleClick={handleItemDoubleClick}
-              onContextMenu={(event, itemPath) => {
-                event.preventDefault();
-                // Always viewport client coords — FileTreeContextMenu portals the
-                // fixed trigger to document.body so canvas/popover transforms
-                // cannot offset the menu.
-                setMenuState({
-                  x: event.clientX,
-                  y: event.clientY,
-                  itemPath,
-                });
-              }}
-              rootPath={rootPath}
-            />
-          );
-        })}
+        <FileTreeNodes
+          nodes={nestedItems}
+          activeFilePath={activeFilePath}
+          menuItemPath={menuState?.itemPath}
+          highlightedPath={highlightedPath}
+          onClick={handleItemClick}
+          onDoubleClick={handleItemDoubleClick}
+          onContextMenu={(event, itemPath) => {
+            event.preventDefault();
+            // Always viewport client coords — FileTreeContextMenu portals the
+            // fixed trigger to document.body so canvas/popover transforms
+            // cannot offset the menu.
+            setMenuState({
+              x: event.clientX,
+              y: event.clientY,
+              itemPath,
+            });
+          }}
+          rootPath={rootPath}
+        />
       </div>
 
       <FileTreeContextMenu

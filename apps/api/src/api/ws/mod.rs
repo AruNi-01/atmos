@@ -1,4 +1,3 @@
-pub mod agent_handler;
 pub mod automation_events;
 pub mod connection;
 pub mod error;
@@ -32,7 +31,31 @@ pub fn routes() -> Router<AppState> {
             "/terminal/{session_id}",
             get(terminal_handler::terminal_ws_handler),
         )
-        .route("/agent/{session_id}", get(agent_handler::agent_ws_handler))
         .route("/pt-design", get(pt_design::health))
         .route("/pt-design/{room_id}", get(pt_design::ws_handler))
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn s17_dedicated_agent_ws_removed() {
+        let routes = include_str!("mod.rs")
+            .split("#[cfg(test)]")
+            .next()
+            .expect("routes");
+        assert!(
+            !routes.contains("agent_ws_handler"),
+            "dedicated /ws/agent chat handler must be gone"
+        );
+        assert!(!routes.contains("/agent/{session_id}"));
+        assert!(routes.contains("terminal_ws_handler"));
+    }
+
+    #[test]
+    fn s20_catalog_engine_uses_temp_acp_probe() {
+        let router = include_str!("router/mod.rs");
+        assert!(router.contains("StdioAcpCatalogProbe"));
+        assert!(router.contains("CatalogEngine::with_acp_probe"));
+        assert!(router.contains("catalog_probe_dir"));
+    }
 }

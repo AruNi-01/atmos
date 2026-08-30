@@ -2,7 +2,7 @@
 
 import { create } from "zustand";
 import {
-  agentHooksApi,
+  agentStatusApi,
   type AgentAttentionLatchDto,
 } from "@/api/rest-api";
 import { useWorkspaceAgentGroupingHoldStore } from "@/features/agent/store/workspace-agent-grouping-hold";
@@ -108,7 +108,7 @@ function latchFromDto(dto: AgentAttentionLatchDto): PaneAttention | null {
 function clearAttentionOnServer(stablePaneId: string) {
   const id = stablePaneId?.trim();
   if (!id) return;
-  void agentHooksApi.clearAttention({ stablePaneId: id }).catch((error) => {
+  void agentStatusApi.clearAttention({ stablePaneId: id }).catch((error) => {
     console.warn("[AgentAttentionStore] Failed to clear attention on server:", error);
   });
 }
@@ -125,7 +125,7 @@ export function clearAgentAttentionAutoClearTimers(): void {
 
 /**
  * Optional side-effect when a pane is acknowledged (focused or auto-cleared while
- * focused). Wired by agent-hooks-store to drop idle sessions — avoids a static
+ * focused). Wired by agent-status-store to drop idle sessions — avoids a static
  * import cycle between the two stores.
  */
 let onPaneAcknowledged: ((stablePaneId: string) => void) | null = null;
@@ -227,7 +227,7 @@ export const useAgentAttentionStore = create<AgentAttentionStore>((set, get) => 
 
     // Already focused on this panel → clear the bell after a short delay.
     // Grouping hold (started in clearPane) keeps By Agent Status in Need
-    // attention for a few minutes so the row does not jump to Done.
+    // attention for a minute so the row does not jump to Done.
     if (get().focusedStablePaneId === stablePaneId) {
       scheduleAutoClear(stablePaneId);
     }

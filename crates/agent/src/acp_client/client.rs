@@ -3,7 +3,8 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use agent_client_protocol::{self as acp, schema};
+use agent_client_protocol::schema::v1 as schema;
+use agent_client_protocol::{self as acp, schema as acp_schema};
 use serde::Serialize;
 
 fn format_tool_kind(kind: Option<&schema::ToolKind>) -> String {
@@ -22,13 +23,129 @@ fn format_tool_kind(kind: Option<&schema::ToolKind>) -> String {
     }
 }
 
+fn is_generic_tool_label(value: &str) -> bool {
+    crate::domain::is_generic_tool_label(value)
+}
+
+const INPUT_PATH_KEYS: &[&str] = &[
+    "absolute_path",
+    "absolute_root_path",
+    "target_file",
+    "targetFile",
+    "target_directory",
+    "file_path",
+    "filePath",
+    "path",
+    "dir_path",
+    "directory",
+    "file",
+    "uri",
+];
+
+fn map_has_path(map: &serde_json::Map<String, serde_json::Value>) -> bool {
+    INPUT_PATH_KEYS.iter().any(|key| {
+        map.get(*key)
+            .and_then(|item| item.as_str())
+            .is_some_and(|path| !path.is_empty())
+    })
+}
+
+/// Cursor-style ACP calls often put the file on `locations` and leave `rawInput` empty.
+fn enrich_tool_input(
+    raw_input: Option<serde_json::Value>,
+    locations: Option<&[schema::ToolCallLocation]>,
+) -> Option<serde_json::Value> {
+    let location = locations.and_then(|locs| locs.first());
+    let path = location
+        .map(|loc| loc.path.to_string_lossy().into_owned())
+        .filter(|path| !path.is_empty());
+    let line = location.and_then(|loc| loc.line);
+
+    match raw_input {
+        None if path.is_none() && line.is_none() => None,
+        Some(value) if !value.is_object() => Some(value),
+        value => {
+            let mut map = match value {
+                Some(serde_json::Value::Object(map)) => map,
+                _ => serde_json::Map::new(),
+            };
+            if let Some(path) = path {
+                if !map_has_path(&map) {
+                    map.insert("path".into(), serde_json::Value::String(path));
+                }
+            }
+            if let Some(line) = line {
+                if !map.contains_key("line") && !map.contains_key("offset") {
+                    map.insert("line".into(), serde_json::json!(line));
+                }
+            }
+            if map.is_empty() {
+                None
+            } else {
+                Some(serde_json::Value::Object(map))
+            }
+        }
+    }
+}
+
+fn extract_vendor_tool_type(input: Option<&serde_json::Value>) -> Option<String> {
+    let input = input?;
+    let ty = input
+        .get("type")
+        .and_then(|value| value.as_str())
+        .or_else(|| input.get("variant").and_then(|value| value.as_str()))
+        .map(str::trim)?;
+    if ty.is_empty() || is_generic_tool_label(ty) {
+        return None;
+    }
+    Some(ty.to_string())
+}
+
+fn vendor_payload(input: Option<&serde_json::Value>) -> Option<&serde_json::Value> {
+    let input = input?;
+    input
+        .get("FileContent")
+        .or_else(|| input.get("file_content"))
+        .or_else(|| input.get("Content"))
+        .or_else(|| input.get("content").filter(|value| value.is_object()))
+        .or_else(|| input.get("result").filter(|value| value.is_object()))
+        .or(Some(input))
+}
+
+fn vendor_nested_path(input: Option<&serde_json::Value>) -> Option<String> {
+    let payload = vendor_payload(input)?;
+    for key in [
+        "absolute_path",
+        "absolute_root_path",
+        "target_file",
+        "target_directory",
+        "file_path",
+        "path",
+        "dir_path",
+        "directory",
+    ] {
+        if let Some(path) = payload
+            .get(key)
+            .and_then(|value| value.as_str())
+            .filter(|value| !value.is_empty())
+        {
+            return Some(path.to_string());
+        }
+    }
+    None
+}
+
 fn format_description(
     title: Option<&str>,
     tool: &str,
     locations: Option<&[schema::ToolCallLocation]>,
     raw_input: Option<&serde_json::Value>,
+    raw_output: Option<&serde_json::Value>,
 ) -> String {
-    if let Some(t) = title.filter(|s| !s.is_empty()) {
+    let vendor_type =
+        extract_vendor_tool_type(raw_input).or_else(|| extract_vendor_tool_type(raw_output));
+    let tool_label = vendor_type.as_deref().unwrap_or(tool);
+    if let Some(t) = title.filter(|s| !s.is_empty() && !is_generic_tool_label(s)) {
         return t.to_string();
     }
     // Fallback: use first location path (e.g. for Read: "path/to/file.rs")
@@ -36,25 +153,38 @@ fn format_description(
         if let Some(loc) = locs.first() {
             let path = loc.path.to_string_lossy();
             if !path.is_empty() {
-                return format!("{tool}: {path}");
+                return format!("{tool_label}: {path}");
             }
         }
+    }
+    if let Some(path) = vendor_nested_path(raw_input).or_else(|| vendor_nested_path(raw_output)) {
+        return format!("{tool_label}: {path}");
     }
     // Fallback: extract from raw_input
     if let Some(input) = raw_input {
         if let Some(path) = input.get("path").and_then(|v| v.as_str()) {
             if !path.is_empty() {
-                return format!("{tool}: {path}");
+                return format!("{tool_label}: {path}");
             }
         }
         if let Some(path) = input.get("file_path").and_then(|v| v.as_str()) {
             if !path.is_empty() {
-                return format!("{tool}: {path}");
+                return format!("{tool_label}: {path}");
             }
         }
         if let Some(url) = input.get("url").and_then(|v| v.as_str()) {
             if !url.is_empty() {
-                return format!("{tool}: {url}");
+                return format!("{tool_label}: {url}");
+            }
+        }
+        if let Some(pattern) = input.get("pattern").and_then(|v| v.as_str()) {
+            if !pattern.is_empty() {
+                let short = if pattern.len() > 80 {
+                    &pattern[..77]
+                } else {
+                    pattern
+                };
+                return format!("{tool_label}: {short}");
             }
         }
         if let Some(description) = input.get("description").and_then(|v| v.as_str()) {
@@ -81,7 +211,7 @@ fn format_description(
             }
         }
     }
-    tool.to_string()
+    tool_label.to_string()
 }
 
 fn extract_claude_code_meta<T: Serialize>(
@@ -184,7 +314,7 @@ use tracing::warn;
 use crate::acp_client::logging::append_acp_log;
 use crate::acp_client::tools::AcpToolHandler;
 use crate::acp_client::types::{
-    AgentCapabilitiesSnapshot, AgentConfigOption, AgentImplementationInfo, AgentPlan,
+    AgentCapabilitiesSnapshot, AgentConfigOption, AgentCost, AgentImplementationInfo, AgentPlan,
     AgentPlanEntry, AgentSessionInfoUpdate, AgentTurnUsage, AgentUsage, StreamDelta,
     ToolCallStatus, ToolCallUpdate,
 };
@@ -199,6 +329,7 @@ pub enum AcpSessionEvent {
         acp_session_id: String,
     },
     SessionInfoUpdate(AgentSessionInfoUpdate),
+    AvailableCommandsUpdate(Vec<crate::domain::AgentAvailableCommand>),
     Stream(StreamDelta),
     ToolCall(ToolCallUpdate),
     PermissionRequest(PermissionRequest),
@@ -207,7 +338,7 @@ pub enum AcpSessionEvent {
         message: String,
         recoverable: bool,
     },
-    TurnEnd(Option<AgentTurnUsage>),
+    TurnEnd(AcpTurnStop),
     SessionClosed {
         reason: Option<String>,
     },
@@ -216,13 +347,50 @@ pub enum AcpSessionEvent {
     ConfigOptionsUpdate(Vec<AgentConfigOption>),
     Plan(AgentPlan),
     Usage(AgentUsage),
+    TurnUsage(AgentTurnUsage),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AcpTurnStop {
+    Completed,
+    Canceled,
+    Failed,
+}
+
+/// Map ACP `usage_update` (context window + cumulative cost). Coerced `used=0,size=0`
+/// from Claude null/missing counters is treated as absent, not a real empty window.
+pub(crate) fn map_session_usage(update: &schema::UsageUpdate) -> AgentUsage {
+    let has_window = update.used > 0 || update.size > 0;
+    AgentUsage {
+        used: has_window.then_some(update.used),
+        size: (update.size > 0).then_some(update.size),
+        cost: update.cost.as_ref().map(|cost| AgentCost {
+            amount: Some(cost.amount),
+            currency: Some(cost.currency.clone()),
+        }),
+    }
+}
+
+pub(crate) fn map_turn_usage(usage: schema::Usage) -> AgentTurnUsage {
+    AgentTurnUsage {
+        total_tokens: Some(usage.total_tokens),
+        input_tokens: Some(usage.input_tokens),
+        output_tokens: Some(usage.output_tokens),
+        thought_tokens: usage.thought_tokens,
+        cached_read_tokens: usage.cached_read_tokens,
+        cached_write_tokens: usage.cached_write_tokens,
+    }
+}
+
+pub(crate) fn session_usage_is_empty(usage: &AgentUsage) -> bool {
+    usage.used.is_none() && usage.size.is_none() && usage.cost.is_none()
 }
 
 /// Atmos ACP Client - implements the Client trait, routes tool calls to handler
 pub struct AtmosAcpClient {
     handler: Arc<dyn AcpToolHandler>,
     cwd: PathBuf,
-    permission_tx: mpsc::UnboundedSender<(PermissionRequest, oneshot::Sender<bool>)>,
+    permission_tx: mpsc::UnboundedSender<(PermissionRequest, oneshot::Sender<String>)>,
     event_tx: mpsc::UnboundedSender<AcpSessionEvent>,
 }
 
@@ -230,7 +398,7 @@ impl AtmosAcpClient {
     pub fn new(
         handler: Arc<dyn AcpToolHandler>,
         cwd: PathBuf,
-        permission_tx: mpsc::UnboundedSender<(PermissionRequest, oneshot::Sender<bool>)>,
+        permission_tx: mpsc::UnboundedSender<(PermissionRequest, oneshot::Sender<String>)>,
         event_tx: mpsc::UnboundedSender<AcpSessionEvent>,
     ) -> Self {
         Self {
@@ -317,20 +485,13 @@ impl AtmosAcpClient {
             warn!("Failed to forward permission request: {}", e);
         }
 
-        let allowed = response_rx.await.unwrap_or(false);
-
-        // Pick option_id from args.options - first for allow, last for deny (common pattern)
-        let option_id = if allowed {
-            args.options
-                .first()
-                .map(|o| o.option_id.clone())
-                .unwrap_or_else(|| schema::PermissionOptionId::from("allow"))
-        } else {
-            args.options
-                .last()
-                .map(|o| o.option_id.clone())
-                .unwrap_or_else(|| schema::PermissionOptionId::from("deny"))
-        };
+        let selected = response_rx.await.unwrap_or_else(|_| "reject".to_string());
+        let option_id = args
+            .options
+            .iter()
+            .find(|option| option.option_id.0.as_ref() == selected)
+            .map(|option| option.option_id.clone())
+            .unwrap_or_else(|| schema::PermissionOptionId::new(selected));
 
         Ok(schema::RequestPermissionResponse::new(
             schema::RequestPermissionOutcome::Selected(schema::SelectedPermissionOutcome::new(
@@ -468,12 +629,19 @@ impl AtmosAcpClient {
                     _ => ToolCallStatus::Running,
                 };
                 let tool = extract_claude_tool_name(claude_code_meta.as_ref())
+                    .or_else(|| extract_vendor_tool_type(tool_call.raw_input.as_ref()))
+                    .or_else(|| extract_vendor_tool_type(tool_call.raw_output.as_ref()))
                     .unwrap_or_else(|| format_tool_kind(Some(&tool_call.kind)));
+                let raw_input = enrich_tool_input(
+                    tool_call.raw_input.clone(),
+                    Some(tool_call.locations.as_slice()),
+                );
                 let description = format_description(
                     Some(tool_call.title.as_str()),
                     &tool,
                     Some(tool_call.locations.as_slice()),
-                    tool_call.raw_input.as_ref(),
+                    raw_input.as_ref(),
+                    tool_call.raw_output.as_ref(),
                 );
                 let _ = self
                     .event_tx
@@ -483,7 +651,7 @@ impl AtmosAcpClient {
                         tool,
                         description,
                         status,
-                        raw_input: tool_call.raw_input.clone(),
+                        raw_input,
                         content: map_tool_call_content(&tool_call.content),
                         raw_output: tool_call.raw_output.clone(),
                         detail: build_tool_call_detail(claude_code_meta.as_ref()),
@@ -504,12 +672,19 @@ impl AtmosAcpClient {
                     _ => ToolCallStatus::Running,
                 };
                 let tool = extract_claude_tool_name(claude_code_meta.as_ref())
+                    .or_else(|| extract_vendor_tool_type(update.fields.raw_input.as_ref()))
+                    .or_else(|| extract_vendor_tool_type(update.fields.raw_output.as_ref()))
                     .unwrap_or_else(|| format_tool_kind(update.fields.kind.as_ref()));
+                let raw_input = enrich_tool_input(
+                    update.fields.raw_input.clone(),
+                    update.fields.locations.as_deref(),
+                );
                 let description = format_description(
                     update.fields.title.as_deref(),
                     &tool,
                     update.fields.locations.as_deref(),
-                    update.fields.raw_input.as_ref(),
+                    raw_input.as_ref(),
+                    update.fields.raw_output.as_ref(),
                 );
                 let _ = self
                     .event_tx
@@ -519,7 +694,7 @@ impl AtmosAcpClient {
                         tool,
                         description,
                         status,
-                        raw_input: update.fields.raw_input.clone(),
+                        raw_input,
                         content: update
                             .fields
                             .content
@@ -579,12 +754,36 @@ impl AtmosAcpClient {
                     .event_tx
                     .send(AcpSessionEvent::ConfigOptionsUpdate(out));
             }
+            schema::SessionUpdate::AvailableCommandsUpdate(update) => {
+                let commands = update
+                    .available_commands
+                    .into_iter()
+                    .map(|command| crate::domain::AgentAvailableCommand {
+                        name: command.name,
+                        description: command.description,
+                        hint: match command.input {
+                            Some(schema::AvailableCommandInput::Unstructured(input)) => {
+                                let hint = input.hint.trim().to_string();
+                                if hint.is_empty() {
+                                    None
+                                } else {
+                                    Some(hint)
+                                }
+                            }
+                            _ => None,
+                        },
+                    })
+                    .collect();
+                let _ = self
+                    .event_tx
+                    .send(AcpSessionEvent::AvailableCommandsUpdate(commands));
+            }
             schema::SessionUpdate::SessionInfoUpdate(update) => {
-                fn maybe_update<T>(value: schema::MaybeUndefined<T>) -> Option<Option<T>> {
+                fn maybe_update<T>(value: acp_schema::MaybeUndefined<T>) -> Option<Option<T>> {
                     match value {
-                        schema::MaybeUndefined::Undefined => None,
-                        schema::MaybeUndefined::Null => Some(None),
-                        schema::MaybeUndefined::Value(value) => Some(Some(value)),
+                        acp_schema::MaybeUndefined::Undefined => None,
+                        acp_schema::MaybeUndefined::Null => Some(None),
+                        acp_schema::MaybeUndefined::Value(value) => Some(Some(value)),
                     }
                 }
 
@@ -597,15 +796,10 @@ impl AtmosAcpClient {
                 ));
             }
             schema::SessionUpdate::UsageUpdate(update) => {
-                let usage = AgentUsage {
-                    used: update.used,
-                    size: update.size,
-                    cost: update.cost.map(|c| crate::acp_client::types::AgentCost {
-                        amount: Some(c.amount),
-                        currency: Some(c.currency),
-                    }),
-                };
-                let _ = self.event_tx.send(AcpSessionEvent::Usage(usage));
+                let usage = map_session_usage(&update);
+                if !session_usage_is_empty(&usage) {
+                    let _ = self.event_tx.send(AcpSessionEvent::Usage(usage));
+                }
             }
             _ => {}
         }
@@ -623,25 +817,39 @@ impl AtmosAcpClient {
 
 #[cfg(test)]
 mod tests {
-    use agent_client_protocol::schema;
+    use agent_client_protocol::schema::v1 as schema;
     use serde_json::json;
+
+    use crate::acp_client::usage_normalize::normalize_acp_json_line;
+
+    fn usage_notification(update: serde_json::Value) -> schema::SessionNotification {
+        let line = serde_json::to_string(&json!({
+            "jsonrpc": "2.0",
+            "method": "session/update",
+            "params": {
+                "sessionId": "session-1",
+                "update": update
+            }
+        }))
+        .unwrap();
+        let normalized: serde_json::Value =
+            serde_json::from_str(&normalize_acp_json_line(&line)).unwrap();
+        serde_json::from_value(normalized["params"].clone())
+            .expect("normalized usage_update should deserialize")
+    }
 
     #[test]
     fn usage_update_allows_null_usage_fields() {
-        let notification: schema::SessionNotification = serde_json::from_value(json!({
-            "sessionId": "session-1",
-            "update": {
-                "sessionUpdate": "usage_update",
-                "used": null,
-                "size": null
-            }
-        }))
-        .expect("nullable usage_update should deserialize");
+        let notification = usage_notification(json!({
+            "sessionUpdate": "usage_update",
+            "used": null,
+            "size": null
+        }));
 
         match notification.update {
             schema::SessionUpdate::UsageUpdate(update) => {
-                assert_eq!(update.used, None);
-                assert_eq!(update.size, None);
+                assert_eq!(update.used, 0);
+                assert_eq!(update.size, 0);
             }
             other => panic!("expected usage_update, got {other:?}"),
         }
@@ -649,21 +857,61 @@ mod tests {
 
     #[test]
     fn usage_update_allows_missing_usage_fields() {
-        let notification: schema::SessionNotification = serde_json::from_value(json!({
-            "sessionId": "session-1",
-            "update": {
-                "sessionUpdate": "usage_update"
-            }
-        }))
-        .expect("missing usage_update counters should deserialize");
+        let notification = usage_notification(json!({
+            "sessionUpdate": "usage_update"
+        }));
 
         match notification.update {
             schema::SessionUpdate::UsageUpdate(update) => {
-                assert_eq!(update.used, None);
-                assert_eq!(update.size, None);
+                assert_eq!(update.used, 0);
+                assert_eq!(update.size, 0);
             }
             other => panic!("expected usage_update, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn coerced_empty_usage_update_is_not_a_session_window() {
+        let usage = super::map_session_usage(&schema::UsageUpdate::new(0, 0));
+        assert!(usage.used.is_none());
+        assert!(usage.size.is_none());
+        assert!(usage.cost.is_none());
+        assert!(super::session_usage_is_empty(&usage));
+    }
+
+    #[test]
+    fn compaction_usage_keeps_zero_used_with_real_window() {
+        let usage = super::map_session_usage(&schema::UsageUpdate::new(0, 200_000));
+        assert_eq!(usage.used, Some(0));
+        assert_eq!(usage.size, Some(200_000));
+    }
+
+    #[test]
+    fn session_usage_keeps_cost_when_window_is_absent() {
+        let update = schema::UsageUpdate::new(0, 0).cost(schema::Cost::new(0.045, "USD"));
+        let usage = super::map_session_usage(&update);
+        assert!(usage.used.is_none());
+        assert!(usage.size.is_none());
+        assert_eq!(
+            usage.cost.as_ref().and_then(|cost| cost.amount),
+            Some(0.045)
+        );
+        assert_eq!(
+            usage
+                .cost
+                .as_ref()
+                .and_then(|cost| cost.currency.as_deref()),
+            Some("USD")
+        );
+    }
+
+    #[test]
+    fn prompt_usage_maps_turn_token_fields() {
+        let mapped = super::map_turn_usage(schema::Usage::new(150, 100, 40).thought_tokens(10));
+        assert_eq!(mapped.total_tokens, Some(150));
+        assert_eq!(mapped.input_tokens, Some(100));
+        assert_eq!(mapped.output_tokens, Some(40));
+        assert_eq!(mapped.thought_tokens, Some(10));
     }
 
     #[test]
@@ -684,5 +932,106 @@ mod tests {
             }
             other => panic!("expected session_info_update, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn available_commands_update_deserializes_name_description_and_hint() {
+        let notification: schema::SessionNotification = serde_json::from_value(json!({
+            "sessionId": "session-1",
+            "update": {
+                "sessionUpdate": "available_commands_update",
+                "availableCommands": [
+                    {
+                        "name": "plan",
+                        "description": "Create a plan",
+                        "input": { "hint": "what to plan" }
+                    },
+                    {
+                        "name": "test",
+                        "description": "Run tests"
+                    }
+                ]
+            }
+        }))
+        .expect("available_commands_update should deserialize");
+
+        match notification.update {
+            schema::SessionUpdate::AvailableCommandsUpdate(update) => {
+                assert_eq!(update.available_commands.len(), 2);
+                assert_eq!(update.available_commands[0].name, "plan");
+                assert_eq!(update.available_commands[0].description, "Create a plan");
+                assert_eq!(update.available_commands[1].name, "test");
+            }
+            other => panic!("expected available_commands_update, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn grok_listdir_envelope_becomes_a_concrete_title() {
+        let input = json!({
+            "type": "ListDir",
+            "Content": {
+                "content": "- /tmp/app/\n - README.md",
+                "absolute_root_path": "/tmp/app"
+            }
+        });
+        assert_eq!(
+            super::extract_vendor_tool_type(Some(&input)).as_deref(),
+            Some("ListDir")
+        );
+        assert_eq!(
+            super::format_description(Some("Tool"), "Tool", None, Some(&input), None),
+            "ListDir: /tmp/app"
+        );
+    }
+
+    #[test]
+    fn grok_readfile_envelope_uses_absolute_path() {
+        let output = json!({
+            "type": "ReadFile",
+            "FileContent": {
+                "absolute_path": "/tmp/app/README.md",
+                "raw_output": "# hi\n",
+                "limit": 40,
+                "total_lines": 80
+            }
+        });
+        assert_eq!(
+            super::extract_vendor_tool_type(Some(&output)).as_deref(),
+            Some("ReadFile")
+        );
+        assert_eq!(
+            super::format_description(Some("Tool"), "Tool", None, None, Some(&output)),
+            "ReadFile: /tmp/app/README.md"
+        );
+    }
+
+    #[test]
+    fn cursor_kind_title_does_not_hide_location_path() {
+        let loc = schema::ToolCallLocation::new("/tmp/app/README.md");
+        assert_eq!(
+            super::format_description(
+                Some("Read"),
+                "Read",
+                Some(std::slice::from_ref(&loc)),
+                None,
+                None,
+            ),
+            "Read: /tmp/app/README.md"
+        );
+        let input = super::enrich_tool_input(None, Some(std::slice::from_ref(&loc))).unwrap();
+        assert_eq!(
+            input.get("path").and_then(|v| v.as_str()),
+            Some("/tmp/app/README.md")
+        );
+    }
+
+    #[test]
+    fn cursor_execute_title_does_not_hide_command() {
+        let input = json!({ "command": "echo hello" });
+        assert_eq!(
+            super::format_description(Some("Run Script"), "Execute", None, Some(&input), None),
+            "Execute: echo hello"
+        );
     }
 }

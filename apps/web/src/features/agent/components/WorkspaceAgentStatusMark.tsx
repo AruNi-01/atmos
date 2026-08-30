@@ -3,7 +3,7 @@
 import React from "react";
 import { cn } from "@workspace/ui";
 import { AgentAttentionIndicator } from "@/features/agent/components/AgentAttentionIndicator";
-import { AgentHookStatusIndicator } from "@/features/agent/components/AgentHookStatusIndicator";
+import { AgentStatusIndicator } from "@/features/agent/components/AgentStatusIndicator";
 import {
   useProjectAgentStatusRollup,
   useWorkspaceAgentStatus,
@@ -43,7 +43,7 @@ function renderStatusView(
   }
 
   return (
-    <AgentHookStatusIndicator
+    <AgentStatusIndicator
       state={view.state}
       variant="compact"
       placement={placement}

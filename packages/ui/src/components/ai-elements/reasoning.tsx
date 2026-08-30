@@ -13,7 +13,8 @@ import { cjk } from "@streamdown/cjk";
 import { code } from "@streamdown/code";
 import { math } from "@streamdown/math";
 import { mermaid } from "@streamdown/mermaid";
-import { BrainIcon, ChevronDownIcon } from "lucide-react";
+import { BrainIcon, ChevronRightIcon } from "lucide-react";
+import { useReducedMotion } from "motion/react";
 import {
   createContext,
   memo,
@@ -25,6 +26,7 @@ import {
   useState,
 } from "react";
 import { Streamdown, type PluginConfig } from "streamdown";
+import { useSmoothStreamText } from "./smooth-stream-text";
 import { TextShimmer } from "../ui/text-shimmer";
 
 interface ReasoningContextValue {
@@ -136,7 +138,7 @@ export const Reasoning = memo(
     return (
       <ReasoningContext.Provider value={contextValue}>
         <Collapsible
-          className={cn("not-prose mb-4", className)}
+          className={cn("not-prose", className)}
           onOpenChange={handleOpenChange}
           open={isOpen}
           {...props}
@@ -159,9 +161,9 @@ const defaultGetThinkingMessage = (isStreaming: boolean, duration?: number) => {
     return <TextShimmer duration={1}>Thinking...</TextShimmer>;
   }
   if (duration === undefined) {
-    return <p>Thought for a few seconds</p>;
+    return <span>Thought for a few seconds</span>;
   }
-  return <p>Thought for {duration} seconds</p>;
+  return <span>Thought for {duration} seconds</span>;
 };
 
 export const ReasoningTrigger = memo(
@@ -176,19 +178,23 @@ export const ReasoningTrigger = memo(
     return (
       <CollapsibleTrigger
         className={cn(
-          "flex w-full items-center gap-2 text-muted-foreground text-sm hover:text-foreground",
+          "group inline-flex min-w-0 max-w-full cursor-pointer items-center gap-2 py-0.5 text-left text-sm leading-5 text-muted-foreground hover:text-foreground",
           className
         )}
         {...props}
       >
         {children ?? (
           <>
-            <BrainIcon className="size-4" />
-            {getThinkingMessage(isStreaming, duration)}
-            <ChevronDownIcon
+            <span className="flex size-4 shrink-0 items-center justify-center [&>svg]:size-3.5">
+              <BrainIcon />
+            </span>
+            <span className="min-w-0 truncate">
+              {getThinkingMessage(isStreaming, duration)}
+            </span>
+            <ChevronRightIcon
               className={cn(
-                "size-4 transition-transform",
-                isOpen ? "rotate-180" : "rotate-0"
+                "size-3.5 shrink-0 text-muted-foreground transition-transform duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]",
+                isOpen ? "rotate-90" : "rotate-0"
               )}
             />
           </>
@@ -209,22 +215,36 @@ export type ReasoningContentProps = ComponentProps<
 const streamdownPlugins: PluginConfig = { cjk, code: code as PluginConfig["code"], math, mermaid };
 
 export const ReasoningContent = memo(
-  ({ className, children, ...props }: ReasoningContentProps) => (
-    <CollapsibleContent
-      className={cn(
-        "mt-4 text-sm",
-        "data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-top-2 data-[state=open]:slide-in-from-top-2 text-muted-foreground outline-none data-[state=closed]:animate-out data-[state=open]:animate-in",
-        className
-      )}
-      {...props}
-    >
-      <Streamdown animated={{
-        stagger: 40
-      }} plugins={streamdownPlugins}>
-        {children}
-      </Streamdown>
-    </CollapsibleContent>
-  )
+  ({ className, children, ...props }: ReasoningContentProps) => {
+    const { isStreaming } = useReasoning();
+    const reducedMotion = Boolean(useReducedMotion());
+    const streaming = !reducedMotion && isStreaming;
+    const displayed = useSmoothStreamText(children, streaming);
+    return (
+      <CollapsibleContent
+        className={cn(
+          "text-sm text-muted-foreground outline-none data-[state=open]:overflow-visible",
+          className
+        )}
+        {...props}
+      >
+        <div className="flex min-w-0 items-stretch gap-2 pt-1">
+          <div className="relative w-4 shrink-0" aria-hidden="true">
+            <span className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-border" />
+          </div>
+          <div className="min-w-0 flex-1 [&_p]:my-1 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0">
+            <Streamdown
+              animated={false}
+              isAnimating={streaming}
+              plugins={streamdownPlugins}
+            >
+              {displayed}
+            </Streamdown>
+          </div>
+        </div>
+      </CollapsibleContent>
+    );
+  }
 );
 
 Reasoning.displayName = "Reasoning";

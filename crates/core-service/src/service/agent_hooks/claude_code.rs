@@ -2,18 +2,25 @@ use serde_json::Value;
 use tracing::debug;
 
 use super::{
-    extract_child_agent_id, is_child_start_event, is_child_stop_event, AgentHookState,
-    AgentHooksService, AgentToolType, AtmosContext, StateUpdateKind,
+    extract_child_agent_id, extract_cwd, is_child_start_event, is_child_stop_event,
+    resolve_session_id,
+};
+use crate::service::agent_status::{
+    AgentOccupancy, AgentStatusContext, AgentStatusService, AgentToolType, OccupancyUpdateKind,
 };
 
-pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &AtmosContext) {
+pub(super) fn handle_event(
+    service: &AgentStatusService,
+    payload: &Value,
+    ctx: &AgentStatusContext,
+) {
     let hook_event = payload
         .get("hook_event_name")
         .and_then(|v| v.as_str())
         .unwrap_or("");
 
-    let session_id = service.resolve_session_id(payload, AgentToolType::ClaudeCode, ctx);
-    let project_path = AgentHooksService::extract_cwd(payload).map(String::from);
+    let session_id = resolve_session_id(payload, AgentToolType::ClaudeCode, ctx);
+    let project_path = extract_cwd(payload).map(String::from);
 
     debug!(
         "Claude Code hook event: {} session_id={}",
@@ -25,7 +32,7 @@ pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &A
     // authoritative. But if the session is idle, allow takeover (the user
     // may have quit one agent and started another in the same terminal).
     if let Some(existing) = service.sessions.read().get(&session_id) {
-        if existing.tool != AgentToolType::ClaudeCode && existing.state != AgentHookState::Idle {
+        if existing.tool != AgentToolType::ClaudeCode && existing.state != AgentOccupancy::Idle {
             debug!(
                 "Skipping Claude Code event for session {} actively owned by {}",
                 session_id, existing.tool
@@ -64,8 +71,8 @@ pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &A
                     project_path,
                     ctx,
                     child_id,
-                    AgentHookState::Running,
-                    StateUpdateKind::Progress,
+                    AgentOccupancy::Running,
+                    OccupancyUpdateKind::Progress,
                 );
             }
             "PermissionRequest" => {
@@ -75,8 +82,8 @@ pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &A
                     project_path,
                     ctx,
                     child_id,
-                    AgentHookState::PermissionRequest,
-                    StateUpdateKind::Permission,
+                    AgentOccupancy::PermissionRequest,
+                    OccupancyUpdateKind::Permission,
                 );
             }
             "Notification" => {
@@ -93,8 +100,8 @@ pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &A
                         project_path,
                         ctx,
                         child_id,
-                        AgentHookState::PermissionRequest,
-                        StateUpdateKind::Permission,
+                        AgentOccupancy::PermissionRequest,
+                        OccupancyUpdateKind::Permission,
                     );
                 }
             }
@@ -119,40 +126,40 @@ pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &A
             service.update_state(
                 &session_id,
                 AgentToolType::ClaudeCode,
-                AgentHookState::Idle,
+                AgentOccupancy::Idle,
                 project_path,
                 ctx,
-                StateUpdateKind::NewTurn,
+                OccupancyUpdateKind::NewTurn,
             );
         }
         "UserPromptSubmit" => {
             service.update_state(
                 &session_id,
                 AgentToolType::ClaudeCode,
-                AgentHookState::Running,
+                AgentOccupancy::Running,
                 project_path,
                 ctx,
-                StateUpdateKind::NewTurn,
+                OccupancyUpdateKind::NewTurn,
             );
         }
         "PreToolUse" | "PostToolUse" | "PostToolUseFailure" => {
             service.update_state(
                 &session_id,
                 AgentToolType::ClaudeCode,
-                AgentHookState::Running,
+                AgentOccupancy::Running,
                 project_path,
                 ctx,
-                StateUpdateKind::Progress,
+                OccupancyUpdateKind::Progress,
             );
         }
         "PermissionRequest" => {
             service.update_state(
                 &session_id,
                 AgentToolType::ClaudeCode,
-                AgentHookState::PermissionRequest,
+                AgentOccupancy::PermissionRequest,
                 project_path,
                 ctx,
-                StateUpdateKind::Permission,
+                OccupancyUpdateKind::Permission,
             );
         }
         "Notification" => {
@@ -164,10 +171,10 @@ pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &A
                 service.update_state(
                     &session_id,
                     AgentToolType::ClaudeCode,
-                    AgentHookState::PermissionRequest,
+                    AgentOccupancy::PermissionRequest,
                     project_path,
                     ctx,
-                    StateUpdateKind::Permission,
+                    OccupancyUpdateKind::Permission,
                 );
             }
         }
@@ -175,10 +182,10 @@ pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &A
             service.update_state(
                 &session_id,
                 AgentToolType::ClaudeCode,
-                AgentHookState::Idle,
+                AgentOccupancy::Idle,
                 project_path,
                 ctx,
-                StateUpdateKind::TerminalIdle,
+                OccupancyUpdateKind::TerminalIdle,
             );
         }
         "SessionEnd" => {
@@ -189,10 +196,10 @@ pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &A
                 service.update_state(
                     &session_id,
                     AgentToolType::ClaudeCode,
-                    AgentHookState::Idle,
+                    AgentOccupancy::Idle,
                     project_path,
                     ctx,
-                    StateUpdateKind::ForcedIdle,
+                    OccupancyUpdateKind::ForcedIdle,
                 );
             }
         }
@@ -208,25 +215,25 @@ mod tests {
 
     #[test]
     fn claude_code_root_events_still_update_state() {
-        let service = AgentHooksService::new();
+        let service = AgentStatusService::new();
         let payload = serde_json::json!({
             "hook_event_name": "UserPromptSubmit",
             "session_id": "root-session",
             "cwd": "/tmp/project",
         });
 
-        handle_event(&service, &payload, &AtmosContext::default());
+        handle_event(&service, &payload, &AgentStatusContext::default());
 
         let sessions = service.get_all_sessions();
         assert_eq!(sessions.len(), 1);
         assert_eq!(sessions[0].session_id, "root-session");
         assert_eq!(sessions[0].tool, AgentToolType::ClaudeCode);
-        assert_eq!(sessions[0].state, AgentHookState::Running);
+        assert_eq!(sessions[0].state, AgentOccupancy::Running);
     }
 
     #[test]
     fn claude_code_child_stop_does_not_idle_lead() {
-        let service = AgentHooksService::new();
+        let service = AgentStatusService::new();
         handle_event(
             &service,
             &serde_json::json!({
@@ -234,7 +241,7 @@ mod tests {
                 "session_id": "s1",
                 "cwd": "/tmp/project",
             }),
-            &AtmosContext::default(),
+            &AgentStatusContext::default(),
         );
         handle_event(
             &service,
@@ -244,15 +251,15 @@ mod tests {
                 "cwd": "/tmp/project",
                 "agent_id": "agent-123",
             }),
-            &AtmosContext::default(),
+            &AgentStatusContext::default(),
         );
-        assert_eq!(service.get_all_sessions()[0].state, AgentHookState::Running);
+        assert_eq!(service.get_all_sessions()[0].state, AgentOccupancy::Running);
     }
 
     #[test]
     fn claude_code_lead_stop_defers_while_child_active() {
-        let service = AgentHooksService::new();
-        let ctx = AtmosContext::default();
+        let service = AgentStatusService::new();
+        let ctx = AgentStatusContext::default();
         handle_event(
             &service,
             &serde_json::json!({
@@ -282,7 +289,7 @@ mod tests {
             }),
             &ctx,
         );
-        assert_eq!(service.get_all_sessions()[0].state, AgentHookState::Running);
+        assert_eq!(service.get_all_sessions()[0].state, AgentOccupancy::Running);
 
         handle_event(
             &service,
@@ -294,12 +301,12 @@ mod tests {
             }),
             &ctx,
         );
-        assert_eq!(service.get_all_sessions()[0].state, AgentHookState::Idle);
+        assert_eq!(service.get_all_sessions()[0].state, AgentOccupancy::Idle);
     }
 
     #[test]
     fn claude_code_session_end_and_stop_failure_set_idle() {
-        let service = AgentHooksService::new();
+        let service = AgentStatusService::new();
         handle_event(
             &service,
             &serde_json::json!({
@@ -307,7 +314,7 @@ mod tests {
                 "session_id": "s1",
                 "cwd": "/tmp/project",
             }),
-            &AtmosContext::default(),
+            &AgentStatusContext::default(),
         );
         handle_event(
             &service,
@@ -316,9 +323,9 @@ mod tests {
                 "session_id": "s1",
                 "cwd": "/tmp/project",
             }),
-            &AtmosContext::default(),
+            &AgentStatusContext::default(),
         );
-        assert_eq!(service.get_all_sessions()[0].state, AgentHookState::Idle);
+        assert_eq!(service.get_all_sessions()[0].state, AgentOccupancy::Idle);
 
         handle_event(
             &service,
@@ -327,7 +334,7 @@ mod tests {
                 "session_id": "s1",
                 "cwd": "/tmp/project",
             }),
-            &AtmosContext::default(),
+            &AgentStatusContext::default(),
         );
         handle_event(
             &service,
@@ -336,14 +343,14 @@ mod tests {
                 "session_id": "s1",
                 "cwd": "/tmp/project",
             }),
-            &AtmosContext::default(),
+            &AgentStatusContext::default(),
         );
-        assert_eq!(service.get_all_sessions()[0].state, AgentHookState::Idle);
+        assert_eq!(service.get_all_sessions()[0].state, AgentOccupancy::Idle);
     }
 
     #[test]
     fn claude_code_late_post_tool_after_stop_stays_idle() {
-        let service = AgentHooksService::new();
+        let service = AgentStatusService::new();
         handle_event(
             &service,
             &serde_json::json!({
@@ -351,7 +358,7 @@ mod tests {
                 "session_id": "s2",
                 "cwd": "/tmp/project",
             }),
-            &AtmosContext::default(),
+            &AgentStatusContext::default(),
         );
         handle_event(
             &service,
@@ -360,7 +367,7 @@ mod tests {
                 "session_id": "s2",
                 "cwd": "/tmp/project",
             }),
-            &AtmosContext::default(),
+            &AgentStatusContext::default(),
         );
         handle_event(
             &service,
@@ -369,14 +376,14 @@ mod tests {
                 "session_id": "s2",
                 "cwd": "/tmp/project",
             }),
-            &AtmosContext::default(),
+            &AgentStatusContext::default(),
         );
-        assert_eq!(service.get_all_sessions()[0].state, AgentHookState::Idle);
+        assert_eq!(service.get_all_sessions()[0].state, AgentOccupancy::Idle);
     }
 
     #[test]
     fn claude_code_child_tool_does_not_invent_roster() {
-        let service = AgentHooksService::new();
+        let service = AgentStatusService::new();
         handle_event(
             &service,
             &serde_json::json!({
@@ -384,7 +391,7 @@ mod tests {
                 "session_id": "s3",
                 "cwd": "/tmp/project",
             }),
-            &AtmosContext::default(),
+            &AgentStatusContext::default(),
         );
         handle_event(
             &service,
@@ -395,7 +402,7 @@ mod tests {
                 "agent_id": "ghost",
                 "tool_name": "Bash",
             }),
-            &AtmosContext::default(),
+            &AgentStatusContext::default(),
         );
         // Lead Stop should complete — untracked child tool traffic must not
         // invent a roster row that defers completion forever.
@@ -406,8 +413,8 @@ mod tests {
                 "session_id": "s3",
                 "cwd": "/tmp/project",
             }),
-            &AtmosContext::default(),
+            &AgentStatusContext::default(),
         );
-        assert_eq!(service.get_all_sessions()[0].state, AgentHookState::Idle);
+        assert_eq!(service.get_all_sessions()[0].state, AgentOccupancy::Idle);
     }
 }

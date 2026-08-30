@@ -10,28 +10,28 @@ import type { RegistryAgent } from "@/api/ws-api";
 import type {
   AgentConfigOption,
   AgentPlan,
-  AgentUsage,
 } from "@/features/agent/hooks/use-agent-session";
 import type { QueuedAgentPrompt } from "@/app-shell/state/use-dialog-store";
-import type { ThreadEntry } from "@/features/agent/lib/agent/thread";
-import { getAssistantCopyText } from "@/features/agent/lib/agent/thread";
+import type { AgentMessage, AgentSessionUsage } from "@atmos/api-types/ws/dto/agent-chat";
+import { assistantCopyText } from "@/features/agent/lib/agent-chat-events";
 import type { AgentChatMode } from "@/features/agent/types/index";
 import type { Project } from "@/shared/types/domain";
 import type { AgentActivity, PendingPermission } from "../lib/chat-helpers";
 import type { CurrentView } from "@/shared/hooks/use-context-params";
 
-// Display fallback before an ACP agent reports a title through session_info_update.
 export const DEFAULT_SESSION_TITLE = "新会话";
 
-/** ACP session pointer persisted by a host surface (e.g. canvas widget shape). */
+/** Chat pointer persisted by a host surface (e.g. canvas widget shape). */
 export type AgentChatSessionBinding = {
-  acpSessionId?: string | null;
+  chatId?: string | null;
   registryId?: string | null;
   sessionCwd?: string | null;
 };
 
+export type AgentChatSurfaceVariant = "modal" | "sidebar" | "standalone" | "center";
+
 export interface UseAgentChatSessionOptions {
-  variant: "modal" | "sidebar" | "standalone";
+  variant: AgentChatSurfaceVariant;
   mode: AgentChatMode;
   publishStatus: boolean;
   active?: boolean;
@@ -49,11 +49,13 @@ export interface UseAgentChatSessionOptions {
    * each document keeps its own ACP session.
    */
   instanceKey?: string | null;
+  /** Center paint id (`host` or `host::space::spaceId`) so status jumps back to this space. */
+  paintContextId?: string | null;
   /** Prefer restoring this binding (from persisted widget source) over UI prefs. */
   initialSessionBinding?: AgentChatSessionBinding | null;
-  /** Called when the live ACP session binding changes (persist to document). */
+  /** Called when the live chat binding changes (persist to document). */
   onSessionBindingChange?: (binding: {
-    acpSessionId: string | null;
+    chatId: string | null;
     registryId: string | null;
     sessionCwd: string | null;
   }) => void;
@@ -65,11 +67,10 @@ export interface UseAgentChatSessionReturn {
   isConnecting: boolean;
   connectionPhase: string;
   error: string | null;
-  sessionId: string | null;
-  acpSessionId: string | null;
+  chatId: string;
   sessionCwd: string | null;
-  entries: ThreadEntry[];
-  setEntries: React.Dispatch<React.SetStateAction<ThreadEntry[]>>;
+  messages: AgentMessage[];
+  setMessages: React.Dispatch<React.SetStateAction<AgentMessage[]>>;
   currentPlan: AgentPlan | null;
   pendingPermission: PendingPermission | null;
   pendingPermissionMarkdown: string | null;
@@ -79,6 +80,8 @@ export interface UseAgentChatSessionReturn {
   stoppedRef: React.MutableRefObject<boolean>;
   isResumingHistory: boolean;
   isResumedSession: boolean;
+  runtimeStatus: string | null;
+  hasPersistenceHandle: boolean;
   installedAgents: RegistryAgent[];
   setInstalledAgents: React.Dispatch<React.SetStateAction<RegistryAgent[]>>;
   activeAgent: RegistryAgent | null;
@@ -89,8 +92,10 @@ export interface UseAgentChatSessionReturn {
   capabilities: AgentCapabilities | null;
   configOptions: AgentConfigOption[];
   setConfigOption: (key: string, value: string) => void;
+  persistPreferredRegistry: (registryId: string) => void;
   setAgentDefaultConfig: (configId: string, value: string) => void;
-  sessionUsage: AgentUsage | null;
+  sessionUsage: AgentSessionUsage | null;
+  elapsedMs: number;
   historyOpen: boolean;
   setHistoryOpen: React.Dispatch<React.SetStateAction<boolean>>;
   historySessions: AgentChatSessionItem[];
@@ -121,10 +126,8 @@ export interface UseAgentChatSessionReturn {
   moveQueuedAgentChatPrompt: (id: string, toIndex: number) => void;
   newSessionAgentsOpen: boolean;
   setNewSessionAgentsOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  headerHovered: boolean;
-  setHeaderHovered: React.Dispatch<React.SetStateAction<boolean>>;
   bottomRef: React.RefObject<HTMLDivElement | null>;
-  conversationRef: React.RefObject<HTMLDivElement | null>;
+  transcriptRef: React.RefObject<HTMLDivElement | null>;
   authRequest: {
     message?: string;
     methods: { id: string; name: string; description?: string }[];
@@ -134,7 +137,7 @@ export interface UseAgentChatSessionReturn {
   clearAuthRequest: () => void;
   startSession: (opts?: { registryId?: string; authMethodId?: string }) => void;
   exportableMessages: ConversationMessage[];
-  userEntryIndices: number[];
+  userMessageIndices: number[];
   messageNavIndex: number;
   handleSubmit: (message: {
     text: string;
@@ -144,14 +147,19 @@ export interface UseAgentChatSessionReturn {
   handleLogoutAgent: () => Promise<void>;
   handlePermission: (optionKind: string) => void;
   handleCreateNewSession: (targetRegistryId?: string) => Promise<void>;
+  handleSelectWorkingDirectory: (selection: {
+    workspaceId: string | null;
+    projectId: string | null;
+    cwd: string | null;
+  }) => void;
   handleSelectHistorySession: (s: AgentChatSessionItem) => Promise<void>;
   handleSelectMessage: (messageIndex: number) => void;
   handleSetDefaultAgent: (agentId: string) => void;
   handleOpenNewSessionAgentsMenu: () => void;
   handleScheduleCloseNewSessionAgentsMenu: () => void;
-  handleExportConversation: () => void;
+  handleExportChat: () => void;
   persistHandoffSnapshot: () => Promise<string | null>;
-  restoreHandoffSnapshot: (expectedAcpSessionId?: string | null) => Promise<boolean>;
+  restoreHandoffSnapshot: (expectedChatId?: string | null) => Promise<boolean>;
   sendCancel: () => void;
   disconnect: () => void;
 }
@@ -197,15 +205,19 @@ export function resolveAgentChatWikiPath(
 }
 
 export function buildAgentChatExportableMessages(
-  entries: ThreadEntry[],
+  messages: AgentMessage[],
 ): ConversationMessage[] {
-  return entries.flatMap<ConversationMessage>((entry) => {
-    if (entry.role === "user") {
-      const content = entry.content.trim();
-      return content ? [{ role: "user", content }] : [];
+  return messages.flatMap<ConversationMessage>((message) => {
+    if (message.role === "user") {
+      const text = message.parts
+        .filter((part): part is Extract<AgentMessage["parts"][number], { type: "text" }> => part.type === "text")
+        .map((part) => part.text)
+        .join("\n")
+        .trim();
+      return text ? [{ role: "user", content: text }] : [];
     }
 
-    const content = getAssistantCopyText(entry).trim();
+    const content = assistantCopyText(message).trim();
     return content ? [{ role: "assistant", content }] : [];
   });
 }

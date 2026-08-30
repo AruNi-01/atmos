@@ -68,8 +68,6 @@ export function resolvePaneTitleForCenterTab(
   options?: {
     configuredAgents?: TerminalTitleAgent[];
     contestedOwners?: ContestedOwnersMap;
-    /** Default true. When false, hide agent brand text (icon still returned). */
-    showAgentName?: boolean;
     /**
      * Previous sticky session topic for this pane (from the last center-tab
      * resolve). Pure realtime OSC updates keep this instead of thrashing.
@@ -82,7 +80,6 @@ export function resolvePaneTitleForCenterTab(
   sessionOscTitle: string | undefined;
 } {
   const configuredAgents = options?.configuredAgents ?? [];
-  const showAgentName = options?.showAgentName !== false;
   const customLabel = pane.customLabel?.trim();
   const hasCustom = Boolean(customLabel);
 
@@ -113,11 +110,10 @@ export function resolvePaneTitleForCenterTab(
     // Center tab: stable session only. Live OSC stays on the pane toolbar.
     oscTitle: sessionOscTitle,
     suppressOscTitle: hasCustom,
-    showAgentName,
   });
 
   return {
-    displayTitle: composePaneDisplayTitle(pane, auto, showAgentName),
+    displayTitle: composePaneDisplayTitle(pane, auto),
     toolbarAgent: toPaneAgent(auto.toolbarAgent),
     sessionOscTitle: hasCustom ? undefined : sessionOscTitle,
   };
@@ -132,14 +128,12 @@ export function resolvePaneToolbarTitle(
   options?: {
     configuredAgents?: TerminalTitleAgent[];
     contestedOwners?: ContestedOwnersMap;
-    showAgentName?: boolean;
   },
 ): {
   displayTitle: string;
   toolbarAgent: TerminalPaneAgent | undefined;
 } {
   const configuredAgents = options?.configuredAgents ?? [];
-  const showAgentName = options?.showAgentName !== false;
   const customLabel = pane.customLabel?.trim();
   const hasCustom = Boolean(customLabel);
   const shapeAgent =
@@ -155,10 +149,9 @@ export function resolvePaneToolbarTitle(
     contestedOwners: options?.contestedOwners,
     oscTitle: pane.oscTitle,
     suppressOscTitle: hasCustom,
-    showAgentName,
   });
   return {
-    displayTitle: composePaneDisplayTitle(pane, auto, showAgentName),
+    displayTitle: composePaneDisplayTitle(pane, auto),
     toolbarAgent: toPaneAgent(auto.toolbarAgent),
   };
 }
@@ -166,22 +159,28 @@ export function resolvePaneToolbarTitle(
 function composePaneDisplayTitle(
   pane: TerminalPaneProps,
   auto: ReturnType<typeof getTerminalDisplayMeta>,
-  showAgentName: boolean,
 ): string {
   const customLabel = pane.customLabel?.trim();
   if (!customLabel) {
     const displayTitle = (auto.displayTitle || auto.primaryTitle || "").trim();
-    return displayTitle || (auto.toolbarAgent ? "" : pane.label?.trim() || "Terminal");
+    if (displayTitle) return displayTitle;
+    // No session/cwd/command title yet — keep the agent name so the tab is
+    // not icon-only (hover would otherwise replace the icon with close).
+    const agentLabel = auto.toolbarAgent?.label?.trim();
+    if (agentLabel) return agentLabel;
+    return pane.label?.trim() || "Terminal";
   }
 
-  const wantAgent = pane.keepAgentName !== false && showAgentName;
+  const wantAgent = pane.keepAgentName !== false;
   const wantCwd = pane.keepCwd !== false;
   const showAgentLabel = wantAgent && !!auto.toolbarAgent;
   const cwdSuffix =
     !showAgentLabel && wantCwd && pane.dynamicTitle
       ? isPathLikeTitle(pane.dynamicTitle)
         ? shortenPath(pane.dynamicTitle)
-        : pane.dynamicTitle
+        : auto.toolbarAgent
+          ? undefined
+          : pane.dynamicTitle
       : undefined;
 
   return [customLabel, showAgentLabel ? auto.toolbarAgent!.label : undefined, cwdSuffix]
@@ -206,8 +205,10 @@ function toPaneAgent(
  * Resolve what a center-stage terminal tab should show.
  *
  * - User `customTitle` wins for text and keeps the default terminal icon.
- * - Otherwise use the representative pane's agent brand + **stable** session
+ * - Otherwise use the representative pane's agent icon + **stable** session
  *   topic (not live OSC spinner/activity — those stay on the pane toolbar).
+ * - If there is no session/cwd/command title yet, show the agent name so the
+ *   tab is not icon-only.
  */
 export function resolveTerminalCenterTabPresentation(options: {
   fallbackTitle: string;
@@ -218,7 +219,6 @@ export function resolveTerminalCenterTabPresentation(options: {
   maximizedPaneId?: string | null;
   configuredAgents?: TerminalTitleAgent[];
   contestedOwners?: ContestedOwnersMap;
-  showAgentName?: boolean;
   /**
    * Sticky session topics keyed by pane id (from prior center-tab resolves).
    * When the live OSC is pure realtime noise, the previous topic is kept so
@@ -261,14 +261,14 @@ export function resolveTerminalCenterTabPresentation(options: {
   const resolved = resolvePaneTitleForCenterTab(pane, {
     configuredAgents: options.configuredAgents,
     contestedOwners: options.contestedOwners,
-    showAgentName: options.showAgentName,
     previousSessionOsc,
   });
 
-  // Agent + name hidden + no session topic → empty text is intentional (icon only).
   const displayTitle =
     resolved.displayTitle ||
-    (resolved.toolbarAgent ? "" : options.fallbackTitle || "Terminal");
+    resolved.toolbarAgent?.label ||
+    options.fallbackTitle ||
+    "Terminal";
 
   return {
     displayTitle,

@@ -22,7 +22,7 @@ import { skillsApi, agentApi, reviewWsApi } from "@/api/ws-api";
 import type { RegistryAgent, CustomAgent, ReviewTarget } from "@/api/ws-api";
 import { cn } from "@/shared/lib/utils";
 import { useDialogStore } from "@/app-shell/state/use-dialog-store";
-import { useAgentChatUrl } from "@/features/agent/hooks/use-agent-chat-url";
+import { useAgentChatCenterTabsStore } from "@/features/agent/store/use-agent-chat-center-tabs";
 import { useAppRouter } from "@/shared/hooks/use-app-router";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@workspace/ui";
 import { AgentIcon } from "@/features/agent/components/AgentIcon";
@@ -142,7 +142,6 @@ export const CodeReviewDialog: React.FC<CodeReviewDialogProps> = ({
   const [isStarting, setIsStarting] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isCreatingSkill, setIsCreatingSkill] = useState(false);
-  const [, setAgentChatOpen] = useAgentChatUrl();
   const { enqueueAgentChatPrompt, setPendingAgentChatMode } = useDialogStore();
   const router = useAppRouter();
 
@@ -366,7 +365,7 @@ export const CodeReviewDialog: React.FC<CodeReviewDialogProps> = ({
       });
       setPendingAgentChatMode("default");
       onOpenChange(false);
-      setAgentChatOpen(true);
+      useAgentChatCenterTabsStore.getState().requestNewChat();
       toastManager.add({
         title: t("toasts.queueSuccess.title"),
         description: reviewRun
@@ -383,7 +382,7 @@ export const CodeReviewDialog: React.FC<CodeReviewDialogProps> = ({
     } finally {
       setIsStarting(false);
     }
-  }, [isStarting, acpAgentId, buildReportPath, skillId, projectName, enqueueAgentChatPrompt, workspaceId, setPendingAgentChatMode, onOpenChange, setAgentChatOpen, createReviewAgentRun, t]);
+  }, [isStarting, acpAgentId, buildReportPath, skillId, projectName, enqueueAgentChatPrompt, workspaceId, setPendingAgentChatMode, onOpenChange, createReviewAgentRun, t]);
 
   const handleSyncSkills = useCallback(async () => {
     if (isSyncing) return;

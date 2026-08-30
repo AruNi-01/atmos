@@ -17,8 +17,8 @@ describe("run script tab bar", () => {
       shared.indexOf("export function CenterStageTabList"),
       shared.indexOf("export function CenterStageScrollableTabs"),
     );
-    expect(listBlock.indexOf("{children}")).toBeGreaterThan(0);
-    expect(listBlock.indexOf("{actions}")).toBeGreaterThan(listBlock.indexOf("{children}"));
+    expect(listBlock).toContain("{children}");
+    expect(listBlock).toContain("trailing={actions}");
 
     const runList = runScript.slice(
       runScript.indexOf("<CenterStageTabList"),

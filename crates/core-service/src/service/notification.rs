@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use tokio::sync::broadcast;
 use tracing::{debug, info, warn};
 
-use super::agent_hooks::{AgentHookState, AgentHookStateUpdate, AgentToolType};
+use super::agent_status::{AgentOccupancy, AgentStatusUpdate, AgentToolType};
 
 fn notification_settings_path() -> PathBuf {
     let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));
@@ -104,6 +104,14 @@ pub struct NotificationPayload {
     pub side_chat_id: Option<String>,
     #[serde(default)]
     pub source_pane_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub surface: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub surface_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub space_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub provider_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -155,17 +163,17 @@ impl NotificationService {
 
     pub fn on_agent_state_change(
         self: &Arc<Self>,
-        update: &AgentHookStateUpdate,
-        previous_state: Option<AgentHookState>,
+        update: &AgentStatusUpdate,
+        previous_state: Option<AgentOccupancy>,
     ) {
         let settings = self.settings.read().clone();
 
         let should_notify_permission = settings.notify_on_permission_request
-            && update.state == AgentHookState::PermissionRequest;
+            && update.state == AgentOccupancy::PermissionRequest;
 
         let should_notify_complete = settings.notify_on_task_complete
-            && update.state == AgentHookState::Idle
-            && previous_state == Some(AgentHookState::Running);
+            && update.state == AgentOccupancy::Idle
+            && previous_state == Some(AgentOccupancy::Running);
 
         if !should_notify_permission && !should_notify_complete {
             return;
@@ -198,6 +206,10 @@ impl NotificationService {
             pane_id: update.pane_id.clone(),
             side_chat_id: update.side_chat_id.clone(),
             source_pane_id: update.source_pane_id.clone(),
+            surface: Some(update.surface.as_str().to_string()),
+            surface_id: update.surface_id.clone(),
+            space_id: update.space_id.clone(),
+            provider_id: update.provider_id.clone(),
         };
 
         if settings.browser_notification || settings.desktop_notification {
@@ -456,6 +468,10 @@ fn automation_push_payload(payload: &AutomationNotificationPayload) -> Notificat
         pane_id: None,
         side_chat_id: None,
         source_pane_id: None,
+        surface: None,
+        surface_id: None,
+        space_id: None,
+        provider_id: None,
     }
 }
 
@@ -473,6 +489,7 @@ fn tool_display_name(tool: &AgentToolType) -> &'static str {
         AgentToolType::Pi => "Pi",
         AgentToolType::Hermes => "Hermes",
         AgentToolType::GrokBuild => "Grok Build",
+        AgentToolType::Agent => "Agent",
     }
 }
 

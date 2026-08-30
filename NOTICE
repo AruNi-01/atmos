@@ -153,12 +153,6 @@ tokscale-core
   License:  MIT — see vendor/tokscale-core/LICENSE
   Copyright (c) 2025 Junho Yeo
 
-agent-client-protocol-schema
-  Source:   https://github.com/agentclientprotocol/agent-client-protocol
-  Location: vendor/agent-client-protocol-schema/
-  License:  Apache License, Version 2.0 — see vendor/agent-client-protocol-schema/LICENSE
-  Copyright 2025 Zed Industries, Inc. and contributors
-
 -------------------------------------------------------------------------------
 5. Desktop control engine (cua-driver-rs / trycua)
 -------------------------------------------------------------------------------

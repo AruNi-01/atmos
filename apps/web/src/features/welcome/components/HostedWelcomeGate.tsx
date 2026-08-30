@@ -65,6 +65,7 @@ import { useAppRouter } from '@/shared/hooks/use-app-router';
 type HostedWelcomeGateProps = {
   onAddProject?: () => void;
   onConnectAgent?: () => void;
+  onStartAgentChat?: () => void;
   onClose?: () => void;
   className?: string;
 };

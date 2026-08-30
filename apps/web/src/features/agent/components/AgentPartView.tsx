@@ -1,0 +1,159 @@
+"use client";
+
+import type { ComponentPropsWithoutRef, ReactNode } from "react";
+import { useTranslations } from "next-intl";
+import { MessageCircleMore, MessageCirclePlus } from "lucide-react";
+import {
+  MessageResponse,
+  Reasoning,
+  ReasoningContent,
+  ReasoningTrigger,
+  TextShimmer,
+} from "@workspace/ui";
+import type { AgentPart } from "@atmos/api-types/ws/dto/agent-chat";
+import { cn } from "@/shared/lib/utils";
+import {
+  formatWorkDuration,
+  thinkingBlockDurationMs,
+  thinkingDurationSeconds,
+} from "@/features/agent/lib/agent-chat-timing";
+import { agentMessageLinkSafety } from "./AgentMessageLinkSafetyModal";
+import { ToolView } from "./ToolView";
+
+export function AgentPartView({
+  part,
+  index,
+  parts,
+  streaming,
+  thinkingMs,
+  registryId,
+  reviewComponents,
+}: {
+  part: AgentPart;
+  index: number;
+  parts: AgentPart[];
+  streaming: boolean;
+  thinkingMs?: number | null;
+  registryId: string;
+  reviewComponents: {
+    code: (props: ComponentPropsWithoutRef<"code"> & { node?: unknown }) => ReactNode;
+    a?: (props: ComponentPropsWithoutRef<"a">) => ReactNode;
+  };
+}) {
+  const t = useTranslations("Agent.components.chatPanel");
+  if (part.type === "plan" || part.type === "attachment") return null;
+  if (part.type === "text" && !part.text) return null;
+  if (part.type === "thinking" && !part.text) return null;
+
+  if (part.type === "text") {
+    const isLastTextBlock = streaming && !parts.slice(index + 1).some((item) => item.type === "text");
+    return (
+      <MessageResponse
+        parseIncompleteMarkdown
+        isAnimating={isLastTextBlock}
+        caret={isLastTextBlock ? "block" : undefined}
+        className="break-words"
+        components={reviewComponents as never}
+        linkSafety={agentMessageLinkSafety}
+      >
+        {part.text}
+      </MessageResponse>
+    );
+  }
+
+  if (part.type === "thinking") {
+    const isCurrentlyThinking = streaming && index === parts.length - 1;
+    const duration = isCurrentlyThinking
+      ? undefined
+      : thinkingDurationSeconds(thinkingBlockDurationMs(part, parts, thinkingMs));
+    return (
+      <Reasoning
+        isStreaming={isCurrentlyThinking}
+        defaultOpen={isCurrentlyThinking}
+        duration={duration}
+      >
+        <ReasoningTrigger
+          getThinkingMessage={(isStreaming, seconds) => {
+            if (isStreaming || seconds === 0) {
+              return <TextShimmer as="span" duration={1} className="text-sm">{t("thinking")}</TextShimmer>;
+            }
+            if (seconds === undefined) {
+              return <span>{t("thoughtForFew")}</span>;
+            }
+            return <span>{t("thoughtFor", { duration: formatWorkDuration(seconds * 1000) })}</span>;
+          }}
+        />
+        <ReasoningContent className="break-words prose-sm dark:prose-invert max-w-full min-w-0">
+          {part.text}
+        </ReasoningContent>
+      </Reasoning>
+    );
+  }
+
+  if (part.type === "error") {
+    return (
+      <MessageResponse className="break-words text-destructive">
+        {part.message}
+      </MessageResponse>
+    );
+  }
+
+  if (part.type === "session_lifecycle") {
+    return <SessionLifecycleView part={part} />;
+  }
+
+  if (part.type === "tool_call") {
+    return <ToolView part={part} registryId={registryId} />;
+  }
+
+  return null;
+}
+
+function SessionLifecycleView({
+  part,
+}: {
+  part: Extract<AgentPart, { type: "session_lifecycle" }>;
+}) {
+  const t = useTranslations("Agent.components.chatPanel.session");
+  const running = part.status === "running";
+  const failed = part.status === "failed";
+  const resume = part.action === "resume";
+  const Icon = resume ? MessageCircleMore : MessageCirclePlus;
+  const duration = part.duration_ms != null && part.duration_ms >= 1000
+    ? formatWorkDuration(part.duration_ms)
+    : null;
+  const label = running
+    ? t(resume ? "resuming" : "creating")
+    : failed
+      ? t(resume ? "resumeFailed" : "createFailed")
+      : duration
+        ? t(resume ? "resumedIn" : "createdIn", { duration })
+        : t(resume ? "resumed" : "created");
+
+  return (
+    <div className="inline-flex min-w-0 max-w-full items-center gap-2 py-0.5 text-left text-sm leading-5 text-muted-foreground">
+      <span className="flex size-4 shrink-0 items-center justify-center [&>svg]:size-3.5">
+        <Icon />
+      </span>
+      <span
+        className={cn("min-w-0 truncate", failed && "text-destructive")}
+        title={part.error ?? undefined}
+      >
+        {running ? (
+          <TextShimmer as="span" duration={1} className="text-sm">
+            {label}
+          </TextShimmer>
+        ) : (
+          label
+        )}
+      </span>
+    </div>
+  );
+}
+
+export function isRenderedPart(part: AgentPart): boolean {
+  if (part.type === "plan" || part.type === "attachment") return false;
+  if (part.type === "text") return Boolean(part.text);
+  if (part.type === "thinking") return Boolean(part.text);
+  return part.type === "tool_call" || part.type === "error" || part.type === "session_lifecycle";
+}

@@ -6,6 +6,7 @@ pub mod process;
 pub mod runner;
 pub mod tools;
 pub mod types;
+pub mod usage_normalize;
 
 pub use client::{AcpSessionEvent, AtmosAcpClient};
 pub use process::spawn_agent;

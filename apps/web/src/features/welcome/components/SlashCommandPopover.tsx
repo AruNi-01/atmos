@@ -7,10 +7,10 @@ import {
   EyeOff,
   Folder,
   Loader2,
-  MessageCirclePlus,
   MessagesSquare,
   Puzzle,
   ScrollText,
+  Zap,
 } from "lucide-react";
 import { BrowserUseIconStatic } from "@workspace/ui/components/icons/browser-use-icon-static";
 import { DesktopUseIconStatic } from "@workspace/ui/components/icons/desktop-use-icon-static";
@@ -18,17 +18,19 @@ import { DesktopUseIconStatic } from "@workspace/ui/components/icons/desktop-use
 import type { SkillInfo } from "@/api/ws-api";
 import { AgentIcon } from "@/features/agent/components/AgentIcon";
 import { VIEW_RUN_LOGS_SLASH_COMMAND_ID } from "@/features/browser/lib/run-log-context";
-import type { SlashCommandOption } from "@/features/welcome/hooks/use-welcome-slash-navigation";
+import type {
+  SlashCommandOption,
+  SlashExpandedSections,
+} from "@/features/welcome/hooks/use-welcome-slash-navigation";
 import { BROWSER_USE_SLASH_COMMAND_ID } from "@/features/welcome/lib/slash-browser-use";
 import { DESKTOP_USE_SLASH_COMMAND_ID } from "@/features/welcome/lib/slash-desktop-use";
-import { scrollActiveListItemIntoView } from "@/features/welcome/lib/popover-list-scroll";
+import {
+  isPopoverConfirmKey,
+  scrollActiveListItemIntoView,
+} from "@/features/welcome/lib/popover-list-scroll";
 import type { AgentMenuOption } from "@/features/welcome/lib/welcome-page-helpers";
 
-type ExpandedSections = {
-  skills: boolean;
-  projects: boolean;
-  agents: boolean;
-};
+type ExpandedSections = SlashExpandedSections;
 
 type ProjectOption = {
   id: string;
@@ -76,6 +78,7 @@ interface SlashCommandPopoverProps {
   showCommands?: boolean;
   showProjects?: boolean;
   showSkills?: boolean;
+  commandsTitle?: string;
   listRef: React.RefObject<HTMLDivElement | null>;
   view?: SlashPopoverView;
 }
@@ -112,6 +115,7 @@ export function SlashCommandPopover({
   showCommands = false,
   showProjects = true,
   showSkills = true,
+  commandsTitle,
   listRef,
   view = "menu",
 }: SlashCommandPopoverProps) {
@@ -155,6 +159,10 @@ export function SlashCommandPopover({
         onClose();
         return;
       }
+      if (event.key === "Tab") {
+        event.preventDefault();
+        event.stopPropagation();
+      }
       if (disableList.length === 0) return;
       if (event.key === "ArrowDown") {
         event.preventDefault();
@@ -168,7 +176,7 @@ export function SlashCommandPopover({
         setDisableActiveIndex((prev) => (prev - 1 + disableList.length) % disableList.length);
         return;
       }
-      if (event.key !== "Enter") return;
+      if (!isPopoverConfirmKey(event)) return;
       const skill = disableList[disableActiveIndex];
       if (!skill || disableSkills?.pendingId === skill.id) return;
       event.preventDefault();
@@ -190,7 +198,11 @@ export function SlashCommandPopover({
 
   if (!popover || typeof document === "undefined") return null;
 
-  const visibleCommands = showCommands ? filteredCommands : [];
+  const visibleCommands = showCommands
+    ? expandedSections.commands
+      ? filteredCommands
+      : filteredCommands.slice(0, 3)
+    : [];
   const visibleSkills = showSkills
     ? expandedSections.skills
       ? filteredSkills
@@ -206,11 +218,13 @@ export function SlashCommandPopover({
       ? filteredAgents
       : filteredAgents.slice(0, 3)
     : [];
+  const commandsShowMore =
+    showCommands && filteredCommands.length > 3 && !expandedSections.commands ? 1 : 0;
   const skillsShowMore = showSkills && filteredSkills.length > 3 && !expandedSections.skills ? 1 : 0;
   const projectsShowMore = showProjects && filteredProjects.length > 3 && !expandedSections.projects ? 1 : 0;
 
   const commandsCount = visibleCommands.length;
-  const skillsStartIndex = commandsCount;
+  const skillsStartIndex = commandsCount + commandsShowMore;
   const skillsCount = !showSkills
     ? 0
     : expandedSections.skills
@@ -230,10 +244,10 @@ export function SlashCommandPopover({
 
   const menuContent = (
     <div ref={listRef} className="max-h-80 space-y-0.5 overflow-y-auto p-1">
-      {showCommands && visibleCommands.length > 0 ? (
+      {showCommands && (visibleCommands.length > 0 || commandsShowMore > 0) ? (
         <>
           <div className="px-2 py-1 text-xs font-medium text-muted-foreground">
-            {t("slashPopover.commands")}
+            {commandsTitle || t("slashPopover.commands")}
           </div>
           {visibleCommands.map((command, index) => (
             <button
@@ -262,7 +276,7 @@ export function SlashCommandPopover({
               ) : command.id === VIEW_RUN_LOGS_SLASH_COMMAND_ID ? (
                 <ScrollText className="size-4 text-emerald-600 dark:text-emerald-400" />
               ) : (
-                <MessageCirclePlus className="size-4 text-cyan-600 dark:text-cyan-300" />
+                <Zap className="size-4" />
               )}
               <span className="min-w-0 flex-1">
                 <span className="block truncate font-medium">{command.label}</span>
@@ -274,6 +288,24 @@ export function SlashCommandPopover({
               </span>
             </button>
           ))}
+          {filteredCommands.length > 3 && !expandedSections.commands ? (
+            <button
+              type="button"
+              ref={(el) => {
+                setItemRef(commandsCount, el);
+              }}
+              className={cn(
+                "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-[11px] text-muted-foreground hover:bg-muted",
+                commandsCount === activeIndex && "bg-muted",
+              )}
+              onMouseDown={(event) => {
+                event.preventDefault();
+                setExpandedSections((prev) => ({ ...prev, commands: true }));
+              }}
+            >
+              {t("slashPopover.showMore", { count: filteredCommands.length - 3 })}
+            </button>
+          ) : null}
         </>
       ) : null}
 

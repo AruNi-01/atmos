@@ -42,6 +42,7 @@ import {
   hasAgentContextDragData,
 } from "@/shared/lib/agent-context-drag";
 import { useTerminalRichInputSettingsStore } from "@/features/settings/store/terminal-rich-input-settings-store";
+import { addTerminalSelectionAsContext } from "@/features/agent/lib/agent/active-composer";
 import { hostIdFromCenterKey } from "@/app-shell/center-space/center-space";
 
 type TerminalPaneToolbarActions = {
@@ -249,7 +250,7 @@ export function TerminalScopedPane({
               className="terminal-pane-toolbar-left"
               label={t("paneToolbar.dragHandle")}
             >
-              {displayTitle ? (
+              {displayTitle || toolbarAgent ? (
                 <TerminalTitleWithAgent
                   displayTitle={displayTitle}
                   primaryTitle={primaryTitle}
@@ -433,14 +434,13 @@ export function TerminalScopedPane({
           projectRootPath={activeProject?.mainFilePath}
           surfaceActive={surfaceActive}
           connectWhileHidden={connectWhileHidden}
-          onAddSelectionAsContext={
-            richInputActive
-              ? (snapshot) => {
-                  setActivePaneId(id);
-                  agentInputOverlayRefsMap.current.get(id)?.addTerminalSelectionContext(snapshot);
-                }
-              : undefined
-          }
+          onAddSelectionAsContext={(snapshot) => {
+            setActivePaneId(id);
+            addTerminalSelectionAsContext(
+              snapshot,
+              richInputActive ? agentInputOverlayRefsMap.current.get(id) : null,
+            );
+          }}
           onStartSideChatForSelection={
             richInputActive
               ? (snapshot) => {
