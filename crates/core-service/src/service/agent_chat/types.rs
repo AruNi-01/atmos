@@ -50,6 +50,8 @@ pub struct AgentChatMeta {
     pub project_id: Option<String>,
     #[serde(default)]
     pub space_id: Option<String>,
+    #[serde(default)]
+    pub origin: AgentChatOrigin,
     pub provider_id: String,
     #[serde(default)]
     pub last_message_at: Option<DateTime<Utc>>,
@@ -119,6 +121,8 @@ pub struct AgentChatIndexEntry {
     pub project_id: Option<String>,
     #[serde(default)]
     pub space_id: Option<String>,
+    #[serde(default)]
+    pub origin: AgentChatOrigin,
     pub provider_id: String,
     pub updated_at: DateTime<Utc>,
     #[serde(default)]
@@ -136,12 +140,21 @@ impl From<&AgentChatMeta> for AgentChatIndexEntry {
             workspace_id: meta.workspace_id.clone(),
             project_id: meta.project_id.clone(),
             space_id: meta.space_id.clone(),
+            origin: meta.origin,
             provider_id: meta.provider_id.clone(),
             updated_at: meta.updated_at,
             last_message_at: meta.last_message_at,
             deleted: meta.deleted,
         }
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum AgentChatOrigin {
+    #[default]
+    Normal,
+    Quick,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -719,6 +732,7 @@ pub struct CreateAgentChatRequest {
     pub project_id: Option<String>,
     pub space_id: Option<String>,
     pub cwd: String,
+    pub origin: AgentChatOrigin,
     pub provider_id: String,
     pub model: Option<String>,
     pub thinking: Option<String>,

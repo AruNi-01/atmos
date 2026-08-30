@@ -96,6 +96,9 @@ impl CatalogCache {
 }
 
 fn cache_fresh(catalog: &AgentModelCatalog, now: DateTime<Utc>) -> bool {
+    if catalog.models.is_empty() {
+        return false;
+    }
     let age = now
         .signed_duration_since(catalog.fetched_at)
         .to_std()
@@ -124,7 +127,13 @@ mod tests {
         let catalog = AgentModelCatalog {
             agent_id: "claude".into(),
             status: CatalogStatus::Ok,
-            models: Vec::new(),
+            models: vec![crate::domain::AgentModel {
+                id: "opus".into(),
+                label: "Opus".into(),
+                group: None,
+                is_default: true,
+                thinking: None,
+            }],
             modes: Vec::new(),
             thinking: AgentThinkingSupport::None,
             strategies_used: Vec::new(),
@@ -138,5 +147,26 @@ mod tests {
         assert_eq!(loaded.source, CatalogSource::Cache);
         let stale = now + chrono::Duration::hours(5);
         assert!(!cache.should_skip_probe("claude", stale));
+    }
+
+    #[test]
+    fn empty_model_list_is_not_a_usable_cache() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = CatalogCache::new(dir.path().to_path_buf());
+        let now = Utc::now();
+        let catalog = AgentModelCatalog {
+            agent_id: "opencode".into(),
+            status: CatalogStatus::Ok,
+            models: Vec::new(),
+            modes: Vec::new(),
+            thinking: AgentThinkingSupport::None,
+            strategies_used: Vec::new(),
+            fetched_at: now,
+            source: CatalogSource::Live,
+            message: None,
+        };
+        cache.put(&catalog).unwrap();
+        assert!(!cache.should_skip_probe("opencode", now));
+        assert!(cache.get("opencode", now).is_none());
     }
 }

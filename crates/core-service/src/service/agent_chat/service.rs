@@ -112,8 +112,11 @@ impl AgentChatService {
         cwd: Option<&str>,
         workspace_id: Option<&str>,
         project_id: Option<&str>,
+        all: bool,
+        origin: Option<super::types::AgentChatOrigin>,
     ) -> Result<Vec<super::types::AgentChatIndexEntry>> {
-        self.store.list(cwd, workspace_id, project_id, false)
+        self.store
+            .list(cwd, workspace_id, project_id, false, all, origin)
     }
 
     pub async fn get(&self, id: &str) -> Result<AgentChatSnapshot> {
@@ -971,7 +974,7 @@ impl AgentChatService {
     pub async fn close_workspace(&self, workspace_id: &str) -> usize {
         let ids = self
             .store
-            .list(None, Some(workspace_id), None, true)
+            .list(None, Some(workspace_id), None, true, false, None)
             .unwrap_or_default()
             .into_iter()
             .map(|entry| entry.id)

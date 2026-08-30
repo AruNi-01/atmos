@@ -12,8 +12,8 @@ use super::catalog::{parse_followup_policy, CatalogPrefetchWorker, FollowupPolic
 use super::service::AgentChatService;
 use super::store::AgentChatStore;
 use super::types::{
-    AgentChatPayload, CreateAgentChatRequest, MessagePart, QueueItemStatus, RuntimeStatus,
-    SessionLifecycleAction, SessionLifecycleStatus,
+    AgentChatOrigin, AgentChatPayload, CreateAgentChatRequest, MessagePart, QueueItemStatus,
+    RuntimeStatus, SessionLifecycleAction, SessionLifecycleStatus,
 };
 
 fn make_service(provider: Arc<FakeAgentProvider>) -> (tempfile::TempDir, AgentChatService) {
@@ -29,6 +29,7 @@ fn create_req(cwd: &str) -> CreateAgentChatRequest {
         project_id: None,
         space_id: None,
         cwd: cwd.into(),
+        origin: AgentChatOrigin::Normal,
         provider_id: "claude".into(),
         model: Some("opus".into()),
         thinking: None,

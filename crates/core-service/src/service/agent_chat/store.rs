@@ -11,7 +11,7 @@ use crate::error::{Result, ServiceError};
 use crate::utils::path_boundary::{path_or_existing_parent_within_root, path_within_root};
 
 use super::types::{
-    flatten_messages, AgentChatIndexEntry, AgentChatMeta, AgentChatSnapshot,
+    flatten_messages, AgentChatIndexEntry, AgentChatMeta, AgentChatOrigin, AgentChatSnapshot,
     CreateAgentChatRequest, FoldedMessage, FoldedTurn, MessagePart, QueueItem, RuntimeStatus,
     SessionLifecycleAction, SessionLifecycleStatus, TranscriptRecord, TurnStatus,
 };
@@ -56,6 +56,7 @@ impl AgentChatStore {
             workspace_id: req.workspace_id,
             project_id: req.project_id,
             space_id: req.space_id,
+            origin: req.origin,
             provider_id: req.provider_id,
             last_message_at: None,
             last_event_seq: 0,
@@ -131,6 +132,8 @@ impl AgentChatStore {
         workspace_id: Option<&str>,
         project_id: Option<&str>,
         include_deleted: bool,
+        all: bool,
+        origin: Option<AgentChatOrigin>,
     ) -> Result<Vec<AgentChatIndexEntry>> {
         let entries = match self.read_index() {
             Ok(entries) if !entries.is_empty() => entries,
@@ -139,13 +142,17 @@ impl AgentChatStore {
         Ok(entries
             .into_iter()
             .filter(|entry| include_deleted || !entry.deleted)
-            .filter(|entry| match (cwd, workspace_id, project_id) {
-                (None, None, None) => entry.workspace_id.is_none() && entry.project_id.is_none(),
-                _ => {
-                    cwd.is_none_or(|cwd| entry.cwd == cwd)
+            .filter(|entry| origin.is_none_or(|wanted| entry.origin == wanted))
+            .filter(|entry| {
+                if cwd.is_some() || workspace_id.is_some() || project_id.is_some() {
+                    return cwd.is_none_or(|cwd| entry.cwd == cwd)
                         && workspace_id.is_none_or(|id| entry.workspace_id.as_deref() == Some(id))
-                        && project_id.is_none_or(|id| entry.project_id.as_deref() == Some(id))
+                        && project_id.is_none_or(|id| entry.project_id.as_deref() == Some(id));
                 }
+                if all {
+                    return true;
+                }
+                entry.workspace_id.is_none() && entry.project_id.is_none()
             })
             .collect())
     }
@@ -1021,6 +1028,7 @@ mod tests {
                 project_id: None,
                 space_id: None,
                 cwd: cwd.into(),
+                origin: AgentChatOrigin::Normal,
                 provider_id: "claude".into(),
                 model: Some("opus".into()),
                 thinking: None,
@@ -1764,13 +1772,86 @@ mod tests {
         let (_dir, store) = store();
         create(&store, "/tmp/a");
         create(&store, "/tmp/b");
-        let listed = store.list(None, None, None, false).unwrap();
+        let listed = store.list(None, None, None, false, false, None).unwrap();
         let mut cwds: Vec<_> = listed.iter().map(|e| e.cwd.as_str()).collect();
         cwds.sort();
         cwds.dedup();
         assert_eq!(cwds, ["/tmp/a", "/tmp/b"]);
         assert_eq!(
-            store.list(Some("/tmp/a"), None, None, false).unwrap().len(),
+            store
+                .list(Some("/tmp/a"), None, None, false, false, None)
+                .unwrap()
+                .len(),
+            1
+        );
+    }
+
+    #[test]
+    fn unscoped_list_is_scratch_only_until_all() {
+        let (_dir, store) = store();
+        create(&store, "/tmp/scratch");
+        store
+            .create(CreateAgentChatRequest {
+                workspace_id: Some("ws-1".into()),
+                project_id: Some("proj-1".into()),
+                space_id: None,
+                cwd: "/tmp/workspace".into(),
+                origin: AgentChatOrigin::Normal,
+                provider_id: "claude".into(),
+                model: None,
+                thinking: None,
+                mode: None,
+                title: Some("Workspace chat".into()),
+            })
+            .unwrap();
+        assert_eq!(
+            store
+                .list(None, None, None, false, false, None)
+                .unwrap()
+                .len(),
+            1
+        );
+        let all = store.list(None, None, None, false, true, None).unwrap();
+        assert_eq!(all.len(), 2);
+        assert!(all.iter().any(|entry| entry.cwd == "/tmp/workspace"));
+        assert_eq!(
+            store
+                .list(None, Some("ws-1"), None, false, false, None)
+                .unwrap()
+                .len(),
+            1
+        );
+    }
+
+    #[test]
+    fn list_can_filter_quick_origin_across_directories() {
+        let (_dir, store) = store();
+        create(&store, "/tmp/scratch");
+        store
+            .create(CreateAgentChatRequest {
+                workspace_id: Some("ws-1".into()),
+                project_id: Some("proj-1".into()),
+                space_id: None,
+                cwd: "/tmp/workspace".into(),
+                origin: AgentChatOrigin::Quick,
+                provider_id: "claude".into(),
+                model: None,
+                thinking: None,
+                mode: None,
+                title: Some("Quick chat".into()),
+            })
+            .unwrap();
+        let quick = store
+            .list(None, None, None, false, true, Some(AgentChatOrigin::Quick))
+            .unwrap();
+        assert_eq!(quick.len(), 1);
+        assert_eq!(quick[0].cwd, "/tmp/workspace");
+        assert_eq!(quick[0].origin, AgentChatOrigin::Quick);
+        assert_eq!(
+            store
+                .list(None, None, None, false, true, Some(AgentChatOrigin::Normal))
+                .unwrap()
+                .len(),
             1
         );
     }
@@ -1783,8 +1864,17 @@ mod tests {
         assert_eq!(renamed.title.as_deref(), Some("My chat"));
         let deleted = store.delete(&meta.id).unwrap();
         assert!(deleted.deleted);
-        assert!(store.list(None, None, None, false).unwrap().is_empty());
-        assert_eq!(store.list(None, None, None, true).unwrap().len(), 1);
+        assert!(store
+            .list(None, None, None, false, false, None)
+            .unwrap()
+            .is_empty());
+        assert_eq!(
+            store
+                .list(None, None, None, true, false, None)
+                .unwrap()
+                .len(),
+            1
+        );
         let on_disk: AgentChatMeta = serde_json::from_str(
             &fs::read_to_string(store.dir_for(&meta.id).join("meta.json")).unwrap(),
         )

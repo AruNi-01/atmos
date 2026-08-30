@@ -2,10 +2,9 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use super::*;
-use agent::{AgentCatalogSpec, CatalogStrategyKind};
 use core_service::utils::path_boundary::path_or_existing_parent_within_root;
 use core_service::{
-    builtin_catalog_specs, default_agent_data_dir, AgentChatService, CreateAgentChatRequest,
+    catalog_spec_for, default_agent_data_dir, AgentChatService, CreateAgentChatRequest,
     QueueItemStatus,
 };
 use serde_json::{json, Value};
@@ -74,6 +73,7 @@ impl WsMessageService {
             thinking: req.thinking,
             mode: req.mode,
             title: req.title,
+            origin: req.origin.unwrap_or_default(),
         })?;
         serde_json::to_value(meta)
             .map_err(|e| ServiceError::Processing(format!("serialize chat: {e}")))
@@ -84,6 +84,8 @@ impl WsMessageService {
             req.cwd.as_deref(),
             req.workspace_id.as_deref(),
             req.project_id.as_deref(),
+            req.all,
+            req.origin,
         )?;
         let limit = req.limit.unwrap_or(100).clamp(1, 200) as usize;
         let skip = req
@@ -295,15 +297,7 @@ impl WsMessageService {
         {
             return Err(ServiceError::Validation("invalid agent_id".into()));
         }
-        let spec = builtin_catalog_specs()
-            .into_iter()
-            .find(|spec| spec.agent_id == req.agent_id)
-            .unwrap_or(AgentCatalogSpec {
-                agent_id: req.agent_id.clone(),
-                acp: true,
-                strategies: vec![CatalogStrategyKind::Acp],
-                ..Default::default()
-            });
+        let spec = catalog_spec_for(&req.agent_id);
         let catalog = worker.get_cached_or_probing(&spec, req.refresh.unwrap_or(false));
         serde_json::to_value(catalog)
             .map_err(|e| ServiceError::Processing(format!("serialize catalog: {e}")))

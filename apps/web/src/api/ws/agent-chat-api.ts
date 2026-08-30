@@ -1,6 +1,7 @@
 import { wsRequest } from "@/api/ws/request";
 import type {
   AgentModelCatalog,
+  AgentChatOrigin,
   AgentChatIndexEntry,
   AgentChatMeta,
   AgentChatSnapshot,
@@ -15,6 +16,7 @@ import type {
 
 export type {
   AgentModelCatalog,
+  AgentChatOrigin,
   AgentChatIndexEntry,
   AgentChatMeta,
   AgentChatSnapshot,
@@ -38,11 +40,16 @@ export const agentChatApi = {
     thinking?: string | null;
     mode?: string | null;
     title?: string | null;
+    origin?: AgentChatOrigin | null;
   }) => wsRequest("agent_chat_create", input),
   list: (input: {
     workspace_id?: string | null;
     project_id?: string | null;
     cwd?: string | null;
+    cursor?: string | null;
+    limit?: number | null;
+    all?: boolean | null;
+    origin?: AgentChatOrigin | null;
   } = {}) => wsRequest("agent_chat_list", input),
   get: (chat_id: string) => wsRequest("agent_chat_get", { chat_id }),
   rename: (chat_id: string, title: string) =>

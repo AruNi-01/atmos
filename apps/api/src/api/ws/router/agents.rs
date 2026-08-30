@@ -117,13 +117,7 @@ impl WsMessageService {
         &self,
         req: TerminalAgentModelsGetRequest,
     ) -> Result<Value> {
-        let spec = core_service::builtin_catalog_specs()
-            .into_iter()
-            .find(|spec| spec.agent_id == req.agent_id)
-            .unwrap_or(agent::AgentCatalogSpec {
-                agent_id: req.agent_id.clone(),
-                ..Default::default()
-            });
+        let spec = core_service::catalog_spec_for(&req.agent_id);
         let catalog = self
             .catalog_worker
             .get_cached_or_probing(&spec, req.refresh.unwrap_or(false));

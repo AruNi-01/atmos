@@ -1,3 +1,5 @@
+export type AgentChatOrigin = "quick" | "normal";
+
 export type AgentChatCreateRequest = {
   workspace_id?: string | null;
   project_id?: string | null;
@@ -8,6 +10,7 @@ export type AgentChatCreateRequest = {
   thinking?: string | null;
   mode?: string | null;
   title?: string | null;
+  origin?: AgentChatOrigin | null;
 };
 
 export type AgentChatListRequest = {
@@ -16,6 +19,8 @@ export type AgentChatListRequest = {
   cwd?: string | null;
   cursor?: string | null;
   limit?: number | null;
+  all?: boolean | null;
+  origin?: AgentChatOrigin | null;
 };
 
 export type AgentChatIdRequest = {
@@ -102,6 +107,7 @@ export type AgentChatMeta = {
   workspace_id: string | null;
   project_id: string | null;
   space_id?: string | null;
+  origin?: AgentChatOrigin | null;
   provider_id: string;
   last_message_at: string | null;
   last_event_seq: number;
@@ -144,6 +150,7 @@ export type AgentChatIndexEntry = {
   workspace_id: string | null;
   project_id: string | null;
   space_id?: string | null;
+  origin?: AgentChatOrigin | null;
   provider_id: string;
   updated_at: string;
   last_message_at: string | null;

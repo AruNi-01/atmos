@@ -1,3 +1,4 @@
+use core_service::AgentChatOrigin;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -19,6 +20,8 @@ pub struct AgentChatCreateRequest {
     pub mode: Option<String>,
     #[serde(default)]
     pub title: Option<String>,
+    #[serde(default)]
+    pub origin: Option<AgentChatOrigin>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -33,6 +36,11 @@ pub struct AgentChatListRequest {
     pub cursor: Option<String>,
     #[serde(default)]
     pub limit: Option<u32>,
+    /// When true, unscoped list returns every chat instead of scratch-only.
+    #[serde(default)]
+    pub all: bool,
+    #[serde(default)]
+    pub origin: Option<AgentChatOrigin>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

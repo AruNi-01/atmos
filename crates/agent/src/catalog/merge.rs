@@ -79,7 +79,15 @@ pub fn merge_catalogs(agent_id: &str, fragments: &[CatalogFragment]) -> AgentMod
         }
     }
 
-    if !models.is_empty() && matches!(status, CatalogStatus::Unsupported | CatalogStatus::Probing) {
+    if !models.is_empty()
+        && matches!(
+            status,
+            CatalogStatus::Unsupported
+                | CatalogStatus::Probing
+                | CatalogStatus::Error
+                | CatalogStatus::AuthRequired
+        )
+    {
         status = CatalogStatus::Ok;
         message = None;
     }
@@ -188,5 +196,31 @@ mod tests {
             }],
         );
         assert!(matches!(merged.thinking, AgentThinkingSupport::None));
+    }
+
+    #[test]
+    fn live_models_keep_ok_when_later_acp_errors() {
+        let cli = CatalogFragment {
+            models: vec![AgentModel {
+                id: "opencode/big-pickle".into(),
+                label: "big-pickle".into(),
+                group: None,
+                is_default: false,
+                thinking: None,
+            }],
+            status: Some(CatalogStatus::Ok),
+            strategy: Some(CatalogStrategyKind::Cli),
+            ..Default::default()
+        };
+        let acp = CatalogFragment {
+            status: Some(CatalogStatus::Error),
+            message: Some("agent not found".into()),
+            strategy: Some(CatalogStrategyKind::Acp),
+            ..Default::default()
+        };
+        let merged = merge_catalogs("opencode", &[cli, acp]);
+        assert_eq!(merged.status, CatalogStatus::Ok);
+        assert_eq!(merged.models.len(), 1);
+        assert!(merged.message.is_none());
     }
 }

@@ -124,7 +124,9 @@ impl CatalogPrefetchWorker {
             let mut installed = std::collections::HashSet::new();
             for agent in service.list_agents() {
                 if agent.installed {
-                    installed.insert(agent.registry_id);
+                    for id in catalog_equivalent_ids(&agent.registry_id) {
+                        installed.insert(id);
+                    }
                 }
             }
             if let Ok(custom) = service.list_custom_agents() {
@@ -145,7 +147,11 @@ impl CatalogPrefetchWorker {
                     spec.acp = false;
                 }
             } else {
-                specs.retain(|spec| installed.contains(&spec.agent_id));
+                specs.retain(|spec| {
+                    catalog_equivalent_ids(&spec.agent_id)
+                        .iter()
+                        .any(|id| installed.contains(id))
+                });
             }
         }
         let now = Utc::now();
@@ -313,11 +319,143 @@ pub fn builtin_catalog_specs() -> Vec<AgentCatalogSpec> {
                 parser,
                 thinking,
                 static_models: Vec::new(),
-                acp: matches!(
-                    id.as_str(),
-                    "claude" | "gemini" | "codex" | "copilot" | "cursor" | "kiro" | "amp"
-                ),
+                acp: catalog_agent_has_acp(&id),
             })
         })
         .collect()
+}
+
+/// Registry ACP ids that differ from the built-in terminal agent id.
+fn catalog_terminal_id(agent_id: &str) -> &str {
+    match agent_id {
+        "claude-acp" => "claude",
+        "codex-acp" => "codex",
+        "antigravity-acp" => "antigravity",
+        "kilo" => "kilocode",
+        "factory-droid" => "droid",
+        "amp-acp" => "amp",
+        "pi-acp" => "pi",
+        other => other,
+    }
+}
+
+fn catalog_agent_has_acp(agent_id: &str) -> bool {
+    matches!(
+        catalog_terminal_id(agent_id),
+        "claude"
+            | "codex"
+            | "gemini"
+            | "antigravity"
+            | "cursor"
+            | "opencode"
+            | "kimi"
+            | "kilocode"
+            | "grok-build"
+            | "droid"
+            | "devin"
+            | "amp"
+            | "pi"
+            | "kiro"
+            | "openclaw"
+            | "hermes"
+            | "copilot"
+    )
+}
+
+fn catalog_equivalent_ids(agent_id: &str) -> Vec<String> {
+    let terminal = catalog_terminal_id(agent_id);
+    let mut ids = vec![agent_id.to_string(), terminal.to_string()];
+    for (registry, builtin) in [
+        ("claude-acp", "claude"),
+        ("codex-acp", "codex"),
+        ("antigravity-acp", "antigravity"),
+        ("kilo", "kilocode"),
+        ("factory-droid", "droid"),
+        ("amp-acp", "amp"),
+        ("pi-acp", "pi"),
+    ] {
+        if builtin == terminal {
+            ids.push(registry.to_string());
+        }
+    }
+    ids.sort();
+    ids.dedup();
+    ids
+}
+
+/// Catalog spec for a chat/registry agent id. CLI commands come from the
+/// built-in terminal agent; ACP is enabled for every agent that speaks ACP.
+pub fn catalog_spec_for(agent_id: &str) -> AgentCatalogSpec {
+    let lookup = catalog_terminal_id(agent_id);
+    let mut spec = builtin_catalog_specs()
+        .into_iter()
+        .find(|spec| spec.agent_id == lookup || spec.agent_id == agent_id)
+        .unwrap_or(AgentCatalogSpec {
+            agent_id: agent_id.to_string(),
+            acp: true,
+            strategies: vec![CatalogStrategyKind::Acp],
+            ..Default::default()
+        });
+    spec.agent_id = agent_id.to_string();
+    if catalog_agent_has_acp(agent_id) {
+        spec.acp = true;
+        if !spec.strategies.contains(&CatalogStrategyKind::Acp) {
+            spec.strategies.push(CatalogStrategyKind::Acp);
+        }
+    }
+    spec
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use agent::CatalogParserKind;
+
+    #[test]
+    fn opencode_uses_models_cli_and_acp() {
+        let spec = catalog_spec_for("opencode");
+        assert_eq!(spec.cli_command, ["opencode", "models"]);
+        assert_eq!(spec.parser, CatalogParserKind::LineList);
+        assert!(spec.acp);
+        assert!(spec.strategies.contains(&CatalogStrategyKind::Cli));
+        assert!(spec.strategies.contains(&CatalogStrategyKind::Acp));
+    }
+
+    #[test]
+    fn kilo_registry_id_reuses_kilocode_cli() {
+        let spec = catalog_spec_for("kilo");
+        assert_eq!(spec.agent_id, "kilo");
+        assert_eq!(spec.cli_command, ["kilo", "models"]);
+        assert!(spec.acp);
+    }
+
+    #[test]
+    fn claude_and_hermes_probe_via_acp() {
+        let claude = catalog_spec_for("claude-acp");
+        assert_eq!(claude.agent_id, "claude-acp");
+        assert!(claude.acp);
+        assert!(claude.strategies.contains(&CatalogStrategyKind::Acp));
+        let hermes = catalog_spec_for("hermes");
+        assert!(hermes.acp);
+        assert!(hermes.cli_command.is_empty());
+    }
+
+    #[test]
+    fn commandcode_stays_cli_only() {
+        let spec = catalog_spec_for("commandcode");
+        assert_eq!(spec.cli_command, ["cmd", "--list-models"]);
+        assert!(!spec.acp);
+    }
+
+    #[test]
+    fn kimi_and_codex_use_documented_cli_lists() {
+        let kimi = catalog_spec_for("kimi");
+        assert_eq!(kimi.cli_command, ["kimi", "provider", "list", "--json"]);
+        assert_eq!(kimi.parser, CatalogParserKind::Json);
+        assert!(kimi.acp);
+        let codex = catalog_spec_for("codex");
+        assert_eq!(codex.cli_command, ["codex", "debug", "models"]);
+        assert_eq!(codex.parser, CatalogParserKind::Json);
+        assert!(codex.acp);
+    }
 }

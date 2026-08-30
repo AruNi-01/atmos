@@ -133,12 +133,63 @@ pub fn parse_json_models(output: &str) -> Result<Vec<AgentModel>, String> {
 pub fn parse_json_models_value(value: &Value) -> Vec<AgentModel> {
     match value {
         Value::Array(items) => items.iter().filter_map(model_from_json).collect(),
-        Value::Object(map) => ["models", "items", "data"]
-            .iter()
-            .find_map(|key| map.get(*key))
-            .map(parse_json_models_value)
-            .unwrap_or_default(),
+        Value::Object(map) => {
+            for key in ["models", "items", "data"] {
+                if let Some(nested) = map.get(key) {
+                    let parsed = match nested {
+                        Value::Object(inner) => inner
+                            .iter()
+                            .filter_map(|(id, item)| model_from_map_entry(id, item))
+                            .collect(),
+                        other => parse_json_models_value(other),
+                    };
+                    if !parsed.is_empty() {
+                        return parsed;
+                    }
+                }
+            }
+            Vec::new()
+        }
         _ => Vec::new(),
+    }
+}
+
+fn model_from_map_entry(key: &str, value: &Value) -> Option<AgentModel> {
+    match value {
+        Value::String(model) => non_empty(model)
+            .or_else(|| non_empty(key))
+            .map(|id| AgentModel {
+                label: id.clone(),
+                id,
+                group: None,
+                is_default: false,
+                thinking: None,
+            }),
+        Value::Object(_) => {
+            let mut model = model_from_json(value).or_else(|| {
+                non_empty(key).map(|id| AgentModel {
+                    label: id.clone(),
+                    id,
+                    group: None,
+                    is_default: false,
+                    thinking: None,
+                })
+            })?;
+            if model.id.is_empty() {
+                model.id = key.to_string();
+            }
+            if model.label.is_empty() {
+                model.label = key.to_string();
+            }
+            Some(model)
+        }
+        _ => non_empty(key).map(|id| AgentModel {
+            label: id.clone(),
+            id,
+            group: None,
+            is_default: false,
+            thinking: None,
+        }),
     }
 }
 
@@ -276,5 +327,27 @@ mod tests {
                 ("kimi-k3-max", "Kimi K3", false),
             ]
         );
+    }
+
+    #[test]
+    fn json_parser_reads_kimi_provider_list_models_map() {
+        let models = parse_json_models(
+            r#"{
+              "providers": { "kimi-for-coding": { "type": "kimi" } },
+              "models": {
+                "kimi-for-coding": {
+                  "provider": "kimi-for-coding",
+                  "model": "kimi-k2.5",
+                  "display_name": "Kimi for Coding"
+                },
+                "kimi-k3": { "model": "kimi-k3" }
+              }
+            }"#,
+        )
+        .unwrap();
+        assert_eq!(models.len(), 2);
+        assert_eq!(models[0].id, "kimi-k2.5");
+        assert_eq!(models[0].label, "Kimi for Coding");
+        assert_eq!(models[1].id, "kimi-k3");
     }
 }
