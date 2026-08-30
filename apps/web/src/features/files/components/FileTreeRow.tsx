@@ -102,7 +102,7 @@ export function FileTreeRow({
       {isFolder ? (
         <ChevronRight
           className={cn(
-            'size-3.5 mr-1 transition-transform duration-200 text-muted-foreground',
+            'size-3.5 mr-1 text-muted-foreground transition-transform duration-[240ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none',
             isExpanded && 'rotate-90',
           )}
         />
