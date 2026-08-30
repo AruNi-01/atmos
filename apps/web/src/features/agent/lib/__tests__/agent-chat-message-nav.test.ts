@@ -33,4 +33,26 @@ describe("resolveActiveUserMessageIndex", () => {
       { height: 600, scrollTop: 0, scrollHeight: 1400 },
     )).toBe(0);
   });
+
+  it("keeps the last passed prompt when the viewport sits in that turn", () => {
+    expect(resolveActiveUserMessageIndex(
+      [
+        { messageIndex: 0, top: -520, bottom: -440 },
+        { messageIndex: 2, top: 720, bottom: 790 },
+      ],
+      { height: 600, scrollTop: 400, scrollHeight: 1600 },
+    )).toBe(0);
+  });
+
+  it("does not jump to the first prompt after leaving the bottom of a long last reply", () => {
+    expect(resolveActiveUserMessageIndex(
+      [
+        { messageIndex: 0, top: -1500, bottom: -1420 },
+        { messageIndex: 2, top: -980, bottom: -900 },
+        { messageIndex: 4, top: -460, bottom: -380 },
+        { messageIndex: 6, top: -90, bottom: -20 },
+      ],
+      { height: 600, scrollTop: 1180, scrollHeight: 1800 },
+    )).toBe(6);
+  });
 });

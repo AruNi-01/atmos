@@ -41,7 +41,7 @@ export function AgentChatCwdProvider({
     const trimmed = cwd?.trim() || null;
     return {
       cwd: trimmed,
-      roots: uniqueRoots([trimmed, projectOrWorkspacePath]),
+      roots: uniqueRoots([projectOrWorkspacePath]),
     };
   }, [cwd, projectOrWorkspacePath]);
   return (

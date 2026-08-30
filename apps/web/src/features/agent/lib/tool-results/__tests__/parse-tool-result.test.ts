@@ -8,6 +8,7 @@ import {
   parseToolResult,
   pathRelativeToCwd,
   relativeDisplayPath,
+  resolveTreeEntryPaths,
   stripReadLineNumbers,
 } from "../parse-tool-result";
 
@@ -153,6 +154,13 @@ describe("parseToolResult", () => {
       ]);
       expect(parsed.presentation.entries[2]?.isDir).toBe(true);
       expect(parsed.presentation.entries[4]?.kind).toBe("note");
+      expect(resolveTreeEntryPaths(parsed.presentation.entries)).toEqual([
+        "/tmp/app",
+        "/tmp/app/README.md",
+        "/tmp/app/src",
+        "/tmp/app/src/main.ts",
+        "2 files in subtree: 2 *.ts",
+      ]);
     }
     expect(parsed.showInput).toBe(false);
   });

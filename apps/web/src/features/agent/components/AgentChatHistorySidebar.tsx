@@ -9,10 +9,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@workspace/ui/components/ui/dropdown-menu";
-import { Bot, Check, ChevronDown, Folder, FolderOpen, Loader2, MessageCircle, Plus } from "lucide-react";
+import { Bot, Check, ChevronDown, Folder, FolderOpen, Loader2, Plus } from "lucide-react";
 import type { RegistryAgent } from "@/api/ws-api";
 import type { Project } from "@/shared/types/domain";
 import type { AgentChatHistoryRow } from "@/features/agent/lib/agent-chat-thread";
+import { isAgentScratchCwd } from "@/features/agent/lib/agent-chat-working-directory";
 import { AgentIcon } from "./AgentIcon";
 
 interface AgentChatHistorySidebarProps {
@@ -28,7 +29,6 @@ interface AgentChatHistorySidebarProps {
   handleSelectHistorySession: (row: AgentChatHistoryRow) => void;
   handleCreateNewSession: (targetRegistryId?: string) => Promise<void>;
   onPreferredRegistryChange?: (registryId: string) => void;
-  isConnecting: boolean;
   installedAgents: RegistryAgent[];
   defaultRegistryId: string;
   activeRegistryId: string;
@@ -98,8 +98,10 @@ function resolveCwdGroupName(
   projects: Project[],
   noCwdLabel: string,
   atmosWorkspaceLabel: string,
+  threadLabel: string,
 ): string {
   if (!cwd) return noCwdLabel;
+  if (isAgentScratchCwd(cwd)) return threadLabel;
   const normalizedCwd = normalizePathForMatch(cwd);
   if (!normalizedCwd) return noCwdLabel;
 
@@ -163,6 +165,7 @@ function groupHistorySessions(
   sessions: AgentChatHistoryRow[],
   noCwdLabel: string,
   atmosWorkspaceLabel: string,
+  threadLabel: string,
   projects: Project[],
 ): HistoryGroup[] {
   const groups = new Map<string, HistoryGroup>();
@@ -181,7 +184,7 @@ function groupHistorySessions(
     groups.set(key, {
       key,
       cwd,
-      name: resolveCwdGroupName(cwd, projects, noCwdLabel, atmosWorkspaceLabel),
+      name: resolveCwdGroupName(cwd, projects, noCwdLabel, atmosWorkspaceLabel, threadLabel),
       newestTime: timeValue,
       sessions: [session],
     });
@@ -208,7 +211,6 @@ export function AgentChatHistorySidebar({
   handleSelectHistorySession,
   handleCreateNewSession,
   onPreferredRegistryChange,
-  isConnecting,
   installedAgents,
   defaultRegistryId,
   activeRegistryId,
@@ -223,6 +225,7 @@ export function AgentChatHistorySidebar({
       historySessions,
       t("historySidebar.noCwd"),
       t("historySidebar.atmosWorkspace"),
+      t("composer.workingDirectory.thread"),
       projects,
     ),
     [historySessions, projects, t],
@@ -242,6 +245,10 @@ export function AgentChatHistorySidebar({
     installedAgents[0] ??
     null;
   const selectedAgentLabel = selectedAgent?.name ?? activeAgentName ?? t("historySidebar.agentFallback");
+  const installedAgentById = React.useMemo(
+    () => new Map(installedAgents.map((agent) => [agent.id, agent])),
+    [installedAgents],
+  );
 
   React.useEffect(() => {
     if (!selectedRegistryId) return;
@@ -303,7 +310,7 @@ export function AgentChatHistorySidebar({
             <button
               type="button"
               className="flex min-w-0 flex-1 items-center gap-2 px-3 text-left text-sm font-medium text-foreground hover:bg-muted disabled:pointer-events-none disabled:opacity-50"
-              disabled={!canCreateNewSession || isConnecting}
+              disabled={!canCreateNewSession}
               onClick={() => void handleCreateNewSession(selectedAgent?.id)}
             >
               <Plus className="size-4 shrink-0" />
@@ -318,7 +325,7 @@ export function AgentChatHistorySidebar({
                 <button
                   type="button"
                   className="group/agent-selector relative flex h-full min-w-0 max-w-[50%] shrink-0 items-center px-2 text-left text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
-                  disabled={installedAgents.length === 0 || isConnecting}
+                  disabled={installedAgents.length === 0}
                   aria-label={t("historySidebar.selectAgentAria")}
                   title={selectedAgentLabel}
                 >
@@ -422,7 +429,7 @@ export function AgentChatHistorySidebar({
                     ) : (
                       <FolderOpen className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
                     )}
-                    <span className="truncate" title={group.cwd ?? undefined}>
+                    <span className="truncate" title={group.name}>
                       {group.name}
                     </span>
                     <span className="ml-auto shrink-0 text-[11px] font-normal text-muted-foreground">
@@ -440,6 +447,7 @@ export function AgentChatHistorySidebar({
                         {group.sessions.map((session) => {
                           const isActive = activeChatId === session.chat_id;
                           const relativeTime = formatRelativeTime(session.updated_at, t);
+                          const sessionAgent = installedAgentById.get(session.provider_id);
                           return (
                             <button
                               key={session.chat_id}
@@ -453,7 +461,14 @@ export function AgentChatHistorySidebar({
                               title={session.title ?? undefined}
                               onClick={() => handleSelectHistorySession(session)}
                             >
-                              <MessageCircle className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                              <AgentIcon
+                                registryId={session.provider_id}
+                                name={sessionAgent?.name ?? session.provider_id}
+                                size={16}
+                                isCustom={sessionAgent?.install_method === "custom"}
+                                registryIcon={sessionAgent?.icon}
+                                className="text-muted-foreground"
+                              />
                               <span className="min-w-0 flex-1 truncate font-medium">
                                 {session.title || t("historySidebar.newChat")}
                               </span>

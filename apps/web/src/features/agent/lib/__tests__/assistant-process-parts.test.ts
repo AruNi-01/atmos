@@ -1,9 +1,10 @@
 import { describe, expect, it } from "bun:test";
 import {
+  hasCollapsibleAssistantProcess,
   shouldCollapseAssistantProcess,
   splitAssistantProcessParts,
 } from "@/features/agent/lib/assistant-process-parts";
-import type { AgentPart } from "@atmos/api-types/ws/dto/agent-chat";
+import type { AgentMessage, AgentPart } from "@atmos/api-types/ws/dto/agent-chat";
 
 describe("assistant process collapse", () => {
   it("puts tools and thinking above the final answer even if history stored them last", () => {
@@ -43,5 +44,30 @@ describe("assistant process collapse", () => {
       true,
       true,
     )).toBe(true);
+  });
+
+  it("collapses process above the answer after the turn has settled", () => {
+    expect(
+      hasCollapsibleAssistantProcess({
+        id: "m1",
+        role: "assistant",
+        streaming: false,
+        completed_at: "2026-08-29T00:00:00.000Z",
+        worked_ms: 98000,
+        parts: [
+          { type: "thinking", text: "plan" },
+          { type: "text", text: "done" },
+        ],
+      } as AgentMessage),
+    ).toBe(true);
+    expect(
+      hasCollapsibleAssistantProcess({
+        id: "m2",
+        role: "assistant",
+        streaming: false,
+        worked_ms: 1200,
+        parts: [{ type: "text", text: "only answer" }],
+      } as AgentMessage),
+    ).toBe(false);
   });
 });

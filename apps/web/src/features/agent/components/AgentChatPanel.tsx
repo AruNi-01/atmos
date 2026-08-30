@@ -4,24 +4,19 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useTranslations } from "next-intl";
 import "streamdown/styles.css";
 import {
-  Confirmation,
-  ConfirmationActions,
-  ConfirmationRequest,
   Conversation,
   ConversationContent,
   ConversationEmptyState,
   ConversationScrollButton,
-  ShineBorder,
   cn,
 } from "@workspace/ui";
 import { ChevronDown, Loader2, MessageSquare, X } from "lucide-react";
 import { useAgentChatLayoutStore } from "@/features/agent/store/agent-chat-layout-store";
 import { DEFAULT_AGENT_CHAT_MODE, type AgentChatMode } from "@/features/agent/types/index";
-import { MarkdownRenderer } from "@/shared/components/markdown/MarkdownRenderer";
 import { useDesktopTrafficLightsPadding } from "@/shared/hooks/use-desktop-traffic-lights-padding";
 import { SessionUsageBadge } from "./UsageBadges";
 import { AgentActivityIndicator } from "./AgentActivityIndicator";
-import { PermissionActionButton } from "./MessageQueueDock";
+import { AgentPermissionCard } from "./AgentPermissionCard";
 import { AgentPromptComposer } from "./AgentPromptComposer";
 import { useAgentChatSession } from "../hooks/use-agent-chat-session";
 import type { AgentChatSurfaceVariant, UseAgentChatSessionOptions } from "../hooks/use-agent-chat-session-types";
@@ -128,8 +123,9 @@ export function AgentChatPanel({
   const needsTrafficLightsPadding = useDesktopTrafficLightsPadding();
   const panelRef = useRef<HTMLDivElement>(null);
   const [panelWidth, setPanelWidth] = useState(0);
-  const showHistoryChrome = variant === "standalone";
-  const showsWideHistoryLayout = showHistoryChrome && panelWidth >= WIDE_HISTORY_LAYOUT_MIN_WIDTH;
+  const showHistoryChrome = variant === "standalone" || variant === "modal";
+  const showsWideHistoryLayout =
+    variant === "standalone" && panelWidth >= WIDE_HISTORY_LAYOUT_MIN_WIDTH;
   const chatId = chatIdProp || "";
 
   const session = useAgentChatSession({
@@ -419,6 +415,7 @@ export function AgentChatPanel({
     agentInfo,
     capabilities,
     catalogModelsLoading,
+    refreshEmptyCatalog,
     configOptions,
     setConfigOption,
     setProviderId,
@@ -785,7 +782,6 @@ export function AgentChatPanel({
             handleSelectHistorySession={handleSelectHistorySession}
             handleCreateNewSession={handleCreateNewSession}
             onPreferredRegistryChange={persistPreferredRegistry}
-            isConnecting={isConnecting}
             installedAgents={installedAgents}
             defaultRegistryId={defaultRegistryId}
             activeRegistryId={registryId}
@@ -835,12 +831,20 @@ export function AgentChatPanel({
             historySidebarControl={historySidebarControl}
             handleClose={handleClosePanel}
             handleLogoutAgent={handleLogoutAgent}
+            handleCreateNewSession={handleCreateNewSession}
+            canCreateNewSession={canUseCurrentMode}
             displaySessionTitle={displaySessionTitle}
             isAutoGeneratingTitle={isAutoGeneratingTitle}
             shouldScrambleAutoTitle={shouldScrambleAutoTitle}
             setShouldScrambleAutoTitle={setShouldScrambleAutoTitle}
             sessionTitleSource={sessionTitleSource}
             chatId={liveChatId || chatId}
+            contextProjects={projects}
+            contextSelection={{
+              workspaceId: sessionWorkspaceId,
+              projectId: sessionProjectId,
+              cwd: sessionCwd,
+            }}
           />
         ) : null}
 
@@ -879,7 +883,7 @@ export function AgentChatPanel({
                 {error}
               </div>
             )}
-            {canUseCurrentMode && isConnected && messages.length === 0 && !isConnecting && !error && (
+            {canUseCurrentMode && isConnected && messages.length === 0 && !isConnecting && !isResumingHistory && !error && (
               <ConversationEmptyState
                 icon={<MessageSquare className="size-12" />}
                 title={isResumedSession ? t("empty.resumedTitle") : t("empty.startTitle")}
@@ -905,7 +909,7 @@ export function AgentChatPanel({
           </ConversationContent>
           <div
             className={cn(
-              "pointer-events-none absolute bottom-1 z-10 flex items-center justify-between",
+              "pointer-events-none absolute bottom-1 z-10 flex items-center",
               floatingControlRailClassName,
             )}
           >
@@ -914,15 +918,10 @@ export function AgentChatPanel({
                 <SessionUsageBadge usage={sessionUsage} className="static" />
               ) : null}
             </div>
-            <ConversationScrollButton className="group static left-auto bottom-auto right-auto pointer-events-auto inline-flex h-8 w-8 translate-x-0 items-center justify-center gap-0 overflow-hidden rounded-sm border border-dashed border-border/70 bg-background px-0 text-foreground shadow-md transition-[width,padding,gap] duration-300 ease-out [transform-origin:right_center] hover:w-24 hover:px-2 hover:gap-1">
-              <span className="inline-flex size-4 shrink-0 items-center justify-center">
-                <ChevronDown className="size-4" />
-              </span>
-              <span className="max-w-0 whitespace-nowrap text-[11px] text-foreground opacity-0 transition-[max-width,opacity] duration-300 ease-out group-hover:max-w-16 group-hover:opacity-100">
-                {t("bottom")}
-              </span>
-            </ConversationScrollButton>
           </div>
+          <ConversationScrollButton aria-label={t("bottom")}>
+            <ChevronDown className="size-4" />
+          </ConversationScrollButton>
           {!isResumingHistory && (
             <AgentMessageTimelineNav
               activeAgent={activeAgent}
@@ -937,61 +936,17 @@ export function AgentChatPanel({
       </div>
 
       <div className="flex min-h-0 shrink-0 flex-col">
-        {pendingPermission && (
-          <div className={cn("min-h-0 max-h-[40vh] shrink overflow-y-auto overscroll-contain border-t border-border p-3", wideContentClassName)}>
-            <Confirmation
-              approval={{ id: pendingPermission.request_id }}
-              state="approval-requested"
-              className="relative overflow-hidden border-foreground/20 bg-background"
-            >
-              <ShineBorder
-                duration={7}
-                borderWidth={1}
-                shineColor={["#d97706", "#b45309"]}
+        {pendingPermission ? (
+          <div className={cn("min-h-0 min-w-0 shrink-0", wideContentClassName)}>
+            <div className="min-w-0 px-3 pb-2">
+              <AgentPermissionCard
+                permission={pendingPermission}
+                markdown={pendingPermissionMarkdown}
+                onRespond={handlePermission}
               />
-              <ConfirmationRequest>
-                <span className="font-medium text-amber-500">{t("permissionRequested")}</span>
-                <p className="mt-1 text-sm text-muted-foreground break-all max-w-full">
-                  {pendingPermission.description}
-                </p>
-                {pendingPermissionMarkdown ? (
-                  <div className="mt-2 min-w-0 max-w-full overflow-hidden rounded-md border border-border bg-muted/20">
-                    <div className="max-h-[45vh] min-w-0 max-w-full overflow-auto px-3 py-1.5 text-sm">
-                      <MarkdownRenderer className="prose-sm min-w-0 max-w-full overflow-hidden [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_pre]:whitespace-pre [&_.not-prose]:max-w-full [&_.not-prose]:overflow-x-auto">
-                      {pendingPermissionMarkdown}
-                      </MarkdownRenderer>
-                    </div>
-                  </div>
-                ) : null}
-              </ConfirmationRequest>
-              <ConfirmationActions className="mt-1 w-full min-w-0 flex-nowrap justify-start self-stretch overflow-hidden">
-                {pendingPermission.options.length > 0 ? (
-                  pendingPermission.options.map((opt) => (
-                    <PermissionActionButton
-                      key={opt.option_id}
-                      label={opt.name}
-                      variant={opt.kind.startsWith("allow") ? "default" : "outline"}
-                      onClick={() => handlePermission(opt.option_id)}
-                    />
-                  ))
-                ) : (
-                  <>
-                    <PermissionActionButton
-                      label={t("deny")}
-                      variant="outline"
-                      onClick={() => handlePermission("reject_once")}
-                    />
-                    <PermissionActionButton
-                      label={t("allow")}
-                      onClick={() => handlePermission("allow_once")}
-                    />
-                  </>
-                )}
-              </ConfirmationActions>
-            </Confirmation>
+            </div>
           </div>
-        )}
-
+        ) : null}
         <div className={cn("shrink-0", wideContentClassName)}>
           <AgentPromptComposer
             key={queueKey}
@@ -1002,7 +957,7 @@ export function AgentChatPanel({
             onUpdateQueuedPrompt={(id, prompt) => updateQueuedAgentChatPrompt(id, { prompt })}
             onMoveQueuedPrompt={moveQueuedAgentChatPrompt}
             onSubmit={handleSubmit}
-            agentLocked={variant !== "modal" && agentLocked}
+            agentLocked={agentLocked}
             onProviderChange={setProviderId}
             canUseCurrentMode={canUseCurrentMode}
             isConnected={isConnected}
@@ -1014,6 +969,7 @@ export function AgentChatPanel({
             isConnecting={isConnecting}
             isResumingHistory={isResumingHistory}
             catalogModelsLoading={catalogModelsLoading}
+            onEmptyModelsOpen={refreshEmptyCatalog}
             chatId={liveChatId}
             runtimeStatus={runtimeStatus}
             hasPersistenceHandle={hasPersistenceHandle}
@@ -1032,7 +988,7 @@ export function AgentChatPanel({
             projectPath={sessionCwd ?? localPath}
             availableCommands={availableCommands}
             workingDirectoryPicker={
-              variant === "modal" || variant === "standalone"
+              variant === "standalone" || (variant === "modal" && !liveChatId)
                 ? {
                     projects,
                     selection: {

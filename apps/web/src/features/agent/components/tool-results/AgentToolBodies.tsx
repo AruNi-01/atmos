@@ -15,13 +15,23 @@ import { cn } from "@/shared/lib/utils";
 import {
   hostFromUrl,
   relativeDisplayPath,
+  resolveTreeEntryPaths,
   type SearchHit,
   type TodoItem,
   type ToolInputRow,
   type TreeEntry,
   type WebResultLink,
 } from "@/features/agent/lib/tool-results/parse-tool-result";
-import { useDisplayToolPath } from "../agent-chat-cwd-context";
+import { useAgentChatCwd, useAgentChatPathRoots, useDisplayToolPath } from "../agent-chat-cwd-context";
+import {
+  useAgentChatPathIsDir,
+  useAgentChatResolvedPathKind,
+  useOpenAgentChatWorkspacePath,
+} from "@/features/agent/hooks/use-open-agent-chat-path";
+import {
+  agentChatPathLooksLikeDirectory,
+  resolveAgentChatOpenableFile,
+} from "@/features/agent/lib/agent-chat-file-links";
 import { AgentTreeBranch } from "../AgentTreeBranch";
 import { AgentToolFileGlyph, SiteFavicon } from "./AgentToolCard";
 import { AgentToolCodePreview } from "./AgentToolCodePreview";
@@ -181,6 +191,74 @@ export function AgentToolWebFetchBody({
   );
 }
 
+function AgentToolClickablePath({
+  path,
+  isDir,
+  className,
+  children,
+}: {
+  path: string;
+  isDir?: boolean;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  const openWorkspacePath = useOpenAgentChatWorkspacePath();
+  const cwd = useAgentChatCwd();
+  const roots = useAgentChatPathRoots();
+  const openable = resolveAgentChatOpenableFile(path, cwd, roots);
+  const resolvedKind = useAgentChatResolvedPathKind(isDir === true ? undefined : openable?.path);
+  const clickable = Boolean(openable) && (
+    isDir === true || resolvedKind === "file" || resolvedKind === "directory"
+  );
+  if (!clickable) {
+    return <div className={cn("min-w-0", className)}>{children}</div>;
+  }
+  return (
+    <button
+      type="button"
+      className={cn(
+        "min-w-0 cursor-pointer rounded-md text-left hover:bg-muted/60",
+        className,
+      )}
+      onClick={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        void openWorkspacePath(path, { isDir });
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
+function AgentToolListedPath({
+  path,
+  isDir: hintedIsDir,
+  title,
+  shown,
+  className,
+}: {
+  path: string;
+  isDir?: boolean;
+  title?: string;
+  shown: string;
+  className?: string;
+}) {
+  const cwd = useAgentChatCwd();
+  const roots = useAgentChatPathRoots();
+  const openable = resolveAgentChatOpenableFile(path, cwd, roots);
+  const detectedIsDir = useAgentChatPathIsDir(hintedIsDir == null ? openable?.path : undefined);
+  const isDir = hintedIsDir ?? (openable ? detectedIsDir : agentChatPathLooksLikeDirectory(path));
+  return (
+    <AgentToolClickablePath path={path} isDir={hintedIsDir} className={className}>
+      <AgentToolFileGlyph path={path} isDir={isDir} />
+      <span className="min-w-0 truncate font-mono text-foreground/80" title={title ?? path}>
+        {shown}
+      </span>
+    </AgentToolClickablePath>
+  );
+}
+
 export function AgentToolSearchBody({ hits }: { hits: SearchHit[] }) {
   const displayPath = useDisplayToolPath();
   const grouped = new Map<string, SearchHit[]>();
@@ -195,12 +273,11 @@ export function AgentToolSearchBody({ hits }: { hits: SearchHit[] }) {
     <ul className="max-h-72 overflow-auto py-1">
       {[...grouped.entries()].map(([path, pathHits]) => (
         <li key={path} className="px-3 py-1.5">
-          <div className="flex min-w-0 items-center gap-2 text-[12px]">
-            <AgentToolFileGlyph path={path} />
-            <span className="min-w-0 truncate font-mono text-foreground/80" title={path}>
-              {relativeDisplayPath(displayPath(path), displayedPaths)}
-            </span>
-          </div>
+          <AgentToolListedPath
+            path={path}
+            shown={relativeDisplayPath(displayPath(path), displayedPaths)}
+            className="flex w-full min-w-0 items-center gap-2 text-[12px]"
+          />
           <ul className="mt-0.5 space-y-0.5 pl-6">
             {pathHits.map((hit, index) => (
               <li
@@ -226,14 +303,16 @@ export function AgentToolSearchBody({ hits }: { hits: SearchHit[] }) {
 
 export function AgentToolTreeBody({ entries }: { entries: TreeEntry[] }) {
   const displayPath = useDisplayToolPath();
+  const paths = resolveTreeEntryPaths(entries);
   return (
     <ul className="max-h-96 overflow-auto py-1">
       {entries.map((entry, index) => {
+        const path = paths[index] ?? entry.name;
         const shown = displayPath(entry.name);
         return (
           <li
             key={`${entry.indent}:${entry.name}:${index}`}
-            className="flex min-w-0 items-center gap-2 py-0.5 pr-3 text-[12px]"
+            className="py-0.5 pr-3 text-[12px]"
             style={{ paddingLeft: 12 + entry.indent * 8 }}
           >
             {entry.kind === "note" ? (
@@ -241,15 +320,13 @@ export function AgentToolTreeBody({ entries }: { entries: TreeEntry[] }) {
                 {entry.name}
               </span>
             ) : (
-              <>
-                <AgentToolFileGlyph path={entry.name} isDir={entry.isDir} />
-                <span
-                  className="min-w-0 truncate font-mono text-foreground/80"
-                  title={entry.name}
-                >
-                  {shown}
-                </span>
-              </>
+              <AgentToolListedPath
+                path={path}
+                isDir={entry.isDir ? true : undefined}
+                title={path}
+                shown={shown}
+                className="flex w-full min-w-0 items-center gap-2"
+              />
             )}
           </li>
         );
@@ -264,11 +341,12 @@ export function AgentToolFilesBody({ paths }: { paths: string[] }) {
   return (
     <ul className="max-h-72 overflow-auto py-1">
       {paths.map((path, index) => (
-        <li key={`${path}-${index}`} className="flex items-center gap-2 px-3 py-1.5 text-[12px]">
-          <AgentToolFileGlyph path={path} />
-          <span className="min-w-0 truncate font-mono text-foreground/80" title={path}>
-            {relativeDisplayPath(displayPath(path), displayedPaths)}
-          </span>
+        <li key={`${path}-${index}`}>
+          <AgentToolListedPath
+            path={path}
+            shown={relativeDisplayPath(displayPath(path), displayedPaths)}
+            className="flex w-full items-center gap-2 px-3 py-1.5 text-[12px]"
+          />
         </li>
       ))}
     </ul>

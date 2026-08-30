@@ -32,7 +32,7 @@ export function SessionUsageBadge({ usage, className }: { usage: AgentSessionUsa
         <TooltipTrigger asChild>
           <div
             className={cn(
-              "group absolute left-3 bottom-1 z-10 inline-flex h-8 max-w-8 items-center justify-start gap-0 overflow-hidden rounded-sm border border-dashed border-border/70 bg-background px-2 text-[11px] font-medium text-foreground shadow-md transition-[max-width,gap] duration-300 ease-out origin-[left_center] hover:max-w-[200px] hover:gap-1.5 hover:border-solid hover:border-border cursor-help",
+              "group absolute left-3 bottom-1 z-10 inline-flex h-8 max-w-8 items-center justify-start gap-0 overflow-hidden rounded-full border border-dashed border-border/70 bg-transparent px-2 text-[11px] font-medium text-foreground shadow-md transition-[max-width,gap] duration-300 ease-out origin-[left_center] hover:max-w-[200px] hover:gap-1.5 hover:border-solid hover:border-border cursor-help",
               className,
             )}
           >
@@ -111,9 +111,9 @@ export function MessageTurnUsageBadge({ usage }: { usage: AgentTurnUsage }) {
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
-          <div className="flex items-center gap-1.5 rounded-md border border-border/60 bg-muted/20 px-2 py-1 text-[10px] font-medium text-muted-foreground hover:border-border hover:bg-muted/40 hover:text-foreground cursor-help">
+          <div className="flex cursor-help items-center gap-1.5 rounded-full border border-dashed border-border/70 bg-transparent px-2 py-1 text-[10px] font-medium text-muted-foreground hover:border-border hover:bg-transparent hover:text-foreground">
             <Coins className="size-3" />
-            <span>{t("usageBadges.turn.summary", { total })}</span>
+            <span>{total}</span>
           </div>
         </TooltipTrigger>
         <TooltipContent side="top" align="center" className="p-3 w-52 z-100">

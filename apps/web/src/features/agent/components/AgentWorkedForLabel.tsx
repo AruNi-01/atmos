@@ -8,42 +8,47 @@ import { formatWorkDuration, formatWorkedAt } from "@/features/agent/lib/agent-c
 export function AgentWorkedForLabel({
   workedMs,
   completedAt,
+  reveal = "duration",
+  className,
 }: {
   workedMs: number;
   completedAt?: string | null;
+  reveal?: "duration" | "timestamp";
+  className?: string;
 }) {
   const t = useTranslations("Agent.components.chatPanel");
   const locale = useLocale();
   const [hovered, setHovered] = useState(false);
   const duration = formatWorkDuration(workedMs);
   const clock = formatWorkedAt(completedAt, locale);
-  const showClock = Boolean(hovered && clock);
   const durationLabel = t("workedFor", { duration });
+  const swapOnHover = reveal === "timestamp" && Boolean(clock);
+  const showDuration = !swapOnHover || hovered;
 
   return (
     <span
-      className="inline-grid min-h-6 items-center text-xs text-muted-foreground"
-      onPointerEnter={() => setHovered(true)}
-      onPointerLeave={() => setHovered(false)}
+      className={cn("inline-grid min-h-6 items-center text-xs text-muted-foreground", className)}
+      onPointerEnter={swapOnHover ? () => setHovered(true) : undefined}
+      onPointerLeave={swapOnHover ? () => setHovered(false) : undefined}
     >
-      <span
-        className={cn(
-          "col-start-1 row-start-1 transition-opacity duration-200 ease-out motion-reduce:transition-none",
-          showClock ? "opacity-0" : "opacity-100",
-        )}
-      >
-        {durationLabel}
-      </span>
-      {clock ? (
+      {swapOnHover ? (
         <span
           className={cn(
             "col-start-1 row-start-1 whitespace-nowrap transition-opacity duration-200 ease-out motion-reduce:transition-none",
-            showClock ? "opacity-100" : "opacity-0",
+            showDuration ? "opacity-0" : "opacity-100",
           )}
         >
           {clock}
         </span>
       ) : null}
+      <span
+        className={cn(
+          "col-start-1 row-start-1 whitespace-nowrap transition-opacity duration-200 ease-out motion-reduce:transition-none",
+          swapOnHover && !showDuration ? "opacity-0" : "opacity-100",
+        )}
+      >
+        {durationLabel}
+      </span>
     </span>
   );
 }

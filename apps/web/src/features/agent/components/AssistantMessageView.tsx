@@ -6,20 +6,22 @@ import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-  TextMorph,
+  cn,
 } from "@workspace/ui";
 import { ChevronRight, FileText } from "lucide-react";
-import { activateCenterChromeTab } from "@/app-shell/center-stage-activate";
-import { useCenterPaintContextId } from "@/app-shell/center-space/use-center-paint-context-id";
-import { useEditorStore } from "@/features/editor/store/use-editor-store";
 import { MarkdownCodeBlock } from "@/shared/components/markdown/MarkdownRenderer";
 import type { AgentMessage, AgentPart } from "@atmos/api-types/ws/dto/agent-chat";
+import { useOpenAgentChatWorkspacePath } from "@/features/agent/hooks/use-open-agent-chat-path";
 import { AgentPartView } from "./AgentPartView";
 import { AgentStreamReveal } from "./AgentStreamReveal";
 import { AgentToolGroupView } from "./AgentToolGroupView";
-import { AgentToolFileChip } from "./tool-results/AgentToolCard";
+import {
+  AgentChatMarkdownFileChip,
+  AgentChatMarkdownFileLink,
+} from "./AgentChatMarkdownFile";
 import { useAgentChatCwd, useAgentChatPathRoots } from "./agent-chat-cwd-context";
-import { shouldCollapseAssistantProcess } from "@/features/agent/lib/assistant-process-parts";
+import { hasCollapsibleAssistantProcess } from "@/features/agent/lib/assistant-process-parts";
+import { AgentWorkedForLabel } from "./AgentWorkedForLabel";
 import {
   classifyAgentChatHref,
   resolveAgentChatWorkspaceFile,
@@ -34,21 +36,11 @@ import {
 const REVIEW_PATH_RE = /(?:\/[\w.~-]+)*\/\.atmos\/reviews\/[\w./:~-]+\.md/;
 
 function useReviewLinkComponents() {
-  const openFile = useEditorStore(s => s.openFile);
-  const paintContextId = useCenterPaintContextId();
+  const openWorkspacePath = useOpenAgentChatWorkspacePath();
   const cwd = useAgentChatCwd();
   const roots = useAgentChatPathRoots();
 
   return useMemo(() => {
-    const handleOpen = (path: string, options?: { preview?: boolean; line?: number }) => {
-      if (!paintContextId) return;
-      void openFile(path, paintContextId, {
-        preview: options?.preview ?? false,
-        line: options?.line,
-      });
-      activateCenterChromeTab(paintContextId, path, { placement: "focused" });
-    };
-
     const ReviewCode = (props: React.ComponentPropsWithoutRef<"code"> & { node?: unknown }) => {
       const { children, node: _, className, ...rest } = props;
       const text = typeof children === "string" ? children : String(children ?? "");
@@ -60,7 +52,7 @@ function useReviewLinkComponents() {
           return (
             <button
               type="button"
-              onClick={() => handleOpen(file.path, { preview: true })}
+              onClick={() => void openWorkspacePath(file.path, { preview: true, isDir: false })}
               className="inline-flex items-center gap-1 rounded-sm bg-primary/10 px-1.5 py-0.5 font-mono text-[0.85em] text-primary underline decoration-primary/40 underline-offset-2 hover:bg-primary/20 hover:decoration-primary cursor-pointer"
               title={file.path}
             >
@@ -73,7 +65,14 @@ function useReviewLinkComponents() {
       if (!isFence) {
         const file = resolveAgentChatWorkspaceFile(text, cwd, roots);
         if (file) {
-          return <AgentToolFileChip path={file.path} line={file.line} />;
+          return (
+            <AgentChatMarkdownFileChip
+              raw={text}
+              path={file.path}
+              line={file.line}
+              className={className}
+            />
+          );
         }
       }
       return <MarkdownCodeBlock className={className} {...rest}>{children}</MarkdownCodeBlock>;
@@ -92,46 +91,41 @@ function useReviewLinkComponents() {
           </a>
         );
       }
-      const file = classified.file;
       return (
-        <a
-          {...rest}
-          href={href}
-          onClick={(event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            handleOpen(file.path, { line: file.line });
-          }}
-          className="cursor-pointer underline decoration-foreground/30 underline-offset-2 hover:decoration-foreground"
-          title={file.path}
-        >
+        <AgentChatMarkdownFileLink file={classified.file} href={href} onClick={onClick} {...rest}>
           {children}
-        </a>
+        </AgentChatMarkdownFileLink>
       );
     };
 
     return { code: ReviewCode, a: FileLink };
-  }, [cwd, openFile, paintContextId, roots]);
+  }, [cwd, openWorkspacePath, roots]);
 }
 
-function ProcessDivider({
+function ProcessCollapseRail({
   expanded,
-  t,
+  collapseAria,
+  collapseLabel,
 }: {
   expanded: boolean;
-  t: ReturnType<typeof useTranslations>;
+  collapseAria: string;
+  collapseLabel: string;
 }) {
   return (
-    <div className="flex w-full items-center gap-2 py-1">
-      <div className="h-px flex-1 bg-border" />
-      <span className="inline-flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
-        <TextMorph as="span" className="text-xs leading-none">
-          {expanded ? t("assistantTurn.process.hide") : t("assistantTurn.process.show")}
-        </TextMorph>
-        <ChevronRight className={`size-3 transition-transform duration-200 ${expanded ? "rotate-90" : ""}`} />
-      </span>
-      <div className="h-px flex-1 bg-border" />
-    </div>
+    <CollapsibleTrigger
+      aria-label={expanded ? collapseAria : undefined}
+      className="flex w-full cursor-pointer items-center gap-2 py-1 text-muted-foreground hover:text-foreground"
+    >
+      <div className="h-px min-w-0 flex-1 bg-border" />
+      {expanded ? (
+        <>
+          <span className="shrink-0 text-xs leading-none">
+            {collapseLabel}
+          </span>
+          <div className="h-px min-w-0 flex-1 bg-border" />
+        </>
+      ) : null}
+    </CollapsibleTrigger>
   );
 }
 
@@ -147,23 +141,13 @@ export function AssistantMessageView({
   const parts = message.parts;
   const streaming = Boolean(message.streaming);
 
-  const hasRunningTool = useMemo(
-    () => parts.some((part) => part.type === "tool_call" && part.status?.toLowerCase() === "running"),
-    [parts],
-  );
-
   const segments = useMemo(() => segmentAssistantParts(parts), [parts]);
   const { processSegments, answerSegments } = useMemo(
     () => splitSegmentedAssistantParts(segments),
     [segments],
   );
 
-  const canCollapse = shouldCollapseAssistantProcess(
-    message,
-    hasRunningTool,
-    processSegments.length > 0,
-    answerSegments.length > 0,
-  );
+  const canCollapse = hasCollapsibleAssistantProcess(message);
   const [stepsExpanded, setStepsExpanded] = useState(false);
 
   const renderPart = (part: AgentPart, i: number) => (
@@ -205,23 +189,34 @@ export function AssistantMessageView({
   };
 
   if (canCollapse) {
+    const showWorkedFor = message.worked_ms != null && message.worked_ms > 0;
     return (
       <>
         <Collapsible open={stepsExpanded} onOpenChange={setStepsExpanded}>
-          <CollapsibleTrigger className="w-full cursor-pointer hover:text-foreground">
-            <ProcessDivider expanded={stepsExpanded} t={t} />
+          <CollapsibleTrigger className="group flex w-full cursor-pointer items-center gap-1 py-0.5 text-left text-muted-foreground hover:text-foreground">
+            {showWorkedFor ? (
+              <AgentWorkedForLabel
+                workedMs={message.worked_ms ?? 0}
+                reveal="duration"
+              />
+            ) : (
+              <span className="text-xs">{t("assistantTurn.process.label")}</span>
+            )}
+            <ChevronRight
+              className={cn(
+                "size-3 shrink-0 transition-transform duration-200",
+                stepsExpanded ? "rotate-90" : "rotate-0",
+              )}
+            />
           </CollapsibleTrigger>
           <CollapsibleContent className="space-y-2 pt-1">
             {processSegments.map((segment) => renderSegment(segment, processSegments))}
-            <CollapsibleTrigger
-              aria-label={t("assistantTurn.process.collapseAria")}
-              className="flex w-full cursor-pointer items-center gap-2 py-1 text-muted-foreground hover:text-foreground"
-            >
-              <div className="h-px flex-1 bg-border" />
-              <span className="shrink-0 text-xs leading-none">{t("assistantTurn.process.collapseLabel")}</span>
-              <div className="h-px flex-1 bg-border" />
-            </CollapsibleTrigger>
           </CollapsibleContent>
+          <ProcessCollapseRail
+            expanded={stepsExpanded}
+            collapseAria={t("assistantTurn.process.collapseAria")}
+            collapseLabel={t("assistantTurn.process.collapseLabel")}
+          />
         </Collapsible>
         {answerSegments.map((segment) => renderSegment(segment, answerSegments))}
       </>

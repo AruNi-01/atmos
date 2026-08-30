@@ -108,7 +108,7 @@ export function PermissionActionButton({
     <ConfirmationAction
       variant={variant}
       onClick={onClick}
-      className="min-w-0 max-w-[22rem] flex-1 basis-0 justify-start overflow-hidden px-3"
+      className="min-w-0 max-w-[22rem] flex-1 basis-0 justify-start overflow-hidden rounded-full px-3"
     >
       <HoverScrollableText
         text={label}
@@ -163,7 +163,7 @@ function QueueCard({
         <button
           type="button"
           aria-label={t("messageQueue.reorderAria")}
-          className={`flex size-5 shrink-0 items-center justify-center rounded-md text-muted-foreground ${
+          className={`flex size-5 shrink-0 items-center justify-center rounded-full text-muted-foreground ${
             isEditing
               ? "cursor-not-allowed opacity-40"
               : "cursor-grab hover:bg-muted hover:text-foreground active:cursor-grabbing"
@@ -195,7 +195,7 @@ function QueueCard({
                 type="button"
                 variant={isEditing ? "secondary" : "ghost"}
                 size="icon-sm"
-                className="size-6 text-muted-foreground hover:text-foreground"
+                className="size-6 rounded-full text-muted-foreground hover:text-foreground"
                 aria-label={t("messageQueue.editAria")}
               >
                 <Pencil className="size-3.5" />
@@ -234,7 +234,7 @@ function QueueCard({
             variant="ghost"
             size="icon-sm"
             onClick={onRemove}
-            className="size-6 text-muted-foreground hover:text-destructive"
+            className="size-6 rounded-full text-muted-foreground hover:text-destructive"
             aria-label={t("messageQueue.deleteAria")}
           >
             <Trash2 className="size-3.5" />

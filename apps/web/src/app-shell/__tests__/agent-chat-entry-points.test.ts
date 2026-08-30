@@ -47,7 +47,9 @@ describe("S2 Agent Chat entry points", () => {
     expect(session).toContain("cwd: cwd || null");
     expect(session).toContain("workspace_id: workspaceId");
     expect(session).toContain("project_id: projectId");
+    expect(session).toContain('origin: isolatedModal ? "quick" : "normal"');
     expect(session).toContain("spaceIdForChatCreate");
+    expect(session).toContain("if (activeChatId) return");
 
     const centerStage = readFileSync(join(ROOT, "CenterStage.tsx"), "utf8");
     expect(centerStage).toContain("openDraftTab");
@@ -101,10 +103,27 @@ describe("S2 Agent Chat entry points", () => {
     );
     expect(header).toContain("constrainWidth && \"mx-auto w-full max-w-3xl\"");
     expect(header).toContain("truncate text-sm font-medium");
-    expect(header).toContain("flex min-w-0 flex-col gap-1");
+    expect(header).toContain("flex min-w-0 max-w-[50%] items-start gap-2");
+    expect(header).toContain("inline-flex w-fit max-w-full");
+    expect(header).toContain("lockedContextLabel");
+    expect(panel).toContain("variant === \"modal\" && !liveChatId");
+    expect(header).toContain("handleCreateNewSession");
+    expect(header).toContain("<Plus");
+    expect(header).toContain('aria-label={t("header.newSession.aria")}');
+    expect(header).toContain(
+      'displaySessionTitle || (chatId ? "" : t("header.newSession.defaultTitle"))',
+    );
+    expect(header).toContain("MorphPopover");
+    expect(header).toContain("header.actions.openInWindow");
+    expect(header).toContain("header.fullscreen.openTooltip");
+    expect(header).not.toContain("DropdownMenu");
     expect(header).not.toContain("displayedAgentName");
     expect(header).not.toContain("AgentIcon");
+    expect(panel).toContain("agentLocked={agentLocked}");
+    expect(panel).not.toContain("variant !== \"modal\" && agentLocked");
     expect(panel).toContain("{variant !== \"center\" ? (");
+    expect(panel).toContain("handleCreateNewSession={handleCreateNewSession}");
+    expect(panel).toContain('variant === "modal"');
     expect(panel).not.toContain("hideCwdChip");
   });
 });

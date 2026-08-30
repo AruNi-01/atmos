@@ -1,11 +1,14 @@
 import { describe, expect, it } from "bun:test";
 import {
+  agentChatHistoryListRequest,
   catalogToConfigOptions,
   chatTitleFromPrompt,
   chatsToHistoryRows,
+  filterAgentChatHistoryRows,
   defaultCatalogModelId,
   isCatalogModelsLoading,
   parsePlan,
+  probingCatalog,
   splitComposerConfigOptions,
 } from "@/features/agent/lib/agent-chat-thread";
 
@@ -13,6 +16,36 @@ describe("agent chat helpers", () => {
   it("uses the first line of the prompt as a fallback session title", () => {
     expect(chatTitleFromPrompt("hello\nworld")).toBe("hello");
     expect(chatTitleFromPrompt(` ${"a".repeat(80)} `)).toHaveLength(60);
+  });
+
+  it("filters history rows by chat title only", () => {
+    const rows = chatsToHistoryRows([
+      {
+        id: "1",
+        title: "Fix auth",
+        cwd: "/tmp/app",
+        workspace_id: null,
+        project_id: null,
+        provider_id: "claude",
+        updated_at: "2026-08-30T12:00:00.000Z",
+        last_message_at: null,
+        deleted: false,
+      },
+      {
+        id: "2",
+        title: "Write docs",
+        cwd: "/tmp/auth-service",
+        workspace_id: "ws-1",
+        project_id: "proj-1",
+        provider_id: "claude",
+        updated_at: "2026-08-30T12:00:00.000Z",
+        last_message_at: null,
+        deleted: false,
+      },
+    ]);
+    expect(filterAgentChatHistoryRows(rows, "auth").map((row) => row.chat_id)).toEqual(["1"]);
+    expect(filterAgentChatHistoryRows(rows, "  ")).toHaveLength(2);
+    expect(filterAgentChatHistoryRows(rows, "missing")).toHaveLength(0);
   });
 
   it("parses a plan payload into the composer plan model", () => {
@@ -73,6 +106,7 @@ describe("agent chat helpers", () => {
         "cursor",
       ),
     ).toBe(false);
+    expect(isCatalogModelsLoading(probingCatalog("opencode"), "opencode")).toBe(true);
   });
 
   it("picks the catalog default model when none is selected yet", () => {
@@ -188,7 +222,34 @@ describe("agent chat helpers", () => {
       provider_id: "claude",
       title: "Fix auth",
       cwd: "/tmp/app",
+      origin: "normal",
       updated_at: "2026-08-28T00:00:00.000Z",
     });
   });
+
+  it("lists every conversation on the standalone history sidebar", () => {
+    expect(agentChatHistoryListRequest({ variant: "standalone" })).toEqual({ all: true });
+    expect(
+      agentChatHistoryListRequest({
+        variant: "standalone",
+        workspaceId: "ws-1",
+        projectId: "proj-1",
+      }),
+    ).toEqual({ all: true });
+    expect(agentChatHistoryListRequest({ variant: "modal" })).toEqual({
+      all: true,
+      origin: "quick",
+    });
+    expect(
+      agentChatHistoryListRequest({
+        variant: "center",
+        workspaceId: "ws-1",
+        projectId: "proj-1",
+      }),
+    ).toEqual({
+      workspace_id: "ws-1",
+      project_id: "proj-1",
+    });
+  });
 });
+

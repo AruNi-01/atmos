@@ -4,7 +4,7 @@ export type UserMessageNavRect = {
   bottom: number;
 };
 
-/** Last user prompt in view. Jump targets are user rows, so the rail follows those. */
+/** Last user prompt in view, or the last one already scrolled past if none remain in view. */
 export function resolveActiveUserMessageIndex(
   items: readonly UserMessageNavRect[],
   view: { height: number; scrollTop: number; scrollHeight: number },
@@ -13,12 +13,15 @@ export function resolveActiveUserMessageIndex(
   const last = items[items.length - 1]!.messageIndex;
   if (view.scrollTop + view.height >= view.scrollHeight - 16) return last;
 
-  let active = items[0]!.messageIndex;
   const viewBottom = view.height - 24;
+  let lastIntersecting: number | null = null;
+  let lastAbove: number | null = null;
   for (const item of items) {
     if (item.top < viewBottom && item.bottom > 0) {
-      active = item.messageIndex;
+      lastIntersecting = item.messageIndex;
+      continue;
     }
+    if (item.bottom <= 0) lastAbove = item.messageIndex;
   }
-  return active;
+  return lastIntersecting ?? lastAbove ?? items[0]!.messageIndex;
 }

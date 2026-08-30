@@ -152,6 +152,7 @@ function ComposerPromptInput({
   isConnecting,
   isResumingHistory,
   catalogModelsLoading,
+  onEmptyModelsOpen,
   installedAgents,
   extraConfigOptions,
   modeOption,
@@ -192,6 +193,7 @@ function ComposerPromptInput({
   isConnecting: boolean;
   isResumingHistory: boolean;
   catalogModelsLoading: boolean;
+  onEmptyModelsOpen?: () => void;
   installedAgents: RegistryAgent[];
   extraConfigOptions: AgentConfigOption[];
   modeOption: AgentConfigOption | null;
@@ -298,6 +300,7 @@ function ComposerPromptInput({
         model={modelOption?.currentValue || ""}
         onModelChange={(value) => modelOption && setConfigOption(modelOption.id, value)}
         modelsLoading={isConnecting || isResumingHistory || catalogModelsLoading}
+        onEmptyModelsOpen={onEmptyModelsOpen}
         modes={toPromptModels(isConnected ? modeOption : null)}
         mode={modeOption?.currentValue || ""}
         onModeChange={(value) => modeOption && setConfigOption(modeOption.id, value)}
@@ -415,6 +418,7 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
   isConnecting,
   isResumingHistory,
   catalogModelsLoading = false,
+  onEmptyModelsOpen,
   chatId = null,
   runtimeStatus = null,
   hasPersistenceHandle = false,
@@ -456,6 +460,7 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
   isConnecting: boolean;
   isResumingHistory: boolean;
   catalogModelsLoading?: boolean;
+  onEmptyModelsOpen?: () => void;
   chatId?: string | null;
   runtimeStatus?: string | null;
   hasPersistenceHandle?: boolean;
@@ -650,6 +655,7 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
           isConnecting={isConnecting}
           isResumingHistory={isResumingHistory}
           catalogModelsLoading={catalogModelsLoading}
+          onEmptyModelsOpen={onEmptyModelsOpen}
           installedAgents={installedAgents}
           extraConfigOptions={extraConfigOptions}
           modeOption={modeOption}

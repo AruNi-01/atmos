@@ -22,12 +22,6 @@ import {
   MorphPopoverContent,
   MorphPopoverTrigger,
 } from "../motion/popover-morph";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-} from "../motion/select";
 import { RangeSlider } from "../motion/range-slider";
 import { SPRING_PRESS, SPRING_SWAP } from "../../lib/ease";
 import { cn } from "../../lib/utils";
@@ -84,6 +78,8 @@ export interface PromptInputProps extends Omit<
   defaultModel?: string;
   onModelChange?: (model: string) => void;
   modelsLoading?: boolean;
+  /** Fired when the model picker opens while the model list is empty. */
+  onEmptyModelsOpen?: () => void;
   agents?: PromptModel[];
   agent?: string;
   onAgentChange?: (agent: string) => void;
@@ -147,6 +143,7 @@ export function PromptInput({
   defaultModel,
   onModelChange,
   modelsLoading = false,
+  onEmptyModelsOpen,
   agents = [],
   agent,
   onAgentChange,
@@ -369,7 +366,7 @@ export function PromptInput({
           />
         ) : null}
         <div className="ml-auto flex min-w-0 items-center gap-1">
-          {agents.length || models.length || thinkingLevels.length > 1 ? (
+          {agents.length || models.length || thinkingLevels.length > 1 || modelsLoading ? (
             <PromptAgentConfigMenu
               agents={agents}
               agent={agent}
@@ -379,6 +376,7 @@ export function PromptInput({
               model={currentModelValue}
               onModelChange={setModel}
               modelsLoading={modelsLoading}
+              onEmptyModelsOpen={onEmptyModelsOpen}
               currentAgent={currentAgent}
               currentModel={currentModel}
               thinkingLevels={thinkingLevels}
@@ -441,9 +439,9 @@ function PromptOptionSelect({
   emptyLabel: string;
   controlRadius: string;
 }) {
+  const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const current = options.find((option) => option.value === value);
-  const showSearch = options.length > 15;
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return options;
@@ -451,57 +449,59 @@ function PromptOptionSelect({
   }, [options, search]);
 
   return (
-    <Select
-      value={value}
-      onValueChange={onChange}
-      disabled={disabled}
-      className="min-w-0"
-      onOpenChange={(open) => {
-        if (!open) setSearch("");
+    <MorphPopover
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (!next) setSearch("");
       }}
+      className="min-w-0"
     >
-      <SelectTrigger className={cn("h-8 w-auto max-w-36 border-0 bg-transparent px-2 py-0 text-xs hover:bg-muted focus-visible:ring-2", controlRadius)}>
-        <span className="flex min-w-0 items-center gap-1.5">
+      <MorphPopoverTrigger>
+        <button
+          type="button"
+          disabled={disabled}
+          title={optionLabelText(current) || placeholder}
+          className={cn(
+            "inline-flex h-8 max-w-36 items-center gap-1.5 border-0 bg-transparent px-2 py-0 text-xs text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2",
+            open && "bg-muted text-foreground",
+            controlRadius,
+          )}
+        >
           {current?.icon ? (
             <span className="grid size-4 shrink-0 place-items-center text-muted-foreground [&_svg]:size-3.5">
               {current.icon}
             </span>
           ) : null}
-          <span className="truncate text-muted-foreground">
-            {current?.label ?? placeholder}
-          </span>
-        </span>
-      </SelectTrigger>
-      <SelectContent
-        className="w-52"
-        header={
-          showSearch ? (
-            <SelectSearch
-              value={search}
-              onChange={setSearch}
-              placeholder={searchPlaceholder}
-            />
-          ) : null
-        }
+          <span className="min-w-0 truncate">{current?.label ?? placeholder}</span>
+        </button>
+      </MorphPopoverTrigger>
+      <MorphPopoverContent
+        side="top"
+        align="start"
+        sideOffset={8}
+        radius={16}
+        clip={false}
+        className="overflow-visible border-0 bg-transparent p-0"
       >
-        {filtered.length === 0 ? (
-          <div className="px-2.5 py-2 text-center text-xs text-muted-foreground">
-            {emptyLabel}
-          </div>
-        ) : (
-          filtered.map((option) => (
-            <SelectItem
-              key={option.value}
-              value={option.value}
-              disabled={option.disabled}
-              className="py-2"
-            >
-              <OptionRow option={option} />
-            </SelectItem>
-          ))
-        )}
-      </SelectContent>
-    </Select>
+        <div className="flex max-h-[min(20rem,calc(100dvh-1rem))] w-[16.5rem] flex-col rounded-2xl border border-border bg-popover shadow-[0_10px_18px_rgba(0,0,0,0.14)]">
+          <ConfigFlyoutList
+            options={filtered}
+            selected={value}
+            search={search}
+            onSearch={setSearch}
+            showSearch
+            searchPlaceholder={searchPlaceholder}
+            emptyLabel={emptyLabel}
+            onSelect={(next) => {
+              onChange?.(next);
+              setOpen(false);
+              setSearch("");
+            }}
+          />
+        </div>
+      </MorphPopoverContent>
+    </MorphPopover>
   );
 }
 
@@ -514,6 +514,7 @@ function PromptAgentConfigMenu({
   model,
   onModelChange,
   modelsLoading,
+  onEmptyModelsOpen,
   currentAgent,
   currentModel,
   thinkingLevels,
@@ -532,6 +533,7 @@ function PromptAgentConfigMenu({
   model?: string;
   onModelChange: (model: string) => void;
   modelsLoading?: boolean;
+  onEmptyModelsOpen?: () => void;
   currentAgent?: PromptModel;
   currentModel?: PromptModel;
   thinkingLevels: PromptModel[];
@@ -582,6 +584,9 @@ function PromptAgentConfigMenu({
   }, [cancelHideFlyout]);
   const openFlyout = (next: AgentConfigFlyout) => {
     cancelHideFlyout();
+    if (next === "model" && models.length === 0) {
+      onEmptyModelsOpen?.();
+    }
     if (next === flyout) return;
     setSearch("");
     setFlyout(next);
@@ -632,6 +637,9 @@ function PromptAgentConfigMenu({
         cancelHideFlyout();
         setFlyout(null);
         setSearch("");
+        if (next && models.length === 0) {
+          onEmptyModelsOpen?.();
+        }
       }}
       className={className}
     >

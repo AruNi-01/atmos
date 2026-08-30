@@ -10,6 +10,26 @@ import {
 
 const promptInput = readFileSync(join(import.meta.dir, "./prompt-input.tsx"), "utf8");
 
+describe("empty model list reload", () => {
+  it("asks the host to reload when the model picker opens with no models", () => {
+    expect(promptInput).toContain("onEmptyModelsOpen");
+    expect(promptInput).toContain("if (next && models.length === 0)");
+    expect(promptInput).toContain('if (next === "model" && models.length === 0)');
+  });
+});
+
+describe("mode picker", () => {
+  it("uses the agent/model MorphPopover instead of the motion Select", () => {
+    const start = promptInput.indexOf("function PromptOptionSelect");
+    const end = promptInput.indexOf("function PromptAgentConfigMenu");
+    const selectFn = promptInput.slice(start, end);
+    expect(selectFn).toContain("MorphPopover");
+    expect(selectFn).toContain("ConfigFlyoutList");
+    expect(selectFn).not.toContain("<Select");
+    expect(selectFn).not.toContain("SelectTrigger");
+  });
+});
+
 describe("initialAgentConfigFlyout", () => {
   it("keeps the secondary menu closed until Agent or Model is hovered", () => {
     expect(

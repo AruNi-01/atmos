@@ -66,9 +66,11 @@ import {
   type AgentChatSlashCommand,
 } from "@/features/agent/store/agent-slash-command-cache";
 import {
+  agentChatHistoryListRequest,
   catalogToConfigOptions,
   defaultCatalogModelId,
   isCatalogModelsLoading,
+  probingCatalog,
   chatTitleFromPrompt,
   chatsToHistoryRows,
   parsePlan,
@@ -321,10 +323,13 @@ export function useAgentChatSession({
     );
     setHistoryLoading(true);
     try {
-      const listed = await agentChatApi.list({
-        workspace_id: meta.workspace_id ?? null,
-        project_id: meta.project_id ?? null,
-      });
+      const listed = await agentChatApi.list(
+        agentChatHistoryListRequest({
+          variant,
+          workspaceId: meta.workspace_id ?? null,
+          projectId: meta.project_id ?? null,
+        }),
+      );
       setHistorySessions(chatsToHistoryRows(listed.items ?? []));
     } finally {
       setHistoryLoading(false);
@@ -350,6 +355,7 @@ export function useAgentChatSession({
     lastSessionPrefKey,
     urlProjectId,
     urlWorkspaceId,
+    variant,
   ]);
 
   useEffect(() => {
@@ -453,22 +459,36 @@ export function useAgentChatSession({
 
   useEffect(() => {
     if (!wsConnected || !prefsRestored) return;
-    if (!activeChatId) {
-      setHydrated(true);
-      setIsResumingHistory(false);
-      setProviderIdState((current) => current || readDefaultAgentRegistryId() || "claude");
-      setHistoryLoading(true);
-      void agentChatApi.list({
-        workspace_id: workspaceId ?? urlWorkspaceId ?? null,
-        project_id: projectId ?? urlProjectId ?? null,
-      }).then((listed) => {
-        setHistorySessions(chatsToHistoryRows(listed.items ?? []));
-      }).finally(() => {
-        setHistoryLoading(false);
-      });
-      return;
-    }
-    setHydrated(false);
+    if (activeChatId) return;
+    setHydrated(true);
+    setIsResumingHistory(false);
+    setProviderIdState((current) => current || readDefaultAgentRegistryId() || "claude");
+    setHistoryLoading(true);
+    void agentChatApi.list(
+      agentChatHistoryListRequest({
+        variant,
+        workspaceId: workspaceId ?? urlWorkspaceId,
+        projectId: projectId ?? urlProjectId,
+      }),
+    ).then((listed) => {
+      setHistorySessions(chatsToHistoryRows(listed.items ?? []));
+    }).finally(() => {
+      setHistoryLoading(false);
+    });
+  }, [
+    activeChatId,
+    prefsRestored,
+    projectId,
+    urlProjectId,
+    urlWorkspaceId,
+    variant,
+    workspaceId,
+    wsConnected,
+  ]);
+
+  useEffect(() => {
+    if (!wsConnected || !prefsRestored) return;
+    if (!activeChatId) return;
     setIsResumingHistory(true);
     const id = activeChatId;
     hydratingRef.current = true;
@@ -574,7 +594,7 @@ export function useAgentChatSession({
       hydratingRef.current = true;
       void agentChatApi.unsubscribe(id);
     };
-  }, [activeChatId, load, prefsRestored, projectId, urlProjectId, urlWorkspaceId, workspaceId, wsConnected]);
+  }, [activeChatId, load, prefsRestored, wsConnected]);
 
   useEffect(() => {
     if (!providerId) return;
@@ -586,6 +606,27 @@ export function useAgentChatSession({
       cancelled = true;
     };
   }, [providerId]);
+
+  const refreshEmptyCatalog = useCallback(() => {
+    const id = providerIdRef.current;
+    if (!id) return;
+    let skip = false;
+    setCatalog((current) => {
+      if (current?.agent_id === id && current.models.length > 0) {
+        skip = true;
+        return current;
+      }
+      if (current?.agent_id === id && current.status === "probing") {
+        skip = true;
+        return current;
+      }
+      return probingCatalog(id);
+    });
+    if (skip) return;
+    void agentChatApi.catalogGet(id, true).then((next) => {
+      if (providerIdRef.current === id) setCatalog(next);
+    });
+  }, []);
 
   useEffect(() => {
     if (!catalog) return;
@@ -627,6 +668,7 @@ export function useAgentChatSession({
               ? null
               : spaceIdForChatCreate(paintContextId, workspaceId || projectId),
             title: item.sessionTitle ?? null,
+            origin: isolatedModal ? "quick" : "normal",
           });
           id = created.id;
           pendingSendRef.current = { text, attachmentPaths: item.attachmentPaths ?? [] };
@@ -705,6 +747,7 @@ export function useAgentChatSession({
           space_id: isolatedModal
             ? null
             : spaceIdForChatCreate(paintContextId, workspaceId || projectId),
+          origin: isolatedModal ? "quick" : "normal",
         });
         id = created.id;
         let attachmentPaths: string[] = [];
@@ -788,7 +831,7 @@ export function useAgentChatSession({
   const persistPreferredRegistry = useCallback((registryId: string) => {
     const next = registryId.trim();
     if (!next) return;
-    setProviderIdState((current) => (agentLocked && !isolatedModal ? current : next || current));
+    setProviderIdState((current) => (agentLocked ? current : next || current));
     persistAgentChatLastSession({
       workspaceId,
       projectId,
@@ -805,7 +848,6 @@ export function useAgentChatSession({
     chatMode,
     cwd,
     instanceKey,
-    isolatedModal,
     lastSessionPrefKey,
     projectId,
     workspaceId,
@@ -854,7 +896,25 @@ export function useAgentChatSession({
 
   const handleSelectHistorySession = useCallback(async (row: AgentChatHistoryRow) => {
     setHistoryOpen(false);
+    if (row.chat_id === activeIdRef.current) return;
     setActiveChatId(row.chat_id);
+    setTitle(row.title?.trim() || null);
+    setShouldScrambleAutoTitle(false);
+    if (row.provider_id) setProviderIdState(row.provider_id);
+    setCwd(row.cwd ?? "");
+    setMessages([]);
+    setQueue([]);
+    setBusy(false);
+    setRunningTurnId(null);
+    setPendingPermission(null);
+    setSessionCommands([]);
+    setSessionUsage(null);
+    setTurnStartedAt(null);
+    setElapsedMs(0);
+    lastSeq.current = 0;
+    setIsResumingHistory(true);
+    hydratingRef.current = true;
+    pendingEventsRef.current = [];
     onOpenChat?.(row.chat_id);
     onStartedRef.current?.(row.chat_id, {
       title: row.title,
@@ -920,18 +980,14 @@ export function useAgentChatSession({
   }, [activeChatId, persistConfig]);
 
   const setProviderId = useCallback((next: string) => {
-    if (agentLocked && !isolatedModal) return;
-    if (isolatedModal && agentLocked && next !== providerId) {
-      void handleCreateNewSession(next);
-      return;
-    }
+    if (agentLocked) return;
     setProviderIdState(next);
     setCatalog(null);
     setModelId("");
     setThinkingId("");
     setModeId("");
     persistPreferredRegistry(next);
-  }, [agentLocked, handleCreateNewSession, isolatedModal, persistPreferredRegistry, providerId]);
+  }, [agentLocked, persistPreferredRegistry]);
 
   const setAgentDefaultConfig = useCallback((configId: string, value: string) => {
     setInstalledAgents((current) =>
@@ -994,6 +1050,7 @@ export function useAgentChatSession({
 
   const handleSelectWorkingDirectory = useCallback(
     (selection: AgentChatWorkingDirectory) => {
+      if (activeChatId) return;
       const current: AgentChatWorkingDirectory = {
         workspaceId,
         projectId,
@@ -1016,7 +1073,6 @@ export function useAgentChatSession({
           prefKey: lastSessionPrefKey,
         });
       }
-      if (activeChatId) resetConversation();
     },
     [
       activeChatId,
@@ -1027,7 +1083,6 @@ export function useAgentChatSession({
       lastSessionPrefKey,
       projectId,
       providerId,
-      resetConversation,
       workspaceId,
     ],
   );
@@ -1120,6 +1175,7 @@ export function useAgentChatSession({
       load_session: { supported: true, reason: null },
     },
     catalogModelsLoading: isCatalogModelsLoading(catalog, providerId),
+    refreshEmptyCatalog,
     configOptions,
     setConfigOption,
     setProviderId,
@@ -1139,10 +1195,13 @@ export function useAgentChatSession({
       if (!wsConnected) return;
       setHistoryLoading(true);
       try {
-        const listed = await agentChatApi.list({
-          workspace_id: workspaceId ?? urlWorkspaceId ?? null,
-          project_id: projectId ?? urlProjectId ?? null,
-        });
+        const listed = await agentChatApi.list(
+          agentChatHistoryListRequest({
+            variant,
+            workspaceId: workspaceId ?? urlWorkspaceId,
+            projectId: projectId ?? urlProjectId,
+          }),
+        );
         setHistorySessions(chatsToHistoryRows(listed.items ?? []));
       } finally {
         setHistoryLoading(false);

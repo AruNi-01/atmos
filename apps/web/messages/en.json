@@ -2879,7 +2879,11 @@
         "workingDirectory": {
           "aria": "Working directory",
           "thread": "Thread",
-          "threadDescription": "No project folder"
+          "threadDescription": "Chat without a project folder",
+          "projects": "Projects",
+          "searchPlaceholder": "Search",
+          "searchWorkspaces": "Search workspaces",
+          "noResults": "No results"
         }
       },
       "terminalBlock": {
@@ -2951,8 +2955,8 @@
           "hide": "Hide process",
           "show": "Show process",
           "label": "Process",
-          "collapseAria": "Collapse process",
-          "collapseLabel": "Collapse process"
+          "collapseAria": "Collapse",
+          "collapseLabel": "Collapse"
         }
       },
       "toolGroup": {
@@ -2973,7 +2977,6 @@
         "switchToSessions": "Switch to sessions",
         "sessionsTitle": "Sessions",
         "agentsTitle": "Agents",
-        "sessionsMoved": "Agent Chat history now lives in the Agent Chat workspace. Open it from the plus menu or New Workspace.",
         "sessionsDescription": "Manage recent chat sessions.",
         "agentsDescription": "Browse installed and available agents.",
         "searchPlaceholder": "Search agents",
@@ -3075,8 +3078,10 @@
         "triggerAria": "Open chat history",
         "triggerTooltip": "Chat history",
         "title": "Chat history",
-        "sourceLabel": "Source",
-        "sourceTooltip": "Session storage location",
+        "searchAria": "Search chats",
+        "searchPlaceholder": "Search chats",
+        "clearSearchAria": "Clear search",
+        "searchNoResults": "No chats match",
         "empty": "No history yet",
         "newChat": "New chat",
         "loadMore": "Load more"
@@ -9857,6 +9862,7 @@
     "managementView": {
       "sessionContext": {
         "all": "All",
+        "thread": "Thread",
         "project": "Project: {name}"
       },
       "workspaceSelector": {
@@ -9864,7 +9870,7 @@
         "one": "1 workspace",
         "many": "{count} workspaces"
       },
-      "searchPlaceholder": "Search ACP sessions...",
+      "searchPlaceholder": "Search chats...",
       "workspacePopover": {
         "title": "Workspaces",
         "all": "All",
@@ -9877,22 +9883,20 @@
       },
       "agentSelect": {
         "loading": "Loading agents...",
-        "placeholder": "Select ACP agent"
+        "placeholder": "Select an agent",
+        "all": "All agents"
       },
       "refresh": "Refresh",
       "refreshAriaLabel": "Refresh sessions",
-      "headerTitle": "ACP Sessions",
-      "warnings": {
-        "truncatedList": "This agent returned an unpaginated session list. Atmos is showing the first {limit} items."
-      },
+      "headerTitle": "Sessions",
       "emptyState": {
-        "genericAgent": "This agent",
-        "unavailableTitle": "ACP session list unavailable",
-        "noSessionsTitle": "No ACP sessions",
-        "selectAgentTitle": "Select an ACP agent",
-        "noSearchResults": "No sessions match the current search.",
-        "installedAgentsHint": "Installed agents appear here.",
-        "unsupportedDescription": "{agentName} does not expose session history through ACP."
+        "noSessionsTitle": "No chats yet",
+        "noSearchResultsTitle": "No matching chats",
+        "noAgentSessionsTitle": "No chats for this agent",
+        "noSearchResults": "No chats match the current search.",
+        "noAgentSessionsDescription": "{agentName} has no saved chats yet.",
+        "installedAgentsHint": "Start a chat from the plus menu or New Workspace.",
+        "loadFailed": "Could not load chat history."
       },
       "timeGroups": {
         "today": "Today",
@@ -9903,10 +9907,12 @@
         "older": "Older"
       },
       "sessionCard": {
-        "fallbackTitle": "ACP session {sessionId}",
-        "noWorkingDirectory": "No working directory"
+        "fallbackTitle": "Chat {sessionId}",
+        "noWorkingDirectory": "No working directory",
+        "quickChat": "Quick Chat",
+        "normalChat": "Normal Chat"
       },
-      "loadMore": "Load More",
+      "loadMore": "Load more",
       "loadingMore": "Loading..."
     }
   },

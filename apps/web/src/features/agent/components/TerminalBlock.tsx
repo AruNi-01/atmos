@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import {
   AcpTerminal,
@@ -15,7 +14,7 @@ import {
 } from "../lib/tool-results/parse-tool-result";
 import { AgentToolCard, type AgentToolSurface } from "./tool-results/AgentToolCard";
 import { AgentToolEmptyBody } from "./tool-results/AgentToolBodies";
-import { highlight, DualThemes } from "@/shared/utils/shiki";
+import { AgentCommandLine } from "./AgentCommandLine";
 import { cn } from "@/shared/lib/utils";
 
 function terminalCommand(rawInput: unknown, rawOutput: unknown): string {
@@ -37,51 +36,6 @@ function terminalOutput(rawOutput: unknown): string {
 
 function collapsedCommand(command: string): string {
   return command.replace(/\s+/g, " ").trim();
-}
-
-function CommandHighlight({ code }: { code: string }) {
-  const [html, setHtml] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    highlight()
-      .then((highlighter) => {
-        if (cancelled) return;
-        setHtml(
-          highlighter.codeToHtml(code, {
-            lang: "bash",
-            themes: DualThemes,
-          }),
-        );
-      })
-      .catch(() => {
-        if (!cancelled) setHtml(null);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [code]);
-
-  if (html) {
-    return (
-      <div
-        className={cn(
-          "min-w-0 flex-1 overflow-x-auto",
-          // globals.css `pre.shiki span.line` padding is unlayered; ! is required to sit flush with `$`.
-          "[&_pre.shiki]:!m-0 [&_pre.shiki]:!bg-transparent [&_pre.shiki]:!p-0",
-          "[&_pre.shiki_code]:block [&_pre.shiki_code]:text-[13px] [&_pre.shiki_code]:leading-5",
-          "[&_pre.shiki_span.line]:!block [&_pre.shiki_span.line]:!p-0",
-        )}
-        dangerouslySetInnerHTML={{ __html: html }}
-      />
-    );
-  }
-
-  return (
-    <code className="min-w-0 flex-1 whitespace-pre-wrap break-all text-[13px] leading-5 text-foreground">
-      {code}
-    </code>
-  );
 }
 
 export function TerminalBlock({
@@ -116,12 +70,10 @@ export function TerminalBlock({
       {commandStr || output ? (
         <div className="max-h-96 overflow-y-auto">
           {commandStr ? (
-            <div className={cn("flex items-start px-3 pt-2.5 font-mono text-[13px] leading-5", !output && "pb-2.5")}>
-              <span className="shrink-0 select-none pr-[1ch] text-muted-foreground">
-                $
-              </span>
-              <CommandHighlight code={commandStr} />
-            </div>
+            <AgentCommandLine
+              command={commandStr}
+              className={cn("px-3 pt-2.5", !output && "pb-2.5")}
+            />
           ) : null}
           {output ? (
             <AcpTerminal

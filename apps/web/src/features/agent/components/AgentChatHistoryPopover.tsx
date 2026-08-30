@@ -3,6 +3,7 @@
 import React from "react";
 import { useTranslations } from "next-intl";
 import {
+  Input,
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -13,9 +14,13 @@ import {
   TooltipTrigger,
   cn,
 } from "@workspace/ui";
-import { History, Loader2 } from "lucide-react";
+import { History, Loader2, Search, X } from "lucide-react";
 import { formatLocalDateTime } from "@atmos/shared";
-import type { AgentChatHistoryRow } from "@/features/agent/lib/agent-chat-thread";
+import { agentChatCwdLabel } from "@/features/agent/lib/agent-chat-working-directory";
+import {
+  filterAgentChatHistoryRows,
+  type AgentChatHistoryRow,
+} from "@/features/agent/lib/agent-chat-thread";
 
 interface AgentChatHistoryPopoverProps {
   historyOpen: boolean;
@@ -32,12 +37,13 @@ interface AgentChatHistoryPopoverProps {
   triggerClassName?: string;
 }
 
-function formatHistoryCwd(cwd: string | null | undefined): string | null {
-  const trimmed = cwd?.trim();
-  if (!trimmed) return null;
+function formatHistoryCwd(cwd: string | null | undefined, threadLabel: string): string | null {
+  const labeled = agentChatCwdLabel(cwd, threadLabel);
+  if (!labeled) return null;
+  if (labeled === threadLabel) return labeled;
 
-  const normalized = trimmed.replace(/[\\/]+$/, "");
-  if (!normalized) return trimmed;
+  const normalized = labeled.replace(/[\\/]+$/, "");
+  if (!normalized) return labeled;
 
   const parts = normalized.split(/[\\/]+/).filter(Boolean);
   if (parts.length <= 2) return normalized;
@@ -60,8 +66,33 @@ export function AgentChatHistoryPopover({
   triggerClassName,
 }: AgentChatHistoryPopoverProps) {
   const t = useTranslations("Agent.components");
+  const searchInputRef = React.useRef<HTMLInputElement | null>(null);
+  const [searchOpen, setSearchOpen] = React.useState(false);
+  const [searchQuery, setSearchQuery] = React.useState("");
+  const visibleSessions = React.useMemo(
+    () => filterAgentChatHistoryRows(historySessions, searchQuery),
+    [historySessions, searchQuery],
+  );
+
+  React.useEffect(() => {
+    if (!historyOpen) {
+      setSearchOpen(false);
+      setSearchQuery("");
+    }
+  }, [historyOpen]);
+
+  React.useEffect(() => {
+    if (!searchOpen) return;
+    searchInputRef.current?.focus();
+  }, [searchOpen]);
+
+  const handleOpenChange = React.useCallback((open: boolean) => {
+    setHistoryOpen(open);
+    if (open) void loadHistorySessions();
+  }, [loadHistorySessions, setHistoryOpen]);
+
   return (
-    <Popover open={historyOpen} onOpenChange={setHistoryOpen}>
+    <Popover open={historyOpen} onOpenChange={handleOpenChange}>
       <TooltipProvider delayDuration={200}>
         <Tooltip>
           <TooltipTrigger asChild>
@@ -87,21 +118,52 @@ export function AgentChatHistoryPopover({
           <p className="text-sm font-medium shrink-0">
             {t("historyPopover.title")}
           </p>
-          <TooltipProvider delayDuration={200}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span className="truncate text-[10px] text-muted-foreground/70 cursor-help max-w-[140px]">
-                  {t("historyPopover.sourceLabel")}
-                </span>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="max-w-xs break-all">
-                <p className="text-[11px]">
-                  {t("historyPopover.sourceTooltip")}
-                </p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+          <button
+            type="button"
+            className={cn(
+              "rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground",
+              searchOpen && "bg-muted text-foreground",
+            )}
+            aria-label={t("historyPopover.searchAria")}
+            aria-pressed={searchOpen}
+            onClick={() => {
+              setSearchOpen((open) => {
+                const next = !open;
+                if (!next) setSearchQuery("");
+                return next;
+              });
+            }}
+          >
+            <Search className="size-3.5" />
+          </button>
         </div>
+        {searchOpen ? (
+          <div className="border-b border-border px-3 py-2">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground/70" />
+              <Input
+                ref={searchInputRef}
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder={t("historyPopover.searchPlaceholder")}
+                className="h-8 rounded-md border-border/50 bg-muted/20 pl-8 pr-8 text-sm"
+              />
+              {searchQuery ? (
+                <button
+                  type="button"
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted-foreground hover:text-foreground"
+                  aria-label={t("historyPopover.clearSearchAria")}
+                  onClick={() => {
+                    setSearchQuery("");
+                    searchInputRef.current?.focus();
+                  }}
+                >
+                  <X className="size-3.5" />
+                </button>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
         <ScrollArea className="h-[280px]">
           {historyLoading && historySessions.length === 0 ? (
             <div className="flex items-center justify-center py-8">
@@ -111,10 +173,17 @@ export function AgentChatHistoryPopover({
             <div className="py-8 text-center text-sm text-muted-foreground">
               {historyUnsupportedReason ?? t("historyPopover.empty")}
             </div>
+          ) : visibleSessions.length === 0 ? (
+            <div className="py-8 text-center text-sm text-muted-foreground">
+              {t("historyPopover.searchNoResults")}
+            </div>
           ) : (
             <div className="p-1">
-              {historySessions.map((s) => {
-                const displayedCwd = formatHistoryCwd(s.cwd);
+              {visibleSessions.map((s) => {
+                const displayedCwd = formatHistoryCwd(
+                  s.cwd,
+                  t("composer.workingDirectory.thread"),
+                );
                 const displayedTime = s.updated_at
                   ? formatLocalDateTime(s.updated_at, "MM/dd HH:mm")
                   : null;
@@ -133,7 +202,7 @@ export function AgentChatHistoryPopover({
                     {(displayedCwd || displayedTime) ? (
                       <span className="flex w-full min-w-0 items-center gap-2 text-[11px] text-muted-foreground/80">
                         {displayedCwd ? (
-                          <span className="min-w-0 flex-1 truncate" title={s.cwd ?? undefined}>
+                          <span className="min-w-0 flex-1 truncate" title={displayedCwd}>
                             {displayedCwd}
                           </span>
                         ) : null}

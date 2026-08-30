@@ -1,12 +1,14 @@
 "use client";
 
 import type { ComponentProps } from "react";
+import { useCallback } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { ArrowDownIcon, DownloadIcon } from "lucide-react";
+import { StickToBottom, useStickToBottomContext } from "use-stick-to-bottom";
 
 import { Button } from "../ui/button";
+import { spring } from "../../lib/springs";
 import { cn } from "../../lib/utils";
-import { ArrowDownIcon, DownloadIcon } from "lucide-react";
-import { useCallback } from "react";
-import { StickToBottom, useStickToBottomContext } from "use-stick-to-bottom";
 
 export type ConversationProps = ComponentProps<typeof StickToBottom>;
 
@@ -77,27 +79,45 @@ export const ConversationScrollButton = ({
   ...props
 }: ConversationScrollButtonProps) => {
   const { isAtBottom, scrollToBottom } = useStickToBottomContext();
+  const reduceMotion = useReducedMotion();
 
   const handleScrollToBottom = useCallback(() => {
     scrollToBottom();
   }, [scrollToBottom]);
 
   return (
-    !isAtBottom && (
-      <Button
-        className={cn(
-          "absolute bottom-4 left-[50%] translate-x-[-50%] rounded-full dark:bg-background dark:hover:bg-muted",
-          className
-        )}
-        onClick={handleScrollToBottom}
-        size={children ? "sm" : "icon"}
-        type="button"
-        variant="outline"
-        {...props}
-      >
-        {children ?? <ArrowDownIcon className="size-4" />}
-      </Button>
-    )
+    <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex justify-center overflow-hidden pb-2">
+      <AnimatePresence initial={false}>
+        {!isAtBottom ? (
+          <motion.div
+            key="conversation-scroll-to-bottom"
+            className="pointer-events-auto"
+            initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 36 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={
+              reduceMotion
+                ? { opacity: 0, transition: { duration: 0 } }
+                : { opacity: 0, y: 36, transition: spring.moderate.exit }
+            }
+            transition={reduceMotion ? { duration: 0 } : spring.moderate}
+          >
+            <Button
+              className={cn(
+                "size-8 rounded-full border-transparent shadow-sm before:rounded-full",
+                className,
+              )}
+              onClick={handleScrollToBottom}
+              size="icon"
+              type="button"
+              variant="secondary"
+              {...props}
+            >
+              {children ?? <ArrowDownIcon className="size-4" />}
+            </Button>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+    </div>
   );
 };
 

@@ -112,13 +112,14 @@ export const AgentChatMessageView = React.memo(function AgentChatMessageView({
                     className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
                   />
                 ) : null}
+                {message.usage ? <MessageTurnUsageBadge usage={message.usage} /> : null}
                 {message.worked_ms != null && message.worked_ms > 0 ? (
                   <AgentWorkedForLabel
+                    reveal="timestamp"
                     workedMs={message.worked_ms}
                     completedAt={message.completed_at}
                   />
                 ) : null}
-                {message.usage ? <MessageTurnUsageBadge usage={message.usage} /> : null}
               </div>
             ) : null}
           </MessageContent>

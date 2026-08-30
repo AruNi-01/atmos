@@ -20,6 +20,7 @@ describe("agent prompt composer", () => {
     expect(composer).toContain("mx-6 overflow-hidden rounded-t-3xl");
     expect(composer).toContain("catalogModelsLoading");
     expect(composer).toContain("modelsLoading={isConnecting || isResumingHistory || catalogModelsLoading}");
+    expect(composer).toContain("onEmptyModelsOpen={onEmptyModelsOpen}");
     expect(composer).toContain('model: t("composer.model")');
     expect(composer).toContain('searchModels: t("composer.searchModels")');
     expect(composer).toContain('searchAgents: t("composer.searchAgents")');

@@ -14,11 +14,13 @@ import {
 } from "@workspace/ui";
 import { cn } from "@/shared/lib/utils";
 import { hostFromUrl } from "@/features/agent/lib/tool-results/parse-tool-result";
-import { activateCenterChromeTab } from "@/app-shell/center-stage-activate";
-import { useCenterPaintContextId } from "@/app-shell/center-space/use-center-paint-context-id";
-import { useEditorStore } from "@/features/editor/store/use-editor-store";
 import { useAgentChatCwd, useAgentChatPathRoots } from "../agent-chat-cwd-context";
 import {
+  useAgentChatResolvedPathKind,
+  useOpenAgentChatWorkspacePath,
+} from "@/features/agent/hooks/use-open-agent-chat-path";
+import {
+  agentChatPathLooksLikeDirectory,
   displayAgentChatFilePath,
   resolveAgentChatOpenableFile,
 } from "@/features/agent/lib/agent-chat-file-links";
@@ -120,46 +122,51 @@ export function fileNameFromPath(path: string): string {
 export function AgentToolFileChip({
   path,
   line,
+  isDir: hintedIsDir,
   className,
 }: {
   path: string;
   line?: number;
+  isDir?: boolean;
   className?: string;
 }) {
   const cwd = useAgentChatCwd();
   const roots = useAgentChatPathRoots();
-  const paintContextId = useCenterPaintContextId();
-  const openFile = useEditorStore((state) => state.openFile);
+  const openWorkspacePath = useOpenAgentChatWorkspacePath();
   const name = fileNameFromPath(path);
   const tooltip = displayAgentChatFilePath(path, cwd, roots);
   const openable = resolveAgentChatOpenableFile(path, cwd, roots);
+  const resolvedKind = useAgentChatResolvedPathKind(hintedIsDir == null ? openable?.path : undefined);
+  const isDir = hintedIsDir ?? (
+    resolvedKind === "directory"
+    || (resolvedKind === "pending" && agentChatPathLooksLikeDirectory(path))
+  );
+  const exists = hintedIsDir === true
+    || resolvedKind === "file"
+    || resolvedKind === "directory";
+  const clickable = Boolean(openable) && exists;
   const chipClassName = cn(
     "inline-flex max-w-full min-w-0 items-center gap-1 rounded-md bg-muted px-1.5 py-0.5 font-mono text-[12px] leading-4 text-foreground",
-    openable ? "cursor-pointer hover:bg-muted/80" : "cursor-default",
+    clickable ? "cursor-pointer hover:bg-muted/80" : "cursor-default",
     className,
   );
 
   const label = (
     <>
-      <AgentToolFileGlyph path={path} className="size-3.5" />
+      <AgentToolFileGlyph path={path} isDir={isDir} className="size-3.5" />
       <span className="min-w-0 truncate">{name}</span>
     </>
   );
 
-  const chip = openable ? (
+  const chip = clickable ? (
     <button
       type="button"
       className={chipClassName}
       onClick={(event) => {
         event.preventDefault();
         event.stopPropagation();
-        if (!paintContextId) return;
-        const contextId = paintContextId;
-        const filePath = openable.path;
-        const openLine = line ?? openable.line;
         queueMicrotask(() => {
-          void openFile(filePath, contextId, { preview: false, line: openLine });
-          activateCenterChromeTab(contextId, filePath, { placement: "focused" });
+          void openWorkspacePath(path, { line, isDir: hintedIsDir });
         });
       }}
     >

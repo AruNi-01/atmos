@@ -902,6 +902,22 @@ export function parseListDirTree(text: string): TreeEntry[] | null {
   return items >= 2 ? entries : null;
 }
 
+export function resolveTreeEntryPaths(entries: TreeEntry[]): string[] {
+  const stack: { indent: number; path: string }[] = [];
+  return entries.map((entry) => {
+    if (entry.kind === "note") return entry.name;
+    while (stack.length > 0 && stack[stack.length - 1]!.indent >= entry.indent) {
+      stack.pop();
+    }
+    const parent = stack[stack.length - 1]?.path;
+    const path = parent
+      ? `${parent.replace(/[/\\]+$/, "")}/${entry.name}`
+      : entry.name;
+    if (entry.isDir) stack.push({ indent: entry.indent, path });
+    return path;
+  });
+}
+
 function lineRangeFrom(
   input: Record<string, unknown> | null,
   output: Record<string, unknown> | null,

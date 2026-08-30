@@ -13,13 +13,31 @@ export type AgentChatHrefKind =
 
 const EXTERNAL_HREF_RE = /^(https?:|mailto:|tel:|#)/i;
 
+function looksLikeFileExtension(ext: string): boolean {
+  if (!/^[A-Za-z][A-Za-z0-9]{0,11}$/.test(ext)) return false;
+  // Reject camelCase "extensions" like totalTokens in `_meta.totalTokens`.
+  return !/[a-z][A-Z]/.test(ext);
+}
+
 function looksLikeFilePath(value: string): boolean {
   if (!value || /\s/.test(value) || value.includes("*")) return false;
   if (value.startsWith("-") || value.startsWith("#")) return false;
   const name = value.split("/").pop() || value;
   if (!name || name === "." || name === "..") return false;
   if (value.includes("/")) return !value.includes("//");
-  return /\.[A-Za-z0-9]{1,12}$/.test(name);
+  const extMatch = /\.([A-Za-z][A-Za-z0-9]{0,11})$/.exec(name);
+  return Boolean(extMatch && looksLikeFileExtension(extMatch[1]));
+}
+
+export function agentChatPathLooksLikeDirectory(path: string): boolean {
+  const trimmed = path.trim().replace(/^['"`]+|['"`]+$/g, "");
+  if (!trimmed) return false;
+  if (/[/\\]$/.test(trimmed)) return true;
+  const name = trimmed.split(/[\\/]/).filter(Boolean).pop() || trimmed;
+  if (!name || name === "." || name === "..") return true;
+  const lastDot = name.lastIndexOf(".");
+  if (lastDot <= 0) return true;
+  return !/^[A-Za-z0-9]{1,12}$/.test(name.slice(lastDot + 1));
 }
 
 function joinUnderCwd(cwd: string, relative: string): string | null {
@@ -43,11 +61,13 @@ function uniqueNormalizedRoots(
   const cwdNorm = normalizeFsPath(cwd);
   const resolved: string[] = [];
   const seen = new Set<string>();
-  for (const item of [cwdNorm, ...(roots ?? []).map((root) => normalizeFsPath(root))]) {
+  for (const item of (roots ?? []).map((root) => normalizeFsPath(root))) {
     if (!item || seen.has(item)) continue;
     seen.add(item);
     resolved.push(item);
   }
+  // Standalone chat has no project/workspace root — allow the picked cwd.
+  if (resolved.length === 0 && cwdNorm) resolved.push(cwdNorm);
   return { cwd: cwdNorm, roots: resolved };
 }
 
@@ -132,8 +152,16 @@ export function displayAgentChatFilePath(
       ? (joinUnderCwd(allowed.cwd, normalized) ?? normalized)
       : normalized;
 
+  const displayRoots: string[] = [];
+  const seen = new Set<string>();
+  for (const item of [allowed.cwd, ...allowed.roots]) {
+    if (!item || seen.has(item)) continue;
+    seen.add(item);
+    displayRoots.push(item);
+  }
+
   let best: string | null = null;
-  for (const root of allowed.roots) {
+  for (const root of displayRoots) {
     const relative = tryRelativePathUnderRoot(absolute, root);
     if (relative == null) continue;
     const shown = relative || ".";

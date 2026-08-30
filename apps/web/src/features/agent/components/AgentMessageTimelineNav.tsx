@@ -122,7 +122,7 @@ export function AgentMessageTimelineNav({
     return map;
   }, [items]);
 
-  if (items.length <= 3) return null;
+  if (items.length <= 1) return null;
 
   const selectedNavIndex = items.findIndex((item) => item.messageIndex === activeMessageIndex);
   const activeItem = items[selectedNavIndex >= 0 ? selectedNavIndex : items.length - 1];

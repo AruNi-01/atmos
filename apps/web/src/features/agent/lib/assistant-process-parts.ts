@@ -32,3 +32,16 @@ export function shouldCollapseAssistantProcess(
   if (!hasProcess || !hasAnswer || hasRunningTool) return false;
   return isAssistantTurnSettled(message);
 }
+
+export function hasCollapsibleAssistantProcess(message: AgentMessage): boolean {
+  const hasRunningTool = message.parts.some(
+    (part) => part.type === "tool_call" && part.status?.toLowerCase() === "running",
+  );
+  const { processParts, answerParts } = splitAssistantProcessParts(message.parts);
+  return shouldCollapseAssistantProcess(
+    message,
+    hasRunningTool,
+    processParts.length > 0,
+    answerParts.length > 0,
+  );
+}

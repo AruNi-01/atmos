@@ -1,7 +1,10 @@
 import type { QueuedAgentPrompt } from "@/app-shell/state/use-dialog-store";
 import type { AgentConfigOption, AgentPlan } from "@/features/agent/hooks/use-agent-session";
 import type { AgentModelCatalog } from "@/api/ws/agent-chat-api";
-import type { AgentChatIndexEntry } from "@atmos/api-types/ws/dto/agent-chat";
+import type {
+  AgentChatIndexEntry,
+  AgentChatListRequest,
+} from "@atmos/api-types/ws/dto/agent-chat";
 
 type ThinkingShape = {
   type?: string;
@@ -28,6 +31,20 @@ export function isCatalogModelsLoading(
   if (!catalog) return true;
   if (catalog.agent_id && catalog.agent_id !== providerId) return true;
   return catalog.status === "probing";
+}
+
+export function probingCatalog(agentId: string): AgentModelCatalog {
+  return {
+    agent_id: agentId,
+    status: "probing",
+    models: [],
+    modes: [],
+    thinking: { type: "none" },
+    strategies_used: [],
+    fetched_at: "",
+    source: "live",
+    message: null,
+  };
 }
 
 export function defaultCatalogModelId(
@@ -111,6 +128,7 @@ export type AgentChatHistoryRow = {
   provider_id: string;
   title: string | null;
   cwd: string;
+  origin: "quick" | "normal";
   updated_at: string | null;
 };
 
@@ -128,8 +146,38 @@ export function chatsToHistoryRows(
     provider_id: item.provider_id,
     title: item.title,
     cwd: item.cwd,
+    origin: item.origin === "quick" ? "quick" : "normal",
     updated_at: item.updated_at,
   }));
+}
+
+export function agentChatHistoryListRequest(input: {
+  variant: "modal" | "sidebar" | "standalone" | "center";
+  workspaceId?: string | null;
+  projectId?: string | null;
+}): AgentChatListRequest {
+  if (input.variant === "modal") {
+    return { all: true, origin: "quick" };
+  }
+  if (input.variant === "standalone") {
+    return { all: true };
+  }
+  return {
+    workspace_id: input.workspaceId ?? null,
+    project_id: input.projectId ?? null,
+  };
+}
+
+export function filterAgentChatHistoryRows(
+  rows: AgentChatHistoryRow[],
+  query: string,
+): AgentChatHistoryRow[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return rows;
+  return rows.filter((row) => {
+    const title = row.title?.trim().toLowerCase() ?? "";
+    return title.includes(q);
+  });
 }
 
 export function queueToPrompts(

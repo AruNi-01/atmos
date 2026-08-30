@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
+  agentChatPathLooksLikeDirectory,
   classifyAgentChatHref,
   displayAgentChatFilePath,
   resolveAgentChatOpenableFile,
@@ -46,6 +47,19 @@ describe("resolveAgentChatWorkspaceFile", () => {
     expect(resolveAgentChatWorkspaceFile("https://example.com/a.ts", cwd)).toBeNull();
     expect(resolveAgentChatWorkspaceFile("npm", cwd)).toBeNull();
     expect(resolveAgentChatWorkspaceFile("git status", cwd)).toBeNull();
+    expect(resolveAgentChatWorkspaceFile("contextTokensUsed", cwd)).toBeNull();
+    expect(resolveAgentChatWorkspaceFile("_meta.totalTokens", cwd)).toBeNull();
+    expect(resolveAgentChatWorkspaceFile("/context", cwd)).toBeNull();
+    expect(resolveAgentChatWorkspaceFile(
+      "signals.json",
+      "/Users/me/.grok/sessions/abc",
+      [cwd],
+    )).toBeNull();
+    expect(resolveAgentChatWorkspaceFile(
+      "chat_history.jsonl",
+      "/Users/me/.grok/sessions/abc",
+      [cwd],
+    )).toBeNull();
   });
 
   it("allows files under an extra project or workspace root", () => {
@@ -107,6 +121,17 @@ describe("displayAgentChatFilePath", () => {
   });
 });
 
+describe("agentChatPathLooksLikeDirectory", () => {
+  it("treats extensionless and trailing-slash paths as directories", () => {
+    expect(agentChatPathLooksLikeDirectory("src/features/agent")).toBe(true);
+    expect(agentChatPathLooksLikeDirectory("src/features/agent/")).toBe(true);
+    expect(agentChatPathLooksLikeDirectory("src")).toBe(true);
+    expect(agentChatPathLooksLikeDirectory("src/app.ts")).toBe(false);
+    expect(agentChatPathLooksLikeDirectory("package.json")).toBe(false);
+    expect(agentChatPathLooksLikeDirectory("Dockerfile")).toBe(true);
+  });
+});
+
 describe("classifyAgentChatHref", () => {
   it("opens workspace file hrefs and keeps http links", () => {
     expect(classifyAgentChatHref("src/app.ts", cwd)).toEqual({
@@ -136,8 +161,10 @@ describe("agent chat file-link wiring", () => {
     );
     expect(source).toContain("classifyAgentChatHref");
     expect(source).toContain("resolveAgentChatWorkspaceFile");
-    expect(source).toContain("AgentToolFileChip");
-    expect(source).toContain("preview: options?.preview ?? false");
+    expect(source).toContain("AgentChatMarkdownFileChip");
+    expect(source).toContain("AgentChatMarkdownFileLink");
+    expect(source).not.toContain("AgentToolFileChip");
+    expect(source).toContain("useOpenAgentChatWorkspacePath");
     expect(source).toContain('classified.kind === "plain"');
   });
 
@@ -149,6 +176,41 @@ describe("agent chat file-link wiring", () => {
     expect(source).toContain("resolveAgentChatOpenableFile");
     expect(source).toContain("displayAgentChatFilePath");
     expect(source).toContain("TooltipContent");
-    expect(source).toContain("const chip = openable ?");
+    expect(source).toContain("const chip = clickable ?");
+    expect(source).toContain("isDir={isDir}");
+    expect(source).toContain("useAgentChatResolvedPathKind");
+  });
+
+  it("reveals directories in the files tab instead of opening them as files", () => {
+    const hook = readFileSync(
+      join(import.meta.dir, "../../hooks/use-open-agent-chat-path.ts"),
+      "utf8",
+    );
+    expect(hook).toContain("requestFileTreeReveal");
+    expect(hook).toContain("FILES_TAB_VALUE");
+    expect(hook).toContain('kind === "directory"');
+    expect(hook).toContain("resolveAgentChatPathKind");
+    expect(hook).toContain('if (kind !== "file") return');
+    const kindSource = readFileSync(
+      join(import.meta.dir, "../agent-chat-path-kind.ts"),
+      "utf8",
+    );
+    expect(kindSource).toContain("lookupPathInFileTrees");
+    expect(kindSource).toContain("collectCachedFileTrees");
+    expect(kindSource).toContain('fromTree === "absent"');
+  });
+
+  it("keeps original markdown path text and underlines existing files on hover", () => {
+    const source = readFileSync(
+      join(import.meta.dir, "../../components/AgentChatMarkdownFile.tsx"),
+      "utf8",
+    );
+    expect(source).toContain("useAgentChatResolvedPathKind");
+    expect(source).toContain('kind !== "file" && kind !== "directory"');
+    expect(source).toContain("MarkdownCodeBlock");
+    expect(source).toContain("{raw}");
+    expect(source).toContain("decoration-dashed");
+    expect(source).toContain("hover:underline");
+    expect(source).not.toContain("AgentToolFileChip");
   });
 });
