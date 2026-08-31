@@ -9,7 +9,8 @@ use crate::domain::{AgentModelCatalog, AgentThinkingSupport, CatalogStatus, Cata
 
 use super::merge::{merge_catalogs, CatalogFragment};
 use super::parse::{
-    dedupe_models, looks_like_auth_required, parse_grok, parse_json_models, parse_line_list,
+    dedupe_models, looks_like_auth_required, parse_droid_help, parse_grok, parse_json_models,
+    parse_line_list,
 };
 use super::spec::{AgentCatalogSpec, CatalogParserKind};
 
@@ -135,14 +136,22 @@ impl CatalogEngine {
         if spec.cli_command.is_empty() {
             return None;
         }
-        match self
-            .command_runner
-            .run(&spec.cli_command, Duration::from_secs(8))
-            .await
-        {
+        let timeout = match spec.parser {
+            CatalogParserKind::DroidHelp => Duration::from_secs(20),
+            _ => Duration::from_secs(8),
+        };
+        match self.command_runner.run(&spec.cli_command, timeout).await {
             Ok(output) => {
                 let combined = format!("{}\n{}", output.stdout, output.stderr);
-                if !output.success {
+                let parsed = match spec.parser {
+                    CatalogParserKind::GrokLineList => parse_grok(&output.stdout),
+                    CatalogParserKind::KiroJson | CatalogParserKind::Json => {
+                        parse_json_models(&output.stdout).unwrap_or_default()
+                    }
+                    CatalogParserKind::DroidHelp => parse_droid_help(&combined),
+                    CatalogParserKind::LineList => parse_line_list(&output.stdout),
+                };
+                if parsed.is_empty() && !output.success {
                     let status = if looks_like_auth_required(&combined) {
                         CatalogStatus::AuthRequired
                     } else {
@@ -155,13 +164,6 @@ impl CatalogEngine {
                         ..Default::default()
                     });
                 }
-                let parsed = match spec.parser {
-                    CatalogParserKind::GrokLineList => parse_grok(&output.stdout),
-                    CatalogParserKind::KiroJson | CatalogParserKind::Json => {
-                        parse_json_models(&output.stdout).unwrap_or_default()
-                    }
-                    CatalogParserKind::LineList => parse_line_list(&output.stdout),
-                };
                 Some(CatalogFragment {
                     models: dedupe_models(parsed),
                     status: Some(CatalogStatus::Ok),

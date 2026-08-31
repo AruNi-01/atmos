@@ -12,6 +12,7 @@ pub enum CatalogParserKind {
     GrokLineList,
     KiroJson,
     Json,
+    DroidHelp,
 }
 
 #[derive(Debug, Clone, Deserialize, Default)]

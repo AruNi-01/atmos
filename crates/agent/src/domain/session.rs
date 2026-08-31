@@ -52,6 +52,9 @@ pub struct AgentRuntimeConfigUpdate {
     pub thinking: Option<String>,
     pub mode: Option<String>,
     pub extra_config: HashMap<String, String>,
+    pub previous_model: Option<String>,
+    pub previous_thinking: Option<String>,
+    pub previous_mode: Option<String>,
 }
 
 #[derive(Debug, Clone, Default)]

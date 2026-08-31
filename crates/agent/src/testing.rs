@@ -34,6 +34,9 @@ pub struct FakeAgentProvider {
     pub emit_permission_on_prompt: bool,
     last_resume: Arc<Mutex<Option<String>>>,
     last_config: Arc<Mutex<Option<AgentRuntimeConfigUpdate>>>,
+    last_runtime_config: Arc<Mutex<Option<AgentRuntimeConfig>>>,
+    fail_set_config: Arc<AtomicBool>,
+    fail_thinking_config: Arc<AtomicBool>,
     running_turn: Arc<Mutex<Option<String>>>,
     events_tx: Arc<Mutex<Option<mpsc::UnboundedSender<AgentEvent>>>>,
 }
@@ -48,6 +51,9 @@ impl FakeAgentProvider {
             emit_permission_on_prompt: false,
             last_resume: Arc::new(Mutex::new(None)),
             last_config: Arc::new(Mutex::new(None)),
+            last_runtime_config: Arc::new(Mutex::new(None)),
+            fail_set_config: Arc::new(AtomicBool::new(false)),
+            fail_thinking_config: Arc::new(AtomicBool::new(false)),
             running_turn: Arc::new(Mutex::new(None)),
             events_tx: Arc::new(Mutex::new(None)),
         }
@@ -85,6 +91,18 @@ impl FakeAgentProvider {
         self.last_config.lock().await.clone()
     }
 
+    pub async fn last_runtime_config(&self) -> Option<AgentRuntimeConfig> {
+        self.last_runtime_config.lock().await.clone()
+    }
+
+    pub fn set_fail_set_config(&self, value: bool) {
+        self.fail_set_config.store(value, Ordering::SeqCst);
+    }
+
+    pub fn set_fail_thinking_config(&self, value: bool) {
+        self.fail_thinking_config.store(value, Ordering::SeqCst);
+    }
+
     pub fn set_auto_complete(&self, value: bool) {
         self.auto_complete.store(value, Ordering::SeqCst);
     }
@@ -119,6 +137,8 @@ struct FakeSessionInner {
     events_tx: mpsc::UnboundedSender<AgentEvent>,
     running_turn: Arc<Mutex<Option<String>>>,
     last_config: Arc<Mutex<Option<AgentRuntimeConfigUpdate>>>,
+    fail_set_config: Arc<AtomicBool>,
+    fail_thinking_config: Arc<AtomicBool>,
 }
 
 #[async_trait]
@@ -195,6 +215,15 @@ impl AgentRuntimeCommands for FakeSessionInner {
 
     async fn set_config(&self, update: AgentRuntimeConfigUpdate) -> AgentResult<()> {
         self.counters.set_config.fetch_add(1, Ordering::SeqCst);
+        if self.fail_set_config.load(Ordering::SeqCst) {
+            return Err(AgentProviderError::unsupported("agent did not apply model"));
+        }
+        if self.fail_thinking_config.load(Ordering::SeqCst) && config_update_sets_thinking(&update)
+        {
+            return Err(AgentProviderError::unsupported(
+                "agent did not apply thinking",
+            ));
+        }
         *self.last_config.lock().await = Some(update);
         Ok(())
     }
@@ -243,6 +272,24 @@ impl AgentRuntime for FakeSession {
     }
 }
 
+fn config_update_sets_thinking(update: &AgentRuntimeConfigUpdate) -> bool {
+    if update.thinking.is_some() {
+        return true;
+    }
+    update.extra_config.keys().any(|id| {
+        matches!(
+            id.trim().to_ascii_lowercase().as_str(),
+            "thinking"
+                | "think"
+                | "thought_level"
+                | "effort"
+                | "reasoning"
+                | "reasoning_effort"
+                | "reasoning-effort"
+        )
+    })
+}
+
 fn open_session(
     provider: &FakeAgentProvider,
     persistence: Option<AgentPersistenceHandle>,
@@ -265,6 +312,8 @@ fn open_session(
         events_tx: tx.clone(),
         running_turn: Arc::clone(&provider.running_turn),
         last_config: Arc::clone(&provider.last_config),
+        fail_set_config: Arc::clone(&provider.fail_set_config),
+        fail_thinking_config: Arc::clone(&provider.fail_thinking_config),
     });
     if let Ok(mut slot) = provider.events_tx.try_lock() {
         *slot = Some(tx);
@@ -295,18 +344,20 @@ impl AgentProvider for FakeAgentProvider {
         })
     }
 
-    async fn create_runtime(&self, _cfg: AgentRuntimeConfig) -> AgentResult<Box<dyn AgentRuntime>> {
+    async fn create_runtime(&self, cfg: AgentRuntimeConfig) -> AgentResult<Box<dyn AgentRuntime>> {
         self.counters.create.fetch_add(1, Ordering::SeqCst);
+        *self.last_runtime_config.lock().await = Some(cfg);
         Ok(open_session(self, None))
     }
 
     async fn resume_runtime(
         &self,
         handle: AgentPersistenceHandle,
-        _cfg: AgentRuntimeConfig,
+        cfg: AgentRuntimeConfig,
     ) -> AgentResult<Box<dyn AgentRuntime>> {
         self.counters.resume.fetch_add(1, Ordering::SeqCst);
         *self.last_resume.lock().await = Some(handle.as_str().to_string());
+        *self.last_runtime_config.lock().await = Some(cfg);
         Ok(open_session(self, Some(handle)))
     }
 }

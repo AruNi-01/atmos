@@ -31,6 +31,8 @@ pub struct TerminalAgentModelOption {
     pub group: Option<String>,
     #[serde(default)]
     pub is_default: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub thinking: Option<agent::AgentThinkingSupport>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -40,6 +42,7 @@ pub enum TerminalAgentModelCatalogStatus {
     Unsupported,
     AuthRequired,
     Error,
+    Probing,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -244,6 +247,7 @@ enum TerminalAgentModelListParser {
     LineList,
     GrokLineList,
     KiroJson,
+    DroidHelp,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -844,19 +848,32 @@ fn parse_model_catalog_output(
         TerminalAgentModelListParser::LineList => parse_line_model_catalog(output),
         TerminalAgentModelListParser::GrokLineList => parse_grok_model_catalog(output),
         TerminalAgentModelListParser::KiroJson => parse_json_model_catalog(output)?,
+        TerminalAgentModelListParser::DroidHelp => parse_droid_help_model_catalog(output),
     };
     Ok(dedupe_model_options(models))
+}
+
+fn option_from_agent_model(model: agent::AgentModel) -> TerminalAgentModelOption {
+    TerminalAgentModelOption {
+        id: model.id,
+        label: model.label,
+        group: model.group,
+        is_default: model.is_default,
+        thinking: model.thinking,
+    }
 }
 
 fn parse_line_model_catalog(output: &str) -> Vec<TerminalAgentModelOption> {
     agent::parse_line_list(output)
         .into_iter()
-        .map(|model| TerminalAgentModelOption {
-            id: model.id,
-            label: model.label,
-            group: model.group,
-            is_default: model.is_default,
-        })
+        .map(option_from_agent_model)
+        .collect()
+}
+
+fn parse_droid_help_model_catalog(output: &str) -> Vec<TerminalAgentModelOption> {
+    agent::parse_droid_help(output)
+        .into_iter()
+        .map(option_from_agent_model)
         .collect()
 }
 
@@ -888,6 +905,7 @@ fn parse_grok_model_catalog(output: &str) -> Vec<TerminalAgentModelOption> {
                 id,
                 group: None,
                 is_default,
+                thinking: None,
             })
         })
         .collect()
@@ -920,6 +938,7 @@ fn model_option_from_json(value: &Value) -> Option<TerminalAgentModelOption> {
             id,
             group: None,
             is_default: false,
+            thinking: None,
         }),
         Value::Object(map) => {
             let id = ["id", "name", "model", "value"]
@@ -944,6 +963,7 @@ fn model_option_from_json(value: &Value) -> Option<TerminalAgentModelOption> {
                 label,
                 group,
                 is_default,
+                thinking: None,
             })
         }
         _ => None,

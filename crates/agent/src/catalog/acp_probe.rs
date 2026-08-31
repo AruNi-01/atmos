@@ -54,6 +54,57 @@ impl AcpToolHandler for CatalogProbeToolHandler {
     }
 }
 
+fn is_model_config_id(id: &str) -> bool {
+    let id = id.to_ascii_lowercase();
+    id == "model" || id == "models"
+}
+
+fn is_thinking_config_id(id: &str) -> bool {
+    let id = id.to_ascii_lowercase();
+    id == "thinking"
+        || id == "think"
+        || id == "thought_level"
+        || id == "effort"
+        || id.contains("reason")
+}
+
+pub fn thinking_support_from_options(options: &[AgentConfigOption]) -> AgentThinkingSupport {
+    options
+        .iter()
+        .find(|option| is_thinking_config_id(&option.id))
+        .map(|option| {
+            let values: Vec<String> = option
+                .options
+                .iter()
+                .map(|value| value.value.clone())
+                .filter(|value| !value.is_empty())
+                .collect();
+            if values.is_empty() {
+                AgentThinkingSupport::None
+            } else {
+                AgentThinkingSupport::Enum {
+                    arg: Some(option.id.clone()),
+                    options: values,
+                }
+            }
+        })
+        .unwrap_or(AgentThinkingSupport::None)
+}
+
+fn apply_thinking_to_current_model(models: &mut [AgentModel], thinking: &AgentThinkingSupport) {
+    let index = models
+        .iter()
+        .position(|model| model.is_default)
+        .or_else(|| models.first().map(|_| 0));
+    let Some(index) = index else {
+        return;
+    };
+    if models[index].thinking.is_some() {
+        return;
+    }
+    models[index].thinking = Some(thinking.clone());
+}
+
 pub fn probe_result_from_config_options(
     options: &[AgentConfigOption],
     cwd: PathBuf,
@@ -61,10 +112,9 @@ pub fn probe_result_from_config_options(
 ) -> AcpProbeResult {
     let mut models = Vec::new();
     let mut modes = Vec::new();
-    let mut thinking = AgentThinkingSupport::None;
     for option in options {
         let id = option.id.to_ascii_lowercase();
-        if id == "model" || id == "models" {
+        if is_model_config_id(&option.id) {
             models = option
                 .options
                 .iter()
@@ -94,22 +144,10 @@ pub fn probe_result_from_config_options(
                     is_default: option.current_value.as_deref() == Some(value.value.as_str()),
                 })
                 .collect();
-        } else if id == "thought_level"
-            || id == "effort"
-            || id == "thinking"
-            || id.contains("reason")
-        {
-            thinking = AgentThinkingSupport::Enum {
-                arg: Some(option.id.clone()),
-                options: option
-                    .options
-                    .iter()
-                    .map(|value| value.value.clone())
-                    .filter(|value| !value.is_empty())
-                    .collect(),
-            };
         }
     }
+    let thinking = thinking_support_from_options(options);
+    apply_thinking_to_current_model(&mut models, &thinking);
     AcpProbeResult {
         models,
         modes,
@@ -250,8 +288,108 @@ mod tests {
         assert_eq!(result.models.len(), 2);
         assert_eq!(result.models[0].id, "opus");
         assert!(result.models[0].is_default);
+        assert!(matches!(
+            result.models[0].thinking,
+            Some(AgentThinkingSupport::Enum { .. })
+        ));
         assert!(matches!(result.thinking, AgentThinkingSupport::Enum { .. }));
         assert!(result.closed);
         assert_eq!(result.cwd, PathBuf::from("/tmp/catalog-probe/claude"));
+    }
+
+    #[test]
+    fn reasoning_effort_snapshot_is_thinking_for_current_model_only() {
+        let options = vec![
+            AgentConfigOption {
+                id: "model".into(),
+                name: Some("Model".into()),
+                description: None,
+                category: None,
+                r#type: "select".into(),
+                current_value: Some("kimi-k3".into()),
+                options: vec![
+                    AgentConfigOptionValue {
+                        value: "claude-opus-5".into(),
+                        name: Some("Opus 5".into()),
+                        description: None,
+                    },
+                    AgentConfigOptionValue {
+                        value: "kimi-k3".into(),
+                        name: Some("Kimi K3".into()),
+                        description: None,
+                    },
+                ],
+            },
+            AgentConfigOption {
+                id: "reasoning_effort".into(),
+                name: Some("Effort".into()),
+                description: None,
+                category: None,
+                r#type: "select".into(),
+                current_value: Some("high".into()),
+                options: vec![
+                    AgentConfigOptionValue {
+                        value: "off".into(),
+                        name: Some("Off".into()),
+                        description: None,
+                    },
+                    AgentConfigOptionValue {
+                        value: "low".into(),
+                        name: Some("Low".into()),
+                        description: None,
+                    },
+                    AgentConfigOptionValue {
+                        value: "high".into(),
+                        name: Some("High".into()),
+                        description: None,
+                    },
+                    AgentConfigOptionValue {
+                        value: "max".into(),
+                        name: Some("Maximum".into()),
+                        description: None,
+                    },
+                ],
+            },
+        ];
+        let result = probe_result_from_config_options(&options, PathBuf::from("/tmp"), true);
+        let kimi = result
+            .models
+            .iter()
+            .find(|model| model.id == "kimi-k3")
+            .unwrap();
+        match &kimi.thinking {
+            Some(AgentThinkingSupport::Enum { options, .. }) => {
+                assert_eq!(options, &["off", "low", "high", "max"]);
+            }
+            other => panic!("expected kimi thinking, got {other:?}"),
+        }
+        let opus = result
+            .models
+            .iter()
+            .find(|model| model.id == "claude-opus-5")
+            .unwrap();
+        assert!(opus.thinking.is_none());
+    }
+
+    #[test]
+    fn missing_thinking_option_marks_current_model_unsupported() {
+        let options = vec![AgentConfigOption {
+            id: "model".into(),
+            name: Some("Model".into()),
+            description: None,
+            category: None,
+            r#type: "select".into(),
+            current_value: Some("auto".into()),
+            options: vec![AgentConfigOptionValue {
+                value: "auto".into(),
+                name: Some("Auto Model".into()),
+                description: None,
+            }],
+        }];
+        let result = probe_result_from_config_options(&options, PathBuf::from("/tmp"), true);
+        assert!(matches!(
+            result.models[0].thinking,
+            Some(AgentThinkingSupport::None)
+        ));
     }
 }

@@ -55,7 +55,7 @@ pub fn merge_catalogs(agent_id: &str, fragments: &[CatalogFragment]) -> AgentMod
         if !fragment.modes.is_empty() {
             modes = fragment.modes.clone();
         }
-        if thinking.is_none() && !fragment.thinking.is_none() {
+        if !fragment.thinking.is_none() && (thinking.is_none() || is_live) {
             thinking = fragment.thinking.clone();
         }
         if let Some(next_status) = fragment.status {
@@ -73,10 +73,9 @@ pub fn merge_catalogs(agent_id: &str, fragments: &[CatalogFragment]) -> AgentMod
         if thinking.is_none() {
             thinking = config.thinking.clone();
         }
-        fill_thinking_on_models(&mut models, &config.models);
-        if thinking.is_none() {
-            thinking = config.thinking.clone();
-        }
+    }
+    for fragment in fragments {
+        fill_thinking_on_models(&mut models, &fragment.models);
     }
 
     if !models.is_empty()
@@ -108,7 +107,13 @@ pub fn merge_catalogs(agent_id: &str, fragments: &[CatalogFragment]) -> AgentMod
 fn overlay_models(target: &mut Vec<AgentModel>, incoming: &[AgentModel]) {
     for model in incoming {
         if let Some(existing) = target.iter_mut().find(|item| item.id == model.id) {
+            let thinking = if model.thinking.as_ref().is_none_or(|item| item.is_none()) {
+                existing.thinking.clone()
+            } else {
+                model.thinking.clone()
+            };
             *existing = model.clone();
+            existing.thinking = thinking;
         } else {
             target.push(model.clone());
         }
@@ -182,6 +187,127 @@ mod tests {
             Some(AgentThinkingSupport::Enum { .. })
         ));
         assert_eq!(merged.source, CatalogSource::Live);
+    }
+
+    #[test]
+    fn acp_models_keep_cli_per_model_thinking() {
+        let cli = CatalogFragment {
+            models: vec![AgentModel {
+                id: "claude-opus-5".into(),
+                label: "Opus 5".into(),
+                group: None,
+                is_default: true,
+                thinking: Some(AgentThinkingSupport::Enum {
+                    arg: Some("--reasoning-effort".into()),
+                    options: vec![
+                        "off".into(),
+                        "low".into(),
+                        "medium".into(),
+                        "high".into(),
+                        "xhigh".into(),
+                        "max".into(),
+                    ],
+                }),
+            }],
+            status: Some(CatalogStatus::Ok),
+            strategy: Some(CatalogStrategyKind::Cli),
+            ..Default::default()
+        };
+        let acp = CatalogFragment {
+            models: vec![AgentModel {
+                id: "claude-opus-5".into(),
+                label: "Opus 5".into(),
+                group: None,
+                is_default: true,
+                thinking: None,
+            }],
+            thinking: AgentThinkingSupport::Manual {
+                arg: "--reasoning-effort".into(),
+                placeholder: None,
+            },
+            status: Some(CatalogStatus::Ok),
+            strategy: Some(CatalogStrategyKind::Acp),
+            ..Default::default()
+        };
+        let merged = merge_catalogs("factory-droid", &[cli, acp]);
+        let opus = merged
+            .models
+            .iter()
+            .find(|model| model.id == "claude-opus-5")
+            .unwrap();
+        match &opus.thinking {
+            Some(AgentThinkingSupport::Enum { options, .. }) => {
+                assert_eq!(options.len(), 6);
+            }
+            other => panic!("expected per-model enum thinking, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn live_enum_overrides_config_manual() {
+        let config = CatalogFragment {
+            thinking: AgentThinkingSupport::Manual {
+                arg: "--reasoning-effort".into(),
+                placeholder: Some("e.g. high".into()),
+            },
+            strategy: Some(CatalogStrategyKind::Config),
+            status: Some(CatalogStatus::Ok),
+            ..Default::default()
+        };
+        let acp = CatalogFragment {
+            models: vec![AgentModel {
+                id: "gpt-5.3-codex".into(),
+                label: "GPT-5.3-Codex".into(),
+                group: None,
+                is_default: true,
+                thinking: None,
+            }],
+            thinking: AgentThinkingSupport::Enum {
+                arg: Some("thought_level".into()),
+                options: vec!["off".into(), "low".into(), "medium".into(), "high".into()],
+            },
+            status: Some(CatalogStatus::Ok),
+            strategy: Some(CatalogStrategyKind::Acp),
+            ..Default::default()
+        };
+        let merged = merge_catalogs("factory-droid", &[config, acp]);
+        match merged.thinking {
+            AgentThinkingSupport::Enum { options, .. } => {
+                assert_eq!(options, vec!["off", "low", "medium", "high"]);
+            }
+            other => panic!("expected ACP enum thinking, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn live_none_keeps_config_manual() {
+        let config = CatalogFragment {
+            thinking: AgentThinkingSupport::Manual {
+                arg: "--reasoning-effort".into(),
+                placeholder: None,
+            },
+            strategy: Some(CatalogStrategyKind::Config),
+            status: Some(CatalogStatus::Ok),
+            ..Default::default()
+        };
+        let acp = CatalogFragment {
+            models: vec![AgentModel {
+                id: "gpt-5.3-codex".into(),
+                label: "GPT-5.3-Codex".into(),
+                group: None,
+                is_default: true,
+                thinking: None,
+            }],
+            thinking: AgentThinkingSupport::None,
+            status: Some(CatalogStatus::Ok),
+            strategy: Some(CatalogStrategyKind::Acp),
+            ..Default::default()
+        };
+        let merged = merge_catalogs("factory-droid", &[config, acp]);
+        assert!(matches!(
+            merged.thinking,
+            AgentThinkingSupport::Manual { .. }
+        ));
     }
 
     #[test]

@@ -37,7 +37,11 @@ enum SessionCommand {
     },
     Cancel,
     Close,
-    SetConfigOption(String, String),
+    SetConfigOption {
+        config_id: String,
+        value: String,
+        reply: oneshot::Sender<Result<Vec<crate::acp_client::types::AgentConfigOption>, String>>,
+    },
 }
 
 /// Convert legacy `modes` (from the older Session Modes API) into an AgentConfigOption.
@@ -164,6 +168,46 @@ fn ordered_config_values(values: HashMap<String, String>) -> Vec<(String, String
     ordered
 }
 
+async fn set_session_config_option(
+    conn: &ConnectionTo<Agent>,
+    session_id_acp: &schema::SessionId,
+    config_id: String,
+    value: String,
+    uses_legacy_modes: bool,
+    event_tx: &mpsc::UnboundedSender<AcpSessionEvent>,
+) -> Result<Vec<crate::acp_client::types::AgentConfigOption>, String> {
+    if uses_legacy_modes && config_id == "mode" {
+        conn.send_request(schema::SetSessionModeRequest::new(
+            session_id_acp.clone(),
+            value.clone(),
+        ))
+        .block_task()
+        .await
+        .map_err(|error| error.to_string())?;
+        let out = vec![current_value_only_config_option("mode", value)];
+        let _ = event_tx.send(AcpSessionEvent::ConfigOptionsUpdate(out.clone()));
+        Ok(out)
+    } else {
+        let req = schema::SetSessionConfigOptionRequest::new(
+            session_id_acp.clone(),
+            schema::SessionConfigId::new(config_id),
+            schema::SessionConfigValueId::new(value),
+        );
+        let resp = conn
+            .send_request(req)
+            .block_task()
+            .await
+            .map_err(|error| error.to_string())?;
+        let out = map_config_options(resp.config_options);
+        let _ = event_tx.send(AcpSessionEvent::ConfigOptionsUpdate(out.clone()));
+        Ok(out)
+    }
+}
+
+fn resume_session_id_skips_host_config(resume_session_id: Option<&str>) -> bool {
+    resume_session_id.is_some()
+}
+
 async fn apply_config_values(
     conn: &ConnectionTo<Agent>,
     session_id_acp: &schema::SessionId,
@@ -178,45 +222,20 @@ async fn apply_config_values(
             "Applying {} config for {}: {}",
             context, &session_id_text, config_id
         );
-        if uses_legacy_modes && config_id == "mode" {
-            match conn
-                .send_request(schema::SetSessionModeRequest::new(
-                    session_id_acp.clone(),
-                    value.clone(),
-                ))
-                .block_task()
-                .await
-            {
-                Ok(_) => {
-                    let _ = event_tx.send(AcpSessionEvent::ConfigOptionsUpdate(vec![
-                        current_value_only_config_option("mode", value),
-                    ]));
-                }
-                Err(e) => {
-                    warn!(
-                        "Failed to apply {} mode for {}: {}",
-                        context, &session_id_text, e
-                    );
-                }
-            }
-        } else {
-            let req = schema::SetSessionConfigOptionRequest::new(
-                session_id_acp.clone(),
-                schema::SessionConfigId::new(config_id),
-                schema::SessionConfigValueId::new(value),
+        if let Err(error) = set_session_config_option(
+            conn,
+            session_id_acp,
+            config_id,
+            value,
+            uses_legacy_modes,
+            event_tx,
+        )
+        .await
+        {
+            warn!(
+                "Failed to apply {} config for {}: {}",
+                context, &session_id_text, error
             );
-            match conn.send_request(req).block_task().await {
-                Ok(resp) => {
-                    let out = map_config_options(resp.config_options);
-                    let _ = event_tx.send(AcpSessionEvent::ConfigOptionsUpdate(out));
-                }
-                Err(e) => {
-                    warn!(
-                        "Failed to apply {} config for {}: {}",
-                        context, &session_id_text, e
-                    );
-                }
-            }
         }
     }
 }
@@ -425,10 +444,21 @@ impl AcpSessionControl {
             .map_err(|_| "ACP session is no longer running".to_string())
     }
 
-    pub fn send_set_config_option(&self, config_id: String, value: String) {
-        let _ = self
-            .cmd_tx
-            .send(SessionCommand::SetConfigOption(config_id, value));
+    pub async fn set_config_option(
+        &self,
+        config_id: String,
+        value: String,
+    ) -> Result<Vec<crate::acp_client::types::AgentConfigOption>, String> {
+        let (reply, rx) = oneshot::channel();
+        self.cmd_tx
+            .send(SessionCommand::SetConfigOption {
+                config_id,
+                value,
+                reply,
+            })
+            .map_err(|_| "ACP session is no longer running".to_string())?;
+        rx.await
+            .map_err(|_| "ACP session is no longer running".to_string())?
     }
 }
 
@@ -462,10 +492,12 @@ impl AcpSessionHandle {
             .map_err(|_| "ACP session is no longer running".to_string())
     }
 
-    pub fn send_set_config_option(&self, config_id: String, value: String) {
-        let _ = self
-            .cmd_tx
-            .send(SessionCommand::SetConfigOption(config_id, value));
+    pub async fn set_config_option(
+        &self,
+        config_id: String,
+        value: String,
+    ) -> Result<Vec<crate::acp_client::types::AgentConfigOption>, String> {
+        self.control().set_config_option(config_id, value).await
     }
 
     pub async fn recv_event(&mut self) -> Option<AcpSessionEvent> {
@@ -872,7 +904,11 @@ async fn run_session_inner(
                 }
             };
 
-            if let Some(snapshot) = session_config_snapshot {
+            if resume_session_id_skips_host_config(resume_session_id.as_deref()) {
+                // Restored sessions already have their model/mode. Re-applying
+                // host default_config here (e.g. after a page refresh) would
+                // silently switch Factory Droid and similar agents.
+            } else if let Some(snapshot) = session_config_snapshot {
                 apply_config_values(
                     &conn,
                     &session_id_acp,
@@ -966,8 +1002,12 @@ async fn run_session_inner(
                                                 warn!("Cancel failed: {}", e);
                                             }
                                         }
-                                        Some(SessionCommand::SetConfigOption(id, value)) => {
-                                            pending_configs.push((id, value));
+                                        Some(SessionCommand::SetConfigOption {
+                                            config_id,
+                                            value,
+                                            reply,
+                                        }) => {
+                                            pending_configs.push((config_id, value, reply));
                                         }
                                         Some(SessionCommand::Prompt { .. }) => {}
                                         None => {
@@ -1005,25 +1045,17 @@ async fn run_session_inner(
                                     }));
                             }
                         }
-                        for (config_id, value) in pending_configs {
-                            if uses_legacy_modes && config_id == "mode" {
-                                let _ = conn
-                                    .send_request(schema::SetSessionModeRequest::new(
-                                        session_id_acp.clone(),
-                                        value,
-                                    ))
-                                    .block_task()
-                                    .await;
-                            } else {
-                                let _ = conn
-                                    .send_request(schema::SetSessionConfigOptionRequest::new(
-                                        session_id_acp.clone(),
-                                        schema::SessionConfigId::new(config_id),
-                                        schema::SessionConfigValueId::new(value),
-                                    ))
-                                    .block_task()
-                                    .await;
-                            }
+                        for (config_id, value, reply) in pending_configs {
+                            let result = set_session_config_option(
+                                &conn,
+                                &session_id_acp,
+                                config_id,
+                                value,
+                                uses_legacy_modes,
+                                &event_tx,
+                            )
+                            .await;
+                            let _ = reply.send(result);
                         }
                         if pending_close {
                             if init_response
@@ -1090,43 +1122,24 @@ async fn run_session_inner(
                             }
                         }
                     }
-                    SessionCommand::SetConfigOption(config_id, value) => {
-                        if uses_legacy_modes && config_id == "mode" {
-                            info!("Using legacy set_session_mode: {}", value);
-                            match conn
-                                .send_request(schema::SetSessionModeRequest::new(
-                                    session_id_acp.clone(),
-                                    value.clone(),
-                                ))
-                                .block_task()
-                                .await
-                            {
-                                Ok(_) => {
-                                    let _ =
-                                        event_tx.send(AcpSessionEvent::ConfigOptionsUpdate(vec![
-                                            current_value_only_config_option("mode", value),
-                                        ]));
-                                }
-                                Err(e) => warn!("Set session mode failed: {}", e),
-                            }
-                        } else {
-                            match conn
-                                .send_request(schema::SetSessionConfigOptionRequest::new(
-                                    session_id_acp.clone(),
-                                    schema::SessionConfigId::new(config_id),
-                                    schema::SessionConfigValueId::new(value),
-                                ))
-                                .block_task()
-                                .await
-                            {
-                                Ok(resp) => {
-                                    let out = map_config_options(resp.config_options);
-                                    let _ =
-                                        event_tx.send(AcpSessionEvent::ConfigOptionsUpdate(out));
-                                }
-                                Err(e) => warn!("Set config option failed: {}", e),
-                            }
+                    SessionCommand::SetConfigOption {
+                        config_id,
+                        value,
+                        reply,
+                    } => {
+                        let result = set_session_config_option(
+                            &conn,
+                            &session_id_acp,
+                            config_id,
+                            value,
+                            uses_legacy_modes,
+                            &event_tx,
+                        )
+                        .await;
+                        if let Err(error) = &result {
+                            warn!("Set config option failed: {}", error);
                         }
+                        let _ = reply.send(result);
                     }
                 }
             }
@@ -1368,6 +1381,12 @@ mod tests {
             Some(SessionRestoreMethod::ResumeContextOnly)
         );
         assert_eq!(select_session_restore_method(false, false), None);
+    }
+
+    #[test]
+    fn restored_sessions_skip_host_default_config() {
+        assert!(super::resume_session_id_skips_host_config(Some("sess-1")));
+        assert!(!super::resume_session_id_skips_host_config(None));
     }
 
     #[test]
