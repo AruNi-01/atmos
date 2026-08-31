@@ -252,6 +252,16 @@ export { TextShimmerWave } from "./components/ui/text-shimmer-wave";
 export { TextScramble } from "./components/ui/text-scramble";
 export { TextMorph } from "./components/ui/text-morph";
 export {
+  TextEffect,
+  textEffectBlurSlideVariants,
+} from "./components/ui/text-effect";
+export type {
+  TextEffectProps,
+  PresetType as TextEffectPreset,
+  PerType as TextEffectPer,
+} from "./components/ui/text-effect";
+
+export {
   TypewriterEffect,
   TypewriterEffectSmooth,
 } from "./components/ui/typewriter-effect";
