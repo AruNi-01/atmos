@@ -69,6 +69,11 @@ describe("md-live structural gates", () => {
     expect(blocks).toContain("setNodeMarkup");
     expect(blocks).toContain("isMdLiveComposing");
     expect(blocks).toContain("onLanguageChange");
+    expect(blocks).toContain("isMermaidFenceLanguage");
+    expect(blocks).toContain("MermaidModeSwitch");
+    expect(blocks).toContain("MermaidPreviewPane");
+    expect(blocks).toMatch(/const SHIKI_LANGS = new Set\(\[[\s\S]*?"mermaid"/);
+    expect(blocks).not.toContain("if (isMermaidFenceLanguage(language)) {\n      overlay.replaceChildren()");
     expect(blocks).not.toContain("@milkdown/components/code-block");
     expect(source).not.toContain("slashFactory");
     expect(slash).toContain("CommandItem");
@@ -87,6 +92,8 @@ describe("md-live structural gates", () => {
     expect(toolbar).toContain("activeBlockId");
     expect(toolbar).toContain("convertIds");
     expect(toolbar).toContain("toolbarOrderedList");
+    expect(toolbar).toContain("mdLiveMarkdownHeadingLevelOf");
+    expect(toolbar).toContain("/^h([1-6])$/");
     expect(toolbar).toContain("slashToggle");
     expect(toolbar).toContain("data-selected");
     expect(toolbar).toContain("aria-current");

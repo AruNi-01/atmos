@@ -1,10 +1,12 @@
 import type { Node as ProseNode } from "@milkdown/kit/prose/model";
 import { mdLiveTaskMarkerOf } from "./task-list";
+import { mdLiveMarkdownHeadingLevelOf } from "./types";
 
 const OVERLAY_CLOSE_SELECTOR = [
   "[data-slot='dropdown-menu-content']",
   "[data-slot='dropdown-menu-sub-content']",
   "[data-slot='popover-content']",
+  "[data-slot='select-content']",
   "[data-md-live-slash]",
   "[data-md-live-toolbar]",
   "[data-md-live-table-chrome]",
@@ -23,9 +25,8 @@ export function mdLiveBlockKindId(
   parent: { type: { name: string }; attrs: Record<string, unknown> } | null,
 ): string {
   if (node.type.name === "heading") {
-    const level = Number(node.attrs.level);
-    if (level >= 1 && level <= 6) return `h${level}`;
-    return "h1";
+    const level = mdLiveMarkdownHeadingLevelOf(node.attrs.level);
+    return `h${level ?? 1}`;
   }
   if (node.type.name === "code_block") return "code";
   if (parent?.type.name === "list_item") {

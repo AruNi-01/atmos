@@ -33,8 +33,9 @@ import {
   MD_LIVE_HEADING_LEVELS,
   MD_LIVE_TOOLBAR_CONVERT_IDS,
   mdLiveLabel,
+  mdLiveMarkdownHeadingLevelOf,
   type MdLiveBlockAction,
-  type MdLiveHeadingLevel,
+  type MdLiveMarkdownHeadingLevel,
   type MdLiveSelectionToolbarProps,
 } from "@atmos/md-live/ui";
 
@@ -111,11 +112,13 @@ export function MdLiveSelectionToolbar({
   };
 
   const activeBlock = blockItems.find((item) => item.id === activeBlockId) ?? null;
-  const headingLevel = activeBlockId && /^h([1-4])$/.exec(activeBlockId);
+  const headingLevel = mdLiveMarkdownHeadingLevelOf(
+    activeBlockId && /^h([1-6])$/.exec(activeBlockId)?.[1],
+  );
   const blockTrigger = (
     <>
       {headingLevel ? (
-        <HeadingMark level={Number(headingLevel[1]) as MdLiveHeadingLevel} />
+        <HeadingMark level={headingLevel} />
       ) : activeBlockId === "quote" ? (
         <TextQuote className="size-3.5" />
       ) : activeBlockId === "code" ? (
@@ -132,7 +135,7 @@ export function MdLiveSelectionToolbar({
         <Type className="size-3.5" />
       )}
       <span className="max-w-24 truncate">
-        {label(activeBlock?.label ?? "toolbarParagraph")}
+        {label(activeBlock?.label ?? (headingLevel ? `slashHeading${headingLevel}` : "toolbarParagraph"))}
       </span>
       <ChevronDown className="size-3 opacity-70" />
     </>
@@ -143,7 +146,13 @@ export function MdLiveSelectionToolbar({
     <div data-md-live-toolbar="true" className="flex items-center gap-0.5 rounded-md border bg-popover p-1 shadow-md">
       {blockItems.length > 0 ? (
         <OverlayMenu
-          label={activeBlock ? label(activeBlock.label) : label("toolbarParagraph")}
+          label={
+            activeBlock
+              ? label(activeBlock.label)
+              : headingLevel
+                ? label(`slashHeading${headingLevel}`)
+                : label("toolbarParagraph")
+          }
           trigger={blockTrigger}
           activeId={activeBlock ? activeBlockId : null}
           items={blockItems}
@@ -353,7 +362,7 @@ function IconButton({
   );
 }
 
-function HeadingMark({ level }: { level: MdLiveHeadingLevel }) {
+function HeadingMark({ level }: { level: MdLiveMarkdownHeadingLevel }) {
   return (
     <span className="flex size-4 shrink-0 items-center justify-center text-[11px] font-semibold text-muted-foreground">
       H{level}

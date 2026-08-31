@@ -69,13 +69,20 @@
   line-height: 1.35;
 }
 
-.md-live .editor h5,
-.md-live .editor h6 {
-  margin-top: 1rem;
-  margin-bottom: 0.4rem;
-  font-size: 1.2em;
+.md-live .editor h5 {
+  margin-top: 0.9rem;
+  margin-bottom: 0.35rem;
+  font-size: 1.1em;
   font-weight: 600;
-  line-height: 1.35;
+  line-height: 1.4;
+}
+
+.md-live .editor h6 {
+  margin-top: 0.85rem;
+  margin-bottom: 0.3rem;
+  font-size: 1em;
+  font-weight: 600;
+  line-height: 1.45;
 }
 
 .md-live .editor p {
@@ -247,6 +254,11 @@
 .dark .md-live .editor code:not(pre code) {
   background: rgb(39 39 42);
   color: rgb(228 228 231);
+}
+
+.md-live-preview-code .mermaid-container img {
+  max-width: 100%;
+  height: auto;
 }
 
 .md-live-preview-code {
@@ -433,22 +445,12 @@
 .md-live .editor .tableWrapper,
 .md-live-table-scroll {
   margin: 0;
+  width: 100%;
   max-width: 100%;
-  overflow-x: auto;
-  overflow-y: hidden;
-  overscroll-behavior-x: contain;
+  overflow: hidden;
   border-radius: 0.5rem;
   border: 1px solid rgb(228 228 231);
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-
-.md-live-preview-table::-webkit-scrollbar,
-.md-live .editor .tableWrapper::-webkit-scrollbar,
-.md-live-table-scroll::-webkit-scrollbar {
-  width: 0;
-  height: 0;
-  display: none;
+  background: var(--background);
 }
 
 .dark .md-live-preview-table,
@@ -640,12 +642,10 @@
 
 .md-live .editor table {
   margin: 0;
-  width: max-content;
-  min-width: max-content;
-  max-width: none;
-  overflow: visible;
+  width: 100%;
+  max-width: 100%;
+  table-layout: fixed;
   border-collapse: collapse;
-  table-layout: auto;
   font-size: 0.875rem;
 }
 
@@ -662,14 +662,22 @@
 .md-live .editor th,
 .md-live .editor td {
   padding: 0.625rem 1rem;
-  border: 1px solid rgb(228 228 231);
+  border: 0;
+  border-bottom: 1px solid rgb(228 228 231);
   text-align: left;
-  white-space: nowrap;
+  vertical-align: top;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .dark .md-live .editor th,
 .dark .md-live .editor td {
-  border-color: rgb(63 63 70 / 0.5);
+  border-bottom-color: rgb(63 63 70 / 0.5);
+}
+
+.md-live .editor tr:last-child td {
+  border-bottom: 0;
 }
 
 .md-live .editor th {
@@ -687,14 +695,6 @@
 
 .dark .md-live .editor td {
   color: rgb(161 161 170);
-}
-
-.md-live .editor tr:nth-child(even) td {
-  background: rgb(250 250 250);
-}
-
-.dark .md-live .editor tr:nth-child(even) td {
-  background: rgb(39 39 42 / 0.4);
 }
 
 .md-live .editor blockquote {

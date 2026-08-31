@@ -1,8 +1,9 @@
 "use client";
 
+import { useCallback, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { NextIntlClientProvider, useTranslations } from "next-intl";
-import { Check, ChevronDown, Code } from "lucide-react";
+import { Check, ChevronDown, Code, Images } from "lucide-react";
 import { isMdLiveComposing } from "@atmos/md-live/ui";
 import { $view } from "@milkdown/kit/utils";
 import { codeBlockSchema } from "@milkdown/kit/preset/commonmark";
@@ -43,6 +44,12 @@ import {
   MARKDOWN_TABLE_TD_CLASS,
   MARKDOWN_TABLE_TH_CLASS,
 } from "@/shared/components/markdown/markdown-table";
+import { MermaidModeSwitch, MermaidPreviewPane } from "@/shared/components/markdown/MermaidBlock";
+import {
+  isMermaidFenceLanguage,
+  mermaidCopyContent,
+  type MermaidViewMode,
+} from "@/shared/components/markdown/mermaid-view";
 import {
   MD_LIVE_CODE_LANG_TO_EXT,
   formatMdLiveCodeLangLabel,
@@ -71,6 +78,7 @@ const SHIKI_LANGS = new Set([
   "dockerfile",
   "c",
   "cpp",
+  "mermaid",
 ]);
 
 function languageOf(node: Node): string {
@@ -88,6 +96,7 @@ function preventEditorBlur(event: { preventDefault(): void }) {
 
 function LanguageTriggerIcon({ language }: { language: string }) {
   const normalized = language ? normalizeMdLiveCodeLang(language) : "";
+  if (isMermaidFenceLanguage(language)) return <Images className="size-4 shrink-0" />;
   if (!language) return <Code className="size-4 shrink-0" />;
   return <CodeBlockIcon language={MD_LIVE_CODE_LANG_TO_EXT[normalized] || language} />;
 }
@@ -176,6 +185,67 @@ async function paintHighlight(overlay: HTMLElement, code: string, language: stri
   }
 }
 
+function MdLiveCodeBlockFrame({
+  language,
+  text,
+  onLanguageChange,
+  surface,
+}: {
+  language: string;
+  text: string;
+  onLanguageChange: (language: string) => void;
+  surface: HTMLElement;
+}) {
+  const isMermaid = isMermaidFenceLanguage(language);
+  const [mode, setMode] = useState<MermaidViewMode>("preview");
+  const [asciiText, setAsciiText] = useState<string | null>(null);
+  const [readyCode, setReadyCode] = useState<string | null>(null);
+  const onAsciiText = useCallback((next: string | null) => {
+    setAsciiText(next);
+  }, []);
+  const onPreviewReady = useCallback((ready: boolean) => {
+    setReadyCode(ready ? text : null);
+  }, [text]);
+  const viewMode: MermaidViewMode = isMermaid ? mode : "source";
+  const previewReady = readyCode === text;
+  const showSource = !isMermaid || mode === "source" || (mode === "preview" && !previewReady);
+
+  return (
+    <CodeBlock className="my-4">
+      <CodeBlockHeader>
+        <CodeBlockGroup>
+          <CodeLanguagePicker language={language} onLanguageChange={onLanguageChange} />
+        </CodeBlockGroup>
+        <CodeBlockGroup>
+          {isMermaid ? <MermaidModeSwitch value={mode} onChange={setMode} /> : null}
+          <CopyButton content={mermaidCopyContent(viewMode, text, asciiText)} />
+        </CodeBlockGroup>
+      </CodeBlockHeader>
+      {isMermaid && mode !== "source" ? (
+        <MermaidPreviewPane
+          code={text}
+          mode={mode}
+          showSourceFallback={false}
+          onAsciiText={onAsciiText}
+          onPreviewReady={onPreviewReady}
+        />
+      ) : null}
+      <CodeBlockContent
+        className={cn(
+          "max-h-none overflow-x-auto text-[13px] leading-5",
+          !showSource && "hidden",
+        )}
+      >
+        <div
+          ref={(el) => {
+            if (el && surface.parentNode !== el) el.append(surface);
+          }}
+        />
+      </CodeBlockContent>
+    </CodeBlock>
+  );
+}
+
 export const mdLiveCodeBlockView = $view(codeBlockSchema.node, () => (node, view: EditorView, getPos) => {
   const root = document.createElement("div");
   root.className = "md-live-preview-code";
@@ -209,23 +279,12 @@ export const mdLiveCodeBlockView = $view(codeBlockSchema.node, () => (node, view
     const text = next.textContent ?? "";
     headerRoot?.render(
       <NextIntlClientProvider {...localeMessages()}>
-        <CodeBlock className="my-4">
-          <CodeBlockHeader>
-            <CodeBlockGroup>
-              <CodeLanguagePicker language={language} onLanguageChange={applyLanguage} />
-            </CodeBlockGroup>
-            <CodeBlockGroup>
-              <CopyButton content={text} />
-            </CodeBlockGroup>
-          </CodeBlockHeader>
-          <CodeBlockContent className="max-h-none overflow-x-auto text-[13px] leading-5">
-            <div
-              ref={(el) => {
-                if (el && surface.parentNode !== el) el.append(surface);
-              }}
-            />
-          </CodeBlockContent>
-        </CodeBlock>
+        <MdLiveCodeBlockFrame
+          language={language}
+          text={text}
+          onLanguageChange={applyLanguage}
+          surface={surface}
+        />
       </NextIntlClientProvider>,
     );
     const seq = ++highlightSeq;
@@ -254,7 +313,7 @@ export const mdLiveCodeBlockView = $view(codeBlockSchema.node, () => (node, view
       mutation.type === "selection" ? false : !content.contains(mutation.target),
     stopEvent: (event: Event) => {
       const target = event.target as HTMLElement | null;
-      return Boolean(target?.closest("[data-slot], button"));
+      return Boolean(target?.closest("[data-slot], button, [data-mermaid-chrome]"));
     },
   };
 });

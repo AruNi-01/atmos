@@ -11,6 +11,7 @@ describe("md-live code languages", () => {
     expect(MD_LIVE_CODE_LANGUAGES).toContain("bash");
     expect(MD_LIVE_CODE_LANGUAGES).toContain("typescript");
     expect(MD_LIVE_CODE_LANGUAGES).toContain("rust");
+    expect(MD_LIVE_CODE_LANGUAGES).toContain("mermaid");
     expect(MD_LIVE_CODE_LANGUAGES[0]).toBe("");
   });
 
@@ -26,6 +27,7 @@ describe("md-live code languages", () => {
     expect(formatMdLiveCodeLangLabel("tsx", "Plain text")).toBe("TSX");
     expect(formatMdLiveCodeLangLabel("jsx", "Plain text")).toBe("JSX");
     expect(formatMdLiveCodeLangLabel("bash", "Plain text")).toBe("Bash");
+    expect(formatMdLiveCodeLangLabel("mermaid", "Plain text")).toBe("Mermaid");
     expect(formatMdLiveCodeLangLabel("", "Plain text")).toBe("Plain text");
   });
 

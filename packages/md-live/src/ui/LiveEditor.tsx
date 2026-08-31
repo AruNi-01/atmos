@@ -178,8 +178,8 @@ export function MdLiveEditor({
 
     const slashHost = mountOverlayHost();
     const tooltipHost = mountOverlayHost();
-    let slashRoot: Root | null = createRoot(slashHost);
-    let tooltipRoot: Root | null = createRoot(tooltipHost);
+    let slashRoot: Root | null = null;
+    let tooltipRoot: Root | null = null;
 
     let editorRef: Editor | null = null;
     const run = <T,>(fn: (ctx: Ctx) => T): T | undefined => {
@@ -208,11 +208,11 @@ export function MdLiveEditor({
 
     const renderSlash = (query: string) => {
       const Menu = slashMenuRef.current;
-      slashRoot?.render(
+      slashRoot ??= createRoot(slashHost);
+      slashRoot.render(
         <Menu query={query} onPick={handleSlashPick} copy={copyRef.current} />,
       );
     };
-    renderSlash("");
 
     const slashProvider = new SlashProvider({
       content: slashHost,
@@ -233,7 +233,8 @@ export function MdLiveEditor({
 
     const renderToolbar = (activeBlockId: string | null = null, convertIds: string[] = []) => {
       const Toolbar = selectionToolbarRef.current;
-      tooltipRoot?.render(
+      tooltipRoot ??= createRoot(tooltipHost);
+      tooltipRoot.render(
         <Toolbar
           copy={copyRef.current}
           activeBlockId={activeBlockId}
@@ -257,8 +258,6 @@ export function MdLiveEditor({
         />,
       );
     };
-    renderToolbar();
-
     const pointerSelecting = { current: false };
     const tooltipProvider = new TooltipProvider({
       content: tooltipHost,

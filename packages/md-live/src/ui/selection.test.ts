@@ -4,6 +4,7 @@ import {
   mdLiveUnifyBlockKindId,
   shouldShowMdLiveSelectionToolbar,
 } from "./selection";
+import { mdLiveMarkdownHeadingLevelOf } from "./types";
 
 describe("shouldShowMdLiveSelectionToolbar", () => {
   const ready = {
@@ -31,6 +32,8 @@ describe("shouldShowMdLiveSelectionToolbar", () => {
 describe("mdLiveBlockKindId", () => {
   test("maps heading, code, quote, lists, and paragraph", () => {
     expect(mdLiveBlockKindId({ type: { name: "heading" }, attrs: { level: 2 } }, null)).toBe("h2");
+    expect(mdLiveBlockKindId({ type: { name: "heading" }, attrs: { level: 5 } }, null)).toBe("h5");
+    expect(mdLiveBlockKindId({ type: { name: "heading" }, attrs: { level: 6 } }, null)).toBe("h6");
     expect(mdLiveBlockKindId({ type: { name: "code_block" }, attrs: {} }, null)).toBe("code");
     expect(
       mdLiveBlockKindId(
@@ -57,6 +60,17 @@ describe("mdLiveBlockKindId", () => {
       ),
     ).toBe("todo");
     expect(mdLiveBlockKindId({ type: { name: "paragraph" }, attrs: {} }, null)).toBe("paragraph");
+  });
+});
+
+describe("mdLiveMarkdownHeadingLevelOf", () => {
+  test("accepts commonmark 1–6 and rejects slash-only extras", () => {
+    expect(mdLiveMarkdownHeadingLevelOf(1)).toBe(1);
+    expect(mdLiveMarkdownHeadingLevelOf(5)).toBe(5);
+    expect(mdLiveMarkdownHeadingLevelOf(6)).toBe(6);
+    expect(mdLiveMarkdownHeadingLevelOf(0)).toBeNull();
+    expect(mdLiveMarkdownHeadingLevelOf(7)).toBeNull();
+    expect(mdLiveMarkdownHeadingLevelOf("5")).toBe(5);
   });
 });
 

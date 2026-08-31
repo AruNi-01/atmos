@@ -4,13 +4,18 @@ export type {
   MdLiveCopyFn,
   MdLiveEditorHandle,
   MdLiveHeadingLevel,
+  MdLiveMarkdownHeadingLevel,
   MdLiveMediaOpenKind,
   MdLiveSelectionToolbarProps,
   MdLiveSlashMenuProps,
   MdLiveSlashPick,
   MdLiveTaskMarker,
 } from "./ui/types";
-export { MD_LIVE_HEADING_LEVELS } from "./ui/types";
+export {
+  MD_LIVE_HEADING_LEVELS,
+  MD_LIVE_MARKDOWN_HEADING_LEVELS,
+  mdLiveMarkdownHeadingLevelOf,
+} from "./ui/types";
 export {
   MD_LIVE_SLASH_GROUPS,
   MD_LIVE_SLASH_ITEMS,

@@ -3,7 +3,7 @@ import { Plugin, PluginKey, type PluginSpec } from "@milkdown/kit/prose/state";
 import { $prose } from "@milkdown/kit/utils";
 import { mdLiveLabel } from "./copy";
 import { mdLiveTaskMarkerOf } from "./task-list";
-import type { MdLiveCopyFn } from "./types";
+import { mdLiveMarkdownHeadingLevelOf, type MdLiveCopyFn } from "./types";
 
 /** Same `EditorView` as `PluginSpec.view`, not `@milkdown/kit/prose/view` (duplicate copies). */
 type MdLiveEditorView = Parameters<NonNullable<PluginSpec<unknown>["view"]>>[0];
@@ -61,6 +61,10 @@ function placeholderTypeStyle(key: string): { fontSize: string; fontWeight: stri
       return { fontSize: "1.4em", fontWeight: "600" };
     case "slashHeading4":
       return { fontSize: "1.2em", fontWeight: "600" };
+    case "slashHeading5":
+      return { fontSize: "1.1em", fontWeight: "600" };
+    case "slashHeading6":
+      return { fontSize: "1em", fontWeight: "600" };
     default:
       return { fontSize: "14px", fontWeight: "400" };
   }
@@ -69,10 +73,8 @@ function placeholderTypeStyle(key: string): { fontSize: string; fontWeight: stri
 export function mdLivePlaceholderCopyKey(node: Node, parent: Node | null): string | null {
   switch (node.type.name) {
     case "heading": {
-      const level = Number(node.attrs.level);
-      if (level >= 1 && level <= 4) return `slashHeading${level}`;
-      if (level === 5 || level === 6) return "slashHeading4";
-      return "slashHeading1";
+      const level = mdLiveMarkdownHeadingLevelOf(node.attrs.level);
+      return `slashHeading${level ?? 1}`;
     }
     case "details_summary":
       return "slashToggle";

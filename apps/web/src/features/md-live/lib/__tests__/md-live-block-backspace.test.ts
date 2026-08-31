@@ -297,6 +297,20 @@ describe("md-live block backspace", () => {
     await editor.destroy();
   });
 
+  test("typing '##### ' becomes an H5 even though slash stops at H4", async () => {
+    const editor = await createEditor("");
+    typeChars(editor, "##### ");
+    expect(blockAtCaret(editor)).toMatchObject({ name: "heading", level: 5, text: "" });
+    await editor.destroy();
+  });
+
+  test("typing '###### ' becomes an H6 even though slash stops at H4", async () => {
+    const editor = await createEditor("");
+    typeChars(editor, "###### ");
+    expect(blockAtCaret(editor)).toMatchObject({ name: "heading", level: 6, text: "" });
+    await editor.destroy();
+  });
+
   test("after enter, ## space still becomes an H2", async () => {
     const editor = await createEditor("Hello\n");
     editor.action((ctx) => {
