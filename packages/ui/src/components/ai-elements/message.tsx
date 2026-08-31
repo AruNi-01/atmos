@@ -33,6 +33,8 @@ import {
 import { Streamdown, type PluginConfig } from "streamdown";
 import { resolveStreamdownAnimated } from "./streamdown-animation";
 import { useSmoothStreamText } from "./smooth-stream-text";
+import { streamdownPlainTableComponents } from "./streamdown-table";
+import { MermaidDiagram } from "./mermaid-diagram";
 
 export type MessageProps = HTMLAttributes<HTMLDivElement> & {
   from: UIMessage["role"];
@@ -341,7 +343,13 @@ export type MessageResponseProps = ComponentProps<typeof Streamdown>;
 
 // Upstream packages currently expose slightly different code plugin types,
 // but the runtime plugin shape matches Streamdown's expected contract.
-const streamdownPlugins: PluginConfig = { cjk, code: code as PluginConfig["code"], math, mermaid };
+const streamdownPlugins: PluginConfig = {
+  cjk,
+  code: code as PluginConfig["code"],
+  math,
+  mermaid,
+  renderers: [{ language: "mermaid", component: MermaidDiagram }],
+};
 
 export const MessageResponse = memo(
   ({
@@ -349,12 +357,17 @@ export const MessageResponse = memo(
     isAnimating = false,
     animated,
     children,
+    components,
     ...props
   }: MessageResponseProps) => {
     const reducedMotion = Boolean(useReducedMotion());
     const streaming = !reducedMotion && isAnimating;
     const source = typeof children === "string" ? children : "";
     const displayed = useSmoothStreamText(source, streaming);
+    const mergedComponents = useMemo(
+      () => ({ ...streamdownPlainTableComponents, ...components }),
+      [components],
+    );
     return (
       <Streamdown
         className={cn(
@@ -363,6 +376,7 @@ export const MessageResponse = memo(
         )}
         plugins={streamdownPlugins}
         {...props}
+        components={mergedComponents}
         animated={resolveStreamdownAnimated(animated, reducedMotion)}
         isAnimating={streaming}
       >

@@ -9,12 +9,7 @@ import {
   CollapsibleTrigger,
 } from "../ui/collapsible";
 import { cn } from "../../lib/utils";
-import { cjk } from "@streamdown/cjk";
-import { code } from "@streamdown/code";
-import { math } from "@streamdown/math";
-import { mermaid } from "@streamdown/mermaid";
 import { BrainIcon, ChevronRightIcon } from "lucide-react";
-import { useReducedMotion } from "motion/react";
 import {
   createContext,
   memo,
@@ -25,8 +20,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { Streamdown, type PluginConfig } from "streamdown";
-import { useSmoothStreamText } from "./smooth-stream-text";
+import { MessageResponse, type MessageResponseProps } from "./message";
 import { TextShimmer } from "../ui/text-shimmer";
 
 interface ReasoningContextValue {
@@ -208,18 +202,12 @@ export type ReasoningContentProps = ComponentProps<
   typeof CollapsibleContent
 > & {
   children: string;
+  components?: MessageResponseProps["components"];
 };
 
-// Upstream packages currently expose slightly different code plugin types,
-// but the runtime plugin shape matches Streamdown's expected contract.
-const streamdownPlugins: PluginConfig = { cjk, code: code as PluginConfig["code"], math, mermaid };
-
 export const ReasoningContent = memo(
-  ({ className, children, ...props }: ReasoningContentProps) => {
+  ({ className, children, components, ...props }: ReasoningContentProps) => {
     const { isStreaming } = useReasoning();
-    const reducedMotion = Boolean(useReducedMotion());
-    const streaming = !reducedMotion && isStreaming;
-    const displayed = useSmoothStreamText(children, streaming);
     return (
       <CollapsibleContent
         className={cn(
@@ -233,13 +221,14 @@ export const ReasoningContent = memo(
             <span className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-border" />
           </div>
           <div className="min-w-0 flex-1 [&_p]:my-1 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0">
-            <Streamdown
+            <MessageResponse
               animated={false}
-              isAnimating={streaming}
-              plugins={streamdownPlugins}
+              isAnimating={isStreaming}
+              parseIncompleteMarkdown
+              components={components}
             >
-              {displayed}
-            </Streamdown>
+              {children}
+            </MessageResponse>
           </div>
         </div>
       </CollapsibleContent>
