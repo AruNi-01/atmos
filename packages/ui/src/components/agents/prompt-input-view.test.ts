@@ -18,6 +18,14 @@ describe("empty model list reload", () => {
   });
 });
 
+describe("locked session config", () => {
+  it("does not open the model flyout when models are locked", () => {
+    expect(promptInput).toContain('if (next === "model" && modelsLocked) return');
+    expect(promptInput).toContain("disabled={modelsLocked}");
+    expect(promptInput).toContain("disabled={disabled || loading || modesLocked}");
+  });
+});
+
 describe("mode picker", () => {
   it("uses the agent/model MorphPopover instead of the motion Select", () => {
     const start = promptInput.indexOf("function PromptOptionSelect");

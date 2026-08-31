@@ -53,6 +53,8 @@ export interface PromptInputLabels {
   chooseAgent?: string;
   chooseMode?: string;
   model?: string;
+  modelLocked?: string;
+  modeLocked?: string;
   search?: string;
   searchModels?: string;
   searchAgents?: string;
@@ -78,6 +80,7 @@ export interface PromptInputProps extends Omit<
   defaultModel?: string;
   onModelChange?: (model: string) => void;
   modelsLoading?: boolean;
+  modelsLocked?: boolean;
   /** Fired when the model picker opens while the model list is empty. */
   onEmptyModelsOpen?: () => void;
   agents?: PromptModel[];
@@ -87,6 +90,7 @@ export interface PromptInputProps extends Omit<
   modes?: PromptModel[];
   mode?: string;
   onModeChange?: (mode: string) => void;
+  modesLocked?: boolean;
   thinkingLevels?: PromptModel[];
   thinking?: string;
   onThinkingChange?: (thinking: string) => void;
@@ -123,6 +127,8 @@ const DEFAULT_LABELS: Required<PromptInputLabels> = {
   chooseAgent: "Agent",
   chooseMode: "Mode",
   model: "Model",
+  modelLocked: "This agent cannot switch models in the current session",
+  modeLocked: "This agent cannot switch modes in the current session",
   search: "Search",
   searchModels: "Search models",
   searchAgents: "Search agents",
@@ -143,6 +149,7 @@ export function PromptInput({
   defaultModel,
   onModelChange,
   modelsLoading = false,
+  modelsLocked = false,
   onEmptyModelsOpen,
   agents = [],
   agent,
@@ -151,6 +158,7 @@ export function PromptInput({
   modes = [],
   mode,
   onModeChange,
+  modesLocked = false,
   thinkingLevels = [],
   thinking,
   onThinkingChange,
@@ -358,7 +366,8 @@ export function PromptInput({
             options={modes}
             value={mode}
             onChange={onModeChange}
-            disabled={disabled || loading}
+            disabled={disabled || loading || modesLocked}
+            lockedHint={modesLocked ? labels.modeLocked : undefined}
             placeholder={labels.chooseMode}
             searchPlaceholder={labels.search}
             emptyLabel={labels.noResults}
@@ -375,6 +384,7 @@ export function PromptInput({
               models={models}
               model={currentModelValue}
               onModelChange={setModel}
+              modelsLocked={modelsLocked}
               modelsLoading={modelsLoading}
               onEmptyModelsOpen={onEmptyModelsOpen}
               currentAgent={currentAgent}
@@ -425,6 +435,7 @@ function PromptOptionSelect({
   value,
   onChange,
   disabled,
+  lockedHint,
   placeholder,
   searchPlaceholder,
   emptyLabel,
@@ -434,6 +445,7 @@ function PromptOptionSelect({
   value?: string;
   onChange?: (value: string) => void;
   disabled?: boolean;
+  lockedHint?: string;
   placeholder: string;
   searchPlaceholder: string;
   emptyLabel: string;
@@ -461,7 +473,7 @@ function PromptOptionSelect({
         <button
           type="button"
           disabled={disabled}
-          title={optionLabelText(current) || placeholder}
+          title={lockedHint || optionLabelText(current) || placeholder}
           className={cn(
             "inline-flex h-8 max-w-36 items-center gap-1.5 border-0 bg-transparent px-2 py-0 text-xs text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2",
             open && "bg-muted text-foreground",
@@ -513,6 +525,7 @@ function PromptAgentConfigMenu({
   models,
   model,
   onModelChange,
+  modelsLocked,
   modelsLoading,
   onEmptyModelsOpen,
   currentAgent,
@@ -532,6 +545,7 @@ function PromptAgentConfigMenu({
   models: PromptModel[];
   model?: string;
   onModelChange: (model: string) => void;
+  modelsLocked?: boolean;
   modelsLoading?: boolean;
   onEmptyModelsOpen?: () => void;
   currentAgent?: PromptModel;
@@ -584,6 +598,7 @@ function PromptAgentConfigMenu({
   }, [cancelHideFlyout]);
   const openFlyout = (next: AgentConfigFlyout) => {
     cancelHideFlyout();
+    if (next === "model" && modelsLocked) return;
     if (next === "model" && models.length === 0) {
       onEmptyModelsOpen?.();
     }
@@ -591,6 +606,11 @@ function PromptAgentConfigMenu({
     setSearch("");
     setFlyout(next);
   };
+  useEffect(() => {
+    if (!modelsLocked || flyout !== "model") return;
+    setFlyout(null);
+    setSearch("");
+  }, [flyout, modelsLocked]);
   useEffect(() => () => cancelHideFlyout(), [cancelHideFlyout]);
   useLayoutEffect(() => {
     if (!flyout || !menuRef.current) {
@@ -688,6 +708,8 @@ function PromptAgentConfigMenu({
               label={labels.model}
               value={optionLabelText(currentModel) || labels.chooseModel}
               active={flyout === "model"}
+              disabled={modelsLocked}
+              title={modelsLocked ? labels.modelLocked : undefined}
               onHover={() => openFlyout("model")}
             />
             {showThinking ? (
@@ -759,28 +781,38 @@ function ConfigMenuRow({
   label,
   value,
   active,
+  disabled,
+  title,
   onHover,
 }: {
   label: string;
   value: string;
   active: boolean;
+  disabled?: boolean;
+  title?: string;
   onHover: () => void;
 }) {
   return (
     <div className="px-1">
       <button
         type="button"
-        onPointerEnter={onHover}
-        onFocus={onHover}
-        onClick={onHover}
+        disabled={disabled}
+        title={title}
+        onPointerEnter={disabled ? undefined : onHover}
+        onFocus={disabled ? undefined : onHover}
+        onClick={disabled ? undefined : onHover}
         className={cn(
           "flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left text-sm outline-none",
-          active ? "bg-muted text-foreground" : "text-foreground hover:bg-muted/60",
+          disabled
+            ? "cursor-not-allowed text-muted-foreground"
+            : active
+              ? "bg-muted text-foreground"
+              : "text-foreground hover:bg-muted/60",
         )}
       >
         <span className="shrink-0 font-medium">{label}</span>
         <span className="min-w-0 flex-1 truncate text-right text-muted-foreground">{value}</span>
-        <ChevronRight className="size-3.5 shrink-0 text-muted-foreground/70" />
+        {disabled ? null : <ChevronRight className="size-3.5 shrink-0 text-muted-foreground/70" />}
       </button>
     </div>
   );
