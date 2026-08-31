@@ -30,6 +30,21 @@ import shell from "shiki/langs/shellscript.mjs";
 import dockerfile from "shiki/langs/dockerfile.mjs";
 import cLang from "shiki/langs/c.mjs";
 import cpp from "shiki/langs/cpp.mjs";
+import mermaidFence from "shiki/langs/mermaid.mjs";
+
+/** Shiki's bundled mermaid grammar is a markdown fence injection. Re-root it on `#mermaid` so fence bodies highlight. */
+function mermaidSourceLang() {
+  const raw = (mermaidFence as Array<{ injectionSelector?: string }>)[0]!;
+  const { injectionSelector: _injectionSelector, ...rest } = raw;
+  return {
+    ...rest,
+    name: "mermaid",
+    displayName: "Mermaid",
+    scopeName: "source.mermaid",
+    aliases: ["mmd"],
+    patterns: [{ include: "#mermaid" }],
+  };
+}
 
 let jsEngine: RegexEngine | null = null;
 let highlighter: Promise<HighlighterCore> | null = null;
@@ -72,7 +87,9 @@ type Languages =
   | "dockerfile"
   | "c"
   | "cpp"
-  | "c++";
+  | "c++"
+  | "mermaid"
+  | "mmd";
 
 const getJsEngine = (): RegexEngine => {
   jsEngine ??= createJavaScriptRegexEngine();
@@ -103,6 +120,7 @@ const highlight = async (): Promise<HighlighterCore> => {
       dockerfile,
       cLang,
       cpp,
+      mermaidSourceLang(),
     ],
     engine: getJsEngine(),
   });
