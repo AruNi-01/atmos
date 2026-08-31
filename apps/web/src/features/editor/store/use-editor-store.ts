@@ -37,6 +37,7 @@ import {
 } from './editor-store-paths';
 
 export type {
+  FileNavigationLineRange,
   FileNavigationTarget,
   FileTreeRevealTarget,
   OpenFile,
@@ -276,10 +277,18 @@ export const useEditorStore = create<EditorStore>()((set, get) => ({
         const isPreview = options?.preview ?? true; // Default to preview mode
         const hasLine =
           typeof options?.line === 'number' && Number.isFinite(options.line);
+        const selectRanges = (options?.selectRanges ?? []).filter(
+          (range) =>
+            Number.isFinite(range.startLine) &&
+            Number.isFinite(range.endLine) &&
+            range.endLine >= range.startLine,
+        );
+        const hasSelectRanges = selectRanges.length > 0;
         const hasDiffFilePath =
           typeof options?.diffFilePath === 'string' && options.diffFilePath.length > 0;
+        const preferMarkdownSource = options?.preferMarkdownSource === true;
         const navigationTarget =
-          hasLine || hasDiffFilePath || options?.reviewCommentGuid || options?.reviewMessageGuid
+          hasLine || hasSelectRanges || hasDiffFilePath || preferMarkdownSource || options?.reviewCommentGuid || options?.reviewMessageGuid
             ? {
                 ...(hasLine
                   ? {
@@ -291,6 +300,8 @@ export const useEditorStore = create<EditorStore>()((set, get) => ({
                           : undefined,
                     }
                   : {}),
+                ...(hasSelectRanges ? { selectRanges } : {}),
+                ...(preferMarkdownSource ? { preferMarkdownSource: true } : {}),
                 reviewCommentGuid: options?.reviewCommentGuid,
                 reviewMessageGuid: options?.reviewMessageGuid,
                 diffFilePath: options?.diffFilePath,
@@ -495,7 +506,7 @@ export const useEditorStore = create<EditorStore>()((set, get) => ({
         return path;
       },
 
-      reloadFileContent: async (path, workspaceId) => {
+      reloadFileContent: async (path, workspaceId, options) => {
         const id = workspaceId || get().currentWorkspaceId;
         if (!id) return;
 
@@ -541,12 +552,14 @@ export const useEditorStore = create<EditorStore>()((set, get) => ({
         try {
           const response = await readFileWithTimeout(getEditorSourcePath(path));
           if (!response.exists || response.content === null) {
-            const fileName = path.split('/').pop() || path;
-            toastManager.add({
-              title: editorStoreT('fileNotFoundTitle'),
-              description: editorStoreT('fileNotFoundDescription', { fileName }),
-              type: 'error',
-            });
+            if (!options?.silent) {
+              const fileName = path.split('/').pop() || path;
+              toastManager.add({
+                title: editorStoreT('fileNotFoundTitle'),
+                description: editorStoreT('fileNotFoundDescription', { fileName }),
+                type: 'error',
+              });
+            }
             set((state) => {
               const ws = state.workspaceStates[id];
               if (!ws) return state;

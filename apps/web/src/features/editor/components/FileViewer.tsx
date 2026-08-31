@@ -1,11 +1,9 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import dynamic from 'next/dynamic';
 import { useTranslations } from 'next-intl';
 import { OpenFile } from '@/features/editor/store/use-editor-store';
 import {
-  Loader2,
   FileWarning,
   Download,
   ZoomIn,
@@ -15,22 +13,7 @@ import {
 import { useTheme } from 'next-themes';
 import { cn, Button } from '@workspace/ui';
 import { getRuntimeApiConfig, httpBase } from '@/shared/lib/desktop-runtime';
-
-// Dynamic import CodeMirror editor to avoid SSR issues
-function LoadingEditorFallback() {
-  const t = useTranslations("Editor.components");
-  return (
-    <div className="flex items-center justify-center h-full">
-      <Loader2 className="size-6 animate-spin text-muted-foreground" />
-      <span className="sr-only">{t("fileViewer.loadingEditor")}</span>
-    </div>
-  );
-}
-
-const CodeMirrorEditor = dynamic(() => import('./CodeMirrorEditor'), {
-  ssr: false,
-  loading: () => <LoadingEditorFallback />,
-});
+import CodeMirrorEditor from './CodeMirrorEditor';
 
 
 interface FileViewerProps {
