@@ -95,6 +95,17 @@ export const agentApi = {
     });
   },
 
+  setDefaultConfig: (
+    registry_id: string,
+    config_id: string,
+    value: string,
+  ): Promise<{ success: boolean }> =>
+    wsRequest("agent_default_config_set", {
+      registry_id,
+      config_id,
+      value,
+    }),
+
   listRegistry: async (
     forceRefresh = false,
   ): Promise<{ agents: RegistryAgent[] }> => {

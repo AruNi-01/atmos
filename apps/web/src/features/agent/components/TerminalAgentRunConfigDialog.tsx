@@ -34,6 +34,7 @@ import {
 } from "@/features/agent/lib/terminal-agent-run-config";
 import { useTerminalAgentModelCatalog } from "@/features/agent/hooks/use-terminal-agent-model-catalog";
 import type { TerminalAgentReasoningSupport } from "@/features/agent/lib/terminal-agent-definitions";
+import { thinkingLevelLabel } from "@/features/agent/lib/agent-chat-thread";
 import { useOpenSettings } from "@/features/settings/lib/open-settings";
 import { cn } from "@/shared/lib/utils";
 
@@ -107,15 +108,12 @@ export function TerminalAgentRunConfigContent({
   const definition = terminalAgentDefinitionById(agentId);
   const reasoningSupport = capability.reasoningSupport;
   const canConfigureModel = capability.modelInputMode !== "none";
-  const canConfigureReasoning =
-    reasoningSupport.mode !== "none" && reasoningSupport.mode !== "encoded_in_model";
-  const shouldLoadModelCatalog = modelEnabled && capability.modelInputMode === "catalog";
+  const shouldLoadModelCatalog = capability.modelInputMode === "catalog";
   const {
     catalog: modelCatalog,
     loading: modelCatalogLoading,
     reload: reloadModelCatalog,
   } = useTerminalAgentModelCatalog(agentId, shouldLoadModelCatalog);
-  const reasoningOptions = reasoningSupport.mode === "enum" ? (reasoningSupport.options ?? []) : [];
   const catalogModels = React.useMemo(() => {
     const models = modelCatalog?.models ?? [];
     if (!modelValue || models.some((item) => item.id === modelValue)) {
@@ -123,6 +121,29 @@ export function TerminalAgentRunConfigContent({
     }
     return [{ id: modelValue, label: modelValue }, ...models];
   }, [modelCatalog?.models, modelValue]);
+  const selectedModelThinking = catalogModels.find((item) => item.id === modelValue)?.thinking;
+  const catalogReasoningOptions = selectedModelThinking?.options?.filter((item) => item.trim()) ?? [];
+  const catalogReasoningUnsupported = selectedModelThinking?.type === "none";
+  const canConfigureReasoning =
+    !catalogReasoningUnsupported &&
+    (catalogReasoningOptions.length > 1 ||
+      (reasoningSupport.mode !== "none" && reasoningSupport.mode !== "encoded_in_model"));
+  const reasoningOptions =
+    catalogReasoningOptions.length > 1
+      ? catalogReasoningOptions
+      : reasoningSupport.mode === "enum"
+        ? (reasoningSupport.options ?? [])
+        : [];
+
+  React.useEffect(() => {
+    if (catalogReasoningOptions.length <= 1) return;
+    if (reasoningValue && catalogReasoningOptions.includes(reasoningValue)) return;
+    setReasoningValue(
+      catalogReasoningOptions.includes("medium")
+        ? "medium"
+        : catalogReasoningOptions[0] ?? "",
+    );
+  }, [catalogReasoningOptions, modelValue, reasoningValue]);
 
   const applyTemplate = React.useCallback(
     (templateId: string) => {
@@ -378,7 +399,20 @@ export function TerminalAgentRunConfigContent({
             <Switch checked={reasoningEnabled} onCheckedChange={setReasoningEnabled} />
           </div>
           {reasoningEnabled ? (
-            reasoningSupport.mode === "manual" ? (
+            reasoningOptions.length > 1 ? (
+              <Select value={reasoningValue} onValueChange={setReasoningValue}>
+                <SelectTrigger>
+                  <SelectValue placeholder={t("runConfig.reasoning.choose")} />
+                </SelectTrigger>
+                <SelectContent>
+                  {reasoningOptions.map((item) => (
+                    <SelectItem key={item} value={item}>
+                      {thinkingLevelLabel(item)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : reasoningSupport.mode === "manual" ? (
               <Input
                 value={reasoningValue}
                 onChange={(event) => setReasoningValue(event.target.value)}
@@ -392,7 +426,7 @@ export function TerminalAgentRunConfigContent({
                 <SelectContent>
                   {reasoningOptions.map((item) => (
                     <SelectItem key={item} value={item}>
-                      {item}
+                      {thinkingLevelLabel(item)}
                     </SelectItem>
                   ))}
                 </SelectContent>

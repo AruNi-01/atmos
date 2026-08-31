@@ -4,6 +4,7 @@ import { join } from "node:path";
 import {
   agentChatFilterKey,
   agentChatInstanceKey,
+  nextAgentLastSessionConfig,
   resolveRestoredAgentChat,
 } from "@/features/agent/lib/agent-chat-last-session";
 import { getSessionContextKey, legacySessionContextKey } from "@/features/agent/lib/chat-helpers";
@@ -42,7 +43,7 @@ describe("agent chat last session", () => {
         installedAgentIds: ["claude", "codex"],
         defaultRegistryId: "codex",
       }),
-    ).toEqual({ chatId: "chat-1", registryId: "claude" });
+    ).toEqual({ chatId: "chat-1", registryId: "claude", modelId: "", thinkingId: "" });
 
     expect(
       resolveRestoredAgentChat({
@@ -53,7 +54,7 @@ describe("agent chat last session", () => {
         installedAgentIds: ["claude", "codex"],
         defaultRegistryId: "codex",
       }),
-    ).toEqual({ chatId: "", registryId: "claude" });
+    ).toEqual({ chatId: "", registryId: "claude", modelId: "", thinkingId: "" });
   });
 
   it("prefers an explicit chat id and the instance's own last chat", () => {
@@ -80,7 +81,7 @@ describe("agent chat last session", () => {
         installedAgentIds: ["claude", "codex"],
         defaultRegistryId: "claude",
       }),
-    ).toEqual({ chatId: "open-chat", registryId: "codex" });
+    ).toEqual({ chatId: "open-chat", registryId: "codex", modelId: "", thinkingId: "" });
 
     expect(
       resolveRestoredAgentChat({
@@ -105,7 +106,68 @@ describe("agent chat last session", () => {
         installedAgentIds: ["claude", "codex"],
         defaultRegistryId: "claude",
       }),
-    ).toEqual({ chatId: "tab-chat", registryId: "codex" });
+    ).toEqual({ chatId: "tab-chat", registryId: "codex", modelId: "", thinkingId: "" });
+  });
+
+  it("restores the last model and thinking for the remembered agent", () => {
+    expect(
+      resolveRestoredAgentChat({
+        chatIdProp: "",
+        instanceKey: "agent-chat:draft:new",
+        instanceLast: null,
+        filterLast: {
+          registryId: "claude",
+          chatId: "chat-1",
+          cwd: "/tmp",
+          workspaceId: "ws-1",
+          projectId: null,
+          updatedAt: 1,
+          modelId: "opus",
+          thinkingId: "high",
+        },
+        installedAgentIds: ["claude", "codex"],
+        defaultRegistryId: "codex",
+      }),
+    ).toEqual({
+      chatId: "",
+      registryId: "claude",
+      modelId: "opus",
+      thinkingId: "high",
+    });
+  });
+
+  it("keeps model and thinking when the same agent is persisted without them", () => {
+    expect(
+      nextAgentLastSessionConfig(
+        {
+          registryId: "claude",
+          cwd: null,
+          workspaceId: "ws-1",
+          projectId: null,
+          updatedAt: 1,
+          modelId: "opus",
+          thinkingId: "high",
+        },
+        { registryId: "claude" },
+      ),
+    ).toEqual({ modelId: "opus", thinkingId: "high" });
+  });
+
+  it("drops model and thinking when the agent changes", () => {
+    expect(
+      nextAgentLastSessionConfig(
+        {
+          registryId: "claude",
+          cwd: null,
+          workspaceId: "ws-1",
+          projectId: null,
+          updatedAt: 1,
+          modelId: "opus",
+          thinkingId: "high",
+        },
+        { registryId: "codex" },
+      ),
+    ).toEqual({ modelId: null, thinkingId: null });
   });
 
   it("hydrates stored history without resuming the provider on enter", () => {
@@ -120,5 +182,15 @@ describe("agent chat last session", () => {
     expect(source).not.toContain("resumeSession(");
     expect(source).toContain("agentChatApi.get");
     expect(source).toContain("agentChatApi.send");
+    expect(source).toContain("agentChatApi.prefsGet");
+    expect(source).toContain("agentChatApi.prefsSet");
+    expect(source).toContain("persistNewSessionPreferences");
+    expect(source).toContain("ensureCreatedChat");
+    expect(source).toContain("isRestoringTranscript: isResumingHistory");
+    expect(source).toContain("resumeTranscript");
+    expect(source).toContain("agentApi.setDefaultConfig");
+    expect(source).toContain("preferredConfigFromDefault");
+    expect(source).not.toContain("restored.modelId");
+    expect(source).not.toContain("restored.thinkingId");
   });
 });

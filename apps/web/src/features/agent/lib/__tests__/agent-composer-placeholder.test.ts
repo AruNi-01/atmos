@@ -1,5 +1,45 @@
 import { describe, expect, it } from "bun:test";
-import { resolveAgentComposerPlaceholderKind } from "@/features/agent/lib/agent-composer-placeholder";
+import {
+  isAgentNewChatLanding,
+  resolveAgentComposerPlaceholderKind,
+} from "@/features/agent/lib/agent-composer-placeholder";
+
+describe("isAgentNewChatLanding", () => {
+  it("is true for an empty chat that is not restoring history", () => {
+    expect(
+      isAgentNewChatLanding({
+        chatId: null,
+        messageCount: 0,
+        isResumingHistory: false,
+      }),
+    ).toBe(true);
+    expect(
+      isAgentNewChatLanding({
+        chatId: "chat-1",
+        messageCount: 0,
+        isResumingHistory: false,
+      }),
+    ).toBe(true);
+  });
+
+  it("is false after messages arrive or history is restoring", () => {
+    expect(
+      isAgentNewChatLanding({
+        chatId: null,
+        messageCount: 1,
+        isResumingHistory: false,
+      }),
+    ).toBe(false);
+    expect(
+      isAgentNewChatLanding({
+        chatId: "chat-1",
+        messageCount: 0,
+        isResumingHistory: true,
+      }),
+    ).toBe(false);
+  });
+});
+
 
 describe("resolveAgentComposerPlaceholderKind", () => {
   it("asks to create a session when chat has not started yet", () => {

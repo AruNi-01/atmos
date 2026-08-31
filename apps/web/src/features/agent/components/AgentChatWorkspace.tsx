@@ -6,6 +6,7 @@ export function AgentChatWorkspace({
   chatId,
   instanceKey,
   paintContextId,
+  resumeTranscript,
   onChatStarted,
   onChatUpdated,
   onOpenChat,
@@ -14,15 +15,18 @@ export function AgentChatWorkspace({
   chatId?: string | null;
   instanceKey?: string | null;
   paintContextId?: string | null;
+  resumeTranscript?: boolean;
   onChatStarted?: (id: string, meta?: {
     title?: string | null;
     cwd?: string;
     providerId?: string | null;
+    hasMessages?: boolean;
   }) => void;
   onChatUpdated?: (id: string, meta: {
     title?: string | null;
     providerId?: string | null;
     cwd?: string;
+    hasMessages?: boolean;
   }) => void;
   onOpenChat?: (id: string) => void;
   variant?: "sidebar" | "standalone" | "center";
@@ -33,6 +37,7 @@ export function AgentChatWorkspace({
       instanceKey={instanceKey}
       paintContextId={paintContextId}
       chatId={chatId}
+      resumeTranscript={resumeTranscript}
       onChatStarted={onChatStarted}
       onChatUpdated={onChatUpdated}
       onOpenChat={onOpenChat}

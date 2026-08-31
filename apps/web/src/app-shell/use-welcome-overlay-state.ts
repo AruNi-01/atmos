@@ -6,7 +6,6 @@ import { useQueryState } from "nuqs";
 import { useAppRouter } from "@/shared/hooks/use-app-router";
 import { centerStageParams } from "@/shared/lib/nuqs/searchParams";
 import { useDialogStore } from "@/app-shell/state/use-dialog-store";
-import { useAgentChatCenterTabsStore } from "@/features/agent/store/use-agent-chat-center-tabs";
 
 type WelcomeOverlayAnimationState = "idle" | "entering" | "visible";
 
@@ -68,11 +67,6 @@ export function useWelcomeOverlayState() {
     router.push("/agents");
   }, [clearCloseTimer, router, setNewWorkspace]);
 
-  const startAgentChat = useCallback(() => {
-    close();
-    useAgentChatCenterTabsStore.getState().requestNewChat();
-  }, [close]);
-
   useEffect(() => {
     if (!newWorkspace) {
       prevNewWorkspaceRef.current = false;
@@ -113,7 +107,6 @@ export function useWelcomeOverlayState() {
     animationState,
     close,
     connectAgent,
-    startAgentChat,
     isClosing,
     isVisible,
     openCreateProject,

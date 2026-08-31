@@ -69,7 +69,7 @@ function isRenderedNonToolPart(part: AgentPart): boolean {
   if (part.type === "plan" || part.type === "attachment") return false;
   if (part.type === "text") return Boolean(part.text);
   if (part.type === "thinking") return Boolean(part.text);
-  return part.type === "error" || part.type === "session_lifecycle";
+  return part.type === "error" || part.type === "session_lifecycle" || part.type === "session_config_change" || part.type === "session_hint";
 }
 
 export function segmentAssistantParts(parts: AgentPart[]): AssistantSegment[] {

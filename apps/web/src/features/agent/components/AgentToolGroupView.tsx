@@ -20,8 +20,11 @@ import {
   toolGroupHasRunning,
   type ToolOverviewKind,
 } from "@/features/agent/lib/tool-group";
+import { sumToolGroupDiffStats } from "@/features/agent/lib/tool-results/diff-stats";
+import { useSequentialReveal } from "@/features/agent/hooks/use-sequential-reveal";
+import { AgentTreeRevealProvider } from "./agent-tree-reveal-context";
+import { AgentToolDiffStats } from "./tool-results/AgentToolCard";
 import { ToolView } from "./ToolView";
-import { AgentStreamReveal } from "./AgentStreamReveal";
 import { AgentTreeBranch } from "./AgentTreeBranch";
 
 export function AgentToolGroupView({
@@ -39,11 +42,11 @@ export function AgentToolGroupView({
   const running = toolGroupHasRunning(parts);
   const open = userOpen ?? autoOpen;
   const shimmer = autoOpen || running;
-  const [initialIds] = useState(() => new Set(
-    parts.map((part) => part.tool_call_id).filter((id): id is string => Boolean(id)),
-  ));
+  const shown = useSequentialReveal(parts.length, autoOpen);
+  const visibleParts = parts.slice(0, shown);
 
   const counts = useMemo(() => countToolGroupOverview(parts), [parts]);
+  const diffStats = useMemo(() => sumToolGroupDiffStats(parts), [parts]);
   const overview = useMemo(() => {
     const raw = formatToolGroupOverview(
       counts,
@@ -78,6 +81,7 @@ export function AgentToolGroupView({
             overview
           )}
         </span>
+        <AgentToolDiffStats additions={diffStats.additions} deletions={diffStats.deletions} />
         <ChevronRight
           className={cn(
             "size-3.5 shrink-0 text-muted-foreground transition-transform duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]",
@@ -87,23 +91,23 @@ export function AgentToolGroupView({
         />
       </CollapsibleTrigger>
       <CollapsibleContent className="data-[state=open]:overflow-visible">
-        <div className="relative">
-          {parts.map((part, index) => {
-            const itemKey = part.tool_call_id || `${part.name}-${index}`;
-            const isNew = Boolean(part.tool_call_id) && !initialIds.has(part.tool_call_id);
-            return (
-              <AgentStreamReveal key={itemKey} enabled={autoOpen && isNew}>
+        <AgentTreeRevealProvider reveal={autoOpen}>
+          <div className="relative">
+            {visibleParts.map((part, index) => {
+              const itemKey = part.tool_call_id || `${part.name}-${index}`;
+              return (
                 <AgentTreeBranch
+                  key={itemKey}
                   isFirst={index === 0}
-                  isLast={index === parts.length - 1}
-                  animate={autoOpen && isNew}
+                  isLast={index === visibleParts.length - 1}
+                  animate={autoOpen}
                 >
                   <ToolView part={part} registryId={registryId} surface="plain" />
                 </AgentTreeBranch>
-              </AgentStreamReveal>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        </AgentTreeRevealProvider>
       </CollapsibleContent>
     </Collapsible>
   );

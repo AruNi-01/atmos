@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
+  agentChatOpenNeedsKindProbe,
   agentChatPathLooksLikeDirectory,
   classifyAgentChatHref,
   displayAgentChatFilePath,
@@ -90,6 +91,35 @@ describe("resolveAgentChatOpenableFile", () => {
     });
   });
 
+  it("recovers unique short paths from a cached file tree", () => {
+    const trees = [
+      {
+        rootPath: cwd,
+        tree: [
+          {
+            name: "lib",
+            path: `${cwd}/src/lib`,
+            is_dir: true,
+            is_symlink: false,
+            is_ignored: false,
+            children: [
+              {
+                name: "agent-chat-events.ts",
+                path: `${cwd}/src/lib/agent-chat-events.ts`,
+                is_dir: false,
+                is_symlink: false,
+                is_ignored: false,
+              },
+            ],
+          },
+        ],
+      },
+    ];
+    expect(resolveAgentChatOpenableFile("agent-chat-events.ts", cwd, undefined, trees)).toEqual({
+      path: `${cwd}/src/lib/agent-chat-events.ts`,
+    });
+  });
+
   it("leaves paths outside the current project or workspace unopenable", () => {
     expect(resolveAgentChatOpenableFile("/etc/passwd", cwd)).toBeNull();
     expect(resolveAgentChatOpenableFile("/Users/me/other/src/app.ts", cwd)).toBeNull();
@@ -129,6 +159,22 @@ describe("agentChatPathLooksLikeDirectory", () => {
     expect(agentChatPathLooksLikeDirectory("src/app.ts")).toBe(false);
     expect(agentChatPathLooksLikeDirectory("package.json")).toBe(false);
     expect(agentChatPathLooksLikeDirectory("Dockerfile")).toBe(true);
+  });
+});
+
+describe("agentChatOpenNeedsKindProbe", () => {
+  it("opens named files immediately even when the tree cache is stale", () => {
+    expect(agentChatOpenNeedsKindProbe("CHANGES.md")).toBe(false);
+    expect(agentChatOpenNeedsKindProbe("src/app.ts", { cachedKind: "absent" })).toBe(false);
+    expect(agentChatOpenNeedsKindProbe("src/app.ts", { isDir: false })).toBe(false);
+    expect(agentChatOpenNeedsKindProbe("src/app.ts", { cachedKind: "file" })).toBe(false);
+  });
+
+  it("probes extensionless paths that are not already known", () => {
+    expect(agentChatOpenNeedsKindProbe("src/features/agent")).toBe(true);
+    expect(agentChatOpenNeedsKindProbe("src/features/agent", { cachedKind: null })).toBe(true);
+    expect(agentChatOpenNeedsKindProbe("src/features/agent", { cachedKind: "directory" })).toBe(false);
+    expect(agentChatOpenNeedsKindProbe("src/features/agent", { isDir: true })).toBe(false);
   });
 });
 
@@ -179,6 +225,21 @@ describe("agent chat file-link wiring", () => {
     expect(source).toContain("const chip = clickable ?");
     expect(source).toContain("isDir={isDir}");
     expect(source).toContain("useAgentChatResolvedPathKind");
+    expect(source).toContain("selectRanges");
+    expect(source).not.toContain("queueMicrotask");
+  });
+
+  it("shows project-relative paths in the tool diff file header", () => {
+    const source = readFileSync(
+      join(import.meta.dir, "../../components/tool-results/AgentToolDiffResult.tsx"),
+      "utf8",
+    );
+    expect(source).toContain("displayAgentChatFilePath");
+    expect(source).toContain("AgentToolFileGlyph");
+    expect(source).toContain("disableFileHeader: true");
+    expect(source).toContain("AgentToolFileChangeStats");
+    expect(source).toContain("--diffs-gap-block: 0px");
+    expect(source).toContain("padding-block: 0 !important");
   });
 
   it("reveals directories in the files tab instead of opening them as files", () => {
@@ -188,16 +249,28 @@ describe("agent chat file-link wiring", () => {
     );
     expect(hook).toContain("requestFileTreeReveal");
     expect(hook).toContain("FILES_TAB_VALUE");
+    expect(hook).toContain("agentChatOpenNeedsKindProbe");
+    expect(hook).toContain("lookupPathInFileTrees");
     expect(hook).toContain('kind === "directory"');
     expect(hook).toContain("resolveAgentChatPathKind");
-    expect(hook).toContain('if (kind !== "file") return');
+    expect(hook).toContain('kind !== "file"');
+    expect(hook).toContain("selectRanges");
+    expect(hook).not.toContain("preferMarkdownSource");
+    expect(hook).not.toContain("flushSync");
+    expect(hook).toContain("void openFile");
+    const openAt = hook.indexOf("void openFile");
+    const probeAt = hook.indexOf("agentChatOpenNeedsKindProbe");
+    expect(probeAt).toBeGreaterThan(-1);
+    expect(openAt).toBeGreaterThan(probeAt);
     const kindSource = readFileSync(
       join(import.meta.dir, "../agent-chat-path-kind.ts"),
       "utf8",
     );
-    expect(kindSource).toContain("lookupPathInFileTrees");
+    expect(kindSource).toContain("findPathInFileTrees");
     expect(kindSource).toContain("collectCachedFileTrees");
-    expect(kindSource).toContain('fromTree === "absent"');
+    expect(kindSource).not.toContain("fsApi");
+    expect(kindSource).not.toContain("readFile");
+    expect(kindSource).not.toContain("listDir");
   });
 
   it("keeps original markdown path text and underlines existing files on hover", () => {

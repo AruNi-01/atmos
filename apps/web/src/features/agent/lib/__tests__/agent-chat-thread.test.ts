@@ -9,7 +9,12 @@ import {
   isCatalogModelsLoading,
   parsePlan,
   probingCatalog,
+  overlayPendingConfigValues,
   splitComposerConfigOptions,
+  isComposerTrailingConfigOption,
+  isThinkingConfigId,
+  thinkingChoices,
+  thinkingLevelLabel,
 } from "@/features/agent/lib/agent-chat-thread";
 
 describe("agent chat helpers", () => {
@@ -54,6 +59,7 @@ describe("agent chat helpers", () => {
     });
     expect(plan?.entries[0]?.content).toBe("Inspect");
     expect(parsePlan(null)).toBeNull();
+    expect(parsePlan({ entries: [] })).toBeNull();
   });
 
   it("treats a missing or probing catalog as models still loading", () => {
@@ -154,6 +160,104 @@ describe("agent chat helpers", () => {
     ]);
   });
 
+  it("shows an ACP-reported model before the catalog list arrives", () => {
+    const options = catalogToConfigOptions(
+      probingCatalog("claude"),
+      "grok-4",
+      "",
+    );
+    expect(options).toEqual([
+      {
+        id: "model",
+        name: "Model",
+        type: "select",
+        currentValue: "grok-4",
+        options: [{ value: "grok-4", name: "grok-4" }],
+      },
+    ]);
+  });
+
+  it("uses each Factory Droid model's own reasoning ladder", () => {
+    const catalog = {
+      agent_id: "factory-droid",
+      status: "ok" as const,
+      models: [
+        {
+          id: "claude-opus-5",
+          label: "Opus 5",
+          thinking: {
+            type: "enum",
+            options: ["off", "low", "medium", "high", "xhigh", "max"],
+          },
+        },
+        {
+          id: "gpt-5.3-codex",
+          label: "GPT-5.3-Codex",
+          thinking: { type: "enum", options: ["low", "medium", "high", "xhigh"] },
+        },
+        {
+          id: "auto",
+          label: "Auto Model",
+          thinking: { type: "none" },
+        },
+      ],
+      modes: [],
+      thinking: { type: "manual", arg: "--reasoning-effort" },
+      strategies_used: [],
+      fetched_at: "",
+      source: "cache" as const,
+      message: null,
+    };
+    expect(thinkingChoices(catalog, "claude-opus-5")).toEqual([
+      "off",
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max",
+    ]);
+    expect(thinkingChoices(catalog, "gpt-5.3-codex")).toEqual([
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+    ]);
+    expect(thinkingChoices(catalog, "auto")).toEqual([]);
+    const opusOptions = catalogToConfigOptions(catalog, "claude-opus-5", "high");
+    expect(opusOptions.find((item) => item.id === "thinking")?.options.map((item) => item.name)).toEqual([
+      "Off",
+      "Low",
+      "Medium",
+      "High",
+      "Extra high",
+      "Max",
+    ]);
+    expect(thinkingLevelLabel("xhigh")).toBe("Extra high");
+    expect(
+      thinkingChoices(
+        {
+          ...catalog,
+          models: [
+            ...catalog.models,
+            {
+              id: "kimi-k3",
+              label: "Kimi K3 (Droid Core)",
+              thinking: { type: "none" },
+            },
+          ],
+        },
+        "kimi-k3",
+      ),
+    ).toEqual([]);
+  });
+
+  it("puts ACP reasoning-effort options on the trailing thinking control", () => {
+    expect(
+      isComposerTrailingConfigOption({ id: "reasoning_effort", category: "thinking" }),
+    ).toBe(true);
+    expect(isThinkingConfigId("reasoningEffort")).toBe(true);
+  });
+
   it("builds model and thinking config options from the catalog", () => {
     const options = catalogToConfigOptions(
       {
@@ -250,6 +354,27 @@ describe("agent chat helpers", () => {
       workspace_id: "ws-1",
       project_id: "proj-1",
     });
+  });
+
+  it("overlays pending values only when they are advertised options", () => {
+    const advertised = [
+      {
+        id: "models",
+        category: "model",
+        type: "select",
+        currentValue: "opus",
+        options: [
+          { value: "opus", name: "Opus" },
+          { value: "grok-4", name: "Grok" },
+        ],
+      },
+    ];
+    expect(
+      overlayPendingConfigValues(advertised, { modelId: "grok-4" })[0]?.currentValue,
+    ).toBe("grok-4");
+    expect(
+      overlayPendingConfigValues(advertised, { modelId: "catalog-opus" })[0]?.currentValue,
+    ).toBe("opus");
   });
 });
 

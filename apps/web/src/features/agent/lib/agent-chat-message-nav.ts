@@ -4,6 +4,30 @@ export type UserMessageNavRect = {
   bottom: number;
 };
 
+export type TranscriptMeasurement = {
+  start: number;
+  size: number;
+};
+
+/** Viewport-relative user-message rects from the virtualizer cache (off-screen rows included). */
+export function userMessageRectsFromMeasurements(
+  userMessageIndices: readonly number[],
+  measurements: ReadonlyArray<TranscriptMeasurement | undefined>,
+  scrollTop: number,
+): UserMessageNavRect[] {
+  const rects: UserMessageNavRect[] = [];
+  for (const messageIndex of userMessageIndices) {
+    const measurement = measurements[messageIndex];
+    if (!measurement) continue;
+    rects.push({
+      messageIndex,
+      top: measurement.start - scrollTop,
+      bottom: measurement.start + measurement.size - scrollTop,
+    });
+  }
+  return rects;
+}
+
 /** Last user prompt in view, or the last one already scrolled past if none remain in view. */
 export function resolveActiveUserMessageIndex(
   items: readonly UserMessageNavRect[],

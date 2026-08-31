@@ -1,8 +1,10 @@
 import { describe, expect, it } from "bun:test";
 import {
+  clockFromElapsedMs,
   formatUserMessageTime,
   formatWorkDuration,
   formatWorkedAt,
+  snapshotLiveElapsedMs,
   thinkingBlockDurationMs,
   thinkingDurationSeconds,
 } from "@/features/agent/lib/agent-chat-timing";
@@ -13,6 +15,65 @@ describe("formatWorkDuration", () => {
     expect(formatWorkDuration(14_000)).toBe("14s");
     expect(formatWorkDuration(15 * 60_000 + 23_000)).toBe("15m23s");
     expect(formatWorkDuration(3600_000 + 20 * 60_000 + 32_000)).toBe("1h20m32s");
+  });
+});
+
+describe("snapshotLiveElapsedMs", () => {
+  it("uses the server worked_ms on a streaming assistant as the source of truth", () => {
+    expect(
+      snapshotLiveElapsedMs({
+        running_turn_started_at: "2026-08-30T00:00:00.000Z",
+        messages: [
+          {
+            id: "a1",
+            role: "assistant",
+            parts: [{ type: "text", text: "hi" }],
+            streaming: true,
+            worked_ms: 14_000,
+            thinking_ms: 4_000,
+          },
+        ],
+      }, Date.parse("2026-08-30T00:00:30.000Z")),
+    ).toBe(14_000);
+  });
+
+  it("falls back to running_turn_started_at when worked_ms is missing", () => {
+    const now = Date.parse("2026-08-30T00:00:20.000Z");
+    expect(
+      snapshotLiveElapsedMs({
+        running_turn_started_at: "2026-08-30T00:00:00.000Z",
+        messages: [
+          {
+            id: "a1",
+            role: "assistant",
+            parts: [{ type: "thinking", text: "hmm" }],
+            streaming: true,
+          },
+        ],
+      }, now),
+    ).toBe(20_000);
+  });
+
+  it("returns null for a settled history snapshot", () => {
+    expect(
+      snapshotLiveElapsedMs({
+        running_turn_started_at: null,
+        messages: [
+          {
+            id: "a1",
+            role: "assistant",
+            parts: [{ type: "text", text: "done" }],
+            streaming: false,
+            worked_ms: 14_000,
+          },
+        ],
+      }),
+    ).toBeNull();
+  });
+
+  it("builds a local clock that continues from the server elapsed", () => {
+    const now = 1_000_000;
+    expect(clockFromElapsedMs(14_000, now)).toBe(now - 14_000);
   });
 });
 

@@ -126,7 +126,6 @@ import {
 interface WelcomePageProps {
   onAddProject?: () => void;
   onConnectAgent?: () => void;
-  onStartAgentChat?: () => void;
   onClose?: () => void;
   className?: string;
 }
@@ -134,7 +133,6 @@ interface WelcomePageProps {
 const WelcomePage: React.FC<WelcomePageProps> = ({
   onAddProject,
   onConnectAgent,
-  onStartAgentChat,
   onClose,
   className,
 }) => {
@@ -1355,18 +1353,6 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
             onAddProject={onAddProject}
             projectCount={projects.length}
           />
-          {onStartAgentChat ? (
-            <div className="mt-4 flex justify-center">
-              <button
-                type="button"
-                id="welcome-start-agent-chat"
-                className="text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-                onClick={onStartAgentChat}
-              >
-                {t("startAgentChat")}
-              </button>
-            </div>
-          ) : null}
         </form>
       </div>
     </div>

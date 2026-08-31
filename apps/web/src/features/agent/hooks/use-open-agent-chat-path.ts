@@ -7,10 +7,14 @@ import { useCenterPaintContextId } from "@/app-shell/center-space/use-center-pai
 import { useEditorStore } from "@/features/editor/store/use-editor-store";
 import { useAgentChatCwd, useAgentChatPathRoots } from "../components/agent-chat-cwd-context";
 import {
+  agentChatOpenNeedsKindProbe,
   agentChatPathLooksLikeDirectory,
   resolveAgentChatOpenableFile,
 } from "@/features/agent/lib/agent-chat-file-links";
 import { resolveAgentChatPathKind } from "@/features/agent/lib/agent-chat-path-kind";
+import { collectCachedFileTrees } from "@/features/files/lib/file-tree-cache";
+import { lookupPathInFileTrees } from "@/features/files/lib/file-tree-lookup";
+import type { DiffLineRange } from "@/features/agent/lib/tool-results/diff-stats";
 
 export type AgentChatResolvedPathKind = "pending" | "file" | "directory" | "missing";
 
@@ -53,29 +57,52 @@ export function useOpenAgentChatWorkspacePath() {
 
   return useCallback(async (
     rawPath: string,
-    options?: { line?: number; preview?: boolean; isDir?: boolean },
+    options?: {
+      line?: number;
+      preview?: boolean;
+      isDir?: boolean;
+      selectRanges?: DiffLineRange[];
+    },
   ) => {
     if (!paintContextId) return;
     const openable = resolveAgentChatOpenableFile(rawPath, cwd, roots);
     if (!openable) return;
 
+    const revealDirectory = () => {
+      requestFileTreeReveal(openable.path, paintContextId);
+      activateCenterChromeTab(paintContextId, FILES_TAB_VALUE, { placement: "focused" });
+    };
+
     if (options?.isDir === true) {
-      requestFileTreeReveal(openable.path, paintContextId);
-      activateCenterChromeTab(paintContextId, FILES_TAB_VALUE, { placement: "focused" });
+      revealDirectory();
       return;
     }
 
-    const kind = await resolveAgentChatPathKind(openable.path);
-    if (kind === "directory") {
-      requestFileTreeReveal(openable.path, paintContextId);
-      activateCenterChromeTab(paintContextId, FILES_TAB_VALUE, { placement: "focused" });
-      return;
+    if (options?.isDir !== false) {
+      const cachedKind = lookupPathInFileTrees(openable.path, collectCachedFileTrees());
+      if (cachedKind === "directory") {
+        revealDirectory();
+        return;
+      }
+      if (agentChatOpenNeedsKindProbe(openable.path, {
+        isDir: options?.isDir,
+        cachedKind,
+      })) {
+        const kind = await resolveAgentChatPathKind(openable.path);
+        if (kind !== "file") {
+          revealDirectory();
+          return;
+        }
+      }
     }
-    if (kind !== "file") return;
 
+    const selectRanges = options?.selectRanges?.filter(
+      (range) => range.endLine >= range.startLine,
+    );
     void openFile(openable.path, paintContextId, {
       preview: options?.preview ?? false,
-      line: options?.line ?? openable.line,
+      line: selectRanges?.length ? undefined : options?.line ?? openable.line,
+      selectRanges,
     });
     activateCenterChromeTab(paintContextId, openable.path, { placement: "focused" });
   }, [

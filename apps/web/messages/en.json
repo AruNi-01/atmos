@@ -2866,6 +2866,8 @@
         "searchAgents": "Search agents",
         "chooseModel": "Choose model",
         "chooseMode": "Mode",
+        "modelLocked": "This agent cannot switch models in the current session",
+        "modeLocked": "This agent cannot switch modes in the current session",
         "backToAgents": "Agents",
         "loadingModels": "Loading models",
         "thinkingFaster": "Faster",
@@ -2884,6 +2886,12 @@
           "searchPlaceholder": "Search",
           "searchWorkspaces": "Search workspaces",
           "noResults": "No results"
+        },
+        "attachments": {
+          "removeNamed": "Remove {filename}",
+          "preview": "Preview {filename}",
+          "imageFallback": "Image",
+          "fileFallback": "File"
         }
       },
       "terminalBlock": {
@@ -2957,6 +2965,11 @@
           "label": "Process",
           "collapseAria": "Collapse",
           "collapseLabel": "Collapse"
+        },
+        "files": {
+          "changed": "{count, plural, one {# file changed} other {# files changed}}",
+          "showMore": "… Show {count} more",
+          "showLess": "Show less"
         }
       },
       "toolGroup": {
@@ -3061,6 +3074,13 @@
         "reorderAria": "Reorder queued message",
         "editAria": "Edit queued message",
         "deleteAria": "Delete queued message"
+      },
+      "backgroundCommands": {
+        "title": "Background",
+        "running": "Running",
+        "runningCount": "{count} running",
+        "emptyOutput": "No output yet",
+        "commandAria": "Show background command output"
       },
       "authDialog": {
         "title": "Agent authentication required",
@@ -3213,7 +3233,6 @@
         "restoringSession": "Restoring session...",
         "empty": {
           "resumedTitle": "Session resumed",
-          "startTitle": "Start a chat",
           "resumedDescription": "This agent restored the session context. Send a message to continue.",
           "startDescription": "Type a message below to begin chatting"
         },
@@ -3238,7 +3257,16 @@
           "resuming": "Resuming session...",
           "resumed": "Resumed session",
           "resumedIn": "Resumed session in {duration}",
-          "resumeFailed": "Failed to resume session"
+          "resumeFailed": "Failed to resume session",
+          "switchedModel": "Switched model to {to}",
+          "switchedModelFrom": "Switched model from {from} to {to}",
+          "switchedMode": "Switched mode to {to}",
+          "switchedModeFrom": "Switched mode from {from} to {to}",
+          "switchedBoth": "Switched model to {model} · mode to {mode}",
+          "hints": {
+            "modelSwitchFailed": "Couldn't switch model in this session",
+            "modeSwitchFailed": "Couldn't switch mode in this session"
+          }
         }
       },
       "selector": {
@@ -3868,7 +3896,6 @@
   },
   "Welcome": {
     "components": {
-      "startAgentChat": "Start Chat",
       "helpers": {
         "placeholderTemplates": {
           "makeInside": "What should {agent} make inside {project}?",
@@ -7162,9 +7189,10 @@
         "reading": "Reading",
         "writing": "Writing",
         "searching": "Searching",
-        "runningCommand": "Running command",
+        "executing": "Executing",
         "fetching": "Fetching",
         "deleting": "Deleting",
+        "moving": "Moving",
         "thinking": "Thinking",
         "working": "Working",
         "streaming": "Streaming",
@@ -8568,9 +8596,12 @@
     "markdownRenderer": {
       "mermaid": {
         "title": "Mermaid",
-        "switchToAscii": "Switch to ASCII",
-        "switchToSvg": "Switch to SVG",
+        "modeGroup": "Diagram view",
+        "modeAscii": "ASCII",
+        "modeSource": "Source",
+        "modePreview": "Preview",
         "clickToEnlarge": "Click to enlarge diagram",
+        "rendering": "Rendering...",
         "renderingAscii": "Rendering ASCII...",
         "errors": {
           "renderFailed": "Mermaid render failed",

@@ -2,7 +2,7 @@
 
 import type { ComponentPropsWithoutRef, ReactNode } from "react";
 import { useTranslations } from "next-intl";
-import { MessageCircleMore, MessageCirclePlus } from "lucide-react";
+import { Box, Layers, MessageCircleMore, MessageCirclePlus, TriangleAlert } from "lucide-react";
 import {
   MessageResponse,
   Reasoning,
@@ -83,7 +83,10 @@ export function AgentPartView({
             return <span>{t("thoughtFor", { duration: formatWorkDuration(seconds * 1000) })}</span>;
           }}
         />
-        <ReasoningContent className="break-words prose-sm dark:prose-invert max-w-full min-w-0">
+        <ReasoningContent
+          className="break-words prose-sm dark:prose-invert max-w-full min-w-0"
+          components={reviewComponents as never}
+        >
           {part.text}
         </ReasoningContent>
       </Reasoning>
@@ -100,6 +103,14 @@ export function AgentPartView({
 
   if (part.type === "session_lifecycle") {
     return <SessionLifecycleView part={part} />;
+  }
+
+  if (part.type === "session_config_change") {
+    return <SessionConfigChangeView part={part} />;
+  }
+
+  if (part.type === "session_hint") {
+    return <SessionHintView part={part} />;
   }
 
   if (part.type === "tool_call") {
@@ -151,9 +162,68 @@ function SessionLifecycleView({
   );
 }
 
+function SessionConfigChangeView({
+  part,
+}: {
+  part: Extract<AgentPart, { type: "session_config_change" }>;
+}) {
+  const t = useTranslations("Agent.components.chatPanel.session");
+  const model = part.model?.to?.trim() || "";
+  const mode = part.mode?.to?.trim() || "";
+  const modelFrom = part.model?.from?.trim() || "";
+  const modeFrom = part.mode?.from?.trim() || "";
+  const Icon = model && !mode ? Box : Layers;
+  const label = model && mode
+    ? t("switchedBoth", { model, mode })
+    : model
+      ? modelFrom
+        ? t("switchedModelFrom", { from: modelFrom, to: model })
+        : t("switchedModel", { to: model })
+      : modeFrom
+        ? t("switchedModeFrom", { from: modeFrom, to: mode })
+        : t("switchedMode", { to: mode });
+
+  return (
+    <div className="inline-flex min-w-0 max-w-full items-center gap-2 py-0.5 text-left text-sm leading-5 text-muted-foreground">
+      <span className="flex size-4 shrink-0 items-center justify-center [&>svg]:size-3.5">
+        <Icon />
+      </span>
+      <span className="min-w-0 truncate">{label}</span>
+    </div>
+  );
+}
+
+function SessionHintView({
+  part,
+}: {
+  part: Extract<AgentPart, { type: "session_hint" }>;
+}) {
+  const t = useTranslations("Agent.components.chatPanel.session");
+  const label = part.kind === "model_switch_failed"
+    ? t("hints.modelSwitchFailed")
+    : part.kind === "mode_switch_failed"
+      ? t("hints.modeSwitchFailed")
+      : part.kind;
+  const toneClass =
+    part.tone === "warning"
+      ? "text-amber-500"
+      : part.tone === "error"
+        ? "text-destructive"
+        : "text-muted-foreground";
+
+  return (
+    <div className={cn("inline-flex min-w-0 max-w-full items-center gap-2 py-0.5 text-left text-sm leading-5", toneClass)}>
+      <span className="flex size-4 shrink-0 items-center justify-center [&>svg]:size-3.5">
+        <TriangleAlert />
+      </span>
+      <span className="min-w-0 truncate">{label}</span>
+    </div>
+  );
+}
+
 export function isRenderedPart(part: AgentPart): boolean {
   if (part.type === "plan" || part.type === "attachment") return false;
   if (part.type === "text") return Boolean(part.text);
   if (part.type === "thinking") return Boolean(part.text);
-  return part.type === "tool_call" || part.type === "error" || part.type === "session_lifecycle";
+  return part.type === "tool_call" || part.type === "error" || part.type === "session_lifecycle" || part.type === "session_config_change" || part.type === "session_hint";
 }

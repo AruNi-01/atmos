@@ -1,5 +1,11 @@
 import { tryRelativePathUnderRoot } from "@/shared/lib/path-under-root";
 import { normalizeFsPath } from "@/features/agent/lib/tool-results/parse-tool-result";
+import { collectCachedFileTrees } from "@/features/files/lib/file-tree-cache";
+import {
+  findPathInFileTrees,
+  lookupPathInFileTrees,
+  type CachedFileTree,
+} from "@/features/files/lib/file-tree-lookup";
 
 export type AgentChatWorkspaceFileRef = {
   path: string;
@@ -38,6 +44,16 @@ export function agentChatPathLooksLikeDirectory(path: string): boolean {
   const lastDot = name.lastIndexOf(".");
   if (lastDot <= 0) return true;
   return !/^[A-Za-z0-9]{1,12}$/.test(name.slice(lastDot + 1));
+}
+
+/** True when opening must wait on a disk stat (ambiguous directory-like paths). */
+export function agentChatOpenNeedsKindProbe(
+  path: string,
+  options?: { isDir?: boolean; cachedKind?: "file" | "directory" | "absent" | null },
+): boolean {
+  if (options?.isDir === true || options?.isDir === false) return false;
+  if (options?.cachedKind === "file" || options?.cachedKind === "directory") return false;
+  return agentChatPathLooksLikeDirectory(path);
 }
 
 function joinUnderCwd(cwd: string, relative: string): string | null {
@@ -88,11 +104,28 @@ function resolveAbsoluteUnderRoots(
   return null;
 }
 
+function locatePathInTrees(
+  normalized: string,
+  absolute: string,
+  roots: string[],
+  trees: CachedFileTree[],
+): string | null {
+  const underRoot = (path: string) =>
+    roots.some((root) => tryRelativePathUnderRoot(path, root) != null);
+  const exactKind = lookupPathInFileTrees(absolute, trees);
+  if (exactKind === "file" || exactKind === "directory") return absolute;
+  if (normalized === absolute || normalized.startsWith("/")) return null;
+  const suffix = findPathInFileTrees(normalized, trees);
+  if (suffix && underRoot(suffix.path)) return suffix.path;
+  return null;
+}
+
 function parseFileRef(
   raw: string,
   cwd: string | null | undefined,
   roots: (string | null | undefined)[] | undefined,
   requireFileToken: boolean,
+  trees?: CachedFileTree[],
 ): AgentChatWorkspaceFileRef | null {
   const allowed = uniqueNormalizedRoots(cwd, roots);
   if (allowed.roots.length === 0) return null;
@@ -118,23 +151,32 @@ function parseFileRef(
 
   const absolute = resolveAbsoluteUnderRoots(normalized, allowed.cwd, allowed.roots);
   if (!absolute) return null;
-  return line ? { path: absolute, line } : { path: absolute };
+  const located = locatePathInTrees(
+    normalized,
+    absolute,
+    allowed.roots,
+    trees ?? collectCachedFileTrees(),
+  );
+  const path = located ?? absolute;
+  return line ? { path, line } : { path };
 }
 
 export function resolveAgentChatWorkspaceFile(
   raw: string,
   cwd: string | null | undefined,
   roots?: (string | null | undefined)[],
+  trees?: CachedFileTree[],
 ): AgentChatWorkspaceFileRef | null {
-  return parseFileRef(raw, cwd, roots, true);
+  return parseFileRef(raw, cwd, roots, true, trees);
 }
 
 export function resolveAgentChatOpenableFile(
   raw: string,
   cwd: string | null | undefined,
   roots?: (string | null | undefined)[],
+  trees?: CachedFileTree[],
 ): AgentChatWorkspaceFileRef | null {
-  return parseFileRef(raw, cwd, roots, false);
+  return parseFileRef(raw, cwd, roots, false, trees);
 }
 
 export function displayAgentChatFilePath(

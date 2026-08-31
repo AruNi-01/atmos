@@ -41,6 +41,33 @@ describe("classifyTool", () => {
       type: "tool",
       kind: "other",
     });
+    expect(classifyTool("Tool", null, { type: "Bash", command: "ls -la ~/.grok" })).toEqual({
+      type: "tool",
+      kind: "execute",
+    });
+    expect(classifyTool("Tool", null, { command: "gh pr view 275" })).toEqual({
+      type: "tool",
+      kind: "execute",
+    });
+    expect(classifyTool("run_script")).toEqual({ type: "tool", kind: "execute" });
+    expect(classifyTool("Tool", "todo_write", { merge: true })).toEqual({ type: "plan" });
+    expect(classifyTool("Tool", null, {
+      merge: true,
+      todos: [{ content: "Inspect", status: "pending" }],
+    })).toEqual({ type: "plan" });
+    expect(classifyTool("Tool", "[bg] sleep 60", { command: "sleep 60" })).toEqual({
+      type: "tool",
+      kind: "execute",
+    });
+    expect(classifyTool("Execute", "Execute `sleep 60`", {
+      variant: "Bash",
+      command: "sleep 60",
+      is_background: true,
+    })).toEqual({ type: "tool", kind: "execute" });
+    expect(classifyTool("TaskOutput", "Get task output: abc", {
+      variant: "TaskOutput",
+      task_ids: ["abc"],
+    })).toEqual({ type: "hide" });
   });
 
   it("reads thinking text and todo plans from tool payloads", () => {

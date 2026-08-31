@@ -149,6 +149,11 @@ export function AssistantMessageView({
 
   const canCollapse = hasCollapsibleAssistantProcess(message);
   const [stepsExpanded, setStepsExpanded] = useState(false);
+  const [processMounted, setProcessMounted] = useState(false);
+
+  if (stepsExpanded && !processMounted) {
+    setProcessMounted(true);
+  }
 
   const renderPart = (part: AgentPart, i: number) => (
     <AgentPartView
@@ -167,23 +172,17 @@ export function AssistantMessageView({
       const isTail = list[list.length - 1] === segment;
       const key = segment.parts[0]?.tool_call_id ?? segment.origIndexes.join("-");
       return (
-        <AgentStreamReveal key={key} enabled={streaming}>
-          <AgentToolGroupView
-            parts={segment.parts}
-            autoOpen={streaming && (isTail || toolGroupHasRunning(segment.parts))}
-            registryId={registryId}
-          />
-        </AgentStreamReveal>
+        <AgentToolGroupView
+          key={key}
+          parts={segment.parts}
+          autoOpen={streaming && (isTail || toolGroupHasRunning(segment.parts))}
+          registryId={registryId}
+        />
       );
-    }
-    const isProcess = segment.part.type !== "text";
-    const content = renderPart(segment.part, segment.origIndex);
-    if (!isProcess) {
-      return <React.Fragment key={segment.origIndex}>{content}</React.Fragment>;
     }
     return (
       <AgentStreamReveal key={segment.origIndex} enabled={streaming}>
-        {content}
+        {renderPart(segment.part, segment.origIndex)}
       </AgentStreamReveal>
     );
   };
@@ -210,7 +209,9 @@ export function AssistantMessageView({
             />
           </CollapsibleTrigger>
           <CollapsibleContent className="space-y-2 pt-1">
-            {processSegments.map((segment) => renderSegment(segment, processSegments))}
+            {stepsExpanded
+              ? processSegments.map((segment) => renderSegment(segment, processSegments))
+              : null}
           </CollapsibleContent>
           <ProcessCollapseRail
             expanded={stepsExpanded}

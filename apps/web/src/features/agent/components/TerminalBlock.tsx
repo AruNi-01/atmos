@@ -7,7 +7,7 @@ import {
 } from "@workspace/ui";
 import type { AgentToolCallPart } from "@/features/agent/lib/agent-tool-kind";
 import { getTerminalCommandString, getToolKindIcon } from "../lib/chat-helpers";
-import { isGenericToolLabel } from "../lib/agent-tool-kind";
+import { isBackgroundToolCall, isGenericToolLabel } from "../lib/agent-tool-kind";
 import {
   extractOutputText,
   unwrapVendorToolEnvelope,
@@ -51,6 +51,7 @@ export function TerminalBlock({
   const output = terminalOutput(part.output);
   const status = part.status ?? undefined;
   const running = (status ?? "").toLowerCase() === "running";
+  const background = isBackgroundToolCall(part);
   const failed = (status ?? "").toLowerCase() === "failed";
   const title = commandStr
     ? `${t("terminalBlock.title")}: ${collapsedCommand(commandStr)}`
@@ -66,6 +67,7 @@ export function TerminalBlock({
       title={title}
       titleTooltip={commandStr || title}
       status={status}
+      shimmer={running && !background}
     >
       {commandStr || output ? (
         <div className="max-h-96 overflow-y-auto">

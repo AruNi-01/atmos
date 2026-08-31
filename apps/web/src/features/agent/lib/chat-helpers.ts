@@ -7,7 +7,14 @@ import zhMessages from "../../../../messages/zh.json";
 import type { AcpPermissionOption } from "@/features/agent/hooks/use-agent-session";
 import type { AgentMessage, AgentPart, AgentToolKind } from "@atmos/api-types/ws/dto/agent-chat";
 import { currentAppLocale } from "@/shared/lib/current-app-locale";
-import { isGenericToolLabel, parseLoadedToolNames } from "@/features/agent/lib/agent-tool-kind";
+import {
+  classifyTool,
+  isActiveToolStatus,
+  isGenericToolLabel,
+  parseLoadedToolNames,
+  type AgentToolCallPart,
+} from "@/features/agent/lib/agent-tool-kind";
+import { isLiveBackgroundToolCall } from "@/features/agent/lib/agent/background-command";
 
 export interface PendingPermission {
   request_id: string;
@@ -55,9 +62,10 @@ function chatHelpersT(
     | "activity.reading"
     | "activity.writing"
     | "activity.searching"
-    | "activity.runningCommand"
+    | "activity.executing"
     | "activity.fetching"
     | "activity.deleting"
+    | "activity.moving"
     | "activity.thinking"
     | "activity.working"
     | "activity.streaming"
@@ -466,20 +474,64 @@ export function downloadChatMarkdown(filename: string, markdown: string) {
 }
 
 function toolStatusIsActive(status?: string | null): boolean {
-  const value = (status ?? "").trim().toLowerCase();
-  return value === "running" || value === "in_progress" || value === "pending";
+  return isActiveToolStatus(status);
+}
+
+export function runningBackgroundTools(messages: AgentMessage[]): AgentToolCallPart[] {
+  const found: AgentToolCallPart[] = [];
+  const seen = new Set<string>();
+  for (const message of messages) {
+    if (message.role !== "assistant") continue;
+    for (const part of message.parts) {
+      if (part.type !== "tool_call") continue;
+      if (!isLiveBackgroundToolCall(part)) continue;
+      if (seen.has(part.tool_call_id)) continue;
+      seen.add(part.tool_call_id);
+      found.push(part);
+    }
+  }
+  return found;
+}
+
+function looksLikeCommandTitle(title?: string | null): boolean {
+  const value = (title ?? "").trim();
+  if (!value) return false;
+  return /^\[bg\]/i.test(value) || /^execute\s*:/i.test(value);
+}
+
+function resolvedActivityKind(part: Extract<AgentPart, { type: "tool_call" }>): AgentToolKind {
+  if (part.kind !== "other") return part.kind;
+  const classified = classifyTool(part.name, null, part.input, part.output);
+  if (classified.type === "tool" && classified.kind !== "other") return classified.kind;
+  if (looksLikeCommandTitle(part.title)) return "execute";
+  return "other";
+}
+
+function activityLabelForKind(kind: AgentToolKind): string {
+  switch (kind) {
+    case "read":
+      return chatHelpersT("activity.reading", "Reading");
+    case "edit":
+      return chatHelpersT("activity.writing", "Writing");
+    case "search":
+      return chatHelpersT("activity.searching", "Searching");
+    case "execute":
+      return chatHelpersT("activity.executing", "Executing");
+    case "fetch":
+      return chatHelpersT("activity.fetching", "Fetching");
+    case "delete":
+      return chatHelpersT("activity.deleting", "Deleting");
+    case "move":
+      return chatHelpersT("activity.moving", "Moving");
+    case "skill":
+    case "subagent":
+    case "other":
+      return chatHelpersT("activity.working", "Working");
+  }
 }
 
 function activityForToolPart(part: Extract<AgentPart, { type: "tool_call" }>): AgentActivity {
-  const label =
-    part.kind === "read" ? chatHelpersT("activity.reading", "Reading") :
-      part.kind === "edit" ? chatHelpersT("activity.writing", "Writing") :
-        part.kind === "search" ? chatHelpersT("activity.searching", "Searching") :
-          part.kind === "execute" ? chatHelpersT("activity.runningCommand", "Running command") :
-            part.kind === "fetch" ? chatHelpersT("activity.fetching", "Fetching") :
-              part.kind === "delete" ? chatHelpersT("activity.deleting", "Deleting") :
-                part.title || chatHelpersT("activity.working", "Working");
-  return { busy: true, label, kind: "working" };
+  return { busy: true, label: activityLabelForKind(resolvedActivityKind(part)), kind: "working" };
 }
 
 export function deriveAgentActivity(messages: AgentMessage[], waitingFirst: boolean): AgentActivity {
@@ -503,7 +555,11 @@ export function deriveAgentActivity(messages: AgentMessage[], waitingFirst: bool
 
   for (let i = last.parts.length - 1; i >= 0; i--) {
     const part = last.parts[i];
-    if (part.type === "tool_call" && toolStatusIsActive(part.status)) {
+    if (
+      part.type === "tool_call"
+      && toolStatusIsActive(part.status)
+      && !isLiveBackgroundToolCall(part)
+    ) {
       return activityForToolPart(part);
     }
   }
@@ -512,6 +568,7 @@ export function deriveAgentActivity(messages: AgentMessage[], waitingFirst: bool
     for (let i = last.parts.length - 1; i >= 0; i--) {
       const part = last.parts[i];
       if (part.type === "tool_call") {
+        if (isLiveBackgroundToolCall(part)) continue;
         return activityForToolPart(part);
       }
       if (part.type === "thinking") {

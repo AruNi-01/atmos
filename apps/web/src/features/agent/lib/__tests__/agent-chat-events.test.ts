@@ -25,6 +25,15 @@ describe("agent chat fold stays on AgentMessage", () => {
     expect(foldMessagesFromEvent([], event, "chat-1")).toEqual([]);
   });
 
+  it("config_updated does not create a message", () => {
+    const event = chatEvent("chat-1", 1, {
+      type: "config_updated",
+      model: "grok-4",
+      mode: "agent",
+    });
+    expect(foldMessagesFromEvent([], event, "chat-1")).toEqual([]);
+  });
+
   it("two subscribers fold the same send into the same message id", () => {
     const event = chatEvent("chat-1", 1, {
       type: "user_message",
@@ -39,6 +48,26 @@ describe("agent chat fold stays on AgentMessage", () => {
     expect(textFromParts(center[0]!.parts)).toBe("hello-s16");
     expect(center[0]?.created_at).toBeUndefined();
     expect(foldMessagesFromEvent(center, event, "other")).toEqual(center);
+  });
+
+  it("folds user message attachments onto the sent row", () => {
+    const event = chatEvent("chat-1", 1, {
+      type: "user_message",
+      turn_id: "t1",
+      message_id: "msg-1",
+      text: "look at this",
+      attachments: ["/tmp/chats/a/attachments/shot.png", "/tmp/notes.pdf"],
+    });
+    const folded = foldMessagesFromEvent([], event, "chat-1");
+    expect(folded[0]?.parts).toEqual([
+      { type: "text", text: "look at this" },
+      {
+        type: "attachment",
+        path: "/tmp/chats/a/attachments/shot.png",
+        name: "shot.png",
+      },
+      { type: "attachment", path: "/tmp/notes.pdf", name: "notes.pdf" },
+    ]);
   });
 
   it("keeps the user message created_at from the live event", () => {
@@ -271,6 +300,174 @@ describe("agent chat fold stays on AgentMessage", () => {
     });
   });
 
+  it("promotes grok todo_write tools into a plan and drops the leftover card", () => {
+    const started = chatEvent("chat-1", 1, {
+      type: "tool_call_started",
+      tool_call: {
+        tool_call_id: "t-todo",
+        name: "Tool",
+        title: "todo_write",
+        status: "running",
+        input: { merge: true },
+      },
+    });
+    const updated = chatEvent("chat-1", 2, {
+      type: "tool_call_updated",
+      tool_call: {
+        tool_call_id: "t-todo",
+        name: "Tool",
+        title: "todo_write",
+        status: "running",
+        input: {
+          merge: true,
+          todos: [
+            { content: "Inspect", status: "in_progress" },
+            { content: "Patch", status: "pending" },
+          ],
+        },
+      },
+    });
+    let messages = foldMessagesFromEvent([], started, "chat-1");
+    expect(messages[0]?.parts.every((part) => part.type !== "tool_call")).toBe(true);
+    messages = foldMessagesFromEvent(messages, updated, "chat-1");
+    expect(messages[0]?.parts.map((part) => part.type)).toEqual(["plan"]);
+    expect(currentPlanFromMessages(messages)).toEqual({
+      entries: [
+        { content: "Inspect", priority: "medium", status: "in_progress" },
+        { content: "Patch", priority: "medium", status: "pending" },
+      ],
+    });
+  });
+
+  it("completes stuck tools when the turn ends but keeps grok background commands running", () => {
+    const todo = chatEvent("chat-1", 1, {
+      type: "tool_call_started",
+      tool_call: {
+        tool_call_id: "t-other",
+        name: "Tool",
+        title: "SomeVendorTool",
+        status: "running",
+      },
+    });
+    const bg = chatEvent("chat-1", 2, {
+      type: "tool_call_started",
+      tool_call: {
+        tool_call_id: "t-bg",
+        name: "Tool",
+        title: "[bg] sleep 60",
+        status: "running",
+        input: { command: "sleep 60" },
+      },
+    });
+    const done = chatEvent("chat-1", 3, {
+      type: "turn_completed",
+      turn_id: "t1",
+    });
+    let messages = foldMessagesFromEvent([], todo, "chat-1");
+    messages = foldMessagesFromEvent(messages, bg, "chat-1");
+    messages = foldMessagesFromEvent(messages, done, "chat-1");
+    expect(messages[0]?.streaming).toBe(false);
+    const parts = messages[0]?.parts ?? [];
+    expect(parts.find((part) => part.type === "tool_call" && part.tool_call_id === "t-other"))
+      .toMatchObject({ status: "completed" });
+    expect(parts.find((part) => part.type === "tool_call" && part.tool_call_id === "t-bg"))
+      .toMatchObject({ status: "running" });
+  });
+
+  it("keeps grok background bash live, hides TaskOutput polls, and completes when the task ends", () => {
+    const start = chatEvent("chat-1", 1, {
+      type: "tool_call_started",
+      tool_call: {
+        tool_call_id: "call-bg",
+        name: "Execute",
+        title: "Execute `count`",
+        status: "running",
+        input: {
+          variant: "Bash",
+          command: "count",
+          is_background: true,
+        },
+      },
+    });
+    const started = chatEvent("chat-1", 2, {
+      type: "tool_call_updated",
+      tool_call: {
+        tool_call_id: "call-bg",
+        name: "BackgroundTaskStarted",
+        title: "[bg] count (task-1)",
+        status: "completed",
+        output: {
+          type: "BackgroundTaskStarted",
+          task_id: "task-1",
+          status: "running",
+          command: "count",
+          output_file: "/tmp/terminal/call-bg.log",
+        },
+      },
+    });
+    const stream = chatEvent("chat-1", 3, {
+      type: "tool_call_updated",
+      tool_call: {
+        tool_call_id: "call-bg",
+        name: "Tool",
+        title: "Tool",
+        status: "running",
+        output: { type: "Bash", output: "1\n", command: "count" },
+      },
+    });
+    const poll = chatEvent("chat-1", 4, {
+      type: "tool_call_completed",
+      tool_call: {
+        tool_call_id: "call-poll",
+        name: "TaskOutput",
+        title: "Get task output: task-1",
+        status: "completed",
+        output: {
+          type: "TaskOutput",
+          Result: {
+            task_id: "task-1",
+            command: "count",
+            status: "running",
+            output: "1\n2\n3\n",
+            output_file: "/tmp/terminal/call-bg.log",
+          },
+        },
+      },
+    });
+    const finished = chatEvent("chat-1", 5, {
+      type: "tool_call_completed",
+      tool_call: {
+        tool_call_id: "call-poll-2",
+        name: "TaskOutput",
+        title: "count (task-1)",
+        status: "completed",
+        output: {
+          type: "TaskOutput",
+          Result: {
+            task_id: "task-1",
+            command: "count",
+            status: "completed",
+            exit_code: 0,
+            output: "1\n2\n3\nDONE\n",
+            output_file: "/tmp/terminal/call-bg.log",
+          },
+        },
+      },
+    });
+    let messages = foldMessagesFromEvent([], start, "chat-1");
+    messages = foldMessagesFromEvent(messages, started, "chat-1");
+    messages = foldMessagesFromEvent(messages, stream, "chat-1");
+    messages = foldMessagesFromEvent(messages, poll, "chat-1");
+    const live = messages[0]?.parts.find((part) => part.type === "tool_call" && part.tool_call_id === "call-bg");
+    expect(live).toMatchObject({ type: "tool_call", status: "running", kind: "execute" });
+    expect(messages[0]?.parts.some((part) => part.type === "tool_call" && part.tool_call_id === "call-poll")).toBe(false);
+    messages = foldMessagesFromEvent(messages, finished, "chat-1");
+    const done = messages[0]?.parts.find((part) => part.type === "tool_call" && part.tool_call_id === "call-bg");
+    expect(done).toMatchObject({ status: "completed" });
+    expect(JSON.stringify(done)).toContain("DONE");
+    expect(messages[0]?.parts.some((part) => part.type === "tool_call" && part.name === "TaskOutput")).toBe(false);
+  });
+
   it("folds create and resume session lifecycle onto the current assistant", () => {
     const user = chatEvent("chat-1", 1, {
       type: "user_message",
@@ -314,6 +511,76 @@ describe("agent chat fold stays on AgentMessage", () => {
       action: "create",
       status: "completed",
       duration_ms: 1800,
+    });
+  });
+
+  it("folds session config change onto the current assistant after lifecycle", () => {
+    const user = chatEvent("chat-1", 1, {
+      type: "user_message",
+      turn_id: "t1",
+      message_id: "u1",
+      text: "hi",
+    });
+    const lifecycle = chatEvent("chat-1", 2, {
+      type: "session_lifecycle",
+      turn_id: "t1",
+      message_id: "session-t1",
+      action: "resume",
+      status: "completed",
+    });
+    const change = chatEvent("chat-1", 3, {
+      type: "session_config_change",
+      turn_id: "t1",
+      message_id: "config-t1",
+      model: { from: "opus", to: "grok-4" },
+      mode: { to: "plan" },
+    });
+    let messages = foldMessagesFromEvent([], user, "chat-1");
+    messages = foldMessagesFromEvent(messages, lifecycle, "chat-1");
+    messages = foldMessagesFromEvent(messages, change, "chat-1");
+    expect(messages[1]?.parts.map((part) => part.type)).toEqual([
+      "session_lifecycle",
+      "session_config_change",
+    ]);
+    expect(messages[1]?.parts[1]).toMatchObject({
+      type: "session_config_change",
+      model: { from: "opus", to: "grok-4" },
+      mode: { to: "plan" },
+    });
+  });
+
+  it("folds a session hint onto the current assistant after chrome", () => {
+    const user = chatEvent("chat-1", 1, {
+      type: "user_message",
+      turn_id: "t1",
+      message_id: "u1",
+      text: "hi",
+    });
+    const lifecycle = chatEvent("chat-1", 2, {
+      type: "session_lifecycle",
+      turn_id: "t1",
+      message_id: "session-t1",
+      action: "create",
+      status: "completed",
+    });
+    const hint = chatEvent("chat-1", 3, {
+      type: "session_hint",
+      turn_id: "t1",
+      message_id: "hint-t1-model_switch_failed",
+      tone: "warning",
+      kind: "model_switch_failed",
+    });
+    let messages = foldMessagesFromEvent([], user, "chat-1");
+    messages = foldMessagesFromEvent(messages, lifecycle, "chat-1");
+    messages = foldMessagesFromEvent(messages, hint, "chat-1");
+    expect(messages[1]?.parts.map((part) => part.type)).toEqual([
+      "session_lifecycle",
+      "session_hint",
+    ]);
+    expect(messages[1]?.parts[1]).toMatchObject({
+      type: "session_hint",
+      tone: "warning",
+      kind: "model_switch_failed",
     });
   });
 
