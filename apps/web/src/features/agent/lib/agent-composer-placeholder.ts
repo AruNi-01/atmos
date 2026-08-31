@@ -16,6 +16,17 @@ export function isLiveAgentRuntimeStatus(status: string | null | undefined): boo
   return LIVE_RUNTIME_STATUSES.has((status ?? "").trim());
 }
 
+export function isAgentNewChatLanding({
+  messageCount,
+  isResumingHistory,
+}: {
+  chatId?: string | null;
+  messageCount: number;
+  isResumingHistory: boolean;
+}): boolean {
+  return messageCount === 0 && !isResumingHistory;
+}
+
 export function resolveAgentComposerPlaceholderKind({
   canUseCurrentMode,
   agentName,

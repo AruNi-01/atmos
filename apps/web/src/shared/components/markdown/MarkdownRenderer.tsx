@@ -10,9 +10,10 @@ import rehypeSanitize from 'rehype-sanitize';
 import remarkBreaks from 'remark-breaks';
 import { useTheme } from 'next-themes';
 import { cn } from '@workspace/ui';
-import { Images, ArrowRightLeft, FileDiff, Code } from 'lucide-react';
-import { MermaidViewerModal } from './MermaidViewerModal';
+import { FileDiff, Code } from 'lucide-react';
 import { isMarkdownPatchCode, MarkdownPatchDiff } from './MarkdownPatchDiff';
+import { MermaidBlock } from './MermaidBlock';
+import { isMermaidFenceLanguage } from './mermaid-view';
 import {
   CodeBlock,
   CodeBlockHeader,
@@ -32,6 +33,7 @@ import {
   MARKDOWN_TABLE_TH_CLASS,
   MARKDOWN_TABLE_WRAP_CLASS,
 } from '@/shared/components/markdown/markdown-table';
+import { useIsCodeFenceIncomplete } from 'streamdown';
 
 const LANG_ALIASES: Record<string, string> = {
   sh: 'bash',
@@ -150,176 +152,9 @@ function PlainTextWithLineNumbers({ code }: { code: string }) {
   );
 }
 
-type MermaidOutputMode = 'svg' | 'ascii';
-
-function MermaidBlock({ code, isDark }: { code: string; isDark: boolean }) {
-  const t = useTranslations("shared.markdownRenderer");
-  const mermaidErrorTextRef = useRef({
-    renderFailed: t("mermaid.errors.renderFailed"),
-    failed: t("mermaid.errors.failed"),
-    notLoaded: t("mermaid.errors.notLoaded"),
-  });
-  const [error, setError] = useState<string | null>(null);
-  const [renderedSvg, setRenderedSvg] = useState<string | null>(null);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [outputMode, setOutputMode] = useState<MermaidOutputMode>('svg');
-  const [asciiText, setAsciiText] = useState<string | null>(null);
-  const [asciiError, setAsciiError] = useState<string | null>(null);
-  const [asciiLoading, setAsciiLoading] = useState(false);
-
-  useEffect(() => {
-    mermaidErrorTextRef.current = {
-      renderFailed: t("mermaid.errors.renderFailed"),
-      failed: t("mermaid.errors.failed"),
-      notLoaded: t("mermaid.errors.notLoaded"),
-    };
-  }, [t]);
-
-  useEffect(() => {
-    if (!code?.trim()) return;
-    setError(null);
-    setRenderedSvg(null);
-    let cancelled = false;
-
-    import('mermaid').then((mermaid) => {
-      if (cancelled) return;
-      try {
-        mermaid.default.initialize({
-          startOnLoad: false,
-          theme: isDark ? 'dark' : 'default',
-          securityLevel: 'strict',
-        });
-        const id = `mermaid-${Math.random().toString(36).slice(2)}`;
-        mermaid.default.render(id, code).then(({ svg }) => {
-          if (cancelled) return;
-          setRenderedSvg(svg);
-        }).catch((err: Error) => {
-          if (!cancelled) setError(err.message || mermaidErrorTextRef.current.renderFailed);
-        }).finally(() => {
-          document.querySelectorAll(`body > #${CSS.escape(id)}, body > #d${CSS.escape(id)}`).forEach(el => el.remove());
-        });
-      } catch (err) {
-        setError(err instanceof Error ? err.message : mermaidErrorTextRef.current.failed);
-      }
-    }).catch(() => setError(mermaidErrorTextRef.current.notLoaded));
-
-    return () => { cancelled = true; };
-  }, [code, isDark]);
-
-  const handleToggleMode = useCallback(() => {
-    if (outputMode === 'ascii') {
-      setOutputMode('svg');
-      return;
-    }
-    setOutputMode('ascii');
-    if (asciiText !== null) return;
-
-    setAsciiLoading(true);
-    setAsciiError(null);
-    import('beautiful-mermaid').then(({ renderMermaidAscii }) => {
-      try {
-        const result = renderMermaidAscii(code);
-        setAsciiText(result);
-      } catch (err) {
-        setAsciiError(err instanceof Error ? err.message : t("mermaid.errors.asciiRenderFailed"));
-      } finally {
-        setAsciiLoading(false);
-      }
-    }).catch(() => {
-      setAsciiError(t("mermaid.errors.loadAsciiRendererFailed"));
-      setAsciiLoading(false);
-    });
-  }, [outputMode, asciiText, code, t]);
-
-  if (error) {
-    return (
-      <div className="my-4 p-4 rounded-lg border border-destructive/50 bg-destructive/5 text-destructive text-sm">
-        {error}
-      </div>
-    );
-  }
-
-  return (
-    <>
-      <CodeBlock className="my-4">
-        <CodeBlockHeader>
-          <CodeBlockGroup>
-            <Images className="size-4" />
-            <span className="text-xs uppercase tracking-wider">{t("mermaid.title")}</span>
-          </CodeBlockGroup>
-          <CodeBlockGroup>
-            <button
-              onClick={handleToggleMode}
-              title={outputMode === 'svg' ? t("mermaid.switchToAscii") : t("mermaid.switchToSvg")}
-              className={cn(
-                "flex items-center gap-1 px-2 py-0.5 text-[11px] rounded-md border cursor-pointer",
-                "transition-all duration-200 ease-in-out",
-                "border-neutral-300 dark:border-neutral-600",
-                "text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100",
-                "hover:bg-neutral-100 dark:hover:bg-neutral-800",
-                "active:scale-95"
-              )}
-            >
-              <ArrowRightLeft key={`icon-${outputMode}`} className="size-3 animate-in fade-in-0 duration-200" />
-              <span key={outputMode} className="animate-in fade-in-0 slide-in-from-bottom-1 duration-200">
-                {outputMode === 'svg' ? 'ASCII' : 'SVG'}
-              </span>
-            </button>
-            <CopyButton content={outputMode === 'ascii' && asciiText ? asciiText : code} />
-          </CodeBlockGroup>
-        </CodeBlockHeader>
-
-        <div
-          role="button"
-          tabIndex={0}
-          onClick={() => renderedSvg && outputMode === 'svg' && setModalOpen(true)}
-          onKeyDown={(e) => {
-            if ((e.key === 'Enter' || e.key === ' ') && renderedSvg && outputMode === 'svg') {
-              e.preventDefault();
-              setModalOpen(true);
-            }
-          }}
-          className={cn(
-            "mermaid-container flex justify-center overflow-hidden rounded-lg bg-background p-4",
-            outputMode === 'svg'
-              ? "cursor-pointer hover:opacity-90 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              : "hidden"
-          )}
-          aria-label={t("mermaid.clickToEnlarge")}
-          dangerouslySetInnerHTML={renderedSvg ? { __html: renderedSvg } : undefined}
-        />
-
-        {outputMode === 'ascii' && (
-          <CodeBlockContent className="bg-background">
-            {asciiLoading ? (
-              <div className="flex items-center justify-center py-8 text-muted-foreground text-sm">
-                {t("mermaid.renderingAscii")}
-              </div>
-            ) : asciiError ? (
-              <div className="p-4 text-destructive text-sm">{asciiError}</div>
-            ) : asciiText ? (
-              <pre className="p-4 text-[13px] leading-relaxed overflow-x-auto font-mono whitespace-pre">
-                {asciiText}
-              </pre>
-            ) : null}
-          </CodeBlockContent>
-        )}
-      </CodeBlock>
-
-      {renderedSvg && (
-        <MermaidViewerModal
-          open={modalOpen}
-          onOpenChange={setModalOpen}
-          svgContent={renderedSvg}
-          isDark={isDark}
-        />
-      )}
-    </>
-  );
-}
-
 export function MarkdownCodeBlock({ className, children, ...props }: React.ComponentPropsWithoutRef<'code'>) {
   const t = useTranslations("shared.markdownRenderer");
+  const fenceIncomplete = useIsCodeFenceIncomplete();
   const match = /language-(\w+)/.exec(className || '');
   const language = match ? match[1] : '';
   const codeText = String(children).replace(/\n$/, '');
@@ -358,8 +193,8 @@ export function MarkdownCodeBlock({ className, children, ...props }: React.Compo
     );
   }
 
-  if (language === 'mermaid') {
-    return <MermaidBlock code={codeText} isDark={!!isDark} />;
+  if (isMermaidFenceLanguage(language)) {
+    return <MermaidBlock code={codeText} isDark={!!isDark} fenceIncomplete={fenceIncomplete} />;
   }
 
   if (isMarkdownPatchCode(codeText)) {

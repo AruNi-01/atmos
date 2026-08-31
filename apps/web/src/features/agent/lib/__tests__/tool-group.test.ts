@@ -70,6 +70,30 @@ describe("segmentAssistantParts", () => {
     )).toEqual(["session_lifecycle", "thinking", "tool_call"]);
   });
 
+  it("keeps session config change as its own process row", () => {
+    const parts: AgentPart[] = [
+      { type: "session_config_change", model: { to: "grok-4" }, mode: { to: "plan" } },
+      { type: "thinking", text: "hmm" },
+      tool({ tool_call_id: "t1", kind: "read" }),
+    ];
+    const segments = segmentAssistantParts(parts);
+    expect(segments.map((segment) =>
+      segment.type === "part" ? segment.part.type : segment.type,
+    )).toEqual(["session_config_change", "thinking", "tool_call"]);
+  });
+
+  it("keeps session hints as their own process row", () => {
+    const parts: AgentPart[] = [
+      { type: "session_hint", tone: "warning", kind: "model_switch_failed" },
+      { type: "thinking", text: "hmm" },
+      tool({ tool_call_id: "t1", kind: "read" }),
+    ];
+    const segments = segmentAssistantParts(parts);
+    expect(segments.map((segment) =>
+      segment.type === "part" ? segment.part.type : segment.type,
+    )).toEqual(["session_hint", "thinking", "tool_call"]);
+  });
+
   it("does not split a group on empty thinking or hidden plan parts", () => {
     const parts: AgentPart[] = [
       tool({ tool_call_id: "t1", kind: "read" }),

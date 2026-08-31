@@ -68,7 +68,6 @@ export function NewWorkspaceWelcomeOverlay() {
         <HostedWelcomeGate
           onAddProject={welcomeOverlay.openCreateProject}
           onConnectAgent={welcomeOverlay.connectAgent}
-          onStartAgentChat={welcomeOverlay.startAgentChat}
           onClose={welcomeOverlay.close}
         />
       </div>

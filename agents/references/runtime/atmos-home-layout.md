@@ -17,7 +17,7 @@ Canonical on-disk layout (no legacy root-level secret/config files).
 
   config/               # non-secret preferences
     function_settings.json   # product preferences (not center layout)
-    agent/              # terminal_code_agent.json, acp_registry.json, …
+    agent/              # terminal_code_agent.json, acp_registry.json, chat_prefs.json, …
     llm/providers.json
 
   data/                 # durable product data

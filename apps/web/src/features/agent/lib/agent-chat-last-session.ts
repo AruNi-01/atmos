@@ -27,6 +27,39 @@ export function agentChatInstanceKey(
   return `${getSessionContextKey(workspaceId, projectId, mode)}:instance:${instance}`;
 }
 
+export function nextAgentLastSessionConfig(
+  previous: AgentLastSession | null,
+  input: {
+    registryId: string;
+    modelId?: string | null;
+    thinkingId?: string | null;
+  },
+): { modelId: string | null; thinkingId: string | null } {
+  const sameAgent = previous?.registryId === input.registryId;
+  const pick = (next: string | null | undefined, stored: string | null | undefined) => {
+    const value = next?.trim();
+    if (value) return value;
+    return sameAgent ? stored?.trim() || null : null;
+  };
+  return {
+    modelId: pick(input.modelId, previous?.modelId),
+    thinkingId: pick(input.thinkingId, previous?.thinkingId),
+  };
+}
+
+function lastConfigForRegistry(
+  last: AgentLastSession | null,
+  registryId: string,
+): { modelId: string; thinkingId: string } {
+  if (!registryId || last?.registryId !== registryId) {
+    return { modelId: "", thinkingId: "" };
+  }
+  return {
+    modelId: last.modelId?.trim() ?? "",
+    thinkingId: last.thinkingId?.trim() ?? "",
+  };
+}
+
 export function resolveRestoredAgentChat(input: {
   chatIdProp: string;
   instanceKey?: string | null;
@@ -34,7 +67,7 @@ export function resolveRestoredAgentChat(input: {
   filterLast: AgentLastSession | null;
   installedAgentIds: string[];
   defaultRegistryId: string;
-}): { chatId: string; registryId: string } {
+}): { chatId: string; registryId: string; modelId: string; thinkingId: string } {
   const pickRegistry = (id: string | null | undefined) => {
     const next = id?.trim() ?? "";
     if (!next) return "";
@@ -46,24 +79,30 @@ export function resolveRestoredAgentChat(input: {
     pickRegistry(input.instanceLast?.registryId) ||
     pickRegistry(input.filterLast?.registryId) ||
     pickRegistry(input.defaultRegistryId);
+  const fromInstance = lastConfigForRegistry(input.instanceLast, registryId);
+  const fromFilter = lastConfigForRegistry(input.filterLast, registryId);
+  const modelId = fromInstance.modelId || fromFilter.modelId;
+  const thinkingId = fromInstance.thinkingId || fromFilter.thinkingId;
 
   const fromProp = input.chatIdProp.trim();
   if (fromProp) {
-    return { chatId: fromProp, registryId };
+    return { chatId: fromProp, registryId, modelId, thinkingId };
   }
 
   const instanceChatId = input.instanceLast?.chatId?.trim() ?? "";
   if (instanceChatId) {
-    return { chatId: instanceChatId, registryId };
+    return { chatId: instanceChatId, registryId, modelId, thinkingId };
   }
 
   if (input.instanceKey?.trim()) {
-    return { chatId: "", registryId };
+    return { chatId: "", registryId, modelId, thinkingId };
   }
 
   return {
     chatId: input.filterLast?.chatId?.trim() ?? "",
     registryId,
+    modelId,
+    thinkingId,
   };
 }
 

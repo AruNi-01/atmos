@@ -4,12 +4,9 @@ import React, { useCallback, useState, useEffect, useRef } from "react";
 import { useTranslations } from "next-intl";
 import {
   AgentsPromptInput,
-  Attachments,
-  Attachment,
-  AttachmentPreview,
-  AttachmentRemove,
   PromptInputAddAttachmentsButton,
   PromptInputProvider,
+  cn,
   usePromptInputAttachments,
   usePromptInputController,
   type PromptModel,
@@ -33,23 +30,38 @@ import { stopStreamingMessages } from "@/features/agent/lib/agent-chat-events";
 import { expandAgentComposerText } from "@/features/agent/lib/agent-chat-slash-command";
 import { resolveAgentComposerPlaceholderKind } from "@/features/agent/lib/agent-composer-placeholder";
 import type { AgentActivity } from "../lib/chat-helpers";
+import type { AgentToolCallPart } from "@/features/agent/lib/agent-tool-kind";
 import { PlanBlockView } from "./PlanBlockView";
+import { BackgroundCommandsDock } from "./BackgroundCommandsDock";
 import { MessageQueueDock } from "./MessageQueueDock";
 import { ConfigOptionDropdown } from "./ConfigOptionDropdown";
 import { useAgentComposerPopovers } from "../hooks/use-agent-composer-popovers";
 import type { AgentChatSlashCommand } from "../hooks/use-agent-chat-session";
-import { isComposerTrailingConfigOption } from "../lib/agent-chat-thread";
+import {
+  configKindMatches,
+  isComposerTrailingConfigOption,
+  isThinkingConfigId,
+} from "../lib/agent-chat-thread";
 import { AgentChatWorkingDirectoryPicker } from "./AgentChatWorkingDirectoryPicker";
+import { AgentComposerAttachments } from "./AgentComposerAttachments";
 import type { AgentChatWorkingDirectory } from "@/features/agent/lib/agent-chat-working-directory";
 import type { Project } from "@/shared/types/domain";
 import {
   getAgentContextDragItems,
   hasAgentContextDragData,
 } from "@/shared/lib/agent-context-drag";
+import { normalizeComposerImageFile } from "@/shared/lib/composer-image";
+import { getRuntimeApiConfig, httpBase } from "@/shared/lib/desktop-runtime";
+import {
+  composerFileUrlFromPath,
+  filesFromComposerParts,
+  filesFromQueuedPrompt,
+  queuedPromptEditText,
+} from "@/features/agent/lib/agent-composer-attachment";
 
 function composerConfigIcon(optionId: string) {
   const id = optionId.trim().toLowerCase();
-  if (id === "thinking" || id === "think") {
+  if (isThinkingConfigId(optionId)) {
     return <Brain className="size-3.5 shrink-0 text-muted-foreground" />;
   }
   if (id === "mode" || id === "modes") {
@@ -74,33 +86,20 @@ function AttachmentFileInput() {
       multiple
       className="hidden"
       onChange={(event) => {
-        if (event.currentTarget.files?.length) {
-          controller.attachments.add(event.currentTarget.files);
-        }
+        const selected = event.currentTarget.files
+          ? Array.from(event.currentTarget.files)
+          : [];
         event.currentTarget.value = "";
+        if (selected.length === 0) return;
+        void (async () => {
+          const files = await Promise.all(
+            selected.map((file) => normalizeComposerImageFile(file)),
+          );
+          controller.attachments.add(files);
+        })();
       }}
     />
   );
-}
-
-function PromptInputAttachmentsSection() {
-  const attachments = usePromptInputAttachments();
-  if (attachments.files.length === 0) return null;
-  return (
-    <Attachments variant="inline" className="px-2 pt-1.5">
-      {attachments.files.map((a) => (
-        <Attachment key={a.id} data={a} onRemove={() => attachments.remove(a.id)}>
-          <AttachmentPreview />
-          <AttachmentRemove />
-        </Attachment>
-      ))}
-    </Attachments>
-  );
-}
-
-function configOptionById(options: AgentConfigOption[], id: string) {
-  const needle = id.trim().toLowerCase();
-  return options.find((option) => option.id.trim().toLowerCase() === needle) ?? null;
 }
 
 function toPromptModels(option: AgentConfigOption | null): PromptModel[] {
@@ -133,6 +132,20 @@ async function filesForSubmit(
   );
 }
 
+async function filesFromQueuedItem(item: QueuedAgentPrompt): Promise<File[]> {
+  if (item.files && item.files.length > 0) {
+    return filesFromComposerParts(item.files);
+  }
+  const paths = item.attachmentPaths ?? [];
+  if (paths.length === 0) return [];
+  const cfg = await getRuntimeApiConfig();
+  const base = httpBase(cfg);
+  return filesFromQueuedPrompt(
+    item,
+    base ? (path) => composerFileUrlFromPath(path, base, cfg.token) : undefined,
+  );
+}
+
 function ComposerPromptInput({
   composerRef,
   onAtTrigger,
@@ -158,6 +171,8 @@ function ComposerPromptInput({
   modeOption,
   modelOption,
   thinkingOption,
+  modelsLocked,
+  modesLocked,
   registryId,
   activeAgent,
   agentLocked,
@@ -174,6 +189,10 @@ function ComposerPromptInput({
   clearAgentChatDraft,
   onSubmit,
   placeholder,
+  landing,
+  editingItem,
+  onFinishEdit,
+  onUpdateQueuedPrompt,
 }: {
   composerRef: React.RefObject<ComposerHandle | null>;
   onAtTrigger: (ctx: import("@/features/welcome/components/PromptComposer").AtTriggerContext) => void;
@@ -199,6 +218,8 @@ function ComposerPromptInput({
   modeOption: AgentConfigOption | null;
   modelOption: AgentConfigOption | null;
   thinkingOption: AgentConfigOption | null;
+  modelsLocked: boolean;
+  modesLocked: boolean;
   registryId: string;
   activeAgent: RegistryAgent | null;
   agentLocked: boolean;
@@ -227,11 +248,18 @@ function ComposerPromptInput({
     message: { text: string; files?: import("ai").FileUIPart[] },
     options?: { oneShot?: "queue" | "steer" },
   ) => Promise<void>;
+  landing: boolean;
+  editingItem: QueuedAgentPrompt | null;
+  onFinishEdit: () => void;
+  onUpdateQueuedPrompt: (id: string, prompt: string) => void | Promise<void>;
 }) {
   const t = useTranslations("Agent.components");
   const attachments = usePromptInputAttachments();
   const formRef = useRef<HTMLFormElement>(null);
   const hydratedRef = useRef(false);
+  const stashRef = useRef<{ text: string; files: File[] } | null>(null);
+  const attachmentsRef = useRef(attachments);
+  attachmentsRef.current = attachments;
   const agentOptions: PromptModel[] = installedAgents.map((agent) => ({
     value: agent.id,
     label: agent.name,
@@ -255,6 +283,48 @@ function ComposerPromptInput({
     if (localDraft) composerRef.current?.setText(localDraft);
   }, [composerRef, localDraft]);
 
+  useEffect(() => {
+    const applyDraft = (text: string, files: File[]) => {
+      const current = attachmentsRef.current;
+      setLocalDraft(text);
+      composerRef.current?.setText(text);
+      current.clear();
+      if (files.length > 0) current.add(files);
+    };
+
+    if (!editingItem) {
+      const stash = stashRef.current;
+      if (!stash) return;
+      stashRef.current = null;
+      applyDraft(stash.text, stash.files);
+      return;
+    }
+
+    const item = editingItem;
+    let cancelled = false;
+    void (async () => {
+      if (!stashRef.current) {
+        stashRef.current = {
+          text: composerRef.current?.getText() ?? localDraft,
+          files: await filesFromComposerParts(attachmentsRef.current.files),
+        };
+      }
+      if (cancelled) return;
+      const text = queuedPromptEditText(item);
+      applyDraft(text, []);
+      const files = await filesFromQueuedItem(item);
+      if (cancelled) return;
+      if (files.length > 0) attachmentsRef.current.add(files);
+      composerRef.current?.focus();
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // Load once per queued item. Stash is captured on first enter and restored when editing ends.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- localDraft/attachments would retrigger mid-edit
+  }, [composerRef, editingItem?.id, setLocalDraft]);
+
   return (
     <>
       <AttachmentFileInput />
@@ -264,7 +334,7 @@ function ComposerPromptInput({
         disabled={!isConnected}
         loading={showStop}
         canSubmit={canSubmit}
-        minRows={2}
+        minRows={landing ? 2 : 1}
         maxRows={8}
         formRef={formRef}
         placeholder={placeholder}
@@ -274,7 +344,11 @@ function ComposerPromptInput({
             submitOnEnter
             disabled={!isConnected}
             placeholder={placeholder}
-            editorClassName="min-h-16 max-h-40 rounded-none border-0 bg-transparent px-0 py-0 text-sm leading-5"
+            editorClassName={
+              landing
+                ? "min-h-16 max-h-40 rounded-none border-0 bg-transparent px-0 py-0 text-sm leading-5"
+                : "min-h-5 max-h-40 rounded-none border-0 bg-transparent px-0 py-0 text-sm leading-5"
+            }
             placeholderClassName="left-0 top-0 text-sm leading-5 text-muted-foreground/55"
             onTextChange={setLocalDraft}
             onAtTrigger={onAtTrigger}
@@ -299,11 +373,13 @@ function ComposerPromptInput({
         models={toPromptModels(modelOption)}
         model={modelOption?.currentValue || ""}
         onModelChange={(value) => modelOption && setConfigOption(modelOption.id, value)}
+        modelsLocked={modelsLocked}
         modelsLoading={isConnecting || isResumingHistory || catalogModelsLoading}
         onEmptyModelsOpen={onEmptyModelsOpen}
         modes={toPromptModels(isConnected ? modeOption : null)}
         mode={modeOption?.currentValue || ""}
         onModeChange={(value) => modeOption && setConfigOption(modeOption.id, value)}
+        modesLocked={modesLocked}
         thinkingLevels={toPromptModels(isConnected ? thinkingOption : null)}
         thinking={thinkingOption?.currentValue || ""}
         onThinkingChange={(value) => thinkingOption && setConfigOption(thinkingOption.id, value)}
@@ -312,6 +388,8 @@ function ComposerPromptInput({
           chooseAgent: t("composer.selectAgent"),
           chooseMode: t("composer.chooseMode"),
           model: t("composer.model"),
+          modelLocked: t("composer.modelLocked"),
+          modeLocked: t("composer.modeLocked"),
           search: t("configOptionDropdown.searchPlaceholder"),
           searchModels: t("composer.searchModels"),
           searchAgents: t("composer.searchAgents"),
@@ -353,11 +431,17 @@ function ComposerPromptInput({
             ) : null}
           </div>
         }
-        header={<PromptInputAttachmentsSection />}
+        header={<AgentComposerAttachments />}
         onSubmit={async (text) => {
+          const composed = expandAgentComposerText(composerRef.current?.getText() ?? text);
+          if (editingItem) {
+            if (!composed.trim()) return;
+            await onUpdateQueuedPrompt(editingItem.id, composed);
+            onFinishEdit();
+            return;
+          }
           const files = attachments.files;
           const previousDraft = localDraft;
-          const composed = expandAgentComposerText(composerRef.current?.getText() ?? text);
           if (!composed && files.length === 0) {
             setLocalDraft(previousDraft);
             return;
@@ -392,7 +476,10 @@ function ComposerPromptInput({
             : undefined
         }
         radius="3xl"
-        className="w-full shadow-none"
+        className={cn(
+          "w-full shadow-none",
+          editingItem && "border-dashed border-info",
+        )}
       />
     </>
   );
@@ -401,6 +488,7 @@ function ComposerPromptInput({
 export const AgentPromptComposer = React.memo(function AgentPromptComposer({
   currentPlan,
   isResumedSession,
+  backgroundTools = [],
   queuedPrompts,
   onRemoveQueuedPrompt,
   onUpdateQueuedPrompt,
@@ -424,6 +512,8 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
   hasPersistenceHandle = false,
   installedAgents,
   configOptions,
+  modelsLocked = false,
+  modesLocked = false,
   registryId,
   activeAgent,
   setConfigOption,
@@ -437,12 +527,14 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
   projectPath = null,
   availableCommands = [],
   workingDirectoryPicker = null,
+  landing = false,
 }: {
   currentPlan: AgentPlan | null;
   isResumedSession: boolean;
+  backgroundTools?: AgentToolCallPart[];
   queuedPrompts: QueuedAgentPrompt[];
   onRemoveQueuedPrompt: (id: string) => void;
-  onUpdateQueuedPrompt: (id: string, prompt: string) => void;
+  onUpdateQueuedPrompt: (id: string, prompt: string) => void | Promise<void>;
   onMoveQueuedPrompt: (id: string, toIndex: number) => void;
   onSubmit: (
     message: { text: string; files?: import("ai").FileUIPart[] },
@@ -466,6 +558,8 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
   hasPersistenceHandle?: boolean;
   installedAgents: RegistryAgent[];
   configOptions: AgentConfigOption[];
+  modelsLocked?: boolean;
+  modesLocked?: boolean;
   registryId: string;
   activeAgent: RegistryAgent | null;
   setConfigOption: (id: string, value: string) => void;
@@ -483,6 +577,7 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
     selection: AgentChatWorkingDirectory;
     onSelect: (next: AgentChatWorkingDirectory) => void;
   } | null;
+  landing?: boolean;
 }) {
   const t = useTranslations("Agent.components");
   const setAgentChatDraft = useDialogStore((s) => s.setAgentChatDraft);
@@ -497,14 +592,25 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
   );
   const persistedDraftRef = useRef(localDraft);
   const composerRef = useRef<ComposerHandle | null>(null);
-  const showStop = Boolean(agentActivity.busy && !localDraft.trim());
-  const modeOption = configOptionById(configOptions, "mode") ?? configOptionById(configOptions, "modes");
-  const modelOption = configOptionById(configOptions, "model") ?? configOptionById(configOptions, "models");
+  const [editingQueueId, setEditingQueueId] = useState<string | null>(null);
+  const editingItem = editingQueueId
+    ? queuedPrompts.find((item) => item.id === editingQueueId) ?? null
+    : null;
+  const showStop = Boolean(agentActivity.busy && !localDraft.trim() && !editingItem);
+
+  useEffect(() => {
+    if (!editingQueueId) return;
+    if (queuedPrompts.some((item) => item.id === editingQueueId)) return;
+    setEditingQueueId(null);
+  }, [editingQueueId, queuedPrompts]);
+  const modeOption = configOptions.find((option) => configKindMatches(option.id, option.category, "mode")) ?? null;
+  const modelOption = configOptions.find((option) => configKindMatches(option.id, option.category, "model")) ?? null;
   const thinkingOption =
-    configOptionById(configOptions, "thinking") ?? configOptionById(configOptions, "think");
+    configOptions.find((option) => isThinkingConfigId(option.id, option.category)) ?? null;
   const extraConfigOptions = configOptions.filter((option) => {
-    const id = option.id.trim().toLowerCase();
-    if (id === "mode" || id === "modes") return false;
+    if (configKindMatches(option.id, option.category, "mode")) return false;
+    if (configKindMatches(option.id, option.category, "model")) return false;
+    if (isThinkingConfigId(option.id, option.category)) return false;
     if (isComposerTrailingConfigOption(option)) return false;
     return option.type === "select" && option.options.length > 0;
   });
@@ -555,6 +661,7 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
   }, [chatMode, instanceKey, sessionProjectId, sessionWorkspaceId]);
 
   useEffect(() => {
+    if (editingItem) return;
     if (localDraft === persistedDraftRef.current) return;
 
     const timer = window.setTimeout(() => {
@@ -571,6 +678,7 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
     return () => window.clearTimeout(timer);
   }, [
     chatMode,
+    editingItem,
     instanceKey,
     localDraft,
     sessionProjectId,
@@ -582,10 +690,12 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
     <div
       className="shrink-0 px-3 pb-3 pt-px select-none"
       data-agent-chat-composer=""
+      data-agent-composer-landing={landing ? "true" : undefined}
       data-agent-chat-mode={chatMode}
       data-agent-chat-instance-key={instanceKey?.trim() || undefined}
       data-agent-chat-workspace-id={sessionWorkspaceId ?? undefined}
       data-agent-chat-project-id={sessionProjectId ?? undefined}
+      data-queue-editing={editingItem ? "true" : undefined}
       onFocusCapture={() => {
         touchActiveAgentComposer(
           sessionWorkspaceId,
@@ -617,19 +727,36 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
           composerRef.current?.insertFileMention(path);
         }
       }}
+      onKeyDownCapture={(event) => {
+        if (event.key !== "Escape" || !editingQueueId) return;
+        setEditingQueueId(null);
+      }}
     >
-      {(currentPlan || queuedPrompts.length > 0) && (
+      {(currentPlan || backgroundTools.length > 0 || queuedPrompts.length > 0) && (
         <div className="mx-6 overflow-hidden rounded-t-3xl border border-border/70 border-b-0 bg-background/95">
           {currentPlan && (
-            <div className={queuedPrompts.length > 0 ? "border-b border-border/70" : ""}>
+            <div className={
+              backgroundTools.length > 0 || queuedPrompts.length > 0 ? "border-b border-border/70" : ""
+            }>
               <PlanBlockView plan={currentPlan} embedded defaultOpen={!isResumedSession} />
+            </div>
+          )}
+          {backgroundTools.length > 0 && (
+            <div className={queuedPrompts.length > 0 ? "border-b border-border/70" : ""}>
+              <BackgroundCommandsDock tools={backgroundTools} />
             </div>
           )}
           {queuedPrompts.length > 0 && (
             <MessageQueueDock
               items={queuedPrompts}
-              onRemove={onRemoveQueuedPrompt}
-              onUpdatePrompt={onUpdateQueuedPrompt}
+              editingPromptId={editingQueueId}
+              onToggleEdit={(item) => {
+                setEditingQueueId((current) => (current === item.id ? null : item.id));
+              }}
+              onRemove={(id) => {
+                onRemoveQueuedPrompt(id);
+                setEditingQueueId((current) => (current === id ? null : current));
+              }}
               onMove={onMoveQueuedPrompt}
             />
           )}
@@ -661,6 +788,8 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
           modeOption={modeOption}
           modelOption={modelOption}
           thinkingOption={thinkingOption}
+          modelsLocked={modelsLocked}
+          modesLocked={modesLocked}
           registryId={registryId}
           activeAgent={activeAgent}
           agentLocked={agentLocked}
@@ -677,6 +806,10 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
           clearAgentChatDraft={clearAgentChatDraft}
           onSubmit={onSubmit}
           placeholder={placeholder}
+          landing={landing}
+          editingItem={editingItem}
+          onFinishEdit={() => setEditingQueueId(null)}
+          onUpdateQueuedPrompt={onUpdateQueuedPrompt}
         />
       </PromptInputProvider>
       {popovers}

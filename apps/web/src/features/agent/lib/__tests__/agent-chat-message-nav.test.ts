@@ -1,5 +1,8 @@
 import { describe, expect, it } from "bun:test";
-import { resolveActiveUserMessageIndex } from "../agent-chat-message-nav";
+import {
+  resolveActiveUserMessageIndex,
+  userMessageRectsFromMeasurements,
+} from "../agent-chat-message-nav";
 
 describe("resolveActiveUserMessageIndex", () => {
   it("follows the last user message that intersects the viewport", () => {
@@ -54,5 +57,31 @@ describe("resolveActiveUserMessageIndex", () => {
       ],
       { height: 600, scrollTop: 1180, scrollHeight: 1800 },
     )).toBe(6);
+  });
+});
+
+describe("userMessageRectsFromMeasurements", () => {
+  it("maps cached virtual items into viewport-relative rects", () => {
+    expect(userMessageRectsFromMeasurements(
+      [0, 2, 4],
+      [
+        { start: 16, size: 80 },
+        { start: 108, size: 240 },
+        { start: 360, size: 72 },
+        { start: 444, size: 200 },
+        { start: 656, size: 88 },
+      ],
+      320,
+    )).toEqual([
+      { messageIndex: 0, top: -304, bottom: -224 },
+      { messageIndex: 2, top: 40, bottom: 112 },
+      { messageIndex: 4, top: 336, bottom: 424 },
+    ]);
+  });
+
+  it("skips user rows the virtualizer has not measured yet", () => {
+    expect(userMessageRectsFromMeasurements([0, 2], [{ start: 0, size: 80 }], 0)).toEqual([
+      { messageIndex: 0, top: 0, bottom: 80 },
+    ]);
   });
 });

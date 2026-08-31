@@ -1,7 +1,9 @@
-import type { WsOk } from "../dto/common";
+import type { WsEmpty, WsOk } from "../dto/common";
 import type {
   AgentModelCatalog,
   AgentModelCatalogGetRequest,
+  AgentChatPrefs,
+  AgentChatPrefsSetRequest,
   AgentChatCreateRequest,
   AgentChatIdRequest,
   AgentChatIndexEntry,
@@ -88,6 +90,11 @@ export type AgentChatContract = {
   agent_model_catalog_get: {
     input: AgentModelCatalogGetRequest;
     output: AgentModelCatalog;
+  };
+  agent_chat_prefs_get: { input: WsEmpty; output: AgentChatPrefs };
+  agent_chat_prefs_set: {
+    input: AgentChatPrefsSetRequest;
+    output: AgentChatPrefs;
   };
 };
 

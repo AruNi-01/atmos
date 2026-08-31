@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { useTranslations } from 'next-intl';
 import { flushSync } from 'react-dom';
 import { useShallow } from 'zustand/react/shallow';
@@ -26,9 +27,6 @@ import { useFileTreeStore } from '@/features/files/store/use-file-tree-store';
 import { useFileTreeQuery, useListDirQuery } from '@/features/files/hooks/use-file-tree-query';
 import { MarkdownRenderer } from '@/shared/components/markdown/MarkdownRenderer';
 import { MarkdownToc } from '@/shared/components/markdown/MarkdownToc';
-import { MarkdownLiveEditor } from '@/features/md-live/components/MarkdownLiveEditor';
-import { MdLiveAgentDock } from '@/features/md-live/components/MdLiveAgentDock';
-import { MdLiveSaveAsDialog } from '@/features/md-live/components/MdLiveSaveAsDialog';
 import { isLiveEligibleMarkdownPath, isUntitledMarkdownPath } from '@/features/md-live/lib/md-live-paths';
 import { isMdLiveStreamLocked, useMdLiveStreamLocked } from '@/features/md-live/lib/md-live-stream-lock';
 import { fsApi } from '@/api/ws-api';
@@ -54,6 +52,40 @@ function stripTrailingSlashes(path: string): string {
   if (!path) return path;
   const trimmed = path.replace(/\/+$/, '');
   return trimmed.length > 0 ? trimmed : '/';
+}
+
+const MarkdownLiveEditor = dynamic(
+  () =>
+    import('@/features/md-live/components/MarkdownLiveEditor').then(
+      (mod) => mod.MarkdownLiveEditor,
+    ),
+  { ssr: false },
+);
+const MdLiveAgentDock = dynamic(
+  () =>
+    import('@/features/md-live/components/MdLiveAgentDock').then(
+      (mod) => mod.MdLiveAgentDock,
+    ),
+  { ssr: false },
+);
+const MdLiveSaveAsDialog = dynamic(
+  () =>
+    import('@/features/md-live/components/MdLiveSaveAsDialog').then(
+      (mod) => mod.MdLiveSaveAsDialog,
+    ),
+  { ssr: false },
+);
+
+function markdownJumpWantsSource(target: {
+  preferMarkdownSource?: boolean;
+  selectRanges?: { startLine: number; endLine: number }[];
+  line?: number;
+} | null | undefined): boolean {
+  return Boolean(
+    target?.preferMarkdownSource ||
+    (target?.selectRanges?.length ?? 0) > 0 ||
+    target?.line != null,
+  );
 }
 
 function parentDirPath(path: string, fallbackRoot: string | null): string {
@@ -137,7 +169,12 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const liveChromeRef = useRef<HTMLDivElement | null>(null);
   const [previewFilePath, setPreviewFilePath] = useState<string | null>(null);
-  const [markdownView, setMarkdownView] = useState<'live' | 'source'>('live');
+  const [markdownView, setMarkdownView] = useState<'live' | 'source'>(() => {
+    const target = editorContextId
+      ? useEditorStore.getState().navigationTargets[editorContextId]?.[file.path]
+      : undefined;
+    return markdownJumpWantsSource(target) ? 'source' : 'live';
+  });
   const [saveAsOpen, setSaveAsOpen] = useState(false);
   const [debouncedContent, setDebouncedContent] = useState(file.content);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -363,7 +400,8 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
     fileName: file.name,
     language: file.language,
   });
-  const isLive = isLiveEligible && markdownView === 'live';
+  const jumpWantsSource = markdownJumpWantsSource(navigationTarget);
+  const isLive = isLiveEligible && markdownView === 'live' && !jumpWantsSource;
   const streamLocked = useMdLiveStreamLocked(file.path);
   const isPreview = !isLiveEligible && isMarkdown && previewFilePath === file.path;
   const isReviewReport = isMarkdown && file.path.includes('/.atmos/reviews/');
@@ -381,16 +419,38 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
 
   // Auto-enable preview for .atmos/reviews/ markdown files
   useEffect(() => {
-    if (isMarkdown && file.path.includes('/.atmos/reviews/') && previewFilePath !== file.path) {
+    const liveEligible = isLiveEligibleMarkdownPath(file.path, {
+      fileName: file.name,
+      language: file.language,
+    });
+    const target = editorContextId
+      ? useEditorStore.getState().navigationTargets[editorContextId]?.[file.path]
+      : undefined;
+    const jumpToSource = markdownJumpWantsSource(target);
+    if (
+      !jumpToSource &&
+      isMarkdown &&
+      file.path.includes('/.atmos/reviews/') &&
+      previewFilePath !== file.path
+    ) {
       setPreviewFilePath(file.path);
       setDebouncedContent(file.content);
     }
-    setMarkdownView(isLiveEligibleMarkdownPath(file.path, {
-      fileName: file.name,
-      language: file.language,
-    }) ? 'live' : 'source');
+    setMarkdownView(jumpToSource || !liveEligible ? 'source' : 'live');
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [file.path]);
+
+  useEffect(() => {
+    if (!markdownJumpWantsSource(navigationTarget)) return;
+    const hasCmTarget =
+      (navigationTarget.selectRanges?.length ?? 0) > 0 ||
+      navigationTarget.line != null;
+    setMarkdownView('source');
+    setPreviewFilePath((current) => (current === file.path ? null : current));
+    if (!hasCmTarget) {
+      clearNavigationTarget(file.path, editorContextId || undefined);
+    }
+  }, [clearNavigationTarget, editorContextId, file.path, navigationTarget]);
 
   useEffect(() => {
     let cancelled = false;
@@ -926,10 +986,11 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
                   gitDiffRefreshNonce={gitDiffRefreshNonce}
                   onGitGutterStateChanged={handleGitGutterStateChanged}
                   navigationTarget={
-                    navigationTarget?.line != null
+                    navigationTarget?.selectRanges?.length || navigationTarget?.line != null
                       ? {
                           line: navigationTarget.line,
                           column: navigationTarget.column,
+                          selectRanges: navigationTarget.selectRanges,
                         }
                       : null
                   }
@@ -966,7 +1027,7 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
             {isLive && (
               <MarkdownToc markdown={file.content} scrollContainerId="editor-preview-root" />
             )}
-            {isLiveEligible && surfaceActive ? (
+            {isLive && surfaceActive ? (
               <MdLiveAgentDock
                 filePath={file.path}
                 markdown={file.content}
@@ -978,12 +1039,14 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
               </>
             )}
           </div>
-    <MdLiveSaveAsDialog
-      open={saveAsOpen}
-      defaultDirectory={currentProjectPath || '/'}
-      onOpenChange={setSaveAsOpen}
-      onConfirm={handleSaveAsConfirm}
-    />
+    {saveAsOpen ? (
+      <MdLiveSaveAsDialog
+        open={saveAsOpen}
+        defaultDirectory={currentProjectPath || '/'}
+        onOpenChange={setSaveAsOpen}
+        onConfirm={handleSaveAsConfirm}
+      />
+    ) : null}
     </div>
   );
 };

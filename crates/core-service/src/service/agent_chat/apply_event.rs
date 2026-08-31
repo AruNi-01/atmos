@@ -4,17 +4,23 @@
 use std::collections::{HashMap, VecDeque};
 use std::time::{Duration, Instant};
 
-use agent::{AgentEvent, TurnStop};
+use agent::{AgentEvent, AgentRuntimeConfigUpdate, AgentRuntimeControl, TurnStop};
 use chrono::Utc;
+use serde::Deserialize;
 use tokio::sync::{broadcast, Mutex};
 
 use crate::error::Result;
 
 use super::store::AgentChatStore;
 use super::types::{
-    merge_session_usage, order_assistant_parts, parse_session_usage, parse_turn_usage,
-    AgentChatEvent, AgentChatPayload, AgentChatSnapshot, FoldedMessage, MessagePart,
-    PendingPermission, RuntimeStatus, TranscriptRecord, TurnStatus,
+    advertised_option_for_kind, config_kind_matches, elapsed_ms, keep_pending_session_selection,
+    map_advertised_select_value, merge_advertised_options, merge_session_usage,
+    order_assistant_parts, parse_session_usage, parse_turn_usage, pending_session_config_change,
+    pending_thinking_change, resolve_session_config_select, AgentChatEvent, AgentChatMeta,
+    AgentChatPayload, AgentChatSnapshot, FoldedMessage, MessagePart, PendingPermission,
+    ResolvedSessionConfig, RuntimeStatus, SessionAdvertisedOption, SessionAdvertisedOptionValue,
+    SessionConfigChange, SessionHintTone, TranscriptRecord, TurnStatus,
+    SESSION_HINT_MODEL_SWITCH_FAILED, SESSION_HINT_MODE_SWITCH_FAILED,
 };
 
 pub(super) const ASSISTANT_SNAPSHOT_INTERVAL: Duration = Duration::from_millis(100);
@@ -35,6 +41,15 @@ pub(super) struct RuntimeState {
 }
 
 impl RuntimeState {
+    pub(super) fn begin_turn(&mut self, turn_id: String, started_at: chrono::DateTime<Utc>) {
+        self.current_turn_id = Some(turn_id);
+        self.turn_started_at = Some(started_at);
+        self.thinking_started_at = None;
+        self.thinking_ms = 0;
+        self.last_thinking_segment_ms = 0;
+        self.turn_usage = None;
+    }
+
     fn ensure_turn_clock(&mut self) {
         if self.current_turn_id.is_some() && self.turn_started_at.is_none() {
             self.turn_started_at = Some(Utc::now());
@@ -122,6 +137,7 @@ pub(super) async fn apply_event(
             })?;
         }
         AgentEvent::AssistantMessageDelta { message_id, delta } => {
+            flush_open_thinking(store, state, chat_id, &emit).await?;
             {
                 let snapshot = {
                     let mut state = state.lock().await;
@@ -193,29 +209,36 @@ pub(super) async fn apply_event(
         AgentEvent::ThinkingCompleted { message_id } => {
             let snapshot = {
                 let mut state = state.lock().await;
-                match state.thinking_text.remove(&message_id) {
-                    Some((turn_id, text)) => {
-                        let started_at = state.thinking_started_at;
-                        state.close_thinking();
-                        let duration_ms = state.take_last_thinking_segment_ms();
-                        Some((turn_id, text, started_at, duration_ms))
-                    }
-                    None => None,
-                }
+                let (turn_id, text) = match state.thinking_text.remove(&message_id) {
+                    Some(entry) => entry,
+                    None => (
+                        state
+                            .current_turn_id
+                            .clone()
+                            .unwrap_or_else(|| "unknown".into()),
+                        String::new(),
+                    ),
+                };
+                let started_at = state.thinking_started_at;
+                state.close_thinking();
+                let duration_ms = state.take_last_thinking_segment_ms();
+                Some((turn_id, text, started_at, duration_ms))
             };
             let thinking_ms = snapshot.as_ref().and_then(|item| item.3);
             if let Some((turn_id, text, started_at, duration_ms)) = snapshot {
-                store.append_record(
-                    chat_id,
-                    &TranscriptRecord::ThinkingSnapshot {
-                        turn_id,
-                        message_id: message_id.clone(),
-                        text,
-                        started_at,
-                        duration_ms,
-                        created_at: Utc::now(),
-                    },
-                )?;
+                if !text.is_empty() || duration_ms.is_some() {
+                    store.append_record(
+                        chat_id,
+                        &TranscriptRecord::ThinkingSnapshot {
+                            turn_id,
+                            message_id: message_id.clone(),
+                            text,
+                            started_at,
+                            duration_ms,
+                            created_at: Utc::now(),
+                        },
+                    )?;
+                }
             }
             emit(AgentChatPayload::ThinkingCompleted {
                 message_id,
@@ -223,22 +246,23 @@ pub(super) async fn apply_event(
             })?;
         }
         AgentEvent::ToolCallStarted { tool_call } => {
-            persist_tool(store, state, chat_id, tool_call.clone()).await?;
+            persist_tool(store, state, chat_id, tool_call.clone(), &emit).await?;
             emit(AgentChatPayload::ToolCallStarted { tool_call })?;
         }
         AgentEvent::ToolCallUpdated { tool_call } => {
-            persist_tool(store, state, chat_id, tool_call.clone()).await?;
+            persist_tool(store, state, chat_id, tool_call.clone(), &emit).await?;
             emit(AgentChatPayload::ToolCallUpdated { tool_call })?;
         }
         AgentEvent::ToolCallCompleted { tool_call } => {
-            persist_tool(store, state, chat_id, tool_call.clone()).await?;
+            persist_tool(store, state, chat_id, tool_call.clone(), &emit).await?;
             emit(AgentChatPayload::ToolCallCompleted { tool_call })?;
         }
         AgentEvent::ToolCallFailed { tool_call, error } => {
-            persist_tool(store, state, chat_id, tool_call.clone()).await?;
+            persist_tool(store, state, chat_id, tool_call.clone(), &emit).await?;
             emit(AgentChatPayload::ToolCallFailed { tool_call, error })?;
         }
         AgentEvent::PlanUpdated { plan } => {
+            flush_open_thinking(store, state, chat_id, &emit).await?;
             let turn_id = state
                 .lock()
                 .await
@@ -256,6 +280,7 @@ pub(super) async fn apply_event(
             emit(AgentChatPayload::PlanUpdated { plan })?;
         }
         AgentEvent::PermissionRequested { request } => {
+            flush_open_thinking(store, state, chat_id, &emit).await?;
             let turn_id = state
                 .lock()
                 .await
@@ -408,9 +433,167 @@ pub(super) async fn apply_event(
                 emit(AgentChatPayload::UsageUpdated { session, turn })?;
             }
         }
-        AgentEvent::ConfigChanged { .. } => {}
+        AgentEvent::ConfigChanged { config } => {
+            let advertised = parse_advertised_options(&config);
+            let (model, thinking, mode) = selected_session_config(&config);
+            if advertised.is_empty() && model.is_none() && thinking.is_none() && mode.is_none() {
+                return Ok(());
+            }
+            let mut emitted_model = None;
+            let mut emitted_thinking = None;
+            let mut emitted_mode = None;
+            let mut emitted_options = Vec::new();
+            store.update_meta(chat_id, |meta| {
+                meta.session_config_options =
+                    merge_advertised_options(meta.session_config_options.clone(), advertised);
+                emitted_model = stamp_advertised_selection(
+                    &meta.session_config_options,
+                    "model",
+                    model.as_ref(),
+                    &mut meta.applied_model,
+                    &mut meta.selected_model,
+                );
+                emitted_thinking = stamp_advertised_selection(
+                    &meta.session_config_options,
+                    "thinking",
+                    thinking.as_ref(),
+                    &mut meta.applied_thinking,
+                    &mut meta.selected_thinking,
+                );
+                emitted_mode = stamp_advertised_selection(
+                    &meta.session_config_options,
+                    "mode",
+                    mode.as_ref(),
+                    &mut meta.applied_mode,
+                    &mut meta.selected_mode,
+                );
+                emitted_options = meta.session_config_options.clone();
+            })?;
+            if emitted_model.is_some()
+                || emitted_thinking.is_some()
+                || emitted_mode.is_some()
+                || !emitted_options.is_empty()
+            {
+                emit(AgentChatPayload::ConfigUpdated {
+                    model: emitted_model.clone(),
+                    thinking: emitted_thinking,
+                    mode: emitted_mode.clone(),
+                    config_options: emitted_options,
+                })?;
+            }
+        }
     }
     Ok(())
+}
+
+#[derive(Debug, Deserialize)]
+struct ConfigOptionValueWire {
+    value: String,
+    #[serde(default)]
+    name: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct ConfigOptionWire {
+    #[serde(alias = "configId")]
+    id: String,
+    #[serde(default)]
+    name: Option<String>,
+    #[serde(default)]
+    category: Option<String>,
+    #[serde(default, rename = "type", alias = "type")]
+    option_type: Option<String>,
+    #[serde(default, alias = "currentValue")]
+    current_value: Option<String>,
+    #[serde(default)]
+    options: Vec<ConfigOptionValueWire>,
+}
+
+fn stamp_advertised_selection(
+    options: &[SessionAdvertisedOption],
+    kind: &str,
+    advertised_current: Option<&String>,
+    applied: &mut Option<String>,
+    selected: &mut Option<String>,
+) -> Option<String> {
+    let Some(value) = advertised_current
+        .map(|item| item.trim())
+        .filter(|item| !item.is_empty())
+    else {
+        return None;
+    };
+    let option = advertised_option_for_kind(options, kind);
+    let keep = keep_pending_session_selection(selected.as_ref(), applied.as_ref(), value, option);
+    *applied = Some(value.to_string());
+    if keep {
+        if let Some(mapped) = option.and_then(|item| {
+            selected
+                .as_deref()
+                .and_then(|requested| map_advertised_select_value(item, requested))
+        }) {
+            *selected = Some(mapped.clone());
+            Some(mapped)
+        } else {
+            selected.clone()
+        }
+    } else {
+        *selected = Some(value.to_string());
+        Some(value.to_string())
+    }
+}
+
+fn parse_advertised_options(config: &serde_json::Value) -> Vec<SessionAdvertisedOption> {
+    let options: Vec<ConfigOptionWire> = match serde_json::from_value(config.clone()) {
+        Ok(options) => options,
+        Err(_) => return Vec::new(),
+    };
+    options
+        .into_iter()
+        .map(|option| SessionAdvertisedOption {
+            id: option.id,
+            name: option.name,
+            category: option.category,
+            option_type: option.option_type.unwrap_or_else(|| "select".into()),
+            current_value: option.current_value,
+            options: option
+                .options
+                .into_iter()
+                .map(|item| SessionAdvertisedOptionValue {
+                    value: item.value,
+                    name: item.name,
+                })
+                .collect(),
+        })
+        .collect()
+}
+
+pub(super) fn selected_session_config(
+    config: &serde_json::Value,
+) -> (Option<String>, Option<String>, Option<String>) {
+    let options: Vec<ConfigOptionWire> = match serde_json::from_value(config.clone()) {
+        Ok(options) => options,
+        Err(_) => return (None, None, None),
+    };
+    let mut model = None;
+    let mut thinking = None;
+    let mut mode = None;
+    for option in options {
+        let Some(value) = option.current_value.and_then(nonempty_opt) else {
+            continue;
+        };
+        if model.is_none() && config_kind_matches(&option.id, option.category.as_deref(), "model") {
+            model = Some(value);
+        } else if mode.is_none()
+            && config_kind_matches(&option.id, option.category.as_deref(), "mode")
+        {
+            mode = Some(value);
+        } else if thinking.is_none()
+            && config_kind_matches(&option.id, option.category.as_deref(), "thinking")
+        {
+            thinking = Some(value);
+        }
+    }
+    (model, thinking, mode)
 }
 
 async fn persist_tool(
@@ -418,21 +601,19 @@ async fn persist_tool(
     state: &Mutex<RuntimeState>,
     chat_id: &str,
     tool_call: agent::AgentToolCall,
+    emit: &impl Fn(AgentChatPayload) -> Result<()>,
 ) -> Result<()> {
-    {
-        let mut state = state.lock().await;
-        if matches!(
-            agent::classify_tool(
-                &tool_call.name,
-                tool_call.title.as_deref(),
-                tool_call.input.as_ref(),
-            ),
-            agent::ClassifiedTool::Thinking
-        ) {
-            state.mark_thinking();
-        } else {
-            state.close_thinking();
-        }
+    if matches!(
+        agent::classify_tool(
+            &tool_call.name,
+            tool_call.title.as_deref(),
+            tool_call.input.as_ref(),
+        ),
+        agent::ClassifiedTool::Thinking
+    ) {
+        state.lock().await.mark_thinking();
+    } else {
+        flush_open_thinking(store, state, chat_id, emit).await?;
     }
     let turn_id = state
         .lock()
@@ -448,6 +629,54 @@ async fn persist_tool(
             created_at: Utc::now(),
         },
     )
+}
+
+/// Persist in-memory thinking as its own transcript segment when a tool, plan,
+/// or assistant answer interrupts it. ACP thought chunks never send `done`, so
+/// without this the whole turn collapses to one thinking snapshot after tools.
+async fn flush_open_thinking(
+    store: &AgentChatStore,
+    state: &Mutex<RuntimeState>,
+    chat_id: &str,
+    emit: &impl Fn(AgentChatPayload) -> Result<()>,
+) -> Result<()> {
+    let snapshots = {
+        let mut state = state.lock().await;
+        if state.thinking_text.is_empty() {
+            state.close_thinking();
+            return Ok(());
+        }
+        let started_at = state.thinking_started_at;
+        state.close_thinking();
+        let duration_ms = state.take_last_thinking_segment_ms();
+        let entries: Vec<_> = state.thinking_text.drain().collect();
+        entries
+            .into_iter()
+            .map(|(message_id, (turn_id, text))| {
+                (message_id, turn_id, text, started_at, duration_ms)
+            })
+            .collect::<Vec<_>>()
+    };
+    for (message_id, turn_id, text, started_at, duration_ms) in snapshots {
+        if !text.is_empty() || duration_ms.is_some() {
+            store.append_record(
+                chat_id,
+                &TranscriptRecord::ThinkingSnapshot {
+                    turn_id,
+                    message_id: message_id.clone(),
+                    text,
+                    started_at,
+                    duration_ms,
+                    created_at: Utc::now(),
+                },
+            )?;
+        }
+        emit(AgentChatPayload::ThinkingCompleted {
+            message_id,
+            thinking_ms: duration_ms,
+        })?;
+    }
+    Ok(())
 }
 
 pub(super) async fn finish_turn(
@@ -575,18 +804,68 @@ pub(super) fn overlay_live_state(snapshot: &mut AgentChatSnapshot, state: &Runti
             LiveOverlay::Text(text.clone()),
         );
     }
-    if state.current_turn_id.is_some() {
-        if snapshot.running_turn_id.is_none() {
-            snapshot.running_turn_id = state.current_turn_id.clone();
-        }
-        if let Some(last) = snapshot.messages.last_mut() {
-            if last.role == "assistant" {
-                last.streaming = true;
+    overlay_live_timing(snapshot, state, Utc::now());
+    if snapshot.pending_permission.is_none() {
+        snapshot.pending_permission = state.pending_permission.clone();
+    }
+}
+
+fn overlay_live_timing(
+    snapshot: &mut AgentChatSnapshot,
+    state: &RuntimeState,
+    now: chrono::DateTime<Utc>,
+) {
+    if state.current_turn_id.is_none() && state.turn_started_at.is_none() {
+        return;
+    }
+    if snapshot.running_turn_id.is_none() {
+        snapshot.running_turn_id = state.current_turn_id.clone();
+    }
+    if let Some(start) = state.turn_started_at {
+        snapshot.running_turn_started_at = Some(start);
+    }
+    let worked_ms = state
+        .turn_started_at
+        .or(snapshot.running_turn_started_at)
+        .map(|start| elapsed_ms(start, now));
+    let open_thinking_ms = state
+        .thinking_started_at
+        .map(|start| elapsed_ms(start, now));
+    let thinking_ms = Some(
+        state
+            .thinking_ms
+            .saturating_add(open_thinking_ms.unwrap_or(0)),
+    )
+    .filter(|ms| *ms > 0 || open_thinking_ms.is_some());
+    if let Some(last) = snapshot.messages.last_mut() {
+        if last.role == "assistant" {
+            last.streaming = true;
+            if let Some(ms) = worked_ms {
+                last.worked_ms = Some(ms);
+            }
+            if thinking_ms.is_some() {
+                last.thinking_ms = thinking_ms;
+            }
+            if let Some(ms) = open_thinking_ms.filter(|ms| *ms > 0) {
+                stamp_open_thinking_duration(&mut last.parts, ms);
             }
         }
     }
-    if snapshot.pending_permission.is_none() {
-        snapshot.pending_permission = state.pending_permission.clone();
+}
+
+fn stamp_open_thinking_duration(parts: &mut [MessagePart], duration_ms: u64) {
+    for part in parts.iter_mut().rev() {
+        if let MessagePart::Thinking {
+            tool_call_id: None,
+            duration_ms: existing,
+            ..
+        } = part
+        {
+            if existing.is_none() {
+                *existing = Some(duration_ms);
+            }
+            return;
+        }
     }
 }
 
@@ -646,19 +925,15 @@ fn apply_overlay_part(message: &mut FoldedMessage, part: LiveOverlay) {
             }
         }
         LiveOverlay::Thinking(text) => {
-            if let Some(MessagePart::Thinking {
-                text: existing,
-                tool_call_id: None,
-                ..
-            }) = message.parts.iter_mut().find(|item| {
-                matches!(
-                    item,
-                    MessagePart::Thinking {
-                        tool_call_id: None,
-                        ..
-                    }
-                )
-            }) {
+            let open = message.parts.iter_mut().rev().find_map(|item| match item {
+                MessagePart::Thinking {
+                    tool_call_id: None,
+                    duration_ms,
+                    text: existing,
+                } if duration_ms.is_none() => Some(existing),
+                _ => None,
+            });
+            if let Some(existing) = open {
                 *existing = text;
             } else {
                 message.parts.push(MessagePart::Thinking {
@@ -699,6 +974,299 @@ pub(super) fn emit_live(
     Ok(())
 }
 
+pub(super) fn latest_turn_id(
+    store: &AgentChatStore,
+    chat_id: &str,
+    live_turn: Option<&str>,
+) -> Option<String> {
+    if let Some(id) = live_turn.map(str::trim).filter(|item| !item.is_empty()) {
+        return Some(id.to_string());
+    }
+    store
+        .folded_turns(chat_id)
+        .ok()?
+        .last()
+        .map(|turn| turn.id.clone())
+}
+
+pub(super) fn persist_session_hint(
+    chat_id: &str,
+    turn_id: &str,
+    tone: SessionHintTone,
+    kind: &str,
+    store: &AgentChatStore,
+    events: &broadcast::Sender<AgentChatEvent>,
+    recent_events: &std::sync::Mutex<HashMap<String, VecDeque<AgentChatEvent>>>,
+) -> Result<()> {
+    let message_id = format!("hint-{turn_id}-{kind}");
+    store.append_record(
+        chat_id,
+        &TranscriptRecord::SessionHint {
+            turn_id: turn_id.to_string(),
+            message_id: message_id.clone(),
+            tone,
+            kind: kind.to_string(),
+            created_at: Utc::now(),
+        },
+    )?;
+    emit_live(
+        chat_id,
+        AgentChatPayload::SessionHint {
+            turn_id: turn_id.to_string(),
+            message_id,
+            tone,
+            kind: kind.to_string(),
+        },
+        store,
+        events,
+        recent_events,
+    )
+}
+
+pub(super) fn persist_switch_failed_hints(
+    chat_id: &str,
+    live_turn: Option<String>,
+    model: bool,
+    mode: bool,
+    store: &AgentChatStore,
+    events: &broadcast::Sender<AgentChatEvent>,
+    recent_events: &std::sync::Mutex<HashMap<String, VecDeque<AgentChatEvent>>>,
+) -> Result<()> {
+    let Some(turn_id) = latest_turn_id(store, chat_id, live_turn.as_deref()) else {
+        return Ok(());
+    };
+    if model {
+        persist_session_hint(
+            chat_id,
+            &turn_id,
+            SessionHintTone::Warning,
+            SESSION_HINT_MODEL_SWITCH_FAILED,
+            store,
+            events,
+            recent_events,
+        )?;
+    }
+    if mode {
+        persist_session_hint(
+            chat_id,
+            &turn_id,
+            SessionHintTone::Warning,
+            SESSION_HINT_MODE_SWITCH_FAILED,
+            store,
+            events,
+            recent_events,
+        )?;
+    }
+    Ok(())
+}
+
+pub(super) fn persist_session_config_change(
+    chat_id: &str,
+    turn_id: &str,
+    change: &SessionConfigChange,
+    store: &AgentChatStore,
+    events: &broadcast::Sender<AgentChatEvent>,
+    recent_events: &std::sync::Mutex<HashMap<String, VecDeque<AgentChatEvent>>>,
+) -> Result<()> {
+    let message_id = format!("config-{turn_id}");
+    store.append_record(
+        chat_id,
+        &TranscriptRecord::SessionConfigChange {
+            turn_id: turn_id.to_string(),
+            message_id: message_id.clone(),
+            model: change.model.clone(),
+            mode: change.mode.clone(),
+            created_at: Utc::now(),
+        },
+    )?;
+    emit_live(
+        chat_id,
+        AgentChatPayload::SessionConfigChange {
+            turn_id: turn_id.to_string(),
+            message_id,
+            model: change.model.clone(),
+            mode: change.mode.clone(),
+        },
+        store,
+        events,
+        recent_events,
+    )
+}
+
+pub(super) async fn apply_pending_session_config(
+    chat_id: &str,
+    turn_id: &str,
+    store: &AgentChatStore,
+    control: &AgentRuntimeControl,
+    events: &broadcast::Sender<AgentChatEvent>,
+    recent_events: &std::sync::Mutex<HashMap<String, VecDeque<AgentChatEvent>>>,
+) -> Result<()> {
+    let meta = store.get_meta(chat_id)?;
+    let mut change = pending_session_config_change(&meta);
+    if let Some(ref mut pending) = change {
+        if let Some(value) = resolve_pending_select(
+            &meta,
+            "model",
+            pending.model.as_ref().map(|item| item.to.as_str()),
+        ) {
+            if let Some(item) = pending.model.as_mut() {
+                item.to = value;
+            }
+        }
+        if let Some(value) = resolve_pending_select(
+            &meta,
+            "mode",
+            pending.mode.as_ref().map(|item| item.to.as_str()),
+        ) {
+            if let Some(item) = pending.mode.as_mut() {
+                item.to = value;
+            }
+        }
+        if pending.is_empty() {
+            change = None;
+        }
+    }
+    let thinking = pending_thinking_change(&store.get_meta(chat_id)?);
+    if change.is_none() && thinking.is_none() {
+        return stamp_applied_session_config(store, chat_id);
+    }
+    let outcome = apply_live_session_config(chat_id, store, control, change.as_ref()).await?;
+    revert_session_config(
+        store,
+        chat_id,
+        outcome.failed_model,
+        outcome.failed_mode,
+        outcome.failed_thinking,
+    )?;
+    if outcome.failed_model || outcome.failed_mode || outcome.failed_thinking {
+        let meta = store.get_meta(chat_id)?;
+        emit_live(
+            chat_id,
+            AgentChatPayload::ConfigUpdated {
+                model: meta.selected_model.clone(),
+                thinking: meta.selected_thinking.clone(),
+                mode: meta.selected_mode.clone(),
+                config_options: meta.session_config_options.clone(),
+            },
+            store,
+            events,
+            recent_events,
+        )?;
+    }
+    persist_switch_failed_hints(
+        chat_id,
+        Some(turn_id.to_string()),
+        outcome.failed_model,
+        outcome.failed_mode,
+        store,
+        events,
+        recent_events,
+    )?;
+    if let Some(mut recorded) = change {
+        if outcome.failed_model {
+            recorded.model = None;
+        }
+        if outcome.failed_mode {
+            recorded.mode = None;
+        }
+        if !recorded.is_empty() {
+            persist_session_config_change(
+                chat_id,
+                turn_id,
+                &recorded,
+                store,
+                events,
+                recent_events,
+            )?;
+        }
+    }
+    stamp_applied_session_config(store, chat_id)
+}
+
+fn revert_session_config(
+    store: &AgentChatStore,
+    chat_id: &str,
+    revert_model: bool,
+    revert_mode: bool,
+    revert_thinking: bool,
+) -> Result<()> {
+    store.update_meta(chat_id, |meta| {
+        if revert_model {
+            meta.selected_model = meta.applied_model.clone();
+        }
+        if revert_mode {
+            meta.selected_mode = meta.applied_mode.clone();
+        }
+        if revert_thinking {
+            meta.selected_thinking = meta.applied_thinking.clone();
+        }
+    })?;
+    Ok(())
+}
+
+pub(super) struct ConfigWriteOutcome {
+    failed_model: bool,
+    failed_mode: bool,
+    failed_thinking: bool,
+}
+
+pub(super) async fn apply_live_session_config(
+    chat_id: &str,
+    store: &AgentChatStore,
+    control: &AgentRuntimeControl,
+    change: Option<&SessionConfigChange>,
+) -> Result<ConfigWriteOutcome> {
+    let meta = store.get_meta(chat_id)?;
+    let thinking = pending_thinking_change(&meta)
+        .and_then(|value| resolve_pending_select(&meta, "thinking", Some(value.as_str())));
+    let model = change.and_then(|item| item.model.as_ref().map(|value| value.to.clone()));
+    let mode = change.and_then(|item| item.mode.as_ref().map(|value| value.to.clone()));
+    let mut outcome = ConfigWriteOutcome {
+        failed_model: false,
+        failed_mode: false,
+        failed_thinking: false,
+    };
+    if let Some(update) = config_write(
+        &meta,
+        "model",
+        model,
+        change
+            .and_then(|item| item.model.as_ref())
+            .and_then(|value| value.from.clone()),
+    ) {
+        if control.set_config(update).await.is_err() {
+            outcome.failed_model = true;
+        }
+    }
+    if let Some(update) = config_write(&meta, "thinking", thinking, meta.applied_thinking.clone()) {
+        if control.set_config(update).await.is_err() {
+            outcome.failed_thinking = true;
+        }
+    }
+    if let Some(update) = config_write(
+        &meta,
+        "mode",
+        mode,
+        change
+            .and_then(|item| item.mode.as_ref())
+            .and_then(|value| value.from.clone()),
+    ) {
+        if control.set_config(update).await.is_err() {
+            outcome.failed_mode = true;
+        }
+    }
+    Ok(outcome)
+}
+
+pub(super) fn stamp_applied_session_config(store: &AgentChatStore, chat_id: &str) -> Result<()> {
+    store.update_meta(chat_id, |meta| {
+        meta.applied_model = meta.selected_model.clone();
+        meta.applied_thinking = meta.selected_thinking.clone();
+        meta.applied_mode = meta.selected_mode.clone();
+    })?;
+    Ok(())
+}
+
 pub(super) fn push_recent(
     recent_events: &std::sync::Mutex<HashMap<String, VecDeque<AgentChatEvent>>>,
     event: &AgentChatEvent,
@@ -714,11 +1282,423 @@ pub(super) fn push_recent(
     }
 }
 
+fn resolve_pending_select(
+    meta: &AgentChatMeta,
+    kind: &str,
+    requested: Option<&str>,
+) -> Option<String> {
+    let requested = requested.map(str::trim).filter(|item| !item.is_empty())?;
+    match resolve_session_config_select(meta, kind, requested) {
+        ResolvedSessionConfig::Advertised { value, .. }
+        | ResolvedSessionConfig::PassThrough(value) => Some(value),
+        ResolvedSessionConfig::Invalid => None,
+    }
+}
+
+fn config_write(
+    meta: &AgentChatMeta,
+    kind: &str,
+    requested: Option<String>,
+    previous: Option<String>,
+) -> Option<AgentRuntimeConfigUpdate> {
+    let requested = requested?;
+    match resolve_session_config_select(meta, kind, &requested) {
+        ResolvedSessionConfig::Advertised { config_id, value } => {
+            let mut extra_config = HashMap::new();
+            extra_config.insert(config_id, value);
+            Some(AgentRuntimeConfigUpdate {
+                extra_config,
+                previous_model: if kind == "model" {
+                    previous.clone()
+                } else {
+                    None
+                },
+                previous_thinking: if kind == "thinking" {
+                    previous.clone()
+                } else {
+                    None
+                },
+                previous_mode: if kind == "mode" { previous } else { None },
+                ..AgentRuntimeConfigUpdate::default()
+            })
+        }
+        ResolvedSessionConfig::PassThrough(value) => {
+            let mut update = AgentRuntimeConfigUpdate::default();
+            match kind {
+                "model" => {
+                    update.model = Some(value);
+                    update.previous_model = previous;
+                }
+                "thinking" => {
+                    update.thinking = Some(value);
+                    update.previous_thinking = previous;
+                }
+                "mode" => {
+                    update.mode = Some(value);
+                    update.previous_mode = previous;
+                }
+                _ => return None,
+            }
+            Some(update)
+        }
+        ResolvedSessionConfig::Invalid => None,
+    }
+}
+
 pub(super) fn nonempty_opt(value: String) -> Option<String> {
     let trimmed = value.trim();
     if trimmed.is_empty() {
         None
     } else {
         Some(trimmed.to_string())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::service::agent_chat::store::AgentChatStore;
+    use crate::service::agent_chat::types::{
+        AgentChatMeta, AgentChatOrigin, AgentChatPayload, CreateAgentChatRequest,
+    };
+    use chrono::{Duration, Utc};
+    use std::collections::HashMap;
+    use std::time::Instant;
+
+    fn meta() -> AgentChatMeta {
+        AgentChatMeta {
+            id: "chat-1".into(),
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+            deleted: false,
+            title: None,
+            cwd: "/tmp".into(),
+            workspace_id: None,
+            project_id: None,
+            space_id: None,
+            origin: AgentChatOrigin::Normal,
+            provider_id: "claude".into(),
+            last_message_at: None,
+            last_event_seq: 0,
+            persistence_handle: None,
+            runtime_status: RuntimeStatus::RunningTurn,
+            selected_model: None,
+            selected_thinking: None,
+            selected_mode: None,
+            applied_model: None,
+            applied_thinking: None,
+            applied_mode: None,
+            supports_steer: false,
+            available_commands: Vec::new(),
+            session_config_options: Vec::new(),
+            session_usage: None,
+        }
+    }
+
+    fn runtime() -> RuntimeState {
+        RuntimeState {
+            current_turn_id: Some("t1".into()),
+            pending_permission: None,
+            assistant_text: HashMap::new(),
+            thinking_text: HashMap::new(),
+            last_snapshot: Instant::now(),
+            last_activity: Instant::now(),
+            turn_started_at: None,
+            thinking_started_at: None,
+            thinking_ms: 0,
+            last_thinking_segment_ms: 0,
+            turn_usage: None,
+        }
+    }
+
+    fn snapshot_with_assistant() -> AgentChatSnapshot {
+        AgentChatSnapshot {
+            meta: meta(),
+            messages: vec![FoldedMessage {
+                id: "a1".into(),
+                role: "assistant".into(),
+                parts: vec![MessagePart::Thinking {
+                    text: "hmm".into(),
+                    tool_call_id: None,
+                    duration_ms: None,
+                }],
+                created_at: Utc::now(),
+                streaming: true,
+                ..Default::default()
+            }],
+            queue: Vec::new(),
+            pending_permission: None,
+            running_turn_id: Some("t1".into()),
+            running_turn_started_at: None,
+        }
+    }
+
+    #[test]
+    fn overlay_projects_live_turn_and_thinking_durations() {
+        let started = Utc::now() - Duration::seconds(14);
+        let thinking_started = Utc::now() - Duration::seconds(3);
+        let mut state = runtime();
+        state.turn_started_at = Some(started);
+        state.thinking_started_at = Some(thinking_started);
+        state.thinking_ms = 4_000;
+        state
+            .thinking_text
+            .insert("a1".into(), ("t1".into(), "hmm live".into()));
+        let mut snapshot = snapshot_with_assistant();
+        overlay_live_state(&mut snapshot, &state);
+        assert_eq!(snapshot.running_turn_started_at, Some(started));
+        let assistant = &snapshot.messages[0];
+        assert!(assistant.streaming);
+        let worked = assistant.worked_ms.expect("worked_ms");
+        assert!((14_000..16_000).contains(&worked), "worked_ms={worked}");
+        let thinking = assistant.thinking_ms.expect("thinking_ms");
+        assert!(thinking >= 7_000, "thinking_ms={thinking}");
+        match &assistant.parts[0] {
+            MessagePart::Thinking {
+                text, duration_ms, ..
+            } => {
+                assert_eq!(text, "hmm live");
+                let duration = duration_ms.expect("open thinking duration");
+                assert!(
+                    (3_000..5_000).contains(&duration),
+                    "open thinking duration={duration}"
+                );
+            }
+            other => panic!("expected thinking part, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn overlay_does_not_overwrite_completed_thinking_blocks() {
+        let mut snapshot = snapshot_with_assistant();
+        snapshot.messages[0].parts = vec![
+            MessagePart::Thinking {
+                text: "first".into(),
+                tool_call_id: None,
+                duration_ms: Some(5_000),
+            },
+            MessagePart::Thinking {
+                text: "second".into(),
+                tool_call_id: None,
+                duration_ms: None,
+            },
+        ];
+        let mut state = runtime();
+        state
+            .thinking_text
+            .insert("a1".into(), ("t1".into(), "second live".into()));
+        overlay_live_state(&mut snapshot, &state);
+        match &snapshot.messages[0].parts[..] {
+            [MessagePart::Thinking {
+                text: first,
+                duration_ms: Some(5_000),
+                ..
+            }, MessagePart::Thinking {
+                text: second,
+                duration_ms: None,
+                ..
+            }] => {
+                assert_eq!(first, "first");
+                assert_eq!(second, "second live");
+            }
+            other => panic!("unexpected parts: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn selected_session_config_reads_camel_case_model() {
+        let config = serde_json::json!([
+            { "id": "model", "currentValue": "grok-4" },
+            { "id": "mode", "current_value": "agent" },
+            { "id": "thought_level", "currentValue": "high" }
+        ]);
+        assert_eq!(
+            selected_session_config(&config),
+            (
+                Some("grok-4".into()),
+                Some("high".into()),
+                Some("agent".into())
+            )
+        );
+    }
+
+    #[test]
+    fn selected_session_config_ignores_empty_and_unknown() {
+        let config = serde_json::json!([
+            { "id": "model", "currentValue": "  " },
+            { "id": "fast-mode", "currentValue": "true" }
+        ]);
+        assert_eq!(selected_session_config(&config), (None, None, None));
+    }
+
+    #[tokio::test]
+    async fn config_changed_persists_model_without_clearing_mode() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = AgentChatStore::new(dir.path().join("chats"));
+        let meta = store
+            .create(CreateAgentChatRequest {
+                workspace_id: None,
+                project_id: None,
+                space_id: None,
+                cwd: "/tmp".into(),
+                origin: AgentChatOrigin::Normal,
+                provider_id: "claude".into(),
+                model: None,
+                thinking: None,
+                mode: Some("plan".into()),
+                title: None,
+            })
+            .unwrap();
+        let (tx, mut rx) = broadcast::channel(8);
+        let recent = std::sync::Mutex::new(HashMap::new());
+        let state = Mutex::new(runtime());
+        apply_event(
+            &meta.id,
+            AgentEvent::ConfigChanged {
+                config: serde_json::json!([{ "id": "model", "currentValue": "opus" }]),
+            },
+            &store,
+            &state,
+            &tx,
+            &recent,
+        )
+        .await
+        .unwrap();
+        let updated = store.get_meta(&meta.id).unwrap();
+        assert_eq!(updated.selected_model.as_deref(), Some("opus"));
+        assert_eq!(updated.selected_mode.as_deref(), Some("plan"));
+        let event = rx.try_recv().expect("config_updated event");
+        match event.payload {
+            AgentChatPayload::ConfigUpdated {
+                model,
+                thinking,
+                mode,
+                ..
+            } => {
+                assert_eq!(model.as_deref(), Some("opus"));
+                assert!(thinking.is_none());
+                assert!(mode.is_none());
+            }
+            other => panic!("unexpected payload: {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn config_changed_keeps_pending_model_when_still_advertised() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = AgentChatStore::new(dir.path().join("chats"));
+        let meta = store
+            .create(CreateAgentChatRequest {
+                workspace_id: None,
+                project_id: None,
+                space_id: None,
+                cwd: "/tmp".into(),
+                origin: AgentChatOrigin::Normal,
+                provider_id: "claude".into(),
+                model: Some("opus".into()),
+                thinking: None,
+                mode: None,
+                title: None,
+            })
+            .unwrap();
+        store
+            .update_meta(&meta.id, |row| {
+                row.applied_model = Some("opus".into());
+                row.selected_model = Some("grok-4".into());
+            })
+            .unwrap();
+        let (tx, mut rx) = broadcast::channel(8);
+        let recent = std::sync::Mutex::new(HashMap::new());
+        let state = Mutex::new(runtime());
+        apply_event(
+            &meta.id,
+            AgentEvent::ConfigChanged {
+                config: serde_json::json!([{
+                    "id": "model",
+                    "category": "model",
+                    "type": "select",
+                    "currentValue": "opus",
+                    "options": [
+                        { "value": "opus", "name": "Opus" },
+                        { "value": "grok-4", "name": "Grok" }
+                    ]
+                }]),
+            },
+            &store,
+            &state,
+            &tx,
+            &recent,
+        )
+        .await
+        .unwrap();
+        let updated = store.get_meta(&meta.id).unwrap();
+        assert_eq!(updated.selected_model.as_deref(), Some("grok-4"));
+        assert_eq!(updated.applied_model.as_deref(), Some("opus"));
+        let mut saw_failed = false;
+        while let Ok(event) = rx.try_recv() {
+            if matches!(
+                event.payload,
+                AgentChatPayload::SessionHint {
+                    kind: ref kind,
+                    ..
+                } if kind == "model_switch_failed"
+            ) {
+                saw_failed = true;
+            }
+        }
+        assert!(
+            !saw_failed,
+            "resume advertisements should not hint a failed switch"
+        );
+    }
+
+    #[tokio::test]
+    async fn config_changed_drops_pending_model_not_in_advertised_options() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = AgentChatStore::new(dir.path().join("chats"));
+        let meta = store
+            .create(CreateAgentChatRequest {
+                workspace_id: None,
+                project_id: None,
+                space_id: None,
+                cwd: "/tmp".into(),
+                origin: AgentChatOrigin::Normal,
+                provider_id: "claude".into(),
+                model: Some("opus".into()),
+                thinking: None,
+                mode: None,
+                title: None,
+            })
+            .unwrap();
+        store
+            .update_meta(&meta.id, |row| {
+                row.applied_model = Some("opus".into());
+                row.selected_model = Some("grok-4".into());
+            })
+            .unwrap();
+        let (tx, _rx) = broadcast::channel(8);
+        let recent = std::sync::Mutex::new(HashMap::new());
+        let state = Mutex::new(runtime());
+        apply_event(
+            &meta.id,
+            AgentEvent::ConfigChanged {
+                config: serde_json::json!([{
+                    "id": "model",
+                    "category": "model",
+                    "type": "select",
+                    "currentValue": "opus",
+                    "options": [{ "value": "opus", "name": "Opus" }]
+                }]),
+            },
+            &store,
+            &state,
+            &tx,
+            &recent,
+        )
+        .await
+        .unwrap();
+        let updated = store.get_meta(&meta.id).unwrap();
+        assert_eq!(updated.selected_model.as_deref(), Some("opus"));
+        assert_eq!(updated.applied_model.as_deref(), Some("opus"));
     }
 }

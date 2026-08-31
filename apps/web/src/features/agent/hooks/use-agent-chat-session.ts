@@ -26,12 +26,17 @@ import type {
   AgentMessage,
   AgentQueueItem,
   AgentSessionUsage,
+  SessionAdvertisedOption,
 } from "@atmos/api-types/ws/dto/agent-chat";
 import {
   persistAgentChatLastSession,
   readAgentChatLastSessions,
   resolveRestoredAgentChat,
 } from "@/features/agent/lib/agent-chat-last-session";
+import {
+  pickInstalledRegistryId,
+  preferredConfigFromDefault,
+} from "@/features/agent/lib/agent-chat-prefs";
 import {
   FOOTER_MODAL_CHAT_PREF_KEY,
   workingDirectoriesEqual,
@@ -40,6 +45,7 @@ import {
 import {
   deriveAgentActivity,
   readDefaultAgentRegistryId,
+  runningBackgroundTools,
   writeDefaultAgentRegistryId,
   type PendingPermission,
 } from "@/features/agent/lib/chat-helpers";
@@ -58,6 +64,11 @@ import {
 import { routeBusySubmit, resolveFollowupPolicy } from "@/features/agent/lib/followup-policy";
 import { isLiveAgentRuntimeStatus } from "@/features/agent/lib/agent-composer-placeholder";
 import {
+  clockFromElapsedMs,
+  isLiveAssistantTurn,
+  snapshotLiveElapsedMs,
+} from "@/features/agent/lib/agent-chat-timing";
+import {
   EMPTY_AGENT_SLASH_COMMANDS,
   normalizeAgentSlashCommands,
   rememberAgentSlashCommands,
@@ -67,9 +78,12 @@ import {
 } from "@/features/agent/store/agent-slash-command-cache";
 import {
   agentChatHistoryListRequest,
+  advertisedOptionsToConfigOptions,
   catalogToConfigOptions,
+  configKindMatches,
   defaultCatalogModelId,
   isCatalogModelsLoading,
+  overlayPendingConfigValues,
   probingCatalog,
   chatTitleFromPrompt,
   chatsToHistoryRows,
@@ -80,6 +94,18 @@ import {
 } from "@/features/agent/lib/agent-chat-thread";
 
 export type { AgentChatSlashCommand } from "@/features/agent/store/agent-slash-command-cache";
+
+function pendingSessionConfigPatch(
+  modelId: string,
+  thinkingId: string,
+  modeId: string,
+): { model?: string; thinking?: string; mode?: string } {
+  return {
+    ...(modelId.trim() ? { model: modelId.trim() } : {}),
+    ...(thinkingId.trim() ? { thinking: thinkingId.trim() } : {}),
+    ...(modeId.trim() ? { mode: modeId.trim() } : {}),
+  };
+}
 
 function spaceIdForChatCreate(
   paintContextId: string | null | undefined,
@@ -102,20 +128,24 @@ export function useAgentChatSession({
   instanceKey = null,
   paintContextId = null,
   chatId: chatIdProp,
+  resumeTranscript = false,
   onChatStarted,
   onChatUpdated,
   onOpenChat,
 }: UseAgentChatSessionOptions & {
   chatId: string;
+  resumeTranscript?: boolean;
   onChatStarted?: (id: string, meta?: {
     title?: string | null;
     cwd?: string;
     providerId?: string | null;
+    hasMessages?: boolean;
   }) => void;
   onChatUpdated?: (id: string, meta: {
     title?: string | null;
     providerId?: string | null;
     cwd?: string;
+    hasMessages?: boolean;
   }) => void;
   onOpenChat?: (id: string) => void;
 }) {
@@ -156,28 +186,38 @@ export function useAgentChatSession({
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historySessions, setHistorySessions] = useState<AgentChatHistoryRow[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
-  const [isResumingHistory, setIsResumingHistory] = useState(true);
+  const [isResumingHistory, setIsResumingHistory] = useState(
+    () => Boolean(chatId) && resumeTranscript,
+  );
   const [shouldScrambleAutoTitle, setShouldScrambleAutoTitle] = useState(false);
   const [hydrated, setHydrated] = useState(false);
   const [runtimeStatus, setRuntimeStatus] = useState<string | null>(null);
   const [hasPersistenceHandle, setHasPersistenceHandle] = useState(false);
+  const [sessionConfigOptions, setSessionConfigOptions] = useState<SessionAdvertisedOption[]>([]);
   const [sessionCommands, setSessionCommands] = useState<AgentChatSlashCommand[]>([]);
   const [sessionUsage, setSessionUsage] = useState<AgentSessionUsage | null>(null);
   const [turnStartedAt, setTurnStartedAt] = useState<number | null>(null);
   const [elapsedMs, setElapsedMs] = useState(0);
   const consumedPrompts = useRef(new Set<string>());
   const lastSeq = useRef(0);
-  const hydratingRef = useRef(true);
+  const hydratingRef = useRef(Boolean(chatId) && resumeTranscript);
   const pendingEventsRef = useRef<AgentChatEvent[]>([]);
   const stoppedRef = useRef(false);
   const pendingSendRef = useRef<{ text: string; attachmentPaths: string[] } | null>(null);
+  const creatingChatRef = useRef<Promise<string> | null>(null);
+  const resumeTranscriptRef = useRef(resumeTranscript);
+  resumeTranscriptRef.current = resumeTranscript;
   const activeIdRef = useRef(chatId);
   const providerIdRef = useRef(providerId);
   providerIdRef.current = providerId;
   const restoreAttemptedRef = useRef(false);
   const [prefsRestored, setPrefsRestored] = useState(false);
+  const lastPersistedRegistryRef = useRef("");
+  const lastPersistedConfigRef = useRef({ registry: "", model: "", thinking: "" });
   const wsConnected = useWebSocketStore((state) => state.connectionState === "connected");
-  const agentLocked = Boolean(activeChatId);
+  const agentLocked =
+    Boolean(activeChatId) &&
+    (messages.length > 0 || hasPersistenceHandle || isLiveAgentRuntimeStatus(runtimeStatus));
   const bottomRef = useRef<HTMLDivElement>(null);
   const transcriptRef = useRef<HTMLDivElement>(null);
 
@@ -199,21 +239,26 @@ export function useAgentChatSession({
     () => parsePlan(currentPlanFromMessages(messages)),
     [messages],
   );
+  const backgroundTools = useMemo(
+    () => runningBackgroundTools(messages),
+    [messages],
+  );
   const agentActivity = useMemo(
     () => deriveAgentActivity(messages, busy && messages.at(-1)?.role !== "assistant"),
     [busy, messages],
   );
 
+  const liveTurn = busy || isLiveAssistantTurn(messages.at(-1));
   useEffect(() => {
-    if (!busy || turnStartedAt == null) {
-      if (!busy) setElapsedMs(0);
+    if (!liveTurn || turnStartedAt == null) {
+      if (!liveTurn) setElapsedMs(0);
       return;
     }
     const tick = () => setElapsedMs(Math.max(0, Date.now() - turnStartedAt));
     tick();
     const timer = window.setInterval(tick, 1000);
     return () => window.clearInterval(timer);
-  }, [busy, turnStartedAt]);
+  }, [liveTurn, turnStartedAt]);
 
   const chatIdPropRef = useRef(chatId);
   const onStartedRef = useRef(onChatStarted);
@@ -248,6 +293,7 @@ export function useAgentChatSession({
       lastSeq.current = 0;
       setRuntimeStatus("detached");
       setHasPersistenceHandle(false);
+      setSessionConfigOptions([]);
     }
   }, [chatId]);
 
@@ -257,24 +303,33 @@ export function useAgentChatSession({
     const meta = snapshot.meta;
     setTitle(meta.title?.trim() || null);
     setSupportsSteer(Boolean(meta.supports_steer));
-    setMessages(
-      dedupeAgentMessages(
-        (snapshot.messages ?? []).map((message) => ({
-          ...message,
-          parts: message.parts ?? [],
-        })),
-      ),
+    const loadedMessages = dedupeAgentMessages(
+      (snapshot.messages ?? []).map((message) => ({
+        ...message,
+        parts: message.parts ?? [],
+      })),
     );
+    setMessages(loadedMessages);
+    if (loadedMessages.length > 0) {
+      onUpdatedRef.current?.(id, { hasMessages: true });
+    }
     setRuntimeStatus(meta.runtime_status ?? "detached");
     setHasPersistenceHandle(Boolean(meta.persistence_handle));
-    const running = meta.runtime_status === "running_turn" || meta.runtime_status === "waiting_permission";
+    setSessionConfigOptions(meta.session_config_options ?? []);
+    const last = snapshot.messages?.at(-1);
+    const running =
+      meta.runtime_status === "running_turn" ||
+      meta.runtime_status === "waiting_permission" ||
+      Boolean(snapshot.running_turn_id) ||
+      isLiveAssistantTurn(last);
     setBusy(running);
     setRunningTurnId(snapshot.running_turn_id ?? null);
     setSessionUsage(meta.session_usage ?? null);
-    if (running && snapshot.running_turn_started_at) {
-      const started = Date.parse(snapshot.running_turn_started_at);
-      setTurnStartedAt(Number.isNaN(started) ? Date.now() : started);
-    } else if (!running) {
+    if (running) {
+      const elapsed = snapshotLiveElapsedMs(snapshot) ?? 0;
+      setTurnStartedAt(clockFromElapsedMs(elapsed));
+      setElapsedMs(elapsed);
+    } else {
       setTurnStartedAt(null);
       setElapsedMs(0);
     }
@@ -375,26 +430,63 @@ export function useAgentChatSession({
   useEffect(() => {
     if (!wsConnected) return;
     setLoadingAgents(true);
-    void agentApi.listRegistry().then((result) => {
+    void Promise.all([
+      agentApi.listRegistry(),
+      agentChatApi.prefsGet().catch(() => ({ last_registry_id: null })),
+    ]).then(([result, prefs]) => {
       const agents = result.agents ?? [];
       const installed = agents.filter((agent) => agent.installed);
+      const installedIds = installed.map((agent) => agent.id);
       setInstalledAgents(installed);
+      const lastRegistryId = pickInstalledRegistryId(
+        installedIds,
+        prefs.last_registry_id,
+      );
+      lastPersistedRegistryRef.current = lastRegistryId;
       const fallback =
+        lastRegistryId ||
         readDefaultAgentRegistryId() ||
         installed[0]?.id ||
         agents[0]?.id ||
         "claude";
       setDefaultRegistryId(fallback);
+      const isNewChat = !activeIdRef.current;
+      const currentRegistry = pickInstalledRegistryId(
+        installedIds,
+        providerIdRef.current,
+      );
+      const appliedRegistry = isNewChat
+        ? lastRegistryId || currentRegistry || installed[0]?.id || fallback
+        : currentRegistry;
       setProviderIdState((current) => {
+        if (isNewChat && lastRegistryId) return lastRegistryId;
         if (current && installed.some((agent) => agent.id === current)) return current;
         if (installed[0]) return installed[0].id;
         return current || fallback;
       });
+      if (isNewChat && appliedRegistry) {
+        const preferred = preferredConfigFromDefault(
+          installed.find((agent) => agent.id === appliedRegistry)?.default_config,
+        );
+        lastPersistedConfigRef.current = {
+          registry: appliedRegistry,
+          model: preferred.modelId,
+          thinking: preferred.thinkingId,
+        };
+        if (preferred.modelId) {
+          setModelId((current) => current || preferred.modelId);
+        }
+        if (preferred.thinkingId) {
+          setThinkingId((current) => current || preferred.thinkingId);
+        }
+      }
+      setPrefsRestored(true);
       setLoadingAgents(false);
     }).catch(() => {
       const fallback = readDefaultAgentRegistryId() || "claude";
       setDefaultRegistryId((current) => current || fallback);
       setProviderIdState((current) => current || fallback);
+      setPrefsRestored(true);
       setLoadingAgents(false);
     });
   }, [wsConnected]);
@@ -441,9 +533,9 @@ export function useAgentChatSession({
       onStartedRef.current?.(restored.chatId, {
         cwd: stored.instanceLast?.cwd ?? stored.filterLast?.cwd ?? undefined,
         providerId: restored.registryId || null,
+        hasMessages: true,
       });
     }
-    setPrefsRestored(true);
   }, [
     chatId,
     chatMode,
@@ -458,8 +550,46 @@ export function useAgentChatSession({
   ]);
 
   useEffect(() => {
+    if (!prefsRestored) return;
+    const registryId = providerId.trim();
+    if (!registryId) return;
+    persistAgentChatLastSession({
+      workspaceId,
+      projectId,
+      mode: chatMode,
+      instanceKey,
+      registryId,
+      chatId: activeChatId || null,
+      cwd: cwd || null,
+      prefKey: lastSessionPrefKey,
+    });
+  }, [
+    activeChatId,
+    chatMode,
+    cwd,
+    instanceKey,
+    lastSessionPrefKey,
+    prefsRestored,
+    projectId,
+    providerId,
+    workspaceId,
+  ]);
+
+  useEffect(() => {
+    if (!prefsRestored || !hydrated) return;
+    if (activeChatId) return;
+    const registryId = providerId.trim();
+    if (!registryId) return;
+    if (lastPersistedRegistryRef.current !== registryId) {
+      lastPersistedRegistryRef.current = registryId;
+      void agentChatApi.prefsSet({ last_registry_id: registryId }).catch(() => undefined);
+    }
+  }, [activeChatId, hydrated, prefsRestored, providerId]);
+
+  useEffect(() => {
     if (!wsConnected || !prefsRestored) return;
     if (activeChatId) return;
+    hydratingRef.current = false;
     setHydrated(true);
     setIsResumingHistory(false);
     setProviderIdState((current) => current || readDefaultAgentRegistryId() || "claude");
@@ -489,7 +619,13 @@ export function useAgentChatSession({
   useEffect(() => {
     if (!wsConnected || !prefsRestored) return;
     if (!activeChatId) return;
-    setIsResumingHistory(true);
+    if (resumeTranscriptRef.current) {
+      setIsResumingHistory(true);
+    } else {
+      hydratingRef.current = true;
+      setHydrated(true);
+      setIsResumingHistory(false);
+    }
     const id = activeChatId;
     hydratingRef.current = true;
     pendingEventsRef.current = [];
@@ -505,8 +641,8 @@ export function useAgentChatSession({
       if (payload.type === "turn_started") {
         setBusy(true);
         setRunningTurnId(payload.turn_id ?? null);
-        setTurnStartedAt(Date.now());
-        setElapsedMs(0);
+        const started = payload.created_at ? Date.parse(payload.created_at) : Date.now();
+        setTurnStartedAt(Number.isNaN(started) ? Date.now() : started);
       }
       if (payload.type === "turn_completed") {
         setBusy(false);
@@ -542,6 +678,20 @@ export function useAgentChatSession({
         const commands = normalizeAgentSlashCommands(payload.commands);
         setSessionCommands(commands);
         rememberAgentSlashCommands(providerIdRef.current, commands);
+      }
+      if (payload.type === "config_updated") {
+        const fromOptions = (kind: string) =>
+          payload.config_options?.find((row) => configKindMatches(row.id, row.category, kind))
+            ?.current_value?.trim() ?? "";
+        const model = payload.model?.trim() || fromOptions("model");
+        if (model) setModelId(model);
+        const thinking = payload.thinking?.trim() || fromOptions("thinking");
+        if (thinking) setThinkingId(thinking);
+        const mode = payload.mode?.trim() || fromOptions("mode");
+        if (mode) setModeId(mode);
+        if (payload.config_options?.length) {
+          setSessionConfigOptions(payload.config_options);
+        }
       }
       if (payload.type === "title_updated") {
         const nextTitle = payload.title;
@@ -629,15 +779,166 @@ export function useAgentChatSession({
   }, []);
 
   useEffect(() => {
+    if (!prefsRestored) return;
+    if (
+      messages.length > 0 ||
+      hasPersistenceHandle ||
+      isLiveAgentRuntimeStatus(runtimeStatus)
+    ) {
+      return;
+    }
     if (!catalog) return;
     if (catalog.agent_id && providerId && catalog.agent_id !== providerId) return;
+    const preferred = preferredConfigFromDefault(
+      installedAgents.find((agent) => agent.id === providerId)?.default_config,
+    );
     setModeId((current) =>
       current || catalog.modes.find((mode) => mode.is_default)?.id || catalog.modes[0]?.id || "",
     );
-    const resolvedModelId = defaultCatalogModelId(catalog, modelId);
+    const resolvedModelId = defaultCatalogModelId(catalog, modelId || preferred.modelId);
     setModelId(resolvedModelId);
-    setThinkingId((current) => current || thinkingChoices(catalog, resolvedModelId)[0] || "");
-  }, [catalog, modelId, providerId]);
+    setThinkingId((current) => {
+      const choices = thinkingChoices(catalog, resolvedModelId);
+      const preferredThinking = current || preferred.thinkingId;
+      if (preferredThinking && choices.includes(preferredThinking)) return preferredThinking;
+      return choices[0] || "";
+    });
+  }, [
+    catalog,
+    hasPersistenceHandle,
+    installedAgents,
+    messages.length,
+    modelId,
+    prefsRestored,
+    providerId,
+    runtimeStatus,
+  ]);
+
+  const persistNewSessionPreferences = useCallback((
+    registryId: string,
+    model: string,
+    thinking: string,
+  ) => {
+    const registry = registryId.trim();
+    if (!registry) return;
+    if (lastPersistedRegistryRef.current !== registry) {
+      lastPersistedRegistryRef.current = registry;
+      void agentChatApi.prefsSet({ last_registry_id: registry }).catch(() => undefined);
+    }
+    const nextModel = model.trim();
+    const nextThinking = thinking.trim();
+    lastPersistedConfigRef.current = {
+      registry,
+      model: nextModel,
+      thinking: nextThinking,
+    };
+    setInstalledAgents((current) =>
+      current.map((agent) =>
+        agent.id === registry
+          ? {
+              ...agent,
+              default_config: {
+                ...(agent.default_config || {}),
+                ...(nextModel ? { model: nextModel } : {}),
+                ...(nextThinking ? { thinking: nextThinking } : {}),
+              },
+            }
+          : agent,
+      ),
+    );
+    if (nextModel) {
+      void agentApi.setDefaultConfig(registry, "model", nextModel).catch(() => undefined);
+    }
+    if (nextThinking) {
+      void agentApi.setDefaultConfig(registry, "thinking", nextThinking).catch(() => undefined);
+    }
+  }, []);
+
+  const persistConfig = useCallback(async (patch: {
+    provider_id?: string;
+    model?: string;
+    thinking?: string;
+    mode?: string;
+  }) => {
+    const id = activeChatId || activeIdRef.current;
+    if (!id) return;
+    if (!patch.provider_id && !patch.model && !patch.thinking && !patch.mode) return;
+    const meta = await agentChatApi.configure(id, patch);
+    setProviderIdState(meta.provider_id || "claude");
+    setModelId(meta.selected_model ?? "");
+    setThinkingId(meta.selected_thinking ?? "");
+    setModeId(meta.selected_mode ?? "");
+  }, [activeChatId]);
+
+  const ensureCreatedChat = useCallback(async (input?: { title?: string | null }) => {
+    const existing = activeIdRef.current.trim();
+    if (existing) return existing;
+    if (creatingChatRef.current) return creatingChatRef.current;
+    const registry = providerId || defaultRegistryId || "claude";
+    const pending = (async () => {
+      persistNewSessionPreferences(registry, modelId, thinkingId);
+      const created = await agentChatApi.create({
+        provider_id: registry,
+        model: modelId || null,
+        thinking: thinkingId || null,
+        mode: modeId || null,
+        cwd: cwd || null,
+        workspace_id: workspaceId,
+        project_id: projectId,
+        space_id: isolatedModal
+          ? null
+          : spaceIdForChatCreate(paintContextId, workspaceId || projectId),
+        title: input?.title ?? null,
+        origin: isolatedModal ? "quick" : "normal",
+      });
+      const id = created.id;
+      activeIdRef.current = id;
+      setActiveChatId(id);
+      const nextTitle = created.title?.trim() || input?.title?.trim() || null;
+      if (nextTitle) setTitle(nextTitle);
+      onStartedRef.current?.(id, {
+        title: nextTitle,
+        cwd: created.cwd,
+        providerId: registry,
+        hasMessages: false,
+      });
+      return id;
+    })();
+    creatingChatRef.current = pending;
+    try {
+      return await pending;
+    } finally {
+      if (creatingChatRef.current === pending) creatingChatRef.current = null;
+    }
+  }, [
+    cwd,
+    defaultRegistryId,
+    isolatedModal,
+    modeId,
+    modelId,
+    paintContextId,
+    persistNewSessionPreferences,
+    projectId,
+    providerId,
+    thinkingId,
+    workspaceId,
+  ]);
+
+  useEffect(() => {
+    if (variant !== "center") return;
+    if (!wsConnected || !prefsRestored) return;
+    if (activeChatId || creatingChatRef.current) return;
+    if (!(providerId || defaultRegistryId).trim()) return;
+    void ensureCreatedChat();
+  }, [
+    activeChatId,
+    defaultRegistryId,
+    ensureCreatedChat,
+    prefsRestored,
+    providerId,
+    variant,
+    wsConnected,
+  ]);
 
   useEffect(() => {
     const contextKey = getAgentPromptQueueKey(workspaceId, projectId, "default", null);
@@ -654,10 +955,12 @@ export function useAgentChatSession({
         shiftQueuedAgentChatPrompt(workspaceId, projectId, item.mode, item.instanceKey ?? null);
         const text = buildQueuedAgentPromptContent(item.prompt, item.attachmentPaths);
         if (!text.trim()) continue;
-        let id = activeChatId;
-        if (!id || item.forceNewSession) {
+        let id = activeChatId || activeIdRef.current;
+        if (item.forceNewSession && id) {
+          const registry = item.registryId || providerId || defaultRegistryId || "claude";
+          persistNewSessionPreferences(registry, modelId, thinkingId);
           const created = await agentChatApi.create({
-            provider_id: item.registryId || providerId || defaultRegistryId || "claude",
+            provider_id: registry,
             model: modelId || null,
             thinking: thinkingId || null,
             mode: modeId || null,
@@ -678,9 +981,18 @@ export function useAgentChatSession({
             title: created.title?.trim() || item.sessionTitle || chatTitleFromPrompt(text) || null,
             cwd: created.cwd,
             providerId: item.registryId || providerId || defaultRegistryId || null,
+            hasMessages: false,
           });
           return;
         }
+        if (!id) {
+          id = await ensureCreatedChat({
+            title: item.sessionTitle ?? chatTitleFromPrompt(text),
+          });
+          pendingSendRef.current = { text, attachmentPaths: item.attachmentPaths ?? [] };
+          return;
+        }
+        await persistConfig(pendingSessionConfigPatch(modelId, thinkingId, modeId));
         if (busy) {
           await agentChatApi.queueAdd(id, text, item.attachmentPaths);
         } else {
@@ -699,6 +1011,9 @@ export function useAgentChatSession({
     paintContextId,
     modeId,
     modelId,
+    persistConfig,
+    persistNewSessionPreferences,
+    ensureCreatedChat,
     projectId,
     providerId,
     shiftQueuedAgentChatPrompt,
@@ -706,20 +1021,6 @@ export function useAgentChatSession({
     messages.length,
     workspaceId,
   ]);
-
-  const persistConfig = useCallback(async (patch: {
-    provider_id?: string;
-    model?: string;
-    thinking?: string;
-    mode?: string;
-  }) => {
-    if (!activeChatId) return;
-    const meta = await agentChatApi.configure(activeChatId, patch);
-    setProviderIdState(meta.provider_id || "claude");
-    setModelId(meta.selected_model ?? "");
-    setThinkingId(meta.selected_thinking ?? "");
-    setModeId(meta.selected_mode ?? "");
-  }, [activeChatId]);
 
   const handleSubmit = useCallback(async (
     message: {
@@ -734,22 +1035,10 @@ export function useAgentChatSession({
     if (!text && files.length === 0) return;
     setSendError(null);
     try {
-      let id = activeChatId;
+      let id = activeChatId || activeIdRef.current;
       if (!id) {
-        const created = await agentChatApi.create({
-          provider_id: providerId || defaultRegistryId || "claude",
-          model: modelId || null,
-          thinking: thinkingId || null,
-          mode: modeId || null,
-          cwd: cwd || null,
-          workspace_id: workspaceId,
-          project_id: projectId,
-          space_id: isolatedModal
-            ? null
-            : spaceIdForChatCreate(paintContextId, workspaceId || projectId),
-          origin: isolatedModal ? "quick" : "normal",
-        });
-        id = created.id;
+        const promptTitle = chatTitleFromPrompt(text);
+        id = await ensureCreatedChat({ title: promptTitle });
         let attachmentPaths: string[] = [];
         if (files.length > 0) {
           const uploaded = await agentRestApi.uploadAttachments(
@@ -764,16 +1053,19 @@ export function useAgentChatSession({
           attachmentPaths = uploaded.paths;
         }
         pendingSendRef.current = { text, attachmentPaths };
-        activeIdRef.current = id;
-        setActiveChatId(id);
-        const promptTitle = chatTitleFromPrompt(text);
-        const nextTitle = created.title?.trim() || promptTitle || null;
-        if (nextTitle) setTitle(nextTitle);
+        if (promptTitle) setTitle((current) => current || promptTitle);
         onStartedRef.current?.(id, {
-          title: nextTitle,
-          cwd: created.cwd,
-          providerId: providerId || defaultRegistryId || null,
+          title: promptTitle,
+          hasMessages: false,
         });
+        if (!hydratingRef.current) {
+          const queued = pendingSendRef.current;
+          pendingSendRef.current = null;
+          if (queued) {
+            await persistConfig(pendingSessionConfigPatch(modelId, thinkingId, modeId));
+            await agentChatApi.send(id, queued.text, queued.attachmentPaths);
+          }
+        }
         return;
       }
       let attachmentPaths: string[] = [];
@@ -798,10 +1090,12 @@ export function useAgentChatSession({
         if (action === "steer") {
           if (!supportsSteer || !runningTurnId) return;
           await agentChatApi.steer(id, runningTurnId, text);
-        } else {
-          await agentChatApi.queueAdd(id, text, attachmentPaths);
+          return;
         }
+        await persistConfig(pendingSessionConfigPatch(modelId, thinkingId, modeId));
+        await agentChatApi.queueAdd(id, text, attachmentPaths);
       } else {
+        await persistConfig(pendingSessionConfigPatch(modelId, thinkingId, modeId));
         await agentChatApi.send(id, text, attachmentPaths);
       }
     } catch (error) {
@@ -817,7 +1111,8 @@ export function useAgentChatSession({
     modeId,
     modelId,
     paintContextId,
-    onChatStarted,
+    persistConfig,
+    ensureCreatedChat,
     policy,
     projectId,
     providerId,
@@ -842,6 +1137,10 @@ export function useAgentChatSession({
       cwd: cwd || null,
       prefKey: lastSessionPrefKey,
     });
+    if (lastPersistedRegistryRef.current !== next) {
+      lastPersistedRegistryRef.current = next;
+      void agentChatApi.prefsSet({ last_registry_id: next }).catch(() => undefined);
+    }
   }, [
     activeChatId,
     agentLocked,
@@ -855,7 +1154,16 @@ export function useAgentChatSession({
 
   const handleCreateNewSession = useCallback(async (targetRegistryId?: string) => {
     const nextRegistry = targetRegistryId?.trim() || providerId;
-    if (targetRegistryId) setProviderIdState(targetRegistryId);
+    if (targetRegistryId) {
+      setProviderIdState(targetRegistryId);
+      setCatalog(null);
+    }
+    const preferred = preferredConfigFromDefault(
+      installedAgents.find((agent) => agent.id === nextRegistry)?.default_config,
+    );
+    setModelId(preferred.modelId);
+    setThinkingId(preferred.thinkingId);
+    setModeId("");
     if (nextRegistry) {
       persistAgentChatLastSession({
         workspaceId,
@@ -867,7 +1175,17 @@ export function useAgentChatSession({
         cwd: cwd || null,
         prefKey: lastSessionPrefKey,
       });
+      if (lastPersistedRegistryRef.current !== nextRegistry) {
+        lastPersistedRegistryRef.current = nextRegistry;
+        void agentChatApi.prefsSet({ last_registry_id: nextRegistry }).catch(() => undefined);
+      }
     }
+    const previousId = activeIdRef.current;
+    activeIdRef.current = "";
+    creatingChatRef.current = null;
+    hydratingRef.current = false;
+    resumeTranscriptRef.current = false;
+    setIsResumingHistory(false);
     setActiveChatId("");
     setMessages([]);
     setTitle(null);
@@ -882,11 +1200,16 @@ export function useAgentChatSession({
     lastSeq.current = 0;
     setRuntimeStatus("detached");
     setHasPersistenceHandle(false);
+    setSessionConfigOptions([]);
+    if (previousId) {
+      onUpdatedRef.current?.(previousId, { hasMessages: false });
+    }
     onOpenChat?.("");
   }, [
     chatMode,
     cwd,
     instanceKey,
+    installedAgents,
     lastSessionPrefKey,
     onOpenChat,
     projectId,
@@ -920,6 +1243,7 @@ export function useAgentChatSession({
       title: row.title,
       cwd: row.cwd,
       providerId: row.provider_id || null,
+      hasMessages: true,
     });
   }, [onOpenChat]);
 
@@ -957,47 +1281,82 @@ export function useAgentChatSession({
     void load(activeChatId);
   }, [activeChatId, load, moveDialogQueued, queue]);
 
-  const configOptions = useMemo(
-    () => catalogToConfigOptions(catalog, modelId, thinkingId, modeId),
-    [catalog, modeId, modelId, thinkingId],
-  );
+  const configOptions = useMemo(() => {
+    const catalogOptions = catalogToConfigOptions(catalog, modelId, thinkingId, modeId);
+    const advertised = advertisedOptionsToConfigOptions(sessionConfigOptions);
+    const base = advertised.length > 0 ? advertised : catalogOptions;
+    return overlayPendingConfigValues(base, { modelId, modeId, thinkingId });
+  }, [catalog, modeId, modelId, sessionConfigOptions, thinkingId]);
+
+  const setAgentDefaultConfig = useCallback((configId: string, value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed) return;
+    const registry = providerIdRef.current.trim();
+    if (!registry) return;
+    setInstalledAgents((current) => {
+      const agent = current.find((item) => item.id === registry);
+      if (agent?.default_config?.[configId] === trimmed) return current;
+      return current.map((item) =>
+        item.id === registry
+          ? { ...item, default_config: { ...(item.default_config || {}), [configId]: trimmed } }
+          : item,
+      );
+    });
+    const key = configId === "model" || configId === "models"
+      ? "model"
+      : configId === "thinking" || configId === "think" || configId === "thought_level"
+        ? "thinking"
+        : null;
+    if (
+      key &&
+      lastPersistedConfigRef.current.registry === registry &&
+      lastPersistedConfigRef.current[key] === trimmed
+    ) {
+      return;
+    }
+    if (key) {
+      lastPersistedConfigRef.current = {
+        ...lastPersistedConfigRef.current,
+        registry,
+        [key]: trimmed,
+      };
+    }
+    void agentApi.setDefaultConfig(registry, configId, trimmed).catch(() => undefined);
+  }, []);
 
   const setConfigOption = useCallback((key: string, value: string) => {
-    if (key === "model" || key === "models") {
+    if (configKindMatches(key, undefined, "model")) {
       setModelId(value);
-      if (activeChatId) void persistConfig({ model: value, thinking: "" });
       return;
     }
-    if (key === "thinking" || key === "think") {
+    if (configKindMatches(key, undefined, "thinking")) {
       setThinkingId(value);
-      if (activeChatId) void persistConfig({ thinking: value });
       return;
     }
-    if (key === "mode" || key === "modes") {
+    if (configKindMatches(key, undefined, "mode")) {
       setModeId(value);
-      if (activeChatId) void persistConfig({ mode: value });
     }
-  }, [activeChatId, persistConfig]);
+  }, []);
 
   const setProviderId = useCallback((next: string) => {
     if (agentLocked) return;
     setProviderIdState(next);
     setCatalog(null);
-    setModelId("");
-    setThinkingId("");
+    const preferred = preferredConfigFromDefault(
+      installedAgents.find((agent) => agent.id === next)?.default_config,
+    );
+    setModelId(preferred.modelId);
+    setThinkingId(preferred.thinkingId);
     setModeId("");
     persistPreferredRegistry(next);
-  }, [agentLocked, persistPreferredRegistry]);
-
-  const setAgentDefaultConfig = useCallback((configId: string, value: string) => {
-    setInstalledAgents((current) =>
-      current.map((agent) =>
-        agent.id === providerId
-          ? { ...agent, default_config: { ...(agent.default_config || {}), [configId]: value } }
-          : agent,
-      ),
-    );
-  }, [providerId]);
+    if (activeIdRef.current) {
+      void persistConfig({
+        provider_id: next,
+        ...(preferred.modelId ? { model: preferred.modelId } : {}),
+        ...(preferred.thinkingId ? { thinking: preferred.thinkingId } : {}),
+      });
+    }
+  }, [agentLocked, installedAgents, persistConfig, persistPreferredRegistry]);
 
   const activeAgent = installedAgents.find((agent) => agent.id === providerId) ?? installedAgents[0] ?? null;
   const registryId = activeAgent?.id || providerId;
@@ -1007,6 +1366,11 @@ export function useAgentChatSession({
     return state.byProviderId[id] ?? EMPTY_AGENT_SLASH_COMMANDS;
   });
   const availableCommands = resolveAgentSlashCommands(sessionCommands, cachedCommands);
+
+  useEffect(() => {
+    if (!activeChatId || messages.length === 0) return;
+    onUpdatedRef.current?.(activeChatId, { hasMessages: true });
+  }, [activeChatId, messages.length]);
 
   useEffect(() => {
     if (activeChatId) return;
@@ -1045,6 +1409,7 @@ export function useAgentChatSession({
     lastSeq.current = 0;
     setRuntimeStatus("detached");
     setHasPersistenceHandle(false);
+    setSessionConfigOptions([]);
     onOpenChat?.("");
   }, [onOpenChat]);
 
@@ -1096,7 +1461,6 @@ export function useAgentChatSession({
   );
   const exportableMessages = useMemo(() => buildAgentChatExportableMessages(messages), [messages]);
   const ui = useAgentChatUiHandlers({
-    transcriptRef,
     displaySessionTitle: title,
     messages,
     exportableMessages,
@@ -1143,6 +1507,7 @@ export function useAgentChatSession({
     messages,
     setMessages,
     currentPlan,
+    backgroundTools,
     pendingPermission,
     pendingPermissionMarkdown: pendingPermission?.content_markdown ?? null,
     agentActivity,
@@ -1153,6 +1518,7 @@ export function useAgentChatSession({
     },
     stoppedRef,
     isResumingHistory: isResumingHistory && messages.length === 0,
+    isRestoringTranscript: isResumingHistory,
     isResumedSession: messages.length > 0,
     runtimeStatus,
     hasPersistenceHandle,
@@ -1177,6 +1543,8 @@ export function useAgentChatSession({
     catalogModelsLoading: isCatalogModelsLoading(catalog, providerId),
     refreshEmptyCatalog,
     configOptions,
+    modelsLocked: false,
+    modesLocked: false,
     setConfigOption,
     setProviderId,
     persistPreferredRegistry,
@@ -1244,6 +1612,8 @@ export function useAgentChatSession({
     exportableMessages,
     userMessageIndices: ui.userMessageIndices,
     messageNavIndex: ui.messageNavIndex,
+    setMessageNavIndex: ui.setMessageNavIndex,
+    scrollToIndexRef: ui.scrollToIndexRef,
     handleSubmit,
     handleClose: () => undefined,
     handleLogoutAgent: async () => undefined,

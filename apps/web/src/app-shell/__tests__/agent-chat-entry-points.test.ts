@@ -24,7 +24,7 @@ describe("S2 Agent Chat entry points", () => {
     expect(sidebar).not.toContain("dedicated New Chat hotkey");
 
     const welcome = readFileSync(join(ROOT, "NewWorkspaceWelcomeOverlay.tsx"), "utf8");
-    expect(welcome).toContain("onStartAgentChat");
+    expect(welcome).not.toContain("onStartAgentChat");
 
     const footer = readFileSync(join(ROOT, "Footer.tsx"), "utf8");
     expect(footer).toContain("useAgentChatUrl");
@@ -49,6 +49,8 @@ describe("S2 Agent Chat entry points", () => {
     expect(session).toContain("project_id: projectId");
     expect(session).toContain('origin: isolatedModal ? "quick" : "normal"');
     expect(session).toContain("spaceIdForChatCreate");
+    expect(session).toContain("ensureCreatedChat");
+    expect(session).toContain('variant !== "center"');
     expect(session).toContain("if (activeChatId) return");
 
     const centerStage = readFileSync(join(ROOT, "CenterStage.tsx"), "utf8");
@@ -70,6 +72,7 @@ describe("S2 Agent Chat entry points", () => {
     expect(workspaceFrame).toContain('variant="center"');
     expect(workspaceFrame).toContain("instanceKey={tab.value}");
     expect(workspaceFrame).toContain("paintContextId={contextId}");
+    expect(workspaceFrame).toContain("resumeTranscript={tab.hasMessages}");
 
     const panel = readFileSync(
       join(ROOT, "../features/agent/components/AgentChatPanel.tsx"),

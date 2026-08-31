@@ -18,13 +18,20 @@ describe("assistant process collapse chrome", () => {
     expect(view).toContain("ProcessCollapseRail");
     expect(view).not.toContain("hideCollapsedDivider");
     expect(view).toContain("<CollapsibleContent");
+    expect(view).toContain("stepsExpanded");
+    expect(view).toContain("processSegments.map");
     const contentAt = view.indexOf("<CollapsibleContent");
     const railAt = view.indexOf("<ProcessCollapseRail");
     expect(contentAt).toBeGreaterThan(-1);
     expect(railAt).toBeGreaterThan(contentAt);
+    expect(view).toContain("processMounted");
     expect(view).toContain("collapseLabel");
     expect(view).not.toContain("ProcessDivider");
     expect(view).not.toContain("assistantTurn.process.show");
+    expect(messageView).toContain("AgentComposerAttachmentList");
+    expect(messageView).toContain('density="compact"');
+    expect(messageView).toContain("composerFilesFromAttachmentParts");
+    expect(messageView).not.toContain("AttachmentRemove");
     expect(messageView).toContain('reveal="timestamp"');
     expect(messageView).not.toContain('className="ml-auto"');
     expect(messageView).toContain("<MessageTurnUsageBadge");
@@ -32,5 +39,21 @@ describe("assistant process collapse chrome", () => {
     const timeAt = messageView.indexOf('reveal="timestamp"');
     expect(usageAt).toBeGreaterThan(-1);
     expect(timeAt).toBeGreaterThan(usageAt);
+  });
+
+  it("reveals answer text with the same stream entrance as process rows", () => {
+    expect(view).toContain("AgentStreamReveal");
+    expect(view).not.toContain("return <React.Fragment key={segment.origIndex}>{content}</React.Fragment>");
+  });
+
+  it("lists this turn's file changes below copy and timestamp", () => {
+    expect(view).not.toContain("AssistantTurnFileChanges");
+    expect(messageView).toContain("AssistantTurnFileChanges");
+    const copyAt = messageView.indexOf("MessageCopyButton");
+    const filesAt = messageView.indexOf("<AssistantTurnFileChanges");
+    expect(copyAt).toBeGreaterThan(-1);
+    expect(filesAt).toBeGreaterThan(copyAt);
+    expect(messageView).not.toContain("line-clamp-6");
+    expect(messageView).not.toContain("data-transcript-mounted");
   });
 });

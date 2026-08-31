@@ -58,6 +58,8 @@ export interface AgentLastSession {
   workspaceId: string | null;
   projectId: string | null;
   updatedAt: number;
+  modelId?: string | null;
+  thinkingId?: string | null;
 }
 
 export function useAgentUiPrefs(): [

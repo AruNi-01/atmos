@@ -1,12 +1,9 @@
 "use client";
 
-import React, { useState, useCallback, useRef, useEffect } from "react";
+import React, { useCallback, useRef, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { motion, AnimatePresence } from "motion/react";
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
   Button,
   ConfirmationAction,
   DndContext,
@@ -24,9 +21,11 @@ import {
   useSensors,
   useSortable,
   verticalListSortingStrategy,
+  cn,
 } from "@workspace/ui";
 import { GripVertical, Pencil, Trash2 } from "lucide-react";
 import type { QueuedAgentPrompt } from "@/app-shell/state/use-dialog-store";
+import { queuedPromptEditText } from "@/features/agent/lib/agent-composer-attachment";
 
 function HoverScrollableText({
   text,
@@ -125,11 +124,7 @@ function QueueCard({
   isDragging = false,
   dragHandleProps,
   isEditing = false,
-  editValue,
-  onEditValueChange,
-  onStartEdit,
-  onCancelEdit,
-  onSaveEdit,
+  onToggleEdit,
   onRemove,
   t,
 }: {
@@ -137,17 +132,13 @@ function QueueCard({
   isDragging?: boolean;
   dragHandleProps?: React.HTMLAttributes<HTMLButtonElement>;
   isEditing?: boolean;
-  editValue?: string;
-  onEditValueChange?: (value: string) => void;
-  onStartEdit: () => void;
-  onCancelEdit: () => void;
-  onSaveEdit: () => void;
+  onToggleEdit: () => void;
   onRemove: () => void;
   t: ReturnType<typeof useTranslations>;
 }) {
-  const trimmedValue = (editValue ?? "").trim();
   const [isHovered, setIsHovered] = useState(false);
   const showActions = isEditing || isHovered;
+  const text = queuedPromptEditText(item);
 
   return (
     <div
@@ -173,9 +164,16 @@ function QueueCard({
         >
           <GripVertical className="size-3" />
         </button>
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-xs text-foreground">
-            {item.displayPrompt ?? item.prompt}
+        <div className={cn("min-w-0 flex-1", isEditing && "px-1.5")}>
+          <p
+            data-queue-item-editing={isEditing ? "true" : undefined}
+            className={cn(
+              "truncate text-xs text-foreground",
+              isEditing &&
+                "rounded-lg border border-dashed border-info px-2 py-0.5",
+            )}
+          >
+            {text}
           </p>
         </div>
         <div
@@ -183,52 +181,17 @@ function QueueCard({
             showActions ? "opacity-100" : "pointer-events-none opacity-0"
           }`}
         >
-          <Popover open={isEditing} onOpenChange={(open) => {
-            if (open) {
-              onStartEdit();
-            } else {
-              onCancelEdit();
-            }
-          }}>
-            <PopoverTrigger asChild>
-              <Button
-                type="button"
-                variant={isEditing ? "secondary" : "ghost"}
-                size="icon-sm"
-                className="size-6 rounded-full text-muted-foreground hover:text-foreground"
-                aria-label={t("messageQueue.editAria")}
-              >
-                <Pencil className="size-3.5" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent
-              align="end"
-              side="top"
-              className="w-[min(420px,calc(100vw-64px))] border-border/80 p-3"
-            >
-              <div className="space-y-3">
-                <textarea
-                  autoFocus
-                  value={editValue}
-                  onChange={(e) => onEditValueChange?.(e.target.value)}
-                  className="min-h-28 w-full resize-y rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-ring"
-                />
-                <div className="flex items-center justify-end gap-2">
-                  <Button type="button" variant="ghost" size="sm" onClick={onCancelEdit}>
-                    {t("common.cancel")}
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    onClick={onSaveEdit}
-                    disabled={!trimmedValue}
-                  >
-                    {t("common.save")}
-                  </Button>
-                </div>
-              </div>
-            </PopoverContent>
-          </Popover>
+          <Button
+            type="button"
+            variant={isEditing ? "secondary" : "ghost"}
+            size="icon-sm"
+            className="size-6 rounded-full text-muted-foreground hover:text-foreground"
+            aria-label={t("messageQueue.editAria")}
+            aria-pressed={isEditing}
+            onClick={onToggleEdit}
+          >
+            <Pencil className="size-3.5" />
+          </Button>
           <Button
             type="button"
             variant="ghost"
@@ -247,28 +210,19 @@ function QueueCard({
 
 type SortableQueueCardProps = {
   item: QueuedAgentPrompt;
-  editingPromptId: string | null;
-  editingPromptValue: string;
-  onEditingPromptValueChange: (value: string) => void;
-  onStartEdit: (item: QueuedAgentPrompt) => void;
-  onCancelEdit: () => void;
-  onSaveEdit: (id: string) => void;
+  isEditing: boolean;
+  onToggleEdit: (item: QueuedAgentPrompt) => void;
   onRemove: (id: string) => void;
   t: ReturnType<typeof useTranslations>;
 };
 
 const SortableQueueCard = React.forwardRef<HTMLDivElement, SortableQueueCardProps>(function SortableQueueCard({
   item,
-  editingPromptId,
-  editingPromptValue,
-  onEditingPromptValueChange,
-  onStartEdit,
-  onCancelEdit,
-  onSaveEdit,
+  isEditing,
+  onToggleEdit,
   onRemove,
   t,
 }, forwardedRef) {
-  const isEditing = editingPromptId === item.id;
   const {
     attributes,
     listeners,
@@ -319,11 +273,7 @@ const SortableQueueCard = React.forwardRef<HTMLDivElement, SortableQueueCardProp
         isDragging={isDragging}
         dragHandleProps={{ ...attributes, ...listeners }}
         isEditing={isEditing}
-        editValue={isEditing ? editingPromptValue : item.prompt}
-        onEditValueChange={onEditingPromptValueChange}
-        onStartEdit={() => onStartEdit(item)}
-        onCancelEdit={onCancelEdit}
-        onSaveEdit={() => onSaveEdit(item.id)}
+        onToggleEdit={() => onToggleEdit(item)}
         onRemove={() => onRemove(item.id)}
         t={t}
       />
@@ -334,18 +284,18 @@ SortableQueueCard.displayName = "SortableQueueCard";
 
 export function MessageQueueDock({
   items,
+  editingPromptId,
+  onToggleEdit,
   onRemove,
-  onUpdatePrompt,
   onMove,
 }: {
   items: QueuedAgentPrompt[];
+  editingPromptId: string | null;
+  onToggleEdit: (item: QueuedAgentPrompt) => void;
   onRemove: (id: string) => void;
-  onUpdatePrompt: (id: string, prompt: string) => void;
   onMove: (id: string, toIndex: number) => void;
 }) {
   const t = useTranslations("Agent.components");
-  const [editingPromptId, setEditingPromptId] = useState<string | null>(null);
-  const [editingPromptValue, setEditingPromptValue] = useState("");
   const [draggingPromptId, setDraggingPromptId] = useState<string | null>(null);
 
   const draggingPrompt = draggingPromptId
@@ -359,24 +309,6 @@ export function MessageQueueDock({
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
-
-  const handleStartEdit = useCallback((item: QueuedAgentPrompt) => {
-    setEditingPromptId(item.id);
-    setEditingPromptValue(item.displayPrompt ?? item.prompt);
-  }, []);
-
-  const handleCancelEdit = useCallback(() => {
-    setEditingPromptId(null);
-    setEditingPromptValue("");
-  }, []);
-
-  const handleSaveEdit = useCallback((id: string) => {
-    const trimmed = editingPromptValue.trim();
-    if (!trimmed) return;
-    onUpdatePrompt(id, trimmed);
-    setEditingPromptId(null);
-    setEditingPromptValue("");
-  }, [editingPromptValue, onUpdatePrompt]);
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
     setDraggingPromptId(String(event.active.id));
@@ -420,19 +352,10 @@ export function MessageQueueDock({
                   <SortableQueueCard
                     key={item.id}
                     item={item}
-                    editingPromptId={activeEditingPromptId}
-                    editingPromptValue={editingPromptValue}
-                    onEditingPromptValueChange={setEditingPromptValue}
-                    onStartEdit={handleStartEdit}
-                    onCancelEdit={handleCancelEdit}
-                    onSaveEdit={handleSaveEdit}
+                    isEditing={activeEditingPromptId === item.id}
+                    onToggleEdit={onToggleEdit}
                     t={t}
-                    onRemove={(id) => {
-                      onRemove(id);
-                      if (activeEditingPromptId === id) {
-                        handleCancelEdit();
-                      }
-                    }}
+                    onRemove={onRemove}
                   />
                 ))}
               </AnimatePresence>
@@ -444,9 +367,7 @@ export function MessageQueueDock({
                 <QueueCard
                   item={draggingPrompt}
                   isDragging
-                  onStartEdit={NOOP_QUEUE_ACTION}
-                  onCancelEdit={NOOP_QUEUE_ACTION}
-                  onSaveEdit={NOOP_QUEUE_ACTION}
+                  onToggleEdit={NOOP_QUEUE_ACTION}
                   onRemove={NOOP_QUEUE_ACTION}
                   t={t}
                 />

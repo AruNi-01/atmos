@@ -1,3 +1,4 @@
+use regex::Regex;
 use serde_json::Value;
 
 use crate::domain::{AgentModel, AgentThinkingSupport};
@@ -122,6 +123,95 @@ pub fn parse_grok(output: &str) -> Vec<AgentModel> {
             })
         })
         .collect()
+}
+
+pub fn parse_droid_help(output: &str) -> Vec<AgentModel> {
+    let mut models = parse_droid_available_models(output);
+    if models.is_empty() {
+        return models;
+    }
+    let thinking_re = Regex::new(
+        r"(?i)^-\s*(.+):\s*supports reasoning:\s*(Yes|No);\s*supported:\s*\[([^\]]*)\];\s*default:\s*(\S+)",
+    )
+    .expect("droid reasoning regex");
+    for line in output.lines() {
+        let Some(caps) = thinking_re.captures(line.trim()) else {
+            continue;
+        };
+        let label = caps.get(1).map(|m| m.as_str().trim()).unwrap_or_default();
+        let supports_yes = caps
+            .get(2)
+            .is_some_and(|m| m.as_str().eq_ignore_ascii_case("yes"));
+        let options: Vec<String> = caps
+            .get(3)
+            .map(|m| m.as_str())
+            .unwrap_or_default()
+            .split(',')
+            .map(str::trim)
+            .filter(|item| !item.is_empty())
+            .map(ToOwned::to_owned)
+            .collect();
+        let Some(model) = models
+            .iter_mut()
+            .find(|model| model.label.eq_ignore_ascii_case(label))
+        else {
+            continue;
+        };
+        model.thinking = Some(if supports_yes && options.len() > 1 {
+            AgentThinkingSupport::Enum {
+                arg: Some("--reasoning-effort".into()),
+                options,
+            }
+        } else {
+            AgentThinkingSupport::None
+        });
+    }
+    for model in &mut models {
+        if model.thinking.is_none() {
+            model.thinking = Some(AgentThinkingSupport::None);
+        }
+    }
+    models
+}
+
+fn parse_droid_available_models(output: &str) -> Vec<AgentModel> {
+    output
+        .lines()
+        .skip_while(|line| !line.trim().eq_ignore_ascii_case("available models:"))
+        .skip(1)
+        .take_while(|line| {
+            let trimmed = line.trim();
+            !trimmed.is_empty() && !trimmed.to_ascii_lowercase().starts_with("model detail")
+        })
+        .filter_map(parse_droid_model_row)
+        .collect()
+}
+
+fn parse_droid_model_row(line: &str) -> Option<AgentModel> {
+    let trimmed = line.trim();
+    if trimmed.is_empty() || trimmed.starts_with('-') {
+        return None;
+    }
+    let (id_raw, label_raw) = trimmed
+        .split_once("  ")
+        .map(|(id, label)| (id.trim(), label.trim()))
+        .unwrap_or((trimmed, trimmed));
+    let (id, id_flags) = strip_model_line_flags(id_raw);
+    let (label, label_flags) = strip_model_line_flags(label_raw);
+    if id.is_empty() {
+        return None;
+    }
+    Some(AgentModel {
+        id,
+        label: if label.is_empty() {
+            id_raw.trim().to_string()
+        } else {
+            label
+        },
+        group: None,
+        is_default: id_flags.is_default || label_flags.is_default,
+        thinking: None,
+    })
 }
 
 pub fn parse_json_models(output: &str) -> Result<Vec<AgentModel>, String> {
@@ -287,6 +377,49 @@ mod tests {
         assert_eq!(models.len(), 2);
         assert!(models[0].is_default);
         assert_eq!(models[0].id, "grok-4.5");
+    }
+
+    #[test]
+    fn droid_help_attaches_per_model_reasoning() {
+        let models = parse_droid_help(
+            r#"
+Available Models:
+  auto                         Auto Model
+  claude-opus-5                Opus 5 (default)
+  gpt-5.3-codex                GPT-5.3-Codex
+  glm-5.2                      GLM-5.2 (Droid Core)
+
+Model details:
+  - Auto Model: supports reasoning: No; supported: [none]; default: none
+  - Opus 5: supports reasoning: Yes; supported: [off, low, medium, high, xhigh, max]; default: high
+  - GPT-5.3-Codex: supports reasoning: Yes; supported: [low, medium, high, xhigh]; default: medium
+  - GLM-5.2 (Droid Core): supports reasoning: Yes; supported: [off, high, max]; default: high
+"#,
+        );
+        assert_eq!(models.len(), 4);
+        let opus = models
+            .iter()
+            .find(|model| model.id == "claude-opus-5")
+            .unwrap();
+        assert!(opus.is_default);
+        match &opus.thinking {
+            Some(AgentThinkingSupport::Enum { options, .. }) => {
+                assert_eq!(options, &["off", "low", "medium", "high", "xhigh", "max"]);
+            }
+            other => panic!("expected opus enum thinking, got {other:?}"),
+        }
+        let codex = models
+            .iter()
+            .find(|model| model.id == "gpt-5.3-codex")
+            .unwrap();
+        match &codex.thinking {
+            Some(AgentThinkingSupport::Enum { options, .. }) => {
+                assert_eq!(options, &["low", "medium", "high", "xhigh"]);
+            }
+            other => panic!("expected codex enum thinking, got {other:?}"),
+        }
+        let auto = models.iter().find(|model| model.id == "auto").unwrap();
+        assert!(matches!(auto.thinking, Some(AgentThinkingSupport::None)));
     }
 
     #[test]

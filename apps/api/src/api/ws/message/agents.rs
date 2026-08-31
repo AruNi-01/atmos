@@ -17,6 +17,13 @@ pub struct AgentConfigSetRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentDefaultConfigSetRequest {
+    pub registry_id: String,
+    pub config_id: String,
+    pub value: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AgentRegistryInstallRequest {
     pub registry_id: String,
     #[serde(default)]

@@ -87,18 +87,31 @@ impl AgentRuntimeCommands for AcpCommands {
     }
 
     async fn set_config(&self, update: AgentRuntimeConfigUpdate) -> AgentResult<()> {
+        let mut writes = Vec::new();
         if let Some(model) = update.model {
-            self.control.send_set_config_option("model".into(), model);
+            writes.push((vec!["model".to_string(), "models".to_string()], model));
         }
         if let Some(thinking) = update.thinking {
-            self.control
-                .send_set_config_option("thought_level".into(), thinking);
+            writes.push((
+                vec![
+                    "thought_level".to_string(),
+                    "thinking".to_string(),
+                    "think".to_string(),
+                ],
+                thinking,
+            ));
         }
         if let Some(mode) = update.mode {
-            self.control.send_set_config_option("mode".into(), mode);
+            writes.push((vec!["mode".to_string(), "modes".to_string()], mode));
         }
-        for (id, value) in update.extra_config {
-            self.control.send_set_config_option(id, value);
+        writes.extend(
+            update
+                .extra_config
+                .into_iter()
+                .map(|(id, value)| (vec![id], value)),
+        );
+        for (ids, value) in writes {
+            write_config_option(&self.control, &ids, &value).await?;
         }
         Ok(())
     }
@@ -174,77 +187,65 @@ impl AcpMappedSession {
                 })
             }
             AcpSessionEvent::Stream(delta) => {
-                let done = delta.done;
                 if delta.kind == "thinking" {
-                    let message_id = self
-                        .thinking_message_id
-                        .get_or_insert_with(|| uuid::Uuid::new_v4().to_string())
-                        .clone();
-                    if done {
-                        self.thinking_message_id = None;
-                        if !delta.delta.is_empty() {
-                            self.pending.push_back(AgentEvent::ThinkingCompleted {
-                                message_id: message_id.clone(),
-                            });
-                            return Some(AgentEvent::ThinkingDelta {
-                                message_id,
-                                delta: delta.delta,
-                            });
-                        }
-                        return Some(AgentEvent::ThinkingCompleted { message_id });
-                    }
-                    Some(AgentEvent::ThinkingDelta {
-                        message_id,
-                        delta: delta.delta,
-                    })
+                    let event = map_thinking_stream(
+                        &mut self.thinking_message_id,
+                        &mut self.pending,
+                        delta,
+                    );
+                    Some(complete_stream_before(
+                        &mut self.assistant_message_id,
+                        &mut self.pending,
+                        |message_id| AgentEvent::AssistantMessageCompleted { message_id },
+                        event,
+                    ))
                 } else if delta.role == "assistant" {
-                    let message_id = self
-                        .assistant_message_id
-                        .get_or_insert_with(|| uuid::Uuid::new_v4().to_string())
-                        .clone();
-                    if done {
-                        self.assistant_message_id = None;
-                        if !delta.delta.is_empty() {
-                            self.pending
-                                .push_back(AgentEvent::AssistantMessageCompleted {
-                                    message_id: message_id.clone(),
-                                });
-                            return Some(AgentEvent::AssistantMessageDelta {
-                                message_id,
-                                delta: delta.delta,
-                            });
-                        }
-                        return Some(AgentEvent::AssistantMessageCompleted { message_id });
-                    }
-                    Some(AgentEvent::AssistantMessageDelta {
-                        message_id,
-                        delta: delta.delta,
-                    })
+                    let event = map_assistant_stream(
+                        &mut self.assistant_message_id,
+                        &mut self.pending,
+                        delta,
+                    );
+                    Some(complete_stream_before(
+                        &mut self.thinking_message_id,
+                        &mut self.pending,
+                        |message_id| AgentEvent::ThinkingCompleted { message_id },
+                        event,
+                    ))
                 } else {
                     None
                 }
             }
-            AcpSessionEvent::ToolCall(update) => Some(map_tool_call(update)),
-            AcpSessionEvent::PermissionRequest(request) => Some(AgentEvent::PermissionRequested {
-                request: AgentPermissionRequest {
-                    request_id: request.request_id,
-                    tool: request.tool,
-                    description: request.description,
-                    content_markdown: request.content_markdown,
-                    options: request
-                        .options
-                        .into_iter()
-                        .map(|option| AgentPermissionOption {
-                            option_id: option.option_id,
-                            name: option.name,
-                            kind: option.kind,
-                        })
-                        .collect(),
+            AcpSessionEvent::ToolCall(update) => Some(complete_stream_before(
+                &mut self.thinking_message_id,
+                &mut self.pending,
+                |message_id| AgentEvent::ThinkingCompleted { message_id },
+                map_tool_call(update),
+            )),
+            AcpSessionEvent::PermissionRequest(request) => Some(complete_stream_before(
+                &mut self.thinking_message_id,
+                &mut self.pending,
+                |message_id| AgentEvent::ThinkingCompleted { message_id },
+                AgentEvent::PermissionRequested {
+                    request: AgentPermissionRequest {
+                        request_id: request.request_id,
+                        tool: request.tool,
+                        description: request.description,
+                        content_markdown: request.content_markdown,
+                        options: request
+                            .options
+                            .into_iter()
+                            .map(|option| AgentPermissionOption {
+                                option_id: option.option_id,
+                                name: option.name,
+                                kind: option.kind,
+                            })
+                            .collect(),
+                    },
                 },
-            }),
+            )),
             AcpSessionEvent::TurnEnd(stop) => {
                 let turn_id = self.commands.running_turn.lock().await.take();
-                turn_id.map(|turn_id| match stop {
+                let completed = turn_id.map(|turn_id| match stop {
                     crate::acp_client::client::AcpTurnStop::Canceled => {
                         AgentEvent::TurnCanceled { turn_id }
                     }
@@ -258,6 +259,14 @@ impl AcpMappedSession {
                             stop: TurnStop::Completed,
                         }
                     }
+                });
+                completed.map(|event| {
+                    complete_stream_before(
+                        &mut self.thinking_message_id,
+                        &mut self.pending,
+                        |message_id| AgentEvent::ThinkingCompleted { message_id },
+                        event,
+                    )
                 })
             }
             AcpSessionEvent::Error { message, .. } => {
@@ -267,9 +276,14 @@ impl AcpMappedSession {
                     error: message,
                 })
             }
-            AcpSessionEvent::Plan(plan) => Some(AgentEvent::PlanUpdated {
-                plan: serde_json::to_value(plan).unwrap_or(serde_json::Value::Null),
-            }),
+            AcpSessionEvent::Plan(plan) => Some(complete_stream_before(
+                &mut self.thinking_message_id,
+                &mut self.pending,
+                |message_id| AgentEvent::ThinkingCompleted { message_id },
+                AgentEvent::PlanUpdated {
+                    plan: serde_json::to_value(plan).unwrap_or(serde_json::Value::Null),
+                },
+            )),
             AcpSessionEvent::Usage(usage) => Some(AgentEvent::UsageUpdated {
                 usage: serde_json::to_value(usage).unwrap_or(serde_json::Value::Null),
             }),
@@ -302,6 +316,74 @@ impl AcpMappedSession {
             }
             _ => None,
         }
+    }
+}
+
+fn complete_stream_before(
+    open_id: &mut Option<String>,
+    pending: &mut VecDeque<AgentEvent>,
+    completed: impl FnOnce(String) -> AgentEvent,
+    next: AgentEvent,
+) -> AgentEvent {
+    if let Some(message_id) = open_id.take() {
+        pending.push_back(next);
+        completed(message_id)
+    } else {
+        next
+    }
+}
+
+fn map_thinking_stream(
+    thinking_message_id: &mut Option<String>,
+    pending: &mut VecDeque<AgentEvent>,
+    delta: crate::acp_client::types::StreamDelta,
+) -> AgentEvent {
+    let message_id = thinking_message_id
+        .get_or_insert_with(|| uuid::Uuid::new_v4().to_string())
+        .clone();
+    if delta.done {
+        *thinking_message_id = None;
+        if !delta.delta.is_empty() {
+            pending.push_back(AgentEvent::ThinkingCompleted {
+                message_id: message_id.clone(),
+            });
+            return AgentEvent::ThinkingDelta {
+                message_id,
+                delta: delta.delta,
+            };
+        }
+        return AgentEvent::ThinkingCompleted { message_id };
+    }
+    AgentEvent::ThinkingDelta {
+        message_id,
+        delta: delta.delta,
+    }
+}
+
+fn map_assistant_stream(
+    assistant_message_id: &mut Option<String>,
+    pending: &mut VecDeque<AgentEvent>,
+    delta: crate::acp_client::types::StreamDelta,
+) -> AgentEvent {
+    let message_id = assistant_message_id
+        .get_or_insert_with(|| uuid::Uuid::new_v4().to_string())
+        .clone();
+    if delta.done {
+        *assistant_message_id = None;
+        if !delta.delta.is_empty() {
+            pending.push_back(AgentEvent::AssistantMessageCompleted {
+                message_id: message_id.clone(),
+            });
+            return AgentEvent::AssistantMessageDelta {
+                message_id,
+                delta: delta.delta,
+            };
+        }
+        return AgentEvent::AssistantMessageCompleted { message_id };
+    }
+    AgentEvent::AssistantMessageDelta {
+        message_id,
+        delta: delta.delta,
     }
 }
 
@@ -357,27 +439,53 @@ fn map_tool_call(update: ToolCallUpdate) -> AgentEvent {
     }
 }
 
+/// ACP: JSON-RPC success is the success signal. The returned `configOptions`
+/// replace client state via `ConfigChanged`; do not second-guess `currentValue`.
+async fn write_config_option(
+    control: &AcpSessionControl,
+    ids: &[String],
+    value: &str,
+) -> AgentResult<()> {
+    let mut last_error = None;
+    for config_id in ids {
+        match control
+            .set_config_option(config_id.clone(), value.to_string())
+            .await
+        {
+            Ok(_) => return Ok(()),
+            Err(error) => last_error = Some(error),
+        }
+    }
+    Err(AgentProviderError::unsupported(
+        last_error.unwrap_or_else(|| format!("agent did not apply {value}")),
+    ))
+}
+
 async fn open_acp_session(
     params: &AcpProviderParams,
     cfg: AgentRuntimeConfig,
     resume: Option<String>,
 ) -> AgentResult<Box<dyn AgentRuntime>> {
-    let mut extra = cfg.extra_config.clone();
-    if let Some(model) = cfg.model {
-        extra.insert("model".into(), model);
-    }
-    if let Some(thinking) = cfg.thinking {
-        extra.insert("thought_level".into(), thinking);
-    }
-    if let Some(mode) = cfg.mode {
-        extra.insert("mode".into(), mode);
-    }
-    let mut default_config = params.default_config.clone().unwrap_or_default();
-    default_config.extend(extra);
-    let default_config = if default_config.is_empty() {
+    let default_config = if resume.is_some() {
         None
     } else {
-        Some(default_config)
+        let mut extra = cfg.extra_config.clone();
+        if let Some(model) = cfg.model {
+            extra.insert("model".into(), model);
+        }
+        if let Some(thinking) = cfg.thinking {
+            extra.insert("thought_level".into(), thinking);
+        }
+        if let Some(mode) = cfg.mode {
+            extra.insert("mode".into(), mode);
+        }
+        let mut default_config = params.default_config.clone().unwrap_or_default();
+        default_config.extend(extra);
+        if default_config.is_empty() {
+            None
+        } else {
+            Some(default_config)
+        }
     };
     let env = match (params.env_overrides.clone(), cfg.env_overrides) {
         (Some(mut a), Some(b)) => {
@@ -450,8 +558,46 @@ impl AgentProvider for AcpAgentProvider {
 
 #[cfg(test)]
 mod tests {
-    use super::should_drop_replay;
+    use super::{complete_stream_before, should_drop_replay};
     use crate::acp_client::AcpSessionEvent;
+    use crate::domain::AgentEvent;
+    use std::collections::VecDeque;
+
+    #[test]
+    fn tool_call_closes_open_thinking_stream() {
+        let mut thinking_id = Some("think-1".into());
+        let mut pending = VecDeque::new();
+        let next = AgentEvent::SessionClosed;
+        let first = complete_stream_before(
+            &mut thinking_id,
+            &mut pending,
+            |message_id| AgentEvent::ThinkingCompleted { message_id },
+            next,
+        );
+        assert!(matches!(
+            first,
+            AgentEvent::ThinkingCompleted { message_id } if message_id == "think-1"
+        ));
+        assert!(thinking_id.is_none());
+        assert!(matches!(
+            pending.pop_front(),
+            Some(AgentEvent::SessionClosed)
+        ));
+    }
+
+    #[test]
+    fn no_open_thinking_passes_the_next_event_through() {
+        let mut thinking_id = None;
+        let mut pending = VecDeque::new();
+        let first = complete_stream_before(
+            &mut thinking_id,
+            &mut pending,
+            |message_id| AgentEvent::ThinkingCompleted { message_id },
+            AgentEvent::SessionClosed,
+        );
+        assert!(matches!(first, AgentEvent::SessionClosed));
+        assert!(pending.is_empty());
+    }
 
     #[test]
     fn session_ready_is_not_dropped_during_replay() {

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { FileTreeNode } from "@/api/ws-api";
-import { lookupPathInFileTrees } from "./file-tree-lookup";
+import { findPathInFileTrees, lookupPathInFileTrees } from "./file-tree-lookup";
 
 function node(
   path: string,
@@ -46,5 +46,31 @@ describe("lookupPathInFileTrees", () => {
   test("returns null when no cached tree covers the path", () => {
     expect(lookupPathInFileTrees("/Users/me/other/src/app.ts", trees)).toBeNull();
     expect(lookupPathInFileTrees(`${project}/src/app.ts`, [])).toBeNull();
+  });
+});
+
+describe("findPathInFileTrees", () => {
+  test("matches unique basenames and relative suffixes", () => {
+    expect(findPathInFileTrees("app.ts", trees)).toEqual({
+      path: `${project}/src/app.ts`,
+      isDir: false,
+    });
+    expect(findPathInFileTrees("src/app.ts", trees)).toEqual({
+      path: `${project}/src/app.ts`,
+      isDir: false,
+    });
+    expect(findPathInFileTrees(`${project}/src/app.ts`, trees)).toEqual({
+      path: `${project}/src/app.ts`,
+      isDir: false,
+    });
+  });
+
+  test("does not guess when a short name is missing or ambiguous", () => {
+    expect(findPathInFileTrees("missing.ts", trees)).toBeNull();
+    expect(findPathInFileTrees("@workspace/ui", trees)).toBeNull();
+  });
+
+  test("does not scan the tree for an absent absolute path", () => {
+    expect(findPathInFileTrees(`${project}/CHANGES.md`, trees)).toBeNull();
   });
 });

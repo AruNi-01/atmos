@@ -9,10 +9,12 @@ const EASE = "cubic-bezier(0.22, 1, 0.36, 1)";
 
 export function AgentStreamReveal({
   enabled,
+  delayMs = 0,
   children,
   className,
 }: {
   enabled: boolean;
+  delayMs?: number;
   children: ReactNode;
   className?: string;
 }) {
@@ -20,14 +22,25 @@ export function AgentStreamReveal({
   const skip = !enabled || Boolean(reduced);
   const [open, setOpen] = useState(skip);
   const [done, setDone] = useState(skip);
+  const animating = !skip && !done;
 
   useEffect(() => {
     if (open) return;
-    const frame = window.requestAnimationFrame(() => {
-      window.requestAnimationFrame(() => setOpen(true));
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, [open]);
+    let frame1 = 0;
+    let frame2 = 0;
+    const start = () => {
+      frame1 = window.requestAnimationFrame(() => {
+        frame2 = window.requestAnimationFrame(() => setOpen(true));
+      });
+    };
+    const timer = delayMs > 0 ? window.setTimeout(start, delayMs) : 0;
+    if (delayMs <= 0) start();
+    return () => {
+      if (timer) window.clearTimeout(timer);
+      window.cancelAnimationFrame(frame1);
+      window.cancelAnimationFrame(frame2);
+    };
+  }, [open, delayMs]);
 
   useEffect(() => {
     if (!open || done) return;
@@ -35,12 +48,10 @@ export function AgentStreamReveal({
     return () => window.clearTimeout(timer);
   }, [open, done]);
 
-  if (done) return <>{children}</>;
-
   return (
     <div
-      className={cn("grid min-w-0", className)}
-      style={{
+      className={cn("min-w-0", animating && "grid", className)}
+      style={animating ? {
         gridTemplateRows: open ? "1fr" : "0fr",
         opacity: open ? 1 : 0,
         filter: open ? "blur(0px)" : "blur(5px)",
@@ -51,9 +62,11 @@ export function AgentStreamReveal({
           `filter ${ENTER_MS}ms ${EASE}`,
           `transform ${ENTER_MS}ms ${EASE}`,
         ].join(", "),
-      }}
+      } : undefined}
     >
-      <div className="min-h-0 overflow-hidden">{children}</div>
+      <div className={cn("min-w-0", animating && "min-h-0 overflow-hidden")}>
+        {children}
+      </div>
     </div>
   );
 }

@@ -5,11 +5,17 @@ import type {
   AgentPart,
 } from "@atmos/api-types/ws/dto/agent-chat";
 import {
+  isActiveToolStatus,
   isGenericToolLabel,
   planFromToolInput,
   classifyTool,
   thinkingText,
 } from "@/features/agent/lib/agent-tool-kind";
+import {
+  applyBackgroundPollTool,
+  isBackgroundPollTool,
+  isLiveBackgroundToolCall,
+} from "@/features/agent/lib/agent/background-command";
 
 export type { AgentChatEvent, AgentEvent, AgentMessage, AgentPart };
 
@@ -38,6 +44,20 @@ function mergeToolPart(
     content: incoming.content == null ? existing.content : incoming.content,
     status: incoming.status ?? existing.status,
   };
+}
+
+function settleOrphanToolCalls(parts: AgentPart[]): AgentPart[] {
+  return parts.map((part) => {
+    if (part.type !== "tool_call") return part;
+    if (!isActiveToolStatus(part.status)) return part;
+    if (isLiveBackgroundToolCall(part)) return part;
+    return { ...part, status: "completed" };
+  });
+}
+
+function settleFinishedAssistant(message: AgentMessage): AgentMessage {
+  if (message.role !== "assistant" || message.streaming) return message;
+  return { ...message, parts: settleOrphanToolCalls(message.parts) };
 }
 
 function upsertMessage(messages: AgentMessage[], message: AgentMessage): AgentMessage[] {
@@ -253,7 +273,7 @@ export function hydrateAgentChatMessages(
     if (typeof event.sequence === "number" && event.sequence <= afterSequence) continue;
     messages = foldMessagesFromEvent(messages, event, chatId);
   }
-  return messages;
+  return messages.map(settleFinishedAssistant);
 }
 
 export function foldMessagesFromEvent(
@@ -330,6 +350,7 @@ function foldAgentChatEvent(
       return {
         ...item,
         streaming: false,
+        parts: settleOrphanToolCalls(item.parts),
         ...(isCurrent
           ? {
               worked_ms: payload.worked_ms ?? item.worked_ms,
@@ -374,7 +395,20 @@ function foldAgentChatEvent(
         tool.input ?? existingTool?.input,
         tool.output ?? existingTool?.output ?? tool.content ?? existingTool?.content,
       );
-    if (classified.type === "hide") return messages;
+    if (classified.type === "hide") {
+      if (isBackgroundPollTool(tool)) {
+        return applyBackgroundPollTool(messages, {
+          tool_call_id: tool.tool_call_id,
+          name: tool.name,
+          title: tool.title,
+          status: tool.status,
+          input: tool.input,
+          output: tool.output ?? tool.content,
+          content: tool.content,
+        });
+      }
+      return messages;
+    }
     if (classified.type === "thinking") {
       const text = thinkingText(tool);
       return patchCurrentTurnAssistant(messages, undefined, (message) => {
@@ -389,9 +423,15 @@ function foldAgentChatEvent(
       });
     }
     if (classified.type === "plan") {
-      const plan = planFromToolInput(tool.input) ?? { entries: [] };
       return patchCurrentTurnAssistant(messages, undefined, (message) => {
-        const parts = [...message.parts];
+        const incoming = planFromToolInput(tool.input);
+        const existingPlan = message.parts.find((row) => row.type === "plan");
+        const plan = incoming
+          ?? (existingPlan?.type === "plan" ? existingPlan.plan : null)
+          ?? { entries: [] };
+        const parts = message.parts.filter(
+          (row) => !(row.type === "tool_call" && row.tool_call_id === tool.tool_call_id),
+        );
         const existing = parts.findIndex((row) => row.type === "plan");
         const next: AgentPart = { type: "plan", plan };
         if (existing >= 0) parts[existing] = next;
@@ -461,6 +501,51 @@ function foldAgentChatEvent(
     });
   }
 
+  if (payload.type === "session_config_change") {
+    return patchCurrentTurnAssistant(messages, payload.message_id, (message) => {
+      const next: AgentPart = {
+        type: "session_config_change",
+        model: payload.model,
+        mode: payload.mode,
+      };
+      const parts = [...message.parts];
+      const existing = parts.findIndex((row) => row.type === "session_config_change");
+      if (existing >= 0) {
+        parts[existing] = next;
+      } else {
+        const afterSession = parts.findLastIndex((row) => row.type === "session_lifecycle");
+        parts.splice(afterSession + 1, 0, next);
+      }
+      return { ...message, streaming: true, parts };
+    });
+  }
+
+  if (payload.type === "session_hint") {
+    return patchCurrentTurnAssistant(messages, payload.message_id, (message) => {
+      const next: AgentPart = {
+        type: "session_hint",
+        tone: payload.tone,
+        kind: payload.kind,
+      };
+      const parts = [...message.parts];
+      const existing = parts.findIndex(
+        (row) => row.type === "session_hint" && row.kind === payload.kind,
+      );
+      if (existing >= 0) {
+        parts[existing] = next;
+      } else {
+        const afterChrome = parts.findLastIndex(
+          (row) =>
+            row.type === "session_lifecycle"
+            || row.type === "session_config_change"
+            || row.type === "session_hint",
+        );
+        parts.splice(afterChrome + 1, 0, next);
+      }
+      return { ...message, streaming: true, parts };
+    });
+  }
+
   return messages;
 }
 
@@ -503,11 +588,7 @@ export function stopStreamingMessages(messages: AgentMessage[]): AgentMessage[] 
     {
       ...last,
       streaming: false,
-      parts: last.parts.map((part) =>
-        part.type === "tool_call" && part.status === "running"
-          ? { ...part, status: "completed" }
-          : part,
-      ),
+      parts: settleOrphanToolCalls(last.parts),
     },
   ];
 }

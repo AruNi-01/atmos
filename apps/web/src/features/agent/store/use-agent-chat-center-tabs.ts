@@ -14,7 +14,17 @@ export type AgentChatCenterTab = {
   cwd: string;
   providerId: string | null;
   openedAt: number;
+  hasMessages: boolean;
 };
+
+export function normalizeAgentChatCenterTab(
+  tab: AgentChatCenterTab | (Omit<AgentChatCenterTab, "hasMessages"> & { hasMessages?: boolean }),
+): AgentChatCenterTab {
+  return {
+    ...tab,
+    hasMessages: tab.hasMessages ?? Boolean(tab.chatId),
+  };
+}
 
 export const EMPTY_AGENT_CHAT_TABS: AgentChatCenterTab[] = [];
 
@@ -37,6 +47,7 @@ type AgentChatCenterTabsStore = {
     title?: string | null;
     cwd?: string;
     providerId?: string | null;
+    hasMessages?: boolean;
   }) => void;
   patchChat: (input: {
     contextId: string;
@@ -44,6 +55,7 @@ type AgentChatCenterTabsStore = {
     title?: string | null;
     providerId?: string | null;
     cwd?: string;
+    hasMessages?: boolean;
   }) => void;
   closeTab: (contextId: string, value: string) => void;
   requestActivate: (contextId: string, value: string) => void;
@@ -84,6 +96,7 @@ export const useAgentChatCenterTabsStore = create<AgentChatCenterTabsStore>()(
           cwd: cwd ?? "",
           providerId: providerId ?? null,
           openedAt: Date.now(),
+          hasMessages: true,
         };
         set((state) => ({
           tabsByContext: {
@@ -109,6 +122,7 @@ export const useAgentChatCenterTabsStore = create<AgentChatCenterTabsStore>()(
           cwd: "",
           providerId: null,
           openedAt: Date.now(),
+          hasMessages: false,
         };
         set((state) => ({
           tabsByContext: {
@@ -118,7 +132,7 @@ export const useAgentChatCenterTabsStore = create<AgentChatCenterTabsStore>()(
         }));
         return tab;
       },
-      bindChat: ({ contextId, value, chatId, title, cwd, providerId }) => {
+      bindChat: ({ contextId, value, chatId, title, cwd, providerId, hasMessages }) => {
         set((state) => ({
           tabsByContext: {
             ...state.tabsByContext,
@@ -130,13 +144,14 @@ export const useAgentChatCenterTabsStore = create<AgentChatCenterTabsStore>()(
                     title: title?.trim() || tab.title,
                     cwd: cwd ?? tab.cwd,
                     providerId: providerId ?? tab.providerId,
+                    hasMessages: hasMessages ?? tab.hasMessages,
                   }
                 : tab,
             ),
           },
         }));
       },
-      patchChat: ({ contextId, chatId, title, providerId, cwd }) => {
+      patchChat: ({ contextId, chatId, title, providerId, cwd, hasMessages }) => {
         set((state) => ({
           tabsByContext: {
             ...state.tabsByContext,
@@ -147,6 +162,7 @@ export const useAgentChatCenterTabsStore = create<AgentChatCenterTabsStore>()(
                     title: title?.trim() || tab.title,
                     cwd: cwd ?? tab.cwd,
                     providerId: providerId ?? tab.providerId,
+                    hasMessages: hasMessages ?? tab.hasMessages,
                   }
                 : tab,
             ),
@@ -179,6 +195,22 @@ export const useAgentChatCenterTabsStore = create<AgentChatCenterTabsStore>()(
       name: "atmos-agent-chat-center-tabs",
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({ tabsByContext: state.tabsByContext }),
+      merge: (persisted, current) => {
+        const incoming = persisted as Partial<AgentChatCenterTabsStore> | undefined;
+        const tabsByContext = Object.fromEntries(
+          Object.entries(incoming?.tabsByContext ?? current.tabsByContext).map(
+            ([contextId, tabs]) => [
+              contextId,
+              (Array.isArray(tabs) ? tabs : []).map(normalizeAgentChatCenterTab),
+            ],
+          ),
+        );
+        return {
+          ...current,
+          ...incoming,
+          tabsByContext,
+        };
+      },
     },
   ),
 );

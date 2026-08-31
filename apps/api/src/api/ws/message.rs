@@ -546,6 +546,8 @@ pub enum WsAction {
     AgentConfigGet,
     /// 设置 Agent API Key
     AgentConfigSet,
+    /// Persist an agent's last-used model/thinking/mode to disk.
+    AgentDefaultConfigSet,
     /// 列出 ACP Registry agents
     AgentRegistryList,
     /// 从 ACP Registry 安装 agent
@@ -584,6 +586,8 @@ pub enum WsAction {
     AgentChatCancel,
     AgentChatPermissionRespond,
     AgentModelCatalogGet,
+    AgentChatPrefsGet,
+    AgentChatPrefsSet,
 
     // ===== Automation 操作 =====
     AutomationList,

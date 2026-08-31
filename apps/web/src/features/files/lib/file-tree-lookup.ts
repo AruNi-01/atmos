@@ -14,21 +14,32 @@ export type CachedFileTree = {
 
 export type FileTreePathLookup = "file" | "directory" | "absent" | null;
 
-const indexCache = new WeakMap<FileTreeNode[], Map<string, boolean>>();
+type FileTreeIndex = {
+  byPath: Map<string, boolean>;
+  byName: Map<string, string[]>;
+};
 
-function indexFileTree(tree: FileTreeNode[]): Map<string, boolean> {
+const indexCache = new WeakMap<FileTreeNode[], FileTreeIndex>();
+
+function indexFileTree(tree: FileTreeNode[]): FileTreeIndex {
   const cached = indexCache.get(tree);
   if (cached) return cached;
 
-  const index = new Map<string, boolean>();
+  const byPath = new Map<string, boolean>();
+  const byName = new Map<string, string[]>();
   const walk = (nodes: FileTreeNode[]) => {
     for (const node of nodes) {
       const path = normalizePath(node.path) ?? node.path;
-      index.set(path, node.is_dir);
+      byPath.set(path, node.is_dir);
+      const name = path.split("/").pop() || path;
+      const existing = byName.get(name);
+      if (existing) existing.push(path);
+      else byName.set(name, [path]);
       if (node.children && node.children.length > 0) walk(node.children);
     }
   };
   walk(tree);
+  const index = { byPath, byName };
   indexCache.set(tree, index);
   return index;
 }
@@ -56,9 +67,51 @@ export function lookupPathInFileTrees(
     if (!root || !coversPath(root, normalized)) continue;
     covered = true;
     if (normalized === root) return "directory";
-    const isDir = indexFileTree(tree.tree).get(normalized);
+    const isDir = indexFileTree(tree.tree).byPath.get(normalized);
     if (isDir === true) return "directory";
     if (isDir === false) return "file";
   }
   return covered ? "absent" : null;
+}
+
+export type FileTreePathMatch = {
+  path: string;
+  isDir: boolean;
+};
+
+/**
+ * Resolve a full or short path against cached trees. Unique suffix matches
+ * recover tool paths that are basenames or project-relative fragments.
+ */
+export function findPathInFileTrees(
+  query: string,
+  trees: CachedFileTree[],
+): FileTreePathMatch | null {
+  const normalized = normalizePath(query);
+  if (!normalized) return null;
+
+  const exact = lookupPathInFileTrees(normalized, trees);
+  if (exact === "file") return { path: normalized, isDir: false };
+  if (exact === "directory") return { path: normalized, isDir: true };
+  if (normalized.startsWith("/") && exact === "absent") return null;
+
+  const suffix = normalized.replace(/^\/+/, "");
+  if (!suffix) return null;
+  const base = suffix.split("/").pop() || suffix;
+
+  const matches: FileTreePathMatch[] = [];
+  const seen = new Set<string>();
+  for (const tree of trees) {
+    const index = indexFileTree(tree.tree);
+    for (const path of index.byName.get(base) ?? []) {
+      if (seen.has(path)) continue;
+      if (path === suffix || path.endsWith(`/${suffix}`)) {
+        seen.add(path);
+        matches.push({ path, isDir: index.byPath.get(path) === true });
+      }
+    }
+  }
+  if (matches.length === 1) return matches[0] ?? null;
+  const files = matches.filter((item) => !item.isDir);
+  return files.length === 1 ? (files[0] ?? null) : null;
 }

@@ -4,6 +4,7 @@ import type { AgentModelCatalog } from "@/api/ws/agent-chat-api";
 import type {
   AgentChatIndexEntry,
   AgentChatListRequest,
+  SessionAdvertisedOption,
 } from "@atmos/api-types/ws/dto/agent-chat";
 
 type ThinkingShape = {
@@ -11,16 +12,66 @@ type ThinkingShape = {
   options?: string[];
 };
 
-export function thinkingChoices(catalog: AgentModelCatalog | null, modelId: string): string[] {
-  const model = catalog?.models.find((item) => item.id === modelId);
-  const thinking = (model?.thinking ?? catalog?.thinking) as ThinkingShape | undefined;
+const THINKING_LEVEL_LABELS: Record<string, string> = {
+  off: "Off",
+  none: "None",
+  minimal: "Minimal",
+  low: "Low",
+  medium: "Medium",
+  high: "High",
+  xhigh: "Extra high",
+  extra_high: "Extra high",
+  max: "Max",
+  maximum: "Maximum",
+};
+
+export function thinkingLevelLabel(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return trimmed;
+  return THINKING_LEVEL_LABELS[trimmed.toLowerCase()] ?? trimmed;
+}
+
+export function isThinkingConfigId(
+  id: string,
+  category?: string | null,
+): boolean {
+  return [id, category ?? ""].some((value) => {
+    const token = value.trim().toLowerCase();
+    if (!token) return false;
+    return (
+      token === "thinking" ||
+      token === "think" ||
+      token === "thought_level" ||
+      token === "effort" ||
+      token === "reasoning" ||
+      token === "reasoning_effort" ||
+      token === "reasoning-effort" ||
+      token.includes("reason")
+    );
+  });
+}
+
+function listedThinkingOptions(thinking: ThinkingShape | undefined): string[] {
+  if (!Array.isArray(thinking?.options)) return [];
+  return thinking.options.map((item) => item.trim()).filter((item) => item.length > 0);
+}
+
+function choicesFromThinking(thinking: ThinkingShape | undefined): string[] {
   if (!thinking || thinking.type === "none" || thinking.type === "encoded_in_model") {
     return [];
   }
-  if (thinking.type === "enum" && Array.isArray(thinking.options)) {
-    return thinking.options.filter((item) => item.trim().length > 0);
-  }
+  const listed = listedThinkingOptions(thinking);
+  if (thinking.type === "enum" || listed.length > 0) return listed;
   return [];
+}
+
+export function thinkingChoices(catalog: AgentModelCatalog | null, modelId: string): string[] {
+  const model = catalog?.models.find((item) => item.id === modelId);
+  const perModel = model?.thinking as ThinkingShape | undefined;
+  if (perModel && perModel.type === "none") return [];
+  const listed = choicesFromThinking(perModel);
+  if (listed.length > 0) return listed;
+  return choicesFromThinking(catalog?.thinking as ThinkingShape | undefined);
 }
 
 export function isCatalogModelsLoading(
@@ -92,6 +143,14 @@ export function catalogToConfigOptions(
         name: model.label || model.id,
       })),
     });
+  } else if (resolvedModelId) {
+    options.push({
+      id: "model",
+      name: "Model",
+      type: "select",
+      currentValue: resolvedModelId,
+      options: [{ value: resolvedModelId, name: resolvedModelId }],
+    });
   }
   const thinking = thinkingChoices(catalog, resolvedModelId);
   if (thinking.length > 0) {
@@ -100,16 +159,72 @@ export function catalogToConfigOptions(
       name: "Thinking",
       type: "select",
       currentValue: thinkingId || thinking[0] || "",
-      options: thinking.map((value) => ({ value, name: value })),
+      options: thinking.map((value) => ({
+        value,
+        name: thinkingLevelLabel(value),
+      })),
     });
   }
   return options;
 }
 
-const COMPOSER_TRAILING_CONFIG_IDS = new Set(["model", "models", "thinking", "think"]);
+export function configKindMatches(id: string, category: string | null | undefined, kind: string): boolean {
+  if (kind === "thinking") return isThinkingConfigId(id, category);
+  const aliases =
+    kind === "model"
+      ? ["model", "models"]
+      : kind === "mode"
+        ? ["mode", "modes"]
+        : [kind];
+  const needle = id.trim().toLowerCase();
+  const cat = category?.trim().toLowerCase() ?? "";
+  return aliases.some((alias) => needle === alias || cat === alias);
+}
 
-export function isComposerTrailingConfigOption(option: { id: string }): boolean {
-  return COMPOSER_TRAILING_CONFIG_IDS.has(option.id.trim().toLowerCase());
+export function overlayPendingConfigValues(
+  options: AgentConfigOption[],
+  pending: { modelId?: string; modeId?: string; thinkingId?: string },
+): AgentConfigOption[] {
+  return options.map((option) => {
+    const pendingValue = configKindMatches(option.id, option.category, "model")
+      ? pending.modelId
+      : configKindMatches(option.id, option.category, "mode")
+        ? pending.modeId
+        : configKindMatches(option.id, option.category, "thinking")
+          ? pending.thinkingId
+          : undefined;
+    const trimmed = pendingValue?.trim();
+    if (!trimmed) return option;
+    if (option.options.some((item) => item.value === trimmed)) {
+      return { ...option, currentValue: trimmed };
+    }
+    return option;
+  });
+}
+
+export function advertisedOptionsToConfigOptions(
+  rows: SessionAdvertisedOption[] | null | undefined,
+): AgentConfigOption[] {
+  return (rows ?? []).map((row) => ({
+    id: row.id,
+    name: row.name ?? undefined,
+    category: row.category ?? undefined,
+    type: row.type || "select",
+    currentValue: row.current_value ?? "",
+    options: (row.options ?? []).map((item) => ({
+      value: item.value,
+      name: item.name ?? undefined,
+    })),
+  }));
+}
+
+export function isComposerTrailingConfigOption(option: {
+  id: string;
+  category?: string | null;
+}): boolean {
+  const id = option.id.trim().toLowerCase();
+  if (id === "model" || id === "models") return true;
+  return isThinkingConfigId(option.id, option.category);
 }
 
 export function splitComposerConfigOptions(options: AgentConfigOption[]): {
@@ -220,5 +335,6 @@ export function parsePlan(value: unknown): AgentPlan | null {
       };
     })
     .filter((entry): entry is AgentPlan["entries"][number] => entry !== null);
+  if (entries.length === 0) return null;
   return { entries };
 }

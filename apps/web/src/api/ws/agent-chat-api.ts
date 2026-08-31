@@ -4,6 +4,8 @@ import type {
   AgentChatOrigin,
   AgentChatIndexEntry,
   AgentChatMeta,
+  AgentChatPrefs,
+  AgentChatPrefsSetRequest,
   AgentChatSnapshot,
   AgentChatEvent,
   AgentEvent,
@@ -19,6 +21,8 @@ export type {
   AgentChatOrigin,
   AgentChatIndexEntry,
   AgentChatMeta,
+  AgentChatPrefs,
+  AgentChatPrefsSetRequest,
   AgentChatSnapshot,
   AgentChatEvent,
   AgentEvent,
@@ -115,6 +119,9 @@ export const agentChatApi = {
     wsRequest("agent_chat_queue_delete", { chat_id, item_id }),
   catalogGet: (agent_id: string, refresh?: boolean) =>
     wsRequest("agent_model_catalog_get", { agent_id, refresh: refresh ?? null }),
+  prefsGet: () => wsRequest("agent_chat_prefs_get"),
+  prefsSet: (input: AgentChatPrefsSetRequest) =>
+    wsRequest("agent_chat_prefs_set", input),
 };
 
 export type ModelCatalog = AgentModelCatalog;

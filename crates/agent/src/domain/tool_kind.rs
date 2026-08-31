@@ -39,8 +39,10 @@ pub fn classify_tool(
     ) {
         return ClassifiedTool::Thinking;
     }
-    if matches!(name.as_str(), "todowrite" | "todo_write" | "todo" | "todos")
+    if is_todo_label(&name)
+        || is_todo_label(&title)
         || title.contains("todo list updated")
+        || plan_from_tool_input(input).is_some()
     {
         return ClassifiedTool::Plan;
     }
@@ -158,6 +160,10 @@ fn normalize_label(value: &str) -> String {
     value.trim().to_ascii_lowercase().replace([' ', '-'], "_")
 }
 
+fn is_todo_label(value: &str) -> bool {
+    matches!(value, "todowrite" | "todo_write" | "todo" | "todos")
+}
+
 /// ACP `kind` titles and empty labels. These must not hide path/command/query.
 pub fn is_generic_tool_label(value: &str) -> bool {
     matches!(
@@ -244,6 +250,22 @@ mod tests {
         );
         assert_eq!(classify_tool("think", None, None), ClassifiedTool::Thinking);
         assert_eq!(classify_tool("TodoWrite", None, None), ClassifiedTool::Plan);
+        assert_eq!(
+            classify_tool(
+                "Tool",
+                Some("todo_write"),
+                Some(&serde_json::json!({"merge": true}))
+            ),
+            ClassifiedTool::Plan
+        );
+        assert_eq!(
+            classify_tool(
+                "Tool",
+                None,
+                Some(&serde_json::json!({"todos": [{"content": "Inspect", "status": "pending"}]}))
+            ),
+            ClassifiedTool::Plan
+        );
         assert_eq!(
             classify_tool("SwitchMode", None, None),
             ClassifiedTool::Hide

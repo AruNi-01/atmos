@@ -28,7 +28,7 @@ describe("agent chat modal frame", () => {
   });
 
   it("pins the permission card above the composer instead of the message stream", () => {
-    expect(panel).toContain('<div className="flex min-h-0 shrink-0 flex-col">');
+    expect(panel).toContain('<div className="flex min-h-0 w-full shrink-0 flex-col">');
     expect(panel).toContain('className={cn("shrink-0", wideContentClassName)}');
     expect(panel).toContain("<AgentPromptComposer");
     expect(panel).not.toContain("border-t border-border p-3");
@@ -39,6 +39,17 @@ describe("agent chat modal frame", () => {
     expect(confirmationAt).toBeGreaterThan(contentAt);
     expect(composerAt).toBeGreaterThan(confirmationAt);
     expect(panel).not.toContain("hideCollapsedDivider");
+  });
+
+  it("centers a taller composer on new chat and docks a compact one after the session exists", () => {
+    expect(panel).toContain("isAgentNewChatLanding");
+    expect(panel).toContain('isNewChatLanding ? "justify-center overflow-y-auto pb-20" : "overflow-hidden"');
+    expect(panel).toContain('isNewChatLanding ? "hidden" : "flex-1"');
+    expect(panel).toContain("landing={isNewChatLanding}");
+    expect(panel).toContain("LogoSvg");
+    expect(panel).toContain("h-20 w-auto text-foreground");
+    expect(panel).not.toContain("atmos-logo-breathe");
+    expect(panel).not.toContain('t("empty.startTitle")');
   });
 
   it("shows a header History popover with search on the modal", () => {

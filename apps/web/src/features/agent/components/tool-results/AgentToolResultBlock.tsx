@@ -17,6 +17,7 @@ import {
   type ToolLineRange,
   type ToolPresentation,
 } from "@/features/agent/lib/tool-results/parse-tool-result";
+import { changedLineRangesForPresentation } from "@/features/agent/lib/tool-results/diff-stats";
 import { MarkdownRenderer } from "@/shared/components/markdown/MarkdownRenderer";
 import { useDisplayToolTitle } from "../agent-chat-cwd-context";
 import {
@@ -114,7 +115,16 @@ function AgentToolCodeResult({
       icon={asSkill ? <Sparkles className="size-4" /> : fallbackIcon}
       title={actionTitle}
       titleTooltip={path ? `${actionTitle}\n${path}` : actionTitle}
-      accessory={path ? <AgentToolFileChip path={path} /> : null}
+      accessory={path ? (
+        <AgentToolFileChip
+          path={path}
+          selectRanges={
+            hint === "new" && additions > 0
+              ? [{ startLine: 1, endLine: additions }]
+              : undefined
+          }
+        />
+      ) : null}
       status={status}
       meta={
         hint ? (
@@ -174,7 +184,16 @@ export function AgentToolResultBlock({
     : toolDisplayName;
   const fileChip = parsed.path
     && (part.kind === "read" || part.kind === "edit" || part.kind === "delete" || parsed.presentation.kind === "code")
-    ? <AgentToolFileChip path={parsed.path} />
+    ? (
+      <AgentToolFileChip
+        path={parsed.path}
+        selectRanges={
+          part.kind === "edit"
+            ? changedLineRangesForPresentation(parsed.presentation, parsed.path)
+            : undefined
+        }
+      />
+    )
     : null;
   const actionName = fileChip
     ? deriveToolDisplayName(parsed.resolvedTool || part.name, parsed.resolvedTool || part.name)

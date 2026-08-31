@@ -2,6 +2,7 @@ import type { WsEmpty, WsSuccess } from "../dto/common";
 import type {
   AgentConfigSetRequest,
   AgentConfigState,
+  AgentDefaultConfigSetRequest,
   AgentIdRequest,
   AgentInstallResponse,
   AgentListResponse,
@@ -23,6 +24,10 @@ export type AgentContract = {
   agent_install: { input: AgentIdRequest; output: AgentInstallResponse };
   agent_config_get: { input: AgentIdRequest; output: AgentConfigState };
   agent_config_set: { input: AgentConfigSetRequest; output: WsSuccess };
+  agent_default_config_set: {
+    input: AgentDefaultConfigSetRequest;
+    output: WsSuccess;
+  };
   agent_registry_list: {
     input: AgentRegistryListRequest;
     output: AgentRegistryListResponse;

@@ -68,7 +68,11 @@ export interface BaseCodeMirrorEditorProps {
   /** 变化时重新拉取 `git_file_diff`（index vs 工作区）。 */
   gitDiffRefreshNonce?: number;
   onGitGutterStateChanged?: (kind: 'stage' | 'restore') => void;
-  navigationTarget?: { line: number; column?: number } | null;
+  navigationTarget?: {
+    line?: number;
+    column?: number;
+    selectRanges?: { startLine: number; endLine: number }[];
+  } | null;
   onChange?: (value: string) => void;
   onCreateEditor?: (view: EditorView) => void;
   onSave?: () => void;
@@ -969,10 +973,32 @@ export const BaseCodeMirrorEditor: React.FC<BaseCodeMirrorEditorProps> = ({
   useEffect(() => {
     const view = editorRef.current;
     if (!view || !navigationTarget) return;
+    const docLines = view.state.doc.lines || 1;
+    const selectRanges = navigationTarget.selectRanges ?? [];
+    const cmRanges = selectRanges.flatMap((range) => {
+      const startLine = Math.min(Math.max(1, Math.floor(range.startLine)), docLines);
+      const endLine = Math.min(Math.max(startLine, Math.floor(range.endLine)), docLines);
+      const fromLine = view.state.doc.line(startLine);
+      const toLine = view.state.doc.line(endLine);
+      return [EditorSelection.range(fromLine.from, toLine.to)];
+    });
+
+    if (cmRanges.length > 0) {
+      const selection = EditorSelection.create(cmRanges, 0);
+      view.dispatch({
+        selection,
+        effects: EditorView.scrollIntoView(selection.main.from, { y: 'center' }),
+      });
+      view.focus();
+      onNavigationTargetAppliedRef.current?.();
+      return;
+    }
+
+    if (navigationTarget.line == null) return;
 
     const safeLine = Math.min(
       Math.max(1, navigationTarget.line),
-      view.state.doc.lines || 1
+      docLines
     );
     const line = view.state.doc.line(safeLine);
     const requestedColumn = Math.max(1, navigationTarget.column ?? 1);

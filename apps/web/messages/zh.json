@@ -2866,6 +2866,8 @@
         "searchAgents": "搜索 Agent",
         "chooseModel": "选择模型",
         "chooseMode": "模式",
+        "modelLocked": "当前会话中此 Agent 无法切换模型",
+        "modeLocked": "当前会话中此 Agent 无法切换模式",
         "backToAgents": "Agent",
         "loadingModels": "正在加载模型",
         "thinkingFaster": "更快",
@@ -2884,6 +2886,12 @@
           "searchPlaceholder": "搜索",
           "searchWorkspaces": "搜索工作区",
           "noResults": "没有结果"
+        },
+        "attachments": {
+          "removeNamed": "移除 {filename}",
+          "preview": "预览 {filename}",
+          "imageFallback": "图片",
+          "fileFallback": "文件"
         }
       },
       "terminalBlock": {
@@ -2957,6 +2965,11 @@
           "label": "过程",
           "collapseAria": "折叠",
           "collapseLabel": "折叠"
+        },
+        "files": {
+          "changed": "{count} 个文件变更",
+          "showMore": "… 显示另外 {count} 个",
+          "showLess": "收起"
         }
       },
       "toolGroup": {
@@ -3061,6 +3074,13 @@
         "reorderAria": "重新排序排队消息",
         "editAria": "编辑排队消息",
         "deleteAria": "删除排队消息"
+      },
+      "backgroundCommands": {
+        "title": "后台任务",
+        "running": "运行中",
+        "runningCount": "{count} 个运行中",
+        "emptyOutput": "暂无输出",
+        "commandAria": "查看后台命令输出"
       },
       "authDialog": {
         "title": "需要 Agent 认证",
@@ -3213,7 +3233,6 @@
         "restoringSession": "正在恢复会话...",
         "empty": {
           "resumedTitle": "会话已恢复",
-          "startTitle": "开始聊天",
           "resumedDescription": "这个 Agent 已恢复会话上下文。发送一条消息以继续。",
           "startDescription": "在下方输入消息即可开始聊天"
         },
@@ -3238,7 +3257,16 @@
           "resuming": "正在恢复会话...",
           "resumed": "已恢复会话",
           "resumedIn": "恢复会话用了 {duration}",
-          "resumeFailed": "恢复会话失败"
+          "resumeFailed": "恢复会话失败",
+          "switchedModel": "已切换模型为 {to}",
+          "switchedModelFrom": "已将模型从 {from} 切换为 {to}",
+          "switchedMode": "已切换模式为 {to}",
+          "switchedModeFrom": "已将模式从 {from} 切换为 {to}",
+          "switchedBoth": "已切换模型为 {model} · 模式为 {mode}",
+          "hints": {
+            "modelSwitchFailed": "当前会话无法切换模型，已恢复为原来的模型",
+            "modeSwitchFailed": "当前会话无法切换模式，已恢复为原来的模式"
+          }
         }
       },
       "selector": {
@@ -3868,7 +3896,6 @@
   },
   "Welcome": {
     "components": {
-      "startAgentChat": "开始对话",
       "helpers": {
         "placeholderTemplates": {
           "makeInside": "你希望 {agent} 在 {project} 里做什么？",
@@ -7162,9 +7189,10 @@
         "reading": "读取中",
         "writing": "写入中",
         "searching": "搜索中",
-        "runningCommand": "运行命令中",
+        "executing": "执行中",
         "fetching": "获取中",
         "deleting": "删除中",
+        "moving": "移动中",
         "thinking": "思考中",
         "working": "处理中",
         "streaming": "输出中",
@@ -8568,9 +8596,12 @@
     "markdownRenderer": {
       "mermaid": {
         "title": "Mermaid",
-        "switchToAscii": "切换到 ASCII",
-        "switchToSvg": "切换到 SVG",
+        "modeGroup": "图表视图",
+        "modeAscii": "ASCII",
+        "modeSource": "源码",
+        "modePreview": "预览",
         "clickToEnlarge": "点击放大图表",
+        "rendering": "正在渲染...",
         "renderingAscii": "正在渲染 ASCII...",
         "errors": {
           "renderFailed": "Mermaid 渲染失败",

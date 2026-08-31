@@ -33,6 +33,23 @@ impl WsMessageService {
         Ok(json!({ "success": true }))
     }
 
+    pub(super) async fn handle_agent_default_config_set(
+        &self,
+        req: AgentDefaultConfigSetRequest,
+    ) -> Result<Value> {
+        let registry_id = req.registry_id.trim();
+        let config_id = req.config_id.trim();
+        let value = req.value.trim();
+        if registry_id.is_empty() || config_id.is_empty() || value.is_empty() {
+            return Err(ServiceError::Validation(
+                "registry_id, config_id, and value are required".into(),
+            ));
+        }
+        self.agent_service
+            .set_agent_default_config(registry_id, config_id, value)?;
+        Ok(json!({ "success": true }))
+    }
+
     pub(super) async fn handle_agent_registry_list(
         &self,
         req: AgentRegistryListRequest,

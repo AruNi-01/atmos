@@ -1,20 +1,30 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { ChevronRight, Globe, XCircle } from "lucide-react";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
+  TextEffect,
   TextShimmer,
   Tooltip,
   TooltipContent,
   TooltipTrigger,
   getFileIconProps,
 } from "@workspace/ui";
+import { useReducedMotion } from "motion/react";
 import { cn } from "@/shared/lib/utils";
+import {
+  TREE_CONTENT_DELAY_MS,
+  TREE_EASE,
+  shouldPlayTreeTitleEnter,
+  treeTitleRevealMs,
+} from "@/features/agent/lib/agent-tree-branch";
+import type { DiffLineRange } from "@/features/agent/lib/tool-results/diff-stats";
 import { hostFromUrl } from "@/features/agent/lib/tool-results/parse-tool-result";
 import { useAgentChatCwd, useAgentChatPathRoots } from "../agent-chat-cwd-context";
+import { useAgentTreeReveal } from "../agent-tree-reveal-context";
 import {
   useAgentChatResolvedPathKind,
   useOpenAgentChatWorkspacePath,
@@ -123,11 +133,13 @@ export function AgentToolFileChip({
   path,
   line,
   isDir: hintedIsDir,
+  selectRanges,
   className,
 }: {
   path: string;
   line?: number;
   isDir?: boolean;
+  selectRanges?: DiffLineRange[];
   className?: string;
 }) {
   const cwd = useAgentChatCwd();
@@ -143,7 +155,8 @@ export function AgentToolFileChip({
   );
   const exists = hintedIsDir === true
     || resolvedKind === "file"
-    || resolvedKind === "directory";
+    || resolvedKind === "directory"
+    || (resolvedKind === "pending" && !agentChatPathLooksLikeDirectory(path));
   const clickable = Boolean(openable) && exists;
   const chipClassName = cn(
     "inline-flex max-w-full min-w-0 items-center gap-1 rounded-md bg-muted px-1.5 py-0.5 font-mono text-[12px] leading-4 text-foreground",
@@ -165,8 +178,12 @@ export function AgentToolFileChip({
       onClick={(event) => {
         event.preventDefault();
         event.stopPropagation();
-        queueMicrotask(() => {
-          void openWorkspacePath(path, { line, isDir: hintedIsDir });
+        void openWorkspacePath(path, {
+          line,
+          isDir: hintedIsDir ?? (
+            resolvedKind === "directory" ? true : resolvedKind === "file" ? false : undefined
+          ),
+          selectRanges,
         });
       }}
     >
@@ -192,6 +209,65 @@ export type AgentToolSurface = "card" | "plain";
 
 export type AgentToolBody = "panel" | "plain";
 
+function AgentTreeTitle({ text }: { text: string }) {
+  const reduced = Boolean(useReducedMotion());
+  const [snapshot, setSnapshot] = useState(text);
+  const [done, setDone] = useState(reduced);
+
+  useEffect(() => {
+    if (!snapshot && text) setSnapshot(text);
+  }, [snapshot, text]);
+
+  useEffect(() => {
+    if (done || reduced || !snapshot) return;
+    const timer = window.setTimeout(() => setDone(true), treeTitleRevealMs(snapshot.length));
+    return () => window.clearTimeout(timer);
+  }, [done, reduced, snapshot]);
+
+  if (reduced || done || !snapshot) return <>{text}</>;
+  return (
+    <TextEffect
+      as="span"
+      per="char"
+      preset="fade"
+      delay={TREE_CONTENT_DELAY_MS / 1000}
+      speedReveal={2}
+    >
+      {snapshot}
+    </TextEffect>
+  );
+}
+
+function AgentTreeFade({
+  enabled,
+  children,
+}: {
+  enabled: boolean;
+  children: React.ReactNode;
+}) {
+  const reduced = useReducedMotion();
+  const skip = !enabled || Boolean(reduced);
+  const [open, setOpen] = useState(skip);
+
+  useEffect(() => {
+    if (open) return;
+    const timer = window.setTimeout(() => setOpen(true), TREE_CONTENT_DELAY_MS);
+    return () => window.clearTimeout(timer);
+  }, [open]);
+
+  if (skip) return <>{children}</>;
+  return (
+    <span
+      style={{
+        opacity: open ? 1 : 0,
+        transition: `opacity 280ms ${TREE_EASE}`,
+      }}
+    >
+      {children}
+    </span>
+  );
+}
+
 export function AgentToolCard({
   icon,
   title,
@@ -200,6 +276,7 @@ export function AgentToolCard({
   meta,
   actions,
   status,
+  shimmer,
   defaultOpen = false,
   tone = "default",
   variant = "tool",
@@ -213,6 +290,7 @@ export function AgentToolCard({
   meta?: React.ReactNode;
   actions?: React.ReactNode;
   status?: string;
+  shimmer?: boolean;
   defaultOpen?: boolean;
   tone?: "default" | "skill" | "error";
   variant?: "tool" | "file";
@@ -221,7 +299,14 @@ export function AgentToolCard({
   children?: React.ReactNode;
 }) {
   const running = (status ?? "").toLowerCase() === "running";
+  const showShimmer = shimmer ?? running;
   const failed = (status ?? "").toLowerCase() === "failed" || tone === "error";
+  const treeReveal = useAgentTreeReveal();
+  // Running rows already show the label via shimmer; completing must not replay the enter.
+  const seenTitle = useRef(!treeReveal || showShimmer);
+  if (!treeReveal || showShimmer) seenTitle.current = true;
+  const reveal = typeof title === "string"
+    && shouldPlayTreeTitleEnter(treeReveal, showShimmer, seenTitle.current);
 
   return (
     <Collapsible defaultOpen={defaultOpen} className="not-prose w-full min-w-0">
@@ -244,7 +329,9 @@ export function AgentToolCard({
               )}
               title={titleTooltip}
             >
-              {running && typeof title === "string" ? (
+              {reveal && typeof title === "string" ? (
+                <AgentTreeTitle text={title} />
+              ) : showShimmer && typeof title === "string" ? (
                 <TextShimmer as="span" duration={1} className="text-sm">
                   {title}
                 </TextShimmer>
@@ -252,8 +339,16 @@ export function AgentToolCard({
                 title
               )}
             </span>
-            {accessory ? <span className="min-w-0 shrink-0">{accessory}</span> : null}
-            {meta ? <span className="shrink-0">{meta}</span> : null}
+            {accessory ? (
+              <AgentTreeFade enabled={treeReveal}>
+                <span className="min-w-0 shrink-0">{accessory}</span>
+              </AgentTreeFade>
+            ) : null}
+            {meta ? (
+              <AgentTreeFade enabled={treeReveal}>
+                <span className="shrink-0">{meta}</span>
+              </AgentTreeFade>
+            ) : null}
             {failed ? <XCircle className="size-3.5 shrink-0 text-destructive" /> : null}
             <ChevronRight className="size-3.5 shrink-0 text-muted-foreground transition-transform duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] group-data-[state=open]:rotate-90" />
           </div>
@@ -288,6 +383,23 @@ export function AgentToolDiffStats({
       {deletions > 0 ? <span className="text-red-500">-{deletions}</span> : null}
       {deletions > 0 && additions > 0 ? <span className="mx-1 text-muted-foreground">/</span> : null}
       {additions > 0 ? <span className="text-green-500">+{additions}</span> : null}
+    </span>
+  );
+}
+
+export function AgentToolFileChangeStats({
+  additions,
+  deletions,
+}: {
+  additions: number;
+  deletions: number;
+}) {
+  if (additions <= 0 && deletions <= 0) return null;
+  return (
+    <span className="shrink-0 font-mono text-xs">
+      {additions > 0 ? <span className="text-green-500">+{additions}</span> : null}
+      {additions > 0 && deletions > 0 ? " " : null}
+      {deletions > 0 ? <span className="text-red-500">-{deletions}</span> : null}
     </span>
   );
 }

@@ -106,6 +106,10 @@ describe("center-stage chrome", () => {
     expect(githubKept).not.toContain("paneVisible");
     expect(frame).toContain("isActive={isActiveContext}");
     expect(frame).toContain("surfaceActive={isActiveContext}");
+    expect(frame).toContain("function KeepAliveFileViewer");
+    expect(frame).toContain("<KeepAliveFileViewer");
+    expect(frame).toContain("visible={visible}");
+    expect(frame).toContain("requestAnimationFrame");
     expect(frame).toContain("revealEnabled={isActiveContext}");
     expect(frame).not.toMatch(/isActive=\{\s*\n\s*isActiveContext &&/);
     expect(frame).not.toMatch(/surfaceActive=\{\s*\n\s*isActiveContext &&/);

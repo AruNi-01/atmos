@@ -4,6 +4,7 @@ import * as React from "react";
 import { useTranslations } from "next-intl";
 
 import { wsRequest } from "@/api/ws/request";
+import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
 import type { TerminalAgentModelCatalog } from "@atmos/api-types/ws/dto/settings";
 
 export type {
@@ -34,6 +35,7 @@ export function useTerminalAgentModelCatalog(agentId: string, enabled: boolean) 
           refresh,
         });
         setCatalog(nextCatalog);
+        setLoading(nextCatalog.status === "probing");
         return nextCatalog;
       } catch (error) {
         const message = error instanceof Error ? error.message : t("loadFailed");
@@ -62,6 +64,16 @@ export function useTerminalAgentModelCatalog(agentId: string, enabled: boolean) 
     }
     void load(false);
   }, [agentId, enabled, load]);
+
+  React.useEffect(() => {
+    if (!enabled || !agentId) return;
+    return useWebSocketStore.getState().onEvent("agent_model_catalog_updated", (payload) => {
+      const update = payload as { agent_id?: string; catalog?: TerminalAgentModelCatalog };
+      if (!update.agent_id || update.agent_id !== agentId || !update.catalog) return;
+      setCatalog(update.catalog);
+      setLoading(update.catalog.status === "probing");
+    });
+  }, [agentId, enabled]);
 
   return {
     catalog,

@@ -153,6 +153,28 @@ A paragraph.
     await editor.destroy();
   });
 
+  test("parses and serializes ATX headings through h6", async () => {
+    const source = `# One
+
+##### Five
+
+###### Six
+`;
+    const committed: string[] = [];
+    const { editor, snapshot } = await createLiveSerializer(source, committed);
+    const levels: number[] = [];
+    editor.action((ctx) => {
+      ctx.get(editorViewCtx).state.doc.descendants((node) => {
+        if (node.type.name === "heading") levels.push(Number(node.attrs.level));
+      });
+    });
+    expect(levels).toEqual([1, 5, 6]);
+    expect(snapshot).toContain("##### Five");
+    expect(snapshot).toContain("###### Six");
+    expect(committed).toEqual([]);
+    await editor.destroy();
+  });
+
   test("details/summary serializes as compact html without br sentinels", async () => {
     const source = `<details>
 <summary>hello</summary>

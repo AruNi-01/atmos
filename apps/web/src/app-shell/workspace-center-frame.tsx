@@ -273,6 +273,35 @@ function hostPaneIdsForTab(
   return [undefined];
 }
 
+function EditorSurfaceLoadingFallback() {
+  return (
+    <div className="flex h-full w-full items-center justify-center bg-background">
+      <Loader2 className="size-6 animate-spin text-muted-foreground" />
+    </div>
+  );
+}
+
+/**
+ * First paint of a newly opened file is a spinner. CodeMirror / md-live stay
+ * off that commit so a deferred tab switch cannot init them behind Agent Chat.
+ * After the first reveal, the viewer stays mounted for keep-alive hops.
+ */
+function KeepAliveFileViewer({
+  visible,
+  ...props
+}: { visible: boolean } & React.ComponentProps<typeof KeptFileViewer>) {
+  const [mounted, setMounted] = React.useState(false);
+  React.useEffect(() => {
+    if (!visible || mounted) return;
+    const frame = window.requestAnimationFrame(() => setMounted(true));
+    return () => window.cancelAnimationFrame(frame);
+  }, [mounted, visible]);
+  if (!mounted) {
+    return visible ? <EditorSurfaceLoadingFallback /> : null;
+  }
+  return <KeptFileViewer {...props} />;
+}
+
 function WorkspaceCenterFrameImpl({
   contextId,
   isActiveContext,
@@ -704,7 +733,8 @@ function WorkspaceCenterFrameImpl({
                 editorPath={file.path}
               />
             ) : (
-              <KeptFileViewer
+              <KeepAliveFileViewer
+                visible={visible}
                 file={file}
                 className="flex-1"
                 contextId={contextId}
@@ -803,6 +833,7 @@ function WorkspaceCenterFrameImpl({
               instanceKey={tab.value}
               paintContextId={contextId}
               chatId={tab.chatId}
+              resumeTranscript={tab.hasMessages}
               onChatStarted={(chatId, meta) => {
                 useAgentChatCenterTabsStore.getState().bindChat({
                   contextId,
@@ -811,6 +842,7 @@ function WorkspaceCenterFrameImpl({
                   title: meta?.title,
                   cwd: meta?.cwd,
                   providerId: meta?.providerId,
+                  hasMessages: meta?.hasMessages,
                 });
               }}
               onChatUpdated={(chatId, meta) => {
@@ -820,6 +852,7 @@ function WorkspaceCenterFrameImpl({
                   title: meta.title,
                   providerId: meta.providerId,
                   cwd: meta.cwd,
+                  hasMessages: meta.hasMessages,
                 });
               }}
               onOpenChat={(chatId) => {

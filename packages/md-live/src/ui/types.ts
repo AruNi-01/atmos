@@ -1,5 +1,15 @@
+/** Slash menu and toolbar convert. Markdown still parses and renders H1–H6. */
 export const MD_LIVE_HEADING_LEVELS = [1, 2, 3, 4] as const;
 export type MdLiveHeadingLevel = (typeof MD_LIVE_HEADING_LEVELS)[number];
+
+export const MD_LIVE_MARKDOWN_HEADING_LEVELS = [1, 2, 3, 4, 5, 6] as const;
+export type MdLiveMarkdownHeadingLevel = (typeof MD_LIVE_MARKDOWN_HEADING_LEVELS)[number];
+
+export function mdLiveMarkdownHeadingLevelOf(level: unknown): MdLiveMarkdownHeadingLevel | null {
+  const n = Number(level);
+  if (!Number.isInteger(n) || n < 1 || n > 6) return null;
+  return n as MdLiveMarkdownHeadingLevel;
+}
 
 export type MdLiveBlockAction =
   | { type: "paragraph" }

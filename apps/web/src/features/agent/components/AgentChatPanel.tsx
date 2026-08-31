@@ -10,6 +10,7 @@ import {
   ConversationScrollButton,
   cn,
 } from "@workspace/ui";
+import LogoSvg from "@workspace/ui/components/logo-svg";
 import { ChevronDown, Loader2, MessageSquare, X } from "lucide-react";
 import { useAgentChatLayoutStore } from "@/features/agent/store/agent-chat-layout-store";
 import { DEFAULT_AGENT_CHAT_MODE, type AgentChatMode } from "@/features/agent/types/index";
@@ -28,10 +29,12 @@ import {
   AgentChatHistorySidebarFrame,
   AgentChatHistorySidebarToggle,
 } from "./AgentChatHistorySidebarFrame";
-import { AgentChatMessageView } from "./AgentChatMessageView";
+import { AgentChatTranscriptList } from "./AgentChatTranscriptList";
 import { AgentChatCwdProvider } from "./agent-chat-cwd-context";
 import { openAgentChatWindow } from "../lib/desktop-agent-chat-window";
 import { ackAgentChatAttention } from "../lib/agent-status-ack";
+import { isAgentNewChatLanding } from "../lib/agent-composer-placeholder";
+import { AGENT_CHAT_SCROLL_CLASS } from "../lib/agent-chat-transcript-window";
 import { useAgentChatHistorySidebarLayout } from "../hooks/use-agent-chat-history-sidebar-layout";
 import {
   closeCurrentStandaloneWindow,
@@ -62,14 +65,17 @@ interface AgentChatPanelProps {
     title?: string | null;
     cwd?: string;
     providerId?: string | null;
+    hasMessages?: boolean;
   }) => void;
   onChatUpdated?: (id: string, meta: {
     title?: string | null;
     providerId?: string | null;
     cwd?: string;
+    hasMessages?: boolean;
   }) => void;
   onOpenChat?: (id: string) => void;
   onClose?: () => void;
+  resumeTranscript?: boolean;
 }
 
 const WIDE_HISTORY_LAYOUT_MIN_WIDTH = 900;
@@ -108,6 +114,7 @@ export function AgentChatPanel({
   instanceKey = null,
   paintContextId = null,
   chatId: chatIdProp = null,
+  resumeTranscript: resumeTranscriptProp,
   onChatStarted,
   onChatUpdated,
   onOpenChat,
@@ -127,6 +134,7 @@ export function AgentChatPanel({
   const showsWideHistoryLayout =
     variant === "standalone" && panelWidth >= WIDE_HISTORY_LAYOUT_MIN_WIDTH;
   const chatId = chatIdProp || "";
+  const resumeTranscript = resumeTranscriptProp ?? variant !== "center";
 
   const session = useAgentChatSession({
     variant,
@@ -138,6 +146,7 @@ export function AgentChatPanel({
     instanceKey,
     paintContextId,
     chatId,
+    resumeTranscript,
     onChatStarted,
     onChatUpdated,
     onOpenChat,
@@ -397,12 +406,14 @@ export function AgentChatPanel({
     messages,
     setMessages,
     currentPlan,
+    backgroundTools,
     pendingPermission,
     pendingPermissionMarkdown,
     agentActivity,
     setWaitingForResponse,
     stoppedRef,
     isResumingHistory,
+    isRestoringTranscript,
     isResumedSession,
     runtimeStatus,
     hasPersistenceHandle,
@@ -417,6 +428,8 @@ export function AgentChatPanel({
     catalogModelsLoading,
     refreshEmptyCatalog,
     configOptions,
+    modelsLocked,
+    modesLocked,
     setConfigOption,
     setProviderId,
     persistPreferredRegistry,
@@ -459,6 +472,8 @@ export function AgentChatPanel({
     exportableMessages,
     userMessageIndices,
     messageNavIndex,
+    setMessageNavIndex,
+    scrollToIndexRef,
     handleSubmit,
     handleClose,
     handleLogoutAgent,
@@ -626,13 +641,18 @@ export function AgentChatPanel({
   const wideContentClassName = constrainChatWidth
     ? "mx-auto w-full max-w-3xl"
     : "w-full";
+  const isNewChatLanding = isAgentNewChatLanding({
+    chatId: liveChatId,
+    messageCount: messages.length,
+    isResumingHistory,
+  });
   const floatingControlRailClassName = constrainChatWidth
     ? "left-1/2 w-full max-w-3xl -translate-x-1/2 px-3"
     : "inset-x-0 px-3";
   const wasResumingHistoryRef = useRef(false);
 
   useEffect(() => {
-    if (isResumingHistory) {
+    if (isRestoringTranscript) {
       wasResumingHistoryRef.current = true;
       return;
     }
@@ -653,7 +673,7 @@ export function AgentChatPanel({
         window.cancelAnimationFrame(secondFrame);
       }
     };
-  }, [bottomRef, isResumingHistory, messages.length]);
+  }, [bottomRef, isRestoringTranscript, messages.length]);
 
   // Host `active`, not pause-gated session.isPanelOpen (that returned null before the placeholder).
   if (!active || (variant === "modal" && !layoutLoaded)) return null;
@@ -848,21 +868,33 @@ export function AgentChatPanel({
           />
         ) : null}
 
-      <div ref={transcriptRef} className="min-h-0 flex-1 overflow-hidden">
+      <div
+        className={cn(
+          "flex min-h-0 flex-1 flex-col",
+          isNewChatLanding ? "justify-center overflow-y-auto pb-20" : "overflow-hidden",
+        )}
+        data-agent-chat-landing={isNewChatLanding ? "true" : undefined}
+      >
+      <div
+        ref={transcriptRef}
+        className={cn(
+          "min-h-0 overflow-hidden",
+          isNewChatLanding ? "hidden" : "flex-1",
+        )}
+      >
         <AgentChatCwdProvider
           cwd={sessionCwd || localPath}
           projectOrWorkspacePath={localPath}
         >
           <Conversation
-          key={isResumingHistory ? "restoring-history" : "live-chat"}
           className="min-h-0 h-full overflow-hidden"
-          initial={isResumingHistory ? false : "smooth"}
-          resize={isResumingHistory ? "instant" : "smooth"}
+          initial={isRestoringTranscript ? false : "smooth"}
+          resize={isRestoringTranscript ? "instant" : "smooth"}
         >
           <ConversationContent
             data-canvas-selectable-text="true"
             className={cn("gap-3 p-4!", wideContentClassName)}
-            scrollClassName="agent-chat-scroll"
+            scrollClassName={AGENT_CHAT_SCROLL_CLASS}
           >
             {((loadingAgents && !isConnected && !isConnecting) || isConnecting || isResumingHistory) && (
               <div className="desktop-loading-clean flex items-center justify-center py-6">
@@ -883,25 +915,24 @@ export function AgentChatPanel({
                 {error}
               </div>
             )}
-            {canUseCurrentMode && isConnected && messages.length === 0 && !isConnecting && !isResumingHistory && !error && (
+            {canUseCurrentMode && isConnected && messages.length === 0 && !isConnecting && !isResumingHistory && !error && hasPersistenceHandle && (
               <ConversationEmptyState
                 icon={<MessageSquare className="size-12" />}
-                title={isResumedSession ? t("empty.resumedTitle") : t("empty.startTitle")}
-                description={
-                  isResumedSession
-                    ? t("empty.resumedDescription")
-                    : t("empty.startDescription")
-                }
+                title={t("empty.resumedTitle")}
+                description={t("empty.resumedDescription")}
               />
             )}
-            {messages.map((message, i) => (
-              <AgentChatMessageView
-                key={message.id || i}
-                message={message}
-                index={i}
+            {messages.length > 0 ? (
+              <AgentChatTranscriptList
+                key={liveChatId || chatId || "draft"}
+                messages={messages}
                 registryId={registryId}
+                transcriptRef={transcriptRef}
+                userMessageIndices={userMessageIndices}
+                onActiveUserMessage={setMessageNavIndex}
+                scrollToIndexRef={scrollToIndexRef}
               />
-            ))}
+            ) : null}
             {agentActivity.busy && (
               <AgentActivityIndicator activity={agentActivity} elapsedMs={elapsedMs} />
             )}
@@ -922,7 +953,7 @@ export function AgentChatPanel({
           <ConversationScrollButton aria-label={t("bottom")}>
             <ChevronDown className="size-4" />
           </ConversationScrollButton>
-          {!isResumingHistory && (
+          {!isRestoringTranscript && (
             <AgentMessageTimelineNav
               activeAgent={activeAgent}
               messages={messages}
@@ -935,7 +966,20 @@ export function AgentChatPanel({
         </AgentChatCwdProvider>
       </div>
 
-      <div className="flex min-h-0 shrink-0 flex-col">
+      <div className="flex min-h-0 w-full shrink-0 flex-col">
+        {isNewChatLanding ? (
+          <div className={cn("px-3 pb-14", wideContentClassName)}>
+            {error ? (
+              <div className="rounded-lg border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                {error}
+              </div>
+            ) : (
+              <div className="flex justify-center" aria-hidden="true">
+                <LogoSvg className="h-20 w-auto text-foreground" />
+              </div>
+            )}
+          </div>
+        ) : null}
         {pendingPermission ? (
           <div className={cn("min-h-0 min-w-0 shrink-0", wideContentClassName)}>
             <div className="min-w-0 px-3 pb-2">
@@ -952,6 +996,7 @@ export function AgentChatPanel({
             key={queueKey}
             currentPlan={currentPlan}
             isResumedSession={isResumedSession}
+            backgroundTools={backgroundTools}
             queuedPrompts={queuedPrompts}
             onRemoveQueuedPrompt={removeQueuedAgentChatPrompt}
             onUpdateQueuedPrompt={(id, prompt) => updateQueuedAgentChatPrompt(id, { prompt })}
@@ -975,6 +1020,8 @@ export function AgentChatPanel({
             hasPersistenceHandle={hasPersistenceHandle}
             installedAgents={installedAgents}
             configOptions={configOptions}
+            modelsLocked={modelsLocked}
+            modesLocked={modesLocked}
             registryId={registryId}
             activeAgent={activeAgent}
             setConfigOption={setConfigOption}
@@ -1000,8 +1047,10 @@ export function AgentChatPanel({
                   }
                 : null
             }
+            landing={isNewChatLanding}
           />
         </div>
+      </div>
       </div>
       <AgentAuthDialog
         authRequest={authRequest}

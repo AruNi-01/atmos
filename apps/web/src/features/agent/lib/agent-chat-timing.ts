@@ -1,3 +1,5 @@
+import type { AgentChatSnapshot, AgentMessage } from "@atmos/api-types/ws/dto/agent-chat";
+
 export function formatWorkDuration(ms: number): string {
   const total = Math.max(0, Math.floor(ms / 1000));
   const hours = Math.floor(total / 3600);
@@ -40,6 +42,32 @@ export function formatWorkedAt(value: string | null | undefined, locale: string)
     minute: "2-digit",
     second: "2-digit",
   });
+}
+
+export function isLiveAssistantTurn(message: AgentMessage | undefined): boolean {
+  return Boolean(message?.role === "assistant" && message.streaming);
+}
+
+/** Server-owned elapsed for the in-flight turn. Frontend ticks from this after hydrate. */
+export function snapshotLiveElapsedMs(
+  snapshot: Pick<AgentChatSnapshot, "running_turn_started_at" | "messages">,
+  now = Date.now(),
+): number | null {
+  const last = snapshot.messages?.at(-1);
+  const live = isLiveAssistantTurn(last) || Boolean(snapshot.running_turn_started_at);
+  if (!live) return null;
+  if (last?.role === "assistant" && last.worked_ms != null && last.worked_ms >= 0) {
+    return last.worked_ms;
+  }
+  if (snapshot.running_turn_started_at) {
+    const started = Date.parse(snapshot.running_turn_started_at);
+    if (!Number.isNaN(started)) return Math.max(0, now - started);
+  }
+  return 0;
+}
+
+export function clockFromElapsedMs(elapsedMs: number, now = Date.now()): number {
+  return now - Math.max(0, elapsedMs);
 }
 
 /** Compact hover timestamp under a user bubble, e.g. "Jul 29, 9:23 AM". */

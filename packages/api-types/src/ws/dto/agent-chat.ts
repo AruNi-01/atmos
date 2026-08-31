@@ -1,5 +1,13 @@
 export type AgentChatOrigin = "quick" | "normal";
 
+export type AgentChatPrefs = {
+  last_registry_id?: string | null;
+};
+
+export type AgentChatPrefsSetRequest = {
+  last_registry_id?: string | null;
+};
+
 export type AgentChatCreateRequest = {
   workspace_id?: string | null;
   project_id?: string | null;
@@ -97,6 +105,20 @@ export type AgentModelCatalogGetRequest = {
   refresh?: boolean | null;
 };
 
+export type SessionAdvertisedOptionValue = {
+  value: string;
+  name?: string | null;
+};
+
+export type SessionAdvertisedOption = {
+  id: string;
+  name?: string | null;
+  category?: string | null;
+  type?: string | null;
+  current_value?: string | null;
+  options?: SessionAdvertisedOptionValue[];
+};
+
 export type AgentChatMeta = {
   id: string;
   created_at: string;
@@ -122,6 +144,7 @@ export type AgentChatMeta = {
     description: string;
     hint?: string | null;
   }>;
+  session_config_options?: SessionAdvertisedOption[];
   session_usage?: AgentSessionUsage | null;
 };
 
@@ -175,6 +198,12 @@ export type AgentToolKind =
 
 export type SessionLifecycleAction = "create" | "resume";
 export type SessionLifecycleStatus = "running" | "completed" | "failed";
+export type SessionHintTone = "info" | "warning" | "error";
+
+export type SessionConfigValueChange = {
+  from?: string | null;
+  to: string;
+};
 
 export type AgentPart =
   | { type: "text"; text: string }
@@ -199,6 +228,16 @@ export type AgentPart =
       status: SessionLifecycleStatus;
       duration_ms?: number | null;
       error?: string | null;
+    }
+  | {
+      type: "session_config_change";
+      model?: SessionConfigValueChange | null;
+      mode?: SessionConfigValueChange | null;
+    }
+  | {
+      type: "session_hint";
+      tone: SessionHintTone;
+      kind: string;
     };
 
 export type AgentMessage = {
@@ -248,7 +287,7 @@ export type AgentChatSubscribeResponse = {
 };
 
 export type AgentChatPayload =
-  | { type: "turn_started"; turn_id: string }
+  | { type: "turn_started"; turn_id: string; created_at?: string | null }
   | {
       type: "user_message";
       turn_id: string;
@@ -321,6 +360,13 @@ export type AgentChatPayload =
       commands?: Array<{ name?: string; description?: string; hint?: string | null }>;
     }
   | {
+      type: "config_updated";
+      model?: string | null;
+      thinking?: string | null;
+      mode?: string | null;
+      config_options?: SessionAdvertisedOption[];
+    }
+  | {
       type: "session_lifecycle";
       turn_id: string;
       message_id: string;
@@ -328,6 +374,20 @@ export type AgentChatPayload =
       status: SessionLifecycleStatus;
       duration_ms?: number | null;
       error?: string | null;
+    }
+  | {
+      type: "session_config_change";
+      turn_id: string;
+      message_id: string;
+      model?: SessionConfigValueChange | null;
+      mode?: SessionConfigValueChange | null;
+    }
+  | {
+      type: "session_hint";
+      turn_id: string;
+      message_id: string;
+      tone: SessionHintTone;
+      kind: string;
     };
 
 /** Host event log item. Same tagged union the server emits on `agent_chat_event`. */

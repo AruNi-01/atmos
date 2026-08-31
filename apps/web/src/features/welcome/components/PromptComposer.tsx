@@ -31,6 +31,11 @@ import {
   type AiContextChipTone,
   type AiContextKind,
 } from "@/shared/lib/ai-context-protocol";
+import {
+  imageExtensionForFile,
+  normalizeComposerImageFile,
+  pickClipboardImageFiles,
+} from "@/shared/lib/composer-image";
 import { currentAppLocale } from "@/shared/lib/current-app-locale";
 import enMessages from "../../../../messages/en.json";
 import zhMessages from "../../../../messages/zh.json";
@@ -1658,21 +1663,18 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
     };
 
     const handlePaste = (event: React.ClipboardEvent<HTMLDivElement>) => {
-      const items = event.clipboardData.items;
-      let imageHandled = false;
-      for (let i = 0; i < items.length; i += 1) {
-        const item = items[i];
-        if (item.type.startsWith("image/")) {
-          const blob = item.getAsFile();
-          if (blob) {
-            event.preventDefault();
-            imageHandled = true;
-            const ext = item.type.split("/")[1] || "png";
-            onImagePaste?.(blob, ext);
+      const images = pickClipboardImageFiles(event.clipboardData.items);
+      if (images.length > 0) {
+        event.preventDefault();
+        if (!onImagePaste) return;
+        void (async () => {
+          for (const file of images) {
+            const normalized = await normalizeComposerImageFile(file);
+            onImagePaste(normalized, imageExtensionForFile(normalized));
           }
-        }
+        })();
+        return;
       }
-      if (imageHandled) return;
       // Plain text paste — strip rich formatting
       const text = event.clipboardData.getData("text/plain");
       const appshotProtocol = parseAppshotProtocol(text);

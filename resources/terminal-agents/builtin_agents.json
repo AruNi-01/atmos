@@ -124,11 +124,20 @@
     "yoloParams": "exec --skip-permissions-unsafe",
     "yoloInteractiveParams": "",
     "promptStrategy": "arg",
-    "modelSupport": "manual",
+    "modelSupport": "catalog",
     "reasoningSupport": {
       "mode": "manual",
       "arg": "--reasoning-effort",
       "placeholder": "e.g. high"
+    },
+    "modelList": {
+      "supported": true,
+      "command": [
+        "droid",
+        "exec",
+        "--help"
+      ],
+      "parser": "droid_help"
     }
   },
   {

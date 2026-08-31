@@ -17,6 +17,7 @@ import { assistantCopyText } from "@/features/agent/lib/agent-chat-events";
 import type { AgentChatMode } from "@/features/agent/types/index";
 import type { Project } from "@/shared/types/domain";
 import type { AgentActivity, PendingPermission } from "../lib/chat-helpers";
+import type { AgentToolCallPart } from "@/features/agent/lib/agent-tool-kind";
 import type { CurrentView } from "@/shared/hooks/use-context-params";
 
 export const DEFAULT_SESSION_TITLE = "新会话";
@@ -72,6 +73,7 @@ export interface UseAgentChatSessionReturn {
   messages: AgentMessage[];
   setMessages: React.Dispatch<React.SetStateAction<AgentMessage[]>>;
   currentPlan: AgentPlan | null;
+  backgroundTools: AgentToolCallPart[];
   pendingPermission: PendingPermission | null;
   pendingPermissionMarkdown: string | null;
   agentActivity: AgentActivity;
@@ -79,6 +81,8 @@ export interface UseAgentChatSessionReturn {
   setWaitingForResponse: React.Dispatch<React.SetStateAction<boolean>>;
   stoppedRef: React.MutableRefObject<boolean>;
   isResumingHistory: boolean;
+  /** True until the snapshot has been applied; keeps StickToBottom from animating through the whole history. */
+  isRestoringTranscript: boolean;
   isResumedSession: boolean;
   runtimeStatus: string | null;
   hasPersistenceHandle: boolean;
@@ -91,6 +95,8 @@ export interface UseAgentChatSessionReturn {
   agentInfo: AgentImplementationInfo | null;
   capabilities: AgentCapabilities | null;
   configOptions: AgentConfigOption[];
+  modelsLocked: boolean;
+  modesLocked: boolean;
   setConfigOption: (key: string, value: string) => void;
   persistPreferredRegistry: (registryId: string) => void;
   setAgentDefaultConfig: (configId: string, value: string) => void;
@@ -139,6 +145,8 @@ export interface UseAgentChatSessionReturn {
   exportableMessages: ConversationMessage[];
   userMessageIndices: number[];
   messageNavIndex: number;
+  setMessageNavIndex: React.Dispatch<React.SetStateAction<number>>;
+  scrollToIndexRef: React.RefObject<((index: number) => void) | null>;
   handleSubmit: (message: {
     text: string;
     files?: import("ai").FileUIPart[];
