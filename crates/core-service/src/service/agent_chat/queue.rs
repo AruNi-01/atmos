@@ -7,7 +7,7 @@ use tokio::sync::{broadcast, Mutex};
 
 use crate::error::{Result, ServiceError};
 
-use super::apply_event::{emit_live, RuntimeState};
+use super::apply_event::{apply_pending_session_config, emit_live, RuntimeState};
 use super::store::AgentChatStore;
 use super::types::{
     AgentChatEvent, AgentChatPayload, QueueItemStatus, RuntimeStatus, TranscriptRecord, TurnStatus,
@@ -53,7 +53,7 @@ pub(super) async fn maybe_dispatch_queue(
     let turn_id = uuid::Uuid::new_v4().to_string();
     let message_id = uuid::Uuid::new_v4().to_string();
     let created_at = Utc::now();
-    state.lock().await.current_turn_id = Some(turn_id.clone());
+    state.lock().await.begin_turn(turn_id.clone(), created_at);
     store.append_record(
         chat_id,
         &TranscriptRecord::TurnStarted {
@@ -72,6 +72,31 @@ pub(super) async fn maybe_dispatch_queue(
             created_at,
         },
     )?;
+    emit_live(
+        chat_id,
+        AgentChatPayload::TurnStarted {
+            turn_id: turn_id.clone(),
+            created_at: Some(created_at),
+        },
+        store,
+        events,
+        recent_events,
+    )?;
+    emit_live(
+        chat_id,
+        AgentChatPayload::UserMessage {
+            turn_id: turn_id.clone(),
+            message_id: message_id.clone(),
+            kind: UserMessageKind::Normal,
+            text: item.prompt.clone(),
+            attachments: item.attachments.clone(),
+            created_at: Some(created_at),
+        },
+        store,
+        events,
+        recent_events,
+    )?;
+    apply_pending_session_config(chat_id, &turn_id, store, control, events, recent_events).await?;
     if let Err(error) = control
         .prompt(AgentPrompt {
             text: item.prompt.clone(),
@@ -107,29 +132,6 @@ pub(super) async fn maybe_dispatch_queue(
         meta.runtime_status = RuntimeStatus::RunningTurn;
         meta.last_message_at = Some(Utc::now());
     })?;
-    emit_live(
-        chat_id,
-        AgentChatPayload::TurnStarted {
-            turn_id: turn_id.clone(),
-        },
-        store,
-        events,
-        recent_events,
-    )?;
-    emit_live(
-        chat_id,
-        AgentChatPayload::UserMessage {
-            turn_id,
-            message_id,
-            kind: UserMessageKind::Normal,
-            text: item.prompt,
-            attachments: item.attachments,
-            created_at: Some(created_at),
-        },
-        store,
-        events,
-        recent_events,
-    )?;
     emit_live(
         chat_id,
         AgentChatPayload::QueueUpdated { items },

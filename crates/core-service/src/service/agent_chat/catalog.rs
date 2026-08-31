@@ -158,7 +158,10 @@ impl CatalogPrefetchWorker {
         let permit = Arc::new(tokio::sync::Semaphore::new(2));
         let mut joins = Vec::new();
         for spec in specs {
-            if self.cache.should_skip_probe(&spec.agent_id, now) {
+            if catalog_equivalent_ids(&spec.agent_id)
+                .iter()
+                .any(|id| self.cache.should_skip_probe(id, now))
+            {
                 continue;
             }
             let Ok(owned) = permit.clone().acquire_owned().await else {
@@ -178,13 +181,32 @@ impl CatalogPrefetchWorker {
     async fn probe_one(&self, spec: AgentCatalogSpec) {
         self.probe_count.fetch_add(1, Ordering::SeqCst);
         let catalog = self.engine.probe(&spec).await;
-        if let Err(error) = self.cache.put(&catalog) {
-            warn!("failed to cache catalog for {}: {error}", spec.agent_id);
+        self.store_catalog(&catalog);
+    }
+
+    fn store_catalog(&self, catalog: &AgentModelCatalog) {
+        for id in catalog_equivalent_ids(&catalog.agent_id) {
+            let mut clone = catalog.clone();
+            clone.agent_id = id.clone();
+            if let Err(error) = self.cache.put(&clone) {
+                warn!("failed to cache catalog for {id}: {error}");
+            }
+            let _ = self.events.send(CatalogUpdated {
+                agent_id: id,
+                catalog: clone,
+            });
         }
-        let _ = self.events.send(CatalogUpdated {
-            agent_id: spec.agent_id,
-            catalog,
-        });
+    }
+
+    fn lookup_catalog(&self, agent_id: &str) -> Option<AgentModelCatalog> {
+        let now = Utc::now();
+        for id in catalog_equivalent_ids(agent_id) {
+            if let Some(mut catalog) = self.cache.get(&id, now) {
+                catalog.agent_id = agent_id.to_string();
+                return Some(catalog);
+            }
+        }
+        None
     }
 
     pub fn request_probe(self: &Arc<Self>, spec: AgentCatalogSpec) {
@@ -195,16 +217,15 @@ impl CatalogPrefetchWorker {
     }
 
     pub async fn get(&self, spec: &AgentCatalogSpec, refresh: bool) -> AgentModelCatalog {
-        let now = Utc::now();
         if !refresh {
-            if let Some(cached) = self.cache.get(&spec.agent_id, now) {
+            if let Some(cached) = self.lookup_catalog(&spec.agent_id) {
                 return cached;
             }
         }
         self.probe_count.fetch_add(1, Ordering::SeqCst);
         let mut catalog = self.engine.probe(spec).await;
         catalog.source = CatalogSource::Live;
-        let _ = self.cache.put(&catalog);
+        self.store_catalog(&catalog);
         catalog
     }
 
@@ -214,7 +235,7 @@ impl CatalogPrefetchWorker {
         refresh: bool,
     ) -> AgentModelCatalog {
         if !refresh {
-            if let Some(cached) = self.cache.get(&spec.agent_id, Utc::now()) {
+            if let Some(cached) = self.lookup_catalog(&spec.agent_id) {
                 return cached;
             }
         }
@@ -223,7 +244,7 @@ impl CatalogPrefetchWorker {
     }
 
     pub fn cache_get(&self, agent_id: &str) -> Option<AgentModelCatalog> {
-        self.cache.get(agent_id, Utc::now())
+        self.lookup_catalog(agent_id)
     }
 }
 
@@ -238,7 +259,8 @@ pub fn terminal_catalog_from(catalog: &AgentModelCatalog) -> crate::TerminalAgen
             CatalogStatus::Ok => TerminalAgentModelCatalogStatus::Ok,
             CatalogStatus::AuthRequired => TerminalAgentModelCatalogStatus::AuthRequired,
             CatalogStatus::Unsupported => TerminalAgentModelCatalogStatus::Unsupported,
-            CatalogStatus::Error | CatalogStatus::Probing => TerminalAgentModelCatalogStatus::Error,
+            CatalogStatus::Probing => TerminalAgentModelCatalogStatus::Probing,
+            CatalogStatus::Error => TerminalAgentModelCatalogStatus::Error,
         },
         models: catalog
             .models
@@ -248,6 +270,7 @@ pub fn terminal_catalog_from(catalog: &AgentModelCatalog) -> crate::TerminalAgen
                 label: model.label.clone(),
                 group: model.group.clone(),
                 is_default: model.is_default,
+                thinking: model.thinking.clone(),
             })
             .collect(),
         message: catalog.message.clone(),
@@ -301,6 +324,7 @@ pub fn builtin_catalog_specs() -> Vec<AgentCatalogSpec> {
                 Some("grok_line_list") => CatalogParserKind::GrokLineList,
                 Some("kiro_json") => CatalogParserKind::KiroJson,
                 Some("json") => CatalogParserKind::Json,
+                Some("droid_help") => CatalogParserKind::DroidHelp,
                 _ => CatalogParserKind::LineList,
             };
             let thinking = thinking_from_builtin(&value);
@@ -427,6 +451,18 @@ mod tests {
         assert_eq!(spec.agent_id, "kilo");
         assert_eq!(spec.cli_command, ["kilo", "models"]);
         assert!(spec.acp);
+    }
+
+    #[test]
+    fn factory_droid_parses_cli_help_for_per_model_thinking() {
+        let spec = catalog_spec_for("factory-droid");
+        assert_eq!(spec.cli_command, ["droid", "exec", "--help"]);
+        assert_eq!(spec.parser, CatalogParserKind::DroidHelp);
+        assert!(spec.strategies.contains(&CatalogStrategyKind::Cli));
+        assert!(spec.acp);
+        let terminal = catalog_spec_for("droid");
+        assert_eq!(terminal.cli_command, spec.cli_command);
+        assert_eq!(terminal.parser, CatalogParserKind::DroidHelp);
     }
 
     #[test]

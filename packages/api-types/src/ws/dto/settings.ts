@@ -11,16 +11,23 @@ export type FunctionSettingsUpdateRequest = {
   value: unknown;
 };
 
+export type TerminalAgentModelThinking = {
+  type: string;
+  options?: string[];
+  arg?: string | null;
+};
+
 export type TerminalAgentModelOption = {
   id: string;
   label: string;
   group?: string | null;
   is_default?: boolean;
+  thinking?: TerminalAgentModelThinking | null;
 };
 
 export type TerminalAgentModelCatalog = {
   agent_id: string;
-  status: "ok" | "unsupported" | "auth_required" | "error";
+  status: "ok" | "unsupported" | "auth_required" | "error" | "probing";
   models: TerminalAgentModelOption[];
   message: string | null;
   source: "live" | "cache";

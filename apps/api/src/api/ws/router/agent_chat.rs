@@ -302,6 +302,26 @@ impl WsMessageService {
         serde_json::to_value(catalog)
             .map_err(|e| ServiceError::Processing(format!("serialize catalog: {e}")))
     }
+
+    pub(super) fn handle_agent_chat_prefs_get(&self) -> Result<Value> {
+        let prefs = core_service::load_agent_chat_prefs()?;
+        serde_json::to_value(prefs)
+            .map_err(|e| ServiceError::Processing(format!("serialize agent chat prefs: {e}")))
+    }
+
+    pub(super) fn handle_agent_chat_prefs_set(
+        &self,
+        req: AgentChatPrefsSetRequest,
+    ) -> Result<Value> {
+        let last_registry_id = req
+            .last_registry_id
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(ToOwned::to_owned);
+        core_service::save_agent_chat_prefs(&core_service::AgentChatPrefs { last_registry_id })?;
+        self.handle_agent_chat_prefs_get()
+    }
 }
 
 fn bound_cwd(requested: Option<PathBuf>, root: PathBuf) -> Result<String> {

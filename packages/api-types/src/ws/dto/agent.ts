@@ -40,6 +40,12 @@ export type AgentConfigSetRequest = {
   api_key: string;
 };
 
+export type AgentDefaultConfigSetRequest = {
+  registry_id: string;
+  config_id: string;
+  value: string;
+};
+
 export type RegistryAgent = {
   id: string;
   name: string;

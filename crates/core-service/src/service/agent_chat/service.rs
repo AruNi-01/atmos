@@ -5,7 +5,7 @@ use std::time::{Duration, Instant};
 
 use agent::{
     AgentEvent, AgentPersistenceHandle, AgentPrompt, AgentProviderFactory, AgentRuntime,
-    AgentRuntimeConfig, AgentRuntimeConfigUpdate, AgentRuntimeControl, UserMessageKind,
+    AgentRuntimeConfig, AgentRuntimeControl, UserMessageKind,
 };
 use chrono::Utc;
 use tokio::sync::{broadcast, Mutex};
@@ -14,14 +14,16 @@ use tracing::warn;
 use crate::error::{Result, ServiceError};
 
 use super::apply_event::{
-    apply_event, emit_live, finish_turn, nonempty_opt, overlay_live_state, RuntimeState,
+    apply_event, apply_pending_session_config, emit_live, finish_turn, nonempty_opt,
+    overlay_live_state, RuntimeState,
 };
 use super::queue::maybe_dispatch_queue;
 use super::store::AgentChatStore;
 use super::types::{
-    AgentChatEvent, AgentChatMeta, AgentChatPayload, AgentChatSnapshot, CreateAgentChatRequest,
-    PendingPermission, QueueItem, QueueItemStatus, RuntimeStatus, SessionLifecycleAction,
-    SessionLifecycleStatus, TranscriptRecord, TurnStatus,
+    resolve_session_config_select, AgentChatEvent, AgentChatMeta, AgentChatPayload,
+    AgentChatSnapshot, CreateAgentChatRequest, PendingPermission, QueueItem, QueueItemStatus,
+    ResolvedSessionConfig, RuntimeStatus, SessionLifecycleAction, SessionLifecycleStatus,
+    TranscriptRecord, TurnStatus,
 };
 use crate::service::agent_status::{self, AgentStatusService};
 
@@ -151,16 +153,12 @@ impl AgentChatService {
     ) -> Result<AgentChatMeta> {
         let live = {
             let map = self.runtimes.lock().await;
-            map.get(id).and_then(|runtime| {
-                runtime
-                    .alive
-                    .load(Ordering::SeqCst)
-                    .then(|| runtime.control.clone())
-            })
+            map.get(id)
+                .is_some_and(|runtime| runtime.alive.load(Ordering::SeqCst))
         };
 
         if let Some(provider) = provider_id.as_ref() {
-            if !provider.trim().is_empty() && live.is_some() {
+            if !provider.trim().is_empty() && live {
                 let current = self.store.get_meta(id)?;
                 if current.provider_id != *provider {
                     return Err(ServiceError::Validation(
@@ -170,11 +168,10 @@ impl AgentChatService {
             }
         }
 
-        let next_model = model.as_ref().and_then(|value| nonempty_opt(value.clone()));
-        let next_thinking = thinking
-            .as_ref()
-            .and_then(|value| nonempty_opt(value.clone()));
-        let next_mode = mode.as_ref().and_then(|value| nonempty_opt(value.clone()));
+        let current = self.store.get_meta(id)?;
+        let next_model = resolve_configure_select(&current, "model", model.as_ref());
+        let next_thinking = resolve_configure_select(&current, "thinking", thinking.as_ref());
+        let next_mode = resolve_configure_select(&current, "mode", mode.as_ref());
         let apply_model = model.is_some();
         let apply_thinking = thinking.is_some();
         let apply_mode = mode.is_some();
@@ -195,20 +192,6 @@ impl AgentChatService {
                 meta.selected_mode = next_mode.clone();
             }
         })?;
-
-        if let Some(control) = live {
-            let update = AgentRuntimeConfigUpdate {
-                model: if apply_model { next_model } else { None },
-                thinking: if apply_thinking { next_thinking } else { None },
-                mode: if apply_mode { next_mode } else { None },
-                extra_config: HashMap::new(),
-            };
-            if update.model.is_some() || update.thinking.is_some() || update.mode.is_some() {
-                if let Err(error) = control.set_config(update).await {
-                    warn!(chat_id = %id, error = %error, "failed to apply live agent config");
-                }
-            }
-        }
 
         Ok(meta)
     }
@@ -295,15 +278,15 @@ impl AgentChatService {
             )?;
         }
         let turn_id = uuid::Uuid::new_v4().to_string();
+        let created_at = Utc::now();
         self.store.append_record(
             chat_id,
             &TranscriptRecord::TurnStarted {
                 turn_id: turn_id.clone(),
-                created_at: Utc::now(),
+                created_at,
             },
         )?;
         let message_id = uuid::Uuid::new_v4().to_string();
-        let created_at = Utc::now();
         self.store.append_record(
             chat_id,
             &TranscriptRecord::UserMessage {
@@ -338,6 +321,7 @@ impl AgentChatService {
             chat_id,
             AgentChatPayload::TurnStarted {
                 turn_id: turn_id.clone(),
+                created_at: Some(created_at),
             },
         )?;
         if let Some(status) = self.status.get() {
@@ -364,7 +348,10 @@ impl AgentChatService {
         )?;
         let _ = meta;
         let control = match self.ensure_runtime(chat_id, Some(turn_id.clone())).await {
-            Ok(control) => control,
+            Ok(control) => {
+                self.stamp_turn_clock(chat_id, &turn_id, created_at).await;
+                control
+            }
             Err(error) => {
                 let _ = self.store.append_record(
                     chat_id,
@@ -395,6 +382,15 @@ impl AgentChatService {
                 return Err(error);
             }
         };
+        apply_pending_session_config(
+            chat_id,
+            &turn_id,
+            &self.store,
+            &control,
+            &self.events,
+            &self.recent_events,
+        )
+        .await?;
         if let Err(error) = control
             .prompt(AgentPrompt {
                 text: text.to_string(),
@@ -697,6 +693,21 @@ impl AgentChatService {
         Ok(())
     }
 
+    async fn stamp_turn_clock(
+        &self,
+        chat_id: &str,
+        turn_id: &str,
+        started_at: chrono::DateTime<Utc>,
+    ) {
+        if let Some(runtime) = self.runtimes.lock().await.get(chat_id) {
+            runtime
+                .state
+                .lock()
+                .await
+                .begin_turn(turn_id.to_string(), started_at);
+        }
+    }
+
     async fn ensure_runtime(
         &self,
         chat_id: &str,
@@ -775,9 +786,27 @@ impl AgentChatService {
         };
         let cfg = AgentRuntimeConfig {
             cwd: std::path::PathBuf::from(&meta.cwd),
-            model: meta.selected_model.clone(),
-            thinking: meta.selected_thinking.clone(),
-            mode: meta.selected_mode.clone(),
+            model: if meta.persistence_handle.is_some() {
+                meta.applied_model
+                    .clone()
+                    .or_else(|| meta.selected_model.clone())
+            } else {
+                meta.selected_model.clone()
+            },
+            thinking: if meta.persistence_handle.is_some() {
+                meta.applied_thinking
+                    .clone()
+                    .or_else(|| meta.selected_thinking.clone())
+            } else {
+                meta.selected_thinking.clone()
+            },
+            mode: if meta.persistence_handle.is_some() {
+                meta.applied_mode
+                    .clone()
+                    .or_else(|| meta.selected_mode.clone())
+            } else {
+                meta.selected_mode.clone()
+            },
             extra_config: HashMap::new(),
             env_overrides: None,
             auth_method_id: None,
@@ -815,7 +844,12 @@ impl AgentChatService {
         };
         let capabilities = session.capabilities();
         self.store.update_meta(chat_id, |meta| {
-            meta.runtime_status = RuntimeStatus::Starting;
+            if !matches!(
+                meta.runtime_status,
+                RuntimeStatus::RunningTurn | RuntimeStatus::WaitingPermission
+            ) {
+                meta.runtime_status = RuntimeStatus::Starting;
+            }
             meta.supports_steer = capabilities.supports_steer;
             if let Some(handle) = session.persistence_handle() {
                 meta.persistence_handle = Some(handle.as_str().to_string());
@@ -865,6 +899,8 @@ impl AgentChatService {
                 Arc::clone(&recent_events),
                 turn_gates,
                 status,
+                generation,
+                Arc::clone(&runtimes),
             )
             .await;
             alive.store(false, Ordering::SeqCst);
@@ -1042,6 +1078,8 @@ async fn pump_session(
     recent_events: Arc<std::sync::Mutex<HashMap<String, VecDeque<AgentChatEvent>>>>,
     turn_gates: Arc<Mutex<HashMap<String, Arc<Mutex<()>>>>>,
     status: Option<Arc<AgentStatusService>>,
+    generation: u64,
+    runtimes: Arc<Mutex<HashMap<String, LiveRuntime>>>,
 ) {
     let mut closed_cleanly = false;
     while let Some(event) = session.next_event().await {
@@ -1081,6 +1119,14 @@ async fn pump_session(
             }
         }
     }
+    let replaced = runtimes
+        .lock()
+        .await
+        .get(&chat_id)
+        .is_some_and(|runtime| runtime.generation != generation);
+    if replaced {
+        return;
+    }
     if let Some(turn_id) = state.lock().await.current_turn_id.clone() {
         let emit = |payload: AgentChatPayload| -> Result<()> {
             emit_live(&chat_id, payload, &store, &events, &recent_events)
@@ -1104,4 +1150,17 @@ async fn pump_session(
     let _ = store.update_meta(&chat_id, |meta| {
         meta.runtime_status = status;
     });
+}
+
+fn resolve_configure_select(
+    meta: &AgentChatMeta,
+    kind: &str,
+    requested: Option<&String>,
+) -> Option<String> {
+    let requested = requested.and_then(|value| nonempty_opt(value.clone()))?;
+    match resolve_session_config_select(meta, kind, &requested) {
+        ResolvedSessionConfig::Advertised { value, .. }
+        | ResolvedSessionConfig::PassThrough(value) => Some(value),
+        ResolvedSessionConfig::Invalid => None,
+    }
 }

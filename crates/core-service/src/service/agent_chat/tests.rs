@@ -250,7 +250,7 @@ async fn s8_idle_send_starts_turn() {
     .await
     .expect("turn_started event");
     match started.payload {
-        AgentChatPayload::TurnStarted { turn_id: id } => assert_eq!(id, turn_id),
+        AgentChatPayload::TurnStarted { turn_id: id, .. } => assert_eq!(id, turn_id),
         _ => unreachable!(),
     }
 }
@@ -494,7 +494,7 @@ async fn configure_sets_model_before_spawn() {
 }
 
 #[tokio::test]
-async fn configure_applies_model_and_mode_while_running() {
+async fn configure_while_running_does_not_set_live_config() {
     let provider = FakeAgentProvider::new("claude");
     provider.set_auto_complete(false);
     let provider = Arc::new(provider);
@@ -516,11 +516,376 @@ async fn configure_applies_model_and_mode_while_running() {
     assert_eq!(updated.selected_model.as_deref(), Some("grok-4"));
     assert_eq!(updated.selected_thinking.as_deref(), Some("high"));
     assert_eq!(updated.selected_mode.as_deref(), Some("plan"));
+    assert_eq!(provider.config_count(), 0);
+}
+
+#[tokio::test]
+async fn send_after_model_switch_emits_session_config_change() {
+    let provider = Arc::new(FakeAgentProvider::new("claude"));
+    let (_dir, service) = make_service(Arc::clone(&provider));
+    let meta = service.create(create_req("/tmp/proj")).unwrap();
+    let _ = service.send(&meta.id, "hello", Vec::new()).await.unwrap();
+    timeout(Duration::from_secs(2), async {
+        loop {
+            let snapshot = service.get(&meta.id).await.unwrap();
+            if snapshot.running_turn_id.is_none() {
+                return;
+            }
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+    })
+    .await
+    .expect("first turn should finish");
+
+    service
+        .configure(
+            &meta.id,
+            None,
+            Some("grok-4".into()),
+            None,
+            Some("plan".into()),
+        )
+        .await
+        .unwrap();
+    assert_eq!(provider.config_count(), 0);
+
+    let mut rx = service.subscribe();
+    let _ = service.send(&meta.id, "again", Vec::new()).await.unwrap();
+    tokio::time::sleep(Duration::from_millis(40)).await;
+
+    let mut saw_change = false;
+    while let Ok(event) = rx.try_recv() {
+        if let AgentChatPayload::SessionConfigChange { model, mode, .. } = event.payload {
+            assert_eq!(model.as_ref().map(|item| item.to.as_str()), Some("grok-4"));
+            assert_eq!(
+                model.as_ref().and_then(|item| item.from.as_deref()),
+                Some("opus")
+            );
+            assert_eq!(mode.as_ref().map(|item| item.to.as_str()), Some("plan"));
+            saw_change = true;
+        }
+    }
+    assert!(saw_change, "expected session_config_change on send");
+    assert_eq!(provider.create_count(), 1);
+    assert_eq!(provider.config_count(), 2);
+    let applied = provider.last_config().await.expect("live set_config");
+    assert_eq!(applied.mode.as_deref(), Some("plan"));
+
+    let snapshot = service.get(&meta.id).await.unwrap();
+    let assistant = snapshot
+        .messages
+        .iter()
+        .rev()
+        .find(|message| message.role == "assistant")
+        .expect("assistant");
+    match assistant
+        .parts
+        .iter()
+        .find(|part| matches!(part, MessagePart::SessionConfigChange { .. }))
+    {
+        Some(MessagePart::SessionConfigChange { model, mode, .. }) => {
+            assert_eq!(model.as_ref().map(|item| item.to.as_str()), Some("grok-4"));
+            assert_eq!(mode.as_ref().map(|item| item.to.as_str()), Some("plan"));
+        }
+        other => panic!("expected session_config_change part, got {other:?}"),
+    }
+    assert_eq!(snapshot.meta.applied_model.as_deref(), Some("grok-4"));
+    assert_eq!(snapshot.meta.applied_mode.as_deref(), Some("plan"));
+}
+
+#[tokio::test]
+async fn send_after_mode_switch_sets_live_config() {
+    let provider = Arc::new(FakeAgentProvider::new("claude"));
+    let (_dir, service) = make_service(Arc::clone(&provider));
+    let meta = service.create(create_req("/tmp/proj")).unwrap();
+    let _ = service.send(&meta.id, "hello", Vec::new()).await.unwrap();
+    timeout(Duration::from_secs(2), async {
+        loop {
+            let snapshot = service.get(&meta.id).await.unwrap();
+            if snapshot.running_turn_id.is_none() {
+                return;
+            }
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+    })
+    .await
+    .expect("first turn should finish");
+
+    service
+        .configure(&meta.id, None, None, None, Some("plan".into()))
+        .await
+        .unwrap();
+    assert_eq!(provider.create_count(), 1);
+    assert_eq!(provider.config_count(), 0);
+
+    let _ = service.send(&meta.id, "again", Vec::new()).await.unwrap();
+    tokio::time::sleep(Duration::from_millis(40)).await;
+
+    assert_eq!(provider.create_count(), 1);
     assert_eq!(provider.config_count(), 1);
     let applied = provider.last_config().await.expect("live set_config");
-    assert_eq!(applied.model.as_deref(), Some("grok-4"));
-    assert_eq!(applied.thinking.as_deref(), Some("high"));
+    assert_eq!(applied.model, None);
     assert_eq!(applied.mode.as_deref(), Some("plan"));
+}
+
+#[tokio::test]
+async fn send_after_unlisted_model_still_tries_set_config() {
+    let provider = Arc::new(FakeAgentProvider::new("claude"));
+    let (_dir, service) = make_service(Arc::clone(&provider));
+    let meta = service.create(create_req("/tmp/proj")).unwrap();
+    let _ = service.send(&meta.id, "hello", Vec::new()).await.unwrap();
+    timeout(Duration::from_secs(2), async {
+        loop {
+            let snapshot = service.get(&meta.id).await.unwrap();
+            if snapshot.running_turn_id.is_none() && provider.events_ready().await {
+                return;
+            }
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+    })
+    .await
+    .expect("first turn should finish");
+    provider
+        .push_event(AgentEvent::ConfigChanged {
+            config: serde_json::json!([{
+                "id": "model",
+                "category": "model",
+                "type": "select",
+                "currentValue": "opus",
+                "options": [{ "value": "opus", "name": "Opus" }]
+            }]),
+        })
+        .await;
+    timeout(Duration::from_secs(2), async {
+        loop {
+            let snapshot = service.get(&meta.id).await.unwrap();
+            if !snapshot.meta.session_config_options.is_empty() {
+                return;
+            }
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+    })
+    .await
+    .expect("session should advertise config options");
+
+    service
+        .configure(&meta.id, None, Some("grok-4".into()), None, None)
+        .await
+        .unwrap();
+    let snapshot = service.get(&meta.id).await.unwrap();
+    assert_eq!(snapshot.meta.selected_model.as_deref(), Some("grok-4"));
+    let _ = service.send(&meta.id, "again", Vec::new()).await.unwrap();
+    tokio::time::sleep(Duration::from_millis(40)).await;
+
+    assert_eq!(provider.config_count(), 1);
+    let snapshot = service.get(&meta.id).await.unwrap();
+    assert_eq!(snapshot.meta.selected_model.as_deref(), Some("grok-4"));
+    assert_eq!(snapshot.meta.applied_model.as_deref(), Some("grok-4"));
+}
+
+#[tokio::test]
+async fn send_after_advertised_model_switch_uses_agent_config_id() {
+    let provider = Arc::new(FakeAgentProvider::new("claude"));
+    let (_dir, service) = make_service(Arc::clone(&provider));
+    let meta = service.create(create_req("/tmp/proj")).unwrap();
+    let _ = service.send(&meta.id, "hello", Vec::new()).await.unwrap();
+    timeout(Duration::from_secs(2), async {
+        loop {
+            let snapshot = service.get(&meta.id).await.unwrap();
+            if snapshot.running_turn_id.is_none() && provider.events_ready().await {
+                return;
+            }
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+    })
+    .await
+    .expect("first turn should finish");
+    provider
+        .push_event(AgentEvent::ConfigChanged {
+            config: serde_json::json!([{
+                "id": "models",
+                "category": "model",
+                "type": "select",
+                "currentValue": "opus",
+                "options": [
+                    { "value": "opus", "name": "Opus" },
+                    { "value": "grok-4", "name": "Grok" }
+                ]
+            }]),
+        })
+        .await;
+    timeout(Duration::from_secs(2), async {
+        loop {
+            let snapshot = service.get(&meta.id).await.unwrap();
+            if !snapshot.meta.session_config_options.is_empty() {
+                return;
+            }
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+    })
+    .await
+    .expect("session should advertise config options");
+
+    service
+        .configure(&meta.id, None, Some("grok-4".into()), None, None)
+        .await
+        .unwrap();
+    let snapshot = service.get(&meta.id).await.unwrap();
+    assert_eq!(snapshot.meta.selected_model.as_deref(), Some("grok-4"));
+
+    let _ = service.send(&meta.id, "again", Vec::new()).await.unwrap();
+    tokio::time::sleep(Duration::from_millis(40)).await;
+
+    assert_eq!(provider.config_count(), 1);
+    let applied = provider.last_config().await.expect("live set_config");
+    assert_eq!(applied.model, None);
+    assert_eq!(
+        applied.extra_config.get("models").map(String::as_str),
+        Some("grok-4")
+    );
+}
+
+#[tokio::test]
+async fn thinking_config_failure_does_not_report_model_switch_failed() {
+    let provider = Arc::new(FakeAgentProvider::new("claude"));
+    provider.set_fail_thinking_config(true);
+    let (_dir, service) = make_service(Arc::clone(&provider));
+    let meta = service.create(create_req("/tmp/proj")).unwrap();
+    let _ = service.send(&meta.id, "hello", Vec::new()).await.unwrap();
+    timeout(Duration::from_secs(2), async {
+        loop {
+            let snapshot = service.get(&meta.id).await.unwrap();
+            if snapshot.running_turn_id.is_none() && provider.events_ready().await {
+                return;
+            }
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+    })
+    .await
+    .expect("first turn should finish");
+    provider
+        .push_event(AgentEvent::ConfigChanged {
+            config: serde_json::json!([
+                {
+                    "id": "models",
+                    "category": "model",
+                    "type": "select",
+                    "currentValue": "opus",
+                    "options": [
+                        { "value": "opus", "name": "Opus" },
+                        { "value": "grok-4", "name": "Grok" }
+                    ]
+                },
+                {
+                    "id": "thought_level",
+                    "category": "thought_level",
+                    "type": "select",
+                    "currentValue": "low",
+                    "options": [
+                        { "value": "low", "name": "Low" },
+                        { "value": "high", "name": "High" }
+                    ]
+                }
+            ]),
+        })
+        .await;
+    timeout(Duration::from_secs(2), async {
+        loop {
+            let snapshot = service.get(&meta.id).await.unwrap();
+            if snapshot.meta.session_config_options.len() >= 2 {
+                return;
+            }
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+    })
+    .await
+    .expect("session should advertise config options");
+
+    service
+        .configure(
+            &meta.id,
+            None,
+            Some("grok-4".into()),
+            Some("high".into()),
+            None,
+        )
+        .await
+        .unwrap();
+    let mut rx = service.subscribe();
+    let _ = service.send(&meta.id, "again", Vec::new()).await.unwrap();
+    tokio::time::sleep(Duration::from_millis(40)).await;
+
+    let mut saw_model_failed = false;
+    while let Ok(event) = rx.try_recv() {
+        if matches!(
+            event.payload,
+            AgentChatPayload::SessionHint {
+                kind: ref kind,
+                ..
+            } if kind == "model_switch_failed"
+        ) {
+            saw_model_failed = true;
+        }
+    }
+    assert!(
+        !saw_model_failed,
+        "a failed thinking write must not report a failed model switch"
+    );
+    assert_eq!(provider.config_count(), 2);
+    let snapshot = service.get(&meta.id).await.unwrap();
+    assert_eq!(snapshot.meta.selected_model.as_deref(), Some("grok-4"));
+    assert_eq!(snapshot.meta.applied_model.as_deref(), Some("grok-4"));
+}
+
+#[tokio::test]
+async fn send_after_failed_set_config_reverts() {
+    let provider = Arc::new(FakeAgentProvider::new("claude"));
+    provider.set_fail_set_config(true);
+    let (_dir, service) = make_service(Arc::clone(&provider));
+    let meta = service.create(create_req("/tmp/proj")).unwrap();
+    let _ = service.send(&meta.id, "hello", Vec::new()).await.unwrap();
+    timeout(Duration::from_secs(2), async {
+        loop {
+            let snapshot = service.get(&meta.id).await.unwrap();
+            if snapshot.running_turn_id.is_none() {
+                return;
+            }
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+    })
+    .await
+    .expect("first turn should finish");
+
+    service
+        .configure(&meta.id, None, Some("grok-4".into()), None, None)
+        .await
+        .unwrap();
+    let mut rx = service.subscribe();
+    let _ = service.send(&meta.id, "again", Vec::new()).await.unwrap();
+    tokio::time::sleep(Duration::from_millis(40)).await;
+
+    let mut saw_change = false;
+    let mut saw_failed = false;
+    while let Ok(event) = rx.try_recv() {
+        if matches!(event.payload, AgentChatPayload::SessionConfigChange { .. }) {
+            saw_change = true;
+        }
+        if matches!(
+            event.payload,
+            AgentChatPayload::SessionHint {
+                kind: ref kind,
+                ..
+            } if kind == "model_switch_failed"
+        ) {
+            saw_failed = true;
+        }
+    }
+    assert!(!saw_change, "failed set_config should not record a switch");
+    assert!(saw_failed, "expected session_hint");
+    assert_eq!(provider.config_count(), 1);
+    let snapshot = service.get(&meta.id).await.unwrap();
+    assert_eq!(snapshot.meta.selected_model.as_deref(), Some("opus"));
+    assert_eq!(snapshot.meta.applied_model.as_deref(), Some("opus"));
 }
 
 #[tokio::test]
@@ -833,6 +1198,62 @@ fn assistant_texts(snapshot: &super::types::AgentChatSnapshot) -> String {
 }
 
 #[tokio::test]
+async fn get_projects_live_turn_timing_from_server_clock() {
+    let provider = Arc::new(FakeAgentProvider::new("claude"));
+    provider.set_auto_complete(false);
+    let (_dir, service) = make_service(Arc::clone(&provider));
+    let meta = service.create(create_req("/tmp/proj")).unwrap();
+    let _ = service.send(&meta.id, "hello", Vec::new()).await.unwrap();
+
+    timeout(Duration::from_secs(2), async {
+        loop {
+            if provider.events_ready().await {
+                return;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .expect("runtime event channel");
+
+    provider
+        .push_event(AgentEvent::ThinkingDelta {
+            message_id: "a1".into(),
+            delta: "hmm".into(),
+        })
+        .await;
+    tokio::time::sleep(Duration::from_millis(1100)).await;
+
+    let snapshot = service.get(&meta.id).await.unwrap();
+    assert_eq!(snapshot.meta.runtime_status, RuntimeStatus::RunningTurn);
+    assert!(snapshot.running_turn_id.is_some());
+    assert!(snapshot.running_turn_started_at.is_some());
+    let assistant = snapshot
+        .messages
+        .iter()
+        .find(|message| message.role == "assistant")
+        .expect("assistant");
+    assert!(assistant.streaming);
+    let worked = assistant.worked_ms.expect("live worked_ms");
+    assert!(worked >= 1_000, "worked_ms={worked}");
+    let thinking = assistant.thinking_ms.expect("live thinking_ms");
+    assert!(thinking >= 1_000, "thinking_ms={thinking}");
+    let thinking_part = assistant
+        .parts
+        .iter()
+        .find_map(|part| match part {
+            MessagePart::Thinking { duration_ms, .. } => Some(*duration_ms),
+            _ => None,
+        })
+        .flatten()
+        .expect("open thinking duration");
+    assert!(
+        thinking_part >= 1_000,
+        "thinking part duration={thinking_part}"
+    );
+}
+
+#[tokio::test]
 async fn get_overlays_unpersisted_live_text_without_duplicate_ids() {
     let provider = Arc::new(FakeAgentProvider::new("claude"));
     provider.set_auto_complete(false);
@@ -887,4 +1308,143 @@ async fn get_overlays_unpersisted_live_text_without_duplicate_ids() {
             message.id
         );
     }
+}
+
+fn execute_tool(id: &str, status: &str) -> agent::AgentToolCall {
+    agent::AgentToolCall {
+        tool_call_id: id.into(),
+        name: "Execute".into(),
+        title: Some("ls".into()),
+        kind: agent::AgentToolKind::Execute,
+        status: Some(status.into()),
+        input: Some(serde_json::json!({ "command": "ls" })),
+        output: None,
+        content: None,
+    }
+}
+
+fn assistant_part_kinds(snapshot: &super::types::AgentChatSnapshot) -> Vec<String> {
+    snapshot
+        .messages
+        .iter()
+        .find(|message| message.role == "assistant")
+        .map(|message| {
+            message
+                .parts
+                .iter()
+                .filter_map(|part| match part {
+                    MessagePart::Thinking { text, .. } if !text.is_empty() => {
+                        Some("thinking".into())
+                    }
+                    MessagePart::ToolCall { .. } => Some("tool".into()),
+                    MessagePart::Text { text } if !text.is_empty() => Some("text".into()),
+                    _ => None,
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+#[tokio::test]
+async fn interleaved_thinking_and_tools_survive_disk_reload() {
+    let provider = Arc::new(FakeAgentProvider::new("claude"));
+    provider.set_auto_complete(false);
+    let (_dir, service) = make_service(Arc::clone(&provider));
+    let meta = service.create(create_req("/tmp/proj")).unwrap();
+    let _ = service.send(&meta.id, "hello", Vec::new()).await.unwrap();
+
+    timeout(Duration::from_secs(2), async {
+        loop {
+            if provider.events_ready().await {
+                return;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .expect("runtime event channel");
+
+    provider
+        .push_event(AgentEvent::ThinkingDelta {
+            message_id: "a1".into(),
+            delta: "first".into(),
+        })
+        .await;
+    tokio::time::sleep(Duration::from_millis(20)).await;
+    provider
+        .push_event(AgentEvent::ToolCallStarted {
+            tool_call: execute_tool("t1", "running"),
+        })
+        .await;
+    provider
+        .push_event(AgentEvent::ToolCallCompleted {
+            tool_call: execute_tool("t1", "completed"),
+        })
+        .await;
+    tokio::time::sleep(Duration::from_millis(20)).await;
+    provider
+        .push_event(AgentEvent::ThinkingDelta {
+            message_id: "a1".into(),
+            delta: "second".into(),
+        })
+        .await;
+    tokio::time::sleep(Duration::from_millis(20)).await;
+    provider
+        .push_event(AgentEvent::ToolCallStarted {
+            tool_call: execute_tool("t2", "running"),
+        })
+        .await;
+    provider
+        .push_event(AgentEvent::ToolCallCompleted {
+            tool_call: execute_tool("t2", "completed"),
+        })
+        .await;
+    tokio::time::sleep(Duration::from_millis(20)).await;
+    provider
+        .push_event(AgentEvent::ThinkingDelta {
+            message_id: "a1".into(),
+            delta: "third".into(),
+        })
+        .await;
+    tokio::time::sleep(Duration::from_millis(20)).await;
+    provider.complete_current().await;
+
+    timeout(Duration::from_secs(2), async {
+        loop {
+            let snapshot = service.get(&meta.id).await.unwrap();
+            if snapshot.running_turn_id.is_none() {
+                return;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .expect("turn ended");
+
+    let live = service.get(&meta.id).await.unwrap();
+    assert_eq!(
+        assistant_part_kinds(&live),
+        ["thinking", "tool", "thinking", "tool", "thinking"],
+        "live snapshot should keep thinking/tool interleaving"
+    );
+    let thinking: Vec<_> = live
+        .messages
+        .iter()
+        .find(|message| message.role == "assistant")
+        .expect("assistant")
+        .parts
+        .iter()
+        .filter_map(|part| match part {
+            MessagePart::Thinking { text, .. } => Some(text.as_str()),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(thinking, ["first", "second", "third"]);
+
+    let disk = service.store().get_snapshot(&meta.id).unwrap();
+    assert_eq!(
+        assistant_part_kinds(&disk),
+        ["thinking", "tool", "thinking", "tool", "thinking"],
+        "reload from transcript.jsonl should not collapse thinking into one part after tools"
+    );
 }

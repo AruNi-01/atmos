@@ -1,6 +1,7 @@
 pub mod acp_factory;
 mod apply_event;
 pub mod catalog;
+pub mod prefs;
 mod queue;
 pub mod service;
 pub mod store;
@@ -13,6 +14,9 @@ pub use acp_factory::{AgentServiceCatalogResolver, DefaultAgentProviderFactory};
 pub use catalog::{
     builtin_catalog_specs, catalog_spec_for, parse_followup_policy, terminal_catalog_from,
     CatalogPrefetchWorker, CatalogUpdated, FollowupPolicy, PREFETCH_POLL,
+};
+pub use prefs::{
+    agent_chat_prefs_path, load_agent_chat_prefs, save_agent_chat_prefs, AgentChatPrefs,
 };
 pub use service::AgentChatService;
 pub use store::AgentChatStore;

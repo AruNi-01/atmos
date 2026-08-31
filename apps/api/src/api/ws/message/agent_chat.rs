@@ -147,3 +147,9 @@ pub struct AgentChatConfigureRequest {
     #[serde(default)]
     pub mode: Option<String>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct AgentChatPrefsSetRequest {
+    #[serde(default)]
+    pub last_registry_id: Option<String>,
+}

@@ -16,9 +16,10 @@ pub use service::agent_status::{
 };
 
 pub use service::agent_chat::{
-    builtin_catalog_specs, catalog_probe_dir, catalog_spec_for, default_agent_data_dir,
-    default_chats_dir, parse_followup_policy, terminal_catalog_from, AgentChatEvent,
-    AgentChatIndexEntry, AgentChatMeta, AgentChatOrigin, AgentChatPayload, AgentChatService,
+    agent_chat_prefs_path, builtin_catalog_specs, catalog_probe_dir, catalog_spec_for,
+    default_agent_data_dir, default_chats_dir, load_agent_chat_prefs, parse_followup_policy,
+    save_agent_chat_prefs, terminal_catalog_from, AgentChatEvent, AgentChatIndexEntry,
+    AgentChatMeta, AgentChatOrigin, AgentChatPayload, AgentChatPrefs, AgentChatService,
     AgentChatSnapshot, AgentChatStore, AgentServiceCatalogResolver, CatalogPrefetchWorker,
     CatalogUpdated, CreateAgentChatRequest, DefaultAgentProviderFactory, FollowupPolicy,
     MessagePart, QueueItem, QueueItemStatus, RuntimeStatus, TurnStatus, PREFETCH_POLL,

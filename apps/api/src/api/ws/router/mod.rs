@@ -828,6 +828,10 @@ impl WsMessageService {
                 self.handle_agent_config_set(parse_request(request.data)?)
                     .await
             }
+            WsAction::AgentDefaultConfigSet => {
+                self.handle_agent_default_config_set(parse_request(request.data)?)
+                    .await
+            }
             WsAction::AgentRegistryList => {
                 self.handle_agent_registry_list(parse_request(request.data)?)
                     .await
@@ -929,6 +933,10 @@ impl WsMessageService {
             WsAction::AgentModelCatalogGet => {
                 self.handle_agent_model_catalog_get(parse_request(request.data)?)
                     .await
+            }
+            WsAction::AgentChatPrefsGet => self.handle_agent_chat_prefs_get(),
+            WsAction::AgentChatPrefsSet => {
+                self.handle_agent_chat_prefs_set(parse_request(request.data)?)
             }
 
             // Automation
