@@ -932,7 +932,12 @@ export function useAgentChatSession({
       current || catalog.modes.find((mode) => mode.is_default)?.id || catalog.modes[0]?.id || "",
     );
     const resolvedModelId = defaultCatalogModelId(catalog, modelId || preferred.modelId);
-    setModelId(resolvedModelId);
+    setModelId((current) => {
+      if (current && catalog.models.some((model) => model.id === current)) {
+        return current;
+      }
+      return resolvedModelId;
+    });
     setThinkingId((current) => {
       const choices = thinkingChoices(catalog, resolvedModelId);
       const preferredThinking = current || preferred.thinkingId;
@@ -1396,17 +1401,22 @@ export function useAgentChatSession({
 
   const handleCreateNewSession = useCallback(async (targetRegistryId?: string) => {
     const nextRegistry = targetRegistryId?.trim() || providerId;
+    const registryChanged = Boolean(
+      targetRegistryId?.trim() && targetRegistryId.trim() !== providerId,
+    );
     if (targetRegistryId) {
       setProviderIdState(targetRegistryId);
       setCatalog(null);
     }
-    const preferred = preferredConfigFromDefault(
-      installedAgents.find((agent) => agent.id === nextRegistry)?.default_config,
-    );
-    setModelId(preferred.modelId);
-    setThinkingId(preferred.thinkingId);
-    setModeId("");
-    setPermissionModeId("");
+    if (registryChanged) {
+      const preferred = preferredConfigFromDefault(
+        installedAgents.find((agent) => agent.id === nextRegistry)?.default_config,
+      );
+      setModelId(preferred.modelId);
+      setThinkingId(preferred.thinkingId);
+      setModeId("");
+      setPermissionModeId("");
+    }
     if (nextRegistry) {
       persistAgentChatLastSession({
         workspaceId,

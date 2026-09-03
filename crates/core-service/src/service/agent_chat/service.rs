@@ -306,7 +306,40 @@ impl AgentChatService {
             }
         })?;
 
-        Ok(meta)
+        if !live {
+            return Ok(meta);
+        }
+        let busy = self.live_turn_is_busy(id).await;
+        if busy {
+            return Ok(meta);
+        }
+        let runtimes = self.runtimes.lock().await;
+        let Some(runtime) = runtimes.get(id) else {
+            return Ok(meta);
+        };
+        if !runtime.alive.load(Ordering::SeqCst) {
+            return Ok(meta);
+        }
+        let control = runtime.control.clone();
+        let state = Arc::clone(&runtime.state);
+        drop(runtimes);
+        let store = Arc::clone(&self.store);
+        let events = self.events.clone();
+        let recent_events = Arc::clone(&self.recent_events);
+        let chat_id = id.to_string();
+        if let Err(error) = super::apply_event::sync_pending_session_config_if_needed(
+            &chat_id,
+            &store,
+            &control,
+            &state,
+            &events,
+            &recent_events,
+        )
+        .await
+        {
+            warn!("agent chat configure sync error: {error}");
+        }
+        self.store.get_meta(id)
     }
 
     pub async fn delete(&self, id: &str) -> Result<AgentChatMeta> {
@@ -1641,10 +1674,24 @@ async fn pump_session(
                 agent_status::apply_host_event(status, &meta, &envelope.payload);
             }
         }
+        let is_config_changed = matches!(envelope.payload, AgentEvent::ConfigChanged { .. });
         if let Err(error) =
             apply_event(&chat_id, envelope, &store, &state, &events, &recent_events).await
         {
             warn!("agent chat pump error: {error}");
+        } else if is_config_changed {
+            if let Err(error) = super::apply_event::sync_pending_session_config_if_needed(
+                &chat_id,
+                &store,
+                &control,
+                &state,
+                &events,
+                &recent_events,
+            )
+            .await
+            {
+                warn!("agent chat config sync error: {error}");
+            }
         }
         if should_dispatch {
             if let Err(error) = maybe_dispatch_queue(

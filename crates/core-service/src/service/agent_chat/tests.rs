@@ -38,7 +38,7 @@ fn create_req_for(cwd: &str, provider_id: &str) -> CreateAgentChatRequest {
         cwd: cwd.into(),
         origin: AgentChatOrigin::Normal,
         provider_id: provider_id.into(),
-        model: Some("opus".into()),
+        model: (provider_id == "claude").then(|| "opus".into()),
         thinking: None,
         mode: None,
         title: None,
@@ -699,6 +699,7 @@ async fn send_after_model_switch_emits_session_config_change() {
     .await
     .expect("first turn should finish");
 
+    let mut rx = service.subscribe();
     service
         .configure(
             &meta.id,
@@ -710,9 +711,8 @@ async fn send_after_model_switch_emits_session_config_change() {
         )
         .await
         .unwrap();
-    assert_eq!(provider.config_count(), 0);
+    assert_eq!(provider.config_count(), 2);
 
-    let mut rx = service.subscribe();
     let _ = service.send(&meta.id, "again", Vec::new()).await.unwrap();
     tokio::time::sleep(Duration::from_millis(40)).await;
 
@@ -728,24 +728,22 @@ async fn send_after_model_switch_emits_session_config_change() {
             saw_change = true;
         }
     }
-    assert!(saw_change, "expected session_config_change on send");
+    assert!(
+        saw_change,
+        "expected session_config_change after idle configure sync"
+    );
     assert_eq!(provider.create_count(), 1);
     assert_eq!(provider.config_count(), 2);
     let applied = provider.last_config().await.expect("live set_config");
     assert_eq!(applied.mode.as_deref(), Some("plan"));
 
     let snapshot = service.get(&meta.id).await.unwrap();
-    let assistant = snapshot
-        .messages
-        .iter()
-        .rev()
-        .find(|message| message.role == "assistant")
-        .expect("assistant");
-    match assistant
-        .parts
-        .iter()
-        .find(|part| matches!(part, MessagePart::SessionConfigChange { .. }))
-    {
+    let config_part = snapshot.messages.iter().rev().find_map(|message| {
+        message.parts.iter().find_map(|part| {
+            matches!(part, MessagePart::SessionConfigChange { .. }).then_some(part)
+        })
+    });
+    match config_part {
         Some(MessagePart::SessionConfigChange { model, mode, .. }) => {
             assert_eq!(model.as_ref().map(|item| item.to.as_str()), Some("grok-4"));
             assert_eq!(mode.as_ref().map(|item| item.to.as_str()), Some("plan"));
@@ -779,7 +777,7 @@ async fn send_after_mode_switch_sets_live_config() {
         .await
         .unwrap();
     assert_eq!(provider.create_count(), 1);
-    assert_eq!(provider.config_count(), 0);
+    assert_eq!(provider.config_count(), 1);
 
     let _ = service.send(&meta.id, "again", Vec::new()).await.unwrap();
     tokio::time::sleep(Duration::from_millis(40)).await;
@@ -1033,11 +1031,12 @@ async fn send_after_failed_set_config_reverts() {
     .await
     .expect("first turn should finish");
 
+    let mut rx = service.subscribe();
     service
         .configure(&meta.id, None, Some("grok-4".into()), None, None, None)
         .await
         .unwrap();
-    let mut rx = service.subscribe();
+    assert_eq!(provider.config_count(), 1);
     let _ = service.send(&meta.id, "again", Vec::new()).await.unwrap();
     tokio::time::sleep(Duration::from_millis(40)).await;
 

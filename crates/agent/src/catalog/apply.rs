@@ -40,14 +40,43 @@ fn thinking_options_for_catalog(catalog: &AgentModelCatalog, model_id: &str) -> 
     listed_thinking_options(&catalog.thinking)
 }
 
+fn model_ids_match(left: &str, right: &str) -> bool {
+    let normalize = |value: &str| {
+        value
+            .trim()
+            .to_ascii_lowercase()
+            .replace(['.', '_', ' '], "-")
+    };
+    let left = normalize(left);
+    let right = normalize(right);
+    !left.is_empty()
+        && (left == right
+            || left.starts_with(&format!("{right}-"))
+            || right.starts_with(&format!("{left}-"))
+            || left.ends_with(&format!("-{right}"))
+            || right.ends_with(&format!("-{left}")))
+}
+
 fn default_model_id(catalog: &AgentModelCatalog, requested: Option<&str>) -> Option<String> {
     if catalog.models.is_empty() {
         return requested
             .filter(|id| model_id_usable(id))
             .map(str::to_string);
     }
-    if let Some(id) = requested {
-        if model_id_usable(id) && catalog.models.iter().any(|item| item.id == id) {
+    if let Some(id) = requested.filter(|id| model_id_usable(id)) {
+        if let Some(exact) = catalog.models.iter().find(|item| item.id == id) {
+            return Some(exact.id.clone());
+        }
+        let fuzzy: Vec<_> = catalog
+            .models
+            .iter()
+            .filter(|item| model_id_usable(&item.id) && model_ids_match(&item.id, id))
+            .collect();
+        if fuzzy.len() == 1 {
+            return Some(fuzzy[0].id.clone());
+        }
+        if catalog.models.is_empty() {
+            // Host options not loaded yet — keep explicit create/configure request.
             return Some(id.to_string());
         }
     }
@@ -185,6 +214,29 @@ mod tests {
         assert!(options.modes.is_empty());
         assert_eq!(options.permission_modes.len(), 1);
         assert_eq!(options.permission_modes[0].id, "default");
+    }
+
+    #[test]
+    fn apply_catalog_keeps_explicit_model_when_catalog_lists_are_empty() {
+        let catalog = AgentModelCatalog {
+            agent_id: "grok".into(),
+            status: CatalogStatus::Ok,
+            models: Vec::new(),
+            modes: Vec::new(),
+            permission_modes: Vec::new(),
+            commands: Vec::new(),
+            thinking: AgentThinkingSupport::None,
+            strategies_used: Vec::new(),
+            fetched_at: chrono::Utc::now(),
+            source: CatalogSource::Live,
+            message: None,
+        };
+        let mut config = AgentCurrentConfig {
+            model: Some("grok-composer-2.5-fast".into()),
+            ..AgentCurrentConfig::default()
+        };
+        apply_catalog_defaults_to_current_config(&mut config, &catalog);
+        assert_eq!(config.model.as_deref(), Some("grok-composer-2.5-fast"));
     }
 
     #[test]

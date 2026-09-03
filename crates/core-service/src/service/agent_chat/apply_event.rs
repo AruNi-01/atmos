@@ -18,15 +18,15 @@ use crate::error::Result;
 
 use super::store::AgentChatStore;
 use super::types::{
-    advertised_option_for_kind, config_kind_matches, elapsed_ms, keep_pending_session_selection,
-    map_advertised_select_value, merge_session_usage, order_assistant_parts, parse_session_usage,
-    parse_turn_usage, pending_permission_mode_change, pending_session_config_change,
-    pending_thinking_change, resolve_session_config_select, AgentChatEvent, AgentChatMeta,
-    AgentChatPayload, AgentChatSessionOpOutcome, AgentChatSnapshot, FoldedMessage, MessagePart,
-    PendingPermission, PendingSessionOp, ResolvedSessionConfig, RuntimeStatus,
-    SessionAdvertisedOption, SessionAdvertisedOptionValue, SessionConfigChange, SessionHintTone,
-    TranscriptEnvelope, TranscriptEvent, TurnStatus, SESSION_HINT_MODEL_SWITCH_FAILED,
-    SESSION_HINT_MODE_SWITCH_FAILED,
+    advertised_option_for_kind, config_kind_matches, config_values_equal, elapsed_ms,
+    keep_pending_session_selection, map_advertised_select_value, merge_session_usage,
+    order_assistant_parts, parse_session_usage, parse_turn_usage, pending_permission_mode_change,
+    pending_session_config_change, pending_thinking_change, resolve_session_config_select,
+    AgentChatEvent, AgentChatMeta, AgentChatPayload, AgentChatSessionOpOutcome, AgentChatSnapshot,
+    FoldedMessage, MessagePart, PendingPermission, PendingSessionOp, ResolvedSessionConfig,
+    RuntimeStatus, SessionAdvertisedOption, SessionAdvertisedOptionValue, SessionConfigChange,
+    SessionHintTone, TranscriptEnvelope, TranscriptEvent, TurnStatus,
+    SESSION_HINT_MODEL_SWITCH_FAILED, SESSION_HINT_MODE_SWITCH_FAILED,
 };
 
 pub(super) const ASSISTANT_SNAPSHOT_INTERVAL: Duration = Duration::from_millis(100);
@@ -621,6 +621,28 @@ struct ConfigOptionWire {
     options: Vec<ConfigOptionValueWire>,
 }
 
+fn preserve_user_selection_over_host_advertised(
+    selected: Option<&String>,
+    advertised: &str,
+    option: Option<&SessionAdvertisedOption>,
+) -> bool {
+    let Some(selected) = selected
+        .map(|item| item.trim())
+        .filter(|item| !item.is_empty())
+    else {
+        return false;
+    };
+    if config_values_equal(selected, advertised) {
+        return false;
+    }
+    match option {
+        Some(option) if !option.options.is_empty() => {
+            map_advertised_select_value(option, selected).is_some()
+        }
+        _ => true,
+    }
+}
+
 fn stamp_advertised_selection(
     options: &[SessionAdvertisedOption],
     kind: &str,
@@ -635,6 +657,17 @@ fn stamp_advertised_selection(
     let keep = keep_pending_session_selection(selected.as_ref(), applied.as_ref(), value, option);
     *applied = Some(value.to_string());
     if keep {
+        if let Some(mapped) = option.and_then(|item| {
+            selected
+                .as_deref()
+                .and_then(|requested| map_advertised_select_value(item, requested))
+        }) {
+            *selected = Some(mapped.clone());
+            Some(mapped)
+        } else {
+            selected.clone()
+        }
+    } else if preserve_user_selection_over_host_advertised(selected.as_ref(), value, option) {
         if let Some(mapped) = option.and_then(|item| {
             selected
                 .as_deref()
@@ -1429,6 +1462,36 @@ pub(super) async fn apply_pending_session_config(
     stamp_applied_session_config(store, chat_id)
 }
 
+/// Push pending picker values to a live runtime when idle (after host advertisements).
+pub(super) async fn sync_pending_session_config_if_needed(
+    chat_id: &str,
+    store: &AgentChatStore,
+    control: &AgentRuntimeControl,
+    state: &Mutex<RuntimeState>,
+    events: &broadcast::Sender<AgentChatEvent>,
+    recent_events: &std::sync::Mutex<HashMap<String, VecDeque<AgentChatEvent>>>,
+) -> Result<()> {
+    if state.lock().await.current_turn_id.is_some() {
+        return Ok(());
+    }
+    let meta = store.get_meta(chat_id)?;
+    if pending_session_config_change(&meta).is_none()
+        && pending_thinking_change(&meta).is_none()
+        && pending_permission_mode_change(&meta).is_none()
+    {
+        return Ok(());
+    }
+    apply_pending_session_config(
+        chat_id,
+        "config-sync",
+        store,
+        control,
+        events,
+        recent_events,
+    )
+    .await
+}
+
 fn revert_session_config(
     store: &AgentChatStore,
     chat_id: &str,
@@ -2038,6 +2101,67 @@ mod tests {
         assert!(
             !saw_failed,
             "resume advertisements should not hint a failed switch"
+        );
+    }
+
+    #[tokio::test]
+    async fn config_changed_preserves_create_time_model_when_host_differs() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = AgentChatStore::new(dir.path().join("chats"));
+        let meta = store
+            .create(CreateAgentChatRequest {
+                workspace_id: None,
+                project_id: None,
+                space_id: None,
+                cwd: "/tmp".into(),
+                origin: AgentChatOrigin::Normal,
+                provider_id: "grok".into(),
+                model: Some("grok-composer-2.5-fast".into()),
+                thinking: None,
+                mode: None,
+                title: None,
+            })
+            .unwrap();
+        let (tx, _rx) = broadcast::channel(8);
+        let recent = std::sync::Mutex::new(HashMap::new());
+        let state = Mutex::new(runtime());
+        apply_event(
+            &meta.id,
+            AgentEventEnvelope::new(
+                None,
+                AgentEvent::ConfigChanged {
+                    config: serde_json::json!([{
+                        "id": "model",
+                        "category": "model",
+                        "type": "select",
+                        "currentValue": "gemini-3.5-flash",
+                        "options": [
+                            { "value": "gemini-3.5-flash", "name": "Gemini 3.5 Flash" },
+                            { "value": "grok-composer-2.5-fast", "name": "Composer 2.5 Fast" }
+                        ]
+                    }]),
+                },
+            ),
+            &store,
+            &state,
+            &tx,
+            &recent,
+        )
+        .await
+        .unwrap();
+        let updated = store.get_meta(&meta.id).unwrap();
+        assert_eq!(
+            updated.descriptor.current_config.model.as_deref(),
+            Some("grok-composer-2.5-fast")
+        );
+        assert_eq!(updated.applied_model.as_deref(), Some("gemini-3.5-flash"));
+        assert!(
+            pending_session_config_change(&updated).is_some_and(|change| {
+                change
+                    .model
+                    .as_ref()
+                    .is_some_and(|item| item.to == "grok-composer-2.5-fast")
+            })
         );
     }
 

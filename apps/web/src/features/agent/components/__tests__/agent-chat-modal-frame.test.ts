@@ -85,7 +85,7 @@ describe("agent chat modal frame", () => {
     expect(session).toContain('next.status === "error" ? next.message?.trim()');
     expect(session).toContain('update.catalog.status === "error"');
     expect(session).toContain("agent_model_catalog_updated");
-    expect(session).toContain("descriptorForComposerProvider");
+    expect(session).toContain("composerConfigOptions");
     expect(session).toContain("setCatalog(null);\n    setDescriptor(null);\n    setSupportsSteer(false);");
     expect(session).toContain('payload.type === "rewind_view_updated"');
     expect(session).toContain('payload.type === "session_forked"');
