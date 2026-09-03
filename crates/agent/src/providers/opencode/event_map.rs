@@ -28,6 +28,7 @@ pub(crate) enum MapOut {
     Ready,
     Event(AgentEventEnvelope),
     AutoRejectQuestion { request_id: String },
+    AutoApprovePermission { request_id: String },
 }
 
 pub(crate) struct EventMapState {
@@ -59,10 +60,20 @@ pub(crate) struct EventMapState {
     pub idle_armed: bool,
     pub turn_seen_work: bool,
     pub active_turn: Option<String>,
+    /// Locked at Atmos session create when Permission is Auto (OpenCode `--auto`).
+    pub auto_locked: bool,
 }
 
 impl EventMapState {
     pub(crate) fn new(session_id: String, current_config: AgentCurrentConfig) -> Self {
+        Self::with_auto_locked(session_id, current_config, false)
+    }
+
+    pub(crate) fn with_auto_locked(
+        session_id: String,
+        current_config: AgentCurrentConfig,
+        auto_locked: bool,
+    ) -> Self {
         Self {
             persistence: Some(AgentPersistenceHandle::new(session_id.clone())),
             session_id,
@@ -92,6 +103,7 @@ impl EventMapState {
             idle_armed: false,
             turn_seen_work: false,
             active_turn: None,
+            auto_locked,
         }
     }
 
@@ -586,6 +598,12 @@ fn map_permission_asked(
     if state.pending_asks.contains_key(&request_id) {
         return MapOut::Skip;
     }
+    if state.auto_locked {
+        state
+            .pending_asks
+            .insert(request_id.clone(), PendingAsk::Permission);
+        return MapOut::AutoApprovePermission { request_id };
+    }
     state
         .pending_asks
         .insert(request_id.clone(), PendingAsk::Permission);
@@ -1010,6 +1028,7 @@ pub(crate) fn drain_mapped(
     match map_event(state, turn_id.clone(), event) {
         MapOut::Event(event) => out.push(event),
         MapOut::AutoRejectQuestion { request_id } => auto_reject = Some(request_id),
+        MapOut::AutoApprovePermission { .. } => {}
         MapOut::Skip | MapOut::Ready => {}
     }
     while let Some(event) = state.pending.pop_front() {
@@ -1096,6 +1115,31 @@ mod tests {
         let _ = AgentActionError::Unsupported {
             action: AgentActionKind::Steer,
         };
+    }
+
+    #[test]
+    fn auto_locked_permission_skips_permission_requested() {
+        let asked: Value =
+            serde_json::from_str(include_str!("testdata/permission-asked.json")).expect("json");
+        let mut state =
+            EventMapState::with_auto_locked("ses_x".into(), AgentCurrentConfig::default(), true);
+        let (events, reject) = drain_mapped(
+            &mut state,
+            Some("turn-1".into()),
+            BusEvent {
+                id: None,
+                event_type: "permission.asked".into(),
+                properties: asked,
+            },
+        );
+        assert!(reject.is_none());
+        assert!(!events
+            .iter()
+            .any(|event| matches!(&event.payload, AgentEvent::PermissionRequested { .. })));
+        assert_eq!(
+            state.pending_asks.get("per_abc"),
+            Some(&PendingAsk::Permission)
+        );
     }
 
     #[test]

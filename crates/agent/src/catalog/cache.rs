@@ -8,7 +8,7 @@ use std::time::Duration;
 use chrono::{DateTime, Utc};
 
 use crate::catalog::{AgentModelCatalog, CatalogSource, CatalogStatus};
-use crate::policy::canonicalize_chat_provider_id;
+use crate::policy::{advertised_permission_modes, canonicalize_chat_provider_id};
 
 pub const OK_CACHE_TTL: Duration = Duration::from_secs(4 * 60 * 60);
 pub const ERROR_CACHE_TTL: Duration = Duration::from_secs(15 * 60);
@@ -120,8 +120,26 @@ fn host_missing_stamped_composer_options(catalog: &AgentModelCatalog) -> bool {
     }
     match canonicalize_chat_provider_id(&catalog.agent_id) {
         "claude" | "grok" => catalog.permission_modes.is_empty() || catalog.modes.is_empty(),
-        "codex" => catalog.modes.is_empty() || catalog.permission_modes.is_empty(),
-        "opencode" => catalog.modes.is_empty(),
+        "codex" => {
+            catalog.modes.is_empty()
+                || catalog.permission_modes.is_empty()
+                || advertised_permission_modes("codex").iter().any(|need| {
+                    !catalog
+                        .permission_modes
+                        .iter()
+                        .any(|have| have.id == need.id)
+                })
+        }
+        "opencode" => {
+            catalog.modes.is_empty()
+                || catalog.permission_modes.is_empty()
+                || advertised_permission_modes("opencode").iter().any(|need| {
+                    !catalog
+                        .permission_modes
+                        .iter()
+                        .any(|have| have.id == need.id)
+                })
+        }
         _ => false,
     }
 }
@@ -307,6 +325,55 @@ mod tests {
         cache.put(&catalog).unwrap();
         assert!(cache.get("codex", now).is_none());
         assert!(!cache.should_skip_probe("codex", now));
+    }
+
+    #[test]
+    fn codex_cache_without_auto_permission_does_not_skip() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = CatalogCache::new(dir.path().to_path_buf());
+        let now = Utc::now();
+        let mut catalog = ok_models_and_commands("codex", now);
+        catalog.modes = vec![crate::contract::AgentMode {
+            id: "default".into(),
+            label: "Default".into(),
+            is_default: true,
+        }];
+        catalog.permission_modes = vec![
+            crate::contract::AgentMode {
+                id: "yolo".into(),
+                label: "Yolo".into(),
+                is_default: false,
+            },
+            crate::contract::AgentMode {
+                id: "ask_always".into(),
+                label: "Ask always".into(),
+                is_default: true,
+            },
+        ];
+        cache.put(&catalog).unwrap();
+        assert!(cache.get("codex", now).is_none());
+        assert!(!cache.should_skip_probe("codex", now));
+    }
+
+    #[test]
+    fn opencode_cache_without_auto_permission_does_not_skip() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = CatalogCache::new(dir.path().to_path_buf());
+        let now = Utc::now();
+        let mut catalog = ok_models_and_commands("opencode", now);
+        catalog.modes = vec![crate::contract::AgentMode {
+            id: "build".into(),
+            label: "Build".into(),
+            is_default: true,
+        }];
+        catalog.permission_modes = vec![crate::contract::AgentMode {
+            id: "ask_always".into(),
+            label: "Ask always".into(),
+            is_default: true,
+        }];
+        cache.put(&catalog).unwrap();
+        assert!(cache.get("opencode", now).is_none());
+        assert!(!cache.should_skip_probe("opencode", now));
     }
 
     #[test]

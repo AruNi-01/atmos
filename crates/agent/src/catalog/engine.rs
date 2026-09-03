@@ -186,10 +186,7 @@ impl CatalogEngine {
         if spec.cli_command.is_empty() {
             return None;
         }
-        let timeout = match spec.parser {
-            CatalogParserKind::DroidHelp => Duration::from_secs(20),
-            _ => Duration::from_secs(8),
-        };
+        let timeout = cli_timeout(spec.parser);
         match self.command_runner.run(&spec.cli_command, timeout).await {
             Ok(output) => {
                 let combined = format!("{}\n{}", output.stdout, output.stderr);
@@ -336,6 +333,14 @@ impl CatalogEngine {
             strategy: Some(CatalogStrategyKind::Cli),
             ..Default::default()
         })
+    }
+}
+
+fn cli_timeout(parser: CatalogParserKind) -> Duration {
+    match parser {
+        // Live `grok models` on this machine is ~13s; 8s stored `model list timed out`.
+        CatalogParserKind::DroidHelp | CatalogParserKind::GrokLineList => Duration::from_secs(20),
+        _ => Duration::from_secs(8),
     }
 }
 
@@ -567,5 +572,21 @@ mod tests {
             .find(|model| model.id == "grok-composer-2.5-fast")
             .unwrap();
         assert!(composer.thinking.is_none());
+    }
+
+    #[test]
+    fn grok_cli_timeout_matches_droid_help_not_default_eight_seconds() {
+        assert_eq!(
+            cli_timeout(CatalogParserKind::GrokLineList),
+            Duration::from_secs(20)
+        );
+        assert_eq!(
+            cli_timeout(CatalogParserKind::DroidHelp),
+            Duration::from_secs(20)
+        );
+        assert_eq!(
+            cli_timeout(CatalogParserKind::LineList),
+            Duration::from_secs(8)
+        );
     }
 }

@@ -75,7 +75,7 @@ sequenceDiagram
 | Answer every **server request** or the turn stalls | Ignore `item/*/requestApproval` |
 | `turn/steer.expectedTurnId` = **vendor** turn id | Send Atmos `turn_id` UUID as `expectedTurnId` |
 | `persistence_handle` = Codex `thread.id` | Equal Atmos `chat_id`; hydrate history via `thread/read` into jsonl (duplicate) |
-| `approvalsReviewer: "user"` so Chat sees prompts | Rely on Guardian / `auto_review` (prompts never arrive) |
+| Ask always: `approvalsReviewer: "user"` so Chat sees prompts. Auto ("Approve for me"): `auto_review` | Send `auto_review` for Ask always (prompts never arrive) |
 | `experimentalApi: true` so `collaborationMode/list` and `turn/start.collaborationMode` work (APP-069). Still do **not** call `process/spawn`, queue, plugins, marketplace | Advertise experimental methods we will not implement |
 | Unknown **notification** → omit or one `Unknown` | Panic / fail the session (S22) |
 | Unknown **server request** → JSON-RPC error `-32601` | Leave it unanswered |
@@ -117,7 +117,7 @@ After pipes are up, **before any other method**:
 3. Notification `initialized` (`method` only).
 4. Optional `model/list` `{limit, includeHidden:false}` → `ConfigChanged` (models + `supportedReasoningEfforts` as thinking).
 5. `collaborationMode/list` → overlay modes (Default / Plan). Stamp if empty or method missing.
-6. `create_runtime`: `thread/start` (no mode field). `resume_runtime`: `thread/resume` `{threadId}` from `meta.persistence_handle`. Restore/`get` still does **not** spawn ([persistence.md](./persistence.md)). Selected mode is sticky on each `turn/start.collaborationMode`.
+6. `create_runtime`: `thread/start` (no mode field). `resume_runtime`: `thread/resume` `{threadId}` from `meta.persistence_handle`. Restore/`get` still does **not** spawn ([persistence.md](./persistence.md)). Selected mode is sticky on each `turn/start.collaborationMode`. 0.153 `settings.model` is required; also send sticky `reasoning_effort` when set. `developer_instructions: null` keeps built-in Plan/Default instructions.
 
 ```json
 {"method":"thread/start","id":1,"params":{
@@ -145,7 +145,7 @@ thread_id      →  persistence_handle
 
 | Atmos | Codex | Notes |
 |-------|-------|--------|
-| `send` | `turn/start` `{threadId, input, model?, effort?}` | `input: [{type:"text", text}]` + `localImage`/`image` from Chat attachments |
+| `send` | `turn/start` `{threadId, input, model?, effort?, collaborationMode?}` | `input: [{type:"text", text}]` + `localImage`/`image` from Chat attachments. `collaborationMode.settings.model` is required on 0.153 when the object is present. |
 | `cancel` | `turn/interrupt` `{threadId, turnId}` | `turnId` = **vendor** id; success `{}`; `turn/completed` `status: "interrupted"` |
 | `Steer` | `turn/steer` | `expectedTurnId` **required**; must equal the **active vendor** turn |
 | close | drop stdin + kill child | no v1 `thread/unsubscribe` requirement |
@@ -307,7 +307,7 @@ Do **not** copy community ACP bridges.
 - **Protocol drift.** Mitigation: fixtures + `generate-json-schema` on the pinned CLI; unknown frames must not crash.
 - **Wrong `expectedTurnId`.** Sending Atmos UUID fails `invalid request` and looks like “steer broken”. Unit-test the map (S17).
 - **Unanswered server request.** Turn hangs until timeout. Codec must treat `id`+`method` as blocking; close path must reply.
-- **Auto-reviewer.** Without `approvalsReviewer: "user"`, Chat never sees permission (upstream #21982).
+- **Auto-reviewer.** Ask always must send `approvalsReviewer: "user"` or Chat never sees permission (upstream #21982). Auto ("Approve for me") is the `auto_review` path.
 - **Tradeoff: experimentalApi only for collaboration modes.** Still do not call `process/spawn`, dynamic tools, or queue RPCs.
 - **Rollback:** Chat `codex` can temporarily route ACP only if product accepts capability loss; Terminal `exec --json` stays untouched.
 

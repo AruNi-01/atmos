@@ -13,6 +13,7 @@ import {
 } from "@workspace/ui";
 import {
   Bot,
+  Clock,
   Code2,
   FilePenLine,
   Hammer,
@@ -149,7 +150,7 @@ function permissionModeIcon(key: string | null) {
     case "acceptEdits":
       return <FilePenLine className="size-3.5 shrink-0" />;
     case "auto":
-      return <Shield className="size-3.5 shrink-0" />;
+      return <Clock className="size-3.5 shrink-0" />;
     case "askAlways":
       return <Hand className="size-3.5 shrink-0" />;
     default:

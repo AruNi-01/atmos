@@ -171,7 +171,7 @@ mod tests {
 
     #[test]
     fn builders_are_http1_only() {
-        let spec = crate::providers::opencode::spawn::serve_spawn_spec("opencode");
+        let spec = crate::providers::opencode::spawn::serve_spawn_spec("opencode", None);
         assert!(spec.http1_only);
         let _rpc = rpc_client_builder();
         let _sse = sse_client_builder();

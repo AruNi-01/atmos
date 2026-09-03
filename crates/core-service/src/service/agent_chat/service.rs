@@ -993,15 +993,25 @@ impl AgentChatService {
                 return Err(ServiceError::Processing(error.to_string()));
             }
         };
+        let selected_model = if meta.persistence_handle.is_some() {
+            meta.applied_model
+                .clone()
+                .or_else(|| meta.descriptor.current_config.model.clone())
+        } else {
+            meta.descriptor.current_config.model.clone()
+        };
         let cfg = AgentRuntimeConfig {
             cwd: std::path::PathBuf::from(&meta.cwd),
-            model: if meta.persistence_handle.is_some() {
-                meta.applied_model
-                    .clone()
-                    .or_else(|| meta.descriptor.current_config.model.clone())
-            } else {
-                meta.descriptor.current_config.model.clone()
-            },
+            model: selected_model.and_then(nonempty_opt).or_else(|| {
+                self.ready_catalog(&meta.provider_id).and_then(|catalog| {
+                    catalog
+                        .models
+                        .iter()
+                        .find(|model| model.is_default)
+                        .or_else(|| catalog.models.first())
+                        .map(|model| model.id.clone())
+                })
+            }),
             thinking: if meta.persistence_handle.is_some() {
                 meta.applied_thinking
                     .clone()

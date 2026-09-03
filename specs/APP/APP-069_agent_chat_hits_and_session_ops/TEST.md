@@ -118,7 +118,7 @@
 - **Level**: Bun
 - **Given**: descriptors with each support flag Unsupported vs Supported+empty vs Supported+list.
 - **When**: `descriptorToConfigOptions` runs.
-- **Then**: Unsupported or empty → no select. Permission-mode id `permission_mode` is leading; model/thinking trailing. Claude shows Mode and Permission together. Codex Permission is only Yolo + Ask always. Pi hides both.
+- **Then**: Unsupported or empty → no select. Permission-mode id `permission_mode` is leading; model/thinking trailing. Claude shows Mode and Permission together. Codex Permission is Yolo + Auto + Ask always (no Accept edits). Pi hides both.
 - **Signals**: `agent-chat-thread` tests.
 
 ### S9 — Fork/rewind are slash, not buttons
@@ -211,7 +211,7 @@
 
 ## Performance & load budgets
 
-- Catalog native probe stays in the existing prefetch TTL/timeout band (ACP probe ~15s, CLI ~8s). No extra always-on Chat runtime for probe.
+- Catalog native probe stays in the existing prefetch TTL/timeout band (ACP probe ~15s, CLI ~8s, `GrokLineList` ~20s). No extra always-on Chat runtime for probe.
 
 ## Regression checklist
 

@@ -90,7 +90,12 @@ pub fn default_collaboration_modes() -> Vec<AgentMode> {
 pub fn advertised(host: &str) -> Vec<AtmosPermission> {
     match canonicalize_chat_provider_id(host) {
         "claude" | "grok" => AtmosPermission::DISPLAY_ORDER.to_vec(),
-        "codex" => vec![AtmosPermission::Yolo, AtmosPermission::AskAlways],
+        "codex" => vec![
+            AtmosPermission::Yolo,
+            AtmosPermission::Auto,
+            AtmosPermission::AskAlways,
+        ],
+        "opencode" => vec![AtmosPermission::Auto, AtmosPermission::AskAlways],
         _ => Vec::new(),
     }
 }
@@ -120,7 +125,7 @@ pub fn classify(raw: &str) -> Option<AtmosPermission> {
     if c.contains("acceptedits") {
         return Some(AtmosPermission::AcceptEdits);
     }
-    if c == "auto" {
+    if c == "autoreview" || c.replace(' ', "") == ["approve", "for", "me"].concat() {
         return Some(AtmosPermission::Auto);
     }
     if c == "default"
@@ -145,12 +150,13 @@ pub fn to_vendor(host: &str, atmos: AtmosPermission) -> Option<&'static str> {
         }),
         "codex" => match atmos {
             AtmosPermission::Yolo => Some("never"),
-            AtmosPermission::AskAlways => Some("on-request"),
+            AtmosPermission::Auto | AtmosPermission::AskAlways => Some("on-request"),
             _ => None,
         },
         "opencode" => match atmos {
+            AtmosPermission::Auto => Some("auto"),
+            AtmosPermission::AskAlways => None,
             AtmosPermission::Yolo => Some("allow"),
-            AtmosPermission::AskAlways => Some("ask"),
             _ => None,
         },
         "pi" => None,
@@ -173,6 +179,22 @@ pub fn normalize_stored(raw: &str) -> Option<String> {
     classify(raw)
         .or_else(|| AtmosPermission::parse(raw))
         .map(|atmos| atmos.as_str().to_string())
+}
+
+/// OpenCode CLI `--auto` (TUI / `run`, not `serve`): auto-approve requests that
+/// are not explicitly denied. Yolo would be `--dangerously-skip-permissions`
+/// (hidden on TUI/run); Atmos does not advertise it because `serve` has no lock.
+pub fn opencode_auto_locked(permission: Option<&str>) -> bool {
+    matches!(permission.and_then(classify), Some(AtmosPermission::Auto))
+}
+
+/// Codex `thread/start.approvalsReviewer`. Ask always keeps `"user"` so Chat
+/// sees permission chrome. Auto is official "Approve for me" (`auto_review`).
+pub fn codex_approvals_reviewer(permission: Option<&str>) -> &'static str {
+    match permission.and_then(classify) {
+        Some(AtmosPermission::Auto) => "auto_review",
+        _ => "user",
+    }
 }
 
 pub fn vendor_permission_for_spawn(
@@ -262,6 +284,8 @@ mod tests {
         assert_eq!(classify("never"), Some(AtmosPermission::Yolo));
         assert_eq!(classify("acceptEdits"), Some(AtmosPermission::AcceptEdits));
         assert_eq!(classify("auto"), Some(AtmosPermission::Auto));
+        assert_eq!(classify("auto_review"), Some(AtmosPermission::Auto));
+        assert_eq!(classify("Approve for me"), Some(AtmosPermission::Auto));
         assert_eq!(classify("default"), Some(AtmosPermission::AskAlways));
         assert_eq!(classify("on-request"), Some(AtmosPermission::AskAlways));
         assert_eq!(classify("ask"), Some(AtmosPermission::AskAlways));
@@ -285,7 +309,13 @@ mod tests {
             to_vendor("codex", AtmosPermission::AskAlways),
             Some("on-request")
         );
-        assert!(to_vendor("codex", AtmosPermission::Auto).is_none());
+        assert_eq!(
+            to_vendor("codex", AtmosPermission::Auto),
+            Some("on-request")
+        );
+        assert_eq!(codex_approvals_reviewer(Some("auto")), "auto_review");
+        assert_eq!(codex_approvals_reviewer(Some("ask_always")), "user");
+        assert_eq!(codex_approvals_reviewer(Some("yolo")), "user");
         assert_eq!(
             to_vendor("grok", AtmosPermission::AcceptEdits),
             Some("acceptEdits")
@@ -383,8 +413,26 @@ mod tests {
                 .iter()
                 .map(|item| item.id.as_str())
                 .collect::<Vec<_>>(),
-            ["yolo", "ask_always"]
+            ["yolo", "auto", "ask_always"]
         );
+        assert!(codex
+            .iter()
+            .any(|item| item.id == "ask_always" && item.is_default));
+        let opencode = advertised_permission_modes("opencode");
+        assert_eq!(
+            opencode
+                .iter()
+                .map(|item| item.id.as_str())
+                .collect::<Vec<_>>(),
+            ["auto", "ask_always"]
+        );
+        assert!(opencode
+            .iter()
+            .any(|item| item.id == "ask_always" && item.is_default));
+        assert!(opencode_auto_locked(Some("auto")));
+        assert!(!opencode_auto_locked(Some("ask_always")));
+        assert!(to_vendor("opencode", AtmosPermission::Auto).is_some());
+        assert!(to_vendor("opencode", AtmosPermission::AskAlways).is_none());
         assert!(advertised_permission_modes("pi").is_empty());
         assert!(advertised_permission_modes("factory-droid").is_empty());
     }

@@ -523,15 +523,18 @@ for raw in sys.stdin:
     if method == "initialize":
         result = {"userAgent": "atmos/0.144.5 (Mac OS 27.0.0; arm64) dumb (atmos; 0.0.0)", "codexHome": "/Users/me/.codex", "platformFamily": "unix", "platformOs": "macos"}
     elif method == "model/list":
-        result = {"data": [{
-            "id": "gpt-5.6-luna",
-            "displayName": "GPT-5.6-Luna",
-            "isDefault": True,
-            "supportedReasoningEfforts": [
-                {"reasoningEffort": "low"},
-                {"reasoningEffort": "high"}
-            ]
-        }]}
+        if os.environ.get("CODEX_TEST_EMPTY_MODELS") == "1":
+            result = {"data": []}
+        else:
+            result = {"data": [{
+                "id": "gpt-5.6-luna",
+                "displayName": "GPT-5.6-Luna",
+                "isDefault": True,
+                "supportedReasoningEfforts": [
+                    {"reasoningEffort": "low"},
+                    {"reasoningEffort": "high"}
+                ]
+            }]}
     elif method == "collaborationMode/list":
         result = {"data": [
             {"name": "Plan", "mode": "plan", "model": None, "reasoning_effort": "medium"},
@@ -695,6 +698,32 @@ for raw in sys.stdin:
         assert_eq!(writes.1["params"]["model"], "gpt-5.6-luna");
         assert_eq!(writes.1["params"]["effort"], "low");
         drop(runtime);
+    }
+
+    #[tokio::test]
+    async fn handshake_errors_when_spawn_and_model_list_omit_model() {
+        let cli = fake_cli();
+        let mut env = HashMap::new();
+        env.insert(
+            "CODEX_TEST_CAPTURE".into(),
+            cli.capture.to_string_lossy().into_owned(),
+        );
+        env.insert("CODEX_TEST_EMPTY_MODELS".into(), "1".into());
+        let provider =
+            CodexNativeProvider::with_program(cli.program.to_string_lossy().into_owned())
+                .with_env(env);
+        let cfg = AgentRuntimeConfig {
+            cwd: PathBuf::from("/abs/project"),
+            ..AgentRuntimeConfig::default()
+        };
+        let error = match provider.create_runtime(cfg).await {
+            Ok(_) => panic!("handshake should fail without a model"),
+            Err(error) => error,
+        };
+        assert!(
+            error.to_string().contains("requires a model"),
+            "unexpected error: {error}"
+        );
     }
 
     #[tokio::test]
@@ -883,6 +912,14 @@ for raw in sys.stdin:
         assert_eq!(turn["params"]["model"], "gpt-5.6-sol");
         assert_eq!(turn["params"]["effort"], "high");
         assert_eq!(turn["params"]["collaborationMode"]["mode"], "plan");
+        assert_eq!(
+            turn["params"]["collaborationMode"]["settings"]["model"],
+            "gpt-5.6-sol"
+        );
+        assert_eq!(
+            turn["params"]["collaborationMode"]["settings"]["reasoning_effort"],
+            "high"
+        );
         assert!(
             turn["params"]["collaborationMode"]["settings"]["developer_instructions"].is_null()
         );
@@ -927,6 +964,10 @@ for raw in sys.stdin:
             .find(|frame| frame.get("method").and_then(Value::as_str) == Some("turn/start"))
             .expect("turn/start");
         assert_eq!(turn["params"]["collaborationMode"]["mode"], "plan");
+        assert_eq!(
+            turn["params"]["collaborationMode"]["settings"]["model"],
+            "gpt-5.6-sol"
+        );
         drop(runtime);
     }
 

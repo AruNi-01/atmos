@@ -508,6 +508,17 @@ impl AgentRuntime for OpenCodeRuntime {
                         return Some(event);
                     }
                 }
+                MapOut::AutoApprovePermission { request_id } => {
+                    let _ = self
+                        .commands
+                        .respond_permission(request_id, "once".into())
+                        .await;
+                    if let Some(event) = self.map.pending.pop_front() {
+                        sync_pending_asks(&self.commands, &self.map);
+                        self.disarm_if_turn_end(&event).await;
+                        return Some(event);
+                    }
+                }
             }
         }
     }
@@ -576,7 +587,13 @@ async fn open_runtime(
     cfg: AgentRuntimeConfig,
     resume: Option<String>,
 ) -> AgentResult<Box<dyn AgentRuntime>> {
-    let mut serve: ServeChild = spawn_serve(cmd, &cfg.cwd, cfg.env_overrides.as_ref()).await?;
+    let mut serve: ServeChild = spawn_serve(
+        cmd,
+        &cfg.cwd,
+        cfg.permission_mode.as_deref(),
+        cfg.env_overrides.as_ref(),
+    )
+    .await?;
     let http = OpenCodeHttp::new(
         serve.base_url.clone(),
         serve.password().to_string(),
@@ -654,7 +671,11 @@ async fn open_runtime(
         ));
     }
 
-    let mut map = EventMapState::new(session_id.clone(), current_config.clone());
+    let mut map = EventMapState::with_auto_locked(
+        session_id.clone(),
+        current_config.clone(),
+        serve.auto_locked,
+    );
     if let Ok((status, health)) = http.get_json("/global/health").await {
         if status.as_u16() == 200 {
             if let Some(version) = health.get("version").and_then(Value::as_str) {

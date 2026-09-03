@@ -275,6 +275,7 @@ describe("agent chat helpers", () => {
     expect(permissionModeMessageKey("yolo")).toBe("yolo");
     expect(permissionModeMessageKey("bypassPermissions")).toBe("yolo");
     expect(permissionModeMessageKey("accept_edits")).toBe("acceptEdits");
+    expect(permissionModeMessageKey("auto")).toBe("auto");
     expect(permissionModeMessageKey("ask_always")).toBe("askAlways");
     expect(permissionModeMessageKey("on-request")).toBe("askAlways");
     expect(configPickerGroupMessageKey("permission_mode")).toBe("permissionMode");
@@ -628,7 +629,7 @@ describe("agent chat helpers", () => {
     ]);
   });
 
-  it("APP-069 S8 shows Codex Yolo and Ask always without Accept edits or Auto", () => {
+  it("APP-069 S8 shows Codex Yolo, Auto, and Ask always without Accept edits", () => {
     const options = descriptorToConfigOptions({
       identity: { id: "codex", name: "Codex" },
       capabilities: {
@@ -654,6 +655,7 @@ describe("agent chat helpers", () => {
         ],
         permission_modes: [
           { id: "yolo", label: "Yolo" },
+          { id: "auto", label: "Auto" },
           { id: "ask_always", label: "Ask always", is_default: true },
         ],
       },
@@ -667,6 +669,7 @@ describe("agent chat helpers", () => {
     ]);
     expect(options.find((item) => item.id === "permission_mode")?.options.map((item) => item.value)).toEqual([
       "yolo",
+      "auto",
       "ask_always",
     ]);
   });

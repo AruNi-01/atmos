@@ -23,7 +23,7 @@ pub(crate) async fn probe(isolated_cwd: &Path) -> Result<NativeProbeResult, Stri
 }
 
 async fn probe_inner(isolated_cwd: &Path) -> Result<NativeProbeResult, String> {
-    let mut serve = spawn_serve("opencode", isolated_cwd, None)
+    let mut serve = spawn_serve("opencode", isolated_cwd, None, None)
         .await
         .map_err(|error| error.to_string())?;
     let http = match OpenCodeHttp::new(
@@ -87,6 +87,9 @@ async fn probe_inner(isolated_cwd: &Path) -> Result<NativeProbeResult, String> {
     }
     crate::policy::merge_plan_into_modes(&mut modes, &permission_modes);
     permission_modes = crate::policy::fold_vendor_permission_modes(&permission_modes);
+    if permission_modes.is_empty() {
+        permission_modes = crate::policy::advertised_permission_modes("opencode");
+    }
     let _ = http.post_empty("/instance/dispose").await;
     let closed = close_serve(&mut serve).await;
     if modes.is_empty() {
@@ -235,13 +238,21 @@ mod tests {
                 .collect::<Vec<_>>(),
             ["yolo", "ask_always"]
         );
-        let stamped = if modes_from_config_body(&serde_json::json!({})).is_empty() {
+        let stamped = crate::policy::advertised_permission_modes("opencode");
+        assert_eq!(
+            stamped
+                .iter()
+                .map(|mode| mode.id.as_str())
+                .collect::<Vec<_>>(),
+            ["auto", "ask_always"]
+        );
+        let fallback_modes = if modes_from_config_body(&serde_json::json!({})).is_empty() {
             opencode_modes()
         } else {
             Vec::new()
         };
-        assert_eq!(stamped[0].id, "build");
-        assert_eq!(stamped[1].id, "plan");
-        assert!(stamped[0].is_default);
+        assert_eq!(fallback_modes[0].id, "build");
+        assert_eq!(fallback_modes[1].id, "plan");
+        assert!(fallback_modes[0].is_default);
     }
 }

@@ -10,6 +10,7 @@ use tokio::process::{Child, Command};
 use tokio::sync::Mutex;
 
 use crate::contract::{AgentProviderError, AgentResult};
+use crate::policy::opencode_auto_locked;
 
 pub const USERNAME: &str = "opencode";
 pub const PASSWORD_ENV: &str = "OPENCODE_SERVER_PASSWORD";
@@ -27,22 +28,35 @@ pub struct ServeSpawnSpec {
     pub username: &'static str,
 }
 
-pub fn serve_spawn_spec(program: &str) -> ServeSpawnSpec {
+pub fn serve_spawn_spec(program: &str, permission_mode: Option<&str>) -> ServeSpawnSpec {
+    let mut args = Vec::new();
+    if opencode_auto_locked(permission_mode) {
+        // Official CLI: `--auto` auto-approves non-denied permissions (TUI / `run`).
+        // `opencode serve` (1.18.x) does not accept `--auto`; Atmos locks Auto at
+        // session create and auto-replies in the adapter instead.
+        args.push("--auto".into());
+    }
+    args.extend([
+        "serve".into(),
+        "--hostname".into(),
+        "127.0.0.1".into(),
+        "--port".into(),
+        "0".into(),
+    ]);
     ServeSpawnSpec {
         program: program.to_string(),
-        args: vec![
-            "serve".into(),
-            "--hostname".into(),
-            "127.0.0.1".into(),
-            "--port".into(),
-            "0".into(),
-        ],
+        args,
         hostname: "127.0.0.1".into(),
         port: "0".into(),
         http1_only: true,
         password_env: PASSWORD_ENV,
         username: USERNAME,
     }
+}
+
+/// Whether the requested permission locks Auto for this serve process.
+pub fn serve_auto_locked(permission_mode: Option<&str>) -> bool {
+    opencode_auto_locked(permission_mode)
 }
 
 pub fn generate_server_password() -> String {
@@ -74,6 +88,7 @@ pub struct ServeChild {
     pub child: Child,
     pub base_url: String,
     password: String,
+    pub auto_locked: bool,
 }
 
 impl std::fmt::Debug for ServeChild {
@@ -93,12 +108,24 @@ impl ServeChild {
 pub async fn spawn_serve(
     program: &str,
     cwd: &Path,
+    permission_mode: Option<&str>,
     env_overrides: Option<&std::collections::HashMap<String, String>>,
 ) -> AgentResult<ServeChild> {
-    let spec = serve_spawn_spec(program);
+    let auto_locked = serve_auto_locked(permission_mode);
+    let spec = serve_spawn_spec(program, permission_mode);
     let password = generate_server_password();
     let mut cmd = Command::new(&spec.program);
-    cmd.args(&spec.args)
+    let serve_args: Vec<&str> = if auto_locked {
+        // Serve subcommand rejects `--auto` today; keep the flag off argv until OpenCode adds it.
+        spec.args
+            .iter()
+            .filter(|arg| arg.as_str() != "--auto")
+            .map(String::as_str)
+            .collect()
+    } else {
+        spec.args.iter().map(String::as_str).collect()
+    };
+    cmd.args(&serve_args)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -158,6 +185,7 @@ pub async fn spawn_serve(
             child,
             base_url,
             password,
+            auto_locked,
         }),
         Err(error) => {
             let _ = child.start_kill();
@@ -229,11 +257,18 @@ mod tests {
 
     #[test]
     fn spawn_helper_forces_loopback_port_zero_http1_and_password_env() {
-        let spec = serve_spawn_spec("opencode");
+        let spec = serve_spawn_spec("opencode", None);
         assert_eq!(
             spec.args,
             ["serve", "--hostname", "127.0.0.1", "--port", "0"]
         );
+        let auto_spec = serve_spawn_spec("opencode", Some("auto"));
+        assert_eq!(
+            auto_spec.args,
+            ["--auto", "serve", "--hostname", "127.0.0.1", "--port", "0"]
+        );
+        assert!(serve_auto_locked(Some("auto")));
+        assert!(!serve_auto_locked(Some("ask_always")));
         assert_eq!(spec.hostname, "127.0.0.1");
         assert_eq!(spec.port, "0");
         assert!(spec.http1_only);
@@ -277,7 +312,7 @@ sleep 60
         .expect("write script");
         std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).expect("chmod");
 
-        let child = spawn_serve(script.to_str().expect("utf8"), dir.path(), None)
+        let child = spawn_serve(script.to_str().expect("utf8"), dir.path(), None, None)
             .await
             .expect("spawn fake serve");
         assert_eq!(child.base_url, "http://127.0.0.1:54321");

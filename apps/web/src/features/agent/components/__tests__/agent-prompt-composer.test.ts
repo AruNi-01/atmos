@@ -36,6 +36,7 @@ describe("agent prompt composer", () => {
     expect(composer).not.toContain("composerConfigIcon");
     expect(composer).not.toContain("ConfigOptionDropdown");
     expect(composer).toContain("ShieldAlert");
+    expect(composer).toContain("Clock");
     expect(composer).toContain("function modeIcon");
     expect(composer).toContain("ListTodo");
     expect(composer).toContain("Hammer");

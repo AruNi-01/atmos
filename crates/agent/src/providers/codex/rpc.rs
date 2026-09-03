@@ -106,13 +106,15 @@ pub fn thread_start_params(cwd: &Path, sticky: &StickyConfig) -> Value {
         sticky.permission_mode.as_deref(),
     )
     .unwrap_or_else(|| "on-request".into());
+    let reviewer =
+        crate::policy::permission::codex_approvals_reviewer(sticky.permission_mode.as_deref());
     let mut params = json!({
         "cwd": cwd.display().to_string(),
         "approvalPolicy": approval,
-        "approvalsReviewer": "user",
+        "approvalsReviewer": reviewer,
         "sandbox": "workspace-write",
     });
-    if let Some(model) = &sticky.model {
+    if let Some(model) = sticky_model(sticky) {
         params["model"] = json!(model);
     }
     params
@@ -129,27 +131,45 @@ pub fn turn_start_params(thread_id: &str, prompt: &AgentPrompt, sticky: &StickyC
         "threadId": thread_id,
         "input": prompt_input(prompt),
     });
-    if let Some(model) = &sticky.model {
+    if let Some(model) = sticky_model(sticky) {
         params["model"] = json!(model);
     }
     if let Some(effort) = &sticky.effort {
         params["effort"] = json!(effort);
     }
-    if let Some(mode) = collaboration_mode_params(sticky.mode.as_deref()) {
+    if let Some(mode) = collaboration_mode_params(sticky) {
         params["collaborationMode"] = mode;
     }
     params
 }
 
-/// Live 0.152.1 `TurnStartParams.collaborationMode`. `developer_instructions: null`
-/// means use the built-in instructions for `plan` / `default`.
-pub fn collaboration_mode_params(mode: Option<&str>) -> Option<Value> {
-    let mode = mode.map(str::trim).filter(|value| !value.is_empty())?;
+/// Live 0.153 `TurnStartParams.collaborationMode`. `settings.model` is required
+/// (serde `missing field 'model'` otherwise). `developer_instructions: null`
+/// means use the built-in instructions for `plan` / `default`. Omit the whole
+/// object when sticky mode or model is empty — top-level `model` / `effort`
+/// still apply, and older CLIs that reject the field retry without it.
+pub fn collaboration_mode_params(sticky: &StickyConfig) -> Option<Value> {
+    let mode = sticky
+        .mode
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())?;
+    let model = sticky_model(sticky)?;
+    let mut settings = json!({
+        "model": model,
+        "developer_instructions": null
+    });
+    if let Some(effort) = sticky
+        .effort
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        settings["reasoning_effort"] = json!(effort);
+    }
     Some(json!({
         "mode": mode,
-        "settings": {
-            "developer_instructions": null
-        }
+        "settings": settings
     }))
 }
 
@@ -344,7 +364,24 @@ impl CodexShared {
             Err(_) => super::catalog::codex_modes(),
         };
         overlay_modes(self, modes).await;
+        overlay_permission_modes(self).await;
+        {
+            let (models, thinking) = {
+                let map = self.map.lock().await;
+                (
+                    map.supported_options.models.clone(),
+                    map.supported_options.thinking.clone(),
+                )
+            };
+            let mut sticky = self.sticky.lock().await;
+            apply_listed_defaults_to_sticky(&mut sticky, &models, &thinking);
+        }
         let sticky = self.sticky.lock().await.clone();
+        if sticky_unset(&sticky.model) {
+            return Err(AgentProviderError::message(
+                "codex requires a model before thread/start",
+            ));
+        }
         let result = if let Some(thread_id) = resume {
             self.request(
                 "thread/resume",
@@ -584,6 +621,23 @@ fn sticky_unset(value: &Option<String>) -> bool {
         .is_none()
 }
 
+fn sticky_model(sticky: &StickyConfig) -> Option<&str> {
+    sticky
+        .model
+        .as_deref()
+        .map(str::trim)
+        .filter(|item| !item.is_empty())
+}
+
+async fn overlay_permission_modes(shared: &CodexShared) {
+    let mut map = shared.map.lock().await;
+    if !map.supported_options.permission_modes.is_empty() {
+        return;
+    }
+    map.supported_options.permission_modes = crate::policy::advertised_permission_modes("codex");
+    emit_supported_options(shared, &map.supported_options);
+}
+
 fn default_effort_for_model(
     models: &[AgentModel],
     model_id: Option<&str>,
@@ -743,6 +797,18 @@ mod tests {
             },
         );
         assert_eq!(yolo["approvalPolicy"], "never");
+        assert_eq!(yolo["approvalsReviewer"], "user");
+        let auto = thread_start_params(
+            &PathBuf::from("/abs/project"),
+            &StickyConfig {
+                model: Some("gpt-5.6-sol".into()),
+                effort: None,
+                mode: None,
+                permission_mode: Some("auto".into()),
+            },
+        );
+        assert_eq!(auto["approvalPolicy"], "on-request");
+        assert_eq!(auto["approvalsReviewer"], "auto_review");
         let ask = thread_start_params(
             &PathBuf::from("/abs/project"),
             &StickyConfig {
@@ -753,6 +819,7 @@ mod tests {
             },
         );
         assert_eq!(ask["approvalPolicy"], "on-request");
+        assert_eq!(ask["approvalsReviewer"], "user");
     }
 
     #[test]
@@ -799,6 +866,14 @@ mod tests {
         assert_eq!(params["model"], "gpt-5.6-sol");
         assert_eq!(params["effort"], "high");
         assert_eq!(params["collaborationMode"]["mode"], "plan");
+        assert_eq!(
+            params["collaborationMode"]["settings"]["model"],
+            "gpt-5.6-sol"
+        );
+        assert_eq!(
+            params["collaborationMode"]["settings"]["reasoning_effort"],
+            "high"
+        );
         assert!(params["collaborationMode"]["settings"]["developer_instructions"].is_null());
         sticky.apply(&AgentRuntimeConfigUpdate {
             mode: Some("default".into()),
@@ -806,10 +881,29 @@ mod tests {
         });
         let back = turn_start_params("thr_123", &prompt, &sticky);
         assert_eq!(back["collaborationMode"]["mode"], "default");
+        assert_eq!(
+            back["collaborationMode"]["settings"]["model"],
+            "gpt-5.6-sol"
+        );
         assert!(collaboration_mode_rejected(
             "collaborationMode did not match schema"
         ));
         assert!(!collaboration_mode_rejected("turn timed out"));
+    }
+
+    #[test]
+    fn collaboration_mode_omits_when_sticky_model_is_empty() {
+        let sticky = StickyConfig {
+            mode: Some("plan".into()),
+            ..StickyConfig::default()
+        };
+        assert!(collaboration_mode_params(&sticky).is_none());
+        let prompt = AgentPrompt {
+            text: "Run tests".into(),
+            ..AgentPrompt::default()
+        };
+        let params = turn_start_params("thr_123", &prompt, &sticky);
+        assert!(params.get("collaborationMode").is_none());
     }
 
     #[test]

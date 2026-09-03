@@ -144,13 +144,7 @@ async fn close_shared(shared: &Arc<CodexShared>, child: &mut tokio::process::Chi
 }
 
 pub(crate) fn parse_model_list(result: &Value) -> (Vec<AgentModel>, AgentThinkingSupport) {
-    let items = result
-        .get("data")
-        .or_else(|| result.get("models"))
-        .or_else(|| result.get("items"))
-        .and_then(Value::as_array)
-        .cloned()
-        .unwrap_or_default();
+    let items = model_list_items(result);
     let mut models = Vec::new();
     let mut efforts: Vec<String> = Vec::new();
     for item in items {
@@ -209,6 +203,28 @@ pub(crate) fn parse_model_list(result: &Value) -> (Vec<AgentModel>, AgentThinkin
         }
     };
     (models, thinking)
+}
+
+fn model_list_items(result: &Value) -> Vec<Value> {
+    fn array_or_nested(value: &Value) -> Option<Vec<Value>> {
+        if let Some(items) = value.as_array() {
+            return Some(items.clone());
+        }
+        let object = value.as_object()?;
+        object
+            .get("data")
+            .or_else(|| object.get("items"))
+            .or_else(|| object.get("models"))
+            .and_then(Value::as_array)
+            .cloned()
+    }
+    result
+        .get("data")
+        .and_then(array_or_nested)
+        .or_else(|| result.get("models").and_then(array_or_nested))
+        .or_else(|| result.get("items").and_then(array_or_nested))
+        .or_else(|| array_or_nested(result))
+        .unwrap_or_default()
 }
 
 pub(crate) fn parse_collaboration_modes(result: &Value) -> Vec<AgentMode> {
@@ -377,6 +393,17 @@ mod tests {
             }
             other => panic!("expected thinking, got {other:?}"),
         }
+        let nested = json!({
+            "data": {
+                "items": [{
+                    "id": "gpt-5.6-luna",
+                    "displayName": "GPT-5.6-Luna",
+                    "isDefault": true
+                }]
+            }
+        });
+        let (nested_models, _) = parse_model_list(&nested);
+        assert_eq!(nested_models[0].id, "gpt-5.6-luna");
         let handshake: Value = serde_json::from_str(
             include_str!("testdata/handshake.jsonl")
                 .lines()
