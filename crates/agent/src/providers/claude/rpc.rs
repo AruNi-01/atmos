@@ -399,8 +399,8 @@ fn one_line_input_summary(input: &Value) -> String {
         .or_else(|| crate::map::extract_query(input))
         .unwrap_or_else(|| {
             let raw = input.to_string();
-            if raw.len() > 120 {
-                format!("{}…", &raw[..120])
+            if raw.chars().count() > 120 {
+                format!("{}…", raw.chars().take(120).collect::<String>())
             } else {
                 raw
             }
@@ -548,6 +548,14 @@ mod tests {
         );
         assert!(rewind_conversation_steps(&uuids, "u4").unwrap().is_empty());
         assert!(rewind_conversation_steps(&uuids, "missing").is_err());
+    }
+
+    #[test]
+    fn permission_summary_truncates_multibyte_without_panic() {
+        let input = json!({ "payload": "你".repeat(200) });
+        let summary = one_line_input_summary(&input);
+        assert!(summary.ends_with('…'));
+        assert!(summary.chars().count() <= 121);
     }
 
     #[test]

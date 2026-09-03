@@ -131,6 +131,8 @@ describe("custom agent registry merge", () => {
 
   it("redacts secret env keys in the manager card", () => {
     expect(isSecretEnvKey("DEEPSEEK_API_KEY")).toBe(true);
+    expect(isSecretEnvKey("PASSWORD")).toBe(true);
+    expect(isSecretEnvKey("GOOGLE_APPLICATION_CREDENTIALS")).toBe(true);
     expect(isSecretEnvKey("PATH")).toBe(false);
   });
 

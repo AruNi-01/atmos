@@ -172,5 +172,11 @@ export function authRequiredFromTurnError(
 
 export function isSecretEnvKey(key: string): boolean {
   const upper = key.toUpperCase();
-  return upper.includes("KEY") || upper.includes("TOKEN") || upper.includes("SECRET");
+  return (
+    upper.includes("KEY") ||
+    upper.includes("TOKEN") ||
+    upper.includes("SECRET") ||
+    upper.includes("PASSWORD") ||
+    upper.includes("CREDENTIAL")
+  );
 }

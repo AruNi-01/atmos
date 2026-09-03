@@ -341,9 +341,13 @@ export function displayedComposerConfigValue(
   kind: "model" | "thinking" | "mode" | "permission_mode",
   selected = "",
 ): string {
-  const trimmed = selected.trim();
-  if (trimmed) return trimmed;
   const option = options.find((item) => configKindMatches(item.id, item.category, kind));
+  const trimmed = selected.trim();
+  if (kind !== "model") {
+    if (trimmed && option?.options.some((item) => item.value === trimmed)) return trimmed;
+    return option?.currentValue?.trim() || "";
+  }
+  if (trimmed) return trimmed;
   return option?.currentValue?.trim() || "";
 }
 

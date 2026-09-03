@@ -10,10 +10,6 @@ pub(super) fn prepare(update: &ToolCallUpdate) -> ToolCallUpdate {
         return next;
     }
     let input = next.raw_input.as_ref();
-    if input.and_then(extract_path).is_some() {
-        next.acp_kind = Some("read".into());
-        return next;
-    }
     if input.and_then(extract_command).is_some() {
         next.acp_kind = Some("execute".into());
         return next;
@@ -27,6 +23,10 @@ pub(super) fn prepare(update: &ToolCallUpdate) -> ToolCallUpdate {
         || !next.locations.is_empty()
     {
         next.acp_kind = Some("search".into());
+        return next;
+    }
+    if input.and_then(extract_path).is_some() {
+        next.acp_kind = Some("read".into());
         return next;
     }
     next
@@ -140,5 +140,20 @@ mod tests {
             }
             other => panic!("expected search hits, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn other_path_and_query_maps_to_search() {
+        let call = update(
+            "Tool",
+            ToolCallStatus::Completed,
+            serde_json::json!({
+                "path": "/tmp/app",
+                "query": "AgentLaunchSpec"
+            }),
+            None,
+        );
+        let tool = mapped(call);
+        assert_eq!(tool.kind, AgentToolKind::Search);
     }
 }

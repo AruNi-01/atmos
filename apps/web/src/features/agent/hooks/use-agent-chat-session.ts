@@ -540,10 +540,10 @@ export function useAgentChatSession({
   }, [wsConnected]);
 
   useEffect(() => {
+    if (registryQuery.isLoading || customQuery.isLoading || nativeQuery.isLoading) return;
     const agents = registryQuery.data?.agents ?? [];
     const custom = customQuery.data?.agents ?? [];
     const natives = nativeQuery.data?.agents ?? [];
-    if (!registryQuery.data && !customQuery.data && !nativeQuery.data) return;
     const installed = mergeInstalledAgents(
       agents.filter((agent) => agent.installed),
       custom,
@@ -560,7 +560,14 @@ export function useAgentChatSession({
       if (installed[0]) return installed[0].id;
       return current;
     });
-  }, [customQuery.data, nativeQuery.data, registryQuery.data]);
+  }, [
+    customQuery.data,
+    customQuery.isLoading,
+    nativeQuery.data,
+    nativeQuery.isLoading,
+    registryQuery.data,
+    registryQuery.isLoading,
+  ]);
 
   useEffect(() => {
     return useWebSocketStore.getState().onEvent("agent_model_catalog_updated", (payload) => {

@@ -1078,10 +1078,15 @@ impl AgentChatService {
         })?;
         let control = session.control();
         let alive = Arc::new(AtomicBool::new(true));
+        let pending_session_op = self
+            .store
+            .get_meta(chat_id)
+            .ok()
+            .and_then(|meta| meta.pending_session_op);
         let state = Arc::new(Mutex::new(RuntimeState {
             current_turn_id: initial_turn_id,
             pending_permission: None,
-            pending_session_op: None,
+            pending_session_op,
             assistant_text: HashMap::new(),
             thinking_text: HashMap::new(),
             last_snapshot: Instant::now(),

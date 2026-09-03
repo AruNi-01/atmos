@@ -1,10 +1,13 @@
 use std::path::PathBuf;
 
-use agent::acp_client::{logout_acp_agent, AgentLogoutResult};
+use agent::acp_client::{
+    logout_acp_agent, AgentCapabilitiesSnapshot, AgentCapabilityState, AgentLogoutResult,
+};
 use agent::{
-    is_builtin_custom_agent_id, native_chat_launch_spec, AgentConfigState, AgentId,
-    AgentInstallResult, AgentLaunchSpec, AgentManager, AgentStatus, CustomAgent, NativeChatAgent,
-    RegistryAgent, RegistryInstallResult, DEEPSEEK_API_KEY_ENV, DEEPSEEK_HARNESS_ID,
+    is_builtin_custom_agent_id, is_native_chat_agent_id, native_chat_launch_spec, AgentConfigState,
+    AgentId, AgentInstallResult, AgentLaunchSpec, AgentManager, AgentStatus, CustomAgent,
+    NativeChatAgent, RegistryAgent, RegistryInstallResult, DEEPSEEK_API_KEY_ENV,
+    DEEPSEEK_HARNESS_ID,
 };
 
 use crate::error::Result;
@@ -172,11 +175,33 @@ impl AgentService {
         cwd: Option<PathBuf>,
         auth_method_id: Option<String>,
     ) -> Result<AgentLogoutResult> {
+        if is_native_chat_agent_id(registry_id) {
+            return Ok(native_logout_unsupported());
+        }
         let launch_spec = self.get_chat_agent_launch_spec(registry_id).await?;
         let env_overrides = self.get_registry_agent_env_overrides(registry_id);
         logout_acp_agent(launch_spec, cwd, env_overrides, auth_method_id)
             .await
             .map_err(crate::error::ServiceError::Processing)
+    }
+}
+
+fn native_logout_unsupported() -> AgentLogoutResult {
+    let reason = Some("Native chat hosts do not use ACP logout".to_string());
+    let cap = AgentCapabilityState::unsupported(reason.clone());
+    AgentLogoutResult {
+        agent_info: None,
+        capabilities: AgentCapabilitiesSnapshot {
+            session_list: cap.clone(),
+            session_resume: cap.clone(),
+            session_close: cap.clone(),
+            logout: cap.clone(),
+            config_options: cap.clone(),
+            session_info_update: cap.clone(),
+            load_session: cap,
+        },
+        logged_out: false,
+        unsupported_reason: reason,
     }
 }
 

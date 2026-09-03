@@ -171,6 +171,7 @@ describe("agent chat helpers", () => {
     expect(displayedComposerConfigValue(displayed, "thinking", "")).toBe("low");
     expect(displayedComposerConfigValue(displayed, "mode", "")).toBe("default");
     expect(displayedComposerConfigValue(displayed, "model", "gpt-5.6-sol")).toBe("gpt-5.6-sol");
+    expect(displayedComposerConfigValue(displayed, "thinking", "xhigh")).toBe("low");
     const options = catalogToConfigOptions(
       {
         agent_id: "cursor",

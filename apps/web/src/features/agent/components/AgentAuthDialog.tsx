@@ -118,7 +118,6 @@ export function AgentAuthDialog({
                     authMethodId: methodId,
                     ...(needsToken ? { apiKey: token } : {}),
                   });
-                  clearAuthRequest();
                 } catch {
                   // Keep the dialog open so the token can be retried.
                 } finally {
