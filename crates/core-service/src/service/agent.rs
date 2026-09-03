@@ -4,10 +4,10 @@ use agent::acp_client::{
     logout_acp_agent, AgentCapabilitiesSnapshot, AgentCapabilityState, AgentLogoutResult,
 };
 use agent::{
-    is_builtin_custom_agent_id, is_native_chat_agent_id, native_chat_launch_spec, AgentConfigState,
-    AgentId, AgentInstallResult, AgentLaunchSpec, AgentManager, AgentStatus, CustomAgent,
-    NativeChatAgent, RegistryAgent, RegistryInstallResult, DEEPSEEK_API_KEY_ENV,
-    DEEPSEEK_HARNESS_ID,
+    canonicalize_chat_provider_id, is_builtin_custom_agent_id, is_native_chat_agent_id,
+    native_chat_launch_spec, AgentConfigState, AgentId, AgentInstallResult, AgentLaunchSpec,
+    AgentManager, AgentStatus, CustomAgent, NativeChatAgent, RegistryAgent, RegistryInstallResult,
+    DEEPSEEK_API_KEY_ENV, DEEPSEEK_HARNESS_ID,
 };
 
 use crate::error::Result;
@@ -175,7 +175,7 @@ impl AgentService {
         cwd: Option<PathBuf>,
         auth_method_id: Option<String>,
     ) -> Result<AgentLogoutResult> {
-        if is_native_chat_agent_id(registry_id) {
+        if is_native_chat_agent_id(canonicalize_chat_provider_id(registry_id)) {
             return Ok(native_logout_unsupported());
         }
         let launch_spec = self.get_chat_agent_launch_spec(registry_id).await?;

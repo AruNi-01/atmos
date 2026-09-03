@@ -344,8 +344,11 @@ export function displayedComposerConfigValue(
   const option = options.find((item) => configKindMatches(item.id, item.category, kind));
   const trimmed = selected.trim();
   if (kind !== "model") {
-    if (trimmed && option?.options.some((item) => item.value === trimmed)) return trimmed;
-    return option?.currentValue?.trim() || "";
+    const listed = option?.options.map((item) => item.value) ?? [];
+    if (trimmed && listed.includes(trimmed)) return trimmed;
+    const current = option?.currentValue?.trim() || "";
+    if (current && listed.includes(current)) return current;
+    return listed[0] || "";
   }
   if (trimmed) return trimmed;
   return option?.currentValue?.trim() || "";

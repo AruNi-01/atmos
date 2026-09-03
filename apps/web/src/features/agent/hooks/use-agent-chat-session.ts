@@ -541,6 +541,7 @@ export function useAgentChatSession({
 
   useEffect(() => {
     if (registryQuery.isLoading || customQuery.isLoading || nativeQuery.isLoading) return;
+    if (!registryQuery.data && !customQuery.data && !nativeQuery.data) return;
     const agents = registryQuery.data?.agents ?? [];
     const custom = customQuery.data?.agents ?? [];
     const natives = nativeQuery.data?.agents ?? [];
