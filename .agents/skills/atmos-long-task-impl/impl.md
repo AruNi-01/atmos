@@ -1,30 +1,30 @@
-# 实现 subagent
+# Impl subagent
 
-只读本文件 + 主 Agent 贴进 Task prompt 的切片 brief。不要读编排 skill 去「帮忙做主 Agent 的事」。看不到父会话；brief 没写的视为不存在。
+Read only this file plus the slice brief pasted into the Task prompt. Do not read orchestration skills to “help the lead agent.” You cannot see the parent session; anything not in the brief does not exist.
 
-编码约定跟 `atmos-specs-impl`：层顺序、WebSocket-first、切片回归门。本文件只加并行切片的硬约束。
+Coding conventions follow `atmos-specs-impl`: layer order, WebSocket-first, slice regression gate. This file adds hard constraints for parallel slices.
 
-## 硬约束
+## Hard constraints
 
-1. **只改 `Owns` 里的路径。** 读 `Reads` 可以；写 `Forbids` 或未列出的文件 = 失败。需要改边界外的文件 → `BLOCKED`，不要「顺手改」。
-2. **禁止猜规格。** TECH/PRD/brief 沉默或冲突 → `BLOCKED`。不要选一个「合理默认」。
-3. **禁止 TODO / mock / 空实现 / `unimplemented!` / 假绿测试。** 做不完就 `BLOCKED` 并列出未做项。
-4. **禁止扩大范围。** 不重构邻居、不顺便修无关 lint、不改 brief 外的文案键。
-5. **禁止自己宣布通过 / 标 `done`。** 不写 `PROGRESS.md`、不写 `REVIEW.md`。
-6. **禁止 commit / push**，除非 brief 明确要求（默认不要求）。
-7. 做完跑 brief 里的 **Verify** 命令。不能跑就在报告里写原因，不要假装绿。
+1. **Edit only paths in `Owns`.** Reading `Reads` is allowed; writing `Forbids` or unlisted paths = failure. Need a file outside the boundary → `BLOCKED`; do not “fix while here.”
+2. **No spec guessing.** TECH/PRD/brief silent or conflicting → `BLOCKED`. Do not pick a “reasonable default.”
+3. **No TODO / mock / stubs / `unimplemented!` / fake-green tests.** If you cannot finish → `BLOCKED` with what remains.
+4. **No scope expansion.** No neighbor refactors, unrelated lint fixes, or copy keys outside the brief.
+5. **Do not declare pass / mark `done`.** Do not write `PROGRESS.md` or `REVIEW.md`.
+6. **No commit / push** unless the brief explicitly requires it (default: no).
+7. Run the brief's **Verify** command when done. If you cannot run it, say so in the report; do not pretend green.
 
-## 工作顺序
+## Work order
 
-1. 读 brief 的 Goal / Out of scope / Owns / Forbids / Invariants / Verify。
-2. 读 brief 点名的规格段落（主 Agent 应已摘录）。缺摘录且本地能读到 spec 文件时，只读那些路径；仍不够 → `BLOCKED`。
-3. 实现，保持 diff 落在 `Owns`。
-4. 跑 Verify。
-5. 返回报告后**停止**。不要自己开 review，不要开始下一切片。
+1. Read brief Goal / Out of scope / Owns / Forbids / Invariants / Verify.
+2. Read spec sections named in the brief (lead should have excerpted). If excerpts are missing and spec files are readable locally, read only those paths; still insufficient → `BLOCKED`.
+3. Implement; keep diff within `Owns`.
+4. Run Verify.
+5. Return report and **stop**. Do not self-review; do not start the next slice.
 
-## 输出（必须用这个形状）
+## Output (required shape)
 
-成功：
+Success:
 
 ```markdown
 SLICE: S1
@@ -36,30 +36,30 @@ NOTES: one-line invariants preserved
 BLOCKED: none
 ```
 
-`FILES` 必须是 `Owns` 的子集。多出来的路径 = 切片失败。
+`FILES` must be a subset of `Owns`. Extra paths = slice failure.
 
-缺口：
+Blocked:
 
 ```markdown
 SLICE: S1
 STATUS: BLOCKED
-REASON: <规格缺口，不是「我不确定怎么写优雅」>
-NEED_FROM: HUMAN | 主 Agent
-QUESTION: <两个互斥选项 + 你缺的那条 TECH 句子>
+REASON: <spec gap, not "I'm unsure how to write this elegantly">
+NEED_FROM: HUMAN | lead agent
+QUESTION: <two mutually exclusive options + the TECH sentence you lack>
 FILES_ALREADY_CHANGED:
 - path
 OWNS_RESPECTED: true | false
 VERIFY: not_run | `<command>` → …
 ```
 
-`QUESTION` 必须让 HUMAN 选 A/B，不要开放题。
+`QUESTION` must offer HUMAN a choice A/B, not an open-ended prompt.
 
-## 父会话贴进 Task 的 brief 骨架
+## Brief skeleton (lead agent pastes into Task)
 
-主 Agent 原样填空，不要写「继续刚才的讨论」。
+Fill in literally; do not write “continue our earlier discussion.”
 
 ```markdown
-你是实现 subagent。先读 `.agents/skills/atmos-long-task-impl/impl.md`，再读 `.agents/skills/atmos-specs-impl/SKILL.md` 的编码规则。然后只做本切片。
+You are an impl subagent. Read `.agents/skills/atmos-long-task-impl/impl.md`, then `.agents/skills/atmos-specs-impl/SKILL.md` for coding rules. Then do only this slice.
 
 SLICE: S1
 GOAL: …
@@ -73,12 +73,12 @@ READS (read-only):
 INVARIANTS (verbatim from TECH/PRD):
 - …
 VERIFY: `<command>`
-DO NOT: 改 Owns 外文件；写 PROGRESS.md / REVIEW.md；commit；猜规格；TODO/mock/空实现；自己宣布通过。
-不确定则按 impl.md 输出 STATUS: BLOCKED 后停止。
+DO NOT: edit outside Owns; write PROGRESS.md / REVIEW.md; commit; guess spec; TODO/mock/stubs; declare pass.
+If uncertain, output STATUS: BLOCKED per impl.md and stop.
 ```
 
-## 失败模式
+## Failure modes
 
-- 为了对齐类型而改 `packages/api-types`，但那不在 `Owns` → 停，`BLOCKED`。
-- 发现 Wave 0 契约与 TECH 不符 → `BLOCKED`，不要在本切片「修契约」。
-- Verify 红了且原因在别人的文件 → `BLOCKED`，不要去改那个文件。
+- Aligning types by editing `packages/api-types` when that is not in `Owns` → stop, `BLOCKED`.
+- Wave 0 contract disagrees with TECH → `BLOCKED`; do not “fix contract” in this slice.
+- Verify red for reasons in someone else's files → `BLOCKED`; do not edit that file.

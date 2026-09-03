@@ -1,6 +1,6 @@
 ---
 name: atmos-long-task-impl
-description: Orchestrate complex multi-file Atmos implementation as the parent 主 Agent — slice TECH into file-disjoint waves, write a PROGRESS.md kanban, dispatch impl and read-only review subagents, escalate spec gaps to HUMAN, and never write feature code in the parent session. Use when the user asks for 并行实现, 长任务, long-task, 看板, 切分, dispatch subagents, split a large APP-NNN spec across agents, or when a single atmos-specs-impl session would overflow context or collide on the same files.
+description: Orchestrate complex multi-file Atmos implementation as the parent lead agent — slice TECH into file-disjoint waves, write a PROGRESS.md kanban, dispatch impl and read-only review subagents, escalate spec gaps to HUMAN, and never write feature code in the parent session. Use when the user asks for parallel implementation, long-task orchestration, kanban-style tracking, wave splitting, dispatch subagents, split a large APP-NNN spec across agents, or when a single atmos-specs-impl session would overflow context or collide on the same files.
 user-invokable: true
 args:
   - name: spec_id
@@ -13,170 +13,170 @@ args:
 
 # Atmos Long-Task Implementation
 
-父会话 = **主 Agent**。功能代码只由 **实现 subagent** 写；**review subagent** 只读；规格歧义只问 **HUMAN**。硬边界见 [roles.md](roles.md)。
+Parent session = **lead agent**. Feature code is written only by **impl subagents**; **review subagents** are read-only; spec ambiguity is escalated only to **HUMAN**. Hard boundaries are in [roles.md](roles.md).
 
-本 skill **替换的是父会话写代码**，不替换 `atmos-specs-impl` 的编码规则。每个实现 subagent 仍遵守那份 skill（层顺序、WebSocket-first、回归门）。
+This skill **replaces the parent writing code**, not the coding rules in `atmos-specs-impl`. Each impl subagent still follows that skill (layer order, WebSocket-first, regression gate).
 
 ## When to use
 
-用这个 skill，若 **任一** 成立：
+Use this skill if **any** of these hold:
 
-- 用户要并行 / 切分 / 看板 / 派发 subagent / 长任务实现
-- 一个 TECH phase 跨多个 crate 或 app，单会话后半会丢掉前半不变量
-- 两条工作流若同时开工会写同一文件
+- The user wants parallel work, wave splitting, kanban tracking, subagent dispatch, or long-task implementation
+- One TECH phase spans multiple crates or apps and a single session would lose invariants from the first half
+- Two workflows would edit the same files if started at once
 
 ## When not to use
 
-- 小改动能在一次 `atmos-specs-impl` 会话里写完并回归
-- PRD/TECH/TEST 仍是模板或主 Agent 对 TECH 对不上唯一架构（先停，问 HUMAN，或退回 `atmos-specs-tech`）
-- 用户只要你在父会话里改几个文件
+- A small change fits in one `atmos-specs-impl` session with regression green
+- PRD/TECH/TEST are still templates or TECH does not admit a single architecture (stop, ask HUMAN, or return to `atmos-specs-tech`)
+- The user only wants a few files edited in the parent session
 
-场景测试仍归 `atmos-specs-test-run`。全量规格审查归 `atmos-specs-review`。本 skill 的 review subagent 是**切片级、清单驱动**的关卡，不是那两个 skill 的替代。
+Scenario testing still belongs to `atmos-specs-test-run`. Full spec review belongs to `atmos-specs-review`. This skill's review subagent is a **slice-level, checklist-driven gate**, not a replacement for those skills.
 
-## 架构（相对「全员并行写」的最优切法）
+## Architecture (optimal cut vs “everyone parallel”)
 
-四角色够了，不要再加 planner / integrator / tester。
+Four roles are enough. Do not add planner / integrator / tester.
 
 ```
-HUMAN  ←—— 唯一产品/契约/歧义裁决
+HUMAN  ←—— sole product / contract / ambiguity arbiter
   ▲
-主 Agent  切分波次 · 碰撞检查 · 写看板 · 派发 · 架构核对 · 裁决 review
-  ├── Wave 0 串行实现 subagent：磁盘上的编译契约
-  ├── Wave N 并行实现 subagent：Owns 互斥 且 契约已存在
-  ├── 每切片 review subagent：只读，清单由主 Agent 指定
-  └── 末波串行实现 subagent：hot files + 胶水
+Lead agent  wave split · collision check · kanban · dispatch · architecture check · review verdict
+  ├── Wave 0 serial impl subagent: compile contracts on disk
+  ├── Wave N parallel impl subagents: disjoint Owns and contracts already landed
+  ├── Per-slice review subagent: read-only, checklist from lead agent
+  └── Final serial impl subagent: hot files + glue
 ```
 
-调度约束（不是口味）：
+Scheduling constraints (not preference):
 
-1. Cursor 实现 subagent **共享当前 workspace**。默认不要用隔离 worktree（合并冲突会变成新的规格发明场）。
-2. 可并行 iff `Owns` 交集为空 **且** import 的类型/WS 已在前一波落地。按文件夹拆不够。
-3. 同一波实现默认最多 3 路。Review 只读，可在实现返回后立刻对已完成切片流水线式派发。
-4. 看板单写者 = 主 Agent。实现/review 都不写 `PROGRESS.md`。
+1. Cursor impl subagents **share the current workspace**. Do not use isolated worktrees by default (merge conflicts become new spec invention).
+2. Parallel iff `Owns` sets are disjoint **and** imported types / WS rows exist from a prior wave. Folder-based splitting is not enough.
+3. Default at most **3** impl subagents per wave. Review is read-only; pipeline review after each impl returns.
+4. Kanban single writer = lead agent. Impl and review agents do not edit `PROGRESS.md`.
 
-看板与碰撞规则：[kanban.md](kanban.md)。切分对照：[examples.md](examples.md)。
+Kanban and collision rules: [kanban.md](kanban.md). Splitting examples: [examples.md](examples.md).
 
-## 主 Agent 循环
+## Lead agent loop
 
-复制并勾进度：
+Copy and track progress:
 
 ```
-- [ ] 0. 读 PRD / TECH / TEST（及已有 PROGRESS）；TECH 对不上就停
-- [ ] 1. 架构核对：层、WS-first、模块边界有唯一解？
-- [ ] 2. 切波次 + Owns；碰撞检查；hot files 预留到串行波
-- [ ] 3. 写/更新 PROGRESS.md 看板（主 Agent 唯一写入）
-- [ ] 4. 缺口 → HUMAN（A/B）；在回复前不要派相关切片
-- [ ] 5. 派本波实现 subagent（一消息多 Task；brief 自包含）
-- [ ] 6. 收回报告；越界或 BLOCKED → 停相关波，不要自己改代码
-- [ ] 7. 派 review（换一个 Agent；清单是具体逻辑）
-- [ ] 8. 裁决：pass → 可 done；fail → 同一 Owns 返工实现 + 再 review
-- [ ] 9. 再核对 TECH；下一波；末波胶水仍走实现 Agent
-- [ ] 10. 全部 done → 交给 atmos-specs-test-run（用户要停则交手并说明）
+- [ ] 0. Read PRD / TECH / TEST (and existing PROGRESS); stop if TECH is ambiguous
+- [ ] 1. Architecture check: layers, WS-first, module boundaries unique?
+- [ ] 2. Slice waves + Owns; collision check; reserve hot files for serial wave
+- [ ] 3. Write/update PROGRESS.md kanban (lead agent only)
+- [ ] 4. Gaps → HUMAN (A/B); do not dispatch related slices before reply
+- [ ] 5. Dispatch impl subagents for this wave (multiple Tasks in one parent message; self-contained briefs)
+- [ ] 6. Collect reports; scope breach or BLOCKED → stop wave; do not patch code in parent
+- [ ] 7. Dispatch review (different agent; concrete logic checklist)
+- [ ] 8. Verdict: pass → may mark done; fail → rework impl same Owns + review again
+- [ ] 9. Re-check TECH; next wave; final glue still via impl agent
+- [ ] 10. All done → hand off to atmos-specs-test-run (or stop if user only wanted production code)
 ```
 
-### 0–1 读规格与架构核对
+### 0–1 Read specs and architecture check
 
-读：`PRD.md`、`TECH.md`、`TEST.md`、已有 `PROGRESS.md`、将触及区域的 `AGENTS.md`。
+Read: `PRD.md`, `TECH.md`, `TEST.md`, existing `PROGRESS.md`, and `AGENTS.md` for touched areas.
 
-父会话里确认：
+Confirm in the parent session:
 
-- 每个切片能从 TECH 得到唯一模块边界，而不是「两种都能讲通」
-- 新 API 是 WS（或 TECH 已写明 REST 例外）
-- 层顺序：infra → core-engine → core-service → api → apps；并行不得打破**编译**顺序（契约未落地就并行 UI/API = 非法）
+- Each slice has a unique module boundary from TECH, not “two stories both work”
+- New API is WS (or TECH documents a REST exception)
+- Layer order: infra → core-engine → core-service → api → apps; parallel work must not break **compile** order (parallel UI/API before contract on disk = invalid)
 
-主 Agent 在此步 **只读、只切、只问**。发现要改产品代码 → 那是切片，不是现在。
+The lead agent **reads, slices, and asks only** at this step. Need to change product code → that is a slice, not now.
 
-### 2–3 切分并写看板
+### 2–3 Slice and write kanban
 
-每张切片卡必须有：Goal、Out of scope、Owns、Forbids、Depends、从 TECH **摘抄**的不变量、一条 Verify 命令、**主 Agent 写好的** review 清单。
+Every slice card must have: Goal, Out of scope, Owns, Forbids, Depends, **copied** invariants from TECH, one Verify command, and a **lead-written** review checklist.
 
-把表写进 spec 的 `PROGRESS.md`。模板：[kanban.md](kanban.md)。
+Write the table into the spec's `PROGRESS.md`. Template: [kanban.md](kanban.md).
 
-### 4 向 HUMAN 提问
+### 4 Ask HUMAN
 
-规格沉默、跨切片契约冲突、或架构没有唯一 TECH 解时：**停派发**，问 HUMAN。不要在沉默处发明口径。
+When the spec is silent, contracts conflict across slices, or architecture has no unique TECH answer: **stop dispatch** and ask HUMAN. Do not invent defaults in silence.
 
 ```markdown
-HUMAN 裁决需要
-切片: S1, S2
-冲突: <一句话>
-选项:
+HUMAN decision needed
+Slices: S1, S2
+Conflict: <one sentence>
+Options:
 A. …
 B. …
-推荐: A，因为 <已写在 TECH 的依据，或「TECH 未写，这是偏好」>
-在你回复前：S1/S2 保持 blocked，不派发。
+Recommendation: A, because <TECH citation, or “TECH silent — preference only”>
+Until you reply: S1/S2 stay blocked; no dispatch.
 ```
 
-### 5 派发实现
+### 5 Dispatch impl
 
-对每个就绪切片开 `generalPurpose` Task。Prompt 必须自包含（subagent **没有**父会话）：
+Open one `generalPurpose` Task per ready slice. The prompt must be self-contained (subagent **has no** parent context):
 
-1. 「先读 `.agents/skills/atmos-long-task-impl/impl.md`」
-2. 完整切片卡（Owns 写绝对或仓库根相对路径）
-3. 规格摘录原文，不要「按 TECH 第二节」
-4. 允许只读的邻居路径
-5. Verify 命令
-6. 「不要改 Owns 之外的文件；不要写 PROGRESS.md；不要 commit」
+1. “Read `.agents/skills/atmos-long-task-impl/impl.md` first”
+2. Full slice card (Owns as absolute or repo-root-relative paths)
+3. Spec excerpts verbatim — not “see TECH §2”
+4. Read-only neighbor paths allowed
+5. Verify command
+6. “Do not edit outside Owns; do not write PROGRESS.md; do not commit”
 
-同一波的多个实现：**一条父消息里多个 Task**。先做完碰撞检查。
+Multiple impl agents in one wave: **multiple Tasks in one parent message**. Run collision check first.
 
-### 6–8 收回、审查、裁决
+### 6–8 Collect, review, verdict
 
-实现返回后：
+After impl returns:
 
-- `FILES` 必须 ⊆ `Owns`。越界 = 失败。不要在父会话里把越界 diff 「修回去」当功能补丁；派 **cleanup 实现切片**（Owns = 那些被污染的文件）或请 HUMAN 允许 `git checkout -- <path>` 丢弃。
-- `BLOCKED` → 看板标 blocked，带 QUESTION 问 HUMAN。
-- `ok` → 立刻可派 **另一个** review Agent。Prompt 读 [review.md](review.md)，附上 `git diff` 范围 = Owns、规格摘录、**本切片审查清单**。
+- `FILES` must ⊆ `Owns`. Out of scope = failure. Do not “fix” out-of-scope diff in the parent as feature work; dispatch a **cleanup impl slice** (Owns = polluted paths) or ask HUMAN to allow `git checkout -- <path>`.
+- `BLOCKED` → mark kanban blocked with QUESTION for HUMAN.
+- `ok` → dispatch a **different** review agent. Prompt reads [review.md](review.md), `git diff` scope = Owns, spec excerpts, **this slice's review checklist**.
 
-主 Agent 裁决 review：
+Lead agent review verdict:
 
-| Review | 主 Agent |
-|--------|----------|
-| pass，无 P0/P1 | 标 `done`（若架构核对仍贴 TECH） |
-| fail | 同一 Owns 派返工实现，brief = `REWORK` 列表；再 review |
-| 把重构当 P0 | 降级或忽略；不要扩大切片 |
-| 与 TECH 冲突 | 问 HUMAN；不要改 PRD 去迎合代码 |
+| Review | Lead agent |
+|--------|------------|
+| pass, no P0/P1 | Mark `done` if architecture still matches TECH |
+| fail | Rework impl same Owns, brief = `REWORK` list; review again |
+| refactor framed as P0 | Downgrade or ignore; do not expand slice |
+| conflicts with TECH | Ask HUMAN; do not rewrite PRD to match code |
 
-一行业务修复也走实现 → review。主 Agent 把自评当终审 = 违规。
+Even a one-line product fix goes impl → review. Parent self-review as final gate = violation.
 
-### 9–10 下一波与交手
+### 9–10 Next wave and handoff
 
-Wave 完成后做一次只读架构核对（层、重复 DTO、契约漂移）。末波胶水 / i18n / barrel 仍是实现切片。
+After each wave, read-only architecture check (layers, duplicate DTOs, contract drift). Final-wave glue / i18n / barrels are still impl slices.
 
-全部切片 `done` 后交 `atmos-specs-test-run`。父会话交付：看板状态、切片列表、未决 HUMAN 问题、test-run 要接的 TEST.md 场景。不要宣称 spec 已完整验证。
+When all slices are `done`, hand off to `atmos-specs-test-run`. Parent delivers: kanban state, slice list, open HUMAN questions, TEST.md scenarios for test-run. Do not claim the spec is fully verified.
 
-## Subagent 选型
+## Subagent selection
 
-| 工作 | `subagent_type` | 写磁盘 |
-|------|-----------------|--------|
-| 实现 / 返工 / cleanup | `generalPurpose` | 仅 Owns |
-| 切片 review | `generalPurpose` | 否 |
-| 主 Agent 自己找路径 | 父会话 Grep/Read，或 `explore` | 否 |
+| Work | `subagent_type` | Writes disk |
+|------|-----------------|-------------|
+| Impl / rework / cleanup | `generalPurpose` | Owns only |
+| Slice review | `generalPurpose` | No |
+| Lead agent path discovery | Parent Grep/Read, or `explore` | No |
 
-不要用 `best-of-n-runner` 当默认并行实现（隔离 worktree + merge 会绕过文件互斥）。不要用 `bugbot` / `security-review` 替代清单驱动的切片 review。
+Do not use `best-of-n-runner` as default parallel impl (isolated worktree + merge bypasses file mutex). Do not replace checklist-driven slice review with `bugbot` / `security-review`.
 
-## 主 Agent 禁令（重复一次是因为这条最常被破）
+## Lead agent prohibitions (repeated because most often broken)
 
-- 不写功能代码，包括「就一行」「测试在红我帮你改」
-- 不把实现 Agent 的 STATUS: ok 当成终审
-- 不在规格沉默处选默认好让波次继续
-- 不派 Owns 相交的并行实现
-- 不给「继续我们刚才的方案」这种非自包含 brief
+- No feature code, including “just one line” or “tests are red let me fix”
+- Do not treat impl `STATUS: ok` as final review
+- Do not pick silent spec defaults to keep waves moving
+- Do not dispatch parallel impl with intersecting Owns
+- Do not send non-self-contained briefs like “continue our earlier plan”
 
 ## Done
 
-- 计划中的切片均为 `done`，或 `blocked` 已交给 HUMAN 且未假装完成
-- 无未审查的实现 diff
-- `PROGRESS.md` 看板是当前事实
-- TECH 仍是实现的源；漂移已升级而不是默默改代码
-- 已交出 test-run，或用户明确只要生产代码
+- Planned slices are `done`, or `blocked` items are with HUMAN and not pretended complete
+- No unreviewed impl diff
+- `PROGRESS.md` kanban reflects current truth
+- TECH remains source of truth; drift was escalated not silently coded
+- Handed off to test-run, or user explicitly wanted production code only
 
 ## Additional resources
 
-- 硬边界：[roles.md](roles.md)
-- 看板 / 波次 / hot files：[kanban.md](kanban.md)
-- 实现 subagent：[impl.md](impl.md)
-- Review subagent：[review.md](review.md)
-- 切分对照：[examples.md](examples.md)
-- 切片内编码：[../atmos-specs-impl/SKILL.md](../atmos-specs-impl/SKILL.md)
-- `PROGRESS.md` 骨架：`specs/references/progress-template.md`
+- Hard boundaries: [roles.md](roles.md)
+- Kanban / waves / hot files: [kanban.md](kanban.md)
+- Impl subagent: [impl.md](impl.md)
+- Review subagent: [review.md](review.md)
+- Splitting examples: [examples.md](examples.md)
+- In-slice coding: [../atmos-specs-impl/SKILL.md](../atmos-specs-impl/SKILL.md)
+- `PROGRESS.md` skeleton: `specs/references/progress-template.md`
