@@ -403,6 +403,11 @@ pub(super) async fn apply_event(
                     TranscriptEvent::Permission { request: resolved },
                 ),
             )?;
+            store.update_meta(chat_id, |meta| {
+                if !matches!(meta.runtime_status, RuntimeStatus::Closed) {
+                    meta.runtime_status = RuntimeStatus::RunningTurn;
+                }
+            })?;
             emit(AgentChatPayload::PermissionResolved {
                 request_id,
                 option_id,

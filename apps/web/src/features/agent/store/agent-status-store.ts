@@ -203,43 +203,8 @@ export const useAgentStatusStore = create<AgentStatusStore>((set, get) => ({
           return { sessions };
         });
 
-        // Sticky "need attention" latches — cleared on user click, or after a
-        // short dwell when a jump auto-focuses the pane.
-        const attention = useAgentAttentionStore.getState();
-        const contextId = update.context_id ?? previous?.context_id ?? null;
-        if (
-          update.state === AGENT_STATE.PERMISSION_REQUEST &&
-          previous?.state !== AGENT_STATE.PERMISSION_REQUEST
-        ) {
-          // Prefer Atmos pane_id (same key terminal focus reconstructs) over
-          // raw agent session ids so focus can clear attention reliably.
-          const stablePaneId =
-            update.pane_id?.trim() ||
-            previous?.pane_id?.trim() ||
-            update.session_id;
-          attention.raise({
-            stablePaneId,
-            contextId,
-            reason: "permission_request",
-            sessionId: update.session_id,
-            tool: update.tool,
-          });
-        } else if (
-          update.state === AGENT_STATE.IDLE &&
-          previous?.state === AGENT_STATE.RUNNING
-        ) {
-          const stablePaneId =
-            update.pane_id?.trim() ||
-            previous?.pane_id?.trim() ||
-            update.session_id;
-          attention.raise({
-            stablePaneId,
-            contextId,
-            reason: "task_complete",
-            sessionId: update.session_id,
-            tool: update.tool,
-          });
-        }
+        // Sticky attention latches are raised by the API kernel via
+        // `agent_attention_raised` (respects ForcedIdle vs TerminalIdle).
       }
     );
 

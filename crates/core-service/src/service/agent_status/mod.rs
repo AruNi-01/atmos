@@ -226,7 +226,7 @@ pub(super) struct PendingTerminalIdle {
 }
 
 use super::agent_chat::AgentChatMeta;
-use agent::AgentEvent;
+use agent::{AgentEvent, TurnStop};
 
 pub fn chat_status_session_id(chat_id: &str) -> String {
     format!("chat:{chat_id}")
@@ -273,9 +273,18 @@ fn host_event_to_status(event: &AgentEvent) -> Option<(AgentOccupancy, Occupancy
         AgentEvent::PermissionResolved { .. } => {
             Some((AgentOccupancy::Running, OccupancyUpdateKind::Progress))
         }
-        AgentEvent::TurnCompleted { .. }
-        | AgentEvent::TurnCanceled { .. }
-        | AgentEvent::TurnFailed { .. } => {
+        AgentEvent::TurnCanceled { .. } => {
+            Some((AgentOccupancy::Idle, OccupancyUpdateKind::ForcedIdle))
+        }
+        AgentEvent::TurnCompleted { stop, .. } => Some((
+            AgentOccupancy::Idle,
+            if *stop == TurnStop::Canceled {
+                OccupancyUpdateKind::ForcedIdle
+            } else {
+                OccupancyUpdateKind::TerminalIdle
+            },
+        )),
+        AgentEvent::TurnFailed { .. } => {
             Some((AgentOccupancy::Idle, OccupancyUpdateKind::TerminalIdle))
         }
         AgentEvent::SessionClosed => Some((AgentOccupancy::Idle, OccupancyUpdateKind::ForcedIdle)),
@@ -1320,11 +1329,40 @@ mod tests {
 
     #[test]
     fn folds_host_edges() {
+        use agent::TurnStop;
+
         assert_eq!(
             host_event_to_status(&AgentEvent::TurnStarted {
                 turn_id: "t1".into()
             }),
             Some((AgentOccupancy::Running, OccupancyUpdateKind::NewTurn))
+        );
+        assert_eq!(
+            host_event_to_status(&AgentEvent::TurnFailed {
+                turn_id: "t1".into(),
+                error: "boom".into(),
+            }),
+            Some((AgentOccupancy::Idle, OccupancyUpdateKind::TerminalIdle))
+        );
+        assert_eq!(
+            host_event_to_status(&AgentEvent::TurnCanceled {
+                turn_id: "t1".into(),
+            }),
+            Some((AgentOccupancy::Idle, OccupancyUpdateKind::ForcedIdle))
+        );
+        assert_eq!(
+            host_event_to_status(&AgentEvent::TurnCompleted {
+                turn_id: "t1".into(),
+                stop: TurnStop::Completed,
+            }),
+            Some((AgentOccupancy::Idle, OccupancyUpdateKind::TerminalIdle))
+        );
+        assert_eq!(
+            host_event_to_status(&AgentEvent::TurnCompleted {
+                turn_id: "t1".into(),
+                stop: TurnStop::Canceled,
+            }),
+            Some((AgentOccupancy::Idle, OccupancyUpdateKind::ForcedIdle))
         );
         assert_eq!(
             host_event_to_status(&AgentEvent::SessionClosed),

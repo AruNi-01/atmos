@@ -73,6 +73,14 @@ impl AgentChatService {
         let _ = self.status.set(status);
     }
 
+    fn apply_status_host_event(&self, chat_id: &str, event: &AgentEvent) {
+        if let Some(status) = self.status.get() {
+            if let Ok(meta) = self.store.get_meta(chat_id) {
+                agent_status::apply_host_event(status, &meta, event);
+            }
+        }
+    }
+
     pub fn set_catalog_worker(&self, worker: Arc<CatalogPrefetchWorker>) {
         let _ = self.catalog.set(worker);
     }
@@ -482,13 +490,14 @@ impl AgentChatService {
                 control
             }
             Err(error) => {
+                let error_message = error.to_string();
                 let _ = self.store.append_record(
                     chat_id,
                     &TranscriptEnvelope::new(
                         turn_id.clone(),
                         TranscriptEvent::TurnCompleted {
                             status: TurnStatus::Failed,
-                            error: Some(error.to_string()),
+                            error: Some(error_message.clone()),
                             worked_ms: None,
                             thinking_ms: None,
                             usage: None,
@@ -507,13 +516,20 @@ impl AgentChatService {
                         thinking_ms: None,
                         completed_at: None,
                         usage: None,
-                        error: Some(error.to_string()),
+                        error: Some(error_message.clone()),
+                    },
+                );
+                self.apply_status_host_event(
+                    chat_id,
+                    &AgentEvent::TurnFailed {
+                        turn_id,
+                        error: error_message,
                     },
                 );
                 return Err(error);
             }
         };
-        apply_pending_session_config(
+        if let Err(error) = apply_pending_session_config(
             chat_id,
             &turn_id,
             &self.store,
@@ -521,7 +537,18 @@ impl AgentChatService {
             &self.events,
             &self.recent_events,
         )
-        .await?;
+        .await
+        {
+            let error_message = error.to_string();
+            self.apply_status_host_event(
+                chat_id,
+                &AgentEvent::TurnFailed {
+                    turn_id: turn_id.clone(),
+                    error: error_message,
+                },
+            );
+            return Err(error);
+        }
         if let Err(error) = control
             .send(AgentPrompt {
                 text: text.to_string(),
@@ -531,6 +558,7 @@ impl AgentChatService {
             })
             .await
         {
+            let error_message = error.to_string();
             if let Some(runtime) = self.runtimes.lock().await.get(chat_id) {
                 let mut state = runtime.state.lock().await;
                 if state.current_turn_id.as_deref() == Some(turn_id.as_str()) {
@@ -543,7 +571,7 @@ impl AgentChatService {
                     turn_id.clone(),
                     TranscriptEvent::TurnCompleted {
                         status: TurnStatus::Failed,
-                        error: Some(error.to_string()),
+                        error: Some(error_message.clone()),
                         worked_ms: None,
                         thinking_ms: None,
                         usage: None,
@@ -562,7 +590,14 @@ impl AgentChatService {
                     thinking_ms: None,
                     completed_at: None,
                     usage: None,
-                    error: Some(error.to_string()),
+                    error: Some(error_message.clone()),
+                },
+            );
+            self.apply_status_host_event(
+                chat_id,
+                &AgentEvent::TurnFailed {
+                    turn_id,
+                    error: error_message,
                 },
             );
             return Err(ServiceError::Processing(error.to_string()));
@@ -645,12 +680,14 @@ impl AgentChatService {
                 .await
                 .map_err(|e| ServiceError::Processing(e.to_string()))?;
         } else {
+            let mut canceled_turn_id = None;
             if let Some(turn) = self.store.folded_turns(chat_id)?.iter().rev().find(|turn| {
                 matches!(
                     turn.status,
                     TurnStatus::Running | TurnStatus::WaitingPermission
                 )
             }) {
+                canceled_turn_id = Some(turn.id.clone());
                 self.store.append_record(
                     chat_id,
                     &TranscriptEnvelope::new(
@@ -682,6 +719,11 @@ impl AgentChatService {
                     meta.runtime_status = RuntimeStatus::Detached;
                 }
             })?;
+            if let Some(turn_id) = canceled_turn_id {
+                self.apply_status_host_event(chat_id, &AgentEvent::TurnCanceled { turn_id });
+            } else if let Some(status) = self.status.get() {
+                status.force_session_idle(&agent_status::chat_status_session_id(chat_id));
+            }
         }
         Ok(())
     }
@@ -1629,6 +1671,18 @@ async fn pump_session(
         return;
     }
     if let Some(turn_id) = state.lock().await.current_turn_id.clone() {
+        if let Some(status) = &status {
+            if let Ok(meta) = store.get_meta(&chat_id) {
+                agent_status::apply_host_event(
+                    status,
+                    &meta,
+                    &AgentEvent::TurnFailed {
+                        turn_id: turn_id.clone(),
+                        error: "agent session ended".into(),
+                    },
+                );
+            }
+        }
         let emit = |payload: AgentChatPayload| -> Result<()> {
             emit_live(&chat_id, payload, &store, &events, &recent_events)
         };
