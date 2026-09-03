@@ -22,6 +22,7 @@ pub(crate) enum PendingAsk {
     Question,
 }
 
+#[allow(clippy::large_enum_variant)]
 pub(crate) enum MapOut {
     Skip,
     Ready,

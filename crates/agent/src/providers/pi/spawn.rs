@@ -1,6 +1,7 @@
 //! Chat spawn override: `pi --mode rpc`. Ignore Terminal `-p` / launch_spec.args.
 
 use std::collections::HashMap;
+#[cfg(test)]
 use std::path::PathBuf;
 
 use tokio::process::{Child, ChildStderr, ChildStdin, ChildStdout, Command};
@@ -122,6 +123,7 @@ pub fn program_from_launch_spec(spec: &AgentLaunchSpec) -> String {
     spec.program.clone()
 }
 
+#[cfg(test)]
 pub fn cwd_from_config(cfg: &AgentRuntimeConfig) -> PathBuf {
     cfg.cwd.clone()
 }

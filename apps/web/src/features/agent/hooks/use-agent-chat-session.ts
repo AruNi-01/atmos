@@ -42,7 +42,10 @@ import {
   readAgentChatLastSessions,
   resolveRestoredAgentChat,
 } from "@/features/agent/lib/agent-chat-last-session";
-import { preferredConfigFromDefault } from "@/features/agent/lib/agent-chat-prefs";
+import {
+  pickInstalledRegistryId,
+  preferredConfigFromDefault,
+} from "@/features/agent/lib/agent-chat-prefs";
 import {
   authRequiredFromTurnError,
   DEEPSEEK_HARNESS_ARGS,

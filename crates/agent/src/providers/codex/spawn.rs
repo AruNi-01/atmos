@@ -208,9 +208,8 @@ mod tests {
         let Ok(path) = which::which("codex") else {
             return;
         };
-        match spawn_app_server(&path.to_string_lossy(), &PathBuf::from("."), None) {
-            Ok(child) => drop(child),
-            Err(_) => {}
+        if let Ok(child) = spawn_app_server(&path.to_string_lossy(), &PathBuf::from("."), None) {
+            drop(child);
         }
     }
 }

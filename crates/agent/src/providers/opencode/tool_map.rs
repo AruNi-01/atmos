@@ -154,6 +154,7 @@ fn output_value(state: &Value) -> Option<Value> {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn build_tool(
     tool_call_id: String,
     name: String,

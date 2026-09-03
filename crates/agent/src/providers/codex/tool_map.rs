@@ -542,11 +542,9 @@ pub fn parse_unified_diff_stats(diff: &str) -> Vec<(String, u32, u32)> {
                 .trim_start_matches("b/")
                 .trim_start_matches("a/")
                 .to_string();
-            if next != "/dev/null" {
-                if path.as_ref() != Some(&next) {
-                    flush(&mut path, &mut additions, &mut deletions, &mut out);
-                    path = Some(next);
-                }
+            if next != "/dev/null" && path.as_ref() != Some(&next) {
+                flush(&mut path, &mut additions, &mut deletions, &mut out);
+                path = Some(next);
             }
             continue;
         }

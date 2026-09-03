@@ -35,6 +35,7 @@ pub(crate) fn frame_kind(value: &Value) -> ClaudeFrameKind {
     }
 }
 
+#[cfg(test)]
 pub(crate) fn encode_line(value: &Value) -> Result<Vec<u8>, serde_json::Error> {
     let mut bytes = serde_json::to_vec(value)?;
     bytes.push(b'\n');

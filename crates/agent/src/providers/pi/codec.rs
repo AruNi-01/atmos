@@ -25,6 +25,7 @@ pub fn trim_record(line: &[u8]) -> Option<&[u8]> {
 }
 
 /// Complete records from a buffer that uses LF as the only delimiter.
+#[cfg(test)]
 pub fn split_complete_records(bytes: &[u8]) -> Vec<&[u8]> {
     let mut records = Vec::new();
     let mut start = 0usize;
@@ -40,6 +41,7 @@ pub fn split_complete_records(bytes: &[u8]) -> Vec<&[u8]> {
     records
 }
 
+#[cfg(test)]
 pub fn parse_record(record: &[u8]) -> Option<Value> {
     serde_json::from_slice(record).ok()
 }
@@ -58,6 +60,7 @@ pub fn classify_frame(value: &Value) -> FrameClass {
     }
 }
 
+#[cfg(test)]
 pub fn parse_jsonl(text: &str) -> Vec<Value> {
     split_complete_records(text.as_bytes())
         .into_iter()

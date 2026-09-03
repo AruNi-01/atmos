@@ -56,10 +56,7 @@ impl SseDecoder {
     pub fn push(&mut self, chunk: &str) -> Vec<SseEvent> {
         self.line_buf.push_str(chunk);
         let mut events = Vec::new();
-        loop {
-            let Some(newline_at) = self.line_buf.find('\n') else {
-                break;
-            };
+        while let Some(newline_at) = self.line_buf.find('\n') {
             let mut line: String = self.line_buf.drain(..=newline_at).collect();
             if line.ends_with('\n') {
                 line.pop();

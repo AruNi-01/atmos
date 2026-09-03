@@ -177,9 +177,7 @@ fn mapped_result(
             message: message.unwrap_or_else(|| "tool failed".into()),
         });
     }
-    let Some(result) = result else {
-        return None;
-    };
+    let result = result?;
     Some(match kind {
         AgentToolKind::Execute => AgentToolResult::Execute {
             output: result_text(result),

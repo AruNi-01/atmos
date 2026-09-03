@@ -3,6 +3,7 @@ import {
 } from "shiki/engine/javascript";
 import {
   type HighlighterCore,
+  type LanguageInput,
   type RegexEngine,
   createHighlighterCore,
 } from "shiki/core";
@@ -43,7 +44,7 @@ function mermaidSourceLang() {
     scopeName: "source.mermaid",
     aliases: ["mmd"],
     patterns: [{ include: "#mermaid" }],
-  };
+  } as LanguageInput;
 }
 
 let jsEngine: RegexEngine | null = null;

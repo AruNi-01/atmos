@@ -68,7 +68,7 @@ pub fn merge_builtin_custom_agents(stored: &HashMap<String, CustomAgentEntry>) -
         .filter(|(name, _)| !seen.contains(*name))
         .map(|(name, entry)| custom_from_stored(name, entry))
         .collect();
-    rest.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    rest.sort_by_key(|agent| agent.name.to_lowercase());
     out.extend(rest);
     out
 }

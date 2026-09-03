@@ -511,9 +511,7 @@ fn map_error(
     if state.turn_failed_emitted {
         return None;
     }
-    let Some(atmos_turn) = turn_id.clone() else {
-        return None;
-    };
+    let atmos_turn = turn_id.clone()?;
     state.turn_failed_emitted = true;
     Some(wrap(
         turn_id,

@@ -8,7 +8,7 @@ mod spawn;
 mod tool_map;
 
 use std::collections::{HashMap, VecDeque};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
@@ -619,7 +619,7 @@ fn provider_descriptor(current: AgentCurrentConfig) -> AgentDescriptor {
 }
 
 async fn open_runtime(
-    program: &PathBuf,
+    program: &Path,
     cfg: AgentRuntimeConfig,
     resume: Option<String>,
 ) -> AgentResult<Box<dyn AgentRuntime>> {
@@ -632,7 +632,6 @@ async fn open_runtime(
             .as_deref()
             .and_then(crate::policy::normalize_stored_permission)
             .or_else(|| cfg.permission_mode.clone()),
-        ..AgentCurrentConfig::default()
     };
     let SpawnedClaude {
         child,
@@ -666,7 +665,7 @@ async fn open_runtime(
         current_config: Mutex::new(current.clone()),
         closed: AtomicBool::new(false),
         cancel_requested: AtomicBool::new(false),
-        program: program.clone(),
+        program: program.to_path_buf(),
         runtime_cfg: cfg,
         user_uuids: Mutex::new(user_uuids),
         turn_to_uuid: Mutex::new(turn_to_uuid),
@@ -797,7 +796,7 @@ async fn capture_user_checkpoint(commands: &ClaudeCommands, frame: &Value) {
 }
 
 async fn spawn_forked_session(
-    program: &PathBuf,
+    program: &Path,
     cfg: &AgentRuntimeConfig,
     parent: &str,
 ) -> Result<String, String> {

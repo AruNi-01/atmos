@@ -1,9 +1,7 @@
 import type { CustomAgent, NativeChatAgent, RegistryAgent } from "@/api/ws/agent-api";
 import { getAgentIconCandidates } from "@/features/agent/lib/agent-icon-candidates";
-import {
-  parseAuthRequiredError,
-  type AgentAuthRequiredPayload,
-} from "@/features/agent/lib/agent-runtime-socket";
+import type { AgentAuthRequiredPayload } from "@/api/rest-api";
+import { parseAuthRequiredError } from "@/features/agent/lib/agent-runtime-socket";
 
 export const DEEPSEEK_HARNESS_ID = "deepseek-harness";
 export const DEEPSEEK_API_KEY_ENV = "DEEPSEEK_API_KEY";

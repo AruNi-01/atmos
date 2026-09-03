@@ -64,6 +64,7 @@ impl EventMapState {
 }
 
 #[derive(Debug)]
+#[allow(clippy::large_enum_variant)]
 pub(crate) enum MappedFrame {
     Envelope(AgentEventEnvelope),
     UnmappedControl { request_id: String, subtype: String },

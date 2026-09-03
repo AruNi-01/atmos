@@ -150,9 +150,7 @@ pub(crate) fn map_event(
             ),
         )),
         AcpSessionEvent::TurnEnd(stop) => {
-            let Some(turn_id) = turn_id else {
-                return None;
-            };
+            let turn_id = turn_id?;
             let event = match stop {
                 AcpTurnStop::Canceled => AgentEvent::TurnCanceled {
                     turn_id: turn_id.clone(),

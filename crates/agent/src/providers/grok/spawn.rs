@@ -57,15 +57,11 @@ pub fn resolved_permission_mode(value: Option<&str>) -> String {
     let Some(raw) = value.map(str::trim).filter(|mode| !mode.is_empty()) else {
         return CHAT_PERMISSION_MODE.to_string();
     };
-    if GROK_PERMISSION_MODE_IDS.iter().any(|id| *id == raw) {
+    if GROK_PERMISSION_MODE_IDS.contains(&raw) {
         return raw.to_string();
     }
     crate::policy::atmos_permission_to_vendor("grok", raw)
-        .filter(|vendor| {
-            GROK_PERMISSION_MODE_IDS
-                .iter()
-                .any(|id| *id == vendor.as_str())
-        })
+        .filter(|vendor| GROK_PERMISSION_MODE_IDS.contains(&vendor.as_str()))
         .unwrap_or_else(|| CHAT_PERMISSION_MODE.to_string())
 }
 

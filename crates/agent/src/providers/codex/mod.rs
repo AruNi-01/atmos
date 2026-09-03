@@ -93,7 +93,6 @@ fn current_config_from(cfg: &AgentRuntimeConfig) -> AgentCurrentConfig {
             .as_deref()
             .and_then(crate::policy::normalize_stored_permission)
             .or_else(|| cfg.permission_mode.clone()),
-        ..AgentCurrentConfig::default()
     }
 }
 

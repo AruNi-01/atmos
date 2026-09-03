@@ -8,9 +8,12 @@ use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::time::timeout;
 
 use crate::catalog::engine::NativeProbeResult;
-use crate::catalog::parse::{agent_modes_from_named_keys, commands_from_value};
-use crate::contract::AgentRuntimeConfig;
-use crate::contract::{AgentMode, AgentModel, AgentThinkingSupport};
+#[cfg(test)]
+use crate::catalog::parse::agent_modes_from_named_keys;
+use crate::catalog::parse::commands_from_value;
+#[cfg(test)]
+use crate::contract::AgentMode;
+use crate::contract::{AgentModel, AgentRuntimeConfig, AgentThinkingSupport};
 
 use super::codec;
 use super::rpc::{control_response_is_error, control_response_request_id, initialize_request};
@@ -144,10 +147,12 @@ async fn close_child(child: &mut tokio::process::Child) -> bool {
     timeout(Duration::from_secs(2), child.wait()).await.is_ok()
 }
 
+#[cfg(test)]
 pub(crate) fn claude_permission_modes() -> Vec<AgentMode> {
     crate::policy::advertised_permission_modes("claude")
 }
 
+#[cfg(test)]
 pub(crate) fn claude_modes() -> Vec<AgentMode> {
     crate::policy::default_collaboration_modes()
 }
@@ -224,6 +229,7 @@ fn thinking_from_supported_effort_levels(item: &Value) -> Option<AgentThinkingSu
     }
 }
 
+#[cfg(test)]
 pub(crate) fn permission_modes_from_initialize(payload: &Value) -> Vec<AgentMode> {
     agent_modes_from_named_keys(
         payload,

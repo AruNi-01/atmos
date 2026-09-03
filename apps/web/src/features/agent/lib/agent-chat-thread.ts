@@ -20,8 +20,9 @@ function thinkingChoicesFromSupport(
   if (!thinking || thinking.type === "none" || thinking.type === "encoded_in_model") {
     return [];
   }
-  if (!Array.isArray(thinking.options)) return [];
-  return thinking.options.map((item) => item.trim()).filter((item) => item.length > 0);
+  const options = "options" in thinking ? thinking.options : undefined;
+  if (!Array.isArray(options)) return [];
+  return options.map((item: string) => item.trim()).filter((item: string) => item.length > 0);
 }
 
 const THINKING_LEVEL_LABELS: Record<string, string> = {

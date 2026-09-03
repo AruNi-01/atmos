@@ -1435,7 +1435,7 @@ mod tests {
             runtime.persistence_handle().as_ref().map(|h| h.as_str()),
             Some(parent.as_str())
         );
-        let types = types_of(&*received.lock().await);
+        let types = types_of(&received.lock().await);
         assert!(types.iter().any(|ty| ty == "get_fork_messages"));
         assert!(types.iter().any(|ty| ty == "clone"));
         assert!(types.iter().any(|ty| ty == "switch_session"));

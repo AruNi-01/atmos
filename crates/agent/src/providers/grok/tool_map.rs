@@ -531,27 +531,17 @@ fn apply_name_overlay(
     payload: Option<&Value>,
 ) -> Option<AgentToolKind> {
     let labels = [Some(name), title];
-    if labels
-        .into_iter()
-        .flatten()
-        .any(|label| is_web_search_label(label))
+    if labels.into_iter().flatten().any(is_web_search_label)
         || payload.is_some_and(action_type_is_search)
     {
         return Some(AgentToolKind::WebSearch);
     }
-    if labels
-        .into_iter()
-        .flatten()
-        .any(|label| is_web_fetch_label(label))
+    if labels.into_iter().flatten().any(is_web_fetch_label)
         || payload.is_some_and(action_type_is_open_page)
     {
         return Some(AgentToolKind::Fetch);
     }
-    if labels
-        .into_iter()
-        .flatten()
-        .any(|label| is_workspace_search_label(label))
-    {
+    if labels.into_iter().flatten().any(is_workspace_search_label) {
         return Some(AgentToolKind::Search);
     }
     kind

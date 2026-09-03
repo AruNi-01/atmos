@@ -80,6 +80,7 @@ impl IdMaps {
         self.vendor_to_atmos.get(vendor_turn_id).map(String::as_str)
     }
 
+    #[allow(dead_code)]
     pub fn clear_vendor_turn(&mut self, vendor_turn_id: &str) {
         if let Some(atmos) = self.vendor_to_atmos.remove(vendor_turn_id) {
             self.atmos_to_vendor.remove(&atmos);

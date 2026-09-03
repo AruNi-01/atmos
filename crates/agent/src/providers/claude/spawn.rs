@@ -46,7 +46,7 @@ pub(crate) fn chat_args(
     if let Some(effort) = cfg
         .thinking
         .as_deref()
-        .filter(|value| EFFORT_LEVELS.iter().any(|level| *level == *value))
+        .filter(|value| EFFORT_LEVELS.contains(value))
     {
         args.push("--effort".into());
         args.push(effort.to_string());

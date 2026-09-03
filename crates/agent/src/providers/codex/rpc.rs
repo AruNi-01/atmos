@@ -208,6 +208,7 @@ pub fn thread_rollback_params(thread_id: &str, num_turns: u64) -> Value {
 
 /// 0.150 defaults to `historyMode: "paginated"` and only those threads speak `thread/revert`.
 /// 0.144.5 live threads are `legacy` and reject `thread/revert` as an unknown method.
+#[cfg(test)]
 pub fn thread_uses_revert(thread_result: &Value) -> bool {
     thread_is_paginated(thread_result)
 }

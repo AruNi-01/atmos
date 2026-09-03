@@ -8,6 +8,8 @@ import {
   type AgentCapabilities,
   type AgentImplementationInfo,
 } from "@/api/rest-api";
+
+export type { AgentAuthRequiredPayload };
 import { getRuntimeApiConfig } from "@/shared/lib/desktop-runtime";
 
 export const AUTH_REQUIRED_ERROR_PREFIX = "ACP_AUTH_REQUIRED::";

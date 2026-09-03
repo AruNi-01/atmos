@@ -225,7 +225,7 @@ impl AgentRuntimeCommands for GrokCommands {
                     .lock()
                     .await
                     .remove(&request_id)
-                    .ok_or_else(|| AgentActionError::NotFound(request_id))?;
+                    .ok_or(AgentActionError::NotFound(request_id))?;
                 let _ = tx.send(option_id);
                 Ok(AgentActionResult::unit())
             }
@@ -610,7 +610,6 @@ fn current_config_from(cfg: &AgentRuntimeConfig) -> AgentCurrentConfig {
             .as_deref()
             .and_then(crate::policy::normalize_stored_permission)
             .or_else(|| cfg.permission_mode.clone()),
-        ..AgentCurrentConfig::default()
     }
 }
 

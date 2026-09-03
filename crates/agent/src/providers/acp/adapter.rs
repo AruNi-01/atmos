@@ -119,7 +119,7 @@ impl AgentRuntimeCommands for AcpCommands {
                     .lock()
                     .await
                     .remove(&request_id)
-                    .ok_or_else(|| AgentActionError::NotFound(request_id))?;
+                    .ok_or(AgentActionError::NotFound(request_id))?;
                 let _ = tx.send(option_id);
                 Ok(AgentActionResult::unit())
             }
@@ -291,7 +291,6 @@ fn current_config_from_maps(
             .as_deref()
             .and_then(crate::policy::normalize_stored_permission)
             .or_else(|| cfg.permission_mode.clone()),
-        ..AgentCurrentConfig::default()
     };
     if let Some(defaults) = defaults {
         if current.model.is_none() {
