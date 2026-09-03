@@ -1277,7 +1277,6 @@ export function useAgentChatSession({
         setAuthRequest(auth);
       }
       setSendError(message);
-      throw error;
     }
   }, [
     activeChatId,

@@ -512,11 +512,10 @@ function ComposerPromptInput({
           try {
             await onSubmit({ text: composed, files: await filesForSubmit(files) });
             attachments.clear();
-          } catch (error) {
+          } catch {
             setLocalDraft(previousDraft);
             composerRef.current?.setText(previousDraft);
             persistedDraftRef.current = previousDraft;
-            throw error;
           }
         }}
         onStop={

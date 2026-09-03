@@ -247,6 +247,7 @@ enum TerminalAgentModelListParser {
     LineList,
     GrokLineList,
     KiroJson,
+    Json,
     DroidHelp,
 }
 
@@ -847,7 +848,9 @@ fn parse_model_catalog_output(
     let models = match parser {
         TerminalAgentModelListParser::LineList => parse_line_model_catalog(output),
         TerminalAgentModelListParser::GrokLineList => parse_grok_model_catalog(output),
-        TerminalAgentModelListParser::KiroJson => parse_json_model_catalog(output)?,
+        TerminalAgentModelListParser::KiroJson | TerminalAgentModelListParser::Json => {
+            parse_json_model_catalog(output)?
+        }
         TerminalAgentModelListParser::DroidHelp => parse_droid_help_model_catalog(output),
     };
     Ok(dedupe_model_options(models))

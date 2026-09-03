@@ -3,9 +3,9 @@ use std::time::Duration;
 
 use agent::testing::{FakeAgentProvider, StaticProviderFactory};
 use agent::{
-    AgentCatalogSpec, AgentEvent, AgentMode, AgentModel, AgentModelCatalog, AgentPermissionOption,
-    AgentProvider, AgentThinkingSupport, AgentTool, AgentToolKind, AgentToolParams,
-    AgentToolResult, AgentToolStatus, CatalogEngine, CatalogSource, CatalogStatus,
+    AgentAvailableCommand, AgentCatalogSpec, AgentEvent, AgentMode, AgentModel, AgentModelCatalog,
+    AgentPermissionOption, AgentProvider, AgentThinkingSupport, AgentTool, AgentToolKind,
+    AgentToolParams, AgentToolResult, AgentToolStatus, CatalogEngine, CatalogSource, CatalogStatus,
     CatalogStrategyKind, NoopAcpProbe, UserMessageKind,
 };
 use tokio::time::timeout;
@@ -1893,7 +1893,7 @@ async fn s19_fresh_ok_cache_skips_probe() {
         Duration::from_secs(30),
     ));
     let spec = AgentCatalogSpec {
-        agent_id: "claude".into(),
+        agent_id: "factory-droid".into(),
         static_models: vec![AgentModel {
             id: "opus".into(),
             label: "Opus".into(),
@@ -2401,9 +2401,21 @@ async fn configure_rebuilds_descriptor_when_switching_provider() {
             is_default: true,
             thinking: None,
         }],
-        modes: Vec::new(),
-        permission_modes: Vec::new(),
-        commands: Vec::new(),
+        modes: vec![AgentMode {
+            id: "default".into(),
+            label: "Default".into(),
+            is_default: true,
+        }],
+        permission_modes: vec![AgentMode {
+            id: "ask_always".into(),
+            label: "Ask always".into(),
+            is_default: true,
+        }],
+        commands: vec![AgentAvailableCommand {
+            name: "compact".into(),
+            description: "Compact conversation".into(),
+            hint: None,
+        }],
         thinking: AgentThinkingSupport::Enum {
             arg: None,
             options: vec!["low".into(), "high".into()],
