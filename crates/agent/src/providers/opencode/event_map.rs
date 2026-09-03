@@ -65,6 +65,7 @@ pub(crate) struct EventMapState {
 }
 
 impl EventMapState {
+    #[cfg(test)]
     pub(crate) fn new(session_id: String, current_config: AgentCurrentConfig) -> Self {
         Self::with_auto_locked(session_id, current_config, false)
     }
