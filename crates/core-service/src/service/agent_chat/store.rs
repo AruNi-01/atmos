@@ -13,9 +13,8 @@ use crate::utils::path_boundary::{path_or_existing_parent_within_root, path_with
 use super::types::{
     apply_rewind_view, chat_descriptor, flatten_messages, AgentChatIndexEntry, AgentChatMeta,
     AgentChatOrigin, AgentChatSnapshot, CreateAgentChatRequest, FoldedMessage, FoldedTurn,
-    MessagePart, QueueItem, RuntimeStatus, SessionConfigValueChange, SessionHintTone,
-    SessionLifecycleAction, SessionLifecycleStatus, TranscriptEnvelope, TranscriptEvent,
-    TurnStatus,
+    MessagePart, QueueItem, RuntimeStatus, SessionHintTone, SessionLifecycleAction,
+    SessionLifecycleStatus, TranscriptEnvelope, TranscriptEvent, TurnStatus,
 };
 use agent::{AgentCurrentConfig, AgentTool, AgentToolKind, AgentToolParams};
 
@@ -1137,7 +1136,9 @@ fn io_err(error: std::io::Error) -> ServiceError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::service::agent_chat::types::{TranscriptEnvelope, TranscriptEvent};
+    use crate::service::agent_chat::types::{
+        SessionConfigValueChange, TranscriptEnvelope, TranscriptEvent,
+    };
     use agent::{
         AgentTool, AgentToolKind, AgentToolParams, AgentToolResult, AgentToolStatus,
         UserMessageKind,

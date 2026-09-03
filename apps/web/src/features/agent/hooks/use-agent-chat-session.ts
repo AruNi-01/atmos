@@ -496,7 +496,6 @@ export function useAgentChatSession({
         lastRegistryId ||
         readDefaultAgentRegistryId() ||
         installed[0]?.id ||
-        agents[0]?.id ||
         "claude";
       setDefaultRegistryId(fallback);
       const isNewChat = !activeIdRef.current;

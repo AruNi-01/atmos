@@ -623,12 +623,9 @@ fn stamp_advertised_selection(
     applied: &mut Option<String>,
     selected: &mut Option<String>,
 ) -> Option<String> {
-    let Some(value) = advertised_current
+    let value = advertised_current
         .map(|item| item.trim())
-        .filter(|item| !item.is_empty())
-    else {
-        return None;
-    };
+        .filter(|item| !item.is_empty())?;
     let option = advertised_option_for_kind(options, kind);
     let keep = keep_pending_session_selection(selected.as_ref(), applied.as_ref(), value, option);
     *applied = Some(value.to_string());
@@ -897,6 +894,7 @@ async fn flush_open_thinking(
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(super) async fn finish_turn(
     chat_id: &str,
     turn_id: String,
@@ -2027,10 +2025,7 @@ mod tests {
         while let Ok(event) = rx.try_recv() {
             if matches!(
                 event.payload,
-                AgentChatPayload::SessionHint {
-                    kind: ref kind,
-                    ..
-                } if kind == "model_switch_failed"
+                AgentChatPayload::SessionHint { ref kind, .. } if kind == "model_switch_failed"
             ) {
                 saw_failed = true;
             }

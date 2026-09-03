@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use agent::{
     capabilities_for_provider, option_support_for_provider, AgentCurrentConfig, AgentDescriptor,
-    AgentIdentity, AgentModel, AgentOptionSupport, AgentSessionOpRequest, AgentSupportedOptions,
+    AgentIdentity, AgentOptionSupport, AgentSessionOpRequest, AgentSupportedOptions,
     AgentThinkingSupport, AgentTool, AgentToolKind, AgentToolParams, AgentToolResult,
     AgentToolStatus, UserMessageKind,
 };
@@ -1435,9 +1435,10 @@ mod session_config_change_tests {
     use super::{
         config_kind_matches, merge_advertised_options, pending_session_config_change,
         resolve_session_config_select, AgentChatMeta, AgentChatOrigin, AgentCurrentConfig,
-        AgentModel, ResolvedSessionConfig, RuntimeStatus, SessionAdvertisedOption,
+        ResolvedSessionConfig, RuntimeStatus, SessionAdvertisedOption,
         SessionAdvertisedOptionValue,
     };
+    use agent::AgentModel;
     use chrono::Utc;
 
     fn meta() -> AgentChatMeta {

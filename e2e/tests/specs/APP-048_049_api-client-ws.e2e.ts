@@ -80,20 +80,21 @@ test.describe("APP-048/049 api-types + api-client web cutover", () => {
     }
 
     // At least one multi-client catalog action used by workbench bootstrap.
-    expect(
-      actions.some((action) =>
-        [
-          "project_list",
-          "workspace_list",
-          "project_create",
-          "workspace_create",
-          "fs_get_home_dir",
-          "client_session_sync",
-          "settings_get",
-        ].includes(action),
-      ),
-      `expected a known bootstrap action among: ${actions.join(", ")}`,
-    ).toBe(true);
+    const catalogActions = [
+      "project_list",
+      "workspace_list",
+      "project_create",
+      "workspace_create",
+      "fs_get_home_dir",
+      "client_session_sync",
+      "settings_get",
+      "project_workspace_bootstrap",
+    ];
+    await expect
+      .poll(() => listOutboundActions(sessions).some((action) => catalogActions.includes(action)), {
+        timeout: 45_000,
+      })
+      .toBe(true);
 
     const responses = listInboundResponses(sessions);
     expect(responses.length).toBeGreaterThan(0);

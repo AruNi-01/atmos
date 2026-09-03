@@ -344,6 +344,7 @@ mod wire_tests {
             messages: Vec::new(),
             queue: Vec::new(),
             pending_permission: None,
+            pending_session_op: None,
             running_turn_id: None,
             running_turn_started_at: None,
         };

@@ -996,10 +996,7 @@ async fn thinking_config_failure_does_not_report_model_switch_failed() {
     while let Ok(event) = rx.try_recv() {
         if matches!(
             event.payload,
-            AgentChatPayload::SessionHint {
-                kind: ref kind,
-                ..
-            } if kind == "model_switch_failed"
+            AgentChatPayload::SessionHint { ref kind, .. } if kind == "model_switch_failed"
         ) {
             saw_model_failed = true;
         }
@@ -1052,10 +1049,7 @@ async fn send_after_failed_set_config_reverts() {
         }
         if matches!(
             event.payload,
-            AgentChatPayload::SessionHint {
-                kind: ref kind,
-                ..
-            } if kind == "model_switch_failed"
+            AgentChatPayload::SessionHint { ref kind, .. } if kind == "model_switch_failed"
         ) {
             saw_failed = true;
         }
