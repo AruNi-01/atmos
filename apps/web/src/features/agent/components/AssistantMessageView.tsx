@@ -131,10 +131,8 @@ function ProcessCollapseRail({
 
 export function AssistantMessageView({
   message,
-  registryId,
 }: {
   message: AgentMessage;
-  registryId: string;
 }) {
   const t = useTranslations("Agent.components");
   const reviewComponents = useReviewLinkComponents();
@@ -162,7 +160,6 @@ export function AssistantMessageView({
       parts={parts}
       streaming={streaming}
       thinkingMs={message.thinking_ms}
-      registryId={registryId}
       reviewComponents={reviewComponents}
     />
   );
@@ -176,7 +173,6 @@ export function AssistantMessageView({
           key={key}
           parts={segment.parts}
           autoOpen={streaming && (isTail || toolGroupHasRunning(segment.parts))}
-          registryId={registryId}
         />
       );
     }

@@ -4,7 +4,12 @@
 use std::collections::{HashMap, VecDeque};
 use std::time::{Duration, Instant};
 
-use agent::{AgentEvent, AgentRuntimeConfigUpdate, AgentRuntimeControl, TurnStop};
+use agent::providers::{chat_provider_kind, ChatProviderKind};
+use agent::{
+    AgentAvailableCommand, AgentEvent, AgentEventEnvelope, AgentMode, AgentModel,
+    AgentRuntimeConfigUpdate, AgentRuntimeControl, AgentThinkingSupport, AgentTool, Capability,
+    SessionOpOutcome, TurnStop,
+};
 use chrono::Utc;
 use serde::Deserialize;
 use tokio::sync::{broadcast, Mutex};
@@ -14,13 +19,14 @@ use crate::error::Result;
 use super::store::AgentChatStore;
 use super::types::{
     advertised_option_for_kind, config_kind_matches, elapsed_ms, keep_pending_session_selection,
-    map_advertised_select_value, merge_advertised_options, merge_session_usage,
-    order_assistant_parts, parse_session_usage, parse_turn_usage, pending_session_config_change,
+    map_advertised_select_value, merge_session_usage, order_assistant_parts, parse_session_usage,
+    parse_turn_usage, pending_permission_mode_change, pending_session_config_change,
     pending_thinking_change, resolve_session_config_select, AgentChatEvent, AgentChatMeta,
-    AgentChatPayload, AgentChatSnapshot, FoldedMessage, MessagePart, PendingPermission,
-    ResolvedSessionConfig, RuntimeStatus, SessionAdvertisedOption, SessionAdvertisedOptionValue,
-    SessionConfigChange, SessionHintTone, TranscriptRecord, TurnStatus,
-    SESSION_HINT_MODEL_SWITCH_FAILED, SESSION_HINT_MODE_SWITCH_FAILED,
+    AgentChatPayload, AgentChatSessionOpOutcome, AgentChatSnapshot, FoldedMessage, MessagePart,
+    PendingPermission, PendingSessionOp, ResolvedSessionConfig, RuntimeStatus,
+    SessionAdvertisedOption, SessionAdvertisedOptionValue, SessionConfigChange, SessionHintTone,
+    TranscriptEnvelope, TranscriptEvent, TurnStatus, SESSION_HINT_MODEL_SWITCH_FAILED,
+    SESSION_HINT_MODE_SWITCH_FAILED,
 };
 
 pub(super) const ASSISTANT_SNAPSHOT_INTERVAL: Duration = Duration::from_millis(100);
@@ -29,6 +35,7 @@ pub(super) const RECENT_EVENT_CAP: usize = 2048;
 pub(super) struct RuntimeState {
     pub(super) current_turn_id: Option<String>,
     pub(super) pending_permission: Option<PendingPermission>,
+    pub(super) pending_session_op: Option<PendingSessionOp>,
     pub(super) assistant_text: HashMap<String, (String, String)>,
     pub(super) thinking_text: HashMap<String, (String, String)>,
     pub(super) last_snapshot: Instant,
@@ -103,13 +110,26 @@ impl RuntimeState {
 #[allow(clippy::too_many_arguments)]
 pub(super) async fn apply_event(
     chat_id: &str,
-    event: AgentEvent,
+    envelope: AgentEventEnvelope,
     store: &AgentChatStore,
     state: &Mutex<RuntimeState>,
     events: &broadcast::Sender<AgentChatEvent>,
     recent_events: &std::sync::Mutex<HashMap<String, VecDeque<AgentChatEvent>>>,
 ) -> Result<()> {
+    let adapter_event_id = envelope.event_id.clone();
+    let adapter_turn_id = envelope.turn_id.clone();
     let emit = |payload: AgentChatPayload| -> Result<()> {
+        emit_live_ids(
+            chat_id,
+            payload,
+            store,
+            events,
+            recent_events,
+            Some(adapter_event_id.clone()),
+            adapter_turn_id.clone(),
+        )
+    };
+    let emit_host = |payload: AgentChatPayload| -> Result<()> {
         emit_live(chat_id, payload, store, events, recent_events)
     };
     {
@@ -117,7 +137,7 @@ pub(super) async fn apply_event(
         state.last_activity = Instant::now();
         state.ensure_turn_clock();
     }
-    match event {
+    match envelope.payload {
         AgentEvent::SessionStarted { persistence_handle } => {
             store.update_meta(chat_id, |meta| {
                 if let Some(handle) = persistence_handle.clone() {
@@ -130,14 +150,19 @@ pub(super) async fn apply_event(
                 if meta.runtime_status == RuntimeStatus::Starting {
                     meta.runtime_status = RuntimeStatus::Ready;
                 }
+                inject_session_op_commands(&meta.provider_id, &mut meta.available_commands);
             })?;
+            let injected = store.get_meta(chat_id)?.available_commands;
             emit(AgentChatPayload::RuntimeStatus {
                 status: RuntimeStatus::Ready,
                 persistence_handle,
             })?;
+            if !injected.is_empty() {
+                emit(AgentChatPayload::AvailableCommandsUpdated { commands: injected })?;
+            }
         }
         AgentEvent::AssistantMessageDelta { message_id, delta } => {
-            flush_open_thinking(store, state, chat_id, &emit).await?;
+            flush_open_thinking(store, state, chat_id, &emit_host).await?;
             {
                 let snapshot = {
                     let mut state = state.lock().await;
@@ -164,12 +189,13 @@ pub(super) async fn apply_event(
                 if let Some((turn_id, text)) = snapshot {
                     store.append_record(
                         chat_id,
-                        &TranscriptRecord::AssistantSnapshot {
+                        &TranscriptEnvelope::new(
                             turn_id,
-                            message_id: message_id.clone(),
-                            text,
-                            created_at: Utc::now(),
-                        },
+                            TranscriptEvent::AssistantSnapshot {
+                                message_id: message_id.clone(),
+                                text,
+                            },
+                        ),
                     )?;
                 }
             }
@@ -179,12 +205,14 @@ pub(super) async fn apply_event(
             if let Some((turn_id, text)) = state.lock().await.assistant_text.remove(&message_id) {
                 store.append_record(
                     chat_id,
-                    &TranscriptRecord::AssistantSnapshot {
+                    &TranscriptEnvelope::with_id(
+                        adapter_event_id.clone(),
                         turn_id,
-                        message_id: message_id.clone(),
-                        text,
-                        created_at: Utc::now(),
-                    },
+                        TranscriptEvent::AssistantSnapshot {
+                            message_id: message_id.clone(),
+                            text,
+                        },
+                    ),
                 )?;
             }
             emit(AgentChatPayload::AssistantMessageCompleted { message_id })?;
@@ -229,14 +257,16 @@ pub(super) async fn apply_event(
                 if !text.is_empty() || duration_ms.is_some() {
                     store.append_record(
                         chat_id,
-                        &TranscriptRecord::ThinkingSnapshot {
+                        &TranscriptEnvelope::with_id(
+                            adapter_event_id.clone(),
                             turn_id,
-                            message_id: message_id.clone(),
-                            text,
-                            started_at,
-                            duration_ms,
-                            created_at: Utc::now(),
-                        },
+                            TranscriptEvent::ThinkingSnapshot {
+                                message_id: message_id.clone(),
+                                text,
+                                started_at,
+                                duration_ms,
+                            },
+                        ),
                     )?;
                 }
             }
@@ -246,23 +276,55 @@ pub(super) async fn apply_event(
             })?;
         }
         AgentEvent::ToolCallStarted { tool_call } => {
-            persist_tool(store, state, chat_id, tool_call.clone(), &emit).await?;
+            persist_tool(
+                store,
+                state,
+                chat_id,
+                tool_call.clone(),
+                &emit_host,
+                Some(adapter_event_id.clone()),
+            )
+            .await?;
             emit(AgentChatPayload::ToolCallStarted { tool_call })?;
         }
         AgentEvent::ToolCallUpdated { tool_call } => {
-            persist_tool(store, state, chat_id, tool_call.clone(), &emit).await?;
+            persist_tool(
+                store,
+                state,
+                chat_id,
+                tool_call.clone(),
+                &emit_host,
+                Some(adapter_event_id.clone()),
+            )
+            .await?;
             emit(AgentChatPayload::ToolCallUpdated { tool_call })?;
         }
         AgentEvent::ToolCallCompleted { tool_call } => {
-            persist_tool(store, state, chat_id, tool_call.clone(), &emit).await?;
+            persist_tool(
+                store,
+                state,
+                chat_id,
+                tool_call.clone(),
+                &emit_host,
+                Some(adapter_event_id.clone()),
+            )
+            .await?;
             emit(AgentChatPayload::ToolCallCompleted { tool_call })?;
         }
         AgentEvent::ToolCallFailed { tool_call, error } => {
-            persist_tool(store, state, chat_id, tool_call.clone(), &emit).await?;
+            persist_tool(
+                store,
+                state,
+                chat_id,
+                tool_call.clone(),
+                &emit_host,
+                Some(adapter_event_id.clone()),
+            )
+            .await?;
             emit(AgentChatPayload::ToolCallFailed { tool_call, error })?;
         }
         AgentEvent::PlanUpdated { plan } => {
-            flush_open_thinking(store, state, chat_id, &emit).await?;
+            flush_open_thinking(store, state, chat_id, &emit_host).await?;
             let turn_id = state
                 .lock()
                 .await
@@ -271,16 +333,16 @@ pub(super) async fn apply_event(
                 .unwrap_or_else(|| "unknown".into());
             store.append_record(
                 chat_id,
-                &TranscriptRecord::Plan {
+                &TranscriptEnvelope::with_id(
+                    adapter_event_id.clone(),
                     turn_id,
-                    plan: plan.clone(),
-                    created_at: Utc::now(),
-                },
+                    TranscriptEvent::Plan { plan: plan.clone() },
+                ),
             )?;
             emit(AgentChatPayload::PlanUpdated { plan })?;
         }
         AgentEvent::PermissionRequested { request } => {
-            flush_open_thinking(store, state, chat_id, &emit).await?;
+            flush_open_thinking(store, state, chat_id, &emit_host).await?;
             let turn_id = state
                 .lock()
                 .await
@@ -298,11 +360,13 @@ pub(super) async fn apply_event(
             state.lock().await.pending_permission = Some(pending.clone());
             store.append_record(
                 chat_id,
-                &TranscriptRecord::Permission {
+                &TranscriptEnvelope::with_id(
+                    adapter_event_id.clone(),
                     turn_id,
-                    request: pending.clone(),
-                    created_at: Utc::now(),
-                },
+                    TranscriptEvent::Permission {
+                        request: pending.clone(),
+                    },
+                ),
             )?;
             store.update_meta(chat_id, |meta| {
                 meta.runtime_status = RuntimeStatus::WaitingPermission;
@@ -333,15 +397,45 @@ pub(super) async fn apply_event(
             state.lock().await.pending_permission = None;
             store.append_record(
                 chat_id,
-                &TranscriptRecord::Permission {
+                &TranscriptEnvelope::with_id(
+                    adapter_event_id.clone(),
                     turn_id,
-                    request: resolved,
-                    created_at: Utc::now(),
-                },
+                    TranscriptEvent::Permission { request: resolved },
+                ),
             )?;
             emit(AgentChatPayload::PermissionResolved {
                 request_id,
                 option_id,
+            })?;
+        }
+        AgentEvent::SessionOpRequested { request } => {
+            let pending = PendingSessionOp {
+                request: request.clone(),
+                selected_turn_id: None,
+            };
+            state.lock().await.pending_session_op = Some(pending.clone());
+            store.update_meta(chat_id, |meta| {
+                meta.pending_session_op = Some(pending);
+            })?;
+            emit(AgentChatPayload::SessionOpRequested { request })?;
+        }
+        AgentEvent::SessionOpResolved {
+            request_id,
+            option_id,
+            outcome,
+        } => {
+            state.lock().await.pending_session_op = None;
+            store.update_meta(chat_id, |meta| {
+                meta.pending_session_op = None;
+            })?;
+            emit(AgentChatPayload::SessionOpResolved {
+                request_id,
+                option_id,
+                outcome: session_op_outcome_wire(&outcome),
+                error: match &outcome {
+                    SessionOpOutcome::Failed { message } => Some(message.clone()),
+                    _ => None,
+                },
             })?;
         }
         AgentEvent::TurnCompleted { turn_id, stop } => {
@@ -357,6 +451,7 @@ pub(super) async fn apply_event(
                 store,
                 state,
                 &emit,
+                Some(adapter_event_id.clone()),
             )
             .await?;
         }
@@ -369,6 +464,7 @@ pub(super) async fn apply_event(
                 store,
                 state,
                 &emit,
+                Some(adapter_event_id.clone()),
             )
             .await?;
         }
@@ -381,14 +477,21 @@ pub(super) async fn apply_event(
                 store,
                 state,
                 &emit,
+                Some(adapter_event_id.clone()),
             )
             .await?;
         }
         AgentEvent::SessionClosed => {
             store.update_meta(chat_id, |meta| {
                 meta.runtime_status = RuntimeStatus::Closed;
+                meta.pending_session_op = None;
             })?;
             state.lock().await.pending_permission = None;
+            state.lock().await.pending_session_op = None;
+            emit(AgentChatPayload::RuntimeStatus {
+                status: RuntimeStatus::Closed,
+                persistence_handle: None,
+            })?;
         }
         AgentEvent::SessionTitleUpdated { title } => {
             store.update_meta(chat_id, |meta| {
@@ -397,6 +500,9 @@ pub(super) async fn apply_event(
             emit(AgentChatPayload::TitleUpdated { title: Some(title) })?;
         }
         AgentEvent::AvailableCommandsUpdated { commands } => {
+            let provider_id = store.get_meta(chat_id)?.provider_id;
+            let mut commands = commands;
+            inject_session_op_commands(&provider_id, &mut commands);
             store.update_meta(chat_id, |meta| {
                 meta.available_commands = commands.clone();
             })?;
@@ -422,11 +528,13 @@ pub(super) async fn apply_event(
                 drop(state);
                 store.append_record(
                     chat_id,
-                    &TranscriptRecord::Usage {
-                        turn_id,
-                        usage: serde_json::to_value(&turn).unwrap_or(usage.clone()),
-                        created_at: Utc::now(),
-                    },
+                    &TranscriptEnvelope::with_id(
+                        adapter_event_id.clone(),
+                        turn_id.unwrap_or_else(|| "unknown".into()),
+                        TranscriptEvent::Usage {
+                            usage: serde_json::to_value(&turn).unwrap_or(usage.clone()),
+                        },
+                    ),
                 )?;
             }
             if session.is_some() || turn.is_some() {
@@ -435,52 +543,51 @@ pub(super) async fn apply_event(
         }
         AgentEvent::ConfigChanged { config } => {
             let advertised = parse_advertised_options(&config);
-            let (model, thinking, mode) = selected_session_config(&config);
-            if advertised.is_empty() && model.is_none() && thinking.is_none() && mode.is_none() {
+            let (model, thinking, mode, permission_mode) = selected_session_config(&config);
+            if advertised.is_empty()
+                && model.is_none()
+                && thinking.is_none()
+                && mode.is_none()
+                && permission_mode.is_none()
+            {
                 return Ok(());
             }
-            let mut emitted_model = None;
-            let mut emitted_thinking = None;
-            let mut emitted_mode = None;
-            let mut emitted_options = Vec::new();
+            let mut emitted = None;
             store.update_meta(chat_id, |meta| {
-                meta.session_config_options =
-                    merge_advertised_options(meta.session_config_options.clone(), advertised);
-                emitted_model = stamp_advertised_selection(
-                    &meta.session_config_options,
-                    "model",
+                apply_config_changed(
+                    meta,
+                    advertised,
                     model.as_ref(),
-                    &mut meta.applied_model,
-                    &mut meta.selected_model,
-                );
-                emitted_thinking = stamp_advertised_selection(
-                    &meta.session_config_options,
-                    "thinking",
                     thinking.as_ref(),
-                    &mut meta.applied_thinking,
-                    &mut meta.selected_thinking,
-                );
-                emitted_mode = stamp_advertised_selection(
-                    &meta.session_config_options,
-                    "mode",
                     mode.as_ref(),
-                    &mut meta.applied_mode,
-                    &mut meta.selected_mode,
+                    permission_mode.as_ref(),
                 );
-                emitted_options = meta.session_config_options.clone();
+                emitted = Some(meta.descriptor.clone());
             })?;
-            if emitted_model.is_some()
-                || emitted_thinking.is_some()
-                || emitted_mode.is_some()
-                || !emitted_options.is_empty()
-            {
-                emit(AgentChatPayload::ConfigUpdated {
-                    model: emitted_model.clone(),
-                    thinking: emitted_thinking,
-                    mode: emitted_mode.clone(),
-                    config_options: emitted_options,
-                })?;
+            if let Some(descriptor) = emitted {
+                emit(AgentChatPayload::ConfigUpdated { descriptor })?;
             }
+        }
+        AgentEvent::Unknown {
+            event_type,
+            payload,
+        } => {
+            emit(AgentChatPayload::Unknown {
+                event_type,
+                payload,
+            })?;
+        }
+        AgentEvent::UserCheckpoint {
+            turn_id,
+            checkpoint_id,
+        } => {
+            store.append_record(
+                chat_id,
+                &TranscriptEnvelope::new(
+                    turn_id,
+                    TranscriptEvent::UserCheckpoint { checkpoint_id },
+                ),
+            )?;
         }
     }
     Ok(())
@@ -542,6 +649,102 @@ fn stamp_advertised_selection(
     }
 }
 
+fn apply_config_changed(
+    meta: &mut AgentChatMeta,
+    advertised: Vec<SessionAdvertisedOption>,
+    model: Option<&String>,
+    thinking: Option<&String>,
+    mode: Option<&String>,
+    permission_mode: Option<&String>,
+) {
+    let complete = advertised
+        .iter()
+        .any(|item| !item.options.is_empty() || item.option_type.eq_ignore_ascii_case("boolean"));
+    if complete {
+        if let Some(option) = advertised_option_for_kind(&advertised, "model") {
+            if !option.options.is_empty() {
+                meta.descriptor.supported_options.models = models_from_option(option);
+            }
+        }
+        if let Some(option) = advertised_option_for_kind(&advertised, "mode") {
+            if !option.options.is_empty() {
+                meta.descriptor.supported_options.modes = modes_from_option(option);
+            }
+        }
+        if let Some(option) = advertised_option_for_kind(&advertised, "permission_mode") {
+            if !option.options.is_empty() {
+                meta.descriptor.supported_options.permission_modes = modes_from_option(option);
+            }
+        }
+        if let Some(option) = advertised_option_for_kind(&advertised, "thinking") {
+            if !option.options.is_empty() {
+                meta.descriptor.supported_options.thinking = AgentThinkingSupport::Enum {
+                    arg: None,
+                    options: option
+                        .options
+                        .iter()
+                        .map(|item| item.value.clone())
+                        .collect(),
+                };
+            }
+        }
+    }
+    stamp_advertised_selection(
+        &advertised,
+        "model",
+        model,
+        &mut meta.applied_model,
+        &mut meta.descriptor.current_config.model,
+    );
+    stamp_advertised_selection(
+        &advertised,
+        "thinking",
+        thinking,
+        &mut meta.applied_thinking,
+        &mut meta.descriptor.current_config.thinking,
+    );
+    stamp_advertised_selection(
+        &advertised,
+        "mode",
+        mode,
+        &mut meta.applied_mode,
+        &mut meta.descriptor.current_config.mode,
+    );
+    stamp_advertised_selection(
+        &advertised,
+        "permission_mode",
+        permission_mode,
+        &mut meta.applied_permission_mode,
+        &mut meta.descriptor.current_config.permission_mode,
+    );
+}
+
+fn models_from_option(option: &SessionAdvertisedOption) -> Vec<AgentModel> {
+    option
+        .options
+        .iter()
+        .map(|item| AgentModel {
+            id: item.value.clone(),
+            label: item.name.clone().unwrap_or_else(|| item.value.clone()),
+            group: None,
+            is_default: option.current_value.as_deref() == Some(item.value.as_str()),
+            thinking: None,
+        })
+        .collect()
+}
+
+fn modes_from_option(option: &SessionAdvertisedOption) -> Vec<AgentMode> {
+    option
+        .options
+        .iter()
+        .map(|item| AgentMode {
+            id: item.value.clone(),
+            label: item.name.clone().unwrap_or_else(|| item.value.clone()),
+            is_default: option.current_value.as_deref() == Some(item.value.as_str()),
+        })
+        .collect()
+}
+
 fn parse_advertised_options(config: &serde_json::Value) -> Vec<SessionAdvertisedOption> {
     let options: Vec<ConfigOptionWire> = match serde_json::from_value(config.clone()) {
         Ok(options) => options,
@@ -569,66 +772,80 @@ fn parse_advertised_options(config: &serde_json::Value) -> Vec<SessionAdvertised
 
 pub(super) fn selected_session_config(
     config: &serde_json::Value,
-) -> (Option<String>, Option<String>, Option<String>) {
-    let options: Vec<ConfigOptionWire> = match serde_json::from_value(config.clone()) {
-        Ok(options) => options,
-        Err(_) => return (None, None, None),
-    };
-    let mut model = None;
-    let mut thinking = None;
-    let mut mode = None;
-    for option in options {
-        let Some(value) = option.current_value.and_then(nonempty_opt) else {
-            continue;
-        };
-        if model.is_none() && config_kind_matches(&option.id, option.category.as_deref(), "model") {
-            model = Some(value);
-        } else if mode.is_none()
-            && config_kind_matches(&option.id, option.category.as_deref(), "mode")
-        {
-            mode = Some(value);
-        } else if thinking.is_none()
-            && config_kind_matches(&option.id, option.category.as_deref(), "thinking")
-        {
-            thinking = Some(value);
+) -> (
+    Option<String>,
+    Option<String>,
+    Option<String>,
+    Option<String>,
+) {
+    if let Ok(options) = serde_json::from_value::<Vec<ConfigOptionWire>>(config.clone()) {
+        let mut model = None;
+        let mut thinking = None;
+        let mut mode = None;
+        let mut permission_mode = None;
+        for option in options {
+            let Some(value) = option.current_value.and_then(nonempty_opt) else {
+                continue;
+            };
+            if model.is_none()
+                && config_kind_matches(&option.id, option.category.as_deref(), "model")
+            {
+                model = Some(value);
+            } else if permission_mode.is_none()
+                && config_kind_matches(&option.id, option.category.as_deref(), "permission_mode")
+            {
+                permission_mode = Some(value);
+            } else if mode.is_none()
+                && config_kind_matches(&option.id, option.category.as_deref(), "mode")
+            {
+                mode = Some(value);
+            } else if thinking.is_none()
+                && config_kind_matches(&option.id, option.category.as_deref(), "thinking")
+            {
+                thinking = Some(value);
+            }
         }
+        return (model, thinking, mode, permission_mode);
     }
-    (model, thinking, mode)
+    if let Some(obj) = config.as_object() {
+        let pick = |key: &str| {
+            obj.get(key)
+                .and_then(|value| value.as_str())
+                .map(str::to_string)
+                .and_then(nonempty_opt)
+        };
+        return (
+            pick("model"),
+            pick("thinking"),
+            pick("mode"),
+            pick("permission_mode"),
+        );
+    }
+    (None, None, None, None)
 }
 
 async fn persist_tool(
     store: &AgentChatStore,
     state: &Mutex<RuntimeState>,
     chat_id: &str,
-    tool_call: agent::AgentToolCall,
+    tool: AgentTool,
     emit: &impl Fn(AgentChatPayload) -> Result<()>,
+    persist_event_id: Option<String>,
 ) -> Result<()> {
-    if matches!(
-        agent::classify_tool(
-            &tool_call.name,
-            tool_call.title.as_deref(),
-            tool_call.input.as_ref(),
-        ),
-        agent::ClassifiedTool::Thinking
-    ) {
-        state.lock().await.mark_thinking();
-    } else {
-        flush_open_thinking(store, state, chat_id, emit).await?;
-    }
+    flush_open_thinking(store, state, chat_id, emit).await?;
     let turn_id = state
         .lock()
         .await
         .current_turn_id
         .clone()
         .unwrap_or_else(|| "unknown".into());
-    store.append_record(
-        chat_id,
-        &TranscriptRecord::ToolCall {
-            turn_id,
-            tool_call,
-            created_at: Utc::now(),
-        },
-    )
+    let envelope = match persist_event_id {
+        Some(event_id) => {
+            TranscriptEnvelope::with_id(event_id, turn_id, TranscriptEvent::ToolCall { tool })
+        }
+        None => TranscriptEnvelope::new(turn_id, TranscriptEvent::ToolCall { tool }),
+    };
+    store.append_record(chat_id, &envelope)
 }
 
 /// Persist in-memory thinking as its own transcript segment when a tool, plan,
@@ -661,14 +878,15 @@ async fn flush_open_thinking(
         if !text.is_empty() || duration_ms.is_some() {
             store.append_record(
                 chat_id,
-                &TranscriptRecord::ThinkingSnapshot {
+                &TranscriptEnvelope::new(
                     turn_id,
-                    message_id: message_id.clone(),
-                    text,
-                    started_at,
-                    duration_ms,
-                    created_at: Utc::now(),
-                },
+                    TranscriptEvent::ThinkingSnapshot {
+                        message_id: message_id.clone(),
+                        text,
+                        started_at,
+                        duration_ms,
+                    },
+                ),
             )?;
         }
         emit(AgentChatPayload::ThinkingCompleted {
@@ -687,6 +905,7 @@ pub(super) async fn finish_turn(
     store: &AgentChatStore,
     state: &Mutex<RuntimeState>,
     emit: &impl Fn(AgentChatPayload) -> Result<()>,
+    persist_event_id: Option<String>,
 ) -> Result<()> {
     let (
         assistant,
@@ -735,39 +954,38 @@ pub(super) async fn finish_turn(
     for (message_id, (snap_turn, text)) in assistant {
         store.append_record(
             chat_id,
-            &TranscriptRecord::AssistantSnapshot {
-                turn_id: snap_turn,
-                message_id,
-                text,
-                created_at: Utc::now(),
-            },
+            &TranscriptEnvelope::new(
+                snap_turn,
+                TranscriptEvent::AssistantSnapshot { message_id, text },
+            ),
         )?;
     }
     for (message_id, (snap_turn, text)) in thinking {
         store.append_record(
             chat_id,
-            &TranscriptRecord::ThinkingSnapshot {
-                turn_id: snap_turn,
-                message_id,
-                text,
-                started_at: None,
-                duration_ms: (last_thinking_segment_ms > 0).then_some(last_thinking_segment_ms),
-                created_at: Utc::now(),
-            },
+            &TranscriptEnvelope::new(
+                snap_turn,
+                TranscriptEvent::ThinkingSnapshot {
+                    message_id,
+                    text,
+                    started_at: None,
+                    duration_ms: (last_thinking_segment_ms > 0).then_some(last_thinking_segment_ms),
+                },
+            ),
         )?;
     }
-    store.append_record(
-        chat_id,
-        &TranscriptRecord::TurnCompleted {
-            turn_id: turn_id.clone(),
-            status,
-            error,
-            worked_ms: Some(worked_ms),
-            thinking_ms: Some(thinking_ms),
-            usage: usage.clone(),
-            created_at: completed_at,
-        },
-    )?;
+    let completed = TranscriptEvent::TurnCompleted {
+        status,
+        error: error.clone(),
+        worked_ms: Some(worked_ms),
+        thinking_ms: Some(thinking_ms),
+        usage: usage.clone(),
+    };
+    let completed_envelope = match persist_event_id {
+        Some(event_id) => TranscriptEnvelope::with_id(event_id, turn_id.clone(), completed),
+        None => TranscriptEnvelope::new(turn_id.clone(), completed),
+    };
+    store.append_record(chat_id, &completed_envelope)?;
     store.update_meta(chat_id, |meta| {
         meta.runtime_status = RuntimeStatus::Ready;
     })?;
@@ -778,6 +996,7 @@ pub(super) async fn finish_turn(
         thinking_ms: Some(thinking_ms),
         completed_at: Some(completed_at),
         usage,
+        error,
     })
 }
 
@@ -807,6 +1026,12 @@ pub(super) fn overlay_live_state(snapshot: &mut AgentChatSnapshot, state: &Runti
     overlay_live_timing(snapshot, state, Utc::now());
     if snapshot.pending_permission.is_none() {
         snapshot.pending_permission = state.pending_permission.clone();
+    }
+    if snapshot.pending_session_op.is_none() {
+        snapshot.pending_session_op = state
+            .pending_session_op
+            .as_ref()
+            .map(|pending| pending.request.clone());
     }
 }
 
@@ -955,6 +1180,18 @@ pub(super) fn emit_live(
     events: &broadcast::Sender<AgentChatEvent>,
     recent_events: &std::sync::Mutex<HashMap<String, VecDeque<AgentChatEvent>>>,
 ) -> Result<()> {
+    emit_live_ids(chat_id, payload, store, events, recent_events, None, None)
+}
+
+pub(super) fn emit_live_ids(
+    chat_id: &str,
+    payload: AgentChatPayload,
+    store: &AgentChatStore,
+    events: &broadcast::Sender<AgentChatEvent>,
+    recent_events: &std::sync::Mutex<HashMap<String, VecDeque<AgentChatEvent>>>,
+    event_id: Option<String>,
+    turn_id: Option<String>,
+) -> Result<()> {
     let sequence = store.next_seq(chat_id)?;
     let persist = !matches!(
         payload,
@@ -962,8 +1199,9 @@ pub(super) fn emit_live(
     );
     let event = AgentChatEvent {
         chat_id: chat_id.to_string(),
-        event_id: uuid::Uuid::new_v4().to_string(),
+        event_id: event_id.unwrap_or_else(|| uuid::Uuid::new_v4().to_string()),
         sequence,
+        turn_id,
         payload,
     };
     push_recent(recent_events, &event);
@@ -1001,13 +1239,14 @@ pub(super) fn persist_session_hint(
     let message_id = format!("hint-{turn_id}-{kind}");
     store.append_record(
         chat_id,
-        &TranscriptRecord::SessionHint {
-            turn_id: turn_id.to_string(),
-            message_id: message_id.clone(),
-            tone,
-            kind: kind.to_string(),
-            created_at: Utc::now(),
-        },
+        &TranscriptEnvelope::new(
+            turn_id,
+            TranscriptEvent::SessionHint {
+                message_id: message_id.clone(),
+                tone,
+                kind: kind.to_string(),
+            },
+        ),
     )?;
     emit_live(
         chat_id,
@@ -1071,13 +1310,14 @@ pub(super) fn persist_session_config_change(
     let message_id = format!("config-{turn_id}");
     store.append_record(
         chat_id,
-        &TranscriptRecord::SessionConfigChange {
-            turn_id: turn_id.to_string(),
-            message_id: message_id.clone(),
-            model: change.model.clone(),
-            mode: change.mode.clone(),
-            created_at: Utc::now(),
-        },
+        &TranscriptEnvelope::new(
+            turn_id,
+            TranscriptEvent::SessionConfigChange {
+                message_id: message_id.clone(),
+                model: change.model.clone(),
+                mode: change.mode.clone(),
+            },
+        ),
     )?;
     emit_live(
         chat_id,
@@ -1127,7 +1367,8 @@ pub(super) async fn apply_pending_session_config(
         }
     }
     let thinking = pending_thinking_change(&store.get_meta(chat_id)?);
-    if change.is_none() && thinking.is_none() {
+    let permission_mode = pending_permission_mode_change(&store.get_meta(chat_id)?);
+    if change.is_none() && thinking.is_none() && permission_mode.is_none() {
         return stamp_applied_session_config(store, chat_id);
     }
     let outcome = apply_live_session_config(chat_id, store, control, change.as_ref()).await?;
@@ -1137,16 +1378,18 @@ pub(super) async fn apply_pending_session_config(
         outcome.failed_model,
         outcome.failed_mode,
         outcome.failed_thinking,
+        outcome.failed_permission_mode,
     )?;
-    if outcome.failed_model || outcome.failed_mode || outcome.failed_thinking {
+    if outcome.failed_model
+        || outcome.failed_mode
+        || outcome.failed_thinking
+        || outcome.failed_permission_mode
+    {
         let meta = store.get_meta(chat_id)?;
         emit_live(
             chat_id,
             AgentChatPayload::ConfigUpdated {
-                model: meta.selected_model.clone(),
-                thinking: meta.selected_thinking.clone(),
-                mode: meta.selected_mode.clone(),
-                config_options: meta.session_config_options.clone(),
+                descriptor: meta.descriptor.clone(),
             },
             store,
             events,
@@ -1189,16 +1432,20 @@ fn revert_session_config(
     revert_model: bool,
     revert_mode: bool,
     revert_thinking: bool,
+    revert_permission_mode: bool,
 ) -> Result<()> {
     store.update_meta(chat_id, |meta| {
         if revert_model {
-            meta.selected_model = meta.applied_model.clone();
+            meta.descriptor.current_config.model = meta.applied_model.clone();
         }
         if revert_mode {
-            meta.selected_mode = meta.applied_mode.clone();
+            meta.descriptor.current_config.mode = meta.applied_mode.clone();
         }
         if revert_thinking {
-            meta.selected_thinking = meta.applied_thinking.clone();
+            meta.descriptor.current_config.thinking = meta.applied_thinking.clone();
+        }
+        if revert_permission_mode {
+            meta.descriptor.current_config.permission_mode = meta.applied_permission_mode.clone();
         }
     })?;
     Ok(())
@@ -1208,6 +1455,7 @@ pub(super) struct ConfigWriteOutcome {
     failed_model: bool,
     failed_mode: bool,
     failed_thinking: bool,
+    failed_permission_mode: bool,
 }
 
 pub(super) async fn apply_live_session_config(
@@ -1219,12 +1467,15 @@ pub(super) async fn apply_live_session_config(
     let meta = store.get_meta(chat_id)?;
     let thinking = pending_thinking_change(&meta)
         .and_then(|value| resolve_pending_select(&meta, "thinking", Some(value.as_str())));
+    let permission_mode = pending_permission_mode_change(&meta)
+        .and_then(|value| resolve_pending_select(&meta, "permission_mode", Some(value.as_str())));
     let model = change.and_then(|item| item.model.as_ref().map(|value| value.to.clone()));
     let mode = change.and_then(|item| item.mode.as_ref().map(|value| value.to.clone()));
     let mut outcome = ConfigWriteOutcome {
         failed_model: false,
         failed_mode: false,
         failed_thinking: false,
+        failed_permission_mode: false,
     };
     if let Some(update) = config_write(
         &meta,
@@ -1255,14 +1506,25 @@ pub(super) async fn apply_live_session_config(
             outcome.failed_mode = true;
         }
     }
+    if let Some(update) = config_write(
+        &meta,
+        "permission_mode",
+        permission_mode,
+        meta.applied_permission_mode.clone(),
+    ) {
+        if control.set_config(update).await.is_err() {
+            outcome.failed_permission_mode = true;
+        }
+    }
     Ok(outcome)
 }
 
 pub(super) fn stamp_applied_session_config(store: &AgentChatStore, chat_id: &str) -> Result<()> {
     store.update_meta(chat_id, |meta| {
-        meta.applied_model = meta.selected_model.clone();
-        meta.applied_thinking = meta.selected_thinking.clone();
-        meta.applied_mode = meta.selected_mode.clone();
+        meta.applied_model = meta.descriptor.current_config.model.clone();
+        meta.applied_thinking = meta.descriptor.current_config.thinking.clone();
+        meta.applied_mode = meta.descriptor.current_config.mode.clone();
+        meta.applied_permission_mode = meta.descriptor.current_config.permission_mode.clone();
     })?;
     Ok(())
 }
@@ -1318,7 +1580,16 @@ fn config_write(
                 } else {
                     None
                 },
-                previous_mode: if kind == "mode" { previous } else { None },
+                previous_mode: if kind == "mode" {
+                    previous.clone()
+                } else {
+                    None
+                },
+                previous_permission_mode: if kind == "permission_mode" {
+                    previous
+                } else {
+                    None
+                },
                 ..AgentRuntimeConfigUpdate::default()
             })
         }
@@ -1337,6 +1608,10 @@ fn config_write(
                     update.mode = Some(value);
                     update.previous_mode = previous;
                 }
+                "permission_mode" => {
+                    update.permission_mode = Some(value);
+                    update.previous_permission_mode = previous;
+                }
                 _ => return None,
             }
             Some(update)
@@ -1354,6 +1629,62 @@ pub(super) fn nonempty_opt(value: String) -> Option<String> {
     }
 }
 
+pub(super) fn inject_session_op_commands(
+    provider_id: &str,
+    commands: &mut Vec<AgentAvailableCommand>,
+) {
+    if chat_provider_kind(provider_id) == ChatProviderKind::Acp {
+        return;
+    }
+    let caps = agent::capabilities_for_provider(provider_id);
+    if caps.fork == Capability::Supported {
+        push_command_if_missing(commands, "fork", "Fork this session into a new chat");
+    }
+    if caps.rewind == Capability::Supported {
+        push_command_if_missing(commands, "rewind", "Rewind this conversation");
+    }
+}
+
+pub(super) fn seed_available_commands(
+    provider_id: &str,
+    commands: &mut Vec<AgentAvailableCommand>,
+    catalog: Option<&agent::AgentModelCatalog>,
+) {
+    if commands.is_empty() {
+        if let Some(catalog) = catalog {
+            *commands = catalog.commands.clone();
+        }
+    }
+    inject_session_op_commands(provider_id, commands);
+}
+
+fn push_command_if_missing(
+    commands: &mut Vec<AgentAvailableCommand>,
+    name: &str,
+    description: &str,
+) {
+    let needle = name.trim_start_matches('/');
+    if commands
+        .iter()
+        .any(|command| command.name == name || command.name.trim_start_matches('/') == needle)
+    {
+        return;
+    }
+    commands.push(AgentAvailableCommand {
+        name: name.to_string(),
+        description: description.to_string(),
+        hint: None,
+    });
+}
+
+fn session_op_outcome_wire(outcome: &SessionOpOutcome) -> AgentChatSessionOpOutcome {
+    match outcome {
+        SessionOpOutcome::Applied => AgentChatSessionOpOutcome::Applied,
+        SessionOpOutcome::Canceled => AgentChatSessionOpOutcome::Canceled,
+        SessionOpOutcome::Failed { .. } => AgentChatSessionOpOutcome::Failed,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1361,6 +1692,7 @@ mod tests {
     use crate::service::agent_chat::types::{
         AgentChatMeta, AgentChatOrigin, AgentChatPayload, CreateAgentChatRequest,
     };
+    use agent::{AgentEvent, AgentEventEnvelope};
     use chrono::{Duration, Utc};
     use std::collections::HashMap;
     use std::time::Instant;
@@ -1382,16 +1714,19 @@ mod tests {
             last_event_seq: 0,
             persistence_handle: None,
             runtime_status: RuntimeStatus::RunningTurn,
-            selected_model: None,
-            selected_thinking: None,
-            selected_mode: None,
             applied_model: None,
             applied_thinking: None,
             applied_mode: None,
-            supports_steer: false,
+            applied_permission_mode: None,
             available_commands: Vec::new(),
-            session_config_options: Vec::new(),
             session_usage: None,
+            descriptor: crate::service::agent_chat::types::chat_descriptor(
+                "claude",
+                agent::AgentCurrentConfig::default(),
+            ),
+            parent_chat_id: None,
+            rewind_view: None,
+            pending_session_op: None,
         }
     }
 
@@ -1399,6 +1734,7 @@ mod tests {
         RuntimeState {
             current_turn_id: Some("t1".into()),
             pending_permission: None,
+            pending_session_op: None,
             assistant_text: HashMap::new(),
             thinking_text: HashMap::new(),
             last_snapshot: Instant::now(),
@@ -1428,6 +1764,7 @@ mod tests {
             }],
             queue: Vec::new(),
             pending_permission: None,
+            pending_session_op: None,
             running_turn_id: Some("t1".into()),
             running_turn_started_at: None,
         }
@@ -1517,8 +1854,51 @@ mod tests {
             (
                 Some("grok-4".into()),
                 Some("high".into()),
-                Some("agent".into())
+                Some("agent".into()),
+                None
             )
+        );
+        let permission = serde_json::json!([
+            { "id": "permissionMode", "currentValue": "plan" }
+        ]);
+        assert_eq!(
+            selected_session_config(&permission),
+            (None, None, None, Some("plan".into()))
+        );
+        let current = serde_json::json!({ "permission_mode": "auto", "model": "opus" });
+        assert_eq!(
+            selected_session_config(&current),
+            (Some("opus".into()), None, None, Some("auto".into()))
+        );
+    }
+
+    #[test]
+    fn inject_session_op_commands_stores_names_without_slash() {
+        let mut commands = vec![agent::AgentAvailableCommand {
+            name: "/fork".into(),
+            description: "old".into(),
+            hint: None,
+        }];
+        inject_session_op_commands("claude", &mut commands);
+        assert_eq!(commands.len(), 2);
+        assert_eq!(commands[0].name, "/fork");
+        assert_eq!(commands[1].name, "rewind");
+        let mut seeded = Vec::new();
+        seed_available_commands("opencode", &mut seeded, None);
+        assert_eq!(
+            seeded
+                .iter()
+                .map(|command| command.name.as_str())
+                .collect::<Vec<_>>(),
+            ["fork", "rewind"]
+        );
+        let mut pi = Vec::new();
+        seed_available_commands("pi", &mut pi, None);
+        assert_eq!(
+            pi.iter()
+                .map(|command| command.name.as_str())
+                .collect::<Vec<_>>(),
+            ["fork"]
         );
     }
 
@@ -1528,7 +1908,7 @@ mod tests {
             { "id": "model", "currentValue": "  " },
             { "id": "fast-mode", "currentValue": "true" }
         ]);
-        assert_eq!(selected_session_config(&config), (None, None, None));
+        assert_eq!(selected_session_config(&config), (None, None, None, None));
     }
 
     #[tokio::test]
@@ -1554,9 +1934,12 @@ mod tests {
         let state = Mutex::new(runtime());
         apply_event(
             &meta.id,
-            AgentEvent::ConfigChanged {
-                config: serde_json::json!([{ "id": "model", "currentValue": "opus" }]),
-            },
+            AgentEventEnvelope::new(
+                None,
+                AgentEvent::ConfigChanged {
+                    config: serde_json::json!([{ "id": "model", "currentValue": "opus" }]),
+                },
+            ),
             &store,
             &state,
             &tx,
@@ -1565,19 +1948,19 @@ mod tests {
         .await
         .unwrap();
         let updated = store.get_meta(&meta.id).unwrap();
-        assert_eq!(updated.selected_model.as_deref(), Some("opus"));
-        assert_eq!(updated.selected_mode.as_deref(), Some("plan"));
+        assert_eq!(
+            updated.descriptor.current_config.model.as_deref(),
+            Some("opus")
+        );
+        assert_eq!(
+            updated.descriptor.current_config.mode.as_deref(),
+            Some("plan")
+        );
         let event = rx.try_recv().expect("config_updated event");
         match event.payload {
-            AgentChatPayload::ConfigUpdated {
-                model,
-                thinking,
-                mode,
-                ..
-            } => {
-                assert_eq!(model.as_deref(), Some("opus"));
-                assert!(thinking.is_none());
-                assert!(mode.is_none());
+            AgentChatPayload::ConfigUpdated { descriptor } => {
+                assert_eq!(descriptor.current_config.model.as_deref(), Some("opus"));
+                assert_eq!(descriptor.current_config.mode.as_deref(), Some("plan"));
             }
             other => panic!("unexpected payload: {other:?}"),
         }
@@ -1604,7 +1987,7 @@ mod tests {
         store
             .update_meta(&meta.id, |row| {
                 row.applied_model = Some("opus".into());
-                row.selected_model = Some("grok-4".into());
+                row.descriptor.current_config.model = Some("grok-4".into());
             })
             .unwrap();
         let (tx, mut rx) = broadcast::channel(8);
@@ -1612,18 +1995,21 @@ mod tests {
         let state = Mutex::new(runtime());
         apply_event(
             &meta.id,
-            AgentEvent::ConfigChanged {
-                config: serde_json::json!([{
-                    "id": "model",
-                    "category": "model",
-                    "type": "select",
-                    "currentValue": "opus",
-                    "options": [
-                        { "value": "opus", "name": "Opus" },
-                        { "value": "grok-4", "name": "Grok" }
-                    ]
-                }]),
-            },
+            AgentEventEnvelope::new(
+                None,
+                AgentEvent::ConfigChanged {
+                    config: serde_json::json!([{
+                        "id": "model",
+                        "category": "model",
+                        "type": "select",
+                        "currentValue": "opus",
+                        "options": [
+                            { "value": "opus", "name": "Opus" },
+                            { "value": "grok-4", "name": "Grok" }
+                        ]
+                    }]),
+                },
+            ),
             &store,
             &state,
             &tx,
@@ -1632,7 +2018,10 @@ mod tests {
         .await
         .unwrap();
         let updated = store.get_meta(&meta.id).unwrap();
-        assert_eq!(updated.selected_model.as_deref(), Some("grok-4"));
+        assert_eq!(
+            updated.descriptor.current_config.model.as_deref(),
+            Some("grok-4")
+        );
         assert_eq!(updated.applied_model.as_deref(), Some("opus"));
         let mut saw_failed = false;
         while let Ok(event) = rx.try_recv() {
@@ -1673,7 +2062,7 @@ mod tests {
         store
             .update_meta(&meta.id, |row| {
                 row.applied_model = Some("opus".into());
-                row.selected_model = Some("grok-4".into());
+                row.descriptor.current_config.model = Some("grok-4".into());
             })
             .unwrap();
         let (tx, _rx) = broadcast::channel(8);
@@ -1681,15 +2070,18 @@ mod tests {
         let state = Mutex::new(runtime());
         apply_event(
             &meta.id,
-            AgentEvent::ConfigChanged {
-                config: serde_json::json!([{
-                    "id": "model",
-                    "category": "model",
-                    "type": "select",
-                    "currentValue": "opus",
-                    "options": [{ "value": "opus", "name": "Opus" }]
-                }]),
-            },
+            AgentEventEnvelope::new(
+                None,
+                AgentEvent::ConfigChanged {
+                    config: serde_json::json!([{
+                        "id": "model",
+                        "category": "model",
+                        "type": "select",
+                        "currentValue": "opus",
+                        "options": [{ "value": "opus", "name": "Opus" }]
+                    }]),
+                },
+            ),
             &store,
             &state,
             &tx,
@@ -1698,7 +2090,10 @@ mod tests {
         .await
         .unwrap();
         let updated = store.get_meta(&meta.id).unwrap();
-        assert_eq!(updated.selected_model.as_deref(), Some("opus"));
+        assert_eq!(
+            updated.descriptor.current_config.model.as_deref(),
+            Some("opus")
+        );
         assert_eq!(updated.applied_model.as_deref(), Some("opus"));
     }
 }

@@ -30,11 +30,9 @@ import { AgentTreeBranch } from "./AgentTreeBranch";
 export function AgentToolGroupView({
   parts,
   autoOpen,
-  registryId,
 }: {
   parts: AgentToolCallPart[];
   autoOpen: boolean;
-  registryId: string;
 }) {
   const t = useTranslations("Agent.components.toolGroup");
   const locale = useLocale();
@@ -102,7 +100,7 @@ export function AgentToolGroupView({
                   isLast={index === visibleParts.length - 1}
                   animate={autoOpen}
                 >
-                  <ToolView part={part} registryId={registryId} surface="plain" />
+                  <ToolView part={part} surface="plain" />
                 </AgentTreeBranch>
               );
             })}

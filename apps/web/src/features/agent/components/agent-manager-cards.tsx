@@ -2,8 +2,8 @@
 
 import React from "react";
 import { useTranslations } from "next-intl";
-import { Button, cn, Skeleton } from "@workspace/ui";
-import type { RegistryAgent, CustomAgent } from "@/api/ws-api";
+import { Button, cn, Skeleton, Switch } from "@workspace/ui";
+import type { RegistryAgent, CustomAgent, NativeChatAgent } from "@/api/ws-api";
 import {
   Github,
   Loader2,
@@ -11,10 +11,10 @@ import {
   Trash2,
   ArrowDownToLine,
   CircleFadingArrowUp,
-  Terminal,
   Pencil,
 } from "lucide-react";
 import { AgentIcon } from "./AgentIcon";
+import { customAgentDisplayName, isSecretEnvKey } from "@/features/agent/lib/custom-agent-registry";
 import { motion } from "motion/react";
 
 export function needsUpdate(
@@ -242,8 +242,11 @@ export interface CustomAgentCardProps {
   agent: CustomAgent;
   index: number;
   removingCustomName: string | null;
+  preloading?: boolean;
+  enablingPending?: boolean;
   onEdit: (agent: CustomAgent) => void;
   onRemoveRequest: (info: { name: string }) => void;
+  onEnabledChange?: (agent: CustomAgent, enabled: boolean) => void;
 }
 
 export const CustomAgentCard = React.memo<CustomAgentCardProps>(
@@ -251,8 +254,11 @@ export const CustomAgentCard = React.memo<CustomAgentCardProps>(
     agent,
     index,
     removingCustomName,
+    preloading = false,
+    enablingPending = false,
     onEdit,
     onRemoveRequest,
+    onEnabledChange,
   }) {
     const t = useTranslations("Agent.components");
     return (
@@ -263,16 +269,23 @@ export const CustomAgentCard = React.memo<CustomAgentCardProps>(
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95 }}
         transition={{ duration: 0.2, delay: index * 0.03, ease: "easeOut" }}
-        className="group relative flex min-h-[188px] flex-col rounded-xl border border-border/60 bg-transparent p-5 transition-all duration-200 hover:shadow-md"
+        className={cn(
+          "group relative flex min-h-[188px] flex-col rounded-xl border border-border/60 bg-transparent p-5 transition-all duration-200 hover:shadow-md",
+          agent.builtin && !agent.enabled && "opacity-80",
+        )}
       >
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex items-center gap-3">
             <div className="size-10 rounded-xl border border-border/50 bg-muted/20 flex items-center justify-center overflow-hidden shrink-0 group-hover:bg-primary/5">
-              <Terminal className="size-5 text-muted-foreground" />
+              <AgentIcon
+                registryId={agent.name}
+                name={customAgentDisplayName(agent)}
+                isCustom={!agent.builtin}
+              />
             </div>
             <div className="min-w-0">
               <h3 className="truncate text-sm font-semibold text-foreground tracking-tight">
-                {agent.name}
+                {customAgentDisplayName(agent)}
               </h3>
               <p className="text-xs text-muted-foreground/70 truncate mt-0.5">
                 {agent.command} {agent.args.join(" ")}
@@ -280,12 +293,12 @@ export const CustomAgentCard = React.memo<CustomAgentCardProps>(
             </div>
           </div>
           <span className="rounded-full border border-violet-500/20 bg-violet-500/10 text-violet-600 dark:text-violet-400 px-2.5 py-0.5 text-[10px] font-medium">
-            {t("managerCards.status.custom")}
+            {agent.builtin ? t("managerCards.status.builtin") : t("managerCards.status.custom")}
           </span>
         </div>
 
         <p className="mt-4 line-clamp-2 text-[13px] leading-relaxed text-muted-foreground text-pretty">
-          {agent.command} {agent.args.join(" ")}
+          {agent.description?.trim() || `${agent.command} ${agent.args.join(" ")}`}
         </p>
 
         {Object.keys(agent.env).length > 0 && (
@@ -295,7 +308,7 @@ export const CustomAgentCard = React.memo<CustomAgentCardProps>(
                 key={key}
                 className="inline-flex items-center gap-1 rounded-md bg-muted/50 px-2 py-0.5 text-[11px] text-muted-foreground font-mono"
               >
-                {key}={value}
+                {key}={isSecretEnvKey(key) ? "••••" : value}
               </span>
             ))}
           </div>
@@ -304,6 +317,22 @@ export const CustomAgentCard = React.memo<CustomAgentCardProps>(
         <div className="mt-auto">
           <div className="h-px bg-border/40 mt-4" />
           <div className="flex items-center justify-end gap-2 pt-3">
+            {agent.builtin && onEnabledChange ? (
+              <div className="mr-auto flex min-w-0 items-center gap-2">
+                <Switch
+                  checked={agent.enabled === true}
+                  disabled={enablingPending || removingCustomName === agent.name}
+                  onCheckedChange={(checked) => onEnabledChange(agent, !!checked)}
+                  aria-label={t("managerCards.actions.enable")}
+                />
+                {preloading ? (
+                  <span className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+                    <Loader2 className="size-3 shrink-0 animate-spin" />
+                    <span className="truncate">{t("managerCards.actions.preloading")}</span>
+                  </span>
+                ) : null}
+              </div>
+            ) : null}
             <Button
               variant="outline"
               size="sm"
@@ -314,6 +343,7 @@ export const CustomAgentCard = React.memo<CustomAgentCardProps>(
               <Pencil className="mr-1 size-3.5" />
               {t("common.edit")}
             </Button>
+            {(!agent.builtin || agent.has_overlay) ? (
             <Button
               variant="secondary"
               size="sm"
@@ -333,6 +363,110 @@ export const CustomAgentCard = React.memo<CustomAgentCardProps>(
                 </>
               )}
             </Button>
+            ) : null}
+          </div>
+        </div>
+      </motion.div>
+    );
+  },
+);
+
+/* ------------------------------------------------------------------ */
+
+export interface NativeAgentCardProps {
+  agent: NativeChatAgent;
+  index: number;
+  enablingPending?: boolean;
+  onEnabledChange: (agent: NativeChatAgent, enabled: boolean) => void;
+}
+
+function nativeDescriptionKey(id: string):
+  | "managerCards.native.description.claude"
+  | "managerCards.native.description.codex"
+  | "managerCards.native.description.opencode"
+  | "managerCards.native.description.pi"
+  | "managerCards.native.description.grok"
+  | null {
+  switch (id) {
+    case "claude":
+      return "managerCards.native.description.claude";
+    case "codex":
+      return "managerCards.native.description.codex";
+    case "opencode":
+      return "managerCards.native.description.opencode";
+    case "pi":
+      return "managerCards.native.description.pi";
+    case "grok":
+      return "managerCards.native.description.grok";
+    default:
+      return null;
+  }
+}
+
+export const NativeAgentCard = React.memo<NativeAgentCardProps>(
+  function NativeAgentCard({
+    agent,
+    index,
+    enablingPending = false,
+    onEnabledChange,
+  }) {
+    const t = useTranslations("Agent.components");
+    const descriptionKey = nativeDescriptionKey(agent.id);
+    return (
+      <motion.div
+        key={`native-${agent.id}`}
+        layout
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        transition={{ duration: 0.2, delay: index * 0.03, ease: "easeOut" }}
+        className={cn(
+          "group relative flex min-h-[188px] flex-col rounded-xl border border-border/60 bg-transparent p-5 transition-all duration-200 hover:shadow-md",
+          !agent.enabled && "opacity-80",
+        )}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 flex items-center gap-3">
+            <div className="size-10 rounded-xl border border-border/50 bg-muted/20 flex items-center justify-center overflow-hidden shrink-0 group-hover:bg-primary/5">
+              <AgentIcon registryId={agent.id} name={agent.name} />
+            </div>
+            <div className="min-w-0">
+              <h3 className="truncate text-sm font-semibold text-foreground tracking-tight">
+                {agent.name}
+              </h3>
+              <p className="text-xs text-muted-foreground/70 truncate mt-0.5 font-mono">
+                {agent.executable}
+              </p>
+            </div>
+          </div>
+          <span className="rounded-full border border-sky-500/20 bg-sky-500/10 text-sky-700 dark:text-sky-400 px-2.5 py-0.5 text-[10px] font-medium">
+            {t("managerCards.status.native")}
+          </span>
+        </div>
+
+        <p className="mt-4 line-clamp-2 text-[13px] leading-relaxed text-muted-foreground text-pretty">
+          {descriptionKey ? t(descriptionKey) : agent.description}
+        </p>
+        <p className={cn(
+          "mt-2 text-xs",
+          agent.cli_present ? "text-muted-foreground/80" : "text-amber-600 dark:text-amber-400",
+        )}>
+          {agent.cli_present
+            ? t("managerCards.native.cliFound")
+            : t("managerCards.native.cliMissing")}
+        </p>
+
+        <div className="mt-auto">
+          <div className="h-px bg-border/40 mt-4" />
+          <div className="flex items-center justify-end gap-2 pt-3">
+            <div className="mr-auto flex min-w-0 items-center gap-2">
+              <Switch
+                checked={agent.enabled}
+                disabled={enablingPending}
+                onCheckedChange={(checked) => onEnabledChange(agent, !!checked)}
+                aria-label={t("managerCards.actions.enable")}
+              />
+            </div>
           </div>
         </div>
       </motion.div>

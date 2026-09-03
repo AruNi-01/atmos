@@ -17,7 +17,7 @@
 | **Backend: Infrastructure** (DB, Cache, Queue, Jobs) | [crates/infra/AGENTS.md](crates/infra/AGENTS.md) |
 | **Backend: Core Engine** (PTY, Git, FS) | [crates/core-engine/AGENTS.md](crates/core-engine/AGENTS.md) |
 | **Backend: Business Logic** (Auth, Project, Workspace) | [crates/core-service/AGENTS.md](crates/core-service/AGENTS.md) |
-| **Backend: Agent Integration** (ACP, Agent Manager) | [crates/agent/AGENTS.md](crates/agent/AGENTS.md) |
+| **Backend: Agent Integration** (Chat providers, ACP, Agent Manager) | [crates/agent/AGENTS.md](crates/agent/AGENTS.md) |
 | **Backend: Quota Usage Tracking** | [crates/quota-usage/AGENTS.md](crates/quota-usage/AGENTS.md) |
 | **Backend: Token Usage Tracking** | [crates/token-usage/AGENTS.md](crates/token-usage/AGENTS.md) |
 | **Backend: Permission Access** | [crates/permission-access/AGENTS.md](crates/permission-access/AGENTS.md) |
@@ -57,7 +57,7 @@ atmos/
 │   ├── infra/                 # L1: Infrastructure (DB, Cache, Queue, Jobs)
 │   ├── core-engine/           # L2: Tech Capabilities (PTY, Git, FS)
 │   ├── core-service/          # L3: Business Rules
-│   ├── agent/                 # Agent capability (ACP Client)
+│   ├── agent/                 # Agent Chat providers + ACP + Agent Manager
 │   ├── quota-usage/              # Quota Usage Tracking
 │   ├── token-usage/           # Token Usage Tracking
 │   ├── llm/                   # LLM capability
@@ -131,6 +131,7 @@ Every feature that needs planning lives under `specs/<APP|Landing|Docs>/<ZONE>-N
 - `atmos-specs-tech` — design HOW, write `TECH.md`
 - `atmos-specs-test-plan` — author scenario-level plan in `TEST.md`
 - `atmos-specs-impl` — ship production code under `crates/` / `apps/` / `packages/`, keep regression gate green
+- `atmos-long-task-impl` — parent session orchestrates only: file-disjoint waves, PROGRESS.md kanban, impl/review subagents; never write feature code in the parent (large/parallel specs)
 - `atmos-specs-test-run` — write and run the real tests (`cargo test`, `bun test`), append Coverage Status to `TEST.md`
 - `atmos-specs-review` — review implemented specs, write/update `REVIEW.md` findings for functional completeness and code quality
 

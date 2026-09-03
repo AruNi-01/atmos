@@ -22,9 +22,9 @@ import {
   RotateCcw,
   Plus,
   Terminal,
-  Download,
   Globe,
   MessageSquare,
+  Cpu,
 } from "lucide-react";
 import { LaunchpadPageTabs } from "@/shared/components/LaunchpadPageTabs";
 import { AgentChatSessionsView } from "@/features/agent/components/AgentChatSessionsView";
@@ -33,6 +33,7 @@ import { motion, AnimatePresence } from "motion/react";
 import {
   AgentCard,
   CustomAgentCard,
+  NativeAgentCard,
   AgentEmptyState,
   AgentSkeletonGrid,
 } from "./agent-manager-cards";
@@ -155,8 +156,8 @@ export const AgentManagerView: React.FC = () => {
                 value={activeTab}
                 onValueChange={(value) => void setAgentParams({ agentTab: value as AgentTab })}
                 items={[
-                  { value: "registry", label: t("manager.tabs.registry"), icon: Globe },
-                  { value: "installed", label: t("manager.tabs.installed"), icon: Download },
+                  { value: "native", label: t("manager.tabs.native"), icon: Cpu },
+                  { value: "acp", label: t("manager.tabs.acp"), icon: Globe },
                   { value: "custom", label: t("manager.tabs.custom"), icon: Terminal },
                 ]}
               />
@@ -186,7 +187,7 @@ export const AgentManagerView: React.FC = () => {
                     <Plus className="size-4" />
                   </Button>
                 )}
-                {activeTab === "registry" && (
+                {activeTab === "acp" && (
                   <Button
                     variant="outline"
                     size="icon"
@@ -231,7 +232,39 @@ export const AgentManagerView: React.FC = () => {
       >
         <div className="flex-1 scrollbar-on-hover overflow-auto px-8 pt-4 pb-8">
           <div className="max-w-5xl mx-auto w-full">
-            <TabsContent keepMounted value="registry">
+            <TabsContent keepMounted value="native">
+              {mgr.loading ? <AgentSkeletonGrid /> : (
+                <>
+                  {mgr.filteredNativeAgents.length > 0 ? (
+                    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                      <AnimatePresence mode="popLayout" initial={false}>
+                        {mgr.filteredNativeAgents.map((agent, index) => (
+                          <NativeAgentCard
+                            key={agent.id}
+                            agent={agent}
+                            index={index}
+                            enablingPending={mgr.pendingNativeEnabledId === agent.id}
+                            onEnabledChange={mgr.handleSetNativeChatAgentEnabled}
+                          />
+                        ))}
+                      </AnimatePresence>
+                    </div>
+                  ) : (
+                    <AgentEmptyState
+                      message={
+                        query
+                          ? t("manager.empty.nativeQuery", { query })
+                          : t("manager.empty.nativeDefault")
+                      }
+                      query={query}
+                      onClearSearch={handleClearSearch}
+                    />
+                  )}
+                </>
+              )}
+            </TabsContent>
+
+            <TabsContent keepMounted value="acp">
               {mgr.loading ? <AgentSkeletonGrid /> : (
                 <>
                   {mgr.filteredRegistry.length > 0 ? (
@@ -254,52 +287,8 @@ export const AgentManagerView: React.FC = () => {
                     <AgentEmptyState
                       message={
                         query
-                          ? t("manager.empty.registryQuery", { query })
-                          : t("manager.empty.registryDefault")
-                      }
-                      query={query}
-                      onClearSearch={handleClearSearch}
-                    />
-                  )}
-                </>
-              )}
-            </TabsContent>
-
-            <TabsContent keepMounted value="installed">
-              {mgr.loading ? <AgentSkeletonGrid /> : (
-                <>
-                  {mgr.installedAgents.length > 0 || mgr.filteredCustomAgents.length > 0 ? (
-                    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                      <AnimatePresence mode="popLayout" initial={false}>
-                        {mgr.installedAgents.map((item, index) => (
-                          <AgentCard
-                            key={item.id}
-                            item={item}
-                            index={index}
-                            installingRegistryIds={mgr.installingRegistryIds}
-                            removingRegistryId={mgr.removingRegistryId}
-                            onInstall={mgr.handleInstallRegistry}
-                            onRemoveRequest={mgr.setRemoveConfirmDialog}
-                          />
-                        ))}
-                        {mgr.filteredCustomAgents.map((agent, index) => (
-                          <CustomAgentCard
-                            key={`custom-${agent.name}`}
-                            agent={agent}
-                            index={mgr.installedAgents.length + index}
-                            removingCustomName={mgr.removingCustomName}
-                            onEdit={openEditCustomDialog}
-                            onRemoveRequest={mgr.setRemoveCustomConfirmDialog}
-                          />
-                        ))}
-                      </AnimatePresence>
-                    </div>
-                  ) : (
-                    <AgentEmptyState
-                      message={
-                        query
-                          ? t("manager.empty.installedQuery", { query })
-                          : t("manager.empty.installedDefault")
+                          ? t("manager.empty.acpQuery", { query })
+                          : t("manager.empty.acpDefault")
                       }
                       query={query}
                       onClearSearch={handleClearSearch}
@@ -312,17 +301,20 @@ export const AgentManagerView: React.FC = () => {
             <TabsContent keepMounted value="custom">
               {mgr.loading ? <AgentSkeletonGrid /> : (
                 <>
-                  {mgr.customAgents.length > 0 ? (
+                  {mgr.filteredCustomAgents.length > 0 ? (
                     <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                       <AnimatePresence mode="popLayout" initial={false}>
-                        {mgr.customAgents.map((agent, index) => (
+                        {mgr.filteredCustomAgents.map((agent, index) => (
                           <CustomAgentCard
                             key={`custom-${agent.name}`}
                             agent={agent}
                             index={index}
                             removingCustomName={mgr.removingCustomName}
+                            preloading={mgr.preloadingCustomName === agent.name}
+                            enablingPending={mgr.pendingCustomEnabledName === agent.name}
                             onEdit={openEditCustomDialog}
                             onRemoveRequest={mgr.setRemoveCustomConfirmDialog}
+                            onEnabledChange={mgr.handleSetCustomAgentEnabled}
                           />
                         ))}
                       </AnimatePresence>

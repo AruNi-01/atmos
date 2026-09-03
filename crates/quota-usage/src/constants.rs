@@ -27,6 +27,10 @@ pub(crate) const ZED_SUBSCRIPTION_URL: &str =
 /// Grok Build / SuperGrok subscription credits (same surface the Grok CLI uses).
 pub(crate) const GROK_BILLING_CREDITS_URL: &str =
     "https://cli-chat-proxy.grok.com/v1/billing?format=credits";
+/// DeepSeek prepaid wallet (not a billing-period quota).
+pub(crate) const DEEPSEEK_BALANCE_URL: &str = "https://api.deepseek.com/user/balance";
+pub(crate) const DEEPSEEK_HARNESS_ID: &str = "deepseek-harness";
+pub(crate) const DEEPSEEK_API_KEY_ENV: &str = "DEEPSEEK_API_KEY";
 pub(crate) const COMMANDCODE_API_URL: &str = "https://api.commandcode.ai";
 pub(crate) const COMMANDCODE_CREDITS_PATH: &str = "/internal/billing/credits";
 pub(crate) const COMMANDCODE_SUBSCRIPTIONS_PATH: &str = "/internal/billing/subscriptions";

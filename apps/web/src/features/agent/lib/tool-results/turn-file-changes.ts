@@ -8,7 +8,7 @@ import {
   diffStatsForPresentation,
   type DiffLineRange,
 } from "@/features/agent/lib/tool-results/diff-stats";
-import { parseToolResult } from "@/features/agent/lib/tool-results/parse-tool-result";
+import { presentAgentTool } from "@/features/agent/lib/tool-results/parse-tool-result";
 
 export type TurnFileChange = {
   path: string;
@@ -24,17 +24,6 @@ type Acc = TurnFileChange & {
   newContent?: string;
   patch?: string;
 };
-
-function parseToolPart(part: AgentToolCallPart) {
-  return parseToolResult({
-    tool: part.name,
-    description: part.title ?? undefined,
-    status: part.status ?? undefined,
-    raw_input: part.input,
-    content: Array.isArray(part.content) ? part.content as never : undefined,
-    raw_output: part.output,
-  });
-}
 
 function pathKey(path: string): string {
   return path.trim().replace(/\\/g, "/");
@@ -96,7 +85,19 @@ export function collectTurnFileChanges(
   for (const part of parts) {
     if (part.type !== "tool_call") continue;
     if (!FILE_CHANGE_KINDS.has(part.kind ?? "")) continue;
-    const parsed = parseToolPart(part);
+    if (part.kind === "delete" && part.params?.type === "delete") {
+      add(part.params.path, 0, 0);
+      continue;
+    }
+    if (part.kind === "move" && part.params?.type === "move") {
+      add(part.params.to, 0, 0);
+      continue;
+    }
+    if (part.result?.type === "diff_stats") {
+      add(part.result.path || (part.params?.type === "edit" ? part.params.path : null), part.result.additions, part.result.deletions);
+      continue;
+    }
+    const parsed = presentAgentTool(part);
     const presentation = parsed.presentation;
     if (presentation.kind === "diff") {
       for (const file of presentation.files) {
@@ -124,14 +125,6 @@ export function collectTurnFileChanges(
         oldContent: presentation.hint === "new" ? "" : presentation.code,
         newContent: presentation.hint === "new" ? presentation.code : "",
       });
-      continue;
-    }
-    if (presentation.kind === "delete") {
-      add(presentation.path, 0, 0);
-      continue;
-    }
-    if (presentation.kind === "move") {
-      add(presentation.to, 0, 0);
       continue;
     }
     if (parsed.path) {

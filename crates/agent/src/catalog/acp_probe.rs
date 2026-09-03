@@ -7,14 +7,15 @@ use tokio::time::timeout;
 
 use crate::acp_client::client::AcpSessionEvent;
 use crate::acp_client::tools::AcpToolHandler;
-use crate::acp_client::types::AgentConfigOption;
+use crate::acp_client::types::{AgentConfigOption, AgentConfigOptionValue};
 use crate::acp_client::{run_acp_session, AcpSessionHandle};
-use crate::domain::{AgentMode, AgentModel, AgentThinkingSupport};
+use crate::contract::{AgentMode, AgentModel, AgentThinkingSupport};
 use crate::models::AgentLaunchSpec;
 
 use super::engine::{AcpCatalogProbe, AcpProbeResult};
 
 const PROBE_TIMEOUT: Duration = Duration::from_secs(15);
+const NPX_PROBE_TIMEOUT: Duration = Duration::from_secs(60);
 
 #[derive(Clone)]
 pub struct AcpLaunchResolved {
@@ -68,6 +69,186 @@ fn is_thinking_config_id(id: &str) -> bool {
         || id.contains("reason")
 }
 
+pub(crate) fn is_mode_config_id(id: &str) -> bool {
+    let compact = id.to_ascii_lowercase().replace('_', "");
+    compact == "mode"
+        || compact == "modes"
+        || compact == "agent"
+        || compact == "agents"
+        || compact == "sessionmode"
+        || compact == "agentmode"
+}
+
+pub(crate) fn is_permission_mode_config_id(id: &str) -> bool {
+    let compact = id.to_ascii_lowercase().replace('_', "");
+    compact == "permission"
+        || compact == "permissionmode"
+        || compact == "permissionmodes"
+        || compact == "approval"
+        || compact == "approvals"
+}
+
+pub fn config_options_from_session_payload(payload: &serde_json::Value) -> Vec<AgentConfigOption> {
+    let items = payload
+        .get("configOptions")
+        .or_else(|| payload.get("config_options"))
+        .and_then(serde_json::Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    let mut options: Vec<AgentConfigOption> = items
+        .into_iter()
+        .filter_map(agent_config_option_from_value)
+        .collect();
+    if !options.iter().any(|option| is_mode_config_id(&option.id)) {
+        if let Some(mode) = session_mode_option_from_payload(payload) {
+            options.push(mode);
+        }
+    }
+    options
+}
+
+fn session_mode_option_from_payload(payload: &serde_json::Value) -> Option<AgentConfigOption> {
+    let modes = payload.get("modes")?;
+    let available = modes
+        .get("availableModes")
+        .or_else(|| modes.get("available_modes"))
+        .and_then(serde_json::Value::as_array)?;
+    let options: Vec<AgentConfigOptionValue> = available
+        .iter()
+        .filter_map(|item| {
+            let value = item
+                .get("id")
+                .or_else(|| item.get("value"))
+                .and_then(serde_json::Value::as_str)
+                .map(str::trim)
+                .filter(|id| !id.is_empty())?
+                .to_string();
+            Some(AgentConfigOptionValue {
+                value,
+                name: item
+                    .get("name")
+                    .or_else(|| item.get("label"))
+                    .and_then(serde_json::Value::as_str)
+                    .map(str::to_string),
+                description: item
+                    .get("description")
+                    .and_then(serde_json::Value::as_str)
+                    .map(str::to_string),
+            })
+        })
+        .collect();
+    if options.is_empty() {
+        return None;
+    }
+    let current_value = modes
+        .get("currentModeId")
+        .or_else(|| modes.get("current_mode_id"))
+        .and_then(serde_json::Value::as_str)
+        .map(str::trim)
+        .filter(|id| !id.is_empty())
+        .map(str::to_string);
+    Some(AgentConfigOption {
+        id: "mode".into(),
+        name: Some("Mode".into()),
+        description: None,
+        category: Some("mode".into()),
+        r#type: "select".into(),
+        current_value,
+        options,
+    })
+}
+
+fn agent_config_option_from_value(value: serde_json::Value) -> Option<AgentConfigOption> {
+    if let Ok(option) = serde_json::from_value::<AgentConfigOption>(value.clone()) {
+        if !option.id.is_empty() {
+            return Some(option);
+        }
+    }
+    let id = value.get("id")?.as_str()?.trim().to_string();
+    if id.is_empty() {
+        return None;
+    }
+    let kind = value.get("kind");
+    let select = kind
+        .and_then(|item| item.get("select"))
+        .or(kind)
+        .unwrap_or(&value);
+    let current_value = select
+        .get("currentValue")
+        .or_else(|| select.get("current_value"))
+        .or_else(|| value.get("currentValue"))
+        .or_else(|| value.get("current_value"))
+        .and_then(|item| item.as_str().map(str::to_string))
+        .filter(|item| !item.is_empty());
+    let options = option_values_from(select)
+        .or_else(|| option_values_from(&value))
+        .unwrap_or_default();
+    Some(AgentConfigOption {
+        id,
+        name: value
+            .get("name")
+            .and_then(|item| item.as_str().map(str::to_string)),
+        description: value
+            .get("description")
+            .and_then(|item| item.as_str().map(str::to_string)),
+        category: value
+            .get("category")
+            .and_then(|item| item.as_str().map(str::to_string)),
+        r#type: value
+            .get("type")
+            .and_then(|item| item.as_str())
+            .unwrap_or("select")
+            .to_string(),
+        current_value,
+        options,
+    })
+}
+
+fn option_values_from(
+    value: &serde_json::Value,
+) -> Option<Vec<crate::acp_client::types::AgentConfigOptionValue>> {
+    let options = value.get("options")?;
+    if let Some(items) = options.as_array() {
+        let mut out = Vec::new();
+        for item in items {
+            if let Some(nested) = item.get("options").and_then(serde_json::Value::as_array) {
+                for nested_item in nested {
+                    if let Some(parsed) = option_value_from(nested_item) {
+                        out.push(parsed);
+                    }
+                }
+                continue;
+            }
+            if let Some(parsed) = option_value_from(item) {
+                out.push(parsed);
+            }
+        }
+        return Some(out);
+    }
+    None
+}
+
+fn option_value_from(
+    value: &serde_json::Value,
+) -> Option<crate::acp_client::types::AgentConfigOptionValue> {
+    let item_value = value
+        .get("value")
+        .or_else(|| value.get("id"))
+        .and_then(|item| item.as_str())
+        .filter(|item| !item.is_empty())?
+        .to_string();
+    Some(crate::acp_client::types::AgentConfigOptionValue {
+        value: item_value,
+        name: value
+            .get("name")
+            .or_else(|| value.get("label"))
+            .and_then(|item| item.as_str().map(str::to_string)),
+        description: value
+            .get("description")
+            .and_then(|item| item.as_str().map(str::to_string)),
+    })
+}
+
 pub fn thinking_support_from_options(options: &[AgentConfigOption]) -> AgentThinkingSupport {
     options
         .iter()
@@ -112,8 +293,8 @@ pub fn probe_result_from_config_options(
 ) -> AcpProbeResult {
     let mut models = Vec::new();
     let mut modes = Vec::new();
+    let mut permission_modes = Vec::new();
     for option in options {
-        let id = option.id.to_ascii_lowercase();
         if is_model_config_id(&option.id) {
             models = option
                 .options
@@ -130,7 +311,7 @@ pub fn probe_result_from_config_options(
                     thinking: None,
                 })
                 .collect();
-        } else if id == "mode" || id == "modes" {
+        } else if is_mode_config_id(&option.id) {
             modes = option
                 .options
                 .iter()
@@ -144,6 +325,22 @@ pub fn probe_result_from_config_options(
                     is_default: option.current_value.as_deref() == Some(value.value.as_str()),
                 })
                 .collect();
+        } else if is_permission_mode_config_id(&option.id) {
+            let raw: Vec<AgentMode> = option
+                .options
+                .iter()
+                .map(|value| AgentMode {
+                    id: value.value.clone(),
+                    label: value
+                        .name
+                        .clone()
+                        .filter(|name| !name.is_empty())
+                        .unwrap_or_else(|| value.value.clone()),
+                    is_default: option.current_value.as_deref() == Some(value.value.as_str()),
+                })
+                .collect();
+            crate::policy::merge_plan_into_modes(&mut modes, &raw);
+            permission_modes = crate::policy::fold_vendor_permission_modes(&raw);
         }
     }
     let thinking = thinking_support_from_options(options);
@@ -151,7 +348,9 @@ pub fn probe_result_from_config_options(
     AcpProbeResult {
         models,
         modes,
+        permission_modes,
         thinking,
+        commands: Vec::new(),
         cwd,
         closed,
     }
@@ -162,8 +361,13 @@ impl AcpCatalogProbe for StdioAcpCatalogProbe {
     async fn probe(&self, agent_id: &str, isolated_cwd: &Path) -> Result<AcpProbeResult, String> {
         std::fs::create_dir_all(isolated_cwd).map_err(|error| error.to_string())?;
         let launch = self.resolver.resolve(agent_id).await?;
+        let spawn_timeout = if launch.launch_spec.program == "npx" {
+            NPX_PROBE_TIMEOUT
+        } else {
+            PROBE_TIMEOUT
+        };
         let mut handle = timeout(
-            PROBE_TIMEOUT,
+            spawn_timeout,
             run_acp_session(
                 format!("catalog-probe-{agent_id}"),
                 launch.launch_spec,
@@ -180,7 +384,7 @@ impl AcpCatalogProbe for StdioAcpCatalogProbe {
         .map_err(|_| "temp ACP catalog probe timed out".to_string())?
         .map_err(|error| error.to_string())?;
 
-        let options = drain_config_options(&mut handle, PROBE_TIMEOUT).await;
+        let options = drain_config_options(&mut handle, spawn_timeout).await;
         let _ = handle.send_close();
         let closed = timeout(Duration::from_secs(2), wait_session_end(&mut handle))
             .await
@@ -298,6 +502,85 @@ mod tests {
     }
 
     #[test]
+    fn app069_s7_maps_permission_mode_approval_into_permission_modes() {
+        let options = vec![AgentConfigOption {
+            id: "permission_mode".into(),
+            name: Some("Permission".into()),
+            description: None,
+            category: None,
+            r#type: "select".into(),
+            current_value: Some("acceptEdits".into()),
+            options: vec![
+                AgentConfigOptionValue {
+                    value: "default".into(),
+                    name: Some("Default".into()),
+                    description: None,
+                },
+                AgentConfigOptionValue {
+                    value: "acceptEdits".into(),
+                    name: Some("Accept edits".into()),
+                    description: None,
+                },
+            ],
+        }];
+        let result = probe_result_from_config_options(&options, PathBuf::from("/tmp"), true);
+        assert!(result.modes.is_empty());
+        assert_eq!(result.permission_modes.len(), 2);
+        assert_eq!(result.permission_modes[0].id, "accept_edits");
+        assert_eq!(result.permission_modes[1].id, "ask_always");
+        assert!(result.permission_modes[0].is_default);
+
+        let approval = vec![AgentConfigOption {
+            id: "approval".into(),
+            name: Some("Approval".into()),
+            description: None,
+            category: None,
+            r#type: "select".into(),
+            current_value: Some("on-request".into()),
+            options: vec![AgentConfigOptionValue {
+                value: "on-request".into(),
+                name: Some("On request".into()),
+                description: None,
+            }],
+        }];
+        let result = probe_result_from_config_options(&approval, PathBuf::from("/tmp"), true);
+        assert_eq!(result.permission_modes[0].id, "ask_always");
+
+        let permission = vec![AgentConfigOption {
+            id: "permission".into(),
+            name: None,
+            description: None,
+            category: None,
+            r#type: "select".into(),
+            current_value: None,
+            options: vec![AgentConfigOptionValue {
+                value: "ask".into(),
+                name: Some("Ask".into()),
+                description: None,
+            }],
+        }];
+        let result = probe_result_from_config_options(&permission, PathBuf::from("/tmp"), true);
+        assert_eq!(result.permission_modes[0].id, "ask_always");
+
+        let camel = vec![AgentConfigOption {
+            id: "permissionMode".into(),
+            name: Some("Permission".into()),
+            description: None,
+            category: None,
+            r#type: "select".into(),
+            current_value: Some("default".into()),
+            options: vec![AgentConfigOptionValue {
+                value: "default".into(),
+                name: Some("Normal".into()),
+                description: None,
+            }],
+        }];
+        let result = probe_result_from_config_options(&camel, PathBuf::from("/tmp"), true);
+        assert_eq!(result.permission_modes[0].id, "ask_always");
+        assert!(result.modes.is_empty());
+    }
+
+    #[test]
     fn reasoning_effort_snapshot_is_thinking_for_current_model_only() {
         let options = vec![
             AgentConfigOption {
@@ -372,6 +655,64 @@ mod tests {
     }
 
     #[test]
+    fn deepseek_harness_session_new_models_and_reasoning() {
+        let flash = "[\"deepseek-official\",\"deepseek-v4-flash\"]";
+        let options = vec![
+            AgentConfigOption {
+                id: "model".into(),
+                name: Some("Model".into()),
+                description: None,
+                category: Some("model".into()),
+                r#type: "select".into(),
+                current_value: Some(flash.into()),
+                options: vec![
+                    AgentConfigOptionValue {
+                        value: flash.into(),
+                        name: Some("DeepSeek-V4-Flash".into()),
+                        description: None,
+                    },
+                    AgentConfigOptionValue {
+                        value: "[\"deepseek-official\",\"deepseek-v4-pro\"]".into(),
+                        name: Some("DeepSeek-V4-Pro".into()),
+                        description: None,
+                    },
+                ],
+            },
+            AgentConfigOption {
+                id: "reasoning_effort".into(),
+                name: Some("Reasoning effort".into()),
+                description: None,
+                category: Some("thought_level".into()),
+                r#type: "select".into(),
+                current_value: Some("high".into()),
+                options: vec![
+                    AgentConfigOptionValue {
+                        value: "off".into(),
+                        name: Some("Off".into()),
+                        description: None,
+                    },
+                    AgentConfigOptionValue {
+                        value: "high".into(),
+                        name: Some("High".into()),
+                        description: None,
+                    },
+                ],
+            },
+        ];
+        let result = probe_result_from_config_options(&options, PathBuf::from("/tmp"), true);
+        assert_eq!(result.models.len(), 2);
+        assert_eq!(result.models[0].id, flash);
+        assert!(result.models[0].is_default);
+        match &result.thinking {
+            AgentThinkingSupport::Enum { arg, options } => {
+                assert_eq!(arg.as_deref(), Some("reasoning_effort"));
+                assert_eq!(options, &["off", "high"]);
+            }
+            other => panic!("expected reasoning enum, got {other:?}"),
+        }
+    }
+
+    #[test]
     fn missing_thinking_option_marks_current_model_unsupported() {
         let options = vec![AgentConfigOption {
             id: "model".into(),
@@ -391,5 +732,84 @@ mod tests {
             result.models[0].thinking,
             Some(AgentThinkingSupport::None)
         ));
+    }
+
+    #[test]
+    fn agent_config_option_maps_to_modes() {
+        let options = vec![AgentConfigOption {
+            id: "agent".into(),
+            name: Some("Agent".into()),
+            description: None,
+            category: None,
+            r#type: "select".into(),
+            current_value: Some("plan".into()),
+            options: vec![
+                AgentConfigOptionValue {
+                    value: "build".into(),
+                    name: Some("Build".into()),
+                    description: None,
+                },
+                AgentConfigOptionValue {
+                    value: "plan".into(),
+                    name: Some("Plan".into()),
+                    description: None,
+                },
+            ],
+        }];
+        let result = probe_result_from_config_options(&options, PathBuf::from("/tmp"), true);
+        assert_eq!(result.modes.len(), 2);
+        assert_eq!(result.modes[1].id, "plan");
+        assert!(result.modes[1].is_default);
+        assert!(result.permission_modes.is_empty());
+    }
+
+    #[test]
+    fn session_payload_modes_are_probed_not_stamped() {
+        let payload = serde_json::json!({
+            "configOptions": [{
+                "id": "model",
+                "name": "Model",
+                "type": "select",
+                "currentValue": "opus",
+                "options": [{"value": "opus", "name": "Opus"}]
+            }],
+            "modes": {
+                "currentModeId": "ask",
+                "availableModes": [
+                    {"id": "ask", "name": "Ask"},
+                    {"id": "code", "name": "Code"}
+                ]
+            }
+        });
+        let options = config_options_from_session_payload(&payload);
+        let result = probe_result_from_config_options(&options, PathBuf::from("/tmp"), true);
+        assert_eq!(result.models[0].id, "opus");
+        assert_eq!(result.modes.len(), 2);
+        assert_eq!(result.modes[0].id, "ask");
+        assert!(result.modes[0].is_default);
+        assert_eq!(result.modes[1].id, "code");
+    }
+
+    #[test]
+    fn session_payload_keeps_config_option_mode_over_legacy_modes() {
+        let payload = serde_json::json!({
+            "configOptions": [{
+                "id": "mode",
+                "type": "select",
+                "currentValue": "build",
+                "options": [{"value": "build", "name": "Build"}]
+            }],
+            "modes": {
+                "currentModeId": "ask",
+                "availableModes": [{"id": "ask", "name": "Ask"}]
+            }
+        });
+        let options = config_options_from_session_payload(&payload);
+        let mode_options: Vec<_> = options
+            .iter()
+            .filter(|option| is_mode_config_id(&option.id))
+            .collect();
+        assert_eq!(mode_options.len(), 1);
+        assert_eq!(mode_options[0].current_value.as_deref(), Some("build"));
     }
 }

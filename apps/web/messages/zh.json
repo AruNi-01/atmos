@@ -2866,8 +2866,10 @@
         "searchAgents": "搜索 Agent",
         "chooseModel": "选择模型",
         "chooseMode": "模式",
+        "choosePermission": "权限",
         "modelLocked": "当前会话中此 Agent 无法切换模型",
         "modeLocked": "当前会话中此 Agent 无法切换模式",
+        "permissionLocked": "当前会话中此 Agent 无法切换权限",
         "backToAgents": "Agent",
         "loadingModels": "正在加载模型",
         "thinkingFaster": "更快",
@@ -2991,20 +2993,20 @@
         "sessionsTitle": "会话",
         "agentsTitle": "Agent",
         "sessionsDescription": "管理最近的聊天会话。",
-        "agentsDescription": "浏览已安装和可用的 Agent。",
+        "agentsDescription": "浏览原生、ACP 和自定义 Agent。",
         "searchPlaceholder": "搜索 Agent",
         "addCustomAgent": "添加自定义 Agent",
         "refreshRegistry": "刷新注册表",
         "tabs": {
-          "registry": "注册表",
-          "installed": "已安装",
+          "native": "原生",
+          "acp": "ACP",
           "custom": "自定义"
         },
         "empty": {
-          "registryQuery": "注册表中没有匹配“{query}”的 Agent",
-          "registryDefault": "未找到注册表 Agent",
-          "installedQuery": "没有匹配“{query}”的已安装 Agent",
-          "installedDefault": "没有已安装的 Agent"
+          "nativeQuery": "没有匹配“{query}”的原生 Agent",
+          "nativeDefault": "没有原生 Agent",
+          "acpQuery": "没有匹配“{query}”的 ACP Agent",
+          "acpDefault": "未找到 ACP Agent"
         },
         "customEmpty": {
           "title": "没有自定义 Agent",
@@ -3084,7 +3086,10 @@
       },
       "authDialog": {
         "title": "需要 Agent 认证",
-        "description": "继续之前请先完成 Agent 认证。"
+        "description": "继续之前请先完成 Agent 认证。",
+        "apiKeyLabel": "API 令牌",
+        "apiKeyPlaceholder": "粘贴 API 令牌",
+        "saveAndContinue": "保存并继续"
       },
       "linkSafety": {
         "closeTitle": "关闭预览",
@@ -3149,7 +3154,20 @@
           "updateAvailable": "有可用更新",
           "installed": "已安装",
           "usingInstalledCli": "使用已安装的 CLI",
-          "custom": "自定义"
+          "custom": "自定义",
+          "builtin": "内置",
+          "native": "原生"
+        },
+        "native": {
+          "cliFound": "已找到命令行",
+          "cliMissing": "未在 PATH 中找到命令行",
+          "description": {
+            "claude": "用于 Chat 的官方 Claude Code 命令行。",
+            "codex": "用于 Chat 的官方 Codex 命令行。",
+            "opencode": "用于 Chat 的官方 OpenCode 命令行。",
+            "pi": "用于 Chat 的官方 Pi 命令行。",
+            "grok": "用于 Chat 的官方 Grok 命令行。"
+          }
         },
         "repositoryTitle": "仓库",
         "repositoryAria": "打开 {name} 的仓库",
@@ -3158,7 +3176,9 @@
           "install": "安装",
           "updating": "更新中...",
           "upgrade": "升级",
-          "removing": "移除中..."
+          "removing": "移除中...",
+          "enable": "启用",
+          "preloading": "正在预下载依赖..."
         },
         "emptyState": {
           "title": "未找到 Agent",
@@ -3238,6 +3258,9 @@
         },
         "bottom": "底部",
         "permissionRequested": "权限请求中",
+        "sessionOpRequested": "会话操作请求中",
+        "sessionOpFork": "分叉",
+        "sessionOpRewind": "回退",
         "deny": "拒绝",
         "allow": "允许",
         "copy": {
@@ -3265,7 +3288,38 @@
           "switchedBoth": "已切换模型为 {model} · 模式为 {mode}",
           "hints": {
             "modelSwitchFailed": "当前会话无法切换模型，已恢复为原来的模型",
-            "modeSwitchFailed": "当前会话无法切换模式，已恢复为原来的模式"
+            "modeSwitchFailed": "当前会话无法切换模式，已恢复为原来的模式",
+            "sessionOpFailed": "无法完成这次会话操作"
+          }
+        },
+        "pickers": {
+          "permissionMode": "权限模式",
+          "mode": "模式",
+          "model": "模型",
+          "thinking": "思考",
+          "thinkingLevels": {
+            "off": "关闭",
+            "none": "无",
+            "minimal": "最低",
+            "low": "低",
+            "medium": "中",
+            "high": "高",
+            "extraHigh": "极高",
+            "max": "最大",
+            "ultra": "超高",
+            "maximum": "最大"
+          },
+          "permissionModes": {
+            "yolo": "跳过审批",
+            "acceptEdits": "接受编辑",
+            "auto": "自动",
+            "askAlways": "总是询问"
+          },
+          "permissionModeDescriptions": {
+            "yolo": "跳过全部审批，包括文件编辑和网络访问。",
+            "acceptEdits": "自动批准文件编辑，其他操作仍会询问。",
+            "auto": "仅在检测到可能不安全的操作时询问。",
+            "askAlways": "编辑文件或使用网络前总是询问。"
           }
         }
       },
@@ -6161,10 +6215,9 @@
         "summaryAgentTitle": "总结 Agent",
         "summaryAgentDescription": "无头总结使用的终端 Agent（与 Automations 相同）。可在 Agent 运行配置中设置模型。不选择则使用默认 LLM 提供方。",
         "followupTitle": "忙碌时的后续输入",
-        "followupDescription": "当前轮次进行中时，Enter 会把下一条排队。在 agent 支持运行中注入之前，引导保持关闭。",
+        "followupDescription": "当前轮次进行中时，Enter 会排队下一条，或把文本注入当前轮次。当前 agent 不支持引导时仍会排队。",
         "followupQueue": "排队",
-        "followupSteer": "引导",
-        "followupSteerUnavailable": "引导（不可用）"
+        "followupSteer": "引导"
       }
     },
     "canvasSection": {
@@ -7091,6 +7144,15 @@
         },
         "customRemoveFailed": {
           "title": "移除自定义 Agent 失败"
+        },
+        "customEnableFailed": {
+          "title": "更新 Agent 失败"
+        },
+        "nativeEnableFailed": {
+          "title": "更新原生 Agent 失败"
+        },
+        "customPreloadFailed": {
+          "title": "预下载依赖失败"
         }
       }
     },

@@ -65,6 +65,7 @@ export const agentChatApi = {
       model?: string | null;
       thinking?: string | null;
       mode?: string | null;
+      permission_mode?: string | null;
     },
   ) =>
     wsRequest("agent_chat_configure", {
@@ -73,6 +74,7 @@ export const agentChatApi = {
       model: patch.model ?? null,
       thinking: patch.thinking ?? null,
       mode: patch.mode ?? null,
+      permission_mode: patch.permission_mode ?? null,
     }),
   delete: (chat_id: string) =>
     wsRequest("agent_chat_delete", { chat_id }),
@@ -98,6 +100,12 @@ export const agentChatApi = {
     wsRequest("agent_chat_cancel", { chat_id }),
   permissionRespond: (chat_id: string, request_id: string, option_id: string) =>
     wsRequest("agent_chat_permission_respond", {
+      chat_id,
+      request_id,
+      option_id,
+    }),
+  sessionOpRespond: (chat_id: string, request_id: string, option_id: string) =>
+    wsRequest("agent_chat_session_op_respond", {
       chat_id,
       request_id,
       option_id,

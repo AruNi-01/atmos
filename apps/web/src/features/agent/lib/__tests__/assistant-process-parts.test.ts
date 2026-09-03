@@ -17,6 +17,7 @@ describe("assistant process collapse", () => {
         name: "Read",
         kind: "read",
         status: "completed",
+        params: { type: "read", path: "a.ts" },
       },
     ];
     const { processParts, answerParts } = splitAssistantProcessParts(parts);

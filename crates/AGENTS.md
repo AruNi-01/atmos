@@ -11,7 +11,7 @@
 | L1 | `infra` | [infra/AGENTS.md](infra/AGENTS.md) |
 | L2 | `core-engine` | [core-engine/AGENTS.md](core-engine/AGENTS.md) |
 | L3 | `core-service` | [core-service/AGENTS.md](core-service/AGENTS.md) |
-| Capability | `agent` | [agent/AGENTS.md](agent/AGENTS.md) |
+| Capability | `agent` | [agent/AGENTS.md](agent/AGENTS.md) — Chat `AgentProvider` (native + ACP) and `AgentManager` |
 | Capability | `llm` | [llm/AGENTS.md](llm/AGENTS.md) |
 | Capability | `quota-usage` | [quota-usage/AGENTS.md](quota-usage/AGENTS.md) |
 | Capability | `token-usage` | [token-usage/AGENTS.md](token-usage/AGENTS.md) |

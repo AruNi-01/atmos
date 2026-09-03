@@ -212,7 +212,6 @@ export function AgentChatTranscriptList({
             <AgentChatMessageView
               message={message}
               index={item.index}
-              registryId={registryId}
             />
           </div>
         );

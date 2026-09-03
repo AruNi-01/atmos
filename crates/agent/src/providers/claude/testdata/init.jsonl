@@ -1,0 +1,1 @@
+{"type":"system","subtype":"init","cwd":"/tmp/proj","session_id":"ses_abc123","model":"claude-opus-4-6","permissionMode":"default","claude_code_version":"2.1.252","tools":["Bash","Read","WebSearch","WebFetch"],"capabilities":["interrupt_receipt_v1","interrupt_cancel_queued_v1","msg_lifecycle_v1"],"uuid":"init-uuid-1"}

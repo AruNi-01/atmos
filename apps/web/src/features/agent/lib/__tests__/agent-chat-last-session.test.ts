@@ -186,10 +186,16 @@ describe("agent chat last session", () => {
     expect(source).toContain("agentChatApi.prefsSet");
     expect(source).toContain("persistNewSessionPreferences");
     expect(source).toContain("ensureCreatedChat");
+    expect(source).toContain("composerSelection");
+    expect(source).toContain("composerConfigOptions");
+    expect(source).toContain("displayedComposerConfigValue");
+    expect(source).toContain("onUpdatedRef.current?.(id, { providerId: meta.provider_id ?? null })");
+    expect(source).not.toContain("created.meta");
     expect(source).toContain("isRestoringTranscript: isResumingHistory");
     expect(source).toContain("resumeTranscript");
     expect(source).toContain("agentApi.setDefaultConfig");
     expect(source).toContain("preferredConfigFromDefault");
+    expect(source).toContain("from \"@/features/agent/lib/agent-chat-prefs\"");
     expect(source).not.toContain("restored.modelId");
     expect(source).not.toContain("restored.thinkingId");
   });

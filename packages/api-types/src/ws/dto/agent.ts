@@ -98,6 +98,11 @@ export type CustomAgent = {
   args: string[];
   env: Record<string, string>;
   default_config?: Record<string, string>;
+  display_name?: string | null;
+  description?: string | null;
+  builtin?: boolean;
+  has_overlay?: boolean;
+  enabled?: boolean;
 };
 
 export type CustomAgentAddRequest = {
@@ -115,6 +120,11 @@ export type CustomAgentNameRequest = {
   name: string;
 };
 
+export type CustomAgentSetEnabledRequest = {
+  name: string;
+  enabled: boolean;
+};
+
 export type CustomAgentJsonResponse = {
   json: string;
 };
@@ -125,4 +135,22 @@ export type CustomAgentSetJsonRequest = {
 
 export type CustomAgentManifestPathResponse = {
   path: string;
+};
+
+export type NativeChatAgent = {
+  id: string;
+  name: string;
+  description: string;
+  executable: string;
+  enabled: boolean;
+  cli_present: boolean;
+};
+
+export type NativeChatAgentListResponse = {
+  agents: NativeChatAgent[];
+};
+
+export type NativeAgentSetEnabledRequest = {
+  id: string;
+  enabled: boolean;
 };

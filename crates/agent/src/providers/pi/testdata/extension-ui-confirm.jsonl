@@ -1,0 +1,1 @@
+{"type":"extension_ui_request","id":"uuid-2","method":"confirm","title":"Allow bash?","message":"ls -la"}

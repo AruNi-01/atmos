@@ -1,0 +1,8 @@
+{
+  "result": {
+    "status": "creating",
+    "sessionId": "sess_grok_1",
+    "worktreePath": "/tmp/wt",
+    "sourceGitRoot": "/tmp/project"
+  }
+}

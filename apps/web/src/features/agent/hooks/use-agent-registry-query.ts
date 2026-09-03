@@ -7,6 +7,7 @@ import { queryKeys } from "@/api/query/query-keys";
 import {
   agentRegistryListQueryOptions,
   customAgentListQueryOptions,
+  nativeChatAgentListQueryOptions,
 } from "@/features/agent/lib/agent-registry-query-options";
 import { agentApi } from "@/api/ws/agent-api";
 import { getAtmosWebQueryClient } from "@/providers/app/query-client";
@@ -25,6 +26,13 @@ export function useCustomAgentListQuery() {
   return useQuery(customAgentListQueryOptions(scope, connectionState));
 }
 
+export function useNativeChatAgentListQuery() {
+  const scope = useComputerQueryScope();
+  const connectionState = useWebSocketStore((s) => s.connectionState);
+
+  return useQuery(nativeChatAgentListQueryOptions(scope, connectionState));
+}
+
 /** Imperatively invalidate agent registry lists after install/remove mutations. */
 export function useInvalidateAgentRegistry() {
   const queryClient = useQueryClient();
@@ -39,6 +47,10 @@ export function useInvalidateAgentRegistry() {
       queryKey: queryKeys.computer.customAgentList(scope),
       refetchType: "active",
     });
+    void queryClient.invalidateQueries({
+      queryKey: queryKeys.computer.nativeChatAgentList(scope),
+      refetchType: "active",
+    });
   };
 }
 
@@ -49,10 +61,12 @@ export function useInvalidateAgentRegistry() {
 export async function forceRefreshAgentRegistry(): Promise<void> {
   const client = getAtmosWebQueryClient();
   const scope = getComputerQueryScope();
-  const [registry, custom] = await Promise.all([
+  const [registry, custom, natives] = await Promise.all([
     agentApi.listRegistry(true),
     agentApi.listCustomAgents(),
+    agentApi.listNativeChatAgents(),
   ]);
   client.setQueryData(queryKeys.computer.agentRegistryList(scope), registry);
   client.setQueryData(queryKeys.computer.customAgentList(scope), custom);
+  client.setQueryData(queryKeys.computer.nativeChatAgentList(scope), natives);
 }

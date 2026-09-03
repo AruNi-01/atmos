@@ -24,7 +24,7 @@ const ALLOW_ACP_ADAPTER = [
   "/lib/agent-chat-session-handoff.ts",
 ];
 
-describe("S15 Agent Chat modules do not import ACP schema types", () => {
+describe("S12 Agent Chat live path does not import ACP schema or classify vendors", () => {
   it("denies vendor ACP schema and session/list identity imports in host modules", () => {
     const files = walk(ROOT).filter((path) => {
       return !ALLOW_ACP_ADAPTER.some((suffix) => path.endsWith(suffix));
@@ -35,6 +35,11 @@ describe("S15 Agent Chat modules do not import ACP schema types", () => {
       expect(source).not.toContain("agent-client-protocol");
       expect(source).not.toContain("acp_session_id");
       expect(source).not.toMatch(/["'`]\/ws\/agent(?:\/|"|'|`)/);
+      expect(source).not.toContain("classifyTool(");
+      expect(source).not.toContain("background-command/adapters");
+      expect(source).not.toContain("commandFromProbe");
+      expect(source).not.toContain("deriveToolDisplayName");
+      expect(source).not.toContain("BackgroundToolProbe");
     }
   });
 });

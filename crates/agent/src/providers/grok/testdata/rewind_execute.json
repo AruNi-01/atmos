@@ -1,0 +1,11 @@
+{
+  "jsonrpc": "2.0",
+  "id": 10,
+  "method": "_x.ai/rewind/execute",
+  "params": {
+    "sessionId": "sess_grok_1",
+    "targetPromptIndex": 2,
+    "force": true,
+    "mode": "conversation_only"
+  }
+}

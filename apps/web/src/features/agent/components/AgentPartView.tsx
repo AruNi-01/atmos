@@ -26,7 +26,6 @@ export function AgentPartView({
   parts,
   streaming,
   thinkingMs,
-  registryId,
   reviewComponents,
 }: {
   part: AgentPart;
@@ -34,7 +33,6 @@ export function AgentPartView({
   parts: AgentPart[];
   streaming: boolean;
   thinkingMs?: number | null;
-  registryId: string;
   reviewComponents: {
     code: (props: ComponentPropsWithoutRef<"code"> & { node?: unknown }) => ReactNode;
     a?: (props: ComponentPropsWithoutRef<"a">) => ReactNode;
@@ -94,10 +92,12 @@ export function AgentPartView({
   }
 
   if (part.type === "error") {
+    if (!part.message) return null;
     return (
-      <MessageResponse className="break-words text-destructive">
-        {part.message}
-      </MessageResponse>
+      <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+        <TriangleAlert className="mt-0.5 size-4 shrink-0" />
+        <span className="break-words">{part.message}</span>
+      </div>
     );
   }
 
@@ -114,7 +114,7 @@ export function AgentPartView({
   }
 
   if (part.type === "tool_call") {
-    return <ToolView part={part} registryId={registryId} />;
+    return <ToolView part={part} />;
   }
 
   return null;
@@ -140,6 +140,7 @@ function SessionLifecycleView({
       : duration
         ? t(resume ? "resumedIn" : "createdIn", { duration })
         : t(resume ? "resumed" : "created");
+  const failedDetail = failed ? part.error?.trim() : "";
 
   return (
     <div className="inline-flex min-w-0 max-w-full items-center gap-2 py-0.5 text-left text-sm leading-5 text-muted-foreground">
@@ -147,13 +148,15 @@ function SessionLifecycleView({
         <Icon />
       </span>
       <span
-        className={cn("min-w-0 truncate", failed && "text-destructive")}
+        className={cn("min-w-0", failed ? "break-words text-destructive" : "truncate")}
         title={part.error ?? undefined}
       >
         {running ? (
           <TextShimmer as="span" duration={1} className="text-sm">
             {label}
           </TextShimmer>
+        ) : failedDetail ? (
+          `${label}: ${failedDetail}`
         ) : (
           label
         )}
@@ -203,7 +206,9 @@ function SessionHintView({
     ? t("hints.modelSwitchFailed")
     : part.kind === "mode_switch_failed"
       ? t("hints.modeSwitchFailed")
-      : part.kind;
+      : part.kind === "session_op_failed"
+        ? t("hints.sessionOpFailed")
+        : part.kind;
   const toneClass =
     part.tone === "warning"
       ? "text-amber-500"
@@ -225,5 +230,6 @@ export function isRenderedPart(part: AgentPart): boolean {
   if (part.type === "plan" || part.type === "attachment") return false;
   if (part.type === "text") return Boolean(part.text);
   if (part.type === "thinking") return Boolean(part.text);
-  return part.type === "tool_call" || part.type === "error" || part.type === "session_lifecycle" || part.type === "session_config_change" || part.type === "session_hint";
+  if (part.type === "error") return Boolean(part.message);
+  return part.type === "tool_call" || part.type === "session_lifecycle" || part.type === "session_config_change" || part.type === "session_hint";
 }

@@ -545,6 +545,10 @@ export const queryKeys = {
     /** Agent registry: custom agent list */
     customAgentList: (scope: ComputerQueryScope) =>
       [...queryKeys.computer.root(scope), "agentRegistry", "customAgents"] as const,
+
+    /** Agent manager: Chat native hosts (independent of ACP registry) */
+    nativeChatAgentList: (scope: ComputerQueryScope) =>
+      [...queryKeys.computer.root(scope), "agentRegistry", "nativeAgents"] as const,
   },
   relay: {
     root: (scope: RelayQueryScope) =>

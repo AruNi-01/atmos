@@ -10,7 +10,7 @@ import {
   TextShimmer,
 } from "@workspace/ui";
 import { ChevronDown, ChevronUp, CircleCheck, CircleDashed } from "lucide-react";
-import type { AgentPlan } from "@/features/agent/hooks/use-agent-session";
+import type { AgentPlan } from "@/features/agent/lib/agent-chat-types";
 
 function PlanEntryScrollableText({
   text,

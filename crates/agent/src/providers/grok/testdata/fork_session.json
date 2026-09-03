@@ -1,0 +1,10 @@
+{
+  "jsonrpc": "2.0",
+  "id": 11,
+  "method": "_x.ai/session/fork",
+  "params": {
+    "sourceSessionId": "sess_grok_1",
+    "sourceCwd": "/tmp/project",
+    "newCwd": "/tmp/project"
+  }
+}

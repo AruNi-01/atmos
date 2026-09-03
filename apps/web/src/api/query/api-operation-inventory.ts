@@ -560,6 +560,16 @@ export const apiOperationInventory = [
     phase: "extended",
     status: "complete",
   },
+  {
+    domain: "agentRegistry",
+    operation: "nativeChatAgentList",
+    transport: "websocket-request",
+    classification: "query",
+    legacyOwner: "agent manager hook/component local state",
+    queryKeyRoot: "queryKeys.computer.nativeChatAgentList",
+    phase: "extended",
+    status: "complete",
+  },
 
   // ──────────────────────────────────────────────────────────────────────────
   // DEFERRED: ACP session list (infinite pagination, complex multi-root merge)

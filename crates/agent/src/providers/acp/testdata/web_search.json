@@ -1,0 +1,8 @@
+{
+  "tool_call_id": "tc_web",
+  "name": "web_search",
+  "raw_input": { "query": "atmos acp" },
+  "raw_output": {
+    "links": [{ "url": "https://example.com", "title": "Example" }]
+  }
+}

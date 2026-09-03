@@ -11,29 +11,19 @@ import {
 } from "@workspace/ui";
 import type { AgentToolCallPart } from "@/features/agent/lib/agent-tool-kind";
 import { displayBackgroundCommand } from "@/features/agent/lib/agent/background-command";
-import { getTerminalCommandString } from "@/features/agent/lib/chat-helpers";
-import {
-  extractOutputText,
-  unwrapVendorToolEnvelope,
-} from "@/features/agent/lib/tool-results/parse-tool-result";
 import { AgentCommandLine } from "./AgentCommandLine";
 import { cn } from "@/shared/lib/utils";
 
 function commandFor(part: AgentToolCallPart): string {
-  return (
-    getTerminalCommandString(part.input)
-    || getTerminalCommandString(part.output)
-    || getTerminalCommandString(unwrapVendorToolEnvelope(part.output)?.payload)
-    || displayBackgroundCommand(part)
-  );
+  if (part.params?.type === "execute") return part.params.command;
+  return displayBackgroundCommand(part);
 }
 
 function outputFor(part: AgentToolCallPart): string {
-  return (
-    extractOutputText(part.output)
-    ?? extractOutputText(unwrapVendorToolEnvelope(part.output)?.payload)
-    ?? ""
-  );
+  if (part.result?.type === "execute") return part.result.output;
+  if (part.result?.type === "text") return part.result.text;
+  if (part.result?.type === "error") return part.result.message;
+  return "";
 }
 
 function lastOutputLine(output: string): string {

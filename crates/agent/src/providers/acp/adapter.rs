@@ -1,21 +1,22 @@
-use std::collections::{HashMap, VecDeque};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use async_trait::async_trait;
 use tokio::sync::{oneshot, Mutex};
 
-use crate::acp_client::types::{ToolCallStatus, ToolCallUpdate};
-use crate::acp_client::{
-    run_acp_session, AcpSessionControl, AcpSessionEvent, AcpSessionHandle, AcpToolHandler,
-};
-use crate::domain::{
-    AgentCapabilities, AgentCatalogContext, AgentEvent, AgentPermissionOption,
-    AgentPermissionRequest, AgentPersistenceHandle, AgentPrompt, AgentProvider, AgentProviderError,
+use crate::acp_client::{run_acp_session, AcpSessionControl, AcpSessionHandle, AcpToolHandler};
+use crate::contract::AgentEventEnvelope;
+use crate::contract::{AgentAction, AgentActionError, AgentActionKind, AgentActionResult};
+use crate::contract::{
+    AgentCatalogContext, AgentPersistenceHandle, AgentPrompt, AgentProvider, AgentProviderError,
     AgentResult, AgentRuntime, AgentRuntimeCommands, AgentRuntimeConfig, AgentRuntimeConfigUpdate,
-    AgentRuntimeControl, AgentToolCall, AgentTurnHandle, TurnStop,
+    AgentRuntimeControl, AgentTurnHandle,
 };
+use crate::contract::{AgentCurrentConfig, AgentDescriptor, AgentIdentity, AgentSupportedOptions};
 use crate::models::AgentLaunchSpec;
+use crate::policy::{capabilities_for_provider, option_support_for_provider};
+
+use super::event_map::{map_event, EventMapState};
 
 pub struct AcpProviderParams {
     pub provider_id: String,
@@ -23,7 +24,6 @@ pub struct AcpProviderParams {
     pub env_overrides: Option<std::collections::HashMap<String, String>>,
     pub default_config: Option<std::collections::HashMap<String, String>>,
     pub tool_handler: Arc<dyn AcpToolHandler>,
-    pub supports_steer: bool,
 }
 
 pub struct AcpAgentProvider {
@@ -38,14 +38,49 @@ impl AcpAgentProvider {
 
 struct AcpCommands {
     control: AcpSessionControl,
-    supports_steer: AtomicBool,
     running_turn: Mutex<Option<String>>,
     pending_permissions: Mutex<HashMap<String, oneshot::Sender<String>>>,
 }
 
+pub(crate) enum AcpDispatchedAction {
+    RespondPermission {
+        request_id: String,
+        option_id: String,
+    },
+    SetConfig {
+        update: AgentRuntimeConfigUpdate,
+    },
+}
+
+/// Session-independent ACP `action` dispatch. Steer is rejected here so it
+/// cannot become a second `session/prompt`.
+pub(crate) fn dispatch_acp_action(
+    action: AgentAction,
+) -> Result<AcpDispatchedAction, AgentActionError> {
+    match action {
+        AgentAction::Steer { .. } => Err(AgentActionError::Unsupported {
+            action: AgentActionKind::Steer,
+        }),
+        AgentAction::RespondPermission {
+            request_id,
+            option_id,
+        } => Ok(AcpDispatchedAction::RespondPermission {
+            request_id,
+            option_id,
+        }),
+        AgentAction::SetConfig { update } => Ok(AcpDispatchedAction::SetConfig { update }),
+        AgentAction::PrepareSessionOp { .. } => Err(AgentActionError::Unsupported {
+            action: AgentActionKind::PrepareSessionOp,
+        }),
+        AgentAction::RespondSessionOp { .. } => Err(AgentActionError::Unsupported {
+            action: AgentActionKind::RespondSessionOp,
+        }),
+    }
+}
+
 #[async_trait]
 impl AgentRuntimeCommands for AcpCommands {
-    async fn prompt(&self, input: AgentPrompt) -> AgentResult<AgentTurnHandle> {
+    async fn send(&self, input: AgentPrompt) -> AgentResult<AgentTurnHandle> {
         let turn_id = input
             .turn_id
             .clone()
@@ -57,22 +92,8 @@ impl AgentRuntimeCommands for AcpCommands {
         Ok(AgentTurnHandle { turn_id })
     }
 
-    async fn steer(&self, input: AgentPrompt) -> AgentResult<()> {
-        if !self.supports_steer.load(Ordering::SeqCst) {
-            return Err(AgentProviderError::unsupported(
-                "this agent does not support steer",
-            ));
-        }
-        if self.running_turn.lock().await.is_none() {
-            return Err(AgentProviderError::SteerTurnMismatch);
-        }
-        self.control
-            .send_prompt(input.text, input.attachments)
-            .map_err(AgentProviderError::message)?;
-        Ok(())
-    }
-
     async fn cancel(&self) -> AgentResult<()> {
+        self.fail_pending_permissions().await;
         self.control
             .send_cancel()
             .map_err(AgentProviderError::message)?;
@@ -80,63 +101,48 @@ impl AgentRuntimeCommands for AcpCommands {
     }
 
     async fn close(&self) -> AgentResult<()> {
+        self.fail_pending_permissions().await;
         self.control
             .send_close()
             .map_err(AgentProviderError::message)?;
         Ok(())
     }
 
-    async fn set_config(&self, update: AgentRuntimeConfigUpdate) -> AgentResult<()> {
-        let mut writes = Vec::new();
-        if let Some(model) = update.model {
-            writes.push((vec!["model".to_string(), "models".to_string()], model));
+    async fn action(&self, action: AgentAction) -> Result<AgentActionResult, AgentActionError> {
+        match dispatch_acp_action(action)? {
+            AcpDispatchedAction::RespondPermission {
+                request_id,
+                option_id,
+            } => {
+                let tx = self
+                    .pending_permissions
+                    .lock()
+                    .await
+                    .remove(&request_id)
+                    .ok_or_else(|| AgentActionError::NotFound(request_id))?;
+                let _ = tx.send(option_id);
+                Ok(AgentActionResult::unit())
+            }
+            AcpDispatchedAction::SetConfig { update } => apply_set_config(&self.control, update)
+                .await
+                .map(|()| AgentActionResult::unit())
+                .map_err(|_| AgentActionError::Unsupported {
+                    action: AgentActionKind::SetConfig,
+                }),
         }
-        if let Some(thinking) = update.thinking {
-            writes.push((
-                vec![
-                    "thought_level".to_string(),
-                    "thinking".to_string(),
-                    "think".to_string(),
-                ],
-                thinking,
-            ));
-        }
-        if let Some(mode) = update.mode {
-            writes.push((vec!["mode".to_string(), "modes".to_string()], mode));
-        }
-        writes.extend(
-            update
-                .extra_config
-                .into_iter()
-                .map(|(id, value)| (vec![id], value)),
-        );
-        for (ids, value) in writes {
-            write_config_option(&self.control, &ids, &value).await?;
-        }
-        Ok(())
     }
+}
 
-    async fn respond_permission(&self, request_id: &str, option_id: &str) -> AgentResult<()> {
-        let tx = self
-            .pending_permissions
-            .lock()
-            .await
-            .remove(request_id)
-            .ok_or_else(|| AgentProviderError::NotFound(request_id.to_string()))?;
-        let _ = tx.send(option_id.to_string());
-        Ok(())
+impl AcpCommands {
+    async fn fail_pending_permissions(&self) {
+        self.pending_permissions.lock().await.clear();
     }
 }
 
 struct AcpMappedSession {
     commands: Arc<AcpCommands>,
     handle: AcpSessionHandle,
-    persistence: Option<AgentPersistenceHandle>,
-    capabilities: AgentCapabilities,
-    pending: VecDeque<AgentEvent>,
-    assistant_message_id: Option<String>,
-    thinking_message_id: Option<String>,
-    replaying: bool,
+    map: EventMapState,
 }
 
 #[async_trait]
@@ -146,15 +152,15 @@ impl AgentRuntime for AcpMappedSession {
     }
 
     fn persistence_handle(&self) -> Option<AgentPersistenceHandle> {
-        self.persistence.clone()
+        self.map.persistence.clone()
     }
 
-    fn capabilities(&self) -> AgentCapabilities {
-        self.capabilities.clone()
+    fn descriptor(&self) -> AgentDescriptor {
+        self.map.descriptor()
     }
 
-    async fn next_event(&mut self) -> Option<AgentEvent> {
-        if let Some(event) = self.pending.pop_front() {
+    async fn next_event(&mut self) -> Option<AgentEventEnvelope> {
+        if let Some(event) = self.map.pending.pop_front() {
             return Some(event);
         }
         loop {
@@ -166,281 +172,92 @@ impl AgentRuntime for AcpMappedSession {
                     .await
                     .insert(req.request_id.clone(), tx);
             }
-            if let Some(event) = self.map_event(acp).await {
+            let mut turn_id = self.commands.running_turn.lock().await.clone();
+            if matches!(
+                acp,
+                crate::acp_client::AcpSessionEvent::TurnEnd(_)
+                    | crate::acp_client::AcpSessionEvent::Error { .. }
+            ) {
+                turn_id = self.commands.running_turn.lock().await.take();
+            }
+            if let Some(event) = map_event(&mut self.map, turn_id, acp) {
                 return Some(event);
             }
         }
     }
 }
 
-impl AcpMappedSession {
-    async fn map_event(&mut self, event: AcpSessionEvent) -> Option<AgentEvent> {
-        if should_drop_replay(self.replaying, &event) {
-            return None;
-        }
-        match event {
-            AcpSessionEvent::SessionReady { acp_session_id } => {
-                self.replaying = false;
-                self.persistence = Some(AgentPersistenceHandle::new(acp_session_id.clone()));
-                Some(AgentEvent::SessionStarted {
-                    persistence_handle: Some(acp_session_id),
-                })
-            }
-            AcpSessionEvent::Stream(delta) => {
-                if delta.kind == "thinking" {
-                    let event = map_thinking_stream(
-                        &mut self.thinking_message_id,
-                        &mut self.pending,
-                        delta,
-                    );
-                    Some(complete_stream_before(
-                        &mut self.assistant_message_id,
-                        &mut self.pending,
-                        |message_id| AgentEvent::AssistantMessageCompleted { message_id },
-                        event,
-                    ))
-                } else if delta.role == "assistant" {
-                    let event = map_assistant_stream(
-                        &mut self.assistant_message_id,
-                        &mut self.pending,
-                        delta,
-                    );
-                    Some(complete_stream_before(
-                        &mut self.thinking_message_id,
-                        &mut self.pending,
-                        |message_id| AgentEvent::ThinkingCompleted { message_id },
-                        event,
-                    ))
-                } else {
-                    None
-                }
-            }
-            AcpSessionEvent::ToolCall(update) => Some(complete_stream_before(
-                &mut self.thinking_message_id,
-                &mut self.pending,
-                |message_id| AgentEvent::ThinkingCompleted { message_id },
-                map_tool_call(update),
-            )),
-            AcpSessionEvent::PermissionRequest(request) => Some(complete_stream_before(
-                &mut self.thinking_message_id,
-                &mut self.pending,
-                |message_id| AgentEvent::ThinkingCompleted { message_id },
-                AgentEvent::PermissionRequested {
-                    request: AgentPermissionRequest {
-                        request_id: request.request_id,
-                        tool: request.tool,
-                        description: request.description,
-                        content_markdown: request.content_markdown,
-                        options: request
-                            .options
-                            .into_iter()
-                            .map(|option| AgentPermissionOption {
-                                option_id: option.option_id,
-                                name: option.name,
-                                kind: option.kind,
-                            })
-                            .collect(),
-                    },
-                },
-            )),
-            AcpSessionEvent::TurnEnd(stop) => {
-                let turn_id = self.commands.running_turn.lock().await.take();
-                let completed = turn_id.map(|turn_id| match stop {
-                    crate::acp_client::client::AcpTurnStop::Canceled => {
-                        AgentEvent::TurnCanceled { turn_id }
-                    }
-                    crate::acp_client::client::AcpTurnStop::Failed => AgentEvent::TurnFailed {
-                        turn_id,
-                        error: "turn failed".into(),
-                    },
-                    crate::acp_client::client::AcpTurnStop::Completed => {
-                        AgentEvent::TurnCompleted {
-                            turn_id,
-                            stop: TurnStop::Completed,
-                        }
-                    }
-                });
-                completed.map(|event| {
-                    complete_stream_before(
-                        &mut self.thinking_message_id,
-                        &mut self.pending,
-                        |message_id| AgentEvent::ThinkingCompleted { message_id },
-                        event,
-                    )
-                })
-            }
-            AcpSessionEvent::Error { message, .. } => {
-                let turn_id = self.commands.running_turn.lock().await.take();
-                turn_id.map(|turn_id| AgentEvent::TurnFailed {
-                    turn_id,
-                    error: message,
-                })
-            }
-            AcpSessionEvent::Plan(plan) => Some(complete_stream_before(
-                &mut self.thinking_message_id,
-                &mut self.pending,
-                |message_id| AgentEvent::ThinkingCompleted { message_id },
-                AgentEvent::PlanUpdated {
-                    plan: serde_json::to_value(plan).unwrap_or(serde_json::Value::Null),
-                },
-            )),
-            AcpSessionEvent::Usage(usage) => Some(AgentEvent::UsageUpdated {
-                usage: serde_json::to_value(usage).unwrap_or(serde_json::Value::Null),
-            }),
-            AcpSessionEvent::TurnUsage(usage) => Some(AgentEvent::UsageUpdated {
-                usage: serde_json::to_value(usage).unwrap_or(serde_json::Value::Null),
-            }),
-            AcpSessionEvent::ConfigOptionsUpdate(options) => Some(AgentEvent::ConfigChanged {
-                config: serde_json::to_value(options).unwrap_or(serde_json::Value::Null),
-            }),
-            AcpSessionEvent::LoadCompleted => {
-                self.replaying = false;
-                None
-            }
-            AcpSessionEvent::SessionClosed { .. } | AcpSessionEvent::SessionEnded => {
-                Some(AgentEvent::SessionClosed)
-            }
-            AcpSessionEvent::SessionInfoUpdate(update) => match update.title {
-                Some(Some(title)) => {
-                    let title = title.trim().to_string();
-                    if title.is_empty() {
-                        None
-                    } else {
-                        Some(AgentEvent::SessionTitleUpdated { title })
-                    }
-                }
-                _ => None,
-            },
-            AcpSessionEvent::AvailableCommandsUpdate(commands) => {
-                Some(AgentEvent::AvailableCommandsUpdated { commands })
-            }
-            _ => None,
-        }
-    }
-}
-
-fn complete_stream_before(
-    open_id: &mut Option<String>,
-    pending: &mut VecDeque<AgentEvent>,
-    completed: impl FnOnce(String) -> AgentEvent,
-    next: AgentEvent,
-) -> AgentEvent {
-    if let Some(message_id) = open_id.take() {
-        pending.push_back(next);
-        completed(message_id)
-    } else {
-        next
-    }
-}
-
-fn map_thinking_stream(
-    thinking_message_id: &mut Option<String>,
-    pending: &mut VecDeque<AgentEvent>,
-    delta: crate::acp_client::types::StreamDelta,
-) -> AgentEvent {
-    let message_id = thinking_message_id
-        .get_or_insert_with(|| uuid::Uuid::new_v4().to_string())
-        .clone();
-    if delta.done {
-        *thinking_message_id = None;
-        if !delta.delta.is_empty() {
-            pending.push_back(AgentEvent::ThinkingCompleted {
-                message_id: message_id.clone(),
-            });
-            return AgentEvent::ThinkingDelta {
-                message_id,
-                delta: delta.delta,
-            };
-        }
-        return AgentEvent::ThinkingCompleted { message_id };
-    }
-    AgentEvent::ThinkingDelta {
-        message_id,
-        delta: delta.delta,
-    }
-}
-
-fn map_assistant_stream(
-    assistant_message_id: &mut Option<String>,
-    pending: &mut VecDeque<AgentEvent>,
-    delta: crate::acp_client::types::StreamDelta,
-) -> AgentEvent {
-    let message_id = assistant_message_id
-        .get_or_insert_with(|| uuid::Uuid::new_v4().to_string())
-        .clone();
-    if delta.done {
-        *assistant_message_id = None;
-        if !delta.delta.is_empty() {
-            pending.push_back(AgentEvent::AssistantMessageCompleted {
-                message_id: message_id.clone(),
-            });
-            return AgentEvent::AssistantMessageDelta {
-                message_id,
-                delta: delta.delta,
-            };
-        }
-        return AgentEvent::AssistantMessageCompleted { message_id };
-    }
-    AgentEvent::AssistantMessageDelta {
-        message_id,
-        delta: delta.delta,
-    }
-}
-
-fn should_drop_replay(replaying: bool, event: &AcpSessionEvent) -> bool {
-    replaying
-        && !matches!(
-            event,
-            AcpSessionEvent::LoadCompleted
-                | AcpSessionEvent::SessionReady { .. }
-                | AcpSessionEvent::SessionClosed { .. }
-                | AcpSessionEvent::SessionEnded
-                | AcpSessionEvent::AvailableCommandsUpdate(_)
-        )
-}
-
-fn map_tool_call(update: ToolCallUpdate) -> AgentEvent {
-    let status = update.status;
-    let tool_call = AgentToolCall {
-        tool_call_id: update.tool_call_id,
-        name: update.tool.clone(),
-        title: Some(update.description.clone()).filter(|s| !s.is_empty()),
-        kind: match crate::domain::classify_tool(
-            &update.tool,
-            Some(update.description.as_str()).filter(|value| !value.is_empty()),
-            update.raw_input.as_ref(),
-        ) {
-            crate::domain::ClassifiedTool::Call(kind) => kind,
-            _ => crate::domain::AgentToolKind::Other,
-        },
-        status: Some(
-            match status {
-                ToolCallStatus::Running => "running",
-                ToolCallStatus::Completed => "completed",
-                ToolCallStatus::Failed => "failed",
-            }
-            .to_string(),
-        ),
-        input: update.raw_input,
-        output: update.raw_output,
-        content: if update.content.is_empty() {
-            None
-        } else {
-            serde_json::to_value(update.content).ok()
-        },
-    };
-    match status {
-        ToolCallStatus::Running => AgentEvent::ToolCallStarted { tool_call },
-        ToolCallStatus::Completed => AgentEvent::ToolCallCompleted { tool_call },
-        ToolCallStatus::Failed => AgentEvent::ToolCallFailed {
-            tool_call,
-            error: None,
-        },
-    }
-}
-
 /// ACP: JSON-RPC success is the success signal. The returned `configOptions`
 /// replace client state via `ConfigChanged`; do not second-guess `currentValue`.
+async fn apply_set_config(
+    control: &AcpSessionControl,
+    update: AgentRuntimeConfigUpdate,
+) -> AgentResult<()> {
+    let mut writes = Vec::new();
+    if let Some(model) = update.model {
+        writes.push((config_alias_ids("model"), model));
+    }
+    if let Some(thinking) = update.thinking {
+        writes.push((config_alias_ids("thinking"), thinking));
+    }
+    if let Some(mode) = update.mode.clone() {
+        writes.push((config_alias_ids("mode"), mode.clone()));
+        if crate::policy::is_plan_mode(Some(&mode)) {
+            writes.push((config_alias_ids("permission_mode"), "plan".into()));
+        }
+    }
+    if let Some(permission_mode) = update.permission_mode {
+        if !crate::policy::is_plan_mode(Some(&permission_mode))
+            && !crate::policy::is_plan_mode(update.mode.as_deref())
+        {
+            let vendor = crate::policy::atmos_permission_to_vendor("acp", &permission_mode)
+                .unwrap_or(permission_mode);
+            writes.push((config_alias_ids("permission_mode"), vendor));
+        }
+    }
+    writes.extend(update.extra_config.into_iter().map(|(id, value)| {
+        let value = if crate::catalog::is_permission_mode_config_id(&id) {
+            if crate::policy::is_plan_mode(Some(&value)) {
+                value
+            } else {
+                crate::policy::atmos_permission_to_vendor("acp", &value).unwrap_or(value)
+            }
+        } else {
+            value
+        };
+        (vec![id], value)
+    }));
+    for (ids, value) in writes {
+        write_config_option(control, &ids, &value).await?;
+    }
+    Ok(())
+}
+
+pub(crate) fn config_alias_ids(field: &str) -> Vec<String> {
+    match field {
+        "model" => vec!["model".into(), "models".into()],
+        "thinking" => vec![
+            "reasoning_effort".into(),
+            "thought_level".into(),
+            "thinking".into(),
+            "think".into(),
+        ],
+        "mode" => vec![
+            "mode".into(),
+            "modes".into(),
+            "agent".into(),
+            "agents".into(),
+        ],
+        "permission_mode" => vec![
+            "permissionMode".into(),
+            "permission_mode".into(),
+            "permission".into(),
+            "approval".into(),
+        ],
+        other => vec![other.to_string()],
+    }
+}
+
 async fn write_config_option(
     control: &AcpSessionControl,
     ids: &[String],
@@ -461,6 +278,82 @@ async fn write_config_option(
     ))
 }
 
+fn current_config_from_maps(
+    defaults: Option<&HashMap<String, String>>,
+    cfg: &AgentRuntimeConfig,
+) -> AgentCurrentConfig {
+    let mut current = AgentCurrentConfig {
+        model: cfg.model.clone(),
+        thinking: cfg.thinking.clone(),
+        mode: cfg.mode.clone(),
+        permission_mode: cfg
+            .permission_mode
+            .as_deref()
+            .and_then(crate::policy::normalize_stored_permission)
+            .or_else(|| cfg.permission_mode.clone()),
+        ..AgentCurrentConfig::default()
+    };
+    if let Some(defaults) = defaults {
+        if current.model.is_none() {
+            current.model = first_alias(defaults, &["model", "models"]);
+        }
+        if current.thinking.is_none() {
+            current.thinking = first_alias(
+                defaults,
+                &["reasoning_effort", "thought_level", "thinking", "think"],
+            );
+        }
+        if current.mode.is_none() {
+            current.mode = first_alias(defaults, &["mode", "modes"]);
+        }
+        if current.permission_mode.is_none() {
+            let raw = first_alias(
+                defaults,
+                &[
+                    "permissionMode",
+                    "permission_mode",
+                    "permission",
+                    "approval",
+                ],
+            );
+            if crate::policy::is_plan_mode(raw.as_deref()) {
+                if current.mode.is_none() {
+                    current.mode = Some("plan".into());
+                }
+            } else {
+                current.permission_mode = raw
+                    .as_deref()
+                    .and_then(crate::policy::normalize_stored_permission)
+                    .or(raw);
+            }
+        }
+    }
+    current
+}
+
+fn first_alias(map: &HashMap<String, String>, keys: &[&str]) -> Option<String> {
+    keys.iter()
+        .find_map(|key| map.get(*key).cloned())
+        .filter(|value| !value.is_empty())
+}
+
+fn provider_descriptor(params: &AcpProviderParams) -> AgentDescriptor {
+    AgentDescriptor {
+        identity: AgentIdentity {
+            id: params.provider_id.clone(),
+            name: params.provider_id.clone(),
+            version: None,
+        },
+        capabilities: capabilities_for_provider(&params.provider_id),
+        support: option_support_for_provider(&params.provider_id),
+        supported_options: AgentSupportedOptions::default(),
+        current_config: current_config_from_maps(
+            params.default_config.as_ref(),
+            &AgentRuntimeConfig::default(),
+        ),
+    }
+}
+
 async fn open_acp_session(
     params: &AcpProviderParams,
     cfg: AgentRuntimeConfig,
@@ -470,14 +363,30 @@ async fn open_acp_session(
         None
     } else {
         let mut extra = cfg.extra_config.clone();
-        if let Some(model) = cfg.model {
+        if let Some(model) = cfg.model.clone() {
             extra.insert("model".into(), model);
         }
-        if let Some(thinking) = cfg.thinking {
+        if let Some(thinking) = cfg.thinking.clone() {
+            extra.insert("reasoning_effort".into(), thinking.clone());
             extra.insert("thought_level".into(), thinking);
         }
-        if let Some(mode) = cfg.mode {
-            extra.insert("mode".into(), mode);
+        if let Some(mode) = cfg.mode.clone() {
+            extra.insert("mode".into(), mode.clone());
+            extra.insert("agent".into(), mode);
+        }
+        let vendor = crate::policy::vendor_permission_for_spawn(
+            &params.provider_id,
+            cfg.mode.as_deref(),
+            cfg.permission_mode.as_deref(),
+        )
+        .or_else(|| {
+            cfg.permission_mode
+                .as_deref()
+                .and_then(|raw| crate::policy::atmos_permission_to_vendor(&params.provider_id, raw))
+        });
+        if let Some(permission_mode) = vendor {
+            extra.insert("permissionMode".into(), permission_mode.clone());
+            extra.insert("permission_mode".into(), permission_mode);
         }
         let mut default_config = params.default_config.clone().unwrap_or_default();
         default_config.extend(extra);
@@ -487,7 +396,7 @@ async fn open_acp_session(
             Some(default_config)
         }
     };
-    let env = match (params.env_overrides.clone(), cfg.env_overrides) {
+    let env = match (params.env_overrides.clone(), cfg.env_overrides.clone()) {
         (Some(mut a), Some(b)) => {
             a.extend(b);
             Some(a)
@@ -497,11 +406,11 @@ async fn open_acp_session(
     let handle = run_acp_session(
         uuid::Uuid::new_v4().to_string(),
         params.launch_spec.clone(),
-        cfg.cwd,
+        cfg.cwd.clone(),
         Arc::clone(&params.tool_handler),
         env,
         resume.clone(),
-        cfg.auth_method_id,
+        cfg.auth_method_id.clone(),
         default_config,
         None,
     )
@@ -509,23 +418,17 @@ async fn open_acp_session(
     .map_err(AgentProviderError::message)?;
     let commands = Arc::new(AcpCommands {
         control: handle.control(),
-        supports_steer: AtomicBool::new(params.supports_steer),
         running_turn: Mutex::new(None),
         pending_permissions: Mutex::new(HashMap::new()),
     });
     Ok(Box::new(AcpMappedSession {
         commands,
         handle,
-        persistence: None,
-        capabilities: AgentCapabilities {
-            supports_steer: params.supports_steer,
-            supports_resume: true,
-            thinking: crate::domain::AgentThinkingSupport::None,
-        },
-        pending: VecDeque::new(),
-        assistant_message_id: None,
-        thinking_message_id: None,
-        replaying: resume.is_some(),
+        map: EventMapState::new(
+            params.provider_id.clone(),
+            current_config_from_maps(params.default_config.as_ref(), &cfg),
+            resume.is_some(),
+        ),
     }))
 }
 
@@ -535,12 +438,8 @@ impl AgentProvider for AcpAgentProvider {
         &self.params.provider_id
     }
 
-    async fn capabilities(&self, _ctx: &AgentCatalogContext) -> AgentResult<AgentCapabilities> {
-        Ok(AgentCapabilities {
-            supports_steer: self.params.supports_steer,
-            supports_resume: true,
-            thinking: crate::domain::AgentThinkingSupport::None,
-        })
+    async fn descriptor(&self, _ctx: &AgentCatalogContext) -> AgentResult<AgentDescriptor> {
+        Ok(provider_descriptor(&self.params))
     }
 
     async fn create_runtime(&self, cfg: AgentRuntimeConfig) -> AgentResult<Box<dyn AgentRuntime>> {
@@ -558,73 +457,129 @@ impl AgentProvider for AcpAgentProvider {
 
 #[cfg(test)]
 mod tests {
-    use super::{complete_stream_before, should_drop_replay};
-    use crate::acp_client::AcpSessionEvent;
-    use crate::domain::AgentEvent;
-    use std::collections::VecDeque;
+    use super::{
+        config_alias_ids, dispatch_acp_action, provider_descriptor, AcpDispatchedAction,
+        AcpProviderParams,
+    };
+    use crate::acp_client::tools::AcpToolHandler;
+    use crate::contract::Capability;
+    use crate::contract::{AgentAction, AgentActionError, AgentActionKind, AgentActionResult};
+    use crate::contract::{
+        AgentPrompt, AgentResult, AgentRuntimeCommands, AgentRuntimeConfig, AgentRuntimeControl,
+        AgentTurnHandle,
+    };
+    use crate::models::AgentLaunchSpec;
+    use async_trait::async_trait;
+    use std::path::{Path, PathBuf};
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::Arc;
 
-    #[test]
-    fn tool_call_closes_open_thinking_stream() {
-        let mut thinking_id = Some("think-1".into());
-        let mut pending = VecDeque::new();
-        let next = AgentEvent::SessionClosed;
-        let first = complete_stream_before(
-            &mut thinking_id,
-            &mut pending,
-            |message_id| AgentEvent::ThinkingCompleted { message_id },
-            next,
-        );
-        assert!(matches!(
-            first,
-            AgentEvent::ThinkingCompleted { message_id } if message_id == "think-1"
-        ));
-        assert!(thinking_id.is_none());
-        assert!(matches!(
-            pending.pop_front(),
-            Some(AgentEvent::SessionClosed)
-        ));
+    struct NoopTools;
+
+    #[async_trait]
+    impl AcpToolHandler for NoopTools {
+        fn resolve_path(&self, session_cwd: &Path, path: &str) -> PathBuf {
+            session_cwd.join(path)
+        }
+
+        async fn read_text_file(&self, _path: &Path) -> Result<String, String> {
+            Err("noop".into())
+        }
+
+        async fn write_text_file(&self, _path: &Path, _content: &str) -> Result<(), String> {
+            Err("noop".into())
+        }
     }
 
     #[test]
-    fn no_open_thinking_passes_the_next_event_through() {
-        let mut thinking_id = None;
-        let mut pending = VecDeque::new();
-        let first = complete_stream_before(
-            &mut thinking_id,
-            &mut pending,
-            |message_id| AgentEvent::ThinkingCompleted { message_id },
-            AgentEvent::SessionClosed,
+    fn set_config_tries_model_then_models() {
+        assert_eq!(config_alias_ids("model"), vec!["model", "models"]);
+        assert_eq!(
+            config_alias_ids("thinking"),
+            vec!["reasoning_effort", "thought_level", "thinking", "think"]
         );
-        assert!(matches!(first, AgentEvent::SessionClosed));
-        assert!(pending.is_empty());
+        assert_eq!(
+            config_alias_ids("mode"),
+            vec!["mode", "modes", "agent", "agents"]
+        );
     }
 
     #[test]
-    fn session_ready_is_not_dropped_during_replay() {
-        assert!(!should_drop_replay(
-            true,
-            &AcpSessionEvent::SessionReady {
-                acp_session_id: "s".into(),
+    fn acp_descriptor_uses_honesty_matrix() {
+        let params = AcpProviderParams {
+            provider_id: "gemini".into(),
+            launch_spec: AgentLaunchSpec {
+                program: "gemini".into(),
+                args: vec!["acp".into()],
+                env: None,
+            },
+            env_overrides: None,
+            default_config: None,
+            tool_handler: Arc::new(NoopTools),
+        };
+        let descriptor = provider_descriptor(&params);
+        assert_eq!(descriptor.identity.id, "gemini");
+        assert_eq!(descriptor.capabilities.steer, Capability::Unsupported);
+        assert_eq!(descriptor.capabilities.resume, Capability::Supported);
+        assert_eq!(descriptor.capabilities.permission, Capability::Supported);
+        assert_eq!(descriptor.capabilities.configure, Capability::Supported);
+        let _ = AgentRuntimeConfig::default();
+    }
+
+    #[derive(Default)]
+    struct AcpCommandsProbe {
+        send: AtomicUsize,
+        send_prompt: AtomicUsize,
+    }
+
+    #[async_trait]
+    impl AgentRuntimeCommands for AcpCommandsProbe {
+        async fn send(&self, input: AgentPrompt) -> AgentResult<AgentTurnHandle> {
+            self.send.fetch_add(1, Ordering::SeqCst);
+            self.send_prompt.fetch_add(1, Ordering::SeqCst);
+            let turn_id = input
+                .turn_id
+                .clone()
+                .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+            Ok(AgentTurnHandle { turn_id })
+        }
+
+        async fn cancel(&self) -> AgentResult<()> {
+            Ok(())
+        }
+
+        async fn close(&self) -> AgentResult<()> {
+            Ok(())
+        }
+
+        async fn action(&self, action: AgentAction) -> Result<AgentActionResult, AgentActionError> {
+            match dispatch_acp_action(action)? {
+                AcpDispatchedAction::RespondPermission { .. }
+                | AcpDispatchedAction::SetConfig { .. } => Ok(AgentActionResult::unit()),
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn steer_action_is_unsupported_without_second_prompt() {
+        let probe = Arc::new(AcpCommandsProbe::default());
+        let commands = AgentRuntimeControl::new(probe.clone());
+        let error = commands
+            .action(AgentAction::Steer {
+                input: AgentPrompt {
+                    text: "nudge".into(),
+                    ..AgentPrompt::default()
+                },
+            })
+            .await
+            .expect_err("steer");
+        assert!(matches!(
+            error,
+            AgentActionError::Unsupported {
+                action: AgentActionKind::Steer
             }
         ));
-        assert!(should_drop_replay(
-            true,
-            &AcpSessionEvent::Stream(crate::acp_client::types::StreamDelta {
-                role: "assistant".into(),
-                kind: "message".into(),
-                delta: "x".into(),
-                done: false,
-                usage: None,
-            })
-        ));
-        assert!(!should_drop_replay(false, &AcpSessionEvent::LoadCompleted));
-        assert!(!should_drop_replay(
-            true,
-            &AcpSessionEvent::AvailableCommandsUpdate(vec![crate::domain::AgentAvailableCommand {
-                name: "plan".into(),
-                description: "Create a plan".into(),
-                hint: None,
-            }])
-        ));
+        assert_eq!(probe.send.load(Ordering::SeqCst), 0);
+        assert_eq!(probe.send_prompt.load(Ordering::SeqCst), 0);
     }
 }

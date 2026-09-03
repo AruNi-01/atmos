@@ -40,6 +40,7 @@ const KIND_TO_OVERVIEW: Record<AgentToolKind, ToolOverviewKind> = {
   other: "other",
   fetch: "fetch",
   search: "search",
+  web_search: "search",
   read: "read",
 };
 

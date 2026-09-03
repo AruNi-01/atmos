@@ -140,6 +140,7 @@ impl WsMessageService {
             )
             .attach_agent_service(Arc::clone(&agent_service)),
         );
+        agent_chat_service.set_catalog_worker(Arc::clone(&catalog_worker));
 
         Self {
             fs_engine: FsEngine::new(),
@@ -861,6 +862,19 @@ impl WsMessageService {
             WsAction::CustomAgentGetManifestPath => {
                 self.handle_custom_agent_get_manifest_path().await
             }
+            WsAction::CustomAgentSetEnabled => {
+                self.handle_custom_agent_set_enabled(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::CustomAgentPreload => {
+                self.handle_custom_agent_preload(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::NativeAgentList => self.handle_native_agent_list().await,
+            WsAction::NativeAgentSetEnabled => {
+                self.handle_native_agent_set_enabled(parse_request(request.data)?)
+                    .await
+            }
 
             WsAction::AgentChatCreate => {
                 self.handle_agent_chat_create(parse_request(request.data)?)
@@ -928,6 +942,10 @@ impl WsMessageService {
             }
             WsAction::AgentChatPermissionRespond => {
                 self.handle_agent_chat_permission_respond(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::AgentChatSessionOpRespond => {
+                self.handle_agent_chat_session_op_respond(parse_request(request.data)?)
                     .await
             }
             WsAction::AgentModelCatalogGet => {

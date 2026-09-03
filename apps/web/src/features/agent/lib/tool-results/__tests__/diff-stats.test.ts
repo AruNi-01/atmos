@@ -2,10 +2,10 @@ import { describe, expect, it } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { AgentToolCallPart } from "@/features/agent/lib/agent-tool-kind";
+import { defaultToolParams } from "@/features/agent/lib/agent-tool-kind";
 import {
   changedLineRangesFromContents,
   changedLineRangesFromPatch,
-  countFileDiffStats,
   countPatchStats,
   mergeDiffLineRanges,
   sumToolGroupDiffStats,
@@ -18,6 +18,7 @@ function tool(
     type: "tool_call",
     name: overrides.name ?? overrides.kind,
     status: "completed",
+    params: defaultToolParams(overrides.kind),
     ...overrides,
   };
 }
@@ -88,28 +89,27 @@ describe("countPatchStats", () => {
 
 describe("sumToolGroupDiffStats", () => {
   it("sums +/− across edit tools and ignores reads", () => {
+    const firstPatch = "--- a/src/a.ts\n+++ b/src/a.ts\n@@ -1,2 +1,3 @@\n a\n-b\n+c\n+d\n";
+    const secondPatch = "--- a/src/b.ts\n+++ b/src/b.ts\n@@ -1,1 +1,1 @@\n-old\n+new\n";
     const stats = sumToolGroupDiffStats([
       tool({
         tool_call_id: "e1",
         kind: "edit",
         name: "Edit",
-        content: [{
-          type: "diff",
-          path: "src/a.ts",
-          old_content: "a\nb\n",
-          new_content: "a\nc\nd\n",
-        }],
+        params: { type: "edit", path: "src/a.ts" },
+        result: { type: "text", text: firstPatch },
       }),
       tool({
         tool_call_id: "e2",
         kind: "edit",
         name: "Edit",
-        output: "--- a/src/b.ts\n+++ b/src/b.ts\n@@ -1,1 +1,1 @@\n-old\n+new\n",
+        params: { type: "edit", path: "src/b.ts" },
+        result: { type: "text", text: secondPatch },
       }),
       tool({ tool_call_id: "r1", kind: "read", name: "Read" }),
     ]);
-    const first = countFileDiffStats("a\nb\n", "a\nc\nd\n", "src/a.ts");
-    const second = countPatchStats("--- a/src/b.ts\n+++ b/src/b.ts\n@@ -1,1 +1,1 @@\n-old\n+new\n");
+    const first = countPatchStats(firstPatch);
+    const second = countPatchStats(secondPatch);
     expect(stats).toEqual({
       additions: first.additions + second.additions,
       deletions: first.deletions + second.deletions,

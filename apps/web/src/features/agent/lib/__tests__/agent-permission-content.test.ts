@@ -37,13 +37,24 @@ describe("resolvePermissionCommand", () => {
     ).toBe(SHELL);
   });
 
-  it("does not treat a file-read description as a command", () => {
+  it("does not treat Codex writeStdin copy as a shell command", () => {
     expect(
       resolvePermissionCommand({
-        tool: "Read",
-        description: "src/lib/chat-helpers.ts",
+        tool: "commandExecution",
+        description: "Write to terminal",
       }),
     ).toBeNull();
+  });
+
+  it("uses Codex commandExecution markdown as the command, not the prompt copy", () => {
+    const command = `/bin/zsh -c "printf 'hi' > /tmp/atmos-codex-perm.txt"`;
+    expect(
+      resolvePermissionCommand({
+        tool: "commandExecution",
+        description: "Do you want to allow writing the requested file outside the current workspace at the exact path you provided?",
+        contentMarkdown: command,
+      }),
+    ).toBe(command);
   });
 });
 
@@ -62,6 +73,18 @@ describe("permissionOptionVariant", () => {
     expect(permissionOptionVariant("allow_always")).toBe("secondary");
     expect(permissionOptionVariant("Always allow")).toBe("secondary");
     expect(permissionOptionVariant("reject_once")).toBe("ghost");
+    expect(permissionOptionVariant("reject_always")).toBe("ghost");
     expect(permissionOptionVariant("Reject")).toBe("ghost");
+  });
+
+  it("maps native host option kinds from the verified wire", () => {
+    expect(permissionOptionVariant("allow")).toBe("default");
+    expect(permissionOptionVariant("allow_once")).toBe("default");
+    expect(permissionOptionVariant("acceptForSession")).toBe("secondary");
+    expect(permissionOptionVariant("allow_always")).toBe("secondary");
+    expect(permissionOptionVariant("decline")).toBe("ghost");
+    expect(permissionOptionVariant("deny")).toBe("ghost");
+    expect(permissionOptionVariant("cancel")).toBe("ghost");
+    expect(permissionOptionVariant("accept")).toBe("default");
   });
 });

@@ -14,6 +14,7 @@ import type {
   AgentChatSnapshot,
   AgentMessage,
   AgentChatPermissionRespondRequest,
+  AgentChatSessionOpRespondRequest,
   AgentChatQueueAddRequest,
   AgentChatQueueDeleteRequest,
   AgentChatQueueReorderRequest,
@@ -85,6 +86,10 @@ export type AgentChatContract = {
   agent_chat_cancel: { input: AgentChatIdRequest; output: WsOk };
   agent_chat_permission_respond: {
     input: AgentChatPermissionRespondRequest;
+    output: WsOk;
+  };
+  agent_chat_session_op_respond: {
+    input: AgentChatSessionOpRespondRequest;
     output: WsOk;
   };
   agent_model_catalog_get: {

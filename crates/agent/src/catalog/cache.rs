@@ -7,7 +7,8 @@ use std::time::Duration;
 
 use chrono::{DateTime, Utc};
 
-use crate::domain::{AgentModelCatalog, CatalogSource, CatalogStatus};
+use crate::catalog::{AgentModelCatalog, CatalogSource, CatalogStatus};
+use crate::policy::canonicalize_chat_provider_id;
 
 pub const OK_CACHE_TTL: Duration = Duration::from_secs(4 * 60 * 60);
 pub const ERROR_CACHE_TTL: Duration = Duration::from_secs(15 * 60);
@@ -62,9 +63,17 @@ impl CatalogCache {
     }
 
     /// S19: skip live probe when an `ok` cache is younger than 4 hours.
+    /// Slash-capable hosts with an empty command list are not skipped: an older
+    /// models-only cache must not hide a later command probe.
+    /// Hosts that stamp composer Mode / Permission lists are not skipped when
+    /// those lists are empty: an older models+commands cache must not hide the
+    /// pickers after switching Agent.
     pub fn should_skip_probe(&self, agent_id: &str, now: DateTime<Utc>) -> bool {
-        self.get(agent_id, now)
-            .is_some_and(|catalog| catalog.status == CatalogStatus::Ok)
+        self.get(agent_id, now).is_some_and(|catalog| {
+            catalog.status == CatalogStatus::Ok
+                && (!catalog.commands.is_empty() || !host_discovers_slash_commands(agent_id))
+                && !host_missing_stamped_composer_options(&catalog)
+        })
     }
 
     pub fn put(&self, catalog: &AgentModelCatalog) -> io::Result<()> {
@@ -95,8 +104,52 @@ impl CatalogCache {
     }
 }
 
+fn host_discovers_slash_commands(agent_id: &str) -> bool {
+    matches!(
+        canonicalize_chat_provider_id(agent_id),
+        "claude" | "codex" | "opencode" | "pi" | "amp" | "grok"
+    )
+}
+
+/// Native probes stamp a non-empty fallback for these lists. Empty means the
+/// cache predates that stamp (or the native arm never ran). ACP may legitimately
+/// have neither list; those caches stay usable.
+fn host_missing_stamped_composer_options(catalog: &AgentModelCatalog) -> bool {
+    if catalog.status != CatalogStatus::Ok {
+        return false;
+    }
+    match canonicalize_chat_provider_id(&catalog.agent_id) {
+        "claude" | "grok" => catalog.permission_modes.is_empty() || catalog.modes.is_empty(),
+        "codex" => catalog.modes.is_empty() || catalog.permission_modes.is_empty(),
+        "opencode" => catalog.modes.is_empty(),
+        _ => false,
+    }
+}
+
 fn cache_fresh(catalog: &AgentModelCatalog, now: DateTime<Utc>) -> bool {
-    if catalog.models.is_empty() {
+    if catalog.models.is_empty()
+        && catalog.commands.is_empty()
+        && !matches!(
+            catalog.status,
+            CatalogStatus::Error | CatalogStatus::AuthRequired
+        )
+    {
+        return false;
+    }
+    if catalog.status == CatalogStatus::Ok
+        && catalog.commands.is_empty()
+        && host_discovers_slash_commands(&catalog.agent_id)
+    {
+        return false;
+    }
+    if host_missing_stamped_composer_options(catalog) {
+        return false;
+    }
+    if catalog
+        .models
+        .iter()
+        .any(|model| crate::catalog::parse::model_id_is_table_noise(&model.id))
+    {
         return false;
     }
     let age = now
@@ -117,7 +170,7 @@ pub fn catalog_cache_dir(root: &Path) -> PathBuf {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::AgentThinkingSupport;
+    use crate::contract::AgentThinkingSupport;
 
     #[test]
     fn ok_cache_younger_than_4h_skips_probe() {
@@ -127,14 +180,28 @@ mod tests {
         let catalog = AgentModelCatalog {
             agent_id: "claude".into(),
             status: CatalogStatus::Ok,
-            models: vec![crate::domain::AgentModel {
+            models: vec![crate::contract::AgentModel {
                 id: "opus".into(),
                 label: "Opus".into(),
                 group: None,
                 is_default: true,
                 thinking: None,
             }],
-            modes: Vec::new(),
+            modes: vec![crate::contract::AgentMode {
+                id: "default".into(),
+                label: "Default".into(),
+                is_default: true,
+            }],
+            permission_modes: vec![crate::contract::AgentMode {
+                id: "ask_always".into(),
+                label: "Ask always".into(),
+                is_default: true,
+            }],
+            commands: vec![crate::contract::AgentAvailableCommand {
+                name: "compact".into(),
+                description: "Compact conversation".into(),
+                hint: None,
+            }],
             thinking: AgentThinkingSupport::None,
             strategies_used: Vec::new(),
             fetched_at: now,
@@ -149,6 +216,169 @@ mod tests {
         assert!(!cache.should_skip_probe("claude", stale));
     }
 
+    fn ok_models_and_commands(agent_id: &str, now: DateTime<Utc>) -> AgentModelCatalog {
+        AgentModelCatalog {
+            agent_id: agent_id.into(),
+            status: CatalogStatus::Ok,
+            models: vec![crate::contract::AgentModel {
+                id: "opus".into(),
+                label: "Opus".into(),
+                group: None,
+                is_default: true,
+                thinking: None,
+            }],
+            modes: Vec::new(),
+            permission_modes: Vec::new(),
+            commands: vec![crate::contract::AgentAvailableCommand {
+                name: "compact".into(),
+                description: "Compact".into(),
+                hint: None,
+            }],
+            thinking: AgentThinkingSupport::None,
+            strategies_used: Vec::new(),
+            fetched_at: now,
+            source: CatalogSource::Live,
+            message: None,
+        }
+    }
+
+    #[test]
+    fn claude_or_grok_cache_without_permission_modes_does_not_skip() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = CatalogCache::new(dir.path().to_path_buf());
+        let now = Utc::now();
+        for agent_id in ["claude", "grok"] {
+            cache.put(&ok_models_and_commands(agent_id, now)).unwrap();
+            assert!(
+                cache.get(agent_id, now).is_none(),
+                "{agent_id} cache without permission_modes must not be fresh"
+            );
+            assert!(!cache.should_skip_probe(agent_id, now));
+        }
+    }
+
+    #[test]
+    fn codex_or_opencode_cache_without_modes_does_not_skip() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = CatalogCache::new(dir.path().to_path_buf());
+        let now = Utc::now();
+        for agent_id in ["codex", "opencode"] {
+            cache.put(&ok_models_and_commands(agent_id, now)).unwrap();
+            assert!(
+                cache.get(agent_id, now).is_none(),
+                "{agent_id} cache without modes must not be fresh"
+            );
+            assert!(!cache.should_skip_probe(agent_id, now));
+        }
+    }
+
+    #[test]
+    fn claude_or_grok_cache_without_modes_does_not_skip() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = CatalogCache::new(dir.path().to_path_buf());
+        let now = Utc::now();
+        for agent_id in ["claude", "grok"] {
+            let mut catalog = ok_models_and_commands(agent_id, now);
+            catalog.permission_modes = vec![crate::contract::AgentMode {
+                id: "ask_always".into(),
+                label: "Ask always".into(),
+                is_default: true,
+            }];
+            cache.put(&catalog).unwrap();
+            assert!(
+                cache.get(agent_id, now).is_none(),
+                "{agent_id} cache without modes must not be fresh"
+            );
+            assert!(!cache.should_skip_probe(agent_id, now));
+        }
+    }
+
+    #[test]
+    fn codex_cache_without_permission_modes_does_not_skip() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = CatalogCache::new(dir.path().to_path_buf());
+        let now = Utc::now();
+        let mut catalog = ok_models_and_commands("codex", now);
+        catalog.modes = vec![crate::contract::AgentMode {
+            id: "default".into(),
+            label: "Default".into(),
+            is_default: true,
+        }];
+        cache.put(&catalog).unwrap();
+        assert!(cache.get("codex", now).is_none());
+        assert!(!cache.should_skip_probe("codex", now));
+    }
+
+    #[test]
+    fn acp_cache_without_composer_option_lists_still_skips() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = CatalogCache::new(dir.path().to_path_buf());
+        let now = Utc::now();
+        let mut catalog = ok_models_and_commands("factory-droid", now);
+        catalog.commands.clear();
+        cache.put(&catalog).unwrap();
+        assert!(cache.get("factory-droid", now).is_some());
+        assert!(cache.should_skip_probe("factory-droid", now));
+    }
+
+    #[test]
+    fn ok_models_without_commands_do_not_skip_slash_hosts() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = CatalogCache::new(dir.path().to_path_buf());
+        let now = Utc::now();
+        let catalog = AgentModelCatalog {
+            agent_id: "claude".into(),
+            status: CatalogStatus::Ok,
+            models: vec![crate::contract::AgentModel {
+                id: "opus".into(),
+                label: "Opus".into(),
+                group: None,
+                is_default: true,
+                thinking: None,
+            }],
+            modes: Vec::new(),
+            permission_modes: Vec::new(),
+            commands: Vec::new(),
+            thinking: AgentThinkingSupport::None,
+            strategies_used: Vec::new(),
+            fetched_at: now,
+            source: CatalogSource::Live,
+            message: None,
+        };
+        cache.put(&catalog).unwrap();
+        assert!(cache.get("claude", now).is_none());
+        assert!(!cache.should_skip_probe("claude", now));
+    }
+
+    #[test]
+    fn grok_ok_without_commands_does_not_skip_catalog_probe() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = CatalogCache::new(dir.path().to_path_buf());
+        let now = Utc::now();
+        let catalog = AgentModelCatalog {
+            agent_id: "grok".into(),
+            status: CatalogStatus::Ok,
+            models: vec![crate::contract::AgentModel {
+                id: "grok-4".into(),
+                label: "Grok 4".into(),
+                group: None,
+                is_default: true,
+                thinking: None,
+            }],
+            modes: Vec::new(),
+            permission_modes: Vec::new(),
+            commands: Vec::new(),
+            thinking: AgentThinkingSupport::None,
+            strategies_used: Vec::new(),
+            fetched_at: now,
+            source: CatalogSource::Live,
+            message: None,
+        };
+        cache.put(&catalog).unwrap();
+        assert!(cache.get("grok", now).is_none());
+        assert!(!cache.should_skip_probe("grok", now));
+    }
+
     #[test]
     fn empty_model_list_is_not_a_usable_cache() {
         let dir = tempfile::tempdir().unwrap();
@@ -159,6 +389,8 @@ mod tests {
             status: CatalogStatus::Ok,
             models: Vec::new(),
             modes: Vec::new(),
+            permission_modes: Vec::new(),
+            commands: Vec::new(),
             thinking: AgentThinkingSupport::None,
             strategies_used: Vec::new(),
             fetched_at: now,
@@ -168,5 +400,95 @@ mod tests {
         cache.put(&catalog).unwrap();
         assert!(!cache.should_skip_probe("opencode", now));
         assert!(cache.get("opencode", now).is_none());
+    }
+
+    #[test]
+    fn empty_error_catalog_is_cached_so_broken_cli_does_not_reprobe() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = CatalogCache::new(dir.path().to_path_buf());
+        let now = Utc::now();
+        let catalog = AgentModelCatalog {
+            agent_id: "codex".into(),
+            status: CatalogStatus::Error,
+            models: Vec::new(),
+            modes: Vec::new(),
+            permission_modes: Vec::new(),
+            commands: Vec::new(),
+            thinking: AgentThinkingSupport::None,
+            strategies_used: Vec::new(),
+            fetched_at: now,
+            source: CatalogSource::Live,
+            message: Some("Codex CLI is broken".into()),
+        };
+        cache.put(&catalog).unwrap();
+        let loaded = cache.get("codex", now).expect("error cache");
+        assert_eq!(loaded.status, CatalogStatus::Error);
+        assert_eq!(loaded.message.as_deref(), Some("Codex CLI is broken"));
+        assert_eq!(loaded.source, CatalogSource::Cache);
+        assert!(!cache.should_skip_probe("codex", now));
+        let stale = now + chrono::Duration::minutes(16);
+        assert!(cache.get("codex", stale).is_none());
+    }
+
+    #[test]
+    fn ok_commands_without_models_are_a_usable_cache() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = CatalogCache::new(dir.path().to_path_buf());
+        let now = Utc::now();
+        let catalog = AgentModelCatalog {
+            agent_id: "amp".into(),
+            status: CatalogStatus::Ok,
+            models: Vec::new(),
+            modes: Vec::new(),
+            permission_modes: Vec::new(),
+            commands: vec![crate::contract::AgentAvailableCommand {
+                name: "10x".into(),
+                description: "audit".into(),
+                hint: None,
+            }],
+            thinking: AgentThinkingSupport::None,
+            strategies_used: Vec::new(),
+            fetched_at: now,
+            source: CatalogSource::Live,
+            message: None,
+        };
+        cache.put(&catalog).unwrap();
+        let loaded = cache.get("amp", now).expect("command cache");
+        assert_eq!(loaded.commands[0].name, "10x");
+        assert!(cache.should_skip_probe("amp", now));
+    }
+
+    #[test]
+    fn table_header_model_ids_are_not_a_usable_cache() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = CatalogCache::new(dir.path().to_path_buf());
+        let now = Utc::now();
+        let catalog = AgentModelCatalog {
+            agent_id: "pi".into(),
+            status: CatalogStatus::Ok,
+            models: vec![crate::contract::AgentModel {
+                id: "provider  model                         context  max-out  thinking  images"
+                    .into(),
+                label: "provider  model".into(),
+                group: None,
+                is_default: false,
+                thinking: None,
+            }],
+            modes: Vec::new(),
+            permission_modes: Vec::new(),
+            commands: vec![crate::contract::AgentAvailableCommand {
+                name: "compact".into(),
+                description: "Compact".into(),
+                hint: None,
+            }],
+            thinking: AgentThinkingSupport::None,
+            strategies_used: Vec::new(),
+            fetched_at: now,
+            source: CatalogSource::Live,
+            message: None,
+        };
+        cache.put(&catalog).unwrap();
+        assert!(cache.get("pi", now).is_none());
+        assert!(!cache.should_skip_probe("pi", now));
     }
 }

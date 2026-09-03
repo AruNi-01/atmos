@@ -46,6 +46,8 @@ crates/core-service/
 - **Project/Workspace**: Orchestrating Engine and Infra to manage development environments
 - **Terminal**: High-level terminal session orchestration
 - **Notifications**: Service events and settings, without direct WebSocket manager ownership
+- **Agent install / registry**: `service/agent.rs` wraps `agent::AgentManager` (install, status, keys, Native tab enable). Not a Chat session.
+- **Agent Chat**: `service/agent_chat/` (`AgentChatService`) owns jsonl transcript, native `/fork` `/rewind` intercept on send, `rewind_view`, and sibling `chat_id` after vendor fork. Talks only to `agent::AgentProvider` via `DefaultAgentProviderFactory`. Do not spawn CLIs or hold ACP handles here. Do not `git checkout` / restore workspace files for rewind. WS DTOs stay in `apps/api`.
 
 ---
 
@@ -53,6 +55,7 @@ crates/core-service/
 
 - `core-engine`: L2 engine capabilities (PTY, Git, FS)
 - `infra`: L1 infrastructure (DB, repos, cache, queue, jobs)
+- `agent`: Chat `AgentProvider` (native Claude / Codex / OpenCode / Pi / Grok + ACP) and `AgentManager`. See [agent/AGENTS.md](../agent/AGENTS.md).
 
 ---
 
@@ -67,3 +70,4 @@ crates/core-service/
 - Orchestrate multiple L2 and L1 components to fulfill business goals
 - Use `ServiceError` for consistent error handling
 - Keep transport adaptation in `apps/api`; expose ordinary service methods and events
+- Agent Chat: intercept `/fork` `/rewind` on send; persist `rewind_view`; never restore files in this crate

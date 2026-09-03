@@ -1,0 +1,19 @@
+{
+  "jsonrpc": "2.0",
+  "method": "session/update",
+  "params": {
+    "sessionId": "sess_grok_1",
+    "update": {
+      "sessionUpdate": "tool_call",
+      "toolCallId": "tc_write_1",
+      "title": "Write atmos-probe.txt",
+      "kind": "edit",
+      "status": "pending",
+      "rawInput": {
+        "type": "Write",
+        "path": "atmos-probe.txt",
+        "contents": "hi"
+      }
+    }
+  }
+}

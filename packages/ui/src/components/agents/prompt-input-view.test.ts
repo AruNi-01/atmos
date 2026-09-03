@@ -23,6 +23,7 @@ describe("locked session config", () => {
     expect(promptInput).toContain('if (next === "model" && modelsLocked) return');
     expect(promptInput).toContain("disabled={modelsLocked}");
     expect(promptInput).toContain("disabled={disabled || loading || modesLocked}");
+    expect(promptInput).toContain("disabled={disabled || loading || permissionModesLocked}");
   });
 });
 
@@ -33,8 +34,18 @@ describe("mode picker", () => {
     const selectFn = promptInput.slice(start, end);
     expect(selectFn).toContain("MorphPopover");
     expect(selectFn).toContain("ConfigFlyoutList");
+    expect(selectFn).toContain("showSearch={showSearch}");
+    expect(selectFn).toContain("options.length > 15");
     expect(selectFn).not.toContain("<Select");
     expect(selectFn).not.toContain("SelectTrigger");
+  });
+});
+
+describe("permission picker", () => {
+  it("reuses PromptOptionSelect instead of a second popover", () => {
+    expect(promptInput).toContain("permissionModes.length");
+    expect(promptInput).toContain("onPermissionModeChange");
+    expect(promptInput).toContain("disabled={disabled || loading || permissionModesLocked}");
   });
 });
 
@@ -131,10 +142,19 @@ describe("agentConfigTriggerText", () => {
   });
 });
 
+describe("S2 thinking control visibility", () => {
+  it("shows a real one-option thinking enum and omits an empty list", () => {
+    expect(promptInput).toContain("thinkingLevels.length > 0");
+    expect(promptInput).not.toContain("thinkingLevels.length > 1");
+  });
+});
+
 describe("PromptAgentConfigMenu", () => {
   it("keeps agent, model, and thinking in one hover flyout instead of paged selects", () => {
     expect(promptInput).toContain("function PromptAgentConfigMenu");
-    expect(promptInput).toContain("function ThinkingSliderPanel");
+    expect(promptInput).not.toContain("function ThinkingSliderPanel");
+    expect(promptInput).toContain('flyout === "thinking"');
+    expect(promptInput).toContain("heading={labels.thinkingEffort}");
     expect(promptInput).toContain("openFlyout");
     expect(promptInput).toContain("{flyout ? (");
     expect(promptInput).toContain("clip={false}");

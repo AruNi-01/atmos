@@ -3,29 +3,39 @@ import { useTranslations } from "next-intl";
 import {
   agentApi,
   type CustomAgent,
+  type NativeChatAgent,
 } from "@/api/ws-api";
 import { toastManager } from "@workspace/ui";
 import {
   useAgentRegistryListQuery,
   useCustomAgentListQuery,
+  useNativeChatAgentListQuery,
   useInvalidateAgentRegistry,
   forceRefreshAgentRegistry,
 } from "@/features/agent/hooks/use-agent-registry-query";
+import { sortAcpRegistryAgents } from "@/features/agent/lib/custom-agent-registry";
 
 export function useAgentManager(query: string) {
   const t = useTranslations("agent.manager");
   const registryQuery = useAgentRegistryListQuery();
   const customQuery = useCustomAgentListQuery();
+  const nativeQuery = useNativeChatAgentListQuery();
   const invalidateRegistry = useInvalidateAgentRegistry();
 
   const registryAgents = registryQuery.data?.agents ?? [];
   const customAgents = customQuery.data?.agents ?? [];
-  const loading = registryQuery.isLoading || customQuery.isLoading;
-  const refreshing = (registryQuery.isFetching || customQuery.isFetching) && !loading;
+  const nativeAgents = nativeQuery.data?.agents ?? [];
+  const loading = registryQuery.isLoading || customQuery.isLoading || nativeQuery.isLoading;
+  const refreshing =
+    (registryQuery.isFetching || customQuery.isFetching || nativeQuery.isFetching) && !loading;
 
   const [installingRegistryIds, setInstallingRegistryIds] = React.useState<Set<string>>(() => new Set());
   const [removingRegistryId, setRemovingRegistryId] = React.useState<string | null>(null);
   const [removingCustomName, setRemovingCustomName] = React.useState<string | null>(null);
+  const [preloadingCustomName, setPreloadingCustomName] = React.useState<string | null>(null);
+  const [pendingCustomEnabledName, setPendingCustomEnabledName] = React.useState<string | null>(null);
+  const [pendingNativeEnabledId, setPendingNativeEnabledId] = React.useState<string | null>(null);
+  const preloadTokenRef = React.useRef(0);
   const [overwriteDialog, setOverwriteDialog] = React.useState<{
     registryId: string;
     message: string;
@@ -80,26 +90,8 @@ export function useAgentManager(query: string) {
   );
 
   const filteredRegistry = React.useMemo(() => {
-    return registryAgents
-      .filter((item) => !item.installed)
-      .filter(matchesQuery)
-      .sort((a, b) => a.name.localeCompare(b.name));
+    return sortAcpRegistryAgents(registryAgents.filter(matchesQuery));
   }, [matchesQuery, registryAgents]);
-
-  const installedAgents = React.useMemo(() => {
-    return registryAgents
-      .filter((item) => item.installed)
-      .filter(matchesQuery)
-      .sort((a, b) => a.name.localeCompare(b.name));
-  }, [matchesQuery, registryAgents]);
-
-  const registryCount = React.useMemo(() => {
-    return registryAgents.filter((a) => !a.installed).length;
-  }, [registryAgents]);
-
-  const installedCount = React.useMemo(() => {
-    return registryAgents.filter((a) => a.installed).length;
-  }, [registryAgents]);
 
   const filteredCustomAgents = React.useMemo(() => {
     if (!normalizedQuery) return customAgents;
@@ -111,6 +103,18 @@ export function useAgentManager(query: string) {
       );
     });
   }, [customAgents, normalizedQuery]);
+
+  const filteredNativeAgents = React.useMemo(() => {
+    if (!normalizedQuery) return nativeAgents;
+    return nativeAgents.filter((agent) => {
+      return (
+        agent.name.toLowerCase().includes(normalizedQuery) ||
+        agent.id.toLowerCase().includes(normalizedQuery) ||
+        agent.executable.toLowerCase().includes(normalizedQuery) ||
+        agent.description.toLowerCase().includes(normalizedQuery)
+      );
+    });
+  }, [nativeAgents, normalizedQuery]);
 
   const handleInstallRegistry = async (registryId: string, forceOverwrite = false) => {
     markRegistryInstalling(registryId);
@@ -192,6 +196,62 @@ export function useAgentManager(query: string) {
     }
   };
 
+  const handleSetCustomAgentEnabled = async (agent: CustomAgent, enabled: boolean) => {
+    setPendingCustomEnabledName(agent.name);
+    try {
+      await agentApi.setCustomAgentEnabled(agent.name, enabled);
+      invalidateRegistry();
+    } catch (error) {
+      toastManager.add({
+        title: t("toasts.customEnableFailed.title"),
+        description: error instanceof Error ? error.message : t("unknownError"),
+        type: "error",
+      });
+      return;
+    } finally {
+      setPendingCustomEnabledName((current) => (current === agent.name ? null : current));
+    }
+
+    if (!enabled) {
+      preloadTokenRef.current += 1;
+      setPreloadingCustomName(null);
+      return;
+    }
+
+    const token = ++preloadTokenRef.current;
+    setPreloadingCustomName(agent.name);
+    try {
+      await agentApi.preloadCustomAgent(agent.name);
+    } catch (error) {
+      if (token !== preloadTokenRef.current) return;
+      toastManager.add({
+        title: t("toasts.customPreloadFailed.title"),
+        description: error instanceof Error ? error.message : t("unknownError"),
+        type: "error",
+      });
+    } finally {
+      if (token === preloadTokenRef.current) {
+        setPreloadingCustomName(null);
+      }
+    }
+  };
+
+  const handleSetNativeChatAgentEnabled = async (agent: NativeChatAgent, enabled: boolean) => {
+    setPendingNativeEnabledId(agent.id);
+    try {
+      await agentApi.setNativeChatAgentEnabled(agent.id, enabled);
+      invalidateRegistry();
+    } catch (error) {
+      toastManager.add({
+        title: t("toasts.nativeEnableFailed.title"),
+        description: error instanceof Error ? error.message : t("unknownError"),
+        type: "error",
+      });
+    } finally {
+      setPendingNativeEnabledId((current) => (current === agent.id ? null : current));
+    }
+  };
+
   const cancelOverwrite = React.useCallback(() => {
     setOverwriteDialog((current) => {
       if (current) {
@@ -212,26 +272,30 @@ export function useAgentManager(query: string) {
   return {
     registryAgents,
     customAgents,
+    nativeAgents,
     loading,
     refreshing,
     installingRegistryIds,
     removingRegistryId,
     removingCustomName,
+    preloadingCustomName,
+    pendingCustomEnabledName,
+    pendingNativeEnabledId,
     overwriteDialog,
     removeConfirmDialog,
     removeCustomConfirmDialog,
     setRemoveConfirmDialog,
     setRemoveCustomConfirmDialog,
     filteredCustomAgents,
+    filteredNativeAgents,
     filteredRegistry,
-    registryCount,
-    installedAgents,
-    installedCount,
     handleInstallRegistry,
     handleConfirmOverwrite,
     handleRefresh,
     handleRemoveRegistry,
     handleRemoveCustomAgent,
+    handleSetCustomAgentEnabled,
+    handleSetNativeChatAgentEnabled,
     cancelOverwrite,
     cancelRemoveRegistry,
     cancelRemoveCustom,

@@ -15,28 +15,43 @@ import {
   getAgentPromptQueueKey,
   useDialogStore,
 } from "@/app-shell/state/use-dialog-store";
+import { queryKeys } from "@/api/query/query-keys";
+import { getComputerQueryScope } from "@/api/query/query-scope";
+import { quotaUsageApi } from "@/api/ws/quota-usage-api";
 import { agentChatApi, type AgentModelCatalog } from "@/api/ws/agent-chat-api";
 import { agentApi, type RegistryAgent } from "@/api/ws/agent-api";
 import { agentApi as agentRestApi } from "@/api/rest-api";
 import { agentBehaviourSettingsApi } from "@/api/ws/settings-api";
+import { getAtmosWebQueryClient } from "@/providers/app/query-client";
 import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
+import {
+  useAgentRegistryListQuery,
+  useCustomAgentListQuery,
+  useNativeChatAgentListQuery,
+} from "@/features/agent/hooks/use-agent-registry-query";
 import { DEFAULT_AGENT_CHAT_MODE } from "@/features/agent/types/index";
 import type {
   AgentChatEvent,
+  AgentDescriptor,
   AgentMessage,
   AgentQueueItem,
   AgentSessionUsage,
-  SessionAdvertisedOption,
 } from "@atmos/api-types/ws/dto/agent-chat";
 import {
   persistAgentChatLastSession,
   readAgentChatLastSessions,
   resolveRestoredAgentChat,
 } from "@/features/agent/lib/agent-chat-last-session";
+import { preferredConfigFromDefault } from "@/features/agent/lib/agent-chat-prefs";
 import {
-  pickInstalledRegistryId,
-  preferredConfigFromDefault,
-} from "@/features/agent/lib/agent-chat-prefs";
+  authRequiredFromTurnError,
+  DEEPSEEK_HARNESS_ARGS,
+  DEEPSEEK_HARNESS_ID,
+  DEEPSEEK_API_KEY_ENV,
+  mergeInstalledAgents,
+  canonicalizeChatProviderId,
+  tokenAuthEnvName,
+} from "@/features/agent/lib/custom-agent-registry";
 import {
   FOOTER_MODAL_CHAT_PREF_KEY,
   workingDirectoriesEqual,
@@ -48,6 +63,7 @@ import {
   runningBackgroundTools,
   writeDefaultAgentRegistryId,
   type PendingPermission,
+  type PendingSessionOp,
 } from "@/features/agent/lib/chat-helpers";
 import {
   buildAgentChatExportableMessages,
@@ -78,12 +94,11 @@ import {
 } from "@/features/agent/store/agent-slash-command-cache";
 import {
   agentChatHistoryListRequest,
-  advertisedOptionsToConfigOptions,
-  catalogToConfigOptions,
+  composerConfigOptions,
   configKindMatches,
+  displayedComposerConfigValue,
   defaultCatalogModelId,
   isCatalogModelsLoading,
-  overlayPendingConfigValues,
   probingCatalog,
   chatTitleFromPrompt,
   chatsToHistoryRows,
@@ -99,11 +114,13 @@ function pendingSessionConfigPatch(
   modelId: string,
   thinkingId: string,
   modeId: string,
-): { model?: string; thinking?: string; mode?: string } {
+  permissionModeId = "",
+): { model?: string; thinking?: string; mode?: string; permission_mode?: string } {
   return {
     ...(modelId.trim() ? { model: modelId.trim() } : {}),
     ...(thinkingId.trim() ? { thinking: thinkingId.trim() } : {}),
     ...(modeId.trim() ? { mode: modeId.trim() } : {}),
+    ...(permissionModeId.trim() ? { permission_mode: permissionModeId.trim() } : {}),
   };
 }
 
@@ -151,6 +168,7 @@ export function useAgentChatSession({
 }) {
   const chatId = chatIdProp.trim();
   const t = useTranslations("agent.chatSessionTypes");
+  const tSessionHints = useTranslations("Agent.components.chatPanel.session.hints");
   const urlContext = useContextParams();
   const { workspaceId: urlWorkspaceId, projectId: urlProjectId, effectiveContextId } =
     contextOverride ?? urlContext;
@@ -171,6 +189,7 @@ export function useAgentChatSession({
   const [modelId, setModelId] = useState("");
   const [thinkingId, setThinkingId] = useState("");
   const [modeId, setModeId] = useState("");
+  const [permissionModeId, setPermissionModeId] = useState("");
   const [catalog, setCatalog] = useState<AgentModelCatalog | null>(null);
   const [installedAgents, setInstalledAgents] = useState<RegistryAgent[]>([]);
   const [defaultRegistryId, setDefaultRegistryId] = useState("");
@@ -182,7 +201,13 @@ export function useAgentChatSession({
   const [cwd, setCwd] = useState("");
   const [title, setTitle] = useState<string | null>(null);
   const [sendError, setSendError] = useState<string | null>(null);
+  const [authRequest, setAuthRequest] = useState<{
+    message?: string;
+    methods: { id: string; name: string; description?: string }[];
+  } | null>(null);
+  const [selectedAuthMethodId, setSelectedAuthMethodId] = useState("");
   const [pendingPermission, setPendingPermission] = useState<PendingPermission | null>(null);
+  const [pendingSessionOp, setPendingSessionOp] = useState<PendingSessionOp | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historySessions, setHistorySessions] = useState<AgentChatHistoryRow[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -193,7 +218,7 @@ export function useAgentChatSession({
   const [hydrated, setHydrated] = useState(false);
   const [runtimeStatus, setRuntimeStatus] = useState<string | null>(null);
   const [hasPersistenceHandle, setHasPersistenceHandle] = useState(false);
-  const [sessionConfigOptions, setSessionConfigOptions] = useState<SessionAdvertisedOption[]>([]);
+  const [descriptor, setDescriptor] = useState<AgentDescriptor | null>(null);
   const [sessionCommands, setSessionCommands] = useState<AgentChatSlashCommand[]>([]);
   const [sessionUsage, setSessionUsage] = useState<AgentSessionUsage | null>(null);
   const [turnStartedAt, setTurnStartedAt] = useState<number | null>(null);
@@ -204,6 +229,7 @@ export function useAgentChatSession({
   const pendingEventsRef = useRef<AgentChatEvent[]>([]);
   const stoppedRef = useRef(false);
   const pendingSendRef = useRef<{ text: string; attachmentPaths: string[] } | null>(null);
+  const lastSentRef = useRef<{ text: string; attachmentPaths: string[] } | null>(null);
   const creatingChatRef = useRef<Promise<string> | null>(null);
   const resumeTranscriptRef = useRef(resumeTranscript);
   resumeTranscriptRef.current = resumeTranscript;
@@ -215,6 +241,9 @@ export function useAgentChatSession({
   const lastPersistedRegistryRef = useRef("");
   const lastPersistedConfigRef = useRef({ registry: "", model: "", thinking: "" });
   const wsConnected = useWebSocketStore((state) => state.connectionState === "connected");
+  const registryQuery = useAgentRegistryListQuery();
+  const customQuery = useCustomAgentListQuery();
+  const nativeQuery = useNativeChatAgentListQuery();
   const agentLocked =
     Boolean(activeChatId) &&
     (messages.length > 0 || hasPersistenceHandle || isLiveAgentRuntimeStatus(runtimeStatus));
@@ -263,8 +292,10 @@ export function useAgentChatSession({
   const chatIdPropRef = useRef(chatId);
   const onStartedRef = useRef(onChatStarted);
   const onUpdatedRef = useRef(onChatUpdated);
+  const onOpenChatRef = useRef(onOpenChat);
   onStartedRef.current = onChatStarted;
   onUpdatedRef.current = onChatUpdated;
+  onOpenChatRef.current = onOpenChat;
 
   useEffect(() => {
     activeIdRef.current = activeChatId;
@@ -286,6 +317,7 @@ export function useAgentChatSession({
       setBusy(false);
       setRunningTurnId(null);
       setPendingPermission(null);
+      setPendingSessionOp(null);
       setSessionCommands([]);
       setSessionUsage(null);
       setTurnStartedAt(null);
@@ -293,16 +325,26 @@ export function useAgentChatSession({
       lastSeq.current = 0;
       setRuntimeStatus("detached");
       setHasPersistenceHandle(false);
-      setSessionConfigOptions([]);
+      setDescriptor(null);
+      setSupportsSteer(false);
     }
   }, [chatId]);
+
+  const applyDescriptor = useCallback((next: AgentDescriptor) => {
+    setDescriptor(next);
+    setSupportsSteer(next.capabilities.steer === "supported");
+    setModelId(next.current_config.model ?? "");
+    setThinkingId(next.current_config.thinking ?? "");
+    setModeId(next.current_config.mode ?? "");
+    setPermissionModeId(next.current_config.permission_mode ?? "");
+  }, []);
 
   const load = useCallback(async (id = activeChatId) => {
     if (!id) return;
     const snapshot = await agentChatApi.get(id);
     const meta = snapshot.meta;
     setTitle(meta.title?.trim() || null);
-    setSupportsSteer(Boolean(meta.supports_steer));
+    applyDescriptor(meta.descriptor);
     const loadedMessages = dedupeAgentMessages(
       (snapshot.messages ?? []).map((message) => ({
         ...message,
@@ -315,7 +357,6 @@ export function useAgentChatSession({
     }
     setRuntimeStatus(meta.runtime_status ?? "detached");
     setHasPersistenceHandle(Boolean(meta.persistence_handle));
-    setSessionConfigOptions(meta.session_config_options ?? []);
     const last = snapshot.messages?.at(-1);
     const running =
       meta.runtime_status === "running_turn" ||
@@ -335,9 +376,6 @@ export function useAgentChatSession({
     }
     setQueue(snapshot.queue ?? []);
     setProviderIdState(meta.provider_id || "claude");
-    setModelId(meta.selected_model ?? "");
-    setThinkingId(meta.selected_thinking ?? "");
-    setModeId(meta.selected_mode ?? "");
     setWorkspaceId(meta.workspace_id ?? (isolatedModal ? null : urlWorkspaceId));
     setProjectId(meta.project_id ?? (isolatedModal ? null : urlProjectId));
     setCwd(isolatedModal && !meta.workspace_id && !meta.project_id ? "" : (meta.cwd ?? ""));
@@ -376,6 +414,7 @@ export function useAgentChatSession({
           }
         : null,
     );
+    setPendingSessionOp(snapshot.pending_session_op ?? null);
     setHistoryLoading(true);
     try {
       const listed = await agentChatApi.list(
@@ -411,6 +450,7 @@ export function useAgentChatSession({
     urlProjectId,
     urlWorkspaceId,
     variant,
+    applyDescriptor,
   ]);
 
   useEffect(() => {
@@ -432,10 +472,16 @@ export function useAgentChatSession({
     setLoadingAgents(true);
     void Promise.all([
       agentApi.listRegistry(),
+      agentApi.listCustomAgents().catch(() => ({ agents: [] })),
+      agentApi.listNativeChatAgents().catch(() => ({ agents: [] })),
       agentChatApi.prefsGet().catch(() => ({ last_registry_id: null })),
-    ]).then(([result, prefs]) => {
+    ]).then(([result, custom, natives, prefs]) => {
       const agents = result.agents ?? [];
-      const installed = agents.filter((agent) => agent.installed);
+      const installed = mergeInstalledAgents(
+        agents.filter((agent) => agent.installed),
+        custom.agents ?? [],
+        natives.agents ?? [],
+      );
       const installedIds = installed.map((agent) => agent.id);
       setInstalledAgents(installed);
       const lastRegistryId = pickInstalledRegistryId(
@@ -492,10 +538,39 @@ export function useAgentChatSession({
   }, [wsConnected]);
 
   useEffect(() => {
+    const agents = registryQuery.data?.agents ?? [];
+    const custom = customQuery.data?.agents ?? [];
+    const natives = nativeQuery.data?.agents ?? [];
+    if (!registryQuery.data && !customQuery.data && !nativeQuery.data) return;
+    const installed = mergeInstalledAgents(
+      agents.filter((agent) => agent.installed),
+      custom,
+      natives,
+    );
+    setInstalledAgents(installed);
+    setProviderIdState((current) => {
+      if (current && installed.some((agent) => agent.id === current)) return current;
+      if (current) {
+        const folded = canonicalizeChatProviderId(current);
+        const alias = installed.find((agent) => canonicalizeChatProviderId(agent.id) === folded);
+        if (alias) return alias.id;
+      }
+      if (installed[0]) return installed[0].id;
+      return current;
+    });
+  }, [customQuery.data, nativeQuery.data, registryQuery.data]);
+
+  useEffect(() => {
     return useWebSocketStore.getState().onEvent("agent_model_catalog_updated", (payload) => {
       const update = payload as { agent_id?: string; catalog?: AgentModelCatalog };
       if (update.agent_id && update.catalog && update.agent_id === providerIdRef.current) {
         setCatalog(update.catalog);
+        const message = update.catalog.status === "error" ? update.catalog.message?.trim() : "";
+        if (message) setSendError(message);
+        const commands = normalizeAgentSlashCommands(update.catalog.commands);
+        if (commands.length > 0) {
+          rememberAgentSlashCommands(update.agent_id, commands);
+        }
       }
     });
   }, []);
@@ -649,6 +724,11 @@ export function useAgentChatSession({
         setRunningTurnId(null);
         setPendingPermission(null);
         setTurnStartedAt(null);
+        const auth = authRequiredFromTurnError(payload.error, providerIdRef.current);
+        if (auth) {
+          setSelectedAuthMethodId(auth.methods[0]?.id ?? "");
+          setAuthRequest(auth);
+        }
       }
       if (payload.type === "usage_updated") {
         if (payload.session) setSessionUsage(payload.session);
@@ -671,6 +751,43 @@ export function useAgentChatSession({
       if (payload.type === "permission_resolved") {
         setPendingPermission(null);
       }
+      if (payload.type === "session_op_requested" && payload.request?.request_id) {
+        setSendError(null);
+        setPendingSessionOp(payload.request);
+      }
+      if (payload.type === "session_op_resolved") {
+        setPendingSessionOp(null);
+        if (payload.outcome === "failed") {
+          const message = payload.error?.trim();
+          setSendError(message || tSessionHints("sessionOpFailed"));
+        }
+      }
+      if (payload.type === "session_forked") {
+        const childId = payload.chat_id?.trim();
+        if (childId && childId !== activeIdRef.current) {
+          setPendingPermission(null);
+          setPendingSessionOp(null);
+          setMessages([]);
+          setQueue([]);
+          setBusy(false);
+          setRunningTurnId(null);
+          setSessionCommands([]);
+          setSessionUsage(null);
+          setTurnStartedAt(null);
+          setElapsedMs(0);
+          lastSeq.current = 0;
+          setIsResumingHistory(true);
+          hydratingRef.current = true;
+          pendingEventsRef.current = [];
+          setActiveChatId(childId);
+          onOpenChatRef.current?.(childId);
+          onStartedRef.current?.(childId, { hasMessages: true });
+        }
+      }
+      if (payload.type === "rewind_view_updated") {
+        const id = activeIdRef.current;
+        if (id) void load(id);
+      }
       if (payload.type === "queue_updated" && payload.items) {
         setQueue(payload.items);
       }
@@ -680,18 +797,7 @@ export function useAgentChatSession({
         rememberAgentSlashCommands(providerIdRef.current, commands);
       }
       if (payload.type === "config_updated") {
-        const fromOptions = (kind: string) =>
-          payload.config_options?.find((row) => configKindMatches(row.id, row.category, kind))
-            ?.current_value?.trim() ?? "";
-        const model = payload.model?.trim() || fromOptions("model");
-        if (model) setModelId(model);
-        const thinking = payload.thinking?.trim() || fromOptions("thinking");
-        if (thinking) setThinkingId(thinking);
-        const mode = payload.mode?.trim() || fromOptions("mode");
-        if (mode) setModeId(mode);
-        if (payload.config_options?.length) {
-          setSessionConfigOptions(payload.config_options);
-        }
+        applyDescriptor(payload.descriptor);
       }
       if (payload.type === "title_updated") {
         const nextTitle = payload.title;
@@ -711,6 +817,7 @@ export function useAgentChatSession({
           setBusy(false);
           setRunningTurnId(null);
           setPendingPermission(null);
+          setPendingSessionOp(null);
           setTurnStartedAt(null);
         }
       }
@@ -750,7 +857,17 @@ export function useAgentChatSession({
     if (!providerId) return;
     let cancelled = false;
     void agentChatApi.catalogGet(providerId).then((next) => {
-      if (!cancelled) setCatalog(next);
+      if (cancelled) return;
+      setCatalog(next);
+      const message = next.status === "error" ? next.message?.trim() : "";
+      if (message) setSendError(message);
+      const commands = normalizeAgentSlashCommands(next.commands);
+      if (commands.length > 0) {
+        rememberAgentSlashCommands(providerId, commands);
+      }
+    }).catch((error) => {
+      if (cancelled) return;
+      setSendError(error instanceof Error ? error.message : String(error));
     });
     return () => {
       cancelled = true;
@@ -774,12 +891,21 @@ export function useAgentChatSession({
     });
     if (skip) return;
     void agentChatApi.catalogGet(id, true).then((next) => {
-      if (providerIdRef.current === id) setCatalog(next);
+      if (providerIdRef.current === id) {
+        setCatalog(next);
+        const message = next.status === "error" ? next.message?.trim() : "";
+        if (message) setSendError(message);
+        const commands = normalizeAgentSlashCommands(next.commands);
+        if (commands.length > 0) {
+          rememberAgentSlashCommands(id, commands);
+        }
+      }
     });
   }, []);
 
   useEffect(() => {
     if (!prefsRestored) return;
+    if (activeChatId) return;
     if (
       messages.length > 0 ||
       hasPersistenceHandle ||
@@ -804,6 +930,7 @@ export function useAgentChatSession({
       return choices[0] || "";
     });
   }, [
+    activeChatId,
     catalog,
     hasPersistenceHandle,
     installedAgents,
@@ -854,21 +981,57 @@ export function useAgentChatSession({
     }
   }, []);
 
+  const composerSelection = useCallback(() => {
+    const options = composerConfigOptions({
+      descriptor,
+      catalog,
+      providerId: providerId || defaultRegistryId || "claude",
+      modelId,
+      thinkingId,
+      modeId,
+      permissionModeId,
+    });
+    const model = displayedComposerConfigValue(options, "model", modelId);
+    const thinking = displayedComposerConfigValue(options, "thinking", thinkingId);
+    const mode = displayedComposerConfigValue(options, "mode", modeId);
+    const permissionMode = displayedComposerConfigValue(
+      options,
+      "permission_mode",
+      permissionModeId,
+    );
+    return {
+      model,
+      thinking,
+      mode,
+      permissionMode,
+      patch: pendingSessionConfigPatch(model, thinking, mode, permissionMode),
+    };
+  }, [
+    catalog,
+    defaultRegistryId,
+    descriptor,
+    modeId,
+    modelId,
+    permissionModeId,
+    providerId,
+    thinkingId,
+  ]);
+
   const persistConfig = useCallback(async (patch: {
     provider_id?: string;
     model?: string;
     thinking?: string;
     mode?: string;
+    permission_mode?: string;
   }) => {
     const id = activeChatId || activeIdRef.current;
     if (!id) return;
-    if (!patch.provider_id && !patch.model && !patch.thinking && !patch.mode) return;
+    if (!patch.provider_id && !patch.model && !patch.thinking && !patch.mode && !patch.permission_mode) return;
     const meta = await agentChatApi.configure(id, patch);
     setProviderIdState(meta.provider_id || "claude");
-    setModelId(meta.selected_model ?? "");
-    setThinkingId(meta.selected_thinking ?? "");
-    setModeId(meta.selected_mode ?? "");
-  }, [activeChatId]);
+    applyDescriptor(meta.descriptor);
+    onUpdatedRef.current?.(id, { providerId: meta.provider_id ?? null });
+  }, [activeChatId, applyDescriptor]);
 
   const ensureCreatedChat = useCallback(async (input?: { title?: string | null }) => {
     const existing = activeIdRef.current.trim();
@@ -876,12 +1039,13 @@ export function useAgentChatSession({
     if (creatingChatRef.current) return creatingChatRef.current;
     const registry = providerId || defaultRegistryId || "claude";
     const pending = (async () => {
-      persistNewSessionPreferences(registry, modelId, thinkingId);
-      const created = await agentChatApi.create({
+      const selected = composerSelection();
+      persistNewSessionPreferences(registry, selected.model, selected.thinking);
+      const meta = await agentChatApi.create({
         provider_id: registry,
-        model: modelId || null,
-        thinking: thinkingId || null,
-        mode: modeId || null,
+        model: selected.model || null,
+        thinking: selected.thinking || null,
+        mode: selected.mode || null,
         cwd: cwd || null,
         workspace_id: workspaceId,
         project_id: projectId,
@@ -891,15 +1055,17 @@ export function useAgentChatSession({
         title: input?.title ?? null,
         origin: isolatedModal ? "quick" : "normal",
       });
-      const id = created.id;
+      const id = meta.id;
       activeIdRef.current = id;
       setActiveChatId(id);
-      const nextTitle = created.title?.trim() || input?.title?.trim() || null;
+      applyDescriptor(meta.descriptor);
+      setProviderIdState(meta.provider_id || registry);
+      const nextTitle = meta.title?.trim() || input?.title?.trim() || null;
       if (nextTitle) setTitle(nextTitle);
       onStartedRef.current?.(id, {
         title: nextTitle,
-        cwd: created.cwd,
-        providerId: registry,
+        cwd: meta.cwd,
+        providerId: meta.provider_id || registry,
         hasMessages: false,
       });
       return id;
@@ -911,17 +1077,16 @@ export function useAgentChatSession({
       if (creatingChatRef.current === pending) creatingChatRef.current = null;
     }
   }, [
+    composerSelection,
     cwd,
     defaultRegistryId,
     isolatedModal,
-    modeId,
-    modelId,
     paintContextId,
     persistNewSessionPreferences,
     projectId,
     providerId,
-    thinkingId,
     workspaceId,
+    applyDescriptor,
   ]);
 
   useEffect(() => {
@@ -958,12 +1123,13 @@ export function useAgentChatSession({
         let id = activeChatId || activeIdRef.current;
         if (item.forceNewSession && id) {
           const registry = item.registryId || providerId || defaultRegistryId || "claude";
-          persistNewSessionPreferences(registry, modelId, thinkingId);
-          const created = await agentChatApi.create({
+          const selected = composerSelection();
+          persistNewSessionPreferences(registry, selected.model, selected.thinking);
+          const meta = await agentChatApi.create({
             provider_id: registry,
-            model: modelId || null,
-            thinking: thinkingId || null,
-            mode: modeId || null,
+            model: selected.model || null,
+            thinking: selected.thinking || null,
+            mode: selected.mode || null,
             cwd: cwd || null,
             workspace_id: workspaceId,
             project_id: projectId,
@@ -973,14 +1139,16 @@ export function useAgentChatSession({
             title: item.sessionTitle ?? null,
             origin: isolatedModal ? "quick" : "normal",
           });
-          id = created.id;
+          applyDescriptor(meta.descriptor);
+          setProviderIdState(meta.provider_id || registry);
+          id = meta.id;
           pendingSendRef.current = { text, attachmentPaths: item.attachmentPaths ?? [] };
           activeIdRef.current = id;
           setActiveChatId(id);
           onStartedRef.current?.(id, {
-            title: created.title?.trim() || item.sessionTitle || chatTitleFromPrompt(text) || null,
-            cwd: created.cwd,
-            providerId: item.registryId || providerId || defaultRegistryId || null,
+            title: meta.title?.trim() || item.sessionTitle || chatTitleFromPrompt(text) || null,
+            cwd: meta.cwd,
+            providerId: meta.provider_id || item.registryId || providerId || defaultRegistryId || null,
             hasMessages: false,
           });
           return;
@@ -992,7 +1160,7 @@ export function useAgentChatSession({
           pendingSendRef.current = { text, attachmentPaths: item.attachmentPaths ?? [] };
           return;
         }
-        await persistConfig(pendingSessionConfigPatch(modelId, thinkingId, modeId));
+        await persistConfig(composerSelection().patch);
         if (busy) {
           await agentChatApi.queueAdd(id, text, item.attachmentPaths);
         } else {
@@ -1002,6 +1170,7 @@ export function useAgentChatSession({
     };
     void drain();
   }, [
+    composerSelection,
     activeChatId,
     busy,
     cwd,
@@ -1009,17 +1178,15 @@ export function useAgentChatSession({
     instanceKey,
     isolatedModal,
     paintContextId,
-    modeId,
-    modelId,
     persistConfig,
     persistNewSessionPreferences,
     ensureCreatedChat,
     projectId,
     providerId,
     shiftQueuedAgentChatPrompt,
-    thinkingId,
     messages.length,
     workspaceId,
+    applyDescriptor,
   ]);
 
   const handleSubmit = useCallback(async (
@@ -1062,7 +1229,8 @@ export function useAgentChatSession({
           const queued = pendingSendRef.current;
           pendingSendRef.current = null;
           if (queued) {
-            await persistConfig(pendingSessionConfigPatch(modelId, thinkingId, modeId));
+            lastSentRef.current = queued;
+            await persistConfig(composerSelection().patch);
             await agentChatApi.send(id, queued.text, queued.attachmentPaths);
           }
         }
@@ -1092,24 +1260,30 @@ export function useAgentChatSession({
           await agentChatApi.steer(id, runningTurnId, text);
           return;
         }
-        await persistConfig(pendingSessionConfigPatch(modelId, thinkingId, modeId));
+        await persistConfig(composerSelection().patch);
         await agentChatApi.queueAdd(id, text, attachmentPaths);
       } else {
-        await persistConfig(pendingSessionConfigPatch(modelId, thinkingId, modeId));
+        lastSentRef.current = { text, attachmentPaths };
+        await persistConfig(composerSelection().patch);
         await agentChatApi.send(id, text, attachmentPaths);
       }
     } catch (error) {
-      setSendError(error instanceof Error ? error.message : "Could not send that message");
+      const message = error instanceof Error ? error.message : "Could not send that message";
+      const auth = authRequiredFromTurnError(message, providerIdRef.current);
+      if (auth) {
+        setSelectedAuthMethodId(auth.methods[0]?.id ?? "");
+        setAuthRequest(auth);
+      }
+      setSendError(message);
       throw error;
     }
   }, [
     activeChatId,
     busy,
+    composerSelection,
     cwd,
     defaultRegistryId,
     isolatedModal,
-    modeId,
-    modelId,
     paintContextId,
     persistConfig,
     ensureCreatedChat,
@@ -1118,9 +1292,68 @@ export function useAgentChatSession({
     providerId,
     runningTurnId,
     supportsSteer,
-    thinkingId,
     transformPrompt,
     workspaceId,
+  ]);
+
+  const startSession = useCallback(async (opts?: {
+    registryId?: string;
+    authMethodId?: string;
+    apiKey?: string;
+  }) => {
+    const envName = tokenAuthEnvName(opts?.authMethodId ?? selectedAuthMethodId);
+    const apiKey = opts?.apiKey?.trim() ?? "";
+    if (envName && apiKey) {
+      try {
+        if (envName === DEEPSEEK_API_KEY_ENV) {
+          await quotaUsageApi.addProviderApiKey("deepseek", null, apiKey);
+        } else {
+          const provider = opts?.registryId || providerIdRef.current || DEEPSEEK_HARNESS_ID;
+          const listed = await agentApi.listCustomAgents().catch(() => ({ agents: [] }));
+          const existing = listed.agents.find((agent) => agent.name === provider);
+          await agentApi.addCustomAgent({
+            name: provider,
+            command: existing?.command || "npx",
+            args: existing?.args?.length ? existing.args : [...DEEPSEEK_HARNESS_ARGS],
+            env: {
+              ...(existing?.env ?? {}),
+              [envName]: apiKey,
+            },
+          });
+          const client = getAtmosWebQueryClient();
+          void client.invalidateQueries({
+            queryKey: queryKeys.computer.customAgentList(getComputerQueryScope()),
+            refetchType: "active",
+          });
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Could not save API token";
+        setSendError(message);
+        throw error;
+      }
+    }
+    setAuthRequest(null);
+    const retry = lastSentRef.current;
+    const chatId = activeIdRef.current;
+    if (retry && chatId) {
+      setSendError(null);
+      try {
+        await persistConfig(composerSelection().patch);
+        await agentChatApi.send(chatId, retry.text, retry.attachmentPaths);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Could not send that message";
+        const auth = authRequiredFromTurnError(message, providerIdRef.current);
+        if (auth) {
+          setSelectedAuthMethodId(auth.methods[0]?.id ?? "");
+          setAuthRequest(auth);
+        }
+        setSendError(message);
+      }
+    }
+  }, [
+    composerSelection,
+    persistConfig,
+    selectedAuthMethodId,
   ]);
 
   const persistPreferredRegistry = useCallback((registryId: string) => {
@@ -1164,6 +1397,7 @@ export function useAgentChatSession({
     setModelId(preferred.modelId);
     setThinkingId(preferred.thinkingId);
     setModeId("");
+    setPermissionModeId("");
     if (nextRegistry) {
       persistAgentChatLastSession({
         workspaceId,
@@ -1193,6 +1427,7 @@ export function useAgentChatSession({
     setBusy(false);
     setRunningTurnId(null);
     setPendingPermission(null);
+    setPendingSessionOp(null);
     setSessionCommands([]);
     setSessionUsage(null);
     setTurnStartedAt(null);
@@ -1200,7 +1435,8 @@ export function useAgentChatSession({
     lastSeq.current = 0;
     setRuntimeStatus("detached");
     setHasPersistenceHandle(false);
-    setSessionConfigOptions([]);
+    setDescriptor(null);
+    setSupportsSteer(false);
     if (previousId) {
       onUpdatedRef.current?.(previousId, { hasMessages: false });
     }
@@ -1230,6 +1466,7 @@ export function useAgentChatSession({
     setBusy(false);
     setRunningTurnId(null);
     setPendingPermission(null);
+    setPendingSessionOp(null);
     setSessionCommands([]);
     setSessionUsage(null);
     setTurnStartedAt(null);
@@ -1281,12 +1518,19 @@ export function useAgentChatSession({
     void load(activeChatId);
   }, [activeChatId, load, moveDialogQueued, queue]);
 
-  const configOptions = useMemo(() => {
-    const catalogOptions = catalogToConfigOptions(catalog, modelId, thinkingId, modeId);
-    const advertised = advertisedOptionsToConfigOptions(sessionConfigOptions);
-    const base = advertised.length > 0 ? advertised : catalogOptions;
-    return overlayPendingConfigValues(base, { modelId, modeId, thinkingId });
-  }, [catalog, modeId, modelId, sessionConfigOptions, thinkingId]);
+  const configOptions = useMemo(
+    () =>
+      composerConfigOptions({
+        descriptor,
+        catalog,
+        providerId,
+        modelId,
+        thinkingId,
+        modeId,
+        permissionModeId,
+      }),
+    [catalog, descriptor, modeId, modelId, permissionModeId, providerId, thinkingId],
+  );
 
   const setAgentDefaultConfig = useCallback((configId: string, value: string) => {
     const trimmed = value.trim();
@@ -1304,7 +1548,10 @@ export function useAgentChatSession({
     });
     const key = configId === "model" || configId === "models"
       ? "model"
-      : configId === "thinking" || configId === "think" || configId === "thought_level"
+      : configId === "thinking"
+        || configId === "think"
+        || configId === "thought_level"
+        || configId === "reasoning_effort"
         ? "thinking"
         : null;
     if (
@@ -1327,27 +1574,38 @@ export function useAgentChatSession({
   const setConfigOption = useCallback((key: string, value: string) => {
     if (configKindMatches(key, undefined, "model")) {
       setModelId(value);
+      if (activeIdRef.current) void persistConfig({ model: value });
       return;
     }
     if (configKindMatches(key, undefined, "thinking")) {
       setThinkingId(value);
+      if (activeIdRef.current) void persistConfig({ thinking: value });
+      return;
+    }
+    if (configKindMatches(key, undefined, "permission_mode")) {
+      setPermissionModeId(value);
+      if (activeIdRef.current) void persistConfig({ permission_mode: value });
       return;
     }
     if (configKindMatches(key, undefined, "mode")) {
       setModeId(value);
+      if (activeIdRef.current) void persistConfig({ mode: value });
     }
-  }, []);
+  }, [persistConfig]);
 
   const setProviderId = useCallback((next: string) => {
     if (agentLocked) return;
     setProviderIdState(next);
     setCatalog(null);
+    setDescriptor(null);
+    setSupportsSteer(false);
     const preferred = preferredConfigFromDefault(
       installedAgents.find((agent) => agent.id === next)?.default_config,
     );
     setModelId(preferred.modelId);
     setThinkingId(preferred.thinkingId);
     setModeId("");
+    setPermissionModeId("");
     persistPreferredRegistry(next);
     if (activeIdRef.current) {
       void persistConfig({
@@ -1365,7 +1623,12 @@ export function useAgentChatSession({
     if (!id) return EMPTY_AGENT_SLASH_COMMANDS;
     return state.byProviderId[id] ?? EMPTY_AGENT_SLASH_COMMANDS;
   });
-  const availableCommands = resolveAgentSlashCommands(sessionCommands, cachedCommands);
+  const catalogCommands = normalizeAgentSlashCommands(catalog?.commands);
+  const availableCommands = resolveAgentSlashCommands(
+    sessionCommands,
+    cachedCommands,
+    catalogCommands,
+  );
 
   useEffect(() => {
     if (!activeChatId || messages.length === 0) return;
@@ -1402,6 +1665,7 @@ export function useAgentChatSession({
     setBusy(false);
     setRunningTurnId(null);
     setPendingPermission(null);
+    setPendingSessionOp(null);
     setSessionCommands([]);
     setSessionUsage(null);
     setTurnStartedAt(null);
@@ -1409,7 +1673,8 @@ export function useAgentChatSession({
     lastSeq.current = 0;
     setRuntimeStatus("detached");
     setHasPersistenceHandle(false);
-    setSessionConfigOptions([]);
+    setDescriptor(null);
+    setSupportsSteer(false);
     onOpenChat?.("");
   }, [onOpenChat]);
 
@@ -1486,6 +1751,16 @@ export function useAgentChatSession({
     setPendingPermission(null);
   }, [activeChatId, pendingPermission]);
 
+  const handleSessionOp = useCallback((optionId: string) => {
+    if (!pendingSessionOp || !activeChatId) return;
+    void agentChatApi.sessionOpRespond(
+      activeChatId,
+      pendingSessionOp.request_id,
+      optionId,
+    );
+    setPendingSessionOp(null);
+  }, [activeChatId, pendingSessionOp]);
+
   const sendCancel = useCallback(() => {
     stoppedRef.current = true;
     if (!activeChatId) return;
@@ -1510,6 +1785,7 @@ export function useAgentChatSession({
     backgroundTools,
     pendingPermission,
     pendingPermissionMarkdown: pendingPermission?.content_markdown ?? null,
+    pendingSessionOp,
     agentActivity,
     waitingForResponse: busy,
     setWaitingForResponse: (value: boolean | ((prev: boolean) => boolean)) => {
@@ -1531,15 +1807,7 @@ export function useAgentChatSession({
     agentInfo: activeAgent
       ? { name: activeAgent.id, title: activeAgent.name, version: activeAgent.version }
       : null,
-    capabilities: {
-      session_list: { supported: true, reason: null },
-      session_resume: { supported: true, reason: null },
-      session_close: { supported: false, reason: null },
-      logout: { supported: false, reason: null },
-      config_options: { supported: configOptions.length > 0, reason: null },
-      session_info_update: { supported: true, reason: null },
-      load_session: { supported: true, reason: null },
-    },
+    capabilities: null,
     catalogModelsLoading: isCatalogModelsLoading(catalog, providerId),
     refreshEmptyCatalog,
     configOptions,
@@ -1604,11 +1872,11 @@ export function useAgentChatSession({
     setNewSessionAgentsOpen: ui.setNewSessionAgentsOpen,
     bottomRef,
     transcriptRef,
-    authRequest: null,
-    selectedAuthMethodId: "",
-    setSelectedAuthMethodId: () => undefined,
-    clearAuthRequest: () => undefined,
-    startSession: () => undefined,
+    authRequest,
+    selectedAuthMethodId,
+    setSelectedAuthMethodId,
+    clearAuthRequest: () => setAuthRequest(null),
+    startSession,
     exportableMessages,
     userMessageIndices: ui.userMessageIndices,
     messageNavIndex: ui.messageNavIndex,
@@ -1618,6 +1886,7 @@ export function useAgentChatSession({
     handleClose: () => undefined,
     handleLogoutAgent: async () => undefined,
     handlePermission,
+    handleSessionOp,
     handleCreateNewSession,
     handleSelectWorkingDirectory,
     handleSelectHistorySession,

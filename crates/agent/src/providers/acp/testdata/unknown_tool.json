@@ -1,0 +1,6 @@
+{
+  "tool_call_id": "tc_x",
+  "name": "vendor_mystery",
+  "raw_input": { "opaque": true },
+  "raw_output": { "n": 1 }
+}

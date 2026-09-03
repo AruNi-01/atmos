@@ -8,11 +8,12 @@ import {
 
 describe("usageProviderIdsForAgents", () => {
   test("maps known agents to usage providers", () => {
-    const ids = usageProviderIdsForAgents(["claude", "droid", "grok-build"]);
+    const ids = usageProviderIdsForAgents(["claude", "droid", "grok-build", "deepseek-harness"]);
     expect(ids.has("claude")).toBe(true);
     expect(ids.has("factory")).toBe(true);
     expect(ids.has("grok")).toBe(true);
-    expect(ids.size).toBe(3);
+    expect(ids.has("deepseek")).toBe(true);
+    expect(ids.size).toBe(4);
   });
 
   test("ignores agents without a usage provider", () => {

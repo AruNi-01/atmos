@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import type { AgentPart } from "@atmos/api-types/ws/dto/agent-chat";
 import type { AgentToolCallPart } from "@/features/agent/lib/agent-tool-kind";
+import { defaultToolParams } from "@/features/agent/lib/agent-tool-kind";
 import {
   countToolGroupOverview,
   formatToolGroupOverview,
@@ -16,6 +17,7 @@ function tool(
     type: "tool_call",
     name: overrides.name ?? overrides.kind,
     status: "completed",
+    params: defaultToolParams(overrides.kind),
     ...overrides,
   };
 }

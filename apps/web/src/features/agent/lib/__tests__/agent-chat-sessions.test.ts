@@ -163,6 +163,13 @@ describe("agents sessions page uses Atmos chat history", () => {
     const manager = readFileSync(join(ROOT, "components/AgentManagerView.tsx"), "utf8");
     expect(manager).toContain("<AgentChatSessionsView hideHeader />");
     expect(manager).not.toContain("sessionsMoved");
+    expect(manager).toContain('value: "native"');
+    expect(manager).toContain('value: "acp"');
+    expect(manager).toContain('value: "custom"');
+    expect(manager).toContain('value="acp"');
+    expect(manager).not.toContain('value: "registry"');
+    expect(manager).not.toContain('value: "installed"');
+    expect(manager).not.toContain('value="installed"');
 
     const view = readFileSync(
       join(ROOT, "components/AgentChatSessionsView.tsx"),

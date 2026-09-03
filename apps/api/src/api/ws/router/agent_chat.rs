@@ -75,7 +75,7 @@ impl WsMessageService {
             title: req.title,
             origin: req.origin.unwrap_or_default(),
         })?;
-        serde_json::to_value(meta)
+        agent_chat_meta_json(&meta)
             .map_err(|e| ServiceError::Processing(format!("serialize chat: {e}")))
     }
 
@@ -103,7 +103,7 @@ impl WsMessageService {
 
     pub(super) async fn handle_agent_chat_get(&self, req: AgentChatIdRequest) -> Result<Value> {
         let snapshot = self.agent_chat().get(&req.chat_id).await?;
-        serde_json::to_value(snapshot)
+        agent_chat_snapshot_json(&snapshot)
             .map_err(|e| ServiceError::Processing(format!("serialize snapshot: {e}")))
     }
 
@@ -126,7 +126,7 @@ impl WsMessageService {
         req: AgentChatRenameRequest,
     ) -> Result<Value> {
         let meta = self.agent_chat().rename(&req.chat_id, &req.title)?;
-        serde_json::to_value(meta)
+        agent_chat_meta_json(&meta)
             .map_err(|e| ServiceError::Processing(format!("serialize chat: {e}")))
     }
 
@@ -142,9 +142,10 @@ impl WsMessageService {
                 req.model,
                 req.thinking,
                 req.mode,
+                req.permission_mode,
             )
             .await?;
-        serde_json::to_value(meta)
+        agent_chat_meta_json(&meta)
             .map_err(|e| ServiceError::Processing(format!("serialize chat: {e}")))
     }
 
@@ -284,6 +285,16 @@ impl WsMessageService {
             .ok_or_else(|| ServiceError::Validation("option_id is required".into()))?;
         self.agent_chat()
             .permission_respond(&req.chat_id, &req.request_id, &option_id)
+            .await?;
+        Ok(json!({ "ok": true }))
+    }
+
+    pub(super) async fn handle_agent_chat_session_op_respond(
+        &self,
+        req: AgentChatSessionOpRespondRequest,
+    ) -> Result<Value> {
+        self.agent_chat()
+            .session_op_respond(&req.chat_id, &req.request_id, &req.option_id)
             .await?;
         Ok(json!({ "ok": true }))
     }

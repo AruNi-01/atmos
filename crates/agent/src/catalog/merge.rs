@@ -1,27 +1,30 @@
 use chrono::Utc;
 
-use crate::domain::{
-    AgentModel, AgentModelCatalog, AgentThinkingSupport, CatalogSource, CatalogStatus,
-    CatalogStrategyKind,
-};
+use crate::catalog::{AgentModelCatalog, CatalogSource, CatalogStatus, CatalogStrategyKind};
+use crate::contract::{AgentAvailableCommand, AgentMode, AgentModel, AgentThinkingSupport};
 
 use super::parse::dedupe_models;
 
 #[derive(Debug, Clone, Default)]
 pub struct CatalogFragment {
     pub models: Vec<AgentModel>,
-    pub modes: Vec<crate::domain::AgentMode>,
+    pub modes: Vec<AgentMode>,
+    pub permission_modes: Vec<AgentMode>,
     pub thinking: AgentThinkingSupport,
+    pub commands: Vec<AgentAvailableCommand>,
     pub status: Option<CatalogStatus>,
     pub message: Option<String>,
     pub strategy: Option<CatalogStrategyKind>,
 }
 
-/// Merge Config → CLI → ACP. Live (CLI/ACP) model ids win; config fills thinking
+/// Merge Config → CLI → ACP → Native. Live model ids win; config fills thinking
 /// when live omits it, and is the fallback when the live list is empty.
+/// Later non-empty `modes` / `permission_modes` lists win; an empty list does not wipe.
 pub fn merge_catalogs(agent_id: &str, fragments: &[CatalogFragment]) -> AgentModelCatalog {
     let mut models: Vec<AgentModel> = Vec::new();
     let mut modes = Vec::new();
+    let mut permission_modes = Vec::new();
+    let mut commands = Vec::new();
     let mut thinking = AgentThinkingSupport::None;
     let mut strategies_used = Vec::new();
     let mut status = CatalogStatus::Unsupported;
@@ -36,7 +39,7 @@ pub fn merge_catalogs(agent_id: &str, fragments: &[CatalogFragment]) -> AgentMod
         }
         let is_live = matches!(
             fragment.strategy,
-            Some(CatalogStrategyKind::Cli | CatalogStrategyKind::Acp)
+            Some(CatalogStrategyKind::Cli | CatalogStrategyKind::Acp | CatalogStrategyKind::Native)
         );
         if !fragment.models.is_empty() {
             if is_live {
@@ -54,6 +57,12 @@ pub fn merge_catalogs(agent_id: &str, fragments: &[CatalogFragment]) -> AgentMod
         }
         if !fragment.modes.is_empty() {
             modes = fragment.modes.clone();
+        }
+        if !fragment.permission_modes.is_empty() {
+            permission_modes = fragment.permission_modes.clone();
+        }
+        if !fragment.commands.is_empty() {
+            commands = fragment.commands.clone();
         }
         if !fragment.thinking.is_none() && (thinking.is_none() || is_live) {
             thinking = fragment.thinking.clone();
@@ -96,6 +105,8 @@ pub fn merge_catalogs(agent_id: &str, fragments: &[CatalogFragment]) -> AgentMod
         status,
         models: dedupe_models(models),
         modes,
+        permission_modes,
+        commands,
         thinking,
         strategies_used,
         fetched_at: Utc::now(),
@@ -348,5 +359,113 @@ mod tests {
         assert_eq!(merged.status, CatalogStatus::Ok);
         assert_eq!(merged.models.len(), 1);
         assert!(merged.message.is_none());
+    }
+
+    #[test]
+    fn later_non_empty_permission_modes_win_and_copy_into_supported_options() {
+        use crate::supported_options_from_catalog;
+        let config = CatalogFragment {
+            strategy: Some(CatalogStrategyKind::Config),
+            ..Default::default()
+        };
+        let native = CatalogFragment {
+            models: vec![AgentModel {
+                id: "opus".into(),
+                label: "Opus".into(),
+                group: None,
+                is_default: true,
+                thinking: None,
+            }],
+            permission_modes: vec![AgentMode {
+                id: "default".into(),
+                label: "Default".into(),
+                is_default: true,
+            }],
+            status: Some(CatalogStatus::Ok),
+            strategy: Some(CatalogStrategyKind::Native),
+            ..Default::default()
+        };
+        let merged = merge_catalogs("claude", &[config, native]);
+        assert!(merged.modes.is_empty());
+        assert_eq!(merged.permission_modes.len(), 1);
+        assert_eq!(merged.permission_modes[0].id, "default");
+        let options = supported_options_from_catalog(&merged);
+        assert!(options.modes.is_empty());
+        assert_eq!(options.permission_modes.len(), 1);
+        assert_eq!(options.permission_modes[0].id, "default");
+    }
+
+    #[test]
+    fn empty_later_permission_modes_do_not_wipe_earlier() {
+        let cli = CatalogFragment {
+            permission_modes: vec![AgentMode {
+                id: "ask".into(),
+                label: "Ask".into(),
+                is_default: true,
+            }],
+            status: Some(CatalogStatus::Ok),
+            strategy: Some(CatalogStrategyKind::Cli),
+            ..Default::default()
+        };
+        let acp = CatalogFragment {
+            status: Some(CatalogStatus::Ok),
+            strategy: Some(CatalogStrategyKind::Acp),
+            ..Default::default()
+        };
+        let merged = merge_catalogs("gemini", &[cli, acp]);
+        assert_eq!(merged.permission_modes[0].id, "ask");
+    }
+
+    #[test]
+    fn later_non_empty_permission_modes_replace_earlier() {
+        let first = CatalogFragment {
+            permission_modes: vec![AgentMode {
+                id: "ask".into(),
+                label: "Ask".into(),
+                is_default: true,
+            }],
+            status: Some(CatalogStatus::Ok),
+            strategy: Some(CatalogStrategyKind::Cli),
+            ..Default::default()
+        };
+        let second = CatalogFragment {
+            permission_modes: vec![AgentMode {
+                id: "default".into(),
+                label: "Default".into(),
+                is_default: true,
+            }],
+            status: Some(CatalogStatus::Ok),
+            strategy: Some(CatalogStrategyKind::Native),
+            ..Default::default()
+        };
+        let merged = merge_catalogs("opencode", &[first, second]);
+        assert_eq!(merged.permission_modes[0].id, "default");
+    }
+
+    #[test]
+    fn later_non_empty_commands_win() {
+        let cli = CatalogFragment {
+            commands: vec![AgentAvailableCommand {
+                name: "init".into(),
+                description: "setup".into(),
+                hint: None,
+            }],
+            status: Some(CatalogStatus::Ok),
+            strategy: Some(CatalogStrategyKind::Cli),
+            ..Default::default()
+        };
+        let native = CatalogFragment {
+            commands: vec![AgentAvailableCommand {
+                name: "review".into(),
+                description: "review changes".into(),
+                hint: None,
+            }],
+            status: Some(CatalogStatus::Ok),
+            strategy: Some(CatalogStrategyKind::Native),
+            ..Default::default()
+        };
+        let merged = merge_catalogs("opencode", &[cli, native]);
+        assert_eq!(merged.commands.len(), 1);
+        assert_eq!(merged.commands[0].name, "review");
     }
 }

@@ -61,6 +61,20 @@ export interface CustomAgent {
   args: string[];
   env: Record<string, string>;
   default_config?: Record<string, string>;
+  display_name?: string | null;
+  description?: string | null;
+  builtin?: boolean;
+  has_overlay?: boolean;
+  enabled?: boolean;
+}
+
+export interface NativeChatAgent {
+  id: string;
+  name: string;
+  description: string;
+  executable: string;
+  enabled: boolean;
+  cli_present: boolean;
 }
 
 export interface RegistryInstallResponse {
@@ -165,5 +179,27 @@ export const agentApi = {
 
   getManifestPath: async (): Promise<{ path: string }> => {
     return wsRequest("custom_agent_get_manifest_path");
+  },
+
+  setCustomAgentEnabled: async (
+    name: string,
+    enabled: boolean,
+  ): Promise<{ success: boolean }> => {
+    return wsRequest("custom_agent_set_enabled", { name, enabled });
+  },
+
+  preloadCustomAgent: async (name: string): Promise<{ success: boolean }> => {
+    return wsRequest("custom_agent_preload", { name }, 180_000);
+  },
+
+  listNativeChatAgents: async (): Promise<{ agents: NativeChatAgent[] }> => {
+    return wsRequest("native_agent_list");
+  },
+
+  setNativeChatAgentEnabled: async (
+    id: string,
+    enabled: boolean,
+  ): Promise<{ success: boolean }> => {
+    return wsRequest("native_agent_set_enabled", { id, enabled });
   },
 };

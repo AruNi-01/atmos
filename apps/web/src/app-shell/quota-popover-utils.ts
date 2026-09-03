@@ -386,6 +386,10 @@ export function usagePortalUrl(providerId: string, region: ProviderRegion | null
     }
   }
 
+  if (providerId === "deepseek") {
+    return "https://platform.deepseek.com";
+  }
+
   return null;
 }
 

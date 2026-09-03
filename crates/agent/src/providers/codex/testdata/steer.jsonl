@@ -1,0 +1,2 @@
+{"method":"turn/steer","id":32,"params":{"threadId":"01a05dc0-1cc9-7082-afb0-f8b5c2472403","input":[{"type":"text","text":"Focus on failures."}],"expectedTurnId":"01a05dc0-1e2e-7d51-a095-9f6293195520"}}
+{"id":32,"result":{"turnId":"01a05dc0-1e2e-7d51-a095-9f6293195520"}}

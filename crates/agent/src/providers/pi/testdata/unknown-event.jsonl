@@ -1,0 +1,5 @@
+{"type":"queue_update","steering":["Focus on error handling"],"followUp":["Summarize"]}
+{"type":"entry_appended","entry":{"type":"message","id":"abc"}}
+{"type":"not_a_real_pi_event","hello":true}
+{"type":"turn_end","message":{"role":"assistant","content":[{"type":"text","text":"ignored"}]},"toolResults":[]}
+{"type":"agent_settled"}

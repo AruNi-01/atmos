@@ -18,6 +18,7 @@ import { useDesktopTrafficLightsPadding } from "@/shared/hooks/use-desktop-traff
 import { SessionUsageBadge } from "./UsageBadges";
 import { AgentActivityIndicator } from "./AgentActivityIndicator";
 import { AgentPermissionCard } from "./AgentPermissionCard";
+import { AgentSessionOpCard } from "./AgentSessionOpCard";
 import { AgentPromptComposer } from "./AgentPromptComposer";
 import { useAgentChatSession } from "../hooks/use-agent-chat-session";
 import type { AgentChatSurfaceVariant, UseAgentChatSessionOptions } from "../hooks/use-agent-chat-session-types";
@@ -409,6 +410,7 @@ export function AgentChatPanel({
     backgroundTools,
     pendingPermission,
     pendingPermissionMarkdown,
+    pendingSessionOp,
     agentActivity,
     setWaitingForResponse,
     stoppedRef,
@@ -418,7 +420,6 @@ export function AgentChatPanel({
     runtimeStatus,
     hasPersistenceHandle,
     installedAgents,
-    setInstalledAgents,
     activeAgent,
     registryId,
     defaultRegistryId,
@@ -433,7 +434,6 @@ export function AgentChatPanel({
     setConfigOption,
     setProviderId,
     persistPreferredRegistry,
-    setAgentDefaultConfig,
     sessionUsage,
     elapsedMs,
     historyOpen,
@@ -478,6 +478,7 @@ export function AgentChatPanel({
     handleClose,
     handleLogoutAgent,
     handlePermission,
+    handleSessionOp,
     handleCreateNewSession,
     handleSelectWorkingDirectory,
     handleSelectHistorySession,
@@ -502,6 +503,14 @@ export function AgentChatPanel({
       ),
     [chatId, instanceKey, liveChatId, sessionProjectId, sessionWorkspaceId],
   );
+  const threadBannerError = useMemo(() => {
+    const message = error?.trim();
+    if (!message) return null;
+    const alreadyInTranscript = messages.some((item) =>
+      item.parts.some((part) => part.type === "error" && part.message.trim() === message),
+    );
+    return alreadyInTranscript ? null : message;
+  }, [error, messages]);
 
   useEffect(() => {
     if (variant === "standalone") {
@@ -910,9 +919,9 @@ export function AgentChatPanel({
                 </span>
               </div>
             )}
-            {error && (
+            {threadBannerError && (
               <div className="rounded-lg border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                {error}
+                {threadBannerError}
               </div>
             )}
             {canUseCurrentMode && isConnected && messages.length === 0 && !isConnecting && !isResumingHistory && !error && hasPersistenceHandle && (
@@ -990,6 +999,15 @@ export function AgentChatPanel({
               />
             </div>
           </div>
+        ) : pendingSessionOp ? (
+          <div className={cn("min-h-0 min-w-0 shrink-0", wideContentClassName)}>
+            <div className="min-w-0 px-3 pb-2">
+              <AgentSessionOpCard
+                request={pendingSessionOp}
+                onRespond={handleSessionOp}
+              />
+            </div>
+          </div>
         ) : null}
         <div className={cn("shrink-0", wideContentClassName)}>
           <AgentPromptComposer
@@ -1025,8 +1043,6 @@ export function AgentChatPanel({
             registryId={registryId}
             activeAgent={activeAgent}
             setConfigOption={setConfigOption}
-            setAgentDefaultConfig={setAgentDefaultConfig}
-            setInstalledAgents={setInstalledAgents}
             agentActivity={agentActivity}
             sendCancel={sendCancel}
             setWaitingForResponse={setWaitingForResponse}

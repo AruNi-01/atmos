@@ -12,5 +12,10 @@ describe("config option dropdown", () => {
     expect(dropdown).toContain('className="max-h-[min(20rem,var(--radix-select-content-available-height))]"');
     expect(dropdown).toContain("header={");
     expect(dropdown).not.toContain("sticky top-0");
+    expect(dropdown).toContain("chatPanel.pickers");
+    expect(dropdown).toContain("thinkingLevels");
+    expect(dropdown).toContain("permissionModes");
+    expect(dropdown).toContain("permissionModeMessageKey");
+    expect(dropdown).toContain("configKindMatches");
   });
 });

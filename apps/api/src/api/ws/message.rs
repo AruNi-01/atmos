@@ -567,6 +567,14 @@ pub enum WsAction {
     CustomAgentSetJson,
     /// 获取 acp_servers.json 文件路径
     CustomAgentGetManifestPath,
+    /// 开关内置 / 自定义 ACP agent（内置默认关）
+    CustomAgentSetEnabled,
+    /// 预下载内置 custom agent 的 npx 包（拉完即退出）
+    CustomAgentPreload,
+    /// 列出 Chat native 主机（始终五家；开关默认关）
+    NativeAgentList,
+    /// 开关 Chat native 主机（默认关；不走 ACP 安装）
+    NativeAgentSetEnabled,
 
     AgentChatCreate,
     AgentChatList,
@@ -585,6 +593,7 @@ pub enum WsAction {
     AgentChatQueueDelete,
     AgentChatCancel,
     AgentChatPermissionRespond,
+    AgentChatSessionOpRespond,
     AgentModelCatalogGet,
     AgentChatPrefsGet,
     AgentChatPrefsSet,

@@ -266,6 +266,7 @@ export const PROVIDER_ICON_IDS = new Set([
   "amp",
   "zed",
   "grok",
+  "deepseek",
 ]);
 
 export function ProviderGlyph({

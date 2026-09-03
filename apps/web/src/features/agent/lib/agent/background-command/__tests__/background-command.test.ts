@@ -1,46 +1,48 @@
 import { describe, expect, it } from "bun:test";
+import type { AgentToolCallPart } from "@/features/agent/lib/agent-tool-kind";
 import {
-  detectBackgroundCommand,
-  isBackgroundPollTool,
+  displayBackgroundCommand,
+  isBackgroundToolCall,
   isLiveBackgroundToolCall,
 } from "@/features/agent/lib/agent/background-command";
 
-describe("background command adapters", () => {
-  it("detects grok is_background without a [bg] title", () => {
-    const detected = detectBackgroundCommand({
-      name: "Execute",
-      title: "Execute `count`",
-      status: "running",
-      input: { variant: "Bash", command: "count", is_background: true },
-    }, "grok-build");
-    expect(detected).toMatchObject({ command: "count", running: true });
+function execute(
+  overrides: Partial<AgentToolCallPart> & { params: Extract<AgentToolCallPart["params"], { type: "execute" }> },
+): AgentToolCallPart {
+  return {
+    type: "tool_call",
+    tool_call_id: "t-bg",
+    name: "Execute",
+    kind: "execute",
+    status: "running",
+    ...overrides,
+  };
+}
+
+describe("background execute params", () => {
+  it("treats execute params.background as the live SOT", () => {
+    const part = execute({
+      params: { type: "execute", command: "sleep 60", background: true, task_id: "task-1" },
+    });
+    expect(isBackgroundToolCall(part)).toBe(true);
+    expect(isLiveBackgroundToolCall(part)).toBe(true);
+    expect(displayBackgroundCommand(part)).toBe("sleep 60");
   });
 
-  it("detects grok background: true on the raw tool payload", () => {
-    expect(detectBackgroundCommand({
-      name: "Tool",
-      title: "run_terminal_command",
-      status: "running",
-      input: { command: "count", background: true, timeout: 90000 },
-    })).toMatchObject({ command: "count", running: true });
+  it("ignores foreground execute", () => {
+    const part = execute({
+      params: { type: "execute", command: "ls", background: false },
+    });
+    expect(isBackgroundToolCall(part)).toBe(false);
+    expect(isLiveBackgroundToolCall(part)).toBe(false);
   });
 
-  it("treats TaskOutput as a poll tool, not a live background command card", () => {
-    const probe = {
-      name: "TaskOutput",
-      title: "Get task output: task-1",
-      status: "running",
-      input: { variant: "TaskOutput", task_ids: ["task-1"] },
-    };
-    expect(isBackgroundPollTool(probe, "grok-build")).toBe(true);
-    expect(isLiveBackgroundToolCall(probe, "grok-build")).toBe(false);
-  });
-
-  it("detects claude run_in_background", () => {
-    expect(detectBackgroundCommand({
-      name: "Bash",
-      status: "running",
-      input: { command: "npm run dev", run_in_background: true },
-    }, "claude-code")).toMatchObject({ command: "npm run dev", running: true });
+  it("does not treat a completed background execute as live", () => {
+    const part = execute({
+      status: "completed",
+      params: { type: "execute", command: "count", background: true },
+    });
+    expect(isBackgroundToolCall(part)).toBe(true);
+    expect(isLiveBackgroundToolCall(part)).toBe(false);
   });
 });

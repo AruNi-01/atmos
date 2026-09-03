@@ -30,5 +30,6 @@ describe("agent chat prefs", () => {
     expect(pickInstalledRegistryId(["claude", "codex"], "gemini")).toBe("");
     expect(pickInstalledRegistryId([], "claude")).toBe("claude");
     expect(pickInstalledRegistryId(["claude"], "  ")).toBe("");
+    expect(pickInstalledRegistryId(["codex", "claude"], "codex-acp")).toBe("codex");
   });
 });

@@ -1,7 +1,12 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use agent::{deserialize_tool_kind, UserMessageKind};
+use agent::{
+    capabilities_for_provider, option_support_for_provider, AgentCurrentConfig, AgentDescriptor,
+    AgentIdentity, AgentModel, AgentOptionSupport, AgentSessionOpRequest, AgentSupportedOptions,
+    AgentThinkingSupport, AgentTool, AgentToolKind, AgentToolParams, AgentToolResult,
+    AgentToolStatus, UserMessageKind,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
@@ -13,6 +18,14 @@ pub enum RuntimeStatus {
     RunningTurn,
     WaitingPermission,
     Closed,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AgentChatSessionOpOutcome {
+    Applied,
+    Canceled,
+    Failed,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
@@ -61,13 +74,7 @@ pub struct AgentChatMeta {
     pub persistence_handle: Option<String>,
     #[serde(default)]
     pub runtime_status: RuntimeStatus,
-    #[serde(default)]
-    pub selected_model: Option<String>,
-    #[serde(default)]
-    pub selected_thinking: Option<String>,
-    #[serde(default)]
-    pub selected_mode: Option<String>,
-    /// Last model the live/spawned ACP session was started or prompted with.
+    /// Last model actually given to a live runtime (not picker SOT).
     #[serde(default)]
     pub applied_model: Option<String>,
     #[serde(default)]
@@ -75,13 +82,71 @@ pub struct AgentChatMeta {
     #[serde(default)]
     pub applied_mode: Option<String>,
     #[serde(default)]
-    pub supports_steer: bool,
+    pub applied_permission_mode: Option<String>,
     #[serde(default)]
     pub available_commands: Vec<agent::AgentAvailableCommand>,
     #[serde(default)]
-    pub session_config_options: Vec<SessionAdvertisedOption>,
-    #[serde(default)]
     pub session_usage: Option<SessionUsage>,
+    /// Picker SOT (`supported_options` + `current_config`) and steer SOT (`capabilities.steer`).
+    #[serde(default = "default_chat_descriptor")]
+    pub descriptor: AgentDescriptor,
+    #[serde(default)]
+    pub parent_chat_id: Option<String>,
+    #[serde(default)]
+    pub rewind_view: Option<RewindView>,
+    #[serde(default)]
+    pub pending_session_op: Option<PendingSessionOp>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct RewindView {
+    pub until_turn_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PendingSessionOp {
+    pub request: AgentSessionOpRequest,
+    #[serde(default)]
+    pub selected_turn_id: Option<String>,
+}
+
+fn default_chat_descriptor() -> AgentDescriptor {
+    AgentDescriptor {
+        identity: AgentIdentity {
+            id: String::new(),
+            name: String::new(),
+            version: None,
+        },
+        capabilities: agent::AgentCapabilities::default(),
+        support: AgentOptionSupport::default(),
+        supported_options: AgentSupportedOptions::default(),
+        current_config: AgentCurrentConfig::default(),
+    }
+}
+
+pub fn chat_descriptor(provider_id: &str, current_config: AgentCurrentConfig) -> AgentDescriptor {
+    AgentDescriptor {
+        identity: AgentIdentity {
+            id: provider_id.to_string(),
+            name: provider_id.to_string(),
+            version: None,
+        },
+        capabilities: capabilities_for_provider(provider_id),
+        support: option_support_for_provider(provider_id),
+        supported_options: AgentSupportedOptions::default(),
+        current_config,
+    }
+}
+
+impl AgentChatMeta {
+    pub(crate) fn after_load(&mut self) {
+        if self.descriptor.identity.id.is_empty() {
+            self.descriptor.identity.id = self.provider_id.clone();
+        }
+        if self.descriptor.identity.name.is_empty() {
+            self.descriptor.identity.name = self.provider_id.clone();
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -243,6 +308,14 @@ pub fn config_kind_matches(id: &str, category: Option<&str>, kind: &str) -> bool
     let aliases: &[&str] = match kind {
         "model" => &["model", "models"],
         "mode" => &["mode", "modes"],
+        "permission_mode" => &[
+            "permission_mode",
+            "permissionMode",
+            "permission_modes",
+            "permissionModes",
+            "permission",
+            "approval",
+        ],
         "thinking" => &[
             "thinking",
             "think",
@@ -320,6 +393,91 @@ pub fn map_advertised_select_value(
     (fuzzy.len() == 1).then(|| fuzzy[0].value.clone())
 }
 
+fn option_from_supported(meta: &AgentChatMeta, kind: &str) -> Option<SessionAdvertisedOption> {
+    match kind {
+        "model" => {
+            let models = &meta.descriptor.supported_options.models;
+            if models.is_empty() {
+                return None;
+            }
+            Some(SessionAdvertisedOption {
+                id: "model".into(),
+                name: None,
+                category: Some("model".into()),
+                option_type: "select".into(),
+                current_value: meta.descriptor.current_config.model.clone(),
+                options: models
+                    .iter()
+                    .map(|model| SessionAdvertisedOptionValue {
+                        value: model.id.clone(),
+                        name: Some(model.label.clone()),
+                    })
+                    .collect(),
+            })
+        }
+        "mode" => {
+            let modes = &meta.descriptor.supported_options.modes;
+            if modes.is_empty() {
+                return None;
+            }
+            Some(SessionAdvertisedOption {
+                id: "mode".into(),
+                name: None,
+                category: Some("mode".into()),
+                option_type: "select".into(),
+                current_value: meta.descriptor.current_config.mode.clone(),
+                options: modes
+                    .iter()
+                    .map(|mode| SessionAdvertisedOptionValue {
+                        value: mode.id.clone(),
+                        name: Some(mode.label.clone()),
+                    })
+                    .collect(),
+            })
+        }
+        "thinking" => match &meta.descriptor.supported_options.thinking {
+            AgentThinkingSupport::Enum { options, .. } if !options.is_empty() => {
+                Some(SessionAdvertisedOption {
+                    id: "thinking".into(),
+                    name: None,
+                    category: Some("thinking".into()),
+                    option_type: "select".into(),
+                    current_value: meta.descriptor.current_config.thinking.clone(),
+                    options: options
+                        .iter()
+                        .map(|value| SessionAdvertisedOptionValue {
+                            value: value.clone(),
+                            name: None,
+                        })
+                        .collect(),
+                })
+            }
+            _ => None,
+        },
+        "permission_mode" => {
+            let modes = &meta.descriptor.supported_options.permission_modes;
+            if modes.is_empty() {
+                return None;
+            }
+            Some(SessionAdvertisedOption {
+                id: "permission_mode".into(),
+                name: None,
+                category: Some("permission_mode".into()),
+                option_type: "select".into(),
+                current_value: meta.descriptor.current_config.permission_mode.clone(),
+                options: modes
+                    .iter()
+                    .map(|mode| SessionAdvertisedOptionValue {
+                        value: mode.id.clone(),
+                        name: Some(mode.label.clone()),
+                    })
+                    .collect(),
+            })
+        }
+        _ => None,
+    }
+}
+
 pub fn resolve_session_config_select(
     meta: &AgentChatMeta,
     kind: &str,
@@ -329,24 +487,15 @@ pub fn resolve_session_config_select(
     if requested.is_empty() {
         return ResolvedSessionConfig::Invalid;
     }
-    let Some(option) = advertised_option_for_kind(&meta.session_config_options, kind) else {
+    let Some(option) = option_from_supported(meta, kind) else {
         return ResolvedSessionConfig::PassThrough(requested.to_string());
     };
     if option.options.is_empty() {
-        return ResolvedSessionConfig::Advertised {
-            config_id: option.id.clone(),
-            value: requested.to_string(),
-        };
+        return ResolvedSessionConfig::PassThrough(requested.to_string());
     }
-    match map_advertised_select_value(option, requested) {
-        Some(value) => ResolvedSessionConfig::Advertised {
-            config_id: option.id.clone(),
-            value,
-        },
-        None => ResolvedSessionConfig::Advertised {
-            config_id: option.id.clone(),
-            value: requested.to_string(),
-        },
+    match map_advertised_select_value(&option, requested) {
+        Some(value) => ResolvedSessionConfig::PassThrough(value),
+        None => ResolvedSessionConfig::PassThrough(requested.to_string()),
     }
 }
 
@@ -461,22 +610,16 @@ fn value_change(
     }
 }
 
-/// Host-side switch vs the last config actually given to the ACP session.
+/// Host-side switch vs the last config actually given to the live runtime.
 pub fn pending_session_config_change(meta: &AgentChatMeta) -> Option<SessionConfigChange> {
     let started = trimmed_opt(meta.applied_model.as_ref()).is_some()
         || trimmed_opt(meta.applied_mode.as_ref()).is_some()
-        || trimmed_opt(meta.applied_thinking.as_ref()).is_some();
+        || trimmed_opt(meta.applied_thinking.as_ref()).is_some()
+        || trimmed_opt(meta.applied_permission_mode.as_ref()).is_some();
+    let current = &meta.descriptor.current_config;
     let change = SessionConfigChange {
-        model: value_change(
-            meta.applied_model.as_ref(),
-            meta.selected_model.as_ref(),
-            started,
-        ),
-        mode: value_change(
-            meta.applied_mode.as_ref(),
-            meta.selected_mode.as_ref(),
-            started,
-        ),
+        model: value_change(meta.applied_model.as_ref(), current.model.as_ref(), started),
+        mode: value_change(meta.applied_mode.as_ref(), current.mode.as_ref(), started),
     };
     (!change.is_empty()).then_some(change)
 }
@@ -486,8 +629,17 @@ pub fn pending_model_switch(meta: &AgentChatMeta) -> bool {
 }
 
 pub fn pending_thinking_change(meta: &AgentChatMeta) -> Option<String> {
-    let selected = trimmed_opt(meta.selected_thinking.as_ref())?.to_string();
+    let selected = trimmed_opt(meta.descriptor.current_config.thinking.as_ref())?.to_string();
     match trimmed_opt(meta.applied_thinking.as_ref()) {
+        Some(applied) if applied == selected => None,
+        _ => Some(selected),
+    }
+}
+
+pub fn pending_permission_mode_change(meta: &AgentChatMeta) -> Option<String> {
+    let selected =
+        trimmed_opt(meta.descriptor.current_config.permission_mode.as_ref())?.to_string();
+    match trimmed_opt(meta.applied_permission_mode.as_ref()) {
         Some(applied) if applied == selected => None,
         _ => Some(selected),
     }
@@ -512,16 +664,12 @@ pub enum MessagePart {
         name: String,
         #[serde(default)]
         title: Option<String>,
-        #[serde(default, deserialize_with = "deserialize_tool_kind")]
-        kind: agent::AgentToolKind,
         #[serde(default)]
-        status: Option<String>,
-        #[serde(default)]
-        input: Option<serde_json::Value>,
-        #[serde(default)]
-        output: Option<serde_json::Value>,
-        #[serde(default)]
-        content: Option<serde_json::Value>,
+        kind: AgentToolKind,
+        status: AgentToolStatus,
+        params: AgentToolParams,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        result: Option<AgentToolResult>,
     },
     Plan {
         plan: serde_json::Value,
@@ -572,6 +720,8 @@ pub struct FoldedMessage {
     pub completed_at: Option<DateTime<Utc>>,
     #[serde(default)]
     pub usage: Option<TurnUsage>,
+    #[serde(default)]
+    pub checkpoint_id: Option<String>,
 }
 
 impl Default for FoldedMessage {
@@ -587,6 +737,7 @@ impl Default for FoldedMessage {
             thinking_ms: None,
             completed_at: None,
             usage: None,
+            checkpoint_id: None,
         }
     }
 }
@@ -660,6 +811,8 @@ pub struct AgentChatSnapshot {
     #[serde(default)]
     pub pending_permission: Option<PendingPermission>,
     #[serde(default)]
+    pub pending_session_op: Option<AgentSessionOpRequest>,
+    #[serde(default)]
     pub running_turn_id: Option<String>,
     #[serde(default)]
     pub running_turn_started_at: Option<DateTime<Utc>>,
@@ -722,6 +875,19 @@ pub fn flatten_messages_at(
         }
     }
     (messages, running_turn_id, running_turn_started_at)
+}
+
+pub fn apply_rewind_view(
+    turns: Vec<FoldedTurn>,
+    rewind_view: Option<&RewindView>,
+) -> Vec<FoldedTurn> {
+    let Some(view) = rewind_view else {
+        return turns;
+    };
+    match turns.iter().position(|turn| turn.id == view.until_turn_id) {
+        Some(index) => turns.into_iter().take(index + 1).collect(),
+        None => turns,
+    }
 }
 
 fn push_unique_message(messages: &mut Vec<FoldedMessage>, mut message: FoldedMessage) {
@@ -892,54 +1058,82 @@ fn apply_turn_timing(message: &mut FoldedMessage, timing: &TurnTiming) {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TranscriptEnvelope {
+    pub event_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub turn_id: Option<String>,
+    pub timestamp: DateTime<Utc>,
+    pub event: TranscriptEvent,
+}
+
+impl TranscriptEnvelope {
+    pub fn new(turn_id: impl Into<String>, event: TranscriptEvent) -> Self {
+        Self::at(turn_id, Utc::now(), event)
+    }
+
+    pub fn at(
+        turn_id: impl Into<String>,
+        timestamp: DateTime<Utc>,
+        event: TranscriptEvent,
+    ) -> Self {
+        Self {
+            event_id: uuid::Uuid::new_v4().to_string(),
+            turn_id: Some(turn_id.into()),
+            timestamp,
+            event,
+        }
+    }
+
+    pub fn with_id(
+        event_id: impl Into<String>,
+        turn_id: impl Into<String>,
+        event: TranscriptEvent,
+    ) -> Self {
+        Self {
+            event_id: event_id.into(),
+            turn_id: Some(turn_id.into()),
+            timestamp: Utc::now(),
+            event,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
-pub enum TranscriptRecord {
-    TurnStarted {
-        turn_id: String,
-        created_at: DateTime<Utc>,
-    },
+pub enum TranscriptEvent {
+    TurnStarted,
     UserMessage {
-        turn_id: String,
         message_id: String,
         kind: UserMessageKind,
         text: String,
         #[serde(default)]
         attachments: Vec<String>,
-        created_at: DateTime<Utc>,
+    },
+    UserCheckpoint {
+        checkpoint_id: String,
     },
     AssistantSnapshot {
-        turn_id: String,
         message_id: String,
         text: String,
-        created_at: DateTime<Utc>,
     },
     ThinkingSnapshot {
-        turn_id: String,
         message_id: String,
         text: String,
         #[serde(default)]
         started_at: Option<DateTime<Utc>>,
         #[serde(default)]
         duration_ms: Option<u64>,
-        created_at: DateTime<Utc>,
     },
     ToolCall {
-        turn_id: String,
-        tool_call: agent::AgentToolCall,
-        created_at: DateTime<Utc>,
+        tool: AgentTool,
     },
     Plan {
-        turn_id: String,
         plan: serde_json::Value,
-        created_at: DateTime<Utc>,
     },
     Permission {
-        turn_id: String,
         request: PendingPermission,
-        created_at: DateTime<Utc>,
     },
     TurnCompleted {
-        turn_id: String,
         status: TurnStatus,
         #[serde(default)]
         error: Option<String>,
@@ -949,16 +1143,11 @@ pub enum TranscriptRecord {
         thinking_ms: Option<u64>,
         #[serde(default)]
         usage: Option<TurnUsage>,
-        created_at: DateTime<Utc>,
     },
     Usage {
-        #[serde(default)]
-        turn_id: Option<String>,
         usage: serde_json::Value,
-        created_at: DateTime<Utc>,
     },
     SessionLifecycle {
-        turn_id: String,
         message_id: String,
         action: SessionLifecycleAction,
         status: SessionLifecycleStatus,
@@ -966,23 +1155,22 @@ pub enum TranscriptRecord {
         duration_ms: Option<u64>,
         #[serde(default)]
         error: Option<String>,
-        created_at: DateTime<Utc>,
     },
     SessionConfigChange {
-        turn_id: String,
         message_id: String,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         model: Option<SessionConfigValueChange>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         mode: Option<SessionConfigValueChange>,
-        created_at: DateTime<Utc>,
     },
     SessionHint {
-        turn_id: String,
         message_id: String,
         tone: SessionHintTone,
         kind: String,
-        created_at: DateTime<Utc>,
+    },
+    Unknown {
+        event_type: String,
+        payload: serde_json::Value,
     },
 }
 
@@ -991,6 +1179,8 @@ pub struct AgentChatEvent {
     pub chat_id: String,
     pub event_id: String,
     pub sequence: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub turn_id: Option<String>,
     pub payload: AgentChatPayload,
 }
 
@@ -1029,16 +1219,16 @@ pub enum AgentChatPayload {
         thinking_ms: Option<u64>,
     },
     ToolCallStarted {
-        tool_call: agent::AgentToolCall,
+        tool_call: AgentTool,
     },
     ToolCallUpdated {
-        tool_call: agent::AgentToolCall,
+        tool_call: AgentTool,
     },
     ToolCallCompleted {
-        tool_call: agent::AgentToolCall,
+        tool_call: AgentTool,
     },
     ToolCallFailed {
-        tool_call: agent::AgentToolCall,
+        tool_call: AgentTool,
         #[serde(default)]
         error: Option<String>,
     },
@@ -1052,6 +1242,23 @@ pub enum AgentChatPayload {
         request_id: String,
         option_id: String,
     },
+    SessionOpRequested {
+        request: AgentSessionOpRequest,
+    },
+    SessionOpResolved {
+        request_id: String,
+        option_id: String,
+        outcome: AgentChatSessionOpOutcome,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        error: Option<String>,
+    },
+    SessionForked {
+        parent_chat_id: String,
+        chat_id: String,
+    },
+    RewindViewUpdated {
+        until_turn_id: Option<String>,
+    },
     TurnCompleted {
         turn_id: String,
         status: TurnStatus,
@@ -1063,6 +1270,8 @@ pub enum AgentChatPayload {
         completed_at: Option<DateTime<Utc>>,
         #[serde(default)]
         usage: Option<TurnUsage>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        error: Option<String>,
     },
     UsageUpdated {
         session: Option<SessionUsage>,
@@ -1083,14 +1292,11 @@ pub enum AgentChatPayload {
         commands: Vec<agent::AgentAvailableCommand>,
     },
     ConfigUpdated {
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        model: Option<String>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        thinking: Option<String>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        mode: Option<String>,
-        #[serde(default, skip_serializing_if = "Vec::is_empty")]
-        config_options: Vec<SessionAdvertisedOption>,
+        descriptor: AgentDescriptor,
+    },
+    Unknown {
+        event_type: String,
+        payload: serde_json::Value,
     },
     SessionLifecycle {
         turn_id: String,
@@ -1227,9 +1433,10 @@ mod usage_parse_tests {
 #[cfg(test)]
 mod session_config_change_tests {
     use super::{
-        merge_advertised_options, pending_session_config_change, resolve_session_config_select,
-        AgentChatMeta, AgentChatOrigin, ResolvedSessionConfig, RuntimeStatus,
-        SessionAdvertisedOption, SessionAdvertisedOptionValue,
+        config_kind_matches, merge_advertised_options, pending_session_config_change,
+        resolve_session_config_select, AgentChatMeta, AgentChatOrigin, AgentCurrentConfig,
+        AgentModel, ResolvedSessionConfig, RuntimeStatus, SessionAdvertisedOption,
+        SessionAdvertisedOptionValue,
     };
     use chrono::Utc;
 
@@ -1250,16 +1457,24 @@ mod session_config_change_tests {
             last_event_seq: 0,
             persistence_handle: None,
             runtime_status: RuntimeStatus::Ready,
-            selected_model: Some("opus".into()),
-            selected_thinking: None,
-            selected_mode: None,
             applied_model: None,
             applied_thinking: None,
             applied_mode: None,
-            supports_steer: false,
+            applied_permission_mode: None,
             available_commands: Vec::new(),
-            session_config_options: Vec::new(),
             session_usage: None,
+            descriptor: super::chat_descriptor(
+                "claude",
+                AgentCurrentConfig {
+                    model: Some("opus".into()),
+                    thinking: None,
+                    mode: None,
+                    ..AgentCurrentConfig::default()
+                },
+            ),
+            parent_chat_id: None,
+            rewind_view: None,
+            pending_session_op: None,
         }
     }
 
@@ -1272,7 +1487,7 @@ mod session_config_change_tests {
     fn first_mode_after_session_started_is_a_switch() {
         let mut row = meta();
         row.applied_model = Some("opus".into());
-        row.selected_mode = Some("plan".into());
+        row.descriptor.current_config.mode = Some("plan".into());
         let change = pending_session_config_change(&row).expect("change");
         assert!(change.model.is_none());
         assert_eq!(
@@ -1290,9 +1505,9 @@ mod session_config_change_tests {
     fn model_and_mode_switch_after_apply() {
         let mut row = meta();
         row.applied_model = Some("opus".into());
-        row.selected_model = Some("grok-4".into());
+        row.descriptor.current_config.model = Some("grok-4".into());
         row.applied_mode = Some("agent".into());
-        row.selected_mode = Some("plan".into());
+        row.descriptor.current_config.mode = Some("plan".into());
         let change = pending_session_config_change(&row).expect("change");
         assert_eq!(
             change.model.as_ref().map(|item| item.to.as_str()),
@@ -1312,7 +1527,7 @@ mod session_config_change_tests {
     fn unchanged_selection_is_not_a_switch() {
         let mut row = meta();
         row.applied_model = Some("opus".into());
-        row.selected_model = Some("opus".into());
+        row.descriptor.current_config.model = Some("opus".into());
         assert!(pending_session_config_change(&row).is_none());
     }
 
@@ -1344,35 +1559,54 @@ mod session_config_change_tests {
     #[test]
     fn advertised_select_maps_to_the_listed_value() {
         let mut row = meta();
-        row.session_config_options = vec![model_option(
-            "models",
-            &["claude-opus-4-5", "claude-fable-5-high"],
-        )];
+        let values = ["claude-opus-4-5", "claude-fable-5-high"];
+        row.descriptor.supported_options.models = values
+            .iter()
+            .map(|value| AgentModel {
+                id: (*value).into(),
+                label: (*value).into(),
+                group: None,
+                is_default: false,
+                thinking: None,
+            })
+            .collect();
         assert_eq!(
             resolve_session_config_select(&row, "model", "claude-fable-5-high"),
-            ResolvedSessionConfig::Advertised {
-                config_id: "models".into(),
-                value: "claude-fable-5-high".into(),
-            }
+            ResolvedSessionConfig::PassThrough("claude-fable-5-high".into())
         );
         assert_eq!(
             resolve_session_config_select(&row, "model", "claude-fable-5"),
-            ResolvedSessionConfig::Advertised {
-                config_id: "models".into(),
-                value: "claude-fable-5-high".into(),
-            }
+            ResolvedSessionConfig::PassThrough("claude-fable-5-high".into())
         );
         assert_eq!(
             resolve_session_config_select(&row, "model", "grok-4"),
-            ResolvedSessionConfig::Advertised {
-                config_id: "models".into(),
-                value: "grok-4".into(),
-            }
+            ResolvedSessionConfig::PassThrough("grok-4".into())
         );
         assert_eq!(
             resolve_session_config_select(&row, "mode", "plan"),
             ResolvedSessionConfig::PassThrough("plan".into())
         );
+    }
+
+    #[test]
+    fn permission_mode_aliases_do_not_match_agent_mode() {
+        assert!(config_kind_matches(
+            "permissionMode",
+            None,
+            "permission_mode"
+        ));
+        assert!(config_kind_matches(
+            "permission_modes",
+            None,
+            "permission_mode"
+        ));
+        assert!(config_kind_matches(
+            "approval",
+            Some("permission"),
+            "permission_mode"
+        ));
+        assert!(!config_kind_matches("permission_mode", None, "mode"));
+        assert!(!config_kind_matches("mode", None, "permission_mode"));
     }
 
     #[test]

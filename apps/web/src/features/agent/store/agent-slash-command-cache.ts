@@ -62,7 +62,7 @@ export function normalizeAgentSlashCommands(
     | undefined,
 ): AgentChatSlashCommand[] {
   return (commands ?? []).flatMap((command) => {
-    const name = command.name?.trim();
+    const name = command.name?.trim().replace(/^\/+/, "");
     if (!name) return [];
     return [
       {
@@ -74,9 +74,27 @@ export function normalizeAgentSlashCommands(
   });
 }
 
+export function overlayAgentSlashCommands(
+  base: AgentChatSlashCommand[],
+  overlay: AgentChatSlashCommand[],
+): AgentChatSlashCommand[] {
+  const byName = new Map<string, AgentChatSlashCommand>();
+  for (const command of base) {
+    byName.set(command.name.toLowerCase(), command);
+  }
+  for (const command of overlay) {
+    byName.set(command.name.toLowerCase(), command);
+  }
+  return [...byName.values()];
+}
+
 export function resolveAgentSlashCommands(
   sessionCommands: AgentChatSlashCommand[],
   cachedCommands: AgentChatSlashCommand[],
+  catalogCommands: AgentChatSlashCommand[] = [],
 ): AgentChatSlashCommand[] {
+  if (catalogCommands.length > 0) {
+    return overlayAgentSlashCommands(catalogCommands, sessionCommands);
+  }
   return sessionCommands.length > 0 ? sessionCommands : cachedCommands;
 }

@@ -4,8 +4,10 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use agent::{
-    catalog_cache_dir, thinking_from_builtin, AgentCatalogSpec, AgentModelCatalog, CatalogCache,
-    CatalogEngine, CatalogParserKind, CatalogSource, CatalogStatus, CatalogStrategyKind,
+    apply_native_chat_catalog_spec, canonicalize_chat_provider_id, catalog_cache_dir,
+    is_native_chat_catalog_id, thinking_from_builtin, AgentCatalogSpec, AgentModelCatalog,
+    CatalogCache, CatalogEngine, CatalogParserKind, CatalogSource, CatalogStatus,
+    CatalogStrategyKind,
 };
 use chrono::Utc;
 use tokio::sync::{broadcast, Mutex};
@@ -131,6 +133,9 @@ impl CatalogPrefetchWorker {
             }
             if let Ok(custom) = service.list_custom_agents() {
                 for agent in custom {
+                    if !agent.enabled {
+                        continue;
+                    }
                     if !specs.iter().any(|spec| spec.agent_id == agent.name) {
                         specs.push(AgentCatalogSpec {
                             agent_id: agent.name.clone(),
@@ -140,6 +145,14 @@ impl CatalogPrefetchWorker {
                         });
                     }
                     installed.insert(agent.name);
+                }
+            }
+            if let Ok(natives) = service.list_native_chat_agents() {
+                for agent in natives {
+                    if !agent.enabled {
+                        continue;
+                    }
+                    installed.insert(agent.id);
                 }
             }
             if installed.is_empty() {
@@ -246,6 +259,11 @@ impl CatalogPrefetchWorker {
     pub fn cache_get(&self, agent_id: &str) -> Option<AgentModelCatalog> {
         self.lookup_catalog(agent_id)
     }
+
+    #[cfg(test)]
+    pub fn put_catalog_for_test(&self, catalog: &AgentModelCatalog) {
+        self.store_catalog(catalog);
+    }
 }
 
 pub fn terminal_catalog_from(catalog: &AgentModelCatalog) -> crate::TerminalAgentModelCatalog {
@@ -328,7 +346,7 @@ pub fn builtin_catalog_specs() -> Vec<AgentCatalogSpec> {
                 _ => CatalogParserKind::LineList,
             };
             let thinking = thinking_from_builtin(&value);
-            Some(AgentCatalogSpec {
+            let mut spec = AgentCatalogSpec {
                 agent_id: id.clone(),
                 strategies: if cli_command.is_empty() {
                     vec![CatalogStrategyKind::Config, CatalogStrategyKind::Acp]
@@ -344,7 +362,9 @@ pub fn builtin_catalog_specs() -> Vec<AgentCatalogSpec> {
                 thinking,
                 static_models: Vec::new(),
                 acp: catalog_agent_has_acp(&id),
-            })
+            };
+            apply_native_chat_catalog_spec(&mut spec);
+            Some(spec)
         })
         .collect()
 }
@@ -387,16 +407,30 @@ fn catalog_agent_has_acp(agent_id: &str) -> bool {
 }
 
 fn catalog_equivalent_ids(agent_id: &str) -> Vec<String> {
+    if is_native_chat_catalog_id(agent_id) {
+        let folded = canonicalize_chat_provider_id(agent_id);
+        let mut ids = vec![agent_id.to_string(), folded.to_string()];
+        if folded == "claude" {
+            ids.extend(
+                ["claude-code", "claude_code"]
+                    .into_iter()
+                    .map(str::to_string),
+            );
+        }
+        ids.sort();
+        ids.dedup();
+        return ids;
+    }
     let terminal = catalog_terminal_id(agent_id);
-    let mut ids = vec![agent_id.to_string(), terminal.to_string()];
+    let mut ids = vec![agent_id.to_string()];
+    if !is_native_chat_catalog_id(terminal) {
+        ids.push(terminal.to_string());
+    }
     for (registry, builtin) in [
-        ("claude-acp", "claude"),
-        ("codex-acp", "codex"),
         ("antigravity-acp", "antigravity"),
         ("kilo", "kilocode"),
         ("factory-droid", "droid"),
         ("amp-acp", "amp"),
-        ("pi-acp", "pi"),
     ] {
         if builtin == terminal {
             ids.push(registry.to_string());
@@ -408,12 +442,26 @@ fn catalog_equivalent_ids(agent_id: &str) -> Vec<String> {
 }
 
 /// Catalog spec for a chat/registry agent id. CLI commands come from the
-/// built-in terminal agent; ACP is enabled for every agent that speaks ACP.
+/// built-in terminal agent. Chat natives skip generic ACP `session/new`.
+/// ACP registry ids (`claude-acp`, `codex-acp`, `grok-build`) stay ACP.
 pub fn catalog_spec_for(agent_id: &str) -> AgentCatalogSpec {
-    let lookup = catalog_terminal_id(agent_id);
+    let folded = canonicalize_chat_provider_id(agent_id);
+    let lookup = if is_native_chat_catalog_id(agent_id) {
+        match folded {
+            // Terminal builtin id. Chat native host id stays `grok`.
+            "grok" => "grok-build",
+            other => other,
+        }
+    } else {
+        catalog_terminal_id(agent_id)
+    };
     let mut spec = builtin_catalog_specs()
         .into_iter()
-        .find(|spec| spec.agent_id == lookup || spec.agent_id == agent_id)
+        .find(|spec| {
+            spec.agent_id == lookup
+                || spec.agent_id == agent_id
+                || canonicalize_chat_provider_id(&spec.agent_id) == folded
+        })
         .unwrap_or(AgentCatalogSpec {
             agent_id: agent_id.to_string(),
             acp: true,
@@ -421,8 +469,15 @@ pub fn catalog_spec_for(agent_id: &str) -> AgentCatalogSpec {
             ..Default::default()
         });
     spec.agent_id = agent_id.to_string();
-    if catalog_agent_has_acp(agent_id) {
+    if is_native_chat_catalog_id(agent_id) {
+        apply_native_chat_catalog_spec(&mut spec);
+    } else if catalog_agent_has_acp(agent_id) {
         spec.acp = true;
+        spec.strategies
+            .retain(|kind| *kind != CatalogStrategyKind::Native);
+        if spec.strategies.is_empty() {
+            spec.strategies.push(CatalogStrategyKind::Config);
+        }
         if !spec.strategies.contains(&CatalogStrategyKind::Acp) {
             spec.strategies.push(CatalogStrategyKind::Acp);
         }
@@ -436,13 +491,14 @@ mod tests {
     use agent::CatalogParserKind;
 
     #[test]
-    fn opencode_uses_models_cli_and_acp() {
+    fn opencode_uses_models_cli_and_native() {
         let spec = catalog_spec_for("opencode");
         assert_eq!(spec.cli_command, ["opencode", "models"]);
         assert_eq!(spec.parser, CatalogParserKind::LineList);
-        assert!(spec.acp);
+        assert!(!spec.acp);
         assert!(spec.strategies.contains(&CatalogStrategyKind::Cli));
-        assert!(spec.strategies.contains(&CatalogStrategyKind::Acp));
+        assert!(spec.strategies.contains(&CatalogStrategyKind::Native));
+        assert!(!spec.strategies.contains(&CatalogStrategyKind::Acp));
     }
 
     #[test]
@@ -466,14 +522,39 @@ mod tests {
     }
 
     #[test]
-    fn claude_and_hermes_probe_via_acp() {
+    fn claude_acp_alias_is_acp_probe_not_native() {
         let claude = catalog_spec_for("claude-acp");
         assert_eq!(claude.agent_id, "claude-acp");
         assert!(claude.acp);
+        assert!(!claude.strategies.contains(&CatalogStrategyKind::Native));
         assert!(claude.strategies.contains(&CatalogStrategyKind::Acp));
         let hermes = catalog_spec_for("hermes");
         assert!(hermes.acp);
         assert!(hermes.cli_command.is_empty());
+        assert!(hermes.strategies.contains(&CatalogStrategyKind::Acp));
+    }
+
+    #[test]
+    fn app069_s5_native_grok_skips_acp_registry_grok_stays_acp() {
+        let grok = catalog_spec_for("grok");
+        assert!(!grok.acp);
+        assert!(grok.strategies.contains(&CatalogStrategyKind::Native));
+        assert!(!grok.strategies.contains(&CatalogStrategyKind::Acp));
+        assert_eq!(grok.cli_command, ["grok", "models"]);
+        assert_eq!(grok.parser, CatalogParserKind::GrokLineList);
+        for id in ["grok-build", "grok-acp"] {
+            let spec = catalog_spec_for(id);
+            assert!(spec.acp, "{id}");
+            assert!(spec.strategies.contains(&CatalogStrategyKind::Acp), "{id}");
+            assert!(
+                !spec.strategies.contains(&CatalogStrategyKind::Native),
+                "{id}"
+            );
+        }
+        let gemini = catalog_spec_for("gemini");
+        assert!(gemini.acp);
+        assert!(gemini.strategies.contains(&CatalogStrategyKind::Acp));
+        assert!(!gemini.strategies.contains(&CatalogStrategyKind::Native));
     }
 
     #[test]
@@ -492,6 +573,21 @@ mod tests {
         let codex = catalog_spec_for("codex");
         assert_eq!(codex.cli_command, ["codex", "debug", "models"]);
         assert_eq!(codex.parser, CatalogParserKind::Json);
-        assert!(codex.acp);
+        assert!(!codex.acp);
+        assert!(codex.strategies.contains(&CatalogStrategyKind::Native));
+        assert!(!codex.strategies.contains(&CatalogStrategyKind::Acp));
+        let pi = catalog_spec_for("pi-acp");
+        assert!(pi.acp);
+        assert!(!pi.strategies.contains(&CatalogStrategyKind::Native));
+        assert!(pi.strategies.contains(&CatalogStrategyKind::Acp));
+        for id in ["claude", "codex", "opencode", "pi", "grok"] {
+            let spec = catalog_spec_for(id);
+            assert!(!spec.acp, "{id} must not ACP-probe");
+            assert!(
+                spec.strategies.contains(&CatalogStrategyKind::Native),
+                "{id}"
+            );
+            assert!(!spec.strategies.contains(&CatalogStrategyKind::Acp), "{id}");
+        }
     }
 }

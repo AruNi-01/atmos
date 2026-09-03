@@ -7,7 +7,25 @@ use agent_client_protocol::schema::v1 as schema;
 use agent_client_protocol::{self as acp, schema as acp_schema};
 use serde::Serialize;
 
-fn format_tool_kind(kind: Option<&schema::ToolKind>) -> String {
+fn protocol_kind_slug(kind: Option<&schema::ToolKind>) -> Option<String> {
+    kind.map(|kind| {
+        match kind {
+            schema::ToolKind::Read => "read",
+            schema::ToolKind::Edit => "edit",
+            schema::ToolKind::Delete => "delete",
+            schema::ToolKind::Move => "move",
+            schema::ToolKind::Search => "search",
+            schema::ToolKind::Execute => "execute",
+            schema::ToolKind::Think => "think",
+            schema::ToolKind::Fetch => "fetch",
+            schema::ToolKind::SwitchMode => "switch_mode",
+            _ => "other",
+        }
+        .to_string()
+    })
+}
+
+fn protocol_kind_name(kind: Option<&schema::ToolKind>) -> String {
     match kind {
         Some(schema::ToolKind::Read) => "Read".to_string(),
         Some(schema::ToolKind::Edit) => "Edit".to_string(),
@@ -21,197 +39,6 @@ fn format_tool_kind(kind: Option<&schema::ToolKind>) -> String {
         Some(schema::ToolKind::Other) | None => "Tool".to_string(),
         Some(_) => "Tool".to_string(),
     }
-}
-
-fn is_generic_tool_label(value: &str) -> bool {
-    crate::domain::is_generic_tool_label(value)
-}
-
-const INPUT_PATH_KEYS: &[&str] = &[
-    "absolute_path",
-    "absolute_root_path",
-    "target_file",
-    "targetFile",
-    "target_directory",
-    "file_path",
-    "filePath",
-    "path",
-    "dir_path",
-    "directory",
-    "file",
-    "uri",
-];
-
-fn map_has_path(map: &serde_json::Map<String, serde_json::Value>) -> bool {
-    INPUT_PATH_KEYS.iter().any(|key| {
-        map.get(*key)
-            .and_then(|item| item.as_str())
-            .is_some_and(|path| !path.is_empty())
-    })
-}
-
-/// Cursor-style ACP calls often put the file on `locations` and leave `rawInput` empty.
-fn enrich_tool_input(
-    raw_input: Option<serde_json::Value>,
-    locations: Option<&[schema::ToolCallLocation]>,
-) -> Option<serde_json::Value> {
-    let location = locations.and_then(|locs| locs.first());
-    let path = location
-        .map(|loc| loc.path.to_string_lossy().into_owned())
-        .filter(|path| !path.is_empty());
-    let line = location.and_then(|loc| loc.line);
-
-    match raw_input {
-        None if path.is_none() && line.is_none() => None,
-        Some(value) if !value.is_object() => Some(value),
-        value => {
-            let mut map = match value {
-                Some(serde_json::Value::Object(map)) => map,
-                _ => serde_json::Map::new(),
-            };
-            if let Some(path) = path {
-                if !map_has_path(&map) {
-                    map.insert("path".into(), serde_json::Value::String(path));
-                }
-            }
-            if let Some(line) = line {
-                if !map.contains_key("line") && !map.contains_key("offset") {
-                    map.insert("line".into(), serde_json::json!(line));
-                }
-            }
-            if map.is_empty() {
-                None
-            } else {
-                Some(serde_json::Value::Object(map))
-            }
-        }
-    }
-}
-
-fn extract_vendor_tool_type(input: Option<&serde_json::Value>) -> Option<String> {
-    let input = input?;
-    let ty = input
-        .get("type")
-        .and_then(|value| value.as_str())
-        .or_else(|| input.get("variant").and_then(|value| value.as_str()))
-        .map(str::trim)?;
-    if ty.is_empty() || is_generic_tool_label(ty) {
-        return None;
-    }
-    Some(ty.to_string())
-}
-
-fn vendor_payload(input: Option<&serde_json::Value>) -> Option<&serde_json::Value> {
-    let input = input?;
-    input
-        .get("FileContent")
-        .or_else(|| input.get("file_content"))
-        .or_else(|| input.get("Content"))
-        .or_else(|| input.get("content").filter(|value| value.is_object()))
-        .or_else(|| input.get("result").filter(|value| value.is_object()))
-        .or(Some(input))
-}
-
-fn vendor_nested_path(input: Option<&serde_json::Value>) -> Option<String> {
-    let payload = vendor_payload(input)?;
-    for key in [
-        "absolute_path",
-        "absolute_root_path",
-        "target_file",
-        "target_directory",
-        "file_path",
-        "path",
-        "dir_path",
-        "directory",
-    ] {
-        if let Some(path) = payload
-            .get(key)
-            .and_then(|value| value.as_str())
-            .filter(|value| !value.is_empty())
-        {
-            return Some(path.to_string());
-        }
-    }
-    None
-}
-
-fn format_description(
-    title: Option<&str>,
-    tool: &str,
-    locations: Option<&[schema::ToolCallLocation]>,
-    raw_input: Option<&serde_json::Value>,
-    raw_output: Option<&serde_json::Value>,
-) -> String {
-    let vendor_type =
-        extract_vendor_tool_type(raw_input).or_else(|| extract_vendor_tool_type(raw_output));
-    let tool_label = vendor_type.as_deref().unwrap_or(tool);
-    if let Some(t) = title.filter(|s| !s.is_empty() && !is_generic_tool_label(s)) {
-        return t.to_string();
-    }
-    // Fallback: use first location path (e.g. for Read: "path/to/file.rs")
-    if let Some(locs) = locations {
-        if let Some(loc) = locs.first() {
-            let path = loc.path.to_string_lossy();
-            if !path.is_empty() {
-                return format!("{tool_label}: {path}");
-            }
-        }
-    }
-    if let Some(path) = vendor_nested_path(raw_input).or_else(|| vendor_nested_path(raw_output)) {
-        return format!("{tool_label}: {path}");
-    }
-    // Fallback: extract from raw_input
-    if let Some(input) = raw_input {
-        if let Some(path) = input.get("path").and_then(|v| v.as_str()) {
-            if !path.is_empty() {
-                return format!("{tool_label}: {path}");
-            }
-        }
-        if let Some(path) = input.get("file_path").and_then(|v| v.as_str()) {
-            if !path.is_empty() {
-                return format!("{tool_label}: {path}");
-            }
-        }
-        if let Some(url) = input.get("url").and_then(|v| v.as_str()) {
-            if !url.is_empty() {
-                return format!("{tool_label}: {url}");
-            }
-        }
-        if let Some(pattern) = input.get("pattern").and_then(|v| v.as_str()) {
-            if !pattern.is_empty() {
-                let short = if pattern.len() > 80 {
-                    &pattern[..77]
-                } else {
-                    pattern
-                };
-                return format!("{tool_label}: {short}");
-            }
-        }
-        if let Some(description) = input.get("description").and_then(|v| v.as_str()) {
-            if !description.is_empty() {
-                return description.to_string();
-            }
-        }
-        if let Some(skill) = input.get("skill").and_then(|v| v.as_str()) {
-            if !skill.is_empty() {
-                return format!("Skill: {skill}");
-            }
-        }
-        if let Some(cmd) = input.get("command").and_then(|v| v.as_str()) {
-            if !cmd.is_empty() {
-                let short = if cmd.len() > 80 { &cmd[..77] } else { cmd };
-                return format!("Execute: {short}");
-            }
-        }
-        for key in ["tool", "name", "method", "action"] {
-            if let Some(v) = input.get(key).and_then(|v| v.as_str()) {
-                if !v.is_empty() {
-                    return v.to_string();
-                }
-            }
-        }
-    }
-    tool_label.to_string()
 }
 
 fn extract_claude_code_meta<T: Serialize>(
@@ -244,28 +71,81 @@ fn extract_claude_tool_name(
         .map(ToOwned::to_owned)
 }
 
-fn build_tool_call_detail(
+#[allow(clippy::too_many_arguments)]
+fn map_protocol_tool_call(
+    tool_call_id: String,
+    kind: Option<&schema::ToolKind>,
+    title: Option<&str>,
+    status: ToolCallStatus,
+    raw_input: Option<serde_json::Value>,
+    raw_output: Option<serde_json::Value>,
+    locations: Option<&[schema::ToolCallLocation]>,
+    content: &[schema::ToolCallContent],
     claude_code_meta: Option<&serde_json::Map<String, serde_json::Value>>,
-) -> Option<serde_json::Value> {
-    let claude_code_meta = claude_code_meta?;
-    let mut detail = serde_json::Map::new();
-    detail.insert(
-        "claudeCode".to_string(),
-        serde_json::Value::Object(claude_code_meta.clone()),
-    );
-    Some(serde_json::Value::Object(detail))
+) -> ToolCallUpdate {
+    ToolCallUpdate {
+        tool_call_id,
+        parent_tool_call_id: extract_parent_tool_use_id(claude_code_meta),
+        tool: extract_claude_tool_name(claude_code_meta)
+            .unwrap_or_else(|| protocol_kind_name(kind)),
+        description: title.unwrap_or("").to_string(),
+        acp_kind: protocol_kind_slug(kind),
+        status,
+        raw_input,
+        content: map_tool_call_content(content),
+        locations: location_paths(locations),
+        raw_output,
+        detail: None,
+    }
+}
+
+fn location_paths(locations: Option<&[schema::ToolCallLocation]>) -> Vec<String> {
+    let Some(locations) = locations else {
+        return Vec::new();
+    };
+    locations
+        .iter()
+        .map(|loc| loc.path.to_string_lossy().into_owned())
+        .filter(|path| !path.is_empty())
+        .collect()
+}
+
+fn content_text_from_block(block: &schema::ContentBlock) -> Option<String> {
+    match block {
+        schema::ContentBlock::Text(text) if !text.text.trim().is_empty() => Some(text.text.clone()),
+        schema::ContentBlock::ResourceLink(link) => {
+            let uri = strip_file_uri(&link.uri);
+            if uri.is_empty() {
+                None
+            } else {
+                Some(uri)
+            }
+        }
+        schema::ContentBlock::Resource(resource) => match &resource.resource {
+            schema::EmbeddedResourceResource::TextResourceContents(text)
+                if !text.text.trim().is_empty() =>
+            {
+                Some(text.text.clone())
+            }
+            _ => None,
+        },
+        _ => None,
+    }
+}
+
+fn strip_file_uri(uri: &str) -> String {
+    uri.trim()
+        .strip_prefix("file://")
+        .unwrap_or(uri)
+        .trim()
+        .to_string()
 }
 
 fn extract_markdown_from_tool_call_content(content: &[schema::ToolCallContent]) -> Option<String> {
     let parts: Vec<String> = content
         .iter()
         .filter_map(|item| match item {
-            schema::ToolCallContent::Content(c) => match &c.content {
-                schema::ContentBlock::Text(text) if !text.text.trim().is_empty() => {
-                    Some(text.text.clone())
-                }
-                _ => None,
-            },
+            schema::ToolCallContent::Content(c) => content_text_from_block(&c.content),
             _ => None,
         })
         .collect();
@@ -283,14 +163,8 @@ fn map_tool_call_content(
     content
         .iter()
         .filter_map(|item| match item {
-            schema::ToolCallContent::Content(c) => match &c.content {
-                schema::ContentBlock::Text(text) if !text.text.trim().is_empty() => {
-                    Some(crate::acp_client::types::AgentToolCallContentItem::Text {
-                        text: text.text.clone(),
-                    })
-                }
-                _ => None,
-            },
+            schema::ToolCallContent::Content(c) => content_text_from_block(&c.content)
+                .map(|text| crate::acp_client::types::AgentToolCallContentItem::Text { text }),
             schema::ToolCallContent::Diff(diff) => {
                 Some(crate::acp_client::types::AgentToolCallContentItem::Diff {
                     path: Some(diff.path.display().to_string()),
@@ -308,7 +182,7 @@ fn map_tool_call_content(
         .collect()
 }
 
-use tokio::sync::{mpsc, oneshot};
+use tokio::sync::{broadcast, mpsc, oneshot};
 use tracing::warn;
 
 use crate::acp_client::logging::append_acp_log;
@@ -329,7 +203,7 @@ pub enum AcpSessionEvent {
         acp_session_id: String,
     },
     SessionInfoUpdate(AgentSessionInfoUpdate),
-    AvailableCommandsUpdate(Vec<crate::domain::AgentAvailableCommand>),
+    AvailableCommandsUpdate(Vec<crate::contract::AgentAvailableCommand>),
     Stream(StreamDelta),
     ToolCall(ToolCallUpdate),
     PermissionRequest(PermissionRequest),
@@ -392,6 +266,7 @@ pub struct AtmosAcpClient {
     cwd: PathBuf,
     permission_tx: mpsc::UnboundedSender<(PermissionRequest, oneshot::Sender<String>)>,
     event_tx: mpsc::UnboundedSender<AcpSessionEvent>,
+    ext_notify_tx: broadcast::Sender<(String, serde_json::Value)>,
 }
 
 impl AtmosAcpClient {
@@ -400,12 +275,14 @@ impl AtmosAcpClient {
         cwd: PathBuf,
         permission_tx: mpsc::UnboundedSender<(PermissionRequest, oneshot::Sender<String>)>,
         event_tx: mpsc::UnboundedSender<AcpSessionEvent>,
+        ext_notify_tx: broadcast::Sender<(String, serde_json::Value)>,
     ) -> Self {
         Self {
             handler,
             cwd,
             permission_tx,
             event_tx,
+            ext_notify_tx,
         }
     }
 }
@@ -415,20 +292,7 @@ impl AtmosAcpClient {
         &self,
         args: schema::RequestPermissionRequest,
     ) -> acp::Result<schema::RequestPermissionResponse> {
-        let tool_name = args
-            .tool_call
-            .fields
-            .kind
-            .as_ref()
-            .map(|k| {
-                let s = format!("{k:?}");
-                if s.is_empty() || s == "None" {
-                    "Tool".to_string()
-                } else {
-                    s
-                }
-            })
-            .unwrap_or_else(|| "Tool".to_string());
+        let tool_name = protocol_kind_name(args.tool_call.fields.kind.as_ref());
         let description = args
             .tool_call
             .fields
@@ -619,48 +483,28 @@ impl AtmosAcpClient {
                 }));
             }
             schema::SessionUpdate::ToolCall(tool_call) => {
-                let tool_call_id = tool_call.tool_call_id.to_string();
-                let claude_code_meta = extract_claude_code_meta(&tool_call);
-                let parent_tool_call_id = extract_parent_tool_use_id(claude_code_meta.as_ref());
                 let status = match tool_call.status {
                     schema::ToolCallStatus::InProgress => ToolCallStatus::Running,
                     schema::ToolCallStatus::Completed => ToolCallStatus::Completed,
                     schema::ToolCallStatus::Failed => ToolCallStatus::Failed,
                     _ => ToolCallStatus::Running,
                 };
-                let tool = extract_claude_tool_name(claude_code_meta.as_ref())
-                    .or_else(|| extract_vendor_tool_type(tool_call.raw_input.as_ref()))
-                    .or_else(|| extract_vendor_tool_type(tool_call.raw_output.as_ref()))
-                    .unwrap_or_else(|| format_tool_kind(Some(&tool_call.kind)));
-                let raw_input = enrich_tool_input(
-                    tool_call.raw_input.clone(),
-                    Some(tool_call.locations.as_slice()),
-                );
-                let description = format_description(
-                    Some(tool_call.title.as_str()),
-                    &tool,
-                    Some(tool_call.locations.as_slice()),
-                    raw_input.as_ref(),
-                    tool_call.raw_output.as_ref(),
-                );
+                let claude_code_meta = extract_claude_code_meta(&tool_call);
                 let _ = self
                     .event_tx
-                    .send(AcpSessionEvent::ToolCall(ToolCallUpdate {
-                        tool_call_id,
-                        parent_tool_call_id,
-                        tool,
-                        description,
+                    .send(AcpSessionEvent::ToolCall(map_protocol_tool_call(
+                        tool_call.tool_call_id.to_string(),
+                        Some(&tool_call.kind),
+                        Some(tool_call.title.as_str()),
                         status,
-                        raw_input,
-                        content: map_tool_call_content(&tool_call.content),
-                        raw_output: tool_call.raw_output.clone(),
-                        detail: build_tool_call_detail(claude_code_meta.as_ref()),
-                    }));
+                        tool_call.raw_input.clone(),
+                        tool_call.raw_output.clone(),
+                        Some(tool_call.locations.as_slice()),
+                        &tool_call.content,
+                        claude_code_meta.as_ref(),
+                    )));
             }
             schema::SessionUpdate::ToolCallUpdate(update) => {
-                let tool_call_id = update.tool_call_id.to_string();
-                let claude_code_meta = extract_claude_code_meta(&update);
-                let parent_tool_call_id = extract_parent_tool_use_id(claude_code_meta.as_ref());
                 let status = match update
                     .fields
                     .status
@@ -671,39 +515,21 @@ impl AtmosAcpClient {
                     schema::ToolCallStatus::Failed => ToolCallStatus::Failed,
                     _ => ToolCallStatus::Running,
                 };
-                let tool = extract_claude_tool_name(claude_code_meta.as_ref())
-                    .or_else(|| extract_vendor_tool_type(update.fields.raw_input.as_ref()))
-                    .or_else(|| extract_vendor_tool_type(update.fields.raw_output.as_ref()))
-                    .unwrap_or_else(|| format_tool_kind(update.fields.kind.as_ref()));
-                let raw_input = enrich_tool_input(
-                    update.fields.raw_input.clone(),
-                    update.fields.locations.as_deref(),
-                );
-                let description = format_description(
-                    update.fields.title.as_deref(),
-                    &tool,
-                    update.fields.locations.as_deref(),
-                    raw_input.as_ref(),
-                    update.fields.raw_output.as_ref(),
-                );
+                let claude_code_meta = extract_claude_code_meta(&update);
+                let content = update.fields.content.as_deref().unwrap_or(&[]);
                 let _ = self
                     .event_tx
-                    .send(AcpSessionEvent::ToolCall(ToolCallUpdate {
-                        tool_call_id,
-                        parent_tool_call_id,
-                        tool,
-                        description,
+                    .send(AcpSessionEvent::ToolCall(map_protocol_tool_call(
+                        update.tool_call_id.to_string(),
+                        update.fields.kind.as_ref(),
+                        update.fields.title.as_deref(),
                         status,
-                        raw_input,
-                        content: update
-                            .fields
-                            .content
-                            .as_ref()
-                            .map(|content| map_tool_call_content(content))
-                            .unwrap_or_default(),
-                        raw_output: update.fields.raw_output.clone(),
-                        detail: build_tool_call_detail(claude_code_meta.as_ref()),
-                    }));
+                        update.fields.raw_input.clone(),
+                        update.fields.raw_output.clone(),
+                        update.fields.locations.as_deref(),
+                        content,
+                        claude_code_meta.as_ref(),
+                    )));
             }
             schema::SessionUpdate::Plan(plan) => {
                 let entries = plan
@@ -758,7 +584,7 @@ impl AtmosAcpClient {
                 let commands = update
                     .available_commands
                     .into_iter()
-                    .map(|command| crate::domain::AgentAvailableCommand {
+                    .map(|command| crate::contract::AgentAvailableCommand {
                         name: command.name,
                         description: command.description,
                         hint: match command.input {
@@ -810,7 +636,9 @@ impl AtmosAcpClient {
         Err(acp::Error::method_not_found())
     }
 
-    pub async fn ext_notification(&self, _args: schema::ExtNotification) -> acp::Result<()> {
+    pub async fn ext_notification(&self, args: schema::ExtNotification) -> acp::Result<()> {
+        let params = serde_json::from_str(args.params.get()).unwrap_or(serde_json::Value::Null);
+        let _ = self.ext_notify_tx.send((args.method.to_string(), params));
         Ok(())
     }
 }
@@ -967,71 +795,69 @@ mod tests {
     }
 
     #[test]
-    fn grok_listdir_envelope_becomes_a_concrete_title() {
-        let input = json!({
-            "type": "ListDir",
-            "Content": {
-                "content": "- /tmp/app/\n - README.md",
-                "absolute_root_path": "/tmp/app"
-            }
-        });
-        assert_eq!(
-            super::extract_vendor_tool_type(Some(&input)).as_deref(),
-            Some("ListDir")
+    fn protocol_tool_call_does_not_guess_kind_or_synthesize_title() {
+        let loc = schema::ToolCallLocation::new("/tmp/app/README.md");
+        let mapped = super::map_protocol_tool_call(
+            "tc_1".into(),
+            Some(&schema::ToolKind::Read),
+            Some("Read"),
+            crate::acp_client::types::ToolCallStatus::Completed,
+            None,
+            None,
+            Some(std::slice::from_ref(&loc)),
+            &[],
+            None,
         );
-        assert_eq!(
-            super::format_description(Some("Tool"), "Tool", None, Some(&input), None),
-            "ListDir: /tmp/app"
-        );
+        assert_eq!(mapped.tool, "Read");
+        assert_eq!(mapped.description, "Read");
+        assert_eq!(mapped.acp_kind.as_deref(), Some("read"));
+        assert_eq!(mapped.locations, vec!["/tmp/app/README.md"]);
+        assert!(mapped.raw_input.is_none());
+        assert!(mapped.detail.is_none());
     }
 
     #[test]
-    fn grok_readfile_envelope_uses_absolute_path() {
-        let output = json!({
+    fn protocol_other_keeps_vendor_envelope_untouched() {
+        let input = json!({
             "type": "ReadFile",
             "FileContent": {
                 "absolute_path": "/tmp/app/README.md",
-                "raw_output": "# hi\n",
-                "limit": 40,
-                "total_lines": 80
+                "raw_output": "# hi\n"
             }
         });
-        assert_eq!(
-            super::extract_vendor_tool_type(Some(&output)).as_deref(),
-            Some("ReadFile")
+        let mapped = super::map_protocol_tool_call(
+            "tc_1".into(),
+            Some(&schema::ToolKind::Other),
+            Some("Tool"),
+            crate::acp_client::types::ToolCallStatus::Completed,
+            Some(input.clone()),
+            None,
+            None,
+            &[],
+            None,
         );
-        assert_eq!(
-            super::format_description(Some("Tool"), "Tool", None, None, Some(&output)),
-            "ReadFile: /tmp/app/README.md"
-        );
+        assert_eq!(mapped.tool, "Tool");
+        assert_eq!(mapped.description, "Tool");
+        assert_eq!(mapped.acp_kind.as_deref(), Some("other"));
+        assert_eq!(mapped.raw_input, Some(input));
     }
 
     #[test]
-    fn cursor_kind_title_does_not_hide_location_path() {
-        let loc = schema::ToolCallLocation::new("/tmp/app/README.md");
-        assert_eq!(
-            super::format_description(
-                Some("Read"),
-                "Read",
-                Some(std::slice::from_ref(&loc)),
-                None,
-                None,
-            ),
-            "Read: /tmp/app/README.md"
-        );
-        let input = super::enrich_tool_input(None, Some(std::slice::from_ref(&loc))).unwrap();
-        assert_eq!(
-            input.get("path").and_then(|v| v.as_str()),
-            Some("/tmp/app/README.md")
-        );
-    }
-
-    #[test]
-    fn cursor_execute_title_does_not_hide_command() {
+    fn protocol_execute_passes_title_and_command_as_is() {
         let input = json!({ "command": "echo hello" });
-        assert_eq!(
-            super::format_description(Some("Run Script"), "Execute", None, Some(&input), None),
-            "Execute: echo hello"
+        let mapped = super::map_protocol_tool_call(
+            "tc_1".into(),
+            Some(&schema::ToolKind::Execute),
+            Some("Run Script"),
+            crate::acp_client::types::ToolCallStatus::Completed,
+            Some(input.clone()),
+            None,
+            None,
+            &[],
+            None,
         );
+        assert_eq!(mapped.acp_kind.as_deref(), Some("execute"));
+        assert_eq!(mapped.description, "Run Script");
+        assert_eq!(mapped.raw_input, Some(input));
     }
 }

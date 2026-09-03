@@ -41,6 +41,57 @@ describe("agent chat modal frame", () => {
     expect(panel).not.toContain("hideCollapsedDivider");
   });
 
+  it("APP-069 S9 shows the session-op card in the permission slot and lets permission win", () => {
+    expect(panel).toContain("<AgentSessionOpCard");
+    const contentAt = panel.indexOf("<ConversationContent");
+    const permissionBranchAt = panel.indexOf("{pendingPermission ?");
+    const permissionAt = panel.indexOf("<AgentPermissionCard");
+    const sessionOpAt = panel.indexOf("<AgentSessionOpCard");
+    const composerAt = panel.indexOf("<AgentPromptComposer");
+    expect(permissionBranchAt).toBeGreaterThan(contentAt);
+    expect(permissionAt).toBeGreaterThan(permissionBranchAt);
+    expect(sessionOpAt).toBeGreaterThan(permissionAt);
+    expect(composerAt).toBeGreaterThan(sessionOpAt);
+    const slot = panel.slice(permissionBranchAt, composerAt);
+    expect(slot).toContain("pendingPermission ?");
+    expect(slot).toContain("pendingSessionOp ?");
+    expect(slot).toContain(") : pendingSessionOp ? (");
+  });
+
+  it("APP-069 S9/S10 does not intercept /fork or /rewind in the composer or chat api", () => {
+    const composer = readFileSync(
+      join(import.meta.dir, "../AgentPromptComposer.tsx"),
+      "utf8",
+    );
+    const api = readFileSync(
+      join(import.meta.dir, "../../../../api/ws/agent-chat-api.ts"),
+      "utf8",
+    );
+    expect(composer).not.toMatch(/\/fork|\/rewind/);
+    expect(api).toContain('wsRequest("agent_chat_session_op_respond"');
+    expect(api).not.toContain("wsRequest<");
+    expect(api).not.toMatch(/text\s*=\s*text\.replace/);
+    expect(api).not.toMatch(/\/fork|\/rewind/);
+  });
+
+  it("applies verified session-op / catalog-error / rewind-view wire in the session hook", () => {
+    const session = readFileSync(
+      join(import.meta.dir, "../../hooks/use-agent-chat-session.ts"),
+      "utf8",
+    );
+    expect(session).toContain("setPendingSessionOp(payload.request)");
+    expect(session).toContain('payload.outcome === "failed"');
+    expect(session).toContain("agentChatApi.sessionOpRespond");
+    expect(session).toContain('next.status === "error" ? next.message?.trim()');
+    expect(session).toContain('update.catalog.status === "error"');
+    expect(session).toContain("agent_model_catalog_updated");
+    expect(session).toContain("descriptorForComposerProvider");
+    expect(session).toContain("setCatalog(null);\n    setDescriptor(null);\n    setSupportsSteer(false);");
+    expect(session).toContain('payload.type === "rewind_view_updated"');
+    expect(session).toContain('payload.type === "session_forked"');
+    expect(session).toContain("setActiveChatId(childId)");
+  });
+
   it("centers a taller composer on new chat and docks a compact one after the session exists", () => {
     expect(panel).toContain("isAgentNewChatLanding");
     expect(panel).toContain('isNewChatLanding ? "justify-center overflow-y-auto pb-20" : "overflow-hidden"');

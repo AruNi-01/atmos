@@ -1,6 +1,6 @@
 import { parseDiffFromFile, type FileContents } from "@pierre/diffs";
 import type { AgentToolCallPart } from "@/features/agent/lib/agent-tool-kind";
-import { parseToolResult, type ToolPresentation } from "@/features/agent/lib/tool-results/parse-tool-result";
+import { presentAgentTool, type ToolPresentation } from "@/features/agent/lib/tool-results/parse-tool-result";
 
 export type DiffLineStats = {
   additions: number;
@@ -179,14 +179,13 @@ export function diffStatsForPresentation(presentation: ToolPresentation): DiffLi
 export function sumToolGroupDiffStats(parts: AgentToolCallPart[]): DiffLineStats {
   return parts.reduce((sum, part) => {
     if (part.kind !== "edit") return sum;
-    const parsed = parseToolResult({
-      tool: part.name,
-      description: part.title ?? undefined,
-      status: part.status ?? undefined,
-      raw_input: part.input,
-      content: Array.isArray(part.content) ? part.content as never : undefined,
-      raw_output: part.output,
-    });
+    if (part.result?.type === "diff_stats") {
+      return {
+        additions: sum.additions + part.result.additions,
+        deletions: sum.deletions + part.result.deletions,
+      };
+    }
+    const parsed = presentAgentTool(part);
     const next = diffStatsForPresentation(parsed.presentation);
     return {
       additions: sum.additions + next.additions,

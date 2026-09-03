@@ -1,3 +1,5 @@
+import { canonicalizeChatProviderId } from "@/features/agent/lib/custom-agent-registry";
+
 const MODEL_CONFIG_KEYS = ["model", "models"] as const;
 const THINKING_CONFIG_KEYS = ["thinking", "think", "thought_level"] as const;
 
@@ -29,5 +31,7 @@ export function pickInstalledRegistryId(
   const next = preferred?.trim() ?? "";
   if (!next) return "";
   if (installedIds.length === 0) return next;
-  return installedIds.includes(next) ? next : "";
+  if (installedIds.includes(next)) return next;
+  const folded = canonicalizeChatProviderId(next);
+  return installedIds.find((id) => canonicalizeChatProviderId(id) === folded) ?? "";
 }

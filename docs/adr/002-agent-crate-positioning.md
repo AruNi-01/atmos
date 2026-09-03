@@ -1,8 +1,10 @@
 # ADR-002: Agent Crate 作为独立垂直模块
 
-**状态**: ✅ 已采纳
+**状态**: ✅ 已采纳（crate 独立性仍有效）
 **日期**: 2025-02-18
 **相关**: [ADR-001: 采用 Monorepo 架构](./001-monorepo.md)
+
+**Chat runtime (2026-09)**: Chat no longer talks to `AcpSessionHandle` from `apps/api`. `core-service` `AgentChatService` talks to `agent::AgentProvider` (native Claude / Codex / OpenCode / Pi / Grok plus ACP fallback). Current map: [`crates/agent/AGENTS.md`](../../crates/agent/AGENTS.md). The `src/` tree in §实施细节 is a historical snapshot.
 
 ---
 

@@ -213,6 +213,7 @@ const AI_PROVIDER_ICON_IDS = new Set([
   "opencode",
   "zai",
   "zed",
+  "deepseek",
 ]);
 
 /**

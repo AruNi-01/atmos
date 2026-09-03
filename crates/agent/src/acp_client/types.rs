@@ -186,11 +186,17 @@ pub struct ToolCallUpdate {
     pub parent_tool_call_id: Option<String>,
     pub tool: String,
     pub description: String,
+    /// ACP protocol `ToolKind` slug (`read`, `execute`, `other`, …). Absent on patches.
+    #[serde(default)]
+    pub acp_kind: Option<String>,
     pub status: ToolCallStatus,
     /// Raw input params (e.g. {"path": "src/lib.rs"} for Read)
     pub raw_input: Option<serde_json::Value>,
     /// Structured content emitted by the tool call.
     pub content: Vec<AgentToolCallContentItem>,
+    /// ACP `locations` (files this call read or produced).
+    #[serde(default)]
+    pub locations: Vec<String>,
     /// Raw output or content from tool execution
     pub raw_output: Option<serde_json::Value>,
     pub detail: Option<serde_json::Value>,

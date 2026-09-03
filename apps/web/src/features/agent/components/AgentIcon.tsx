@@ -30,24 +30,22 @@ export const AgentIcon: React.FC<{
   registryId,
   name,
   size = 18,
-  isCustom = false,
   registryIcon = null,
   color,
   className,
 }) => {
   const { resolvedTheme } = useTheme();
-  const isLikelyCustom = React.useMemo(
-    () => isCustom || registryId.includes(" ") || registryId.includes("%20"),
-    [isCustom, registryId]
-  );
 
   const sources = React.useMemo(() => {
     const normalizedRegistryIcon = registryIcon?.trim() || null;
-    if (isLikelyCustom) {
+    const skipLocalHunt =
+      registryId.includes(" ") || registryId.includes("%20");
+    if (skipLocalHunt) {
       return normalizedRegistryIcon ? [normalizedRegistryIcon] : [];
     }
 
     // Resolve remaps/aliases first so tokscale ids (roocode, grok, …) hit real assets.
+    // Builtin custom agents (e.g. deepseek-harness) still use local /agents assets.
     const localCandidates = getAgentIconCandidates(registryId);
     const themePairKey = Object.keys(AGENT_THEME_PAIR_ICONS).find(
       (key) =>
@@ -68,7 +66,7 @@ export const AgentIcon: React.FC<{
       out.push(normalizedRegistryIcon);
     }
     return out;
-  }, [registryId, isLikelyCustom, registryIcon, resolvedTheme]);
+  }, [registryId, registryIcon, resolvedTheme]);
   const sourceKey = sources.join("\0");
   const [sourceState, setSourceState] = React.useState({ key: sourceKey, idx: 0 });
   const idx = sourceState.key === sourceKey ? sourceState.idx : 0;

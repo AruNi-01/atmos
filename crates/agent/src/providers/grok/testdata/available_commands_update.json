@@ -1,0 +1,22 @@
+{
+  "jsonrpc": "2.0",
+  "method": "session/update",
+  "params": {
+    "sessionId": "sess_1",
+    "update": {
+      "sessionUpdate": "available_commands_update",
+      "availableCommands": [
+        {
+          "name": "compact",
+          "description": "Compress conversation history to save context window",
+          "input": { "hint": "optional context about what to preserve" }
+        },
+        {
+          "name": "wrangler",
+          "description": "Cloudflare Wrangler skill",
+          "input": null
+        }
+      ]
+    }
+  }
+}

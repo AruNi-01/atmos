@@ -23,6 +23,7 @@ export function looksLikeShellCommand(text: string): boolean {
   const value = stripPromptPrefix(text);
   if (!value) return false;
   if (SHELL_START_RE.test(value)) return true;
+  if (/^\/(?:bin|usr\/bin|opt)\/\S+/.test(value) && /\s/.test(value)) return true;
   if (SHELL_META_RE.test(value) && /\s/.test(value)) return true;
   return false;
 }
@@ -48,6 +49,10 @@ export function resolvePermissionCommand(input: {
   }
 
   if (fenced) return fenced;
+  const markdown = input.contentMarkdown?.trim() ?? "";
+  if (markdown && looksLikeShellCommand(markdown)) {
+    return stripPromptPrefix(markdown);
+  }
   if (looksLikeShellCommand(description)) return stripPromptPrefix(description);
   return null;
 }
@@ -85,11 +90,19 @@ export function permissionOptionVariant(
   if (
     normalized.includes("reject")
     || normalized.includes("deny")
+    || normalized.includes("decline")
     || normalized === "no"
+    || normalized === "cancel"
   ) {
     return "ghost";
   }
-  if (normalized.includes("always")) return "secondary";
-  if (normalized.includes("once") || normalized.includes("allow")) return "default";
+  if (normalized.includes("always") || normalized.includes("session")) return "secondary";
+  if (
+    normalized.includes("once")
+    || normalized.includes("allow")
+    || normalized === "accept"
+  ) {
+    return "default";
+  }
   return "secondary";
 }

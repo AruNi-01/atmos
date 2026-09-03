@@ -21,11 +21,9 @@ import { AgentComposerAttachmentList } from "./AgentComposerAttachments";
 export const AgentChatMessageView = React.memo(function AgentChatMessageView({
   message,
   index,
-  registryId,
 }: {
   message: AgentMessage;
   index: number;
-  registryId: string;
 }) {
   const t = useTranslations("Agent.components.chatPanel");
   const locale = useLocale();
@@ -117,7 +115,7 @@ export const AgentChatMessageView = React.memo(function AgentChatMessageView({
         <>
           <Message from="assistant">
             <MessageContent>
-              <AssistantMessageView message={message} registryId={registryId} />
+              <AssistantMessageView message={message} />
               {!message.streaming && (assistantText || (message.worked_ms != null && message.worked_ms > 0) || message.usage) ? (
                 <div className="mt-2 flex items-center gap-2">
                   {assistantText ? (

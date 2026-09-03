@@ -49,6 +49,7 @@ export interface StartSessionOverride {
   projectId?: string | null;
   registryId?: string;
   authMethodId?: string | null;
+  apiKey?: string | null;
 }
 
 export interface ResumeSessionInput {

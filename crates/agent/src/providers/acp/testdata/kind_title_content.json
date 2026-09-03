@@ -1,0 +1,7 @@
+{
+  "tool_call_id": "tc_dsh",
+  "name": "Search",
+  "title": "Check LLM providers, DB backend, app names",
+  "raw_input": {},
+  "content_text": "crates/llm/src/lib.rs:12: pub struct Provider"
+}

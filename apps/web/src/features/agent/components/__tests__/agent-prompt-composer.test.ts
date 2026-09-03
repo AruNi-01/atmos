@@ -8,12 +8,48 @@ const composer = readFileSync(
 );
 
 describe("agent prompt composer", () => {
-  it("uses the beui prompt input with a combined agent-model select and thinking slider", () => {
+  it("APP-069 S9 has no standing Fork or Rewind composer buttons", () => {
+    expect(composer).not.toMatch(/["']Fork["']/);
+    expect(composer).not.toMatch(/["']Rewind["']/);
+    expect(composer).not.toContain("sessionOpFork");
+    expect(composer).not.toContain("sessionOpRewind");
+    expect(composer).not.toContain("onFork");
+    expect(composer).not.toContain("onRewind");
+    expect(composer).not.toContain("<AgentSessionOpCard");
+  });
+
+  it("S6 keeps mode and permission as first-class pickers without dumping ACP groups", () => {
+    expect(composer).toContain(
+      'configOptions.find((option) => configKindMatches(option.id, option.category, "mode"))',
+    );
+    expect(composer).toContain(
+      'configKindMatches(option.id, option.category, "permission_mode")',
+    );
+    expect(composer).not.toContain("splitComposerConfigOptions");
+    expect(composer).not.toContain("extraConfigOptions");
+    expect(composer).toContain("thinkingLevels=");
+    expect(composer).toContain("thinkingLevelMessageKey");
+    expect(composer).toContain("chatPanel.pickers.thinkingLevels");
+    expect(composer).toContain("modes={toModePromptModels");
+    expect(composer).toContain("permissionModes={toPermissionPromptModels");
+    expect(composer).not.toContain("modes={[]}");
+    expect(composer).not.toContain("composerConfigIcon");
+    expect(composer).not.toContain("ConfigOptionDropdown");
+    expect(composer).toContain("ShieldAlert");
+    expect(composer).toContain("function modeIcon");
+    expect(composer).toContain("ListTodo");
+    expect(composer).toContain("Hammer");
+    expect(composer).toContain("MessageSquare");
+    expect(composer).not.toContain("icon: <Bot className=\"size-3.5 shrink-0\" />");
+  });
+
+  it("uses the beui prompt input with a combined agent-model select and thinking flyout", () => {
     expect(composer).toContain("AgentsPromptInput");
     expect(composer).toContain("agentLocked={agentLocked || !onProviderChange}");
     expect(composer).toContain("thinkingLevels=");
     expect(composer).toContain("isThinkingConfigId(option.id, option.category)");
-    expect(composer).toContain("modes={toPromptModels(isConnected ? modeOption : null)}");
+    expect(composer).toContain("modes={toModePromptModels");
+    expect(composer).toContain("permissionModes={toPermissionPromptModels");
     expect(composer).toContain("onAgentChange={onProviderChange}");
     expect(composer).toContain('radius="3xl"');
     expect(composer).toContain('"w-full shadow-none"');
@@ -23,10 +59,14 @@ describe("agent prompt composer", () => {
     expect(composer).toContain("modesLocked={modesLocked}");
     expect(composer).toContain('modelLocked: t("composer.modelLocked")');
     expect(composer).toContain('modeLocked: t("composer.modeLocked")');
+    expect(composer).toContain('permissionLocked: t("composer.permissionLocked")');
     expect(composer).toContain("onEmptyModelsOpen={onEmptyModelsOpen}");
     expect(composer).toContain('model: t("composer.model")');
     expect(composer).toContain('searchModels: t("composer.searchModels")');
     expect(composer).toContain('searchAgents: t("composer.searchAgents")');
+    expect(composer).toContain(
+      'configOptions.find((option) => configKindMatches(option.id, option.category, "mode"))',
+    );
   });
 
   it("renders image tiles and file pills in the composer header", () => {

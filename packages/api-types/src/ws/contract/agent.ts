@@ -15,7 +15,10 @@ import type {
   CustomAgentListResponse,
   CustomAgentManifestPathResponse,
   CustomAgentNameRequest,
+  CustomAgentSetEnabledRequest,
   CustomAgentSetJsonRequest,
+  NativeAgentSetEnabledRequest,
+  NativeChatAgentListResponse,
   RegistryInstallResponse,
 } from "../dto/agent";
 
@@ -48,5 +51,15 @@ export type AgentContract = {
   custom_agent_get_manifest_path: {
     input: WsEmpty;
     output: CustomAgentManifestPathResponse;
+  };
+  custom_agent_set_enabled: {
+    input: CustomAgentSetEnabledRequest;
+    output: WsSuccess;
+  };
+  custom_agent_preload: { input: CustomAgentNameRequest; output: WsSuccess };
+  native_agent_list: { input: WsEmpty; output: NativeChatAgentListResponse };
+  native_agent_set_enabled: {
+    input: NativeAgentSetEnabledRequest;
+    output: WsSuccess;
   };
 };
