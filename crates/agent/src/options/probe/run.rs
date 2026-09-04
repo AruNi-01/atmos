@@ -358,7 +358,21 @@ mod tests {
         assert!(catalog.modes.is_empty());
         assert_eq!(catalog.permission_modes.len(), 1);
         assert_eq!(catalog.permission_modes[0].id, "default");
-        assert!(root.path().join("claude").exists());
+        let mut entries = std::fs::read_dir(root.path())
+            .expect("probe root")
+            .filter_map(|entry| entry.ok())
+            .collect::<Vec<_>>();
+        assert_eq!(entries.len(), 1, "expected one isolated ACP probe cwd");
+        let name = entries
+            .pop()
+            .expect("entry")
+            .file_name()
+            .into_string()
+            .expect("utf8");
+        assert!(
+            name.starts_with("claude-") && name.len() == "claude-".len() + 16,
+            "expected claude-<16-hex> isolation key, got {name}"
+        );
     }
 
     #[tokio::test]
