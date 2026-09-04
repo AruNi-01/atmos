@@ -21,7 +21,7 @@ pub enum AgentAction {
         option_id: String,
     },
     SetConfig {
-        update: AgentRuntimeConfigUpdate,
+        update: Box<AgentRuntimeConfigUpdate>,
     },
     PrepareSessionOp {
         kind: SessionOpKind,
@@ -134,7 +134,7 @@ mod tests {
             option_id: "allow".into(),
         };
         let _config = AgentAction::SetConfig {
-            update: AgentRuntimeConfigUpdate::default(),
+            update: Box::new(AgentRuntimeConfigUpdate::default()),
         };
         let _prepare = AgentAction::PrepareSessionOp {
             kind: SessionOpKind::Rewind,

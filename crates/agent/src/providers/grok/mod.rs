@@ -135,7 +135,7 @@ enum GrokDispatchedAction {
         option_id: String,
     },
     SetConfig {
-        update: AgentRuntimeConfigUpdate,
+        update: Box<AgentRuntimeConfigUpdate>,
     },
     RespondSessionOp {
         option_id: String,
@@ -229,7 +229,7 @@ impl AgentRuntimeCommands for GrokCommands {
                 let _ = tx.send(option_id);
                 Ok(AgentActionResult::unit())
             }
-            GrokDispatchedAction::SetConfig { update } => apply_set_config(&self.control, update)
+            GrokDispatchedAction::SetConfig { update } => apply_set_config(&self.control, *update)
                 .await
                 .map(|()| AgentActionResult::unit())
                 .map_err(|_| AgentActionError::Unsupported {

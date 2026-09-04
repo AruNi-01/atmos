@@ -85,10 +85,6 @@ fn default_model_id(catalog: &AgentOptionsSnapshot, requested: Option<&str>) -> 
         if fuzzy.len() == 1 {
             return Some(fuzzy[0].id.clone());
         }
-        if catalog.models.is_empty() {
-            // Host options not loaded yet — keep explicit create/configure request.
-            return Some(id.to_string());
-        }
     }
     catalog
         .models

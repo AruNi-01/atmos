@@ -178,6 +178,7 @@ impl AgentChatService {
         self.store.rename(id, title)
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub async fn configure(
         &self,
         id: &str,
@@ -315,6 +316,10 @@ impl AgentChatService {
         if !live {
             return Ok(meta);
         }
+        let gate = self.turn_gate(id).await;
+        let Ok(_turn) = gate.try_lock() else {
+            return self.store.get_meta(id);
+        };
         let busy = self.live_turn_is_busy(id).await;
         if busy {
             return Ok(meta);
@@ -579,6 +584,40 @@ impl AgentChatService {
         .await
         {
             let error_message = error.to_string();
+            if let Some(runtime) = self.runtimes.lock().await.get(chat_id) {
+                let mut state = runtime.state.lock().await;
+                if state.current_turn_id.as_deref() == Some(turn_id.as_str()) {
+                    state.current_turn_id = None;
+                }
+            }
+            let _ = self.store.append_record(
+                chat_id,
+                &TranscriptEnvelope::new(
+                    turn_id.clone(),
+                    TranscriptEvent::TurnCompleted {
+                        status: TurnStatus::Failed,
+                        error: Some(error_message.clone()),
+                        worked_ms: None,
+                        thinking_ms: None,
+                        usage: None,
+                    },
+                ),
+            );
+            let _ = self.store.update_meta(chat_id, |meta| {
+                meta.runtime_status = RuntimeStatus::Detached;
+            });
+            let _ = self.emit(
+                chat_id,
+                AgentChatPayload::TurnCompleted {
+                    turn_id: turn_id.clone(),
+                    status: TurnStatus::Failed,
+                    worked_ms: None,
+                    thinking_ms: None,
+                    completed_at: None,
+                    usage: None,
+                    error: Some(error_message.clone()),
+                },
+            );
             self.apply_status_host_event(
                 chat_id,
                 &AgentEvent::TurnFailed {
@@ -1088,8 +1127,13 @@ impl AgentChatService {
                     catalog
                         .models
                         .iter()
-                        .find(|model| model.is_default)
-                        .or_else(|| catalog.models.first())
+                        .find(|model| model.is_default && model_id_usable(&model.id))
+                        .or_else(|| {
+                            catalog
+                                .models
+                                .iter()
+                                .find(|model| model_id_usable(&model.id))
+                        })
                         .map(|model| model.id.clone())
                 })
             }),
@@ -1768,6 +1812,10 @@ async fn pump_session(
     });
 }
 
+fn model_id_usable(id: &str) -> bool {
+    let trimmed = id.trim();
+    !trimmed.is_empty() && !trimmed.contains(char::is_whitespace)
+}
 fn resolve_configure_select(
     meta: &AgentChatMeta,
     kind: &str,

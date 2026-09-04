@@ -122,7 +122,9 @@ impl AgentRuntimeControl {
 
     pub async fn set_config(&self, update: AgentRuntimeConfigUpdate) -> AgentResult<()> {
         self.inner
-            .action(AgentAction::SetConfig { update })
+            .action(AgentAction::SetConfig {
+                update: Box::new(update),
+            })
             .await
             .map(|_| ())
             .map_err(Into::into)

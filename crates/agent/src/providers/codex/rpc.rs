@@ -400,7 +400,7 @@ impl CodexShared {
             apply_listed_defaults_to_sticky(&mut sticky, &models, &thinking);
         }
         let sticky = self.sticky.lock().await.clone();
-        if sticky_unset(&sticky.model) {
+        if resume.is_none() && sticky_unset(&sticky.model) {
             return Err(AgentProviderError::message(
                 "codex requires a model before thread/start",
             ));

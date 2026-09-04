@@ -128,6 +128,8 @@ After pipes are up, **before any other method**:
 {"id":1,"result":{"thread":{"id":"thr_123"}}}
 ```
 
+On 0.153+, sticky `model` remains required on `thread/start` (top-level). Mode is **not** set here; it is sticky on each `turn/start.collaborationMode` with `settings.model` (and optional `reasoning_effort`, plus `developer_instructions: null`).
+
 `thread.id` → `AgentPersistenceHandle` + `SessionStarted`. `thread/read` is optional existence check only; **do not** replay turns into Atmos jsonl.
 
 Do not combine `sandbox` with experimental `permissions` profile ids. v1 uses the legacy `sandbox` string (`workspaceWrite` when Chat cwd is a writable project; `readOnly` only if product later adds a mode — default **workspaceWrite** so execute/edit cards can appear). `approvalPolicy: "onRequest"` is what surfaces `requestApproval`; `"never"` would make `permission: Supported` a lie.
@@ -152,7 +154,13 @@ thread_id      →  persistence_handle
 
 ```json
 {"method":"turn/start","id":30,"params":{
-  "threadId":"thr_123","input":[{"type":"text","text":"Run tests"}]
+  "threadId":"thr_123",
+  "input":[{"type":"text","text":"Run tests"}],
+  "model":"gpt-5.6-sol",
+  "collaborationMode":{
+    "mode":"default",
+    "settings":{"model":"gpt-5.6-sol","developer_instructions":null}
+  }
 }}
 {"id":30,"result":{"turn":{"id":"turn_456","status":"inProgress"}}}
 

@@ -742,9 +742,10 @@ async fn send_after_model_switch_emits_session_config_change() {
 
     let snapshot = service.get(&meta.id).await.unwrap();
     let config_part = snapshot.messages.iter().rev().find_map(|message| {
-        message.parts.iter().find_map(|part| {
-            matches!(part, MessagePart::SessionConfigChange { .. }).then_some(part)
-        })
+        message
+            .parts
+            .iter()
+            .find(|part| matches!(part, MessagePart::SessionConfigChange { .. }))
     });
     match config_part {
         Some(MessagePart::SessionConfigChange { model, mode, .. }) => {

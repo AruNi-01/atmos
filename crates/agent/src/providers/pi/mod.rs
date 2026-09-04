@@ -161,7 +161,7 @@ impl AgentRuntimeCommands for PiCommands {
                 .await
                 .map(|()| AgentActionResult::unit()),
             AgentAction::SetConfig { update } => self
-                .set_config(update)
+                .set_config(*update)
                 .await
                 .map(|()| AgentActionResult::unit()),
             AgentAction::PrepareSessionOp { kind, rest } => {
@@ -1340,10 +1340,10 @@ mod tests {
         runtime
             .control()
             .action(AgentAction::SetConfig {
-                update: crate::contract::AgentRuntimeConfigUpdate {
+                update: Box::new(crate::contract::AgentRuntimeConfigUpdate {
                     model: Some("anthropic/claude-sonnet-4-20250514".into()),
                     ..crate::contract::AgentRuntimeConfigUpdate::default()
-                },
+                }),
             })
             .await
             .expect("set model");

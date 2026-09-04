@@ -658,6 +658,7 @@ fn stamp_advertised_selection(
         .map(|item| item.trim())
         .filter(|item| !item.is_empty())?;
     let option = advertised_option_for_kind(options, kind);
+    let had_applied = applied.as_ref().is_some_and(|item| !item.trim().is_empty());
     let keep = keep_pending_session_selection(
         selected.as_ref(),
         applied.as_ref(),
@@ -677,12 +678,14 @@ fn stamp_advertised_selection(
         } else {
             selected.clone()
         }
-    } else if preserve_user_selection_over_host_advertised(
-        selected.as_ref(),
-        value,
-        option,
-        provider_id,
-    ) {
+    } else if !had_applied
+        && preserve_user_selection_over_host_advertised(
+            selected.as_ref(),
+            value,
+            option,
+            provider_id,
+        )
+    {
         if let Some(mapped) = option.and_then(|item| {
             selected
                 .as_deref()
@@ -930,6 +933,7 @@ fn parse_advertised_options(config: &serde_json::Value) -> Vec<SessionAdvertised
         .collect()
 }
 
+#[allow(clippy::type_complexity)]
 pub(super) fn selected_session_config(
     config: &serde_json::Value,
 ) -> (

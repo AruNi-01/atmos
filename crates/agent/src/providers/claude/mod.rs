@@ -158,7 +158,7 @@ impl AgentRuntimeCommands for ClaudeCommands {
                 .await
                 .map(|()| AgentActionResult::unit()),
             AgentAction::SetConfig { update } => self
-                .set_config(update)
+                .set_config(*update)
                 .await
                 .map(|()| AgentActionResult::unit()),
             AgentAction::PrepareSessionOp { kind, rest } => {
@@ -628,9 +628,10 @@ async fn note_delivered_event(
 }
 
 fn provider_descriptor(current: AgentCurrentConfig) -> AgentDescriptor {
-    let mut supported_options = AgentSupportedOptions::default();
-    supported_options.fast =
-        crate::policy::boolean_fast_modes(crate::policy::is_fast_on(current.fast.as_deref()));
+    let supported_options = AgentSupportedOptions {
+        fast: crate::policy::boolean_fast_modes(crate::policy::is_fast_on(current.fast.as_deref())),
+        ..AgentSupportedOptions::default()
+    };
     AgentDescriptor {
         identity: AgentIdentity {
             id: "claude".into(),

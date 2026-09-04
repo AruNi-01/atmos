@@ -54,7 +54,7 @@ pub(crate) enum AcpDispatchedAction {
         option_id: String,
     },
     SetConfig {
-        update: AgentRuntimeConfigUpdate,
+        update: Box<AgentRuntimeConfigUpdate>,
     },
 }
 
@@ -130,7 +130,7 @@ impl AgentRuntimeCommands for AcpCommands {
                 Ok(AgentActionResult::unit())
             }
             AcpDispatchedAction::SetConfig { update } => {
-                apply_set_config(&self.provider_id, &self.control, update)
+                apply_set_config(&self.provider_id, &self.control, *update)
                     .await
                     .map(|()| AgentActionResult::unit())
                     .map_err(|_| AgentActionError::Unsupported {
@@ -458,7 +458,7 @@ async fn open_acp_session(
             let for_cursor = canonicalize_chat_provider_id(&params.provider_id) == "cursor";
             // Cursor ACP only accepts advertised `base[params]` values. CLI-encoded
             // ids fail set_config; wait for ConfigChanged + pending sync to map them.
-            if !(for_cursor && !cursor_model_has_brackets(&model)) {
+            if !for_cursor || cursor_model_has_brackets(&model) {
                 extra.insert("model".into(), model);
             }
         }

@@ -66,7 +66,7 @@ pub fn cursor_alias_key(id: &str) -> String {
 fn cursor_token_key(id: &str) -> BTreeMap<String, usize> {
     let mut counts = BTreeMap::new();
     for token in cursor_alias_key(id)
-        .split(|c: char| c == '-' || c == '.' || c == '_')
+        .split(['-', '.', '_'])
         .filter(|token| !token.is_empty())
     {
         *counts.entry(token.to_ascii_lowercase()).or_insert(0) += 1;

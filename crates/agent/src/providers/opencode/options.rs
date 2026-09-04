@@ -86,10 +86,22 @@ async fn probe_inner(isolated_cwd: &Path) -> Result<NativeOptionsProbeResult, St
         }
     }
     crate::policy::merge_plan_into_modes(&mut modes, &permission_modes);
-    permission_modes = crate::policy::fold_vendor_permission_modes(&permission_modes);
-    if permission_modes.is_empty() {
-        permission_modes = crate::policy::advertised_permission_modes("opencode");
+    let folded = crate::policy::fold_vendor_permission_modes(&permission_modes);
+    // Honesty: picker is always Atmos auto/ask_always (never folded Yolo).
+    let mut stamped = crate::policy::advertised_permission_modes("opencode");
+    if let Some(preferred) = folded
+        .iter()
+        .find(|mode| mode.is_default)
+        .or_else(|| folded.first())
+    {
+        if let Some(want) = crate::policy::permission::classify(&preferred.id) {
+            for mode in &mut stamped {
+                mode.is_default =
+                    crate::policy::permission::AtmosPermission::parse(&mode.id) == Some(want);
+            }
+        }
     }
+    permission_modes = stamped;
     let _ = http.post_empty("/instance/dispose").await;
     let closed = close_serve(&mut serve).await;
     if modes.is_empty() {

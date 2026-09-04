@@ -103,9 +103,10 @@ fn current_config_from(cfg: &AgentRuntimeConfig) -> AgentCurrentConfig {
 }
 
 fn provider_descriptor(current: AgentCurrentConfig) -> AgentDescriptor {
-    let mut supported_options = AgentSupportedOptions::default();
-    supported_options.fast =
-        crate::policy::boolean_fast_modes(crate::policy::is_fast_on(current.fast.as_deref()));
+    let supported_options = AgentSupportedOptions {
+        fast: crate::policy::boolean_fast_modes(crate::policy::is_fast_on(current.fast.as_deref())),
+        ..AgentSupportedOptions::default()
+    };
     AgentDescriptor {
         identity: AgentIdentity {
             id: "codex".into(),
@@ -245,6 +246,7 @@ impl AgentRuntimeCommands for CodexCommands {
                 .await
                 .map(|()| AgentActionResult::unit()),
             AgentAction::SetConfig { update } => {
+                let update = *update;
                 let thread_id = self.shared.ids.lock().await.thread_id.clone();
                 let mut sticky = self.shared.sticky.lock().await;
                 sticky.apply(&update);
@@ -924,12 +926,12 @@ for raw in sys.stdin:
         let control = runtime.control();
         control
             .action(AgentAction::SetConfig {
-                update: AgentRuntimeConfigUpdate {
+                update: Box::new(AgentRuntimeConfigUpdate {
                     model: Some("gpt-5.6-sol".into()),
                     thinking: Some("high".into()),
                     mode: Some("plan".into()),
                     ..AgentRuntimeConfigUpdate::default()
-                },
+                }),
             })
             .await
             .expect("set config");

@@ -294,7 +294,7 @@ impl AgentRuntimeCommands for FakeSessionInner {
                         action: AgentActionKind::SetConfig,
                     });
                 }
-                *self.last_config.lock().await = Some(update);
+                *self.last_config.lock().await = Some(*update);
                 Ok(AgentActionResult::unit())
             }
             AgentAction::RespondPermission {

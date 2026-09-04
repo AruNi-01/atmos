@@ -105,11 +105,21 @@ async fn probe_inner(isolated_cwd: &Path) -> Result<NativeOptionsProbeResult, St
             "approvalPolicies",
         ],
     );
-    let permission_modes = if permission_modes.is_empty() {
-        crate::policy::advertised_permission_modes("codex")
-    } else {
-        crate::policy::fold_vendor_permission_modes(&permission_modes)
-    };
+    let folded = crate::policy::fold_vendor_permission_modes(&permission_modes);
+    let mut stamped = crate::policy::advertised_permission_modes("codex");
+    if let Some(preferred) = folded
+        .iter()
+        .find(|mode| mode.is_default)
+        .or_else(|| folded.first())
+    {
+        if let Some(want) = crate::policy::permission::classify(&preferred.id) {
+            for mode in &mut stamped {
+                mode.is_default =
+                    crate::policy::permission::AtmosPermission::parse(&mode.id) == Some(want);
+            }
+        }
+    }
+    let permission_modes = stamped;
     let mut commands = host_slash_commands();
     if let Some(skills) = skills.as_ref() {
         for command in commands_from_value(skills) {

@@ -163,6 +163,7 @@ impl AgentRuntimeCommands for OpenCodeCommands {
                 self.steer(input).await.map(|()| AgentActionResult::unit())
             }
             AgentAction::SetConfig { update } => {
+                let update = *update;
                 let mut config = self
                     .current_config
                     .lock()
@@ -509,6 +510,7 @@ impl AgentRuntime for OpenCodeRuntime {
                     }
                 }
                 MapOut::AutoApprovePermission { request_id } => {
+                    sync_pending_asks(&self.commands, &self.map);
                     let _ = self
                         .commands
                         .respond_permission(request_id, "once".into())

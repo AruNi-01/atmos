@@ -1001,6 +1001,7 @@ mod tests {
                 }
             }
 
+            #[allow(clippy::type_complexity)]
             let acp_cases: &[(&str, &str, &[&str], OptionsParserKind, &[&str])] = &[
                 (
                     "cursor",

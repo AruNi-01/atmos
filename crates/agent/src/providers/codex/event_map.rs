@@ -32,10 +32,12 @@ pub struct EventMapState {
 
 impl EventMapState {
     pub fn new(current_config: AgentCurrentConfig) -> Self {
-        let mut supported_options = AgentSupportedOptions::default();
-        supported_options.fast = crate::policy::boolean_fast_modes(crate::policy::is_fast_on(
-            current_config.fast.as_deref(),
-        ));
+        let supported_options = AgentSupportedOptions {
+            fast: crate::policy::boolean_fast_modes(crate::policy::is_fast_on(
+                current_config.fast.as_deref(),
+            )),
+            ..AgentSupportedOptions::default()
+        };
         Self {
             persistence: None,
             pending: VecDeque::new(),
