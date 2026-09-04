@@ -45,6 +45,15 @@ impl AcpToolHandler for LiveFsHandler {
             return candidate;
         };
         let Ok(resolved) = candidate.canonicalize() else {
+            // Dangling / leaf symlinks must not fall through to parent+name —
+            // `write` would follow the link outside the workspace.
+            if candidate
+                .symlink_metadata()
+                .map(|meta| meta.file_type().is_symlink())
+                .unwrap_or(false)
+            {
+                return session_cwd.join("denied");
+            }
             // Still-uncreated paths: require a canonical parent under cwd.
             let Some(parent) = candidate.parent() else {
                 return session_cwd.join("denied");
@@ -77,6 +86,13 @@ impl AcpToolHandler for LiveFsHandler {
     }
 
     async fn write_text_file(&self, path: &Path, content: &str) -> Result<(), String> {
+        if path
+            .symlink_metadata()
+            .map(|meta| meta.file_type().is_symlink())
+            .unwrap_or(false)
+        {
+            return Err("refusing to write through a symlink".into());
+        }
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent).map_err(|error| error.to_string())?;
         }

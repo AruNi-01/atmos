@@ -127,18 +127,23 @@ pub fn expand_sparse_permission_modes(host: &str, existing: Vec<AgentMode>) -> V
     if advertised.is_empty() {
         return existing;
     }
+    let advertised_ids: Vec<_> = advertised
+        .iter()
+        .filter_map(|mode| AtmosPermission::parse(&mode.id))
+        .collect();
     let covers_advertised = advertised.iter().all(|need| {
         existing
             .iter()
             .any(|have| classify(&have.id) == AtmosPermission::parse(&need.id))
     });
-    if covers_advertised {
+    let only_advertised = existing.iter().all(|have| match classify(&have.id) {
+        Some(atmos) => advertised_ids.contains(&atmos),
+        // Unknown vendor ids are not part of the honest advertised subset.
+        None => false,
+    });
+    if covers_advertised && only_advertised {
         return existing;
     }
-    let advertised_ids: Vec<_> = advertised
-        .iter()
-        .filter_map(|mode| AtmosPermission::parse(&mode.id))
-        .collect();
     let default_atmos = existing
         .iter()
         .find(|mode| mode.is_default)
@@ -544,6 +549,38 @@ mod tests {
         assert!(expanded
             .iter()
             .any(|item| item.id == "ask_always" && item.is_default));
+        let with_extra = expand_sparse_permission_modes(
+            "cursor",
+            vec![
+                AgentMode {
+                    id: "yolo".into(),
+                    label: "Yolo".into(),
+                    is_default: false,
+                },
+                AgentMode {
+                    id: "auto".into(),
+                    label: "Auto".into(),
+                    is_default: false,
+                },
+                AgentMode {
+                    id: "ask_always".into(),
+                    label: "Ask always".into(),
+                    is_default: true,
+                },
+                AgentMode {
+                    id: "accept_edits".into(),
+                    label: "Accept edits".into(),
+                    is_default: false,
+                },
+            ],
+        );
+        assert_eq!(
+            with_extra
+                .iter()
+                .map(|item| item.id.as_str())
+                .collect::<Vec<_>>(),
+            ["yolo", "auto", "ask_always"]
+        );
         assert!(!acp_permission_via_config_option("cursor"));
         assert!(!acp_permission_via_config_option("grok"));
         assert!(!acp_permission_via_config_option("claude"));
