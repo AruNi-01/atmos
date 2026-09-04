@@ -140,7 +140,14 @@ impl OptionsProbe {
     }
 
     async fn acp_fragment(&self, spec: &ProbePlan) -> Option<OptionsFragment> {
-        let agent_key = spec
+        let digest = {
+            use std::collections::hash_map::DefaultHasher;
+            use std::hash::{Hash, Hasher};
+            let mut hasher = DefaultHasher::new();
+            spec.agent_id.hash(&mut hasher);
+            format!("{:016x}", hasher.finish())
+        };
+        let safe: String = spec
             .agent_id
             .chars()
             .map(|ch| {
@@ -150,16 +157,12 @@ impl OptionsProbe {
                     '_'
                 }
             })
-            .collect::<String>();
-        if agent_key.is_empty() || agent_key == "." || agent_key == ".." || agent_key.contains("..")
-        {
-            return Some(OptionsFragment {
-                status: Some(OptionsStatus::Error),
-                message: Some("invalid agent id for options probe path".into()),
-                strategy: Some(OptionsProbeStrategy::Acp),
-                ..Default::default()
-            });
-        }
+            .collect();
+        let agent_key = if safe.is_empty() || safe == "." || safe == ".." {
+            digest.clone()
+        } else {
+            format!("{safe}-{digest}")
+        };
         let isolated = self.probe_root.join(&agent_key);
         if let Err(error) = std::fs::create_dir_all(&isolated) {
             return Some(OptionsFragment {

@@ -135,11 +135,16 @@ pub fn expand_sparse_permission_modes(host: &str, existing: Vec<AgentMode>) -> V
     if covers_advertised {
         return existing;
     }
+    let advertised_ids: Vec<_> = advertised
+        .iter()
+        .filter_map(|mode| AtmosPermission::parse(&mode.id))
+        .collect();
     let default_atmos = existing
         .iter()
         .find(|mode| mode.is_default)
         .and_then(|mode| classify(&mode.id))
-        .or_else(|| existing.first().and_then(|mode| classify(&mode.id)));
+        .or_else(|| existing.first().and_then(|mode| classify(&mode.id)))
+        .filter(|atmos| advertised_ids.contains(atmos));
     advertised
         .into_iter()
         .map(|mode| {
@@ -147,6 +152,8 @@ pub fn expand_sparse_permission_modes(host: &str, existing: Vec<AgentMode>) -> V
             AgentMode {
                 is_default: match (atmos, default_atmos) {
                     (Some(left), Some(right)) => left == right,
+                    // Probe default was outside the advertised subset — keep stamp default.
+                    (Some(_), None) => mode.is_default,
                     _ => mode.is_default,
                 },
                 ..mode

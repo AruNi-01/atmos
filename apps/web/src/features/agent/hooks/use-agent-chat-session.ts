@@ -1468,7 +1468,7 @@ export function useAgentChatSession({
       setProviderIdState(targetRegistryId);
       const cached = optionsByAgentRef.current[targetRegistryId];
       if (cached) setCatalog(cached);
-      else setCatalog(null);
+      else if (registryChanged) setCatalog(null);
     }
     if (registryChanged) {
       const preferred = preferredConfigFromDefault(

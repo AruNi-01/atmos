@@ -45,15 +45,21 @@ impl AcpToolHandler for LiveFsHandler {
             return candidate;
         };
         let Ok(resolved) = candidate.canonicalize() else {
-            // Still-uncreated paths: require the parent stays under cwd.
-            if candidate.starts_with(&session_cwd) {
-                return candidate;
+            // Still-uncreated paths: require a canonical parent under cwd.
+            let Some(parent) = candidate.parent() else {
+                return session_cwd.join("denied");
+            };
+            let Ok(parent) = parent.canonicalize() else {
+                return session_cwd.join("denied");
+            };
+            if parent.starts_with(&session_cwd) {
+                return parent.join(
+                    candidate
+                        .file_name()
+                        .unwrap_or_else(|| std::ffi::OsStr::new("denied")),
+                );
             }
-            return session_cwd.join(
-                candidate
-                    .file_name()
-                    .unwrap_or_else(|| std::ffi::OsStr::new("denied")),
-            );
+            return session_cwd.join("denied");
         };
         if resolved.starts_with(&session_cwd) {
             resolved
