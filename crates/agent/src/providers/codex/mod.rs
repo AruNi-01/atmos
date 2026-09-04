@@ -28,12 +28,11 @@ use crate::contract::{
     AgentTurnHandle,
 };
 use crate::policy::{capabilities_for_provider, option_support_for_provider};
-use serde_json::{json, Value};
 
 use rpc::{
     answer_permission, collaboration_mode_rejected, reader_loop, stderr_loop, thread_fork_params,
     thread_revert_params, thread_rollback_params, turn_interrupt_params, turn_start_params,
-    turn_steer_params, CodexShared, StickyConfig, FAST_SERVICE_TIER,
+    turn_steer_params, CodexShared, StickyConfig,
 };
 use spawn::{ensure_child_alive, resolve_program, spawn_app_server, SpawnedAppServer};
 
@@ -247,18 +246,8 @@ impl AgentRuntimeCommands for CodexCommands {
                 .map(|()| AgentActionResult::unit()),
             AgentAction::SetConfig { update } => {
                 let update = *update;
-                let thread_id = self.shared.ids.lock().await.thread_id.clone();
                 let mut sticky = self.shared.sticky.lock().await;
                 sticky.apply(&update);
-                let service_tier = if update.fast.is_some() {
-                    Some(if crate::policy::is_fast_on(update.fast.as_deref()) {
-                        json!(FAST_SERVICE_TIER)
-                    } else {
-                        Value::Null
-                    })
-                } else {
-                    None
-                };
                 drop(sticky);
                 let mut map = self.shared.map.lock().await;
                 if let Some(model) = update.model {
@@ -281,18 +270,7 @@ impl AgentRuntimeCommands for CodexCommands {
                     map.supported_options.fast = crate::policy::boolean_fast_modes(enabled);
                 }
                 drop(map);
-                if let (Some(thread_id), Some(tier)) = (thread_id, service_tier) {
-                    let _ = self
-                        .shared
-                        .request(
-                            "thread/settings/update",
-                            json!({
-                                "threadId": thread_id,
-                                "serviceTier": tier,
-                            }),
-                        )
-                        .await;
-                }
+                // Fast is sticky on the next turn/start.serviceTier only.
                 Ok(AgentActionResult::unit())
             }
             AgentAction::PrepareSessionOp { .. } => Err(AgentActionError::Unsupported {

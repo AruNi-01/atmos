@@ -36,10 +36,33 @@ struct LiveFsHandler;
 impl AcpToolHandler for LiveFsHandler {
     fn resolve_path(&self, session_cwd: &Path, path: &str) -> PathBuf {
         let path_buf = PathBuf::from(path);
-        if path_buf.is_absolute() {
+        let candidate = if path_buf.is_absolute() {
             path_buf
         } else {
             session_cwd.join(path)
+        };
+        let Ok(session_cwd) = session_cwd.canonicalize() else {
+            return candidate;
+        };
+        let Ok(resolved) = candidate.canonicalize() else {
+            // Still-uncreated paths: require the parent stays under cwd.
+            if candidate.starts_with(&session_cwd) {
+                return candidate;
+            }
+            return session_cwd.join(
+                candidate
+                    .file_name()
+                    .unwrap_or_else(|| std::ffi::OsStr::new("denied")),
+            );
+        };
+        if resolved.starts_with(&session_cwd) {
+            resolved
+        } else {
+            session_cwd.join(
+                resolved
+                    .file_name()
+                    .unwrap_or_else(|| std::ffi::OsStr::new("denied")),
+            )
         }
     }
 
@@ -96,9 +119,14 @@ async fn drain_until_complete(
     let mut tools = Vec::new();
     let mut stop = None;
     while Instant::now() < deadline {
-        let Ok(Some(event)) = timeout(Duration::from_secs(12), runtime.next_event()).await else {
-            continue;
+        let event = match timeout(Duration::from_secs(12), runtime.next_event()).await {
+            Err(_) => continue,
+            Ok(None) => {
+                return Err("agent session closed before turn completed".into());
+            }
+            Ok(Some(event)) => event,
         };
+
         match event.payload {
             AgentEvent::AssistantMessageDelta { delta, .. } => text.push_str(&delta),
             AgentEvent::ToolCallStarted { tool_call, .. } => {
@@ -535,7 +563,12 @@ async fn live_claude_grok_permission_set_config_is_ok() {
 }
 
 #[tokio::test]
+#[ignore = "live CLI probe; run with ATMOS_LIVE_AGENT_CHAT=1 -- --ignored"]
 async fn cursor_agent_acp_help_mentions_acp_when_binary_present() {
+    if !live_enabled() {
+        eprintln!("skip: set ATMOS_LIVE_AGENT_CHAT=1 to run");
+        return;
+    }
     let Some(program) = which("cursor-agent") else {
         eprintln!("skip: cursor-agent missing");
         return;

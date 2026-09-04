@@ -309,7 +309,7 @@ Extract `apply_event` / snapshot flush and queue dispatch from `AgentChatService
 
 ### Finding
 
-TECH: `terminal_agent_model_catalog` becomes a facade over `crates/agent` options so Chat and Terminal do not grow a second parser zoo. `automation/agents.rs` still has its own TTL cache and `probe_terminal_agent_model_catalog`. Chat prefetch uses `OptionsProbe` separately.
+TECH: `terminal_agent_options` becomes a facade over `crates/agent` options so Chat and Terminal do not grow a second parser zoo. `automation/agents.rs` still has its own TTL cache and `probe_terminal_agent_options`. Chat prefetch uses `OptionsProbe` separately.
 
 ### Evidence
 

@@ -549,7 +549,7 @@ export function fillEmptyDescriptorOptionsFromSnapshot(
       ...options,
       models,
       modes: modes ?? [],
-      permission_modes: permissionModes,
+      permission_modes: permissionModes ?? [],
       thinking: thinking ?? { type: "none" },
       fast: fast ?? [],
     },
@@ -633,11 +633,11 @@ function labelNeedsUpgrade(label: string, id: string): boolean {
 function preferRicherPermissionModes<T extends { id: string }>(
   live: T[] | null | undefined,
   catalog: T[] | null | undefined,
-): T[] | null | undefined {
+): T[] {
   const liveList = live ?? [];
   const catalogList = catalog ?? [];
   if (catalogList.length > liveList.length) return catalogList;
-  return live;
+  return liveList;
 }
 
 function catalogThinkingToOverlay(
@@ -746,11 +746,13 @@ export function descriptorToConfigOptions(
   const fastModes = descriptor.supported_options.fast ?? [];
   if (optionSupportEnabled(support, "fast") && fastModes.length > 0) {
     const defaultFast = fastModes.find((mode) => mode.is_default)?.id || fastModes[0]?.id || "";
+    const listedFast = new Set(fastModes.map((mode) => mode.id));
+    const currentFast = current.fast?.trim() || "";
     options.push({
       id: "fast",
       name: "Fast",
       type: "select",
-      currentValue: current.fast || defaultFast,
+      currentValue: (currentFast && listedFast.has(currentFast) ? currentFast : defaultFast),
       options: fastModes.map((mode) => ({
         value: mode.id,
         name: mode.label || mode.id,

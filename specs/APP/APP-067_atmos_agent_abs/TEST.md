@@ -292,7 +292,7 @@ Implemented 2026-08-28 on `feat/APP-067-agent-chat`.
 | S18–S20 catalog prefetch/cache/merge | same + `cargo test -p agent --lib` | pass (incl. `maps_model_mode_and_thinking_from_config_options`, `with_acp_probe_uses_the_provided_probe_not_noop`) |
 | S2/S5/S12/S15 web | `bun test apps/web/src/app-shell/__tests__/agent-chat-entry-points.test.ts apps/web/src/features/agent/lib/__tests__/{followup-policy,group-agent-chats,no-acp-schema,agent-chat-events}.test.ts` | pass |
 | S17 old transport | `cargo test -p api -- --test-threads=1 s17` | pass (`s17_rest_session_crud_removed`, `s17_dedicated_agent_ws_removed`) |
-| S20 production ACP probe wiring | `cargo test -p api -- --test-threads=1 s20_catalog_engine_uses_temp_acp_probe` | pass (`StdioAcpOptionsProbe` + `OptionsProbeEngine::with_acp_probe`) |
+| S20 production ACP probe wiring | `cargo test -p api -- --test-threads=1 s20_catalog_engine_uses_temp_acp_probe` | pass (`StdioAcpOptionsProbe` + `OptionsProbe::with_acp_probe`) |
 | S1/S16 Playwright | `E2E_SINGLE_SERVER=0 bun run --cwd e2e test tests/specs/APP-067_atmos-agent-chat.e2e.ts --project=chromium --workers=1` | pass twice (Next dev; S16 sends and both pages show `[data-agent-chat-message]`) |
 | api-types | `bun run --filter @atmos/api-types extract-actions && extract-events && check-actions && check-events && test` | pass (301 actions, 33 events) |
 | clippy | `cargo clippy -p agent -p core-service -p api --offline -- -D warnings` | pass |

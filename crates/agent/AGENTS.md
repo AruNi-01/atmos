@@ -42,7 +42,7 @@ apps/api  WsAction / DTO
 ```
 crates/agent/
 └── src/
-    ├── lib.rs                 # Public exports (contract + catalog + manager + native/ACP providers)
+    ├── lib.rs                 # Public exports (contract + options + manager + native/ACP providers)
     ├── models.rs              # Install/registry models (AgentId, AgentLaunchSpec, …)
     ├── contract/              # Chat host contract: AgentProvider, AgentEvent, AgentAction
     ├── policy/                # Canonicalize, honesty tables, Atmos permission vocabulary

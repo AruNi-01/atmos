@@ -45,6 +45,7 @@ impl CommandRunner for ProcessCommandRunner {
         if argv.len() > 1 {
             cmd.args(&argv[1..]);
         }
+        cmd.kill_on_drop(true);
         let output = timeout(max, cmd.output())
             .await
             .map_err(|_| "model list timed out".to_string())?

@@ -46,7 +46,7 @@ sequenceDiagram
 
 ## Frozen action catalog (MUST NOT rename)
 
-`apps/api/src/api/ws/message.rs` `WsAction` variants `AgentChatCreate` … `AgentChatPrefsSet` plus `AgentOptionsSnapshotGet`. Wire names (serde snake_case) already listed in `packages/api-types/src/ws/actions.ts` and `contract/agent-chat.ts`:
+`apps/api/src/api/ws/message.rs` `WsAction` variants `AgentChatCreate` … `AgentChatPrefsSet` plus `AgentOptionsGet`. Wire names (serde snake_case) already listed in `packages/api-types/src/ws/actions.ts` and `contract/agent-chat.ts`:
 
 `agent_chat_create` `list` `get` `messages` `rename` `configure` `delete` `subscribe` `unsubscribe` `send` `steer` `queue_add` `queue_update` `queue_reorder` `queue_delete` `cancel` `permission_respond` `prefs_get` `prefs_set` and `agent_options_get`.
 

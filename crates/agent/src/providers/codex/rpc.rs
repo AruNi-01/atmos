@@ -68,10 +68,6 @@ impl StickyConfig {
 /// Codex model catalog names this tier "Fast" (`additionalSpeedTiers` still lists `"fast"`).
 pub const FAST_SERVICE_TIER: &str = "priority";
 
-fn sticky_service_tier(sticky: &StickyConfig) -> Option<&'static str> {
-    crate::policy::is_fast_on(sticky.fast.as_deref()).then_some(FAST_SERVICE_TIER)
-}
-
 pub struct PendingServerReq {
     pub id: RpcId,
     pub method: String,
@@ -129,9 +125,7 @@ pub fn thread_start_params(cwd: &Path, sticky: &StickyConfig) -> Value {
     if let Some(model) = sticky_model(sticky) {
         params["model"] = json!(model);
     }
-    if let Some(tier) = sticky_service_tier(sticky) {
-        params["serviceTier"] = json!(tier);
-    }
+    // Fast/serviceTier is per-turn (see turn_start_params), not thread/start|resume.
     params
 }
 

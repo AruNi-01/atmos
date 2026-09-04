@@ -535,7 +535,7 @@ pub fn terminal_agent_capabilities(
     purpose: TerminalAgentInvocationMode,
 ) -> Result<Vec<TerminalAgentCapability>>;
 
-pub fn terminal_agent_model_catalog(
+pub fn terminal_agent_options(
     agent_id: &str,
     refresh: bool,
 ) -> Result<TerminalAgentOptions>;

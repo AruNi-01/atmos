@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * Brand marks removed from lucide-react v1.
  * Lucide-compatible drop-ins (className / size / stroke) for call sites that

@@ -300,7 +300,7 @@ bun run --filter web lint -- \
 - S2 — ✅ `domain::tool_map::tests::app069_s2_extract_search_hits_zero_and_web_search_stay_empty` + `providers::claude::tool_map::tests::app069_s2_grep_empty_stdout_stays_text` + `app069_s2_web_search_result_is_never_search_hits` + bun `APP-069 S2 keeps workspace search as text when the result is Text` / `APP-069 S2 does not treat web_search as search_hits`
 - S3 — ✅ `providers::tests::app069_s3_grok_aliases_are_native_my_grok_is_acp`
 - S4 — ✅ `providers::grok::spawn::tests::app069_s4_chat_argv_is_agent_stdio_without_terminal_flags` + `app069_s4_chat_argv_puts_model_before_stdio` + `app069_s4_cargo_toml_has_no_xai_grok_crate_and_terminal_argv_untouched`
-- S5 — ✅ `catalog::spec::tests::app069_s5_native_ids_skip_acp_in_default_strategies` + `app069_s5_apply_native_chat_options_spec_drops_acp` + `service::agent_chat::catalog::tests::app069_s5_grok_aliases_are_native_my_grok_and_gemini_stay_acp`
+- S5 — ✅ `catalog::spec::tests::app069_s5_native_ids_skip_acp_in_default_strategies` + `app069_s5_apply_native_chat_options_plan_drops_acp` + `service::agent_chat::catalog::tests::app069_s5_grok_aliases_are_native_my_grok_and_gemini_stay_acp`
 - S6 — ✅ `catalog::parse::tests::app069_s6_grok_thinking_overlay_is_pinned_per_family`
 - S7 — ✅ `catalog::acp_probe::tests::app069_s7_maps_permission_mode_approval_into_permission_modes` + `domain::descriptor::tests::app069_s7_option_support_for_provider_matches_honesty_matrix`
 - S8 — ✅ bun `agent-chat-thread.test.ts` `APP-069 S8 hides pickers…` / `emits a leading permission_mode picker…` / `hides Claude mode when support.modes is unsupported…`

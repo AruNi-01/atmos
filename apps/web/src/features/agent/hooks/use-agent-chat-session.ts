@@ -1468,6 +1468,7 @@ export function useAgentChatSession({
       setProviderIdState(targetRegistryId);
       const cached = optionsByAgentRef.current[targetRegistryId];
       if (cached) setCatalog(cached);
+      else setCatalog(null);
     }
     if (registryChanged) {
       const preferred = preferredConfigFromDefault(
@@ -1477,6 +1478,7 @@ export function useAgentChatSession({
       setThinkingId(preferred.thinkingId);
       setModeId("");
       setPermissionModeId("");
+      setFastId("");
     }
     if (nextRegistry) {
       persistAgentChatLastSession({
@@ -1687,6 +1689,8 @@ export function useAgentChatSession({
     const cached = optionsByAgentRef.current[next];
     if (cached) {
       setCatalog(cached);
+    } else {
+      setCatalog(null);
     }
     setDescriptor(null);
     setSupportsSteer(false);

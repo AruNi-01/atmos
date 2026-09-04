@@ -140,7 +140,27 @@ impl OptionsProbe {
     }
 
     async fn acp_fragment(&self, spec: &ProbePlan) -> Option<OptionsFragment> {
-        let isolated = self.probe_root.join(&spec.agent_id);
+        let agent_key = spec
+            .agent_id
+            .chars()
+            .map(|ch| {
+                if ch.is_ascii_alphanumeric() || ch == '-' || ch == '_' {
+                    ch
+                } else {
+                    '_'
+                }
+            })
+            .collect::<String>();
+        if agent_key.is_empty() || agent_key == "." || agent_key == ".." || agent_key.contains("..")
+        {
+            return Some(OptionsFragment {
+                status: Some(OptionsStatus::Error),
+                message: Some("invalid agent id for options probe path".into()),
+                strategy: Some(OptionsProbeStrategy::Acp),
+                ..Default::default()
+            });
+        }
+        let isolated = self.probe_root.join(&agent_key);
         if let Err(error) = std::fs::create_dir_all(&isolated) {
             return Some(OptionsFragment {
                 status: Some(OptionsStatus::Error),

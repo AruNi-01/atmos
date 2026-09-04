@@ -721,14 +721,17 @@ async fn open_runtime(
     }
     if desired_fast_on {
         let request_id = commands.alloc_request_id();
-        let _ = commands
+        if commands
             .write_control(
                 apply_flag_settings_request(&request_id, json!({ "fastMode": true })),
                 &request_id,
                 CONTROL_TIMEOUT,
             )
-            .await;
-        commands.current_config.lock().await.fast = Some("true".into());
+            .await
+            .is_ok()
+        {
+            commands.current_config.lock().await.fast = Some("true".into());
+        }
     }
 
     let map_current = commands.current_config.lock().await.clone();

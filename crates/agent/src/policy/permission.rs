@@ -124,7 +124,15 @@ pub fn advertised_permission_modes(host: &str) -> Vec<AgentMode> {
 /// host — never beyond what spawn / configure can honestly apply.
 pub fn expand_sparse_permission_modes(host: &str, existing: Vec<AgentMode>) -> Vec<AgentMode> {
     let advertised = advertised_permission_modes(host);
-    if advertised.is_empty() || existing.len() >= advertised.len() {
+    if advertised.is_empty() {
+        return existing;
+    }
+    let covers_advertised = advertised.iter().all(|need| {
+        existing
+            .iter()
+            .any(|have| classify(&have.id) == AtmosPermission::parse(&need.id))
+    });
+    if covers_advertised {
         return existing;
     }
     let default_atmos = existing
