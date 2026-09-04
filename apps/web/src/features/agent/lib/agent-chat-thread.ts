@@ -1,6 +1,6 @@
 import type { QueuedAgentPrompt } from "@/app-shell/state/use-dialog-store";
 import type { AgentConfigOption, AgentPlan } from "@/features/agent/lib/agent-chat-types";
-import type { AgentModelCatalog } from "@/api/ws/agent-chat-api";
+import type { AgentOptionsSnapshot } from "@/api/ws/agent-chat-api";
 import type {
   AgentChatIndexEntry,
   AgentChatListRequest,
@@ -149,26 +149,38 @@ function choicesFromThinking(thinking: ThinkingShape | undefined): string[] {
   return [];
 }
 
-export function thinkingChoices(catalog: AgentModelCatalog | null, modelId: string): string[] {
-  const model = catalog?.models.find((item) => item.id === modelId);
+export function thinkingChoices(catalog: AgentOptionsSnapshot | null, modelId: string): string[] {
+  const models = catalog?.models ?? [];
+  const model = models.find((item) => item.id === modelId);
   const perModel = model?.thinking as ThinkingShape | undefined;
   if (perModel && perModel.type === "none") return [];
   const listed = choicesFromThinking(perModel);
   if (listed.length > 0) return listed;
+  // ACP session effort is model-scoped. Once any model has its own ladder (or an
+  // explicit none), do not reuse the agent-level list for unknown models.
+  if (modelsHavePerModelThinking(models)) return [];
   return choicesFromThinking(catalog?.thinking as ThinkingShape | undefined);
 }
 
-export function isCatalogModelsLoading(
-  catalog: AgentModelCatalog | null | undefined,
+function modelsHavePerModelThinking(
+  models: Array<{ thinking?: AgentThinkingSupport | ThinkingShape | null }>,
+): boolean {
+  return models.some((model) => model.thinking != null);
+}
+
+export function isOptionsModelsLoading(
+  catalog: AgentOptionsSnapshot | null | undefined,
   providerId: string,
 ): boolean {
   if (!providerId.trim()) return false;
   if (!catalog) return true;
   if (catalog.agent_id && catalog.agent_id !== providerId) return true;
+  // Usable lists stay interactive while a background revalidate is in flight.
+  if (catalog.models.length > 0) return false;
   return catalog.status === "probing";
 }
 
-export function probingCatalog(agentId: string): AgentModelCatalog {
+export function probingOptionsSnapshot(agentId: string): AgentOptionsSnapshot {
   return {
     agent_id: agentId,
     status: "probing",
@@ -182,8 +194,8 @@ export function probingCatalog(agentId: string): AgentModelCatalog {
   };
 }
 
-export function defaultCatalogModelId(
-  catalog: AgentModelCatalog | null | undefined,
+export function defaultOptionsModelId(
+  catalog: AgentOptionsSnapshot | null | undefined,
   currentId = "",
 ): string {
   if (!catalog || catalog.models.length === 0) return currentId;
@@ -193,8 +205,8 @@ export function defaultCatalogModelId(
   return catalog.models.find((model) => model.is_default)?.id || catalog.models[0]?.id || "";
 }
 
-export function catalogToConfigOptions(
-  catalog: AgentModelCatalog | null,
+export function optionsSnapshotToConfigOptions(
+  catalog: AgentOptionsSnapshot | null,
   modelId: string,
   thinkingId: string,
   modeId = "",
@@ -204,13 +216,17 @@ export function catalogToConfigOptions(
   const options: AgentConfigOption[] = [];
   const permissionModes = catalog.permission_modes ?? [];
   if (permissionModes.length > 0) {
+    const listed = permissionModes.map((mode) => mode.id);
     const defaultPermissionMode =
-      permissionModes.find((mode) => mode.is_default)?.id || permissionModes[0]?.id || "";
+      permissionModes.find((mode) => mode.is_default)?.id
+      || defaultListedConfigValue(listed, "permission_mode");
     options.push({
       id: "permission_mode",
       name: "Permission mode",
       type: "select",
-      currentValue: permissionModeId || defaultPermissionMode,
+      currentValue:
+        matchListedConfigValue(listed, permissionModeId, "permission_mode")
+        || defaultPermissionMode,
       options: permissionModes.map((mode) => ({
         value: mode.id,
         name: mode.label || mode.id,
@@ -218,20 +234,21 @@ export function catalogToConfigOptions(
     });
   }
   if (catalog.modes.length > 0) {
+    const listed = catalog.modes.map((mode) => mode.id);
     const defaultMode =
-      catalog.modes.find((mode) => mode.is_default)?.id || catalog.modes[0]?.id || "";
+      catalog.modes.find((mode) => mode.is_default)?.id || listed[0] || "";
     options.push({
       id: "mode",
       name: "Mode",
       type: "select",
-      currentValue: modeId || defaultMode,
+      currentValue: matchListedConfigValue(listed, modeId, "mode") || defaultMode,
       options: catalog.modes.map((mode) => ({
         value: mode.id,
         name: mode.label || mode.id,
       })),
     });
   }
-  const resolvedModelId = defaultCatalogModelId(catalog, modelId);
+  const resolvedModelId = defaultOptionsModelId(catalog, modelId);
   if (catalog.models.length > 0) {
     options.push({
       id: "model",
@@ -270,6 +287,13 @@ export function catalogToConfigOptions(
 
 export function configKindMatches(id: string, category: string | null | undefined, kind: string): boolean {
   if (kind === "thinking") return isThinkingConfigId(id, category);
+  if (kind === "fast") {
+    const needle = id.trim().toLowerCase();
+    const cat = category?.trim().toLowerCase() ?? "";
+    return ["fast", "fast-mode", "fast_mode", "fastmode"].some(
+      (alias) => needle === alias || cat === alias,
+    );
+  }
   const aliases =
     kind === "model"
       ? ["model", "models"]
@@ -285,7 +309,13 @@ export function configKindMatches(id: string, category: string | null | undefine
 
 export function overlayPendingConfigValues(
   options: AgentConfigOption[],
-  pending: { modelId?: string; modeId?: string; thinkingId?: string; permissionModeId?: string },
+  pending: {
+    modelId?: string;
+    modeId?: string;
+    thinkingId?: string;
+    permissionModeId?: string;
+    fastId?: string;
+  },
 ): AgentConfigOption[] {
   return options.map((option) => {
     const pendingValue = configKindMatches(option.id, option.category, "model")
@@ -296,10 +326,27 @@ export function overlayPendingConfigValues(
           ? pending.modeId
           : configKindMatches(option.id, option.category, "thinking")
             ? pending.thinkingId
-            : undefined;
+            : configKindMatches(option.id, option.category, "fast")
+              ? pending.fastId
+              : undefined;
     const trimmed = pendingValue?.trim();
     if (!trimmed) return option;
-    if (option.options.some((item) => item.value === trimmed)) {
+    const listed = option.options.map((item) => item.value);
+    const kind = configKindMatches(option.id, option.category, "permission_mode")
+      ? "permission_mode" as const
+      : configKindMatches(option.id, option.category, "mode")
+        ? "mode" as const
+        : configKindMatches(option.id, option.category, "thinking")
+          ? "thinking" as const
+          : configKindMatches(option.id, option.category, "fast")
+            ? "fast" as const
+            : null;
+    if (kind) {
+      const matched = matchListedConfigValue(listed, trimmed, kind);
+      if (matched) return { ...option, currentValue: matched };
+      return option;
+    }
+    if (listed.includes(trimmed)) {
       return { ...option, currentValue: trimmed };
     }
     return option;
@@ -308,20 +355,21 @@ export function overlayPendingConfigValues(
 
 export function composerConfigOptions(args: {
   descriptor: AgentDescriptor | null | undefined;
-  catalog: AgentModelCatalog | null;
+  catalog: AgentOptionsSnapshot | null;
   providerId: string;
   modelId: string;
   thinkingId: string;
   modeId: string;
   permissionModeId: string;
+  fastId?: string;
 }): AgentConfigOption[] {
   const matched = descriptorForComposerProvider(args.descriptor, args.providerId);
   const filled = matched
-    ? fillEmptyDescriptorOptionsFromCatalog(matched, args.catalog)
+    ? fillEmptyDescriptorOptionsFromSnapshot(matched, args.catalog)
     : null;
   const base = filled
     ? descriptorToConfigOptions(filled, args.modelId)
-    : catalogToConfigOptions(
+    : optionsSnapshotToConfigOptions(
         args.catalog,
         args.modelId,
         args.thinkingId,
@@ -333,25 +381,61 @@ export function composerConfigOptions(args: {
     modeId: args.modeId,
     thinkingId: args.thinkingId,
     permissionModeId: args.permissionModeId,
+    fastId: args.fastId,
   });
 }
 
 export function displayedComposerConfigValue(
   options: AgentConfigOption[],
-  kind: "model" | "thinking" | "mode" | "permission_mode",
+  kind: "model" | "thinking" | "mode" | "permission_mode" | "fast",
   selected = "",
 ): string {
   const option = options.find((item) => configKindMatches(item.id, item.category, kind));
-  const trimmed = selected.trim();
-  if (kind !== "model") {
-    const listed = option?.options.map((item) => item.value) ?? [];
-    if (trimmed && listed.includes(trimmed)) return trimmed;
-    const current = option?.currentValue?.trim() || "";
-    if (current && listed.includes(current)) return current;
-    return listed[0] || "";
+  const listed = option?.options.map((item) => item.value) ?? [];
+  if (kind === "model") {
+    const trimmed = selected.trim();
+    if (trimmed) return trimmed;
+    return option?.currentValue?.trim() || "";
   }
-  if (trimmed) return trimmed;
-  return option?.currentValue?.trim() || "";
+  const fromSelected = matchListedConfigValue(listed, selected, kind);
+  if (fromSelected) return fromSelected;
+  const fromCurrent = matchListedConfigValue(
+    listed,
+    option?.currentValue ?? "",
+    kind,
+  );
+  if (fromCurrent) return fromCurrent;
+  return defaultListedConfigValue(listed, kind);
+}
+
+/**
+ * Exact match, or permission vendor alias → Atmos id (e.g. `default` → `ask_always`).
+ * Mode / thinking / fast stay agent-native ids — no cross-agent remapping.
+ */
+function matchListedConfigValue(
+  listed: string[],
+  candidate: string,
+  kind: "thinking" | "mode" | "permission_mode" | "fast",
+): string | null {
+  const trimmed = candidate.trim();
+  if (!trimmed) return null;
+  if (listed.includes(trimmed)) return trimmed;
+  if (kind !== "permission_mode") return null;
+  const key = permissionModeMessageKey(trimmed);
+  if (!key) return null;
+  return listed.find((item) => permissionModeMessageKey(item) === key) ?? null;
+}
+
+/** Prefer Atmos Ask always for permission; otherwise the first listed id. */
+function defaultListedConfigValue(
+  listed: string[],
+  kind: "thinking" | "mode" | "permission_mode" | "fast",
+): string {
+  if (kind === "permission_mode") {
+    const askAlways = listed.find((item) => permissionModeMessageKey(item) === "askAlways");
+    if (askAlways) return askAlways;
+  }
+  return listed[0] || "";
 }
 
 function thinkingSupportIsEmpty(
@@ -372,34 +456,93 @@ export function descriptorForComposerProvider(
   return descriptor.identity.id === id ? descriptor : null;
 }
 
-export function fillEmptyDescriptorOptionsFromCatalog(
+export function fillEmptyDescriptorOptionsFromSnapshot(
   descriptor: AgentDescriptor,
-  catalog: AgentModelCatalog | null,
+  catalog: AgentOptionsSnapshot | null,
 ): AgentDescriptor {
   if (!catalog || catalog.status !== "ok") return descriptor;
   if (catalog.agent_id !== descriptor.identity.id) return descriptor;
   const options = descriptor.supported_options;
-  const models = overlayCatalogModelThinking(
-    options.models.length > 0 ? options.models : catalog.models,
+  const isCursor =
+    catalog.agent_id === "cursor" || descriptor.identity.id === "cursor";
+  // Cursor PMP catalog is bare models + separate effort/fast. Older sessions keep a
+  // CLI-encoded exploded list (`gpt-5.3-codex-low-fast`, thinking=encoded_in_model)
+  // or stamp boolean `thinking` ahead of select `effort`. Prefer the catalog then.
+  // Shape heuristics are Cursor-scoped — do not apply to other ACP agents.
+  const preferCatalogModels =
+    isCursor
+    && catalog.models.length > 0
+    && (
+      options.models.length === 0
+      || (
+        modelsLookLikeCursorCliEncoded(options.models)
+        && !modelsLookLikeCursorCliEncoded(catalog.models)
+      )
+      || (
+        thinkingIsEncodedInModel(options.thinking)
+        && !thinkingIsEncodedInModel(catalog.thinking)
+        && !thinkingSupportIsEmpty(catalog.thinking)
+      )
+    );
+  const preferCatalogThinking =
+    !thinkingSupportIsEmpty(catalog.thinking)
+    && (
+      preferCatalogModels
+      || (
+        isCursor
+        && (
+          thinkingIsEncodedInModel(options.thinking)
+          || (
+            thinkingLooksLikeBooleanOnly(options.thinking)
+            && !thinkingLooksLikeBooleanOnly(catalog.thinking)
+          )
+        )
+      )
+      || (
+        thinkingSupportIsEmpty(options.thinking)
+      )
+    );
+  const models = overlayCatalogModelLabels(
+    overlayCatalogModelThinking(
+      preferCatalogModels
+        ? catalog.models
+        : options.models.length > 0
+          ? options.models
+          : catalog.models,
+      catalog.models,
+    ),
     catalog.models,
   );
   const modes = (options.modes?.length ?? 0) > 0 ? options.modes : catalog.modes;
-  const permissionModes =
+  const permissionModes = preferRicherPermissionModes(
     (options.permission_modes?.length ?? 0) > 0
       ? options.permission_modes
-      : catalog.permission_modes;
+      : catalog.permission_modes,
+    catalog.permission_modes,
+  );
   const thinking =
-    thinkingSupportIsEmpty(options.thinking) && !thinkingSupportIsEmpty(catalog.thinking)
+    preferCatalogThinking
       ? catalog.thinking
-      : options.thinking;
+      : thinkingSupportIsEmpty(options.thinking) && !thinkingSupportIsEmpty(catalog.thinking)
+        ? catalog.thinking
+        : options.thinking;
   if (
     models === options.models
     && modes === options.modes
     && permissionModes === options.permission_modes
     && thinking === options.thinking
+    && !preferCatalogModels
+    && !preferCatalogThinking
   ) {
     return descriptor;
   }
+  const fast =
+    (preferCatalogModels || preferCatalogThinking) && (options.fast?.length ?? 0) === 0
+      ? [
+          { id: "false", label: "Off", is_default: true },
+          { id: "true", label: "On", is_default: false },
+        ]
+      : options.fast;
   return {
     ...descriptor,
     supported_options: {
@@ -408,8 +551,40 @@ export function fillEmptyDescriptorOptionsFromCatalog(
       modes: modes ?? [],
       permission_modes: permissionModes,
       thinking: thinking ?? { type: "none" },
+      fast: fast ?? [],
     },
   };
+}
+
+function thinkingIsEncodedInModel(
+  thinking: AgentThinkingSupport | { type?: string; options?: string[] } | null | undefined,
+): boolean {
+  return thinking?.type === "encoded_in_model";
+}
+
+function thinkingLooksLikeBooleanOnly(
+  thinking: AgentThinkingSupport | { type?: string; options?: string[] } | null | undefined,
+): boolean {
+  if (thinking?.type !== "enum") return false;
+  const options = thinking.options ?? [];
+  if (options.length === 0) return false;
+  return options.every((value) => {
+    const token = value.trim().toLowerCase();
+    return token === "true" || token === "false" || token === "on" || token === "off" || token === "0" || token === "1";
+  });
+}
+
+/** CLI-encoded Cursor variants: `gpt-5.3-codex-low-fast`, not bracket ACP ids. */
+function modelsLookLikeCursorCliEncoded(
+  models: Array<{ id: string }> | null | undefined,
+): boolean {
+  if (!models || models.length < 8) return false;
+  const encoded = models.filter((model) => {
+    const id = model.id.trim();
+    if (!id || id.includes("[")) return false;
+    return /-(?:low|medium|high|xhigh|extra-high|max|fast|thinking)(?:-|$)/i.test(id);
+  }).length;
+  return encoded >= Math.max(4, Math.floor(models.length / 4));
 }
 
 function overlayCatalogModelThinking<T extends { id: string; thinking?: AgentThinkingSupport | null }>(
@@ -427,6 +602,42 @@ function overlayCatalogModelThinking<T extends { id: string; thinking?: AgentThi
     return { ...model, thinking: overlay };
   });
   return changed ? next : models;
+}
+
+/** Prefer catalog human labels when the live session stamped `label === id`. */
+function overlayCatalogModelLabels<T extends { id: string; label?: string | null }>(
+  models: T[],
+  catalogModels: T[],
+): T[] {
+  if (models.length === 0 || catalogModels.length === 0) return models;
+  let changed = false;
+  const next = models.map((model) => {
+    const catalogModel = catalogModels.find((item) => item.id === model.id);
+    const catalogLabel = catalogModel?.label?.trim() ?? "";
+    if (!catalogLabel || labelNeedsUpgrade(catalogLabel, catalogModel!.id)) return model;
+    if (!labelNeedsUpgrade(model.label ?? "", model.id)) return model;
+    if ((model.label ?? "") === catalogLabel) return model;
+    changed = true;
+    return { ...model, label: catalogLabel };
+  });
+  return changed ? next : models;
+}
+
+function labelNeedsUpgrade(label: string, id: string): boolean {
+  const trimmed = label.trim();
+  const modelId = id.trim();
+  if (!trimmed) return true;
+  return trimmed.toLowerCase() === modelId.toLowerCase();
+}
+
+function preferRicherPermissionModes<T extends { id: string }>(
+  live: T[] | null | undefined,
+  catalog: T[] | null | undefined,
+): T[] | null | undefined {
+  const liveList = live ?? [];
+  const catalogList = catalog ?? [];
+  if (catalogList.length > liveList.length) return catalogList;
+  return live;
 }
 
 function catalogThinkingToOverlay(
@@ -463,13 +674,18 @@ export function descriptorToConfigOptions(
   const models = descriptor.supported_options.models;
   const current = descriptor.current_config;
   if (optionSupportEnabled(support, "permission_modes") && permissionModes.length > 0) {
+    const listed = permissionModes.map((mode) => mode.id);
     const defaultPermissionMode =
-      permissionModes.find((mode) => mode.is_default)?.id || permissionModes[0]?.id || "";
+      permissionModes.find((mode) => mode.is_default)?.id
+      || defaultListedConfigValue(listed, "permission_mode");
     options.push({
       id: "permission_mode",
       name: "Permission mode",
       type: "select",
-      currentValue: current.permission_mode || defaultPermissionMode,
+      // Map vendor ids (e.g. Claude/Cursor `default`) onto Atmos listed ids.
+      currentValue:
+        matchListedConfigValue(listed, current.permission_mode || "", "permission_mode")
+        || defaultPermissionMode,
       options: permissionModes.map((mode) => ({
         value: mode.id,
         name: mode.label || mode.id,
@@ -477,12 +693,14 @@ export function descriptorToConfigOptions(
     });
   }
   if (optionSupportEnabled(support, "modes") && modes.length > 0) {
-    const defaultMode = modes.find((mode) => mode.is_default)?.id || modes[0]?.id || "";
+    const listed = modes.map((mode) => mode.id);
+    const defaultMode = modes.find((mode) => mode.is_default)?.id || listed[0] || "";
     options.push({
       id: "mode",
       name: "Mode",
       type: "select",
-      currentValue: current.mode || defaultMode,
+      // Keep each agent's own mode ids; only fall back when current is missing/unknown.
+      currentValue: matchListedConfigValue(listed, current.mode || "", "mode") || defaultMode,
       options: modes.map((mode) => ({
         value: mode.id,
         name: mode.label || mode.id,
@@ -525,15 +743,31 @@ export function descriptorToConfigOptions(
       }
     }
   }
+  const fastModes = descriptor.supported_options.fast ?? [];
+  if (optionSupportEnabled(support, "fast") && fastModes.length > 0) {
+    const defaultFast = fastModes.find((mode) => mode.is_default)?.id || fastModes[0]?.id || "";
+    options.push({
+      id: "fast",
+      name: "Fast",
+      type: "select",
+      currentValue: current.fast || defaultFast,
+      options: fastModes.map((mode) => ({
+        value: mode.id,
+        name: mode.label || mode.id,
+      })),
+    });
+  }
   return options;
 }
 
 function descriptorThinkingChoices(descriptor: AgentDescriptor, modelId: string): string[] {
-  const model = descriptor.supported_options.models.find((item) => item.id === modelId);
+  const models = descriptor.supported_options.models;
+  const model = models.find((item) => item.id === modelId);
   const perModel = model?.thinking;
   if (perModel && perModel.type === "none") return [];
   const listed = thinkingChoicesFromSupport(perModel);
   if (listed.length > 0) return listed;
+  if (modelsHavePerModelThinking(models)) return [];
   return thinkingChoicesFromSupport(descriptor.supported_options.thinking);
 }
 

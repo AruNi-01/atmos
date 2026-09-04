@@ -2,10 +2,10 @@
 //!
 //! Public Chat type: [`CodexNativeProvider`]. RPC DTOs stay in this module.
 
-pub(crate) mod catalog;
 mod codec;
 mod event_map;
 mod ids;
+pub(crate) mod options;
 mod permission;
 mod rpc;
 mod spawn;
@@ -21,18 +21,19 @@ use tokio::sync::mpsc;
 
 use crate::contract::AgentEventEnvelope;
 use crate::contract::{AgentAction, AgentActionError, AgentActionKind, AgentActionResult};
+use crate::contract::{AgentCurrentConfig, AgentDescriptor, AgentIdentity, AgentSupportedOptions};
 use crate::contract::{
-    AgentCatalogContext, AgentPersistenceHandle, AgentPrompt, AgentProvider, AgentProviderError,
+    AgentOptionsContext, AgentPersistenceHandle, AgentPrompt, AgentProvider, AgentProviderError,
     AgentResult, AgentRuntime, AgentRuntimeCommands, AgentRuntimeConfig, AgentRuntimeControl,
     AgentTurnHandle,
 };
-use crate::contract::{AgentCurrentConfig, AgentDescriptor, AgentIdentity, AgentSupportedOptions};
 use crate::policy::{capabilities_for_provider, option_support_for_provider};
+use serde_json::{json, Value};
 
 use rpc::{
     answer_permission, collaboration_mode_rejected, reader_loop, stderr_loop, thread_fork_params,
     thread_revert_params, thread_rollback_params, turn_interrupt_params, turn_start_params,
-    turn_steer_params, CodexShared, StickyConfig,
+    turn_steer_params, CodexShared, StickyConfig, FAST_SERVICE_TIER,
 };
 use spawn::{ensure_child_alive, resolve_program, spawn_app_server, SpawnedAppServer};
 
@@ -93,10 +94,18 @@ fn current_config_from(cfg: &AgentRuntimeConfig) -> AgentCurrentConfig {
             .as_deref()
             .and_then(crate::policy::normalize_stored_permission)
             .or_else(|| cfg.permission_mode.clone()),
+        fast: Some(if crate::policy::is_fast_on(cfg.fast.as_deref()) {
+            "true".into()
+        } else {
+            "false".into()
+        }),
     }
 }
 
 fn provider_descriptor(current: AgentCurrentConfig) -> AgentDescriptor {
+    let mut supported_options = AgentSupportedOptions::default();
+    supported_options.fast =
+        crate::policy::boolean_fast_modes(crate::policy::is_fast_on(current.fast.as_deref()));
     AgentDescriptor {
         identity: AgentIdentity {
             id: "codex".into(),
@@ -105,7 +114,7 @@ fn provider_descriptor(current: AgentCurrentConfig) -> AgentDescriptor {
         },
         capabilities: capabilities_for_provider("codex"),
         support: option_support_for_provider("codex"),
-        supported_options: AgentSupportedOptions::default(),
+        supported_options,
         current_config: current,
     }
 }
@@ -236,8 +245,19 @@ impl AgentRuntimeCommands for CodexCommands {
                 .await
                 .map(|()| AgentActionResult::unit()),
             AgentAction::SetConfig { update } => {
+                let thread_id = self.shared.ids.lock().await.thread_id.clone();
                 let mut sticky = self.shared.sticky.lock().await;
                 sticky.apply(&update);
+                let service_tier = if update.fast.is_some() {
+                    Some(if crate::policy::is_fast_on(update.fast.as_deref()) {
+                        json!(FAST_SERVICE_TIER)
+                    } else {
+                        Value::Null
+                    })
+                } else {
+                    None
+                };
+                drop(sticky);
                 let mut map = self.shared.map.lock().await;
                 if let Some(model) = update.model {
                     map.current_config.model = Some(model);
@@ -252,6 +272,24 @@ impl AgentRuntimeCommands for CodexCommands {
                     map.current_config.permission_mode =
                         crate::policy::normalize_stored_permission(&permission_mode)
                             .or(Some(permission_mode));
+                }
+                if let Some(fast) = update.fast {
+                    let enabled = crate::policy::is_fast_on(Some(&fast));
+                    map.current_config.fast = Some(if enabled { "true" } else { "false" }.into());
+                    map.supported_options.fast = crate::policy::boolean_fast_modes(enabled);
+                }
+                drop(map);
+                if let (Some(thread_id), Some(tier)) = (thread_id, service_tier) {
+                    let _ = self
+                        .shared
+                        .request(
+                            "thread/settings/update",
+                            json!({
+                                "threadId": thread_id,
+                                "serviceTier": tier,
+                            }),
+                        )
+                        .await;
                 }
                 Ok(AgentActionResult::unit())
             }
@@ -470,7 +508,7 @@ impl AgentProvider for CodexNativeProvider {
         "codex"
     }
 
-    async fn descriptor(&self, _ctx: &AgentCatalogContext) -> AgentResult<AgentDescriptor> {
+    async fn descriptor(&self, _ctx: &AgentOptionsContext) -> AgentResult<AgentDescriptor> {
         Ok(provider_descriptor(AgentCurrentConfig::default()))
     }
 
@@ -731,7 +769,7 @@ for raw in sys.stdin:
         let provider = CodexNativeProvider::new();
         assert_eq!(provider.id(), "codex");
         let descriptor = provider
-            .descriptor(&AgentCatalogContext::default())
+            .descriptor(&AgentOptionsContext::default())
             .await
             .expect("descriptor");
         assert_eq!(descriptor.capabilities.steer, Capability::Supported);

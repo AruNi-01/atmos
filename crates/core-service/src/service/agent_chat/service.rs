@@ -20,7 +20,7 @@ use super::apply_event::{
     apply_event, apply_pending_session_config, emit_live, finish_turn, nonempty_opt,
     overlay_live_state, RuntimeState,
 };
-use super::catalog::CatalogPrefetchWorker;
+use super::options::OptionsPrefetchWorker;
 use super::queue::maybe_dispatch_queue;
 use super::store::AgentChatStore;
 use super::types::{
@@ -49,7 +49,7 @@ pub struct AgentChatService {
     events: broadcast::Sender<AgentChatEvent>,
     generations: AtomicU64,
     status: OnceLock<Arc<AgentStatusService>>,
-    catalog: OnceLock<Arc<CatalogPrefetchWorker>>,
+    options: OnceLock<Arc<OptionsPrefetchWorker>>,
 }
 
 impl AgentChatService {
@@ -65,7 +65,7 @@ impl AgentChatService {
             events,
             generations: AtomicU64::new(1),
             status: OnceLock::new(),
-            catalog: OnceLock::new(),
+            options: OnceLock::new(),
         }
     }
 
@@ -81,13 +81,13 @@ impl AgentChatService {
         }
     }
 
-    pub fn set_catalog_worker(&self, worker: Arc<CatalogPrefetchWorker>) {
-        let _ = self.catalog.set(worker);
+    pub fn set_options_worker(&self, worker: Arc<OptionsPrefetchWorker>) {
+        let _ = self.options.set(worker);
     }
 
-    fn ready_catalog(&self, provider_id: &str) -> Option<agent::AgentModelCatalog> {
-        let catalog = self.catalog.get()?.cache_get(provider_id)?;
-        (catalog.status == agent::CatalogStatus::Ok).then_some(catalog)
+    fn ready_options(&self, provider_id: &str) -> Option<agent::AgentOptionsSnapshot> {
+        let catalog = self.options.get()?.cache_get(provider_id)?;
+        (catalog.status == agent::OptionsStatus::Ok).then_some(catalog)
     }
 
     async fn turn_gate(&self, chat_id: &str) -> Arc<Mutex<()>> {
@@ -130,11 +130,11 @@ impl AgentChatService {
     }
 
     pub fn create(&self, req: CreateAgentChatRequest) -> Result<AgentChatMeta> {
-        let catalog = self.ready_catalog(&req.provider_id);
+        let catalog = self.ready_options(&req.provider_id);
         let meta = self.store.create(req)?;
         self.store.update_meta(&meta.id, |row| {
             if let Some(catalog) = catalog.as_ref() {
-                agent::apply_catalog_to_descriptor(&mut row.descriptor, catalog);
+                agent::apply_options_to_descriptor(&mut row.descriptor, catalog);
             }
             super::apply_event::seed_available_commands(
                 &row.provider_id,
@@ -186,6 +186,7 @@ impl AgentChatService {
         thinking: Option<String>,
         mode: Option<String>,
         permission_mode: Option<String>,
+        fast: Option<String>,
     ) -> Result<AgentChatMeta> {
         let live = {
             let map = self.runtimes.lock().await;
@@ -211,7 +212,7 @@ impl AgentChatService {
             .filter(|value| !value.is_empty())
             .unwrap_or(current.provider_id.as_str());
         let provider_changed = next_provider != current.provider_id;
-        let catalog = self.ready_catalog(next_provider);
+        let catalog = self.ready_options(next_provider);
         let mut resolve_meta = current.clone();
         if provider_changed {
             resolve_meta.provider_id = next_provider.to_string();
@@ -230,7 +231,7 @@ impl AgentChatService {
                 .is_empty()
         {
             if let Some(catalog) = catalog.as_ref() {
-                agent::apply_catalog_to_descriptor(&mut resolve_meta.descriptor, catalog);
+                agent::apply_options_to_descriptor(&mut resolve_meta.descriptor, catalog);
             }
         }
         let permission_is_plan = agent::is_plan_mode(permission_mode.as_deref());
@@ -263,10 +264,12 @@ impl AgentChatService {
             "permission_mode",
             permission_mode_input.as_ref(),
         );
+        let next_fast = resolve_configure_select(&resolve_meta, "fast", fast.as_ref());
         let apply_model = model.is_some();
         let apply_thinking = thinking.is_some();
         let apply_mode = mode_input.is_some();
         let apply_permission_mode = permission_mode_input.is_some();
+        let apply_fast = fast.is_some();
         let stamp_descriptor = provider_changed
             || resolve_meta.descriptor.identity.id != current.descriptor.identity.id
             || resolve_meta.descriptor.supported_options != current.descriptor.supported_options;
@@ -292,6 +295,9 @@ impl AgentChatService {
             }
             if apply_permission_mode {
                 meta.descriptor.current_config.permission_mode = next_permission_mode.clone();
+            }
+            if apply_fast {
+                meta.descriptor.current_config.fast = next_fast.clone();
             }
             if provider_changed {
                 meta.available_commands = catalog
@@ -1078,7 +1084,7 @@ impl AgentChatService {
         let cfg = AgentRuntimeConfig {
             cwd: std::path::PathBuf::from(&meta.cwd),
             model: selected_model.and_then(nonempty_opt).or_else(|| {
-                self.ready_catalog(&meta.provider_id).and_then(|catalog| {
+                self.ready_options(&meta.provider_id).and_then(|catalog| {
                     catalog
                         .models
                         .iter()
@@ -1107,6 +1113,13 @@ impl AgentChatService {
                     .or_else(|| meta.descriptor.current_config.permission_mode.clone())
             } else {
                 meta.descriptor.current_config.permission_mode.clone()
+            },
+            fast: if meta.persistence_handle.is_some() {
+                meta.applied_fast
+                    .clone()
+                    .or_else(|| meta.descriptor.current_config.fast.clone())
+            } else {
+                meta.descriptor.current_config.fast.clone()
             },
             extra_config: HashMap::new(),
             env_overrides: None,

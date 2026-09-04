@@ -2875,6 +2875,7 @@
         "thinkingFaster": "Faster",
         "thinkingSmarter": "Smarter",
         "thinkingEffort": "Effort",
+        "fastMode": "Fast Tier",
         "queue": "Queue",
         "steer": "Steer",
         "oneShotQueue": "Queue this once",

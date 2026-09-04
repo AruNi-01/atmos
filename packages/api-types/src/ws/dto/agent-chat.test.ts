@@ -22,7 +22,7 @@ type _CapsClosed = AssertNever<UnexpectedCaps>;
 type SupportKeys = keyof AgentOptionSupport;
 type UnexpectedSupport = Exclude<
   SupportKeys,
-  "models" | "thinking" | "modes" | "permission_modes"
+  "models" | "thinking" | "modes" | "permission_modes" | "fast"
 >;
 type _SupportClosed = AssertNever<UnexpectedSupport>;
 type DescriptorKeys = keyof AgentDescriptor;
@@ -61,13 +61,13 @@ const AGENT_CHAT_ACTIONS = [
   "agent_chat_cancel",
   "agent_chat_permission_respond",
   "agent_chat_session_op_respond",
-  "agent_model_catalog_get",
+  "agent_options_get",
   "agent_chat_prefs_get",
   "agent_chat_prefs_set",
 ] as const;
 
 describe("APP-069 S18 Agent Chat stays on main /ws", () => {
-  test("catalog keeps agent_chat_* plus agent_model_catalog_get", () => {
+  test("catalog keeps agent_chat_* plus agent_options_get", () => {
     for (const action of AGENT_CHAT_ACTIONS) {
       expect(WS_ACTIONS).toContain(action);
     }

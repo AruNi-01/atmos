@@ -36,18 +36,22 @@ describe("agent prompt composer", () => {
     expect(composer).not.toContain("composerConfigIcon");
     expect(composer).not.toContain("ConfigOptionDropdown");
     expect(composer).toContain("ShieldAlert");
-    expect(composer).toContain("Clock");
+    expect(composer).toContain("Astroid");
+    expect(composer).toContain("PencilSparkles");
     expect(composer).toContain("function modeIcon");
     expect(composer).toContain("ListTodo");
     expect(composer).toContain("Hammer");
     expect(composer).toContain("MessageSquare");
+    expect(composer).toContain("MessageCircleQuestionMark");
+    expect(composer).toContain("BotMessageSquare");
     expect(composer).not.toContain("icon: <Bot className=\"size-3.5 shrink-0\" />");
   });
 
-  it("uses the beui prompt input with a combined agent-model select and thinking flyout", () => {
+  it("uses the beui prompt input with a combined agent-model menu and effort slider labels", () => {
     expect(composer).toContain("AgentsPromptInput");
     expect(composer).toContain("agentLocked={agentLocked || !onProviderChange}");
     expect(composer).toContain("thinkingLevels=");
+    expect(composer).toContain('fastMode: t("composer.fastMode")');
     expect(composer).toContain("isThinkingConfigId(option.id, option.category)");
     expect(composer).toContain("modes={toModePromptModels");
     expect(composer).toContain("permissionModes={toPermissionPromptModels");

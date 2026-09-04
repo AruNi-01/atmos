@@ -9,24 +9,24 @@ use serde_json::{json, Value};
 use tokio::sync::mpsc;
 use tokio::time::timeout;
 
-use crate::catalog::engine::NativeProbeResult;
-use crate::catalog::parse::{agent_modes_from_named_keys, commands_from_value};
 use crate::contract::AgentCurrentConfig;
 use crate::contract::{AgentAvailableCommand, AgentRuntimeConfig};
 use crate::contract::{AgentMode, AgentModel, AgentThinkingSupport};
+use crate::options::probe::cli::parse::{agent_modes_from_named_keys, commands_from_value};
+use crate::options::probe::native::NativeOptionsProbeResult;
 
 use super::rpc::{initialize_params, reader_loop, stderr_loop, CodexShared, StickyConfig};
 use super::spawn::spawn_app_server;
 
 const PROBE_TIMEOUT: Duration = Duration::from_secs(15);
 
-pub(crate) async fn probe(isolated_cwd: &Path) -> Result<NativeProbeResult, String> {
+pub(crate) async fn probe(isolated_cwd: &Path) -> Result<NativeOptionsProbeResult, String> {
     timeout(PROBE_TIMEOUT, probe_inner(isolated_cwd))
         .await
         .map_err(|_| "native Codex catalog probe timed out".to_string())?
 }
 
-async fn probe_inner(isolated_cwd: &Path) -> Result<NativeProbeResult, String> {
+async fn probe_inner(isolated_cwd: &Path) -> Result<NativeOptionsProbeResult, String> {
     let program = super::spawn::resolve_program("codex").map_err(|error| error.to_string())?;
     let spawned =
         spawn_app_server(&program, isolated_cwd, None).map_err(|error| error.to_string())?;
@@ -121,7 +121,7 @@ async fn probe_inner(isolated_cwd: &Path) -> Result<NativeProbeResult, String> {
             push_command(&mut commands, command);
         }
     }
-    Ok(NativeProbeResult {
+    Ok(NativeOptionsProbeResult {
         models,
         modes,
         permission_modes,

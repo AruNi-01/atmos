@@ -2,7 +2,8 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use agent::{
-    capabilities_for_provider, option_support_for_provider, AgentCurrentConfig, AgentDescriptor,
+    canonicalize_chat_provider_id, capabilities_for_provider, map_to_advertised_cursor_model,
+    models_look_like_cursor_acp, option_support_for_provider, AgentCurrentConfig, AgentDescriptor,
     AgentIdentity, AgentOptionSupport, AgentSessionOpRequest, AgentSupportedOptions,
     AgentThinkingSupport, AgentTool, AgentToolKind, AgentToolParams, AgentToolResult,
     AgentToolStatus, UserMessageKind,
@@ -83,6 +84,8 @@ pub struct AgentChatMeta {
     pub applied_mode: Option<String>,
     #[serde(default)]
     pub applied_permission_mode: Option<String>,
+    #[serde(default)]
+    pub applied_fast: Option<String>,
     #[serde(default)]
     pub available_commands: Vec<agent::AgentAvailableCommand>,
     #[serde(default)]
@@ -325,6 +328,7 @@ pub fn config_kind_matches(id: &str, category: Option<&str>, kind: &str) -> bool
             "reasoning_effort",
             "reasoning-effort",
         ],
+        "fast" => &["fast", "fast-mode", "fast_mode", "fastMode"],
         _ => return id.eq_ignore_ascii_case(kind),
     };
     aliases.iter().any(|alias| {
@@ -344,9 +348,39 @@ pub fn advertised_option_for_kind<'a>(
     options: &'a [SessionAdvertisedOption],
     kind: &str,
 ) -> Option<&'a SessionAdvertisedOption> {
+    if kind == "thinking" {
+        return preferred_thinking_advertised_option(options);
+    }
     options
         .iter()
         .find(|option| config_kind_matches(&option.id, option.category.as_deref(), kind))
+}
+
+/// Cursor PMP advertises boolean `thinking` and select `effort` together.
+/// Prefer effort/reasoning for the Atmos Effort picker.
+fn preferred_thinking_advertised_option<'a>(
+    options: &'a [SessionAdvertisedOption],
+) -> Option<&'a SessionAdvertisedOption> {
+    let matches: Vec<&'a SessionAdvertisedOption> = options
+        .iter()
+        .filter(|option| config_kind_matches(&option.id, option.category.as_deref(), "thinking"))
+        .collect();
+    if matches.is_empty() {
+        return None;
+    }
+    matches
+        .iter()
+        .copied()
+        .find(|option| {
+            let id = option.id.to_ascii_lowercase();
+            id == "effort" || id == "thought_level" || id.contains("reason")
+        })
+        .or_else(|| {
+            matches.iter().copied().find(|option| {
+                !option.option_type.eq_ignore_ascii_case("boolean") && option.options.len() > 2
+            })
+        })
+        .or_else(|| matches.first().copied())
 }
 
 /// Map a host/catalog value onto an advertised select option.
@@ -354,6 +388,7 @@ pub fn advertised_option_for_kind<'a>(
 pub fn map_advertised_select_value(
     option: &SessionAdvertisedOption,
     requested: &str,
+    provider_id: &str,
 ) -> Option<String> {
     let requested = requested.trim();
     if requested.is_empty() {
@@ -378,6 +413,17 @@ pub fn map_advertised_select_value(
     });
     if let Some(item) = named {
         return Some(item.value.clone());
+    }
+    // Cursor-only: CLI encoded ids (`gpt-5.3-codex-fast`) → bracket wire values.
+    if canonicalize_chat_provider_id(provider_id) == "cursor"
+        && models_look_like_cursor_acp(option.options.iter().map(|item| item.value.as_str()))
+    {
+        if let Some(mapped) = map_to_advertised_cursor_model(
+            requested,
+            option.options.iter().map(|item| item.value.as_str()),
+        ) {
+            return Some(mapped);
+        }
     }
     let fuzzy: Vec<&SessionAdvertisedOptionValue> = option
         .options
@@ -493,7 +539,7 @@ pub fn resolve_session_config_select(
     if option.options.is_empty() {
         return ResolvedSessionConfig::PassThrough(requested.to_string());
     }
-    match map_advertised_select_value(&option, requested) {
+    match map_advertised_select_value(&option, requested, &meta.provider_id) {
         Some(value) => ResolvedSessionConfig::PassThrough(value),
         None => ResolvedSessionConfig::PassThrough(requested.to_string()),
     }
@@ -504,6 +550,7 @@ pub fn keep_pending_session_selection(
     applied: Option<&String>,
     advertised_current: &str,
     option: Option<&SessionAdvertisedOption>,
+    provider_id: &str,
 ) -> bool {
     if !pending_selected(selected, applied) {
         return false;
@@ -519,7 +566,7 @@ pub fn keep_pending_session_selection(
     };
     match option {
         Some(option) if !option.options.is_empty() => {
-            map_advertised_select_value(option, selected).is_some()
+            map_advertised_select_value(option, selected, provider_id).is_some()
         }
         _ => true,
     }
@@ -615,7 +662,8 @@ pub fn pending_session_config_change(meta: &AgentChatMeta) -> Option<SessionConf
     let started = trimmed_opt(meta.applied_model.as_ref()).is_some()
         || trimmed_opt(meta.applied_mode.as_ref()).is_some()
         || trimmed_opt(meta.applied_thinking.as_ref()).is_some()
-        || trimmed_opt(meta.applied_permission_mode.as_ref()).is_some();
+        || trimmed_opt(meta.applied_permission_mode.as_ref()).is_some()
+        || trimmed_opt(meta.applied_fast.as_ref()).is_some();
     let current = &meta.descriptor.current_config;
     let change = SessionConfigChange {
         model: value_change(meta.applied_model.as_ref(), current.model.as_ref(), started),
@@ -640,6 +688,14 @@ pub fn pending_permission_mode_change(meta: &AgentChatMeta) -> Option<String> {
     let selected =
         trimmed_opt(meta.descriptor.current_config.permission_mode.as_ref())?.to_string();
     match trimmed_opt(meta.applied_permission_mode.as_ref()) {
+        Some(applied) if applied == selected => None,
+        _ => Some(selected),
+    }
+}
+
+pub fn pending_fast_change(meta: &AgentChatMeta) -> Option<String> {
+    let selected = trimmed_opt(meta.descriptor.current_config.fast.as_ref())?.to_string();
+    match trimmed_opt(meta.applied_fast.as_ref()) {
         Some(applied) if applied == selected => None,
         _ => Some(selected),
     }
@@ -1433,10 +1489,10 @@ mod usage_parse_tests {
 #[cfg(test)]
 mod session_config_change_tests {
     use super::{
-        config_kind_matches, merge_advertised_options, pending_session_config_change,
-        resolve_session_config_select, AgentChatMeta, AgentChatOrigin, AgentCurrentConfig,
-        ResolvedSessionConfig, RuntimeStatus, SessionAdvertisedOption,
-        SessionAdvertisedOptionValue,
+        advertised_option_for_kind, config_kind_matches, map_advertised_select_value,
+        merge_advertised_options, pending_session_config_change, resolve_session_config_select,
+        AgentChatMeta, AgentChatOrigin, AgentCurrentConfig, ResolvedSessionConfig, RuntimeStatus,
+        SessionAdvertisedOption, SessionAdvertisedOptionValue,
     };
     use agent::AgentModel;
     use chrono::Utc;
@@ -1462,6 +1518,7 @@ mod session_config_change_tests {
             applied_thinking: None,
             applied_mode: None,
             applied_permission_mode: None,
+            applied_fast: None,
             available_commands: Vec::new(),
             session_usage: None,
             descriptor: super::chat_descriptor(
@@ -1590,6 +1647,68 @@ mod session_config_change_tests {
     }
 
     #[test]
+    fn cursor_cli_encoded_model_maps_to_acp_bracket_value() {
+        let mut row = meta();
+        row.provider_id = "cursor".into();
+        row.descriptor.supported_options.models = vec![
+            AgentModel {
+                id: "composer-2.5[fast=true]".into(),
+                label: "composer-2.5".into(),
+                group: None,
+                is_default: false,
+                thinking: None,
+            },
+            AgentModel {
+                id: "gpt-5.3-codex[reasoning=medium,fast=false]".into(),
+                label: "gpt-5.3-codex".into(),
+                group: None,
+                is_default: true,
+                thinking: None,
+            },
+        ];
+        assert_eq!(
+            resolve_session_config_select(&row, "model", "gpt-5.3-codex-fast"),
+            ResolvedSessionConfig::PassThrough("gpt-5.3-codex[reasoning=medium,fast=false]".into())
+        );
+        assert_eq!(
+            resolve_session_config_select(&row, "model", "composer-2.5-fast"),
+            ResolvedSessionConfig::PassThrough("composer-2.5[fast=true]".into())
+        );
+        let option = SessionAdvertisedOption {
+            id: "model".into(),
+            name: None,
+            category: Some("model".into()),
+            option_type: "select".into(),
+            current_value: Some("gemini-3.5-flash[]".into()),
+            options: row
+                .descriptor
+                .supported_options
+                .models
+                .iter()
+                .map(|model| SessionAdvertisedOptionValue {
+                    value: model.id.clone(),
+                    name: Some(model.label.clone()),
+                })
+                .collect(),
+        };
+        assert_eq!(
+            map_advertised_select_value(&option, "gpt-5.3-codex", "cursor").as_deref(),
+            Some("gpt-5.3-codex[reasoning=medium,fast=false]")
+        );
+        // Cursor CLI→bracket mapper is provider-scoped.
+        let mut other = row.clone();
+        other.provider_id = "deepseek-harness".into();
+        assert_eq!(
+            resolve_session_config_select(&other, "model", "not-a-listed-model"),
+            ResolvedSessionConfig::PassThrough("not-a-listed-model".into())
+        );
+        assert_eq!(
+            resolve_session_config_select(&row, "model", "not-a-listed-model"),
+            ResolvedSessionConfig::PassThrough("not-a-listed-model".into())
+        );
+    }
+
+    #[test]
     fn permission_mode_aliases_do_not_match_agent_mode() {
         assert!(config_kind_matches(
             "permissionMode",
@@ -1608,6 +1727,46 @@ mod session_config_change_tests {
         ));
         assert!(!config_kind_matches("permission_mode", None, "mode"));
         assert!(!config_kind_matches("mode", None, "permission_mode"));
+    }
+
+    #[test]
+    fn cursor_pmp_prefers_effort_over_boolean_thinking_option() {
+        let options = vec![
+            SessionAdvertisedOption {
+                id: "thinking".into(),
+                name: Some("Thinking".into()),
+                category: Some("thinking".into()),
+                option_type: "boolean".into(),
+                current_value: Some("false".into()),
+                options: vec![
+                    SessionAdvertisedOptionValue {
+                        value: "false".into(),
+                        name: None,
+                    },
+                    SessionAdvertisedOptionValue {
+                        value: "true".into(),
+                        name: None,
+                    },
+                ],
+            },
+            SessionAdvertisedOption {
+                id: "effort".into(),
+                name: Some("Effort".into()),
+                category: Some("thinking".into()),
+                option_type: "select".into(),
+                current_value: Some("high".into()),
+                options: ["low", "medium", "high", "xhigh", "max"]
+                    .iter()
+                    .map(|value| SessionAdvertisedOptionValue {
+                        value: (*value).into(),
+                        name: None,
+                    })
+                    .collect(),
+            },
+        ];
+        let preferred = advertised_option_for_kind(&options, "thinking").expect("effort");
+        assert_eq!(preferred.id, "effort");
+        assert_eq!(preferred.current_value.as_deref(), Some("high"));
     }
 
     #[test]

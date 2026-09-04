@@ -28,7 +28,7 @@ apps/api  WsAction / DTO
        policy/      canonicalize, honesty tables, Atmos permission map
        map/         classify_tool + JSON extractors (adapter-private)
        providers/   claude | codex | opencode | pi | grok | acp
-       catalog/     Cli + Native probe; catalog → descriptor apply
+       options/     Options probe + cache; snapshot → descriptor apply
        acp_client/  generic ACP stdio (Grok native reuses JSON-RPC framing)
        manager/     install / registry / keyring / Native tab
 ```
@@ -58,7 +58,7 @@ crates/agent/
     │       event_map.rs       # session events
     │       tool_map.rs        # protocol kind → extract fields → Other
     │       overlays/          # provider_id patches (deepseek, grok_acp)
-    ├── catalog/               # CatalogEngine; NativeCatalogProbe vs AcpCatalogProbe; apply to descriptor
+    ├── options/               # OptionsProbe (run/plan + cli/acp/native); merge/cache/apply to descriptor
     ├── acp_client/            # ACP stdio process + JSON-RPC (not the Chat public API)
     ├── manager/               # AgentManager: npm, registry, binary, keyring, Native tab
     └── testing.rs             # test-support fakes (feature = "test-support")
@@ -81,9 +81,9 @@ Pinned CLI fixtures live under `providers/*/testdata/` (and `providers/acp/testd
 | `grok` | Native | `grok --permission-mode <selected\|default> agent stdio` (optional `--model` before `stdio`) + `_x.ai/*` |
 | everything else | ACP | `acp_client` (`claude-acp`, `codex-acp`, `grok-build`, `gemini`, `cursor`, custom names) |
 
-Built-in custom ACP agents that are **not** in the public ACP registry live in `manager/builtin_custom.rs` (currently `deepseek-harness` → `npx -y @deepseek-ai/dsh@… --profile acp`). They always appear in `list_custom_agents`. Chat picker and catalog probe them only after the Custom tab switch is on (`enabled` in the overlay; default off). Do not fold these ids into native. Token auth for DeepSeek is `DEEPSEEK_API_KEY`. The canonical secret lives in `~/.atmos/data/quota-usage/provider_config.json` (shared with AI Quota Usage). Spawn injects it as process env. A custom overlay env or process env still works as fallback; it is not the ACP `authenticate` / keyring path.
+Built-in custom ACP agents that are **not** in the public ACP registry live in `manager/builtin_custom.rs` (currently `deepseek-harness` → `npx -y @deepseek-ai/dsh@… --profile acp`). They always appear in `list_custom_agents`. Chat picker and options probe them only after the Custom tab switch is on (`enabled` in the overlay; default off). Do not fold these ids into native. Token auth for DeepSeek is `DEEPSEEK_API_KEY`. The canonical secret lives in `~/.atmos/data/quota-usage/provider_config.json` (shared with AI Quota Usage). Spawn injects it as process env. A custom overlay env or process env still works as fallback; it is not the ACP `authenticate` / keyring path.
 
-Chat native hosts (`claude` / `codex` / `opencode` / `pi` / `grok`) live in `manager/native_chat.rs`. They always appear in the Agent Manager Native tab. Chat picker and catalog probe them only after the Native tab switch is on (`enabled` in `acp_servers.json` `native_chat_agents`; default off). PATH presence is a badge only — it does not block the switch and does not install or remove ACP adapters. Native, ACP, and Custom lists stay independent; the Chat picker folds ACP aliases (`codex-acp` → `codex`) only when the matching native host is enabled.
+Chat native hosts (`claude` / `codex` / `opencode` / `pi` / `grok`) live in `manager/native_chat.rs`. They always appear in the Agent Manager Native tab. Chat picker and options probe them only after the Native tab switch is on (`enabled` in `acp_servers.json` `native_chat_agents`; default off). PATH presence is a badge only — it does not block the switch and does not install or remove ACP adapters. Native, ACP, and Custom lists stay independent; the Chat picker folds ACP aliases (`codex-acp` → `codex`) only when the matching native host is enabled.
 
 Spawn does **not** fold ACP registry ids: `claude-acp` / `codex-acp` / `pi-acp` / `grok-build` / `grok-acp` stay ACP. Native synonyms that still fold: `claude-code` / `claude_code` → `claude`.
 
@@ -94,8 +94,9 @@ Chat spawn overlays (session argv/`-c` only; never rewrite user toml):
 | Host | Overlay | Why |
 |------|---------|-----|
 | **Codex** | `app-server -c openai_base_url=""`; `thread/start` `approvalPolicy` from Atmos permission (`ask_always` → `on-request`, `yolo` → `never`), `sandbox: workspace-write`; `thread/start` and `turn/start` send `model` (catalog/list default if spawn omitted it) | Atmos owns permission chrome and must not inherit a user `openai_base_url` gateway it does not control. Empty base URL is the published CLI ChatGPT-login path. 0.152.1 rejects a missing `model` field. |
-| **Grok** | `--permission-mode <selected\|default>` **before** `agent` (not `grok agent --permission-mode`, which the CLI rejects). Still omit `--always-approve` / `--yolo` (Always approve is `--permission-mode bypassPermissions`). Session env `GROK_CURSOR_MCPS_ENABLED=0` and `GROK_CLAUDE_MCPS_ENABLED=0`. | Atmos owns permission chrome. User `[ui] permission_mode = "always-approve"` would otherwise auto-eat `session/request_permission`. Empty `session/new` `mcpServers` does not stop Cursor/Claude MCP ingestion (`compat.*.mcps` default on); HTTP MCP Connection refused / OAuth `AuthRequired` can fatal the stdio worker. |
-| **Claude** | `--permission-prompt-tool stdio`; do **not** unset Anthropic base URL | Published default is Anthropic. Permission mode is a Chat flag, not a gateway wipe. |
+| **Grok** | `--permission-mode <selected\|default>` **before** `agent` (not `grok agent --permission-mode`, which the CLI rejects). Still omit `--always-approve` / `--yolo` (Always approve is `--permission-mode bypassPermissions`). Mid-session: slash `/always-approve on\|off` and `/auto` via `session/prompt`; Plan/Normal via ACP `session/set_mode` (`plan`/`default`). Do **not** `session/set_config_option` permission aliases (Method not found). Advertise Yolo / Auto / Ask Always only (Accept edits is spawn-capable but has no mid-session slash). Session env `GROK_CURSOR_MCPS_ENABLED=0` and `GROK_CLAUDE_MCPS_ENABLED=0`. | Atmos owns permission chrome. Empty `session/new` `mcpServers` does not stop Cursor/Claude MCP ingestion (`compat.*.mcps` default on); HTTP MCP Connection refused / OAuth `AuthRequired` can fatal the stdio worker. |
+| **Cursor (ACP)** | `cursor-agent acp` with optional parent flags `--yolo` (Run Everything) or `--auto-review` (Smart Auto) **before** `acp`. Do **not** `session/set_config_option` `permissionMode` / aliases — Cursor advertises `mode`/`model`/… only. Advertise Yolo / Auto / Ask Always (create-time CLI subset); never Accept edits. Mid-session permission has no ACP wire. Plan is `mode=plan`. | Guessing unknown configIds returns JSON-RPC `-32602`. Team policy may still force allowlist even with `--yolo`. |
+| **Claude** | `--permission-prompt-tool stdio` + spawn `--permission-mode`; mid-session prefers control `set_permission_mode` but soft-fails must not break SetConfig / pending sync (Atmos chrome stays local). Do **not** ACP-guess `permissionMode` aliases for native `claude`. | Published default is Anthropic. Permission mode is a Chat flag, not a gateway wipe. |
 | **Pi** | `--mode rpc` only | Host has **no** built-in tool-permission chrome. `--approve` / `-na` is project-file trust; RPC `extension_ui_request` `confirm` is extension UI only. |
 
 ---
@@ -126,7 +127,7 @@ use agent::providers::grok::GrokNativeProvider; // not re-exported at crate root
 
 ### Catalog
 
-Natives use `NativeCatalogProbe` (`catalog/native.rs`). They skip `AcpCatalogProbe`. Grok native probe spawns `grok agent stdio` for slash commands (`initialize` `_meta` + `available_commands_update`); models still come from `grok models` CLI. Unknown / custom ids still probe ACP.
+Natives use `NativeOptionsProbe` (`options/probe/native`). They skip `AcpOptionsProbe`. Grok native probe spawns `grok agent stdio` for slash commands (`initialize` `_meta` + `available_commands_update`); models still come from `grok models` CLI. Unknown / custom ids still probe ACP.
 
 ---
 

@@ -5,6 +5,9 @@ pub mod grok;
 pub mod opencode;
 pub mod pi;
 
+#[cfg(test)]
+mod live_chat_tests;
+
 use crate::policy::canonicalize_chat_provider_id;
 
 /// Chat spawn class after native-only canonicalize. Exact id only — not argv or parser.

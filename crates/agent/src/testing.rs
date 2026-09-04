@@ -10,12 +10,12 @@ use tokio::sync::{mpsc, Mutex};
 use crate::contract::AgentEventEnvelope;
 use crate::contract::{AgentAction, AgentActionError, AgentActionKind, AgentActionResult};
 use crate::contract::{
-    AgentCatalogContext, AgentEvent, AgentPersistenceHandle, AgentPrompt, AgentProvider,
-    AgentProviderError, AgentResult, AgentRuntime, AgentRuntimeCommands, AgentRuntimeConfig,
-    AgentRuntimeConfigUpdate, AgentRuntimeControl, AgentTurnHandle, TurnStop,
+    AgentCurrentConfig, AgentDescriptor, AgentIdentity, AgentSupportedOptions, Capability,
 };
 use crate::contract::{
-    AgentCurrentConfig, AgentDescriptor, AgentIdentity, AgentSupportedOptions, Capability,
+    AgentEvent, AgentOptionsContext, AgentPersistenceHandle, AgentPrompt, AgentProvider,
+    AgentProviderError, AgentResult, AgentRuntime, AgentRuntimeCommands, AgentRuntimeConfig,
+    AgentRuntimeConfigUpdate, AgentRuntimeControl, AgentTurnHandle, TurnStop,
 };
 use crate::policy::{capabilities_for_provider, option_support_for_provider};
 
@@ -475,7 +475,7 @@ impl AgentProvider for FakeAgentProvider {
         &self.id
     }
 
-    async fn descriptor(&self, _ctx: &AgentCatalogContext) -> AgentResult<AgentDescriptor> {
+    async fn descriptor(&self, _ctx: &AgentOptionsContext) -> AgentResult<AgentDescriptor> {
         Ok(fake_descriptor(&self.id, self.supports_steer))
     }
 
@@ -526,7 +526,7 @@ impl crate::contract::AgentProviderFactory for StaticProviderFactory {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::contract::AgentCatalogContext;
+    use crate::contract::AgentOptionsContext;
 
     #[tokio::test]
     async fn s3_s7_fake_send_and_cancel_without_steer_prompt() {
@@ -573,7 +573,7 @@ mod tests {
         let started = runtime.next_event().await.expect("session started");
         assert!(matches!(started.payload, AgentEvent::SessionStarted { .. }));
         assert!(!started.event_id.is_empty());
-        let _ = AgentCatalogContext::default();
+        let _ = AgentOptionsContext::default();
     }
 
     #[tokio::test]

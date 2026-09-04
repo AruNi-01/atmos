@@ -33,7 +33,7 @@ export const WS_EVENTS = [
   "simulator_download_progress",
   "resource_monitor_updated",
   "agent_chat_event",
-  "agent_model_catalog_updated",
+  "agent_options_updated",
 ] as const;
 
 export type WsEvent = (typeof WS_EVENTS)[number];

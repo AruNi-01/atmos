@@ -7,13 +7,13 @@ use serde_json::Value;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::time::timeout;
 
-use crate::catalog::engine::NativeProbeResult;
-#[cfg(test)]
-use crate::catalog::parse::agent_modes_from_named_keys;
-use crate::catalog::parse::commands_from_value;
 #[cfg(test)]
 use crate::contract::AgentMode;
 use crate::contract::{AgentModel, AgentRuntimeConfig, AgentThinkingSupport};
+#[cfg(test)]
+use crate::options::probe::cli::parse::agent_modes_from_named_keys;
+use crate::options::probe::cli::parse::commands_from_value;
+use crate::options::probe::native::NativeOptionsProbeResult;
 
 use super::codec;
 use super::rpc::{control_response_is_error, control_response_request_id, initialize_request};
@@ -22,13 +22,13 @@ use super::spawn::spawn_claude;
 const PROBE_TIMEOUT: Duration = Duration::from_secs(15);
 const REQUEST_ID: &str = "req_catalog_1";
 
-pub(crate) async fn probe(isolated_cwd: &Path) -> Result<NativeProbeResult, String> {
+pub(crate) async fn probe(isolated_cwd: &Path) -> Result<NativeOptionsProbeResult, String> {
     timeout(PROBE_TIMEOUT, probe_inner(isolated_cwd))
         .await
         .map_err(|_| "native Claude catalog probe timed out".to_string())?
 }
 
-async fn probe_inner(isolated_cwd: &Path) -> Result<NativeProbeResult, String> {
+async fn probe_inner(isolated_cwd: &Path) -> Result<NativeOptionsProbeResult, String> {
     let cfg = AgentRuntimeConfig {
         cwd: isolated_cwd.to_path_buf(),
         ..AgentRuntimeConfig::default()
@@ -131,7 +131,7 @@ async fn probe_inner(isolated_cwd: &Path) -> Result<NativeProbeResult, String> {
     let permission_modes = crate::policy::advertised_permission_modes("claude");
     let modes = crate::policy::default_collaboration_modes();
     let commands = commands_from_value(&payload);
-    Ok(NativeProbeResult {
+    Ok(NativeOptionsProbeResult {
         models,
         modes,
         permission_modes,
@@ -326,9 +326,9 @@ mod tests {
         assert_eq!(permission[0].id, "default");
         assert_eq!(permission[1].id, "plan");
         assert!(agent_modes_from_named_keys(&payload, &["modes", "mode", "agents"]).is_empty());
-        let commands = crate::catalog::parse::commands_from_value(&payload);
+        let commands = crate::options::probe::cli::parse::commands_from_value(&payload);
         assert!(commands.is_empty());
-        let live = crate::catalog::parse::commands_from_value(&json!({
+        let live = crate::options::probe::cli::parse::commands_from_value(&json!({
             "commands": [
                 {"name": "compact", "description": "Compact history"},
                 {"name": "fast", "description": "Toggle Fast mode"},

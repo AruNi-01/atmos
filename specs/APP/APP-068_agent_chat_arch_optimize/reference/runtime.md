@@ -80,7 +80,7 @@ pub trait AgentRuntime: Send {
 #[async_trait]
 pub trait AgentProvider: Send + Sync {
     fn id(&self) -> &str;
-    async fn descriptor(&self, ctx: &AgentCatalogContext) -> AgentResult<AgentDescriptor>;
+    async fn descriptor(&self, ctx: &AgentOptionsContext) -> AgentResult<AgentDescriptor>;
     async fn create_runtime(&self, cfg: AgentRuntimeConfig) -> AgentResult<Box<dyn AgentRuntime>>;
     async fn resume_runtime(
         &self,

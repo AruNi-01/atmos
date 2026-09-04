@@ -6,7 +6,6 @@ import {
   FileDiff,
   FolderTree,
   GitBranch,
-  Github,
   LayoutDashboard,
   Play,
   Smartphone,
@@ -14,6 +13,7 @@ import {
   MessagesSquare,
   X,
 } from "lucide-react";
+import { Github } from "@workspace/ui/components/icons/lucide-brand-icons";
 import { cn } from "@/shared/lib/utils";
 import { CENTER_STAGE_RADIUS_CLASS } from "@/app-shell/sidebar-layout-constants";
 import type { CenterToolTabValue } from "@/app-shell/center-tool-tabs";

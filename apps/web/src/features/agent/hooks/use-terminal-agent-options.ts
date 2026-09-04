@@ -5,16 +5,16 @@ import { useTranslations } from "next-intl";
 
 import { wsRequest } from "@/api/ws/request";
 import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
-import type { TerminalAgentModelCatalog } from "@atmos/api-types/ws/dto/settings";
+import type { TerminalAgentOptions } from "@atmos/api-types/ws/dto/settings";
 
 export type {
-  TerminalAgentModelCatalog,
-  TerminalAgentModelOption,
+  TerminalAgentOptions,
+  TerminalAgentOption,
 } from "@atmos/api-types/ws/dto/settings";
 
-export function useTerminalAgentModelCatalog(agentId: string, enabled: boolean) {
+export function useTerminalAgentOptions(agentId: string, enabled: boolean) {
   const t = useTranslations("agent.modelCatalog");
-  const [catalog, setCatalog] = React.useState<TerminalAgentModelCatalog | null>(null);
+  const [catalog, setCatalog] = React.useState<TerminalAgentOptions | null>(null);
   const [loading, setLoading] = React.useState(false);
   const [requestError, setRequestError] = React.useState<string | null>(null);
 
@@ -67,11 +67,11 @@ export function useTerminalAgentModelCatalog(agentId: string, enabled: boolean) 
 
   React.useEffect(() => {
     if (!enabled || !agentId) return;
-    return useWebSocketStore.getState().onEvent("agent_model_catalog_updated", (payload) => {
-      const update = payload as { agent_id?: string; catalog?: TerminalAgentModelCatalog };
-      if (!update.agent_id || update.agent_id !== agentId || !update.catalog) return;
-      setCatalog(update.catalog);
-      setLoading(update.catalog.status === "probing");
+    return useWebSocketStore.getState().onEvent("agent_options_updated", (payload) => {
+      const update = payload as { agent_id?: string; options?: TerminalAgentOptions };
+      if (!update.agent_id || update.agent_id !== agentId || !update.options) return;
+      setCatalog(update.options);
+      setLoading(update.options.status === "probing");
     });
   }, [agentId, enabled]);
 

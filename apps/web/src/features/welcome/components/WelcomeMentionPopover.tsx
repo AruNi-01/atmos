@@ -14,9 +14,9 @@ import {
   CircleDot,
   Files,
   GitPullRequestArrow,
-  Github,
   Loader2,
 } from "lucide-react";
+import { Github } from "@workspace/ui/components/icons/lucide-brand-icons";
 import type { GithubIssuePayload, GithubPrPayload } from "@/api/ws-api";
 import {
   isImmediateMentionListingQuery,

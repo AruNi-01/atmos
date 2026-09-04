@@ -28,7 +28,6 @@ import {
   GitMergeIcon,
   GitCommitHorizontal,
   GitGraph,
-  Github,
   Globe,
   MessagesSquare,
   Play,
@@ -36,6 +35,7 @@ import {
   SquareTerminal as TerminalIcon,
   Workflow,
 } from "lucide-react";
+import { Github } from "@workspace/ui/components/icons/lucide-brand-icons";
 
 import {
   EDITOR_REVIEW_DIFF_PREFIX,

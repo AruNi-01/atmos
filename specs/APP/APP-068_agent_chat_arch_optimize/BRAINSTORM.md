@@ -8,7 +8,7 @@ APP-067 shipped Agent Chat as an Atmos-owned workspace: `chat_id`, file history,
 
 What is still not Atmos-shaped:
 
-- **Capabilities are a grab bag.** `AgentCapabilities` is three booleans. Model lists live in `AgentModelCatalog`. Thinking lives in catalog *and* capabilities *and* builtin JSON. Live ACP `configOptions` leak onto `AgentChatMeta.session_config_options`. ACP `AgentCapabilitiesSnapshot` is a third dialect.
+- **Capabilities are a grab bag.** `AgentCapabilities` is three booleans. Model lists live in `AgentOptionsSnapshot`. Thinking lives in catalog *and* capabilities *and* builtin JSON. Live ACP `configOptions` leak onto `AgentChatMeta.session_config_options`. ACP `AgentCapabilitiesSnapshot` is a third dialect.
 - **Tools are vendor JSON plus name heuristics.** The ACP adapter copies `raw_input` / `raw_output`. Rust `classify_tool` and web `classifyTool` duplicate alias tables. `parse-tool-result.ts` and `background-command/` adapters sniff Claude vs Grok vs fallback on the client.
 - **Runtime grew by union.** `AgentRuntimeCommands` already has `prompt` / `steer` / `cancel` / `close` / `set_config` / `respond_permission`. Adding Codex fork, Pi compact, etc. the same way would recreate the 45-method interface the IDEA rejected.
 - **Turn / Message / Part** are still easy to treat as a second SOT even though APP-067 TECH called them projections of `AgentEvent[]`.

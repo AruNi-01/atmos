@@ -9,10 +9,10 @@ use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::sync::mpsc;
 use tokio::time::timeout;
 
-use crate::catalog::engine::NativeProbeResult;
-use crate::catalog::parse::{agent_modes_from_named_keys, commands_from_value};
 use crate::contract::AgentRuntimeConfig;
 use crate::contract::{AgentModel, AgentThinkingSupport};
+use crate::options::probe::cli::parse::{agent_modes_from_named_keys, commands_from_value};
+use crate::options::probe::native::NativeOptionsProbeResult;
 
 use super::codec::{self, FrameClass};
 use super::rpc::{
@@ -23,13 +23,13 @@ use super::spawn::spawn_chat;
 
 const PROBE_TIMEOUT: Duration = Duration::from_secs(30);
 
-pub(crate) async fn probe(isolated_cwd: &Path) -> Result<NativeProbeResult, String> {
+pub(crate) async fn probe(isolated_cwd: &Path) -> Result<NativeOptionsProbeResult, String> {
     timeout(PROBE_TIMEOUT, probe_inner(isolated_cwd))
         .await
         .map_err(|_| "native Pi catalog probe timed out".to_string())?
 }
 
-async fn probe_inner(isolated_cwd: &Path) -> Result<NativeProbeResult, String> {
+async fn probe_inner(isolated_cwd: &Path) -> Result<NativeOptionsProbeResult, String> {
     let cfg = AgentRuntimeConfig {
         cwd: isolated_cwd.to_path_buf(),
         ..AgentRuntimeConfig::default()
@@ -101,7 +101,7 @@ async fn probe_inner(isolated_cwd: &Path) -> Result<NativeProbeResult, String> {
         .and_then(|response| response.require_ok().ok().cloned())
         .map(|response| commands_from_value(response.data()))
         .unwrap_or_default();
-    Ok(NativeProbeResult {
+    Ok(NativeOptionsProbeResult {
         models,
         modes,
         permission_modes,

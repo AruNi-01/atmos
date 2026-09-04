@@ -12,9 +12,10 @@ use agent::providers::pi::PiNativeProvider;
 use agent::providers::ChatProviderKind;
 use agent::{
     capabilities_for_provider, option_support_for_provider, AcpAgentProvider, AcpLaunchResolved,
-    AcpLaunchResolver, AcpProviderParams, AgentCatalogContext, AgentCurrentConfig, AgentDescriptor,
-    AgentIdentity, AgentLaunchSpec, AgentPersistenceHandle, AgentProvider, AgentProviderError,
-    AgentProviderFactory, AgentResult, AgentRuntime, AgentRuntimeConfig, AgentSupportedOptions,
+    AcpLaunchResolver, AcpProviderParams, AgentCurrentConfig, AgentDescriptor, AgentIdentity,
+    AgentLaunchSpec, AgentOptionsContext, AgentPersistenceHandle, AgentProvider,
+    AgentProviderError, AgentProviderFactory, AgentResult, AgentRuntime, AgentRuntimeConfig,
+    AgentSupportedOptions,
 };
 use async_trait::async_trait;
 use core_engine::FsEngine;
@@ -69,18 +70,18 @@ pub struct DefaultAgentProviderFactory {
     agent_service: Arc<AgentService>,
 }
 
-pub struct AgentServiceCatalogResolver {
+pub struct AgentServiceOptionsResolver {
     agent_service: Arc<AgentService>,
 }
 
-impl AgentServiceCatalogResolver {
+impl AgentServiceOptionsResolver {
     pub fn new(agent_service: Arc<AgentService>) -> Self {
         Self { agent_service }
     }
 }
 
 #[async_trait]
-impl AcpLaunchResolver for AgentServiceCatalogResolver {
+impl AcpLaunchResolver for AgentServiceOptionsResolver {
     async fn resolve(&self, agent_id: &str) -> std::result::Result<AcpLaunchResolved, String> {
         let launch_spec = self
             .agent_service
@@ -192,7 +193,7 @@ impl AgentProvider for LazyAcpProvider {
         &self.id
     }
 
-    async fn descriptor(&self, _ctx: &AgentCatalogContext) -> AgentResult<AgentDescriptor> {
+    async fn descriptor(&self, _ctx: &AgentOptionsContext) -> AgentResult<AgentDescriptor> {
         Ok(AgentDescriptor {
             identity: AgentIdentity {
                 id: self.id.clone(),

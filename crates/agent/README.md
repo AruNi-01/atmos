@@ -62,9 +62,9 @@ ACP / 各家 RPC 类型**不是** Chat 公共 API。
 
 Grok native 从 `agent::providers::grok::GrokNativeProvider` 引入（crate 根未 `pub use`）。不要加 Cargo `xai-grok-*`。
 
-### 3. Catalog（`catalog/`）
+### 3. Options（`options/`）
 
-`CatalogEngine`：native 走 `NativeCatalogProbe`，跳过 `AcpCatalogProbe`。Grok catalog 只做 overlay，probe 不拉起 stdio。自定义 / 未知 id 仍走 ACP probe。
+`OptionsProbe`：native 走 `NativeOptionsProbe`，跳过 `AcpOptionsProbe`。产出 `AgentOptionsSnapshot`，再 apply 到 descriptor。Grok options overlay 不拉起 stdio。自定义 / 未知 id 仍走 ACP probe。Cursor CLI 变体归类 / ACP 线协议 ID 映射在 `options/probe/cli/cursor.rs`。
 
 ### 4. Agent 生命周期（`manager/`）
 
@@ -149,7 +149,8 @@ src/
 │   ├── claude/ | codex/ | opencode/ | pi/ | grok/ | acp/
 │   │   └── acp/overlays/  # DeepSeek / Grok-ACP 按 provider_id 补怪形状
 │   └── */testdata/        # 钉死的协议夹具（CI 不拉活 CLI）
-├── catalog/               # Cli + Native probe
+├── options/               # Options probe + cache；snapshot → descriptor
+│   └── probe/             # run / plan + cli / acp / native
 ├── acp_client/            # 通用 ACP stdio / JSON-RPC
 ├── manager/               # 安装、Registry、二进制、keyring
 └── testing.rs             # feature = "test-support"

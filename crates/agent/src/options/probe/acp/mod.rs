@@ -1,3 +1,5 @@
+//! ACP options probe strategy.
+
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -9,10 +11,41 @@ use crate::acp_client::client::AcpSessionEvent;
 use crate::acp_client::tools::AcpToolHandler;
 use crate::acp_client::types::{AgentConfigOption, AgentConfigOptionValue};
 use crate::acp_client::{run_acp_session, AcpSessionHandle};
-use crate::contract::{AgentMode, AgentModel, AgentThinkingSupport};
+use crate::contract::{AgentAvailableCommand, AgentMode, AgentModel, AgentThinkingSupport};
 use crate::models::AgentLaunchSpec;
 
-use super::engine::{AcpCatalogProbe, AcpProbeResult};
+#[derive(Debug, Clone)]
+pub struct AcpOptionsProbeResult {
+    pub models: Vec<crate::contract::AgentModel>,
+    pub modes: Vec<crate::contract::AgentMode>,
+    pub permission_modes: Vec<crate::contract::AgentMode>,
+    pub thinking: AgentThinkingSupport,
+    pub commands: Vec<AgentAvailableCommand>,
+    pub cwd: PathBuf,
+    pub closed: bool,
+}
+
+#[async_trait]
+pub trait AcpOptionsProbe: Send + Sync {
+    async fn probe(
+        &self,
+        agent_id: &str,
+        isolated_cwd: &Path,
+    ) -> Result<AcpOptionsProbeResult, String>;
+}
+
+pub struct NoopAcpOptionsProbe;
+
+#[async_trait]
+impl AcpOptionsProbe for NoopAcpOptionsProbe {
+    async fn probe(
+        &self,
+        _agent_id: &str,
+        _isolated_cwd: &Path,
+    ) -> Result<AcpOptionsProbeResult, String> {
+        Err("acp probe unavailable".into())
+    }
+}
 
 const PROBE_TIMEOUT: Duration = Duration::from_secs(15);
 const NPX_PROBE_TIMEOUT: Duration = Duration::from_secs(60);
@@ -28,11 +61,11 @@ pub trait AcpLaunchResolver: Send + Sync {
     async fn resolve(&self, agent_id: &str) -> Result<AcpLaunchResolved, String>;
 }
 
-pub struct StdioAcpCatalogProbe {
+pub struct StdioAcpOptionsProbe {
     resolver: Arc<dyn AcpLaunchResolver>,
 }
 
-impl StdioAcpCatalogProbe {
+impl StdioAcpOptionsProbe {
     pub fn new(resolver: Arc<dyn AcpLaunchResolver>) -> Self {
         Self { resolver }
     }
@@ -250,9 +283,20 @@ fn option_value_from(
 }
 
 pub fn thinking_support_from_options(options: &[AgentConfigOption]) -> AgentThinkingSupport {
-    options
+    // Cursor PMP advertises both boolean `thinking` and select `effort`. Prefer
+    // effort/reasoning for the Atmos Effort picker; fall back to any thinking id.
+    let option = options
         .iter()
-        .find(|option| is_thinking_config_id(&option.id))
+        .find(|option| {
+            let id = option.id.to_ascii_lowercase();
+            id == "effort" || id == "thought_level" || id.contains("reason")
+        })
+        .or_else(|| {
+            options
+                .iter()
+                .find(|option| is_thinking_config_id(&option.id))
+        });
+    option
         .map(|option| {
             let values: Vec<String> = option
                 .options
@@ -290,7 +334,7 @@ pub fn probe_result_from_config_options(
     options: &[AgentConfigOption],
     cwd: PathBuf,
     closed: bool,
-) -> AcpProbeResult {
+) -> AcpOptionsProbeResult {
     let mut models = Vec::new();
     let mut modes = Vec::new();
     let mut permission_modes = Vec::new();
@@ -301,6 +345,8 @@ pub fn probe_result_from_config_options(
                 .iter()
                 .map(|value| AgentModel {
                     id: value.value.clone(),
+                    // Use ACP `name` as-is. Cursor `base[param]` label decoration is
+                    // provider-scoped in options::merge (not shared ACP probe).
                     label: value
                         .name
                         .clone()
@@ -345,7 +391,7 @@ pub fn probe_result_from_config_options(
     }
     let thinking = thinking_support_from_options(options);
     apply_thinking_to_current_model(&mut models, &thinking);
-    AcpProbeResult {
+    AcpOptionsProbeResult {
         models,
         modes,
         permission_modes,
@@ -357,8 +403,12 @@ pub fn probe_result_from_config_options(
 }
 
 #[async_trait]
-impl AcpCatalogProbe for StdioAcpCatalogProbe {
-    async fn probe(&self, agent_id: &str, isolated_cwd: &Path) -> Result<AcpProbeResult, String> {
+impl AcpOptionsProbe for StdioAcpOptionsProbe {
+    async fn probe(
+        &self,
+        agent_id: &str,
+        isolated_cwd: &Path,
+    ) -> Result<AcpOptionsProbeResult, String> {
         std::fs::create_dir_all(isolated_cwd).map_err(|error| error.to_string())?;
         let launch = self.resolver.resolve(agent_id).await?;
         let spawn_timeout = if launch.launch_spec.program == "npx" {
@@ -369,7 +419,7 @@ impl AcpCatalogProbe for StdioAcpCatalogProbe {
         let mut handle = timeout(
             spawn_timeout,
             run_acp_session(
-                format!("catalog-probe-{agent_id}"),
+                format!("options-probe-{agent_id}"),
                 launch.launch_spec,
                 isolated_cwd.to_path_buf(),
                 Arc::new(CatalogProbeToolHandler),
@@ -486,7 +536,7 @@ mod tests {
         ];
         let result = probe_result_from_config_options(
             &options,
-            PathBuf::from("/tmp/catalog-probe/claude"),
+            PathBuf::from("/tmp/options-probe/claude"),
             true,
         );
         assert_eq!(result.models.len(), 2);
@@ -498,7 +548,7 @@ mod tests {
         ));
         assert!(matches!(result.thinking, AgentThinkingSupport::Enum { .. }));
         assert!(result.closed);
-        assert_eq!(result.cwd, PathBuf::from("/tmp/catalog-probe/claude"));
+        assert_eq!(result.cwd, PathBuf::from("/tmp/options-probe/claude"));
     }
 
     #[test]
@@ -578,6 +628,72 @@ mod tests {
         let result = probe_result_from_config_options(&camel, PathBuf::from("/tmp"), true);
         assert_eq!(result.permission_modes[0].id, "ask_always");
         assert!(result.modes.is_empty());
+    }
+
+    #[test]
+    fn cursor_pmp_prefers_effort_over_boolean_thinking() {
+        let options = vec![
+            AgentConfigOption {
+                id: "model".into(),
+                name: Some("Model".into()),
+                description: None,
+                category: None,
+                r#type: "select".into(),
+                current_value: Some("gpt-5.3-codex".into()),
+                options: vec![AgentConfigOptionValue {
+                    value: "gpt-5.3-codex".into(),
+                    name: Some("Codex 5.3".into()),
+                    description: None,
+                }],
+            },
+            AgentConfigOption {
+                id: "thinking".into(),
+                name: Some("Thinking".into()),
+                description: None,
+                category: None,
+                r#type: "select".into(),
+                current_value: Some("true".into()),
+                options: vec![
+                    AgentConfigOptionValue {
+                        value: "false".into(),
+                        name: Some("Off".into()),
+                        description: None,
+                    },
+                    AgentConfigOptionValue {
+                        value: "true".into(),
+                        name: Some("On".into()),
+                        description: None,
+                    },
+                ],
+            },
+            AgentConfigOption {
+                id: "effort".into(),
+                name: Some("Effort".into()),
+                description: None,
+                category: None,
+                r#type: "select".into(),
+                current_value: Some("high".into()),
+                options: vec![
+                    AgentConfigOptionValue {
+                        value: "low".into(),
+                        name: Some("Low".into()),
+                        description: None,
+                    },
+                    AgentConfigOptionValue {
+                        value: "high".into(),
+                        name: Some("High".into()),
+                        description: None,
+                    },
+                ],
+            },
+        ];
+        match thinking_support_from_options(&options) {
+            AgentThinkingSupport::Enum { arg, options } => {
+                assert_eq!(arg.as_deref(), Some("effort"));
+                assert_eq!(options, vec!["low".to_string(), "high".to_string()]);
+            }
+            other => panic!("expected effort enum, got {other:?}"),
+        }
     }
 
     #[test]
@@ -702,6 +818,8 @@ mod tests {
         let result = probe_result_from_config_options(&options, PathBuf::from("/tmp"), true);
         assert_eq!(result.models.len(), 2);
         assert_eq!(result.models[0].id, flash);
+        assert_eq!(result.models[0].label, "DeepSeek-V4-Flash");
+        assert_eq!(result.models[1].label, "DeepSeek-V4-Pro");
         assert!(result.models[0].is_default);
         match &result.thinking {
             AgentThinkingSupport::Enum { arg, options } => {

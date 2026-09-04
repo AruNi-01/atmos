@@ -18,7 +18,7 @@ import {
 import { queryKeys } from "@/api/query/query-keys";
 import { getComputerQueryScope } from "@/api/query/query-scope";
 import { quotaUsageApi } from "@/api/ws/quota-usage-api";
-import { agentChatApi, type AgentModelCatalog } from "@/api/ws/agent-chat-api";
+import { agentChatApi, type AgentOptionsSnapshot } from "@/api/ws/agent-chat-api";
 import { agentApi, type RegistryAgent } from "@/api/ws/agent-api";
 import { agentApi as agentRestApi } from "@/api/rest-api";
 import { agentBehaviourSettingsApi } from "@/api/ws/settings-api";
@@ -100,9 +100,9 @@ import {
   composerConfigOptions,
   configKindMatches,
   displayedComposerConfigValue,
-  defaultCatalogModelId,
-  isCatalogModelsLoading,
-  probingCatalog,
+  defaultOptionsModelId,
+  isOptionsModelsLoading,
+  probingOptionsSnapshot,
   chatTitleFromPrompt,
   chatsToHistoryRows,
   parsePlan,
@@ -118,12 +118,20 @@ function pendingSessionConfigPatch(
   thinkingId: string,
   modeId: string,
   permissionModeId = "",
-): { model?: string; thinking?: string; mode?: string; permission_mode?: string } {
+  fastId = "",
+): {
+  model?: string;
+  thinking?: string;
+  mode?: string;
+  permission_mode?: string;
+  fast?: string;
+} {
   return {
     ...(modelId.trim() ? { model: modelId.trim() } : {}),
     ...(thinkingId.trim() ? { thinking: thinkingId.trim() } : {}),
     ...(modeId.trim() ? { mode: modeId.trim() } : {}),
     ...(permissionModeId.trim() ? { permission_mode: permissionModeId.trim() } : {}),
+    ...(fastId.trim() ? { fast: fastId.trim() } : {}),
   };
 }
 
@@ -193,7 +201,26 @@ export function useAgentChatSession({
   const [thinkingId, setThinkingId] = useState("");
   const [modeId, setModeId] = useState("");
   const [permissionModeId, setPermissionModeId] = useState("");
-  const [catalog, setCatalog] = useState<AgentModelCatalog | null>(null);
+  const [fastId, setFastId] = useState("");
+  const [catalog, setCatalogState] = useState<AgentOptionsSnapshot | null>(null);
+  const optionsByAgentRef = useRef<Record<string, AgentOptionsSnapshot>>({});
+  const rememberOptions = useCallback((next: AgentOptionsSnapshot | null) => {
+    if (!next?.agent_id) return;
+    if (next.status === "probing" && next.models.length === 0) return;
+    optionsByAgentRef.current[next.agent_id] = next;
+  }, []);
+  const setCatalog = useCallback((
+    next:
+      | AgentOptionsSnapshot
+      | null
+      | ((current: AgentOptionsSnapshot | null) => AgentOptionsSnapshot | null),
+  ) => {
+    setCatalogState((current) => {
+      const resolved = typeof next === "function" ? next(current) : next;
+      rememberOptions(resolved);
+      return resolved;
+    });
+  }, [rememberOptions]);
   const [installedAgents, setInstalledAgents] = useState<RegistryAgent[]>([]);
   const [defaultRegistryId, setDefaultRegistryId] = useState("");
   const [loadingAgents, setLoadingAgents] = useState(true);
@@ -340,6 +367,7 @@ export function useAgentChatSession({
     setThinkingId(next.current_config.thinking ?? "");
     setModeId(next.current_config.mode ?? "");
     setPermissionModeId(next.current_config.permission_mode ?? "");
+    setFastId(next.current_config.fast ?? "");
   }, []);
 
   const load = useCallback(async (id = activeChatId) => {
@@ -571,19 +599,22 @@ export function useAgentChatSession({
   ]);
 
   useEffect(() => {
-    return useWebSocketStore.getState().onEvent("agent_model_catalog_updated", (payload) => {
-      const update = payload as { agent_id?: string; catalog?: AgentModelCatalog };
-      if (update.agent_id && update.catalog && update.agent_id === providerIdRef.current) {
-        setCatalog(update.catalog);
-        const message = update.catalog.status === "error" ? update.catalog.message?.trim() : "";
+    return useWebSocketStore.getState().onEvent("agent_options_updated", (payload) => {
+      const update = payload as { agent_id?: string; options?: AgentOptionsSnapshot };
+      if (update.agent_id && update.options) {
+        rememberOptions(update.options);
+      }
+      if (update.agent_id && update.options && update.agent_id === providerIdRef.current) {
+        setCatalog(update.options);
+        const message = update.options.status === "error" ? update.options.message?.trim() : "";
         if (message) setSendError(message);
-        const commands = normalizeAgentSlashCommands(update.catalog.commands);
+        const commands = normalizeAgentSlashCommands(update.options.commands);
         if (commands.length > 0) {
           rememberAgentSlashCommands(update.agent_id, commands);
         }
       }
     });
-  }, []);
+  }, [rememberOptions, setCatalog]);
 
   useEffect(() => {
     if (restoreAttemptedRef.current) return;
@@ -865,9 +896,17 @@ export function useAgentChatSession({
 
   useEffect(() => {
     if (!providerId) return;
+    const cached = optionsByAgentRef.current[providerId];
+    if (cached) {
+      setCatalog(cached);
+    }
     let cancelled = false;
-    void agentChatApi.catalogGet(providerId).then((next) => {
+    void agentChatApi.optionsGet(providerId).then((next) => {
       if (cancelled) return;
+      if (next.status === "probing" && next.models.length === 0) {
+        const existing = optionsByAgentRef.current[providerId];
+        if (existing && existing.models.length > 0) return;
+      }
       setCatalog(next);
       const message = next.status === "error" ? next.message?.trim() : "";
       if (message) setSendError(message);
@@ -882,11 +921,15 @@ export function useAgentChatSession({
     return () => {
       cancelled = true;
     };
-  }, [providerId]);
+  }, [providerId, setCatalog]);
 
   const refreshEmptyCatalog = useCallback(() => {
     const id = providerIdRef.current;
     if (!id) return;
+    const remembered = optionsByAgentRef.current[id];
+    if (remembered && remembered.models.length > 0) {
+      setCatalog(remembered);
+    }
     let skip = false;
     setCatalog((current) => {
       if (current?.agent_id === id && current.models.length > 0) {
@@ -897,21 +940,24 @@ export function useAgentChatSession({
         skip = true;
         return current;
       }
-      return probingCatalog(id);
+      return remembered ?? current ?? probingOptionsSnapshot(id);
     });
     if (skip) return;
-    void agentChatApi.catalogGet(id, true).then((next) => {
-      if (providerIdRef.current === id) {
-        setCatalog(next);
-        const message = next.status === "error" ? next.message?.trim() : "";
-        if (message) setSendError(message);
-        const commands = normalizeAgentSlashCommands(next.commands);
-        if (commands.length > 0) {
-          rememberAgentSlashCommands(id, commands);
-        }
+    void agentChatApi.optionsGet(id).then((next) => {
+      if (providerIdRef.current !== id) return;
+      if (next.status === "probing" && next.models.length === 0) {
+        const existing = optionsByAgentRef.current[id];
+        if (existing && existing.models.length > 0) return;
+      }
+      setCatalog(next);
+      const message = next.status === "error" ? next.message?.trim() : "";
+      if (message) setSendError(message);
+      const commands = normalizeAgentSlashCommands(next.commands);
+      if (commands.length > 0) {
+        rememberAgentSlashCommands(id, commands);
       }
     });
-  }, []);
+  }, [setCatalog]);
 
   useEffect(() => {
     if (!prefsRestored) return;
@@ -931,7 +977,7 @@ export function useAgentChatSession({
     setModeId((current) =>
       current || catalog.modes.find((mode) => mode.is_default)?.id || catalog.modes[0]?.id || "",
     );
-    const resolvedModelId = defaultCatalogModelId(catalog, modelId || preferred.modelId);
+    const resolvedModelId = defaultOptionsModelId(catalog, modelId || preferred.modelId);
     setModelId((current) => {
       if (current && catalog.models.some((model) => model.id === current)) {
         return current;
@@ -1005,6 +1051,7 @@ export function useAgentChatSession({
       thinkingId,
       modeId,
       permissionModeId,
+      fastId,
     });
     const model = displayedComposerConfigValue(options, "model", modelId);
     const thinking = displayedComposerConfigValue(options, "thinking", thinkingId);
@@ -1014,17 +1061,20 @@ export function useAgentChatSession({
       "permission_mode",
       permissionModeId,
     );
+    const fast = displayedComposerConfigValue(options, "fast", fastId);
     return {
       model,
       thinking,
       mode,
       permissionMode,
-      patch: pendingSessionConfigPatch(model, thinking, mode, permissionMode),
+      fast,
+      patch: pendingSessionConfigPatch(model, thinking, mode, permissionMode, fast),
     };
   }, [
     catalog,
     defaultRegistryId,
     descriptor,
+    fastId,
     modeId,
     modelId,
     permissionModeId,
@@ -1038,10 +1088,20 @@ export function useAgentChatSession({
     thinking?: string;
     mode?: string;
     permission_mode?: string;
+    fast?: string;
   }) => {
     const id = activeChatId || activeIdRef.current;
     if (!id) return;
-    if (!patch.provider_id && !patch.model && !patch.thinking && !patch.mode && !patch.permission_mode) return;
+    if (
+      !patch.provider_id
+      && !patch.model
+      && !patch.thinking
+      && !patch.mode
+      && !patch.permission_mode
+      && !patch.fast
+    ) {
+      return;
+    }
     const meta = await agentChatApi.configure(id, patch);
     setProviderIdState(meta.provider_id || "claude");
     applyDescriptor(meta.descriptor);
@@ -1406,7 +1466,8 @@ export function useAgentChatSession({
     );
     if (targetRegistryId) {
       setProviderIdState(targetRegistryId);
-      setCatalog(null);
+      const cached = optionsByAgentRef.current[targetRegistryId];
+      if (cached) setCatalog(cached);
     }
     if (registryChanged) {
       const preferred = preferredConfigFromDefault(
@@ -1547,8 +1608,9 @@ export function useAgentChatSession({
         thinkingId,
         modeId,
         permissionModeId,
+        fastId,
       }),
-    [catalog, descriptor, modeId, modelId, permissionModeId, providerId, thinkingId],
+    [catalog, descriptor, fastId, modeId, modelId, permissionModeId, providerId, thinkingId],
   );
 
   const setAgentDefaultConfig = useCallback((configId: string, value: string) => {
@@ -1570,7 +1632,9 @@ export function useAgentChatSession({
       : configId === "thinking"
         || configId === "think"
         || configId === "thought_level"
+        || configId === "effort"
         || configId === "reasoning_effort"
+        || configId === "reasoning-effort"
         ? "thinking"
         : null;
     if (
@@ -1609,13 +1673,21 @@ export function useAgentChatSession({
     if (configKindMatches(key, undefined, "mode")) {
       setModeId(value);
       if (activeIdRef.current) void persistConfig({ mode: value });
+      return;
+    }
+    if (configKindMatches(key, undefined, "fast")) {
+      setFastId(value);
+      if (activeIdRef.current) void persistConfig({ fast: value });
     }
   }, [persistConfig]);
 
   const setProviderId = useCallback((next: string) => {
     if (agentLocked) return;
     setProviderIdState(next);
-    setCatalog(null);
+    const cached = optionsByAgentRef.current[next];
+    if (cached) {
+      setCatalog(cached);
+    }
     setDescriptor(null);
     setSupportsSteer(false);
     const preferred = preferredConfigFromDefault(
@@ -1625,6 +1697,7 @@ export function useAgentChatSession({
     setThinkingId(preferred.thinkingId);
     setModeId("");
     setPermissionModeId("");
+    setFastId("");
     persistPreferredRegistry(next);
     if (activeIdRef.current) {
       void persistConfig({
@@ -1633,7 +1706,7 @@ export function useAgentChatSession({
         ...(preferred.thinkingId ? { thinking: preferred.thinkingId } : {}),
       });
     }
-  }, [agentLocked, installedAgents, persistConfig, persistPreferredRegistry]);
+  }, [agentLocked, installedAgents, persistConfig, persistPreferredRegistry, setCatalog]);
 
   const activeAgent = installedAgents.find((agent) => agent.id === providerId) ?? installedAgents[0] ?? null;
   const registryId = activeAgent?.id || providerId;
@@ -1827,7 +1900,7 @@ export function useAgentChatSession({
       ? { name: activeAgent.id, title: activeAgent.name, version: activeAgent.version }
       : null,
     capabilities: null,
-    catalogModelsLoading: isCatalogModelsLoading(catalog, providerId),
+    catalogModelsLoading: isOptionsModelsLoading(catalog, providerId),
     refreshEmptyCatalog,
     configOptions,
     modelsLocked: false,

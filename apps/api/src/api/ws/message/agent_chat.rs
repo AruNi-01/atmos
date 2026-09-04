@@ -135,7 +135,7 @@ pub struct AgentChatSessionOpRespondRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AgentModelCatalogGetRequest {
+pub struct AgentOptionsGetRequest {
     pub agent_id: String,
     #[serde(default)]
     pub refresh: Option<bool>,
@@ -159,6 +159,8 @@ pub struct AgentChatConfigureRequest {
     pub mode: Option<String>,
     #[serde(default)]
     pub permission_mode: Option<String>,
+    #[serde(default)]
+    pub fast: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -267,6 +269,7 @@ mod wire_tests {
             applied_thinking: Some("high".into()),
             applied_mode: Some("plan".into()),
             applied_permission_mode: None,
+            applied_fast: None,
             available_commands: Vec::new(),
             session_usage: None,
             descriptor: AgentDescriptor {

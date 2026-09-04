@@ -336,17 +336,17 @@ trait AgentProvider {
 
     async fn capabilities(
         &self,
-        context: &AgentCatalogContext,
+        context: &AgentOptionsContext,
     ) -> Result<AgentCapabilities, AgentError>;
 
     async fn list_models(
         &self,
-        context: &AgentCatalogContext,
+        context: &AgentOptionsContext,
     ) -> Result<Vec<AgentModel>, AgentError>;
 
     async fn list_modes(
         &self,
-        context: &AgentCatalogContext,
+        context: &AgentOptionsContext,
     ) -> Result<Vec<AgentMode>, AgentError>;
 
     async fn create_session(

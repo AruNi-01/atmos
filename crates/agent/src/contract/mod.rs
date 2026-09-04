@@ -21,7 +21,7 @@ pub use event::{
 };
 pub use options::{AgentMode, AgentModel, AgentThinkingSupport};
 pub use provider::{
-    AgentCatalogContext, AgentCheckpoint, AgentPersistenceHandle, AgentPrompt, AgentProvider,
+    AgentCheckpoint, AgentOptionsContext, AgentPersistenceHandle, AgentPrompt, AgentProvider,
     AgentProviderFactory, AgentRuntime, AgentRuntimeCommands, AgentRuntimeConfig,
     AgentRuntimeConfigUpdate, AgentRuntimeControl, AgentTurnHandle,
 };

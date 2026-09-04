@@ -83,10 +83,13 @@ describe("agent chat modal frame", () => {
     expect(session).toContain('payload.outcome === "failed"');
     expect(session).toContain("agentChatApi.sessionOpRespond");
     expect(session).toContain('next.status === "error" ? next.message?.trim()');
-    expect(session).toContain('update.catalog.status === "error"');
-    expect(session).toContain("agent_model_catalog_updated");
+    expect(session).toContain('update.options.status === "error"');
+    expect(session).toContain("agent_options_updated");
     expect(session).toContain("composerConfigOptions");
-    expect(session).toContain("setCatalog(null);\n    setDescriptor(null);\n    setSupportsSteer(false);");
+    expect(session).toContain("optionsByAgentRef");
+    expect(session).toContain("agentChatApi.optionsGet(id)");
+    expect(session).not.toContain("optionsGet(id, true)");
+    expect(session).toContain("setDescriptor(null);\n    setSupportsSteer(false);");
     expect(session).toContain('payload.type === "rewind_view_updated"');
     expect(session).toContain('payload.type === "session_forked"');
     expect(session).toContain("setActiveChatId(childId)");

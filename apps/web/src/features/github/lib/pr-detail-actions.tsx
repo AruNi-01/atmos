@@ -11,13 +11,13 @@ import {
 import {
   Check,
   ChevronDown,
-  Github,
   GitMerge,
   Loader2,
   LoaderCircle,
   RotateCw,
   XCircle,
-} from 'lucide-react';
+} from "lucide-react";
+import { Github } from "@workspace/ui/components/icons/lucide-brand-icons";
 import { cn } from '@/shared/lib/utils';
 
 export type PRMergeStrategy = 'merge' | 'squash' | 'rebase';

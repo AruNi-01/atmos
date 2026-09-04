@@ -3,15 +3,15 @@ use std::path::PathBuf;
 
 use crate::acp_client::client::{AcpSessionEvent, AcpTurnStop};
 use crate::acp_client::types::{AgentConfigOption, StreamDelta, ToolCallStatus, ToolCallUpdate};
-use crate::catalog::{
-    is_mode_config_id, is_permission_mode_config_id, probe_result_from_config_options,
-};
 use crate::contract::AgentPersistenceHandle;
 use crate::contract::AgentTool;
 use crate::contract::{AgentCurrentConfig, AgentIdentity, AgentSupportedOptions, Capability};
 use crate::contract::{AgentDescriptor, TurnStop};
 use crate::contract::{
     AgentEvent, AgentEventEnvelope, AgentPermissionOption, AgentPermissionRequest,
+};
+use crate::options::{
+    is_mode_config_id, is_permission_mode_config_id, probe_result_from_config_options,
 };
 use crate::policy::{capabilities_for_provider, option_support_for_provider};
 
@@ -461,8 +461,19 @@ fn merge_config_options(state: &mut EventMapState, options: &[AgentConfigOption]
     if !probed.permission_modes.is_empty() {
         state.supported_options.permission_modes = probed.permission_modes;
     }
+    if crate::policy::canonicalize_chat_provider_id(&state.provider_id) == "cursor" {
+        state.supported_options.permission_modes = crate::policy::expand_sparse_permission_modes(
+            "cursor",
+            state.supported_options.permission_modes.clone(),
+        );
+    }
     if !probed.thinking.is_none() {
         state.supported_options.thinking = probed.thinking;
+    }
+    if let Some(fast) = fast_modes_from_options(options) {
+        state.supported_options.fast = fast;
+    } else {
+        state.supported_options.fast.clear();
     }
     for option in options {
         let Some(current) = option
@@ -475,8 +486,13 @@ fn merge_config_options(state: &mut EventMapState, options: &[AgentConfigOption]
         let id = option.id.to_ascii_lowercase();
         if id == "model" || id == "models" {
             state.current_config.model = Some(current.clone());
-        } else if is_thinking_config_id(&id) {
+        } else if id == "effort" || id == "thought_level" || id.contains("reason") {
+            // Prefer effort/reasoning over boolean `thinking` when both are present.
             state.current_config.thinking = Some(current.clone());
+        } else if is_thinking_config_id(&id) && state.current_config.thinking.is_none() {
+            state.current_config.thinking = Some(current.clone());
+        } else if is_fast_config_id(&id) {
+            state.current_config.fast = Some(current.clone());
         } else if is_permission_mode_config_id(&option.id) {
             apply_permission_current(state, current);
         } else if is_mode_config_id(&option.id) {
@@ -500,6 +516,55 @@ fn is_thinking_config_id(id: &str) -> bool {
         || id == "thought_level"
         || id == "effort"
         || id.contains("reason")
+}
+
+fn is_fast_config_id(id: &str) -> bool {
+    id == "fast" || id == "fast-mode" || id == "fast_mode"
+}
+
+fn fast_modes_from_options(
+    options: &[AgentConfigOption],
+) -> Option<Vec<crate::contract::AgentMode>> {
+    let option = options.iter().find(|item| {
+        let id = item.id.to_ascii_lowercase();
+        is_fast_config_id(&id)
+    })?;
+    if !option.options.is_empty() {
+        return Some(
+            option
+                .options
+                .iter()
+                .map(|value| crate::contract::AgentMode {
+                    id: value.value.clone(),
+                    label: value
+                        .name
+                        .clone()
+                        .filter(|name| !name.is_empty())
+                        .unwrap_or_else(|| value.value.clone()),
+                    is_default: option.current_value.as_deref() == Some(value.value.as_str()),
+                })
+                .collect(),
+        );
+    }
+    if option.r#type.eq_ignore_ascii_case("boolean") {
+        let current = option.current_value.as_deref().unwrap_or("false");
+        let on = current.eq_ignore_ascii_case("true")
+            || current.eq_ignore_ascii_case("on")
+            || current == "1";
+        return Some(vec![
+            crate::contract::AgentMode {
+                id: "false".into(),
+                label: "Off".into(),
+                is_default: !on,
+            },
+            crate::contract::AgentMode {
+                id: "true".into(),
+                label: "On".into(),
+                is_default: on,
+            },
+        ]);
+    }
+    None
 }
 
 #[cfg(test)]

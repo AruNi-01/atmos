@@ -46,11 +46,11 @@ sequenceDiagram
 
 ## Frozen action catalog (MUST NOT rename)
 
-`apps/api/src/api/ws/message.rs` `WsAction` variants `AgentChatCreate` … `AgentChatPrefsSet` plus `AgentModelCatalogGet`. Wire names (serde snake_case) already listed in `packages/api-types/src/ws/actions.ts` and `contract/agent-chat.ts`:
+`apps/api/src/api/ws/message.rs` `WsAction` variants `AgentChatCreate` … `AgentChatPrefsSet` plus `AgentOptionsSnapshotGet`. Wire names (serde snake_case) already listed in `packages/api-types/src/ws/actions.ts` and `contract/agent-chat.ts`:
 
-`agent_chat_create` `list` `get` `messages` `rename` `configure` `delete` `subscribe` `unsubscribe` `send` `steer` `queue_add` `queue_update` `queue_reorder` `queue_delete` `cancel` `permission_respond` `prefs_get` `prefs_set` and `agent_model_catalog_get`.
+`agent_chat_create` `list` `get` `messages` `rename` `configure` `delete` `subscribe` `unsubscribe` `send` `steer` `queue_add` `queue_update` `queue_reorder` `queue_delete` `cancel` `permission_respond` `prefs_get` `prefs_set` and `agent_options_get`.
 
-Events stay `agent_chat_event` and `agent_model_catalog_updated` (`message.rs` `WsEvent`, `event-contract.ts`).
+Events stay `agent_chat_event` and `agent_options_updated` (`message.rs` `WsEvent`, `event-contract.ts`).
 
 Do **not** add `agent_chat_descriptor_get`, `agent_chat_tool_*`, or an ACP/session REST twin. Trait rename `prompt` → `send` in `crates/agent` does **not** rename `agent_chat_send`.
 
@@ -76,7 +76,7 @@ Returned by `agent_chat_create` / `rename` / `configure`; nested in `agent_chat_
 
 **Add:** `descriptor: AgentDescriptor` (identity + capabilities + supported_options + current_config). Invariant: `descriptor.identity.id === provider_id`.
 
-`agent_chat_list` stays `AgentChatIndexEntry` (**no** descriptor). Pre-create picker uses `agent_model_catalog_get`; post-create chrome uses `meta.descriptor`.
+`agent_chat_list` stays `AgentChatIndexEntry` (**no** descriptor). Pre-create picker uses `agent_options_get`; post-create chrome uses `meta.descriptor`.
 
 Wire sketch (create/get/configure output):
 
@@ -223,7 +223,7 @@ If domain emits `AgentEvent::Unknown`, add `{ type: "unknown", event_type, paylo
 
 `agent_chat_steer` / `configure` / `permission_respond` stay. Host already returns `ServiceError::Validation` (`"steer is not supported by this agent"`). Gate on `descriptor.capabilities.*` instead of `meta.supports_steer`. UI hides the control first (M5); the error is the backstop. Do not invent `WsError.code = unsupported` unless an existing API error envelope already has it — keep Validation.
 
-`agent_model_catalog_get` unchanged (`AgentModelCatalog`). It remains the **pre-chat** `supported_options` source. After create, composer reads `descriptor`, not catalog as a parallel SOT.
+`agent_options_get` unchanged (`AgentOptionsSnapshot`). It remains the **pre-chat** `supported_options` source. After create, composer reads `descriptor`, not catalog as a parallel SOT.
 
 `AgentChatContract` row map (keys frozen; only nested DTO fields change):
 
@@ -236,7 +236,7 @@ If domain emits `AgentEvent::Unknown`, add `{ type: "unknown", event_type, paylo
 | subscribe | `{ chat_id, after_sequence? }` | `{ last_event_seq }` + fanout `agent_chat_event` |
 | cancel / delete / unsubscribe / permission_respond / queue_delete | existing | `WsOk` |
 | queue_* else | existing | unchanged queue JSON |
-| prefs_* / `agent_model_catalog_get` | existing | unchanged |
+| prefs_* / `agent_options_get` | existing | unchanged |
 
 Queue item JSON is out of this slice. Do not tighten `Record<string, unknown>` here.
 
@@ -246,7 +246,7 @@ Shape change, **no new action names**. Still run the APP-048/064 recipe so `Unma
 
 1. Rust serde of snapshot / meta / parts / `AgentChatPayload` / `AgentTool` is the wire. Prefer server JSON when TS disagrees.
 2. `bun run --filter @atmos/api-types extract-actions` → commit `fixtures/actions.server.json` **only if it changed** (it should not). Never hand-edit the fixture.
-3. Confirm `src/ws/actions.ts` still has the same `agent_chat_*` + `agent_model_catalog_get` list. **Do not add names.**
+3. Confirm `src/ws/actions.ts` still has the same `agent_chat_*` + `agent_options_get` list. **Do not add names.**
 4. Evolve DTOs in `packages/api-types/src/ws/dto/agent-chat.ts` (snake_case, serde nullability). Empty bodies stay `WsEmpty`.
 5. Keep `{ input, output }` **rows** in `src/ws/contract/agent-chat.ts`. Types behind those rows change (`AgentChatMeta`, `AgentChatSnapshot`, `AgentMessage`). Do not add contract keys.
 6. `extract-events` / `check-events`: `agent_chat_event` payload type stays `AgentChatEvent`; inner `payload` union fields change. No new event name.

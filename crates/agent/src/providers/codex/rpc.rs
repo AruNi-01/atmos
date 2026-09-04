@@ -32,6 +32,7 @@ pub struct StickyConfig {
     pub effort: Option<String>,
     pub mode: Option<String>,
     pub permission_mode: Option<String>,
+    pub fast: Option<String>,
 }
 
 impl StickyConfig {
@@ -41,6 +42,7 @@ impl StickyConfig {
             effort: cfg.thinking.clone(),
             mode: cfg.mode.clone(),
             permission_mode: cfg.permission_mode.clone(),
+            fast: cfg.fast.clone(),
         }
     }
 
@@ -57,7 +59,17 @@ impl StickyConfig {
         if let Some(permission_mode) = &update.permission_mode {
             self.permission_mode = Some(permission_mode.clone());
         }
+        if let Some(fast) = &update.fast {
+            self.fast = Some(fast.clone());
+        }
     }
+}
+
+/// Codex model catalog names this tier "Fast" (`additionalSpeedTiers` still lists `"fast"`).
+pub const FAST_SERVICE_TIER: &str = "priority";
+
+fn sticky_service_tier(sticky: &StickyConfig) -> Option<&'static str> {
+    crate::policy::is_fast_on(sticky.fast.as_deref()).then_some(FAST_SERVICE_TIER)
 }
 
 pub struct PendingServerReq {
@@ -117,6 +129,9 @@ pub fn thread_start_params(cwd: &Path, sticky: &StickyConfig) -> Value {
     if let Some(model) = sticky_model(sticky) {
         params["model"] = json!(model);
     }
+    if let Some(tier) = sticky_service_tier(sticky) {
+        params["serviceTier"] = json!(tier);
+    }
     params
 }
 
@@ -136,6 +151,14 @@ pub fn turn_start_params(thread_id: &str, prompt: &AgentPrompt, sticky: &StickyC
     }
     if let Some(effort) = &sticky.effort {
         params["effort"] = json!(effort);
+    }
+    if let Some(fast) = sticky.fast.as_deref() {
+        if crate::policy::is_fast_on(Some(fast)) {
+            params["serviceTier"] = json!(FAST_SERVICE_TIER);
+        } else {
+            // Explicit null clears a previously sticky Fast tier for this turn.
+            params["serviceTier"] = Value::Null;
+        }
     }
     if let Some(mode) = collaboration_mode_params(sticky) {
         params["collaborationMode"] = mode;
@@ -354,14 +377,14 @@ impl CodexShared {
         }
         let modes = match self.request("collaborationMode/list", json!({})).await {
             Ok(result) => {
-                let parsed = super::catalog::parse_collaboration_modes(&result);
+                let parsed = super::options::parse_collaboration_modes(&result);
                 if parsed.is_empty() {
-                    super::catalog::codex_modes()
+                    super::options::codex_modes()
                 } else {
                     parsed
                 }
             }
-            Err(_) => super::catalog::codex_modes(),
+            Err(_) => super::options::codex_modes(),
         };
         overlay_modes(self, modes).await;
         overlay_permission_modes(self).await;
@@ -574,7 +597,7 @@ async fn handle_notification(shared: &Arc<CodexShared>, method: String, params: 
 }
 
 async fn overlay_models(shared: &CodexShared, result: Value) {
-    let (models, thinking) = super::catalog::parse_model_list(&result);
+    let (models, thinking) = super::options::parse_model_list(&result);
     if models.is_empty() {
         return;
     }
@@ -590,6 +613,9 @@ async fn overlay_models(shared: &CodexShared, result: Value) {
         thinking,
         modes,
         permission_modes,
+        fast: crate::policy::boolean_fast_modes(crate::policy::is_fast_on(
+            map.current_config.fast.as_deref(),
+        )),
     };
     emit_supported_options(shared, &map.supported_options);
 }
@@ -720,7 +746,7 @@ mod tests {
 
     #[test]
     fn listed_model_defaults_fill_thread_and_turn_start() {
-        let (models, thinking) = crate::providers::codex::catalog::parse_model_list(&json!({
+        let (models, thinking) = crate::providers::codex::options::parse_model_list(&json!({
             "data": [{
                 "id": "gpt-5.6-luna",
                 "displayName": "GPT-5.6-Luna",
@@ -748,7 +774,7 @@ mod tests {
 
     #[test]
     fn listed_model_defaults_do_not_override_explicit_sticky() {
-        let (models, thinking) = crate::providers::codex::catalog::parse_model_list(&json!({
+        let (models, thinking) = crate::providers::codex::options::parse_model_list(&json!({
             "data": [{
                 "id": "gpt-5.6-luna",
                 "isDefault": true,
@@ -758,8 +784,7 @@ mod tests {
         let mut sticky = StickyConfig {
             model: Some("gpt-5.6-sol".into()),
             effort: Some("high".into()),
-            mode: None,
-            permission_mode: None,
+            ..StickyConfig::default()
         };
         apply_listed_defaults_to_sticky(&mut sticky, &models, &thinking);
         assert_eq!(sticky.model.as_deref(), Some("gpt-5.6-sol"));
@@ -776,9 +801,7 @@ mod tests {
             &PathBuf::from("/abs/project"),
             &StickyConfig {
                 model: Some("gpt-5.6-sol".into()),
-                effort: None,
-                mode: None,
-                permission_mode: None,
+                ..StickyConfig::default()
             },
         );
         assert_eq!(params["approvalsReviewer"], "user");
@@ -791,9 +814,8 @@ mod tests {
             &PathBuf::from("/abs/project"),
             &StickyConfig {
                 model: Some("gpt-5.6-sol".into()),
-                effort: None,
-                mode: None,
                 permission_mode: Some("yolo".into()),
+                ..StickyConfig::default()
             },
         );
         assert_eq!(yolo["approvalPolicy"], "never");
@@ -802,9 +824,8 @@ mod tests {
             &PathBuf::from("/abs/project"),
             &StickyConfig {
                 model: Some("gpt-5.6-sol".into()),
-                effort: None,
-                mode: None,
                 permission_mode: Some("auto".into()),
+                ..StickyConfig::default()
             },
         );
         assert_eq!(auto["approvalPolicy"], "on-request");
@@ -813,9 +834,8 @@ mod tests {
             &PathBuf::from("/abs/project"),
             &StickyConfig {
                 model: Some("gpt-5.6-sol".into()),
-                effort: None,
-                mode: None,
                 permission_mode: Some("ask_always".into()),
+                ..StickyConfig::default()
             },
         );
         assert_eq!(ask["approvalPolicy"], "on-request");
@@ -856,6 +876,7 @@ mod tests {
             model: Some("gpt-5.6-sol".into()),
             thinking: Some("high".into()),
             mode: Some("plan".into()),
+            fast: Some("true".into()),
             ..AgentRuntimeConfigUpdate::default()
         });
         let prompt = AgentPrompt {
@@ -865,6 +886,7 @@ mod tests {
         let params = turn_start_params("thr_123", &prompt, &sticky);
         assert_eq!(params["model"], "gpt-5.6-sol");
         assert_eq!(params["effort"], "high");
+        assert_eq!(params["serviceTier"], FAST_SERVICE_TIER);
         assert_eq!(params["collaborationMode"]["mode"], "plan");
         assert_eq!(
             params["collaborationMode"]["settings"]["model"],
@@ -877,6 +899,7 @@ mod tests {
         assert!(params["collaborationMode"]["settings"]["developer_instructions"].is_null());
         sticky.apply(&AgentRuntimeConfigUpdate {
             mode: Some("default".into()),
+            fast: Some("false".into()),
             ..AgentRuntimeConfigUpdate::default()
         });
         let back = turn_start_params("thr_123", &prompt, &sticky);
@@ -885,6 +908,7 @@ mod tests {
             back["collaborationMode"]["settings"]["model"],
             "gpt-5.6-sol"
         );
+        assert!(back["serviceTier"].is_null());
         assert!(collaboration_mode_rejected(
             "collaborationMode did not match schema"
         ));

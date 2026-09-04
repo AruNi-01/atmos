@@ -594,7 +594,7 @@ pub enum WsAction {
     AgentChatCancel,
     AgentChatPermissionRespond,
     AgentChatSessionOpRespond,
-    AgentModelCatalogGet,
+    AgentOptionsGet,
     AgentChatPrefsGet,
     AgentChatPrefsSet,
 
@@ -909,7 +909,7 @@ pub enum WsEvent {
     /// Connection-scoped Computer resource snapshot (APP-066)
     ResourceMonitorUpdated,
     AgentChatEvent,
-    AgentModelCatalogUpdated,
+    AgentOptionsUpdated,
 }
 
 /// 项目删除进度通知数据

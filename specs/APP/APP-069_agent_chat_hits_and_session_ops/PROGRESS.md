@@ -39,7 +39,7 @@
 |----|------|------|---------|---------|--------|------|--------|--------|
 | S0 | 0 | see card: domain + catalog enum + descriptor construction sites | `apps/web/**`, grok provider tree, session-op intercept | — | done | ok | pass | `cargo test -p agent descriptor` |
 | S1 | 1 | see card: api-types + apps/api WS + configure permission_mode + session_op_respond reject-if-none | web UI, grok/**, send intercept, native rewind verbs | S0 | done | ok | pass | `bun test packages/api-types/src/ws/dto/agent-chat.test.ts` |
-| S2 | 2 | see card: Native catalog + catalog_spec_for + ACP permission_modes + Grok overlay | grok spawn, rewind verbs, tool_map.rs | S0,S1 | done | ok | pass | `cargo test -p agent catalog` + `cargo test -p core-service catalog` |
+| S2 | 2 | see card: Native catalog + options_probe_spec_for + ACP permission_modes + Grok overlay | grok spawn, rewind verbs, tool_map.rs | S0,S1 | done | ok | pass | `cargo test -p agent catalog` + `cargo test -p core-service catalog` |
 | S3 | 2 | see card: providers/grok + NativeGrok + strip ACP grok special-case | catalog.rs, web, rewind/fork RPC | S0 | done | ok | pass | `cargo test -p agent grok` |
 | S4 | 2 | see card: claude/codex/opencode/pi tool_map SearchHits | grok/**, acp/tool_map.rs | S0 | done | ok | pass | `cargo test -p agent extract_search_hits` |
 | S5 | 3 | see card: session-op kernel + events + send intercept + snapshot fold | web UI, native rewind RPC bodies, messages json | S1,S3 | done | ok | pass | `cargo test -p core-service --lib agent_chat` |
@@ -54,8 +54,8 @@
 ### S0 — Domain contract (descriptor.support, SearchHits, Native strategy)
 
 - **Wave**: 0
-- **Goal**: Land compile-safe domain types for APP-069: `AgentOptionSupport` on `AgentDescriptor` as `support`; `capabilities.fork`/`rewind`; `permission_modes` + `current_config.permission_mode`; `AgentRuntimeConfigUpdate.permission_mode`; `AgentToolResult::SearchHits` + `SearchHit` + `extract_search_hits`; `CatalogStrategyKind::Native` with engine arm (empty fragment OK). Update every `AgentDescriptor` / `AgentCapabilities` / `AgentSupportedOptions` / `AgentCurrentConfig` literal so the crate compiles. Serde missing fields → Unsupported / empty.
-- **Out of scope**: Grok provider module; ACP-vs-native catalog_spec_for switch; actual CLI/RPC probes; session-op actions/events; web; WS action; rewind/fork RPC.
+- **Goal**: Land compile-safe domain types for APP-069: `AgentOptionSupport` on `AgentDescriptor` as `support`; `capabilities.fork`/`rewind`; `permission_modes` + `current_config.permission_mode`; `AgentRuntimeConfigUpdate.permission_mode`; `AgentToolResult::SearchHits` + `SearchHit` + `extract_search_hits`; `OptionsProbeStrategy::Native` with engine arm (empty fragment OK). Update every `AgentDescriptor` / `AgentCapabilities` / `AgentSupportedOptions` / `AgentCurrentConfig` literal so the crate compiles. Serde missing fields → Unsupported / empty.
+- **Out of scope**: Grok provider module; ACP-vs-native options_probe_spec_for switch; actual CLI/RPC probes; session-op actions/events; web; WS action; rewind/fork RPC.
 - **Owns**:
   - `crates/agent/src/domain/**`
   - `crates/agent/src/catalog/**`
@@ -86,7 +86,7 @@
   - `capabilities` grows `fork` and `rewind` (Grok/Claude/Codex/OpenCode/Pi per honesty table; ACP Unsupported).
   - Missing serde → Unsupported.
   - `extract_search_hits` parses `path:line:snippet` and `path:line:`; zero hits → empty vec (callers keep Text later).
-  - `CatalogStrategyKind::Native` exists; engine may push empty/error fragment; do not call ACP from this arm.
+  - `OptionsProbeStrategy::Native` exists; engine may push empty/error fragment; do not call ACP from this arm.
   - Do not add `AgentAction::PrepareSessionOp` in this slice (exhaustive matches).
 - **Verify**: `cargo test -p agent descriptor -- --test-threads=1` and `cargo test -p agent catalog` (or equivalent tests added in Owns). Also `cargo check -p agent -p core-service -p atmos-api` if those packages exist.
 - **Review checklist**:
@@ -139,7 +139,7 @@
 ### S2 — M14 catalog (Native spec, skip ACP for natives, Grok overlay, ACP permission_modes)
 
 - **Wave**: 2 (parallel with S3, S4; Owns disjoint)
-- **Goal**: Chat natives use Config+Cli+Native, never generic ACP `session/new` in catalog-probe. `catalog_spec_for` after alias fold: `acp: false`, drop `Acp`, add `Native`. Engine Native arm calls `NativeCatalogProbe` (not `AcpCatalogProbe`). Grok thinking stamped from the 4.5/4.6 table after CLI models. ACP mapper fills `permission_modes` from permission/permission_mode/approval.
+- **Goal**: Chat natives use Config+Cli+Native, never generic ACP `session/new` in catalog-probe. `options_probe_spec_for` after alias fold: `acp: false`, drop `Acp`, add `Native`. Engine Native arm calls `NativeOptionsProbe` (not `AcpOptionsProbe`). Grok thinking stamped from the 4.5/4.6 table after CLI models. ACP mapper fills `permission_modes` from permission/permission_mode/approval.
 - **Out of scope**: Grok stdio spawn; rewind/fork verbs; web pickers; tool_map SearchHits.
 - **Owns**: `crates/agent/src/catalog/**`; `crates/agent/src/lib.rs` (re-exports only); `crates/agent/src/domain/descriptor.rs` + `crates/agent/src/domain/mod.rs` (only if `canonicalize_chat_provider_id` must become `pub`); `crates/core-service/src/service/agent_chat/catalog.rs`; new `crates/agent/src/providers/{claude,codex,opencode,pi}/catalog.rs`; those four `mod.rs` only to declare `mod catalog`.
 - **Forbids**: `providers/grok/**`; `providers/mod.rs`; `acp_factory.rs`; `**/tool_map.rs`; `apps/web/**`; `packages/api-types/**`.
@@ -255,4 +255,4 @@ Wave 0 domain; Wave 1 WS contract; Wave 2 catalog/Grok host/SearchHits; Wave 3 s
 
 ### Key decisions
 
-See TECH honesty + probe tables. S2 rework: `permission_modes` on `AgentModelCatalog`. S5 rework: Applied fork creates sibling. S6 rework: composer `extraConfigOptions` = `permission_mode`.
+See TECH honesty + probe tables. S2 rework: `permission_modes` on `AgentOptionsSnapshot`. S5 rework: Applied fork creates sibling. S6 rework: composer `extraConfigOptions` = `permission_mode`.

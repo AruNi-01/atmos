@@ -16,7 +16,6 @@ import { GithubUserAvatar, GithubUserHoverCard } from '@/features/github/compone
 import { useGithubPRDetail, useGithubPRDetailSidebar, useGithubPRTimeline, useGithubPRFiles } from '@/features/github/hooks/use-github';
 import { useWebSocketStore } from '@/features/connection/hooks/use-websocket';
 import {
-  Github,
   MessageSquare,
   GitPullRequest,
   GitCommit,
@@ -27,7 +26,8 @@ import {
   PanelRightClose,
   PanelRightOpen,
   ListChecks,
-} from 'lucide-react';
+} from "lucide-react";
+import { Github } from "@workspace/ui/components/icons/lucide-brand-icons";
 import { formatDistanceToNow } from 'date-fns';
 import { enUS, zhCN } from 'date-fns/locale';
 import { MarkdownRenderer } from '@/shared/components/markdown/MarkdownRenderer';

@@ -1,7 +1,16 @@
 "use client";
 // beui.dev/components/agents/prompt-input
 
-import { ArrowUp, Check, ChevronRight, LoaderCircle, Plus, Search, Square, X } from "lucide-react";
+import {
+  ArrowUp,
+  Check,
+  ChevronRight,
+  LoaderCircle,
+  Plus,
+  Search,
+  Square,
+  X,
+} from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import {
   type FormEvent,
@@ -22,6 +31,8 @@ import {
   MorphPopoverContent,
   MorphPopoverTrigger,
 } from "../motion/popover-morph";
+import { RangeSlider } from "../motion/range-slider";
+import { Switch } from "../ui/switch";
 import { SPRING_PRESS, SPRING_SWAP } from "../../lib/ease";
 import { cn } from "../../lib/utils";
 import {
@@ -64,7 +75,10 @@ export interface PromptInputLabels {
   back?: string;
   noResults?: string;
   loadingModels?: string;
+  thinkingFaster?: string;
+  thinkingSmarter?: string;
   thinkingEffort?: string;
+  fastMode?: string;
 }
 
 export type PromptInputRadius = "2xl" | "3xl";
@@ -99,6 +113,10 @@ export interface PromptInputProps extends Omit<
   thinkingLevels?: PromptModel[];
   thinking?: string;
   onThinkingChange?: (thinking: string) => void;
+  /** Show Fast switch when the agent advertises a `fast` config option. */
+  fastAvailable?: boolean;
+  fastEnabled?: boolean;
+  onFastChange?: (enabled: boolean) => void;
   actions?: PromptAction[];
   onAction?: (action: string) => void;
   onSubmit?: (value: string, model?: string) => void | Promise<void>;
@@ -142,7 +160,10 @@ const DEFAULT_LABELS: Required<PromptInputLabels> = {
   back: "Agents",
   noResults: "No results",
   loadingModels: "Loading models",
+  thinkingFaster: "Faster",
+  thinkingSmarter: "Smarter",
   thinkingEffort: "Effort",
+  fastMode: "Fast Tier",
 };
 
 export function PromptInput({
@@ -171,6 +192,9 @@ export function PromptInput({
   thinkingLevels = [],
   thinking,
   onThinkingChange,
+  fastAvailable = false,
+  fastEnabled = false,
+  onFastChange,
   actions = [],
   onAction,
   onSubmit,
@@ -397,7 +421,7 @@ export function PromptInput({
           />
         ) : null}
         <div className="ml-auto flex min-w-0 items-center gap-1">
-          {agents.length || models.length || thinkingLevels.length > 0 || modelsLoading ? (
+          {agents.length || models.length || thinkingLevels.length > 0 || fastAvailable || modelsLoading ? (
             <PromptAgentConfigMenu
               agents={agents}
               agent={agent}
@@ -414,6 +438,9 @@ export function PromptInput({
               thinkingLevels={thinkingLevels}
               thinking={thinking}
               onThinkingChange={onThinkingChange}
+              fastAvailable={fastAvailable}
+              fastEnabled={fastEnabled}
+              onFastChange={onFastChange}
               disabled={disabled || loading}
               labels={labels}
               className="min-w-0"
@@ -475,7 +502,11 @@ function PromptOptionSelect({
 }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
-  const current = options.find((option) => option.value === value);
+  // Never show the empty placeholder when options exist — preselect the first
+  // listed value (composer also resolves aliases / currentValue before this).
+  const current =
+    options.find((option) => option.value === value) ?? options[0];
+  const effectiveValue = current?.value ?? value ?? "";
   const showSearch = options.length > 15;
   const warning = current?.tone === "warning";
   const filtered = useMemo(() => {
@@ -526,7 +557,7 @@ function PromptOptionSelect({
         <div className="flex max-h-[min(20rem,calc(100dvh-1rem))] w-[16.5rem] flex-col rounded-2xl border border-border bg-popover shadow-[0_10px_18px_rgba(0,0,0,0.14)]">
           <ConfigFlyoutList
             options={filtered}
-            selected={value}
+            selected={effectiveValue}
             search={search}
             onSearch={setSearch}
             showSearch={showSearch}
@@ -560,6 +591,9 @@ function PromptAgentConfigMenu({
   thinkingLevels,
   thinking,
   onThinkingChange,
+  fastAvailable,
+  fastEnabled,
+  onFastChange,
   disabled,
   labels,
   className,
@@ -580,6 +614,9 @@ function PromptAgentConfigMenu({
   thinkingLevels: PromptModel[];
   thinking?: string;
   onThinkingChange?: (thinking: string) => void;
+  fastAvailable?: boolean;
+  fastEnabled?: boolean;
+  onFastChange?: (enabled: boolean) => void;
   disabled?: boolean;
   labels: Required<PromptInputLabels>;
   className?: string;
@@ -596,7 +633,7 @@ function PromptAgentConfigMenu({
   const menuRef = useRef<HTMLDivElement>(null);
   const flyoutRef = useRef<HTMLDivElement>(null);
   const hideFlyoutTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const showThinking = thinkingLevels.length > 0;
+  const showThinking = thinkingLevels.length > 1;
   const currentThinking = thinkingLevels.find((level) => level.value === thinking);
   const triggerText = agentConfigTriggerText({
     modelLabel: optionLabelText(currentModel),
@@ -740,12 +777,45 @@ function PromptAgentConfigMenu({
               onHover={() => openFlyout("model")}
             />
             {showThinking ? (
-              <ConfigMenuRow
-                label={labels.thinkingEffort}
-                value={titleCaseLabel(optionLabelText(currentThinking ?? thinkingLevels[0]))}
-                active={flyout === "thinking"}
-                onHover={() => openFlyout("thinking")}
-              />
+              <div
+                className="px-1 py-1"
+                onPointerEnter={() => {
+                  cancelHideFlyout();
+                  setFlyout(null);
+                  setSearch("");
+                }}
+              >
+                <ThinkingSliderPanel
+                  levels={thinkingLevels}
+                  value={thinking}
+                  onChange={onThinkingChange}
+                  disabled={disabled}
+                  effortLabel={labels.thinkingEffort}
+                />
+              </div>
+            ) : null}
+            {fastAvailable ? (
+              <div
+                className="px-1"
+                onPointerEnter={() => {
+                  cancelHideFlyout();
+                  setFlyout(null);
+                  setSearch("");
+                }}
+              >
+                <div className="flex h-9 w-full items-center gap-3 px-2.5">
+                  <span className="shrink-0 text-sm font-medium text-foreground">
+                    {labels.fastMode}
+                  </span>
+                  <span className="min-w-0 flex-1" />
+                  <Switch
+                    checked={Boolean(fastEnabled)}
+                    disabled={disabled}
+                    onCheckedChange={(checked) => onFastChange?.(checked)}
+                    aria-label={labels.fastMode}
+                  />
+                </div>
+              </div>
             ) : null}
           </div>
           {flyout ? (
@@ -768,17 +838,6 @@ function PromptAgentConfigMenu({
                     emptyLabel={labels.noResults}
                     onSelect={(value) => {
                       onAgentChange?.(value);
-                    }}
-                  />
-                ) : flyout === "thinking" ? (
-                  <ConfigFlyoutList
-                    heading={labels.thinkingEffort}
-                    options={thinkingLevels}
-                    selected={thinking}
-                    emptyLabel={labels.noResults}
-                    onSelect={(value) => {
-                      onThinkingChange?.(value);
-                      setOpen(false);
                     }}
                   />
                 ) : (
@@ -936,6 +995,83 @@ function ConfigFlyoutList({
         )}
       </div>
     </>
+  );
+}
+
+function ThinkingSliderPanel({
+  levels,
+  value,
+  onChange,
+  disabled,
+  effortLabel,
+}: {
+  levels: PromptModel[];
+  value?: string;
+  onChange?: (value: string) => void;
+  disabled?: boolean;
+  effortLabel: string;
+}) {
+  const propIndex = Math.max(
+    0,
+    levels.findIndex((level) => level.value === value),
+  );
+  const [index, setIndex] = useState(propIndex);
+  useEffect(() => {
+    setIndex(propIndex);
+  }, [propIndex]);
+  const current = levels[index] ?? levels[0];
+  const max = Math.max(0, levels.length - 1);
+  const currentLabel = titleCaseLabel(optionLabelText(current));
+
+  return (
+    <div>
+      <div className="flex w-full items-center gap-3 px-2.5 py-2 text-sm">
+        <span className="shrink-0 font-medium text-foreground">{effortLabel}</span>
+        <FadeLabel
+          value={currentLabel}
+          className="min-w-0 flex-1 truncate text-right text-muted-foreground"
+        />
+      </div>
+      <div className="px-2.5 pb-1">
+        <RangeSlider
+          variant="effort"
+          min={0}
+          max={max}
+          step={1}
+          value={index}
+          disabled={disabled}
+          maxEffect
+          aria-label={currentLabel || effortLabel}
+          formatValueText={(next) => titleCaseLabel(optionLabelText(levels[next] ?? current))}
+          onValueChange={setIndex}
+          onValueCommit={(next) => {
+            const level = levels[next];
+            if (level) onChange?.(level.value);
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function FadeLabel({ value, className }: { value: string; className?: string }) {
+  const reduce = useReducedMotion() ?? false;
+  return (
+    <span className={cn("relative inline-grid min-w-0 overflow-hidden", className)}>
+      <span className="invisible col-start-1 row-start-1 truncate">{value}</span>
+      <AnimatePresence initial={false} mode="popLayout">
+        <motion.span
+          key={value}
+          initial={reduce ? { opacity: 0 } : { opacity: 0, y: 8, filter: "blur(6px)" }}
+          animate={reduce ? { opacity: 1 } : { opacity: 1, y: 0, filter: "blur(0px)" }}
+          exit={reduce ? { opacity: 0 } : { opacity: 0, y: -8, filter: "blur(6px)" }}
+          transition={reduce ? { duration: 0.12 } : SPRING_SWAP}
+          className="col-start-1 row-start-1 truncate will-change-[opacity,filter,transform]"
+        >
+          {value}
+        </motion.span>
+      </AnimatePresence>
+    </span>
   );
 }
 

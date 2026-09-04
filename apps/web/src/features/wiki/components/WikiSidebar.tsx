@@ -22,12 +22,11 @@ import {
   Clock,
   ExternalLink,
   FilePlus,
-  Github,
-  Gitlab,
   Info,
   LoaderCircle,
   RotateCw,
 } from "lucide-react";
+import { Github, Gitlab } from "@workspace/ui/components/icons/lucide-brand-icons";
 import { formatLocalDateTime } from "@atmos/shared";
 import type { CatalogData, CatalogItem } from "../lib/wiki-utils";
 import type { WikiUpdateStatus } from "@/features/wiki/store/use-wiki-store";
@@ -56,7 +55,6 @@ function getRepoIcon(repoUrl: string): React.ComponentType<{ className?: string 
 function isLeaf(item: CatalogItem): boolean {
   return !item.children || item.children.length === 0;
 }
-
 
 /** Leaf item: a clickable page link */
 const WikiSidebarLeaf: React.FC<{

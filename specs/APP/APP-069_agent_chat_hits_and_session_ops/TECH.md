@@ -64,7 +64,7 @@ sequenceDiagram
 | Injected `/` rows | Native only, merge into `available_commands` when capability is supported. Never strip ACP rows. |
 | Capability flags | Closed struct grows `fork` and `rewind`. Honesty table below. No `execute(name, json)`. |
 | Claude summarize | TUI `/rewind` includes “Summarize from/up to here”. **Out of v1** — no `control_request` subtype; PRD N2 compact stays deferred. Do not fake it with a `/compact` user prompt. |
-| Native probe | Reuse `CatalogEngine` + cache. Chat natives: Config → Cli → **Native**. **Never** `AcpCatalogProbe` for folded native ids. Generic ACP ids keep Cli + Acp. |
+| Native probe | Reuse `OptionsProbeEngine` + cache. Chat natives: Config → Cli → **Native**. **Never** `AcpOptionsProbe` for folded native ids. Generic ACP ids keep Cli + Acp. |
 | `descriptor.support` | Four `Capability` flags: `models`, `thinking`, `modes`, `permission_modes`. Declares what **can** be probed/shown. Missing serde → `Unsupported`. |
 | Grok thinking | Not live RPC. After CLI `grok models`, stamp per-model thinking: id contains `4.6` → `low\|medium\|high\|xhigh`; contains `4.5` → `low\|medium\|high`. Other Grok ids: no thinking list. Labels: Low, Medium, High, Extra high. |
 
@@ -89,7 +89,7 @@ TUI product and host protocol can differ. Chat maps the **host protocol**. Chrom
 
 ### Composer probe honesty (M14)
 
-ACP already prefetches via `CatalogEngine`: CLI when `builtin_agents.json` `modelList.command` exists, else `StdioAcpCatalogProbe` (`session/new` in `catalog-probe/`, drain `config_options`, cache). Native Chat must use the **same prefetch + cache**, not a second catalog.
+ACP already prefetches via `OptionsProbeEngine`: CLI when `builtin_agents.json` `modelList.command` exists, else `StdioAcpOptionsProbe` (`session/new` in `catalog-probe/`, drain `config_options`, cache). Native Chat must use the **same prefetch + cache**, not a second catalog.
 
 `descriptor.support` is the picker honesty (what the composer may show). `supported_options` / `current_config` are the last successful probe (or live session update). Empty lists hide the control (existing composer behavior). Do not invent a fifth picker.
 
@@ -102,13 +102,13 @@ ACP already prefetches via `CatalogEngine`: CLI when `builtin_agents.json` `mode
 | **OpenCode** | Supported | as probe says | **Supported** (stamp Build / Plan when `/doc` scan is empty) | **Supported** Atmos ids `auto` / `ask_always` only (OpenCode CLI `--auto` = Auto, not Yolo; no distinct Yolo lock on `serve`). Stamp when probe empty; fold probe `ask`/`allow` but picker shows stamped subset. Auto locks at session create: spawn spec includes `--auto` (omitted from `serve` argv until CLI accepts it); adapter auto-replies `once` on `permission.asked`. Ask always omits `--auto`. | CLI `opencode models`; HTTP for modes/permission if listed. `POST /session` and prompt body send selected Build/Plan as `agent`. |
 | **Pi** | Supported | as RPC says | **Unsupported** (0.84.2 `get_state` has no mode list and no `set_mode`; do not show a picker we cannot apply) | **Unsupported** (no built-in permission chrome) | `--mode rpc` short session / documented list methods; not ACP. |
 | **Grok** | Supported | Supported for 4.5/4.6 ids only | **Supported** (Default + Plan). Plan still rides `--permission-mode plan` because Grok has no second mode flag. | **Supported** Atmos ids `yolo` / `accept_edits` / `auto` / `ask_always` (maps to `bypassPermissions` / `acceptEdits` / `auto` / `default`). Stamp the four-id list; do not put `plan` in Permission. | CLI `grok models` (`GrokLineList`, 20s timeout — live list exceeds the default 8s CLI band). Thinking **Config overlay** (table below), not RPC. Native probe reads `session/new` `configOptions`. Chat spawn `grok --permission-mode <vendor\|default> agent stdio`. Live picker uses `set_config_option` `permissionMode` with vendor ids. Never `--always-approve` / `--yolo`. |
-| ACP / other | as today | as today | **Supported**; empty list hides. Probe `session/new` `configOptions` **and** ACP `modes` (`SessionModeState`); do **not** stamp lists. `plan` in a permission option is classified as Mode. | **Supported**; empty list hides. Heuristically fold `permission` / `permissionMode` / `permission_mode` / `approval` into the Atmos subset (bypass/yolo/never → `yolo`, acceptEdits → `accept_edits`, exact `auto` → `auto`, default/ask/on-request/manual → `ask_always`). Unrecognized ids are dropped. Apply via `set_config_option` with **vendor** ids. | `AcpCatalogProbe` + live `ConfigOptionsUpdate`. Create/later apply via `set_config_option` (legacy `session/set_mode` when only `SessionModeState` advertised). |
+| ACP / other | as today | as today | **Supported**; empty list hides. Probe `session/new` `configOptions` **and** ACP `modes` (`SessionModeState`); do **not** stamp lists. `plan` in a permission option is classified as Mode. | **Supported**; empty list hides. Heuristically fold `permission` / `permissionMode` / `permission_mode` / `approval` into the Atmos subset (bypass/yolo/never → `yolo`, acceptEdits → `accept_edits`, exact `auto` → `auto`, default/ask/on-request/manual → `ask_always`). Unrecognized ids are dropped. Apply via `set_config_option` with **vendor** ids. | `AcpOptionsProbe` + live `ConfigOptionsUpdate`. Create/later apply via `set_config_option` (legacy `session/set_mode` when only `SessionModeState` advertised). |
 
 Composer pickers live on `descriptor.support` + non-empty lists, **not** `AgentCapabilities`. `capabilities.permission` is tool-approval chrome / `permission_requested` cards. Mode is `support.modes`. Permission picker is `support.permission_modes`.
 
 Claude and Grok expose two independent composer buttons: Mode (Default / Plan) and Permission (Atmos four-id subset). Plan is never a Permission row. Codex Mode stays Default / Plan; Permission is Yolo / Auto / Ask always (no Accept edits). Pi hides both. An empty mapped Permission list hides that button.
 
-Grok thinking overlay (after CLI models, `CatalogStrategyKind::Config` fragment or post-merge stamp):
+Grok thinking overlay (after CLI models, `OptionsProbeStrategy::Config` fragment or post-merge stamp):
 
 | Model id | Wire `thinking` options | UI labels |
 |----------|-------------------------|-----------|
@@ -116,9 +116,9 @@ Grok thinking overlay (after CLI models, `CatalogStrategyKind::Config` fragment 
 | contains `4.5` | `low`, `medium`, `high` | Low, Medium, High |
 | anything else from `grok models` | none | no thinking picker |
 
-`CatalogStrategyKind` grows `Native`. `CatalogEngine` runs it after Cli. `NativeCatalogProbe` is a crate trait; Claude/Codex/OpenCode/Pi/Grok implement it under `providers/*/catalog.rs`. Grok native probe is slash-only (`grok agent stdio` initialize `_meta` + `available_commands_update`); models stay on the `grok models` CLI. Timeout same order as ACP probe (~15s). Always close the probe process.
+`OptionsProbeStrategy` grows `Native`. `OptionsProbeEngine` runs it after Cli. `NativeOptionsProbe` is a crate trait; Claude/Codex/OpenCode/Pi/Grok implement it under `providers/*/catalog.rs`. Grok native probe is slash-only (`grok agent stdio` initialize `_meta` + `available_commands_update`); models stay on the `grok models` CLI. Timeout same order as ACP probe (~15s). Always close the probe process.
 
-`catalog_spec_for` after native-only canonicalize to a Chat native: `acp: false`, drop `CatalogStrategyKind::Acp`, add `Native`. Exact hosts `claude` / `codex` / `opencode` / `pi` / `grok` (plus `claude-code` synonyms) follow the native spec. ACP registry ids `claude-acp` / `codex-acp` / `pi-acp` / `grok-build` / `grok-acp` stay ACP. Gemini stays ACP.
+`options_probe_spec_for` after native-only canonicalize to a Chat native: `acp: false`, drop `OptionsProbeStrategy::Acp`, add `Native`. Exact hosts `claude` / `codex` / `opencode` / `pi` / `grok` (plus `claude-code` synonyms) follow the native spec. ACP registry ids `claude-acp` / `codex-acp` / `pi-acp` / `grok-build` / `grok-acp` stay ACP. Gemini stays ACP.
 
 ## Module-by-module design
 
@@ -226,11 +226,11 @@ Grok composer probe (M14): `grok models` via existing `GrokLineList`. Then stamp
 
 `crates/agent/src/catalog/engine.rs` + `spec.rs` + `crates/core-service/src/service/agent_chat/catalog.rs`.
 
-- `CatalogStrategyKind::Native`.
-- `catalog_spec_for` on Chat natives: Config + Cli (if `modelList.command`) + Native; `acp: false`.
+- `OptionsProbeStrategy::Native`.
+- `options_probe_spec_for` on Chat natives: Config + Cli (if `modelList.command`) + Native; `acp: false`.
 - Generic ACP ids: unchanged (may still Acp).
 - `probe_result_from_config_options` also maps `permission` / `permission_mode` / `approval` into `permission_modes` (ACP drop-bug fix).
-- Prefetch worker, TTL cache, `agent_model_catalog_updated`: unchanged, except an `ok` native cache that still has empty **stamped** composer lists (`claude`/`grok` modes or permission_modes, `codex` modes or permission_modes, `opencode` modes) is not fresh and does not skip re-probe — same idea as empty slash `commands`. ACP empty lists stay valid.
+- Prefetch worker, TTL cache, `agent_options_updated`: unchanged, except an `ok` native cache that still has empty **stamped** composer lists (`claude`/`grok` modes or permission_modes, `codex` modes or permission_modes, `opencode` modes) is not fresh and does not skip re-probe — same idea as empty slash `commands`. ACP empty lists stay valid.
 
 ### crates/agent — other natives (`M6`, `M9`, `M13`)
 
@@ -377,7 +377,7 @@ Invariants: intercept must not persist `/rewind` as a user turn. Failed/canceled
 
 ## Rollout plan
 
-1. **Domain contract** — `descriptor.support`, `permission_modes`, `capabilities.fork|rewind`, `SearchHits`, `CatalogStrategyKind::Native` (engine arm may return empty until probe slices). Compile `agent` + existing descriptor tests.
+1. **Domain contract** — `descriptor.support`, `permission_modes`, `capabilities.fork|rewind`, `SearchHits`, `OptionsProbeStrategy::Native` (engine arm may return empty until probe slices). Compile `agent` + existing descriptor tests.
 2. **M14 catalog** — skip ACP probe for natives; CLI + Native probes; Grok thinking overlay; ACP permission_mode mapping; web `descriptorToConfigOptions` fourth picker.
 3. **M1 hits** — `SearchHits` + `extract_search_hits` in claude/codex/opencode/pi/acp(+later grok) `result_for_kind(Search)`; api-types DTO; `presentAgentTool`.
 4. **Grok routing** — `ChatProviderKind::NativeGrok`, alias fold, `providers/grok` spawn `grok agent stdio`, session/new+load, move grok tool-map out of ACP. Capabilities still without fork/rewind if needed to land spawn first.

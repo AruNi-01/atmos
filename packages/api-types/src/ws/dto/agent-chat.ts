@@ -52,6 +52,7 @@ export type AgentChatConfigureRequest = {
   thinking?: string | null;
   mode?: string | null;
   permission_mode?: string | null;
+  fast?: string | null;
 };
 
 export type AgentChatSubscribeRequest = {
@@ -107,7 +108,7 @@ export type AgentChatSessionOpRespondRequest = {
   option_id: string;
 };
 
-export type AgentModelCatalogGetRequest = {
+export type AgentOptionsGetRequest = {
   agent_id: string;
   refresh?: boolean | null;
 };
@@ -141,6 +142,7 @@ export type AgentOptionSupport = {
   thinking: Capability;
   modes: Capability;
   permission_modes: Capability;
+  fast?: Capability;
 };
 
 export type AgentDescriptor = {
@@ -158,12 +160,14 @@ export type AgentDescriptor = {
     thinking?: AgentThinkingSupport;
     modes?: Array<{ id: string; label: string; is_default?: boolean }>;
     permission_modes?: Array<{ id: string; label: string; is_default?: boolean }>;
+    fast?: Array<{ id: string; label: string; is_default?: boolean }>;
   };
   current_config: {
     model?: string | null;
     thinking?: string | null;
     mode?: string | null;
     permission_mode?: string | null;
+    fast?: string | null;
   };
 };
 
@@ -512,7 +516,7 @@ export type AgentChatEvent = {
   payload: AgentEvent;
 };
 
-export type AgentModelCatalog = {
+export type AgentOptionsSnapshot = {
   agent_id: string;
   status: "ok" | "unsupported" | "auth_required" | "error" | "probing";
   models: Array<{
@@ -536,7 +540,7 @@ export type AgentModelCatalog = {
   }>;
 };
 
-export type AgentModelCatalogUpdated = {
+export type AgentOptionsUpdated = {
   agent_id: string;
-  catalog: AgentModelCatalog;
+  options: AgentOptionsSnapshot;
 };

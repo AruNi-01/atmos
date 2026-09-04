@@ -93,6 +93,9 @@ enum SessionCommand {
     Prompt {
         text: String,
         attachments: Vec<String>,
+        /// When set, wait for `session/prompt` to finish and report success/failure.
+        /// Used for Grok mid-session slash permission toggles (`/always-approve`, `/auto`).
+        reply: Option<oneshot::Sender<Result<(), String>>>,
     },
     Cancel,
     Close,
@@ -218,6 +221,19 @@ fn current_value_only_config_option(
     }
 }
 
+/// Cursor (and others) opt into bare `model` + separate `effort` / `fast` when the
+/// client declares `_meta.parameterizedModelPicker` on initialize.
+fn atmos_initialize_request() -> schema::InitializeRequest {
+    let mut meta = serde_json::Map::new();
+    meta.insert(
+        "parameterizedModelPicker".to_string(),
+        serde_json::Value::Bool(true),
+    );
+    schema::InitializeRequest::new(ProtocolVersion::V1)
+        .client_info(schema::Implementation::new("atmos", "0.1.0").title("ATMOS"))
+        .client_capabilities(schema::ClientCapabilities::new().meta(meta))
+}
+
 fn ordered_config_values(values: HashMap<String, String>) -> Vec<(String, String)> {
     let mut remaining = values;
     let mut ordered = Vec::new();
@@ -227,7 +243,12 @@ fn ordered_config_values(values: HashMap<String, String>) -> Vec<(String, String
         "permission_mode",
         "model",
         "reasoning_effort",
+        "effort",
+        "thought_level",
+        "thinking",
+        "fast",
         "fast-mode",
+        "fast_mode",
     ] {
         if let Some(value) = remaining.remove(config_id) {
             ordered.push((config_id.to_string(), value));
@@ -239,6 +260,78 @@ fn ordered_config_values(values: HashMap<String, String>) -> Vec<(String, String
     ordered
 }
 
+fn error_looks_like_method_not_found(error: &str) -> bool {
+    let lower = error.to_ascii_lowercase();
+    lower.contains("method not found") || lower.contains("-32601")
+}
+
+async fn run_prompt_turn(
+    conn: &ConnectionTo<Agent>,
+    session_id_acp: &schema::SessionId,
+    text: &str,
+    attachments: &[String],
+    event_tx: &mpsc::UnboundedSender<AcpSessionEvent>,
+) -> Result<(), String> {
+    append_acp_log(
+        &session_id_acp.to_string(),
+        "client_to_agent_acp",
+        "prompt_request",
+        &serde_json::json!({
+            "session_id": session_id_acp.to_string(),
+            "message": text,
+            "attachments": attachments,
+            "queued_after_turn": true,
+        }),
+    );
+    match conn
+        .send_request(schema::PromptRequest::new(
+            session_id_acp.clone(),
+            prompt_content_blocks(text, attachments),
+        ))
+        .block_task()
+        .await
+    {
+        Ok(res) => {
+            if let Some(usage) = res.usage {
+                let _ = event_tx.send(AcpSessionEvent::TurnUsage(map_turn_usage(usage)));
+            }
+            let _ = event_tx.send(AcpSessionEvent::TurnEnd(map_prompt_stop(
+                false,
+                res.stop_reason,
+            )));
+            Ok(())
+        }
+        Err(error) => {
+            let message = error.to_string();
+            let _ = event_tx.send(AcpSessionEvent::Error {
+                code: "PROMPT_FAILED".to_string(),
+                message: message.clone(),
+                recoverable: true,
+            });
+            let _ = event_tx.send(AcpSessionEvent::TurnEnd(AcpTurnStop::Failed));
+            Err(message)
+        }
+    }
+}
+
+async fn set_session_mode(
+    conn: &ConnectionTo<Agent>,
+    session_id_acp: &schema::SessionId,
+    value: String,
+    event_tx: &mpsc::UnboundedSender<AcpSessionEvent>,
+) -> Result<Vec<crate::acp_client::types::AgentConfigOption>, String> {
+    conn.send_request(schema::SetSessionModeRequest::new(
+        session_id_acp.clone(),
+        value.clone(),
+    ))
+    .block_task()
+    .await
+    .map_err(|error| error.to_string())?;
+    let out = vec![current_value_only_config_option("mode", value)];
+    let _ = event_tx.send(AcpSessionEvent::ConfigOptionsUpdate(out.clone()));
+    Ok(out)
+}
+
 async fn set_session_config_option(
     conn: &ConnectionTo<Agent>,
     session_id_acp: &schema::SessionId,
@@ -248,30 +341,27 @@ async fn set_session_config_option(
     event_tx: &mpsc::UnboundedSender<AcpSessionEvent>,
 ) -> Result<Vec<crate::acp_client::types::AgentConfigOption>, String> {
     if uses_legacy_modes && config_id == "mode" {
-        conn.send_request(schema::SetSessionModeRequest::new(
-            session_id_acp.clone(),
-            value.clone(),
-        ))
-        .block_task()
-        .await
-        .map_err(|error| error.to_string())?;
-        let out = vec![current_value_only_config_option("mode", value)];
-        let _ = event_tx.send(AcpSessionEvent::ConfigOptionsUpdate(out.clone()));
-        Ok(out)
-    } else {
-        let req = schema::SetSessionConfigOptionRequest::new(
-            session_id_acp.clone(),
-            schema::SessionConfigId::new(config_id),
-            schema::SessionConfigValueId::new(value),
-        );
-        let resp = conn
-            .send_request(req)
-            .block_task()
-            .await
-            .map_err(|error| error.to_string())?;
-        let out = map_config_options(resp.config_options);
-        let _ = event_tx.send(AcpSessionEvent::ConfigOptionsUpdate(out.clone()));
-        Ok(out)
+        return set_session_mode(conn, session_id_acp, value, event_tx).await;
+    }
+    let req = schema::SetSessionConfigOptionRequest::new(
+        session_id_acp.clone(),
+        schema::SessionConfigId::new(config_id.clone()),
+        schema::SessionConfigValueId::new(value.clone()),
+    );
+    match conn.send_request(req).block_task().await {
+        Ok(resp) => {
+            let out = map_config_options(resp.config_options);
+            let _ = event_tx.send(AcpSessionEvent::ConfigOptionsUpdate(out.clone()));
+            Ok(out)
+        }
+        // Grok stdio has no `session/set_config_option` (-32601). Plan/Normal still
+        // work via ACP `session/set_mode` (live probe: modeId plan|default).
+        Err(error)
+            if config_id == "mode" && error_looks_like_method_not_found(&error.to_string()) =>
+        {
+            set_session_mode(conn, session_id_acp, value, event_tx).await
+        }
+        Err(error) => Err(error.to_string()),
     }
 }
 
@@ -537,8 +627,27 @@ impl AcpSessionControl {
             .send(SessionCommand::Prompt {
                 text: message,
                 attachments,
+                reply: None,
             })
             .map_err(|_| "ACP session is no longer running".to_string())
+    }
+
+    /// Run a `session/prompt` turn and wait for completion (used for Grok slash toggles).
+    pub async fn prompt_turn(
+        &self,
+        message: String,
+        attachments: Vec<String>,
+    ) -> Result<(), String> {
+        let (reply, rx) = oneshot::channel();
+        self.cmd_tx
+            .send(SessionCommand::Prompt {
+                text: message,
+                attachments,
+                reply: Some(reply),
+            })
+            .map_err(|_| "ACP session is no longer running".to_string())?;
+        rx.await
+            .map_err(|_| "ACP session is no longer running".to_string())?
     }
 
     pub fn send_cancel(&self) -> Result<(), String> {
@@ -633,6 +742,7 @@ impl AcpSessionHandle {
             .send(SessionCommand::Prompt {
                 text: message,
                 attachments,
+                reply: None,
             })
             .map_err(|_| "ACP session is no longer running".to_string())
     }
@@ -897,10 +1007,7 @@ async fn run_session_inner(
         )
         .connect_with(transport, async move |conn: ConnectionTo<Agent>| {
             let init_response = match conn
-                .send_request(
-                    schema::InitializeRequest::new(ProtocolVersion::V1)
-                        .client_info(schema::Implementation::new("atmos", "0.1.0").title("ATMOS")),
-                )
+                .send_request(atmos_initialize_request())
                 .block_task()
                 .await
             {
@@ -1106,8 +1213,15 @@ async fn run_session_inner(
 
             while let Some(cmd) = cmd_rx.recv().await {
                 match cmd {
-                    SessionCommand::Prompt { text, attachments } => {
+                    SessionCommand::Prompt {
+                        text,
+                        attachments,
+                        reply,
+                    } => {
                         if text.trim().is_empty() && attachments.is_empty() {
+                            if let Some(reply) = reply {
+                                let _ = reply.send(Ok(()));
+                            }
                             continue;
                         }
                         append_acp_log(
@@ -1130,6 +1244,7 @@ async fn run_session_inner(
                         let mut cancel_requested = false;
                         let mut pending_close = false;
                         let mut pending_configs = Vec::new();
+                        let mut pending_prompts = Vec::new();
                         let prompt_result = loop {
                             tokio::select! {
                                 res = &mut prompt_fut => break res,
@@ -1190,7 +1305,16 @@ async fn run_session_inner(
                                             }
                                             let _ = reply.send(result);
                                         }
-                                        Some(SessionCommand::Prompt { .. }) => {}
+                                        Some(SessionCommand::Prompt {
+                                            text,
+                                            attachments,
+                                            reply: Some(reply),
+                                        }) => {
+                                            // Wait-for-completion prompts (Grok slash toggles)
+                                            // must not be dropped mid-turn.
+                                            pending_prompts.push((text, attachments, reply));
+                                        }
+                                        Some(SessionCommand::Prompt { reply: None, .. }) => {}
                                         None => {
                                             break Err(internal_error(
                                                 "ACP command channel closed",
@@ -1200,6 +1324,8 @@ async fn run_session_inner(
                                 }
                             }
                         };
+                        let prompt_ok = prompt_result.is_ok();
+                        let prompt_err = prompt_result.as_ref().err().map(|e| e.to_string());
                         match prompt_result {
                             Ok(res) => {
                                 if let Some(usage) = res.usage {
@@ -1226,6 +1352,13 @@ async fn run_session_inner(
                                     }));
                             }
                         }
+                        if let Some(reply) = reply {
+                            let _ = reply.send(if prompt_ok {
+                                Ok(())
+                            } else {
+                                Err(prompt_err.unwrap_or_else(|| "prompt failed".into()))
+                            });
+                        }
                         for (config_id, value, reply) in pending_configs {
                             let result = set_session_config_option(
                                 &conn,
@@ -1233,6 +1366,17 @@ async fn run_session_inner(
                                 config_id,
                                 value,
                                 uses_legacy_modes,
+                                &event_tx,
+                            )
+                            .await;
+                            let _ = reply.send(result);
+                        }
+                        for (text, attachments, reply) in pending_prompts {
+                            let result = run_prompt_turn(
+                                &conn,
+                                &session_id_acp,
+                                &text,
+                                &attachments,
                                 &event_tx,
                             )
                             .await;
@@ -1382,10 +1526,7 @@ pub async fn list_acp_sessions(
         .name("atmos")
         .connect_with(transport, async move |conn: ConnectionTo<Agent>| {
             let init_response = match conn
-                .send_request(
-                    schema::InitializeRequest::new(ProtocolVersion::V1)
-                        .client_info(schema::Implementation::new("atmos", "0.1.0").title("ATMOS")),
-                )
+                .send_request(atmos_initialize_request())
                 .block_task()
                 .await
             {
@@ -1490,10 +1631,7 @@ pub async fn logout_acp_agent(
         .name("atmos")
         .connect_with(transport, async move |conn: ConnectionTo<Agent>| {
             let init_response = match conn
-                .send_request(
-                    schema::InitializeRequest::new(ProtocolVersion::V1)
-                        .client_info(schema::Implementation::new("atmos", "0.1.0").title("ATMOS")),
-                )
+                .send_request(atmos_initialize_request())
                 .block_task()
                 .await
             {

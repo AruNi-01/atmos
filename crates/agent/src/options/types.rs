@@ -5,7 +5,7 @@ use crate::contract::{AgentAvailableCommand, AgentMode, AgentModel, AgentThinkin
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum CatalogStatus {
+pub enum OptionsStatus {
     Ok,
     Unsupported,
     AuthRequired,
@@ -15,14 +15,14 @@ pub enum CatalogStatus {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum CatalogSource {
+pub enum OptionsSource {
     Cache,
     Live,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum CatalogStrategyKind {
+pub enum OptionsProbeStrategy {
     Config,
     Cli,
     Acp,
@@ -31,9 +31,9 @@ pub enum CatalogStrategyKind {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub struct AgentModelCatalog {
+pub struct AgentOptionsSnapshot {
     pub agent_id: String,
-    pub status: CatalogStatus,
+    pub status: OptionsStatus,
     pub models: Vec<AgentModel>,
     #[serde(default)]
     pub modes: Vec<AgentMode>,
@@ -44,18 +44,18 @@ pub struct AgentModelCatalog {
     #[serde(default)]
     pub thinking: AgentThinkingSupport,
     #[serde(default)]
-    pub strategies_used: Vec<CatalogStrategyKind>,
+    pub strategies_used: Vec<OptionsProbeStrategy>,
     pub fetched_at: DateTime<Utc>,
-    pub source: CatalogSource,
+    pub source: OptionsSource,
     #[serde(default)]
     pub message: Option<String>,
 }
 
-impl AgentModelCatalog {
+impl AgentOptionsSnapshot {
     pub fn probing(agent_id: impl Into<String>) -> Self {
         Self {
             agent_id: agent_id.into(),
-            status: CatalogStatus::Probing,
+            status: OptionsStatus::Probing,
             models: Vec::new(),
             modes: Vec::new(),
             permission_modes: Vec::new(),
@@ -63,7 +63,7 @@ impl AgentModelCatalog {
             thinking: AgentThinkingSupport::None,
             strategies_used: Vec::new(),
             fetched_at: Utc::now(),
-            source: CatalogSource::Live,
+            source: OptionsSource::Live,
             message: None,
         }
     }
@@ -71,7 +71,7 @@ impl AgentModelCatalog {
     pub fn error(agent_id: impl Into<String>, message: impl Into<String>) -> Self {
         Self {
             agent_id: agent_id.into(),
-            status: CatalogStatus::Error,
+            status: OptionsStatus::Error,
             models: Vec::new(),
             modes: Vec::new(),
             permission_modes: Vec::new(),
@@ -79,7 +79,7 @@ impl AgentModelCatalog {
             thinking: AgentThinkingSupport::None,
             strategies_used: Vec::new(),
             fetched_at: Utc::now(),
-            source: CatalogSource::Live,
+            source: OptionsSource::Live,
             message: Some(message.into()),
         }
     }
@@ -87,7 +87,7 @@ impl AgentModelCatalog {
     pub fn unsupported(agent_id: impl Into<String>, message: impl Into<String>) -> Self {
         Self {
             agent_id: agent_id.into(),
-            status: CatalogStatus::Unsupported,
+            status: OptionsStatus::Unsupported,
             models: Vec::new(),
             modes: Vec::new(),
             permission_modes: Vec::new(),
@@ -95,7 +95,7 @@ impl AgentModelCatalog {
             thinking: AgentThinkingSupport::None,
             strategies_used: Vec::new(),
             fetched_at: Utc::now(),
-            source: CatalogSource::Live,
+            source: OptionsSource::Live,
             message: Some(message.into()),
         }
     }
@@ -106,16 +106,16 @@ mod tests {
     use super::*;
 
     #[test]
-    fn catalog_strategy_kind_includes_native() {
-        let json = serde_json::to_value(CatalogStrategyKind::Native).expect("serialize");
+    fn options_probe_strategy_includes_native() {
+        let json = serde_json::to_value(OptionsProbeStrategy::Native).expect("serialize");
         assert_eq!(json, "native");
-        let back: CatalogStrategyKind = serde_json::from_value(json).expect("deserialize");
-        assert_eq!(back, CatalogStrategyKind::Native);
+        let back: OptionsProbeStrategy = serde_json::from_value(json).expect("deserialize");
+        assert_eq!(back, OptionsProbeStrategy::Native);
         let kinds = [
-            CatalogStrategyKind::Config,
-            CatalogStrategyKind::Cli,
-            CatalogStrategyKind::Acp,
-            CatalogStrategyKind::Native,
+            OptionsProbeStrategy::Config,
+            OptionsProbeStrategy::Cli,
+            OptionsProbeStrategy::Acp,
+            OptionsProbeStrategy::Native,
         ];
         let labels: Vec<String> = kinds
             .iter()
@@ -126,10 +126,10 @@ mod tests {
 
     #[test]
     fn permission_modes_default_empty_and_omitted_when_empty() {
-        let catalog = AgentModelCatalog::probing("claude");
+        let catalog = AgentOptionsSnapshot::probing("claude");
         let json = serde_json::to_value(&catalog).expect("serialize");
         assert!(json.get("permission_modes").is_none());
-        let back: AgentModelCatalog = serde_json::from_value(serde_json::json!({
+        let back: AgentOptionsSnapshot = serde_json::from_value(serde_json::json!({
             "agent_id": "claude",
             "status": "ok",
             "models": [],

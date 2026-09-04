@@ -1,7 +1,8 @@
 import React from 'react';
 import { useTranslations } from 'next-intl';
 import { useGithubActionsList } from '@/features/github/hooks/use-github';
-import { Clock, Loader2, CheckCircle2, XCircle, Rocket, Github } from 'lucide-react';
+import { Clock, Loader2, CheckCircle2, XCircle, Rocket } from "lucide-react";
+import { Github } from "@workspace/ui/components/icons/lucide-brand-icons";
 import { cn } from '@/shared/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, Button } from '@workspace/ui';
 import { formatActionTimestamp, formatActionTimeAgo } from '@/features/github/lib/action-run-time';

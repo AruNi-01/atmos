@@ -47,6 +47,7 @@ packages/ui/
 - Put reusable icons in `src/components/icons/`
 - Put animated icons in `src/components/icons/`, not `src/components/ui/`
 - `src/components/ui/` is for composable UI primitives/components, not icon assets
+- Lucide v1 removed brand marks; use `Github` / `Gitlab` from `components/icons/lucide-brand-icons` (or the package barrel) instead of importing them from `lucide-react`. Prefer animated `GithubIcon` for marketing hover treatments.
 
 ---
 

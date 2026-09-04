@@ -42,7 +42,7 @@ flowchart LR
 | Kind SOT | Wire `part.kind`. Never `classifyTool(name, input, output)`. |
 | Background SOT | `params.execute.background` (+ `task_id`, `command`). Never `background-command/adapters/*`. |
 | Result SOT | `part.result` is `AgentToolResult`. `parse-tool-result.ts` **presents** it; it does not sniff vendor envelopes to pick kind. |
-| Composer SOT | `meta.descriptor`. Catalog (`agent_model_catalog_get`) only before a chat exists. |
+| Composer SOT | `meta.descriptor`. Catalog (`agent_options_get`) only before a chat exists. |
 | Deleted meta | `supports_steer`, `session_config_options`, `selected_model` / `selected_thinking` / `selected_mode` as parallel fields. Selection is `descriptor.current_config`. |
 | Dual fields | No live read of `input` / `output` / `content` / `native`. No client fallback for pre-APP-068 jsonl. |
 | Thinking/plan | Already Atmos parts/events. Client must not re-fold `think` / `TodoWrite` tool names. |
@@ -143,7 +143,7 @@ type ComposerDescriptor = {
 | Steer | `capabilities.steer === "supported"` **and** running `turn_id` | `agent_chat_steer` | unsupported → queue/stop only |
 | Extra selects | never in v1 | — | unknown ACP option ids |
 
-**New Chat (no `chat_id`):** `agent_model_catalog_get` → local `supported_options`. Do not wait for `session_config_options`.
+**New Chat (no `chat_id`):** `agent_options_get` → local `supported_options`. Do not wait for `session_config_options`.
 
 **Existing chat:** prefer `snapshot.meta.descriptor`. Catalog may prefetch; it must not override `current_config`.
 

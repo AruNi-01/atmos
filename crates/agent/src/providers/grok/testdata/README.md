@@ -27,7 +27,7 @@ GROK_CURSOR_MCPS_ENABLED=0 GROK_CLAUDE_MCPS_ENABLED=0 \
   grok --permission-mode <selected|default> agent [--model <id>] stdio
 ```
 
-`--permission-mode` is a **parent** flag. `grok agent --permission-mode default stdio` is rejected (`unexpected argument '--permission-mode'`). Composer-selected ids: `default` / `plan` / `auto` / `bypassPermissions`. Still omit `--always-approve` / `--yolo`. User `[ui] permission_mode = "always-approve"` would otherwise auto-eat tool permission. Do not add Grok `session/new` `yoloMode` to the generic ACP mapper.
+`--permission-mode` is a **parent** flag. `grok agent --permission-mode default stdio` is rejected (`unexpected argument '--permission-mode'`). Composer-selected ids: `default` / `plan` / `auto` / `bypassPermissions`. Still omit `--always-approve` / `--yolo`. Mid-session: `/always-approve` + `/auto` slash via `session/prompt`; Plan via `session/set_mode`. Do not add Grok `session/new` `yoloMode` to the generic ACP mapper (spawn `--permission-mode` owns create-time YOLO).
 
 Empty `session/new` `mcpServers: []` does **not** stop Grok ingesting Cursor `~/.cursor/mcp.json` / Claude MCP via default `compat.cursor.mcps` / `compat.claude.mcps`. Names confirmed on grok 1.0.17 (`~/.grok/docs/user-guide/07-mcp-servers.md`, `26-config-reference.md`, binary strings). Env `0` disables for this process (same boolean convention as `GROK_MEMORY` / `GROK_WORKFLOWS`). HTTP MCP Connection refused and Cloudflare-plugin OAuth `AuthRequired` previously made stdio `worker quit with fatal` even when `session/new` RPC succeeded. Catalog probe uses the same overlay.
 

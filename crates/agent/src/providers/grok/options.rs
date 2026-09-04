@@ -13,10 +13,10 @@ use serde_json::Value;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::time::timeout;
 
-use crate::catalog::engine::NativeProbeResult;
-use crate::catalog::parse::commands_from_value;
-use crate::catalog::{config_options_from_session_payload, probe_result_from_config_options};
 use crate::contract::{AgentMode, AgentModel, AgentThinkingSupport};
+use crate::options::probe::cli::parse::commands_from_value;
+use crate::options::probe::native::NativeOptionsProbeResult;
+use crate::options::{config_options_from_session_payload, probe_result_from_config_options};
 
 use super::rpc::{initialize_request, jsonrpc_request, session_new_params};
 use super::spawn::spawn_stdio;
@@ -25,13 +25,13 @@ const PROBE_TIMEOUT: Duration = Duration::from_secs(15);
 const INIT_ID: u64 = 1;
 const SESSION_ID: u64 = 2;
 
-pub(crate) async fn probe(isolated_cwd: &Path) -> Result<NativeProbeResult, String> {
+pub(crate) async fn probe(isolated_cwd: &Path) -> Result<NativeOptionsProbeResult, String> {
     timeout(PROBE_TIMEOUT, probe_inner(isolated_cwd))
         .await
         .map_err(|_| "native Grok catalog probe timed out".to_string())?
 }
 
-async fn probe_inner(isolated_cwd: &Path) -> Result<NativeProbeResult, String> {
+async fn probe_inner(isolated_cwd: &Path) -> Result<NativeOptionsProbeResult, String> {
     let spawned =
         spawn_stdio(Path::new("grok"), isolated_cwd).map_err(|error| error.to_string())?;
     let mut stdin = spawned.stdin;
@@ -154,7 +154,7 @@ async fn probe_inner(isolated_cwd: &Path) -> Result<NativeProbeResult, String> {
         .as_ref()
         .map(models_from_session_new)
         .unwrap_or_default();
-    Ok(NativeProbeResult {
+    Ok(NativeOptionsProbeResult {
         models,
         modes: grok_modes(),
         permission_modes: grok_permission_modes(),
@@ -334,7 +334,7 @@ mod tests {
                 .iter()
                 .map(|mode| mode.id.as_str())
                 .collect::<Vec<_>>(),
-            ["yolo", "accept_edits", "auto", "ask_always"]
+            ["yolo", "auto", "ask_always"]
         );
         assert_eq!(modes[0].label, "Yolo");
         assert!(modes

@@ -17,7 +17,7 @@ import type {
 } from "./dto/automation";
 import type { ResourceMonitorSnapshot } from "./dto/resource-monitor";
 import type {
-  AgentModelCatalogUpdated,
+  AgentOptionsUpdated,
   AgentChatEvent,
 } from "./dto/agent-chat";
 import type { SimulatorDownloadProgress } from "./dto/simulator";
@@ -63,7 +63,7 @@ export type WsEventContract = {
   simulator_download_progress: { payload: SimulatorDownloadProgress };
   resource_monitor_updated: { payload: ResourceMonitorSnapshot };
   agent_chat_event: { payload: AgentChatEvent };
-  agent_model_catalog_updated: { payload: AgentModelCatalogUpdated };
+  agent_options_updated: { payload: AgentOptionsUpdated };
 };
 
 export type MappedWsEvent = keyof WsEventContract & WsEvent;

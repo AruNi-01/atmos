@@ -5,7 +5,6 @@ import { useTranslations } from "next-intl";
 import { Button, cn, Skeleton, Switch } from "@workspace/ui";
 import type { RegistryAgent, CustomAgent, NativeChatAgent } from "@/api/ws-api";
 import {
-  Github,
   Loader2,
   Search,
   Trash2,
@@ -13,6 +12,7 @@ import {
   CircleFadingArrowUp,
   Pencil,
 } from "lucide-react";
+import { Github } from "@workspace/ui/components/icons/lucide-brand-icons";
 import { AgentIcon } from "./AgentIcon";
 import { customAgentDisplayName, isSecretEnvKey } from "@/features/agent/lib/custom-agent-registry";
 import { motion } from "motion/react";

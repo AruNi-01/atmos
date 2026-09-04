@@ -23,7 +23,6 @@ import {
   FolderGit2,
   Terminal as TerminalIcon,
   GitBranch,
-  Github,
   Sparkles,
   Loader2,
   Bot,
@@ -31,7 +30,8 @@ import {
   Gauge,
   KeyRound,
   type LucideIcon,
-} from 'lucide-react';
+} from "lucide-react";
+import { Github } from "@workspace/ui/components/icons/lucide-brand-icons";
 import { AtmosWordmark } from '@/shared/components/ui/AtmosWordmark';
 import { FileBrowser } from '@/features/files/components/FileBrowser';
 import { useProjectStore } from '@/features/project/store/use-project-store';

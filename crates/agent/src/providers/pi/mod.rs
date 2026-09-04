@@ -1,8 +1,8 @@
 //! Native Pi Chat adapter (`pi --mode rpc`). JSONL, not JSON-RPC.
 
-pub(crate) mod catalog;
 mod codec;
 mod event_map;
+pub(crate) mod options;
 mod rpc;
 mod spawn;
 mod tool_map;
@@ -19,14 +19,14 @@ use tokio::process::Child;
 use tokio::sync::{mpsc, Mutex};
 
 use crate::contract::{AgentAction, AgentActionError, AgentActionKind, AgentActionResult};
-use crate::contract::{
-    AgentCatalogContext, AgentPersistenceHandle, AgentPrompt, AgentProvider, AgentProviderError,
-    AgentResult, AgentRuntime, AgentRuntimeCommands, AgentRuntimeConfig, AgentRuntimeControl,
-    AgentTurnHandle,
-};
 use crate::contract::{AgentCurrentConfig, AgentDescriptor, AgentIdentity, AgentSupportedOptions};
 use crate::contract::{AgentEvent, AgentEventEnvelope, AgentPermissionOption};
 use crate::contract::{AgentModel, AgentThinkingSupport};
+use crate::contract::{
+    AgentOptionsContext, AgentPersistenceHandle, AgentPrompt, AgentProvider, AgentProviderError,
+    AgentResult, AgentRuntime, AgentRuntimeCommands, AgentRuntimeConfig, AgentRuntimeControl,
+    AgentTurnHandle,
+};
 use crate::models::AgentLaunchSpec;
 use crate::policy::{capabilities_for_provider, option_support_for_provider};
 
@@ -789,7 +789,7 @@ impl AgentProvider for PiNativeProvider {
         "pi"
     }
 
-    async fn descriptor(&self, _ctx: &AgentCatalogContext) -> AgentResult<AgentDescriptor> {
+    async fn descriptor(&self, _ctx: &AgentOptionsContext) -> AgentResult<AgentDescriptor> {
         Ok(provider_descriptor(AgentCurrentConfig::default()))
     }
 
@@ -1383,7 +1383,7 @@ mod tests {
     async fn provider_descriptor_is_honest() {
         let provider = PiNativeProvider::new();
         let descriptor = provider
-            .descriptor(&AgentCatalogContext::default())
+            .descriptor(&AgentOptionsContext::default())
             .await
             .unwrap();
         assert_eq!(descriptor.identity.id, "pi");

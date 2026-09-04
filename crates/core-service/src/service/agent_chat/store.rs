@@ -68,6 +68,7 @@ impl AgentChatStore {
             applied_thinking: None,
             applied_mode: None,
             applied_permission_mode: None,
+            applied_fast: None,
             available_commands: Vec::new(),
             session_usage: None,
             descriptor: chat_descriptor(

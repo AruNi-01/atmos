@@ -1,6 +1,40 @@
-use crate::contract::{AgentCapabilities, AgentOptionSupport, Capability};
+use crate::contract::{AgentCapabilities, AgentMode, AgentOptionSupport, Capability};
 
 use super::aliases::canonicalize_chat_provider_id;
+
+/// Atmos Fast Switch values (`true` / `false`) for native Claude / Codex.
+pub fn boolean_fast_modes(default_on: bool) -> Vec<AgentMode> {
+    vec![
+        AgentMode {
+            id: "false".into(),
+            label: "Off".into(),
+            is_default: !default_on,
+        },
+        AgentMode {
+            id: "true".into(),
+            label: "On".into(),
+            is_default: default_on,
+        },
+    ]
+}
+
+pub fn is_fast_on(value: Option<&str>) -> bool {
+    value
+        .map(str::trim)
+        .filter(|item| !item.is_empty())
+        .is_some_and(|item| {
+            let token = item.to_ascii_lowercase();
+            token == "true" || token == "on" || token == "1" || token == "yes"
+        })
+}
+
+/// Stamp Fast select options for native agents that expose a session Fast toggle.
+pub fn native_fast_modes_for_provider(provider_id: &str) -> Option<Vec<AgentMode>> {
+    match canonicalize_chat_provider_id(provider_id) {
+        "claude" | "codex" => Some(boolean_fast_modes(false)),
+        _ => None,
+    }
+}
 
 /// Native / ACP-default capability honesty (locked). Send / cancel / subscribe are not flags.
 pub fn capabilities_for_provider(provider_id: &str) -> AgentCapabilities {
@@ -41,36 +75,43 @@ pub fn option_support_for_provider(provider_id: &str) -> AgentOptionSupport {
             thinking: Capability::Supported,
             modes: Capability::Supported,
             permission_modes: Capability::Supported,
+            fast: Capability::Supported,
         },
         "codex" => AgentOptionSupport {
             models: Capability::Supported,
             thinking: Capability::Supported,
             modes: Capability::Supported,
             permission_modes: Capability::Supported,
+            fast: Capability::Supported,
         },
         "pi" => AgentOptionSupport {
             models: Capability::Supported,
             thinking: Capability::Supported,
             modes: Capability::Unsupported,
             permission_modes: Capability::Unsupported,
+            fast: Capability::Unsupported,
         },
         "grok" => AgentOptionSupport {
             models: Capability::Supported,
             thinking: Capability::Supported,
             modes: Capability::Supported,
             permission_modes: Capability::Supported,
+            fast: Capability::Unsupported,
         },
         "opencode" => AgentOptionSupport {
             models: Capability::Supported,
             thinking: Capability::Supported,
             modes: Capability::Supported,
             permission_modes: Capability::Supported,
+            fast: Capability::Unsupported,
         },
+        // ACP agents (Cursor, …): Fast shows only when the session advertises options.
         _ => AgentOptionSupport {
             models: Capability::Supported,
             thinking: Capability::Supported,
             modes: Capability::Supported,
             permission_modes: Capability::Supported,
+            fast: Capability::Supported,
         },
     }
 }
@@ -174,5 +215,40 @@ mod tests {
         assert_eq!(acp.thinking, Capability::Supported);
         assert_eq!(acp.modes, Capability::Supported);
         assert_eq!(acp.permission_modes, Capability::Supported);
+        assert_eq!(acp.fast, Capability::Supported);
+
+        assert_eq!(
+            option_support_for_provider("claude").fast,
+            Capability::Supported
+        );
+        assert_eq!(
+            option_support_for_provider("codex").fast,
+            Capability::Supported
+        );
+        assert_eq!(
+            option_support_for_provider("grok").fast,
+            Capability::Unsupported
+        );
+        assert_eq!(
+            option_support_for_provider("cursor").fast,
+            Capability::Supported
+        );
+    }
+
+    #[test]
+    fn boolean_fast_modes_defaults_off() {
+        let modes = boolean_fast_modes(false);
+        assert_eq!(modes.len(), 2);
+        assert_eq!(modes[0].id, "false");
+        assert!(modes[0].is_default);
+        assert_eq!(modes[1].id, "true");
+        assert!(!modes[1].is_default);
+        assert!(is_fast_on(Some("true")));
+        assert!(is_fast_on(Some("ON")));
+        assert!(!is_fast_on(Some("false")));
+        assert!(!is_fast_on(None));
+        assert!(native_fast_modes_for_provider("claude").is_some());
+        assert!(native_fast_modes_for_provider("codex").is_some());
+        assert!(native_fast_modes_for_provider("cursor").is_none());
     }
 }

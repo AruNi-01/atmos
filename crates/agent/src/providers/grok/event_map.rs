@@ -3,15 +3,15 @@ use std::path::PathBuf;
 
 use crate::acp_client::client::{AcpSessionEvent, AcpTurnStop};
 use crate::acp_client::types::{AgentConfigOption, StreamDelta, ToolCallStatus, ToolCallUpdate};
-use crate::catalog::{
-    is_mode_config_id, is_permission_mode_config_id, probe_result_from_config_options,
-};
 use crate::contract::AgentPersistenceHandle;
 use crate::contract::AgentTool;
 use crate::contract::{AgentCurrentConfig, AgentIdentity, AgentSupportedOptions, Capability};
 use crate::contract::{AgentDescriptor, TurnStop};
 use crate::contract::{
     AgentEvent, AgentEventEnvelope, AgentPermissionOption, AgentPermissionRequest,
+};
+use crate::options::{
+    is_mode_config_id, is_permission_mode_config_id, probe_result_from_config_options,
 };
 use crate::policy::{capabilities_for_provider, option_support_for_provider};
 
@@ -797,7 +797,7 @@ mod tests {
             state.current_config.permission_mode.as_deref(),
             Some("auto")
         );
-        assert_eq!(state.supported_options.permission_modes.len(), 4);
+        assert_eq!(state.supported_options.permission_modes.len(), 3);
         assert!(state
             .supported_options
             .permission_modes

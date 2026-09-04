@@ -59,6 +59,10 @@ pub(crate) fn chat_args(
         args.push("--permission-mode".into());
         args.push(mode);
     }
+    // SDK Fast requires opt-in via settings; without it initialize reports
+    // `fast_mode_disabled_reason: sdk_opt_in_required` and toggles stay inert.
+    args.push("--settings".into());
+    args.push(r#"{"fastMode":true}"#.into());
     if let Some(session_id) = resume.filter(|id| !id.is_empty()) {
         args.push(format!("--resume={session_id}"));
     }
@@ -198,15 +202,20 @@ mod tests {
                 "--replay-user-messages",
                 "--permission-prompt-tool",
                 "stdio",
+                "--settings",
+                r#"{"fastMode":true}"#,
             ]
         );
         assert!(!args.iter().any(|arg| arg == "--print" || arg == "-p"));
         assert!(!args
             .iter()
             .any(|arg| arg == "--dangerously-skip-permissions"));
-        assert!(!args
-            .iter()
-            .any(|arg| !arg.starts_with('-') && arg != "stream-json" && arg != "stdio"));
+        assert!(!args.iter().any(|arg| {
+            !arg.starts_with('-')
+                && arg != "stream-json"
+                && arg != "stdio"
+                && arg != r#"{"fastMode":true}"#
+        }));
     }
 
     #[test]
@@ -228,6 +237,9 @@ mod tests {
         assert!(args
             .windows(2)
             .any(|pair| pair == ["--permission-mode", "default"]));
+        assert!(args
+            .windows(2)
+            .any(|pair| pair == ["--settings", r#"{"fastMode":true}"#]));
     }
 
     #[test]

@@ -1,14 +1,14 @@
 import { describe, expect, it } from "bun:test";
 import {
   agentChatHistoryListRequest,
-  catalogToConfigOptions,
+  optionsSnapshotToConfigOptions,
   chatTitleFromPrompt,
   chatsToHistoryRows,
   filterAgentChatHistoryRows,
-  defaultCatalogModelId,
-  isCatalogModelsLoading,
+  defaultOptionsModelId,
+  isOptionsModelsLoading,
   parsePlan,
-  probingCatalog,
+  probingOptionsSnapshot,
   overlayPendingConfigValues,
   splitComposerConfigOptions,
   isComposerTrailingConfigOption,
@@ -20,7 +20,7 @@ import {
   configPickerGroupMessageKey,
   descriptorToConfigOptions,
   descriptorForComposerProvider,
-  fillEmptyDescriptorOptionsFromCatalog,
+  fillEmptyDescriptorOptionsFromSnapshot,
   composerConfigOptions,
   displayedComposerConfigValue,
   configKindMatches,
@@ -73,9 +73,9 @@ describe("agent chat helpers", () => {
   });
 
   it("treats a missing or probing catalog as models still loading", () => {
-    expect(isCatalogModelsLoading(null, "cursor")).toBe(true);
+    expect(isOptionsModelsLoading(null, "cursor")).toBe(true);
     expect(
-      isCatalogModelsLoading(
+      isOptionsModelsLoading(
         {
           agent_id: "cursor",
           status: "probing",
@@ -91,7 +91,7 @@ describe("agent chat helpers", () => {
       ),
     ).toBe(true);
     expect(
-      isCatalogModelsLoading(
+      isOptionsModelsLoading(
         {
           agent_id: "claude",
           status: "ok",
@@ -107,7 +107,7 @@ describe("agent chat helpers", () => {
       ),
     ).toBe(true);
     expect(
-      isCatalogModelsLoading(
+      isOptionsModelsLoading(
         {
           agent_id: "cursor",
           status: "ok",
@@ -122,12 +122,28 @@ describe("agent chat helpers", () => {
         "cursor",
       ),
     ).toBe(false);
-    expect(isCatalogModelsLoading(probingCatalog("opencode"), "opencode")).toBe(true);
+    expect(
+      isOptionsModelsLoading(
+        {
+          agent_id: "cursor",
+          status: "ok",
+          models: [{ id: "gpt", label: "GPT" }],
+          modes: [],
+          thinking: { type: "none" },
+          strategies_used: [],
+          fetched_at: "",
+          source: "cache",
+          message: null,
+        },
+        "cursor",
+      ),
+    ).toBe(false);
+    expect(isOptionsModelsLoading(probingOptionsSnapshot("opencode"), "opencode")).toBe(true);
   });
 
   it("picks the catalog default model when none is selected yet", () => {
     expect(
-      defaultCatalogModelId(
+      defaultOptionsModelId(
         {
           agent_id: "cursor",
           status: "ok",
@@ -172,7 +188,7 @@ describe("agent chat helpers", () => {
     expect(displayedComposerConfigValue(displayed, "mode", "")).toBe("default");
     expect(displayedComposerConfigValue(displayed, "model", "gpt-5.6-sol")).toBe("gpt-5.6-sol");
     expect(displayedComposerConfigValue(displayed, "thinking", "xhigh")).toBe("low");
-    const options = catalogToConfigOptions(
+    const options = optionsSnapshotToConfigOptions(
       {
         agent_id: "cursor",
         status: "ok",
@@ -198,8 +214,8 @@ describe("agent chat helpers", () => {
   });
 
   it("shows an ACP-reported model before the catalog list arrives", () => {
-    const options = catalogToConfigOptions(
-      probingCatalog("claude"),
+    const options = optionsSnapshotToConfigOptions(
+      probingOptionsSnapshot("claude"),
       "grok-4",
       "",
     );
@@ -260,7 +276,8 @@ describe("agent chat helpers", () => {
       "xhigh",
     ]);
     expect(thinkingChoices(catalog, "auto")).toEqual([]);
-    const opusOptions = catalogToConfigOptions(catalog, "claude-opus-5", "high");
+    const opusOptions = optionsSnapshotToConfigOptions(catalog, "claude-opus-5", "high");
+
     expect(opusOptions.find((item) => item.id === "thinking")?.options.map((item) => item.name)).toEqual([
       "Off",
       "Low",
@@ -297,6 +314,77 @@ describe("agent chat helpers", () => {
     ).toEqual([]);
   });
 
+  it("does not reuse Cursor session effort for models without their own ladder", () => {
+    const catalog = {
+      agent_id: "cursor",
+      status: "ok" as const,
+      models: [
+        {
+          id: "claude-opus-5",
+          label: "Claude Opus 5",
+          is_default: true,
+          thinking: {
+            type: "enum",
+            arg: "effort",
+            options: ["low", "medium", "high", "xhigh", "max"],
+          },
+        },
+        { id: "composer-2.5", label: "Composer 2.5" },
+        {
+          id: "auto",
+          label: "Auto",
+          thinking: { type: "none" },
+        },
+      ],
+      modes: [],
+      thinking: {
+        type: "enum",
+        arg: "effort",
+        options: ["low", "medium", "high", "xhigh", "max"],
+      },
+      strategies_used: [],
+      fetched_at: "",
+      source: "cache" as const,
+      message: null,
+    };
+    expect(thinkingChoices(catalog, "claude-opus-5")).toEqual([
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max",
+    ]);
+    expect(thinkingChoices(catalog, "composer-2.5")).toEqual([]);
+    expect(thinkingChoices(catalog, "auto")).toEqual([]);
+    const options = descriptorToConfigOptions({
+      identity: { id: "cursor", name: "Cursor" },
+      capabilities: {
+        steer: "unsupported",
+        resume: "unsupported",
+        permission: "supported",
+        configure: "supported",
+        fork: "unsupported",
+        rewind: "unsupported",
+      },
+      support: {
+        models: "supported",
+        thinking: "supported",
+        modes: "unsupported",
+        permission_modes: "supported",
+        fast: "supported",
+      },
+      supported_options: {
+        models: catalog.models,
+        thinking: catalog.thinking,
+        modes: [],
+        permission_modes: [],
+        fast: [],
+      },
+      current_config: { model: "composer-2.5", thinking: null },
+    } as never);
+    expect(options.find((item) => item.id === "thinking")).toBeUndefined();
+  });
+
   it("puts ACP reasoning-effort options on the trailing thinking control", () => {
     expect(
       isComposerTrailingConfigOption({ id: "reasoning_effort", category: "thinking" }),
@@ -305,7 +393,7 @@ describe("agent chat helpers", () => {
   });
 
   it("builds model and thinking config options from the catalog", () => {
-    const options = catalogToConfigOptions(
+    const options = optionsSnapshotToConfigOptions(
       {
         agent_id: "claude",
         status: "ok",
@@ -326,7 +414,7 @@ describe("agent chat helpers", () => {
   });
 
   it("puts catalog modes on the leading composer cluster and model/thinking on the trailing cluster", () => {
-    const options = catalogToConfigOptions(
+    const options = optionsSnapshotToConfigOptions(
       {
         agent_id: "codex",
         status: "ok",
@@ -741,7 +829,7 @@ describe("agent chat helpers", () => {
       source: "cache" as const,
       message: null,
     };
-    const filled = fillEmptyDescriptorOptionsFromCatalog(descriptor, catalog);
+    const filled = fillEmptyDescriptorOptionsFromSnapshot(descriptor, catalog);
     expect(filled.current_config).toEqual({ model: "glm-5" });
     expect(descriptorToConfigOptions(filled).map((item) => item.id)).toEqual([
       "permission_mode",
@@ -750,7 +838,7 @@ describe("agent chat helpers", () => {
       "thinking",
     ]);
     expect(
-      fillEmptyDescriptorOptionsFromCatalog(descriptor, { ...catalog, agent_id: "claude" }),
+      fillEmptyDescriptorOptionsFromSnapshot(descriptor, { ...catalog, agent_id: "claude" }),
     ).toBe(descriptor);
   });
 
@@ -779,7 +867,7 @@ describe("agent chat helpers", () => {
       },
       current_config: { model: "opus" },
     };
-    const filled = fillEmptyDescriptorOptionsFromCatalog(descriptor, {
+    const filled = fillEmptyDescriptorOptionsFromSnapshot(descriptor, {
       agent_id: "claude",
       status: "ok",
       models: [{ id: "sonnet", label: "Sonnet" }],
@@ -795,6 +883,252 @@ describe("agent chat helpers", () => {
     expect(filled.supported_options.permission_modes?.map((item) => item.id)).toEqual(["ask"]);
     expect(filled.supported_options.thinking).toEqual({ type: "enum", options: ["low"] });
     expect(filled.supported_options.modes).toEqual([{ id: "plan", label: "Plan" }]);
+  });
+
+  it("replaces pre-PMP Cursor CLI-encoded models with bare catalog list", () => {
+    const descriptor: AgentDescriptor = {
+      identity: { id: "cursor", name: "Cursor" },
+      capabilities: {
+        steer: "unsupported",
+        resume: "supported",
+        permission: "supported",
+        configure: "supported",
+        fork: "unsupported",
+        rewind: "unsupported",
+      },
+      support: {
+        models: "supported",
+        thinking: "supported",
+        modes: "supported",
+        permission_modes: "supported",
+        fast: "supported",
+      },
+      supported_options: {
+        models: [
+          { id: "gpt-5.3-codex-low", label: "Codex 5.3 Low" },
+          { id: "gpt-5.3-codex-low-fast", label: "Codex 5.3 Low Fast" },
+          { id: "gpt-5.3-codex", label: "Codex 5.3" },
+          { id: "gpt-5.3-codex-fast", label: "Codex 5.3 Fast" },
+          { id: "gpt-5.3-codex-high", label: "Codex 5.3 High" },
+          { id: "gpt-5.3-codex-high-fast", label: "Codex 5.3 High Fast" },
+          { id: "gpt-5.3-codex-xhigh", label: "Codex 5.3 Extra High" },
+          { id: "gpt-5.3-codex-xhigh-fast", label: "Codex 5.3 Extra High Fast" },
+          { id: "composer-2.5-fast", label: "Composer 2.5 Fast" },
+        ],
+        thinking: { type: "encoded_in_model" },
+        modes: [],
+        permission_modes: [],
+        fast: [],
+      },
+      current_config: { model: "gpt-5.3-codex" },
+    };
+    const filled = fillEmptyDescriptorOptionsFromSnapshot(descriptor, {
+      agent_id: "cursor",
+      status: "ok",
+      models: [
+        { id: "gpt-5.3-codex", label: "Codex 5.3", is_default: true },
+        { id: "composer-2.5", label: "Composer 2.5" },
+      ],
+      modes: [{ id: "agent", label: "Agent" }],
+      permission_modes: [],
+      thinking: { type: "enum", options: ["low", "medium", "high", "xhigh", "max"] },
+      strategies_used: [],
+      fetched_at: "",
+      source: "cache",
+      message: null,
+    });
+    expect(filled.supported_options.models.map((item) => item.id)).toEqual([
+      "gpt-5.3-codex",
+      "composer-2.5",
+    ]);
+    expect(filled.supported_options.thinking).toEqual({
+      type: "enum",
+      options: ["low", "medium", "high", "xhigh", "max"],
+    });
+    expect(filled.supported_options.fast?.map((item) => item.id)).toEqual(["false", "true"]);
+  });
+
+  it("replaces boolean Cursor thinking with catalog effort levels", () => {
+    const descriptor: AgentDescriptor = {
+      identity: { id: "cursor", name: "Cursor" },
+      capabilities: {
+        steer: "unsupported",
+        resume: "supported",
+        permission: "supported",
+        configure: "supported",
+        fork: "unsupported",
+        rewind: "unsupported",
+      },
+      support: {
+        models: "supported",
+        thinking: "supported",
+        modes: "supported",
+        permission_modes: "supported",
+        fast: "supported",
+      },
+      supported_options: {
+        models: [
+          { id: "gpt-5.3-codex", label: "Codex 5.3" },
+          { id: "composer-2.5", label: "Composer 2.5" },
+        ],
+        thinking: { type: "enum", options: ["false", "true"] },
+        modes: [],
+        permission_modes: [],
+        fast: [],
+      },
+      current_config: { model: "gpt-5.3-codex", thinking: "false" },
+    };
+    const filled = fillEmptyDescriptorOptionsFromSnapshot(descriptor, {
+      agent_id: "cursor",
+      status: "ok",
+      models: [
+        { id: "gpt-5.3-codex", label: "Codex 5.3", is_default: true },
+        { id: "composer-2.5", label: "Composer 2.5" },
+      ],
+      modes: [],
+      permission_modes: [],
+      thinking: { type: "enum", arg: "effort", options: ["low", "medium", "high", "xhigh", "max"] },
+      strategies_used: [],
+      fetched_at: "",
+      source: "cache",
+      message: null,
+    });
+    expect(filled.supported_options.models.map((item) => item.id)).toEqual([
+      "gpt-5.3-codex",
+      "composer-2.5",
+    ]);
+    expect(filled.supported_options.thinking).toEqual({
+      type: "enum",
+      arg: "effort",
+      options: ["low", "medium", "high", "xhigh", "max"],
+    });
+    expect(filled.supported_options.fast?.map((item) => item.id)).toEqual(["false", "true"]);
+  });
+
+  it("overlays catalog human labels onto Cursor ACP slug labels", () => {
+    const descriptor: AgentDescriptor = {
+      identity: { id: "cursor", name: "Cursor" },
+      capabilities: {
+        steer: "unsupported",
+        resume: "supported",
+        permission: "supported",
+        configure: "supported",
+        fork: "unsupported",
+        rewind: "unsupported",
+      },
+      support: {
+        models: "supported",
+        thinking: "supported",
+        modes: "supported",
+        permission_modes: "supported",
+        fast: "supported",
+      },
+      supported_options: {
+        models: [
+          { id: "claude-opus-4-8", label: "claude-opus-4-8" },
+          { id: "grok-4.6", label: "grok-4.6" },
+        ],
+        thinking: { type: "none" },
+        modes: [],
+        permission_modes: [{ id: "ask_always", label: "Ask always", is_default: true }],
+        fast: [],
+      },
+      current_config: { model: "claude-opus-4-8" },
+    };
+    const filled = fillEmptyDescriptorOptionsFromSnapshot(descriptor, {
+      agent_id: "cursor",
+      status: "ok",
+      models: [
+        { id: "claude-opus-4-8", label: "Claude Opus 4.8" },
+        { id: "grok-4.6", label: "Cursor Grok 4.6" },
+      ],
+      modes: [
+        { id: "agent", label: "Agent", is_default: true },
+        { id: "plan", label: "Plan" },
+        { id: "ask", label: "Ask" },
+      ],
+      permission_modes: [
+        { id: "yolo", label: "Yolo" },
+        { id: "auto", label: "Auto" },
+        { id: "ask_always", label: "Ask always", is_default: true },
+      ],
+      thinking: { type: "none" },
+      strategies_used: [],
+      fetched_at: "",
+      source: "cache",
+      message: null,
+    });
+    expect(filled.supported_options.models.map((item) => item.label)).toEqual([
+      "Claude Opus 4.8",
+      "Cursor Grok 4.6",
+    ]);
+    expect(filled.supported_options.modes?.map((item) => item.id)).toEqual([
+      "agent",
+      "plan",
+      "ask",
+    ]);
+    expect(filled.supported_options.permission_modes?.map((item) => item.id)).toEqual([
+      "yolo",
+      "auto",
+      "ask_always",
+    ]);
+  });
+
+  it("maps vendor permission aliases onto listed Atmos ids for display", () => {
+    const options = [
+      {
+        id: "permission_mode",
+        name: "Permission",
+        type: "select" as const,
+        currentValue: "default",
+        options: [
+          { value: "yolo", name: "Yolo" },
+          { value: "ask_always", name: "Ask always" },
+        ],
+      },
+      {
+        id: "mode",
+        name: "Mode",
+        type: "select" as const,
+        currentValue: "",
+        options: [
+          { value: "agent", name: "Agent" },
+          { value: "plan", name: "Plan" },
+        ],
+      },
+    ];
+    expect(displayedComposerConfigValue(options, "permission_mode", "")).toBe("ask_always");
+    expect(displayedComposerConfigValue(options, "permission_mode", "default")).toBe("ask_always");
+    expect(displayedComposerConfigValue(options, "mode", "")).toBe("agent");
+  });
+
+  it("defaults empty permission to Ask always for any agent, not the first listed id", () => {
+    const options = [
+      {
+        id: "permission_mode",
+        name: "Permission",
+        type: "select" as const,
+        currentValue: "",
+        options: [
+          { value: "yolo", name: "Yolo" },
+          { value: "accept_edits", name: "Accept edits" },
+          { value: "auto", name: "Auto" },
+          { value: "ask_always", name: "Ask always" },
+        ],
+      },
+      {
+        id: "mode",
+        name: "Mode",
+        type: "select" as const,
+        currentValue: "unknown-mode",
+        options: [
+          { value: "default", name: "Default" },
+          { value: "plan", name: "Plan" },
+        ],
+      },
+    ];
+    expect(displayedComposerConfigValue(options, "permission_mode", "")).toBe("ask_always");
+    expect(displayedComposerConfigValue(options, "mode", "")).toBe("default");
   });
 
   it("overlays catalog per-model thinking onto a stale descriptor union", () => {
@@ -973,7 +1307,7 @@ describe("agent chat helpers", () => {
       source: "cache" as const,
       message: null,
     };
-    const options = catalogToConfigOptions(grokCatalog, "", "", "", "");
+    const options = optionsSnapshotToConfigOptions(grokCatalog, "", "", "", "");
     expect(options.map((item) => item.id)).toEqual(["permission_mode", "mode", "model"]);
   });
 });

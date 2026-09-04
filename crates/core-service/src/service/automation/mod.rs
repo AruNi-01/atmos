@@ -43,8 +43,8 @@ pub(crate) use agents::{
 };
 pub use agents::{
     AutomationAgentModelInputMode, AutomationAgentReasoningMode, AutomationAgentReasoningSelection,
-    AutomationAgentRunConfig, TerminalAgentCliStatus, TerminalAgentModelCatalog,
-    TerminalAgentModelCatalogSource, TerminalAgentModelCatalogStatus, TerminalAgentModelOption,
+    AutomationAgentRunConfig, TerminalAgentCliStatus, TerminalAgentOption, TerminalAgentOptions,
+    TerminalAgentOptionsSource, TerminalAgentOptionsStatus,
 };
 pub use builtin_agent_upgrade::ensure_builtin_terminal_agents_upgraded;
 pub use events::{AutomationDefinitionChange, AutomationEvent};
@@ -827,12 +827,12 @@ impl AutomationService {
         agents::terminal_agent_cli_status()
     }
 
-    pub async fn terminal_agent_model_catalog(
+    pub async fn terminal_agent_options(
         &self,
         agent_id: &str,
         refresh: bool,
-    ) -> Result<TerminalAgentModelCatalog> {
-        agents::terminal_agent_model_catalog(agent_id, refresh)
+    ) -> Result<TerminalAgentOptions> {
+        agents::terminal_agent_options(agent_id, refresh)
     }
 
     fn detail_from_model(&self, model: automation::Model) -> Result<AutomationDetail> {

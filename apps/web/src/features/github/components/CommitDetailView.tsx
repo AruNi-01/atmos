@@ -3,7 +3,8 @@
 import React from "react";
 import { useTranslations, useLocale } from "next-intl";
 import dynamic from "next/dynamic";
-import { Loader2, Github, GitCommit, Copy, Check } from "lucide-react";
+import { Loader2, GitCommit, Copy, Check } from "lucide-react";
+import { Github } from "@workspace/ui/components/icons/lucide-brand-icons";
 import { formatDistanceToNow } from "date-fns";
 import { enUS, zhCN } from "date-fns/locale";
 import {

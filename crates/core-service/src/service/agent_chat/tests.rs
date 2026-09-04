@@ -3,14 +3,14 @@ use std::time::Duration;
 
 use agent::testing::{FakeAgentProvider, StaticProviderFactory};
 use agent::{
-    AgentAvailableCommand, AgentCatalogSpec, AgentEvent, AgentMode, AgentModel, AgentModelCatalog,
+    AgentAvailableCommand, AgentEvent, AgentMode, AgentModel, AgentOptionsSnapshot,
     AgentPermissionOption, AgentProvider, AgentThinkingSupport, AgentTool, AgentToolKind,
-    AgentToolParams, AgentToolResult, AgentToolStatus, CatalogEngine, CatalogSource, CatalogStatus,
-    CatalogStrategyKind, NoopAcpProbe, UserMessageKind,
+    AgentToolParams, AgentToolResult, AgentToolStatus, NoopAcpOptionsProbe, OptionsProbe,
+    OptionsProbeStrategy, OptionsSource, OptionsStatus, ProbePlan, UserMessageKind,
 };
 use tokio::time::timeout;
 
-use super::catalog::{parse_followup_policy, CatalogPrefetchWorker, FollowupPolicy};
+use super::options::{parse_followup_policy, FollowupPolicy, OptionsPrefetchWorker};
 use super::service::AgentChatService;
 use super::store::AgentChatStore;
 use super::types::{
@@ -625,6 +625,7 @@ async fn s6_configure_sets_model_before_spawn() {
             Some("high".into()),
             Some("agent".into()),
             None,
+            None,
         )
         .await
         .unwrap();
@@ -661,6 +662,7 @@ async fn configure_while_running_does_not_set_live_config() {
             Some("grok-4".into()),
             Some("high".into()),
             Some("plan".into()),
+            None,
             None,
         )
         .await
@@ -707,6 +709,7 @@ async fn send_after_model_switch_emits_session_config_change() {
             Some("grok-4".into()),
             None,
             Some("plan".into()),
+            None,
             None,
         )
         .await
@@ -773,7 +776,7 @@ async fn send_after_mode_switch_sets_live_config() {
     .expect("first turn should finish");
 
     service
-        .configure(&meta.id, None, None, None, Some("plan".into()), None)
+        .configure(&meta.id, None, None, None, Some("plan".into()), None, None)
         .await
         .unwrap();
     assert_eq!(provider.create_count(), 1);
@@ -830,7 +833,15 @@ async fn send_after_unlisted_model_still_tries_set_config() {
     .expect("session should advertise config options");
 
     service
-        .configure(&meta.id, None, Some("grok-4".into()), None, None, None)
+        .configure(
+            &meta.id,
+            None,
+            Some("grok-4".into()),
+            None,
+            None,
+            None,
+            None,
+        )
         .await
         .unwrap();
     let snapshot = service.get(&meta.id).await.unwrap();
@@ -894,7 +905,15 @@ async fn send_after_advertised_model_switch_uses_agent_config_id() {
     .expect("session should advertise config options");
 
     service
-        .configure(&meta.id, None, Some("grok-4".into()), None, None, None)
+        .configure(
+            &meta.id,
+            None,
+            Some("grok-4".into()),
+            None,
+            None,
+            None,
+            None,
+        )
         .await
         .unwrap();
     let snapshot = service.get(&meta.id).await.unwrap();
@@ -983,6 +1002,7 @@ async fn thinking_config_failure_does_not_report_model_switch_failed() {
             Some("high".into()),
             None,
             None,
+            None,
         )
         .await
         .unwrap();
@@ -1033,7 +1053,15 @@ async fn send_after_failed_set_config_reverts() {
 
     let mut rx = service.subscribe();
     service
-        .configure(&meta.id, None, Some("grok-4".into()), None, None, None)
+        .configure(
+            &meta.id,
+            None,
+            Some("grok-4".into()),
+            None,
+            None,
+            None,
+            None,
+        )
         .await
         .unwrap();
     assert_eq!(provider.config_count(), 1);
@@ -1074,7 +1102,7 @@ async fn configure_rejects_agent_change_while_running() {
     let _ = service.send(&meta.id, "running", Vec::new()).await.unwrap();
 
     let err = service
-        .configure(&meta.id, Some("grok".into()), None, None, None, None)
+        .configure(&meta.id, Some("grok".into()), None, None, None, None, None)
         .await
         .unwrap_err();
     assert!(
@@ -1830,16 +1858,18 @@ async fn s14_permission_blocks_queue_allows_steer() {
 #[tokio::test]
 async fn s18_prefetch_worker_starts_once() {
     let root = tempfile::tempdir().unwrap();
-    let engine =
-        CatalogEngine::with_acp_probe(root.path().join("catalog-probe"), Box::new(NoopAcpProbe));
-    let worker = Arc::new(CatalogPrefetchWorker::new(
+    let engine = OptionsProbe::with_acp_probe(
+        root.path().join("options-probe"),
+        Box::new(NoopAcpOptionsProbe),
+    );
+    let worker = Arc::new(OptionsPrefetchWorker::new(
         root.path().to_path_buf(),
         engine,
         Duration::from_millis(20),
     ));
     worker
-        .set_specs(vec![
-            AgentCatalogSpec {
+        .set_plans(vec![
+            ProbePlan {
                 agent_id: "claude".into(),
                 static_models: vec![AgentModel {
                     id: "opus".into(),
@@ -1849,10 +1879,10 @@ async fn s18_prefetch_worker_starts_once() {
                     thinking: None,
                 }],
                 thinking: AgentThinkingSupport::None,
-                strategies: vec![CatalogStrategyKind::Config],
+                strategies: vec![OptionsProbeStrategy::Config],
                 ..Default::default()
             },
-            AgentCatalogSpec {
+            ProbePlan {
                 agent_id: "codex".into(),
                 static_models: vec![AgentModel {
                     id: "gpt".into(),
@@ -1861,7 +1891,7 @@ async fn s18_prefetch_worker_starts_once() {
                     is_default: true,
                     thinking: None,
                 }],
-                strategies: vec![CatalogStrategyKind::Config],
+                strategies: vec![OptionsProbeStrategy::Config],
                 ..Default::default()
             },
         ])
@@ -1884,14 +1914,16 @@ async fn s18_prefetch_worker_starts_once() {
 #[tokio::test]
 async fn s19_fresh_ok_cache_skips_probe() {
     let root = tempfile::tempdir().unwrap();
-    let engine =
-        CatalogEngine::with_acp_probe(root.path().join("catalog-probe"), Box::new(NoopAcpProbe));
-    let worker = Arc::new(CatalogPrefetchWorker::new(
+    let engine = OptionsProbe::with_acp_probe(
+        root.path().join("options-probe"),
+        Box::new(NoopAcpOptionsProbe),
+    );
+    let worker = Arc::new(OptionsPrefetchWorker::new(
         root.path().to_path_buf(),
         engine,
         Duration::from_secs(30),
     ));
-    let spec = AgentCatalogSpec {
+    let spec = ProbePlan {
         agent_id: "factory-droid".into(),
         static_models: vec![AgentModel {
             id: "opus".into(),
@@ -1900,24 +1932,24 @@ async fn s19_fresh_ok_cache_skips_probe() {
             is_default: true,
             thinking: None,
         }],
-        strategies: vec![CatalogStrategyKind::Config],
+        strategies: vec![OptionsProbeStrategy::Config],
         ..Default::default()
     };
-    worker.set_specs(vec![spec.clone()]).await;
+    worker.set_plans(vec![spec.clone()]).await;
     let first = worker.get(&spec, true).await;
-    assert_eq!(first.status, CatalogStatus::Ok);
+    assert_eq!(first.status, OptionsStatus::Ok);
     let probes = worker.probe_count();
     worker.on_web_connect();
     tokio::time::sleep(Duration::from_millis(30)).await;
     assert_eq!(worker.probe_count(), probes);
     let cached = worker.get(&spec, false).await;
-    assert_eq!(cached.source, agent::CatalogSource::Cache);
+    assert_eq!(cached.source, agent::OptionsSource::Cache);
 }
 
 #[tokio::test]
 async fn s20_merge_cli_wins_thinking_from_config_and_probe_isolated() {
-    use agent::{merge_catalogs, CatalogFragment};
-    let config = CatalogFragment {
+    use agent::{merge_options_snapshots, OptionsFragment};
+    let config = OptionsFragment {
         models: vec![AgentModel {
             id: "opus".into(),
             label: "Opus".into(),
@@ -1932,10 +1964,10 @@ async fn s20_merge_cli_wins_thinking_from_config_and_probe_isolated() {
             arg: Some("--effort".into()),
             options: vec!["low".into(), "high".into()],
         },
-        strategy: Some(CatalogStrategyKind::Config),
+        strategy: Some(OptionsProbeStrategy::Config),
         ..Default::default()
     };
-    let cli = CatalogFragment {
+    let cli = OptionsFragment {
         models: vec![AgentModel {
             id: "opus".into(),
             label: "Opus".into(),
@@ -1943,11 +1975,11 @@ async fn s20_merge_cli_wins_thinking_from_config_and_probe_isolated() {
             is_default: true,
             thinking: None,
         }],
-        status: Some(CatalogStatus::Ok),
-        strategy: Some(CatalogStrategyKind::Cli),
+        status: Some(OptionsStatus::Ok),
+        strategy: Some(OptionsProbeStrategy::Cli),
         ..Default::default()
     };
-    let merged = merge_catalogs("claude", &[config, cli]);
+    let merged = merge_options_snapshots("claude", &[config, cli]);
     assert!(matches!(merged.thinking, AgentThinkingSupport::Enum { .. }));
     assert!(merged.models[0].is_default);
 }
@@ -2320,19 +2352,21 @@ async fn interleaved_thinking_and_tools_survive_disk_reload() {
 }
 
 #[test]
-fn create_stamps_ready_catalog_into_descriptor() {
+fn create_stamps_ready_options_into_descriptor() {
     let provider = Arc::new(FakeAgentProvider::new("factory-droid"));
     let (dir, service) = make_service(Arc::clone(&provider));
-    let engine =
-        CatalogEngine::with_acp_probe(dir.path().join("catalog-probe"), Box::new(NoopAcpProbe));
-    let worker = Arc::new(CatalogPrefetchWorker::new(
+    let engine = OptionsProbe::with_acp_probe(
+        dir.path().join("options-probe"),
+        Box::new(NoopAcpOptionsProbe),
+    );
+    let worker = Arc::new(OptionsPrefetchWorker::new(
         dir.path().to_path_buf(),
         engine,
         Duration::from_secs(30),
     ));
-    worker.put_catalog_for_test(&AgentModelCatalog {
+    worker.put_options_for_test(&AgentOptionsSnapshot {
         agent_id: "factory-droid".into(),
-        status: CatalogStatus::Ok,
+        status: OptionsStatus::Ok,
         models: vec![AgentModel {
             id: "glm-5".into(),
             label: "GLM 5".into(),
@@ -2353,10 +2387,10 @@ fn create_stamps_ready_catalog_into_descriptor() {
         },
         strategies_used: Vec::new(),
         fetched_at: chrono::Utc::now(),
-        source: CatalogSource::Cache,
+        source: OptionsSource::Cache,
         message: None,
     });
-    service.set_catalog_worker(worker);
+    service.set_options_worker(worker);
     let meta = service
         .create(create_req_for("/tmp/proj", "factory-droid"))
         .unwrap();
@@ -2383,16 +2417,18 @@ fn create_stamps_ready_catalog_into_descriptor() {
 async fn configure_rebuilds_descriptor_when_switching_provider() {
     let provider = Arc::new(FakeAgentProvider::new("claude"));
     let (dir, service) = make_service(Arc::clone(&provider));
-    let engine =
-        CatalogEngine::with_acp_probe(dir.path().join("catalog-probe"), Box::new(NoopAcpProbe));
-    let worker = Arc::new(CatalogPrefetchWorker::new(
+    let engine = OptionsProbe::with_acp_probe(
+        dir.path().join("options-probe"),
+        Box::new(NoopAcpOptionsProbe),
+    );
+    let worker = Arc::new(OptionsPrefetchWorker::new(
         dir.path().to_path_buf(),
         engine,
         Duration::from_secs(30),
     ));
-    worker.put_catalog_for_test(&AgentModelCatalog {
+    worker.put_options_for_test(&AgentOptionsSnapshot {
         agent_id: "grok".into(),
-        status: CatalogStatus::Ok,
+        status: OptionsStatus::Ok,
         models: vec![AgentModel {
             id: "grok-4".into(),
             label: "Grok 4".into(),
@@ -2421,14 +2457,14 @@ async fn configure_rebuilds_descriptor_when_switching_provider() {
         },
         strategies_used: Vec::new(),
         fetched_at: chrono::Utc::now(),
-        source: CatalogSource::Cache,
+        source: OptionsSource::Cache,
         message: None,
     });
-    service.set_catalog_worker(worker);
+    service.set_options_worker(worker);
     let meta = service.create(create_req("/tmp/proj")).unwrap();
     assert!(meta.descriptor.supported_options.models.is_empty());
     let updated = service
-        .configure(&meta.id, Some("grok".into()), None, None, None, None)
+        .configure(&meta.id, Some("grok".into()), None, None, None, None, None)
         .await
         .unwrap();
     assert_eq!(updated.provider_id, "grok");

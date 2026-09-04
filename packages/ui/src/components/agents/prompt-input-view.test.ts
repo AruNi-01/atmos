@@ -143,18 +143,18 @@ describe("agentConfigTriggerText", () => {
 });
 
 describe("S2 thinking control visibility", () => {
-  it("shows a real one-option thinking enum and omits an empty list", () => {
-    expect(promptInput).toContain("thinkingLevels.length > 0");
-    expect(promptInput).not.toContain("thinkingLevels.length > 1");
+  it("shows the effort slider only when there are at least two levels", () => {
+    expect(promptInput).toContain("thinkingLevels.length > 1");
+    expect(promptInput).toContain("function ThinkingSliderPanel");
+    expect(promptInput).toContain('variant="effort"');
   });
 });
 
 describe("PromptAgentConfigMenu", () => {
-  it("keeps agent, model, and thinking in one hover flyout instead of paged selects", () => {
+  it("keeps agent and model in a hover flyout and effort as an inline slider", () => {
     expect(promptInput).toContain("function PromptAgentConfigMenu");
-    expect(promptInput).not.toContain("function ThinkingSliderPanel");
-    expect(promptInput).toContain('flyout === "thinking"');
-    expect(promptInput).toContain("heading={labels.thinkingEffort}");
+    expect(promptInput).toContain("function ThinkingSliderPanel");
+    expect(promptInput).not.toContain('flyout === "thinking"');
     expect(promptInput).toContain("openFlyout");
     expect(promptInput).toContain("{flyout ? (");
     expect(promptInput).toContain("clip={false}");

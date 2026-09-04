@@ -20,13 +20,13 @@ use super::store::AgentChatStore;
 use super::types::{
     advertised_option_for_kind, config_kind_matches, config_values_equal, elapsed_ms,
     keep_pending_session_selection, map_advertised_select_value, merge_session_usage,
-    order_assistant_parts, parse_session_usage, parse_turn_usage, pending_permission_mode_change,
-    pending_session_config_change, pending_thinking_change, resolve_session_config_select,
-    AgentChatEvent, AgentChatMeta, AgentChatPayload, AgentChatSessionOpOutcome, AgentChatSnapshot,
-    FoldedMessage, MessagePart, PendingPermission, PendingSessionOp, ResolvedSessionConfig,
-    RuntimeStatus, SessionAdvertisedOption, SessionAdvertisedOptionValue, SessionConfigChange,
-    SessionHintTone, TranscriptEnvelope, TranscriptEvent, TurnStatus,
-    SESSION_HINT_MODEL_SWITCH_FAILED, SESSION_HINT_MODE_SWITCH_FAILED,
+    order_assistant_parts, parse_session_usage, parse_turn_usage, pending_fast_change,
+    pending_permission_mode_change, pending_session_config_change, pending_thinking_change,
+    resolve_session_config_select, AgentChatEvent, AgentChatMeta, AgentChatPayload,
+    AgentChatSessionOpOutcome, AgentChatSnapshot, FoldedMessage, MessagePart, PendingPermission,
+    PendingSessionOp, ResolvedSessionConfig, RuntimeStatus, SessionAdvertisedOption,
+    SessionAdvertisedOptionValue, SessionConfigChange, SessionHintTone, TranscriptEnvelope,
+    TranscriptEvent, TurnStatus, SESSION_HINT_MODEL_SWITCH_FAILED, SESSION_HINT_MODE_SWITCH_FAILED,
 };
 
 pub(super) const ASSISTANT_SNAPSHOT_INTERVAL: Duration = Duration::from_millis(100);
@@ -548,12 +548,13 @@ pub(super) async fn apply_event(
         }
         AgentEvent::ConfigChanged { config } => {
             let advertised = parse_advertised_options(&config);
-            let (model, thinking, mode, permission_mode) = selected_session_config(&config);
+            let (model, thinking, mode, permission_mode, fast) = selected_session_config(&config);
             if advertised.is_empty()
                 && model.is_none()
                 && thinking.is_none()
                 && mode.is_none()
                 && permission_mode.is_none()
+                && fast.is_none()
             {
                 return Ok(());
             }
@@ -566,6 +567,7 @@ pub(super) async fn apply_event(
                     thinking.as_ref(),
                     mode.as_ref(),
                     permission_mode.as_ref(),
+                    fast.as_ref(),
                 );
                 emitted = Some(meta.descriptor.clone());
             })?;
@@ -625,6 +627,7 @@ fn preserve_user_selection_over_host_advertised(
     selected: Option<&String>,
     advertised: &str,
     option: Option<&SessionAdvertisedOption>,
+    provider_id: &str,
 ) -> bool {
     let Some(selected) = selected
         .map(|item| item.trim())
@@ -637,7 +640,7 @@ fn preserve_user_selection_over_host_advertised(
     }
     match option {
         Some(option) if !option.options.is_empty() => {
-            map_advertised_select_value(option, selected).is_some()
+            map_advertised_select_value(option, selected, provider_id).is_some()
         }
         _ => true,
     }
@@ -649,29 +652,41 @@ fn stamp_advertised_selection(
     advertised_current: Option<&String>,
     applied: &mut Option<String>,
     selected: &mut Option<String>,
+    provider_id: &str,
 ) -> Option<String> {
     let value = advertised_current
         .map(|item| item.trim())
         .filter(|item| !item.is_empty())?;
     let option = advertised_option_for_kind(options, kind);
-    let keep = keep_pending_session_selection(selected.as_ref(), applied.as_ref(), value, option);
+    let keep = keep_pending_session_selection(
+        selected.as_ref(),
+        applied.as_ref(),
+        value,
+        option,
+        provider_id,
+    );
     *applied = Some(value.to_string());
     if keep {
         if let Some(mapped) = option.and_then(|item| {
             selected
                 .as_deref()
-                .and_then(|requested| map_advertised_select_value(item, requested))
+                .and_then(|requested| map_advertised_select_value(item, requested, provider_id))
         }) {
             *selected = Some(mapped.clone());
             Some(mapped)
         } else {
             selected.clone()
         }
-    } else if preserve_user_selection_over_host_advertised(selected.as_ref(), value, option) {
+    } else if preserve_user_selection_over_host_advertised(
+        selected.as_ref(),
+        value,
+        option,
+        provider_id,
+    ) {
         if let Some(mapped) = option.and_then(|item| {
             selected
                 .as_deref()
-                .and_then(|requested| map_advertised_select_value(item, requested))
+                .and_then(|requested| map_advertised_select_value(item, requested, provider_id))
         }) {
             *selected = Some(mapped.clone());
             Some(mapped)
@@ -691,6 +706,7 @@ fn apply_config_changed(
     thinking: Option<&String>,
     mode: Option<&String>,
     permission_mode: Option<&String>,
+    fast: Option<&String>,
 ) {
     let complete = advertised
         .iter()
@@ -698,7 +714,27 @@ fn apply_config_changed(
     if complete {
         if let Some(option) = advertised_option_for_kind(&advertised, "model") {
             if !option.options.is_empty() {
-                meta.descriptor.supported_options.models = models_from_option(option);
+                let previous_thinking: HashMap<String, AgentThinkingSupport> = meta
+                    .descriptor
+                    .supported_options
+                    .models
+                    .iter()
+                    .filter_map(|item| {
+                        item.thinking
+                            .clone()
+                            .map(|thinking| (item.id.clone(), thinking))
+                    })
+                    .collect();
+                let mut models = models_from_option(option, &meta.provider_id);
+                for model in &mut models {
+                    if model.thinking.is_some() {
+                        continue;
+                    }
+                    if let Some(thinking) = previous_thinking.get(&model.id) {
+                        model.thinking = Some(thinking.clone());
+                    }
+                }
+                meta.descriptor.supported_options.models = models;
             }
         }
         if let Some(option) = advertised_option_for_kind(&advertised, "mode") {
@@ -711,16 +747,53 @@ fn apply_config_changed(
                 meta.descriptor.supported_options.permission_modes = modes_from_option(option);
             }
         }
-        if let Some(option) = advertised_option_for_kind(&advertised, "thinking") {
-            if !option.options.is_empty() {
+        // ACP effort/reasoning is session-scoped to the selected model. Keep the
+        // agent-level enum for the current model, and stamp it onto that model so
+        // other models do not inherit a stale shared ladder.
+        match advertised_option_for_kind(&advertised, "thinking") {
+            Some(option) if !option.options.is_empty() => {
                 meta.descriptor.supported_options.thinking = AgentThinkingSupport::Enum {
-                    arg: None,
+                    arg: Some(option.id.clone()),
                     options: option
                         .options
                         .iter()
                         .map(|item| item.value.clone())
                         .collect(),
                 };
+            }
+            _ => {
+                meta.descriptor.supported_options.thinking = AgentThinkingSupport::None;
+                meta.descriptor.current_config.thinking = None;
+                meta.applied_thinking = None;
+            }
+        }
+        match advertised_option_for_kind(&advertised, "fast") {
+            Some(option) if !option.options.is_empty() => {
+                meta.descriptor.supported_options.fast = modes_from_option(option);
+            }
+            Some(option) if option.option_type.eq_ignore_ascii_case("boolean") => {
+                let on = option.current_value.as_deref().is_some_and(|value| {
+                    value.eq_ignore_ascii_case("true")
+                        || value.eq_ignore_ascii_case("on")
+                        || value == "1"
+                });
+                meta.descriptor.supported_options.fast = vec![
+                    AgentMode {
+                        id: "false".into(),
+                        label: "Off".into(),
+                        is_default: !on,
+                    },
+                    AgentMode {
+                        id: "true".into(),
+                        label: "On".into(),
+                        is_default: on,
+                    },
+                ];
+            }
+            _ => {
+                meta.descriptor.supported_options.fast.clear();
+                meta.descriptor.current_config.fast = None;
+                meta.applied_fast = None;
             }
         }
     }
@@ -730,6 +803,7 @@ fn apply_config_changed(
         model,
         &mut meta.applied_model,
         &mut meta.descriptor.current_config.model,
+        &meta.provider_id,
     );
     stamp_advertised_selection(
         &advertised,
@@ -737,6 +811,7 @@ fn apply_config_changed(
         thinking,
         &mut meta.applied_thinking,
         &mut meta.descriptor.current_config.thinking,
+        &meta.provider_id,
     );
     stamp_advertised_selection(
         &advertised,
@@ -744,6 +819,7 @@ fn apply_config_changed(
         mode,
         &mut meta.applied_mode,
         &mut meta.descriptor.current_config.mode,
+        &meta.provider_id,
     );
     stamp_advertised_selection(
         &advertised,
@@ -751,19 +827,68 @@ fn apply_config_changed(
         permission_mode,
         &mut meta.applied_permission_mode,
         &mut meta.descriptor.current_config.permission_mode,
+        &meta.provider_id,
     );
+    if advertised_option_for_kind(&advertised, "fast").is_some()
+        || !meta.descriptor.supported_options.fast.is_empty()
+    {
+        stamp_advertised_selection(
+            &advertised,
+            "fast",
+            fast,
+            &mut meta.applied_fast,
+            &mut meta.descriptor.current_config.fast,
+            &meta.provider_id,
+        );
+    }
+    if complete {
+        stamp_session_thinking_on_current_model(meta);
+    }
 }
 
-fn models_from_option(option: &SessionAdvertisedOption) -> Vec<AgentModel> {
+/// ACP `effort` / `reasoning_*` options describe the *selected* model only.
+fn stamp_session_thinking_on_current_model(meta: &mut AgentChatMeta) {
+    let current_id = meta.descriptor.current_config.model.clone().or_else(|| {
+        meta.descriptor
+            .supported_options
+            .models
+            .iter()
+            .find(|model| model.is_default)
+            .map(|model| model.id.clone())
+    });
+    let Some(current_id) = current_id else {
+        return;
+    };
+    let thinking = meta.descriptor.supported_options.thinking.clone();
+    if let Some(model) = meta
+        .descriptor
+        .supported_options
+        .models
+        .iter_mut()
+        .find(|model| model.id == current_id)
+    {
+        model.thinking = Some(thinking);
+    }
+}
+
+fn models_from_option(option: &SessionAdvertisedOption, provider_id: &str) -> Vec<AgentModel> {
+    let decorate_cursor = agent::canonicalize_chat_provider_id(provider_id) == "cursor";
     option
         .options
         .iter()
-        .map(|item| AgentModel {
-            id: item.value.clone(),
-            label: item.name.clone().unwrap_or_else(|| item.value.clone()),
-            group: None,
-            is_default: option.current_value.as_deref() == Some(item.value.as_str()),
-            thinking: None,
+        .map(|item| {
+            let label = if decorate_cursor && agent::cursor_model_has_brackets(&item.value) {
+                agent::cursor_model_display_label(&item.value, item.name.as_deref())
+            } else {
+                item.name.clone().unwrap_or_else(|| item.value.clone())
+            };
+            AgentModel {
+                id: item.value.clone(),
+                label,
+                group: None,
+                is_default: option.current_value.as_deref() == Some(item.value.as_str()),
+                thinking: None,
+            }
         })
         .collect()
 }
@@ -812,14 +937,17 @@ pub(super) fn selected_session_config(
     Option<String>,
     Option<String>,
     Option<String>,
+    Option<String>,
 ) {
     if let Ok(options) = serde_json::from_value::<Vec<ConfigOptionWire>>(config.clone()) {
         let mut model = None;
         let mut thinking = None;
+        let mut thinking_preferred = None;
         let mut mode = None;
         let mut permission_mode = None;
+        let mut fast = None;
         for option in options {
-            let Some(value) = option.current_value.and_then(nonempty_opt) else {
+            let Some(value) = option.current_value.clone().and_then(nonempty_opt) else {
                 continue;
             };
             if model.is_none()
@@ -834,13 +962,27 @@ pub(super) fn selected_session_config(
                 && config_kind_matches(&option.id, option.category.as_deref(), "mode")
             {
                 mode = Some(value);
-            } else if thinking.is_none()
-                && config_kind_matches(&option.id, option.category.as_deref(), "thinking")
+            } else if config_kind_matches(&option.id, option.category.as_deref(), "thinking") {
+                let id = option.id.to_ascii_lowercase();
+                let preferred = id == "effort" || id == "thought_level" || id.contains("reason");
+                if preferred {
+                    thinking_preferred = Some(value);
+                } else if thinking.is_none() {
+                    thinking = Some(value);
+                }
+            } else if fast.is_none()
+                && config_kind_matches(&option.id, option.category.as_deref(), "fast")
             {
-                thinking = Some(value);
+                fast = Some(value);
             }
         }
-        return (model, thinking, mode, permission_mode);
+        return (
+            model,
+            thinking_preferred.or(thinking),
+            mode,
+            permission_mode,
+            fast,
+        );
     }
     if let Some(obj) = config.as_object() {
         let pick = |key: &str| {
@@ -854,9 +996,10 @@ pub(super) fn selected_session_config(
             pick("thinking"),
             pick("mode"),
             pick("permission_mode"),
+            pick("fast"),
         );
     }
-    (None, None, None, None)
+    (None, None, None, None, None)
 }
 
 async fn persist_tool(
@@ -1404,7 +1547,8 @@ pub(super) async fn apply_pending_session_config(
     }
     let thinking = pending_thinking_change(&store.get_meta(chat_id)?);
     let permission_mode = pending_permission_mode_change(&store.get_meta(chat_id)?);
-    if change.is_none() && thinking.is_none() && permission_mode.is_none() {
+    let fast = pending_fast_change(&store.get_meta(chat_id)?);
+    if change.is_none() && thinking.is_none() && permission_mode.is_none() && fast.is_none() {
         return stamp_applied_session_config(store, chat_id);
     }
     let outcome = apply_live_session_config(chat_id, store, control, change.as_ref()).await?;
@@ -1415,11 +1559,13 @@ pub(super) async fn apply_pending_session_config(
         outcome.failed_mode,
         outcome.failed_thinking,
         outcome.failed_permission_mode,
+        outcome.failed_fast,
     )?;
     if outcome.failed_model
         || outcome.failed_mode
         || outcome.failed_thinking
         || outcome.failed_permission_mode
+        || outcome.failed_fast
     {
         let meta = store.get_meta(chat_id)?;
         emit_live(
@@ -1478,6 +1624,7 @@ pub(super) async fn sync_pending_session_config_if_needed(
     if pending_session_config_change(&meta).is_none()
         && pending_thinking_change(&meta).is_none()
         && pending_permission_mode_change(&meta).is_none()
+        && pending_fast_change(&meta).is_none()
     {
         return Ok(());
     }
@@ -1499,6 +1646,7 @@ fn revert_session_config(
     revert_mode: bool,
     revert_thinking: bool,
     revert_permission_mode: bool,
+    revert_fast: bool,
 ) -> Result<()> {
     store.update_meta(chat_id, |meta| {
         if revert_model {
@@ -1513,6 +1661,9 @@ fn revert_session_config(
         if revert_permission_mode {
             meta.descriptor.current_config.permission_mode = meta.applied_permission_mode.clone();
         }
+        if revert_fast {
+            meta.descriptor.current_config.fast = meta.applied_fast.clone();
+        }
     })?;
     Ok(())
 }
@@ -1522,6 +1673,7 @@ pub(super) struct ConfigWriteOutcome {
     failed_mode: bool,
     failed_thinking: bool,
     failed_permission_mode: bool,
+    failed_fast: bool,
 }
 
 pub(super) async fn apply_live_session_config(
@@ -1535,6 +1687,8 @@ pub(super) async fn apply_live_session_config(
         .and_then(|value| resolve_pending_select(&meta, "thinking", Some(value.as_str())));
     let permission_mode = pending_permission_mode_change(&meta)
         .and_then(|value| resolve_pending_select(&meta, "permission_mode", Some(value.as_str())));
+    let fast = pending_fast_change(&meta)
+        .and_then(|value| resolve_pending_select(&meta, "fast", Some(value.as_str())));
     let model = change.and_then(|item| item.model.as_ref().map(|value| value.to.clone()));
     let mode = change.and_then(|item| item.mode.as_ref().map(|value| value.to.clone()));
     let mut outcome = ConfigWriteOutcome {
@@ -1542,6 +1696,7 @@ pub(super) async fn apply_live_session_config(
         failed_mode: false,
         failed_thinking: false,
         failed_permission_mode: false,
+        failed_fast: false,
     };
     if let Some(update) = config_write(
         &meta,
@@ -1582,6 +1737,11 @@ pub(super) async fn apply_live_session_config(
             outcome.failed_permission_mode = true;
         }
     }
+    if let Some(update) = config_write(&meta, "fast", fast, meta.applied_fast.clone()) {
+        if control.set_config(update).await.is_err() {
+            outcome.failed_fast = true;
+        }
+    }
     Ok(outcome)
 }
 
@@ -1591,6 +1751,7 @@ pub(super) fn stamp_applied_session_config(store: &AgentChatStore, chat_id: &str
         meta.applied_thinking = meta.descriptor.current_config.thinking.clone();
         meta.applied_mode = meta.descriptor.current_config.mode.clone();
         meta.applied_permission_mode = meta.descriptor.current_config.permission_mode.clone();
+        meta.applied_fast = meta.descriptor.current_config.fast.clone();
     })?;
     Ok(())
 }
@@ -1652,10 +1813,11 @@ fn config_write(
                     None
                 },
                 previous_permission_mode: if kind == "permission_mode" {
-                    previous
+                    previous.clone()
                 } else {
                     None
                 },
+                previous_fast: if kind == "fast" { previous } else { None },
                 ..AgentRuntimeConfigUpdate::default()
             })
         }
@@ -1677,6 +1839,10 @@ fn config_write(
                 "permission_mode" => {
                     update.permission_mode = Some(value);
                     update.previous_permission_mode = previous;
+                }
+                "fast" => {
+                    update.fast = Some(value);
+                    update.previous_fast = previous;
                 }
                 _ => return None,
             }
@@ -1714,7 +1880,7 @@ pub(super) fn inject_session_op_commands(
 pub(super) fn seed_available_commands(
     provider_id: &str,
     commands: &mut Vec<AgentAvailableCommand>,
-    catalog: Option<&agent::AgentModelCatalog>,
+    catalog: Option<&agent::AgentOptionsSnapshot>,
 ) {
     if commands.is_empty() {
         if let Some(catalog) = catalog {
@@ -1757,6 +1923,7 @@ mod tests {
     use crate::service::agent_chat::store::AgentChatStore;
     use crate::service::agent_chat::types::{
         AgentChatMeta, AgentChatOrigin, AgentChatPayload, CreateAgentChatRequest,
+        SessionAdvertisedOption, SessionAdvertisedOptionValue,
     };
     use agent::{AgentEvent, AgentEventEnvelope};
     use chrono::{Duration, Utc};
@@ -1784,6 +1951,7 @@ mod tests {
             applied_thinking: None,
             applied_mode: None,
             applied_permission_mode: None,
+            applied_fast: None,
             available_commands: Vec::new(),
             session_usage: None,
             descriptor: crate::service::agent_chat::types::chat_descriptor(
@@ -1921,6 +2089,7 @@ mod tests {
                 Some("grok-4".into()),
                 Some("high".into()),
                 Some("agent".into()),
+                None,
                 None
             )
         );
@@ -1929,13 +2098,176 @@ mod tests {
         ]);
         assert_eq!(
             selected_session_config(&permission),
-            (None, None, None, Some("plan".into()))
+            (None, None, None, Some("plan".into()), None)
         );
         let current = serde_json::json!({ "permission_mode": "auto", "model": "opus" });
         assert_eq!(
             selected_session_config(&current),
-            (Some("opus".into()), None, None, Some("auto".into()))
+            (Some("opus".into()), None, None, Some("auto".into()), None)
         );
+    }
+
+    #[test]
+    fn selected_session_config_prefers_effort_over_boolean_thinking() {
+        let config = serde_json::json!([
+            { "id": "thinking", "type": "boolean", "currentValue": "false" },
+            { "id": "effort", "type": "select", "currentValue": "xhigh" },
+            { "id": "model", "currentValue": "gpt-5.3-codex" }
+        ]);
+        assert_eq!(
+            selected_session_config(&config),
+            (
+                Some("gpt-5.3-codex".into()),
+                Some("xhigh".into()),
+                None,
+                None,
+                None
+            )
+        );
+    }
+
+    #[test]
+    fn config_changed_stamps_effort_on_current_model_only() {
+        let mut row = meta();
+        row.provider_id = "cursor".into();
+        row.descriptor = crate::service::agent_chat::types::chat_descriptor(
+            "cursor",
+            agent::AgentCurrentConfig::default(),
+        );
+        let advertised = vec![
+            SessionAdvertisedOption {
+                id: "model".into(),
+                name: Some("Model".into()),
+                category: None,
+                option_type: "select".into(),
+                current_value: Some("claude-opus-5".into()),
+                options: vec![
+                    SessionAdvertisedOptionValue {
+                        value: "claude-opus-5".into(),
+                        name: Some("Claude Opus 5".into()),
+                    },
+                    SessionAdvertisedOptionValue {
+                        value: "composer-2.5".into(),
+                        name: Some("Composer 2.5".into()),
+                    },
+                ],
+            },
+            SessionAdvertisedOption {
+                id: "effort".into(),
+                name: Some("Effort".into()),
+                category: None,
+                option_type: "select".into(),
+                current_value: Some("high".into()),
+                options: vec![
+                    SessionAdvertisedOptionValue {
+                        value: "low".into(),
+                        name: Some("Low".into()),
+                    },
+                    SessionAdvertisedOptionValue {
+                        value: "high".into(),
+                        name: Some("High".into()),
+                    },
+                    SessionAdvertisedOptionValue {
+                        value: "max".into(),
+                        name: Some("Max".into()),
+                    },
+                ],
+            },
+        ];
+        apply_config_changed(
+            &mut row,
+            advertised,
+            Some(&"claude-opus-5".into()),
+            Some(&"high".into()),
+            None,
+            None,
+            None,
+        );
+        let opus = row
+            .descriptor
+            .supported_options
+            .models
+            .iter()
+            .find(|model| model.id == "claude-opus-5")
+            .expect("opus");
+        match &opus.thinking {
+            Some(AgentThinkingSupport::Enum { options, .. }) => {
+                assert_eq!(options, &["low", "high", "max"]);
+            }
+            other => panic!("expected opus effort, got {other:?}"),
+        }
+        let composer = row
+            .descriptor
+            .supported_options
+            .models
+            .iter()
+            .find(|model| model.id == "composer-2.5")
+            .expect("composer");
+        assert!(composer.thinking.is_none());
+
+        // Simulate a host-driven model switch (current already moved to composer).
+        row.descriptor.current_config.model = Some("composer-2.5".into());
+        row.applied_model = Some("composer-2.5".into());
+        apply_config_changed(
+            &mut row,
+            vec![
+                SessionAdvertisedOption {
+                    id: "model".into(),
+                    name: Some("Model".into()),
+                    category: None,
+                    option_type: "select".into(),
+                    current_value: Some("composer-2.5".into()),
+                    options: vec![
+                        SessionAdvertisedOptionValue {
+                            value: "claude-opus-5".into(),
+                            name: Some("Claude Opus 5".into()),
+                        },
+                        SessionAdvertisedOptionValue {
+                            value: "composer-2.5".into(),
+                            name: Some("Composer 2.5".into()),
+                        },
+                    ],
+                },
+                SessionAdvertisedOption {
+                    id: "fast".into(),
+                    name: Some("Fast".into()),
+                    category: None,
+                    option_type: "boolean".into(),
+                    current_value: Some("false".into()),
+                    options: vec![],
+                },
+            ],
+            Some(&"composer-2.5".into()),
+            None,
+            None,
+            None,
+            Some(&"false".into()),
+        );
+        assert!(row.descriptor.supported_options.thinking.is_none());
+        let composer = row
+            .descriptor
+            .supported_options
+            .models
+            .iter()
+            .find(|model| model.id == "composer-2.5")
+            .expect("composer");
+        assert!(matches!(
+            composer.thinking,
+            Some(AgentThinkingSupport::None)
+        ));
+        let opus = row
+            .descriptor
+            .supported_options
+            .models
+            .iter()
+            .find(|model| model.id == "claude-opus-5")
+            .expect("opus");
+        match &opus.thinking {
+            Some(AgentThinkingSupport::Enum { options, .. }) => {
+                assert_eq!(options, &["low", "high", "max"]);
+            }
+            other => panic!("expected preserved opus effort, got {other:?}"),
+        }
     }
 
     #[test]
@@ -1974,7 +2306,10 @@ mod tests {
             { "id": "model", "currentValue": "  " },
             { "id": "fast-mode", "currentValue": "true" }
         ]);
-        assert_eq!(selected_session_config(&config), (None, None, None, None));
+        assert_eq!(
+            selected_session_config(&config),
+            (None, None, None, None, Some("true".into()))
+        );
     }
 
     #[tokio::test]
@@ -2161,6 +2496,77 @@ mod tests {
                     .model
                     .as_ref()
                     .is_some_and(|item| item.to == "grok-composer-2.5-fast")
+            })
+        );
+    }
+
+    #[tokio::test]
+    async fn config_changed_maps_cursor_cli_model_to_acp_bracket() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = AgentChatStore::new(dir.path().join("chats"));
+        let meta = store
+            .create(CreateAgentChatRequest {
+                workspace_id: None,
+                project_id: None,
+                space_id: None,
+                cwd: "/tmp".into(),
+                origin: AgentChatOrigin::Normal,
+                provider_id: "cursor".into(),
+                model: Some("gpt-5.3-codex-fast".into()),
+                thinking: None,
+                mode: None,
+                title: None,
+            })
+            .unwrap();
+        let (tx, _rx) = broadcast::channel(8);
+        let recent = std::sync::Mutex::new(HashMap::new());
+        let state = Mutex::new(runtime());
+        apply_event(
+            &meta.id,
+            AgentEventEnvelope::new(
+                None,
+                AgentEvent::ConfigChanged {
+                    config: serde_json::json!([{
+                        "id": "model",
+                        "category": "model",
+                        "type": "select",
+                        "currentValue": "gemini-3.5-flash[]",
+                        "options": [
+                            { "value": "gemini-3.5-flash[]", "name": "gemini-3.5-flash" },
+                            {
+                                "value": "gpt-5.3-codex[reasoning=medium,fast=false]",
+                                "name": "gpt-5.3-codex"
+                            },
+                            { "value": "composer-2.5[fast=true]", "name": "composer-2.5" }
+                        ]
+                    }]),
+                },
+            ),
+            &store,
+            &state,
+            &tx,
+            &recent,
+        )
+        .await
+        .unwrap();
+        let updated = store.get_meta(&meta.id).unwrap();
+        assert_eq!(
+            updated.descriptor.current_config.model.as_deref(),
+            Some("gpt-5.3-codex[reasoning=medium,fast=false]")
+        );
+        assert_eq!(updated.applied_model.as_deref(), Some("gemini-3.5-flash[]"));
+        assert!(updated
+            .descriptor
+            .supported_options
+            .models
+            .iter()
+            .any(|model| model.id == "gpt-5.3-codex[reasoning=medium,fast=false]"));
+        assert!(
+            pending_session_config_change(&updated).is_some_and(|change| {
+                change
+                    .model
+                    .as_ref()
+                    .is_some_and(|item| item.to == "gpt-5.3-codex[reasoning=medium,fast=false]")
             })
         );
     }

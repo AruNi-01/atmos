@@ -205,7 +205,7 @@
 - **Level**: api-types
 - **Given**: extract catalog.
 - **When**: contract is updated.
-- **Then**: actions remain `agent_chat_*` + `agent_model_catalog_get`; no REST conversation API.
+- **Then**: actions remain `agent_chat_*` + `agent_options_get`; no REST conversation API.
 - **Signals**: `WsContract` rows; check-actions.
 - **Coverage Status**: ✅ `packages/api-types/src/ws/dto/agent-chat.test.ts` + `bun run --filter @atmos/api-types test`
 

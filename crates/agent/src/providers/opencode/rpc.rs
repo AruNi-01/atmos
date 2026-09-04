@@ -2,10 +2,10 @@
 
 use serde_json::{json, Value};
 
-use crate::catalog::parse::agent_modes_from_value;
 use crate::contract::AgentActionError;
 use crate::contract::{AgentCurrentConfig, AgentSupportedOptions};
 use crate::contract::{AgentModel, AgentThinkingSupport};
+use crate::options::probe::cli::parse::agent_modes_from_value;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct OpenApiRoutes {

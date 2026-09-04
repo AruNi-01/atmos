@@ -1,13 +1,13 @@
 use serde::Deserialize;
 
-use crate::catalog::CatalogStrategyKind;
 use crate::contract::AgentThinkingSupport;
+use crate::options::OptionsProbeStrategy;
 use crate::policy::canonicalize_chat_provider_id;
 
-use super::parse::thinking_from_reasoning_mode;
+use super::cli::parse::thinking_from_reasoning_mode;
 
 /// Chat native hosts after native-only canonicalize. ACP registry ids stay ACP.
-pub fn is_native_chat_catalog_id(agent_id: &str) -> bool {
+pub fn is_native_chat_options_id(agent_id: &str) -> bool {
     matches!(
         canonicalize_chat_provider_id(agent_id),
         "claude" | "codex" | "opencode" | "pi" | "grok"
@@ -15,22 +15,22 @@ pub fn is_native_chat_catalog_id(agent_id: &str) -> bool {
 }
 
 /// Config + Cli (if present) + Native. Never generic ACP `session/new`.
-pub fn apply_native_chat_catalog_spec(spec: &mut AgentCatalogSpec) {
-    if !is_native_chat_catalog_id(&spec.agent_id) {
+pub fn apply_native_chat_options_plan(spec: &mut ProbePlan) {
+    if !is_native_chat_options_id(&spec.agent_id) {
         return;
     }
     spec.acp = false;
-    let mut strategies = vec![CatalogStrategyKind::Config];
+    let mut strategies = vec![OptionsProbeStrategy::Config];
     if !spec.cli_command.is_empty() {
-        strategies.push(CatalogStrategyKind::Cli);
+        strategies.push(OptionsProbeStrategy::Cli);
     }
-    strategies.push(CatalogStrategyKind::Native);
+    strategies.push(OptionsProbeStrategy::Native);
     spec.strategies = strategies;
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
-pub enum CatalogParserKind {
+pub enum OptionsParserKind {
     #[default]
     LineList,
     GrokLineList,
@@ -40,14 +40,14 @@ pub enum CatalogParserKind {
 }
 
 #[derive(Debug, Clone, Deserialize, Default)]
-pub struct AgentCatalogSpec {
+pub struct ProbePlan {
     pub agent_id: String,
     #[serde(default)]
-    pub strategies: Vec<CatalogStrategyKind>,
+    pub strategies: Vec<OptionsProbeStrategy>,
     #[serde(default)]
     pub cli_command: Vec<String>,
     #[serde(default)]
-    pub parser: CatalogParserKind,
+    pub parser: OptionsParserKind,
     #[serde(default)]
     pub thinking: AgentThinkingSupport,
     #[serde(default)]
@@ -56,17 +56,17 @@ pub struct AgentCatalogSpec {
     pub acp: bool,
 }
 
-impl AgentCatalogSpec {
-    pub fn default_strategies(&self) -> Vec<CatalogStrategyKind> {
+impl ProbePlan {
+    pub fn default_strategies(&self) -> Vec<OptionsProbeStrategy> {
         if self.strategies.is_empty() {
-            let mut out = vec![CatalogStrategyKind::Config];
+            let mut out = vec![OptionsProbeStrategy::Config];
             if !self.cli_command.is_empty() {
-                out.push(CatalogStrategyKind::Cli);
+                out.push(OptionsProbeStrategy::Cli);
             }
-            if is_native_chat_catalog_id(&self.agent_id) {
-                out.push(CatalogStrategyKind::Native);
+            if is_native_chat_options_id(&self.agent_id) {
+                out.push(OptionsProbeStrategy::Native);
             } else if self.acp {
-                out.push(CatalogStrategyKind::Acp);
+                out.push(OptionsProbeStrategy::Acp);
             }
             out
         } else {
@@ -104,61 +104,61 @@ mod tests {
 
     #[test]
     fn app069_s5_native_ids_skip_acp_in_default_strategies() {
-        let spec = AgentCatalogSpec {
+        let spec = ProbePlan {
             agent_id: "claude".into(),
             acp: true,
             ..Default::default()
         };
         assert_eq!(
             spec.default_strategies(),
-            vec![CatalogStrategyKind::Config, CatalogStrategyKind::Native]
+            vec![OptionsProbeStrategy::Config, OptionsProbeStrategy::Native]
         );
-        let gemini = AgentCatalogSpec {
+        let gemini = ProbePlan {
             agent_id: "gemini".into(),
             acp: true,
             ..Default::default()
         };
         assert_eq!(
             gemini.default_strategies(),
-            vec![CatalogStrategyKind::Config, CatalogStrategyKind::Acp]
+            vec![OptionsProbeStrategy::Config, OptionsProbeStrategy::Acp]
         );
-        assert!(!is_native_chat_catalog_id("grok-build"));
-        assert!(!is_native_chat_catalog_id("claude-acp"));
-        assert!(is_native_chat_catalog_id("claude-code"));
-        assert!(is_native_chat_catalog_id("grok"));
+        assert!(!is_native_chat_options_id("grok-build"));
+        assert!(!is_native_chat_options_id("claude-acp"));
+        assert!(is_native_chat_options_id("claude-code"));
+        assert!(is_native_chat_options_id("grok"));
     }
 
     #[test]
-    fn app069_s5_apply_native_chat_catalog_spec_drops_acp() {
-        let mut spec = AgentCatalogSpec {
+    fn app069_s5_apply_native_chat_options_plan_drops_acp() {
+        let mut spec = ProbePlan {
             agent_id: "opencode".into(),
             acp: true,
             cli_command: vec!["opencode".into(), "models".into()],
             strategies: vec![
-                CatalogStrategyKind::Config,
-                CatalogStrategyKind::Cli,
-                CatalogStrategyKind::Acp,
+                OptionsProbeStrategy::Config,
+                OptionsProbeStrategy::Cli,
+                OptionsProbeStrategy::Acp,
             ],
             ..Default::default()
         };
-        apply_native_chat_catalog_spec(&mut spec);
+        apply_native_chat_options_plan(&mut spec);
         assert!(!spec.acp);
         assert_eq!(
             spec.strategies,
             vec![
-                CatalogStrategyKind::Config,
-                CatalogStrategyKind::Cli,
-                CatalogStrategyKind::Native,
+                OptionsProbeStrategy::Config,
+                OptionsProbeStrategy::Cli,
+                OptionsProbeStrategy::Native,
             ]
         );
-        let mut custom = AgentCatalogSpec {
+        let mut custom = ProbePlan {
             agent_id: "grok-build".into(),
             acp: true,
-            strategies: vec![CatalogStrategyKind::Acp],
+            strategies: vec![OptionsProbeStrategy::Acp],
             ..Default::default()
         };
-        apply_native_chat_catalog_spec(&mut custom);
+        apply_native_chat_options_plan(&mut custom);
         assert!(custom.acp);
-        assert_eq!(custom.strategies, vec![CatalogStrategyKind::Acp]);
+        assert_eq!(custom.strategies, vec![OptionsProbeStrategy::Acp]);
     }
 }

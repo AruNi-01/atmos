@@ -1,8 +1,8 @@
 //! Native Claude Code Chat adapter (stream-json + control, no `--print`).
 
-pub(crate) mod catalog;
 mod codec;
 mod event_map;
+pub(crate) mod options;
 mod rpc;
 mod spawn;
 mod tool_map;
@@ -21,13 +21,13 @@ use tokio::sync::{mpsc, oneshot, Mutex};
 use tokio::time::timeout;
 
 use crate::contract::{AgentAction, AgentActionError, AgentActionKind, AgentActionResult};
+use crate::contract::{AgentCurrentConfig, AgentDescriptor, AgentIdentity, AgentSupportedOptions};
+use crate::contract::{AgentEvent, AgentEventEnvelope};
 use crate::contract::{
-    AgentCatalogContext, AgentPersistenceHandle, AgentPrompt, AgentProvider, AgentProviderError,
+    AgentOptionsContext, AgentPersistenceHandle, AgentPrompt, AgentProvider, AgentProviderError,
     AgentResult, AgentRuntime, AgentRuntimeCommands, AgentRuntimeConfig, AgentRuntimeConfigUpdate,
     AgentRuntimeControl, AgentTurnHandle,
 };
-use crate::contract::{AgentCurrentConfig, AgentDescriptor, AgentIdentity, AgentSupportedOptions};
-use crate::contract::{AgentEvent, AgentEventEnvelope};
 use crate::policy::{capabilities_for_provider, option_support_for_provider};
 
 use event_map::{map_frame, EventMapState, MappedFrame};
@@ -298,7 +298,7 @@ impl ClaudeCommands {
             let request_id = self.alloc_request_id();
             if EFFORT_LEVELS.iter().any(|level| *level == thinking) {
                 self.write_control(
-                    apply_flag_settings_request(&request_id, &thinking),
+                    apply_flag_settings_request(&request_id, json!({ "effortLevel": thinking })),
                     &request_id,
                     CONTROL_TIMEOUT,
                 )
@@ -316,6 +316,19 @@ impl ClaudeCommands {
                 return Err(unsupported());
             }
             self.current_config.lock().await.thinking = Some(thinking);
+        }
+        if let Some(fast) = update.fast {
+            let enabled = crate::policy::is_fast_on(Some(&fast));
+            let request_id = self.alloc_request_id();
+            self.write_control(
+                apply_flag_settings_request(&request_id, json!({ "fastMode": enabled })),
+                &request_id,
+                CONTROL_TIMEOUT,
+            )
+            .await
+            .map_err(|_| unsupported())?;
+            self.current_config.lock().await.fast =
+                Some(if enabled { "true" } else { "false" }.into());
         }
         if update.mode.is_some() || update.permission_mode.is_some() {
             {
@@ -339,13 +352,23 @@ impl ClaudeCommands {
                 permission.as_deref(),
             ) {
                 let request_id = self.alloc_request_id();
-                self.write_control(
-                    set_permission_mode_request(&request_id, &vendor),
-                    &request_id,
-                    CONTROL_TIMEOUT,
-                )
-                .await
-                .map_err(|_| unsupported())?;
+                // Mid-session `set_permission_mode` is best-effort. Spawn already
+                // applied `--permission-mode`. Soft RPC failures must not fail
+                // SetConfig / pending config sync — Atmos chrome stays local.
+                if let Err(error) = self
+                    .write_control(
+                        set_permission_mode_request(&request_id, &vendor),
+                        &request_id,
+                        CONTROL_TIMEOUT,
+                    )
+                    .await
+                {
+                    tracing::debug!(
+                        %error,
+                        mode = %vendor,
+                        "claude set_permission_mode soft-fail; Atmos permission stays local"
+                    );
+                }
             }
         }
         let config =
@@ -605,6 +628,9 @@ async fn note_delivered_event(
 }
 
 fn provider_descriptor(current: AgentCurrentConfig) -> AgentDescriptor {
+    let mut supported_options = AgentSupportedOptions::default();
+    supported_options.fast =
+        crate::policy::boolean_fast_modes(crate::policy::is_fast_on(current.fast.as_deref()));
     AgentDescriptor {
         identity: AgentIdentity {
             id: "claude".into(),
@@ -613,7 +639,7 @@ fn provider_descriptor(current: AgentCurrentConfig) -> AgentDescriptor {
         },
         capabilities: capabilities_for_provider("claude"),
         support: option_support_for_provider("claude"),
-        supported_options: AgentSupportedOptions::default(),
+        supported_options,
         current_config: current,
     }
 }
@@ -623,6 +649,7 @@ async fn open_runtime(
     cfg: AgentRuntimeConfig,
     resume: Option<String>,
 ) -> AgentResult<Box<dyn AgentRuntime>> {
+    let desired_fast_on = crate::policy::is_fast_on(cfg.fast.as_deref());
     let current = AgentCurrentConfig {
         model: cfg.model.clone(),
         thinking: cfg.thinking.clone(),
@@ -632,6 +659,11 @@ async fn open_runtime(
             .as_deref()
             .and_then(crate::policy::normalize_stored_permission)
             .or_else(|| cfg.permission_mode.clone()),
+        fast: Some(if desired_fast_on {
+            "true".into()
+        } else {
+            "false".into()
+        }),
     };
     let SpawnedClaude {
         child,
@@ -677,14 +709,31 @@ async fn open_runtime(
     spawn_stdout_pump(stdout, commands.clone(), tx);
 
     let request_id = commands.alloc_request_id();
-    commands
+    let init_payload = commands
         .write_control(initialize_request(&request_id), &request_id, INIT_TIMEOUT)
         .await
         .map_err(AgentProviderError::message)?;
+    if let Some(state) = init_payload.get("fast_mode_state").and_then(Value::as_str) {
+        let on =
+            state.eq_ignore_ascii_case("on") || state.eq_ignore_ascii_case("true") || state == "1";
+        commands.current_config.lock().await.fast = Some(if on { "true" } else { "false" }.into());
+    }
+    if desired_fast_on {
+        let request_id = commands.alloc_request_id();
+        let _ = commands
+            .write_control(
+                apply_flag_settings_request(&request_id, json!({ "fastMode": true })),
+                &request_id,
+                CONTROL_TIMEOUT,
+            )
+            .await;
+        commands.current_config.lock().await.fast = Some("true".into());
+    }
 
+    let map_current = commands.current_config.lock().await.clone();
     Ok(Box::new(ClaudeRuntime {
         commands,
-        map: EventMapState::new(current),
+        map: EventMapState::new(map_current),
         frames: rx,
         closed_emitted: false,
     }))
@@ -926,7 +975,7 @@ impl AgentProvider for ClaudeNativeProvider {
         "claude"
     }
 
-    async fn descriptor(&self, _ctx: &AgentCatalogContext) -> AgentResult<AgentDescriptor> {
+    async fn descriptor(&self, _ctx: &AgentOptionsContext) -> AgentResult<AgentDescriptor> {
         Ok(provider_descriptor(AgentCurrentConfig::default()))
     }
 
@@ -1077,7 +1126,7 @@ for raw in sys.stdin:
     async fn descriptor_steer_is_supported() {
         let provider = ClaudeNativeProvider::new();
         let descriptor = provider
-            .descriptor(&AgentCatalogContext::default())
+            .descriptor(&AgentOptionsContext::default())
             .await
             .unwrap();
         assert_eq!(descriptor.identity.id, "claude");

@@ -19,7 +19,6 @@ import {
   Check,
   Eye,
   FileText,
-  Github,
   GitBranch,
   GitPullRequest,
   MessageSquare,
@@ -35,6 +34,7 @@ import {
   User,
   XCircle,
 } from "lucide-react";
+import { Github } from "@workspace/ui/components/icons/lucide-brand-icons";
 import {
   Command,
   CommandEmpty,

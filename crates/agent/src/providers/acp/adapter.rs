@@ -7,14 +7,19 @@ use tokio::sync::{oneshot, Mutex};
 use crate::acp_client::{run_acp_session, AcpSessionControl, AcpSessionHandle, AcpToolHandler};
 use crate::contract::AgentEventEnvelope;
 use crate::contract::{AgentAction, AgentActionError, AgentActionKind, AgentActionResult};
+use crate::contract::{AgentCurrentConfig, AgentDescriptor, AgentIdentity, AgentSupportedOptions};
 use crate::contract::{
-    AgentCatalogContext, AgentPersistenceHandle, AgentPrompt, AgentProvider, AgentProviderError,
+    AgentOptionsContext, AgentPersistenceHandle, AgentPrompt, AgentProvider, AgentProviderError,
     AgentResult, AgentRuntime, AgentRuntimeCommands, AgentRuntimeConfig, AgentRuntimeConfigUpdate,
     AgentRuntimeControl, AgentTurnHandle,
 };
-use crate::contract::{AgentCurrentConfig, AgentDescriptor, AgentIdentity, AgentSupportedOptions};
 use crate::models::AgentLaunchSpec;
-use crate::policy::{capabilities_for_provider, option_support_for_provider};
+use crate::options::cursor_model_has_brackets;
+use crate::policy::permission::{classify, AtmosPermission};
+use crate::policy::{
+    acp_permission_via_config_option, canonicalize_chat_provider_id, capabilities_for_provider,
+    option_support_for_provider,
+};
 
 use super::event_map::{map_event, EventMapState};
 
@@ -37,6 +42,7 @@ impl AcpAgentProvider {
 }
 
 struct AcpCommands {
+    provider_id: String,
     control: AcpSessionControl,
     running_turn: Mutex<Option<String>>,
     pending_permissions: Mutex<HashMap<String, oneshot::Sender<String>>>,
@@ -123,12 +129,14 @@ impl AgentRuntimeCommands for AcpCommands {
                 let _ = tx.send(option_id);
                 Ok(AgentActionResult::unit())
             }
-            AcpDispatchedAction::SetConfig { update } => apply_set_config(&self.control, update)
-                .await
-                .map(|()| AgentActionResult::unit())
-                .map_err(|_| AgentActionError::Unsupported {
-                    action: AgentActionKind::SetConfig,
-                }),
+            AcpDispatchedAction::SetConfig { update } => {
+                apply_set_config(&self.provider_id, &self.control, update)
+                    .await
+                    .map(|()| AgentActionResult::unit())
+                    .map_err(|_| AgentActionError::Unsupported {
+                        action: AgentActionKind::SetConfig,
+                    })
+            }
         }
     }
 }
@@ -190,9 +198,24 @@ impl AgentRuntime for AcpMappedSession {
 /// ACP: JSON-RPC success is the success signal. The returned `configOptions`
 /// replace client state via `ConfigChanged`; do not second-guess `currentValue`.
 async fn apply_set_config(
+    provider_id: &str,
     control: &AcpSessionControl,
     update: AgentRuntimeConfigUpdate,
 ) -> AgentResult<()> {
+    for (ids, value) in plan_set_config_writes(provider_id, update) {
+        write_config_option(control, &ids, &value).await?;
+    }
+    Ok(())
+}
+
+/// Build ACP `set_config_option` attempts for a config update.
+/// Cursor / Grok / Claude skip permission aliases (Cursor: spawn `--yolo`;
+/// Grok: slash / set_mode; Claude: set_permission_mode RPC).
+pub(crate) fn plan_set_config_writes(
+    provider_id: &str,
+    update: AgentRuntimeConfigUpdate,
+) -> Vec<(Vec<String>, String)> {
+    let permission_via_config = acp_permission_via_config_option(provider_id);
     let mut writes = Vec::new();
     if let Some(model) = update.model {
         writes.push((config_alias_ids("model"), model));
@@ -200,48 +223,56 @@ async fn apply_set_config(
     if let Some(thinking) = update.thinking {
         writes.push((config_alias_ids("thinking"), thinking));
     }
+    if let Some(fast) = update.fast {
+        writes.push((config_alias_ids("fast"), fast));
+    }
     if let Some(mode) = update.mode.clone() {
         writes.push((config_alias_ids("mode"), mode.clone()));
-        if crate::policy::is_plan_mode(Some(&mode)) {
+        // Only agents that advertise a permission configId encode Plan there.
+        // Cursor Plan is `mode=plan` only — do not guess `permissionMode`.
+        if permission_via_config && crate::policy::is_plan_mode(Some(&mode)) {
             writes.push((config_alias_ids("permission_mode"), "plan".into()));
         }
     }
     if let Some(permission_mode) = update.permission_mode {
-        if !crate::policy::is_plan_mode(Some(&permission_mode))
+        if permission_via_config
+            && !crate::policy::is_plan_mode(Some(&permission_mode))
             && !crate::policy::is_plan_mode(update.mode.as_deref())
         {
-            let vendor = crate::policy::atmos_permission_to_vendor("acp", &permission_mode)
+            let vendor = crate::policy::atmos_permission_to_vendor(provider_id, &permission_mode)
                 .unwrap_or(permission_mode);
             writes.push((config_alias_ids("permission_mode"), vendor));
         }
     }
-    writes.extend(update.extra_config.into_iter().map(|(id, value)| {
-        let value = if crate::catalog::is_permission_mode_config_id(&id) {
+    writes.extend(update.extra_config.into_iter().filter_map(|(id, value)| {
+        if !permission_via_config && crate::options::is_permission_mode_config_id(&id) {
+            return None;
+        }
+        let value = if crate::options::is_permission_mode_config_id(&id) {
             if crate::policy::is_plan_mode(Some(&value)) {
                 value
             } else {
-                crate::policy::atmos_permission_to_vendor("acp", &value).unwrap_or(value)
+                crate::policy::atmos_permission_to_vendor(provider_id, &value).unwrap_or(value)
             }
         } else {
             value
         };
-        (vec![id], value)
+        Some((vec![id], value))
     }));
-    for (ids, value) in writes {
-        write_config_option(control, &ids, &value).await?;
-    }
-    Ok(())
+    writes
 }
 
 pub(crate) fn config_alias_ids(field: &str) -> Vec<String> {
     match field {
         "model" => vec!["model".into(), "models".into()],
         "thinking" => vec![
+            "effort".into(),
             "reasoning_effort".into(),
             "thought_level".into(),
             "thinking".into(),
             "think".into(),
         ],
+        "fast" => vec!["fast".into(), "fast-mode".into(), "fast_mode".into()],
         "mode" => vec![
             "mode".into(),
             "modes".into(),
@@ -264,7 +295,12 @@ async fn write_config_option(
     value: &str,
 ) -> AgentResult<()> {
     let mut last_error = None;
+    let effort_like = looks_like_effort_level(value);
     for config_id in ids {
+        if effort_like && is_boolean_thinking_config_id(config_id) {
+            // Cursor PMP: don't send `high`/`low` to boolean `thinking` after `effort` fails.
+            continue;
+        }
         match control
             .set_config_option(config_id.clone(), value.to_string())
             .await
@@ -276,6 +312,20 @@ async fn write_config_option(
     Err(AgentProviderError::unsupported(
         last_error.unwrap_or_else(|| format!("agent did not apply {value}")),
     ))
+}
+
+fn looks_like_effort_level(value: &str) -> bool {
+    matches!(
+        value.trim().to_ascii_lowercase().as_str(),
+        "low" | "medium" | "med" | "high" | "xhigh" | "extra-high" | "extra_high" | "max" | "none"
+    )
+}
+
+fn is_boolean_thinking_config_id(id: &str) -> bool {
+    matches!(
+        id.trim().to_ascii_lowercase().as_str(),
+        "thinking" | "think"
+    )
 }
 
 fn current_config_from_maps(
@@ -291,6 +341,7 @@ fn current_config_from_maps(
             .as_deref()
             .and_then(crate::policy::normalize_stored_permission)
             .or_else(|| cfg.permission_mode.clone()),
+        fast: cfg.fast.clone(),
     };
     if let Some(defaults) = defaults {
         if current.model.is_none() {
@@ -299,8 +350,17 @@ fn current_config_from_maps(
         if current.thinking.is_none() {
             current.thinking = first_alias(
                 defaults,
-                &["reasoning_effort", "thought_level", "thinking", "think"],
+                &[
+                    "effort",
+                    "reasoning_effort",
+                    "thought_level",
+                    "thinking",
+                    "think",
+                ],
             );
+        }
+        if current.fast.is_none() {
+            current.fast = first_alias(defaults, &["fast", "fast-mode", "fast_mode"]);
         }
         if current.mode.is_none() {
             current.mode = first_alias(defaults, &["mode", "modes"]);
@@ -336,6 +396,38 @@ fn first_alias(map: &HashMap<String, String>, keys: &[&str]) -> Option<String> {
         .filter(|value| !value.is_empty())
 }
 
+/// Cursor CLI global flags before the `acp` subcommand.
+/// Live probe: `cursor-agent --yolo acp` / `--auto-review acp` accept the parent flags.
+/// ACP does not advertise a permission configId (guessing → -32602). Mid-session
+/// permission stays Atmos-chrome local; Ask Always is the default allowlist (no flag).
+pub(crate) fn cursor_permission_cli_flags(permission: Option<&str>) -> Vec<&'static str> {
+    match permission.and_then(classify) {
+        Some(AtmosPermission::Yolo) => vec!["--yolo"],
+        Some(AtmosPermission::Auto) => vec!["--auto-review"],
+        _ => Vec::new(),
+    }
+}
+
+pub(crate) fn with_cursor_permission_spawn_args(
+    mut launch_spec: AgentLaunchSpec,
+    permission: Option<&str>,
+) -> AgentLaunchSpec {
+    let flags = cursor_permission_cli_flags(permission);
+    if flags.is_empty() {
+        return launch_spec;
+    }
+    if let Some(pos) = launch_spec.args.iter().position(|arg| arg == "acp") {
+        for (offset, flag) in flags.into_iter().enumerate() {
+            launch_spec.args.insert(pos + offset, flag.to_string());
+        }
+    } else {
+        let mut args: Vec<String> = flags.into_iter().map(str::to_string).collect();
+        args.extend(launch_spec.args);
+        launch_spec.args = args;
+    }
+    launch_spec
+}
+
 fn provider_descriptor(params: &AcpProviderParams) -> AgentDescriptor {
     AgentDescriptor {
         identity: AgentIdentity {
@@ -363,32 +455,51 @@ async fn open_acp_session(
     } else {
         let mut extra = cfg.extra_config.clone();
         if let Some(model) = cfg.model.clone() {
-            extra.insert("model".into(), model);
+            let for_cursor = canonicalize_chat_provider_id(&params.provider_id) == "cursor";
+            // Cursor ACP only accepts advertised `base[params]` values. CLI-encoded
+            // ids fail set_config; wait for ConfigChanged + pending sync to map them.
+            if !(for_cursor && !cursor_model_has_brackets(&model)) {
+                extra.insert("model".into(), model);
+            }
         }
         if let Some(thinking) = cfg.thinking.clone() {
+            extra.insert("effort".into(), thinking.clone());
             extra.insert("reasoning_effort".into(), thinking.clone());
-            extra.insert("thought_level".into(), thinking);
+            extra.insert("thought_level".into(), thinking.clone());
+            extra.insert("thinking".into(), thinking);
+        }
+        if let Some(fast) = cfg.fast.clone() {
+            extra.insert("fast".into(), fast.clone());
+            extra.insert("fast-mode".into(), fast);
         }
         if let Some(mode) = cfg.mode.clone() {
             extra.insert("mode".into(), mode.clone());
             extra.insert("agent".into(), mode);
         }
-        let vendor = crate::policy::vendor_permission_for_spawn(
-            &params.provider_id,
-            cfg.mode.as_deref(),
-            cfg.permission_mode.as_deref(),
-        )
-        .or_else(|| {
-            cfg.permission_mode
-                .as_deref()
-                .and_then(|raw| crate::policy::atmos_permission_to_vendor(&params.provider_id, raw))
-        });
-        if let Some(permission_mode) = vendor {
-            extra.insert("permissionMode".into(), permission_mode.clone());
-            extra.insert("permission_mode".into(), permission_mode);
+        // Cursor: Atmos expands sparse ACP permission to the advertised subset
+        // (Yolo / Auto / Ask Always), but ACP has no permission configId.
+        // Do not seed unknown aliases into default_config (avoids -32602 WARN spam).
+        if acp_permission_via_config_option(&params.provider_id) {
+            let vendor = crate::policy::vendor_permission_for_spawn(
+                &params.provider_id,
+                cfg.mode.as_deref(),
+                cfg.permission_mode.as_deref(),
+            )
+            .or_else(|| {
+                cfg.permission_mode.as_deref().and_then(|raw| {
+                    crate::policy::atmos_permission_to_vendor(&params.provider_id, raw)
+                })
+            });
+            if let Some(permission_mode) = vendor {
+                extra.insert("permissionMode".into(), permission_mode.clone());
+                extra.insert("permission_mode".into(), permission_mode);
+            }
         }
         let mut default_config = params.default_config.clone().unwrap_or_default();
         default_config.extend(extra);
+        if !acp_permission_via_config_option(&params.provider_id) {
+            default_config.retain(|id, _| !crate::options::is_permission_mode_config_id(id));
+        }
         if default_config.is_empty() {
             None
         } else {
@@ -402,9 +513,25 @@ async fn open_acp_session(
         }
         (a, b) => a.or(b),
     };
+    let mut launch_spec = params.launch_spec.clone();
+    if canonicalize_chat_provider_id(&params.provider_id) == "cursor" {
+        let permission = crate::policy::vendor_permission_for_spawn(
+            "cursor",
+            cfg.mode.as_deref(),
+            cfg.permission_mode.as_deref(),
+        )
+        .or_else(|| cfg.permission_mode.clone());
+        // Plan is mode=plan via set_config, not a YOLO spawn flag.
+        let permission = if crate::policy::is_plan_mode(cfg.mode.as_deref()) {
+            None
+        } else {
+            permission
+        };
+        launch_spec = with_cursor_permission_spawn_args(launch_spec, permission.as_deref());
+    }
     let handle = run_acp_session(
         uuid::Uuid::new_v4().to_string(),
-        params.launch_spec.clone(),
+        launch_spec,
         cfg.cwd.clone(),
         Arc::clone(&params.tool_handler),
         env,
@@ -416,6 +543,7 @@ async fn open_acp_session(
     .await
     .map_err(AgentProviderError::message)?;
     let commands = Arc::new(AcpCommands {
+        provider_id: params.provider_id.clone(),
         control: handle.control(),
         running_turn: Mutex::new(None),
         pending_permissions: Mutex::new(HashMap::new()),
@@ -437,7 +565,7 @@ impl AgentProvider for AcpAgentProvider {
         &self.params.provider_id
     }
 
-    async fn descriptor(&self, _ctx: &AgentCatalogContext) -> AgentResult<AgentDescriptor> {
+    async fn descriptor(&self, _ctx: &AgentOptionsContext) -> AgentResult<AgentDescriptor> {
         Ok(provider_descriptor(&self.params))
     }
 
@@ -457,15 +585,16 @@ impl AgentProvider for AcpAgentProvider {
 #[cfg(test)]
 mod tests {
     use super::{
-        config_alias_ids, dispatch_acp_action, provider_descriptor, AcpDispatchedAction,
+        config_alias_ids, cursor_permission_cli_flags, dispatch_acp_action, plan_set_config_writes,
+        provider_descriptor, with_cursor_permission_spawn_args, AcpDispatchedAction,
         AcpProviderParams,
     };
     use crate::acp_client::tools::AcpToolHandler;
     use crate::contract::Capability;
     use crate::contract::{AgentAction, AgentActionError, AgentActionKind, AgentActionResult};
     use crate::contract::{
-        AgentPrompt, AgentResult, AgentRuntimeCommands, AgentRuntimeConfig, AgentRuntimeControl,
-        AgentTurnHandle,
+        AgentPrompt, AgentResult, AgentRuntimeCommands, AgentRuntimeConfig,
+        AgentRuntimeConfigUpdate, AgentRuntimeControl, AgentTurnHandle,
     };
     use crate::models::AgentLaunchSpec;
     use async_trait::async_trait;
@@ -495,7 +624,17 @@ mod tests {
         assert_eq!(config_alias_ids("model"), vec!["model", "models"]);
         assert_eq!(
             config_alias_ids("thinking"),
-            vec!["reasoning_effort", "thought_level", "thinking", "think"]
+            vec![
+                "effort",
+                "reasoning_effort",
+                "thought_level",
+                "thinking",
+                "think"
+            ]
+        );
+        assert_eq!(
+            config_alias_ids("fast"),
+            vec!["fast", "fast-mode", "fast_mode"]
         );
         assert_eq!(
             config_alias_ids("mode"),
@@ -580,5 +719,121 @@ mod tests {
         ));
         assert_eq!(probe.send.load(Ordering::SeqCst), 0);
         assert_eq!(probe.send_prompt.load(Ordering::SeqCst), 0);
+    }
+
+    fn write_ids(writes: &[(Vec<String>, String)]) -> Vec<&str> {
+        writes
+            .iter()
+            .flat_map(|(ids, _)| ids.iter().map(String::as_str))
+            .collect()
+    }
+
+    #[test]
+    fn cursor_permission_set_config_is_local_only_no_unknown_aliases() {
+        let writes = plan_set_config_writes(
+            "cursor",
+            AgentRuntimeConfigUpdate {
+                permission_mode: Some("yolo".into()),
+                ..AgentRuntimeConfigUpdate::default()
+            },
+        );
+        assert!(
+            writes.is_empty(),
+            "cursor must not guess permissionMode aliases"
+        );
+
+        let writes = plan_set_config_writes(
+            "cursor",
+            AgentRuntimeConfigUpdate {
+                mode: Some("plan".into()),
+                permission_mode: Some("ask_always".into()),
+                extra_config: [
+                    ("permissionMode".into(), "bypassPermissions".into()),
+                    ("permission".into(), "default".into()),
+                    ("model".into(), "claude-opus-5".into()),
+                ]
+                .into_iter()
+                .collect(),
+                ..AgentRuntimeConfigUpdate::default()
+            },
+        );
+        let ids = write_ids(&writes);
+        assert!(ids.contains(&"mode"));
+        assert!(ids.contains(&"model"));
+        assert!(
+            !ids.iter().any(|id| {
+                matches!(
+                    *id,
+                    "permissionMode" | "permission_mode" | "permission" | "approval"
+                )
+            }),
+            "unexpected permission writes: {ids:?}"
+        );
+        assert_eq!(cursor_permission_cli_flags(Some("yolo")), ["--yolo"]);
+        assert_eq!(cursor_permission_cli_flags(Some("auto")), ["--auto-review"]);
+        assert!(cursor_permission_cli_flags(Some("ask_always")).is_empty());
+        assert_eq!(
+            with_cursor_permission_spawn_args(
+                AgentLaunchSpec {
+                    program: "cursor-agent".into(),
+                    args: vec!["acp".into()],
+                    env: None,
+                },
+                Some("yolo"),
+            )
+            .args,
+            vec!["--yolo".to_string(), "acp".to_string()]
+        );
+    }
+
+    #[test]
+    fn generic_acp_still_retries_permission_config_aliases() {
+        let writes = plan_set_config_writes(
+            "gemini",
+            AgentRuntimeConfigUpdate {
+                permission_mode: Some("yolo".into()),
+                ..AgentRuntimeConfigUpdate::default()
+            },
+        );
+        assert_eq!(writes.len(), 1);
+        let (ids, value) = &writes[0];
+        assert_eq!(
+            ids.as_slice(),
+            [
+                "permissionMode",
+                "permission_mode",
+                "permission",
+                "approval"
+            ]
+        );
+        assert_eq!(value, "bypassPermissions");
+    }
+
+    #[test]
+    fn grok_and_claude_skip_permission_set_config_aliases() {
+        for provider in ["grok", "claude", "claude-code"] {
+            let writes = plan_set_config_writes(
+                provider,
+                AgentRuntimeConfigUpdate {
+                    permission_mode: Some("yolo".into()),
+                    mode: Some("plan".into()),
+                    extra_config: [("permissionMode".into(), "bypassPermissions".into())]
+                        .into_iter()
+                        .collect(),
+                    ..AgentRuntimeConfigUpdate::default()
+                },
+            );
+            let ids = write_ids(&writes);
+            assert!(ids.contains(&"mode"), "{provider} should still write mode");
+            assert!(
+                !ids.iter().any(|id| {
+                    matches!(
+                        *id,
+                        "permissionMode" | "permission_mode" | "permission" | "approval"
+                    )
+                }),
+                "{provider} must not guess permission aliases: {ids:?}"
+            );
+        }
     }
 }

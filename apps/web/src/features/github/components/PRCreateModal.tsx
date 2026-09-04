@@ -19,7 +19,8 @@ import {
   ScrollArea,
 } from '@workspace/ui';
 import { useWebSocketStore } from '@/features/connection/hooks/use-websocket';
-import { GitPullRequest, GitBranch, Loader2, X, Check, ChevronDown, Search as SearchIcon, Github } from 'lucide-react';
+import { GitPullRequest, GitBranch, Loader2, X, Check, ChevronDown, Search as SearchIcon } from "lucide-react";
+import { Github } from "@workspace/ui/components/icons/lucide-brand-icons";
 import { cn } from '@/shared/lib/utils';
 import { useGitStore } from '@/features/git/store/use-git-store';
 import { useGitInfoStore } from '@/features/git/store/use-git-info-store';

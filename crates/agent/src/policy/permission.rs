@@ -89,7 +89,22 @@ pub fn default_collaboration_modes() -> Vec<AgentMode> {
 
 pub fn advertised(host: &str) -> Vec<AtmosPermission> {
     match canonicalize_chat_provider_id(host) {
-        "claude" | "grok" => AtmosPermission::DISPLAY_ORDER.to_vec(),
+        // Claude: spawn `--permission-mode` + mid-session `set_permission_mode`.
+        "claude" => AtmosPermission::DISPLAY_ORDER.to_vec(),
+        // Cursor: create-time parent CLI `--yolo` / `--auto-review` / default Ask
+        // Always only. No Accept edits; ACP has no mid-session permission wire.
+        "cursor" => vec![
+            AtmosPermission::Yolo,
+            AtmosPermission::Auto,
+            AtmosPermission::AskAlways,
+        ],
+        // Grok: spawn can take `acceptEdits`, but mid-session configure only has
+        // slash for Yolo / Auto / Ask Always — omit Accept edits for honesty.
+        "grok" => vec![
+            AtmosPermission::Yolo,
+            AtmosPermission::Auto,
+            AtmosPermission::AskAlways,
+        ],
         "codex" => vec![
             AtmosPermission::Yolo,
             AtmosPermission::Auto,
@@ -102,6 +117,34 @@ pub fn advertised(host: &str) -> Vec<AtmosPermission> {
 
 pub fn advertised_permission_modes(host: &str) -> Vec<AgentMode> {
     modes_from_present(advertised(host), Some(AtmosPermission::DEFAULT))
+}
+
+/// When ACP only reports a sparse permission set (Cursor often sends just
+/// `default` → Ask always), expand to the Atmos-advertised **subset** for that
+/// host — never beyond what spawn / configure can honestly apply.
+pub fn expand_sparse_permission_modes(host: &str, existing: Vec<AgentMode>) -> Vec<AgentMode> {
+    let advertised = advertised_permission_modes(host);
+    if advertised.is_empty() || existing.len() >= advertised.len() {
+        return existing;
+    }
+    let default_atmos = existing
+        .iter()
+        .find(|mode| mode.is_default)
+        .and_then(|mode| classify(&mode.id))
+        .or_else(|| existing.first().and_then(|mode| classify(&mode.id)));
+    advertised
+        .into_iter()
+        .map(|mode| {
+            let atmos = AtmosPermission::parse(&mode.id);
+            AgentMode {
+                is_default: match (atmos, default_atmos) {
+                    (Some(left), Some(right)) => left == right,
+                    _ => mode.is_default,
+                },
+                ..mode
+            }
+        })
+        .collect()
 }
 
 /// Classify a vendor or Atmos permission id. `plan` is a mode, not a permission.
@@ -209,6 +252,26 @@ pub fn vendor_permission_for_spawn(
         .map(str::trim)
         .filter(|value| !value.is_empty())?;
     to_vendor_value(host, raw)
+}
+
+/// Whether Atmos should apply Chat permission via ACP `session/set_config_option`.
+///
+/// Return `false` when permission is spawn-owned, slash-owned, or Atmos-local chrome only:
+/// - **Cursor**: advertises `mode` / `model` / `thinking` / `effort` / `fast` /
+///   `context` only — no `permissionMode`. Guessing aliases → JSON-RPC `-32602`.
+///   Create/spawn: parent CLI `--yolo` / `--auto-review` before `acp`. Mid-session
+///   permission is UI-only (no ACP wire); Plan is `mode=plan`.
+/// - **Grok** (native): spawn `--permission-mode`; mid-session uses slash
+///   (`/always-approve`, `/auto`) and ACP `session/set_mode` for Plan — not
+///   `set_config_option` (Method not found).
+/// - **Claude** (native id): uses stream-json `set_permission_mode`, not ACP config
+///   options. Keep `claude-acp` / gemini / factory-droid as `true` when they expose a
+///   real permission configId.
+pub fn acp_permission_via_config_option(host: &str) -> bool {
+    !matches!(
+        canonicalize_chat_provider_id(host),
+        "cursor" | "grok" | "claude"
+    )
 }
 
 pub fn fold_vendor_permission_modes(items: &[AgentMode]) -> Vec<AgentMode> {
@@ -435,5 +498,44 @@ mod tests {
         assert!(to_vendor("opencode", AtmosPermission::AskAlways).is_none());
         assert!(advertised_permission_modes("pi").is_empty());
         assert!(advertised_permission_modes("factory-droid").is_empty());
+        let cursor = advertised_permission_modes("cursor");
+        assert_eq!(
+            cursor
+                .iter()
+                .map(|item| item.id.as_str())
+                .collect::<Vec<_>>(),
+            ["yolo", "auto", "ask_always"]
+        );
+        let grok = advertised_permission_modes("grok");
+        assert_eq!(
+            grok.iter().map(|item| item.id.as_str()).collect::<Vec<_>>(),
+            ["yolo", "auto", "ask_always"]
+        );
+        let expanded = expand_sparse_permission_modes(
+            "cursor",
+            vec![AgentMode {
+                id: "default".into(),
+                label: "Default".into(),
+                is_default: true,
+            }],
+        );
+        assert_eq!(
+            expanded
+                .iter()
+                .map(|item| item.id.as_str())
+                .collect::<Vec<_>>(),
+            ["yolo", "auto", "ask_always"]
+        );
+        assert!(expanded
+            .iter()
+            .any(|item| item.id == "ask_always" && item.is_default));
+        assert!(!acp_permission_via_config_option("cursor"));
+        assert!(!acp_permission_via_config_option("grok"));
+        assert!(!acp_permission_via_config_option("claude"));
+        assert!(!acp_permission_via_config_option("claude-code"));
+        assert!(acp_permission_via_config_option("gemini"));
+        assert!(acp_permission_via_config_option("claude-acp"));
+        assert!(acp_permission_via_config_option("factory-droid"));
+        assert!(acp_permission_via_config_option("grok-build"));
     }
 }

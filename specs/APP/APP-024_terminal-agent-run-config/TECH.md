@@ -202,12 +202,12 @@ pub struct TerminalAgentCapability {
 Model catalog DTO:
 
 ```rust
-pub struct TerminalAgentModelCatalog {
+pub struct TerminalAgentOptions {
     pub agent_id: String,
-    pub status: TerminalAgentModelCatalogStatus,
-    pub models: Vec<TerminalAgentModelOption>,
+    pub status: TerminalAgentOptionsStatus,
+    pub models: Vec<TerminalAgentOption>,
     pub message: Option<String>,
-    pub source: TerminalAgentModelCatalogSource,
+    pub source: TerminalAgentOptionsSource,
 }
 ```
 
@@ -217,7 +217,7 @@ Trait / adapter pattern:
 pub trait TerminalAgentAdapter: Send + Sync {
     fn supports_agent(&self, agent_id: &str) -> bool;
     fn capability_overrides(&self) -> TerminalAgentAdapterCapabilities;
-    fn list_models(&self, executable: &str, spec: &TerminalAgentModelListSpec) -> Result<TerminalAgentModelCatalog>;
+    fn list_models(&self, executable: &str, spec: &TerminalAgentModelListSpec) -> Result<TerminalAgentOptions>;
     fn build_structured_args(
         &self,
         mode: TerminalAgentInvocationMode,
@@ -291,17 +291,17 @@ type TerminalAgentCapability = {
   unavailable_reason: string | null;
 };
 
-type TerminalAgentModelOption = {
+type TerminalAgentOption = {
   id: string;
   label: string;
   group?: string | null;
   is_default?: boolean;
 };
 
-type TerminalAgentModelCatalog = {
+type TerminalAgentOptions = {
   agent_id: string;
   status: "ok" | "unsupported" | "auth_required" | "error";
-  models: TerminalAgentModelOption[];
+  models: TerminalAgentOption[];
   message: string | null;
   source: "live" | "cache";
 };
@@ -538,7 +538,7 @@ pub fn terminal_agent_capabilities(
 pub fn terminal_agent_model_catalog(
     agent_id: &str,
     refresh: bool,
-) -> Result<TerminalAgentModelCatalog>;
+) -> Result<TerminalAgentOptions>;
 
 pub fn saved_terminal_agent_run_configs() -> Result<Vec<TerminalAgentSavedRunConfig>>;
 pub fn save_terminal_agent_run_configs(configs: &[TerminalAgentSavedRunConfig]) -> Result<()>;
@@ -800,7 +800,7 @@ New generic messages:
 { action: "terminal_agent_models_get", payload: { agent_id: "cursor", refresh: false } }
 
 // response
-{ action: "terminal_agent_models_get", payload: TerminalAgentModelCatalog }
+{ action: "terminal_agent_models_get", payload: TerminalAgentOptions }
 ```
 
 Extended automation messages:

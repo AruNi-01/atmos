@@ -186,7 +186,7 @@ export const WS_ACTIONS = [
   "agent_chat_cancel",
   "agent_chat_permission_respond",
   "agent_chat_session_op_respond",
-  "agent_model_catalog_get",
+  "agent_options_get",
   "agent_chat_prefs_get",
   "agent_chat_prefs_set",
   "automation_list",

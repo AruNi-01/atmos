@@ -12,15 +12,16 @@ import {
   type PromptModel,
 } from "@workspace/ui";
 import {
-  Bot,
-  Clock,
+  Astroid,
+  BotMessageSquare,
   Code2,
-  FilePenLine,
   Hammer,
   Hand,
   Layers,
   ListTodo,
+  MessageCircleQuestionMark,
   MessageSquare,
+  PencilSparkles,
   Shield,
   ShieldAlert,
 } from "lucide-react";
@@ -50,6 +51,7 @@ import { useAgentComposerPopovers } from "../hooks/use-agent-composer-popovers";
 import type { AgentChatSlashCommand } from "../hooks/use-agent-chat-session";
 import {
   configKindMatches,
+  displayedComposerConfigValue,
   isThinkingConfigId,
   permissionModeMessageKey,
   thinkingLevelMessageKey,
@@ -118,6 +120,22 @@ function compactModeId(value: string): string {
   return value.trim().toLowerCase().replace(/[-_]/g, "");
 }
 
+function isFastOnValue(value: string): boolean {
+  const token = value.trim().toLowerCase();
+  return token === "true" || token === "on" || token === "1" || token === "yes";
+}
+
+function resolveFastToggleValue(
+  option: AgentConfigOption | null,
+  enabled: boolean,
+): string | null {
+  if (!option || option.options.length === 0) return null;
+  const on = option.options.find((item) => isFastOnValue(item.value));
+  const off = option.options.find((item) => !isFastOnValue(item.value));
+  if (enabled) return on?.value ?? option.options[1]?.value ?? option.options[0]?.value ?? null;
+  return off?.value ?? option.options[0]?.value ?? null;
+}
+
 function modeIcon(value: string) {
   switch (compactModeId(value)) {
     case "plan":
@@ -126,8 +144,10 @@ function modeIcon(value: string) {
       return <Hammer className="size-3.5 shrink-0" />;
     case "code":
       return <Code2 className="size-3.5 shrink-0" />;
+    case "ask":
+      return <MessageCircleQuestionMark className="size-3.5 shrink-0" />;
     case "agent":
-      return <Bot className="size-3.5 shrink-0" />;
+      return <BotMessageSquare className="size-3.5 shrink-0" />;
     case "default":
     case "normal":
       return <MessageSquare className="size-3.5 shrink-0" />;
@@ -143,14 +163,23 @@ function toModePromptModels(option: AgentConfigOption | null): PromptModel[] {
   }));
 }
 
+/** Prefer currentValue when listed; otherwise the default / first option. */
+function resolvedConfigOptionValue(
+  option: AgentConfigOption | null,
+  kind: "mode" | "permission_mode" | "thinking" | "fast",
+): string {
+  if (!option) return "";
+  return displayedComposerConfigValue([option], kind, option.currentValue || "");
+}
+
 function permissionModeIcon(key: string | null) {
   switch (key) {
     case "yolo":
       return <ShieldAlert className="size-3.5 shrink-0" />;
     case "acceptEdits":
-      return <FilePenLine className="size-3.5 shrink-0" />;
+      return <PencilSparkles className="size-3.5 shrink-0" />;
     case "auto":
-      return <Clock className="size-3.5 shrink-0" />;
+      return <Astroid className="size-3.5 shrink-0" />;
     case "askAlways":
       return <Hand className="size-3.5 shrink-0" />;
     default:
@@ -236,6 +265,7 @@ function ComposerPromptInput({
   permissionOption,
   modelOption,
   thinkingOption,
+  fastOption,
   modelsLocked,
   modesLocked,
   registryId,
@@ -280,6 +310,7 @@ function ComposerPromptInput({
   permissionOption: AgentConfigOption | null;
   modelOption: AgentConfigOption | null;
   thinkingOption: AgentConfigOption | null;
+  fastOption: AgentConfigOption | null;
   modelsLocked: boolean;
   modesLocked: boolean;
   registryId: string;
@@ -436,14 +467,17 @@ function ComposerPromptInput({
         modelsLoading={isConnecting || isResumingHistory || catalogModelsLoading}
         onEmptyModelsOpen={onEmptyModelsOpen}
         modes={toModePromptModels(isConnected ? modeOption : null)}
-        mode={modeOption?.currentValue || ""}
+        mode={resolvedConfigOptionValue(isConnected ? modeOption : null, "mode")}
         onModeChange={(value) => modeOption && setConfigOption(modeOption.id, value)}
         modesLocked={modesLocked}
         permissionModes={toPermissionPromptModels(
           isConnected ? permissionOption : null,
           (kind, key) => t(`chatPanel.pickers.${kind}.${key}`),
         )}
-        permissionMode={permissionOption?.currentValue || ""}
+        permissionMode={resolvedConfigOptionValue(
+          isConnected ? permissionOption : null,
+          "permission_mode",
+        )}
         onPermissionModeChange={(value) =>
           permissionOption && setConfigOption(permissionOption.id, value)
         }
@@ -451,8 +485,17 @@ function ComposerPromptInput({
           const key = thinkingLevelMessageKey(value);
           return key ? t(`chatPanel.pickers.thinkingLevels.${key}`) : (name || value);
         })}
-        thinking={thinkingOption?.currentValue || ""}
+        thinking={resolvedConfigOptionValue(isConnected ? thinkingOption : null, "thinking")}
         onThinkingChange={(value) => thinkingOption && setConfigOption(thinkingOption.id, value)}
+        fastAvailable={Boolean(isConnected && fastOption && fastOption.options.length > 0)}
+        fastEnabled={isFastOnValue(
+          resolvedConfigOptionValue(isConnected ? fastOption : null, "fast"),
+        )}
+        onFastChange={(enabled) => {
+          if (!fastOption) return;
+          const next = resolveFastToggleValue(fastOption, enabled);
+          if (next) setConfigOption(fastOption.id, next);
+        }}
         labels={{
           chooseModel: t("composer.chooseModel"),
           chooseAgent: t("composer.selectAgent"),
@@ -469,6 +512,7 @@ function ComposerPromptInput({
           noResults: t("configOptionDropdown.noResults"),
           loadingModels: t("composer.loadingModels"),
           thinkingEffort: t("composer.thinkingEffort"),
+          fastMode: t("composer.fastMode"),
         }}
         leadingAction={
           <div className="flex min-w-0 items-center gap-1">
@@ -661,6 +705,8 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
   const modelOption = configOptions.find((option) => configKindMatches(option.id, option.category, "model")) ?? null;
   const thinkingOption =
     configOptions.find((option) => isThinkingConfigId(option.id, option.category)) ?? null;
+  const fastOption =
+    configOptions.find((option) => configKindMatches(option.id, option.category, "fast")) ?? null;
   const placeholderKind = resolveAgentComposerPlaceholderKind({
     canUseCurrentMode,
     agentName: activeAgent?.name,
@@ -835,6 +881,7 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
           permissionOption={permissionOption}
           modelOption={modelOption}
           thinkingOption={thinkingOption}
+          fastOption={fastOption}
           modelsLocked={modelsLocked}
           modesLocked={modesLocked}
           registryId={registryId}

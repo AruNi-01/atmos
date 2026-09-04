@@ -90,13 +90,13 @@ flowchart TB
   end
 
   subgraph ws [Main /ws · APP-048/049]
-    Actions["agent_chat_* · agent_model_catalog_get"]
-    Events["agent_chat_event · agent_model_catalog_updated"]
+    Actions["agent_chat_* · agent_options_get"]
+    Events["agent_chat_event · agent_options_updated"]
   end
 
   subgraph api [apps/api]
     Router["ws/router/agent_chat.rs"]
-    Prefetch["CatalogPrefetchWorker · first web /ws · same loop"]
+    Prefetch["OptionsPrefetchWorker · first web /ws · same loop"]
     Upload["POST /api/agent/upload-attachments"]
   end
 
@@ -171,7 +171,7 @@ Public API (no ACP types):
 ```rust
 trait AgentProvider {
     fn id(&self) -> &str;
-    async fn capabilities(&self, ctx: &AgentCatalogContext) -> Result<AgentCapabilities>;
+    async fn capabilities(&self, ctx: &AgentOptionsContext) -> Result<AgentCapabilities>;
     async fn create_session(&self, cfg: AgentSessionConfig) -> Result<Box<dyn AgentSession>>;
     async fn resume_session(&self, handle: AgentPersistenceHandle, cfg: AgentSessionConfig)
         -> Result<Box<dyn AgentSession>>;
@@ -234,7 +234,7 @@ crates/core-service/src/service/agent_chat/
 
 `AgentSessionService` (`crates/core-service/src/service/agent_session.rs`) stops being the chat identity. Runtime spawn/resume becomes `AgentChatService` calling `AgentProvider`. Delete `~/.atmos/data/agent/session_config_snapshots.json` as SOT (selected model lives in `meta.json`).
 
-`terminal_agent_model_catalog` in `crates/core-service/src/service/automation/agents.rs` becomes a facade over `crates/agent` catalog for command-spec agents so APP-024 keeps its WS action but not a second parser.
+`terminal_agent_model_catalog` in `crates/core-service/src/service/automation/agents.rs` becomes a facade over `crates/agent` options for command-spec agents so APP-024 keeps its WS action but not a second parser.
 
 ### apps/api
 
@@ -257,7 +257,7 @@ Same PR as Rust: extract actions/events, add `contract/agent-chat.ts`, `dto/agen
 - Remove `ModalAgentChatPanel` from `apps/web/src/app/(app)/layout.tsx`.
 - Standalone `apps/web/src/app/agent-chat/page.tsx` takes `chatId` (create if missing).
 - Composer: idle send → `agent_chat_send`; busy Enter follows `followup_policy`; one-shot for the other action; Stop → `agent_chat_cancel` (does not send draft).
-- New Chat header: agent picker → `agent_model_catalog_get` → model + thinking (if catalog says so) **before** first send.
+- New Chat header: agent picker → `agent_options_get` → model + thinking (if catalog says so) **before** first send.
 - Do not import ACP schemas.
 
 **Frontend reuse (do not rewrite the Chat skin):**
@@ -338,15 +338,15 @@ Projector rules:
 Unified types in `crates/agent` (clients see the same JSON via WS):
 
 ```rust
-pub struct AgentModelCatalog {
+pub struct AgentOptionsSnapshot {
     pub agent_id: String,
-    pub status: CatalogStatus,          // ok | unsupported | auth_required | error | probing
+    pub status: OptionsStatus,          // ok | unsupported | auth_required | error | probing
     pub models: Vec<AgentModel>,
     pub modes: Vec<AgentMode>,          // ACP session modes when advertised
     pub thinking: AgentThinkingSupport, // agent-level default; models may override
-    pub strategies_used: Vec<CatalogStrategyKind>,
+    pub strategies_used: Vec<OptionsProbeStrategy>,
     pub fetched_at: DateTime<Utc>,
-    pub source: CatalogSource,          // cache | live
+    pub source: OptionsSource,          // cache | live
     pub message: Option<String>,
 }
 
@@ -366,7 +366,7 @@ pub enum AgentThinkingSupport {
     FlagOnly { arg: String },
 }
 
-pub enum CatalogStrategyKind { Config, Cli, Acp }
+pub enum OptionsProbeStrategy { Config, Cli, Acp }
 ```
 
 ### Prefetch worker (enter app)
@@ -375,12 +375,12 @@ Not an APP-051 `LocalScheduler` interval (`automation.schedule_tick` style). Cat
 
 ```text
 first web /ws connect
-  → CatalogPrefetchWorker.ensure_started()   // single-flight
+  → OptionsPrefetchWorker.ensure_started()   // single-flight
   → loop:
         for each user-enabled agent (concurrency 2):
             if disk/memory cache age < 4h and status=ok → skip
             else probe (config / cli / temp ACP) → write cache
-            emit agent_model_catalog_updated
+            emit agent_options_updated
         sleep POLL (~30 min)
         if no web /ws clients remain → exit loop
 ```
@@ -388,14 +388,14 @@ first web /ws connect
 - Trigger: `apps/api/src/api/ws/handlers.rs` after `ws_service.register` for `ClientType::Web` (Desktop uses the same web socket). Later connects are no-ops if the worker is alive.
 - Stop: last web connection unregisters, or process shutdown. Sleeping in the same task is the “poll”; do not add `JobId` + `IntervalSpec` in `apps/api/src/main.rs`.
 - Enabled set: installed ACP registry agents + custom ACP agents + known agents (`claude` / `codex` / `gemini` / `antigravity`) that are installed and not user-disabled. Terminal-only builtins that are not Chat providers are not prefetched here.
-- UI: `agent_model_catalog_get` is cache-first and instant; picker fills as `agent_model_catalog_updated` arrives. Prefetch must not block bootstrap or New Chat.
-- `refresh=true` on `agent_model_catalog_get` probes that one agent immediately (still background-safe; UI can show `probing`).
+- UI: `agent_options_get` is cache-first and instant; picker fills as `agent_options_updated` arrives. Prefetch must not block bootstrap or New Chat.
+- `refresh=true` on `agent_options_get` probes that one agent immediately (still background-safe; UI can show `probing`).
 
 ### Cache
 
 - TTL: **4 hours** for `ok` catalogs (memory + disk).
 - Error / `auth_required`: 15 minutes (retry on the next worker loop without waiting 4h).
-- Disk: `~/.atmos/data/agent/model_catalog/{agent_id}.json`.
+- Disk: `~/.atmos/data/agent/options/{agent_id}.json`.
 - Worker skip rule: `ok` cache younger than 4h is not re-probed.
 
 ### Strategies (pluggable, per agent spec)
@@ -465,7 +465,7 @@ All names are serde snake_case `WsAction` / `WsEvent` variants in `apps/api/src/
 | `agent_chat_queue_delete` | `item_id` | `{ ok }` |
 | `agent_chat_cancel` | `chat_id` | `{ ok }` interrupt current turn |
 | `agent_chat_permission_respond` | `chat_id`, `request_id`, `option_id` / allow+remember | `{ ok }` |
-| `agent_model_catalog_get` | `agent_id`, `refresh?` | `AgentModelCatalog` (cache-first) |
+| `agent_options_get` | `agent_id`, `refresh?` | `AgentOptionsSnapshot` (cache-first) |
 
 Busy Enter: client reads `followup_policy` and calls `agent_chat_queue_add` or `agent_chat_steer`. One-shot uses the other action. If `supports_steer` is false, hide Steer and force Queue.
 
@@ -485,7 +485,7 @@ Follow-up setting: add `followup_policy` to `agent_behaviour_settings_get` / `_u
 }
 ```
 
-Also emit `agent_model_catalog_updated` `{ agent_id, catalog }` when the prefetch worker (or a refresh) writes a live catalog so open pickers update without a second request.
+Also emit `agent_options_updated` `{ agent_id, catalog }` when the prefetch worker (or a refresh) writes a live catalog so open pickers update without a second request.
 
 Subscribe is per connection. Fan-out conversation events to every subscriber of that `chat_id` (standalone + center-stage). Unload provider after idle timeout using existing agent behaviour idle setting; conversation rows remain.
 
@@ -529,7 +529,7 @@ Permission open (`waiting_permission`): queue dispatch waits; steer is allowed a
 ## Rollout plan
 
 1. Conversation file store (`meta.json` / `transcript.jsonl` / `queue.json` / `index.json`) + tests. No UI.
-2. `crates/agent` domain + ACP adapter emitting `AgentEvent`. Catalog strategies + parsers + 4h cache. Prefetch worker on first web `/ws`. `agent_model_catalog_get` + `agent_model_catalog_updated`. Facade APP-024 catalog.
+2. `crates/agent` domain + ACP adapter emitting `AgentEvent`. Catalog strategies + parsers + 4h cache. Prefetch worker on first web `/ws`. `agent_options_get` + `agent_options_updated`. Facade APP-024 catalog.
 3. `AgentChatService` CRUD + restore. WS list/get/rename/delete. Web history sidebar + center-stage tab + plus menu. No live spawn yet.
 4. Projector + spawn/resume on send. Permission. `queue.json` + dock. Delete `/ws/agent` and REST session create/list/resume. Standalone on `chat_id`.
 5. Steer + `followup_policy`. Hide Steer when unsupported.
@@ -541,7 +541,7 @@ Each step is mergeable; 3 is already a usable read-only history host.
 
 - **Temp ACP probes are heavier than CLI.** Limit concurrency to 2, isolate cwd, and skip agents with a fresh 4h cache. Tradeoff: Chat picker can be full before the user opens New Chat.
 - **Enter-app prefetch vs idle Computer.** Worker runs only while a web `/ws` is connected, so a sleeping laptop with no UI does not keep probing.
-- **Two catalog WS actions** (`terminal_agent_models_get` vs `agent_model_catalog_get`) in v1. Shared engine underneath; Terminal UI migration is not this spec.
+- **Two catalog WS actions** (`terminal_agent_models_get` vs `agent_options_get`) in v1. Shared engine underneath; Terminal UI migration is not this spec.
 - **JSONL vs SQLite.** Files match Claude/Codex/Grok local transcripts, are greppable, and stay out of `atmos.db`. List uses `index.json`/`meta.json` so we never parse every jsonl to draw the sidebar. N1 search can grep jsonl later.
 - **Throttled jsonl snapshots vs per-token lines.** Tokens stay on the WS; disk snapshots lag ≤100ms so files do not explode.
 - **Steer support is uneven.** Capability honesty over fake inject.

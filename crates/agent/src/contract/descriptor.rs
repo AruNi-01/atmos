@@ -44,6 +44,9 @@ pub struct AgentOptionSupport {
     pub modes: Capability,
     #[serde(default)]
     pub permission_modes: Capability,
+    /// Vendor-advertised fast/turbo toggle (e.g. Cursor ACP `fast`).
+    #[serde(default)]
+    pub fast: Capability,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
@@ -56,6 +59,9 @@ pub struct AgentSupportedOptions {
     pub modes: Vec<AgentMode>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub permission_modes: Vec<AgentMode>,
+    /// Select values for the vendor `fast` config option (`true` / `false`, …).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub fast: Vec<AgentMode>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
@@ -68,6 +74,8 @@ pub struct AgentCurrentConfig {
     pub mode: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub permission_mode: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fast: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -84,10 +92,10 @@ pub struct AgentDescriptor {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::catalog::{
-        supported_options_from_catalog, AgentModelCatalog, CatalogSource, CatalogStatus,
-    };
     use crate::contract::{AgentMode, AgentModel, AgentThinkingSupport};
+    use crate::options::{
+        supported_options_from_snapshot, AgentOptionsSnapshot, OptionsSource, OptionsStatus,
+    };
     use crate::policy::{capabilities_for_provider, option_support_for_provider};
 
     fn supported() -> AgentCapabilities {
@@ -103,9 +111,9 @@ mod tests {
 
     #[test]
     fn s1_descriptor_is_merged_product_surface() {
-        let catalog = AgentModelCatalog {
+        let catalog = AgentOptionsSnapshot {
             agent_id: "grok".into(),
-            status: CatalogStatus::Ok,
+            status: OptionsStatus::Ok,
             models: vec![AgentModel {
                 id: "grok-4".into(),
                 label: "Grok 4".into(),
@@ -122,7 +130,7 @@ mod tests {
             },
             strategies_used: Vec::new(),
             fetched_at: chrono::Utc::now(),
-            source: CatalogSource::Live,
+            source: OptionsSource::Live,
             message: None,
         };
         let descriptor = AgentDescriptor {
@@ -133,12 +141,13 @@ mod tests {
             },
             capabilities: capabilities_for_provider("grok"),
             support: option_support_for_provider("grok"),
-            supported_options: supported_options_from_catalog(&catalog),
+            supported_options: supported_options_from_snapshot(&catalog),
             current_config: AgentCurrentConfig {
                 model: Some("grok-4".into()),
                 thinking: Some("high".into()),
                 mode: None,
                 permission_mode: None,
+                fast: None,
             },
         };
         let json = serde_json::to_value(&descriptor).expect("serialize");
@@ -220,6 +229,7 @@ mod tests {
             thinking: AgentThinkingSupport::None,
             modes: Vec::new(),
             permission_modes: Vec::new(),
+            fast: Vec::new(),
         };
         let json = serde_json::to_value(&options).expect("serialize");
         let object = json.as_object().expect("object");

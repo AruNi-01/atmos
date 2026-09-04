@@ -34,7 +34,7 @@ ACP Chat path hardcodes `supports_steer: false` and `supports_resume: true` (`pr
 
 ```text
 New Chat (no chat_id)
-  agent_model_catalog_get → CatalogEngine → supported_options + default current_config
+  agent_options_get → OptionsProbeEngine → supported_options + default current_config
   capabilities_for_provider(id)           → closed capabilities
   registry name                           → identity
 
@@ -72,13 +72,13 @@ apps/web/.../lib/agent-chat-thread.ts         # descriptorToComposerControls; ca
 apps/web/.../components/AgentPromptComposer.tsx  # model/thinking/mode from descriptor only; delete extraConfigOptions
 ```
 
-No new crate. No REST. `agent_model_catalog_get` stays the prefetch API.
+No new crate. No REST. `agent_options_get` stays the prefetch API.
 
 Trait change (this slice, so M1 is real):
 
 ```rust
 // AgentProvider
-async fn descriptor(&self, ctx: &AgentCatalogContext) -> AgentResult<AgentDescriptor>;
+async fn descriptor(&self, ctx: &AgentOptionsContext) -> AgentResult<AgentDescriptor>;
 // AgentRuntime
 fn descriptor(&self) -> AgentDescriptor;
 ```
@@ -200,10 +200,10 @@ Two phases. Do not reuse them interchangeably.
 
 ### Phase A — catalog (pre-spawn / New Chat)
 
-Keep `merge_catalogs` in `crates/agent/src/catalog/merge.rs` (Config → CLI → ACP; live model ids win; config thinking fills when live probe omits).
+Keep `merge_options_snapshots` in `crates/agent/src/catalog/merge.rs` (Config → CLI → ACP; live model ids win; config thinking fills when live probe omits).
 
 ```text
-supported_options_from_catalog(catalog):
+supported_options_from_snapshot(catalog):
   models  = catalog.models
   thinking = catalog.thinking          # None → omit on the wire
   modes   = catalog.modes
@@ -211,7 +211,7 @@ supported_options_from_catalog(catalog):
 
 `current_config` at create: request values if set; else default model (`is_default` or first), default mode, first enum thinking value if the control will show. Do not invent thinking when `is_none()`.
 
-New Chat without `chat_id` reads **catalog**, not meta. `agent_model_catalog_get` status `probing` still drives `catalogModelsLoading`. Do not patch every existing chat on catalog prefetch.
+New Chat without `chat_id` reads **catalog**, not meta. `agent_options_get` status `probing` still drives `catalogModelsLoading`. Do not patch every existing chat on catalog prefetch.
 
 ### Phase B — live session overlay
 
@@ -302,7 +302,7 @@ Rollback: revert the four steps; APP-067 chats without descriptor are out of sco
 - Meta / advertised merge: `crates/core-service/src/service/agent_chat/{types,store,apply_event,service}.rs`
 - WS DTO: `packages/api-types/src/ws/dto/agent-chat.ts`, `contract/agent-chat.ts`
 - Composer: `apps/web/src/features/agent/components/AgentPromptComposer.tsx`, `hooks/use-agent-chat-session.ts`, `lib/agent-chat-thread.ts`, `lib/followup-policy.ts`
-- Prefetch: `crates/core-service/src/service/agent_chat/catalog.rs` `builtin_catalog_specs`
+- Prefetch: `crates/core-service/src/service/agent_chat/catalog.rs` `builtin_options_probe_specs`
 - Honesty matrix: [../TECH.md](../TECH.md) “Capability honesty (locked)”
 - Tests to satisfy: [../TEST.md](../TEST.md) S1–S6
 

@@ -185,10 +185,10 @@ impl WsMessageService {
         &self,
         req: TerminalAgentModelsGetRequest,
     ) -> Result<Value> {
-        let spec = core_service::catalog_spec_for(&req.agent_id);
+        let spec = core_service::options_probe_plan_for(&req.agent_id);
         let catalog = self
-            .catalog_worker
+            .options_worker
             .get_cached_or_probing(&spec, req.refresh.unwrap_or(false));
-        Ok(json!(core_service::terminal_catalog_from(&catalog)))
+        Ok(json!(core_service::terminal_options_from(&catalog)))
     }
 }

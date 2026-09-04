@@ -49,6 +49,7 @@ pub struct AgentRuntimeConfig {
     pub thinking: Option<String>,
     pub mode: Option<String>,
     pub permission_mode: Option<String>,
+    pub fast: Option<String>,
     pub extra_config: HashMap<String, String>,
     pub env_overrides: Option<HashMap<String, String>>,
     pub auth_method_id: Option<String>,
@@ -63,15 +64,17 @@ pub struct AgentRuntimeConfigUpdate {
     pub thinking: Option<String>,
     pub mode: Option<String>,
     pub permission_mode: Option<String>,
+    pub fast: Option<String>,
     pub extra_config: HashMap<String, String>,
     pub previous_model: Option<String>,
     pub previous_thinking: Option<String>,
     pub previous_mode: Option<String>,
     pub previous_permission_mode: Option<String>,
+    pub previous_fast: Option<String>,
 }
 
 #[derive(Debug, Clone, Default)]
-pub struct AgentCatalogContext {
+pub struct AgentOptionsContext {
     pub cwd: Option<PathBuf>,
 }
 
@@ -148,7 +151,7 @@ pub trait AgentRuntime: Send {
 #[async_trait]
 pub trait AgentProvider: Send + Sync {
     fn id(&self) -> &str;
-    async fn descriptor(&self, ctx: &AgentCatalogContext) -> AgentResult<AgentDescriptor>;
+    async fn descriptor(&self, ctx: &AgentOptionsContext) -> AgentResult<AgentDescriptor>;
     async fn create_runtime(&self, cfg: AgentRuntimeConfig) -> AgentResult<Box<dyn AgentRuntime>>;
     async fn resume_runtime(
         &self,

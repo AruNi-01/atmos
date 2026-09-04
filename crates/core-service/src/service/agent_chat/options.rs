@@ -4,10 +4,9 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use agent::{
-    apply_native_chat_catalog_spec, canonicalize_chat_provider_id, catalog_cache_dir,
-    is_native_chat_catalog_id, thinking_from_builtin, AgentCatalogSpec, AgentModelCatalog,
-    CatalogCache, CatalogEngine, CatalogParserKind, CatalogSource, CatalogStatus,
-    CatalogStrategyKind,
+    apply_native_chat_options_plan, canonicalize_chat_provider_id, is_native_chat_options_id,
+    options_cache_dir, thinking_from_builtin, AgentOptionsSnapshot, OptionsCache,
+    OptionsParserKind, OptionsProbe, OptionsProbeStrategy, OptionsSource, OptionsStatus, ProbePlan,
 };
 use chrono::Utc;
 use tokio::sync::{broadcast, Mutex};
@@ -18,41 +17,41 @@ use crate::service::agent::AgentService;
 pub const PREFETCH_POLL: Duration = Duration::from_secs(30 * 60);
 
 #[derive(Clone, serde::Serialize)]
-pub struct CatalogUpdated {
+pub struct OptionsUpdated {
     pub agent_id: String,
-    pub catalog: AgentModelCatalog,
+    pub options: AgentOptionsSnapshot,
 }
 
-pub struct CatalogPrefetchWorker {
+pub struct OptionsPrefetchWorker {
     started: AtomicBool,
-    cache: CatalogCache,
-    engine: Arc<CatalogEngine>,
-    specs: Mutex<Vec<AgentCatalogSpec>>,
-    events: broadcast::Sender<CatalogUpdated>,
+    cache: OptionsCache,
+    probe: Arc<OptionsProbe>,
+    plans: Mutex<Vec<ProbePlan>>,
+    events: broadcast::Sender<OptionsUpdated>,
     poll: Duration,
     web_clients: AtomicUsize,
     probe_count: AtomicUsize,
     agent_service: Option<Arc<AgentService>>,
 }
 
-impl CatalogPrefetchWorker {
-    pub fn new(agent_data_root: PathBuf, engine: CatalogEngine, poll: Duration) -> Self {
-        Self::with_specs(agent_data_root, engine, poll, Vec::new())
+impl OptionsPrefetchWorker {
+    pub fn new(agent_data_root: PathBuf, probe: OptionsProbe, poll: Duration) -> Self {
+        Self::with_plans(agent_data_root, probe, poll, Vec::new())
     }
 
-    pub fn with_specs(
+    pub fn with_plans(
         agent_data_root: PathBuf,
-        engine: CatalogEngine,
+        probe: OptionsProbe,
         poll: Duration,
-        specs: Vec<AgentCatalogSpec>,
+        plans: Vec<ProbePlan>,
     ) -> Self {
-        let cache = CatalogCache::new(catalog_cache_dir(&agent_data_root));
+        let cache = OptionsCache::new(options_cache_dir(&agent_data_root));
         let (events, _) = broadcast::channel(64);
         Self {
             started: AtomicBool::new(false),
             cache,
-            engine: Arc::new(engine),
-            specs: Mutex::new(specs),
+            probe: Arc::new(probe),
+            plans: Mutex::new(plans),
             events,
             poll,
             web_clients: AtomicUsize::new(0),
@@ -66,7 +65,7 @@ impl CatalogPrefetchWorker {
         self
     }
 
-    pub fn subscribe(&self) -> broadcast::Receiver<CatalogUpdated> {
+    pub fn subscribe(&self) -> broadcast::Receiver<OptionsUpdated> {
         self.events.subscribe()
     }
 
@@ -78,8 +77,8 @@ impl CatalogPrefetchWorker {
         self.probe_count.load(Ordering::SeqCst)
     }
 
-    pub async fn set_specs(&self, specs: Vec<AgentCatalogSpec>) {
-        *self.specs.lock().await = specs;
+    pub async fn set_plans(&self, plans: Vec<ProbePlan>) {
+        *self.plans.lock().await = plans;
     }
 
     pub fn on_web_connect(self: &Arc<Self>) {
@@ -121,12 +120,12 @@ impl CatalogPrefetchWorker {
     }
 
     async fn probe_enabled(self: Arc<Self>) {
-        let mut specs = self.specs.lock().await.clone();
+        let mut specs = self.plans.lock().await.clone();
         if let Some(service) = &self.agent_service {
             let mut installed = std::collections::HashSet::new();
             for agent in service.list_agents() {
                 if agent.installed {
-                    for id in catalog_equivalent_ids(&agent.registry_id) {
+                    for id in options_equivalent_ids(&agent.registry_id) {
                         installed.insert(id);
                     }
                 }
@@ -137,10 +136,10 @@ impl CatalogPrefetchWorker {
                         continue;
                     }
                     if !specs.iter().any(|spec| spec.agent_id == agent.name) {
-                        specs.push(AgentCatalogSpec {
+                        specs.push(ProbePlan {
                             agent_id: agent.name.clone(),
                             acp: true,
-                            strategies: vec![CatalogStrategyKind::Acp],
+                            strategies: vec![OptionsProbeStrategy::Acp],
                             ..Default::default()
                         });
                     }
@@ -161,7 +160,7 @@ impl CatalogPrefetchWorker {
                 }
             } else {
                 specs.retain(|spec| {
-                    catalog_equivalent_ids(&spec.agent_id)
+                    options_equivalent_ids(&spec.agent_id)
                         .iter()
                         .any(|id| installed.contains(id))
                 });
@@ -171,7 +170,7 @@ impl CatalogPrefetchWorker {
         let permit = Arc::new(tokio::sync::Semaphore::new(2));
         let mut joins = Vec::new();
         for spec in specs {
-            if catalog_equivalent_ids(&spec.agent_id)
+            if options_equivalent_ids(&spec.agent_id)
                 .iter()
                 .any(|id| self.cache.should_skip_probe(id, now))
             {
@@ -191,99 +190,110 @@ impl CatalogPrefetchWorker {
         }
     }
 
-    async fn probe_one(&self, spec: AgentCatalogSpec) {
+    async fn probe_one(&self, spec: ProbePlan) {
         self.probe_count.fetch_add(1, Ordering::SeqCst);
-        let catalog = self.engine.probe(&spec).await;
-        self.store_catalog(&catalog);
+        let catalog = self.probe.probe(&spec).await;
+        self.store_options(&catalog);
     }
 
-    fn store_catalog(&self, catalog: &AgentModelCatalog) {
-        for id in catalog_equivalent_ids(&catalog.agent_id) {
+    fn store_options(&self, catalog: &AgentOptionsSnapshot) {
+        for id in options_equivalent_ids(&catalog.agent_id) {
             let mut clone = catalog.clone();
             clone.agent_id = id.clone();
             if let Err(error) = self.cache.put(&clone) {
-                warn!("failed to cache catalog for {id}: {error}");
+                warn!("failed to cache options for {id}: {error}");
             }
-            let _ = self.events.send(CatalogUpdated {
+            let _ = self.events.send(OptionsUpdated {
                 agent_id: id,
-                catalog: clone,
+                options: clone,
             });
         }
     }
 
-    fn lookup_catalog(&self, agent_id: &str) -> Option<AgentModelCatalog> {
+    fn lookup_options(&self, agent_id: &str) -> Option<AgentOptionsSnapshot> {
+        self.lookup_usable(agent_id)
+            .and_then(|(catalog, fresh)| fresh.then_some(catalog))
+    }
+
+    /// Prefer a fresh cache entry; fall back to a displayable stale snapshot.
+    fn lookup_usable(&self, agent_id: &str) -> Option<(AgentOptionsSnapshot, bool)> {
         let now = Utc::now();
-        for id in catalog_equivalent_ids(agent_id) {
-            if let Some(mut catalog) = self.cache.get(&id, now) {
+        for id in options_equivalent_ids(agent_id) {
+            if let Some((mut catalog, fresh)) = self.cache.get_usable(&id, now) {
                 catalog.agent_id = agent_id.to_string();
-                return Some(catalog);
+                return Some((catalog, fresh));
             }
         }
         None
     }
 
-    pub fn request_probe(self: &Arc<Self>, spec: AgentCatalogSpec) {
+    pub fn request_probe(self: &Arc<Self>, spec: ProbePlan) {
         let worker = Arc::clone(self);
         tokio::spawn(async move {
             worker.probe_one(spec).await;
         });
     }
 
-    pub async fn get(&self, spec: &AgentCatalogSpec, refresh: bool) -> AgentModelCatalog {
+    pub async fn get(&self, spec: &ProbePlan, refresh: bool) -> AgentOptionsSnapshot {
         if !refresh {
-            if let Some(cached) = self.lookup_catalog(&spec.agent_id) {
+            if let Some(cached) = self.lookup_options(&spec.agent_id) {
                 return cached;
             }
         }
         self.probe_count.fetch_add(1, Ordering::SeqCst);
-        let mut catalog = self.engine.probe(spec).await;
-        catalog.source = CatalogSource::Live;
-        self.store_catalog(&catalog);
+        let mut catalog = self.probe.probe(spec).await;
+        catalog.source = OptionsSource::Live;
+        self.store_options(&catalog);
         catalog
     }
 
+    /// Serve cache immediately (including stale). Revalidate in the background
+    /// when missing, expired, or `refresh` is set. Only return `probing` when
+    /// there is nothing displayable yet.
     pub fn get_cached_or_probing(
         self: &Arc<Self>,
-        spec: &AgentCatalogSpec,
+        spec: &ProbePlan,
         refresh: bool,
-    ) -> AgentModelCatalog {
-        if !refresh {
-            if let Some(cached) = self.lookup_catalog(&spec.agent_id) {
-                return cached;
-            }
+    ) -> AgentOptionsSnapshot {
+        let cached = self.lookup_usable(&spec.agent_id);
+        let needs_probe = refresh || cached.as_ref().is_none_or(|(_, fresh)| !fresh);
+        if needs_probe {
+            self.request_probe(spec.clone());
         }
-        self.request_probe(spec.clone());
-        AgentModelCatalog::probing(&spec.agent_id)
+        if let Some((catalog, _)) = cached {
+            return catalog;
+        }
+        AgentOptionsSnapshot::probing(&spec.agent_id)
     }
 
-    pub fn cache_get(&self, agent_id: &str) -> Option<AgentModelCatalog> {
-        self.lookup_catalog(agent_id)
+    pub fn cache_get(&self, agent_id: &str) -> Option<AgentOptionsSnapshot> {
+        self.lookup_usable(agent_id).map(|(catalog, _)| catalog)
     }
 
     #[cfg(test)]
-    pub fn put_catalog_for_test(&self, catalog: &AgentModelCatalog) {
-        self.store_catalog(catalog);
+    pub fn put_options_for_test(&self, catalog: &AgentOptionsSnapshot) {
+        self.store_options(catalog);
     }
 }
 
-pub fn terminal_catalog_from(catalog: &AgentModelCatalog) -> crate::TerminalAgentModelCatalog {
+pub fn terminal_options_from(catalog: &AgentOptionsSnapshot) -> crate::TerminalAgentOptions {
     use crate::{
-        TerminalAgentModelCatalog, TerminalAgentModelCatalogSource,
-        TerminalAgentModelCatalogStatus, TerminalAgentModelOption,
+        TerminalAgentOption, TerminalAgentOptions, TerminalAgentOptionsSource,
+        TerminalAgentOptionsStatus,
     };
-    TerminalAgentModelCatalog {
+    TerminalAgentOptions {
         agent_id: catalog.agent_id.clone(),
         status: match catalog.status {
-            CatalogStatus::Ok => TerminalAgentModelCatalogStatus::Ok,
-            CatalogStatus::AuthRequired => TerminalAgentModelCatalogStatus::AuthRequired,
-            CatalogStatus::Unsupported => TerminalAgentModelCatalogStatus::Unsupported,
-            CatalogStatus::Probing => TerminalAgentModelCatalogStatus::Probing,
-            CatalogStatus::Error => TerminalAgentModelCatalogStatus::Error,
+            OptionsStatus::Ok => TerminalAgentOptionsStatus::Ok,
+            OptionsStatus::AuthRequired => TerminalAgentOptionsStatus::AuthRequired,
+            OptionsStatus::Unsupported => TerminalAgentOptionsStatus::Unsupported,
+            OptionsStatus::Probing => TerminalAgentOptionsStatus::Probing,
+            OptionsStatus::Error => TerminalAgentOptionsStatus::Error,
         },
         models: catalog
             .models
             .iter()
-            .map(|model| TerminalAgentModelOption {
+            .map(|model| TerminalAgentOption {
                 id: model.id.clone(),
                 label: model.label.clone(),
                 group: model.group.clone(),
@@ -293,8 +303,8 @@ pub fn terminal_catalog_from(catalog: &AgentModelCatalog) -> crate::TerminalAgen
             .collect(),
         message: catalog.message.clone(),
         source: match catalog.source {
-            CatalogSource::Cache => TerminalAgentModelCatalogSource::Cache,
-            CatalogSource::Live => TerminalAgentModelCatalogSource::Live,
+            OptionsSource::Cache => TerminalAgentOptionsSource::Cache,
+            OptionsSource::Live => TerminalAgentOptionsSource::Live,
         },
     }
 }
@@ -314,7 +324,7 @@ pub fn parse_followup_policy(value: Option<&str>) -> FollowupPolicy {
     }
 }
 
-pub fn builtin_catalog_specs() -> Vec<AgentCatalogSpec> {
+pub fn builtin_options_probe_plans() -> Vec<ProbePlan> {
     let Ok(agents) = serde_json::from_str::<Vec<serde_json::Value>>(
         crate::service::automation::terminal_agent_manifest::BUILTIN_TERMINAL_AGENTS_JSON,
     ) else {
@@ -339,22 +349,22 @@ pub fn builtin_catalog_specs() -> Vec<AgentCatalogSpec> {
                 .and_then(|list| list.get("parser"))
                 .and_then(|parser| parser.as_str())
             {
-                Some("grok_line_list") => CatalogParserKind::GrokLineList,
-                Some("kiro_json") => CatalogParserKind::KiroJson,
-                Some("json") => CatalogParserKind::Json,
-                Some("droid_help") => CatalogParserKind::DroidHelp,
-                _ => CatalogParserKind::LineList,
+                Some("grok_line_list") => OptionsParserKind::GrokLineList,
+                Some("kiro_json") => OptionsParserKind::KiroJson,
+                Some("json") => OptionsParserKind::Json,
+                Some("droid_help") => OptionsParserKind::DroidHelp,
+                _ => OptionsParserKind::LineList,
             };
             let thinking = thinking_from_builtin(&value);
-            let mut spec = AgentCatalogSpec {
+            let mut spec = ProbePlan {
                 agent_id: id.clone(),
                 strategies: if cli_command.is_empty() {
-                    vec![CatalogStrategyKind::Config, CatalogStrategyKind::Acp]
+                    vec![OptionsProbeStrategy::Config, OptionsProbeStrategy::Acp]
                 } else {
                     vec![
-                        CatalogStrategyKind::Config,
-                        CatalogStrategyKind::Cli,
-                        CatalogStrategyKind::Acp,
+                        OptionsProbeStrategy::Config,
+                        OptionsProbeStrategy::Cli,
+                        OptionsProbeStrategy::Acp,
                     ]
                 },
                 cli_command,
@@ -363,7 +373,7 @@ pub fn builtin_catalog_specs() -> Vec<AgentCatalogSpec> {
                 static_models: Vec::new(),
                 acp: catalog_agent_has_acp(&id),
             };
-            apply_native_chat_catalog_spec(&mut spec);
+            apply_native_chat_options_plan(&mut spec);
             Some(spec)
         })
         .collect()
@@ -406,8 +416,8 @@ fn catalog_agent_has_acp(agent_id: &str) -> bool {
     )
 }
 
-fn catalog_equivalent_ids(agent_id: &str) -> Vec<String> {
-    if is_native_chat_catalog_id(agent_id) {
+fn options_equivalent_ids(agent_id: &str) -> Vec<String> {
+    if is_native_chat_options_id(agent_id) {
         let folded = canonicalize_chat_provider_id(agent_id);
         let mut ids = vec![agent_id.to_string(), folded.to_string()];
         if folded == "claude" {
@@ -423,7 +433,7 @@ fn catalog_equivalent_ids(agent_id: &str) -> Vec<String> {
     }
     let terminal = catalog_terminal_id(agent_id);
     let mut ids = vec![agent_id.to_string()];
-    if !is_native_chat_catalog_id(terminal) {
+    if !is_native_chat_options_id(terminal) {
         ids.push(terminal.to_string());
     }
     for (registry, builtin) in [
@@ -444,9 +454,9 @@ fn catalog_equivalent_ids(agent_id: &str) -> Vec<String> {
 /// Catalog spec for a chat/registry agent id. CLI commands come from the
 /// built-in terminal agent. Chat natives skip generic ACP `session/new`.
 /// ACP registry ids (`claude-acp`, `codex-acp`, `grok-build`) stay ACP.
-pub fn catalog_spec_for(agent_id: &str) -> AgentCatalogSpec {
+pub fn options_probe_plan_for(agent_id: &str) -> ProbePlan {
     let folded = canonicalize_chat_provider_id(agent_id);
-    let lookup = if is_native_chat_catalog_id(agent_id) {
+    let lookup = if is_native_chat_options_id(agent_id) {
         match folded {
             // Terminal builtin id. Chat native host id stays `grok`.
             "grok" => "grok-build",
@@ -455,31 +465,31 @@ pub fn catalog_spec_for(agent_id: &str) -> AgentCatalogSpec {
     } else {
         catalog_terminal_id(agent_id)
     };
-    let mut spec = builtin_catalog_specs()
+    let mut spec = builtin_options_probe_plans()
         .into_iter()
         .find(|spec| {
             spec.agent_id == lookup
                 || spec.agent_id == agent_id
                 || canonicalize_chat_provider_id(&spec.agent_id) == folded
         })
-        .unwrap_or(AgentCatalogSpec {
+        .unwrap_or(ProbePlan {
             agent_id: agent_id.to_string(),
             acp: true,
-            strategies: vec![CatalogStrategyKind::Acp],
+            strategies: vec![OptionsProbeStrategy::Acp],
             ..Default::default()
         });
     spec.agent_id = agent_id.to_string();
-    if is_native_chat_catalog_id(agent_id) {
-        apply_native_chat_catalog_spec(&mut spec);
+    if is_native_chat_options_id(agent_id) {
+        apply_native_chat_options_plan(&mut spec);
     } else if catalog_agent_has_acp(agent_id) {
         spec.acp = true;
         spec.strategies
-            .retain(|kind| *kind != CatalogStrategyKind::Native);
+            .retain(|kind| *kind != OptionsProbeStrategy::Native);
         if spec.strategies.is_empty() {
-            spec.strategies.push(CatalogStrategyKind::Config);
+            spec.strategies.push(OptionsProbeStrategy::Config);
         }
-        if !spec.strategies.contains(&CatalogStrategyKind::Acp) {
-            spec.strategies.push(CatalogStrategyKind::Acp);
+        if !spec.strategies.contains(&OptionsProbeStrategy::Acp) {
+            spec.strategies.push(OptionsProbeStrategy::Acp);
         }
     }
     spec
@@ -488,22 +498,22 @@ pub fn catalog_spec_for(agent_id: &str) -> AgentCatalogSpec {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use agent::CatalogParserKind;
+    use agent::OptionsParserKind;
 
     #[test]
     fn opencode_uses_models_cli_and_native() {
-        let spec = catalog_spec_for("opencode");
+        let spec = options_probe_plan_for("opencode");
         assert_eq!(spec.cli_command, ["opencode", "models"]);
-        assert_eq!(spec.parser, CatalogParserKind::LineList);
+        assert_eq!(spec.parser, OptionsParserKind::LineList);
         assert!(!spec.acp);
-        assert!(spec.strategies.contains(&CatalogStrategyKind::Cli));
-        assert!(spec.strategies.contains(&CatalogStrategyKind::Native));
-        assert!(!spec.strategies.contains(&CatalogStrategyKind::Acp));
+        assert!(spec.strategies.contains(&OptionsProbeStrategy::Cli));
+        assert!(spec.strategies.contains(&OptionsProbeStrategy::Native));
+        assert!(!spec.strategies.contains(&OptionsProbeStrategy::Acp));
     }
 
     #[test]
     fn kilo_registry_id_reuses_kilocode_cli() {
-        let spec = catalog_spec_for("kilo");
+        let spec = options_probe_plan_for("kilo");
         assert_eq!(spec.agent_id, "kilo");
         assert_eq!(spec.cli_command, ["kilo", "models"]);
         assert!(spec.acp);
@@ -511,83 +521,86 @@ mod tests {
 
     #[test]
     fn factory_droid_parses_cli_help_for_per_model_thinking() {
-        let spec = catalog_spec_for("factory-droid");
+        let spec = options_probe_plan_for("factory-droid");
         assert_eq!(spec.cli_command, ["droid", "exec", "--help"]);
-        assert_eq!(spec.parser, CatalogParserKind::DroidHelp);
-        assert!(spec.strategies.contains(&CatalogStrategyKind::Cli));
+        assert_eq!(spec.parser, OptionsParserKind::DroidHelp);
+        assert!(spec.strategies.contains(&OptionsProbeStrategy::Cli));
         assert!(spec.acp);
-        let terminal = catalog_spec_for("droid");
+        let terminal = options_probe_plan_for("droid");
         assert_eq!(terminal.cli_command, spec.cli_command);
-        assert_eq!(terminal.parser, CatalogParserKind::DroidHelp);
+        assert_eq!(terminal.parser, OptionsParserKind::DroidHelp);
     }
 
     #[test]
     fn claude_acp_alias_is_acp_probe_not_native() {
-        let claude = catalog_spec_for("claude-acp");
+        let claude = options_probe_plan_for("claude-acp");
         assert_eq!(claude.agent_id, "claude-acp");
         assert!(claude.acp);
-        assert!(!claude.strategies.contains(&CatalogStrategyKind::Native));
-        assert!(claude.strategies.contains(&CatalogStrategyKind::Acp));
-        let hermes = catalog_spec_for("hermes");
+        assert!(!claude.strategies.contains(&OptionsProbeStrategy::Native));
+        assert!(claude.strategies.contains(&OptionsProbeStrategy::Acp));
+        let hermes = options_probe_plan_for("hermes");
         assert!(hermes.acp);
         assert!(hermes.cli_command.is_empty());
-        assert!(hermes.strategies.contains(&CatalogStrategyKind::Acp));
+        assert!(hermes.strategies.contains(&OptionsProbeStrategy::Acp));
     }
 
     #[test]
     fn app069_s5_native_grok_skips_acp_registry_grok_stays_acp() {
-        let grok = catalog_spec_for("grok");
+        let grok = options_probe_plan_for("grok");
         assert!(!grok.acp);
-        assert!(grok.strategies.contains(&CatalogStrategyKind::Native));
-        assert!(!grok.strategies.contains(&CatalogStrategyKind::Acp));
+        assert!(grok.strategies.contains(&OptionsProbeStrategy::Native));
+        assert!(!grok.strategies.contains(&OptionsProbeStrategy::Acp));
         assert_eq!(grok.cli_command, ["grok", "models"]);
-        assert_eq!(grok.parser, CatalogParserKind::GrokLineList);
+        assert_eq!(grok.parser, OptionsParserKind::GrokLineList);
         for id in ["grok-build", "grok-acp"] {
-            let spec = catalog_spec_for(id);
+            let spec = options_probe_plan_for(id);
             assert!(spec.acp, "{id}");
-            assert!(spec.strategies.contains(&CatalogStrategyKind::Acp), "{id}");
+            assert!(spec.strategies.contains(&OptionsProbeStrategy::Acp), "{id}");
             assert!(
-                !spec.strategies.contains(&CatalogStrategyKind::Native),
+                !spec.strategies.contains(&OptionsProbeStrategy::Native),
                 "{id}"
             );
         }
-        let gemini = catalog_spec_for("gemini");
+        let gemini = options_probe_plan_for("gemini");
         assert!(gemini.acp);
-        assert!(gemini.strategies.contains(&CatalogStrategyKind::Acp));
-        assert!(!gemini.strategies.contains(&CatalogStrategyKind::Native));
+        assert!(gemini.strategies.contains(&OptionsProbeStrategy::Acp));
+        assert!(!gemini.strategies.contains(&OptionsProbeStrategy::Native));
     }
 
     #[test]
     fn commandcode_stays_cli_only() {
-        let spec = catalog_spec_for("commandcode");
+        let spec = options_probe_plan_for("commandcode");
         assert_eq!(spec.cli_command, ["cmd", "--list-models"]);
         assert!(!spec.acp);
     }
 
     #[test]
     fn kimi_and_codex_use_documented_cli_lists() {
-        let kimi = catalog_spec_for("kimi");
+        let kimi = options_probe_plan_for("kimi");
         assert_eq!(kimi.cli_command, ["kimi", "provider", "list", "--json"]);
-        assert_eq!(kimi.parser, CatalogParserKind::Json);
+        assert_eq!(kimi.parser, OptionsParserKind::Json);
         assert!(kimi.acp);
-        let codex = catalog_spec_for("codex");
+        let codex = options_probe_plan_for("codex");
         assert_eq!(codex.cli_command, ["codex", "debug", "models"]);
-        assert_eq!(codex.parser, CatalogParserKind::Json);
+        assert_eq!(codex.parser, OptionsParserKind::Json);
         assert!(!codex.acp);
-        assert!(codex.strategies.contains(&CatalogStrategyKind::Native));
-        assert!(!codex.strategies.contains(&CatalogStrategyKind::Acp));
-        let pi = catalog_spec_for("pi-acp");
+        assert!(codex.strategies.contains(&OptionsProbeStrategy::Native));
+        assert!(!codex.strategies.contains(&OptionsProbeStrategy::Acp));
+        let pi = options_probe_plan_for("pi-acp");
         assert!(pi.acp);
-        assert!(!pi.strategies.contains(&CatalogStrategyKind::Native));
-        assert!(pi.strategies.contains(&CatalogStrategyKind::Acp));
+        assert!(!pi.strategies.contains(&OptionsProbeStrategy::Native));
+        assert!(pi.strategies.contains(&OptionsProbeStrategy::Acp));
         for id in ["claude", "codex", "opencode", "pi", "grok"] {
-            let spec = catalog_spec_for(id);
+            let spec = options_probe_plan_for(id);
             assert!(!spec.acp, "{id} must not ACP-probe");
             assert!(
-                spec.strategies.contains(&CatalogStrategyKind::Native),
+                spec.strategies.contains(&OptionsProbeStrategy::Native),
                 "{id}"
             );
-            assert!(!spec.strategies.contains(&CatalogStrategyKind::Acp), "{id}");
+            assert!(
+                !spec.strategies.contains(&OptionsProbeStrategy::Acp),
+                "{id}"
+            );
         }
     }
 }

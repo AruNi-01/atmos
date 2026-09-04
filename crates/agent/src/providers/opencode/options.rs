@@ -6,9 +6,9 @@ use std::time::Duration;
 use serde_json::Value;
 use tokio::time::timeout;
 
-use crate::catalog::engine::NativeProbeResult;
-use crate::catalog::parse::{agent_modes_from_named_keys, commands_from_value};
 use crate::contract::{AgentMode, AgentModel, AgentThinkingSupport};
+use crate::options::probe::cli::parse::{agent_modes_from_named_keys, commands_from_value};
+use crate::options::probe::native::NativeOptionsProbeResult;
 
 use super::http::OpenCodeHttp;
 use super::rpc::models_from_providers;
@@ -16,13 +16,13 @@ use super::spawn::spawn_serve;
 
 const PROBE_TIMEOUT: Duration = Duration::from_secs(15);
 
-pub(crate) async fn probe(isolated_cwd: &Path) -> Result<NativeProbeResult, String> {
+pub(crate) async fn probe(isolated_cwd: &Path) -> Result<NativeOptionsProbeResult, String> {
     timeout(PROBE_TIMEOUT, probe_inner(isolated_cwd))
         .await
         .map_err(|_| "native OpenCode catalog probe timed out".to_string())?
 }
 
-async fn probe_inner(isolated_cwd: &Path) -> Result<NativeProbeResult, String> {
+async fn probe_inner(isolated_cwd: &Path) -> Result<NativeOptionsProbeResult, String> {
     let mut serve = spawn_serve("opencode", isolated_cwd, None, None)
         .await
         .map_err(|error| error.to_string())?;
@@ -95,7 +95,7 @@ async fn probe_inner(isolated_cwd: &Path) -> Result<NativeProbeResult, String> {
     if modes.is_empty() {
         modes = opencode_modes();
     }
-    Ok(NativeProbeResult {
+    Ok(NativeOptionsProbeResult {
         models,
         modes,
         permission_modes,

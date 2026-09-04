@@ -1,4 +1,4 @@
-export type AgentConfigFlyout = "agent" | "model" | "thinking";
+export type AgentConfigFlyout = "agent" | "model";
 
 /** Secondary menus stay closed until Agent or Model is hovered. */
 export function initialAgentConfigFlyout(_input?: {

@@ -5,7 +5,7 @@
 ## Test strategy
 
 - **Rust unit** (`cargo test -p agent`) owns `descriptor.support`, capability fork/rewind, Grok thinking overlay, catalog strategy (natives skip ACP), `extract_search_hits`, native rewind/fork codecs from fixtures, Grok `x.ai/*` map.
-- **Rust service** (`cargo test -p core-service --lib agent_chat`) owns send intercept (no persist `/rewind`), `rewind_view` fold, fork new `chat_id`, catalog_spec_for natives `acp: false`.
+- **Rust service** (`cargo test -p core-service --lib agent_chat`) owns send intercept (no persist `/rewind`), `rewind_view` fold, fork new `chat_id`, options_probe_spec_for natives `acp: false`.
 - **api-types** owns DTO/contract for `support`, `search_hits`, `agent_chat_session_op_respond`.
 - **Bun** owns composer pickers from `support` + `permission_modes`, search-hit card, session-op chrome above the prompt, slash intercept not in the composer.
 - **Playwright** optional smoke only. Live CLI spawn is manual.
@@ -39,7 +39,7 @@
 | S2 | Rust | `cargo test` | search extract fail | unparseable stdout | stays `Text`; not mixed with `web_search` | covered |
 | S3 | Rust | `cargo test` | `chat_provider_kind` | `grok`, `grok-build`, `grok-acp`, `codex-acp` | `grok` NativeGrok; ACP registry ids ACP | covered |
 | S4 | Rust | `cargo test` | grok spawn argv | Chat spawn | `grok agent stdio`; no `streaming-json -p`; no `xai-grok-*` in Cargo.toml | covered |
-| S5 | Rust | `cargo test` | `catalog_spec_for` | claude/codex/opencode/pi/grok | `acp: false`; strategies include Native not Acp | covered |
+| S5 | Rust | `cargo test` | `options_probe_spec_for` | claude/codex/opencode/pi/grok | `acp: false`; strategies include Native not Acp | covered |
 | S6 | Rust | `cargo test` | Grok thinking overlay | models `grok-4.5`, `grok-4.6`, `grok-composer` | 4.5 three levels; 4.6 four with `xhigh`; composer none | covered |
 | S7 | Rust | `cargo test` | ACP probe mapper | `permission_mode` config option | fills Atmos `permission_modes`; Claude `support.modes` and `support.permission_modes` both Supported | covered |
 | S8 | Bun | `bun test` | `descriptorToConfigOptions` | support flags + lists | hidden when Unsupported or empty; `permission_mode` leading | covered |
@@ -92,7 +92,7 @@
 ### S5 — Natives are not ACP-probed
 
 - **Level**: Rust
-- **Given**: `catalog_spec_for` after alias fold for claude/codex/opencode/pi/grok.
+- **Given**: `options_probe_spec_for` after alias fold for claude/codex/opencode/pi/grok.
 - **When**: prefetch builds the spec.
 - **Then**: `acp` is false; strategies include `Native` and not `Acp`. Gemini/custom still `Acp`.
 - **Signals**: `catalog.rs` tests.
@@ -300,7 +300,7 @@ bun run --filter web lint -- \
 - S2 — ✅ `domain::tool_map::tests::app069_s2_extract_search_hits_zero_and_web_search_stay_empty` + `providers::claude::tool_map::tests::app069_s2_grep_empty_stdout_stays_text` + `app069_s2_web_search_result_is_never_search_hits` + bun `APP-069 S2 keeps workspace search as text when the result is Text` / `APP-069 S2 does not treat web_search as search_hits`
 - S3 — ✅ `providers::tests::app069_s3_grok_aliases_are_native_my_grok_is_acp`
 - S4 — ✅ `providers::grok::spawn::tests::app069_s4_chat_argv_is_agent_stdio_without_terminal_flags` + `app069_s4_chat_argv_puts_model_before_stdio` + `app069_s4_cargo_toml_has_no_xai_grok_crate_and_terminal_argv_untouched`
-- S5 — ✅ `catalog::spec::tests::app069_s5_native_ids_skip_acp_in_default_strategies` + `app069_s5_apply_native_chat_catalog_spec_drops_acp` + `service::agent_chat::catalog::tests::app069_s5_grok_aliases_are_native_my_grok_and_gemini_stay_acp`
+- S5 — ✅ `catalog::spec::tests::app069_s5_native_ids_skip_acp_in_default_strategies` + `app069_s5_apply_native_chat_options_spec_drops_acp` + `service::agent_chat::catalog::tests::app069_s5_grok_aliases_are_native_my_grok_and_gemini_stay_acp`
 - S6 — ✅ `catalog::parse::tests::app069_s6_grok_thinking_overlay_is_pinned_per_family`
 - S7 — ✅ `catalog::acp_probe::tests::app069_s7_maps_permission_mode_approval_into_permission_modes` + `domain::descriptor::tests::app069_s7_option_support_for_provider_matches_honesty_matrix`
 - S8 — ✅ bun `agent-chat-thread.test.ts` `APP-069 S8 hides pickers…` / `emits a leading permission_mode picker…` / `hides Claude mode when support.modes is unsupported…`

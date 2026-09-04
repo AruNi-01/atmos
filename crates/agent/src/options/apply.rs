@@ -1,15 +1,16 @@
-use crate::catalog::types::{AgentModelCatalog, CatalogStatus};
 use crate::contract::{
     AgentCurrentConfig, AgentDescriptor, AgentIdentity, AgentMode, AgentSupportedOptions,
     AgentThinkingSupport,
 };
+use crate::options::types::{AgentOptionsSnapshot, OptionsStatus};
 
-pub fn supported_options_from_catalog(catalog: &AgentModelCatalog) -> AgentSupportedOptions {
+pub fn supported_options_from_snapshot(catalog: &AgentOptionsSnapshot) -> AgentSupportedOptions {
     AgentSupportedOptions {
         models: catalog.models.clone(),
         thinking: catalog.thinking.clone(),
         modes: catalog.modes.clone(),
         permission_modes: catalog.permission_modes.clone(),
+        fast: crate::policy::native_fast_modes_for_provider(&catalog.agent_id).unwrap_or_default(),
     }
 }
 
@@ -25,7 +26,7 @@ fn listed_thinking_options(thinking: &AgentThinkingSupport) -> Vec<String> {
     }
 }
 
-fn thinking_options_for_catalog(catalog: &AgentModelCatalog, model_id: &str) -> Vec<String> {
+fn thinking_options_for_catalog(catalog: &AgentOptionsSnapshot, model_id: &str) -> Vec<String> {
     if let Some(model) = catalog.models.iter().find(|item| item.id == model_id) {
         if matches!(model.thinking.as_ref(), Some(AgentThinkingSupport::None)) {
             return Vec::new();
@@ -57,7 +58,7 @@ fn model_ids_match(left: &str, right: &str) -> bool {
             || right.ends_with(&format!("-{left}")))
 }
 
-fn default_model_id(catalog: &AgentModelCatalog, requested: Option<&str>) -> Option<String> {
+fn default_model_id(catalog: &AgentOptionsSnapshot, requested: Option<&str>) -> Option<String> {
     if catalog.models.is_empty() {
         return requested
             .filter(|id| model_id_usable(id))
@@ -66,6 +67,15 @@ fn default_model_id(catalog: &AgentModelCatalog, requested: Option<&str>) -> Opt
     if let Some(id) = requested.filter(|id| model_id_usable(id)) {
         if let Some(exact) = catalog.models.iter().find(|item| item.id == id) {
             return Some(exact.id.clone());
+        }
+        if let Some(mapped) = crate::options::probe::cli::cursor::map_to_advertised_cursor_model(
+            id,
+            catalog.models.iter().map(|item| item.id.as_str()),
+        ) {
+            // Cursor-only CLI→bracket mapping; other agents keep fuzzy/exact below.
+            if crate::policy::canonicalize_chat_provider_id(&catalog.agent_id) == "cursor" {
+                return Some(mapped);
+            }
         }
         let fuzzy: Vec<_> = catalog
             .models
@@ -109,9 +119,9 @@ fn default_mode_id(items: &[AgentMode], requested: Option<&str>) -> Option<Strin
         .map(|item| item.id.clone())
 }
 
-pub fn apply_catalog_defaults_to_current_config(
+pub fn apply_options_defaults_to_current_config(
     config: &mut AgentCurrentConfig,
-    catalog: &AgentModelCatalog,
+    catalog: &AgentOptionsSnapshot,
 ) {
     config.model = default_model_id(catalog, config.model.as_deref());
     if let Some(model_id) = &config.model {
@@ -147,18 +157,21 @@ pub fn apply_catalog_defaults_to_current_config(
 
 /// Copy a ready catalog into `supported_options` and fill missing `current_config`.
 /// Live session overlays still replace these lists later; do not call this with a probing catalog.
-pub fn apply_catalog_to_descriptor(descriptor: &mut AgentDescriptor, catalog: &AgentModelCatalog) {
-    if catalog.status != CatalogStatus::Ok {
+pub fn apply_options_to_descriptor(
+    descriptor: &mut AgentDescriptor,
+    catalog: &AgentOptionsSnapshot,
+) {
+    if catalog.status != OptionsStatus::Ok {
         return;
     }
-    descriptor.supported_options = supported_options_from_catalog(catalog);
-    apply_catalog_defaults_to_current_config(&mut descriptor.current_config, catalog);
+    descriptor.supported_options = supported_options_from_snapshot(catalog);
+    apply_options_defaults_to_current_config(&mut descriptor.current_config, catalog);
 }
 
 pub fn rebuild_descriptor_for_provider(
     provider_id: &str,
     current_config: AgentCurrentConfig,
-    catalog: Option<&AgentModelCatalog>,
+    catalog: Option<&AgentOptionsSnapshot>,
 ) -> AgentDescriptor {
     let mut descriptor = AgentDescriptor {
         identity: AgentIdentity {
@@ -172,7 +185,7 @@ pub fn rebuild_descriptor_for_provider(
         current_config,
     };
     if let Some(catalog) = catalog {
-        apply_catalog_to_descriptor(&mut descriptor, catalog);
+        apply_options_to_descriptor(&mut descriptor, catalog);
     }
     descriptor
 }
@@ -180,14 +193,14 @@ pub fn rebuild_descriptor_for_provider(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::catalog::types::{AgentModelCatalog, CatalogSource, CatalogStatus};
     use crate::contract::{AgentCurrentConfig, AgentMode, AgentModel, AgentThinkingSupport};
+    use crate::options::types::{AgentOptionsSnapshot, OptionsSource, OptionsStatus};
 
     #[test]
-    fn supported_options_from_catalog_copies_lists() {
-        let catalog = AgentModelCatalog {
+    fn supported_options_from_snapshot_copies_lists() {
+        let catalog = AgentOptionsSnapshot {
             agent_id: "claude".into(),
-            status: CatalogStatus::Ok,
+            status: OptionsStatus::Ok,
             models: vec![AgentModel {
                 id: "opus".into(),
                 label: "Opus".into(),
@@ -205,22 +218,25 @@ mod tests {
             thinking: AgentThinkingSupport::None,
             strategies_used: Vec::new(),
             fetched_at: chrono::Utc::now(),
-            source: CatalogSource::Live,
+            source: OptionsSource::Live,
             message: None,
         };
-        let options = supported_options_from_catalog(&catalog);
+        let options = supported_options_from_snapshot(&catalog);
         assert_eq!(options.models.len(), 1);
         assert!(options.thinking.is_none());
         assert!(options.modes.is_empty());
         assert_eq!(options.permission_modes.len(), 1);
         assert_eq!(options.permission_modes[0].id, "default");
+        assert_eq!(options.fast.len(), 2);
+        assert_eq!(options.fast[0].id, "false");
+        assert_eq!(options.fast[1].id, "true");
     }
 
     #[test]
     fn apply_catalog_keeps_explicit_model_when_catalog_lists_are_empty() {
-        let catalog = AgentModelCatalog {
+        let catalog = AgentOptionsSnapshot {
             agent_id: "grok".into(),
-            status: CatalogStatus::Ok,
+            status: OptionsStatus::Ok,
             models: Vec::new(),
             modes: Vec::new(),
             permission_modes: Vec::new(),
@@ -228,22 +244,22 @@ mod tests {
             thinking: AgentThinkingSupport::None,
             strategies_used: Vec::new(),
             fetched_at: chrono::Utc::now(),
-            source: CatalogSource::Live,
+            source: OptionsSource::Live,
             message: None,
         };
         let mut config = AgentCurrentConfig {
             model: Some("grok-composer-2.5-fast".into()),
             ..AgentCurrentConfig::default()
         };
-        apply_catalog_defaults_to_current_config(&mut config, &catalog);
+        apply_options_defaults_to_current_config(&mut config, &catalog);
         assert_eq!(config.model.as_deref(), Some("grok-composer-2.5-fast"));
     }
 
     #[test]
-    fn apply_catalog_to_descriptor_fills_options_and_defaults() {
-        let catalog = AgentModelCatalog {
+    fn apply_options_to_descriptor_fills_options_and_defaults() {
+        let catalog = AgentOptionsSnapshot {
             agent_id: "factory-droid".into(),
-            status: CatalogStatus::Ok,
+            status: OptionsStatus::Ok,
             models: vec![
                 AgentModel {
                     id: "glm-5".into(),
@@ -277,7 +293,7 @@ mod tests {
             thinking: AgentThinkingSupport::None,
             strategies_used: Vec::new(),
             fetched_at: chrono::Utc::now(),
-            source: CatalogSource::Live,
+            source: OptionsSource::Live,
             message: None,
         };
         let mut descriptor = rebuild_descriptor_for_provider(
@@ -297,10 +313,10 @@ mod tests {
             Some("default")
         );
 
-        apply_catalog_to_descriptor(
+        apply_options_to_descriptor(
             &mut descriptor,
-            &AgentModelCatalog {
-                status: CatalogStatus::Probing,
+            &AgentOptionsSnapshot {
+                status: OptionsStatus::Probing,
                 ..catalog.clone()
             },
         );
@@ -309,9 +325,9 @@ mod tests {
 
     #[test]
     fn default_model_id_skips_list_models_table_header() {
-        let catalog = AgentModelCatalog {
+        let catalog = AgentOptionsSnapshot {
             agent_id: "pi".into(),
-            status: CatalogStatus::Ok,
+            status: OptionsStatus::Ok,
             models: vec![
                 AgentModel {
                     id:
@@ -336,7 +352,7 @@ mod tests {
             thinking: AgentThinkingSupport::None,
             strategies_used: Vec::new(),
             fetched_at: chrono::Utc::now(),
-            source: CatalogSource::Live,
+            source: OptionsSource::Live,
             message: None,
         };
         let descriptor =

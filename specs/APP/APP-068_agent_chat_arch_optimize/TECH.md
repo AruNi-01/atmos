@@ -201,7 +201,7 @@ crates/agent/src/map/
   classify.rs     # classify_tool fallback inside adapters
   extract.rs      # generic JSON extractors (path, command, url)
 crates/agent/src/catalog/
-  types.rs        # AgentModelCatalog
+  types.rs        # AgentOptionsSnapshot
   apply.rs        # catalog → descriptor
 ```
 
@@ -255,7 +255,7 @@ ACP `AgentCapabilitiesSnapshot` (`session_list`, `load_session`, …) stays insi
 
 `session_config_options` on chat meta is deleted as SOT. Known ACP option ids (`model`, `models`, `thought_level`, `thinking`, `mode`, …) merge into `supported_options` / `current_config`. Unknown option ids stay in adapter native state until a product control needs them.
 
-Catalog (`crates/agent/src/catalog/`) already produces models / thinking / modes. It becomes the pre-spawn `supported_options` builder. `agent_model_catalog_get` can remain as the cache/prefetch API; composer prefers `descriptor.supported_options` once a chat exists, and catalog-by-`agent_id` before create.
+Catalog (`crates/agent/src/catalog/`) already produces models / thinking / modes. It becomes the pre-spawn `supported_options` builder. `agent_options_get` can remain as the cache/prefetch API; composer prefers `descriptor.supported_options` once a chat exists, and catalog-by-`agent_id` before create.
 
 #### Runtime (M5)
 
@@ -285,7 +285,7 @@ pub trait AgentRuntime: Send {
 #[async_trait]
 pub trait AgentProvider: Send + Sync {
     fn id(&self) -> &str;
-    async fn descriptor(&self, ctx: &AgentCatalogContext) -> AgentResult<AgentDescriptor>;
+    async fn descriptor(&self, ctx: &AgentOptionsContext) -> AgentResult<AgentDescriptor>;
     async fn create_runtime(&self, cfg: AgentRuntimeConfig) -> AgentResult<Box<dyn AgentRuntime>>;
     async fn resume_runtime(
         &self,
@@ -449,7 +449,7 @@ No new `WsAction` for descriptor. Shape changes:
 - `AgentChatMeta` gains `descriptor: AgentDescriptor` and drops `supports_steer` and `session_config_options`. `selected_model` / `selected_thinking` / `selected_mode` are `descriptor.current_config` (do not keep a second copy on meta).
 - `AgentPart` tool_call is `kind`, `params`, `result`. No `input` / `output` / `content` / `native` on the Atmos part.
 - `agent_chat_event` tool payloads use the same `AgentTool`.
-- `agent_model_catalog_get` stays for prefetch; it is the pre-chat `supported_options` source.
+- `agent_options_get` stays for prefetch; it is the pre-chat `supported_options` source.
 
 Same PR: Rust DTOs in `apps/api/src/api/ws/message/agent_chat.rs`, extract catalog, `packages/api-types/src/ws/dto/agent-chat.ts`, `contract/agent-chat.ts`. No Atmos REST chat API. OpenCode HTTP is vendor-side only.
 
@@ -520,7 +520,7 @@ Existing actions (no new names for v1):
 |--------|--------|
 | `agent_chat_create` / `get` / `configure` | `meta.descriptor` |
 | `agent_chat_send` / `cancel` / `steer` / `permission_respond` | host calls `send` / `cancel` / `AgentAction`; errors `unsupported` when descriptor disagrees |
-| `agent_model_catalog_get` | still cache-first; maps into `supported_options` |
+| `agent_options_get` | still cache-first; maps into `supported_options` |
 
 Event payload (conceptual):
 

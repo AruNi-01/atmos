@@ -1,7 +1,7 @@
 //! Native Grok Chat adapter (`grok agent stdio` ACP JSON-RPC + `_x.ai/*`).
 
-pub(crate) mod catalog;
 mod event_map;
+pub(crate) mod options;
 mod rpc;
 mod spawn;
 mod tool_map;
@@ -19,12 +19,12 @@ use tokio::time::timeout;
 use crate::acp_client::{run_acp_session, AcpSessionControl, AcpSessionHandle, AcpToolHandler};
 use crate::contract::AgentEventEnvelope;
 use crate::contract::{AgentAction, AgentActionError, AgentActionKind, AgentActionResult};
+use crate::contract::{AgentCurrentConfig, AgentDescriptor, AgentIdentity, AgentSupportedOptions};
 use crate::contract::{
-    AgentCatalogContext, AgentPersistenceHandle, AgentPrompt, AgentProvider, AgentProviderError,
+    AgentOptionsContext, AgentPersistenceHandle, AgentPrompt, AgentProvider, AgentProviderError,
     AgentResult, AgentRuntime, AgentRuntimeCommands, AgentRuntimeConfig, AgentRuntimeConfigUpdate,
     AgentRuntimeControl, AgentTurnHandle,
 };
-use crate::contract::{AgentCurrentConfig, AgentDescriptor, AgentIdentity, AgentSupportedOptions};
 use crate::policy::{capabilities_for_provider, option_support_for_provider};
 
 use event_map::{map_event, EventMapState};
@@ -502,10 +502,11 @@ async fn recv_ext_notification(
     }
 }
 
-async fn apply_set_config(
-    control: &AcpSessionControl,
-    update: AgentRuntimeConfigUpdate,
-) -> AgentResult<()> {
+/// Build Grok `set_config_option` attempts. Permission is NOT an ACP configId
+/// (`session/set_config_option` is Method not found). Mid-session permission uses
+/// slash prompts (`/always-approve`, `/auto`); Plan/Normal uses `session/set_mode`
+/// via the mode write path (runner falls back when set_config is missing).
+fn plan_set_config_writes(update: AgentRuntimeConfigUpdate) -> Vec<(Vec<String>, String)> {
     let mut writes = Vec::new();
     if let Some(model) = update.model {
         writes.push((config_alias_ids("model"), model));
@@ -514,39 +515,56 @@ async fn apply_set_config(
         writes.push((config_alias_ids("thinking"), thinking));
     }
     if let Some(mode) = update.mode.clone() {
-        writes.push((config_alias_ids("mode"), mode.clone()));
-        let permission = update
-            .permission_mode
-            .as_deref()
-            .or(update.previous_permission_mode.as_deref());
-        if let Some(vendor) =
-            crate::policy::vendor_permission_for_spawn("grok", Some(&mode), permission)
-        {
-            writes.push((config_alias_ids("permission_mode"), vendor));
-        }
-    }
-    if let Some(permission_mode) = update.permission_mode {
-        let mode = update.mode.as_deref().or(update.previous_mode.as_deref());
-        if !crate::policy::is_plan_mode(mode) {
-            let vendor = crate::policy::atmos_permission_to_vendor("grok", &permission_mode)
-                .unwrap_or(permission_mode);
-            writes.push((config_alias_ids("permission_mode"), vendor));
-        }
-    }
-    writes.extend(update.extra_config.into_iter().map(|(id, value)| {
-        let value = if crate::catalog::is_permission_mode_config_id(&id) {
-            if crate::policy::is_plan_mode(Some(&value)) {
-                value
-            } else {
-                crate::policy::atmos_permission_to_vendor("grok", &value).unwrap_or(value)
-            }
+        // Plan ↔ Normal: ACP `session/set_mode` (modeId plan|default).
+        let mode_id = if crate::policy::is_plan_mode(Some(&mode)) {
+            "plan".into()
         } else {
-            value
+            "default".into()
         };
-        (vec![id], value)
+        writes.push((vec!["mode".into()], mode_id));
+    }
+    // Permission mode is applied via slash in `apply_set_config`, not config aliases.
+    writes.extend(update.extra_config.into_iter().filter_map(|(id, value)| {
+        if crate::options::is_permission_mode_config_id(&id) {
+            return None;
+        }
+        Some((vec![id], value))
     }));
-    for (ids, value) in writes {
+    writes
+}
+
+/// Grok mid-session permission slash (live CLI docs + available_commands).
+/// `/always-approve on|off` and `/auto` are real toggles; accept_edits has no slash.
+fn grok_permission_slash(permission: &str) -> Option<String> {
+    use crate::policy::permission::{classify, AtmosPermission};
+    match AtmosPermission::parse(permission).or_else(|| classify(permission)) {
+        Some(AtmosPermission::Yolo) => Some("/always-approve on".into()),
+        Some(AtmosPermission::AskAlways) => Some("/always-approve off".into()),
+        Some(AtmosPermission::Auto) => Some("/auto".into()),
+        Some(AtmosPermission::AcceptEdits) | None => None,
+    }
+}
+
+async fn apply_set_config(
+    control: &AcpSessionControl,
+    update: AgentRuntimeConfigUpdate,
+) -> AgentResult<()> {
+    let permission_mode = update.permission_mode.clone();
+    let wrote_mode = update.mode.is_some();
+    for (ids, value) in plan_set_config_writes(update) {
         write_config_option(control, &ids, &value).await?;
+    }
+    if let Some(permission) = permission_mode {
+        if crate::policy::is_plan_mode(Some(&permission)) {
+            if !wrote_mode {
+                write_config_option(control, &["mode".into()], "plan").await?;
+            }
+        } else if let Some(slash) = grok_permission_slash(&permission) {
+            control
+                .prompt_turn(slash, Vec::new())
+                .await
+                .map_err(AgentProviderError::message)?;
+        }
     }
     Ok(())
 }
@@ -610,6 +628,7 @@ fn current_config_from(cfg: &AgentRuntimeConfig) -> AgentCurrentConfig {
             .as_deref()
             .and_then(crate::policy::normalize_stored_permission)
             .or_else(|| cfg.permission_mode.clone()),
+        fast: None,
     }
 }
 
@@ -637,10 +656,8 @@ async fn open_grok_session(
         if let Some(mode) = cfg.mode.clone() {
             extra.insert("mode".into(), mode);
         }
-        if let Some(permission_mode) = vendor.clone() {
-            extra.insert("permissionMode".into(), permission_mode.clone());
-            extra.insert("permission_mode".into(), permission_mode);
-        }
+        // Permission is the parent `--permission-mode` flag only. Do not seed
+        // permissionMode into default_config (set_config_option WARN / soft-fail).
         if extra.is_empty() {
             None
         } else {
@@ -694,7 +711,7 @@ impl AgentProvider for GrokNativeProvider {
         "grok"
     }
 
-    async fn descriptor(&self, _ctx: &AgentCatalogContext) -> AgentResult<AgentDescriptor> {
+    async fn descriptor(&self, _ctx: &AgentOptionsContext) -> AgentResult<AgentDescriptor> {
         Ok(provider_descriptor(AgentCurrentConfig::default()))
     }
 
@@ -723,7 +740,7 @@ mod tests {
     async fn grok_descriptor_is_native_honesty() {
         let provider = GrokNativeProvider::new();
         let descriptor = provider
-            .descriptor(&AgentCatalogContext::default())
+            .descriptor(&AgentOptionsContext::default())
             .await
             .unwrap();
         assert_eq!(descriptor.identity.id, "grok");
@@ -805,6 +822,53 @@ mod tests {
         ));
     }
 
+    #[test]
+    fn grok_permission_set_config_uses_mode_not_permission_aliases() {
+        let writes = plan_set_config_writes(AgentRuntimeConfigUpdate {
+            permission_mode: Some("yolo".into()),
+            mode: Some("plan".into()),
+            extra_config: [
+                ("permissionMode".into(), "bypassPermissions".into()),
+                ("model".into(), "grok-4".into()),
+            ]
+            .into_iter()
+            .collect(),
+            ..AgentRuntimeConfigUpdate::default()
+        });
+        let pairs: Vec<(Vec<&str>, &str)> = writes
+            .iter()
+            .map(|(ids, value)| (ids.iter().map(String::as_str).collect(), value.as_str()))
+            .collect();
+        assert!(pairs
+            .iter()
+            .any(|(ids, value)| ids == &["mode"] && *value == "plan"));
+        assert!(pairs
+            .iter()
+            .any(|(ids, value)| ids.contains(&"model") && *value == "grok-4"));
+        assert!(
+            !pairs.iter().any(|(ids, _)| {
+                ids.iter().any(|id| {
+                    matches!(
+                        *id,
+                        "permissionMode" | "permission_mode" | "permission" | "approval"
+                    )
+                })
+            }),
+            "unexpected permission writes: {pairs:?}"
+        );
+        assert_eq!(
+            grok_permission_slash("yolo").as_deref(),
+            Some("/always-approve on")
+        );
+        assert_eq!(
+            grok_permission_slash("ask_always").as_deref(),
+            Some("/always-approve off")
+        );
+        assert_eq!(grok_permission_slash("auto").as_deref(), Some("/auto"));
+        assert!(grok_permission_slash("accept_edits").is_none());
+        assert!(!crate::policy::acp_permission_via_config_option("grok"));
+    }
+
     const FAKE_GROK: &str = r#"#!/usr/bin/env python3
 import json, os, sys
 
@@ -844,7 +908,25 @@ for raw in sys.stdin:
         reply(msg, {"sessionId": msg.get("params", {}).get("sessionId") or "sess_grok_1"})
     elif method == "session/prompt":
         rec({"prompt": msg.get("params")})
-        pending_prompt = msg
+        text = ""
+        for block in (msg.get("params") or {}).get("prompt") or []:
+            if isinstance(block, dict) and block.get("type") == "text":
+                text += block.get("text") or ""
+        if text.startswith("/"):
+            reply(msg, {"stopReason": "end_turn"})
+        else:
+            pending_prompt = msg
+    elif method == "session/set_mode":
+        params = msg.get("params") or {}
+        rec({"set_mode": params})
+        mode_id = params.get("modeId") or "default"
+        notify("session/update", {
+            "sessionId": params.get("sessionId") or "sess_grok_1",
+            "update": {"sessionUpdate": "current_mode_update", "currentModeId": mode_id},
+        })
+        reply(msg, {})
+    elif method == "session/set_config_option":
+        error(msg, -32601, "Method not found")
     elif method == "_x.ai/interject":
         rec({"interject": msg.get("params")})
         reply(msg, {})
@@ -956,6 +1038,67 @@ for raw in sys.stdin:
             }
         }
         panic!("no SessionStarted");
+    }
+
+    #[tokio::test]
+    async fn fake_runtime_set_config_permission_sends_slash_and_mode_uses_set_mode() {
+        let fake = write_fake();
+        let provider =
+            GrokNativeProvider::with_program(fake.program.to_string_lossy().into_owned());
+        let mut runtime = provider
+            .create_runtime(fake_cfg(&fake, false))
+            .await
+            .expect("runtime");
+        await_session_started(&mut runtime).await;
+
+        runtime
+            .control()
+            .set_config(AgentRuntimeConfigUpdate {
+                permission_mode: Some("yolo".into()),
+                ..AgentRuntimeConfigUpdate::default()
+            })
+            .await
+            .expect("permission slash");
+        runtime
+            .control()
+            .set_config(AgentRuntimeConfigUpdate {
+                mode: Some("plan".into()),
+                ..AgentRuntimeConfigUpdate::default()
+            })
+            .await
+            .expect("plan mode");
+
+        let entries = log_entries(&fake.log);
+        let slash = entries.iter().find_map(|entry| {
+            entry.get("prompt").and_then(|params| {
+                let blocks = params.get("prompt")?.as_array()?;
+                blocks.first()?.get("text")?.as_str().map(str::to_string)
+            })
+        });
+        assert_eq!(slash.as_deref(), Some("/always-approve on"));
+        let set_mode = entries
+            .iter()
+            .find_map(|entry| entry.get("set_mode").cloned())
+            .expect("session/set_mode after set_config_option Method not found");
+        assert_eq!(set_mode["modeId"], "plan");
+        // Runner may probe set_config_option(mode) first; Grok replies -32601 then set_mode.
+        assert!(
+            !entries.iter().any(|entry| {
+                entry.get("method").and_then(Value::as_str) == Some("session/set_config_option")
+                    && entry
+                        .get("params")
+                        .and_then(|p| p.get("configId"))
+                        .and_then(Value::as_str)
+                        .is_some_and(|id| {
+                            matches!(
+                                id,
+                                "permissionMode" | "permission_mode" | "permission" | "approval"
+                            )
+                        })
+            }),
+            "must not guess permission configIds on Grok"
+        );
+        runtime.control().close().await.ok();
     }
 
     #[tokio::test]

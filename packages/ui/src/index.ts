@@ -359,6 +359,7 @@ export { BotMessageSquareIcon } from "./components/icons/bot-message-square";
 export type { BotMessageSquareHandle } from "./components/icons/bot-message-square";
 export { GithubIcon } from "./components/icons/github-icon";
 export type { GithubIconHandle } from "./components/icons/github-icon";
+export { Github, Gitlab } from "./components/icons/lucide-brand-icons";
 export { LinearIcon } from "./components/icons/linear-icon";
 export { XIcon } from "./components/icons/x-icon";
 export { RedditIcon } from "./components/icons/reddit-icon";

@@ -50,7 +50,8 @@ fn is_provider_model_table_header(line: &str) -> bool {
 
 /// `pi --list-models` rows: `deepseek  deepseek-v4-flash  1M  384K  yes  no`.
 fn parse_provider_model_table_row(line: &str) -> Option<AgentModel> {
-    if line.contains(" - ") {
+    // Tab-separated `id\tlabel` (agy) and `id - label` are not provider tables.
+    if line.contains('\t') || line.contains(" - ") {
         return None;
     }
     let cols: Vec<&str> = line.split_whitespace().collect();
@@ -70,6 +71,24 @@ fn parse_provider_model_table_row(line: &str) -> Option<AgentModel> {
     {
         return None;
     }
+    // Remaining cols should look like table metrics (context / max-out / flags),
+    // not free-form descriptions (`hybrid-attention long-context reasoning`).
+    let metrics_ok = cols[2..].iter().all(|col| {
+        let lower = col.to_ascii_lowercase();
+        lower == "yes"
+            || lower == "no"
+            || col.chars().all(|ch| {
+                ch.is_ascii_alphanumeric() || ch == '.' || ch == '-' || ch == '_' || ch == '/'
+            }) && col.chars().any(|ch| ch.is_ascii_digit())
+            || lower.ends_with('k')
+                && col
+                    .trim_end_matches(['k', 'K', 'm', 'M'])
+                    .chars()
+                    .all(|ch| ch.is_ascii_digit())
+    });
+    if !metrics_ok {
+        return None;
+    }
     Some(AgentModel {
         id: format!("{provider}/{model}"),
         label: model.to_string(),
@@ -80,7 +99,28 @@ fn parse_provider_model_table_row(line: &str) -> Option<AgentModel> {
 }
 
 fn split_id_and_label(line: &str) -> (String, String) {
-    match line.split_once(" - ") {
+    // Prefer tab (`agy models`), then `id - label` (cursor), then 2+ spaces
+    // (commandcode `cmd --list-models`).
+    let pair = line
+        .split_once('\t')
+        .or_else(|| line.split_once(" - "))
+        .or_else(|| {
+            let bytes = line.as_bytes();
+            let mut i = 0;
+            while i + 1 < bytes.len() {
+                if bytes[i] == b' ' && bytes[i + 1] == b' ' {
+                    let id = line[..i].trim();
+                    let label = line[i..].trim();
+                    if !id.is_empty() && !label.is_empty() {
+                        return Some((id, label));
+                    }
+                    break;
+                }
+                i += 1;
+            }
+            None
+        });
+    match pair {
         Some((id, label)) => {
             let id = id.trim();
             let label = label.trim();
@@ -106,6 +146,31 @@ pub fn model_id_is_table_noise(id: &str) -> bool {
         || trimmed.eq_ignore_ascii_case("model")
 }
 
+/// Accept real model ids; reject section headers (`OpenAI`) and tip prose.
+fn looks_like_model_id(id: &str) -> bool {
+    if model_id_is_table_noise(id) {
+        return false;
+    }
+    let lower = id.to_ascii_lowercase();
+    if lower.starts_with("http://") || lower.starts_with("https://") || lower.starts_with("docs") {
+        return false;
+    }
+    if lower == "auto" || lower == "default" {
+        return true;
+    }
+    if id.contains('/') {
+        return true;
+    }
+    // Brand / section labels are usually Title Case without digits.
+    let has_digit = id.chars().any(|ch| ch.is_ascii_digit());
+    let has_hyphen = id.contains('-');
+    if !has_digit && !has_hyphen {
+        return false;
+    }
+    id.chars()
+        .all(|ch| ch.is_ascii_alphanumeric() || ch == '-' || ch == '_' || ch == '.')
+}
+
 pub fn parse_line_list(output: &str) -> Vec<AgentModel> {
     let mut parsed: Vec<(AgentModel, bool)> = Vec::new();
     for line in output.lines() {
@@ -114,8 +179,11 @@ pub fn parse_line_list(output: &str) -> Vec<AgentModel> {
             continue;
         }
         let lower = trimmed.to_ascii_lowercase();
-        if lower.starts_with("tip:") {
+        if lower.starts_with("tip:") || lower.starts_with("pass the full id") {
             break;
+        }
+        if lower.starts_with("cmd --") || lower.starts_with("docs:") {
+            continue;
         }
         if lower.contains("available model") || lower == "models" || lower == "model" {
             continue;
@@ -134,7 +202,7 @@ pub fn parse_line_list(output: &str) -> Vec<AgentModel> {
         let (raw_id, raw_label) = split_id_and_label(normalized);
         let (id, id_flags) = strip_model_line_flags(&raw_id);
         let (label, label_flags) = strip_model_line_flags(&raw_label);
-        if id.is_empty() || model_id_is_table_noise(&id) {
+        if id.is_empty() || !looks_like_model_id(&id) {
             continue;
         }
         let is_current = id_flags.is_current || label_flags.is_current;
@@ -200,7 +268,7 @@ pub fn grok_thinking_for_model_id(model_id: &str) -> AgentThinkingSupport {
     }
 }
 
-pub fn apply_grok_thinking_overlay(catalog: &mut crate::catalog::AgentModelCatalog) {
+pub fn apply_grok_thinking_overlay(catalog: &mut crate::options::AgentOptionsSnapshot) {
     for model in &mut catalog.models {
         if model
             .thinking
@@ -465,33 +533,85 @@ fn model_from_json(value: &Value) -> Option<AgentModel> {
             thinking: None,
         }),
         Value::Object(map) => {
-            let id = ["id", "name", "model", "value"]
+            // Codex `debug models` uses visibility=hide for non-list entries.
+            if map
+                .get("visibility")
+                .and_then(Value::as_str)
+                .is_some_and(|v| v.eq_ignore_ascii_case("hide"))
+            {
+                return None;
+            }
+            let id = ["id", "slug", "name", "model", "value"]
                 .iter()
                 .find_map(|key| map.get(*key)?.as_str())
                 .and_then(non_empty)?;
-            let label = ["display_name", "label", "name", "id", "model"]
-                .iter()
-                .find_map(|key| map.get(*key)?.as_str())
-                .and_then(non_empty)
-                .unwrap_or_else(|| id.clone());
+            let label = [
+                "display_name",
+                "displayName",
+                "label",
+                "name",
+                "id",
+                "model",
+                "slug",
+            ]
+            .iter()
+            .find_map(|key| map.get(*key)?.as_str())
+            .and_then(non_empty)
+            .unwrap_or_else(|| id.clone());
             let group = ["group", "provider"]
                 .iter()
                 .find_map(|key| map.get(*key)?.as_str())
                 .and_then(non_empty);
-            let is_default = ["is_default", "default"]
+            let is_default = ["is_default", "default", "isDefault"]
                 .iter()
                 .find_map(|key| map.get(*key)?.as_bool())
                 .unwrap_or(false);
+            let thinking = thinking_from_json_model_object(map);
             Some(AgentModel {
                 id,
                 label,
                 group,
                 is_default,
-                thinking: None,
+                thinking,
             })
         }
         _ => None,
     }
+}
+
+fn thinking_from_json_model_object(
+    map: &serde_json::Map<String, Value>,
+) -> Option<AgentThinkingSupport> {
+    let levels = map
+        .get("supported_reasoning_levels")
+        .or_else(|| map.get("supportedReasoningLevels"))
+        .or_else(|| map.get("supportedReasoningEfforts"))
+        .or_else(|| map.get("supported_reasoning_efforts"))?;
+    let options: Vec<String> = match levels {
+        Value::Array(items) => items
+            .iter()
+            .filter_map(|item| {
+                item.as_str()
+                    .map(str::to_string)
+                    .or_else(|| {
+                        item.get("effort")
+                            .or_else(|| item.get("id"))
+                            .or_else(|| item.get("value"))
+                            .and_then(Value::as_str)
+                            .map(str::to_string)
+                    })
+                    .and_then(|value| non_empty(&value))
+            })
+            .collect(),
+        _ => return None,
+    };
+    if options.is_empty() {
+        return None;
+    }
+    Some(AgentThinkingSupport::Enum {
+        arg: Some("effort".into()),
+        options,
+    })
 }
 
 pub fn thinking_from_reasoning_mode(
@@ -687,9 +807,9 @@ mod tests {
         assert!(grok_thinking_for_model_id("grok-composer-2.5-fast").is_none());
         assert!(grok_thinking_for_model_id("grok-4").is_none());
 
-        let mut catalog = crate::catalog::AgentModelCatalog {
+        let mut catalog = crate::options::AgentOptionsSnapshot {
             agent_id: "grok".into(),
-            status: crate::catalog::CatalogStatus::Ok,
+            status: crate::options::OptionsStatus::Ok,
             models: parse_grok(
                 "Available models:\n* grok-4.5 (default)\n* grok-4.6-preview\n* grok-composer-2.5-fast",
             ),
@@ -702,7 +822,7 @@ mod tests {
             },
             strategies_used: Vec::new(),
             fetched_at: chrono::Utc::now(),
-            source: crate::catalog::CatalogSource::Live,
+            source: crate::options::OptionsSource::Live,
             message: None,
         };
         apply_grok_thinking_overlay(&mut catalog);
@@ -729,9 +849,9 @@ mod tests {
 
     #[test]
     fn grok_overlay_keeps_probed_per_model_thinking() {
-        let mut catalog = crate::catalog::AgentModelCatalog {
+        let mut catalog = crate::options::AgentOptionsSnapshot {
             agent_id: "grok".into(),
-            status: crate::catalog::CatalogStatus::Ok,
+            status: crate::options::OptionsStatus::Ok,
             models: vec![AgentModel {
                 id: "grok-4.6".into(),
                 label: "Grok 4.6".into(),
@@ -748,7 +868,7 @@ mod tests {
             thinking: AgentThinkingSupport::None,
             strategies_used: Vec::new(),
             fetched_at: chrono::Utc::now(),
-            source: crate::catalog::CatalogSource::Live,
+            source: crate::options::OptionsSource::Live,
             message: None,
         };
         apply_grok_thinking_overlay(&mut catalog);
@@ -897,6 +1017,96 @@ Model details:
         assert_eq!(models[0].id, "kimi-k2.5");
         assert_eq!(models[0].label, "Kimi for Coding");
         assert_eq!(models[1].id, "kimi-k3");
+    }
+
+    #[test]
+    fn line_list_parses_agy_tab_separated_models() {
+        let models = parse_line_list(
+            "gemini-3.8-flash-high\tGemini 3.8 Flash (High)\n\
+             claude-sonnet-4-6\tClaude Sonnet 4.6 (Thinking)\n\
+             gpt-oss-120b-medium\tGPT-OSS 120B (Medium)\n",
+        );
+        assert_eq!(
+            models
+                .iter()
+                .map(|model| (model.id.as_str(), model.label.as_str()))
+                .collect::<Vec<_>>(),
+            vec![
+                ("gemini-3.8-flash-high", "Gemini 3.8 Flash (High)"),
+                ("claude-sonnet-4-6", "Claude Sonnet 4.6 (Thinking)"),
+                ("gpt-oss-120b-medium", "GPT-OSS 120B (Medium)"),
+            ]
+        );
+    }
+
+    #[test]
+    fn line_list_parses_commandcode_space_padded_models() {
+        let models = parse_line_list(
+            "Available models  ·  61 models\n\n\
+             Open Source\n\n\
+             deepseek/deepseek-v4-flash             fast hybrid-attention reasoning (default)\n\
+             moonshotai/kimi-k3                     long-horizon coding\n\n\
+             Anthropic\n\n\
+             claude-sonnet-5                        best combo of speed & intelligence\n\n\
+             Pass the full id, or just the short name after the last \"/\":\n\
+             cmd --model kimi-k2.5\n",
+        );
+        assert_eq!(
+            models
+                .iter()
+                .map(|model| (model.id.as_str(), model.label.as_str(), model.is_default))
+                .collect::<Vec<_>>(),
+            vec![
+                (
+                    "deepseek/deepseek-v4-flash",
+                    "fast hybrid-attention reasoning",
+                    true
+                ),
+                ("moonshotai/kimi-k3", "long-horizon coding", false),
+                (
+                    "claude-sonnet-5",
+                    "best combo of speed & intelligence",
+                    false
+                ),
+            ]
+        );
+    }
+
+    #[test]
+    fn json_parser_reads_codex_debug_models_slug_and_effort() {
+        let models = parse_json_models(
+            r#"{
+              "models": [
+                {
+                  "slug": "gpt-5.6-sol",
+                  "display_name": "GPT-5.6-Sol",
+                  "visibility": "list",
+                  "supported_reasoning_levels": [
+                    {"effort": "low"},
+                    {"effort": "medium"},
+                    {"effort": "high"}
+                  ]
+                },
+                {
+                  "slug": "gpt-5.4",
+                  "display_name": "GPT-5.4",
+                  "visibility": "hide",
+                  "supported_reasoning_levels": [{"effort": "low"}]
+                }
+              ]
+            }"#,
+        )
+        .unwrap();
+        assert_eq!(models.len(), 1);
+        assert_eq!(models[0].id, "gpt-5.6-sol");
+        assert_eq!(models[0].label, "GPT-5.6-Sol");
+        match &models[0].thinking {
+            Some(AgentThinkingSupport::Enum { arg, options }) => {
+                assert_eq!(arg.as_deref(), Some("effort"));
+                assert_eq!(options, &["low", "medium", "high"]);
+            }
+            other => panic!("expected enum thinking, got {other:?}"),
+        }
     }
 
     #[test]

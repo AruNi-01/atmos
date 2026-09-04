@@ -18,14 +18,14 @@ import {
   ChevronRight,
   Eye,
   GitMerge,
-  Github,
   Loader2,
   MessageSquare,
   PenLine,
   RotateCw,
   SquareArrowOutUpRight,
   XCircle,
-} from 'lucide-react';
+} from "lucide-react";
+import { Github } from "@workspace/ui/components/icons/lucide-brand-icons";
 import {
   Tooltip,
   TooltipContent,

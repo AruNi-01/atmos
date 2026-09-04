@@ -58,12 +58,12 @@ pub(crate) fn set_max_thinking_tokens_request(request_id: &str, tokens: Option<i
     })
 }
 
-pub(crate) fn apply_flag_settings_request(request_id: &str, effort_level: &str) -> Value {
+pub(crate) fn apply_flag_settings_request(request_id: &str, settings: Value) -> Value {
     host_control_request(
         request_id,
         json!({
             "subtype": "apply_flag_settings",
-            "settings": { "effortLevel": effort_level },
+            "settings": settings,
         }),
     )
 }
@@ -432,6 +432,15 @@ mod tests {
             .join("src/providers/claude/testdata")
             .join(name);
         serde_json::from_str(&std::fs::read_to_string(path).expect("fixture")).expect("json")
+    }
+
+    #[test]
+    fn apply_flag_settings_carries_effort_and_fast_mode() {
+        let effort = apply_flag_settings_request("req_1", json!({ "effortLevel": "high" }));
+        assert_eq!(effort["request"]["subtype"], "apply_flag_settings");
+        assert_eq!(effort["request"]["settings"]["effortLevel"], "high");
+        let fast = apply_flag_settings_request("req_2", json!({ "fastMode": true }));
+        assert_eq!(fast["request"]["settings"]["fastMode"], true);
     }
 
     #[test]

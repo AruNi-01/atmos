@@ -4,7 +4,7 @@ use std::sync::Arc;
 use super::*;
 use core_service::utils::path_boundary::path_or_existing_parent_within_root;
 use core_service::{
-    catalog_spec_for, default_agent_data_dir, AgentChatService, CreateAgentChatRequest,
+    default_agent_data_dir, options_probe_plan_for, AgentChatService, CreateAgentChatRequest,
     QueueItemStatus,
 };
 use serde_json::{json, Value};
@@ -143,6 +143,7 @@ impl WsMessageService {
                 req.thinking,
                 req.mode,
                 req.permission_mode,
+                req.fast,
             )
             .await?;
         agent_chat_meta_json(&meta)
@@ -299,16 +300,16 @@ impl WsMessageService {
         Ok(json!({ "ok": true }))
     }
 
-    pub(super) async fn handle_agent_model_catalog_get(
+    pub(super) async fn handle_agent_options_get(
         &self,
-        req: AgentModelCatalogGetRequest,
+        req: AgentOptionsGetRequest,
     ) -> Result<Value> {
-        let worker = Arc::clone(&self.catalog_worker);
+        let worker = Arc::clone(&self.options_worker);
         if req.agent_id.contains('/') || req.agent_id.contains('\\') || req.agent_id.contains("..")
         {
             return Err(ServiceError::Validation("invalid agent_id".into()));
         }
-        let spec = catalog_spec_for(&req.agent_id);
+        let spec = options_probe_plan_for(&req.agent_id);
         let catalog = worker.get_cached_or_probing(&spec, req.refresh.unwrap_or(false));
         serde_json::to_value(catalog)
             .map_err(|e| ServiceError::Processing(format!("serialize catalog: {e}")))

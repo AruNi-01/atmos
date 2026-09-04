@@ -1,9 +1,9 @@
 //! Native OpenCode Chat adapter: one `serve` process per live chat, HTTP/1.1 + SSE.
 
-pub(crate) mod catalog;
 mod codec;
 mod event_map;
 mod http;
+pub(crate) mod options;
 mod rpc;
 mod spawn;
 mod tool_map;
@@ -18,13 +18,13 @@ use serde_json::{json, Value};
 use tokio::sync::{mpsc, oneshot, watch, Mutex};
 
 use crate::contract::{AgentAction, AgentActionError, AgentActionKind, AgentActionResult};
+use crate::contract::{AgentCurrentConfig, AgentDescriptor, AgentIdentity, AgentSupportedOptions};
+use crate::contract::{AgentEvent, AgentEventEnvelope};
 use crate::contract::{
-    AgentCatalogContext, AgentPersistenceHandle, AgentPrompt, AgentProvider, AgentProviderError,
+    AgentOptionsContext, AgentPersistenceHandle, AgentPrompt, AgentProvider, AgentProviderError,
     AgentResult, AgentRuntime, AgentRuntimeCommands, AgentRuntimeConfig, AgentRuntimeControl,
     AgentTurnHandle,
 };
-use crate::contract::{AgentCurrentConfig, AgentDescriptor, AgentIdentity, AgentSupportedOptions};
-use crate::contract::{AgentEvent, AgentEventEnvelope};
 use crate::policy::{capabilities_for_provider, option_support_for_provider};
 
 use event_map::{map_event, EventMapState, MapOut, PendingAsk};
@@ -565,7 +565,7 @@ impl AgentProvider for OpenCodeNativeProvider {
         "opencode"
     }
 
-    async fn descriptor(&self, _ctx: &AgentCatalogContext) -> AgentResult<AgentDescriptor> {
+    async fn descriptor(&self, _ctx: &AgentOptionsContext) -> AgentResult<AgentDescriptor> {
         Ok(provider_descriptor())
     }
 
@@ -608,6 +608,7 @@ async fn open_runtime(
         thinking: cfg.thinking.clone(),
         mode: cfg.mode.clone(),
         permission_mode: cfg.permission_mode.clone(),
+        fast: None,
     };
 
     if let Ok((status, health)) = http.get_json("/global/health").await {
@@ -968,6 +969,7 @@ mod tests {
                 thinking: None,
                 mode: None,
                 permission_mode: None,
+                fast: None,
                 extra_config: HashMap::new(),
                 env_overrides: None,
                 auth_method_id: None,
