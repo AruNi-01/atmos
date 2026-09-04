@@ -522,6 +522,48 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 -------------------------------------------------------------------------------
+16. Great UI Twitter(X) Card (adapted)
+-------------------------------------------------------------------------------
+
+Source:   https://www.great-ui.com/components/twitter-card
+          https://github.com/Saurabh-2607/GreatUI
+Location: apps/web/src/features/x/components/XUserHoverCard.tsx
+License:  MIT
+Author:   Saurabh Sharma / Great UI
+          https://x.com/srbh_here
+          https://x.com/GreatUIHQ
+
+Notes:    Copy-paste React + Tailwind + Motion component. The published
+          shadcn registry item (https://www.great-ui.com/r/twitter-card.json)
+          currently 500s because the registry file path uses parentheses.
+          Source was taken from GreatUI `components/ui/TwitterCard.tsx` and
+          adapted for Atmos (FxTwitter fetch via TanStack Query, design tokens,
+          top/bottom placement, trigger-only mouse-follow / 3D tilt, i18n).
+          Public profile data is loaded from https://api.fxtwitter.com.
+
+The MIT License (MIT)
+
+Copyright (c) Great UI / Saurabh Sharma
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+-------------------------------------------------------------------------------
 End of NOTICE
 -------------------------------------------------------------------------------
 
