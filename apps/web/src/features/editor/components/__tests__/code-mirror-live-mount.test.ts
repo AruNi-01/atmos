@@ -29,6 +29,7 @@ describe("CodeMirrorEditor live mount", () => {
     expect(source).toContain('<CenterExplorerToggle kind="files"');
     expect(source).toContain("data-center-explorer-chrome");
     expect(source).toContain("CENTER_EXPLORER_BODY_INSET_CLASS");
+    expect(source).toContain('side="left"');
   });
 
   test("opens markdown source view when jumping to a line selection", () => {

@@ -222,8 +222,18 @@ test.describe("smoke workspace center explorer", () => {
     await expectToggleRightOf(editorSettings, filesToggle);
     await expectSidecarOnRight(page, "files");
     await expect(filesSidecar.getByText("web", { exact: true }).first()).toBeVisible();
+    const markdownToc = page.locator('[data-markdown-toc-side="left"]');
+    await expect(markdownToc).toBeVisible({ timeout: 20_000 });
+    const tocBox = await markdownToc.boundingBox();
+    const sidecarForToc = await filesSidecar.boundingBox();
+    expect(tocBox, "markdown outline box").toBeTruthy();
+    expect(sidecarForToc, "files sidecar box beside markdown").toBeTruthy();
+    expect(tocBox!.x + tocBox!.width).toBeLessThan(sidecarForToc!.x);
     await page.screenshot({
       path: `${ARTIFACTS_DIR}/files_sidecar_editor.png`,
+    });
+    await page.screenshot({
+      path: `${ARTIFACTS_DIR}/markdown_preview_toc_left.png`,
     });
 
     const packageJson = filesSidecar.getByText("package.json", { exact: true }).first();

@@ -1040,10 +1040,18 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
             )}
 
             {isPreview && isMarkdown && (
-              <MarkdownToc markdown={previewBody} scrollContainerId="editor-preview-root" />
+              <MarkdownToc
+                markdown={previewBody}
+                scrollContainerId="editor-preview-root"
+                side="left"
+              />
             )}
             {isLive && (
-              <MarkdownToc markdown={file.content} scrollContainerId="editor-preview-root" />
+              <MarkdownToc
+                markdown={file.content}
+                scrollContainerId="editor-preview-root"
+                side="left"
+              />
             )}
             {isLive && surfaceActive ? (
               <MdLiveAgentDock
