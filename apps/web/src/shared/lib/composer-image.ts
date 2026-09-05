@@ -103,7 +103,7 @@ export async function normalizeComposerImageFile(file: File): Promise<File> {
   const decoded = decodeTiffToRgba(bytes);
   if (decoded) {
     const png = await encodePngRgba(decoded.width, decoded.height, decoded.rgba);
-    return new File([png], pngFilename(file.name), { type: "image/png" });
+    return new File([png as BlobPart], pngFilename(file.name), { type: "image/png" });
   }
 
   const fromBitmap = await tiffToPngViaBitmap(file);
@@ -536,7 +536,7 @@ async function encodePngRgba(
 async function zlibDeflate(data: Uint8Array): Promise<Uint8Array> {
   if (typeof CompressionStream === "function") {
     try {
-      const stream = new Blob([data]).stream().pipeThrough(
+      const stream = new Blob([data as BlobPart]).stream().pipeThrough(
         new CompressionStream("deflate"),
       );
       const compressed = new Uint8Array(await new Response(stream).arrayBuffer());
