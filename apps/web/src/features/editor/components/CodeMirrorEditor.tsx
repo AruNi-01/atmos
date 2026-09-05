@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { useTranslations } from 'next-intl';
+import { useHotkeys } from 'react-hotkeys-hook';
 import { flushSync } from 'react-dom';
 import { useShallow } from 'zustand/react/shallow';
 import { EditorView } from '@codemirror/view';
@@ -32,6 +33,7 @@ import { isMdLiveStreamLocked, useMdLiveStreamLocked } from '@/features/md-live/
 import { fsApi } from '@/api/ws-api';
 import { BaseCodeMirrorEditor } from './BaseCodeMirrorEditor';
 import { setCodeMirrorSearchPanelMessages } from './codemirror-search-panel';
+import { MarkdownFindPanel } from './MarkdownFindPanel';
 import { useSelectionPopover } from '@/features/selection/hooks/use-selection-popover';
 import { SelectionPopover } from '@/features/selection/components/SelectionPopover';
 import { usePathname } from "next/navigation";
@@ -216,6 +218,9 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
     if (settingsSurfaceOpen) setSettingsOpen(false);
   }, [settingsSurfaceOpen]);
   const [openBreadcrumbIndex, setOpenBreadcrumbIndex] = useState<number | null>(null);
+  const [markdownFindOpen, setMarkdownFindOpen] = useState(false);
+  const [markdownFindFocusNonce, setMarkdownFindFocusNonce] = useState(0);
+  const [previewRoot, setPreviewRoot] = useState<HTMLDivElement | null>(null);
   const storeFileTreeRootPath = useFileTreeStore((s) => s.rootPath);
   const fileTreeShowHidden = useFileTreeStore((s) => s.showHidden);
   const editorViewRef = useRef<EditorView | null>(null);
@@ -369,13 +374,6 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
     openBreadcrumbParentPath,
   ]);
 
-  // Handle search button click (trigger Cmd+F)
-  const handleSearchClick = useCallback(() => {
-    if (editorViewRef.current) {
-      openSearchPanel(editorViewRef.current);
-    }
-  }, []);
-
   // Close breadcrumb popover when file changes
   useEffect(() => {
     if (openBreadcrumbIndex !== null) {
@@ -389,6 +387,7 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
     if (workspaceActivePath != null && workspaceActivePath !== file.path) {
       setOpenBreadcrumbIndex(null);
       setSettingsOpen(false);
+      setMarkdownFindOpen(false);
     }
   }, [workspaceActivePath, file.path]);
 
@@ -410,6 +409,38 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
   const streamLocked = useMdLiveStreamLocked(file.path);
   const isPreview = !isLiveEligible && isMarkdown && previewFilePath === file.path;
   const isReviewReport = isMarkdown && file.path.includes('/.atmos/reviews/');
+  const markdownFindEnabled = (isPreview || isLive) && !file.isLoading;
+
+  const openMarkdownFind = useCallback(() => {
+    setMarkdownFindOpen(true);
+    setMarkdownFindFocusNonce((nonce) => nonce + 1);
+  }, []);
+
+  const handleSearchClick = useCallback(() => {
+    if (isPreview || isLive) {
+      openMarkdownFind();
+      return;
+    }
+    if (editorViewRef.current) {
+      openSearchPanel(editorViewRef.current);
+    }
+  }, [isLive, isPreview, openMarkdownFind]);
+
+  useHotkeys(
+    "mod+f",
+    () => openMarkdownFind(),
+    {
+      enabled: surfaceActive && markdownFindEnabled,
+      enableOnContentEditable: true,
+      enableOnFormTags: true,
+      preventDefault: true,
+    },
+    [markdownFindEnabled, openMarkdownFind, surfaceActive],
+  );
+
+  useEffect(() => {
+    if (!markdownFindEnabled) setMarkdownFindOpen(false);
+  }, [markdownFindEnabled]);
 
   // When previewing an Atmos review report, pull the `atmos_review:` frontmatter out so we
   // can render a dedicated card above the preview and strip the raw YAML from the markdown
@@ -537,6 +568,7 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
       selectionPopover.dismiss();
       setOpenBreadcrumbIndex(null);
       setSettingsOpen(false);
+      setMarkdownFindOpen(false);
     }
   }, [surfaceActive, selectionPopover.dismiss]);
 
@@ -941,17 +973,16 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
                 {/* Right side buttons */}
                 {surfaceActive ? (
                 <div className="flex items-center gap-1 shrink-0">
-                  {!isLive && !isPreview ? (
-                    <button
+                  <button
                       type="button"
                       onClick={handleSearchClick}
                       className={toolbarIconBtnClass}
                       title={t('codeMirror.searchWithShortcut')}
                       aria-label={t('codeMirror.search')}
+                      data-editor-search=""
                     >
                       <Search className="size-3.5" />
                     </button>
-                  ) : null}
 
                   {renderMarkdownPreviewButton(toolbarIconBtnClass)}
                   {renderEditorSettingsMenu(toolbarIconBtnClass)}
@@ -979,7 +1010,11 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
               )}
             >
             {isLive && surfaceActive ? (
-              <div id="editor-preview-root" className="absolute inset-0 overflow-y-auto overscroll-contain scroll-smooth bg-background">
+              <div
+                id="editor-preview-root"
+                ref={setPreviewRoot}
+                className="absolute inset-0 overflow-y-auto overscroll-contain scroll-smooth bg-background"
+              >
                 <MarkdownLiveEditor
                   key={file.path}
                   filePath={file.path}
@@ -1026,7 +1061,11 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
             </div>
 
             {isPreview && isMarkdown && (
-              <div id="editor-preview-root" className="absolute inset-0 overflow-y-auto overscroll-contain bg-background px-8 py-12 scroll-smooth">
+              <div
+                id="editor-preview-root"
+                ref={setPreviewRoot}
+                className="absolute inset-0 overflow-y-auto overscroll-contain bg-background px-8 py-12 scroll-smooth"
+              >
                   {reportMetadata ? (
                     <ReviewReportMetadataCard metadata={reportMetadata} />
                   ) : null}
@@ -1053,6 +1092,14 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
                 side="left"
               />
             )}
+            {markdownFindEnabled ? (
+              <MarkdownFindPanel
+                open={markdownFindOpen}
+                root={previewRoot}
+                focusNonce={markdownFindFocusNonce}
+                onClose={() => setMarkdownFindOpen(false)}
+              />
+            ) : null}
             {isLive && surfaceActive ? (
               <MdLiveAgentDock
                 filePath={file.path}

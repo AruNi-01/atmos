@@ -30,6 +30,11 @@ describe("CodeMirrorEditor live mount", () => {
     expect(source).toContain("data-center-explorer-chrome");
     expect(source).toContain("CENTER_EXPLORER_BODY_INSET_CLASS");
     expect(source).toContain('side="left"');
+    expect(source).toContain("MarkdownFindPanel");
+    expect(source).toContain('data-editor-search=""');
+    expect(source).toContain('useHotkeys(');
+    expect(source).toContain('"mod+f"');
+    expect(source).not.toContain("{!isLive && !isPreview ? (");
   });
 
   test("opens markdown source view when jumping to a line selection", () => {

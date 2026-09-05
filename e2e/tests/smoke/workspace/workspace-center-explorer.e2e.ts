@@ -249,6 +249,26 @@ test.describe("smoke workspace center explorer", () => {
       path: `${ARTIFACTS_DIR}/markdown_preview_toc_left.png`,
     });
 
+    const editorSearch = page.locator("[data-editor-search]").first();
+    await expect(editorSearch).toBeVisible();
+    await editorSearch.click();
+    const findPanel = page.locator("[data-markdown-find-panel]");
+    await expect(findPanel).toBeVisible();
+    const findInput = page.locator("[data-markdown-find-input]");
+    await expect(findInput).toBeFocused();
+    await findInput.fill("Architecture");
+    await expect(page.locator("[data-markdown-find-count]")).toContainText("/");
+    await page.screenshot({
+      path: `${ARTIFACTS_DIR}/markdown_preview_find.png`,
+    });
+    await page.keyboard.press("Escape");
+    await expect(findPanel).toHaveCount(0);
+    await page.keyboard.press("Control+f");
+    await expect(page.locator("[data-markdown-find-panel]")).toBeVisible({
+      timeout: 5_000,
+    });
+    await page.keyboard.press("Escape");
+
     const packageJson = filesSidecar.getByText("package.json", { exact: true }).first();
     await expect(packageJson).toBeVisible();
     await packageJson.dblclick();
