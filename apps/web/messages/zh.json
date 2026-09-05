@@ -1247,6 +1247,14 @@
       },
       "notesTitle": "笔记"
     },
+    "centerExplorer": {
+      "hideFiles": "隐藏文件目录",
+      "showFiles": "显示文件目录",
+      "hideChanges": "隐藏变更列表",
+      "showChanges": "显示变更列表",
+      "selectFile": "从右侧目录打开文件",
+      "selectChange": "从右侧变更列表打开 diff"
+    },
     "centerStageTabGroups": {
       "groups": {
         "terminal": "终端",

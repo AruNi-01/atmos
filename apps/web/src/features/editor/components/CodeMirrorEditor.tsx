@@ -46,6 +46,7 @@ import { useProjects } from '@/features/project/hooks/use-project-bootstrap-quer
 import { type FileTreeNode } from '@/api/ws-api';
 import { FileTree } from '@/features/files/components/FileTree';
 import { tryRelativePathUnderRoot } from '@/shared/lib/path-under-root';
+import { CenterExplorerToggle } from '@/app-shell/CenterExplorerToggle';
 
 /** Strip trailing slashes only — keep a leading `/` for absolute paths. */
 function stripTrailingSlashes(path: string): string {
@@ -103,6 +104,8 @@ interface CodeMirrorEditorProps {
   contextId?: string | null;
   /** False when mounted but not visible (inactive keepMounted editor tab — avoids orphaned floating overlays). */
   surfaceActive?: boolean;
+  /** Center-stage file tabs share a files directory sidecar. */
+  showFilesExplorerToggle?: boolean;
 }
 
 export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
@@ -110,6 +113,7 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
   className,
   contextId,
   surfaceActive = true,
+  showFilesExplorerToggle = false,
 }) => {
   const t = useTranslations("Editor.components");
   const mdLiveT = useTranslations("mdLive");
@@ -950,6 +954,9 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
 
                   {renderMarkdownPreviewButton(toolbarIconBtnClass)}
                   {renderEditorSettingsMenu(toolbarIconBtnClass)}
+                  {showFilesExplorerToggle ? (
+                    <CenterExplorerToggle kind="files" className={toolbarIconBtnClass} />
+                  ) : null}
                 </div>
                 ) : null}
               </div>

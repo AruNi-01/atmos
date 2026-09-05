@@ -20,8 +20,10 @@ import {
   getReviewGroupRevisionGuid,
   isConflictResolveEditorPath,
   isConflictResolveReadOnlyPath,
+  isDiffEditorPath,
   isReviewGroupEditorPath,
   useEditorStore,
+  type OpenFile,
 } from "@/features/editor/store/use-editor-store";
 import {
   FIXED_TERMINAL_TAB_VALUE,
@@ -61,6 +63,20 @@ import {
 } from "@/app-shell/center-pane/use-center-pane-slot-boxes";
 import { cn } from "@/shared/lib/utils";
 import { hostIdFromCenterKey } from "@/app-shell/center-space/center-space";
+import { CenterExplorerLanding } from "@/app-shell/CenterExplorerToggle";
+import { CenterExplorerSidecar } from "@/app-shell/CenterExplorerSidecar";
+import {
+  applyExplorerInsetToPanelStyle,
+  collectUniqueHostPaneIds,
+  explorerSidecarStyle,
+  isChangesExplorerSurfaceTab,
+  isFileExplorerSurfaceTab,
+  paneActiveTabId,
+  regularEditorFilePaths,
+  type CenterExplorerKind,
+} from "@/app-shell/center-explorer-layout";
+import { CHANGES_TAB_VALUE, FILES_TAB_VALUE } from "@/app-shell/center-tool-tabs";
+import { useCenterExplorerLayout } from "@/shared/stores/use-ui-pref-hooks";
 import {
   registerMdLiveTerminalGrid,
   unregisterMdLiveTerminalGrid,
@@ -204,6 +220,7 @@ const KeptRunScript = React.memo(RunScript);
 const KeptFileTreePanel = React.memo(FileTreePanel);
 
 export const EMPTY_MOUNTED_TAB_IDS: string[] = [];
+const EMPTY_OPEN_FILES: OpenFile[] = [];
 
 function multiPanePanelStyleForPane(
   visible: boolean,
@@ -346,6 +363,7 @@ function WorkspaceCenterFrameImpl({
   handleCloseGithubTab,
   onGithubPullRequestChanged,
 }: WorkspaceCenterFrameProps) {
+  const [explorerLayout, explorerLayoutActions] = useCenterExplorerLayout();
   // Warm path: read identity stores locally so host churn does not rebuild props.
   const storeTerminalTabs = useTerminalStore((s) => s.workspaceTerminalTabs[contextId]);
   const isProjectContext = useTerminalStore((s) => s.workspaceContexts[contextId] ?? false);
@@ -385,8 +403,8 @@ function WorkspaceCenterFrameImpl({
     : isProjectContext;
   const lastTab = readCenterStageLastTab(contextId);
   const contextOpenFiles = isUrlSyncedActive
-    ? (openFiles ?? [])
-    : (storeOpenFiles ?? []);
+    ? (openFiles ?? EMPTY_OPEN_FILES)
+    : (storeOpenFiles ?? EMPTY_OPEN_FILES);
   const contextGithubTabs = isUrlSyncedActive
     ? (githubTabs ?? [])
     : (storeGithubTabs ?? []);
@@ -472,6 +490,79 @@ function WorkspaceCenterFrameImpl({
 
   const hostedPaneIds = (tabId: string) =>
     hostPaneIdsForTab(tabId, tabHostPaneIds, tabToPaneId);
+
+  const regularFilePathSet = React.useMemo(
+    () => new Set(regularEditorFilePaths(contextOpenFiles)),
+    [contextOpenFiles],
+  );
+  const fileExplorerTabIds = React.useMemo(
+    () => [
+      ...(filesTabVisible ? [FILES_TAB_VALUE] : []),
+      ...regularFilePathSet,
+    ],
+    [filesTabVisible, regularFilePathSet],
+  );
+  const changesExplorerTabIds = React.useMemo(
+    () => [
+      ...(changesTabVisible ? [CHANGES_TAB_VALUE] : []),
+      ...contextOpenFiles
+        .filter((file) => isDiffGroupEditorPath(file.path))
+        .map((file) => file.path),
+    ],
+    [changesTabVisible, contextOpenFiles],
+  );
+  const fileExplorerHostPaneIds = collectUniqueHostPaneIds(
+    fileExplorerTabIds,
+    hostedPaneIds,
+  );
+  const changesExplorerHostPaneIds = collectUniqueHostPaneIds(
+    changesExplorerTabIds,
+    hostedPaneIds,
+  );
+
+  const explorerInsetForPane = React.useCallback(
+    (paneId: string | undefined, kind: CenterExplorerKind) => {
+      const activeTab = paneActiveTabId({
+        paneId,
+        paneActiveTabById,
+        frameActiveTab,
+      });
+      if (kind === "files") {
+        if (explorerLayout.filesCollapsed) return 0;
+        return isFileExplorerSurfaceTab(activeTab, regularFilePathSet)
+          ? explorerLayout.filesWidth
+          : 0;
+      }
+      if (explorerLayout.changesCollapsed) return 0;
+      return isChangesExplorerSurfaceTab(activeTab)
+        ? explorerLayout.changesWidth
+        : 0;
+    },
+    [
+      explorerLayout.changesCollapsed,
+      explorerLayout.changesWidth,
+      explorerLayout.filesCollapsed,
+      explorerLayout.filesWidth,
+      frameActiveTab,
+      paneActiveTabById,
+      regularFilePathSet,
+    ],
+  );
+
+  const panelStyleWithExplorer = React.useCallback(
+    (
+      panelTabId: string,
+      visible: boolean,
+      paneId: string | undefined,
+      kind: CenterExplorerKind,
+    ) =>
+      applyExplorerInsetToPanelStyle(
+        panelStyle(panelTabId, visible, paneId),
+        explorerInsetForPane(paneId ?? tabToPaneId?.[panelTabId], kind),
+        !multiActiveTabIds,
+      ),
+    [explorerInsetForPane, multiActiveTabIds, panelStyle, tabToPaneId],
+  );
 
   const planReady = mountPlan.mounted.length > 0;
   const keptGithubTabValuesRef = React.useRef<Set<string>>(new Set());
@@ -692,13 +783,20 @@ function WorkspaceCenterFrameImpl({
             aria-hidden={!visible}
             inert={!visible ? true : undefined}
             className={cn(lightSurfacePanelClass(visible), interactivePaneClass(visible))}
-            style={panelStyle(file.path, visible, paneId)}
+            style={
+              isDiffGroupEditorPath(file.path)
+                ? panelStyleWithExplorer(file.path, visible, paneId, "changes")
+                : isDiffEditorPath(file.path) || isConflictResolveEditorPath(file.path)
+                  ? panelStyle(file.path, visible, paneId)
+                  : panelStyleWithExplorer(file.path, visible, paneId, "files")
+            }
           >
             {isDiffGroupEditorPath(file.path) && currentRepoPath && isUrlSyncedActive ? (
               <KeptChangesCodeView
                 repoPath={currentRepoPath}
                 groupPath={file.path}
                 contextId={contextId}
+                showChangesExplorerToggle
               />
             ) : isReviewGroupEditorPath(file.path) && isUrlSyncedActive ? (
               <ReviewContextProvider
@@ -739,6 +837,7 @@ function WorkspaceCenterFrameImpl({
                 className="flex-1"
                 contextId={contextId}
                 surfaceActive={isActiveContext}
+                showFilesExplorerToggle
               />
             )}
           </div>
@@ -926,21 +1025,10 @@ function WorkspaceCenterFrameImpl({
           aria-hidden={!visible}
           inert={!visible ? true : undefined}
           className={cn(lightSurfacePanelClass(visible), interactivePaneClass(visible))}
-          style={panelStyle("changes", visible, paneId)}
+          style={panelStyleWithExplorer("changes", visible, paneId, "changes")}
         >
           <DiscardableHeavySurface active={isActiveContext && visible}>
-          <KeptChangesPanel
-            contextId={contextId}
-            currentProject={isUrlSyncedActive ? currentProject : undefined}
-            currentProjectPath={isUrlSyncedActive ? (currentRepoPath ?? null) : null}
-            currentWorkspace={isUrlSyncedActive ? currentWorkspace : undefined}
-            projectId={isUrlSyncedActive ? (currentProject?.id ?? null) : null}
-            workspaceId={
-              isUrlSyncedActive && currentView === "workspace"
-                ? (currentWorkspace?.id ?? null)
-                : null
-            }
-          />
+          <CenterExplorerLanding kind="changes" />
           </DiscardableHeavySurface>
         </div>
           );
@@ -1025,22 +1113,10 @@ function WorkspaceCenterFrameImpl({
           aria-hidden={!visible}
           inert={!visible ? true : undefined}
           className={cn(lightSurfacePanelClass(visible), interactivePaneClass(visible))}
-          style={panelStyle("files", visible, paneId)}
+          style={panelStyleWithExplorer("files", visible, paneId, "files")}
         >
           <DiscardableHeavySurface active={isActiveContext && visible}>
-          <KeptFileTreePanel
-            projectName={isUrlSyncedActive ? currentProject?.name : undefined}
-            rootPath={
-              isUrlSyncedActive
-                ? (currentWorkspace?.localPath ?? currentProject?.mainFilePath ?? null)
-                : undefined
-            }
-            currentProjectPath={
-              isUrlSyncedActive ? (currentRepoPath ?? currentWorkspace?.localPath ?? null) : null
-            }
-            contextId={contextId}
-            revealEnabled={isActiveContext}
-          />
+          <CenterExplorerLanding kind="files" />
           </DiscardableHeavySurface>
         </div>
           );
@@ -1064,6 +1140,102 @@ function WorkspaceCenterFrameImpl({
         </div>
           );
         })}
+
+      {fileExplorerHostPaneIds.map((paneId) => {
+        const activeTab = paneActiveTabId({
+          paneId,
+          paneActiveTabById,
+          frameActiveTab,
+        });
+        const showing = isFileExplorerSurfaceTab(activeTab, regularFilePathSet);
+        const hiddenByFullscreen = paneHiddenByCenterFullscreen(
+          fullscreenPaneId,
+          paneId,
+        );
+        const takingSpace = showing && !hiddenByFullscreen && !explorerLayout.filesCollapsed;
+        return (
+          <CenterExplorerSidecar
+            key={`${contextId}-files-explorer-${paneId ?? "root"}`}
+            kind="files"
+            width={explorerLayout.filesWidth}
+            takingSpace={takingSpace}
+            interactive={Boolean(multiActiveTabIds && showing && isActiveContext)}
+            onWidthChange={(next) => explorerLayoutActions.setWidth("files", next)}
+            style={explorerSidecarStyle({
+              singlePane: !multiActiveTabIds,
+              box: paneId ? paneSlotBoxes?.[paneId] : null,
+              width: explorerLayout.filesWidth,
+              takingSpace,
+              radius: CENTER_STAGE_RADIUS_CSS,
+            })}
+          >
+            <DiscardableHeavySurface active={isActiveContext && showing}>
+              <KeptFileTreePanel
+                projectName={isUrlSyncedActive ? currentProject?.name : undefined}
+                rootPath={
+                  isUrlSyncedActive
+                    ? (currentWorkspace?.localPath ?? currentProject?.mainFilePath ?? null)
+                    : undefined
+                }
+                currentProjectPath={
+                  isUrlSyncedActive
+                    ? (currentRepoPath ?? currentWorkspace?.localPath ?? null)
+                    : null
+                }
+                contextId={contextId}
+                revealEnabled={isActiveContext}
+              />
+            </DiscardableHeavySurface>
+          </CenterExplorerSidecar>
+        );
+      })}
+
+      {changesExplorerHostPaneIds.map((paneId) => {
+        const activeTab = paneActiveTabId({
+          paneId,
+          paneActiveTabById,
+          frameActiveTab,
+        });
+        const showing = isChangesExplorerSurfaceTab(activeTab);
+        const hiddenByFullscreen = paneHiddenByCenterFullscreen(
+          fullscreenPaneId,
+          paneId,
+        );
+        const takingSpace =
+          showing && !hiddenByFullscreen && !explorerLayout.changesCollapsed;
+        return (
+          <CenterExplorerSidecar
+            key={`${contextId}-changes-explorer-${paneId ?? "root"}`}
+            kind="changes"
+            width={explorerLayout.changesWidth}
+            takingSpace={takingSpace}
+            interactive={Boolean(multiActiveTabIds && showing && isActiveContext)}
+            onWidthChange={(next) => explorerLayoutActions.setWidth("changes", next)}
+            style={explorerSidecarStyle({
+              singlePane: !multiActiveTabIds,
+              box: paneId ? paneSlotBoxes?.[paneId] : null,
+              width: explorerLayout.changesWidth,
+              takingSpace,
+              radius: CENTER_STAGE_RADIUS_CSS,
+            })}
+          >
+            <DiscardableHeavySurface active={isActiveContext && showing}>
+              <KeptChangesPanel
+                contextId={contextId}
+                currentProject={isUrlSyncedActive ? currentProject : undefined}
+                currentProjectPath={isUrlSyncedActive ? (currentRepoPath ?? null) : null}
+                currentWorkspace={isUrlSyncedActive ? currentWorkspace : undefined}
+                projectId={isUrlSyncedActive ? (currentProject?.id ?? null) : null}
+                workspaceId={
+                  isUrlSyncedActive && currentView === "workspace"
+                    ? (currentWorkspace?.id ?? null)
+                    : null
+                }
+              />
+            </DiscardableHeavySurface>
+          </CenterExplorerSidecar>
+        );
+      })}
     </div>
   );
 }

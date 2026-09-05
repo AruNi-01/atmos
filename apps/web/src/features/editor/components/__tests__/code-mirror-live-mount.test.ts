@@ -25,6 +25,8 @@ describe("CodeMirrorEditor live mount", () => {
     expect(source).not.toContain("showFloatingMarkdownEditorChrome");
     expect(source).not.toContain("setBreadcrumbs");
     expect(source).not.toContain("breadcrumbs && !isPreview");
+    expect(source).toContain("showFilesExplorerToggle");
+    expect(source).toContain('<CenterExplorerToggle kind="files"');
   });
 
   test("opens markdown source view when jumping to a line selection", () => {

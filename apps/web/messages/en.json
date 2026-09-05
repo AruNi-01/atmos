@@ -1247,6 +1247,14 @@
       },
       "notesTitle": "Notes"
     },
+    "centerExplorer": {
+      "hideFiles": "Hide files",
+      "showFiles": "Show files",
+      "hideChanges": "Hide changes",
+      "showChanges": "Show changes",
+      "selectFile": "Open a file from the directory",
+      "selectChange": "Select a change to view the diff"
+    },
     "centerStageTabGroups": {
       "groups": {
         "terminal": "Terminal",

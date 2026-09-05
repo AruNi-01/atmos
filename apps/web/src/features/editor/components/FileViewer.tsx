@@ -14,6 +14,7 @@ import { useTheme } from 'next-themes';
 import { cn, Button } from '@workspace/ui';
 import { getRuntimeApiConfig, httpBase } from '@/shared/lib/desktop-runtime';
 import CodeMirrorEditor from './CodeMirrorEditor';
+import { CenterExplorerToggle } from '@/app-shell/CenterExplorerToggle';
 
 
 interface FileViewerProps {
@@ -22,6 +23,8 @@ interface FileViewerProps {
   contextId?: string | null;
   /** False when this tab is mounted but not active (see CenterStage keepMounted file tabs). */
   surfaceActive?: boolean;
+  /** Center-stage editor tabs share a files directory sidecar. */
+  showFilesExplorerToggle?: boolean;
 }
 
 const UnsupportedView: React.FC<{ fileName: string; uri: string; ext?: string }> = ({ fileName, uri, ext }) => {
@@ -212,7 +215,13 @@ const NativeFileViewer: React.FC<{ ext: string; uri: string; fileName: string; o
   return <UnsupportedView fileName={fileName} uri={uri} ext={ext} />;
 }
 
-export const FileViewer: React.FC<FileViewerProps> = ({ file, className, contextId, surfaceActive = true }) => {
+export const FileViewer: React.FC<FileViewerProps> = ({
+  file,
+  className,
+  contextId,
+  surfaceActive = true,
+  showFilesExplorerToggle = false,
+}) => {
   const { resolvedTheme } = useTheme();
   const [errorFilePath, setErrorFilePath] = useState<string | null>(null);
   const hasError = errorFilePath === file.path;
@@ -256,7 +265,19 @@ export const FileViewer: React.FC<FileViewerProps> = ({ file, className, context
     const isSupported = NATIVE_SUPPORTED.includes(ext);
 
     if (hasError || !isSupported) {
-      return <UnsupportedView fileName={file.name} uri={uri} ext={ext} />;
+      return (
+        <div className={cn("relative h-full w-full", className)}>
+          {showFilesExplorerToggle ? (
+            <div className="absolute top-1.5 right-2 z-20">
+              <CenterExplorerToggle
+                kind="files"
+                className="flex size-6 items-center justify-center rounded bg-background/80 text-muted-foreground shadow-sm backdrop-blur hover:bg-accent hover:text-foreground cursor-pointer select-none"
+              />
+            </div>
+          ) : null}
+          <UnsupportedView fileName={file.name} uri={uri} ext={ext} />
+        </div>
+      );
     }
 
     return (
@@ -266,6 +287,14 @@ export const FileViewer: React.FC<FileViewerProps> = ({ file, className, context
           backgroundColor: resolvedTheme === 'dark' ? '#09090b' : '#ffffff'
         }}
       >
+        {showFilesExplorerToggle ? (
+          <div className="absolute top-1.5 right-2 z-20">
+            <CenterExplorerToggle
+              kind="files"
+              className="flex size-6 items-center justify-center rounded bg-background/80 text-muted-foreground shadow-sm backdrop-blur hover:bg-accent hover:text-foreground cursor-pointer select-none"
+            />
+          </div>
+        ) : null}
         <NativeFileViewer
           key={uri} // Remount on file change
           ext={ext}
@@ -283,6 +312,7 @@ export const FileViewer: React.FC<FileViewerProps> = ({ file, className, context
       className={cn("min-h-0 overflow-hidden", className)}
       contextId={contextId}
       surfaceActive={surfaceActive}
+      showFilesExplorerToggle={showFilesExplorerToggle}
     />
   );
 };

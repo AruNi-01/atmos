@@ -241,6 +241,22 @@ export interface CenterStageUiPrefs {
   tabStripOrderByContext: Record<string, string[]>;
   /** @deprecated Kept for reading old prefs only; pin feature removed. */
   pinnedTabsByContext?: Record<string, Record<string, number>>;
+  filesExplorerCollapsed?: boolean;
+  filesExplorerWidth?: number;
+  changesExplorerCollapsed?: boolean;
+  changesExplorerWidth?: number;
+}
+
+const CENTER_EXPLORER_DEFAULT_WIDTH = 260;
+const CENTER_EXPLORER_MIN_WIDTH = 180;
+const CENTER_EXPLORER_MAX_WIDTH = 480;
+
+function clampStoredExplorerWidth(width: number): number {
+  if (!Number.isFinite(width)) return CENTER_EXPLORER_DEFAULT_WIDTH;
+  return Math.min(
+    CENTER_EXPLORER_MAX_WIDTH,
+    Math.max(CENTER_EXPLORER_MIN_WIDTH, Math.round(width)),
+  );
 }
 
 const DEFAULT_CENTER_STAGE: CenterStageUiPrefs = {
@@ -248,7 +264,105 @@ const DEFAULT_CENTER_STAGE: CenterStageUiPrefs = {
   wikiPageByContext: {},
   tabGroupOrderByContext: {},
   tabStripOrderByContext: {},
+  filesExplorerCollapsed: false,
+  filesExplorerWidth: CENTER_EXPLORER_DEFAULT_WIDTH,
+  changesExplorerCollapsed: false,
+  changesExplorerWidth: CENTER_EXPLORER_DEFAULT_WIDTH,
 };
+
+export type CenterExplorerKindPref = 'files' | 'changes';
+
+export type CenterExplorerLayoutPrefs = {
+  filesCollapsed: boolean;
+  filesWidth: number;
+  changesCollapsed: boolean;
+  changesWidth: number;
+};
+
+function explorerLayoutFromSlice(slice: CenterStageUiPrefs): CenterExplorerLayoutPrefs {
+  return {
+    filesCollapsed: slice.filesExplorerCollapsed === true,
+    filesWidth: clampStoredExplorerWidth(
+      slice.filesExplorerWidth ?? CENTER_EXPLORER_DEFAULT_WIDTH,
+    ),
+    changesCollapsed: slice.changesExplorerCollapsed === true,
+    changesWidth: clampStoredExplorerWidth(
+      slice.changesExplorerWidth ?? CENTER_EXPLORER_DEFAULT_WIDTH,
+    ),
+  };
+}
+
+export function useCenterExplorerLayout(): [
+  CenterExplorerLayoutPrefs,
+  {
+    setCollapsed: (kind: CenterExplorerKindPref, collapsed: boolean) => void;
+    toggleCollapsed: (kind: CenterExplorerKindPref) => void;
+    setWidth: (kind: CenterExplorerKindPref, width: number) => void;
+  },
+] {
+  const prefs = useCenterStageUiPrefs();
+  const layout = explorerLayoutFromSlice(prefs);
+
+  const setCollapsed = useCallback((kind: CenterExplorerKindPref, collapsed: boolean) => {
+    const instanceId = useConnectionStore.getState().activeInstanceId;
+    useUiPrefStore.getState().patchSlice(
+      instanceId,
+      'centerStage',
+      (prev) =>
+        kind === 'files'
+          ? { ...prev, filesExplorerCollapsed: collapsed }
+          : { ...prev, changesExplorerCollapsed: collapsed },
+      DEFAULT_CENTER_STAGE,
+    );
+  }, []);
+
+  const toggleCollapsed = useCallback((kind: CenterExplorerKindPref) => {
+    const instanceId = useConnectionStore.getState().activeInstanceId;
+    useUiPrefStore.getState().patchSlice(
+      instanceId,
+      'centerStage',
+      (prev) => {
+        const current = explorerLayoutFromSlice(prev);
+        return kind === 'files'
+          ? { ...prev, filesExplorerCollapsed: !current.filesCollapsed }
+          : { ...prev, changesExplorerCollapsed: !current.changesCollapsed };
+      },
+      DEFAULT_CENTER_STAGE,
+    );
+  }, []);
+
+  const setWidth = useCallback((kind: CenterExplorerKindPref, width: number) => {
+    const next = clampStoredExplorerWidth(width);
+    const instanceId = useConnectionStore.getState().activeInstanceId;
+    useUiPrefStore.getState().patchSlice(
+      instanceId,
+      'centerStage',
+      (prev) =>
+        kind === 'files'
+          ? { ...prev, filesExplorerWidth: next }
+          : { ...prev, changesExplorerWidth: next },
+      DEFAULT_CENTER_STAGE,
+    );
+  }, []);
+
+  return [layout, { setCollapsed, toggleCollapsed, setWidth }];
+}
+
+export function setCenterExplorerCollapsed(
+  kind: CenterExplorerKindPref,
+  collapsed: boolean,
+): void {
+  const instanceId = useConnectionStore.getState().activeInstanceId;
+  useUiPrefStore.getState().patchSlice(
+    instanceId,
+    'centerStage',
+    (prev) =>
+      kind === 'files'
+        ? { ...prev, filesExplorerCollapsed: collapsed }
+        : { ...prev, changesExplorerCollapsed: collapsed },
+    DEFAULT_CENTER_STAGE,
+  );
+}
 
 export function useCenterStageUiPrefs(): CenterStageUiPrefs {
   const instanceId = useActiveInstanceId();
