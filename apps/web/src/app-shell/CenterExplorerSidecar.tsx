@@ -44,6 +44,7 @@ export function CenterExplorerSidecar({
         <div
           role="separator"
           aria-orientation="vertical"
+          data-center-explorer-resize=""
           className="absolute inset-y-0 left-0 z-10 w-px cursor-col-resize bg-transparent before:absolute before:inset-y-0 before:-left-1 before:w-2 before:content-[''] hover:bg-border"
           onMouseDown={(event) => {
             event.preventDefault();

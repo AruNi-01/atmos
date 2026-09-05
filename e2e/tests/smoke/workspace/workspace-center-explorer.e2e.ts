@@ -1,5 +1,6 @@
 import type { Locator, Page } from "@playwright/test";
 import { expect, test } from "../../../fixtures/test";
+import { repoRoot } from "../../../fixtures/app-server";
 import {
   activateWorkspaceToolTab,
   buildProjectWorkspaceDeepLink,
@@ -9,8 +10,24 @@ import {
   stubComputerClientSettingsApi,
   withSearchParams,
 } from "../support/app-smoke";
+import { unlinkSync, writeFileSync } from "node:fs";
+import path from "node:path";
 
 const ARTIFACTS_DIR = "/opt/cursor/artifacts";
+const CHANGE_SEED_RELATIVE = ".e2e-center-explorer-change.txt";
+const CHANGE_SEED_PATH = path.join(repoRoot, CHANGE_SEED_RELATIVE);
+
+function seedWorkingTreeChange() {
+  writeFileSync(CHANGE_SEED_PATH, "e2e-center-explorer-change\n");
+}
+
+function clearWorkingTreeChange() {
+  try {
+    unlinkSync(CHANGE_SEED_PATH);
+  } catch {
+    // already gone
+  }
+}
 
 async function expectSidecarOnRight(
   page: Page,
@@ -58,15 +75,18 @@ async function resizeSidecar(
   const sidecar = page.locator(`[data-center-explorer="${kind}"]`);
   const box = await sidecar.boundingBox();
   expect(box, `${kind} sidecar box before resize`).toBeTruthy();
-  const start = box!;
-  const y = start.y + Math.min(48, Math.max(8, start.height / 2));
-  await page.mouse.move(start.x + 1, y);
+  const before = box!;
+  const handle = sidecar.locator("[data-center-explorer-resize]");
+  const handleBox = await handle.boundingBox();
+  const grab = handleBox ?? before;
+  const y = grab.y + Math.min(48, Math.max(8, grab.height / 2));
+  await page.mouse.move(grab.x + 1, y);
   await page.mouse.down();
-  await page.mouse.move(start.x + 1 + deltaX, y, { steps: 8 });
+  await page.mouse.move(grab.x + 1 + deltaX, y, { steps: 8 });
   await page.mouse.up();
   const next = await sidecar.boundingBox();
   expect(next, `${kind} sidecar box after resize`).toBeTruthy();
-  return { before: start, after: next! };
+  return { before, after: next! };
 }
 
 function explorerToggleBeside(control: Locator, kind: "files" | "changes") {
@@ -110,10 +130,15 @@ test.use({
 });
 
 test.describe("smoke workspace center explorer", () => {
+  test.afterAll(() => {
+    clearWorkingTreeChange();
+  });
+
   test(
     "@smoke @stateful docks files and changes as a shared right sidecar",
     { timeout: 180_000 },
     async ({ page }) => {
+    seedWorkingTreeChange();
     await stubComputerClientSettingsApi(page);
     await stubExplorerNoiseRoutes(page);
     await connectLocalComputer(page, { locale: "en" });
@@ -251,9 +276,7 @@ test.describe("smoke workspace center explorer", () => {
 
     const changesSidecar = page.locator('[data-center-explorer="changes"]');
     await expect(changesSidecar).toHaveCount(1);
-    const changeFile = changesSidecar.locator("div.cursor-pointer").filter({
-      has: page.locator("span"),
-    }).first();
+    const changeFile = changesSidecar.getByText(CHANGE_SEED_RELATIVE, { exact: true });
     await expect(changeFile).toBeVisible({ timeout: 45_000 });
     await changeFile.click();
 
