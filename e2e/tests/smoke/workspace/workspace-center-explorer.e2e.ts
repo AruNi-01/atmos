@@ -16,8 +16,17 @@ async function expectSidecarOnRight(
   page: Page,
   kind: "files" | "changes",
 ) {
-  const sidecar = page.locator(`[data-center-explorer="${kind}"][data-center-explorer-open="true"]`);
-  await expect(sidecar).toBeVisible({ timeout: 45_000 });
+  const sidecar = page.locator(`[data-center-explorer="${kind}"]`);
+  const landing = page.locator(`[data-center-explorer-landing="${kind}"]`);
+  const toggle = landing.locator(`[data-center-explorer-toggle="${kind}"]`);
+  if ((await sidecar.getAttribute("data-center-explorer-open")) !== "true") {
+    if (await toggle.isVisible().catch(() => false)) {
+      await toggle.click({ timeout: 5_000 }).catch(() => undefined);
+    }
+  }
+  await expect(sidecar).toHaveAttribute("data-center-explorer-open", "true", {
+    timeout: 45_000,
+  });
   const stage = await getCenterStage(page);
   const sidecarBox = await sidecar.boundingBox();
   const stageBox = await stage.boundingBox();
@@ -89,6 +98,10 @@ test.describe("smoke workspace center explorer", () => {
     await expect(page.getByRole("tab", { name: /^(Files|文件)$/ })).toBeVisible({
       timeout: 45_000,
     });
+    await page.getByRole("tab", { name: /^(Files|文件)$/ }).click();
+    await expect
+      .poll(async () => page.getByRole("tab", { name: /^(Files|文件)$/ }).getAttribute("aria-selected"))
+      .toBe("true");
     const filesLanding = page.locator('[data-center-explorer-landing="files"]');
     await expect(filesLanding.locator("[data-center-explorer-search]")).toBeVisible({
       timeout: 20_000,
@@ -99,9 +112,7 @@ test.describe("smoke workspace center explorer", () => {
     const search = filesLanding.locator("[data-center-explorer-search]");
     await search.fill(".agents");
     await expect(
-      filesLanding.locator('[data-center-explorer-row="search-dir"]').filter({
-        hasText: ".agents",
-      }),
+      filesLanding.getByRole("button", { name: ".agents", exact: true }),
     ).toBeVisible({ timeout: 20_000 });
     await page.screenshot({
       path: `${ARTIFACTS_DIR}/files_sidecar_landing.png`,
