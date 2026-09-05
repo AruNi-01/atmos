@@ -9,6 +9,13 @@ import {
 } from '@/features/connection/lib/connection-instance';
 import { getActiveInstanceId, useConnectionStore } from '@/features/connection/store/connection-store';
 import { useUiPrefStore, type UiPrefSlice } from '@/shared/stores/use-ui-pref-store';
+import {
+  fileRecentsEqual,
+  upsertFileRecents,
+  type CenterFileRecent,
+} from '@/shared/lib/center-file-recents';
+
+export type { CenterFileRecent };
 
 function useActiveInstanceId() {
   return useConnectionStore(s => s.activeInstanceId);
@@ -245,6 +252,7 @@ export interface CenterStageUiPrefs {
   filesExplorerWidth?: number;
   changesExplorerCollapsed?: boolean;
   changesExplorerWidth?: number;
+  fileRecentsByContext?: Record<string, CenterFileRecent[]>;
 }
 
 const CENTER_EXPLORER_DEFAULT_WIDTH = 260;
@@ -268,7 +276,10 @@ const DEFAULT_CENTER_STAGE: CenterStageUiPrefs = {
   filesExplorerWidth: CENTER_EXPLORER_DEFAULT_WIDTH,
   changesExplorerCollapsed: false,
   changesExplorerWidth: CENTER_EXPLORER_DEFAULT_WIDTH,
+  fileRecentsByContext: {},
 };
+
+const EMPTY_CENTER_FILE_RECENTS: CenterFileRecent[] = [];
 
 export type CenterExplorerKindPref = 'files' | 'changes';
 
@@ -360,6 +371,37 @@ export function setCenterExplorerCollapsed(
       kind === 'files'
         ? { ...prev, filesExplorerCollapsed: collapsed }
         : { ...prev, changesExplorerCollapsed: collapsed },
+    DEFAULT_CENTER_STAGE,
+  );
+}
+
+export function useCenterFileRecents(contextId: string): CenterFileRecent[] {
+  const prefs = useCenterStageUiPrefs();
+  return prefs.fileRecentsByContext?.[contextId] ?? EMPTY_CENTER_FILE_RECENTS;
+}
+
+export function recordCenterFileRecents(
+  contextId: string,
+  incoming: readonly CenterFileRecent[],
+): void {
+  if (!contextId || incoming.length === 0) return;
+  const instanceId = useConnectionStore.getState().activeInstanceId;
+  const prev = useUiPrefStore
+    .getState()
+    .readSlice(instanceId, 'centerStage', DEFAULT_CENTER_STAGE);
+  const current = prev.fileRecentsByContext?.[contextId] ?? EMPTY_CENTER_FILE_RECENTS;
+  const next = upsertFileRecents(current, incoming);
+  if (fileRecentsEqual(current, next)) return;
+  useUiPrefStore.getState().patchSlice(
+    instanceId,
+    'centerStage',
+    (slice) => ({
+      ...slice,
+      fileRecentsByContext: {
+        ...(slice.fileRecentsByContext ?? {}),
+        [contextId]: next,
+      },
+    }),
     DEFAULT_CENTER_STAGE,
   );
 }

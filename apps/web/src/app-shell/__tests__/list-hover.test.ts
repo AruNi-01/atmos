@@ -38,12 +38,22 @@ const gitHistoryRow = readFileSync(
   join(import.meta.dir, "../../features/git/components/git-history-row.tsx"),
   "utf8",
 );
+const centerExplorerLanding = readFileSync(
+  join(import.meta.dir, "../CenterExplorerLanding.tsx"),
+  "utf8",
+);
 const centerPaneEmptyState = readFileSync(
   join(import.meta.dir, "../center-pane/CenterPaneEmptyState.tsx"),
   "utf8",
 );
 
 describe("center list hover", () => {
+  it("uses instant hover on files and changes explorer empty-state rows", () => {
+    expect(centerExplorerLanding).toContain("hover:bg-sidebar-accent/50");
+    expect(centerExplorerLanding).not.toContain("transition-colors");
+    expect(centerExplorerLanding).not.toContain("duration-200");
+  });
+
   it("uses instant hover on split-pane empty launcher rows", () => {
     const rowClass = centerPaneEmptyState.slice(
       centerPaneEmptyState.indexOf("function EmptyPaneTypeButton"),

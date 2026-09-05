@@ -54,7 +54,11 @@ import {
 } from "@/app-shell/workspace-surface-policies";
 import { DiscardableHeavySurface } from "@/app-shell/discardable-github-surface";
 import { GithubKeptSurface } from "@/app-shell/keep-alive-center-views";
-import { readCenterStageLastTab } from "@/shared/stores/use-ui-pref-hooks";
+import {
+  readCenterStageLastTab,
+  recordCenterFileRecents,
+  useCenterExplorerLayout,
+} from "@/shared/stores/use-ui-pref-hooks";
 import { CENTER_STAGE_RADIUS_CSS } from "@/app-shell/sidebar-layout-constants";
 import { paneHiddenByCenterFullscreen } from "@/app-shell/center-stage-fullscreen";
 import {
@@ -63,7 +67,7 @@ import {
 } from "@/app-shell/center-pane/use-center-pane-slot-boxes";
 import { cn } from "@/shared/lib/utils";
 import { hostIdFromCenterKey } from "@/app-shell/center-space/center-space";
-import { CenterExplorerLanding } from "@/app-shell/CenterExplorerToggle";
+import { CenterExplorerLanding } from "@/app-shell/CenterExplorerLanding";
 import { CenterExplorerSidecar } from "@/app-shell/CenterExplorerSidecar";
 import {
   applyExplorerInsetToPanelStyle,
@@ -76,7 +80,7 @@ import {
   type CenterExplorerKind,
 } from "@/app-shell/center-explorer-layout";
 import { CHANGES_TAB_VALUE, FILES_TAB_VALUE } from "@/app-shell/center-tool-tabs";
-import { useCenterExplorerLayout } from "@/shared/stores/use-ui-pref-hooks";
+import { fileRecentsFromOpenFiles } from "@/app-shell/center-explorer-landing";
 import {
   registerMdLiveTerminalGrid,
   unregisterMdLiveTerminalGrid,
@@ -405,6 +409,14 @@ function WorkspaceCenterFrameImpl({
   const contextOpenFiles = isUrlSyncedActive
     ? (openFiles ?? EMPTY_OPEN_FILES)
     : (storeOpenFiles ?? EMPTY_OPEN_FILES);
+  const explorerRootPath = isUrlSyncedActive
+    ? (currentWorkspace?.localPath ?? currentProject?.mainFilePath ?? null)
+    : null;
+  const explorerRepoPath = isUrlSyncedActive ? (currentRepoPath ?? null) : null;
+
+  React.useEffect(() => {
+    recordCenterFileRecents(contextId, fileRecentsFromOpenFiles(contextOpenFiles));
+  }, [contextId, contextOpenFiles]);
   const contextGithubTabs = isUrlSyncedActive
     ? (githubTabs ?? [])
     : (storeGithubTabs ?? []);
@@ -1028,7 +1040,11 @@ function WorkspaceCenterFrameImpl({
           style={panelStyleWithExplorer("changes", visible, paneId, "changes")}
         >
           <DiscardableHeavySurface active={isActiveContext && visible}>
-          <CenterExplorerLanding kind="changes" />
+          <CenterExplorerLanding
+            kind="changes"
+            contextId={contextId}
+            repoPath={explorerRepoPath}
+          />
           </DiscardableHeavySurface>
         </div>
           );
@@ -1116,7 +1132,11 @@ function WorkspaceCenterFrameImpl({
           style={panelStyleWithExplorer("files", visible, paneId, "files")}
         >
           <DiscardableHeavySurface active={isActiveContext && visible}>
-          <CenterExplorerLanding kind="files" />
+          <CenterExplorerLanding
+            kind="files"
+            contextId={contextId}
+            rootPath={explorerRootPath}
+          />
           </DiscardableHeavySurface>
         </div>
           );
@@ -1159,7 +1179,7 @@ function WorkspaceCenterFrameImpl({
             kind="files"
             width={explorerLayout.filesWidth}
             takingSpace={takingSpace}
-            interactive={Boolean(multiActiveTabIds && showing && isActiveContext)}
+            interactive={Boolean(showing && isActiveContext)}
             onWidthChange={(next) => explorerLayoutActions.setWidth("files", next)}
             style={explorerSidecarStyle({
               singlePane: !multiActiveTabIds,
@@ -1209,7 +1229,7 @@ function WorkspaceCenterFrameImpl({
             kind="changes"
             width={explorerLayout.changesWidth}
             takingSpace={takingSpace}
-            interactive={Boolean(multiActiveTabIds && showing && isActiveContext)}
+            interactive={Boolean(showing && isActiveContext)}
             onWidthChange={(next) => explorerLayoutActions.setWidth("changes", next)}
             style={explorerSidecarStyle({
               singlePane: !multiActiveTabIds,
