@@ -3412,6 +3412,7 @@
         "searchingFor": "正在搜索 {query}",
         "webSearch": "网络搜索",
         "imageGen": "图片",
+        "imagePreview": "放大图片",
         "resultCount": "{count} 条结果",
         "sources": "来源",
         "fetchUrl": "摄取 {host}",

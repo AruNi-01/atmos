@@ -149,7 +149,7 @@ async fn live_grok_tool_ui_probe() {
                     .expect("respond_permission");
             }
             AgentEvent::TurnCompleted { stop: reason, .. } => {
-                stop = Some(reason.clone());
+                stop = Some(*reason);
                 break;
             }
             AgentEvent::TurnFailed { error, .. } => {

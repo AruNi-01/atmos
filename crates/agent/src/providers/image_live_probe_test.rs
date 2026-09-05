@@ -143,11 +143,8 @@ impl AcpToolHandler for LiveFsHandler {
         if resolved.starts_with(&session_cwd) {
             resolved
         } else {
-            session_cwd.join(
-                resolved
-                    .file_name()
-                    .unwrap_or_else(|| std::ffi::OsStr::new("denied")),
-            )
+            // Fail closed: never rebase outside (symlink) targets by basename.
+            session_cwd.join("denied")
         }
     }
 
@@ -258,7 +255,7 @@ async fn drain_turn(
                 turn_id: completed,
                 stop: completed_stop,
             } if *completed == turn_id => {
-                stop = Some(completed_stop.clone());
+                stop = Some(*completed_stop);
                 break;
             }
             AgentEvent::TurnFailed { error, .. } => {

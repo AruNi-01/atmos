@@ -176,6 +176,7 @@ async fn live_codex_tool_ui_probe() {
     );
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn drain_turn(
     runtime: &mut Box<dyn AgentRuntime>,
     control: &AgentRuntimeControl,

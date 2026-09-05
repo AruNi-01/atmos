@@ -11,6 +11,7 @@ import type { AgentToolCallPart } from "@/features/agent/lib/agent-tool-kind";
 import { isActiveToolStatus } from "@/features/agent/lib/agent-tool-kind";
 import { composerFileUrlFromPath } from "@/features/agent/lib/agent-composer-attachment";
 import { getRuntimeApiConfig, httpBase } from "@/shared/lib/desktop-runtime";
+import { ImagePreviewOverlay } from "@/shared/components/image-preview-overlay";
 import { AgentToolCard, AgentToolFileChip, type AgentToolSurface } from "./AgentToolCard";
 
 type ImageRef = {
@@ -86,6 +87,8 @@ export function AgentToolImageGen({
     base: string;
     token?: string | null;
   } | null>(null);
+  const [open, setOpen] = useState(() => isActiveToolStatus(part.status));
+  const [preview, setPreview] = useState<{ src: string; alt: string } | null>(null);
   const prompt =
     part.params?.type === "image_gen" ? part.params.prompt.trim() : "";
   const aspect =
@@ -100,6 +103,11 @@ export function AgentToolImageGen({
     }
     return Boolean(image.path?.trim());
   });
+  const generating = isActiveToolStatus(part.status);
+
+  useEffect(() => {
+    if (generating) setOpen(true);
+  }, [generating]);
 
   useEffect(() => {
     if (!needsFileApi) return;
@@ -122,50 +130,75 @@ export function AgentToolImageGen({
     part.params?.type === "image_gen" && part.params.path
       ? part.params.path
       : images.find((image) => image.path)?.path;
+  const previewAlt = prompt || title;
 
   return (
-    <AgentToolCard
-      variant="tool"
-      surface={surface}
-      body="plain"
-      tone={status === "error" ? "error" : "default"}
-      icon={<ImageIcon className="size-4" />}
-      title={title}
-      accessory={pathChip ? <AgentToolFileChip path={pathChip} /> : null}
-      status={part.status ?? undefined}
-    >
-      <div className="flex flex-col gap-3 px-2 pb-2">
-        {images.length === 0 ? (
-          <ImageGeneration
-            status={status}
-            prompt={prompt || undefined}
-            resolution={resolutionLabel(size, aspect)}
-            aspectRatio={aspectCss(aspect) ?? "1 / 1"}
-            size="fluid"
-            showStatus
-          />
-        ) : (
-          images.map((image, index) => {
-            const src = imageSrc(image, fileApi);
-            return (
-              <ImageGeneration
-                key={`${image.path ?? image.url ?? "img"}-${index}`}
-                status={status === "complete" || src ? "complete" : status}
-                prompt={prompt || undefined}
-                resolution={resolutionLabel(size, aspect)}
-                aspectRatio={aspectCss(aspect) ?? "1 / 1"}
-                size="fluid"
-                showStatus={status !== "complete"}
-              >
-                {src ? (
-                  // eslint-disable-next-line @next/next/no-img-element -- tool result URLs / data / workspace file proxy
-                  <img src={src} alt={prompt || title} />
-                ) : null}
-              </ImageGeneration>
-            );
-          })
-        )}
-      </div>
-    </AgentToolCard>
+    <>
+      <AgentToolCard
+        variant="tool"
+        surface={surface}
+        body="plain"
+        tone={status === "error" ? "error" : "default"}
+        icon={<ImageIcon className="size-4" />}
+        title={title}
+        accessory={pathChip ? <AgentToolFileChip path={pathChip} /> : null}
+        status={part.status ?? undefined}
+        open={open}
+        onOpenChange={(next) => {
+          // Keep the generating UI visible; ignore collapse while the tool is active.
+          if (generating && !next) return;
+          setOpen(next);
+        }}
+      >
+        <div className="flex flex-col gap-3 px-2 pb-2">
+          {images.length === 0 ? (
+            <ImageGeneration
+              status={status}
+              prompt={prompt || undefined}
+              resolution={resolutionLabel(size, aspect)}
+              aspectRatio={aspectCss(aspect) ?? "1 / 1"}
+              size="compact"
+              className="[&>div]:mx-0"
+              showStatus
+            />
+          ) : (
+            images.map((image, index) => {
+              const src = imageSrc(image, fileApi);
+              return (
+                <ImageGeneration
+                  key={`${image.path ?? image.url ?? "img"}-${index}`}
+                  status={status === "complete" || src ? "complete" : status}
+                  prompt={prompt || undefined}
+                  resolution={resolutionLabel(size, aspect)}
+                  aspectRatio={aspectCss(aspect) ?? "1 / 1"}
+                  size="compact"
+                  className="[&>div]:mx-0"
+                  showStatus={status !== "complete"}
+                >
+                  {src ? (
+                    <button
+                      type="button"
+                      className="cursor-zoom-in"
+                      aria-label={t("imagePreview")}
+                      onClick={() => setPreview({ src, alt: previewAlt })}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element -- tool result URLs / data / workspace file proxy */}
+                      <img src={src} alt={previewAlt} draggable={false} />
+                    </button>
+                  ) : null}
+                </ImageGeneration>
+              );
+            })
+          )}
+        </div>
+      </AgentToolCard>
+      {preview ? (
+        <ImagePreviewOverlay
+          src={preview.src}
+          alt={preview.alt}
+          onClose={() => setPreview(null)}
+        />
+      ) : null}
+    </>
   );
 }

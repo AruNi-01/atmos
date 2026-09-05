@@ -278,6 +278,8 @@ export function AgentToolCard({
   status,
   shimmer,
   defaultOpen = false,
+  open,
+  onOpenChange,
   tone = "default",
   variant = "tool",
   body = "plain",
@@ -292,6 +294,8 @@ export function AgentToolCard({
   status?: string;
   shimmer?: boolean;
   defaultOpen?: boolean;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
   tone?: "default" | "skill" | "error";
   variant?: "tool" | "file";
   surface?: AgentToolSurface;
@@ -307,12 +311,18 @@ export function AgentToolCard({
   if (!treeReveal || showShimmer) seenTitle.current = true;
   const reveal = typeof title === "string"
     && shouldPlayTreeTitleEnter(treeReveal, showShimmer, seenTitle.current);
+  const controlled = open !== undefined;
 
   return (
     // Keep `not-prose` on the chrome only — Tailwind Typography cannot nest
     // `.prose` inside `.not-prose`, so markdown bodies (plan.md preview, etc.)
     // must live outside that sandbox.
-    <Collapsible defaultOpen={defaultOpen} className="w-full min-w-0">
+    <Collapsible
+      {...(controlled
+        ? { open, onOpenChange }
+        : { defaultOpen, onOpenChange })}
+      className="w-full min-w-0"
+    >
       <div className="not-prose flex min-w-0 items-center gap-1" data-tree-header>
         <CollapsibleTrigger asChild>
           <div className="group inline-flex min-w-0 max-w-full cursor-pointer items-center gap-2 py-0.5 text-left text-sm leading-5 text-muted-foreground hover:text-foreground">

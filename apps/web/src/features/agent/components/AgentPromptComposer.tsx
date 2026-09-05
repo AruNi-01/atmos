@@ -318,7 +318,7 @@ function ComposerPromptInput({
   fastOption: AgentConfigOption | null;
   modelsLocked: boolean;
   modesLocked: boolean;
-  registryId: string;
+  registryId: string | null;
   agentLocked: boolean;
   onProviderChange?: (providerId: string) => void;
   setConfigOption: (id: string, value: string) => void;

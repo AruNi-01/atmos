@@ -40,5 +40,8 @@ describe("agent permission card", () => {
     expect(card).toContain("defaultRejectOptionId");
     expect(card).toContain("allow_once");
     expect(card).toContain("reject_once");
+    // Do not treat bare `once` / `reject_once` as an allow match.
+    expect(card).toContain("/allow|accept|approve/i.test(option.option_id)");
+    expect(card).not.toContain("/allow|accept|approve|once/i.test(option.option_id)");
   });
 });

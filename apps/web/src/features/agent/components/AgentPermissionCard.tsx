@@ -218,7 +218,7 @@ function permissionQuestions(permission: PendingPermission): ApprovalQuestion[] 
 export function defaultAllowOptionId(permission: PendingPermission): string {
   const allow = permission.options.find(
     (option) =>
-      /allow|accept|approve|once/i.test(option.option_id) ||
+      /allow|accept|approve/i.test(option.option_id) ||
       /allow|accept|approve/i.test(option.name),
   );
   return allow?.option_id ?? permission.options[0]?.option_id ?? "allow_once";

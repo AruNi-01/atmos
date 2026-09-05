@@ -269,7 +269,7 @@ async fn live_opencode_deepseek_forced_gaps_probe() {
                 turn_id: completed,
                 stop: completed_stop,
             } if *completed == sent.turn_id => {
-                stop = Some(completed_stop.clone());
+                stop = Some(*completed_stop);
                 break;
             }
             AgentEvent::TurnFailed { error, .. } => {

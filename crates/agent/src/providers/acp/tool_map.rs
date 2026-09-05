@@ -513,18 +513,8 @@ fn images_result(
         if let Some(path) = payload.and_then(|v| {
             first_string(v, &["filename", "path", "file", "file_path", "output_path"])
         }) {
-            let resolved = resolve_cursor_asset_path(&path).unwrap_or(path);
-            images.push(crate::contract::AgentGeneratedImage {
-                url: None,
-                path: Some(resolved),
-                mime: None,
-            });
-        }
-    }
-    // Cursor ACP often omits content/locations/raw_output entirely; recover the
-    // newest image written under ~/.cursor/projects/*/assets/.
-    if images.is_empty() && looks_like_cursor_generate_image(update, payload) {
-        if let Some(path) = resolve_recent_cursor_asset() {
+            // Keep the provider-supplied path only — never scan ~/.cursor/projects
+            // for a global newest match (cross-session / cross-project leak).
             images.push(crate::contract::AgentGeneratedImage {
                 url: None,
                 path: Some(path),
@@ -542,97 +532,6 @@ fn images_result(
     } else {
         AgentToolResult::Images { images }
     }
-}
-
-/// Cursor `generateImage` writes basename-only files under `~/.cursor/projects/<slug>/assets/`.
-fn resolve_cursor_asset_path(filename: &str) -> Option<String> {
-    let name = std::path::Path::new(filename)
-        .file_name()
-        .and_then(|n| n.to_str())
-        .filter(|n| !n.is_empty())?;
-    // Absolute paths already usable for the file API.
-    if std::path::Path::new(filename).is_absolute() {
-        return None;
-    }
-    let home = dirs::home_dir()?;
-    let projects = home.join(".cursor/projects");
-    let mut best: Option<(std::time::SystemTime, std::path::PathBuf)> = None;
-    let Ok(entries) = std::fs::read_dir(&projects) else {
-        return None;
-    };
-    for entry in entries.flatten() {
-        let candidate = entry.path().join("assets").join(name);
-        let Ok(meta) = candidate.metadata() else {
-            continue;
-        };
-        if !meta.is_file() {
-            continue;
-        }
-        let modified = meta.modified().unwrap_or(std::time::SystemTime::UNIX_EPOCH);
-        match &best {
-            Some((prev, _)) if *prev >= modified => {}
-            _ => best = Some((modified, candidate)),
-        }
-    }
-    best.map(|(_, path)| path.to_string_lossy().into_owned())
-}
-
-fn resolve_recent_cursor_asset() -> Option<String> {
-    let home = dirs::home_dir()?;
-    let projects = home.join(".cursor/projects");
-    let cutoff =
-        std::time::SystemTime::now().checked_sub(std::time::Duration::from_secs(10 * 60))?;
-    let mut best: Option<(std::time::SystemTime, std::path::PathBuf)> = None;
-    let Ok(entries) = std::fs::read_dir(&projects) else {
-        return None;
-    };
-    for entry in entries.flatten() {
-        let assets = entry.path().join("assets");
-        let Ok(files) = std::fs::read_dir(assets) else {
-            continue;
-        };
-        for file in files.flatten() {
-            let path = file.path();
-            let ext = path
-                .extension()
-                .and_then(|e| e.to_str())
-                .unwrap_or("")
-                .to_ascii_lowercase();
-            if !matches!(
-                ext.as_str(),
-                "png" | "jpg" | "jpeg" | "webp" | "gif" | "bmp" | "svg"
-            ) {
-                continue;
-            }
-            let Ok(meta) = path.metadata() else {
-                continue;
-            };
-            if !meta.is_file() {
-                continue;
-            }
-            let modified = meta.modified().unwrap_or(std::time::SystemTime::UNIX_EPOCH);
-            if modified < cutoff {
-                continue;
-            }
-            match &best {
-                Some((prev, _)) if *prev >= modified => {}
-                _ => best = Some((modified, path)),
-            }
-        }
-    }
-    best.map(|(_, path)| path.to_string_lossy().into_owned())
-}
-
-fn looks_like_cursor_generate_image(update: &ToolCallUpdate, payload: Option<&Value>) -> bool {
-    let tool_name = payload
-        .and_then(|v| first_string(v, &["_toolName", "toolName"]))
-        .unwrap_or_else(|| update.tool.clone());
-    let name = normalize(&tool_name);
-    let title = normalize(&update.description);
-    name.contains("generate_image")
-        || name.contains("generateimage")
-        || title.contains("generate_image")
-        || title.contains("generateimage")
 }
 
 fn search_result(

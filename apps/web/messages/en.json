@@ -3413,6 +3413,7 @@
         "searchingFor": "Searching for {query}",
         "webSearch": "Web search",
         "imageGen": "Image",
+        "imagePreview": "Enlarge image",
         "resultCount": "{count, plural, one {# result} other {# results}}",
         "sources": "Sources",
         "fetchUrl": "Fetch {host}",

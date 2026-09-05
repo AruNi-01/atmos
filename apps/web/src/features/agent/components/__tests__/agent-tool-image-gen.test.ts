@@ -18,4 +18,17 @@ describe("AgentToolImageGen", () => {
     expect(card).toContain("composerFileUrlFromPath");
     expect(card).toContain("aspect_ratio");
   });
+
+  test("auto-opens while generating, keeps a compact preview, and enlarges via overlay", () => {
+    const card = readFileSync(
+      join(import.meta.dir, "../tool-results/AgentToolImageGen.tsx"),
+      "utf8",
+    );
+    expect(card).toContain("isActiveToolStatus(part.status)");
+    expect(card).toContain("setOpen(true)");
+    expect(card).toContain("generating && !next");
+    expect(card).toContain('size="compact"');
+    expect(card).toContain("ImagePreviewOverlay");
+    expect(card).toContain("open={open}");
+  });
 });

@@ -258,7 +258,7 @@ async fn drain_turn(
                 turn_id: completed,
                 stop: completed_stop,
             } if *completed == turn_id => {
-                stats.stop = Some(completed_stop.clone());
+                stats.stop = Some(*completed_stop);
                 break;
             }
             AgentEvent::TurnFailed { error, .. } => {

@@ -19,6 +19,7 @@ pub(crate) enum ToolEventKind {
 }
 
 #[derive(Debug, Clone)]
+#[allow(clippy::large_enum_variant)]
 pub(crate) enum ToolMapOut {
     FoldThinking {
         text: String,

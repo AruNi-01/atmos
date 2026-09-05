@@ -232,11 +232,6 @@ fn build_tool(
     result: Option<AgentToolResult>,
 ) -> AgentTool {
     let mcp = mcp_ref_from_input(name, input).or_else(|| mcp_ref_from_name(name));
-    let kind = match kind {
-        AgentToolKind::McpList => AgentToolKind::McpList,
-        AgentToolKind::McpCall => AgentToolKind::McpCall,
-        other => other,
-    };
     match typed_params(kind, name, input) {
         Some(params) => AgentTool {
             tool_call_id: tool_use_id.to_string(),
@@ -297,9 +292,7 @@ fn mcp_ref_from_input(name: &str, input: &Value) -> Option<AgentMcpRef> {
 }
 
 fn mcp_title(name: &str, mcp: Option<&AgentMcpRef>) -> Option<String> {
-    let Some(mcp) = mcp else {
-        return None;
-    };
+    let mcp = mcp?;
     match (&mcp.server, &mcp.tool) {
         (Some(server), Some(tool)) if tool != name => Some(format!("MCP {server}/{tool}")),
         (Some(server), _) => Some(format!("MCP {server}")),

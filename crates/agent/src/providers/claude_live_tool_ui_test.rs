@@ -14,7 +14,7 @@
 #![cfg(test)]
 
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use tokio::time::{timeout, Instant};
@@ -55,12 +55,12 @@ ls /nonexistent-atmos-probe-path-xyz
 
 Do not add echo, do not chain commands, do not call any other tool. After the Bash result, stop."#;
 
-async fn run_forced_prompt(label: &str, prompt: &str, cwd: &PathBuf) -> Vec<String> {
+async fn run_forced_prompt(label: &str, prompt: &str, cwd: &Path) -> Vec<String> {
     eprintln!("\n===== LIVE SESSION: {label} =====");
     let provider = ClaudeNativeProvider::new();
     let mut runtime = provider
         .create_runtime(AgentRuntimeConfig {
-            cwd: cwd.clone(),
+            cwd: cwd.to_path_buf(),
             model: Some(MODEL.into()),
             permission_mode: Some("ask_always".into()),
             allow_file_access: true,
@@ -192,7 +192,7 @@ async fn run_forced_prompt(label: &str, prompt: &str, cwd: &PathBuf) -> Vec<Stri
                 turn_id: completed,
                 stop: completed_stop,
             } if *completed == sent.turn_id => {
-                stop = Some(completed_stop.clone());
+                stop = Some(*completed_stop);
                 break;
             }
             AgentEvent::TurnFailed { error, .. } => {

@@ -49,14 +49,14 @@ pub fn classify_tool(
     if is_mcp_list_label(&name) || is_mcp_list_label(&title) {
         return ClassifiedTool::Call(AgentToolKind::McpList);
     }
-    if is_mcp_call_label(&name)
+    if (is_mcp_call_label(&name)
         || is_mcp_call_label(&title)
         || name.starts_with("mcp__")
-        || name.starts_with("mcp_")
+        || name.starts_with("mcp_"))
+        && !is_mcp_list_label(&name)
+        && !is_mcp_list_label(&title)
     {
-        if !is_mcp_list_label(&name) && !is_mcp_list_label(&title) {
-            return ClassifiedTool::Call(AgentToolKind::McpCall);
-        }
+        return ClassifiedTool::Call(AgentToolKind::McpCall);
     }
     if name == "switchmode" || name == "switch_mode" {
         if title.contains("ready_to_code") || has_plan_markdown(input) {

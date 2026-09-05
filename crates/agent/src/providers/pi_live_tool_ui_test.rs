@@ -147,7 +147,7 @@ async fn live_pi_deepseek_tool_ui_probe() {
                 turn_id: completed,
                 stop: completed_stop,
             } if *completed == sent.turn_id => {
-                stop = Some(completed_stop.clone());
+                stop = Some(*completed_stop);
                 break;
             }
             AgentEvent::TurnFailed { error, .. } => {
