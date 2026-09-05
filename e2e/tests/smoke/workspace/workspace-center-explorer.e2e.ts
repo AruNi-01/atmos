@@ -235,9 +235,9 @@ test.describe("smoke workspace center explorer", () => {
     await expect(activeFileRow).toBeVisible();
     const activeRowBox = await activeFileRow.boundingBox();
     expect(activeRowBox, "active files tree row").toBeTruthy();
-    expect(activeRowBox!.x).toBeGreaterThan(sidecarForToc!.x + 4);
+    expect(activeRowBox!.x).toBeGreaterThan(sidecarForToc!.x + 6);
     expect(activeRowBox!.x + activeRowBox!.width).toBeLessThan(
-      sidecarForToc!.x + sidecarForToc!.width - 4,
+      sidecarForToc!.x + sidecarForToc!.width - 6,
     );
     await page.screenshot({
       path: `${ARTIFACTS_DIR}/files_sidecar_editor.png`,
