@@ -25,6 +25,7 @@ import type { DiffLineRange } from "@/features/agent/lib/tool-results/diff-stats
 import { hostFromUrl } from "@/features/agent/lib/tool-results/parse-tool-result";
 import { useAgentChatCwd, useAgentChatPathRoots } from "../agent-chat-cwd-context";
 import { useAgentTreeReveal } from "../agent-tree-reveal-context";
+import { useMarkAssistantProcessInspecting } from "../assistant-process-inspect-context";
 import {
   useAgentChatResolvedPathKind,
   useOpenAgentChatWorkspacePath,
@@ -306,12 +307,17 @@ export function AgentToolCard({
   const showShimmer = shimmer ?? running;
   const failed = (status ?? "").toLowerCase() === "failed" || tone === "error";
   const treeReveal = useAgentTreeReveal();
+  const markInspecting = useMarkAssistantProcessInspecting();
   // Running rows already show the label via shimmer; completing must not replay the enter.
   const seenTitle = useRef(!treeReveal || showShimmer);
   if (!treeReveal || showShimmer) seenTitle.current = true;
   const reveal = typeof title === "string"
     && shouldPlayTreeTitleEnter(treeReveal, showShimmer, seenTitle.current);
   const controlled = open !== undefined;
+  const handleOpenChange = (next: boolean) => {
+    onOpenChange?.(next);
+    if (next) markInspecting();
+  };
 
   return (
     // Keep `not-prose` on the chrome only — Tailwind Typography cannot nest
@@ -319,8 +325,8 @@ export function AgentToolCard({
     // must live outside that sandbox.
     <Collapsible
       {...(controlled
-        ? { open, onOpenChange }
-        : { defaultOpen, onOpenChange })}
+        ? { open, onOpenChange: handleOpenChange }
+        : { defaultOpen, onOpenChange: handleOpenChange })}
       className="w-full min-w-0"
     >
       <div className="not-prose flex min-w-0 items-center gap-1" data-tree-header>

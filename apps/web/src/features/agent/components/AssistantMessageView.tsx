@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import {
   Collapsible,
@@ -20,7 +20,10 @@ import {
   AgentChatMarkdownFileLink,
 } from "./AgentChatMarkdownFile";
 import { useAgentChatCwd, useAgentChatPathRoots } from "./agent-chat-cwd-context";
-import { hasCollapsibleAssistantProcess } from "@/features/agent/lib/assistant-process-parts";
+import {
+  hasCollapsibleAssistantProcess,
+  shouldAutoCollapseProcessOnSettle,
+} from "@/features/agent/lib/assistant-process-parts";
 import { AgentWorkedForLabel } from "./AgentWorkedForLabel";
 import {
   classifyAgentChatHref,
@@ -32,6 +35,7 @@ import {
   toolGroupHasRunning,
   type AssistantSegment,
 } from "@/features/agent/lib/tool-group";
+import { AssistantProcessInspectProvider } from "./assistant-process-inspect-context";
 
 const REVIEW_PATH_RE = /(?:\/[\w.~-]+)*\/\.atmos\/reviews\/[\w./:~-]+\.md/;
 
@@ -146,10 +150,24 @@ export function AssistantMessageView({
   );
 
   const canCollapse = hasCollapsibleAssistantProcess(message);
+  const hasProcess = processSegments.length > 0;
   const [stepsExpanded, setStepsExpanded] = useState(false);
   const [processMounted, setProcessMounted] = useState(false);
+  const [userInspecting, setUserInspecting] = useState(false);
+  const wasCollapsibleRef = useRef(false);
+  const markInspecting = useCallback(() => {
+    setUserInspecting(true);
+  }, []);
 
-  if (stepsExpanded && !processMounted) {
+  // When the turn first settles into collapsible chrome, auto-collapse unless the user
+  // expanded tools/process during the stream.
+  if (canCollapse && !wasCollapsibleRef.current) {
+    setStepsExpanded(!shouldAutoCollapseProcessOnSettle(userInspecting));
+  }
+  wasCollapsibleRef.current = canCollapse;
+
+  const processOpen = !canCollapse || stepsExpanded;
+  if (processOpen && !processMounted) {
     setProcessMounted(true);
   }
 
@@ -183,37 +201,53 @@ export function AssistantMessageView({
     );
   };
 
-  if (canCollapse) {
-    const showWorkedFor = message.worked_ms != null && message.worked_ms > 0;
+  const processBody = (
+    <AssistantProcessInspectProvider onInspect={markInspecting}>
+      <div className="space-y-2">
+        {processSegments.map((segment) => renderSegment(segment, processSegments))}
+      </div>
+    </AssistantProcessInspectProvider>
+  );
+
+  if (hasProcess) {
+    const showWorkedFor = canCollapse && message.worked_ms != null && message.worked_ms > 0;
     return (
       <>
-        <Collapsible open={stepsExpanded} onOpenChange={setStepsExpanded}>
-          <CollapsibleTrigger className="group flex w-full cursor-pointer items-center gap-1 py-0.5 text-left text-muted-foreground hover:text-foreground">
-            {showWorkedFor ? (
-              <AgentWorkedForLabel
-                workedMs={message.worked_ms ?? 0}
-                reveal="duration"
-              />
-            ) : (
-              <span className="text-xs">{t("assistantTurn.process.label")}</span>
-            )}
-            <ChevronRight
-              className={cn(
-                "size-3 shrink-0 transition-transform duration-200",
-                stepsExpanded ? "rotate-90" : "rotate-0",
+        <Collapsible
+          open={processOpen}
+          onOpenChange={(next) => {
+            setStepsExpanded(next);
+            if (next) markInspecting();
+          }}
+        >
+          {canCollapse ? (
+            <CollapsibleTrigger className="group flex w-full cursor-pointer items-center gap-1 py-0.5 text-left text-muted-foreground hover:text-foreground">
+              {showWorkedFor ? (
+                <AgentWorkedForLabel
+                  workedMs={message.worked_ms ?? 0}
+                  reveal="duration"
+                />
+              ) : (
+                <span className="text-xs">{t("assistantTurn.process.label")}</span>
               )}
-            />
-          </CollapsibleTrigger>
+              <ChevronRight
+                className={cn(
+                  "size-3 shrink-0 transition-transform duration-200",
+                  stepsExpanded ? "rotate-90" : "rotate-0",
+                )}
+              />
+            </CollapsibleTrigger>
+          ) : null}
           <CollapsibleContent className="space-y-2 pt-1">
-            {stepsExpanded
-              ? processSegments.map((segment) => renderSegment(segment, processSegments))
-              : null}
+            {processOpen || processMounted ? processBody : null}
           </CollapsibleContent>
-          <ProcessCollapseRail
-            expanded={stepsExpanded}
-            collapseAria={t("assistantTurn.process.collapseAria")}
-            collapseLabel={t("assistantTurn.process.collapseLabel")}
-          />
+          {canCollapse ? (
+            <ProcessCollapseRail
+              expanded={stepsExpanded}
+              collapseAria={t("assistantTurn.process.collapseAria")}
+              collapseLabel={t("assistantTurn.process.collapseLabel")}
+            />
+          ) : null}
         </Collapsible>
         {answerSegments.map((segment) => renderSegment(segment, answerSegments))}
       </>
@@ -221,8 +255,8 @@ export function AssistantMessageView({
   }
 
   return (
-    <>
+    <AssistantProcessInspectProvider onInspect={markInspecting}>
       {segments.map((segment) => renderSegment(segment, segments))}
-    </>
+    </AssistantProcessInspectProvider>
   );
 }
