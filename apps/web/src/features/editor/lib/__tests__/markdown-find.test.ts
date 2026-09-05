@@ -133,4 +133,28 @@ describe("markdown find", () => {
       regexp: true,
     }).hits).toHaveLength(1);
   });
+
+  test("does not match across a pre that already ends with a newline", () => {
+    const win = new Window({ url: "https://app.atmos.local/" });
+    const root = win.document.createElement("div");
+    root.innerHTML = "<pre>hello\n</pre><p>world</p>";
+    expect(findMarkdownHits(root, {
+      search: String.raw`hello\s+world`,
+      caseSensitive: false,
+      wholeWord: false,
+      regexp: true,
+    }).hits).toHaveLength(0);
+  });
+
+  test("matches a regexp across a line break inside one paragraph", () => {
+    const win = new Window({ url: "https://app.atmos.local/" });
+    const root = win.document.createElement("div");
+    root.innerHTML = "<p>hello<br>world</p>";
+    expect(findMarkdownHits(root, {
+      search: String.raw`hello\s+world`,
+      caseSensitive: false,
+      wholeWord: false,
+      regexp: true,
+    }).hits).toHaveLength(1);
+  });
 });

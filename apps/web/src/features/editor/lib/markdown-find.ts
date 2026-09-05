@@ -103,25 +103,48 @@ function collectMarkdownFindStream(root: ParentNode): {
   let text = "";
   const spans: TextSpan[] = [];
   const separators: number[] = [];
-  let pendingBreak = false;
+  let pendingBlockBreak = false;
+  let pendingSoftBreak = false;
 
-  const appendBreak = () => {
-    if (text.length === 0 || text.endsWith("\n")) return;
-    pendingBreak = true;
+  const recordExistingNewlineBoundary = () => {
+    const offset = text.length - 1;
+    if (separators[separators.length - 1] !== offset) separators.push(offset);
   };
 
-  const flushBreak = () => {
-    if (!pendingBreak) return;
-    separators.push(text.length);
-    text += "\n";
-    pendingBreak = false;
+  const markBlockBoundary = () => {
+    if (text.length === 0) return;
+    pendingSoftBreak = false;
+    if (text.endsWith("\n")) {
+      recordExistingNewlineBoundary();
+      pendingBlockBreak = false;
+      return;
+    }
+    pendingBlockBreak = true;
+  };
+
+  const markSoftBreak = () => {
+    if (text.length === 0 || text.endsWith("\n") || pendingBlockBreak) return;
+    pendingSoftBreak = true;
+  };
+
+  const flushBreaks = () => {
+    if (pendingBlockBreak) {
+      separators.push(text.length);
+      text += "\n";
+      pendingBlockBreak = false;
+      pendingSoftBreak = false;
+      return;
+    }
+    if (!pendingSoftBreak) return;
+    pendingSoftBreak = false;
+    if (!text.endsWith("\n")) text += "\n";
   };
 
   const visit = (node: ChildNode) => {
     if (node.nodeName === "#text") {
       const textNode = node as Text;
       if (shouldSkipSearchNode(textNode)) return;
-      flushBreak();
+      flushBreaks();
       const chunk = textNode.textContent ?? "";
       const start = text.length;
       text += chunk;
@@ -135,13 +158,13 @@ function collectMarkdownFindStream(root: ParentNode): {
     if (element.hasAttribute("data-markdown-find-highlight")) return;
     if (element.hasAttribute("data-markdown-toc")) return;
     if (element.tagName === "BR" || element.tagName === "HR") {
-      appendBreak();
+      markSoftBreak();
       return;
     }
     const block = BLOCK_TAGS.has(element.tagName);
-    if (block) appendBreak();
+    if (block) markBlockBoundary();
     for (const child of Array.from(element.childNodes)) visit(child);
-    if (block) appendBreak();
+    if (block) markBlockBoundary();
   };
 
   for (const child of Array.from(root.childNodes)) visit(child);
