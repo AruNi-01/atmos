@@ -3,6 +3,7 @@ import {
 } from "shiki/engine/javascript";
 import {
   type HighlighterCore,
+  type LanguageRegistration,
   type RegexEngine,
   createHighlighterCore,
 } from "shiki/core";
@@ -33,8 +34,10 @@ import cpp from "shiki/langs/cpp.mjs";
 import mermaidFence from "shiki/langs/mermaid.mjs";
 
 /** Shiki's bundled mermaid grammar is a markdown fence injection. Re-root it on `#mermaid` so fence bodies highlight. */
-function mermaidSourceLang() {
-  const raw = (mermaidFence as Array<{ injectionSelector?: string }>)[0]!;
+function mermaidSourceLang(): LanguageRegistration {
+  const raw = mermaidFence[0] as LanguageRegistration & {
+    injectionSelector?: string;
+  };
   const { injectionSelector: _injectionSelector, ...rest } = raw;
   return {
     ...rest,

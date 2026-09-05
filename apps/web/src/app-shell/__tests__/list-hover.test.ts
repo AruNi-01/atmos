@@ -10,6 +10,10 @@ const changesPanel = readFileSync(
   join(import.meta.dir, "../../features/git/components/ChangesPanel.tsx"),
   "utf8",
 );
+const fileTree = readFileSync(
+  join(import.meta.dir, "../../features/files/components/FileTree.tsx"),
+  "utf8",
+);
 const fileTreeRow = readFileSync(
   join(import.meta.dir, "../../features/files/components/FileTreeRow.tsx"),
   "utf8",
@@ -38,12 +42,22 @@ const gitHistoryRow = readFileSync(
   join(import.meta.dir, "../../features/git/components/git-history-row.tsx"),
   "utf8",
 );
+const centerExplorerLanding = readFileSync(
+  join(import.meta.dir, "../CenterExplorerLanding.tsx"),
+  "utf8",
+);
 const centerPaneEmptyState = readFileSync(
   join(import.meta.dir, "../center-pane/CenterPaneEmptyState.tsx"),
   "utf8",
 );
 
 describe("center list hover", () => {
+  it("uses instant hover on files and changes explorer empty-state rows", () => {
+    expect(centerExplorerLanding).toContain("hover:bg-sidebar-accent/50");
+    expect(centerExplorerLanding).not.toContain("transition-colors");
+    expect(centerExplorerLanding).not.toContain("duration-200");
+  });
+
   it("uses instant hover on split-pane empty launcher rows", () => {
     const rowClass = centerPaneEmptyState.slice(
       centerPaneEmptyState.indexOf("function EmptyPaneTypeButton"),
@@ -100,6 +114,11 @@ describe("center list hover", () => {
     );
     expect(rowClass).toContain("hover:bg-sidebar-accent/50");
     expect(rowClass).not.toContain("transition-colors");
+  });
+
+  it("insets files tree hover and active backgrounds from the sidecar edges", () => {
+    expect(fileTree).toContain('className="relative px-2"');
+    expect(fileTreeRow).toContain("data-file-tree-row={itemData.path}");
   });
 
   it("uses instant hover on changes tree rows", () => {

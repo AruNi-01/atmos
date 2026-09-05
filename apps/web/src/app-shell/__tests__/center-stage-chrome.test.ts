@@ -111,6 +111,16 @@ describe("center-stage chrome", () => {
     expect(frame).toContain("visible={visible}");
     expect(frame).toContain("requestAnimationFrame");
     expect(frame).toContain("revealEnabled={isActiveContext}");
+    expect(frame).toContain("CenterExplorerSidecar");
+    expect(frame).toContain("CenterExplorerLanding");
+    expect(frame).toContain("recordCenterFileRecents");
+    expect(frame).toContain("fileRecentsFromOpenFiles");
+    expect(frame).toContain('kind="files"');
+    expect(frame).toContain('kind="changes"');
+    expect(frame).toContain("interactive={Boolean(showing && isActiveContext)}");
+    expect(frame).toContain("showFilesExplorerToggle");
+    expect(frame).toContain("showChangesExplorerToggle");
+    expect(frame).toContain("explorerSidecarStyle");
     expect(frame).not.toMatch(/isActive=\{\s*\n\s*isActiveContext &&/);
     expect(frame).not.toMatch(/surfaceActive=\{\s*\n\s*isActiveContext &&/);
     expect(frame).not.toMatch(/revealEnabled=\{\s*\n\s*isActiveContext &&/);

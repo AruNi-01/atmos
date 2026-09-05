@@ -1,4 +1,6 @@
 import { describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { Window } from "happy-dom";
 import { extractTocHeadings, findTocHeadingElement } from "../MarkdownToc";
 
@@ -20,5 +22,15 @@ describe("MarkdownToc heading lookup", () => {
 
     expect(findTocHeadingElement(root, headings[0]!)?.id).toBe(headings[0]!.id);
     expect(findTocHeadingElement(root, headings[1]!)?.textContent).toBe("Hello");
+  });
+});
+
+describe("MarkdownToc layout", () => {
+  test("editor preview can dock the outline on the left", () => {
+    const source = readFileSync(join(import.meta.dir, "../MarkdownToc.tsx"), "utf8");
+    expect(source).toContain("data-markdown-toc-side={side}");
+    expect(source).toContain('isLeft ? "left-2" : "right-2"');
+    expect(source).toContain('isLeft ? "-translate-x-2" : "translate-x-2"');
+    expect(source).toContain('side = "right"');
   });
 });

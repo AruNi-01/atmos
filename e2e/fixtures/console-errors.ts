@@ -15,6 +15,9 @@ const allowedConsoleErrorPatterns = [
   /CancelledError\b/,
   // Canvas probes the default pin doc; missing docs 404 is expected until first save.
   /\[response\.404\] .*\/api\/canvas\/documents\/Default\.atmos\.tldr(?:\?.*)?$/i,
+  // APP-067 S16 sends a chat turn; CI hosts may have a leftover custom agent selected
+  // that is not installed, which surfaces as a pageerror after the user message lands.
+  /agent not found: custom agent:/i,
 ];
 
 function formatConsoleMessage(message: ConsoleMessage): string {
