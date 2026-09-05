@@ -6,6 +6,13 @@ export type MarkdownFindQuery = {
 };
 
 export type MarkdownFindHit = {
+  startNode: Text;
+  startOffset: number;
+  endNode: Text;
+  endOffset: number;
+};
+
+type TextSpan = {
   node: Text;
   start: number;
   end: number;
@@ -17,6 +24,40 @@ export type MarkdownFindPattern = {
 };
 
 const SKIP_TAGS = new Set(["SCRIPT", "STYLE", "NOSCRIPT"]);
+const BLOCK_TAGS = new Set([
+  "ARTICLE",
+  "BLOCKQUOTE",
+  "DD",
+  "DETAILS",
+  "DIV",
+  "DL",
+  "DT",
+  "FIGCAPTION",
+  "FIGURE",
+  "FOOTER",
+  "H1",
+  "H2",
+  "H3",
+  "H4",
+  "H5",
+  "H6",
+  "HEADER",
+  "HR",
+  "LI",
+  "OL",
+  "P",
+  "PRE",
+  "SECTION",
+  "SUMMARY",
+  "TABLE",
+  "TBODY",
+  "TD",
+  "TFOOT",
+  "TH",
+  "THEAD",
+  "TR",
+  "UL",
+]);
 
 export function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -51,30 +92,80 @@ function shouldSkipSearchNode(node: Text): boolean {
 }
 
 export function collectMarkdownFindTextNodes(root: ParentNode): Text[] {
-  const nodes: Text[] = [];
-  const stack: ChildNode[] = [];
-  for (let i = root.childNodes.length - 1; i >= 0; i -= 1) {
-    stack.push(root.childNodes[i]!);
-  }
-  while (stack.length > 0) {
-    const node = stack.pop();
-    if (!node) continue;
+  return collectMarkdownFindStream(root).spans.map((span) => span.node);
+}
+
+function collectMarkdownFindStream(root: ParentNode): {
+  text: string;
+  spans: TextSpan[];
+} {
+  let text = "";
+  const spans: TextSpan[] = [];
+  let pendingBreak = false;
+
+  const appendBreak = () => {
+    if (text.length === 0 || text.endsWith("\n")) return;
+    pendingBreak = true;
+  };
+
+  const visit = (node: ChildNode) => {
     if (node.nodeName === "#text") {
-      const text = node as Text;
-      if (!shouldSkipSearchNode(text)) nodes.push(text);
-      continue;
+      const textNode = node as Text;
+      if (shouldSkipSearchNode(textNode)) return;
+      if (pendingBreak) {
+        text += "\n";
+        pendingBreak = false;
+      }
+      const chunk = textNode.textContent ?? "";
+      const start = text.length;
+      text += chunk;
+      spans.push({ node: textNode, start, end: text.length });
+      return;
     }
-    if (node.nodeType !== 1) continue;
+    if (node.nodeType !== 1) return;
     const element = node as Element;
-    if (SKIP_TAGS.has(element.tagName)) continue;
-    if (element.hasAttribute("data-markdown-find-panel")) continue;
-    if (element.hasAttribute("data-markdown-find-highlight")) continue;
-    if (element.hasAttribute("data-markdown-toc")) continue;
-    for (let i = element.childNodes.length - 1; i >= 0; i -= 1) {
-      stack.push(element.childNodes[i]!);
+    if (SKIP_TAGS.has(element.tagName)) return;
+    if (element.hasAttribute("data-markdown-find-panel")) return;
+    if (element.hasAttribute("data-markdown-find-highlight")) return;
+    if (element.hasAttribute("data-markdown-toc")) return;
+    if (element.tagName === "BR" || element.tagName === "HR") {
+      appendBreak();
+      return;
+    }
+    const block = BLOCK_TAGS.has(element.tagName);
+    if (block) appendBreak();
+    for (const child of Array.from(element.childNodes)) visit(child);
+    if (block) appendBreak();
+  };
+
+  for (const child of Array.from(root.childNodes)) visit(child);
+  return { text, spans };
+}
+
+function locateStart(spans: TextSpan[], offset: number): TextSpan & { local: number } {
+  const first = spans[0]!;
+  for (const span of spans) {
+    if (offset < span.end) {
+      return { ...span, local: Math.max(0, offset - span.start) };
     }
   }
-  return nodes;
+  const last = spans[spans.length - 1] ?? first;
+  return { ...last, local: last.end - last.start };
+}
+
+function locateEnd(spans: TextSpan[], offset: number): TextSpan & { local: number } {
+  const first = spans[0]!;
+  let last = first;
+  for (const span of spans) {
+    if (offset <= span.start) {
+      return { ...last, local: last.end - last.start };
+    }
+    last = span;
+    if (offset <= span.end) {
+      return { ...span, local: offset - span.start };
+    }
+  }
+  return { ...last, local: last.end - last.start };
 }
 
 export function findMarkdownHits(
@@ -84,25 +175,35 @@ export function findMarkdownHits(
   const { pattern, invalid } = compileMarkdownFindPattern(query);
   if (!pattern) return { hits: [], invalid };
 
+  const { text, spans } = collectMarkdownFindStream(root);
+  if (spans.length === 0) return { hits: [], invalid: false };
+
   const hits: MarkdownFindHit[] = [];
-  for (const node of collectMarkdownFindTextNodes(root)) {
-    const text = node.textContent ?? "";
-    pattern.lastIndex = 0;
-    let match = pattern.exec(text);
-    while (match) {
-      if (match[0].length === 0) {
-        pattern.lastIndex += 1;
-        if (pattern.lastIndex > text.length) break;
-        match = pattern.exec(text);
-        continue;
-      }
-      hits.push({
-        node,
-        start: match.index,
-        end: match.index + match[0].length,
-      });
+  pattern.lastIndex = 0;
+  let match = pattern.exec(text);
+  while (match) {
+    if (match[0].length === 0) {
+      pattern.lastIndex += 1;
+      if (pattern.lastIndex > text.length) break;
       match = pattern.exec(text);
+      continue;
     }
+    const start = locateStart(spans, match.index);
+    const end = locateEnd(spans, match.index + match[0].length);
+    if (
+      start.node === end.node &&
+      start.local === end.local
+    ) {
+      match = pattern.exec(text);
+      continue;
+    }
+    hits.push({
+      startNode: start.node,
+      startOffset: start.local,
+      endNode: end.node,
+      endOffset: end.local,
+    });
+    match = pattern.exec(text);
   }
   return { hits, invalid: false };
 }
@@ -118,8 +219,8 @@ export function scrollMarkdownFindHitIntoView(
   hit: MarkdownFindHit,
 ): void {
   const range = root.ownerDocument.createRange();
-  range.setStart(hit.node, hit.start);
-  range.setEnd(hit.node, hit.end);
+  range.setStart(hit.startNode, hit.startOffset);
+  range.setEnd(hit.endNode, hit.endOffset);
   const hitRect = range.getBoundingClientRect();
   const rootRect = root.getBoundingClientRect();
   const pad = 48;

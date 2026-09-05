@@ -49,8 +49,8 @@ function hitBoxes(root: HTMLElement, hits: MarkdownFindHit[], currentIndex: numb
   hits.forEach((hit, index) => {
     const range = root.ownerDocument.createRange();
     try {
-      range.setStart(hit.node, hit.start);
-      range.setEnd(hit.node, hit.end);
+      range.setStart(hit.startNode, hit.startOffset);
+      range.setEnd(hit.endNode, hit.endOffset);
     } catch {
       return;
     }

@@ -45,8 +45,8 @@ describe("markdown find", () => {
       regexp: false,
     });
     expect(hits).toHaveLength(2);
-    expect(hits[0]?.node.textContent).toContain("Hello markdown");
-    expect(hits[1]?.node.textContent).toContain("hello again");
+    expect(hits[0]?.startNode.textContent).toContain("Hello markdown");
+    expect(hits[1]?.startNode.textContent).toContain("hello again");
     expect(markdownFindCounter(0, 2)).toBe("1/2");
     expect(markdownFindCounter(-1, 2)).toBe("0/2");
     expect(markdownFindCounter(0, 0)).toBe("");
@@ -64,7 +64,7 @@ describe("markdown find", () => {
       regexp: false,
     });
     expect(hits).toHaveLength(1);
-    expect(hits[0]?.node.textContent).toContain("visible");
+    expect(hits[0]?.startNode.textContent).toContain("visible");
   });
 
   test("walks root sibling text nodes in document order", () => {
@@ -77,9 +77,42 @@ describe("markdown find", () => {
       wholeWord: false,
       regexp: false,
     });
-    expect(hits.map((hit) => hit.node.textContent)).toEqual([
+    expect(hits.map((hit) => hit.startNode.textContent)).toEqual([
       "zebra",
       "apple",
     ]);
+  });
+
+  test("matches a query that spans inline markup", () => {
+    const win = new Window({ url: "https://app.atmos.local/" });
+    const root = win.document.createElement("div");
+    root.innerHTML = "<p>hello <strong>world</strong></p>";
+    const { hits } = findMarkdownHits(root, {
+      search: "hello world",
+      caseSensitive: false,
+      wholeWord: false,
+      regexp: false,
+    });
+    expect(hits).toHaveLength(1);
+    expect(hits[0]?.startNode.textContent).toBe("hello ");
+    expect(hits[0]?.endNode.textContent).toBe("world");
+  });
+
+  test("does not join separate block elements into one match", () => {
+    const win = new Window({ url: "https://app.atmos.local/" });
+    const root = win.document.createElement("div");
+    root.innerHTML = "<p>hello</p><p>world</p>";
+    expect(findMarkdownHits(root, {
+      search: "helloworld",
+      caseSensitive: false,
+      wholeWord: false,
+      regexp: false,
+    }).hits).toHaveLength(0);
+    expect(findMarkdownHits(root, {
+      search: "hello",
+      caseSensitive: false,
+      wholeWord: false,
+      regexp: false,
+    }).hits).toHaveLength(1);
   });
 });
