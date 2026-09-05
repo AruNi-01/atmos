@@ -478,6 +478,7 @@ export function AgentChatPanel({
     handleClose,
     handleLogoutAgent,
     handlePermission,
+    handleAskUserAnswers,
     handleCreateNewSession,
     handleSelectWorkingDirectory,
     handleSelectHistorySession,
@@ -987,6 +988,7 @@ export function AgentChatPanel({
                 permission={pendingPermission}
                 markdown={pendingPermissionMarkdown}
                 onRespond={handlePermission}
+                onAnswerQuestions={handleAskUserAnswers}
               />
             </div>
           </div>

@@ -18,6 +18,6 @@ pub use tools::AcpToolHandler;
 pub use types::{
     AgentCapabilitiesSnapshot, AgentCapabilityState, AgentImplementationInfo, AgentLogoutResult,
     AgentSessionInfoUpdate, AuthMethodSummary, AuthRequiredPayload, NativeAgentSession,
-    NativeAgentSessionList, PermissionRequest, PermissionResponse, RiskLevel, StreamDelta,
-    StreamUsage, ToolCallStatus, ToolCallUpdate,
+    NativeAgentSessionList, PermissionDecision, PermissionRequest, PermissionResponse, RiskLevel,
+    StreamDelta, StreamUsage, ToolCallStatus, ToolCallUpdate,
 };

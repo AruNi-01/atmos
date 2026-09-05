@@ -1,6 +1,6 @@
 import React from "react";
 import type { ToolState } from "@workspace/ui";
-import { Brain, FileText, FolderInput, Globe, Pencil, Search, Sparkles, Terminal, Trash2, Wrench } from "lucide-react";
+import { Brain, FileText, FolderInput, Globe, Pencil, Plug, Search, Sparkles, Terminal, Trash2, Wrench } from "lucide-react";
 import { createTranslator } from "next-intl";
 import enMessages from "../../../../messages/en.json";
 import zhMessages from "../../../../messages/zh.json";
@@ -21,6 +21,8 @@ export interface PendingPermission {
   tool: string;
   description: string;
   content_markdown?: string;
+  questions?: unknown;
+  raw_input?: unknown;
   risk_level: string;
   options: AcpPermissionOption[];
 }
@@ -173,6 +175,9 @@ export function getToolKindIcon(kind: AgentToolKind): React.ReactNode {
       return React.createElement(Sparkles);
     case "subagent":
       return React.createElement(Brain);
+    case "mcp_list":
+    case "mcp_call":
+      return React.createElement(Plug);
     default:
       return React.createElement(Wrench);
   }

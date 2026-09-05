@@ -96,11 +96,18 @@ export const agentChatApi = {
     }),
   cancel: (chat_id: string) =>
     wsRequest("agent_chat_cancel", { chat_id }),
-  permissionRespond: (chat_id: string, request_id: string, option_id: string) =>
+  permissionRespond: (
+    chat_id: string,
+    request_id: string,
+    option_id: string,
+    extras?: { answers?: unknown; updated_input?: unknown },
+  ) =>
     wsRequest("agent_chat_permission_respond", {
       chat_id,
       request_id,
       option_id,
+      answers: extras?.answers ?? null,
+      updated_input: extras?.updated_input ?? null,
     }),
   queueUpdate: (
     chat_id: string,

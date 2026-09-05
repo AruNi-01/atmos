@@ -10,6 +10,7 @@ export type AgentToolCallPart = Extract<AgentPart, { type: "tool_call" }>;
 export type ClassifiedTool =
   | { type: "thinking" }
   | { type: "plan" }
+  | { type: "sync_mode" }
   | { type: "hide" }
   | { type: "tool"; kind: AgentToolKind };
 
@@ -231,6 +232,13 @@ export function classifyTool(
     return { type: "thinking" };
   }
   if (
+    ["exitplanmode", "exit_plan_mode", "exit_plan", "exitplan"].includes(toolName)
+    || ((toolName === "switchmode" || toolName === "switch_mode" || toolName === "syncmode" || toolName === "sync_mode")
+      && (toolTitle.includes("ready to code") || hasPlanMarkdown(input)))
+  ) {
+    return { type: "plan" };
+  }
+  if (
     isTodoLabel(toolName)
     || isTodoLabel(toolTitle)
     || toolTitle.includes("todo list updated")
@@ -238,9 +246,41 @@ export function classifyTool(
   ) {
     return { type: "plan" };
   }
-  if (toolName === "switchmode" || toolName === "switch_mode") {
-    if (toolTitle.includes("ready to code") || hasPlanMarkdown(input)) return { type: "plan" };
-    return { type: "hide" };
+  if (toolName === "task" && (hasPlanMarkdown(input) || planFromToolInput(input) != null)) {
+    return { type: "plan" };
+  }
+  if (
+    toolName === "switchmode"
+    || toolName === "switch_mode"
+    || toolName === "syncmode"
+    || toolName === "sync_mode"
+    || toolName === "set_mode"
+    || toolName === "setmode"
+  ) {
+    return { type: "sync_mode" };
+  }
+  if (
+    toolName === "listmcpresources"
+    || toolName === "list_mcp_resources"
+    || toolName === "list_mcp_tools"
+    || toolName === "listmcptools"
+    || toolName === "mcp_list"
+    || toolName === "mcp_list_tools"
+    || toolName.startsWith("list_mcp")
+  ) {
+    return { type: "tool", kind: "mcp_list" };
+  }
+  if (
+    toolName.startsWith("mcp__")
+    || toolName === "callmcptool"
+    || toolName === "call_mcp_tool"
+    || toolName === "call_mcp"
+    || toolName === "use_tool"
+    || toolName === "mcp_call"
+    || toolName === "mcp_call_tool"
+    || toolName.startsWith("call_mcp")
+  ) {
+    return { type: "tool", kind: "mcp_call" };
   }
   if (toolName === "task" || toolName === "agent" || toolName === "subagent" || hasSubagentInput(input)) {
     return { type: "tool", kind: "subagent" };
@@ -250,7 +290,7 @@ export function classifyTool(
   }
 
   if (parseLoadedToolNames(output) || parseLoadedToolNames(input)) {
-    return { type: "tool", kind: "other" };
+    return { type: "tool", kind: "mcp_list" };
   }
 
   if (

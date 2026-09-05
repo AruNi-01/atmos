@@ -158,6 +158,8 @@ impl AgentRuntimeCommands for FakeSessionInner {
                     tool: "edit".into(),
                     description: "edit file".into(),
                     content_markdown: None,
+                    questions: None,
+                    raw_input: None,
                     options: vec![crate::domain::AgentPermissionOption {
                         option_id: "allow".into(),
                         name: "Allow".into(),
@@ -228,11 +230,15 @@ impl AgentRuntimeCommands for FakeSessionInner {
         Ok(())
     }
 
-    async fn respond_permission(&self, request_id: &str, option_id: &str) -> AgentResult<()> {
+    async fn respond_permission(
+        &self,
+        request_id: &str,
+        decision: crate::PermissionDecision,
+    ) -> AgentResult<()> {
         self.counters.permission.fetch_add(1, Ordering::SeqCst);
         let _ = self.events_tx.send(AgentEvent::PermissionResolved {
             request_id: request_id.to_string(),
-            option_id: option_id.to_string(),
+            option_id: decision.option_id,
         });
         if self.auto_complete.load(Ordering::SeqCst) {
             if let Some(turn_id) = self.running_turn.lock().await.take() {

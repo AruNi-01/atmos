@@ -3238,6 +3238,9 @@
         },
         "bottom": "底部",
         "permissionRequested": "权限请求中",
+        "askUserTitle": "需要你确认",
+        "submitAnswers": "提交",
+        "planApproveTitle": "可以开始写代码了？",
         "deny": "拒绝",
         "allow": "允许",
         "copy": {

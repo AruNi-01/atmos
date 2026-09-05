@@ -283,7 +283,13 @@ impl WsMessageService {
             })
             .ok_or_else(|| ServiceError::Validation("option_id is required".into()))?;
         self.agent_chat()
-            .permission_respond(&req.chat_id, &req.request_id, &option_id)
+            .permission_respond(
+                &req.chat_id,
+                &req.request_id,
+                &option_id,
+                req.answers,
+                req.updated_input,
+            )
             .await?;
         Ok(json!({ "ok": true }))
     }

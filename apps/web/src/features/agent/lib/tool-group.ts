@@ -38,6 +38,8 @@ const KIND_TO_OVERVIEW: Record<AgentToolKind, ToolOverviewKind> = {
   skill: "skill",
   subagent: "subagent",
   other: "other",
+  mcp_list: "other",
+  mcp_call: "other",
   fetch: "fetch",
   search: "search",
   read: "read",

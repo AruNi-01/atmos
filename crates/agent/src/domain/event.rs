@@ -45,6 +45,12 @@ pub struct AgentPermissionRequest {
     pub description: String,
     #[serde(default)]
     pub content_markdown: Option<String>,
+    /// AskUser-family `questions` array (Atmos-normalized).
+    #[serde(default)]
+    pub questions: Option<serde_json::Value>,
+    /// Original tool input (plan body, answers echo, MCP args, …).
+    #[serde(default)]
+    pub raw_input: Option<serde_json::Value>,
     #[serde(default)]
     pub options: Vec<AgentPermissionOption>,
 }

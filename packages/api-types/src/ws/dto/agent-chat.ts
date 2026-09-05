@@ -98,6 +98,8 @@ export type AgentChatPermissionRespondRequest = {
   request_id: string;
   option_id?: string | null;
   allowed?: boolean | null;
+  answers?: unknown | null;
+  updated_input?: unknown | null;
 };
 
 export type AgentModelCatalogGetRequest = {
@@ -194,6 +196,8 @@ export type AgentToolKind =
   | "fetch"
   | "skill"
   | "subagent"
+  | "mcp_list"
+  | "mcp_call"
   | "other";
 
 export type SessionLifecycleAction = "create" | "resume";
@@ -271,6 +275,8 @@ export type AgentChatSnapshot = {
     tool: string;
     description: string;
     content_markdown?: string | null;
+    questions?: unknown | null;
+    raw_input?: unknown | null;
     options?: Array<{ option_id: string; name: string; kind?: string }>;
     status: string;
   } | null;
@@ -324,6 +330,8 @@ export type AgentChatPayload =
         tool?: string;
         description?: string;
         content_markdown?: string;
+        questions?: unknown;
+        raw_input?: unknown;
         options?: Array<{ option_id: string; name: string; kind?: string }>;
       };
     }

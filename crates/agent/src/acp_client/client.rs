@@ -318,7 +318,9 @@ use crate::acp_client::types::{
     AgentPlanEntry, AgentSessionInfoUpdate, AgentTurnUsage, AgentUsage, StreamDelta,
     ToolCallStatus, ToolCallUpdate,
 };
-use crate::acp_client::types::{PermissionOption, PermissionRequest, RiskLevel};
+use crate::acp_client::types::{
+    PermissionDecision, PermissionOption, PermissionRequest, RiskLevel,
+};
 
 /// Events sent from ACP session to the session manager (for WebSocket forwarding)
 #[derive(Debug)]
@@ -390,7 +392,7 @@ pub(crate) fn session_usage_is_empty(usage: &AgentUsage) -> bool {
 pub struct AtmosAcpClient {
     handler: Arc<dyn AcpToolHandler>,
     cwd: PathBuf,
-    permission_tx: mpsc::UnboundedSender<(PermissionRequest, oneshot::Sender<String>)>,
+    permission_tx: mpsc::UnboundedSender<(PermissionRequest, oneshot::Sender<PermissionDecision>)>,
     event_tx: mpsc::UnboundedSender<AcpSessionEvent>,
 }
 
@@ -398,7 +400,7 @@ impl AtmosAcpClient {
     pub fn new(
         handler: Arc<dyn AcpToolHandler>,
         cwd: PathBuf,
-        permission_tx: mpsc::UnboundedSender<(PermissionRequest, oneshot::Sender<String>)>,
+        permission_tx: mpsc::UnboundedSender<(PermissionRequest, oneshot::Sender<PermissionDecision>)>,
         event_tx: mpsc::UnboundedSender<AcpSessionEvent>,
     ) -> Self {
         Self {
@@ -415,26 +417,56 @@ impl AtmosAcpClient {
         &self,
         args: schema::RequestPermissionRequest,
     ) -> acp::Result<schema::RequestPermissionResponse> {
-        let tool_name = args
-            .tool_call
-            .fields
-            .kind
-            .as_ref()
-            .map(|k| {
-                let s = format!("{k:?}");
-                if s.is_empty() || s == "None" {
-                    "Tool".to_string()
-                } else {
-                    s
-                }
+        let claude_meta = extract_claude_code_meta(&args.tool_call);
+        let raw_input = args.tool_call.fields.raw_input.clone();
+        let tool_name = extract_claude_tool_name(claude_meta.as_ref())
+            .or_else(|| extract_vendor_tool_type(raw_input.as_ref()))
+            .or_else(|| {
+                args.tool_call
+                    .fields
+                    .title
+                    .as_deref()
+                    .map(str::trim)
+                    .filter(|title| !title.is_empty() && !is_generic_tool_label(title))
+                    .map(ToOwned::to_owned)
+            })
+            .or_else(|| {
+                args.meta
+                    .as_ref()
+                    .and_then(|meta| meta.get("permission"))
+                    .and_then(|perm| perm.get("title"))
+                    .and_then(|title| title.as_str())
+                    .map(str::trim)
+                    .filter(|title| !title.is_empty())
+                    .map(ToOwned::to_owned)
+            })
+            .or_else(|| {
+                args.tool_call.fields.kind.as_ref().map(|k| {
+                    let s = format!("{k:?}");
+                    if s.is_empty() || s == "None" {
+                        "Tool".to_string()
+                    } else {
+                        s
+                    }
+                })
             })
             .unwrap_or_else(|| "Tool".to_string());
         let description = args
-            .tool_call
-            .fields
-            .title
-            .clone()
-            .filter(|s| !s.is_empty())
+            .meta
+            .as_ref()
+            .and_then(|meta| meta.get("permission"))
+            .and_then(|perm| perm.get("title"))
+            .and_then(|title| title.as_str())
+            .map(str::trim)
+            .filter(|title| !title.is_empty())
+            .map(ToOwned::to_owned)
+            .or_else(|| {
+                args.tool_call
+                    .fields
+                    .title
+                    .clone()
+                    .filter(|s| !s.is_empty())
+            })
             .unwrap_or_else(|| tool_name.clone());
         let risk_level = RiskLevel::High;
 
@@ -458,7 +490,17 @@ impl AtmosAcpClient {
             .fields
             .content
             .as_ref()
-            .and_then(|content| extract_markdown_from_tool_call_content(content));
+            .and_then(|content| extract_markdown_from_tool_call_content(content))
+            .or_else(|| {
+                raw_input
+                    .as_ref()
+                    .and_then(|input| input.get("plan"))
+                    .and_then(|plan| plan.as_str())
+                    .map(str::trim)
+                    .filter(|plan| !plan.is_empty())
+                    .map(ToOwned::to_owned)
+            });
+        let questions = crate::domain::questions_from_tool_input(raw_input.as_ref());
 
         let (response_tx, response_rx) = oneshot::channel();
         let request = PermissionRequest {
@@ -466,6 +508,8 @@ impl AtmosAcpClient {
             tool: tool_name,
             description,
             content_markdown,
+            questions,
+            raw_input,
             risk_level,
             options,
         };
@@ -485,18 +529,36 @@ impl AtmosAcpClient {
             warn!("Failed to forward permission request: {}", e);
         }
 
-        let selected = response_rx.await.unwrap_or_else(|_| "reject".to_string());
+        let decision = response_rx
+            .await
+            .unwrap_or_else(|_| crate::acp_client::types::PermissionDecision {
+                option_id: "reject".to_string(),
+                answers: None,
+                updated_input: None,
+            });
         let option_id = args
             .options
             .iter()
-            .find(|option| option.option_id.0.as_ref() == selected)
+            .find(|option| option.option_id.0.as_ref() == decision.option_id)
             .map(|option| option.option_id.clone())
-            .unwrap_or_else(|| schema::PermissionOptionId::new(selected));
+            .unwrap_or_else(|| schema::PermissionOptionId::new(decision.option_id.clone()));
+
+        let mut selected = schema::SelectedPermissionOutcome::new(option_id);
+        if decision.answers.is_some() || decision.updated_input.is_some() {
+            let mut meta = serde_json::Map::new();
+            let mut atmos = serde_json::Map::new();
+            if let Some(answers) = decision.answers {
+                atmos.insert("answers".into(), answers);
+            }
+            if let Some(updated_input) = decision.updated_input {
+                atmos.insert("updatedInput".into(), updated_input);
+            }
+            meta.insert("atmos".into(), serde_json::Value::Object(atmos));
+            selected = selected.meta(meta);
+        }
 
         Ok(schema::RequestPermissionResponse::new(
-            schema::RequestPermissionOutcome::Selected(schema::SelectedPermissionOutcome::new(
-                option_id,
-            )),
+            schema::RequestPermissionOutcome::Selected(selected),
         ))
     }
 

@@ -121,6 +121,12 @@ pub struct AgentChatPermissionRespondRequest {
     pub option_id: Option<String>,
     #[serde(default)]
     pub allowed: Option<bool>,
+    /// AskUser answers map (question → label / label[]).
+    #[serde(default)]
+    pub answers: Option<serde_json::Value>,
+    /// Optional full updated tool input for AskUser / ExitPlanMode.
+    #[serde(default)]
+    pub updated_input: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

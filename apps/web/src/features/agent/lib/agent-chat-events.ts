@@ -439,6 +439,54 @@ function foldAgentChatEvent(
         return { ...message, streaming: true, parts };
       });
     }
+    if (classified.type === "sync_mode") {
+      const modeValue = (() => {
+        const record = tool.input && typeof tool.input === "object" && !Array.isArray(tool.input)
+          ? tool.input as Record<string, unknown>
+          : null;
+        for (const key of ["mode", "target_mode_id", "targetModeId", "to", "value"] as const) {
+          const value = record?.[key];
+          if (typeof value === "string" && value.trim()) return value.trim();
+        }
+        return null;
+      })();
+      if (!modeValue) return messages;
+      return patchCurrentTurnAssistant(messages, undefined, (message) => {
+        const parts = [...message.parts];
+        const next: AgentPart = {
+          type: "session_config_change",
+          mode: { to: modeValue },
+        };
+        const existing = parts.findIndex((row) => row.type === "session_config_change");
+        if (existing >= 0) {
+          const prev = parts[existing];
+          parts[existing] = prev?.type === "session_config_change"
+            ? { ...prev, mode: { to: modeValue } }
+            : next;
+        } else {
+          parts.push(next);
+        }
+        return { ...message, streaming: true, parts };
+      });
+    }
+    const serverKind = typeof tool.kind === "string" ? tool.kind : undefined;
+    const kind = (
+      serverKind === "mcp_list"
+      || serverKind === "mcp_call"
+      || serverKind === "read"
+      || serverKind === "edit"
+      || serverKind === "delete"
+      || serverKind === "move"
+      || serverKind === "search"
+      || serverKind === "execute"
+      || serverKind === "fetch"
+      || serverKind === "skill"
+      || serverKind === "subagent"
+    ) && classified.type === "tool" && classified.kind === "other"
+      ? serverKind
+      : classified.type === "tool"
+        ? classified.kind
+        : "other";
     const part: Extract<AgentPart, { type: "tool_call" }> = {
       type: "tool_call",
       tool_call_id: tool.tool_call_id,
@@ -452,7 +500,7 @@ function foldAgentChatEvent(
             : payload.type === "tool_call_failed"
               ? "failed"
               : undefined),
-      kind: classified.kind,
+      kind,
       input: tool.input,
       output: tool.output,
       content: tool.content,

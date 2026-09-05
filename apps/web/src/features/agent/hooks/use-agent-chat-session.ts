@@ -358,6 +358,8 @@ export function useAgentChatSession({
       tool?: string;
       description?: string;
       content_markdown?: string;
+      questions?: unknown;
+      raw_input?: unknown;
       options?: Array<{ option_id: string; name: string; kind?: string }>;
     } | null;
     setPendingPermission(
@@ -367,6 +369,8 @@ export function useAgentChatSession({
             tool: pending.tool ?? "",
             description: pending.description ?? "",
             content_markdown: pending.content_markdown ?? undefined,
+            questions: pending.questions,
+            raw_input: pending.raw_input,
             risk_level: "",
             options: (pending.options ?? []).map((option) => ({
               option_id: option.option_id,
@@ -660,6 +664,8 @@ export function useAgentChatSession({
           tool: payload.request.tool ?? "",
           description: payload.request.description ?? "",
           content_markdown: payload.request.content_markdown,
+          questions: payload.request.questions,
+          raw_input: payload.request.raw_input,
           risk_level: "",
           options: (payload.request.options ?? []).map((option) => ({
             option_id: option.option_id,
@@ -1486,6 +1492,23 @@ export function useAgentChatSession({
     setPendingPermission(null);
   }, [activeChatId, pendingPermission]);
 
+  const handleAskUserAnswers = useCallback((answers: Record<string, string | string[]>) => {
+    if (!pendingPermission || !activeChatId) return;
+    const allow = pendingPermission.options.find(
+      (item) =>
+        item.kind === "allow_once"
+        || item.kind === "allow_always"
+        || /allow|yes|submit|continue/i.test(item.option_id),
+    );
+    void agentChatApi.permissionRespond(
+      activeChatId,
+      pendingPermission.request_id,
+      allow?.option_id ?? "allow_once",
+      { answers },
+    );
+    setPendingPermission(null);
+  }, [activeChatId, pendingPermission]);
+
   const sendCancel = useCallback(() => {
     stoppedRef.current = true;
     if (!activeChatId) return;
@@ -1618,6 +1641,7 @@ export function useAgentChatSession({
     handleClose: () => undefined,
     handleLogoutAgent: async () => undefined,
     handlePermission,
+    handleAskUserAnswers,
     handleCreateNewSession,
     handleSelectWorkingDirectory,
     handleSelectHistorySession,

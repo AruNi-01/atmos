@@ -8,11 +8,18 @@ describe("classifyTool", () => {
     expect(classifyTool("Bash")).toEqual({ type: "tool", kind: "execute" });
     expect(classifyTool("think")).toEqual({ type: "thinking" });
     expect(classifyTool("TodoWrite")).toEqual({ type: "plan" });
-    expect(classifyTool("SwitchMode")).toEqual({ type: "hide" });
+    expect(classifyTool("SwitchMode")).toEqual({ type: "sync_mode" });
     expect(classifyTool("Task", null, { subagent_type: "explore" })).toEqual({
       type: "tool",
       kind: "subagent",
     });
+    expect(classifyTool("ExitPlanMode", null, { plan: "# Go" })).toEqual({ type: "plan" });
+    expect(classifyTool("CallMcpTool")).toEqual({ type: "tool", kind: "mcp_call" });
+    expect(classifyTool("ListMcpResources")).toEqual({ type: "tool", kind: "mcp_list" });
+    expect(classifyTool("mcp__fs__read")).toEqual({ type: "tool", kind: "mcp_call" });
+    expect(classifyTool("use_tool")).toEqual({ type: "tool", kind: "mcp_call" });
+    expect(classifyTool("BashOutput")).toEqual({ type: "hide" });
+    expect(classifyTool("TaskOutput", null, { variant: "TaskOutput" })).toEqual({ type: "hide" });
     expect(classifyTool("Web search")).toEqual({ type: "tool", kind: "search" });
     expect(classifyTool("WebFetch")).toEqual({ type: "tool", kind: "fetch" });
     expect(classifyTool("Tool", null, {
@@ -39,7 +46,7 @@ describe("classifyTool", () => {
     });
     expect(classifyTool("Read", null, {}, "Loaded 2 tool(s): WebSearch, FetchUrl")).toEqual({
       type: "tool",
-      kind: "other",
+      kind: "mcp_list",
     });
     expect(classifyTool("Tool", null, { type: "Bash", command: "ls -la ~/.grok" })).toEqual({
       type: "tool",

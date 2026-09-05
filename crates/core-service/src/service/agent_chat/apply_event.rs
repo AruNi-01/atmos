@@ -292,6 +292,8 @@ pub(super) async fn apply_event(
                 tool: request.tool,
                 description: request.description,
                 content_markdown: request.content_markdown,
+                questions: request.questions,
+                raw_input: request.raw_input,
                 options: request.options,
                 status: "pending".into(),
             };
@@ -325,6 +327,8 @@ pub(super) async fn apply_event(
                     tool: String::new(),
                     description: String::new(),
                     content_markdown: None,
+                    questions: None,
+                    raw_input: None,
                     options: Vec::new(),
                     status: "resolved".into(),
                 },

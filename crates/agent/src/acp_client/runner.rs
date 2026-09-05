@@ -412,7 +412,10 @@ pub struct AcpSessionHandle {
     pub session_id: String,
     cmd_tx: mpsc::UnboundedSender<SessionCommand>,
     event_rx: mpsc::UnboundedReceiver<AcpSessionEvent>,
-    permission_rx: mpsc::UnboundedReceiver<(PermissionRequest, oneshot::Sender<String>)>,
+    permission_rx: mpsc::UnboundedReceiver<(
+        PermissionRequest,
+        oneshot::Sender<crate::acp_client::types::PermissionDecision>,
+    )>,
 }
 
 pub const AUTH_REQUIRED_ERROR_PREFIX: &str = "ACP_AUTH_REQUIRED::";
@@ -509,7 +512,12 @@ impl AcpSessionHandle {
     }
 
     /// Receive pending permission request (non-blocking)
-    pub fn try_recv_permission(&mut self) -> Option<(PermissionRequest, oneshot::Sender<String>)> {
+    pub fn try_recv_permission(
+        &mut self,
+    ) -> Option<(
+        PermissionRequest,
+        oneshot::Sender<crate::acp_client::types::PermissionDecision>,
+    )> {
         self.permission_rx.try_recv().ok()
     }
 }
@@ -616,7 +624,10 @@ async fn run_session_inner(
     auth_method_id: Option<String>,
     cmd_rx: &mut mpsc::UnboundedReceiver<SessionCommand>,
     event_tx: mpsc::UnboundedSender<AcpSessionEvent>,
-    permission_tx: mpsc::UnboundedSender<(PermissionRequest, oneshot::Sender<String>)>,
+    permission_tx: mpsc::UnboundedSender<(
+        PermissionRequest,
+        oneshot::Sender<crate::acp_client::types::PermissionDecision>,
+    )>,
     mut ready_tx: Option<oneshot::Sender<Result<String, String>>>,
     default_config: Option<std::collections::HashMap<String, String>>,
     session_config_snapshot: Option<HashMap<String, String>>,

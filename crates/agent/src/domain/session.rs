@@ -76,7 +76,11 @@ pub trait AgentRuntimeCommands: Send + Sync {
     async fn cancel(&self) -> AgentResult<()>;
     async fn close(&self) -> AgentResult<()>;
     async fn set_config(&self, update: AgentRuntimeConfigUpdate) -> AgentResult<()>;
-    async fn respond_permission(&self, request_id: &str, option_id: &str) -> AgentResult<()>;
+    async fn respond_permission(
+        &self,
+        request_id: &str,
+        decision: crate::PermissionDecision,
+    ) -> AgentResult<()>;
 }
 
 #[derive(Clone)]
@@ -109,8 +113,12 @@ impl AgentRuntimeControl {
         self.inner.set_config(update).await
     }
 
-    pub async fn respond_permission(&self, request_id: &str, option_id: &str) -> AgentResult<()> {
-        self.inner.respond_permission(request_id, option_id).await
+    pub async fn respond_permission(
+        &self,
+        request_id: &str,
+        decision: crate::PermissionDecision,
+    ) -> AgentResult<()> {
+        self.inner.respond_permission(request_id, decision).await
     }
 }
 

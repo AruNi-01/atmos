@@ -12,8 +12,9 @@ pub use acp_client::{
     list_acp_sessions, logout_acp_agent, run_acp_session, AcpSessionControl, AcpSessionEvent,
     AcpSessionHandle, AcpToolHandler, AgentCapabilitiesSnapshot, AgentCapabilityState,
     AgentImplementationInfo, AgentLogoutResult, AgentSessionInfoUpdate, AtmosAcpClient,
-    NativeAgentSession, NativeAgentSessionList, PermissionRequest, PermissionResponse, RiskLevel,
-    StreamDelta, StreamUsage, ToolCallStatus, ToolCallUpdate, AUTH_REQUIRED_ERROR_PREFIX,
+    NativeAgentSession, NativeAgentSessionList, PermissionDecision, PermissionRequest,
+    PermissionResponse, RiskLevel, StreamDelta, StreamUsage, ToolCallStatus, ToolCallUpdate,
+    AUTH_REQUIRED_ERROR_PREFIX,
 };
 pub use catalog::{
     catalog_cache_dir, merge_catalogs, parse_droid_help, parse_line_list,
@@ -23,7 +24,8 @@ pub use catalog::{
     StdioAcpCatalogProbe, ERROR_CACHE_TTL, OK_CACHE_TTL,
 };
 pub use domain::{
-    classify_tool, deserialize_tool_kind, is_generic_tool_label, plan_from_tool_input,
+    classify_tool, deserialize_tool_kind, is_ask_user_tool, is_exit_plan_tool,
+    is_generic_tool_label, mode_from_sync_input, plan_from_tool_input, questions_from_tool_input,
     thinking_text, AgentAvailableCommand, AgentCapabilities, AgentCatalogContext, AgentEvent,
     AgentMode, AgentModel, AgentModelCatalog, AgentPermissionOption, AgentPermissionRequest,
     AgentPersistenceHandle, AgentPrompt, AgentProvider, AgentProviderError, AgentProviderFactory,

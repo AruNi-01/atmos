@@ -648,6 +648,10 @@ pub struct PendingPermission {
     #[serde(default)]
     pub content_markdown: Option<String>,
     #[serde(default)]
+    pub questions: Option<serde_json::Value>,
+    #[serde(default)]
+    pub raw_input: Option<serde_json::Value>,
+    #[serde(default)]
     pub options: Vec<agent::AgentPermissionOption>,
     pub status: String,
 }

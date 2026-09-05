@@ -40,7 +40,7 @@ struct AcpCommands {
     control: AcpSessionControl,
     supports_steer: AtomicBool,
     running_turn: Mutex<Option<String>>,
-    pending_permissions: Mutex<HashMap<String, oneshot::Sender<String>>>,
+    pending_permissions: Mutex<HashMap<String, oneshot::Sender<crate::PermissionDecision>>>,
 }
 
 #[async_trait]
@@ -116,14 +116,18 @@ impl AgentRuntimeCommands for AcpCommands {
         Ok(())
     }
 
-    async fn respond_permission(&self, request_id: &str, option_id: &str) -> AgentResult<()> {
+    async fn respond_permission(
+        &self,
+        request_id: &str,
+        decision: crate::PermissionDecision,
+    ) -> AgentResult<()> {
         let tx = self
             .pending_permissions
             .lock()
             .await
             .remove(request_id)
             .ok_or_else(|| AgentProviderError::NotFound(request_id.to_string()))?;
-        let _ = tx.send(option_id.to_string());
+        let _ = tx.send(decision);
         Ok(())
     }
 }
@@ -231,6 +235,8 @@ impl AcpMappedSession {
                         tool: request.tool,
                         description: request.description,
                         content_markdown: request.content_markdown,
+                        questions: request.questions,
+                        raw_input: request.raw_input,
                         options: request
                             .options
                             .into_iter()

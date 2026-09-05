@@ -13,7 +13,7 @@ use crate::utils::path_boundary::{path_or_existing_parent_within_root, path_with
 use super::types::{
     flatten_messages, AgentChatIndexEntry, AgentChatMeta, AgentChatOrigin, AgentChatSnapshot,
     CreateAgentChatRequest, FoldedMessage, FoldedTurn, MessagePart, QueueItem, RuntimeStatus,
-    SessionConfigValueChange, SessionHintTone, SessionLifecycleAction, SessionLifecycleStatus,
+    SessionHintTone, SessionLifecycleAction, SessionLifecycleStatus,
     TranscriptRecord, TurnStatus,
 };
 
@@ -1027,8 +1027,31 @@ fn apply_tool_call(
         },
         agent::ClassifiedTool::Plan => {
             let plan = agent::plan_from_tool_input(tool_call.input.as_ref())
+                .or_else(|| {
+                    tool_call
+                        .input
+                        .as_ref()
+                        .and_then(|input| input.get("plan"))
+                        .and_then(|plan| plan.as_str())
+                        .filter(|plan| !plan.trim().is_empty())
+                        .map(|plan| {
+                            serde_json::json!({
+                                "entries": [{ "content": plan, "priority": "medium", "status": "pending" }]
+                            })
+                        })
+                })
                 .unwrap_or(serde_json::json!({ "entries": [] }));
             MessagePart::Plan { plan }
+        }
+        agent::ClassifiedTool::SyncMode => {
+            let mode = agent::mode_from_sync_input(tool_call.input.as_ref());
+            let Some(to) = mode else {
+                return;
+            };
+            MessagePart::SessionConfigChange {
+                model: None,
+                mode: Some(super::types::SessionConfigValueChange { from: None, to }),
+            }
         }
         agent::ClassifiedTool::Call(kind) => MessagePart::ToolCall {
             tool_call_id: tool_call.tool_call_id.clone(),

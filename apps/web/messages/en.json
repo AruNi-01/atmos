@@ -3238,6 +3238,9 @@
         },
         "bottom": "Bottom",
         "permissionRequested": "Permission requested",
+        "askUserTitle": "Question for you",
+        "submitAnswers": "Submit",
+        "planApproveTitle": "Ready to code?",
         "deny": "Deny",
         "allow": "Allow",
         "copy": {

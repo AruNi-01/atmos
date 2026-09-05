@@ -19,17 +19,53 @@ import {
 } from "@/features/agent/lib/agent-permission-content";
 import { AgentCommandLine } from "./AgentCommandLine";
 import { PermissionActionButton } from "./MessageQueueDock";
+import { ApprovalCard, parseAskUserQuestions } from "./ApprovalCard";
+
+function isAskUserTool(tool?: string | null): boolean {
+  const name = (tool || "").trim().toLowerCase().replace(/[\s-]+/g, "_");
+  return [
+    "askuserquestion",
+    "ask_user_question",
+    "askuser",
+    "ask_user",
+    "askquestion",
+    "ask_question",
+    "request_user_input",
+    "requestuserinput",
+    "questions",
+  ].includes(name);
+}
+
+function isExitPlanTool(tool?: string | null, description?: string | null): boolean {
+  const name = (tool || "").trim().toLowerCase().replace(/[\s-]+/g, "_");
+  const title = (description || "").trim().toLowerCase();
+  return (
+    name === "exitplanmode"
+    || name === "exit_plan_mode"
+    || name === "exit_plan"
+    || title.includes("ready to code")
+  );
+}
 
 export function AgentPermissionCard({
   permission,
   markdown,
   onRespond,
+  onAnswerQuestions,
 }: {
   permission: PendingPermission;
   markdown: string | null;
   onRespond: (optionId: string) => void;
+  onAnswerQuestions?: (answers: Record<string, string | string[]>) => void;
 }) {
   const t = useTranslations("Agent.components.chatPanel");
+  const questions = useMemo(
+    () => parseAskUserQuestions(permission.questions ?? permission.raw_input),
+    [permission.questions, permission.raw_input],
+  );
+  const askUser = isAskUserTool(permission.tool) || questions.length > 0;
+  const exitPlan = isExitPlanTool(permission.tool, permission.description);
+
   const command = useMemo(
     () =>
       resolvePermissionCommand({
@@ -42,29 +78,52 @@ export function AgentPermissionCard({
   const description = permissionDescriptionToRender(permission.description, command);
   const extraMarkdown = permissionMarkdownToRender(markdown, command);
 
+  if (askUser && questions.length > 0 && onAnswerQuestions) {
+    return (
+      <ApprovalCard
+        requestId={permission.request_id}
+        title={permission.description}
+        questions={questions}
+        onSubmit={onAnswerQuestions}
+        onCancel={() => {
+          const reject = permission.options.find(
+            (opt) => opt.kind === "reject_once" || opt.kind === "reject_always" || /reject|deny|no/i.test(opt.option_id),
+          );
+          onRespond(reject?.option_id ?? "reject_once");
+        }}
+      />
+    );
+  }
+
   return (
     <Confirmation
       approval={{ id: permission.request_id }}
       state="approval-requested"
       data-agent-chat-permission=""
+      data-agent-chat-exit-plan={exitPlan ? "" : undefined}
       className="relative min-w-0 max-h-[40vh] overflow-x-hidden overflow-y-auto overscroll-contain rounded-3xl border-foreground/20 bg-background"
     >
       <ShineBorder
         duration={7}
         borderWidth={1}
-        shineColor={["#d97706", "#b45309"]}
+        shineColor={exitPlan ? ["#2563eb", "#1d4ed8"] : ["#d97706", "#b45309"]}
       />
       <ConfirmationRequest>
         <div className="flex items-center gap-2">
-          <ShieldCheck className="size-4 shrink-0 text-amber-500" aria-hidden="true" />
-          <span className="font-medium text-amber-500">{t("permissionRequested")}</span>
+          <ShieldCheck
+            className={`size-4 shrink-0 ${exitPlan ? "text-blue-500" : "text-amber-500"}`}
+            aria-hidden="true"
+          />
+          <span className={`font-medium ${exitPlan ? "text-blue-500" : "text-amber-500"}`}>
+            {exitPlan ? t("planApproveTitle") : t("permissionRequested")}
+          </span>
         </div>
-        {description ? (
+        {description && !exitPlan ? (
           <p className="max-w-full text-sm text-muted-foreground">
             {description}
           </p>
         ) : null}
-        {command ? (
+        {command && !exitPlan ? (
           <div className="min-w-0 max-w-full overflow-hidden rounded-2xl border border-border bg-muted/20">
             <AgentCommandLine command={command} className="px-3 py-2.5" />
           </div>

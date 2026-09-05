@@ -28,6 +28,12 @@ pub struct PermissionRequest {
     pub description: String,
     /// Optional markdown preview content from tool call payload.
     pub content_markdown: Option<String>,
+    /// AskUser-family questions payload when present on the tool input.
+    #[serde(default)]
+    pub questions: Option<serde_json::Value>,
+    /// Original tool raw input (ExitPlanMode plan, AskUser questions, …).
+    #[serde(default)]
+    pub raw_input: Option<serde_json::Value>,
     pub risk_level: RiskLevel,
     /// Permission options presented by the agent (may be empty for legacy agents)
     pub options: Vec<PermissionOption>,
@@ -39,6 +45,18 @@ pub struct PermissionResponse {
     pub request_id: String,
     pub allowed: bool,
     pub remember_for_session: bool,
+}
+
+/// Decision returned by the Atmos UI for a pending ACP permission.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct PermissionDecision {
+    pub option_id: String,
+    /// AskUser answers map (question text → selected label(s)).
+    #[serde(default)]
+    pub answers: Option<serde_json::Value>,
+    /// Optional full updated tool input (AskUser / ExitPlanMode echo).
+    #[serde(default)]
+    pub updated_input: Option<serde_json::Value>,
 }
 
 /// Auth method metadata from ACP initialize response

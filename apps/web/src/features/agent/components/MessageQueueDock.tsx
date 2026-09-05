@@ -98,15 +98,18 @@ export function PermissionActionButton({
   label,
   variant,
   onClick,
+  disabled,
 }: {
   label: string;
   variant?: React.ComponentProps<typeof ConfirmationAction>["variant"];
   onClick: () => void;
+  disabled?: boolean;
 }) {
   return (
     <ConfirmationAction
       variant={variant}
       onClick={onClick}
+      disabled={disabled}
       className="min-w-0 max-w-[22rem] flex-1 basis-0 justify-start overflow-hidden rounded-full px-3"
     >
       <HoverScrollableText

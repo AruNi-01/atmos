@@ -646,16 +646,50 @@ impl AgentChatService {
         chat_id: &str,
         request_id: &str,
         option_id: &str,
+        answers: Option<serde_json::Value>,
+        updated_input: Option<serde_json::Value>,
     ) -> Result<()> {
-        let control = self
-            .runtimes
-            .lock()
-            .await
-            .get(chat_id)
-            .map(|runtime| runtime.control.clone())
-            .ok_or_else(|| ServiceError::Validation("no live runtime".into()))?;
+        let (control, pending) = {
+            let map = self.runtimes.lock().await;
+            let runtime = map
+                .get(chat_id)
+                .ok_or_else(|| ServiceError::Validation("no live runtime".into()))?;
+            let pending = runtime.state.lock().await.pending_permission.clone();
+            (runtime.control.clone(), pending)
+        };
+        let updated_input = updated_input.or_else(|| {
+            let pending = pending.as_ref()?;
+            let answers = answers.as_ref()?;
+            if !agent::is_ask_user_tool(&pending.tool)
+                && agent::questions_from_tool_input(pending.raw_input.as_ref()).is_none()
+            {
+                return None;
+            }
+            let mut input = pending
+                .raw_input
+                .clone()
+                .unwrap_or_else(|| serde_json::json!({}));
+            if let Some(obj) = input.as_object_mut() {
+                if let Some(questions) = pending
+                    .questions
+                    .clone()
+                    .or_else(|| agent::questions_from_tool_input(pending.raw_input.as_ref()))
+                {
+                    obj.insert("questions".into(), questions);
+                }
+                obj.insert("answers".into(), answers.clone());
+            }
+            Some(input)
+        });
         control
-            .respond_permission(request_id, option_id)
+            .respond_permission(
+                request_id,
+                agent::PermissionDecision {
+                    option_id: option_id.to_string(),
+                    answers: answers.clone(),
+                    updated_input,
+                },
+            )
             .await
             .map_err(|e| ServiceError::Processing(e.to_string()))?;
         let turn_id = if let Some(runtime) = self.runtimes.lock().await.get(chat_id) {
@@ -674,10 +708,23 @@ impl AgentChatService {
                 turn_id,
                 request: PendingPermission {
                     request_id: request_id.to_string(),
-                    tool: String::new(),
-                    description: String::new(),
-                    content_markdown: None,
-                    options: Vec::new(),
+                    tool: pending
+                        .as_ref()
+                        .map(|row| row.tool.clone())
+                        .unwrap_or_default(),
+                    description: pending
+                        .as_ref()
+                        .map(|row| row.description.clone())
+                        .unwrap_or_default(),
+                    content_markdown: pending
+                        .as_ref()
+                        .and_then(|row| row.content_markdown.clone()),
+                    questions: pending.as_ref().and_then(|row| row.questions.clone()),
+                    raw_input: pending.as_ref().and_then(|row| row.raw_input.clone()),
+                    options: pending
+                        .as_ref()
+                        .map(|row| row.options.clone())
+                        .unwrap_or_default(),
                     status: "resolved".into(),
                 },
                 created_at: Utc::now(),
