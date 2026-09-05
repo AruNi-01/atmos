@@ -153,7 +153,14 @@ function matchOverlapsSeparator(
   matchEnd: number,
   separators: number[],
 ): boolean {
-  return separators.some((sep) => sep >= matchStart && sep < matchEnd);
+  let low = 0;
+  let high = separators.length;
+  while (low < high) {
+    const mid = (low + high) >> 1;
+    if (separators[mid]! < matchStart) low = mid + 1;
+    else high = mid;
+  }
+  return low < separators.length && separators[low]! < matchEnd;
 }
 
 function locateStart(spans: TextSpan[], offset: number): TextSpan & { local: number } {
