@@ -98,9 +98,11 @@ export function collectMarkdownFindTextNodes(root: ParentNode): Text[] {
 function collectMarkdownFindStream(root: ParentNode): {
   text: string;
   spans: TextSpan[];
+  separators: number[];
 } {
   let text = "";
   const spans: TextSpan[] = [];
+  const separators: number[] = [];
   let pendingBreak = false;
 
   const appendBreak = () => {
@@ -108,14 +110,18 @@ function collectMarkdownFindStream(root: ParentNode): {
     pendingBreak = true;
   };
 
+  const flushBreak = () => {
+    if (!pendingBreak) return;
+    separators.push(text.length);
+    text += "\n";
+    pendingBreak = false;
+  };
+
   const visit = (node: ChildNode) => {
     if (node.nodeName === "#text") {
       const textNode = node as Text;
       if (shouldSkipSearchNode(textNode)) return;
-      if (pendingBreak) {
-        text += "\n";
-        pendingBreak = false;
-      }
+      flushBreak();
       const chunk = textNode.textContent ?? "";
       const start = text.length;
       text += chunk;
@@ -139,7 +145,15 @@ function collectMarkdownFindStream(root: ParentNode): {
   };
 
   for (const child of Array.from(root.childNodes)) visit(child);
-  return { text, spans };
+  return { text, spans, separators };
+}
+
+function matchOverlapsSeparator(
+  matchStart: number,
+  matchEnd: number,
+  separators: number[],
+): boolean {
+  return separators.some((sep) => sep >= matchStart && sep < matchEnd);
 }
 
 function locateStart(spans: TextSpan[], offset: number): TextSpan & { local: number } {
@@ -175,7 +189,7 @@ export function findMarkdownHits(
   const { pattern, invalid } = compileMarkdownFindPattern(query);
   if (!pattern) return { hits: [], invalid };
 
-  const { text, spans } = collectMarkdownFindStream(root);
+  const { text, spans, separators } = collectMarkdownFindStream(root);
   if (spans.length === 0) return { hits: [], invalid: false };
 
   const hits: MarkdownFindHit[] = [];
@@ -188,8 +202,14 @@ export function findMarkdownHits(
       match = pattern.exec(text);
       continue;
     }
-    const start = locateStart(spans, match.index);
-    const end = locateEnd(spans, match.index + match[0].length);
+    const matchStart = match.index;
+    const matchEnd = matchStart + match[0].length;
+    if (matchOverlapsSeparator(matchStart, matchEnd, separators)) {
+      match = pattern.exec(text);
+      continue;
+    }
+    const start = locateStart(spans, matchStart);
+    const end = locateEnd(spans, matchEnd);
     if (
       start.node === end.node &&
       start.local === end.local

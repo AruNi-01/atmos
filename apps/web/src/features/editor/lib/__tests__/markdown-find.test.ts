@@ -114,5 +114,23 @@ describe("markdown find", () => {
       wholeWord: false,
       regexp: false,
     }).hits).toHaveLength(1);
+    expect(findMarkdownHits(root, {
+      search: String.raw`hello\s+world`,
+      caseSensitive: false,
+      wholeWord: false,
+      regexp: true,
+    }).hits).toHaveLength(0);
+  });
+
+  test("still matches real newlines inside a pre block", () => {
+    const win = new Window({ url: "https://app.atmos.local/" });
+    const root = win.document.createElement("div");
+    root.innerHTML = "<pre>hello\nworld</pre>";
+    expect(findMarkdownHits(root, {
+      search: String.raw`hello\s+world`,
+      caseSensitive: false,
+      wholeWord: false,
+      regexp: true,
+    }).hits).toHaveLength(1);
   });
 });
