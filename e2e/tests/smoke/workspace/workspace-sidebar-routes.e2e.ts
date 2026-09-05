@@ -1,6 +1,6 @@
-import type { Page } from "@playwright/test";
 import { expect, test } from "../../../fixtures/test";
 import {
+  activateWorkspaceToolTab,
   buildProjectWorkspaceDeepLink,
   closeSettingsPage,
   connectLocalComputer,
@@ -12,66 +12,6 @@ import {
   stubComputerClientSettingsApi,
   withSearchParams,
 } from "../support/app-smoke";
-
-async function activateWorkspaceToolTab(page: Page, name: RegExp) {
-  const toolTab = page.getByRole("tab", { name });
-  if (!(await toolTab.first().isVisible().catch(() => false))) {
-    const plusTrigger = page
-      .locator("main [data-center-stage-plus-trigger]")
-      .filter({ visible: true })
-      .first();
-    await expect(plusTrigger).toBeVisible({ timeout: 15_000 });
-    const plusMenu = page.locator("[data-center-stage-plus-menu]");
-    // Playwright click() hovers first: trigger onMouseEnter opens, then the
-    // click toggles Radix closed. Native click does not move the pointer.
-    if ((await plusTrigger.getAttribute("aria-expanded")) !== "true") {
-      await plusTrigger.evaluate((el) => (el as HTMLButtonElement).click());
-    }
-    await expect(plusMenu).toBeVisible({ timeout: 15_000 });
-
-    await expect
-      .poll(
-        async () =>
-          plusMenu.evaluate((menu, source) => {
-            const tabsTab = Array.from(menu.querySelectorAll('[role="tab"]')).find((node) =>
-              /^(标签|Tabs)$/.test((node.textContent ?? "").trim()),
-            ) as HTMLElement | undefined;
-            if (tabsTab && tabsTab.getAttribute("aria-selected") !== "true") {
-              tabsTab.click();
-            }
-            return Array.from(menu.querySelectorAll("button")).some((button) =>
-              new RegExp(source).test(button.textContent ?? ""),
-            );
-          }, name.source),
-        { timeout: 10_000 },
-      )
-      .toBe(true);
-
-    const clicked = await plusMenu.evaluate((menu, source) => {
-      const match = Array.from(menu.querySelectorAll("button")).find((button) =>
-        new RegExp(source).test(button.textContent ?? ""),
-      );
-      if (!match) return false;
-      match.scrollIntoView({ block: "nearest" });
-      match.click();
-      return true;
-    }, name.source);
-    expect(clicked, `plus menu missing item ${name}`).toBe(true);
-  }
-
-  await expect(toolTab.first()).toBeVisible({ timeout: 45_000 });
-  await expect
-    .poll(
-      async () => {
-        const tab = toolTab.first();
-        if ((await tab.getAttribute("aria-selected")) === "true") return true;
-        await tab.click({ timeout: 5_000 }).catch(() => undefined);
-        return (await tab.getAttribute("aria-selected")) === "true";
-      },
-      { timeout: 20_000 },
-    )
-    .toBe(true);
-}
 
 test.describe("smoke workspace", () => {
   test("@smoke @stateful exercises workspace center tool tabs and read-only subtabs", async ({

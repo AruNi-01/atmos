@@ -92,14 +92,19 @@ function buildTocTree(headings: TocHeading[]): TocNode[] {
   return root;
 }
 
+export type MarkdownTocSide = "left" | "right";
+
 interface MarkdownTocProps {
   markdown: string;
   scrollContainerId: string;
+  /** Editor markdown preview uses `left` so it does not sit on the files sidecar. */
+  side?: MarkdownTocSide;
 }
 
 export const MarkdownToc: React.FC<MarkdownTocProps> = ({
   markdown,
   scrollContainerId,
+  side = "right",
 }) => {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [isHovered, setIsHovered] = useState(false);
@@ -151,16 +156,24 @@ export const MarkdownToc: React.FC<MarkdownTocProps> = ({
 
   const activeIndex = headings.findIndex((h) => h.id === activeId);
 
+  const isLeft = side === "left";
+
   return (
     <div
-      className="absolute right-2 top-16 z-30 flex items-start cursor-pointer"
+      data-markdown-toc=""
+      data-markdown-toc-side={side}
+      className={cn(
+        "absolute top-16 z-30 flex cursor-pointer items-start",
+        isLeft ? "left-2" : "right-2",
+      )}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
       {/* Collapsed: tick-mark indicator */}
       <div
         className={cn(
-          "flex flex-col items-end gap-1.5 py-1 transition-opacity duration-200",
+          "flex flex-col gap-1.5 py-1 transition-opacity duration-200",
+          isLeft ? "items-start" : "items-end",
           isHovered ? "opacity-0" : "opacity-100"
         )}
       >
@@ -183,10 +196,14 @@ export const MarkdownToc: React.FC<MarkdownTocProps> = ({
       {/* Expanded: floating card */}
       <div
         className={cn(
-          "absolute right-0 top-0 w-52 rounded-lg border border-border bg-background/95 backdrop-blur-sm shadow-md transition-all duration-200 ease-in-out overflow-hidden",
+          "absolute top-0 w-52 overflow-hidden rounded-lg border border-border bg-background/95 shadow-md backdrop-blur-sm transition-all duration-200 ease-in-out",
+          isLeft ? "left-0" : "right-0",
           isHovered
-            ? "opacity-100 translate-x-0 scale-100"
-            : "opacity-0 translate-x-2 scale-[0.97] pointer-events-none"
+            ? "translate-x-0 scale-100 opacity-100"
+            : cn(
+                "pointer-events-none scale-[0.97] opacity-0",
+                isLeft ? "-translate-x-2" : "translate-x-2",
+              ),
         )}
       >
         <div className="max-h-[min(420px,60vh)] overflow-y-auto overscroll-contain py-2 px-1">

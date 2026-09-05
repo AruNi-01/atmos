@@ -585,6 +585,11 @@ export const queryKeys = {
     userCard: (login: string) =>
       ["atmos", "public", "github", "userCard", login] as const,
   },
+  /** Unauthenticated FxTwitter (share/leaderboard hover cards). */
+  publicX: {
+    userCard: (username: string) =>
+      ["atmos", "public", "x", "userCard", username] as const,
+  },
 } as const;
 
 export type ComputerQueryRootKey = ReturnType<typeof queryKeys.computer.root>;

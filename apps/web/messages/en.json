@@ -1258,6 +1258,20 @@
       },
       "notesTitle": "Notes"
     },
+    "centerExplorer": {
+      "hideFiles": "Hide files",
+      "showFiles": "Show files",
+      "hideChanges": "Hide changes",
+      "showChanges": "Show changes",
+      "selectFile": "Open a file from the directory",
+      "selectChange": "Select a change to view the diff",
+      "searchPlaceholder": "Files, Folders...",
+      "newFile": "New File",
+      "recents": "Recents",
+      "graphHistory": "Graph History",
+      "recentCommits": "Recent commits",
+      "noSearchResults": "No matching files or folders"
+    },
     "centerStageTabGroups": {
       "groups": {
         "terminal": "Terminal",
@@ -8256,6 +8270,14 @@
       "empty": {
         "noDiffContent": "No diff content"
       }
+    }
+  },
+  "x": {
+    "userCard": {
+      "loading": "Loading profile…",
+      "following": "Following",
+      "followers": "Followers",
+      "joined": "Joined {date}"
     }
   },
   "codeReview": {

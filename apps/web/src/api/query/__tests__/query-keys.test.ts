@@ -174,6 +174,16 @@ describe("queryKeys", () => {
     ]);
   });
 
+  test("public X user card is not scoped to a computer", () => {
+    expect(queryKeys.publicX.userCard("srbh_here")).toEqual([
+      "atmos",
+      "public",
+      "x",
+      "userCard",
+      "srbh_here",
+    ]);
+  });
+
   test("resource monitor snapshot is scoped by instance, epoch, and revision", () => {
     expect(queryKeys.computer.resourceMonitorSnapshot(scope)).toEqual([
       "atmos",

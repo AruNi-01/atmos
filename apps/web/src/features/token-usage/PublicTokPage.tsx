@@ -7,6 +7,7 @@ import { XIcon } from "@workspace/ui";
 import { useLocale, useTranslations } from "next-intl";
 
 import { GithubUserHoverCard } from "@/features/github/components/GithubUserHoverCard";
+import { XUserHoverCard } from "@/features/x/components/XUserHoverCard";
 import { HandleComputerCount } from "@/features/token-usage/HandleComputerCount";
 import { TokenUsageOverviewView } from "@/features/token-usage/TokenUsageOverviewView";
 import type { TokenUsageSharePayload } from "@/features/token-usage/token-usage-share-payload";
@@ -80,15 +81,17 @@ export function PublicTokPage({
           </div>
           <div className="flex shrink-0 items-center gap-3">
             {xUsername ? (
-              <a
-                href={`https://x.com/${xUsername}`}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-              >
-                <XIcon className="size-3.5" />
-                <span>@{xUsername}</span>
-              </a>
+              <XUserHoverCard username={xUsername} avatarUrl={avatarUrl}>
+                <a
+                  href={`https://x.com/${xUsername}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                >
+                  <XIcon className="size-3.5" />
+                  <span>@{xUsername}</span>
+                </a>
+              </XUserHoverCard>
             ) : null}
             {githubUsername ? (
               <GithubUserHoverCard

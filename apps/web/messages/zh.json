@@ -1258,6 +1258,20 @@
       },
       "notesTitle": "笔记"
     },
+    "centerExplorer": {
+      "hideFiles": "隐藏文件目录",
+      "showFiles": "显示文件目录",
+      "hideChanges": "隐藏变更列表",
+      "showChanges": "显示变更列表",
+      "selectFile": "从右侧目录打开文件",
+      "selectChange": "从右侧变更列表打开 diff",
+      "searchPlaceholder": "文件、文件夹...",
+      "newFile": "新建文件",
+      "recents": "最近打开",
+      "graphHistory": "图形历史",
+      "recentCommits": "最近提交",
+      "noSearchResults": "没有匹配的文件或文件夹"
+    },
     "centerStageTabGroups": {
       "groups": {
         "terminal": "终端",
@@ -8256,6 +8270,14 @@
       "empty": {
         "noDiffContent": "没有差异内容"
       }
+    }
+  },
+  "x": {
+    "userCard": {
+      "loading": "正在加载主页…",
+      "following": "正在关注",
+      "followers": "关注者",
+      "joined": "{date} 加入"
     }
   },
   "codeReview": {
