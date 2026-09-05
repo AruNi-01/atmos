@@ -186,6 +186,21 @@ function matchOverlapsSeparator(
   return low < separators.length && separators[low]! < matchEnd;
 }
 
+function matchOverlapsText(
+  matchStart: number,
+  matchEnd: number,
+  spans: TextSpan[],
+): boolean {
+  let low = 0;
+  let high = spans.length;
+  while (low < high) {
+    const mid = (low + high) >> 1;
+    if (spans[mid]!.end <= matchStart) low = mid + 1;
+    else high = mid;
+  }
+  return low < spans.length && spans[low]!.start < matchEnd;
+}
+
 function locateStart(spans: TextSpan[], offset: number): TextSpan & { local: number } {
   const first = spans[0]!;
   for (const span of spans) {
@@ -234,16 +249,16 @@ export function findMarkdownHits(
     }
     const matchStart = match.index;
     const matchEnd = matchStart + match[0].length;
-    if (matchOverlapsSeparator(matchStart, matchEnd, separators)) {
+    if (
+      matchOverlapsSeparator(matchStart, matchEnd, separators) ||
+      !matchOverlapsText(matchStart, matchEnd, spans)
+    ) {
       match = pattern.exec(text);
       continue;
     }
     const start = locateStart(spans, matchStart);
     const end = locateEnd(spans, matchEnd);
-    if (
-      start.node === end.node &&
-      start.local === end.local
-    ) {
+    if (start.node === end.node && start.local >= end.local) {
       match = pattern.exec(text);
       continue;
     }

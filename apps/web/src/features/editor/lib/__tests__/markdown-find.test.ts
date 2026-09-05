@@ -156,5 +156,11 @@ describe("markdown find", () => {
       wholeWord: false,
       regexp: true,
     }).hits).toHaveLength(1);
+    expect(findMarkdownHits(root, {
+      search: String.raw`\n`,
+      caseSensitive: false,
+      wholeWord: false,
+      regexp: true,
+    }).hits).toHaveLength(0);
   });
 });
