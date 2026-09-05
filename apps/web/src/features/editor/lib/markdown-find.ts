@@ -52,7 +52,10 @@ function shouldSkipSearchNode(node: Text): boolean {
 
 export function collectMarkdownFindTextNodes(root: ParentNode): Text[] {
   const nodes: Text[] = [];
-  const stack: ChildNode[] = Array.from(root.childNodes);
+  const stack: ChildNode[] = [];
+  for (let i = root.childNodes.length - 1; i >= 0; i -= 1) {
+    stack.push(root.childNodes[i]!);
+  }
   while (stack.length > 0) {
     const node = stack.pop();
     if (!node) continue;

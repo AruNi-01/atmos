@@ -21,7 +21,9 @@ describe("markdown find", () => {
       wholeWord: false,
       regexp: false,
     }).pattern!;
+    sensitive.lastIndex = 0;
     expect(sensitive.test("Ab")).toBe(true);
+    sensitive.lastIndex = 0;
     expect(sensitive.test("ab")).toBe(false);
 
     expect(compileMarkdownFindPattern({
@@ -43,6 +45,8 @@ describe("markdown find", () => {
       regexp: false,
     });
     expect(hits).toHaveLength(2);
+    expect(hits[0]?.node.textContent).toContain("Hello markdown");
+    expect(hits[1]?.node.textContent).toContain("hello again");
     expect(markdownFindCounter(0, 2)).toBe("1/2");
     expect(markdownFindCounter(-1, 2)).toBe("0/2");
     expect(markdownFindCounter(0, 0)).toBe("");
@@ -61,5 +65,21 @@ describe("markdown find", () => {
     });
     expect(hits).toHaveLength(1);
     expect(hits[0]?.node.textContent).toContain("visible");
+  });
+
+  test("walks root sibling text nodes in document order", () => {
+    const win = new Window({ url: "https://app.atmos.local/" });
+    const root = win.document.createElement("div");
+    root.append("zebra", "apple");
+    const { hits } = findMarkdownHits(root, {
+      search: "a",
+      caseSensitive: false,
+      wholeWord: false,
+      regexp: false,
+    });
+    expect(hits.map((hit) => hit.node.textContent)).toEqual([
+      "zebra",
+      "apple",
+    ]);
   });
 });

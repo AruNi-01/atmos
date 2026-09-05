@@ -263,7 +263,7 @@ test.describe("smoke workspace center explorer", () => {
     });
     await page.keyboard.press("Escape");
     await expect(findPanel).toHaveCount(0);
-    await page.keyboard.press("Control+f");
+    await page.keyboard.press("ControlOrMeta+f");
     await expect(page.locator("[data-markdown-find-panel]")).toBeVisible({
       timeout: 5_000,
     });
