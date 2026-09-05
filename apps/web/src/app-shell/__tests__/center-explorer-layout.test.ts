@@ -8,7 +8,9 @@ import {
   isFileExplorerSurfaceTab,
   paneActiveTabId,
   regularEditorFilePaths,
+  CENTER_EXPLORER_CHROME_OFFSET_PX,
   CENTER_EXPLORER_DEFAULT_WIDTH,
+  CENTER_EXPLORER_INSET_CUSTOM_PROP,
 } from "@/app-shell/center-explorer-layout";
 import type { OpenFile } from "@/features/editor/store/editor-store-types";
 
@@ -62,17 +64,22 @@ describe("center explorer layout", () => {
     expect(hosts).toEqual(["pane-a"]);
   });
 
-  test("insets single-pane panels on the right and shrinks mosaic width", () => {
-    expect(applyExplorerInsetToPanelStyle(undefined, 0, true)).toBeUndefined();
-    expect(applyExplorerInsetToPanelStyle(undefined, 260, true)).toEqual({
-      right: 260,
+  test("sets a CSS inset variable instead of shrinking the panel geometry", () => {
+    expect(applyExplorerInsetToPanelStyle(undefined, 0)).toBeUndefined();
+    expect(applyExplorerInsetToPanelStyle(undefined, 260)).toEqual({
+      [CENTER_EXPLORER_INSET_CUSTOM_PROP]: "260px",
     });
     expect(
-      applyExplorerInsetToPanelStyle({ width: 800, left: 10, top: 0 }, 260, false),
-    ).toEqual({ width: 540, left: 10, top: 0 });
+      applyExplorerInsetToPanelStyle({ width: 800, left: 10, top: 0 }, 260),
+    ).toEqual({
+      width: 800,
+      left: 10,
+      top: 0,
+      [CENTER_EXPLORER_INSET_CUSTOM_PROP]: "260px",
+    });
   });
 
-  test("pins the sidecar to the right of a mosaic slot", () => {
+  test("pins the sidecar below chrome on the right of a mosaic slot", () => {
     const style = explorerSidecarStyle({
       singlePane: false,
       box: { top: 8, left: 20, width: 600, height: 400 },
@@ -80,9 +87,23 @@ describe("center explorer layout", () => {
       takingSpace: true,
       radius: "12px",
     });
+    expect(style.top).toBe(8 + CENTER_EXPLORER_CHROME_OFFSET_PX);
     expect(style.left).toBe(360);
     expect(style.width).toBe(260);
-    expect(style.height).toBe(400);
+    expect(style.height).toBe(400 - CENTER_EXPLORER_CHROME_OFFSET_PX);
+  });
+
+  test("starts the single-pane sidecar below chrome", () => {
+    const style = explorerSidecarStyle({
+      singlePane: true,
+      width: 260,
+      takingSpace: true,
+      radius: "12px",
+    });
+    expect(style.top).toBe(CENTER_EXPLORER_CHROME_OFFSET_PX);
+    expect(style.right).toBe(0);
+    expect(style.bottom).toBe(0);
+    expect(style.width).toBe(260);
   });
 
   test("collapses sidecar width to zero without changing the inner default", () => {

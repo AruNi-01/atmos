@@ -571,9 +571,8 @@ function WorkspaceCenterFrameImpl({
       applyExplorerInsetToPanelStyle(
         panelStyle(panelTabId, visible, paneId),
         explorerInsetForPane(paneId ?? tabToPaneId?.[panelTabId], kind),
-        !multiActiveTabIds,
       ),
-    [explorerInsetForPane, multiActiveTabIds, panelStyle, tabToPaneId],
+    [explorerInsetForPane, panelStyle, tabToPaneId],
   );
 
   const planReady = mountPlan.mounted.length > 0;

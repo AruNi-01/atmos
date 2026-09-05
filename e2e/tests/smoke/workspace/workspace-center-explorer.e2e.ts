@@ -37,6 +37,36 @@ async function expectSidecarOnRight(
   expect(side.width).toBeGreaterThan(120);
   expect(side.x).toBeGreaterThan(host.x + host.width * 0.45);
   expect(side.x + side.width).toBeGreaterThan(host.x + host.width - 24);
+
+  const chrome = page
+    .locator("[data-center-explorer-chrome]")
+    .filter({ visible: true })
+    .first();
+  await expect(chrome).toBeVisible({ timeout: 10_000 });
+  const chromeBox = await chrome.boundingBox();
+  expect(chromeBox, `${kind} chrome box`).toBeTruthy();
+  const bar = chromeBox!;
+  expect(bar.x + bar.width).toBeGreaterThan(host.x + host.width - 24);
+  expect(side.y).toBeGreaterThanOrEqual(bar.y + bar.height - 2);
+}
+
+async function resizeSidecar(
+  page: Page,
+  kind: "files" | "changes",
+  deltaX: number,
+) {
+  const sidecar = page.locator(`[data-center-explorer="${kind}"]`);
+  const box = await sidecar.boundingBox();
+  expect(box, `${kind} sidecar box before resize`).toBeTruthy();
+  const start = box!;
+  const y = start.y + Math.min(48, Math.max(8, start.height / 2));
+  await page.mouse.move(start.x + 1, y);
+  await page.mouse.down();
+  await page.mouse.move(start.x + 1 + deltaX, y, { steps: 8 });
+  await page.mouse.up();
+  const next = await sidecar.boundingBox();
+  expect(next, `${kind} sidecar box after resize`).toBeTruthy();
+  return { before: start, after: next! };
 }
 
 function explorerToggleBeside(control: Locator, kind: "files" | "changes") {
@@ -108,6 +138,13 @@ test.describe("smoke workspace center explorer", () => {
     });
     await expect(filesLanding.getByRole("button", { name: /New File|新建文件/ })).toBeVisible();
     await expectSidecarOnRight(page, "files");
+
+    const resized = await resizeSidecar(page, "files", -80);
+    expect(resized.after.width).toBeGreaterThan(resized.before.width + 40);
+    await page.screenshot({
+      path: `${ARTIFACTS_DIR}/files_sidecar_resized.png`,
+    });
+    await resizeSidecar(page, "files", 80);
 
     const search = filesLanding.locator("[data-center-explorer-search]");
     await search.fill(".agents");

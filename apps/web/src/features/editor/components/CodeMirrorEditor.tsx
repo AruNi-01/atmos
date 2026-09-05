@@ -47,6 +47,7 @@ import { type FileTreeNode } from '@/api/ws-api';
 import { FileTree } from '@/features/files/components/FileTree';
 import { tryRelativePathUnderRoot } from '@/shared/lib/path-under-root';
 import { CenterExplorerToggle } from '@/app-shell/CenterExplorerToggle';
+import { CENTER_EXPLORER_BODY_INSET_CLASS } from '@/app-shell/center-explorer-layout';
 
 /** Strip trailing slashes only — keep a leading `/` for absolute paths. */
 function stripTrailingSlashes(path: string): string {
@@ -862,7 +863,7 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
       )}
 
       <div ref={liveChromeRef} className="relative flex min-h-0 w-full flex-1 flex-col overflow-hidden">
-            <div className="flex items-center justify-between px-2.5 py-1 text-xs text-muted-foreground border-b border-border bg-background/50 backdrop-blur-sm flex-shrink-0">
+            <div data-center-explorer-chrome="" className="flex h-8 items-center justify-between px-2.5 text-xs text-muted-foreground border-b border-border bg-background/50 backdrop-blur-sm flex-shrink-0">
                 {/* Breadcrumbs */}
                 <div className="flex items-center gap-1 flex-1 min-w-0">
                   {breadcrumbParts.map((part, index, array) => {
@@ -961,12 +962,22 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
                 ) : null}
               </div>
             {file.isLoading ? (
-              <div className="flex flex-1 min-h-0 items-center justify-center bg-background">
+              <div
+                className={cn(
+                  "flex min-h-0 flex-1 items-center justify-center bg-background",
+                  CENTER_EXPLORER_BODY_INSET_CLASS,
+                )}
+              >
                 <LucideLoader2 className="size-6 animate-spin text-muted-foreground" />
               </div>
             ) : (
               <>
-            <div className="relative min-h-0 flex-1 overflow-hidden">
+            <div
+              className={cn(
+                "relative min-h-0 flex-1 overflow-hidden",
+                CENTER_EXPLORER_BODY_INSET_CLASS,
+              )}
+            >
             {isLive && surfaceActive ? (
               <div id="editor-preview-root" className="absolute inset-0 overflow-y-auto overscroll-contain scroll-smooth bg-background">
                 <MarkdownLiveEditor

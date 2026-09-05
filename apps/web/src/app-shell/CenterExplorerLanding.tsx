@@ -19,7 +19,10 @@ import {
   pathHasHiddenSegment,
   relativeParentPath,
 } from "@/app-shell/center-explorer-landing";
-import type { CenterExplorerKind } from "@/app-shell/center-explorer-layout";
+import {
+  CENTER_EXPLORER_BODY_INSET_CLASS,
+  type CenterExplorerKind,
+} from "@/app-shell/center-explorer-layout";
 import { activateCenterChromeTab } from "@/app-shell/center-stage-activate";
 import { useFileTreeQuery } from "@/features/files/hooks/use-file-tree-query";
 import { useFileTreeStore } from "@/features/files/store/use-file-tree-store";
@@ -101,10 +104,18 @@ function ExplorerLandingShell({
         className,
       )}
     >
-      <div className="flex shrink-0 items-center justify-end border-b border-border bg-background/50 px-2.5 py-1 backdrop-blur-sm">
+      <div
+        data-center-explorer-chrome=""
+        className="flex h-8 shrink-0 items-center justify-end border-b border-border bg-background/50 px-2.5 backdrop-blur-sm"
+      >
         <CenterExplorerToggle kind={kind} className={toolbarIconBtnClass} />
       </div>
-      <div className="flex min-h-0 flex-1 justify-center overflow-y-auto px-6 py-10">
+      <div
+        className={cn(
+          "flex min-h-0 flex-1 justify-center overflow-y-auto px-6 py-10",
+          CENTER_EXPLORER_BODY_INSET_CLASS,
+        )}
+      >
         <div className="my-auto flex w-full max-w-md flex-col gap-3">{children}</div>
       </div>
     </div>

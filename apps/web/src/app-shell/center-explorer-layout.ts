@@ -11,6 +11,11 @@ import type { OpenFile } from "@/features/editor/store/editor-store-types";
 export const CENTER_EXPLORER_DEFAULT_WIDTH = 260;
 export const CENTER_EXPLORER_MIN_WIDTH = 180;
 export const CENTER_EXPLORER_MAX_WIDTH = 480;
+/** `h-8` chrome (32px) plus `border-b` (1px). Sidecar starts below this. */
+export const CENTER_EXPLORER_CHROME_OFFSET_PX = 33;
+export const CENTER_EXPLORER_INSET_CUSTOM_PROP = "--center-explorer-inset";
+export const CENTER_EXPLORER_BODY_INSET_CLASS =
+  "min-w-0 w-[calc(100%-var(--center-explorer-inset,0px))] self-start";
 
 export type CenterExplorerKind = "files" | "changes";
 
@@ -88,14 +93,12 @@ export function paneActiveTabId(input: {
 export function applyExplorerInsetToPanelStyle(
   style: CSSProperties | undefined,
   inset: number,
-  singlePane: boolean,
 ): CSSProperties | undefined {
   if (inset <= 0) return style;
-  if (singlePane) {
-    return { ...style, right: inset };
-  }
-  if (!style || typeof style.width !== "number") return style;
-  return { ...style, width: Math.max(0, style.width - inset) };
+  return {
+    ...style,
+    [CENTER_EXPLORER_INSET_CUSTOM_PROP]: `${Math.round(inset)}px`,
+  } as CSSProperties;
 }
 
 export function explorerSidecarStyle(input: {
@@ -104,11 +107,16 @@ export function explorerSidecarStyle(input: {
   width: number;
   takingSpace: boolean;
   radius: string;
+  chromeOffset?: number;
 }): CSSProperties {
   const displayWidth = input.takingSpace ? input.width : 0;
+  const chromeOffset = Math.max(
+    0,
+    input.chromeOffset ?? CENTER_EXPLORER_CHROME_OFFSET_PX,
+  );
   if (input.singlePane || !input.box) {
     return {
-      top: 0,
+      top: chromeOffset,
       right: 0,
       bottom: 0,
       left: "auto",
@@ -118,10 +126,10 @@ export function explorerSidecarStyle(input: {
     };
   }
   return {
-    top: input.box.top,
+    top: input.box.top + chromeOffset,
     left: input.box.left + input.box.width - displayWidth,
     width: displayWidth,
-    height: input.box.height,
+    height: Math.max(0, input.box.height - chromeOffset),
     borderBottomRightRadius: input.radius,
   };
 }

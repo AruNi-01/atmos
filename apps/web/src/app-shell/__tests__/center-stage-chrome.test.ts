@@ -120,6 +120,7 @@ describe("center-stage chrome", () => {
     expect(frame).toContain("interactive={Boolean(showing && isActiveContext)}");
     expect(frame).toContain("showFilesExplorerToggle");
     expect(frame).toContain("showChangesExplorerToggle");
+    expect(frame).toContain("explorerSidecarStyle");
     expect(frame).not.toMatch(/isActive=\{\s*\n\s*isActiveContext &&/);
     expect(frame).not.toMatch(/surfaceActive=\{\s*\n\s*isActiveContext &&/);
     expect(frame).not.toMatch(/revealEnabled=\{\s*\n\s*isActiveContext &&/);

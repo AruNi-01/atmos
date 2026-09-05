@@ -15,6 +15,7 @@ import { cn, Button } from '@workspace/ui';
 import { getRuntimeApiConfig, httpBase } from '@/shared/lib/desktop-runtime';
 import CodeMirrorEditor from './CodeMirrorEditor';
 import { CenterExplorerToggle } from '@/app-shell/CenterExplorerToggle';
+import { CENTER_EXPLORER_BODY_INSET_CLASS } from '@/app-shell/center-explorer-layout';
 
 
 interface FileViewerProps {
@@ -264,44 +265,45 @@ export const FileViewer: React.FC<FileViewerProps> = ({
 
     const isSupported = NATIVE_SUPPORTED.includes(ext);
 
+    const binaryToggleClass =
+      "flex size-6 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground cursor-pointer select-none";
+    const binaryChrome = showFilesExplorerToggle ? (
+      <div
+        data-center-explorer-chrome=""
+        className="flex h-8 shrink-0 items-center justify-end border-b border-border bg-background/50 px-2.5 backdrop-blur-sm"
+      >
+        <CenterExplorerToggle kind="files" className={binaryToggleClass} />
+      </div>
+    ) : null;
+
     if (hasError || !isSupported) {
       return (
-        <div className={cn("relative h-full w-full", className)}>
-          {showFilesExplorerToggle ? (
-            <div className="absolute top-1.5 right-2 z-20">
-              <CenterExplorerToggle
-                kind="files"
-                className="flex size-6 items-center justify-center rounded bg-background/80 text-muted-foreground shadow-sm backdrop-blur hover:bg-accent hover:text-foreground cursor-pointer select-none"
-              />
-            </div>
-          ) : null}
-          <UnsupportedView fileName={file.name} uri={uri} ext={ext} />
+        <div className={cn("flex h-full w-full min-h-0 flex-col", className)}>
+          {binaryChrome}
+          <div className={cn("relative min-h-0 flex-1", CENTER_EXPLORER_BODY_INSET_CLASS)}>
+            <UnsupportedView fileName={file.name} uri={uri} ext={ext} />
+          </div>
         </div>
       );
     }
 
     return (
       <div
-        className={cn("h-full w-full overflow-hidden bg-background relative", className)}
+        className={cn("flex h-full w-full min-h-0 flex-col overflow-hidden bg-background", className)}
         style={{
           backgroundColor: resolvedTheme === 'dark' ? '#09090b' : '#ffffff'
         }}
       >
-        {showFilesExplorerToggle ? (
-          <div className="absolute top-1.5 right-2 z-20">
-            <CenterExplorerToggle
-              kind="files"
-              className="flex size-6 items-center justify-center rounded bg-background/80 text-muted-foreground shadow-sm backdrop-blur hover:bg-accent hover:text-foreground cursor-pointer select-none"
-            />
-          </div>
-        ) : null}
-        <NativeFileViewer
-          key={uri} // Remount on file change
-          ext={ext}
-          uri={uri}
-          fileName={file.name}
-          onError={() => setErrorFilePath(file.path)}
-        />
+        {binaryChrome}
+        <div className={cn("relative min-h-0 flex-1 overflow-hidden", CENTER_EXPLORER_BODY_INSET_CLASS)}>
+          <NativeFileViewer
+            key={uri} // Remount on file change
+            ext={ext}
+            uri={uri}
+            fileName={file.name}
+            onError={() => setErrorFilePath(file.path)}
+          />
+        </div>
       </div>
     );
   }

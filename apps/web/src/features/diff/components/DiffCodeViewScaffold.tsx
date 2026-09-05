@@ -19,6 +19,7 @@ interface DiffCodeViewScaffoldProps {
   loading?: boolean;
   loadingTreeLabel?: string;
   defaultTreeVisible?: boolean;
+  compactToolbar?: boolean;
 }
 
 export function DiffCodeViewScaffold({
@@ -32,6 +33,7 @@ export function DiffCodeViewScaffold({
   loading = false,
   loadingTreeLabel,
   defaultTreeVisible = true,
+  compactToolbar = false,
 }: DiffCodeViewScaffoldProps) {
   const t = useTranslations("diff.diffCodeViewScaffold");
   const [treeVisible, setTreeVisible] = useState(defaultTreeVisible);
@@ -40,7 +42,14 @@ export function DiffCodeViewScaffold({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex items-center gap-2 border-b border-border/40 px-2 py-1.5 shrink-0">
+      <div
+        data-center-explorer-chrome={compactToolbar ? "" : undefined}
+        className={
+          compactToolbar
+            ? "flex h-8 shrink-0 items-center gap-2 border-b border-border/40 px-2.5"
+            : "flex shrink-0 items-center gap-2 border-b border-border/40 px-2 py-1.5"
+        }
+      >
         <button
           type="button"
           aria-label={treeVisible ? t("hideFileTree") : t("showFileTree")}
@@ -57,7 +66,7 @@ export function DiffCodeViewScaffold({
         <div className="flex-1 min-w-0">{toolbar}</div>
       </div>
 
-      <div className="flex flex-1 min-h-0">
+      <div className="flex min-h-0 min-w-0 w-[calc(100%-var(--center-explorer-inset,0px))] flex-1 self-start">
         <AnimatePresence initial={false}>
           {treeVisible ? (
             <motion.div

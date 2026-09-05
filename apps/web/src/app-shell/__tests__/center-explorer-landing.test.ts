@@ -154,6 +154,8 @@ describe("center explorer landing UI", () => {
     expect(source).toContain("openGitHistoryTab(commit.hash)");
     expect(source).toContain("CENTER_EXPLORER_COMMIT_LIMIT");
     expect(source.match(/data-center-explorer-search/g)?.length).toBe(1);
+    expect(source).toContain("data-center-explorer-chrome");
+    expect(source).toContain("CENTER_EXPLORER_BODY_INSET_CLASS");
     expect(source).toContain("ChangesExplorerLanding");
   });
 });

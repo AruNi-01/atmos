@@ -703,6 +703,7 @@ export function ChangesCodeView({
           loading
           loadingTreeLabel={groupLabel}
           defaultTreeVisible={false}
+          compactToolbar={showChangesExplorerToggle}
           toolbar={
             <div className="flex items-center gap-2">
               <div className="flex min-w-0 flex-1 items-center gap-3">
@@ -712,7 +713,7 @@ export function ChangesCodeView({
               {showChangesExplorerToggle ? (
                 <CenterExplorerToggle
                   kind="changes"
-                  className="flex size-7 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
+                  className="flex size-6 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
                 />
               ) : null}
             </div>
@@ -805,7 +806,7 @@ export function ChangesCodeView({
       {showChangesExplorerToggle ? (
         <CenterExplorerToggle
           kind="changes"
-          className="flex size-7 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
+          className="flex size-6 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
         />
       ) : null}
     </div>
@@ -819,6 +820,7 @@ export function ChangesCodeView({
         ariaLabel={t('fileTreeAria', { label: groupLabel })}
         toolbar={toolbar}
         defaultTreeVisible={false}
+        compactToolbar={showChangesExplorerToggle}
         onSelectFile={handleSelectFile}
       >
         <EditProvider createEditor={createDiffEditor}>
