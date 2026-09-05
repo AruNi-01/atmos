@@ -89,6 +89,7 @@ export function FileTreeRow({
       onClick={() => onClick(itemData, isFolder, toggle)}
       onDoubleClick={() => onDoubleClick(itemData, isFolder)}
       onContextMenu={(event) => onContextMenu(event, itemData.path)}
+      data-file-tree-row={itemData.path}
       className={cn(
         'flex items-center py-1 px-2 cursor-pointer select-none rounded-sm outline-none',
         'hover:bg-sidebar-accent/50',

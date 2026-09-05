@@ -10,6 +10,10 @@ const changesPanel = readFileSync(
   join(import.meta.dir, "../../features/git/components/ChangesPanel.tsx"),
   "utf8",
 );
+const fileTree = readFileSync(
+  join(import.meta.dir, "../../features/files/components/FileTree.tsx"),
+  "utf8",
+);
 const fileTreeRow = readFileSync(
   join(import.meta.dir, "../../features/files/components/FileTreeRow.tsx"),
   "utf8",
@@ -110,6 +114,11 @@ describe("center list hover", () => {
     );
     expect(rowClass).toContain("hover:bg-sidebar-accent/50");
     expect(rowClass).not.toContain("transition-colors");
+  });
+
+  it("insets files tree hover and active backgrounds from the sidecar edges", () => {
+    expect(fileTree).toContain('className="relative px-1.5"');
+    expect(fileTreeRow).toContain("data-file-tree-row={itemData.path}");
   });
 
   it("uses instant hover on changes tree rows", () => {

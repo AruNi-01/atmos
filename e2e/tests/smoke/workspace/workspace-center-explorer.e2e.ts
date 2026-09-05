@@ -229,8 +229,21 @@ test.describe("smoke workspace center explorer", () => {
     expect(tocBox, "markdown outline box").toBeTruthy();
     expect(sidecarForToc, "files sidecar box beside markdown").toBeTruthy();
     expect(tocBox!.x + tocBox!.width).toBeLessThan(sidecarForToc!.x);
+    const activeFileRow = filesSidecar.locator(
+      '[data-file-tree-row$="/apps/AGENTS.md"]',
+    );
+    await expect(activeFileRow).toBeVisible();
+    const activeRowBox = await activeFileRow.boundingBox();
+    expect(activeRowBox, "active files tree row").toBeTruthy();
+    expect(activeRowBox!.x).toBeGreaterThan(sidecarForToc!.x + 4);
+    expect(activeRowBox!.x + activeRowBox!.width).toBeLessThan(
+      sidecarForToc!.x + sidecarForToc!.width - 4,
+    );
     await page.screenshot({
       path: `${ARTIFACTS_DIR}/files_sidecar_editor.png`,
+    });
+    await page.screenshot({
+      path: `${ARTIFACTS_DIR}/files_tree_row_inset.png`,
     });
     await page.screenshot({
       path: `${ARTIFACTS_DIR}/markdown_preview_toc_left.png`,
