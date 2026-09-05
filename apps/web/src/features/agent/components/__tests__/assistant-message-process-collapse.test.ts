@@ -10,6 +10,14 @@ const messageView = readFileSync(
   join(import.meta.dir, "../AgentChatMessageView.tsx"),
   "utf8",
 );
+const toolGroup = readFileSync(
+  join(import.meta.dir, "../AgentToolGroupView.tsx"),
+  "utf8",
+);
+const toolCard = readFileSync(
+  join(import.meta.dir, "../tool-results/AgentToolCard.tsx"),
+  "utf8",
+);
 
 describe("assistant process collapse chrome", () => {
   it("uses Worked for above a rail that moves below the process when expanded", () => {
@@ -39,6 +47,17 @@ describe("assistant process collapse chrome", () => {
     const timeAt = messageView.indexOf('reveal="timestamp"');
     expect(usageAt).toBeGreaterThan(-1);
     expect(timeAt).toBeGreaterThan(usageAt);
+  });
+
+  it("keeps process open on settle when the user expanded tools during the stream", () => {
+    expect(view).toContain("shouldAutoCollapseProcessOnSettle");
+    expect(view).toContain("userInspecting");
+    expect(view).toContain("markInspecting");
+    expect(view).toContain("AssistantProcessInspectProvider");
+    expect(toolGroup).toContain("useMarkAssistantProcessInspecting");
+    expect(toolGroup).toContain("if (next) markInspecting()");
+    expect(toolCard).toContain("useMarkAssistantProcessInspecting");
+    expect(toolCard).toContain("if (next) markInspecting()");
   });
 
   it("reveals answer text with the same stream entrance as process rows", () => {

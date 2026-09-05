@@ -31,14 +31,20 @@ import { AgentTreeBranch } from "./AgentTreeBranch";
 export function AgentToolGroupView({
   parts,
   autoOpen,
+  userOpen: userOpenProp,
+  onUserOpenChange,
 }: {
   parts: AgentToolCallPart[];
   autoOpen: boolean;
+  /** Lifted user toggle so remount on turn settle keeps the group open. */
+  userOpen?: boolean;
+  onUserOpenChange?: (open: boolean) => void;
 }) {
   const t = useTranslations("Agent.components.toolGroup");
   const locale = useLocale();
   const markInspecting = useMarkAssistantProcessInspecting();
-  const [userOpen, setUserOpen] = useState<boolean | null>(null);
+  const [localUserOpen, setLocalUserOpen] = useState<boolean | null>(null);
+  const userOpen = userOpenProp !== undefined ? userOpenProp : localUserOpen;
   const running = toolGroupHasRunning(parts);
   const open = userOpen ?? autoOpen;
   const shimmer = autoOpen || running;
@@ -63,7 +69,11 @@ export function AgentToolGroupView({
     <Collapsible
       open={open}
       onOpenChange={(next) => {
-        setUserOpen(next);
+        if (onUserOpenChange) {
+          onUserOpenChange(next);
+        } else {
+          setLocalUserOpen(next);
+        }
         if (next) markInspecting();
       }}
       className="min-w-0"

@@ -133,6 +133,10 @@ function ProcessCollapseRail({
   );
 }
 
+function toolGroupKey(segment: Extract<AssistantSegment, { type: "tool_group" }>): string {
+  return segment.parts[0]?.tool_call_id ?? segment.origIndexes.join("-");
+}
+
 export function AssistantMessageView({
   message,
 }: {
@@ -150,10 +154,10 @@ export function AssistantMessageView({
   );
 
   const canCollapse = hasCollapsibleAssistantProcess(message);
-  const hasProcess = processSegments.length > 0;
   const [stepsExpanded, setStepsExpanded] = useState(false);
   const [processMounted, setProcessMounted] = useState(false);
   const [userInspecting, setUserInspecting] = useState(false);
+  const [userOpenedGroups, setUserOpenedGroups] = useState<Record<string, boolean>>({});
   const wasCollapsibleRef = useRef(false);
   const markInspecting = useCallback(() => {
     setUserInspecting(true);
@@ -166,8 +170,7 @@ export function AssistantMessageView({
   }
   wasCollapsibleRef.current = canCollapse;
 
-  const processOpen = !canCollapse || stepsExpanded;
-  if (processOpen && !processMounted) {
+  if (stepsExpanded && !processMounted) {
     setProcessMounted(true);
   }
 
@@ -185,12 +188,17 @@ export function AssistantMessageView({
   const renderSegment = (segment: AssistantSegment, list: AssistantSegment[]) => {
     if (segment.type === "tool_group") {
       const isTail = list[list.length - 1] === segment;
-      const key = segment.parts[0]?.tool_call_id ?? segment.origIndexes.join("-");
+      const key = toolGroupKey(segment);
       return (
         <AgentToolGroupView
           key={key}
           parts={segment.parts}
           autoOpen={streaming && (isTail || toolGroupHasRunning(segment.parts))}
+          userOpen={userOpenedGroups[key]}
+          onUserOpenChange={(next) => {
+            setUserOpenedGroups((prev) => ({ ...prev, [key]: next }));
+            if (next) markInspecting();
+          }}
         />
       );
     }
@@ -201,56 +209,46 @@ export function AssistantMessageView({
     );
   };
 
-  const processBody = (
-    <AssistantProcessInspectProvider onInspect={markInspecting}>
-      <div className="space-y-2">
-        {processSegments.map((segment) => renderSegment(segment, processSegments))}
-      </div>
-    </AssistantProcessInspectProvider>
-  );
-
-  if (hasProcess) {
-    const showWorkedFor = canCollapse && message.worked_ms != null && message.worked_ms > 0;
+  if (canCollapse) {
+    const showWorkedFor = message.worked_ms != null && message.worked_ms > 0;
     return (
-      <>
+      <AssistantProcessInspectProvider onInspect={markInspecting}>
         <Collapsible
-          open={processOpen}
+          open={stepsExpanded}
           onOpenChange={(next) => {
             setStepsExpanded(next);
             if (next) markInspecting();
           }}
         >
-          {canCollapse ? (
-            <CollapsibleTrigger className="group flex w-full cursor-pointer items-center gap-1 py-0.5 text-left text-muted-foreground hover:text-foreground">
-              {showWorkedFor ? (
-                <AgentWorkedForLabel
-                  workedMs={message.worked_ms ?? 0}
-                  reveal="duration"
-                />
-              ) : (
-                <span className="text-xs">{t("assistantTurn.process.label")}</span>
-              )}
-              <ChevronRight
-                className={cn(
-                  "size-3 shrink-0 transition-transform duration-200",
-                  stepsExpanded ? "rotate-90" : "rotate-0",
-                )}
+          <CollapsibleTrigger className="group flex w-full cursor-pointer items-center gap-1 py-0.5 text-left text-muted-foreground hover:text-foreground">
+            {showWorkedFor ? (
+              <AgentWorkedForLabel
+                workedMs={message.worked_ms ?? 0}
+                reveal="duration"
               />
-            </CollapsibleTrigger>
-          ) : null}
-          <CollapsibleContent className="space-y-2 pt-1">
-            {processOpen || processMounted ? processBody : null}
-          </CollapsibleContent>
-          {canCollapse ? (
-            <ProcessCollapseRail
-              expanded={stepsExpanded}
-              collapseAria={t("assistantTurn.process.collapseAria")}
-              collapseLabel={t("assistantTurn.process.collapseLabel")}
+            ) : (
+              <span className="text-xs">{t("assistantTurn.process.label")}</span>
+            )}
+            <ChevronRight
+              className={cn(
+                "size-3 shrink-0 transition-transform duration-200",
+                stepsExpanded ? "rotate-90" : "rotate-0",
+              )}
             />
-          ) : null}
+          </CollapsibleTrigger>
+          <CollapsibleContent className="space-y-2 pt-1">
+            {stepsExpanded
+              ? processSegments.map((segment) => renderSegment(segment, processSegments))
+              : null}
+          </CollapsibleContent>
+          <ProcessCollapseRail
+            expanded={stepsExpanded}
+            collapseAria={t("assistantTurn.process.collapseAria")}
+            collapseLabel={t("assistantTurn.process.collapseLabel")}
+          />
         </Collapsible>
         {answerSegments.map((segment) => renderSegment(segment, answerSegments))}
-      </>
+      </AssistantProcessInspectProvider>
     );
   }
 
