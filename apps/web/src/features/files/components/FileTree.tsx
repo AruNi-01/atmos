@@ -693,7 +693,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
   );
 
   return (
-    <div className="relative px-1.5">
+    <div className="relative px-2">
       <div
         ref={tree.registerElement}
         {...tree.getContainerProps(t('fileTree.containerAriaLabel'))}

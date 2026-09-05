@@ -117,7 +117,7 @@ describe("center list hover", () => {
   });
 
   it("insets files tree hover and active backgrounds from the sidecar edges", () => {
-    expect(fileTree).toContain('className="relative px-1.5"');
+    expect(fileTree).toContain('className="relative px-2"');
     expect(fileTreeRow).toContain("data-file-tree-row={itemData.path}");
   });
 
