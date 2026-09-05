@@ -445,7 +445,7 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
   }, [file.path]);
 
   useEffect(() => {
-    if (!markdownJumpWantsSource(navigationTarget)) return;
+    if (!navigationTarget || !markdownJumpWantsSource(navigationTarget)) return;
     const hasCmTarget =
       (navigationTarget.selectRanges?.length ?? 0) > 0 ||
       navigationTarget.line != null;
