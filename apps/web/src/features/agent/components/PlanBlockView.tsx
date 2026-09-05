@@ -90,14 +90,28 @@ export function PlanBlockView({
   docked = false,
   embedded = false,
   defaultOpen = true,
+  open: openControlled,
+  onOpenChange,
 }: {
   plan: AgentPlan;
   docked?: boolean;
   embedded?: boolean;
   defaultOpen?: boolean;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
   const t = useTranslations("Agent.components");
-  const [isOpen, setIsOpen] = useState(defaultOpen);
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(defaultOpen);
+  const isControlled = openControlled !== undefined;
+  const isOpen = isControlled ? openControlled : uncontrolledOpen;
+  const setIsOpen = useCallback(
+    (next: boolean | ((prev: boolean) => boolean)) => {
+      const resolved = typeof next === "function" ? next(isOpen) : next;
+      if (!isControlled) setUncontrolledOpen(resolved);
+      onOpenChange?.(resolved);
+    },
+    [isControlled, isOpen, onOpenChange],
+  );
   const planEntries = plan?.entries ?? [];
   const completedCount = planEntries.filter((e) => e.status === "completed").length;
   const totalCount = planEntries.length;

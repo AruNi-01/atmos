@@ -107,4 +107,25 @@ describe("acpProvisionTargets", () => {
     const targets = acpProvisionTargets(agents, ["kiro", "openclaw", "hermes"]);
     expect(targets.map((item) => item.id).sort()).toEqual(["hermes", "kiro"]);
   });
+
+  test("never downloads native ACP packages when the official CLI is missing", () => {
+    const agents = [
+      agent({
+        id: "gemini",
+        name: "Gemini CLI",
+        provision_kind: "native",
+        terminal_agent_id: "gemini",
+        installed: false,
+      }),
+      agent({
+        id: "cursor",
+        name: "Cursor",
+        provision_kind: "native",
+        terminal_agent_id: "cursor",
+        installed: false,
+      }),
+    ];
+
+    expect(acpProvisionTargets(agents, ["gemini", "cursor"])).toEqual([]);
+  });
 });

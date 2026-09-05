@@ -15,7 +15,7 @@ pub use descriptor::{
 };
 pub use error::{AgentProviderError, AgentResult};
 pub use event::{
-    AgentAvailableCommand, AgentEvent, AgentEventEnvelope, AgentPermissionOption,
+    AgentAskQuestion, AgentAvailableCommand, AgentEvent, AgentEventEnvelope, AgentPermissionOption,
     AgentPermissionRequest, AgentSessionOpRequest, AgentToolCall, SessionOpOutcome, TurnStop,
     UserMessageKind,
 };
@@ -26,6 +26,6 @@ pub use provider::{
     AgentRuntimeConfigUpdate, AgentRuntimeControl, AgentTurnHandle,
 };
 pub use tool::{
-    AgentTool, AgentToolKind, AgentToolParams, AgentToolResult, AgentToolStatus, SearchHit,
-    WebSearchLink,
+    AgentGeneratedImage, AgentMcpRef, AgentTool, AgentToolKind, AgentToolParams, AgentToolResult,
+    AgentToolStatus, SearchHit, WebSearchLink,
 };

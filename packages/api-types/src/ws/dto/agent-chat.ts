@@ -245,6 +245,9 @@ export type AgentToolKind =
   | "fetch"
   | "skill"
   | "subagent"
+  | "mcp_list"
+  | "mcp_call"
+  | "image_gen"
   | "other";
 
 export type AgentToolStatus = "pending" | "running" | "completed" | "failed";
@@ -267,7 +270,23 @@ export type AgentToolParams =
   | { type: "fetch"; url: string }
   | { type: "skill"; skill: string }
   | { type: "subagent"; description: string; agent_type?: string | null }
+  | { type: "mcp_list"; server?: string | null }
+  | { type: "mcp_call"; server?: string | null; tool?: string | null }
+  | {
+      type: "image_gen";
+      prompt: string;
+      aspect_ratio?: string | null;
+      size?: string | null;
+      path?: string | null;
+      reference_paths?: string[] | null;
+    }
   | { type: "other"; value: unknown };
+
+export type AgentGeneratedImage = {
+  url?: string | null;
+  path?: string | null;
+  mime?: string | null;
+};
 
 export type AgentToolResult =
   | { type: "text"; text: string }
@@ -295,6 +314,7 @@ export type AgentToolResult =
       markdown?: string | null;
       text?: string | null;
     }
+  | { type: "images"; images: AgentGeneratedImage[] }
   | { type: "other"; value: unknown }
   | { type: "error"; message: string }
   | { type: "empty" };
@@ -386,6 +406,7 @@ export type AgentChatSnapshot = {
     description: string;
     content_markdown?: string | null;
     options?: Array<{ option_id: string; name: string; kind?: string }>;
+    questions?: Array<{ id: string; prompt: string; options?: string[] }>;
     status: string;
   } | null;
   pending_session_op?: AgentSessionOpRequest | null;
@@ -434,6 +455,7 @@ export type AgentChatPayload =
         description?: string;
         content_markdown?: string;
         options?: Array<{ option_id: string; name: string; kind?: string }>;
+        questions?: Array<{ id: string; prompt: string; options?: string[] }>;
       };
     }
   | { type: "permission_resolved"; request_id: string; option_id: string }

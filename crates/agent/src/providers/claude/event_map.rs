@@ -336,6 +336,30 @@ fn map_assistant(state: &mut EventMapState, turn_id: Option<String>, frame: &Val
                         );
                         push(state, &mut first, event);
                     }
+                    ToolMapOut::SyncMode { mode, tool } => {
+                        state.current_config.mode = Some(mode.clone());
+                        if mode == "plan" {
+                            state.current_config.permission_mode = Some("plan".into());
+                        } else if state
+                            .current_config
+                            .permission_mode
+                            .as_deref()
+                            .is_some_and(|value| value == "plan")
+                        {
+                            state.current_config.permission_mode = None;
+                        }
+                        let config =
+                            serde_json::to_value(&state.current_config).unwrap_or(Value::Null);
+                        let config_event = complete_open_streams(
+                            state,
+                            turn_id.clone(),
+                            wrap(turn_id.clone(), AgentEvent::ConfigChanged { config }),
+                        );
+                        push(state, &mut first, config_event);
+                        let tool_event =
+                            wrap(turn_id.clone(), tool_event(tool, AgentToolStatus::Running));
+                        push(state, &mut first, tool_event);
+                    }
                     ToolMapOut::Hide => {}
                     ToolMapOut::Merge { tool } => {
                         let status = tool.status;

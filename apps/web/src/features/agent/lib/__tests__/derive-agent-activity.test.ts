@@ -55,6 +55,33 @@ describe("deriveAgentActivity", () => {
     ], false)).toMatchObject({ busy: true, kind: "working", label: "Resuming session" });
   });
 
+  it("stays generating after session create completes while the turn is still open", () => {
+    expect(deriveAgentActivity([
+      { id: "u1", role: "user", parts: [{ type: "text", text: "hi" }] },
+      assistant([{
+        type: "session_lifecycle",
+        action: "create",
+        status: "completed",
+        duration_ms: 800,
+      }], { streaming: false }),
+    ], true)).toMatchObject({ busy: true, kind: "working", label: "Generating" });
+
+    expect(deriveAgentActivity([
+      assistant([{
+        type: "session_lifecycle",
+        action: "create",
+        status: "completed",
+        duration_ms: 800,
+      }], { streaming: false }),
+    ], false)).toEqual({ busy: false });
+  });
+
+  it("keeps generating for any open turn even when streaming was cleared mid-content", () => {
+    expect(deriveAgentActivity([
+      assistant([{ type: "text", text: "partial" }], { streaming: false }),
+    ], true)).toMatchObject({ busy: true, kind: "working", label: "Generating" });
+  });
+
   it("lets a running tool take precedence over earlier thought", () => {
     const activity = deriveAgentActivity([
       assistant([

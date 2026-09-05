@@ -53,11 +53,13 @@
         "installTerminal": {
           "title": "Install {toolName}",
           "descriptionGuide": "Atmos detected the package manager on this machine and can run the install in a temporary shell.",
+          "descriptionGuideExplicit": "Atmos can run the official {toolName} install command in a temporary shell.",
           "descriptionTerminalWithCommand": "Running: {command}",
           "descriptionTerminalFallback": "Complete the install in the temporary shell, then check again.",
           "detectingOptions": "Detecting install options…",
           "detectedHostTitle": "Detected host",
           "detectedHostUnavailable": "Could not detect the host package manager.",
+          "detectedHostManual": "Using the official install command you selected.",
           "recommendedCommandTitle": "Recommended command",
           "recommendedCommandDescription": "This command will be typed into a temporary Atmos terminal.",
           "recommendedCommandSudo": "You may be prompted for your password.",
@@ -94,7 +96,7 @@
     },
     "agents": {
       "title": "Choose Your Agents",
-      "subtitle": "We detected which built-in agent CLIs are on this machine. Keep the ones you use and pick a default for new terminals.",
+      "subtitle": "We detected which built-in agent CLIs are on this machine. Keep the ones you use — Atmos enables matching Agent Chat (Native first, then ACP) and picks a default for new terminals. Missing adapter packages are downloaded on continue; official CLIs that already speak ACP are reused and never overwritten.",
       "summary": "{installed} installed · {selected} selected · {total} built-in",
       "yoloLabel": "Default YOLO mode",
       "yoloAria": "Enable YOLO / skip-permissions mode for agents by default",
@@ -104,7 +106,7 @@
       "defaultBadge": "Default",
       "setDefault": "Set Default",
       "selectAria": "Enable {name}",
-      "noneInstalledHint": "No built-in agent CLIs were found on PATH. You can still enable ones you plan to install later, or continue and configure them in Settings.",
+      "noneInstalledHint": "No built-in agent CLIs were found on PATH. Enable the ones you want, then use Install for official install commands (runs in an Atmos terminal). Adapter Chat packages still download on continue; official ACP CLIs are never overwritten.",
       "recheck": "Re-check agents",
       "next": "Save and continue",
       "provisioning": "Setting up Agent Chat providers…",
@@ -113,7 +115,16 @@
       "saveFailed": "Could not save agent preferences. Check your connection and try again.",
       "provisionFailedTitle": "Some Agent Chat providers were not set up",
       "provisionFailed": "Saved your agent list, but Agent Chat setup failed for: {names}. You can install them later from Agents.",
-      "provisionFailedGeneric": "Saved your agent list, but Agent Chat providers could not be set up. You can install them later from Agents."
+      "provisionFailedGeneric": "Saved your agent list, but Agent Chat providers could not be set up. You can install them later from Agents.",
+      "install": {
+        "description": "Install the official CLI in an Atmos temporary terminal, or copy a command for your OS. Multiple install types are listed when the vendor supports them."
+      },
+      "deepseek": {
+        "name": "DeepSeek Harness",
+        "optionalBadge": "Optional",
+        "hint": "Chat-only ACP agent via npx. Off by default — enable if you use DeepSeek.",
+        "chatOnly": "Chat only"
+      }
     },
     "quota": {
       "title": "AI Quota Usage",
@@ -2881,6 +2892,9 @@
         "oneShotQueue": "Queue this once",
         "oneShotSteer": "Steer this once",
         "steerUnavailable": "Steer unavailable",
+        "planTitle": "Current plan",
+        "approvePlan": "Approve",
+        "viewPlan": "View plan",
         "workingDirectory": {
           "aria": "Working directory",
           "thread": "Thread",
@@ -3159,6 +3173,10 @@
           "builtin": "Built-in",
           "native": "Native"
         },
+        "preferNative": {
+          "recommend": "Native {name} is available and supports more capabilities. Prefer enabling it in the Native tab — you can still install this ACP agent.",
+          "alreadyEnabled": "Native {name} is already enabled and supports more capabilities. ACP remains available if you need it."
+        },
         "native": {
           "cliFound": "CLI found",
           "cliMissing": "CLI not found on PATH",
@@ -3185,6 +3203,10 @@
           "title": "No agents found",
           "clearSearch": "Clear search"
         }
+      },
+      "agentKind": {
+        "native": "Native",
+        "acp": "ACP"
       },
       "configOptionDropdown": {
         "searchPlaceholder": "Search options",
@@ -3259,6 +3281,13 @@
         },
         "bottom": "Bottom",
         "permissionRequested": "Permission requested",
+        "askUserTitle": "Questions for you",
+        "planApprovalTitle": "Plan ready",
+        "continue": "Continue",
+        "skip": "Skip",
+        "approve": "Approve",
+        "viewPlan": "View plan",
+        "planViewerEmpty": "No plan content available yet.",
         "sessionOpRequested": "Session action requested",
         "sessionOpFork": "Fork",
         "sessionOpRewind": "Rewind",
@@ -3369,6 +3398,7 @@
         "to": "To",
         "searchingFor": "Searching for {query}",
         "webSearch": "Web search",
+        "imageGen": "Image",
         "resultCount": "{count, plural, one {# result} other {# results}}",
         "sources": "Sources",
         "fetchUrl": "Fetch {host}",

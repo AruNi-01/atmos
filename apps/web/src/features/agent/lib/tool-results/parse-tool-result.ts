@@ -2,7 +2,7 @@ import type {
   AgentToolParams,
 } from "@atmos/api-types/ws/dto/agent-chat";
 import type { AgentToolCallPart } from "@/features/agent/lib/agent-tool-kind";
-import { isEmptyToolJson } from "@/features/agent/lib/agent-tool-kind";
+import { isEmptyToolJson, isGenericToolLabel } from "@/features/agent/lib/agent-tool-kind";
 
 export type SearchHit = {
   path: string;
@@ -47,6 +47,10 @@ export type ToolPresentation =
   | { kind: "search"; hits: SearchHit[] }
   | { kind: "web_search"; query: string; links: WebResultLink[] }
   | { kind: "web_fetch"; url: string; title?: string; markdown?: string; text?: string }
+  | {
+      kind: "images";
+      images: Array<{ url?: string; path?: string; mime?: string }>;
+    }
   | { kind: "files"; paths: string[] }
   | { kind: "tree"; entries: TreeEntry[] }
   | { kind: "markdown"; markdown: string }
@@ -282,6 +286,8 @@ function pathFromParams(params: AgentToolParams | undefined): string | null {
     case "edit":
     case "delete":
       return params.path || null;
+    case "image_gen":
+      return params.path || null;
     case "move":
       return params.to || params.from || null;
     default:
@@ -332,6 +338,25 @@ export function toolTitleLooksLikePath(title: string, path: string | null | unde
   const prefixed = /^(?:tool|read|edit|search|execute|fetch|write|delete):\s*(.*)$/i.exec(trimmed);
   if (prefixed?.[1] === path) return true;
   return trimmed.endsWith(path) && (trimmed.length === path.length || /[:\s/]/.test(trimmed.slice(0, -path.length).slice(-1)));
+}
+
+/**
+ * Keep the kind verb visible when the server title is empty, a generic label
+ * ("Read"), or path-only — chip UI must not replace the action text.
+ */
+export function resolveAgentToolCardHeading(args: {
+  heading: string;
+  path?: string | null;
+  kindLabel: string;
+  formatWithPath: (tool: string, path: string) => string;
+}): string {
+  const heading = args.heading.trim();
+  const path = args.path?.trim() || "";
+  if (!heading || isGenericToolLabel(heading) || toolTitleLooksLikePath(heading, path || null)) {
+    if (path) return args.formatWithPath(args.kindLabel, path);
+    return args.kindLabel;
+  }
+  return heading;
 }
 
 function paramsNotShownInTitle(title: string, params: unknown): unknown {
@@ -448,6 +473,22 @@ export function presentAgentTool(part: AgentToolCallPart): ParsedToolResult {
       markdown: result.markdown ?? undefined,
       text: result.text ?? undefined,
     }, path, lineRange);
+  }
+
+  if (result.type === "images") {
+    return parsed(
+      part,
+      {
+        kind: "images",
+        images: result.images.map((image) => ({
+          url: image.url ?? undefined,
+          path: image.path ?? undefined,
+          mime: image.mime ?? undefined,
+        })),
+      },
+      path,
+      lineRange,
+    );
   }
 
   if (result.type === "text") {

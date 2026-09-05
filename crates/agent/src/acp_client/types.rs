@@ -31,6 +31,9 @@ pub struct PermissionRequest {
     pub risk_level: RiskLevel,
     /// Permission options presented by the agent (may be empty for legacy agents)
     pub options: Vec<PermissionOption>,
+    /// Multi-question AskUser cards when raw_input carries `questions[]`.
+    #[serde(default)]
+    pub questions: Vec<crate::contract::AgentAskQuestion>,
 }
 
 /// User response to permission request
@@ -167,6 +170,12 @@ pub struct StreamUsage {
 pub enum AgentToolCallContentItem {
     Text {
         text: String,
+    },
+    /// Still image from ACP `ContentBlock::Image` / image blob resources.
+    Image {
+        url: Option<String>,
+        path: Option<String>,
+        mime: Option<String>,
     },
     Diff {
         path: Option<String>,

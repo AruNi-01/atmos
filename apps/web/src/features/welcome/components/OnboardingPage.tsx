@@ -47,10 +47,12 @@ import {
 import { useSearchParams, usePathname } from 'next/navigation';
 import { useAppRouter } from '@/shared/hooks/use-app-router';
 import { InstallToolPopover } from '@/features/welcome/components/InstallToolPopover';
+import { InstallAgentPopover } from '@/features/welcome/components/InstallAgentPopover';
 import {
   OnboardingStepActions,
   type OnboardingStepId,
 } from '@/features/welcome/components/OnboardingStepActions';
+import { hasTerminalAgentInstallGuide } from '@/features/welcome/lib/terminal-agent-install-guides';
 import { useDialogStore } from '@/app-shell/state/use-dialog-store';
 import { useAtmosComputerStore } from '@/features/connection/lib/atmos-computer-store';
 import { pickLocalDirectory } from '@/shared/lib/desktop-directory-picker';
@@ -70,7 +72,8 @@ import {
   DEFAULT_AGENT_YOLO_MODE,
   setAgentYoloMode,
 } from '@/features/agent/lib/terminal-agent-yolo';
-import { provisionAcpForTerminalAgents } from '@/features/agent/lib/provision-acp-for-terminal-agents';
+import { DEEPSEEK_HARNESS_ID } from '@/features/agent/lib/custom-agent-registry';
+import { enableChatForOnboardingAgents } from '@/features/agent/lib/enable-chat-for-onboarding-agents';
 
 interface OnboardingPageProps {
   onComplete: () => void;
@@ -144,6 +147,8 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
   // Step 3: Built-in agent detection
   const [agentStatuses, setAgentStatuses] = useState<TerminalAgentCliStatusItem[]>([]);
   const [selectedAgentIds, setSelectedAgentIds] = useState<Set<string>>(() => new Set());
+  /** Auto-open install popover when user enables a missing agent. */
+  const [installPopoverAgentId, setInstallPopoverAgentId] = useState<string | null>(null);
   const [defaultAgentId, setDefaultAgentId] = useState<string | null>(null);
   const [agentsChecking, setAgentsChecking] = useState(false);
   const [agentsCheckError, setAgentsCheckError] = useState<string | null>(null);
@@ -151,6 +156,8 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
   const [agentsSaveError, setAgentsSaveError] = useState<string | null>(null);
   /** Default-on: agents launch with skip-permissions / YOLO flags. */
   const [yoloMode, setYoloMode] = useState(DEFAULT_AGENT_YOLO_MODE);
+  /** Optional Chat custom agent — off by default; user must opt in. */
+  const [deepseekSelected, setDeepseekSelected] = useState(false);
   const agentsSelectionInitializedRef = useRef(false);
 
   // Step 4: AI Quota Usage provider opt-in (after agents; before project)
@@ -237,24 +244,35 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- runAgentChecks closes over step-local state
   }, [currentStep]);
 
-  const toggleAgentSelected = useCallback((agentId: string, nextChecked: boolean) => {
-    setSelectedAgentIds((prev) => {
-      const next = new Set(prev);
+  const toggleAgentSelected = useCallback(
+    (agentId: string, nextChecked: boolean) => {
+      setSelectedAgentIds((prev) => {
+        const next = new Set(prev);
+        if (nextChecked) {
+          next.add(agentId);
+        } else {
+          next.delete(agentId);
+        }
+        return next;
+      });
+      setDefaultAgentId((prev) => {
+        if (nextChecked) {
+          return prev ?? agentId;
+        }
+        if (prev !== agentId) return prev;
+        return null;
+      });
       if (nextChecked) {
-        next.add(agentId);
-      } else {
-        next.delete(agentId);
+        const status = agentStatuses.find((item) => item.agent_id === agentId);
+        if (status && !status.installed && hasTerminalAgentInstallGuide(agentId)) {
+          setInstallPopoverAgentId(agentId);
+        }
+      } else if (installPopoverAgentId === agentId) {
+        setInstallPopoverAgentId(null);
       }
-      return next;
-    });
-    setDefaultAgentId((prev) => {
-      if (nextChecked) {
-        return prev ?? agentId;
-      }
-      if (prev !== agentId) return prev;
-      return null;
-    });
-  }, []);
+    },
+    [agentStatuses, installPopoverAgentId],
+  );
 
   // Keep default inside the selected set once selection settles.
   useEffect(() => {
@@ -330,20 +348,28 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
     setAgentsSaving(true);
     setAgentsSaveError(null);
     try {
-      // Only persist when detection succeeded; avoid disabling every agent on a failed probe.
+      // Persist terminal prefs only when detection returned rows (avoid wiping on probe failure).
       if (agentStatuses.length > 0) {
         await persistAgentPreferences();
+      }
+      // Chat enable: Native → ACP provision → optional DeepSeek (even if no terminal CLIs).
+      if (agentStatuses.length > 0 || deepseekSelected) {
         try {
-          const { failed } = await provisionAcpForTerminalAgents(selectedAgentIds);
-          if (failed.length > 0) {
+          const { acpFailed, deepseekFailed } = await enableChatForOnboardingAgents({
+            selectedTerminalIds: selectedAgentIds,
+            enableDeepSeek: deepseekSelected,
+          });
+          const failedNames = [...acpFailed];
+          if (deepseekFailed) failedNames.push('DeepSeek Harness');
+          if (failedNames.length > 0) {
             toastManager.add({
               title: t('agents.provisionFailedTitle'),
-              description: t('agents.provisionFailed', { names: failed.join(', ') }),
+              description: t('agents.provisionFailed', { names: failedNames.join(', ') }),
               type: 'error',
             });
           }
         } catch (err) {
-          console.error('Failed to provision ACP providers:', err);
+          console.error('Failed to enable Agent Chat providers:', err);
           toastManager.add({
             title: t('agents.provisionFailedTitle'),
             description: t('agents.provisionFailedGeneric'),
@@ -359,14 +385,16 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
     } finally {
       setAgentsSaving(false);
     }
-  }, [agentStatuses.length, persistAgentPreferences, selectedAgentIds, t]);
+  }, [agentStatuses.length, deepseekSelected, persistAgentPreferences, selectedAgentIds, t]);
 
   // Seed Quota Usage selection from agents the user enabled on the previous step.
   useEffect(() => {
     if (currentStep !== 'quota') return;
     if (quotaSelectionTouchedRef.current) return;
-    setSelectedQuotaProviderIds(usageProviderIdsForAgents(selectedAgentIds));
-  }, [currentStep, selectedAgentIds]);
+    const seedIds = new Set(selectedAgentIds);
+    if (deepseekSelected) seedIds.add(DEEPSEEK_HARNESS_ID);
+    setSelectedQuotaProviderIds(usageProviderIdsForAgents(seedIds));
+  }, [currentStep, deepseekSelected, selectedAgentIds]);
 
   const toggleQuotaProvider = useCallback((providerId: string, nextChecked: boolean) => {
     quotaSelectionTouchedRef.current = true;
@@ -568,7 +596,9 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
   const installedAgentCount = agentStatuses.filter((agent) => agent.installed).length;
   const selectedAgentCount = selectedAgentIds.size;
   const selectedQuotaCount = selectedQuotaProviderIds.size;
-  const suggestedQuotaProviderIds = usageProviderIdsForAgents(selectedAgentIds);
+  const quotaSeedIds = new Set(selectedAgentIds);
+  if (deepseekSelected) quotaSeedIds.add(DEEPSEEK_HARNESS_ID);
+  const suggestedQuotaProviderIds = usageProviderIdsForAgents(quotaSeedIds);
   const suggestedFromAgentsCount = suggestedQuotaProviderIds.size;
 
   const imageSrc = '/figures/welcome.png';
@@ -799,10 +829,13 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
                         {t('agents.detecting')}
                       </div>
                     ) : (
-                      agentStatuses.map((agent) => {
+                      <>
+                      {agentStatuses.map((agent) => {
                         const selected = selectedAgentIds.has(agent.agent_id);
                         const isDefault = defaultAgentId === agent.agent_id;
-                        const canSetDefault = selected && !isDefault;
+                        const canSetDefault = selected && !isDefault && agent.installed;
+                        const showInstall =
+                          !agent.installed && hasTerminalAgentInstallGuide(agent.agent_id);
                         return (
                           <Card
                             key={agent.agent_id}
@@ -850,7 +883,7 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
                                   </p>
                                 </div>
                               </div>
-                              {/* Fixed-size action slot: status crossfades to Set Default on hover */}
+                              {/* Fixed-size action slot: status / Install crossfades to Set Default on hover */}
                               <div className="relative h-8 w-[7.5rem] shrink-0">
                                 <div
                                   className={cn(
@@ -859,23 +892,49 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
                                       'group-hover/agent:pointer-events-none group-hover/agent:scale-95 group-hover/agent:opacity-0',
                                   )}
                                 >
-                                  <span
-                                    className={cn(
-                                      'inline-flex items-center gap-1 text-[11px] whitespace-nowrap',
-                                      agent.installed
-                                        ? 'font-semibold text-emerald-500'
-                                        : 'font-medium text-muted-foreground/70',
-                                    )}
-                                  >
-                                    {agent.installed ? (
-                                      <CheckCircle2 className="size-3.5 shrink-0" />
-                                    ) : (
-                                      <Bot className="size-3.5 shrink-0" />
-                                    )}
-                                    {agent.installed
-                                      ? t('agents.statusInstalled')
-                                      : t('agents.statusMissing')}
-                                  </span>
+                                  {showInstall ? (
+                                    <InstallAgentPopover
+                                      agentId={agent.agent_id}
+                                      agentName={agent.label}
+                                      open={installPopoverAgentId === agent.agent_id}
+                                      onOpenChange={(next) =>
+                                        setInstallPopoverAgentId(next ? agent.agent_id : null)
+                                      }
+                                      onInstalled={() =>
+                                        void runAgentChecks({ resetSelection: false })
+                                      }
+                                      checkInstalled={async () => {
+                                        const result = await systemApi.getTerminalAgentsStatus();
+                                        const agents = Array.isArray(result.agents)
+                                          ? result.agents
+                                          : [];
+                                        return Boolean(
+                                          agents.find(
+                                            (item) =>
+                                              item.agent_id === agent.agent_id && item.installed,
+                                          ),
+                                        );
+                                      }}
+                                    />
+                                  ) : (
+                                    <span
+                                      className={cn(
+                                        'inline-flex items-center gap-1 text-[11px] whitespace-nowrap',
+                                        agent.installed
+                                          ? 'font-semibold text-emerald-500'
+                                          : 'font-medium text-muted-foreground/70',
+                                      )}
+                                    >
+                                      {agent.installed ? (
+                                        <CheckCircle2 className="size-3.5 shrink-0" />
+                                      ) : (
+                                        <Bot className="size-3.5 shrink-0" />
+                                      )}
+                                      {agent.installed
+                                        ? t('agents.statusInstalled')
+                                        : t('agents.statusMissing')}
+                                    </span>
+                                  )}
                                 </div>
                                 {canSetDefault ? (
                                   <div className="absolute inset-0 flex items-center justify-end pointer-events-none scale-95 opacity-0 transition-[opacity,transform] duration-150 ease-out group-hover/agent:pointer-events-auto group-hover/agent:scale-100 group-hover/agent:opacity-100">
@@ -894,7 +953,59 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
                             </CardContent>
                           </Card>
                         );
-                      })
+                      })}
+                      {/* Optional Chat custom agent — not a terminal CLI; default off. */}
+                      <Card
+                        className={cn(
+                          'overflow-hidden border bg-muted/10',
+                          deepseekSelected
+                            ? 'border-foreground/20 bg-muted/20'
+                            : 'border-border/40',
+                        )}
+                      >
+                        <CardContent className="flex h-14 items-center gap-3 p-3">
+                          <Checkbox
+                            checked={deepseekSelected}
+                            onCheckedChange={(checked) => setDeepseekSelected(checked === true)}
+                            aria-label={t('agents.selectAria', { name: t('agents.deepseek.name') })}
+                            className="size-4 shrink-0"
+                          />
+                          <div className="flex min-w-0 flex-1 items-center gap-3">
+                            <span className="shrink-0">
+                              <AgentIcon
+                                registryId={DEEPSEEK_HARNESS_ID}
+                                name={t('agents.deepseek.name')}
+                                size={20}
+                              />
+                            </span>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex h-5 items-center gap-2">
+                                <h4 className="truncate text-xs font-semibold text-foreground">
+                                  {t('agents.deepseek.name')}
+                                </h4>
+                                <Badge
+                                  variant="secondary"
+                                  className="h-5 shrink-0 px-1.5 text-[10px] font-semibold"
+                                >
+                                  {t('agents.deepseek.optionalBadge')}
+                                </Badge>
+                              </div>
+                              <p className="mt-0.5 truncate text-[10px] leading-4 text-muted-foreground">
+                                {t('agents.deepseek.hint')}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="relative h-8 w-[7.5rem] shrink-0">
+                            <div className="absolute inset-0 flex items-center justify-end">
+                              <span className="inline-flex items-center gap-1 text-[11px] font-medium whitespace-nowrap text-muted-foreground/70">
+                                <Bot className="size-3.5 shrink-0" />
+                                {t('agents.deepseek.chatOnly')}
+                              </span>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                      </>
                     )}
                   </div>
 

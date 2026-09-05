@@ -21,9 +21,17 @@ export type OnboardingInstallToolId = 'tmux' | 'git' | 'gh';
 interface PackageInstallTerminalDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  toolId: OnboardingInstallToolId;
+  /** Session / naming id (env tool id or terminal agent id). */
+  toolId: string;
   toolName: string;
   onInstalled?: () => void | Promise<void>;
+  /**
+   * When set, skip host package-manager detection and run this command
+   * (used for agent CLI installers).
+   */
+  installCommand?: string | null;
+  /** Custom install verification (defaults to tmux/git/gh probes for those ids). */
+  checkInstalled?: () => Promise<boolean>;
 }
 
 type InstallPhase = 'guide' | 'terminal';
@@ -143,7 +151,7 @@ function resolveInstallCommand(
   };
 }
 
-async function isToolInstalled(toolId: OnboardingInstallToolId): Promise<boolean> {
+async function isEnvToolInstalled(toolId: string): Promise<boolean> {
   switch (toolId) {
     case 'tmux':
       return (await systemApi.getTmuxStatus()).installed;
@@ -151,7 +159,13 @@ async function isToolInstalled(toolId: OnboardingInstallToolId): Promise<boolean
       return (await systemApi.getGitStatus()).installed;
     case 'gh':
       return (await systemApi.getGhCliStatus()).installed;
+    default:
+      return false;
   }
+}
+
+function isOnboardingEnvToolId(toolId: string): toolId is OnboardingInstallToolId {
+  return toolId === 'tmux' || toolId === 'git' || toolId === 'gh';
 }
 
 export function PackageInstallTerminalDialog({
@@ -160,6 +174,8 @@ export function PackageInstallTerminalDialog({
   toolId,
   toolName,
   onInstalled,
+  installCommand = null,
+  checkInstalled,
 }: PackageInstallTerminalDialogProps) {
   const t = useTranslations('onboarding.check.install.installTerminal');
   const terminalRef = React.useRef<TerminalRef | null>(null);
@@ -176,9 +192,24 @@ export function PackageInstallTerminalDialog({
   const [sessionId, setSessionId] = React.useState<string | null>(null);
   const [sessionError, setSessionError] = React.useState<string | null>(null);
 
-  const resolved = resolveInstallCommand(toolId, plan);
-  const effectiveInstallCommand = resolved.command;
-  const shouldOfferHomebrewBootstrap = resolved.homebrewBootstrap;
+  const useExplicitCommand = typeof installCommand === 'string' && installCommand.trim().length > 0;
+  const resolved = useExplicitCommand
+    ? {
+        command: installCommand!.trim(),
+        homebrewBootstrap: false,
+        requiresSudo: /\bsudo\b/.test(installCommand!),
+        reason: null,
+      }
+    : resolveInstallCommand(
+        isOnboardingEnvToolId(toolId) ? toolId : 'tmux',
+        plan,
+      );
+  const effectiveInstallCommand = useExplicitCommand
+    ? installCommand!.trim()
+    : isOnboardingEnvToolId(toolId)
+      ? resolved.command
+      : null;
+  const shouldOfferHomebrewBootstrap = !useExplicitCommand && resolved.homebrewBootstrap;
   const installActionLabel = shouldOfferHomebrewBootstrap
     ? t('actions.installHomebrew')
     : t('actions.installTool', { toolName });
@@ -208,12 +239,19 @@ export function PackageInstallTerminalDialog({
     setIsPreparing(true);
     setPlanError(null);
 
+    const homeDirPromise = fsApi.getHomeDir();
+    const planPromise = useExplicitCommand
+      ? Promise.resolve(null)
+      : systemApi.getTmuxInstallPlan();
+
     const [planResult, homeDirResult] = await Promise.allSettled([
-      systemApi.getTmuxInstallPlan(),
-      fsApi.getHomeDir(),
+      planPromise,
+      homeDirPromise,
     ]);
 
-    if (planResult.status === 'fulfilled') {
+    if (useExplicitCommand) {
+      setPlan(null);
+    } else if (planResult.status === 'fulfilled') {
       setPlan(planResult.value);
     } else {
       setPlan(null);
@@ -237,7 +275,7 @@ export function PackageInstallTerminalDialog({
     }
 
     setIsPreparing(false);
-  }, [t]);
+  }, [t, useExplicitCommand]);
 
   React.useEffect(() => {
     if (!open) {
@@ -315,7 +353,9 @@ export function PackageInstallTerminalDialog({
     setIsChecking(true);
     try {
       await loadInstallContext();
-      const installed = await isToolInstalled(toolId);
+      const installed = checkInstalled
+        ? await checkInstalled()
+        : await isEnvToolInstalled(toolId);
       if (installed) {
         await Promise.resolve(onInstalled?.());
         closeDialog();
@@ -325,7 +365,7 @@ export function PackageInstallTerminalDialog({
     } finally {
       setIsChecking(false);
     }
-  }, [closeDialog, loadInstallContext, onInstalled, toolId]);
+  }, [checkInstalled, closeDialog, loadInstallContext, onInstalled, toolId]);
 
   const canAutoInstall = Boolean(effectiveInstallCommand && homeDir);
 
@@ -359,7 +399,9 @@ export function PackageInstallTerminalDialog({
           </Button>
           <DialogDescription className="pr-12">
             {phase === 'guide'
-              ? t('descriptionGuide', { toolName })
+              ? useExplicitCommand
+                ? t('descriptionGuideExplicit', { toolName })
+                : t('descriptionGuide', { toolName })
               : effectiveInstallCommand
                 ? t('descriptionTerminalWithCommand', { command: effectiveInstallCommand })
                 : t('descriptionTerminalFallback')}
@@ -381,9 +423,11 @@ export function PackageInstallTerminalDialog({
                   <div className="rounded-xl border border-border bg-muted/20 px-4 py-3">
                     <p className="text-sm font-medium text-foreground">{t('detectedHostTitle')}</p>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      {plan
-                        ? `${plan.platform}${plan.package_manager_label ? ` · ${plan.package_manager_label}` : ''}`
-                        : t('detectedHostUnavailable')}
+                      {useExplicitCommand
+                        ? t('detectedHostManual')
+                        : plan
+                          ? `${plan.platform}${plan.package_manager_label ? ` · ${plan.package_manager_label}` : ''}`
+                          : t('detectedHostUnavailable')}
                     </p>
                     {effectiveInstallCommand ? (
                       <>

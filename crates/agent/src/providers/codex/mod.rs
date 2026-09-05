@@ -519,6 +519,7 @@ mod tests {
     const FAKE_CODEX: &str = r#"#!/usr/bin/env python3
 import json, os, sys
 inject = os.environ.get("CODEX_TEST_INJECT") == "1"
+ask_inject = os.environ.get("CODEX_TEST_ASK_INJECT") == "1"
 capture = os.environ.get("CODEX_TEST_CAPTURE")
 injected = False
 turn_n = 0
@@ -581,6 +582,10 @@ for raw in sys.stdin:
         print(json.dumps({"method":"turn/started","params":{"turn":{"id":"turn_456","status":"inProgress"}}}), flush=True)
         print(json.dumps({"method":"item/started","params":{"item":{"type":"commandExecution","id":"call_1","command":"ls -la","cwd":"/abs/project","status":"inProgress"}}}), flush=True)
         print(json.dumps({"method":"item/commandExecution/requestApproval","id":61,"params":{"threadId":"thr_123","turnId":"turn_456","itemId":"call_1","command":"ls -la"}}), flush=True)
+    if method == "turn/start" and ask_inject and not injected:
+        injected = True
+        print(json.dumps({"method":"turn/started","params":{"turn":{"id":"turn_456","status":"inProgress"}}}), flush=True)
+        print(json.dumps({"method":"item/tool/requestUserInput","id":81,"params":{"threadId":"thr_123","turnId":"turn_456","itemId":"rui_1","isBlocking":True,"questions":[{"id":"q1","header":"Color","question":"Pick a probe color?","options":[{"label":"Blue","description":"Cool"},{"label":"Red","description":"Warm"}]}]}}), flush=True)
     if method == "turn/steer":
         print(json.dumps({"method":"turn/completed","params":{"turn":{"id":"turn_456","status":"completed"}}}), flush=True)
 "#;
@@ -653,6 +658,14 @@ for raw in sys.stdin:
     }
 
     async fn connect_runtime(cli: &FakeCli, inject: bool) -> Box<dyn AgentRuntime> {
+        connect_runtime_with(cli, inject, false).await
+    }
+
+    async fn connect_runtime_with(
+        cli: &FakeCli,
+        inject: bool,
+        ask_inject: bool,
+    ) -> Box<dyn AgentRuntime> {
         let mut env = HashMap::new();
         env.insert(
             "CODEX_TEST_CAPTURE".into(),
@@ -661,12 +674,16 @@ for raw in sys.stdin:
         if inject {
             env.insert("CODEX_TEST_INJECT".into(), "1".into());
         }
+        if ask_inject {
+            env.insert("CODEX_TEST_ASK_INJECT".into(), "1".into());
+        }
         let provider =
             CodexNativeProvider::with_program(cli.program.to_string_lossy().into_owned())
                 .with_env(env);
         let cfg = AgentRuntimeConfig {
             cwd: PathBuf::from("/abs/project"),
             model: Some("gpt-5.6-sol".into()),
+            mode: ask_inject.then(|| "plan".into()),
             ..AgentRuntimeConfig::default()
         };
         provider.create_runtime(cfg).await.expect("handshake")
@@ -871,6 +888,66 @@ for raw in sys.stdin:
         assert_eq!(thread["params"]["approvalsReviewer"], "user");
         assert_eq!(thread["params"]["approvalPolicy"], "on-request");
         assert_eq!(thread["params"]["sandbox"], "workspace-write");
+        drop(runtime);
+    }
+
+    #[tokio::test]
+    async fn plan_request_user_input_maps_and_answers() {
+        let cli = fake_cli();
+        let mut runtime = connect_runtime_with(&cli, false, true).await;
+        let _ = drain_until(&mut runtime, |event| {
+            matches!(event, AgentEvent::SessionStarted { .. })
+        })
+        .await;
+        let control = runtime.control();
+        control
+            .send(AgentPrompt {
+                text: "Ask me".into(),
+                turn_id: Some("atmos-ask-1".into()),
+                ..AgentPrompt::default()
+            })
+            .await
+            .expect("send");
+
+        let permission = drain_until(&mut runtime, |event| {
+            matches!(event, AgentEvent::PermissionRequested { .. })
+        })
+        .await;
+        let request = permission
+            .iter()
+            .find_map(|event| match event {
+                AgentEvent::PermissionRequested { request } => Some(request),
+                _ => None,
+            })
+            .expect("permission");
+        assert_eq!(request.request_id, "81");
+        assert_eq!(request.tool, "request_user_input");
+        assert_eq!(request.questions.len(), 1);
+        assert_eq!(request.questions[0].id, "q1");
+        assert_eq!(request.questions[0].prompt, "Pick a probe color?");
+        assert!(request.questions[0].options[0].starts_with("Blue"));
+
+        control
+            .action(AgentAction::RespondPermission {
+                request_id: "81".into(),
+                option_id: r#"answers:{"q1":"Blue — Cool"}"#.into(),
+            })
+            .await
+            .expect("ask respond");
+
+        let reply = wait_captured(&cli.capture, |writes| {
+            writes
+                .iter()
+                .find(|frame| frame.get("id") == Some(&json!(81)) && frame.get("result").is_some())
+                .cloned()
+        })
+        .await
+        .expect("ask reply");
+        assert_eq!(
+            reply["result"],
+            json!({ "answers": { "q1": { "answers": ["Blue"] } } })
+        );
+        assert!(reply.get("jsonrpc").is_none());
         drop(runtime);
     }
 

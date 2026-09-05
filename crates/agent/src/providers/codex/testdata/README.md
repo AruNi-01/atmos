@@ -42,6 +42,8 @@ Live main `/ws` after Chat `-c openai_base_url=""` (2026-09-02, PATH `codex-cli 
 
 `codex app-server generate-json-schema` from **0.152.1** keeps the 0.144.5 methods (`item/commandExecution|fileChange|permissions/requestApproval`) and string decisions `accept` / `acceptForSession` / `decline` / `cancel`. New on command execution: nullable `command`, `kind: command|writeStdin`, `proposedExecpolicyAmendment` → object decision `{acceptWithExecpolicyAmendment:{execpolicy_amendment}}` (snake_case field). `applyNetworkPolicyAmendment` exists on the same enum; Atmos does not invent per-host allow/deny chrome for it. File-change params still have `grantRoot` and **no** `changes[]`. Fixtures stay 0.144.5 handshake/turn shapes plus the 0.152.1 approval extras in `request-approval.jsonl`.
 
+**Plan-mode Ask** (experimental, needs `capabilities.experimentalApi: true`): server request `item/tool/requestUserInput` for the built-in `request_user_input` tool (TUI only in Plan / `collaborationMode: plan`). Params `ToolRequestUserInputParams`: `{ threadId, turnId, itemId, isBlocking, questions: [{ id, header, question, options: [{ label, description }], isOther?, isSecret? }] }`. Response `ToolRequestUserInputResponse`: `{ answers: { <questionId>: { answers: string[] } } }`. Empty `{ answers: {} }` = Skip / no answers (Plan docs: continue with best judgment). Atmos maps to `PermissionRequested` with `tool: request_user_input` + `questions[]` (labels) and option-description markdown when present; ApprovalCard Continue sends `answers:{…}` keyed by question id. Fixture: `request-user-input.jsonl`.
+
 CI must not require a live `codex` binary.
 
 | File | Source | Covers |
@@ -51,6 +53,7 @@ CI must not require a live `codex` binary.
 | `framing-no-jsonrpc.jsonl` | Live shapes + inbound extra `jsonrpc` | classify: notification, response, server request, extra jsonrpc, malformed |
 | `turn-tools.jsonl` | Live `turn/started` + `userMessage`; remaining items from `codex app-server generate-ts` of the same 0.144.5 binary (tool turn 401'd without auth in an isolated `CODEX_HOME`) | commandExecution, fileChange `{kind:{type:update}}`, webSearch search+openPage, reasoning `summary: string[]`, plan, unknown notify, `turn/completed` |
 | `collaboration-mode-list.json` | Live 0.152.1 `collaborationMode/list` (experimentalApi initialize) | `{ data: [{ name, mode, model, reasoning_effort }] }`. Adapter id = `mode`, label = `name`, `default` first |
+| `request-user-input.jsonl` | Schema 0.153.4 `item/tool/requestUserInput` (Plan Ask) | Multi-question `questions[]` with `label`+`description`; reply `{ answers: { id: { answers: [label] } } }` |
 
 Live enum trap: `approvalPolicy: "onRequest"` is rejected (`expected one of untrusted, on-request, granular, never`). `learn.chatgpt.com` camelCase examples are wrong for this CLI.
 

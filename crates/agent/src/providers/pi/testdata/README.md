@@ -19,8 +19,10 @@ Live notes from `pi --mode rpc` (no `-p` / `--print` / `--mode json` / `--extens
 
 Live main `/ws` (2026-09-02): spawn/handshake/turn/`tool_call` (bash/execute **and write/edit**) and `/fork` pass. `/rewind` is **not** intercepted (user turn). This machine: `pi list` → no packages; `~/.pi/agent/extensions/` does not call `ui.confirm`.
 
+`tool-edit.jsonl` (2026-09-05, DeepSeek): live `edit` end frame with `details.patch` / `details.diff`. Mapper must prefer `details.patch` as Atmos `Text` (existing edit card presents patch) — not the `content[]` summary alone.
+
 ## Permission honesty
 
-CLI 0.84.2 has **no built-in tool-permission chrome**. `--approve` / `-na` is project-local file trust, not a mapper gap. RPC `extension_ui_request` `confirm` is extension UI (`ctx.ui.confirm`), not write/edit/bash. Live main `/ws` write + bash complete with **no** `permission_requested` when no extension calls `ui.confirm`. Pin mapping on `extension-ui-confirm.jsonl` (`allow`/`deny`). `tool-write.jsonl` pins write→edit with no UI confirm.
+CLI 0.84.2 has **no built-in tool-permission chrome**. `--approve` / `-na` is project-local file trust, not a mapper gap. RPC `extension_ui_request` `confirm` is extension UI (`ctx.ui.confirm`), not write/edit/bash. Live main `/ws` write + bash complete with **no** `permission_requested` when no extension calls `ui.confirm`. Pin mapping on `extension-ui-confirm.jsonl` (`allow`/`deny`). `extension-ui-select.jsonl` pins Ask-style ApprovalCard `questions[]` from `method: select` (reply → `extension_ui_response` `{ value }`). `tool-write.jsonl` pins write→edit with no UI confirm.
 
 CI does not spawn a live `pi` binary. Re-record these files when the published RPC command/event shapes change; note `pi --version` beside the pin.

@@ -648,6 +648,7 @@ fn map_permission_asked(
                         option("always", "Always allow", "allow_always"),
                         option("reject", "Reject", "reject"),
                     ],
+                    questions: Vec::new(),
                 },
             },
         ),
@@ -705,33 +706,29 @@ fn map_question_asked(
     else {
         return MapOut::Skip;
     };
-    let questions = properties
+    let raw_questions = properties
         .get("questions")
         .and_then(Value::as_array)
         .cloned()
         .unwrap_or_default();
-    let multiple = questions.iter().any(|question| {
-        question
-            .get("multiple")
-            .and_then(Value::as_bool)
-            .unwrap_or(false)
-    });
-    let options: Vec<AgentPermissionOption> = questions
-        .first()
-        .and_then(|question| question.get("options"))
-        .and_then(Value::as_array)
-        .map(|items| {
-            items
-                .iter()
-                .filter_map(|item| {
-                    let label = item.get("label").and_then(Value::as_str)?;
-                    Some(option(label, label, "allow_once"))
-                })
-                .collect()
-        })
-        .unwrap_or_default();
+    let questions = crate::map::ask_questions_from_array(&raw_questions);
+    let options: Vec<AgentPermissionOption> = if questions.len() == 1 {
+        questions
+            .first()
+            .map(|question| {
+                question
+                    .options
+                    .iter()
+                    .map(|label| option(label, label, "allow_once"))
+                    .collect()
+            })
+            .unwrap_or_default()
+    } else {
+        // Multi-question ApprovalCard replies with `answers:{…}`; keep reject only.
+        vec![option("reject_once", "Reject", "reject")]
+    };
 
-    if questions.len() != 1 || multiple || options.is_empty() {
+    if questions.is_empty() {
         mark_work(state);
         state
             .pending_asks
@@ -743,11 +740,8 @@ fn map_question_asked(
                 payload: properties.clone(),
             },
         );
-        if options.is_empty() {
-            state.pending.push_back(unknown);
-            return MapOut::AutoRejectQuestion { request_id };
-        }
-        return emit(unknown);
+        state.pending.push_back(unknown);
+        return MapOut::AutoRejectQuestion { request_id };
     }
 
     state
@@ -755,15 +749,23 @@ fn map_question_asked(
         .insert(request_id.clone(), PendingAsk::Question);
     mark_work(state);
     let description = questions
-        .first()
-        .and_then(|question| {
-            question
-                .get("question")
-                .or_else(|| question.get("header"))
-                .and_then(Value::as_str)
-        })
-        .unwrap_or("question")
-        .to_string();
+        .iter()
+        .map(|question| question.prompt.as_str())
+        .collect::<Vec<_>>()
+        .join(" · ");
+    let flat_options = if options.is_empty() {
+        questions
+            .iter()
+            .flat_map(|question| {
+                question
+                    .options
+                    .iter()
+                    .map(|label| option(label, label, "allow_once"))
+            })
+            .collect()
+    } else {
+        options
+    };
     emit(complete_before_thinking(
         state,
         turn_id.clone(),
@@ -775,7 +777,8 @@ fn map_question_asked(
                     tool: "question".into(),
                     description,
                     content_markdown: None,
-                    options,
+                    options: flat_options,
+                    questions,
                 },
             },
         ),

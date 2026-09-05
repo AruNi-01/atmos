@@ -53,6 +53,7 @@ describe("assistant process collapse chrome", () => {
     const filesAt = messageView.indexOf("<AssistantTurnFileChanges");
     expect(copyAt).toBeGreaterThan(-1);
     expect(filesAt).toBeGreaterThan(copyAt);
+    expect(messageView).toContain("shouldShowAssistantTurnEndedChrome");
     expect(messageView).not.toContain("line-clamp-6");
     expect(messageView).not.toContain("data-transcript-mounted");
   });

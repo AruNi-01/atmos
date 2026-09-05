@@ -104,6 +104,32 @@ function resolveAbsoluteUnderRoots(
   return null;
 }
 
+/**
+ * Absolute path for tool expand preview. Allows files outside the project
+ * workspace (e.g. ~/.grok/sessions/.../plan.md) via /api/system/file.
+ */
+export function resolveAgentChatPreviewPath(
+  raw: string,
+  cwd: string | null | undefined,
+  roots?: (string | null | undefined)[],
+): string | null {
+  const openable = resolveAgentChatOpenableFile(raw, cwd, roots);
+  if (openable) return openable.path;
+
+  let value = raw.trim().replace(/^['"`]+|['"`]+$/g, "");
+  if (!value || value.length > 512) return null;
+  if (EXTERNAL_HREF_RE.test(value)) return null;
+  value = value.replace(/:(\d+)(?::\d+)?$/, "").replace(/#L(\d+)(?:-L?\d+)?$/i, "");
+  const normalized = normalizeFsPath(value);
+  if (!normalized) return null;
+  if (normalized.startsWith("/")) return normalized;
+
+  const allowed = uniqueNormalizedRoots(cwd, roots);
+  const joinBase = allowed.cwd ?? allowed.roots[0] ?? null;
+  if (!joinBase) return null;
+  return joinUnderCwd(joinBase, normalized);
+}
+
 function locatePathInTrees(
   normalized: string,
   absolute: string,

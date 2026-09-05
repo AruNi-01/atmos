@@ -11,6 +11,7 @@ Recorded against live `/Users/aarynlu/.local/bin/claude` (`2.1.252 (Claude Code)
 - `rewind_files` success payload includes `canRewind`, `filesChanged`, `insertions`, `deletions`. `rewind_conversation` success includes `rewound`, `targetMessageUuid`, `prefillText`, `precedingAssistantUuid`. Bare `subtype: "rewind"` is rejected (`Unsupported control request subtype: rewind`).
 - Initialize `models[]` use `value` + `displayName` + per-model `supportedEffortLevels` (no top-level `effortLevels`). `current_permission_mode` is `"default"`; `--permission-mode` help lists `acceptEdits`, `auto`, `bypassPermissions`, `manual`, `dontAsk`, `plan`. Live `set_permission_mode` `{mode:"manual"}` can succeed while echoing `{mode:"default"}`.
 - Live 2.1.252 (2026-09-02, main `/ws`): read-only `echo` Bash auto-completes with **no** `can_use_tool`. A write (`printf 'hi' > atmos-perm-probe.txt`) emits `control_request`/`can_use_tool` → WS `permission_requested` with `allow_once` / `allow_always` / `reject_once` / `reject_always`. Allow stdin is still `behavior` + `updatedInput` (`permission_allow.stdin.json`). Adapter `respond_permission` does **not** emit `PermissionResolved` (service does); after that fix, `/ws` has one `permission_resolved` (`ws-claude-perm-2.log`).
+- AskUserQuestion: `can_use_tool_ask_user.json` pins multi-question ApprovalCard mapping; reply injects `updatedInput.answers` keyed by **question text** (not index). Live probe 2026-09-05: `ask_q=1` + continue after `answers:` / `0:Plan`.
 
 Agent SDK cross-check (same wire window):
 

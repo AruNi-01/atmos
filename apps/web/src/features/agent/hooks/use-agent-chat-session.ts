@@ -303,7 +303,7 @@ export function useAgentChatSession({
     [messages],
   );
   const agentActivity = useMemo(
-    () => deriveAgentActivity(messages, busy && messages.at(-1)?.role !== "assistant"),
+    () => deriveAgentActivity(messages, busy),
     [busy, messages],
   );
 
@@ -760,10 +760,22 @@ export function useAgentChatSession({
         const started = payload.created_at ? Date.parse(payload.created_at) : Date.now();
         setTurnStartedAt(Number.isNaN(started) ? Date.now() : started);
       }
+      if (
+        payload.type === "assistant_message_delta"
+        || payload.type === "thinking_delta"
+        || payload.type === "tool_call_started"
+        || payload.type === "tool_call_updated"
+        || payload.type === "plan_updated"
+        || (payload.type === "session_lifecycle" && payload.status === "running")
+      ) {
+        // Content after a premature turn_completed must reopen the busy turn.
+        setBusy(true);
+      }
       if (payload.type === "turn_completed") {
         setBusy(false);
         setRunningTurnId(null);
-        setPendingPermission(null);
+        // Keep Ask / permission chrome until PermissionResolved — Grok may still
+        // be waiting on `_x.ai/ask_user_question` after a premature TurnEnd.
         setTurnStartedAt(null);
         const auth = authRequiredFromTurnError(payload.error, providerIdRef.current);
         if (auth) {
@@ -786,6 +798,11 @@ export function useAgentChatSession({
             option_id: option.option_id,
             name: option.name,
             kind: option.kind || option.option_id,
+          })),
+          questions: (payload.request.questions ?? []).map((question) => ({
+            id: question.id,
+            prompt: question.prompt,
+            options: question.options ?? [],
           })),
         });
       }

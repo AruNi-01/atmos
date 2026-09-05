@@ -8,8 +8,10 @@ use crate::contract::{AgentTool, AgentToolParams, AgentToolResult, AgentToolStat
 use crate::map::is_generic_tool_label;
 use crate::map::{classify_tool, plan_from_tool_input, thinking_text, ClassifiedTool};
 use crate::map::{
-    extract_background, extract_command, extract_cwd, extract_links, extract_path, extract_query,
-    extract_search_hits, extract_skill, extract_subagent, extract_task_id, extract_url,
+    extract_aspect_ratio, extract_background, extract_command, extract_cwd,
+    extract_generated_images, extract_image_prompt, extract_image_size, extract_links,
+    extract_path, extract_query, extract_reference_paths, extract_search_hits, extract_skill,
+    extract_subagent, extract_task_id, extract_url,
 };
 
 #[derive(Debug, Clone)]
@@ -91,7 +93,7 @@ pub(crate) fn map_tool_call(
     };
     match build_typed_tool(update, kind, payload, output) {
         Some(tool) => {
-            remember_grok_execute(&tool, grok_tasks);
+            remember_grok_task(&tool, output, grok_tasks);
             ToolMapOut::Tool(tool)
         }
         None => ToolMapOut::Tool(other_tool(update)),
@@ -103,6 +105,9 @@ pub(crate) fn merge_tool_call_patch(
     prev: &ToolCallUpdate,
     incoming: ToolCallUpdate,
 ) -> ToolCallUpdate {
+    let keep_prev_description = incoming.description.is_empty()
+        || is_generic_tool_label(&incoming.description)
+        || search_title_overwritten_by_query(prev, &incoming);
     ToolCallUpdate {
         tool_call_id: incoming.tool_call_id,
         parent_tool_call_id: incoming
@@ -113,19 +118,14 @@ pub(crate) fn merge_tool_call_patch(
         } else {
             incoming.tool
         },
-        description: if incoming.description.is_empty()
-            || is_generic_tool_label(&incoming.description)
-        {
+        description: if keep_prev_description {
             prev.description.clone()
         } else {
             incoming.description
         },
         acp_kind: merge_acp_kind(prev.acp_kind.as_deref(), incoming.acp_kind),
         status: incoming.status,
-        raw_input: incoming
-            .raw_input
-            .filter(|value| !is_empty_json(value))
-            .or_else(|| prev.raw_input.clone()),
+        raw_input: merge_json_values(prev.raw_input.as_ref(), incoming.raw_input.as_ref()),
         content: if incoming.content.is_empty() {
             prev.content.clone()
         } else {
@@ -136,11 +136,43 @@ pub(crate) fn merge_tool_call_patch(
         } else {
             incoming.locations
         },
-        raw_output: incoming
-            .raw_output
-            .filter(|value| !is_empty_json(value))
-            .or_else(|| prev.raw_output.clone()),
+        raw_output: merge_json_values(prev.raw_output.as_ref(), incoming.raw_output.as_ref()),
         detail: incoming.detail.or_else(|| prev.detail.clone()),
+    }
+}
+
+fn merge_json_values(prev: Option<&Value>, incoming: Option<&Value>) -> Option<Value> {
+    match (prev, incoming) {
+        (Some(prev), Some(incoming)) if !is_empty_json(incoming) => {
+            Some(merge_json_object(prev, incoming))
+        }
+        (_, Some(incoming)) if !is_empty_json(incoming) => Some(incoming.clone()),
+        (Some(prev), _) => Some(prev.clone()),
+        _ => None,
+    }
+}
+
+fn merge_json_object(prev: &Value, incoming: &Value) -> Value {
+    match (prev, incoming) {
+        (Value::Object(prev_map), Value::Object(incoming_map)) => {
+            let mut out = prev_map.clone();
+            for (key, value) in incoming_map {
+                if is_empty_json(value) {
+                    continue;
+                }
+                out.insert(
+                    key.clone(),
+                    match (out.get(key), value) {
+                        (Some(prev_child), Value::Object(_)) => {
+                            merge_json_object(prev_child, value)
+                        }
+                        _ => value.clone(),
+                    },
+                );
+            }
+            Value::Object(out)
+        }
+        (_, incoming) => incoming.clone(),
     }
 }
 
@@ -152,6 +184,29 @@ fn merge_acp_kind(prev: Option<&str>, incoming: Option<String>) -> Option<String
             .map(str::to_string)
             .or(other),
     }
+}
+
+/// Grok search patches replace title `grep` with the query string — keep the label.
+fn search_title_overwritten_by_query(prev: &ToolCallUpdate, incoming: &ToolCallUpdate) -> bool {
+    let prev_title = prev.description.trim();
+    let incoming_title = incoming.description.trim();
+    if prev_title.is_empty() || incoming_title.is_empty() {
+        return false;
+    }
+    if !is_workspace_search_label(prev_title)
+        && !matches!(
+            prev.acp_kind.as_deref().map(normalize).as_deref(),
+            Some("search")
+        )
+    {
+        return false;
+    }
+    let query = incoming
+        .raw_input
+        .as_ref()
+        .and_then(extract_query)
+        .or_else(|| prev.raw_input.as_ref().and_then(extract_query));
+    query.is_some_and(|query| query == incoming_title)
 }
 
 fn protocol_kind(update: &ToolCallUpdate) -> Option<AcpKindHint> {
@@ -189,42 +244,130 @@ fn map_grok_task_output(
         .or_else(|| effective_payload(update.raw_input.as_ref()));
     let task_id = task_id_of(update.raw_output.as_ref()).or_else(|| task_id_of(output));
     let Some(task_id) = task_id else {
-        return ToolMapOut::Tool(other_tool(update));
+        // Orphan TaskOutput / get_command_or_subagent_output without a parent — hide.
+        return ToolMapOut::Hide;
     };
-    let Some(mut original) = grok_tasks.get(&task_id).cloned() else {
-        return ToolMapOut::Tool(other_tool(update));
+    let Some(mut original) = resolve_grok_task_parent(grok_tasks, &task_id, output) else {
+        return ToolMapOut::Hide;
     };
     original.status = grok_task_status(output).unwrap_or_else(|| map_status(&update.status));
-    original.result = Some(execute_result(output, Some(update)));
-    if let AgentToolParams::Execute {
-        task_id: stored_task,
-        ..
-    } = &mut original.params
-    {
-        if stored_task.is_none() {
-            *stored_task = Some(task_id.clone());
+    match &original.kind {
+        AgentToolKind::Subagent => {
+            original.result = Some(AgentToolResult::Text {
+                text: strip_grok_poll_footer(
+                    &value_text(output)
+                        .or_else(|| content_text(&update.content))
+                        .unwrap_or_default(),
+                ),
+            });
+        }
+        _ => {
+            original.result = Some(execute_result(output, Some(update)));
+            if let AgentToolParams::Execute {
+                task_id: stored_task,
+                ..
+            } = &mut original.params
+            {
+                if stored_task.is_none() {
+                    *stored_task = Some(task_id.clone());
+                }
+            }
         }
     }
     grok_tasks.insert(task_id, original.clone());
+    grok_tasks.insert(original.tool_call_id.clone(), original.clone());
     ToolMapOut::Replace {
         tool_call_id: original.tool_call_id.clone(),
         tool: original,
     }
 }
 
-fn remember_grok_execute(tool: &AgentTool, grok_tasks: &mut HashMap<String, AgentTool>) {
-    let AgentToolParams::Execute {
-        background,
-        task_id,
-        ..
-    } = &tool.params
-    else {
-        return;
-    };
-    if let Some(task_id) = task_id {
-        grok_tasks.insert(task_id.clone(), tool.clone());
-    } else if *background {
-        grok_tasks.insert(tool.tool_call_id.clone(), tool.clone());
+fn resolve_grok_task_parent(
+    grok_tasks: &HashMap<String, AgentTool>,
+    task_id: &str,
+    output: Option<&Value>,
+) -> Option<AgentTool> {
+    if let Some(tool) = grok_tasks.get(task_id) {
+        return Some(tool.clone());
+    }
+    let command = output
+        .and_then(|value| first_string(value, &["command"]))
+        .or_else(|| {
+            output
+                .and_then(|value| value.get("Result"))
+                .and_then(|value| first_string(value, &["command"]))
+        })?;
+    let (agent_type, description) = parse_subagent_command_label(&command)?;
+    grok_tasks.values().find_map(|tool| {
+        if tool.kind != AgentToolKind::Subagent {
+            return None;
+        }
+        let AgentToolParams::Subagent {
+            description: stored_desc,
+            agent_type: stored_type,
+        } = &tool.params
+        else {
+            return None;
+        };
+        if stored_desc != &description {
+            return None;
+        }
+        if agent_type.is_some()
+            && stored_type
+                .as_ref()
+                .is_some_and(|value| Some(value.as_str()) != agent_type.as_deref())
+        {
+            return None;
+        }
+        Some(tool.clone())
+    })
+}
+
+/// Grok TaskOutput `command` looks like `[subagent:explore] Read test-note.md content`.
+fn parse_subagent_command_label(command: &str) -> Option<(Option<String>, String)> {
+    let command = command.trim();
+    let rest = command.strip_prefix("[subagent:")?;
+    let (agent_type, description) = rest.split_once(']')?;
+    let description = description.trim();
+    if description.is_empty() {
+        return None;
+    }
+    let agent_type = agent_type.trim();
+    Some((
+        if agent_type.is_empty() {
+            None
+        } else {
+            Some(agent_type.to_string())
+        },
+        description.to_string(),
+    ))
+}
+
+fn remember_grok_task(
+    tool: &AgentTool,
+    output: Option<&Value>,
+    grok_tasks: &mut HashMap<String, AgentTool>,
+) {
+    match &tool.params {
+        AgentToolParams::Execute {
+            background,
+            task_id,
+            ..
+        } => {
+            grok_tasks.insert(tool.tool_call_id.clone(), tool.clone());
+            if let Some(task_id) = task_id {
+                grok_tasks.insert(task_id.clone(), tool.clone());
+            } else if *background {
+                // Already keyed by tool_call_id above.
+            }
+        }
+        AgentToolParams::Subagent { .. } => {
+            grok_tasks.insert(tool.tool_call_id.clone(), tool.clone());
+            if let Some(task_id) = task_id_of(output) {
+                grok_tasks.insert(task_id, tool.clone());
+            }
+        }
+        _ => {}
     }
 }
 
@@ -244,12 +387,41 @@ fn build_typed_tool(
     Some(AgentTool {
         tool_call_id: update.tool_call_id.clone(),
         name: update.tool.clone(),
-        title: nonempty_title(update).map(str::to_string),
+        title: tool_display_title(update, kind, payload),
         kind,
         status,
         params,
         result,
     })
+}
+
+/// Keep Search titles stable: Grok often overwrites `grep` with the raw query.
+fn tool_display_title(
+    update: &ToolCallUpdate,
+    kind: AgentToolKind,
+    payload: Option<&Value>,
+) -> Option<String> {
+    let title = nonempty_title(update)?;
+    if kind == AgentToolKind::Search {
+        if let Some(query) = payload.and_then(extract_query) {
+            if title == query {
+                return search_tool_label(update, payload);
+            }
+        }
+    }
+    Some(title.to_string())
+}
+
+fn search_tool_label(update: &ToolCallUpdate, payload: Option<&Value>) -> Option<String> {
+    envelope_type(payload)
+        .or_else(|| envelope_type(update.raw_input.as_ref()))
+        .filter(|ty| is_workspace_search_label(ty))
+        .or_else(|| {
+            nonempty_title(update)
+                .filter(|title| is_workspace_search_label(title))
+                .map(str::to_string)
+        })
+        .or_else(|| Some("grep".into()))
 }
 
 fn typed_params(
@@ -262,7 +434,11 @@ fn typed_params(
     let value = payload.or(fallback);
     match kind {
         AgentToolKind::Read => {
-            let path = value.and_then(extract_path)?;
+            let path = value
+                .and_then(extract_path)
+                .or_else(|| output.and_then(extract_path))
+                .or_else(|| first_location(update))
+                .or_else(|| path_from_title(nonempty_title(update)))?;
             Some(AgentToolParams::Read {
                 path,
                 offset: value.and_then(|value| extract_i64(value, &["offset", "start_line"])),
@@ -273,10 +449,14 @@ fn typed_params(
             path: value
                 .and_then(extract_path)
                 .or_else(|| output.and_then(extract_path))
-                .or_else(|| first_location(update))?,
+                .or_else(|| first_location(update))
+                .or_else(|| path_from_title(nonempty_title(update)))?,
         }),
         AgentToolKind::Delete => Some(AgentToolParams::Delete {
-            path: value.and_then(extract_path)?,
+            path: value
+                .and_then(extract_path)
+                .or_else(|| first_location(update))
+                .or_else(|| path_from_title(nonempty_title(update)))?,
         }),
         AgentToolKind::Move => {
             let value = value?;
@@ -334,6 +514,42 @@ fn typed_params(
                 agent_type,
             })
         }
+        AgentToolKind::McpList => Some(AgentToolParams::McpList {
+            server: value.and_then(|v| first_string(v, &["server", "serverName"])),
+        }),
+        AgentToolKind::McpCall => {
+            let mcp = value
+                .and_then(|v| {
+                    let server = first_string(v, &["server", "serverName"]);
+                    let tool = first_string(v, &["tool", "toolName", "name"]);
+                    if server.is_some() || tool.is_some() {
+                        Some(crate::contract::AgentMcpRef { server, tool })
+                    } else {
+                        None
+                    }
+                })
+                .or_else(|| crate::map::mcp_ref_from_name(&update.tool))
+                .or_else(|| crate::map::mcp_ref_from_name(&update.description));
+            Some(AgentToolParams::McpCall {
+                server: mcp.as_ref().and_then(|item| item.server.clone()),
+                tool: mcp.as_ref().and_then(|item| item.tool.clone()),
+            })
+        }
+        AgentToolKind::ImageGen => {
+            let prompt = value
+                .and_then(extract_image_prompt)
+                .or_else(|| nonempty_title(update).map(str::to_string))
+                .unwrap_or_default();
+            Some(AgentToolParams::ImageGen {
+                prompt,
+                aspect_ratio: value.and_then(extract_aspect_ratio),
+                size: value.and_then(extract_image_size),
+                path: value.and_then(|v| {
+                    first_string(v, &["filename", "path", "file", "file_path", "output_path"])
+                }),
+                reference_paths: value.and_then(extract_reference_paths),
+            })
+        }
         AgentToolKind::Other => Some(AgentToolParams::Other {
             value: update.raw_input.clone().unwrap_or_else(empty_object),
         }),
@@ -371,12 +587,69 @@ fn mapped_result(
         AgentToolKind::Fetch => fetch_result(payload, output),
         AgentToolKind::Read => read_result(payload, output),
         AgentToolKind::Edit => diff_or_text(payload, output, update),
-        AgentToolKind::Search => search_result(payload, output),
+        AgentToolKind::Search => search_result(payload, output, update),
+        AgentToolKind::ImageGen => {
+            let mut images = output.map(extract_generated_images).unwrap_or_default();
+            if images.is_empty() {
+                images = payload.map(extract_generated_images).unwrap_or_default();
+            }
+            if images.is_empty() {
+                for item in &update.content {
+                    if let AgentToolCallContentItem::Image { url, path, mime } = item {
+                        if url.as_ref().is_some_and(|u| !u.trim().is_empty())
+                            || path.as_ref().is_some_and(|p| !p.trim().is_empty())
+                        {
+                            images.push(crate::contract::AgentGeneratedImage {
+                                url: url.clone(),
+                                path: path.clone(),
+                                mime: mime.clone(),
+                            });
+                        }
+                    }
+                }
+            }
+            if images.is_empty() {
+                for path in &update.locations {
+                    if path.trim().is_empty() {
+                        continue;
+                    }
+                    images.push(crate::contract::AgentGeneratedImage {
+                        url: None,
+                        path: Some(path.clone()),
+                        mime: None,
+                    });
+                }
+            }
+            if images.is_empty() {
+                if let Some(path) = payload.and_then(|v| {
+                    first_string(v, &["filename", "path", "file", "file_path", "output_path"])
+                }) {
+                    images.push(crate::contract::AgentGeneratedImage {
+                        url: None,
+                        path: Some(path),
+                        mime: None,
+                    });
+                }
+            }
+            if images.is_empty() {
+                AgentToolResult::Text {
+                    text: value_text(output)
+                        .or_else(|| content_text(&update.content))
+                        .unwrap_or_default(),
+                }
+            } else {
+                AgentToolResult::Images { images }
+            }
+        }
         AgentToolKind::Delete
         | AgentToolKind::Move
         | AgentToolKind::Skill
-        | AgentToolKind::Subagent => AgentToolResult::Text {
-            text: value_text(output).unwrap_or_default(),
+        | AgentToolKind::Subagent
+        | AgentToolKind::McpList
+        | AgentToolKind::McpCall => AgentToolResult::Text {
+            text: value_text(output)
+                .or_else(|| content_text(&update.content))
+                .unwrap_or_default(),
         },
         AgentToolKind::Other => match update.raw_output.clone() {
             Some(value) => AgentToolResult::Other { value },
@@ -385,12 +658,24 @@ fn mapped_result(
     }
 }
 
-fn search_result(payload: Option<&Value>, output: Option<&Value>) -> AgentToolResult {
+fn search_result(
+    payload: Option<&Value>,
+    output: Option<&Value>,
+    update: &ToolCallUpdate,
+) -> AgentToolResult {
     let query = payload.and_then(extract_query).unwrap_or_default();
-    let hits = output.map(extract_search_hits).unwrap_or_default();
+    let hits = output
+        .map(extract_search_hits)
+        .filter(|hits| !hits.is_empty())
+        .or_else(|| {
+            content_text(&update.content).map(|text| extract_search_hits(&Value::String(text)))
+        })
+        .unwrap_or_default();
     if hits.is_empty() {
         AgentToolResult::Text {
-            text: value_text(output).unwrap_or_default(),
+            text: value_text(output)
+                .or_else(|| content_text(&update.content))
+                .unwrap_or_default(),
         }
     } else {
         AgentToolResult::SearchHits { query, hits }
@@ -544,6 +829,16 @@ fn apply_name_overlay(
     if labels.into_iter().flatten().any(is_workspace_search_label) {
         return Some(AgentToolKind::Search);
     }
+    if labels.into_iter().flatten().any(|label| {
+        let n = normalize(label);
+        n.contains("generate_image")
+            || n.contains("generateimage")
+            || n.contains("image_gen")
+            || n.contains("image_edit")
+            || n == "imagine"
+    }) {
+        return Some(AgentToolKind::ImageGen);
+    }
     kind
 }
 
@@ -640,12 +935,17 @@ fn looks_like_grok_execute(
 }
 
 fn is_task_output(update: &ToolCallUpdate) -> bool {
+    let title = nonempty_title(update).unwrap_or("");
     matches!(
         normalize(&update.tool).as_str(),
-        "taskoutput" | "task_output"
-    ) || envelope_type(update.raw_input.as_ref())
-        .or_else(|| envelope_type(update.raw_output.as_ref()))
-        .is_some_and(|ty| ty == "taskoutput" || ty == "task_output")
+        "taskoutput" | "task_output" | "get_command_or_subagent_output"
+    ) || matches!(
+        normalize(title).as_str(),
+        "taskoutput" | "task_output" | "get_command_or_subagent_output"
+    ) || title.to_ascii_lowercase().starts_with("get task output")
+        || envelope_type(update.raw_input.as_ref())
+            .or_else(|| envelope_type(update.raw_output.as_ref()))
+            .is_some_and(|ty| ty == "taskoutput" || ty == "task_output")
 }
 
 fn grok_task_status(output: Option<&Value>) -> Option<AgentToolStatus> {
@@ -675,6 +975,24 @@ fn first_location(update: &ToolCallUpdate) -> Option<String> {
         .map(|path| path.trim())
         .find(|path| !path.is_empty())
         .map(str::to_string)
+}
+
+/// Grok titles often carry the path as ``List `…` `` / ``Read `…` `` when
+/// rawInput still lacks extractable keys on the first frame.
+fn path_from_title(title: Option<&str>) -> Option<String> {
+    let title = title?.trim();
+    let start = title.find('`')?;
+    let rest = &title[start + 1..];
+    let end = rest.find('`')?;
+    let path = rest[..end].trim();
+    if path.is_empty() {
+        return None;
+    }
+    if path.contains('/') || path.contains('\\') || path.starts_with('.') {
+        Some(path.to_string())
+    } else {
+        None
+    }
 }
 
 fn is_generic_kind_slug(value: &str) -> bool {
@@ -707,6 +1025,7 @@ fn effective_payload(value: Option<&Value>) -> Option<&Value> {
     value
         .get("FileContent")
         .or_else(|| value.get("file_content"))
+        .or_else(|| value.get("Content"))
         .or_else(|| value.get("Result"))
         .or_else(|| value.get("EditsApplied"))
         .or_else(|| value.get("edits_applied"))
@@ -958,6 +1277,132 @@ mod tests {
     }
 
     #[test]
+    fn grok_listdir_target_directory_is_read() {
+        let tool = mapped(update(
+            "Tool",
+            ToolCallStatus::Completed,
+            serde_json::json!({
+                "variant": "ListDir",
+                "target_directory": "/Users/aarynlu/OpenSource/atmos/tmp"
+            }),
+            Some(serde_json::json!({
+                "type": "ListDir",
+                "Content": {
+                    "content": "- /Users/aarynlu/OpenSource/atmos/tmp/\n  - test.txt\n",
+                    "absolute_root_path": "/Users/aarynlu/OpenSource/atmos/tmp"
+                }
+            })),
+        ));
+        assert_eq!(tool.kind, AgentToolKind::Read);
+        match &tool.params {
+            AgentToolParams::Read { path, .. } => {
+                assert_eq!(path, "/Users/aarynlu/OpenSource/atmos/tmp");
+            }
+            other => panic!("expected read params, got {other:?}"),
+        }
+        match &tool.result {
+            Some(AgentToolResult::FileContent { path, text }) => {
+                assert_eq!(path, "/Users/aarynlu/OpenSource/atmos/tmp");
+                assert!(text.contains("test.txt"));
+            }
+            other => panic!("expected file content, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn grok_listdir_path_from_title_when_input_empty() {
+        let tool = mapped(ToolCallUpdate {
+            tool_call_id: "tc_list".into(),
+            parent_tool_call_id: None,
+            tool: "Tool".into(),
+            description: "List `/Users/aarynlu/OpenSource/atmos/tmp`".into(),
+            acp_kind: Some("read".into()),
+            status: ToolCallStatus::Running,
+            raw_input: Some(serde_json::json!({})),
+            content: Vec::new(),
+            locations: Vec::new(),
+            raw_output: None,
+            detail: None,
+        });
+        assert_eq!(tool.kind, AgentToolKind::Read);
+        match tool.params {
+            AgentToolParams::Read { path, .. } => {
+                assert_eq!(path, "/Users/aarynlu/OpenSource/atmos/tmp");
+            }
+            other => panic!("expected read params, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn grok_orphan_taskoutput_is_hidden() {
+        let mut grok_tasks = HashMap::new();
+        let poll = update(
+            "Tool",
+            ToolCallStatus::Failed,
+            serde_json::json!({
+                "variant": "TaskOutput",
+                "task_ids": ["missing-task"],
+                "timeout_ms": null
+            }),
+            Some(serde_json::json!({
+                "type": "TaskOutput",
+                "TaskNotFound": "Task missing-task not found"
+            })),
+        );
+        match map_tool_call(&poll, &mut grok_tasks) {
+            ToolMapOut::Hide => {}
+            other => panic!("expected hide orphan task output, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn grok_get_command_output_title_is_task_output() {
+        let mut grok_tasks = HashMap::new();
+        let started = update(
+            "Tool",
+            ToolCallStatus::Running,
+            serde_json::json!({"type": "Bash", "command": "echo hi", "is_background": true}),
+            Some(serde_json::json!({
+                "type": "backgroundtaskstarted",
+                "Result": { "task_id": "t-bg", "status": "running" }
+            })),
+        );
+        let ToolMapOut::Tool(_) = map_tool_call(&started, &mut grok_tasks) else {
+            panic!("expected execute");
+        };
+        let poll = ToolCallUpdate {
+            tool_call_id: "tc_poll".into(),
+            parent_tool_call_id: None,
+            tool: "Tool".into(),
+            description: "get_command_or_subagent_output".into(),
+            acp_kind: None,
+            status: ToolCallStatus::Completed,
+            raw_input: Some(serde_json::json!({
+                "task_ids": ["t-bg"],
+                "timeout_ms": 10000
+            })),
+            content: Vec::new(),
+            locations: Vec::new(),
+            raw_output: Some(serde_json::json!({
+                "type": "TaskOutput",
+                "Result": { "task_id": "t-bg", "status": "completed", "output": "hi\n" }
+            })),
+            detail: None,
+        };
+        let ToolMapOut::Replace { tool_call_id, tool } = map_tool_call(&poll, &mut grok_tasks)
+        else {
+            panic!("expected replace into parent execute");
+        };
+        assert_eq!(tool_call_id, "tc_1");
+        match tool.result {
+            Some(AgentToolResult::Execute { output, .. }) => {
+                assert_eq!(output.trim(), "hi");
+            }
+            other => panic!("expected execute result, got {other:?}"),
+        }
+    }
+
+    #[test]
     fn grok_write_envelope_from_session_update_fixture_is_edit() {
         let fixture: Value =
             serde_json::from_str(include_str!("testdata/tool_call_write.json")).expect("fixture");
@@ -981,6 +1426,33 @@ mod tests {
                 assert_eq!(path, "atmos-probe.txt");
             }
             other => panic!("expected edit params, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn ask_user_question_tool_call_is_hidden() {
+        let fixture: Value = serde_json::from_str(include_str!("testdata/tool_call_ask_user.json"))
+            .expect("fixture");
+        let update_json = &fixture["params"]["update"];
+        let mut grok_tasks = HashMap::new();
+        match map_tool_call(
+            &ToolCallUpdate {
+                tool_call_id: update_json["toolCallId"].as_str().unwrap().into(),
+                parent_tool_call_id: None,
+                tool: "Tool".into(),
+                description: update_json["title"].as_str().unwrap_or("").into(),
+                acp_kind: None,
+                status: ToolCallStatus::Running,
+                raw_input: Some(update_json["rawInput"].clone()),
+                content: Vec::new(),
+                locations: Vec::new(),
+                raw_output: None,
+                detail: None,
+            },
+            &mut grok_tasks,
+        ) {
+            ToolMapOut::Hide => {}
+            other => panic!("expected hide ask_user_question tool card, got {other:?}"),
         }
     }
 
@@ -1218,6 +1690,129 @@ mod tests {
                 assert!(!output.contains("timeout_ms"));
             }
             other => panic!("expected execute result, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn grok_search_title_not_overwritten_by_query() {
+        let started = ToolCallUpdate {
+            tool_call_id: "tc_grep".into(),
+            parent_tool_call_id: None,
+            tool: "Tool".into(),
+            description: "grep".into(),
+            acp_kind: Some("search".into()),
+            status: ToolCallStatus::Running,
+            raw_input: Some(serde_json::json!({
+                "pattern": "test|Note|#",
+                "path": "/tmp/note.md"
+            })),
+            content: Vec::new(),
+            locations: Vec::new(),
+            raw_output: None,
+            detail: None,
+        };
+        let patched = merge_tool_call_patch(
+            &started,
+            ToolCallUpdate {
+                tool_call_id: "tc_grep".into(),
+                parent_tool_call_id: None,
+                tool: "Tool".into(),
+                description: "test|Note|#".into(),
+                acp_kind: Some("search".into()),
+                status: ToolCallStatus::Running,
+                raw_input: Some(serde_json::json!({
+                    "pattern": "test|Note|#",
+                    "path": "/tmp/note.md"
+                })),
+                content: Vec::new(),
+                locations: Vec::new(),
+                raw_output: None,
+                detail: None,
+            },
+        );
+        assert_eq!(patched.description, "grep");
+        let tool = mapped(ToolCallUpdate {
+            description: "test|Note|#".into(),
+            acp_kind: Some("search".into()),
+            ..update(
+                "Tool",
+                ToolCallStatus::Completed,
+                serde_json::json!({
+                    "pattern": "test|Note|#",
+                    "path": "/tmp/note.md"
+                }),
+                Some(serde_json::json!("found 5 matches")),
+            )
+        });
+        assert_eq!(tool.kind, AgentToolKind::Search);
+        assert_eq!(tool.title.as_deref(), Some("grep"));
+        assert!(matches!(tool.result, Some(AgentToolResult::Text { .. })));
+        assert!(!matches!(
+            tool.result,
+            Some(AgentToolResult::SearchHits { .. })
+        ));
+    }
+
+    #[test]
+    fn grok_taskoutput_merges_into_parent_subagent() {
+        let mut grok_tasks = HashMap::new();
+        let spawned = ToolCallUpdate {
+            tool_call_id: "tc_sub".into(),
+            parent_tool_call_id: None,
+            tool: "Tool".into(),
+            description: "spawn_subagent".into(),
+            acp_kind: None,
+            status: ToolCallStatus::Running,
+            raw_input: Some(serde_json::json!({
+                "description": "Read test-note.md content",
+                "subagent_type": "explore"
+            })),
+            content: Vec::new(),
+            locations: Vec::new(),
+            raw_output: None,
+            detail: None,
+        };
+        let ToolMapOut::Tool(sub) = map_tool_call(&spawned, &mut grok_tasks) else {
+            panic!("expected subagent");
+        };
+        assert_eq!(sub.kind, AgentToolKind::Subagent);
+
+        let poll = ToolCallUpdate {
+            tool_call_id: "tc_poll".into(),
+            parent_tool_call_id: None,
+            tool: "Tool".into(),
+            description: "get_command_or_subagent_output".into(),
+            acp_kind: None,
+            status: ToolCallStatus::Completed,
+            raw_input: Some(serde_json::json!({
+                "variant": "TaskOutput",
+                "task_ids": ["01a07059-5b5f-71a3-96b8-30f7674966cb"],
+                "timeout_ms": 10000
+            })),
+            content: Vec::new(),
+            locations: Vec::new(),
+            raw_output: Some(serde_json::json!({
+                "type": "TaskOutput",
+                "Result": {
+                    "task_id": "01a07059-5b5f-71a3-96b8-30f7674966cb",
+                    "command": "[subagent:explore] Read test-note.md content",
+                    "status": "completed",
+                    "exit_code": 0,
+                    "output": "Here is the full content.\n"
+                }
+            })),
+            detail: None,
+        };
+        let ToolMapOut::Replace { tool_call_id, tool } = map_tool_call(&poll, &mut grok_tasks)
+        else {
+            panic!("expected replace into parent subagent");
+        };
+        assert_eq!(tool_call_id, "tc_sub");
+        assert_eq!(tool.kind, AgentToolKind::Subagent);
+        assert_eq!(tool.status, crate::contract::AgentToolStatus::Completed);
+        match tool.result {
+            Some(AgentToolResult::Text { text }) if text.contains("full content") => {}
+            other => panic!("expected subagent text result, got {other:?}"),
         }
     }
 }

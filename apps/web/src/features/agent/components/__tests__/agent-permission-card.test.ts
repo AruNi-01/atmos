@@ -8,51 +8,37 @@ const card = readFileSync(
 );
 
 describe("agent permission card", () => {
-  it("matches the composer radius and shows a shield title", () => {
-    expect(card).toContain("rounded-3xl");
-    expect(card).toContain("ShieldCheck");
-    expect(card).toContain("AgentCommandLine");
-    expect(card).toContain("permissionOptionVariant");
+  it("uses AIcss ApprovalCard command/questions/plan variants", () => {
+    expect(card).toContain("ApprovalCard");
+    expect(card).toContain('variant="command"');
+    expect(card).toContain('variant="questions"');
+    expect(card).toContain('variant="plan"');
+    expect(card).toContain("data-agent-chat-permission");
   });
 
-  it("keeps once highlighted, always filled, and reject borderless", () => {
-    expect(card).toContain('variant={permissionOptionVariant(opt.kind)}');
-    expect(card).toContain('variant="default"');
-    expect(card).toContain('variant="ghost"');
-    expect(card).not.toContain('kind.startsWith("allow")');
+  it("plan exit uses overview markdown or plan-intent steps, not execution TodoWrite", () => {
+    expect(card).toContain("planIntent");
+    expect(card).toContain("parsePlanOverviewFromMarkdown");
+    expect(card).toContain("planFilePath");
+    expect(card).toContain("data-agent-plan-viewer");
+    expect(card).toContain("setViewingPlan");
+    expect(card).not.toContain("plan?.entries");
   });
 
-  it("responds with backend option_id, not the display kind", () => {
-    expect(card).toContain("onClick={() => onRespond(opt.option_id)}");
-    expect(card).toContain("permission.options.map((opt) =>");
-    expect(card).toContain("onRespond(\"allow_once\")");
-    expect(card).toContain("onRespond(\"reject_once\")");
+  it("AskUser replies with answers JSON option_id", () => {
+    expect(card).toContain("answers:${JSON.stringify(answers)}");
+    expect(card).toContain("permission.questions");
   });
 
-  it("does not hardcode Claude always/reject_always when wire options exist", () => {
-    expect(card).toContain("permission.options.length > 0");
-    expect(card).not.toContain('onRespond("allow_always")');
-    expect(card).not.toContain('onRespond("reject_always")');
+  it("plan exit resolves transcript plan.md or description path", () => {
+    expect(card).toContain("resolvePlanExitFilePath");
+    expect(card).toContain("findRecentPlanFilePath");
   });
 
-  it("renders whatever option ids the host sent, including Codex accept/cancel", () => {
-    expect(card).toContain("key={opt.option_id}");
-    expect(card).toContain("label={opt.name}");
-    expect(card).toContain("onClick={() => onRespond(opt.option_id)}");
-    expect(card).not.toContain("acceptForSession");
-    expect(card).not.toContain("allow_always");
-  });
-
-  it("scrolls long commands inside the command box, not the whole card", () => {
-    expect(card).toContain("overflow-x-hidden");
-    expect(card).toContain("min-w-0 max-w-full overflow-hidden rounded-2xl");
-    const command = readFileSync(
-      join(import.meta.dir, "../AgentCommandLine.tsx"),
-      "utf8",
-    );
-    expect(command).toContain("overflow-x-auto overscroll-x-contain");
-    expect(command).toContain("w-max min-w-full");
-    expect(command).toContain("whitespace-pre");
-    expect(command).not.toContain("whitespace-pre-wrap");
+  it("command approve/reject use backend option ids when present", () => {
+    expect(card).toContain("defaultAllowOptionId");
+    expect(card).toContain("defaultRejectOptionId");
+    expect(card).toContain("allow_once");
+    expect(card).toContain("reject_once");
   });
 });

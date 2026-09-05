@@ -6,7 +6,23 @@ pub mod opencode;
 pub mod pi;
 
 #[cfg(test)]
+mod ask_user_live_probe_test;
+#[cfg(test)]
+mod claude_live_tool_ui_test;
+#[cfg(test)]
+mod codex_live_tool_ui_test;
+#[cfg(test)]
+mod cursor_live_tool_ui_test;
+#[cfg(test)]
+mod grok_live_tool_ui_test;
+#[cfg(test)]
+mod image_live_probe_test;
+#[cfg(test)]
 mod live_chat_tests;
+#[cfg(test)]
+mod opencode_live_tool_ui_test;
+#[cfg(test)]
+mod pi_live_tool_ui_test;
 
 use crate::policy::canonicalize_chat_provider_id;
 

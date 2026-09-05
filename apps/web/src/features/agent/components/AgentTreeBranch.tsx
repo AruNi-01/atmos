@@ -85,8 +85,21 @@ function BranchElbow({ isFirst, skip }: { isFirst: boolean; skip: boolean }) {
     }, TREE_LINE_MS);
     return () => {
       window.clearTimeout(timer);
-      anim.commitStyles();
-      anim.cancel();
+      // Element may already be unmounted (virtualized list / HMR); commitStyles
+      // then throws InvalidStateError: "Target element is not rendered".
+      try {
+        const target = ref.current;
+        if (target?.isConnected && anim.playState !== "idle") {
+          anim.commitStyles();
+        }
+        anim.cancel();
+      } catch {
+        try {
+          anim.cancel();
+        } catch {
+          // ignore
+        }
+      }
     };
   }, [skip]);
 

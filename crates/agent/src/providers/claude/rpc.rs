@@ -2,7 +2,7 @@
 
 use serde_json::{json, Value};
 
-use crate::contract::{AgentPermissionOption, AgentPermissionRequest};
+use crate::contract::{AgentAskQuestion, AgentPermissionOption, AgentPermissionRequest};
 
 const DENY_MESSAGE: &str = "User denied";
 
@@ -262,7 +262,7 @@ fn permission_inner(pending: &PendingPermission, option_id: &str) -> Value {
             "behavior": "deny",
             "message": DENY_MESSAGE,
         }),
-        other if pending.tool_name == "AskUserQuestion" => {
+        other if crate::map::is_ask_user_tool(&pending.tool_name) => {
             json!({
                 "behavior": "allow",
                 "updatedInput": ask_user_updated_input(&pending.input, other),
@@ -287,6 +287,20 @@ fn ask_user_updated_input(input: &Value, option_id: &str) -> Value {
     let Some(answers) = answers else {
         return updated;
     };
+    // Multi-question ApprovalCard: option_id = `answers:{json map of questionId→label}`
+    if let Some(raw) = option_id.strip_prefix("answers:") {
+        if let Ok(Value::Object(map)) = serde_json::from_str::<Value>(raw) {
+            for (question_id, answer) in map {
+                let label = answer.as_str().unwrap_or("").to_string();
+                if label.is_empty() {
+                    continue;
+                }
+                let key = ask_user_question_key(input, &question_id).unwrap_or(question_id);
+                answers.insert(key, Value::String(label));
+            }
+            return updated;
+        }
+    }
     let Some((index, label)) = parse_ask_option_id(option_id) else {
         return updated;
     };
@@ -304,6 +318,25 @@ fn ask_user_updated_input(input: &Value, option_id: &str) -> Value {
         .to_string();
     answers.insert(key, Value::String(label.to_string()));
     updated
+}
+
+fn ask_user_question_key(input: &Value, question_id: &str) -> Option<String> {
+    let questions = input.get("questions")?.as_array()?;
+    if let Ok(index) = question_id.parse::<usize>() {
+        return questions
+            .get(index)?
+            .get("question")
+            .and_then(Value::as_str)
+            .map(str::to_string);
+    }
+    questions.iter().find_map(|question| {
+        let prompt = question.get("question")?.as_str()?;
+        if prompt == question_id {
+            Some(prompt.to_string())
+        } else {
+            None
+        }
+    })
 }
 
 fn parse_ask_option_id(option_id: &str) -> Option<(usize, &str)> {
@@ -329,19 +362,67 @@ pub(crate) fn pending_from_can_use_tool(frame: &Value) -> Option<PendingPermissi
 }
 
 pub(crate) fn permission_request_event(pending: &PendingPermission) -> AgentPermissionRequest {
-    let description = one_line_input_summary(&pending.input);
-    let options = if pending.tool_name == "AskUserQuestion" {
+    let is_ask = crate::map::is_ask_user_tool(&pending.tool_name);
+    let is_exit_plan = crate::map::is_exit_plan_tool(&pending.tool_name);
+    let plan_markdown = crate::map::plan_markdown_from_input(&pending.input);
+    let plan_file_path = crate::map::plan_file_path_from_input(&pending.input);
+
+    let description = if is_ask {
+        ask_user_description(&pending.input)
+    } else if is_exit_plan {
+        exit_plan_description(plan_markdown.as_deref(), plan_file_path.as_deref())
+    } else {
+        one_line_input_summary(&pending.input)
+    };
+    let options = if is_ask {
         ask_user_options(&pending.input)
     } else {
         default_permission_options()
     };
+    let questions = if is_ask {
+        ask_user_questions(&pending.input)
+    } else {
+        Vec::new()
+    };
+    // Prefer injected plan body for ApprovalCard; path-only falls back to UI fetch.
+    let content_markdown = if is_exit_plan { plan_markdown } else { None };
     AgentPermissionRequest {
         request_id: pending.request_id.clone(),
         tool: pending.tool_name.clone(),
         description,
-        content_markdown: None,
+        content_markdown,
         options,
+        questions,
     }
+}
+
+fn exit_plan_description(plan: Option<&str>, plan_file_path: Option<&str>) -> String {
+    if let Some(plan) = plan {
+        if let Some(title) = plan_title_line(plan) {
+            return title;
+        }
+    }
+    if let Some(path) = plan_file_path.filter(|text| !text.is_empty()) {
+        return path.to_string();
+    }
+    "Approve plan".into()
+}
+
+fn plan_title_line(plan: &str) -> Option<String> {
+    for line in plan.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        if let Some(title) = trimmed.strip_prefix('#') {
+            let title = title.trim().trim_start_matches('#').trim();
+            if !title.is_empty() {
+                return Some(title.to_string());
+            }
+        }
+        break;
+    }
+    None
 }
 
 fn default_permission_options() -> Vec<AgentPermissionOption> {
@@ -389,6 +470,26 @@ fn ask_user_options(input: &Value) -> Vec<AgentPermissionOption> {
         default_permission_options()
     } else {
         options
+    }
+}
+
+fn ask_user_questions(input: &Value) -> Vec<AgentAskQuestion> {
+    crate::map::ask_questions_from_input(input)
+}
+
+fn ask_user_description(input: &Value) -> String {
+    let Some(questions) = input.get("questions").and_then(Value::as_array) else {
+        return "Question".into();
+    };
+    let texts: Vec<&str> = questions
+        .iter()
+        .filter_map(|question| question.get("question").and_then(Value::as_str))
+        .filter(|text| !text.trim().is_empty())
+        .collect();
+    if texts.is_empty() {
+        "Question".into()
+    } else {
+        texts.join(" · ")
     }
 }
 
@@ -488,6 +589,127 @@ mod tests {
             })),
             Some("req_1")
         );
+    }
+
+    #[test]
+    fn ask_user_permission_description_is_question_text_not_raw_json() {
+        let pending = PendingPermission {
+            request_id: "req_ask".into(),
+            tool_name: "AskUserQuestion".into(),
+            input: json!({
+                "questions": [
+                    {
+                        "question": "Ship the release?",
+                        "options": [
+                            { "label": "Yes", "description": "Ship it" },
+                            { "label": "No", "description": "Hold" }
+                        ]
+                    }
+                ]
+            }),
+            suggestions: None,
+        };
+        let request = permission_request_event(&pending);
+        assert_eq!(request.description, "Ship the release?");
+        assert!(!request.description.contains('{'));
+        assert_eq!(request.options.len(), 2);
+        assert_eq!(request.options[0].option_id, "0:Yes");
+        assert_eq!(request.questions.len(), 1);
+        assert_eq!(request.questions[0].prompt, "Ship the release?");
+    }
+
+    #[test]
+    fn ask_user_fixture_maps_to_permission_with_questions() {
+        let frame = testdata("can_use_tool_ask_user.json");
+        let pending = pending_from_can_use_tool(&frame).expect("pending");
+        assert_eq!(pending.tool_name, "AskUserQuestion");
+        let request = permission_request_event(&pending);
+        assert_eq!(request.questions.len(), 2);
+        assert_eq!(request.questions[0].prompt, "Ship the release?");
+        assert_eq!(request.questions[0].options, ["Yes", "No"]);
+        assert_eq!(request.questions[1].prompt, "Notify channel?");
+        assert!(request.description.contains("Ship the release?"));
+    }
+
+    #[test]
+    fn ask_user_updated_input_answers_keyed_by_question_text() {
+        let input = json!({
+            "questions": [
+                {
+                    "question": "Ship the release?",
+                    "options": [{ "label": "Yes" }, { "label": "No" }]
+                },
+                {
+                    "question": "Notify channel?",
+                    "options": [{ "label": "Slack" }, { "label": "Email" }]
+                }
+            ]
+        });
+        let updated = ask_user_updated_input(&input, r#"answers:{"0":"Yes","1":"Slack"}"#);
+        assert_eq!(updated["answers"]["Ship the release?"], "Yes");
+        assert_eq!(updated["answers"]["Notify channel?"], "Slack");
+        let pending = PendingPermission {
+            request_id: "req_ask".into(),
+            tool_name: "AskUserQuestion".into(),
+            input: input.clone(),
+            suggestions: None,
+        };
+        let denied = permission_inner(&pending, "reject_once");
+        assert_eq!(denied["behavior"], "deny");
+        let allowed = permission_inner(&pending, r#"answers:{"0":"Yes","1":"Slack"}"#);
+        assert_eq!(allowed["behavior"], "allow");
+        assert_eq!(
+            allowed["updatedInput"]["answers"]["Ship the release?"],
+            "Yes"
+        );
+    }
+
+    #[test]
+    fn exit_plan_mode_permission_carries_plan_markdown() {
+        let pending = PendingPermission {
+            request_id: "req_exit".into(),
+            tool_name: "ExitPlanMode".into(),
+            input: json!({
+                "plan": "# Rollout\n\n1. Ship\n2. Verify",
+                "planFilePath": "/tmp/claude/plans/plan.md"
+            }),
+            suggestions: None,
+        };
+        let request = permission_request_event(&pending);
+        assert_eq!(request.tool, "ExitPlanMode");
+        assert_eq!(request.description, "Rollout");
+        assert_eq!(
+            request.content_markdown.as_deref(),
+            Some("# Rollout\n\n1. Ship\n2. Verify")
+        );
+        assert!(request.questions.is_empty());
+        assert!(request.options.iter().any(|o| o.option_id == "allow_once"));
+    }
+
+    #[test]
+    fn exit_plan_fixture_maps_to_permission_with_plan_markdown() {
+        let frame = testdata("can_use_tool_exit_plan.json");
+        let pending = pending_from_can_use_tool(&frame).expect("pending");
+        assert_eq!(pending.tool_name, "ExitPlanMode");
+        let request = permission_request_event(&pending);
+        assert!(request
+            .content_markdown
+            .as_deref()
+            .is_some_and(|text| text.contains("# Rollout")));
+        assert_eq!(request.description, "Rollout");
+    }
+
+    #[test]
+    fn exit_plan_mode_falls_back_to_plan_file_path() {
+        let pending = PendingPermission {
+            request_id: "req_exit".into(),
+            tool_name: "ExitPlanMode".into(),
+            input: json!({ "planFilePath": "/tmp/claude/plans/plan.md" }),
+            suggestions: None,
+        };
+        let request = permission_request_event(&pending);
+        assert_eq!(request.description, "/tmp/claude/plans/plan.md");
+        assert_eq!(request.content_markdown, None);
     }
 
     #[test]

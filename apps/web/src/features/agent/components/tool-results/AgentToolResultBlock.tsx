@@ -4,15 +4,15 @@ import React from "react";
 import { useTranslations } from "next-intl";
 import { Sparkles } from "lucide-react";
 import type { AgentToolCallPart } from "@/features/agent/lib/agent-tool-kind";
-import { isGenericToolLabel } from "@/features/agent/lib/agent-tool-kind";
 import { getToolKindIcon } from "@/features/agent/lib/chat-helpers";
 import {
   hostFromUrl,
   presentAgentTool,
-  toolTitleLooksLikePath,
+  resolveAgentToolCardHeading,
   type ToolLineRange,
   type ToolPresentation,
 } from "@/features/agent/lib/tool-results/parse-tool-result";
+import type { AgentToolKind } from "@atmos/api-types/ws/dto/agent-chat";
 import { changedLineRangesForPresentation } from "@/features/agent/lib/tool-results/diff-stats";
 import { MarkdownRenderer } from "@/shared/components/markdown/MarkdownRenderer";
 import { useDisplayToolTitle } from "../agent-chat-cwd-context";
@@ -41,6 +41,8 @@ import {
   AgentToolWebFetchBody,
   AgentToolWebSearchBody,
 } from "./AgentToolBodies";
+import { AgentToolImageGen } from "./AgentToolImageGen";
+import { AgentToolPathPreviewBody } from "./AgentToolPathPreviewBody";
 
 function countLines(text: string): number {
   if (!text) return 0;
@@ -57,6 +59,31 @@ function titleWithRange(title: string, range: ToolLineRange | null): string {
   if (!range) return title;
   if (range.start === range.end) return `${title} (${range.start})`;
   return `${title} (${range.start}–${range.end})`;
+}
+
+function toolKindLabel(
+  kind: AgentToolKind,
+  t: (key: string) => string,
+): string {
+  switch (kind) {
+    case "read":
+      return t("read");
+    case "edit":
+      return t("edit");
+    case "delete":
+      return t("delete");
+    case "move":
+      return t("move");
+    case "search":
+    case "web_search":
+      return t("search");
+    case "execute":
+      return t("execute");
+    case "fetch":
+      return t("fetch");
+    default:
+      return t("generic");
+  }
 }
 
 function toolBodyForKind(kind: ToolPresentation["kind"]): AgentToolBody {
@@ -132,7 +159,6 @@ function AgentToolCodeResult({
       }
     />
   ) : null;
-  const chipAsTitle = Boolean(fileChip) && !asSkill && !hint;
 
   return (
     <AgentToolCard
@@ -141,9 +167,9 @@ function AgentToolCodeResult({
       body="plain"
       tone={asSkill ? "skill" : status?.toLowerCase() === "failed" ? "error" : "default"}
       icon={asSkill ? <Sparkles className="size-4" /> : fallbackIcon}
-      title={chipAsTitle ? fileChip : actionTitle}
+      title={actionTitle}
       titleTooltip={path ? `${actionTitle}\n${path}` : actionTitle}
-      accessory={chipAsTitle ? null : fileChip}
+      accessory={fileChip}
       status={status}
       meta={
         hint ? (
@@ -179,7 +205,11 @@ export function AgentToolResultBlock({
   surface?: AgentToolSurface;
 }) {
   const t = useTranslations("Agent.components.toolResults");
+  const toolT = useTranslations("agent.chatHelpers.tool");
   const displayTitle = useDisplayToolTitle();
+  if (part.kind === "image_gen") {
+    return <AgentToolImageGen part={part} surface={surface} />;
+  }
   const parsed = presentAgentTool(part);
   const asSkill = part.kind === "skill";
   const skillName = skillNameFromPart(part);
@@ -199,19 +229,23 @@ export function AgentToolResultBlock({
     )
     : null;
   const heading = (part.title || part.name).trim();
-  const pathLike = isGenericToolLabel(heading) || toolTitleLooksLikePath(heading, path);
-  const title = titleWithRange(
-    asSkill && skillName
-      ? t("skillTitle", { name: skillName })
-      : displayTitle(pathLike && path ? path : heading, path),
-    parsed.lineRange,
-  );
+  const kindLabel = toolKindLabel(part.kind, toolT);
+  const resolvedHeading = asSkill && skillName
+    ? t("skillTitle", { name: skillName })
+    : resolveAgentToolCardHeading({
+      heading,
+      path,
+      kindLabel,
+      formatWithPath: (tool, filePath) => toolT("labelWithPath", {
+        tool,
+        path: displayTitle(filePath, filePath),
+      }),
+    });
+  const title = titleWithRange(displayTitle(resolvedHeading, path), parsed.lineRange);
   const icon = asSkill ? <Sparkles className="size-4" /> : getToolKindIcon(part.kind);
   const { presentation, inputRows, showInput } = parsed;
   const status = part.status ?? undefined;
   const failed = status?.toLowerCase() === "failed" || presentation.kind === "error";
-  const titleNode = pathLike && fileChip ? fileChip : title;
-  const accessory = pathLike ? null : fileChip;
 
   if (presentation.kind === "diff") {
     return (
@@ -340,9 +374,9 @@ export function AgentToolResultBlock({
       body={toolBodyForKind(presentation.kind)}
       tone={asSkill ? "skill" : failed ? "error" : "default"}
       icon={icon}
-      title={titleNode}
+      title={title}
       titleTooltip={path ? `${title}\n${path}` : title}
-      accessory={accessory}
+      accessory={fileChip}
       status={status}
       meta={statsMeta}
     >
@@ -359,7 +393,12 @@ export function AgentToolResultBlock({
       ) : null}
       {presentation.kind === "delete" ? <AgentToolDeleteBody path={presentation.path} /> : null}
       {presentation.kind === "error" ? <AgentToolErrorBody text={presentation.text} /> : null}
-      {presentation.kind === "empty" && !diffStats ? <AgentToolEmptyBody status={status} /> : null}
+      {presentation.kind === "empty" && path ? (
+        <AgentToolPathPreviewBody path={path} status={status} />
+      ) : null}
+      {presentation.kind === "empty" && !diffStats && !path ? (
+        <AgentToolEmptyBody status={status} />
+      ) : null}
     </AgentToolCard>
   );
 }

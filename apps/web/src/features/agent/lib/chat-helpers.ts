@@ -1,6 +1,6 @@
 import React from "react";
 import type { ToolState } from "@workspace/ui";
-import { Brain, FileText, FolderInput, Globe, Pencil, Search, Sparkles, Terminal, Trash2, Wrench } from "lucide-react";
+import { Brain, FileText, FolderInput, Globe, ImageIcon, Pencil, Plug, Search, Sparkles, Terminal, Trash2, Wrench } from "lucide-react";
 import { createTranslator } from "next-intl";
 import enMessages from "../../../../messages/en.json";
 import zhMessages from "../../../../messages/zh.json";
@@ -25,6 +25,7 @@ export interface PendingPermission {
   content_markdown?: string;
   risk_level: string;
   options: AgentChatPermissionOption[];
+  questions?: Array<{ id: string; prompt: string; options?: string[] }>;
 }
 
 export type PendingSessionOp = AgentSessionOpRequest;
@@ -111,6 +112,11 @@ export function getToolKindIcon(kind: AgentToolKind): React.ReactNode {
       return React.createElement(Sparkles);
     case "subagent":
       return React.createElement(Brain);
+    case "mcp_list":
+    case "mcp_call":
+      return React.createElement(Plug);
+    case "image_gen":
+      return React.createElement(ImageIcon);
     default:
       return React.createElement(Wrench);
   }
@@ -156,6 +162,13 @@ export function getToolIcon(tool: string): React.ReactNode {
       return React.createElement(Brain);
     case "fetch":
       return React.createElement(Globe);
+    case "generateimage":
+    case "generate_image":
+    case "image_gen":
+    case "imagegen":
+    case "image_edit":
+    case "imageedit":
+      return React.createElement(ImageIcon);
     case "other":
     case "tool":
     default:
@@ -315,6 +328,9 @@ function activityLabelForKind(kind: AgentToolKind): string {
       return chatHelpersT("activity.moving", "Moving");
     case "skill":
     case "subagent":
+    case "mcp_list":
+    case "mcp_call":
+    case "image_gen":
     case "other":
       return chatHelpersT("activity.working", "Working");
   }
@@ -324,10 +340,44 @@ function activityForToolPart(part: Extract<AgentPart, { type: "tool_call" }>): A
   return { busy: true, label: activityLabelForKind(part.kind), kind: "working" };
 }
 
-export function deriveAgentActivity(messages: AgentMessage[], waitingFirst: boolean): AgentActivity {
+/** Session chrome only — create/resume finished but the turn has not produced answer/tools yet. */
+export function isSessionChromeOnly(parts: AgentPart[]): boolean {
+  if (parts.length === 0) return true;
+  return parts.every(
+    (part) =>
+      part.type === "session_lifecycle"
+      || part.type === "session_config_change"
+      || part.type === "session_hint",
+  );
+}
+
+/**
+ * Copy / worked-for / usage footer under an assistant row.
+ * Must not flash after session create: chrome-only rows and live `worked_ms`
+ * without `completed_at` are still in-flight.
+ */
+export function shouldShowAssistantTurnEndedChrome(
+  message: Pick<AgentMessage, "streaming" | "parts" | "worked_ms" | "completed_at" | "usage">,
+  assistantText: string,
+): boolean {
+  if (message.streaming) return false;
+  if (isSessionChromeOnly(message.parts)) return false;
+  if (assistantText.trim()) return true;
+  if (message.usage) return true;
+  return Boolean(message.completed_at) && message.worked_ms != null && message.worked_ms > 0;
+}
+
+/**
+ * Derive the composer/transcript activity indicator.
+ * `turnOpen` is the host busy flag (running turn / waiting permission), not
+ * "waiting for the first assistant row" — after session create the last row is
+ * already an assistant with completed lifecycle chrome, and we must stay busy
+ * until real content or turn_completed.
+ */
+export function deriveAgentActivity(messages: AgentMessage[], turnOpen: boolean): AgentActivity {
   const last = messages[messages.length - 1];
   if (!last || last.role !== "assistant") {
-    if (waitingFirst) {
+    if (turnOpen) {
       return { busy: true, label: chatHelpersT("activity.generating", "Generating"), kind: "working" };
     }
     return { busy: false };
@@ -371,8 +421,11 @@ export function deriveAgentActivity(messages: AgentMessage[], waitingFirst: bool
     return { busy: true, label: chatHelpersT("activity.generating", "Generating"), kind: "working" };
   }
 
-  if (waitingFirst) {
+  // Streaming cleared early (e.g. premature settle) but the host turn is still
+  // open — keep generating instead of a false idle/ended state.
+  if (turnOpen) {
     return { busy: true, label: chatHelpersT("activity.generating", "Generating"), kind: "working" };
   }
+
   return { busy: false };
 }

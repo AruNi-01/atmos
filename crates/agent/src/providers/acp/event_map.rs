@@ -145,6 +145,7 @@ pub(crate) fn map_event(
                                 kind: option.kind,
                             })
                             .collect(),
+                        questions: request.questions,
                     },
                 },
             ),
@@ -692,6 +693,7 @@ mod tests {
                     name: "Allow".into(),
                     kind: "allow_once".into(),
                 }],
+                questions: Vec::new(),
             }),
         );
         assert!(matches!(

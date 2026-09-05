@@ -705,6 +705,23 @@ describe("agent chat fold stays on AgentMessage", () => {
     });
   });
 
+  it("keeps streaming through assistant_message_completed until turn_completed", () => {
+    const delta = chatEvent("chat-1", 1, {
+      type: "assistant_message_delta",
+      message_id: "a1",
+      delta: "hi",
+    });
+    const completed = chatEvent("chat-1", 2, {
+      type: "assistant_message_completed",
+      message_id: "a1",
+    });
+    let messages = foldMessagesFromEvent([], delta, "chat-1");
+    expect(messages[0]?.streaming).toBe(true);
+    messages = foldMessagesFromEvent(messages, completed, "chat-1");
+    expect(messages[0]?.streaming).toBe(true);
+    expect(textFromParts(messages[0]!.parts)).toBe("hi");
+  });
+
   it("folds session config change onto the current assistant after lifecycle", () => {
     const user = chatEvent("chat-1", 1, {
       type: "user_message",

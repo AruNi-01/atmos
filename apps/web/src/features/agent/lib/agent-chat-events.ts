@@ -101,6 +101,17 @@ function currentTurnAssistant(
   return null;
 }
 
+function reopenAssistantStreaming(message: AgentMessage, patch: Partial<AgentMessage> = {}): AgentMessage {
+  return {
+    ...message,
+    ...patch,
+    streaming: true,
+    // A premature turn_completed can stamp completed_at on chrome-only rows;
+    // clear it when real content resumes so the ended footer does not stick.
+    completed_at: null,
+  };
+}
+
 function patchCurrentTurnAssistant(
   messages: AgentMessage[],
   preferredId: string | undefined,
@@ -323,20 +334,17 @@ function foldAgentChatEvent(
   if (payload.type === "assistant_message_delta" || payload.type === "thinking_delta") {
     const partType = payload.type === "thinking_delta" ? "thinking" : "text";
     const delta = payload.delta ?? "";
-    return patchCurrentTurnAssistant(messages, payload.message_id, (message) => ({
-      ...message,
+    return patchCurrentTurnAssistant(messages, payload.message_id, (message) => reopenAssistantStreaming(message, {
       role: "assistant",
-      streaming: true,
       parts: appendTextPart(message.parts, partType, delta),
     }));
   }
 
   if (payload.type === "assistant_message_completed") {
-    const current = currentTurnAssistant(messages, payload.message_id);
-    if (!current) return messages;
-    return messages.map((item, index) =>
-      index === current.index ? { ...item, streaming: false } : item,
-    );
+    // Do not clear streaming here — a mid-turn "message completed" (common after
+    // session create / between tool blocks) would flash a false ended/idle UI.
+    // Only turn_completed settles the assistant row.
+    return messages;
   }
 
   if (payload.type === "thinking_completed") {
@@ -435,7 +443,7 @@ function foldAgentChatEvent(
       } else {
         parts.push(part);
       }
-      return { ...message, streaming: true, parts };
+      return reopenAssistantStreaming(message, { parts });
     });
   }
 
@@ -446,9 +454,9 @@ function foldAgentChatEvent(
       if (existing >= 0) {
         const parts = [...message.parts];
         parts[existing] = planPart;
-        return { ...message, streaming: true, parts };
+        return reopenAssistantStreaming(message, { parts });
       }
-      return { ...message, streaming: true, parts: [...message.parts, planPart] };
+      return reopenAssistantStreaming(message, { parts: [...message.parts, planPart] });
     });
   }
 
@@ -465,7 +473,7 @@ function foldAgentChatEvent(
       const existing = parts.findIndex((row) => row.type === "session_lifecycle");
       if (existing >= 0) parts[existing] = next;
       else parts.unshift(next);
-      return { ...message, streaming: true, parts };
+      return reopenAssistantStreaming(message, { parts });
     });
   }
 
@@ -484,7 +492,7 @@ function foldAgentChatEvent(
         const afterSession = parts.findLastIndex((row) => row.type === "session_lifecycle");
         parts.splice(afterSession + 1, 0, next);
       }
-      return { ...message, streaming: true, parts };
+      return reopenAssistantStreaming(message, { parts });
     });
   }
 
@@ -522,7 +530,7 @@ function foldAgentChatEvent(
         );
         parts.splice(afterChrome + 1, 0, next);
       }
-      return { ...message, streaming: true, parts };
+      return reopenAssistantStreaming(message, { parts });
     });
   }
 

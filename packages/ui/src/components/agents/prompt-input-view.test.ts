@@ -168,4 +168,9 @@ describe("PromptAgentConfigMenu", () => {
     expect(promptInput).toContain("searchPlaceholder={labels.searchModels}");
     expect(promptInput).not.toContain("searchPlaceholder={labels.searchAgents}");
   });
+
+  it("renders PromptModel.trailing on the right side of option rows", () => {
+    expect(promptInput).toContain("trailing?: ReactNode");
+    expect(promptInput).toContain("option.trailing");
+  });
 });

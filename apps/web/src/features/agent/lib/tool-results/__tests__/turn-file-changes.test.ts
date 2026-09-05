@@ -115,7 +115,7 @@ describe("assistant turn file changes wiring", () => {
       "utf8",
     );
     expect(messageView).toContain("AssistantTurnFileChanges");
-    expect(messageView).toContain("visible={!message.streaming}");
+    expect(messageView).toContain("shouldShowAssistantTurnEndedChrome");
     const filesAt = messageView.indexOf("<AssistantTurnFileChanges");
     expect(filesAt).toBeGreaterThan(-1);
     expect(messageView).not.toContain("line-clamp-6");

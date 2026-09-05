@@ -50,6 +50,8 @@ export interface AgentCardProps {
   index: number;
   installingRegistryIds: Set<string>;
   removingRegistryId: string | null;
+  /** When this ACP row shares a family with a Native Chat host. */
+  nativeSibling?: NativeChatAgent | null;
   onInstall: (registryId: string, forceOverwrite?: boolean) => void;
   onRemoveRequest: (info: { registryId: string; name: string }) => void;
 }
@@ -59,11 +61,13 @@ export const AgentCard = React.memo<AgentCardProps>(function AgentCard({
   index,
   installingRegistryIds,
   removingRegistryId,
+  nativeSibling = null,
   onInstall,
   onRemoveRequest,
 }) {
   const t = useTranslations("Agent.components");
   const isInstalling = installingRegistryIds.has(item.id);
+  const preferNativeHint = Boolean(nativeSibling);
 
   return (
     <motion.div
@@ -136,6 +140,18 @@ export const AgentCard = React.memo<AgentCardProps>(function AgentCard({
       <p className="mt-4 line-clamp-2 text-[13px] leading-relaxed text-muted-foreground text-pretty">
         {item.description}
       </p>
+
+      {preferNativeHint ? (
+        <p className="mt-2 text-xs leading-relaxed text-sky-700 dark:text-sky-400 text-pretty">
+          {nativeSibling?.enabled
+            ? t("managerCards.preferNative.alreadyEnabled", {
+                name: nativeSibling.name,
+              })
+            : t("managerCards.preferNative.recommend", {
+                name: nativeSibling?.name ?? item.name,
+              })}
+        </p>
+      ) : null}
 
       <div className="mt-auto">
         <div className="h-px bg-border/40 mt-4" />

@@ -1102,6 +1102,82 @@ for raw in sys.stdin:
     }
 
     #[tokio::test]
+    async fn fake_runtime_permission_slash_does_not_emit_turn_completed() {
+        // Live bug: apply_pending_session_config → prompt_turn("/always-approve")
+        // emitted TurnEnd, which raced with the following user send and completed
+        // (then dropped) the Atmos turn. Slash must stay an internal RPC.
+        let fake = write_fake();
+        let provider =
+            GrokNativeProvider::with_program(fake.program.to_string_lossy().into_owned());
+        let mut runtime = provider
+            .create_runtime(fake_cfg(&fake, false))
+            .await
+            .expect("runtime");
+        await_session_started(&mut runtime).await;
+
+        runtime
+            .control()
+            .set_config(AgentRuntimeConfigUpdate {
+                permission_mode: Some("yolo".into()),
+                ..AgentRuntimeConfigUpdate::default()
+            })
+            .await
+            .expect("permission slash");
+        runtime
+            .control()
+            .send(AgentPrompt {
+                text: "hello".into(),
+                turn_id: Some("turn-1".into()),
+                ..AgentPrompt::default()
+            })
+            .await
+            .expect("send");
+
+        for _ in 0..20 {
+            match tokio::time::timeout(Duration::from_millis(50), runtime.next_event()).await {
+                Ok(Some(event)) => {
+                    assert!(
+                        !matches!(
+                            event.payload,
+                            AgentEvent::TurnCompleted { .. }
+                                | AgentEvent::TurnFailed { .. }
+                                | AgentEvent::TurnCanceled { .. }
+                        ),
+                        "permission slash must not complete the user turn early: {:?}",
+                        event.payload
+                    );
+                }
+                Ok(None) => break,
+                Err(_) => break,
+            }
+        }
+
+        runtime.control().cancel().await.expect("cancel");
+        let mut saw_stop = false;
+        for _ in 0..40 {
+            match tokio::time::timeout(Duration::from_millis(200), runtime.next_event()).await {
+                Ok(Some(event)) => {
+                    if matches!(
+                        event.payload,
+                        AgentEvent::TurnCompleted { .. }
+                            | AgentEvent::TurnFailed { .. }
+                            | AgentEvent::TurnCanceled { .. }
+                    ) {
+                        saw_stop = true;
+                        break;
+                    }
+                }
+                Ok(None) | Err(_) => break,
+            }
+        }
+        assert!(
+            saw_stop,
+            "user turn should still end via real session/prompt result"
+        );
+        runtime.control().close().await.ok();
+    }
+
+    #[tokio::test]
     async fn fake_runtime_steer_sends_interject_not_second_prompt() {
         let fake = write_fake();
         let provider =

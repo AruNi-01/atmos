@@ -3,10 +3,11 @@
 use serde_json::Value;
 
 use crate::contract::{AgentTool, AgentToolParams, AgentToolResult, AgentToolStatus};
-use crate::map::{classify_tool, plan_from_tool_input, ClassifiedTool};
+use crate::map::{classify_tool, is_ask_user_tool, plan_from_tool_input, ClassifiedTool};
 use crate::map::{
-    extract_command, extract_cwd, extract_links, extract_path, extract_query, extract_search_hits,
-    extract_skill, extract_subagent, extract_url,
+    extract_aspect_ratio, extract_command, extract_cwd, extract_generated_images,
+    extract_image_prompt, extract_image_size, extract_links, extract_path, extract_query,
+    extract_reference_paths, extract_search_hits, extract_skill, extract_subagent, extract_url,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -118,6 +119,8 @@ fn classify_open_code(name: &str, title: Option<&str>, input: Option<&Value>) ->
         "task" => ClassifiedTool::Call(crate::contract::AgentToolKind::Subagent),
         "reasoning" => ClassifiedTool::Thinking,
         "plan" | "todowrite" | "todo_write" => ClassifiedTool::Plan,
+        // AskUser chrome comes from `question.asked` → PermissionRequested.
+        _ if is_ask_user_tool(name) || title.is_some_and(is_ask_user_tool) => ClassifiedTool::Hide,
         _ => classify_tool(name, title, input),
     }
 }
@@ -216,7 +219,8 @@ fn typed_params(kind: crate::contract::AgentToolKind, input: &Value) -> Option<A
                 .filter(|glob| extract_query(input).as_ref() != Some(glob)),
         }),
         crate::contract::AgentToolKind::WebSearch => Some(AgentToolParams::WebSearch {
-            query: extract_query(input)?,
+            // OpenCode emits pending parts with `{}` before the model fills `query`.
+            query: extract_query(input).unwrap_or_default(),
         }),
         crate::contract::AgentToolKind::Execute => Some(AgentToolParams::Execute {
             command: extract_command(input)?,
@@ -245,6 +249,23 @@ fn typed_params(kind: crate::contract::AgentToolKind, input: &Value) -> Option<A
                 agent_type,
             })
         }
+        crate::contract::AgentToolKind::McpList => Some(AgentToolParams::McpList {
+            server: first_string(input, &["server", "serverName"]),
+        }),
+        crate::contract::AgentToolKind::McpCall => Some(AgentToolParams::McpCall {
+            server: first_string(input, &["server", "serverName"]),
+            tool: first_string(input, &["tool", "toolName", "name"]),
+        }),
+        crate::contract::AgentToolKind::ImageGen => Some(AgentToolParams::ImageGen {
+            prompt: extract_image_prompt(input).unwrap_or_default(),
+            aspect_ratio: extract_aspect_ratio(input),
+            size: extract_image_size(input),
+            path: first_string(
+                input,
+                &["filename", "path", "file", "file_path", "output_path"],
+            ),
+            reference_paths: extract_reference_paths(input),
+        }),
         crate::contract::AgentToolKind::Other => Some(AgentToolParams::Other {
             value: input.clone(),
         }),
@@ -316,6 +337,16 @@ fn mapped_result(
                 AgentToolResult::SearchHits { query, hits }
             }
         }
+        crate::contract::AgentToolKind::ImageGen => {
+            let images = output.map(extract_generated_images).unwrap_or_default();
+            if images.is_empty() {
+                AgentToolResult::Text {
+                    text: value_text(output),
+                }
+            } else {
+                AgentToolResult::Images { images }
+            }
+        }
         crate::contract::AgentToolKind::Other => match output {
             Some(value) => AgentToolResult::Other {
                 value: value.clone(),
@@ -354,7 +385,15 @@ fn fetch_result(input: &Value, output: Option<&Value>) -> AgentToolResult {
         .unwrap_or_default();
     let title = output.and_then(|value| first_string(value, &["title"]));
     let markdown = output.and_then(|value| first_string(value, &["markdown", "md"]));
-    let text = output.and_then(|value| first_string(value, &["text", "content", "body"]));
+    let text = output
+        .and_then(|value| first_string(value, &["text", "content", "body"]))
+        .or_else(|| {
+            // OpenCode webfetch often returns a bare HTML/markdown string.
+            match output {
+                Some(Value::String(text)) if !text.trim().is_empty() => Some(text.clone()),
+                _ => None,
+            }
+        });
     if title.is_some() || markdown.is_some() || text.is_some() {
         AgentToolResult::WebFetch {
             url,
@@ -540,6 +579,39 @@ mod tests {
     }
 
     #[test]
+    fn websearch_pending_empty_input_stays_web_search() {
+        let tool = tool_named("websearch", json!({}), None, "pending");
+        assert_eq!(tool.kind, AgentToolKind::WebSearch);
+        assert_eq!(
+            tool.params,
+            AgentToolParams::WebSearch {
+                query: String::new()
+            }
+        );
+    }
+
+    #[test]
+    fn websearch_exa_text_maps_to_web_search_links() {
+        let output = "Title: OpenCode\nURL: https://opencode.ai/\nHighlights:\nAgent\n\n---\n\nTitle: Repo\nURL: https://github.com/anomalyco/opencode\n";
+        let tool = tool_named(
+            "websearch",
+            json!({"query": "OpenCode AI coding agent"}),
+            Some(output),
+            "completed",
+        );
+        assert_eq!(tool.kind, AgentToolKind::WebSearch);
+        match tool.result {
+            Some(AgentToolResult::WebSearch { query, links }) => {
+                assert_eq!(query, "OpenCode AI coding agent");
+                assert_eq!(links.len(), 2);
+                assert_eq!(links[0].url, "https://opencode.ai/");
+                assert_eq!(links[1].url, "https://github.com/anomalyco/opencode");
+            }
+            other => panic!("{other:?}"),
+        }
+    }
+
+    #[test]
     fn unknown_tool_is_other_with_vendor_value_once() {
         let tool = tool_named(
             "vendor_mystery",
@@ -577,5 +649,44 @@ mod tests {
             map_tool_part(&part),
             Some(ToolMapOut::FoldPlan { .. })
         ));
+    }
+
+    #[test]
+    fn question_tool_is_hidden_ask_user_chrome() {
+        let part = json!({
+            "type": "tool",
+            "callID": "q1",
+            "tool": "question",
+            "state": {
+                "status": "running",
+                "input": {
+                    "questions": [{
+                        "question": "Pick one",
+                        "options": [{ "label": "A" }, { "label": "B" }]
+                    }]
+                }
+            }
+        });
+        assert!(matches!(map_tool_part(&part), Some(ToolMapOut::Hide)));
+    }
+
+    #[test]
+    fn webfetch_plain_string_maps_to_web_fetch_result() {
+        let tool = tool_named(
+            "webfetch",
+            json!({"url": "https://example.com"}),
+            Some("Example Domain"),
+            "completed",
+        );
+        assert_eq!(tool.kind, AgentToolKind::Fetch);
+        assert_eq!(
+            tool.result,
+            Some(AgentToolResult::WebFetch {
+                url: "https://example.com".into(),
+                title: None,
+                markdown: None,
+                text: Some("Example Domain".into()),
+            })
+        );
     }
 }

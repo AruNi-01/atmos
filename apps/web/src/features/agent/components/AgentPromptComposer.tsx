@@ -35,6 +35,11 @@ import type { AgentPlan, AgentConfigOption } from "@/features/agent/lib/agent-ch
 import type { RegistryAgent } from "@/api/ws-api";
 import type { AgentChatMode } from "@/features/agent/types/index";
 import {
+  chatAgentFamily,
+  chatAgentKind,
+  contestedChatAgentFamilies,
+} from "@/features/agent/lib/custom-agent-registry";
+import {
   registerActiveAgentComposer,
   touchActiveAgentComposer,
 } from "@/features/agent/lib/agent/active-composer";
@@ -350,19 +355,37 @@ function ComposerPromptInput({
   const stashRef = useRef<{ text: string; files: File[] } | null>(null);
   const attachmentsRef = useRef(attachments);
   attachmentsRef.current = attachments;
-  const agentOptions: PromptModel[] = installedAgents.map((agent) => ({
-    value: agent.id,
-    label: agent.name,
-    icon: (
-      <AgentIcon
-        registryId={agent.id}
-        name={agent.name}
-        size={14}
-        isCustom={agent.install_method === "custom"}
-        registryIcon={agent.icon}
-      />
-    ),
-  }));
+  const contestedFamilies = contestedChatAgentFamilies(installedAgents);
+  const agentOptions: PromptModel[] = installedAgents.map((agent) => {
+    const family = chatAgentFamily(agent.id);
+    const kind = chatAgentKind(agent);
+    const showKindChip = Boolean(family && kind && contestedFamilies.has(family));
+    return {
+      value: agent.id,
+      label: agent.name,
+      icon: (
+        <AgentIcon
+          registryId={agent.id}
+          name={agent.name}
+          size={14}
+          isCustom={agent.install_method === "custom"}
+          registryIcon={agent.icon}
+        />
+      ),
+      trailing: showKindChip ? (
+        <span
+          className={cn(
+            "rounded-full border px-1.5 py-0.5 text-[10px] font-medium leading-none",
+            kind === "native"
+              ? "border-sky-500/25 bg-sky-500/10 text-sky-700 dark:text-sky-400"
+              : "border-border/70 bg-muted/60 text-muted-foreground",
+          )}
+        >
+          {kind === "native" ? t("agentKind.native") : t("agentKind.acp")}
+        </span>
+      ) : undefined,
+    };
+  });
   const canSubmit = Boolean(
     expandAgentComposerText(localDraft) || attachments.files.length,
   ) && isConnected && !showStop;
@@ -656,7 +679,7 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
   configOptions: AgentConfigOption[];
   modelsLocked?: boolean;
   modesLocked?: boolean;
-  registryId: string;
+  registryId: string | null;
   activeAgent: RegistryAgent | null;
   setConfigOption: (id: string, value: string) => void;
   agentActivity: AgentActivity;
@@ -831,7 +854,11 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
             <div className={
               backgroundTools.length > 0 || queuedPrompts.length > 0 ? "border-b border-border/70" : ""
             }>
-              <PlanBlockView plan={currentPlan} embedded defaultOpen={!isResumedSession} />
+              <PlanBlockView
+                plan={currentPlan}
+                embedded
+                defaultOpen={!isResumedSession}
+              />
             </div>
           )}
           {backgroundTools.length > 0 && (

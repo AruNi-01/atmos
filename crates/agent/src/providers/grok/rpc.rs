@@ -12,6 +12,7 @@ pub const METHOD_SESSION_FORK: &str = "x.ai/session/fork";
 pub const METHOD_WORKTREE_CREATE: &str = "x.ai/git/worktree/create";
 pub const METHOD_WORKTREE_STATUS: &str = "x.ai/git/worktree/status";
 pub const METHOD_INTERJECT: &str = "x.ai/interject";
+pub const METHOD_ASK_USER_QUESTION: &str = "x.ai/ask_user_question";
 
 /// ACP extension methods must start with `_`. Logical `x.ai/...` becomes `_x.ai/...`.
 pub fn wire_method(logical: &str) -> String {
@@ -118,6 +119,10 @@ fn is_session_op_method(method: &str) -> bool {
             | "x.ai/session/fork"
             | "x.ai/git/worktree/create"
             | "x.ai/git/worktree/status"
+            // Ask User is handled as an inbound ExtMethod → PermissionRequested,
+            // not as a chat Unknown / session-op preview.
+            | "x.ai/ask_user_question"
+            | "x.ai/ask_user"
     )
 }
 
@@ -527,11 +532,13 @@ mod tests {
             "x.ai/session/fork",
             "x.ai/git/worktree/create",
             "x.ai/git/worktree/status",
+            "x.ai/ask_user_question",
             "_x.ai/rewind/points",
             "_x.ai/rewind/execute",
             "_x.ai/session/fork",
             "_x.ai/git/worktree/create",
             "_x.ai/git/worktree/status",
+            "_x.ai/ask_user_question",
         ] {
             assert_eq!(
                 map_xai_method(method),
@@ -771,5 +778,38 @@ mod tests {
             .as_deref(),
             Some("Cannot rewind to prompt #0")
         );
+    }
+
+    #[test]
+    fn ask_user_question_fixture_maps_to_permission_chrome() {
+        let fixture: Value =
+            serde_json::from_str(include_str!("testdata/ask_user_question.json")).expect("fixture");
+        assert_eq!(fixture["method"], wire_method(METHOD_ASK_USER_QUESTION));
+        assert_eq!(
+            map_xai_method(fixture["method"].as_str().unwrap()),
+            Some(ExtensionDisposition::Skip)
+        );
+
+        let params = &fixture["params"];
+        let questions = crate::map::ask_questions_from_input(params);
+        assert_eq!(questions.len(), 2);
+        assert_eq!(questions[0].prompt, "你希望优化的具体方向是什么？");
+        assert_eq!(questions[0].options[0], "性能优化");
+        assert_eq!(questions[1].prompt, "这个 Plan 的用途是什么？");
+
+        let accepted = crate::map::ask_user_ext_response(
+            &questions,
+            r#"answers:{"0":"性能优化","1":"正式 Spec"}"#,
+        );
+        let expected: Value =
+            serde_json::from_str(include_str!("testdata/ask_user_question_response.json"))
+                .expect("response fixture");
+        assert_eq!(accepted, expected["result"]);
+
+        let skipped = crate::map::ask_user_ext_response(&questions, "reject_once");
+        let skip_fixture: Value =
+            serde_json::from_str(include_str!("testdata/ask_user_question_skip.json"))
+                .expect("skip fixture");
+        assert_eq!(skipped, skip_fixture["result"]);
     }
 }

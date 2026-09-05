@@ -57,7 +57,7 @@ ACP / 各家 RPC 类型**不是** Chat 公共 API。
 | `codex` | Native | `codex app-server -c openai_base_url=""` |
 | `opencode` | Native | OpenCode HTTP + SSE（适配器私有） |
 | `pi` | Native | Pi JSONL RPC（无内建工具权限弹层） |
-| `grok` | Native | `grok --permission-mode <selected\|default> agent stdio` + `_x.ai/*` |
+| `grok` | Native | `grok --permission-mode <selected\|default> agent stdio` + `_x.ai/*`（协议仍是 ACP JSON-RPC；不是 Cursor/registry ACP 适配器路径） |
 | 其余 | ACP | `acp_client`（`claude-acp`、`codex-acp`、`grok-build`、`gemini`、`cursor`、自定义名） |
 
 Grok native 从 `agent::providers::grok::GrokNativeProvider` 引入（crate 根未 `pub use`）。不要加 Cargo `xai-grok-*`。

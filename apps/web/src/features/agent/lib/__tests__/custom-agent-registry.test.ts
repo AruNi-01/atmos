@@ -2,12 +2,15 @@ import { describe, expect, it } from "bun:test";
 import type { CustomAgent, NativeChatAgent, RegistryAgent } from "@/api/ws/agent-api";
 import {
   authRequiredFromTurnError,
+  chatAgentFamily,
+  contestedChatAgentFamilies,
   customAgentToRegistry,
   DEEPSEEK_HARNESS_ID,
   DEEPSEEK_HARNESS_ARGS,
   isSecretEnvKey,
   isTokenAuthMethodId,
   mergeInstalledAgents,
+  nativeSiblingForAgent,
   sortAcpRegistryAgents,
   tokenAuthEnvName,
 } from "@/features/agent/lib/custom-agent-registry";
@@ -181,22 +184,22 @@ describe("native chat picker merge", () => {
     expect(merged.map((agent) => agent.id)).toEqual(["codex-acp"]);
   });
 
-  it("includes an enabled native host and hides the ACP alias", () => {
+  it("keeps both native and ACP when native is enabled", () => {
     const merged = mergeInstalledAgents(
       [registry("codex-acp", "Codex"), registry("claude-acp", "Claude Code")],
       [],
       [native({ id: "codex", name: "Codex", enabled: true })],
     );
-    expect(merged.map((agent) => agent.id)).toEqual(["codex", "claude-acp"]);
+    expect(merged.map((agent) => agent.id)).toEqual(["codex", "codex-acp", "claude-acp"]);
   });
 
-  it("hides grok-build when native grok is enabled", () => {
+  it("keeps grok-build alongside native grok", () => {
     const merged = mergeInstalledAgents(
       [registry("grok-build", "Grok")],
       [],
       [native({ id: "grok", name: "Grok", enabled: true })],
     );
-    expect(merged.map((agent) => agent.id)).toEqual(["grok"]);
+    expect(merged.map((agent) => agent.id)).toEqual(["grok", "grok-build"]);
   });
 
   it("prefers the native opencode row over the ACP row with the same id", () => {
@@ -207,6 +210,33 @@ describe("native chat picker merge", () => {
     );
     expect(merged.map((agent) => agent.id)).toEqual(["opencode"]);
     expect(merged[0]?.install_method).toBe("native_chat");
+  });
+});
+
+describe("native/ACP kinship", () => {
+  it("maps ACP aliases onto native chat families", () => {
+    expect(chatAgentFamily("claude-acp")).toBe("claude");
+    expect(chatAgentFamily("codex-acp")).toBe("codex");
+    expect(chatAgentFamily("pi-acp")).toBe("pi");
+    expect(chatAgentFamily("grok-build")).toBe("grok");
+    expect(chatAgentFamily("grok-acp")).toBe("grok");
+    expect(chatAgentFamily("gemini")).toBeNull();
+  });
+
+  it("marks contested families only when both kinds are listed", () => {
+    const contested = contestedChatAgentFamilies([
+      { id: "grok", install_method: "native_chat" },
+      { id: "grok-build", install_method: "npx" },
+      { id: "claude", install_method: "native_chat" },
+      { id: "cursor", install_method: "npx" },
+    ]);
+    expect([...contested]).toEqual(["grok"]);
+  });
+
+  it("finds the native sibling for an ACP registry id", () => {
+    const natives = [native({ id: "grok", name: "Grok", enabled: false })];
+    expect(nativeSiblingForAgent("grok-build", natives)?.id).toBe("grok");
+    expect(nativeSiblingForAgent("cursor", natives)).toBeNull();
   });
 });
 

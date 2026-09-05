@@ -6,8 +6,10 @@ use crate::contract::{AgentTool, AgentToolParams, AgentToolResult, AgentToolStat
 use crate::map::is_generic_tool_label;
 use crate::map::{classify_tool, plan_from_tool_input, thinking_text, ClassifiedTool};
 use crate::map::{
-    extract_background, extract_command, extract_cwd, extract_links, extract_path, extract_query,
-    extract_search_hits, extract_skill, extract_subagent, extract_task_id, extract_url,
+    extract_aspect_ratio, extract_background, extract_command, extract_cwd,
+    extract_generated_images, extract_image_prompt, extract_image_size, extract_links,
+    extract_path, extract_query, extract_reference_paths, extract_search_hits, extract_skill,
+    extract_subagent, extract_task_id, extract_url,
 };
 
 use super::overlays::{self, OverlayState};
@@ -117,10 +119,9 @@ pub(crate) fn merge_tool_call_patch(
         },
         acp_kind: merge_acp_kind(prev.acp_kind.as_deref(), incoming.acp_kind),
         status: incoming.status,
-        raw_input: incoming
-            .raw_input
-            .filter(|value| !is_empty_json(value))
-            .or_else(|| prev.raw_input.clone()),
+        // Cursor/Grok often re-send a partial rawInput object on later patches
+        // (e.g. description only). Shallow-replace would drop filename/file_path.
+        raw_input: merge_json_values(prev.raw_input.as_ref(), incoming.raw_input.as_ref()),
         content: if incoming.content.is_empty() {
             prev.content.clone()
         } else {
@@ -131,11 +132,43 @@ pub(crate) fn merge_tool_call_patch(
         } else {
             incoming.locations
         },
-        raw_output: incoming
-            .raw_output
-            .filter(|value| !is_empty_json(value))
-            .or_else(|| prev.raw_output.clone()),
+        raw_output: merge_json_values(prev.raw_output.as_ref(), incoming.raw_output.as_ref()),
         detail: incoming.detail.or_else(|| prev.detail.clone()),
+    }
+}
+
+fn merge_json_values(prev: Option<&Value>, incoming: Option<&Value>) -> Option<Value> {
+    match (prev, incoming) {
+        (Some(prev), Some(incoming)) if !is_empty_json(incoming) => {
+            Some(merge_json_object(prev, incoming))
+        }
+        (_, Some(incoming)) if !is_empty_json(incoming) => Some(incoming.clone()),
+        (Some(prev), _) => Some(prev.clone()),
+        _ => None,
+    }
+}
+
+fn merge_json_object(prev: &Value, incoming: &Value) -> Value {
+    match (prev, incoming) {
+        (Value::Object(prev_map), Value::Object(incoming_map)) => {
+            let mut out = prev_map.clone();
+            for (key, value) in incoming_map {
+                if is_empty_json(value) {
+                    continue;
+                }
+                out.insert(
+                    key.clone(),
+                    match (out.get(key), value) {
+                        (Some(prev_child), Value::Object(_)) => {
+                            merge_json_object(prev_child, value)
+                        }
+                        _ => value.clone(),
+                    },
+                );
+            }
+            Value::Object(out)
+        }
+        (_, incoming) => incoming.clone(),
     }
 }
 
@@ -189,9 +222,13 @@ fn build_typed_tool(
         ToolCallStatus::Completed => Some(mapped_result(kind, payload, output, update, false)),
     };
     let params = typed_params(kind, payload, update);
+    let name = payload
+        .and_then(|v| first_string(v, &["_toolName", "toolName"]))
+        .filter(|name| !is_generic_tool_label(name))
+        .unwrap_or_else(|| update.tool.clone());
     AgentTool {
         tool_call_id: update.tool_call_id.clone(),
-        name: update.tool.clone(),
+        name,
         title: cleaned_title(kind, update, &params),
         kind,
         status,
@@ -344,6 +381,42 @@ fn typed_params(
                 agent_type,
             }
         }
+        AgentToolKind::McpList => AgentToolParams::McpList {
+            server: value.and_then(|v| first_string(v, &["server", "serverName"])),
+        },
+        AgentToolKind::McpCall => {
+            let mcp = value
+                .and_then(|v| {
+                    let server = first_string(v, &["server", "serverName"]);
+                    let tool = first_string(v, &["tool", "toolName", "name"]);
+                    if server.is_some() || tool.is_some() {
+                        Some(crate::contract::AgentMcpRef { server, tool })
+                    } else {
+                        None
+                    }
+                })
+                .or_else(|| crate::map::mcp_ref_from_name(&update.tool))
+                .or_else(|| crate::map::mcp_ref_from_name(&update.description));
+            AgentToolParams::McpCall {
+                server: mcp.as_ref().and_then(|item| item.server.clone()),
+                tool: mcp.as_ref().and_then(|item| item.tool.clone()),
+            }
+        }
+        AgentToolKind::ImageGen => {
+            let prompt = value
+                .and_then(extract_image_prompt)
+                .or_else(|| title.clone())
+                .unwrap_or_default();
+            AgentToolParams::ImageGen {
+                prompt,
+                aspect_ratio: value.and_then(extract_aspect_ratio),
+                size: value.and_then(extract_image_size),
+                path: value.and_then(|v| {
+                    first_string(v, &["filename", "path", "file", "file_path", "output_path"])
+                }),
+                reference_paths: value.and_then(extract_reference_paths),
+            }
+        }
         AgentToolKind::Other => AgentToolParams::Other {
             value: update
                 .raw_input
@@ -387,12 +460,179 @@ fn mapped_result(
         AgentToolKind::Read => read_result(payload, output, update),
         AgentToolKind::Edit => diff_or_text(payload, output, update),
         AgentToolKind::Search => search_result(payload, output, update),
+        AgentToolKind::ImageGen => images_result(payload, output, update),
         AgentToolKind::Delete
         | AgentToolKind::Move
         | AgentToolKind::Skill
-        | AgentToolKind::Subagent => text_or_empty(result_text(output, update)),
+        | AgentToolKind::Subagent
+        | AgentToolKind::McpList
+        | AgentToolKind::McpCall => text_or_empty(result_text(output, update)),
         AgentToolKind::Other => other_result(output, update),
     }
+}
+
+fn images_result(
+    payload: Option<&Value>,
+    output: Option<&Value>,
+    update: &ToolCallUpdate,
+) -> AgentToolResult {
+    let mut images = output.map(extract_generated_images).unwrap_or_default();
+    // Prefer ACP Image content blocks over input-shaped payload fields
+    // (payload often carries `filename` which looks like a path).
+    if images.is_empty() {
+        for item in &update.content {
+            if let AgentToolCallContentItem::Image { url, path, mime } = item {
+                if url.as_ref().is_some_and(|u| !u.trim().is_empty())
+                    || path.as_ref().is_some_and(|p| !p.trim().is_empty())
+                {
+                    images.push(crate::contract::AgentGeneratedImage {
+                        url: url.clone(),
+                        path: path.clone(),
+                        mime: mime.clone(),
+                    });
+                }
+            }
+        }
+    }
+    if images.is_empty() {
+        images = payload.map(extract_generated_images).unwrap_or_default();
+    }
+    if images.is_empty() {
+        for path in &update.locations {
+            if path.trim().is_empty() {
+                continue;
+            }
+            images.push(crate::contract::AgentGeneratedImage {
+                url: None,
+                path: Some(path.clone()),
+                mime: None,
+            });
+        }
+    }
+    if images.is_empty() {
+        if let Some(path) = payload.and_then(|v| {
+            first_string(v, &["filename", "path", "file", "file_path", "output_path"])
+        }) {
+            let resolved = resolve_cursor_asset_path(&path).unwrap_or(path);
+            images.push(crate::contract::AgentGeneratedImage {
+                url: None,
+                path: Some(resolved),
+                mime: None,
+            });
+        }
+    }
+    // Cursor ACP often omits content/locations/raw_output entirely; recover the
+    // newest image written under ~/.cursor/projects/*/assets/.
+    if images.is_empty() && looks_like_cursor_generate_image(update, payload) {
+        if let Some(path) = resolve_recent_cursor_asset() {
+            images.push(crate::contract::AgentGeneratedImage {
+                url: None,
+                path: Some(path),
+                mime: None,
+            });
+        }
+    }
+    if images.is_empty() {
+        if let Some(text) = content_text(&update.content) {
+            images = extract_generated_images(&Value::String(text));
+        }
+    }
+    if images.is_empty() {
+        text_or_empty(result_text(output, update))
+    } else {
+        AgentToolResult::Images { images }
+    }
+}
+
+/// Cursor `generateImage` writes basename-only files under `~/.cursor/projects/<slug>/assets/`.
+fn resolve_cursor_asset_path(filename: &str) -> Option<String> {
+    let name = std::path::Path::new(filename)
+        .file_name()
+        .and_then(|n| n.to_str())
+        .filter(|n| !n.is_empty())?;
+    // Absolute paths already usable for the file API.
+    if std::path::Path::new(filename).is_absolute() {
+        return None;
+    }
+    let home = dirs::home_dir()?;
+    let projects = home.join(".cursor/projects");
+    let mut best: Option<(std::time::SystemTime, std::path::PathBuf)> = None;
+    let Ok(entries) = std::fs::read_dir(&projects) else {
+        return None;
+    };
+    for entry in entries.flatten() {
+        let candidate = entry.path().join("assets").join(name);
+        let Ok(meta) = candidate.metadata() else {
+            continue;
+        };
+        if !meta.is_file() {
+            continue;
+        }
+        let modified = meta.modified().unwrap_or(std::time::SystemTime::UNIX_EPOCH);
+        match &best {
+            Some((prev, _)) if *prev >= modified => {}
+            _ => best = Some((modified, candidate)),
+        }
+    }
+    best.map(|(_, path)| path.to_string_lossy().into_owned())
+}
+
+fn resolve_recent_cursor_asset() -> Option<String> {
+    let home = dirs::home_dir()?;
+    let projects = home.join(".cursor/projects");
+    let cutoff =
+        std::time::SystemTime::now().checked_sub(std::time::Duration::from_secs(10 * 60))?;
+    let mut best: Option<(std::time::SystemTime, std::path::PathBuf)> = None;
+    let Ok(entries) = std::fs::read_dir(&projects) else {
+        return None;
+    };
+    for entry in entries.flatten() {
+        let assets = entry.path().join("assets");
+        let Ok(files) = std::fs::read_dir(assets) else {
+            continue;
+        };
+        for file in files.flatten() {
+            let path = file.path();
+            let ext = path
+                .extension()
+                .and_then(|e| e.to_str())
+                .unwrap_or("")
+                .to_ascii_lowercase();
+            if !matches!(
+                ext.as_str(),
+                "png" | "jpg" | "jpeg" | "webp" | "gif" | "bmp" | "svg"
+            ) {
+                continue;
+            }
+            let Ok(meta) = path.metadata() else {
+                continue;
+            };
+            if !meta.is_file() {
+                continue;
+            }
+            let modified = meta.modified().unwrap_or(std::time::SystemTime::UNIX_EPOCH);
+            if modified < cutoff {
+                continue;
+            }
+            match &best {
+                Some((prev, _)) if *prev >= modified => {}
+                _ => best = Some((modified, path)),
+            }
+        }
+    }
+    best.map(|(_, path)| path.to_string_lossy().into_owned())
+}
+
+fn looks_like_cursor_generate_image(update: &ToolCallUpdate, payload: Option<&Value>) -> bool {
+    let tool_name = payload
+        .and_then(|v| first_string(v, &["_toolName", "toolName"]))
+        .unwrap_or_else(|| update.tool.clone());
+    let name = normalize(&tool_name);
+    let title = normalize(&update.description);
+    name.contains("generate_image")
+        || name.contains("generateimage")
+        || title.contains("generate_image")
+        || title.contains("generateimage")
 }
 
 fn search_result(
@@ -618,6 +858,16 @@ fn apply_name_overlay(
     }
     if labels.into_iter().flatten().any(is_workspace_search_label) {
         return Some(AgentToolKind::Search);
+    }
+    if labels.into_iter().flatten().any(|label| {
+        let n = normalize(label);
+        n.contains("generate_image")
+            || n.contains("generateimage")
+            || n.contains("image_gen")
+            || n.contains("image_edit")
+            || n == "imagine"
+    }) {
+        return Some(AgentToolKind::ImageGen);
     }
     kind
 }
@@ -986,6 +1236,19 @@ mod tests {
             map_tool_call("gemini", &hide, &mut OverlayState::default()),
             ToolMapOut::Hide
         ));
+        // Cursor AskUser is permission chrome only — never a tool card.
+        let ask = update(
+            "AskQuestion",
+            ToolCallStatus::Completed,
+            serde_json::json!({
+                "questions": [{"prompt": "Color?", "options": ["Blue", "Red"]}]
+            }),
+            None,
+        );
+        assert!(matches!(
+            map_tool_call("cursor", &ask, &mut OverlayState::default()),
+            ToolMapOut::Hide
+        ));
     }
 
     #[test]
@@ -1210,7 +1473,7 @@ mod tests {
     }
 
     #[test]
-    fn shared_other_file_path_stays_other() {
+    fn shared_other_file_path_maps_to_read() {
         let mut call = update(
             "Tool",
             ToolCallStatus::Completed,
@@ -1223,28 +1486,28 @@ mod tests {
             text: "[workspace]\n".into(),
         }];
         let tool = mapped(call);
-        assert_eq!(tool.kind, AgentToolKind::Other);
+        assert_eq!(tool.kind, AgentToolKind::Read);
         match tool.params {
-            AgentToolParams::Other { value } => {
-                assert_eq!(value["file_path"], "/tmp/app/Cargo.toml");
+            AgentToolParams::Read { path, .. } => {
+                assert_eq!(path, "/tmp/app/Cargo.toml");
             }
-            other => panic!("expected other params, got {other:?}"),
+            other => panic!("expected read params, got {other:?}"),
         }
     }
 
     #[test]
-    fn shared_other_command_stays_other() {
+    fn shared_other_command_maps_to_execute() {
         let tool = mapped(update(
             "Tool",
             ToolCallStatus::Completed,
             serde_json::json!({"command": "ls apps crates packages"}),
             None,
         ));
-        assert_eq!(tool.kind, AgentToolKind::Other);
+        assert_eq!(tool.kind, AgentToolKind::Execute);
     }
 
     #[test]
-    fn shared_grok_envelope_stays_other() {
+    fn shared_grok_envelope_maps_to_execute() {
         let tool = mapped(update(
             "Tool",
             ToolCallStatus::Completed,
@@ -1257,7 +1520,7 @@ mod tests {
                 "Result": { "task_id": "t1", "status": "running" }
             })),
         ));
-        assert_eq!(tool.kind, AgentToolKind::Other);
+        assert_eq!(tool.kind, AgentToolKind::Execute);
     }
 
     #[test]
@@ -1338,5 +1601,171 @@ mod tests {
             tool.result,
             Some(AgentToolResult::Text { .. }) | Some(AgentToolResult::SearchHits { .. })
         ));
+    }
+
+    #[test]
+    fn cursor_generate_image_maps_to_image_gen() {
+        let tool = mapped(update(
+            "generateImage",
+            ToolCallStatus::Completed,
+            serde_json::json!({
+                "description": "A tiny red square icon",
+                "filename": "red-square.png",
+                "aspect_ratio": "1:1"
+            }),
+            Some(serde_json::json!({
+                "path": "/tmp/red-square.png"
+            })),
+        ));
+        assert_eq!(tool.kind, AgentToolKind::ImageGen);
+        match tool.params {
+            AgentToolParams::ImageGen {
+                prompt,
+                aspect_ratio,
+                path,
+                ..
+            } => {
+                assert_eq!(prompt, "A tiny red square icon");
+                assert_eq!(aspect_ratio.as_deref(), Some("1:1"));
+                assert_eq!(path.as_deref(), Some("red-square.png"));
+            }
+            other => panic!("expected image_gen params, got {other:?}"),
+        }
+        match tool.result {
+            Some(AgentToolResult::Images { images }) => {
+                assert_eq!(images.len(), 1);
+                assert_eq!(images[0].path.as_deref(), Some("/tmp/red-square.png"));
+            }
+            other => panic!("expected images result, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn cursor_generate_image_content_block_maps_to_images() {
+        // Cursor ACP often returns ContentBlock::Image (data URL) with empty raw_output.
+        let mut call = update(
+            "generateImage",
+            ToolCallStatus::Completed,
+            serde_json::json!({
+                "description": "minimal cyan square",
+                "filename": "cursor-image-probe.png",
+                "aspect_ratio": "1:1"
+            }),
+            None,
+        );
+        call.content = vec![AgentToolCallContentItem::Image {
+            url: Some("data:image/png;base64,iVBORw0KGgo=".into()),
+            path: None,
+            mime: Some("image/png".into()),
+        }];
+        let tool = mapped(call);
+        assert_eq!(tool.kind, AgentToolKind::ImageGen);
+        match tool.result {
+            Some(AgentToolResult::Images { images }) => {
+                assert_eq!(images.len(), 1);
+                assert!(images[0]
+                    .url
+                    .as_deref()
+                    .unwrap_or("")
+                    .starts_with("data:image/png;base64,"));
+            }
+            other => panic!("expected images from content block, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn cursor_generate_image_falls_back_to_filename_param() {
+        let tool = mapped(update(
+            "generateImage",
+            ToolCallStatus::Completed,
+            serde_json::json!({
+                "description": "minimal cyan square",
+                "filename": "cursor-image-probe.png"
+            }),
+            None,
+        ));
+        match tool.result {
+            Some(AgentToolResult::Images { images }) => {
+                let path = images[0].path.as_deref().unwrap_or("");
+                // Prefer resolved Cursor assets absolute path when the file exists.
+                assert!(
+                    path.ends_with("cursor-image-probe.png"),
+                    "unexpected path {path}"
+                );
+            }
+            other => panic!("expected filename fallback images, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn merge_preserves_generate_image_filename_across_partial_patches() {
+        let first = update(
+            "generateImage",
+            ToolCallStatus::Running,
+            serde_json::json!({
+                "description": "minimal cyan square",
+                "filename": "cursor-image-probe.png",
+                "aspect_ratio": "1:1"
+            }),
+            None,
+        );
+        let second = update(
+            "generateImage",
+            ToolCallStatus::Completed,
+            serde_json::json!({
+                "description": "minimal cyan square"
+            }),
+            None,
+        );
+        let merged = merge_tool_call_patch(&first, second);
+        assert_eq!(
+            merged.raw_input.as_ref().and_then(|v| v.get("filename")),
+            Some(&serde_json::json!("cursor-image-probe.png"))
+        );
+        assert_eq!(
+            merged
+                .raw_input
+                .as_ref()
+                .and_then(|v| v.get("aspect_ratio")),
+            Some(&serde_json::json!("1:1"))
+        );
+        let tool = mapped(merged);
+        match tool.result {
+            Some(AgentToolResult::Images { images }) => {
+                assert!(images[0]
+                    .path
+                    .as_deref()
+                    .unwrap_or("")
+                    .ends_with("cursor-image-probe.png"));
+            }
+            other => panic!("expected images after merge, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn grok_image_gen_maps_to_image_gen_with_data_url() {
+        let tool = mapped(update(
+            "image_gen",
+            ToolCallStatus::Completed,
+            serde_json::json!({
+                "prompt": "soft blue gradient",
+                "aspect_ratio": "16:9"
+            }),
+            Some(serde_json::json!({
+                "url": "data:image/png;base64,iVBORw0KGgo="
+            })),
+        ));
+        assert_eq!(tool.kind, AgentToolKind::ImageGen);
+        match tool.result {
+            Some(AgentToolResult::Images { images }) => {
+                assert_eq!(images.len(), 1);
+                assert!(images[0]
+                    .url
+                    .as_deref()
+                    .unwrap_or("")
+                    .starts_with("data:image/png;base64,"));
+            }
+            other => panic!("expected images result, got {other:?}"),
+        }
     }
 }

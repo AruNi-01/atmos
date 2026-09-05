@@ -20,13 +20,16 @@ describe("S9 generic other tool card", () => {
     expect(card).not.toContain("native");
   });
 
-  it("uses a workspace file chip as the collapsed title for path tools", () => {
+  it("keeps the kind verb in the title and uses the file chip as accessory", () => {
     const block = readFileSync(
       join(import.meta.dir, "../tool-results/AgentToolResultBlock.tsx"),
       "utf8",
     );
-    expect(block).toContain("chipAsTitle");
-    expect(block).toContain("titleNode");
+    expect(block).toContain("resolveAgentToolCardHeading");
+    expect(block).toContain("labelWithPath");
+    expect(block).not.toContain("chipAsTitle");
+    expect(block).not.toContain("titleNode");
+    expect(block).toContain("accessory={fileChip}");
     expect(card).not.toContain("pathLike && fileChip");
   });
 

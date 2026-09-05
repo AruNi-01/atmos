@@ -434,6 +434,7 @@ fn map_ui_request(
                                 kind: "reject".into(),
                             },
                         ],
+                        questions: Vec::new(),
                     },
                 },
             ))
@@ -449,6 +450,11 @@ fn map_ui_request(
                 .and_then(Value::as_array)
                 .cloned()
                 .unwrap_or_default();
+            let choice_labels: Vec<String> = options
+                .iter()
+                .filter_map(|item| item.as_str().map(str::to_string))
+                .collect();
+            let questions = crate::map::ask_question_from_choices(title, &choice_labels);
             Some(wrap(
                 turn_id,
                 AgentEvent::PermissionRequested {
@@ -457,15 +463,15 @@ fn map_ui_request(
                         tool: "select".into(),
                         description: title.to_string(),
                         content_markdown: None,
-                        options: options
+                        options: choice_labels
                             .iter()
-                            .filter_map(|item| item.as_str())
                             .map(|option| AgentPermissionOption {
-                                option_id: option.to_string(),
-                                name: option.to_string(),
+                                option_id: option.clone(),
+                                name: option.clone(),
                                 kind: "allow".into(),
                             })
                             .collect(),
+                        questions,
                     },
                 },
             ))
@@ -826,6 +832,20 @@ mod tests {
             &events[0],
             AgentEvent::PermissionRequested { request } if request.request_id == "uuid-2"
         ));
+    }
+
+    #[test]
+    fn select_request_is_ask_user_permission_with_questions() {
+        let events = map_jsonl(include_str!("testdata/extension-ui-select.jsonl"), "t1");
+        let Some(AgentEvent::PermissionRequested { request }) = events.first() else {
+            panic!("expected PermissionRequested");
+        };
+        assert_eq!(request.request_id, "uuid-select");
+        assert_eq!(request.tool, "select");
+        assert_eq!(request.questions.len(), 1);
+        assert_eq!(request.questions[0].prompt, "Pick a probe color?");
+        assert_eq!(request.questions[0].options, ["Blue", "Red"]);
+        assert!(request.options.iter().any(|o| o.option_id == "Blue"));
     }
 
     #[test]

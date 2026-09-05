@@ -7,6 +7,7 @@ import {
   classifyAgentChatHref,
   displayAgentChatFilePath,
   resolveAgentChatOpenableFile,
+  resolveAgentChatPreviewPath,
   resolveAgentChatWorkspaceFile,
 } from "@/features/agent/lib/agent-chat-file-links";
 
@@ -127,6 +128,21 @@ describe("resolveAgentChatOpenableFile", () => {
   });
 });
 
+describe("resolveAgentChatPreviewPath", () => {
+  it("allows absolute paths outside the workspace for expand preview", () => {
+    expect(resolveAgentChatPreviewPath("/tmp/app.ts", cwd)).toBe("/tmp/app.ts");
+    expect(resolveAgentChatPreviewPath(
+      "/Users/me/.grok/sessions/abc/plan.md",
+      cwd,
+      [workspace],
+    )).toBe("/Users/me/.grok/sessions/abc/plan.md");
+  });
+
+  it("still resolves relative paths under cwd", () => {
+    expect(resolveAgentChatPreviewPath("src/app.ts", cwd)).toBe(`${cwd}/src/app.ts`);
+  });
+});
+
 describe("displayAgentChatFilePath", () => {
   it("shows a relative path for files in the current project or workspace", () => {
     expect(displayAgentChatFilePath("src/app.ts", cwd)).toBe("src/app.ts");
@@ -227,6 +243,21 @@ describe("agent chat file-link wiring", () => {
     expect(source).toContain("useAgentChatResolvedPathKind");
     expect(source).toContain("selectRanges");
     expect(source).not.toContain("queueMicrotask");
+  });
+
+  it("expands tool file previews for absolute paths outside the workspace", () => {
+    const preview = readFileSync(
+      join(import.meta.dir, "../../components/tool-results/AgentToolPathPreviewBody.tsx"),
+      "utf8",
+    );
+    const block = readFileSync(
+      join(import.meta.dir, "../../components/tool-results/AgentToolResultBlock.tsx"),
+      "utf8",
+    );
+    expect(preview).toContain("resolveAgentChatPreviewPath");
+    expect(preview).toContain("composerFileUrlFromPath");
+    expect(block).toContain("AgentToolPathPreviewBody");
+    expect(block).toContain('presentation.kind === "empty" && path');
   });
 
   it("shows project-relative paths in the tool diff file header", () => {

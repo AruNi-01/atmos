@@ -244,9 +244,61 @@ export function MarkdownCodeBlock({ className, children, ...props }: React.Compo
   );
 }
 
+/**
+ * Element styles live on the nodes themselves (like tables) so headings / hr
+ * still look right when MarkdownRenderer sits under a parent `.not-prose`
+ * (Tailwind Typography skips all `.prose` rules for those descendants).
+ */
 const DEFAULT_MARKDOWN_COMPONENTS: Components = {
   code: MarkdownCodeBlock,
   pre: ({ children }) => <>{children}</>,
+  h1: ({ node: _node, className, children, ...props }) => (
+    <h1
+      className={cn(
+        "mt-6 mb-3 text-2xl font-semibold tracking-tight text-foreground first:mt-0",
+        className,
+      )}
+      {...props}
+    >
+      {children}
+    </h1>
+  ),
+  h2: ({ node: _node, className, children, ...props }) => (
+    <h2
+      className={cn(
+        "mt-5 mb-2.5 text-xl font-semibold tracking-tight text-foreground first:mt-0",
+        className,
+      )}
+      {...props}
+    >
+      {children}
+    </h2>
+  ),
+  h3: ({ node: _node, className, children, ...props }) => (
+    <h3
+      className={cn(
+        "mt-4 mb-2 text-lg font-semibold text-foreground first:mt-0",
+        className,
+      )}
+      {...props}
+    >
+      {children}
+    </h3>
+  ),
+  h4: ({ node: _node, className, children, ...props }) => (
+    <h4
+      className={cn(
+        "mt-3 mb-1.5 text-base font-semibold text-foreground first:mt-0",
+        className,
+      )}
+      {...props}
+    >
+      {children}
+    </h4>
+  ),
+  hr: ({ node: _node, className, ...props }) => (
+    <hr className={cn("my-6 border-border", className)} {...props} />
+  ),
   table: ({ children }) => (
     <div className={MARKDOWN_TABLE_WRAP_CLASS}>
       <table className={MARKDOWN_TABLE_CLASS}>{children}</table>

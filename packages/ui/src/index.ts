@@ -166,8 +166,19 @@ export { DotmSquare12 } from "./components/ui/dotm-square-12";
 export type { DotmSquare12Props } from "./components/ui/dotm-square-12";
 export { TerminalLoader } from "./components/ui/terminal-loader";
 export type { TerminalLoaderProps } from "./components/ui/terminal-loader";
-export { ImageGenerationCanvas } from "./components/ui/image-generation";
-export type { ImageGenerationCanvasProps } from "./components/ui/image-generation";
+export { ImageGeneration, ImageGenerationCanvas } from "./components/ui/image-generation";
+export type {
+  ImageGenerationProps,
+  ImageGenerationStatus,
+  ImageGenerationCanvasProps,
+} from "./components/ui/image-generation";
+export {
+  ApprovalCard,
+  type ApprovalCardProps,
+  type ApprovalVariant,
+  type ApprovalQuestion,
+  type ApprovalPlanStep,
+} from "./components/ui/approval-card";
 export { ThinkingStars } from "./components/ui/thinking-stars";
 export {
   ActivityIndicator,

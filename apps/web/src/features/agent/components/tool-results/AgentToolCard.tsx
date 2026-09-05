@@ -309,8 +309,11 @@ export function AgentToolCard({
     && shouldPlayTreeTitleEnter(treeReveal, showShimmer, seenTitle.current);
 
   return (
-    <Collapsible defaultOpen={defaultOpen} className="not-prose w-full min-w-0">
-      <div className="flex min-w-0 items-center gap-1" data-tree-header>
+    // Keep `not-prose` on the chrome only — Tailwind Typography cannot nest
+    // `.prose` inside `.not-prose`, so markdown bodies (plan.md preview, etc.)
+    // must live outside that sandbox.
+    <Collapsible defaultOpen={defaultOpen} className="w-full min-w-0">
+      <div className="not-prose flex min-w-0 items-center gap-1" data-tree-header>
         <CollapsibleTrigger asChild>
           <div className="group inline-flex min-w-0 max-w-full cursor-pointer items-center gap-2 py-0.5 text-left text-sm leading-5 text-muted-foreground hover:text-foreground">
             <span

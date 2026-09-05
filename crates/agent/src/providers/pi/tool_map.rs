@@ -6,8 +6,9 @@ use crate::contract::AgentToolKind;
 use crate::contract::{AgentTool, AgentToolParams, AgentToolResult, AgentToolStatus};
 use crate::map::{classify_tool, plan_from_tool_input, ClassifiedTool};
 use crate::map::{
-    extract_command, extract_cwd, extract_links, extract_path, extract_query, extract_search_hits,
-    extract_skill, extract_subagent, extract_url,
+    extract_aspect_ratio, extract_command, extract_cwd, extract_generated_images,
+    extract_image_prompt, extract_image_size, extract_links, extract_path, extract_query,
+    extract_reference_paths, extract_search_hits, extract_skill, extract_subagent, extract_url,
 };
 
 #[derive(Debug, Clone)]
@@ -157,6 +158,23 @@ fn typed_params(kind: AgentToolKind, args: &Value) -> Option<AgentToolParams> {
                 agent_type,
             })
         }
+        AgentToolKind::McpList => Some(AgentToolParams::McpList {
+            server: string_field(args, &["server", "serverName"]),
+        }),
+        AgentToolKind::McpCall => Some(AgentToolParams::McpCall {
+            server: string_field(args, &["server", "serverName"]),
+            tool: string_field(args, &["tool", "toolName", "name"]),
+        }),
+        AgentToolKind::ImageGen => Some(AgentToolParams::ImageGen {
+            prompt: extract_image_prompt(args).unwrap_or_default(),
+            aspect_ratio: extract_aspect_ratio(args),
+            size: extract_image_size(args),
+            path: string_field(
+                args,
+                &["filename", "path", "file", "file_path", "output_path"],
+            ),
+            reference_paths: extract_reference_paths(args),
+        }),
         AgentToolKind::Other => None,
     }
 }
@@ -219,9 +237,21 @@ fn mapped_result(
         AgentToolKind::Delete
         | AgentToolKind::Move
         | AgentToolKind::Skill
-        | AgentToolKind::Subagent => AgentToolResult::Text {
+        | AgentToolKind::Subagent
+        | AgentToolKind::McpList
+        | AgentToolKind::McpCall => AgentToolResult::Text {
             text: result_text(result),
         },
+        AgentToolKind::ImageGen => {
+            let images = extract_generated_images(result);
+            if images.is_empty() {
+                AgentToolResult::Text {
+                    text: result_text(result),
+                }
+            } else {
+                AgentToolResult::Images { images }
+            }
+        }
         AgentToolKind::Other => AgentToolResult::Other {
             value: result.clone(),
         },
@@ -329,16 +359,26 @@ fn diff_or_text(args: &Value, result: &Value) -> AgentToolResult {
     let additions = as_u32(result, &["additions", "added"]);
     let deletions = as_u32(result, &["deletions", "removed"]);
     if let (Some(additions), Some(deletions)) = (additions, deletions) {
-        AgentToolResult::DiffStats {
+        return AgentToolResult::DiffStats {
             path,
             additions,
             deletions,
-        }
-    } else {
-        AgentToolResult::Text {
-            text: result_text(result),
-        }
+        };
     }
+    // Pi `edit` end frames put the useful unified diff under `details.patch`
+    // (and a line-annotated view under `details.diff`). Prefer that over the
+    // short `content[]` summary so the existing edit card can render a patch.
+    if let Some(text) = details_patch_or_diff(result) {
+        return AgentToolResult::Text { text };
+    }
+    AgentToolResult::Text {
+        text: result_text(result),
+    }
+}
+
+fn details_patch_or_diff(result: &Value) -> Option<String> {
+    let details = result.get("details")?;
+    string_field(details, &["patch", "diff"])
 }
 
 fn string_field(value: &Value, keys: &[&str]) -> Option<String> {
@@ -614,6 +654,32 @@ mod tests {
                 text: "Wrote atmos-pi-write-probe.txt".into(),
             })
         );
+    }
+
+    #[test]
+    fn edit_prefers_details_patch_as_text() {
+        let frames = super::super::codec::parse_jsonl(include_str!("testdata/tool-edit.jsonl"));
+        let end = map_tool_execution(
+            "call_00_uAg50WdHYilWwcgE3lLR4325",
+            "edit",
+            &frames[0]["args"],
+            AgentToolStatus::Completed,
+            frames[1].get("result"),
+            false,
+        );
+        let ToolMapOut::Tool(completed) = end else {
+            panic!("expected tool");
+        };
+        assert_eq!(completed.kind, AgentToolKind::Edit);
+        let Some(AgentToolResult::Text { text }) = &completed.result else {
+            panic!("expected Text result, got {:?}", completed.result);
+        };
+        assert!(
+            text.starts_with("--- "),
+            "expected unified patch, got {text:?}"
+        );
+        assert!(text.contains("+++ "));
+        assert!(!text.starts_with("Successfully replaced"));
     }
 
     #[test]

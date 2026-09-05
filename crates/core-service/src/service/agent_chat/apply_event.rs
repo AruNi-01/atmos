@@ -355,6 +355,7 @@ pub(super) async fn apply_event(
                 description: request.description,
                 content_markdown: request.content_markdown,
                 options: request.options,
+                questions: request.questions,
                 status: "pending".into(),
             };
             state.lock().await.pending_permission = Some(pending.clone());
@@ -390,6 +391,7 @@ pub(super) async fn apply_event(
                     description: String::new(),
                     content_markdown: None,
                     options: Vec::new(),
+                    questions: Vec::new(),
                     status: "resolved".into(),
                 },
             );

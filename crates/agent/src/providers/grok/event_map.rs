@@ -144,6 +144,7 @@ pub(crate) fn map_event(
                                 kind: option.kind,
                             })
                             .collect(),
+                        questions: request.questions,
                     },
                 },
             ),
@@ -644,6 +645,7 @@ mod tests {
                 content_markdown: None,
                 risk_level: crate::acp_client::types::RiskLevel::High,
                 options,
+                questions: Vec::new(),
             }),
         );
         let Some(AgentEvent::PermissionRequested { request }) = events.first() else {
@@ -670,6 +672,34 @@ mod tests {
         assert!(!ids.contains(&"reject_always"));
         assert!(!ids.contains(&"accept"));
         assert!(!ids.contains(&"cancel"));
+    }
+
+    #[test]
+    fn ask_user_question_permission_keeps_questions() {
+        let mut state = state();
+        let fixture: serde_json::Value =
+            serde_json::from_str(include_str!("testdata/ask_user_question.json")).expect("fixture");
+        let questions = crate::map::ask_questions_from_input(&fixture["params"]);
+        assert!(!questions.is_empty());
+        let events = payloads(
+            &mut state,
+            AcpSessionEvent::PermissionRequest(crate::acp_client::types::PermissionRequest {
+                request_id: "ask_1".into(),
+                tool: "ask_user_question".into(),
+                description: questions[0].prompt.clone(),
+                content_markdown: None,
+                risk_level: crate::acp_client::types::RiskLevel::Low,
+                options: Vec::new(),
+                questions: questions.clone(),
+            }),
+        );
+        let Some(AgentEvent::PermissionRequested { request }) = events.first() else {
+            panic!("expected PermissionRequested");
+        };
+        assert_eq!(request.tool, "ask_user_question");
+        assert_eq!(request.questions.len(), questions.len());
+        assert_eq!(request.questions[0].prompt, questions[0].prompt);
+        assert_eq!(request.questions[0].options, questions[0].options);
     }
 
     #[test]

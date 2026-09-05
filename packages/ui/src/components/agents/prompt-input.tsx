@@ -48,6 +48,8 @@ export interface PromptModel {
   label: ReactNode;
   description?: ReactNode;
   icon?: ReactNode;
+  /** Right-side chrome in option rows (e.g. Native / ACP chips). */
+  trailing?: ReactNode;
   disabled?: boolean;
   tone?: "warning";
 }
@@ -397,7 +399,7 @@ export function PromptInput({
         {modes.length ? (
           <PromptOptionSelect
             options={modes}
-            value={mode}
+            value={mode ?? ""}
             onChange={onModeChange}
             disabled={disabled || loading || modesLocked}
             lockedHint={modesLocked ? labels.modeLocked : undefined}
@@ -410,7 +412,7 @@ export function PromptInput({
         {permissionModes.length ? (
           <PromptOptionSelect
             options={permissionModes}
-            value={permissionMode}
+            value={permissionMode ?? ""}
             onChange={onPermissionModeChange}
             disabled={disabled || loading || permissionModesLocked}
             lockedHint={permissionModesLocked ? labels.permissionLocked : undefined}
@@ -787,7 +789,7 @@ function PromptAgentConfigMenu({
               >
                 <ThinkingSliderPanel
                   levels={thinkingLevels}
-                  value={thinking}
+                  value={thinking ?? ""}
                   onChange={onThinkingChange}
                   disabled={disabled}
                   effortLabel={labels.thinkingEffort}
@@ -984,6 +986,11 @@ function ConfigFlyoutList({
                 <span className="min-w-0 flex-1">
                   <OptionRow option={option} />
                 </span>
+                {option.trailing ? (
+                  <span className={cn("shrink-0", option.description && "mt-0.5")}>
+                    {option.trailing}
+                  </span>
+                ) : null}
                 {isSelected ? (
                   <Check className={cn("size-3.5 shrink-0 text-current", option.description && "mt-0.5")} />
                 ) : (

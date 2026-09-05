@@ -18,6 +18,9 @@ const TOOL_KINDS = new Set<AgentToolKind>([
   "fetch",
   "skill",
   "subagent",
+  "mcp_list",
+  "mcp_call",
+  "image_gen",
   "other",
 ]);
 
@@ -48,6 +51,12 @@ export function defaultToolParams(kind: AgentToolKind): AgentToolParams {
       return { type: "skill", skill: "" };
     case "subagent":
       return { type: "subagent", description: "" };
+    case "mcp_list":
+      return { type: "mcp_list", server: null };
+    case "mcp_call":
+      return { type: "mcp_call", server: null, tool: null };
+    case "image_gen":
+      return { type: "image_gen", prompt: "" };
     case "other":
       return { type: "other", value: null };
   }

@@ -41,6 +41,33 @@ fn protocol_kind_name(kind: Option<&schema::ToolKind>) -> String {
     }
 }
 
+/// Cursor ACP often stamps Delete/Search permission requests with a coarse
+/// protocol kind (e.g. `Edit` for Delete). Prefer the title verb when present.
+fn permission_tool_name(kind: Option<&schema::ToolKind>, title: Option<&str>) -> String {
+    let from_kind = protocol_kind_name(kind);
+    let Some(title) = title.map(str::trim).filter(|text| !text.is_empty()) else {
+        return from_kind;
+    };
+    let first = title
+        .split(|c: char| c.is_whitespace() || c == ':' || c == '`' || c == '[' || c == '(')
+        .find(|part| !part.is_empty())
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    match first.as_str() {
+        "delete" => "Delete".to_string(),
+        "move" | "rename" => "Move".to_string(),
+        "grep" | "glob" | "find" => "Search".to_string(),
+        "askquestion" | "ask_user" | "askuser" | "ask_user_question" | "askuserquestion" => {
+            "AskQuestion".to_string()
+        }
+        "exitplanmode" | "exit_plan" | "exitplan" | "approve_plan" | "approveplan" => {
+            "ExitPlanMode".to_string()
+        }
+        "exit" if title.to_ascii_lowercase().contains("plan") => "ExitPlanMode".to_string(),
+        _ => from_kind,
+    }
+}
+
 fn extract_claude_code_meta<T: Serialize>(
     value: &T,
 ) -> Option<serde_json::Map<String, serde_json::Value>> {
@@ -127,10 +154,88 @@ fn content_text_from_block(block: &schema::ContentBlock) -> Option<String> {
             {
                 Some(text.text.clone())
             }
+            schema::EmbeddedResourceResource::BlobResourceContents(blob) => {
+                let mime = blob
+                    .mime_type
+                    .as_ref()
+                    .map(|m| {
+                        let s: &str = m.as_ref();
+                        s.to_string()
+                    })
+                    .unwrap_or_default();
+                if mime.starts_with("image/") && !blob.blob.trim().is_empty() {
+                    Some(format!("data:{mime};base64,{}", blob.blob.trim()))
+                } else {
+                    let uri = strip_file_uri(&blob.uri);
+                    (!uri.is_empty()).then_some(uri)
+                }
+            }
             _ => None,
         },
+        schema::ContentBlock::Image(image) => image_block_text_ref(image),
         _ => None,
     }
+}
+
+fn image_block_text_ref(image: &schema::ImageContent) -> Option<String> {
+    if let Some(uri) = image
+        .uri
+        .as_deref()
+        .map(str::trim)
+        .filter(|u| !u.is_empty())
+    {
+        return Some(strip_file_uri(uri));
+    }
+    let data = image.data.trim();
+    if data.is_empty() {
+        return None;
+    }
+    if data.starts_with("data:image/") {
+        return Some(data.to_string());
+    }
+    let mime: &str = image.mime_type.as_ref();
+    Some(format!("data:{mime};base64,{data}"))
+}
+
+fn map_image_content_item(
+    image: &schema::ImageContent,
+) -> crate::acp_client::types::AgentToolCallContentItem {
+    let mime_str: &str = image.mime_type.as_ref();
+    let mime = Some(mime_str.to_string());
+    let uri = image
+        .uri
+        .as_deref()
+        .map(str::trim)
+        .filter(|u| !u.is_empty())
+        .map(strip_file_uri);
+    let data = image.data.trim();
+    let (url, path) = if let Some(uri) = uri {
+        if uri.starts_with("http://")
+            || uri.starts_with("https://")
+            || uri.starts_with("data:image/")
+        {
+            (Some(uri), None)
+        } else if !data.is_empty() {
+            let url = if data.starts_with("data:image/") {
+                data.to_string()
+            } else {
+                format!("data:{mime_str};base64,{data}")
+            };
+            (Some(url), Some(uri))
+        } else {
+            (None, Some(uri))
+        }
+    } else if !data.is_empty() {
+        let url = if data.starts_with("data:image/") {
+            data.to_string()
+        } else {
+            format!("data:{mime_str};base64,{data}")
+        };
+        (Some(url), None)
+    } else {
+        (None, None)
+    };
+    crate::acp_client::types::AgentToolCallContentItem::Image { url, path, mime }
 }
 
 fn strip_file_uri(uri: &str) -> String {
@@ -157,14 +262,132 @@ fn extract_markdown_from_tool_call_content(content: &[schema::ToolCallContent]) 
     }
 }
 
+/// Map ApprovalCard `answers:{…}` (or a choice label) onto an ACP option_id.
+///
+/// Cursor / generic ACP Ask often sends only `allow_once` / `reject_once` chrome
+/// while the real choices live in `rawInput.questions[]`. Falling back to
+/// `allow_once` would drop the user's answer — prefer returning the choice
+/// label as `optionId` (ACP allows freeform ids) and attach `_meta.answers`.
+fn resolve_acp_permission_selection(selected: &str, options: &[PermissionOption]) -> String {
+    if options.iter().any(|option| option.option_id == selected) {
+        return selected.to_string();
+    }
+    if crate::map::is_ask_reject_option(selected) {
+        if let Some(option) = options.iter().find(|option| {
+            matches!(
+                option.kind.as_str(),
+                "reject_once" | "reject_always" | "reject"
+            ) || option.option_id.contains("reject")
+                || option.option_id.contains("deny")
+                || option.name.to_ascii_lowercase().contains("reject")
+                || option.name.to_ascii_lowercase().contains("deny")
+        }) {
+            return option.option_id.clone();
+        }
+        return selected.to_string();
+    }
+    let labels = crate::map::labels_from_ask_option_id(selected);
+    for label in &labels {
+        if let Some(option) = options.iter().find(|option| {
+            option.option_id == *label
+                || option.name == *label
+                || option.name.eq_ignore_ascii_case(label)
+        }) {
+            return option.option_id.clone();
+        }
+    }
+    // AskUser ApprovalCard: keep the user's choice label(s) instead of chrome allow.
+    if selected.starts_with("answers:") {
+        if let Some(label) = labels.first() {
+            return label.clone();
+        }
+    } else if labels.len() == 1 {
+        return labels[0].clone();
+    }
+    if let Some(option) = options.iter().find(|option| {
+        matches!(
+            option.kind.as_str(),
+            "allow_once" | "allow_always" | "allow"
+        ) || option.option_id.contains("allow")
+            || option.name.to_ascii_lowercase().contains("allow")
+    }) {
+        return option.option_id.clone();
+    }
+    options
+        .first()
+        .map(|option| option.option_id.clone())
+        .unwrap_or_else(|| selected.to_string())
+}
+
+fn ask_answers_meta(selected: &str) -> Option<schema::Meta> {
+    let labels = crate::map::labels_from_ask_option_id(selected);
+    if labels.is_empty() && !selected.starts_with("answers:") {
+        return None;
+    }
+    let mut meta = schema::Meta::new();
+    if let Some(raw) = selected.strip_prefix("answers:") {
+        if let Ok(value) = serde_json::from_str::<serde_json::Value>(raw) {
+            meta.insert("answers".into(), value);
+            return Some(meta);
+        }
+    }
+    if !labels.is_empty() {
+        meta.insert(
+            "answers".into(),
+            serde_json::Value::Array(labels.into_iter().map(serde_json::Value::String).collect()),
+        );
+        return Some(meta);
+    }
+    None
+}
+
 fn map_tool_call_content(
     content: &[schema::ToolCallContent],
 ) -> Vec<crate::acp_client::types::AgentToolCallContentItem> {
     content
         .iter()
         .filter_map(|item| match item {
-            schema::ToolCallContent::Content(c) => content_text_from_block(&c.content)
-                .map(|text| crate::acp_client::types::AgentToolCallContentItem::Text { text }),
+            schema::ToolCallContent::Content(c) => match &c.content {
+                schema::ContentBlock::Image(image) => Some(map_image_content_item(image)),
+                schema::ContentBlock::Resource(resource) => match &resource.resource {
+                    schema::EmbeddedResourceResource::BlobResourceContents(blob) => {
+                        let mime = blob.mime_type.as_ref().map(|m| {
+                            let s: &str = m.as_ref();
+                            s.to_string()
+                        });
+                        let uri = strip_file_uri(&blob.uri);
+                        if mime
+                            .as_deref()
+                            .is_some_and(|m: &str| m.starts_with("image/"))
+                            && !blob.blob.trim().is_empty()
+                        {
+                            let mime = mime.unwrap_or_else(|| "image/png".into());
+                            let data = blob.blob.trim();
+                            let url = if data.starts_with("data:image/") {
+                                data.to_string()
+                            } else {
+                                format!("data:{mime};base64,{data}")
+                            };
+                            Some(crate::acp_client::types::AgentToolCallContentItem::Image {
+                                url: Some(url),
+                                path: (!uri.is_empty()).then_some(uri),
+                                mime: Some(mime),
+                            })
+                        } else if !uri.is_empty() {
+                            Some(crate::acp_client::types::AgentToolCallContentItem::Text {
+                                text: uri,
+                            })
+                        } else {
+                            None
+                        }
+                    }
+                    _ => content_text_from_block(&c.content).map(|text| {
+                        crate::acp_client::types::AgentToolCallContentItem::Text { text }
+                    }),
+                },
+                _ => content_text_from_block(&c.content)
+                    .map(|text| crate::acp_client::types::AgentToolCallContentItem::Text { text }),
+            },
             schema::ToolCallContent::Diff(diff) => {
                 Some(crate::acp_client::types::AgentToolCallContentItem::Diff {
                     path: Some(diff.path.display().to_string()),
@@ -292,7 +515,10 @@ impl AtmosAcpClient {
         &self,
         args: schema::RequestPermissionRequest,
     ) -> acp::Result<schema::RequestPermissionResponse> {
-        let tool_name = protocol_kind_name(args.tool_call.fields.kind.as_ref());
+        let tool_name = permission_tool_name(
+            args.tool_call.fields.kind.as_ref(),
+            args.tool_call.fields.title.as_deref(),
+        );
         let description = args
             .tool_call
             .fields
@@ -317,22 +543,100 @@ impl AtmosAcpClient {
                 },
             })
             .collect();
-        let content_markdown = args
+        let raw_input = args.tool_call.fields.raw_input.as_ref();
+        let mut content_markdown = args
             .tool_call
             .fields
             .content
             .as_ref()
             .and_then(|content| extract_markdown_from_tool_call_content(content));
+        if content_markdown
+            .as_deref()
+            .is_none_or(|text| text.trim().is_empty())
+        {
+            content_markdown = raw_input.and_then(crate::map::plan_markdown_from_input);
+        }
+
+        let mut questions = raw_input
+            .map(crate::map::ask_questions_from_input)
+            .unwrap_or_default();
+        let tool_for_ask = args
+            .tool_call
+            .fields
+            .title
+            .as_deref()
+            .unwrap_or(tool_name.as_str());
+        if questions.is_empty()
+            && (crate::map::is_ask_user_tool(&tool_name)
+                || crate::map::is_ask_user_tool(tool_for_ask))
+        {
+            let choice_labels: Vec<String> = options
+                .iter()
+                .filter(|option| {
+                    !matches!(
+                        option.kind.as_str(),
+                        "allow_once"
+                            | "allow_always"
+                            | "reject_once"
+                            | "reject_always"
+                            | "allow"
+                            | "reject"
+                    )
+                })
+                .map(|option| option.name.clone())
+                .collect();
+            questions = crate::map::ask_question_from_choices(&description, &choice_labels);
+        }
+
+        // Prefer a recognizable exit-plan tool name for ApprovalCard plan variant.
+        let tool = if crate::map::is_exit_plan_tool(&tool_name)
+            || crate::map::is_exit_plan_tool(tool_for_ask)
+            || (content_markdown
+                .as_ref()
+                .is_some_and(|text| !text.trim().is_empty())
+                && (tool_name.eq_ignore_ascii_case("SwitchMode")
+                    || tool_for_ask.to_ascii_lowercase().contains("exit")
+                        && tool_for_ask.to_ascii_lowercase().contains("plan")))
+        {
+            if crate::map::is_exit_plan_tool(&tool_name) {
+                tool_name
+            } else if crate::map::is_exit_plan_tool(tool_for_ask) {
+                tool_for_ask.to_string()
+            } else {
+                "ExitPlanMode".into()
+            }
+        } else {
+            tool_name
+        };
+        let description = if crate::map::is_exit_plan_tool(&tool) {
+            content_markdown
+                .as_deref()
+                .and_then(|plan| {
+                    plan.lines().find_map(|line| {
+                        let trimmed = line.trim();
+                        trimmed
+                            .strip_prefix('#')
+                            .map(|title| title.trim().trim_start_matches('#').trim().to_string())
+                            .filter(|title| !title.is_empty())
+                    })
+                })
+                .or_else(|| raw_input.and_then(crate::map::plan_file_path_from_input))
+                .unwrap_or(description)
+        } else {
+            description
+        };
 
         let (response_tx, response_rx) = oneshot::channel();
         let request = PermissionRequest {
             request_id: format!("perm_{}", uuid::Uuid::new_v4().simple()),
-            tool: tool_name,
+            tool,
             description,
             content_markdown,
             risk_level,
-            options,
+            options: options.clone(),
+            questions,
         };
+        let has_ask_questions = !request.questions.is_empty();
 
         if self
             .permission_tx
@@ -349,7 +653,8 @@ impl AtmosAcpClient {
             warn!("Failed to forward permission request: {}", e);
         }
 
-        let selected = response_rx.await.unwrap_or_else(|_| "reject".to_string());
+        let raw_selected = response_rx.await.unwrap_or_else(|_| "reject".to_string());
+        let selected = resolve_acp_permission_selection(&raw_selected, &options);
         let option_id = args
             .options
             .iter()
@@ -357,10 +662,16 @@ impl AtmosAcpClient {
             .map(|option| option.option_id.clone())
             .unwrap_or_else(|| schema::PermissionOptionId::new(selected));
 
+        let mut outcome = schema::SelectedPermissionOutcome::new(option_id);
+        // Preserve AskUser answers for agents that only offer allow/reject chrome.
+        if has_ask_questions {
+            if let Some(meta) = ask_answers_meta(&raw_selected) {
+                outcome = outcome.meta(meta);
+            }
+        }
+
         Ok(schema::RequestPermissionResponse::new(
-            schema::RequestPermissionOutcome::Selected(schema::SelectedPermissionOutcome::new(
-                option_id,
-            )),
+            schema::RequestPermissionOutcome::Selected(outcome),
         ))
     }
 
@@ -632,8 +943,74 @@ impl AtmosAcpClient {
         Ok(())
     }
 
-    pub async fn ext_method(&self, _args: schema::ExtRequest) -> acp::Result<schema::ExtResponse> {
+    /// Agent → client extension request (`method` starts with `_`).
+    ///
+    /// Grok native Ask User is `_x.ai/ask_user_question` (not
+    /// `session/request_permission`). Map it onto the same permission chrome.
+    pub async fn ext_method(
+        &self,
+        method: &str,
+        params: serde_json::Value,
+    ) -> acp::Result<serde_json::Value> {
+        let logical = method.strip_prefix('_').unwrap_or(method);
+        if logical == "x.ai/ask_user_question" || logical == "x.ai/ask_user" {
+            return self.ask_user_question_ext(params).await;
+        }
         Err(acp::Error::method_not_found())
+    }
+
+    async fn ask_user_question_ext(
+        &self,
+        params: serde_json::Value,
+    ) -> acp::Result<serde_json::Value> {
+        let session_id = params
+            .get("sessionId")
+            .and_then(|value| value.as_str())
+            .unwrap_or("ask_user");
+        let questions = crate::map::ask_questions_from_input(&params);
+        let description = questions
+            .first()
+            .map(|question| question.prompt.clone())
+            .filter(|text| !text.is_empty())
+            .unwrap_or_else(|| "Ask user".into());
+
+        let (response_tx, response_rx) = oneshot::channel();
+        let request = PermissionRequest {
+            request_id: format!("ask_{}", uuid::Uuid::new_v4().simple()),
+            tool: "ask_user_question".into(),
+            description,
+            content_markdown: None,
+            risk_level: RiskLevel::Low,
+            options: Vec::new(),
+            questions: questions.clone(),
+        };
+
+        if self
+            .permission_tx
+            .send((request.clone(), response_tx))
+            .is_err()
+        {
+            return Err(acp::Error::internal_error());
+        }
+
+        if let Err(e) = self
+            .event_tx
+            .send(AcpSessionEvent::PermissionRequest(request))
+        {
+            warn!("Failed to forward ask_user_question request: {}", e);
+        }
+
+        let selected = response_rx
+            .await
+            .unwrap_or_else(|_| "reject_once".to_string());
+        let result = crate::map::ask_user_ext_response(&questions, &selected);
+        append_acp_log(
+            session_id,
+            "client_to_agent_acp",
+            "ask_user_question_result",
+            &result,
+        );
+        Ok(result)
     }
 
     pub async fn ext_notification(&self, args: schema::ExtNotification) -> acp::Result<()> {
@@ -859,5 +1236,130 @@ mod tests {
         assert_eq!(mapped.acp_kind.as_deref(), Some("execute"));
         assert_eq!(mapped.description, "Run Script");
         assert_eq!(mapped.raw_input, Some(input));
+    }
+
+    #[test]
+    fn permission_tool_name_prefers_delete_title_over_edit_kind() {
+        assert_eq!(
+            super::permission_tool_name(Some(&schema::ToolKind::Edit), Some("Delete `foo`")),
+            "Delete"
+        );
+        assert_eq!(
+            super::permission_tool_name(
+                Some(&schema::ToolKind::Edit),
+                Some("Delete `/tmp/cursor-probe-seed.txt`"),
+            ),
+            "Delete"
+        );
+        assert_eq!(
+            super::permission_tool_name(Some(&schema::ToolKind::Edit), Some("Edit README.md")),
+            "Edit"
+        );
+        assert_eq!(
+            super::permission_tool_name(Some(&schema::ToolKind::Other), Some("Find `*.md`"),),
+            "Search"
+        );
+    }
+
+    #[test]
+    fn permission_tool_name_maps_exit_plan_and_ask_titles() {
+        assert_eq!(
+            super::permission_tool_name(
+                Some(&schema::ToolKind::SwitchMode),
+                Some("Exit plan mode")
+            ),
+            "ExitPlanMode"
+        );
+        assert_eq!(
+            super::permission_tool_name(
+                Some(&schema::ToolKind::Other),
+                Some("AskQuestion: color?")
+            ),
+            "AskQuestion"
+        );
+    }
+
+    #[test]
+    fn resolve_acp_ask_answers_keeps_choice_label_not_allow_once() {
+        let options = vec![
+            crate::acp_client::types::PermissionOption {
+                option_id: "allow-once".into(),
+                name: "Allow".into(),
+                kind: "allow_once".into(),
+            },
+            crate::acp_client::types::PermissionOption {
+                option_id: "reject-once".into(),
+                name: "Reject".into(),
+                kind: "reject_once".into(),
+            },
+        ];
+        assert_eq!(
+            super::resolve_acp_permission_selection(r#"answers:{"0":"Blue"}"#, &options),
+            "Blue"
+        );
+        assert_eq!(
+            super::resolve_acp_permission_selection("reject_once", &options),
+            "reject-once"
+        );
+        // Matching chrome option by label still works.
+        assert_eq!(
+            super::resolve_acp_permission_selection(r#"answers:{"0":"Allow"}"#, &options),
+            "allow-once"
+        );
+    }
+
+    #[test]
+    fn ask_answers_meta_preserves_json_map() {
+        let meta = super::ask_answers_meta(r#"answers:{"0":"Blue","1":"Spec"}"#).expect("meta");
+        assert_eq!(
+            meta.get("answers")
+                .and_then(|v| v.get("0"))
+                .and_then(|v| v.as_str()),
+            Some("Blue")
+        );
+        assert_eq!(
+            meta.get("answers")
+                .and_then(|v| v.get("1"))
+                .and_then(|v| v.as_str()),
+            Some("Spec")
+        );
+    }
+
+    #[test]
+    fn ask_question_fixture_extracts_questions_for_approval_card() {
+        let fixture: serde_json::Value = serde_json::from_str(include_str!(
+            "../providers/acp/testdata/request_permission_ask_question.json"
+        ))
+        .expect("fixture");
+        let raw_input = &fixture["toolCall"]["rawInput"];
+        let questions = crate::map::ask_questions_from_input(raw_input);
+        assert_eq!(questions.len(), 1);
+        assert_eq!(questions[0].prompt, "Pick a probe color?");
+        assert_eq!(questions[0].options, ["Blue", "Red"]);
+        assert_eq!(
+            super::permission_tool_name(
+                Some(&schema::ToolKind::Other),
+                fixture["toolCall"]["title"].as_str()
+            ),
+            "AskQuestion"
+        );
+    }
+
+    #[test]
+    fn plan_markdown_from_acp_exit_plan_fixture() {
+        let fixture: serde_json::Value = serde_json::from_str(include_str!(
+            "../providers/acp/testdata/request_permission_exit_plan.json"
+        ))
+        .expect("fixture");
+        let raw_input = &fixture["toolCall"]["rawInput"];
+        let plan = crate::map::plan_markdown_from_input(raw_input).expect("plan");
+        assert!(plan.contains("# Cursor plan"));
+        assert_eq!(
+            super::permission_tool_name(
+                Some(&schema::ToolKind::SwitchMode),
+                fixture["toolCall"]["title"].as_str()
+            ),
+            "ExitPlanMode"
+        );
     }
 }

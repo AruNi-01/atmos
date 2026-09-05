@@ -73,6 +73,39 @@ impl JsonRpcRequest for OutboundExtMethod {
     type Response = Value;
 }
 
+/// Inbound agent → client extension request (`_…` methods, e.g. Grok Ask User).
+#[derive(Debug, Clone)]
+struct InboundExtMethod {
+    method: String,
+    params: Value,
+}
+
+impl JsonRpcMessage for InboundExtMethod {
+    fn matches_method(method: &str) -> bool {
+        method.starts_with('_')
+    }
+
+    fn method(&self) -> &str {
+        &self.method
+    }
+
+    fn to_untyped_message(&self) -> Result<UntypedMessage, acp::Error> {
+        UntypedMessage::new(&self.method, &self.params)
+    }
+
+    fn parse_message(method: &str, params: &impl Serialize) -> Result<Self, acp::Error> {
+        let params = serde_json::to_value(params).map_err(acp::Error::into_internal_error)?;
+        Ok(Self {
+            method: method.to_string(),
+            params,
+        })
+    }
+}
+
+impl JsonRpcRequest for InboundExtMethod {
+    type Response = Value;
+}
+
 async fn send_outbound_ext_method(
     conn: &ConnectionTo<Agent>,
     method: String,
@@ -95,6 +128,7 @@ enum SessionCommand {
         attachments: Vec<String>,
         /// When set, wait for `session/prompt` to finish and report success/failure.
         /// Used for Grok mid-session slash permission toggles (`/always-approve`, `/auto`).
+        /// Does not emit `AcpSessionEvent::TurnEnd` (not a user chat turn).
         reply: Option<oneshot::Sender<Result<(), String>>>,
     },
     Cancel,
@@ -265,12 +299,17 @@ fn error_looks_like_method_not_found(error: &str) -> bool {
     lower.contains("method not found") || lower.contains("-32601")
 }
 
+/// Internal wait-for-completion `session/prompt` (Grok `/always-approve`, `/auto`).
+///
+/// Must **not** emit `TurnEnd`: those replies are control RPCs, not user chat turns.
+/// Emitting `TurnEnd` races with a following user `send_prompt` and prematurely
+/// completes (then drops) the Atmos turn — UI flashes idle after session create
+/// and then spins on Streaming forever.
 async fn run_prompt_turn(
     conn: &ConnectionTo<Agent>,
     session_id_acp: &schema::SessionId,
     text: &str,
     attachments: &[String],
-    event_tx: &mpsc::UnboundedSender<AcpSessionEvent>,
 ) -> Result<(), String> {
     append_acp_log(
         &session_id_acp.to_string(),
@@ -281,6 +320,7 @@ async fn run_prompt_turn(
             "message": text,
             "attachments": attachments,
             "queued_after_turn": true,
+            "internal_control": true,
         }),
     );
     match conn
@@ -291,26 +331,8 @@ async fn run_prompt_turn(
         .block_task()
         .await
     {
-        Ok(res) => {
-            if let Some(usage) = res.usage {
-                let _ = event_tx.send(AcpSessionEvent::TurnUsage(map_turn_usage(usage)));
-            }
-            let _ = event_tx.send(AcpSessionEvent::TurnEnd(map_prompt_stop(
-                false,
-                res.stop_reason,
-            )));
-            Ok(())
-        }
-        Err(error) => {
-            let message = error.to_string();
-            let _ = event_tx.send(AcpSessionEvent::Error {
-                code: "PROMPT_FAILED".to_string(),
-                message: message.clone(),
-                recoverable: true,
-            });
-            let _ = event_tx.send(AcpSessionEvent::TurnEnd(AcpTurnStop::Failed));
-            Err(message)
-        }
+        Ok(_res) => Ok(()),
+        Err(error) => Err(error.to_string()),
     }
 }
 
@@ -632,7 +654,10 @@ impl AcpSessionControl {
             .map_err(|_| "ACP session is no longer running".to_string())
     }
 
-    /// Run a `session/prompt` turn and wait for completion (used for Grok slash toggles).
+    /// Run a `session/prompt` and wait for the JSON-RPC result (Grok slash toggles).
+    ///
+    /// Does **not** emit `AcpSessionEvent::TurnEnd` — callers must not treat this as a
+    /// user chat turn. Use [`Self::send_prompt`] for turns that should complete in the UI.
     pub async fn prompt_turn(
         &self,
         message: String,
@@ -938,6 +963,7 @@ async fn run_session_inner(
     let release_terminal_client = client.clone();
     let wait_terminal_client = client.clone();
     let kill_terminal_client = client.clone();
+    let ext_method_client = client.clone();
     let notification_client = client.clone();
 
     acp::Client
@@ -990,6 +1016,16 @@ async fn run_session_inner(
         .on_receive_request(
             async move |request: schema::KillTerminalRequest, responder, _cx| {
                 responder.respond_with_result(kill_terminal_client.kill_terminal(request).await)
+            },
+            acp::on_receive_request!(),
+        )
+        .on_receive_request(
+            async move |request: InboundExtMethod, responder, _cx| {
+                responder.respond_with_result(
+                    ext_method_client
+                        .ext_method(&request.method, request.params)
+                        .await,
+                )
             },
             acp::on_receive_request!(),
         )
@@ -1311,7 +1347,8 @@ async fn run_session_inner(
                                             reply: Some(reply),
                                         }) => {
                                             // Wait-for-completion prompts (Grok slash toggles)
-                                            // must not be dropped mid-turn.
+                                            // must not be dropped mid-turn. They run after this
+                                            // user turn without emitting another TurnEnd.
                                             pending_prompts.push((text, attachments, reply));
                                         }
                                         Some(SessionCommand::Prompt { reply: None, .. }) => {}
@@ -1326,30 +1363,38 @@ async fn run_session_inner(
                         };
                         let prompt_ok = prompt_result.is_ok();
                         let prompt_err = prompt_result.as_ref().err().map(|e| e.to_string());
+                        // User chat turns (`reply: None`) own TurnEnd. Internal
+                        // `prompt_turn` waits (`reply: Some`) must not — see run_prompt_turn.
+                        let emit_turn_end = reply.is_none();
                         match prompt_result {
                             Ok(res) => {
-                                if let Some(usage) = res.usage {
-                                    let _ = event_tx
-                                        .send(AcpSessionEvent::TurnUsage(map_turn_usage(usage)));
+                                if emit_turn_end {
+                                    if let Some(usage) = res.usage {
+                                        let _ = event_tx.send(AcpSessionEvent::TurnUsage(
+                                            map_turn_usage(usage),
+                                        ));
+                                    }
+                                    let _ = event_tx.send(AcpSessionEvent::TurnEnd(
+                                        map_prompt_stop(cancel_requested, res.stop_reason),
+                                    ));
                                 }
-                                let _ = event_tx.send(AcpSessionEvent::TurnEnd(map_prompt_stop(
-                                    cancel_requested,
-                                    res.stop_reason,
-                                )));
                             }
                             Err(e) => {
                                 warn!("Prompt failed: {}", e);
-                                let _ = event_tx.send(AcpSessionEvent::Error {
-                                    code: "PROMPT_FAILED".to_string(),
-                                    message: e.to_string(),
-                                    recoverable: true,
-                                });
-                                let _ =
-                                    event_tx.send(AcpSessionEvent::TurnEnd(if cancel_requested {
-                                        AcpTurnStop::Canceled
-                                    } else {
-                                        AcpTurnStop::Failed
-                                    }));
+                                if emit_turn_end {
+                                    let _ = event_tx.send(AcpSessionEvent::Error {
+                                        code: "PROMPT_FAILED".to_string(),
+                                        message: e.to_string(),
+                                        recoverable: true,
+                                    });
+                                    let _ = event_tx.send(AcpSessionEvent::TurnEnd(
+                                        if cancel_requested {
+                                            AcpTurnStop::Canceled
+                                        } else {
+                                            AcpTurnStop::Failed
+                                        },
+                                    ));
+                                }
                             }
                         }
                         if let Some(reply) = reply {
@@ -1372,14 +1417,8 @@ async fn run_session_inner(
                             let _ = reply.send(result);
                         }
                         for (text, attachments, reply) in pending_prompts {
-                            let result = run_prompt_turn(
-                                &conn,
-                                &session_id_acp,
-                                &text,
-                                &attachments,
-                                &event_tx,
-                            )
-                            .await;
+                            let result =
+                                run_prompt_turn(&conn, &session_id_acp, &text, &attachments).await;
                             let _ = reply.send(result);
                         }
                         if pending_close {
@@ -1811,6 +1850,35 @@ mod tests {
     }
 
     #[test]
+    fn internal_prompt_turn_docs_forbid_turn_end() {
+        // Regression lock: wait-reply prompts are Grok permission slashes. Emitting
+        // TurnEnd for them races with the next user send (premature + missing end).
+        let runner = include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/src/acp_client/runner.rs"
+        ));
+        let production = runner.split("#[cfg(test)]").next().unwrap_or(runner);
+        assert!(
+            production.contains("let emit_turn_end = reply.is_none();"),
+            "user prompts (reply: None) must gate TurnEnd"
+        );
+        assert!(
+            production.contains("internal_control")
+                && production.contains("async fn run_prompt_turn"),
+            "queued slash prompt_turn must stay internal (no TurnEnd)"
+        );
+        let run_prompt = production
+            .split("async fn run_prompt_turn")
+            .nth(1)
+            .and_then(|rest| rest.split("async fn set_session_mode").next())
+            .unwrap_or("");
+        assert!(
+            !run_prompt.contains("AcpSessionEvent::TurnEnd"),
+            "run_prompt_turn must not emit TurnEnd"
+        );
+    }
+
+    #[test]
     fn outbound_ext_method_wire_name_starts_with_underscore() {
         assert_eq!(
             super::ensure_ext_wire_method("x.ai/session/fork"),
@@ -1826,5 +1894,28 @@ mod tests {
         };
         assert_eq!(request.method(), "_x.ai/git/worktree/create");
         assert!(request.method().starts_with('_'));
+    }
+
+    #[test]
+    fn inbound_ext_method_matches_underscore_prefix() {
+        use agent_client_protocol::JsonRpcMessage;
+        assert!(super::InboundExtMethod::matches_method(
+            "_x.ai/ask_user_question"
+        ));
+        assert!(!super::InboundExtMethod::matches_method(
+            "session/request_permission"
+        ));
+        let parsed = super::InboundExtMethod::parse_message(
+            "_x.ai/ask_user_question",
+            &serde_json::json!({
+                "sessionId": "s",
+                "toolCallId": "call_1",
+                "questions": [{"question": "Color?", "options": [{"label": "Blue"}]}],
+                "mode": "default"
+            }),
+        )
+        .expect("parse");
+        assert_eq!(parsed.method, "_x.ai/ask_user_question");
+        assert_eq!(parsed.params["toolCallId"], "call_1");
     }
 }

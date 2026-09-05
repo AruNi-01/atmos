@@ -8,6 +8,7 @@ import {
   presentAgentTool,
   prettyJson,
   relativeDisplayPath,
+  resolveAgentToolCardHeading,
   resolveTreeEntryPaths,
   stripReadLineNumbers,
   toolTitleLooksLikePath,
@@ -301,5 +302,45 @@ describe("tool title path detection", () => {
     expect(toolTitleLooksLikePath(path, path)).toBe(true);
     expect(toolTitleLooksLikePath(`Tool: ${path}`, path)).toBe(true);
     expect(toolTitleLooksLikePath("List apps, crates, packages layout", path)).toBe(false);
+  });
+});
+
+describe("resolveAgentToolCardHeading", () => {
+  const formatWithPath = (tool: string, path: string) => `${tool}: ${path}`;
+
+  it("falls back to kind verb + path when the title is path-only or generic", () => {
+    expect(resolveAgentToolCardHeading({
+      heading: "/tmp/app/AGENTS.md",
+      path: "/tmp/app/AGENTS.md",
+      kindLabel: "Read",
+      formatWithPath,
+    })).toBe("Read: /tmp/app/AGENTS.md");
+    expect(resolveAgentToolCardHeading({
+      heading: "Read",
+      path: "lib.rs",
+      kindLabel: "Read",
+      formatWithPath,
+    })).toBe("Read: lib.rs");
+    expect(resolveAgentToolCardHeading({
+      heading: "",
+      path: null,
+      kindLabel: "Read",
+      formatWithPath,
+    })).toBe("Read");
+  });
+
+  it("keeps rich titles that already include the action", () => {
+    expect(resolveAgentToolCardHeading({
+      heading: "Write '/tmp/plan.md'",
+      path: "/tmp/plan.md",
+      kindLabel: "Edit",
+      formatWithPath,
+    })).toBe("Write '/tmp/plan.md'");
+    expect(resolveAgentToolCardHeading({
+      heading: "Read 'specs/TECH.md'",
+      path: "specs/TECH.md",
+      kindLabel: "Read",
+      formatWithPath,
+    })).toBe("Read 'specs/TECH.md'");
   });
 });

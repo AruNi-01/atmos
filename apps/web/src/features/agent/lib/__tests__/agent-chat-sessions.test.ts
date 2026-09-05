@@ -171,6 +171,18 @@ describe("agents sessions page uses Atmos chat history", () => {
     expect(manager).not.toContain('value: "installed"');
     expect(manager).not.toContain('value="installed"');
 
+    expect(manager).toContain("nativeSiblingForAgent");
+    expect(manager).toContain("nativeSibling={nativeSiblingForAgent(item.id, mgr.nativeAgents)}");
+
+    const cards = readFileSync(join(ROOT, "components/agent-manager-cards.tsx"), "utf8");
+    expect(cards).toContain("managerCards.preferNative.recommend");
+    expect(cards).toContain("managerCards.preferNative.alreadyEnabled");
+
+    const composer = readFileSync(join(ROOT, "components/AgentPromptComposer.tsx"), "utf8");
+    expect(composer).toContain("contestedChatAgentFamilies");
+    expect(composer).toContain('t("agentKind.native")');
+    expect(composer).toContain('t("agentKind.acp")');
+
     const view = readFileSync(
       join(ROOT, "components/AgentChatSessionsView.tsx"),
       "utf8",

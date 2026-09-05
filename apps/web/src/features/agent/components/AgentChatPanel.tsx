@@ -17,7 +17,11 @@ import { DEFAULT_AGENT_CHAT_MODE, type AgentChatMode } from "@/features/agent/ty
 import { useDesktopTrafficLightsPadding } from "@/shared/hooks/use-desktop-traffic-lights-padding";
 import { SessionUsageBadge } from "./UsageBadges";
 import { AgentActivityIndicator } from "./AgentActivityIndicator";
-import { AgentPermissionCard } from "./AgentPermissionCard";
+import {
+  AgentPermissionCard,
+  isPlanExitPermission,
+  resolvePlanExitFilePath,
+} from "./AgentPermissionCard";
 import { AgentSessionOpCard } from "./AgentSessionOpCard";
 import { AgentPromptComposer } from "./AgentPromptComposer";
 import { useAgentChatSession } from "../hooks/use-agent-chat-session";
@@ -492,6 +496,13 @@ export function AgentChatPanel({
   const ackVisibleChatAttention = useCallback(() => {
     ackAgentChatAttention(liveChatId || chatId);
   }, [chatId, liveChatId]);
+
+  const planFilePath = useMemo(
+    () => (pendingPermission && isPlanExitPermission(pendingPermission)
+      ? resolvePlanExitFilePath(pendingPermission, messages)
+      : null),
+    [messages, pendingPermission],
+  );
 
   const standaloneSurfaceKey = useMemo(
     () =>
@@ -995,6 +1006,16 @@ export function AgentChatPanel({
               <AgentPermissionCard
                 permission={pendingPermission}
                 markdown={pendingPermissionMarkdown}
+                planIntent={
+                  isPlanExitPermission(pendingPermission)
+                    && !pendingPermissionMarkdown?.trim()
+                    && !planFilePath
+                    ? currentPlan
+                    : null
+                }
+                planFilePath={
+                  isPlanExitPermission(pendingPermission) ? planFilePath : null
+                }
                 onRespond={handlePermission}
               />
             </div>

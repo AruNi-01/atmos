@@ -936,6 +936,7 @@ impl AgentChatService {
                         description: String::new(),
                         content_markdown: None,
                         options: Vec::new(),
+                        questions: Vec::new(),
                         status: "resolved".into(),
                     },
                 },

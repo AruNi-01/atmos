@@ -90,8 +90,14 @@ pub fn question_reject_path(routes: &OpenApiRoutes, session_id: &str, request_id
     }
 }
 
-pub fn question_answers_body(label: &str) -> Value {
-    json!({ "answers": [[label]] })
+pub fn question_answers_body(option_id: &str) -> Value {
+    let labels = crate::map::labels_from_ask_option_id(option_id);
+    if !labels.is_empty() {
+        return json!({
+            "answers": labels.into_iter().map(|label| json!([label])).collect::<Vec<_>>()
+        });
+    }
+    json!({ "answers": [[option_id]] })
 }
 
 pub fn split_model(id: &str) -> Option<(String, String)> {

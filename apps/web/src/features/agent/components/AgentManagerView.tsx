@@ -38,6 +38,7 @@ import {
   AgentSkeletonGrid,
 } from "./agent-manager-cards";
 import { useAgentManager } from "../hooks/use-agent-manager";
+import { nativeSiblingForAgent } from "@/features/agent/lib/custom-agent-registry";
 import { CustomAgentDialog } from "./CustomAgentDialog";
 import { AgentConfirmDialogs } from "./AgentConfirmDialogs";
 
@@ -277,6 +278,7 @@ export const AgentManagerView: React.FC = () => {
                             index={index}
                             installingRegistryIds={mgr.installingRegistryIds}
                             removingRegistryId={mgr.removingRegistryId}
+                            nativeSibling={nativeSiblingForAgent(item.id, mgr.nativeAgents)}
                             onInstall={mgr.handleInstallRegistry}
                             onRemoveRequest={mgr.setRemoveConfirmDialog}
                           />

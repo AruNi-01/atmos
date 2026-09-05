@@ -38,6 +38,15 @@ impl AgentEventEnvelope {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub struct AgentAskQuestion {
+    pub id: String,
+    pub prompt: String,
+    #[serde(default)]
+    pub options: Vec<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub struct AgentPermissionRequest {
@@ -48,6 +57,9 @@ pub struct AgentPermissionRequest {
     pub content_markdown: Option<String>,
     #[serde(default)]
     pub options: Vec<AgentPermissionOption>,
+    /// Multi-question AskUser cards (ApprovalCard `questions` variant).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub questions: Vec<AgentAskQuestion>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

@@ -395,13 +395,22 @@ impl OpenCodeCommands {
                     .map_err(|error| AgentActionError::NotFound(error.to_string()))
             }
             PendingAsk::Question => {
-                let path = question_reply_path(&self.routes, &self.session_id, &request_id);
-                let body = question_answers_body(&option_id);
-                self.http
-                    .post_no_content(&path, &body)
-                    .await
-                    .map(|_| ())
-                    .map_err(|error| AgentActionError::NotFound(error.to_string()))
+                if crate::map::is_ask_reject_option(&option_id) {
+                    let path = question_reject_path(&self.routes, &self.session_id, &request_id);
+                    self.http
+                        .post_empty(&path)
+                        .await
+                        .map(|_| ())
+                        .map_err(|error| AgentActionError::NotFound(error.to_string()))
+                } else {
+                    let path = question_reply_path(&self.routes, &self.session_id, &request_id);
+                    let body = question_answers_body(&option_id);
+                    self.http
+                        .post_no_content(&path, &body)
+                        .await
+                        .map(|_| ())
+                        .map_err(|error| AgentActionError::NotFound(error.to_string()))
+                }
             }
         };
         if result.is_err() {

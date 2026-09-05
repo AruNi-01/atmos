@@ -856,6 +856,8 @@ pub struct PendingPermission {
     pub content_markdown: Option<String>,
     #[serde(default)]
     pub options: Vec<agent::AgentPermissionOption>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub questions: Vec<agent::AgentAskQuestion>,
     pub status: String,
 }
 

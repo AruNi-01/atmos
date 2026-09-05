@@ -649,7 +649,7 @@ mod tests {
         assert!(kinds.contains(&AgentToolKind::Edit));
         assert!(kinds.contains(&AgentToolKind::WebSearch));
         assert!(kinds.contains(&AgentToolKind::Fetch));
-        assert!(kinds.contains(&AgentToolKind::Other));
+        assert!(kinds.contains(&AgentToolKind::McpCall));
         assert!(!events.iter().any(|event| matches!(
             event,
             AgentEvent::UserMessage { .. } | AgentEvent::TurnStarted { .. }

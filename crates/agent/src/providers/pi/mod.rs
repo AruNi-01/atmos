@@ -378,7 +378,13 @@ impl PiCommands {
             .ok_or_else(|| AgentActionError::NotFound(request_id.clone()))?;
         let body = match kind {
             ExtensionUiKind::Confirm => cmd_ui_confirmed(&request_id, confirm_allowed(&option_id)),
-            ExtensionUiKind::Select => cmd_ui_value(&request_id, &option_id),
+            ExtensionUiKind::Select => {
+                let value = crate::map::labels_from_ask_option_id(&option_id)
+                    .into_iter()
+                    .next()
+                    .unwrap_or(option_id.clone());
+                cmd_ui_value(&request_id, &value)
+            }
             ExtensionUiKind::Input | ExtensionUiKind::Editor => {
                 if confirm_allowed(&option_id) && option_id.eq_ignore_ascii_case("allow") {
                     cmd_ui_value(&request_id, "")

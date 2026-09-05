@@ -1,0 +1,21 @@
+{
+  "toolCallId": "tool_cursor_todos",
+  "title": "Update TODOs: Glob 搜索, Write 写入 tmp",
+  "kind": "other",
+  "status": "completed",
+  "rawInput": {
+    "_toolName": "updateTodos",
+    "todos": [
+      {
+        "id": "1",
+        "content": "Glob 搜索",
+        "status": "TODO_STATUS_COMPLETED"
+      },
+      {
+        "id": "2",
+        "content": "Write 写入 tmp",
+        "status": "TODO_STATUS_IN_PROGRESS"
+      }
+    ]
+  }
+}

@@ -1,19 +1,25 @@
 //! Server-request approvals → Atmos permission chrome, and option_id → wire result.
 
-use serde_json::{json, Value};
+use serde_json::{json, Map, Value};
 
 use crate::contract::{AgentPermissionOption, AgentPermissionRequest};
+use crate::map::{ask_questions_from_input, is_ask_reject_option, labels_from_ask_option_id};
 
 const MAX_MARKDOWN: usize = 16 * 1024;
+const METHOD_REQUEST_USER_INPUT: &str = "item/tool/requestUserInput";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ApprovalDialect {
     Decision,
     Permissions,
+    /// Plan-mode Ask: experimental `item/tool/requestUserInput` (`request_user_input` tool).
+    UserInput,
 }
 
 pub fn dialect_for_method(method: &str) -> Option<ApprovalDialect> {
-    if method == "item/permissions/requestApproval" {
+    if method == METHOD_REQUEST_USER_INPUT {
+        Some(ApprovalDialect::UserInput)
+    } else if method == "item/permissions/requestApproval" {
         Some(ApprovalDialect::Permissions)
     } else if method.ends_with("/requestApproval")
         && (method.contains("commandExecution") || method.contains("fileChange"))
@@ -30,17 +36,33 @@ pub fn permission_request(
     params: &Value,
 ) -> AgentPermissionRequest {
     let (tool, description, content_markdown) = card_copy(method, params);
+    let mut questions = ask_questions_from_input(params);
+    if dialect_for_method(method) == Some(ApprovalDialect::UserInput) {
+        // ApprovalCard options are label-only; fold Codex option descriptions into
+        // the displayed choice so Plan-mode copy is visible. Submit path strips
+        // back to the wire `label`.
+        enrich_user_input_option_labels(params, &mut questions);
+    }
     AgentPermissionRequest {
         request_id,
         tool,
         description,
         content_markdown,
         options: permission_options(method, params),
+        questions,
     }
 }
 
 pub fn permission_options(method: &str, params: &Value) -> Vec<AgentPermissionOption> {
     let dialect = dialect_for_method(method).unwrap_or(ApprovalDialect::Decision);
+    if dialect == ApprovalDialect::UserInput {
+        // ApprovalCard questions variant uses Continue/Skip; option_ids still
+        // matter for cancel / auto-respond paths.
+        return vec![
+            option("accept", "Continue", "allow_once"),
+            option("decline", "Skip", "reject_once"),
+        ];
+    }
     let wanted = available_decisions(params);
     let mut all = match dialect {
         ApprovalDialect::Decision => vec![
@@ -55,6 +77,7 @@ pub fn permission_options(method: &str, params: &Value) -> Vec<AgentPermissionOp
             option("decline", "Decline", "reject_once"),
             option("cancel", "Cancel", "reject_once"),
         ],
+        ApprovalDialect::UserInput => unreachable!(),
     };
     // 0.152.1 CommandExecutionApprovalDecision also has object variants.
     // Only surface the execpolicy one when the server proposed an amendment.
@@ -79,6 +102,7 @@ pub fn permission_options(method: &str, params: &Value) -> Vec<AgentPermissionOp
 pub fn result_json(method: &str, option_id: &str, params: &Value) -> Value {
     match dialect_for_method(method) {
         Some(ApprovalDialect::Permissions) => permissions_result(option_id, params),
+        Some(ApprovalDialect::UserInput) => user_input_result(option_id, params),
         Some(ApprovalDialect::Decision) | None => decision_result(option_id, params),
     }
 }
@@ -86,7 +110,164 @@ pub fn result_json(method: &str, option_id: &str, params: &Value) -> Value {
 pub fn cancel_result(method: &str, _params: &Value) -> Value {
     match dialect_for_method(method) {
         Some(ApprovalDialect::Permissions) => json!({ "scope": "turn", "permissions": {} }),
+        // Plan docs: empty answers → continue with best judgment (not a hard fail).
+        Some(ApprovalDialect::UserInput) => json!({ "answers": {} }),
         Some(ApprovalDialect::Decision) | None => json!({ "decision": "cancel" }),
+    }
+}
+
+fn user_input_result(option_id: &str, params: &Value) -> Value {
+    // Skip / decline / cancel / bare Continue → empty answers (Plan docs: continue
+    // with best judgment when the tool returns no answers).
+    if is_ask_reject_option(option_id)
+        || matches!(
+            option_id,
+            "decline" | "cancel" | "accept" | "acceptForSession"
+        )
+    {
+        return json!({ "answers": {} });
+    }
+
+    let questions = ask_questions_from_input(params);
+    let mut by_id: Map<String, Value> = Map::new();
+    if let Some(raw) = option_id.strip_prefix("answers:") {
+        if let Ok(Value::Object(map)) = serde_json::from_str::<Value>(raw) {
+            by_id = map;
+        }
+    } else {
+        let labels = labels_from_ask_option_id(option_id);
+        if let Some(first) = questions.first() {
+            if let Some(label) = labels.first() {
+                by_id.insert(first.id.clone(), Value::String(label.clone()));
+            }
+        }
+    }
+
+    let mut answers = Map::new();
+    for question in &questions {
+        let Some(answer) = by_id
+            .get(&question.id)
+            .cloned()
+            .or_else(|| by_id.get(&question.prompt).cloned())
+        else {
+            continue;
+        };
+        let labels: Vec<String> = answer_labels(&answer)
+            .into_iter()
+            .map(|label| wire_label_for_answer(params, &question.id, &label))
+            .filter(|label| !label.is_empty())
+            .collect();
+        if labels.is_empty() {
+            continue;
+        }
+        answers.insert(question.id.clone(), json!({ "answers": labels }));
+    }
+
+    json!({ "answers": answers })
+}
+
+fn enrich_user_input_option_labels(
+    params: &Value,
+    questions: &mut [crate::contract::AgentAskQuestion],
+) {
+    let Some(raw_questions) = params.get("questions").and_then(Value::as_array) else {
+        return;
+    };
+    for question in questions.iter_mut() {
+        let Some(raw) = raw_questions
+            .iter()
+            .find(|item| item.get("id").and_then(Value::as_str) == Some(question.id.as_str()))
+        else {
+            continue;
+        };
+        let Some(choices) = raw.get("options").and_then(Value::as_array) else {
+            continue;
+        };
+        question.options = choices
+            .iter()
+            .filter_map(|choice| {
+                let label = choice
+                    .get("label")
+                    .and_then(Value::as_str)
+                    .map(str::trim)
+                    .filter(|text| !text.is_empty())?;
+                let description = choice
+                    .get("description")
+                    .and_then(Value::as_str)
+                    .map(str::trim)
+                    .filter(|text| !text.is_empty() && *text != label);
+                Some(match description {
+                    Some(description) => format!("{label} — {description}"),
+                    None => label.to_string(),
+                })
+            })
+            .collect();
+    }
+}
+
+fn wire_label_for_answer(params: &Value, question_id: &str, answered: &str) -> String {
+    let answered = answered.trim();
+    if answered.is_empty() {
+        return String::new();
+    }
+    let Some(raw_questions) = params.get("questions").and_then(Value::as_array) else {
+        return answered.to_string();
+    };
+    let Some(raw) = raw_questions
+        .iter()
+        .find(|item| item.get("id").and_then(Value::as_str) == Some(question_id))
+    else {
+        return answered.to_string();
+    };
+    let Some(choices) = raw.get("options").and_then(Value::as_array) else {
+        return answered.to_string();
+    };
+    for choice in choices {
+        let Some(label) = choice
+            .get("label")
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|text| !text.is_empty())
+        else {
+            continue;
+        };
+        if answered == label {
+            return label.to_string();
+        }
+        let description = choice
+            .get("description")
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|text| !text.is_empty());
+        if let Some(description) = description {
+            let folded = format!("{label} — {description}");
+            if answered == folded {
+                return label.to_string();
+            }
+        }
+    }
+    // Free-form / "Other" answers pass through unchanged.
+    answered.to_string()
+}
+
+fn answer_labels(value: &Value) -> Vec<String> {
+    match value {
+        Value::String(text) => {
+            let text = text.trim();
+            if text.is_empty() {
+                Vec::new()
+            } else {
+                vec![text.to_string()]
+            }
+        }
+        Value::Array(items) => items
+            .iter()
+            .filter_map(Value::as_str)
+            .map(str::trim)
+            .filter(|text| !text.is_empty())
+            .map(str::to_string)
+            .collect(),
+        _ => Vec::new(),
     }
 }
 
@@ -144,6 +325,23 @@ fn available_decisions(params: &Value) -> Vec<String> {
 }
 
 fn card_copy(method: &str, params: &Value) -> (String, String, Option<String>) {
+    if method == METHOD_REQUEST_USER_INPUT {
+        let questions = ask_questions_from_input(params);
+        let description = if questions.is_empty() {
+            "Question".into()
+        } else {
+            questions
+                .iter()
+                .map(|question| question.prompt.as_str())
+                .collect::<Vec<_>>()
+                .join(" · ")
+        };
+        return (
+            "request_user_input".into(),
+            description,
+            user_input_option_markdown(params),
+        );
+    }
     if method.contains("commandExecution") {
         let kind = params
             .get("kind")
@@ -209,6 +407,55 @@ fn card_copy(method: &str, params: &Value) -> (String, String, Option<String>) {
     )
 }
 
+/// When Codex options carry `description`, surface them as markdown so ApprovalCard
+/// (label-only options) still shows the full Plan-mode copy.
+fn user_input_option_markdown(params: &Value) -> Option<String> {
+    let questions = params.get("questions").and_then(Value::as_array)?;
+    let mut lines: Vec<String> = Vec::new();
+    for question in questions {
+        let prompt = question
+            .get("question")
+            .or_else(|| question.get("header"))
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|text| !text.is_empty());
+        let Some(choices) = question.get("options").and_then(Value::as_array) else {
+            continue;
+        };
+        let mut described = false;
+        let mut block = Vec::new();
+        for choice in choices {
+            let label = choice
+                .get("label")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|text| !text.is_empty());
+            let Some(label) = label else { continue };
+            let description = choice
+                .get("description")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|text| !text.is_empty());
+            if let Some(description) = description {
+                described = true;
+                block.push(format!("- **{label}**: {description}"));
+            } else {
+                block.push(format!("- {label}"));
+            }
+        }
+        if !described {
+            continue;
+        }
+        if let Some(prompt) = prompt {
+            lines.push(format!("### {prompt}"));
+        }
+        lines.extend(block);
+        lines.push(String::new());
+    }
+    let text = lines.join("\n").trim().to_string();
+    cap_markdown((!text.is_empty()).then_some(text))
+}
+
 fn first_change_path(params: &Value) -> Option<String> {
     params
         .get("changes")
@@ -255,6 +502,21 @@ mod tests {
         let line = include_str!("testdata/request-approval.jsonl")
             .lines()
             .nth(index)
+            .expect("fixture line");
+        let value: Value = serde_json::from_str(line).expect("json");
+        let method = value
+            .get("method")
+            .and_then(Value::as_str)
+            .expect("method")
+            .to_string();
+        let params = value.get("params").cloned().unwrap_or(Value::Null);
+        (method, params)
+    }
+
+    fn user_input_fixture() -> (String, Value) {
+        let line = include_str!("testdata/request-user-input.jsonl")
+            .lines()
+            .next()
             .expect("fixture line");
         let value: Value = serde_json::from_str(line).expect("json");
         let method = value
@@ -363,5 +625,78 @@ mod tests {
             r#"{"id":65,"result":{"decision":{"acceptWithExecpolicyAmendment":{"execpolicy_amendment":["prefix:git"]}}}}"#
         );
         assert!(!line.contains("jsonrpc"));
+    }
+
+    #[test]
+    fn asks_and_plan_fields_pass_through_on_permissions_request() {
+        let params = json!({
+            "reason": "Need a choice",
+            "questions": [
+                {"question": "Color?", "options": [{"label": "Blue"}, {"label": "Red"}]}
+            ]
+        });
+        let request = permission_request("70".into(), "item/permissions/requestApproval", &params);
+        assert_eq!(request.questions.len(), 1);
+        assert_eq!(request.questions[0].prompt, "Color?");
+        assert_eq!(request.questions[0].options, ["Blue", "Red"]);
+    }
+
+    #[test]
+    fn request_user_input_maps_questions_and_answer_payload() {
+        let (method, params) = user_input_fixture();
+        assert_eq!(
+            dialect_for_method(&method),
+            Some(ApprovalDialect::UserInput)
+        );
+        let request = permission_request("81".into(), &method, &params);
+        assert_eq!(request.tool, "request_user_input");
+        assert_eq!(request.questions.len(), 3);
+        assert_eq!(request.questions[0].id, "q1");
+        assert_eq!(
+            request.questions[0].prompt,
+            "你现在最想让我帮你处理哪类事情？"
+        );
+        assert_eq!(
+            request.questions[0].options,
+            [
+                "写代码 — 一起实现功能、修复问题或优化项目。",
+                "学习探索 — 解释概念、研究资料或制定学习路线。",
+                "内容创作 — 撰写、修改或构思各类内容。"
+            ]
+        );
+        assert!(request
+            .content_markdown
+            .as_deref()
+            .unwrap_or("")
+            .contains("一起实现功能"));
+        let ids: Vec<_> = request
+            .options
+            .iter()
+            .map(|o| o.option_id.as_str())
+            .collect();
+        assert_eq!(ids, ["accept", "decline"]);
+
+        let accepted = result_json(
+            &method,
+            r#"answers:{"q1":"写代码 — 一起实现功能、修复问题或优化项目。","q2":"今天 — 立刻推进。","q3":"简短 — 要点即可。"}"#,
+            &params,
+        );
+        assert_eq!(
+            accepted,
+            json!({
+                "answers": {
+                    "q1": { "answers": ["写代码"] },
+                    "q2": { "answers": ["今天"] },
+                    "q3": { "answers": ["简短"] }
+                }
+            })
+        );
+        let line = encode_result(&RpcId::Number(81), accepted);
+        assert!(!line.contains("jsonrpc"));
+        assert!(line.contains(r#""q1":{"answers":["写代码"]}"#));
+
+        let skipped = result_json(&method, "reject_once", &params);
+        assert_eq!(skipped, json!({ "answers": {} }));
+        assert_eq!(cancel_result(&method, &params), json!({ "answers": {} }));
     }
 }

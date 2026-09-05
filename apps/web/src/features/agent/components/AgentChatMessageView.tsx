@@ -10,6 +10,7 @@ import {
   composerFileUrlFromPath,
   composerFilesFromAttachmentParts,
 } from "@/features/agent/lib/agent-composer-attachment";
+import { shouldShowAssistantTurnEndedChrome } from "@/features/agent/lib/chat-helpers";
 import { getRuntimeApiConfig, httpBase } from "@/shared/lib/desktop-runtime";
 import { MessageCopyButton } from "./CopyButtons";
 import { AssistantMessageView } from "./AssistantMessageView";
@@ -116,7 +117,7 @@ export const AgentChatMessageView = React.memo(function AgentChatMessageView({
           <Message from="assistant">
             <MessageContent>
               <AssistantMessageView message={message} />
-              {!message.streaming && (assistantText || (message.worked_ms != null && message.worked_ms > 0) || message.usage) ? (
+              {shouldShowAssistantTurnEndedChrome(message, assistantText) ? (
                 <div className="mt-2 flex items-center gap-2">
                   {assistantText ? (
                     <MessageCopyButton
@@ -127,7 +128,7 @@ export const AgentChatMessageView = React.memo(function AgentChatMessageView({
                     />
                   ) : null}
                   {message.usage ? <MessageTurnUsageBadge usage={message.usage} /> : null}
-                  {message.worked_ms != null && message.worked_ms > 0 ? (
+                  {message.completed_at && message.worked_ms != null && message.worked_ms > 0 ? (
                     <AgentWorkedForLabel
                       reveal="timestamp"
                       workedMs={message.worked_ms}
@@ -138,7 +139,10 @@ export const AgentChatMessageView = React.memo(function AgentChatMessageView({
               ) : null}
             </MessageContent>
           </Message>
-          <AssistantTurnFileChanges parts={message.parts} visible={!message.streaming} />
+          <AssistantTurnFileChanges
+            parts={message.parts}
+            visible={shouldShowAssistantTurnEndedChrome(message, assistantText)}
+          />
         </>
       )}
     </div>
