@@ -5,7 +5,9 @@ import {
   AGENT_CHAT_ASSISTANT_MERMAID_ROW_ESTIMATE,
   AGENT_CHAT_ASSISTANT_ROW_ESTIMATE,
   AGENT_CHAT_MERMAID_KEEPALIVE,
+  AGENT_CHAT_OVERLAY_PAD_SHRINK_MS,
   AGENT_CHAT_SCROLL_CLASS,
+  AGENT_CHAT_TRANSCRIPT_BASE_BOTTOM_PAD_PX,
   AGENT_CHAT_TRANSCRIPT_GAP,
   AGENT_CHAT_TRANSCRIPT_OVERSCAN,
   AGENT_CHAT_USER_ROW_ESTIMATE,
@@ -15,6 +17,8 @@ import {
   estimateTranscriptTotalSize,
   measureTranscriptScrollMargin,
   mergeMermaidKeepAliveRange,
+  transcriptBottomPadPx,
+  transcriptBottomPadStyle,
 } from "@/features/agent/lib/agent-chat-transcript-window";
 
 describe("estimateAgentChatMessageSize", () => {
@@ -28,6 +32,23 @@ describe("estimateAgentChatMessageSize", () => {
     expect(AGENT_CHAT_ASSISTANT_ROW_ESTIMATE).toBeLessThan(
       AGENT_CHAT_ASSISTANT_MERMAID_ROW_ESTIMATE,
     );
+  });
+});
+
+describe("transcriptBottomPadPx", () => {
+  it("adds measured above-composer overlay height to the base spacer", () => {
+    expect(transcriptBottomPadPx(0)).toBe(AGENT_CHAT_TRANSCRIPT_BASE_BOTTOM_PAD_PX);
+    expect(transcriptBottomPadPx(120)).toBe(AGENT_CHAT_TRANSCRIPT_BASE_BOTTOM_PAD_PX + 120);
+    expect(transcriptBottomPadPx(-8)).toBe(AGENT_CHAT_TRANSCRIPT_BASE_BOTTOM_PAD_PX);
+    expect(transcriptBottomPadPx(12.6)).toBe(AGENT_CHAT_TRANSCRIPT_BASE_BOTTOM_PAD_PX + 13);
+  });
+
+  it("eases spacer height only when the overlay is shrinking", () => {
+    const shrinking = transcriptBottomPadStyle(40, true, false);
+    expect(shrinking.transitionDuration).toBe(`${AGENT_CHAT_OVERLAY_PAD_SHRINK_MS}ms`);
+    expect(transcriptBottomPadStyle(180, false, false).transitionDuration).toBe("0ms");
+    expect(transcriptBottomPadStyle(40, true, true).transitionDuration).toBe("0ms");
+    expect(AGENT_CHAT_OVERLAY_PAD_SHRINK_MS).toBe(350);
   });
 });
 
@@ -89,6 +110,8 @@ describe("transcript virtual list wiring", () => {
     expect(panel).toContain("scrollToIndexRef");
     expect(panel).toContain(`scrollClassName={AGENT_CHAT_SCROLL_CLASS}`);
     expect(panel).toContain('resize={isRestoringTranscript ? "instant" : "smooth"}');
+    expect(panel).toContain("transcriptBottomPadStyle");
+    expect(panel).toContain("overlayPadShrinking");
     expect(panel).not.toContain("shouldMountTranscriptMessage");
     expect(panel).not.toContain("useProgressiveTranscriptHydration");
     expect(panel).not.toContain("hydratedTail");
@@ -104,8 +127,12 @@ describe("transcript virtual list wiring", () => {
     expect(list).toContain("mergeMermaidKeepAliveRange");
     expect(list).toContain("mermaidFlags[index] === true");
     expect(list).toContain("findAgentChatScrollElement");
+    expect(list).toContain("activityStatus");
+    expect(list).toContain("showActivityFooter");
     expect(list).not.toContain("useStickToBottomContext()");
     expect(list).not.toContain('from "use-stick-to-bottom"');
+    expect(panel).toContain("activityStatus=");
+    expect(panel).toContain("<AgentActivityIndicator");
     expect(AGENT_CHAT_TRANSCRIPT_OVERSCAN).toBeGreaterThan(0);
     expect(AGENT_CHAT_SCROLL_CLASS).toBe("agent-chat-scroll");
 

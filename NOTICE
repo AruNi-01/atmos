@@ -274,6 +274,31 @@ Notes:    Free-tier copy-paste UI component (React + CSS Module), vendored
           No external runtime dependency beyond the vendored source.
 
 -------------------------------------------------------------------------------
+8b. AIcss Approval Card
+-------------------------------------------------------------------------------
+
+Source:   https://www.aicss.dev/components/approval-card
+Location: packages/ui/src/components/ui/approval-card.tsx
+          packages/ui/src/components/ui/approval-card.module.css
+Author:   Kevin (@kvnkld) / AIcss
+Notes:    Free-tier copy-paste UI component (React + CSS Module), vendored
+          and lightly adapted for Atmos theme (html.dark). Variants:
+          questions / command / plan. No external runtime dependency beyond
+          the vendored source (lucide-react already in @workspace/ui).
+
+-------------------------------------------------------------------------------
+8c. beUI Image Generation
+-------------------------------------------------------------------------------
+
+Source:   https://beui.dev/components/agents/image-generation
+Location: packages/ui/src/components/ui/image-generation.tsx
+Author:   Saurabh / beUI
+Notes:    Free-tier copy-paste UI component (React + motion), vendored and
+          adapted for @workspace/ui import paths. Used by Agent Chat image_gen
+          tool cards. AIcss ImageGenerationCanvas (canvas-only placeholder)
+          remains in the same file for Token Usage share capture.
+
+-------------------------------------------------------------------------------
 9. Great UI Github Card (adapted)
 -------------------------------------------------------------------------------
 

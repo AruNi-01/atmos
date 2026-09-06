@@ -23,6 +23,7 @@ describe("locked session config", () => {
     expect(promptInput).toContain('if (next === "model" && modelsLocked) return');
     expect(promptInput).toContain("disabled={modelsLocked}");
     expect(promptInput).toContain("disabled={disabled || loading || modesLocked}");
+    expect(promptInput).toContain("disabled={disabled || loading || permissionModesLocked}");
   });
 });
 
@@ -33,8 +34,18 @@ describe("mode picker", () => {
     const selectFn = promptInput.slice(start, end);
     expect(selectFn).toContain("MorphPopover");
     expect(selectFn).toContain("ConfigFlyoutList");
+    expect(selectFn).toContain("showSearch={showSearch}");
+    expect(selectFn).toContain("options.length > 15");
     expect(selectFn).not.toContain("<Select");
     expect(selectFn).not.toContain("SelectTrigger");
+  });
+});
+
+describe("permission picker", () => {
+  it("reuses PromptOptionSelect instead of a second popover", () => {
+    expect(promptInput).toContain("permissionModes.length");
+    expect(promptInput).toContain("onPermissionModeChange");
+    expect(promptInput).toContain("disabled={disabled || loading || permissionModesLocked}");
   });
 });
 
@@ -131,10 +142,19 @@ describe("agentConfigTriggerText", () => {
   });
 });
 
+describe("S2 thinking control visibility", () => {
+  it("shows the effort slider only when there are at least two levels", () => {
+    expect(promptInput).toContain("thinkingLevels.length > 1");
+    expect(promptInput).toContain("function ThinkingSliderPanel");
+    expect(promptInput).toContain('variant="effort"');
+  });
+});
+
 describe("PromptAgentConfigMenu", () => {
-  it("keeps agent, model, and thinking in one hover flyout instead of paged selects", () => {
+  it("keeps agent and model in a hover flyout and effort as an inline slider", () => {
     expect(promptInput).toContain("function PromptAgentConfigMenu");
     expect(promptInput).toContain("function ThinkingSliderPanel");
+    expect(promptInput).not.toContain('flyout === "thinking"');
     expect(promptInput).toContain("openFlyout");
     expect(promptInput).toContain("{flyout ? (");
     expect(promptInput).toContain("clip={false}");
@@ -147,5 +167,20 @@ describe("PromptAgentConfigMenu", () => {
   it("searches models only, never agents", () => {
     expect(promptInput).toContain("searchPlaceholder={labels.searchModels}");
     expect(promptInput).not.toContain("searchPlaceholder={labels.searchAgents}");
+  });
+
+  it("renders PromptModel.trailing immediately after the option label", () => {
+    expect(promptInput).toContain("trailing?: ReactNode");
+    expect(promptInput).toContain("option.trailing");
+    expect(promptInput).toContain(
+      "Chip shown immediately after the option label (e.g. Native / ACP).",
+    );
+  });
+});
+
+describe("footerTrailing slot", () => {
+  it("keeps a footer slot before submit for host controls such as context usage", () => {
+    expect(promptInput).toContain("footerTrailing?: ReactNode");
+    expect(promptInput).toContain("{footerTrailing}");
   });
 });

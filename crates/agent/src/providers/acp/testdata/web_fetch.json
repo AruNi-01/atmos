@@ -1,0 +1,6 @@
+{
+  "tool_call_id": "tc_fetch",
+  "name": "WebFetch",
+  "raw_input": { "url": "https://example.com/page" },
+  "raw_output": { "title": "Example", "markdown": "# Hello" }
+}

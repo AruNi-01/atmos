@@ -2,7 +2,8 @@
 
 import { useState, type MouseEvent, type PointerEvent } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { Github, Star } from 'lucide-react'
+import { Star } from 'lucide-react'
+import { Github } from '@workspace/ui/components/icons/lucide-brand-icons'
 
 import { cn } from '@/lib/utils'
 import { headerActionSurfaceClass } from '@/components/ui/header-action'

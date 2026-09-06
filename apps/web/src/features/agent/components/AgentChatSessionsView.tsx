@@ -30,7 +30,9 @@ import { AgentIcon } from "@/features/agent/components/AgentIcon";
 import {
   useAgentRegistryListQuery,
   useCustomAgentListQuery,
+  useNativeChatAgentListQuery,
 } from "@/features/agent/hooks/use-agent-registry-query";
+import { customAgentDisplayName, customAgentIsEnabled } from "@/features/agent/lib/custom-agent-registry";
 import { useProjects } from "@/features/project/hooks/use-project-bootstrap-query";
 import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
 import { useAppRouter } from "@/shared/hooks/use-app-router";
@@ -106,6 +108,7 @@ export const AgentChatSessionsView: React.FC<AgentChatSessionsViewProps> = ({
 
   const registryQuery = useAgentRegistryListQuery();
   const customQuery = useCustomAgentListQuery();
+  const nativeQuery = useNativeChatAgentListQuery();
   const projects = useProjects();
   const wsConnected = useWebSocketStore((state) => state.connectionState === "connected");
   const defaultedWorkspaceProjectIdRef = useRef<string | null>(null);
@@ -119,15 +122,28 @@ export const AgentChatSessionsView: React.FC<AgentChatSessionsViewProps> = ({
         icon: agent.icon,
         isCustom: agent.install_method === "custom",
       }));
-    const custom = (customQuery.data?.agents ?? []).map((agent) => ({
-      id: agent.name,
-      name: agent.name,
-      icon: null,
-      isCustom: true,
-    }));
-    return [...installed, ...custom];
-  }, [customQuery.data?.agents, registryQuery.data?.agents]);
-  const isLoadingAgents = registryQuery.isLoading || customQuery.isLoading;
+    const custom = (customQuery.data?.agents ?? [])
+      .filter(customAgentIsEnabled)
+      .map((agent) => ({
+        id: agent.name,
+        name: customAgentDisplayName(agent),
+        icon: null,
+        isCustom: true,
+      }));
+    const native = (nativeQuery.data?.agents ?? [])
+      .filter((agent) => agent.enabled)
+      .map((agent) => ({
+        id: agent.id,
+        name: agent.name,
+        icon: null,
+        isCustom: false,
+      }));
+    const merged = [...installed, ...custom, ...native];
+    return merged.filter(
+      (agent, index) => merged.findIndex((item) => item.id === agent.id) === index,
+    );
+  }, [customQuery.data?.agents, nativeQuery.data?.agents, registryQuery.data?.agents]);
+  const isLoadingAgents = registryQuery.isLoading || customQuery.isLoading || nativeQuery.isLoading;
 
   const sessionContextOptions = useMemo<SessionContextOption[]>(() => {
     const options: SessionContextOption[] = [

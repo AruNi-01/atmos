@@ -27,11 +27,11 @@ import {
   CircleDot,
   GitBranch,
   GitPullRequestArrow,
-  Github,
   Loader2,
   LoaderCircle,
   RotateCw,
-} from 'lucide-react';
+} from "lucide-react";
+import { Github } from "@workspace/ui/components/icons/lucide-brand-icons";
 import type { WorkspaceLabel, WorkspacePriority, WorkspaceWorkflowStatus } from '@/shared/types/domain';
 import type {
   ProjectOption,

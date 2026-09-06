@@ -1,0 +1,5 @@
+{"_probe": "cursor-agent acp 2026.09.02", "_note": "No sessionUpdate=usage_update and no prompt result.usage across init+session/new+tool read turn.", "_sessionUpdates": {"session_info_update": 1, "available_commands_update": 1, "agent_thought_chunk": 5, "tool_call": 1, "tool_call_update": 3, "agent_message_chunk": 5}}
+{"jsonrpc":"2.0","method":"session/update","params":{"sessionId":"\u2026","update":{"sessionUpdate":"tool_call","status":"pending","title":"Read File"}}}
+{"jsonrpc":"2.0","method":"session/update","params":{"sessionId":"\u2026","update":{"sessionUpdate":"tool_call_update","status":null,"title":"Read /tmp/cursor-acp-workdir/hello.txt"}}}
+{"jsonrpc":"2.0","method":"session/update","params":{"sessionId":"\u2026","update":{"sessionUpdate":"tool_call_update","status":"completed","title":null}}}
+{"jsonrpc":"2.0","id":3,"result":{"stopReason":"end_turn"}}

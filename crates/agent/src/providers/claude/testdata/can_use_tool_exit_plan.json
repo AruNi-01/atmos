@@ -1,0 +1,13 @@
+{
+  "type": "control_request",
+  "request_id": "req_exit_plan",
+  "request": {
+    "subtype": "can_use_tool",
+    "tool_name": "ExitPlanMode",
+    "input": {
+      "plan": "# Rollout\n\n1. Ship the feature\n2. Verify in staging",
+      "planFilePath": "/tmp/claude/plans/plan.md"
+    },
+    "tool_use_id": "tu_exit_plan"
+  }
+}

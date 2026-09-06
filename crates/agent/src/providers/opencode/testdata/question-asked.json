@@ -1,0 +1,20 @@
+{
+  "id": "que_1",
+  "sessionID": "ses_x",
+  "questions": [
+    {
+      "question": "Pick a color",
+      "header": "Color",
+      "options": [
+        { "label": "Blue", "description": "Sky" },
+        { "label": "Red", "description": "Stop" }
+      ],
+      "multiple": false,
+      "custom": false
+    }
+  ],
+  "tool": {
+    "messageID": "msg_a",
+    "callID": "call_q"
+  }
+}

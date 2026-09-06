@@ -24,7 +24,7 @@
 
 ## Verdict
 
-Host/WS/file path for a Conversation workspace is real: Atmos ids, file SOT, restore-without-spawn, main `/ws` `conversation_*`, catalog worker with production `StdioAcpCatalogProbe`, Queue/Stop, old dedicated `/ws/agent` handler and REST session CRUD removed on the server.
+Host/WS/file path for a Conversation workspace is real: Atmos ids, file SOT, restore-without-spawn, main `/ws` `conversation_*`, catalog worker with production `StdioAcpOptionsProbe`, Queue/Stop, old dedicated `/ws/agent` handler and REST session CRUD removed on the server.
 
 A second cross-review at `732d19e12` (after ACP crate 2.0 + REV-001..017) found a **P0**: Stop could not interrupt a live ACP `session/prompt`. Those residuals (REV-018..028) were implemented: cancel runs during prompt, `stop_reason` maps to canceled, Steer is shown closed when unsupported, attachments become ACP resource links, live tools fold, and subscribe no longer duplicates deltas.
 
@@ -309,7 +309,7 @@ Extract `apply_event` / snapshot flush and queue dispatch from `AgentChatService
 
 ### Finding
 
-TECH: `terminal_agent_model_catalog` becomes a facade over `crates/agent` catalog so Chat and Terminal do not grow a second parser zoo. `automation/agents.rs` still has its own TTL cache and `probe_terminal_agent_model_catalog`. Chat prefetch uses `CatalogEngine` separately.
+TECH: `terminal_agent_options` becomes a facade over `crates/agent` options so Chat and Terminal do not grow a second parser zoo. `automation/agents.rs` still has its own TTL cache and `probe_terminal_agent_options`. Chat prefetch uses `OptionsProbe` separately.
 
 ### Evidence
 
@@ -319,11 +319,11 @@ TECH: `terminal_agent_model_catalog` becomes a facade over `crates/agent` catalo
 
 ### Required fix
 
-Route APP-024 catalog get through `CatalogEngine` / `CatalogCache` (shape-map at the WS boundary if the Terminal DTO must stay).
+Route APP-024 catalog get through `OptionsProbe` / `OptionsCache` (shape-map at the WS boundary if the Terminal DTO must stay).
 
 ### Acceptance
 
-- [ ] One probe path for a given agent_id; Chat prefetch and Terminal picker share disk cache under `~/.atmos/data/agent/model_catalog/`.
+- [ ] One probe path for a given agent_id; Chat prefetch and Terminal picker share disk cache under `~/.atmos/data/agent/options/`.
 
 ### Fix log
 
@@ -631,21 +631,21 @@ On pump end, complete any in-flight turn as failed/canceled. Use `Closed` when t
 
 ### Finding
 
-TECH: cache-first and instant; picker fills from `agent_model_catalog_updated`; refresh is background-safe. Cache miss / `refresh=true` holds the engine mutex for CLI+ACP on the WS request. Web never listens for `agent_model_catalog_updated` (one-shot `catalogGet`). Prefetch specs mark all builtins `acp: true` and probe serially.
+TECH: cache-first and instant; picker fills from `agent_options_updated`; refresh is background-safe. Cache miss / `refresh=true` holds the engine mutex for CLI+ACP on the WS request. Web never listens for `agent_options_updated` (one-shot `catalogGet`). Prefetch specs mark all builtins `acp: true` and probe serially.
 
 ### Evidence
 
 - `crates/core-service/src/service/conversation/catalog.rs:112-149`, `:233-249`.
 - `apps/web/src/features/agent/components/AgentChatWorkspace.tsx:206-214`.
-- Grep: no web `onEvent("agent_model_catalog_updated")`.
+- Grep: no web `onEvent("agent_options_updated")`.
 
 ### Required fix
 
-Return cache or `probing` immediately; probe in the worker; emit `agent_model_catalog_updated`. UI subscribes. Prefetch only user-enabled Chat agents, concurrency 2.
+Return cache or `probing` immediately; probe in the worker; emit `agent_options_updated`. UI subscribes. Prefetch only user-enabled Chat agents, concurrency 2.
 
 ### Acceptance
 
-- [ ] `agent_model_catalog_get` does not wait on a 15s ACP probe on the request path.
+- [ ] `agent_options_get` does not wait on a 15s ACP probe on the request path.
 - [ ] Picker updates from the event.
 - [ ] Disabled/terminal-only agents are not temp-ACP probed.
 
@@ -1029,7 +1029,7 @@ Distinguish “no filter” from “only null workspace.” Pop-out must pass th
 
 ### Finding
 
-Production worker is constructed with `builtin_catalog_specs()`. `set_specs` is tests-only. Disabled/terminal-only/custom registry agents are not the prefetch set. Unknown `agent_model_catalog_get` can still default `acp: true`.
+Production worker is constructed with `builtin_options_probe_specs()`. `set_specs` is tests-only. Disabled/terminal-only/custom registry agents are not the prefetch set. Unknown `agent_options_get` can still default `acp: true`.
 
 ### Evidence
 

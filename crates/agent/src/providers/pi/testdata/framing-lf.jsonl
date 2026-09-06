@@ -1,0 +1,3 @@
+{"id":"pi-rpc-1","type":"response","command":"get_state","success":true,"data":{"sessionFile":"/tmp/pi-agent/sessions/abc.jsonl"}}
+{"type":"message_update","assistantMessageEvent":{"type":"text_delta","contentIndex":0,"delta":"hello world"}}
+{"type":"agent_settled"}

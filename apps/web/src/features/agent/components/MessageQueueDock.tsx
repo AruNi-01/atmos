@@ -5,6 +5,9 @@ import { useTranslations } from "next-intl";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Button,
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
   ConfirmationAction,
   DndContext,
   DragEndEvent,
@@ -23,7 +26,7 @@ import {
   verticalListSortingStrategy,
   cn,
 } from "@workspace/ui";
-import { GripVertical, Pencil, Trash2 } from "lucide-react";
+import { ChevronDown, GripVertical, ListOrdered, Pencil, Trash2 } from "lucide-react";
 import type { QueuedAgentPrompt } from "@/app-shell/state/use-dialog-store";
 import { queuedPromptEditText } from "@/features/agent/lib/agent-composer-attachment";
 
@@ -164,14 +167,10 @@ function QueueCard({
         >
           <GripVertical className="size-3" />
         </button>
-        <div className={cn("min-w-0 flex-1", isEditing && "px-1.5")}>
+        <div className="min-w-0 flex-1">
           <p
             data-queue-item-editing={isEditing ? "true" : undefined}
-            className={cn(
-              "truncate text-xs text-foreground",
-              isEditing &&
-                "rounded-lg border border-dashed border-info px-2 py-0.5",
-            )}
+            className="truncate text-xs text-foreground"
           >
             {text}
           </p>
@@ -296,6 +295,7 @@ export function MessageQueueDock({
   onMove: (id: string, toIndex: number) => void;
 }) {
   const t = useTranslations("Agent.components");
+  const [isOpen, setIsOpen] = useState(true);
   const [draggingPromptId, setDraggingPromptId] = useState<string | null>(null);
 
   const draggingPrompt = draggingPromptId
@@ -327,55 +327,76 @@ export function MessageQueueDock({
   if (items.length === 0) return null;
 
   return (
-    <div className="bg-muted/20">
-      <div className="flex items-center justify-between border-b border-border/70 px-3 py-1.5">
-        <div className="text-xs font-medium text-foreground/90">{t("messageQueue.title")}</div>
-        <div className="rounded-full bg-background px-2 py-0.5 text-[11px] text-muted-foreground">
-          {items.length}
-        </div>
-      </div>
-      <div className="px-2 py-0.5">
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          modifiers={[restrictToVerticalAxis]}
-          onDragStart={handleDragStart}
-          onDragEnd={handleDragEnd}
-        >
-          <SortableContext
-            items={items.map((item) => item.id)}
-            strategy={verticalListSortingStrategy}
-          >
-            <div className="divide-y divide-border/60">
-              <AnimatePresence initial={false} mode="popLayout">
-                {items.map((item) => (
-                  <SortableQueueCard
-                    key={item.id}
-                    item={item}
-                    isEditing={activeEditingPromptId === item.id}
-                    onToggleEdit={onToggleEdit}
-                    t={t}
-                    onRemove={onRemove}
-                  />
-                ))}
-              </AnimatePresence>
-            </div>
-          </SortableContext>
-          <DragOverlay>
-            {draggingPrompt ? (
-              <div className="w-[min(560px,calc(100vw-96px))]">
-                <QueueCard
-                  item={draggingPrompt}
-                  isDragging
-                  onToggleEdit={NOOP_QUEUE_ACTION}
-                  onRemove={NOOP_QUEUE_ACTION}
-                  t={t}
-                />
-              </div>
-            ) : null}
-          </DragOverlay>
-        </DndContext>
-      </div>
+    <div className="bg-background">
+      <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+        <CollapsibleTrigger asChild>
+          <div className="group flex cursor-pointer items-center gap-2 px-3 py-1.5 hover:bg-muted/10">
+            <span className="relative inline-flex size-4 shrink-0 items-center justify-center text-muted-foreground group-hover:text-foreground">
+              <ListOrdered
+                className="absolute size-4 transition-opacity duration-150 motion-reduce:transition-none group-hover:opacity-0 group-focus-visible:opacity-0"
+                aria-hidden
+              />
+              <ChevronDown
+                className={cn(
+                  "absolute size-4 opacity-0 transition-[opacity,transform] duration-150 motion-reduce:transition-none",
+                  "group-hover:opacity-100 group-focus-visible:opacity-100",
+                  "group-data-[state=closed]:-rotate-90",
+                )}
+                aria-hidden
+              />
+            </span>
+            <span className="text-sm font-medium text-foreground/90">
+              {t("messageQueue.title")}
+            </span>
+            <div className="flex-1" />
+            <span className="mr-1 text-sm text-muted-foreground">{items.length}</span>
+          </div>
+        </CollapsibleTrigger>
+        <CollapsibleContent className="motion-reduce:data-[state=closed]:animate-none motion-reduce:data-[state=open]:animate-none">
+          <div className="px-2 py-0.5">
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              modifiers={[restrictToVerticalAxis]}
+              onDragStart={handleDragStart}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext
+                items={items.map((item) => item.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                <div>
+                  <AnimatePresence initial={false} mode="popLayout">
+                    {items.map((item) => (
+                      <SortableQueueCard
+                        key={item.id}
+                        item={item}
+                        isEditing={activeEditingPromptId === item.id}
+                        onToggleEdit={onToggleEdit}
+                        t={t}
+                        onRemove={onRemove}
+                      />
+                    ))}
+                  </AnimatePresence>
+                </div>
+              </SortableContext>
+              <DragOverlay>
+                {draggingPrompt ? (
+                  <div className="w-[min(560px,calc(100vw-96px))]">
+                    <QueueCard
+                      item={draggingPrompt}
+                      isDragging
+                      onToggleEdit={NOOP_QUEUE_ACTION}
+                      onRemove={NOOP_QUEUE_ACTION}
+                      t={t}
+                    />
+                  </div>
+                ) : null}
+              </DragOverlay>
+            </DndContext>
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
     </div>
   );
 }

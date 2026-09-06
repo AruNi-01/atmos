@@ -13,11 +13,11 @@ import type { ImperativePanelHandle } from "@workspace/ui";
 import { useAppStorage } from "@atmos/shared";
 import {
   AlertTriangle,
-  ChevronLeft,
-  ChevronRight,
   LoaderCircle,
+  PanelLeft,
   RotateCw,
 } from "lucide-react";
+import { panelFoldCursorClass } from "@/shared/lib/panel-fold";
 import { useWikiContext } from "@/features/wiki/store/use-wiki-store";
 import { WikiSidebar } from "./WikiSidebar";
 import { WikiContent } from "./WikiContent";
@@ -217,16 +217,13 @@ export const WikiViewer: React.FC<WikiViewerProps> = ({
             }}
             title={isSidebarCollapsed ? t("expandSidebar") : t("collapseSidebar")}
             className={cn(
-              "absolute z-50 flex size-5 items-center justify-center rounded-full bg-muted border border-border shadow-lg transition-[opacity,transform] duration-200 hover:bg-muted/80 hover:scale-110 opacity-0 group-hover:opacity-100 cursor-pointer",
+              "absolute z-50 flex size-5 items-center justify-center rounded-full bg-muted border border-border shadow-lg transition-[opacity,transform] duration-200 hover:bg-muted/80 hover:scale-110 opacity-0 group-hover:opacity-100",
               "left-1/2 -translate-x-1/2",
+              panelFoldCursorClass("left", isSidebarCollapsed),
               isSidebarCollapsed && "hover:opacity-100! hover:bg-accent!"
             )}
           >
-            {isSidebarCollapsed ? (
-              <ChevronRight className="size-3 text-muted-foreground" />
-            ) : (
-              <ChevronLeft className="size-3 text-muted-foreground" />
-            )}
+            <PanelLeft className="size-3 text-muted-foreground" />
           </button>
         </PanelResizeHandle>
 

@@ -42,6 +42,7 @@ export function AgentChatTranscriptList({
   userMessageIndices,
   onActiveUserMessage,
   scrollToIndexRef,
+  activityStatus = null,
 }: {
   messages: AgentMessage[];
   registryId: string;
@@ -49,6 +50,12 @@ export function AgentChatTranscriptList({
   userMessageIndices: readonly number[];
   onActiveUserMessage: (index: number) => void;
   scrollToIndexRef: RefObject<((index: number) => void) | null>;
+  /**
+   * Rendered in-flow under the latest message (last virtual row footer).
+   * Keeps the status glued to streaming content so absolute-row overflow cannot
+   * paint over a sibling that sits after the virtual list.
+   */
+  activityStatus?: React.ReactNode;
 }) {
   const listRef = useRef<HTMLDivElement | null>(null);
   const mermaidKeepRef = useRef<number[]>([]);
@@ -189,6 +196,8 @@ export function AgentChatTranscriptList({
     };
   }, [getScrollElement]);
 
+  const lastIndex = messages.length - 1;
+
   return (
     <div
       ref={listRef}
@@ -199,6 +208,7 @@ export function AgentChatTranscriptList({
       {virtualItems.map((item) => {
         const message = messages[item.index];
         if (!message) return null;
+        const showActivityFooter = activityStatus != null && item.index === lastIndex;
         return (
           <div
             key={item.key}
@@ -212,8 +222,10 @@ export function AgentChatTranscriptList({
             <AgentChatMessageView
               message={message}
               index={item.index}
-              registryId={registryId}
             />
+            {showActivityFooter ? (
+              <div data-agent-chat-activity-status="">{activityStatus}</div>
+            ) : null}
           </div>
         );
       })}

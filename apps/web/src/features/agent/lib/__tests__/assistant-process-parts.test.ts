@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import {
   hasCollapsibleAssistantProcess,
+  shouldAutoCollapseProcessOnSettle,
   shouldCollapseAssistantProcess,
   splitAssistantProcessParts,
 } from "@/features/agent/lib/assistant-process-parts";
@@ -17,6 +18,7 @@ describe("assistant process collapse", () => {
         name: "Read",
         kind: "read",
         status: "completed",
+        params: { type: "read", path: "a.ts" },
       },
     ];
     const { processParts, answerParts } = splitAssistantProcessParts(parts);
@@ -44,6 +46,11 @@ describe("assistant process collapse", () => {
       true,
       true,
     )).toBe(true);
+  });
+
+  it("skips auto-collapse on settle when the user is inspecting expanded tools", () => {
+    expect(shouldAutoCollapseProcessOnSettle(false)).toBe(true);
+    expect(shouldAutoCollapseProcessOnSettle(true)).toBe(false);
   });
 
   it("collapses process above the answer after the turn has settled", () => {

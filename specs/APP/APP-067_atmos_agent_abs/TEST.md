@@ -57,7 +57,7 @@
 | S15 | Bun | `bun test` | client import/lint guard | web agent-chat module | no ACP schema imports | planned |
 | S16 | Bun + E2E | `bun test`, Playwright | `/agent-chat?chatId=` | existing conversation | same rows; events fan-out | planned |
 | S17 | WS/API | `cargo test -p api` | no `/ws/agent` chat; no REST session list | after rollout step 4 | `agent_chat_*` only; identity not acp_session_id | planned |
-| S18 | Rust + WS | `cargo test` | prefetch worker | first web `/ws`; two enabled agents | worker starts once; catalogs cached; `agent_model_catalog_updated` | planned |
+| S18 | Rust + WS | `cargo test` | prefetch worker | first web `/ws`; two enabled agents | worker starts once; catalogs cached; `agent_options_updated` | planned |
 | S19 | Rust | `cargo test` | 4h cache skip | fresh ok cache | second loop skips probe | planned |
 | S20 | Rust | `cargo test` | strategy merge | fake CLI/config/ACP | CLI ids win; config thinking; temp ACP isolated cwd; no IntervalSpec job | planned |
 
@@ -204,7 +204,7 @@
 - **Level**: Rust + WS
 - **Given**: two user-enabled agents and a first web `/ws`.
 - **When**: the connection registers.
-- **Then**: one prefetch worker starts; both agents are probed or served from cache; `agent_model_catalog_updated` fires; a second web socket does not start a second worker.
+- **Then**: one prefetch worker starts; both agents are probed or served from cache; `agent_options_updated` fires; a second web socket does not start a second worker.
 - **Signals**: worker single-flight; event names; no `IntervalSpec` registration for catalog.
 
 ### S19 — Four-hour cache skips live probe
@@ -212,7 +212,7 @@
 - **Level**: Rust
 - **Given**: an `ok` disk cache younger than 4 hours.
 - **When**: the worker loops.
-- **Then**: that agent is not CLI/ACP probed; `agent_model_catalog_get` returns `source=cache`.
+- **Then**: that agent is not CLI/ACP probed; `agent_options_get` returns `source=cache`.
 - **Signals**: probe call count; cache `fetched_at`.
 
 ### S20 — Catalog strategies merge without leaking ACP into Chat
@@ -221,7 +221,7 @@
 - **Given**: config thinking metadata, CLI model ids, and a temp ACP probe fixture.
 - **When**: catalog merge runs.
 - **Then**: CLI/ACP ids win; thinking comes from config if live list omits it; temp ACP cwd is under `catalog-probe/` and is closed; unsupported thinking is `None`, not invented.
-- **Signals**: `AgentModelCatalog`; probe cwd; process killed.
+- **Signals**: `AgentOptionsSnapshot`; probe cwd; process killed.
 
 ## Performance & load budgets
 
@@ -292,7 +292,7 @@ Implemented 2026-08-28 on `feat/APP-067-agent-chat`.
 | S18–S20 catalog prefetch/cache/merge | same + `cargo test -p agent --lib` | pass (incl. `maps_model_mode_and_thinking_from_config_options`, `with_acp_probe_uses_the_provided_probe_not_noop`) |
 | S2/S5/S12/S15 web | `bun test apps/web/src/app-shell/__tests__/agent-chat-entry-points.test.ts apps/web/src/features/agent/lib/__tests__/{followup-policy,group-agent-chats,no-acp-schema,agent-chat-events}.test.ts` | pass |
 | S17 old transport | `cargo test -p api -- --test-threads=1 s17` | pass (`s17_rest_session_crud_removed`, `s17_dedicated_agent_ws_removed`) |
-| S20 production ACP probe wiring | `cargo test -p api -- --test-threads=1 s20_catalog_engine_uses_temp_acp_probe` | pass (`StdioAcpCatalogProbe` + `CatalogEngine::with_acp_probe`) |
+| S20 production ACP probe wiring | `cargo test -p api -- --test-threads=1 s20_options_probe_uses_temp_acp_probe` | pass (`StdioAcpOptionsProbe` + `OptionsProbe::with_acp_probe`) |
 | S1/S16 Playwright | `E2E_SINGLE_SERVER=0 bun run --cwd e2e test tests/specs/APP-067_atmos-agent-chat.e2e.ts --project=chromium --workers=1` | pass twice (Next dev; S16 sends and both pages show `[data-agent-chat-message]`) |
 | api-types | `bun run --filter @atmos/api-types extract-actions && extract-events && check-actions && check-events && test` | pass (301 actions, 33 events) |
 | clippy | `cargo clippy -p agent -p core-service -p api --offline -- -D warnings` | pass |

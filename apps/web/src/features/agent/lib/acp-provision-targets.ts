@@ -9,8 +9,9 @@ export type AcpProvisionCandidate = {
 /**
  * ACP registry agents that should be provisioned for selected terminal agents.
  *
- * Native agents (official CLI + ACP args) are bound only when the CLI is
- * already on PATH. Adapter agents are downloaded when missing.
+ * Native agents (official CLI + ACP args): bind only when the CLI is already on
+ * PATH. Never download a package that would overwrite an ACP-capable CLI.
+ * Adapter agents: download when missing.
  */
 export function acpProvisionTargets<T extends AcpProvisionCandidate>(
   agents: T[],
@@ -22,6 +23,7 @@ export function acpProvisionTargets<T extends AcpProvisionCandidate>(
       return false;
     }
     if (agent.provision_kind === "native") {
+      // Skip download when CLI already supports ACP (installed=true from PATH).
       return Boolean(agent.installed);
     }
     return !agent.installed;

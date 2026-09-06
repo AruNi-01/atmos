@@ -33,6 +33,11 @@ export function shouldCollapseAssistantProcess(
   return isAssistantTurnSettled(message);
 }
 
+/** When the turn first becomes collapsible, auto-collapse unless the user is inspecting. */
+export function shouldAutoCollapseProcessOnSettle(userInspecting: boolean): boolean {
+  return !userInspecting;
+}
+
 export function hasCollapsibleAssistantProcess(message: AgentMessage): boolean {
   const hasRunningTool = message.parts.some(
     (part) => part.type === "tool_call" && part.status?.toLowerCase() === "running",

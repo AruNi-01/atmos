@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import "streamdown/styles.css";
 import {
@@ -15,9 +15,14 @@ import { ChevronDown, Loader2, MessageSquare, X } from "lucide-react";
 import { useAgentChatLayoutStore } from "@/features/agent/store/agent-chat-layout-store";
 import { DEFAULT_AGENT_CHAT_MODE, type AgentChatMode } from "@/features/agent/types/index";
 import { useDesktopTrafficLightsPadding } from "@/shared/hooks/use-desktop-traffic-lights-padding";
-import { SessionUsageBadge } from "./UsageBadges";
 import { AgentActivityIndicator } from "./AgentActivityIndicator";
-import { AgentPermissionCard } from "./AgentPermissionCard";
+import {
+  AgentPermissionCard,
+  isPlanExitPermission,
+  resolvePlanExitFilePath,
+} from "./AgentPermissionCard";
+import { planDocumentIntentFromMessages } from "../lib/plan-document-intent";
+import { AgentSessionOpCard } from "./AgentSessionOpCard";
 import { AgentPromptComposer } from "./AgentPromptComposer";
 import { useAgentChatSession } from "../hooks/use-agent-chat-session";
 import type { AgentChatSurfaceVariant, UseAgentChatSessionOptions } from "../hooks/use-agent-chat-session-types";
@@ -34,7 +39,14 @@ import { AgentChatCwdProvider } from "./agent-chat-cwd-context";
 import { openAgentChatWindow } from "../lib/desktop-agent-chat-window";
 import { ackAgentChatAttention } from "../lib/agent-status-ack";
 import { isAgentNewChatLanding } from "../lib/agent-composer-placeholder";
-import { AGENT_CHAT_SCROLL_CLASS } from "../lib/agent-chat-transcript-window";
+import { useReducedMotion } from "motion/react";
+import {
+  AGENT_CHAT_OVERLAY_PAD_SHRINK_MS,
+  AGENT_CHAT_SCROLL_CLASS,
+  findAgentChatScrollElement,
+  transcriptBottomPadPx,
+  transcriptBottomPadStyle,
+} from "../lib/agent-chat-transcript-window";
 import { useAgentChatHistorySidebarLayout } from "../hooks/use-agent-chat-history-sidebar-layout";
 import {
   closeCurrentStandaloneWindow,
@@ -409,6 +421,7 @@ export function AgentChatPanel({
     backgroundTools,
     pendingPermission,
     pendingPermissionMarkdown,
+    pendingSessionOp,
     agentActivity,
     setWaitingForResponse,
     stoppedRef,
@@ -418,7 +431,6 @@ export function AgentChatPanel({
     runtimeStatus,
     hasPersistenceHandle,
     installedAgents,
-    setInstalledAgents,
     activeAgent,
     registryId,
     defaultRegistryId,
@@ -433,7 +445,6 @@ export function AgentChatPanel({
     setConfigOption,
     setProviderId,
     persistPreferredRegistry,
-    setAgentDefaultConfig,
     sessionUsage,
     elapsedMs,
     historyOpen,
@@ -478,6 +489,7 @@ export function AgentChatPanel({
     handleClose,
     handleLogoutAgent,
     handlePermission,
+    handleSessionOp,
     handleCreateNewSession,
     handleSelectWorkingDirectory,
     handleSelectHistorySession,
@@ -492,6 +504,17 @@ export function AgentChatPanel({
     ackAgentChatAttention(liveChatId || chatId);
   }, [chatId, liveChatId]);
 
+  const planFilePath = useMemo(
+    () => (pendingPermission && isPlanExitPermission(pendingPermission)
+      ? resolvePlanExitFilePath(pendingPermission, messages)
+      : null),
+    [messages, pendingPermission],
+  );
+  const planDocumentIntent = useMemo(
+    () => planDocumentIntentFromMessages(messages),
+    [messages],
+  );
+
   const standaloneSurfaceKey = useMemo(
     () =>
       makeStandaloneSurfaceKey(
@@ -502,6 +525,14 @@ export function AgentChatPanel({
       ),
     [chatId, instanceKey, liveChatId, sessionProjectId, sessionWorkspaceId],
   );
+  const threadBannerError = useMemo(() => {
+    const message = error?.trim();
+    if (!message) return null;
+    const alreadyInTranscript = messages.some((item) =>
+      item.parts.some((part) => part.type === "error" && part.message.trim() === message),
+    );
+    return alreadyInTranscript ? null : message;
+  }, [error, messages]);
 
   useEffect(() => {
     if (variant === "standalone") {
@@ -646,10 +677,14 @@ export function AgentChatPanel({
     messageCount: messages.length,
     isResumingHistory,
   });
-  const floatingControlRailClassName = constrainChatWidth
-    ? "left-1/2 w-full max-w-3xl -translate-x-1/2 px-3"
-    : "inset-x-0 px-3";
   const wasResumingHistoryRef = useRef(false);
+  const [aboveComposerOverlaysNode, setAboveComposerOverlaysNode] = useState<HTMLDivElement | null>(
+    null,
+  );
+  const [aboveComposerOverlayPadPx, setAboveComposerOverlayPadPx] = useState(0);
+  const aboveComposerOverlayPadPxRef = useRef(0);
+  const [overlayPadShrinkMotion, setOverlayPadShrinkMotion] = useState(false);
+  const reduceOverlayPadMotion = Boolean(useReducedMotion());
 
   useEffect(() => {
     if (isRestoringTranscript) {
@@ -674,6 +709,55 @@ export function AgentChatPanel({
       }
     };
   }, [bottomRef, isRestoringTranscript, messages.length]);
+
+  useLayoutEffect(() => {
+    if (!aboveComposerOverlaysNode) {
+      setAboveComposerOverlayPadPx(0);
+      return;
+    }
+
+    const measure = () => {
+      const next = Math.max(0, Math.round(aboveComposerOverlaysNode.getBoundingClientRect().height));
+      setAboveComposerOverlayPadPx((current) => (current === next ? current : next));
+    };
+
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(aboveComposerOverlaysNode);
+    return () => observer.disconnect();
+  }, [aboveComposerOverlaysNode]);
+
+  const overlayPadShrinking =
+    aboveComposerOverlayPadPx < aboveComposerOverlayPadPxRef.current
+    || overlayPadShrinkMotion;
+
+  useLayoutEffect(() => {
+    const prev = aboveComposerOverlayPadPxRef.current;
+    aboveComposerOverlayPadPxRef.current = aboveComposerOverlayPadPx;
+    if (aboveComposerOverlayPadPx >= prev) {
+      setOverlayPadShrinkMotion(false);
+      return;
+    }
+    setOverlayPadShrinkMotion(true);
+    const hold = window.setTimeout(
+      () => setOverlayPadShrinkMotion(false),
+      AGENT_CHAT_OVERLAY_PAD_SHRINK_MS,
+    );
+    const scroll = findAgentChatScrollElement(transcriptRef.current);
+    if (scroll && reduceOverlayPadMotion) {
+      const delta = prev - aboveComposerOverlayPadPx;
+      const distanceFromBottom = scroll.scrollHeight - scroll.scrollTop - scroll.clientHeight;
+      // Instant shrink (reduced motion): keep mid-scroll content pinned.
+      // Stick-to-bottom + CSS height easing handle the at-bottom case.
+      if (distanceFromBottom > delta + 4) {
+        scroll.scrollTop = Math.max(0, scroll.scrollTop - delta);
+      }
+    }
+    return () => window.clearTimeout(hold);
+  }, [aboveComposerOverlayPadPx, reduceOverlayPadMotion, transcriptRef]);
+
+  const transcriptBottomPad = transcriptBottomPadPx(aboveComposerOverlayPadPx);
 
   // Host `active`, not pause-gated session.isPanelOpen (that returned null before the placeholder).
   if (!active || (variant === "modal" && !layoutLoaded)) return null;
@@ -870,10 +954,12 @@ export function AgentChatPanel({
 
       <div
         className={cn(
-          "flex min-h-0 flex-1 flex-col",
+          /* size container so permission cards can use 50cqh ≈ half of this column */
+          "flex min-h-0 flex-1 flex-col [container-type:size] [container-name:agent-chat]",
           isNewChatLanding ? "justify-center overflow-y-auto pb-20" : "overflow-hidden",
         )}
         data-agent-chat-landing={isNewChatLanding ? "true" : undefined}
+        data-agent-chat-column=""
       >
       <div
         ref={transcriptRef}
@@ -910,9 +996,9 @@ export function AgentChatPanel({
                 </span>
               </div>
             )}
-            {error && (
+            {threadBannerError && (
               <div className="rounded-lg border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                {error}
+                {threadBannerError}
               </div>
             )}
             {canUseCurrentMode && isConnected && messages.length === 0 && !isConnecting && !isResumingHistory && !error && hasPersistenceHandle && (
@@ -931,25 +1017,29 @@ export function AgentChatPanel({
                 userMessageIndices={userMessageIndices}
                 onActiveUserMessage={setMessageNavIndex}
                 scrollToIndexRef={scrollToIndexRef}
+                activityStatus={
+                  agentActivity.busy ? (
+                    <AgentActivityIndicator activity={agentActivity} elapsedMs={elapsedMs} />
+                  ) : null
+                }
               />
+            ) : agentActivity.busy ? (
+              <div data-agent-chat-activity-status="">
+                <AgentActivityIndicator activity={agentActivity} elapsedMs={elapsedMs} />
+              </div>
             ) : null}
-            {agentActivity.busy && (
-              <AgentActivityIndicator activity={agentActivity} elapsedMs={elapsedMs} />
-            )}
-            <div ref={bottomRef} className="h-10" />
+            <div
+              ref={bottomRef}
+              className="shrink-0 overflow-hidden"
+              style={transcriptBottomPadStyle(
+                transcriptBottomPad,
+                overlayPadShrinking,
+                reduceOverlayPadMotion,
+              )}
+              data-agent-chat-transcript-bottom-pad=""
+              aria-hidden="true"
+            />
           </ConversationContent>
-          <div
-            className={cn(
-              "pointer-events-none absolute bottom-1 z-10 flex items-center",
-              floatingControlRailClassName,
-            )}
-          >
-            <div className="pointer-events-auto">
-              {sessionUsage ? (
-                <SessionUsageBadge usage={sessionUsage} className="static" />
-              ) : null}
-            </div>
-          </div>
           <ConversationScrollButton aria-label={t("bottom")}>
             <ChevronDown className="size-4" />
           </ConversationScrollButton>
@@ -966,7 +1056,7 @@ export function AgentChatPanel({
         </AgentChatCwdProvider>
       </div>
 
-      <div className="flex min-h-0 w-full shrink-0 flex-col">
+      <div className="relative flex min-h-0 w-full shrink-0 flex-col">
         {isNewChatLanding ? (
           <div className={cn("px-3 pb-14", wideContentClassName)}>
             {error ? (
@@ -980,18 +1070,7 @@ export function AgentChatPanel({
             )}
           </div>
         ) : null}
-        {pendingPermission ? (
-          <div className={cn("min-h-0 min-w-0 shrink-0", wideContentClassName)}>
-            <div className="min-w-0 px-3 pb-2">
-              <AgentPermissionCard
-                permission={pendingPermission}
-                markdown={pendingPermissionMarkdown}
-                onRespond={handlePermission}
-              />
-            </div>
-          </div>
-        ) : null}
-        <div className={cn("shrink-0", wideContentClassName)}>
+        <div className={cn("relative z-10 shrink-0", wideContentClassName)}>
           <AgentPromptComposer
             key={queueKey}
             currentPlan={currentPlan}
@@ -1025,8 +1104,6 @@ export function AgentChatPanel({
             registryId={registryId}
             activeAgent={activeAgent}
             setConfigOption={setConfigOption}
-            setAgentDefaultConfig={setAgentDefaultConfig}
-            setInstalledAgents={setInstalledAgents}
             agentActivity={agentActivity}
             sendCancel={sendCancel}
             setWaitingForResponse={setWaitingForResponse}
@@ -1048,6 +1125,45 @@ export function AgentChatPanel({
                 : null
             }
             landing={isNewChatLanding}
+            sessionUsage={sessionUsage}
+            onAboveComposerOverlaysNodeChange={setAboveComposerOverlaysNode}
+            aboveInputOverlay={
+              pendingPermission || pendingSessionOp ? (
+                <div
+                  data-agent-chat-approval-overlay=""
+                  className="pointer-events-auto relative min-h-0 min-w-0 overflow-hidden"
+                >
+                  <div className="pointer-events-none absolute inset-x-0 bottom-0 top-0 -z-10 bg-gradient-to-t from-background via-background/85 to-transparent" />
+                  {pendingPermission ? (
+                    <div className="min-h-0 min-w-0 max-h-[80cqh] px-3">
+                      <AgentPermissionCard
+                        permission={pendingPermission}
+                        markdown={pendingPermissionMarkdown}
+                        planIntent={
+                          isPlanExitPermission(pendingPermission)
+                            ? (planDocumentIntent
+                              ?? (!pendingPermissionMarkdown?.trim() && !planFilePath
+                                ? currentPlan
+                                : null))
+                            : null
+                        }
+                        planFilePath={
+                          isPlanExitPermission(pendingPermission) ? planFilePath : null
+                        }
+                        onRespond={handlePermission}
+                      />
+                    </div>
+                  ) : pendingSessionOp ? (
+                    <div className="min-h-0 min-w-0 max-h-[50cqh] px-3">
+                      <AgentSessionOpCard
+                        request={pendingSessionOp}
+                        onRespond={handleSessionOp}
+                      />
+                    </div>
+                  ) : null}
+                </div>
+              ) : null
+            }
           />
         </div>
       </div>

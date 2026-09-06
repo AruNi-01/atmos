@@ -14,8 +14,15 @@ import {
   TooltipTrigger,
   cn,
 } from "@workspace/ui";
-import type { AgentConfigOption } from "@/features/agent/hooks/use-agent-session";
+import type { AgentConfigOption } from "@/features/agent/lib/agent-chat-types";
 import type { RegistryAgent } from "@/api/ws-api";
+import {
+  configKindMatches,
+  configPickerGroupMessageKey,
+  isThinkingConfigId,
+  thinkingLevelMessageKey,
+  permissionModeMessageKey,
+} from "@/features/agent/lib/agent-chat-thread";
 
 export function ConfigOptionDropdown({
   opt,
@@ -39,6 +46,20 @@ export function ConfigOptionDropdown({
   const t = useTranslations("Agent.components");
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
+  const groupKey = configPickerGroupMessageKey(opt.id);
+  const groupName = groupKey ? t(`chatPanel.pickers.${groupKey}`) : (opt.name || opt.id);
+
+  const optionLabel = (value: string, name?: string) => {
+    if (isThinkingConfigId(opt.id, opt.category)) {
+      const key = thinkingLevelMessageKey(value);
+      if (key) return t(`chatPanel.pickers.thinkingLevels.${key}`);
+    }
+    if (configKindMatches(opt.id, opt.category, "permission_mode")) {
+      const key = permissionModeMessageKey(value);
+      if (key) return t(`chatPanel.pickers.permissionModes.${key}`);
+    }
+    return name || value;
+  };
 
   const filteredOptions = opt.options.filter(o => {
     if (!search) return true;
@@ -64,7 +85,7 @@ export function ConfigOptionDropdown({
       >
         <SelectTrigger className={cn("h-8 w-auto min-w-0 gap-1.5 border-0 bg-transparent px-2 text-xs shadow-none hover:bg-muted/60 dark:bg-transparent dark:hover:bg-muted/60 data-[state=open]:bg-muted/60 dark:data-[state=open]:bg-muted/60", triggerClassName)}>
           {icon}
-          <SelectValue placeholder={opt.name || opt.id} />
+          <SelectValue placeholder={groupName} />
         </SelectTrigger>
         <SelectContent
           className="max-h-[min(20rem,var(--radix-select-content-available-height))]"
@@ -118,7 +139,7 @@ export function ConfigOptionDropdown({
                     setSearch("");
                   }}
                 >
-                  <span className="truncate">{o.name || o.value}</span>
+                  <span className="truncate">{optionLabel(o.value, o.name)}</span>
                 </SelectItem>
               );
               return (

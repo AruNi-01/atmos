@@ -1,0 +1,28 @@
+{
+  "type": "control_request",
+  "request_id": "req_ask",
+  "request": {
+    "subtype": "can_use_tool",
+    "tool_name": "AskUserQuestion",
+    "input": {
+      "questions": [
+        {
+          "question": "Ship the release?",
+          "header": "Ship?",
+          "options": [
+            { "label": "Yes", "description": "Ship it" },
+            { "label": "No", "description": "Hold" }
+          ]
+        },
+        {
+          "question": "Notify channel?",
+          "options": [
+            { "label": "Slack" },
+            { "label": "Email" }
+          ]
+        }
+      ]
+    },
+    "tool_use_id": "tu_ask_1"
+  }
+}

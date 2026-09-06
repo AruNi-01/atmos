@@ -4,7 +4,7 @@ use std::sync::Arc;
 use super::*;
 use core_service::utils::path_boundary::path_or_existing_parent_within_root;
 use core_service::{
-    catalog_spec_for, default_agent_data_dir, AgentChatService, CreateAgentChatRequest,
+    default_agent_data_dir, options_probe_plan_for, AgentChatService, CreateAgentChatRequest,
     QueueItemStatus,
 };
 use serde_json::{json, Value};
@@ -68,14 +68,16 @@ impl WsMessageService {
             project_id: req.project_id,
             space_id: req.space_id,
             cwd,
-            provider_id: req.provider_id,
-            model: req.model,
-            thinking: req.thinking,
-            mode: req.mode,
+            provider_id: req.provider_id.clone(),
+            model: req.model.clone(),
+            thinking: req.thinking.clone(),
+            mode: req.mode.clone(),
+            permission_mode: req.permission_mode.clone(),
+            fast: req.fast.clone(),
             title: req.title,
             origin: req.origin.unwrap_or_default(),
         })?;
-        serde_json::to_value(meta)
+        agent_chat_meta_json(&meta)
             .map_err(|e| ServiceError::Processing(format!("serialize chat: {e}")))
     }
 
@@ -103,7 +105,7 @@ impl WsMessageService {
 
     pub(super) async fn handle_agent_chat_get(&self, req: AgentChatIdRequest) -> Result<Value> {
         let snapshot = self.agent_chat().get(&req.chat_id).await?;
-        serde_json::to_value(snapshot)
+        agent_chat_snapshot_json(&snapshot)
             .map_err(|e| ServiceError::Processing(format!("serialize snapshot: {e}")))
     }
 
@@ -126,7 +128,7 @@ impl WsMessageService {
         req: AgentChatRenameRequest,
     ) -> Result<Value> {
         let meta = self.agent_chat().rename(&req.chat_id, &req.title)?;
-        serde_json::to_value(meta)
+        agent_chat_meta_json(&meta)
             .map_err(|e| ServiceError::Processing(format!("serialize chat: {e}")))
     }
 
@@ -142,9 +144,11 @@ impl WsMessageService {
                 req.model,
                 req.thinking,
                 req.mode,
+                req.permission_mode,
+                req.fast,
             )
             .await?;
-        serde_json::to_value(meta)
+        agent_chat_meta_json(&meta)
             .map_err(|e| ServiceError::Processing(format!("serialize chat: {e}")))
     }
 
@@ -288,16 +292,26 @@ impl WsMessageService {
         Ok(json!({ "ok": true }))
     }
 
-    pub(super) async fn handle_agent_model_catalog_get(
+    pub(super) async fn handle_agent_chat_session_op_respond(
         &self,
-        req: AgentModelCatalogGetRequest,
+        req: AgentChatSessionOpRespondRequest,
     ) -> Result<Value> {
-        let worker = Arc::clone(&self.catalog_worker);
+        self.agent_chat()
+            .session_op_respond(&req.chat_id, &req.request_id, &req.option_id)
+            .await?;
+        Ok(json!({ "ok": true }))
+    }
+
+    pub(super) async fn handle_agent_options_get(
+        &self,
+        req: AgentOptionsGetRequest,
+    ) -> Result<Value> {
+        let worker = Arc::clone(&self.options_worker);
         if req.agent_id.contains('/') || req.agent_id.contains('\\') || req.agent_id.contains("..")
         {
             return Err(ServiceError::Validation("invalid agent_id".into()));
         }
-        let spec = catalog_spec_for(&req.agent_id);
+        let spec = options_probe_plan_for(&req.agent_id);
         let catalog = worker.get_cached_or_probing(&spec, req.refresh.unwrap_or(false));
         serde_json::to_value(catalog)
             .map_err(|e| ServiceError::Processing(format!("serialize catalog: {e}")))
@@ -313,13 +327,23 @@ impl WsMessageService {
         &self,
         req: AgentChatPrefsSetRequest,
     ) -> Result<Value> {
-        let last_registry_id = req
-            .last_registry_id
-            .as_deref()
-            .map(str::trim)
-            .filter(|value| !value.is_empty())
-            .map(ToOwned::to_owned);
-        core_service::save_agent_chat_prefs(&core_service::AgentChatPrefs { last_registry_id })?;
+        if let Some(raw) = req.last_registry_id {
+            let trimmed = raw.trim();
+            let last_registry_id = (!trimmed.is_empty()).then(|| trimmed.to_string());
+            core_service::save_last_registry_id(last_registry_id)?;
+        }
+        if let Some(patch) = req.last_new_chat_config {
+            if !patch.agent_id.trim().is_empty() {
+                self.agent_chat().persist_last_new_chat_config(
+                    &patch.agent_id,
+                    patch.model.as_deref(),
+                    patch.thinking.as_deref(),
+                    patch.mode.as_deref(),
+                    patch.permission_mode.as_deref(),
+                    patch.fast.as_deref(),
+                )?;
+            }
+        }
         self.handle_agent_chat_prefs_get()
     }
 }

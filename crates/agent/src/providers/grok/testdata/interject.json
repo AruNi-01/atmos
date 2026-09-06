@@ -1,0 +1,9 @@
+{
+  "jsonrpc": "2.0",
+  "id": 11,
+  "method": "_x.ai/interject",
+  "params": {
+    "sessionId": "sess_grok_1",
+    "text": "nudge"
+  }
+}

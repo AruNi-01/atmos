@@ -26,6 +26,7 @@ import { useAgentChatCenterTabsStore } from "@/features/agent/store/use-agent-ch
 import { useAppRouter } from "@/shared/hooks/use-app-router";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@workspace/ui";
 import { AgentIcon } from "@/features/agent/components/AgentIcon";
+import { customAgentIsEnabled } from "@/features/agent/lib/custom-agent-registry";
 import type { TerminalAgentRunConfigInput } from "@/features/agent/lib/terminal-agent-run-config";
 
 // ===== Skill 定义 =====
@@ -189,7 +190,9 @@ export const CodeReviewDialog: React.FC<CodeReviewDialogProps> = ({
       agentApi.listCustomAgents(),
     ]).then(([{ agents }, { agents: customAgents }]) => {
       const installed = agents.filter((a: RegistryAgent) => a.installed);
-      const customAsRegistry: RegistryAgent[] = customAgents.map((c: CustomAgent) => ({
+      const customAsRegistry: RegistryAgent[] = customAgents
+        .filter(customAgentIsEnabled)
+        .map((c: CustomAgent) => ({
         id: c.name,
         name: c.name,
         version: "",

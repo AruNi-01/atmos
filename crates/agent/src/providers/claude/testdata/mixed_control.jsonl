@@ -1,0 +1,13 @@
+{"type":"command_lifecycle","command_uuid":"uu-user-1","state":"queued","uuid":"lc_q","session_id":"ses_abc123"}
+{"type":"system","subtype":"status","status":"requesting","session_id":"ses_abc123","uuid":"st_1"}
+{"type":"stream_event","uuid":"ev_1","session_id":"ses_abc123","event":{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"Working"}}}
+{"type":"control_request","request_id":"req_p","request":{"subtype":"can_use_tool","tool_name":"Bash","input":{"command":"ls"},"tool_use_id":"tu_1"}}
+{"type":"assistant","session_id":"ses_abc123","message":{"id":"msg_1","type":"message","role":"assistant","content":[{"type":"text","text":"Working on it."}]}}
+{"type":"keep_alive"}
+{"type":"rate_limit_event","info":"slow"}
+{"type":"tool_progress","tool_use_id":"tu_1"}
+{"type":"command_lifecycle","command_uuid":"uu-user-1","state":"started","uuid":"lc_s","session_id":"ses_abc123"}
+{"type":"not_a_real_frame","payload":{"note":"unknown stdout type"}}
+{"type":"control_response","response":{"subtype":"error","request_id":"req_x","error":"invalid request format"}}
+{"type":"system","subtype":"api_retry","session_id":"ses_abc123","uuid":"ar_1"}
+{"type":"result","subtype":"success","is_error":false,"session_id":"ses_abc123","total_cost_usd":0.01,"usage":{"input_tokens":10,"output_tokens":4}}

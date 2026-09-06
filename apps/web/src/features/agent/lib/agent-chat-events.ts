@@ -5,17 +5,14 @@ import type {
   AgentPart,
 } from "@atmos/api-types/ws/dto/agent-chat";
 import {
+  defaultToolParams,
   isActiveToolStatus,
   isGenericToolLabel,
-  planFromToolInput,
-  classifyTool,
-  thinkingText,
+  isPlaceholderToolParams,
+  isPlaceholderToolResult,
+  wireToolKind,
 } from "@/features/agent/lib/agent-tool-kind";
-import {
-  applyBackgroundPollTool,
-  isBackgroundPollTool,
-  isLiveBackgroundToolCall,
-} from "@/features/agent/lib/agent/background-command";
+import { isLiveBackgroundToolCall } from "@/features/agent/lib/agent/background-command";
 
 export type { AgentChatEvent, AgentEvent, AgentMessage, AgentPart };
 
@@ -28,8 +25,8 @@ function mergeToolPart(
   incoming: Extract<AgentPart, { type: "tool_call" }>,
 ): Extract<AgentPart, { type: "tool_call" }> {
   return {
-    ...existing,
-    ...incoming,
+    type: "tool_call",
+    tool_call_id: incoming.tool_call_id || existing.tool_call_id,
     name:
       isGenericToolLabel(incoming.name) && existing.name
         ? existing.name
@@ -39,10 +36,17 @@ function mergeToolPart(
         ? existing.title
         : (incoming.title ?? existing.title),
     kind: incoming.kind === "other" && existing.kind !== "other" ? existing.kind : incoming.kind,
-    input: incoming.input == null ? existing.input : incoming.input,
-    output: incoming.output == null ? existing.output : incoming.output,
-    content: incoming.content == null ? existing.content : incoming.content,
     status: incoming.status ?? existing.status,
+    params:
+      isPlaceholderToolParams(incoming.params) && !isPlaceholderToolParams(existing.params)
+        ? existing.params
+        : (incoming.params ?? existing.params),
+    result:
+      isPlaceholderToolResult(incoming.result) && !isPlaceholderToolResult(existing.result)
+        ? existing.result
+        : incoming.result == null
+          ? existing.result
+          : incoming.result,
   };
 }
 
@@ -95,6 +99,17 @@ function currentTurnAssistant(
     }
   }
   return null;
+}
+
+function reopenAssistantStreaming(message: AgentMessage, patch: Partial<AgentMessage> = {}): AgentMessage {
+  return {
+    ...message,
+    ...patch,
+    streaming: true,
+    // A premature turn_completed can stamp completed_at on chrome-only rows;
+    // clear it when real content resumes so the ended footer does not stick.
+    completed_at: null,
+  };
 }
 
 function patchCurrentTurnAssistant(
@@ -219,8 +234,11 @@ function mergeSameIdMessages(previous: AgentMessage, incoming: AgentMessage): Ag
       const index = parts.findIndex(
         (item) => item.type === "tool_call" && item.tool_call_id === part.tool_call_id,
       );
-      if (index >= 0) parts[index] = { ...parts[index], ...part };
-      else parts.push(part);
+      if (index >= 0 && parts[index]?.type === "tool_call") {
+        parts[index] = mergeToolPart(parts[index], part);
+      } else {
+        parts.push(part);
+      }
       continue;
     }
     if (part.type === "thinking") {
@@ -316,20 +334,17 @@ function foldAgentChatEvent(
   if (payload.type === "assistant_message_delta" || payload.type === "thinking_delta") {
     const partType = payload.type === "thinking_delta" ? "thinking" : "text";
     const delta = payload.delta ?? "";
-    return patchCurrentTurnAssistant(messages, payload.message_id, (message) => ({
-      ...message,
+    return patchCurrentTurnAssistant(messages, payload.message_id, (message) => reopenAssistantStreaming(message, {
       role: "assistant",
-      streaming: true,
       parts: appendTextPart(message.parts, partType, delta),
     }));
   }
 
   if (payload.type === "assistant_message_completed") {
-    const current = currentTurnAssistant(messages, payload.message_id);
-    if (!current) return messages;
-    return messages.map((item, index) =>
-      index === current.index ? { ...item, streaming: false } : item,
-    );
+    // Do not clear streaming here — a mid-turn "message completed" (common after
+    // session create / between tool blocks) would flash a false ended/idle UI.
+    // Only turn_completed settles the assistant row.
+    return messages;
   }
 
   if (payload.type === "thinking_completed") {
@@ -343,24 +358,40 @@ function foldAgentChatEvent(
   }
 
   if (payload.type === "turn_completed") {
-    const current = currentTurnAssistant(messages);
-    return messages.map((item, index) => {
-      if (item.role !== "assistant") return item;
-      const isCurrent = current?.index === index;
-      return {
-        ...item,
-        streaming: false,
-        parts: settleOrphanToolCalls(item.parts),
-        ...(isCurrent
+    const errorMessage = payload.error?.trim();
+    const failed = payload.status === "failed" && Boolean(errorMessage);
+    const settled = messages.map((item) =>
+      item.role === "assistant"
+        ? { ...item, streaming: false, parts: settleOrphanToolCalls(item.parts) }
+        : item,
+    );
+    if (!failed || !errorMessage) {
+      const current = currentTurnAssistant(settled);
+      if (!current) return settled;
+      return settled.map((item, index) =>
+        index === current.index
           ? {
+              ...item,
               worked_ms: payload.worked_ms ?? item.worked_ms,
               thinking_ms: payload.thinking_ms ?? item.thinking_ms,
               completed_at: payload.completed_at ?? item.completed_at,
               usage: payload.usage ?? item.usage,
             }
-          : {}),
-      };
-    });
+          : item,
+      );
+    }
+    return patchCurrentTurnAssistant(settled, undefined, (message) => ({
+      ...message,
+      streaming: false,
+      parts: [
+        ...message.parts.filter((part) => part.type !== "error"),
+        { type: "error", message: errorMessage },
+      ],
+      worked_ms: payload.worked_ms ?? message.worked_ms,
+      thinking_ms: payload.thinking_ms ?? message.thinking_ms,
+      completed_at: payload.completed_at ?? message.completed_at,
+      usage: payload.usage ?? message.usage,
+    }));
   }
 
   if (payload.type === "usage_updated" && payload.turn) {
@@ -383,62 +414,8 @@ function foldAgentChatEvent(
       (part): part is Extract<AgentPart, { type: "tool_call" }> =>
         part.type === "tool_call" && part.tool_call_id === tool.tool_call_id,
     );
-    const existingThinking = [...messages].reverse().flatMap((message) => message.parts).find(
-      (part) => part.type === "thinking" && part.tool_call_id === tool.tool_call_id,
-    );
     const name = isGenericToolLabel(tool.name) && existingTool ? existingTool.name : (tool.name || "Tool");
-    const classified = existingThinking && isGenericToolLabel(tool.name)
-      ? { type: "thinking" as const }
-      : classifyTool(
-        name,
-        tool.title ?? existingTool?.title,
-        tool.input ?? existingTool?.input,
-        tool.output ?? existingTool?.output ?? tool.content ?? existingTool?.content,
-      );
-    if (classified.type === "hide") {
-      if (isBackgroundPollTool(tool)) {
-        return applyBackgroundPollTool(messages, {
-          tool_call_id: tool.tool_call_id,
-          name: tool.name,
-          title: tool.title,
-          status: tool.status,
-          input: tool.input,
-          output: tool.output ?? tool.content,
-          content: tool.content,
-        });
-      }
-      return messages;
-    }
-    if (classified.type === "thinking") {
-      const text = thinkingText(tool);
-      return patchCurrentTurnAssistant(messages, undefined, (message) => {
-        const parts = [...message.parts];
-        const existing = parts.findIndex(
-          (row) => row.type === "thinking" && row.tool_call_id === tool.tool_call_id,
-        );
-        const next: AgentPart = { type: "thinking", text, tool_call_id: tool.tool_call_id };
-        if (existing >= 0) parts[existing] = next;
-        else parts.push(next);
-        return { ...message, streaming: true, parts };
-      });
-    }
-    if (classified.type === "plan") {
-      return patchCurrentTurnAssistant(messages, undefined, (message) => {
-        const incoming = planFromToolInput(tool.input);
-        const existingPlan = message.parts.find((row) => row.type === "plan");
-        const plan = incoming
-          ?? (existingPlan?.type === "plan" ? existingPlan.plan : null)
-          ?? { entries: [] };
-        const parts = message.parts.filter(
-          (row) => !(row.type === "tool_call" && row.tool_call_id === tool.tool_call_id),
-        );
-        const existing = parts.findIndex((row) => row.type === "plan");
-        const next: AgentPart = { type: "plan", plan };
-        if (existing >= 0) parts[existing] = next;
-        else parts.push(next);
-        return { ...message, streaming: true, parts };
-      });
-    }
+    const kind = wireToolKind(tool.kind);
     const part: Extract<AgentPart, { type: "tool_call" }> = {
       type: "tool_call",
       tool_call_id: tool.tool_call_id,
@@ -452,10 +429,9 @@ function foldAgentChatEvent(
             : payload.type === "tool_call_failed"
               ? "failed"
               : undefined),
-      kind: classified.kind,
-      input: tool.input,
-      output: tool.output,
-      content: tool.content,
+      kind,
+      params: tool.params ?? existingTool?.params ?? defaultToolParams(kind),
+      result: tool.result ?? existingTool?.result,
     };
     return patchCurrentTurnAssistant(messages, undefined, (message) => {
       const parts = [...message.parts];
@@ -467,7 +443,7 @@ function foldAgentChatEvent(
       } else {
         parts.push(part);
       }
-      return { ...message, streaming: true, parts };
+      return reopenAssistantStreaming(message, { parts });
     });
   }
 
@@ -478,9 +454,9 @@ function foldAgentChatEvent(
       if (existing >= 0) {
         const parts = [...message.parts];
         parts[existing] = planPart;
-        return { ...message, streaming: true, parts };
+        return reopenAssistantStreaming(message, { parts });
       }
-      return { ...message, streaming: true, parts: [...message.parts, planPart] };
+      return reopenAssistantStreaming(message, { parts: [...message.parts, planPart] });
     });
   }
 
@@ -497,7 +473,7 @@ function foldAgentChatEvent(
       const existing = parts.findIndex((row) => row.type === "session_lifecycle");
       if (existing >= 0) parts[existing] = next;
       else parts.unshift(next);
-      return { ...message, streaming: true, parts };
+      return reopenAssistantStreaming(message, { parts });
     });
   }
 
@@ -516,8 +492,20 @@ function foldAgentChatEvent(
         const afterSession = parts.findLastIndex((row) => row.type === "session_lifecycle");
         parts.splice(afterSession + 1, 0, next);
       }
-      return { ...message, streaming: true, parts };
+      return reopenAssistantStreaming(message, { parts });
     });
+  }
+
+  if (
+    payload.type === "session_op_requested"
+    || payload.type === "session_op_resolved"
+    || payload.type === "session_forked"
+    || payload.type === "rewind_view_updated"
+    || payload.type === "permission_requested"
+    || payload.type === "permission_resolved"
+    || payload.type === "unknown"
+  ) {
+    return messages;
   }
 
   if (payload.type === "session_hint") {
@@ -542,7 +530,7 @@ function foldAgentChatEvent(
         );
         parts.splice(afterChrome + 1, 0, next);
       }
-      return { ...message, streaming: true, parts };
+      return reopenAssistantStreaming(message, { parts });
     });
   }
 

@@ -1,0 +1,12 @@
+{
+  "jsonrpc": "2.0",
+  "id": 42,
+  "result": {
+    "outcome": "accepted",
+    "answers": {
+      "你希望优化的具体方向是什么？": "性能优化",
+      "这个 Plan 的用途是什么？": "正式 Spec"
+    },
+    "annotations": {}
+  }
+}

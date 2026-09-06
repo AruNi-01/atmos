@@ -127,6 +127,14 @@ export function parseConflictResolvePrRef(
   return { owner, repo, prNumber, filePath };
 }
 
+/** UI-facing path (tab tooltip / labels). Strips virtual schemes like `untitled:`. */
+export function getEditorDisplayPath(path: string): string {
+  if (path.startsWith('untitled:')) {
+    return path.slice('untitled:'.length) || 'Untitled.md';
+  }
+  return getEditorSourcePath(path);
+}
+
 export function getEditorSourcePath(path: string): string {
   if (path.startsWith(EDITOR_REVIEW_GROUP_PREFIX)) {
     return path.slice(EDITOR_REVIEW_GROUP_PREFIX.length);

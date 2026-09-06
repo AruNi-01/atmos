@@ -1,0 +1,10 @@
+{"type":"agent_start"}
+{"type":"turn_start"}
+{"type":"message_start","message":{"role":"user","content":[{"type":"text","text":"Say hello then run ls"}],"timestamp":1}}
+{"type":"message_end","message":{"role":"user","content":[{"type":"text","text":"Say hello then run ls"}],"timestamp":1}}
+{"type":"message_start","message":{"role":"assistant","content":[],"stopReason":"aborted","errorMessage":"Request aborted"}}
+{"type":"message_end","message":{"role":"assistant","content":[],"stopReason":"aborted","errorMessage":"Request aborted"}}
+{"type":"turn_end","message":{"role":"assistant","content":[],"stopReason":"aborted","errorMessage":"Request aborted"},"toolResults":[]}
+{"type":"agent_end","messages":[],"willRetry":false}
+{"type":"agent_settled"}
+{"id":"pi-rpc-9","type":"response","command":"abort","success":true}

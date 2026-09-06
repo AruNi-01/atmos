@@ -7,11 +7,17 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use tokio::sync::{mpsc, Mutex};
 
-use crate::domain::{
-    AgentCapabilities, AgentCatalogContext, AgentEvent, AgentPersistenceHandle, AgentPrompt,
-    AgentProvider, AgentProviderError, AgentResult, AgentRuntime, AgentRuntimeCommands,
-    AgentRuntimeConfig, AgentRuntimeConfigUpdate, AgentRuntimeControl, AgentTurnHandle, TurnStop,
+use crate::contract::AgentEventEnvelope;
+use crate::contract::{AgentAction, AgentActionError, AgentActionKind, AgentActionResult};
+use crate::contract::{
+    AgentCurrentConfig, AgentDescriptor, AgentIdentity, AgentSupportedOptions, Capability,
 };
+use crate::contract::{
+    AgentEvent, AgentOptionsContext, AgentPersistenceHandle, AgentPrompt, AgentProvider,
+    AgentProviderError, AgentResult, AgentRuntime, AgentRuntimeCommands, AgentRuntimeConfig,
+    AgentRuntimeConfigUpdate, AgentRuntimeControl, AgentTurnHandle, TurnStop,
+};
+use crate::policy::{capabilities_for_provider, option_support_for_provider};
 
 #[derive(Default)]
 pub struct FakeProviderCounters {
@@ -37,8 +43,12 @@ pub struct FakeAgentProvider {
     last_runtime_config: Arc<Mutex<Option<AgentRuntimeConfig>>>,
     fail_set_config: Arc<AtomicBool>,
     fail_thinking_config: Arc<AtomicBool>,
+    applied_fork_session_id: Arc<std::sync::Mutex<Option<String>>>,
+    applied_rewind: Arc<AtomicBool>,
+    prepare_has_file_changes: Arc<std::sync::Mutex<Option<bool>>>,
+    prepare_options: Arc<std::sync::Mutex<Vec<crate::contract::AgentPermissionOption>>>,
     running_turn: Arc<Mutex<Option<String>>>,
-    events_tx: Arc<Mutex<Option<mpsc::UnboundedSender<AgentEvent>>>>,
+    events_tx: Arc<Mutex<Option<mpsc::UnboundedSender<AgentEventEnvelope>>>>,
 }
 
 impl FakeAgentProvider {
@@ -54,6 +64,10 @@ impl FakeAgentProvider {
             last_runtime_config: Arc::new(Mutex::new(None)),
             fail_set_config: Arc::new(AtomicBool::new(false)),
             fail_thinking_config: Arc::new(AtomicBool::new(false)),
+            applied_fork_session_id: Arc::new(std::sync::Mutex::new(None)),
+            applied_rewind: Arc::new(AtomicBool::new(false)),
+            prepare_has_file_changes: Arc::new(std::sync::Mutex::new(None)),
+            prepare_options: Arc::new(std::sync::Mutex::new(Vec::new())),
             running_turn: Arc::new(Mutex::new(None)),
             events_tx: Arc::new(Mutex::new(None)),
         }
@@ -77,6 +91,10 @@ impl FakeAgentProvider {
 
     pub fn steer_count(&self) -> usize {
         self.counters.steer.load(Ordering::SeqCst)
+    }
+
+    pub fn send_count(&self) -> usize {
+        self.counters.prompt.load(Ordering::SeqCst)
     }
 
     pub async fn last_resume_handle(&self) -> Option<String> {
@@ -107,23 +125,49 @@ impl FakeAgentProvider {
         self.auto_complete.store(value, Ordering::SeqCst);
     }
 
+    pub fn set_applied_fork_session_id(&self, session_id: impl Into<String>) {
+        *self
+            .applied_fork_session_id
+            .lock()
+            .expect("applied fork session id") = Some(session_id.into());
+    }
+
+    pub fn set_applied_rewind(&self, value: bool) {
+        self.applied_rewind.store(value, Ordering::SeqCst);
+    }
+
+    pub fn set_prepare_has_file_changes(&self, value: Option<bool>) {
+        *self
+            .prepare_has_file_changes
+            .lock()
+            .expect("prepare has file changes") = value;
+    }
+
+    pub fn set_prepare_options(&self, options: Vec<crate::contract::AgentPermissionOption>) {
+        *self.prepare_options.lock().expect("prepare options") = options;
+    }
+
     pub async fn events_ready(&self) -> bool {
         self.events_tx.lock().await.is_some()
     }
 
     pub async fn push_event(&self, event: AgentEvent) {
+        let turn_id = self.running_turn.lock().await.clone();
         if let Some(tx) = self.events_tx.lock().await.clone() {
-            let _ = tx.send(event);
+            let _ = tx.send(AgentEventEnvelope::new(turn_id, event));
         }
     }
 
     pub async fn complete_current(&self) {
         if let Some(turn_id) = self.running_turn.lock().await.take() {
             if let Some(tx) = self.events_tx.lock().await.clone() {
-                let _ = tx.send(AgentEvent::TurnCompleted {
-                    turn_id,
-                    stop: TurnStop::Completed,
-                });
+                let _ = tx.send(AgentEventEnvelope::new(
+                    Some(turn_id.clone()),
+                    AgentEvent::TurnCompleted {
+                        turn_id,
+                        stop: TurnStop::Completed,
+                    },
+                ));
             }
         }
     }
@@ -134,123 +178,197 @@ struct FakeSessionInner {
     supports_steer: bool,
     auto_complete: Arc<AtomicBool>,
     emit_permission_on_prompt: bool,
-    events_tx: mpsc::UnboundedSender<AgentEvent>,
+    events_tx: mpsc::UnboundedSender<AgentEventEnvelope>,
     running_turn: Arc<Mutex<Option<String>>>,
     last_config: Arc<Mutex<Option<AgentRuntimeConfigUpdate>>>,
     fail_set_config: Arc<AtomicBool>,
     fail_thinking_config: Arc<AtomicBool>,
+    applied_fork_session_id: Arc<std::sync::Mutex<Option<String>>>,
+    applied_rewind: Arc<AtomicBool>,
+    prepare_has_file_changes: Arc<std::sync::Mutex<Option<bool>>>,
+    prepare_options: Arc<std::sync::Mutex<Vec<crate::contract::AgentPermissionOption>>>,
 }
 
 #[async_trait]
 impl AgentRuntimeCommands for FakeSessionInner {
-    async fn prompt(&self, input: AgentPrompt) -> AgentResult<AgentTurnHandle> {
+    async fn send(&self, input: AgentPrompt) -> AgentResult<AgentTurnHandle> {
         self.counters.prompt.fetch_add(1, Ordering::SeqCst);
         let turn_id = input
             .turn_id
             .clone()
             .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
         *self.running_turn.lock().await = Some(turn_id.clone());
-        let _ = input;
         if self.emit_permission_on_prompt {
-            let _ = self.events_tx.send(AgentEvent::PermissionRequested {
-                request: crate::domain::AgentPermissionRequest {
-                    request_id: format!("perm_{turn_id}"),
-                    tool: "edit".into(),
-                    description: "edit file".into(),
-                    content_markdown: None,
-                    options: vec![crate::domain::AgentPermissionOption {
-                        option_id: "allow".into(),
-                        name: "Allow".into(),
-                        kind: "allow_once".into(),
-                    }],
+            let _ = self.events_tx.send(AgentEventEnvelope::new(
+                Some(turn_id.clone()),
+                AgentEvent::PermissionRequested {
+                    request: crate::contract::AgentPermissionRequest {
+                        request_id: format!("perm_{turn_id}"),
+                        tool: "edit".into(),
+                        description: "edit file".into(),
+                        content_markdown: None,
+                        options: vec![crate::contract::AgentPermissionOption {
+                            option_id: "allow".into(),
+                            name: "Allow".into(),
+                            kind: "allow_once".into(),
+                        }],
+                        questions: Vec::new(),
+                        plan_todos: Vec::new(),
+                    },
                 },
-            });
+            ));
         } else if self.auto_complete.load(Ordering::SeqCst) {
             let tx = self.events_tx.clone();
             let completed_turn = turn_id.clone();
             tokio::spawn(async move {
                 tokio::task::yield_now().await;
                 let assistant_id = uuid::Uuid::new_v4().to_string();
-                let _ = tx.send(AgentEvent::AssistantMessageDelta {
-                    message_id: assistant_id.clone(),
-                    delta: "ok".into(),
-                });
-                let _ = tx.send(AgentEvent::AssistantMessageCompleted {
-                    message_id: assistant_id,
-                });
-                let _ = tx.send(AgentEvent::TurnCompleted {
-                    turn_id: completed_turn,
-                    stop: TurnStop::Completed,
-                });
+                let _ = tx.send(AgentEventEnvelope::new(
+                    Some(completed_turn.clone()),
+                    AgentEvent::AssistantMessageDelta {
+                        message_id: assistant_id.clone(),
+                        delta: "ok".into(),
+                    },
+                ));
+                let _ = tx.send(AgentEventEnvelope::new(
+                    Some(completed_turn.clone()),
+                    AgentEvent::AssistantMessageCompleted {
+                        message_id: assistant_id,
+                    },
+                ));
+                let _ = tx.send(AgentEventEnvelope::new(
+                    Some(completed_turn.clone()),
+                    AgentEvent::TurnCompleted {
+                        turn_id: completed_turn,
+                        stop: TurnStop::Completed,
+                    },
+                ));
             });
         }
         Ok(AgentTurnHandle { turn_id })
     }
 
-    async fn steer(&self, input: AgentPrompt) -> AgentResult<()> {
-        self.counters.steer.fetch_add(1, Ordering::SeqCst);
-        if !self.supports_steer {
-            return Err(AgentProviderError::unsupported("steer not supported"));
-        }
-        if self.running_turn.lock().await.is_none() {
-            return Err(AgentProviderError::message("no running turn"));
-        }
-        let _ = input;
-        Ok(())
-    }
-
     async fn cancel(&self) -> AgentResult<()> {
         self.counters.cancel.fetch_add(1, Ordering::SeqCst);
         if let Some(turn_id) = self.running_turn.lock().await.take() {
-            let _ = self.events_tx.send(AgentEvent::TurnCanceled { turn_id });
+            let _ = self.events_tx.send(AgentEventEnvelope::new(
+                Some(turn_id.clone()),
+                AgentEvent::TurnCanceled { turn_id },
+            ));
         }
         Ok(())
     }
 
     async fn close(&self) -> AgentResult<()> {
         self.counters.close.fetch_add(1, Ordering::SeqCst);
-        let _ = self.events_tx.send(AgentEvent::SessionClosed);
+        let _ = self
+            .events_tx
+            .send(AgentEventEnvelope::new(None, AgentEvent::SessionClosed));
         Ok(())
     }
 
-    async fn set_config(&self, update: AgentRuntimeConfigUpdate) -> AgentResult<()> {
-        self.counters.set_config.fetch_add(1, Ordering::SeqCst);
-        if self.fail_set_config.load(Ordering::SeqCst) {
-            return Err(AgentProviderError::unsupported("agent did not apply model"));
-        }
-        if self.fail_thinking_config.load(Ordering::SeqCst) && config_update_sets_thinking(&update)
-        {
-            return Err(AgentProviderError::unsupported(
-                "agent did not apply thinking",
-            ));
-        }
-        *self.last_config.lock().await = Some(update);
-        Ok(())
-    }
-
-    async fn respond_permission(&self, request_id: &str, option_id: &str) -> AgentResult<()> {
-        self.counters.permission.fetch_add(1, Ordering::SeqCst);
-        let _ = self.events_tx.send(AgentEvent::PermissionResolved {
-            request_id: request_id.to_string(),
-            option_id: option_id.to_string(),
-        });
-        if self.auto_complete.load(Ordering::SeqCst) {
-            if let Some(turn_id) = self.running_turn.lock().await.take() {
-                let _ = self.events_tx.send(AgentEvent::TurnCompleted {
-                    turn_id,
-                    stop: TurnStop::Completed,
-                });
+    async fn action(&self, action: AgentAction) -> Result<AgentActionResult, AgentActionError> {
+        match action {
+            AgentAction::Steer { input } => {
+                self.counters.steer.fetch_add(1, Ordering::SeqCst);
+                if !self.supports_steer {
+                    return Err(AgentActionError::Unsupported {
+                        action: AgentActionKind::Steer,
+                    });
+                }
+                if self.running_turn.lock().await.is_none() {
+                    return Err(AgentActionError::SteerTurnMismatch);
+                }
+                let _ = input;
+                Ok(AgentActionResult::unit())
+            }
+            AgentAction::SetConfig { update } => {
+                self.counters.set_config.fetch_add(1, Ordering::SeqCst);
+                if self.fail_set_config.load(Ordering::SeqCst) {
+                    return Err(AgentActionError::Unsupported {
+                        action: AgentActionKind::SetConfig,
+                    });
+                }
+                if self.fail_thinking_config.load(Ordering::SeqCst)
+                    && config_update_sets_thinking(&update)
+                {
+                    return Err(AgentActionError::Unsupported {
+                        action: AgentActionKind::SetConfig,
+                    });
+                }
+                *self.last_config.lock().await = Some(*update);
+                Ok(AgentActionResult::unit())
+            }
+            AgentAction::RespondPermission {
+                request_id,
+                option_id,
+            } => {
+                self.counters.permission.fetch_add(1, Ordering::SeqCst);
+                let _ = self.events_tx.send(AgentEventEnvelope::new(
+                    self.running_turn.lock().await.clone(),
+                    AgentEvent::PermissionResolved {
+                        request_id,
+                        option_id,
+                    },
+                ));
+                if self.auto_complete.load(Ordering::SeqCst) {
+                    if let Some(turn_id) = self.running_turn.lock().await.take() {
+                        let _ = self.events_tx.send(AgentEventEnvelope::new(
+                            Some(turn_id.clone()),
+                            AgentEvent::TurnCompleted {
+                                turn_id,
+                                stop: TurnStop::Completed,
+                            },
+                        ));
+                    }
+                }
+                Ok(AgentActionResult::unit())
+            }
+            AgentAction::PrepareSessionOp { .. } => {
+                let options = self
+                    .prepare_options
+                    .lock()
+                    .expect("prepare options")
+                    .clone();
+                if !options.is_empty() {
+                    return Ok(AgentActionResult::prepared_options(options));
+                }
+                if let Some(has_file_changes) = *self
+                    .prepare_has_file_changes
+                    .lock()
+                    .expect("prepare has file changes")
+                {
+                    return Ok(AgentActionResult::rewind_preview(has_file_changes));
+                }
+                Err(AgentActionError::Unsupported {
+                    action: AgentActionKind::PrepareSessionOp,
+                })
+            }
+            AgentAction::RespondSessionOp { .. } => {
+                let session_id = self
+                    .applied_fork_session_id
+                    .lock()
+                    .expect("applied fork session id")
+                    .clone();
+                if let Some(session_id) = session_id {
+                    return Ok(AgentActionResult::forked(session_id, None));
+                }
+                if self.applied_rewind.load(Ordering::SeqCst) {
+                    return Ok(AgentActionResult::unit());
+                }
+                Err(AgentActionError::Unsupported {
+                    action: AgentActionKind::RespondSessionOp,
+                })
             }
         }
-        Ok(())
     }
 }
 
 struct FakeSession {
     control: AgentRuntimeControl,
-    events_rx: mpsc::UnboundedReceiver<AgentEvent>,
+    events_rx: mpsc::UnboundedReceiver<AgentEventEnvelope>,
     persistence: Option<AgentPersistenceHandle>,
-    capabilities: AgentCapabilities,
+    descriptor: AgentDescriptor,
 }
 
 #[async_trait]
@@ -263,12 +381,32 @@ impl AgentRuntime for FakeSession {
         self.persistence.clone()
     }
 
-    fn capabilities(&self) -> AgentCapabilities {
-        self.capabilities.clone()
+    fn descriptor(&self) -> AgentDescriptor {
+        self.descriptor.clone()
     }
 
-    async fn next_event(&mut self) -> Option<AgentEvent> {
+    async fn next_event(&mut self) -> Option<AgentEventEnvelope> {
         self.events_rx.recv().await
+    }
+}
+
+fn fake_descriptor(provider_id: &str, supports_steer: bool) -> AgentDescriptor {
+    let mut capabilities = capabilities_for_provider(provider_id);
+    capabilities.steer = if supports_steer {
+        Capability::Supported
+    } else {
+        Capability::Unsupported
+    };
+    AgentDescriptor {
+        identity: AgentIdentity {
+            id: provider_id.to_string(),
+            name: provider_id.to_string(),
+            version: None,
+        },
+        capabilities,
+        support: option_support_for_provider(provider_id),
+        supported_options: AgentSupportedOptions::default(),
+        current_config: AgentCurrentConfig::default(),
     }
 }
 
@@ -301,9 +439,12 @@ fn open_session(
             uuid::Uuid::new_v4()
         )))
     });
-    let _ = tx.send(AgentEvent::SessionStarted {
-        persistence_handle: persistence.as_ref().map(|h| h.as_str().to_string()),
-    });
+    let _ = tx.send(AgentEventEnvelope::new(
+        None,
+        AgentEvent::SessionStarted {
+            persistence_handle: persistence.as_ref().map(|h| h.as_str().to_string()),
+        },
+    ));
     let inner = Arc::new(FakeSessionInner {
         counters: Arc::clone(&provider.counters),
         supports_steer: provider.supports_steer,
@@ -314,6 +455,10 @@ fn open_session(
         last_config: Arc::clone(&provider.last_config),
         fail_set_config: Arc::clone(&provider.fail_set_config),
         fail_thinking_config: Arc::clone(&provider.fail_thinking_config),
+        applied_fork_session_id: Arc::clone(&provider.applied_fork_session_id),
+        applied_rewind: Arc::clone(&provider.applied_rewind),
+        prepare_has_file_changes: Arc::clone(&provider.prepare_has_file_changes),
+        prepare_options: Arc::clone(&provider.prepare_options),
     });
     if let Ok(mut slot) = provider.events_tx.try_lock() {
         *slot = Some(tx);
@@ -322,11 +467,7 @@ fn open_session(
         control: AgentRuntimeControl::new(inner),
         events_rx: rx,
         persistence,
-        capabilities: AgentCapabilities {
-            supports_steer: provider.supports_steer,
-            supports_resume: true,
-            thinking: crate::domain::AgentThinkingSupport::None,
-        },
+        descriptor: fake_descriptor(&provider.id, provider.supports_steer),
     })
 }
 
@@ -336,12 +477,8 @@ impl AgentProvider for FakeAgentProvider {
         &self.id
     }
 
-    async fn capabilities(&self, _ctx: &AgentCatalogContext) -> AgentResult<AgentCapabilities> {
-        Ok(AgentCapabilities {
-            supports_steer: self.supports_steer,
-            supports_resume: true,
-            thinking: crate::domain::AgentThinkingSupport::None,
-        })
+    async fn descriptor(&self, _ctx: &AgentOptionsContext) -> AgentResult<AgentDescriptor> {
+        Ok(fake_descriptor(&self.id, self.supports_steer))
     }
 
     async fn create_runtime(&self, cfg: AgentRuntimeConfig) -> AgentResult<Box<dyn AgentRuntime>> {
@@ -379,11 +516,86 @@ impl StaticProviderFactory {
 }
 
 #[async_trait]
-impl crate::domain::AgentProviderFactory for StaticProviderFactory {
+impl crate::contract::AgentProviderFactory for StaticProviderFactory {
     async fn provider_for(&self, provider_id: &str) -> AgentResult<Arc<dyn AgentProvider>> {
         self.providers
             .get(provider_id)
             .cloned()
             .ok_or_else(|| AgentProviderError::NotFound(provider_id.to_string()))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::contract::AgentOptionsContext;
+
+    #[tokio::test]
+    async fn s3_s7_fake_send_and_cancel_without_steer_prompt() {
+        let mut provider = FakeAgentProvider::new("claude");
+        provider.supports_steer = false;
+        let mut runtime = provider
+            .create_runtime(AgentRuntimeConfig::default())
+            .await
+            .expect("runtime");
+        assert_eq!(
+            runtime.descriptor().capabilities.steer,
+            Capability::Unsupported
+        );
+        let control = runtime.control();
+        let handle = control
+            .send(AgentPrompt {
+                text: "hi".into(),
+                turn_id: Some("turn-1".into()),
+                ..AgentPrompt::default()
+            })
+            .await
+            .expect("send");
+        assert_eq!(handle.turn_id, "turn-1");
+        let error = control
+            .action(AgentAction::Steer {
+                input: AgentPrompt {
+                    text: "nudge".into(),
+                    ..AgentPrompt::default()
+                },
+            })
+            .await
+            .expect_err("steer");
+        assert!(matches!(
+            error,
+            AgentActionError::Unsupported {
+                action: AgentActionKind::Steer
+            }
+        ));
+        assert_eq!(provider.send_count(), 1);
+        assert_eq!(provider.steer_count(), 1);
+        control.cancel().await.expect("cancel");
+        assert_eq!(provider.cancel_count(), 1);
+        assert_eq!(provider.send_count(), 1);
+        let started = runtime.next_event().await.expect("session started");
+        assert!(matches!(started.payload, AgentEvent::SessionStarted { .. }));
+        assert!(!started.event_id.is_empty());
+        let _ = AgentOptionsContext::default();
+    }
+
+    #[tokio::test]
+    async fn applied_fork_action_returns_vendor_session_id() {
+        let provider = FakeAgentProvider::new("claude");
+        provider.set_applied_fork_session_id("vendor-fork-1");
+        let runtime = provider
+            .create_runtime(AgentRuntimeConfig::default())
+            .await
+            .expect("runtime");
+        let result = runtime
+            .control()
+            .action(AgentAction::RespondSessionOp {
+                request_id: "req".into(),
+                option_id: "fork".into(),
+                target: None,
+            })
+            .await
+            .expect("applied fork");
+        assert_eq!(result.new_session_id.as_deref(), Some("vendor-fork-1"));
+        assert_eq!(result.new_cwd, None);
     }
 }

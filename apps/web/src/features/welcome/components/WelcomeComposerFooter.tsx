@@ -7,9 +7,9 @@ import {
   GitBranch,
   GitCommitHorizontal,
   GitPullRequestArrow,
-  Github,
   Sparkles,
 } from "lucide-react";
+import { Github } from "@workspace/ui/components/icons/lucide-brand-icons";
 import { LinearIcon } from "@workspace/ui/components/icons/linear-icon";
 import type { ComposerAttachment } from "@/features/welcome/components/AttachmentBar";
 import { ImagePreviewOverlay } from "@/shared/components/image-preview-overlay";

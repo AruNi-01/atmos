@@ -1,0 +1,13 @@
+{
+  "note": "Synthetic ACP usage_update in the shape Cursor's schema advertises (used + size). Live cursor-agent acp 2026.09.02 did not emit this notification on short or tool turns — see cursor_acp_no_usage_live.jsonl.",
+  "jsonrpc": "2.0",
+  "method": "session/update",
+  "params": {
+    "sessionId": "cursor-usage-fixture",
+    "update": {
+      "sessionUpdate": "usage_update",
+      "used": 18432,
+      "size": 200000
+    }
+  }
+}

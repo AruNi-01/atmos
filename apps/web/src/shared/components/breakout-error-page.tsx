@@ -43,43 +43,130 @@ type Game = {
   lastTime: number;
 };
 
-const BRICK_ROWS = [
-  [0, 2, 3, 4, 6, 7, 8, 9, 10, 11, 13, 14, 15],
-  [1, 2, 3, 5, 6, 7, 8, 11, 12, 13, 14],
-  [0, 4, 5, 6, 7, 8, 9, 12, 13, 15],
-  [0, 1, 2, 4, 7, 8, 10, 11, 12, 13, 14],
-  [1, 3, 5, 6, 7, 8, 9, 10, 13, 14, 15],
-  [0, 1, 4, 5, 8, 9, 12, 13, 14, 15],
-];
+/**
+ * 7-wide glyph rows for ATMOS. Joined with a 2-col empty gap → 9×43 mask.
+ * `#` = brick, `.` = empty.
+ */
+const ATMOS_LETTERS = {
+  A: [
+    "..###..",
+    ".#...#.",
+    "#.....#",
+    "#.....#",
+    "#######",
+    "#.....#",
+    "#.....#",
+    "#.....#",
+    "#.....#",
+  ],
+  T: [
+    "#######",
+    "...#...",
+    "...#...",
+    "...#...",
+    "...#...",
+    "...#...",
+    "...#...",
+    "...#...",
+    "...#...",
+  ],
+  M: [
+    "#.....#",
+    "##...##",
+    "#.#.#.#",
+    "#..#..#",
+    "#.....#",
+    "#.....#",
+    "#.....#",
+    "#.....#",
+    "#.....#",
+  ],
+  O: [
+    "..###..",
+    ".#...#.",
+    "#.....#",
+    "#.....#",
+    "#.....#",
+    "#.....#",
+    "#.....#",
+    ".#...#.",
+    "..###..",
+  ],
+  S: [
+    ".#####.",
+    "#.....#",
+    "#......",
+    "#......",
+    ".#####.",
+    "......#",
+    "......#",
+    "#.....#",
+    ".#####.",
+  ],
+} as const;
+
+const LETTER_GAP = "..";
+
+function buildAtmosBrickPattern(): string[] {
+  const order = [
+    ATMOS_LETTERS.A,
+    ATMOS_LETTERS.T,
+    ATMOS_LETTERS.M,
+    ATMOS_LETTERS.O,
+    ATMOS_LETTERS.S,
+  ] as const;
+  return order[0].map((_, rowIndex) =>
+    order.map((letter) => letter[rowIndex]).join(LETTER_GAP),
+  );
+}
+
+/** 9×43 pixel mask that spells ATMOS (7-wide letters, 2-col gaps). */
+export const ATMOS_BRICK_PATTERN = buildAtmosBrickPattern();
+
+export const ATMOS_BRICK_ROWS = ATMOS_BRICK_PATTERN.length;
+export const ATMOS_BRICK_COLS = ATMOS_BRICK_PATTERN[0]?.length ?? 0;
+
+/** Initial ball velocity (px per ~16.67ms frame). ~30% faster than prior. */
+export const BALL_SPEED = {
+  wide: { dx: 6.8, dy: -7.0 },
+  narrow: { dx: 5.4, dy: -6.1 },
+} as const;
 
 const clamp = (value: number, min: number, max: number) =>
   Math.max(min, Math.min(max, value));
 
 function buildBricks(width: number, height: number): Brick[] {
-  const columnCount = 16;
-  const gap = Math.max(8, Math.min(18, width * 0.009));
-  const brickHeight = Math.max(18, Math.min(34, height * 0.032));
-  const brickWidth = Math.max(46, (width - gap * (columnCount + 1)) / columnCount);
-  const top = Math.max(26, height * 0.028);
+  const columnCount = ATMOS_BRICK_COLS;
+  // Near-full bleed; only a thin gutter so ATMOS spans the viewport.
+  const sidePad = Math.max(10, width * 0.018);
+  const top = Math.max(20, height * 0.028);
+  const availableWidth = Math.max(200, width - sidePad * 2);
+  const gap = clamp(width * 0.0038, 2, 7);
+  // Width-first: brick size from horizontal span; height grows with rows.
+  const brickSize = Math.max(
+    6,
+    (availableWidth - gap * Math.max(columnCount - 1, 0)) / Math.max(columnCount, 1),
+  );
+  const totalWidth =
+    columnCount * brickSize + Math.max(columnCount - 1, 0) * gap;
+  const startX = (width - totalWidth) / 2;
   const bricks: Brick[] = [];
 
-  BRICK_ROWS.forEach((columns, rowIndex) => {
-    const rowOffset = rowIndex % 2 === 0 ? 0 : brickWidth * 0.36;
-    const y = top + rowIndex * (brickHeight + gap * 0.9);
+  ATMOS_BRICK_PATTERN.forEach((row, rowIndex) => {
+    const y = top + rowIndex * (brickSize + gap);
 
-    columns.forEach((columnIndex) => {
-      const x = gap + columnIndex * (brickWidth + gap) - rowOffset;
-      if (x > width - gap || x + brickWidth < gap) return;
+    for (let columnIndex = 0; columnIndex < row.length; columnIndex += 1) {
+      if (row[columnIndex] !== "#") continue;
 
       bricks.push({
-        x,
+        x: startX + columnIndex * (brickSize + gap),
         y,
-        width: brickWidth,
-        height: brickHeight,
+        width: brickSize,
+        height: brickSize,
         active: true,
         tone: (rowIndex + columnIndex) % 4,
       });
-    });
+    }
   });
 
   return bricks;
@@ -90,6 +177,7 @@ function createGame(width: number, height: number): Game {
   const paddleHeight = clamp(height * 0.026, 18, 26);
   const bottomGap = clamp(height * 0.024, 16, 26);
   const paddleY = height - bottomGap - paddleHeight;
+  const speed = width >= 900 ? BALL_SPEED.wide : BALL_SPEED.narrow;
 
   return {
     width,
@@ -97,8 +185,8 @@ function createGame(width: number, height: number): Game {
     bricks: buildBricks(width, height),
     ballX: width / 2,
     ballY: paddleY - 26,
-    ballDx: width >= 900 ? 5.2 : 4.1,
-    ballDy: width >= 900 ? -5.4 : -4.7,
+    ballDx: speed.dx,
+    ballDy: speed.dy,
     ballSize: clamp(width * 0.008, 9, 14),
     paddleX: (width - paddleWidth) / 2,
     paddleY,
@@ -231,7 +319,7 @@ function stepGame(game: Game, frameScale: number) {
   ) {
     const paddleCenter = game.paddleX + game.paddleWidth / 2;
     const hit = clamp((game.ballX - paddleCenter) / (game.paddleWidth / 2), -1, 1);
-    const speed = Math.min(9, Math.hypot(game.ballDx, game.ballDy) + 0.04);
+    const speed = Math.min(11.5, Math.hypot(game.ballDx, game.ballDy) + 0.05);
 
     game.ballDx = hit * speed * 0.88;
     game.ballDy = -Math.sqrt(Math.max(speed * speed - game.ballDx * game.ballDx, 16));
@@ -279,6 +367,15 @@ export function BreakoutErrorPage({
   const canvasRef = React.useRef<HTMLCanvasElement | null>(null);
   const gameRef = React.useRef<Game | null>(null);
   const frameRef = React.useRef<number | null>(null);
+  const playingRef = React.useRef(false);
+  const [isPlaying, setIsPlaying] = React.useState(false);
+
+  const syncPlayingState = React.useCallback((status: GameStatus) => {
+    const next = status === "playing";
+    if (playingRef.current === next) return;
+    playingRef.current = next;
+    setIsPlaying(next);
+  }, []);
 
   React.useEffect(() => {
     const canvas = canvasRef.current;
@@ -300,6 +397,7 @@ export function BreakoutErrorPage({
       gameRef.current = gameRef.current
         ? resizeGame(gameRef.current, width, height)
         : createGame(width, height);
+      syncPlayingState(gameRef.current.status);
       drawGame(ctx, gameRef.current, document.documentElement.classList.contains("dark"));
     };
 
@@ -310,6 +408,7 @@ export function BreakoutErrorPage({
         const frameScale = clamp((time - lastTime) / 16.67, 0.4, 2);
         game.lastTime = time;
         stepGame(game, frameScale);
+        syncPlayingState(game.status);
         drawGame(ctx, game, document.documentElement.classList.contains("dark"));
       }
 
@@ -326,7 +425,7 @@ export function BreakoutErrorPage({
         window.cancelAnimationFrame(frameRef.current);
       }
     };
-  }, []);
+  }, [syncPlayingState]);
 
   const handlePointerMove = React.useCallback((event: React.PointerEvent<HTMLElement>) => {
     const game = gameRef.current;
@@ -334,12 +433,18 @@ export function BreakoutErrorPage({
     movePaddle(game, event.clientX);
   }, []);
 
-  const handlePointerDown = React.useCallback((event: React.PointerEvent<HTMLElement>) => {
-    const game = gameRef.current;
-    if (!game) return;
-    movePaddle(game, event.clientX);
-    launch(gameRef);
-  }, []);
+  const handlePointerDown = React.useCallback(
+    (event: React.PointerEvent<HTMLElement>) => {
+      const game = gameRef.current;
+      if (!game) return;
+      movePaddle(game, event.clientX);
+      launch(gameRef);
+      if (gameRef.current) {
+        syncPlayingState(gameRef.current.status);
+      }
+    },
+    [syncPlayingState],
+  );
 
   const stopActionPointer = React.useCallback((event: React.PointerEvent) => {
     event.stopPropagation();
@@ -399,7 +504,19 @@ export function BreakoutErrorPage({
         className="pointer-events-none absolute inset-0 z-20 h-full w-full [image-rendering:pixelated]"
       />
 
-      <section className="group pointer-events-auto absolute inset-x-4 top-[38%] z-10 flex -translate-y-1/2 flex-col items-center text-center sm:top-[54%]">
+      <section
+        data-breakout-overlay=""
+        data-playing={isPlaying ? "true" : "false"}
+        className={cn(
+          // Sit lower so the taller ATMOS wordmark / playfield has room.
+          "group pointer-events-auto absolute inset-x-4 top-[44%] z-10 flex -translate-y-1/2 flex-col items-center text-center sm:top-[58%]",
+          "transition-opacity duration-300 ease-out",
+          // While the ball is in play, fade copy so bricks stay readable;
+          // hovering any action button restores the overlay.
+          isPlaying &&
+            "opacity-[0.18] has-[[data-error-action]:hover]:opacity-100",
+        )}
+      >
         <div
           className={cn(
             "text-[clamp(8rem,18vw,18rem)] font-normal leading-none text-[#ececec] group-hover:text-[#111112] dark:text-[#18181c] dark:group-hover:text-[#f5f5f7]",

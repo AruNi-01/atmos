@@ -1,13 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useReducedMotion } from "motion/react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { useState } from "react";
 import {
   ActivityIndicator,
   ActivityIndicatorGroup,
-  TextEffect,
+  TextShimmer,
   pickActivityIndicatorStyle,
-  textEffectBlurSlideVariants,
 } from "@workspace/ui";
 import type { AgentActivity } from "../lib/chat-helpers";
 import { formatWorkDuration } from "../lib/agent-chat-timing";
@@ -17,6 +16,13 @@ const STREAM_ORB_GROUPS = [
   ActivityIndicatorGroup.Ring,
   ActivityIndicatorGroup.Helix,
 ] as const;
+
+/**
+ * Orb/stars fill a shared `size-4` slot with session-lifecycle / tool headers.
+ * 20px (default ActivityIndicator) keeps lattice/ring optical weight; the
+ * slot centers it so left edges match lucide `size-4` chrome.
+ */
+const GLYPH_SIZE = 20;
 
 export function AgentActivityIndicator({
   activity,
@@ -30,53 +36,33 @@ export function AgentActivityIndicator({
   const reduced = Boolean(useReducedMotion());
   const [streamStyle] = useState(() => pickActivityIndicatorStyle(STREAM_ORB_GROUPS));
   const glyphStyle = thinking ? "stars" : streamStyle;
-  const [shimmering, setShimmering] = useState(reduced);
-
-  useEffect(() => {
-    if (reduced) {
-      setShimmering(true);
-      return;
-    }
-    setShimmering(false);
-    const enterMs = 400 + (label.length + 1) * 10;
-    const timer = window.setTimeout(() => setShimmering(true), enterMs);
-    return () => window.clearTimeout(timer);
-  }, [label, reduced]);
-
-  const glyph = (
-    <ActivityIndicator
-      style={glyphStyle}
-      size={20}
-    />
-  );
 
   return (
-    <div className="overflow-visible px-1 py-1.5">
-      <span className="inline-flex items-center gap-2 overflow-visible text-muted-foreground">
-        {shimmering ? (
-          <ActivityIndicator
-            style={glyphStyle}
-            size={20}
-            label={label}
-            shimmer
-          />
-        ) : (
-          <TextEffect
-            as="span"
-            className="inline-flex items-center text-sm"
-            per="char"
-            variants={textEffectBlurSlideVariants}
-            segmentTransition={{ duration: 0.4 }}
-            leading={glyph}
-            leadingClassName="mr-2"
-            segmentWrapperClassName="translate-y-px"
+    <div className="inline-flex min-w-0 max-w-full items-center gap-2 py-0.5 text-left text-sm leading-5 text-muted-foreground">
+      <span className="flex size-4 shrink-0 items-center justify-center overflow-visible">
+        <ActivityIndicator
+          style={glyphStyle}
+          size={GLYPH_SIZE}
+        />
+      </span>
+      <span className="relative inline-flex h-5 min-w-0 items-center overflow-hidden">
+        <AnimatePresence mode="popLayout" initial={false}>
+          <motion.span
+            key={label}
+            initial={reduced ? false : { y: 12, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={reduced ? { opacity: 0 } : { y: -12, opacity: 0 }}
+            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+            className="inline-flex items-center"
           >
-            {label}
-          </TextEffect>
-        )}
-        <span className="translate-y-px font-mono text-xs tabular-nums text-muted-foreground">
-          {formatWorkDuration(elapsedMs)}
-        </span>
+            <TextShimmer as="span" className="text-sm leading-5" duration={1.5}>
+              {label}
+            </TextShimmer>
+          </motion.span>
+        </AnimatePresence>
+      </span>
+      <span className="font-mono text-sm tabular-nums leading-5 text-muted-foreground">
+        {formatWorkDuration(elapsedMs)}
       </span>
     </div>
   );

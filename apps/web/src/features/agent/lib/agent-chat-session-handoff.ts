@@ -1,7 +1,7 @@
 "use client";
 
 import type { AgentMessage } from "@atmos/api-types/ws/dto/agent-chat";
-import type { AgentPlan } from "@/features/agent/hooks/use-agent-session";
+import type { AgentPlan } from "@/features/agent/lib/agent-chat-types";
 import type { PendingPermission } from "@/features/agent/lib/chat-helpers";
 import { desktopInvoke, isDesktopRuntime } from "@/shared/lib/desktop-bridge";
 

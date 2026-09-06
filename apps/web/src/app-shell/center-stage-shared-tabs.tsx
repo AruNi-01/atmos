@@ -28,7 +28,6 @@ import {
   GitMergeIcon,
   GitCommitHorizontal,
   GitGraph,
-  Github,
   Globe,
   MessagesSquare,
   Play,
@@ -36,10 +35,11 @@ import {
   SquareTerminal as TerminalIcon,
   Workflow,
 } from "lucide-react";
+import { Github } from "@workspace/ui/components/icons/lucide-brand-icons";
 
 import {
   EDITOR_REVIEW_DIFF_PREFIX,
-  getEditorSourcePath,
+  getEditorDisplayPath,
   isConflictResolveEditorPath,
   isReviewGroupEditorPath,
   type OpenFile,
@@ -727,7 +727,7 @@ export function CenterStageOpenFileTab({
 }) {
   const variant = variantProp ?? getCenterStageSurfaceTabVariant(file.path);
   const isReviewDiff = variant === "review-diff";
-  const displayPath = displayPathProp ?? getEditorSourcePath(file.path);
+  const displayPath = displayPathProp ?? getEditorDisplayPath(file.path);
 
   return (
     <CenterStageSurfaceContentTab

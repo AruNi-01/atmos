@@ -19,13 +19,11 @@ import {
   Check,
   Eye,
   FileText,
-  Github,
   GitBranch,
   GitPullRequest,
   MessageSquare,
   Loader2,
-  PanelRightClose,
-  PanelRightOpen,
+  PanelRight,
   PenLine,
   RotateCw,
   Settings2,
@@ -35,6 +33,7 @@ import {
   User,
   XCircle,
 } from "lucide-react";
+import { Github } from "@workspace/ui/components/icons/lucide-brand-icons";
 import {
   Command,
   CommandEmpty,
@@ -56,6 +55,7 @@ import {
 } from "@/features/github/hooks/use-github";
 import { MarkdownRenderer } from "@/shared/components/markdown/MarkdownRenderer";
 import { cn } from "@/shared/lib/utils";
+import { panelFoldCursorClass } from "@/shared/lib/panel-fold";
 import { SidebarSection } from "@/features/github/lib/pr-detail-parts";
 import type { TimelineItem } from "@/features/github/lib/pr-detail-parts";
 import {
@@ -211,15 +211,14 @@ export function IssueDetailView({
           {headerTrailing}
           <button
             type="button"
-            className="flex size-7 items-center justify-center rounded-md opacity-70 hover:bg-muted hover:opacity-100"
+            className={cn(
+              "flex size-7 items-center justify-center rounded-md opacity-70 hover:bg-muted hover:opacity-100",
+              panelFoldCursorClass("right", sidebarCollapsed),
+            )}
             onClick={() => setSidebarCollapsed((value) => !value)}
             title={sidebarCollapsed ? t("showSidebar") : t("hideSidebar")}
           >
-            {sidebarCollapsed ? (
-              <PanelRightOpen className="size-3.5" />
-            ) : (
-              <PanelRightClose className="size-3.5" />
-            )}
+            <PanelRight className="size-3.5" />
           </button>
         </div>
       </header>

@@ -25,6 +25,7 @@ const AGENT_ICON_ALIASES: Record<string, string[]> = {
   "copilot": ["github-copilot", "copilot"],
   "grok": ["grok-build"],
   "qwen": ["qwen-code"],
+  "deepseek-harness": ["deepseek"],
 };
 
 // Map registry IDs that don't have a matching SVG file to the actual filename.
@@ -50,6 +51,7 @@ const AGENT_ICON_REMAP: Record<string, string> = {
   "augment": "auggie",
   "grok": "grok-build",
   "copilot": "copilot",
+  "deepseek-harness": "deepseek",
 };
 
 /** Theme-pair brand icons (pre-filled light/dark assets — do not invert). */

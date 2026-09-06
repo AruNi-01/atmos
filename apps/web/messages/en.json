@@ -53,11 +53,13 @@
         "installTerminal": {
           "title": "Install {toolName}",
           "descriptionGuide": "Atmos detected the package manager on this machine and can run the install in a temporary shell.",
+          "descriptionGuideExplicit": "Atmos can run the official {toolName} install command in a temporary shell.",
           "descriptionTerminalWithCommand": "Running: {command}",
           "descriptionTerminalFallback": "Complete the install in the temporary shell, then check again.",
           "detectingOptions": "Detecting install options…",
           "detectedHostTitle": "Detected host",
           "detectedHostUnavailable": "Could not detect the host package manager.",
+          "detectedHostManual": "Using the official install command you selected.",
           "recommendedCommandTitle": "Recommended command",
           "recommendedCommandDescription": "This command will be typed into a temporary Atmos terminal.",
           "recommendedCommandSudo": "You may be prompted for your password.",
@@ -94,7 +96,7 @@
     },
     "agents": {
       "title": "Choose Your Agents",
-      "subtitle": "We detected which built-in agent CLIs are on this machine. Keep the ones you use and pick a default for new terminals.",
+      "subtitle": "We detected which built-in agent CLIs are on this machine. Keep the ones you use — Atmos enables matching Agent Chat (Native first, then ACP) and picks a default for new terminals. Missing adapter packages are downloaded on continue; official CLIs that already speak ACP are reused and never overwritten.",
       "summary": "{installed} installed · {selected} selected · {total} built-in",
       "yoloLabel": "Default YOLO mode",
       "yoloAria": "Enable YOLO / skip-permissions mode for agents by default",
@@ -104,7 +106,7 @@
       "defaultBadge": "Default",
       "setDefault": "Set Default",
       "selectAria": "Enable {name}",
-      "noneInstalledHint": "No built-in agent CLIs were found on PATH. You can still enable ones you plan to install later, or continue and configure them in Settings.",
+      "noneInstalledHint": "No built-in agent CLIs were found on PATH. Enable the ones you want, then use Install for official install commands (runs in an Atmos terminal). Adapter Chat packages still download on continue; official ACP CLIs are never overwritten.",
       "recheck": "Re-check agents",
       "next": "Save and continue",
       "provisioning": "Setting up Agent Chat providers…",
@@ -113,7 +115,16 @@
       "saveFailed": "Could not save agent preferences. Check your connection and try again.",
       "provisionFailedTitle": "Some Agent Chat providers were not set up",
       "provisionFailed": "Saved your agent list, but Agent Chat setup failed for: {names}. You can install them later from Agents.",
-      "provisionFailedGeneric": "Saved your agent list, but Agent Chat providers could not be set up. You can install them later from Agents."
+      "provisionFailedGeneric": "Saved your agent list, but Agent Chat providers could not be set up. You can install them later from Agents.",
+      "install": {
+        "description": "Install the official CLI in an Atmos temporary terminal, or copy a command for your OS. Multiple install types are listed when the vendor supports them."
+      },
+      "deepseek": {
+        "name": "DeepSeek Harness",
+        "optionalBadge": "Optional",
+        "hint": "Chat-only ACP agent via npx. Off by default — enable if you use DeepSeek.",
+        "chatOnly": "Chat only"
+      }
     },
     "quota": {
       "title": "AI Quota Usage",
@@ -1255,10 +1266,14 @@
       "selectFile": "Open a file from the directory",
       "selectChange": "Select a change to view the diff",
       "searchPlaceholder": "Files, Folders...",
+      "searchHint": "Type to search files",
+      "searching": "Searching…",
       "newFile": "New File",
       "recents": "Recents",
       "graphHistory": "Graph History",
       "recentCommits": "Recent commits",
+      "pullRequests": "Pull Requests",
+      "pullRequestNumber": "PR #{number}",
       "noSearchResults": "No matching files or folders"
     },
     "centerStageTabGroups": {
@@ -1906,6 +1921,8 @@
       },
       "changes": {
         "selectScope": "Select changes scope",
+        "loadingCommits": "Loading commits...",
+        "noCommitsOnBranch": "No commits on branch",
         "noCommitChanges": "Commit {commit} has no file changes",
         "noChangesAgainst": "No changes against {compareRef}",
         "noChangesDetected": "No changes detected",
@@ -2880,18 +2897,24 @@
         "searchAgents": "Search agents",
         "chooseModel": "Choose model",
         "chooseMode": "Mode",
+        "choosePermission": "Permission",
         "modelLocked": "This agent cannot switch models in the current session",
         "modeLocked": "This agent cannot switch modes in the current session",
+        "permissionLocked": "This agent cannot switch permission in the current session",
         "backToAgents": "Agents",
         "loadingModels": "Loading models",
         "thinkingFaster": "Faster",
         "thinkingSmarter": "Smarter",
         "thinkingEffort": "Effort",
+        "fastMode": "Fast Tier",
         "queue": "Queue",
         "steer": "Steer",
         "oneShotQueue": "Queue this once",
         "oneShotSteer": "Steer this once",
         "steerUnavailable": "Steer unavailable",
+        "planTitle": "Current plan",
+        "approvePlan": "Approve",
+        "viewPlan": "View plan",
         "workingDirectory": {
           "aria": "Working directory",
           "thread": "Thread",
@@ -3005,20 +3028,20 @@
         "sessionsTitle": "Sessions",
         "agentsTitle": "Agents",
         "sessionsDescription": "Manage recent chat sessions.",
-        "agentsDescription": "Browse installed and available agents.",
+        "agentsDescription": "Browse native, ACP, and custom agents.",
         "searchPlaceholder": "Search agents",
         "addCustomAgent": "Add custom agent",
         "refreshRegistry": "Refresh registry",
         "tabs": {
-          "registry": "Registry",
-          "installed": "Installed",
+          "native": "Native",
+          "acp": "ACP",
           "custom": "Custom"
         },
         "empty": {
-          "registryQuery": "No registry agents for \"{query}\"",
-          "registryDefault": "No registry agents found",
-          "installedQuery": "No installed agents for \"{query}\"",
-          "installedDefault": "No installed agents"
+          "nativeQuery": "No native agents for \"{query}\"",
+          "nativeDefault": "No native agents",
+          "acpQuery": "No ACP agents for \"{query}\"",
+          "acpDefault": "No ACP agents found"
         },
         "customEmpty": {
           "title": "No custom agents",
@@ -3098,7 +3121,10 @@
       },
       "authDialog": {
         "title": "Agent authentication required",
-        "description": "Authenticate the agent before continuing."
+        "description": "Authenticate the agent before continuing.",
+        "apiKeyLabel": "API token",
+        "apiKeyPlaceholder": "Paste your API token",
+        "saveAndContinue": "Save and continue"
       },
       "linkSafety": {
         "closeTitle": "Close preview",
@@ -3142,8 +3168,8 @@
       },
       "usageBadges": {
         "session": {
-          "contextWindow": "Context Window",
-          "estimatedCost": "Estimated Cost"
+          "contextWindow": "Context window",
+          "estimatedCost": "Estimated cost"
         },
         "turn": {
           "summary": "{total} total",
@@ -3151,10 +3177,21 @@
           "input": "Input",
           "output": "Output",
           "thought": "Thought",
-          "cacheRead": "Cache Read",
-          "cacheWrite": "Cache Write",
+          "cacheRead": "Cache read",
+          "cacheWrite": "Cache write",
           "total": "Total"
         }
+      },
+      "contextWindow": {
+        "title": "Context Usage",
+        "summary": "{used} tokens / {size} ({percent})",
+        "percentFull": "{percent} Full",
+        "tokensSummary": "~{used} / {size} Tokens",
+        "toggleAria": "Context usage {percent}",
+        "closeAria": "Close context usage",
+        "quotaSection": "Agent quota usage",
+        "quotaSectionWithPlan": "Agent quota usage · {plan}",
+        "notDetected": "Not detected"
       },
       "managerCards": {
         "installedVersion": "Installed v{version}",
@@ -3163,7 +3200,24 @@
           "updateAvailable": "Update available",
           "installed": "Installed",
           "usingInstalledCli": "Using installed CLI",
-          "custom": "Custom"
+          "custom": "Custom",
+          "builtin": "Built-in",
+          "native": "Native"
+        },
+        "preferNative": {
+          "recommend": "Native {name} is available and supports more capabilities. Prefer enabling it in the Native tab — you can still install this ACP agent.",
+          "alreadyEnabled": "Native {name} is already enabled and supports more capabilities. ACP remains available if you need it."
+        },
+        "native": {
+          "cliFound": "CLI found",
+          "cliMissing": "CLI not found on PATH",
+          "description": {
+            "claude": "Official Claude Code CLI for Chat.",
+            "codex": "Official Codex CLI for Chat.",
+            "opencode": "Official OpenCode CLI for Chat.",
+            "pi": "Official Pi CLI for Chat.",
+            "grok": "Official Grok CLI for Chat."
+          }
         },
         "repositoryTitle": "Repository",
         "repositoryAria": "Open repository for {name}",
@@ -3172,12 +3226,18 @@
           "install": "Install",
           "updating": "Updating...",
           "upgrade": "Upgrade",
-          "removing": "Removing..."
+          "removing": "Removing...",
+          "enable": "Enable",
+          "preloading": "Downloading package..."
         },
         "emptyState": {
           "title": "No agents found",
           "clearSearch": "Clear search"
         }
+      },
+      "agentKind": {
+        "native": "Native",
+        "acp": "ACP"
       },
       "configOptionDropdown": {
         "searchPlaceholder": "Search options",
@@ -3252,6 +3312,19 @@
         },
         "bottom": "Bottom",
         "permissionRequested": "Permission requested",
+        "askUserTitle": "Questions for you",
+        "planApprovalTitle": "Plan ready",
+        "continue": "Continue",
+        "skip": "Skip",
+        "approve": "Approve",
+        "keepPlanning": "Keep planning",
+        "cancelPlan": "Cancel plan",
+        "viewPlan": "View plan",
+        "viewTodos": "View todos",
+        "planViewerEmpty": "No plan content available yet.",
+        "sessionOpRequested": "Session action requested",
+        "sessionOpFork": "Fork",
+        "sessionOpRewind": "Rewind",
         "deny": "Deny",
         "allow": "Allow",
         "copy": {
@@ -3279,7 +3352,38 @@
           "switchedBoth": "Switched model to {model} · mode to {mode}",
           "hints": {
             "modelSwitchFailed": "Couldn't switch model in this session",
-            "modeSwitchFailed": "Couldn't switch mode in this session"
+            "modeSwitchFailed": "Couldn't switch mode in this session",
+            "sessionOpFailed": "Couldn't complete that session action"
+          }
+        },
+        "pickers": {
+          "permissionMode": "Permission mode",
+          "mode": "Mode",
+          "model": "Model",
+          "thinking": "Thinking",
+          "thinkingLevels": {
+            "off": "Off",
+            "none": "None",
+            "minimal": "Minimal",
+            "low": "Low",
+            "medium": "Medium",
+            "high": "High",
+            "extraHigh": "Extra high",
+            "max": "Max",
+            "ultra": "Ultra",
+            "maximum": "Maximum"
+          },
+          "permissionModes": {
+            "yolo": "Yolo",
+            "acceptEdits": "Accept edits",
+            "auto": "Auto",
+            "askAlways": "Ask always"
+          },
+          "permissionModeDescriptions": {
+            "yolo": "Skip all approval prompts, including file edits and network access.",
+            "acceptEdits": "Auto-approve file edits. Ask for other actions.",
+            "auto": "Only ask for actions detected as potentially unsafe.",
+            "askAlways": "Always ask before editing files or using the network."
           }
         }
       },
@@ -3326,8 +3430,14 @@
         "deletedFile": "Deleted",
         "deletedFileLabel": "Deleted {path}",
         "to": "To",
+        "lineChanges": "Line changes",
         "searchingFor": "Searching for {query}",
         "webSearch": "Web search",
+        "imageGen": "Image",
+        "imagePreview": "Enlarge image",
+        "planDocument": "Plan",
+        "planBody": "View plan",
+        "planTodos": "{count, plural, one {# to-do} other {# to-dos}}",
         "resultCount": "{count, plural, one {# result} other {# results}}",
         "sources": "Sources",
         "fetchUrl": "Fetch {host}",
@@ -6175,10 +6285,9 @@
         "summaryAgentTitle": "Summary agent",
         "summaryAgentDescription": "Terminal agent used for the headless session (same as Automations). Configure model via the agent run config. Leave unselected to use the default LLM provider.",
         "followupTitle": "Busy composer follow-up",
-        "followupDescription": "When a turn is running, Enter queues the next turn. Steer is closed until an agent can inject into a running turn.",
+        "followupDescription": "When a turn is running, Enter queues the next turn or steers the current one. Agents that cannot steer still queue.",
         "followupQueue": "Queue",
-        "followupSteer": "Steer",
-        "followupSteerUnavailable": "Steer (unavailable)"
+        "followupSteer": "Steer"
       }
     },
     "canvasSection": {
@@ -7105,6 +7214,15 @@
         },
         "customRemoveFailed": {
           "title": "Failed to remove custom agent"
+        },
+        "customEnableFailed": {
+          "title": "Failed to update agent"
+        },
+        "nativeEnableFailed": {
+          "title": "Failed to update native agent"
+        },
+        "customPreloadFailed": {
+          "title": "Failed to download package"
         }
       }
     },
@@ -8797,6 +8915,10 @@
       },
       "empty": "No diff available"
     },
+    "discussionDiff": {
+      "line": "line {line}",
+      "lineRange": "line {start}~{end}"
+    },
     "codeView": {
       "actions": {
         "addReviewComment": "Add review comment"
@@ -9561,7 +9683,8 @@
         "actions": {
           "showHiddenFiles": "Show hidden files",
           "hideHiddenFiles": "Hide hidden files",
-          "refreshFiles": "Refresh files"
+          "refreshFiles": "Refresh files",
+          "locateCurrentFile": "Locate current file"
         }
       },
       "fileTree": {

@@ -139,7 +139,10 @@ function AggregateProviderRow({
   const extraDetailSections = extraSections(provider);
   const providerRegion = inferProviderRegion(provider);
   const primaryMetric = metrics[0] ?? null;
-  const creditsBalance = firstRowValue(provider, "Credits", "Balance");
+  const creditsBalance =
+    firstRowValue(provider, "Credits", "Balance") ??
+    provider.subscription_summary?.credits_label?.trim() ??
+    null;
   const creditsState = firstRowValue(provider, "Credits", "State");
   const { accountLabel, planLabel, periodLabel } = providerIdentity(provider, t("detail.notDetected"));
   const collapsedSubtitle =
@@ -347,7 +350,7 @@ function DetectedProviderDetails({
               </div>
             </div>
           ))
-        ) : (
+        ) : creditsBalance || creditsState || extraDetailSections.length > 0 ? null : (
           <div>
             <div className="text-sm font-medium text-foreground">{t("detail.usage")}</div>
             <div className="mt-1 text-[11px] text-foreground/90">{t("detail.noUsageData")}</div>
@@ -357,9 +360,8 @@ function DetectedProviderDetails({
         {creditsBalance || creditsState ? (
           <div className="flex items-center justify-between gap-4 border-t border-border/60 pt-2.5 text-sm">
             <div className="text-foreground">{t("detail.credits")}</div>
-            <div className="text-right">
-              <div className="text-foreground">{creditsBalance ?? t("detail.unknown")}</div>
-              <div className="text-[11px] text-foreground/90">{creditsState ?? t("detail.credits")}</div>
+            <div className="text-right text-foreground">
+              {creditsBalance ?? creditsState ?? t("detail.unknown")}
             </div>
           </div>
         ) : null}
@@ -405,7 +407,10 @@ export function ProviderDetail({
   const metrics = quotaMetrics(provider);
   const extraDetailSections = extraSections(provider);
   const providerRegion = inferProviderRegion(provider);
-  const creditsBalance = firstRowValue(provider, "Credits", "Balance");
+  const creditsBalance =
+    firstRowValue(provider, "Credits", "Balance") ??
+    provider.subscription_summary?.credits_label?.trim() ??
+    null;
   const creditsState = firstRowValue(provider, "Credits", "State");
   const warningText = provider.warnings[0] ?? (provider.fetch_state.status !== "ready" ? provider.fetch_state.message : null);
   const showCredits = Boolean(creditsBalance || creditsState);
@@ -467,12 +472,17 @@ export function ProviderDetail({
 
       {showCredits ? (
         <section className="border-t border-border/70 pt-5">
-          <div className="text-[18px] font-semibold tracking-tight text-foreground">{t("detail.credits")}</div>
-          <div className="mt-4 h-2 rounded-full bg-muted/60" />
-          <div className="mt-2 flex items-center justify-between gap-4 text-sm">
-            <div className="text-foreground">{creditsBalance ?? creditsState ?? t("detail.unknown")}</div>
-            <div className="text-foreground/90">{creditsState && creditsBalance ? creditsState : null}</div>
+          <div className="flex items-start justify-between gap-4">
+            <div className="text-[18px] font-semibold tracking-tight text-foreground">
+              {t("detail.credits")}
+            </div>
+            <div className="pt-1 text-right text-sm text-foreground">
+              {creditsBalance ?? creditsState ?? t("detail.unknown")}
+            </div>
           </div>
+          {creditsState && creditsBalance ? (
+            <div className="mt-1 text-right text-sm text-foreground/90">{creditsState}</div>
+          ) : null}
           {warningText ? (
             <div className="mt-3 text-sm leading-6 text-foreground/90">{warningText}</div>
           ) : null}

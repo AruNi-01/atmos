@@ -10,7 +10,8 @@ use crate::error::{Result, ServiceError};
 use super::apply_event::{apply_pending_session_config, emit_live, RuntimeState};
 use super::store::AgentChatStore;
 use super::types::{
-    AgentChatEvent, AgentChatPayload, QueueItemStatus, RuntimeStatus, TranscriptRecord, TurnStatus,
+    AgentChatEvent, AgentChatPayload, QueueItemStatus, RuntimeStatus, TranscriptEnvelope,
+    TranscriptEvent, TurnStatus,
 };
 
 #[allow(clippy::too_many_arguments)]
@@ -32,6 +33,9 @@ pub(super) async fn maybe_dispatch_queue(
     };
     let _turn = gate.lock().await;
     if state.lock().await.pending_permission.is_some() {
+        return Ok(());
+    }
+    if state.lock().await.pending_session_op.is_some() {
         return Ok(());
     }
     if state.lock().await.current_turn_id.is_some() {
@@ -56,21 +60,20 @@ pub(super) async fn maybe_dispatch_queue(
     state.lock().await.begin_turn(turn_id.clone(), created_at);
     store.append_record(
         chat_id,
-        &TranscriptRecord::TurnStarted {
-            turn_id: turn_id.clone(),
-            created_at,
-        },
+        &TranscriptEnvelope::at(turn_id.clone(), created_at, TranscriptEvent::TurnStarted),
     )?;
     store.append_record(
         chat_id,
-        &TranscriptRecord::UserMessage {
-            turn_id: turn_id.clone(),
-            message_id: message_id.clone(),
-            kind: UserMessageKind::Normal,
-            text: item.prompt.clone(),
-            attachments: item.attachments.clone(),
+        &TranscriptEnvelope::at(
+            turn_id.clone(),
             created_at,
-        },
+            TranscriptEvent::UserMessage {
+                message_id: message_id.clone(),
+                kind: UserMessageKind::Normal,
+                text: item.prompt.clone(),
+                attachments: item.attachments.clone(),
+            },
+        ),
     )?;
     emit_live(
         chat_id,
@@ -98,7 +101,7 @@ pub(super) async fn maybe_dispatch_queue(
     )?;
     apply_pending_session_config(chat_id, &turn_id, store, control, events, recent_events).await?;
     if let Err(error) = control
-        .prompt(AgentPrompt {
+        .send(AgentPrompt {
             text: item.prompt.clone(),
             attachments: item.attachments.clone(),
             kind: UserMessageKind::Normal,
@@ -113,15 +116,16 @@ pub(super) async fn maybe_dispatch_queue(
         });
         let _ = store.append_record(
             chat_id,
-            &TranscriptRecord::TurnCompleted {
-                turn_id: turn_id.clone(),
-                status: TurnStatus::Failed,
-                error: Some(error.to_string()),
-                worked_ms: None,
-                thinking_ms: None,
-                usage: None,
-                created_at: Utc::now(),
-            },
+            &TranscriptEnvelope::new(
+                turn_id.clone(),
+                TranscriptEvent::TurnCompleted {
+                    status: TurnStatus::Failed,
+                    error: Some(error.to_string()),
+                    worked_ms: None,
+                    thinking_ms: None,
+                    usage: None,
+                },
+            ),
         );
         let _ = store.update_meta(chat_id, |meta| {
             meta.runtime_status = RuntimeStatus::Ready;

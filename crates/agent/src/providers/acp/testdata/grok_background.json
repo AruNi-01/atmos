@@ -1,0 +1,28 @@
+{
+  "started": {
+    "tool_call_id": "tc_1",
+    "name": "Tool",
+    "raw_input": {
+      "type": "Bash",
+      "command": "count",
+      "is_background": true
+    },
+    "raw_output": {
+      "type": "backgroundtaskstarted",
+      "Result": { "task_id": "t1", "status": "running" }
+    }
+  },
+  "taskoutput": {
+    "tool_call_id": "tc_poll",
+    "name": "taskoutput",
+    "raw_input": { "type": "taskoutput" },
+    "raw_output": {
+      "type": "taskoutput",
+      "Result": {
+        "task_id": "t1",
+        "output": "hello\nUse timeout_ms to wait for more output",
+        "status": "completed"
+      }
+    }
+  }
+}

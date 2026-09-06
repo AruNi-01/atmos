@@ -244,9 +244,61 @@ export function MarkdownCodeBlock({ className, children, ...props }: React.Compo
   );
 }
 
+/**
+ * Element styles live on the nodes themselves (like tables) so headings / hr
+ * still look right when MarkdownRenderer sits under a parent `.not-prose`
+ * (Tailwind Typography skips all `.prose` rules for those descendants).
+ */
 const DEFAULT_MARKDOWN_COMPONENTS: Components = {
   code: MarkdownCodeBlock,
   pre: ({ children }) => <>{children}</>,
+  h1: ({ node: _node, className, children, ...props }) => (
+    <h1
+      className={cn(
+        "mt-6 mb-3 text-2xl font-semibold tracking-tight text-foreground first:mt-0",
+        className,
+      )}
+      {...props}
+    >
+      {children}
+    </h1>
+  ),
+  h2: ({ node: _node, className, children, ...props }) => (
+    <h2
+      className={cn(
+        "mt-5 mb-2.5 text-xl font-semibold tracking-tight text-foreground first:mt-0",
+        className,
+      )}
+      {...props}
+    >
+      {children}
+    </h2>
+  ),
+  h3: ({ node: _node, className, children, ...props }) => (
+    <h3
+      className={cn(
+        "mt-4 mb-2 text-lg font-semibold text-foreground first:mt-0",
+        className,
+      )}
+      {...props}
+    >
+      {children}
+    </h3>
+  ),
+  h4: ({ node: _node, className, children, ...props }) => (
+    <h4
+      className={cn(
+        "mt-3 mb-1.5 text-base font-semibold text-foreground first:mt-0",
+        className,
+      )}
+      {...props}
+    >
+      {children}
+    </h4>
+  ),
+  hr: ({ node: _node, className, ...props }) => (
+    <hr className={cn("my-6 border-border", className)} {...props} />
+  ),
   table: ({ children }) => (
     <div className={MARKDOWN_TABLE_WRAP_CLASS}>
       <table className={MARKDOWN_TABLE_CLASS}>{children}</table>
@@ -354,6 +406,8 @@ export function MarkdownRenderer({
       "prose-img:inline-block prose-img:m-0 prose-p:my-2 prose-a:break-all",
       "[&_ul.contains-task-list]:list-none [&_ul.contains-task-list]:pl-0",
       "[&_li.task-list-item]:list-none [&_li.task-list-item]:pl-0",
+      "[&_li.task-list-item]:flex [&_li.task-list-item]:items-start [&_li.task-list-item]:gap-2",
+      "[&_li.task-list-item>input]:mt-1 [&_li.task-list-item>input]:shrink-0",
       "[&_picture]:inline-block [&_img]:inline-block [&_img]:m-0 [&_svg]:inline-block [&_svg]:align-middle [&_svg]:m-0",
       resolvedTheme === 'dark' && "prose-invert",
       className,

@@ -84,7 +84,7 @@ Prove deterministic logic at the cheapest honest layer; reserve manual/E2E for C
 - **Given**: catalog stdout lines like `* grok-4.5 (default)` and `- grok-composer-2.5-fast`.
 - **When**: `line_list` parser runs (with TECH normalization).
 - **Then**: model id is `grok-4.5` (no suffix); composer id preserved; empty/header lines dropped.
-- **Signals**: `Vec<TerminalAgentModelOption>` contents.
+- **Signals**: `Vec<TerminalAgentOption>` contents.
 
 ### S4 — Run config model and reasoning flags
 

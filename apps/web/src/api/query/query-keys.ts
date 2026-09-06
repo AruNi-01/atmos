@@ -124,6 +124,15 @@ export const queryKeys = {
       repoPath: string,
       params: { branchKey: string | null; limit: number; page: number },
     ) => [...queryKeys.computer.git(scope, repoPath), "log", params] as const,
+    /**
+     * Infinite current-branch commit log (`git_log` offset cursor).
+     * Page param is the skip offset returned as the next page cursor.
+     */
+    gitLogInfinite: (
+      scope: ComputerQueryScope,
+      repoPath: string,
+      params: { branchKey: string | null; limit: number },
+    ) => [...queryKeys.computer.git(scope, repoPath), "logInfinite", params] as const,
     /** Topological commit history pages for the center-tab graph. */
     gitHistory: (scope: ComputerQueryScope, repoPath: string) =>
       [...queryKeys.computer.git(scope, repoPath), "history"] as const,
@@ -545,6 +554,10 @@ export const queryKeys = {
     /** Agent registry: custom agent list */
     customAgentList: (scope: ComputerQueryScope) =>
       [...queryKeys.computer.root(scope), "agentRegistry", "customAgents"] as const,
+
+    /** Agent manager: Chat native hosts (independent of ACP registry) */
+    nativeChatAgentList: (scope: ComputerQueryScope) =>
+      [...queryKeys.computer.root(scope), "agentRegistry", "nativeAgents"] as const,
   },
   relay: {
     root: (scope: RelayQueryScope) =>

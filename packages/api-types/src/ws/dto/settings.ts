@@ -17,7 +17,7 @@ export type TerminalAgentModelThinking = {
   arg?: string | null;
 };
 
-export type TerminalAgentModelOption = {
+export type TerminalAgentOption = {
   id: string;
   label: string;
   group?: string | null;
@@ -25,10 +25,10 @@ export type TerminalAgentModelOption = {
   thinking?: TerminalAgentModelThinking | null;
 };
 
-export type TerminalAgentModelCatalog = {
+export type TerminalAgentOptions = {
   agent_id: string;
   status: "ok" | "unsupported" | "auth_required" | "error" | "probing";
-  models: TerminalAgentModelOption[];
+  models: TerminalAgentOption[];
   message: string | null;
   source: "live" | "cache";
 };

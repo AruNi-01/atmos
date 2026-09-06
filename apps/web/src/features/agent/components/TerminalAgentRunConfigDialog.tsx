@@ -32,7 +32,7 @@ import {
   type TerminalAgentRunConfigInput,
   type TerminalAgentSavedRunConfig,
 } from "@/features/agent/lib/terminal-agent-run-config";
-import { useTerminalAgentModelCatalog } from "@/features/agent/hooks/use-terminal-agent-model-catalog";
+import { useTerminalAgentOptions } from "@/features/agent/hooks/use-terminal-agent-options";
 import type { TerminalAgentReasoningSupport } from "@/features/agent/lib/terminal-agent-definitions";
 import { thinkingLevelLabel } from "@/features/agent/lib/agent-chat-thread";
 import { useOpenSettings } from "@/features/settings/lib/open-settings";
@@ -113,7 +113,7 @@ export function TerminalAgentRunConfigContent({
     catalog: modelCatalog,
     loading: modelCatalogLoading,
     reload: reloadModelCatalog,
-  } = useTerminalAgentModelCatalog(agentId, shouldLoadModelCatalog);
+  } = useTerminalAgentOptions(agentId, shouldLoadModelCatalog);
   const catalogModels = React.useMemo(() => {
     const models = modelCatalog?.models ?? [];
     if (!modelValue || models.some((item) => item.id === modelValue)) {

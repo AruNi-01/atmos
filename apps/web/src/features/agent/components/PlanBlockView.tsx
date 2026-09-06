@@ -9,8 +9,8 @@ import {
   CollapsibleTrigger,
   TextShimmer,
 } from "@workspace/ui";
-import { ChevronDown, ChevronUp, CircleCheck, CircleDashed } from "lucide-react";
-import type { AgentPlan } from "@/features/agent/hooks/use-agent-session";
+import { ChevronDown, CircleCheck, CircleDashed, ListTodo } from "lucide-react";
+import type { AgentPlan } from "@/features/agent/lib/agent-chat-types";
 
 function PlanEntryScrollableText({
   text,
@@ -90,14 +90,28 @@ export function PlanBlockView({
   docked = false,
   embedded = false,
   defaultOpen = true,
+  open: openControlled,
+  onOpenChange,
 }: {
   plan: AgentPlan;
   docked?: boolean;
   embedded?: boolean;
   defaultOpen?: boolean;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
   const t = useTranslations("Agent.components");
-  const [isOpen, setIsOpen] = useState(defaultOpen);
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(defaultOpen);
+  const isControlled = openControlled !== undefined;
+  const isOpen = isControlled ? openControlled : uncontrolledOpen;
+  const setIsOpen = useCallback(
+    (next: boolean | ((prev: boolean) => boolean)) => {
+      const resolved = typeof next === "function" ? next(isOpen) : next;
+      if (!isControlled) setUncontrolledOpen(resolved);
+      onOpenChange?.(resolved);
+    },
+    [isControlled, isOpen, onOpenChange],
+  );
   const planEntries = plan?.entries ?? [];
   const completedCount = planEntries.filter((e) => e.status === "completed").length;
   const totalCount = planEntries.length;
@@ -137,9 +151,16 @@ export function PlanBlockView({
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
         {isOpen && (
           <CollapsibleTrigger asChild>
-            <div className="flex items-center gap-2 px-3 py-1.5 hover:bg-muted/10 cursor-pointer group">
-              <span className="text-muted-foreground group-hover:text-foreground">
-                <ChevronDown className="w-4 h-4" />
+            <div className="group flex cursor-pointer items-center gap-2 px-3 py-1.5 hover:bg-muted/10">
+              <span className="relative inline-flex size-4 shrink-0 items-center justify-center text-muted-foreground group-hover:text-foreground">
+                <ListTodo
+                  className="absolute size-4 transition-opacity duration-150 motion-reduce:transition-none group-hover:opacity-0 group-focus-visible:opacity-0"
+                  aria-hidden
+                />
+                <ChevronDown
+                  className="absolute size-4 opacity-0 transition-[opacity,transform] duration-150 motion-reduce:transition-none group-hover:opacity-100 group-focus-visible:opacity-100"
+                  aria-hidden
+                />
               </span>
               <span className="text-sm font-medium text-foreground/90">{t("plan.title")}</span>
               <div className="flex-1" />
@@ -153,7 +174,7 @@ export function PlanBlockView({
         )}
         <CollapsibleContent>
           <div
-            className={`flex flex-col border-t border-border/40 ${
+            className={`flex flex-col ${
               shouldScrollEntries ? "max-h-[216px] overflow-y-auto scrollbar-on-hover" : ""
             }`}
           >
@@ -164,7 +185,7 @@ export function PlanBlockView({
               return (
                 <div
                   key={idx}
-                  className="flex items-center gap-2 px-3 py-1.5 border-b border-border/20 last:border-b-0"
+                  className="flex items-center gap-2 px-3 py-1.5"
                 >
                   <div className="shrink-0 flex items-center justify-center w-4 h-4">
                     {isCompleted ? (
@@ -196,9 +217,18 @@ export function PlanBlockView({
         {!isOpen && collapsedEntry && (
           <CollapsibleTrigger asChild>
             <div
-              className={`flex items-center gap-2 px-3 py-1.5 bg-background overflow-hidden cursor-pointer hover:bg-muted/10 ${embedded || docked ? "rounded-none" : "rounded-b-md"}`}
+              className={`group flex cursor-pointer items-center gap-2 overflow-hidden bg-background px-3 py-1.5 hover:bg-muted/10 ${embedded || docked ? "rounded-none" : "rounded-b-md"}`}
             >
-              <ChevronDown className="w-4 h-4 text-muted-foreground -rotate-90 shrink-0" />
+              <span className="relative inline-flex size-4 shrink-0 items-center justify-center text-muted-foreground group-hover:text-foreground">
+                <ListTodo
+                  className="absolute size-4 transition-opacity duration-150 motion-reduce:transition-none group-hover:opacity-0 group-focus-visible:opacity-0"
+                  aria-hidden
+                />
+                <ChevronDown
+                  className="absolute size-4 -rotate-90 opacity-0 transition-[opacity,transform] duration-150 motion-reduce:transition-none group-hover:opacity-100 group-focus-visible:opacity-100"
+                  aria-hidden
+                />
+              </span>
               <div className="shrink-0 flex items-center justify-center w-4 h-4">
                 {allCompleted ? (
                   <CircleCheck className="w-4 h-4 text-green-500" />

@@ -49,8 +49,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Command,
-  PanelLeftClose,
-  PanelLeftOpen,
+  PanelLeft,
   RotateCw,
 } from "lucide-react";
 import { HeaderWorkspaceJobs } from './HeaderWorkspaceJobs';
@@ -64,6 +63,7 @@ import { useHeaderFullscreen } from './use-header-fullscreen';
 import { useHeaderHotkeys } from './use-header-hotkeys';
 import { useOpenGithubCenterTab } from '@/features/github/hooks/use-open-github-center-tab';
 import { settingsHref } from '@/features/settings/lib/open-settings';
+import { panelFoldCursorClass } from "@/shared/lib/panel-fold";
 
 const Header: React.FC = () => {
   const pathname = usePathname();
@@ -443,9 +443,12 @@ const Header: React.FC = () => {
                   type="button"
                   aria-label={isLeftCollapsed ? t("leftSidebar.expand") : t("leftSidebar.collapse")}
                   onClick={toggleLeftSidebar}
-                  className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                  className={cn(
+                    "inline-flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+                    panelFoldCursorClass("left", isLeftCollapsed),
+                  )}
                 >
-                  {isLeftCollapsed ? <PanelLeftOpen className="size-4" /> : <PanelLeftClose className="size-4" />}
+                  <PanelLeft className="size-4" />
                 </button>
               </TooltipTrigger>
               <TooltipContent>

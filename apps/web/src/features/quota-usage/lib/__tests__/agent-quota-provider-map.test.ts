@@ -3,16 +3,18 @@ import {
   AGENT_TO_QUOTA_PROVIDER_IDS,
   AGENT_UNLINKED_QUOTA_PROVIDER_IDS,
   QUOTA_USAGE_ONBOARDING_PROVIDERS,
+  quotaProviderIdsForChatAgent,
   usageProviderIdsForAgents,
 } from "@/features/quota-usage/lib/agent-quota-provider-map";
 
 describe("usageProviderIdsForAgents", () => {
   test("maps known agents to usage providers", () => {
-    const ids = usageProviderIdsForAgents(["claude", "droid", "grok-build"]);
+    const ids = usageProviderIdsForAgents(["claude", "droid", "grok-build", "deepseek-harness", "grok"]);
     expect(ids.has("claude")).toBe(true);
     expect(ids.has("factory")).toBe(true);
     expect(ids.has("grok")).toBe(true);
-    expect(ids.size).toBe(3);
+    expect(ids.has("deepseek")).toBe(true);
+    expect(ids.size).toBe(4);
   });
 
   test("ignores agents without a usage provider", () => {
@@ -27,6 +29,21 @@ describe("usageProviderIdsForAgents", () => {
     expect(ids.size).toBe(
       new Set(Object.values(AGENT_TO_QUOTA_PROVIDER_IDS).flat()).size,
     );
+  });
+});
+
+describe("quotaProviderIdsForChatAgent", () => {
+  const canonicalize = (id: string) => {
+    if (id === "claude-acp" || id === "claude-code") return "claude";
+    if (id === "grok-build") return "grok";
+    return id;
+  };
+
+  test("resolves exact and family ids", () => {
+    expect([...quotaProviderIdsForChatAgent("claude", canonicalize)]).toEqual(["claude"]);
+    expect([...quotaProviderIdsForChatAgent("claude-acp", canonicalize)]).toEqual(["claude"]);
+    expect([...quotaProviderIdsForChatAgent("grok", canonicalize)]).toEqual(["grok"]);
+    expect([...quotaProviderIdsForChatAgent("pi", canonicalize)]).toEqual([]);
   });
 });
 

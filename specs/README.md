@@ -145,6 +145,8 @@ These files are not requirements sources. Requirements live in `PRD.md`, archite
 | **APP-066** | Resource Monitor (Computer/Atmos/Project/Workspace CPU + memory; local Electron shell) | `specs/APP/APP-066_resource-monitor/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`, `PROGRESS.md`, `REVIEW.md`) |
 | **APP-067** | Document Editor (editable markdown live preview in the file tab; not Notion-like / not BlockNote) | `specs/APP/APP-067_document-editor/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`; source PRDs in `source/`) |
 | **APP-067-chat** | Atmos Agent Chat (center-stage Agent Chat workspace; ACP as provider only; no backward compat) | `specs/APP/APP-067_atmos_agent_abs/` (`IDEA.md`, `BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`) |
+| **APP-068** | Agent Chat architecture optimize (Atmos descriptor + small runtime + tool/event contract; native Claude/Codex/OpenCode/Pi; ACP for others) | `specs/APP/APP-068_agent_chat_arch_optimize/` (`IDEA.md`, `BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`, `reference/`) |
+| **APP-069** | Agent Chat hits, Grok host, fork/rewind (promotes APP-068 N1 / Grok-from-N3 / N4; crates not embedded) | `specs/APP/APP-069_agent_chat_hits_and_session_ops/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`) |
 | **QUALITY-001** | Large File Code Debt Cleanup | `specs/APP/QUALITY-001_large-file-code-debt-cleanup/` (`TECH.md`, `TEST.md`) |
 | **QUALITY-002** | Spec Test Execution Loop | `specs/APP/QUALITY-002_spec-test-execution-loop/` (`TECH.md`, `TEST.md`) |
 | **QUALITY-003** | Playwright E2E Harness | `specs/APP/QUALITY-003_playwright-e2e-harness/` (`TECH.md`, `TEST.md`) |

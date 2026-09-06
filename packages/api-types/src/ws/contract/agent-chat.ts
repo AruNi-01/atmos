@@ -1,7 +1,7 @@
 import type { WsEmpty, WsOk } from "../dto/common";
 import type {
-  AgentModelCatalog,
-  AgentModelCatalogGetRequest,
+  AgentOptionsSnapshot,
+  AgentOptionsGetRequest,
   AgentChatPrefs,
   AgentChatPrefsSetRequest,
   AgentChatCreateRequest,
@@ -14,6 +14,7 @@ import type {
   AgentChatSnapshot,
   AgentMessage,
   AgentChatPermissionRespondRequest,
+  AgentChatSessionOpRespondRequest,
   AgentChatQueueAddRequest,
   AgentChatQueueDeleteRequest,
   AgentChatQueueReorderRequest,
@@ -87,9 +88,13 @@ export type AgentChatContract = {
     input: AgentChatPermissionRespondRequest;
     output: WsOk;
   };
-  agent_model_catalog_get: {
-    input: AgentModelCatalogGetRequest;
-    output: AgentModelCatalog;
+  agent_chat_session_op_respond: {
+    input: AgentChatSessionOpRespondRequest;
+    output: WsOk;
+  };
+  agent_options_get: {
+    input: AgentOptionsGetRequest;
+    output: AgentOptionsSnapshot;
   };
   agent_chat_prefs_get: { input: WsEmpty; output: AgentChatPrefs };
   agent_chat_prefs_set: {

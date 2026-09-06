@@ -49,10 +49,10 @@ use tokio::sync::{OnceCell, RwLock};
 use crate::simulator::SimulatorRuntime;
 
 use core_service::{
-    builtin_catalog_specs, catalog_probe_dir, default_agent_data_dir, default_chats_dir,
-    AgentChatService, AgentChatStore, AgentService, AgentServiceCatalogResolver, AutomationService,
-    CatalogPrefetchWorker, DefaultAgentProviderFactory, DiskAnalyzerService, GroupService,
-    LinearService, LocalServicesService, NotificationService, ProjectService,
+    builtin_options_probe_plans, default_agent_data_dir, default_chats_dir, options_probe_dir,
+    AgentChatService, AgentChatStore, AgentService, AgentServiceOptionsResolver, AutomationService,
+    DefaultAgentProviderFactory, DiskAnalyzerService, GroupService, LinearService,
+    LocalServicesService, NotificationService, OptionsPrefetchWorker, ProjectService,
     ResourceMonitorService, ReviewService, TerminalService, WorkspaceService, PREFETCH_POLL,
 };
 use core_service::{Result, ServiceError};
@@ -86,7 +86,7 @@ pub struct WsMessageService {
     local_model_manager: Arc<LocalRuntimeManager>,
     simulator: Arc<SimulatorRuntime>,
     agent_chat_service: Arc<AgentChatService>,
-    catalog_worker: Arc<CatalogPrefetchWorker>,
+    options_worker: Arc<OptionsPrefetchWorker>,
     agent_chat_subs: Arc<RwLock<HashMap<String, HashSet<String>>>>,
 }
 
@@ -126,20 +126,21 @@ impl WsMessageService {
             Arc::new(AgentChatStore::new(default_chats_dir())),
             Arc::new(DefaultAgentProviderFactory::new(Arc::clone(&agent_service))),
         ));
-        let catalog_worker = Arc::new(
-            CatalogPrefetchWorker::with_specs(
+        let options_worker = Arc::new(
+            OptionsPrefetchWorker::with_plans(
                 default_agent_data_dir(),
-                agent::CatalogEngine::with_acp_probe(
-                    catalog_probe_dir(),
-                    Box::new(agent::StdioAcpCatalogProbe::new(Arc::new(
-                        AgentServiceCatalogResolver::new(Arc::clone(&agent_service)),
+                agent::OptionsProbe::with_acp_probe(
+                    options_probe_dir(),
+                    Box::new(agent::StdioAcpOptionsProbe::new(Arc::new(
+                        AgentServiceOptionsResolver::new(Arc::clone(&agent_service)),
                     ))),
                 ),
                 PREFETCH_POLL,
-                builtin_catalog_specs(),
+                builtin_options_probe_plans(),
             )
             .attach_agent_service(Arc::clone(&agent_service)),
         );
+        agent_chat_service.set_options_worker(Arc::clone(&options_worker));
 
         Self {
             fs_engine: FsEngine::new(),
@@ -167,7 +168,7 @@ impl WsMessageService {
             local_model_manager: Arc::new(LocalRuntimeManager::new()),
             simulator: Arc::new(SimulatorRuntime::new()),
             agent_chat_service,
-            catalog_worker,
+            options_worker,
             agent_chat_subs: Arc::new(RwLock::new(HashMap::new())),
         }
     }
@@ -269,7 +270,7 @@ impl WsMessageService {
                 }
             }
         });
-        let mut catalog_rx = self.catalog_worker.subscribe();
+        let mut catalog_rx = self.options_worker.subscribe();
         let manager_catalog = manager;
         tokio::spawn(async move {
             loop {
@@ -277,7 +278,7 @@ impl WsMessageService {
                     Ok(update) => {
                         if let Ok(payload) = serde_json::to_value(&update) {
                             let message =
-                                WsMessage::notification(WsEvent::AgentModelCatalogUpdated, payload);
+                                WsMessage::notification(WsEvent::AgentOptionsUpdated, payload);
                             let _ = manager_catalog.broadcast(&message).await;
                         }
                     }
@@ -861,6 +862,19 @@ impl WsMessageService {
             WsAction::CustomAgentGetManifestPath => {
                 self.handle_custom_agent_get_manifest_path().await
             }
+            WsAction::CustomAgentSetEnabled => {
+                self.handle_custom_agent_set_enabled(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::CustomAgentPreload => {
+                self.handle_custom_agent_preload(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::NativeAgentList => self.handle_native_agent_list().await,
+            WsAction::NativeAgentSetEnabled => {
+                self.handle_native_agent_set_enabled(parse_request(request.data)?)
+                    .await
+            }
 
             WsAction::AgentChatCreate => {
                 self.handle_agent_chat_create(parse_request(request.data)?)
@@ -930,8 +944,12 @@ impl WsMessageService {
                 self.handle_agent_chat_permission_respond(parse_request(request.data)?)
                     .await
             }
-            WsAction::AgentModelCatalogGet => {
-                self.handle_agent_model_catalog_get(parse_request(request.data)?)
+            WsAction::AgentChatSessionOpRespond => {
+                self.handle_agent_chat_session_op_respond(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::AgentOptionsGet => {
+                self.handle_agent_options_get(parse_request(request.data)?)
                     .await
             }
             WsAction::AgentChatPrefsGet => self.handle_agent_chat_prefs_get(),
@@ -1576,7 +1594,7 @@ impl WsMessageHandler for WsMessageService {
     async fn on_connect(&self, conn_id: &str) {
         tracing::info!("[WsMessageService] Client connected: {}", conn_id);
         if conn_id.starts_with("web-") || conn_id.starts_with("desktop-") {
-            self.catalog_worker.on_web_connect();
+            self.options_worker.on_web_connect();
         }
     }
 
@@ -1589,7 +1607,7 @@ impl WsMessageHandler for WsMessageService {
             .remove_connection_sessions(conn_id);
         self.abort_resource_monitor_subscription(conn_id);
         if conn_id.starts_with("web-") || conn_id.starts_with("desktop-") {
-            self.catalog_worker.on_web_disconnect();
+            self.options_worker.on_web_disconnect();
         }
         let mut subs = self.agent_chat_subs.write().await;
         for conns in subs.values_mut() {

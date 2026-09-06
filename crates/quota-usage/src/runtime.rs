@@ -22,6 +22,7 @@ use crate::providers::{
     claude,
     codex, // commandcode disabled due to API data consistency issues
     cursor,
+    deepseek,
     factory,
     grok,
     mimo,
@@ -68,6 +69,7 @@ pub(crate) enum LiveProviderKind {
     Mimo,
     Zed,
     Grok,
+    DeepSeek,
     // CommandCode disabled due to API data consistency issues
     // CommandCode,
 }
@@ -251,6 +253,17 @@ pub(crate) fn detect_auth(spec: &ProviderSpec) -> AuthState {
                 status: AuthStateStatus::Detected,
                 source: Some(path.display().to_string()),
                 detail: Some("Detected local auth source".to_string()),
+                setup_hint: Some(spec.setup_hint.to_string()),
+            };
+        }
+    }
+
+    if spec.id == "deepseek" {
+        if let Some(source) = deepseek::overlay_auth_source() {
+            return AuthState {
+                status: AuthStateStatus::Detected,
+                source: Some(source),
+                detail: Some("Detected DeepSeek API token in custom agent overlay".to_string()),
                 setup_hint: Some(spec.setup_hint.to_string()),
             };
         }
@@ -755,6 +768,16 @@ fn provider_specs() -> Vec<ProviderSpec> {
             auth_paths: &[],
         },
         ProviderSpec {
+            id: "deepseek",
+            label: "DeepSeek",
+            kind: ProviderKind::Api,
+            live_kind: Some(LiveProviderKind::DeepSeek),
+            timeout_millis: PROVIDER_TIMEOUT_MILLIS,
+            setup_hint: "Add a DeepSeek API token in AI Quota Usage, or set DEEPSEEK_API_KEY. The same token is used by DeepSeek Harness.",
+            auth_env_keys: &["DEEPSEEK_API_KEY"],
+            auth_paths: &[],
+        },
+        ProviderSpec {
             id: "antigravity",
             label: "Antigravity",
             kind: ProviderKind::Desktop,
@@ -849,6 +872,7 @@ async fn collect_live(
         LiveProviderKind::Mimo => mimo::fetch_mimo_live(client).await,
         LiveProviderKind::Zed => zed::fetch_zed_live(client).await,
         LiveProviderKind::Grok => grok::fetch_grok_live(client).await,
+        LiveProviderKind::DeepSeek => deepseek::fetch_deepseek_live(client).await,
         // CommandCode disabled due to API data consistency issues
         // LiveProviderKind::CommandCode => commandcode::fetch_commandcode_live(client).await,
     }

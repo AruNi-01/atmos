@@ -1,0 +1,21 @@
+: comment line is not data
+
+data: {"id":"evt_1","type":"server.connected","properties":{}}
+
+data: {"id":"evt_hb","type":"server.heartbeat","properties":{}}
+
+data: {"id":"evt_2","type":"message.part.delta","properties":{
+data: "sessionID":"ses_test","messageID":"msg_a","field":"text","delta":"Hello"}}
+
+data: {"id":"evt_3","type":"message.part.updated","properties":{"sessionID":"ses_test","part":{"id":"prt_text","sessionID":"ses_test","messageID":"msg_a","type":"text","text":"Hello"}}}
+
+data: {"id":"evt_4","type":"message.part.updated","properties":{"sessionID":"ses_test","part":{"id":"prt_tool","sessionID":"ses_test","messageID":"msg_a","type":"tool","callID":"call_bash","tool":"bash","state":{"status":"running","input":{"command":"ls -la"},"time":{"start":1}}}}}
+
+data: {"id":"evt_unk","type":"vendor.mystery","properties":{"sessionID":"ses_test","note":"skip"}}
+
+data: {"id":"evt_5","type":"message.part.updated","properties":{"sessionID":"ses_test","part":{"id":"prt_tool","sessionID":"ses_test","messageID":"msg_a","type":"tool","callID":"call_bash","tool":"bash","state":{"status":"completed","input":{"command":"ls -la"},"output":"README.md\n","title":"ls -la","metadata":{"exit":0},"time":{"start":1,"end":2}}}}}
+
+data: {"id":"evt_6","type":"permission.asked","properties":{"id":"per_abc","sessionID":"ses_test","permission":"bash","patterns":["echo hi"],"always":["echo *"],"metadata":{},"tool":{"messageID":"msg_a","callID":"call_bash"}}}
+
+data: {"id":"evt_7","type":"session.idle","properties":{"sessionID":"ses_test"}}
+

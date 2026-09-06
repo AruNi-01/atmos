@@ -15,12 +15,19 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
   Loader2,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
   toastManager,
 } from "@workspace/ui";
 import { ChevronDown, SlidersHorizontal } from "lucide-react";
 
+import { useGitLogInfinite } from "@/features/git/hooks/use-git-log-infinite";
 import { useSidebarUiPrefs } from "@/shared/stores/use-ui-pref-hooks";
 import { cn } from "@/shared/lib/utils";
 
@@ -35,6 +42,9 @@ interface ChangesScopeMenuProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSelectScope: (scope: Exclude<ChangesDiffScope, "commit">) => void;
+  onSelectCommit?: (commitHash: string) => void;
+  repoPath?: string | null;
+  branchKey?: string | null;
   onOpenHistory?: () => void;
 }
 
@@ -60,9 +70,18 @@ function ChangesScopeMenu({
   open,
   onOpenChange,
   onSelectScope,
+  onSelectCommit,
+  repoPath = null,
+  branchKey = null,
   onOpenHistory,
 }: ChangesScopeMenuProps) {
   const t = useTranslations("AppShell.chrome");
+  const commitLogEnabled = Boolean(onSelectCommit) && open && Boolean(repoPath);
+  const commitLog = useGitLogInfinite({
+    repoPath,
+    branchKey,
+    enabled: commitLogEnabled,
+  });
   const label =
     scope === "commit"
       ? formatCommitScopeLabel(selectedCommitHash) ??
@@ -81,6 +100,20 @@ function ChangesScopeMenu({
         {count}
       </span>
     ) : null;
+
+  const loadMoreCommits = React.useCallback(() => {
+    if (!commitLog.hasNextPage || commitLog.isFetchingNextPage) return;
+    void commitLog.fetchNextPage();
+  }, [commitLog]);
+
+  const handleCommitListScroll = React.useCallback(
+    (event: React.UIEvent<HTMLDivElement>) => {
+      const el = event.currentTarget;
+      if (el.scrollHeight - el.scrollTop - el.clientHeight > 48) return;
+      loadMoreCommits();
+    },
+    [loadMoreCommits],
+  );
 
   return (
     <DropdownMenu open={open} onOpenChange={onOpenChange}>
@@ -116,6 +149,72 @@ function ChangesScopeMenu({
           <span className="flex-1" />
           {renderTrailingCheck(scope === "staged")}
         </DropdownMenuItem>
+        {onSelectCommit ? (
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger
+              className={cn(
+                "group/commit-scope cursor-pointer",
+                scope === "commit" &&
+                  "[&>svg:last-child]:hidden hover:[&>svg:last-child]:block data-[state=open]:[&>svg:last-child]:block",
+              )}
+            >
+              <span className="flex-1">{t("changes.scope.commit")}</span>
+              {scope === "commit" ? (
+                <Check className="size-3.5 shrink-0 group-hover/commit-scope:hidden group-data-[state=open]/commit-scope:hidden" />
+              ) : null}
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent
+              className="max-h-72 w-80 overflow-y-auto"
+              onScroll={handleCommitListScroll}
+            >
+              {commitLog.isLoading && commitLog.commits.length === 0 ? (
+                <DropdownMenuItem disabled>
+                  {t("changes.loadingCommits")}
+                </DropdownMenuItem>
+              ) : commitLog.commits.length === 0 ? (
+                <DropdownMenuItem disabled>
+                  {t("changes.noCommitsOnBranch")}
+                </DropdownMenuItem>
+              ) : (
+                <>
+                  {commitLog.commits.map((commit) => (
+                    <Tooltip key={commit.hash}>
+                      <TooltipTrigger asChild>
+                        <DropdownMenuItem
+                          className="min-w-0 cursor-pointer"
+                          onSelect={() => onSelectCommit(commit.hash)}
+                        >
+                          <span className="w-14 shrink-0 font-mono text-[11px] text-muted-foreground">
+                            {commit.short_hash}
+                          </span>
+                          <span className="min-w-0 flex-1 truncate">
+                            {commit.subject}
+                          </span>
+                          {renderTrailingCheck(
+                            scope === "commit" &&
+                              selectedCommitHash === commit.hash,
+                          )}
+                        </DropdownMenuItem>
+                      </TooltipTrigger>
+                      <TooltipContent
+                        side="left"
+                        className="z-100 max-w-sm break-words text-xs"
+                      >
+                        {`${commit.short_hash}  ${commit.subject}`}
+                      </TooltipContent>
+                    </Tooltip>
+                  ))}
+                  {commitLog.isFetchingNextPage ? (
+                    <DropdownMenuItem disabled>
+                      <Loader2 className="mr-2 size-3.5 animate-spin" />
+                      {t("changes.loadingCommits")}
+                    </DropdownMenuItem>
+                  ) : null}
+                </>
+              )}
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
+        ) : null}
         <DropdownMenuItem
           className="cursor-pointer"
           onSelect={() => onSelectScope("branch")}
@@ -138,12 +237,15 @@ export function ChangesToolbar({
   isBusy = false,
   onOpenChange,
   onOpenHistory,
+  onSelectCommit,
   onSelectScope,
   onStageAll,
   onUnstageAll,
   onDiscardTracked,
   onTrashUntracked,
   open,
+  repoPath,
+  branchKey,
   scope,
   selectedCommitHash,
   stagedCount,
@@ -215,6 +317,9 @@ export function ChangesToolbar({
         open={open}
         onOpenChange={onOpenChange}
         onSelectScope={onSelectScope}
+        onSelectCommit={onSelectCommit}
+        repoPath={repoPath}
+        branchKey={branchKey}
         onOpenHistory={onOpenHistory}
       />
 

@@ -151,12 +151,13 @@ export const skillsParams = {
 // ---------------------------------------------------------------------------
 // AgentManager – tab & search
 // ---------------------------------------------------------------------------
-export type AgentTab = "installed" | "registry" | "custom";
+export type AgentTab = "native" | "acp" | "custom";
 export type AgentManagerView = "manager" | "sessions";
 
 export const agentManagerParams = {
   agentView: parseAsStringEnum<AgentManagerView>(["manager", "sessions"]).withDefault("manager"),
-  agentTab: parseAsStringEnum<AgentTab>(["installed", "registry", "custom"]).withDefault("registry"),
+  // Old `registry` / `installed` query values are dropped and default to `acp`.
+  agentTab: parseAsStringEnum<AgentTab>(["native", "acp", "custom"]).withDefault("acp"),
   agentQ: parseAsString.withDefault(""),
 };
 

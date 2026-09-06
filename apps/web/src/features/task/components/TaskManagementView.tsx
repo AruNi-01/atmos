@@ -10,9 +10,10 @@ import {
   TabsTrigger,
 } from "@workspace/ui/components/motion/tabs";
 import LogoSvg from "@workspace/ui/components/logo-svg";
-import { Github } from "lucide-react";
+
 import { LinearIcon } from "@workspace/ui/components/icons/linear-icon";
 import { cn } from "@workspace/ui";
+import { Github } from "@workspace/ui/components/icons/lucide-brand-icons";
 import {
   useGroups,
   useProjects,

@@ -148,7 +148,7 @@ Also included:
 
 - **Persistent Tmux Sessions** — Fault-tolerant terminal management with tmux; sessions survive interruptions and restarts.
 - **Review Workflow** — Review changes in Atmos's built-in diff UI, leave inline comments on specific lines, then hand off to your Code Agent to apply fixes.
-- **Global Agent Chat Panel** — Start non-terminal conversations from anywhere via ACP, reusing your Code Agent CLI.
+- **Global Agent Chat Panel** — Start non-terminal conversations from anywhere, reusing your Code Agent CLI (native hosts + ACP).
 - **Remote Access** — Register your VPS or any machine to the Atmos Register Center, then connect from Desktop, Web, and Mobile to run terminals, workspaces, and Canvas on that computer. Integrated tunnel connector (Ngrok/Tailscale/Cloudflare Tunnel) for remote access.
 
 ## Get Started

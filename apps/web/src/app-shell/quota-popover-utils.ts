@@ -275,6 +275,63 @@ export type QuotaMetricRow = {
   resetText: string | null;
 };
 
+export type QuotaMetricPresentation = {
+  label: string;
+  /** Right-side value: `13%` for a window, otherwise the row amount/status. */
+  valueText: string | null;
+  /** Reset countdown only when this row itself is a usage window. */
+  resetText: string | null;
+  /** Progress to plot; null means no bar (amount, disabled extra usage, bonus, …). */
+  percent: number | null;
+};
+
+/**
+ * Compact per-row view for agent-chat / quota chrome.
+ *
+ * Window rows (`13% used · resets in 4d`) keep a bar, percent, and reset.
+ * Extra usage / prepaid / on-demand dollar rows keep the amount (or Disabled)
+ * and do not inherit the subscription window's reset or a 0% bar.
+ */
+export function presentQuotaMetric(
+  metric: QuotaMetricRow,
+  options: {
+    fallbackResetAt?: number | null;
+    locale?: Intl.LocalesArgument;
+    formatters?: QuotaPopoverFormatters;
+  } = {},
+): QuotaMetricPresentation {
+  // Own-row percent only. `quotaMetrics` may copy usage_summary.percent onto
+  // the first Usage row, which would otherwise paint Extra usage as 0%.
+  const percent = extractPercent(metric.value);
+
+  if (percent != null) {
+    return {
+      label: metric.label,
+      valueText: `${Math.round(percent)}%`,
+      resetText: displayResetText(
+        metric.resetText,
+        options.fallbackResetAt,
+        options.formatters,
+        options.locale,
+      ),
+      percent,
+    };
+  }
+
+  const valueText = metric.value.trim() || null;
+  return {
+    label: metric.label,
+    valueText,
+    resetText: displayResetText(
+      metric.resetText,
+      null,
+      options.formatters,
+      options.locale,
+    ),
+    percent: null,
+  };
+}
+
 function formatQuotaAmountText(provider: QuotaProviderResponse): string | null {
   const summary = provider.usage_summary;
   if (!summary) return null;
@@ -384,6 +441,10 @@ export function usagePortalUrl(providerId: string, region: ProviderRegion | null
     if (region === "global") {
       return "https://platform.minimax.io/user-center/payment/coding-plan";
     }
+  }
+
+  if (providerId === "deepseek") {
+    return "https://platform.deepseek.com";
   }
 
   return null;

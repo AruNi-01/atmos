@@ -3,17 +3,20 @@ use std::time::Duration;
 
 use agent::testing::{FakeAgentProvider, StaticProviderFactory};
 use agent::{
-    AgentCatalogSpec, AgentEvent, AgentModel, AgentProvider, AgentThinkingSupport, CatalogEngine,
-    CatalogStatus, CatalogStrategyKind, NoopAcpProbe, UserMessageKind,
+    AgentAvailableCommand, AgentEvent, AgentMode, AgentModel, AgentOptionsSnapshot,
+    AgentPermissionOption, AgentProvider, AgentThinkingSupport, AgentTool, AgentToolKind,
+    AgentToolParams, AgentToolResult, AgentToolStatus, NoopAcpOptionsProbe, OptionsProbe,
+    OptionsProbeStrategy, OptionsSource, OptionsStatus, ProbePlan, UserMessageKind,
 };
 use tokio::time::timeout;
 
-use super::catalog::{parse_followup_policy, CatalogPrefetchWorker, FollowupPolicy};
+use super::options::{parse_followup_policy, FollowupPolicy, OptionsPrefetchWorker};
 use super::service::AgentChatService;
 use super::store::AgentChatStore;
 use super::types::{
-    AgentChatOrigin, AgentChatPayload, CreateAgentChatRequest, MessagePart, QueueItemStatus,
-    RuntimeStatus, SessionLifecycleAction, SessionLifecycleStatus,
+    AgentChatOrigin, AgentChatPayload, AgentChatSessionOpOutcome, CreateAgentChatRequest,
+    MessagePart, QueueItemStatus, RewindView, RuntimeStatus, SessionLifecycleAction,
+    SessionLifecycleStatus, TranscriptEnvelope, TranscriptEvent,
 };
 
 fn make_service(provider: Arc<FakeAgentProvider>) -> (tempfile::TempDir, AgentChatService) {
@@ -24,18 +27,99 @@ fn make_service(provider: Arc<FakeAgentProvider>) -> (tempfile::TempDir, AgentCh
 }
 
 fn create_req(cwd: &str) -> CreateAgentChatRequest {
+    create_req_for(cwd, "claude")
+}
+
+fn create_req_for(cwd: &str, provider_id: &str) -> CreateAgentChatRequest {
     CreateAgentChatRequest {
         workspace_id: None,
         project_id: None,
         space_id: None,
         cwd: cwd.into(),
         origin: AgentChatOrigin::Normal,
-        provider_id: "claude".into(),
-        model: Some("opus".into()),
+        provider_id: provider_id.into(),
+        model: (provider_id == "claude").then(|| "opus".into()),
         thinking: None,
         mode: None,
+        permission_mode: None,
+        fast: None,
         title: None,
     }
+}
+
+fn seed_two_user_turns(service: &AgentChatService, chat_id: &str) {
+    service
+        .store()
+        .append_record(
+            chat_id,
+            &TranscriptEnvelope::new("turn-1", TranscriptEvent::TurnStarted),
+        )
+        .unwrap();
+    service
+        .store()
+        .append_record(
+            chat_id,
+            &TranscriptEnvelope::new(
+                "turn-1",
+                TranscriptEvent::UserMessage {
+                    message_id: "u1".into(),
+                    kind: UserMessageKind::Normal,
+                    text: "first".into(),
+                    attachments: Vec::new(),
+                },
+            ),
+        )
+        .unwrap();
+    service
+        .store()
+        .append_record(
+            chat_id,
+            &TranscriptEnvelope::new("turn-2", TranscriptEvent::TurnStarted),
+        )
+        .unwrap();
+    service
+        .store()
+        .append_record(
+            chat_id,
+            &TranscriptEnvelope::new(
+                "turn-2",
+                TranscriptEvent::UserMessage {
+                    message_id: "u2".into(),
+                    kind: UserMessageKind::Normal,
+                    text: "second".into(),
+                    attachments: Vec::new(),
+                },
+            ),
+        )
+        .unwrap();
+}
+
+fn seed_user_checkpoint(
+    service: &AgentChatService,
+    chat_id: &str,
+    turn_id: &str,
+    checkpoint_id: &str,
+) {
+    service
+        .store()
+        .append_record(
+            chat_id,
+            &TranscriptEnvelope::new(
+                turn_id,
+                TranscriptEvent::UserCheckpoint {
+                    checkpoint_id: checkpoint_id.into(),
+                },
+            ),
+        )
+        .unwrap();
+}
+
+fn pending_option_ids(pending: &agent::AgentSessionOpRequest) -> Vec<&str> {
+    pending
+        .options
+        .iter()
+        .map(|option| option.option_id.as_str())
+        .collect()
 }
 
 #[tokio::test]
@@ -48,6 +132,66 @@ async fn s4_get_does_not_spawn_provider() {
     assert_eq!(provider.resume_count(), 0);
     assert!(snapshot.messages.is_empty());
     assert!(snapshot.meta.persistence_handle.is_none());
+}
+
+#[tokio::test]
+async fn s13_get_new_jsonl_exposes_params_result_without_spawn() {
+    let provider = Arc::new(FakeAgentProvider::new("claude"));
+    let (_dir, service) = make_service(Arc::clone(&provider));
+    let meta = service.create(create_req("/tmp/proj")).unwrap();
+    service
+        .store()
+        .append_record(
+            &meta.id,
+            &TranscriptEnvelope::new("turn-1", TranscriptEvent::TurnStarted),
+        )
+        .unwrap();
+    service
+        .store()
+        .append_record(
+            &meta.id,
+            &TranscriptEnvelope::new(
+                "turn-1",
+                TranscriptEvent::ToolCall {
+                    tool: AgentTool {
+                        tool_call_id: "tc_1".into(),
+                        name: "Bash".into(),
+                        title: Some("ls".into()),
+                        kind: AgentToolKind::Execute,
+                        status: AgentToolStatus::Completed,
+                        params: AgentToolParams::Execute {
+                            command: "ls".into(),
+                            cwd: None,
+                            background: false,
+                            task_id: None,
+                        },
+                        result: Some(AgentToolResult::Execute {
+                            output: "ok".into(),
+                            exit_code: Some(0),
+                        }),
+                    },
+                },
+            ),
+        )
+        .unwrap();
+
+    let snapshot = service.get(&meta.id).await.unwrap();
+    assert_eq!(provider.create_count(), 0);
+    assert_eq!(provider.resume_count(), 0);
+
+    let json = serde_json::to_value(&snapshot).expect("snapshot json");
+    let parts = json["messages"][0]["parts"].as_array().expect("parts");
+    let tool = parts
+        .iter()
+        .find(|part| part["type"] == "tool_call")
+        .expect("tool part");
+    assert_eq!(tool["params"]["type"], "execute");
+    assert_eq!(tool["params"]["command"], "ls");
+    assert_eq!(tool["result"]["type"], "execute");
+    assert!(tool.get("input").is_none());
+    assert!(tool.get("output").is_none());
+    assert!(tool.get("content").is_none());
+    assert!(tool.get("native").is_none());
 }
 
 #[tokio::test]
@@ -471,7 +615,7 @@ async fn s11_steer_unsupported_or_stale_does_not_cancel() {
 }
 
 #[tokio::test]
-async fn configure_sets_model_before_spawn() {
+async fn s6_configure_sets_model_before_spawn() {
     let provider = Arc::new(FakeAgentProvider::new("claude"));
     let (_dir, service) = make_service(Arc::clone(&provider));
     let meta = service.create(create_req("/tmp/proj")).unwrap();
@@ -482,13 +626,24 @@ async fn configure_sets_model_before_spawn() {
             Some("grok-4".into()),
             Some("high".into()),
             Some("agent".into()),
+            None,
+            None,
         )
         .await
         .unwrap();
     assert_eq!(updated.provider_id, "grok");
-    assert_eq!(updated.selected_model.as_deref(), Some("grok-4"));
-    assert_eq!(updated.selected_thinking.as_deref(), Some("high"));
-    assert_eq!(updated.selected_mode.as_deref(), Some("agent"));
+    assert_eq!(
+        updated.descriptor.current_config.model.as_deref(),
+        Some("grok-4")
+    );
+    assert_eq!(
+        updated.descriptor.current_config.thinking.as_deref(),
+        Some("high")
+    );
+    assert_eq!(
+        updated.descriptor.current_config.mode.as_deref(),
+        Some("agent")
+    );
     assert_eq!(provider.create_count(), 0);
     assert_eq!(provider.config_count(), 0);
 }
@@ -509,13 +664,24 @@ async fn configure_while_running_does_not_set_live_config() {
             Some("grok-4".into()),
             Some("high".into()),
             Some("plan".into()),
+            None,
+            None,
         )
         .await
         .unwrap();
     assert_eq!(updated.provider_id, "claude");
-    assert_eq!(updated.selected_model.as_deref(), Some("grok-4"));
-    assert_eq!(updated.selected_thinking.as_deref(), Some("high"));
-    assert_eq!(updated.selected_mode.as_deref(), Some("plan"));
+    assert_eq!(
+        updated.descriptor.current_config.model.as_deref(),
+        Some("grok-4")
+    );
+    assert_eq!(
+        updated.descriptor.current_config.thinking.as_deref(),
+        Some("high")
+    );
+    assert_eq!(
+        updated.descriptor.current_config.mode.as_deref(),
+        Some("plan")
+    );
     assert_eq!(provider.config_count(), 0);
 }
 
@@ -537,6 +703,7 @@ async fn send_after_model_switch_emits_session_config_change() {
     .await
     .expect("first turn should finish");
 
+    let mut rx = service.subscribe();
     service
         .configure(
             &meta.id,
@@ -544,12 +711,13 @@ async fn send_after_model_switch_emits_session_config_change() {
             Some("grok-4".into()),
             None,
             Some("plan".into()),
+            None,
+            None,
         )
         .await
         .unwrap();
-    assert_eq!(provider.config_count(), 0);
+    assert_eq!(provider.config_count(), 2);
 
-    let mut rx = service.subscribe();
     let _ = service.send(&meta.id, "again", Vec::new()).await.unwrap();
     tokio::time::sleep(Duration::from_millis(40)).await;
 
@@ -565,24 +733,23 @@ async fn send_after_model_switch_emits_session_config_change() {
             saw_change = true;
         }
     }
-    assert!(saw_change, "expected session_config_change on send");
+    assert!(
+        saw_change,
+        "expected session_config_change after idle configure sync"
+    );
     assert_eq!(provider.create_count(), 1);
     assert_eq!(provider.config_count(), 2);
     let applied = provider.last_config().await.expect("live set_config");
     assert_eq!(applied.mode.as_deref(), Some("plan"));
 
     let snapshot = service.get(&meta.id).await.unwrap();
-    let assistant = snapshot
-        .messages
-        .iter()
-        .rev()
-        .find(|message| message.role == "assistant")
-        .expect("assistant");
-    match assistant
-        .parts
-        .iter()
-        .find(|part| matches!(part, MessagePart::SessionConfigChange { .. }))
-    {
+    let config_part = snapshot.messages.iter().rev().find_map(|message| {
+        message
+            .parts
+            .iter()
+            .find(|part| matches!(part, MessagePart::SessionConfigChange { .. }))
+    });
+    match config_part {
         Some(MessagePart::SessionConfigChange { model, mode, .. }) => {
             assert_eq!(model.as_ref().map(|item| item.to.as_str()), Some("grok-4"));
             assert_eq!(mode.as_ref().map(|item| item.to.as_str()), Some("plan"));
@@ -612,11 +779,11 @@ async fn send_after_mode_switch_sets_live_config() {
     .expect("first turn should finish");
 
     service
-        .configure(&meta.id, None, None, None, Some("plan".into()))
+        .configure(&meta.id, None, None, None, Some("plan".into()), None, None)
         .await
         .unwrap();
     assert_eq!(provider.create_count(), 1);
-    assert_eq!(provider.config_count(), 0);
+    assert_eq!(provider.config_count(), 1);
 
     let _ = service.send(&meta.id, "again", Vec::new()).await.unwrap();
     tokio::time::sleep(Duration::from_millis(40)).await;
@@ -659,7 +826,7 @@ async fn send_after_unlisted_model_still_tries_set_config() {
     timeout(Duration::from_secs(2), async {
         loop {
             let snapshot = service.get(&meta.id).await.unwrap();
-            if !snapshot.meta.session_config_options.is_empty() {
+            if !snapshot.meta.descriptor.supported_options.models.is_empty() {
                 return;
             }
             tokio::time::sleep(Duration::from_millis(20)).await;
@@ -669,17 +836,31 @@ async fn send_after_unlisted_model_still_tries_set_config() {
     .expect("session should advertise config options");
 
     service
-        .configure(&meta.id, None, Some("grok-4".into()), None, None)
+        .configure(
+            &meta.id,
+            None,
+            Some("grok-4".into()),
+            None,
+            None,
+            None,
+            None,
+        )
         .await
         .unwrap();
     let snapshot = service.get(&meta.id).await.unwrap();
-    assert_eq!(snapshot.meta.selected_model.as_deref(), Some("grok-4"));
+    assert_eq!(
+        snapshot.meta.descriptor.current_config.model.as_deref(),
+        Some("grok-4")
+    );
     let _ = service.send(&meta.id, "again", Vec::new()).await.unwrap();
     tokio::time::sleep(Duration::from_millis(40)).await;
 
     assert_eq!(provider.config_count(), 1);
     let snapshot = service.get(&meta.id).await.unwrap();
-    assert_eq!(snapshot.meta.selected_model.as_deref(), Some("grok-4"));
+    assert_eq!(
+        snapshot.meta.descriptor.current_config.model.as_deref(),
+        Some("grok-4")
+    );
     assert_eq!(snapshot.meta.applied_model.as_deref(), Some("grok-4"));
 }
 
@@ -717,7 +898,7 @@ async fn send_after_advertised_model_switch_uses_agent_config_id() {
     timeout(Duration::from_secs(2), async {
         loop {
             let snapshot = service.get(&meta.id).await.unwrap();
-            if !snapshot.meta.session_config_options.is_empty() {
+            if !snapshot.meta.descriptor.supported_options.models.is_empty() {
                 return;
             }
             tokio::time::sleep(Duration::from_millis(20)).await;
@@ -727,22 +908,30 @@ async fn send_after_advertised_model_switch_uses_agent_config_id() {
     .expect("session should advertise config options");
 
     service
-        .configure(&meta.id, None, Some("grok-4".into()), None, None)
+        .configure(
+            &meta.id,
+            None,
+            Some("grok-4".into()),
+            None,
+            None,
+            None,
+            None,
+        )
         .await
         .unwrap();
     let snapshot = service.get(&meta.id).await.unwrap();
-    assert_eq!(snapshot.meta.selected_model.as_deref(), Some("grok-4"));
+    assert_eq!(
+        snapshot.meta.descriptor.current_config.model.as_deref(),
+        Some("grok-4")
+    );
 
     let _ = service.send(&meta.id, "again", Vec::new()).await.unwrap();
     tokio::time::sleep(Duration::from_millis(40)).await;
 
     assert_eq!(provider.config_count(), 1);
     let applied = provider.last_config().await.expect("live set_config");
-    assert_eq!(applied.model, None);
-    assert_eq!(
-        applied.extra_config.get("models").map(String::as_str),
-        Some("grok-4")
-    );
+    assert_eq!(applied.model.as_deref(), Some("grok-4"));
+    assert!(applied.extra_config.is_empty());
 }
 
 #[tokio::test]
@@ -792,7 +981,14 @@ async fn thinking_config_failure_does_not_report_model_switch_failed() {
     timeout(Duration::from_secs(2), async {
         loop {
             let snapshot = service.get(&meta.id).await.unwrap();
-            if snapshot.meta.session_config_options.len() >= 2 {
+            if !snapshot.meta.descriptor.supported_options.models.is_empty()
+                && !snapshot
+                    .meta
+                    .descriptor
+                    .supported_options
+                    .thinking
+                    .is_none()
+            {
                 return;
             }
             tokio::time::sleep(Duration::from_millis(20)).await;
@@ -808,6 +1004,8 @@ async fn thinking_config_failure_does_not_report_model_switch_failed() {
             Some("grok-4".into()),
             Some("high".into()),
             None,
+            None,
+            None,
         )
         .await
         .unwrap();
@@ -819,10 +1017,7 @@ async fn thinking_config_failure_does_not_report_model_switch_failed() {
     while let Ok(event) = rx.try_recv() {
         if matches!(
             event.payload,
-            AgentChatPayload::SessionHint {
-                kind: ref kind,
-                ..
-            } if kind == "model_switch_failed"
+            AgentChatPayload::SessionHint { ref kind, .. } if kind == "model_switch_failed"
         ) {
             saw_model_failed = true;
         }
@@ -833,7 +1028,10 @@ async fn thinking_config_failure_does_not_report_model_switch_failed() {
     );
     assert_eq!(provider.config_count(), 2);
     let snapshot = service.get(&meta.id).await.unwrap();
-    assert_eq!(snapshot.meta.selected_model.as_deref(), Some("grok-4"));
+    assert_eq!(
+        snapshot.meta.descriptor.current_config.model.as_deref(),
+        Some("grok-4")
+    );
     assert_eq!(snapshot.meta.applied_model.as_deref(), Some("grok-4"));
 }
 
@@ -856,11 +1054,20 @@ async fn send_after_failed_set_config_reverts() {
     .await
     .expect("first turn should finish");
 
+    let mut rx = service.subscribe();
     service
-        .configure(&meta.id, None, Some("grok-4".into()), None, None)
+        .configure(
+            &meta.id,
+            None,
+            Some("grok-4".into()),
+            None,
+            None,
+            None,
+            None,
+        )
         .await
         .unwrap();
-    let mut rx = service.subscribe();
+    assert_eq!(provider.config_count(), 1);
     let _ = service.send(&meta.id, "again", Vec::new()).await.unwrap();
     tokio::time::sleep(Duration::from_millis(40)).await;
 
@@ -872,10 +1079,7 @@ async fn send_after_failed_set_config_reverts() {
         }
         if matches!(
             event.payload,
-            AgentChatPayload::SessionHint {
-                kind: ref kind,
-                ..
-            } if kind == "model_switch_failed"
+            AgentChatPayload::SessionHint { ref kind, .. } if kind == "model_switch_failed"
         ) {
             saw_failed = true;
         }
@@ -884,7 +1088,10 @@ async fn send_after_failed_set_config_reverts() {
     assert!(saw_failed, "expected session_hint");
     assert_eq!(provider.config_count(), 1);
     let snapshot = service.get(&meta.id).await.unwrap();
-    assert_eq!(snapshot.meta.selected_model.as_deref(), Some("opus"));
+    assert_eq!(
+        snapshot.meta.descriptor.current_config.model.as_deref(),
+        Some("opus")
+    );
     assert_eq!(snapshot.meta.applied_model.as_deref(), Some("opus"));
 }
 
@@ -898,7 +1105,7 @@ async fn configure_rejects_agent_change_while_running() {
     let _ = service.send(&meta.id, "running", Vec::new()).await.unwrap();
 
     let err = service
-        .configure(&meta.id, Some("grok".into()), None, None, None)
+        .configure(&meta.id, Some("grok".into()), None, None, None, None, None)
         .await
         .unwrap_err();
     assert!(
@@ -910,6 +1117,698 @@ async fn configure_rejects_agent_change_while_running() {
         "claude"
     );
     assert_eq!(provider.config_count(), 0);
+}
+
+#[tokio::test]
+async fn session_op_respond_errors_when_no_pending_op() {
+    let provider = Arc::new(FakeAgentProvider::new("claude"));
+    let (_dir, service) = make_service(Arc::clone(&provider));
+    let meta = service.create(create_req("/tmp/proj")).unwrap();
+    let err = service
+        .session_op_respond(&meta.id, "req-1", "opt-1")
+        .await
+        .unwrap_err();
+    assert!(
+        err.to_string().contains("no pending session op"),
+        "unexpected error: {err}"
+    );
+}
+
+#[tokio::test]
+async fn session_op_respond_missing_chat_is_not_found() {
+    let provider = Arc::new(FakeAgentProvider::new("claude"));
+    let (_dir, service) = make_service(Arc::clone(&provider));
+    let err = service
+        .session_op_respond(&uuid::Uuid::new_v4().to_string(), "req-1", "opt-1")
+        .await
+        .unwrap_err();
+    assert!(
+        err.to_string().to_ascii_lowercase().contains("not found"),
+        "unexpected error: {err}"
+    );
+}
+
+#[tokio::test]
+async fn app069_s10_native_rewind_is_session_op_not_user_turn() {
+    let provider = Arc::new(FakeAgentProvider::new("claude"));
+    let (_dir, service) = make_service(Arc::clone(&provider));
+    let meta = service.create(create_req("/tmp/proj")).unwrap();
+    let _ = service.send(&meta.id, "/rewind", Vec::new()).await.unwrap();
+    tokio::time::sleep(Duration::from_millis(40)).await;
+    let jsonl = std::fs::read_to_string(service.store().dir_for(&meta.id).join("transcript.jsonl"))
+        .unwrap();
+    assert!(
+        !jsonl.contains("/rewind"),
+        "intercept must not persist /rewind as a user turn: {jsonl}"
+    );
+    let snapshot = service.get(&meta.id).await.unwrap();
+    assert!(snapshot.pending_session_op.is_some());
+    assert!(snapshot.meta.rewind_view.is_none());
+}
+
+#[tokio::test]
+async fn app069_s13_cancel_session_op_does_not_set_rewind_view() {
+    let provider = Arc::new(FakeAgentProvider::new("claude"));
+    let (_dir, service) = make_service(Arc::clone(&provider));
+    let meta = service.create(create_req("/tmp/proj")).unwrap();
+    seed_two_user_turns(&service, &meta.id);
+    let jsonl_path = service.store().dir_for(&meta.id).join("transcript.jsonl");
+    let before = std::fs::read_to_string(&jsonl_path).unwrap();
+    let _ = service.send(&meta.id, "/rewind", Vec::new()).await.unwrap();
+    tokio::time::sleep(Duration::from_millis(40)).await;
+    let pending = service
+        .get(&meta.id)
+        .await
+        .unwrap()
+        .pending_session_op
+        .expect("pending session op");
+    service
+        .session_op_respond(&meta.id, &pending.request_id, "cancel")
+        .await
+        .unwrap();
+    let after = service.get(&meta.id).await.unwrap();
+    assert!(after.meta.rewind_view.is_none());
+    assert!(after.pending_session_op.is_none());
+    let jsonl_after = std::fs::read_to_string(&jsonl_path).unwrap();
+    assert_eq!(jsonl_after, before);
+    assert_eq!(after.messages.len(), 2);
+}
+
+#[tokio::test]
+async fn app069_s13_failed_session_op_does_not_set_rewind_view_or_fork() {
+    let provider = Arc::new(FakeAgentProvider::new("claude"));
+    let (_dir, service) = make_service(Arc::clone(&provider));
+    let meta = service.create(create_req("/tmp/proj")).unwrap();
+    let _ = service.send(&meta.id, "/fork", Vec::new()).await.unwrap();
+    tokio::time::sleep(Duration::from_millis(40)).await;
+    let pending = service
+        .get(&meta.id)
+        .await
+        .unwrap()
+        .pending_session_op
+        .expect("pending session op");
+    let mut rx = service.subscribe();
+    service
+        .session_op_respond(&meta.id, &pending.request_id, "fork")
+        .await
+        .unwrap();
+    let mut saw_failed_error = None;
+    while let Ok(event) = rx.try_recv() {
+        if let AgentChatPayload::SessionOpResolved { outcome, error, .. } = event.payload {
+            if matches!(outcome, AgentChatSessionOpOutcome::Failed) {
+                saw_failed_error = error;
+            }
+        }
+    }
+    assert_eq!(
+        saw_failed_error.as_deref(),
+        Some("session op is not supported")
+    );
+    let after = service.get(&meta.id).await.unwrap();
+    assert!(after.meta.rewind_view.is_none());
+    assert!(after.pending_session_op.is_none());
+    let listed = service.list(None, None, None, true, None).unwrap();
+    assert_eq!(listed.len(), 1);
+    assert_eq!(listed[0].id, meta.id);
+}
+
+#[tokio::test]
+async fn app069_s16_applied_fork_creates_sibling_and_emits_session_forked() {
+    let provider = FakeAgentProvider::new("claude");
+    provider.set_applied_fork_session_id("vendor-fork-1");
+    let provider = Arc::new(provider);
+    let (_dir, service) = make_service(Arc::clone(&provider));
+    let meta = service.create(create_req("/tmp/proj")).unwrap();
+    service
+        .queue_add(&meta.id, "queued-later", Vec::new())
+        .unwrap();
+    assert_eq!(service.store().read_queue(&meta.id).unwrap().len(), 1);
+
+    let _ = service.send(&meta.id, "/fork", Vec::new()).await.unwrap();
+    tokio::time::sleep(Duration::from_millis(40)).await;
+    let pending = service
+        .get(&meta.id)
+        .await
+        .unwrap()
+        .pending_session_op
+        .expect("pending session op");
+    let mut rx = service.subscribe();
+    service
+        .session_op_respond(&meta.id, &pending.request_id, "fork")
+        .await
+        .unwrap();
+
+    let listed = service.list(None, None, None, true, None).unwrap();
+    assert_eq!(listed.len(), 2);
+    let child = listed
+        .iter()
+        .find(|row| row.id != meta.id)
+        .expect("child chat");
+    let child_snap = service.get(&child.id).await.unwrap();
+    assert_eq!(
+        child_snap.meta.parent_chat_id.as_deref(),
+        Some(meta.id.as_str())
+    );
+    assert_eq!(
+        child_snap.meta.persistence_handle.as_deref(),
+        Some("vendor-fork-1")
+    );
+    assert_eq!(child_snap.meta.cwd, meta.cwd);
+    assert!(service.store().read_queue(&child.id).unwrap().is_empty());
+    assert_eq!(service.store().read_queue(&meta.id).unwrap().len(), 1);
+    let parent_after = service.get(&meta.id).await.unwrap();
+    assert!(parent_after.pending_session_op.is_none());
+    assert_ne!(
+        parent_after.meta.persistence_handle.as_deref(),
+        Some("vendor-fork-1")
+    );
+
+    let mut saw_applied = false;
+    let mut saw_forked = false;
+    while let Ok(event) = rx.try_recv() {
+        match event.payload {
+            AgentChatPayload::SessionOpResolved { outcome, .. } => {
+                saw_applied = matches!(outcome, AgentChatSessionOpOutcome::Applied);
+            }
+            AgentChatPayload::SessionForked {
+                parent_chat_id,
+                chat_id,
+            } => {
+                assert_eq!(parent_chat_id, meta.id);
+                assert_eq!(chat_id, child.id);
+                saw_forked = true;
+            }
+            _ => {}
+        }
+    }
+    assert!(saw_applied, "expected session_op_resolved Applied");
+    assert!(saw_forked, "expected session_forked");
+}
+
+#[tokio::test]
+async fn app069_s10_acp_send_fork_goes_as_prompt() {
+    let provider = Arc::new(FakeAgentProvider::new("gemini"));
+    let (_dir, service) = make_service(Arc::clone(&provider));
+    let meta = service
+        .create(CreateAgentChatRequest {
+            workspace_id: None,
+            project_id: None,
+            space_id: None,
+            cwd: "/tmp/proj".into(),
+            origin: AgentChatOrigin::Normal,
+            provider_id: "gemini".into(),
+            model: None,
+            thinking: None,
+            mode: None,
+            permission_mode: None,
+            fast: None,
+            title: None,
+        })
+        .unwrap();
+    let _ = service.send(&meta.id, "/fork", Vec::new()).await.unwrap();
+    tokio::time::sleep(Duration::from_millis(40)).await;
+    let jsonl = std::fs::read_to_string(service.store().dir_for(&meta.id).join("transcript.jsonl"))
+        .unwrap();
+    assert!(jsonl.contains("/fork"), "{jsonl}");
+    let snapshot = service.get(&meta.id).await.unwrap();
+    assert!(snapshot.pending_session_op.is_none());
+}
+
+#[tokio::test]
+async fn app069_s10_acp_send_rewind_goes_as_prompt() {
+    let provider = Arc::new(FakeAgentProvider::new("gemini"));
+    let (_dir, service) = make_service(Arc::clone(&provider));
+    let meta = service
+        .create(create_req_for("/tmp/proj", "gemini"))
+        .unwrap();
+    let _ = service.send(&meta.id, "/rewind", Vec::new()).await.unwrap();
+    tokio::time::sleep(Duration::from_millis(40)).await;
+    let jsonl = std::fs::read_to_string(service.store().dir_for(&meta.id).join("transcript.jsonl"))
+        .unwrap();
+    assert!(jsonl.contains("/rewind"), "{jsonl}");
+    let snapshot = service.get(&meta.id).await.unwrap();
+    assert!(snapshot.pending_session_op.is_none());
+    assert!(snapshot.meta.rewind_view.is_none());
+}
+
+#[tokio::test]
+async fn app069_s12_codex_rewind_chrome_has_no_restore_code() {
+    let provider = Arc::new(FakeAgentProvider::new("codex"));
+    let (_dir, service) = make_service(Arc::clone(&provider));
+    let meta = service
+        .create(create_req_for("/tmp/proj", "codex"))
+        .unwrap();
+    seed_two_user_turns(&service, &meta.id);
+    let _ = service.send(&meta.id, "/rewind", Vec::new()).await.unwrap();
+    tokio::time::sleep(Duration::from_millis(40)).await;
+    let pending = service
+        .get(&meta.id)
+        .await
+        .unwrap()
+        .pending_session_op
+        .expect("pending rewind");
+    let ids: Vec<_> = pending
+        .options
+        .iter()
+        .map(|option| option.option_id.as_str())
+        .collect();
+    let names: Vec<_> = pending
+        .options
+        .iter()
+        .map(|option| option.name.as_str())
+        .collect();
+    assert!(!ids.contains(&"rewind_code"));
+    assert!(!ids.contains(&"rewind_both"));
+    assert!(names.iter().all(|name| !name.contains("Restore code")));
+}
+
+#[tokio::test]
+async fn app069_s13_failed_rewind_leaves_jsonl_and_view() {
+    let provider = Arc::new(FakeAgentProvider::new("codex"));
+    let (_dir, service) = make_service(Arc::clone(&provider));
+    let meta = service
+        .create(create_req_for("/tmp/proj", "codex"))
+        .unwrap();
+    seed_two_user_turns(&service, &meta.id);
+    let jsonl_path = service.store().dir_for(&meta.id).join("transcript.jsonl");
+    let before = std::fs::read_to_string(&jsonl_path).unwrap();
+    let _ = service.send(&meta.id, "/rewind", Vec::new()).await.unwrap();
+    tokio::time::sleep(Duration::from_millis(40)).await;
+    let pending = service
+        .get(&meta.id)
+        .await
+        .unwrap()
+        .pending_session_op
+        .expect("pending rewind");
+    let option_id = pending
+        .options
+        .iter()
+        .find(|option| option.option_id != "cancel")
+        .map(|option| option.option_id.clone())
+        .expect("rewind option");
+    service
+        .session_op_respond(&meta.id, &pending.request_id, &option_id)
+        .await
+        .unwrap();
+    let after = service.get(&meta.id).await.unwrap();
+    assert!(after.meta.rewind_view.is_none());
+    assert!(after.pending_session_op.is_none());
+    let jsonl_after = std::fs::read_to_string(&jsonl_path).unwrap();
+    assert_eq!(jsonl_after, before);
+}
+
+#[tokio::test]
+async fn app069_s14_opencode_redo_clears_view_without_deleting_jsonl() {
+    let provider = FakeAgentProvider::new("opencode");
+    provider.set_applied_fork_session_id("unused-fork");
+    let provider = Arc::new(provider);
+    let (_dir, service) = make_service(Arc::clone(&provider));
+    let meta = service
+        .create(create_req_for("/tmp/proj", "opencode"))
+        .unwrap();
+    seed_two_user_turns(&service, &meta.id);
+    service
+        .store()
+        .update_meta(&meta.id, |row| {
+            row.rewind_view = Some(RewindView {
+                until_turn_id: "turn-1".into(),
+            });
+        })
+        .unwrap();
+    let hidden = service.get(&meta.id).await.unwrap();
+    assert_eq!(hidden.messages.len(), 1);
+    let jsonl_path = service.store().dir_for(&meta.id).join("transcript.jsonl");
+    let before = std::fs::read_to_string(&jsonl_path).unwrap();
+    assert!(before.contains("second"));
+    let _ = service.send(&meta.id, "/redo", Vec::new()).await.unwrap();
+    tokio::time::sleep(Duration::from_millis(40)).await;
+    let pending = service
+        .get(&meta.id)
+        .await
+        .unwrap()
+        .pending_session_op
+        .expect("pending redo");
+    service
+        .session_op_respond(&meta.id, &pending.request_id, "redo")
+        .await
+        .unwrap();
+    let restored = service.get(&meta.id).await.unwrap();
+    assert!(restored.meta.rewind_view.is_none());
+    assert!(restored.messages.len() >= 2);
+    let jsonl_after = std::fs::read_to_string(&jsonl_path).unwrap();
+    assert_eq!(jsonl_after, before);
+}
+
+#[test]
+fn app069_s15_session_op_path_does_not_restore_workspace_files() {
+    let service = include_str!("service.rs");
+    let apply = include_str!("apply_event.rs");
+    let store = include_str!("store.rs");
+    let production_service = service.split("#[cfg(test)]").next().unwrap_or(service);
+    let production_apply = apply.split("#[cfg(test)]").next().unwrap_or(apply);
+    let production_store = store.split("#[cfg(test)]").next().unwrap_or(store);
+    for src in [production_service, production_apply, production_store] {
+        assert!(
+            !src.contains("git checkout"),
+            "session-op must not git checkout"
+        );
+        assert!(!src.contains("Command::new(\"git\")"));
+        assert!(!src.contains("git worktree"));
+    }
+}
+
+#[tokio::test]
+async fn app069_checkpoint_id_persists_and_rehydrates_on_resume() {
+    let provider = Arc::new(FakeAgentProvider::new("claude"));
+    let (_dir, service) = make_service(Arc::clone(&provider));
+    let meta = service.create(create_req("/tmp/proj")).unwrap();
+    seed_two_user_turns(&service, &meta.id);
+    seed_user_checkpoint(&service, &meta.id, "turn-1", "claude-uuid-1");
+    let folded = service.store().folded_turns(&meta.id).unwrap();
+    let user = folded
+        .iter()
+        .find(|turn| turn.id == "turn-1")
+        .and_then(|turn| turn.messages.iter().find(|message| message.role == "user"))
+        .expect("user turn");
+    assert_eq!(user.checkpoint_id.as_deref(), Some("claude-uuid-1"));
+
+    service
+        .store()
+        .update_meta(&meta.id, |row| {
+            row.persistence_handle = Some("vendor-session".into());
+        })
+        .unwrap();
+    let _ = service.send(&meta.id, "/rewind", Vec::new()).await.unwrap();
+    tokio::time::sleep(Duration::from_millis(40)).await;
+    assert_eq!(provider.resume_count(), 1);
+    let cfg = provider
+        .last_runtime_config()
+        .await
+        .expect("runtime config");
+    assert_eq!(cfg.checkpoints.len(), 1);
+    assert_eq!(cfg.checkpoints[0].turn_id, "turn-1");
+    assert_eq!(cfg.checkpoints[0].checkpoint_id, "claude-uuid-1");
+    let pending = service
+        .get(&meta.id)
+        .await
+        .unwrap()
+        .pending_session_op
+        .expect("pending rewind");
+    assert!(pending_option_ids(&pending).contains(&"turn:claude-uuid-1"));
+}
+
+#[tokio::test]
+async fn app069_live_user_checkpoint_event_folds_onto_user_message() {
+    let provider = FakeAgentProvider::new("claude");
+    provider.set_auto_complete(true);
+    let provider = Arc::new(provider);
+    let (_dir, service) = make_service(Arc::clone(&provider));
+    let meta = service.create(create_req("/tmp/proj")).unwrap();
+    let mut events = service.subscribe();
+    let turn_id = service.send(&meta.id, "hello", Vec::new()).await.unwrap();
+    timeout(Duration::from_secs(2), async {
+        loop {
+            let event = events.recv().await.expect("event");
+            if matches!(event.payload, AgentChatPayload::TurnCompleted { .. }) {
+                return;
+            }
+        }
+    })
+    .await
+    .expect("turn completed");
+    timeout(Duration::from_secs(2), async {
+        while !provider.events_ready().await {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .expect("events ready");
+    provider
+        .push_event(AgentEvent::UserCheckpoint {
+            turn_id: turn_id.clone(),
+            checkpoint_id: "live-uuid".into(),
+        })
+        .await;
+    tokio::time::sleep(Duration::from_millis(40)).await;
+    let folded = service.store().folded_turns(&meta.id).unwrap();
+    let user = folded
+        .iter()
+        .find(|turn| turn.id == turn_id)
+        .and_then(|turn| turn.messages.iter().find(|message| message.role == "user"))
+        .expect("user");
+    assert_eq!(user.checkpoint_id.as_deref(), Some("live-uuid"));
+}
+
+#[tokio::test]
+async fn app069_phase_two_omits_restore_files_when_vendor_has_none() {
+    let provider = FakeAgentProvider::new("claude");
+    provider.set_prepare_has_file_changes(Some(false));
+    let provider = Arc::new(provider);
+    let (_dir, service) = make_service(Arc::clone(&provider));
+    let meta = service.create(create_req("/tmp/proj")).unwrap();
+    seed_two_user_turns(&service, &meta.id);
+    let _ = service.send(&meta.id, "/rewind", Vec::new()).await.unwrap();
+    tokio::time::sleep(Duration::from_millis(40)).await;
+    let pending = service
+        .get(&meta.id)
+        .await
+        .unwrap()
+        .pending_session_op
+        .expect("phase one");
+    let turn_opt = pending
+        .options
+        .iter()
+        .find(|option| option.option_id.starts_with("turn:"))
+        .map(|option| option.option_id.clone())
+        .expect("turn option");
+    service
+        .session_op_respond(&meta.id, &pending.request_id, &turn_opt)
+        .await
+        .unwrap();
+    let phase_two = service
+        .get(&meta.id)
+        .await
+        .unwrap()
+        .pending_session_op
+        .expect("phase two");
+    let ids = pending_option_ids(&phase_two);
+    assert!(ids.contains(&"rewind_conversation"));
+    assert!(!ids.contains(&"rewind_code"));
+    assert!(!ids.contains(&"rewind_both"));
+}
+
+#[tokio::test]
+async fn app069_phase_two_includes_restore_files_when_vendor_has_changes() {
+    let provider = FakeAgentProvider::new("claude");
+    provider.set_prepare_has_file_changes(Some(true));
+    let provider = Arc::new(provider);
+    let (_dir, service) = make_service(Arc::clone(&provider));
+    let meta = service.create(create_req("/tmp/proj")).unwrap();
+    seed_two_user_turns(&service, &meta.id);
+    let _ = service.send(&meta.id, "/rewind", Vec::new()).await.unwrap();
+    tokio::time::sleep(Duration::from_millis(40)).await;
+    let pending = service
+        .get(&meta.id)
+        .await
+        .unwrap()
+        .pending_session_op
+        .expect("phase one");
+    let turn_opt = pending
+        .options
+        .iter()
+        .find(|option| option.option_id.starts_with("turn:"))
+        .map(|option| option.option_id.clone())
+        .expect("turn option");
+    service
+        .session_op_respond(&meta.id, &pending.request_id, &turn_opt)
+        .await
+        .unwrap();
+    let phase_two = service
+        .get(&meta.id)
+        .await
+        .unwrap()
+        .pending_session_op
+        .expect("phase two");
+    let ids = pending_option_ids(&phase_two);
+    assert!(ids.contains(&"rewind_conversation"));
+    assert!(ids.contains(&"rewind_code"));
+    assert!(ids.contains(&"rewind_both"));
+}
+
+#[tokio::test]
+async fn app069_applied_conversation_rewind_sets_view_code_does_not() {
+    let provider = FakeAgentProvider::new("claude");
+    provider.set_applied_rewind(true);
+    provider.set_prepare_has_file_changes(Some(true));
+    let provider = Arc::new(provider);
+    let (_dir, service) = make_service(Arc::clone(&provider));
+    let meta = service.create(create_req("/tmp/proj")).unwrap();
+    seed_two_user_turns(&service, &meta.id);
+    let _ = service.send(&meta.id, "/rewind", Vec::new()).await.unwrap();
+    tokio::time::sleep(Duration::from_millis(40)).await;
+    let pending = service
+        .get(&meta.id)
+        .await
+        .unwrap()
+        .pending_session_op
+        .expect("phase one");
+    let turn_opt = pending
+        .options
+        .iter()
+        .find(|option| option.option_id.starts_with("turn:"))
+        .map(|option| option.option_id.clone())
+        .expect("turn option");
+    service
+        .session_op_respond(&meta.id, &pending.request_id, &turn_opt)
+        .await
+        .unwrap();
+    let phase_two = service
+        .get(&meta.id)
+        .await
+        .unwrap()
+        .pending_session_op
+        .expect("phase two");
+    service
+        .session_op_respond(&meta.id, &phase_two.request_id, "rewind_conversation")
+        .await
+        .unwrap();
+    let after = service.get(&meta.id).await.unwrap();
+    assert_eq!(
+        after
+            .meta
+            .rewind_view
+            .as_ref()
+            .map(|view| view.until_turn_id.as_str()),
+        Some("turn-1")
+    );
+    assert_eq!(after.messages.len(), 1);
+
+    let provider2 = FakeAgentProvider::new("claude");
+    provider2.set_applied_rewind(true);
+    provider2.set_prepare_has_file_changes(Some(true));
+    let provider2 = Arc::new(provider2);
+    let (_dir2, service2) = make_service(Arc::clone(&provider2));
+    let meta2 = service2.create(create_req("/tmp/proj")).unwrap();
+    seed_two_user_turns(&service2, &meta2.id);
+    let _ = service2
+        .send(&meta2.id, "/rewind", Vec::new())
+        .await
+        .unwrap();
+    tokio::time::sleep(Duration::from_millis(40)).await;
+    let pending2 = service2
+        .get(&meta2.id)
+        .await
+        .unwrap()
+        .pending_session_op
+        .expect("phase one");
+    let turn_opt2 = pending2
+        .options
+        .iter()
+        .find(|option| option.option_id.starts_with("turn:"))
+        .map(|option| option.option_id.clone())
+        .expect("turn option");
+    service2
+        .session_op_respond(&meta2.id, &pending2.request_id, &turn_opt2)
+        .await
+        .unwrap();
+    let phase_two2 = service2
+        .get(&meta2.id)
+        .await
+        .unwrap()
+        .pending_session_op
+        .expect("phase two");
+    service2
+        .session_op_respond(&meta2.id, &phase_two2.request_id, "rewind_code")
+        .await
+        .unwrap();
+    let after2 = service2.get(&meta2.id).await.unwrap();
+    assert!(after2.meta.rewind_view.is_none());
+    assert_eq!(after2.messages.len(), 2);
+}
+
+#[tokio::test]
+async fn app069_s15_applied_rewind_does_not_mutate_workspace_files() {
+    let workspace = tempfile::tempdir().unwrap();
+    let marker = workspace.path().join("keep.txt");
+    std::fs::write(&marker, b"untouched").unwrap();
+    let provider = FakeAgentProvider::new("claude");
+    provider.set_applied_rewind(true);
+    provider.set_prepare_has_file_changes(Some(true));
+    let provider = Arc::new(provider);
+    let (_dir, service) = make_service(Arc::clone(&provider));
+    let meta = service
+        .create(create_req(workspace.path().to_str().unwrap()))
+        .unwrap();
+    seed_two_user_turns(&service, &meta.id);
+    let _ = service.send(&meta.id, "/rewind", Vec::new()).await.unwrap();
+    tokio::time::sleep(Duration::from_millis(40)).await;
+    let pending = service
+        .get(&meta.id)
+        .await
+        .unwrap()
+        .pending_session_op
+        .expect("phase one");
+    let turn_opt = pending
+        .options
+        .iter()
+        .find(|option| option.option_id.starts_with("turn:"))
+        .map(|option| option.option_id.clone())
+        .expect("turn option");
+    service
+        .session_op_respond(&meta.id, &pending.request_id, &turn_opt)
+        .await
+        .unwrap();
+    let phase_two = service
+        .get(&meta.id)
+        .await
+        .unwrap()
+        .pending_session_op
+        .expect("phase two");
+    service
+        .session_op_respond(&meta.id, &phase_two.request_id, "rewind_code")
+        .await
+        .unwrap();
+    assert_eq!(std::fs::read(&marker).unwrap(), b"untouched");
+}
+
+#[tokio::test]
+async fn app069_pi_fork_chrome_uses_vendor_entry_options() {
+    let provider = FakeAgentProvider::new("pi");
+    provider.set_prepare_options(vec![
+        AgentPermissionOption {
+            option_id: "fork".into(),
+            name: "Fork here".into(),
+            kind: "fork".into(),
+        },
+        AgentPermissionOption {
+            option_id: "fork_entry:ent_1".into(),
+            name: "hello there".into(),
+            kind: "fork".into(),
+        },
+    ]);
+    let provider = Arc::new(provider);
+    let (_dir, service) = make_service(Arc::clone(&provider));
+    let meta = service.create(create_req_for("/tmp/proj", "pi")).unwrap();
+    let _ = service.send(&meta.id, "/fork", Vec::new()).await.unwrap();
+    tokio::time::sleep(Duration::from_millis(40)).await;
+    let pending = service
+        .get(&meta.id)
+        .await
+        .unwrap()
+        .pending_session_op
+        .expect("pending fork");
+    let ids = pending_option_ids(&pending);
+    assert!(ids.contains(&"fork"));
+    assert!(ids.contains(&"fork_entry:ent_1"));
+    assert!(ids.contains(&"cancel"));
+    assert_eq!(
+        pending
+            .options
+            .iter()
+            .find(|option| option.option_id == "fork")
+            .map(|option| option.name.as_str()),
+        Some("Fork here")
+    );
 }
 
 #[test]
@@ -964,16 +1863,18 @@ async fn s14_permission_blocks_queue_allows_steer() {
 #[tokio::test]
 async fn s18_prefetch_worker_starts_once() {
     let root = tempfile::tempdir().unwrap();
-    let engine =
-        CatalogEngine::with_acp_probe(root.path().join("catalog-probe"), Box::new(NoopAcpProbe));
-    let worker = Arc::new(CatalogPrefetchWorker::new(
+    let engine = OptionsProbe::with_acp_probe(
+        root.path().join("options-probe"),
+        Box::new(NoopAcpOptionsProbe),
+    );
+    let worker = Arc::new(OptionsPrefetchWorker::new(
         root.path().to_path_buf(),
         engine,
         Duration::from_millis(20),
     ));
     worker
-        .set_specs(vec![
-            AgentCatalogSpec {
+        .set_plans(vec![
+            ProbePlan {
                 agent_id: "claude".into(),
                 static_models: vec![AgentModel {
                     id: "opus".into(),
@@ -983,10 +1884,10 @@ async fn s18_prefetch_worker_starts_once() {
                     thinking: None,
                 }],
                 thinking: AgentThinkingSupport::None,
-                strategies: vec![CatalogStrategyKind::Config],
+                strategies: vec![OptionsProbeStrategy::Config],
                 ..Default::default()
             },
-            AgentCatalogSpec {
+            ProbePlan {
                 agent_id: "codex".into(),
                 static_models: vec![AgentModel {
                     id: "gpt".into(),
@@ -995,7 +1896,7 @@ async fn s18_prefetch_worker_starts_once() {
                     is_default: true,
                     thinking: None,
                 }],
-                strategies: vec![CatalogStrategyKind::Config],
+                strategies: vec![OptionsProbeStrategy::Config],
                 ..Default::default()
             },
         ])
@@ -1018,15 +1919,17 @@ async fn s18_prefetch_worker_starts_once() {
 #[tokio::test]
 async fn s19_fresh_ok_cache_skips_probe() {
     let root = tempfile::tempdir().unwrap();
-    let engine =
-        CatalogEngine::with_acp_probe(root.path().join("catalog-probe"), Box::new(NoopAcpProbe));
-    let worker = Arc::new(CatalogPrefetchWorker::new(
+    let engine = OptionsProbe::with_acp_probe(
+        root.path().join("options-probe"),
+        Box::new(NoopAcpOptionsProbe),
+    );
+    let worker = Arc::new(OptionsPrefetchWorker::new(
         root.path().to_path_buf(),
         engine,
         Duration::from_secs(30),
     ));
-    let spec = AgentCatalogSpec {
-        agent_id: "claude".into(),
+    let spec = ProbePlan {
+        agent_id: "factory-droid".into(),
         static_models: vec![AgentModel {
             id: "opus".into(),
             label: "Opus".into(),
@@ -1034,24 +1937,24 @@ async fn s19_fresh_ok_cache_skips_probe() {
             is_default: true,
             thinking: None,
         }],
-        strategies: vec![CatalogStrategyKind::Config],
+        strategies: vec![OptionsProbeStrategy::Config],
         ..Default::default()
     };
-    worker.set_specs(vec![spec.clone()]).await;
+    worker.set_plans(vec![spec.clone()]).await;
     let first = worker.get(&spec, true).await;
-    assert_eq!(first.status, CatalogStatus::Ok);
+    assert_eq!(first.status, OptionsStatus::Ok);
     let probes = worker.probe_count();
     worker.on_web_connect();
     tokio::time::sleep(Duration::from_millis(30)).await;
     assert_eq!(worker.probe_count(), probes);
     let cached = worker.get(&spec, false).await;
-    assert_eq!(cached.source, agent::CatalogSource::Cache);
+    assert_eq!(cached.source, agent::OptionsSource::Cache);
 }
 
 #[tokio::test]
 async fn s20_merge_cli_wins_thinking_from_config_and_probe_isolated() {
-    use agent::{merge_catalogs, CatalogFragment};
-    let config = CatalogFragment {
+    use agent::{merge_options_snapshots, OptionsFragment};
+    let config = OptionsFragment {
         models: vec![AgentModel {
             id: "opus".into(),
             label: "Opus".into(),
@@ -1066,10 +1969,10 @@ async fn s20_merge_cli_wins_thinking_from_config_and_probe_isolated() {
             arg: Some("--effort".into()),
             options: vec!["low".into(), "high".into()],
         },
-        strategy: Some(CatalogStrategyKind::Config),
+        strategy: Some(OptionsProbeStrategy::Config),
         ..Default::default()
     };
-    let cli = CatalogFragment {
+    let cli = OptionsFragment {
         models: vec![AgentModel {
             id: "opus".into(),
             label: "Opus".into(),
@@ -1077,11 +1980,11 @@ async fn s20_merge_cli_wins_thinking_from_config_and_probe_isolated() {
             is_default: true,
             thinking: None,
         }],
-        status: Some(CatalogStatus::Ok),
-        strategy: Some(CatalogStrategyKind::Cli),
+        status: Some(OptionsStatus::Ok),
+        strategy: Some(OptionsProbeStrategy::Cli),
         ..Default::default()
     };
-    let merged = merge_catalogs("claude", &[config, cli]);
+    let merged = merge_options_snapshots("claude", &[config, cli]);
     assert!(matches!(merged.thinking, AgentThinkingSupport::Enum { .. }));
     assert!(merged.models[0].is_default);
 }
@@ -1310,16 +2213,20 @@ async fn get_overlays_unpersisted_live_text_without_duplicate_ids() {
     }
 }
 
-fn execute_tool(id: &str, status: &str) -> agent::AgentToolCall {
-    agent::AgentToolCall {
+fn execute_tool(id: &str, status: agent::AgentToolStatus) -> agent::AgentTool {
+    agent::AgentTool {
         tool_call_id: id.into(),
         name: "Execute".into(),
         title: Some("ls".into()),
         kind: agent::AgentToolKind::Execute,
-        status: Some(status.into()),
-        input: Some(serde_json::json!({ "command": "ls" })),
-        output: None,
-        content: None,
+        status,
+        params: agent::AgentToolParams::Execute {
+            command: "ls".into(),
+            cwd: None,
+            background: false,
+            task_id: None,
+        },
+        result: None,
     }
 }
 
@@ -1373,12 +2280,12 @@ async fn interleaved_thinking_and_tools_survive_disk_reload() {
     tokio::time::sleep(Duration::from_millis(20)).await;
     provider
         .push_event(AgentEvent::ToolCallStarted {
-            tool_call: execute_tool("t1", "running"),
+            tool_call: execute_tool("t1", agent::AgentToolStatus::Running),
         })
         .await;
     provider
         .push_event(AgentEvent::ToolCallCompleted {
-            tool_call: execute_tool("t1", "completed"),
+            tool_call: execute_tool("t1", agent::AgentToolStatus::Completed),
         })
         .await;
     tokio::time::sleep(Duration::from_millis(20)).await;
@@ -1391,12 +2298,12 @@ async fn interleaved_thinking_and_tools_survive_disk_reload() {
     tokio::time::sleep(Duration::from_millis(20)).await;
     provider
         .push_event(AgentEvent::ToolCallStarted {
-            tool_call: execute_tool("t2", "running"),
+            tool_call: execute_tool("t2", agent::AgentToolStatus::Running),
         })
         .await;
     provider
         .push_event(AgentEvent::ToolCallCompleted {
-            tool_call: execute_tool("t2", "completed"),
+            tool_call: execute_tool("t2", agent::AgentToolStatus::Completed),
         })
         .await;
     tokio::time::sleep(Duration::from_millis(20)).await;
@@ -1446,5 +2353,139 @@ async fn interleaved_thinking_and_tools_survive_disk_reload() {
         assistant_part_kinds(&disk),
         ["thinking", "tool", "thinking", "tool", "thinking"],
         "reload from transcript.jsonl should not collapse thinking into one part after tools"
+    );
+}
+
+#[test]
+fn create_stamps_ready_options_into_descriptor() {
+    let provider = Arc::new(FakeAgentProvider::new("factory-droid"));
+    let (dir, service) = make_service(Arc::clone(&provider));
+    let engine = OptionsProbe::with_acp_probe(
+        dir.path().join("options-probe"),
+        Box::new(NoopAcpOptionsProbe),
+    );
+    let worker = Arc::new(OptionsPrefetchWorker::new(
+        dir.path().to_path_buf(),
+        engine,
+        Duration::from_secs(30),
+    ));
+    worker.put_options_for_test(&AgentOptionsSnapshot {
+        agent_id: "factory-droid".into(),
+        status: OptionsStatus::Ok,
+        models: vec![AgentModel {
+            id: "glm-5".into(),
+            label: "GLM 5".into(),
+            group: None,
+            is_default: true,
+            thinking: None,
+        }],
+        modes: Vec::new(),
+        permission_modes: vec![AgentMode {
+            id: "default".into(),
+            label: "Default".into(),
+            is_default: true,
+        }],
+        commands: Vec::new(),
+        thinking: AgentThinkingSupport::Enum {
+            arg: None,
+            options: vec!["low".into(), "high".into()],
+        },
+        strategies_used: Vec::new(),
+        fetched_at: chrono::Utc::now(),
+        source: OptionsSource::Cache,
+        message: None,
+    });
+    service.set_options_worker(worker);
+    let meta = service
+        .create(create_req_for("/tmp/proj", "factory-droid"))
+        .unwrap();
+    assert_eq!(
+        meta.descriptor
+            .supported_options
+            .models
+            .iter()
+            .map(|item| item.id.as_str())
+            .collect::<Vec<_>>(),
+        ["glm-5"]
+    );
+    assert_eq!(
+        meta.descriptor.current_config.model.as_deref(),
+        Some("glm-5")
+    );
+    assert_eq!(
+        meta.descriptor.current_config.permission_mode.as_deref(),
+        Some("default")
+    );
+}
+
+#[tokio::test]
+async fn configure_rebuilds_descriptor_when_switching_provider() {
+    let provider = Arc::new(FakeAgentProvider::new("claude"));
+    let (dir, service) = make_service(Arc::clone(&provider));
+    let engine = OptionsProbe::with_acp_probe(
+        dir.path().join("options-probe"),
+        Box::new(NoopAcpOptionsProbe),
+    );
+    let worker = Arc::new(OptionsPrefetchWorker::new(
+        dir.path().to_path_buf(),
+        engine,
+        Duration::from_secs(30),
+    ));
+    worker.put_options_for_test(&AgentOptionsSnapshot {
+        agent_id: "grok".into(),
+        status: OptionsStatus::Ok,
+        models: vec![AgentModel {
+            id: "grok-4".into(),
+            label: "Grok 4".into(),
+            group: None,
+            is_default: true,
+            thinking: None,
+        }],
+        modes: vec![AgentMode {
+            id: "default".into(),
+            label: "Default".into(),
+            is_default: true,
+        }],
+        permission_modes: vec![AgentMode {
+            id: "ask_always".into(),
+            label: "Ask always".into(),
+            is_default: true,
+        }],
+        commands: vec![AgentAvailableCommand {
+            name: "compact".into(),
+            description: "Compact conversation".into(),
+            hint: None,
+        }],
+        thinking: AgentThinkingSupport::Enum {
+            arg: None,
+            options: vec!["low".into(), "high".into()],
+        },
+        strategies_used: Vec::new(),
+        fetched_at: chrono::Utc::now(),
+        source: OptionsSource::Cache,
+        message: None,
+    });
+    service.set_options_worker(worker);
+    let meta = service.create(create_req("/tmp/proj")).unwrap();
+    assert!(meta.descriptor.supported_options.models.is_empty());
+    let updated = service
+        .configure(&meta.id, Some("grok".into()), None, None, None, None, None)
+        .await
+        .unwrap();
+    assert_eq!(updated.provider_id, "grok");
+    assert_eq!(updated.descriptor.identity.id, "grok");
+    assert_eq!(
+        updated
+            .descriptor
+            .supported_options
+            .models
+            .iter()
+            .map(|item| item.id.as_str())
+            .collect::<Vec<_>>(),
+        ["grok-4"]
+    );
+    assert_eq!(
+        updated.descriptor.current_config.model.as_deref(),
+        Some("grok-4")
     );
 }

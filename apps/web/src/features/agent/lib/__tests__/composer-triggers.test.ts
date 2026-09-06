@@ -10,6 +10,11 @@ describe("agent composer triggers", () => {
     );
   });
 
+  it("APP-069 S9 replaces a / query with an available slash command", () => {
+    expect(replaceTextareaTrigger("/pl", 0, 2, "/plan ")).toBe("/plan ");
+    expect(replaceTextareaTrigger("/rewind", 0, 7, "/rewind ")).toBe("/rewind ");
+  });
+
   it("replaces a / query with an ACP slash command", () => {
     expect(replaceTextareaTrigger("/pl", 0, 2, "/plan ")).toBe("/plan ");
   });

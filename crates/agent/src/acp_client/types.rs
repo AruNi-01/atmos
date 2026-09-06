@@ -31,6 +31,12 @@ pub struct PermissionRequest {
     pub risk_level: RiskLevel,
     /// Permission options presented by the agent (may be empty for legacy agents)
     pub options: Vec<PermissionOption>,
+    /// Multi-question AskUser cards when raw_input carries `questions[]`.
+    #[serde(default)]
+    pub questions: Vec<crate::contract::AgentAskQuestion>,
+    /// Structured createPlan todos for ApprovalCard To-dos (not markdown `- [ ]`).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub plan_todos: Vec<crate::contract::AgentPlanDocumentTodo>,
 }
 
 /// User response to permission request
@@ -168,6 +174,12 @@ pub enum AgentToolCallContentItem {
     Text {
         text: String,
     },
+    /// Still image from ACP `ContentBlock::Image` / image blob resources.
+    Image {
+        url: Option<String>,
+        path: Option<String>,
+        mime: Option<String>,
+    },
     Diff {
         path: Option<String>,
         old_content: Option<String>,
@@ -186,11 +198,17 @@ pub struct ToolCallUpdate {
     pub parent_tool_call_id: Option<String>,
     pub tool: String,
     pub description: String,
+    /// ACP protocol `ToolKind` slug (`read`, `execute`, `other`, …). Absent on patches.
+    #[serde(default)]
+    pub acp_kind: Option<String>,
     pub status: ToolCallStatus,
     /// Raw input params (e.g. {"path": "src/lib.rs"} for Read)
     pub raw_input: Option<serde_json::Value>,
     /// Structured content emitted by the tool call.
     pub content: Vec<AgentToolCallContentItem>,
+    /// ACP `locations` (files this call read or produced).
+    #[serde(default)]
+    pub locations: Vec<String>,
     /// Raw output or content from tool execution
     pub raw_output: Option<serde_json::Value>,
     pub detail: Option<serde_json::Value>,

@@ -1,0 +1,3 @@
+{"type":"tool_execution_start","toolCallId":"call_abc","toolName":"bash","args":{"command":"ls -la"}}
+{"type":"tool_execution_update","toolCallId":"call_abc","toolName":"bash","args":{"command":"ls -la"},"partialResult":{"content":[{"type":"text","text":"total 48\n"}]}}
+{"type":"tool_execution_end","toolCallId":"call_abc","toolName":"bash","isError":false,"result":{"content":[{"type":"text","text":"total 48\nREADME.md\n"}]}}

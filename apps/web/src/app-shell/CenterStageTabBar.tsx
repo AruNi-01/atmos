@@ -44,7 +44,6 @@ import {
   FileDiff,
   FolderTree,
   GitBranch,
-  Github,
   Globe,
   Layers,
   FileText,
@@ -64,6 +63,7 @@ import {
   SquareSplitHorizontal,
   SquareTerminal as TerminalIcon,
 } from "lucide-react";
+import { Github } from "@workspace/ui/components/icons/lucide-brand-icons";
 import type { CenterToolTabValue } from "@/app-shell/center-tool-tabs";
 import { AgentIcon } from "@/features/agent/components/AgentIcon";
 import {

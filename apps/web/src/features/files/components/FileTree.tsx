@@ -25,6 +25,7 @@ import {
   nestTreeItemsByParent,
   type NestedTreeNode,
 } from '../lib/file-tree-nest';
+import { isFileTreeBranchOpen } from '../lib/file-tree-branch-open';
 import { activateCenterChromeTab } from "@/app-shell/center-stage-activate";
 import { FileTreeBranch } from './FileTreeBranch';
 import { FileTreeContextMenu } from './FileTreeContextMenu';
@@ -91,7 +92,9 @@ function FileTreeNodes({
           rootPath={rootPath}
         />
         {item.isFolder() ? (
-          <FileTreeBranch open={item.isExpanded() && children.length > 0}>
+          <FileTreeBranch
+            open={isFileTreeBranchOpen(item.isExpanded(), children.length)}
+          >
             <FileTreeNodes
               nodes={children}
               activeFilePath={activeFilePath}
@@ -169,15 +172,17 @@ export const FileTree: React.FC<FileTreeProps> = ({
   initialItemsMap.forEach((value, key) => knownItemsRef.current.items.set(key, value));
   lazyItemsMap.forEach((value, key) => knownItemsRef.current.items.set(key, value));
 
+  // Prefer knownItemsRef over lazyItemsMap so resolveItem (and loadDirectoryChildren)
+  // stay stable across lazy listDir writes — otherwise the reveal effect re-fires
+  // on every expand/load and hits "Maximum update depth exceeded".
   const resolveItem = useCallback(
     (itemId: string): FileTreeItem | undefined => {
       return (
         initialItemsMap.get(itemId) ||
-        lazyItemsMap.get(itemId) ||
         knownItemsRef.current.items.get(itemId)
       );
     },
-    [initialItemsMap, lazyItemsMap],
+    [initialItemsMap],
   );
 
   useEffect(() => {
@@ -574,6 +579,13 @@ export const FileTree: React.FC<FileTreeProps> = ({
     });
   }, [panelState, selectedItem]);
 
+  // Reveal expands/loads dirs which update lazyItemsMap and can recreate `tree`.
+  // Keep those behind refs so this effect only runs once per reveal request.
+  const loadDirectoryChildrenRef = React.useRef(loadDirectoryChildren);
+  loadDirectoryChildrenRef.current = loadDirectoryChildren;
+  const treeRef = React.useRef(tree);
+  treeRef.current = tree;
+
   useEffect(() => {
     if (!revealEnabled) return;
     if (!fileTreeRevealTarget || !currentProjectPath) return;
@@ -585,6 +597,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
       return;
     }
 
+    const target = fileTreeRevealTarget;
     let cancelled = false;
     if (highlightTimeoutRef.current) {
       clearTimeout(highlightTimeoutRef.current);
@@ -595,7 +608,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
 
     const revealTarget = async () => {
       try {
-        if (fileTreeRevealTarget.path === currentProjectPath) {
+        if (target.path === currentProjectPath) {
           if (!cancelled) {
             setIsTreeHighlighted(true);
             highlightTimeoutRef.current = setTimeout(() => {
@@ -603,43 +616,43 @@ export const FileTree: React.FC<FileTreeProps> = ({
               highlightTimeoutRef.current = null;
             }, 1800);
           }
-          tree.getElement()?.scrollTo({ top: 0, behavior: 'smooth' });
+          treeRef.current.getElement()?.scrollTo({ top: 0, behavior: 'smooth' });
           return;
         }
 
-        const relative = fileTreeRevealTarget.path.slice(currentProjectPath.length + 1);
+        const relative = target.path.slice(currentProjectPath.length + 1);
         const segments = relative.split('/').filter(Boolean);
         let currentPath = currentProjectPath;
         const revealRequestId = ++revealRequestIdRef.current;
 
         for (const segment of segments) {
           currentPath = `${currentPath}/${segment}`;
-          await loadDirectoryChildren(currentPath);
+          await loadDirectoryChildrenRef.current(currentPath);
           if (cancelled || revealRequestIdRef.current !== revealRequestId) return;
           await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-          const item = tree.getItemInstance(currentPath);
+          const item = treeRef.current.getItemInstance(currentPath);
           if (item.isFolder() && !item.isExpanded()) {
             item.expand();
             await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
           }
         }
 
-        const targetItem = tree.getItemInstance(fileTreeRevealTarget.path);
+        const targetItem = treeRef.current.getItemInstance(target.path);
         targetItem.setFocused();
         await targetItem.scrollTo({ block: 'center' });
 
         if (!cancelled) {
-          setHighlightedPath(fileTreeRevealTarget.path);
+          setHighlightedPath(target.path);
           highlightTimeoutRef.current = setTimeout(() => {
-            setHighlightedPath((value) =>
-              value === fileTreeRevealTarget.path ? null : value,
-            );
+            setHighlightedPath((value) => (value === target.path ? null : value));
             highlightTimeoutRef.current = null;
           }, 1800);
         }
+      } catch (error) {
+        console.error('Failed to reveal file tree path', target.path, error);
       } finally {
         if (!cancelled) {
-          clearFileTreeRevealTarget(fileTreeRevealTarget.requestId);
+          clearFileTreeRevealTarget(target.requestId);
         }
       }
     };
@@ -654,9 +667,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
     currentProjectPath,
     editorContextId,
     fileTreeRevealTarget,
-    loadDirectoryChildren,
     revealEnabled,
-    tree,
   ]);
 
   useEffect(() => {

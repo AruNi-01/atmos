@@ -1,17 +1,19 @@
 import React from "react";
 import type { ToolState } from "@workspace/ui";
-import { Brain, FileText, FolderInput, Globe, Pencil, Search, Sparkles, Terminal, Trash2, Wrench } from "lucide-react";
+import { Brain, FileText, FolderInput, Globe, ImageIcon, Pencil, Plug, Search, Sparkles, Terminal, Trash2, Wrench } from "lucide-react";
 import { createTranslator } from "next-intl";
 import enMessages from "../../../../messages/en.json";
 import zhMessages from "../../../../messages/zh.json";
-import type { AcpPermissionOption } from "@/features/agent/hooks/use-agent-session";
-import type { AgentMessage, AgentPart, AgentToolKind } from "@atmos/api-types/ws/dto/agent-chat";
+import type { AgentChatPermissionOption } from "@/features/agent/lib/agent-chat-types";
+import type {
+  AgentMessage,
+  AgentPart,
+  AgentSessionOpRequest,
+  AgentToolKind,
+} from "@atmos/api-types/ws/dto/agent-chat";
 import { currentAppLocale } from "@/shared/lib/current-app-locale";
 import {
-  classifyTool,
   isActiveToolStatus,
-  isGenericToolLabel,
-  parseLoadedToolNames,
   type AgentToolCallPart,
 } from "@/features/agent/lib/agent-tool-kind";
 import { isLiveBackgroundToolCall } from "@/features/agent/lib/agent/background-command";
@@ -21,9 +23,14 @@ export interface PendingPermission {
   tool: string;
   description: string;
   content_markdown?: string;
+  /** Structured createPlan todos for ApprovalCard To-dos (prefer over markdown `- [ ]`). */
+  plan_todos?: Array<{ id?: string | null; content: string; status?: string }>;
   risk_level: string;
-  options: AcpPermissionOption[];
+  options: AgentChatPermissionOption[];
+  questions?: Array<{ id: string; prompt: string; options?: string[] }>;
 }
+
+export type PendingSessionOp = AgentSessionOpRequest;
 
 export interface DiffFileOutput {
   old_content: string;
@@ -42,22 +49,6 @@ let cachedChatHelpersTranslator: any = null;
 function chatHelpersT(
   key:
     | "skill.defaultName"
-    | "tool.generic"
-    | "tool.read"
-    | "tool.edit"
-    | "tool.move"
-    | "tool.search"
-    | "tool.grep"
-    | "tool.listDirectory"
-    | "tool.execute"
-    | "tool.fetch"
-    | "tool.delete"
-    | "tool.think"
-    | "tool.labelWithPath"
-    | "tool.labelWithPattern"
-    | "tool.executeWithCommand"
-    | "tool.fetchWithUrl"
-    | "tool.loadedTools"
     | "activity.generating"
     | "activity.reading"
     | "activity.writing"
@@ -93,58 +84,6 @@ function chatHelpersT(
   return cachedChatHelpersTranslator(key as never, values);
 }
 
-function localizeToolLabel(tool: string): string {
-  switch (tool.toLowerCase().replace(/[\s-]+/g, "_")) {
-    case "read":
-    case "readfile":
-    case "read_file":
-    case "view":
-    case "view_file":
-      return chatHelpersT("tool.read", "Read");
-    case "edit":
-    case "write":
-    case "write_file":
-    case "searchreplace":
-    case "search_replace":
-    case "str_replace":
-    case "strreplace":
-      return chatHelpersT("tool.edit", "Edit");
-    case "move":
-      return chatHelpersT("tool.move", "Move");
-    case "search":
-    case "glob":
-      return chatHelpersT("tool.search", "Search");
-    case "grep":
-    case "grepsearch":
-    case "grep_search":
-      return chatHelpersT("tool.grep", "Grep");
-    case "execute":
-    case "bash":
-    case "shell":
-    case "terminal":
-      return chatHelpersT("tool.execute", "Execute");
-    case "fetch":
-      return chatHelpersT("tool.fetch", "Fetch");
-    case "delete":
-      return chatHelpersT("tool.delete", "Delete");
-    case "listdir":
-    case "list_dir":
-    case "list_directory":
-    case "ls":
-      return chatHelpersT("tool.listDirectory", "List directory");
-    case "think":
-    case "thought":
-    case "reasoning":
-    case "reason":
-      return chatHelpersT("tool.think", "Think");
-    case "tool":
-    case "other":
-      return chatHelpersT("tool.generic", "Tool");
-    default:
-      return tool;
-  }
-}
-
 export {
   clearAgentLastSession,
   readAgentLastSession,
@@ -165,6 +104,8 @@ export function getToolKindIcon(kind: AgentToolKind): React.ReactNode {
       return React.createElement(FolderInput);
     case "search":
       return React.createElement(Search);
+    case "web_search":
+      return React.createElement(Search);
     case "execute":
       return React.createElement(Terminal);
     case "fetch":
@@ -173,6 +114,13 @@ export function getToolKindIcon(kind: AgentToolKind): React.ReactNode {
       return React.createElement(Sparkles);
     case "subagent":
       return React.createElement(Brain);
+    case "mcp_list":
+    case "mcp_call":
+      return React.createElement(Plug);
+    case "image_gen":
+      return React.createElement(ImageIcon);
+    case "plan_document":
+      return React.createElement(FileText);
     default:
       return React.createElement(Wrench);
   }
@@ -218,6 +166,18 @@ export function getToolIcon(tool: string): React.ReactNode {
       return React.createElement(Brain);
     case "fetch":
       return React.createElement(Globe);
+    case "generateimage":
+    case "generate_image":
+    case "image_gen":
+    case "imagegen":
+    case "image_edit":
+    case "imageedit":
+      return React.createElement(ImageIcon);
+    case "createplan":
+    case "create_plan":
+    case "updateplan":
+    case "update_plan":
+      return React.createElement(FileText);
     case "other":
     case "tool":
     default:
@@ -273,141 +233,6 @@ export function isTerminalCommand(tool: string): boolean {
     || t.endsWith("_bash")
     || t.endsWith("_shell")
   );
-}
-
-function commandFromRecord(record: Record<string, unknown> | null | undefined): string {
-  if (!record) return "";
-  for (const key of ["command", "cmd", "script", "bash", "shell"]) {
-    const value = record[key];
-    if (typeof value === "string" && value.trim()) return value;
-  }
-  const nested = record.args ?? record.parameters ?? record.input;
-  if (nested && typeof nested === "object" && !Array.isArray(nested)) {
-    return commandFromRecord(nested as Record<string, unknown>);
-  }
-  return typeof record.input === "string" && record.input.trim() ? record.input : "";
-}
-
-export function getTerminalCommandString(raw_input?: unknown): string {
-  if (typeof raw_input === "string" && raw_input.trim()) return raw_input;
-  if (!raw_input || typeof raw_input !== "object") return "";
-  return commandFromRecord(raw_input as Record<string, unknown>);
-}
-
-function vendorToolType(value: unknown): string | null {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-  const record = value as Record<string, unknown>;
-  const type = (
-    (typeof record.type === "string" && record.type.trim())
-    || (typeof record.variant === "string" && record.variant.trim())
-    || ""
-  );
-  if (!type || isGenericToolLabel(type)) return null;
-  if (/^[A-Z][A-Za-z0-9]+$/.test(type)) return type;
-  return null;
-}
-
-function vendorToolPayload(value: unknown): Record<string, unknown> | null {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-  const record = value as Record<string, unknown>;
-  const nested = record.FileContent
-    ?? record.file_content
-    ?? record.EditsApplied
-    ?? record.edits_applied
-    ?? record.Content
-    ?? record.content
-    ?? record.result;
-  if (nested && typeof nested === "object" && !Array.isArray(nested)) {
-    return nested as Record<string, unknown>;
-  }
-  return record;
-}
-
-function shortPathLabel(path: string): string {
-  const parts = path.split(/[\\/]/).filter(Boolean);
-  return parts.slice(-2).join("/") || path;
-}
-
-export function deriveToolDisplayName(
-  tool: string,
-  description: string,
-  raw_input?: unknown,
-  raw_output?: unknown,
-): string {
-  const loadedTools = parseLoadedToolNames(raw_output) ?? parseLoadedToolNames(raw_input);
-  if (loadedTools) {
-    return chatHelpersT("tool.loadedTools", "Loaded tools: {names}", {
-      names: loadedTools.join(", "),
-    });
-  }
-  const typeName = vendorToolType(raw_input) ?? vendorToolType(raw_output);
-  const resolvedTool = isGenericToolLabel(tool) && typeName ? typeName : tool;
-  if (
-    description &&
-    description !== tool &&
-    description !== resolvedTool &&
-    !isGenericToolLabel(description) &&
-    !/^(Processing|Executing|Running|Tool)\b/i.test(description)
-  ) {
-    return description;
-  }
-  const payload = vendorToolPayload(raw_input) ?? vendorToolPayload(raw_output);
-  if (payload) {
-    const path = (
-      payload.file_path
-      ?? payload.filePath
-      ?? payload.path
-      ?? payload.target_file
-      ?? payload.targetFile
-      ?? payload.absolute_path
-      ?? payload.absolute_root_path
-      ?? payload.dir_path
-      ?? payload.directory
-      ?? payload.target_directory
-    ) as string | undefined;
-    const url = payload.url as string | undefined;
-    const command = getTerminalCommandString(payload);
-    const pattern = (
-      payload.pattern
-      ?? payload.query
-      ?? payload.regex
-      ?? payload.glob
-      ?? payload.q
-      ?? payload.search_term
-    ) as string | undefined;
-    const toolName = (payload.tool ?? payload.name) as string | undefined;
-
-    if (path) {
-      const shortPath = shortPathLabel(path);
-      const verb = localizeToolLabel(resolvedTool);
-      return resolvedTool && !isGenericToolLabel(resolvedTool)
-        ? chatHelpersT("tool.labelWithPath", "{tool}: {path}", { tool: verb, path: shortPath })
-        : shortPath;
-    }
-    if (pattern && typeof pattern === "string" && pattern.trim()) {
-      const shortPattern = pattern.length > 48 ? `${pattern.slice(0, 45)}...` : pattern;
-      const verb = localizeToolLabel(resolvedTool);
-      return chatHelpersT("tool.labelWithPattern", "{tool}: {pattern}", {
-        tool: verb,
-        pattern: shortPattern,
-      });
-    }
-    if (command) {
-      const shortCmd = command.length > 60 ? `${command.slice(0, 57)}...` : command;
-      return chatHelpersT("tool.executeWithCommand", "Execute: {command}", { command: shortCmd });
-    }
-    if (url) {
-      const shortUrl = url.length > 50 ? `${url.slice(0, 47)}...` : url;
-      return chatHelpersT("tool.fetchWithUrl", "Fetch: {url}", { url: shortUrl });
-    }
-    if (toolName && !isGenericToolLabel(String(toolName))) {
-      return localizeToolLabel(String(toolName));
-    }
-  }
-  if (resolvedTool && !isGenericToolLabel(resolvedTool)) return localizeToolLabel(resolvedTool);
-  return description && !isGenericToolLabel(description)
-    ? description
-    : chatHelpersT("tool.generic", "Tool");
 }
 
 export function isDiffString(s: string): boolean {
@@ -493,20 +318,6 @@ export function runningBackgroundTools(messages: AgentMessage[]): AgentToolCallP
   return found;
 }
 
-function looksLikeCommandTitle(title?: string | null): boolean {
-  const value = (title ?? "").trim();
-  if (!value) return false;
-  return /^\[bg\]/i.test(value) || /^execute\s*:/i.test(value);
-}
-
-function resolvedActivityKind(part: Extract<AgentPart, { type: "tool_call" }>): AgentToolKind {
-  if (part.kind !== "other") return part.kind;
-  const classified = classifyTool(part.name, null, part.input, part.output);
-  if (classified.type === "tool" && classified.kind !== "other") return classified.kind;
-  if (looksLikeCommandTitle(part.title)) return "execute";
-  return "other";
-}
-
 function activityLabelForKind(kind: AgentToolKind): string {
   switch (kind) {
     case "read":
@@ -514,6 +325,7 @@ function activityLabelForKind(kind: AgentToolKind): string {
     case "edit":
       return chatHelpersT("activity.writing", "Writing");
     case "search":
+    case "web_search":
       return chatHelpersT("activity.searching", "Searching");
     case "execute":
       return chatHelpersT("activity.executing", "Executing");
@@ -525,19 +337,57 @@ function activityLabelForKind(kind: AgentToolKind): string {
       return chatHelpersT("activity.moving", "Moving");
     case "skill":
     case "subagent":
+    case "mcp_list":
+    case "mcp_call":
+    case "image_gen":
+    case "plan_document":
     case "other":
       return chatHelpersT("activity.working", "Working");
   }
 }
 
 function activityForToolPart(part: Extract<AgentPart, { type: "tool_call" }>): AgentActivity {
-  return { busy: true, label: activityLabelForKind(resolvedActivityKind(part)), kind: "working" };
+  return { busy: true, label: activityLabelForKind(part.kind), kind: "working" };
 }
 
-export function deriveAgentActivity(messages: AgentMessage[], waitingFirst: boolean): AgentActivity {
+/** Session chrome only — create/resume finished but the turn has not produced answer/tools yet. */
+export function isSessionChromeOnly(parts: AgentPart[]): boolean {
+  if (parts.length === 0) return true;
+  return parts.every(
+    (part) =>
+      part.type === "session_lifecycle"
+      || part.type === "session_config_change"
+      || part.type === "session_hint",
+  );
+}
+
+/**
+ * Copy / worked-for / usage footer under an assistant row.
+ * Must not flash after session create: chrome-only rows and live `worked_ms`
+ * without `completed_at` are still in-flight.
+ */
+export function shouldShowAssistantTurnEndedChrome(
+  message: Pick<AgentMessage, "streaming" | "parts" | "worked_ms" | "completed_at" | "usage">,
+  assistantText: string,
+): boolean {
+  if (message.streaming) return false;
+  if (isSessionChromeOnly(message.parts)) return false;
+  if (assistantText.trim()) return true;
+  if (message.usage) return true;
+  return Boolean(message.completed_at) && message.worked_ms != null && message.worked_ms > 0;
+}
+
+/**
+ * Derive the composer/transcript activity indicator.
+ * `turnOpen` is the host busy flag (running turn / waiting permission), not
+ * "waiting for the first assistant row" — after session create the last row is
+ * already an assistant with completed lifecycle chrome, and we must stay busy
+ * until real content or turn_completed.
+ */
+export function deriveAgentActivity(messages: AgentMessage[], turnOpen: boolean): AgentActivity {
   const last = messages[messages.length - 1];
   if (!last || last.role !== "assistant") {
-    if (waitingFirst) {
+    if (turnOpen) {
       return { busy: true, label: chatHelpersT("activity.generating", "Generating"), kind: "working" };
     }
     return { busy: false };
@@ -581,8 +431,11 @@ export function deriveAgentActivity(messages: AgentMessage[], waitingFirst: bool
     return { busy: true, label: chatHelpersT("activity.generating", "Generating"), kind: "working" };
   }
 
-  if (waitingFirst) {
+  // Streaming cleared early (e.g. premature settle) but the host turn is still
+  // open — keep generating instead of a false idle/ended state.
+  if (turnOpen) {
     return { busy: true, label: chatHelpersT("activity.generating", "Generating"), kind: "working" };
   }
+
   return { busy: false };
 }

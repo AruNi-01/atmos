@@ -71,16 +71,37 @@ impl AgentStatusService {
 
     /// Raise a sticky attention latch when the agent needs the user (permission
     /// or task complete). Survives browser refresh until acknowledged.
+    ///
+    /// Permission latches are sticky until the prompt is resolved / canceled /
+    /// the turn ends — focus alone must not drop them (header bell + filter).
     pub(super) fn maybe_raise_attention(
         &self,
         previous_state: Option<AgentOccupancy>,
         update: &AgentStatusUpdate,
         kind: OccupancyUpdateKind,
     ) {
+        let stable_pane_id = Self::resolve_stable_pane_id(update);
+        if stable_pane_id.is_empty() {
+            return;
+        }
+
         // QuietIdle settles child-only work without a new task-complete signal.
         // ForcedIdle is a user interrupt (footer mark-idle, Ctrl+C) — do not
-        // treat it as an unattended finish that needs attention.
+        // treat it as an unattended finish that needs attention. Drop a pending
+        // permission latch so cancel / skip does not leave a stale yellow bell.
         if kind == OccupancyUpdateKind::QuietIdle || kind == OccupancyUpdateKind::ForcedIdle {
+            if previous_state == Some(AgentOccupancy::PermissionRequest) {
+                self.clear_attention_for_pane(&stable_pane_id);
+            }
+            return;
+        }
+
+        // User answered the prompt → Running. Clear the permission latch; the
+        // turn is no longer blocked on the user.
+        if previous_state == Some(AgentOccupancy::PermissionRequest)
+            && update.state == AgentOccupancy::Running
+        {
+            self.clear_attention_for_pane(&stable_pane_id);
             return;
         }
 
@@ -89,7 +110,8 @@ impl AgentStatusService {
         {
             Some(AgentAttentionReason::PermissionRequest)
         } else if update.state == AgentOccupancy::Idle
-            && previous_state == Some(AgentOccupancy::Running)
+            && (previous_state == Some(AgentOccupancy::Running)
+                || previous_state == Some(AgentOccupancy::PermissionRequest))
         {
             Some(AgentAttentionReason::TaskComplete)
         } else {
@@ -100,10 +122,6 @@ impl AgentStatusService {
             return;
         };
 
-        let stable_pane_id = Self::resolve_stable_pane_id(update);
-        if stable_pane_id.is_empty() {
-            return;
-        }
         let context_id = update
             .context_id
             .as_deref()
@@ -113,6 +131,13 @@ impl AgentStatusService {
             .unwrap_or_else(|| Self::context_id_from_stable_pane_id(&stable_pane_id));
         if context_id.is_empty() {
             return;
+        }
+
+        if reason == AgentAttentionReason::TaskComplete
+            && previous_state == Some(AgentOccupancy::PermissionRequest)
+        {
+            // Turn ended while permission was pending — drop the stale prompt latch.
+            self.clear_attention_for_pane(&stable_pane_id);
         }
 
         self.raise_attention(AgentAttentionLatch {
@@ -381,7 +406,58 @@ mod tests {
     }
 
     #[test]
-    fn permission_raises_attention_and_survives_idle_session_clear() {
+    fn canceled_turn_via_forced_idle_does_not_raise_task_complete() {
+        let service = AgentStatusService::new();
+        let ctx = ctx_with_pane("ws-1:main");
+        service.update_state(
+            "ws-1:main",
+            AgentToolType::ClaudeCode,
+            AgentOccupancy::Running,
+            Some("/tmp/p".into()),
+            &ctx,
+            OccupancyUpdateKind::NewTurn,
+        );
+        service.update_state(
+            "ws-1:main",
+            AgentToolType::ClaudeCode,
+            AgentOccupancy::Idle,
+            Some("/tmp/p".into()),
+            &ctx,
+            OccupancyUpdateKind::ForcedIdle,
+        );
+        assert!(
+            service.get_all_attention().is_empty(),
+            "user cancel must not raise need-attention"
+        );
+    }
+
+    #[test]
+    fn permission_to_idle_on_terminal_raises_task_complete() {
+        let service = AgentStatusService::new();
+        let ctx = ctx_with_pane("ws-1:main");
+        service.update_state(
+            "ws-1:main",
+            AgentToolType::ClaudeCode,
+            AgentOccupancy::PermissionRequest,
+            Some("/tmp/p".into()),
+            &ctx,
+            OccupancyUpdateKind::Permission,
+        );
+        service.update_state(
+            "ws-1:main",
+            AgentToolType::ClaudeCode,
+            AgentOccupancy::Idle,
+            Some("/tmp/p".into()),
+            &ctx,
+            OccupancyUpdateKind::TerminalIdle,
+        );
+        let attention = service.get_all_attention();
+        assert_eq!(attention.len(), 1);
+        assert_eq!(attention[0].reason, AgentAttentionReason::TaskComplete);
+    }
+
+    #[test]
+    fn permission_raises_sticky_attention() {
         let service = AgentStatusService::new();
         let ctx = ctx_with_pane("ws-1:main");
         service.update_state(
@@ -397,11 +473,62 @@ mod tests {
             service.get_all_attention()[0].reason,
             AgentAttentionReason::PermissionRequest
         );
-        // Idle sweeper must not drop sticky attention — only user acknowledge does.
-        service.force_session_idle("ws-1:main");
+        // Idle sweeper only removes Idle rows — permission occupancy stays, and
+        // the sticky latch must remain until resolve / cancel / turn end.
         service.clear_idle_sessions();
-        assert!(service.get_all_sessions().is_empty());
+        assert_eq!(service.get_all_sessions().len(), 1);
         assert_eq!(service.get_all_attention().len(), 1);
+    }
+
+    #[test]
+    fn permission_resolved_to_running_clears_permission_attention() {
+        let service = AgentStatusService::new();
+        let ctx = ctx_with_pane("ws-1:main");
+        service.update_state(
+            "ws-1:main",
+            AgentToolType::ClaudeCode,
+            AgentOccupancy::PermissionRequest,
+            Some("/tmp/p".into()),
+            &ctx,
+            OccupancyUpdateKind::Permission,
+        );
+        assert_eq!(service.get_all_attention().len(), 1);
+        service.update_state(
+            "ws-1:main",
+            AgentToolType::ClaudeCode,
+            AgentOccupancy::Running,
+            Some("/tmp/p".into()),
+            &ctx,
+            OccupancyUpdateKind::Progress,
+        );
+        assert!(
+            service.get_all_attention().is_empty(),
+            "answering a permission prompt must clear the yellow bell latch"
+        );
+    }
+
+    #[test]
+    fn forced_idle_from_permission_clears_permission_attention() {
+        let service = AgentStatusService::new();
+        let ctx = ctx_with_pane("ws-1:main");
+        service.update_state(
+            "ws-1:main",
+            AgentToolType::ClaudeCode,
+            AgentOccupancy::PermissionRequest,
+            Some("/tmp/p".into()),
+            &ctx,
+            OccupancyUpdateKind::Permission,
+        );
+        service.update_state(
+            "ws-1:main",
+            AgentToolType::ClaudeCode,
+            AgentOccupancy::Idle,
+            Some("/tmp/p".into()),
+            &ctx,
+            OccupancyUpdateKind::ForcedIdle,
+        );
+        assert!(service.get_all_attention().is_empty());
+        assert_eq!(service.get_all_sessions()[0].state, AgentOccupancy::Idle);
     }
 
     #[test]

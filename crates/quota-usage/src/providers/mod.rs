@@ -9,6 +9,7 @@ pub(crate) mod codex;
 // TODO: Re-enable after API data consistency is fixed
 // pub(crate) mod commandcode;
 pub(crate) mod cursor;
+pub(crate) mod deepseek;
 pub(crate) mod factory;
 pub(crate) mod gemini;
 pub(crate) mod grok;

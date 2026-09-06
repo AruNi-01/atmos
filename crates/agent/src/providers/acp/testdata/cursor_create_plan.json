@@ -1,0 +1,30 @@
+{
+  "toolCallId": "tool_cursor_create_plan",
+  "title": "Create plan",
+  "kind": "other",
+  "status": "completed",
+  "rawInput": {
+    "_toolName": "createPlan",
+    "name": "Refactor tabs layout",
+    "overview": "Tighten layout behavior and preserve existing UX.",
+    "plan": "# Refactor tabs layout\n\nTighten layout behavior and preserve existing UX.\n\n1. Inspect current tab sizing logic.\n2. Update layout calculations.\n3. Verify editor behavior.",
+    "todos": [
+      {
+        "id": "todo-1",
+        "content": "Inspect current tab sizing logic",
+        "status": "completed"
+      },
+      {
+        "id": "todo-2",
+        "content": "Update layout calculations",
+        "status": "in_progress"
+      },
+      {
+        "id": "todo-3",
+        "content": "Verify editor behavior",
+        "status": "pending"
+      }
+    ],
+    "isProject": false
+  }
+}

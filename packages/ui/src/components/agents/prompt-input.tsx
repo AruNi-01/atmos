@@ -1,7 +1,16 @@
 "use client";
 // beui.dev/components/agents/prompt-input
 
-import { ArrowUp, Check, ChevronRight, LoaderCircle, Plus, Search, Square, X } from "lucide-react";
+import {
+  ArrowUp,
+  Check,
+  ChevronRight,
+  LoaderCircle,
+  Plus,
+  Search,
+  Square,
+  X,
+} from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import {
   type FormEvent,
@@ -23,6 +32,7 @@ import {
   MorphPopoverTrigger,
 } from "../motion/popover-morph";
 import { RangeSlider } from "../motion/range-slider";
+import { Switch } from "../ui/switch";
 import { SPRING_PRESS, SPRING_SWAP } from "../../lib/ease";
 import { cn } from "../../lib/utils";
 import {
@@ -36,8 +46,12 @@ import {
 export interface PromptModel {
   value: string;
   label: ReactNode;
+  description?: ReactNode;
   icon?: ReactNode;
+  /** Chip shown immediately after the option label (e.g. Native / ACP). */
+  trailing?: ReactNode;
   disabled?: boolean;
+  tone?: "warning";
 }
 
 export interface PromptAction {
@@ -52,9 +66,11 @@ export interface PromptInputLabels {
   chooseModel?: string;
   chooseAgent?: string;
   chooseMode?: string;
+  choosePermission?: string;
   model?: string;
   modelLocked?: string;
   modeLocked?: string;
+  permissionLocked?: string;
   search?: string;
   searchModels?: string;
   searchAgents?: string;
@@ -64,6 +80,7 @@ export interface PromptInputLabels {
   thinkingFaster?: string;
   thinkingSmarter?: string;
   thinkingEffort?: string;
+  fastMode?: string;
 }
 
 export type PromptInputRadius = "2xl" | "3xl";
@@ -91,9 +108,17 @@ export interface PromptInputProps extends Omit<
   mode?: string;
   onModeChange?: (mode: string) => void;
   modesLocked?: boolean;
+  permissionModes?: PromptModel[];
+  permissionMode?: string;
+  onPermissionModeChange?: (mode: string) => void;
+  permissionModesLocked?: boolean;
   thinkingLevels?: PromptModel[];
   thinking?: string;
   onThinkingChange?: (thinking: string) => void;
+  /** Show Fast switch when the agent advertises a `fast` config option. */
+  fastAvailable?: boolean;
+  fastEnabled?: boolean;
+  onFastChange?: (enabled: boolean) => void;
   actions?: PromptAction[];
   onAction?: (action: string) => void;
   onSubmit?: (value: string, model?: string) => void | Promise<void>;
@@ -102,6 +127,8 @@ export interface PromptInputProps extends Omit<
   minRows?: number;
   maxRows?: number;
   leadingAction?: ReactNode;
+  /** Rendered in the footer immediately before the submit/stop button (e.g. context window). */
+  footerTrailing?: ReactNode;
   header?: ReactNode;
   editor?: ReactNode;
   formRef?: Ref<HTMLFormElement>;
@@ -126,9 +153,11 @@ const DEFAULT_LABELS: Required<PromptInputLabels> = {
   chooseModel: "Choose model",
   chooseAgent: "Agent",
   chooseMode: "Mode",
+  choosePermission: "Permission",
   model: "Model",
   modelLocked: "This agent cannot switch models in the current session",
   modeLocked: "This agent cannot switch modes in the current session",
+  permissionLocked: "This agent cannot switch permission in the current session",
   search: "Search",
   searchModels: "Search models",
   searchAgents: "Search agents",
@@ -138,6 +167,7 @@ const DEFAULT_LABELS: Required<PromptInputLabels> = {
   thinkingFaster: "Faster",
   thinkingSmarter: "Smarter",
   thinkingEffort: "Effort",
+  fastMode: "Fast Tier",
 };
 
 export function PromptInput({
@@ -159,9 +189,16 @@ export function PromptInput({
   mode,
   onModeChange,
   modesLocked = false,
+  permissionModes = [],
+  permissionMode,
+  onPermissionModeChange,
+  permissionModesLocked = false,
   thinkingLevels = [],
   thinking,
   onThinkingChange,
+  fastAvailable = false,
+  fastEnabled = false,
+  onFastChange,
   actions = [],
   onAction,
   onSubmit,
@@ -170,6 +207,7 @@ export function PromptInput({
   minRows = 2,
   maxRows = 8,
   leadingAction,
+  footerTrailing,
   header,
   editor,
   formRef,
@@ -364,7 +402,7 @@ export function PromptInput({
         {modes.length ? (
           <PromptOptionSelect
             options={modes}
-            value={mode}
+            value={mode ?? ""}
             onChange={onModeChange}
             disabled={disabled || loading || modesLocked}
             lockedHint={modesLocked ? labels.modeLocked : undefined}
@@ -374,8 +412,21 @@ export function PromptInput({
             controlRadius={controlRadius}
           />
         ) : null}
+        {permissionModes.length ? (
+          <PromptOptionSelect
+            options={permissionModes}
+            value={permissionMode ?? ""}
+            onChange={onPermissionModeChange}
+            disabled={disabled || loading || permissionModesLocked}
+            lockedHint={permissionModesLocked ? labels.permissionLocked : undefined}
+            placeholder={labels.choosePermission}
+            searchPlaceholder={labels.search}
+            emptyLabel={labels.noResults}
+            controlRadius={controlRadius}
+          />
+        ) : null}
         <div className="ml-auto flex min-w-0 items-center gap-1">
-          {agents.length || models.length || thinkingLevels.length > 1 || modelsLoading ? (
+          {agents.length || models.length || thinkingLevels.length > 0 || fastAvailable || modelsLoading ? (
             <PromptAgentConfigMenu
               agents={agents}
               agent={agent}
@@ -392,12 +443,16 @@ export function PromptInput({
               thinkingLevels={thinkingLevels}
               thinking={thinking}
               onThinkingChange={onThinkingChange}
+              fastAvailable={fastAvailable}
+              fastEnabled={fastEnabled}
+              onFastChange={onFastChange}
               disabled={disabled || loading}
               labels={labels}
               className="min-w-0"
               controlRadius={controlRadius}
             />
           ) : null}
+          {footerTrailing}
         </div>
 
         <Button
@@ -453,7 +508,13 @@ function PromptOptionSelect({
 }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
-  const current = options.find((option) => option.value === value);
+  // Never show the empty placeholder when options exist — preselect the first
+  // listed value (composer also resolves aliases / currentValue before this).
+  const current =
+    options.find((option) => option.value === value) ?? options[0];
+  const effectiveValue = current?.value ?? value ?? "";
+  const showSearch = options.length > 15;
+  const warning = current?.tone === "warning";
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return options;
@@ -475,13 +536,16 @@ function PromptOptionSelect({
           disabled={disabled}
           title={lockedHint || optionLabelText(current) || placeholder}
           className={cn(
-            "inline-flex h-8 max-w-36 items-center gap-1.5 border-0 bg-transparent px-2 py-0 text-xs text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2",
-            open && "bg-muted text-foreground",
+            "inline-flex h-8 max-w-44 items-center gap-1.5 border-0 bg-transparent px-2 py-0 text-xs outline-none hover:bg-muted focus-visible:ring-2",
+            warning
+              ? "text-warning hover:text-warning"
+              : "text-muted-foreground hover:text-foreground",
+            open && (warning ? "bg-muted text-warning" : "bg-muted text-foreground"),
             controlRadius,
           )}
         >
           {current?.icon ? (
-            <span className="grid size-4 shrink-0 place-items-center text-muted-foreground [&_svg]:size-3.5">
+            <span className="grid size-4 shrink-0 place-items-center text-current [&_svg]:size-3.5">
               {current.icon}
             </span>
           ) : null}
@@ -499,10 +563,10 @@ function PromptOptionSelect({
         <div className="flex max-h-[min(20rem,calc(100dvh-1rem))] w-[16.5rem] flex-col rounded-2xl border border-border bg-popover shadow-[0_10px_18px_rgba(0,0,0,0.14)]">
           <ConfigFlyoutList
             options={filtered}
-            selected={value}
+            selected={effectiveValue}
             search={search}
             onSearch={setSearch}
-            showSearch
+            showSearch={showSearch}
             searchPlaceholder={searchPlaceholder}
             emptyLabel={emptyLabel}
             onSelect={(next) => {
@@ -533,6 +597,9 @@ function PromptAgentConfigMenu({
   thinkingLevels,
   thinking,
   onThinkingChange,
+  fastAvailable,
+  fastEnabled,
+  onFastChange,
   disabled,
   labels,
   className,
@@ -553,6 +620,9 @@ function PromptAgentConfigMenu({
   thinkingLevels: PromptModel[];
   thinking?: string;
   onThinkingChange?: (thinking: string) => void;
+  fastAvailable?: boolean;
+  fastEnabled?: boolean;
+  onFastChange?: (enabled: boolean) => void;
   disabled?: boolean;
   labels: Required<PromptInputLabels>;
   className?: string;
@@ -714,18 +784,43 @@ function PromptAgentConfigMenu({
             />
             {showThinking ? (
               <div
-                className="px-3 py-2.5"
-                onPointerEnter={scheduleHideFlyout}
+                className="px-1 py-1"
+                onPointerEnter={() => {
+                  cancelHideFlyout();
+                  setFlyout(null);
+                  setSearch("");
+                }}
               >
                 <ThinkingSliderPanel
                   levels={thinkingLevels}
-                  value={thinking}
+                  value={thinking ?? ""}
                   onChange={onThinkingChange}
                   disabled={disabled}
                   effortLabel={labels.thinkingEffort}
-                  fasterLabel={labels.thinkingFaster}
-                  smarterLabel={labels.thinkingSmarter}
                 />
+              </div>
+            ) : null}
+            {fastAvailable ? (
+              <div
+                className="px-1"
+                onPointerEnter={() => {
+                  cancelHideFlyout();
+                  setFlyout(null);
+                  setSearch("");
+                }}
+              >
+                <div className="flex h-9 w-full items-center gap-3 px-2.5">
+                  <span className="shrink-0 text-sm font-medium text-foreground">
+                    {labels.fastMode}
+                  </span>
+                  <span className="min-w-0 flex-1" />
+                  <Switch
+                    checked={Boolean(fastEnabled)}
+                    disabled={disabled}
+                    onCheckedChange={(checked) => onFastChange?.(checked)}
+                    aria-label={labels.fastMode}
+                  />
+                </div>
               </div>
             ) : null}
           </div>
@@ -824,6 +919,7 @@ function ConfigFlyoutList({
   search = "",
   onSearch,
   showSearch = false,
+  heading,
   searchPlaceholder = "",
   loading = false,
   loadingLabel = "",
@@ -835,6 +931,7 @@ function ConfigFlyoutList({
   search?: string;
   onSearch?: (value: string) => void;
   showSearch?: boolean;
+  heading?: string;
   searchPlaceholder?: string;
   loading?: boolean;
   loadingLabel?: string;
@@ -843,6 +940,11 @@ function ConfigFlyoutList({
 }) {
   return (
     <>
+      {heading ? (
+        <div className="px-3.5 pt-2.5 pb-0.5 text-[11px] text-muted-foreground">
+          {heading}
+        </div>
+      ) : null}
       {showSearch ? (
         <SelectSearch
           value={search}
@@ -850,7 +952,7 @@ function ConfigFlyoutList({
           placeholder={searchPlaceholder}
         />
       ) : null}
-      <div className={cn("min-h-0 flex-1 overflow-y-auto p-1.5", showSearch && "pt-0")}>
+      <div className={cn("min-h-0 flex-1 overflow-y-auto p-1.5", (showSearch || heading) && "pt-0")}>
         {loading ? (
           <div
             className="flex items-center gap-2 px-2.5 py-3 text-xs text-muted-foreground"
@@ -867,6 +969,7 @@ function ConfigFlyoutList({
         ) : (
           options.map((option) => {
             const isSelected = option.value === selected;
+            const warning = isSelected && option.tone === "warning";
             return (
               <button
                 key={option.value}
@@ -874,10 +977,13 @@ function ConfigFlyoutList({
                 disabled={option.disabled}
                 onClick={() => onSelect(option.value)}
                 className={cn(
-                  "flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm outline-none transition-colors",
-                  isSelected
-                    ? "bg-muted text-foreground"
-                    : "text-foreground hover:bg-muted/70",
+                  "flex w-full gap-2 rounded-lg px-2.5 py-2 text-left text-sm outline-none transition-colors",
+                  option.description ? "items-start" : "items-center",
+                  warning
+                    ? "bg-muted text-warning"
+                    : isSelected
+                      ? "bg-muted text-foreground"
+                      : "text-foreground hover:bg-muted/70",
                   "disabled:pointer-events-none disabled:opacity-50",
                 )}
               >
@@ -885,9 +991,9 @@ function ConfigFlyoutList({
                   <OptionRow option={option} />
                 </span>
                 {isSelected ? (
-                  <Check className="size-3.5 shrink-0 text-foreground" />
+                  <Check className={cn("size-3.5 shrink-0 text-current", option.description && "mt-0.5")} />
                 ) : (
-                  <span className="size-3.5 shrink-0" />
+                  <span className={cn("size-3.5 shrink-0", option.description && "mt-0.5")} />
                 )}
               </button>
             );
@@ -904,16 +1010,12 @@ function ThinkingSliderPanel({
   onChange,
   disabled,
   effortLabel,
-  fasterLabel,
-  smarterLabel,
 }: {
   levels: PromptModel[];
   value?: string;
   onChange?: (value: string) => void;
   disabled?: boolean;
   effortLabel: string;
-  fasterLabel: string;
-  smarterLabel: string;
 }) {
   const propIndex = Math.max(
     0,
@@ -929,30 +1031,31 @@ function ThinkingSliderPanel({
 
   return (
     <div>
-      <div className="mb-2 flex items-baseline gap-1 text-sm">
-        <span className="text-muted-foreground">{effortLabel}</span>
-        <FadeLabel value={currentLabel} className="font-medium text-foreground" />
+      <div className="flex w-full items-center gap-3 px-2.5 py-2 text-sm">
+        <span className="shrink-0 font-medium text-foreground">{effortLabel}</span>
+        <FadeLabel
+          value={currentLabel}
+          className="min-w-0 flex-1 truncate text-right text-muted-foreground"
+        />
       </div>
-      <div className="mb-2 flex items-center justify-between text-xs text-muted-foreground">
-        <span>{fasterLabel}</span>
-        <span>{smarterLabel}</span>
+      <div className="px-2.5 pb-1">
+        <RangeSlider
+          variant="effort"
+          min={0}
+          max={max}
+          step={1}
+          value={index}
+          disabled={disabled}
+          maxEffect
+          aria-label={currentLabel || effortLabel}
+          formatValueText={(next) => titleCaseLabel(optionLabelText(levels[next] ?? current))}
+          onValueChange={setIndex}
+          onValueCommit={(next) => {
+            const level = levels[next];
+            if (level) onChange?.(level.value);
+          }}
+        />
       </div>
-      <RangeSlider
-        variant="effort"
-        min={0}
-        max={max}
-        step={1}
-        value={index}
-        disabled={disabled}
-        maxEffect
-        aria-label={currentLabel || effortLabel}
-        formatValueText={(next) => titleCaseLabel(optionLabelText(levels[next] ?? current))}
-        onValueChange={setIndex}
-        onValueCommit={(next) => {
-          const level = levels[next];
-          if (level) onChange?.(level.value);
-        }}
-      />
     </div>
   );
 }
@@ -1061,13 +1164,30 @@ function SelectSearch({
 
 function OptionRow({ option }: { option: PromptModel }) {
   return (
-    <span className="flex min-w-0 items-center gap-2">
+    <span className={cn("flex min-w-0 gap-2", option.description ? "items-start" : "items-center")}>
       {option.icon ? (
-        <span className="grid size-5 shrink-0 place-items-center text-muted-foreground [&_svg]:size-4">
+        <span
+          className={cn(
+            "grid size-5 shrink-0 place-items-center text-current [&_svg]:size-4",
+            option.description && "mt-0.5",
+          )}
+        >
           {option.icon}
         </span>
       ) : null}
-      <span className="min-w-0 truncate text-sm text-foreground">{option.label}</span>
+      <span className="min-w-0">
+        <span className="flex min-w-0 items-center gap-1.5">
+          <span className="truncate text-sm">{option.label}</span>
+          {option.trailing ? (
+            <span className="shrink-0">{option.trailing}</span>
+          ) : null}
+        </span>
+        {option.description ? (
+          <span className="mt-0.5 block text-xs leading-4 opacity-70">
+            {option.description}
+          </span>
+        ) : null}
+      </span>
     </span>
   );
 }

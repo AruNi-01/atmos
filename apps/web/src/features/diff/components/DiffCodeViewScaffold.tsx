@@ -3,10 +3,13 @@
 import type { ReactNode } from "react";
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { PanelLeft } from "lucide-react";
 import { ScrollArea, Skeleton } from "@workspace/ui";
 import { AnimatePresence, motion } from "motion/react";
+import { CENTER_EXPLORER_BODY_INSET_CLASS } from "@/app-shell/center-explorer-layout";
 import { DiffFileTree, type DiffFileTreeItem } from "@/features/diff/components/DiffFileTree";
+import { panelFoldCursorClass } from "@/shared/lib/panel-fold";
+import { cn } from "@/shared/lib/utils";
 
 interface DiffCodeViewScaffoldProps {
   items: DiffFileTreeItem[];
@@ -19,6 +22,8 @@ interface DiffCodeViewScaffoldProps {
   loading?: boolean;
   loadingTreeLabel?: string;
   defaultTreeVisible?: boolean;
+  /** When false, hide the in-pane file tree and its collapse control (e.g. Changes sidecar lists files). */
+  showFileTree?: boolean;
   compactToolbar?: boolean;
 }
 
@@ -33,12 +38,14 @@ export function DiffCodeViewScaffold({
   loading = false,
   loadingTreeLabel,
   defaultTreeVisible = true,
+  showFileTree = true,
   compactToolbar = false,
 }: DiffCodeViewScaffoldProps) {
   const t = useTranslations("diff.diffCodeViewScaffold");
   const [treeVisible, setTreeVisible] = useState(defaultTreeVisible);
   const [treeWidth, setTreeWidth] = useState(224);
   const [isResizing, setIsResizing] = useState(false);
+  const fileTreeOpen = showFileTree && treeVisible;
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -46,29 +53,30 @@ export function DiffCodeViewScaffold({
         data-center-explorer-chrome={compactToolbar ? "" : undefined}
         className={
           compactToolbar
-            ? "flex h-8 shrink-0 items-center gap-2 border-b border-border/40 px-2.5"
+            ? "flex h-8 shrink-0 items-center gap-2 px-2.5"
             : "flex shrink-0 items-center gap-2 border-b border-border/40 px-2 py-1.5"
         }
       >
-        <button
-          type="button"
-          aria-label={treeVisible ? t("hideFileTree") : t("showFileTree")}
-          className="flex size-6 items-center justify-center rounded-md text-muted-foreground hover:bg-muted/50 hover:text-foreground"
-          onClick={() => setTreeVisible((value) => !value)}
-          title={treeVisible ? t("hideFileTree") : t("showFileTree")}
-        >
-          {treeVisible ? (
-            <PanelLeftClose className="size-3.5" />
-          ) : (
-            <PanelLeftOpen className="size-3.5" />
-          )}
-        </button>
+        {showFileTree ? (
+          <button
+            type="button"
+            aria-label={treeVisible ? t("hideFileTree") : t("showFileTree")}
+            className={cn(
+              "flex size-6 items-center justify-center rounded-md text-muted-foreground hover:bg-muted/50 hover:text-foreground",
+              panelFoldCursorClass("left", !treeVisible),
+            )}
+            onClick={() => setTreeVisible((value) => !value)}
+            title={treeVisible ? t("hideFileTree") : t("showFileTree")}
+          >
+            <PanelLeft className="size-3.5" />
+          </button>
+        ) : null}
         <div className="flex-1 min-w-0">{toolbar}</div>
       </div>
 
-      <div className="flex min-h-0 min-w-0 w-[calc(100%-var(--center-explorer-inset,0px))] flex-1 self-start">
+      <div className={cn("flex min-h-0 flex-1", CENTER_EXPLORER_BODY_INSET_CLASS)}>
         <AnimatePresence initial={false}>
-          {treeVisible ? (
+          {fileTreeOpen ? (
             <motion.div
               key="tree"
               initial={{ width: 0, opacity: 0 }}
@@ -120,7 +128,7 @@ export function DiffCodeViewScaffold({
           ) : null}
         </AnimatePresence>
 
-        {treeVisible ? (
+        {fileTreeOpen ? (
           <div
             className="relative w-px shrink-0 cursor-col-resize bg-border/40 before:absolute before:-inset-x-2 before:h-full before:hover:bg-primary/40"
             onMouseDown={(event) => {

@@ -1,6 +1,8 @@
 mod binary;
+mod builtin_custom;
 mod keyring;
 mod manifest;
+mod native_chat;
 mod npm;
 mod provision;
 mod registry;
@@ -16,7 +18,12 @@ use crate::models::{
 };
 
 // Re-export types that are used by other crates via `crate::manager::AgentError`
+pub use self::builtin_custom::{
+    is_builtin_custom_agent_id, looks_like_missing_llm_api_key, DEEPSEEK_API_KEY_ENV,
+    DEEPSEEK_HARNESS_ID,
+};
 pub(crate) use self::manifest::CustomAgentEntry;
+pub use self::native_chat::{is_native_chat_agent_id, native_chat_launch_spec};
 
 #[derive(Debug, Error)]
 pub enum AgentError {
@@ -303,17 +310,35 @@ impl AgentManager {
 
     pub fn list_custom_agents(&self) -> Result<Vec<crate::models::CustomAgent>> {
         let m = manifest::load_install_manifest()?;
-        Ok(m.custom_agents
-            .into_iter()
-            .map(|(name, entry)| crate::models::CustomAgent {
-                name,
-                agent_type: entry.agent_type,
-                command: entry.command,
-                args: entry.args,
-                env: entry.env,
-                default_config: entry.default_config,
-            })
-            .collect())
+        Ok(builtin_custom::merge_builtin_custom_agents(
+            &m.custom_agents,
+        ))
+    }
+
+    pub fn list_native_chat_agents(&self) -> Result<Vec<crate::models::NativeChatAgent>> {
+        let m = manifest::load_install_manifest()?;
+        Ok(native_chat::list_native_chat_agents(&m.native_chat_agents))
+    }
+
+    pub fn set_native_chat_agent_enabled(&self, id: &str, enabled: bool) -> Result<()> {
+        native_chat::require_native_chat_agent_id(id)?;
+        let id = id.to_string();
+        manifest::with_manifest(|m| {
+            if let Some(entry) = m.native_chat_agents.get_mut(&id) {
+                entry.enabled = Some(enabled);
+                return Ok(());
+            }
+            if !enabled {
+                return Ok(());
+            }
+            m.native_chat_agents.insert(
+                id.clone(),
+                manifest::NativeAgentEntry {
+                    enabled: Some(true),
+                },
+            );
+            Ok(())
+        })
     }
 
     pub fn set_agent_default_config(
@@ -344,6 +369,14 @@ impl AgentManager {
                 return Ok(());
             }
 
+            if builtin_custom::is_builtin_custom_agent_id(&reg_id)
+                && !m.custom_agents.contains_key(&reg_id)
+            {
+                if let Some(entry) = builtin_custom::builtin_custom_entry(&reg_id) {
+                    m.custom_agents.insert(reg_id.clone(), entry);
+                }
+            }
+
             if let Some(entry) = m.custom_agents.get_mut(&reg_id) {
                 let mut defaults = entry.default_config.clone().unwrap_or_default();
                 defaults.insert(cfg_id.clone(), val.clone());
@@ -363,7 +396,7 @@ impl AgentManager {
             if let Some(name) = found_by_name {
                 if let Some(entry) = m.custom_agents.get_mut(&name) {
                     let mut defaults = entry.default_config.clone().unwrap_or_default();
-                    defaults.insert(cfg_id, val);
+                    defaults.insert(cfg_id.clone(), val.clone());
                     entry.default_config = Some(defaults);
                     tracing::info!(
                         "Successfully updated custom agent default config via case-insensitive match: {}",
@@ -373,12 +406,42 @@ impl AgentManager {
                 }
             }
 
+            // PATH-bound ACP agents (e.g. cursor / Cos) may be chat-ready without a
+            // manifest row yet. Upsert a stub so default prefs persist without ERROR spam.
+            if provision::binding_for_registry_id(&reg_id).is_some()
+                || provision::local_native_by_id(&reg_id).is_some()
+            {
+                if let Some(entry) = m
+                    .registry
+                    .iter_mut()
+                    .find(|e| e.registry_id.eq_ignore_ascii_case(&reg_id))
+                {
+                    let mut defaults = entry.default_config.clone().unwrap_or_default();
+                    defaults.insert(cfg_id, val);
+                    entry.default_config = Some(defaults);
+                } else {
+                    m.registry.push(manifest::ManifestEntry {
+                        registry_id: reg_id.clone(),
+                        install_method: "native".to_string(),
+                        binary_path: None,
+                        npm_package: None,
+                        installed_version: None,
+                        default_config: Some(std::collections::HashMap::from([(cfg_id, val)])),
+                    });
+                }
+                tracing::info!(
+                    "Upserted default config for known ACP agent '{}' (manifest stub)",
+                    reg_id
+                );
+                return Ok(());
+            }
+
             tracing::warn!(
-                "Agent '{}' not found in manifest at {}",
+                "Agent '{}' not found in manifest at {}; ignoring default config set",
                 reg_id,
                 path.display()
             );
-            Err(AgentError::NotFound(format!("agent not found: {}", reg_id)))
+            Ok(())
         })
     }
 
@@ -400,12 +463,24 @@ impl AgentManager {
     }
 
     pub fn add_custom_agent(&self, agent: &crate::models::CustomAgent) -> Result<()> {
-        let agent = agent.clone();
+        let mut agent = agent.clone();
+        if let Some(builtin) = builtin_custom::builtin_custom_entry(&agent.name) {
+            if agent.command.trim().is_empty() {
+                agent.command = builtin.command;
+            }
+            if agent.args.is_empty() {
+                agent.args = builtin.args;
+            }
+        }
         manifest::with_manifest(|m| {
-            let existing_default = m
-                .custom_agents
-                .get(&agent.name)
-                .and_then(|e| e.default_config.clone());
+            let existing = m.custom_agents.get(&agent.name);
+            let existing_default = existing.and_then(|entry| entry.default_config.clone());
+            let existing_enabled = existing.and_then(|entry| entry.enabled);
+            let enabled = if builtin_custom::is_builtin_custom_agent_id(&agent.name) {
+                existing_enabled
+            } else {
+                existing_enabled.or(Some(true))
+            };
             m.custom_agents.insert(
                 agent.name.clone(),
                 CustomAgentEntry {
@@ -414,10 +489,43 @@ impl AgentManager {
                     args: agent.args.clone(),
                     env: agent.env.clone(),
                     default_config: agent.default_config.clone().or(existing_default),
+                    enabled,
                 },
             );
             Ok(())
         })
+    }
+
+    pub fn set_custom_agent_enabled(&self, name: &str, enabled: bool) -> Result<()> {
+        let name = name.to_string();
+        manifest::with_manifest(|m| {
+            if let Some(entry) = m.custom_agents.get_mut(&name) {
+                entry.enabled = Some(enabled);
+                return Ok(());
+            }
+            if !builtin_custom::is_builtin_custom_agent_id(&name) {
+                return Err(AgentError::NotFound(format!("custom agent: {name}")));
+            }
+            if !enabled {
+                return Ok(());
+            }
+            let mut entry = builtin_custom::builtin_custom_entry(&name)
+                .ok_or_else(|| AgentError::NotFound(format!("custom agent: {name}")))?;
+            entry.enabled = Some(true);
+            m.custom_agents.insert(name.clone(), entry);
+            Ok(())
+        })
+    }
+
+    pub async fn preload_custom_agent(&self, name: &str) -> Result<()> {
+        if !builtin_custom::is_builtin_custom_agent_id(name) {
+            return Err(AgentError::NotFound(format!("custom agent: {name}")));
+        }
+        let m = manifest::load_install_manifest()?;
+        if !builtin_custom::is_builtin_custom_enabled(m.custom_agents.get(name)) {
+            return Err(AgentError::Command(format!("{name} is disabled")));
+        }
+        builtin_custom::preload_builtin_custom_agent(name).await
     }
 
     pub fn remove_custom_agent(&self, name: &str) -> Result<()> {
@@ -430,26 +538,20 @@ impl AgentManager {
 
     pub fn get_custom_agent_launch_spec(&self, name: &str) -> Result<AgentLaunchSpec> {
         let m = manifest::load_install_manifest()?;
+        if builtin_custom::is_builtin_custom_agent_id(name) {
+            if !builtin_custom::is_builtin_custom_enabled(m.custom_agents.get(name)) {
+                return Err(AgentError::NotFound(format!(
+                    "custom agent disabled: {name}"
+                )));
+            }
+            return builtin_custom::builtin_custom_launch_spec(name, m.custom_agents.get(name))
+                .ok_or_else(|| AgentError::NotFound(format!("custom agent: {name}")));
+        }
         let entry = m
             .custom_agents
             .get(name)
             .ok_or_else(|| AgentError::NotFound(format!("custom agent: {}", name)))?;
-        let program = if entry.command.starts_with("~/") {
-            let home = dirs::home_dir()
-                .ok_or_else(|| AgentError::Command("cannot resolve home directory".to_string()))?;
-            home.join(&entry.command[2..]).to_string_lossy().to_string()
-        } else {
-            entry.command.clone()
-        };
-        Ok(AgentLaunchSpec {
-            program,
-            args: entry.args.clone(),
-            env: if entry.env.is_empty() {
-                None
-            } else {
-                Some(entry.env.clone())
-            },
-        })
+        Ok(launch_spec_from_entry(entry))
     }
 
     pub fn get_manifest_path(&self) -> Result<String> {
@@ -516,6 +618,25 @@ impl AgentManager {
         let mut map = std::collections::HashMap::new();
         map.insert(env_var.to_string(), key);
         Some(map)
+    }
+}
+
+fn launch_spec_from_entry(entry: &CustomAgentEntry) -> AgentLaunchSpec {
+    let program = if let Some(rest) = entry.command.strip_prefix("~/") {
+        dirs::home_dir()
+            .map(|home| home.join(rest).to_string_lossy().to_string())
+            .unwrap_or_else(|| entry.command.clone())
+    } else {
+        entry.command.clone()
+    };
+    AgentLaunchSpec {
+        program,
+        args: entry.args.clone(),
+        env: if entry.env.is_empty() {
+            None
+        } else {
+            Some(entry.env.clone())
+        },
     }
 }
 

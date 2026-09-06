@@ -71,12 +71,17 @@ import { CenterExplorerLanding } from "@/app-shell/CenterExplorerLanding";
 import { CenterExplorerSidecar } from "@/app-shell/CenterExplorerSidecar";
 import {
   applyExplorerInsetToPanelStyle,
+  changesExplorerFoldScopeId,
+  collectChangesExplorerFoldScopeIds,
   collectUniqueHostPaneIds,
   explorerSidecarStyle,
+  isCenterExplorerSinglePaneLayout,
   isChangesExplorerSurfaceTab,
   isFileExplorerSurfaceTab,
   paneActiveTabId,
   regularEditorFilePaths,
+  resolveExplorerSlotBox,
+  stabilizeExplorerHostPaneIds,
   type CenterExplorerKind,
 } from "@/app-shell/center-explorer-layout";
 import { CHANGES_TAB_VALUE, FILES_TAB_VALUE } from "@/app-shell/center-tool-tabs";
@@ -290,7 +295,8 @@ function hostPaneIdsForTab(
   if (hosts && hosts.length > 0) return [...hosts];
   const owner = tabToPaneId?.[tabId];
   if (owner) return [owner];
-  if (tabHostPaneIds || tabToPaneId) return [];
+  // Overlay always passes pane maps; files/changes may not be keyed yet on the
+  // first paint. Fall back to root so explorers still mount (empty [] hid them).
   return [undefined];
 }
 
@@ -523,13 +529,29 @@ function WorkspaceCenterFrameImpl({
     ],
     [changesTabVisible, contextOpenFiles],
   );
-  const fileExplorerHostPaneIds = collectUniqueHostPaneIds(
-    fileExplorerTabIds,
-    hostedPaneIds,
+  const changesExplorerFoldScopeIds = React.useMemo(
+    () =>
+      collectChangesExplorerFoldScopeIds({
+        changesTabVisible,
+        openDiffGroupPaths: changesExplorerTabIds.filter((id) =>
+          isDiffGroupEditorPath(id),
+        ),
+      }),
+    [changesExplorerTabIds, changesTabVisible],
   );
-  const changesExplorerHostPaneIds = collectUniqueHostPaneIds(
-    changesExplorerTabIds,
-    hostedPaneIds,
+  const explorerSinglePane = isCenterExplorerSinglePaneLayout({
+    multiActiveTabIds,
+    paneSlotBoxes,
+  });
+  // Stabilize hosts before keys/mount: undefined→pane-a catch-up remounted the
+  // fold rail on every file open / deferred map settle.
+  const fileExplorerHostPaneIds = stabilizeExplorerHostPaneIds(
+    collectUniqueHostPaneIds(fileExplorerTabIds, hostedPaneIds),
+    { singlePane: explorerSinglePane },
+  );
+  const changesExplorerHostPaneIds = stabilizeExplorerHostPaneIds(
+    collectUniqueHostPaneIds(changesExplorerTabIds, hostedPaneIds),
+    { singlePane: explorerSinglePane },
   );
 
   const explorerInsetForPane = React.useCallback(
@@ -545,16 +567,16 @@ function WorkspaceCenterFrameImpl({
           ? explorerLayout.filesWidth
           : 0;
       }
-      if (explorerLayout.changesCollapsed) return 0;
-      return isChangesExplorerSurfaceTab(activeTab)
-        ? explorerLayout.changesWidth
-        : 0;
+      const foldScopeId = changesExplorerFoldScopeId(activeTab);
+      if (!foldScopeId) return 0;
+      const changesLayout = explorerLayoutActions.changesForScope(foldScopeId);
+      if (changesLayout.collapsed) return 0;
+      return isChangesExplorerSurfaceTab(activeTab) ? changesLayout.width : 0;
     },
     [
-      explorerLayout.changesCollapsed,
-      explorerLayout.changesWidth,
       explorerLayout.filesCollapsed,
       explorerLayout.filesWidth,
+      explorerLayoutActions,
       frameActiveTab,
       paneActiveTabById,
       regularFilePathSet,
@@ -1171,18 +1193,27 @@ function WorkspaceCenterFrameImpl({
           fullscreenPaneId,
           paneId,
         );
-        const takingSpace = showing && !hiddenByFullscreen && !explorerLayout.filesCollapsed;
+        const surfaceActive = showing && !hiddenByFullscreen;
+        const takingSpace = surfaceActive && !explorerLayout.filesCollapsed;
         return (
           <CenterExplorerSidecar
-            key={`${contextId}-files-explorer-${paneId ?? "root"}`}
+            // Single-pane: stable key so pane-id catch-up never remounts the rail.
+            key={
+              explorerSinglePane
+                ? `${contextId}-files-explorer`
+                : `${contextId}-files-explorer-${paneId ?? "root"}`
+            }
             kind="files"
             width={explorerLayout.filesWidth}
-            takingSpace={takingSpace}
+            surfaceActive={surfaceActive}
+            collapsed={explorerLayout.filesCollapsed}
             interactive={Boolean(showing && isActiveContext)}
             onWidthChange={(next) => explorerLayoutActions.setWidth("files", next)}
+            onCollapse={() => explorerLayoutActions.setCollapsed("files", true)}
+            onExpand={() => explorerLayoutActions.setCollapsed("files", false)}
             style={explorerSidecarStyle({
-              singlePane: !multiActiveTabIds,
-              box: paneId ? paneSlotBoxes?.[paneId] : null,
+              singlePane: explorerSinglePane,
+              box: resolveExplorerSlotBox(paneId, paneSlotBoxes),
               width: explorerLayout.filesWidth,
               takingSpace,
               radius: CENTER_STAGE_RADIUS_CSS,
@@ -1209,52 +1240,76 @@ function WorkspaceCenterFrameImpl({
         );
       })}
 
-      {changesExplorerHostPaneIds.map((paneId) => {
-        const activeTab = paneActiveTabId({
-          paneId,
-          paneActiveTabById,
-          frameActiveTab,
-        });
-        const showing = isChangesExplorerSurfaceTab(activeTab);
-        const hiddenByFullscreen = paneHiddenByCenterFullscreen(
-          fullscreenPaneId,
-          paneId,
-        );
-        const takingSpace =
-          showing && !hiddenByFullscreen && !explorerLayout.changesCollapsed;
-        return (
-          <CenterExplorerSidecar
-            key={`${contextId}-changes-explorer-${paneId ?? "root"}`}
-            kind="changes"
-            width={explorerLayout.changesWidth}
-            takingSpace={takingSpace}
-            interactive={Boolean(showing && isActiveContext)}
-            onWidthChange={(next) => explorerLayoutActions.setWidth("changes", next)}
-            style={explorerSidecarStyle({
-              singlePane: !multiActiveTabIds,
-              box: paneId ? paneSlotBoxes?.[paneId] : null,
-              width: explorerLayout.changesWidth,
-              takingSpace,
-              radius: CENTER_STAGE_RADIUS_CSS,
-            })}
-          >
-            <DiscardableHeavySurface active={isActiveContext && showing}>
-              <KeptChangesPanel
-                contextId={contextId}
-                currentProject={isUrlSyncedActive ? currentProject : undefined}
-                currentProjectPath={isUrlSyncedActive ? (currentRepoPath ?? null) : null}
-                currentWorkspace={isUrlSyncedActive ? currentWorkspace : undefined}
-                projectId={isUrlSyncedActive ? (currentProject?.id ?? null) : null}
-                workspaceId={
-                  isUrlSyncedActive && currentView === "workspace"
-                    ? (currentWorkspace?.id ?? null)
-                    : null
-                }
-              />
-            </DiscardableHeavySurface>
-          </CenterExplorerSidecar>
-        );
-      })}
+      {changesExplorerFoldScopeIds.flatMap((foldScopeId) =>
+        changesExplorerHostPaneIds.map((paneId) => {
+          const activeTab = paneActiveTabId({
+            paneId,
+            paneActiveTabById,
+            frameActiveTab,
+          });
+          const showing = activeTab === foldScopeId;
+          const hiddenByFullscreen = paneHiddenByCenterFullscreen(
+            fullscreenPaneId,
+            paneId,
+          );
+          const surfaceActive = showing && !hiddenByFullscreen;
+          const changesLayout = explorerLayoutActions.changesForScope(foldScopeId);
+          const takingSpace = surfaceActive && !changesLayout.collapsed;
+          return (
+            <CenterExplorerSidecar
+              key={
+                explorerSinglePane
+                  ? `${contextId}-changes-explorer-${foldScopeId}`
+                  : `${contextId}-changes-explorer-${foldScopeId}-${paneId ?? "root"}`
+              }
+              kind="changes"
+              width={changesLayout.width}
+              surfaceActive={surfaceActive}
+              collapsed={changesLayout.collapsed}
+              interactive={Boolean(showing && isActiveContext)}
+              onWidthChange={(next) =>
+                explorerLayoutActions.setWidth("changes", next, foldScopeId)
+              }
+              onCollapse={() =>
+                explorerLayoutActions.setCollapsed("changes", true, foldScopeId)
+              }
+              onExpand={() =>
+                explorerLayoutActions.setCollapsed("changes", false, foldScopeId)
+              }
+              style={explorerSidecarStyle({
+                singlePane: explorerSinglePane,
+                box: resolveExplorerSlotBox(paneId, paneSlotBoxes),
+                width: changesLayout.width,
+                takingSpace,
+                radius: CENTER_STAGE_RADIUS_CSS,
+              })}
+            >
+              <DiscardableHeavySurface active={isActiveContext && showing}>
+                {showing ? (
+                  <KeptChangesPanel
+                    contextId={contextId}
+                    currentProject={isUrlSyncedActive ? currentProject : undefined}
+                    currentProjectPath={
+                      isUrlSyncedActive ? (currentRepoPath ?? null) : null
+                    }
+                    currentWorkspace={
+                      isUrlSyncedActive ? currentWorkspace : undefined
+                    }
+                    projectId={
+                      isUrlSyncedActive ? (currentProject?.id ?? null) : null
+                    }
+                    workspaceId={
+                      isUrlSyncedActive && currentView === "workspace"
+                        ? (currentWorkspace?.id ?? null)
+                        : null
+                    }
+                  />
+                ) : null}
+              </DiscardableHeavySurface>
+            </CenterExplorerSidecar>
+          );
+        }),
+      )}
     </div>
   );
 }

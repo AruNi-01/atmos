@@ -10,13 +10,13 @@ import type { RegistryAgent } from "@/api/ws-api";
 import type {
   AgentConfigOption,
   AgentPlan,
-} from "@/features/agent/hooks/use-agent-session";
+} from "@/features/agent/lib/agent-chat-types";
 import type { QueuedAgentPrompt } from "@/app-shell/state/use-dialog-store";
 import type { AgentMessage, AgentSessionUsage } from "@atmos/api-types/ws/dto/agent-chat";
 import { assistantCopyText } from "@/features/agent/lib/agent-chat-events";
 import type { AgentChatMode } from "@/features/agent/types/index";
 import type { Project } from "@/shared/types/domain";
-import type { AgentActivity, PendingPermission } from "../lib/chat-helpers";
+import type { AgentActivity, PendingPermission, PendingSessionOp } from "../lib/chat-helpers";
 import type { AgentToolCallPart } from "@/features/agent/lib/agent-tool-kind";
 import type { CurrentView } from "@/shared/hooks/use-context-params";
 
@@ -76,6 +76,7 @@ export interface UseAgentChatSessionReturn {
   backgroundTools: AgentToolCallPart[];
   pendingPermission: PendingPermission | null;
   pendingPermissionMarkdown: string | null;
+  pendingSessionOp: PendingSessionOp | null;
   agentActivity: AgentActivity;
   waitingForResponse: boolean;
   setWaitingForResponse: React.Dispatch<React.SetStateAction<boolean>>;
@@ -141,7 +142,11 @@ export interface UseAgentChatSessionReturn {
   selectedAuthMethodId: string;
   setSelectedAuthMethodId: React.Dispatch<React.SetStateAction<string>>;
   clearAuthRequest: () => void;
-  startSession: (opts?: { registryId?: string; authMethodId?: string }) => void;
+  startSession: (opts?: {
+    registryId?: string;
+    authMethodId?: string;
+    apiKey?: string;
+  }) => void | Promise<void>;
   exportableMessages: ConversationMessage[];
   userMessageIndices: number[];
   messageNavIndex: number;
@@ -154,6 +159,7 @@ export interface UseAgentChatSessionReturn {
   handleClose: () => void;
   handleLogoutAgent: () => Promise<void>;
   handlePermission: (optionKind: string) => void;
+  handleSessionOp: (optionId: string) => void;
   handleCreateNewSession: (targetRegistryId?: string) => Promise<void>;
   handleSelectWorkingDirectory: (selection: {
     workspaceId: string | null;

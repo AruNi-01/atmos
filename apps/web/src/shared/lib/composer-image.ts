@@ -25,6 +25,13 @@ const TIFF_TYPES = new Set([
   "image/x-tiff",
 ]);
 
+function toBlobPart(bytes: Uint8Array): BlobPart {
+  return bytes.buffer.slice(
+    bytes.byteOffset,
+    bytes.byteOffset + bytes.byteLength,
+  ) as ArrayBuffer;
+}
+
 const TIFF_COMPRESSION_NONE = 1;
 const TIFF_COMPRESSION_LZW = 5;
 const TIFF_COMPRESSION_PACKBITS = 32773;
@@ -103,7 +110,7 @@ export async function normalizeComposerImageFile(file: File): Promise<File> {
   const decoded = decodeTiffToRgba(bytes);
   if (decoded) {
     const png = await encodePngRgba(decoded.width, decoded.height, decoded.rgba);
-    return new File([png as BlobPart], pngFilename(file.name), { type: "image/png" });
+    return new File([toBlobPart(png)], pngFilename(file.name), { type: "image/png" });
   }
 
   const fromBitmap = await tiffToPngViaBitmap(file);
@@ -536,7 +543,7 @@ async function encodePngRgba(
 async function zlibDeflate(data: Uint8Array): Promise<Uint8Array> {
   if (typeof CompressionStream === "function") {
     try {
-      const stream = new Blob([data as BlobPart]).stream().pipeThrough(
+      const stream = new Blob([toBlobPart(data)]).stream().pipeThrough(
         new CompressionStream("deflate"),
       );
       const compressed = new Uint8Array(await new Response(stream).arrayBuffer());

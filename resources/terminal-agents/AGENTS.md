@@ -49,6 +49,7 @@ If shipped > applied:
 
 ## Rules
 
+- This manifest is **Terminal** Code Agent launch only. Agent Chat spawn (native Claude / Codex / OpenCode / Pi / Grok + ACP) does **not** read this argv. Do not change `cmd` / `params` here to “fix” Chat.
 - Keep this directory limited to terminal-agent manifest data. Do not add frontend components, runtime user settings, generated artifacts, or tests here.
 - User overrides and custom agents belong in `~/.atmos/agent/terminal_code_agent.json`, not in `builtin_agents.json`.
 - When changing `builtin_agents.json`, verify both consumers:

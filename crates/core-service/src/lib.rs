@@ -16,18 +16,20 @@ pub use service::agent_status::{
 };
 
 pub use service::agent_chat::{
-    agent_chat_prefs_path, builtin_catalog_specs, catalog_probe_dir, catalog_spec_for,
-    default_agent_data_dir, default_chats_dir, load_agent_chat_prefs, parse_followup_policy,
-    save_agent_chat_prefs, terminal_catalog_from, AgentChatEvent, AgentChatIndexEntry,
-    AgentChatMeta, AgentChatOrigin, AgentChatPayload, AgentChatPrefs, AgentChatService,
-    AgentChatSnapshot, AgentChatStore, AgentServiceCatalogResolver, CatalogPrefetchWorker,
-    CatalogUpdated, CreateAgentChatRequest, DefaultAgentProviderFactory, FollowupPolicy,
-    MessagePart, QueueItem, QueueItemStatus, RuntimeStatus, TurnStatus, PREFETCH_POLL,
+    agent_chat_prefs_path, builtin_options_probe_plans, default_agent_data_dir, default_chats_dir,
+    load_agent_chat_prefs, load_new_chat_configs, new_chat_configs_path, options_probe_dir,
+    options_probe_plan_for, parse_followup_policy, save_agent_chat_prefs, save_last_registry_id,
+    snapshot_from_create_fields, terminal_options_from, upsert_agent_new_chat_config,
+    AgentChatEvent, AgentChatIndexEntry, AgentChatMeta, AgentChatOrigin, AgentChatPayload,
+    AgentChatPrefs, AgentChatService, AgentChatSnapshot, AgentChatStore,
+    AgentServiceOptionsResolver, CreateAgentChatRequest, DefaultAgentProviderFactory,
+    FollowupPolicy, MessagePart, NewChatConfigsFile, OptionsPrefetchWorker, OptionsUpdated,
+    QueueItem, QueueItemStatus, RuntimeStatus, TurnStatus, PREFETCH_POLL,
 };
 pub use service::automation::{
     ensure_builtin_terminal_agents_upgraded, AutomationAgentCapability, TerminalAgentCliStatus,
-    TerminalAgentModelCatalog, TerminalAgentModelCatalogSource, TerminalAgentModelCatalogStatus,
-    TerminalAgentModelOption,
+    TerminalAgentOption, TerminalAgentOptions, TerminalAgentOptionsSource,
+    TerminalAgentOptionsStatus,
 };
 pub use service::automation::{
     AutomationArtifact, AutomationArtifactGetReq, AutomationArtifactKind, AutomationCancelRunReq,

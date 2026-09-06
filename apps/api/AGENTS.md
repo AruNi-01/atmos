@@ -74,6 +74,7 @@ On successful `TcpListener::bind`:
 - `POST /api/pt-design/agent/invoke` is non-browser Agent/CLI ingress (same category as `/api/canvas/agent/invoke`). The Server does not run PT Design tools; it forwards to the open board over `/ws` (`pt_design_agent_dispatch`). Opening the tab is enough — Share is not required. Users do not configure MCP or put `pt-design-mcp` on PATH.
 - `api/ws` owns connection lifecycle, auth context, message parsing, protocol DTOs, action routing, and mapping service events to WS notifications.
 - `core-service` should not depend on `WsMessage`, `WsAction`, `WsManager`, or Axum. If a service needs to notify clients, emit a service event and adapt it here.
+- Agent Chat: `api/ws/router/agent_chat.rs` → `AgentChatService`. Extra action `agent_chat_session_op_respond`. Do not spawn Code Agent CLIs or hold `AcpSessionHandle` here; hosts live in `crates/agent` behind `AgentProvider`.
 - `relay/ingest` must treat relay peers like local WS clients for routing (`conn_id`, events), while relay protocol adaptation stays in `apps/api/src/relay`.
 
 ### REST

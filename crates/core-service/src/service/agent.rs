@@ -1,9 +1,13 @@
 use std::path::PathBuf;
 
+use agent::acp_client::{
+    logout_acp_agent, AgentCapabilitiesSnapshot, AgentCapabilityState, AgentLogoutResult,
+};
 use agent::{
-    logout_acp_agent, AgentConfigState, AgentId, AgentInstallResult, AgentLaunchSpec,
-    AgentLogoutResult, AgentManager, AgentStatus, CustomAgent, RegistryAgent,
-    RegistryInstallResult,
+    canonicalize_chat_provider_id, is_builtin_custom_agent_id, is_native_chat_agent_id,
+    native_chat_launch_spec, AgentConfigState, AgentId, AgentInstallResult, AgentLaunchSpec,
+    AgentManager, AgentStatus, CustomAgent, NativeChatAgent, RegistryAgent, RegistryInstallResult,
+    DEEPSEEK_API_KEY_ENV, DEEPSEEK_HARNESS_ID,
 };
 
 use crate::error::Result;
@@ -73,7 +77,16 @@ impl AgentService {
         Ok(self.manager.list_custom_agents()?)
     }
 
+    pub fn list_native_chat_agents(&self) -> Result<Vec<NativeChatAgent>> {
+        Ok(self.manager.list_native_chat_agents()?)
+    }
+
+    pub fn set_native_chat_agent_enabled(&self, id: &str, enabled: bool) -> Result<()> {
+        Ok(self.manager.set_native_chat_agent_enabled(id, enabled)?)
+    }
+
     pub fn add_custom_agent(&self, agent: &CustomAgent) -> Result<()> {
+        persist_shared_custom_agent_api_keys(agent);
         Ok(self.manager.add_custom_agent(agent)?)
     }
 
@@ -83,6 +96,19 @@ impl AgentService {
 
     pub fn get_custom_agent_launch_spec(&self, name: &str) -> Result<AgentLaunchSpec> {
         Ok(self.manager.get_custom_agent_launch_spec(name)?)
+    }
+
+    /// Chat / catalog spawn. Built-in custom ACP skips the public registry fetch.
+    pub async fn get_chat_agent_launch_spec(&self, provider_id: &str) -> Result<AgentLaunchSpec> {
+        if is_builtin_custom_agent_id(provider_id) {
+            return self.get_custom_agent_launch_spec(provider_id);
+        }
+        if let Some(spec) = native_chat_launch_spec(provider_id) {
+            return Ok(spec);
+        }
+        self.get_registry_agent_launch_spec(provider_id)
+            .await
+            .or_else(|_| self.get_custom_agent_launch_spec(provider_id))
     }
 
     pub fn get_manifest_path(&self) -> Result<String> {
@@ -95,6 +121,14 @@ impl AgentService {
 
     pub fn set_custom_agents_json(&self, json_str: &str) -> Result<()> {
         Ok(self.manager.set_custom_agents_json(json_str)?)
+    }
+
+    pub fn set_custom_agent_enabled(&self, name: &str, enabled: bool) -> Result<()> {
+        Ok(self.manager.set_custom_agent_enabled(name, enabled)?)
+    }
+
+    pub async fn preload_custom_agent(&self, name: &str) -> Result<()> {
+        Ok(self.manager.preload_custom_agent(name).await?)
     }
 
     pub fn set_agent_default_config(
@@ -112,7 +146,20 @@ impl AgentService {
         &self,
         registry_id: &str,
     ) -> Option<std::collections::HashMap<String, String>> {
-        self.manager.get_registry_agent_env_overrides(registry_id)
+        let mut env = self
+            .manager
+            .get_registry_agent_env_overrides(registry_id)
+            .unwrap_or_default();
+        if registry_id == DEEPSEEK_HARNESS_ID {
+            if let Some(key) = quota_usage::stored_provider_api_key("deepseek") {
+                env.insert(DEEPSEEK_API_KEY_ENV.to_string(), key);
+            }
+        }
+        if env.is_empty() {
+            None
+        } else {
+            Some(env)
+        }
     }
 
     pub fn get_agent_default_config(
@@ -128,13 +175,46 @@ impl AgentService {
         cwd: Option<PathBuf>,
         auth_method_id: Option<String>,
     ) -> Result<AgentLogoutResult> {
-        let launch_spec = self
-            .get_registry_agent_launch_spec(registry_id)
-            .await
-            .or_else(|_| self.get_custom_agent_launch_spec(registry_id))?;
+        if is_native_chat_agent_id(canonicalize_chat_provider_id(registry_id)) {
+            return Ok(native_logout_unsupported());
+        }
+        let launch_spec = self.get_chat_agent_launch_spec(registry_id).await?;
         let env_overrides = self.get_registry_agent_env_overrides(registry_id);
         logout_acp_agent(launch_spec, cwd, env_overrides, auth_method_id)
             .await
             .map_err(crate::error::ServiceError::Processing)
     }
+}
+
+fn native_logout_unsupported() -> AgentLogoutResult {
+    let reason = Some("Native chat hosts do not use ACP logout".to_string());
+    let cap = AgentCapabilityState::unsupported(reason.clone());
+    AgentLogoutResult {
+        agent_info: None,
+        capabilities: AgentCapabilitiesSnapshot {
+            session_list: cap.clone(),
+            session_resume: cap.clone(),
+            session_close: cap.clone(),
+            logout: cap.clone(),
+            config_options: cap.clone(),
+            session_info_update: cap.clone(),
+            load_session: cap,
+        },
+        logged_out: false,
+        unsupported_reason: reason,
+    }
+}
+
+fn persist_shared_custom_agent_api_keys(agent: &CustomAgent) {
+    if agent.name != DEEPSEEK_HARNESS_ID {
+        return;
+    }
+    let Some(key) = agent.env.get(DEEPSEEK_API_KEY_ENV) else {
+        return;
+    };
+    let trimmed = key.trim();
+    if trimmed.is_empty() {
+        return;
+    }
+    quota_usage::store_provider_api_key("deepseek", trimmed);
 }

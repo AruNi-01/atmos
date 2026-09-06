@@ -105,3 +105,38 @@ export function fileRecentsFromOpenFiles(
       openedAt: Math.max(file.lastFocusedAt ?? 0, file.lastOpenedAt ?? 0),
     }));
 }
+
+/** In-memory Files empty-state MorphingSearch session (survives landing remount). */
+export type FilesLandingSearchState = {
+  query: string;
+  open: boolean;
+};
+
+const EMPTY_FILES_LANDING_SEARCH: FilesLandingSearchState = {
+  query: "",
+  open: false,
+};
+
+const filesLandingSearchByContext = new Map<string, FilesLandingSearchState>();
+
+export function readFilesLandingSearch(
+  contextId: string,
+): FilesLandingSearchState {
+  if (!contextId) return EMPTY_FILES_LANDING_SEARCH;
+  return filesLandingSearchByContext.get(contextId) ?? EMPTY_FILES_LANDING_SEARCH;
+}
+
+export function writeFilesLandingSearch(
+  contextId: string,
+  state: FilesLandingSearchState,
+): void {
+  if (!contextId) return;
+  if (!state.query && !state.open) {
+    filesLandingSearchByContext.delete(contextId);
+    return;
+  }
+  filesLandingSearchByContext.set(contextId, {
+    query: state.query,
+    open: state.open,
+  });
+}

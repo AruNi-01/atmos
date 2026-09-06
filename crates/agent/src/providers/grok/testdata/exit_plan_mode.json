@@ -1,0 +1,10 @@
+{
+  "jsonrpc": "2.0",
+  "id": 42,
+  "method": "_x.ai/exit_plan_mode",
+  "params": {
+    "sessionId": "01a072df-40b0-7ea2-9001-f9768b4faad2",
+    "toolCallId": "call-c332f9c9-ec9f-48da-b74a-c2689c0e5a85-10",
+    "planContent": "# Optimize project\n\n1. Measure current baseline\n2. Ship the highest-impact fix first\n"
+  }
+}

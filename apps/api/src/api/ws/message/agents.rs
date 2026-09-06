@@ -60,3 +60,20 @@ pub struct CustomAgentRemoveRequest {
 pub struct CustomAgentSetJsonRequest {
     pub json: String,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CustomAgentSetEnabledRequest {
+    pub name: String,
+    pub enabled: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CustomAgentPreloadRequest {
+    pub name: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NativeAgentSetEnabledRequest {
+    pub id: String,
+    pub enabled: bool,
+}

@@ -98,9 +98,12 @@ impl WsMessageService {
             command: req.command,
             args: req.args,
             env: req.env,
-            default_config: None,
+            ..Default::default()
         };
         self.agent_service.add_custom_agent(&agent)?;
+        self.agent_chat()
+            .evict_runtimes_for_provider(&agent.name)
+            .await;
         Ok(json!({ "success": true }))
     }
 
@@ -109,6 +112,9 @@ impl WsMessageService {
         req: CustomAgentRemoveRequest,
     ) -> Result<Value> {
         self.agent_service.remove_custom_agent(&req.name)?;
+        self.agent_chat()
+            .evict_runtimes_for_provider(&req.name)
+            .await;
         Ok(json!({ "success": true }))
     }
 
@@ -130,14 +136,59 @@ impl WsMessageService {
         Ok(json!({ "path": path }))
     }
 
+    pub(super) async fn handle_custom_agent_set_enabled(
+        &self,
+        req: CustomAgentSetEnabledRequest,
+    ) -> Result<Value> {
+        let name = req.name.trim();
+        if name.is_empty() {
+            return Err(ServiceError::Validation("name is required".into()));
+        }
+        self.agent_service
+            .set_custom_agent_enabled(name, req.enabled)?;
+        self.agent_chat().evict_runtimes_for_provider(name).await;
+        Ok(json!({ "success": true }))
+    }
+
+    pub(super) async fn handle_custom_agent_preload(
+        &self,
+        req: CustomAgentPreloadRequest,
+    ) -> Result<Value> {
+        let name = req.name.trim();
+        if name.is_empty() {
+            return Err(ServiceError::Validation("name is required".into()));
+        }
+        self.agent_service.preload_custom_agent(name).await?;
+        Ok(json!({ "success": true }))
+    }
+
+    pub(super) async fn handle_native_agent_list(&self) -> Result<Value> {
+        let agents = self.agent_service.list_native_chat_agents()?;
+        Ok(json!({ "agents": agents }))
+    }
+
+    pub(super) async fn handle_native_agent_set_enabled(
+        &self,
+        req: NativeAgentSetEnabledRequest,
+    ) -> Result<Value> {
+        let id = req.id.trim();
+        if id.is_empty() {
+            return Err(ServiceError::Validation("id is required".into()));
+        }
+        self.agent_service
+            .set_native_chat_agent_enabled(id, req.enabled)?;
+        self.agent_chat().evict_runtimes_for_provider(id).await;
+        Ok(json!({ "success": true }))
+    }
+
     pub(super) async fn handle_terminal_agent_models_get(
         &self,
         req: TerminalAgentModelsGetRequest,
     ) -> Result<Value> {
-        let spec = core_service::catalog_spec_for(&req.agent_id);
+        let spec = core_service::options_probe_plan_for(&req.agent_id);
         let catalog = self
-            .catalog_worker
+            .options_worker
             .get_cached_or_probing(&spec, req.refresh.unwrap_or(false));
-        Ok(json!(core_service::terminal_catalog_from(&catalog)))
+        Ok(json!(core_service::terminal_options_from(&catalog)))
     }
 }

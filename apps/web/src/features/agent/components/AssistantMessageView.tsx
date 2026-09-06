@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import {
   Collapsible,
@@ -20,7 +20,10 @@ import {
   AgentChatMarkdownFileLink,
 } from "./AgentChatMarkdownFile";
 import { useAgentChatCwd, useAgentChatPathRoots } from "./agent-chat-cwd-context";
-import { hasCollapsibleAssistantProcess } from "@/features/agent/lib/assistant-process-parts";
+import {
+  hasCollapsibleAssistantProcess,
+  shouldAutoCollapseProcessOnSettle,
+} from "@/features/agent/lib/assistant-process-parts";
 import { AgentWorkedForLabel } from "./AgentWorkedForLabel";
 import {
   classifyAgentChatHref,
@@ -32,6 +35,7 @@ import {
   toolGroupHasRunning,
   type AssistantSegment,
 } from "@/features/agent/lib/tool-group";
+import { AssistantProcessInspectProvider } from "./assistant-process-inspect-context";
 
 const REVIEW_PATH_RE = /(?:\/[\w.~-]+)*\/\.atmos\/reviews\/[\w./:~-]+\.md/;
 
@@ -129,12 +133,14 @@ function ProcessCollapseRail({
   );
 }
 
+function toolGroupKey(segment: Extract<AssistantSegment, { type: "tool_group" }>): string {
+  return segment.parts[0]?.tool_call_id ?? segment.origIndexes.join("-");
+}
+
 export function AssistantMessageView({
   message,
-  registryId,
 }: {
   message: AgentMessage;
-  registryId: string;
 }) {
   const t = useTranslations("Agent.components");
   const reviewComponents = useReviewLinkComponents();
@@ -150,6 +156,19 @@ export function AssistantMessageView({
   const canCollapse = hasCollapsibleAssistantProcess(message);
   const [stepsExpanded, setStepsExpanded] = useState(false);
   const [processMounted, setProcessMounted] = useState(false);
+  const [userInspecting, setUserInspecting] = useState(false);
+  const [userOpenedGroups, setUserOpenedGroups] = useState<Record<string, boolean>>({});
+  const wasCollapsibleRef = useRef(false);
+  const markInspecting = useCallback(() => {
+    setUserInspecting(true);
+  }, []);
+
+  // When the turn first settles into collapsible chrome, auto-collapse unless the user
+  // expanded tools/process during the stream.
+  if (canCollapse && !wasCollapsibleRef.current) {
+    setStepsExpanded(!shouldAutoCollapseProcessOnSettle(userInspecting));
+  }
+  wasCollapsibleRef.current = canCollapse;
 
   if (stepsExpanded && !processMounted) {
     setProcessMounted(true);
@@ -162,7 +181,6 @@ export function AssistantMessageView({
       parts={parts}
       streaming={streaming}
       thinkingMs={message.thinking_ms}
-      registryId={registryId}
       reviewComponents={reviewComponents}
     />
   );
@@ -170,13 +188,17 @@ export function AssistantMessageView({
   const renderSegment = (segment: AssistantSegment, list: AssistantSegment[]) => {
     if (segment.type === "tool_group") {
       const isTail = list[list.length - 1] === segment;
-      const key = segment.parts[0]?.tool_call_id ?? segment.origIndexes.join("-");
+      const key = toolGroupKey(segment);
       return (
         <AgentToolGroupView
           key={key}
           parts={segment.parts}
           autoOpen={streaming && (isTail || toolGroupHasRunning(segment.parts))}
-          registryId={registryId}
+          userOpen={userOpenedGroups[key]}
+          onUserOpenChange={(next) => {
+            setUserOpenedGroups((prev) => ({ ...prev, [key]: next }));
+            if (next) markInspecting();
+          }}
         />
       );
     }
@@ -190,8 +212,14 @@ export function AssistantMessageView({
   if (canCollapse) {
     const showWorkedFor = message.worked_ms != null && message.worked_ms > 0;
     return (
-      <>
-        <Collapsible open={stepsExpanded} onOpenChange={setStepsExpanded}>
+      <AssistantProcessInspectProvider onInspect={markInspecting}>
+        <Collapsible
+          open={stepsExpanded}
+          onOpenChange={(next) => {
+            setStepsExpanded(next);
+            if (next) markInspecting();
+          }}
+        >
           <CollapsibleTrigger className="group flex w-full cursor-pointer items-center gap-1 py-0.5 text-left text-muted-foreground hover:text-foreground">
             {showWorkedFor ? (
               <AgentWorkedForLabel
@@ -220,13 +248,13 @@ export function AssistantMessageView({
           />
         </Collapsible>
         {answerSegments.map((segment) => renderSegment(segment, answerSegments))}
-      </>
+      </AssistantProcessInspectProvider>
     );
   }
 
   return (
-    <>
+    <AssistantProcessInspectProvider onInspect={markInspecting}>
       {segments.map((segment) => renderSegment(segment, segments))}
-    </>
+    </AssistantProcessInspectProvider>
   );
 }

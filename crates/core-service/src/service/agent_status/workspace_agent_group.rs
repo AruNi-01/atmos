@@ -245,7 +245,7 @@ mod tests {
     }
 
     #[test]
-    fn snapshot_maps_sticky_permission_after_live_state_leaves() {
+    fn snapshot_clears_permission_group_after_forced_idle_cancel() {
         let service = AgentStatusService::new();
         let pane_ctx = ctx("ws-perm", "ws-perm:agent");
         service.update_state(
@@ -267,14 +267,14 @@ mod tests {
         service.clear_idle_sessions();
 
         let groups = service.list_workspace_agent_groups();
-        assert_eq!(
-            group_for(&groups, "ws-perm").map(|row| row.group_key),
-            Some(WorkspaceAgentGroupKey::Permission)
+        assert!(
+            group_for(&groups, "ws-perm").is_none(),
+            "canceling a permission prompt must drop the sticky Need permission group"
         );
     }
 
     #[test]
-    fn snapshot_keeps_permission_when_running_with_sticky_latch() {
+    fn snapshot_permission_clears_when_turn_resumes_running() {
         let service = AgentStatusService::new();
         let pane_ctx = ctx("ws-both", "ws-both:agent");
         service.update_state(
@@ -291,13 +291,14 @@ mod tests {
             AgentOccupancy::Running,
             None,
             &pane_ctx,
-            OccupancyUpdateKind::NewTurn,
+            OccupancyUpdateKind::Progress,
         );
 
         let groups = service.list_workspace_agent_groups();
         assert_eq!(
             group_for(&groups, "ws-both").map(|row| row.group_key),
-            Some(WorkspaceAgentGroupKey::Permission)
+            Some(WorkspaceAgentGroupKey::Running),
+            "answering permission must leave Running, not a stale Permission latch"
         );
     }
 

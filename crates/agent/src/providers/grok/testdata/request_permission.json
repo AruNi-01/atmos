@@ -1,0 +1,35 @@
+{
+  "jsonrpc": "2.0",
+  "id": 12,
+  "method": "session/request_permission",
+  "params": {
+    "sessionId": "sess_grok_1",
+    "toolCall": {
+      "toolCallId": "call_live_write_1",
+      "title": "Write `/tmp/atmos-grok-perm.txt`",
+      "kind": "edit",
+      "status": "pending",
+      "rawInput": {
+        "file_path": "/tmp/atmos-grok-perm.txt",
+        "content": "hi"
+      }
+    },
+    "options": [
+      {
+        "optionId": "allow-edits-session",
+        "name": "Yes, allow all edits during this session",
+        "kind": "allow_always"
+      },
+      {
+        "optionId": "allow-once",
+        "name": "Yes",
+        "kind": "allow_once"
+      },
+      {
+        "optionId": "reject-once",
+        "name": "No, and tell Grok what to do differently",
+        "kind": "reject_once"
+      }
+    ]
+  }
+}

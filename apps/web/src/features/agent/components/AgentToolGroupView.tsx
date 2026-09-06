@@ -23,6 +23,7 @@ import {
 import { sumToolGroupDiffStats } from "@/features/agent/lib/tool-results/diff-stats";
 import { useSequentialReveal } from "@/features/agent/hooks/use-sequential-reveal";
 import { AgentTreeRevealProvider } from "./agent-tree-reveal-context";
+import { useMarkAssistantProcessInspecting } from "./assistant-process-inspect-context";
 import { AgentToolDiffStats } from "./tool-results/AgentToolCard";
 import { ToolView } from "./ToolView";
 import { AgentTreeBranch } from "./AgentTreeBranch";
@@ -30,15 +31,20 @@ import { AgentTreeBranch } from "./AgentTreeBranch";
 export function AgentToolGroupView({
   parts,
   autoOpen,
-  registryId,
+  userOpen: userOpenProp,
+  onUserOpenChange,
 }: {
   parts: AgentToolCallPart[];
   autoOpen: boolean;
-  registryId: string;
+  /** Lifted user toggle so remount on turn settle keeps the group open. */
+  userOpen?: boolean;
+  onUserOpenChange?: (open: boolean) => void;
 }) {
   const t = useTranslations("Agent.components.toolGroup");
   const locale = useLocale();
-  const [userOpen, setUserOpen] = useState<boolean | null>(null);
+  const markInspecting = useMarkAssistantProcessInspecting();
+  const [localUserOpen, setLocalUserOpen] = useState<boolean | null>(null);
+  const userOpen = userOpenProp !== undefined ? userOpenProp : localUserOpen;
   const running = toolGroupHasRunning(parts);
   const open = userOpen ?? autoOpen;
   const shimmer = autoOpen || running;
@@ -62,7 +68,14 @@ export function AgentToolGroupView({
   return (
     <Collapsible
       open={open}
-      onOpenChange={(next) => setUserOpen(next)}
+      onOpenChange={(next) => {
+        if (onUserOpenChange) {
+          onUserOpenChange(next);
+        } else {
+          setLocalUserOpen(next);
+        }
+        if (next) markInspecting();
+      }}
       className="min-w-0"
     >
       <CollapsibleTrigger
@@ -102,7 +115,7 @@ export function AgentToolGroupView({
                   isLast={index === visibleParts.length - 1}
                   animate={autoOpen}
                 >
-                  <ToolView part={part} registryId={registryId} surface="plain" />
+                  <ToolView part={part} surface="plain" />
                 </AgentTreeBranch>
               );
             })}

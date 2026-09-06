@@ -6,32 +6,24 @@ import {
   AcpTerminalContent,
 } from "@workspace/ui";
 import type { AgentToolCallPart } from "@/features/agent/lib/agent-tool-kind";
-import { getTerminalCommandString, getToolKindIcon } from "../lib/chat-helpers";
-import { isBackgroundToolCall, isGenericToolLabel } from "../lib/agent-tool-kind";
-import {
-  extractOutputText,
-  unwrapVendorToolEnvelope,
-} from "../lib/tool-results/parse-tool-result";
+import { getToolKindIcon } from "../lib/chat-helpers";
+import { isBackgroundToolCall } from "../lib/agent/background-command";
+import { isGenericToolLabel } from "../lib/agent-tool-kind";
 import { AgentToolCard, type AgentToolSurface } from "./tool-results/AgentToolCard";
 import { AgentToolEmptyBody } from "./tool-results/AgentToolBodies";
-import { AgentCommandLine } from "./AgentCommandLine";
 import { cn } from "@/shared/lib/utils";
 
-function terminalCommand(rawInput: unknown, rawOutput: unknown): string {
-  return (
-    getTerminalCommandString(rawInput)
-    || getTerminalCommandString(rawOutput)
-    || getTerminalCommandString(unwrapVendorToolEnvelope(rawOutput)?.payload)
-    || ""
-  );
-}
-
-function terminalOutput(rawOutput: unknown): string {
-  return (
-    extractOutputText(rawOutput)
-    ?? extractOutputText(unwrapVendorToolEnvelope(rawOutput)?.payload)
-    ?? ""
-  );
+function executeFields(part: AgentToolCallPart): { command: string; output: string; cwd?: string | null } {
+  const command = part.params?.type === "execute" ? part.params.command : "";
+  const cwd = part.params?.type === "execute" ? part.params.cwd : null;
+  const output = part.result?.type === "execute"
+    ? part.result.output
+    : part.result?.type === "text"
+      ? part.result.text
+      : part.result?.type === "error"
+        ? part.result.message
+        : "";
+  return { command, output, cwd };
 }
 
 function collapsedCommand(command: string): string {
@@ -46,13 +38,12 @@ export function TerminalBlock({
   surface?: AgentToolSurface;
 }) {
   const t = useTranslations("Agent.components");
-  const commandStr = terminalCommand(part.input, part.output)
-    || (part.title && !isGenericToolLabel(part.title) ? part.title : "");
-  const output = terminalOutput(part.output);
+  const { command, output } = executeFields(part);
+  const commandStr = command || (part.title && !isGenericToolLabel(part.title) ? part.title : "");
   const status = part.status ?? undefined;
   const running = (status ?? "").toLowerCase() === "running";
   const background = isBackgroundToolCall(part);
-  const failed = (status ?? "").toLowerCase() === "failed";
+  const failed = (status ?? "").toLowerCase() === "failed" || part.result?.type === "error";
   const title = commandStr
     ? `${t("terminalBlock.title")}: ${collapsedCommand(commandStr)}`
     : t("terminalBlock.title");
@@ -69,30 +60,21 @@ export function TerminalBlock({
       status={status}
       shimmer={running && !background}
     >
-      {commandStr || output ? (
+      {output ? (
         <div className="max-h-96 overflow-y-auto">
-          {commandStr ? (
-            <AgentCommandLine
-              command={commandStr}
-              className={cn("px-3 pt-2.5", !output && "pb-2.5")}
+          <AcpTerminal
+            output={output}
+            isStreaming={running}
+            autoScroll={running}
+            className="rounded-none border-0 bg-transparent text-inherit shadow-none"
+          >
+            <AcpTerminalContent
+              className={cn(
+                "max-h-none overflow-visible p-0 px-3 py-2.5 text-[13px] leading-5",
+                failed ? "text-destructive" : "text-muted-foreground",
+              )}
             />
-          ) : null}
-          {output ? (
-            <AcpTerminal
-              output={output}
-              isStreaming={running}
-              autoScroll={running}
-              className="rounded-none border-0 bg-transparent text-inherit shadow-none"
-            >
-              <AcpTerminalContent
-                className={cn(
-                  "max-h-none overflow-visible p-0 px-3 pb-2.5 pt-1 text-[13px] leading-5",
-                  failed ? "text-destructive" : "text-muted-foreground",
-                  !commandStr && "pt-2.5",
-                )}
-              />
-            </AcpTerminal>
-          ) : null}
+          </AcpTerminal>
         </div>
       ) : (
         <AgentToolEmptyBody status={status} />

@@ -52,10 +52,10 @@ mod tests {
     }
 
     #[test]
-    fn s20_catalog_engine_uses_temp_acp_probe() {
+    fn s20_options_probe_uses_temp_acp_probe() {
         let router = include_str!("router/mod.rs");
-        assert!(router.contains("StdioAcpCatalogProbe"));
-        assert!(router.contains("CatalogEngine::with_acp_probe"));
-        assert!(router.contains("catalog_probe_dir"));
+        assert!(router.contains("StdioAcpOptionsProbe"));
+        assert!(router.contains("OptionsProbe::with_acp_probe"));
+        assert!(router.contains("options_probe_dir"));
     }
 }

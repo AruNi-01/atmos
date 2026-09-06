@@ -54,8 +54,10 @@ type AgentAttentionStore = {
   clearMatchingSessionIds: (ids: readonly string[]) => void;
   /**
    * Record which pane is focused. `ack: "immediate"` (default) is a user click
-   * and drops the latch now. `ack: "deferred"` is auto-focus from a jump and
-   * keeps the ring for {@link ATTENTION_AUTO_CLEAR_MS}.
+   * and drops task-complete latches now. Pending `permission_request` latches
+   * stay until the agent resolves / cancels / ends the turn. `ack: "deferred"`
+   * is auto-focus from a jump and keeps task-complete rings for
+   * {@link ATTENTION_AUTO_CLEAR_MS}.
    */
   notifyPaneFocused: (
     stablePaneId: string | null,
@@ -168,21 +170,40 @@ function matchingAttentionKeys(stablePaneId: string): string[] {
   return keys;
 }
 
+/**
+ * Focus / dwell ack only clears "seen it" completions. Pending permission stays
+ * latched until the agent resolves / cancels / ends the turn (server clear),
+ * so the header yellow bell keeps counting Need permission.
+ */
+function acknowledgeableAttentionKeys(stablePaneId: string): string[] {
+  return matchingAttentionKeys(stablePaneId).filter((id) => {
+    const pane = useAgentAttentionStore.getState().panes.get(id);
+    return pane?.reason !== "permission_request";
+  });
+}
+
 function scheduleAutoClear(stablePaneId: string, restart = true) {
   if (!restart && autoClearTimers.has(stablePaneId)) return;
   clearAutoClearTimer(stablePaneId);
   const timer = setTimeout(() => {
     autoClearTimers.delete(stablePaneId);
-    const state = useAgentAttentionStore.getState();
+    const store = useAgentAttentionStore.getState();
     // Only auto-clear if the user is still focused on this pane.
-    if (state.focusedStablePaneId !== stablePaneId) return;
-    const toClear = matchingAttentionKeys(stablePaneId);
+    if (store.focusedStablePaneId !== stablePaneId) return;
+    const toClear = acknowledgeableAttentionKeys(stablePaneId);
     if (toClear.length === 0) return;
     for (const id of toClear) {
-      state.clearPane(id);
+      store.clearPane(id);
     }
-    // Persist so refresh does not revive a latch the user already saw.
-    clearAttentionOnServer(stablePaneId);
+    // Do not wipe a remaining permission latch from API memory.
+    const stillPendingPermission = matchingAttentionKeys(stablePaneId).some(
+      (id) =>
+        useAgentAttentionStore.getState().panes.get(id)?.reason ===
+        "permission_request",
+    );
+    if (!stillPendingPermission) {
+      clearAttentionOnServer(stablePaneId);
+    }
     // User already has the pane open — drop idle agent status with the latch.
     notifyPaneAcknowledged(stablePaneId);
   }, ATTENTION_AUTO_CLEAR_MS);
@@ -225,10 +246,14 @@ export const useAgentAttentionStore = create<AgentAttentionStore>((set, get) => 
       return { panes, revision: state.revision + 1 };
     });
 
-    // Already focused on this panel → clear the bell after a short delay.
+    // Already focused on this panel → clear task-complete after a short delay.
+    // Pending permission stays latched (header yellow bell) until resolved.
     // Grouping hold (started in clearPane) keeps By Agent Status in Need
     // attention for a minute so the row does not jump to Done.
-    if (get().focusedStablePaneId === stablePaneId) {
+    if (
+      get().focusedStablePaneId === stablePaneId &&
+      get().panes.get(stablePaneId)?.reason !== "permission_request"
+    ) {
       scheduleAutoClear(stablePaneId);
     }
   },
@@ -302,7 +327,8 @@ export const useAgentAttentionStore = create<AgentAttentionStore>((set, get) => 
     );
     if (!stablePaneId) return;
     // Exact pane key and any latch stored under a hook session_id alias.
-    const toClear = matchingAttentionKeys(stablePaneId);
+    // Permission latches are excluded — focus alone is not "answered".
+    const toClear = acknowledgeableAttentionKeys(stablePaneId);
     if (ack === "deferred") {
       // Jump / URL / restore auto-focus: keep the ring, then clear if still
       // focused. A later user click uses the immediate path below.
@@ -318,9 +344,14 @@ export const useAgentAttentionStore = create<AgentAttentionStore>((set, get) => 
       get().clearPane(id);
     }
     // Persist acknowledge to API memory so a refresh does not revive the latch.
-    // Always POST for the focused pane — backend is idempotent when empty.
+    // Skip when a permission latch remains for this pane.
     if (hadAttention) {
-      clearAttentionOnServer(stablePaneId);
+      const stillPendingPermission = matchingAttentionKeys(stablePaneId).some(
+        (id) => get().panes.get(id)?.reason === "permission_request",
+      );
+      if (!stillPendingPermission) {
+        clearAttentionOnServer(stablePaneId);
+      }
     }
     // User click acknowledges: drop sticky attention (above) and leftover
     // idle hook sessions so we do not wait for the idle sweeper.

@@ -3,7 +3,8 @@
 import React from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { Button, cn } from "@workspace/ui";
-import { ArrowRight, Github, Loader2, Rocket } from "lucide-react";
+import { ArrowRight, Loader2, Rocket } from "lucide-react";
+import { Github } from "@workspace/ui/components/icons/lucide-brand-icons";
 import { format } from "date-fns";
 import { enUS, zhCN } from "date-fns/locale";
 import type {

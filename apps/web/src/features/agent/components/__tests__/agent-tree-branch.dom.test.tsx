@@ -73,6 +73,37 @@ describe("AgentTreeBranch", () => {
     expect(container.querySelector("[data-tree-elbow]")).toBe(elbow);
     expect(container.querySelector("[data-tree-trunk]")).not.toBeNull();
   });
+
+  it("cleanup after unmount does not throw when commitStyles cannot target the elbow", () => {
+    const cancelCalls: string[] = [];
+    const stub = {
+      animate() {
+        return {
+          playState: "running" as const,
+          commitStyles() {
+            throw new DOMException(
+              "Failed to execute 'commitStyles' on 'Animation': Target element is not rendered",
+              "InvalidStateError",
+            );
+          },
+          cancel() {
+            cancelCalls.push("cancel");
+          },
+        };
+      },
+    };
+    (window.HTMLElement.prototype as unknown as { animate: typeof stub.animate }).animate = stub.animate;
+    (window.Element.prototype as unknown as { animate: typeof stub.animate }).animate = stub.animate;
+
+    renderBranch({ isFirst: true, isLast: true, animate: true });
+    expect(() => {
+      act(() => {
+        root?.unmount();
+        root = null;
+      });
+    }).not.toThrow();
+    expect(cancelCalls.length).toBeGreaterThan(0);
+  });
 });
 
 function renderBranch(props: { isFirst: boolean; isLast: boolean; animate: boolean }) {

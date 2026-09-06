@@ -1,6 +1,6 @@
 import { wsRequest } from "@/api/ws/request";
 import type {
-  AgentModelCatalog,
+  AgentOptionsSnapshot,
   AgentChatOrigin,
   AgentChatIndexEntry,
   AgentChatMeta,
@@ -17,7 +17,7 @@ import type {
 } from "@atmos/api-types/ws/dto/agent-chat";
 
 export type {
-  AgentModelCatalog,
+  AgentOptionsSnapshot,
   AgentChatOrigin,
   AgentChatIndexEntry,
   AgentChatMeta,
@@ -43,6 +43,8 @@ export const agentChatApi = {
     model?: string | null;
     thinking?: string | null;
     mode?: string | null;
+    permission_mode?: string | null;
+    fast?: string | null;
     title?: string | null;
     origin?: AgentChatOrigin | null;
   }) => wsRequest("agent_chat_create", input),
@@ -65,6 +67,8 @@ export const agentChatApi = {
       model?: string | null;
       thinking?: string | null;
       mode?: string | null;
+      permission_mode?: string | null;
+      fast?: string | null;
     },
   ) =>
     wsRequest("agent_chat_configure", {
@@ -73,6 +77,8 @@ export const agentChatApi = {
       model: patch.model ?? null,
       thinking: patch.thinking ?? null,
       mode: patch.mode ?? null,
+      permission_mode: patch.permission_mode ?? null,
+      fast: patch.fast ?? null,
     }),
   delete: (chat_id: string) =>
     wsRequest("agent_chat_delete", { chat_id }),
@@ -102,6 +108,12 @@ export const agentChatApi = {
       request_id,
       option_id,
     }),
+  sessionOpRespond: (chat_id: string, request_id: string, option_id: string) =>
+    wsRequest("agent_chat_session_op_respond", {
+      chat_id,
+      request_id,
+      option_id,
+    }),
   queueUpdate: (
     chat_id: string,
     item_id: string,
@@ -117,11 +129,10 @@ export const agentChatApi = {
     wsRequest("agent_chat_queue_reorder", { chat_id, item_ids }),
   queueDelete: (chat_id: string, item_id: string) =>
     wsRequest("agent_chat_queue_delete", { chat_id, item_id }),
-  catalogGet: (agent_id: string, refresh?: boolean) =>
-    wsRequest("agent_model_catalog_get", { agent_id, refresh: refresh ?? null }),
+  optionsGet: (agent_id: string, refresh?: boolean) =>
+    wsRequest("agent_options_get", { agent_id, refresh: refresh ?? null }),
   prefsGet: () => wsRequest("agent_chat_prefs_get"),
   prefsSet: (input: AgentChatPrefsSetRequest) =>
     wsRequest("agent_chat_prefs_set", input),
 };
 
-export type ModelCatalog = AgentModelCatalog;

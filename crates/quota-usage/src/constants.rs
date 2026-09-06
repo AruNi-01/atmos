@@ -9,6 +9,10 @@ pub(crate) const CURSOR_USAGE_SERVICE_URL: &str =
 pub(crate) const CURSOR_PLAN_INFO_URL: &str =
     "https://api2.cursor.sh/aiserver.v1.DashboardService/GetPlanInfo";
 pub(crate) const CURSOR_USAGE_SUMMARY_URL: &str = "https://cursor.com/api/usage-summary";
+pub(crate) const CURSOR_STRIPE_URL: &str = "https://cursor.com/api/auth/stripe";
+/// Grok Bot weekly allowance (same RPC the spending dashboard uses).
+pub(crate) const CURSOR_SAND_USAGE_URL: &str =
+    "https://cursor.com/api/dashboard/get-sand-usage-status";
 pub(crate) const OPENCODE_LOCAL_DB_PATH: &str = "~/.local/share/opencode/opencode.db";
 pub(crate) const OPENCODE_LOCAL_AUTH_PATH: &str = "~/.local/share/opencode/auth.json";
 pub(crate) const OPENCODE_SESSION_LIMIT_USD: f64 = 12.0;
@@ -27,6 +31,10 @@ pub(crate) const ZED_SUBSCRIPTION_URL: &str =
 /// Grok Build / SuperGrok subscription credits (same surface the Grok CLI uses).
 pub(crate) const GROK_BILLING_CREDITS_URL: &str =
     "https://cli-chat-proxy.grok.com/v1/billing?format=credits";
+/// DeepSeek prepaid wallet (not a billing-period quota).
+pub(crate) const DEEPSEEK_BALANCE_URL: &str = "https://api.deepseek.com/user/balance";
+pub(crate) const DEEPSEEK_HARNESS_ID: &str = "deepseek-harness";
+pub(crate) const DEEPSEEK_API_KEY_ENV: &str = "DEEPSEEK_API_KEY";
 pub(crate) const COMMANDCODE_API_URL: &str = "https://api.commandcode.ai";
 pub(crate) const COMMANDCODE_CREDITS_PATH: &str = "/internal/billing/credits";
 pub(crate) const COMMANDCODE_SUBSCRIPTIONS_PATH: &str = "/internal/billing/subscriptions";

@@ -1,6 +1,7 @@
 pub mod acp_factory;
 mod apply_event;
-pub mod catalog;
+pub mod new_chat_configs;
+pub mod options;
 pub mod prefs;
 mod queue;
 pub mod service;
@@ -10,13 +11,18 @@ pub mod types;
 #[cfg(test)]
 mod tests;
 
-pub use acp_factory::{AgentServiceCatalogResolver, DefaultAgentProviderFactory};
-pub use catalog::{
-    builtin_catalog_specs, catalog_spec_for, parse_followup_policy, terminal_catalog_from,
-    CatalogPrefetchWorker, CatalogUpdated, FollowupPolicy, PREFETCH_POLL,
+pub use acp_factory::{AgentServiceOptionsResolver, DefaultAgentProviderFactory};
+pub use new_chat_configs::{
+    load_new_chat_configs, new_chat_configs_path, snapshot_from_create_fields,
+    upsert_agent_new_chat_config, NewChatConfigsFile,
+};
+pub use options::{
+    builtin_options_probe_plans, options_probe_plan_for, parse_followup_policy,
+    terminal_options_from, FollowupPolicy, OptionsPrefetchWorker, OptionsUpdated, PREFETCH_POLL,
 };
 pub use prefs::{
-    agent_chat_prefs_path, load_agent_chat_prefs, save_agent_chat_prefs, AgentChatPrefs,
+    agent_chat_prefs_path, load_agent_chat_prefs, save_agent_chat_prefs, save_last_registry_id,
+    AgentChatPrefs,
 };
 pub use service::AgentChatService;
 pub use store::AgentChatStore;
@@ -44,6 +50,6 @@ pub fn default_chats_dir() -> std::path::PathBuf {
     default_agent_data_dir().join("chats")
 }
 
-pub fn catalog_probe_dir() -> std::path::PathBuf {
-    default_agent_data_dir().join("catalog-probe")
+pub fn options_probe_dir() -> std::path::PathBuf {
+    default_agent_data_dir().join("options-probe")
 }

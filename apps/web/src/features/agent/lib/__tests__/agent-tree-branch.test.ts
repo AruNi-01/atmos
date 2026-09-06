@@ -57,7 +57,7 @@ describe("agent tree wiring", () => {
     expect(group).toContain("sumToolGroupDiffStats");
   });
 
-  it("fades tool titles per character after the elbow draws", () => {
+  it("keeps tool titles static when idle; shimmer only while running", () => {
     const card = readFileSync(
       join(import.meta.dir, "../../components/tool-results/AgentToolCard.tsx"),
       "utf8",
@@ -70,14 +70,12 @@ describe("agent tree wiring", () => {
       join(import.meta.dir, "../../components/AssistantMessageView.tsx"),
       "utf8",
     );
-    expect(card).toContain("TextEffect");
-    expect(card).toContain('per="char"');
-    expect(card).toContain('preset="fade"');
+    expect(card).toContain("TextShimmer");
+    expect(card).toContain("showShimmer");
+    expect(card).not.toContain("TextEffect");
+    expect(card).not.toContain("AgentTreeTitle");
+    expect(card).not.toContain("shouldPlayTreeTitleEnter");
     expect(card).toContain("useAgentTreeReveal");
-    expect(card).toContain("treeTitleRevealMs");
-    expect(card).toContain("shouldPlayTreeTitleEnter");
-    expect(card).toContain("seenTitle");
-    expect(card).not.toContain("onAnimationComplete");
     expect(reveal).not.toContain("if (done) return <>{children}</>");
     expect(view).not.toContain("<AgentStreamReveal key={key} enabled={streaming}>");
   });

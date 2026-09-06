@@ -30,6 +30,7 @@ describe("deriveAgentActivity", () => {
         name: "Read",
         kind: "read",
         status: "running",
+        params: { type: "read", path: "a.ts" },
       }], { streaming: true }),
     ], false)).toMatchObject({ busy: true, kind: "working" });
     expect(deriveAgentActivity([
@@ -54,6 +55,33 @@ describe("deriveAgentActivity", () => {
     ], false)).toMatchObject({ busy: true, kind: "working", label: "Resuming session" });
   });
 
+  it("stays generating after session create completes while the turn is still open", () => {
+    expect(deriveAgentActivity([
+      { id: "u1", role: "user", parts: [{ type: "text", text: "hi" }] },
+      assistant([{
+        type: "session_lifecycle",
+        action: "create",
+        status: "completed",
+        duration_ms: 800,
+      }], { streaming: false }),
+    ], true)).toMatchObject({ busy: true, kind: "working", label: "Generating" });
+
+    expect(deriveAgentActivity([
+      assistant([{
+        type: "session_lifecycle",
+        action: "create",
+        status: "completed",
+        duration_ms: 800,
+      }], { streaming: false }),
+    ], false)).toEqual({ busy: false });
+  });
+
+  it("keeps generating for any open turn even when streaming was cleared mid-content", () => {
+    expect(deriveAgentActivity([
+      assistant([{ type: "text", text: "partial" }], { streaming: false }),
+    ], true)).toMatchObject({ busy: true, kind: "working", label: "Generating" });
+  });
+
   it("lets a running tool take precedence over earlier thought", () => {
     const activity = deriveAgentActivity([
       assistant([
@@ -64,6 +92,7 @@ describe("deriveAgentActivity", () => {
           name: "Read",
           kind: "read",
           status: "running",
+          params: { type: "read", path: "a.ts" },
         },
       ], { streaming: true }),
     ], false);
@@ -80,6 +109,7 @@ describe("deriveAgentActivity", () => {
           name: "Read",
           kind: "read",
           status: "completed",
+          params: { type: "read", path: "a.ts" },
         },
         {
           type: "tool_call",
@@ -87,6 +117,7 @@ describe("deriveAgentActivity", () => {
           name: "Read",
           kind: "read",
           status: "failed",
+          params: { type: "read", path: "b.ts" },
         },
         {
           type: "tool_call",
@@ -94,6 +125,7 @@ describe("deriveAgentActivity", () => {
           name: "Read",
           kind: "read",
           status: "completed",
+          params: { type: "read", path: "c.ts" },
         },
       ], { streaming: true, thinking_ms: 6000 }),
     ], false);
@@ -110,6 +142,7 @@ describe("deriveAgentActivity", () => {
           name: "Grep",
           kind: "search",
           status: "InProgress",
+          params: { type: "search", query: "repo" },
         },
       ], { streaming: true }),
     ], false);
@@ -126,6 +159,7 @@ describe("deriveAgentActivity", () => {
           name: "Read",
           kind: "read",
           status: "completed",
+          params: { type: "read", path: "a.ts" },
         },
         { type: "thinking", text: "now synthesize" },
       ], { streaming: true }),
@@ -161,13 +195,25 @@ describe("deriveAgentActivity", () => {
     }), "chat-1");
     messages = foldMessagesFromEvent(messages, event(4, {
       type: "tool_call_started",
-      tool_call: { tool_call_id: "t1", name: "Read", status: "running" },
+      tool_call: {
+        tool_call_id: "t1",
+        name: "Read",
+        kind: "read",
+        status: "running",
+        params: { type: "read", path: "a.ts" },
+      },
     }), "chat-1");
     expect(deriveAgentActivity(messages, false)).toMatchObject({ kind: "working", label: "Reading" });
 
     messages = foldMessagesFromEvent(messages, event(5, {
       type: "tool_call_completed",
-      tool_call: { tool_call_id: "t1", name: "Read", status: "completed" },
+      tool_call: {
+        tool_call_id: "t1",
+        name: "Read",
+        kind: "read",
+        status: "completed",
+        params: { type: "read", path: "a.ts" },
+      },
     }), "chat-1");
     expect(deriveAgentActivity(messages, false)).toMatchObject({ kind: "working", label: "Reading" });
 
@@ -175,10 +221,15 @@ describe("deriveAgentActivity", () => {
       type: "tool_call_started",
       tool_call: {
         tool_call_id: "t2",
-        name: "Tool",
-        title: "[bg] ls -la ~/.grok 2>/dev/null | head; find ~/.atmos -name '*transcript*'",
+        name: "Execute",
+        title: "ls -la ~/.grok",
+        kind: "execute",
         status: "running",
-        input: { type: "Bash", command: "ls -la ~/.grok 2>/dev/null | head" },
+        params: {
+          type: "execute",
+          command: "ls -la ~/.grok 2>/dev/null | head",
+          background: true,
+        },
       },
     }), "chat-1");
     const afterBackground = deriveAgentActivity(messages, false);
@@ -195,7 +246,7 @@ describe("deriveAgentActivity", () => {
         kind: "execute",
         status: "running",
         title: "Execute: gh pr view 275",
-        input: { command: "gh pr view 275" },
+        params: { type: "execute", command: "gh pr view 275", background: false },
       }], { streaming: true }),
     ], false);
     expect(foreground).toMatchObject({ busy: true, kind: "working", label: "Executing" });
@@ -209,22 +260,36 @@ describe("deriveAgentActivity", () => {
         kind: "other",
         status: "running",
         title: "SomeVendorTool",
+        params: { type: "other", value: null },
       }], { streaming: true }),
     ], false)).toMatchObject({ busy: true, kind: "working", label: "Working" });
   });
 
-  it("ignores grok background commands so they do not keep the turn busy", () => {
+  it("labels web_search as searching", () => {
+    expect(deriveAgentActivity([
+      assistant([{
+        type: "tool_call",
+        tool_call_id: "t-web",
+        name: "WebSearch",
+        kind: "web_search",
+        status: "running",
+        params: { type: "web_search", query: "atmos" },
+      }], { streaming: true }),
+    ], false)).toMatchObject({ busy: true, kind: "working", label: "Searching" });
+  });
+
+  it("ignores background execute so they do not keep the turn busy", () => {
     expect(deriveAgentActivity([
       assistant([
         { type: "thinking", text: "launch a watcher" },
         {
           type: "tool_call",
           tool_call_id: "t-bg",
-          name: "Tool",
+          name: "Execute",
           kind: "execute",
           status: "running",
-          title: "[bg] i=1; while true; do sleep 1; done",
-          input: { command: "i=1; while true; do sleep 1; done" },
+          title: "sleep loop",
+          params: { type: "execute", command: "i=1; while true; do sleep 1; done", background: true },
         },
         { type: "text", text: "it is running in the background" },
       ], { streaming: false }),
@@ -236,11 +301,11 @@ describe("deriveAgentActivity", () => {
         {
           type: "tool_call",
           tool_call_id: "t-bg",
-          name: "Tool",
+          name: "Execute",
           kind: "execute",
           status: "running",
-          title: "[bg] sleep 60",
-          input: { command: "sleep 60" },
+          title: "sleep 60",
+          params: { type: "execute", command: "sleep 60", background: true },
         },
       ], { streaming: true }),
     ], false)).toMatchObject({ busy: true, kind: "thinking", label: "Thinking" });
@@ -249,11 +314,11 @@ describe("deriveAgentActivity", () => {
       assistant([{
         type: "tool_call",
         tool_call_id: "t-bg",
-        name: "Tool",
+        name: "Execute",
         kind: "execute",
         status: "running",
-        title: "[bg] sleep 60",
-        input: { command: "sleep 60" },
+        title: "sleep 60",
+        params: { type: "execute", command: "sleep 60", background: true },
       }], { streaming: false }),
     ]).map((part) => part.tool_call_id)).toEqual(["t-bg"]);
 
@@ -264,8 +329,8 @@ describe("deriveAgentActivity", () => {
         name: "Execute",
         kind: "execute",
         status: "running",
-        title: "Execute `count`",
-        input: { variant: "Bash", command: "count", is_background: true },
+        title: "count",
+        params: { type: "execute", command: "count", background: true },
       }], { streaming: false }),
     ], false)).toEqual({ busy: false });
 
@@ -276,9 +341,9 @@ describe("deriveAgentActivity", () => {
         name: "Execute",
         kind: "execute",
         status: "completed",
-        title: "[bg] count (task-1)",
-        input: { variant: "Bash", command: "count", is_background: true },
-        output: { type: "Bash", command: "count", output: "DONE\n" },
+        title: "count",
+        params: { type: "execute", command: "count", background: true },
+        result: { type: "execute", output: "DONE\n", exit_code: 0 },
       }], { streaming: false }),
     ])).toEqual([]);
   });

@@ -9,6 +9,7 @@ import type { AgentFixPromptSource } from "@/features/agent-fix/types";
 mock.module("next-intl", () => ({
   createTranslator: () => (key: string) => key,
   useTranslations: () => (key: string) => key,
+  useLocale: () => "en",
 }));
 
 mock.module("@workspace/ui", () => ({
@@ -57,6 +58,13 @@ mock.module("@workspace/ui", () => ({
   Textarea: (props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) => (
     <textarea {...props} />
   ),
+  Tooltip: ({ children }: { children?: React.ReactNode }) => <>{children}</>,
+  TooltipContent: ({ children }: { children?: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
+  TooltipTrigger: ({ children }: { children?: React.ReactNode }) => (
+    <>{children}</>
+  ),
   cn: (...values: Array<string | false | null | undefined>) =>
     values.filter(Boolean).join(" "),
   getFileIconProps: ({
@@ -70,10 +78,16 @@ mock.module("@workspace/ui", () => ({
     className,
     src: "/icons/file.svg",
   }),
+  toastManager: {
+    add: () => {},
+  },
 }));
 
 mock.module("motion/react", () => ({
   AnimatePresence: ({ children }: { children?: React.ReactNode }) => <>{children}</>,
+  useMotionValue: (initial: number) => ({ get: () => initial, set: () => {} }),
+  useSpring: (value: unknown) => value,
+  useTransform: () => 0,
   motion: {
     div: ({
       animate,
@@ -109,6 +123,29 @@ mock.module("@/features/diff/lib/diff-view-constants", () => ({
   ATMOS_DIFF_THEME: {},
   buildSharedDiffViewOptions: () => ({}),
   getAtmosDiffThemeType: () => "dark",
+}));
+
+mock.module("@/features/diff/lib/diff-code-view-shared", () => ({
+  diffSideCacheKey: (name: string, contents: string) => `${name}:${contents.length}`,
+}));
+
+mock.module("@/features/diff/components/DiscussionDiffBlock", () => ({
+  DiscussionDiffBlock: ({
+    headerTrailing,
+    path,
+  }: {
+    children?: React.ReactNode;
+    headerTrailing?: React.ReactNode;
+    path: string;
+  }) => (
+    <div data-discussion-diff-block="">
+      <div>
+        <span>{path}</span>
+        {headerTrailing}
+      </div>
+      {/* Collapsed by default — matches DiscussionDiffBlock defaultExpanded=false */}
+    </div>
+  ),
 }));
 
 mock.module("@/shared/components/markdown/MarkdownRenderer", () => ({
