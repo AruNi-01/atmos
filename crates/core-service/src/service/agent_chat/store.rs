@@ -77,6 +77,8 @@ impl AgentChatStore {
                     model: req.model,
                     thinking: req.thinking,
                     mode: req.mode,
+                    permission_mode: req.permission_mode,
+                    fast: req.fast,
                     ..AgentCurrentConfig::default()
                 },
             ),
@@ -120,6 +122,8 @@ impl AgentChatStore {
             model: parent.descriptor.current_config.model.clone(),
             thinking: parent.descriptor.current_config.thinking.clone(),
             mode: parent.descriptor.current_config.mode.clone(),
+            permission_mode: parent.descriptor.current_config.permission_mode.clone(),
+            fast: parent.descriptor.current_config.fast.clone(),
             title: parent.title.clone(),
         })?;
         let src = self.dir_for(parent_id).join("transcript.jsonl");
@@ -836,11 +840,7 @@ fn merge_tool_call_part(existing: &MessagePart, incoming: MessagePart) -> Messag
         title: title.or_else(|| existing_title.clone()),
         kind: merge_tool_kind(*existing_kind, kind),
         status,
-        params: if params_omitted(&params) {
-            existing_params.clone()
-        } else {
-            params
-        },
+        params: merge_tool_params(existing_params, params),
         result: result.or_else(|| existing_result.clone()),
     }
 }
@@ -863,7 +863,64 @@ fn params_omitted(params: &AgentToolParams) -> bool {
         AgentToolParams::Other { value } => {
             value.is_null() || value.as_object().is_some_and(|object| object.is_empty())
         }
+        AgentToolParams::PlanDocument {
+            name,
+            overview,
+            plan,
+            todos,
+            is_project,
+            phases,
+        } => {
+            name.is_none()
+                && overview.is_none()
+                && plan.trim().is_empty()
+                && todos.is_empty()
+                && is_project.is_none()
+                && phases.is_none()
+        }
         _ => false,
+    }
+}
+
+fn merge_tool_params(existing: &AgentToolParams, incoming: AgentToolParams) -> AgentToolParams {
+    if params_omitted(&incoming) {
+        return existing.clone();
+    }
+    match (existing, incoming) {
+        (
+            AgentToolParams::PlanDocument {
+                name: existing_name,
+                overview: existing_overview,
+                plan: existing_plan,
+                todos: existing_todos,
+                is_project: existing_is_project,
+                phases: existing_phases,
+            },
+            AgentToolParams::PlanDocument {
+                name,
+                overview,
+                plan,
+                todos,
+                is_project,
+                phases,
+            },
+        ) => AgentToolParams::PlanDocument {
+            name: name.or_else(|| existing_name.clone()),
+            overview: overview.or_else(|| existing_overview.clone()),
+            plan: if plan.trim().is_empty() {
+                existing_plan.clone()
+            } else {
+                plan
+            },
+            todos: if todos.is_empty() {
+                existing_todos.clone()
+            } else {
+                todos
+            },
+            is_project: is_project.or(*existing_is_project),
+            phases: phases.or_else(|| existing_phases.clone()),
+        },
+        (_, incoming) => incoming,
     }
 }
 
@@ -1192,6 +1249,8 @@ mod tests {
                 model: Some("opus".into()),
                 thinking: None,
                 mode: None,
+                permission_mode: None,
+                fast: None,
                 title: None,
             })
             .unwrap()
@@ -2403,6 +2462,8 @@ mod tests {
                 model: None,
                 thinking: None,
                 mode: None,
+                permission_mode: None,
+                fast: None,
                 title: Some("Workspace chat".into()),
             })
             .unwrap();
@@ -2440,6 +2501,8 @@ mod tests {
                 model: None,
                 thinking: None,
                 mode: None,
+                permission_mode: None,
+                fast: None,
                 title: Some("Quick chat".into()),
             })
             .unwrap();

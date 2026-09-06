@@ -1,6 +1,7 @@
 //! ACP Client implementation - implements the Client trait to communicate with Agent via stdio.
 
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
 use agent_client_protocol::schema::v1 as schema;
@@ -483,6 +484,17 @@ pub(crate) fn session_usage_is_empty(usage: &AgentUsage) -> bool {
     usage.used.is_none() && usage.size.is_none() && usage.cost.is_none()
 }
 
+/// Grok (and some ACP hosts) put live context occupancy on `session/update`
+/// `_meta.totalTokens` instead of emitting `usage_update`.
+fn context_tokens_from_session_notification(args: &schema::SessionNotification) -> Option<u64> {
+    let value = serde_json::to_value(args).ok()?;
+    crate::map::context_tokens_from_acp_meta(value.get("_meta")).or_else(|| {
+        value
+            .get("update")
+            .and_then(|update| crate::map::context_tokens_from_acp_meta(update.get("_meta")))
+    })
+}
+
 /// Atmos ACP Client - implements the Client trait, routes tool calls to handler
 pub struct AtmosAcpClient {
     handler: Arc<dyn AcpToolHandler>,
@@ -490,6 +502,8 @@ pub struct AtmosAcpClient {
     permission_tx: mpsc::UnboundedSender<(PermissionRequest, oneshot::Sender<String>)>,
     event_tx: mpsc::UnboundedSender<AcpSessionEvent>,
     ext_notify_tx: broadcast::Sender<(String, serde_json::Value)>,
+    /// Last `_meta.totalTokens` emitted as `AcpSessionEvent::Usage` (dedupe stream spam).
+    last_context_used: AtomicU64,
 }
 
 impl AtmosAcpClient {
@@ -506,7 +520,24 @@ impl AtmosAcpClient {
             permission_tx,
             event_tx,
             ext_notify_tx,
+            last_context_used: AtomicU64::new(0),
         }
+    }
+
+    fn emit_context_tokens_from_meta(&self, args: &schema::SessionNotification) {
+        let Some(used) = context_tokens_from_session_notification(args) else {
+            return;
+        };
+        let prev = self.last_context_used.swap(used, Ordering::Relaxed);
+        if prev == used {
+            return;
+        }
+        let usage = AgentUsage {
+            used: Some(used),
+            size: None,
+            cost: None,
+        };
+        let _ = self.event_tx.send(AcpSessionEvent::Usage(usage));
     }
 }
 
@@ -635,6 +666,7 @@ impl AtmosAcpClient {
             risk_level,
             options: options.clone(),
             questions,
+            plan_todos: Vec::new(),
         };
         let has_ask_questions = !request.questions.is_empty();
 
@@ -741,6 +773,7 @@ impl AtmosAcpClient {
             "session_notification",
             &args,
         );
+        self.emit_context_tokens_from_meta(&args);
         match args.update {
             schema::SessionUpdate::UserMessageChunk(schema::ContentChunk { content, .. }) => {
                 let text = match content {
@@ -943,10 +976,16 @@ impl AtmosAcpClient {
         Ok(())
     }
 
-    /// Agent → client extension request (`method` starts with `_`).
+    /// Agent → client extension request.
+    ///
+    /// Wire methods usually start with `_` (Grok `_x.ai/…`). Cursor also sends
+    /// `cursor/create_plan` **without** that prefix — `InboundExtMethod` must
+    /// match both, or ACP returns Method not found before this handler runs.
     ///
     /// Grok native Ask User is `_x.ai/ask_user_question` (not
     /// `session/request_permission`). Map it onto the same permission chrome.
+    /// Grok Plan approval is `_x.ai/exit_plan_mode` — must return a success
+    /// `{outcome}` (not Method not found), or the CLI treats it as disconnect.
     pub async fn ext_method(
         &self,
         method: &str,
@@ -955,6 +994,12 @@ impl AtmosAcpClient {
         let logical = method.strip_prefix('_').unwrap_or(method);
         if logical == "x.ai/ask_user_question" || logical == "x.ai/ask_user" {
             return self.ask_user_question_ext(params).await;
+        }
+        if logical == "x.ai/exit_plan_mode" || logical == "x.ai/exit_plan" {
+            return self.exit_plan_mode_ext(params).await;
+        }
+        if logical == "cursor/create_plan" || logical == "cursor/createPlan" {
+            return self.cursor_create_plan_ext(params).await;
         }
         Err(acp::Error::method_not_found())
     }
@@ -983,6 +1028,7 @@ impl AtmosAcpClient {
             risk_level: RiskLevel::Low,
             options: Vec::new(),
             questions: questions.clone(),
+            plan_todos: Vec::new(),
         };
 
         if self
@@ -1008,6 +1054,201 @@ impl AtmosAcpClient {
             session_id,
             "client_to_agent_acp",
             "ask_user_question_result",
+            &result,
+        );
+        Ok(result)
+    }
+
+    async fn exit_plan_mode_ext(
+        &self,
+        params: serde_json::Value,
+    ) -> acp::Result<serde_json::Value> {
+        let session_id = params
+            .get("sessionId")
+            .and_then(|value| value.as_str())
+            .unwrap_or("exit_plan");
+        let plan_markdown = crate::map::plan_markdown_from_input(&params).or_else(|| {
+            params
+                .get("planContent")
+                .and_then(|value| value.as_str())
+                .map(str::trim)
+                .filter(|text| !text.is_empty())
+                .map(str::to_string)
+        });
+        let plan_file_path = crate::map::plan_file_path_from_input(&params);
+        let description = plan_markdown
+            .as_deref()
+            .and_then(|plan| {
+                plan.lines().find_map(|line| {
+                    let trimmed = line.trim();
+                    trimmed
+                        .strip_prefix('#')
+                        .map(|title| title.trim().trim_start_matches('#').trim().to_string())
+                        .filter(|title| !title.is_empty())
+                })
+            })
+            .or(plan_file_path)
+            .unwrap_or_else(|| "Plan ready".into());
+
+        let (response_tx, response_rx) = oneshot::channel();
+        let request = PermissionRequest {
+            request_id: format!("exit_plan_{}", uuid::Uuid::new_v4().simple()),
+            tool: "ExitPlanMode".into(),
+            description,
+            content_markdown: plan_markdown,
+            risk_level: RiskLevel::High,
+            options: vec![
+                PermissionOption {
+                    option_id: "allow_once".into(),
+                    name: "Approve".into(),
+                    kind: "allow_once".into(),
+                },
+                PermissionOption {
+                    option_id: "reject_once".into(),
+                    name: "Keep planning".into(),
+                    kind: "reject_once".into(),
+                },
+                PermissionOption {
+                    option_id: "reject_always".into(),
+                    name: "Cancel plan".into(),
+                    kind: "reject_always".into(),
+                },
+            ],
+            questions: Vec::new(),
+            plan_todos: Vec::new(),
+        };
+
+        if self
+            .permission_tx
+            .send((request.clone(), response_tx))
+            .is_err()
+        {
+            return Err(acp::Error::internal_error());
+        }
+
+        if let Err(e) = self
+            .event_tx
+            .send(AcpSessionEvent::PermissionRequest(request))
+        {
+            warn!("Failed to forward exit_plan_mode request: {}", e);
+        }
+
+        // Dropped channel (cancel / disconnect) → abandoned so Grok leaves plan mode.
+        let selected = response_rx
+            .await
+            .unwrap_or_else(|_| "reject_always".to_string());
+        let result = crate::map::exit_plan_ext_response(&selected);
+        append_acp_log(
+            session_id,
+            "client_to_agent_acp",
+            "exit_plan_mode_result",
+            &result,
+        );
+        Ok(result)
+    }
+
+    /// Cursor ACP blocking `cursor/create_plan`.
+    ///
+    /// Assumption: this ExtMethod is Cursor's plan-approval gate (Approve / Keep planning),
+    /// same chrome as ExitPlanMode. Tool-call `createPlan` still maps to PlanDocument in the
+    /// transcript and must not fold into live PlanUpdated / PlanBlockView.
+    async fn cursor_create_plan_ext(
+        &self,
+        params: serde_json::Value,
+    ) -> acp::Result<serde_json::Value> {
+        let session_id = params
+            .get("sessionId")
+            .and_then(|value| value.as_str())
+            .unwrap_or("create_plan");
+        let plan_markdown = crate::map::plan_markdown_from_input(&params);
+        let plan_params = crate::map::plan_document_from_tool_input(Some(&params));
+        let plan_markdown = match (&plan_markdown, &plan_params) {
+            (plan, Some(crate::contract::AgentToolParams::PlanDocument { todos, .. }))
+                if !todos.is_empty() =>
+            {
+                Some(crate::map::plan_markdown_with_structured_todos(
+                    plan.as_deref().unwrap_or(""),
+                    todos,
+                ))
+            }
+            (plan, _) => plan.clone(),
+        };
+        let description = plan_params
+            .as_ref()
+            .and_then(|params| match params {
+                crate::contract::AgentToolParams::PlanDocument { name, overview, .. } => {
+                    name.clone().or_else(|| overview.clone())
+                }
+                _ => None,
+            })
+            .or_else(|| {
+                plan_markdown.as_deref().and_then(|plan| {
+                    plan.lines().find_map(|line| {
+                        let trimmed = line.trim();
+                        trimmed
+                            .strip_prefix('#')
+                            .map(|title| title.trim().trim_start_matches('#').trim().to_string())
+                            .filter(|title| !title.is_empty())
+                    })
+                })
+            })
+            .unwrap_or_else(|| "Plan ready".into());
+        let plan_todos = match &plan_params {
+            Some(crate::contract::AgentToolParams::PlanDocument { todos, .. }) => todos.clone(),
+            _ => Vec::new(),
+        };
+
+        let (response_tx, response_rx) = oneshot::channel();
+        let request = PermissionRequest {
+            request_id: format!("create_plan_{}", uuid::Uuid::new_v4().simple()),
+            tool: "ExitPlanMode".into(),
+            description,
+            content_markdown: plan_markdown,
+            risk_level: RiskLevel::High,
+            options: vec![
+                PermissionOption {
+                    option_id: "allow_once".into(),
+                    name: "Approve".into(),
+                    kind: "allow_once".into(),
+                },
+                PermissionOption {
+                    option_id: "reject_once".into(),
+                    name: "Keep planning".into(),
+                    kind: "reject_once".into(),
+                },
+                PermissionOption {
+                    option_id: "reject_always".into(),
+                    name: "Reject plan".into(),
+                    kind: "reject_always".into(),
+                },
+            ],
+            questions: Vec::new(),
+            plan_todos,
+        };
+
+        if self
+            .permission_tx
+            .send((request.clone(), response_tx))
+            .is_err()
+        {
+            return Err(acp::Error::internal_error());
+        }
+
+        if let Err(e) = self
+            .event_tx
+            .send(AcpSessionEvent::PermissionRequest(request))
+        {
+            warn!("Failed to forward create_plan request: {}", e);
+        }
+
+        let selected = response_rx
+            .await
+            .unwrap_or_else(|_| "reject_always".to_string());
+        let result = crate::map::create_plan_ext_response(&selected);
+        append_acp_log(
+            session_id,
+            "client_to_agent_acp",
+            "create_plan_result",
             &result,
         );
         Ok(result)
@@ -1280,6 +1521,44 @@ mod tests {
     }
 
     #[test]
+    fn cursor_create_plan_ext_fixture_maps_to_nested_outcome_and_plan_markdown() {
+        let raw: serde_json::Value = serde_json::from_str(include_str!(
+            "../providers/acp/testdata/cursor_create_plan_ext.json"
+        ))
+        .expect("fixture");
+        assert_eq!(raw["method"], "cursor/create_plan");
+        let params = &raw["params"];
+        let plan_markdown = crate::map::plan_markdown_from_input(params)
+            .expect("plan markdown from create_plan ExtMethod");
+        assert!(plan_markdown.contains("Agent Chat 优化收尾"));
+        let plan_params =
+            crate::map::plan_document_from_tool_input(Some(params)).expect("plan document params");
+        match plan_params {
+            crate::contract::AgentToolParams::PlanDocument { name, todos, .. } => {
+                assert_eq!(name.as_deref(), Some("Agent Chat 优化收尾"));
+                assert_eq!(todos.len(), 5);
+                assert!(todos.iter().all(|todo| !todo.content.is_empty()));
+                // Structured todos stay on PermissionRequest.plan_todos; they must not be
+                // required to appear as markdown `- [ ]` in the plan body.
+            }
+            other => panic!("expected PlanDocument, got {other:?}"),
+        }
+        // Nested Cursor outcome (not Grok's flat string).
+        assert_eq!(
+            crate::map::create_plan_ext_response("allow_once"),
+            json!({ "outcome": { "outcome": "accepted" } })
+        );
+        assert_eq!(
+            crate::map::create_plan_ext_response("reject_once"),
+            json!({ "outcome": { "outcome": "cancelled" } })
+        );
+        // Logical method strip matches how AtmosAcpClient::ext_method routes.
+        let method = raw["method"].as_str().unwrap();
+        let logical = method.strip_prefix('_').unwrap_or(method);
+        assert!(logical == "cursor/create_plan" || logical == "cursor/createPlan");
+    }
+
+    #[test]
     fn resolve_acp_ask_answers_keeps_choice_label_not_allow_once() {
         let options = vec![
             crate::acp_client::types::PermissionOption {
@@ -1360,6 +1639,23 @@ mod tests {
                 fixture["toolCall"]["title"].as_str()
             ),
             "ExitPlanMode"
+        );
+    }
+
+    #[test]
+    fn session_update_meta_total_tokens_are_context_occupancy() {
+        let notification: schema::SessionNotification = serde_json::from_value(json!({
+            "sessionId": "session-1",
+            "update": {
+                "sessionUpdate": "agent_thought_chunk",
+                "content": { "type": "text", "text": "hi" },
+                "_meta": { "totalTokens": 1670, "eventId": "e1" }
+            }
+        }))
+        .expect("thought chunk with meta");
+        assert_eq!(
+            super::context_tokens_from_session_notification(&notification),
+            Some(1670)
         );
     }
 }

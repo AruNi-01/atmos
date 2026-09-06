@@ -30,6 +30,8 @@ pub(crate) struct EventMapState {
     pub capabilities: crate::contract::AgentCapabilities,
     pub supported_options: AgentSupportedOptions,
     pub current_config: AgentCurrentConfig,
+    /// `modelId` → `_meta.totalContextTokens` from session/new / models/update.
+    pub model_context_windows: HashMap<String, u64>,
 }
 
 impl EventMapState {
@@ -56,7 +58,28 @@ impl EventMapState {
             capabilities,
             supported_options: AgentSupportedOptions::default(),
             current_config,
+            model_context_windows: HashMap::new(),
         }
+    }
+
+    pub(crate) fn load_model_context_windows(&mut self, catalog: &serde_json::Value) {
+        for (id, window) in crate::map::grok_model_context_windows_from_catalog(catalog) {
+            self.model_context_windows.insert(id, window);
+        }
+    }
+
+    pub(crate) fn known_context_window(&self) -> Option<u64> {
+        let model = self.current_config.model.as_deref()?;
+        // Model labels may include effort suffixes ("grok-4.6 · Extra high").
+        if let Some(window) = self.model_context_windows.get(model) {
+            return Some(*window);
+        }
+        let base = model.split(['·', ' ']).next()?.trim();
+        self.model_context_windows.get(base).copied().or_else(|| {
+            self.model_context_windows.iter().find_map(|(id, window)| {
+                (model.starts_with(id.as_str()) || id.as_str() == base).then_some(*window)
+            })
+        })
     }
 
     pub(crate) fn descriptor(&self) -> AgentDescriptor {
@@ -145,6 +168,7 @@ pub(crate) fn map_event(
                             })
                             .collect(),
                         questions: request.questions,
+                        plan_todos: request.plan_todos,
                     },
                 },
             ),
@@ -191,12 +215,23 @@ pub(crate) fn map_event(
                 },
             ),
         )),
-        AcpSessionEvent::Usage(usage) => Some(wrap(
-            turn_id,
-            AgentEvent::UsageUpdated {
-                usage: serde_json::to_value(usage).unwrap_or(serde_json::Value::Null),
-            },
-        )),
+        AcpSessionEvent::Usage(usage) => {
+            let value = serde_json::to_value(&usage).unwrap_or(serde_json::Value::Null);
+            if let Some(context) =
+                crate::map::grok_context_usage(&value, state.known_context_window())
+            {
+                state.pending.push_back(wrap(
+                    turn_id.clone(),
+                    AgentEvent::UsageUpdated { usage: value },
+                ));
+                Some(wrap(
+                    turn_id,
+                    AgentEvent::ContextUsageUpdated { usage: context },
+                ))
+            } else {
+                Some(wrap(turn_id, AgentEvent::UsageUpdated { usage: value }))
+            }
+        }
         AcpSessionEvent::TurnUsage(usage) => Some(wrap(
             turn_id,
             AgentEvent::UsageUpdated {
@@ -646,6 +681,7 @@ mod tests {
                 risk_level: crate::acp_client::types::RiskLevel::High,
                 options,
                 questions: Vec::new(),
+                plan_todos: Vec::new(),
             }),
         );
         let Some(AgentEvent::PermissionRequested { request }) = events.first() else {
@@ -691,6 +727,7 @@ mod tests {
                 risk_level: crate::acp_client::types::RiskLevel::Low,
                 options: Vec::new(),
                 questions: questions.clone(),
+                plan_todos: Vec::new(),
             }),
         );
         let Some(AgentEvent::PermissionRequested { request }) = events.first() else {
@@ -700,6 +737,69 @@ mod tests {
         assert_eq!(request.questions.len(), questions.len());
         assert_eq!(request.questions[0].prompt, questions[0].prompt);
         assert_eq!(request.questions[0].options, questions[0].options);
+    }
+
+    #[test]
+    fn usage_without_window_stays_none_until_catalog() {
+        use crate::acp_client::types::AgentUsage;
+        let mut state = state();
+        state.current_config.model = Some("grok-4.6".into());
+        let events = payloads(
+            &mut state,
+            AcpSessionEvent::Usage(AgentUsage {
+                used: Some(39_810),
+                size: None,
+                cost: None,
+            }),
+        );
+        let Some(AgentEvent::ContextUsageUpdated { usage }) = events.first() else {
+            panic!("expected ContextUsageUpdated, got {events:?}");
+        };
+        assert_eq!(usage.used, 39_810);
+        assert_eq!(usage.context_window, None);
+    }
+
+    #[test]
+    fn usage_prefers_catalog_total_context_tokens() {
+        use crate::acp_client::types::AgentUsage;
+        let mut state = state();
+        state.current_config.model = Some("grok-4.6".into());
+        state.load_model_context_windows(&serde_json::json!({
+            "availableModels": [{
+                "modelId": "grok-4.6",
+                "_meta": { "totalContextTokens": 250_000 }
+            }]
+        }));
+        let events = payloads(
+            &mut state,
+            AcpSessionEvent::Usage(AgentUsage {
+                used: Some(1_000),
+                size: None,
+                cost: None,
+            }),
+        );
+        let Some(AgentEvent::ContextUsageUpdated { usage }) = events.first() else {
+            panic!("expected ContextUsageUpdated, got {events:?}");
+        };
+        assert_eq!(usage.context_window, Some(250_000));
+    }
+
+    #[test]
+    fn exit_plan_mode_fixture_maps_plan_markdown() {
+        let fixture: serde_json::Value =
+            serde_json::from_str(include_str!("testdata/exit_plan_mode.json")).expect("fixture");
+        let params = &fixture["params"];
+        let plan = crate::map::plan_markdown_from_input(params).expect("planContent");
+        assert!(plan.contains("Optimize project"));
+        let approved = crate::map::exit_plan_ext_response("allow_once");
+        let fixture_result: serde_json::Value =
+            serde_json::from_str(include_str!("testdata/exit_plan_mode_response.json"))
+                .expect("response");
+        assert_eq!(approved, fixture_result);
+        assert_eq!(
+            crate::map::exit_plan_ext_response("reject_once")["outcome"],
+            "cancelled"
+        );
     }
 
     #[test]

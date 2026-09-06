@@ -396,7 +396,7 @@ impl AgentManager {
             if let Some(name) = found_by_name {
                 if let Some(entry) = m.custom_agents.get_mut(&name) {
                     let mut defaults = entry.default_config.clone().unwrap_or_default();
-                    defaults.insert(cfg_id, val);
+                    defaults.insert(cfg_id.clone(), val.clone());
                     entry.default_config = Some(defaults);
                     tracing::info!(
                         "Successfully updated custom agent default config via case-insensitive match: {}",
@@ -406,12 +406,42 @@ impl AgentManager {
                 }
             }
 
+            // PATH-bound ACP agents (e.g. cursor / Cos) may be chat-ready without a
+            // manifest row yet. Upsert a stub so default prefs persist without ERROR spam.
+            if provision::binding_for_registry_id(&reg_id).is_some()
+                || provision::local_native_by_id(&reg_id).is_some()
+            {
+                if let Some(entry) = m
+                    .registry
+                    .iter_mut()
+                    .find(|e| e.registry_id.eq_ignore_ascii_case(&reg_id))
+                {
+                    let mut defaults = entry.default_config.clone().unwrap_or_default();
+                    defaults.insert(cfg_id, val);
+                    entry.default_config = Some(defaults);
+                } else {
+                    m.registry.push(manifest::ManifestEntry {
+                        registry_id: reg_id.clone(),
+                        install_method: "native".to_string(),
+                        binary_path: None,
+                        npm_package: None,
+                        installed_version: None,
+                        default_config: Some(std::collections::HashMap::from([(cfg_id, val)])),
+                    });
+                }
+                tracing::info!(
+                    "Upserted default config for known ACP agent '{}' (manifest stub)",
+                    reg_id
+                );
+                return Ok(());
+            }
+
             tracing::warn!(
-                "Agent '{}' not found in manifest at {}",
+                "Agent '{}' not found in manifest at {}; ignoring default config set",
                 reg_id,
                 path.display()
             );
-            Err(AgentError::NotFound(format!("agent not found: {}", reg_id)))
+            Ok(())
         })
     }
 

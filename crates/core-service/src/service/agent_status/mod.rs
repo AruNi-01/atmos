@@ -297,12 +297,14 @@ pub fn apply_host_event(service: &AgentStatusService, meta: &AgentChatMeta, even
         return;
     };
     let session_id = chat_status_session_id(&meta.id);
+    // Use the chat session id as the stable pane key so attention / focus ack
+    // share one identity with the web `chat:{id}` surface.
     let ctx = AgentStatusContext {
         context_id: meta
             .workspace_id
             .clone()
             .or_else(|| meta.project_id.clone()),
-        pane_id: None,
+        pane_id: Some(session_id.clone()),
         terminal_kind: None,
         side_chat_id: None,
         source_pane_id: None,
@@ -1338,6 +1340,30 @@ mod tests {
             Some((AgentOccupancy::Running, OccupancyUpdateKind::NewTurn))
         );
         assert_eq!(
+            host_event_to_status(&AgentEvent::PermissionRequested {
+                request: agent::AgentPermissionRequest {
+                    request_id: "req-1".into(),
+                    tool: "edit".into(),
+                    description: "edit file".into(),
+                    content_markdown: None,
+                    options: vec![],
+                    questions: vec![],
+                    plan_todos: vec![],
+                }
+            }),
+            Some((
+                AgentOccupancy::PermissionRequest,
+                OccupancyUpdateKind::Permission
+            ))
+        );
+        assert_eq!(
+            host_event_to_status(&AgentEvent::PermissionResolved {
+                request_id: "req-1".into(),
+                option_id: "allow".into(),
+            }),
+            Some((AgentOccupancy::Running, OccupancyUpdateKind::Progress))
+        );
+        assert_eq!(
             host_event_to_status(&AgentEvent::TurnFailed {
                 turn_id: "t1".into(),
                 error: "boom".into(),
@@ -1367,6 +1393,88 @@ mod tests {
         assert_eq!(
             host_event_to_status(&AgentEvent::SessionClosed),
             Some((AgentOccupancy::Idle, OccupancyUpdateKind::ForcedIdle))
+        );
+    }
+
+    #[test]
+    fn chat_permission_requested_raises_attention_latch() {
+        use crate::service::agent_chat::types::{
+            chat_descriptor, AgentChatMeta, AgentChatOrigin, RuntimeStatus,
+        };
+        use chrono::Utc;
+
+        let service = AgentStatusService::new();
+        let meta = AgentChatMeta {
+            id: "abc".into(),
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+            deleted: false,
+            title: None,
+            cwd: "/tmp/ws".into(),
+            workspace_id: Some("ws-1".into()),
+            project_id: None,
+            space_id: Some("main".into()),
+            origin: AgentChatOrigin::Normal,
+            provider_id: "claude".into(),
+            last_message_at: None,
+            last_event_seq: 0,
+            persistence_handle: None,
+            runtime_status: RuntimeStatus::RunningTurn,
+            applied_model: None,
+            applied_thinking: None,
+            applied_mode: None,
+            applied_permission_mode: None,
+            applied_fast: None,
+            available_commands: Vec::new(),
+            session_usage: None,
+            descriptor: chat_descriptor("claude", agent::AgentCurrentConfig::default()),
+            parent_chat_id: None,
+            rewind_view: None,
+            pending_session_op: None,
+        };
+        apply_host_event(
+            &service,
+            &meta,
+            &AgentEvent::TurnStarted {
+                turn_id: "t1".into(),
+            },
+        );
+        apply_host_event(
+            &service,
+            &meta,
+            &AgentEvent::PermissionRequested {
+                request: agent::AgentPermissionRequest {
+                    request_id: "req-1".into(),
+                    tool: "edit".into(),
+                    description: "edit file".into(),
+                    content_markdown: None,
+                    options: vec![],
+                    questions: vec![],
+                    plan_todos: vec![],
+                },
+            },
+        );
+        let attention = service.get_all_attention();
+        assert_eq!(attention.len(), 1);
+        assert_eq!(attention[0].stable_pane_id, "chat:abc");
+        assert_eq!(attention[0].context_id, "ws-1");
+        assert_eq!(attention[0].reason, AgentAttentionReason::PermissionRequest);
+        assert_eq!(
+            service.get_all_sessions()[0].state,
+            AgentOccupancy::PermissionRequest
+        );
+
+        apply_host_event(
+            &service,
+            &meta,
+            &AgentEvent::PermissionResolved {
+                request_id: "req-1".into(),
+                option_id: "allow".into(),
+            },
+        );
+        assert!(
+            service.get_all_attention().is_empty(),
+            "chat PermissionResolved must clear the header bell latch"
         );
     }
 

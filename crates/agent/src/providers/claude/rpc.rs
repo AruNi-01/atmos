@@ -393,6 +393,7 @@ pub(crate) fn permission_request_event(pending: &PendingPermission) -> AgentPerm
         content_markdown,
         options,
         questions,
+        plan_todos: Vec::new(),
     }
 }
 

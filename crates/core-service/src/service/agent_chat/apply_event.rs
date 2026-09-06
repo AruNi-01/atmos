@@ -18,8 +18,8 @@ use crate::error::Result;
 
 use super::store::AgentChatStore;
 use super::types::{
-    advertised_option_for_kind, config_kind_matches, config_values_equal, elapsed_ms,
-    keep_pending_session_selection, map_advertised_select_value, merge_session_usage,
+    advertised_option_for_kind, apply_context_usage, config_kind_matches, config_values_equal,
+    elapsed_ms, keep_pending_session_selection, map_advertised_select_value, merge_session_usage,
     order_assistant_parts, parse_session_usage, parse_turn_usage, pending_fast_change,
     pending_permission_mode_change, pending_session_config_change, pending_thinking_change,
     resolve_session_config_select, AgentChatEvent, AgentChatMeta, AgentChatPayload,
@@ -356,6 +356,7 @@ pub(super) async fn apply_event(
                 content_markdown: request.content_markdown,
                 options: request.options,
                 questions: request.questions,
+                plan_todos: request.plan_todos,
                 status: "pending".into(),
             };
             state.lock().await.pending_permission = Some(pending.clone());
@@ -392,6 +393,7 @@ pub(super) async fn apply_event(
                     content_markdown: None,
                     options: Vec::new(),
                     questions: Vec::new(),
+                    plan_todos: Vec::new(),
                     status: "resolved".into(),
                 },
             );
@@ -516,10 +518,26 @@ pub(super) async fn apply_event(
             emit(AgentChatPayload::AvailableCommandsUpdated { commands })?;
         }
         AgentEvent::TurnStarted { .. } | AgentEvent::UserMessage { .. } => {}
+        AgentEvent::ContextUsageUpdated { usage } => {
+            let meta = store.update_meta(chat_id, |meta| {
+                meta.session_usage = Some(apply_context_usage(meta.session_usage.clone(), usage));
+            })?;
+            let session = meta.session_usage.clone().unwrap_or_default();
+            emit(AgentChatPayload::ContextUsageUpdated {
+                used: usage.used,
+                context_window: usage.context_window,
+            })?;
+            // Keep legacy usage_updated.session in sync for older clients / meta.
+            emit(AgentChatPayload::UsageUpdated {
+                session: Some(session),
+                turn: None,
+            })?;
+        }
         AgentEvent::UsageUpdated { usage } => {
             let incoming_session = parse_session_usage(&usage);
             let turn = parse_turn_usage(&usage);
             let session = if let Some(incoming) = incoming_session {
+                // Cost-only merges; do not invent context windows from vendor spend blobs.
                 let meta = store.update_meta(chat_id, |meta| {
                     meta.session_usage =
                         Some(merge_session_usage(meta.session_usage.clone(), incoming));
@@ -2333,6 +2351,8 @@ mod tests {
                 model: None,
                 thinking: None,
                 mode: Some("plan".into()),
+                permission_mode: None,
+                fast: None,
                 title: None,
             })
             .unwrap();
@@ -2388,6 +2408,8 @@ mod tests {
                 model: Some("opus".into()),
                 thinking: None,
                 mode: None,
+                permission_mode: None,
+                fast: None,
                 title: None,
             })
             .unwrap();
@@ -2460,6 +2482,8 @@ mod tests {
                 model: Some("grok-composer-2.5-fast".into()),
                 thinking: None,
                 mode: None,
+                permission_mode: None,
+                fast: None,
                 title: None,
             })
             .unwrap();
@@ -2521,6 +2545,8 @@ mod tests {
                 model: Some("gpt-5.3-codex-fast".into()),
                 thinking: None,
                 mode: None,
+                permission_mode: None,
+                fast: None,
                 title: None,
             })
             .unwrap();
@@ -2592,6 +2618,8 @@ mod tests {
                 model: Some("opus".into()),
                 thinking: None,
                 mode: None,
+                permission_mode: None,
+                fast: None,
                 title: None,
             })
             .unwrap();

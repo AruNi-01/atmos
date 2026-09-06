@@ -50,6 +50,7 @@ pub fn permission_request(
         content_markdown,
         options: permission_options(method, params),
         questions,
+        plan_todos: Vec::new(),
     }
 }
 

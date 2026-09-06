@@ -1,4 +1,5 @@
 use crate::contract::AgentToolKind;
+use crate::contract::{AgentPlanDocumentTodo, AgentToolParams};
 use crate::map::ask::{is_ask_user_tool, is_exit_plan_tool};
 
 /// How a vendor tool name should fold into an `AgentPart`.
@@ -6,6 +7,8 @@ use crate::map::ask::{is_ask_user_tool, is_exit_plan_tool};
 pub enum ClassifiedTool {
     Thinking,
     Plan,
+    /// Plan-phase document (Cursor createPlan / updatePlan by name only).
+    PlanDocument,
     Hide,
     Call(AgentToolKind),
 }
@@ -35,6 +38,11 @@ pub fn classify_tool(
     // card. Claude native still SyncModes via classify_claude_name before this helper.
     if is_exit_plan_tool(&name) || (!title.is_empty() && is_exit_plan_tool(&title)) {
         return ClassifiedTool::Hide;
+    }
+    // Cursor-only plan-phase tools (createPlan / updatePlan). Match by tool name/title
+    // only — never by `plan`+`todos` input shape (other agents' execution todos).
+    if is_plan_document_label(&name) || (!title.is_empty() && is_plan_document_label(&title)) {
+        return ClassifiedTool::PlanDocument;
     }
     if is_todo_label(&name)
         || is_todo_label(&title)
@@ -547,6 +555,130 @@ fn has_plan_markdown(input: Option<&serde_json::Value>) -> bool {
         .is_some_and(|plan| !plan.trim().is_empty())
 }
 
+/// Cursor createPlan / updatePlan (and synonyms). Name/title only — not input shape.
+pub fn is_plan_document_label(value: &str) -> bool {
+    matches!(
+        normalize_label(value).as_str(),
+        "createplan"
+            | "create_plan"
+            | "updateplan"
+            | "update_plan"
+            | "create_plan_request"
+            | "update_plan_request"
+    )
+}
+
+/// Extract Cursor createPlan / updatePlan fields into typed tool params.
+pub fn plan_document_from_tool_input(input: Option<&serde_json::Value>) -> Option<AgentToolParams> {
+    let value = input?;
+    let plan = value
+        .get("plan")
+        .and_then(|item| item.as_str())
+        .map(str::trim)
+        .filter(|text| !text.is_empty())
+        .map(str::to_string)
+        .or_else(|| {
+            // updatePlan may send empty plan when only editing todos; keep a stub.
+            if is_plan_document_shape(value) {
+                Some(String::new())
+            } else {
+                None
+            }
+        })?;
+
+    let name = value
+        .get("name")
+        .and_then(|item| item.as_str())
+        .map(str::trim)
+        .filter(|text| !text.is_empty())
+        .map(str::to_string);
+    let overview = value
+        .get("overview")
+        .and_then(|item| item.as_str())
+        .map(str::trim)
+        .filter(|text| !text.is_empty())
+        .map(str::to_string);
+    let is_project = value
+        .get("isProject")
+        .or_else(|| value.get("is_project"))
+        .and_then(|item| {
+            item.as_bool()
+                .or_else(|| item.as_str().map(|text| text == "true"))
+        });
+    let phases = value.get("phases").filter(|item| !item.is_null()).cloned();
+    let mut todos =
+        plan_document_todos_from_array(value.get("todos").and_then(|item| item.as_array()));
+    if todos.is_empty() {
+        if let Some(phases_arr) = phases.as_ref().and_then(|item| item.as_array()) {
+            for phase in phases_arr {
+                todos.extend(plan_document_todos_from_array(
+                    phase.get("todos").and_then(|item| item.as_array()),
+                ));
+            }
+        }
+    }
+
+    Some(AgentToolParams::PlanDocument {
+        name,
+        overview,
+        plan,
+        todos,
+        is_project,
+        phases,
+    })
+}
+
+fn is_plan_document_shape(value: &serde_json::Value) -> bool {
+    value
+        .get("todos")
+        .and_then(|item| item.as_array())
+        .is_some()
+        && (value.get("name").is_some()
+            || value.get("overview").is_some()
+            || value.get("isProject").is_some()
+            || value.get("is_project").is_some()
+            || value.get("phases").is_some()
+            || value.get("plan").is_some())
+}
+
+fn plan_document_todos_from_array(
+    todos: Option<&Vec<serde_json::Value>>,
+) -> Vec<AgentPlanDocumentTodo> {
+    let Some(todos) = todos else {
+        return Vec::new();
+    };
+    todos
+        .iter()
+        .filter_map(|item| {
+            let content = item
+                .get("content")
+                .or_else(|| item.get("subject"))
+                .or_else(|| item.get("text"))
+                .and_then(|value| value.as_str())
+                .map(str::trim)
+                .filter(|text| !text.is_empty())?
+                .to_string();
+            let id = item
+                .get("id")
+                .and_then(|value| value.as_str())
+                .map(str::trim)
+                .filter(|text| !text.is_empty())
+                .map(str::to_string);
+            let status = normalize_task_status(
+                item.get("status")
+                    .and_then(|value| value.as_str())
+                    .unwrap_or("pending"),
+            )
+            .to_string();
+            Some(AgentPlanDocumentTodo {
+                id,
+                content,
+                status,
+            })
+        })
+        .collect()
+}
+
 fn has_subagent_input(input: Option<&serde_json::Value>) -> bool {
     let Some(value) = input else {
         return false;
@@ -604,6 +736,57 @@ mod tests {
         );
         assert_eq!(classify_tool("think", None, None), ClassifiedTool::Thinking);
         assert_eq!(classify_tool("TodoWrite", None, None), ClassifiedTool::Plan);
+        assert_eq!(
+            classify_tool(
+                "createPlan",
+                None,
+                Some(&serde_json::json!({
+                    "plan": "# Refactor\n\nDo the work.",
+                    "todos": [
+                        {"id": "1", "content": "Inspect", "status": "pending"},
+                        {"id": "2", "content": "Ship", "status": "pending"}
+                    ],
+                    "name": "Refactor tabs",
+                    "overview": "Tighten layout."
+                }))
+            ),
+            ClassifiedTool::PlanDocument
+        );
+        assert_eq!(
+            classify_tool(
+                "Tool",
+                None,
+                Some(&serde_json::json!({
+                    "_toolName": "createPlan",
+                    "plan": "1. Inspect\n2. Ship",
+                    "todos": [{"id": "t1", "content": "Inspect", "status": "completed"}]
+                }))
+            ),
+            ClassifiedTool::PlanDocument
+        );
+        // plan+todos alone is NOT PlanDocument (non-Cursor execution shape).
+        assert_eq!(
+            classify_tool(
+                "TodoWrite",
+                None,
+                Some(&serde_json::json!({
+                    "plan": "# Notes\n\nDo work.",
+                    "todos": [{"content": "Inspect", "status": "pending"}]
+                }))
+            ),
+            ClassifiedTool::Plan
+        );
+        assert_eq!(
+            classify_tool(
+                "Tool",
+                Some("Update plan steps"),
+                Some(&serde_json::json!({
+                    "plan": "Step one",
+                    "todos": [{"content": "Step one", "status": "pending"}]
+                }))
+            ),
+            ClassifiedTool::Plan
+        );
         assert_eq!(
             classify_tool(
                 "Tool",

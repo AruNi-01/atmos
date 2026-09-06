@@ -156,8 +156,9 @@ impl AgentChatMeta {
 pub struct SessionUsage {
     #[serde(default)]
     pub used: Option<u64>,
-    #[serde(default)]
-    pub size: Option<u64>,
+    /// Total context window in tokens. Wire name is `context_window` (alias `size` for older meta).
+    #[serde(default, alias = "size")]
+    pub context_window: Option<u64>,
     #[serde(default)]
     pub cost: Option<SessionCost>,
 }
@@ -858,6 +859,9 @@ pub struct PendingPermission {
     pub options: Vec<agent::AgentPermissionOption>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub questions: Vec<agent::AgentAskQuestion>,
+    /// Structured createPlan todos (ApprovalCard To-dos); prefer over markdown checklists.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub plan_todos: Vec<agent::AgentPlanDocumentTodo>,
     pub status: String,
 }
 
@@ -1016,28 +1020,57 @@ fn turn_timing(turn: &FoldedTurn, now: DateTime<Utc>) -> TurnTiming {
 }
 
 pub fn parse_session_usage(value: &serde_json::Value) -> Option<SessionUsage> {
+    // Cost / turn-spend leftovers only. Context window occupancy must arrive via
+    // `AgentEvent::ContextUsageUpdated` (providers map native stats themselves).
     let mut used = json_u64(value, &["used"]);
-    let mut size = json_u64(value, &["size"]);
+    let mut context_window = json_u64(
+        value,
+        &["context_window", "contextWindow", "size", "max", "limit"],
+    );
     // Claude ACP often sends `used`/`size` as null; the stdio normalizer coerces
     // those to 0 so the SDK can parse. A real empty window after compaction still
-    // has a positive `size`.
-    if used == Some(0) && size == Some(0) {
+    // has a positive window.
+    if used == Some(0) && context_window == Some(0) {
         used = None;
-        size = None;
+        context_window = None;
     }
     let cost_value = value.get("cost");
-    let amount = cost_value.and_then(|cost| json_f64(cost, &["amount"]));
-    let currency = cost_value.and_then(|cost| {
-        cost.get("currency")
-            .and_then(|item| item.as_str())
-            .map(ToOwned::to_owned)
-    });
-    if used.is_none() && size.is_none() && amount.is_none() {
+    let amount = cost_value
+        .and_then(|cost| json_f64(cost, &["amount"]))
+        .or_else(|| json_f64(value, &["total_cost_usd", "totalCostUsd"]));
+    let currency = cost_value
+        .and_then(|cost| {
+            cost.get("currency")
+                .and_then(|item| item.as_str())
+                .map(ToOwned::to_owned)
+        })
+        .or_else(|| {
+            if amount.is_some()
+                && (value.get("total_cost_usd").is_some() || value.get("totalCostUsd").is_some())
+            {
+                Some("USD".to_string())
+            } else {
+                None
+            }
+        });
+    // Do not treat vendor Codex/Claude spend blobs as session context (no ad-hoc window scrape).
+    if used.is_none() && context_window.is_none() && amount.is_none() {
+        return None;
+    }
+    // Reject spend-only payloads that look like Codex cumulative totals without an explicit used.
+    if used.is_none() && context_window.is_none() && amount.is_some() {
+        return Some(SessionUsage {
+            used: None,
+            context_window: None,
+            cost: Some(SessionCost { amount, currency }),
+        });
+    }
+    if used.is_none() && context_window.is_none() {
         return None;
     }
     Some(SessionUsage {
         used,
-        size,
+        context_window,
         cost: if amount.is_some() || currency.is_some() {
             Some(SessionCost { amount, currency })
         } else {
@@ -1050,9 +1083,23 @@ pub fn merge_session_usage(existing: Option<SessionUsage>, incoming: SessionUsag
     let prev = existing.unwrap_or_default();
     SessionUsage {
         used: incoming.used.or(prev.used),
-        size: incoming.size.or(prev.size),
+        context_window: incoming.context_window.or(prev.context_window),
         cost: incoming.cost.or(prev.cost),
     }
+}
+
+pub fn apply_context_usage(
+    existing: Option<SessionUsage>,
+    usage: agent::AgentContextUsage,
+) -> SessionUsage {
+    merge_session_usage(
+        existing,
+        SessionUsage {
+            used: Some(usage.used),
+            context_window: usage.context_window,
+            cost: None,
+        },
+    )
 }
 
 pub fn parse_turn_usage(value: &serde_json::Value) -> Option<TurnUsage> {
@@ -1335,6 +1382,12 @@ pub enum AgentChatPayload {
         session: Option<SessionUsage>,
         turn: Option<TurnUsage>,
     },
+    /// Provider-mapped context fill (`used` + optional `context_window`).
+    ContextUsageUpdated {
+        used: u64,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        context_window: Option<u64>,
+    },
     QueueUpdated {
         items: Vec<QueueItem>,
     },
@@ -1393,6 +1446,8 @@ pub struct CreateAgentChatRequest {
     pub model: Option<String>,
     pub thinking: Option<String>,
     pub mode: Option<String>,
+    pub permission_mode: Option<String>,
+    pub fast: Option<String>,
     pub title: Option<String>,
 }
 
@@ -1400,7 +1455,10 @@ pub struct CreateAgentChatRequest {
 mod usage_parse_tests {
     use serde_json::json;
 
-    use super::{merge_session_usage, parse_session_usage, parse_turn_usage, SessionUsage};
+    use super::{
+        apply_context_usage, merge_session_usage, parse_session_usage, parse_turn_usage,
+        SessionUsage,
+    };
 
     #[test]
     fn coerced_zero_window_is_not_session_usage() {
@@ -1416,7 +1474,7 @@ mod usage_parse_tests {
         }))
         .expect("cost");
         assert!(parsed.used.is_none());
-        assert!(parsed.size.is_none());
+        assert!(parsed.context_window.is_none());
         assert_eq!(
             parsed.cost.as_ref().and_then(|cost| cost.amount),
             Some(0.045)
@@ -1427,14 +1485,57 @@ mod usage_parse_tests {
     fn real_context_window_parses_including_compaction_zero() {
         let parsed = parse_session_usage(&json!({ "used": 0, "size": 200000 })).expect("window");
         assert_eq!(parsed.used, Some(0));
-        assert_eq!(parsed.size, Some(200_000));
+        assert_eq!(parsed.context_window, Some(200_000));
+    }
+
+    #[test]
+    fn codex_raw_token_usage_is_not_scraped_as_session_window() {
+        assert!(parse_session_usage(&json!({
+            "threadId": "t1",
+            "tokenUsage": {
+                "total": { "totalTokens": 5168 },
+                "last": { "totalTokens": 5168 },
+                "modelContextWindow": 258400
+            }
+        }))
+        .is_none());
+    }
+
+    #[test]
+    fn claude_total_cost_usd_parses_as_session_cost() {
+        let parsed = parse_session_usage(&json!({
+            "input_tokens": 10,
+            "output_tokens": 4,
+            "total_cost_usd": 0.02
+        }))
+        .expect("cost");
+        assert!(parsed.used.is_none());
+        assert!(parsed.context_window.is_none());
+        assert_eq!(
+            parsed.cost.as_ref().and_then(|cost| cost.amount),
+            Some(0.02)
+        );
+        assert_eq!(
+            parsed
+                .cost
+                .as_ref()
+                .and_then(|cost| cost.currency.as_deref()),
+            Some("USD")
+        );
+    }
+
+    #[test]
+    fn apply_context_usage_sets_used_and_window() {
+        let merged = apply_context_usage(None, agent::AgentContextUsage::new(5168, Some(258_400)));
+        assert_eq!(merged.used, Some(5168));
+        assert_eq!(merged.context_window, Some(258_400));
     }
 
     #[test]
     fn merge_keeps_previous_window_when_only_cost_arrives() {
         let existing = SessionUsage {
             used: Some(12_000),
-            size: Some(200_000),
+            context_window: Some(200_000),
             cost: None,
         };
         let incoming = parse_session_usage(&json!({
@@ -1443,7 +1544,7 @@ mod usage_parse_tests {
         .unwrap();
         let merged = merge_session_usage(Some(existing), incoming);
         assert_eq!(merged.used, Some(12_000));
-        assert_eq!(merged.size, Some(200_000));
+        assert_eq!(merged.context_window, Some(200_000));
         assert_eq!(
             merged.cost.as_ref().and_then(|cost| cost.amount),
             Some(0.12)

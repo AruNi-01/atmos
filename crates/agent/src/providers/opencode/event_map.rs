@@ -62,6 +62,8 @@ pub(crate) struct EventMapState {
     pub active_turn: Option<String>,
     /// Locked at Atmos session create when Permission is Auto (OpenCode `--auto`).
     pub auto_locked: bool,
+    /// `providerID/modelID` → `/limit/context` from `/config/providers`.
+    pub model_context_windows: HashMap<String, u64>,
 }
 
 impl EventMapState {
@@ -105,7 +107,13 @@ impl EventMapState {
             turn_seen_work: false,
             active_turn: None,
             auto_locked,
+            model_context_windows: HashMap::new(),
         }
+    }
+
+    pub(crate) fn load_model_context_windows(&mut self, providers_body: &Value) {
+        self.model_context_windows =
+            crate::map::context_usage::opencode_model_context_windows(providers_body);
     }
 
     pub(crate) fn sync_turn(&mut self, turn_id: Option<String>, idle_armed: bool) {
@@ -574,6 +582,36 @@ fn map_message_updated(
     if usage.is_empty() {
         return MapOut::Skip;
     }
+    if let Some(tokens) = info.get("tokens") {
+        let model_ref = info
+            .get("model")
+            .and_then(|model| {
+                let provider = model
+                    .get("providerID")
+                    .or_else(|| model.get("providerId"))?
+                    .as_str()?;
+                let model_id = model
+                    .get("modelID")
+                    .or_else(|| model.get("modelId"))?
+                    .as_str()?;
+                Some(format!("{provider}/{model_id}"))
+            })
+            .or_else(|| state.current_config.model.clone());
+        let window = model_ref
+            .as_deref()
+            .and_then(|id| state.model_context_windows.get(id).copied());
+        if let Some(context) = crate::map::opencode_context_usage(tokens, None).map(|mut c| {
+            if c.context_window.is_none() {
+                c.context_window = window;
+            }
+            c
+        }) {
+            state.pending.push_back(wrap(
+                turn_id.clone(),
+                AgentEvent::ContextUsageUpdated { usage: context },
+            ));
+        }
+    }
     emit(wrap(
         turn_id,
         AgentEvent::UsageUpdated {
@@ -649,6 +687,7 @@ fn map_permission_asked(
                         option("reject", "Reject", "reject"),
                     ],
                     questions: Vec::new(),
+                    plan_todos: Vec::new(),
                 },
             },
         ),
@@ -779,6 +818,7 @@ fn map_question_asked(
                     content_markdown: None,
                     options: flat_options,
                     questions,
+                    plan_todos: Vec::new(),
                 },
             },
         ),

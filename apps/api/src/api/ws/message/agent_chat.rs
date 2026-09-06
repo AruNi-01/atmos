@@ -23,6 +23,10 @@ pub struct AgentChatCreateRequest {
     #[serde(default)]
     pub mode: Option<String>,
     #[serde(default)]
+    pub permission_mode: Option<String>,
+    #[serde(default)]
+    pub fast: Option<String>,
+    #[serde(default)]
     pub title: Option<String>,
     #[serde(default)]
     pub origin: Option<AgentChatOrigin>,
@@ -167,6 +171,25 @@ pub struct AgentChatConfigureRequest {
 pub struct AgentChatPrefsSetRequest {
     #[serde(default)]
     pub last_registry_id: Option<String>,
+    /// Landing composer snapshot. Omitted → leave `new_chat_configs.json` unchanged.
+    #[serde(default)]
+    pub last_new_chat_config: Option<AgentChatLastNewChatConfigPatch>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct AgentChatLastNewChatConfigPatch {
+    #[serde(default)]
+    pub agent_id: String,
+    #[serde(default)]
+    pub model: Option<String>,
+    #[serde(default)]
+    pub thinking: Option<String>,
+    #[serde(default)]
+    pub mode: Option<String>,
+    #[serde(default)]
+    pub permission_mode: Option<String>,
+    #[serde(default)]
+    pub fast: Option<String>,
 }
 
 /// WS JSON for `AgentChatMeta`. Persist-only `applied_*` stay off the wire.

@@ -29,6 +29,8 @@ pub struct EventMapState {
     tools: HashMap<String, AgentTool>,
     toolcall_args: HashMap<String, Value>,
     turn_outcome: Option<TurnOutcome>,
+    /// From `get_session_stats` / model change `contextWindow`.
+    pub known_context_window: Option<u64>,
 }
 
 #[derive(Debug, Clone)]
@@ -74,9 +76,33 @@ pub fn map_event(
         | "summarization_retry_scheduled"
         | "summarization_retry_attempt_start"
         | "summarization_retry_finished"
-        | "entry_appended"
-        | "session_info_changed"
-        | "thinking_level_changed" => None,
+        | "entry_appended" => None,
+        "session_info_changed" => {
+            if let Some(window) = frame
+                .pointer("/data/contextWindow")
+                .and_then(Value::as_u64)
+                .or_else(|| {
+                    frame
+                        .get("contextWindow")
+                        .or_else(|| frame.get("context_window"))
+                        .and_then(Value::as_u64)
+                })
+            {
+                state.known_context_window = Some(window);
+                push(
+                    state,
+                    wrap(
+                        turn_id,
+                        AgentEvent::ContextUsageUpdated {
+                            usage: crate::contract::AgentContextUsage::new(0, Some(window)),
+                        },
+                    ),
+                );
+                return state.pending.pop_front();
+            }
+            None
+        }
+        "thinking_level_changed" => None,
         "queue_update" => {
             let _ = frame.get("steering");
             let _ = frame.get("followUp");
@@ -235,6 +261,17 @@ fn map_message_update(
                     },
                 ),
             );
+            if let Some(context) =
+                crate::map::pi_context_usage_from_message(usage, state.known_context_window)
+            {
+                push(
+                    state,
+                    wrap(
+                        turn_id.clone(),
+                        AgentEvent::ContextUsageUpdated { usage: context },
+                    ),
+                );
+            }
         }
     }
     let event = frame.get("assistantMessageEvent")?;
@@ -435,6 +472,7 @@ fn map_ui_request(
                             },
                         ],
                         questions: Vec::new(),
+                        plan_todos: Vec::new(),
                     },
                 },
             ))
@@ -472,6 +510,7 @@ fn map_ui_request(
                             })
                             .collect(),
                         questions,
+                        plan_todos: Vec::new(),
                     },
                 },
             ))

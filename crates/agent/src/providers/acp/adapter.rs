@@ -2,7 +2,8 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use tokio::sync::{oneshot, Mutex};
+use serde_json::Value;
+use tokio::sync::{broadcast, oneshot, Mutex};
 
 use crate::acp_client::{run_acp_session, AcpSessionControl, AcpSessionHandle, AcpToolHandler};
 use crate::contract::AgentEventEnvelope;
@@ -151,6 +152,7 @@ struct AcpMappedSession {
     commands: Arc<AcpCommands>,
     handle: AcpSessionHandle,
     map: EventMapState,
+    ext_rx: Option<broadcast::Receiver<(String, Value)>>,
 }
 
 #[async_trait]
@@ -172,24 +174,60 @@ impl AgentRuntime for AcpMappedSession {
             return Some(event);
         }
         loop {
-            let acp = self.handle.recv_event().await?;
-            while let Some((req, tx)) = self.handle.try_recv_permission() {
-                self.commands
-                    .pending_permissions
-                    .lock()
-                    .await
-                    .insert(req.request_id.clone(), tx);
+            tokio::select! {
+                acp = self.handle.recv_event() => {
+                    let acp = acp?;
+                    while let Some((req, tx)) = self.handle.try_recv_permission() {
+                        self.commands
+                            .pending_permissions
+                            .lock()
+                            .await
+                            .insert(req.request_id.clone(), tx);
+                    }
+                    let mut turn_id = self.commands.running_turn.lock().await.clone();
+                    if matches!(
+                        acp,
+                        crate::acp_client::AcpSessionEvent::TurnEnd(_)
+                            | crate::acp_client::AcpSessionEvent::Error { .. }
+                    ) {
+                        turn_id = self.commands.running_turn.lock().await.take();
+                    }
+                    if let Some(event) = map_event(&mut self.map, turn_id, acp) {
+                        return Some(event);
+                    }
+                }
+                ext = recv_ext_notification(&mut self.ext_rx) => {
+                    let Some((method, params)) = ext else {
+                        continue;
+                    };
+                    // Grok ACP registry agents (`grok-build`): same catalog as native.
+                    if is_grok_models_update(&method) {
+                        self.map.load_model_context_windows(&params);
+                    }
+                }
             }
-            let mut turn_id = self.commands.running_turn.lock().await.clone();
-            if matches!(
-                acp,
-                crate::acp_client::AcpSessionEvent::TurnEnd(_)
-                    | crate::acp_client::AcpSessionEvent::Error { .. }
-            ) {
-                turn_id = self.commands.running_turn.lock().await.take();
-            }
-            if let Some(event) = map_event(&mut self.map, turn_id, acp) {
-                return Some(event);
+        }
+    }
+}
+
+fn is_grok_models_update(method: &str) -> bool {
+    let method = method.strip_prefix('_').unwrap_or(method);
+    method == "x.ai/models/update" || method.ends_with("/models/update")
+}
+
+async fn recv_ext_notification(
+    rx: &mut Option<broadcast::Receiver<(String, Value)>>,
+) -> Option<(String, Value)> {
+    loop {
+        let Some(inner) = rx.as_mut() else {
+            std::future::pending::<()>().await;
+            return None;
+        };
+        match inner.recv().await {
+            Ok(payload) => return Some(payload),
+            Err(broadcast::error::RecvError::Lagged(_)) => continue,
+            Err(broadcast::error::RecvError::Closed) => {
+                *rx = None;
             }
         }
     }
@@ -294,24 +332,24 @@ async fn write_config_option(
     ids: &[String],
     value: &str,
 ) -> AgentResult<()> {
-    let mut last_error = None;
-    let effort_like = looks_like_effort_level(value);
-    for config_id in ids {
-        if effort_like && is_boolean_thinking_config_id(config_id) {
-            // Cursor PMP: don't send `high`/`low` to boolean `thinking` after `effort` fails.
-            continue;
-        }
-        match control
-            .set_config_option(config_id.clone(), value.to_string())
-            .await
-        {
-            Ok(_) => return Ok(()),
-            Err(error) => last_error = Some(error),
-        }
+    let available = control.available_config_ids();
+    let Some(config_id) = crate::acp_client::runner::resolve_available_config_id(ids, &available)
+    else {
+        return Err(AgentProviderError::unsupported(format!(
+            "agent does not advertise a config option for {value}"
+        )));
+    };
+    if looks_like_effort_level(value) && is_boolean_thinking_config_id(&config_id) {
+        // Cursor PMP: don't send `high`/`low` to boolean `thinking`.
+        return Err(AgentProviderError::unsupported(format!(
+            "agent does not advertise an effort ladder for {value}"
+        )));
     }
-    Err(AgentProviderError::unsupported(
-        last_error.unwrap_or_else(|| format!("agent did not apply {value}")),
-    ))
+    control
+        .set_config_option(config_id, value.to_string())
+        .await
+        .map(|_| ())
+        .map_err(AgentProviderError::unsupported)
 }
 
 fn looks_like_effort_level(value: &str) -> bool {
@@ -463,18 +501,14 @@ async fn open_acp_session(
             }
         }
         if let Some(thinking) = cfg.thinking.clone() {
-            extra.insert("effort".into(), thinking.clone());
-            extra.insert("reasoning_effort".into(), thinking.clone());
-            extra.insert("thought_level".into(), thinking.clone());
+            // Logical Atmos key; runner maps to an advertised ACP id (or drops).
             extra.insert("thinking".into(), thinking);
         }
         if let Some(fast) = cfg.fast.clone() {
-            extra.insert("fast".into(), fast.clone());
-            extra.insert("fast-mode".into(), fast);
+            extra.insert("fast".into(), fast);
         }
         if let Some(mode) = cfg.mode.clone() {
-            extra.insert("mode".into(), mode.clone());
-            extra.insert("agent".into(), mode);
+            extra.insert("mode".into(), mode);
         }
         // Cursor: Atmos expands sparse ACP permission to the advertised subset
         // (Yolo / Auto / Ask Always), but ACP has no permission configId.
@@ -548,6 +582,7 @@ async fn open_acp_session(
         running_turn: Mutex::new(None),
         pending_permissions: Mutex::new(HashMap::new()),
     });
+    let ext_rx = handle.subscribe_ext_notifications();
     Ok(Box::new(AcpMappedSession {
         commands,
         handle,
@@ -556,6 +591,7 @@ async fn open_acp_session(
             current_config_from_maps(params.default_config.as_ref(), &cfg),
             resume.is_some(),
         ),
+        ext_rx: Some(ext_rx),
     }))
 }
 

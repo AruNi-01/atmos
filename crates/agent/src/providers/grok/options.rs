@@ -2,6 +2,8 @@
 //!
 //! Model ids stay on `grok models` CLI. Per-model thinking comes from
 //! `session/new` `availableModels[]._meta.reasoningEfforts` when present.
+//! Context windows come from the same `availableModels[]._meta.totalContextTokens`
+//! (also on `_x.ai/models/update` / initialize `modelState`) — not from `grok models` text.
 //! Slash commands come from initialize `_meta.availableCommands` (builtins)
 //! and `session/update` `available_commands_update` (builtins + skills).
 //! Live Grok 1.0.13 session/new on this machine.

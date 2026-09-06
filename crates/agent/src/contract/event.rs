@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use super::action::SessionOpKind;
+use super::context_usage::AgentContextUsage;
 use super::tool::AgentTool;
 
 pub use super::tool::AgentTool as AgentToolCall;
@@ -60,6 +61,9 @@ pub struct AgentPermissionRequest {
     /// Multi-question AskUser cards (ApprovalCard `questions` variant).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub questions: Vec<AgentAskQuestion>,
+    /// Structured createPlan / ExtMethod todos for ApprovalCard To-dos well.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub plan_todos: Vec<super::tool::AgentPlanDocumentTodo>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -166,8 +170,13 @@ pub enum AgentEvent {
         turn_id: String,
         checkpoint_id: String,
     },
+    /// Turn / spend counters (input/output/cache/cost). Host parses as needed.
     UsageUpdated {
         usage: serde_json::Value,
+    },
+    /// Session context-window occupancy after provider-specific mapping.
+    ContextUsageUpdated {
+        usage: AgentContextUsage,
     },
     ConfigChanged {
         config: serde_json::Value,

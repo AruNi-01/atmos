@@ -28,6 +28,8 @@ pub(crate) struct EventMapState {
     pub supported_options: AgentSupportedOptions,
     pub current_config: AgentCurrentConfig,
     pub cancel_requested: bool,
+    /// Last assistant `message.usage` this turn (iterations overwrite — last only).
+    pub last_assistant_usage: Option<Value>,
 }
 
 impl EventMapState {
@@ -55,6 +57,7 @@ impl EventMapState {
             supported_options,
             current_config,
             cancel_requested: false,
+            last_assistant_usage: None,
         }
     }
 
@@ -226,6 +229,10 @@ fn map_stream_event(
 
 fn map_assistant(state: &mut EventMapState, turn_id: Option<String>, frame: &Value) -> MappedFrame {
     let message = frame.get("message").unwrap_or(frame);
+    if let Some(usage) = message.get("usage") {
+        // Iterations overwrite — last assistant usage wins (avoid double-counting cache).
+        state.last_assistant_usage = Some(usage.clone());
+    }
     if let Some(id) = message.get("id").and_then(Value::as_str) {
         if state.assistant_message_id.is_none() {
             state.assistant_message_id = Some(id.to_string());
@@ -493,6 +500,21 @@ fn map_result(state: &mut EventMapState, turn_id: Option<String>, frame: &Value)
             wrap(Some(turn_id.clone()), AgentEvent::UsageUpdated { usage }),
         );
     }
+
+    if let Some(context) = crate::map::claude_context_usage(
+        state.last_assistant_usage.as_ref(),
+        frame.get("usage"),
+        frame.get("modelUsage").or_else(|| frame.get("model_usage")),
+    ) {
+        push(
+            state,
+            wrap(
+                Some(turn_id.clone()),
+                AgentEvent::ContextUsageUpdated { usage: context },
+            ),
+        );
+    }
+    state.last_assistant_usage = None;
 
     let is_error = frame
         .get("is_error")
@@ -840,5 +862,58 @@ mod tests {
         assert_eq!(events[0].turn_id.as_deref(), Some("epoch-1"));
         let json = serde_json::to_value(&events[0]).unwrap();
         assert!(json.get("sequence").is_none());
+    }
+
+    #[test]
+    fn result_emits_context_usage_from_last_assistant_and_model_usage() {
+        let mut state = EventMapState::new(AgentCurrentConfig::default());
+        let assistant = json!({
+            "type": "assistant",
+            "message": {
+                "id": "msg_1",
+                "role": "assistant",
+                "content": [{"type": "text", "text": "hi"}],
+                "usage": {
+                    "input_tokens": 100,
+                    "cache_read_input_tokens": 50,
+                    "cache_creation_input_tokens": 10,
+                    "output_tokens": 20
+                }
+            }
+        });
+        let _ = drain_mapped(&mut state, Some("turn-1".into()), &assistant);
+        let assistant2 = json!({
+            "type": "assistant",
+            "message": {
+                "id": "msg_2",
+                "role": "assistant",
+                "content": [{"type": "text", "text": "again"}],
+                "usage": {
+                    "input_tokens": 200,
+                    "cache_read_input_tokens": 80,
+                    "cache_creation_input_tokens": 0,
+                    "output_tokens": 30
+                }
+            }
+        });
+        let _ = drain_mapped(&mut state, Some("turn-1".into()), &assistant2);
+        let result = json!({
+            "type": "result",
+            "subtype": "success",
+            "is_error": false,
+            "usage": { "input_tokens": 1, "output_tokens": 1 },
+            "modelUsage": {
+                "claude-sonnet-4": { "contextWindow": 200000 },
+                "claude-sonnet-4[1m]": { "contextWindow": 1000000 }
+            }
+        });
+        let (mapped, _) = drain_mapped(&mut state, Some("turn-1".into()), &result);
+        let context = mapped.iter().find_map(|envelope| match &envelope.payload {
+            AgentEvent::ContextUsageUpdated { usage } => Some(*usage),
+            _ => None,
+        });
+        let usage = context.expect("context usage");
+        assert_eq!(usage.used, 310);
+        assert_eq!(usage.context_window, Some(1_000_000));
     }
 }

@@ -54,6 +54,37 @@ pub(crate) fn map_tool_use(
                 plan: plan_from_tool_input_or_stub(name, plan_fold_title(name), Some(input)),
             }
         }
+        ClassifiedTool::PlanDocument => {
+            let params = crate::map::plan_document_from_tool_input(Some(input)).unwrap_or(
+                AgentToolParams::PlanDocument {
+                    name: None,
+                    overview: None,
+                    plan: String::new(),
+                    todos: Vec::new(),
+                    is_project: None,
+                    phases: None,
+                },
+            );
+            let title = match &params {
+                AgentToolParams::PlanDocument {
+                    name: plan_name,
+                    overview,
+                    ..
+                } => plan_name.clone().or_else(|| overview.clone()),
+                _ => None,
+            };
+            let tool = AgentTool {
+                tool_call_id: tool_use_id.to_string(),
+                name: name.to_string(),
+                title,
+                kind: AgentToolKind::PlanDocument,
+                status: AgentToolStatus::Running,
+                params,
+                result: None,
+            };
+            tools.insert(tool_use_id.to_string(), tool.clone());
+            ToolMapOut::Tool(tool)
+        }
         ClassifiedTool::Hide => {
             if is_poll_output_name(name) {
                 merge_hidden_output(name, tool_use_id, input, None, tools)
@@ -390,6 +421,18 @@ fn typed_params(
                 reference_paths: extract_reference_paths(input),
             })
         }
+        crate::contract::AgentToolKind::PlanDocument => Some(
+            crate::map::plan_document_from_tool_input(Some(input)).unwrap_or(
+                AgentToolParams::PlanDocument {
+                    name: None,
+                    overview: None,
+                    plan: String::new(),
+                    todos: Vec::new(),
+                    is_project: None,
+                    phases: None,
+                },
+            ),
+        ),
         crate::contract::AgentToolKind::Other => Some(AgentToolParams::Other {
             value: input.clone(),
         }),
@@ -762,6 +805,20 @@ mod tests {
                 "TodoWrite",
                 "tu_todo",
                 &json!({"todos":[{"content":"Inspect","status":"pending"}]}),
+                &mut tools
+            ),
+            ToolMapOut::FoldPlan { .. }
+        ));
+        // Even if input has both `plan` markdown and `todos`, Claude stays execution Plan
+        // (not Cursor PlanDocument).
+        assert!(matches!(
+            map_tool_use(
+                "TodoWrite",
+                "tu_todo_plan_field",
+                &json!({
+                    "plan": "# Notes\n\nDo work.",
+                    "todos":[{"content":"Inspect","status":"pending"}]
+                }),
                 &mut tools
             ),
             ToolMapOut::FoldPlan { .. }

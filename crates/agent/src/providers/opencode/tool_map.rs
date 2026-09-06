@@ -3,7 +3,10 @@
 use serde_json::Value;
 
 use crate::contract::{AgentTool, AgentToolParams, AgentToolResult, AgentToolStatus};
-use crate::map::{classify_tool, is_ask_user_tool, plan_from_tool_input, ClassifiedTool};
+use crate::map::{
+    classify_tool, is_ask_user_tool, plan_document_from_tool_input, plan_from_tool_input,
+    ClassifiedTool,
+};
 use crate::map::{
     extract_aspect_ratio, extract_command, extract_cwd, extract_generated_images,
     extract_image_prompt, extract_image_size, extract_links, extract_path, extract_query,
@@ -69,6 +72,41 @@ pub(crate) fn map_tool_part(part: &Value) -> Option<ToolMapOut> {
                 Some(plan) => Some(ToolMapOut::FoldPlan { plan }),
                 None => Some(ToolMapOut::Hide),
             };
+        }
+        ClassifiedTool::PlanDocument => {
+            let params =
+                plan_document_from_tool_input(input).unwrap_or(AgentToolParams::PlanDocument {
+                    name: None,
+                    overview: None,
+                    plan: String::new(),
+                    todos: Vec::new(),
+                    is_project: None,
+                    phases: None,
+                });
+            let title = match &params {
+                AgentToolParams::PlanDocument { name, overview, .. } => {
+                    name.clone().or_else(|| overview.clone())
+                }
+                _ => None,
+            };
+            let (status, event_kind) = match status_name {
+                "completed" => (AgentToolStatus::Completed, ToolEventKind::Completed),
+                "error" | "failed" => (AgentToolStatus::Failed, ToolEventKind::Failed),
+                "running" => (AgentToolStatus::Running, ToolEventKind::Started),
+                _ => (AgentToolStatus::Pending, ToolEventKind::Started),
+            };
+            return Some(ToolMapOut::Tool {
+                tool: AgentTool {
+                    tool_call_id: call_id.to_string(),
+                    name,
+                    title,
+                    kind: crate::contract::AgentToolKind::PlanDocument,
+                    status,
+                    params,
+                    result: None,
+                },
+                kind: event_kind,
+            });
         }
         ClassifiedTool::Hide => return Some(ToolMapOut::Hide),
         ClassifiedTool::Call(_) => {}
@@ -267,6 +305,16 @@ fn typed_params(kind: crate::contract::AgentToolKind, input: &Value) -> Option<A
             ),
             reference_paths: extract_reference_paths(input),
         }),
+        crate::contract::AgentToolKind::PlanDocument => Some(
+            plan_document_from_tool_input(Some(input)).unwrap_or(AgentToolParams::PlanDocument {
+                name: None,
+                overview: None,
+                plan: String::new(),
+                todos: Vec::new(),
+                is_project: None,
+                phases: None,
+            }),
+        ),
         crate::contract::AgentToolKind::Other => Some(AgentToolParams::Other {
             value: input.clone(),
         }),
@@ -644,6 +692,26 @@ mod tests {
             "state": {
                 "status": "completed",
                 "input": { "todos": [{ "content": "Ship", "status": "pending" }] }
+            }
+        });
+        assert!(matches!(
+            map_tool_part(&part),
+            Some(ToolMapOut::FoldPlan { .. })
+        ));
+    }
+
+    #[test]
+    fn todowrite_with_plan_markdown_still_folds_not_plan_document() {
+        let part = json!({
+            "type": "tool",
+            "callID": "t2",
+            "tool": "todowrite",
+            "state": {
+                "status": "completed",
+                "input": {
+                    "plan": "# Ship checklist\n\nDo the work.",
+                    "todos": [{ "content": "Ship", "status": "pending" }]
+                }
             }
         });
         assert!(matches!(

@@ -13,6 +13,7 @@ pub const METHOD_WORKTREE_CREATE: &str = "x.ai/git/worktree/create";
 pub const METHOD_WORKTREE_STATUS: &str = "x.ai/git/worktree/status";
 pub const METHOD_INTERJECT: &str = "x.ai/interject";
 pub const METHOD_ASK_USER_QUESTION: &str = "x.ai/ask_user_question";
+pub const METHOD_EXIT_PLAN_MODE: &str = "x.ai/exit_plan_mode";
 
 /// ACP extension methods must start with `_`. Logical `x.ai/...` becomes `_x.ai/...`.
 pub fn wire_method(logical: &str) -> String {
@@ -123,6 +124,9 @@ fn is_session_op_method(method: &str) -> bool {
             // not as a chat Unknown / session-op preview.
             | "x.ai/ask_user_question"
             | "x.ai/ask_user"
+            // Plan approval is inbound ExtMethod → PermissionRequested (ExitPlanMode).
+            | "x.ai/exit_plan_mode"
+            | "x.ai/exit_plan"
     )
 }
 
@@ -533,12 +537,14 @@ mod tests {
             "x.ai/git/worktree/create",
             "x.ai/git/worktree/status",
             "x.ai/ask_user_question",
+            "x.ai/exit_plan_mode",
             "_x.ai/rewind/points",
             "_x.ai/rewind/execute",
             "_x.ai/session/fork",
             "_x.ai/git/worktree/create",
             "_x.ai/git/worktree/status",
             "_x.ai/ask_user_question",
+            "_x.ai/exit_plan_mode",
         ] {
             assert_eq!(
                 map_xai_method(method),

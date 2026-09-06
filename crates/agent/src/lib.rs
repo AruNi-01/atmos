@@ -12,15 +12,15 @@ pub mod testing;
 
 pub use contract::{
     AgentAction, AgentActionError, AgentActionKind, AgentActionResult, AgentAskQuestion,
-    AgentAvailableCommand, AgentCapabilities, AgentCheckpoint, AgentCurrentConfig, AgentDescriptor,
-    AgentEvent, AgentEventEnvelope, AgentGeneratedImage, AgentIdentity, AgentMcpRef, AgentMode,
-    AgentModel, AgentOptionSupport, AgentOptionsContext, AgentPermissionOption,
-    AgentPermissionRequest, AgentPersistenceHandle, AgentPrompt, AgentProvider, AgentProviderError,
-    AgentProviderFactory, AgentResult, AgentRuntime, AgentRuntimeConfig, AgentRuntimeConfigUpdate,
-    AgentRuntimeControl, AgentSessionOpRequest, AgentSupportedOptions, AgentThinkingSupport,
-    AgentTool, AgentToolCall, AgentToolKind, AgentToolParams, AgentToolResult, AgentToolStatus,
-    AgentTurnHandle, Capability, SearchHit, SessionOpKind, SessionOpOutcome, TurnStop,
-    UserMessageKind, WebSearchLink,
+    AgentAvailableCommand, AgentCapabilities, AgentCheckpoint, AgentContextUsage,
+    AgentCurrentConfig, AgentDescriptor, AgentEvent, AgentEventEnvelope, AgentGeneratedImage,
+    AgentIdentity, AgentMcpRef, AgentMode, AgentModel, AgentOptionSupport, AgentOptionsContext,
+    AgentPermissionOption, AgentPermissionRequest, AgentPersistenceHandle, AgentPlanDocumentTodo,
+    AgentPrompt, AgentProvider, AgentProviderError, AgentProviderFactory, AgentResult,
+    AgentRuntime, AgentRuntimeConfig, AgentRuntimeConfigUpdate, AgentRuntimeControl,
+    AgentSessionOpRequest, AgentSupportedOptions, AgentThinkingSupport, AgentTool, AgentToolCall,
+    AgentToolKind, AgentToolParams, AgentToolResult, AgentToolStatus, AgentTurnHandle, Capability,
+    SearchHit, SessionOpKind, SessionOpOutcome, TurnStop, UserMessageKind, WebSearchLink,
 };
 pub use manager::AgentManager;
 pub use manager::{

@@ -34,8 +34,8 @@ use codec::FrameClass;
 use event_map::{is_dialog_needing_immediate_cancel, map_event, EventMapState, ExtensionUiKind};
 use rpc::{
     apply_get_state, cmd_abort, cmd_clone, cmd_fork, cmd_get_available_models,
-    cmd_get_available_thinking_levels, cmd_get_fork_messages, cmd_get_state, cmd_prompt,
-    cmd_prompt_streaming_steer, cmd_set_model, cmd_set_thinking_level, cmd_steer,
+    cmd_get_available_thinking_levels, cmd_get_fork_messages, cmd_get_session_stats, cmd_get_state,
+    cmd_prompt, cmd_prompt_streaming_steer, cmd_set_model, cmd_set_thinking_level, cmd_steer,
     cmd_switch_session, cmd_ui_cancelled, cmd_ui_confirmed, cmd_ui_value, parse_fork_messages,
     PiTransport, ACCEPT_TIMEOUT, HANDSHAKE_TIMEOUT,
 };
@@ -613,7 +613,10 @@ async fn handshake(
     descriptor: &mut AgentDescriptor,
     resume: Option<&str>,
     cfg: &AgentRuntimeConfig,
-) -> AgentResult<AgentPersistenceHandle> {
+) -> AgentResult<(
+    AgentPersistenceHandle,
+    Option<crate::contract::AgentContextUsage>,
+)> {
     let state = transport
         .call(cmd_get_state(), HANDSHAKE_TIMEOUT)
         .await?
@@ -672,6 +675,16 @@ async fn handshake(
         descriptor.current_config.thinking = Some(thinking.clone());
     }
 
+    // Soft-fail: older Pi builds may not advertise get_session_stats.
+    let mut context_usage = None;
+    if let Ok(Ok(stats)) = transport
+        .call(cmd_get_session_stats(), ACCEPT_TIMEOUT)
+        .await
+        .map(|response| response.require_ok().cloned())
+    {
+        context_usage = crate::map::pi_context_usage_from_stats(stats.data());
+    }
+
     let handle = transport
         .snapshot
         .lock()
@@ -680,7 +693,7 @@ async fn handshake(
         .clone()
         .or_else(|| resume.map(str::to_string))
         .ok_or_else(|| AgentProviderError::message("pi get_state missing sessionFile"))?;
-    Ok(AgentPersistenceHandle::new(handle))
+    Ok((AgentPersistenceHandle::new(handle), context_usage))
 }
 
 async fn apply_snapshot_to_config(transport: &PiTransport, descriptor: &mut AgentDescriptor) {
@@ -760,19 +773,27 @@ async fn open_pi_runtime(
         ..AgentCurrentConfig::default()
     });
     let child = Arc::new(Mutex::new(child));
-    let handle = match handshake(&transport, &mut descriptor, resume.as_deref(), &cfg).await {
-        Ok(handle) => handle,
-        Err(error) => {
-            transport.shutdown_writer().await;
-            if let Some(mut child) = child.lock().await.take() {
-                let _ = child.kill().await;
+    let (handle, startup_context) =
+        match handshake(&transport, &mut descriptor, resume.as_deref(), &cfg).await {
+            Ok(pair) => pair,
+            Err(error) => {
+                transport.shutdown_writer().await;
+                if let Some(mut child) = child.lock().await.take() {
+                    let _ = child.kill().await;
+                }
+                return Err(error);
             }
-            return Err(error);
-        }
-    };
+        };
     let persistence = Some(handle.clone());
     let mut map = EventMapState::new();
     map.queue_session_started(Some(handle.as_str().to_string()));
+    if let Some(context) = startup_context {
+        map.known_context_window = context.context_window;
+        map.pending.push_back(AgentEventEnvelope::new(
+            None,
+            AgentEvent::ContextUsageUpdated { usage: context },
+        ));
+    }
     let commands = Arc::new(PiCommands {
         transport,
         running_turn: Mutex::new(None),

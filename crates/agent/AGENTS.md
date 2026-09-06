@@ -6,6 +6,54 @@ Chat business rules (jsonl transcript, `/fork` `/rewind` intercept, `rewind_view
 
 ---
 
+## Context usage event
+
+Providers map native token/window stats into a first-class Atmos event
+`AgentEvent::ContextUsageUpdated { usage: AgentContextUsage { used, context_window } }`.
+Shared formulas live in `map/context_usage.rs` (`claude_context_tokens` for
+native Claude only, Codex `last.totalTokens`, ACP `used` +
+`max|limit|size|contextWindow` for Cursor/Amp/Grok/Kimi/…, OpenCode
+`info.tokens` + catalog `/limit/context`, Pi `get_session_stats` / message usage,
+DeepSeek pressure + `request.context.contextWindow`).
+
+`core-service` stores the result on `session_usage` (`used` + `context_window`) and
+emits chat payload `context_usage_updated`. Frontend Chat UI must **only** consume
+`used` + `context_window` (hide when the window is unknown). Do **not** scrape
+vendor `UsageUpdated` JSON for context occupancy — that path is for turn spend /
+cost only.
+
+| Host | Tokens | Window |
+|------|--------|--------|
+| Claude (native only) | last assistant `/message/usage` via `claude_context_tokens` | `result.modelUsage[*].contextWindow` (max); missing → `None` |
+| Codex | `tokenUsage.last.totalTokens` | `tokenUsage.modelContextWindow`; missing → `None` |
+| Cursor / Amp / Fx / Kimi (ACP) | `usage_update.used` (aliases: `usedTokens`) | first of `max` / `limit` / `size` / `maxTokens` / `contextWindow`; missing → `None` |
+| Grok (native + `grok-build` ACP) | `usage_update.used` **or** `session/update` `_meta.totalTokens` | live `availableModels[]._meta.totalContextTokens` (`session/new` / `_x.ai/models/update`); **no** hardcoded model→window table |
+| OpenCode | `info.tokens.total` or sum | catalog `/limit/context`; missing → `None` |
+| Pi | `message.usage.totalTokens` or sum | `get_session_stats` / model `contextWindow`; missing → `None` |
+| DeepSeek | `contextPressure.projectedTokens` or sum (via ACP normalize) | `request.context.contextWindow`; missing → `None` |
+
+**Live Cursor ACP (2026.09.02 `cursor-agent acp`)**: schema advertises `usage_update`, but observed short/tool turns emit **no** `usage_update` and no prompt-result `usage`. Frontend correctly hides occupancy until the agent sends `used` + a positive window. Evidence: `providers/acp/testdata/cursor_acp_no_usage_live.jsonl`.
+
+---
+
+## PlanDocument vs execution Plan
+
+`AgentToolKind::PlanDocument` is **Cursor-only**: tool name/title `createPlan` /
+`updatePlan` (and synonyms), plus ACP ExtMethod `cursor/create_plan`. Do **not**
+classify as PlanDocument from input shape (`plan` markdown + `todos[]`) — that
+mis-labels other agents’ execution todos. Cursor `updateTodos` / Claude
+`TodoWrite` / Task* / OpenCode `todowrite` / Codex `turn/plan/*` stay
+`ClassifiedTool::Plan` → `PlanUpdated` / PlanBlockView.
+
+**Cursor ExtMethod wire note**: live Cursor sends `cursor/create_plan` *without*
+the ACP `_` prefix. `InboundExtMethod::matches_method` must accept that name
+(see `acp_client/runner.rs`); handler logic lives in `AtmosAcpClient::ext_method`.
+Companion `session/update` `plan` entries during plan phase are **not** execution
+todos — `event_map` suppresses them while mode=`plan` or a PlanDocument tool is
+active; `updateTodos` still folds to `PlanUpdated`.
+
+---
+
 ## Build And Test
 
 - **Build**: `cargo build -p agent`
@@ -95,7 +143,7 @@ Chat spawn overlays (session argv/`-c` only; never rewrite user toml):
 |------|---------|-----|
 | **Codex** | `app-server -c openai_base_url=""`; `thread/start` `approvalPolicy` from Atmos permission (`ask_always` → `on-request`, `yolo` → `never`), `sandbox: workspace-write`; `thread/start` and `turn/start` send `model` (catalog/list default if spawn omitted it) | Atmos owns permission chrome and must not inherit a user `openai_base_url` gateway it does not control. Empty base URL is the published CLI ChatGPT-login path. 0.152.1 rejects a missing `model` field. |
 | **Grok** | `--permission-mode <selected\|default>` **before** `agent` (not `grok agent --permission-mode`, which the CLI rejects). Still omit `--always-approve` / `--yolo` (Always approve is `--permission-mode bypassPermissions`). Mid-session: slash `/always-approve on\|off` and `/auto` via `session/prompt` (`prompt_turn` — **no** Atmos `TurnEnd`); Plan/Normal via ACP `session/set_mode` (`plan`/`default`). Do **not** `session/set_config_option` permission aliases (Method not found). Advertise Yolo / Auto / Ask Always only (Accept edits is spawn-capable but has no mid-session slash). Session env `GROK_CURSOR_MCPS_ENABLED=0` and `GROK_CLAUDE_MCPS_ENABLED=0`. | Atmos owns permission chrome. Empty `session/new` `mcpServers` does not stop Cursor/Claude MCP ingestion (`compat.*.mcps` default on); HTTP MCP Connection refused / OAuth `AuthRequired` can fatal the stdio worker. Slash `TurnEnd` would race send-time config apply and leave Chat Streaming stuck. |
-| **Cursor (ACP)** | `cursor-agent acp` with optional parent flags `--yolo` (Run Everything) or `--auto-review` (Smart Auto) **before** `acp`. Do **not** `session/set_config_option` `permissionMode` / aliases — Cursor advertises `mode`/`model`/… only. Advertise Yolo / Auto / Ask Always (create-time CLI subset); never Accept edits. Mid-session permission has no ACP wire. Plan is `mode=plan`. | Guessing unknown configIds returns JSON-RPC `-32602`. Team policy may still force allowlist even with `--yolo`. |
+| **Cursor (ACP)** | `cursor-agent acp` with optional parent flags `--yolo` (Run Everything) or `--auto-review` (Smart Auto) **before** `acp`. Do **not** `session/set_config_option` `permissionMode` / aliases — Cursor advertises `mode`/`model`/`fast` (and sometimes effort) only. Map Atmos UI keys (`thinking`/`effort`/…) onto **advertised** ACP `configId`s; drop unknown families — never spam aliases serially (`-32602` + multi-second stalls). Advertise Yolo / Auto / Ask Always (create-time CLI subset); never Accept edits. Mid-session permission has no ACP wire. Plan is `mode=plan`. | Guessing unknown configIds returns JSON-RPC `-32602`. Team policy may still force allowlist even with `--yolo`. |
 | **Claude** | `--permission-prompt-tool stdio` + spawn `--permission-mode`; mid-session prefers control `set_permission_mode` but soft-fails must not break SetConfig / pending sync (Atmos chrome stays local). Do **not** ACP-guess `permissionMode` aliases for native `claude`. | Published default is Anthropic. Permission mode is a Chat flag, not a gateway wipe. |
 | **Pi** | `--mode rpc` only | Host has **no** built-in tool-permission chrome. `--approve` / `-na` is project-file trust; RPC `extension_ui_request` `confirm` is extension UI only. |
 

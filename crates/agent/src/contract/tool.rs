@@ -19,6 +19,8 @@ pub enum AgentToolKind {
     McpCall,
     /// Generate or edit still images (Cursor generateImage, Grok image_gen/edit).
     ImageGen,
+    /// Plan-phase document (Cursor createPlan / updatePlan by tool name). Not execution TodoWrite.
+    PlanDocument,
     #[default]
     Other,
 }
@@ -119,9 +121,38 @@ pub enum AgentToolParams {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         reference_paths: Option<Vec<String>>,
     },
+    /// Cursor `createPlan` / `updatePlan` schema (plan markdown + plan-phase todos).
+    PlanDocument {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        name: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        overview: Option<String>,
+        plan: String,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        todos: Vec<AgentPlanDocumentTodo>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        is_project: Option<bool>,
+        /// Optional Cursor `phases[]` (pass-through JSON; UI may flatten todos).
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        phases: Option<serde_json::Value>,
+    },
     Other {
         value: serde_json::Value,
     },
+}
+
+/// One plan-phase todo from createPlan / updatePlan (not live TodoWrite execution).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AgentPlanDocumentTodo {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
+    pub content: String,
+    #[serde(default = "default_plan_todo_status")]
+    pub status: String,
+}
+
+fn default_plan_todo_status() -> String {
+    "pending".into()
 }
 
 /// One generated/edited image — URL (http(s)/data:), workspace path, or both.
@@ -165,6 +196,13 @@ pub enum AgentToolResult {
         path: String,
         additions: u32,
         deletions: u32,
+    },
+    /// Full before/after contents for Write/Edit tool cards (ACP `content[].diff`).
+    Diff {
+        path: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        old_content: Option<String>,
+        new_content: String,
     },
     Execute {
         output: String,

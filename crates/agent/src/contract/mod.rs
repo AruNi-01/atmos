@@ -1,4 +1,5 @@
 pub mod action;
+pub mod context_usage;
 pub mod descriptor;
 pub mod error;
 pub mod event;
@@ -9,6 +10,7 @@ pub mod tool;
 pub use action::{
     AgentAction, AgentActionError, AgentActionKind, AgentActionResult, SessionOpKind,
 };
+pub use context_usage::AgentContextUsage;
 pub use descriptor::{
     AgentCapabilities, AgentCurrentConfig, AgentDescriptor, AgentIdentity, AgentOptionSupport,
     AgentSupportedOptions, Capability,
@@ -26,6 +28,6 @@ pub use provider::{
     AgentRuntimeConfigUpdate, AgentRuntimeControl, AgentTurnHandle,
 };
 pub use tool::{
-    AgentGeneratedImage, AgentMcpRef, AgentTool, AgentToolKind, AgentToolParams, AgentToolResult,
-    AgentToolStatus, SearchHit, WebSearchLink,
+    AgentGeneratedImage, AgentMcpRef, AgentPlanDocumentTodo, AgentTool, AgentToolKind,
+    AgentToolParams, AgentToolResult, AgentToolStatus, SearchHit, WebSearchLink,
 };

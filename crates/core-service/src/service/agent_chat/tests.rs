@@ -41,6 +41,8 @@ fn create_req_for(cwd: &str, provider_id: &str) -> CreateAgentChatRequest {
         model: (provider_id == "claude").then(|| "opus".into()),
         thinking: None,
         mode: None,
+        permission_mode: None,
+        fast: None,
         title: None,
     }
 }
@@ -1318,6 +1320,8 @@ async fn app069_s10_acp_send_fork_goes_as_prompt() {
             model: None,
             thinking: None,
             mode: None,
+            permission_mode: None,
+            fast: None,
             title: None,
         })
         .unwrap();

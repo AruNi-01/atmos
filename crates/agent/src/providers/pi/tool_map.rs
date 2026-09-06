@@ -4,7 +4,9 @@ use serde_json::Value;
 
 use crate::contract::AgentToolKind;
 use crate::contract::{AgentTool, AgentToolParams, AgentToolResult, AgentToolStatus};
-use crate::map::{classify_tool, plan_from_tool_input, ClassifiedTool};
+use crate::map::{
+    classify_tool, plan_document_from_tool_input, plan_from_tool_input, ClassifiedTool,
+};
 use crate::map::{
     extract_aspect_ratio, extract_command, extract_cwd, extract_generated_images,
     extract_image_prompt, extract_image_size, extract_links, extract_path, extract_query,
@@ -37,6 +39,45 @@ pub fn map_tool_execution(
             Some(plan) => ToolMapOut::FoldPlan { plan },
             None => ToolMapOut::Hide,
         },
+        ClassifiedTool::PlanDocument => {
+            let params = plan_document_from_tool_input(Some(args)).unwrap_or(
+                AgentToolParams::PlanDocument {
+                    name: None,
+                    overview: None,
+                    plan: String::new(),
+                    todos: Vec::new(),
+                    is_project: None,
+                    phases: None,
+                },
+            );
+            let title = match &params {
+                AgentToolParams::PlanDocument { name, overview, .. } => {
+                    name.clone().or_else(|| overview.clone())
+                }
+                _ => None,
+            };
+            ToolMapOut::Tool(AgentTool {
+                tool_call_id: tool_call_id.to_string(),
+                name: tool_name.to_string(),
+                title,
+                kind: AgentToolKind::PlanDocument,
+                status,
+                params,
+                result: if matches!(status, AgentToolStatus::Completed | AgentToolStatus::Failed) {
+                    Some(if is_error {
+                        AgentToolResult::Error {
+                            message: result_text(result.unwrap_or(args)),
+                        }
+                    } else {
+                        AgentToolResult::Text {
+                            text: result_text(result.unwrap_or(&Value::Null)),
+                        }
+                    })
+                } else {
+                    None
+                },
+            })
+        }
         ClassifiedTool::Hide => ToolMapOut::Hide,
         ClassifiedTool::Call(kind) => match build_typed(
             tool_call_id,
@@ -176,6 +217,16 @@ fn typed_params(kind: AgentToolKind, args: &Value) -> Option<AgentToolParams> {
             ),
             reference_paths: extract_reference_paths(args),
         }),
+        AgentToolKind::PlanDocument => Some(plan_document_from_tool_input(Some(args)).unwrap_or(
+            AgentToolParams::PlanDocument {
+                name: None,
+                overview: None,
+                plan: String::new(),
+                todos: Vec::new(),
+                is_project: None,
+                phases: None,
+            },
+        )),
         AgentToolKind::Other => None,
     }
 }
@@ -240,7 +291,8 @@ fn mapped_result(
         | AgentToolKind::Skill
         | AgentToolKind::Subagent
         | AgentToolKind::McpList
-        | AgentToolKind::McpCall => AgentToolResult::Text {
+        | AgentToolKind::McpCall
+        | AgentToolKind::PlanDocument => AgentToolResult::Text {
             text: result_text(result),
         },
         AgentToolKind::ImageGen => {

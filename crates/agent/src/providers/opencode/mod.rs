@@ -699,6 +699,7 @@ async fn open_runtime(
         if status.is_success() {
             let (options, default_model) = models_from_providers(&providers);
             map.supported_options = options;
+            map.load_model_context_windows(&providers);
             if current_config.model.is_none() {
                 current_config.model = default_model;
                 map.current_config.model = current_config.model.clone();

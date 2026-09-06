@@ -213,6 +213,7 @@ impl AgentRuntimeCommands for FakeSessionInner {
                             kind: "allow_once".into(),
                         }],
                         questions: Vec::new(),
+                        plan_todos: Vec::new(),
                     },
                 },
             ));

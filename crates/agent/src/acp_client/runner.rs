@@ -1,8 +1,8 @@
 //! ACP session runner - runs the ACP connection in a dedicated thread.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::thread;
 
 use agent_client_protocol::schema::v1 as schema;
@@ -74,15 +74,24 @@ impl JsonRpcRequest for OutboundExtMethod {
 }
 
 /// Inbound agent → client extension request (`_…` methods, e.g. Grok Ask User).
+///
+/// Cursor also sends some ExtMethods **without** the ACP `_` wire prefix
+/// (live: `cursor/create_plan`). Those must still match here — otherwise the
+/// JSON-RPC router tries RequestPermission / fs / terminal handlers and returns
+/// Method not found before `AtmosAcpClient::ext_method` can run.
 #[derive(Debug, Clone)]
 struct InboundExtMethod {
     method: String,
     params: Value,
 }
 
+fn is_inbound_ext_method_without_prefix(method: &str) -> bool {
+    matches!(method, "cursor/create_plan" | "cursor/createPlan")
+}
+
 impl JsonRpcMessage for InboundExtMethod {
     fn matches_method(method: &str) -> bool {
-        method.starts_with('_')
+        method.starts_with('_') || is_inbound_ext_method_without_prefix(method)
     }
 
     fn method(&self) -> &str {
@@ -268,6 +277,107 @@ fn atmos_initialize_request() -> schema::InitializeRequest {
         .client_capabilities(schema::ClientCapabilities::new().meta(meta))
 }
 
+/// Atmos UI may store logical keys (`thinking`, `effort`, …). Cursor ACP only
+/// accepts ids advertised on the live session (`mode` / `model` / `fast`, …).
+/// Prefer one wire id per family — never spam every alias over RPC.
+pub(crate) const CONFIG_ALIAS_GROUPS: &[&[&str]] = &[
+    &["mode", "modes", "agent", "agents"],
+    &["model", "models"],
+    &[
+        "permissionMode",
+        "permission_mode",
+        "permission",
+        "approval",
+    ],
+    // Prefer effort/reasoning when Cursor PMP advertises them; else thinking.
+    &[
+        "effort",
+        "reasoning_effort",
+        "thought_level",
+        "thinking",
+        "think",
+    ],
+    &["fast", "fast-mode", "fast_mode"],
+];
+
+/// Map host/Atmos default keys onto ids present in `session/new` `configOptions`.
+/// Unknown families (e.g. Atmos `thinking` when Cursor only has `mode`/`model`/`fast`)
+/// are dropped — no `session/set_config_option` Invalid params loop.
+pub(crate) fn map_host_config_to_available(
+    values: HashMap<String, String>,
+    available: &HashSet<String>,
+) -> HashMap<String, String> {
+    if available.is_empty() {
+        return values;
+    }
+    let available_lower: HashSet<String> =
+        available.iter().map(|id| id.to_ascii_lowercase()).collect();
+    let lookup_available = |wanted: &str| -> Option<String> {
+        let wanted_lower = wanted.to_ascii_lowercase();
+        available
+            .iter()
+            .find(|id| id.to_ascii_lowercase() == wanted_lower)
+            .cloned()
+    };
+
+    let mut out = HashMap::new();
+    let mut consumed_lower = HashSet::new();
+
+    for group in CONFIG_ALIAS_GROUPS {
+        let Some(value) = group
+            .iter()
+            .find_map(|alias| values.get(*alias).cloned())
+            .filter(|value| !value.is_empty())
+        else {
+            continue;
+        };
+        for alias in *group {
+            consumed_lower.insert(alias.to_ascii_lowercase());
+        }
+        let Some(target) = group.iter().find_map(|alias| lookup_available(alias)) else {
+            continue;
+        };
+        out.insert(target, value);
+    }
+
+    for (id, value) in values {
+        if value.is_empty() {
+            continue;
+        }
+        let lower = id.to_ascii_lowercase();
+        if consumed_lower.contains(&lower) {
+            continue;
+        }
+        if available_lower.contains(&lower) {
+            if let Some(wire_id) = lookup_available(&id) {
+                out.insert(wire_id, value);
+            }
+        }
+    }
+    out
+}
+
+/// Pick a single advertised configId from an Atmos alias list.
+pub(crate) fn resolve_available_config_id(
+    aliases: &[String],
+    available: &HashSet<String>,
+) -> Option<String> {
+    if available.is_empty() {
+        return aliases.first().cloned();
+    }
+    let available_lower: HashSet<String> =
+        available.iter().map(|id| id.to_ascii_lowercase()).collect();
+    aliases.iter().find_map(|alias| {
+        if !available_lower.contains(&alias.to_ascii_lowercase()) {
+            return None;
+        }
+        available
+            .iter()
+            .find(|id| id.eq_ignore_ascii_case(alias))
+            .cloned()
+    })
+}
+
 fn ordered_config_values(values: HashMap<String, String>) -> Vec<(String, String)> {
     let mut remaining = values;
     let mut ordered = Vec::new();
@@ -395,11 +505,20 @@ async fn apply_config_values(
     conn: &ConnectionTo<Agent>,
     session_id_acp: &schema::SessionId,
     values: HashMap<String, String>,
+    available_config_ids: &HashSet<String>,
     uses_legacy_modes: bool,
     event_tx: &mpsc::UnboundedSender<AcpSessionEvent>,
     context: &str,
 ) {
-    for (config_id, value) in ordered_config_values(values) {
+    let mapped = map_host_config_to_available(values, available_config_ids);
+    if mapped.is_empty() {
+        info!(
+            "No {} config left after mapping to advertised options ({:?})",
+            context, available_config_ids
+        );
+        return;
+    }
+    for (config_id, value) in ordered_config_values(mapped) {
         let session_id_text = session_id_acp.to_string();
         info!(
             "Applying {} config for {}: {}",
@@ -544,6 +663,7 @@ enum SessionRestoreMethod {
 #[derive(Debug, Clone, Default)]
 struct SessionConfigEmitResult {
     uses_legacy_modes: bool,
+    available_config_ids: HashSet<String>,
 }
 
 struct MergedSessionConfig {
@@ -633,6 +753,7 @@ pub struct AcpSessionHandle {
     event_rx: mpsc::UnboundedReceiver<AcpSessionEvent>,
     permission_rx: mpsc::UnboundedReceiver<(PermissionRequest, oneshot::Sender<String>)>,
     ext_notify: broadcast::Sender<ExtNotificationPayload>,
+    available_config_ids: Arc<Mutex<HashSet<String>>>,
 }
 
 pub const AUTH_REQUIRED_ERROR_PREFIX: &str = "ACP_AUTH_REQUIRED::";
@@ -641,9 +762,17 @@ pub const AUTH_REQUIRED_ERROR_PREFIX: &str = "ACP_AUTH_REQUIRED::";
 pub struct AcpSessionControl {
     cmd_tx: mpsc::UnboundedSender<SessionCommand>,
     ext_notify: broadcast::Sender<ExtNotificationPayload>,
+    available_config_ids: Arc<Mutex<HashSet<String>>>,
 }
 
 impl AcpSessionControl {
+    pub fn available_config_ids(&self) -> HashSet<String> {
+        self.available_config_ids
+            .lock()
+            .map(|guard| guard.clone())
+            .unwrap_or_default()
+    }
+
     pub fn send_prompt(&self, message: String, attachments: Vec<String>) -> Result<(), String> {
         self.cmd_tx
             .send(SessionCommand::Prompt {
@@ -755,6 +884,7 @@ impl AcpSessionHandle {
         AcpSessionControl {
             cmd_tx: self.cmd_tx.clone(),
             ext_notify: self.ext_notify.clone(),
+            available_config_ids: Arc::clone(&self.available_config_ids),
         }
     }
 
@@ -829,6 +959,8 @@ pub async fn run_acp_session(
     let (ready_tx, ready_rx) = oneshot::channel::<Result<String, String>>();
     let (ext_notify, _) = broadcast::channel(32);
     let ext_notify_thread = ext_notify.clone();
+    let available_config_ids = Arc::new(Mutex::new(HashSet::new()));
+    let available_config_ids_thread = Arc::clone(&available_config_ids);
     let event_tx_end = event_tx.clone();
     let event_tx_panic = event_tx.clone();
 
@@ -860,6 +992,7 @@ pub async fn run_acp_session(
                         default_config,
                         session_config_snapshot,
                         ext_notify_thread,
+                        available_config_ids_thread,
                     )
                     .await
                     {
@@ -900,6 +1033,7 @@ pub async fn run_acp_session(
         event_rx,
         permission_rx,
         ext_notify,
+        available_config_ids,
     })
 }
 
@@ -919,6 +1053,7 @@ async fn run_session_inner(
     default_config: Option<std::collections::HashMap<String, String>>,
     session_config_snapshot: Option<HashMap<String, String>>,
     ext_notify: broadcast::Sender<ExtNotificationPayload>,
+    available_config_ids: Arc<Mutex<HashSet<String>>>,
 ) -> Result<(), String> {
     // Must be held alive for the session duration; dropping triggers kill_on_drop
     let (stdin, stdout, stderr, child_guard) =
@@ -1092,6 +1227,7 @@ async fn run_session_inner(
             // Track whether the agent uses legacy APIs so we can translate
             // SetConfigOption("mode"/"model", ..) → set_session_mode/set_session_model.
             let mut uses_legacy_modes = false;
+            let mut session_available_ids = HashSet::new();
 
             /// Helper: emit config options from a session response, checking
             /// the new `config_options` and the legacy `modes` field.
@@ -1099,8 +1235,13 @@ async fn run_session_inner(
                 config_options: Option<Vec<schema::SessionConfigOption>>,
                 modes: Option<schema::SessionModeState>,
                 event_tx: &mpsc::UnboundedSender<AcpSessionEvent>,
+                available_config_ids: &Arc<Mutex<HashSet<String>>>,
             ) -> SessionConfigEmitResult {
                 let merged = merge_session_config_options(config_options, modes);
+                let ids: HashSet<String> = merged.options.iter().map(|opt| opt.id.clone()).collect();
+                if let Ok(mut guard) = available_config_ids.lock() {
+                    *guard = ids.clone();
+                }
                 if merged.options.is_empty() {
                     info!("Session returned NO config options or modes");
                 } else {
@@ -1109,6 +1250,7 @@ async fn run_session_inner(
                 }
                 SessionConfigEmitResult {
                     uses_legacy_modes: merged.uses_legacy_modes,
+                    available_config_ids: ids,
                 }
             }
 
@@ -1141,8 +1283,10 @@ async fn run_session_inner(
                                 response.config_options,
                                 response.modes,
                                 &event_tx,
+                                &available_config_ids,
                             );
                             uses_legacy_modes = emitted.uses_legacy_modes;
+                            session_available_ids = emitted.available_config_ids;
                             Ok(requested)
                         }
                         Err(err) => Err(err),
@@ -1157,9 +1301,14 @@ async fn run_session_inner(
                     .map(|response| {
                         info!("Resumed ACP session without history replay: {}", resume_id);
                         replayed_loaded_history = false;
-                        let emitted =
-                            emit_session_config(response.config_options, response.modes, &event_tx);
+                        let emitted = emit_session_config(
+                            response.config_options,
+                            response.modes,
+                            &event_tx,
+                            &available_config_ids,
+                        );
                         uses_legacy_modes = emitted.uses_legacy_modes;
+                        session_available_ids = emitted.available_config_ids;
                         requested
                     })
                 } else {
@@ -1177,9 +1326,14 @@ async fn run_session_inner(
                     .block_task()
                     .await
                     .map(|response| {
-                        let emitted =
-                            emit_session_config(response.config_options, response.modes, &event_tx);
+                        let emitted = emit_session_config(
+                            response.config_options,
+                            response.modes,
+                            &event_tx,
+                            &available_config_ids,
+                        );
                         uses_legacy_modes = emitted.uses_legacy_modes;
+                        session_available_ids = emitted.available_config_ids;
                         response.session_id
                     })
             };
@@ -1210,6 +1364,7 @@ async fn run_session_inner(
                     &conn,
                     &session_id_acp,
                     snapshot,
+                    &session_available_ids,
                     uses_legacy_modes,
                     &event_tx,
                     "session snapshot",
@@ -1220,6 +1375,7 @@ async fn run_session_inner(
                     &conn,
                     &session_id_acp,
                     defaults,
+                    &session_available_ids,
                     uses_legacy_modes,
                     &event_tx,
                     "default",
@@ -1405,6 +1561,16 @@ async fn run_session_inner(
                             });
                         }
                         for (config_id, value, reply) in pending_configs {
+                            if !session_available_ids.is_empty()
+                                && !session_available_ids
+                                    .iter()
+                                    .any(|id| id.eq_ignore_ascii_case(&config_id))
+                            {
+                                let _ = reply.send(Err(format!(
+                                    "Unknown config option id: {config_id}"
+                                )));
+                                continue;
+                            }
                             let result = set_session_config_option(
                                 &conn,
                                 &session_id_acp,
@@ -1414,6 +1580,15 @@ async fn run_session_inner(
                                 &event_tx,
                             )
                             .await;
+                            if let Ok(options) = &result {
+                                if !options.is_empty() {
+                                    session_available_ids =
+                                        options.iter().map(|opt| opt.id.clone()).collect();
+                                    if let Ok(mut guard) = available_config_ids.lock() {
+                                        *guard = session_available_ids.clone();
+                                    }
+                                }
+                            }
                             let _ = reply.send(result);
                         }
                         for (text, attachments, reply) in pending_prompts {
@@ -1491,6 +1666,20 @@ async fn run_session_inner(
                         value,
                         reply,
                     } => {
+                        if !session_available_ids.is_empty()
+                            && !session_available_ids
+                                .iter()
+                                .any(|id| id.eq_ignore_ascii_case(&config_id))
+                        {
+                            info!(
+                                "Skipping set_config_option for unadvertised id {} (available: {:?})",
+                                config_id, session_available_ids
+                            );
+                            let _ = reply.send(Err(format!(
+                                "Unknown config option id: {config_id}"
+                            )));
+                            continue;
+                        }
                         let result = set_session_config_option(
                             &conn,
                             &session_id_acp,
@@ -1500,6 +1689,15 @@ async fn run_session_inner(
                             &event_tx,
                         )
                         .await;
+                        if let Ok(options) = &result {
+                            if !options.is_empty() {
+                                session_available_ids =
+                                    options.iter().map(|opt| opt.id.clone()).collect();
+                                if let Ok(mut guard) = available_config_ids.lock() {
+                                    *guard = session_available_ids.clone();
+                                }
+                            }
+                        }
                         if let Err(error) = &result {
                             warn!("Set config option failed: {}", error);
                         }
@@ -1830,6 +2028,67 @@ mod tests {
     }
 
     #[test]
+    fn map_host_config_skips_cursor_unknown_aliases_when_only_mode_model_fast() {
+        use std::collections::HashSet;
+        let available =
+            HashSet::from(["mode".to_string(), "model".to_string(), "fast".to_string()]);
+        let values = HashMap::from([
+            ("mode".to_string(), "agent".to_string()),
+            ("model".to_string(), "composer-2.5".to_string()),
+            ("fast".to_string(), "false".to_string()),
+            ("thinking".to_string(), "low".to_string()),
+            ("effort".to_string(), "low".to_string()),
+            ("reasoning_effort".to_string(), "low".to_string()),
+            ("thought_level".to_string(), "low".to_string()),
+            ("agent".to_string(), "agent".to_string()),
+        ]);
+        let mapped = super::map_host_config_to_available(values, &available);
+        let mut ids: Vec<_> = mapped.keys().cloned().collect();
+        ids.sort();
+        assert_eq!(ids, vec!["fast", "mode", "model"]);
+        assert_eq!(mapped.get("fast").map(String::as_str), Some("false"));
+        assert_eq!(
+            mapped.get("model").map(String::as_str),
+            Some("composer-2.5")
+        );
+    }
+
+    #[test]
+    fn map_host_config_maps_atmos_thinking_to_advertised_effort() {
+        use std::collections::HashSet;
+        let available = HashSet::from([
+            "model".to_string(),
+            "effort".to_string(),
+            "fast".to_string(),
+        ]);
+        let values = HashMap::from([
+            ("thinking".to_string(), "low".to_string()),
+            ("fast".to_string(), "true".to_string()),
+        ]);
+        let mapped = super::map_host_config_to_available(values, &available);
+        assert_eq!(mapped.get("effort").map(String::as_str), Some("low"));
+        assert_eq!(mapped.get("fast").map(String::as_str), Some("true"));
+        assert!(!mapped.contains_key("thinking"));
+    }
+
+    #[test]
+    fn resolve_available_config_id_picks_single_advertised_alias() {
+        use std::collections::HashSet;
+        let available = HashSet::from(["fast".to_string(), "model".to_string()]);
+        let aliases = vec![
+            "effort".into(),
+            "reasoning_effort".into(),
+            "thinking".into(),
+        ];
+        assert!(super::resolve_available_config_id(&aliases, &available).is_none());
+        let fast_aliases = vec!["fast".into(), "fast-mode".into(), "fast_mode".into()];
+        assert_eq!(
+            super::resolve_available_config_id(&fast_aliases, &available).as_deref(),
+            Some("fast")
+        );
+    }
+
+    #[test]
     fn prompt_stop_maps_cancel_and_refusal() {
         assert_eq!(
             map_prompt_stop(true, schema::StopReason::EndTurn),
@@ -1917,5 +2176,45 @@ mod tests {
         .expect("parse");
         assert_eq!(parsed.method, "_x.ai/ask_user_question");
         assert_eq!(parsed.params["toolCallId"], "call_1");
+    }
+
+    #[test]
+    fn inbound_ext_method_matches_cursor_create_plan_without_underscore() {
+        use agent_client_protocol::JsonRpcMessage;
+        // Live Cursor ACP sends `cursor/create_plan` (no `_` prefix). If this
+        // returns false, the router never reaches AtmosAcpClient::ext_method and
+        // Cursor sees Method not found.
+        assert!(super::InboundExtMethod::matches_method(
+            "cursor/create_plan"
+        ));
+        assert!(super::InboundExtMethod::matches_method("cursor/createPlan"));
+        assert!(super::InboundExtMethod::matches_method(
+            "_cursor/create_plan"
+        ));
+        assert!(!super::InboundExtMethod::matches_method("session/update"));
+        assert!(!super::is_inbound_ext_method_without_prefix(
+            "session/request_permission"
+        ));
+
+        let raw: serde_json::Value = serde_json::from_str(include_str!(
+            "../providers/acp/testdata/cursor_create_plan_ext.json"
+        ))
+        .expect("fixture");
+        let method = raw["method"].as_str().expect("method");
+        assert_eq!(method, "cursor/create_plan");
+        assert!(super::InboundExtMethod::matches_method(method));
+        let parsed = super::InboundExtMethod::parse_message(method, &raw["params"]).expect("parse");
+        assert_eq!(parsed.method, "cursor/create_plan");
+        assert_eq!(parsed.params["name"], "Agent Chat 优化收尾");
+        assert!(parsed.params["plan"]
+            .as_str()
+            .is_some_and(|plan| plan.contains("分层")));
+        assert_eq!(
+            parsed.params["todos"]
+                .as_array()
+                .map(|todos| todos.len())
+                .unwrap_or(0),
+            5
+        );
     }
 }

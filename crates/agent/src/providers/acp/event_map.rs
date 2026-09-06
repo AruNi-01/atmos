@@ -31,6 +31,12 @@ pub(crate) struct EventMapState {
     pub current_config: AgentCurrentConfig,
     pub tools: HashMap<String, ToolCallUpdate>,
     pub overlay: OverlayState,
+    /// Grok-family ACP (`grok-build` / `grok-acp`): `modelId` → `totalContextTokens`.
+    pub model_context_windows: HashMap<String, u64>,
+    /// Cursor plan-phase: a `createPlan` / `updatePlan` PlanDocument tool was seen.
+    /// Companion ACP `session/update` `plan` entries must not drive the execution
+    /// PlanUpdated / PlanBlockView dock until we leave plan phase.
+    pub plan_document_active: bool,
 }
 
 impl EventMapState {
@@ -57,7 +63,49 @@ impl EventMapState {
             current_config,
             tools: HashMap::new(),
             overlay: OverlayState::default(),
+            model_context_windows: HashMap::new(),
+            plan_document_active: false,
         }
+    }
+
+    fn is_cursor(&self) -> bool {
+        crate::policy::canonicalize_chat_provider_id(&self.provider_id) == "cursor"
+    }
+
+    fn in_plan_mode(&self) -> bool {
+        self.current_config
+            .mode
+            .as_deref()
+            .is_some_and(|mode| mode.eq_ignore_ascii_case("plan"))
+    }
+
+    /// Cursor emits `sessionUpdate: "plan"` alongside createPlan. Those entries are
+    /// plan-phase checklist companions — not live execution todos.
+    fn should_suppress_session_plan(&self) -> bool {
+        self.is_cursor() && (self.in_plan_mode() || self.plan_document_active)
+    }
+
+    pub(crate) fn load_model_context_windows(&mut self, catalog: &serde_json::Value) {
+        for (id, window) in crate::map::grok_model_context_windows_from_catalog(catalog) {
+            self.model_context_windows.insert(id, window);
+        }
+    }
+
+    pub(crate) fn known_context_window(&self) -> Option<u64> {
+        let model = self.current_config.model.as_deref()?;
+        if let Some(window) = self.model_context_windows.get(model) {
+            return Some(*window);
+        }
+        let base = model.split(['·', ' ']).next()?.trim();
+        self.model_context_windows.get(base).copied().or_else(|| {
+            self.model_context_windows.iter().find_map(|(id, window)| {
+                (model.starts_with(id.as_str()) || id.as_str() == base).then_some(*window)
+            })
+        })
+    }
+
+    fn is_grok_family(&self) -> bool {
+        self.provider_id.to_ascii_lowercase().contains("grok")
     }
 
     pub(crate) fn descriptor(&self) -> AgentDescriptor {
@@ -99,17 +147,40 @@ pub(crate) fn map_event(
                     let event = fold_thinking(state, turn_id.clone(), text, done);
                     Some(complete_before_assistant(state, turn_id, event))
                 }
-                ToolMapOut::FoldPlan { plan } => Some(complete_before_thinking(
-                    state,
-                    turn_id.clone(),
-                    wrap(turn_id, AgentEvent::PlanUpdated { plan }),
-                )),
+                ToolMapOut::FoldPlan { plan } => {
+                    // updateTodos / execution TodoWrite — live Plan dock again.
+                    if state.is_cursor() {
+                        state.plan_document_active = false;
+                    }
+                    Some(complete_before_thinking(
+                        state,
+                        turn_id.clone(),
+                        wrap(turn_id, AgentEvent::PlanUpdated { plan }),
+                    ))
+                }
                 ToolMapOut::Hide => None,
-                ToolMapOut::Tool(tool) => Some(complete_before_thinking(
-                    state,
-                    turn_id.clone(),
-                    wrap(turn_id, tool_event(tool, tool_status_kind(status))),
-                )),
+                ToolMapOut::Tool(tool) => {
+                    let clear_execution_plan = tool.kind
+                        == crate::contract::AgentToolKind::PlanDocument
+                        && state.is_cursor()
+                        && !state.plan_document_active;
+                    if tool.kind == crate::contract::AgentToolKind::PlanDocument
+                        && state.is_cursor()
+                    {
+                        state.plan_document_active = true;
+                    }
+                    let mapped = wrap(turn_id.clone(), tool_event(tool, tool_status_kind(status)));
+                    if clear_execution_plan {
+                        // Drop any companion session-plan that already polluted the dock.
+                        state.pending.push_back(wrap(
+                            turn_id.clone(),
+                            AgentEvent::PlanUpdated {
+                                plan: serde_json::json!({ "entries": [] }),
+                            },
+                        ));
+                    }
+                    Some(complete_before_thinking(state, turn_id, mapped))
+                }
                 ToolMapOut::Replace { tool_call_id, tool } => {
                     debug_assert_eq!(tool_call_id, tool.tool_call_id);
                     let kind = match tool.status {
@@ -146,6 +217,7 @@ pub(crate) fn map_event(
                             })
                             .collect(),
                         questions: request.questions,
+                        plan_todos: request.plan_todos,
                     },
                 },
             ),
@@ -180,22 +252,45 @@ pub(crate) fn map_event(
                 },
             )
         }),
-        AcpSessionEvent::Plan(plan) => Some(complete_before_thinking(
-            state,
-            turn_id.clone(),
-            wrap(
-                turn_id,
-                AgentEvent::PlanUpdated {
-                    plan: serde_json::to_value(plan).unwrap_or(serde_json::Value::Null),
-                },
-            ),
-        )),
-        AcpSessionEvent::Usage(usage) => Some(wrap(
-            turn_id,
-            AgentEvent::UsageUpdated {
-                usage: serde_json::to_value(usage).unwrap_or(serde_json::Value::Null),
-            },
-        )),
+        AcpSessionEvent::Plan(plan) => {
+            if state.should_suppress_session_plan() {
+                // Plan-phase companion todos for createPlan — keep PlanDocument /
+                // ApprovalCard planIntent; do not feed PlanBlockView.
+                return None;
+            }
+            Some(complete_before_thinking(
+                state,
+                turn_id.clone(),
+                wrap(
+                    turn_id,
+                    AgentEvent::PlanUpdated {
+                        plan: serde_json::to_value(plan).unwrap_or(serde_json::Value::Null),
+                    },
+                ),
+            ))
+        }
+        AcpSessionEvent::Usage(usage) => {
+            let value = serde_json::to_value(&usage).unwrap_or(serde_json::Value::Null);
+            let mut first = None;
+            let context = if state.is_grok_family() {
+                crate::map::grok_context_usage(&value, state.known_context_window())
+            } else {
+                crate::map::acp_context_usage(&value)
+            };
+            if let Some(context) = context {
+                first = Some(wrap(
+                    turn_id.clone(),
+                    AgentEvent::ContextUsageUpdated { usage: context },
+                ));
+            }
+            let spend = wrap(turn_id, AgentEvent::UsageUpdated { usage: value });
+            if let Some(context_event) = first {
+                state.pending.push_back(spend);
+                Some(context_event)
+            } else {
+                Some(spend)
+            }
+        }
         AcpSessionEvent::TurnUsage(usage) => Some(wrap(
             turn_id,
             AgentEvent::UsageUpdated {
@@ -498,6 +593,9 @@ fn merge_config_options(state: &mut EventMapState, options: &[AgentConfigOption]
             apply_permission_current(state, current);
         } else if is_mode_config_id(&option.id) {
             state.current_config.mode = Some(current.clone());
+            if state.is_cursor() && !current.eq_ignore_ascii_case("plan") {
+                state.plan_document_active = false;
+            }
         }
     }
 }
@@ -694,6 +792,7 @@ mod tests {
                     kind: "allow_once".into(),
                 }],
                 questions: Vec::new(),
+                plan_todos: Vec::new(),
             }),
         );
         assert!(matches!(
@@ -886,6 +985,165 @@ mod tests {
         assert!(matches!(
             tool_call.result,
             Some(AgentToolResult::Text { .. }) | Some(AgentToolResult::SearchHits { .. })
+        ));
+    }
+
+    #[test]
+    fn grok_acp_usage_fills_window_from_catalog() {
+        use crate::acp_client::types::AgentUsage;
+        let mut state =
+            EventMapState::new("grok-build".into(), AgentCurrentConfig::default(), false);
+        state.current_config.model = Some("grok-4.6".into());
+        state.load_model_context_windows(&serde_json::json!({
+            "availableModels": [{
+                "modelId": "grok-4.6",
+                "_meta": { "totalContextTokens": 500_000 }
+            }]
+        }));
+        let events = payloads(
+            &mut state,
+            AcpSessionEvent::Usage(AgentUsage {
+                used: Some(12_000),
+                size: None,
+                cost: None,
+            }),
+        );
+        let Some(AgentEvent::ContextUsageUpdated { usage }) = events.first() else {
+            panic!("expected ContextUsageUpdated, got {events:?}");
+        };
+        assert_eq!(usage.used, 12_000);
+        assert_eq!(usage.context_window, Some(500_000));
+    }
+
+    #[test]
+    fn cursor_acp_usage_update_maps_used_and_size() {
+        use crate::acp_client::types::AgentUsage;
+        let raw: serde_json::Value =
+            serde_json::from_str(include_str!("testdata/cursor_usage_update.json"))
+                .expect("cursor usage fixture");
+        let update = &raw["params"]["update"];
+        let used = update["used"].as_u64().expect("used");
+        let size = update["size"].as_u64().expect("size");
+        let mut state = EventMapState::new("cursor".into(), AgentCurrentConfig::default(), false);
+        let events = payloads(
+            &mut state,
+            AcpSessionEvent::Usage(AgentUsage {
+                used: Some(used),
+                size: Some(size),
+                cost: None,
+            }),
+        );
+        let Some(AgentEvent::ContextUsageUpdated { usage }) = events.first() else {
+            panic!("expected ContextUsageUpdated, got {events:?}");
+        };
+        assert_eq!(usage.used, 18_432);
+        assert_eq!(usage.context_window, Some(200_000));
+        // Not inverted: used stays occupancy, size stays window.
+        assert!(usage.used < usage.context_window.unwrap());
+    }
+
+    #[test]
+    fn cursor_create_plan_suppresses_companion_session_plan() {
+        let mut state = EventMapState::new(
+            "cursor".into(),
+            AgentCurrentConfig {
+                mode: Some("plan".into()),
+                ..AgentCurrentConfig::default()
+            },
+            false,
+        );
+        let raw: serde_json::Value =
+            serde_json::from_str(include_str!("testdata/cursor_create_plan.json"))
+                .expect("fixture");
+        let events = payloads(
+            &mut state,
+            AcpSessionEvent::ToolCall(ToolCallUpdate {
+                tool_call_id: raw["toolCallId"].as_str().unwrap().into(),
+                parent_tool_call_id: None,
+                tool: "Tool".into(),
+                description: raw["title"].as_str().unwrap_or("").into(),
+                acp_kind: Some("other".into()),
+                status: ToolCallStatus::Completed,
+                raw_input: Some(raw["rawInput"].clone()),
+                content: Vec::new(),
+                locations: Vec::new(),
+                raw_output: None,
+                detail: None,
+            }),
+        );
+        assert!(
+            events.iter().any(|event| matches!(
+                event,
+                AgentEvent::ToolCallCompleted { tool_call }
+                    if tool_call.kind == AgentToolKind::PlanDocument
+            )),
+            "expected PlanDocument tool, got {events:?}"
+        );
+        assert!(state.plan_document_active);
+
+        // Companion session/update plan (5 pending todos) must NOT become PlanUpdated.
+        let companion = payloads(
+            &mut state,
+            AcpSessionEvent::Plan(crate::acp_client::types::AgentPlan {
+                entries: (0..5)
+                    .map(|i| crate::acp_client::types::AgentPlanEntry {
+                        content: format!("Next step {i}"),
+                        priority: "medium".into(),
+                        status: "pending".into(),
+                    })
+                    .collect(),
+            }),
+        );
+        assert!(
+            companion.is_empty(),
+            "plan-phase session plan must not drive execution dock, got {companion:?}"
+        );
+
+        // updateTodos still folds into live PlanUpdated.
+        let todo_raw: serde_json::Value =
+            serde_json::from_str(include_str!("testdata/cursor_update_todos.json"))
+                .expect("todos fixture");
+        let todo_events = payloads(
+            &mut state,
+            AcpSessionEvent::ToolCall(ToolCallUpdate {
+                tool_call_id: todo_raw["toolCallId"].as_str().unwrap().into(),
+                parent_tool_call_id: None,
+                tool: "Tool".into(),
+                description: todo_raw["title"].as_str().unwrap_or("").into(),
+                acp_kind: Some("other".into()),
+                status: ToolCallStatus::Completed,
+                raw_input: Some(todo_raw["rawInput"].clone()),
+                content: Vec::new(),
+                locations: Vec::new(),
+                raw_output: None,
+                detail: None,
+            }),
+        );
+        assert!(
+            todo_events
+                .iter()
+                .any(|event| matches!(event, AgentEvent::PlanUpdated { .. })),
+            "updateTodos must still drive PlanUpdated, got {todo_events:?}"
+        );
+        assert!(!state.plan_document_active);
+    }
+
+    #[test]
+    fn non_cursor_session_plan_still_emits_plan_updated() {
+        let mut state = state();
+        let events = payloads(
+            &mut state,
+            AcpSessionEvent::Plan(crate::acp_client::types::AgentPlan {
+                entries: vec![crate::acp_client::types::AgentPlanEntry {
+                    content: "Do work".into(),
+                    priority: "medium".into(),
+                    status: "pending".into(),
+                }],
+            }),
+        );
+        assert!(matches!(
+            events.first(),
+            Some(AgentEvent::PlanUpdated { .. })
         ));
     }
 }

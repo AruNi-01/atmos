@@ -144,6 +144,28 @@ impl AgentChatService {
         })
     }
 
+    /// Persist the New Chat composer snapshot for `provider_id`.
+    /// Call from landing chrome (`prefs_set`), never from eager `agent_chat_create`.
+    pub fn persist_last_new_chat_config(
+        &self,
+        provider_id: &str,
+        model: Option<&str>,
+        thinking: Option<&str>,
+        mode: Option<&str>,
+        permission_mode: Option<&str>,
+        fast: Option<&str>,
+    ) -> Result<()> {
+        let snapshot = super::new_chat_configs::snapshot_from_create_fields(
+            model,
+            thinking,
+            mode,
+            permission_mode,
+            fast,
+        );
+        super::new_chat_configs::upsert_agent_new_chat_config(provider_id, snapshot)?;
+        Ok(())
+    }
+
     pub fn list(
         &self,
         cwd: Option<&str>,
@@ -937,6 +959,7 @@ impl AgentChatService {
                         content_markdown: None,
                         options: Vec::new(),
                         questions: Vec::new(),
+                        plan_todos: Vec::new(),
                         status: "resolved".into(),
                     },
                 },

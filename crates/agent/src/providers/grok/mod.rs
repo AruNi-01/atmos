@@ -471,6 +471,11 @@ impl AgentRuntime for GrokMappedSession {
                     let Some((method, params)) = ext else {
                         continue;
                     };
+                    // Live catalog: `_x.ai/models/update` carries
+                    // `availableModels[]._meta.totalContextTokens` (window).
+                    if is_grok_models_update(&method) {
+                        self.map.load_model_context_windows(&params);
+                    }
                     if self.map.replaying {
                         continue;
                     }
@@ -482,6 +487,11 @@ impl AgentRuntime for GrokMappedSession {
             }
         }
     }
+}
+
+fn is_grok_models_update(method: &str) -> bool {
+    let method = method.strip_prefix('_').unwrap_or(method);
+    method == "x.ai/models/update" || method.ends_with("/models/update")
 }
 
 async fn recv_ext_notification(

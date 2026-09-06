@@ -254,6 +254,10 @@ pub fn cmd_get_state() -> Value {
     json!({"type": "get_state"})
 }
 
+pub fn cmd_get_session_stats() -> Value {
+    json!({"type": "get_session_stats"})
+}
+
 pub fn cmd_get_available_models() -> Value {
     json!({"type": "get_available_models"})
 }

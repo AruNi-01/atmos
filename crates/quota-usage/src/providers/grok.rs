@@ -103,7 +103,11 @@ fn map_credits_config(config: GrokBillingConfig, auth: &GrokAuth) -> LiveFetchRe
         })
         .and_then(|row| row.usage_percent)
         .map(round_metric);
-    let percent = product_percent.or_else(|| config.credit_usage_percent.map(round_metric));
+    // proto3 JSON omits default 0 for `creditUsagePercent` / empty `productUsage`.
+    // A typed currentPeriod still means the weekly (or monthly) pool exists at 0% used.
+    let percent = product_percent
+        .or_else(|| config.credit_usage_percent.map(round_metric))
+        .or_else(|| period_is_present(config.current_period.as_ref()).then_some(0.0));
 
     let period_end = config
         .current_period
@@ -432,6 +436,23 @@ fn parse_rfc3339_unix(raw: &str) -> Option<u64> {
     parse_offset_datetime(raw).map(|dt| dt.unix_timestamp().max(0) as u64)
 }
 
+fn period_is_present(period: Option<&GrokUsagePeriod>) -> bool {
+    period.is_some_and(|period| {
+        period
+            .period_type
+            .as_deref()
+            .is_some_and(|value| !value.trim().is_empty())
+            || period
+                .start
+                .as_deref()
+                .is_some_and(|value| !value.trim().is_empty())
+            || period
+                .end
+                .as_deref()
+                .is_some_and(|value| !value.trim().is_empty())
+    })
+}
+
 fn window_label_for_period(
     period_type: Option<&str>,
     start: Option<&str>,
@@ -649,6 +670,94 @@ mod tests {
         assert_eq!(
             window_label_for_period(Some("USAGE_PERIOD_TYPE_MONTHLY"), None, None),
             "Monthly"
+        );
+    }
+
+    #[test]
+    fn omitted_weekly_percent_is_zero_used_not_missing() {
+        // Live cli-chat-proxy payload when weekly usage is 0: proto3 omits
+        // creditUsagePercent and productUsage entirely.
+        let fixture = r#"{
+          "config": {
+            "currentPeriod": {
+              "type": "USAGE_PERIOD_TYPE_WEEKLY",
+              "start": "2026-09-03T22:17:47.739583+00:00",
+              "end": "2026-09-10T22:17:47.739583+00:00"
+            },
+            "onDemandCap": { "val": 0 },
+            "onDemandUsed": { "val": 0 },
+            "isUnifiedBillingUser": true,
+            "prepaidBalance": { "val": 0 },
+            "billingPeriodStart": "2026-09-03T22:17:47.739583+00:00",
+            "billingPeriodEnd": "2026-09-10T22:17:47.739583+00:00"
+          }
+        }"#;
+        let response: GrokBillingResponse = serde_json::from_str(fixture).expect("parse");
+        let config = response.config.expect("config");
+        let auth = GrokAuth {
+            access_token: "tok".into(),
+            email: Some("user@example.com".into()),
+            team_id: None,
+            display_name: None,
+            login_method: Some("SuperGrok".into()),
+            expires_at: None,
+        };
+        let result = map_credits_config(config, &auth);
+        let percent = result
+            .usage_summary
+            .as_ref()
+            .and_then(|summary| summary.percent);
+        assert_eq!(percent, Some(0.0));
+        let usage = result
+            .detail_sections
+            .iter()
+            .find(|section| section.title == "Usage")
+            .expect("usage section");
+        assert_eq!(usage.rows[0].label, "Weekly");
+        assert!(
+            usage.rows[0].value.contains("0% used"),
+            "expected weekly 0% used, got {}",
+            usage.rows[0].value
+        );
+        assert!(usage
+            .rows
+            .iter()
+            .any(|row| row.label == "Extra usage" && row.value == "Disabled"));
+    }
+
+    #[test]
+    fn missing_period_and_percent_stays_no_data() {
+        let fixture = r#"{
+          "config": {
+            "onDemandCap": { "val": 0 },
+            "onDemandUsed": { "val": 0 }
+          }
+        }"#;
+        let response: GrokBillingResponse = serde_json::from_str(fixture).expect("parse");
+        let config = response.config.expect("config");
+        let auth = GrokAuth {
+            access_token: "tok".into(),
+            email: Some("user@example.com".into()),
+            team_id: None,
+            display_name: None,
+            login_method: Some("SuperGrok".into()),
+            expires_at: None,
+        };
+        let result = map_credits_config(config, &auth);
+        let percent = result
+            .usage_summary
+            .as_ref()
+            .and_then(|summary| summary.percent);
+        assert_eq!(percent, None);
+        let usage = result
+            .detail_sections
+            .iter()
+            .find(|section| section.title == "Usage")
+            .expect("usage section");
+        assert!(
+            !usage.rows.iter().any(|row| row.value.contains("% used")),
+            "should not invent a percent without a period: {:?}",
+            usage.rows
         );
     }
 }

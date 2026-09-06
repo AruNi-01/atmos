@@ -2,10 +2,23 @@ export type AgentChatOrigin = "quick" | "normal";
 
 export type AgentChatPrefs = {
   last_registry_id?: string | null;
+  /** Last New Chat composer snapshot keyed by agent id. */
+  last_new_chat_configs?: Record<string, Record<string, string>>;
+};
+
+export type AgentChatLastNewChatConfigPatch = {
+  agent_id: string;
+  model?: string | null;
+  thinking?: string | null;
+  mode?: string | null;
+  permission_mode?: string | null;
+  fast?: string | null;
 };
 
 export type AgentChatPrefsSetRequest = {
   last_registry_id?: string | null;
+  /** Landing composer snapshot for one agent. Omitted fields are left unchanged on disk. */
+  last_new_chat_config?: AgentChatLastNewChatConfigPatch | null;
 };
 
 export type AgentChatCreateRequest = {
@@ -17,6 +30,8 @@ export type AgentChatCreateRequest = {
   model?: string | null;
   thinking?: string | null;
   mode?: string | null;
+  permission_mode?: string | null;
+  fast?: string | null;
   title?: string | null;
   origin?: AgentChatOrigin | null;
 };
@@ -200,6 +215,9 @@ export type AgentChatMeta = {
 
 export type AgentSessionUsage = {
   used?: number | null;
+  /** Total context window tokens. Prefer this over legacy `size`. */
+  context_window?: number | null;
+  /** @deprecated Prefer `context_window`. Kept for older persisted meta. */
   size?: number | null;
   cost?: {
     amount?: number | null;
@@ -248,6 +266,7 @@ export type AgentToolKind =
   | "mcp_list"
   | "mcp_call"
   | "image_gen"
+  | "plan_document"
   | "other";
 
 export type AgentToolStatus = "pending" | "running" | "completed" | "failed";
@@ -280,6 +299,19 @@ export type AgentToolParams =
       path?: string | null;
       reference_paths?: string[] | null;
     }
+  | {
+      type: "plan_document";
+      name?: string | null;
+      overview?: string | null;
+      plan: string;
+      todos: Array<{
+        id?: string | null;
+        content: string;
+        status: string;
+      }>;
+      is_project?: boolean | null;
+      phases?: unknown;
+    }
   | { type: "other"; value: unknown };
 
 export type AgentGeneratedImage = {
@@ -292,6 +324,12 @@ export type AgentToolResult =
   | { type: "text"; text: string }
   | { type: "file_content"; path: string; text: string }
   | { type: "diff_stats"; path: string; additions: number; deletions: number }
+  | {
+      type: "diff";
+      path: string;
+      old_content?: string | null;
+      new_content: string;
+    }
   | { type: "execute"; output: string; exit_code?: number | null }
   | {
       type: "web_search";
@@ -407,6 +445,7 @@ export type AgentChatSnapshot = {
     content_markdown?: string | null;
     options?: Array<{ option_id: string; name: string; kind?: string }>;
     questions?: Array<{ id: string; prompt: string; options?: string[] }>;
+    plan_todos?: Array<{ id?: string | null; content: string; status?: string }>;
     status: string;
   } | null;
   pending_session_op?: AgentSessionOpRequest | null;
@@ -456,6 +495,7 @@ export type AgentChatPayload =
         content_markdown?: string;
         options?: Array<{ option_id: string; name: string; kind?: string }>;
         questions?: Array<{ id: string; prompt: string; options?: string[] }>;
+        plan_todos?: Array<{ id?: string | null; content: string; status?: string }>;
       };
     }
   | { type: "permission_resolved"; request_id: string; option_id: string }
@@ -483,6 +523,11 @@ export type AgentChatPayload =
       type: "usage_updated";
       session?: AgentSessionUsage | null;
       turn?: AgentTurnUsage | null;
+    }
+  | {
+      type: "context_usage_updated";
+      used: number;
+      context_window?: number | null;
     }
   | {
       type: "queue_updated";

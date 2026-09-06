@@ -34,6 +34,9 @@ pub struct PermissionRequest {
     /// Multi-question AskUser cards when raw_input carries `questions[]`.
     #[serde(default)]
     pub questions: Vec<crate::contract::AgentAskQuestion>,
+    /// Structured createPlan todos for ApprovalCard To-dos (not markdown `- [ ]`).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub plan_todos: Vec<crate::contract::AgentPlanDocumentTodo>,
 }
 
 /// User response to permission request

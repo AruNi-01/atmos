@@ -6,7 +6,10 @@ use crate::acp_client::types::{AgentToolCallContentItem, ToolCallStatus, ToolCal
 use crate::contract::AgentToolKind;
 use crate::contract::{AgentTool, AgentToolParams, AgentToolResult, AgentToolStatus};
 use crate::map::is_generic_tool_label;
-use crate::map::{classify_tool, plan_from_tool_input, thinking_text, ClassifiedTool};
+use crate::map::{
+    classify_tool, plan_document_from_tool_input, plan_from_tool_input, thinking_text,
+    ClassifiedTool,
+};
 use crate::map::{
     extract_aspect_ratio, extract_background, extract_command, extract_cwd,
     extract_generated_images, extract_image_prompt, extract_image_size, extract_links,
@@ -71,6 +74,9 @@ pub(crate) fn map_tool_call(
                 Some(plan) => ToolMapOut::FoldPlan { plan },
                 None => ToolMapOut::Hide,
             };
+        }
+        ClassifiedTool::PlanDocument => {
+            return ToolMapOut::Tool(plan_document_tool(update, input));
         }
         ClassifiedTool::Hide => return ToolMapOut::Hide,
         ClassifiedTool::Thinking | ClassifiedTool::Call(_) => {}
@@ -550,6 +556,16 @@ fn typed_params(
                 reference_paths: value.and_then(extract_reference_paths),
             })
         }
+        AgentToolKind::PlanDocument => Some(plan_document_from_tool_input(value).unwrap_or(
+            AgentToolParams::PlanDocument {
+                name: None,
+                overview: None,
+                plan: String::new(),
+                todos: Vec::new(),
+                is_project: None,
+                phases: None,
+            },
+        )),
         AgentToolKind::Other => Some(AgentToolParams::Other {
             value: update.raw_input.clone().unwrap_or_else(empty_object),
         }),
@@ -646,7 +662,8 @@ fn mapped_result(
         | AgentToolKind::Skill
         | AgentToolKind::Subagent
         | AgentToolKind::McpList
-        | AgentToolKind::McpCall => AgentToolResult::Text {
+        | AgentToolKind::McpCall
+        | AgentToolKind::PlanDocument => AgentToolResult::Text {
             text: value_text(output)
                 .or_else(|| content_text(&update.content))
                 .unwrap_or_default(),
@@ -743,9 +760,23 @@ fn diff_or_text(
     let path = payload
         .and_then(extract_path)
         .or_else(|| output.and_then(extract_path))
+        .or_else(|| first_location(update))
         .unwrap_or_default();
-    if let Some(stats) = diff_stats_from_content(&update.content, &path) {
-        return stats;
+    if let Some(diff) = diff_from_content(&update.content, &path) {
+        return diff;
+    }
+    // Prefer reconstructable old/new from Write input / SearchReplace EditsApplied
+    // over stats-only — outside-workspace plan.md still has inlined contents.
+    if let Some(diff) = diff_from_edit_payload(payload.or(update.raw_input.as_ref()), &path)
+        .or_else(|| diff_from_output_edit(output, &path))
+    {
+        return diff;
+    }
+    if let Some(text) = value_text(output)
+        .or_else(|| content_text(&update.content))
+        .filter(|text| looks_like_unified_diff(text))
+    {
+        return AgentToolResult::Text { text };
     }
     if let Some((additions, deletions)) = output.and_then(extract_diff_counts) {
         return AgentToolResult::DiffStats {
@@ -757,6 +788,89 @@ fn diff_or_text(
     AgentToolResult::Text {
         text: value_text(output).unwrap_or_default(),
     }
+}
+
+fn looks_like_unified_diff(text: &str) -> bool {
+    let trimmed = text.trim_start();
+    trimmed.starts_with("--- ")
+        || trimmed.starts_with("diff --git ")
+        || trimmed.starts_with("*** ")
+        || trimmed.starts_with("@@ ")
+}
+
+fn diff_from_edit_payload(payload: Option<&Value>, fallback_path: &str) -> Option<AgentToolResult> {
+    let value = payload?;
+    if let Some(diff) = diff_from_flat_edit_fields(
+        value,
+        fallback_path,
+        &["new_string", "new_text", "newText", "contents", "content"],
+    ) {
+        return Some(diff);
+    }
+    for nested_key in ["EditsApplied", "edits_applied"] {
+        if let Some(nested) = value.get(nested_key) {
+            if let Some(diff) = diff_from_flat_edit_fields(
+                nested,
+                fallback_path,
+                &["new_string", "new_text", "newText"],
+            ) {
+                return Some(diff);
+            }
+        }
+    }
+    None
+}
+
+fn diff_from_output_edit(output: Option<&Value>, fallback_path: &str) -> Option<AgentToolResult> {
+    let value = output?;
+    if let Some(diff) =
+        diff_from_flat_edit_fields(value, fallback_path, &["new_string", "new_text", "newText"])
+    {
+        return Some(diff);
+    }
+    for nested_key in ["EditsApplied", "edits_applied", "result", "Result"] {
+        if let Some(nested) = value.get(nested_key) {
+            if let Some(diff) = diff_from_flat_edit_fields(
+                nested,
+                fallback_path,
+                &["new_string", "new_text", "newText"],
+            ) {
+                return Some(diff);
+            }
+        }
+    }
+    None
+}
+
+fn diff_from_flat_edit_fields(
+    value: &Value,
+    fallback_path: &str,
+    new_keys: &[&str],
+) -> Option<AgentToolResult> {
+    let new_content = edit_payload_string(value, new_keys)?;
+    let old_content =
+        edit_payload_string(value, &["old_string", "old_text", "oldText"]).unwrap_or_default();
+    let path = extract_path(value)
+        .or_else(|| first_string(value, &["absolute_path", "absolutePath"]))
+        .unwrap_or_else(|| fallback_path.to_string());
+    Some(AgentToolResult::Diff {
+        path,
+        old_content: Some(old_content),
+        new_content,
+    })
+}
+
+/// Keep trailing newlines — Edit/Write hunks are not display labels.
+fn edit_payload_string(value: &Value, keys: &[&str]) -> Option<String> {
+    let object = value.as_object()?;
+    for key in keys {
+        if let Some(text) = object.get(*key).and_then(Value::as_str) {
+            if !text.is_empty() {
+                return Some(text.to_string());
+            }
+        }
+    }
+    None
 }
 
 fn other_tool(update: &ToolCallUpdate) -> AgentTool {
@@ -777,6 +891,52 @@ fn other_tool(update: &ToolCallUpdate) -> AgentTool {
         params: AgentToolParams::Other {
             value: update.raw_input.clone().unwrap_or_else(empty_object),
         },
+        result,
+    }
+}
+
+fn plan_document_tool(update: &ToolCallUpdate, input: Option<&Value>) -> AgentTool {
+    let status = map_status(&update.status);
+    let params = plan_document_from_tool_input(input).unwrap_or(AgentToolParams::PlanDocument {
+        name: None,
+        overview: None,
+        plan: String::new(),
+        todos: Vec::new(),
+        is_project: None,
+        phases: None,
+    });
+    let title = match &params {
+        AgentToolParams::PlanDocument { name, overview, .. } => name
+            .clone()
+            .or_else(|| overview.clone())
+            .or_else(|| nonempty_title(update).map(str::to_string)),
+        _ => nonempty_title(update).map(str::to_string),
+    };
+    let name = input
+        .and_then(|v| first_string(v, &["_toolName", "toolName"]))
+        .filter(|name| !crate::map::is_generic_tool_label(name))
+        .unwrap_or_else(|| {
+            if crate::map::is_generic_tool_label(&update.tool) {
+                "createPlan".into()
+            } else {
+                update.tool.clone()
+            }
+        });
+    let result = match &update.status {
+        ToolCallStatus::Running => None,
+        ToolCallStatus::Completed | ToolCallStatus::Failed => Some(AgentToolResult::Text {
+            text: value_text(update.raw_output.as_ref())
+                .or_else(|| content_text(&update.content))
+                .unwrap_or_default(),
+        }),
+    };
+    AgentTool {
+        tool_call_id: update.tool_call_id.clone(),
+        name,
+        title,
+        kind: AgentToolKind::PlanDocument,
+        status,
+        params,
         result,
     }
 }
@@ -1174,7 +1334,7 @@ fn content_text(content: &[AgentToolCallContentItem]) -> Option<String> {
     }
 }
 
-fn diff_stats_from_content(
+fn diff_from_content(
     content: &[AgentToolCallContentItem],
     fallback_path: &str,
 ) -> Option<AgentToolResult> {
@@ -1185,35 +1345,14 @@ fn diff_stats_from_content(
             new_content,
         } = item
         {
-            let old = old_content.as_deref().unwrap_or("");
-            let (additions, deletions) = line_diff_counts(old, new_content);
-            return Some(AgentToolResult::DiffStats {
+            return Some(AgentToolResult::Diff {
                 path: path.clone().unwrap_or_else(|| fallback_path.to_string()),
-                additions,
-                deletions,
+                old_content: old_content.clone(),
+                new_content: new_content.clone(),
             });
         }
     }
     None
-}
-
-fn line_diff_counts(old: &str, new: &str) -> (u32, u32) {
-    let old_lines = old.lines().count() as u32;
-    let new_lines = new.lines().count() as u32;
-    if old.is_empty() {
-        return (new_lines, 0);
-    }
-    if new.is_empty() {
-        return (0, old_lines);
-    }
-    let additions = new_lines.saturating_sub(old_lines.min(new_lines));
-    let deletions = old_lines.saturating_sub(new_lines.min(old_lines));
-    let changed = old
-        .lines()
-        .zip(new.lines())
-        .filter(|(left, right)| left != right)
-        .count() as u32;
-    (additions + changed, deletions + changed)
 }
 
 fn error_message(output: Option<&Value>, update: &ToolCallUpdate) -> Option<String> {
@@ -1497,6 +1636,73 @@ mod tests {
     fn grok_live_write_completed_search_replace_is_edit() {
         let tool = mapped(live_write_frame("completed", ToolCallStatus::Completed));
         assert_edit_path(&tool, "/tmp/atmos-grok-perm.txt");
+        match tool.result {
+            Some(AgentToolResult::Diff {
+                path,
+                old_content,
+                new_content,
+            }) => {
+                assert_eq!(path, "/tmp/atmos-grok-perm.txt");
+                assert_eq!(old_content.as_deref(), Some(""));
+                assert_eq!(new_content, "hi");
+            }
+            other => panic!("expected Diff from EditsApplied, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn grok_outside_workspace_plan_diff_content_keeps_old_and_new() {
+        let plan = "/Users/me/.grok/sessions/%2FUsers%2Fme%2Fproj/01abc/plan.md";
+        let mut call = update(
+            "Write",
+            ToolCallStatus::Completed,
+            serde_json::json!({ "file_path": plan, "content": "# Plan\n- step\n" }),
+            Some(serde_json::json!({ "additions": 10, "deletions": 10 })),
+        );
+        call.acp_kind = Some("edit".into());
+        call.content = vec![AgentToolCallContentItem::Diff {
+            path: Some(plan.into()),
+            old_content: Some("# Plan\n- old\n".into()),
+            new_content: "# Plan\n- step\n".into(),
+        }];
+        let tool = mapped(call);
+        assert_eq!(tool.kind, AgentToolKind::Edit);
+        match tool.result {
+            Some(AgentToolResult::Diff {
+                path,
+                old_content,
+                new_content,
+            }) => {
+                assert_eq!(path, plan);
+                assert_eq!(old_content.as_deref(), Some("# Plan\n- old\n"));
+                assert_eq!(new_content, "# Plan\n- step\n");
+            }
+            other => panic!("expected Diff for outside-workspace plan.md, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn grok_edit_stats_only_stays_diff_stats() {
+        let mut call = update(
+            "Edit",
+            ToolCallStatus::Completed,
+            serde_json::json!({ "path": "/tmp/app/a.ts" }),
+            Some(serde_json::json!({ "additions": 2, "deletions": 1 })),
+        );
+        call.acp_kind = Some("edit".into());
+        let tool = mapped(call);
+        match tool.result {
+            Some(AgentToolResult::DiffStats {
+                path,
+                additions,
+                deletions,
+            }) => {
+                assert_eq!(path, "/tmp/app/a.ts");
+                assert_eq!(additions, 2);
+                assert_eq!(deletions, 1);
+            }
+            other => panic!("expected diff_stats fallback, got {other:?}"),
+        }
     }
 
     #[test]

@@ -121,12 +121,20 @@ fn map_one(
                 .to_string();
             Some(wrap(turn_id, AgentEvent::SessionTitleUpdated { title }))
         }
-        "thread/tokenUsage/updated" => Some(wrap(
-            turn_id,
-            AgentEvent::UsageUpdated {
-                usage: params.clone(),
-            },
-        )),
+        "thread/tokenUsage/updated" => {
+            if let Some(context) = crate::map::codex_context_usage(params) {
+                state.pending.push_back(wrap(
+                    turn_id.clone(),
+                    AgentEvent::ContextUsageUpdated { usage: context },
+                ));
+            }
+            Some(wrap(
+                turn_id,
+                AgentEvent::UsageUpdated {
+                    usage: params.clone(),
+                },
+            ))
+        }
         "turn/started" => None,
         "turn/completed" => map_turn_completed(state, turn_id, params),
         "turn/plan/updated" => {
@@ -726,5 +734,29 @@ mod tests {
             state.descriptor().capabilities.configure,
             crate::contract::Capability::Supported
         );
+    }
+
+    #[test]
+    fn token_usage_updated_uses_last_total_not_cumulative() {
+        let mut state = EventMapState::new(AgentCurrentConfig::default());
+        let events = map_notification(
+            &mut state,
+            Some("atmos-turn-1".into()),
+            "thread/tokenUsage/updated",
+            &serde_json::json!({
+                "tokenUsage": {
+                    "total": { "totalTokens": 9000 },
+                    "last": { "totalTokens": 5168 },
+                    "modelContextWindow": 258400
+                }
+            }),
+        );
+        let context = events.iter().find_map(|envelope| match &envelope.payload {
+            AgentEvent::ContextUsageUpdated { usage } => Some(*usage),
+            _ => None,
+        });
+        let usage = context.expect("context");
+        assert_eq!(usage.used, 5168);
+        assert_eq!(usage.context_window, Some(258_400));
     }
 }

@@ -56,10 +56,43 @@ pub fn plan_markdown_from_input(input: &Value) -> Option<String> {
 fn plan_string_field(value: &Value) -> Option<String> {
     value
         .get("plan")
+        .or_else(|| value.get("planContent"))
+        .or_else(|| value.get("plan_content"))
         .and_then(Value::as_str)
         .map(str::trim)
         .filter(|text| !text.is_empty())
         .map(str::to_string)
+}
+
+/// Append structured createPlan todos as markdown checklists when the body has none.
+///
+/// When the plan body already has `- [ ]` lines (e.g. a test checklist), leave it alone —
+/// structured todos travel on PermissionRequest.plan_todos for ApprovalCard To-dos.
+pub fn plan_markdown_with_structured_todos(
+    plan: &str,
+    todos: &[crate::contract::AgentPlanDocumentTodo],
+) -> String {
+    let plan = plan.trim();
+    let has_checklist = plan.lines().any(|line| {
+        let trimmed = line.trim_start();
+        trimmed.starts_with("- [") || trimmed.starts_with("* [") || trimmed.starts_with("+ [")
+    });
+    if todos.is_empty() || has_checklist {
+        return plan.to_string();
+    }
+    let mut out = String::new();
+    if !plan.is_empty() {
+        out.push_str(plan);
+        out.push_str("\n\n");
+    }
+    for todo in todos {
+        let mark = match normalize(&todo.status).as_str() {
+            "completed" | "complete" | "done" => "x",
+            _ => " ",
+        };
+        out.push_str(&format!("- [{mark}] {}\n", todo.content.trim()));
+    }
+    out
 }
 
 /// Optional on-disk plan path (Claude injects `planFilePath` on ExitPlanMode).
@@ -214,6 +247,35 @@ pub fn is_ask_reject_option(option_id: &str) -> bool {
         option_id,
         "reject_once" | "reject_always" | "reject" | "deny" | "cancel" | "decline" | "skip"
     )
+}
+
+/// Cursor `cursor/create_plan` JSON-RPC success result (nested outcome).
+pub fn create_plan_ext_response(option_id: &str) -> serde_json::Value {
+    use serde_json::json;
+
+    let outcome = match option_id {
+        "allow_once" | "allow_always" | "allow" | "accept" | "approve" | "approved" => "accepted",
+        "reject_always" | "abandon" | "abandoned" | "cancel_plan" | "reject" => "rejected",
+        // Keep planning / revise (reject_once) and unknown → cancelled.
+        _ => "cancelled",
+    };
+    json!({ "outcome": { "outcome": outcome } })
+}
+
+/// Grok `_x.ai/exit_plan_mode` JSON-RPC success result.
+///
+/// Live CLI expects `{ "outcome": "approved" | "cancelled" | "abandoned" }`.
+/// A JSON-RPC error (including Method not found) is treated as client disconnect.
+pub fn exit_plan_ext_response(option_id: &str) -> serde_json::Value {
+    use serde_json::json;
+
+    let outcome = match option_id {
+        "allow_once" | "allow_always" | "allow" | "accept" | "approve" | "approved" => "approved",
+        "reject_always" | "abandon" | "abandoned" | "cancel_plan" => "abandoned",
+        // Keep planning / revise (reject_once) and unknown → cancelled.
+        _ => "cancelled",
+    };
+    json!({ "outcome": outcome })
 }
 
 /// Grok `_x.ai/ask_user_question` JSON-RPC result (internally tagged on `outcome`).
@@ -378,5 +440,58 @@ mod tests {
 
         let skipped = ask_user_ext_response(&questions, "reject_once");
         assert_eq!(skipped, json!({ "outcome": "skip_interview" }));
+    }
+
+    #[test]
+    fn exit_plan_ext_response_maps_atmos_options() {
+        assert_eq!(
+            exit_plan_ext_response("allow_once"),
+            json!({ "outcome": "approved" })
+        );
+        assert_eq!(
+            exit_plan_ext_response("reject_once"),
+            json!({ "outcome": "cancelled" })
+        );
+        assert_eq!(
+            exit_plan_ext_response("reject_always"),
+            json!({ "outcome": "abandoned" })
+        );
+    }
+
+    #[test]
+    fn create_plan_ext_response_uses_nested_cursor_outcome() {
+        assert_eq!(
+            create_plan_ext_response("allow_once"),
+            json!({ "outcome": { "outcome": "accepted" } })
+        );
+        assert_eq!(
+            create_plan_ext_response("reject_once"),
+            json!({ "outcome": { "outcome": "cancelled" } })
+        );
+        assert_eq!(
+            create_plan_ext_response("reject_always"),
+            json!({ "outcome": { "outcome": "rejected" } })
+        );
+    }
+
+    #[test]
+    fn plan_markdown_appends_structured_todos_when_missing_checklist() {
+        let todos = vec![crate::contract::AgentPlanDocumentTodo {
+            id: Some("1".into()),
+            content: "Inspect".into(),
+            status: "pending".into(),
+        }];
+        let out = plan_markdown_with_structured_todos("# Plan\n\nDo work.", &todos);
+        assert!(out.contains("# Plan"));
+        assert!(out.contains("- [ ] Inspect"));
+    }
+
+    #[test]
+    fn plan_content_field_is_accepted() {
+        let input = json!({ "planContent": "# Ready\n\n- do work" });
+        assert_eq!(
+            plan_markdown_from_input(&input).as_deref(),
+            Some("# Ready\n\n- do work")
+        );
     }
 }
