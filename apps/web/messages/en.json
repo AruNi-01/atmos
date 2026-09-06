@@ -10986,14 +10986,16 @@
   "features": {
     "simulator": {
       "tab": "Simulator",
-      "iframeTitle": "iOS Simulator preview",
-      "downloading": "Downloading Simulator helper… {percent}%",
-      "starting": "Starting Simulator preview…",
-      "checking": "Checking Simulator…",
+      "iframeTitle": "Device preview",
+      "downloading": "Downloading device preview helper… {percent}%",
+      "starting": "Starting device preview…",
+      "checking": "Checking devices…",
       "actions": {
         "needDesktop": "Get Atmos Desktop",
         "installXcode": "Install Xcode",
         "openXcode": "Install an iOS runtime",
+        "installAndroidSdk": "Install Android Studio",
+        "createAvd": "Create an Android virtual device",
         "retry": "Retry",
         "start": "Start",
         "stop": "Stop",
@@ -11005,16 +11007,16 @@
       },
       "reasons": {
         "ok": {
-          "title": "Simulator is stopped",
-          "body": "Start the preview when you need it. This workspace can run one Simulator at a time."
+          "title": "Device preview is stopped",
+          "body": "Start the preview when you need it. This workspace can run one device at a time."
         },
         "not_desktop": {
           "title": "Needs a local Mac server",
-          "body": "The iOS Simulator runs on the machine that hosts this Atmos Server. Connect to a Mac that has Xcode, or start just dev-api on that Mac."
+          "body": "Device preview runs on the machine that hosts this Atmos Server. Connect to a Mac, or start just dev-api on that Mac."
         },
         "unsupported_platform": {
           "title": "Mac required",
-          "body": "The iOS Simulator is only available on macOS with Xcode."
+          "body": "Device preview is only available on macOS with Apple Silicon."
         },
         "unsupported_arch": {
           "title": "Apple Silicon required",
@@ -11038,7 +11040,27 @@
         },
         "no_device": {
           "title": "No Simulator device",
-          "body": "Create an iPhone simulator in Xcode, then try again."
+          "body": "Create an iPhone simulator in Xcode. If Android is the only option, create an AVD instead."
+        },
+        "android_sdk_missing": {
+          "title": "Android SDK is not installed",
+          "body": "Install Android Studio or the SDK so Atmos can find adb and the emulator."
+        },
+        "adb_missing": {
+          "title": "adb is missing",
+          "body": "Install Android platform-tools and make sure adb is on PATH."
+        },
+        "emulator_missing": {
+          "title": "Android emulator is missing",
+          "body": "Install the Android Emulator package from SDK Manager, then try again."
+        },
+        "no_avd": {
+          "title": "No Android virtual device",
+          "body": "Create an AVD in Android Studio, then start the preview."
+        },
+        "device_already_claimed": {
+          "title": "This device is in use",
+          "body": "Another workspace is already previewing that device. Start a different simulator or AVD, or wait until it is free."
         },
         "helper_missing": {
           "title": "Helper not installed",
@@ -11054,7 +11076,7 @@
         },
         "start_failed": {
           "title": "Could not start preview",
-          "body": "The helper did not come up. Retry after Xcode and Simulator tools are ready."
+          "body": "The helper did not come up. Retry after Xcode or the Android SDK is ready."
         }
       }
     }

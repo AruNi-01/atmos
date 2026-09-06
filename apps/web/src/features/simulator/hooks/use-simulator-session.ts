@@ -5,8 +5,12 @@ import {
   listenSimulatorDownload,
   simulatorApi,
 } from "@/api/ws/simulator-api";
+import { isHostedAtmosOrigin } from "@/shared/lib/desktop-runtime";
 import { useSimulatorRuntimeStore } from "../store/use-simulator-runtime-store";
 import {
+  displayReasonFromProbe,
+  displayReasonFromStart,
+  probeCanStart,
   setupActionForReason,
   type SimulatorDownloadProgress,
   type SimulatorReason,
@@ -44,6 +48,17 @@ export function useSimulatorSession(input: {
 
   const start = React.useCallback(async () => {
     if (!workspaceId) return;
+    if (isHostedAtmosOrigin()) {
+      setState({
+        phase: "setup",
+        reason: "not_desktop",
+        url: null,
+        udid: null,
+        progress: null,
+        error: null,
+      });
+      return;
+    }
     const off = listenSimulatorDownload((progress) => {
       if (progress.workspace_id && progress.workspace_id !== workspaceId) return;
       setState((prev) => ({ ...prev, phase: "downloading", progress }));
@@ -53,9 +68,13 @@ export function useSimulatorSession(input: {
       const result = await simulatorApi.start(workspaceId);
       if (!result.ready) {
         setRunning(workspaceId, false);
+        const reason = displayReasonFromStart(
+          result.reason ?? "start_failed",
+          result.probe,
+        );
         setState({
-          phase: result.reason === "ok" || result.reason === "helper_missing" ? "idle" : "setup",
-          reason: result.reason ?? "start_failed",
+          phase: reason === "ok" || reason === "helper_missing" ? "idle" : "setup",
+          reason,
           url: null,
           udid: null,
           progress: null,
@@ -97,6 +116,19 @@ export function useSimulatorSession(input: {
     );
     void (async () => {
       try {
+        if (isHostedAtmosOrigin()) {
+          if (cancelled) return;
+          setRunning(workspaceId, false);
+          setState({
+            phase: "setup",
+            reason: "not_desktop",
+            url: null,
+            udid: null,
+            progress: null,
+            error: null,
+          });
+          return;
+        }
         const [probe, claim] = await Promise.all([
           simulatorApi.probe(),
           simulatorApi.status(workspaceId),
@@ -116,11 +148,10 @@ export function useSimulatorSession(input: {
           return;
         }
         setRunning(workspaceId, false);
-        const reason = probe.reason;
-        const canStart = reason === "ok" || reason === "helper_missing";
+        const canStart = probeCanStart(probe);
         setState({
           phase: canStart ? "idle" : "setup",
-          reason,
+          reason: canStart ? (probe.ready ? "ok" : "helper_missing") : displayReasonFromProbe(probe),
           url: null,
           udid: null,
           progress: null,

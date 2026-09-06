@@ -4,7 +4,7 @@ These are the only first-party behavior changes. Prefer rebasing them when bumpi
 
 1. **Loopback bind** (`packages/serve-sim/src/index.ts`)
    - `--host` is ignored unless already loopback; listen address is always `127.0.0.1`.
-   - `/exec` and `/exec-ws` stay identical to upstream (token + Origin gated).
+   - `/exec` and `/exec-ws` stay token + Origin gated; global `--kill` with no device is refused.
 2. **Hide serve-sim brand + GitHub jump** (device sidebar / empty state)
    - No `serve-sim` wordmark, no `https://github.com/expo/serve-sim` link.
    - Empty state does not mention `bunx @expo/serve-sim`.
@@ -22,3 +22,6 @@ These are the only first-party behavior changes. Prefer rebasing them when bumpi
 6. **Compiled helper can exec itself** (`host-bin.ts`)
    - Tools used `/$bunfs/root/serve-sim`, which `/bin/sh` cannot see.
    - Inject and rewrite commands to the on-disk `~/.atmos/runtime/serve-sim/…` binary.
+7. **No global `--kill` from the preview iframe** (`useSimStream.ts`, `host-bin.ts`, `/exec`)
+   - Disconnect posts `atmos:simulator-stop` instead of `serve-sim --kill`.
+   - `/exec` and `/exec-ws` refuse a kill command that has no device argument.

@@ -1362,6 +1362,8 @@ pub struct SimulatorStartRequest {
     pub workspace_id: String,
     #[serde(default)]
     pub udid: Option<String>,
+    #[serde(default)]
+    pub platform: Option<core_engine::DevicePlatform>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
