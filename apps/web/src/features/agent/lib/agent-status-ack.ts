@@ -10,7 +10,9 @@ export function chatAttentionId(chatId: string | null | undefined): string | nul
 }
 
 /**
- * Chat analog of clicking a terminal pane: the user has looked at this chat.
+ * Chat analog of focusing a terminal pane. Marks the chat surface focused so
+ * task-complete rings can clear; pending permission latches stay until the
+ * agent resolves / cancels / ends the turn (server `agent_attention_cleared`).
  * Pointer enter / press on the live transcript surface should call this.
  */
 export function ackAgentChatAttention(chatId: string | null | undefined): boolean {

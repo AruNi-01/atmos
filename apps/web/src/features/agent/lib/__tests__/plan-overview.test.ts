@@ -34,6 +34,38 @@ Just a prose overview without todos.
     expect(overview?.steps).toEqual([]);
     expect(overview?.summary).toContain("prose overview");
   });
+
+  it("does not treat plain bullets or numbered lists as todos", () => {
+    const overview = parsePlanOverviewFromMarkdown(`# Rollout
+
+## Steps
+- Performance
+- Architecture
+1. Write tests
+2. Ship
+
+## Outline
+* Design review
++ Docs pass
+`);
+    expect(overview?.title).toBe("Rollout");
+    expect(overview?.steps).toEqual([]);
+    expect(overview?.summary).toBeUndefined();
+  });
+
+  it("can skip checklist extraction when structured todos already exist", () => {
+    const overview = parsePlanOverviewFromMarkdown(
+      `# Optimize APP-068
+
+## Test plan checklist
+- [ ] smoke
+- [ ] live
+`,
+      { includeChecklistSteps: false },
+    );
+    expect(overview?.title).toBe("Optimize APP-068");
+    expect(overview?.steps).toEqual([]);
+  });
 });
 
 describe("findRecentPlanFilePath", () => {

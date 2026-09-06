@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useState, useEffect, useRef } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useTranslations } from "next-intl";
 import {
   AgentsPromptInput,
@@ -43,7 +44,7 @@ import {
   registerActiveAgentComposer,
   touchActiveAgentComposer,
 } from "@/features/agent/lib/agent/active-composer";
-import type { AgentMessage } from "@atmos/api-types/ws/dto/agent-chat";
+import type { AgentMessage, AgentSessionUsage } from "@atmos/api-types/ws/dto/agent-chat";
 import { stopStreamingMessages } from "@/features/agent/lib/agent-chat-events";
 import { expandAgentComposerText } from "@/features/agent/lib/agent-chat-slash-command";
 import { resolveAgentComposerPlaceholderKind } from "@/features/agent/lib/agent-composer-placeholder";
@@ -63,6 +64,11 @@ import {
 } from "../lib/agent-chat-thread";
 import { AgentChatWorkingDirectoryPicker } from "./AgentChatWorkingDirectoryPicker";
 import { AgentComposerAttachments } from "./AgentComposerAttachments";
+import {
+  ContextUsageDetailsPanel,
+  ContextWindowUsageControl,
+} from "./UsageBadges";
+import { contextWindowStats } from "@/features/agent/lib/context-window-usage";
 import type { AgentChatWorkingDirectory } from "@/features/agent/lib/agent-chat-working-directory";
 import type { Project } from "@/shared/types/domain";
 import {
@@ -290,6 +296,9 @@ function ComposerPromptInput({
   editingItem,
   onFinishEdit,
   onUpdateQueuedPrompt,
+  sessionUsage,
+  contextUsageOpen,
+  onContextUsageOpenChange,
 }: {
   composerRef: React.RefObject<ComposerHandle | null>;
   onAtTrigger: (ctx: import("@/features/welcome/components/PromptComposer").AtTriggerContext) => void;
@@ -347,6 +356,9 @@ function ComposerPromptInput({
   editingItem: QueuedAgentPrompt | null;
   onFinishEdit: () => void;
   onUpdateQueuedPrompt: (id: string, prompt: string) => void | Promise<void>;
+  sessionUsage: AgentSessionUsage | null;
+  contextUsageOpen: boolean;
+  onContextUsageOpenChange: (open: boolean) => void;
 }) {
   const t = useTranslations("Agent.components");
   const attachments = usePromptInputAttachments();
@@ -386,9 +398,10 @@ function ComposerPromptInput({
       ) : undefined,
     };
   });
+  const composerLocked = isResumingHistory && !isConnected;
   const canSubmit = Boolean(
     expandAgentComposerText(localDraft) || attachments.files.length,
-  ) && isConnected && !showStop;
+  ) && !composerLocked && !showStop;
 
   useEffect(() => {
     if (hydratedRef.current) return;
@@ -444,7 +457,7 @@ function ComposerPromptInput({
       <AgentsPromptInput
         value={localDraft}
         onValueChange={setLocalDraft}
-        disabled={!isConnected}
+        disabled={composerLocked}
         loading={showStop}
         canSubmit={canSubmit}
         minRows={landing ? 2 : 1}
@@ -455,7 +468,7 @@ function ComposerPromptInput({
           <PromptComposer
             ref={composerRef}
             submitOnEnter
-            disabled={!isConnected}
+            disabled={composerLocked}
             placeholder={placeholder}
             editorClassName={
               landing
@@ -489,31 +502,26 @@ function ComposerPromptInput({
         modelsLocked={modelsLocked}
         modelsLoading={isConnecting || isResumingHistory || catalogModelsLoading}
         onEmptyModelsOpen={onEmptyModelsOpen}
-        modes={toModePromptModels(isConnected ? modeOption : null)}
-        mode={resolvedConfigOptionValue(isConnected ? modeOption : null, "mode")}
+        modes={toModePromptModels(modeOption)}
+        mode={resolvedConfigOptionValue(modeOption, "mode")}
         onModeChange={(value) => modeOption && setConfigOption(modeOption.id, value)}
         modesLocked={modesLocked}
         permissionModes={toPermissionPromptModels(
-          isConnected ? permissionOption : null,
+          permissionOption,
           (kind, key) => t(`chatPanel.pickers.${kind}.${key}`),
         )}
-        permissionMode={resolvedConfigOptionValue(
-          isConnected ? permissionOption : null,
-          "permission_mode",
-        )}
+        permissionMode={resolvedConfigOptionValue(permissionOption, "permission_mode")}
         onPermissionModeChange={(value) =>
           permissionOption && setConfigOption(permissionOption.id, value)
         }
-        thinkingLevels={toPromptModels(isConnected ? thinkingOption : null, (value, name) => {
+        thinkingLevels={toPromptModels(thinkingOption, (value, name) => {
           const key = thinkingLevelMessageKey(value);
           return key ? t(`chatPanel.pickers.thinkingLevels.${key}`) : (name || value);
         })}
-        thinking={resolvedConfigOptionValue(isConnected ? thinkingOption : null, "thinking")}
+        thinking={resolvedConfigOptionValue(thinkingOption, "thinking")}
         onThinkingChange={(value) => thinkingOption && setConfigOption(thinkingOption.id, value)}
-        fastAvailable={Boolean(isConnected && fastOption && fastOption.options.length > 0)}
-        fastEnabled={isFastOnValue(
-          resolvedConfigOptionValue(isConnected ? fastOption : null, "fast"),
-        )}
+        fastAvailable={Boolean(fastOption && fastOption.options.length > 0)}
+        fastEnabled={isFastOnValue(resolvedConfigOptionValue(fastOption, "fast"))}
         onFastChange={(enabled) => {
           if (!fastOption) return;
           const next = resolveFastToggleValue(fastOption, enabled);
@@ -597,6 +605,14 @@ function ComposerPromptInput({
             : undefined
         }
         radius="3xl"
+        footerTrailing={
+          <ContextWindowUsageControl
+            usage={sessionUsage}
+            providerId={registryId}
+            open={contextUsageOpen}
+            onOpenChange={onContextUsageOpenChange}
+          />
+        }
         className={cn(
           "w-full shadow-none",
           editingItem && "border-dashed border-info",
@@ -647,6 +663,9 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
   availableCommands = [],
   workingDirectoryPicker = null,
   landing = false,
+  sessionUsage = null,
+  aboveInputOverlay = null,
+  onAboveComposerOverlaysNodeChange,
 }: {
   currentPlan: AgentPlan | null;
   isResumedSession: boolean;
@@ -695,6 +714,10 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
     onSelect: (next: AgentChatWorkingDirectory) => void;
   } | null;
   landing?: boolean;
+  sessionUsage?: AgentSessionUsage | null;
+  /** Approve / session-op cards — floated in the same lane as context usage. */
+  aboveInputOverlay?: React.ReactNode;
+  onAboveComposerOverlaysNodeChange?: (node: HTMLDivElement | null) => void;
 }) {
   const t = useTranslations("Agent.components");
   const setAgentChatDraft = useDialogStore((s) => s.setAgentChatDraft);
@@ -710,16 +733,33 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
   const persistedDraftRef = useRef(localDraft);
   const composerRef = useRef<ComposerHandle | null>(null);
   const [editingQueueId, setEditingQueueId] = useState<string | null>(null);
+  const [contextUsageOpen, setContextUsageOpen] = useState(false);
   const editingItem = editingQueueId
     ? queuedPrompts.find((item) => item.id === editingQueueId) ?? null
     : null;
   const showStop = Boolean(agentActivity.busy && !localDraft.trim() && !editingItem);
+  const contextStats = contextWindowStats(sessionUsage);
+  const showContextUsageCard = contextUsageOpen && contextStats != null;
+  const hasUpperComposerCards =
+    Boolean(currentPlan)
+    || backgroundTools.length > 0
+    || queuedPrompts.length > 0;
+  const reduceOverlayMotion = Boolean(useReducedMotion());
 
   useEffect(() => {
     if (!editingQueueId) return;
     if (queuedPrompts.some((item) => item.id === editingQueueId)) return;
     setEditingQueueId(null);
   }, [editingQueueId, queuedPrompts]);
+
+  useEffect(() => {
+    if (contextStats != null || !contextUsageOpen) return;
+    setContextUsageOpen(false);
+  }, [contextStats, contextUsageOpen]);
+
+  useEffect(() => {
+    return () => onAboveComposerOverlaysNodeChange?.(null);
+  }, [onAboveComposerOverlaysNodeChange]);
   const modeOption = configOptions.find((option) => configKindMatches(option.id, option.category, "mode")) ?? null;
   const permissionOption =
     configOptions.find((option) =>
@@ -848,88 +888,129 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
         setEditingQueueId(null);
       }}
     >
-      {(currentPlan || backgroundTools.length > 0 || queuedPrompts.length > 0) && (
-        <div className="mx-6 overflow-hidden rounded-t-3xl border border-border/70 border-b-0 bg-background/95">
-          {currentPlan && (
-            <div className={
-              backgroundTools.length > 0 || queuedPrompts.length > 0 ? "border-b border-border/70" : ""
-            }>
-              <PlanBlockView
-                plan={currentPlan}
-                embedded
-                defaultOpen={!isResumedSession}
-              />
+      <div className="relative">
+        <div
+          ref={onAboveComposerOverlaysNodeChange}
+          data-agent-chat-above-composer-overlays=""
+          className="pointer-events-none absolute inset-x-0 bottom-full z-20 flex flex-col gap-2 has-[*]:pb-2"
+        >
+          {hasUpperComposerCards ? (
+            <div className="pointer-events-auto mx-6 overflow-hidden rounded-3xl border border-border/70 bg-background/95">
+              {currentPlan ? (
+                <div className={
+                  backgroundTools.length > 0 || queuedPrompts.length > 0
+                    ? "border-b border-border/70"
+                    : ""
+                }>
+                  <PlanBlockView
+                    plan={currentPlan}
+                    embedded
+                    defaultOpen={!isResumedSession}
+                  />
+                </div>
+              ) : null}
+              {backgroundTools.length > 0 ? (
+                <div className={queuedPrompts.length > 0 ? "border-b border-border/70" : ""}>
+                  <BackgroundCommandsDock tools={backgroundTools} />
+                </div>
+              ) : null}
+              {queuedPrompts.length > 0 ? (
+                <MessageQueueDock
+                  items={queuedPrompts}
+                  editingPromptId={editingQueueId}
+                  onToggleEdit={(item) => {
+                    setEditingQueueId((current) => (current === item.id ? null : item.id));
+                  }}
+                  onRemove={(id) => {
+                    onRemoveQueuedPrompt(id);
+                    setEditingQueueId((current) => (current === id ? null : current));
+                  }}
+                  onMove={onMoveQueuedPrompt}
+                />
+              ) : null}
             </div>
-          )}
-          {backgroundTools.length > 0 && (
-            <div className={queuedPrompts.length > 0 ? "border-b border-border/70" : ""}>
-              <BackgroundCommandsDock tools={backgroundTools} />
-            </div>
-          )}
-          {queuedPrompts.length > 0 && (
-            <MessageQueueDock
-              items={queuedPrompts}
-              editingPromptId={editingQueueId}
-              onToggleEdit={(item) => {
-                setEditingQueueId((current) => (current === item.id ? null : item.id));
-              }}
-              onRemove={(id) => {
-                onRemoveQueuedPrompt(id);
-                setEditingQueueId((current) => (current === id ? null : current));
-              }}
-              onMove={onMoveQueuedPrompt}
-            />
-          )}
+          ) : null}
+          <AnimatePresence initial={false}>
+            {showContextUsageCard ? (
+              <motion.div
+                key="agent-context-usage"
+                className="pointer-events-auto w-full"
+                initial={false}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{
+                  opacity: 0,
+                  y: 10,
+                  position: "absolute",
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  transition: reduceOverlayMotion
+                    ? { duration: 0 }
+                    : { duration: 0.28, ease: [0.22, 1, 0.36, 1] },
+                }}
+              >
+                <ContextUsageDetailsPanel
+                  usage={sessionUsage}
+                  providerId={registryId}
+                  onClose={() => setContextUsageOpen(false)}
+                />
+              </motion.div>
+            ) : null}
+          </AnimatePresence>
+          {aboveInputOverlay}
         </div>
-      )}
-      <PromptInputProvider>
-        <ComposerPromptInput
-          composerRef={composerRef}
-          onAtTrigger={onAtTrigger}
-          onAtCancel={onAtCancel}
-          onSlashTrigger={onSlashTrigger}
-          onSlashCancel={onSlashCancel}
-          localDraft={localDraft}
-          setLocalDraft={setLocalDraft}
-          persistedDraftRef={persistedDraftRef}
-          canUseCurrentMode={canUseCurrentMode}
-          isConnected={isConnected}
-          chatMode={chatMode}
-          instanceKey={instanceKey}
-          sessionWorkspaceId={sessionWorkspaceId}
-          sessionProjectId={sessionProjectId}
-          loadingAgents={loadingAgents}
-          isConnecting={isConnecting}
-          isResumingHistory={isResumingHistory}
-          catalogModelsLoading={catalogModelsLoading}
-          onEmptyModelsOpen={onEmptyModelsOpen}
-          installedAgents={installedAgents}
-          modeOption={modeOption}
-          permissionOption={permissionOption}
-          modelOption={modelOption}
-          thinkingOption={thinkingOption}
-          fastOption={fastOption}
-          modelsLocked={modelsLocked}
-          modesLocked={modesLocked}
-          registryId={registryId}
-          agentLocked={agentLocked}
-          onProviderChange={onProviderChange}
-          setConfigOption={setConfigOption}
-          showStop={showStop}
-          sendCancel={sendCancel}
-          setWaitingForResponse={setWaitingForResponse}
-          setMessages={setMessages}
-          stoppedRef={stoppedRef}
-          workingDirectoryPicker={workingDirectoryPicker}
-          clearAgentChatDraft={clearAgentChatDraft}
-          onSubmit={onSubmit}
-          placeholder={placeholder}
-          landing={landing}
-          editingItem={editingItem}
-          onFinishEdit={() => setEditingQueueId(null)}
-          onUpdateQueuedPrompt={onUpdateQueuedPrompt}
-        />
-      </PromptInputProvider>
+        <PromptInputProvider>
+          <ComposerPromptInput
+            composerRef={composerRef}
+            onAtTrigger={onAtTrigger}
+            onAtCancel={onAtCancel}
+            onSlashTrigger={onSlashTrigger}
+            onSlashCancel={onSlashCancel}
+            localDraft={localDraft}
+            setLocalDraft={setLocalDraft}
+            persistedDraftRef={persistedDraftRef}
+            canUseCurrentMode={canUseCurrentMode}
+            isConnected={isConnected}
+            chatMode={chatMode}
+            instanceKey={instanceKey}
+            sessionWorkspaceId={sessionWorkspaceId}
+            sessionProjectId={sessionProjectId}
+            loadingAgents={loadingAgents}
+            isConnecting={isConnecting}
+            isResumingHistory={isResumingHistory}
+            catalogModelsLoading={catalogModelsLoading}
+            onEmptyModelsOpen={onEmptyModelsOpen}
+            installedAgents={installedAgents}
+            modeOption={modeOption}
+            permissionOption={permissionOption}
+            modelOption={modelOption}
+            thinkingOption={thinkingOption}
+            fastOption={fastOption}
+            modelsLocked={modelsLocked}
+            modesLocked={modesLocked}
+            registryId={registryId}
+            agentLocked={agentLocked}
+            onProviderChange={onProviderChange}
+            setConfigOption={setConfigOption}
+            showStop={showStop}
+            sendCancel={sendCancel}
+            setWaitingForResponse={setWaitingForResponse}
+            setMessages={setMessages}
+            stoppedRef={stoppedRef}
+            workingDirectoryPicker={workingDirectoryPicker}
+            clearAgentChatDraft={clearAgentChatDraft}
+            onSubmit={onSubmit}
+            placeholder={placeholder}
+            landing={landing}
+            editingItem={editingItem}
+            onFinishEdit={() => setEditingQueueId(null)}
+            onUpdateQueuedPrompt={onUpdateQueuedPrompt}
+            sessionUsage={sessionUsage}
+            contextUsageOpen={contextUsageOpen}
+            onContextUsageOpenChange={setContextUsageOpen}
+          />
+        </PromptInputProvider>
+      </div>
       {popovers}
     </div>
   );

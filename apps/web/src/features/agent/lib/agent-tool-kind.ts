@@ -21,6 +21,7 @@ const TOOL_KINDS = new Set<AgentToolKind>([
   "mcp_list",
   "mcp_call",
   "image_gen",
+  "plan_document",
   "other",
 ]);
 
@@ -57,6 +58,8 @@ export function defaultToolParams(kind: AgentToolKind): AgentToolParams {
       return { type: "mcp_call", server: null, tool: null };
     case "image_gen":
       return { type: "image_gen", prompt: "" };
+    case "plan_document":
+      return { type: "plan_document", plan: "", todos: [] };
     case "other":
       return { type: "other", value: null };
   }

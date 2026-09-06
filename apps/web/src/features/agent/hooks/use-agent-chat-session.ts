@@ -42,7 +42,10 @@ import {
   readAgentChatLastSessions,
   resolveRestoredAgentChat,
 } from "@/features/agent/lib/agent-chat-last-session";
+import { mergeContextUsageUpdate } from "@/features/agent/lib/context-window-usage";
 import {
+  lastNewChatConfigForAgent,
+  mergeLastNewChatConfigs,
   pickInstalledRegistryId,
   preferredConfigFromDefault,
 } from "@/features/agent/lib/agent-chat-prefs";
@@ -95,6 +98,13 @@ import {
   useAgentSlashCommandCache,
   type AgentChatSlashCommand,
 } from "@/features/agent/store/agent-slash-command-cache";
+import {
+  readComposerLocalCache,
+  rememberComposerOptions,
+  rememberLastNewChatConfigs,
+  rememberLastRegistryId,
+  seedNewChatComposer,
+} from "@/features/agent/store/agent-composer-local-cache";
 import {
   agentChatHistoryListRequest,
   composerConfigOptions,
@@ -188,6 +198,21 @@ export function useAgentChatSession({
   const chatMode = mode;
   const isolatedModal = variant === "modal";
   const lastSessionPrefKey = isolatedModal ? FOOTER_MODAL_CHAT_PREF_KEY : undefined;
+  const composerSeed = useMemo(
+    () =>
+      seedNewChatComposer({
+        chatId,
+        instanceKey,
+        isolatedModal,
+        urlWorkspaceId,
+        urlProjectId,
+        chatMode,
+        lastSessionPrefKey,
+      }),
+    // Mount-only: new tabs paint from local cache instead of waiting on WS.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- seed once
+    [],
+  );
 
   const [messages, setMessages] = useState<AgentMessage[]>([]);
   const [busy, setBusy] = useState(false);
@@ -195,19 +220,22 @@ export function useAgentChatSession({
   const [supportsSteer, setSupportsSteer] = useState(false);
   const [policy, setPolicy] = useState<"queue" | "steer">("queue");
   const [queue, setQueue] = useState<AgentQueueItem[]>([]);
-  const [providerId, setProviderIdState] = useState("");
+  const [providerId, setProviderIdState] = useState(composerSeed.providerId);
   const [activeChatId, setActiveChatId] = useState(chatId);
-  const [modelId, setModelId] = useState("");
-  const [thinkingId, setThinkingId] = useState("");
-  const [modeId, setModeId] = useState("");
-  const [permissionModeId, setPermissionModeId] = useState("");
-  const [fastId, setFastId] = useState("");
-  const [catalog, setCatalogState] = useState<AgentOptionsSnapshot | null>(null);
-  const optionsByAgentRef = useRef<Record<string, AgentOptionsSnapshot>>({});
+  const [modelId, setModelId] = useState(composerSeed.preferred.modelId);
+  const [thinkingId, setThinkingId] = useState(composerSeed.preferred.thinkingId);
+  const [modeId, setModeId] = useState(composerSeed.preferred.modeId);
+  const [permissionModeId, setPermissionModeId] = useState(composerSeed.preferred.permissionModeId);
+  const [fastId, setFastId] = useState(composerSeed.preferred.fastId);
+  const [catalog, setCatalogState] = useState<AgentOptionsSnapshot | null>(composerSeed.catalog);
+  const optionsByAgentRef = useRef<Record<string, AgentOptionsSnapshot>>({
+    ...readComposerLocalCache().optionsByAgent,
+  });
   const rememberOptions = useCallback((next: AgentOptionsSnapshot | null) => {
     if (!next?.agent_id) return;
-    if (next.status === "probing" && next.models.length === 0) return;
+    if (next.status === "probing" && next.models.length === 0 && next.modes.length === 0) return;
     optionsByAgentRef.current[next.agent_id] = next;
+    rememberComposerOptions(next);
   }, []);
   const setCatalog = useCallback((
     next:
@@ -221,9 +249,12 @@ export function useAgentChatSession({
       return resolved;
     });
   }, [rememberOptions]);
-  const [installedAgents, setInstalledAgents] = useState<RegistryAgent[]>([]);
-  const [defaultRegistryId, setDefaultRegistryId] = useState("");
-  const [loadingAgents, setLoadingAgents] = useState(true);
+  const [installedAgents, setInstalledAgents] = useState<RegistryAgent[]>(
+    composerSeed.installedAgents,
+  );
+  const [defaultRegistryId, setDefaultRegistryId] = useState(
+    composerSeed.lastRegistryId || composerSeed.providerId,
+  );
   const [workspaceId, setWorkspaceId] = useState<string | null>(
     isolatedModal ? null : urlWorkspaceId,
   );
@@ -245,7 +276,7 @@ export function useAgentChatSession({
     () => Boolean(chatId) && resumeTranscript,
   );
   const [shouldScrambleAutoTitle, setShouldScrambleAutoTitle] = useState(false);
-  const [hydrated, setHydrated] = useState(false);
+  const [hydrated, setHydrated] = useState(composerSeed.hydrated);
   const [runtimeStatus, setRuntimeStatus] = useState<string | null>(null);
   const [hasPersistenceHandle, setHasPersistenceHandle] = useState(false);
   const [descriptor, setDescriptor] = useState<AgentDescriptor | null>(null);
@@ -260,6 +291,35 @@ export function useAgentChatSession({
   const stoppedRef = useRef(false);
   const pendingSendRef = useRef<{ text: string; attachmentPaths: string[] } | null>(null);
   const lastSentRef = useRef<{ text: string; attachmentPaths: string[] } | null>(null);
+  const persistConfigRef = useRef<(patch: {
+    provider_id?: string;
+    model?: string;
+    thinking?: string;
+    mode?: string;
+    permission_mode?: string;
+    fast?: string;
+  }) => Promise<void>>(async () => undefined);
+  const composerSelectionRef = useRef<() => {
+    model: string;
+    thinking: string;
+    mode: string;
+    permissionMode: string;
+    fast: string;
+    patch: {
+      model?: string;
+      thinking?: string;
+      mode?: string;
+      permission_mode?: string;
+      fast?: string;
+    };
+  }>(() => ({
+    model: "",
+    thinking: "",
+    mode: "",
+    permissionMode: "",
+    fast: "",
+    patch: {},
+  }));
   const creatingChatRef = useRef<Promise<string> | null>(null);
   const resumeTranscriptRef = useRef(resumeTranscript);
   resumeTranscriptRef.current = resumeTranscript;
@@ -267,13 +327,24 @@ export function useAgentChatSession({
   const providerIdRef = useRef(providerId);
   providerIdRef.current = providerId;
   const restoreAttemptedRef = useRef(false);
-  const [prefsRestored, setPrefsRestored] = useState(false);
-  const lastPersistedRegistryRef = useRef("");
-  const lastPersistedConfigRef = useRef({ registry: "", model: "", thinking: "" });
+  const [prefsRestored, setPrefsRestored] = useState(true);
+  const lastPersistedRegistryRef = useRef(composerSeed.lastRegistryId);
+  const lastNewChatConfigsRef = useRef<Record<string, Record<string, string>>>(
+    composerSeed.lastNewChatConfigs,
+  );
+  const [lastNewChatConfigs, setLastNewChatConfigs] = useState<
+    Record<string, Record<string, string>>
+  >(composerSeed.lastNewChatConfigs);
+  lastNewChatConfigsRef.current = lastNewChatConfigs;
+  const installedAgentsRef = useRef(installedAgents);
+  installedAgentsRef.current = installedAgents;
   const wsConnected = useWebSocketStore((state) => state.connectionState === "connected");
   const registryQuery = useAgentRegistryListQuery();
   const customQuery = useCustomAgentListQuery();
   const nativeQuery = useNativeChatAgentListQuery();
+  const loadingAgents =
+    installedAgents.length === 0 &&
+    (registryQuery.isLoading || customQuery.isLoading || nativeQuery.isLoading);
   const agentLocked =
     Boolean(activeChatId) &&
     (messages.length > 0 || hasPersistenceHandle || isLiveAgentRuntimeStatus(runtimeStatus));
@@ -360,9 +431,13 @@ export function useAgentChatSession({
     }
   }, [chatId]);
 
-  const applyDescriptor = useCallback((next: AgentDescriptor) => {
+  const applyDescriptor = useCallback((
+    next: AgentDescriptor,
+    opts?: { keepComposerChrome?: boolean },
+  ) => {
     setDescriptor(next);
     setSupportsSteer(next.capabilities.steer === "supported");
+    if (opts?.keepComposerChrome) return;
     setModelId(next.current_config.model ?? "");
     setThinkingId(next.current_config.thinking ?? "");
     setModeId(next.current_config.mode ?? "");
@@ -427,7 +502,9 @@ export function useAgentChatSession({
       tool?: string;
       description?: string;
       content_markdown?: string;
+      plan_todos?: Array<{ id?: string | null; content: string; status?: string }>;
       options?: Array<{ option_id: string; name: string; kind?: string }>;
+      questions?: Array<{ id: string; prompt: string; options?: string[] }>;
     } | null;
     setPendingPermission(
       pending?.request_id
@@ -436,11 +513,17 @@ export function useAgentChatSession({
             tool: pending.tool ?? "",
             description: pending.description ?? "",
             content_markdown: pending.content_markdown ?? undefined,
+            plan_todos: pending.plan_todos,
             risk_level: "",
             options: (pending.options ?? []).map((option) => ({
               option_id: option.option_id,
               name: option.name,
               kind: option.kind || option.option_id,
+            })),
+            questions: (pending.questions ?? []).map((question) => ({
+              id: question.id,
+              prompt: question.prompt,
+              options: question.options ?? [],
             })),
           }
         : null,
@@ -500,70 +583,48 @@ export function useAgentChatSession({
 
   useEffect(() => {
     if (!wsConnected) return;
-    setLoadingAgents(true);
-    void Promise.all([
-      agentApi.listRegistry(),
-      agentApi.listCustomAgents().catch(() => ({ agents: [] })),
-      agentApi.listNativeChatAgents().catch(() => ({ agents: [] })),
-      agentChatApi.prefsGet().catch(() => ({ last_registry_id: null })),
-    ]).then(([result, custom, natives, prefs]) => {
-      const agents = result.agents ?? [];
-      const installed = mergeInstalledAgents(
-        agents.filter((agent) => agent.installed),
-        custom.agents ?? [],
-        natives.agents ?? [],
-      );
+    void agentChatApi.prefsGet().then((prefs) => {
+      const incoming = prefs.last_new_chat_configs ?? {};
+      const merged = mergeLastNewChatConfigs(lastNewChatConfigsRef.current, incoming);
+      lastNewChatConfigsRef.current = merged;
+      rememberLastNewChatConfigs(merged);
+      setLastNewChatConfigs(merged);
+      const installed = installedAgentsRef.current;
       const installedIds = installed.map((agent) => agent.id);
-      setInstalledAgents(installed);
       const lastRegistryId = pickInstalledRegistryId(
         installedIds,
         prefs.last_registry_id,
       );
-      lastPersistedRegistryRef.current = lastRegistryId;
-      const fallback =
-        lastRegistryId ||
-        readDefaultAgentRegistryId() ||
-        installed[0]?.id ||
-        "claude";
-      setDefaultRegistryId(fallback);
-      const isNewChat = !activeIdRef.current;
-      const currentRegistry = pickInstalledRegistryId(
-        installedIds,
-        providerIdRef.current,
-      );
-      const appliedRegistry = isNewChat
-        ? lastRegistryId || currentRegistry || installed[0]?.id || fallback
-        : currentRegistry;
+      if (lastRegistryId) {
+        lastPersistedRegistryRef.current = lastRegistryId;
+        rememberLastRegistryId(lastRegistryId);
+        setDefaultRegistryId((current) => current || lastRegistryId);
+      }
       setProviderIdState((current) => {
-        if (isNewChat && lastRegistryId) return lastRegistryId;
-        if (current && installed.some((agent) => agent.id === current)) return current;
-        if (installed[0]) return installed[0].id;
-        return current || fallback;
+        if (current && (installedIds.length === 0 || installedIds.includes(current))) {
+          return current;
+        }
+        return lastRegistryId || installed[0]?.id || current;
       });
-      if (isNewChat && appliedRegistry) {
+      if (!activeIdRef.current) {
+        const registry = providerIdRef.current || lastRegistryId;
         const preferred = preferredConfigFromDefault(
-          installed.find((agent) => agent.id === appliedRegistry)?.default_config,
+          lastNewChatConfigForAgent(merged, registry)
+            ?? installed.find((agent) => agent.id === registry)?.default_config,
         );
-        lastPersistedConfigRef.current = {
-          registry: appliedRegistry,
-          model: preferred.modelId,
-          thinking: preferred.thinkingId,
-        };
-        if (preferred.modelId) {
-          setModelId((current) => current || preferred.modelId);
+        if (preferred.modelId) setModelId((current) => current || preferred.modelId);
+        if (preferred.thinkingId) setThinkingId((current) => current || preferred.thinkingId);
+        if (preferred.modeId) setModeId((current) => current || preferred.modeId);
+        if (preferred.permissionModeId) {
+          setPermissionModeId((current) => current || preferred.permissionModeId);
         }
-        if (preferred.thinkingId) {
-          setThinkingId((current) => current || preferred.thinkingId);
-        }
+        if (preferred.fastId) setFastId((current) => current || preferred.fastId);
       }
       setPrefsRestored(true);
-      setLoadingAgents(false);
     }).catch(() => {
-      const fallback = readDefaultAgentRegistryId() || "claude";
-      setDefaultRegistryId((current) => current || fallback);
-      setProviderIdState((current) => current || fallback);
+      setDefaultRegistryId((current) => current || readDefaultAgentRegistryId() || "claude");
+      setProviderIdState((current) => current || readDefaultAgentRegistryId() || "claude");
       setPrefsRestored(true);
-      setLoadingAgents(false);
     });
   }, [wsConnected]);
 
@@ -698,6 +759,7 @@ export function useAgentChatSession({
     if (!registryId) return;
     if (lastPersistedRegistryRef.current !== registryId) {
       lastPersistedRegistryRef.current = registryId;
+      rememberLastRegistryId(registryId);
       void agentChatApi.prefsSet({ last_registry_id: registryId }).catch(() => undefined);
     }
   }, [activeChatId, hydrated, prefsRestored, providerId]);
@@ -783,8 +845,29 @@ export function useAgentChatSession({
           setAuthRequest(auth);
         }
       }
+      if (payload.type === "context_usage_updated") {
+        setSessionUsage((prev) =>
+          mergeContextUsageUpdate(prev, {
+            used: payload.used,
+            context_window: payload.context_window,
+          }),
+        );
+      }
       if (payload.type === "usage_updated") {
-        if (payload.session) setSessionUsage(payload.session);
+        if (payload.session) {
+          setSessionUsage((prev) => ({
+            ...(prev ?? {}),
+            ...payload.session,
+            // Prefer explicit context_window; keep prior window if cost-only merge.
+            used: payload.session.used ?? prev?.used ?? null,
+            context_window:
+              payload.session.context_window
+              ?? payload.session.size
+              ?? prev?.context_window
+              ?? prev?.size
+              ?? null,
+          }));
+        }
       }
       if (payload.type === "permission_requested" && payload.request?.request_id) {
         setBusy(true);
@@ -793,6 +876,7 @@ export function useAgentChatSession({
           tool: payload.request.tool ?? "",
           description: payload.request.description ?? "",
           content_markdown: payload.request.content_markdown,
+          plan_todos: payload.request.plan_todos,
           risk_level: "",
           options: (payload.request.options ?? []).map((option) => ({
             option_id: option.option_id,
@@ -889,6 +973,7 @@ export function useAgentChatSession({
       const queued = pendingSendRef.current;
       pendingSendRef.current = null;
       if (queued) {
+        await persistConfigRef.current(composerSelectionRef.current().patch);
         await agentChatApi.send(id, queued.text, queued.attachmentPaths);
       }
     }).catch(() => {
@@ -989,11 +1074,18 @@ export function useAgentChatSession({
     if (!catalog) return;
     if (catalog.agent_id && providerId && catalog.agent_id !== providerId) return;
     const preferred = preferredConfigFromDefault(
-      installedAgents.find((agent) => agent.id === providerId)?.default_config,
+      lastNewChatConfigForAgent(lastNewChatConfigs, providerId)
+        ?? installedAgents.find((agent) => agent.id === providerId)?.default_config,
     );
     setModeId((current) =>
-      current || catalog.modes.find((mode) => mode.is_default)?.id || catalog.modes[0]?.id || "",
+      current
+        || preferred.modeId
+        || catalog.modes.find((mode) => mode.is_default)?.id
+        || catalog.modes[0]?.id
+        || "",
     );
+    setPermissionModeId((current) => current || preferred.permissionModeId);
+    setFastId((current) => current || preferred.fastId);
     const resolvedModelId = defaultOptionsModelId(catalog, modelId || preferred.modelId);
     setModelId((current) => {
       if (current && catalog.models.some((model) => model.id === current)) {
@@ -1012,6 +1104,7 @@ export function useAgentChatSession({
     catalog,
     hasPersistenceHandle,
     installedAgents,
+    lastNewChatConfigs,
     messages.length,
     modelId,
     prefsRestored,
@@ -1021,22 +1114,47 @@ export function useAgentChatSession({
 
   const persistNewSessionPreferences = useCallback((
     registryId: string,
-    model: string,
-    thinking: string,
+    selected: {
+      model: string;
+      thinking: string;
+      mode: string;
+      permissionMode: string;
+      fast: string;
+    },
   ) => {
     const registry = registryId.trim();
     if (!registry) return;
     if (lastPersistedRegistryRef.current !== registry) {
       lastPersistedRegistryRef.current = registry;
-      void agentChatApi.prefsSet({ last_registry_id: registry }).catch(() => undefined);
+      rememberLastRegistryId(registry);
     }
-    const nextModel = model.trim();
-    const nextThinking = thinking.trim();
-    lastPersistedConfigRef.current = {
-      registry,
-      model: nextModel,
-      thinking: nextThinking,
+    const snapshot: Record<string, string> = {};
+    if (selected.model.trim()) snapshot.model = selected.model.trim();
+    if (selected.thinking.trim()) snapshot.thinking = selected.thinking.trim();
+    if (selected.mode.trim()) snapshot.mode = selected.mode.trim();
+    if (selected.permissionMode.trim()) snapshot.permission_mode = selected.permissionMode.trim();
+    if (selected.fast.trim()) snapshot.fast = selected.fast.trim();
+    if (Object.keys(snapshot).length === 0) return;
+    lastNewChatConfigsRef.current = {
+      ...lastNewChatConfigsRef.current,
+      [registry]: snapshot,
     };
+    setLastNewChatConfigs((current) => {
+      const next = { ...current, [registry]: snapshot };
+      rememberLastNewChatConfigs(next);
+      return next;
+    });
+    void agentChatApi.prefsSet({
+      last_registry_id: registry,
+      last_new_chat_config: {
+        agent_id: registry,
+        model: snapshot.model ?? null,
+        thinking: snapshot.thinking ?? null,
+        mode: snapshot.mode ?? null,
+        permission_mode: snapshot.permission_mode ?? null,
+        fast: snapshot.fast ?? null,
+      },
+    }).catch(() => undefined);
     setInstalledAgents((current) =>
       current.map((agent) =>
         agent.id === registry
@@ -1044,19 +1162,12 @@ export function useAgentChatSession({
               ...agent,
               default_config: {
                 ...(agent.default_config || {}),
-                ...(nextModel ? { model: nextModel } : {}),
-                ...(nextThinking ? { thinking: nextThinking } : {}),
+                ...snapshot,
               },
             }
           : agent,
       ),
     );
-    if (nextModel) {
-      void agentApi.setDefaultConfig(registry, "model", nextModel).catch(() => undefined);
-    }
-    if (nextThinking) {
-      void agentApi.setDefaultConfig(registry, "thinking", nextThinking).catch(() => undefined);
-    }
   }, []);
 
   const composerSelection = useCallback(() => {
@@ -1124,6 +1235,8 @@ export function useAgentChatSession({
     applyDescriptor(meta.descriptor);
     onUpdatedRef.current?.(id, { providerId: meta.provider_id ?? null });
   }, [activeChatId, applyDescriptor]);
+  persistConfigRef.current = persistConfig;
+  composerSelectionRef.current = composerSelection;
 
   const ensureCreatedChat = useCallback(async (input?: { title?: string | null }) => {
     const existing = activeIdRef.current.trim();
@@ -1132,12 +1245,13 @@ export function useAgentChatSession({
     const registry = providerId || defaultRegistryId || "claude";
     const pending = (async () => {
       const selected = composerSelection();
-      persistNewSessionPreferences(registry, selected.model, selected.thinking);
       const meta = await agentChatApi.create({
         provider_id: registry,
         model: selected.model || null,
         thinking: selected.thinking || null,
         mode: selected.mode || null,
+        permission_mode: selected.permissionMode || null,
+        fast: selected.fast || null,
         cwd: cwd || null,
         workspace_id: workspaceId,
         project_id: projectId,
@@ -1150,7 +1264,7 @@ export function useAgentChatSession({
       const id = meta.id;
       activeIdRef.current = id;
       setActiveChatId(id);
-      applyDescriptor(meta.descriptor);
+      applyDescriptor(meta.descriptor, { keepComposerChrome: true });
       setProviderIdState(meta.provider_id || registry);
       const nextTitle = meta.title?.trim() || input?.title?.trim() || null;
       if (nextTitle) setTitle(nextTitle);
@@ -1174,7 +1288,6 @@ export function useAgentChatSession({
     defaultRegistryId,
     isolatedModal,
     paintContextId,
-    persistNewSessionPreferences,
     projectId,
     providerId,
     workspaceId,
@@ -1216,12 +1329,14 @@ export function useAgentChatSession({
         if (item.forceNewSession && id) {
           const registry = item.registryId || providerId || defaultRegistryId || "claude";
           const selected = composerSelection();
-          persistNewSessionPreferences(registry, selected.model, selected.thinking);
+          persistNewSessionPreferences(registry, selected);
           const meta = await agentChatApi.create({
             provider_id: registry,
             model: selected.model || null,
             thinking: selected.thinking || null,
             mode: selected.mode || null,
+            permission_mode: selected.permissionMode || null,
+            fast: selected.fast || null,
             cwd: cwd || null,
             workspace_id: workspaceId,
             project_id: projectId,
@@ -1252,7 +1367,14 @@ export function useAgentChatSession({
           pendingSendRef.current = { text, attachmentPaths: item.attachmentPaths ?? [] };
           return;
         }
-        await persistConfig(composerSelection().patch);
+        const selected = composerSelection();
+        if (messages.length === 0) {
+          persistNewSessionPreferences(
+            providerId || defaultRegistryId || "claude",
+            selected,
+          );
+        }
+        await persistConfig(selected.patch);
         if (busy) {
           await agentChatApi.queueAdd(id, text, item.attachmentPaths);
         } else {
@@ -1294,6 +1416,13 @@ export function useAgentChatSession({
     if (!text && files.length === 0) return;
     setSendError(null);
     try {
+      const selected = composerSelection();
+      if (messages.length === 0) {
+        persistNewSessionPreferences(
+          providerIdRef.current || defaultRegistryId || "claude",
+          selected,
+        );
+      }
       let id = activeChatId || activeIdRef.current;
       if (!id) {
         const promptTitle = chatTitleFromPrompt(text);
@@ -1322,7 +1451,12 @@ export function useAgentChatSession({
           pendingSendRef.current = null;
           if (queued) {
             lastSentRef.current = queued;
-            await persistConfig(composerSelection().patch);
+            const selected = composerSelection();
+            persistNewSessionPreferences(
+              providerIdRef.current || defaultRegistryId || "claude",
+              selected,
+            );
+            await persistConfig(selected.patch);
             await agentChatApi.send(id, queued.text, queued.attachmentPaths);
           }
         }
@@ -1377,6 +1511,7 @@ export function useAgentChatSession({
     isolatedModal,
     paintContextId,
     persistConfig,
+    persistNewSessionPreferences,
     ensureCreatedChat,
     policy,
     projectId,
@@ -1385,6 +1520,7 @@ export function useAgentChatSession({
     supportsSteer,
     transformPrompt,
     workspaceId,
+    messages.length,
   ]);
 
   const startSession = useCallback(async (opts?: {
@@ -1463,6 +1599,7 @@ export function useAgentChatSession({
     });
     if (lastPersistedRegistryRef.current !== next) {
       lastPersistedRegistryRef.current = next;
+      rememberLastRegistryId(next);
       void agentChatApi.prefsSet({ last_registry_id: next }).catch(() => undefined);
     }
   }, [
@@ -1483,20 +1620,26 @@ export function useAgentChatSession({
     );
     if (targetRegistryId) {
       setProviderIdState(targetRegistryId);
-      const cached = optionsByAgentRef.current[targetRegistryId];
-      if (cached) setCatalog(cached);
-      else if (registryChanged) setCatalog(null);
+      const cached =
+        optionsByAgentRef.current[targetRegistryId]
+        ?? readComposerLocalCache().optionsByAgent[targetRegistryId];
+      if (cached) {
+        optionsByAgentRef.current[targetRegistryId] = cached;
+        setCatalog(cached);
+      } else if (registryChanged) {
+        setCatalog(null);
+      }
     }
-    if (registryChanged) {
-      const preferred = preferredConfigFromDefault(
-        installedAgents.find((agent) => agent.id === nextRegistry)?.default_config,
-      );
-      setModelId(preferred.modelId);
-      setThinkingId(preferred.thinkingId);
-      setModeId("");
-      setPermissionModeId("");
-      setFastId("");
-    }
+    // Restore the last landing snapshot for this agent (picker / first send).
+    const preferred = preferredConfigFromDefault(
+      lastNewChatConfigForAgent(lastNewChatConfigsRef.current, nextRegistry)
+        ?? installedAgents.find((agent) => agent.id === nextRegistry)?.default_config,
+    );
+    setModelId(preferred.modelId);
+    setThinkingId(preferred.thinkingId);
+    setModeId(preferred.modeId);
+    setPermissionModeId(preferred.permissionModeId);
+    setFastId(preferred.fastId);
     if (nextRegistry) {
       persistAgentChatLastSession({
         workspaceId,
@@ -1510,6 +1653,7 @@ export function useAgentChatSession({
       });
       if (lastPersistedRegistryRef.current !== nextRegistry) {
         lastPersistedRegistryRef.current = nextRegistry;
+        rememberLastRegistryId(nextRegistry);
         void agentChatApi.prefsSet({ last_registry_id: nextRegistry }).catch(() => undefined);
       }
     }
@@ -1637,6 +1781,8 @@ export function useAgentChatSession({
     if (!trimmed) return;
     const registry = providerIdRef.current.trim();
     if (!registry) return;
+    // Shift-click "set as default" is local chrome only. Durable New Chat
+    // snapshots are written solely by agent_chat_create.
     setInstalledAgents((current) => {
       const agent = current.find((item) => item.id === registry);
       if (agent?.default_config?.[configId] === trimmed) return current;
@@ -1646,65 +1792,55 @@ export function useAgentChatSession({
           : item,
       );
     });
-    const key = configId === "model" || configId === "models"
-      ? "model"
-      : configId === "thinking"
-        || configId === "think"
-        || configId === "thought_level"
-        || configId === "effort"
-        || configId === "reasoning_effort"
-        || configId === "reasoning-effort"
-        ? "thinking"
-        : null;
-    if (
-      key &&
-      lastPersistedConfigRef.current.registry === registry &&
-      lastPersistedConfigRef.current[key] === trimmed
-    ) {
-      return;
-    }
-    if (key) {
-      lastPersistedConfigRef.current = {
-        ...lastPersistedConfigRef.current,
-        registry,
-        [key]: trimmed,
-      };
-    }
-    void agentApi.setDefaultConfig(registry, configId, trimmed).catch(() => undefined);
   }, []);
 
+  // Composer chrome updates local draft state. Landing picker changes also
+  // become the next New Chat snapshot. Session SetConfig stays deferred until
+  // send / queue / retry so intermediate flips do not spam the runtime.
   const setConfigOption = useCallback((key: string, value: string) => {
+    const next = {
+      model: modelId,
+      thinking: thinkingId,
+      mode: modeId,
+      permissionMode: permissionModeId,
+      fast: fastId,
+    };
     if (configKindMatches(key, undefined, "model")) {
       setModelId(value);
-      if (activeIdRef.current) void persistConfig({ model: value });
-      return;
-    }
-    if (configKindMatches(key, undefined, "thinking")) {
+      next.model = value;
+    } else if (configKindMatches(key, undefined, "thinking")) {
       setThinkingId(value);
-      if (activeIdRef.current) void persistConfig({ thinking: value });
-      return;
-    }
-    if (configKindMatches(key, undefined, "permission_mode")) {
+      next.thinking = value;
+    } else if (configKindMatches(key, undefined, "permission_mode")) {
       setPermissionModeId(value);
-      if (activeIdRef.current) void persistConfig({ permission_mode: value });
-      return;
-    }
-    if (configKindMatches(key, undefined, "mode")) {
+      next.permissionMode = value;
+    } else if (configKindMatches(key, undefined, "mode")) {
       setModeId(value);
-      if (activeIdRef.current) void persistConfig({ mode: value });
+      next.mode = value;
+    } else if (configKindMatches(key, undefined, "fast")) {
+      setFastId(value);
+      next.fast = value;
+    } else {
       return;
     }
-    if (configKindMatches(key, undefined, "fast")) {
-      setFastId(value);
-      if (activeIdRef.current) void persistConfig({ fast: value });
-    }
-  }, [persistConfig]);
+    const registry = providerIdRef.current.trim();
+    if (registry) persistNewSessionPreferences(registry, next);
+  }, [
+    fastId,
+    modeId,
+    modelId,
+    permissionModeId,
+    persistNewSessionPreferences,
+    thinkingId,
+  ]);
 
   const setProviderId = useCallback((next: string) => {
     if (agentLocked) return;
     setProviderIdState(next);
-    const cached = optionsByAgentRef.current[next];
+    const cached =
+      optionsByAgentRef.current[next] ?? readComposerLocalCache().optionsByAgent[next];
     if (cached) {
+      optionsByAgentRef.current[next] = cached;
       setCatalog(cached);
     } else {
       setCatalog(null);
@@ -1712,19 +1848,23 @@ export function useAgentChatSession({
     setDescriptor(null);
     setSupportsSteer(false);
     const preferred = preferredConfigFromDefault(
-      installedAgents.find((agent) => agent.id === next)?.default_config,
+      lastNewChatConfigForAgent(lastNewChatConfigsRef.current, next)
+        ?? installedAgents.find((agent) => agent.id === next)?.default_config,
     );
     setModelId(preferred.modelId);
     setThinkingId(preferred.thinkingId);
-    setModeId("");
-    setPermissionModeId("");
-    setFastId("");
+    setModeId(preferred.modeId);
+    setPermissionModeId(preferred.permissionModeId);
+    setFastId(preferred.fastId);
     persistPreferredRegistry(next);
     if (activeIdRef.current) {
       void persistConfig({
         provider_id: next,
         ...(preferred.modelId ? { model: preferred.modelId } : {}),
         ...(preferred.thinkingId ? { thinking: preferred.thinkingId } : {}),
+        ...(preferred.modeId ? { mode: preferred.modeId } : {}),
+        ...(preferred.permissionModeId ? { permission_mode: preferred.permissionModeId } : {}),
+        ...(preferred.fastId ? { fast: preferred.fastId } : {}),
       });
     }
   }, [agentLocked, installedAgents, persistConfig, persistPreferredRegistry, setCatalog]);

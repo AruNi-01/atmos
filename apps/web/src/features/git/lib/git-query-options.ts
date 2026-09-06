@@ -199,6 +199,57 @@ export function gitLogQueryOptions(
   });
 }
 
+/** Default page size for Changes scope Commit submenu infinite scroll. */
+export const GIT_LOG_INFINITE_PAGE_SIZE = 30;
+
+/**
+ * Current-branch `git_log` infinite query.
+ * Backend pagination is offset-based; pageParam is that offset (skip cursor).
+ */
+export function gitLogInfiniteQueryOptions(
+  scope: ComputerQueryScope,
+  connectionState: ConnectionState,
+  repoPath: string,
+  params: { branchKey: string | null; limit?: number },
+  options?: { enabled?: boolean },
+) {
+  const limit = params.limit ?? GIT_LOG_INFINITE_PAGE_SIZE;
+  return wsInfiniteQueryOptions<
+    GitLogPage,
+    Error,
+    InfiniteData<GitLogPage>,
+    ReturnType<typeof queryKeys.computer.gitLogInfinite>,
+    number
+  >({
+    scope,
+    connectionState,
+    enabled: options?.enabled,
+    queryKey: queryKeys.computer.gitLogInfinite(scope, repoPath, {
+      branchKey: params.branchKey,
+      limit,
+    }),
+    queryFn: async ({ pageParam }) => {
+      const { useWebSocketStore } = await import(
+        "@/features/connection/hooks/use-websocket"
+      );
+      const result = await useWebSocketStore.getState().send("git_log", {
+        path: repoPath,
+        limit,
+        offset: pageParam,
+      });
+      return { commits: result?.commits ?? [] };
+    },
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, _pages, lastPageParam) => {
+      // Match `useGitLog` page*limit offsets; stop when a short page arrives.
+      if (lastPage.commits.length < limit) return undefined;
+      return lastPageParam + limit;
+    },
+    staleTime: GIT_LIST_STALE_MS,
+    gcTime: GIT_LIST_GC_MS,
+  });
+}
+
 /** Zed streams graph SHAs in 1000-commit chunks; we page at the same size. */
 export const GIT_HISTORY_PAGE_SIZE = 1000;
 /** Prefetch this many pages on open, then load more from the virtualizer. */

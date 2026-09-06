@@ -2,11 +2,12 @@
 
 import React from "react";
 import { useTranslations } from "next-intl";
-import { Eye, EyeOff, Folder, LoaderCircle, RotateCcw } from "lucide-react";
+import { Crosshair, Eye, EyeOff, Folder, LoaderCircle, RotateCcw } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
 import { FileTree } from "@/features/files/components/FileTree";
 import { useFileTreeStore } from "@/features/files/store/use-file-tree-store";
 import { useFileTreeQuery } from "@/features/files/hooks/use-file-tree-query";
+import { useEditorStore } from "@/features/editor/store/use-editor-store";
 import { FORCE_REFETCH_OPTIONS } from "@/api/query/force-refetch";
 import type { FileTreeNode } from "@/api/ws-api";
 
@@ -36,7 +37,7 @@ export const FileTreePanel: React.FC<FileTreePanelProps> = ({
   isLoading,
   showHidden,
   contextId,
-  activeFilePath,
+  activeFilePath: activeFilePathProp,
   currentProjectPath,
   revealEnabled,
   contextMenuAnchor,
@@ -48,6 +49,18 @@ export const FileTreePanel: React.FC<FileTreePanelProps> = ({
   const storeRootPath = useFileTreeStore((s) => s.rootPath);
   const storeShowHidden = useFileTreeStore((s) => s.showHidden);
   const setStoreShowHidden = useFileTreeStore((s) => s.setShowHidden);
+  const storeActiveFilePath = useEditorStore((s) =>
+    s.getActiveFilePath(contextId || undefined),
+  );
+  const requestFileTreeReveal = useEditorStore((s) => s.requestFileTreeReveal);
+  const activeFilePath = activeFilePathProp ?? storeActiveFilePath;
+  const projectRoot = currentProjectPath ?? rootPath ?? storeRootPath;
+  const canLocateActiveFile = Boolean(
+    activeFilePath &&
+      projectRoot &&
+      (activeFilePath === projectRoot ||
+        activeFilePath.startsWith(`${projectRoot}/`)),
+  );
 
   const effectiveRootPath = rootPath ?? storeRootPath;
   const effectiveShowHidden = showHidden ?? storeShowHidden;
@@ -83,11 +96,30 @@ export const FileTreePanel: React.FC<FileTreePanelProps> = ({
   return (
     <div className="flex flex-col h-full min-h-0">
       {projectName && (
-        <div className="flex items-center justify-between px-3 py-1.5 shrink-0">
-          <span className="text-[12px] font-medium text-muted-foreground truncate">
-            {projectName}
-          </span>
-          <div className="flex items-center gap-1">
+        <div className="flex items-center justify-between gap-1 px-3 py-1.5 shrink-0">
+          <div className="flex min-w-0 items-center gap-0.5">
+            <span className="truncate text-[12px] font-medium text-muted-foreground">
+              {projectName}
+            </span>
+            <button
+              type="button"
+              data-file-tree-locate=""
+              onClick={() => {
+                if (!activeFilePath) return;
+                requestFileTreeReveal(activeFilePath, contextId ?? undefined);
+              }}
+              disabled={!canLocateActiveFile}
+              className={cn(
+                "shrink-0 rounded-sm p-1 text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground",
+                "disabled:pointer-events-none disabled:opacity-40",
+              )}
+              title={t("fileTreePanel.actions.locateCurrentFile")}
+              aria-label={t("fileTreePanel.actions.locateCurrentFile")}
+            >
+              <Crosshair className="size-3.5" />
+            </button>
+          </div>
+          <div className="flex shrink-0 items-center gap-1">
             <button
               type="button"
               onClick={() => handleShowHiddenChange(!effectiveShowHidden)}

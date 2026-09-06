@@ -178,7 +178,19 @@ export {
   type ApprovalVariant,
   type ApprovalQuestion,
   type ApprovalPlanStep,
+  type ApprovalAction,
 } from "./components/ui/approval-card";
+export {
+  AgentCode,
+  AgentCodeLine,
+  resolveAgentCodeLanguage,
+  useAgentCodeTokens,
+  type AgentCodeLanguage,
+  type AgentCodeLineProps,
+  type AgentCodeProps,
+  type AgentCodeToken,
+  type AgentCodeTokenLines,
+} from "./components/ui/agent-code";
 export { ThinkingStars } from "./components/ui/thinking-stars";
 export {
   ActivityIndicator,
@@ -351,6 +363,11 @@ export type {
   PreviewRailItem,
   PreviewRailProps,
 } from "./components/motion/preview-rail";
+export { MorphingSearch } from "./components/motion/morphing-search";
+export type {
+  MorphingSearchItem,
+  MorphingSearchProps,
+} from "./components/motion/morphing-search";
 export * from "./components/ai-elements/tool";
 export {
   Terminal as AcpTerminal,
@@ -388,6 +405,8 @@ export type { UserIconHandle } from "./components/icons/user-icon";
 
 // Utilities
 export { cn } from "./lib/utils";
+export { panelFoldCursorClass } from "./lib/panel-fold";
+export type { PanelFoldSide } from "./lib/panel-fold";
 export * from "./utils/file-icons";
 
 // Third Party Components

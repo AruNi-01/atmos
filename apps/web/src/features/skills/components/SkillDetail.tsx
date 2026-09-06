@@ -14,7 +14,6 @@ import {
   CircleMinus,
   CircleX,
   ChevronRight,
-  ChevronLeft,
   CornerUpRight,
   Loader2,
   getFileIconProps,
@@ -29,6 +28,9 @@ import {
   Panel,
   PanelGroup,
   PanelResizeHandle,
+  PanelLeft,
+  PanelRight,
+  panelFoldCursorClass,
   ImperativePanelHandle,
   Tooltip,
   TooltipContent,
@@ -303,19 +305,14 @@ function ResizeHandle({
         className={cn(
           "absolute z-50 flex size-5 items-center justify-center rounded-full bg-muted border border-border shadow-lg transition-[opacity,transform] duration-200 hover:bg-muted/80 hover:scale-110 opacity-0 group-hover:opacity-100",
           "left-1/2 -translate-x-1/2",
+          panelFoldCursorClass(side, isCollapsed),
           isCollapsed && "hover:opacity-100! hover:bg-accent!"
         )}
       >
-        {side === "left" ? (
-          isCollapsed ? (
-            <ChevronRight className="size-3 text-muted-foreground" />
-          ) : (
-            <ChevronLeft className="size-3 text-muted-foreground" />
-          )
-        ) : isCollapsed ? (
-          <ChevronLeft className="size-3 text-muted-foreground" />
+        {side === "right" ? (
+          <PanelRight className="size-3 text-muted-foreground" />
         ) : (
-          <ChevronRight className="size-3 text-muted-foreground" />
+          <PanelLeft className="size-3 text-muted-foreground" />
         )}
       </button>
     </PanelResizeHandle>

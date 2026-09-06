@@ -7,17 +7,22 @@
   width: 100%;
   max-width: 100%;
   min-width: 0;
+  min-height: 0;
+  /* Prefer half of a size container (chat panel); falls back near 50svh. */
+  max-height: var(--approval-card-max-height, 50cqh);
   display: flex;
   flex-direction: column;
   gap: 12px;
   padding: 12px;
-  border-radius: 12px;
+  /* Match Agent Chat PromptInput shell (`radius="3xl"` → rounded-3xl). */
+  border-radius: var(--radius-3xl);
   background: #ffffff;
   box-shadow:
     0 0 0 0.5px rgba(0, 0, 0, 0.08),
     0 1px 2px rgba(0, 0, 0, 0.05),
     0 2px 4px rgba(0, 0, 0, 0.02);
   color: #1a1a1a;
+  overflow: hidden;
   animation: ap-card-in 380ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 @keyframes ap-card-in {
@@ -26,10 +31,22 @@
 }
 .head {
   display: flex;
+  flex: none;
   align-items: center;
   gap: 8px;
   height: 24px;
   overflow: visible;
+}
+.body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 .icon {
   flex: none;
@@ -99,6 +116,7 @@
 }
 .planIntro {
   display: flex;
+  flex: none;
   flex-direction: column;
   gap: 2px;
   min-width: 0;
@@ -118,6 +136,63 @@
   white-space: pre-line;
   max-height: 9.8em;
   overflow: auto;
+}
+.planBody {
+  min-width: 0;
+  min-height: 4.5rem;
+  flex: 1 1 auto;
+  /* Scroll inside the card; host may raise --approval-card-max-height while viewing plan body. */
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 2px 2px 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: #1a1a1a;
+}
+.planSwitch {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+.planPane {
+  min-width: 0;
+  min-height: 0;
+  opacity: 0;
+  transform: translateY(6px);
+  pointer-events: none;
+  visibility: hidden;
+}
+.planPane[data-active="true"] {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+  visibility: visible;
+}
+.planSwitch[data-switchable="true"] .planPane:not([data-active="true"]) {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+.planSwitch[data-animate="true"] .planPane {
+  transition:
+    opacity 280ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 280ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.planPane[data-pane="body"][data-active="true"] .planBody {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.planPane[data-pane="todos"][data-active="true"] .todoWell {
+  flex: none;
 }
 .questionsViewport {
   overflow: hidden;
@@ -265,6 +340,7 @@
   word-break: break-word;
 }
 .todoWell {
+  flex: none;
   padding: 8px 12px 10px;
   border-radius: 8px;
   background: #fafafa;
@@ -334,6 +410,19 @@
   font-weight: 400;
   color: #a1a1a1;
 }
+.todoStrong {
+  font-weight: 600;
+  color: inherit;
+}
+.todoCode {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.92em;
+  font-weight: 500;
+  padding: 0.05em 0.28em;
+  border-radius: 4px;
+  background: color-mix(in srgb, #1a1a1a 8%, transparent);
+  color: inherit;
+}
 .todoCollapsible {
   display: grid;
   grid-template-rows: 1fr;
@@ -383,11 +472,13 @@
 .todoMore:active { transform: scale(0.99); }
 .actions {
   display: flex;
+  flex: none;
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 8px;
-  padding-top: 0;
+  /* Keep a small gap above Deny/Allow when the body ends flush (e.g. plan `---`). */
+  padding-top: 4px;
   padding-left: 2px;
 }
 .actionsSpacer { flex: none; width: 0; }
@@ -414,6 +505,13 @@
   font-size: 12.5px;
   font-weight: 500;
   cursor: pointer;
+  max-width: min(100%, 18rem);
+}
+.btnLabel {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .btnSubmitIcon { width: 12px; height: 12px; flex: none; }
 .btnGhost::before,
@@ -610,6 +708,7 @@
   .questionsViewport[data-animate="true"],
   .questionsTrack[data-animate="true"],
   .questionsTrack[data-animate="true"] .question { transition: none; }
+  .planSwitch[data-animate="true"] .planPane { transition: none; }
   .digitRollInner { transition: none; }
   .autoApprovePieFill { transition: none; }
   .autoApprove,
@@ -661,6 +760,8 @@
 :global(html.dark) .planHeadline { color: #f5f5f5; }
 :global(html.dark) .planSummary,
 :global(html.dark) .planSummary { color: #a3a3a3; }
+:global(html.dark) .planBody,
+:global(html.dark) .planBody { color: #f5f5f5; }
 :global(html.dark) .option:not([data-selected="true"]),
 :global(html.dark) .option:not([data-selected="true"]) {
   border: 0;
@@ -719,6 +820,10 @@
 :global(html.dark) .todoMore { color: #737373; }
 :global(html.dark) .todoMore:hover,
 :global(html.dark) .todoMore:hover { color: #f5f5f5; }
+:global(html.dark) .todoCode,
+:global(html.dark) .todoCode {
+  background: color-mix(in srgb, #f5f5f5 10%, transparent);
+}
 :global(html.dark) .btnGhost,
 :global(html.dark) .btnGhost { color: #f5f5f5; }
 :global(html.dark) .btnGhost::before,
@@ -787,6 +892,7 @@
   }
   .planHeadline { color: #f5f5f5; }
   .planSummary { color: #a3a3a3; }
+  .planBody { color: #f5f5f5; }
   .option:not([data-selected="true"]) {
     border: 0;
     color: #f5f5f5;
@@ -824,6 +930,9 @@
   .todoLabel,
   .todoMore { color: #737373; }
   .todoMore:hover { color: #f5f5f5; }
+  .todoCode {
+    background: color-mix(in srgb, #f5f5f5 10%, transparent);
+  }
   .btnGhost { color: #f5f5f5; }
   .btnGhost::before {
     background: color-mix(in srgb, #f5f5f5 6%, transparent);

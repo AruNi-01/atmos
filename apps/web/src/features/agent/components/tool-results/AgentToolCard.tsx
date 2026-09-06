@@ -1,12 +1,11 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { ChevronRight, Globe, XCircle } from "lucide-react";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-  TextEffect,
   TextShimmer,
   Tooltip,
   TooltipContent,
@@ -18,8 +17,6 @@ import { cn } from "@/shared/lib/utils";
 import {
   TREE_CONTENT_DELAY_MS,
   TREE_EASE,
-  shouldPlayTreeTitleEnter,
-  treeTitleRevealMs,
 } from "@/features/agent/lib/agent-tree-branch";
 import type { DiffLineRange } from "@/features/agent/lib/tool-results/diff-stats";
 import { hostFromUrl } from "@/features/agent/lib/tool-results/parse-tool-result";
@@ -210,35 +207,6 @@ export type AgentToolSurface = "card" | "plain";
 
 export type AgentToolBody = "panel" | "plain";
 
-function AgentTreeTitle({ text }: { text: string }) {
-  const reduced = Boolean(useReducedMotion());
-  const [snapshot, setSnapshot] = useState(text);
-  const [done, setDone] = useState(reduced);
-
-  useEffect(() => {
-    if (!snapshot && text) setSnapshot(text);
-  }, [snapshot, text]);
-
-  useEffect(() => {
-    if (done || reduced || !snapshot) return;
-    const timer = window.setTimeout(() => setDone(true), treeTitleRevealMs(snapshot.length));
-    return () => window.clearTimeout(timer);
-  }, [done, reduced, snapshot]);
-
-  if (reduced || done || !snapshot) return <>{text}</>;
-  return (
-    <TextEffect
-      as="span"
-      per="char"
-      preset="fade"
-      delay={TREE_CONTENT_DELAY_MS / 1000}
-      speedReveal={2}
-    >
-      {snapshot}
-    </TextEffect>
-  );
-}
-
 function AgentTreeFade({
   enabled,
   children,
@@ -308,16 +276,14 @@ export function AgentToolCard({
   const failed = (status ?? "").toLowerCase() === "failed" || tone === "error";
   const treeReveal = useAgentTreeReveal();
   const markInspecting = useMarkAssistantProcessInspecting();
-  // Running rows already show the label via shimmer; completing must not replay the enter.
-  const seenTitle = useRef(!treeReveal || showShimmer);
-  if (!treeReveal || showShimmer) seenTitle.current = true;
-  const reveal = typeof title === "string"
-    && shouldPlayTreeTitleEnter(treeReveal, showShimmer, seenTitle.current);
   const controlled = open !== undefined;
   const handleOpenChange = (next: boolean) => {
     onOpenChange?.(next);
     if (next) markInspecting();
   };
+  const hasBody = React.Children.toArray(children).some(
+    (child) => child !== null && child !== undefined && child !== false,
+  );
 
   return (
     // Keep `not-prose` on the chrome only — Tailwind Typography cannot nest
@@ -348,9 +314,7 @@ export function AgentToolCard({
               )}
               title={titleTooltip}
             >
-              {reveal && typeof title === "string" ? (
-                <AgentTreeTitle text={title} />
-              ) : showShimmer && typeof title === "string" ? (
+              {showShimmer && typeof title === "string" ? (
                 <TextShimmer as="span" duration={1} className="text-sm">
                   {title}
                 </TextShimmer>
@@ -375,7 +339,7 @@ export function AgentToolCard({
         {actions ? <div className="shrink-0">{actions}</div> : null}
       </div>
       <CollapsibleContent className="data-[state=open]:overflow-visible">
-        {children ? (
+        {hasBody ? (
           body === "panel" ? (
             <div data-tool-body="panel" className="mt-1 overflow-hidden rounded-md bg-muted/50">
               {children}

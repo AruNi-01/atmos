@@ -245,7 +245,7 @@ describe("agent chat file-link wiring", () => {
     expect(source).not.toContain("queueMicrotask");
   });
 
-  it("expands tool file previews for absolute paths outside the workspace", () => {
+  it("expands read tool file previews for absolute paths outside the workspace", () => {
     const preview = readFileSync(
       join(import.meta.dir, "../../components/tool-results/AgentToolPathPreviewBody.tsx"),
       "utf8",
@@ -256,21 +256,83 @@ describe("agent chat file-link wiring", () => {
     );
     expect(preview).toContain("resolveAgentChatPreviewPath");
     expect(preview).toContain("composerFileUrlFromPath");
+    expect(preview).toContain("AgentToolCodePreview");
+    expect(preview).not.toContain("MarkdownRenderer");
+    expect(preview).not.toContain('kind: "markdown"');
+    expect(preview).not.toContain("/\\.md$/i");
     expect(block).toContain("AgentToolPathPreviewBody");
-    expect(block).toContain('presentation.kind === "empty" && path');
+    expect(block).toContain('presentation.kind === "empty" && path && part.kind === "read"');
+    expect(block).not.toContain('presentation.kind === "empty" && path ?');
   });
 
-  it("shows project-relative paths in the tool diff file header", () => {
+  it("renders PR discussion DiscussionDiffBlock for tool diffs and opens files from the tool chip", () => {
     const source = readFileSync(
       join(import.meta.dir, "../../components/tool-results/AgentToolDiffResult.tsx"),
       "utf8",
     );
+    const chip = readFileSync(
+      join(import.meta.dir, "../../components/tool-results/AgentToolCard.tsx"),
+      "utf8",
+    );
+    const discussion = readFileSync(
+      join(import.meta.dir, "../../../diff/components/DiscussionDiffBlock.tsx"),
+      "utf8",
+    );
+    const prThread = readFileSync(
+      join(import.meta.dir, "../../../github/lib/pr-detail-parts.tsx"),
+      "utf8",
+    );
     expect(source).toContain("displayAgentChatFilePath");
-    expect(source).toContain("AgentToolFileGlyph");
-    expect(source).toContain("disableFileHeader: true");
-    expect(source).toContain("AgentToolFileChangeStats");
-    expect(source).toContain("--diffs-gap-block: 0px");
-    expect(source).toContain("padding-block: 0 !important");
+    expect(source).toContain("DiscussionDiffBlock");
+    expect(source).toContain('data-agent-diff="pr-discussion"');
+    expect(source).toContain("oldContent");
+    expect(source).toContain("newContent");
+    expect(source).toContain("patch={patch}");
+    expect(source).toContain("collapsible={false}");
+    // Write/Edit must not invent `line N` from hunks; optional explicit lineRange only.
+    expect(source).not.toContain("line=");
+    expect(source).not.toContain("selectRanges[0]");
+    expect(source).toContain("lineRange={discussionLineRange}");
+    expect(source).toContain("discussionLineRange");
+    expect(source).not.toContain('className="mt-1"');
+    expect(source).not.toContain("headerTrailing=");
+    expect(source).not.toContain("AgentFixButton");
+    expect(source).not.toContain("InlineCodeViewDiff");
+    expect(source).not.toContain("ChangesCodeView");
+    expect(source).not.toContain("CodeView");
+    expect(source).not.toMatch(/\b(FileDiff|PatchDiff)\b/);
+    expect(source).not.toContain("@pierre/diffs");
+    expect(source).toContain("AgentToolFileChip");
+    expect(source).toContain("selectRanges");
+    expect(source).toContain('body="plain"');
+    expect(chip).toContain("useOpenAgentChatWorkspacePath");
+    expect(source).not.toContain("AgentFileDiffBody");
+    expect(source).not.toContain("FileDiffGift");
+    // Shared block is the PR discussion surface (header bg-muted/30 + MultiFileDiff).
+    expect(discussion).toContain("bg-muted/30");
+    expect(discussion).toContain("MultiFileDiff");
+    expect(discussion).toContain("disableFileHeader: true");
+    expect(discussion).toContain("gap: 0");
+    expect(discussion).toContain("lineRange");
+    expect(prThread).toContain("DiscussionDiffBlock");
+    expect(prThread).toContain("AgentFixButton");
+  });
+
+  it("diff presentation prefers AgentToolDiffResult over Line changes stats body", () => {
+    const block = readFileSync(
+      join(import.meta.dir, "../../components/tool-results/AgentToolResultBlock.tsx"),
+      "utf8",
+    );
+    const diffBranch = block.indexOf('if (presentation.kind === "diff")');
+    const statsBranch = block.indexOf('if (presentation.kind === "diff_stats")');
+    const lineChangesAt = block.indexOf('t("lineChanges")');
+    expect(diffBranch).toBeGreaterThan(-1);
+    expect(statsBranch).toBeGreaterThan(diffBranch);
+    expect(lineChangesAt).toBeGreaterThan(statsBranch);
+    expect(block).toContain("oldContent={file.oldContent}");
+    expect(block).toContain("newContent={file.newContent}");
+    expect(block.slice(diffBranch, statsBranch)).toContain("AgentToolDiffResult");
+    expect(block.slice(statsBranch, lineChangesAt + 40)).toContain('t("lineChanges")');
   });
 
   it("reveals directories in the files tab instead of opening them as files", () => {

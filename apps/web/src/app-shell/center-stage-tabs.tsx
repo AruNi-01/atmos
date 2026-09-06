@@ -28,7 +28,10 @@ import {
   useAgentAttentionStore,
 } from "@/features/agent/store/agent-attention-store";
 import { AGENT_STATE, useAgentStatusStore } from "@/features/agent/store/agent-status-store";
-import type { OpenFile } from "@/features/editor/store/use-editor-store";
+import {
+  getEditorDisplayPath,
+  type OpenFile,
+} from "@/features/editor/store/use-editor-store";
 import type { CenterStageUiPrefs } from "@/shared/stores/use-ui-pref-hooks";
 import {
   FIXED_TERMINAL_TAB_VALUE,
@@ -258,7 +261,9 @@ export function SortableTabGroupItem({
   const contentRef = React.useRef<HTMLDivElement>(null);
   const [isLabelTruncated, setIsLabelTruncated] = React.useState(false);
   const [tooltipOpen, setTooltipOpen] = React.useState(false);
-  const tooltipLabel = tab.file?.path ?? tab.label;
+  const tooltipLabel = tab.file
+    ? getEditorDisplayPath(tab.file.path)
+    : tab.label;
 
   React.useLayoutEffect(() => {
     const root = contentRef.current;

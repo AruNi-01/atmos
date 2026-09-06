@@ -895,7 +895,7 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
       )}
 
       <div ref={liveChromeRef} className="relative flex min-h-0 w-full flex-1 flex-col overflow-hidden">
-            <div data-center-explorer-chrome="" className="flex h-8 items-center justify-between px-2.5 text-xs text-muted-foreground border-b border-border bg-background/50 backdrop-blur-sm flex-shrink-0">
+            <div data-center-explorer-chrome="" className="flex h-8 flex-shrink-0 items-center justify-between bg-background/50 px-2.5 text-xs text-muted-foreground backdrop-blur-sm">
                 {/* Breadcrumbs */}
                 <div className="flex items-center gap-1 flex-1 min-w-0">
                   {breadcrumbParts.map((part, index, array) => {

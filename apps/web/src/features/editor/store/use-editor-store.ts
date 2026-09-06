@@ -50,6 +50,7 @@ export {
   EDITOR_REVIEW_DIFF_PREFIX,
   EDITOR_REVIEW_GROUP_PREFIX,
   buildConflictResolveEditorPath,
+  getEditorDisplayPath,
   getEditorSourcePath,
   getReviewDiffSnapshotGuid,
   getReviewGroupRevisionGuid,

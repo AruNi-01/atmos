@@ -94,7 +94,9 @@ export function FileTreeRow({
         'flex items-center py-1 px-2 cursor-pointer select-none rounded-sm outline-none',
         'hover:bg-sidebar-accent/50',
         (isActive || isContextTarget) && 'bg-sidebar-accent text-sidebar-foreground',
-        isHighlighted && !isActive && 'bg-sidebar-accent/70 text-sidebar-foreground',
+        // Flash even when the row is already active (locate current file).
+        isHighlighted &&
+          'animate-pulse bg-primary/25 text-sidebar-foreground transition-colors duration-300',
         itemData.isIgnored && !isActive && 'opacity-40 grayscale-[0.5]',
         'focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1',
       )}

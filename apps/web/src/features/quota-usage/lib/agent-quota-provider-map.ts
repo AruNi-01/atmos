@@ -15,6 +15,7 @@ export const AGENT_TO_QUOTA_PROVIDER_IDS: Readonly<Record<string, readonly strin
   /** Factory Droid CLI → Factory usage provider */
   droid: ["factory"],
   gemini: ["gemini"],
+  grok: ["grok"],
   "grok-build": ["grok"],
   "deepseek-harness": ["deepseek"],
   antigravity: ["antigravity"],
@@ -71,4 +72,22 @@ export function usageProviderIdsForAgents(
     }
   }
   return providers;
+}
+
+/**
+ * Resolve quota-usage provider ids for a Chat agent id (Native or ACP).
+ * Tries the exact id first, then the chat family (`claude-acp` → `claude`).
+ */
+export function quotaProviderIdsForChatAgent(
+  providerId: string | null | undefined,
+  canonicalize: (id: string) => string,
+): readonly string[] {
+  if (!providerId) return [];
+  const exact = AGENT_TO_QUOTA_PROVIDER_IDS[providerId];
+  if (exact) return exact;
+  const family = canonicalize(providerId);
+  if (family !== providerId) {
+    return AGENT_TO_QUOTA_PROVIDER_IDS[family] ?? [];
+  }
+  return [];
 }

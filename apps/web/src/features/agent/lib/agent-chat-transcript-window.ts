@@ -14,6 +14,37 @@ export const AGENT_CHAT_ASSISTANT_MERMAID_ROW_ESTIMATE = 480;
 /** StickToBottom scroll container class — virtualizer reads this, not the context. */
 export const AGENT_CHAT_SCROLL_CLASS = "agent-chat-scroll";
 
+/** In-flow spacer under the last message when no above-composer overlays are open. */
+export const AGENT_CHAT_TRANSCRIPT_BASE_BOTTOM_PAD_PX = 40;
+
+/** Match StickToBottom's retain duration so overlay collapse eases like overlay open. */
+export const AGENT_CHAT_OVERLAY_PAD_SHRINK_MS = 350;
+export const AGENT_CHAT_OVERLAY_PAD_SHRINK_EASING = "cubic-bezier(0.22, 1, 0.36, 1)";
+
+export function transcriptBottomPadStyle(
+  heightPx: number,
+  shrinking: boolean,
+  reduceMotion = false,
+): {
+  height: number;
+  transitionProperty: "height";
+  transitionTimingFunction: string;
+  transitionDuration: string;
+} {
+  return {
+    height: heightPx,
+    transitionProperty: "height",
+    transitionTimingFunction: AGENT_CHAT_OVERLAY_PAD_SHRINK_EASING,
+    transitionDuration:
+      shrinking && !reduceMotion ? `${AGENT_CHAT_OVERLAY_PAD_SHRINK_MS}ms` : "0ms",
+  };
+}
+
+/** Extra scroll room so the last messages can clear floating above-composer overlays. */
+export function transcriptBottomPadPx(overlayHeightPx: number): number {
+  return AGENT_CHAT_TRANSCRIPT_BASE_BOTTOM_PAD_PX + Math.max(0, Math.round(overlayHeightPx));
+}
+
 export function estimateAgentChatMessageSize(role: string, hasMermaid = false): number {
   if (role === "user") return AGENT_CHAT_USER_ROW_ESTIMATE;
   if (hasMermaid) return AGENT_CHAT_ASSISTANT_MERMAID_ROW_ESTIMATE;

@@ -43,6 +43,12 @@ export type ToolDiffFile = {
 export type ToolPresentation =
   | { kind: "diff"; files: ToolDiffFile[] }
   | { kind: "patch"; path: string | null; patch: string }
+  | {
+      kind: "diff_stats";
+      path: string | null;
+      additions: number;
+      deletions: number;
+    }
   | { kind: "code"; path: string | null; language: string; code: string; hint?: "new" | "deleted" }
   | { kind: "search"; hits: SearchHit[] }
   | { kind: "web_search"; query: string; links: WebResultLink[] }
@@ -341,21 +347,84 @@ export function toolTitleLooksLikePath(title: string, path: string | null | unde
 }
 
 /**
+ * Remove a path echo (and surrounding quotes / separators) from a tool title
+ * when the same path is shown as a file chip.
+ */
+export function stripPathEchoFromToolHeading(
+  heading: string,
+  path: string | null | undefined,
+  extraAliases: readonly string[] = [],
+): string {
+  const primary = path?.trim() || "";
+  if (!heading || !primary) return heading;
+
+  const aliases = new Set<string>();
+  for (const candidate of [primary, normalizeFsPath(primary), ...extraAliases]) {
+    const value = candidate.trim();
+    if (!value) continue;
+    aliases.add(value);
+    aliases.add(value.replace(/\//g, "\\"));
+  }
+
+  let result = heading;
+  const sorted = [...aliases].sort((a, b) => b.length - a.length);
+  for (const alias of sorted) {
+    for (const quote of ["'", '"', "`"] as const) {
+      const quoted = `${quote}${alias}${quote}`;
+      if (result.includes(quoted)) result = result.split(quoted).join("");
+    }
+    if (result.includes(alias)) result = result.split(alias).join("");
+  }
+
+  return result
+    .replace(/\s*[:：]\s*$/g, "")
+    .replace(/^\s*[:：]\s*/g, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
+/**
  * Keep the kind verb visible when the server title is empty, a generic label
  * ("Read"), or path-only — chip UI must not replace the action text.
+ *
+ * When `omitPathInTitle` is set (file chip already shows the path), drop the
+ * path echo from the heading and never format `kind + path` into the title.
  */
 export function resolveAgentToolCardHeading(args: {
   heading: string;
   path?: string | null;
   kindLabel: string;
   formatWithPath: (tool: string, path: string) => string;
+  omitPathInTitle?: boolean;
+  /** Relativized / display forms of `path` that may appear in the heading. */
+  pathAliases?: readonly string[];
 }): string {
   const heading = args.heading.trim();
   const path = args.path?.trim() || "";
-  if (!heading || isGenericToolLabel(heading) || toolTitleLooksLikePath(heading, path || null)) {
+  const omitPath = Boolean(args.omitPathInTitle && path);
+  const pathOnly = toolTitleLooksLikePath(heading, path || null);
+
+  if (!heading || isGenericToolLabel(heading) || pathOnly) {
+    if (omitPath) {
+      if (pathOnly && heading) {
+        const stripped = stripPathEchoFromToolHeading(heading, path, args.pathAliases);
+        if (stripped && !toolTitleLooksLikePath(stripped, path)) return stripped;
+      }
+      return args.kindLabel;
+    }
     if (path) return args.formatWithPath(args.kindLabel, path);
     return args.kindLabel;
   }
+
+  if (omitPath) {
+    const stripped = stripPathEchoFromToolHeading(heading, path, args.pathAliases);
+    // Keep the remaining action text even when it is a generic verb ("Write").
+    if (!stripped || toolTitleLooksLikePath(stripped, path)) {
+      return args.kindLabel;
+    }
+    return stripped;
+  }
+
   return heading;
 }
 
@@ -435,7 +504,23 @@ export function presentAgentTool(part: AgentToolCallPart): ParsedToolResult {
   }
 
   if (result.type === "diff_stats") {
-    return parsed(part, { kind: "empty" }, result.path, lineRange);
+    return parsed(part, {
+      kind: "diff_stats",
+      path: result.path,
+      additions: result.additions,
+      deletions: result.deletions,
+    }, result.path, lineRange);
+  }
+
+  if (result.type === "diff") {
+    return parsed(part, {
+      kind: "diff",
+      files: [{
+        path: result.path,
+        oldContent: result.old_content ?? "",
+        newContent: result.new_content,
+      }],
+    }, result.path, lineRange);
   }
 
   if (result.type === "execute") {

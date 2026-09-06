@@ -1,7 +1,6 @@
 import React, { useMemo } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { createTranslator, useTranslations } from 'next-intl';
-import { useTheme } from 'next-themes';
 import {
   Button,
   Skeleton,
@@ -10,8 +9,6 @@ import {
   Textarea,
 } from '@workspace/ui';
 import { GithubUserAvatar } from '@/features/github/components/GithubUserHoverCard';
-import type { FileContents } from '@pierre/diffs';
-import { MultiFileDiff } from '@pierre/diffs/react';
 import {
   AlertCircle,
   CheckCircle2,
@@ -30,15 +27,10 @@ import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-  getFileIconProps,
 } from '@workspace/ui';
 import { formatDistanceToNow } from 'date-fns';
 import { enUS, zhCN } from 'date-fns/locale';
-import {
-  ATMOS_DIFF_THEME,
-  buildSharedDiffViewOptions,
-  getAtmosDiffThemeType,
-} from '@/features/diff/lib/diff-view-constants';
+import { DiscussionDiffBlock } from '@/features/diff/components/DiscussionDiffBlock';
 import { MarkdownRenderer } from '@/shared/components/markdown/MarkdownRenderer';
 import { cn } from '@/shared/lib/utils';
 import { currentAppLocale } from '@/shared/lib/current-app-locale';
@@ -592,69 +584,6 @@ export function PRDetailSkeleton() {
   );
 }
 
-function buildDiffFiles(path: string, diffHunk: string): { oldFile: FileContents; newFile: FileContents } | null {
-  const lines = diffHunk.split('\n');
-  const oldLines: string[] = [];
-  const newLines: string[] = [];
-
-  for (const line of lines) {
-    if (!line || line.startsWith('@@')) continue;
-    if (line.startsWith('-')) {
-      oldLines.push(line.slice(1));
-      continue;
-    }
-    if (line.startsWith('+')) {
-      newLines.push(line.slice(1));
-      continue;
-    }
-    if (line.startsWith(' ')) {
-      const content = line.slice(1);
-      oldLines.push(content);
-      newLines.push(content);
-      continue;
-    }
-  }
-
-  if (oldLines.length === 0 && newLines.length === 0) {
-    return null;
-  }
-
-  return {
-    oldFile: { name: path.split('/').pop() || path, contents: oldLines.join('\n') },
-    newFile: { name: path.split('/').pop() || path, contents: newLines.join('\n') },
-  };
-}
-
-function SafePatchDiffBlock({ path, options, isMounted, diffHunk }: {
-  path: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  options: any;
-  isMounted: boolean;
-  diffHunk: string;
-}) {
-  const diffFiles = useMemo(() => buildDiffFiles(path, diffHunk), [path, diffHunk]);
-
-  if (!isMounted || !diffFiles) {
-    return (
-      <div className="max-h-[180px] overflow-auto border-b border-border/30">
-        <pre className="text-[11px] bg-muted/20 px-3 py-2 overflow-x-auto font-mono text-muted-foreground leading-relaxed">
-          {diffHunk}
-        </pre>
-      </div>
-    );
-  }
-
-  return (
-    <div className="max-h-[180px] overflow-auto border-b border-border/30">
-      <MultiFileDiff
-        oldFile={{ ...diffFiles.oldFile, cacheKey: `${diffFiles.oldFile.name}:old` }}
-        newFile={{ ...diffFiles.newFile, cacheKey: `${diffFiles.newFile.name}:new` }}
-        options={options}
-      />
-    </div>
-  );
-}
-
 export function ChecksSection({
   checks,
   owner,
@@ -948,66 +877,29 @@ export const ReviewCommentThreadView = React.memo(function ReviewCommentThreadVi
   thread: ReviewCommentThread;
 }) {
   const t = useTranslations('github.prDetailParts');
-  const { resolvedTheme } = useTheme();
-  const [isExpanded, setIsExpanded] = React.useState(false);
   const [agentFixSettingsOpen, setAgentFixSettingsOpen] = React.useState(false);
   const relativeTimeLocale = currentAppLocale('en') === 'zh' ? zhCN : enUS;
-  const isMounted = React.useSyncExternalStore(
-    () => () => { },
-    () => true,
-    () => false,
-  );
-
-  const diffPatch = useMemo(() => {
-    if (!thread.diffHunk) return null;
-    return `--- a/${thread.path}\n+++ b/${thread.path}\n${thread.diffHunk}`;
-  }, [thread.diffHunk, thread.path]);
-
-  const diffOptions = useMemo(() => {
-    return {
-      ...buildSharedDiffViewOptions({
-        theme: ATMOS_DIFF_THEME,
-        themeType: getAtmosDiffThemeType(resolvedTheme),
-        diffStyle: 'unified',
-        wordWrap: true,
-        lineNumbers: true,
-      }),
-      disableFileHeader: true,
-    };
-  }, [resolvedTheme]);
 
   return (
-    <div className="ml-12 mt-2 border border-border/60 rounded-lg overflow-hidden bg-muted/10 shadow-sm">
-      <div
-        role="button"
-        tabIndex={0}
-        className="group/thread flex items-center gap-2 px-3 py-2 w-full text-left bg-muted/30 hover:bg-muted/50 border-b border-border/40"
-        onClick={() => setIsExpanded(!isExpanded)}
-        onKeyDown={(event) => {
-          if (event.key === 'Enter' || event.key === ' ') {
-            event.preventDefault();
-            setIsExpanded((value) => !value);
-          }
-        }}
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img {...getFileIconProps({ name: thread.path.split('/').pop() || thread.path, isDir: false })} className="size-4 shrink-0" alt="" aria-hidden="true" />
-        <span className="text-[12px] font-mono text-foreground/80 truncate">{thread.path}</span>
-        {thread.line && (
-          <span className="text-[10px] text-muted-foreground shrink-0">{t('thread.line', { line: thread.line })}</span>
-        )}
+    <DiscussionDiffBlock
+      path={thread.path}
+      line={thread.line}
+      diffHunk={thread.diffHunk || undefined}
+      className="ml-12 mt-2"
+      headerClassName="group/thread"
+      headerTrailing={
         <span
           className={cn(
-            "relative ml-auto flex h-6 shrink-0 items-center justify-end",
-            agentFixSource ? "w-[126px]" : "w-auto",
+            'relative flex h-6 shrink-0 items-center justify-end',
+            agentFixSource ? 'w-[126px]' : 'w-auto',
           )}
         >
           <span
             className={cn(
-              "text-[10px] text-muted-foreground",
+              'text-[10px] text-muted-foreground',
               agentFixSource &&
-                "group-hover/thread:opacity-0 group-focus-visible/thread:opacity-0",
-              agentFixSettingsOpen && "opacity-0",
+                'group-hover/thread:opacity-0 group-focus-visible/thread:opacity-0',
+              agentFixSettingsOpen && 'opacity-0',
             )}
           >
             {thread.comments.length === 1
@@ -1017,10 +909,10 @@ export const ReviewCommentThreadView = React.memo(function ReviewCommentThreadVi
           {agentFixSource ? (
             <span
               className={cn(
-                "invisible pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 opacity-0",
-                "group-hover/thread:visible group-hover/thread:pointer-events-auto group-hover/thread:opacity-100",
-                "group-focus-visible/thread:visible group-focus-visible/thread:pointer-events-auto group-focus-visible/thread:opacity-100",
-                agentFixSettingsOpen && "visible pointer-events-auto opacity-100",
+                'invisible pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 opacity-0',
+                'group-hover/thread:visible group-hover/thread:pointer-events-auto group-hover/thread:opacity-100',
+                'group-focus-visible/thread:visible group-focus-visible/thread:pointer-events-auto group-focus-visible/thread:opacity-100',
+                agentFixSettingsOpen && 'visible pointer-events-auto opacity-100',
               )}
               onClick={(event) => event.stopPropagation()}
               onKeyDown={(event) => event.stopPropagation()}
@@ -1034,50 +926,37 @@ export const ReviewCommentThreadView = React.memo(function ReviewCommentThreadVi
             </span>
           ) : null}
         </span>
-        <ChevronRight className={cn("size-3 text-muted-foreground transition-transform duration-180 ease-[cubic-bezier(0.22,1,0.36,1)]", isExpanded && "rotate-90")} />
-      </div>
-
-      <AnimatePresence initial={false}>
-        {isExpanded && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2, ease: "easeOut" }}
-            className="overflow-hidden"
-          >
-            {diffPatch && (
-              <SafePatchDiffBlock path={thread.path} options={diffOptions} isMounted={isMounted} diffHunk={thread.diffHunk} />
-            )}
-            <div className="flex flex-col divide-y divide-border/30">
-              {thread.comments.map((comment, idx) => (
-                <div key={comment.id || idx} className="px-3 py-2">
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <GithubUserAvatar
-                      username={comment.user?.login}
-                      avatarUrl={comment.user?.avatar_url}
-                      disabled={comment.user?.is_bot}
-                      className="size-4 border border-border/50"
-                      fallbackClassName="text-[6px]"
-                      label={comment.user?.login}
-                      labelClassName="text-[11px] font-semibold text-foreground/90"
-                    />
-                    {comment.created_at && (
-                      <span className="text-[10px] text-muted-foreground/60 ml-auto">
-                        {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true, locale: relativeTimeLocale })}
-                      </span>
-                    )}
-                  </div>
-                  <MarkdownRenderer className="prose prose-sm dark:prose-invert max-w-none text-[13px] leading-relaxed prose-p:my-0 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-headings:my-1">
-                    {comment.body || ''}
-                  </MarkdownRenderer>
-                </div>
-              ))}
+      }
+    >
+      <div className="flex flex-col divide-y divide-border/30">
+        {thread.comments.map((comment, idx) => (
+          <div key={comment.id || idx} className="px-3 py-2">
+            <div className="mb-1.5 flex items-center gap-2">
+              <GithubUserAvatar
+                username={comment.user?.login}
+                avatarUrl={comment.user?.avatar_url}
+                disabled={comment.user?.is_bot}
+                className="size-4 border border-border/50"
+                fallbackClassName="text-[6px]"
+                label={comment.user?.login}
+                labelClassName="text-[11px] font-semibold text-foreground/90"
+              />
+              {comment.created_at && (
+                <span className="ml-auto text-[10px] text-muted-foreground/60">
+                  {formatDistanceToNow(new Date(comment.created_at), {
+                    addSuffix: true,
+                    locale: relativeTimeLocale,
+                  })}
+                </span>
+              )}
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
+            <MarkdownRenderer className="prose prose-sm dark:prose-invert max-w-none text-[13px] leading-relaxed prose-p:my-0 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-headings:my-1">
+              {comment.body || ''}
+            </MarkdownRenderer>
+          </div>
+        ))}
+      </div>
+    </DiscussionDiffBlock>
   );
 });
 

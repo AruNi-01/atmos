@@ -3,9 +3,10 @@
 import React from "react";
 import { cn } from "@workspace/ui";
 import { Button } from "@workspace/ui/components/ui/button";
-import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { PanelLeft } from "lucide-react";
 
 import { useSidebarPeekVisibility } from "@/app-shell/use-sidebar-peek-visibility";
+import { panelFoldCursorClass } from "@/shared/lib/panel-fold";
 
 export function AgentChatHistorySidebarToggle({
   collapsed,
@@ -30,19 +31,16 @@ export function AgentChatHistorySidebarToggle({
       variant="ghost"
       size="icon"
       onClick={onToggle}
-      className={
+      className={cn(
         className ??
-        // desktop-no-drag: Electron header drag-region steals clicks without this.
-        "desktop-no-drag size-9 shrink-0 text-muted-foreground hover:bg-muted hover:text-foreground"
-      }
+          // desktop-no-drag: Electron header drag-region steals clicks without this.
+          "desktop-no-drag size-9 shrink-0 text-muted-foreground hover:bg-muted hover:text-foreground",
+        panelFoldCursorClass("left", collapsed),
+      )}
       aria-label={label}
       title={label}
     >
-      {collapsed ? (
-        <PanelLeftOpen className={iconClassName ?? "size-[18px]"} />
-      ) : (
-        <PanelLeftClose className={iconClassName ?? "size-[18px]"} />
-      )}
+      <PanelLeft className={iconClassName ?? "size-[18px]"} />
     </Button>
   );
 }
@@ -149,12 +147,15 @@ function AgentChatHistoryPeekShell({
           type="button"
           variant="ghost"
           size="icon"
-          className="absolute left-2 top-2 z-50 size-8 rounded-md bg-background/75 text-muted-foreground shadow-sm ring-1 ring-border/60 backdrop-blur-md hover:bg-muted hover:text-foreground"
+          className={cn(
+            "absolute left-2 top-2 z-50 size-8 rounded-md bg-background/75 text-muted-foreground shadow-sm ring-1 ring-border/60 backdrop-blur-md hover:bg-muted hover:text-foreground",
+            panelFoldCursorClass("left", true),
+          )}
           aria-label={expandLabel}
           title={expandLabel}
           onClick={onExpand}
         >
-          <PanelLeftOpen className="size-4" />
+          <PanelLeft className="size-4" />
         </Button>
       ) : null}
       <div

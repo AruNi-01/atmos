@@ -42,6 +42,7 @@ import {
   AgentToolWebSearchBody,
 } from "./AgentToolBodies";
 import { AgentToolImageGen } from "./AgentToolImageGen";
+import { AgentToolPlanDocument } from "./AgentToolPlanDocument";
 import { AgentToolPathPreviewBody } from "./AgentToolPathPreviewBody";
 
 function countLines(text: string): number {
@@ -90,6 +91,7 @@ function toolBodyForKind(kind: ToolPresentation["kind"]): AgentToolBody {
   switch (kind) {
     case "markdown":
     case "json":
+    case "diff_stats":
       return "plain";
     default:
       return "panel";
@@ -129,6 +131,7 @@ function AgentToolCodeResult({
   title,
   fallbackIcon,
   startLine,
+  lineRange = null,
   surface = "card",
 }: {
   path: string | null;
@@ -142,6 +145,7 @@ function AgentToolCodeResult({
   title: string;
   fallbackIcon: React.ReactNode;
   startLine?: number;
+  lineRange?: ToolLineRange | null;
   surface?: AgentToolSurface;
 }) {
   const t = useTranslations("Agent.components.toolResults");
@@ -155,11 +159,15 @@ function AgentToolCodeResult({
       selectRanges={
         hint === "new" && additions > 0
           ? [{ startLine: 1, endLine: additions }]
-          : undefined
+          : lineRange
+            ? [{ startLine: lineRange.start, endLine: lineRange.end }]
+            : undefined
       }
     />
   ) : null;
 
+  // Read / code preview: MarkdownCodeBlock language head (MARKDOWN + copy/expand).
+  // Do NOT wrap in DiscussionDiffBlock — that path/diff chrome is Write/Edit only.
   return (
     <AgentToolCard
       variant="tool"
@@ -186,7 +194,10 @@ function AgentToolCodeResult({
       <div
         className="px-2 pb-2 [&_.my-4]:my-2"
         style={{
-          ["--shiki-line-offset" as string]: Math.max(0, (startLine ?? 1) - 1),
+          ["--shiki-line-offset" as string]: Math.max(
+            0,
+            (lineRange?.start ?? startLine ?? 1) - 1,
+          ),
         }}
       >
         <MarkdownRenderer>
@@ -210,11 +221,18 @@ export function AgentToolResultBlock({
   if (part.kind === "image_gen") {
     return <AgentToolImageGen part={part} surface={surface} />;
   }
+  if (part.kind === "plan_document") {
+    return <AgentToolPlanDocument part={part} surface={surface} />;
+  }
   const parsed = presentAgentTool(part);
   const asSkill = part.kind === "skill";
   const skillName = skillNameFromPart(part);
   const path = parsed.path ?? pathFromPart(part);
-  const diffStats = part.result?.type === "diff_stats" ? part.result : null;
+  const diffStats = parsed.presentation.kind === "diff_stats"
+    ? parsed.presentation
+    : part.result?.type === "diff_stats"
+      ? part.result
+      : null;
   const fileChip = path
     && (part.kind === "read" || part.kind === "edit" || part.kind === "delete" || parsed.presentation.kind === "code")
     ? (
@@ -230,12 +248,15 @@ export function AgentToolResultBlock({
     : null;
   const heading = (part.title || part.name).trim();
   const kindLabel = toolKindLabel(part.kind, toolT);
+  const displayPath = path ? displayTitle(path, path) : "";
   const resolvedHeading = asSkill && skillName
     ? t("skillTitle", { name: skillName })
     : resolveAgentToolCardHeading({
       heading,
       path,
       kindLabel,
+      omitPathInTitle: Boolean(fileChip),
+      pathAliases: displayPath && displayPath !== path ? [displayPath] : undefined,
       formatWithPath: (tool, filePath) => toolT("labelWithPath", {
         tool,
         path: displayTitle(filePath, filePath),
@@ -255,11 +276,12 @@ export function AgentToolResultBlock({
             key={`${file.path}-${index}`}
             path={file.path}
             title={displayTitle(
-              presentation.files.length === 1 ? title : file.path,
+              presentation.files.length === 1 ? title : kindLabel,
               file.path,
             )}
             oldContent={file.oldContent}
             newContent={file.newContent}
+            lineRange={parsed.lineRange}
             status={status}
             surface={surface}
           />
@@ -274,9 +296,42 @@ export function AgentToolResultBlock({
         path={presentation.path || path || t("file")}
         title={displayTitle(title, presentation.path || path)}
         patch={presentation.patch}
+        lineRange={parsed.lineRange}
         status={status}
         surface={surface}
       />
+    );
+  }
+
+  if (presentation.kind === "diff_stats") {
+    return (
+      <AgentToolCard
+        variant="tool"
+        surface={surface}
+        body="plain"
+        tone={failed ? "error" : "default"}
+        icon={icon}
+        title={title}
+        titleTooltip={path ? `${title}\n${path}` : title}
+        accessory={fileChip}
+        status={status}
+        meta={
+          <AgentToolDiffStats
+            additions={presentation.additions}
+            deletions={presentation.deletions}
+          />
+        }
+      >
+        <p className="px-1 py-1 text-xs text-muted-foreground">
+          {t("lineChanges")}
+          <span className="ml-2 inline-flex align-middle">
+            <AgentToolDiffStats
+              additions={presentation.additions}
+              deletions={presentation.deletions}
+            />
+          </span>
+        </p>
+      </AgentToolCard>
     );
   }
 
@@ -294,6 +349,7 @@ export function AgentToolResultBlock({
         title={title}
         fallbackIcon={icon}
         startLine={parsed.lineRange?.start}
+        lineRange={parsed.lineRange}
         surface={surface}
       />
     );
@@ -393,10 +449,10 @@ export function AgentToolResultBlock({
       ) : null}
       {presentation.kind === "delete" ? <AgentToolDeleteBody path={presentation.path} /> : null}
       {presentation.kind === "error" ? <AgentToolErrorBody text={presentation.text} /> : null}
-      {presentation.kind === "empty" && path ? (
+      {presentation.kind === "empty" && path && part.kind === "read" ? (
         <AgentToolPathPreviewBody path={path} status={status} />
       ) : null}
-      {presentation.kind === "empty" && !diffStats && !path ? (
+      {presentation.kind === "empty" && !(path && part.kind === "read") ? (
         <AgentToolEmptyBody status={status} />
       ) : null}
     </AgentToolCard>

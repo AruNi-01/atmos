@@ -97,6 +97,18 @@ export function collectTurnFileChanges(
       add(part.result.path || (part.params?.type === "edit" ? part.params.path : null), part.result.additions, part.result.deletions);
       continue;
     }
+    if (part.result?.type === "diff") {
+      const stats = countFileDiffStats(
+        part.result.old_content ?? "",
+        part.result.new_content,
+        part.result.path,
+      );
+      add(part.result.path, stats.additions, stats.deletions, {
+        oldContent: part.result.old_content ?? "",
+        newContent: part.result.new_content,
+      });
+      continue;
+    }
     const parsed = presentAgentTool(part);
     const presentation = parsed.presentation;
     if (presentation.kind === "diff") {

@@ -184,6 +184,11 @@ describe("agent chat last session", () => {
     expect(source).toContain("agentChatApi.send");
     expect(source).toContain("agentChatApi.prefsGet");
     expect(source).toContain("agentChatApi.prefsSet");
+    expect(source).toContain("seedNewChatComposer");
+    expect(source).toContain("rememberComposerOptions");
+    expect(source).toContain("const [prefsRestored, setPrefsRestored] = useState(true)");
+    expect(source).not.toContain("agentApi.listRegistry()");
+    expect(source).not.toContain("setLoadingAgents(true)");
     expect(source).toContain("persistNewSessionPreferences");
     expect(source).toContain("ensureCreatedChat");
     expect(source).toContain("composerSelection");
@@ -193,7 +198,14 @@ describe("agent chat last session", () => {
     expect(source).not.toContain("created.meta");
     expect(source).toContain("isRestoringTranscript: isResumingHistory");
     expect(source).toContain("resumeTranscript");
-    expect(source).toContain("agentApi.setDefaultConfig");
+    expect(source).toContain("last_new_chat_configs");
+    expect(source).toContain("lastNewChatConfigForAgent");
+    expect(source).toContain("permission_mode: selected.permissionMode");
+    expect(source).toContain("fast: selected.fast");
+    expect(source).toContain("last_new_chat_config");
+    expect(source).toContain("mergeLastNewChatConfigs");
+    expect(source).toContain("keepComposerChrome");
+    expect(source).not.toContain("agentApi.setDefaultConfig");
     expect(source).toContain("preferredConfigFromDefault");
     expect(source).toContain("from \"@/features/agent/lib/agent-chat-prefs\"");
     expect(source).not.toContain("restored.modelId");

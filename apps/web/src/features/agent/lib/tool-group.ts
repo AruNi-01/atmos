@@ -45,6 +45,7 @@ const KIND_TO_OVERVIEW: Record<AgentToolKind, ToolOverviewKind> = {
   web_search: "search",
   read: "read",
   image_gen: "other",
+  plan_document: "other",
 };
 
 const OVERVIEW_TO_ICON_KIND: Record<ToolOverviewKind, AgentToolKind> = {

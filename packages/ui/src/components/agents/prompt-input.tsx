@@ -48,7 +48,7 @@ export interface PromptModel {
   label: ReactNode;
   description?: ReactNode;
   icon?: ReactNode;
-  /** Right-side chrome in option rows (e.g. Native / ACP chips). */
+  /** Chip shown immediately after the option label (e.g. Native / ACP). */
   trailing?: ReactNode;
   disabled?: boolean;
   tone?: "warning";
@@ -127,6 +127,8 @@ export interface PromptInputProps extends Omit<
   minRows?: number;
   maxRows?: number;
   leadingAction?: ReactNode;
+  /** Rendered in the footer immediately before the submit/stop button (e.g. context window). */
+  footerTrailing?: ReactNode;
   header?: ReactNode;
   editor?: ReactNode;
   formRef?: Ref<HTMLFormElement>;
@@ -205,6 +207,7 @@ export function PromptInput({
   minRows = 2,
   maxRows = 8,
   leadingAction,
+  footerTrailing,
   header,
   editor,
   formRef,
@@ -449,6 +452,7 @@ export function PromptInput({
               controlRadius={controlRadius}
             />
           ) : null}
+          {footerTrailing}
         </div>
 
         <Button
@@ -986,11 +990,6 @@ function ConfigFlyoutList({
                 <span className="min-w-0 flex-1">
                   <OptionRow option={option} />
                 </span>
-                {option.trailing ? (
-                  <span className={cn("shrink-0", option.description && "mt-0.5")}>
-                    {option.trailing}
-                  </span>
-                ) : null}
                 {isSelected ? (
                   <Check className={cn("size-3.5 shrink-0 text-current", option.description && "mt-0.5")} />
                 ) : (
@@ -1177,7 +1176,12 @@ function OptionRow({ option }: { option: PromptModel }) {
         </span>
       ) : null}
       <span className="min-w-0">
-        <span className="block truncate text-sm">{option.label}</span>
+        <span className="flex min-w-0 items-center gap-1.5">
+          <span className="truncate text-sm">{option.label}</span>
+          {option.trailing ? (
+            <span className="shrink-0">{option.trailing}</span>
+          ) : null}
+        </span>
         {option.description ? (
           <span className="mt-0.5 block text-xs leading-4 opacity-70">
             {option.description}

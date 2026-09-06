@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import {
   Tooltip,
@@ -9,91 +9,321 @@ import {
   TooltipTrigger,
   cn,
 } from "@workspace/ui";
-import { Gauge, Coins } from "lucide-react";
+import { Coins, X } from "lucide-react";
 import type { AgentSessionUsage, AgentTurnUsage } from "@atmos/api-types/ws/dto/agent-chat";
+import type { QuotaProviderResponse } from "@/api/ws-api";
+import { useQuotaOverviewQuery } from "@/features/quota-usage/hooks/use-quota-overview-query";
+import { quotaProviderIdsForChatAgent } from "@/features/quota-usage/lib/agent-quota-provider-map";
+import { canonicalizeChatProviderId } from "@/features/agent/lib/custom-agent-registry";
+import {
+  contextWindowBarTone,
+  contextWindowStats,
+  formatCompactTokenCount,
+  type ContextWindowBarTone,
+} from "@/features/agent/lib/context-window-usage";
+import {
+  presentQuotaMetric,
+  providerIdentity,
+  quotaMetrics,
+} from "@/app-shell/quota-popover-utils";
 
-export function SessionUsageBadge({ usage, className }: { usage: AgentSessionUsage; className?: string }) {
-  const t = useTranslations("Agent.components");
+function CircularProgress({
+  percent,
+  tone,
+  className,
+}: {
+  percent: number;
+  tone: ContextWindowBarTone;
+  className?: string;
+}) {
+  const radius = 6;
+  const circumference = 2 * Math.PI * radius;
+  const clamped = Math.min(100, Math.max(0, percent));
+  const offset = circumference * (1 - clamped / 100);
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      className={cn("size-3.5 shrink-0", className)}
+      aria-hidden="true"
+    >
+      <circle
+        cx="8"
+        cy="8"
+        r={radius}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        className="text-muted-foreground/35"
+      />
+      <circle
+        cx="8"
+        cy="8"
+        r={radius}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeDasharray={circumference}
+        strokeDashoffset={offset}
+        className={tone === "warning" ? "text-warning" : "text-foreground"}
+        transform="rotate(-90 8 8)"
+      />
+    </svg>
+  );
+}
+
+function ContextUsageBar({
+  percent,
+  tone,
+}: {
+  percent: number;
+  tone: ContextWindowBarTone;
+}) {
+  const clamped = Math.min(100, Math.max(0, percent));
+  return (
+    <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+      <div
+        className={cn(
+          "h-full rounded-full transition-all duration-500",
+          tone === "warning" ? "bg-warning" : "bg-foreground",
+        )}
+        style={{ width: `${clamped}%` }}
+      />
+    </div>
+  );
+}
+
+function AgentQuotaSection({
+  provider,
+}: {
+  provider: QuotaProviderResponse;
+}) {
+  const t = useTranslations("Agent.components.contextWindow");
   const locale = useLocale();
-  const hasContextWindow = usage.used != null && usage.size != null && usage.size > 0;
-  const hasCost = usage.cost?.amount != null;
-  const used = hasContextWindow ? usage.used : null;
-  const size = hasContextWindow ? usage.size : null;
-  const percent =
-    hasContextWindow && used != null && size != null
-      ? Math.min(100, (used / size) * 100)
-      : null;
+  const metrics = quotaMetrics(provider);
+  if (metrics.length === 0) return null;
 
-  if (!hasContextWindow && !hasCost) return null;
+  const { planLabel } = providerIdentity(provider, t("notDetected"));
+  const sectionTitle = planLabel
+    ? t("quotaSectionWithPlan", { plan: planLabel })
+    : t("quotaSection");
 
   return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <div
-            className={cn(
-              "group absolute left-3 bottom-1 z-10 inline-flex h-8 max-w-8 items-center justify-start gap-0 overflow-hidden rounded-full border border-dashed border-border/70 bg-transparent px-2 text-[11px] font-medium text-foreground shadow-md transition-[max-width,gap] duration-300 ease-out origin-[left_center] hover:max-w-[200px] hover:gap-1.5 hover:border-solid hover:border-border cursor-help",
-              className,
-            )}
-          >
-            <span className="inline-flex size-4 shrink-0 items-center justify-center">
-              {hasContextWindow ? (
-                <Gauge className="size-3.5 text-primary/80" />
-              ) : (
-                <Coins className="size-3.5 text-primary/80" />
-              )}
-            </span>
-            <span className="max-w-0 flex whitespace-nowrap opacity-0 transition-[max-width,opacity] duration-300 ease-out group-hover:max-w-[150px] group-hover:opacity-100 items-center overflow-hidden">
-              {hasContextWindow && percent != null ? (
-                <>{percent.toFixed(0)}%</>
-              ) : null}
-              {hasCost ? (
-                <span
-                  className={cn(
-                    hasContextWindow && "ml-1.5 border-l border-border pl-1.5",
-                  )}
-                >
-                  ${(usage.cost?.amount ?? 0).toFixed(2)}
-                </span>
-              ) : null}
-            </span>
-          </div>
-        </TooltipTrigger>
-        <TooltipContent side="top" align="start" className="p-3 w-52 z-100">
-          <div className="space-y-2">
-            {hasContextWindow && used != null && size != null && percent != null ? (
-              <div className="space-y-2">
-                <div className="flex justify-between items-center text-xs">
-                  <span className="font-semibold">{t("usageBadges.session.contextWindow")}</span>
-                  <span className="font-mono">{percent.toFixed(1)}%</span>
-                </div>
-                <div className="space-y-1">
-                  <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-primary transition-all duration-500"
-                      style={{ width: `${percent}%` }}
-                    />
-                  </div>
-                  <div className="flex justify-between items-center text-[10px] pt-0.5">
-                    <span className="font-mono">{used.toLocaleString(locale)}</span>
-                    <span className="font-mono">{size.toLocaleString(locale)}</span>
-                  </div>
+    <div className="space-y-2.5 border-t border-border/60 pt-3">
+      <div className="text-xs text-muted-foreground">{sectionTitle}</div>
+      <div className="space-y-2.5">
+        {metrics.map((metric) => {
+          const view = presentQuotaMetric(metric, {
+            fallbackResetAt: provider.subscription_summary?.reset_at,
+            locale,
+          });
+          return (
+            <div key={metric.label} className="space-y-1">
+              <div className="flex items-baseline justify-between gap-3 text-xs">
+                <span className="font-medium text-foreground">{view.label}</span>
+                <div className="flex min-w-0 items-baseline gap-2 text-right">
+                  {view.resetText ? (
+                    <span className="truncate text-muted-foreground">{view.resetText}</span>
+                  ) : null}
+                  {view.valueText ? (
+                    <span className="shrink-0 font-medium tabular-nums text-foreground">
+                      {view.valueText}
+                    </span>
+                  ) : null}
                 </div>
               </div>
-            ) : null}
-            {hasCost ? (
-              <div className="flex flex-col">
-                {hasContextWindow ? <div className="mb-2 h-px w-full bg-background/20" /> : null}
-                <span className="text-[10px]">{t("usageBadges.session.estimatedCost")}</span>
-                <span className="text-xs font-mono font-semibold">
-                  {(usage.cost?.amount ?? 0).toFixed(4)} {usage.cost?.currency ?? "USD"}
-                </span>
-              </div>
-            ) : null}
-          </div>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+              {view.percent != null ? (
+                <div className="h-1 w-full overflow-hidden rounded-full bg-muted">
+                  <div
+                    className="h-full rounded-full bg-foreground transition-all duration-300"
+                    style={{ width: `${Math.min(100, Math.max(0, view.percent))}%` }}
+                  />
+                </div>
+              ) : null}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function useMatchedQuota(providerId: string | null | undefined, enabled: boolean) {
+  const quotaIds = useMemo(
+    () => quotaProviderIdsForChatAgent(providerId, canonicalizeChatProviderId),
+    [providerId],
+  );
+  const quotaQuery = useQuotaOverviewQuery({
+    enabled: enabled && quotaIds.length > 0,
+  });
+
+  return useMemo(() => {
+    if (quotaIds.length === 0) return null;
+    const providers = quotaQuery.data?.providers ?? [];
+    return (
+      providers.find(
+        (provider) =>
+          quotaIds.includes(provider.id)
+          && provider.switch_enabled
+          && provider.enabled,
+      ) ?? null
+    );
+  }, [quotaIds, quotaQuery.data?.providers]);
+}
+
+function ContextUsageSummaryBody({
+  percent,
+  usedLabel,
+  sizeLabel,
+  tone,
+  matchedQuota,
+}: {
+  percent: number;
+  usedLabel: string;
+  sizeLabel: string;
+  tone: ContextWindowBarTone;
+  matchedQuota: QuotaProviderResponse | null;
+}) {
+  const t = useTranslations("Agent.components.contextWindow");
+  const percentLabel = `${Math.round(percent)}%`;
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-baseline justify-between gap-3 text-xs text-muted-foreground">
+        <span className="tabular-nums">{t("percentFull", { percent: percentLabel })}</span>
+        <span className="tabular-nums">
+          {t("tokensSummary", { used: usedLabel, size: sizeLabel })}
+        </span>
+      </div>
+      <ContextUsageBar percent={percent} tone={tone} />
+      {matchedQuota ? <AgentQuotaSection provider={matchedQuota} /> : null}
+    </div>
+  );
+}
+
+/**
+ * Detached floating card above the prompt input (same overlay lane as Approve).
+ * Not connected to the composer border / plan-queue stack chrome.
+ */
+export function ContextUsageDetailsPanel({
+  usage,
+  providerId,
+  onClose,
+  className,
+}: {
+  usage: AgentSessionUsage | null | undefined;
+  providerId?: string | null;
+  onClose: () => void;
+  className?: string;
+}) {
+  const t = useTranslations("Agent.components.contextWindow");
+  const stats = contextWindowStats(usage);
+  const matchedQuota = useMatchedQuota(providerId, true);
+
+  if (!stats) return null;
+
+  const tone = contextWindowBarTone(stats.percent);
+  const usedLabel = formatCompactTokenCount(stats.used);
+  const sizeLabel = formatCompactTokenCount(stats.context_window);
+
+  return (
+    <div
+      id="agent-context-usage-panel"
+      role="region"
+      aria-label={t("title")}
+      data-agent-context-usage-panel=""
+      className={cn(
+        "w-full rounded-3xl border border-border bg-background p-3 shadow-none",
+        className,
+      )}
+    >
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <div className="text-sm font-medium text-foreground">{t("title")}</div>
+        <button
+          type="button"
+          aria-label={t("closeAria")}
+          onClick={onClose}
+          className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        >
+          <X className="size-3.5" aria-hidden="true" />
+        </button>
+      </div>
+      <ContextUsageSummaryBody
+        percent={stats.percent}
+        usedLabel={usedLabel}
+        sizeLabel={sizeLabel}
+        tone={tone}
+        matchedQuota={matchedQuota}
+      />
+    </div>
+  );
+}
+
+/**
+ * Compact context-window control for the prompt footer.
+ * Hidden when used/size are unknown.
+ * Click toggles {@link ContextUsageDetailsPanel} as a floating card above the input (never a popover).
+ */
+export function ContextWindowUsageControl({
+  usage,
+  className,
+  open: openProp,
+  onOpenChange,
+}: {
+  usage: AgentSessionUsage | null | undefined;
+  /** @deprecated Unused — quota details live on the stacked panel. */
+  providerId?: string | null;
+  className?: string;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+}) {
+  const t = useTranslations("Agent.components.contextWindow");
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+  const open = openProp ?? uncontrolledOpen;
+  const setOpen = onOpenChange ?? setUncontrolledOpen;
+  const stats = contextWindowStats(usage);
+  const tone = stats ? contextWindowBarTone(stats.percent) : "default";
+
+  if (!stats) return null;
+
+  const percentLabel = `${Math.round(stats.percent)}%`;
+
+  return (
+    <button
+      type="button"
+      aria-label={t("toggleAria", { percent: percentLabel })}
+      aria-expanded={open}
+      aria-controls={open ? "agent-context-usage-panel" : undefined}
+      onClick={() => setOpen(!open)}
+      className={cn(
+        "inline-flex h-8 items-center gap-1.5 rounded-full px-2 text-[11px] font-medium tabular-nums text-muted-foreground transition-colors",
+        "bg-transparent hover:bg-muted/60 hover:text-foreground",
+        open && "bg-muted/60 text-foreground",
+        className,
+      )}
+    >
+      <CircularProgress percent={stats.percent} tone={tone} />
+      <span>{percentLabel}</span>
+    </button>
+  );
+}
+
+/** @deprecated Prefer ContextWindowUsageControl in the prompt footer. */
+export function SessionUsageBadge({
+  usage,
+  className,
+  providerId,
+}: {
+  usage: AgentSessionUsage;
+  className?: string;
+  providerId?: string | null;
+}) {
+  return (
+    <ContextWindowUsageControl
+      usage={usage}
+      providerId={providerId}
+      className={className}
+    />
   );
 }
 

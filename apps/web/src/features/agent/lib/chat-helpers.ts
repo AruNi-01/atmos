@@ -23,6 +23,8 @@ export interface PendingPermission {
   tool: string;
   description: string;
   content_markdown?: string;
+  /** Structured createPlan todos for ApprovalCard To-dos (prefer over markdown `- [ ]`). */
+  plan_todos?: Array<{ id?: string | null; content: string; status?: string }>;
   risk_level: string;
   options: AgentChatPermissionOption[];
   questions?: Array<{ id: string; prompt: string; options?: string[] }>;
@@ -117,6 +119,8 @@ export function getToolKindIcon(kind: AgentToolKind): React.ReactNode {
       return React.createElement(Plug);
     case "image_gen":
       return React.createElement(ImageIcon);
+    case "plan_document":
+      return React.createElement(FileText);
     default:
       return React.createElement(Wrench);
   }
@@ -169,6 +173,11 @@ export function getToolIcon(tool: string): React.ReactNode {
     case "image_edit":
     case "imageedit":
       return React.createElement(ImageIcon);
+    case "createplan":
+    case "create_plan":
+    case "updateplan":
+    case "update_plan":
+      return React.createElement(FileText);
     case "other":
     case "tool":
     default:
@@ -331,6 +340,7 @@ function activityLabelForKind(kind: AgentToolKind): string {
     case "mcp_list":
     case "mcp_call":
     case "image_gen":
+    case "plan_document":
     case "other":
       return chatHelpersT("activity.working", "Working");
   }

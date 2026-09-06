@@ -245,6 +245,103 @@ describe("S16 presentAgentTool", () => {
     expect(parsed.lineRange).toEqual({ start: 1, end: 40 });
   });
 
+  it("renders markdown file reads as code, not markdown preview", () => {
+    const parsed = presentAgentTool(tool({
+      kind: "read",
+      name: "Read",
+      params: { type: "read", path: "/tmp/plan.md" },
+      result: {
+        type: "file_content",
+        path: "/tmp/plan.md",
+        text: "     1|# Plan\n     2|\n     3|- step\n",
+      },
+    }));
+    expect(parsed.presentation).toEqual({
+      kind: "code",
+      path: "/tmp/plan.md",
+      language: "markdown",
+      code: "# Plan\n\n- step\n",
+    });
+    expect(parsed.presentation.kind).not.toBe("markdown");
+  });
+
+  it("keeps markdown write/edit patches as diff presentation", () => {
+    const patch = "--- a/plan.md\n+++ b/plan.md\n@@ -1,1 +1,2 @@\n-# Plan\n+# Plan\n+- step\n";
+    const parsed = presentAgentTool(tool({
+      kind: "edit",
+      name: "Write",
+      params: { type: "edit", path: "/tmp/plan.md" },
+      result: { type: "text", text: patch },
+    }));
+    expect(parsed.presentation).toEqual({
+      kind: "patch",
+      path: "/tmp/plan.md",
+      patch,
+    });
+  });
+
+  it("maps write/edit diff_stats to a stats presentation (no path preview)", () => {
+    const parsed = presentAgentTool(tool({
+      kind: "edit",
+      name: "Write",
+      params: { type: "edit", path: "/tmp/plan.md" },
+      result: { type: "diff_stats", path: "/tmp/plan.md", additions: 12, deletions: 0 },
+    }));
+    expect(parsed.presentation).toEqual({
+      kind: "diff_stats",
+      path: "/tmp/plan.md",
+      additions: 12,
+      deletions: 0,
+    });
+    expect(parsed.path).toBe("/tmp/plan.md");
+  });
+
+  it("maps edit diff results to the multi-file diff presentation", () => {
+    const parsed = presentAgentTool(tool({
+      kind: "edit",
+      name: "Edit",
+      params: { type: "edit", path: "src/a.ts" },
+      result: {
+        type: "diff",
+        path: "src/a.ts",
+        old_content: "old\n",
+        new_content: "new\n",
+      },
+    }));
+    expect(parsed.presentation).toEqual({
+      kind: "diff",
+      files: [{
+        path: "src/a.ts",
+        oldContent: "old\n",
+        newContent: "new\n",
+      }],
+    });
+  });
+
+  it("keeps outside-workspace plan.md Diff contents (no path-preview demotion)", () => {
+    const path = "/Users/me/.cursor/plans/Agent-Chat.plan.md";
+    const parsed = presentAgentTool(tool({
+      kind: "edit",
+      name: "Edit",
+      params: { type: "edit", path },
+      result: {
+        type: "diff",
+        path,
+        old_content: "# Plan\n- a\n",
+        new_content: "# Plan\n- b\n",
+      },
+    }));
+    expect(parsed.presentation).toEqual({
+      kind: "diff",
+      files: [{
+        path,
+        oldContent: "# Plan\n- a\n",
+        newContent: "# Plan\n- b\n",
+      }],
+    });
+    expect(parsed.presentation.kind).not.toBe("diff_stats");
+  });
+
   it("renders edit patch text as a patch", () => {
     const patch = "--- a/src/a.ts\n+++ b/src/a.ts\n@@ -1,1 +1,1 @@\n-old\n+new\n";
     const parsed = presentAgentTool(tool({
@@ -329,7 +426,7 @@ describe("resolveAgentToolCardHeading", () => {
     })).toBe("Read");
   });
 
-  it("keeps rich titles that already include the action", () => {
+  it("keeps rich titles that already include the action when no chip omits the path", () => {
     expect(resolveAgentToolCardHeading({
       heading: "Write '/tmp/plan.md'",
       path: "/tmp/plan.md",
@@ -342,5 +439,44 @@ describe("resolveAgentToolCardHeading", () => {
       kindLabel: "Read",
       formatWithPath,
     })).toBe("Read 'specs/TECH.md'");
+  });
+
+  it("omits path echo from the title when a file chip shows the path", () => {
+    expect(resolveAgentToolCardHeading({
+      heading: "Read 'specs/APP/QUALITY-001_agent_crate_architecture_refactor/TECH.md'",
+      path: "specs/APP/QUALITY-001_agent_crate_architecture_refactor/TECH.md",
+      kindLabel: "Read",
+      formatWithPath,
+      omitPathInTitle: true,
+    })).toBe("Read");
+    expect(resolveAgentToolCardHeading({
+      heading: "Write '/tmp/plan.md'",
+      path: "/tmp/plan.md",
+      kindLabel: "Edit",
+      formatWithPath,
+      omitPathInTitle: true,
+    })).toBe("Write");
+    expect(resolveAgentToolCardHeading({
+      heading: "Read",
+      path: "lib.rs",
+      kindLabel: "Read",
+      formatWithPath,
+      omitPathInTitle: true,
+    })).toBe("Read");
+    expect(resolveAgentToolCardHeading({
+      heading: "/tmp/app/AGENTS.md",
+      path: "/tmp/app/AGENTS.md",
+      kindLabel: "Read",
+      formatWithPath,
+      omitPathInTitle: true,
+    })).toBe("Read");
+    expect(resolveAgentToolCardHeading({
+      heading: "ReadFile: /Users/me/app/src/foo.ts",
+      path: "/Users/me/app/src/foo.ts",
+      kindLabel: "Read",
+      formatWithPath,
+      omitPathInTitle: true,
+      pathAliases: ["src/foo.ts"],
+    })).toBe("ReadFile");
   });
 });

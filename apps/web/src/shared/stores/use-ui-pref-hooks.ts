@@ -250,13 +250,23 @@ export interface CenterStageUiPrefs {
   pinnedTabsByContext?: Record<string, Record<string, number>>;
   filesExplorerCollapsed?: boolean;
   filesExplorerWidth?: number;
+  /** @deprecated Prefer `changesExplorerByScope`; kept as fallback for unscoped reads. */
   changesExplorerCollapsed?: boolean;
+  /** @deprecated Prefer `changesExplorerByScope`; kept as fallback for unscoped reads. */
   changesExplorerWidth?: number;
+  /**
+   * Per Changes list fold state. Keys are `changes` (landing) or
+   * `diff-group://…` paths — each DiffGroup option is isolated.
+   */
+  changesExplorerByScope?: Record<
+    string,
+    { collapsed?: boolean; width?: number }
+  >;
   fileRecentsByContext?: Record<string, CenterFileRecent[]>;
 }
 
 const CENTER_EXPLORER_DEFAULT_WIDTH = 260;
-const CENTER_EXPLORER_MIN_WIDTH = 180;
+const CENTER_EXPLORER_MIN_WIDTH = 130;
 const CENTER_EXPLORER_MAX_WIDTH = 480;
 
 function clampStoredExplorerWidth(width: number): number {
@@ -276,6 +286,7 @@ const DEFAULT_CENTER_STAGE: CenterStageUiPrefs = {
   filesExplorerWidth: CENTER_EXPLORER_DEFAULT_WIDTH,
   changesExplorerCollapsed: false,
   changesExplorerWidth: CENTER_EXPLORER_DEFAULT_WIDTH,
+  changesExplorerByScope: {},
   fileRecentsByContext: {},
 };
 
@@ -286,8 +297,14 @@ export type CenterExplorerKindPref = 'files' | 'changes';
 export type CenterExplorerLayoutPrefs = {
   filesCollapsed: boolean;
   filesWidth: number;
+  /** Legacy shared Changes prefs (fallback when no scope id). */
   changesCollapsed: boolean;
   changesWidth: number;
+};
+
+export type ChangesExplorerScopeLayout = {
+  collapsed: boolean;
+  width: number;
 };
 
 function explorerLayoutFromSlice(slice: CenterStageUiPrefs): CenterExplorerLayoutPrefs {
@@ -303,74 +320,154 @@ function explorerLayoutFromSlice(slice: CenterStageUiPrefs): CenterExplorerLayou
   };
 }
 
+function changesScopeLayoutFromSlice(
+  slice: CenterStageUiPrefs,
+  foldScopeId: string,
+): ChangesExplorerScopeLayout {
+  const scoped = slice.changesExplorerByScope?.[foldScopeId];
+  return {
+    collapsed:
+      scoped?.collapsed === true ||
+      (scoped?.collapsed == null && slice.changesExplorerCollapsed === true),
+    width: clampStoredExplorerWidth(
+      scoped?.width ?? slice.changesExplorerWidth ?? CENTER_EXPLORER_DEFAULT_WIDTH,
+    ),
+  };
+}
+
+function patchChangesScope(
+  prev: CenterStageUiPrefs,
+  foldScopeId: string,
+  patch: { collapsed?: boolean; width?: number },
+): CenterStageUiPrefs {
+  const current = prev.changesExplorerByScope?.[foldScopeId];
+  return {
+    ...prev,
+    changesExplorerByScope: {
+      ...prev.changesExplorerByScope,
+      [foldScopeId]: {
+        collapsed: patch.collapsed ?? current?.collapsed,
+        width: patch.width ?? current?.width,
+      },
+    },
+  };
+}
+
 export function useCenterExplorerLayout(): [
   CenterExplorerLayoutPrefs,
   {
-    setCollapsed: (kind: CenterExplorerKindPref, collapsed: boolean) => void;
-    toggleCollapsed: (kind: CenterExplorerKindPref) => void;
-    setWidth: (kind: CenterExplorerKindPref, width: number) => void;
+    setCollapsed: (
+      kind: CenterExplorerKindPref,
+      collapsed: boolean,
+      foldScopeId?: string,
+    ) => void;
+    toggleCollapsed: (kind: CenterExplorerKindPref, foldScopeId?: string) => void;
+    setWidth: (
+      kind: CenterExplorerKindPref,
+      width: number,
+      foldScopeId?: string,
+    ) => void;
+    changesForScope: (foldScopeId: string) => ChangesExplorerScopeLayout;
   },
 ] {
   const prefs = useCenterStageUiPrefs();
   const layout = explorerLayoutFromSlice(prefs);
 
-  const setCollapsed = useCallback((kind: CenterExplorerKindPref, collapsed: boolean) => {
-    const instanceId = useConnectionStore.getState().activeInstanceId;
-    useUiPrefStore.getState().patchSlice(
-      instanceId,
-      'centerStage',
-      (prev) =>
-        kind === 'files'
-          ? { ...prev, filesExplorerCollapsed: collapsed }
-          : { ...prev, changesExplorerCollapsed: collapsed },
-      DEFAULT_CENTER_STAGE,
-    );
-  }, []);
+  const changesForScope = useCallback(
+    (foldScopeId: string) => changesScopeLayoutFromSlice(prefs, foldScopeId),
+    [prefs],
+  );
 
-  const toggleCollapsed = useCallback((kind: CenterExplorerKindPref) => {
-    const instanceId = useConnectionStore.getState().activeInstanceId;
-    useUiPrefStore.getState().patchSlice(
-      instanceId,
-      'centerStage',
-      (prev) => {
-        const current = explorerLayoutFromSlice(prev);
-        return kind === 'files'
-          ? { ...prev, filesExplorerCollapsed: !current.filesCollapsed }
-          : { ...prev, changesExplorerCollapsed: !current.changesCollapsed };
-      },
-      DEFAULT_CENTER_STAGE,
-    );
-  }, []);
+  const setCollapsed = useCallback(
+    (kind: CenterExplorerKindPref, collapsed: boolean, foldScopeId?: string) => {
+      const instanceId = useConnectionStore.getState().activeInstanceId;
+      useUiPrefStore.getState().patchSlice(
+        instanceId,
+        'centerStage',
+        (prev) => {
+          if (kind === 'files') {
+            return { ...prev, filesExplorerCollapsed: collapsed };
+          }
+          if (foldScopeId) {
+            return patchChangesScope(prev, foldScopeId, { collapsed });
+          }
+          return { ...prev, changesExplorerCollapsed: collapsed };
+        },
+        DEFAULT_CENTER_STAGE,
+      );
+    },
+    [],
+  );
 
-  const setWidth = useCallback((kind: CenterExplorerKindPref, width: number) => {
-    const next = clampStoredExplorerWidth(width);
-    const instanceId = useConnectionStore.getState().activeInstanceId;
-    useUiPrefStore.getState().patchSlice(
-      instanceId,
-      'centerStage',
-      (prev) =>
-        kind === 'files'
-          ? { ...prev, filesExplorerWidth: next }
-          : { ...prev, changesExplorerWidth: next },
-      DEFAULT_CENTER_STAGE,
-    );
-  }, []);
+  const toggleCollapsed = useCallback(
+    (kind: CenterExplorerKindPref, foldScopeId?: string) => {
+      const instanceId = useConnectionStore.getState().activeInstanceId;
+      useUiPrefStore.getState().patchSlice(
+        instanceId,
+        'centerStage',
+        (prev) => {
+          if (kind === 'files') {
+            const current = explorerLayoutFromSlice(prev);
+            return { ...prev, filesExplorerCollapsed: !current.filesCollapsed };
+          }
+          if (foldScopeId) {
+            const current = changesScopeLayoutFromSlice(prev, foldScopeId);
+            return patchChangesScope(prev, foldScopeId, {
+              collapsed: !current.collapsed,
+            });
+          }
+          const current = explorerLayoutFromSlice(prev);
+          return { ...prev, changesExplorerCollapsed: !current.changesCollapsed };
+        },
+        DEFAULT_CENTER_STAGE,
+      );
+    },
+    [],
+  );
 
-  return [layout, { setCollapsed, toggleCollapsed, setWidth }];
+  const setWidth = useCallback(
+    (kind: CenterExplorerKindPref, width: number, foldScopeId?: string) => {
+      const next = clampStoredExplorerWidth(width);
+      const instanceId = useConnectionStore.getState().activeInstanceId;
+      useUiPrefStore.getState().patchSlice(
+        instanceId,
+        'centerStage',
+        (prev) => {
+          if (kind === 'files') {
+            return { ...prev, filesExplorerWidth: next };
+          }
+          if (foldScopeId) {
+            return patchChangesScope(prev, foldScopeId, { width: next });
+          }
+          return { ...prev, changesExplorerWidth: next };
+        },
+        DEFAULT_CENTER_STAGE,
+      );
+    },
+    [],
+  );
+
+  return [layout, { setCollapsed, toggleCollapsed, setWidth, changesForScope }];
 }
 
 export function setCenterExplorerCollapsed(
   kind: CenterExplorerKindPref,
   collapsed: boolean,
+  foldScopeId?: string,
 ): void {
   const instanceId = useConnectionStore.getState().activeInstanceId;
   useUiPrefStore.getState().patchSlice(
     instanceId,
     'centerStage',
-    (prev) =>
-      kind === 'files'
-        ? { ...prev, filesExplorerCollapsed: collapsed }
-        : { ...prev, changesExplorerCollapsed: collapsed },
+    (prev) => {
+      if (kind === 'files') {
+        return { ...prev, filesExplorerCollapsed: collapsed };
+      }
+      if (foldScopeId) {
+        return patchChangesScope(prev, foldScopeId, { collapsed });
+      }
+      return { ...prev, changesExplorerCollapsed: collapsed };
+    },
     DEFAULT_CENTER_STAGE,
   );
 }

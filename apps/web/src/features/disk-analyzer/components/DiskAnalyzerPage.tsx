@@ -40,8 +40,7 @@ import {
   HardDrive,
   LayoutGrid,
   Loader2,
-  PanelRightClose,
-  PanelRightOpen,
+  PanelRight,
   RefreshCw,
   Sparkles,
   Trash2,
@@ -64,6 +63,7 @@ import {
   suggestionTotalSize,
   TOP_N_OPTIONS,
 } from "@/features/disk-analyzer/lib/tree-adapters";
+import { panelFoldCursorClass } from "@/shared/lib/panel-fold";
 
 const SCAN_CYCLE_EASE = [0.22, 1, 0.36, 1] as const;
 const SCAN_CYCLE_TRANSITION = { duration: 0.2, ease: SCAN_CYCLE_EASE } as const;
@@ -524,16 +524,12 @@ export function DiskAnalyzerPage() {
                 type="button"
                 variant="ghost"
                 size="icon-sm"
-                className="text-muted-foreground"
+                className={cn("text-muted-foreground", panelFoldCursorClass("right", !detailsOpen))}
                 aria-label={detailsOpen ? t("hideDetails") : t("showDetails")}
                 title={detailsOpen ? t("hideDetails") : t("showDetails")}
                 onClick={() => setDetailsOpen((open) => !open)}
               >
-                {detailsOpen ? (
-                  <PanelRightClose className="size-4" />
-                ) : (
-                  <PanelRightOpen className="size-4" />
-                )}
+                <PanelRight className="size-4" />
               </Button>
             </div>
           </div>

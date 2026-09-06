@@ -27,35 +27,79 @@ describe("agent chat modal frame", () => {
     expect(panel).toContain("willChange: \"transform\"");
   });
 
-  it("pins the permission card above the composer instead of the message stream", () => {
-    expect(panel).toContain('<div className="flex min-h-0 w-full shrink-0 flex-col">');
-    expect(panel).toContain('className={cn("shrink-0", wideContentClassName)}');
+  it("overlays the permission card above the composer without shrinking the transcript", () => {
+    expect(panel).toContain('"relative flex min-h-0 w-full shrink-0 flex-col"');
+    expect(panel).toContain('data-agent-chat-approval-overlay=""');
+    expect(panel).toContain("aboveInputOverlay=");
+    expect(panel).toContain("onAboveComposerOverlaysNodeChange=");
+    expect(panel).toContain('data-agent-chat-transcript-bottom-pad=""');
+    expect(panel).toContain("transcriptBottomPadPx");
+    expect(panel).toContain('className={cn("relative z-10 shrink-0", wideContentClassName)}');
     expect(panel).toContain("<AgentPromptComposer");
+    expect(panel).not.toContain('(pendingPermission || pendingSessionOp) && "gap-2"');
+    expect(panel).not.toContain('max-h-[80cqh] shrink');
     expect(panel).not.toContain("border-t border-border p-3");
+    const composerSource = readFileSync(
+      join(import.meta.dir, "../AgentPromptComposer.tsx"),
+      "utf8",
+    );
+    expect(composerSource).toContain('data-agent-chat-above-composer-overlays=""');
+    expect(composerSource).toContain(
+      '"pointer-events-none absolute inset-x-0 bottom-full z-20 flex flex-col gap-2 has-[*]:pb-2"',
+    );
     const contentAt = panel.indexOf("<ConversationContent");
     const confirmationAt = panel.indexOf("<AgentPermissionCard");
     const composerAt = panel.indexOf("<AgentPromptComposer");
     expect(contentAt).toBeGreaterThan(-1);
-    expect(confirmationAt).toBeGreaterThan(contentAt);
-    expect(composerAt).toBeGreaterThan(confirmationAt);
+    expect(composerAt).toBeGreaterThan(contentAt);
+    expect(confirmationAt).toBeGreaterThan(composerAt);
     expect(panel).not.toContain("hideCollapsedDivider");
+  });
+
+  it("keeps the streaming activity status in-flow under the latest transcript message", () => {
+    const contentAt = panel.indexOf("<ConversationContent");
+    const contentEndAt = panel.indexOf("</ConversationContent>");
+    const permissionAt = panel.indexOf("<AgentPermissionCard");
+    const composerAt = panel.indexOf("<AgentPromptComposer");
+    const list = readFileSync(
+      join(import.meta.dir, "../AgentChatTranscriptList.tsx"),
+      "utf8",
+    );
+
+    expect(contentAt).toBeGreaterThan(-1);
+    expect(contentEndAt).toBeGreaterThan(contentAt);
+    expect(composerAt).toBeGreaterThan(contentEndAt);
+    expect(permissionAt).toBeGreaterThan(composerAt);
+
+    const scrollRegion = panel.slice(contentAt, contentEndAt);
+    expect(scrollRegion).toContain("<AgentActivityIndicator");
+    expect(scrollRegion).toContain("activityStatus=");
+    expect(scrollRegion).toContain('ref={bottomRef}');
+    expect(scrollRegion).toContain('data-agent-chat-activity-status=""');
+    expect(scrollRegion).toContain('data-agent-chat-transcript-bottom-pad=""');
+    expect(panel).not.toContain("virtualized absolute rows cannot paint over this");
+
+    expect(list).toContain("activityStatus");
+    expect(list).toContain('data-agent-chat-activity-status=""');
+    expect(list).toContain("item.index === lastIndex");
+    expect(list).toContain("showActivityFooter");
   });
 
   it("APP-069 S9 shows the session-op card in the permission slot and lets permission win", () => {
     expect(panel).toContain("<AgentSessionOpCard");
     const contentAt = panel.indexOf("<ConversationContent");
-    const permissionBranchAt = panel.indexOf("{pendingPermission ?");
+    const permissionBranchAt = panel.indexOf("pendingPermission || pendingSessionOp ?");
     const permissionAt = panel.indexOf("<AgentPermissionCard");
     const sessionOpAt = panel.indexOf("<AgentSessionOpCard");
     const composerAt = panel.indexOf("<AgentPromptComposer");
     expect(permissionBranchAt).toBeGreaterThan(contentAt);
-    expect(permissionAt).toBeGreaterThan(permissionBranchAt);
+    expect(composerAt).toBeGreaterThan(contentAt);
+    expect(permissionAt).toBeGreaterThan(composerAt);
     expect(sessionOpAt).toBeGreaterThan(permissionAt);
-    expect(composerAt).toBeGreaterThan(sessionOpAt);
-    const slot = panel.slice(permissionBranchAt, composerAt);
-    expect(slot).toContain("pendingPermission ?");
-    expect(slot).toContain("pendingSessionOp ?");
-    expect(slot).toContain(") : pendingSessionOp ? (");
+    expect(panel).toContain("aboveInputOverlay=");
+    expect(panel).toContain("pendingPermission ?");
+    expect(panel).toContain("pendingSessionOp ?");
+    expect(panel).toContain(") : pendingSessionOp ? (");
   });
 
   it("APP-069 S9/S10 does not intercept /fork or /rewind in the composer or chat api", () => {

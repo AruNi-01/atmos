@@ -1266,10 +1266,14 @@
       "selectFile": "从右侧目录打开文件",
       "selectChange": "从右侧变更列表打开 diff",
       "searchPlaceholder": "文件、文件夹...",
+      "searchHint": "输入以搜索文件",
+      "searching": "搜索中…",
       "newFile": "新建文件",
       "recents": "最近打开",
       "graphHistory": "图形历史",
       "recentCommits": "最近提交",
+      "pullRequests": "拉取请求",
+      "pullRequestNumber": "PR #{number}",
       "noSearchResults": "没有匹配的文件或文件夹"
     },
     "centerStageTabGroups": {
@@ -1917,6 +1921,8 @@
       },
       "changes": {
         "selectScope": "选择变更范围",
+        "loadingCommits": "正在加载提交…",
+        "noCommitsOnBranch": "当前分支没有提交",
         "noCommitChanges": "提交 {commit} 没有文件变更",
         "noChangesAgainst": "与 {compareRef} 相比没有变更",
         "noChangesDetected": "未检测到变更",
@@ -3176,6 +3182,17 @@
           "total": "总计"
         }
       },
+      "contextWindow": {
+        "title": "上下文用量",
+        "summary": "{used} tokens / {size}（{percent}）",
+        "percentFull": "{percent} 已满",
+        "tokensSummary": "~{used} / {size} Tokens",
+        "toggleAria": "上下文用量 {percent}",
+        "closeAria": "关闭上下文用量",
+        "quotaSection": "Agent 配额用量",
+        "quotaSectionWithPlan": "Agent 配额用量 · {plan}",
+        "notDetected": "未检测到"
+      },
       "managerCards": {
         "installedVersion": "已安装 v{version}",
         "status": {
@@ -3300,7 +3317,10 @@
         "continue": "继续",
         "skip": "跳过",
         "approve": "批准",
+        "keepPlanning": "继续规划",
+        "cancelPlan": "取消计划",
         "viewPlan": "查看计划",
+        "viewTodos": "查看待办",
         "planViewerEmpty": "暂无计划内容。",
         "sessionOpRequested": "会话操作请求中",
         "sessionOpFork": "分叉",
@@ -3413,10 +3433,14 @@
         "webSearch": "网络搜索",
         "imageGen": "图片",
         "imagePreview": "放大图片",
+        "planDocument": "计划",
+        "planBody": "查看计划",
+        "planTodos": "{count} 项待办",
         "resultCount": "{count} 条结果",
         "sources": "来源",
         "fetchUrl": "摄取 {host}",
         "to": "到",
+        "lineChanges": "行变更",
         "todo": {
           "pending": "待办",
           "inProgress": "进行中",
@@ -8891,6 +8915,10 @@
       },
       "empty": "没有可用的 diff"
     },
+    "discussionDiff": {
+      "line": "第 {line} 行",
+      "lineRange": "第 {start}~{end} 行"
+    },
     "codeView": {
       "actions": {
         "addReviewComment": "添加评审评论"
@@ -9655,7 +9683,8 @@
         "actions": {
           "showHiddenFiles": "显示隐藏文件",
           "hideHiddenFiles": "隐藏隐藏的文件",
-          "refreshFiles": "刷新文件"
+          "refreshFiles": "刷新文件",
+          "locateCurrentFile": "定位当前文件"
         }
       },
       "fileTree": {

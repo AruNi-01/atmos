@@ -270,7 +270,7 @@ export const FileViewer: React.FC<FileViewerProps> = ({
     const binaryChrome = showFilesExplorerToggle ? (
       <div
         data-center-explorer-chrome=""
-        className="flex h-8 shrink-0 items-center justify-end border-b border-border bg-background/50 px-2.5 backdrop-blur-sm"
+        className="flex h-8 shrink-0 items-center justify-end bg-background/50 px-2.5 backdrop-blur-sm"
       >
         <CenterExplorerToggle kind="files" className={binaryToggleClass} />
       </div>

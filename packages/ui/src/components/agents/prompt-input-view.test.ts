@@ -169,8 +169,18 @@ describe("PromptAgentConfigMenu", () => {
     expect(promptInput).not.toContain("searchPlaceholder={labels.searchAgents}");
   });
 
-  it("renders PromptModel.trailing on the right side of option rows", () => {
+  it("renders PromptModel.trailing immediately after the option label", () => {
     expect(promptInput).toContain("trailing?: ReactNode");
     expect(promptInput).toContain("option.trailing");
+    expect(promptInput).toContain(
+      "Chip shown immediately after the option label (e.g. Native / ACP).",
+    );
+  });
+});
+
+describe("footerTrailing slot", () => {
+  it("keeps a footer slot before submit for host controls such as context usage", () => {
+    expect(promptInput).toContain("footerTrailing?: ReactNode");
+    expect(promptInput).toContain("{footerTrailing}");
   });
 });

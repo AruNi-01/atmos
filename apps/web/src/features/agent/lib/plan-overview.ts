@@ -42,44 +42,35 @@ function firstParagraph(markdown: string, skipTitle: string | undefined): string
   return text.length > 280 ? `${text.slice(0, 277).trimEnd()}…` : text;
 }
 
+/** Only real Markdown checklist items (`- [ ]` / `- [x]`) become To-dos. */
 function extractSteps(markdown: string): PlanOverviewStep[] {
   const lines = markdown.split(/\r?\n/);
   const checked: string[] = [];
-  const bullets: string[] = [];
-  let inStepsSection = false;
 
   for (const raw of lines) {
-    const heading = raw.match(/^#{2,6}\s+(.+)$/);
-    if (heading) {
-      inStepsSection = /step|todo|to-?dos?|plan|outline|里程碑|步骤|任务/i.test(heading[1] ?? "");
-      continue;
-    }
     const check = raw.match(CHECK_RE);
     if (check?.[1]) {
-      checked.push(check[1].trim());
-      continue;
-    }
-    if (!inStepsSection && checked.length > 0) continue;
-    const bullet = raw.match(BULLET_RE);
-    if (bullet?.[1] && (inStepsSection || checked.length === 0)) {
-      const title = bullet[1].trim();
-      if (title.length > 0 && title.length < 200) bullets.push(title);
+      const title = check[1].trim();
+      if (title.length > 0 && title.length < 200) checked.push(title);
     }
   }
 
-  const source = checked.length > 0 ? checked : bullets.slice(0, 12);
-  return source.map((title, index) => ({ id: String(index), title }));
+  return checked.map((title, index) => ({ id: String(index), title }));
 }
 
 /** Derive ApprovalCard plan intro/steps from plan markdown (not live TodoWrite). */
-export function parsePlanOverviewFromMarkdown(markdown: string | null | undefined): PlanOverview | null {
+export function parsePlanOverviewFromMarkdown(
+  markdown: string | null | undefined,
+  options?: { includeChecklistSteps?: boolean },
+): PlanOverview | null {
   const contentMarkdown = markdown?.trim() ?? "";
   if (!contentMarkdown) return null;
 
   const titleMatch = contentMarkdown.match(H1_RE);
   const title = titleMatch?.[1]?.trim() || undefined;
   const summary = firstParagraph(contentMarkdown, title);
-  const steps = extractSteps(contentMarkdown);
+  const includeChecklistSteps = options?.includeChecklistSteps !== false;
+  const steps = includeChecklistSteps ? extractSteps(contentMarkdown) : [];
 
   return {
     title,

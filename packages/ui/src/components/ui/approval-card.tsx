@@ -6,7 +6,7 @@
  * Attribution: @kvnkld / AIcss (copy-paste free component).
  */
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import {
   ChevronDown,
   ChevronUp,
@@ -14,12 +14,12 @@ import {
   Download,
   ListChecks,
   ListTodo,
-  Maximize2,
   MessageCircleQuestion,
   Terminal,
   X,
 } from "lucide-react";
 import styles from "./approval-card.module.css";
+import { renderInlineMarkdown } from "./approval-inline-markdown";
 
 export type ApprovalVariant = "questions" | "command" | "plan";
 
@@ -33,6 +33,14 @@ export interface ApprovalPlanStep {
   id: string;
   title: string;
   detail?: string;
+}
+
+/** Dynamic footer actions (e.g. agent permission options). */
+export interface ApprovalAction {
+  id: string;
+  label: string;
+  /** Filled primary vs ghost. Defaults from caller; one primary usually carries Enter. */
+  variant?: "primary" | "ghost";
 }
 
 const ADVANCE_MS = 320;
@@ -148,7 +156,25 @@ export interface ApprovalCardProps {
   plan?: ApprovalPlanStep[];
   planTitle?: string;
   planSummary?: string;
+  /**
+   * Optional plan markdown/preview slot. Caller injects rendered content
+   * (e.g. MarkdownRenderer) so @workspace/ui stays free of markdown deps.
+   * When both `planBody` and `plan` todos are provided, use `planView` to
+   * crossfade between them (keeps both mounted for a smooth switch).
+   */
+  planBody?: ReactNode;
+  /**
+   * Which plan pane is active when both body and todos are present.
+   * Ignored when only one content type is available.
+   */
+  planView?: "body" | "todos";
   planPreviewCount?: number;
+  /**
+   * When set, footer renders these actions instead of binary approve/reject.
+   * Used by Permission requested (command) to mirror agent-advertised options,
+   * and by plan exit for Keep planning / View plan / Approve.
+   */
+  actions?: ApprovalAction[];
   /** When set (>0), show countdown and auto-call onApprove. Hidden by default. */
   autoApproveSeconds?: number;
   title?: string;
@@ -156,8 +182,9 @@ export interface ApprovalCardProps {
   rejectLabel?: string;
   onApprove?: (payload?: { answers?: Record<string, string> }) => void;
   onReject?: () => void;
+  /** Fired for `actions` entries (and preferred over onApprove/onReject when set). */
+  onAction?: (actionId: string) => void;
   onDownloadPlan?: () => void;
-  onExpandPlan?: () => void;
   className?: string;
 }
 
@@ -169,15 +196,18 @@ export function ApprovalCard({
   plan = [],
   planTitle,
   planSummary,
+  planBody,
+  planView,
   planPreviewCount = DEFAULT_PLAN_PREVIEW,
+  actions,
   autoApproveSeconds,
   title,
   approveLabel,
   rejectLabel,
   onApprove,
   onReject,
+  onAction,
   onDownloadPlan,
-  onExpandPlan,
   className,
 }: ApprovalCardProps) {
   const [answers, setAnswers] = useState<Record<string, string>>({});
@@ -187,6 +217,8 @@ export function ApprovalCard({
   const [customDraft, setCustomDraft] = useState<Record<string, string>>({});
   const [step, setStep] = useState(0);
   const [planExpanded, setPlanExpanded] = useState(false);
+  const planPaneReady = useRef(false);
+  const [planPaneAnimate, setPlanPaneAnimate] = useState(false);
   const autoEnabled =
     variant === "plan" &&
     typeof autoApproveSeconds === "number" &&
@@ -271,9 +303,39 @@ export function ApprovalCard({
   const showPlanRest = planExpanded || !hasPlanMore;
   const trimmedPlanTitle = planTitle?.trim() || "";
   const trimmedPlanSummary = planSummary?.trim() || "";
-  const showPlanIntro = Boolean(trimmedPlanTitle || trimmedPlanSummary);
-  const showPlanTodos = plan.length > 0;
-  const showPlanHeadActions = Boolean(onDownloadPlan || onExpandPlan);
+  const showPlanHeadline = Boolean(trimmedPlanTitle);
+  const hasPlanBody = Boolean(planBody);
+  const hasPlanTodos = plan.length > 0;
+  const canSwitchPlanPanes = hasPlanBody && hasPlanTodos;
+  const activePlanPane: "body" | "todos" = canSwitchPlanPanes
+    ? (planView ?? "todos")
+    : hasPlanBody
+      ? "body"
+      : "todos";
+  const showPlanSummaryText =
+    Boolean(trimmedPlanSummary) && activePlanPane !== "body";
+  const showPlanIntro = showPlanHeadline || showPlanSummaryText;
+  // Keep the inactive pane mounted only when switching so we can crossfade.
+  const mountPlanBody =
+    hasPlanBody && (canSwitchPlanPanes || activePlanPane === "body");
+  const mountPlanTodos =
+    hasPlanTodos && (canSwitchPlanPanes || activePlanPane === "todos");
+
+  useEffect(() => {
+    if (variant !== "plan" || !canSwitchPlanPanes) {
+      planPaneReady.current = false;
+      setPlanPaneAnimate(false);
+      return;
+    }
+    if (!planPaneReady.current) {
+      planPaneReady.current = true;
+      return;
+    }
+    const reduce =
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    setPlanPaneAnimate(!reduce);
+  }, [variant, canSwitchPlanPanes, activePlanPane]);
 
   const resolvedTitle =
     title ??
@@ -434,279 +496,302 @@ export function ApprovalCard({
         <div className={styles.headText}>
           <div className={styles.title}>{resolvedTitle}</div>
         </div>
-        {variant === "plan" && showPlanHeadActions && (
+        {variant === "plan" && onDownloadPlan ? (
           <div className={styles.headActions}>
-            {onDownloadPlan ? (
-              <button
-                type="button"
-                className={styles.headAction}
-                aria-label="Download plan"
-                onClick={(e) => {
-                  e.preventDefault();
-                  onDownloadPlan();
-                }}
-              >
-                <Download className={styles.headActionIcon} strokeWidth={2} aria-hidden />
-              </button>
-            ) : null}
-            {onExpandPlan ? (
-              <button
-                type="button"
-                className={styles.headAction}
-                aria-label="Expand plan"
-                onClick={(e) => {
-                  e.preventDefault();
-                  onExpandPlan();
-                }}
-              >
-                <Maximize2 className={styles.headActionIcon} strokeWidth={2} aria-hidden />
-              </button>
-            ) : null}
+            <button
+              type="button"
+              className={styles.headAction}
+              aria-label="Download plan"
+              onClick={(e) => {
+                e.preventDefault();
+                onDownloadPlan();
+              }}
+            >
+              <Download className={styles.headActionIcon} strokeWidth={2} aria-hidden />
+            </button>
           </div>
-        )}
+        ) : null}
       </div>
 
-      {variant === "questions" && questions.length > 0 && (
-        <div
-          className={styles.questionsViewport}
-          style={qViewportH != null ? { height: qViewportH } : undefined}
-          data-animate={qAnimate ? "true" : undefined}
-          aria-live="polite"
-        >
+      <div className={styles.body}>
+        {variant === "questions" && questions.length > 0 && (
           <div
-            className={styles.questionsTrack}
-            style={{ transform: `translate3d(0, ${-qTrackY}px, 0)` }}
+            className={styles.questionsViewport}
+            style={qViewportH != null ? { height: qViewportH } : undefined}
             data-animate={qAnimate ? "true" : undefined}
+            aria-live="polite"
           >
-            {questions.map((q, qi) => {
-              const active = qi === safeStep;
-              return (
-                <div
-                  key={q.id}
-                  ref={(el) => {
-                    questionRefs.current[qi] = el;
-                  }}
-                  className={styles.question}
-                  data-active={active ? "true" : undefined}
-                  aria-hidden={active ? undefined : true}
-                >
-                  <div className={styles.qPrompt}>{q.prompt}</div>
+            <div
+              className={styles.questionsTrack}
+              style={{ transform: `translate3d(0, ${-qTrackY}px, 0)` }}
+              data-animate={qAnimate ? "true" : undefined}
+            >
+              {questions.map((q, qi) => {
+                const active = qi === safeStep;
+                return (
                   <div
-                    className={styles.options}
-                    role="radiogroup"
-                    aria-label={q.prompt}
+                    key={q.id}
+                    ref={(el) => {
+                      questionRefs.current[qi] = el;
+                    }}
+                    className={styles.question}
+                    data-active={active ? "true" : undefined}
+                    aria-hidden={active ? undefined : true}
                   >
-                    {q.options.map((opt, oi) => {
-                      const selected =
-                        answers[q.id] === opt && !isOtherChoice(q);
-                      const letter = String.fromCharCode(65 + oi);
-                      return (
-                        <button
-                          key={opt}
-                          type="button"
-                          role="radio"
-                          aria-checked={selected}
-                          tabIndex={active ? 0 : -1}
-                          className={styles.option}
-                          data-selected={selected ? "true" : undefined}
-                          onClick={(e) => {
-                            e.preventDefault();
-                            if (!active) return;
-                            selectOption(q.id, opt);
-                          }}
-                        >
-                          <span className={styles.key} aria-hidden>
-                            {letter}
-                          </span>
-                          {opt}
-                        </button>
-                      );
-                    })}
-                    {(() => {
-                      const otherLetter = String.fromCharCode(
-                        65 + q.options.length,
-                      );
-                      const otherOn = isOtherChoice(q);
-                      const customAnswer = answers[q.id];
-                      const draft =
-                        customDraft[q.id]
-                        ?? (otherOn
-                          && customAnswer
-                          && !q.options.includes(customAnswer)
-                          ? customAnswer
-                          : "")
-                        ?? "";
-                      return (
-                        <div
-                          role="radio"
-                          aria-checked={otherOn}
-                          tabIndex={active ? 0 : -1}
-                          className={styles.option}
-                          data-selected={otherOn ? "true" : undefined}
-                          data-other="true"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            if (!active) return;
-                            selectOther(q.id);
-                          }}
-                          onKeyDown={(e) => {
-                            if (!active) return;
-                            if (e.target !== e.currentTarget) return;
-                            if (e.key === "Enter" || e.key === " ") {
-                              e.preventDefault();
-                              selectOther(q.id);
-                            }
-                          }}
-                        >
-                          <span className={styles.key} aria-hidden>
-                            {otherLetter}
-                          </span>
-                          <input
-                            ref={(el) => {
-                              customInputRefs.current[q.id] = el;
-                            }}
-                            className={styles.optionInput}
-                            type="text"
-                            value={draft ?? ""}
-                            placeholder="Something else…"
-                            tabIndex={active && otherOn ? 0 : -1}
-                            aria-label={`Custom answer for: ${q.prompt}`}
+                    <div className={styles.qPrompt}>{q.prompt}</div>
+                    <div
+                      className={styles.options}
+                      role="radiogroup"
+                      aria-label={q.prompt}
+                    >
+                      {q.options.map((opt, oi) => {
+                        const selected =
+                          answers[q.id] === opt && !isOtherChoice(q);
+                        const letter = String.fromCharCode(65 + oi);
+                        return (
+                          <button
+                            key={opt}
+                            type="button"
+                            role="radio"
+                            aria-checked={selected}
+                            tabIndex={active ? 0 : -1}
+                            className={styles.option}
+                            data-selected={selected ? "true" : undefined}
                             onClick={(e) => {
-                              e.stopPropagation();
+                              e.preventDefault();
+                              if (!active) return;
+                              selectOption(q.id, opt);
+                            }}
+                          >
+                            <span className={styles.key} aria-hidden>
+                              {letter}
+                            </span>
+                            {opt}
+                          </button>
+                        );
+                      })}
+                      {(() => {
+                        const otherLetter = String.fromCharCode(
+                          65 + q.options.length,
+                        );
+                        const otherOn = isOtherChoice(q);
+                        const customAnswer = answers[q.id];
+                        const draft =
+                          customDraft[q.id]
+                          ?? (otherOn
+                            && customAnswer
+                            && !q.options.includes(customAnswer)
+                            ? customAnswer
+                            : "")
+                          ?? "";
+                        return (
+                          <div
+                            role="radio"
+                            aria-checked={otherOn}
+                            tabIndex={active ? 0 : -1}
+                            className={styles.option}
+                            data-selected={otherOn ? "true" : undefined}
+                            data-other="true"
+                            onClick={(e) => {
+                              e.preventDefault();
                               if (!active) return;
                               selectOther(q.id);
-                            }}
-                            onChange={(e) => {
-                              if (!active) return;
-                              updateCustom(q.id, e.target.value);
                             }}
                             onKeyDown={(e) => {
-                              e.stopPropagation();
                               if (!active) return;
-                              if (e.key === "Enter") {
+                              if (e.target !== e.currentTarget) return;
+                              if (e.key === "Enter" || e.key === " ") {
                                 e.preventDefault();
-                                commitCustom(q.id, e.currentTarget.value);
+                                selectOther(q.id);
                               }
                             }}
-                          />
-                        </div>
-                      );
-                    })()}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {variant === "command" && (
-        <div className={styles.cmdBlock}>
-          {cwd ? <div className={styles.cwd}>{cwd}</div> : null}
-          <pre className={styles.cmd}>{command}</pre>
-        </div>
-      )}
-
-      {variant === "plan" && (
-        <>
-          {showPlanIntro ? (
-            <div className={styles.planIntro}>
-              {trimmedPlanTitle ? (
-                <div className={styles.planHeadline}>{trimmedPlanTitle}</div>
-              ) : null}
-              {trimmedPlanSummary ? (
-                <div className={styles.planSummary}>{trimmedPlanSummary}</div>
-              ) : null}
-            </div>
-          ) : null}
-          {showPlanTodos ? (
-            <div className={styles.todoWell}>
-              <div className={styles.todoHead}>
-                <span className={styles.todoHeadIcon}>
-                  <ListChecks
-                    className={styles.todoListIcon}
-                    strokeWidth={2}
-                    aria-hidden
-                  />
-                </span>
-                <span className={styles.todoTitle}>To-dos</span>
-                <span className={styles.todoCount}>{plan.length}</span>
-              </div>
-              <ul className={styles.todoList}>
-                {planPreview.map((stepItem) => (
-                  <li key={stepItem.id} className={styles.todoItem}>
-                    <span className={styles.todoIconWrap}>
-                      <TodoDashedIcon />
-                    </span>
-                    <span className={styles.todoLabel}>{stepItem.title}</span>
-                  </li>
-                ))}
-              </ul>
-              {hasPlanMore && (
-                <>
-                  <div
-                    className={`${styles.todoCollapsible}${
-                      showPlanRest ? "" : ` ${styles.todoCollapsed}`
-                    }`}
-                  >
-                    <div className={styles.todoInner}>
-                      <div className={styles.todoRest}>
-                        <ul className={`${styles.todoList} ${styles.todoListFlush}`}>
-                          {planRest.map((stepItem) => (
-                            <li key={stepItem.id} className={styles.todoItem}>
-                              <span className={styles.todoIconWrap}>
-                                <TodoDashedIcon />
-                              </span>
-                              <span className={styles.todoLabel}>
-                                {stepItem.title}
-                              </span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
+                          >
+                            <span className={styles.key} aria-hidden>
+                              {otherLetter}
+                            </span>
+                            <input
+                              ref={(el) => {
+                                customInputRefs.current[q.id] = el;
+                              }}
+                              className={styles.optionInput}
+                              type="text"
+                              value={draft ?? ""}
+                              placeholder="Something else…"
+                              tabIndex={active && otherOn ? 0 : -1}
+                              aria-label={`Custom answer for: ${q.prompt}`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (!active) return;
+                                selectOther(q.id);
+                              }}
+                              onChange={(e) => {
+                                if (!active) return;
+                                updateCustom(q.id, e.target.value);
+                              }}
+                              onKeyDown={(e) => {
+                                e.stopPropagation();
+                                if (!active) return;
+                                if (e.key === "Enter") {
+                                  e.preventDefault();
+                                  commitCustom(q.id, e.currentTarget.value);
+                                }
+                              }}
+                            />
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    className={styles.todoMore}
-                    aria-expanded={planExpanded}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setPlanExpanded((open) => !open);
-                    }}
-                  >
-                    <span className={styles.todoMoreIcon} aria-hidden>
-                      <svg
-                        className={styles.todoMoreGlyph}
-                        viewBox="0 0 24 24"
-                        aria-hidden
-                      >
-                        {planExpanded ? (
-                          <rect
-                            x="4.75"
-                            y="11.25"
-                            width="14.5"
-                            height="1.5"
-                            rx="0.75"
-                            fill="currentColor"
-                          />
-                        ) : (
-                          <>
-                            <circle cx="6" cy="12" r="1.25" fill="currentColor" />
-                            <circle cx="12" cy="12" r="1.25" fill="currentColor" />
-                            <circle cx="18" cy="12" r="1.25" fill="currentColor" />
-                          </>
-                        )}
-                      </svg>
-                    </span>
-                    {planExpanded ? "Show less" : `${planRest.length} more`}
-                  </button>
-                </>
-              )}
+                );
+              })}
             </div>
-          ) : null}
-        </>
-      )}
+          </div>
+        )}
+
+        {variant === "command" && (
+          <div className={styles.cmdBlock}>
+            {cwd ? <div className={styles.cwd}>{cwd}</div> : null}
+            <pre className={styles.cmd}>{command}</pre>
+          </div>
+        )}
+
+        {variant === "plan" && (
+          <>
+            {showPlanIntro ? (
+              <div className={styles.planIntro}>
+                {showPlanHeadline ? (
+                  <div className={styles.planHeadline}>{trimmedPlanTitle}</div>
+                ) : null}
+                {showPlanSummaryText ? (
+                  <div className={styles.planSummary}>{trimmedPlanSummary}</div>
+                ) : null}
+              </div>
+            ) : null}
+            {mountPlanBody || mountPlanTodos ? (
+              <div
+                className={styles.planSwitch}
+                data-animate={planPaneAnimate ? "true" : undefined}
+                data-switchable={canSwitchPlanPanes ? "true" : undefined}
+              >
+                {mountPlanBody ? (
+                  <div
+                    className={styles.planPane}
+                    data-pane="body"
+                    data-active={activePlanPane === "body" ? "true" : undefined}
+                    aria-hidden={activePlanPane === "body" ? undefined : true}
+                  >
+                    <div className={styles.planBody} data-approval-plan-body="">
+                      {planBody}
+                    </div>
+                  </div>
+                ) : null}
+                {mountPlanTodos ? (
+                  <div
+                    className={styles.planPane}
+                    data-pane="todos"
+                    data-active={activePlanPane === "todos" ? "true" : undefined}
+                    aria-hidden={activePlanPane === "todos" ? undefined : true}
+                  >
+                    <div className={styles.todoWell}>
+                      <div className={styles.todoHead}>
+                        <span className={styles.todoHeadIcon}>
+                          <ListChecks
+                            className={styles.todoListIcon}
+                            strokeWidth={2}
+                            aria-hidden
+                          />
+                        </span>
+                        <span className={styles.todoTitle}>To-dos</span>
+                        <span className={styles.todoCount}>{plan.length}</span>
+                      </div>
+                      <ul className={styles.todoList}>
+                        {planPreview.map((stepItem) => (
+                          <li key={stepItem.id} className={styles.todoItem}>
+                            <span className={styles.todoIconWrap}>
+                              <TodoDashedIcon />
+                            </span>
+                            <span className={styles.todoLabel}>
+                              {renderInlineMarkdown(stepItem.title, {
+                                strong: styles.todoStrong,
+                                code: styles.todoCode,
+                              })}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                      {hasPlanMore && (
+                        <>
+                          <div
+                            className={`${styles.todoCollapsible}${
+                              showPlanRest ? "" : ` ${styles.todoCollapsed}`
+                            }`}
+                          >
+                            <div className={styles.todoInner}>
+                              <div className={styles.todoRest}>
+                                <ul className={`${styles.todoList} ${styles.todoListFlush}`}>
+                                  {planRest.map((stepItem) => (
+                                    <li key={stepItem.id} className={styles.todoItem}>
+                                      <span className={styles.todoIconWrap}>
+                                        <TodoDashedIcon />
+                                      </span>
+                                      <span className={styles.todoLabel}>
+                                        {renderInlineMarkdown(stepItem.title, {
+                                          strong: styles.todoStrong,
+                                          code: styles.todoCode,
+                                        })}
+                                      </span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            className={styles.todoMore}
+                            aria-expanded={planExpanded}
+                            tabIndex={activePlanPane === "todos" ? 0 : -1}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setPlanExpanded((open) => !open);
+                            }}
+                          >
+                            <span className={styles.todoMoreIcon} aria-hidden>
+                              <svg
+                                className={styles.todoMoreGlyph}
+                                viewBox="0 0 24 24"
+                                aria-hidden
+                              >
+                                {planExpanded ? (
+                                  <rect
+                                    x="4.75"
+                                    y="11.25"
+                                    width="14.5"
+                                    height="1.5"
+                                    rx="0.75"
+                                    fill="currentColor"
+                                  />
+                                ) : (
+                                  <>
+                                    <circle cx="6" cy="12" r="1.25" fill="currentColor" />
+                                    <circle cx="12" cy="12" r="1.25" fill="currentColor" />
+                                    <circle cx="18" cy="12" r="1.25" fill="currentColor" />
+                                  </>
+                                )}
+                              </svg>
+                            </span>
+                            {planExpanded ? "Show less" : `${planRest.length} more`}
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+          </>
+        )}
+      </div>
 
       <div className={styles.actions}>
         {variant === "questions" ? (
@@ -818,33 +903,64 @@ export function ApprovalCard({
           <span className={styles.actionsSpacer} aria-hidden />
         )}
         <div className={styles.actionBtns}>
-          <button
-            type="button"
-            className={styles.btnGhost}
-            onClick={(e) => {
-              e.preventDefault();
-              handleReject();
-            }}
-          >
-            {resolvedReject}
-          </button>
-          <button
-            type="button"
-            className={styles.btnPrimary}
-            disabled={!canContinue}
-            onClick={(e) => {
-              e.preventDefault();
-              handleApprove();
-            }}
-          >
-            {resolvedApprove}
-            <CornerDownLeft
-              className={styles.btnSubmitIcon}
-              size={12}
-              strokeWidth={2}
-              aria-hidden
-            />
-          </button>
+          {actions && actions.length > 0 ? (
+            actions.map((action) => {
+              const isPrimary = (action.variant ?? "ghost") === "primary";
+              return (
+                <button
+                  key={action.id}
+                  type="button"
+                  className={isPrimary ? styles.btnPrimary : styles.btnGhost}
+                  disabled={variant === "command" ? !canContinue : false}
+                  title={action.label}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    onAction?.(action.id);
+                  }}
+                >
+                  <span className={styles.btnLabel}>{action.label}</span>
+                  {isPrimary ? (
+                    <CornerDownLeft
+                      className={styles.btnSubmitIcon}
+                      size={12}
+                      strokeWidth={2}
+                      aria-hidden
+                    />
+                  ) : null}
+                </button>
+              );
+            })
+          ) : (
+            <>
+              <button
+                type="button"
+                className={styles.btnGhost}
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleReject();
+                }}
+              >
+                {resolvedReject}
+              </button>
+              <button
+                type="button"
+                className={styles.btnPrimary}
+                disabled={!canContinue}
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleApprove();
+                }}
+              >
+                {resolvedApprove}
+                <CornerDownLeft
+                  className={styles.btnSubmitIcon}
+                  size={12}
+                  strokeWidth={2}
+                  aria-hidden
+                />
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>

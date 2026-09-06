@@ -26,6 +26,7 @@ describe("S9 generic other tool card", () => {
       "utf8",
     );
     expect(block).toContain("resolveAgentToolCardHeading");
+    expect(block).toContain("omitPathInTitle: Boolean(fileChip)");
     expect(block).toContain("labelWithPath");
     expect(block).not.toContain("chipAsTitle");
     expect(block).not.toContain("titleNode");

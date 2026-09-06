@@ -20,13 +20,12 @@ import {
 import {
   PanelBottomClose,
   PanelBottomOpen,
-  PanelLeftClose,
-  PanelLeftOpen,
-  PanelRightClose,
-  PanelRightOpen,
+  PanelLeft,
+  PanelRight,
 } from "lucide-react";
 
 import { cn } from "@workspace/ui";
+import { panelFoldCursorClass } from "@/shared/lib/panel-fold";
 import { useCanvasChromePrefs } from "@/features/canvas/hooks/use-canvas-chrome-prefs";
 
 const BOTTOM_TOOLBAR_HIDE_DELAY_MS = 600;
@@ -216,41 +215,26 @@ function CanvasTopLeftToolbarToggle() {
       className={cn(
         "pointer-events-auto shrink-0 bg-transparent transition-transform duration-300 ease-out",
         "hover:bg-transparent focus:bg-transparent active:bg-transparent",
+        panelFoldCursorClass("left", isCollapsed),
       )}
     >
       <TldrawUiButtonIcon
-        icon={<CanvasToolbarCollapseIcon isCollapsed={isCollapsed} />}
+        icon={<CanvasToolbarCollapseIcon side="left" />}
       />
     </TldrawUiButton>
   );
 }
 
 export function CanvasToolbarCollapseIcon({
-  isCollapsed,
   side = "left",
 }: {
-  isCollapsed: boolean;
   side?: "left" | "right";
 }) {
-  const CloseIcon = side === "right" ? PanelRightClose : PanelLeftClose;
-  const OpenIcon = side === "right" ? PanelRightOpen : PanelLeftOpen;
+  const Icon = side === "right" ? PanelRight : PanelLeft;
 
   return (
     <CanvasToolbarIconFrame>
-      <CloseIcon
-        className={cn(
-          "absolute left-1/2 top-1/2 size-[14px] -translate-x-1/2 -translate-y-1/2 transition-all duration-300 ease-out",
-          isCollapsed ? "-rotate-90 scale-75 opacity-0" : "rotate-0 scale-100 opacity-100",
-        )}
-        strokeWidth={1.8}
-      />
-      <OpenIcon
-        className={cn(
-          "absolute left-1/2 top-1/2 size-[14px] -translate-x-1/2 -translate-y-1/2 transition-all duration-300 ease-out",
-          isCollapsed ? "rotate-0 scale-100 opacity-100" : "rotate-90 scale-75 opacity-0",
-        )}
-        strokeWidth={1.8}
-      />
+      <Icon className="size-[14px]" strokeWidth={1.8} />
     </CanvasToolbarIconFrame>
   );
 }

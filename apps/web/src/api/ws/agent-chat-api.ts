@@ -43,6 +43,8 @@ export const agentChatApi = {
     model?: string | null;
     thinking?: string | null;
     mode?: string | null;
+    permission_mode?: string | null;
+    fast?: string | null;
     title?: string | null;
     origin?: AgentChatOrigin | null;
   }) => wsRequest("agent_chat_create", input),

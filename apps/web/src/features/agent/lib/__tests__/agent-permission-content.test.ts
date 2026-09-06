@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import {
+  looksLikeShellCommand,
   permissionDescriptionToRender,
   permissionMarkdownToRender,
   permissionOptionVariant,
@@ -7,6 +8,20 @@ import {
 } from "@/features/agent/lib/agent-permission-content";
 
 const SHELL = "ls /tmp; echo ---; cat /tmp/runtime_manifest.json";
+
+const PLAN_WITH_TABLE = `# Plan: Finish Agent Chat context-window occupancy
+
+Locked from 'AAAA':
+
+| Question | Decision |
+| --- | --- |
+| Scope | used + context_window |
+| Delivery | Badge + tooltip |
+
+Related: prior work.
+
+---
+`;
 
 describe("resolvePermissionCommand", () => {
   it("uses the bash tool description as the command", () => {
@@ -55,6 +70,18 @@ describe("resolvePermissionCommand", () => {
         contentMarkdown: command,
       }),
     ).toBe(command);
+  });
+
+  it("does not treat ExitPlanMode plan markdown tables as a shell command", () => {
+    expect(
+      resolvePermissionCommand({
+        tool: "ExitPlanMode",
+        description: "Plan: Finish Agent Chat context-window occupancy",
+        contentMarkdown: PLAN_WITH_TABLE,
+      }),
+    ).toBeNull();
+    expect(looksLikeShellCommand(PLAN_WITH_TABLE)).toBe(false);
+    expect(looksLikeShellCommand("echo hi | cat")).toBe(true);
   });
 });
 

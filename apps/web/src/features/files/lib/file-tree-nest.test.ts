@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
+import { isFileTreeBranchOpen } from "./file-tree-branch-open";
 import { nestTreeItemsByParent } from "./file-tree-nest";
 
 describe("nestTreeItemsByParent", () => {
@@ -26,6 +27,20 @@ describe("nestTreeItemsByParent", () => {
   });
 });
 
+describe("isFileTreeBranchOpen", () => {
+  test("stays closed while expanded but lazy children have not arrived yet", () => {
+    // First click: isExpanded flips true before listDir/cache fills rows.
+    expect(isFileTreeBranchOpen(true, 0)).toBe(false);
+    expect(isFileTreeBranchOpen(false, 0)).toBe(false);
+    expect(isFileTreeBranchOpen(false, 3)).toBe(false);
+  });
+
+  test("opens only after children exist so enter animation has content to measure", () => {
+    expect(isFileTreeBranchOpen(true, 1)).toBe(true);
+    expect(isFileTreeBranchOpen(true, 12)).toBe(true);
+  });
+});
+
 describe("file tree expand animation wiring", () => {
   test("expands and collapses folder children as one motion group", () => {
     const tree = readFileSync(
@@ -38,8 +53,14 @@ describe("file tree expand animation wiring", () => {
     );
     expect(tree).toContain("FileTreeBranch");
     expect(tree).toContain("nestTreeItemsByParent");
-    expect(branch).toContain("AnimatePresence");
+    expect(tree).toContain("isFileTreeBranchOpen");
+    expect(branch).toContain("gridTemplateRows");
+    expect(branch).toContain("requestAnimationFrame");
     expect(branch).toContain("useReducedMotion");
-    expect(branch).toContain('height: "auto"');
+    expect(branch).toContain("0fr");
+    expect(branch).toContain("1fr");
+    // First lazy expand: mount content closed, then open so enter runs.
+    expect(branch).toContain("setRenderChildren(true)");
+    expect(branch).toContain("setVisualOpen(true)");
   });
 });

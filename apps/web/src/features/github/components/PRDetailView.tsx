@@ -23,10 +23,10 @@ import {
   Copy,
   FileCode,
   FileText,
-  PanelRightClose,
-  PanelRightOpen,
+  PanelRight,
   ListChecks,
 } from "lucide-react";
+import { panelFoldCursorClass } from "@/shared/lib/panel-fold";
 import { Github } from "@workspace/ui/components/icons/lucide-brand-icons";
 import { formatDistanceToNow } from 'date-fns';
 import { enUS, zhCN } from 'date-fns/locale';
@@ -432,11 +432,14 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
             )}>
               {headerTrailing}
               <button
-                className="flex h-7 w-7 items-center justify-center rounded-md hover:bg-muted/80 opacity-70 hover:opacity-100"
+                className={cn(
+                  "flex h-7 w-7 items-center justify-center rounded-md hover:bg-muted/80 opacity-70 hover:opacity-100",
+                  panelFoldCursorClass("right", isSidebarCollapsed),
+                )}
                 onClick={() => setIsSidebarCollapsed(v => !v)}
                 title={isSidebarCollapsed ? t('header.showSidebar') : t('header.hideSidebar')}
               >
-                {isSidebarCollapsed ? <PanelRightOpen className="size-3.5" /> : <PanelRightClose className="size-3.5" />}
+                <PanelRight className="size-3.5" />
               </button>
             </div>
           </header>

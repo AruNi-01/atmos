@@ -9,7 +9,9 @@ import {
   flattenFileTreeEntries,
   isPersistableCenterFilePath,
   pathHasHiddenSegment,
+  readFilesLandingSearch,
   relativeParentPath,
+  writeFilesLandingSearch,
 } from "@/app-shell/center-explorer-landing";
 import type { FileTreeNode } from "@/api/ws-api";
 import {
@@ -141,6 +143,38 @@ describe("center file recents", () => {
   });
 });
 
+describe("files landing MorphingSearch persistence", () => {
+  test("keeps query and open across remount for the same context", () => {
+    const contextId = "files-search-persist-test";
+    writeFilesLandingSearch(contextId, { query: "", open: false });
+    expect(readFilesLandingSearch(contextId)).toEqual({ query: "", open: false });
+
+    writeFilesLandingSearch(contextId, { query: "agents", open: true });
+    expect(readFilesLandingSearch(contextId)).toEqual({
+      query: "agents",
+      open: true,
+    });
+
+    // Simulate landing remount reading the module cache.
+    expect(readFilesLandingSearch(contextId)).toEqual({
+      query: "agents",
+      open: true,
+    });
+
+    writeFilesLandingSearch(contextId, { query: "", open: false });
+    expect(readFilesLandingSearch(contextId)).toEqual({ query: "", open: false });
+  });
+
+  test("isolates search session by contextId", () => {
+    writeFilesLandingSearch("ctx-a", { query: "a", open: true });
+    writeFilesLandingSearch("ctx-b", { query: "b", open: false });
+    expect(readFilesLandingSearch("ctx-a")).toEqual({ query: "a", open: true });
+    expect(readFilesLandingSearch("ctx-b")).toEqual({ query: "b", open: false });
+    writeFilesLandingSearch("ctx-a", { query: "", open: false });
+    writeFilesLandingSearch("ctx-b", { query: "", open: false });
+  });
+});
+
 describe("center explorer landing UI", () => {
   const source = readFileSync(
     join(import.meta.dir, "../CenterExplorerLanding.tsx"),
@@ -150,12 +184,45 @@ describe("center explorer landing UI", () => {
   test("files landing searches hidden entries; changes landing opens graph commits", () => {
     expect(source).toContain("searchPlaceholder");
     expect(source).toContain("useFileTreeQuery(needle ? rootPath : null, true)");
+    expect(source).toContain("MorphingSearch");
+    expect(source).toContain("clearOnSelect={false}");
+    expect(source).toContain("readFilesLandingSearch");
+    expect(source).toContain("writeFilesLandingSearch");
+    expect(source).toContain("defaultQuery={initialSearch.query}");
+    expect(source).toContain("setSearchOpen(false)");
+    expect(source).toContain("writeFilesLandingSearch(contextId, { query, open: false })");
+    // Files empty-state open replaces the landing tab (no stacked Files + file tab).
+    expect(source).toContain("openFile(path, contextId, { preview: true })");
+    expect(source).toContain("activateCenterChromeTab(contextId, path, { placement: \"focused\" })");
+    expect(source).toContain("close(contextId, FILES_TAB_VALUE)");
+    // Recent files stay visible while MorphingSearch has a query / results.
+    expect(source).toContain('data-center-explorer-recents=""');
+    expect(source).not.toContain("!needle && recents.length");
     expect(source).toContain("graphHistory");
-    expect(source).toContain("openGitHistoryTab(commit.hash)");
+    expect(source).toContain("openRecentCommit(commit.hash)");
+    expect(source).toContain("tooltip={`${commit.short_hash}  ${commit.subject}`}");
+    expect(source).not.toContain("openGitHistoryTab(commit.hash)");
+    expect(source).toContain("requestCommitScope");
+    expect(source).toContain('buildDiffGroupPath("commit")');
     expect(source).toContain("CENTER_EXPLORER_COMMIT_LIMIT");
     expect(source.match(/data-center-explorer-search/g)?.length).toBe(1);
     expect(source).toContain("data-center-explorer-chrome");
     expect(source).toContain("CENTER_EXPLORER_BODY_INSET_CLASS");
     expect(source).toContain("ChangesExplorerLanding");
+    expect(source).toContain("pt-[min(18vh,7.5rem)]");
+    expect(source).not.toContain("my-auto");
+    expect(source).toContain("data-center-explorer-change-status-list");
+    expect(source).toContain("pullRequests");
+    expect(source).toContain("openPullRequestTab");
+    expect(source).toContain("openChangeStatus");
+    expect(source).toContain("buildDiffGroupPath");
+    expect(source).toContain("requestChangesScope");
+    expect(source).toContain(
+      'setCenterExplorerCollapsed("changes", false, groupPath)',
+    );
+    expect(source).toContain("foldScopeId={kind === \"changes\" ? CHANGES_TAB_VALUE : undefined}");
+    const graphIdx = source.indexOf('testId="graph-history"');
+    const commitsIdx = source.indexOf('testId="recent-commit"');
+    expect(graphIdx).toBeGreaterThan(commitsIdx);
   });
 });

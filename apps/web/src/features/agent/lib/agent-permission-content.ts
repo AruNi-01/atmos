@@ -4,9 +4,12 @@ import { isTerminalCommand } from "@/features/agent/lib/chat-helpers";
 const COMMAND_FENCE_RE =
   /```(?:bash|sh|shell|zsh|console|terminal|powershell|cmd)?[^\n]*\n([\s\S]*?)```/i;
 
-const SHELL_META_RE = /(?:&&|\|\||[;&|])/;
+/** Shell operators — exclude bare `|` so markdown tables are not treated as pipes. */
+const SHELL_META_RE = /(?:&&|\|\||;|&)/;
+const SHELL_PIPE_RE = /(?:^|[^\s|])\s*\|\s*(?:$|[^\s|])/;
 const SHELL_START_RE =
   /^(?:\$\s+)?(?:sudo\s+)?(?:ls|cat|echo|cd|git|npm|npx|bun|pnpm|yarn|cargo|python3?|node|mkdir|rm|cp|mv|chmod|curl|wget|head|tail|grep|find|sed|awk|export|source|bash|sh|zsh|just)\b/;
+const MARKDOWN_DOC_RE = /(?:^#{1,6}\s|\n#{1,6}\s|^\|.+\||\n\|.+\|)/m;
 
 function stripPromptPrefix(value: string): string {
   return value.replace(/^\$\s+/, "").trim();
@@ -22,9 +25,13 @@ export function extractPermissionCommandFence(markdown?: string | null): string 
 export function looksLikeShellCommand(text: string): boolean {
   const value = stripPromptPrefix(text);
   if (!value) return false;
+  // Multi-line plan / table docs must not become ApprovalCard command chrome.
+  if (value.includes("\n") && MARKDOWN_DOC_RE.test(value)) return false;
   if (SHELL_START_RE.test(value)) return true;
   if (/^\/(?:bin|usr\/bin|opt)\/\S+/.test(value) && /\s/.test(value)) return true;
-  if (SHELL_META_RE.test(value) && /\s/.test(value)) return true;
+  if ((SHELL_META_RE.test(value) || SHELL_PIPE_RE.test(value)) && /\s/.test(value)) {
+    return true;
+  }
   return false;
 }
 
@@ -34,6 +41,11 @@ export function resolvePermissionCommand(input: {
   contentMarkdown?: string | null;
 }): string | null {
   const description = input.description.trim();
+  const tool = input.tool.trim();
+  // ExitPlanMode / plan-approve never uses command chrome.
+  if (/exit.?plan|approve.?plan|plan.?mode/i.test(tool)) {
+    return null;
+  }
   const fenced = extractPermissionCommandFence(input.contentMarkdown);
   const toolIsCommand = isTerminalCommand(input.tool);
 

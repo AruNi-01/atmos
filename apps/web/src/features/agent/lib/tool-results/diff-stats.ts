@@ -167,6 +167,9 @@ export function diffStatsForPresentation(presentation: ToolPresentation): DiffLi
   if (presentation.kind === "patch") {
     return countPatchStats(presentation.patch);
   }
+  if (presentation.kind === "diff_stats") {
+    return { additions: presentation.additions, deletions: presentation.deletions };
+  }
   if (presentation.kind === "code" && presentation.hint === "new") {
     return { additions: countCodeLines(presentation.code), deletions: 0 };
   }
@@ -183,6 +186,17 @@ export function sumToolGroupDiffStats(parts: AgentToolCallPart[]): DiffLineStats
       return {
         additions: sum.additions + part.result.additions,
         deletions: sum.deletions + part.result.deletions,
+      };
+    }
+    if (part.result?.type === "diff") {
+      const next = countFileDiffStats(
+        part.result.old_content ?? "",
+        part.result.new_content,
+        part.result.path,
+      );
+      return {
+        additions: sum.additions + next.additions,
+        deletions: sum.deletions + next.deletions,
       };
     }
     const parsed = presentAgentTool(part);

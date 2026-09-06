@@ -1266,10 +1266,14 @@
       "selectFile": "Open a file from the directory",
       "selectChange": "Select a change to view the diff",
       "searchPlaceholder": "Files, Folders...",
+      "searchHint": "Type to search files",
+      "searching": "Searching…",
       "newFile": "New File",
       "recents": "Recents",
       "graphHistory": "Graph History",
       "recentCommits": "Recent commits",
+      "pullRequests": "Pull Requests",
+      "pullRequestNumber": "PR #{number}",
       "noSearchResults": "No matching files or folders"
     },
     "centerStageTabGroups": {
@@ -1917,6 +1921,8 @@
       },
       "changes": {
         "selectScope": "Select changes scope",
+        "loadingCommits": "Loading commits...",
+        "noCommitsOnBranch": "No commits on branch",
         "noCommitChanges": "Commit {commit} has no file changes",
         "noChangesAgainst": "No changes against {compareRef}",
         "noChangesDetected": "No changes detected",
@@ -3162,8 +3168,8 @@
       },
       "usageBadges": {
         "session": {
-          "contextWindow": "Context Window",
-          "estimatedCost": "Estimated Cost"
+          "contextWindow": "Context window",
+          "estimatedCost": "Estimated cost"
         },
         "turn": {
           "summary": "{total} total",
@@ -3171,10 +3177,21 @@
           "input": "Input",
           "output": "Output",
           "thought": "Thought",
-          "cacheRead": "Cache Read",
-          "cacheWrite": "Cache Write",
+          "cacheRead": "Cache read",
+          "cacheWrite": "Cache write",
           "total": "Total"
         }
+      },
+      "contextWindow": {
+        "title": "Context Usage",
+        "summary": "{used} tokens / {size} ({percent})",
+        "percentFull": "{percent} Full",
+        "tokensSummary": "~{used} / {size} Tokens",
+        "toggleAria": "Context usage {percent}",
+        "closeAria": "Close context usage",
+        "quotaSection": "Agent quota usage",
+        "quotaSectionWithPlan": "Agent quota usage · {plan}",
+        "notDetected": "Not detected"
       },
       "managerCards": {
         "installedVersion": "Installed v{version}",
@@ -3300,7 +3317,10 @@
         "continue": "Continue",
         "skip": "Skip",
         "approve": "Approve",
+        "keepPlanning": "Keep planning",
+        "cancelPlan": "Cancel plan",
         "viewPlan": "View plan",
+        "viewTodos": "View todos",
         "planViewerEmpty": "No plan content available yet.",
         "sessionOpRequested": "Session action requested",
         "sessionOpFork": "Fork",
@@ -3410,10 +3430,14 @@
         "deletedFile": "Deleted",
         "deletedFileLabel": "Deleted {path}",
         "to": "To",
+        "lineChanges": "Line changes",
         "searchingFor": "Searching for {query}",
         "webSearch": "Web search",
         "imageGen": "Image",
         "imagePreview": "Enlarge image",
+        "planDocument": "Plan",
+        "planBody": "View plan",
+        "planTodos": "{count, plural, one {# to-do} other {# to-dos}}",
         "resultCount": "{count, plural, one {# result} other {# results}}",
         "sources": "Sources",
         "fetchUrl": "Fetch {host}",
@@ -8891,6 +8915,10 @@
       },
       "empty": "No diff available"
     },
+    "discussionDiff": {
+      "line": "line {line}",
+      "lineRange": "line {start}~{end}"
+    },
     "codeView": {
       "actions": {
         "addReviewComment": "Add review comment"
@@ -9655,7 +9683,8 @@
         "actions": {
           "showHiddenFiles": "Show hidden files",
           "hideHiddenFiles": "Hide hidden files",
-          "refreshFiles": "Refresh files"
+          "refreshFiles": "Refresh files",
+          "locateCurrentFile": "Locate current file"
         }
       },
       "fileTree": {
