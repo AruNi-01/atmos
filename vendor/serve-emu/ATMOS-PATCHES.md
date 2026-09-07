@@ -10,7 +10,7 @@ These are the only first-party behavior changes. Prefer rebasing them when bumpi
    - Device identity control opens the device list.
    - Back / Home / Recents sit **below** the device (`data-atmos-device-actions`) as Android 3-button nav icons.
    - Tools live in a **right** overlay panel (`data-atmos-tools-panel`) and start closed.
-   - Devices live in a **left** overlay panel; both panels slide in/out like serve-sim (no column dividers).
+   - Devices / Tools overlay as drawers and do not shift the device column.
    - Stop asks for confirm, then posts `atmos:simulator-stop`.
    - The device column is content-sized (no stretched black stage / page scroll).
 4. **Claim-safe picker** (`device-panel.tsx`)

@@ -59,13 +59,6 @@ main,
   padding: 16px 24px;
   overflow: hidden;
   position: relative;
-  transition: padding 0.25s ease;
-}
-.app-layout.devices-open {
-  padding-left: 328px;
-}
-.app-layout.tools-open {
-  padding-right: 368px;
 }
 .atmos-device-chrome {
   display: flex;
@@ -181,7 +174,7 @@ main,
   background: #ef4444;
 }
 .chrome-overlay-panel {
-  position: absolute;
+  position: fixed;
   z-index: 30;
   top: 12px;
   bottom: 12px;
@@ -223,7 +216,6 @@ main,
   pointer-events: auto;
 }
 @media (prefers-reduced-motion: reduce) {
-  .app-layout,
   .chrome-overlay-panel {
     transition: none;
   }
@@ -1221,9 +1213,7 @@ input[type="checkbox"] {
     overflow: hidden;
   }
   main,
-  .app-layout,
-  .app-layout.devices-open,
-  .app-layout.tools-open {
+  .app-layout {
     padding: 12px;
   }
   .device-sidebar.chrome-overlay-panel,
