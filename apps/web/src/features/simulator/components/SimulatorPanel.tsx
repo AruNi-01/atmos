@@ -51,6 +51,7 @@ export function SimulatorPanel({
       }
       if (event.data?.type === SIMULATOR_AGENT_COPY_MESSAGE) {
         const source = event.source;
+        if (!source) return;
         void loadDevicePreviewPrompt(workspaceId)
           .then((prompt) =>
             navigator.clipboard.writeText(formatDevicePreviewClipboard(prompt)),
