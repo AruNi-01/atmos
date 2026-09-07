@@ -358,9 +358,9 @@ test.describe("smoke workspace center explorer", () => {
       path: `${ARTIFACTS_DIR}/changes_sidecar_landing.png`,
     });
 
-    // Landing recent-commit rows open a Commit-scoped diff tab, not Graph History.
+    // Accessible name includes the close control: "Close tab Commit".
     await changesLanding.locator('[data-center-explorer-row="recent-commit"]').first().click();
-    await expect(page.getByRole("tab", { name: /^(Commit|提交)/ })).toBeVisible({
+    await expect(page.getByRole("tab", { name: /Commit|提交/ })).toBeVisible({
       timeout: 20_000,
     });
     await page.screenshot({
