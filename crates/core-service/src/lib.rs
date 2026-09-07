@@ -60,8 +60,8 @@ pub use service::center_layout::{
 };
 pub use service::device_preview::{
     ClaimOwner, ClaimOwnerLookup, DeviceClaim, DeviceControlError, DeviceControlService,
-    DevicePreviewService, HelperKind, MapClaimOwnerLookup, PlatformProbe, PressKey,
-    SimulatorClaimList, SimulatorClaimListItem, SimulatorControlAck, SimulatorDevice,
+    DevicePreviewService, DevicePreviewSwipeInput, HelperKind, MapClaimOwnerLookup, PlatformProbe,
+    PressKey, SimulatorClaimList, SimulatorClaimListItem, SimulatorControlAck, SimulatorDevice,
     SimulatorDeviceHandle, SimulatorProbe, SimulatorReason, SimulatorScreenshotResult,
     SimulatorStartResult, WorkspaceProjectOwnerLookup,
 };

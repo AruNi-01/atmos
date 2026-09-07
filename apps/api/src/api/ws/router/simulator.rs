@@ -1,6 +1,6 @@
 use serde_json::{json, Value};
 
-use core_service::{Result, ServiceError};
+use core_service::{DevicePreviewSwipeInput, Result, ServiceError};
 
 use super::{
     parse_request, SimulatorListRequest, SimulatorPressRequest, SimulatorScreenshotRequest,
@@ -101,16 +101,16 @@ impl WsMessageService {
         let req: SimulatorSwipeRequest = parse_request(data)?;
         let result = self
             .device_control
-            .swipe(
-                &req.workspace_id,
-                req.udid.as_deref(),
-                req.platform,
-                req.x1,
-                req.y1,
-                req.x2,
-                req.y2,
-                req.duration_ms,
-            )
+            .swipe(DevicePreviewSwipeInput {
+                workspace_id: &req.workspace_id,
+                udid: req.udid.as_deref(),
+                platform: req.platform,
+                x1: req.x1,
+                y1: req.y1,
+                x2: req.x2,
+                y2: req.y2,
+                duration_ms: req.duration_ms,
+            })
             .await?;
         serde_json::to_value(result).map_err(|e| ServiceError::Processing(e.to_string()))
     }

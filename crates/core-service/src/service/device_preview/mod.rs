@@ -18,9 +18,10 @@ mod fake;
 mod tests;
 
 pub use control::{
-    ClaimOwner, ClaimOwnerLookup, DeviceControlError, DeviceControlService, MapClaimOwnerLookup,
-    PressKey, SimulatorClaimList, SimulatorClaimListItem, SimulatorControlAck,
-    SimulatorDeviceHandle, SimulatorScreenshotResult, WorkspaceProjectOwnerLookup,
+    ClaimOwner, ClaimOwnerLookup, DeviceControlError, DeviceControlService,
+    DevicePreviewSwipeInput, MapClaimOwnerLookup, PressKey, SimulatorClaimList,
+    SimulatorClaimListItem, SimulatorControlAck, SimulatorDeviceHandle, SimulatorScreenshotResult,
+    WorkspaceProjectOwnerLookup,
 };
 pub use paths::DevicePreviewPaths;
 pub use service::DevicePreviewService;

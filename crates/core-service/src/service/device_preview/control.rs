@@ -212,6 +212,17 @@ impl ClaimOwnerLookup for WorkspaceProjectOwnerLookup {
     }
 }
 
+pub struct DevicePreviewSwipeInput<'a> {
+    pub workspace_id: &'a str,
+    pub udid: Option<&'a str>,
+    pub platform: Option<DevicePlatform>,
+    pub x1: f64,
+    pub y1: f64,
+    pub x2: f64,
+    pub y2: f64,
+    pub duration_ms: Option<u32>,
+}
+
 pub struct DeviceControlService {
     preview: Arc<DevicePreviewService>,
     owners: Arc<dyn ClaimOwnerLookup>,
@@ -339,19 +350,15 @@ impl DeviceControlService {
 
     pub async fn swipe(
         &self,
-        workspace_id: &str,
-        udid: Option<&str>,
-        platform: Option<DevicePlatform>,
-        x1: f64,
-        y1: f64,
-        x2: f64,
-        y2: f64,
-        duration_ms: Option<u32>,
+        input: DevicePreviewSwipeInput<'_>,
     ) -> Result<SimulatorControlAck, DeviceControlError> {
-        let claim = self.resolve_target(workspace_id, udid, platform).await?;
-        require_point(x1, y1)?;
-        require_point(x2, y2)?;
-        let duration_ms = clamp_swipe_duration(duration_ms);
+        let claim = self
+            .resolve_target(input.workspace_id, input.udid, input.platform)
+            .await?;
+        require_point(input.x1, input.y1)?;
+        require_point(input.x2, input.y2)?;
+        let duration_ms = clamp_swipe_duration(input.duration_ms);
+        let DevicePreviewSwipeInput { x1, y1, x2, y2, .. } = input;
         match claim.helper {
             HelperKind::ServeSim => {
                 let bin = self.require_serve_sim_bin()?;

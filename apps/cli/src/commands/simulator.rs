@@ -156,7 +156,7 @@ pub async fn execute_simulator(api: ApiClientArgs, command: SimulatorCommand) ->
             let command = start_command(&args);
             let ws = match require_workspace(&command) {
                 Ok(ws) => ws,
-                Err(env) => return env,
+                Err(env) => return *env,
             };
             let mut data = workspace_payload(&ws);
             insert_opt_str(&mut data, "udid", args.udid);
@@ -178,7 +178,7 @@ pub async fn execute_simulator(api: ApiClientArgs, command: SimulatorCommand) ->
             let command = "atmos simulator stop";
             let ws = match require_workspace(command) {
                 Ok(ws) => ws,
-                Err(env) => return env,
+                Err(env) => return *env,
             };
             invoke_env(
                 &api,
@@ -199,7 +199,7 @@ pub async fn execute_simulator(api: ApiClientArgs, command: SimulatorCommand) ->
             let command = "atmos simulator status";
             let ws = match require_workspace(command) {
                 Ok(ws) => ws,
-                Err(env) => return env,
+                Err(env) => return *env,
             };
             match invoke(
                 &api,
@@ -243,7 +243,7 @@ pub async fn execute_simulator(api: ApiClientArgs, command: SimulatorCommand) ->
             let command = screenshot_command(&args);
             let ws = match require_workspace(&command) {
                 Ok(ws) => ws,
-                Err(env) => return env,
+                Err(env) => return *env,
             };
             let mut data = workspace_payload(&ws);
             insert_opt_str(&mut data, "udid", args.udid);
@@ -265,7 +265,7 @@ pub async fn execute_simulator(api: ApiClientArgs, command: SimulatorCommand) ->
             let command = tap_command(&args);
             let ws = match require_workspace(&command) {
                 Ok(ws) => ws,
-                Err(env) => return env,
+                Err(env) => return *env,
             };
             let mut data = workspace_payload(&ws);
             insert_opt_str(&mut data, "udid", args.udid);
@@ -288,7 +288,7 @@ pub async fn execute_simulator(api: ApiClientArgs, command: SimulatorCommand) ->
             let command = swipe_command(&args);
             let ws = match require_workspace(&command) {
                 Ok(ws) => ws,
-                Err(env) => return env,
+                Err(env) => return *env,
             };
             let mut data = workspace_payload(&ws);
             insert_opt_str(&mut data, "udid", args.udid);
@@ -315,7 +315,7 @@ pub async fn execute_simulator(api: ApiClientArgs, command: SimulatorCommand) ->
             let command = type_command(&args);
             let ws = match require_workspace(&command) {
                 Ok(ws) => ws,
-                Err(env) => return env,
+                Err(env) => return *env,
             };
             let mut data = workspace_payload(&ws);
             insert_opt_str(&mut data, "udid", args.udid);
@@ -336,7 +336,7 @@ pub async fn execute_simulator(api: ApiClientArgs, command: SimulatorCommand) ->
             let command = press_command(&args);
             let ws = match require_workspace(&command) {
                 Ok(ws) => ws,
-                Err(env) => return env,
+                Err(env) => return *env,
             };
             let mut data = workspace_payload(&ws);
             insert_opt_str(&mut data, "udid", args.udid);
@@ -399,14 +399,17 @@ fn start_api(api: &ApiClientArgs) -> ApiClientArgs {
     cloned
 }
 
-fn require_workspace(command: &str) -> Result<String, CliEnvelope> {
+fn require_workspace(command: &str) -> Result<String, Box<CliEnvelope>> {
     require_workspace_id(command, context::resolve_workspace(None))
 }
 
-fn require_workspace_id(command: &str, workspace: Option<String>) -> Result<String, CliEnvelope> {
+fn require_workspace_id(
+    command: &str,
+    workspace: Option<String>,
+) -> Result<String, Box<CliEnvelope>> {
     match workspace {
         Some(id) if !id.trim().is_empty() => Ok(id),
-        _ => Err(missing_workspace(command)),
+        _ => Err(Box::new(missing_workspace(command))),
     }
 }
 
