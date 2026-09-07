@@ -9,6 +9,7 @@ These are the only first-party behavior changes. Prefer rebasing them when bumpi
 3. **Preview chrome matches vendored serve-sim** (`app.tsx`, `styles.css`, `control-bar.tsx`)
    - Device identity control opens the device list.
    - Back / Home / Recents sit **below** the device (`data-atmos-device-actions`) as Android 3-button nav icons.
+   - A circular icon-only Agent button sits to the **right** of that nav pill (not inside it). Hover tooltip explains copying the prompt for Agent; **Copied** after success. Click posts `atmos:simulator-agent-copy`; the parent replies `atmos:simulator-agent-copied`.
    - Tools live in a **right** overlay panel (`data-atmos-tools-panel`) and start closed.
    - Devices / Tools overlay as drawers and do not shift the device column.
    - Stop asks for confirm, then posts `atmos:simulator-stop`.

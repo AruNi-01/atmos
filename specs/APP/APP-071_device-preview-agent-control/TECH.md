@@ -208,7 +208,7 @@ New system skill (copy the Desktop Use shape, not the Desktop Use coordinate rul
 - Decision tree:
   1. If the message already contains a Device Preview chip / pasted prompt / explicit `udid` → use that.
   2. Else `atmos simulator list`. If **one** live claim **in this workspace**, use it and say so.
-  3. If **several** live claims on the Computer (or none in this workspace but others exist): print `name · platform · project · workspace` (flag current workspace) and **ask which `udid`**. Do not pick.
+  3. If **several** live claims on the Computer (or none in this workspace but others exist): print `name · platform · project or workspace` (flag current workspace) and **ask which `udid`**. Do not pick.
   4. If zero claims: ask the user to Start the Simulator tab, click Agent, or run `/device-preview`. Do not auto-boot.
   5. Then screenshot → tap/swipe/type/press **with `--udid`**.
 - **Critical**: coords = PNG pixel / returned size. Mixing Desktop Use `--coord-space png` here is a bug.
@@ -312,7 +312,7 @@ Agent-facing prompt (Copy and slash expand to this exact body):
 
 ```text
 Drive the Atmos Device Preview for this claimed simulator.
-Load skill atmos-device-preview. Use `atmos simulator` and pass --udid on every command.
+Read ~/.atmos/skills/.system/atmos-device-preview/SKILL.md and follow it. Use `atmos simulator` and pass --udid on every command.
 Do not use Desktop Use or Browser Use for this phone. Do not curl helper ports.
 
 Device
@@ -322,10 +322,11 @@ Device
 
 Owned by
 - project: My App (id: proj_…)
-- workspace: Feature login (id: ws_…)
 
-This claim belongs to that workspace. Do not operate a different workspace's device.
+This claim belongs to that project. Do not operate a different project's device.
 ```
+
+Skill path is the synced system skill `~/.atmos/skills/.system/atmos-device-preview/SKILL.md` (or the scanned absolute path). `Owned by` is one line: project if name/id is non-empty, else workspace. Never emit empty `project:  (id: )` rows.
 
 Wire JSON: snake_case, same as other simulator DTOs.
 

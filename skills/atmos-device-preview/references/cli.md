@@ -22,7 +22,7 @@ preview. **Never** as a side effect of tap.
 `status` for agents: `{ udid, name, platform, helper, workspace_id }`.
 Do **not** use `url` / `port`.
 
-`list` is Computer-wide live claims. Each row: `name · platform · project ·
+`list` is Computer-wide live claims. Each row: `name · platform · project or
 workspace` (flag `current` when it is this workspace). Use `udid` from the row.
 
 ## Control

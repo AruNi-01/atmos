@@ -114,6 +114,9 @@ describe("center space switcher open path", () => {
     expect(cleanup).toContain("clearAgentLastSession");
     expect(cleanup).toContain("clearCenterTabActivationStack");
     expect(cleanup).toContain("forgetContext");
+    expect(cleanup).toContain("useAgentChatCenterTabsStore");
+    expect(cleanup).toContain("useOverviewCenterTabStore");
+    expect(cleanup).toContain("markCenterLayoutDirty");
     expect(cleanup).toContain('freeze(paintContextId, "manual")');
     const runScript = readFileSync(
       join(dir, "../features/browser/components/RunScript.tsx"),
@@ -123,7 +126,8 @@ describe("center space switcher open path", () => {
     expect(runScript).toContain("hostIdFromCenterKey");
     expect(runScript).toContain("tmuxWindowName={runWindowName(tab.id)}");
     const frame = readFileSync(join(dir, "workspace-center-frame.tsx"), "utf8");
-    const runBlock = frame.slice(frame.indexOf("<KeptRunScript"));
+    const runAt = frame.indexOf("<KeptRunScript");
+    const runBlock = frame.slice(runAt, runAt + 450);
     expect(runBlock).toContain("workspaceId={isUrlSyncedActive ? contextId : null}");
     expect(runBlock).not.toContain("currentWorkspace?.id");
   });

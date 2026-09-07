@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { LoaderCircle } from "lucide-react";
 import { useSimulatorSession } from "../hooks/use-simulator-session";
 import {
@@ -12,6 +12,9 @@ import "../simulator-guest.css";
 import {
   iframeSrc,
   parseSimulatorDeviceMessage,
+  SIMULATOR_AGENT_COPIED_MESSAGE,
+  SIMULATOR_AGENT_COPY_MESSAGE,
+  SIMULATOR_AGENT_LABELS_MESSAGE,
   SIMULATOR_STOP_MESSAGE,
 } from "../types";
 import { SimulatorSetupCard } from "./SimulatorSetupCard";
@@ -24,8 +27,20 @@ export function SimulatorPanel({
   active: boolean;
 }) {
   const t = useTranslations("features.simulator");
+  const locale = useLocale();
   const session = useSimulatorSession({ workspaceId, active });
   const iframeRef = React.useRef<HTMLIFrameElement>(null);
+
+  const postAgentLabels = React.useCallback(() => {
+    iframeRef.current?.contentWindow?.postMessage(
+      {
+        type: SIMULATOR_AGENT_LABELS_MESSAGE,
+        tooltip: t("agentCopyTooltip"),
+        copied: t("agentCopied"),
+      },
+      "*",
+    );
+  }, [t]);
 
   React.useEffect(() => {
     const onMessage = (event: MessageEvent) => {
@@ -34,13 +49,25 @@ export function SimulatorPanel({
         void session.disconnect();
         return;
       }
+      if (event.data?.type === SIMULATOR_AGENT_COPY_MESSAGE) {
+        const source = event.source;
+        void loadDevicePreviewPrompt(workspaceId)
+          .then((prompt) =>
+            navigator.clipboard.writeText(formatDevicePreviewClipboard(prompt)),
+          )
+          .then(() => {
+            source.postMessage({ type: SIMULATOR_AGENT_COPIED_MESSAGE }, "*");
+          })
+          .catch(() => {});
+        return;
+      }
       const device = parseSimulatorDeviceMessage(event.data);
       if (!device) return;
       void session.start({ udid: device.udid, platform: device.platform });
     };
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
-  }, [session.disconnect, session.start]);
+  }, [session.disconnect, session.start, workspaceId]);
 
   if (session.url && (session.phase === "ready" || session.phase === "starting" || session.phase === "downloading")) {
     return (
@@ -48,14 +75,12 @@ export function SimulatorPanel({
         <iframe
           ref={iframeRef}
           title={t("iframeTitle")}
-          src={iframeSrc(session.url, session.udid ?? undefined)}
+          src={iframeSrc(session.url, session.udid ?? undefined, locale)}
           data-atmos-guest-iframe=""
           className="h-full w-full border-0 bg-background"
           allow="autoplay"
+          onLoad={postAgentLabels}
         />
-        {session.phase === "ready" ? (
-          <SimulatorAgentCopyButton workspaceId={workspaceId} />
-        ) : null}
       </div>
     );
   }
@@ -94,49 +119,5 @@ export function SimulatorPanel({
       }}
       onRetry={session.retry}
     />
-  );
-}
-
-function SimulatorAgentCopyButton({ workspaceId }: { workspaceId: string | null }) {
-  const t = useTranslations("features.simulator");
-  const [copied, setCopied] = React.useState(false);
-  const copiedTimerRef = React.useRef<number | null>(null);
-
-  React.useEffect(() => {
-    return () => {
-      if (copiedTimerRef.current != null) {
-        window.clearTimeout(copiedTimerRef.current);
-      }
-    };
-  }, []);
-
-  const onCopy = React.useCallback(() => {
-    void loadDevicePreviewPrompt(workspaceId)
-      .then((prompt) =>
-        navigator.clipboard.writeText(formatDevicePreviewClipboard(prompt)),
-      )
-      .then(() => {
-        setCopied(true);
-        if (copiedTimerRef.current != null) {
-          window.clearTimeout(copiedTimerRef.current);
-        }
-        copiedTimerRef.current = window.setTimeout(() => {
-          setCopied(false);
-          copiedTimerRef.current = null;
-        }, 2000);
-      })
-      .catch(() => {
-        setCopied(false);
-      });
-  }, [workspaceId]);
-
-  return (
-    <button
-      type="button"
-      className="absolute top-3 right-3 z-10 inline-flex h-7 items-center rounded-md border border-border bg-background/90 px-2.5 text-xs font-medium text-foreground shadow-sm backdrop-blur-sm hover:bg-accent"
-      onClick={onCopy}
-    >
-      {copied ? t("agentCopied") : t("agentCopy")}
-    </button>
   );
 }

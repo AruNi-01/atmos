@@ -185,6 +185,7 @@ describe("center space wiring", () => {
     const stageTabs = readFileSync(join(dir, "center-stage-tabs.tsx"), "utf8");
     expect(stageTabs).toContain("stableAgentPaneId");
     expect(tabBar).toContain("newSpaceDialogTitle");
+    expect(tabBar).toContain("newSpaceDialogDescription");
     expect(tabBar).toContain("confirmCreateSpace");
     expect(tabBar).toContain("newSpace");
     expect(stage).toContain("openNewCenterSpace");

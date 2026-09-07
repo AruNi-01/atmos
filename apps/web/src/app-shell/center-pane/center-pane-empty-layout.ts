@@ -1,11 +1,8 @@
 /**
  * Empty-pane launcher layout — derived from the pane's current box.
  *
- * Portrait: one-column list when every row fits; otherwise two card columns.
- * Landscape: pack as many card columns as the width allows.
- * Tight on both axes: keep the max columns that still fit in the width, then
- * scroll vertically. Card size follows leftover space between a readable min
- * and a comfortable max — no fixed 2-col / 412px switch.
+ * At most two tiles per row. Use a compact centered 2-col grid when the pane
+ * is wide enough; otherwise a one-column list. Extra rows wrap and scroll.
  */
 
 export type EmptyPaneLauncherMode = "list" | "grid";
@@ -27,14 +24,18 @@ export type EmptyPaneLauncherPlan = {
 export const EMPTY_PANE_LIST_ROW_HEIGHT_PX = 36;
 export const EMPTY_PANE_LIST_GAP_PX = 4;
 export const EMPTY_PANE_LIST_MAX_WIDTH_PX = 384;
-export const EMPTY_PANE_CLOSE_HEIGHT_PX = 40;
 
 /** Smallest readable icon-over-name tile (label + padding). */
 export const EMPTY_PANE_MIN_CARD_WIDTH_PX = 112;
-export const EMPTY_PANE_MAX_CARD_WIDTH_PX = 176;
+/** Compact tile width for the centered 2-col cluster. */
+export const EMPTY_PANE_PREFERRED_CARD_WIDTH_PX = 168;
+/** One row never has more than two actions. */
+export const EMPTY_PANE_MAX_COLUMNS = 2;
 export const EMPTY_PANE_MIN_CARD_HEIGHT_PX = 72;
 export const EMPTY_PANE_MAX_CARD_HEIGHT_PX = 96;
-export const EMPTY_PANE_GRID_GAP_PX = 8;
+export const EMPTY_PANE_GRID_COLUMN_GAP_PX = 8;
+export const EMPTY_PANE_GRID_ROW_GAP_PX = 8;
+export const EMPTY_PANE_GRID_GAP_PX = EMPTY_PANE_GRID_ROW_GAP_PX;
 export const EMPTY_PANE_MIN_PADDING_PX = 8;
 export const EMPTY_PANE_MAX_PADDING_X_PX = 24;
 export const EMPTY_PANE_MAX_LIST_PADDING_Y_PX = 32;
@@ -75,8 +76,8 @@ export function emptyPaneColumnsFit(
 ): number {
   if (actionCount <= 0) return 1;
   const raw = Math.floor(
-    (availableWidth + EMPTY_PANE_GRID_GAP_PX) /
-      (EMPTY_PANE_MIN_CARD_WIDTH_PX + EMPTY_PANE_GRID_GAP_PX),
+    (availableWidth + EMPTY_PANE_GRID_COLUMN_GAP_PX) /
+      (EMPTY_PANE_MIN_CARD_WIDTH_PX + EMPTY_PANE_GRID_COLUMN_GAP_PX),
   );
   return clamp(raw, 1, actionCount);
 }
@@ -105,9 +106,31 @@ function paddingX(width: number): number {
   );
 }
 
-function gridRows(actionCount: number, columns: number): number {
-  if (actionCount <= 0 || columns <= 0) return 0;
-  return Math.ceil(actionCount / columns);
+function gridRows(itemCount: number, columns: number): number {
+  if (itemCount <= 0 || columns <= 0) return 0;
+  return Math.ceil(itemCount / columns);
+}
+
+/** Close is another grid tile, so an odd action count fills the last-row gap. */
+export function emptyPaneGridItemCount(
+  actionCount: number,
+  hasClose: boolean,
+): number {
+  return Math.max(0, actionCount) + (hasClose ? 1 : 0);
+}
+
+/** At most two columns; one column when the pane is too narrow. */
+export function emptyPaneGridColumns(input: {
+  actionCount: number;
+  columnsFit: number;
+}): number {
+  const actionCount = Math.max(0, input.actionCount);
+  if (actionCount <= 0) return 1;
+  return clamp(
+    Math.min(input.columnsFit, EMPTY_PANE_MAX_COLUMNS, actionCount),
+    1,
+    actionCount,
+  );
 }
 
 function gridBlockHeightPx(input: {
@@ -115,15 +138,11 @@ function gridBlockHeightPx(input: {
   rows: number;
   cardHeight: number;
   gap: number;
-  hasClose: boolean;
 }): number {
   const tiles =
     input.rows * input.cardHeight +
     Math.max(0, input.rows - 1) * input.gap;
-  const close = input.hasClose
-    ? input.gap + EMPTY_PANE_CLOSE_HEIGHT_PX
-    : 0;
-  return input.paddingY * 2 + tiles + close;
+  return input.paddingY * 2 + tiles;
 }
 
 function cardHeightForRows(input: {
@@ -131,14 +150,10 @@ function cardHeightForRows(input: {
   paddingY: number;
   rows: number;
   gap: number;
-  hasClose: boolean;
 }): number {
   if (input.rows <= 0) return EMPTY_PANE_MAX_CARD_HEIGHT_PX;
-  const close = input.hasClose
-    ? input.gap + EMPTY_PANE_CLOSE_HEIGHT_PX
-    : 0;
   const gaps = Math.max(0, input.rows - 1) * input.gap;
-  const budget = input.height - input.paddingY * 2 - close - gaps;
+  const budget = input.height - input.paddingY * 2 - gaps;
   return clamp(
     Math.floor(budget / input.rows),
     EMPTY_PANE_MIN_CARD_HEIGHT_PX,
@@ -173,16 +188,16 @@ function gridPlan(input: {
   columns: number;
   paddingX: number;
 }): EmptyPaneLauncherPlan {
-  const columns = clamp(input.columns, 1, Math.max(1, input.actionCount));
-  const rows = gridRows(input.actionCount, columns);
+  const itemCount = emptyPaneGridItemCount(input.actionCount, input.hasClose);
+  const columns = clamp(input.columns, 1, Math.max(1, itemCount));
+  const rows = gridRows(itemCount, columns);
   const padY = gridPaddingY(input.height);
-  const gap = EMPTY_PANE_GRID_GAP_PX;
+  const gap = EMPTY_PANE_GRID_ROW_GAP_PX;
   const cardMinHeight = cardHeightForRows({
     height: input.height,
     paddingY: padY,
     rows,
     gap,
-    hasClose: input.hasClose,
   });
   const iconSize = clamp(Math.round(cardMinHeight * 0.28), 16, 24);
   const labelBox = 18;
@@ -197,13 +212,12 @@ function gridPlan(input: {
     rows,
     cardHeight: cardMinHeight,
     gap,
-    hasClose: input.hasClose,
   });
   const availableWidth = Math.max(0, input.width - input.paddingX * 2);
   const gridMaxWidth = Math.min(
     availableWidth,
-    columns * EMPTY_PANE_MAX_CARD_WIDTH_PX +
-      Math.max(0, columns - 1) * gap,
+    columns * EMPTY_PANE_PREFERRED_CARD_WIDTH_PX +
+      Math.max(0, columns - 1) * EMPTY_PANE_GRID_COLUMN_GAP_PX,
   );
 
   return {
@@ -234,12 +248,11 @@ export function planEmptyPaneLauncher(input: {
 
   const padX = paddingX(input.width);
   const listPadY = listPaddingY(input.height);
-  const listCount = actionCount + (hasClose ? 1 : 0);
+  const listCount = emptyPaneGridItemCount(actionCount, hasClose);
   const listFits =
     emptyPaneListBlockHeightPx(listCount, listPadY) <= input.height;
   const availableWidth = Math.max(0, input.width - padX * 2);
-  const columnsFit = emptyPaneColumnsFit(availableWidth, actionCount);
-  const landscape = input.width > input.height;
+  const columnsFit = emptyPaneColumnsFit(availableWidth, listCount);
 
   const toGrid = (columns: number) =>
     gridPlan({
@@ -251,21 +264,17 @@ export function planEmptyPaneLauncher(input: {
       paddingX: padX,
     });
 
-  if (!landscape) {
-    if (listFits) {
-      return listPlan({ paddingX: padX, paddingY: listPadY, scroll: false });
-    }
-    return toGrid(Math.min(2, columnsFit));
+  if (columnsFit >= 2) {
+    return toGrid(
+      emptyPaneGridColumns({ actionCount: listCount, columnsFit }),
+    );
   }
 
-  if (columnsFit <= 1) {
-    if (listFits) {
-      return listPlan({ paddingX: padX, paddingY: listPadY, scroll: false });
-    }
-    return toGrid(1);
+  if (listFits) {
+    return listPlan({ paddingX: padX, paddingY: listPadY, scroll: false });
   }
 
-  return toGrid(columnsFit);
+  return toGrid(1);
 }
 
 export function emptyPaneLauncherPlansEqual(

@@ -22,6 +22,7 @@ const repoRoot = join(import.meta.dir, "../../../../../..");
 describe("simulator url + reasons", () => {
   it("forces loopback iframe urls", () => {
     expect(iframeSrc("http://127.0.0.1:3200", "UDID")).toContain("device=UDID");
+    expect(iframeSrc("http://127.0.0.1:3200", "UDID", "zh")).toContain("lang=zh");
     expect(iframeSrc("http://0.0.0.0:3200/?device=UDID")).toContain("127.0.0.1");
   });
 

@@ -19,6 +19,9 @@ import {
   clearAgentLastSession,
   forgetPaintContextUiPrefs,
 } from "@/shared/stores/use-ui-pref-hooks";
+import { useOverviewCenterTabStore } from "@/app-shell/center-overview-tab";
+import { markCenterLayoutDirty } from "@/app-shell/center-layout/center-layout-persist";
+import { useAgentChatCenterTabsStore } from "@/features/agent/store/use-agent-chat-center-tabs";
 import { useWorkspaceSurfaceCacheStore } from "@/features/workspace/store/use-workspace-surface-cache-store";
 
 function omitContextKey<T>(
@@ -97,6 +100,9 @@ export function cleanupCenterSpaceContext(paintContextId: string): void {
   useBrowserCenterTabsStore.setState((state) => ({
     tabsByContext: omitContextKey(state.tabsByContext, paintContextId),
   }));
+  useAgentChatCenterTabsStore.setState((state) => ({
+    tabsByContext: omitContextKey(state.tabsByContext, paintContextId),
+  }));
 
   useTerminalStore.getState().detachWorkspaceFrontend(paintContextId);
 
@@ -110,6 +116,10 @@ export function cleanupCenterSpaceContext(paintContextId: string): void {
     visibleByContext: omitContextKey(state.visibleByContext, paintContextId),
     selectedCommitByContext: omitContextKey(state.selectedCommitByContext, paintContextId),
   }));
+  useOverviewCenterTabStore.setState((state) => ({
+    visibleByContext: omitContextKey(state.visibleByContext, paintContextId),
+  }));
+  markCenterLayoutDirty();
 
   forgetPaintContextUiPrefs(paintContextId);
   clearAgentLastSession(paintContextId);

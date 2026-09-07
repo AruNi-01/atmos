@@ -20,10 +20,6 @@ const CONTEXT_ENCODED_TAB_PREFIXES = [
   "browser:",
 ] as const;
 
-function isAgentChatUrlTab(tab: string): boolean {
-  return tab.startsWith("agent-chat:");
-}
-
 function paintIdFromEncodedTab(tab: string): string | null {
   const prefix = CONTEXT_ENCODED_TAB_PREFIXES.find((item) => tab.startsWith(item));
   if (!prefix) return null;
@@ -117,7 +113,6 @@ export function shouldKeepExplicitTabOnHostHop(input: {
   if (!input.dest.hasTabParam || !input.dest.tabParam) return false;
 
   const tab = input.dest.tabParam;
-  if (isAgentChatUrlTab(tab)) return true;
   if (
     tabValueBelongsToPaintContext(tab, input.destPaintId) ||
     tabValueBelongsToPaintContext(tab, input.destHostId)
@@ -199,8 +194,6 @@ export function shouldHonorUrlTabForPaintContext(input: {
   }
 
   if (!tab) return false;
-
-  if (isAgentChatUrlTab(tab)) return true;
 
   if (paintIdFromEncodedTab(tab)) {
     return tabValueBelongsToPaintContext(tab, input.paintId);

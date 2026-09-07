@@ -574,8 +574,7 @@ const CenterStage: React.FC = () => {
     if (
       previousPaintIdForUrl &&
       tabFromUrl &&
-      tabFromUrl !== lastTabForPaint &&
-      !tabFromUrl.startsWith("agent-chat:")
+      tabFromUrl !== lastTabForPaint
     ) {
       blockedUrlTabRef.current = tabFromUrl;
     }
@@ -601,9 +600,7 @@ const CenterStage: React.FC = () => {
     sideChat: sideChat ?? null,
   };
   const followUrlToolTab =
-    honorUrlTab &&
-    (!(isExtraCenterSpace && liveExtraSpaceEmpty) ||
-      Boolean(tabFromUrl?.startsWith("agent-chat:")));
+    honorUrlTab && !(isExtraCenterSpace && liveExtraSpaceEmpty);
 
   React.useEffect(() => {
     bindCenterPaintTabUrlWriter((patch) => {
@@ -2847,7 +2844,9 @@ const CenterStage: React.FC = () => {
       if (!mosaicWriteContextId) return;
       focusCenterPane(mosaicWriteContextId, paneId);
       setPaneActiveTab(mosaicWriteContextId, paneId, tabValue);
-      handleCenterStageTabChange(tabValue);
+      // Ownership is already on this pane. Chrome attach/reveal would steal
+      // exclusive tabs (Agent Chat, terminal) back to the sibling that owns them.
+      handleCenterStageTabChange(tabValue, { attach: false });
     },
     [
       focusCenterPane,
@@ -3076,6 +3075,7 @@ const CenterStage: React.FC = () => {
         setWikiRefreshing={setWikiRefreshing}
         setWikiRefreshTrigger={setWikiRefreshTrigger}
         paneId={layoutPaneId}
+        allowedTabIds={allowed}
         stripShortcutTabIds={
           !isMultiPane ||
           !layoutPaneId ||
@@ -3198,7 +3198,9 @@ const CenterStage: React.FC = () => {
                 // Empty launchers have no surface — don't rewrite the URL/active
                 // tab of the other pane when focusing them.
                 if (pane && pane.activeTabId && !isEmptyPane(pane)) {
-                  handleCenterStageTabChange(pane.activeTabId);
+                  // Already owned here. Chrome attach/reveal would steal
+                  // exclusive tabs back to a sibling pane.
+                  handleCenterStageTabChange(pane.activeTabId, { attach: false });
                 }
               }}
               renderPaneChrome={(pane) => {

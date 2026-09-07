@@ -1,6 +1,6 @@
 ---
 name: atmos-device-preview
-version: "1.0.0"
+version: "1.0.1"
 description: >
   Control Atmos Device Preview (iOS Simulator / Android emulator) via
   `atmos simulator` (screenshot, tap, swipe, type, press) without MCP. Use
@@ -32,7 +32,7 @@ Details: [`references/cli.md`](references/cli.md).
 2. Else `atmos simulator list`. If **one** live claim **in this workspace**,
    use it and say so.
 3. If **several** live claims on the Computer (or none in this workspace but
-   others exist): print `name · platform · project · workspace` (flag the
+   others exist): print `name · platform · project or workspace` (flag the
    current workspace) and **ask which `udid`**. Do not pick.
 4. If zero claims: ask the user to Start the Simulator tab, click Agent, or
    run `/device-preview`. Do **not** auto-boot.

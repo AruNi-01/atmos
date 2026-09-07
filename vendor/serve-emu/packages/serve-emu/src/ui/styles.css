@@ -256,6 +256,65 @@ main,
   background: transparent;
   overflow: visible;
 }
+.chrome-bottom-row {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  max-width: 100%;
+  overflow: visible;
+}
+.chrome-agent-fab {
+  position: relative;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border-radius: 999px;
+  background: var(--chrome-panel);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  color: rgba(255, 255, 255, 0.8);
+  overflow: visible;
+  line-height: 0;
+}
+.chrome-agent-fab:hover,
+.chrome-agent-fab:focus-visible {
+  background: color-mix(in srgb, var(--chrome-panel) 88%, #fff);
+  color: #fff;
+}
+.chrome-agent-tooltip {
+  position: absolute;
+  left: auto;
+  right: 0;
+  bottom: calc(100% + 8px);
+  transform: translateY(2px);
+  opacity: 0;
+  pointer-events: none;
+  white-space: normal;
+  max-width: 220px;
+  text-align: left;
+  padding: 4px 7px;
+  border-radius: 6px;
+  background: var(--chrome-panel);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.35;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.32);
+  transition: opacity 0.12s ease, transform 0.12s ease;
+  z-index: 100;
+}
+.chrome-agent-fab:hover .chrome-agent-tooltip,
+.chrome-agent-fab:focus-visible .chrome-agent-tooltip,
+.chrome-agent-fab.is-copied .chrome-agent-tooltip {
+  opacity: 1;
+  transform: translateY(0);
+}
 canvas,
 .stream-video {
   display: block;

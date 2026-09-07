@@ -13,6 +13,7 @@ import { StatusBar } from "./components/status-bar";
 import type { AccessibilityNode } from "./components/accessibility-panel";
 import { DevicePanel } from "./components/device-panel";
 import { DeviceStream } from "./components/device-stream";
+import { AgentCopyButton } from "./components/agent-copy-button";
 import { CloseIcon, PanelRightIcon, PowerIcon } from "./components/chrome-icons";
 import { ControlBar, type HardwareKey } from "./components/control-bar";
 import { SideTools } from "./components/side-tools";
@@ -371,8 +372,11 @@ const AppShell = memo(function AppShell() {
             autoCorrect="off"
             spellCheck={false}
           />
-          <div className="chrome-pill chrome-nav-pill" data-atmos-device-actions="">
-            <StableControlBar onPress={onPress} />
+          <div className="chrome-bottom-row">
+            <div className="chrome-pill chrome-nav-pill" data-atmos-device-actions="">
+              <StableControlBar onPress={onPress} />
+            </div>
+            <AgentCopyButton />
           </div>
         </div>
         <aside

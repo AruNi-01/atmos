@@ -1,0 +1,42 @@
+/* Center tab-strip edge fade is scroll-driven CSS so slow wheel/trackpad
+   motion never re-renders React. The named timeline lives on the scroller;
+   timeline-scope hoists it so the sibling overlay can bind. */
+
+[data-center-tabs-track] {
+  timeline-scope: --center-tabs-scroll;
+}
+
+[data-center-tabs-scroll] {
+  scroll-timeline-name: --center-tabs-scroll;
+  scroll-timeline-axis: inline;
+}
+
+[data-center-tabs-edge-fade] {
+  opacity: 0;
+}
+
+@supports (timeline-scope: none) {
+  [data-center-tabs-edge-fade] {
+    animation-name: center-tabs-edge-fade;
+    animation-duration: auto;
+    animation-timing-function: linear;
+    animation-fill-mode: both;
+    animation-timeline: --center-tabs-scroll;
+    animation-range: calc(100% - 16px) 100%;
+  }
+}
+
+@supports not (timeline-scope: none) {
+  [data-center-tabs-track]:has([data-center-tabs-scroll]) {
+    mask-image: linear-gradient(to right, #000 calc(100% - 16px), transparent);
+  }
+}
+
+@keyframes center-tabs-edge-fade {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}

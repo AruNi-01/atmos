@@ -31,6 +31,19 @@ export function PowerIcon({ size }: IconProps) {
   );
 }
 
+export function BotIcon({ size }: IconProps) {
+  return (
+    <Svg size={size}>
+      <path d="M12 8V4H8" />
+      <rect width="16" height="12" x="4" y="8" rx="2" />
+      <path d="M2 14h2" />
+      <path d="M20 14h2" />
+      <circle cx="9" cy="13" r="1" />
+      <circle cx="15" cy="13" r="1" />
+    </Svg>
+  );
+}
+
 export function PanelRightIcon({ size }: IconProps) {
   return (
     <Svg size={size}>

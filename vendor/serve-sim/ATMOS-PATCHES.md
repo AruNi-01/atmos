@@ -26,3 +26,6 @@ These are the only first-party behavior changes. Prefer rebasing them when bumpi
 7. **No global `--kill` from the preview iframe** (`useSimStream.ts`, `host-bin.ts`, `/exec`)
    - Disconnect posts `atmos:simulator-stop` instead of `serve-sim --kill`.
    - `/exec` and `/exec-ws` refuse a kill command that has no device argument.
+8. **Agent copy in the AX pill** (`client.tsx`, `agent-copy-button.tsx`)
+   - The accessibility pill also contains an icon-only Agent button (hover tooltip explains copying the prompt for Agent; **Copied** after success).
+   - Click posts `atmos:simulator-agent-copy`; the parent copies the prompt and replies `atmos:simulator-agent-copied`.

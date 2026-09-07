@@ -607,7 +607,9 @@ describe("independent pane order", () => {
 
   it("seeds a new single-pane layout from legacy strip prefs", () => {
     expect(applyLegacyStripOrder(["b", "a", "c"], ["a", "b"])).toEqual(["a", "b", "c"]);
-    expect(resolvePaneTabStripOrder([], ["a", "b"])).toEqual(["a", "b"]);
+    expect(resolvePaneTabStripOrder([], ["a", "b"])).toEqual([]);
+    expect(resolvePaneTabStripOrder(null, ["a", "b"])).toEqual(["a", "b"]);
+    expect(resolvePaneTabStripOrder(undefined, ["a", "b"])).toEqual(["a", "b"]);
   });
 
   it("scopes tab-group order keys per pane and falls back to unscoped migration", () => {

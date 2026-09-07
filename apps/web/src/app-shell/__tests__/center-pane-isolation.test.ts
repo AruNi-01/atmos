@@ -5,6 +5,8 @@ import {
   createDefaultLayout,
   splitPane,
   openTabOnFocusedPane,
+  resolvePaneTabStripOrder,
+  DEFAULT_PANE_ID,
 } from "@/app-shell/center-pane/center-pane-layout";
 import {
   centerPaneSlotOccupancyKey,
@@ -29,6 +31,38 @@ describe("center pane tab isolation", () => {
     expect(stage).toContain("filterGroupedTabItemsByAllowedIds(groupedTabItems, allowed)");
     expect(stage).toContain("allowedTabIds: allowed");
     expect(stage).toContain("paneId: pane.id");
+  });
+
+  it("keeps agent chat tabs and empty-pane strips inside the owning pane", () => {
+    const tabBar = readSibling("CenterStageTabBar.tsx");
+    const stage = readSibling("CenterStage.tsx");
+    const layout = readFileSync(
+      join(dir, "../center-pane/center-pane-layout.ts"),
+      "utf8",
+    );
+    expect(tabBar).toContain("allowedTabIds?: ReadonlySet<string>");
+    expect(tabBar).toContain("agentChatTabs.filter((tab) => allowedTabIds.has(tab.value))");
+    expect(tabBar).toContain("for (const tab of paneAgentChatTabs)");
+    expect(stage).toContain("allowedTabIds={allowed}");
+    expect(stage).toContain("handleCenterStageTabChange(tabValue, { attach: false })");
+    expect(stage).toContain("handleCenterStageTabChange(pane.activeTabId, { attach: false })");
+    expect(layout).toContain("if (paneTabIds) return [...paneTabIds]");
+  });
+
+  it("does not copy the primary strip onto an empty split pane", () => {
+    const layout = splitPane(
+      createDefaultLayout(["terminal", "agent-chat:a", "files"], "files"),
+      { direction: "right" },
+    );
+    const secondary = layout.panes.find((pane) => pane.id !== DEFAULT_PANE_ID)!;
+    expect(secondary.tabIds).toEqual([]);
+    expect(
+      resolvePaneTabStripOrder(secondary.tabIds, [
+        "terminal",
+        "agent-chat:a",
+        "files",
+      ]),
+    ).toEqual([]);
   });
 
   it("keeps tab-group popover open state inside each tab bar", () => {

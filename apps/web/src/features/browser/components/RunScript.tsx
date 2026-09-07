@@ -488,7 +488,7 @@ export const RunScript: React.FC<RunScriptProps> = ({ workspaceId, projectId, is
             className="min-w-0 flex-1"
             value={activeTabId}
             onValueChange={setActiveTabId}
-            actions={
+            afterTabs={
               <CenterStageStickyTabActions>
                 <Tooltip>
                   <TooltipTrigger asChild>

@@ -20,6 +20,9 @@ export const SIMULATOR_TAB_VALUE = "simulator";
 
 export const SIMULATOR_STOP_MESSAGE = "atmos:simulator-stop";
 export const SIMULATOR_DEVICE_MESSAGE = "atmos:simulator-device";
+export const SIMULATOR_AGENT_COPY_MESSAGE = "atmos:simulator-agent-copy";
+export const SIMULATOR_AGENT_COPIED_MESSAGE = "atmos:simulator-agent-copied";
+export const SIMULATOR_AGENT_LABELS_MESSAGE = "atmos:simulator-agent-labels";
 
 export type SimulatorSetupAction = {
   id: string;
@@ -54,13 +57,17 @@ const HOST_REASONS: SimulatorReason[] = [
   "macos_too_old",
 ];
 
-export function iframeSrc(url: string, udid?: string): string {
+export function iframeSrc(url: string, udid?: string, lang?: string): string {
   const parsed = new URL(url);
   if (parsed.hostname !== "127.0.0.1" && parsed.hostname !== "localhost") {
     parsed.hostname = "127.0.0.1";
   }
   if (udid && !parsed.searchParams.get("device")) {
     parsed.searchParams.set("device", udid);
+  }
+  const locale = lang?.trim();
+  if (locale && !parsed.searchParams.get("lang")) {
+    parsed.searchParams.set("lang", locale);
   }
   return parsed.toString();
 }

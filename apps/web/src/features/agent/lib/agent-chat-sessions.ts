@@ -230,6 +230,7 @@ export async function openAgentChatHistoryRow(
 
   const spaceId = entry.space_id?.trim() || DEFAULT_CENTER_SPACE_ID;
   const paintContextId = makeCenterSpaceKey(contextId, spaceId);
+  const tabValue = buildAgentChatTabValue(entry.id);
   useAgentChatCenterTabsStore.getState().openTab({
     contextId: paintContextId,
     chatId: entry.id,
@@ -237,6 +238,8 @@ export async function openAgentChatHistoryRow(
     cwd: entry.cwd,
     providerId: entry.provider_id,
   });
+  const { activateCenterChromeTab } = await import("@/app-shell/center-stage-activate");
+  activateCenterChromeTab(paintContextId, tabValue);
 
   const { useCenterSpaceStore } = await import("@/app-shell/center-space/center-space-store");
   const store = useCenterSpaceStore.getState();
