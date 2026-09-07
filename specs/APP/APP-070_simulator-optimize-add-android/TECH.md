@@ -6,7 +6,7 @@
 
 ## Scope summary
 
-Addresses **M1–M14**. N1–N4 deferred. Moves Device Preview domain out of `apps/api/src/simulator.rs` into `core-service`, splits probe by platform, vendors `expo/serve-emu` with the APP-060 install model, and keeps the web panel as an iframe. Does not spawn Metro, does not add Agent HID tools, does not draw an Atmos phone canvas.
+Addresses **M1–M14**. N1–N4 deferred. Moves Device Preview domain out of `apps/api/src/simulator.rs` into `core-service`, splits probe by platform, vendors `expo/serve-emu` with the APP-060 install model, and keeps the web panel as an iframe. Does not spawn Metro, does not draw an Atmos phone canvas. Agent HID is [APP-071](../APP-071_device-preview-agent-control/TECH.md).
 
 ## Frozen decisions
 

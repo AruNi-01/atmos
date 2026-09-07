@@ -91,7 +91,7 @@ flowchart TD
 ## Out of Scope
 
 - **Metro / bundler / xcodebuild / gradle / install / launch** — not owned by Simulator today; a later spec.
-- **Agent device automation** (`tap`, `swipe`, `screenshot` as Chat tools) — reserve the claim/preview lifecycle first.
+- **Agent device automation** (`tap`, `swipe`, `screenshot` as Chat tools) — reserved here; specified in [APP-071](../APP-071_device-preview-agent-control/PRD.md).
 - **Physical devices** (USB / wireless adb, physical iPhones) — emulators and simulators only.
 - **Linux / Windows Android preview** — macOS arm64 only in this spec.
 - **Cloud / remote Computer iframe** — `127.0.0.1` on another machine is not this spec. Hosted Web **with a Computer on this Mac** is in (M12). Do not proxy helper HTTP through relay in v1.
@@ -118,4 +118,4 @@ flowchart TD
 ## Milestones
 
 - Phase 1 — M1–M14: per-platform probe, claim policy, serve-emu vendor/pack, iframe Android, chrome parity, iOS regression.
-- Phase 2 — N1, N3, N4, Agent tools, Metro lifecycle (separate specs as needed).
+- Phase 2 — N1, N3, N4, Metro lifecycle (separate specs as needed). Agent tools: [APP-071](../APP-071_device-preview-agent-control/PRD.md).
