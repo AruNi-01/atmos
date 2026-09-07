@@ -18,6 +18,7 @@ import {
 import {
   collectAgentChatGroupTabs,
   collectDiffGroupTabs,
+  collectSimulatorGroupTabs,
   paneScopedTabGroupKey,
   readPaneTabGroupOrder,
   type GroupedTabColumn,
@@ -178,6 +179,7 @@ export function useCenterStageTabGroups({
   githubHubTabVisible = false,
   filesTabVisible = false,
   ptDesignTabVisible = false,
+  simulatorTabVisible = false,
   githubTabs,
   openFiles,
   previewBrowserPrefs = DEFAULT_PREVIEW_BROWSER_PREFS,
@@ -195,6 +197,7 @@ export function useCenterStageTabGroups({
   githubHubTabVisible?: boolean;
   filesTabVisible?: boolean;
   ptDesignTabVisible?: boolean;
+  simulatorTabVisible?: boolean;
   githubTabs: GithubCenterTab[];
   openFiles: OpenFile[];
   previewBrowserPrefs?: PreviewBrowserPrefs;
@@ -409,6 +412,18 @@ export function useCenterStageTabGroups({
       });
     }
 
+    const simulatorGroupTabs = collectSimulatorGroupTabs(
+      simulatorTabVisible,
+      tabBarT("simulator"),
+    );
+    if (simulatorGroupTabs.length > 0) {
+      groups.push({
+        key: "simulator",
+        label: t("groups.simulator"),
+        tabs: simulatorGroupTabs,
+      });
+    }
+
     // Browser: list every internal tab across all open browser instances.
     // Different browsers are separated by a horizontal rule in the popover.
     const orderedBrowsers = [...browserTabs].sort(byOpenedAt);
@@ -454,6 +469,7 @@ export function useCenterStageTabGroups({
     projectWikiTabVisible,
     reviewTabVisible,
     runTabVisible,
+    simulatorTabVisible,
     t,
     tabBarT,
     terminalTabs,

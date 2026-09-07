@@ -10,6 +10,7 @@ import {
   probeCanStart,
   setupActionForReason,
   simulatorHelperReachable,
+  startablePlatforms,
   SIMULATOR_TAB_VALUE,
   type SimulatorPlatformProbe,
   type SimulatorProbe,
@@ -62,30 +63,57 @@ describe("control plane", () => {
     expect(client).not.toContain("desktopInvoke");
   });
 
-  it("does not start a helper until the user clicks Start", () => {
+  it("does not start a helper until the user picks iOS or Android", () => {
     const hook = readFileSync(
       join(import.meta.dir, "../hooks/use-simulator-session.ts"),
+      "utf8",
+    );
+    const card = readFileSync(
+      join(import.meta.dir, "../components/SimulatorSetupCard.tsx"),
       "utf8",
     );
     expect(hook).toContain("simulatorApi.probe()");
     expect(hook).toContain("simulatorApi.status(workspaceId)");
     expect(hook).not.toMatch(/if \(!active \|\| !workspaceId\) return;[\s\S]*void run\(\)/);
-    expect(enStartAction()).toBe("Start");
+    expect(hook).toContain("setPlatform(workspaceId, opts.platform)");
+    expect(card).toContain('onStart("ios")');
+    expect(card).toContain('onStart("android")');
+    expect(card).toContain('platform="ios"');
+    expect(card).toContain('platform="android"');
+    expect(card).toContain('size="xl"');
+    expect(card).toContain('className="min-w-0 flex-1"');
+    expect(card).not.toContain("flex-col gap-2");
+    expect(card).not.toContain("bg-card");
+    expect(card).not.toContain("rounded-xl border");
+    expect(enSimulatorActions().startIos).toBe("Start iOS");
+    expect(enSimulatorActions().startAndroid).toBe("Start Android");
   });
 });
-
-function enStartAction(): string {
-  return enSimulatorActions().start;
-}
 
 function enStopAction(): string {
   return enSimulatorActions().stop;
 }
 
-function enSimulatorActions(): { start: string; stop: string } {
+function enSimulatorActions(): {
+  start: string;
+  startIos: string;
+  startAndroid: string;
+  stop: string;
+} {
   const en = JSON.parse(
     readFileSync(join(repoRoot, "apps/web/messages/en.json"), "utf8"),
-  ) as { features: { simulator: { actions: { start: string; stop: string } } } };
+  ) as {
+    features: {
+      simulator: {
+        actions: {
+          start: string;
+          startIos: string;
+          startAndroid: string;
+          stop: string;
+        };
+      };
+    };
+  };
   return en.features.simulator.actions;
 }
 
@@ -172,10 +200,12 @@ describe("i18n", () => {
         simulator: {
           tab: string;
           starting: string;
-          actions: { installAndroidSdk: string; createAvd: string };
+          actions: { installAndroidSdk: string; createAvd: string; startIos: string };
+          choosePlatform: { title: string };
           reasons: { no_avd: { title: string }; not_desktop: { title: string; body: string } };
         };
       };
+      appShell: { centerStageTabGroups: { groups: { simulator: string } } };
     };
     const zh = JSON.parse(
       readFileSync(join(repoRoot, "apps/web/messages/zh.json"), "utf8"),
@@ -184,10 +214,12 @@ describe("i18n", () => {
         simulator: {
           tab: string;
           starting: string;
-          actions: { createAvd: string };
+          actions: { createAvd: string; startIos: string };
+          choosePlatform: { title: string };
           reasons: { no_avd: { title: string }; not_desktop: { title: string; body: string } };
         };
       };
+      appShell: { centerStageTabGroups: { groups: { simulator: string } } };
     };
     const dump = JSON.stringify(en.features.simulator);
     const zhDump = JSON.stringify(zh.features.simulator);
@@ -200,6 +232,12 @@ describe("i18n", () => {
     expect(en.features.simulator.actions.installAndroidSdk).toBe("Install Android Studio");
     expect(en.features.simulator.actions.createAvd).toBe("Create an Android virtual device");
     expect(zh.features.simulator.actions.createAvd).toBe("创建 Android 虚拟设备");
+    expect(en.features.simulator.actions.startIos).toBe("Start iOS");
+    expect(zh.features.simulator.actions.startIos).toBe("启动 iOS");
+    expect(en.features.simulator.choosePlatform.title).toBe("Choose a platform");
+    expect(zh.features.simulator.choosePlatform.title).toBe("选择平台");
+    expect(en.appShell.centerStageTabGroups.groups.simulator).toBe("Simulator");
+    expect(zh.appShell.centerStageTabGroups.groups.simulator).toBe("模拟器");
     expect(en.features.simulator.reasons.no_avd.title).toBe("No Android virtual device");
     expect(zh.features.simulator.reasons.no_avd.title).not.toBe(
       en.features.simulator.reasons.no_avd.title,
@@ -219,6 +257,15 @@ describe("center simulator tab", () => {
     );
     expect(tabBar).toContain("onCreateSimulator");
     expect(tabBar).toContain("newSimulator");
+    expect(tabBar).toContain("SimulatorTabIcon");
+
+    const groups = readFileSync(
+      join(import.meta.dir, "../../../app-shell/use-center-stage-tab-groups.ts"),
+      "utf8",
+    );
+    expect(groups).toContain("collectSimulatorGroupTabs");
+    expect(groups).toContain('key: "simulator"');
+    expect(groups).toContain('t("groups.simulator")');
 
     const frame = readFileSync(
       join(import.meta.dir, "../../../app-shell/workspace-center-frame.tsx"),
@@ -329,6 +376,48 @@ describe("nested probe reasons", () => {
     expect(displayReasonFromProbe(bothBlocked)).toBe("xcode_missing");
   });
 
+  it("lists startable platforms without defaulting to iOS", () => {
+    expect(
+      startablePlatforms({
+        ready: true,
+        reason: "ok",
+        platform: "macos",
+        arch: "aarch64",
+        macos_version: "15.0",
+        ios: readyPlatform(),
+        android: readyPlatform(),
+      }),
+    ).toEqual(["ios", "android"]);
+    expect(
+      startablePlatforms({
+        ready: true,
+        reason: "ok",
+        platform: "macos",
+        arch: "aarch64",
+        macos_version: "15.0",
+        ios: blockedPlatform("xcode_missing"),
+        android: {
+          ready: false,
+          reason: "helper_missing",
+          helper_installed: false,
+          helper_version: "0",
+          devices: [],
+        },
+      }),
+    ).toEqual(["android"]);
+    expect(
+      startablePlatforms({
+        ready: false,
+        reason: "unsupported_platform",
+        platform: "linux",
+        arch: "x86_64",
+        macos_version: null,
+        ios: blockedPlatform("unsupported_platform"),
+        android: blockedPlatform("unsupported_platform"),
+      }),
+    ).toEqual([]);
+  });
+
   it("maps no_device to claimed when probe still lists devices", () => {
     const probe: SimulatorProbe = {
       ready: true,
@@ -411,8 +500,17 @@ describe("serve-emu vendor + install", () => {
     expect(pack).toContain("runtime/serve-emu/${VERSION}");
     expect(pack).toContain("bun build --compile");
     expect(pack).toContain("missing $SCRCPY");
+    expect(pack).toContain('cp -R "$UI" "$STAGE/ui"');
+    expect(pack).toContain("missing UI build");
     expect(pack).not.toContain("npx");
     expect(pack).not.toContain("serve-avd");
+
+    const uiDir = readFileSync(
+      join(repoRoot, "vendor/serve-emu/packages/serve-emu/src/ui-dir.ts"),
+      "utf8",
+    );
+    expect(uiDir).toContain('join(dirname(exec), "ui")');
+    expect(uiDir).toContain("/$bunfs/");
 
     const spawn = readFileSync(
       join(repoRoot, "crates/core-service/src/service/device_preview/production.rs"),

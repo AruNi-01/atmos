@@ -78,6 +78,16 @@ export function probeCanStart(probe: SimulatorProbe): boolean {
   return platformCanStart(probe.ios) || platformCanStart(probe.android);
 }
 
+export function startablePlatforms(
+  probe: SimulatorProbe | null | undefined,
+): Array<"ios" | "android"> {
+  if (!probe || isHostBlockedReason(probe.reason)) return [];
+  const platforms: Array<"ios" | "android"> = [];
+  if (platformCanStart(probe.ios)) platforms.push("ios");
+  if (platformCanStart(probe.android)) platforms.push("android");
+  return platforms;
+}
+
 export function displayReasonFromProbe(probe: SimulatorProbe): SimulatorReason {
   if (isHostBlockedReason(probe.reason)) return probe.reason;
   if (probeCanStart(probe)) return probe.ready ? "ok" : "helper_missing";

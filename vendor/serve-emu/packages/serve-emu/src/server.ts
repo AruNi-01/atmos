@@ -1,5 +1,4 @@
-import { fileURLToPath } from "node:url";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import { timingSafeEqual } from "node:crypto";
 import type { ServerWebSocket } from "bun";
 import { getExecSnapshot } from "./exec.ts";
@@ -165,9 +164,9 @@ import {
   handleWebRtcStatsRequest,
   WebRtcStatsCollector,
 } from "./webrtc-stats.ts";
+import { resolveUiDir } from "./ui-dir.ts";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const UI_DIR = join(__dirname, "..", "dist", "ui");
+const UI_DIR = resolveUiDir();
 
 export type ServerOpts = {
   serial: string;

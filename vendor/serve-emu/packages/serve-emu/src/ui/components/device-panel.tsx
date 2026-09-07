@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { deviceSessionStore, useDeviceSessionSnapshot } from "../lib/device-session-store";
 import { usePoll } from "../lib/use-poll";
+import { CloseIcon, PhoneGlyph, SearchIcon } from "./chrome-icons";
 
 type GridDeviceKind = "physical" | "emulator" | "avd";
 
@@ -211,20 +212,22 @@ export function DevicePanel() {
 
   return (
     <section className="device-panel">
-      <div className="panel-heading">
-        <h2>Devices</h2>
-        <div className="location-status">{status}</div>
-      </div>
-
       <div className="device-search">
+        <SearchIcon />
         <input
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="Search devices and AVDs"
+          placeholder="Search"
+          aria-label="Search devices and AVDs"
         />
-        {query ? <button onClick={() => setQuery("")}>Clear</button> : null}
+        {query ? (
+          <button type="button" className="chrome-text-btn" onClick={() => setQuery("")}>
+            Clear
+          </button>
+        ) : null}
       </div>
 
+      <div className="device-list-label">Available</div>
       <div className="device-list android-grid-list">
         {filtered.length === 0 ? (
           <div className="device-empty">{query ? "No matching Android targets." : "No Android targets found."}</div>
@@ -243,7 +246,12 @@ export function DevicePanel() {
         )}
       </div>
 
-      <button onClick={refreshDevices}>Refresh Devices</button>
+      <div className="device-panel-footer">
+        <span>{status}</span>
+        <button type="button" className="chrome-text-btn" onClick={refreshDevices}>
+          Refresh
+        </button>
+      </div>
     </section>
   );
 }
@@ -585,8 +593,21 @@ function DeviceRow({
   onStop: () => void;
 }) {
   const isLiveCurrent = device.current && sessionStatus === "streaming";
-  const status = device.current ? (sessionStatus ?? "streaming") : device.state;
-  const title = device.kind === "avd" ? "AVD" : device.kind === "emulator" ? "EMU" : "USB";
+  const kindLabel = device.kind === "avd" ? "AVD" : device.kind === "emulator" ? "EMU" : "USB";
+  const statusText = busy
+    ? busy === "select"
+      ? "Switching…"
+      : busy === "start"
+        ? "Starting…"
+        : "Stopping…"
+    : isLiveCurrent
+      ? "Streaming"
+      : device.current
+        ? (sessionStatus ?? device.state)
+        : device.state === "device"
+          ? "Ready"
+          : device.serial ?? device.avd ?? "Not running";
+  const live = !busy && isLiveCurrent;
 
   return (
     <div className={device.current ? "device-row grid-device-row current" : "device-row grid-device-row"}>
@@ -596,20 +617,28 @@ function DeviceRow({
         disabled={!device.canSelect || Boolean(busy) || isLiveCurrent}
         onClick={onSelect}
       >
-        <span className="device-kind" title={device.kind}>{title}</span>
+        <span className={live ? "device-kind live" : "device-kind"} title={kindLabel}>
+          <PhoneGlyph />
+        </span>
         <span className="device-name">{device.name}</span>
-        <span className="device-subtitle">{device.serial ?? device.avd ?? "not running"}</span>
+        <span className={live ? "device-subtitle live" : "device-subtitle"}>{statusText}</span>
       </button>
       <div className="device-row-actions">
-        <code>{busy ?? status}</code>
         {device.canStart ? (
-          <button disabled={Boolean(busy)} onClick={onStart}>
+          <button type="button" className="chrome-text-btn" disabled={Boolean(busy)} onClick={onStart}>
             Start
           </button>
         ) : null}
         {device.canStop ? (
-          <button disabled={Boolean(busy)} onClick={onStop}>
-            Stop
+          <button
+            type="button"
+            className="chrome-icon-btn row-stop"
+            disabled={Boolean(busy)}
+            onClick={onStop}
+            aria-label="Stop device"
+            title="Stop"
+          >
+            <CloseIcon size={13} />
           </button>
         ) : null}
       </div>

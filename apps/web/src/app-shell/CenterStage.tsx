@@ -196,6 +196,7 @@ import {
 import {
   SIMULATOR_TAB_VALUE,
   useSimulatorCenterTabStore,
+  useSimulatorRuntimeStore,
 } from "@/features/simulator";
 import { simulatorApi } from "@/api/ws/simulator-api";
 import { GIT_HISTORY_TAB_VALUE } from "@/features/git/types";
@@ -1356,6 +1357,9 @@ const CenterStage: React.FC = () => {
     activateNextAfterClosing(SIMULATOR_TAB_VALUE, { paneId });
     closeSurfaceIfUnowned(effectiveContextId, SIMULATOR_TAB_VALUE, () => {
       closeSimulatorTab(effectiveContextId);
+      const runtime = useSimulatorRuntimeStore.getState();
+      runtime.setRunning(effectiveContextId, false);
+      runtime.setPlatform(effectiveContextId, null);
       void simulatorApi.stop(effectiveContextId).catch(() => {});
     });
   }, [activateNextAfterClosing, closeSimulatorTab, effectiveContextId]);
@@ -2419,6 +2423,7 @@ const CenterStage: React.FC = () => {
     openFiles,
     previewBrowserPrefs,
     projectWikiTabVisible,
+    simulatorTabVisible,
     terminalTabs: visibleTerminalTabs,
     agentChatTabs,
   });

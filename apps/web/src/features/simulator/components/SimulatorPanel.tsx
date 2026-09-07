@@ -79,6 +79,10 @@ export function SimulatorPanel({
       reason={session.reason}
       error={session.error}
       action={session.action}
+      probe={session.probe}
+      onStart={(platform) => {
+        void session.start({ platform });
+      }}
       onRetry={session.retry}
     />
   );

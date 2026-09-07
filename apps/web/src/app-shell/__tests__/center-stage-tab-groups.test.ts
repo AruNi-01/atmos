@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   collectAgentChatGroupTabs,
   collectDiffGroupTabs,
+  collectSimulatorGroupTabs,
   filterGroupedTabItemsByAllowedIds,
 } from "@/app-shell/center-stage-tab-groups";
 import { EDITOR_DIFF_GROUP_PREFIX } from "@/features/diff/lib/diff-editor-paths";
@@ -112,6 +113,23 @@ describe("collectAgentChatGroupTabs", () => {
 
   test("omits an empty chat group", () => {
     expect(collectAgentChatGroupTabs([])).toEqual([]);
+  });
+});
+
+describe("collectSimulatorGroupTabs", () => {
+  test("omits the group when the simulator tab is closed", () => {
+    expect(collectSimulatorGroupTabs(false, "Simulator")).toEqual([]);
+  });
+
+  test("adds a simulator column item when the tab is open", () => {
+    expect(collectSimulatorGroupTabs(true, "Simulator")).toEqual([
+      {
+        id: "simulator",
+        label: "Simulator",
+        value: "simulator",
+        kind: "simulator",
+      },
+    ]);
   });
 });
 

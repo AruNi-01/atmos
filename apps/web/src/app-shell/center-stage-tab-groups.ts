@@ -108,3 +108,18 @@ export function collectAgentChatGroupTabs(
       providerId: tab.providerId,
     }));
 }
+
+export function collectSimulatorGroupTabs(
+  visible: boolean,
+  label: string,
+): TabGroupItem[] {
+  if (!visible) return [];
+  return [
+    {
+      id: "simulator",
+      label,
+      value: "simulator",
+      kind: "simulator",
+    },
+  ];
+}

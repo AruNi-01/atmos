@@ -13,6 +13,7 @@ import { StatusBar } from "./components/status-bar";
 import type { AccessibilityNode } from "./components/accessibility-panel";
 import { DevicePanel } from "./components/device-panel";
 import { DeviceStream } from "./components/device-stream";
+import { CloseIcon, PanelRightIcon, PowerIcon } from "./components/chrome-icons";
 import { ControlBar, type HardwareKey } from "./components/control-bar";
 import { SideTools } from "./components/side-tools";
 import {
@@ -174,6 +175,17 @@ const AppShell = memo(function AppShell() {
   }, []);
 
   useEffect(() => {
+    if (!stopOpen) return;
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest(".chrome-stop-wrap")) return;
+      setStopOpen(false);
+    };
+    window.addEventListener("pointerdown", onPointerDown);
+    return () => window.removeEventListener("pointerdown", onPointerDown);
+  }, [stopOpen]);
+
+  useEffect(() => {
     const proxy = keyboardProxyRef.current;
     if (!proxy) return;
 
@@ -252,67 +264,90 @@ const AppShell = memo(function AppShell() {
         ].join(" ")}
         data-app-shell-renders={renderCountRef.current}
       >
-        <aside className="device-sidebar" aria-label="Devices sidebar">
-          <div className="device-sidebar-header">
+        <aside
+          className="device-sidebar chrome-overlay-panel"
+          aria-label="Devices"
+          aria-hidden={!devicesOpen}
+        >
+          <div className="chrome-panel-header">
+            <span className="chrome-panel-title">Devices</span>
             <button
               type="button"
-              className="sidebar-toggle"
-              onClick={() => setDevicesOpen((open) => !open)}
-              aria-label={devicesOpen ? "Collapse devices sidebar" : "Expand devices sidebar"}
-              title={devicesOpen ? "Collapse devices" : "Expand devices"}
+              className="chrome-icon-btn"
+              onClick={() => setDevicesOpen(false)}
+              aria-label="Close devices"
+              title="Close"
             >
-              <SidebarIcon collapsed={!devicesOpen} />
+              <CloseIcon />
             </button>
-            {devicesOpen ? <span>Devices</span> : null}
           </div>
-          {devicesOpen ? <StableDevicePanel /> : null}
+          <StableDevicePanel />
         </aside>
         <div className="device" data-atmos-device-stage="">
-          <div className="atmos-device-chrome" data-atmos-device-identity="">
-            <button
-              type="button"
-              className="atmos-device-name"
-              onClick={() => setDevicesOpen((open) => !open)}
-              aria-label="Open device list"
-            >
-              {deviceLabel}
-            </button>
-            <button
-              type="button"
-              className="atmos-stop"
-              style={{ color: "#f87171" }}
-              onClick={() => setStopOpen((open) => !open)}
-              aria-label="Stop preview"
-            >
-              Stop
-            </button>
-            <button
-              type="button"
-              onClick={() => setToolsOpen((open) => !open)}
-              aria-label="Open tools panel"
-            >
-              Tools
-            </button>
-          </div>
-          {stopOpen ? (
-            <div className="atmos-stop-confirm">
-              <p>Stop the emulator preview?</p>
+          <div className="atmos-device-chrome">
+            <div className="chrome-pill" data-atmos-device-identity="">
               <button
                 type="button"
-                onClick={() => {
-                  if (window.parent && window.parent !== window) {
-                    window.parent.postMessage({ type: "atmos:simulator-stop" }, "*");
-                  }
-                  setStopOpen(false);
-                }}
+                className="chrome-device-name"
+                onClick={() => setDevicesOpen((open) => !open)}
+                aria-label="Open device list"
+                aria-pressed={devicesOpen}
               >
-                Stop
-              </button>
-              <button type="button" onClick={() => setStopOpen(false)}>
-                Cancel
+                {deviceLabel}
               </button>
             </div>
-          ) : null}
+            <div className="chrome-pill chrome-actions-pill">
+              <div className="chrome-stop-wrap">
+                <button
+                  type="button"
+                  className="chrome-icon-btn atmos-stop"
+                  style={{ color: "#f87171" }}
+                  onClick={() => setStopOpen((open) => !open)}
+                  aria-label="Stop preview"
+                  aria-expanded={stopOpen}
+                  title="Stop"
+                >
+                  <PowerIcon />
+                </button>
+                {stopOpen ? (
+                  <div className="atmos-stop-confirm">
+                    <p>Stop the emulator preview?</p>
+                    <div className="atmos-stop-actions">
+                      <button
+                        type="button"
+                        className="chrome-text-btn"
+                        onClick={() => setStopOpen(false)}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        className="confirm-stop"
+                        onClick={() => {
+                          if (window.parent && window.parent !== window) {
+                            window.parent.postMessage({ type: "atmos:simulator-stop" }, "*");
+                          }
+                          setStopOpen(false);
+                        }}
+                      >
+                        Stop
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+              <button
+                type="button"
+                className={toolsOpen ? "chrome-icon-btn pressed" : "chrome-icon-btn"}
+                onClick={() => setToolsOpen((open) => !open)}
+                aria-label="Open tools panel"
+                aria-pressed={toolsOpen}
+                title="Tools"
+              >
+                <PanelRightIcon />
+              </button>
+            </div>
+          </div>
           <DeviceStream
             canvasRef={canvasRef}
             videoRef={videoRef}
@@ -336,12 +371,29 @@ const AppShell = memo(function AppShell() {
             autoCorrect="off"
             spellCheck={false}
           />
-          <div data-atmos-device-actions="">
+          <div className="chrome-pill chrome-nav-pill" data-atmos-device-actions="">
             <StableControlBar onPress={onPress} />
           </div>
         </div>
-        {toolsOpen ? (
-          <aside className="side-panel" data-atmos-tools-panel="" aria-label="Tools">
+        <aside
+          className="side-panel chrome-overlay-panel"
+          data-atmos-tools-panel=""
+          aria-label="Tools"
+          aria-hidden={!toolsOpen}
+        >
+          <div className="chrome-panel-header">
+            <span className="chrome-panel-title">Tools</span>
+            <button
+              type="button"
+              className="chrome-icon-btn"
+              onClick={() => setToolsOpen(false)}
+              aria-label="Close tools"
+              title="Close"
+            >
+              <CloseIcon />
+            </button>
+          </div>
+          <div className="side-panel-body">
             <SideTools
               accessibilityEnabled={accessibilityEnabled}
               accessibilityNodes={accessibilityNodes}
@@ -350,8 +402,8 @@ const AppShell = memo(function AppShell() {
               onAccessibilityNodesChange={setAccessibilityNodes}
               onAccessibilityHighlight={setHighlightedAccessibilityId}
             />
-          </aside>
-        ) : null}
+          </div>
+        </aside>
       </main>
     </>
   );
@@ -389,17 +441,3 @@ function useClaimedDeviceLabel(): string {
   return label;
 }
 
-function SidebarIcon({ collapsed }: { collapsed: boolean }) {
-  return (
-    <svg
-      aria-hidden="true"
-      className={collapsed ? "sidebar-icon collapsed" : "sidebar-icon"}
-      viewBox="0 0 20 20"
-      fill="none"
-    >
-      <rect x="3" y="3" width="14" height="14" rx="2.5" stroke="currentColor" strokeWidth="1.6" />
-      <path d="M8 3.75V16.25" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-      <path d="M12.5 7.5L10 10L12.5 12.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}

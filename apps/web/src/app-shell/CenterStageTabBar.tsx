@@ -66,6 +66,7 @@ import {
 import { Github } from "@workspace/ui/components/icons/lucide-brand-icons";
 import type { CenterToolTabValue } from "@/app-shell/center-tool-tabs";
 import { AgentIcon } from "@/features/agent/components/AgentIcon";
+import { SimulatorTabIcon } from "@/features/simulator/components/SimulatorTabIcon";
 import {
   EMPTY_AGENT_CHAT_TABS,
   useAgentChatCenterTabsStore,
@@ -634,7 +635,7 @@ export function CenterStageTabBar({
         <SpecialTerminalTab
           key={tab.id}
           closeLabel={t("centerStageTabBar.closeSimulatorTab")}
-          icon={<Smartphone className="size-3.5 shrink-0" />}
+          icon={<SimulatorTabIcon className="size-3.5 shrink-0" contextId={effectiveContextId} />}
           label={t("centerStageTabBar.simulator")}
           shortcutDigit={shortcutDigit}
           tooltip={t("centerStageTabBar.simulator")}

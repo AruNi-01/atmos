@@ -25,14 +25,16 @@ export function StatusBar({ status, deviceSize, fps, stats, controlError }: Prop
         .join(" • ")
     : undefined;
   return (
-    <header>
-      <h1>Device preview</h1>
-      <div className="status-details">
-        {controlError ? (
-          <div className="control-error" role="alert">{controlError}</div>
-        ) : null}
-        <div className="meta" title={detail}>{meta}</div>
-      </div>
-    </header>
+    <>
+      <header className="preview-status">
+        <h1>Device preview</h1>
+        <div className="status-details">
+          <div className="meta" title={detail}>{meta}</div>
+        </div>
+      </header>
+      {controlError ? (
+        <div className="control-error-banner" role="alert">{controlError}</div>
+      ) : null}
+    </>
   );
 }

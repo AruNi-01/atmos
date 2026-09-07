@@ -1286,6 +1286,7 @@
         "conflict": "Conflict Resolve",
         "github": "GitHub",
         "browser": "Browser",
+        "simulator": "Simulator",
         "other": "Tabs"
       },
       "browser": {
@@ -10990,6 +10991,10 @@
       "downloading": "Downloading device preview helper… {percent}%",
       "starting": "Starting device preview…",
       "checking": "Checking devices…",
+      "choosePlatform": {
+        "title": "Choose a platform",
+        "body": "Start an iOS Simulator or an Android Emulator. This workspace can run one device at a time."
+      },
       "actions": {
         "needDesktop": "Get Atmos Desktop",
         "installXcode": "Install Xcode",
@@ -10998,6 +11003,8 @@
         "createAvd": "Create an Android virtual device",
         "retry": "Retry",
         "start": "Start",
+        "startIos": "Start iOS",
+        "startAndroid": "Start Android",
         "stop": "Stop",
         "cancel": "Cancel"
       },

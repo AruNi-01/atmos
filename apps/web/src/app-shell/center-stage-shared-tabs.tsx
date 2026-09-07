@@ -31,11 +31,11 @@ import {
   Globe,
   MessagesSquare,
   Play,
-  Smartphone,
   SquareTerminal as TerminalIcon,
   Workflow,
 } from "lucide-react";
 import { Github } from "@workspace/ui/components/icons/lucide-brand-icons";
+import { SimulatorTabIcon } from "@/features/simulator/components/SimulatorTabIcon";
 
 import {
   EDITOR_REVIEW_DIFF_PREFIX,
@@ -575,7 +575,12 @@ export function CenterStageTabGroupItemContent({
   if (tab.kind === "simulator") {
     return (
       <>
-        {leading(<Smartphone className="size-3.5 shrink-0" />)}
+        {leading(
+          <SimulatorTabIcon
+            className="size-3.5 shrink-0"
+            contextId={effectiveContextId}
+          />,
+        )}
         {label(tab.label)}
       </>
     );

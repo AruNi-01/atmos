@@ -1,5 +1,4 @@
-import { fileURLToPath } from "node:url";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import {
   getFontScale,
@@ -27,6 +26,7 @@ import {
 } from "./device-capabilities.ts";
 import { loadDeviceGrid } from "./device-grid.ts";
 import { FrameStatWindow } from "./frame-stat-window.ts";
+import { resolveUiDir } from "./ui-dir.ts";
 import {
   listAvds,
   listRunningAvds,
@@ -139,9 +139,7 @@ export type {
 export { STREAM_TRANSPORTS } from "./stream-settings.ts";
 export type { StreamTransport } from "./stream-settings.ts";
 
-const here = dirname(fileURLToPath(import.meta.url));
-// `src/middleware.ts` and `dist/middleware.mjs` both resolve to `<pkg>/dist/ui`.
-const UI_DIR = join(here, "..", "dist", "ui");
+const UI_DIR = resolveUiDir();
 
 export type AppOptions = {
   serial: string;

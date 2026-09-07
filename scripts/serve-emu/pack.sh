@@ -69,10 +69,13 @@ BIN="$VENDOR/dist/serve-emu"
 [[ -x "$BIN" ]] || { echo "missing compiled binary: $BIN" >&2; exit 1; }
 SCRCPY="$VENDOR/vendor/scrcpy-server-v4.0"
 [[ -f "$SCRCPY" ]] || { echo "missing $SCRCPY (bun run setup must fetch scrcpy-server)" >&2; exit 1; }
+UI="$VENDOR/dist/ui"
+[[ -f "$UI/index.html" ]] || { echo "missing UI build: $UI/index.html (bun run setup must build:ui)" >&2; exit 1; }
 
 cp "$BIN" "$STAGE/serve-emu"
 chmod +x "$STAGE/serve-emu"
 cp "$SCRCPY" "$STAGE/vendor/scrcpy-server-v4.0"
+cp -R "$UI" "$STAGE/ui"
 cp "$ROOT/vendor/serve-emu/LICENSE" "$STAGE/LICENSE"
 cp "$ROOT/vendor/serve-emu/ATMOS-PATCHES.md" "$STAGE/ATMOS-PATCHES.md"
 

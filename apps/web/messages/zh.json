@@ -1286,6 +1286,7 @@
         "conflict": "冲突解决",
         "github": "GitHub",
         "browser": "浏览器",
+        "simulator": "模拟器",
         "other": "标签页"
       },
       "browser": {
@@ -10991,6 +10992,10 @@
       "downloading": "正在下载设备预览助手… {percent}%",
       "starting": "正在启动设备预览…",
       "checking": "正在检查设备…",
+      "choosePlatform": {
+        "title": "选择平台",
+        "body": "启动 iOS 模拟器或 Android 模拟器。同一个工作区一次只能占用一台设备。"
+      },
       "actions": {
         "needDesktop": "获取 Atmos Desktop",
         "installXcode": "安装 Xcode",
@@ -10999,6 +11004,8 @@
         "createAvd": "创建 Android 虚拟设备",
         "retry": "重试",
         "start": "启动",
+        "startIos": "启动 iOS",
+        "startAndroid": "启动 Android",
         "stop": "停止",
         "cancel": "取消"
       },
