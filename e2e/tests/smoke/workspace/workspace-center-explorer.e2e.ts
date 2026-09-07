@@ -329,8 +329,11 @@ test.describe("smoke workspace center explorer", () => {
 
     await filesToggle.click();
     await expect(filesSidecar).toHaveAttribute("data-center-explorer-open", "false");
-    const collapsedBox = await filesSidecar.boundingBox();
-    expect(collapsedBox?.width ?? 0).toBeLessThan(8);
+    await expect
+      .poll(async () => (await filesSidecar.boundingBox())?.width ?? 0, {
+        timeout: 5_000,
+      })
+      .toBeLessThan(8);
     await page.screenshot({
       path: `${ARTIFACTS_DIR}/files_sidecar_collapsed.png`,
     });
@@ -356,7 +359,7 @@ test.describe("smoke workspace center explorer", () => {
     });
 
     await changesLanding.locator('[data-center-explorer-row="recent-commit"]').first().click();
-    await expect(page.getByRole("tab", { name: /Graph History|图形历史/ })).toBeVisible({
+    await expect(page.getByRole("tab", { name: /Commit|提交/ })).toBeVisible({
       timeout: 20_000,
     });
     await page.screenshot({
