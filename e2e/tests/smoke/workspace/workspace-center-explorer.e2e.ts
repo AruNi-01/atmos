@@ -67,6 +67,30 @@ async function expectSidecarOnRight(
   expect(side.y).toBeGreaterThanOrEqual(bar.y + bar.height - 2);
 }
 
+async function dismissHoverPlusMenu(page: Page) {
+  await page.keyboard.press("Escape");
+  await expect(
+    page.locator("[data-center-stage-plus-menu][data-state='open']"),
+  ).toHaveCount(0);
+}
+
+/**
+ * Reach a point below the tab strip without crossing the plus trigger.
+ * Hover-open plus mutes `[data-center-panel-host] *` pointer events, so a
+ * straight mouse path from Files/Changes into the sidecar never starts a drag.
+ */
+async function moveMouseBelowTabStrip(page: Page, x: number, y: number) {
+  const plus = page.locator("[data-center-stage-plus-trigger]").first();
+  const plusBox = await plus.boundingBox();
+  if (plusBox) {
+    await page.mouse.move(
+      Math.max(0, plusBox.x - 8),
+      plusBox.y + plusBox.height + 8,
+    );
+  }
+  await page.mouse.move(x, y);
+}
+
 async function resizeSidecar(
   page: Page,
   kind: "files" | "changes",
@@ -79,10 +103,14 @@ async function resizeSidecar(
   const handle = sidecar.locator("[data-center-explorer-resize]");
   const handleBox = await handle.boundingBox();
   const grab = handleBox ?? before;
+  // Prefer the visible inner half: overflow-hidden clips `-translate-x-1/2`.
+  const x = grab.x + Math.max(4, grab.width * 0.6);
   const y = grab.y + Math.min(48, Math.max(8, grab.height / 2));
-  await page.mouse.move(grab.x + 1, y);
+  await moveMouseBelowTabStrip(page, x, y);
+  await dismissHoverPlusMenu(page);
+  await page.mouse.move(x, y);
   await page.mouse.down();
-  await page.mouse.move(grab.x + 1 + deltaX, y, { steps: 8 });
+  await page.mouse.move(x + deltaX, y, { steps: 8 });
   await page.mouse.up();
   const next = await sidecar.boundingBox();
   expect(next, `${kind} sidecar box after resize`).toBeTruthy();
