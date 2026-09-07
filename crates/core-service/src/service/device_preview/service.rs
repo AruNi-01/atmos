@@ -9,7 +9,7 @@ use super::hooks::{DevicePreviewHooks, EnsureError, SpawnSpec};
 use super::paths::DevicePreviewPaths;
 use super::persist::{load_claims, load_prefs, persist_claims, persist_prefs};
 use super::pick::{pick_device, pick_reason};
-use super::probe::{all_devices, assemble_probe, host_reason};
+use super::probe::{all_devices, assemble_probe, host_reason, AssembleProbeInput};
 use super::production::ProductionHooks;
 use super::types::{
     claim_preview_url, helper_process_ids, DeviceClaim, HelperKind, HelperPin, LastDevicePref,
@@ -93,20 +93,20 @@ impl DevicePreviewService {
             .helper_installed(HelperKind::ServeEmu, &self.emu_pin.version);
         let ios_devices = annotate(&ios.devices, claims);
         let android_devices = annotate(&android.devices, claims);
-        assemble_probe(
+        assemble_probe(AssembleProbeInput {
             platform,
             arch,
             macos_version,
             host,
-            &ios,
-            &android,
+            ios: &ios,
+            android: &android,
             ios_devices,
             android_devices,
             ios_helper,
             android_helper,
-            &self.sim_pin,
-            &self.emu_pin,
-        )
+            ios_pin: &self.sim_pin,
+            android_pin: &self.emu_pin,
+        })
     }
 
     pub async fn start(

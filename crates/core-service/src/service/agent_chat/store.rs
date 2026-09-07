@@ -79,7 +79,6 @@ impl AgentChatStore {
                     mode: req.mode,
                     permission_mode: req.permission_mode,
                     fast: req.fast,
-                    ..AgentCurrentConfig::default()
                 },
             ),
             parent_chat_id: None,

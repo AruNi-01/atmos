@@ -76,37 +76,40 @@ pub fn android_platform_reason(
     SimulatorReason::Ok
 }
 
-pub fn assemble_probe(
-    platform: String,
-    arch: String,
-    macos_version: Option<String>,
-    host: Option<SimulatorReason>,
-    ios: &IosSnapshot,
-    android: &AndroidSnapshot,
-    ios_devices: Vec<SimulatorDevice>,
-    android_devices: Vec<SimulatorDevice>,
-    ios_helper: bool,
-    android_helper: bool,
-    ios_pin: &HelperPin,
-    android_pin: &HelperPin,
-) -> SimulatorProbe {
-    let ios_reason = ios_platform_reason(host.clone(), ios, ios_helper);
-    let android_reason = android_platform_reason(host.clone(), android, android_helper);
+pub(super) struct AssembleProbeInput<'a> {
+    pub platform: String,
+    pub arch: String,
+    pub macos_version: Option<String>,
+    pub host: Option<SimulatorReason>,
+    pub ios: &'a IosSnapshot,
+    pub android: &'a AndroidSnapshot,
+    pub ios_devices: Vec<SimulatorDevice>,
+    pub android_devices: Vec<SimulatorDevice>,
+    pub ios_helper: bool,
+    pub android_helper: bool,
+    pub ios_pin: &'a HelperPin,
+    pub android_pin: &'a HelperPin,
+}
+
+pub fn assemble_probe(input: AssembleProbeInput<'_>) -> SimulatorProbe {
+    let ios_reason = ios_platform_reason(input.host.clone(), input.ios, input.ios_helper);
+    let android_reason =
+        android_platform_reason(input.host.clone(), input.android, input.android_helper);
     let ios = PlatformProbe {
         ready: ios_reason == SimulatorReason::Ok,
         reason: ios_reason,
-        helper_installed: ios_helper,
-        helper_version: ios_pin.version.clone(),
-        devices: ios_devices,
+        helper_installed: input.ios_helper,
+        helper_version: input.ios_pin.version.clone(),
+        devices: input.ios_devices,
     };
     let android = PlatformProbe {
         ready: android_reason == SimulatorReason::Ok,
         reason: android_reason,
-        helper_installed: android_helper,
-        helper_version: android_pin.version.clone(),
-        devices: android_devices,
+        helper_installed: input.android_helper,
+        helper_version: input.android_pin.version.clone(),
+        devices: input.android_devices,
     };
-    let reason = if let Some(host) = host {
+    let reason = if let Some(host) = input.host {
         host
     } else if ios.ready || android.ready {
         SimulatorReason::Ok
@@ -120,9 +123,9 @@ pub fn assemble_probe(
     SimulatorProbe {
         ready: ios.ready || android.ready,
         reason,
-        platform,
-        arch,
-        macos_version,
+        platform: input.platform,
+        arch: input.arch,
+        macos_version: input.macos_version,
         ios,
         android,
     }
@@ -186,20 +189,20 @@ mod tests {
             emulator: true,
             devices: vec![avd()],
         };
-        let probe = assemble_probe(
-            "macos".into(),
-            "aarch64".into(),
-            Some("15.0".into()),
-            None,
-            &ios,
-            &android,
-            vec![],
-            vec![SimulatorDevice::from_host(avd(), None)],
-            false,
-            true,
-            &pin(),
-            &pin(),
-        );
+        let probe = assemble_probe(AssembleProbeInput {
+            platform: "macos".into(),
+            arch: "aarch64".into(),
+            macos_version: Some("15.0".into()),
+            host: None,
+            ios: &ios,
+            android: &android,
+            ios_devices: vec![],
+            android_devices: vec![SimulatorDevice::from_host(avd(), None)],
+            ios_helper: false,
+            android_helper: true,
+            ios_pin: &pin(),
+            android_pin: &pin(),
+        });
         assert_eq!(probe.ios.reason, SimulatorReason::XcodeMissing);
         assert!(probe.android.ready);
         assert!(probe.can_start());
@@ -219,20 +222,20 @@ mod tests {
             emulator: false,
             devices: vec![],
         };
-        let probe = assemble_probe(
-            "macos".into(),
-            "aarch64".into(),
-            Some("15.0".into()),
-            None,
-            &ios,
-            &android,
-            vec![SimulatorDevice::from_host(iphone(), None)],
-            vec![],
-            true,
-            false,
-            &pin(),
-            &pin(),
-        );
+        let probe = assemble_probe(AssembleProbeInput {
+            platform: "macos".into(),
+            arch: "aarch64".into(),
+            macos_version: Some("15.0".into()),
+            host: None,
+            ios: &ios,
+            android: &android,
+            ios_devices: vec![SimulatorDevice::from_host(iphone(), None)],
+            android_devices: vec![],
+            ios_helper: true,
+            android_helper: false,
+            ios_pin: &pin(),
+            android_pin: &pin(),
+        });
         assert!(probe.ios.ready);
         assert_eq!(probe.android.reason, SimulatorReason::AndroidSdkMissing);
         assert!(probe.can_start());
