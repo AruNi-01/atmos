@@ -91,6 +91,26 @@ async function moveMouseBelowTabStrip(page: Page, x: number, y: number) {
   await page.mouse.move(x, y);
 }
 
+/**
+ * MorphingSearch keeps a closed trigger in the landing and portals the
+ * combobox to `document.body`. Filling `[data-center-explorer-search]`
+ * (a wrapper div) throws; type into the open overlay instead.
+ */
+async function searchFilesLanding(
+  page: Page,
+  filesLanding: Locator,
+  query: string,
+) {
+  await dismissHoverPlusMenu(page);
+  const trigger = filesLanding.locator("[data-morphing-search-trigger]");
+  await expect(trigger).toBeVisible();
+  await trigger.click();
+  const overlay = page.getByRole("dialog", { name: "Search" });
+  await expect(overlay).toBeVisible({ timeout: 10_000 });
+  await overlay.getByRole("combobox").fill(query);
+  return overlay;
+}
+
 async function resizeSidecar(
   page: Page,
   kind: "files" | "changes",
@@ -199,15 +219,15 @@ test.describe("smoke workspace center explorer", () => {
     });
     await resizeSidecar(page, "files", 80);
 
-    const search = filesLanding.locator("[data-center-explorer-search]");
-    await search.fill(".agents");
+    const searchOverlay = await searchFilesLanding(page, filesLanding, ".agents");
     await expect(
-      filesLanding.getByRole("button", { name: ".agents", exact: true }),
+      searchOverlay.getByRole("option", { name: ".agents", exact: true }),
     ).toBeVisible({ timeout: 20_000 });
     await page.screenshot({
       path: `${ARTIFACTS_DIR}/files_sidecar_landing.png`,
     });
-    await search.fill("");
+    await page.keyboard.press("Escape");
+    await expect(searchOverlay).toHaveCount(0);
     await expect(filesLanding.getByRole("button", { name: /New File|新建文件/ })).toBeVisible();
 
     const filesSidecar = page.locator('[data-center-explorer="files"]');
