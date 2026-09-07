@@ -29,21 +29,25 @@ function clearWorkingTreeChange() {
   }
 }
 
+function openExplorerSidecar(page: Page, kind: "files" | "changes") {
+  return page.locator(
+    `[data-center-explorer="${kind}"][data-center-explorer-open="true"]`,
+  );
+}
+
 async function expectSidecarOnRight(
   page: Page,
   kind: "files" | "changes",
 ) {
-  const sidecar = page.locator(`[data-center-explorer="${kind}"]`);
+  const sidecar = openExplorerSidecar(page, kind);
   const landing = page.locator(`[data-center-explorer-landing="${kind}"]`);
   const toggle = landing.locator(`[data-center-explorer-toggle="${kind}"]`);
-  if ((await sidecar.getAttribute("data-center-explorer-open")) !== "true") {
+  if ((await sidecar.count()) === 0) {
     if (await toggle.isVisible().catch(() => false)) {
       await toggle.click({ timeout: 5_000 }).catch(() => undefined);
     }
   }
-  await expect(sidecar).toHaveAttribute("data-center-explorer-open", "true", {
-    timeout: 45_000,
-  });
+  await expect(sidecar).toHaveCount(1, { timeout: 45_000 });
   const stage = await getCenterStage(page);
   const sidecarBox = await sidecar.boundingBox();
   const stageBox = await stage.boundingBox();
@@ -116,7 +120,7 @@ async function resizeSidecar(
   kind: "files" | "changes",
   deltaX: number,
 ) {
-  const sidecar = page.locator(`[data-center-explorer="${kind}"]`);
+  const sidecar = openExplorerSidecar(page, kind);
   const box = await sidecar.boundingBox();
   expect(box, `${kind} sidecar box before resize`).toBeTruthy();
   const before = box!;
@@ -369,7 +373,9 @@ test.describe("smoke workspace center explorer", () => {
 
     await activateWorkspaceToolTab(page, /^(Changes|变更)$/);
 
-    const changesSidecar = page.locator('[data-center-explorer="changes"]');
+    // Each Changes fold scope (landing vs diff-group://commit) keeps a sidecar
+    // node; only the active surface is open.
+    const changesSidecar = openExplorerSidecar(page, "changes");
     await expect(changesSidecar).toHaveCount(1);
     const changeFile = changesSidecar.getByText(CHANGE_SEED_RELATIVE, { exact: true });
     await expect(changeFile).toBeVisible({ timeout: 45_000 });
