@@ -1,0 +1,11 @@
+{
+  "name": "serve-emu",
+  "version": "0.0.5-atmos.1",
+  "minos": "14.0",
+  "arch": "arm64",
+  "release_tag": "serve-emu-0.0.5-atmos.1",
+  "asset": "serve-emu-0.0.5-atmos.1-darwin-arm64.tar.gz",
+  "sha256": "",
+  "download_url": "https://github.com/AruNi-01/atmos/releases/download/serve-emu-0.0.5-atmos.1/serve-emu-0.0.5-atmos.1-darwin-arm64.tar.gz",
+  "upstream_commit": "def2e0d87a60857ba5a303750bcb7de9f5fc7185"
+}

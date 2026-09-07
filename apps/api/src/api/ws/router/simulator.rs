@@ -8,8 +8,8 @@ use super::{
 };
 
 impl WsMessageService {
-    pub(super) fn handle_simulator_probe(&self) -> Result<Value> {
-        serde_json::to_value(self.simulator.probe())
+    pub(super) async fn handle_simulator_probe(&self) -> Result<Value> {
+        serde_json::to_value(self.simulator.probe().await)
             .map_err(|e| ServiceError::Processing(e.to_string()))
     }
 
@@ -21,13 +21,15 @@ impl WsMessageService {
             .simulator
             .start(
                 &req.workspace_id,
+                req.platform,
                 req.udid.as_deref(),
-                move |downloaded, total| {
+                move |helper, downloaded, total| {
                     if let Some(mgr) = &ws_manager {
                         let notification = WsMessage::notification(
                             WsEvent::SimulatorDownloadProgress,
                             json!({
                                 "workspace_id": ws_id,
+                                "helper": helper.as_wire(),
                                 "downloaded": downloaded,
                                 "total": total,
                             }),

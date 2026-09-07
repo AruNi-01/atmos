@@ -360,6 +360,7 @@ export function stripPathEchoFromToolHeading(
 
   const aliases = new Set<string>();
   for (const candidate of [primary, normalizeFsPath(primary), ...extraAliases]) {
+    if (!candidate) continue;
     const value = candidate.trim();
     if (!value) continue;
     aliases.add(value);

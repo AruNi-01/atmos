@@ -5,6 +5,7 @@ pub mod error;
 pub mod fs;
 pub mod git;
 pub mod github;
+pub mod host_devices;
 pub mod linear;
 pub mod local_services;
 pub mod project_atmos;
@@ -33,6 +34,12 @@ pub use git::{
     HistoryPage, HistoryRef, HistoryRefKind, WorktreeInfo,
 };
 pub use github::GithubEngine;
+pub use host_devices::{
+    collect_android_snapshot, collect_ios_snapshot, merge_android_devices, parse_adb_devices_l,
+    parse_avd_list, parse_emu_avd_name, parse_simctl_devices, resolve_android_toolchain_from,
+    AdbDeviceLine, AndroidSnapshot, AndroidToolchain, BootState, DevicePlatform, HostDevice,
+    IosSnapshot,
+};
 pub use linear::{
     build_issues_filter, extract_github_refs_from_urls, linear_issue_to_import_body,
     oauth_pkce_challenge, parse_rate_limit_headers, select_oauth_redirect, LinearAuth,

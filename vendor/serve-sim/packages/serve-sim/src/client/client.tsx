@@ -27,7 +27,7 @@ import {
 } from "./simulator";
 
 import { /* Globe, */ PanelRight, Upload } from "lucide-react";
-import { StopPreviewButton } from "./components/stop-preview-button";
+import { requestAtmosSimulatorDevice, StopPreviewButton } from "./components/stop-preview-button";
 import { ReloadIcon } from "./icons";
 import { AxDomOverlay } from "./components/ax-dom-overlay";
 import { AxStateProvider } from "./components/ax-state-provider";
@@ -154,6 +154,10 @@ function App() {
   );
 
   const selectDevice = useCallback((udid: string) => {
+    const locked = new URLSearchParams(window.location.search).get("device")?.trim() ?? "";
+    if (locked && locked !== udid && requestAtmosSimulatorDevice(udid)) {
+      return;
+    }
     setSelectedUdid(udid);
     try {
       const u = new URL(window.location.href);
@@ -180,6 +184,10 @@ function App() {
 
   const startDevice = useCallback(
     async (udid: string) => {
+      const locked = new URLSearchParams(window.location.search).get("device")?.trim() ?? "";
+      if (locked && locked !== udid && requestAtmosSimulatorDevice(udid)) {
+        return;
+      }
       setStarting((p) => ({ ...p, [udid]: true }));
       setActionErrors((e) => ({ ...e, [udid]: null }));
       try {
@@ -208,6 +216,10 @@ function App() {
 
   const shutdownDevice = useCallback(
     async (udid: string) => {
+      const locked = new URLSearchParams(window.location.search).get("device")?.trim() ?? "";
+      if (locked && locked !== udid) {
+        return;
+      }
       setShuttingDown((s) => ({ ...s, [udid]: true }));
       setActionErrors((e) => ({ ...e, [udid]: null }));
       try {

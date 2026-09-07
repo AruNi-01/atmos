@@ -5,10 +5,12 @@ import { useTranslations } from "next-intl";
 import { LoaderCircle } from "lucide-react";
 import { useSimulatorSession } from "../hooks/use-simulator-session";
 import "../simulator-guest.css";
-import { iframeSrc } from "../types";
+import {
+  iframeSrc,
+  parseSimulatorDeviceMessage,
+  SIMULATOR_STOP_MESSAGE,
+} from "../types";
 import { SimulatorSetupCard } from "./SimulatorSetupCard";
-
-const SIMULATOR_STOP_MESSAGE = "atmos:simulator-stop";
 
 export function SimulatorPanel({
   workspaceId,
@@ -24,14 +26,19 @@ export function SimulatorPanel({
   React.useEffect(() => {
     const onMessage = (event: MessageEvent) => {
       if (event.source !== iframeRef.current?.contentWindow) return;
-      if (event.data?.type !== SIMULATOR_STOP_MESSAGE) return;
-      void session.disconnect();
+      if (event.data?.type === SIMULATOR_STOP_MESSAGE) {
+        void session.disconnect();
+        return;
+      }
+      const device = parseSimulatorDeviceMessage(event.data);
+      if (!device) return;
+      void session.start({ udid: device.udid, platform: device.platform });
     };
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
-  }, [session.disconnect]);
+  }, [session.disconnect, session.start]);
 
-  if (session.phase === "ready" && session.url) {
+  if (session.url && (session.phase === "ready" || session.phase === "starting" || session.phase === "downloading")) {
     return (
       <iframe
         ref={iframeRef}

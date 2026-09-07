@@ -3,26 +3,20 @@
 import { wsRequest } from "@/api/ws/request";
 import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
 import type {
-  SimulatorClaim,
   SimulatorDownloadProgress,
-  SimulatorProbe,
-  SimulatorReason,
-} from "@/features/simulator/types";
-
-export type SimulatorStartResult = {
-  ready: boolean;
-  reason?: SimulatorReason;
-  url?: string | null;
-  udid?: string | null;
-} & Partial<SimulatorProbe>;
+} from "@atmos/api-types/ws/dto/simulator";
 
 export const simulatorApi = {
   probe: () => wsRequest("simulator_probe"),
-  start: (workspaceId: string, udid?: string) =>
-    wsRequest("simulator_start",
-      { workspace_id: workspaceId, udid },
-      600_000,
-    ),
+  start: (
+    workspaceId: string,
+    opts?: { udid?: string; platform?: "ios" | "android" },
+  ) =>
+    wsRequest("simulator_start", {
+      workspace_id: workspaceId,
+      udid: opts?.udid,
+      platform: opts?.platform,
+    }, 600_000),
   stop: (workspaceId: string) =>
     wsRequest("simulator_stop", {
       workspace_id: workspaceId,

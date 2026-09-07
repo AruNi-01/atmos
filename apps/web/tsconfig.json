@@ -42,5 +42,5 @@
     "**/*.mts",
     "../../packages/ui/src/css.d.ts"
   ],
-  "exclude": ["node_modules", "**/*.test.ts"]
+  "exclude": ["node_modules", "**/*.test.ts", "**/*.test.tsx"]
 }

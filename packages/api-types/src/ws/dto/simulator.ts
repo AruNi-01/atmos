@@ -11,7 +11,16 @@ export type SimulatorReason =
   | "helper_missing"
   | "download_failed"
   | "checksum_mismatch"
-  | "start_failed";
+  | "start_failed"
+  | "android_sdk_missing"
+  | "adb_missing"
+  | "emulator_missing"
+  | "no_avd"
+  | "device_already_claimed";
+
+export type SimulatorDevicePlatform = "ios" | "android";
+
+export type SimulatorHelperKind = "serve_sim" | "serve_emu";
 
 export type SimulatorDevice = {
   udid: string;
@@ -19,6 +28,17 @@ export type SimulatorDevice = {
   runtime: string;
   state: string;
   available: boolean;
+  platform: SimulatorDevicePlatform;
+  claimed_by_workspace?: string | null;
+  serial?: string | null;
+};
+
+export type SimulatorPlatformProbe = {
+  ready: boolean;
+  reason: SimulatorReason;
+  helper_installed: boolean;
+  helper_version: string;
+  devices: SimulatorDevice[];
 };
 
 export type SimulatorProbe = {
@@ -26,26 +46,26 @@ export type SimulatorProbe = {
   reason: SimulatorReason;
   platform: string;
   arch: string;
-  macosVersion: string | null;
-  xcode: boolean;
-  simctl: boolean;
-  devices: SimulatorDevice[];
-  helperInstalled: boolean;
-  helperVersion: string;
+  macos_version: string | null;
+  ios: SimulatorPlatformProbe;
+  android: SimulatorPlatformProbe;
 };
 
 export type SimulatorClaim = {
-  workspaceId: string;
+  workspace_id: string;
   pid: number;
   port: number;
   udid: string;
+  argv_id?: string;
   url: string;
   version: string;
-  startedAt: number;
+  platform: SimulatorDevicePlatform;
+  helper: SimulatorHelperKind;
 };
 
 export type SimulatorDownloadProgress = {
   workspace_id?: string;
+  helper?: SimulatorHelperKind;
   downloaded: number;
   total: number | null;
 };
@@ -53,6 +73,7 @@ export type SimulatorDownloadProgress = {
 export type SimulatorStartRequest = {
   workspace_id: string;
   udid?: string | null;
+  platform?: SimulatorDevicePlatform | null;
 };
 
 export type SimulatorWorkspaceRequest = {
@@ -64,7 +85,9 @@ export type SimulatorStartResult = {
   reason?: SimulatorReason;
   url?: string | null;
   udid?: string | null;
-} & Partial<SimulatorProbe>;
+  platform?: SimulatorDevicePlatform | null;
+  probe: SimulatorProbe;
+};
 
 export type SimulatorStopResponse = {
   stopped: boolean;

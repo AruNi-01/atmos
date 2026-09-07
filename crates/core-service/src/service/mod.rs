@@ -8,6 +8,7 @@ pub mod canvas;
 pub mod canvas_agent_relay;
 pub mod center_layout;
 pub mod cli_identity;
+pub mod device_preview;
 pub mod disk_analyzer;
 pub mod git_commit_message;
 pub mod group;

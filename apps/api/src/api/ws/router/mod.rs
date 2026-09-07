@@ -46,7 +46,7 @@ use quota_usage::QuotaUsageService;
 use serde_json::{json, Value};
 use tokio::sync::{OnceCell, RwLock};
 
-use crate::simulator::SimulatorRuntime;
+use core_service::DevicePreviewService;
 
 use core_service::{
     builtin_options_probe_plans, default_agent_data_dir, default_chats_dir, options_probe_dir,
@@ -84,7 +84,7 @@ pub struct WsMessageService {
     linear_service: LinearService,
     ws_manager: OnceCell<Arc<WsManager>>,
     local_model_manager: Arc<LocalRuntimeManager>,
-    simulator: Arc<SimulatorRuntime>,
+    simulator: Arc<DevicePreviewService>,
     agent_chat_service: Arc<AgentChatService>,
     options_worker: Arc<OptionsPrefetchWorker>,
     agent_chat_subs: Arc<RwLock<HashMap<String, HashSet<String>>>>,
@@ -166,7 +166,9 @@ impl WsMessageService {
             linear_service: LinearService::new(db),
             ws_manager: OnceCell::new(),
             local_model_manager: Arc::new(LocalRuntimeManager::new()),
-            simulator: Arc::new(SimulatorRuntime::new()),
+            simulator: Arc::new(
+                DevicePreviewService::new().expect("device preview pins must parse"),
+            ),
             agent_chat_service,
             options_worker,
             agent_chat_subs: Arc::new(RwLock::new(HashMap::new())),
@@ -1379,7 +1381,7 @@ impl WsMessageService {
                 self.handle_disk_analyzer_disk_info(parse_request(request.data)?)
             }
 
-            WsAction::SimulatorProbe => self.handle_simulator_probe(),
+            WsAction::SimulatorProbe => self.handle_simulator_probe().await,
             WsAction::SimulatorStart => self.handle_simulator_start(request.data).await,
             WsAction::SimulatorStop => self.handle_simulator_stop(request.data).await,
             WsAction::SimulatorStatus => self.handle_simulator_status(request.data).await,
