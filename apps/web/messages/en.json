@@ -11011,8 +11011,8 @@
           "body": "Start the preview when you need it. This workspace can run one device at a time."
         },
         "not_desktop": {
-          "title": "Needs a local Mac server",
-          "body": "Device preview runs on the machine that hosts this Atmos Server. Connect to a Mac, or start just dev-api on that Mac."
+          "title": "Needs this Mac",
+          "body": "Device preview is a web page talking to a helper on 127.0.0.1. The Atmos Server on this Mac can start the real simulator. Connect to that local Computer, then retry. A remote Computer over relay cannot show the preview in this browser."
         },
         "unsupported_platform": {
           "title": "Mac required",

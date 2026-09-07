@@ -1,5 +1,7 @@
 # TECH · APP-070: Simulator optimize + Android
 
+<!-- updated 2026-09-07: Web (local or hosted) starts against a loopback Computer; relay stays blocked. Device picker posts atmos:simulator-device. -->
+
 > Technical Design · HOW. Implements PRD APP-070: Simulator optimize + Android.
 
 ## Scope summary
@@ -111,7 +113,7 @@ Add `crates/core-service/src/service/device_preview/`:
 - Required patches:
   1. Bind loopback only (same as serve-sim).
   2. Preview chrome parity with vendored serve-sim (M9): device identity control that toggles the device list; action toolbar **below** the device (Back / Home / Recents / rotate / screenshot as applicable); tools in a **right** collapsible panel. Do not restyle iOS serve-sim unless a tiny shared token is required for parity.
-  3. Device switch: do not select a UDID/serial that Atmos marked claimed by another workspace. Prefer a parent `postMessage` (`atmos:simulator-device`) when the user switches to a **free** device so the Server can update the claim. If postMessage is too late for v1, lock the iframe to `?device=<claimed-id>` and keep the picker listing but disable foreign claims.
+  3. Device switch: do not select a UDID/serial that Atmos marked claimed by another workspace. When the user switches to another listed device, the helper posts `atmos:simulator-device` `{ udid, platform }` to the parent; Atmos runs `simulator_start` with that id. On `device_already_claimed` the parent keeps the previous iframe. `?device=` still locks Stop / this helper's own stream to the claimed device.
 - NOTICE entry for vendor source **and** redistributed binary (and scrcpy server bits if shipped). Apache-2.0 only; no GPL.
 
 ### Pack / Release
@@ -129,14 +131,17 @@ Pin file fields match serve-sim: `version`, `minos`, `arch`, `release_tag`, `ass
 
 ### `apps/web`
 
+<!-- updated 2026-09-07: not Desktop-shell-only; gate on loopback Computer vs relay -->
+
 - Keep `features/simulator/` and tab value `simulator` (M1).
 - `simulator_probe` drives setup: if one platform is ready, enable Start; if both ready, Start uses last prefs or iOS first then Android.
 - Setup cards: existing iOS reasons plus `android_sdk_missing`, `adb_missing`, `emulator_missing`, `no_avd`, `device_already_claimed`.
 - Iframe `src` still `iframeSrc(url, udid)` with loopback + `device` query.
-- Listen for helper `postMessage` device-change (if patched) → `simulator_start` with the new udid; on `device_already_claimed` keep the previous iframe target.
+- Listen for helper `postMessage` `atmos:simulator-device` → `simulator_start` with the new udid; on `device_already_claimed` keep the previous iframe target.
+- Do **not** block hosted origin (`app.atmos.land`) or `!isDesktopRuntime`. Local Web and hosted Web start when `connectionMode !== "relay"` (browser can hit this Mac's `127.0.0.1` helper). Relay / remote Computer → `not_desktop` setup card (needs this Mac), no start.
 - i18n `features.simulator.*` — Android strings in en + zh.
 
-Do not add Electron IPC. Desktop is a `/ws` client.
+Do not add Electron IPC. Desktop is a `/ws` client, same as Web.
 
 ## Data model
 

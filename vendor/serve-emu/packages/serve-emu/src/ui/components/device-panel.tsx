@@ -57,6 +57,7 @@ type NetworkResponse = {
 
 type BusyAction = "select" | "start" | "stop";
 const FONT_SCALE_PRESETS = [0.85, 1, 1.15, 1.3, 1.5] as const;
+const ATMOS_SIMULATOR_DEVICE_MESSAGE = "atmos:simulator-device";
 
 function claimLock(): string {
   return new URLSearchParams(window.location.search).get("device")?.trim() ?? "";
@@ -65,6 +66,24 @@ function claimLock(): string {
 function deviceMatchesLock(device: GridDevice, locked: string): boolean {
   if (!locked) return true;
   return [device.id, device.serial, device.avd].some((id) => id === locked);
+}
+
+function atmosClaimId(device: GridDevice): string {
+  return (device.avd || device.id).trim();
+}
+
+function embeddedInAtmos(): boolean {
+  return typeof window !== "undefined" && window.parent !== window;
+}
+
+function requestAtmosDeviceClaim(device: GridDevice): boolean {
+  const udid = atmosClaimId(device);
+  if (!udid || !embeddedInAtmos()) return false;
+  window.parent.postMessage(
+    { type: ATMOS_SIMULATOR_DEVICE_MESSAGE, udid, platform: "android" },
+    "*",
+  );
+  return true;
 }
 
 export function DevicePanel() {
@@ -88,12 +107,14 @@ export function DevicePanel() {
     }
     const visible = json.devices.filter((device) => device.kind !== "physical");
     const locked = claimLock();
+    const canAskParent = Boolean(locked) && embeddedInAtmos();
     setDevices(visible.map((device) => {
       const matchesLock = deviceMatchesLock(device, locked);
+      const foreign = canAskParent && !matchesLock;
       return {
         ...device,
-        canSelect: device.canSelect && matchesLock,
-        canStart: device.canStart && matchesLock,
+        canSelect: (device.canSelect && matchesLock) || foreign,
+        canStart: (device.canStart && matchesLock) || (foreign && device.canStart),
         canStop: device.canStop && matchesLock,
       };
     }));
@@ -119,6 +140,10 @@ export function DevicePanel() {
   const runDeviceAction = useCallback(
     async (device: GridDevice, action: BusyAction) => {
       if (!deviceMatchesLock(device, claimLock())) {
+        if (action !== "stop" && requestAtmosDeviceClaim(device)) {
+          setStatus("Asking Atmos to claim this device…");
+          return;
+        }
         setStatus("This preview is locked to the claimed device.");
         return;
       }

@@ -64,7 +64,7 @@ export function useSimStream({ exec, device: deviceProp }: UseSimStreamOptions):
       setLoading(true);
       setError(null);
       try {
-        if !deviceProp) {
+        if (!deviceProp) {
           if (window.parent && window.parent !== window) {
             window.parent.postMessage({ type: "atmos:simulator-stop" }, "*");
           }

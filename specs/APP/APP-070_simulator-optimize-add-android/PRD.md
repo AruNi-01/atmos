@@ -19,12 +19,12 @@ BRAINSTORM forks resolved here (see [BRAINSTORM.md](./BRAINSTORM.md)):
 | Android helper | Vendor `expo/serve-emu` (not `serve-avd`) |
 | Preview UI | Iframe; serve-emu chrome matches vendored serve-sim |
 | Claim | Auto-claim free device; never steal; restore on workspace return |
-| Hosts | macOS arm64 Desktop / local Computer |
+| Hosts | macOS arm64 Computer; Desktop **and** Web (loopback) |
 | Physical devices | Out |
 
 ## Goals
 
-1. **Primary** — From a workspace in Atmos Desktop on an Apple Silicon Mac, the user opens the existing Simulator tab and can preview either an iOS Simulator or an Android Emulator, using the same download / start / iframe habit as APP-060.
+1. **Primary** — From a workspace on an Apple Silicon Mac (Atmos Desktop **or** the web app talking to that Mac's Atmos Server), the user opens the existing Simulator tab and can preview either an iOS Simulator or an Android Emulator, using the same download / start / iframe habit as APP-060.
 2. **Primary** — Devices belong to the Computer. A Workspace holds at most one exclusive claim. A second workspace gets a different free device, or a clear “no available device” state — never a silent steal.
 3. **Secondary** — Android preview looks and behaves like the current serve-sim preview (device picker, actions under the device, tools on the right). Missing Xcode must not block Android, and missing Android SDK must not block iOS.
 
@@ -40,9 +40,9 @@ BRAINSTORM forks resolved here (see [BRAINSTORM.md](./BRAINSTORM.md)):
 
 ```mermaid
 flowchart TD
-  open[User opens Simulator tab] --> desktop{Atmos Desktop on this Mac?}
-  desktop -->|no| needDesktop[Setup card: need Atmos Desktop]
-  desktop -->|yes| host{macOS 14+ arm64?}
+  open[User opens Simulator tab] --> local{This browser reaches the Computer on this Mac?}
+  local -->|no, relay/remote| needLocal[Setup card: connect this Mac]
+  local -->|yes| host{macOS 14+ arm64?}
   host -->|no| hostCard[Setup card: unsupported host]
   host -->|yes| platforms{iOS ready or Android ready?}
   platforms -->|neither| envCards[Per-platform setup cards]
@@ -55,12 +55,12 @@ flowchart TD
 
 ## User Stories
 
-- As a Desktop user, I want iOS and Android previews in the same Simulator tab so I do not leave Atmos for Simulator.app or Android Emulator.
-- As a Desktop user, I want a missing Xcode install to leave Android preview possible, and a missing Android SDK to leave iOS preview possible.
+- As a Desktop or Web user on this Mac, I want iOS and Android previews in the same Simulator tab so I do not leave Atmos for Simulator.app or Android Emulator.
+- As a Desktop or Web user on this Mac, I want a missing Xcode install to leave Android preview possible, and a missing Android SDK to leave iOS preview possible.
 - As a user with two workspaces, I want each workspace to keep its own device so switching workspaces does not hijack the other preview.
 - As a user with only one free device, I want the product to take it for me, and to tell me clearly when none are left.
 - As a first-time Android user, I want the same in-panel helper download as iOS, never `npx`.
-- As a hosted-web user, I still want a Desktop CTA, not a fake cloud emulator.
+- As a web user, I want the same iframe preview: the page is already a webpage, and the Atmos Server on this Mac starts the real simulator. I do not need the Electron shell. A remote Computer over relay still cannot show another machine's `127.0.0.1`.
 
 ## Functional Requirements
 
@@ -77,7 +77,7 @@ flowchart TD
 - **M9**: Vendored serve-emu preview chrome matches current vendored serve-sim: device identity control that opens the device list; action controls under the device; tools in a right collapsible panel. Android keeps Android-capable actions (do not fake iOS-only tools).
 - **M10**: Errors are typed and mapped to setup/retry copy: environment vs helper/runtime vs device (including already claimed). Never a single “Simulator failed” for Xcode-missing, checksum mismatch, and claim conflict.
 - **M11**: Helper download progress stays in-panel. No success toast. English sentence case. `en.json` and `zh.json`. No `npx` in copy.
-- **M12**: Hosted Web / non-Desktop: Desktop CTA; no start. Same as APP-060 M7.
+- **M12**: Web and Desktop both start against the connected Computer when this browser can reach that Computer's loopback (`127.0.0.1`). Hosted `app.atmos.land` with a **local** Computer is in. Relay / remote Computer cannot iframe the helper; show an in-panel “needs this Mac” card and do not start. Not a Desktop-app-only CTA.
 - **M13**: Keep APP-060 hide-Simulator.app behavior for iOS boot. Android emulator window hide is best-effort, not a ship blocker if the OS does not allow it.
 - **M14**: Disconnect / stop never runs `serve-sim --kill` / equivalent global kill that would tear down another workspace’s helper.
 
@@ -94,7 +94,7 @@ flowchart TD
 - **Agent device automation** (`tap`, `swipe`, `screenshot` as Chat tools) — reserve the claim/preview lifecycle first.
 - **Physical devices** (USB / wireless adb, physical iPhones) — emulators and simulators only.
 - **Linux / Windows Android preview** — macOS arm64 only in this spec.
-- **Cloud / remote Computer iframe** — `127.0.0.1` on another machine is not this spec; hosted Web stays a Desktop CTA.
+- **Cloud / remote Computer iframe** — `127.0.0.1` on another machine is not this spec. Hosted Web **with a Computer on this Mac** is in (M12). Do not proxy helper HTTP through relay in v1.
 - **`npx serve-sim` / `npx serve-emu` / `npx serve-avd`** — same as APP-060.
 - **Plugin framework / extra platforms** (watchOS, tvOS, Wear) — iOS + Android only.
 - **Deprecated Tauri `apps/desktop`**.

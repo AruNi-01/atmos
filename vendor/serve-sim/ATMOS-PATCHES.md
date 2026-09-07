@@ -17,6 +17,7 @@ These are the only first-party behavior changes. Prefer rebasing them when bumpi
    - Hide the floating left Devices button; the device-name control still opens the list.
    - Device name and a two-button Stop/Tools pill sit above the phone, matching the bottom toolbar.
    - Stop asks for confirm, then posts `atmos:simulator-stop` so Atmos kills the helper.
+   - Selecting or starting a device other than `?device=` posts `atmos:simulator-device` `{ udid, platform: "ios" }` to the parent. Shutdown of a foreign UDID is ignored.
    - No live/connecting pill. Long names ellipsize. Stream or start errors turn the name yellow.
    - Corner Tools / DevTools rails stay commented out.
 6. **Compiled helper can exec itself** (`host-bin.ts`)

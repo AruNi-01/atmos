@@ -6,8 +6,10 @@ import {
   displayReasonFromProbe,
   displayReasonFromStart,
   iframeSrc,
+  parseSimulatorDeviceMessage,
   probeCanStart,
   setupActionForReason,
+  simulatorHelperReachable,
   SIMULATOR_TAB_VALUE,
   type SimulatorPlatformProbe,
   type SimulatorProbe,
@@ -23,7 +25,8 @@ describe("simulator url + reasons", () => {
   });
 
   it("maps setup reasons to real buttons", () => {
-    expect(setupActionForReason("not_desktop")?.id).toBe("needDesktop");
+    expect(setupActionForReason("not_desktop")?.id).toBe("retry");
+    expect(setupActionForReason("not_desktop")?.kind).toBe("retry");
     expect(setupActionForReason("xcode_missing")?.id).toBe("installXcode");
     expect(setupActionForReason("no_device")?.id).toBe("openXcode");
     expect(setupActionForReason("android_sdk_missing")?.id).toBe("installAndroidSdk");
@@ -118,9 +121,12 @@ describe("no custom phone chrome", () => {
       "utf8",
     );
     expect(header).not.toContain("SimulatorStopButton");
-    expect(panel).toContain("atmos:simulator-stop");
+    expect(panel).toContain("SIMULATOR_STOP_MESSAGE");
+    expect(panel).toContain("parseSimulatorDeviceMessage");
     expect(panel).toContain("session.disconnect()");
+    expect(panel).toContain("session.start({ udid: device.udid, platform: device.platform })");
     expect(client).toContain("<StopPreviewButton");
+    expect(client).toContain("requestAtmosSimulatorDevice");
     expect(stop).toContain("Power");
     expect(stop).toContain("#f87171");
     expect(stop).toContain("Stop the simulator preview?");
@@ -167,7 +173,7 @@ describe("i18n", () => {
           tab: string;
           starting: string;
           actions: { installAndroidSdk: string; createAvd: string };
-          reasons: { no_avd: { title: string } };
+          reasons: { no_avd: { title: string }; not_desktop: { title: string; body: string } };
         };
       };
     };
@@ -179,7 +185,7 @@ describe("i18n", () => {
           tab: string;
           starting: string;
           actions: { createAvd: string };
-          reasons: { no_avd: { title: string } };
+          reasons: { no_avd: { title: string }; not_desktop: { title: string; body: string } };
         };
       };
     };
@@ -197,6 +203,10 @@ describe("i18n", () => {
     expect(en.features.simulator.reasons.no_avd.title).toBe("No Android virtual device");
     expect(zh.features.simulator.reasons.no_avd.title).not.toBe(
       en.features.simulator.reasons.no_avd.title,
+    );
+    expect(en.features.simulator.reasons.not_desktop.title).toBe("Needs this Mac");
+    expect(zh.features.simulator.reasons.not_desktop.body).not.toBe(
+      en.features.simulator.reasons.not_desktop.body,
     );
   });
 });
@@ -359,15 +369,29 @@ function bothBlockedProbe(): SimulatorProbe {
   };
 }
 
-describe("hosted origin CTA", () => {
-  it("maps hosted app origin to the desktop card, not just !isDesktopRuntime", () => {
+describe("local web vs remote computer", () => {
+  it("lets loopback Computers start, including hosted web, and blocks relay", () => {
     const hook = readFileSync(
       join(import.meta.dir, "../hooks/use-simulator-session.ts"),
       "utf8",
     );
-    expect(hook).toContain("isHostedAtmosOrigin()");
+    expect(hook).not.toContain("isHostedAtmosOrigin()");
     expect(hook).not.toMatch(/if\s*\(\s*!isDesktopRuntime\(\)\s*\)/);
-    expect(setupActionForReason("not_desktop")?.kind).toBe("desktop");
+    expect(hook).toContain("simulatorHelperReachable(connectionMode)");
+    expect(hook).toContain("simulatorApi.start(workspaceId, opts)");
+    expect(simulatorHelperReachable("local")).toBe(true);
+    expect(simulatorHelperReachable(null)).toBe(true);
+    expect(simulatorHelperReachable("relay")).toBe(false);
+    expect(setupActionForReason("not_desktop")?.kind).toBe("retry");
+  });
+
+  it("parses iframe device-switch messages", () => {
+    expect(parseSimulatorDeviceMessage({ type: "atmos:simulator-device", udid: "Pixel_8", platform: "android" })).toEqual({
+      udid: "Pixel_8",
+      platform: "android",
+    });
+    expect(parseSimulatorDeviceMessage({ type: "atmos:simulator-stop" })).toBeNull();
+    expect(parseSimulatorDeviceMessage({ type: "atmos:simulator-device", udid: "  " })).toBeNull();
   });
 });
 
@@ -447,7 +471,8 @@ describe("serve-emu vendor + install", () => {
     expect(status).toContain("Device preview");
     expect(status).not.toContain(">serve-emu<");
     expect(panel).toContain('device.kind !== "physical"');
-    expect(panel).toContain("canStart: device.canStart && matchesLock");
+    expect(panel).toContain("atmos:simulator-device");
+    expect(panel).toContain("requestAtmosDeviceClaim");
     expect(panel).toContain("This preview is locked to the claimed device.");
     expect(cli).toContain("Atmos: always bind loopback");
     expect(cli).not.toContain("serve-avd");

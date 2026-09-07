@@ -13,6 +13,7 @@ These are the only first-party behavior changes. Prefer rebasing them when bumpi
    - Stop asks for confirm, then posts `atmos:simulator-stop`.
 4. **Claim-safe picker** (`device-panel.tsx`)
    - Physical USB devices are hidden.
-   - When the iframe is locked with `?device=`, other targets cannot be selected, started, or stopped.
+   - When the iframe is locked with `?device=`, Stop stays on the claimed device.
+   - Selecting or starting a **free** other target posts `atmos:simulator-device` `{ udid, platform: "android" }` to the parent so Atmos can update the claim. Foreign Stop is refused.
 5. **Packed scrcpy-server path** (`scrcpy-server.ts`)
    - Resolve `vendor/scrcpy-server-v4.0` next to `process.execPath` so `bun --compile` does not look under `/$bunfs/`.

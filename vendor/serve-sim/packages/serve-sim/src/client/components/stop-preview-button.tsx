@@ -3,11 +3,22 @@ import { Power } from "lucide-react";
 import { SimulatorToolbar } from "../simulator";
 
 export const ATMOS_SIMULATOR_STOP_MESSAGE = "atmos:simulator-stop";
+export const ATMOS_SIMULATOR_DEVICE_MESSAGE = "atmos:simulator-device";
 
 export function requestAtmosSimulatorStop() {
   if (window.parent && window.parent !== window) {
     window.parent.postMessage({ type: ATMOS_SIMULATOR_STOP_MESSAGE }, "*");
   }
+}
+
+export function requestAtmosSimulatorDevice(udid: string): boolean {
+  const id = udid.trim();
+  if (!id || window.parent === window) return false;
+  window.parent.postMessage(
+    { type: ATMOS_SIMULATOR_DEVICE_MESSAGE, udid: id, platform: "ios" },
+    "*",
+  );
+  return true;
 }
 
 export function StopPreviewButton() {

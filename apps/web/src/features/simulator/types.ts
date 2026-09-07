@@ -18,11 +18,35 @@ import type {
 
 export const SIMULATOR_TAB_VALUE = "simulator";
 
+export const SIMULATOR_STOP_MESSAGE = "atmos:simulator-stop";
+export const SIMULATOR_DEVICE_MESSAGE = "atmos:simulator-device";
+
 export type SimulatorSetupAction = {
   id: string;
   href?: string;
   kind: "external" | "retry" | "desktop";
 };
+
+export function simulatorHelperReachable(
+  connectionMode: "local" | "relay" | null | undefined,
+): boolean {
+  return connectionMode !== "relay";
+}
+
+export function parseSimulatorDeviceMessage(data: unknown): {
+  udid: string;
+  platform?: "ios" | "android";
+} | null {
+  if (!data || typeof data !== "object") return null;
+  const rec = data as Record<string, unknown>;
+  if (rec.type !== SIMULATOR_DEVICE_MESSAGE) return null;
+  if (typeof rec.udid !== "string") return null;
+  const udid = rec.udid.trim();
+  if (!udid) return null;
+  const platform =
+    rec.platform === "ios" || rec.platform === "android" ? rec.platform : undefined;
+  return { udid, platform };
+}
 
 const HOST_REASONS: SimulatorReason[] = [
   "unsupported_platform",
@@ -80,7 +104,7 @@ function probeHasDevices(probe?: SimulatorProbe | null): boolean {
 export function setupActionForReason(reason: SimulatorReason): SimulatorSetupAction | null {
   switch (reason) {
     case "not_desktop":
-      return { id: "needDesktop", kind: "desktop", href: "https://atmos.land" };
+      return { id: "retry", kind: "retry" };
     case "xcode_missing":
     case "simctl_missing":
     case "macos_too_old":

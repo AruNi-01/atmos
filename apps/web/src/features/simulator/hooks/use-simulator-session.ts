@@ -5,13 +5,14 @@ import {
   listenSimulatorDownload,
   simulatorApi,
 } from "@/api/ws/simulator-api";
-import { isHostedAtmosOrigin } from "@/shared/lib/desktop-runtime";
+import { useAtmosComputerStore } from "@/features/connection/lib/atmos-computer-store";
 import { useSimulatorRuntimeStore } from "../store/use-simulator-runtime-store";
 import {
   displayReasonFromProbe,
   displayReasonFromStart,
   probeCanStart,
   setupActionForReason,
+  simulatorHelperReachable,
   type SimulatorDownloadProgress,
   type SimulatorReason,
 } from "../types";
@@ -34,6 +35,15 @@ const INITIAL: SimulatorSessionState = {
   error: null,
 };
 
+const RELAY_UNREACHABLE: SimulatorSessionState = {
+  phase: "setup",
+  reason: "not_desktop",
+  url: null,
+  udid: null,
+  progress: null,
+  error: null,
+};
+
 export function useSimulatorSession(input: {
   workspaceId: string | null;
   active: boolean;
@@ -41,22 +51,21 @@ export function useSimulatorSession(input: {
   const { workspaceId, active } = input;
   const [state, setState] = React.useState<SimulatorSessionState>(INITIAL);
   const readyForRef = React.useRef<string | null>(null);
+  const previewUrlRef = React.useRef<string | null>(null);
+  previewUrlRef.current = state.url;
+  const connectionMode = useAtmosComputerStore((store) => store.connectionMode);
   const setRunning = useSimulatorRuntimeStore((store) => store.setRunning);
   const running = useSimulatorRuntimeStore((store) =>
     Boolean(workspaceId && store.runningByWorkspace[workspaceId]),
   );
 
-  const start = React.useCallback(async () => {
+  const start = React.useCallback(async (opts?: {
+    udid?: string;
+    platform?: "ios" | "android";
+  }) => {
     if (!workspaceId) return;
-    if (isHostedAtmosOrigin()) {
-      setState({
-        phase: "setup",
-        reason: "not_desktop",
-        url: null,
-        udid: null,
-        progress: null,
-        error: null,
-      });
+    if (!simulatorHelperReachable(connectionMode)) {
+      setState(RELAY_UNREACHABLE);
       return;
     }
     const off = listenSimulatorDownload((progress) => {
@@ -65,8 +74,18 @@ export function useSimulatorSession(input: {
     });
     try {
       setState((prev) => ({ ...prev, phase: "starting", error: null }));
-      const result = await simulatorApi.start(workspaceId);
+      const result = await simulatorApi.start(workspaceId, opts);
       if (!result.ready) {
+        if (opts?.udid && previewUrlRef.current) {
+          setState((prev) => ({
+            ...prev,
+            phase: "ready",
+            reason: "ok",
+            progress: null,
+            error: null,
+          }));
+          return;
+        }
         setRunning(workspaceId, false);
         const reason = displayReasonFromStart(
           result.reason ?? "start_failed",
@@ -93,6 +112,16 @@ export function useSimulatorSession(input: {
         error: null,
       });
     } catch (err) {
+      if (opts?.udid && previewUrlRef.current) {
+        setState((prev) => ({
+          ...prev,
+          phase: "ready",
+          reason: "ok",
+          progress: null,
+          error: null,
+        }));
+        return;
+      }
       setRunning(workspaceId, false);
       setState({
         phase: "error",
@@ -105,7 +134,7 @@ export function useSimulatorSession(input: {
     } finally {
       off();
     }
-  }, [setRunning, workspaceId]);
+  }, [connectionMode, setRunning, workspaceId]);
 
   React.useEffect(() => {
     if (!active || !workspaceId) return;
@@ -116,17 +145,10 @@ export function useSimulatorSession(input: {
     );
     void (async () => {
       try {
-        if (isHostedAtmosOrigin()) {
+        if (!simulatorHelperReachable(connectionMode)) {
           if (cancelled) return;
           setRunning(workspaceId, false);
-          setState({
-            phase: "setup",
-            reason: "not_desktop",
-            url: null,
-            udid: null,
-            progress: null,
-            error: null,
-          });
+          setState(RELAY_UNREACHABLE);
           return;
         }
         const [probe, claim] = await Promise.all([
@@ -172,7 +194,7 @@ export function useSimulatorSession(input: {
     return () => {
       cancelled = true;
     };
-  }, [active, setRunning, workspaceId]);
+  }, [active, connectionMode, setRunning, workspaceId]);
 
   React.useEffect(() => {
     if (!workspaceId || running || state.phase !== "ready") return;

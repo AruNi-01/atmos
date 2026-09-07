@@ -9,7 +9,7 @@ Deterministic Rust tests own inventory parsing, per-platform probe, and claim po
 - Unit / integration: `core-engine` simctl/adb fixtures; `core-service` claim algorithm; pin/sha256; iframe URL; reason → card.
 - WebSocket/API-level: start/stop/status DTO shapes via existing API tests if a harness is cheap; otherwise service-level with a fake helper spawn.
 - End-to-end (Playwright): none for live devices.
-- Exploratory agent-browser: setup cards and tab entry when Desktop UI is up (no real emulator required).
+- Exploratory agent-browser: setup cards and tab entry when Desktop **or** local Web UI is up (no real emulator required).
 - Manual-only: first Android download, two-workspace live previews, hide Simulator.app, serve-emu chrome parity.
 
 ## Coverage map
@@ -54,7 +54,7 @@ Deterministic Rust tests own inventory parsing, per-platform probe, and claim po
 | S16 | Bun structural | `bun test` | feature sources | `features/simulator` | live preview is `iframe`; no Atmos DeviceScreen canvas | planned |
 | S17 | Bun structural | `bun test` | serve-emu client | vendor preview | device title/picker, below-device actions, right tools panel (selectors/classes as implemented) | planned |
 | S18 | Bun | `bun test` | i18n | en.json / zh.json | sentence case; no `npx`; zh translated | planned |
-| S19 | Bun | `bun test` | hosted | `isDesktopRuntime=false` | Desktop CTA; no start | planned |
+| S19 | Bun | `bun test` | loopback vs relay | `connectionMode` | local/hosted loopback can start; relay → `not_desktop` retry, no Desktop-only CTA | planned |
 | S20 | Manual | human | Mac + Xcode + AVD | real devices | iOS hide Simulator.app; Android iframe; two workspaces | planned |
 | S21 | Rust | `cargo test` | argv | stop/start builders | no `--kill` | planned |
 
@@ -204,13 +204,13 @@ Deterministic Rust tests own inventory parsing, per-platform probe, and claim po
 - **Then**: sentence case; no `npx`; zh is translated; Android SDK / AVD strings exist.
 - **Signals**: fixture assertions.
 
-### S19 — Hosted Web
+### S19 — Loopback Web vs remote Computer
 
 - **Level**: Bun
-- **Given**: non-Desktop runtime.
-- **When**: Simulator tab opens.
-- **Then**: Desktop CTA; no `simulator_start`.
-- **Signals**: copy key; invoke not called.
+- **Given**: Web runtime (not Electron) with a Computer on this Mac, or a relay session.
+- **When**: Simulator tab opens / Start.
+- **Then**: loopback (`connectionMode !== relay`) probes and can `simulator_start`. Relay shows “needs this Mac” and does not start. No Desktop-app-only CTA.
+- **Signals**: hook has no `isHostedAtmosOrigin`; `simulatorHelperReachable`; copy is not “Get Atmos Desktop” as the start gate.
 
 ### S20 — Manual Mac
 
@@ -243,7 +243,7 @@ Deterministic Rust tests own inventory parsing, per-platform probe, and claim po
 - [ ] No `npx` / npm registry on the runtime start path.
 - [ ] No helper under `Contents/Resources` or `~/.atmos/data/desktop/`.
 - [ ] `apps/desktop` (Tauri) untouched.
-- [ ] Hosted Web cannot start a helper.
+- [ ] Hosted Web with a Computer on this Mac can start; relay/remote cannot iframe `127.0.0.1`.
 - [ ] Physical `adb` devices are not claimed.
 - [ ] `serve-sim --kill` is never invoked.
 
@@ -251,9 +251,9 @@ Deterministic Rust tests own inventory parsing, per-platform probe, and claim po
 
 Use after the panel exists. Load Agent Browser instructions first (`agent-browser` skill or `agent-browser skills get core --full`). Live emulator is optional.
 
-1. Desktop: New tab → Simulator. Confirm setup, download, or iframe — not a blank center.
+1. Desktop or local Web: New tab → Simulator. Confirm setup, download, or iframe — not a blank center.
 2. Force an iOS-missing probe (copy/reason): Android CTA or iOS card is specific, not “Simulator failed”.
-3. Hosted / non-desktop: Desktop CTA; no iframe to a random host.
+3. Relay / remote Computer: “needs this Mac” card; no iframe to a random host. Local/hosted loopback: probe/start, not a Desktop download CTA.
 4. Console: no unhandled iframe / WS errors on the setup-card path.
 5. Narrow viewport: setup card copy not clipped.
 
@@ -285,13 +285,13 @@ Use after the panel exists. Load Agent Browser instructions first (`agent-browse
 
 ## Coverage Status
 
-_Last run: 2026-09-07 · targeted `cargo test -p core-engine host_devices` (3 passed), `cargo test -p core-service device_preview` (24 passed), `cargo check -p api`, `bun test apps/web/src/features/simulator/__tests__/simulator.test.ts` (21 passed), `bun test vendor/serve-sim/packages/serve-sim/src/__tests__/host-bin.test.ts` (5 passed). No Playwright simulator journey exists; S20 / live AVD not run (no Desktop session)._
+_Last run: 2026-09-07 · `bun test apps/web/src/features/simulator/__tests__/simulator.test.ts` (22 passed); `just pack-serve-emu --install` + GitHub Release `serve-emu-0.0.5-atmos.1` (manifest sha256 `286d7911dfc2234dae5883351c03b99c83632eb349d6c9ff187061866b63d186`); `just pack-serve-sim --install` locally (iOS postMessage in this machine's helper). Pin `sha256` fields stay empty; runtime reads Release `manifest.json`. S20 / live AVD not run._
 
 - S1 — ✅ `apps/web/src/features/simulator/__tests__/simulator.test.ts` (`keeps one tab id per workspace`)
 - S2 — ✅ `crates/core-service/src/service/device_preview/probe.rs::android_ready_without_xcode`
 - S3 — ✅ `crates/core-service/src/service/device_preview/probe.rs::ios_ready_without_android_sdk`
 - S4 — ✅ `crates/core-service/src/service/device_preview/tests.rs::{linux,x86_64}_host_is_unsupported`
-- S5 — ✅ structural pack/pin/argv in `simulator.test.ts`; local `bash scripts/serve-emu/pack.sh` compiled `serve-emu` + packed `vendor/scrcpy-server-v4.0` (sha256 in `/tmp` archive; pin sha256 stays empty until GitHub Release, same as serve-sim)
+- S5 — ✅ structural pack/pin/argv in `simulator.test.ts`; `just pack-serve-emu --install`; Release https://github.com/AruNi-01/atmos/releases/tag/serve-emu-0.0.5-atmos.1 (`manifest.json` sha256 filled; pin sha256 stays empty like serve-sim)
 - S6 — ✅ `crates/core-service/src/service/device_preview/tests.rs::checksum_mismatch_does_not_mark_ready`
 - S7 — ✅ `simulator.test.ts` NOTICE + `vendor/serve-emu` Apache-2.0
 - S8 — ✅ `crates/core-service/src/service/device_preview/tests.rs::auto_claim_picks_a_free_device`; `probe_annotates_claimed_devices`; `concurrent_start_does_not_double_claim`
@@ -305,7 +305,7 @@ _Last run: 2026-09-07 · targeted `cargo test -p core-engine host_devices` (3 pa
 - S16 — ✅ `preview is an iframe and not a canvas shell`
 - S17 — ✅ `keeps serve-emu chrome selectors aligned with device preview`
 - S18 — ✅ i18n sentence case / zh / no npx
-- S19 — ✅ `maps hosted app origin to the desktop card…` (`isHostedAtmosOrigin`, not `!isDesktopRuntime`)
+- S19 — ✅ `lets loopback Computers start, including hosted web, and blocks relay` (`simulatorHelperReachable`, no `isHostedAtmosOrigin`)
 - S20 — ⏸ manual Mac + live AVD/Simulator.app (not CI)
 - S21 — ✅ `helper_argv_is_loopback_without_kill` + spawn refuses `--kill`; `parse_helper_line` exact argv token (Pixel_8 vs Pixel_8_Pro) and booted `-s emulator-5554` via `helper_process_ids`; vendor `useSimStream` posts `atmos:simulator-stop` instead of `serve-sim --kill`; `isGlobalServeSimKill` rejects global `-k`/`--kill`
 - Exploratory agent-browser — ⏸ `not_run`: no Desktop/dev server in this session; live emulator is out of CI.

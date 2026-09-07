@@ -11012,8 +11012,8 @@
           "body": "需要时再启动预览。同一个工作区一次只能占用一台设备。"
         },
         "not_desktop": {
-          "title": "需要本机 Mac 上的服务",
-          "body": "设备预览跑在托管这份 Atmos Server 的那台机器上。请连到一台 Mac，或在那台 Mac 上启动 just dev-api。"
+          "title": "需要这台 Mac",
+          "body": "设备预览是网页，助手跑在 127.0.0.1。本机 Atmos Server 可以拉起真正的模拟器。请连到这台 Mac 上的 Computer，然后重试。经过中继的远程 Computer 无法在这个浏览器里显示预览。"
         },
         "unsupported_platform": {
           "title": "需要 Mac",
