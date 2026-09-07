@@ -1,5 +1,6 @@
 pub mod agent_hooks;
 pub mod app;
+pub mod device_control;
 pub mod disk_analyzer;
 pub mod error;
 pub mod fs;
@@ -16,6 +17,11 @@ pub mod test_engine;
 pub mod tmux;
 
 pub use app::AppEngine;
+pub use device_control::{
+    png_dimensions, serve_emu_key, serve_emu_screenshot, serve_emu_swipe, serve_emu_tap,
+    serve_emu_text, serve_sim_button, serve_sim_swipe, serve_sim_tap, serve_sim_type,
+    simctl_screenshot, validate_coord, validate_point, write_png, ScreenshotSize,
+};
 pub use disk_analyzer::{
     agent_data_roots, cleanup_suggestions, clear_path_cache, clear_suggestions, finalize_tree,
     invalidate_path_cache, limit_tree_depth, node_needs_wider_children, prune_tree, CleanupKind,

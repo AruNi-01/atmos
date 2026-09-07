@@ -25,6 +25,10 @@ export const simulatorApi = {
     wsRequest("simulator_status", {
       workspace_id: workspaceId,
     }),
+  list: (workspaceId?: string | null) =>
+    wsRequest("simulator_list", {
+      workspace_id: workspaceId,
+    }),
 };
 
 export function listenSimulatorDownload(

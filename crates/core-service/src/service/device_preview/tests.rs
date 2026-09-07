@@ -9,7 +9,7 @@ use super::persist::load_claims;
 use super::service::DevicePreviewService;
 use super::types::{HelperKind, SimulatorReason};
 
-fn iphone(id: &str, boot: BootState) -> HostDevice {
+pub(super) fn iphone(id: &str, boot: BootState) -> HostDevice {
     HostDevice {
         id: id.into(),
         platform: DevicePlatform::Ios,
@@ -21,7 +21,7 @@ fn iphone(id: &str, boot: BootState) -> HostDevice {
     }
 }
 
-fn avd(id: &str, boot: BootState) -> HostDevice {
+pub(super) fn avd(id: &str, boot: BootState) -> HostDevice {
     HostDevice {
         id: id.into(),
         platform: DevicePlatform::Android,
@@ -37,14 +37,14 @@ fn avd(id: &str, boot: BootState) -> HostDevice {
     }
 }
 
-fn service(hooks: Arc<FakeHooks>) -> (TempDir, DevicePreviewService) {
+pub(super) fn service(hooks: Arc<FakeHooks>) -> (TempDir, DevicePreviewService) {
     let dir = TempDir::new().unwrap();
     let paths = DevicePreviewPaths::isolated(dir.path());
     let svc = DevicePreviewService::with_hooks(paths, hooks).unwrap();
     (dir, svc)
 }
 
-fn ready_hooks() -> Arc<FakeHooks> {
+pub(super) fn ready_hooks() -> Arc<FakeHooks> {
     let hooks = FakeHooks::macos_host();
     hooks.ios.lock().unwrap().xcode = true;
     hooks.ios.lock().unwrap().simctl = true;

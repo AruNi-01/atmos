@@ -118,6 +118,9 @@ pub struct DeviceClaim {
     pub pid: u32,
     pub port: u16,
     pub udid: String,
+    /// Display name from inventory at `start`. Empty on old persisted claims.
+    #[serde(default)]
+    pub name: String,
     /// Token actually passed to the helper argv (`-s serial` or `--avd` / iOS UDID).
     #[serde(default)]
     pub argv_id: String,

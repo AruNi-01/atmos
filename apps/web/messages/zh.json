@@ -4286,6 +4286,10 @@
         "viewRunLogs": {
           "label": "View Run Logs",
           "description": "将最新的 Atmos Run 日志路径附加给 Agent"
+        },
+        "devicePreview": {
+          "label": "Device preview",
+          "description": "将当前工作区的 Device Preview 占用信息附加给 Agent"
         }
       }
     },
@@ -10147,6 +10151,10 @@
       "viewRunLogsCommand": {
         "label": "View Run Logs",
         "description": "将最新的 Atmos Run 日志路径附加给 Agent"
+      },
+      "devicePreviewCommand": {
+        "label": "Device preview",
+        "description": "将当前工作区的 Device Preview 占用信息附加给 Agent"
       }
     },
     "sideChat": {
@@ -10989,6 +10997,8 @@
     "simulator": {
       "tab": "模拟器",
       "iframeTitle": "设备预览",
+      "agentCopy": "Agent",
+      "agentCopied": "已复制",
       "downloading": "正在下载设备预览助手… {percent}%",
       "starting": "正在启动设备预览…",
       "checking": "正在检查设备…",

@@ -59,8 +59,11 @@ pub use service::center_layout::{
     MAX_SPACES_PER_HOST,
 };
 pub use service::device_preview::{
-    DeviceClaim, DevicePreviewService, HelperKind, PlatformProbe, SimulatorDevice, SimulatorProbe,
-    SimulatorReason, SimulatorStartResult,
+    ClaimOwner, ClaimOwnerLookup, DeviceClaim, DeviceControlError, DeviceControlService,
+    DevicePreviewService, HelperKind, MapClaimOwnerLookup, PlatformProbe, PressKey,
+    SimulatorClaimList, SimulatorClaimListItem, SimulatorControlAck, SimulatorDevice,
+    SimulatorDeviceHandle, SimulatorProbe, SimulatorReason, SimulatorScreenshotResult,
+    SimulatorStartResult, WorkspaceProjectOwnerLookup,
 };
 pub use service::disk_analyzer::{DiskAnalyzerScanEvent, DiskAnalyzerService};
 pub use service::group::{GroupDto, GroupMemberDto, GroupService};

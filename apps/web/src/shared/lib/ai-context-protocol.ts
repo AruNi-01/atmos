@@ -29,6 +29,7 @@ export const AI_CONTEXT_KINDS = [
   "pt-design-agent",
   "run-log",
   "doc-selection",
+  "device-preview",
 ] as const;
 
 export type AiContextKind = (typeof AI_CONTEXT_KINDS)[number];
@@ -155,6 +156,12 @@ const KIND_DEFAULTS: Record<
     // Align with slash menu (ScrollText / emerald) and Run product surface.
     tone: "emerald",
     icon: "terminal",
+  },
+  "device-preview": {
+    label: "Device preview",
+    tooltip: "Device preview",
+    tone: "cyan",
+    icon: "layout",
   },
 };
 
@@ -350,6 +357,10 @@ function deriveChipLabel(kind: AiContextKind, promptText: string): string | null
       return null;
     case "doc-selection":
       return null;
+    case "device-preview": {
+      const name = promptText.match(/^- name:\s*(.+)$/m)?.[1]?.trim();
+      return name ? truncateLabel(name, 28) : null;
+    }
   }
 }
 

@@ -46,14 +46,13 @@ use quota_usage::QuotaUsageService;
 use serde_json::{json, Value};
 use tokio::sync::{OnceCell, RwLock};
 
-use core_service::DevicePreviewService;
-
 use core_service::{
     builtin_options_probe_plans, default_agent_data_dir, default_chats_dir, options_probe_dir,
     AgentChatService, AgentChatStore, AgentService, AgentServiceOptionsResolver, AutomationService,
-    DefaultAgentProviderFactory, DiskAnalyzerService, GroupService, LinearService,
-    LocalServicesService, NotificationService, OptionsPrefetchWorker, ProjectService,
-    ResourceMonitorService, ReviewService, TerminalService, WorkspaceService, PREFETCH_POLL,
+    DefaultAgentProviderFactory, DeviceControlService, DevicePreviewService, DiskAnalyzerService,
+    GroupService, LinearService, LocalServicesService, NotificationService, OptionsPrefetchWorker,
+    ProjectService, ResourceMonitorService, ReviewService, TerminalService,
+    WorkspaceProjectOwnerLookup, WorkspaceService, PREFETCH_POLL,
 };
 use core_service::{Result, ServiceError};
 use sea_orm_migration::sea_orm::DatabaseConnection;
@@ -85,6 +84,7 @@ pub struct WsMessageService {
     ws_manager: OnceCell<Arc<WsManager>>,
     local_model_manager: Arc<LocalRuntimeManager>,
     simulator: Arc<DevicePreviewService>,
+    device_control: Arc<DeviceControlService>,
     agent_chat_service: Arc<AgentChatService>,
     options_worker: Arc<OptionsPrefetchWorker>,
     agent_chat_subs: Arc<RwLock<HashMap<String, HashSet<String>>>>,
@@ -142,6 +142,16 @@ impl WsMessageService {
         );
         agent_chat_service.set_options_worker(Arc::clone(&options_worker));
 
+        let simulator =
+            Arc::new(DevicePreviewService::new().expect("device preview pins must parse"));
+        let device_control = Arc::new(DeviceControlService::new(
+            Arc::clone(&simulator),
+            Arc::new(WorkspaceProjectOwnerLookup::new(
+                Arc::clone(&workspace_service),
+                Arc::clone(&project_service),
+            )),
+        ));
+
         Self {
             fs_engine: FsEngine::new(),
             git_engine: GitEngine::new(),
@@ -166,9 +176,8 @@ impl WsMessageService {
             linear_service: LinearService::new(db),
             ws_manager: OnceCell::new(),
             local_model_manager: Arc::new(LocalRuntimeManager::new()),
-            simulator: Arc::new(
-                DevicePreviewService::new().expect("device preview pins must parse"),
-            ),
+            simulator,
+            device_control,
             agent_chat_service,
             options_worker,
             agent_chat_subs: Arc::new(RwLock::new(HashMap::new())),
@@ -305,6 +314,7 @@ impl WsMessageService {
                     }
                     ServiceError::Validation(_) => "validation_error",
                     ServiceError::NotFound(_) => "not_found",
+                    ServiceError::DeviceControl(err) => err.code(),
                     _ => "error",
                 };
                 WsMessage::error(&request_id, error_code, e.to_string())
@@ -1385,6 +1395,12 @@ impl WsMessageService {
             WsAction::SimulatorStart => self.handle_simulator_start(request.data).await,
             WsAction::SimulatorStop => self.handle_simulator_stop(request.data).await,
             WsAction::SimulatorStatus => self.handle_simulator_status(request.data).await,
+            WsAction::SimulatorList => self.handle_simulator_list(request.data).await,
+            WsAction::SimulatorScreenshot => self.handle_simulator_screenshot(request.data).await,
+            WsAction::SimulatorTap => self.handle_simulator_tap(request.data).await,
+            WsAction::SimulatorSwipe => self.handle_simulator_swipe(request.data).await,
+            WsAction::SimulatorType => self.handle_simulator_type(request.data).await,
+            WsAction::SimulatorPress => self.handle_simulator_press(request.data).await,
 
             // Resource Monitor (APP-066)
             WsAction::ResourceMonitorGet => self.handle_resource_monitor_get(request.data).await,

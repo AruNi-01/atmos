@@ -3,8 +3,9 @@ use serde_json::{json, Value};
 use core_service::{Result, ServiceError};
 
 use super::{
-    parse_request, SimulatorStartRequest, SimulatorWorkspaceRequest, WsEvent, WsMessage,
-    WsMessageService,
+    parse_request, SimulatorListRequest, SimulatorPressRequest, SimulatorScreenshotRequest,
+    SimulatorStartRequest, SimulatorSwipeRequest, SimulatorTapRequest, SimulatorTypeRequest,
+    SimulatorWorkspaceRequest, WsEvent, WsMessage, WsMessageService,
 };
 
 impl WsMessageService {
@@ -59,5 +60,86 @@ impl WsMessageService {
         let req: SimulatorWorkspaceRequest = parse_request(data)?;
         let claim = self.simulator.status(&req.workspace_id).await;
         serde_json::to_value(claim).map_err(|e| ServiceError::Processing(e.to_string()))
+    }
+
+    pub(super) async fn handle_simulator_list(&self, data: Value) -> Result<Value> {
+        let req: SimulatorListRequest = parse_request(data)?;
+        let list = self.device_control.list(req.workspace_id.as_deref()).await;
+        serde_json::to_value(list).map_err(|e| ServiceError::Processing(e.to_string()))
+    }
+
+    pub(super) async fn handle_simulator_screenshot(&self, data: Value) -> Result<Value> {
+        let req: SimulatorScreenshotRequest = parse_request(data)?;
+        let result = self
+            .device_control
+            .screenshot(
+                &req.workspace_id,
+                req.udid.as_deref(),
+                req.platform,
+                req.out.as_deref(),
+            )
+            .await?;
+        serde_json::to_value(result).map_err(|e| ServiceError::Processing(e.to_string()))
+    }
+
+    pub(super) async fn handle_simulator_tap(&self, data: Value) -> Result<Value> {
+        let req: SimulatorTapRequest = parse_request(data)?;
+        let result = self
+            .device_control
+            .tap(
+                &req.workspace_id,
+                req.udid.as_deref(),
+                req.platform,
+                req.x,
+                req.y,
+            )
+            .await?;
+        serde_json::to_value(result).map_err(|e| ServiceError::Processing(e.to_string()))
+    }
+
+    pub(super) async fn handle_simulator_swipe(&self, data: Value) -> Result<Value> {
+        let req: SimulatorSwipeRequest = parse_request(data)?;
+        let result = self
+            .device_control
+            .swipe(
+                &req.workspace_id,
+                req.udid.as_deref(),
+                req.platform,
+                req.x1,
+                req.y1,
+                req.x2,
+                req.y2,
+                req.duration_ms,
+            )
+            .await?;
+        serde_json::to_value(result).map_err(|e| ServiceError::Processing(e.to_string()))
+    }
+
+    pub(super) async fn handle_simulator_type(&self, data: Value) -> Result<Value> {
+        let req: SimulatorTypeRequest = parse_request(data)?;
+        let result = self
+            .device_control
+            .type_text(
+                &req.workspace_id,
+                req.udid.as_deref(),
+                req.platform,
+                &req.text,
+            )
+            .await?;
+        serde_json::to_value(result).map_err(|e| ServiceError::Processing(e.to_string()))
+    }
+
+    pub(super) async fn handle_simulator_press(&self, data: Value) -> Result<Value> {
+        let req: SimulatorPressRequest = parse_request(data)?;
+        let result = self
+            .device_control
+            .press(
+                &req.workspace_id,
+                req.udid.as_deref(),
+                req.platform,
+                req.key,
+            )
+            .await?;
+        serde_json::to_value(result).map_err(|e| ServiceError::Processing(e.to_string()))
     }
 }

@@ -4286,6 +4286,10 @@
         "viewRunLogs": {
           "label": "View Run Logs",
           "description": "Attach the latest Atmos Run log path for the agent"
+        },
+        "devicePreview": {
+          "label": "Device preview",
+          "description": "Attach this workspace's Device Preview claim for the agent"
         }
       }
     },
@@ -10147,6 +10151,10 @@
       "viewRunLogsCommand": {
         "label": "View Run Logs",
         "description": "Attach the latest Atmos Run log path for the agent"
+      },
+      "devicePreviewCommand": {
+        "label": "Device preview",
+        "description": "Attach this workspace's Device Preview claim for the agent"
       }
     },
     "sideChat": {
@@ -10988,6 +10996,8 @@
     "simulator": {
       "tab": "Simulator",
       "iframeTitle": "Device preview",
+      "agentCopy": "Agent",
+      "agentCopied": "Copied",
       "downloading": "Downloading device preview helper… {percent}%",
       "starting": "Starting device preview…",
       "checking": "Checking devices…",

@@ -44,6 +44,8 @@ const ALL_SYSTEM_SKILL_NAMES: &[&str] = &[
     // Desktop capture / drive (APP-052)
     "atmos-desktop-use",
     "atmos-browser-use",
+    // Device Preview phone control (APP-071)
+    "atmos-device-preview",
 ];
 
 #[derive(Clone, Debug, Deserialize)]
@@ -178,6 +180,7 @@ fn repo_skill_root(skill_name: &str) -> Option<&'static str> {
         "atmos-review-fix" => Some("skills/atmos-review-fix"),
         "atmos-canvas-agent" => Some("skills/atmos-canvas-agent"),
         "atmos-pt-design-agent" => Some("skills/atmos-pt-design-agent"),
+        "atmos-device-preview" => Some("skills/atmos-device-preview"),
         _ => None,
     }
 }

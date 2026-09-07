@@ -18,6 +18,7 @@ use commands::product::{
 };
 use commands::review::{execute as execute_review, ReviewCommand};
 use commands::runtime::{execute as execute_runtime, RuntimeCommand};
+use commands::simulator::{execute_simulator, SimulatorCommand};
 use commands::update::{execute as execute_update, update_hint_if_needed, UpdateArgs};
 use envelope::{next, CliEnvelope};
 use serde_json::json;
@@ -124,6 +125,11 @@ enum Commands {
         #[command(subcommand)]
         command: BrowserUseCommand,
     },
+    /// Drive a claimed Device Preview simulator
+    Simulator {
+        #[command(subcommand)]
+        command: SimulatorCommand,
+    },
     /// Check for or install CLI updates
     Update(UpdateArgs),
 }
@@ -185,6 +191,7 @@ async fn run() -> i32 {
         Some(Commands::BrowserUse { command }) => {
             wrap_legacy("atmos browser-use", execute_browser_use(command).await)
         }
+        Some(Commands::Simulator { command }) => execute_simulator(cli.api, command).await,
         Some(Commands::Canvas { canvas, command }) => wrap_legacy(
             "atmos canvas",
             execute_canvas(cli.api, canvas, command).await,

@@ -791,6 +791,7 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
     projectPath,
     composerRef,
     activeProjectId: sessionProjectId,
+    sessionWorkspaceId,
     agentName: activeAgent?.name,
   });
 

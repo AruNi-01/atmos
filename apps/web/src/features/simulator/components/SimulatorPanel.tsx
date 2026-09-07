@@ -4,6 +4,10 @@ import React from "react";
 import { useTranslations } from "next-intl";
 import { LoaderCircle } from "lucide-react";
 import { useSimulatorSession } from "../hooks/use-simulator-session";
+import {
+  formatDevicePreviewClipboard,
+  loadDevicePreviewPrompt,
+} from "../lib/device-preview-agent-prompt";
 import "../simulator-guest.css";
 import {
   iframeSrc,
@@ -40,14 +44,19 @@ export function SimulatorPanel({
 
   if (session.url && (session.phase === "ready" || session.phase === "starting" || session.phase === "downloading")) {
     return (
-      <iframe
-        ref={iframeRef}
-        title={t("iframeTitle")}
-        src={iframeSrc(session.url, session.udid ?? undefined)}
-        data-atmos-guest-iframe=""
-        className="h-full w-full border-0 bg-background"
-        allow="autoplay"
-      />
+      <div className="relative h-full w-full min-h-0">
+        <iframe
+          ref={iframeRef}
+          title={t("iframeTitle")}
+          src={iframeSrc(session.url, session.udid ?? undefined)}
+          data-atmos-guest-iframe=""
+          className="h-full w-full border-0 bg-background"
+          allow="autoplay"
+        />
+        {session.phase === "ready" ? (
+          <SimulatorAgentCopyButton workspaceId={workspaceId} />
+        ) : null}
+      </div>
     );
   }
 
@@ -85,5 +94,49 @@ export function SimulatorPanel({
       }}
       onRetry={session.retry}
     />
+  );
+}
+
+function SimulatorAgentCopyButton({ workspaceId }: { workspaceId: string | null }) {
+  const t = useTranslations("features.simulator");
+  const [copied, setCopied] = React.useState(false);
+  const copiedTimerRef = React.useRef<number | null>(null);
+
+  React.useEffect(() => {
+    return () => {
+      if (copiedTimerRef.current != null) {
+        window.clearTimeout(copiedTimerRef.current);
+      }
+    };
+  }, []);
+
+  const onCopy = React.useCallback(() => {
+    void loadDevicePreviewPrompt(workspaceId)
+      .then((prompt) =>
+        navigator.clipboard.writeText(formatDevicePreviewClipboard(prompt)),
+      )
+      .then(() => {
+        setCopied(true);
+        if (copiedTimerRef.current != null) {
+          window.clearTimeout(copiedTimerRef.current);
+        }
+        copiedTimerRef.current = window.setTimeout(() => {
+          setCopied(false);
+          copiedTimerRef.current = null;
+        }, 2000);
+      })
+      .catch(() => {
+        setCopied(false);
+      });
+  }, [workspaceId]);
+
+  return (
+    <button
+      type="button"
+      className="absolute top-3 right-3 z-10 inline-flex h-7 items-center rounded-md border border-border bg-background/90 px-2.5 text-xs font-medium text-foreground shadow-sm backdrop-blur-sm hover:bg-accent"
+      onClick={onCopy}
+    >
+      {copied ? t("agentCopied") : t("agentCopy")}
+    </button>
   );
 }

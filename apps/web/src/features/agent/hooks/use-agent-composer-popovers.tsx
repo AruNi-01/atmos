@@ -23,6 +23,12 @@ import {
 import { getTerminalAgentPopoverAboveCaret } from "@/features/terminal/lib/terminal-agent-input-overlay-utils";
 import { useTranslations } from "next-intl";
 import type { AgentChatSlashCommand } from "@/features/agent/hooks/use-agent-chat-session";
+import {
+  buildDevicePreviewSlashCommand,
+  DEVICE_PREVIEW_SLASH_COMMAND_ID,
+  loadDevicePreviewPrompt,
+  matchesDevicePreviewSlashQuery,
+} from "@/features/simulator/lib/device-preview-agent-prompt";
 
 export function useAgentComposerPopovers({
   availableCommands,
@@ -30,12 +36,14 @@ export function useAgentComposerPopovers({
   composerRef,
   activeProjectId = null,
   agentName = null,
+  sessionWorkspaceId = null,
 }: {
   availableCommands: AgentChatSlashCommand[];
   projectPath: string | null;
   composerRef: React.RefObject<ComposerHandle | null>;
   activeProjectId?: string | null;
   agentName?: string | null;
+  sessionWorkspaceId?: string | null;
 }) {
   const t = useTranslations("Welcome.components");
   const [mentionPopover, setMentionPopover] = React.useState<MentionPopoverState>(null);
@@ -99,22 +107,32 @@ export function useAgentComposerPopovers({
 
   const filteredCommands = React.useMemo<SlashCommandOption[]>(() => {
     const query = slashPopover?.query.trim().toLowerCase() ?? "";
-    return availableCommands
-      .filter((command) => {
-        if (!query) return true;
-        return (
+    const commands: SlashCommandOption[] = [];
+    if (matchesDevicePreviewSlashQuery(query)) {
+      commands.push(
+        buildDevicePreviewSlashCommand({
+          label: t("slashPopover.devicePreview.label"),
+          description: t("slashPopover.devicePreview.description"),
+        }),
+      );
+    }
+    for (const command of availableCommands) {
+      if (query) {
+        const matches =
           command.name.toLowerCase().includes(query) ||
-          command.description.toLowerCase().includes(query)
-        );
-      })
-      .map((command) => ({
+          command.description.toLowerCase().includes(query);
+        if (!matches) continue;
+      }
+      commands.push({
         id: command.name,
         label: `/${command.name}`,
         description: command.hint?.trim()
           ? `${command.description} (${command.hint.trim()})`
           : command.description,
-      }));
-  }, [availableCommands, slashPopover?.query]);
+      });
+    }
+    return commands;
+  }, [availableCommands, slashPopover?.query, t]);
 
   const selectSlashSkill = React.useCallback(
     (skill: { path: string; name: string; status?: string }) => {
@@ -135,6 +153,18 @@ export function useAgentComposerPopovers({
     (command: SlashCommandOption) => {
       const popover = slashPopover;
       if (!popover) return;
+      if (command.id === DEVICE_PREVIEW_SLASH_COMMAND_ID) {
+        setSlashPopover(null);
+        void loadDevicePreviewPrompt(sessionWorkspaceId).then((promptText) => {
+          composerRef.current?.applyAiContextAtRange(
+            popover.slashOffset,
+            popover.query.length,
+            "device-preview",
+            promptText,
+          );
+        });
+        return;
+      }
       const matched = availableCommands.find((item) => item.name === command.id);
       if (matched) {
         composerRef.current?.applySlashAtRange(
@@ -145,7 +175,7 @@ export function useAgentComposerPopovers({
       }
       setSlashPopover(null);
     },
-    [availableCommands, composerRef, slashPopover],
+    [availableCommands, composerRef, sessionWorkspaceId, slashPopover],
   );
 
   const {

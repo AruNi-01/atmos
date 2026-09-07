@@ -241,6 +241,7 @@ impl DevicePreviewService {
             pid: spawned.pid,
             port,
             udid: device.udid.clone(),
+            name: device.name.clone(),
             argv_id: argv_device,
             url: claim_preview_url(port, preview),
             version: pin.version.clone(),
@@ -294,10 +295,49 @@ impl DevicePreviewService {
             guard.get(workspace_id)?.claim.clone()
         };
         if self.hooks.pid_alive(claim.pid) && self.hooks.port_open(claim.port).await {
-            return Some(claim);
+            return Some(self.with_filled_name(claim));
         }
         let _ = self.stop(workspace_id).await;
         None
+    }
+
+    /// Live claims on this Computer (pid + port still up). Does not start or stop helpers.
+    pub async fn claims(&self) -> Vec<DeviceClaim> {
+        let snapshot = self.snapshot_claims().await;
+        let mut live = Vec::with_capacity(snapshot.len());
+        for claim in snapshot {
+            if self.hooks.pid_alive(claim.pid) && self.hooks.port_open(claim.port).await {
+                live.push(self.with_filled_name(claim));
+            }
+        }
+        live
+    }
+
+    pub fn paths(&self) -> &DevicePreviewPaths {
+        &self.paths
+    }
+
+    pub fn serve_sim_binary(&self) -> std::path::PathBuf {
+        self.paths
+            .serve_sim_runtime
+            .join(&self.sim_pin.version)
+            .join("serve-sim")
+    }
+
+    fn with_filled_name(&self, mut claim: DeviceClaim) -> DeviceClaim {
+        if !claim.name.is_empty() {
+            return claim;
+        }
+        claim.name = self
+            .hooks
+            .ios_snapshot()
+            .devices
+            .into_iter()
+            .chain(self.hooks.android_snapshot().devices)
+            .find(|device| device.id == claim.udid)
+            .map(|device| device.name)
+            .unwrap_or_default();
+        claim
     }
 
     async fn live_claim(&self, workspace_id: &str, udid: Option<&str>) -> Option<DeviceClaim> {
@@ -307,7 +347,7 @@ impl DevicePreviewService {
         };
         let same = udid.map(|id| id == claim.udid).unwrap_or(true);
         if same && self.hooks.pid_alive(claim.pid) && self.hooks.port_open(claim.port).await {
-            Some(claim)
+            Some(self.with_filled_name(claim))
         } else {
             None
         }

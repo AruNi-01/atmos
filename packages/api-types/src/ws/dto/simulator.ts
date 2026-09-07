@@ -92,3 +92,82 @@ export type SimulatorStartResult = {
 export type SimulatorStopResponse = {
   stopped: boolean;
 };
+
+export type SimulatorListRequest = {
+  workspace_id?: string | null;
+};
+
+export type SimulatorClaimListItem = {
+  udid: string;
+  name: string;
+  platform: SimulatorDevicePlatform;
+  helper: SimulatorHelperKind;
+  workspace_id: string;
+  workspace_name: string;
+  project_id: string;
+  project_name: string;
+  current: boolean;
+};
+
+export type SimulatorClaimList = {
+  devices: SimulatorClaimListItem[];
+};
+
+export type SimulatorScreenshotRequest = {
+  workspace_id: string;
+  udid?: string | null;
+  platform?: SimulatorDevicePlatform | null;
+  out?: string | null;
+};
+
+export type SimulatorScreenshotResult = {
+  path: string;
+  width: number;
+  height: number;
+  udid: string;
+  name: string;
+  platform: SimulatorDevicePlatform;
+  helper: SimulatorHelperKind;
+};
+
+export type SimulatorTapRequest = {
+  workspace_id: string;
+  udid?: string | null;
+  platform?: SimulatorDevicePlatform | null;
+  x: number;
+  y: number;
+};
+
+export type SimulatorSwipeRequest = {
+  workspace_id: string;
+  udid?: string | null;
+  platform?: SimulatorDevicePlatform | null;
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+  duration_ms?: number | null;
+};
+
+export type SimulatorTypeRequest = {
+  workspace_id: string;
+  udid?: string | null;
+  platform?: SimulatorDevicePlatform | null;
+  text: string;
+};
+
+export type SimulatorPressKey = "home" | "back" | "recents";
+
+export type SimulatorPressRequest = {
+  workspace_id: string;
+  udid?: string | null;
+  platform?: SimulatorDevicePlatform | null;
+  key: SimulatorPressKey;
+};
+
+export type SimulatorControlAck = {
+  ok: boolean;
+  udid: string;
+  name: string;
+  platform: SimulatorDevicePlatform;
+};
