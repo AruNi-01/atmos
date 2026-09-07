@@ -8,6 +8,7 @@ quota-usage = { path = "../quota-usage" }
 local-model-runtime = { path = "../local-model-runtime" }
 infra = { path = "../infra" }
 core-engine = { path = "../core-engine" }
+runtime-manager = { path = "../runtime-manager", default-features = false, features = ["client"] }
 agent = { path = "../agent" }
 llm = { path = "../llm" }
 sea-orm = { version = "1.1", features = ["sqlx-sqlite", "runtime-tokio-rustls"] }

@@ -416,6 +416,7 @@
       "plusMenuLayout": "布局",
       "newSpace": "新建空间",
       "newSpaceDialogTitle": "新建空间",
+      "newSpaceDialogDescription": "空间属于工作区。一个工作区可以有多个互不影响的空间，每个空间里可以分成多个区域。",
       "newSpaceNamePlaceholder": "空间名称",
       "newSpaceConfirm": "创建",
       "newSpaceCancel": "取消",
@@ -1286,6 +1287,7 @@
         "conflict": "冲突解决",
         "github": "GitHub",
         "browser": "浏览器",
+        "simulator": "模拟器",
         "other": "标签页"
       },
       "browser": {
@@ -4285,6 +4287,10 @@
         "viewRunLogs": {
           "label": "View Run Logs",
           "description": "将最新的 Atmos Run 日志路径附加给 Agent"
+        },
+        "devicePreview": {
+          "label": "Device preview",
+          "description": "将当前工作区的 Device Preview 占用信息附加给 Agent"
         }
       }
     },
@@ -10146,6 +10152,10 @@
       "viewRunLogsCommand": {
         "label": "View Run Logs",
         "description": "将最新的 Atmos Run 日志路径附加给 Agent"
+      },
+      "devicePreviewCommand": {
+        "label": "Device preview",
+        "description": "将当前工作区的 Device Preview 占用信息附加给 Agent"
       }
     },
     "sideChat": {
@@ -10987,16 +10997,27 @@
   "features": {
     "simulator": {
       "tab": "模拟器",
-      "iframeTitle": "iOS 模拟器预览",
-      "downloading": "正在下载模拟器助手… {percent}%",
-      "starting": "正在启动模拟器预览…",
-      "checking": "正在检查模拟器…",
+      "iframeTitle": "设备预览",
+      "agentCopy": "Agent",
+      "agentCopyTooltip": "复制 Prompt 给 Agent，用于操作这台设备",
+      "agentCopied": "已复制",
+      "downloading": "正在下载设备预览助手… {percent}%",
+      "starting": "正在启动设备预览…",
+      "checking": "正在检查设备…",
+      "choosePlatform": {
+        "title": "选择平台",
+        "body": "启动 iOS 模拟器或 Android 模拟器。同一个工作区一次只能占用一台设备。"
+      },
       "actions": {
         "needDesktop": "获取 Atmos Desktop",
         "installXcode": "安装 Xcode",
         "openXcode": "安装 iOS 运行时",
+        "installAndroidSdk": "安装 Android Studio",
+        "createAvd": "创建 Android 虚拟设备",
         "retry": "重试",
         "start": "启动",
+        "startIos": "启动 iOS",
+        "startAndroid": "启动 Android",
         "stop": "停止",
         "cancel": "取消"
       },
@@ -11006,16 +11027,16 @@
       },
       "reasons": {
         "ok": {
-          "title": "模拟器未启动",
-          "body": "需要时再启动预览。同一个工作区一次只能运行一个模拟器。"
+          "title": "设备预览未启动",
+          "body": "需要时再启动预览。同一个工作区一次只能占用一台设备。"
         },
         "not_desktop": {
-          "title": "需要本机 Mac 上的服务",
-          "body": "iOS 模拟器跑在托管这份 Atmos Server 的那台机器上。请连到装了 Xcode 的 Mac，或在那台 Mac 上启动 just dev-api。"
+          "title": "需要这台 Mac",
+          "body": "设备预览是网页，助手跑在 127.0.0.1。本机 Atmos Server 可以拉起真正的模拟器。请连到这台 Mac 上的 Computer，然后重试。经过中继的远程 Computer 无法在这个浏览器里显示预览。"
         },
         "unsupported_platform": {
           "title": "需要 Mac",
-          "body": "iOS 模拟器仅在安装了 Xcode 的 macOS 上可用。"
+          "body": "设备预览仅在 Apple 芯片的 macOS 上可用。"
         },
         "unsupported_arch": {
           "title": "需要 Apple 芯片",
@@ -11039,7 +11060,27 @@
         },
         "no_device": {
           "title": "没有模拟器机型",
-          "body": "请在 Xcode 中创建一个 iPhone 模拟器，然后重试。"
+          "body": "请在 Xcode 中创建一个 iPhone 模拟器。如果只用 Android，请改为创建一个 AVD。"
+        },
+        "android_sdk_missing": {
+          "title": "未安装 Android SDK",
+          "body": "请安装 Android Studio 或 SDK，以便 Atmos 找到 adb 和模拟器。"
+        },
+        "adb_missing": {
+          "title": "缺少 adb",
+          "body": "请安装 Android platform-tools，并确保 adb 在 PATH 中。"
+        },
+        "emulator_missing": {
+          "title": "缺少 Android 模拟器",
+          "body": "请在 SDK Manager 中安装 Android Emulator，然后重试。"
+        },
+        "no_avd": {
+          "title": "没有 Android 虚拟设备",
+          "body": "请在 Android Studio 中创建一个 AVD，然后启动预览。"
+        },
+        "device_already_claimed": {
+          "title": "这台设备正在使用中",
+          "body": "另一个工作区已经在预览这台设备。请启动另一台模拟器或 AVD，或等它被释放。"
         },
         "helper_missing": {
           "title": "尚未安装助手",
@@ -11055,7 +11096,7 @@
         },
         "start_failed": {
           "title": "无法启动预览",
-          "body": "助手没有启动。请确认 Xcode 与模拟器工具可用后重试。"
+          "body": "助手没有启动。请确认 Xcode 或 Android SDK 可用后重试。"
         }
       }
     }

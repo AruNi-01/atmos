@@ -32,7 +32,7 @@ import {
   serveDevicePlaceholderAsset,
 } from "./devicekit-chrome";
 import { createExecWebSocketHandler, type UiRequestHandler } from "./exec-ws";
-import { hostServeSimBin, rewriteHostCommand } from "./host-bin";
+import { hostServeSimBin, isGlobalServeSimKill, rewriteHostCommand } from "./host-bin";
 import { UI_OPTIONS, getUiStatus, normalizeUiValue, setUiOption } from "./ui-settings";
 import { type WebMiddleware } from "./runtime-utils";
 import { connectToFetch, type ConnectMiddleware } from "./connect-to-fetch";
@@ -2107,6 +2107,15 @@ export function simMiddleware(options?: SimMiddlewareOptions): SimMiddleware {
         if (!command) {
           res.writeHead(400, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ stdout: "", stderr: "Missing command", exitCode: 1 }));
+          return;
+        }
+        if (isGlobalServeSimKill(command)) {
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({
+            stdout: "",
+            stderr: "refusing global serve-sim --kill",
+            exitCode: 1,
+          }));
           return;
         }
         exec(rewriteHostCommand(command), { maxBuffer: 16 * 1024 * 1024 }, (err, stdout, stderr) => {

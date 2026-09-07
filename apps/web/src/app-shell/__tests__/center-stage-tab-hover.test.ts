@@ -30,7 +30,7 @@ describe("center stage tab hover", () => {
   it("uses the tasks-page motion pill tabs without a bottom divider", () => {
     expect(shared).toContain('@workspace/ui/components/motion/tabs');
     expect(shared).toContain('variant="pill"');
-    expect(shared).toContain("flex h-8 w-full min-w-0 justify-start gap-0.5 overflow-hidden bg-background p-0.5");
+    expect(shared).toContain("flex h-8 min-w-0 max-w-full justify-start overflow-hidden bg-background py-0.5 pl-0.5 pr-0");
     expect(shared).toContain("group h-7 shrink-0 gap-1.5 px-1.5 text-xs");
     expect(shared).toContain("aria-selected:!text-foreground");
     expect(shared).toContain('CENTER_STAGE_TAB_INDICATOR_CLASS = "bg-active"');
@@ -45,8 +45,51 @@ describe("center stage tab hover", () => {
       shared.indexOf("<MotionTabsList"),
       shared.indexOf("</MotionTabsList>"),
     );
-    expect(listBlock).toContain("trailing={actions}");
+    expect(listBlock).toContain("trailing={afterTabs}");
     expect(listBlock).toContain("{children}");
+  });
+
+  it("puts the plus after the last tab and pins it when the strip is full", () => {
+    const listFn = shared.slice(
+      shared.indexOf("export function CenterStageTabList"),
+      shared.indexOf("export function CenterStageScrollableTabs"),
+    );
+    expect(listFn).toContain("afterTabs?: React.ReactNode");
+    expect(listFn).toContain("trailing={afterTabs}");
+    expect(listFn).toContain("{actions}");
+    expect(listFn).toContain('className="ml-auto flex shrink-0 items-center"');
+    expect(listFn).toContain("flex-[0_1_auto]");
+    expect(listFn).toContain("gap-0.5");
+    expect(listFn.indexOf("trailing={afterTabs}")).toBeLessThan(listFn.indexOf("{actions}"));
+    expect(shared).toContain(
+      "flex min-w-0 flex-1 items-center overflow-x-auto no-scrollbar",
+    );
+    expect(tabBar).toContain("afterTabs={");
+    expect(tabBar.indexOf("<CenterStageNewTabMenu")).toBeLessThan(
+      tabBar.indexOf("<CenterStagePaneFullscreenButton"),
+    );
+  });
+
+  it("drives the edge fade with CSS scroll timeline instead of React state", () => {
+    const motionTabs = readFileSync(
+      join(import.meta.dir, "../../../../../packages/ui/src/components/motion/tabs.tsx"),
+      "utf8",
+    );
+    const fadeCss = readFileSync(
+      join(import.meta.dir, "../../../../../packages/ui/src/components/motion/tabs.css"),
+      "utf8",
+    );
+    expect(motionTabs).toContain('import "./tabs.css"');
+    expect(motionTabs).toContain("data-center-tabs-track=");
+    expect(motionTabs).toContain("data-center-tabs-edge-fade=");
+    expect(motionTabs).not.toContain("setEdgeFade");
+    expect(motionTabs).not.toContain("tabStripEdgeFadeOpacity");
+    expect(motionTabs).not.toContain("fade.style.opacity");
+    expect(fadeCss).toContain("scroll-timeline-name: --center-tabs-scroll");
+    expect(fadeCss).toContain("animation-timeline: --center-tabs-scroll");
+    expect(fadeCss).toContain("animation-range: calc(100% - 16px) 100%");
+    expect(fadeCss).not.toContain("setState");
+    expect(shared).toContain('data-center-tabs-scroll=""');
   });
 
   it("stacks trailing chrome above the sliding active pill", () => {
@@ -55,8 +98,12 @@ describe("center stage tab hover", () => {
       "utf8",
     );
     expect(motionTabs).toContain("trailing?: ReactNode");
+    expect(motionTabs).toContain("data-center-tabs-edge-fade=");
+    expect(motionTabs).not.toContain("setEdgeFade");
+    expect(motionTabs).toContain("backdrop-blur-[4px]");
+    expect(motionTabs).toContain('className={cn(listClassName, "gap-1")}');
     expect(motionTabs).toContain(
-      'className="relative z-0 flex min-h-0 min-w-0 flex-1 items-center gap-[inherit] self-stretch overflow-hidden"',
+      'className="relative z-0 flex min-h-0 min-w-0 flex-1 items-center gap-0.5 self-stretch overflow-hidden"',
     );
     expect(motionTabs).toContain(
       'className="relative z-20 flex shrink-0 items-center self-stretch"',
@@ -94,7 +141,7 @@ describe("center stage tab hover", () => {
       tabBar.indexOf("function SpecialTerminalTab"),
     );
     expect(menuBlock).toContain("<Popover modal={false} open={layoutsSubOpen}");
-    expect(menuBlock).toContain('side="left"');
+    expect(menuBlock).toContain('side="right"');
     expect(menuBlock).toContain("data-center-stage-layouts-menu");
     expect(menuBlock).not.toContain("right-full");
     expect(menuBlock).not.toContain("overflow-visible");
@@ -130,6 +177,9 @@ describe("center stage tab hover", () => {
     expect(menuBlock).toContain('className="z-[2147483646] w-48 overflow-hidden border-border/70');
     expect(menuBlock).toContain("z-[2147483647]");
     expect(menuBlock).toContain("modal={false}");
+    expect(menuBlock).toContain('align="start"');
+    expect(menuBlock).toContain("collisionPadding={8}");
+    expect(menuBlock).not.toContain("avoidCollisions={false}");
     expect(menuBlock).toContain("onInteractOutside");
     expect(menuBlock).toContain("xterm keeps focus while this menu is hover-open");
     expect(tabBar).toContain('hidden={tab !== "tabs" ? true : undefined}');

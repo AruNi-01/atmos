@@ -1,12 +1,12 @@
 ---
 name: atmos-cli
-version: "1.0.0"
+version: "1.0.1"
 description: >
   Operate Atmos product state via the `atmos` CLI (projects, workspaces, terminals,
   runs, settings, git, headless control). Use when the agent must create or manage
   Atmos resources without the UI. Do not use for desktop GUI capture/click
-  (atmos-desktop-use), in-page browser DOM (atmos-browser-use), or canvas drawing
-  (atmos-canvas-agent).
+  (atmos-desktop-use), in-page browser DOM (atmos-browser-use), canvas drawing
+  (atmos-canvas-agent), or Device Preview phone (atmos-device-preview).
 ---
 
 # Atmos CLI (product control)
@@ -18,6 +18,7 @@ commands**. Use `atmos call` only as an escape hatch when no L1 verb exists.
 Default path:  status → project/workspace L1 → terminal/run → settings
 Escape hatch:  atmos call <wire_action> --data '{…}'
 Not this skill: canvas · desktop-use · browser-use
+Not this skill: Device Preview phone → `atmos-device-preview`.
 ```
 
 ---

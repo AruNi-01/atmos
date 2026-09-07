@@ -172,6 +172,21 @@ pub fn serve_sim_runtime_dir() -> Result<PathBuf, String> {
     Ok(atmos_home_dir()?.join("runtime").join("serve-sim"))
 }
 
+/// On-demand serve-emu helper installs: `~/.atmos/runtime/serve-emu/<version>/`.
+pub fn serve_emu_runtime_dir() -> Result<PathBuf, String> {
+    Ok(atmos_home_dir()?.join("runtime").join("serve-emu"))
+}
+
+/// serve-sim download parts: `~/.atmos/cache/serve-sim/`.
+pub fn serve_sim_cache_dir() -> Result<PathBuf, String> {
+    Ok(atmos_home_dir()?.join("cache").join("serve-sim"))
+}
+
+/// serve-emu download parts: `~/.atmos/cache/serve-emu/`.
+pub fn serve_emu_cache_dir() -> Result<PathBuf, String> {
+    Ok(atmos_home_dir()?.join("cache").join("serve-emu"))
+}
+
 /// Simulator session claims / leases (not product data).
 pub fn simulator_state_dir() -> Result<PathBuf, String> {
     Ok(state_dir()?.join("simulator"))
@@ -216,6 +231,15 @@ mod tests {
         assert!(serve_sim_runtime_dir()
             .unwrap()
             .starts_with(home.join("runtime").join("serve-sim")));
+        assert!(serve_emu_runtime_dir()
+            .unwrap()
+            .starts_with(home.join("runtime").join("serve-emu")));
+        assert!(serve_sim_cache_dir()
+            .unwrap()
+            .starts_with(home.join("cache").join("serve-sim")));
+        assert!(serve_emu_cache_dir()
+            .unwrap()
+            .starts_with(home.join("cache").join("serve-emu")));
         assert!(simulator_state_dir()
             .unwrap()
             .starts_with(home.join("state").join("simulator")));

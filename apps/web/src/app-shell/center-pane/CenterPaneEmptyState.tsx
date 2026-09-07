@@ -63,6 +63,9 @@ function ShortcutKeys({ keys }: { keys: string[] }) {
 const ACTION_FOCUS_CLASS =
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50";
 
+const EMPTY_PANE_COMPACT_TILE_CLASS =
+  "flex flex-col items-center justify-center border border-border text-center hover:bg-accent hover:text-accent-foreground";
+
 function EmptyPaneTypeButton({
   action,
   plan,
@@ -79,7 +82,7 @@ function EmptyPaneTypeButton({
         CENTER_STAGE_RADIUS_CLASS,
         ACTION_FOCUS_CLASS,
         compact
-          ? "flex flex-col items-center justify-center bg-muted/35 text-center ring-1 ring-border/40 hover:bg-accent hover:text-accent-foreground"
+          ? EMPTY_PANE_COMPACT_TILE_CLASS
           : "flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground",
       )}
       style={
@@ -118,9 +121,9 @@ function EmptyPaneTypeButton({
 }
 
 /**
- * Empty center pane launcher. Layout follows the pane box: list in a tall
- * portrait pane, 2-col cards when that list will not fit, more columns when
- * the pane is landscape, and vertical scroll when both axes are tight.
+ * Empty center pane launcher. At most two tiles per row. Compact tiles use a
+ * rounded border and hover fill. Close sits in the last-row gap when the
+ * count is odd; extra rows wrap and scroll when the pane is short.
  */
 export function CenterPaneEmptyState({
   actions,
@@ -185,12 +188,13 @@ export function CenterPaneEmptyState({
         }}
       >
         <div
-          className="grid w-full min-w-0"
+          className="mx-auto grid w-full min-w-0"
           style={
             compact
               ? {
                   gridTemplateColumns: `repeat(${plan.columns}, minmax(0, 1fr))`,
-                  gap: plan.gap,
+                  columnGap: plan.columns > 1 ? plan.gap : 0,
+                  rowGap: plan.gap,
                   maxWidth: plan.gridMaxWidth,
                 }
               : {
@@ -215,16 +219,46 @@ export function CenterPaneEmptyState({
                 CENTER_STAGE_RADIUS_CLASS,
                 ACTION_FOCUS_CLASS,
                 compact
-                  ? "flex items-center justify-center gap-2 bg-muted/25 px-3 py-2.5 text-sm text-muted-foreground ring-1 ring-border/40 hover:bg-accent hover:text-foreground"
+                  ? cn(EMPTY_PANE_COMPACT_TILE_CLASS, "text-muted-foreground")
                   : "mt-2 flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-muted-foreground hover:bg-accent hover:text-foreground",
               )}
-              style={compact ? { gridColumn: "1 / -1" } : undefined}
+              style={
+                compact
+                  ? {
+                      minHeight: plan.cardMinHeight,
+                      gap: Math.max(4, Math.round(plan.iconSize * 0.2)),
+                      paddingLeft: 12,
+                      paddingRight: 12,
+                      paddingTop: plan.cardPaddingY,
+                      paddingBottom: plan.cardPaddingY,
+                    }
+                  : undefined
+              }
               onClick={onClose}
             >
-              <span className="inline-flex size-5 shrink-0 items-center justify-center">
-                <X className="size-4" />
+              <span
+                className={cn(
+                  "inline-flex shrink-0 items-center justify-center text-muted-foreground",
+                  compact ? "[&_svg]:h-full [&_svg]:w-full" : "size-5",
+                )}
+                style={
+                  compact
+                    ? { width: plan.iconSize, height: plan.iconSize }
+                    : undefined
+                }
+              >
+                <X className={compact ? undefined : "size-4"} />
               </span>
-              <span className="min-w-0 truncate font-medium">{t("closePane")}</span>
+              <span
+                className={cn(
+                  "min-w-0 font-medium",
+                  compact
+                    ? "w-full truncate text-sm leading-tight"
+                    : "truncate",
+                )}
+              >
+                {t("closePane")}
+              </span>
             </button>
           ) : null}
         </div>

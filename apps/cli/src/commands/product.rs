@@ -1170,6 +1170,7 @@ pub fn discovery_tree(health: Option<Value>) -> CliEnvelope {
         json!({"name": "canvas", "description": "Canvas agent control", "usage": "atmos canvas …"}),
         json!({"name": "desktop-use", "description": "Local desktop capture/control", "usage": "atmos desktop-use …"}),
         json!({"name": "browser-use", "description": "Browser page control", "usage": "atmos browser-use …"}),
+        json!({"name": "simulator", "description": "Device Preview simulator control", "usage": "atmos simulator probe|start|stop|status|list|…"}),
         json!({"name": "update", "description": "CLI self-update", "usage": "atmos update"}),
     ];
     wrap_ok(

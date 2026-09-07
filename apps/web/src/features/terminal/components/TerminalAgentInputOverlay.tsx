@@ -63,6 +63,12 @@ import {
   resolveViewRunLogsPromptText,
   VIEW_RUN_LOGS_SLASH_COMMAND_ID,
 } from "@/features/browser/lib/run-log-context";
+import {
+  buildDevicePreviewSlashCommand,
+  DEVICE_PREVIEW_SLASH_COMMAND_ID,
+  loadDevicePreviewPrompt,
+  matchesDevicePreviewSlashQuery,
+} from "@/features/simulator/lib/device-preview-agent-prompt";
 import { runLogApi } from "@/features/browser/lib/run-log-api";
 import {
   getAgentContextDragItems,
@@ -191,7 +197,7 @@ export const TerminalAgentInputOverlay = React.forwardRef<
   surfaceActive = true,
 }, ref) {
   const t = useTranslations("terminal.agentInput");
-  const { effectiveContextId } = useContextParams();
+  const { effectiveContextId, workspaceId: routeWorkspaceId } = useContextParams();
   const {
     enabled: richInputEnabled,
     triggerBarVisible,
@@ -329,6 +335,14 @@ export const TerminalAgentInputOverlay = React.forwardRef<
         buildViewRunLogsSlashCommand({
           label: t("viewRunLogsCommand.label"),
           description: t("viewRunLogsCommand.description"),
+        }),
+      );
+    }
+    if (matchesDevicePreviewSlashQuery(query)) {
+      commands.push(
+        buildDevicePreviewSlashCommand({
+          label: t("devicePreviewCommand.label"),
+          description: t("devicePreviewCommand.description"),
         }),
       );
     }
@@ -628,6 +642,23 @@ export const TerminalAgentInputOverlay = React.forwardRef<
         });
         return;
       }
+      if (command.id === DEVICE_PREVIEW_SLASH_COMMAND_ID) {
+        const popover = slashPopover;
+        if (!popover) return;
+        setSlashPopover(null);
+        setSlashPopoverView("menu");
+        void loadDevicePreviewPrompt(routeWorkspaceId ?? effectiveContextId).then(
+          (promptText) => {
+            composerRef.current?.applyAiContextAtRange(
+              popover.slashOffset,
+              popover.query.length,
+              "device-preview",
+              promptText,
+            );
+          },
+        );
+        return;
+      }
       if (command.id === BROWSER_USE_SLASH_COMMAND_ID) {
         const popover = slashPopover;
         if (!popover) return;
@@ -721,8 +752,10 @@ export const TerminalAgentInputOverlay = React.forwardRef<
     [
       allSkills,
       createCapturePromptContext,
+      effectiveContextId,
       enterDisableSkillsView,
       localPath,
+      routeWorkspaceId,
       slashPopover,
     ],
   );

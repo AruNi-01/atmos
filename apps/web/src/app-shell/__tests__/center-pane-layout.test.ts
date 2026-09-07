@@ -119,6 +119,8 @@ describe("center-pane-layout", () => {
     expect(isShareableCenterTabId("terminal-tab:abc")).toBe(false);
     expect(isShareableCenterTabId("browser:1")).toBe(false);
     expect(isShareableCenterTabId("agent-chat:abc")).toBe(false);
+    expect(isShareableCenterTabId("simulator")).toBe(false);
+    expect(isShareableCenterTabId("run")).toBe(false);
 
     let layout = createDefaultLayout(["terminal", "files"], "files");
     layout = splitPane(layout, { direction: "right" });

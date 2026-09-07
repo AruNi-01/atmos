@@ -854,15 +854,16 @@ export function useAgentChatSession({
         );
       }
       if (payload.type === "usage_updated") {
-        if (payload.session) {
+        const session = payload.session;
+        if (session) {
           setSessionUsage((prev) => ({
             ...(prev ?? {}),
-            ...payload.session,
+            ...session,
             // Prefer explicit context_window; keep prior window if cost-only merge.
-            used: payload.session.used ?? prev?.used ?? null,
+            used: session.used ?? prev?.used ?? null,
             context_window:
-              payload.session.context_window
-              ?? payload.session.size
+              session.context_window
+              ?? session.size
               ?? prev?.context_window
               ?? prev?.size
               ?? null,

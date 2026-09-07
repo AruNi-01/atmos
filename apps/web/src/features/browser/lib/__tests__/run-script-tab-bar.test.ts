@@ -18,12 +18,13 @@ describe("run script tab bar", () => {
       shared.indexOf("export function CenterStageScrollableTabs"),
     );
     expect(listBlock).toContain("{children}");
-    expect(listBlock).toContain("trailing={actions}");
+    expect(listBlock).toContain("trailing={afterTabs}");
 
     const runList = runScript.slice(
       runScript.indexOf("<CenterStageTabList"),
       runScript.indexOf("</CenterStageTabList>"),
     );
+    expect(runList).toContain("afterTabs={");
     expect(runList).toContain("<CenterStageScrollableTabs className=\"flex-initial\">");
     expect(runList).toContain("CenterStageStickyTabActions");
     expect(runList).toContain("<Plus className=\"size-3.5\" />");

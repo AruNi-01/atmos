@@ -31,11 +31,11 @@ import {
   Globe,
   MessagesSquare,
   Play,
-  Smartphone,
   SquareTerminal as TerminalIcon,
   Workflow,
 } from "lucide-react";
 import { Github } from "@workspace/ui/components/icons/lucide-brand-icons";
+import { SimulatorTabIcon } from "@/features/simulator/components/SimulatorTabIcon";
 
 import {
   EDITOR_REVIEW_DIFF_PREFIX,
@@ -170,12 +170,16 @@ export type CenterStageSurfaceTabVariant =
 
 export function CenterStageTabList({
   actions,
+  afterTabs,
   children,
   className,
   onValueChange,
   value,
 }: {
+  /** Always-right chrome (fullscreen, tab groups). */
   actions?: React.ReactNode;
+  /** Follows the last tab; pins to the strip end when tabs overflow. */
+  afterTabs?: React.ReactNode;
   children: React.ReactNode;
   className?: string;
   onValueChange?: (value: string) => void;
@@ -184,7 +188,7 @@ export function CenterStageTabList({
   return (
     <div
       className={cn(
-        "desktop-no-drag relative z-20 flex shrink-0 items-center gap-1.5 px-2 py-1",
+        "desktop-no-drag relative z-20 flex w-full shrink-0 items-center gap-0.5 px-2 py-1",
         className,
       )}
     >
@@ -192,16 +196,17 @@ export function CenterStageTabList({
         value={value}
         onValueChange={onValueChange}
         variant="pill"
-        className="flex min-h-0 min-w-0 flex-1 items-center"
+        className="flex min-h-0 min-w-0 flex-[0_1_auto] items-center"
       >
         <MotionTabsList
-          className="flex h-8 w-full min-w-0 justify-start gap-0.5 overflow-hidden bg-background p-0.5"
+          className="flex h-8 min-w-0 max-w-full justify-start overflow-hidden bg-background py-0.5 pl-0.5 pr-0"
           indicatorClassName={CENTER_STAGE_TAB_INDICATOR_CLASS}
-          trailing={actions}
+          trailing={afterTabs}
         >
           {children}
         </MotionTabsList>
       </MotionTabs>
+      {actions ? <div className="ml-auto flex shrink-0 items-center">{actions}</div> : null}
     </div>
   );
 }
@@ -219,8 +224,12 @@ export function CenterStageScrollableTabs({
   return (
     <div
       ref={scrollableTabsRef}
-      className={cn("flex min-w-0 flex-1 items-center overflow-x-auto no-scrollbar", className)}
+      className={cn(
+        "flex min-w-0 flex-1 items-center overflow-x-auto no-scrollbar",
+        className,
+      )}
       {...rest}
+      data-center-tabs-scroll=""
     >
       {children}
     </div>
@@ -575,7 +584,12 @@ export function CenterStageTabGroupItemContent({
   if (tab.kind === "simulator") {
     return (
       <>
-        {leading(<Smartphone className="size-3.5 shrink-0" />)}
+        {leading(
+          <SimulatorTabIcon
+            className="size-3.5 shrink-0"
+            contextId={effectiveContextId}
+          />,
+        )}
         {label(tab.label)}
       </>
     );

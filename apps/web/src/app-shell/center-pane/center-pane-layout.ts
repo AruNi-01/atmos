@@ -20,7 +20,7 @@ const TERMINAL_TAB_PREFIX = "terminal-tab:";
 const BROWSER_TAB_PREFIX = "browser:";
 
 /**
- * Live sessions cannot be cloned across panes (one PTY / one webview).
+ * Live sessions cannot be cloned across panes (one PTY / webview / device).
  * Everything else (Files, Changes, the same editor path, Overview, …) can
  * live in multiple isolated pane strips at once.
  */
@@ -30,6 +30,7 @@ export function isShareableCenterTabId(tabId: string): boolean {
   if (tabId.startsWith(BROWSER_TAB_PREFIX)) return false;
   if (tabId.startsWith("agent-chat:")) return false;
   if (tabId === "project-wiki" || tabId === "code-review") return false;
+  if (tabId === "simulator" || tabId === "run") return false;
   return true;
 }
 /** Sentinel active id for a pane that has no tabs yet (empty launcher state). */
@@ -470,15 +471,15 @@ export function reorderPaneTabIds(
 }
 
 /**
- * Pane `tabIds` are canonical whenever a layout pane exists (including a
- * remaining single pane after collapse). Legacy `tabStripOrder` is only a
- * fallback for empty panes / one-shot migration of pre-canonical layouts.
+ * Pane `tabIds` are canonical whenever a layout pane exists, including an
+ * intentionally empty split launcher (`[]`). Legacy `tabStripOrder` is only
+ * a fallback when this pane has no strip yet (`null` / `undefined`).
  */
 export function resolvePaneTabStripOrder(
   paneTabIds: readonly string[] | null | undefined,
   legacyStripOrder: readonly string[],
 ): string[] {
-  if (paneTabIds && paneTabIds.length > 0) return [...paneTabIds];
+  if (paneTabIds) return [...paneTabIds];
   return [...legacyStripOrder];
 }
 

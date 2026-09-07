@@ -13,7 +13,7 @@ Canonical on-disk layout (no legacy root-level secret/config files).
     runtime_manifest.json
     client-session.json
     cli/update-check.json
-    simulator/              # APP-060 claims / leases (not under data/desktop/)
+    simulator/              # APP-060/070 claims + last-device prefs (not under data/desktop/)
 
   config/               # non-secret preferences
     function_settings.json   # product preferences (not center layout)
@@ -41,9 +41,11 @@ Canonical on-disk layout (no legacy root-level secret/config files).
         {hostId}/space-layout.json
 
   bin/ runtime/ shims/ skills/   # install artifacts
-                                 # runtime/serve-sim/<version>/  (APP-060 helper)
+                                 # runtime/serve-sim/<version>/  (APP-060 iOS helper)
+                                 # runtime/serve-emu/<version>/  (APP-070 Android helper)
   logs/ cache/                   # ops
                                  # cache/serve-sim/  (APP-060 download parts)
+                                 # cache/serve-emu/  (APP-070 download parts)
 ```
 
 ## Rules

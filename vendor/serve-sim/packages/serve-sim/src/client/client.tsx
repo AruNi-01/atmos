@@ -27,10 +27,11 @@ import {
 } from "./simulator";
 
 import { /* Globe, */ PanelRight, Upload } from "lucide-react";
-import { StopPreviewButton } from "./components/stop-preview-button";
+import { requestAtmosSimulatorDevice, StopPreviewButton } from "./components/stop-preview-button";
 import { ReloadIcon } from "./icons";
 import { AxDomOverlay } from "./components/ax-dom-overlay";
 import { AxStateProvider } from "./components/ax-state-provider";
+import { AgentCopyButton } from "./components/agent-copy-button";
 import { AxToolbarButton } from "./components/ax-toolbar-button";
 // import { DeviceSidebarToggle } from "./components/device-sidebar-toggle";
 import { DevicePlaceholder } from "./components/device-placeholder";
@@ -154,6 +155,10 @@ function App() {
   );
 
   const selectDevice = useCallback((udid: string) => {
+    const locked = new URLSearchParams(window.location.search).get("device")?.trim() ?? "";
+    if (locked && locked !== udid && requestAtmosSimulatorDevice(udid)) {
+      return;
+    }
     setSelectedUdid(udid);
     try {
       const u = new URL(window.location.href);
@@ -180,6 +185,10 @@ function App() {
 
   const startDevice = useCallback(
     async (udid: string) => {
+      const locked = new URLSearchParams(window.location.search).get("device")?.trim() ?? "";
+      if (locked && locked !== udid && requestAtmosSimulatorDevice(udid)) {
+        return;
+      }
       setStarting((p) => ({ ...p, [udid]: true }));
       setActionErrors((e) => ({ ...e, [udid]: null }));
       try {
@@ -208,6 +217,10 @@ function App() {
 
   const shutdownDevice = useCallback(
     async (udid: string) => {
+      const locked = new URLSearchParams(window.location.search).get("device")?.trim() ?? "";
+      if (locked && locked !== udid) {
+        return;
+      }
       setShuttingDown((s) => ({ ...s, [udid]: true }));
       setActionErrors((e) => ({ ...e, [udid]: null }));
       try {
@@ -1260,20 +1273,25 @@ function AppWithConfig({
             deviceName={deviceName}
             deviceRuntime={deviceRuntime}
             streaming={streaming}
-            aria-label="Accessibility overlay"
+            aria-label="Accessibility and Agent"
             style={{
               width: "auto",
               minWidth: 0,
               justifyContent: "center",
               padding: 6,
               borderRadius: 22,
+              flexWrap: "nowrap",
+              overflow: "visible",
             }}
           >
-            <AxToolbarButton
-              overlayEnabled={axOverlayEnabled}
-              streaming={streaming}
-              onToggleOverlay={() => setAxOverlayEnabled((enabled) => !enabled)}
-            />
+            <SimulatorToolbar.Actions>
+              <AxToolbarButton
+                overlayEnabled={axOverlayEnabled}
+                streaming={streaming}
+                onToggleOverlay={() => setAxOverlayEnabled((enabled) => !enabled)}
+              />
+              <AgentCopyButton />
+            </SimulatorToolbar.Actions>
           </SimulatorToolbar>
         </div>
       </div>

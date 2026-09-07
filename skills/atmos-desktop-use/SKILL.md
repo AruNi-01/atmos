@@ -1,19 +1,21 @@
 ---
 name: atmos-desktop-use
-version: "1.6.1"
+version: "1.6.2"
 description: >
   Capture and control the local macOS desktop via `atmos desktop-use` (screenshot,
   click, type, window list) without MCP. Use whenever the user or task needs local
   screen capture, UI automation, AppShot-style screenshots, verifying on-screen UI,
   desktop click/type, or checking Desktop Use install/permissions — even if they say
   "screenshot the app", "click the button on screen", "drive the UI", or "computer use"
-  on this machine. Do not use for remote machines (Atmos Computer / Relay) or for
-  in-repo file/git/terminal work.
+  on this machine. Do not use for remote machines (Atmos Computer / Relay), Device
+  Preview phone (atmos-device-preview), or for in-repo file/git/terminal work.
 ---
 
 # Atmos Desktop Use
 
 Local desktop capture + control via `atmos desktop-use`. **No MCP.** Brand: **Desktop Use** / **Atmos Desktop Use** only.
+
+Not this skill: Device Preview phone → `atmos-device-preview`.
 
 Details: [`references/cli.md`](references/cli.md).
 

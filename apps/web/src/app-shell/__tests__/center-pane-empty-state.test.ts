@@ -2,8 +2,7 @@ import { describe, expect, it } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
-  EMPTY_PANE_MIN_CARD_WIDTH_PX,
-  emptyPaneColumnsFit,
+  emptyPaneGridItemCount,
   planEmptyPaneLauncher,
 } from "@/app-shell/center-pane/center-pane-empty-layout";
 
@@ -13,19 +12,19 @@ const emptyState = readFileSync(
 );
 
 describe("empty pane launcher layout", () => {
-  it("uses a one-column list in a tall portrait pane when every row fits", () => {
+  it("uses a two-column grid when the pane is wide enough for a pair", () => {
     const plan = planEmptyPaneLauncher({
       width: 360,
       height: 720,
       actionCount: 7,
       hasClose: true,
     });
-    expect(plan.mode).toBe("list");
-    expect(plan.columns).toBe(1);
+    expect(plan.mode).toBe("grid");
+    expect(plan.columns).toBe(2);
     expect(plan.scroll).toBe(false);
   });
 
-  it("uses two card columns in a short portrait pane when the list will not fit", () => {
+  it("uses two columns in a short portrait pane", () => {
     const plan = planEmptyPaneLauncher({
       width: 360,
       height: 280,
@@ -36,42 +35,37 @@ describe("empty pane launcher layout", () => {
     expect(plan.columns).toBe(2);
   });
 
-  it("packs more than two columns in a landscape pane", () => {
+  it("never puts more than two actions on a row", () => {
     const plan = planEmptyPaneLauncher({
-      width: 900,
-      height: 320,
-      actionCount: 7,
-      hasClose: true,
+      width: 1100,
+      height: 700,
+      actionCount: 9,
     });
     expect(plan.mode).toBe("grid");
-    expect(plan.columns).toBeGreaterThan(2);
-    expect(plan.columns).toBeLessThanOrEqual(7);
+    expect(plan.columns).toBe(2);
+    expect(plan.gridMaxWidth).toBeLessThan(1100 * 0.5);
+    expect(plan.scroll).toBe(false);
   });
 
-  it("keeps as many columns as the width allows and scrolls when both axes are tight", () => {
+  it("keeps two columns and scrolls when the pane is short", () => {
     const plan = planEmptyPaneLauncher({
       width: 280,
       height: 180,
       actionCount: 7,
       hasClose: true,
     });
-    const columnsFit = emptyPaneColumnsFit(280 - plan.paddingX * 2, 7);
     expect(plan.mode).toBe("grid");
-    expect(plan.columns).toBe(columnsFit);
-    expect(plan.columns).toBeGreaterThanOrEqual(1);
+    expect(plan.columns).toBe(2);
     expect(plan.scroll).toBe(true);
   });
 
-  it("widens a short wide pane instead of stacking a clipped two-column grid", () => {
+  it("falls back to a list when two tiles will not fit", () => {
     const plan = planEmptyPaneLauncher({
-      width: 520,
-      height: 340,
+      width: 160,
+      height: 720,
       actionCount: 7,
-      hasClose: true,
     });
-    expect(plan.mode).toBe("grid");
-    expect(plan.columns).toBeGreaterThan(2);
-    expect(EMPTY_PANE_MIN_CARD_WIDTH_PX).toBeGreaterThan(0);
+    expect(plan.columns).toBe(1);
   });
 
   it("does not compact an unmeasured or empty launcher", () => {
@@ -99,8 +93,19 @@ describe("empty pane launcher layout", () => {
       "gridTemplateColumns: `repeat(${plan.columns}, minmax(0, 1fr))`",
     );
     expect(emptyState).not.toContain('"grid grid-cols-2 gap-2"');
-    expect(emptyState).toContain('gridColumn: "1 / -1"');
+    expect(emptyState).not.toContain('gridColumn: "1 / -1"');
     expect(emptyState).toContain("data-center-pane-empty-columns={plan.columns}");
+  });
+
+  it("uses rounded borders and puts close in the last-row gap when odd", () => {
+    expect(emptyState).toContain("CENTER_STAGE_RADIUS_CLASS");
+    expect(emptyState).toContain("border border-border");
+    expect(emptyState).toContain("hover:bg-accent");
+    expect(emptyState).not.toContain("[&:nth-child(odd):not(:last-child)]:border-r");
+    expect(emptyState).not.toContain("bg-muted/35");
+    expect(emptyState).not.toContain("ring-1 ring-border/40");
+    expect(emptyPaneGridItemCount(9, true)).toBe(10);
+    expect(emptyPaneGridItemCount(8, true)).toBe(9);
   });
 
   it("hides shortcut keys in the card grid", () => {

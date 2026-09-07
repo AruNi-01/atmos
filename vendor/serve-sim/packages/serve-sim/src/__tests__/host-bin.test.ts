@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   hostServeSimBin,
   isBunVirtualPath,
+  isGlobalServeSimKill,
   rewriteHostCommand,
 } from "../host-bin";
 
@@ -29,6 +30,12 @@ describe("host serve-sim bin", () => {
     expect(rewriteHostCommand("serve-sim ui appearance dark", "/tmp/Atmos Server/serve-sim")).toBe(
       "'/tmp/Atmos Server/serve-sim' ui appearance dark",
     );
+  });
+
+  test("detects global kill without a device", () => {
+    expect(isGlobalServeSimKill("serve-sim --kill")).toBe(true);
+    expect(isGlobalServeSimKill("serve-sim -k")).toBe(true);
+    expect(isGlobalServeSimKill("serve-sim --kill B3CE3FD6-769B-48A3-B0F7-5933C74D1E39")).toBe(false);
   });
 
   test("resolves a real on-disk binary in this process", () => {

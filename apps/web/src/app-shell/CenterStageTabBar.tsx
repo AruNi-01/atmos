@@ -66,6 +66,7 @@ import {
 import { Github } from "@workspace/ui/components/icons/lucide-brand-icons";
 import type { CenterToolTabValue } from "@/app-shell/center-tool-tabs";
 import { AgentIcon } from "@/features/agent/components/AgentIcon";
+import { SimulatorTabIcon } from "@/features/simulator/components/SimulatorTabIcon";
 import {
   EMPTY_AGENT_CHAT_TABS,
   useAgentChatCenterTabsStore,
@@ -189,6 +190,11 @@ interface CenterStageTabBarProps {
   /** Owning mosaic pane — fullscreen expands this pane over sibling center regions. */
   paneId?: string;
   /**
+   * Tabs this strip may show. Agent Chat is read from a context store inside
+   * the bar; without this allow-list every chat leaks into empty split panes.
+   */
+  allowedTabIds?: ReadonlySet<string>;
+  /**
    * Cmd+1–9 targets for this strip. Empty when the pane is not focused so
    * held-⌘ overlays stay isolated to the live pane.
    */
@@ -263,6 +269,7 @@ export function CenterStageTabBar({
   setWikiRefreshing,
   setWikiRefreshTrigger,
   paneId,
+  allowedTabIds,
   stripShortcutTabIds,
   isMultiPane = false,
   onSplitRight,
@@ -277,6 +284,13 @@ export function CenterStageTabBar({
   const newTerminalTabLabel = t("centerStageTabBar.newTerminalTab");
   const agentChatTabs = useAgentChatCenterTabsStore(
     (state) => state.tabsByContext[effectiveContextId] ?? EMPTY_AGENT_CHAT_TABS,
+  );
+  const paneAgentChatTabs = React.useMemo(
+    () =>
+      allowedTabIds
+        ? agentChatTabs.filter((tab) => allowedTabIds.has(tab.value))
+        : agentChatTabs,
+    [agentChatTabs, allowedTabIds],
   );
   const newBrowserLabel = t("centerStageTabBar.newBrowser");
   const newTabMenuLabel = t("centerStageTabBar.newTabMenu");
@@ -441,7 +455,7 @@ export function CenterStageTabBar({
       });
     }
 
-    for (const tab of agentChatTabs) {
+    for (const tab of paneAgentChatTabs) {
       descriptors.push({
         id: tab.value,
         value: tab.value,
@@ -500,7 +514,7 @@ export function CenterStageTabBar({
     simulatorTabVisible,
     gitHistoryTabVisible,
     orderedSurfaceTabs,
-    agentChatTabs,
+    paneAgentChatTabs,
     previewBrowserPrefs,
     projectWikiTabVisible,
     t,
@@ -634,7 +648,7 @@ export function CenterStageTabBar({
         <SpecialTerminalTab
           key={tab.id}
           closeLabel={t("centerStageTabBar.closeSimulatorTab")}
-          icon={<Smartphone className="size-3.5 shrink-0" />}
+          icon={<SimulatorTabIcon className="size-3.5 shrink-0" contextId={effectiveContextId} />}
           label={t("centerStageTabBar.simulator")}
           shortcutDigit={shortcutDigit}
           tooltip={t("centerStageTabBar.simulator")}
@@ -849,7 +863,7 @@ export function CenterStageTabBar({
     <CenterStageTabList
       value={activeValue}
       onValueChange={handleCenterStageTabChange}
-      actions={
+      afterTabs={
         <CenterStageStickyTabActions>
           <CenterStageNewTabMenu
             browserLabel={newBrowserLabel}
@@ -902,11 +916,16 @@ export function CenterStageTabBar({
             plusMenuTabsLabel={t("centerStageTabBar.plusMenuTabs")}
             plusMenuLayoutLabel={t("centerStageTabBar.plusMenuLayout")}
             newSpaceDialogTitle={t("centerStageTabBar.newSpaceDialogTitle")}
+            newSpaceDialogDescription={t("centerStageTabBar.newSpaceDialogDescription")}
             newSpaceNamePlaceholder={t("centerStageTabBar.newSpaceNamePlaceholder")}
             newSpaceConfirmLabel={t("centerStageTabBar.newSpaceConfirm")}
             newSpaceCancelLabel={t("centerStageTabBar.newSpaceCancel")}
             showPaneFullscreenButton={isMultiPane}
           />
+        </CenterStageStickyTabActions>
+      }
+      actions={
+        <CenterStageStickyTabActions>
           {isMultiPane ? (
             <CenterStagePaneFullscreenButton
               paneId={paneId}
@@ -1360,6 +1379,7 @@ function CenterStageNewTabMenu({
   onCreateSpace,
   newSpaceLabel,
   newSpaceDialogTitle,
+  newSpaceDialogDescription,
   newSpaceNamePlaceholder,
   newSpaceConfirmLabel,
   newSpaceCancelLabel,
@@ -1412,6 +1432,7 @@ function CenterStageNewTabMenu({
   onCreateSpace?: (name: string) => void;
   newSpaceLabel?: string;
   newSpaceDialogTitle: string;
+  newSpaceDialogDescription: string;
   newSpaceNamePlaceholder: string;
   newSpaceConfirmLabel: string;
   newSpaceCancelLabel: string;
@@ -1594,9 +1615,10 @@ function CenterStageNewTabMenu({
           </button>
         </PopoverTrigger>
         <PopoverContent
-          align="end"
+          align="start"
           side="bottom"
           sideOffset={4}
+          collisionPadding={8}
           data-center-stage-plus-menu=""
           className="z-[2147483646] w-48 overflow-hidden border-border/70 bg-popover/90 p-1 shadow-lg backdrop-blur-xl"
           onOpenAutoFocus={(event) => event.preventDefault()}
@@ -1818,8 +1840,9 @@ function CenterStageNewTabMenu({
               </PopoverTrigger>
               <PopoverContent
                 align="start"
-                side="left"
+                side="right"
                 sideOffset={4}
+                collisionPadding={8}
                 data-center-stage-layouts-menu=""
                 className="z-[2147483647] w-48 border-border/70 bg-popover/90 p-1 shadow-lg backdrop-blur-xl"
                 onOpenAutoFocus={(event) => event.preventDefault()}
@@ -1970,6 +1993,7 @@ function CenterStageNewTabMenu({
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>{newSpaceDialogTitle}</DialogTitle>
+            <DialogDescription>{newSpaceDialogDescription}</DialogDescription>
           </DialogHeader>
           <form
             className="space-y-4"

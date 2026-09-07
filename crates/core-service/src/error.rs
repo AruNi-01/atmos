@@ -1,5 +1,7 @@
 use thiserror::Error;
 
+use crate::service::device_preview::DeviceControlError;
+
 #[derive(Debug, Error)]
 pub enum ServiceError {
     #[error("Engine error: {0}")]
@@ -19,6 +21,9 @@ pub enum ServiceError {
 
     #[error("Not found: {0}")]
     NotFound(String),
+
+    #[error("{0}")]
+    DeviceControl(#[from] DeviceControlError),
 }
 
 impl From<agent::manager::AgentError> for ServiceError {

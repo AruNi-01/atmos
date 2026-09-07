@@ -56,7 +56,8 @@ impl CommandKind {
             Commands::Canvas { .. }
             | Commands::Review { .. }
             | Commands::DesktopUse { .. }
-            | Commands::BrowserUse { .. } => Self::Json,
+            | Commands::BrowserUse { .. }
+            | Commands::Simulator { .. } => Self::Json,
         }
     }
 

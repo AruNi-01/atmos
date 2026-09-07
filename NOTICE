@@ -589,6 +589,27 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 -------------------------------------------------------------------------------
+17. serve-emu (Android preview helper)
+-------------------------------------------------------------------------------
+
+Source:   https://github.com/expo/serve-emu
+Pin:      branch expo
+          commit  def2e0d87a60857ba5a303750bcb7de9f5fc7185
+Location: vendor/serve-emu/
+          Redistributed binary: GitHub Release tag serve-emu-<version>
+          (darwin-arm64 archive extracted to ~/.atmos/runtime/serve-emu/<version>/)
+License:  Apache License 2.0
+Copyright: serve-emu authors (Expo)
+
+This project vendors a modified copy of serve-emu (bind forced to 127.0.0.1,
+preview chrome aligned with vendored serve-sim). The full Apache-2.0 text
+ships at vendor/serve-emu/LICENSE and inside the published archive.
+Atmos changes are listed in vendor/serve-emu/ATMOS-PATCHES.md.
+
+The packed helper may also redistribute scrcpy-server v4.0 (Apache-2.0,
+Genymobile / scrcpy) next to the binary so runtime spawn does not use npx.
+
+-------------------------------------------------------------------------------
 End of NOTICE
 -------------------------------------------------------------------------------
 

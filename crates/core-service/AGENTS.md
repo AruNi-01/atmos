@@ -17,7 +17,7 @@
 ```
 crates/core-service/
 └── src/
-    ├── service/             # Business logic services
+    ├── service/             # Business logic services (includes device_preview)
     ├── utils/               # Service-level utilities
     ├── lib.rs               # Module exports
     ├── error.rs             # ServiceError definition
@@ -48,6 +48,7 @@ crates/core-service/
 - **Notifications**: Service events and settings, without direct WebSocket manager ownership
 - **Agent install / registry**: `service/agent.rs` wraps `agent::AgentManager` (install, status, keys, Native tab enable). Not a Chat session.
 - **Agent Chat**: `service/agent_chat/` (`AgentChatService`) owns jsonl transcript, native `/fork` `/rewind` intercept on send, `rewind_view`, and sibling `chat_id` after vendor fork. Talks only to `agent::AgentProvider` via `DefaultAgentProviderFactory`. Do not spawn CLIs or hold ACP handles here. Do not `git checkout` / restore workspace files for rewind. WS DTOs stay in `apps/api`. Last New Chat composer snapshots live in `~/.atmos/config/agent/new_chat_configs.json` (see `new_chat_configs.rs`); write from landing chrome via `agent_chat_prefs_set`, never from eager `agent_chat_create` (that still carries catalog defaults such as Cursor Auto).
+- **Device Preview**: `service/device_preview/` (`DevicePreviewService`) owns workspace claims, helper install/spawn (serve-sim / serve-emu), and nested iOS+Android probe. Inventory stays in `core-engine` `host_devices`. Paths only from `runtime-manager`. Thin `simulator_*` WS lives in `apps/api`. Never steal another workspace's device; never `serve-sim --kill`.
 
 ---
 

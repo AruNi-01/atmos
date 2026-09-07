@@ -53,6 +53,12 @@ import {
   resolveViewRunLogsPromptText,
   VIEW_RUN_LOGS_SLASH_COMMAND_ID,
 } from "@/features/browser/lib/run-log-context";
+import {
+  buildDevicePreviewSlashCommand,
+  DEVICE_PREVIEW_SLASH_COMMAND_ID,
+  loadDevicePreviewPrompt,
+  matchesDevicePreviewSlashQuery,
+} from "@/features/simulator/lib/device-preview-agent-prompt";
 import { runLogApi } from "@/features/browser/lib/run-log-api";
 import { useProjectStore } from "@/features/project/store/use-project-store";
 import {
@@ -308,6 +314,14 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
         buildViewRunLogsSlashCommand({
           label: t("slashPopover.viewRunLogs.label"),
           description: t("slashPopover.viewRunLogs.description"),
+        }),
+      );
+    }
+    if (matchesDevicePreviewSlashQuery(query)) {
+      commands.push(
+        buildDevicePreviewSlashCommand({
+          label: t("slashPopover.devicePreview.label"),
+          description: t("slashPopover.devicePreview.description"),
         }),
       );
     }
@@ -663,6 +677,22 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
         });
         return;
       }
+      if (command.id === DEVICE_PREVIEW_SLASH_COMMAND_ID) {
+        const popover = slashPopover;
+        if (!popover) return;
+        setSlashPopover(null);
+        void loadDevicePreviewPrompt(routeWorkspaceId ?? effectiveContextId).then(
+          (promptText) => {
+            composerRef.current?.applyAiContextAtRange(
+              popover.slashOffset,
+              popover.query.length,
+              "device-preview",
+              promptText,
+            );
+          },
+        );
+        return;
+      }
       if (command.id === BROWSER_USE_SLASH_COMMAND_ID) {
         const popover = slashPopover;
         if (!popover) return;
@@ -730,7 +760,14 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
         return;
       }
     },
-    [allSkills, enterDisableSkillsView, selectedProjectPath, slashPopover],
+    [
+      allSkills,
+      effectiveContextId,
+      enterDisableSkillsView,
+      routeWorkspaceId,
+      selectedProjectPath,
+      slashPopover,
+    ],
   );
 
   const {

@@ -5,6 +5,7 @@
 // transform. Shared-element projection remeasures on sibling layout
 // (center pane mounts) and hitches the pill; compositor CSS does not.
 
+import "./tabs.css";
 import { motion, useReducedMotion } from "motion/react";
 import {
   createContext,
@@ -226,7 +227,11 @@ export function TabsList({
     };
 
     const selected = list.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]');
+    const scroller =
+      list.querySelector<HTMLElement>("[data-center-tabs-scroll]") ?? list;
     const resizeObserver = new ResizeObserver(() => follow(true));
+    resizeObserver.observe(list);
+    if (scroller !== list) resizeObserver.observe(scroller);
     if (selected) resizeObserver.observe(selected);
     const mutationObserver = new MutationObserver(() => follow(true));
     mutationObserver.observe(list, {
@@ -235,8 +240,6 @@ export function TabsList({
       characterData: true,
     });
 
-    const scroller =
-      list.querySelector<HTMLElement>("[data-center-tabs-scroll]") ?? list;
     const onScroll = () => follow(false);
     scroller.addEventListener("scroll", onScroll, { passive: true });
     return () => {
@@ -270,15 +273,23 @@ export function TabsList({
   }
 
   // Keep the pill's containing block on the tab track so overflow scroll
-  // cannot paint the indicator over trailing chrome.
+  // cannot paint the indicator over trailing chrome. The track grows only
+  // when the list is width-constrained so trailing pins to the end. Edge
+  // fade is CSS scroll-driven (tabs.css) — never React state on scroll.
   return (
-    <div role="tablist" className={listClassName}>
+    <div role="tablist" className={cn(listClassName, "gap-1")}>
       <div
         ref={listRef}
-        className="relative z-0 flex min-h-0 min-w-0 flex-1 items-center gap-[inherit] self-stretch overflow-hidden"
+        data-center-tabs-track=""
+        className="relative z-0 flex min-h-0 min-w-0 flex-1 items-center gap-0.5 self-stretch overflow-hidden"
       >
         {indicator}
         {children}
+        <div
+          aria-hidden
+          data-center-tabs-edge-fade=""
+          className="pointer-events-none absolute inset-y-0 right-0 z-10 w-4 bg-gradient-to-l from-background to-transparent backdrop-blur-[4px] [mask-image:linear-gradient(to_left,black,transparent)] [-webkit-mask-image:linear-gradient(to_left,black,transparent)]"
+        />
       </div>
       <div className="relative z-20 flex shrink-0 items-center self-stretch">
         {trailing}

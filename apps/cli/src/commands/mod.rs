@@ -5,4 +5,5 @@ pub mod desktop_use;
 pub mod product;
 pub mod review;
 pub mod runtime;
+pub mod simulator;
 pub mod update;

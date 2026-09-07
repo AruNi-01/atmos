@@ -6,7 +6,7 @@ import {
   type ExecWebSocket,
   type SseRequestHandler,
 } from "./exec-ws-utils";
-import { rewriteHostCommand } from "./host-bin";
+import { isGlobalServeSimKill, rewriteHostCommand } from "./host-bin";
 
 // WebSocket control channel for the preview page. Browsers cap HTTP/1.1 at
 // six connections per origin, and every preview tab used to hold several
@@ -202,6 +202,15 @@ function wireExecSocket(
       return;
     }
     const { id, command } = msg;
+    if (isGlobalServeSimKill(command)) {
+      send({
+        id,
+        stdout: "",
+        stderr: "refusing global serve-sim --kill",
+        exitCode: 1,
+      });
+      return;
+    }
     exec(rewriteHostCommand(command), { maxBuffer: 16 * 1024 * 1024 }, (err, stdout, stderr) => {
       const result = {
         id,

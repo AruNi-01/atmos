@@ -10,6 +10,7 @@ import {
   MessagesSquare,
   Puzzle,
   ScrollText,
+  Smartphone,
   Zap,
 } from "lucide-react";
 import { BrowserUseIconStatic } from "@workspace/ui/components/icons/browser-use-icon-static";
@@ -18,6 +19,7 @@ import { DesktopUseIconStatic } from "@workspace/ui/components/icons/desktop-use
 import type { SkillInfo } from "@/api/ws-api";
 import { AgentIcon } from "@/features/agent/components/AgentIcon";
 import { VIEW_RUN_LOGS_SLASH_COMMAND_ID } from "@/features/browser/lib/run-log-context";
+import { DEVICE_PREVIEW_SLASH_COMMAND_ID } from "@/features/simulator/lib/device-preview-agent-prompt";
 import type {
   SlashCommandOption,
   SlashExpandedSections,
@@ -275,6 +277,8 @@ export function SlashCommandPopover({
                 <DesktopUseIconStatic className="size-4 text-violet-600 dark:text-violet-400" />
               ) : command.id === VIEW_RUN_LOGS_SLASH_COMMAND_ID ? (
                 <ScrollText className="size-4 text-emerald-600 dark:text-emerald-400" />
+              ) : command.id === DEVICE_PREVIEW_SLASH_COMMAND_ID ? (
+                <Smartphone className="size-4 text-cyan-600 dark:text-cyan-400" />
               ) : (
                 <Zap className="size-4" />
               )}

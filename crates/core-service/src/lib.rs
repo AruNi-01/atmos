@@ -58,6 +58,13 @@ pub use service::center_layout::{
     save_center_layout_to_dir, CenterLayoutDocument, CENTER_LAYOUT_VERSION, MAX_SAVED_LAYOUTS,
     MAX_SPACES_PER_HOST,
 };
+pub use service::device_preview::{
+    ClaimOwner, ClaimOwnerLookup, DeviceClaim, DeviceControlError, DeviceControlService,
+    DevicePreviewService, DevicePreviewSwipeInput, HelperKind, MapClaimOwnerLookup, PlatformProbe,
+    PressKey, SimulatorClaimList, SimulatorClaimListItem, SimulatorControlAck, SimulatorDevice,
+    SimulatorDeviceHandle, SimulatorProbe, SimulatorReason, SimulatorScreenshotResult,
+    SimulatorStartResult, WorkspaceProjectOwnerLookup,
+};
 pub use service::disk_analyzer::{DiskAnalyzerScanEvent, DiskAnalyzerService};
 pub use service::group::{GroupDto, GroupMemberDto, GroupService};
 pub use service::linear::{

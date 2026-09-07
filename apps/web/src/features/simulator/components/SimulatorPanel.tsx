@@ -1,14 +1,23 @@
 "use client";
 
 import React from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { LoaderCircle } from "lucide-react";
 import { useSimulatorSession } from "../hooks/use-simulator-session";
+import {
+  formatDevicePreviewClipboard,
+  loadDevicePreviewPrompt,
+} from "../lib/device-preview-agent-prompt";
 import "../simulator-guest.css";
-import { iframeSrc } from "../types";
+import {
+  iframeSrc,
+  parseSimulatorDeviceMessage,
+  SIMULATOR_AGENT_COPIED_MESSAGE,
+  SIMULATOR_AGENT_COPY_MESSAGE,
+  SIMULATOR_AGENT_LABELS_MESSAGE,
+  SIMULATOR_STOP_MESSAGE,
+} from "../types";
 import { SimulatorSetupCard } from "./SimulatorSetupCard";
-
-const SIMULATOR_STOP_MESSAGE = "atmos:simulator-stop";
 
 export function SimulatorPanel({
   workspaceId,
@@ -18,29 +27,62 @@ export function SimulatorPanel({
   active: boolean;
 }) {
   const t = useTranslations("features.simulator");
+  const locale = useLocale();
   const session = useSimulatorSession({ workspaceId, active });
   const iframeRef = React.useRef<HTMLIFrameElement>(null);
+
+  const postAgentLabels = React.useCallback(() => {
+    iframeRef.current?.contentWindow?.postMessage(
+      {
+        type: SIMULATOR_AGENT_LABELS_MESSAGE,
+        tooltip: t("agentCopyTooltip"),
+        copied: t("agentCopied"),
+      },
+      "*",
+    );
+  }, [t]);
 
   React.useEffect(() => {
     const onMessage = (event: MessageEvent) => {
       if (event.source !== iframeRef.current?.contentWindow) return;
-      if (event.data?.type !== SIMULATOR_STOP_MESSAGE) return;
-      void session.disconnect();
+      if (event.data?.type === SIMULATOR_STOP_MESSAGE) {
+        void session.disconnect();
+        return;
+      }
+      if (event.data?.type === SIMULATOR_AGENT_COPY_MESSAGE) {
+        const source = event.source;
+        if (!source) return;
+        void loadDevicePreviewPrompt(workspaceId)
+          .then((prompt) =>
+            navigator.clipboard.writeText(formatDevicePreviewClipboard(prompt)),
+          )
+          .then(() => {
+            source.postMessage({ type: SIMULATOR_AGENT_COPIED_MESSAGE }, "*");
+          })
+          .catch(() => {});
+        return;
+      }
+      const device = parseSimulatorDeviceMessage(event.data);
+      if (!device) return;
+      void session.start({ udid: device.udid, platform: device.platform });
     };
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
-  }, [session.disconnect]);
+  }, [session.disconnect, session.start, workspaceId]);
 
-  if (session.phase === "ready" && session.url) {
+  if (session.url && (session.phase === "ready" || session.phase === "starting" || session.phase === "downloading")) {
     return (
-      <iframe
-        ref={iframeRef}
-        title={t("iframeTitle")}
-        src={iframeSrc(session.url, session.udid ?? undefined)}
-        data-atmos-guest-iframe=""
-        className="h-full w-full border-0 bg-background"
-        allow="autoplay"
-      />
+      <div className="relative h-full w-full min-h-0">
+        <iframe
+          ref={iframeRef}
+          title={t("iframeTitle")}
+          src={iframeSrc(session.url, session.udid ?? undefined, locale)}
+          data-atmos-guest-iframe=""
+          className="h-full w-full border-0 bg-background"
+          allow="autoplay"
+          onLoad={postAgentLabels}
+        />
+      </div>
     );
   }
 
@@ -72,6 +114,10 @@ export function SimulatorPanel({
       reason={session.reason}
       error={session.error}
       action={session.action}
+      probe={session.probe}
+      onStart={(platform) => {
+        void session.start({ platform });
+      }}
       onRetry={session.retry}
     />
   );

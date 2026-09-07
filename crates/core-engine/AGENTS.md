@@ -25,6 +25,7 @@ crates/core-engine/
     ├── search/              # Code search functionality
     ├── app/                 # Application-level utilities
     ├── shims/               # Shell shims and wrappers
+    ├── host_devices/        # iOS simctl + Android AVD/adb inventory (no claims)
     └── lib.rs
 ```
 

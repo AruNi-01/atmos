@@ -1,10 +1,12 @@
 pub mod agent_hooks;
 pub mod app;
+pub mod device_control;
 pub mod disk_analyzer;
 pub mod error;
 pub mod fs;
 pub mod git;
 pub mod github;
+pub mod host_devices;
 pub mod linear;
 pub mod local_services;
 pub mod project_atmos;
@@ -15,6 +17,11 @@ pub mod test_engine;
 pub mod tmux;
 
 pub use app::AppEngine;
+pub use device_control::{
+    png_dimensions, serve_emu_key, serve_emu_screenshot, serve_emu_swipe, serve_emu_tap,
+    serve_emu_text, serve_sim_button, serve_sim_swipe, serve_sim_tap, serve_sim_type,
+    simctl_screenshot, validate_coord, validate_point, write_png, ScreenshotSize,
+};
 pub use disk_analyzer::{
     agent_data_roots, cleanup_suggestions, clear_path_cache, clear_suggestions, finalize_tree,
     invalidate_path_cache, limit_tree_depth, node_needs_wider_children, prune_tree, CleanupKind,
@@ -33,6 +40,12 @@ pub use git::{
     HistoryPage, HistoryRef, HistoryRefKind, WorktreeInfo,
 };
 pub use github::GithubEngine;
+pub use host_devices::{
+    collect_android_snapshot, collect_ios_snapshot, merge_android_devices, parse_adb_devices_l,
+    parse_avd_list, parse_emu_avd_name, parse_simctl_devices, resolve_android_toolchain_from,
+    AdbDeviceLine, AndroidSnapshot, AndroidToolchain, BootState, DevicePlatform, HostDevice,
+    IosSnapshot,
+};
 pub use linear::{
     build_issues_filter, extract_github_refs_from_urls, linear_issue_to_import_body,
     oauth_pkce_challenge, parse_rate_limit_headers, select_oauth_redirect, LinearAuth,

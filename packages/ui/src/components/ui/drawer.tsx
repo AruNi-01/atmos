@@ -150,10 +150,11 @@ function DrawerContent({
 /**
  * Content without an auto-attached overlay — for nested stacks that need
  * custom overlay opacity / layout insets (e.g. Task GitHub side drawer).
+ * Typed as a `div` so the public `.d.ts` does not name vaul/radix internals.
  */
 const DrawerContentBare = React.forwardRef<
-  React.ElementRef<typeof DrawerPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof DrawerPrimitive.Content>
+  HTMLDivElement,
+  React.ComponentPropsWithoutRef<"div">
 >(function DrawerContentBare({ className, children, ...props }, ref) {
   return (
     <DrawerPrimitive.Content

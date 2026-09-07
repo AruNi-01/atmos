@@ -830,6 +830,18 @@ pub enum WsAction {
     SimulatorStop,
     /// Current claim for a workspace, if any
     SimulatorStatus,
+    /// Live Device Preview claims on this Computer
+    SimulatorList,
+    /// Screenshot the resolved Device Preview claim
+    SimulatorScreenshot,
+    /// Tap normalized coordinates on the resolved claim
+    SimulatorTap,
+    /// Swipe between normalized coordinates on the resolved claim
+    SimulatorSwipe,
+    /// Type text into the resolved claim
+    SimulatorType,
+    /// Press a hardware key on the resolved claim
+    SimulatorPress,
 
     // ===== Resource Monitor (APP-066) =====
     /// One-shot Computer resource snapshot
@@ -1362,11 +1374,76 @@ pub struct SimulatorStartRequest {
     pub workspace_id: String,
     #[serde(default)]
     pub udid: Option<String>,
+    #[serde(default)]
+    pub platform: Option<core_engine::DevicePlatform>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SimulatorWorkspaceRequest {
     pub workspace_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SimulatorListRequest {
+    #[serde(default)]
+    pub workspace_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SimulatorScreenshotRequest {
+    pub workspace_id: String,
+    #[serde(default)]
+    pub udid: Option<String>,
+    #[serde(default)]
+    pub platform: Option<core_engine::DevicePlatform>,
+    #[serde(default)]
+    pub out: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SimulatorTapRequest {
+    pub workspace_id: String,
+    #[serde(default)]
+    pub udid: Option<String>,
+    #[serde(default)]
+    pub platform: Option<core_engine::DevicePlatform>,
+    pub x: f64,
+    pub y: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SimulatorSwipeRequest {
+    pub workspace_id: String,
+    #[serde(default)]
+    pub udid: Option<String>,
+    #[serde(default)]
+    pub platform: Option<core_engine::DevicePlatform>,
+    pub x1: f64,
+    pub y1: f64,
+    pub x2: f64,
+    pub y2: f64,
+    #[serde(default)]
+    pub duration_ms: Option<u32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SimulatorTypeRequest {
+    pub workspace_id: String,
+    #[serde(default)]
+    pub udid: Option<String>,
+    #[serde(default)]
+    pub platform: Option<core_engine::DevicePlatform>,
+    pub text: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SimulatorPressRequest {
+    pub workspace_id: String,
+    #[serde(default)]
+    pub udid: Option<String>,
+    #[serde(default)]
+    pub platform: Option<core_engine::DevicePlatform>,
+    pub key: core_service::PressKey,
 }
 
 // ===== Local Model Notification Payload =====

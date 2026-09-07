@@ -8,7 +8,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 VENDOR="$ROOT/vendor/serve-sim/packages/serve-sim"
-PIN="$ROOT/apps/api/simulator/serve-sim-requirement.json"
+PIN="$ROOT/crates/core-service/pins/serve-sim-requirement.json"
 INSTALL=0
 OUT_DIR="$ROOT/dist/serve-sim"
 

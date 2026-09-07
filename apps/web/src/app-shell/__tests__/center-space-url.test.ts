@@ -125,7 +125,7 @@ describe("center space URL isolation", () => {
     ).toBe(true);
   });
 
-  it("honors agent-chat tabs across a paint-context change", () => {
+  it("does not honor leftover agent-chat chrome across a paint-context change", () => {
     expect(
       shouldHonorUrlTabForPaintContext({
         tabFromUrl: "agent-chat:chat-1",
@@ -133,7 +133,35 @@ describe("center space URL isolation", () => {
         previousPaintId: "ws-a",
         lastTab: "files",
       }),
+    ).toBe(false);
+    expect(
+      shouldHonorUrlTabForPaintContext({
+        tabFromUrl: "agent-chat:chat-1",
+        paintId: makeCenterSpaceKey("ws-a", "space-2"),
+        previousPaintId: "ws-a",
+        lastTab: "agent-chat:chat-1",
+      }),
     ).toBe(true);
+    expect(
+      shouldKeepExplicitTabOnHostHop({
+        destHostId: "ws-b",
+        destPaintId: "ws-b",
+        dest: {
+          contextId: "ws-b",
+          tabParam: "agent-chat:chat-1",
+          hasTabParam: true,
+          terminalTmux: null,
+          sideChat: null,
+        },
+        current: {
+          contextId: "ws-a",
+          tabParam: "agent-chat:chat-1",
+          hasTabParam: true,
+          terminalTmux: null,
+          sideChat: null,
+        },
+      }),
+    ).toBe(false);
     expect(
       shouldKeepExplicitTabOnHostHop({
         destHostId: "ws-b",

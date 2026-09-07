@@ -267,6 +267,12 @@ export interface ToolbarButtonProps extends ButtonHTMLAttributes<HTMLButtonEleme
   forceEnabled?: boolean;
   /** Override the hover/focus tooltip label. Defaults to title or aria-label. */
   tooltip?: ReactNode;
+  /** Keep the tooltip visible even without hover/focus (e.g. a brief Copied state). */
+  tooltipForceVisible?: boolean;
+  /** Wrap long tooltip copy instead of a single nowrap line. */
+  tooltipWrap?: boolean;
+  /** `end` grows left from the button — use on the rightmost control. */
+  tooltipAlign?: "center" | "end";
 }
 
 const buttonStyle: CSSProperties = {
@@ -289,6 +295,9 @@ const ToolbarButton = forwardRef<HTMLButtonElement, ToolbarButtonProps>(function
     forceDisabled,
     forceEnabled,
     tooltip,
+    tooltipForceVisible,
+    tooltipWrap,
+    tooltipAlign = "center",
     style,
     disabled,
     title,
@@ -312,7 +321,8 @@ const ToolbarButton = forwardRef<HTMLButtonElement, ToolbarButtonProps>(function
   const pointerFocusedRef = useRef(false);
   const tooltipId = useId();
   const tooltipLabel = tooltip ?? title ?? (typeof ariaLabel === "string" ? ariaLabel : null);
-  const tooltipVisible = !!tooltipLabel && !effectiveDisabled && (hover || focus);
+  const tooltipVisible =
+    !!tooltipLabel && !effectiveDisabled && (tooltipForceVisible || hover || focus);
 
   return (
     <button
@@ -366,12 +376,18 @@ const ToolbarButton = forwardRef<HTMLButtonElement, ToolbarButtonProps>(function
           aria-hidden={!tooltipVisible}
           style={{
             position: "absolute",
-            left: "50%",
+            left: tooltipAlign === "end" ? "auto" : "50%",
+            right: tooltipAlign === "end" ? 0 : "auto",
             bottom: "calc(100% + 8px)",
-            transform: `translateX(-50%) translateY(${tooltipVisible ? 0 : 2}px)`,
+            transform:
+              tooltipAlign === "end"
+                ? `translateY(${tooltipVisible ? 0 : 2}px)`
+                : `translateX(-50%) translateY(${tooltipVisible ? 0 : 2}px)`,
             opacity: tooltipVisible ? 1 : 0,
             pointerEvents: "none",
-            whiteSpace: "nowrap",
+            whiteSpace: tooltipWrap ? "normal" : "nowrap",
+            maxWidth: tooltipWrap ? 220 : undefined,
+            textAlign: tooltipWrap ? "left" : undefined,
             padding: "4px 7px",
             borderRadius: 6,
             background: "var(--serve-sim-panel-bg, #181818)",
@@ -379,7 +395,7 @@ const ToolbarButton = forwardRef<HTMLButtonElement, ToolbarButtonProps>(function
             color: "rgba(255,255,255,0.92)",
             fontSize: 11,
             fontWeight: 500,
-            lineHeight: 1,
+            lineHeight: tooltipWrap ? 1.35 : 1,
             boxShadow: "0 4px 14px rgba(0,0,0,0.32)",
             transition: "opacity 0.12s ease, transform 0.12s ease",
             zIndex: 100,

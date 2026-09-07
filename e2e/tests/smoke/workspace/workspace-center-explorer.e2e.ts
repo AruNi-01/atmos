@@ -29,21 +29,25 @@ function clearWorkingTreeChange() {
   }
 }
 
+function openExplorerSidecar(page: Page, kind: "files" | "changes") {
+  return page.locator(
+    `[data-center-explorer="${kind}"][data-center-explorer-open="true"]`,
+  );
+}
+
 async function expectSidecarOnRight(
   page: Page,
   kind: "files" | "changes",
 ) {
-  const sidecar = page.locator(`[data-center-explorer="${kind}"]`);
+  const sidecar = openExplorerSidecar(page, kind);
   const landing = page.locator(`[data-center-explorer-landing="${kind}"]`);
   const toggle = landing.locator(`[data-center-explorer-toggle="${kind}"]`);
-  if ((await sidecar.getAttribute("data-center-explorer-open")) !== "true") {
+  if ((await sidecar.count()) === 0) {
     if (await toggle.isVisible().catch(() => false)) {
       await toggle.click({ timeout: 5_000 }).catch(() => undefined);
     }
   }
-  await expect(sidecar).toHaveAttribute("data-center-explorer-open", "true", {
-    timeout: 45_000,
-  });
+  await expect(sidecar).toHaveCount(1, { timeout: 45_000 });
   const stage = await getCenterStage(page);
   const sidecarBox = await sidecar.boundingBox();
   const stageBox = await stage.boundingBox();
@@ -67,22 +71,70 @@ async function expectSidecarOnRight(
   expect(side.y).toBeGreaterThanOrEqual(bar.y + bar.height - 2);
 }
 
+async function dismissHoverPlusMenu(page: Page) {
+  await page.keyboard.press("Escape");
+  await expect(
+    page.locator("[data-center-stage-plus-menu][data-state='open']"),
+  ).toHaveCount(0);
+}
+
+/**
+ * Reach a point below the tab strip without crossing the plus trigger.
+ * Hover-open plus mutes `[data-center-panel-host] *` pointer events, so a
+ * straight mouse path from Files/Changes into the sidecar never starts a drag.
+ */
+async function moveMouseBelowTabStrip(page: Page, x: number, y: number) {
+  const plus = page.locator("[data-center-stage-plus-trigger]").first();
+  const plusBox = await plus.boundingBox();
+  if (plusBox) {
+    await page.mouse.move(
+      Math.max(0, plusBox.x - 8),
+      plusBox.y + plusBox.height + 8,
+    );
+  }
+  await page.mouse.move(x, y);
+}
+
+/**
+ * MorphingSearch keeps a closed trigger in the landing and portals the
+ * combobox to `document.body`. Filling `[data-center-explorer-search]`
+ * (a wrapper div) throws; type into the open overlay instead.
+ */
+async function searchFilesLanding(
+  page: Page,
+  filesLanding: Locator,
+  query: string,
+) {
+  await dismissHoverPlusMenu(page);
+  const trigger = filesLanding.locator("[data-morphing-search-trigger]");
+  await expect(trigger).toBeVisible();
+  await trigger.click();
+  const overlay = page.getByRole("dialog", { name: "Search" });
+  await expect(overlay).toBeVisible({ timeout: 10_000 });
+  await overlay.getByRole("combobox").fill(query);
+  return overlay;
+}
+
 async function resizeSidecar(
   page: Page,
   kind: "files" | "changes",
   deltaX: number,
 ) {
-  const sidecar = page.locator(`[data-center-explorer="${kind}"]`);
+  const sidecar = openExplorerSidecar(page, kind);
   const box = await sidecar.boundingBox();
   expect(box, `${kind} sidecar box before resize`).toBeTruthy();
   const before = box!;
   const handle = sidecar.locator("[data-center-explorer-resize]");
   const handleBox = await handle.boundingBox();
   const grab = handleBox ?? before;
+  // Prefer the visible inner half: overflow-hidden clips `-translate-x-1/2`.
+  const x = grab.x + Math.max(4, grab.width * 0.6);
   const y = grab.y + Math.min(48, Math.max(8, grab.height / 2));
-  await page.mouse.move(grab.x + 1, y);
+  await moveMouseBelowTabStrip(page, x, y);
+  await dismissHoverPlusMenu(page);
+  await page.mouse.move(x, y);
   await page.mouse.down();
-  await page.mouse.move(grab.x + 1 + deltaX, y, { steps: 8 });
+  await page.mouse.move(x + deltaX, y, { steps: 8 });
   await page.mouse.up();
   const next = await sidecar.boundingBox();
   expect(next, `${kind} sidecar box after resize`).toBeTruthy();
@@ -171,15 +223,15 @@ test.describe("smoke workspace center explorer", () => {
     });
     await resizeSidecar(page, "files", 80);
 
-    const search = filesLanding.locator("[data-center-explorer-search]");
-    await search.fill(".agents");
+    const searchOverlay = await searchFilesLanding(page, filesLanding, ".agents");
     await expect(
-      filesLanding.getByRole("button", { name: ".agents", exact: true }),
+      searchOverlay.getByRole("option", { name: ".agents", exact: true }),
     ).toBeVisible({ timeout: 20_000 });
     await page.screenshot({
       path: `${ARTIFACTS_DIR}/files_sidecar_landing.png`,
     });
-    await search.fill("");
+    await page.keyboard.press("Escape");
+    await expect(searchOverlay).toHaveCount(0);
     await expect(filesLanding.getByRole("button", { name: /New File|新建文件/ })).toBeVisible();
 
     const filesSidecar = page.locator('[data-center-explorer="files"]');
@@ -281,8 +333,11 @@ test.describe("smoke workspace center explorer", () => {
 
     await filesToggle.click();
     await expect(filesSidecar).toHaveAttribute("data-center-explorer-open", "false");
-    const collapsedBox = await filesSidecar.boundingBox();
-    expect(collapsedBox?.width ?? 0).toBeLessThan(8);
+    await expect
+      .poll(async () => (await filesSidecar.boundingBox())?.width ?? 0, {
+        timeout: 5_000,
+      })
+      .toBeLessThan(8);
     await page.screenshot({
       path: `${ARTIFACTS_DIR}/files_sidecar_collapsed.png`,
     });
@@ -307,8 +362,9 @@ test.describe("smoke workspace center explorer", () => {
       path: `${ARTIFACTS_DIR}/changes_sidecar_landing.png`,
     });
 
+    // Accessible name includes the close control: "Close tab Commit".
     await changesLanding.locator('[data-center-explorer-row="recent-commit"]').first().click();
-    await expect(page.getByRole("tab", { name: /Graph History|图形历史/ })).toBeVisible({
+    await expect(page.getByRole("tab", { name: /Commit|提交/ })).toBeVisible({
       timeout: 20_000,
     });
     await page.screenshot({
@@ -317,7 +373,9 @@ test.describe("smoke workspace center explorer", () => {
 
     await activateWorkspaceToolTab(page, /^(Changes|变更)$/);
 
-    const changesSidecar = page.locator('[data-center-explorer="changes"]');
+    // Each Changes fold scope (landing vs diff-group://commit) keeps a sidecar
+    // node; only the active surface is open.
+    const changesSidecar = openExplorerSidecar(page, "changes");
     await expect(changesSidecar).toHaveCount(1);
     const changeFile = changesSidecar.getByText(CHANGE_SEED_RELATIVE, { exact: true });
     await expect(changeFile).toBeVisible({ timeout: 45_000 });

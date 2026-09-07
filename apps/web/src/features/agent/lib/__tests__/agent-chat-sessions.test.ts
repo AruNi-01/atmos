@@ -156,6 +156,16 @@ describe("agent chat sessions helpers", () => {
     expect(routeKindForAgentChatContext("proj-1", projects)).toBe("project");
     expect(sameStringSet(["a", "b"], ["b", "a"])).toBe(true);
   });
+
+  it("activates the dest paint context before the history hop so leftover URL cannot clone the chat", () => {
+    const src = readFileSync(join(import.meta.dir, "../agent-chat-sessions.ts"), "utf8");
+    expect(src).toContain("activateCenterChromeTab(paintContextId, tabValue)");
+    expect(src).toContain("makeCenterSpaceKey(contextId, spaceId)");
+    const activateAt = src.indexOf("activateCenterChromeTab(paintContextId, tabValue)");
+    const navAt = src.indexOf("commitLocatedPaneNavigation(router, href)");
+    expect(activateAt).toBeGreaterThan(0);
+    expect(navAt).toBeGreaterThan(activateAt);
+  });
 });
 
 describe("agents sessions page uses Atmos chat history", () => {

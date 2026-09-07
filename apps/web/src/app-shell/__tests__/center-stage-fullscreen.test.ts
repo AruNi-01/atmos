@@ -136,19 +136,23 @@ describe("center stage fullscreen wiring", () => {
       "utf8",
     );
     const stage = readFileSync(join(import.meta.dir, "../CenterStage.tsx"), "utf8");
-    const actionsBlock = tabBar.slice(
-      tabBar.indexOf("<CenterStageStickyTabActions>"),
-      tabBar.indexOf("</CenterStageStickyTabActions>"),
+    const list = readFileSync(
+      join(import.meta.dir, "../center-stage-shared-tabs.tsx"),
+      "utf8",
     );
-    const plusAt = actionsBlock.indexOf("<CenterStageNewTabMenu");
-    const fullscreenAt = actionsBlock.indexOf("<CenterStagePaneFullscreenButton");
-    const groupsAt = actionsBlock.indexOf("<CenterStageTabGroupPopover");
-    expect(plusAt).toBeGreaterThan(0);
-    expect(fullscreenAt).toBeGreaterThan(plusAt);
+    const plusAt = tabBar.indexOf("<CenterStageNewTabMenu");
+    const fullscreenAt = tabBar.indexOf("<CenterStagePaneFullscreenButton");
+    const groupsAt = tabBar.indexOf("<CenterStageTabGroupPopover");
+    expect(tabBar).toContain("afterTabs={");
+    expect(plusAt).toBeGreaterThan(tabBar.indexOf("afterTabs={"));
+    expect(plusAt).toBeLessThan(tabBar.indexOf("actions={"));
+    expect(fullscreenAt).toBeGreaterThan(tabBar.indexOf("actions={"));
     expect(groupsAt).toBeGreaterThan(fullscreenAt);
-    expect(actionsBlock).toContain("{isMultiPane ? (");
+    expect(tabBar).toContain("{isMultiPane ? (");
     expect(tabBar).toContain('data-center-stage-pane-fullscreen=""');
     expect(tabBar).toContain("showPaneFullscreenButton={isMultiPane}");
+    expect(list).toContain("trailing={afterTabs}");
+    expect(list).toContain("{actions}");
     expect(stage).toContain("isMultiPane={isMultiPane}");
     expect(tabBar).not.toContain('isCenterFullscreen && "bg-active text-foreground"');
   });
