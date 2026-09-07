@@ -352,6 +352,7 @@ pub fn pi_context_usage_from_message(
 }
 
 /// DeepSeek Harness ACP overlays: `request.context.contextWindow` + pressure tokens.
+#[cfg(test)]
 pub fn deepseek_context_usage(update: &Value) -> Option<AgentContextUsage> {
     let context_window = update
         .pointer("/request/context/contextWindow")

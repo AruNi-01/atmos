@@ -87,7 +87,7 @@ export function AgentToolPlanDocument({
       ) : null}
       {activePane === "body" && hasBody ? (
         <div className={PLAN_MARKDOWN_CLASS} data-agent-plan-document="">
-          <MarkdownRenderer content={plan} />
+          <MarkdownRenderer>{plan}</MarkdownRenderer>
         </div>
       ) : null}
       {activePane === "todos" && hasTodos ? <AgentToolTodosBody todos={todos} /> : null}

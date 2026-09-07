@@ -281,9 +281,7 @@ export function AgentToolCard({
     onOpenChange?.(next);
     if (next) markInspecting();
   };
-  const hasBody = React.Children.toArray(children).some(
-    (child) => child !== null && child !== undefined && child !== false,
-  );
+  const hasBody = React.Children.toArray(children).length > 0;
 
   return (
     // Keep `not-prose` on the chrome only — Tailwind Typography cannot nest
