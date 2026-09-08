@@ -1,0 +1,29 @@
+apps/web/src/features/welcome/lib/start-onboarding-chat-setup.ts
+  s_422b52d9cd97bc::t_288810a2b37cbc 47,51-52,56
+  s_422b52d9cd97bc::t_05fdf7cc59583d 24,27,50,53
+  s_422b52d9cd97bc::t_4b73ee19d0e940 1-23,25-26,28-46,48-49,54-55,57-104
+apps/web/src/features/welcome/components/__tests__/onboarding-agents-continue.test.ts
+  s_422b52d9cd97bc::t_bdc889747f1d07 1-23
+apps/web/src/features/welcome/lib/__tests__/start-onboarding-chat-setup.test.ts
+  s_422b52d9cd97bc::t_da9b2e20492eb3 68
+  s_422b52d9cd97bc::t_3bc18f37465e0a 1-24,26,31,33-63,66-67,69-73,75-124,126-128
+  s_422b52d9cd97bc::t_065b5fb5831c26 25,27-30,32,64-65,74,125
+apps/web/src/features/agent/lib/__tests__/enable-chat-for-onboarding-agents-progress.test.ts
+  s_422b52d9cd97bc::t_8c6d5ed26d00dc 1-70
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "067e64a2e5169a787afc063096fdb7b37cd15ef0",
+  "prompts": {},
+  "sessions": {
+    "s_422b52d9cd97bc": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "01a07f5f-3fce-76a1-8ff8-12cb2ac80fc9",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
