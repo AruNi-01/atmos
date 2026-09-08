@@ -424,6 +424,9 @@ struct GrokMappedSession {
     handle: AcpSessionHandle,
     map: EventMapState,
     ext_rx: Option<broadcast::Receiver<(String, Value)>>,
+    /// Last user `session/prompt` turn. Grok keeps streaming after prompt
+    /// result (background-task wakeup); those updates have no running turn.
+    last_user_turn_id: Option<String>,
 }
 
 #[async_trait]
@@ -462,6 +465,13 @@ impl AgentRuntime for GrokMappedSession {
                             | crate::acp_client::AcpSessionEvent::Error { .. }
                     ) {
                         turn_id = self.commands.running_turn.lock().await.take();
+                        if turn_id.is_some() {
+                            self.last_user_turn_id = turn_id.clone();
+                        }
+                    } else if turn_id.is_none() {
+                        // Background completion wakes Grok after session/prompt
+                        // already returned. Keep attaching to the user turn.
+                        turn_id = self.last_user_turn_id.clone();
                     }
                     if let Some(event) = map_event(&mut self.map, turn_id, acp) {
                         return Some(event);
@@ -480,6 +490,7 @@ impl AgentRuntime for GrokMappedSession {
                         continue;
                     }
                     let turn_id = self.commands.running_turn.lock().await.clone();
+                    let turn_id = turn_id.or_else(|| self.last_user_turn_id.clone());
                     if let Some(payload) = map_xai_notification(&method, params) {
                         return Some(AgentEventEnvelope::new(turn_id, payload));
                     }
@@ -712,6 +723,7 @@ async fn open_grok_session(
         handle,
         map: EventMapState::new("grok".into(), current_config_from(&cfg), resume.is_some()),
         ext_rx,
+        last_user_turn_id: None,
     }))
 }
 

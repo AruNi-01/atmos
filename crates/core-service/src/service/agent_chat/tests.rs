@@ -16,7 +16,7 @@ use super::store::AgentChatStore;
 use super::types::{
     AgentChatOrigin, AgentChatPayload, AgentChatSessionOpOutcome, CreateAgentChatRequest,
     MessagePart, QueueItemStatus, RewindView, RuntimeStatus, SessionLifecycleAction,
-    SessionLifecycleStatus, TranscriptEnvelope, TranscriptEvent,
+    SessionLifecycleStatus, TranscriptEnvelope, TranscriptEvent, TurnStatus,
 };
 
 fn make_service(provider: Arc<FakeAgentProvider>) -> (tempfile::TempDir, AgentChatService) {
@@ -505,6 +505,55 @@ async fn send_after_turn_completed_starts_a_new_turn() {
         .await
         .expect("idle send after complete must start a new turn");
     assert_ne!(first, second);
+}
+
+#[tokio::test]
+async fn send_after_stale_unknown_turn_does_not_fail_previous_turn() {
+    let provider = Arc::new(FakeAgentProvider::new("claude"));
+    let (_dir, service) = make_service(Arc::clone(&provider));
+    let meta = service.create(create_req("/tmp/proj")).unwrap();
+    let mut events = service.subscribe();
+    let first = service.send(&meta.id, "one", Vec::new()).await.unwrap();
+    timeout(Duration::from_secs(2), async {
+        loop {
+            let event = events.recv().await.expect("event");
+            if matches!(
+                event.payload,
+                AgentChatPayload::TurnCompleted { ref turn_id, .. } if turn_id == &first
+            ) {
+                return;
+            }
+        }
+    })
+    .await
+    .expect("first turn completed");
+
+    service
+        .store()
+        .append_record(
+            &meta.id,
+            &TranscriptEnvelope::new(
+                "unknown",
+                TranscriptEvent::AssistantSnapshot {
+                    message_id: "ghost".into(),
+                    text: "background wakeup".into(),
+                },
+            ),
+        )
+        .unwrap();
+
+    let second = service
+        .send(&meta.id, "two", Vec::new())
+        .await
+        .expect("stale unknown turn must not block send");
+    assert_ne!(first, second);
+
+    let turns = service.store().folded_turns(&meta.id).unwrap();
+    let unknown = turns.iter().find(|turn| turn.id == "unknown").unwrap();
+    assert_eq!(unknown.status, TurnStatus::Canceled);
+    assert!(turns
+        .iter()
+        .all(|turn| turn.id != "unknown" || !matches!(turn.status, TurnStatus::Failed)));
 }
 
 #[tokio::test]

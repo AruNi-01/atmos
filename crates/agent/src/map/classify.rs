@@ -542,6 +542,7 @@ pub fn is_generic_tool_label(value: &str) -> bool {
             | "move"
             | "run_script"
             | "run_command"
+            | "run_terminal_command"
             | "bash"
             | "shell"
             | "command"

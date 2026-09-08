@@ -132,6 +132,59 @@ pub fn extract_query(value: &Value) -> Option<String> {
     )
 }
 
+/// Human-facing tool blurb (Grok `run_terminal_command.description`), not stdout.
+pub fn extract_description(value: &Value) -> Option<String> {
+    first_string(value, &["description", "purpose", "summary", "explain"])
+}
+
+/// One-line labels like "Typecheck files-related web sources" are titles, not command output.
+pub fn is_human_tool_description(text: &str, command: Option<&str>) -> bool {
+    let text = text.trim();
+    if text.is_empty() || text.contains('\n') || text.len() > 120 || text.len() < 8 {
+        return false;
+    }
+    if let Some(command) = command.map(str::trim).filter(|value| !value.is_empty()) {
+        if text == command || command.starts_with(text) || text.contains(command) {
+            return false;
+        }
+    }
+    let lower = text.to_ascii_lowercase();
+    if lower.starts_with("error")
+        || lower.starts_with("fatal")
+        || lower.starts_with("warning")
+        || lower.contains("error ts")
+        || lower.contains("panic")
+        || text.starts_with('/')
+        || text.contains("```")
+        || text.contains("://")
+        || text.contains('`')
+    {
+        return false;
+    }
+    text.chars().next().is_some_and(|ch| ch.is_uppercase())
+        && text.chars().any(|ch| ch.is_alphabetic())
+}
+
+pub fn sanitize_execute_output(
+    output: &str,
+    command: Option<&str>,
+    description: Option<&str>,
+) -> String {
+    let output = output.trim();
+    if output.is_empty() {
+        return String::new();
+    }
+    if let Some(description) = description.map(str::trim).filter(|value| !value.is_empty()) {
+        if output == description {
+            return String::new();
+        }
+    }
+    if is_human_tool_description(output, command) {
+        return String::new();
+    }
+    output.to_string()
+}
+
 pub fn extract_cwd(value: &Value) -> Option<String> {
     first_string(value, &["cwd", "working_directory", "workdir"])
 }
@@ -802,6 +855,33 @@ mod tests {
         assert_eq!(
             extract_query(&serde_json::json!({"pattern": "AgentTool", "path": "crates/agent"})),
             Some("AgentTool".into())
+        );
+        assert_eq!(
+            extract_description(&serde_json::json!({
+                "command": "bunx tsc",
+                "description": "Typecheck files-related web sources"
+            })),
+            Some("Typecheck files-related web sources".into())
+        );
+        assert!(is_human_tool_description(
+            "Typecheck files-related web sources",
+            Some("cd apps/web && bunx tsc --noEmit"),
+        ));
+        assert_eq!(
+            sanitize_execute_output(
+                "Typecheck files-related web sources",
+                Some("cd apps/web && bunx tsc --noEmit"),
+                Some("Typecheck files-related web sources"),
+            ),
+            ""
+        );
+        assert_eq!(
+            sanitize_execute_output(
+                "error TS17008: JSX element has no corresponding closing tag.",
+                Some("cd apps/web && bunx tsc --noEmit"),
+                Some("Typecheck files-related web sources"),
+            ),
+            "error TS17008: JSX element has no corresponding closing tag."
         );
         assert_eq!(
             extract_path(&serde_json::json!({"pattern": "AgentTool", "path": "crates/agent"})),

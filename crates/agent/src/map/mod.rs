@@ -19,8 +19,9 @@ pub use context_usage::{
     pi_context_usage_from_message, pi_context_usage_from_stats,
 };
 pub use extract::{
-    extract_aspect_ratio, extract_background, extract_command, extract_cwd,
+    extract_aspect_ratio, extract_background, extract_command, extract_cwd, extract_description,
     extract_generated_images, extract_image_prompt, extract_image_size, extract_links,
     extract_path, extract_query, extract_reference_paths, extract_search_hits, extract_skill,
-    extract_subagent, extract_task_id, extract_url,
+    extract_subagent, extract_task_id, extract_url, is_human_tool_description,
+    sanitize_execute_output,
 };

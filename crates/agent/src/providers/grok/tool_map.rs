@@ -11,10 +11,11 @@ use crate::map::{
     ClassifiedTool,
 };
 use crate::map::{
-    extract_aspect_ratio, extract_background, extract_command, extract_cwd,
+    extract_aspect_ratio, extract_background, extract_command, extract_cwd, extract_description,
     extract_generated_images, extract_image_prompt, extract_image_size, extract_links,
     extract_path, extract_query, extract_reference_paths, extract_search_hits, extract_skill,
-    extract_subagent, extract_task_id, extract_url,
+    extract_subagent, extract_task_id, extract_url, is_human_tool_description,
+    sanitize_execute_output,
 };
 
 #[derive(Debug, Clone)]
@@ -98,7 +99,8 @@ pub(crate) fn map_tool_call(
         return ToolMapOut::Tool(other_tool(update));
     };
     match build_typed_tool(update, kind, payload, output) {
-        Some(tool) => {
+        Some(mut tool) => {
+            refine_execute_presentation(&mut tool, payload, update);
             remember_grok_task(&tool, output, grok_tasks);
             ToolMapOut::Tool(tool)
         }
@@ -130,7 +132,7 @@ pub(crate) fn merge_tool_call_patch(
             incoming.description
         },
         acp_kind: merge_acp_kind(prev.acp_kind.as_deref(), incoming.acp_kind),
-        status: incoming.status,
+        status: ToolCallStatus::merge_patch(prev.status, incoming.status),
         raw_input: merge_json_values(prev.raw_input.as_ref(), incoming.raw_input.as_ref()),
         content: if incoming.content.is_empty() {
             prev.content.clone()
@@ -407,6 +409,14 @@ fn tool_display_title(
     kind: AgentToolKind,
     payload: Option<&Value>,
 ) -> Option<String> {
+    if kind == AgentToolKind::Execute {
+        if let Some(description) = payload.and_then(extract_description) {
+            let command = payload.and_then(extract_command);
+            if is_human_tool_description(&description, command.as_deref()) {
+                return Some(description);
+            }
+        }
+    }
     let title = nonempty_title(update)?;
     if kind == AgentToolKind::Search {
         if let Some(query) = payload.and_then(extract_query) {
@@ -681,13 +691,25 @@ fn search_result(
     update: &ToolCallUpdate,
 ) -> AgentToolResult {
     let query = payload.and_then(extract_query).unwrap_or_default();
-    let hits = output
+    let mut hits = output
         .map(extract_search_hits)
         .filter(|hits| !hits.is_empty())
         .or_else(|| {
             content_text(&update.content).map(|text| extract_search_hits(&Value::String(text)))
         })
         .unwrap_or_default();
+    if hits.is_empty() {
+        hits = update
+            .locations
+            .iter()
+            .filter(|path| !path.is_empty())
+            .map(|path| crate::contract::SearchHit {
+                path: path.clone(),
+                line: None,
+                snippet: None,
+            })
+            .collect();
+    }
     if hits.is_empty() {
         AgentToolResult::Text {
             text: value_text(output)
@@ -704,6 +726,13 @@ fn execute_result(output: Option<&Value>, update: Option<&ToolCallUpdate>) -> Ag
         .or_else(|| update.and_then(|update| content_text(&update.content)))
         .unwrap_or_default();
     text = strip_grok_poll_footer(&text);
+    let command = update
+        .and_then(|update| update.raw_input.as_ref())
+        .and_then(extract_command);
+    let description = update
+        .and_then(|update| update.raw_input.as_ref())
+        .and_then(extract_description);
+    text = sanitize_execute_output(&text, command.as_deref(), description.as_deref());
     let exit_code = output.and_then(extract_exit_code).or_else(|| {
         update
             .and_then(|update| update.raw_output.as_ref())
@@ -712,6 +741,44 @@ fn execute_result(output: Option<&Value>, update: Option<&ToolCallUpdate>) -> Ag
     AgentToolResult::Execute {
         output: text,
         exit_code,
+    }
+}
+
+fn refine_execute_presentation(
+    tool: &mut AgentTool,
+    payload: Option<&Value>,
+    update: &ToolCallUpdate,
+) {
+    if tool.kind != AgentToolKind::Execute {
+        return;
+    }
+    let command = match &tool.params {
+        AgentToolParams::Execute { command, .. } => Some(command.as_str()),
+        _ => None,
+    };
+    let description = payload
+        .and_then(extract_description)
+        .or_else(|| {
+            content_text(&update.content).filter(|text| is_human_tool_description(text, command))
+        })
+        .or_else(|| {
+            value_text(update.raw_output.as_ref())
+                .filter(|text| is_human_tool_description(text, command))
+        });
+    let Some(description) = description else {
+        return;
+    };
+    let title = tool.title.as_deref().unwrap_or("");
+    if title.is_empty()
+        || crate::map::is_generic_tool_label(title)
+        || command.is_some_and(|command| title.contains(command))
+    {
+        tool.title = Some(description.clone());
+    }
+    if let Some(AgentToolResult::Execute { output, .. }) = &mut tool.result {
+        if output.trim() == description.trim() {
+            output.clear();
+        }
     }
 }
 
@@ -1836,6 +1903,28 @@ mod tests {
             tool.result,
             Some(AgentToolResult::WebSearch { .. })
         ));
+    }
+
+    #[test]
+    fn grok_execute_description_is_title_not_stdout() {
+        let tool = mapped(update(
+            "Tool",
+            ToolCallStatus::Completed,
+            serde_json::json!({
+                "type": "Bash",
+                "command": "cd apps/web && bunx tsc --noEmit",
+                "description": "Typecheck files-related web sources"
+            }),
+            Some(serde_json::json!("Typecheck files-related web sources")),
+        ));
+        assert_eq!(
+            tool.title.as_deref(),
+            Some("Typecheck files-related web sources")
+        );
+        match tool.result {
+            Some(AgentToolResult::Execute { output, .. }) => assert!(output.is_empty()),
+            other => panic!("expected empty execute output, got {other:?}"),
+        }
     }
 
     #[test]

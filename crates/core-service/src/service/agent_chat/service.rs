@@ -452,13 +452,15 @@ impl AgentChatService {
                     "turn already running; queue or steer instead".into(),
                 ));
             }
+            // Stale folded Running turn with no live prompt (Grok background
+            // wakeup persisted as turn_id=unknown). Close quietly so send works.
             self.store.append_record(
                 chat_id,
                 &TranscriptEnvelope::new(
                     turn.id.clone(),
                     TranscriptEvent::TurnCompleted {
-                        status: TurnStatus::Failed,
-                        error: Some("previous turn did not complete".into()),
+                        status: TurnStatus::Canceled,
+                        error: None,
                         worked_ms: None,
                         thinking_ms: None,
                         usage: None,
@@ -472,12 +474,12 @@ impl AgentChatService {
                 chat_id,
                 AgentChatPayload::TurnCompleted {
                     turn_id: turn.id.clone(),
-                    status: TurnStatus::Failed,
+                    status: TurnStatus::Canceled,
                     worked_ms: None,
                     thinking_ms: None,
                     completed_at: None,
                     usage: None,
-                    error: Some("previous turn did not complete".into()),
+                    error: None,
                 },
             )?;
         }
@@ -1250,7 +1252,8 @@ impl AgentChatService {
             .ok()
             .and_then(|meta| meta.pending_session_op);
         let state = Arc::new(Mutex::new(RuntimeState {
-            current_turn_id: initial_turn_id,
+            current_turn_id: initial_turn_id.clone(),
+            last_turn_id: initial_turn_id,
             pending_permission: None,
             pending_session_op,
             assistant_text: HashMap::new(),

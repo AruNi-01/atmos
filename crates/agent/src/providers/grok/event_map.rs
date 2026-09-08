@@ -1076,4 +1076,69 @@ mod tests {
             other => panic!("expected execute result, got {other:?}"),
         }
     }
+
+    #[test]
+    fn grok_background_handoff_patch_does_not_reopen_completed_tool() {
+        let mut state = state();
+        let completed = map_event(
+            &mut state,
+            Some("turn-1".into()),
+            AcpSessionEvent::ToolCall(ToolCallUpdate {
+                tool_call_id: "call-0c2".into(),
+                parent_tool_call_id: None,
+                tool: "Tool".into(),
+                description: "[bg] find node_modules (call-0c2)".into(),
+                acp_kind: None,
+                status: ToolCallStatus::Completed,
+                raw_input: Some(serde_json::json!({
+                    "type": "Bash",
+                    "command": "find node_modules"
+                })),
+                content: Vec::new(),
+                locations: Vec::new(),
+                raw_output: Some(serde_json::json!({
+                    "output": "Command \"find\" exceeded the default timeout and was automatically moved to background. Process is still running."
+                })),
+                detail: None,
+            }),
+        )
+        .expect("completed");
+        assert!(matches!(
+            completed.payload,
+            AgentEvent::ToolCallCompleted { .. }
+        ));
+
+        let patched = map_event(
+            &mut state,
+            Some("turn-1".into()),
+            AcpSessionEvent::ToolCall(ToolCallUpdate {
+                tool_call_id: "call-0c2".into(),
+                parent_tool_call_id: None,
+                tool: "Tool".into(),
+                description: "[bg] find node_modules (call-0c2)".into(),
+                acp_kind: None,
+                status: ToolCallStatus::Running,
+                raw_input: None,
+                content: Vec::new(),
+                locations: Vec::new(),
+                raw_output: None,
+                detail: None,
+            }),
+        )
+        .expect("patch");
+        let tool = match patched.payload {
+            AgentEvent::ToolCallCompleted { tool_call }
+            | AgentEvent::ToolCallStarted { tool_call }
+            | AgentEvent::ToolCallUpdated { tool_call } => tool_call,
+            other => panic!("expected tool event, got {other:?}"),
+        };
+        assert_eq!(tool.status, crate::contract::AgentToolStatus::Completed);
+        assert!(matches!(
+            tool.params,
+            AgentToolParams::Execute {
+                background: true,
+                ..
+            }
+        ));
+    }
 }

@@ -9,10 +9,10 @@ use crate::map::{
     ClassifiedTool,
 };
 use crate::map::{
-    extract_aspect_ratio, extract_background, extract_command, extract_cwd,
+    extract_aspect_ratio, extract_background, extract_command, extract_cwd, extract_description,
     extract_generated_images, extract_image_prompt, extract_image_size, extract_links,
     extract_path, extract_query, extract_reference_paths, extract_search_hits, extract_skill,
-    extract_subagent, extract_task_id, extract_url,
+    extract_subagent, extract_task_id, extract_url, sanitize_execute_output,
 };
 
 use super::overlays::{self, OverlayState};
@@ -124,7 +124,7 @@ pub(crate) fn merge_tool_call_patch(
             incoming.description
         },
         acp_kind: merge_acp_kind(prev.acp_kind.as_deref(), incoming.acp_kind),
-        status: incoming.status,
+        status: ToolCallStatus::merge_patch(prev.status, incoming.status),
         // Cursor/Grok often re-send a partial rawInput object on later patches
         // (e.g. description only). Shallow-replace would drop filename/file_path.
         raw_input: merge_json_values(prev.raw_input.as_ref(), incoming.raw_input.as_ref()),
@@ -589,9 +589,16 @@ fn search_result(
 }
 
 fn execute_result(output: Option<&Value>, update: Option<&ToolCallUpdate>) -> AgentToolResult {
-    let text = value_text(output)
+    let mut text = value_text(output)
         .or_else(|| update.and_then(|update| content_text(&update.content)))
         .unwrap_or_default();
+    let command = update
+        .and_then(|update| update.raw_input.as_ref())
+        .and_then(extract_command);
+    let description = update
+        .and_then(|update| update.raw_input.as_ref())
+        .and_then(extract_description);
+    text = sanitize_execute_output(&text, command.as_deref(), description.as_deref());
     let exit_code = output.and_then(extract_exit_code).or_else(|| {
         update
             .and_then(|update| update.raw_output.as_ref())

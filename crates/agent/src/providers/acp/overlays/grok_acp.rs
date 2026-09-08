@@ -128,6 +128,15 @@ fn execute_result(output: Option<&Value>, update: &ToolCallUpdate) -> AgentToolR
         .or_else(|| content_text(update))
         .unwrap_or_default();
     text = strip_grok_poll_footer(&text);
+    let command = update
+        .raw_input
+        .as_ref()
+        .and_then(crate::map::extract_command);
+    let description = update
+        .raw_input
+        .as_ref()
+        .and_then(crate::map::extract_description);
+    text = crate::map::sanitize_execute_output(&text, command.as_deref(), description.as_deref());
     let exit_code = output.and_then(extract_exit_code);
     AgentToolResult::Execute {
         output: text,

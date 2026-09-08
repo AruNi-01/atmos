@@ -214,12 +214,23 @@ pub struct ToolCallUpdate {
     pub detail: Option<serde_json::Value>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ToolCallStatus {
     Running,
     Completed,
     Failed,
+}
+
+impl ToolCallStatus {
+    /// ACP `tool_call_update` omits `status` and the schema default is
+    /// `in_progress`. A later title/output patch must not reopen a terminal call.
+    pub fn merge_patch(prev: Self, incoming: Self) -> Self {
+        match (prev, incoming) {
+            (Self::Completed | Self::Failed, Self::Running) => prev,
+            _ => incoming,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
