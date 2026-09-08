@@ -22,6 +22,7 @@ describe("FileTreePanel locate current file", () => {
     expect(panel).toContain("requestFileTreeReveal");
     expect(panel).toContain("locateCurrentFile");
     expect(panel).toContain("canLocateActiveFile");
+    expect(panel).toContain('data-file-tree-scroll=""');
     // Sits with the project name, not only in the trailing action cluster.
     const nameBlock = panel.indexOf("{projectName}");
     const locateAttr = panel.indexOf('data-file-tree-locate=""');
@@ -42,6 +43,9 @@ describe("FileTreePanel locate current file", () => {
     // reveal effect deps, expand/load re-fires the effect forever.
     expect(tree).toContain("loadDirectoryChildrenRef");
     expect(tree).toContain("treeRef");
+    expect(tree).toContain("expandFileTreeRevealAncestors");
+    expect(tree).toContain("waitForFileTreeRowLayout");
+    expect(tree).toContain("scrollFileTreeRowIntoView");
     expect(tree).toContain("clearFileTreeRevealTarget(target.requestId)");
 
     const revealEffectStart = tree.indexOf(

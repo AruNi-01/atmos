@@ -2,9 +2,9 @@
 
 import React from "react";
 import { useReducedMotion } from "motion/react";
+import { TREE_BRANCH_DURATION_MS } from "../lib/file-tree-branch-open";
 
 const TREE_BRANCH_EASE = "cubic-bezier(0.22, 1, 0.36, 1)";
-export const TREE_BRANCH_DURATION_MS = 240;
 
 /**
  * Expand/collapse folder children as one height group.

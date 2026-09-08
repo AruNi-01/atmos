@@ -160,7 +160,10 @@ export const FileTreePanel: React.FC<FileTreePanelProps> = ({
           </div>
         </div>
       )}
-      <div className="flex-1 overflow-y-auto no-scrollbar min-h-0 pt-1.5">
+      <div
+        className="flex-1 overflow-y-auto no-scrollbar min-h-0 pt-1.5"
+        data-file-tree-scroll=""
+      >
         <FileTree
           // Remount when root or eye-toggle changes so headless-tree does not keep
           // a truthy empty children cache (`[]`) from the previous visibility mode.

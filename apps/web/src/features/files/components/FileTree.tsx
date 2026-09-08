@@ -26,6 +26,14 @@ import {
   type NestedTreeNode,
 } from '../lib/file-tree-nest';
 import { isFileTreeBranchOpen } from '../lib/file-tree-branch-open';
+import {
+  expandFileTreeRevealAncestors,
+  FILE_TREE_SCROLL_ATTR,
+  fileTreeBranchRevealDelayMs,
+  resolveFileTreeRowElement,
+  scrollFileTreeRowIntoView,
+  waitForFileTreeRowLayout,
+} from '../lib/file-tree-reveal';
 import { activateCenterChromeTab } from "@/app-shell/center-stage-activate";
 import { FileTreeBranch } from './FileTreeBranch';
 import { FileTreeContextMenu } from './FileTreeContextMenu';
@@ -616,30 +624,35 @@ export const FileTree: React.FC<FileTreeProps> = ({
               highlightTimeoutRef.current = null;
             }, 1800);
           }
-          treeRef.current.getElement()?.scrollTo({ top: 0, behavior: 'smooth' });
+          const scroller = treeRef.current.getElement()?.closest(`[${FILE_TREE_SCROLL_ATTR}]`);
+          if (scroller instanceof HTMLElement) {
+            scroller.scrollTo({ top: 0 });
+          }
           return;
         }
 
-        const relative = target.path.slice(currentProjectPath.length + 1);
-        const segments = relative.split('/').filter(Boolean);
-        let currentPath = currentProjectPath;
         const revealRequestId = ++revealRequestIdRef.current;
+        const { item: targetItem, expandedAny } = await expandFileTreeRevealAncestors({
+          rootPath: currentProjectPath,
+          targetPath: target.path,
+          loadDirectoryChildren: (path) => loadDirectoryChildrenRef.current(path),
+          getTree: () => treeRef.current,
+          isCancelled: () =>
+            cancelled || revealRequestIdRef.current !== revealRequestId,
+        });
+        if (cancelled || revealRequestIdRef.current !== revealRequestId) return;
 
-        for (const segment of segments) {
-          currentPath = `${currentPath}/${segment}`;
-          await loadDirectoryChildrenRef.current(currentPath);
-          if (cancelled || revealRequestIdRef.current !== revealRequestId) return;
-          await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-          const item = treeRef.current.getItemInstance(currentPath);
-          if (item.isFolder() && !item.isExpanded()) {
-            item.expand();
-            await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-          }
-        }
-
-        const targetItem = treeRef.current.getItemInstance(target.path);
-        targetItem.setFocused();
-        await targetItem.scrollTo({ block: 'center' });
+        targetItem?.setFocused();
+        const row = await waitForFileTreeRowLayout(
+          () => resolveFileTreeRowElement(targetItem, target.path),
+          {
+            isCancelled: () =>
+              cancelled || revealRequestIdRef.current !== revealRequestId,
+            minDelayMs: expandedAny ? fileTreeBranchRevealDelayMs() : 0,
+          },
+        );
+        if (cancelled || revealRequestIdRef.current !== revealRequestId) return;
+        if (row) scrollFileTreeRowIntoView(row);
 
         if (!cancelled) {
           setHighlightedPath(target.path);
