@@ -1,0 +1,26 @@
+apps/web/src/features/files/components/FileTree.tsx
+  h_5be255725524c8 29-36,627-630,635-655
+apps/web/src/features/files/components/FileTreeBranch.tsx
+  h_5be255725524c8 5
+apps/web/src/features/files/components/FileTreePanel.tsx
+  h_5be255725524c8 163-166
+apps/web/src/features/files/components/__tests__/file-tree-panel-locate.test.ts
+  h_5be255725524c8 25,46-48
+apps/web/src/features/files/lib/file-tree-branch-open.ts
+  h_5be255725524c8 1-3
+apps/web/src/features/files/lib/file-tree-reveal.test.ts
+  h_5be255725524c8 1-266
+apps/web/src/features/files/lib/file-tree-reveal.ts
+  h_5be255725524c8 1-212
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "a183a1f899ecdffc1eb0b2148db2070fa57e6f3c",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
