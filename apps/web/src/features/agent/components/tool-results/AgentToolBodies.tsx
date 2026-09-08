@@ -13,6 +13,7 @@ import { MarkdownRenderer } from "@/shared/components/markdown/MarkdownRenderer"
 import { CopyButton } from "@/shared/components/code-block/copy-button";
 import { cn } from "@/shared/lib/utils";
 import {
+  formatSearchScript,
   hostFromUrl,
   relativeDisplayPath,
   resolveTreeEntryPaths,
@@ -22,6 +23,7 @@ import {
   type TreeEntry,
   type WebResultLink,
 } from "@/features/agent/lib/tool-results/parse-tool-result";
+import { AgentCommandLine } from "../AgentCommandLine";
 import { useAgentChatCwd, useAgentChatPathRoots, useDisplayToolPath } from "../agent-chat-cwd-context";
 import {
   useAgentChatPathIsDir,
@@ -259,8 +261,21 @@ function AgentToolListedPath({
   );
 }
 
-export function AgentToolSearchBody({ hits }: { hits: SearchHit[] }) {
+export function AgentToolSearchBody({
+  query,
+  glob,
+  path,
+  hits,
+  summary,
+}: {
+  query?: string;
+  glob?: string | null;
+  path?: string | null;
+  hits: SearchHit[];
+  summary?: string;
+}) {
   const displayPath = useDisplayToolPath();
+  const script = formatSearchScript(query ?? "", glob, path);
   const grouped = new Map<string, SearchHit[]>();
   for (const hit of hits) {
     const list = grouped.get(hit.path) ?? [];
@@ -270,34 +285,46 @@ export function AgentToolSearchBody({ hits }: { hits: SearchHit[] }) {
   const paths = [...grouped.keys()];
   const displayedPaths = paths.map((item) => displayPath(item));
   return (
-    <ul className="max-h-72 overflow-auto py-1">
-      {[...grouped.entries()].map(([path, pathHits]) => (
-        <li key={path} className="px-3 py-1.5">
-          <AgentToolListedPath
-            path={path}
-            shown={relativeDisplayPath(displayPath(path), displayedPaths)}
-            className="flex w-full min-w-0 items-center gap-2 text-[12px]"
-          />
-          <ul className="mt-0.5 space-y-0.5 pl-6">
-            {pathHits.map((hit, index) => (
-              <li
-                key={`${path}:${hit.line ?? 0}:${index}`}
-                className="flex min-w-0 items-baseline gap-2 font-mono text-[12px] text-muted-foreground"
-              >
-                {hit.line != null ? (
-                  <span className="w-10 shrink-0 text-right tabular-nums">{hit.line}</span>
-                ) : null}
-                {hit.text ? (
-                  <span className="min-w-0 truncate" title={hit.text}>
-                    {hit.text}
-                  </span>
-                ) : null}
-              </li>
-            ))}
-          </ul>
-        </li>
-      ))}
-    </ul>
+    <div>
+      {script ? (
+        <AgentCommandLine
+          command={script}
+          className={cn("px-3 pt-2.5", hits.length === 0 && !summary && "pb-2.5")}
+        />
+      ) : null}
+      {hits.length > 0 ? (
+        <ul className="max-h-72 overflow-auto py-1">
+          {[...grouped.entries()].map(([hitPath, pathHits]) => (
+            <li key={hitPath} className="px-3 py-1.5">
+              <AgentToolListedPath
+                path={hitPath}
+                shown={relativeDisplayPath(displayPath(hitPath), displayedPaths)}
+                className="flex w-full min-w-0 items-center gap-2 text-[12px]"
+              />
+              <ul className="mt-0.5 space-y-0.5 pl-6">
+                {pathHits.map((hit, index) => (
+                  <li
+                    key={`${hitPath}:${hit.line ?? 0}:${index}`}
+                    className="flex min-w-0 items-baseline gap-2 font-mono text-[12px] text-muted-foreground"
+                  >
+                    {hit.line != null ? (
+                      <span className="w-10 shrink-0 text-right tabular-nums">{hit.line}</span>
+                    ) : null}
+                    {hit.text ? (
+                      <span className="min-w-0 whitespace-pre-wrap break-words" title={hit.text}>
+                        {hit.text}
+                      </span>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            </li>
+          ))}
+        </ul>
+      ) : summary ? (
+        <AgentToolTextBody text={summary} />
+      ) : null}
+    </div>
   );
 }
 

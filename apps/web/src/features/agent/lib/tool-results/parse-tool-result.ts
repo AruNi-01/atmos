@@ -50,7 +50,14 @@ export type ToolPresentation =
       deletions: number;
     }
   | { kind: "code"; path: string | null; language: string; code: string; hint?: "new" | "deleted" }
-  | { kind: "search"; hits: SearchHit[] }
+  | {
+      kind: "search";
+      query: string;
+      glob?: string | null;
+      path?: string | null;
+      hits: SearchHit[];
+      summary?: string;
+    }
   | { kind: "web_search"; query: string; links: WebResultLink[] }
   | { kind: "web_fetch"; url: string; title?: string; markdown?: string; text?: string }
   | {
@@ -472,6 +479,62 @@ export function otherToolBodies(part: AgentToolCallPart): {
   return { paramsJson, resultBody: { kind: "json", value: prettyJson(result) } };
 }
 
+export function preferredCollapsedToolTitle(
+  part: AgentToolCallPart,
+  fallback: string,
+): string {
+  const title = (part.title || "").trim();
+  const name = (part.name || "").trim();
+  const command = part.params?.type === "execute" ? part.params.command.trim() : "";
+  const query = part.params?.type === "search" || part.params?.type === "web_search"
+    ? part.params.query.trim()
+    : "";
+  for (const candidate of [title, name]) {
+    if (!candidate || isGenericToolLabel(candidate)) continue;
+    if (command && toolTitleEchoesCommand(candidate, command)) continue;
+    if (query && (candidate === query || candidate.includes(query))) continue;
+    return candidate;
+  }
+  return fallback;
+}
+
+function toolTitleEchoesCommand(title: string, command: string): boolean {
+  if (!command) return false;
+  if (title === command) return true;
+  if (title.includes(`\`${command}`)) return true;
+  const snippet = command.slice(0, 48);
+  return snippet.length >= 12 && title.includes(snippet);
+}
+
+function searchFieldsFromPart(part: AgentToolCallPart): {
+  query: string;
+  glob?: string | null;
+  path?: string | null;
+} {
+  if (part.params?.type === "search") {
+    return {
+      query: part.params.query,
+      glob: part.params.glob ?? null,
+      path: part.params.path ?? null,
+    };
+  }
+  return { query: "" };
+}
+
+export function formatSearchScript(query: string, glob?: string | null, path?: string | null): string {
+  return [query.trim(), glob?.trim(), path?.trim()].filter(Boolean).join(" ");
+}
+
+export function matchCountFromSearchSummary(text: string | undefined): number | null {
+  if (!text) return null;
+  const found = text.match(/found\s+(\d+)\s+matches?/i);
+  if (found?.[1]) return Number(found[1]);
+  const trailing = text.match(/(\d+)\s+matches?\s*$/i);
+  if (trailing?.[1]) return Number(trailing[1]);
+  if (/no matches/i.test(text)) return 0;
+  return null;
+}
+
 export function presentAgentTool(part: AgentToolCallPart): ParsedToolResult {
   const params = part.params;
   const result = part.result;
@@ -492,6 +555,16 @@ export function presentAgentTool(part: AgentToolCallPart): ParsedToolResult {
   }
 
   if (!result || result.type === "empty") {
+    if (part.kind === "search") {
+      const fields = searchFieldsFromPart(part);
+      return parsed(part, {
+        kind: "search",
+        query: fields.query,
+        glob: fields.glob,
+        path: fields.path,
+        hits: [],
+      }, path, lineRange);
+    }
     return parsed(part, { kind: "empty" }, path, lineRange);
   }
 
@@ -529,8 +602,12 @@ export function presentAgentTool(part: AgentToolCallPart): ParsedToolResult {
   }
 
   if (result.type === "search_hits") {
+    const fields = searchFieldsFromPart(part);
     return parsed(part, {
       kind: "search",
+      query: result.query || fields.query,
+      glob: fields.glob,
+      path: fields.path,
       hits: result.hits.map((hit) => ({
         path: hit.path,
         ...(hit.line != null ? { line: hit.line } : {}),
@@ -580,6 +657,17 @@ export function presentAgentTool(part: AgentToolCallPart): ParsedToolResult {
   if (result.type === "text") {
     if (part.kind === "edit" && looksLikePatch(result.text)) {
       return parsed(part, { kind: "patch", path, patch: result.text }, path, lineRange);
+    }
+    if (part.kind === "search") {
+      const fields = searchFieldsFromPart(part);
+      return parsed(part, {
+        kind: "search",
+        query: fields.query,
+        glob: fields.glob,
+        path: fields.path,
+        hits: [],
+        summary: result.text,
+      }, path, lineRange);
     }
     return parsed(part, { kind: "text", text: result.text }, path, lineRange);
   }

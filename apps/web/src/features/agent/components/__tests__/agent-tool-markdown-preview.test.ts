@@ -54,6 +54,9 @@ describe("agent tool markdown file presentation", () => {
     expect(block).toContain('presentation.kind === "patch"');
     expect(block).toContain('presentation.kind === "diff_stats"');
     expect(block).toContain('presentation.kind === "code"');
+    expect(block).toContain("preferredCollapsedToolTitle");
+    expect(block).toContain("AgentToolSearchBody");
+    expect(block).toContain("matchCount");
     expect(block).toContain("AgentToolCodeResult");
     expect(block).toContain("AgentToolDiffResult");
     expect(block).toContain('t("lineChanges")');
@@ -65,6 +68,23 @@ describe("agent tool markdown file presentation", () => {
     // Write/Edit diffs keep discussion chrome; Read/code does not.
     expect(diff).toContain("DiscussionDiffBlock");
     expect(diff).toContain('data-agent-diff="pr-discussion"');
+  });
+
+  it("execute cards show a wrapping command above output, not in the collapsed title", () => {
+    const terminal = readFileSync(
+      join(import.meta.dir, "../TerminalBlock.tsx"),
+      "utf8",
+    );
+    const command = readFileSync(
+      join(import.meta.dir, "../AgentCommandLine.tsx"),
+      "utf8",
+    );
+    expect(terminal).toContain("preferredCollapsedToolTitle");
+    expect(terminal).toContain("AgentCommandLine");
+    expect(terminal).not.toContain("Run Script:");
+    expect(command).toContain("whitespace-pre-wrap");
+    expect(command).toContain("break-all");
+    expect(command).not.toContain("overflow-x-auto");
   });
 
   it("edit with only diff_stats renders a stats body, never path preview", () => {

@@ -88,6 +88,7 @@ const GENERIC_TOOL_LABELS = new Set([
   "move",
   "run_script",
   "run_command",
+  "run_terminal_command",
   "bash",
   "shell",
   "command",

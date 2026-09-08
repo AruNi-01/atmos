@@ -3,8 +3,10 @@ import type { AgentToolCallPart } from "@/features/agent/lib/agent-tool-kind";
 import {
   displayToolPath,
   displayToolTitle,
+  formatSearchScript,
   languageFromPath,
   pathRelativeToCwd,
+  preferredCollapsedToolTitle,
   presentAgentTool,
   prettyJson,
   relativeDisplayPath,
@@ -186,8 +188,12 @@ describe("S16 presentAgentTool", () => {
       result: { type: "text", text: "apps/web/src/foo.ts:8:export function AgentTool() {}" },
     }));
     expect(parsed.presentation).toEqual({
-      kind: "text",
-      text: "apps/web/src/foo.ts:8:export function AgentTool() {}",
+      kind: "search",
+      query: "AgentTool",
+      glob: "*.ts",
+      path: null,
+      hits: [],
+      summary: "apps/web/src/foo.ts:8:export function AgentTool() {}",
     });
   });
 
@@ -207,11 +213,55 @@ describe("S16 presentAgentTool", () => {
     }));
     expect(parsed.presentation).toEqual({
       kind: "search",
+      query: "AgentTool",
+      glob: "*.ts",
+      path: null,
       hits: [
         { path: "apps/web/src/foo.ts", line: 8, text: "export function AgentTool() {}" },
         { path: "apps/web/src/bar.ts", text: "" },
       ],
     });
+  });
+
+  it("shows grok grep summary with the query script instead of only match count", () => {
+    const parsed = presentAgentTool(tool({
+      kind: "search",
+      name: "Tool",
+      title: "grep",
+      params: { type: "search", query: "scrollIntoView", glob: "**/*.{ts,tsx}", path: null },
+      result: { type: "text", text: "found 21 matches" },
+    }));
+    expect(parsed.presentation).toMatchObject({
+      kind: "search",
+      query: "scrollIntoView",
+      glob: "**/*.{ts,tsx}",
+      summary: "found 21 matches",
+      hits: [],
+    });
+    expect(formatSearchScript("scrollIntoView", "**/*.{ts,tsx}", null)).toBe(
+      "scrollIntoView **/*.{ts,tsx}",
+    );
+    expect(preferredCollapsedToolTitle(tool({
+      kind: "search",
+      name: "Tool",
+      title: "grep",
+      params: { type: "search", query: "scrollIntoView" },
+    }), "Search")).toBe("grep");
+  });
+
+  it("prefers a human execute title over echoing the shell command", () => {
+    expect(preferredCollapsedToolTitle(tool({
+      kind: "execute",
+      name: "run_terminal_command",
+      title: "Typecheck files-related web sources",
+      params: { type: "execute", command: "cd apps/web && bunx tsc --noEmit", background: false },
+    }), "Run Script")).toBe("Typecheck files-related web sources");
+    expect(preferredCollapsedToolTitle(tool({
+      kind: "execute",
+      name: "Tool",
+      title: "Execute `cd apps/web && bunx tsc --noEmit`",
+      params: { type: "execute", command: "cd apps/web && bunx tsc --noEmit", background: false },
+    }), "Run Script")).toBe("Run Script");
   });
 
   it("APP-069 S2 does not treat web_search as search_hits", () => {

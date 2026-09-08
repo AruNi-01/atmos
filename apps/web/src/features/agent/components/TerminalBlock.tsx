@@ -8,9 +8,10 @@ import {
 import type { AgentToolCallPart } from "@/features/agent/lib/agent-tool-kind";
 import { getToolKindIcon } from "../lib/chat-helpers";
 import { isBackgroundToolCall } from "../lib/agent/background-command";
-import { isGenericToolLabel } from "../lib/agent-tool-kind";
+import { preferredCollapsedToolTitle } from "@/features/agent/lib/tool-results/parse-tool-result";
 import { AgentToolCard, type AgentToolSurface } from "./tool-results/AgentToolCard";
 import { AgentToolEmptyBody } from "./tool-results/AgentToolBodies";
+import { AgentCommandLine } from "./AgentCommandLine";
 import { cn } from "@/shared/lib/utils";
 
 function executeFields(part: AgentToolCallPart): { command: string; output: string; cwd?: string | null } {
@@ -26,10 +27,6 @@ function executeFields(part: AgentToolCallPart): { command: string; output: stri
   return { command, output, cwd };
 }
 
-function collapsedCommand(command: string): string {
-  return command.replace(/\s+/g, " ").trim();
-}
-
 export function TerminalBlock({
   part,
   surface = "card",
@@ -39,14 +36,12 @@ export function TerminalBlock({
 }) {
   const t = useTranslations("Agent.components");
   const { command, output } = executeFields(part);
-  const commandStr = command || (part.title && !isGenericToolLabel(part.title) ? part.title : "");
+  const commandStr = command;
   const status = part.status ?? undefined;
   const running = (status ?? "").toLowerCase() === "running";
   const background = isBackgroundToolCall(part);
   const failed = (status ?? "").toLowerCase() === "failed" || part.result?.type === "error";
-  const title = commandStr
-    ? `${t("terminalBlock.title")}: ${collapsedCommand(commandStr)}`
-    : t("terminalBlock.title");
+  const title = preferredCollapsedToolTitle(part, t("terminalBlock.title"));
 
   return (
     <AgentToolCard
@@ -60,6 +55,12 @@ export function TerminalBlock({
       status={status}
       shimmer={running && !background}
     >
+      {commandStr ? (
+        <AgentCommandLine
+          command={commandStr}
+          className={cn("px-3 pt-2.5", !output && "pb-2.5")}
+        />
+      ) : null}
       {output ? (
         <div className="max-h-96 overflow-y-auto">
           <AcpTerminal
@@ -70,13 +71,14 @@ export function TerminalBlock({
           >
             <AcpTerminalContent
               className={cn(
-                "max-h-none overflow-visible p-0 px-3 py-2.5 text-[13px] leading-5",
+                "max-h-none overflow-visible p-0 px-3 pb-2.5 text-[13px] leading-5",
+                commandStr ? "pt-1" : "pt-2.5",
                 failed ? "text-destructive" : "text-muted-foreground",
               )}
             />
           </AcpTerminal>
         </div>
-      ) : (
+      ) : commandStr ? null : (
         <AgentToolEmptyBody status={status} />
       )}
     </AgentToolCard>

@@ -7,6 +7,8 @@ import type { AgentToolCallPart } from "@/features/agent/lib/agent-tool-kind";
 import { getToolKindIcon } from "@/features/agent/lib/chat-helpers";
 import {
   hostFromUrl,
+  matchCountFromSearchSummary,
+  preferredCollapsedToolTitle,
   presentAgentTool,
   resolveAgentToolCardHeading,
   type ToolLineRange,
@@ -246,8 +248,8 @@ export function AgentToolResultBlock({
       />
     )
     : null;
-  const heading = (part.title || part.name).trim();
   const kindLabel = toolKindLabel(part.kind, toolT);
+  const heading = preferredCollapsedToolTitle(part, kindLabel);
   const displayPath = path ? displayTitle(path, path) : "";
   const resolvedHeading = asSkill && skillName
     ? t("skillTitle", { name: skillName })
@@ -419,9 +421,20 @@ export function AgentToolResultBlock({
     );
   }
 
+  const searchMeta = presentation.kind === "search"
+    ? (presentation.hits.length > 0
+      ? presentation.hits.length
+      : matchCountFromSearchSummary(presentation.summary))
+    : null;
   const statsMeta = diffStats
     ? <AgentToolDiffStats additions={diffStats.additions} deletions={diffStats.deletions} />
-    : null;
+    : searchMeta != null
+      ? (
+        <span className="text-[11px] text-muted-foreground">
+          {t("matchCount", { count: searchMeta })}
+        </span>
+      )
+      : null;
 
   return (
     <AgentToolCard
@@ -437,7 +450,15 @@ export function AgentToolResultBlock({
       meta={statsMeta}
     >
       {showInput ? <AgentToolInputRows rows={inputRows} /> : null}
-      {presentation.kind === "search" ? <AgentToolSearchBody hits={presentation.hits} /> : null}
+      {presentation.kind === "search" ? (
+        <AgentToolSearchBody
+          query={presentation.query}
+          glob={presentation.glob}
+          path={presentation.path}
+          hits={presentation.hits}
+          summary={presentation.summary}
+        />
+      ) : null}
       {presentation.kind === "files" ? <AgentToolFilesBody paths={presentation.paths} /> : null}
       {presentation.kind === "tree" ? <AgentToolTreeBody entries={presentation.entries} /> : null}
       {presentation.kind === "markdown" ? <AgentToolMarkdownBody markdown={presentation.markdown} /> : null}
