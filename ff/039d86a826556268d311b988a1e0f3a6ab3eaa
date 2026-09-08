@@ -1,0 +1,19 @@
+apps/web/src/features/agent/components/AgentSessionOpCard.tsx
+  s_34ee2c61d4bff6::t_30fd991cfaf3fe 43
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "ff039d86a826556268d311b988a1e0f3a6ab3eaa",
+  "prompts": {},
+  "sessions": {
+    "s_34ee2c61d4bff6": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "28f9e350-c811-4559-9be4-d16c3b255e81",
+        "model": "grok-4.6"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
