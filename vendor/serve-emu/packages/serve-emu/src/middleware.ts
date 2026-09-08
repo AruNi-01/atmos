@@ -1,6 +1,7 @@
 import { join } from "node:path";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import {
+  getDisplayChrome,
   getFontScale,
   getNetworkStatus,
   getUserRotation,
@@ -1465,6 +1466,21 @@ async function createAppInternal(
     if (url.pathname === "/api/key") {
       if (req.method !== "POST") return new Response("method not allowed", { status: 405 });
       return keyEndpoint(req);
+    }
+
+    if (url.pathname === "/api/display-chrome") {
+      if (req.method !== "GET") return new Response("method not allowed", { status: 405 });
+      try {
+        return Response.json({
+          ok: true,
+          ...(await getDisplayChrome(opts.serial)),
+        });
+      } catch (err) {
+        return Response.json(
+          { ok: false, error: err instanceof Error ? err.message : String(err) },
+          { status: 400 },
+        );
+      }
     }
 
     if (url.pathname === "/api/orientation") {

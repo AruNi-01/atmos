@@ -13,6 +13,7 @@ import type {
   DeviceListResponse,
   DeviceSelectionResponse,
   FileImportResponse,
+  DisplayChrome,
   FontScaleStatus,
   ForegroundApp,
   GeoFix,
@@ -57,6 +58,7 @@ export type ApiDependencies = {
 
   getOrientation: () => Promise<OrientationStatus>;
   setOrientation: (orientation: OrientationMode) => Promise<OrientationStatus>;
+  getDisplayChrome: () => Promise<DisplayChrome>;
   getNightMode: () => Promise<NightModeStatus>;
   setNightMode: (mode: NightMode) => Promise<NightModeStatus>;
   getFontScale: () => Promise<FontScaleStatus>;

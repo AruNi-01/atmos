@@ -134,12 +134,102 @@ export async function getDeviceSize(
 
 export type DisplayRotation = 0 | 1 | 2 | 3;
 
-/** Read the active display rotation rather than the user's rotation policy. */
-export async function getDisplayRotation(
+export type DisplayChrome = {
+  hasCameraHole: boolean;
+  hasNavBar: boolean;
+};
+
+function sliceDefaultDisplay(dump: string): string {
+  const defaultDisplayMarker = dump.match(
+    /(?:^|\n)[ \t]*Display:\s+mDisplayId=0\b/,
+  );
+  if (defaultDisplayMarker?.index === undefined) return dump;
+  const start = defaultDisplayMarker.index + defaultDisplayMarker[0].length;
+  const remainder = dump.slice(start);
+  const nextDisplay = remainder.search(/\n[ \t]*Display:\s+mDisplayId=/);
+  return nextDisplay === -1 ? remainder : remainder.slice(0, nextDisplay);
+}
+
+function parseRect(raw: string): { left: number; top: number; right: number; bottom: number } | null {
+  const match = raw.match(
+    /Rect\(\s*(-?\d+)\s*,\s*(-?\d+)\s*-\s*(-?\d+)\s*,\s*(-?\d+)\s*\)/,
+  );
+  if (!match) return null;
+  return {
+    left: Number(match[1]),
+    top: Number(match[2]),
+    right: Number(match[3]),
+    bottom: Number(match[4]),
+  };
+}
+
+function rectHasArea(
+  rect: { left: number; top: number; right: number; bottom: number },
+): boolean {
+  return rect.right > rect.left && rect.bottom > rect.top;
+}
+
+function insetsAreNonZero(
+  rect: { left: number; top: number; right: number; bottom: number },
+): boolean {
+  return rect.left > 0 || rect.top > 0 || rect.right > 0 || rect.bottom > 0;
+}
+
+/** Parse camera-hole / nav-bar presence from `dumpsys window displays`. */
+export function parseDisplayChrome(dump: string): DisplayChrome {
+  const display = sliceDefaultDisplay(dump);
+
+  let hasCameraHole = false;
+  const cutoutBlock = display.match(/DisplayCutout\{([^}]*)\}/);
+  if (cutoutBlock) {
+    const insetsMatch = cutoutBlock[1].match(/insets=(Rect\([^)]+\))/);
+    const insets = insetsMatch ? parseRect(insetsMatch[1]) : null;
+    if (insets && insetsAreNonZero(insets)) {
+      hasCameraHole = true;
+    } else {
+      const bounds = cutoutBlock[1].match(/boundingRect=\{Bounds=\[([^\]]+)\]/);
+      if (bounds) {
+        hasCameraHole = [...bounds[1].matchAll(/Rect\([^)]+\)/g)].some((entry) => {
+          const rect = parseRect(entry[0]);
+          return rect ? rectHasArea(rect) : false;
+        });
+      }
+    }
+  }
+
+  let hasNavBar = false;
+  const navVisible =
+    display.match(/mType=navigationBars[\s\S]{0,240}?mVisible=(true|false)/i) ??
+    display.match(/type=navigationBars[\s\S]{0,240}?mVisible=(true|false)/i) ??
+    display.match(/type=navigationBars[\s\S]{0,240}?visible=(true|false)/i);
+  if (navVisible) {
+    hasNavBar = navVisible[1].toLowerCase() === "true";
+  } else {
+    const navFrame = display.match(
+      /mType=navigationBars[\s\S]{0,200}?mFrame=\[(\d+),(\d+)\]\[(\d+),(\d+)\]/,
+    );
+    if (navFrame) {
+      hasNavBar =
+        Number(navFrame[3]) > Number(navFrame[1]) &&
+        Number(navFrame[4]) > Number(navFrame[2]);
+    } else {
+      const navInsets = display.match(
+        /navigationBars=Insets\{left=(\d+),\s*top=(\d+),\s*right=(\d+),\s*bottom=(\d+)\}/,
+      );
+      if (navInsets) {
+        hasNavBar = [1, 2, 3, 4].some((index) => Number(navInsets[index]) > 0);
+      }
+    }
+  }
+
+  return { hasCameraHole, hasNavBar };
+}
+
+async function dumpsysWindowDisplays(
   serial: string,
   runExec: typeof execText = execText,
   signal?: AbortSignal,
-): Promise<DisplayRotation> {
+): Promise<string> {
   const r = await runExec(
     "adb",
     ["-s", serial, "shell", "dumpsys", "window", "displays"],
@@ -148,19 +238,18 @@ export async function getDisplayRotation(
   if (execFailed(r)) {
     throw new Error(`dumpsys window displays failed: ${execFailure(r)}`);
   }
+  return r.stdout;
+}
 
-  const defaultDisplayMarker = r.stdout.match(
-    /(?:^|\n)[ \t]*Display:\s+mDisplayId=0\b/,
+/** Read the active display rotation rather than the user's rotation policy. */
+export async function getDisplayRotation(
+  serial: string,
+  runExec: typeof execText = execText,
+  signal?: AbortSignal,
+): Promise<DisplayRotation> {
+  const displayState = sliceDefaultDisplay(
+    await dumpsysWindowDisplays(serial, runExec, signal),
   );
-  let displayState = r.stdout;
-  if (defaultDisplayMarker?.index !== undefined) {
-    const start = defaultDisplayMarker.index + defaultDisplayMarker[0].length;
-    const remainder = r.stdout.slice(start);
-    const nextDisplay = remainder.search(/\n[ \t]*Display:\s+mDisplayId=/);
-    displayState = nextDisplay === -1
-      ? remainder
-      : remainder.slice(0, nextDisplay);
-  }
 
   const match = displayState.match(
     /\bm(?:Current|Display)?Rotation=(?:ROTATION_)?(0|1|2|3|90|180|270)\b/,
@@ -170,6 +259,14 @@ export async function getDisplayRotation(
   }
   const value = Number(match[1]);
   return (value > 3 ? value / 90 : value) as DisplayRotation;
+}
+
+export async function getDisplayChrome(
+  serial: string,
+  runExec: typeof execText = execText,
+  signal?: AbortSignal,
+): Promise<DisplayChrome> {
+  return parseDisplayChrome(await dumpsysWindowDisplays(serial, runExec, signal));
 }
 
 function orientationFromRotation(mode: "free" | "lock" | "unknown", rotation: number | null): OrientationStatus["orientation"] {

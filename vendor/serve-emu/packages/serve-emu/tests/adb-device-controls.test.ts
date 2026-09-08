@@ -1,8 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import type { spawn } from "node:child_process";
 import {
+  getDisplayChrome,
   getDisplayRotation,
   getDeviceSize,
+  parseDisplayChrome,
   getFontScale,
   getNetworkStatus,
   getNightMode,
@@ -210,6 +212,37 @@ describe("ADB display controls", () => {
       ].join("\n"))) as typeof execText;
 
     await expect(getDisplayRotation("device-1", runExec)).resolves.toBe(1);
+  });
+
+  test("detects camera holes and navigation bars from window dumps", async () => {
+    expect(
+      parseDisplayChrome([
+        "Display: mDisplayId=0",
+        "  mCurrentDisplayCutout=DisplayCutout{insets=Rect(0, 136 - 0, 0) waterfallInsets=Rect(0, 0 - 0, 0) boundingRect={Bounds=[Rect(0, 0 - 0, 0), Rect(504, 0 - 576, 136), Rect(0, 0 - 0, 0), Rect(0, 0 - 0, 0)]}}",
+        "  InsetsSource: {mType=navigationBars mFrame=[0,2274][1080,2400] mVisible=true}",
+      ].join("\n")),
+    ).toEqual({ hasCameraHole: true, hasNavBar: true });
+
+    expect(
+      parseDisplayChrome([
+        "Display: mDisplayId=0",
+        "  mCurrentDisplayCutout=DisplayCutout{insets=Rect(0, 0 - 0, 0) waterfallInsets=Rect(0, 0 - 0, 0)}",
+        "  InsetsSource: {mType=navigationBars mFrame=[0,0][0,0] mVisible=false}",
+      ].join("\n")),
+    ).toEqual({ hasCameraHole: false, hasNavBar: false });
+
+    const runExec = (async () =>
+      result([
+        "Display: mDisplayId=9",
+        "  mCurrentDisplayCutout=DisplayCutout{insets=Rect(0, 80 - 0, 0)}",
+        "Display: mDisplayId=0",
+        "  mCurrentDisplayCutout=DisplayCutout{insets=Rect(0, 0 - 0, 0)}",
+        "  type=navigationBars visible=true",
+      ].join("\n"))) as typeof execText;
+    await expect(getDisplayChrome("device-1", runExec)).resolves.toEqual({
+      hasCameraHole: false,
+      hasNavBar: true,
+    });
   });
 
   test("makes rotation polling cancellable background work", async () => {

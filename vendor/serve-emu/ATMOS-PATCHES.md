@@ -19,6 +19,11 @@ These are the only first-party behavior changes. Prefer rebasing them when bumpi
    - When the iframe is locked with `?device=`, Stop stays on the claimed device.
    - Selecting or starting a **free** other target posts `atmos:simulator-device` `{ udid, platform: "android" }` to the parent so Atmos can update the claim. Foreign Stop is refused.
 5. **Packed scrcpy-server path** (`scrcpy-server.ts`)
-   - Resolve `vendor/scrcpy-server-v4.0` next to `process.execPath` so `bun --compile` does not look under `/$bunfs/`.
+   - Packed binary: resolve `vendor/scrcpy-server-v4.0` next to `process.execPath` so `bun --compile` does not look under `/$bunfs/`.
+   - `bun run setup` / source runs: write to `packages/serve-emu/vendor/`. Do not use `dirname(process.execPath)` there (`execPath` is the bun CLI).
 6. **Packed preview UI** (`ui-dir.ts`, `pack.sh`)
    - Ship `dist/ui` next to the binary as `ui/` and resolve it from `process.execPath`. Without this, the iframe is a plain `not found` 404.
+7. **Android device frame** (`android-device-mockup.tsx`, `GET /api/display-chrome`)
+   - Wrap the live stream in `react-device-mockup` (`AndroidMockup` / `AndroidTabMockup`).
+   - Never draw the mockup camera hole.
+   - Probe `dumpsys window displays` for a nav bar already present in the emulator framebuffer; hide the mockup nav bar when the stream already has one.

@@ -249,12 +249,47 @@ main,
   align-items: center;
   justify-content: center;
   gap: 12px;
+  width: auto;
+  height: 100%;
   max-width: 100%;
   max-height: 100%;
   min-width: 0;
   min-height: 0;
   background: transparent;
   overflow: visible;
+}
+.android-device-frame-host {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  min-height: 0;
+  width: 100%;
+  max-width: 100%;
+  overflow: visible;
+}
+.android-device-mockup {
+  display: flex;
+  max-width: 100%;
+  max-height: 100%;
+}
+.android-device-mockup > div {
+  width: max-content !important;
+  height: max-content !important;
+}
+.android-device-mockup > div > div:first-child > div {
+  width: var(--mockup-screen-width) !important;
+  height: var(--mockup-screen-height) !important;
+}
+.android-device-mockup.hide-camera > div > div:first-child > div > div[style*="position:absolute"][style*="border-radius"] {
+  display: none !important;
+}
+.android-device-mockup .stream-surface {
+  width: 100%;
+  height: 100%;
+  border-radius: 0;
+  box-shadow: none;
 }
 .chrome-bottom-row {
   display: inline-flex;
@@ -325,6 +360,14 @@ canvas,
   cursor: default;
   user-select: none;
   touch-action: none;
+}
+.android-device-mockup canvas,
+.android-device-mockup .stream-video {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  object-fit: contain;
 }
 .stream-video {
   object-fit: contain;

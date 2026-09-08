@@ -209,6 +209,12 @@ export type OrientationStatus = {
 };
 export type OrientationResponse = ApiSuccess<{ orientation: OrientationStatus }>;
 
+export type DisplayChrome = {
+  hasCameraHole: boolean;
+  hasNavBar: boolean;
+};
+export type DisplayChromeResponse = ApiSuccess<DisplayChrome>;
+
 export type NightMode = "auto" | "dark" | "light";
 export type NightModeStatus = { mode: NightMode | "unknown"; raw: string };
 export type NightModeResponse = ApiSuccess<{ nightMode: NightModeStatus }>;
@@ -497,6 +503,9 @@ export type ApiContractMap = {
   "/api/orientation": {
     GET: EndpointContract<undefined, OrientationResponse>;
     POST: EndpointContract<{ orientation: OrientationMode }, OrientationResponse>;
+  };
+  "/api/display-chrome": {
+    GET: EndpointContract<undefined, DisplayChromeResponse>;
   };
   "/api/night-mode": {
     GET: EndpointContract<undefined, NightModeResponse>;
@@ -1076,6 +1085,16 @@ export function parseOrientationResponse(value: unknown): OrientationResponse {
   return { ok: true, orientation: parseOrientationStatus(root.orientation) };
 }
 
+export function parseDisplayChromeResponse(value: unknown): DisplayChromeResponse {
+  const root = record(value, "display chrome response");
+  if (root.ok !== true) fail("display chrome response.ok must be true");
+  return {
+    ok: true,
+    hasCameraHole: boolean(root.hasCameraHole, "display chrome response.hasCameraHole"),
+    hasNavBar: boolean(root.hasNavBar, "display chrome response.hasNavBar"),
+  };
+}
+
 export function parseNightModeResponse(value: unknown): NightModeResponse {
   const root = record(value, "night mode response");
   if (root.ok !== true) fail("night mode response.ok must be true");
@@ -1622,6 +1641,7 @@ export const API_SUCCESS_PARSERS = {
   "/api/avds/start": { POST: parseAvdStartResponse },
   "/api/avds/stop": { POST: parseAvdStopResponse },
   "/api/orientation": { GET: parseOrientationResponse, POST: parseOrientationResponse },
+  "/api/display-chrome": { GET: parseDisplayChromeResponse },
   "/api/night-mode": { GET: parseNightModeResponse, POST: parseNightModeResponse },
   "/api/font-scale": { GET: parseFontScaleResponse, POST: parseFontScaleResponse },
   "/api/network": { GET: parseNetworkResponse, POST: parseNetworkResponse },

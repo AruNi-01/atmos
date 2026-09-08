@@ -547,6 +547,7 @@ describe("server HTTP and WebSocket boundaries", () => {
       ["GET", "/api/avds/start"],
       ["GET", "/api/avds/stop"],
       ["PATCH", "/api/orientation"],
+      ["POST", "/api/display-chrome"],
       ["PATCH", "/api/night-mode"],
       ["PATCH", "/api/font-scale"],
       ["PATCH", "/api/network"],

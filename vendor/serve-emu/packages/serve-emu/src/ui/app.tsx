@@ -11,6 +11,7 @@ import {
 } from "react";
 import { StatusBar } from "./components/status-bar";
 import type { AccessibilityNode } from "./components/accessibility-panel";
+import { AndroidDeviceMockup } from "./components/android-device-mockup";
 import { DevicePanel } from "./components/device-panel";
 import { DeviceStream } from "./components/device-stream";
 import { AgentCopyButton } from "./components/agent-copy-button";
@@ -349,19 +350,21 @@ const AppShell = memo(function AppShell() {
               </button>
             </div>
           </div>
-          <DeviceStream
-            canvasRef={canvasRef}
-            videoRef={videoRef}
-            transport={transport}
-            send={send}
-            accessibilityEnabled={accessibilityEnabled}
-            accessibilityNodes={accessibilityNodes}
-            highlightedAccessibilityId={highlightedAccessibilityId}
-            onAccessibilityHover={setHighlightedAccessibilityId}
-            deviceSize={deviceSize}
-            keyboardProxyRef={keyboardProxyRef}
-            keyboardActive={keyboardActive}
-          />
+          <AndroidDeviceMockup deviceSize={deviceSize}>
+            <DeviceStream
+              canvasRef={canvasRef}
+              videoRef={videoRef}
+              transport={transport}
+              send={send}
+              accessibilityEnabled={accessibilityEnabled}
+              accessibilityNodes={accessibilityNodes}
+              highlightedAccessibilityId={highlightedAccessibilityId}
+              onAccessibilityHover={setHighlightedAccessibilityId}
+              deviceSize={deviceSize}
+              keyboardProxyRef={keyboardProxyRef}
+              keyboardActive={keyboardActive}
+            />
+          </AndroidDeviceMockup>
           <input
             ref={keyboardProxyRef}
             className="keyboard-proxy"

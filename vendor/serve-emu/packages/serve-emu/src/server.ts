@@ -3,6 +3,7 @@ import { timingSafeEqual } from "node:crypto";
 import type { ServerWebSocket } from "bun";
 import { getExecSnapshot } from "./exec.ts";
 import {
+  getDisplayChrome,
   getFontScale,
   getNetworkStatus,
   getNightMode,
@@ -2324,6 +2325,21 @@ export async function startServer(
           await killEmulator(serial);
           sessions.assertPublished(requestContext);
           return Response.json({ ok: true, serial });
+        } catch (err) {
+          return errorResponse(err);
+        }
+      }
+
+      if (url.pathname === "/api/display-chrome") {
+        if (req.method !== "GET")
+          return new Response("method not allowed", { status: 405 });
+        try {
+          return Response.json({
+            ok: true,
+            ...(await runForContext(requestContext, (context) =>
+              getDisplayChrome(context.serial),
+            )),
+          });
         } catch (err) {
           return errorResponse(err);
         }

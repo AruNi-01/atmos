@@ -10,16 +10,20 @@ export const SCRCPY_VERSION = "4.0";
 
 const DOWNLOAD_URL = `https://github.com/Genymobile/scrcpy/releases/download/v${SCRCPY_VERSION}/scrcpy-server-v${SCRCPY_VERSION}`;
 
-function vendorDir(): string {
-  const exec = process.execPath;
-  // Atmos packed binary: ~/.atmos/runtime/serve-emu/<ver>/serve-emu
-  // plus vendor/scrcpy-server-v4.0 next to it. bun --compile import.meta.url
-  // lives under /$bunfs/ and cannot see that file.
-  if (exec && !exec.includes("/$bunfs/")) {
-    return join(dirname(exec), "vendor");
+/** Source-tree vs packed-binary vendor dir. `$bunfs` is compile-time, not execPath. */
+export function resolveVendorDir(importMetaUrl: string, execPath: string): string {
+  if (importMetaUrl.includes("$bunfs")) {
+    return join(dirname(execPath), "vendor");
   }
-  const here = dirname(fileURLToPath(import.meta.url));
-  return join(here, "..", "vendor");
+  return join(dirname(fileURLToPath(importMetaUrl)), "..", "vendor");
+}
+
+function vendorDir(): string {
+  // Packed binary: ~/.atmos/runtime/serve-emu/<ver>/vendor/scrcpy-server-v4.0
+  // next to process.execPath. bun --compile import.meta.url lives under
+  // /$bunfs/ and cannot see that file. `bun run setup` uses the bun
+  // executable as execPath, so that path must not be used in source runs.
+  return resolveVendorDir(import.meta.url, process.execPath);
 }
 
 const VENDOR_DIR = vendorDir();

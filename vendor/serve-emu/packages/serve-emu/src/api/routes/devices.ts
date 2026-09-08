@@ -147,6 +147,14 @@ export function deviceRoutes(): ContractApiRoute<ApiDependencies>[] {
     },
     {
       method: "GET",
+      path: "/api/display-chrome",
+      handler: async ({ deps }) => Response.json({
+        ok: true,
+        ...(await downstream("read display chrome", deps.getDisplayChrome)),
+      }),
+    },
+    {
+      method: "GET",
       path: "/api/night-mode",
       handler: async ({ deps }) => Response.json({
         ok: true,

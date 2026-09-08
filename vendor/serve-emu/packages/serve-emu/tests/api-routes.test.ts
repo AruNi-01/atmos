@@ -34,6 +34,7 @@ const EXPECTED_ROUTES = [
   ["POST", "/api/avds/stop"],
   ["GET", "/api/orientation"],
   ["POST", "/api/orientation"],
+  ["GET", "/api/display-chrome"],
   ["GET", "/api/night-mode"],
   ["POST", "/api/night-mode"],
   ["GET", "/api/font-scale"],
@@ -222,6 +223,10 @@ function fakeDependencies(
       orientation: "portrait",
       raw: "0 0",
     }),
+    getDisplayChrome: async () => ({
+      hasCameraHole: true,
+      hasNavBar: true,
+    }),
     setOrientation: async (orientation) => ({ orientation }),
     getNightMode: async () => ({ mode: "light", raw: "no" }),
     setNightMode: async (mode) => ({ mode, raw: mode }),
@@ -393,14 +398,14 @@ const silentLogger: ApiLogger = {
 };
 
 describe("domain API route table", () => {
-  test("registers the exact 44 method/path pairs across 33 paths", () => {
+  test("registers the exact 45 method/path pairs across 34 paths", () => {
     const routes = createApiRoutes();
 
     expect(routes.map(({ method, path }) => [method, path])).toEqual(
       EXPECTED_ROUTES.map(([method, path]) => [method, path]),
     );
-    expect(routes).toHaveLength(44);
-    expect(new Set(routes.map((route) => route.path)).size).toBe(33);
+    expect(routes).toHaveLength(45);
+    expect(new Set(routes.map((route) => route.path)).size).toBe(34);
     const contractPairs = Object.entries(API_SUCCESS_PARSERS).flatMap(
       ([path, methods]) => Object.keys(methods).map((method) => `${method} ${path}`),
     );
@@ -430,12 +435,12 @@ describe("domain API route table", () => {
     );
   });
 
-  test("returns structured OPTIONS 405 with exact Allow for all 33 paths", async () => {
+  test("returns structured OPTIONS 405 with exact Allow for all 34 paths", async () => {
     const router = createApiRouter(createApiRoutes());
     const deps = fakeDependencies();
     const paths = [...new Set(EXPECTED_ROUTES.map((route) => route[1]))];
 
-    expect(paths).toHaveLength(33);
+    expect(paths).toHaveLength(34);
     for (const path of paths) {
       const response = await router.handle(
         new Request(`${BASE_URL}${path}`, { method: "OPTIONS" }),

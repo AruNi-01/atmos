@@ -10,6 +10,7 @@ import {
   parseAvdStopResponse,
   parseDeviceListResponse,
   parseDeviceSelectionResponse,
+  parseDisplayChromeResponse,
   parseEmptyResponse,
   parseFileImportResponse,
   parseFontScaleResponse,
@@ -253,6 +254,16 @@ describe("complete API success contracts", () => {
   });
 
   test("parses orientation, appearance, and network status payloads", () => {
+    expect(
+      parseDisplayChromeResponse({
+        ok: true,
+        hasCameraHole: true,
+        hasNavBar: false,
+      }),
+    ).toEqual({ ok: true, hasCameraHole: true, hasNavBar: false });
+    expect(() =>
+      parseDisplayChromeResponse({ ok: true, hasCameraHole: true }),
+    ).toThrow("hasNavBar");
     expect(
       parseOrientationResponse({
         ok: true,
