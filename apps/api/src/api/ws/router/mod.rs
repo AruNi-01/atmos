@@ -887,6 +887,10 @@ impl WsMessageService {
                 self.handle_native_agent_set_enabled(parse_request(request.data)?)
                     .await
             }
+            WsAction::AgentRegistrySetEnabled => {
+                self.handle_agent_registry_set_enabled(parse_request(request.data)?)
+                    .await
+            }
 
             WsAction::AgentChatCreate => {
                 self.handle_agent_chat_create(parse_request(request.data)?)

@@ -51,6 +51,7 @@ impl WsMessageService {
             surface_id: None,
             space_id: None,
             provider_id: None,
+            reason: None,
         };
 
         match self

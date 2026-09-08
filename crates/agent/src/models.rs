@@ -74,6 +74,10 @@ pub struct RegistryAgent {
     /// When false, Atmos bound an existing CLI and must not uninstall it.
     #[serde(default = "default_can_remove")]
     pub can_remove: bool,
+    /// Chat picker includes this ACP row only when enabled. CLI-backed ACP
+    /// that has a Native Chat sibling defaults off.
+    #[serde(default)]
+    pub enabled: bool,
 }
 
 fn default_can_remove() -> bool {

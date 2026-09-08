@@ -57,6 +57,43 @@ pub fn is_native_chat_agent_id(id: &str) -> bool {
     HOSTS.iter().any(|spec| spec.id == id)
 }
 
+/// Native Chat host that shares a product family with this ACP registry id.
+pub fn native_chat_sibling_id(registry_id: &str) -> Option<&'static str> {
+    let folded = match registry_id {
+        "claude" | "claude-code" | "claude_code" | "claude-acp" | "claude-code-acp"
+        | "claude-agent-acp" => "claude",
+        "codex" | "codex-acp" => "codex",
+        "opencode" => "opencode",
+        "pi" | "pi-acp" => "pi",
+        "grok" | "grok-build" | "grok-acp" => "grok",
+        _ => return None,
+    };
+    Some(folded)
+}
+
+/// Chat picker default for an ACP registry row when the overlay has no `enabled`.
+///
+/// CLI-backed ACP (`provision_kind = native`) that has a Native Chat sibling
+/// stays off until the user toggles it. Adapters and unpaired natives stay on
+/// once installed.
+pub fn default_acp_enabled(
+    registry_id: &str,
+    is_installed: bool,
+    provision_is_native: bool,
+    overlay_enabled: Option<bool>,
+) -> bool {
+    if !is_installed {
+        return false;
+    }
+    if let Some(enabled) = overlay_enabled {
+        return enabled;
+    }
+    if provision_is_native && native_chat_sibling_id(registry_id).is_some() {
+        return false;
+    }
+    true
+}
+
 /// Native hosts are off until the overlay records `enabled: true`.
 pub fn is_native_chat_agent_enabled(overlay: Option<&NativeAgentEntry>) -> bool {
     overlay.and_then(|entry| entry.enabled).unwrap_or(false)
@@ -156,5 +193,26 @@ mod tests {
         assert!(!is_native_chat_agent_id("deepseek-harness"));
         assert!(require_native_chat_agent_id("pi").is_ok());
         assert!(require_native_chat_agent_id("codex-acp").is_err());
+    }
+
+    #[test]
+    fn sibling_id_maps_acp_registry_ids_onto_native_hosts() {
+        assert_eq!(native_chat_sibling_id("grok-build"), Some("grok"));
+        assert_eq!(native_chat_sibling_id("claude-acp"), Some("claude"));
+        assert_eq!(native_chat_sibling_id("codex-acp"), Some("codex"));
+        assert_eq!(native_chat_sibling_id("opencode"), Some("opencode"));
+        assert_eq!(native_chat_sibling_id("cursor"), None);
+        assert_eq!(native_chat_sibling_id("gemini"), None);
+    }
+
+    #[test]
+    fn cli_backed_acp_with_native_sibling_defaults_off() {
+        assert!(!default_acp_enabled("grok-build", true, true, None));
+        assert!(!default_acp_enabled("opencode", true, true, None));
+        assert!(default_acp_enabled("grok-build", true, true, Some(true)));
+        assert!(default_acp_enabled("cursor", true, true, None));
+        assert!(default_acp_enabled("claude-acp", true, false, None));
+        assert!(!default_acp_enabled("claude-acp", true, false, Some(false)));
+        assert!(!default_acp_enabled("grok-build", false, true, None));
     }
 }

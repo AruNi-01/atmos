@@ -181,6 +181,22 @@ impl WsMessageService {
         Ok(json!({ "success": true }))
     }
 
+    pub(super) async fn handle_agent_registry_set_enabled(
+        &self,
+        req: AgentRegistrySetEnabledRequest,
+    ) -> Result<Value> {
+        let registry_id = req.registry_id.trim();
+        if registry_id.is_empty() {
+            return Err(ServiceError::Validation("registry_id is required".into()));
+        }
+        self.agent_service
+            .set_registry_agent_enabled(registry_id, req.enabled)?;
+        self.agent_chat()
+            .evict_runtimes_for_provider(registry_id)
+            .await;
+        Ok(json!({ "success": true }))
+    }
+
     pub(super) async fn handle_terminal_agent_models_get(
         &self,
         req: TerminalAgentModelsGetRequest,

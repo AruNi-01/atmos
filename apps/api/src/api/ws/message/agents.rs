@@ -77,3 +77,9 @@ pub struct NativeAgentSetEnabledRequest {
     pub id: String,
     pub enabled: bool,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentRegistrySetEnabledRequest {
+    pub registry_id: String,
+    pub enabled: bool,
+}

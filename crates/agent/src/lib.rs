@@ -25,7 +25,7 @@ pub use contract::{
 pub use manager::AgentManager;
 pub use manager::{
     is_builtin_custom_agent_id, is_native_chat_agent_id, looks_like_missing_llm_api_key,
-    native_chat_launch_spec, DEEPSEEK_API_KEY_ENV, DEEPSEEK_HARNESS_ID,
+    native_chat_launch_spec, native_chat_sibling_id, DEEPSEEK_API_KEY_ENV, DEEPSEEK_HARNESS_ID,
 };
 pub use models::{
     AgentConfigState, AgentId, AgentInstallResult, AgentLaunchSpec, AgentStatus, CustomAgent,

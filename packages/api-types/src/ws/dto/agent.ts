@@ -63,6 +63,7 @@ export type RegistryAgent = {
   native_executable?: string | null;
   terminal_agent_id?: string | null;
   can_remove?: boolean;
+  enabled?: boolean;
 };
 
 export type AgentRegistryListRequest = {
@@ -152,5 +153,10 @@ export type NativeChatAgentListResponse = {
 
 export type NativeAgentSetEnabledRequest = {
   id: string;
+  enabled: boolean;
+};
+
+export type AgentRegistrySetEnabledRequest = {
+  registry_id: string;
   enabled: boolean;
 };

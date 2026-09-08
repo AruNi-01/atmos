@@ -38,6 +38,9 @@ pub(crate) struct ManifestEntry {
         skip_serializing_if = "Option::is_none"
     )]
     pub default_config: Option<std::collections::HashMap<String, String>>,
+    /// Chat picker overlay. `None` uses the default for this registry id.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub enabled: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -152,9 +155,11 @@ pub(crate) fn upsert_manifest_entry(manifest: &mut InstallManifest, entry: Manif
             .installed_version
             .take()
             .or(existing.installed_version.take());
+        let enabled = entry.enabled.or(existing.enabled.take());
         *existing = entry;
         existing.default_config = default_config;
         existing.installed_version = installed_version;
+        existing.enabled = enabled;
         return;
     }
     manifest.registry.push(entry);

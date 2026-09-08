@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use crate::models::{KnownAgent, RegistryAgent};
 
 use super::manifest::{load_install_manifest, save_install_manifest};
+use super::native_chat::default_acp_enabled;
 use super::npm::{list_global_npm_packages, normalize_npm_package_name, npx_command_preview};
 use super::provision::{
     classify_registry_agent, native_cli_command, overlay_registry_agent, which_executable,
@@ -263,6 +264,12 @@ pub(crate) async fn list_registry_agents_impl(
         } else {
             None
         };
+        let enabled = default_acp_enabled(
+            &agent.id,
+            is_installed,
+            classified.kind == AcpProvisionKind::Native,
+            manifest_entry.and_then(|entry| entry.enabled),
+        );
 
         out.push(RegistryAgent {
             id: agent.id,
@@ -285,6 +292,7 @@ pub(crate) async fn list_registry_agents_impl(
             native_executable: classified.native_executable,
             terminal_agent_id: classified.terminal_agent_id,
             can_remove,
+            enabled,
         });
     }
 

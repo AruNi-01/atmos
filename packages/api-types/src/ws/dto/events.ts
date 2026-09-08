@@ -61,6 +61,8 @@ export type LocalModelStateNotification = {
   state: LocalModelStatus;
 };
 
+export type AgentNotifyReason = "permission_request" | "task_complete";
+
 export type AgentNotificationPayload = {
   title: string;
   body: string;
@@ -76,6 +78,7 @@ export type AgentNotificationPayload = {
   surface_id?: string | null;
   space_id?: string | null;
   provider_id?: string | null;
+  reason?: AgentNotifyReason | null;
 };
 
 /** Events that only tell the client to refetch; payload is unused. */

@@ -168,6 +168,7 @@ export const WS_ACTIONS = [
   "custom_agent_preload",
   "native_agent_list",
   "native_agent_set_enabled",
+  "agent_registry_set_enabled",
   "agent_chat_create",
   "agent_chat_list",
   "agent_chat_get",

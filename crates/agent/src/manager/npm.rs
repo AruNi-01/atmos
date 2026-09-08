@@ -175,6 +175,7 @@ fn register_npx_manifest(
                 npm_package: Some(pkg_name),
                 installed_version,
                 default_config: existing_default,
+                enabled: None,
             },
         );
         Ok(())

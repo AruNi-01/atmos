@@ -17,6 +17,7 @@ import type {
   CustomAgentNameRequest,
   CustomAgentSetEnabledRequest,
   CustomAgentSetJsonRequest,
+  AgentRegistrySetEnabledRequest,
   NativeAgentSetEnabledRequest,
   NativeChatAgentListResponse,
   RegistryInstallResponse,
@@ -60,6 +61,10 @@ export type AgentContract = {
   native_agent_list: { input: WsEmpty; output: NativeChatAgentListResponse };
   native_agent_set_enabled: {
     input: NativeAgentSetEnabledRequest;
+    output: WsSuccess;
+  };
+  agent_registry_set_enabled: {
+    input: AgentRegistrySetEnabledRequest;
     output: WsSuccess;
   };
 };

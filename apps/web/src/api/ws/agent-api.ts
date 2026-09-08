@@ -52,6 +52,8 @@ export interface RegistryAgent {
   terminal_agent_id?: string | null;
   /** When false, Atmos bound an existing CLI and must not uninstall it. */
   can_remove?: boolean;
+  /** Chat picker includes this ACP row only when enabled. */
+  enabled?: boolean;
 }
 
 export interface CustomAgent {
@@ -201,5 +203,15 @@ export const agentApi = {
     enabled: boolean,
   ): Promise<{ success: boolean }> => {
     return wsRequest("native_agent_set_enabled", { id, enabled });
+  },
+
+  setRegistryAgentEnabled: async (
+    registryId: string,
+    enabled: boolean,
+  ): Promise<{ success: boolean }> => {
+    return wsRequest("agent_registry_set_enabled", {
+      registry_id: registryId,
+      enabled,
+    });
   },
 };

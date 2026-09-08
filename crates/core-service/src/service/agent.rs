@@ -85,6 +85,12 @@ impl AgentService {
         Ok(self.manager.set_native_chat_agent_enabled(id, enabled)?)
     }
 
+    pub fn set_registry_agent_enabled(&self, registry_id: &str, enabled: bool) -> Result<()> {
+        Ok(self
+            .manager
+            .set_registry_agent_enabled(registry_id, enabled)?)
+    }
+
     pub fn add_custom_agent(&self, agent: &CustomAgent) -> Result<()> {
         persist_shared_custom_agent_api_keys(agent);
         Ok(self.manager.add_custom_agent(agent)?)

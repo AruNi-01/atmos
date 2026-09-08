@@ -152,6 +152,7 @@ fn write_binary_manifest(
                 npm_package: None,
                 installed_version,
                 default_config: existing_default,
+                enabled: None,
             },
         );
         Ok(())

@@ -575,6 +575,8 @@ pub enum WsAction {
     NativeAgentList,
     /// 开关 Chat native 主机（默认关；不走 ACP 安装）
     NativeAgentSetEnabled,
+    /// 开关 ACP registry agent 是否出现在 Chat 选择器
+    AgentRegistrySetEnabled,
 
     AgentChatCreate,
     AgentChatList,

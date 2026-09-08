@@ -23,7 +23,9 @@ pub use self::builtin_custom::{
     DEEPSEEK_HARNESS_ID,
 };
 pub(crate) use self::manifest::CustomAgentEntry;
-pub use self::native_chat::{is_native_chat_agent_id, native_chat_launch_spec};
+pub use self::native_chat::{
+    is_native_chat_agent_id, native_chat_launch_spec, native_chat_sibling_id,
+};
 
 #[derive(Debug, Error)]
 pub enum AgentError {
@@ -341,6 +343,30 @@ impl AgentManager {
         })
     }
 
+    pub fn set_registry_agent_enabled(&self, registry_id: &str, enabled: bool) -> Result<()> {
+        let id = registry_id.trim();
+        if id.is_empty() {
+            return Err(AgentError::Command("registry_id is required".to_string()));
+        }
+        let id = id.to_string();
+        manifest::with_manifest(|m| {
+            if let Some(entry) = m.registry.iter_mut().find(|entry| entry.registry_id == id) {
+                entry.enabled = Some(enabled);
+                return Ok(());
+            }
+            m.registry.push(manifest::ManifestEntry {
+                registry_id: id,
+                install_method: "native".to_string(),
+                binary_path: None,
+                npm_package: None,
+                installed_version: None,
+                default_config: None,
+                enabled: Some(enabled),
+            });
+            Ok(())
+        })
+    }
+
     pub fn set_agent_default_config(
         &self,
         registry_id: &str,
@@ -427,6 +453,7 @@ impl AgentManager {
                         npm_package: None,
                         installed_version: None,
                         default_config: Some(std::collections::HashMap::from([(cfg_id, val)])),
+                        enabled: None,
                     });
                 }
                 tracing::info!(

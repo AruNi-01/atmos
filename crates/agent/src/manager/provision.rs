@@ -319,6 +319,16 @@ pub(crate) fn overlay_registry_agent(
         native_executable: Some(executable_name.to_string()),
         terminal_agent_id: Some(agent.terminal_id.to_string()),
         can_remove: false,
+        enabled: super::native_chat::default_acp_enabled(
+            agent.id,
+            installed,
+            true,
+            manifest
+                .registry
+                .iter()
+                .find(|entry| entry.registry_id == agent.id)
+                .and_then(|entry| entry.enabled),
+        ),
     }
 }
 
@@ -453,6 +463,7 @@ pub(crate) fn bind_native_agent(
                 npm_package: None,
                 installed_version: None,
                 default_config: existing_default,
+                enabled: None,
             },
         );
         Ok(())
