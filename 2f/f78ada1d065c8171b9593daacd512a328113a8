@@ -1,0 +1,54 @@
+apps/api/src/api/ws/message.rs
+  h_5be255725524c8 578-579
+apps/api/src/api/ws/message/agents.rs
+  h_5be255725524c8 80-85
+apps/api/src/api/ws/router/agents.rs
+  h_5be255725524c8 184-199
+apps/api/src/api/ws/router/mod.rs
+  h_5be255725524c8 890-893
+apps/api/src/api/ws/router/settings.rs
+  h_5be255725524c8 54
+apps/web/src/api/ws/agent-api.ts
+  h_5be255725524c8 55-56,207-216
+crates/agent/src/lib.rs
+  h_5be255725524c8 28
+crates/agent/src/manager/binary.rs
+  h_5be255725524c8 155
+crates/agent/src/manager/manifest.rs
+  h_5be255725524c8 41-43,158,162
+crates/agent/src/manager/mod.rs
+  h_5be255725524c8 26-28,346-369,456
+crates/agent/src/manager/native_chat.rs
+  h_5be255725524c8 60-96,197-217
+crates/agent/src/manager/npm.rs
+  h_5be255725524c8 178
+crates/agent/src/manager/provision.rs
+  h_5be255725524c8 322-331,466
+crates/agent/src/manager/registry.rs
+  h_5be255725524c8 10,267-272,295
+crates/agent/src/models.rs
+  h_5be255725524c8 77-80
+crates/core-service/src/service/agent.rs
+  h_5be255725524c8 88-93
+packages/api-types/fixtures/actions.server.json
+  h_5be255725524c8 169
+packages/api-types/src/ws/actions.ts
+  h_5be255725524c8 171
+packages/api-types/src/ws/contract/agent.ts
+  h_5be255725524c8 20,66-69
+packages/api-types/src/ws/dto/agent.ts
+  h_5be255725524c8 66,158-162
+packages/api-types/src/ws/dto/events.ts
+  h_5be255725524c8 64-65,81
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "2ff78ada1d065c8171b9593daacd512a328113a8",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
