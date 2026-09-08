@@ -1,0 +1,26 @@
+apps/desktop-electron/src/notifications/native-notification.ts
+  s_d4d84c7bbfbc5a::t_fb55a7e23361c8 1-84
+apps/desktop-electron/src/notifications/native-notification.test.ts
+  s_d4d84c7bbfbc5a::t_8b203b5a483857 1-88
+apps/web/src/features/agent/hooks/use-agent-notifications.tsx
+  s_d4d84c7bbfbc5a::t_a91f190d9f1cd0 26,29-32,37,40-49,66-70,72-80,111-114
+  s_d4d84c7bbfbc5a::t_3ffa710126afd8 115
+apps/web/src/features/agent/lib/__tests__/agent-status-toast.test.ts
+  s_d4d84c7bbfbc5a::t_6458ceb77fbe9e 1-42
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "fc116f2662d429a8164422582d805dbe55daaa77",
+  "prompts": {},
+  "sessions": {
+    "s_d4d84c7bbfbc5a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "01a08117-700e-7c51-881c-6db7549c935d",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
