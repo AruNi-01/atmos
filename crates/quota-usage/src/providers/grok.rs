@@ -91,23 +91,13 @@ pub(crate) async fn fetch_grok_live(client: &Client) -> Result<LiveFetchResult, 
 }
 
 fn map_credits_config(config: GrokBillingConfig, auth: &GrokAuth) -> LiveFetchResult {
-    // Round before compare so primary vs product-row dedup cannot diverge on raw JSON
-    // fractions (e.g. 13.456 → 13.46 after round_metric).
-    let product_percent = config
-        .product_usage
-        .iter()
-        .find(|row| {
-            row.product
-                .as_deref()
-                .is_some_and(|name| name.eq_ignore_ascii_case("GrokBuild"))
-        })
-        .and_then(|row| row.usage_percent)
-        .map(round_metric);
+    // SuperGrok / SuperGrok Heavy is one shared weekly (or monthly) pool.
+    // `creditUsagePercent` is the filled total; `productUsage` is the
+    // Grok Build / Chat / Image split of that same bar — not separate quotas.
+    let products = product_breakdown(&config);
     // proto3 JSON omits default 0 for `creditUsagePercent` / empty `productUsage`.
     // A typed currentPeriod still means the weekly (or monthly) pool exists at 0% used.
-    let percent = product_percent
-        .or_else(|| config.credit_usage_percent.map(round_metric))
-        .or_else(|| period_is_present(config.current_period.as_ref()).then_some(0.0));
+    let percent = pooled_usage_percent(&config, &products);
 
     let period_end = config
         .current_period
@@ -144,20 +134,12 @@ fn map_credits_config(config: GrokBillingConfig, auth: &GrokAuth) -> LiveFetchRe
         });
     }
 
-    for product in &config.product_usage {
-        let Some(name) = product.product.as_deref() else {
-            continue;
-        };
-        // GrokBuild percent already drives the primary window row when present.
-        if name.eq_ignore_ascii_case("GrokBuild")
-            && product_percent.is_some()
-            && product_percent == percent
-        {
-            continue;
-        }
-        if let Some(usage_percent) = product.usage_percent.map(round_metric) {
+    // Product rows are a legend for the shared bar. Skip when the only
+    // product is the same number as the pool (would duplicate Weekly).
+    if should_emit_product_rows(&products, percent) {
+        for (name, usage_percent) in &products {
             usage_rows.push(DetailRow {
-                label: product_label(name),
+                label: name.clone(),
                 value: format!("{usage_percent:.0}% used"),
                 tone: RowTone::Default,
             });
@@ -281,7 +263,9 @@ fn map_credits_config(config: GrokBillingConfig, auth: &GrokAuth) -> LiveFetchRe
         warnings: vec![],
         fetch_message: "Grok CLI billing (cli-chat-proxy)".to_string(),
         reset_at,
-        credits_label: percent.map(|value| format!("{value:.0}% used")),
+        // Prepaid, if any, is a Usage row. Do not stuff the shared-pool
+        // percent into credits_label — the popover renders that as "Credits".
+        credits_label: None,
         last_updated_at: Some(unix_now()),
     }
 }
@@ -489,11 +473,60 @@ fn window_label_for_period(
     "Credits".to_string()
 }
 
+fn pooled_usage_percent(config: &GrokBillingConfig, products: &[(String, f64)]) -> Option<f64> {
+    if let Some(percent) = config.credit_usage_percent {
+        return Some(round_metric(percent));
+    }
+    if !products.is_empty() {
+        return Some(round_metric(
+            products.iter().map(|(_, percent)| *percent).sum::<f64>(),
+        ));
+    }
+    period_is_present(config.current_period.as_ref()).then_some(0.0)
+}
+
+fn product_breakdown(config: &GrokBillingConfig) -> Vec<(String, f64)> {
+    config
+        .product_usage
+        .iter()
+        .filter_map(|row| {
+            let name = row.product.as_deref()?.trim();
+            if name.is_empty() {
+                return None;
+            }
+            let percent = round_metric(row.usage_percent?);
+            if percent <= 0.0 {
+                return None;
+            }
+            Some((product_label(name), percent))
+        })
+        .collect()
+}
+
+fn should_emit_product_rows(products: &[(String, f64)], pool: Option<f64>) -> bool {
+    match (products, pool) {
+        ([], _) => false,
+        ([(_, only)], Some(pool)) if *only == pool => false,
+        _ => true,
+    }
+}
+
 fn product_label(name: &str) -> String {
-    if name.eq_ignore_ascii_case("GrokBuild") {
-        "Grok Build".to_string()
-    } else {
-        name.to_string()
+    let compact: String = name
+        .chars()
+        .filter(|ch| ch.is_ascii_alphanumeric())
+        .map(|ch| ch.to_ascii_lowercase())
+        .collect();
+    let compact = compact
+        .strip_prefix("product")
+        .map(str::to_string)
+        .unwrap_or(compact);
+    match compact.as_str() {
+        "grokbuild" => "Grok Build".to_string(),
+        "grokchat" => "Chat".to_string(),
+        "grokimagine" | "grokimage" | "imagine" | "image" => "Image".to_string(),
+        "grokvoice" | "voice" => "Voice".to_string(),
+        _ => name.trim().to_string(),
     }
 }
 
@@ -603,12 +636,76 @@ mod tests {
             .expect("usage section");
         assert_eq!(usage.rows[0].label, "Weekly");
         assert!(usage.rows[0].value.contains("13% used"));
+        assert!(
+            !usage.rows.iter().any(|row| row.label == "Grok Build"),
+            "single product matching the pool should not duplicate Weekly"
+        );
         assert!(usage
             .rows
             .iter()
             .any(|row| row.label == "Extra usage" && row.value == "Disabled"));
         assert_eq!(result.plan_label.as_deref(), Some("SuperGrok"));
+        assert_eq!(result.credits_label, None);
         assert!(result.fetch_message.contains("cli-chat-proxy"));
+    }
+
+    #[test]
+    fn shared_pool_uses_credit_percent_and_product_breakdown() {
+        let fixture = r#"{
+          "config": {
+            "currentPeriod": {
+              "type": "USAGE_PERIOD_TYPE_WEEKLY",
+              "start": "2026-09-04T22:17:47.739583+00:00",
+              "end": "2026-09-11T22:17:47.739583+00:00"
+            },
+            "creditUsagePercent": 6.0,
+            "productUsage": [
+              { "product": "GrokBuild", "usagePercent": 5.0 },
+              { "product": "GrokChat", "usagePercent": 1.0 },
+              { "product": "GrokImagine", "usagePercent": null }
+            ],
+            "onDemandCap": { "val": 0 },
+            "onDemandUsed": { "val": 0 },
+            "prepaidBalance": { "val": 0 },
+            "isUnifiedBillingUser": true
+          }
+        }"#;
+        let response: GrokBillingResponse = serde_json::from_str(fixture).expect("parse");
+        let config = response.config.expect("config");
+        let auth = GrokAuth {
+            access_token: "tok".into(),
+            email: Some("user@example.com".into()),
+            team_id: None,
+            display_name: None,
+            login_method: Some("SuperGrok".into()),
+            expires_at: None,
+        };
+        let result = map_credits_config(config, &auth);
+        let percent = result
+            .usage_summary
+            .as_ref()
+            .and_then(|summary| summary.percent);
+        assert_eq!(percent, Some(6.0));
+        assert_eq!(result.credits_label, None);
+        let usage = result
+            .detail_sections
+            .iter()
+            .find(|section| section.title == "Usage")
+            .expect("usage section");
+        let labels: Vec<_> = usage.rows.iter().map(|row| row.label.as_str()).collect();
+        assert_eq!(labels, vec!["Weekly", "Grok Build", "Chat", "Extra usage"]);
+        assert!(usage.rows[0].value.contains("6% used"));
+        assert_eq!(usage.rows[1].value, "5% used");
+        assert_eq!(usage.rows[2].value, "1% used");
+        assert_eq!(usage.rows[3].value, "Disabled");
+    }
+
+    #[test]
+    fn product_enum_prefix_maps_to_friendly_labels() {
+        assert_eq!(product_label("PRODUCT_GROK_BUILD"), "Grok Build");
+        assert_eq!(product_label("GrokChat"), "Chat");
+        assert_eq!(product_label("GrokImagine"), "Image");
+        assert_eq!(product_label("Voice"), "Voice");
     }
 
     #[test]

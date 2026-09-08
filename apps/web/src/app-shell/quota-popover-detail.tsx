@@ -17,6 +17,7 @@ import {
   extractResetText,
   firstRowValue,
   inferProviderRegion,
+  providerCreditsLabel,
   providerIdentity,
   sectionHeaderValue,
   quotaMetrics,
@@ -25,6 +26,7 @@ import {
 import {
   ProviderApiKeyManager,
   ProviderGlyph,
+  QuotaMetricUsage,
   UsageBar,
   UsagePortalLink,
   UsageSwitch,
@@ -139,10 +141,7 @@ function AggregateProviderRow({
   const extraDetailSections = extraSections(provider);
   const providerRegion = inferProviderRegion(provider);
   const primaryMetric = metrics[0] ?? null;
-  const creditsBalance =
-    firstRowValue(provider, "Credits", "Balance") ??
-    provider.subscription_summary?.credits_label?.trim() ??
-    null;
+  const creditsBalance = providerCreditsLabel(provider);
   const creditsState = firstRowValue(provider, "Credits", "State");
   const { accountLabel, planLabel, periodLabel } = providerIdentity(provider, t("detail.notDetected"));
   const collapsedSubtitle =
@@ -331,23 +330,17 @@ function DetectedProviderDetails({
           metrics.map((metric) => (
             <div key={metric.label}>
               <div className="text-sm font-medium text-foreground">{metric.label}</div>
-              {metric.percent !== null && metric.percent !== undefined ? (
-                <div className="mt-1.5">
-                  <UsageBar percent={metric.percent} />
-                </div>
-              ) : null}
-              <div className="mt-1 flex items-center justify-between gap-4 text-[11px]">
-                <div className="text-foreground">{displayMetricUsedText(metric, t("detail.usedSuffix"))}</div>
-                <div className="text-foreground/90">
-                  {metric.percent !== null && metric.percent !== undefined
-                    ? displayResetText(metric.resetText, provider.subscription_summary?.reset_at, {
-                      resetUnknownLabel: t("formatters.resetUnknown"),
-                      resettingNowLabel: t("formatters.resettingNow"),
-                      resetsInPrefixLabel: t("formatters.resetsIn"),
-                    })
-                    : null}
-                </div>
-              </div>
+              <QuotaMetricUsage
+                compact
+                percent={metric.percent}
+                segments={metric.segments}
+                usedText={displayMetricUsedText(metric, t("detail.usedSuffix"))}
+                resetText={displayResetText(metric.resetText, provider.subscription_summary?.reset_at, {
+                  resetUnknownLabel: t("formatters.resetUnknown"),
+                  resettingNowLabel: t("formatters.resettingNow"),
+                  resetsInPrefixLabel: t("formatters.resetsIn"),
+                })}
+              />
             </div>
           ))
         ) : creditsBalance || creditsState || extraDetailSections.length > 0 ? null : (
@@ -407,10 +400,7 @@ export function ProviderDetail({
   const metrics = quotaMetrics(provider);
   const extraDetailSections = extraSections(provider);
   const providerRegion = inferProviderRegion(provider);
-  const creditsBalance =
-    firstRowValue(provider, "Credits", "Balance") ??
-    provider.subscription_summary?.credits_label?.trim() ??
-    null;
+  const creditsBalance = providerCreditsLabel(provider);
   const creditsState = firstRowValue(provider, "Credits", "State");
   const warningText = provider.warnings[0] ?? (provider.fetch_state.status !== "ready" ? provider.fetch_state.message : null);
   const showCredits = Boolean(creditsBalance || creditsState);
@@ -450,23 +440,16 @@ export function ProviderDetail({
       {metrics.map((metric) => (
         <section key={metric.label} className="border-t border-border/70 pt-5">
           <div className="text-[18px] font-semibold tracking-tight text-foreground">{metric.label}</div>
-          {metric.percent !== null && metric.percent !== undefined ? (
-            <div className="mt-4">
-              <UsageBar percent={metric.percent} />
-            </div>
-          ) : null}
-          <div className="mt-2 flex items-center justify-between gap-4 text-sm">
-            <div className="text-foreground">{displayMetricUsedText(metric, t("detail.usedSuffix"))}</div>
-            <div className="text-foreground/90">
-              {metric.percent !== null && metric.percent !== undefined
-                ? displayResetText(metric.resetText, provider.subscription_summary?.reset_at, {
-                  resetUnknownLabel: t("formatters.resetUnknown"),
-                  resettingNowLabel: t("formatters.resettingNow"),
-                  resetsInPrefixLabel: t("formatters.resetsIn"),
-                })
-                : null}
-            </div>
-          </div>
+          <QuotaMetricUsage
+            percent={metric.percent}
+            segments={metric.segments}
+            usedText={displayMetricUsedText(metric, t("detail.usedSuffix"))}
+            resetText={displayResetText(metric.resetText, provider.subscription_summary?.reset_at, {
+              resetUnknownLabel: t("formatters.resetUnknown"),
+              resettingNowLabel: t("formatters.resettingNow"),
+              resetsInPrefixLabel: t("formatters.resetsIn"),
+            })}
+          />
         </section>
       ))}
 

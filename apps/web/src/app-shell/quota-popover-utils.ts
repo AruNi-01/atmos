@@ -266,6 +266,28 @@ export function displayMetricUsedText(
   return `${metric.percent.toFixed(0)}% ${usedSuffix}${amountSuffix}`;
 }
 
+export type QuotaMetricSegment = {
+  label: string;
+  percent: number;
+};
+
+/** Distinct fills for a shared-pool split. Same class is used on the bar and legend dot. */
+export const USAGE_SEGMENT_FILLS = [
+  "bg-info",
+  "bg-success",
+  "bg-warning",
+  "bg-chart-2",
+] as const;
+
+export function usageSegmentFillClass(label: string, index: number): string {
+  const key = label.trim().toLowerCase();
+  if (key === "grok build" || key === "build") return "bg-info";
+  if (key === "chat") return "bg-success";
+  if (key === "image") return "bg-warning";
+  if (key === "voice") return "bg-chart-2";
+  return USAGE_SEGMENT_FILLS[index % USAGE_SEGMENT_FILLS.length] ?? "bg-info";
+}
+
 export type QuotaMetricRow = {
   label: string;
   value: string;
@@ -273,6 +295,7 @@ export type QuotaMetricRow = {
   amountText: string | null;
   detailText: string | null;
   resetText: string | null;
+  segments: QuotaMetricSegment[];
 };
 
 export type QuotaMetricPresentation = {
@@ -283,6 +306,8 @@ export type QuotaMetricPresentation = {
   resetText: string | null;
   /** Progress to plot; null means no bar (amount, disabled extra usage, bonus, …). */
   percent: number | null;
+  /** Product split of a shared pool (Grok Build / Chat / Image). */
+  segments: QuotaMetricSegment[];
 };
 
 /**
@@ -315,6 +340,7 @@ export function presentQuotaMetric(
         options.locale,
       ),
       percent,
+      segments: metric.segments ?? [],
     };
   }
 
@@ -329,6 +355,7 @@ export function presentQuotaMetric(
       options.locale,
     ),
     percent: null,
+    segments: [],
   };
 }
 
@@ -450,9 +477,48 @@ export function usagePortalUrl(providerId: string, region: ProviderRegion | null
   return null;
 }
 
+function isNonWindowUsageLabel(label: string): boolean {
+  const normalized = label.trim().toLowerCase();
+  return (
+    normalized === "extra usage" ||
+    normalized.includes("prepaid") ||
+    normalized.includes("on-demand") ||
+    normalized.includes("on demand")
+  );
+}
+
+/**
+ * Grok SuperGrok is one shared weekly/monthly pool. Product rows
+ * (`Grok Build 5% used`, `Chat 1% used`) are a split of that bar, not
+ * independent quotas. Fold them onto the window row as segments.
+ */
+function foldSharedPoolSegments(
+  providerId: string,
+  rows: QuotaMetricRow[],
+): QuotaMetricRow[] {
+  if (providerId !== "grok") return rows;
+
+  const folded: QuotaMetricRow[] = [];
+  for (const row of rows) {
+    const last = folded.at(-1);
+    const isShare =
+      last != null &&
+      last.percent != null &&
+      row.percent != null &&
+      !row.resetText &&
+      !isNonWindowUsageLabel(row.label);
+    if (isShare && last) {
+      last.segments.push({ label: row.label, percent: row.percent });
+      continue;
+    }
+    folded.push({ ...row, segments: [...row.segments] });
+  }
+  return folded;
+}
+
 export function quotaMetrics(provider: QuotaProviderResponse): QuotaMetricRow[] {
   const amountText = formatQuotaAmountText(provider);
-  return sectionRows(provider, "Usage")
+  const rows = sectionRows(provider, "Usage")
     .filter((row) => Boolean(row.value?.trim()))
     .filter((row) => row.label.toLowerCase() !== "billing period")
     .map((row, index) => ({
@@ -464,7 +530,19 @@ export function quotaMetrics(provider: QuotaProviderResponse): QuotaMetricRow[] 
       amountText: index === 0 ? amountText : null,
       detailText: extractMetricDetail(row.value),
       resetText: extractResetText(row.value),
+      segments: [] as QuotaMetricSegment[],
     }));
+  return foldSharedPoolSegments(provider.id, rows);
+}
+
+/** Prepaid/credits balance. Ignores usage percents mistakenly stored as credits_label. */
+export function providerCreditsLabel(provider: QuotaProviderResponse): string | null {
+  const balance = firstRowValue(provider, "Credits", "Balance");
+  const summary = provider.subscription_summary?.credits_label?.trim() || null;
+  const raw = balance ?? summary;
+  if (!raw) return null;
+  if (/%\s*used/i.test(raw)) return null;
+  return raw;
 }
 
 export function providerIdentity(

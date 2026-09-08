@@ -24,18 +24,125 @@ import {
 
 import type { QuotaManualSetupResponse } from "@/api/ws-api";
 
-import { formatCountdownDisplay, usagePortalUrl, type ProviderRegion } from "./quota-popover-utils";
+import {
+  formatCountdownDisplay,
+  usagePortalUrl,
+  usageSegmentFillClass,
+  type ProviderRegion,
+  type QuotaMetricSegment,
+} from "./quota-popover-utils";
 
 const ALL_PROVIDER_ID = "all";
 
-export function UsageBar({ percent }: { percent?: number | null }) {
-  const safePercent = Math.max(0, Math.min(percent ?? 0, 100));
+export function UsageBar({
+  percent,
+  segments,
+  className,
+}: {
+  percent?: number | null;
+  segments?: QuotaMetricSegment[];
+  className?: string;
+}) {
+  const visibleSegments = (segments ?? []).filter((segment) => segment.percent > 0);
+  const total = Math.max(0, Math.min(percent ?? 0, 100));
+  const segmentSum = visibleSegments.reduce((sum, segment) => sum + segment.percent, 0);
+  const groupWidth = Math.max(
+    0,
+    Math.min(visibleSegments.length > 0 ? Math.max(total, segmentSum) : total, 100),
+  );
+
   return (
-    <div className="h-3 w-full overflow-hidden rounded-full bg-muted/80">
-      <div
-        className="h-full rounded-full bg-foreground transition-all duration-300"
-        style={{ width: `${safePercent}%` }}
-      />
+    <div className={cn("h-3 w-full overflow-hidden rounded-full bg-muted/80", className)}>
+      {visibleSegments.length > 0 ? (
+        <div className="flex h-full gap-1" style={{ width: `${groupWidth}%` }}>
+          {visibleSegments.map((segment, index) => (
+            <div
+              key={segment.label}
+              className={cn(
+                "h-full min-w-1.5 rounded-full",
+                usageSegmentFillClass(segment.label, index),
+              )}
+              style={{ width: `${(segment.percent / segmentSum) * 100}%` }}
+              title={`${segment.label} ${Math.round(segment.percent)}%`}
+            />
+          ))}
+        </div>
+      ) : (
+        <div
+          className="h-full rounded-full bg-foreground transition-all duration-300"
+          style={{ width: `${groupWidth}%` }}
+        />
+      )}
+    </div>
+  );
+}
+
+export function UsageBarLegend({
+  segments,
+  className,
+}: {
+  segments: QuotaMetricSegment[];
+  className?: string;
+}) {
+  const visibleSegments = segments.filter((segment) => segment.percent > 0);
+  if (visibleSegments.length === 0) return null;
+
+  return (
+    <div className={cn("flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-foreground", className)}>
+      {visibleSegments.map((segment, index) => (
+        <div key={segment.label} className="flex items-center gap-1.5">
+          <span
+            aria-hidden="true"
+            className={cn(
+              "size-2 shrink-0 rounded-full",
+              usageSegmentFillClass(segment.label, index),
+            )}
+          />
+          <span>
+            {segment.label}{" "}
+            <span className="tabular-nums">{Math.round(segment.percent)}%</span>
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function QuotaMetricUsage({
+  percent,
+  segments,
+  usedText,
+  resetText,
+  compact = false,
+}: {
+  percent?: number | null;
+  segments: QuotaMetricSegment[];
+  usedText: string;
+  resetText: ReactNode;
+  compact?: boolean;
+}) {
+  const hasBar = percent != null;
+  const meta = (
+    <div
+      className={cn(
+        "flex items-center justify-between gap-4",
+        compact ? "text-[11px]" : "text-sm",
+      )}
+    >
+      <div className="text-foreground">{usedText}</div>
+      <div className="text-foreground/90">{hasBar ? resetText : null}</div>
+    </div>
+  );
+
+  if (!hasBar) {
+    return <div className={compact ? "mt-1" : "mt-2"}>{meta}</div>;
+  }
+
+  return (
+    <div className={compact ? "mt-1.5 space-y-1.5" : "mt-4 space-y-2"}>
+      {meta}
+      <UsageBar percent={percent} segments={segments} />
+      {segments.length > 0 ? <UsageBarLegend segments={segments} /> : null}
     </div>
   );
 }

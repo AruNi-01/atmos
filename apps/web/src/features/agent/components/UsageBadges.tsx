@@ -26,6 +26,7 @@ import {
   providerIdentity,
   quotaMetrics,
 } from "@/app-shell/quota-popover-utils";
+import { UsageBar, UsageBarLegend } from "@/app-shell/quota-popover-components";
 
 function CircularProgress({
   percent,
@@ -133,12 +134,14 @@ function AgentQuotaSection({
                 </div>
               </div>
               {view.percent != null ? (
-                <div className="h-1 w-full overflow-hidden rounded-full bg-muted">
-                  <div
-                    className="h-full rounded-full bg-foreground transition-all duration-300"
-                    style={{ width: `${Math.min(100, Math.max(0, view.percent))}%` }}
-                  />
-                </div>
+                <UsageBar
+                  percent={view.percent}
+                  segments={view.segments}
+                  className="h-1 bg-muted"
+                />
+              ) : null}
+              {view.segments.length > 0 ? (
+                <UsageBarLegend segments={view.segments} className="text-[10px] text-muted-foreground" />
               ) : null}
             </div>
           );

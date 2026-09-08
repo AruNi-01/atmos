@@ -82,3 +82,51 @@ describe("DeepSeek quota display", () => {
     ]);
   });
 });
+
+describe("Grok quota display", () => {
+  test("carousel uses the shared weekly pool and ignores a percent credits_label", () => {
+    expect(
+      formatQuotaCarouselText(
+        provider({
+          id: "grok",
+          label: "Grok Build",
+          kind: "cli",
+          subscription_summary: {
+            plan_label: "SuperGrok",
+            window_label: "Weekly",
+            credits_label: "5% used",
+            billing_state: "active",
+            reset_at: Math.floor(Date.now() / 1000) + 2 * 24 * 3600,
+          },
+          usage_summary: {
+            unit: "percent",
+            currency: null,
+            used: 6,
+            remaining: 94,
+            cap: 100,
+            percent: 6,
+            used_label: "6% used",
+            remaining_label: "94% left",
+            cap_label: "100%",
+          },
+          detail_sections: [
+            {
+              title: "Usage",
+              rows: [
+                {
+                  label: "Weekly",
+                  value: "6% used · resets in 2d, 11h",
+                  tone: "default",
+                },
+                { label: "Grok Build", value: "5% used", tone: "default" },
+                { label: "Chat", value: "1% used", tone: "default" },
+                { label: "Extra usage", value: "Disabled", tone: "muted" },
+              ],
+            },
+          ],
+          manual_setup: null,
+        }),
+      ),
+    ).toBe("Grok Build: Weekly 6% used, Extra Disabled");
+  });
+});

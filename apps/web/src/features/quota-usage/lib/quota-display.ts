@@ -1,4 +1,8 @@
 import type { QuotaProviderResponse, QuotaOverviewResponse } from "@/api/ws-api";
+import {
+  providerCreditsLabel,
+  quotaMetrics as providerQuotaMetrics,
+} from "@/app-shell/quota-popover-utils";
 
 export interface UsageCarouselItem {
   providerId: string;
@@ -10,30 +14,6 @@ interface QuotaMetricBrief {
   label: string;
   value: string;
   percent: number | null;
-}
-
-function sectionRows(provider: QuotaProviderResponse, sectionTitle: string) {
-  return provider.detail_sections.find(
-    (item) => item.title.toLowerCase() === sectionTitle.toLowerCase()
-  )?.rows ?? [];
-}
-
-function firstRowValue(
-  provider: QuotaProviderResponse,
-  sectionTitle: string,
-  rowLabel: string
-): string | null {
-  const row = sectionRows(provider, sectionTitle).find(
-    (item) => item.label.toLowerCase() === rowLabel.toLowerCase()
-  );
-  return row?.value ?? null;
-}
-
-function extractPercent(text?: string | null): number | null {
-  if (!text) return null;
-  const match = text.match(/(\d+(?:\.\d+)?)%\s*used/i);
-  if (!match) return null;
-  return Number(match[1]);
 }
 
 function compactMetricLabel(label: string): string {
@@ -55,14 +35,11 @@ function trimUsageValue(value: string): string {
 }
 
 function quotaMetrics(provider: QuotaProviderResponse): QuotaMetricBrief[] {
-  return sectionRows(provider, "Usage")
-    .filter((row) => Boolean(row.value?.trim()))
-    .filter((row) => row.label.toLowerCase() !== "billing period")
-    .map((row, index) => ({
-      label: compactMetricLabel(row.label),
-      value: trimUsageValue(row.value),
-      percent: extractPercent(row.value) ?? (index === 0 ? provider.usage_summary?.percent ?? null : null),
-    }));
+  return providerQuotaMetrics(provider).map((metric) => ({
+    label: compactMetricLabel(metric.label),
+    value: trimUsageValue(metric.value),
+    percent: metric.percent,
+  }));
 }
 
 function formatMetric(metric: QuotaMetricBrief, includeLabel = true): string {
@@ -75,10 +52,7 @@ function formatMetric(metric: QuotaMetricBrief, includeLabel = true): string {
 }
 
 function creditsText(provider: QuotaProviderResponse): string | null {
-  const balance = firstRowValue(provider, "Credits", "Balance");
-  if (balance) return balance;
-  const summary = provider.subscription_summary?.credits_label;
-  return summary?.trim() || null;
+  return providerCreditsLabel(provider);
 }
 
 export function formatQuotaCarouselText(provider: QuotaProviderResponse): string {

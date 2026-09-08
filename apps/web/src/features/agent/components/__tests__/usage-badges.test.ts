@@ -29,7 +29,7 @@ describe("context window usage control", () => {
     expect(composer).toContain("showContextUsageCard");
     expect(composer).toContain('data-agent-chat-above-composer-overlays=""');
     expect(composer).toContain(
-      '"pointer-events-none absolute inset-x-0 bottom-full z-20 flex flex-col gap-2 has-[*]:pb-2"',
+      '"pointer-events-none absolute inset-x-0 bottom-full z-20 flex w-full flex-col gap-2 has-[*]:pb-2"',
     );
     expect(composer).toContain("AnimatePresence");
     expect(composer).toContain('key="agent-context-usage"');
@@ -41,17 +41,18 @@ describe("context window usage control", () => {
     expect(composer).not.toContain("contextWindowUsesInlinePanel");
     expect(composer).not.toContain("contextUsageInlinePanel");
     expect(composer).not.toContain("<ContextUsageDetailsPanel\n              usage={sessionUsage}\n              providerId={registryId}\n              embedded");
-    // Floats in the above-input overlay lane with plan/queue/approve; not joined to input chrome.
+    // Context usage / approvals float above the input with a gap. Plan and
+    // queue sit in-flow on the input chrome with no gap.
     const overlayAt = composer.indexOf("data-agent-chat-above-composer-overlays");
     const panelAt = composer.indexOf("<ContextUsageDetailsPanel");
     const queueAt = composer.indexOf("<MessageQueueDock");
     const promptAt = composer.indexOf("<PromptInputProvider>");
     expect(overlayAt).toBeGreaterThan(-1);
-    expect(queueAt).toBeGreaterThan(overlayAt);
-    expect(panelAt).toBeGreaterThan(queueAt);
-    expect(promptAt).toBeGreaterThan(panelAt);
-    expect(composer).toContain("rounded-3xl border border-border/70 bg-background/95");
-    expect(composer).not.toContain("rounded-t-3xl border border-border/70 border-b-0");
+    expect(panelAt).toBeGreaterThan(overlayAt);
+    expect(queueAt).toBeGreaterThan(panelAt);
+    expect(promptAt).toBeGreaterThan(queueAt);
+    expect(composer).toContain("overflow-hidden rounded-t-3xl border border-border/70 border-b-0 bg-background/95");
+    expect(composer).not.toContain("mx-6 overflow-hidden rounded-3xl border border-border/70 bg-background/95");
   });
 
   it("does not invent category breakdown rows without wire data", () => {
