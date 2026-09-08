@@ -1,0 +1,56 @@
+vendor/serve-emu/ATMOS-PATCHES.md
+  h_5be255725524c8 22-23,26-29
+vendor/serve-emu/bun.lock
+  h_5be255725524c8 22,24,630-631
+vendor/serve-emu/packages/serve-emu/package.json
+  h_5be255725524c8 93-95
+vendor/serve-emu/packages/serve-emu/src/adb.ts
+  h_5be255725524c8 137-228,232,241-242,244-251,264-271
+vendor/serve-emu/packages/serve-emu/src/api/dependencies.ts
+  h_5be255725524c8 16,61
+vendor/serve-emu/packages/serve-emu/src/api/routes/devices.ts
+  h_5be255725524c8 148-155
+vendor/serve-emu/packages/serve-emu/src/middleware.ts
+  h_5be255725524c8 4,1471-1485
+vendor/serve-emu/packages/serve-emu/src/scrcpy-server.ts
+  h_5be255725524c8 13-16,18-26
+vendor/serve-emu/packages/serve-emu/src/server.ts
+  h_5be255725524c8 6,2333-2347
+vendor/serve-emu/packages/serve-emu/src/shared/api-contracts.ts
+  h_5be255725524c8 212-217,507-509,1088-1097,1644
+vendor/serve-emu/packages/serve-emu/src/ui/app.tsx
+  h_5be255725524c8 14,353-367
+vendor/serve-emu/packages/serve-emu/src/ui/components/android-device-mockup.tsx
+  h_5be255725524c8 1-104
+vendor/serve-emu/packages/serve-emu/src/ui/lib/android-mockup-layout.ts
+  h_5be255725524c8 1-76
+vendor/serve-emu/packages/serve-emu/src/ui/styles.css
+  h_5be255725524c8 252-253,261-293,364-371
+vendor/serve-emu/packages/serve-emu/tests/adb-device-controls.test.ts
+  h_5be255725524c8 4,7,217-247
+vendor/serve-emu/packages/serve-emu/tests/android-device-mockup.test.tsx
+  h_5be255725524c8 1-18
+vendor/serve-emu/packages/serve-emu/tests/android-mockup-layout.test.ts
+  h_5be255725524c8 1-31
+vendor/serve-emu/packages/serve-emu/tests/api-contracts-complete.test.ts
+  h_5be255725524c8 13,257-266
+vendor/serve-emu/packages/serve-emu/tests/api-contracts.test.ts
+  h_5be255725524c8 206
+vendor/serve-emu/packages/serve-emu/tests/api-routes.test.ts
+  h_5be255725524c8 37,226-229,401,407-408,438,443
+vendor/serve-emu/packages/serve-emu/tests/scrcpy-server-path.test.ts
+  h_5be255725524c8 1-22
+vendor/serve-emu/packages/serve-emu/tests/server-request-gates.test.ts
+  h_5be255725524c8 550
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "7875cf2f18a47cafdb7aa101df9e107af4e21cff",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
