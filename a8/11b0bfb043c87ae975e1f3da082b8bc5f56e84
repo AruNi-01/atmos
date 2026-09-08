@@ -1,0 +1,31 @@
+apps/web/src/app-shell/quota-popover-components.tsx
+  s_88248f4c7ed02c::t_c8f4a2b4bcc247 27-33,37-140,142-145
+apps/web/src/app-shell/quota-popover-detail.tsx
+  s_34ee2c61d4bff6::t_5387d7936a7469 20,29,144,333-343,403,443-452
+apps/web/src/app-shell/quota-popover-utils.ts
+  s_88248f4c7ed02c::t_37480ad3135dc5 269-290,298,309-310,343,358,480-518,521,533,535-545
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "a811b0bfb043c87ae975e1f3da082b8bc5f56e84",
+  "prompts": {},
+  "sessions": {
+    "s_34ee2c61d4bff6": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "28f9e350-c811-4559-9be4-d16c3b255e81",
+        "model": "grok-4.6"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_88248f4c7ed02c": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "aed62b52-7d15-4223-a32d-27cf137bcc01",
+        "model": "grok-4.6"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
