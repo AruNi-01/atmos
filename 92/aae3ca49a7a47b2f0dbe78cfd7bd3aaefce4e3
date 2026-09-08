@@ -1,0 +1,28 @@
+apps/web/src/features/agent/components/AgentCommandLine.tsx
+  h_5be255725524c8 35-37,45,61,65,67-69
+apps/web/src/features/agent/components/TerminalBlock.tsx
+  h_5be255725524c8 11,14,39,44,58-63,74-75,81
+apps/web/src/features/agent/components/__tests__/agent-tool-markdown-preview.test.ts
+  h_5be255725524c8 57-59,73-89
+apps/web/src/features/agent/components/tool-results/AgentToolBodies.tsx
+  h_5be255725524c8 16,26,264-276,278,288-327
+apps/web/src/features/agent/components/tool-results/AgentToolResultBlock.tsx
+  h_5be255725524c8 10-11,252,424-428,431-437,453-461
+apps/web/src/features/agent/lib/agent-tool-kind.ts
+  h_5be255725524c8 91
+apps/web/src/features/agent/lib/tool-results/__tests__/parse-tool-result.test.ts
+  h_5be255725524c8 6,9,191-196,216-218,226-266
+apps/web/src/features/agent/lib/tool-results/parse-tool-result.ts
+  h_5be255725524c8 53-60,482-537,558-567,605,608-610,661-671
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "92aae3ca49a7a47b2f0dbe78cfd7bd3aaefce4e3",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
