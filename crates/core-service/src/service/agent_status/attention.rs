@@ -105,20 +105,7 @@ impl AgentStatusService {
             return;
         }
 
-        let reason = if update.state == AgentOccupancy::PermissionRequest
-            && previous_state != Some(AgentOccupancy::PermissionRequest)
-        {
-            Some(AgentAttentionReason::PermissionRequest)
-        } else if update.state == AgentOccupancy::Idle
-            && (previous_state == Some(AgentOccupancy::Running)
-                || previous_state == Some(AgentOccupancy::PermissionRequest))
-        {
-            Some(AgentAttentionReason::TaskComplete)
-        } else {
-            None
-        };
-
-        let Some(reason) = reason else {
+        let Some(reason) = super::agent_notify_intent(previous_state, update.state, kind) else {
             return;
         };
 

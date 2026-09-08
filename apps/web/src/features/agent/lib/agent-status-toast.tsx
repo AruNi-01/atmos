@@ -2,14 +2,16 @@
 
 import React from "react";
 import { useTranslations } from "next-intl";
-import type { AgentStatusChangedNotification } from "@atmos/api-types/ws/dto/events";
+import type { AgentNotificationPayload } from "@atmos/api-types/ws/dto/events";
 import { agentToastManager } from "@workspace/ui";
 import {
   AGENT_STATE,
   AGENT_TOOL_ICON_IDS,
   AGENT_TOOL_LABELS,
+  useAgentStatusStore,
   type AgentStatusRecord,
   type AgentOccupancy,
+  type AgentToolType,
 } from "@/features/agent/store/agent-status-store";
 import { AgentIcon } from "@/features/agent/components/AgentIcon";
 import { getProjectBootstrapSnapshot } from "@/features/project/hooks/use-project-bootstrap-query";
@@ -21,89 +23,89 @@ import {
   resolveAgentStatusContextNames,
 } from "@/features/agent/lib/agent-status-navigation";
 
-export type AgentStatusChangedPayload = AgentStatusChangedNotification;
-
 type AgentHookToastT = ReturnType<typeof useTranslations>;
 type AppRouterLike = ReturnType<typeof useAppRouter>;
 
+export function agentNotifyToastKind(
+  payload: Pick<AgentNotificationPayload, "reason" | "state">,
+): "permission" | "complete" | null {
+  if (payload.reason === "permission_request" || payload.state === "permission_request") {
+    return "permission";
+  }
+  if (payload.reason === "task_complete") {
+    return "complete";
+  }
+  if (!payload.reason && payload.state === "idle") {
+    return "complete";
+  }
+  return null;
+}
+
+export function sessionFromAgentNotification(
+  payload: AgentNotificationPayload,
+): AgentStatusRecord {
+  const existing = useAgentStatusStore.getState().sessions.get(payload.session_id);
+  const tool = (payload.tool as AgentToolType | undefined) ?? existing?.tool ?? "claude-code";
+  const state = (payload.state as AgentOccupancy | undefined) ?? existing?.state ?? AGENT_STATE.IDLE;
+  return {
+    session_id: payload.session_id,
+    tool,
+    state,
+    timestamp: existing?.timestamp ?? new Date().toISOString(),
+    project_path: payload.project_path ?? existing?.project_path,
+    context_id: payload.context_id ?? existing?.context_id,
+    pane_id: payload.pane_id ?? existing?.pane_id,
+    side_chat_id: payload.side_chat_id ?? existing?.side_chat_id,
+    source_pane_id: payload.source_pane_id ?? existing?.source_pane_id,
+    terminal_kind: existing?.terminal_kind,
+    hook_version: existing?.hook_version,
+    surface: (payload.surface as AgentStatusRecord["surface"]) ?? existing?.surface,
+    surface_id: payload.surface_id ?? existing?.surface_id,
+    space_id: payload.space_id ?? existing?.space_id,
+    provider_id: payload.provider_id ?? existing?.provider_id,
+  };
+}
+
 /**
- * Build and show an in-app toast for agent permission / task-complete transitions.
- * Extracted from the notification subscription hook so JSX stays out of the WS glue.
+ * In-app toast for occupancy notify intents (`agent_notification`).
+ * Policy lives on the server; this only renders the channel.
  */
 export function showAgentStatusToast(options: {
-  update: AgentStatusChangedPayload;
-  previousState: AgentOccupancy | undefined;
-  notifyOnPermissionRequest: boolean;
-  notifyOnTaskComplete: boolean;
+  payload: AgentNotificationPayload;
   router: AppRouterLike;
   t: AgentHookToastT;
 }): void {
-  const {
-    update,
-    previousState,
-    notifyOnPermissionRequest,
-    notifyOnTaskComplete,
-    router,
-    t,
-  } = options;
-
-  const isPermissionRequest =
-    notifyOnPermissionRequest &&
-    update.state === AGENT_STATE.PERMISSION_REQUEST &&
-    previousState !== AGENT_STATE.PERMISSION_REQUEST;
-
-  const isComplete =
-    notifyOnTaskComplete &&
-    update.state === AGENT_STATE.IDLE &&
-    previousState === AGENT_STATE.RUNNING;
-
-  if (!isPermissionRequest && !isComplete) {
-    return;
-  }
+  const { payload, router, t } = options;
+  const kind = agentNotifyToastKind(payload);
+  if (!kind) return;
 
   const projects = getProjectBootstrapSnapshot()?.projects ?? [];
-  const session: AgentStatusRecord = {
-    session_id: update.session_id,
-    tool: update.tool,
-    state: update.state,
-    timestamp: update.timestamp,
-    project_path: update.project_path,
-    context_id: update.context_id,
-    pane_id: update.pane_id,
-    terminal_kind: update.terminal_kind,
-    side_chat_id: update.side_chat_id,
-    source_pane_id: update.source_pane_id,
-    hook_version: update.hook_version,
-    surface: update.surface,
-    surface_id: update.surface_id,
-    space_id: update.space_id,
-    provider_id: update.provider_id,
-  };
+  const session = sessionFromAgentNotification(payload);
   const { projectName, workspaceName, workspaceDisplayName } =
-    resolveAgentStatusContextNames(update.context_id, update.project_path, projects);
-  const agentName = AGENT_TOOL_LABELS[update.tool] ?? update.tool;
-  const statusLabel = isPermissionRequest
+    resolveAgentStatusContextNames(payload.context_id, payload.project_path, projects);
+  const agentName = AGENT_TOOL_LABELS[session.tool] ?? payload.tool;
+  const statusLabel = kind === "permission"
     ? t("notifications.permissionRequired")
     : t("notifications.completed");
   const workspaceLabel = workspaceDisplayName ?? workspaceName;
   const contextLabel = [
     projectName,
     workspaceLabel,
-    isAgentStatusSideChatSession(update) ? t("notifications.sideChat") : null,
+    isAgentStatusSideChatSession(session) ? t("notifications.sideChat") : null,
   ].filter(Boolean).join(" / ");
-  const canNavigate = canNavigateToAgentStatusSession(update);
-  const toastId = `agent-hook-${update.session_id}-${update.state}-${update.timestamp}`;
+  const canNavigate = canNavigateToAgentStatusSession(session);
+  const toastId = `agent-notify-${payload.session_id}-${kind}`;
 
   agentToastManager.add({
     id: toastId,
     title: `${agentName}: ${statusLabel}`,
     description: contextLabel,
-    type: isPermissionRequest ? "warning" : "success",
+    type: kind === "permission" ? "warning" : "success",
     timeout: 10000,
     data: {
       titlePrefix: (
         <AgentIcon
-          registryId={AGENT_TOOL_ICON_IDS[update.tool] ?? update.tool}
+          registryId={AGENT_TOOL_ICON_IDS[session.tool] ?? session.tool}
           name={agentName}
           size={14}
         />

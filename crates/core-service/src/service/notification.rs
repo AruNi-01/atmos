@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use tokio::sync::broadcast;
 use tracing::{debug, info, warn};
 
-use super::agent_status::{AgentOccupancy, AgentStatusUpdate, AgentToolType};
+use super::agent_status::{AgentAttentionReason, AgentStatusUpdate, AgentToolType};
 
 fn notification_settings_path() -> PathBuf {
     let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));
@@ -112,6 +112,9 @@ pub struct NotificationPayload {
     pub space_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub provider_id: Option<String>,
+    /// Occupancy notify intent. Absent on automation / test payloads.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason: Option<AgentAttentionReason>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -161,38 +164,38 @@ impl NotificationService {
         Ok(())
     }
 
-    pub fn on_agent_state_change(
+    #[cfg(test)]
+    pub(crate) fn replace_settings_for_test(&self, settings: NotificationSettings) {
+        *self.settings.write() = settings;
+    }
+
+    pub fn on_agent_notify_intent(
         self: &Arc<Self>,
         update: &AgentStatusUpdate,
-        previous_state: Option<AgentOccupancy>,
+        reason: AgentAttentionReason,
     ) {
         let settings = self.settings.read().clone();
-
-        let should_notify_permission = settings.notify_on_permission_request
-            && update.state == AgentOccupancy::PermissionRequest;
-
-        let should_notify_complete = settings.notify_on_task_complete
-            && update.state == AgentOccupancy::Idle
-            && previous_state == Some(AgentOccupancy::Running);
-
-        if !should_notify_permission && !should_notify_complete {
+        let allowed = match reason {
+            AgentAttentionReason::PermissionRequest => settings.notify_on_permission_request,
+            AgentAttentionReason::TaskComplete => settings.notify_on_task_complete,
+        };
+        if !allowed {
             return;
         }
 
         let tool_name = format!("{}", update.tool);
-        let (title, body) = if should_notify_permission {
-            (
+        let (title, body) = match reason {
+            AgentAttentionReason::PermissionRequest => (
                 format!("{} - Permission Required", tool_display_name(&update.tool)),
                 format!(
                     "{} is requesting permission to proceed.",
                     tool_display_name(&update.tool)
                 ),
-            )
-        } else {
-            (
+            ),
+            AgentAttentionReason::TaskComplete => (
                 format!("{} - Task Complete", tool_display_name(&update.tool)),
                 format!("{} has finished running.", tool_display_name(&update.tool)),
-            )
+            ),
         };
 
         let payload = NotificationPayload {
@@ -210,9 +213,13 @@ impl NotificationService {
             surface_id: update.surface_id.clone(),
             space_id: update.space_id.clone(),
             provider_id: update.provider_id.clone(),
+            reason: Some(reason),
         };
 
-        if settings.browser_notification || settings.desktop_notification {
+        if settings.browser_notification
+            || settings.desktop_notification
+            || settings.app_toast_notification
+        {
             self.broadcast_client_notification(&payload);
         }
 
@@ -472,6 +479,7 @@ fn automation_push_payload(payload: &AutomationNotificationPayload) -> Notificat
         surface_id: None,
         space_id: None,
         provider_id: None,
+        reason: None,
     }
 }
 

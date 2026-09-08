@@ -230,27 +230,74 @@ export function showBrowserNotification(
   return true;
 }
 
+export type DesktopNotificationSendResult =
+  | { ok: true }
+  | {
+      ok: false;
+      code?: "unsupported" | "permission_denied" | "failed";
+      error?: string;
+    };
+
+export function parseDesktopNotificationResult(
+  value: unknown,
+): DesktopNotificationSendResult {
+  if (value && typeof value === "object" && "ok" in value) {
+    const rec = value as {
+      ok?: unknown;
+      code?: unknown;
+      error?: unknown;
+    };
+    if (rec.ok === true) return { ok: true };
+    const code =
+      rec.code === "unsupported" ||
+      rec.code === "permission_denied" ||
+      rec.code === "failed"
+        ? rec.code
+        : "failed";
+    return {
+      ok: false,
+      code,
+      error: typeof rec.error === "string" ? rec.error : undefined,
+    };
+  }
+  return { ok: true };
+}
+
+export async function ensureDesktopNotificationPermission(): Promise<boolean> {
+  if (!isDesktopRuntime()) return false;
+  try {
+    const result = parseDesktopNotificationResult(
+      await desktopInvoke("ensure_notification_permission"),
+    );
+    return result.ok;
+  } catch {
+    return false;
+  }
+}
+
 export async function showDesktopNotification(
   payload: AppNotificationPayload,
   options: DesktopNotificationOptions = {},
-): Promise<boolean> {
-  if (!isDesktopRuntime()) return false;
+): Promise<DesktopNotificationSendResult> {
+  if (!isDesktopRuntime()) return { ok: false, code: "unsupported" };
   try {
     const icon =
       options.icon === undefined
         ? await loadNotificationIconDataUrl(DEFAULT_NOTIFICATION_ICON)
         : options.icon;
-    await desktopInvoke("send_notification", {
-      title: payload.title,
-      body: payload.body,
-      data: options.action ?? null,
-      // Content icon. When omitted, use the current brand plate so macOS does
-      // not keep showing a cached pre-rebrand app icon.
-      icon: icon ?? null,
-    });
-    return true;
+    const result = parseDesktopNotificationResult(
+      await desktopInvoke("send_notification", {
+        title: payload.title,
+        body: payload.body,
+        data: options.action ?? null,
+        // Content icon. When omitted, use the current brand plate so macOS does
+        // not keep showing a cached pre-rebrand app icon.
+        icon: icon ?? null,
+      }),
+    );
+    return result;
   } catch {
-    return false;
+    return { ok: false, code: "failed" };
   }
 }
 

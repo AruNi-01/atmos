@@ -3,6 +3,7 @@ import {
   automationNotificationHref,
   isAppFocused,
   isNotificationClickAction,
+  parseDesktopNotificationResult,
   shouldShowSystemNotification,
 } from "../notifications";
 
@@ -97,6 +98,26 @@ describe("automationNotificationHref", () => {
     expect(automationNotificationHref("auto-1", "run-9")).toBe(
       "/automations?automationId=auto-1&automationRun=run-9&automationTab=history",
     );
+  });
+});
+
+describe("parseDesktopNotificationResult", () => {
+  test("treats null as posted for older desktop shells", () => {
+    expect(parseDesktopNotificationResult(null)).toEqual({ ok: true });
+  });
+
+  test("surfaces permission denials from the desktop shell", () => {
+    expect(
+      parseDesktopNotificationResult({
+        ok: false,
+        code: "permission_denied",
+        error: "Notifications are not allowed",
+      }),
+    ).toEqual({
+      ok: false,
+      code: "permission_denied",
+      error: "Notifications are not allowed",
+    });
   });
 });
 

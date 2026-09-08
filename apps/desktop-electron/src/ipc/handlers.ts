@@ -19,6 +19,10 @@ import type { DesktopCommandHandler, DesktopInvokeArgs } from "../types.js";
 import * as cookies from "../cookies/service.js";
 import type { ProviderKind } from "../tunnel/service.js";
 import { collectDesktopShellMetrics } from "../metrics/desktop-shell-metrics.js";
+import {
+  retainNativeNotification,
+  waitForNativeNotificationResult,
+} from "../notifications/native-notification.js";
 
 async function electron() {
   return import("electron");
@@ -229,7 +233,9 @@ export function createAllHandlers(
       // a cached pre-rebrand app icon for com.atmos.desktop.
       const iconArg = typeof args.icon === "string" ? args.icon : "";
       const { Notification, nativeImage } = await electron();
-      if (!Notification.isSupported()) return null;
+      if (!Notification.isSupported()) {
+        return { ok: false, code: "unsupported" as const };
+      }
 
       let icon: string | ReturnType<typeof nativeImage.createFromDataURL> | undefined;
       if (iconArg.startsWith("data:image/")) {
@@ -254,8 +260,13 @@ export function createAllHandlers(
       const notification = new Notification({
         title,
         body,
+        silent: false,
         ...(icon ? { icon } : {}),
       });
+      // Settings tests run while Atmos is focused. Electron asks macOS to
+      // present a banner in that case, but only if this object stays alive
+      // until addNotificationRequest completes.
+      retainNativeNotification(notification);
       notification.on("click", () => {
         void (async () => {
           try {
@@ -279,8 +290,20 @@ export function createAllHandlers(
           }
         })();
       });
+      const result = waitForNativeNotificationResult(notification);
       notification.show();
-      return null;
+      return result;
+    },
+
+    async ensure_notification_permission() {
+      const { Notification } = await electron();
+      if (!Notification.isSupported()) {
+        return { ok: false, code: "unsupported" as const };
+      }
+      // Constructing a Notification initializes the macOS presenter, which
+      // requests alert/sound/badge authorization. No banner is shown.
+      new Notification({ title: "Atmos" });
+      return { ok: true };
     },
 
     async open_in_external_editor(args) {

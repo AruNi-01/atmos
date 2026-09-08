@@ -5,13 +5,6 @@ import { useTranslations } from "next-intl";
 import type { AutomationNotificationPayload } from "@atmos/api-types/ws/dto/automation";
 import type { AgentNotificationPayload } from "@atmos/api-types/ws/dto/events";
 import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
-import {
-  AGENT_STATE,
-  useAgentStatusStore,
-  type AgentStatusRecord,
-  type AgentOccupancy,
-  type AgentToolType,
-} from "@/features/agent/store/agent-status-store";
 import { useNotificationSettingsStore } from "@/features/settings/store/notification-settings-store";
 import {
   automationNotificationHref,
@@ -30,27 +23,30 @@ import {
   navigateToAgentStatusSession,
 } from "@/features/agent/lib/agent-status-navigation";
 import {
+  sessionFromAgentNotification,
   showAgentStatusToast,
-  type AgentStatusChangedPayload,
 } from "@/features/agent/lib/agent-status-toast";
+import {
+  AGENT_STATE,
+  type AgentStatusRecord,
+} from "@/features/agent/store/agent-status-store";
 
 function agentClickActionFromPayload(
   payload: AgentNotificationPayload,
 ): NotificationClickAction {
-  // Prefer payload fields; fall back to the live hooks store (same session).
-  const session = useAgentStatusStore.getState().sessions.get(payload.session_id);
+  const session = sessionFromAgentNotification(payload);
   return {
     kind: "agent_status",
-    session_id: payload.session_id,
-    context_id: payload.context_id ?? session?.context_id ?? null,
-    pane_id: payload.pane_id ?? session?.pane_id ?? null,
-    side_chat_id: payload.side_chat_id ?? session?.side_chat_id ?? null,
-    source_pane_id: payload.source_pane_id ?? session?.source_pane_id ?? null,
-    surface: payload.surface ?? session?.surface ?? null,
-    surface_id: payload.surface_id ?? session?.surface_id ?? null,
-    space_id: payload.space_id ?? session?.space_id ?? null,
-    tool: payload.tool ?? session?.tool,
-    project_path: payload.project_path ?? session?.project_path ?? null,
+    session_id: session.session_id,
+    context_id: session.context_id ?? null,
+    pane_id: session.pane_id ?? null,
+    side_chat_id: session.side_chat_id ?? null,
+    source_pane_id: session.source_pane_id ?? null,
+    surface: session.surface ?? null,
+    surface_id: session.surface_id ?? null,
+    space_id: session.space_id ?? null,
+    tool: session.tool,
+    project_path: session.project_path ?? null,
   };
 }
 
@@ -67,31 +63,27 @@ function automationClickActionFromPayload(
 function sessionFromAgentAction(
   action: Extract<NotificationClickAction, { kind: "agent_status" }>,
 ): AgentStatusRecord {
-  const existing = useAgentStatusStore.getState().sessions.get(action.session_id);
-  return {
+  return sessionFromAgentNotification({
+    title: "",
+    body: "",
+    tool: action.tool ?? "claude-code",
+    state: AGENT_STATE.IDLE,
     session_id: action.session_id,
-    tool: (action.tool as AgentToolType | undefined) ?? existing?.tool ?? "claude-code",
-    state: existing?.state ?? AGENT_STATE.IDLE,
-    timestamp: existing?.timestamp ?? new Date().toISOString(),
-    project_path: action.project_path ?? existing?.project_path,
-    context_id: action.context_id ?? existing?.context_id,
-    pane_id: action.pane_id ?? existing?.pane_id,
-    side_chat_id: action.side_chat_id ?? existing?.side_chat_id,
-    source_pane_id: action.source_pane_id ?? existing?.source_pane_id,
-    terminal_kind: existing?.terminal_kind,
-    hook_version: existing?.hook_version,
-    surface: (action.surface as AgentStatusRecord["surface"]) ?? existing?.surface,
-    surface_id: action.surface_id ?? existing?.surface_id,
-    space_id: action.space_id ?? existing?.space_id,
-  };
+    project_path: action.project_path,
+    context_id: action.context_id,
+    pane_id: action.pane_id,
+    side_chat_id: action.side_chat_id,
+    source_pane_id: action.source_pane_id,
+    surface: action.surface,
+    surface_id: action.surface_id,
+    space_id: action.space_id,
+  });
 }
 
 export function useAgentNotifications() {
   const t = useTranslations("Agent.chrome");
   const unsubscribeAgentRef = useRef<(() => void) | null>(null);
   const unsubscribeAutomationRef = useRef<(() => void) | null>(null);
-  const unsubscribeAgentHookToastRef = useRef<(() => void) | null>(null);
-  const previousAgentOccupancyRef = useRef<Map<string, AgentOccupancy>>(new Map());
   const router = useAppRouter();
   const routerRef = useRef(router);
   routerRef.current = router;
@@ -116,6 +108,11 @@ export function useAgentNotifications() {
 
   const handleNotification = useCallback((payload: AgentNotificationPayload) => {
     const settings = useNotificationSettingsStore.getState().settings;
+
+    if (settings.app_toast_notification) {
+      showAgentStatusToast({ payload, router: routerRef.current, t });
+    }
+
     const showSystem = shouldShowSystemNotification(
       settings.system_notification_when_focused,
     );
@@ -128,7 +125,8 @@ export function useAgentNotifications() {
       showBrowserNotification(payload, {
         tag: `atmos-agent-${payload.session_id}`,
         icon: browserIcon,
-        requireInteraction: payload.state === AGENT_STATE.PERMISSION_REQUEST,
+        requireInteraction: payload.reason === "permission_request"
+          || payload.state === "permission_request",
         onClick: () => handleNotificationClickAction(action),
       });
     }
@@ -140,7 +138,7 @@ export function useAgentNotifications() {
         await showDesktopNotification(payload, { action, icon });
       })();
     }
-  }, [handleNotificationClickAction]);
+  }, [handleNotificationClickAction, t]);
 
   const handleAutomationNotification = useCallback((payload: AutomationNotificationPayload) => {
     const settings = useNotificationSettingsStore.getState().settings;
@@ -171,25 +169,6 @@ export function useAgentNotifications() {
     }
   }, [handleNotificationClickAction]);
 
-  const handleAgentHookToastNotification = useCallback((update: AgentStatusChangedPayload) => {
-    const settings = useNotificationSettingsStore.getState().settings;
-    const previousState = previousAgentOccupancyRef.current.get(update.session_id);
-    previousAgentOccupancyRef.current.set(update.session_id, update.state);
-
-    if (!settings.app_toast_notification) {
-      return;
-    }
-
-    showAgentStatusToast({
-      update,
-      previousState,
-      notifyOnPermissionRequest: settings.notify_on_permission_request,
-      notifyOnTaskComplete: settings.notify_on_task_complete,
-      router,
-      t,
-    });
-  }, [router, t]);
-
   useEffect(() => {
     void useNotificationSettingsStore.getState().loadSettings();
   }, []);
@@ -201,25 +180,14 @@ export function useAgentNotifications() {
     unsubscribeAutomationRef.current = useWebSocketStore
       .getState()
       .onEvent("automation_notification", handleAutomationNotification);
-    previousAgentOccupancyRef.current = new Map(
-      useAgentStatusStore.getState().getAllSessions().map((session) => [
-        session.session_id,
-        session.state,
-      ]),
-    );
-    unsubscribeAgentHookToastRef.current = useWebSocketStore
-      .getState()
-      .onEvent("agent_status_changed", handleAgentHookToastNotification);
 
     return () => {
       unsubscribeAgentRef.current?.();
       unsubscribeAutomationRef.current?.();
-      unsubscribeAgentHookToastRef.current?.();
       unsubscribeAgentRef.current = null;
       unsubscribeAutomationRef.current = null;
-      unsubscribeAgentHookToastRef.current = null;
     };
-  }, [handleAgentHookToastNotification, handleAutomationNotification, handleNotification]);
+  }, [handleAutomationNotification, handleNotification]);
 
   // Desktop system notification click → focus app + jump (mirrors in-app toast Jump).
   useEffect(() => {

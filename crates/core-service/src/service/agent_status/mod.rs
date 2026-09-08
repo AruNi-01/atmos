@@ -1,7 +1,8 @@
 //! Agent Status kernel: occupancy of an agent on a surface.
 //!
 //! Hooks and the Agent Chat host are adapters. This module owns the live
-//! occupancy store, attention latches, grouping, and occupancy policy.
+//! occupancy store, attention latches, grouping, occupancy policy, and
+//! notify intents (permission / task-complete) consumed by NotificationService.
 
 mod attention;
 mod attention_summary;
@@ -70,6 +71,35 @@ pub enum OccupancyUpdateKind {
     /// Settle Idle after child-only work without a new task-complete notify
     /// (lead already completed; children briefly revived the pane).
     QuietIdle,
+}
+
+/// Occupancy transitions that should ping the user.
+/// Shared by sticky attention latches and NotificationService.
+pub(crate) fn agent_notify_intent(
+    previous_state: Option<AgentOccupancy>,
+    state: AgentOccupancy,
+    kind: OccupancyUpdateKind,
+) -> Option<AgentAttentionReason> {
+    if matches!(
+        kind,
+        OccupancyUpdateKind::QuietIdle | OccupancyUpdateKind::ForcedIdle
+    ) {
+        return None;
+    }
+    if state == AgentOccupancy::PermissionRequest
+        && previous_state != Some(AgentOccupancy::PermissionRequest)
+    {
+        return Some(AgentAttentionReason::PermissionRequest);
+    }
+    if state == AgentOccupancy::Idle
+        && matches!(
+            previous_state,
+            Some(AgentOccupancy::Running) | Some(AgentOccupancy::PermissionRequest)
+        )
+    {
+        return Some(AgentAttentionReason::TaskComplete);
+    }
+    None
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, Default)]
@@ -797,10 +827,9 @@ impl AgentStatusService {
             self.broadcast_state_update(update.clone());
             self.maybe_raise_attention(previous_state, &update, kind);
 
-            // QuietIdle settles UI without a second task-complete notification.
-            if kind != OccupancyUpdateKind::QuietIdle {
+            if let Some(reason) = agent_notify_intent(previous_state, state, kind) {
                 if let Some(ref notification_service) = *self.notification_service.read() {
-                    notification_service.on_agent_state_change(&update, previous_state);
+                    notification_service.on_agent_notify_intent(&update, reason);
                 }
             }
         } else if matches!(
@@ -859,12 +888,65 @@ impl Default for AgentStatusService {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Arc;
+
+    use crate::service::notification::{NotificationService, NotificationSettings};
 
     fn ctx_with_pane(pane: &str) -> AgentStatusContext {
         AgentStatusContext {
             pane_id: Some(pane.to_string()),
             context_id: Some("ws-1".to_string()),
             ..AgentStatusContext::default()
+        }
+    }
+
+    fn notifying_status() -> (
+        AgentStatusService,
+        tokio::sync::broadcast::Receiver<crate::service::notification::NotificationPayload>,
+    ) {
+        let status = AgentStatusService::new();
+        let notifications = Arc::new(NotificationService::new());
+        notifications.replace_settings_for_test(NotificationSettings {
+            app_toast_notification: true,
+            ..NotificationSettings::default()
+        });
+        let rx = notifications.subscribe_client_notifications();
+        status.set_notification_service(notifications);
+        (status, rx)
+    }
+
+    fn chat_meta(id: &str) -> crate::service::agent_chat::AgentChatMeta {
+        use crate::service::agent_chat::types::{
+            chat_descriptor, AgentChatMeta, AgentChatOrigin, RuntimeStatus,
+        };
+        use chrono::Utc;
+        AgentChatMeta {
+            id: id.into(),
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+            deleted: false,
+            title: None,
+            cwd: "/tmp/ws".into(),
+            workspace_id: Some("ws-1".into()),
+            project_id: None,
+            space_id: Some("main".into()),
+            origin: AgentChatOrigin::Normal,
+            provider_id: "claude".into(),
+            last_message_at: None,
+            last_event_seq: 0,
+            persistence_handle: None,
+            runtime_status: RuntimeStatus::RunningTurn,
+            applied_model: None,
+            applied_thinking: None,
+            applied_mode: None,
+            applied_permission_mode: None,
+            applied_fast: None,
+            available_commands: Vec::new(),
+            session_usage: None,
+            descriptor: chat_descriptor("claude", agent::AgentCurrentConfig::default()),
+            parent_chat_id: None,
+            rewind_view: None,
+            pending_session_op: None,
         }
     }
 
@@ -1483,5 +1565,176 @@ mod tests {
         assert_eq!(chat_status_session_id("abc"), "chat:abc");
         assert_eq!(parse_chat_status_session_id("chat:abc"), Some("abc"));
         assert_eq!(parse_chat_status_session_id("ws-1:main"), None);
+    }
+
+    #[test]
+    fn notify_intent_table() {
+        use OccupancyUpdateKind::*;
+        let running = Some(AgentOccupancy::Running);
+        let permission = Some(AgentOccupancy::PermissionRequest);
+        let idle = Some(AgentOccupancy::Idle);
+
+        assert_eq!(
+            agent_notify_intent(running, AgentOccupancy::Idle, TerminalIdle),
+            Some(AgentAttentionReason::TaskComplete)
+        );
+        assert_eq!(
+            agent_notify_intent(permission, AgentOccupancy::Idle, TerminalIdle),
+            Some(AgentAttentionReason::TaskComplete)
+        );
+        assert_eq!(
+            agent_notify_intent(None, AgentOccupancy::PermissionRequest, Permission),
+            Some(AgentAttentionReason::PermissionRequest)
+        );
+        assert_eq!(
+            agent_notify_intent(running, AgentOccupancy::PermissionRequest, Permission),
+            Some(AgentAttentionReason::PermissionRequest)
+        );
+        assert_eq!(
+            agent_notify_intent(running, AgentOccupancy::Idle, ForcedIdle),
+            None
+        );
+        assert_eq!(
+            agent_notify_intent(running, AgentOccupancy::Idle, QuietIdle),
+            None
+        );
+        assert_eq!(
+            agent_notify_intent(permission, AgentOccupancy::Running, Progress),
+            None
+        );
+        assert_eq!(
+            agent_notify_intent(idle, AgentOccupancy::Running, NewTurn),
+            None
+        );
+        assert_eq!(
+            agent_notify_intent(None, AgentOccupancy::Idle, TerminalIdle),
+            None
+        );
+    }
+
+    #[test]
+    fn terminal_idle_from_running_broadcasts_task_complete() {
+        let (service, mut rx) = notifying_status();
+        let ctx = ctx_with_pane("ws-1:main");
+        service.update_state(
+            "ws-1:main",
+            AgentToolType::ClaudeCode,
+            AgentOccupancy::Running,
+            Some("/tmp/p".into()),
+            &ctx,
+            OccupancyUpdateKind::NewTurn,
+        );
+        assert!(rx.try_recv().is_err(), "running must not notify");
+        service.update_state(
+            "ws-1:main",
+            AgentToolType::ClaudeCode,
+            AgentOccupancy::Idle,
+            Some("/tmp/p".into()),
+            &ctx,
+            OccupancyUpdateKind::TerminalIdle,
+        );
+        let payload = rx.try_recv().expect("task-complete notify");
+        assert_eq!(payload.reason, Some(AgentAttentionReason::TaskComplete));
+        assert_eq!(payload.session_id, "ws-1:main");
+        assert_eq!(payload.surface.as_deref(), Some("terminal"));
+    }
+
+    #[test]
+    fn forced_idle_from_running_does_not_notify() {
+        let (service, mut rx) = notifying_status();
+        let ctx = ctx_with_pane("ws-1:main");
+        service.update_state(
+            "ws-1:main",
+            AgentToolType::ClaudeCode,
+            AgentOccupancy::Running,
+            Some("/tmp/p".into()),
+            &ctx,
+            OccupancyUpdateKind::NewTurn,
+        );
+        service.force_session_idle("ws-1:main");
+        assert!(
+            rx.try_recv().is_err(),
+            "user-forced idle must not notify task-complete"
+        );
+    }
+
+    #[test]
+    fn permission_to_idle_broadcasts_task_complete() {
+        let (service, mut rx) = notifying_status();
+        let ctx = ctx_with_pane("ws-1:main");
+        service.update_state(
+            "ws-1:main",
+            AgentToolType::ClaudeCode,
+            AgentOccupancy::PermissionRequest,
+            Some("/tmp/p".into()),
+            &ctx,
+            OccupancyUpdateKind::Permission,
+        );
+        let permission = rx.try_recv().expect("permission notify");
+        assert_eq!(
+            permission.reason,
+            Some(AgentAttentionReason::PermissionRequest)
+        );
+        service.update_state(
+            "ws-1:main",
+            AgentToolType::ClaudeCode,
+            AgentOccupancy::Idle,
+            Some("/tmp/p".into()),
+            &ctx,
+            OccupancyUpdateKind::TerminalIdle,
+        );
+        let complete = rx.try_recv().expect("permission→idle task-complete");
+        assert_eq!(complete.reason, Some(AgentAttentionReason::TaskComplete));
+    }
+
+    #[test]
+    fn chat_turn_complete_broadcasts_task_complete() {
+        let (service, mut rx) = notifying_status();
+        let meta = chat_meta("abc");
+        apply_host_event(
+            &service,
+            &meta,
+            &AgentEvent::TurnStarted {
+                turn_id: "t1".into(),
+            },
+        );
+        assert!(rx.try_recv().is_err(), "turn start must not notify");
+        apply_host_event(
+            &service,
+            &meta,
+            &AgentEvent::TurnCompleted {
+                turn_id: "t1".into(),
+                stop: agent::TurnStop::Completed,
+            },
+        );
+        let payload = rx.try_recv().expect("chat turn-complete notify");
+        assert_eq!(payload.reason, Some(AgentAttentionReason::TaskComplete));
+        assert_eq!(payload.session_id, "chat:abc");
+        assert_eq!(payload.surface.as_deref(), Some("chat"));
+        assert_eq!(payload.surface_id.as_deref(), Some("abc"));
+    }
+
+    #[test]
+    fn chat_turn_canceled_does_not_notify() {
+        let (service, mut rx) = notifying_status();
+        let meta = chat_meta("abc");
+        apply_host_event(
+            &service,
+            &meta,
+            &AgentEvent::TurnStarted {
+                turn_id: "t1".into(),
+            },
+        );
+        apply_host_event(
+            &service,
+            &meta,
+            &AgentEvent::TurnCanceled {
+                turn_id: "t1".into(),
+            },
+        );
+        assert!(
+            rx.try_recv().is_err(),
+            "chat cancel must not notify task-complete"
+        );
     }
 }
