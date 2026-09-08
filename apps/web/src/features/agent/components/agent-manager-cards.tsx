@@ -52,8 +52,10 @@ export interface AgentCardProps {
   removingRegistryId: string | null;
   /** When this ACP row shares a family with a Native Chat host. */
   nativeSibling?: NativeChatAgent | null;
+  enablingPending?: boolean;
   onInstall: (registryId: string, forceOverwrite?: boolean) => void;
   onRemoveRequest: (info: { registryId: string; name: string }) => void;
+  onEnabledChange?: (item: RegistryAgent, enabled: boolean) => void;
 }
 
 export const AgentCard = React.memo<AgentCardProps>(function AgentCard({
@@ -62,12 +64,16 @@ export const AgentCard = React.memo<AgentCardProps>(function AgentCard({
   installingRegistryIds,
   removingRegistryId,
   nativeSibling = null,
+  enablingPending = false,
   onInstall,
   onRemoveRequest,
+  onEnabledChange,
 }) {
   const t = useTranslations("Agent.components");
   const isInstalling = installingRegistryIds.has(item.id);
   const preferNativeHint = Boolean(nativeSibling);
+  const showEnableSwitch = Boolean(nativeSibling) && Boolean(onEnabledChange);
+  const enabled = item.installed && item.enabled !== false;
 
   return (
     <motion.div
@@ -177,7 +183,24 @@ export const AgentCard = React.memo<AgentCardProps>(function AgentCard({
             )}
           </div>
 
-          {!item.installed ? (
+          {showEnableSwitch ? (
+            <div className="mr-auto flex min-w-0 items-center gap-2">
+              <Switch
+                checked={enabled}
+                disabled={enablingPending || isInstalling}
+                onCheckedChange={(checked) => onEnabledChange?.(item, !!checked)}
+                aria-label={t("managerCards.actions.enable")}
+              />
+              {isInstalling ? (
+                <span className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+                  <Loader2 className="size-3 shrink-0 animate-spin" />
+                  <span className="truncate">{t("managerCards.actions.installing")}</span>
+                </span>
+              ) : null}
+            </div>
+          ) : null}
+
+          {!showEnableSwitch && !item.installed ? (
             <Button
               size="sm"
               onClick={() => void onInstall(item.id)}
@@ -196,7 +219,7 @@ export const AgentCard = React.memo<AgentCardProps>(function AgentCard({
                 </>
               )}
             </Button>
-          ) : (
+          ) : item.installed ? (
             <div className="flex items-center gap-2">
               {item.can_remove !== false &&
                 item.installed_version &&
@@ -245,7 +268,7 @@ export const AgentCard = React.memo<AgentCardProps>(function AgentCard({
                 </Button>
               ) : null}
             </div>
-          )}
+          ) : null}
         </div>
       </div>
     </motion.div>
@@ -463,14 +486,11 @@ export const NativeAgentCard = React.memo<NativeAgentCardProps>(
         <p className="mt-4 line-clamp-2 text-[13px] leading-relaxed text-muted-foreground text-pretty">
           {descriptionKey ? t(descriptionKey) : agent.description}
         </p>
-        <p className={cn(
-          "mt-2 text-xs",
-          agent.cli_present ? "text-muted-foreground/80" : "text-amber-600 dark:text-amber-400",
-        )}>
-          {agent.cli_present
-            ? t("managerCards.native.cliFound")
-            : t("managerCards.native.cliMissing")}
-        </p>
+        {!agent.cli_present && agent.enabled ? (
+          <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
+            {t("managerCards.native.cliMissing")}
+          </p>
+        ) : null}
 
         <div className="mt-auto">
           <div className="h-px bg-border/40 mt-4" />

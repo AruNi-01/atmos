@@ -51,6 +51,14 @@ import { resolveAgentComposerPlaceholderKind } from "@/features/agent/lib/agent-
 import type { AgentActivity } from "../lib/chat-helpers";
 import type { AgentToolCallPart } from "@/features/agent/lib/agent-tool-kind";
 import { PlanBlockView } from "./PlanBlockView";
+import { ComposerFlyingMessagePortal } from "./ComposerFlyingMessagePortal";
+import {
+  buildComposerFlyingMessage,
+  composerFlyTarget,
+  composerShellOrigin,
+  type ComposerFlyKind,
+  type ComposerFlyingMessage,
+} from "@/features/agent/lib/composer-flying-message";
 import { BackgroundCommandsDock } from "./BackgroundCommandsDock";
 import { MessageQueueDock } from "./MessageQueueDock";
 import { useAgentComposerPopovers } from "../hooks/use-agent-composer-popovers";
@@ -291,6 +299,7 @@ function ComposerPromptInput({
   workingDirectoryPicker,
   clearAgentChatDraft,
   onSubmit,
+  onFlySend,
   placeholder,
   landing,
   editingItem,
@@ -299,6 +308,7 @@ function ComposerPromptInput({
   sessionUsage,
   contextUsageOpen,
   onContextUsageOpenChange,
+  joinUpperCards = false,
 }: {
   composerRef: React.RefObject<ComposerHandle | null>;
   onAtTrigger: (ctx: import("@/features/welcome/components/PromptComposer").AtTriggerContext) => void;
@@ -352,6 +362,7 @@ function ComposerPromptInput({
     message: { text: string; files?: import("ai").FileUIPart[] },
     options?: { oneShot?: "queue" | "steer" },
   ) => Promise<void>;
+  onFlySend?: (text: string) => void;
   landing: boolean;
   editingItem: QueuedAgentPrompt | null;
   onFinishEdit: () => void;
@@ -359,6 +370,7 @@ function ComposerPromptInput({
   sessionUsage: AgentSessionUsage | null;
   contextUsageOpen: boolean;
   onContextUsageOpenChange: (open: boolean) => void;
+  joinUpperCards?: boolean;
 }) {
   const t = useTranslations("Agent.components");
   const attachments = usePromptInputAttachments();
@@ -576,6 +588,8 @@ function ComposerPromptInput({
             setLocalDraft(previousDraft);
             return;
           }
+          const converted = await filesForSubmit(files);
+          onFlySend?.(composed);
           setLocalDraft("");
           composerRef.current?.clear();
           persistedDraftRef.current = "";
@@ -585,13 +599,15 @@ function ComposerPromptInput({
             chatMode,
             instanceKey,
           );
+          attachments.clear();
           try {
-            await onSubmit({ text: composed, files: await filesForSubmit(files) });
-            attachments.clear();
+            await onSubmit({ text: composed, files: converted });
           } catch {
             setLocalDraft(previousDraft);
             composerRef.current?.setText(previousDraft);
             persistedDraftRef.current = previousDraft;
+            const restored = await filesFromComposerParts(converted);
+            if (restored.length > 0) attachmentsRef.current.add(restored);
           }
         }}
         onStop={
@@ -615,6 +631,7 @@ function ComposerPromptInput({
         }
         className={cn(
           "w-full shadow-none",
+          joinUpperCards && "!rounded-t-none border-t-0",
           editingItem && "border-dashed border-info",
         )}
       />
@@ -732,6 +749,8 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
   );
   const persistedDraftRef = useRef(localDraft);
   const composerRef = useRef<ComposerHandle | null>(null);
+  const flyingMessageIdRef = useRef(0);
+  const [flyingMessage, setFlyingMessage] = useState<ComposerFlyingMessage | null>(null);
   const [editingQueueId, setEditingQueueId] = useState<string | null>(null);
   const [contextUsageOpen, setContextUsageOpen] = useState(false);
   const editingItem = editingQueueId
@@ -745,6 +764,19 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
     || backgroundTools.length > 0
     || queuedPrompts.length > 0;
   const reduceOverlayMotion = Boolean(useReducedMotion());
+
+  const launchComposerFly = (text: string) => {
+    const kind: ComposerFlyKind = agentActivity.busy ? "queue" : "conversation";
+    const message = buildComposerFlyingMessage({
+      id: flyingMessageIdRef.current + 1,
+      text,
+      from: composerShellOrigin(),
+      to: composerFlyTarget(kind),
+    });
+    if (!message) return;
+    flyingMessageIdRef.current = message.id;
+    setFlyingMessage(message);
+  };
 
   useEffect(() => {
     if (!editingQueueId) return;
@@ -893,44 +925,8 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
         <div
           ref={onAboveComposerOverlaysNodeChange}
           data-agent-chat-above-composer-overlays=""
-          className="pointer-events-none absolute inset-x-0 bottom-full z-20 flex flex-col gap-2 has-[*]:pb-2"
+          className="pointer-events-none absolute inset-x-0 bottom-full z-20 flex w-full flex-col gap-2 has-[*]:pb-2"
         >
-          {hasUpperComposerCards ? (
-            <div className="pointer-events-auto mx-6 overflow-hidden rounded-3xl border border-border/70 bg-background/95">
-              {currentPlan ? (
-                <div className={
-                  backgroundTools.length > 0 || queuedPrompts.length > 0
-                    ? "border-b border-border/70"
-                    : ""
-                }>
-                  <PlanBlockView
-                    plan={currentPlan}
-                    embedded
-                    defaultOpen={!isResumedSession}
-                  />
-                </div>
-              ) : null}
-              {backgroundTools.length > 0 ? (
-                <div className={queuedPrompts.length > 0 ? "border-b border-border/70" : ""}>
-                  <BackgroundCommandsDock tools={backgroundTools} />
-                </div>
-              ) : null}
-              {queuedPrompts.length > 0 ? (
-                <MessageQueueDock
-                  items={queuedPrompts}
-                  editingPromptId={editingQueueId}
-                  onToggleEdit={(item) => {
-                    setEditingQueueId((current) => (current === item.id ? null : item.id));
-                  }}
-                  onRemove={(id) => {
-                    onRemoveQueuedPrompt(id);
-                    setEditingQueueId((current) => (current === id ? null : current));
-                  }}
-                  onMove={onMoveQueuedPrompt}
-                />
-              ) : null}
-            </div>
-          ) : null}
           <AnimatePresence initial={false}>
             {showContextUsageCard ? (
               <motion.div
@@ -960,6 +956,45 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
           </AnimatePresence>
           {aboveInputOverlay}
         </div>
+        {hasUpperComposerCards ? (
+          <div
+            data-agent-composer-upper-cards=""
+            className="overflow-hidden rounded-t-3xl border border-border/70 border-b-0 bg-background/95"
+          >
+            {currentPlan ? (
+              <div className={
+                backgroundTools.length > 0 || queuedPrompts.length > 0
+                  ? "border-b border-border/70"
+                  : ""
+              }>
+                <PlanBlockView
+                  plan={currentPlan}
+                  embedded
+                  defaultOpen={!isResumedSession}
+                />
+              </div>
+            ) : null}
+            {backgroundTools.length > 0 ? (
+              <div className={queuedPrompts.length > 0 ? "border-b border-border/70" : ""}>
+                <BackgroundCommandsDock tools={backgroundTools} />
+              </div>
+            ) : null}
+            {queuedPrompts.length > 0 ? (
+              <MessageQueueDock
+                items={queuedPrompts}
+                editingPromptId={editingQueueId}
+                onToggleEdit={(item) => {
+                  setEditingQueueId((current) => (current === item.id ? null : item.id));
+                }}
+                onRemove={(id) => {
+                  onRemoveQueuedPrompt(id);
+                  setEditingQueueId((current) => (current === id ? null : current));
+                }}
+                onMove={onMoveQueuedPrompt}
+              />
+            ) : null}
+          </div>
+        ) : null}
         <PromptInputProvider>
           <ComposerPromptInput
             composerRef={composerRef}
@@ -1001,6 +1036,7 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
             workingDirectoryPicker={workingDirectoryPicker}
             clearAgentChatDraft={clearAgentChatDraft}
             onSubmit={onSubmit}
+            onFlySend={launchComposerFly}
             placeholder={placeholder}
             landing={landing}
             editingItem={editingItem}
@@ -1009,10 +1045,15 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
             sessionUsage={sessionUsage}
             contextUsageOpen={contextUsageOpen}
             onContextUsageOpenChange={setContextUsageOpen}
+            joinUpperCards={hasUpperComposerCards}
           />
         </PromptInputProvider>
       </div>
       {popovers}
+      <ComposerFlyingMessagePortal
+        message={flyingMessage}
+        onDone={() => setFlyingMessage(null)}
+      />
     </div>
   );
 });

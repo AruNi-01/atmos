@@ -121,12 +121,19 @@ describe("segmentAssistantParts", () => {
     const { processSegments, answerSegments } = splitSegmentedAssistantParts(
       segmentAssistantParts(parts),
     );
-    expect(processSegments.map((segment) => segment.type)).toEqual([
-      "part",
+    expect(processSegments.map((segment) =>
+      segment.type === "part" ? segment.part.type : segment.type,
+    )).toEqual([
+      "thinking",
       "tool_group",
+      "text",
       "tool_group",
     ]);
-    expect(answerSegments).toHaveLength(2);
+    expect(answerSegments).toHaveLength(1);
+    expect(answerSegments[0]).toMatchObject({
+      type: "part",
+      part: { type: "text", text: "final" },
+    });
   });
 });
 

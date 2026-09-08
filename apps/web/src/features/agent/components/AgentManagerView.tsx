@@ -14,7 +14,7 @@ import {
   TooltipContent,
   TooltipProvider,
 } from "@workspace/ui";
-import type { CustomAgent } from "@/api/ws-api";
+import { agentApi, type CustomAgent } from "@/api/ws-api";
 import {
   Bot,
   Search,
@@ -41,6 +41,11 @@ import { useAgentManager } from "../hooks/use-agent-manager";
 import { nativeSiblingForAgent } from "@/features/agent/lib/custom-agent-registry";
 import { CustomAgentDialog } from "./CustomAgentDialog";
 import { AgentConfirmDialogs } from "./AgentConfirmDialogs";
+import { PackageInstallTerminalDialog } from "@/features/welcome/components/PackageInstallTerminalDialog";
+import {
+  nativeChatHostIdForInstallGuide,
+  preferredAgentInstallCommand,
+} from "@/features/welcome/lib/terminal-agent-install-guides";
 
 export const AgentManagerView: React.FC = () => {
   const t = useTranslations("Agent.components");
@@ -279,8 +284,10 @@ export const AgentManagerView: React.FC = () => {
                             installingRegistryIds={mgr.installingRegistryIds}
                             removingRegistryId={mgr.removingRegistryId}
                             nativeSibling={nativeSiblingForAgent(item.id, mgr.nativeAgents)}
+                            enablingPending={mgr.pendingAcpEnabledId === item.id}
                             onInstall={mgr.handleInstallRegistry}
                             onRemoveRequest={mgr.setRemoveConfirmDialog}
+                            onEnabledChange={mgr.handleSetRegistryAgentEnabled}
                           />
                         ))}
                       </AnimatePresence>
@@ -372,6 +379,28 @@ export const AgentManagerView: React.FC = () => {
         editingAgent={editingCustomAgent}
         onSaved={handleCustomDialogSaved}
       />
+
+      {mgr.cliInstall ? (
+        <PackageInstallTerminalDialog
+          open
+          onOpenChange={(open) => {
+            if (!open) mgr.setCliInstall(null);
+          }}
+          toolId={mgr.cliInstall.id}
+          toolName={mgr.cliInstall.name}
+          installCommand={preferredAgentInstallCommand(mgr.cliInstall.id)}
+          autoStart
+          checkInstalled={async () => {
+            const hostId = nativeChatHostIdForInstallGuide(mgr.cliInstall!.id);
+            const listed = await agentApi.listNativeChatAgents();
+            return listed.agents.some((agent) => agent.id === hostId && agent.cli_present);
+          }}
+          onInstalled={() => {
+            mgr.loadData();
+            mgr.setCliInstall(null);
+          }}
+        />
+      ) : null}
     </div>
   );
 };

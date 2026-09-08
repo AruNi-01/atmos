@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
+import { toastManager } from "@workspace/ui";
 import { useShallow } from "zustand/react/shallow";
 import { useContextParams } from "@/shared/hooks/use-context-params";
 import {
@@ -100,6 +101,7 @@ import {
 } from "@/features/agent/store/agent-slash-command-cache";
 import {
   readComposerLocalCache,
+  rememberComposerChromeDraft,
   rememberComposerOptions,
   rememberLastNewChatConfigs,
   rememberLastRegistryId,
@@ -190,6 +192,19 @@ export function useAgentChatSession({
   const chatId = chatIdProp.trim();
   const t = useTranslations("agent.chatSessionTypes");
   const tSessionHints = useTranslations("Agent.components.chatPanel.session.hints");
+  const tChatPanel = useTranslations("Agent.components.chatPanel");
+  const lastCatalogErrorToastRef = useRef("");
+  const toastCatalogError = useCallback((message: string) => {
+    const next = message.trim();
+    if (!next) return;
+    if (lastCatalogErrorToastRef.current === next) return;
+    lastCatalogErrorToastRef.current = next;
+    toastManager.add({
+      title: tChatPanel("catalogError.title"),
+      description: next,
+      type: "error",
+    });
+  }, [tChatPanel]);
   const urlContext = useContextParams();
   const { workspaceId: urlWorkspaceId, projectId: urlProjectId, effectiveContextId } =
     contextOverride ?? urlContext;
@@ -450,13 +465,14 @@ export function useAgentChatSession({
     const snapshot = await agentChatApi.get(id);
     const meta = snapshot.meta;
     setTitle(meta.title?.trim() || null);
-    applyDescriptor(meta.descriptor);
     const loadedMessages = dedupeAgentMessages(
       (snapshot.messages ?? []).map((message) => ({
         ...message,
         parts: message.parts ?? [],
       })),
     );
+    const keepComposerChrome = loadedMessages.length === 0;
+    applyDescriptor(meta.descriptor, { keepComposerChrome });
     setMessages(loadedMessages);
     if (loadedMessages.length > 0) {
       onUpdatedRef.current?.(id, { hasMessages: true });
@@ -481,7 +497,11 @@ export function useAgentChatSession({
       setElapsedMs(0);
     }
     setQueue(snapshot.queue ?? []);
-    setProviderIdState(meta.provider_id || "claude");
+    setProviderIdState((current) =>
+      keepComposerChrome
+        ? (current || meta.provider_id || "claude")
+        : (meta.provider_id || "claude"),
+    );
     setWorkspaceId(meta.workspace_id ?? (isolatedModal ? null : urlWorkspaceId));
     setProjectId(meta.project_id ?? (isolatedModal ? null : urlProjectId));
     setCwd(isolatedModal && !meta.workspace_id && !meta.project_id ? "" : (meta.cwd ?? ""));
@@ -668,14 +688,14 @@ export function useAgentChatSession({
       if (update.agent_id && update.options && update.agent_id === providerIdRef.current) {
         setCatalog(update.options);
         const message = update.options.status === "error" ? update.options.message?.trim() : "";
-        if (message) setSendError(message);
+        if (message) toastCatalogError(message);
         const commands = normalizeAgentSlashCommands(update.options.commands);
         if (commands.length > 0) {
           rememberAgentSlashCommands(update.agent_id, commands);
         }
       }
     });
-  }, [rememberOptions, setCatalog]);
+  }, [rememberOptions, setCatalog, toastCatalogError]);
 
   useEffect(() => {
     if (restoreAttemptedRef.current) return;
@@ -901,8 +921,9 @@ export function useAgentChatSession({
       if (payload.type === "session_op_resolved") {
         setPendingSessionOp(null);
         if (payload.outcome === "failed") {
-          const message = payload.error?.trim();
-          setSendError(message || tSessionHints("sessionOpFailed"));
+          const message = payload.error?.trim() || tSessionHints("sessionOpFailed");
+          toastManager.add({ title: message, type: "error" });
+          setSendError(message);
         }
       }
       if (payload.type === "session_forked") {
@@ -1012,19 +1033,19 @@ export function useAgentChatSession({
       }
       setCatalog(next);
       const message = next.status === "error" ? next.message?.trim() : "";
-      if (message) setSendError(message);
+      if (message) toastCatalogError(message);
       const commands = normalizeAgentSlashCommands(next.commands);
       if (commands.length > 0) {
         rememberAgentSlashCommands(providerId, commands);
       }
     }).catch((error) => {
       if (cancelled) return;
-      setSendError(error instanceof Error ? error.message : String(error));
+      toastCatalogError(error instanceof Error ? error.message : String(error));
     });
     return () => {
       cancelled = true;
     };
-  }, [providerId, setCatalog]);
+  }, [providerId, setCatalog, toastCatalogError]);
 
   const refreshEmptyCatalog = useCallback(() => {
     const id = providerIdRef.current;
@@ -1054,13 +1075,13 @@ export function useAgentChatSession({
       }
       setCatalog(next);
       const message = next.status === "error" ? next.message?.trim() : "";
-      if (message) setSendError(message);
+      if (message) toastCatalogError(message);
       const commands = normalizeAgentSlashCommands(next.commands);
       if (commands.length > 0) {
         rememberAgentSlashCommands(id, commands);
       }
     });
-  }, [setCatalog]);
+  }, [setCatalog, toastCatalogError]);
 
   useEffect(() => {
     if (!prefsRestored) return;
@@ -1500,6 +1521,8 @@ export function useAgentChatSession({
       if (auth) {
         setSelectedAuthMethodId(auth.methods[0]?.id ?? "");
         setAuthRequest(auth);
+      } else {
+        toastManager.add({ title: message, type: "error" });
       }
       setSendError(message);
     }
@@ -1556,6 +1579,7 @@ export function useAgentChatSession({
         }
       } catch (error) {
         const message = error instanceof Error ? error.message : "Could not save API token";
+        toastManager.add({ title: message, type: "error" });
         setSendError(message);
         throw error;
       }
@@ -1574,6 +1598,8 @@ export function useAgentChatSession({
         if (auth) {
           setSelectedAuthMethodId(auth.methods[0]?.id ?? "");
           setAuthRequest(auth);
+        } else {
+          toastManager.add({ title: message, type: "error" });
         }
         setSendError(message);
       }
@@ -1642,6 +1668,14 @@ export function useAgentChatSession({
     setPermissionModeId(preferred.permissionModeId);
     setFastId(preferred.fastId);
     if (nextRegistry) {
+      rememberComposerChromeDraft(instanceKey, {
+        providerId: nextRegistry,
+        model: preferred.modelId,
+        thinking: preferred.thinkingId,
+        mode: preferred.modeId,
+        permissionMode: preferred.permissionModeId,
+        fast: preferred.fastId,
+      });
       persistAgentChatLastSession({
         workspaceId,
         projectId,
@@ -1825,9 +1859,20 @@ export function useAgentChatSession({
       return;
     }
     const registry = providerIdRef.current.trim();
-    if (registry) persistNewSessionPreferences(registry, next);
+    if (registry) {
+      persistNewSessionPreferences(registry, next);
+      rememberComposerChromeDraft(instanceKey, {
+        providerId: registry,
+        model: next.model,
+        thinking: next.thinking,
+        mode: next.mode,
+        permissionMode: next.permissionMode,
+        fast: next.fast,
+      });
+    }
   }, [
     fastId,
+    instanceKey,
     modeId,
     modelId,
     permissionModeId,
@@ -1858,6 +1903,14 @@ export function useAgentChatSession({
     setPermissionModeId(preferred.permissionModeId);
     setFastId(preferred.fastId);
     persistPreferredRegistry(next);
+    rememberComposerChromeDraft(instanceKey, {
+      providerId: next,
+      model: preferred.modelId,
+      thinking: preferred.thinkingId,
+      mode: preferred.modeId,
+      permissionMode: preferred.permissionModeId,
+      fast: preferred.fastId,
+    });
     if (activeIdRef.current) {
       void persistConfig({
         provider_id: next,
@@ -1868,7 +1921,7 @@ export function useAgentChatSession({
         ...(preferred.fastId ? { fast: preferred.fastId } : {}),
       });
     }
-  }, [agentLocked, installedAgents, persistConfig, persistPreferredRegistry, setCatalog]);
+  }, [agentLocked, installedAgents, instanceKey, persistConfig, persistPreferredRegistry, setCatalog]);
 
   const activeAgent = installedAgents.find((agent) => agent.id === providerId) ?? installedAgents[0] ?? null;
   const registryId = activeAgent?.id || providerId;

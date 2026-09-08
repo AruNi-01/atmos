@@ -40,7 +40,7 @@ export function AgentSessionOpCard({
       approval={{ id: request.request_id }}
       state="approval-requested"
       data-agent-chat-session-op=""
-      className="relative min-w-0 max-h-[40vh] overflow-x-hidden overflow-y-auto overscroll-contain rounded-3xl border-foreground/20 bg-background"
+      className="relative min-w-0 w-full max-h-[40vh] overflow-x-hidden overflow-y-auto overscroll-contain rounded-3xl border-foreground/20 bg-background"
     >
       <ShineBorder
         duration={7}

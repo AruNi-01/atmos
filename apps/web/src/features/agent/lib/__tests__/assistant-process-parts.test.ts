@@ -27,6 +27,61 @@ describe("assistant process collapse", () => {
     expect(answerParts[0]?.part).toMatchObject({ type: "text", text: "final answer" });
   });
 
+  it("keeps mid-turn commentary in process and only the trailing text as the answer", () => {
+    const parts: AgentPart[] = [
+      { type: "text", text: "looking" },
+      {
+        type: "tool_call",
+        tool_call_id: "t1",
+        name: "Read",
+        kind: "read",
+        status: "completed",
+        params: { type: "read", path: "a.ts" },
+      },
+      { type: "text", text: "mid commentary" },
+      {
+        type: "tool_call",
+        tool_call_id: "t2",
+        name: "Edit",
+        kind: "edit",
+        status: "completed",
+        params: { type: "edit", path: "a.ts" },
+      },
+      { type: "text", text: "final" },
+    ];
+    const { processParts, answerParts } = splitAssistantProcessParts(parts);
+    expect(processParts.map((item) =>
+      item.part.type === "text" ? item.part.text : item.part.type,
+    )).toEqual(["looking", "tool_call", "mid commentary", "tool_call"]);
+    expect(answerParts.map((item) => item.part)).toEqual([{ type: "text", text: "final" }]);
+  });
+
+  it("does not promote leading commentary to the answer when the turn ends on tools", () => {
+    const parts: AgentPart[] = [
+      { type: "text", text: "looking" },
+      {
+        type: "tool_call",
+        tool_call_id: "t1",
+        name: "Read",
+        kind: "read",
+        status: "completed",
+        params: { type: "read", path: "a.ts" },
+      },
+      { type: "text", text: "still working" },
+      {
+        type: "tool_call",
+        tool_call_id: "t2",
+        name: "Edit",
+        kind: "edit",
+        status: "completed",
+        params: { type: "edit", path: "a.ts" },
+      },
+    ];
+    const { processParts, answerParts } = splitAssistantProcessParts(parts);
+    expect(answerParts).toEqual([]);
+    expect(processParts).toHaveLength(4);
+  });
+
   it("does not collapse while the turn is still streaming or only between text and tools", () => {
     expect(shouldCollapseAssistantProcess({ streaming: true }, false, true, true)).toBe(false);
     expect(shouldCollapseAssistantProcess({ streaming: false }, false, true, true)).toBe(false);

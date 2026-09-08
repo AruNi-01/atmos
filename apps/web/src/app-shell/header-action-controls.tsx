@@ -609,7 +609,7 @@ export function HeaderActionControls({
   }, [loadLayoutSettings]);
 
   return (
-    <div className="relative z-10 flex items-center space-x-3 justify-end">
+    <div className="relative z-10 desktop-no-drag flex shrink-0 items-center justify-end space-x-3">
       {isDesktopRuntime && showAppshot ? <AppshotCapturePreview /> : null}
       <LocalModelDownloadProgress />
       {showGlobalSearch ? (

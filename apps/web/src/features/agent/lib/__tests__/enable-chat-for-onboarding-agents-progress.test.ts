@@ -2,6 +2,9 @@
 import { beforeEach, describe, expect, it, mock } from "bun:test";
 
 const setNativeChatAgentEnabled = mock(async () => ({ success: true }));
+const listNativeChatAgents = mock(async () => ({
+  agents: [{ id: "claude", cli_present: true }],
+}));
 const listRegistry = mock(async () => ({ agents: [] as Array<{ id: string }> }));
 const installRegistry = mock(async () => ({
   registry_id: "x",
@@ -9,14 +12,17 @@ const installRegistry = mock(async () => ({
   install_method: "npm",
   message: "ok",
 }));
+const setRegistryAgentEnabled = mock(async () => ({ success: true }));
 const setCustomAgentEnabled = mock(async () => ({ success: true }));
 const preloadCustomAgent = mock(async () => ({ success: true }));
 
 mock.module("@/api/ws-api", () => ({
   agentApi: {
     setNativeChatAgentEnabled,
+    listNativeChatAgents,
     listRegistry,
     installRegistry,
+    setRegistryAgentEnabled,
     setCustomAgentEnabled,
     preloadCustomAgent,
   },
@@ -29,8 +35,10 @@ const { enableChatForOnboardingAgents } = await import(
 describe("enableChatForOnboardingAgents progress", () => {
   beforeEach(() => {
     setNativeChatAgentEnabled.mockClear();
+    listNativeChatAgents.mockClear();
     listRegistry.mockClear();
     installRegistry.mockClear();
+    setRegistryAgentEnabled.mockClear();
     setCustomAgentEnabled.mockClear();
     preloadCustomAgent.mockClear();
   });

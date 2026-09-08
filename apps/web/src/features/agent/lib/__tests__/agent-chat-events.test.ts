@@ -467,6 +467,28 @@ describe("agent chat fold stays on AgentMessage", () => {
     });
   });
 
+  it("clears the composer plan when a new user turn starts", () => {
+    let messages = foldMessagesFromEvent([], chatEvent("chat-1", 1, {
+      type: "plan_updated",
+      plan: { entries: [{ content: "Inspect", priority: "high", status: "in_progress" }] },
+    }), "chat-1");
+    expect(currentPlanFromMessages(messages)).not.toBeNull();
+    messages = foldMessagesFromEvent(messages, chatEvent("chat-1", 2, {
+      type: "user_message",
+      turn_id: "t2",
+      message_id: "u2",
+      text: "next",
+    }), "chat-1");
+    expect(currentPlanFromMessages(messages)).toBeNull();
+    messages = foldMessagesFromEvent(messages, chatEvent("chat-1", 3, {
+      type: "plan_updated",
+      plan: { entries: [{ content: "Fix fold", priority: "high", status: "pending" }] },
+    }), "chat-1");
+    expect(currentPlanFromMessages(messages)).toEqual({
+      entries: [{ content: "Fix fold", priority: "high", status: "pending" }],
+    });
+  });
+
   it("does not reclassify think or TodoWrite tool names into thinking or plan parts", () => {
     const think = chatEvent("chat-1", 1, {
       type: "tool_call_started",
@@ -990,5 +1012,78 @@ describe("agent chat fold stays on AgentMessage", () => {
     expect(messages.map((item) => item.id)).toEqual(["u1", "a1", "u2", "a1:3"]);
     expect(textFromParts(messages[1]!.parts)).toBe("first");
     expect(textFromParts(messages[3]!.parts)).toBe("second");
+  });
+
+  it("starts a new text part after tools instead of appending to the first block", () => {
+    const user = chatEvent("chat-1", 1, {
+      type: "user_message",
+      turn_id: "t1",
+      message_id: "u1",
+      text: "hi",
+    });
+    let messages = foldMessagesFromEvent([], user, "chat-1");
+    messages = foldMessagesFromEvent(messages, chatEvent("chat-1", 2, {
+      type: "assistant_message_delta",
+      turn_id: "t1",
+      message_id: "a1",
+      delta: "looking",
+    }), "chat-1");
+    messages = foldMessagesFromEvent(messages, chatEvent("chat-1", 3, {
+      type: "tool_call_started",
+      turn_id: "t1",
+      tool_call: {
+        tool_call_id: "tool-1",
+        name: "Read",
+        kind: "read",
+        status: "running",
+        params: { type: "read", path: "a.ts" },
+      },
+    }), "chat-1");
+    messages = foldMessagesFromEvent(messages, chatEvent("chat-1", 4, {
+      type: "assistant_message_delta",
+      turn_id: "t1",
+      message_id: "a2",
+      delta: "final",
+    }), "chat-1");
+    const parts = messages[1]?.parts ?? [];
+    expect(parts.map((part) => part.type)).toEqual(["text", "tool_call", "text"]);
+    expect(parts[0]).toMatchObject({ type: "text", text: "looking" });
+    expect(parts[2]).toMatchObject({ type: "text", text: "final" });
+  });
+
+  it("merges same-id snapshots without collapsing interleaved text into the first part", () => {
+    const tool = {
+      type: "tool_call" as const,
+      tool_call_id: "tool-1",
+      name: "Read",
+      kind: "read" as const,
+      status: "completed",
+      params: { type: "read" as const, path: "a.ts" },
+    };
+    const messages = dedupeAgentMessages([
+      {
+        id: "a1",
+        role: "assistant",
+        parts: [
+          { type: "text", text: "mid" },
+          tool,
+          { type: "text", text: "fin" },
+        ],
+      },
+      {
+        id: "a1",
+        role: "assistant",
+        parts: [
+          { type: "text", text: "mid commentary" },
+          tool,
+          { type: "text", text: "final" },
+        ],
+      },
+    ]);
+    expect(messages).toHaveLength(1);
+    expect(messages[0]?.parts.filter((part) => part.type === "text")).toEqual([
+      { type: "text", text: "mid commentary" },
+      { type: "text", text: "final" },
+    ]);
   });
 });

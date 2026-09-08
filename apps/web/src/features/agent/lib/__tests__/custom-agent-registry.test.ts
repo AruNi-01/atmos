@@ -193,9 +193,18 @@ describe("native chat picker merge", () => {
     expect(merged.map((agent) => agent.id)).toEqual(["codex", "codex-acp", "claude-acp"]);
   });
 
-  it("keeps grok-build alongside native grok", () => {
+  it("omits CLI-backed ACP with a native sibling until it is enabled", () => {
     const merged = mergeInstalledAgents(
-      [registry("grok-build", "Grok")],
+      [{ ...registry("grok-build", "Grok"), enabled: false }],
+      [],
+      [native({ id: "grok", name: "Grok", enabled: true })],
+    );
+    expect(merged.map((agent) => agent.id)).toEqual(["grok"]);
+  });
+
+  it("keeps grok-build alongside native grok when ACP is enabled", () => {
+    const merged = mergeInstalledAgents(
+      [{ ...registry("grok-build", "Grok"), enabled: true }],
       [],
       [native({ id: "grok", name: "Grok", enabled: true })],
     );

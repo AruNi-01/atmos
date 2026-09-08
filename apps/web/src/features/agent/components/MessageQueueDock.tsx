@@ -24,11 +24,11 @@ import {
   useSensors,
   useSortable,
   verticalListSortingStrategy,
-  cn,
 } from "@workspace/ui";
-import { ChevronDown, GripVertical, ListOrdered, Pencil, Trash2 } from "lucide-react";
+import { GripVertical, ListOrdered, Pencil, Trash2 } from "lucide-react";
 import type { QueuedAgentPrompt } from "@/app-shell/state/use-dialog-store";
 import { queuedPromptEditText } from "@/features/agent/lib/agent-composer-attachment";
+import { ComposerCollapseGlyph } from "./composer-collapse-glyph";
 
 function HoverScrollableText({
   text,
@@ -139,19 +139,15 @@ function QueueCard({
   onRemove: () => void;
   t: ReturnType<typeof useTranslations>;
 }) {
-  const [isHovered, setIsHovered] = useState(false);
-  const showActions = isEditing || isHovered;
   const text = queuedPromptEditText(item);
 
   return (
     <div
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-      className={`group/queue ${
+      className={
         isDragging
           ? "bg-background/95 shadow-sm"
           : "bg-transparent"
-      }`}
+      }
     >
       <div className="flex items-center gap-1 px-1.5 py-1">
         <button
@@ -175,11 +171,7 @@ function QueueCard({
             {text}
           </p>
         </div>
-        <div
-          className={`flex shrink-0 items-center gap-0 transition-opacity duration-150 ${
-            showActions ? "opacity-100" : "pointer-events-none opacity-0"
-          }`}
-        >
+        <div className="flex shrink-0 items-center gap-0">
           <Button
             type="button"
             variant={isEditing ? "secondary" : "ghost"}
@@ -327,24 +319,11 @@ export function MessageQueueDock({
   if (items.length === 0) return null;
 
   return (
-    <div className="bg-background">
+    <div className="bg-background" data-agent-message-queue="">
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
         <CollapsibleTrigger asChild>
           <div className="group flex cursor-pointer items-center gap-2 px-3 py-1.5 hover:bg-muted/10">
-            <span className="relative inline-flex size-4 shrink-0 items-center justify-center text-muted-foreground group-hover:text-foreground">
-              <ListOrdered
-                className="absolute size-4 transition-opacity duration-150 motion-reduce:transition-none group-hover:opacity-0 group-focus-visible:opacity-0"
-                aria-hidden
-              />
-              <ChevronDown
-                className={cn(
-                  "absolute size-4 opacity-0 transition-[opacity,transform] duration-150 motion-reduce:transition-none",
-                  "group-hover:opacity-100 group-focus-visible:opacity-100",
-                  "group-data-[state=closed]:-rotate-90",
-                )}
-                aria-hidden
-              />
-            </span>
+            <ComposerCollapseGlyph icon={ListOrdered} collapsed={!isOpen} />
             <span className="text-sm font-medium text-foreground/90">
               {t("messageQueue.title")}
             </span>

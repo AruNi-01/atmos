@@ -238,7 +238,7 @@
       "language": "语言",
       "fullScreenEnter": "进入全屏",
       "fullScreenExit": "退出全屏",
-      "acpAgent": "ACP 助手",
+      "acpAgent": "Agent Chat",
       "openAgentChat": "打开对话",
       "opacity": "不透明度",
       "tokenUsage": "Token 用量"
@@ -1728,7 +1728,7 @@
           "workspaces": "工作区",
           "skills": "技能",
           "terminals": "终端",
-          "agents": "Agent",
+          "agents": "Agent Chat",
           "automations": "自动化",
           "canvas": "画布",
           "ptDesign": "Prototype Design",
@@ -3308,6 +3308,9 @@
             "closeModal": "关闭面板"
           }
         },
+        "catalogError": {
+          "title": "无法加载 Agent 选项"
+        },
         "loading": "加载中...",
         "restoringSession": "正在恢复会话...",
         "empty": {
@@ -3442,6 +3445,7 @@
         "planBody": "查看计划",
         "planTodos": "{count} 项待办",
         "resultCount": "{count} 条结果",
+        "matchCount": "{count} 处匹配",
         "sources": "来源",
         "fetchUrl": "摄取 {host}",
         "to": "到",
@@ -5339,7 +5343,7 @@
               "label": "Agent 状态面板"
             },
             "acpAgentChatEntry": {
-              "label": "ACP Agent Chat 入口"
+              "label": "Agent Chat 入口"
             },
             "workspacesLaunchpad": {
               "label": "工作区（Launchpad）"
@@ -5351,7 +5355,7 @@
               "label": "Terminals（Launchpad）"
             },
             "acpAgentsLaunchpad": {
-              "label": "ACP Agents（Launchpad 和底部 ACP Chat）"
+              "label": "Agent Chat（Launchpad 和底部入口）"
             },
             "automationsLaunchpad": {
               "label": "Automations（Launchpad）"
@@ -6138,6 +6142,7 @@
         "testFailed": "测试失败",
         "unknownError": "未知错误",
         "browserPermissionRequired": "请在浏览器设置中允许通知。",
+        "desktopPermissionRequired": "Atmos 没有系统通知权限。请在系统设置 → 通知 中允许后再测试。",
         "desktopTestFailed": "桌面应用无法发送系统通知。"
       },
       "channels": {
@@ -6350,7 +6355,7 @@
       },
       "footer": {
         "title": "页脚布局",
-        "description": "选择应用页脚中的可选状态条；连接异常会自动显示。若下方所有项目都关闭，且布局设置中也关闭了 ACP Chat，则页脚会隐藏。",
+        "description": "选择应用页脚中的可选状态条；连接异常会自动显示。若下方所有项目都关闭，且布局设置中也关闭了 Agent Chat，则页脚会隐藏。",
         "enabledCount": "已启用 {count} 项",
         "hidden": "已隐藏",
         "localServicesTitle": "本地服务",
@@ -6363,8 +6368,8 @@
         "agentStatusDescriptionPrefix": "在页脚显示正在运行的 Agent 会话。请先在",
         "codeAgent": "Code Agent",
         "agentStatusDescriptionSuffix": "中为每个 Agent 安装 hooks，以便 Atmos 接收其状态。",
-        "acpChatTitle": "ACP Agent Chat 入口",
-        "acpChatDescription": "启用后可从页脚打开浮动 ACP 聊天面板。开关在布局设置中控制，不在这里控制。",
+        "acpChatTitle": "Agent Chat 入口",
+        "acpChatDescription": "启用后可从页脚打开浮动 Agent Chat 面板。开关在布局设置中控制，不在这里控制。",
         "enabledInExperiments": "已在 Experiments 中启用",
         "disabledInExperiments": "已在 Experiments 中关闭",
         "openExperiments": "打开 Experiments",
@@ -6396,7 +6401,7 @@
             "description": "在 Launchpad 中监控并管理系统范围内的终端使用情况。"
           },
           "agents": {
-            "title": "ACP Agents",
+            "title": "Agent Chat",
             "description": "启用 Agent Chat，用于图形界面的 Agent 聊天，并可从 Launchpad 和底部区域快速访问。"
           },
           "automations": {
@@ -7229,6 +7234,9 @@
         },
         "nativeEnableFailed": {
           "title": "更新原生 Agent 失败"
+        },
+        "registryEnableFailed": {
+          "title": "更新 Agent 失败"
         },
         "customPreloadFailed": {
           "title": "预下载依赖失败"

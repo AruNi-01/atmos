@@ -275,6 +275,15 @@ export function hasTerminalAgentInstallGuide(agentId: string): boolean {
   return Boolean(TERMINAL_AGENT_INSTALL_GUIDES[agentId]);
 }
 
+/** Native Chat host id → onboarding install-guide key (`grok` uses `grok-build`). */
+export function nativeChatInstallGuideId(hostId: string): string {
+  return hostId === "grok" ? "grok-build" : hostId;
+}
+
+export function nativeChatHostIdForInstallGuide(guideId: string): string {
+  return guideId === "grok-build" ? "grok" : guideId;
+}
+
 export function detectInstallOs(): InstallOs {
   if (typeof navigator === "undefined") return "macos";
   const platform = navigator.platform?.toLowerCase() ?? "";

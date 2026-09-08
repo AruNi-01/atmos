@@ -1,5 +1,9 @@
 import type { AgentPart, AgentToolKind } from "@atmos/api-types/ws/dto/agent-chat";
 import type { AgentToolCallPart } from "@/features/agent/lib/agent-tool-kind";
+import {
+  isAssistantAnswerTextPart,
+  splitTrailingAnswer,
+} from "@/features/agent/lib/assistant-process-parts";
 
 export type ToolOverviewKind =
   | "write"
@@ -113,16 +117,11 @@ export function splitSegmentedAssistantParts(segments: AssistantSegment[]): {
   processSegments: AssistantSegment[];
   answerSegments: AssistantSegment[];
 } {
-  const processSegments: AssistantSegment[] = [];
-  const answerSegments: AssistantSegment[] = [];
-  for (const segment of segments) {
-    if (segment.type === "part" && segment.part.type === "text") {
-      answerSegments.push(segment);
-    } else {
-      processSegments.push(segment);
-    }
-  }
-  return { processSegments, answerSegments };
+  const { process, answer } = splitTrailingAnswer(
+    segments,
+    (segment) => segment.type === "part" && isAssistantAnswerTextPart(segment.part),
+  );
+  return { processSegments: process, answerSegments: answer };
 }
 
 export function countToolGroupOverview(

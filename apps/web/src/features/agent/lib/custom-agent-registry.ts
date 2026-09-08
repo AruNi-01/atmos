@@ -102,6 +102,27 @@ export function nativeChatHostsForTerminalSelection(
   return [...hosts];
 }
 
+/** Skip ACP provision for families already covered by a Native Chat host on PATH. */
+export function acpOnboardingTerminalIds(
+  selectedIds: Iterable<string>,
+  nativeHostsWithCli: Iterable<string>,
+): string[] {
+  const covered = new Set<NativeChatHostId>();
+  for (const id of nativeHostsWithCli) {
+    if (isNativeChatHostId(id)) covered.add(id);
+  }
+  const remaining: string[] = [];
+  const seen = new Set<string>();
+  for (const id of selectedIds) {
+    if (seen.has(id)) continue;
+    seen.add(id);
+    const family = chatAgentFamily(id);
+    if (family && covered.has(family)) continue;
+    remaining.push(id);
+  }
+  return remaining;
+}
+
 /**
  * Transport kind for picker chips / enable hints.
  * Native Chat hosts use `install_method: "native_chat"`; ACP siblings share the family.
@@ -174,6 +195,15 @@ export function nativeSiblingForAgent(
   return nativeAgents.find((agent) => agent.id === family) ?? null;
 }
 
+/** ACP rows hidden from the chat picker until explicitly enabled. */
+export function registryAgentEnabled(agent: {
+  installed?: boolean;
+  enabled?: boolean;
+}): boolean {
+  if (!agent.installed) return false;
+  return agent.enabled !== false;
+}
+
 /**
  * Chat picker list: enabled Native hosts + installed ACP/custom.
  *
@@ -197,6 +227,7 @@ export function mergeInstalledAgents(
   }
 
   for (const agent of registryInstalled) {
+    if (!registryAgentEnabled(agent)) continue;
     // Prefer the Native host when registry id collides (e.g. `opencode`).
     if (seen.has(agent.id)) continue;
     seen.add(agent.id);

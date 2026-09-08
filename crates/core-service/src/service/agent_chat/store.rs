@@ -11,10 +11,11 @@ use crate::error::{Result, ServiceError};
 use crate::utils::path_boundary::{path_or_existing_parent_within_root, path_within_root};
 
 use super::types::{
-    apply_rewind_view, chat_descriptor, flatten_messages, AgentChatIndexEntry, AgentChatMeta,
-    AgentChatOrigin, AgentChatSnapshot, CreateAgentChatRequest, FoldedMessage, FoldedTurn,
-    MessagePart, QueueItem, RuntimeStatus, SessionHintTone, SessionLifecycleAction,
-    SessionLifecycleStatus, TranscriptEnvelope, TranscriptEvent, TurnStatus,
+    apply_assistant_text_part, apply_rewind_view, chat_descriptor, flatten_messages,
+    AgentChatIndexEntry, AgentChatMeta, AgentChatOrigin, AgentChatSnapshot, CreateAgentChatRequest,
+    FoldedMessage, FoldedTurn, MessagePart, QueueItem, RuntimeStatus, SessionHintTone,
+    SessionLifecycleAction, SessionLifecycleStatus, TranscriptEnvelope, TranscriptEvent,
+    TurnStatus,
 };
 use agent::{AgentCurrentConfig, AgentTool, AgentToolKind, AgentToolParams};
 
@@ -576,17 +577,7 @@ fn apply_record(turns: &mut Vec<FoldedTurn>, envelope: TranscriptEnvelope) {
         TranscriptEvent::AssistantSnapshot { message_id, text } => {
             let turn = upsert_turn(turns, &turn_id, created_at);
             if let Some(index) = assistant_message_index(turn, &message_id) {
-                let message = &mut turn.messages[index];
-                if let Some(MessagePart::Text { text: existing }) = message
-                    .parts
-                    .iter_mut()
-                    .rev()
-                    .find(|part| matches!(part, MessagePart::Text { .. }))
-                {
-                    *existing = text;
-                } else {
-                    message.parts.push(MessagePart::Text { text });
-                }
+                apply_assistant_text_part(&mut turn.messages[index], &message_id, text);
             } else {
                 upsert_message(
                     turn,
@@ -1564,6 +1555,71 @@ mod tests {
             tool_index.is_some_and(|tool| text_index.is_some_and(|text| tool < text)),
             "process parts should stay above the final answer: {parts:?}"
         );
+    }
+
+    #[test]
+    fn assistant_snapshot_keeps_mid_turn_text_when_message_id_changes() {
+        let (_dir, store) = store();
+        let meta = create(&store, "/tmp/a");
+        let turn_id = "t1";
+        store
+            .append_record(&meta.id, &rec(turn_id, TranscriptEvent::TurnStarted))
+            .unwrap();
+        store
+            .append_record(
+                &meta.id,
+                &rec(
+                    turn_id,
+                    TranscriptEvent::AssistantSnapshot {
+                        message_id: "a1".into(),
+                        text: "looking".into(),
+                    },
+                ),
+            )
+            .unwrap();
+        store
+            .append_record(
+                &meta.id,
+                &rec(
+                    turn_id,
+                    TranscriptEvent::ToolCall {
+                        tool: read_tool(
+                            "tool-1",
+                            AgentToolStatus::Completed,
+                            AgentToolParams::Read {
+                                path: String::new(),
+                                offset: None,
+                                limit: None,
+                            },
+                            None,
+                        ),
+                    },
+                ),
+            )
+            .unwrap();
+        store
+            .append_record(
+                &meta.id,
+                &rec(
+                    turn_id,
+                    TranscriptEvent::AssistantSnapshot {
+                        message_id: "a2".into(),
+                        text: "final".into(),
+                    },
+                ),
+            )
+            .unwrap();
+        let snapshot = store.get_snapshot(&meta.id).unwrap();
+        let kinds: Vec<&str> = snapshot.messages[0]
+            .parts
+            .iter()
+            .map(|part| match part {
+                MessagePart::ToolCall { .. } => "tool",
+                MessagePart::Text { text } => text.as_str(),
+                _ => "other",
+            })
+            .collect();
+        assert_eq!(kinds, ["looking", "tool", "final"]);
     }
 
     #[test]

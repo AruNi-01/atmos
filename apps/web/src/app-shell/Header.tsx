@@ -368,27 +368,24 @@ const Header: React.FC = () => {
     <TooltipProvider>
       <header
         data-app-shell-header=""
+        data-tauri-drag-region={isDesktopDragEnabled ? "true" : undefined}
         onMouseDown={handleDesktopWindowMouseDown}
         className={cn(
-          "relative flex items-center justify-between px-4 select-none transition-[padding] duration-300 ease-out",
+          // Stretch so the empty fillers above the center stage are full header
+          // height. Electron only honors `-webkit-app-region: drag` on a hittable
+          // box — a pointer-events-none overlay and flex gaps do not count.
+          "relative flex px-4 select-none transition-[padding] duration-300 ease-out",
           APP_HEADER_HEIGHT_CLASS,
           isDesktopDragEnabled && "desktop-drag-region",
           // Header spans the full window, including over the left sidebar.
           needsTrafficLightsPadding && "pl-[92px]",
         )}
       >
-        {isDesktopDragEnabled ? (
-          <div
-            className="pointer-events-none absolute inset-0 z-0 desktop-drag-region"
-            data-tauri-drag-region="true"
-          />
-        ) : null}
-
         {/* Left: Identity */}
         <div
           className={cn(
             // gap-6 separates chrome controls (left) from app actions (bell / quick open).
-            "relative z-10 flex items-center gap-6 transition-[opacity,transform] duration-300 ease-out",
+            "relative z-10 desktop-no-drag flex shrink-0 items-center gap-6 transition-[opacity,transform] duration-300 ease-out",
             isDesktopFullscreenExiting ? "opacity-0 translate-x-2" : "opacity-100 translate-x-0"
           )}
         >
@@ -508,9 +505,11 @@ const Header: React.FC = () => {
           <HeaderWorkspaceJobs />
         </div>
 
-        <div className="relative z-10 flex min-w-0 items-center gap-5">
+        <HeaderWindowDragFiller enabled={isDesktopDragEnabled} />
+
+        <div className="relative z-10 desktop-no-drag flex min-w-0 items-center gap-5">
           {showHeaderGitToolbar && (
-            <HeaderGitContext
+            <HeaderGitContext>
               branchSyncState={branchSyncState}
               currentBranch={currentBranch}
               currentProject={currentProject}
@@ -540,6 +539,8 @@ const Header: React.FC = () => {
           )}
           <CenterSpaceSwitcher />
         </div>
+
+        <HeaderWindowDragFiller enabled={isDesktopDragEnabled} />
 
         <HeaderActionControls
           activeTunnelConnectors={activeTunnelConnectors}
@@ -614,5 +615,19 @@ const Header: React.FC = () => {
     </TooltipProvider>
   );
 };
+
+function HeaderWindowDragFiller({ enabled }: { enabled: boolean }) {
+  return (
+    <div
+      aria-hidden
+      data-desktop-window-drag=""
+      data-tauri-drag-region={enabled ? "true" : undefined}
+      className={cn(
+        "min-h-0 min-w-0 flex-1 self-stretch",
+        enabled && "desktop-drag-region",
+      )}
+    />
+  );
+}
 
 export default Header;

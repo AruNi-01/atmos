@@ -9,8 +9,9 @@ import {
   CollapsibleTrigger,
   TextShimmer,
 } from "@workspace/ui";
-import { ChevronDown, CircleCheck, CircleDashed, ListTodo } from "lucide-react";
+import { CircleCheck, CircleDashed, ListTodo } from "lucide-react";
 import type { AgentPlan } from "@/features/agent/lib/agent-chat-types";
+import { ComposerCollapseGlyph } from "./composer-collapse-glyph";
 
 function PlanEntryScrollableText({
   text,
@@ -152,16 +153,7 @@ export function PlanBlockView({
         {isOpen && (
           <CollapsibleTrigger asChild>
             <div className="group flex cursor-pointer items-center gap-2 px-3 py-1.5 hover:bg-muted/10">
-              <span className="relative inline-flex size-4 shrink-0 items-center justify-center text-muted-foreground group-hover:text-foreground">
-                <ListTodo
-                  className="absolute size-4 transition-opacity duration-150 motion-reduce:transition-none group-hover:opacity-0 group-focus-visible:opacity-0"
-                  aria-hidden
-                />
-                <ChevronDown
-                  className="absolute size-4 opacity-0 transition-[opacity,transform] duration-150 motion-reduce:transition-none group-hover:opacity-100 group-focus-visible:opacity-100"
-                  aria-hidden
-                />
-              </span>
+              <ComposerCollapseGlyph icon={ListTodo} />
               <span className="text-sm font-medium text-foreground/90">{t("plan.title")}</span>
               <div className="flex-1" />
               <span className="text-sm text-muted-foreground mr-1">
@@ -219,16 +211,7 @@ export function PlanBlockView({
             <div
               className={`group flex cursor-pointer items-center gap-2 overflow-hidden bg-background px-3 py-1.5 hover:bg-muted/10 ${embedded || docked ? "rounded-none" : "rounded-b-md"}`}
             >
-              <span className="relative inline-flex size-4 shrink-0 items-center justify-center text-muted-foreground group-hover:text-foreground">
-                <ListTodo
-                  className="absolute size-4 transition-opacity duration-150 motion-reduce:transition-none group-hover:opacity-0 group-focus-visible:opacity-0"
-                  aria-hidden
-                />
-                <ChevronDown
-                  className="absolute size-4 -rotate-90 opacity-0 transition-[opacity,transform] duration-150 motion-reduce:transition-none group-hover:opacity-100 group-focus-visible:opacity-100"
-                  aria-hidden
-                />
-              </span>
+              <ComposerCollapseGlyph icon={ListTodo} collapsed />
               <div className="shrink-0 flex items-center justify-center w-4 h-4">
                 {allCompleted ? (
                   <CircleCheck className="w-4 h-4 text-green-500" />

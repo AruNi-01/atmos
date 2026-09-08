@@ -32,6 +32,8 @@ interface PackageInstallTerminalDialogProps {
   installCommand?: string | null;
   /** Custom install verification (defaults to tmux/git/gh probes for those ids). */
   checkInstalled?: () => Promise<boolean>;
+  /** Skip the guide step and run the command in the embedded terminal. */
+  autoStart?: boolean;
 }
 
 type InstallPhase = 'guide' | 'terminal';
@@ -176,6 +178,7 @@ export function PackageInstallTerminalDialog({
   onInstalled,
   installCommand = null,
   checkInstalled,
+  autoStart = false,
 }: PackageInstallTerminalDialogProps) {
   const t = useTranslations('onboarding.check.install.installTerminal');
   const terminalRef = React.useRef<TerminalRef | null>(null);
@@ -290,8 +293,11 @@ export function PackageInstallTerminalDialog({
       return;
     }
 
+    if (autoStart) {
+      setPhase('terminal');
+    }
     void loadInstallContext();
-  }, [open, loadInstallContext, resetTerminalState]);
+  }, [autoStart, open, loadInstallContext, resetTerminalState]);
 
   React.useEffect(() => {
     if (!open || phase !== 'terminal' || !effectiveInstallCommand || !homeDir) {

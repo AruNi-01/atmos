@@ -183,6 +183,8 @@ describe("agents sessions page uses Atmos chat history", () => {
 
     expect(manager).toContain("nativeSiblingForAgent");
     expect(manager).toContain("nativeSibling={nativeSiblingForAgent(item.id, mgr.nativeAgents)}");
+    expect(manager).toContain("onEnabledChange={mgr.handleSetRegistryAgentEnabled}");
+    expect(manager).toContain("PackageInstallTerminalDialog");
 
     const cards = readFileSync(join(ROOT, "components/agent-manager-cards.tsx"), "utf8");
     expect(cards).toContain("managerCards.preferNative.recommend");

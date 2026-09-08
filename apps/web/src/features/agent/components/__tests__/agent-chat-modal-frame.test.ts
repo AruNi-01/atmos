@@ -38,6 +38,9 @@ describe("agent chat modal frame", () => {
     expect(panel).toContain("<AgentPromptComposer");
     expect(panel).not.toContain('(pendingPermission || pendingSessionOp) && "gap-2"');
     expect(panel).not.toContain('max-h-[80cqh] shrink');
+    expect(panel).not.toContain("max-h-[80cqh] px-3");
+    expect(panel).not.toContain("max-h-[50cqh] px-3");
+    expect(panel).toContain("min-h-0 min-w-0 w-full max-h-[80cqh]");
     expect(panel).not.toContain("border-t border-border p-3");
     const composerSource = readFileSync(
       join(import.meta.dir, "../AgentPromptComposer.tsx"),
@@ -45,7 +48,7 @@ describe("agent chat modal frame", () => {
     );
     expect(composerSource).toContain('data-agent-chat-above-composer-overlays=""');
     expect(composerSource).toContain(
-      '"pointer-events-none absolute inset-x-0 bottom-full z-20 flex flex-col gap-2 has-[*]:pb-2"',
+      '"pointer-events-none absolute inset-x-0 bottom-full z-20 flex w-full flex-col gap-2 has-[*]:pb-2"',
     );
     const contentAt = panel.indexOf("<ConversationContent");
     const confirmationAt = panel.indexOf("<AgentPermissionCard");
@@ -128,6 +131,8 @@ describe("agent chat modal frame", () => {
     expect(session).toContain("agentChatApi.sessionOpRespond");
     expect(session).toContain('next.status === "error" ? next.message?.trim()');
     expect(session).toContain('update.options.status === "error"');
+    expect(session).toContain("toastCatalogError");
+    expect(session).not.toContain("threadBannerError");
     expect(session).toContain("agent_options_updated");
     expect(session).toContain("composerConfigOptions");
     expect(session).toContain("optionsByAgentRef");
@@ -191,6 +196,7 @@ describe("agent chat modal frame", () => {
     );
 
     expect(scrollButton).toContain('aria-label={t("bottom")}');
+    expect(scrollButton).toContain("host={aboveComposerOverlaysNode}");
     expect(scrollButton).not.toContain("hover:w-24");
     expect(scrollButton).not.toContain("border-dashed");
     expect(scrollButton).not.toContain("group-hover:max-w");

@@ -5,6 +5,7 @@ import {
   __resetComposerLocalCacheForTests,
   composerOptionsAreUsable,
   readComposerLocalCache,
+  rememberComposerChromeDraft,
   rememberComposerOptions,
   rememberLastNewChatConfigs,
   rememberLastRegistryId,
@@ -128,6 +129,32 @@ describe("composer local cache", () => {
     expect(seed.preferred.modelId).toBe("composer-2.5");
     expect(seed.preferred.modeId).toBe("agent");
     expect(seed.catalog?.modes.some((mode) => mode.id === "agent")).toBe(true);
+  });
+
+  it("restores per-instance composer chrome ahead of last-agent snapshots", () => {
+    rememberLastRegistryId("cursor");
+    rememberLastNewChatConfigs({
+      cursor: { model: "composer-2.5", mode: "agent" },
+    });
+    rememberComposerChromeDraft("agent-chat:draft:1", {
+      providerId: "cursor",
+      model: "composer-2.5",
+      thinking: "",
+      mode: "plan",
+      permissionMode: "default",
+      fast: "",
+    });
+    const seed = seedNewChatComposer({
+      chatId: "",
+      instanceKey: "agent-chat:draft:1",
+      isolatedModal: false,
+      urlWorkspaceId: "ws-1",
+      urlProjectId: null,
+      chatMode: "default",
+    });
+    expect(seed.preferred.modeId).toBe("plan");
+    expect(seed.preferred.permissionModeId).toBe("default");
+    expect(seed.preferred.modelId).toBe("composer-2.5");
   });
 
   it("keeps existing chats waiting for transcript hydrate", () => {

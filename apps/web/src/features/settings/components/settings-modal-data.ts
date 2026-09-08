@@ -594,7 +594,7 @@ const SETTINGS_TOPIC_ITEMS: Record<string, readonly SettingsSearchItemDefinition
       keywords: ["running agent sessions", "agent hooks"],
     }),
     settingsModalSearchItem("layout.acpAgentChatEntry", {
-      keywords: ["floating acp chat", "footer", "layout", "launchpad"],
+      keywords: ["floating agent chat", "footer", "layout", "launchpad"],
     }),
     settingsModalSearchItem("layout.workspacesLaunchpad", {
       keywords: ["workspaces", "manage workspaces", "launchpad"],
@@ -606,7 +606,7 @@ const SETTINGS_TOPIC_ITEMS: Record<string, readonly SettingsSearchItemDefinition
       keywords: ["monitor terminal usage", "manage terminal usage", "launchpad"],
     }),
     settingsModalSearchItem("layout.acpAgentsLaunchpad", {
-      keywords: ["acp chat panel", "gui agent conversations", "footer", "launchpad"],
+      keywords: ["agent chat", "gui agent conversations", "footer", "launchpad"],
     }),
     settingsModalSearchItem("layout.automationsLaunchpad", {
       keywords: ["automation creation", "scheduled runs", "github-triggered automation", "launchpad"],

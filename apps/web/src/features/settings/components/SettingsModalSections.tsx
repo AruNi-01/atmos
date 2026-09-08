@@ -160,7 +160,10 @@ interface SettingsModalSectionsProps {
   onToggleBrowserNotifications: (checked: boolean) => void | Promise<void>;
   onToggleDesktopNotifications: (checked: boolean) => void;
   onTestBrowserNotification: () => Promise<boolean>;
-  onTestDesktopNotification: () => Promise<boolean>;
+  onTestDesktopNotification: () => Promise<{
+    ok: boolean;
+    code?: "unsupported" | "permission_denied" | "failed";
+  }>;
   onTogglePermissionRequestNotification: (checked: boolean) => void;
   onToggleTaskCompleteNotification: (checked: boolean) => void;
   onAddPushServer: (server: PushServerConfig) => Promise<void>;

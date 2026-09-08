@@ -2,6 +2,7 @@
 
 import type { ComponentProps } from "react";
 import { useCallback } from "react";
+import { createPortal } from "react-dom";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { ArrowDownIcon, DownloadIcon } from "lucide-react";
 import { StickToBottom, useStickToBottomContext } from "use-stick-to-bottom";
@@ -71,11 +72,15 @@ export const ConversationEmptyState = ({
   </div>
 );
 
-export type ConversationScrollButtonProps = ComponentProps<typeof Button>;
+export type ConversationScrollButtonProps = ComponentProps<typeof Button> & {
+  /** Render into a host (e.g. above-composer overlay) so chrome cannot cover the control. */
+  host?: HTMLElement | null;
+};
 
 export const ConversationScrollButton = ({
   className,
   children,
+  host,
   ...props
 }: ConversationScrollButtonProps) => {
   const { isAtBottom, scrollToBottom } = useStickToBottomContext();
@@ -85,38 +90,47 @@ export const ConversationScrollButton = ({
     scrollToBottom();
   }, [scrollToBottom]);
 
+  const button = (
+    <AnimatePresence initial={false}>
+      {!isAtBottom ? (
+        <motion.div
+          key="conversation-scroll-to-bottom"
+          className="pointer-events-auto flex justify-center"
+          data-agent-chat-scroll-to-bottom=""
+          initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 36 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={
+            reduceMotion
+              ? { opacity: 0, transition: { duration: 0 } }
+              : { opacity: 0, y: 36, transition: spring.moderate.exit }
+          }
+          transition={reduceMotion ? { duration: 0 } : spring.moderate}
+        >
+          <Button
+            className={cn(
+              "size-8 rounded-full border-transparent shadow-sm before:rounded-full",
+              className,
+            )}
+            onClick={handleScrollToBottom}
+            size="icon"
+            type="button"
+            variant="secondary"
+            {...props}
+          >
+            {children ?? <ArrowDownIcon className="size-4" />}
+          </Button>
+        </motion.div>
+      ) : null}
+    </AnimatePresence>
+  );
+
+  if (host) {
+    return createPortal(button, host);
+  }
+
   return (
     <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex justify-center overflow-hidden pb-2">
-      <AnimatePresence initial={false}>
-        {!isAtBottom ? (
-          <motion.div
-            key="conversation-scroll-to-bottom"
-            className="pointer-events-auto"
-            initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 36 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={
-              reduceMotion
-                ? { opacity: 0, transition: { duration: 0 } }
-                : { opacity: 0, y: 36, transition: spring.moderate.exit }
-            }
-            transition={reduceMotion ? { duration: 0 } : spring.moderate}
-          >
-            <Button
-              className={cn(
-                "size-8 rounded-full border-transparent shadow-sm before:rounded-full",
-                className,
-              )}
-              onClick={handleScrollToBottom}
-              size="icon"
-              type="button"
-              variant="secondary"
-              {...props}
-            >
-              {children ?? <ArrowDownIcon className="size-4" />}
-            </Button>
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
+      {button}
     </div>
   );
 };

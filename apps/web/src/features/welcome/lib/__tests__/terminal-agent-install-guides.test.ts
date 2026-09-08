@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import {
   hasTerminalAgentInstallGuide,
+  nativeChatHostIdForInstallGuide,
+  nativeChatInstallGuideId,
   preferredAgentInstallCommand,
   TERMINAL_AGENT_INSTALL_GUIDES,
 } from "../terminal-agent-install-guides";
@@ -27,6 +29,13 @@ describe("terminal-agent-install-guides", () => {
       const macos = preferredAgentInstallCommand(id, "macos");
       expect(macos && macos.length > 0).toBe(true);
     }
+  });
+
+  test("maps Native Chat hosts onto onboarding install guides", () => {
+    expect(nativeChatInstallGuideId("grok")).toBe("grok-build");
+    expect(nativeChatInstallGuideId("claude")).toBe("claude");
+    expect(nativeChatHostIdForInstallGuide("grok-build")).toBe("grok");
+    expect(hasTerminalAgentInstallGuide(nativeChatInstallGuideId("grok"))).toBe(true);
   });
 
   test("exposes multiple install types when vendors support them", () => {

@@ -33,6 +33,7 @@ import { useNotificationSettingsStore } from '@/features/settings/store/notifica
 import { useFunctionSettingsStore } from '@/features/settings/store/function-settings-store';
 
 import {
+  ensureDesktopNotificationPermission,
   requestBrowserNotificationPermission,
   sendBrowserNotification,
   showDesktopNotification,
@@ -1224,7 +1225,12 @@ export function SettingsPage({ onLeave }: { onLeave?: () => void } = {}) {
                     isNotifyLoading={isNotifyLoading}
                     isNotifySaving={isNotifySaving}
                     onToggleBrowserNotifications={handleToggleBrowserNotifications}
-                    onToggleDesktopNotifications={(checked) => void updateNotifyField('desktop_notification', checked)}
+                    onToggleDesktopNotifications={(checked) => {
+                      if (checked) {
+                        void ensureDesktopNotificationPermission();
+                      }
+                      void updateNotifyField('desktop_notification', checked);
+                    }}
                     onTestBrowserNotification={() => sendBrowserNotification(TEST_NOTIFICATION_PAYLOAD)}
                     onTestDesktopNotification={() => showDesktopNotification(TEST_NOTIFICATION_PAYLOAD)}
                     onTogglePermissionRequestNotification={(checked) => void updateNotifyField('notify_on_permission_request', checked)}

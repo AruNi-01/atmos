@@ -1,5 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { nativeChatHostsForTerminalSelection } from "../custom-agent-registry";
+import {
+  acpOnboardingTerminalIds,
+  nativeChatHostsForTerminalSelection,
+} from "../custom-agent-registry";
 
 describe("nativeChatHostsForTerminalSelection", () => {
   test("maps terminal families to Native Chat hosts", () => {
@@ -29,6 +32,24 @@ describe("nativeChatHostsForTerminalSelection", () => {
   test("dedupes when both terminal and ACP ids are selected", () => {
     expect(nativeChatHostsForTerminalSelection(["claude", "claude-acp"])).toEqual([
       "claude",
+    ]);
+  });
+});
+
+describe("acpOnboardingTerminalIds", () => {
+  test("skips families already covered by a native host on PATH", () => {
+    expect(
+      acpOnboardingTerminalIds(
+        ["claude", "cursor", "grok-build"],
+        ["claude", "grok"],
+      ).sort(),
+    ).toEqual(["cursor"]);
+  });
+
+  test("keeps ACP when the native CLI is missing", () => {
+    expect(acpOnboardingTerminalIds(["claude", "cursor"], [])).toEqual([
+      "claude",
+      "cursor",
     ]);
   });
 });

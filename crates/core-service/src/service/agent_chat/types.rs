@@ -959,23 +959,84 @@ fn push_unique_message(messages: &mut Vec<FoldedMessage>, mut message: FoldedMes
     messages.push(message);
 }
 
-/// Keep session lifecycle, then thinking/tools/plan, then the final answer.
+fn is_answer_text_part(part: &MessagePart) -> bool {
+    matches!(part, MessagePart::Text { text } if !text.is_empty())
+}
+
+/// Session chrome first; trailing text after the last process part is the reply.
+/// Interleaved mid-turn text stays with tools. History that stored the answer
+/// first (`[text, thinking, tools]`) still moves that leading text after process.
 pub fn order_assistant_parts(parts: Vec<MessagePart>) -> Vec<MessagePart> {
     let mut session = Vec::new();
-    let mut process = Vec::new();
-    let mut answer = Vec::new();
+    let mut rest = Vec::new();
     for part in parts {
         match part {
-            MessagePart::Text { .. } => answer.push(part),
             MessagePart::SessionLifecycle { .. }
             | MessagePart::SessionConfigChange { .. }
             | MessagePart::SessionHint { .. } => session.push(part),
-            _ => process.push(part),
+            _ => rest.push(part),
         }
     }
+    let (process, answer) = split_trailing_answer(rest);
     session.extend(process);
     session.extend(answer);
     session
+}
+
+fn split_trailing_answer(mut parts: Vec<MessagePart>) -> (Vec<MessagePart>, Vec<MessagePart>) {
+    let last_process = parts.iter().rposition(|part| !is_answer_text_part(part));
+    let Some(index) = last_process else {
+        return (Vec::new(), parts);
+    };
+    if parts.iter().skip(index + 1).any(is_answer_text_part) {
+        let answer = parts.split_off(index + 1);
+        return (parts, answer);
+    }
+    let first_process = parts
+        .iter()
+        .position(|part| !is_answer_text_part(part))
+        .unwrap_or(parts.len());
+    let has_later_answer = parts.iter().skip(first_process).any(is_answer_text_part);
+    if first_process > 0 && !has_later_answer {
+        let process = parts.split_off(first_process);
+        return (process, parts);
+    }
+    (parts, Vec::new())
+}
+
+/// Apply a snapshot/delta text block. Same `message_id` updates that block;
+/// a new id after tools/thinking starts a new text part instead of overwriting.
+pub fn apply_assistant_text_part(message: &mut FoldedMessage, message_id: &str, text: String) {
+    let last_is_text = matches!(message.parts.last(), Some(MessagePart::Text { .. }));
+    if last_is_text {
+        let same_block = message.id == message_id
+            || message.parts.last().is_some_and(|part| match part {
+                MessagePart::Text { text: existing } => {
+                    text.starts_with(existing.as_str()) || existing.starts_with(text.as_str())
+                }
+                _ => false,
+            });
+        if same_block {
+            if let Some(MessagePart::Text { text: existing }) = message.parts.last_mut() {
+                *existing = text;
+            }
+            return;
+        }
+        message.parts.push(MessagePart::Text { text });
+        return;
+    }
+    if message.id == message_id {
+        if let Some(MessagePart::Text { text: existing }) = message
+            .parts
+            .iter_mut()
+            .rev()
+            .find(|part| matches!(part, MessagePart::Text { .. }))
+        {
+            *existing = text;
+            return;
+        }
+    }
+    message.parts.push(MessagePart::Text { text });
 }
 
 struct TurnTiming {
@@ -1449,6 +1510,70 @@ pub struct CreateAgentChatRequest {
     pub permission_mode: Option<String>,
     pub fast: Option<String>,
     pub title: Option<String>,
+}
+
+#[cfg(test)]
+mod assistant_part_order_tests {
+    use super::{apply_assistant_text_part, order_assistant_parts, FoldedMessage, MessagePart};
+
+    fn text(value: &str) -> MessagePart {
+        MessagePart::Text {
+            text: value.to_string(),
+        }
+    }
+
+    fn thinking(value: &str) -> MessagePart {
+        MessagePart::Thinking {
+            text: value.to_string(),
+            tool_call_id: None,
+            duration_ms: None,
+        }
+    }
+
+    #[test]
+    fn moves_leading_answer_after_process() {
+        let ordered = order_assistant_parts(vec![text("final"), thinking("hmm")]);
+        match &ordered[..] {
+            [MessagePart::Thinking { text: think, .. }, MessagePart::Text { text: answer }] => {
+                assert_eq!(think, "hmm");
+                assert_eq!(answer, "final");
+            }
+            other => panic!("unexpected parts: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn keeps_interleaved_mid_text_before_trailing_answer() {
+        let ordered = order_assistant_parts(vec![text("mid"), thinking("hmm"), text("final")]);
+        match &ordered[..] {
+            [MessagePart::Text { text: mid }, MessagePart::Thinking { .. }, MessagePart::Text { text: answer }] =>
+            {
+                assert_eq!(mid, "mid");
+                assert_eq!(answer, "final");
+            }
+            other => panic!("unexpected parts: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn new_message_id_after_process_appends_text() {
+        let mut message = FoldedMessage {
+            id: "a1".into(),
+            role: "assistant".into(),
+            parts: vec![text("looking"), thinking("hmm")],
+            created_at: chrono::Utc::now(),
+            ..Default::default()
+        };
+        apply_assistant_text_part(&mut message, "a2", "final".into());
+        match &message.parts[..] {
+            [MessagePart::Text { text: mid }, MessagePart::Thinking { .. }, MessagePart::Text { text: answer }] =>
+            {
+                assert_eq!(mid, "looking");
+                assert_eq!(answer, "final");
+            }
+            other => panic!("unexpected parts: {other:?}"),
+        }
+    }
 }
 
 #[cfg(test)]

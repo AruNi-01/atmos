@@ -1,10 +1,14 @@
 "use client";
 
+import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { Terminal } from "lucide-react";
+import { SquareTerminal, Terminal } from "lucide-react";
 import {
   AcpTerminal,
   AcpTerminalContent,
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -12,6 +16,7 @@ import {
 import type { AgentToolCallPart } from "@/features/agent/lib/agent-tool-kind";
 import { displayBackgroundCommand } from "@/features/agent/lib/agent/background-command";
 import { AgentCommandLine } from "./AgentCommandLine";
+import { ComposerCollapseGlyph } from "./composer-collapse-glyph";
 import { cn } from "@/shared/lib/utils";
 
 function commandFor(part: AgentToolCallPart): string {
@@ -37,75 +42,86 @@ export function BackgroundCommandsDock({
   tools: AgentToolCallPart[];
 }) {
   const t = useTranslations("Agent.components.backgroundCommands");
+  const [isOpen, setIsOpen] = useState(true);
   if (tools.length === 0) return null;
 
   return (
-    <div className="w-full">
-      <div className="flex items-center gap-2 px-3 py-1.5">
-        <span className="text-sm font-medium text-foreground/90">{t("title")}</span>
-        <span className="text-xs text-muted-foreground">{t("runningCount", { count: tools.length })}</span>
-      </div>
-      <ul className="px-1.5 pb-1.5">
-        {tools.map((part) => {
-          const command = commandFor(part);
-          const output = outputFor(part);
-          const label = displayBackgroundCommand(part) || command;
-          const preview = lastOutputLine(output);
-          return (
-            <li key={part.tool_call_id}>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <button
-                    type="button"
-                    className="flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-1 text-left hover:bg-muted/50"
-                    aria-label={t("commandAria")}
-                  >
-                    <span className="relative flex size-4 shrink-0 items-center justify-center text-muted-foreground">
-                      <Terminal className="size-3.5" />
-                      <span className="absolute -right-0.5 -top-0.5 size-1.5 rounded-full bg-emerald-500" />
-                    </span>
-                    <span className="min-w-0 flex-1 truncate font-mono text-xs text-foreground/80">
-                      {preview ? `${label} · ${preview}` : label}
-                    </span>
-                    <span className="shrink-0 text-[11px] text-muted-foreground">{t("running")}</span>
-                  </button>
-                </PopoverTrigger>
-                <PopoverContent
-                  align="start"
-                  side="top"
-                  className="w-[min(32rem,calc(100vw-2rem))] overflow-hidden p-0"
-                >
-                  <div className="max-h-80 overflow-y-auto">
-                    {command ? (
-                      <AgentCommandLine
-                        command={command}
-                        className={cn("px-3 pt-2.5", !output && "pb-2.5")}
-                      />
-                    ) : null}
-                    {output ? (
-                      <AcpTerminal
-                        output={output}
-                        isStreaming
-                        autoScroll
-                        className="rounded-none border-0 bg-transparent text-inherit shadow-none"
+    <div className="bg-background">
+      <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+        <CollapsibleTrigger asChild>
+          <div className="group flex cursor-pointer items-center gap-2 px-3 py-1.5 hover:bg-muted/10">
+            <ComposerCollapseGlyph icon={SquareTerminal} collapsed={!isOpen} />
+            <span className="text-sm font-medium text-foreground/90">{t("title")}</span>
+            <div className="flex-1" />
+            <span className="mr-1 text-sm text-muted-foreground">
+              {t("runningCount", { count: tools.length })}
+            </span>
+          </div>
+        </CollapsibleTrigger>
+        <CollapsibleContent className="motion-reduce:data-[state=closed]:animate-none motion-reduce:data-[state=open]:animate-none">
+          <ul className="px-1.5 pb-1">
+            {tools.map((part) => {
+              const command = commandFor(part);
+              const output = outputFor(part);
+              const label = displayBackgroundCommand(part) || command;
+              const preview = lastOutputLine(output);
+              return (
+                <li key={part.tool_call_id}>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <button
+                        type="button"
+                        className="flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-1 text-left hover:bg-muted/50"
+                        aria-label={t("commandAria")}
                       >
-                        <AcpTerminalContent
-                          className={cn(
-                            "max-h-none overflow-visible p-0 px-3 pb-2.5 pt-1 text-[13px] leading-5 text-muted-foreground",
-                            !command && "pt-2.5",
-                          )}
-                        />
-                      </AcpTerminal>
-                    ) : (
-                      <p className="px-3 py-2 text-xs text-muted-foreground">{t("emptyOutput")}</p>
-                    )}
-                  </div>
-                </PopoverContent>
-              </Popover>
-            </li>
-          );
-        })}
-      </ul>
+                        <span className="relative flex size-4 shrink-0 items-center justify-center text-muted-foreground">
+                          <Terminal className="size-3.5" />
+                          <span className="absolute -right-0.5 -top-0.5 size-1.5 rounded-full bg-emerald-500" />
+                        </span>
+                        <span className="min-w-0 flex-1 truncate font-mono text-xs text-foreground/80">
+                          {preview ? `${label} · ${preview}` : label}
+                        </span>
+                        <span className="shrink-0 text-[11px] text-muted-foreground">{t("running")}</span>
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent
+                      align="start"
+                      side="top"
+                      className="w-[min(32rem,calc(100vw-2rem))] overflow-hidden p-0"
+                    >
+                      <div className="max-h-80 overflow-y-auto">
+                        {command ? (
+                          <AgentCommandLine
+                            command={command}
+                            className={cn("px-3 pt-2.5", !output && "pb-2.5")}
+                          />
+                        ) : null}
+                        {output ? (
+                          <AcpTerminal
+                            output={output}
+                            isStreaming
+                            autoScroll
+                            className="rounded-none border-0 bg-transparent text-inherit shadow-none"
+                          >
+                            <AcpTerminalContent
+                              className={cn(
+                                "max-h-none overflow-visible p-0 px-3 pb-2.5 pt-1 text-[13px] leading-5 text-muted-foreground",
+                                !command && "pt-2.5",
+                              )}
+                            />
+                          </AcpTerminal>
+                        ) : (
+                          <p className="px-3 py-2 text-xs text-muted-foreground">{t("emptyOutput")}</p>
+                        )}
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                </li>
+              );
+            })}
+          </ul>
+        </CollapsibleContent>
+      </Collapsible>
     </div>
   );
 }

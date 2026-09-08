@@ -20,6 +20,7 @@ describe("composer config defer-until-send", () => {
     expect(body).toContain('setThinkingId(value)');
     expect(body).toContain('setFastId(value)');
     expect(body).toContain("persistNewSessionPreferences");
+    expect(body).toContain("rememberComposerChromeDraft");
     expect(body).not.toContain("persistConfig");
   });
 
@@ -40,6 +41,16 @@ describe("composer config defer-until-send", () => {
     const body = session.slice(start, end);
     expect(body).toContain("void persistConfig({");
     expect(body).toContain("provider_id: next");
+  });
+
+  it("keeps landing composer chrome when hydrating an empty chat", () => {
+    const start = session.indexOf("const load = useCallback");
+    const end = session.indexOf("const persistNewSessionPreferences", start);
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    const body = session.slice(start, end);
+    expect(body).toContain("const keepComposerChrome = loadedMessages.length === 0");
+    expect(body).toContain("applyDescriptor(meta.descriptor, { keepComposerChrome })");
   });
 
   it("does not write last New Chat config from eager tab create", () => {

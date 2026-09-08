@@ -18,15 +18,16 @@ use crate::error::Result;
 
 use super::store::AgentChatStore;
 use super::types::{
-    advertised_option_for_kind, apply_context_usage, config_kind_matches, config_values_equal,
-    elapsed_ms, keep_pending_session_selection, map_advertised_select_value, merge_session_usage,
-    order_assistant_parts, parse_session_usage, parse_turn_usage, pending_fast_change,
-    pending_permission_mode_change, pending_session_config_change, pending_thinking_change,
-    resolve_session_config_select, AgentChatEvent, AgentChatMeta, AgentChatPayload,
-    AgentChatSessionOpOutcome, AgentChatSnapshot, FoldedMessage, MessagePart, PendingPermission,
-    PendingSessionOp, ResolvedSessionConfig, RuntimeStatus, SessionAdvertisedOption,
-    SessionAdvertisedOptionValue, SessionConfigChange, SessionHintTone, TranscriptEnvelope,
-    TranscriptEvent, TurnStatus, SESSION_HINT_MODEL_SWITCH_FAILED, SESSION_HINT_MODE_SWITCH_FAILED,
+    advertised_option_for_kind, apply_assistant_text_part, apply_context_usage,
+    config_kind_matches, config_values_equal, elapsed_ms, keep_pending_session_selection,
+    map_advertised_select_value, merge_session_usage, order_assistant_parts, parse_session_usage,
+    parse_turn_usage, pending_fast_change, pending_permission_mode_change,
+    pending_session_config_change, pending_thinking_change, resolve_session_config_select,
+    AgentChatEvent, AgentChatMeta, AgentChatPayload, AgentChatSessionOpOutcome, AgentChatSnapshot,
+    FoldedMessage, MessagePart, PendingPermission, PendingSessionOp, ResolvedSessionConfig,
+    RuntimeStatus, SessionAdvertisedOption, SessionAdvertisedOptionValue, SessionConfigChange,
+    SessionHintTone, TranscriptEnvelope, TranscriptEvent, TurnStatus,
+    SESSION_HINT_MODEL_SWITCH_FAILED, SESSION_HINT_MODE_SWITCH_FAILED,
 };
 
 pub(super) const ASSISTANT_SNAPSHOT_INTERVAL: Duration = Duration::from_millis(100);
@@ -34,6 +35,9 @@ pub(super) const RECENT_EVENT_CAP: usize = 2048;
 
 pub(super) struct RuntimeState {
     pub(super) current_turn_id: Option<String>,
+    /// Survives `TurnCompleted` so Grok background-wakeup streams (no live
+    /// prompt) attach to the user turn instead of `turn_id=unknown`.
+    pub(super) last_turn_id: Option<String>,
     pub(super) pending_permission: Option<PendingPermission>,
     pub(super) pending_session_op: Option<PendingSessionOp>,
     pub(super) assistant_text: HashMap<String, (String, String)>,
@@ -49,12 +53,27 @@ pub(super) struct RuntimeState {
 
 impl RuntimeState {
     pub(super) fn begin_turn(&mut self, turn_id: String, started_at: chrono::DateTime<Utc>) {
-        self.current_turn_id = Some(turn_id);
+        self.current_turn_id = Some(turn_id.clone());
+        self.last_turn_id = Some(turn_id);
         self.turn_started_at = Some(started_at);
         self.thinking_started_at = None;
         self.thinking_ms = 0;
         self.last_thinking_segment_ms = 0;
         self.turn_usage = None;
+    }
+
+    pub(super) fn persist_turn_id(&self, adapter_turn_id: Option<&str>) -> String {
+        const UNKNOWN: &str = "unknown";
+        let usable = |id: &str| {
+            let id = id.trim();
+            (!id.is_empty() && id != UNKNOWN).then(|| id.to_string())
+        };
+        self.current_turn_id
+            .as_deref()
+            .and_then(usable)
+            .or_else(|| adapter_turn_id.and_then(usable))
+            .or_else(|| self.last_turn_id.as_deref().and_then(usable))
+            .unwrap_or_else(|| UNKNOWN.to_string())
     }
 
     fn ensure_turn_clock(&mut self) {
@@ -167,10 +186,7 @@ pub(super) async fn apply_event(
                 let snapshot = {
                     let mut state = state.lock().await;
                     state.close_thinking();
-                    let turn_id = state
-                        .current_turn_id
-                        .clone()
-                        .unwrap_or_else(|| "unknown".into());
+                    let turn_id = state.persist_turn_id(adapter_turn_id.as_deref());
                     {
                         let entry = state
                             .assistant_text
@@ -221,10 +237,7 @@ pub(super) async fn apply_event(
             {
                 let mut state = state.lock().await;
                 state.mark_thinking();
-                let turn_id = state
-                    .current_turn_id
-                    .clone()
-                    .unwrap_or_else(|| "unknown".into());
+                let turn_id = state.persist_turn_id(adapter_turn_id.as_deref());
                 state
                     .thinking_text
                     .entry(message_id.clone())
@@ -240,10 +253,7 @@ pub(super) async fn apply_event(
                 let (turn_id, text) = match state.thinking_text.remove(&message_id) {
                     Some(entry) => entry,
                     None => (
-                        state
-                            .current_turn_id
-                            .clone()
-                            .unwrap_or_else(|| "unknown".into()),
+                        state.persist_turn_id(adapter_turn_id.as_deref()),
                         String::new(),
                     ),
                 };
@@ -283,6 +293,7 @@ pub(super) async fn apply_event(
                 tool_call.clone(),
                 &emit_host,
                 Some(adapter_event_id.clone()),
+                adapter_turn_id.as_deref(),
             )
             .await?;
             emit(AgentChatPayload::ToolCallStarted { tool_call })?;
@@ -295,6 +306,7 @@ pub(super) async fn apply_event(
                 tool_call.clone(),
                 &emit_host,
                 Some(adapter_event_id.clone()),
+                adapter_turn_id.as_deref(),
             )
             .await?;
             emit(AgentChatPayload::ToolCallUpdated { tool_call })?;
@@ -307,6 +319,7 @@ pub(super) async fn apply_event(
                 tool_call.clone(),
                 &emit_host,
                 Some(adapter_event_id.clone()),
+                adapter_turn_id.as_deref(),
             )
             .await?;
             emit(AgentChatPayload::ToolCallCompleted { tool_call })?;
@@ -319,6 +332,7 @@ pub(super) async fn apply_event(
                 tool_call.clone(),
                 &emit_host,
                 Some(adapter_event_id.clone()),
+                adapter_turn_id.as_deref(),
             )
             .await?;
             emit(AgentChatPayload::ToolCallFailed { tool_call, error })?;
@@ -328,9 +342,7 @@ pub(super) async fn apply_event(
             let turn_id = state
                 .lock()
                 .await
-                .current_turn_id
-                .clone()
-                .unwrap_or_else(|| "unknown".into());
+                .persist_turn_id(adapter_turn_id.as_deref());
             store.append_record(
                 chat_id,
                 &TranscriptEnvelope::with_id(
@@ -346,9 +358,7 @@ pub(super) async fn apply_event(
             let turn_id = state
                 .lock()
                 .await
-                .current_turn_id
-                .clone()
-                .unwrap_or_else(|| "unknown".into());
+                .persist_turn_id(adapter_turn_id.as_deref());
             let pending = PendingPermission {
                 request_id: request.request_id,
                 tool: request.tool,
@@ -382,9 +392,7 @@ pub(super) async fn apply_event(
             let turn_id = state
                 .lock()
                 .await
-                .current_turn_id
-                .clone()
-                .unwrap_or_else(|| "unknown".into());
+                .persist_turn_id(adapter_turn_id.as_deref());
             let mut resolved = state.lock().await.pending_permission.clone().unwrap_or(
                 super::types::PendingPermission {
                     request_id: request_id.clone(),
@@ -549,13 +557,13 @@ pub(super) async fn apply_event(
             if let Some(turn) = turn.clone() {
                 let mut state = state.lock().await;
                 state.turn_usage = Some(turn.clone());
-                let turn_id = state.current_turn_id.clone();
+                let turn_id = state.persist_turn_id(adapter_turn_id.as_deref());
                 drop(state);
                 store.append_record(
                     chat_id,
                     &TranscriptEnvelope::with_id(
                         adapter_event_id.clone(),
-                        turn_id.unwrap_or_else(|| "unknown".into()),
+                        turn_id,
                         TranscriptEvent::Usage {
                             usage: serde_json::to_value(&turn).unwrap_or(usage.clone()),
                         },
@@ -1033,14 +1041,10 @@ async fn persist_tool(
     tool: AgentTool,
     emit: &impl Fn(AgentChatPayload) -> Result<()>,
     persist_event_id: Option<String>,
+    adapter_turn_id: Option<&str>,
 ) -> Result<()> {
     flush_open_thinking(store, state, chat_id, emit).await?;
-    let turn_id = state
-        .lock()
-        .await
-        .current_turn_id
-        .clone()
-        .unwrap_or_else(|| "unknown".into());
+    let turn_id = state.lock().await.persist_turn_id(adapter_turn_id);
     let envelope = match persist_event_id {
         Some(event_id) => {
             TranscriptEnvelope::with_id(event_id, turn_id, TranscriptEvent::ToolCall { tool })
@@ -1316,7 +1320,7 @@ fn overlay_target(messages: &[FoldedMessage], message_id: &str) -> Option<usize>
 
 fn overlay_live_part(messages: &mut Vec<FoldedMessage>, message_id: &str, part: LiveOverlay) {
     if let Some(index) = overlay_target(messages, message_id) {
-        apply_overlay_part(&mut messages[index], part);
+        apply_overlay_part(&mut messages[index], message_id, part);
         return;
     }
     let parts = match &part {
@@ -1338,19 +1342,10 @@ fn overlay_live_part(messages: &mut Vec<FoldedMessage>, message_id: &str, part: 
     });
 }
 
-fn apply_overlay_part(message: &mut FoldedMessage, part: LiveOverlay) {
+fn apply_overlay_part(message: &mut FoldedMessage, message_id: &str, part: LiveOverlay) {
     match part {
         LiveOverlay::Text(text) => {
-            if let Some(MessagePart::Text { text: existing }) = message
-                .parts
-                .iter_mut()
-                .rev()
-                .find(|item| matches!(item, MessagePart::Text { .. }))
-            {
-                *existing = text;
-            } else {
-                message.parts.push(MessagePart::Text { text });
-            }
+            apply_assistant_text_part(message, message_id, text);
         }
         LiveOverlay::Thinking(text) => {
             let open = message.parts.iter_mut().rev().find_map(|item| match item {
@@ -1988,9 +1983,19 @@ mod tests {
         }
     }
 
+    #[test]
+    fn persist_turn_id_falls_back_to_last_turn_after_complete() {
+        let mut state = runtime();
+        state.current_turn_id = None;
+        assert_eq!(state.persist_turn_id(None), "t1");
+        assert_eq!(state.persist_turn_id(Some("unknown")), "t1");
+        assert_eq!(state.persist_turn_id(Some("turn-2")), "turn-2");
+    }
+
     fn runtime() -> RuntimeState {
         RuntimeState {
             current_turn_id: Some("t1".into()),
+            last_turn_id: Some("t1".into()),
             pending_permission: None,
             pending_session_op: None,
             assistant_text: HashMap::new(),
@@ -2095,6 +2100,35 @@ mod tests {
             }] => {
                 assert_eq!(first, "first");
                 assert_eq!(second, "second live");
+            }
+            other => panic!("unexpected parts: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn overlay_appends_new_text_after_tools_instead_of_overwriting() {
+        let mut snapshot = snapshot_with_assistant();
+        snapshot.messages[0].id = "a1".into();
+        snapshot.messages[0].parts = vec![
+            MessagePart::Text {
+                text: "looking".into(),
+            },
+            MessagePart::Thinking {
+                text: "hmm".into(),
+                tool_call_id: None,
+                duration_ms: Some(1_000),
+            },
+        ];
+        let mut state = runtime();
+        state
+            .assistant_text
+            .insert("a2".into(), ("t1".into(), "final".into()));
+        overlay_live_state(&mut snapshot, &state);
+        match &snapshot.messages[0].parts[..] {
+            [MessagePart::Text { text: mid }, MessagePart::Thinking { .. }, MessagePart::Text { text: answer }] =>
+            {
+                assert_eq!(mid, "looking");
+                assert_eq!(answer, "final");
             }
             other => panic!("unexpected parts: {other:?}"),
         }

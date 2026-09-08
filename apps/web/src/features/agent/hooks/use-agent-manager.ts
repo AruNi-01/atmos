@@ -4,7 +4,12 @@ import {
   agentApi,
   type CustomAgent,
   type NativeChatAgent,
+  type RegistryAgent,
 } from "@/api/ws-api";
+import {
+  hasTerminalAgentInstallGuide,
+  nativeChatInstallGuideId,
+} from "@/features/welcome/lib/terminal-agent-install-guides";
 import { toastManager } from "@workspace/ui";
 import {
   useAgentRegistryListQuery,
@@ -35,6 +40,8 @@ export function useAgentManager(query: string) {
   const [preloadingCustomName, setPreloadingCustomName] = React.useState<string | null>(null);
   const [pendingCustomEnabledName, setPendingCustomEnabledName] = React.useState<string | null>(null);
   const [pendingNativeEnabledId, setPendingNativeEnabledId] = React.useState<string | null>(null);
+  const [pendingAcpEnabledId, setPendingAcpEnabledId] = React.useState<string | null>(null);
+  const [cliInstall, setCliInstall] = React.useState<{ id: string; name: string } | null>(null);
   const preloadTokenRef = React.useRef(0);
   const [overwriteDialog, setOverwriteDialog] = React.useState<{
     registryId: string;
@@ -146,6 +153,12 @@ export function useAgentManager(query: string) {
     const { registryId } = overwriteDialog;
     setOverwriteDialog(null);
     await handleInstallRegistry(registryId, true);
+    try {
+      await agentApi.setRegistryAgentEnabled(registryId, true);
+      invalidateRegistry();
+    } catch {
+      // Install already succeeded; picker enable is best-effort.
+    }
   };
 
   const handleRefresh = () => {
@@ -241,6 +254,16 @@ export function useAgentManager(query: string) {
     try {
       await agentApi.setNativeChatAgentEnabled(agent.id, enabled);
       invalidateRegistry();
+      if (!enabled) {
+        setCliInstall((current) => (current && current.name === agent.name ? null : current));
+        return;
+      }
+      if (!agent.cli_present) {
+        const guideId = nativeChatInstallGuideId(agent.id);
+        if (hasTerminalAgentInstallGuide(guideId)) {
+          setCliInstall({ id: guideId, name: agent.name });
+        }
+      }
     } catch (error) {
       toastManager.add({
         title: t("toasts.nativeEnableFailed.title"),
@@ -249,6 +272,34 @@ export function useAgentManager(query: string) {
       });
     } finally {
       setPendingNativeEnabledId((current) => (current === agent.id ? null : current));
+    }
+  };
+
+  const handleSetRegistryAgentEnabled = async (agent: RegistryAgent, enabled: boolean) => {
+    setPendingAcpEnabledId(agent.id);
+    try {
+      if (enabled && !agent.installed) {
+        markRegistryInstalling(agent.id);
+        const result = await agentApi.installRegistry(agent.id);
+        if (result.needs_confirmation && result.overwrite_message) {
+          setOverwriteDialog({ registryId: agent.id, message: result.overwrite_message });
+          return;
+        }
+        if (!result.installed) {
+          throw new Error(result.message || t("unknownError"));
+        }
+      }
+      await agentApi.setRegistryAgentEnabled(agent.id, enabled);
+      invalidateRegistry();
+    } catch (error) {
+      toastManager.add({
+        title: t("toasts.registryEnableFailed.title"),
+        description: error instanceof Error ? error.message : t("unknownError"),
+        type: "error",
+      });
+    } finally {
+      clearRegistryInstalling(agent.id);
+      setPendingAcpEnabledId((current) => (current === agent.id ? null : current));
     }
   };
 
@@ -281,6 +332,9 @@ export function useAgentManager(query: string) {
     preloadingCustomName,
     pendingCustomEnabledName,
     pendingNativeEnabledId,
+    pendingAcpEnabledId,
+    cliInstall,
+    setCliInstall,
     overwriteDialog,
     removeConfirmDialog,
     removeCustomConfirmDialog,
@@ -296,6 +350,7 @@ export function useAgentManager(query: string) {
     handleRemoveCustomAgent,
     handleSetCustomAgentEnabled,
     handleSetNativeChatAgentEnabled,
+    handleSetRegistryAgentEnabled,
     cancelOverwrite,
     cancelRemoveRegistry,
     cancelRemoveCustom,

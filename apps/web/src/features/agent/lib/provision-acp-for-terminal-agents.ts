@@ -17,6 +17,7 @@ export async function provisionAcpForTerminalAgents(
       if (!result.installed) {
         throw new Error(result.message || "install failed");
       }
+      await agentApi.setRegistryAgentEnabled(agent.id, true);
     }),
   );
 

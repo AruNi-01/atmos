@@ -130,6 +130,9 @@ describe("assistant turn file changes wiring", () => {
     expect(card).toContain("isDir: false");
     expect(card).toContain("PREVIEW_COUNT = 3");
     expect(card).toContain("max-h-44");
+    expect(card).toContain("CollapsibleContent");
+    expect(card).toContain("motion-reduce:data-[state=closed]:animate-none");
+    expect(card).toContain("motion-reduce:data-[state=open]:animate-none");
     expect(card).toContain("bg-muted/40");
     expect(card).toContain("w-full");
     expect(card).not.toContain("-mx-");

@@ -525,15 +525,6 @@ export function AgentChatPanel({
       ),
     [chatId, instanceKey, liveChatId, sessionProjectId, sessionWorkspaceId],
   );
-  const threadBannerError = useMemo(() => {
-    const message = error?.trim();
-    if (!message) return null;
-    const alreadyInTranscript = messages.some((item) =>
-      item.parts.some((part) => part.type === "error" && part.message.trim() === message),
-    );
-    return alreadyInTranscript ? null : message;
-  }, [error, messages]);
-
   useEffect(() => {
     if (variant === "standalone") {
       markStandaloneSurfaceOpen(standaloneSurfaceKey);
@@ -996,11 +987,6 @@ export function AgentChatPanel({
                 </span>
               </div>
             )}
-            {threadBannerError && (
-              <div className="rounded-lg border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                {threadBannerError}
-              </div>
-            )}
             {canUseCurrentMode && isConnected && messages.length === 0 && !isConnecting && !isResumingHistory && !error && hasPersistenceHandle && (
               <ConversationEmptyState
                 icon={<MessageSquare className="size-12" />}
@@ -1040,7 +1026,10 @@ export function AgentChatPanel({
               aria-hidden="true"
             />
           </ConversationContent>
-          <ConversationScrollButton aria-label={t("bottom")}>
+          <ConversationScrollButton
+            aria-label={t("bottom")}
+            host={aboveComposerOverlaysNode}
+          >
             <ChevronDown className="size-4" />
           </ConversationScrollButton>
           {!isRestoringTranscript && (
@@ -1059,15 +1048,9 @@ export function AgentChatPanel({
       <div className="relative flex min-h-0 w-full shrink-0 flex-col">
         {isNewChatLanding ? (
           <div className={cn("px-3 pb-14", wideContentClassName)}>
-            {error ? (
-              <div className="rounded-lg border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                {error}
-              </div>
-            ) : (
-              <div className="flex justify-center" aria-hidden="true">
-                <LogoSvg className="h-20 w-auto text-foreground" />
-              </div>
-            )}
+            <div className="flex justify-center" aria-hidden="true">
+              <LogoSvg className="h-20 w-auto text-foreground" />
+            </div>
           </div>
         ) : null}
         <div className={cn("relative z-10 shrink-0", wideContentClassName)}>
@@ -1131,12 +1114,12 @@ export function AgentChatPanel({
               pendingPermission || pendingSessionOp ? (
                 <div
                   data-agent-chat-approval-overlay=""
-                  className="pointer-events-auto relative min-h-0 min-w-0 overflow-hidden"
+                  className="pointer-events-auto relative min-h-0 min-w-0 w-full overflow-hidden"
                 >
                   <div className="pointer-events-none absolute inset-x-0 bottom-0 top-0 -z-10 bg-gradient-to-t from-background via-background/85 to-transparent" />
                   {pendingPermission ? (
-                    <div className="min-h-0 min-w-0 max-h-[80cqh] px-3">
-                      <AgentPermissionCard
+                    <div className="min-h-0 min-w-0 w-full max-h-[80cqh]">
+                      <AgentPermissionCard>
                         permission={pendingPermission}
                         markdown={pendingPermissionMarkdown}
                         planIntent={
@@ -1154,8 +1137,8 @@ export function AgentChatPanel({
                       />
                     </div>
                   ) : pendingSessionOp ? (
-                    <div className="min-h-0 min-w-0 max-h-[50cqh] px-3">
-                      <AgentSessionOpCard
+                    <div className="min-h-0 min-w-0 w-full max-h-[50cqh]">
+                      <AgentSessionOpCard>
                         request={pendingSessionOp}
                         onRespond={handleSessionOp}
                       />

@@ -207,23 +207,33 @@ export function dedupeAgentMessages(messages: AgentMessage[]): AgentMessage[] {
   return result;
 }
 
+function mergeGrowingText(existing: string, next: string): string {
+  if (next.startsWith(existing)) return next;
+  if (existing.startsWith(next)) return existing;
+  return next.length >= existing.length ? next : existing;
+}
+
+function nthTextPartIndex(parts: AgentPart[], n: number): number {
+  let seen = 0;
+  for (let index = 0; index < parts.length; index += 1) {
+    if (parts[index]?.type !== "text") continue;
+    if (seen === n) return index;
+    seen += 1;
+  }
+  return -1;
+}
+
 function mergeSameIdMessages(previous: AgentMessage, incoming: AgentMessage): AgentMessage {
   const parts = [...previous.parts];
+  let textCursor = 0;
   for (const part of incoming.parts) {
     if (part.type === "text") {
-      const index = parts.findIndex((item) => item.type === "text");
+      const index = nthTextPartIndex(parts, textCursor);
+      textCursor += 1;
       if (index >= 0 && parts[index]?.type === "text") {
-        const existing = parts[index].text ?? "";
-        const next = part.text ?? "";
         parts[index] = {
           type: "text",
-          text: next.startsWith(existing)
-            ? next
-            : existing.startsWith(next)
-              ? existing
-              : next.length >= existing.length
-                ? next
-                : existing,
+          text: mergeGrowingText(parts[index].text ?? "", part.text ?? ""),
         };
       } else {
         parts.push(part);
@@ -246,17 +256,9 @@ function mergeSameIdMessages(previous: AgentMessage, incoming: AgentMessage): Ag
         (item) => item.type === "thinking" && item.tool_call_id === part.tool_call_id,
       );
       if (index >= 0 && parts[index]?.type === "thinking") {
-        const existing = parts[index].text ?? "";
-        const next = part.text ?? "";
         parts[index] = {
           ...parts[index],
-          text: next.startsWith(existing)
-            ? next
-            : existing.startsWith(next)
-              ? existing
-              : next.length >= existing.length
-                ? next
-                : existing,
+          text: mergeGrowingText(parts[index].text ?? "", part.text ?? ""),
         };
       } else {
         parts.push(part);
@@ -557,7 +559,8 @@ export function assistantCopyText(message: AgentMessage): string {
 }
 
 export function currentPlanFromMessages(messages: AgentMessage[]): unknown | null {
-  for (let index = messages.length - 1; index >= 0; index -= 1) {
+  const start = lastUserIndex(messages) + 1;
+  for (let index = messages.length - 1; index >= start; index -= 1) {
     const message = messages[index];
     if (message.role !== "assistant") continue;
     for (let partIndex = message.parts.length - 1; partIndex >= 0; partIndex -= 1) {

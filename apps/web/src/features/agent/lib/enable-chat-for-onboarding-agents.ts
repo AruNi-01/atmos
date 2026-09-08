@@ -1,12 +1,13 @@
 import { agentApi } from "@/api/ws-api";
 import {
   DEEPSEEK_HARNESS_ID,
+  acpOnboardingTerminalIds,
   nativeChatHostsForTerminalSelection,
   type NativeChatHostId,
 } from "./custom-agent-registry";
 import { provisionAcpForTerminalAgents } from "./provision-acp-for-terminal-agents";
 
-export { nativeChatHostsForTerminalSelection } from "./custom-agent-registry";
+export { acpOnboardingTerminalIds, nativeChatHostsForTerminalSelection } from "./custom-agent-registry";
 
 export type EnableChatForOnboardingResult = {
   enabledNativeHosts: NativeChatHostId[];
@@ -43,20 +44,27 @@ export async function enableChatForOnboardingAgents(options: {
   };
 
   report("native", 1);
-  const enabledNativeHosts = nativeChatHostsForTerminalSelection(
+  const wantedNativeHosts = nativeChatHostsForTerminalSelection(
     options.selectedTerminalIds,
+  );
+  const listedNatives = await agentApi.listNativeChatAgents().catch(() => ({
+    agents: [] as Array<{ id: string; cli_present: boolean }>,
+  }));
+  const nativeHostsWithCli = wantedNativeHosts.filter((id) =>
+    listedNatives.agents.some((agent) => agent.id === id && agent.cli_present),
   );
 
   const nativeResults = await Promise.allSettled(
-    enabledNativeHosts.map((id) => agentApi.setNativeChatAgentEnabled(id, true)),
+    nativeHostsWithCli.map((id) => agentApi.setNativeChatAgentEnabled(id, true)),
   );
-  const nativeFailed = enabledNativeHosts.filter(
+  const nativeFailed = nativeHostsWithCli.filter(
     (_, index) => nativeResults[index]?.status === "rejected",
   );
+  const enabledNativeHosts = nativeHostsWithCli.filter((id) => !nativeFailed.includes(id));
 
   report("acp", 2);
   const { failed: acpFailed } = await provisionAcpForTerminalAgents(
-    options.selectedTerminalIds,
+    acpOnboardingTerminalIds(options.selectedTerminalIds, enabledNativeHosts),
   );
 
   let deepseekFailed = false;
@@ -75,7 +83,7 @@ export async function enableChatForOnboardingAgents(options: {
   }
 
   return {
-    enabledNativeHosts: enabledNativeHosts.filter((id) => !nativeFailed.includes(id)),
+    enabledNativeHosts,
     acpFailed: [...acpFailed, ...nativeFailed],
     deepseekFailed,
   };

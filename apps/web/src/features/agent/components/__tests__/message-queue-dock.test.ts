@@ -36,13 +36,22 @@ describe("message queue dock", () => {
     expect(dock).toContain("CollapsibleTrigger");
     expect(dock).toContain("CollapsibleContent");
     expect(dock).toContain("ListOrdered");
-    expect(dock).toContain("ChevronDown");
-    expect(dock).toContain("group-hover:opacity-0");
-    expect(dock).toContain("group-hover:opacity-100");
-    expect(dock).toContain("group-data-[state=closed]:-rotate-90");
-    expect(dock).toContain("motion-reduce:transition-none");
+    expect(dock).toContain("ComposerCollapseGlyph");
+    expect(dock).toContain("collapsed={!isOpen}");
     expect(dock).toContain(
       "motion-reduce:data-[state=closed]:animate-none motion-reduce:data-[state=open]:animate-none",
     );
+  });
+
+  it("exposes a fly-to target for composer send animation", () => {
+    expect(dock).toContain('data-agent-message-queue=""');
+  });
+
+  it("keeps edit and delete actions visible on queue items", () => {
+    expect(dock).toContain("Pencil");
+    expect(dock).toContain("Trash2");
+    expect(dock).not.toContain("setIsHovered");
+    expect(dock).not.toContain("pointer-events-none opacity-0");
+    expect(dock).not.toContain("showActions");
   });
 });

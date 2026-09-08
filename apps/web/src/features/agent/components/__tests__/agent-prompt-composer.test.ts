@@ -58,10 +58,18 @@ describe("agent prompt composer", () => {
     expect(composer).toContain("onAgentChange={onProviderChange}");
     expect(composer).toContain('radius="3xl"');
     expect(composer).toContain('"w-full shadow-none"');
-    expect(composer).not.toContain("rounded-t-none");
-    expect(composer).toContain("mx-6 overflow-hidden rounded-3xl border border-border/70 bg-background/95");
+    expect(composer).toContain("joinUpperCards && \"!rounded-t-none border-t-0\"");
+    expect(composer).toContain("overflow-hidden rounded-t-3xl border border-border/70 border-b-0 bg-background/95");
+    expect(composer).toContain("ComposerFlyingMessagePortal");
+    expect(composer).toContain("launchComposerFly");
+    expect(composer).toContain('agentActivity.busy ? "queue" : "conversation"');
+    expect(composer).toContain("data-agent-composer-upper-cards");
+    expect(composer).toContain("<BackgroundCommandsDock tools={backgroundTools} />");
     expect(composer).toContain('data-agent-chat-above-composer-overlays=""');
-    expect(composer).not.toContain("rounded-t-3xl border border-border/70 border-b-0");
+    expect(composer).toContain(
+      '"pointer-events-none absolute inset-x-0 bottom-full z-20 flex w-full flex-col gap-2 has-[*]:pb-2"',
+    );
+    expect(composer).not.toContain("mx-6 overflow-hidden rounded-3xl border border-border/70 bg-background/95");
     expect(composer).toContain("modelsLocked={modelsLocked}");
     expect(composer).toContain("modesLocked={modesLocked}");
     expect(composer).toContain('modelLocked: t("composer.modelLocked")');
@@ -112,6 +120,23 @@ describe("agent prompt composer", () => {
     expect(composer).toContain("hasAgentContextDragData");
     expect(composer).toContain("getAgentContextDragItems");
     expect(composer).toContain("insertFileMention");
+  });
+
+  it("clears composer attachments before waiting for send", () => {
+    const start = composer.indexOf("onSubmit={async (text) => {");
+    const end = composer.indexOf("onStop={", start);
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    const body = composer.slice(start, end);
+    const convertAt = body.indexOf("filesForSubmit(files)");
+    const clearAt = body.indexOf("attachments.clear()");
+    const submitAt = body.indexOf("await onSubmit({ text: composed, files: converted })");
+    expect(convertAt).toBeGreaterThan(-1);
+    expect(clearAt).toBeGreaterThan(convertAt);
+    expect(submitAt).toBeGreaterThan(clearAt);
+    expect(body).toContain("onFlySend?.(composed)");
+    expect(body.indexOf("onFlySend?.(composed)")).toBeLessThan(clearAt);
+    expect(body).toContain("filesFromComposerParts(converted)");
   });
 
   it("edits queued messages in the prompt input without replacing the stashed draft", () => {
