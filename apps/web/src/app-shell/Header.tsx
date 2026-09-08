@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useQueryState } from "nuqs";
 import { useContextParams } from "@/shared/hooks/use-context-params";
@@ -22,7 +22,6 @@ import { useGitInfoStore } from '@/features/git/store/use-git-info-store';
 import { useGitStatusQuery } from '@/features/git/hooks/use-git-status-query';
 import { useGitBranchesQuery } from '@/features/git/hooks/use-git-branches-query';
 import { invalidateGitQueries } from '@/features/git/hooks/use-git-changed-files-query';
-import { useGithubPRList } from '@/features/github/hooks/use-github';
 import { useProjectStore } from '@/features/project/store/use-project-store';
 import { useProjects } from '@/features/project/hooks/use-project-bootstrap-query';
 import { useDialogStore } from '@/app-shell/state/use-dialog-store';
@@ -44,7 +43,6 @@ import { isDesktopRuntime as detectDesktopShell } from '@/shared/lib/desktop-run
 import { useTunnelConnector } from '@/features/connection/hooks/use-tunnel-connector';
 import { useSidebarLayout } from '@/app-shell/SidebarLayoutContext';
 import { APP_HEADER_HEIGHT_CLASS } from '@/app-shell/sidebar-layout-constants';
-import { useWebSocketStore } from '@/features/connection/hooks/use-websocket';
 import {
   ChevronLeft,
   ChevronRight,
@@ -61,7 +59,6 @@ import { CenterSpaceSwitcher } from "@/app-shell/center-space/CenterSpaceSwitche
 import { HeaderGitContext } from './header-git-context';
 import { useHeaderFullscreen } from './use-header-fullscreen';
 import { useHeaderHotkeys } from './use-header-hotkeys';
-import { useOpenGithubCenterTab } from '@/features/github/hooks/use-open-github-center-tab';
 import { settingsHref } from '@/features/settings/lib/open-settings';
 import { panelFoldCursorClass } from "@/shared/lib/panel-fold";
 
@@ -102,10 +99,6 @@ const Header: React.FC = () => {
     setTargetBranch,
   } = useGitInfoStore();
 
-  const { openPullRequestTab } = useOpenGithubCenterTab();
-
-  const onWsEvent = useWebSocketStore(s => s.onEvent);
-
   // Find current project based on workspaceId OR projectId
   const currentProject = projects.find(p =>
     (currentWorkspaceId && p.workspaces.some(w => w.id === currentWorkspaceId)) ||
@@ -125,42 +118,6 @@ const Header: React.FC = () => {
 
   const statusQuery = useGitStatusQuery(headerRepoPath);
   const currentBranch = statusQuery.data?.current_branch ?? null;
-  const githubOwner = statusQuery.data?.github_owner ?? null;
-  const githubRepo = statusQuery.data?.github_repo ?? null;
-
-  const { data: prListData, refresh: refreshHeaderPrList } = useGithubPRList({
-    owner: githubOwner ?? undefined,
-    repo: githubRepo ?? undefined,
-    branch: currentBranch ?? undefined,
-    state: 'all',
-    enabled: showHeaderGitToolbar,
-  });
-  // Find the most recent PR (highest number) whose head branch matches current branch
-  const currentBranchPR = useMemo(() => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const matches = (prListData as any[] | null)?.filter((pr: any) => pr.headRefName === currentBranch) ?? [];
-    if (matches.length === 0) return null;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return matches.reduce((latest: any, pr: any) => pr.number > latest.number ? pr : latest, matches[0]);
-  }, [prListData, currentBranch]);
-  const prIconRef = useRef<{ startAnimation: () => void; stopAnimation: () => void } | null>(null);
-
-  useEffect(() => {
-    return onWsEvent('github_branch_pr_status_refreshed', (data: unknown) => {
-      const payload = data as {
-        owner?: string;
-        repo?: string;
-        branch?: string;
-      } | null;
-
-      if (!payload) return;
-      if (payload.owner !== githubOwner) return;
-      if (payload.repo !== githubRepo) return;
-      if (payload.branch !== currentBranch) return;
-
-      void refreshHeaderPrList();
-    });
-  }, [onWsEvent, githubOwner, githubRepo, currentBranch, refreshHeaderPrList]);
 
   const hasUncommittedChanges = statusQuery.data?.has_uncommitted_changes ?? false;
   const hasUnpushedCommits = statusQuery.data?.has_unpushed_commits ?? false;
@@ -555,7 +512,7 @@ const Header: React.FC = () => {
           {showHeaderGitToolbar && (
             <HeaderGitContext
               branchSyncState={branchSyncState}
-              currentBranchPR={currentBranchPR}
+              currentBranch={currentBranch}
               currentProject={currentProject}
               currentWorkspace={currentWorkspace}
               displayCurrentBranch={displayCurrentBranch}
@@ -568,20 +525,10 @@ const Header: React.FC = () => {
               isLoadingBranches={isLoadingBranches}
               isTargetBranchOpen={isTargetBranchOpen}
               onCancelEditCurrentBranch={handleCancelEditCurrentBranch}
-              onOpenPr={(prNumber, prTitle) => {
-                if (!currentBranch || !githubOwner || !githubRepo) return;
-                openPullRequestTab({
-                  branch: currentBranch,
-                  owner: githubOwner,
-                  prNumber,
-                  repo: githubRepo,
-                  title: prTitle,
-                });
-              }}
               onRefreshChangedFiles={refreshGitStatus}
               onSaveCurrentBranch={handleSaveCurrentBranch}
               onSetTargetBranch={setTargetBranch}
-              prIconRef={prIconRef}
+              repoPath={headerRepoPath}
               setEditedCurrentBranch={setEditedCurrentBranch}
               setIsEditingCurrentBranch={setIsEditingCurrentBranch}
               setIsTargetBranchOpen={setIsTargetBranchOpen}

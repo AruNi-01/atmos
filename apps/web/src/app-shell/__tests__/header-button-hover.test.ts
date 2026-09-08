@@ -37,6 +37,19 @@ describe("header button hover", () => {
     );
   });
 
+  it("reuses the workspace PR lifecycle icon in header git context", () => {
+    const git = read("../header-git-context.tsx");
+    const header = read("../Header.tsx");
+    expect(git).toContain("WorkspacePrLifecycleIcon");
+    expect(git).toContain("useWorkspacePrStatus");
+    expect(git).toContain("managedPr.checksTone");
+    expect(git).not.toContain("GitPullRequestCreateIcon");
+    expect(git).not.toContain("GitPullRequestClosedIcon");
+    expect(header).not.toContain("useGithubPRList");
+    expect(header).not.toContain("prIconRef");
+    expect(header).not.toContain("currentBranchPR");
+  });
+
   it("makes chrome icon buttons instant, without a color fade", () => {
     const header = read("../Header.tsx");
     expect(header).toContain("hover:bg-accent hover:text-accent-foreground");
