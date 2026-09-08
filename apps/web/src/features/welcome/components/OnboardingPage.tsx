@@ -14,7 +14,6 @@ import {
   ParticleField,
   TabsSubtle,
   TabsSubtleItem,
-  toastManager,
 } from '@workspace/ui';
 import {
   CheckCircle2,
@@ -26,6 +25,7 @@ import {
   Sparkles,
   Loader2,
   Bot,
+  MessagesSquare,
   PlaneLanding,
   Gauge,
   KeyRound,
@@ -73,7 +73,7 @@ import {
   setAgentYoloMode,
 } from '@/features/agent/lib/terminal-agent-yolo';
 import { DEEPSEEK_HARNESS_ID } from '@/features/agent/lib/custom-agent-registry';
-import { enableChatForOnboardingAgents } from '@/features/agent/lib/enable-chat-for-onboarding-agents';
+import { startOnboardingChatSetup } from '@/features/welcome/lib/start-onboarding-chat-setup';
 
 interface OnboardingPageProps {
   onComplete: () => void;
@@ -352,30 +352,14 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
       if (agentStatuses.length > 0) {
         await persistAgentPreferences();
       }
-      // Chat enable: Native → ACP provision → optional DeepSeek (even if no terminal CLIs).
+      // Chat enable runs in the background so continue is not blocked on ACP
+      // downloads / DeepSeek preload. Status lives in a bottom-right toast.
       if (agentStatuses.length > 0 || deepseekSelected) {
-        try {
-          const { acpFailed, deepseekFailed } = await enableChatForOnboardingAgents({
-            selectedTerminalIds: selectedAgentIds,
-            enableDeepSeek: deepseekSelected,
-          });
-          const failedNames = [...acpFailed];
-          if (deepseekFailed) failedNames.push('DeepSeek Harness');
-          if (failedNames.length > 0) {
-            toastManager.add({
-              title: t('agents.provisionFailedTitle'),
-              description: t('agents.provisionFailed', { names: failedNames.join(', ') }),
-              type: 'error',
-            });
-          }
-        } catch (err) {
-          console.error('Failed to enable Agent Chat providers:', err);
-          toastManager.add({
-            title: t('agents.provisionFailedTitle'),
-            description: t('agents.provisionFailedGeneric'),
-            type: 'error',
-          });
-        }
+        void startOnboardingChatSetup({
+          selectedTerminalIds: selectedAgentIds,
+          enableDeepSeek: deepseekSelected,
+          t,
+        });
       }
       // Next: Quota Usage opt-in (Keychain / cookie probe only happens there).
       setCurrentStep('quota');
@@ -998,7 +982,7 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
                           <div className="relative h-8 w-[7.5rem] shrink-0">
                             <div className="absolute inset-0 flex items-center justify-end">
                               <span className="inline-flex items-center gap-1 text-[11px] font-medium whitespace-nowrap text-muted-foreground/70">
-                                <Bot className="size-3.5 shrink-0" />
+                                <MessagesSquare className="size-3.5 shrink-0" />
                                 {t('agents.deepseek.chatOnly')}
                               </span>
                             </div>

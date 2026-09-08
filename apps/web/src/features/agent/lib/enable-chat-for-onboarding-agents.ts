@@ -14,6 +14,14 @@ export type EnableChatForOnboardingResult = {
   deepseekFailed: boolean;
 };
 
+export type OnboardingChatSetupStep = "native" | "acp" | "deepseek";
+
+export type OnboardingChatSetupProgress = {
+  step: OnboardingChatSetupStep;
+  current: number;
+  total: number;
+};
+
 /**
  * Onboarding → Chat enable pipeline:
  * 1. Native Chat hosts for selected terminal families (switch on)
@@ -26,7 +34,15 @@ export type EnableChatForOnboardingResult = {
 export async function enableChatForOnboardingAgents(options: {
   selectedTerminalIds: Iterable<string>;
   enableDeepSeek?: boolean;
+  onProgress?: (progress: OnboardingChatSetupProgress) => void;
 }): Promise<EnableChatForOnboardingResult> {
+  const includeDeepSeek = Boolean(options.enableDeepSeek);
+  const total = includeDeepSeek ? 3 : 2;
+  const report = (step: OnboardingChatSetupStep, current: number) => {
+    options.onProgress?.({ step, current, total });
+  };
+
+  report("native", 1);
   const enabledNativeHosts = nativeChatHostsForTerminalSelection(
     options.selectedTerminalIds,
   );
@@ -38,12 +54,14 @@ export async function enableChatForOnboardingAgents(options: {
     (_, index) => nativeResults[index]?.status === "rejected",
   );
 
+  report("acp", 2);
   const { failed: acpFailed } = await provisionAcpForTerminalAgents(
     options.selectedTerminalIds,
   );
 
   let deepseekFailed = false;
-  if (options.enableDeepSeek) {
+  if (includeDeepSeek) {
+    report("deepseek", 3);
     try {
       await agentApi.setCustomAgentEnabled(DEEPSEEK_HARNESS_ID, true);
       try {

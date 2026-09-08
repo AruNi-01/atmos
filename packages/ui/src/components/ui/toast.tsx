@@ -33,6 +33,42 @@ type ToastPosition =
   | "bottom-center"
   | "bottom-right";
 
+type ToastCustomData = {
+  actions?: ReactNode;
+  titlePrefix?: ReactNode;
+  tooltipStyle?: boolean;
+  /** 0–1 fill for a loading toast progress bar. */
+  progress?: number;
+};
+
+function toastProgressValue(
+  type: string | undefined,
+  data: ToastCustomData | undefined,
+): number | null {
+  if (type !== "loading") return null;
+  const value = data?.progress;
+  if (typeof value !== "number" || !Number.isFinite(value)) return null;
+  return Math.min(1, Math.max(0, value));
+}
+
+function ToastProgressBar({ progress }: { progress: number }) {
+  const percent = Math.round(progress * 100);
+  return (
+    <div
+      aria-valuemax={100}
+      aria-valuemin={0}
+      aria-valuenow={percent}
+      className="pointer-events-none absolute inset-x-0 bottom-0 h-0.5 overflow-hidden rounded-b-lg bg-muted/80"
+      role="progressbar"
+    >
+      <div
+        className="h-full bg-foreground/70 transition-[width] duration-300 ease-out"
+        style={{ width: `${percent}%` }}
+      />
+    </div>
+  );
+}
+
 interface ToastProviderProps extends Toast.Provider.Props {
   position?: ToastPosition;
 }
@@ -74,11 +110,10 @@ function Toasts({ position = "bottom-right" }: { position: ToastPosition }) {
           const Icon = toast.type
             ? TOAST_ICONS[toast.type as keyof typeof TOAST_ICONS]
             : null;
-          const customData = toast.data as
-            | { actions?: ReactNode; titlePrefix?: ReactNode }
-            | undefined;
+          const customData = toast.data as ToastCustomData | undefined;
           const customActions = customData?.actions ?? null;
           const titlePrefix = customData?.titlePrefix ?? null;
+          const progress = toastProgressValue(toast.type, customData);
 
           return (
             <Toast.Root
@@ -182,6 +217,7 @@ function Toasts({ position = "bottom-right" }: { position: ToastPosition }) {
                   </Toast.Action>
                 ) : null}
               </Toast.Content>
+              {progress != null ? <ToastProgressBar progress={progress} /> : null}
             </Toast.Root>
           );
         })}
@@ -221,9 +257,7 @@ function AnchoredToasts() {
           const Icon = toast.type
             ? TOAST_ICONS[toast.type as keyof typeof TOAST_ICONS]
             : null;
-          const customData = toast.data as
-            | { actions?: ReactNode; titlePrefix?: ReactNode; tooltipStyle?: boolean }
-            | undefined;
+          const customData = toast.data as ToastCustomData | undefined;
           const customActions = customData?.actions ?? null;
           const titlePrefix = customData?.titlePrefix ?? null;
           const tooltipStyle =
