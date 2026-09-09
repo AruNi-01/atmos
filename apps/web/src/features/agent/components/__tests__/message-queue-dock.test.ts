@@ -24,7 +24,7 @@ describe("message queue dock", () => {
   });
 
   it("matches plan todo chrome without header or item dividers", () => {
-    expect(dock).toContain('className="bg-background"');
+    expect(dock).not.toContain('className="bg-background"');
     expect(dock).toContain("hover:bg-muted/10");
     expect(dock).not.toContain("bg-muted/20");
     expect(dock).not.toContain("border-b border-border/70");

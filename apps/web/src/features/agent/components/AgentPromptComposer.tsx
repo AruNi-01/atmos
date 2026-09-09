@@ -16,7 +16,6 @@ import {
   type PromptModel,
 } from "@workspace/ui";
 import {
-  CENTER_STAGE_ICON_TAB_CLASS,
   CenterStageScrollableTabs,
   CenterStageTab,
   CenterStageTabList,
@@ -407,7 +406,7 @@ function ComposerPromptInput({
         <AgentIcon
           registryId={agent.id}
           name={agent.name}
-          size={14}
+          size={20}
           isCustom={agent.install_method === "custom"}
           registryIcon={agent.icon}
         />
@@ -555,7 +554,7 @@ function ComposerPromptInput({
                             disabled={option.disabled || agentsLocked}
                             aria-label={label}
                             title={agentsLocked ? t("composer.agentLocked") : label}
-                            className={CENTER_STAGE_ICON_TAB_CLASS}
+                            className="size-9 px-0"
                           >
                             {option.icon}
                           </CenterStageTab>
@@ -1051,12 +1050,12 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
         {hasUpperComposerCards ? (
           <div
             data-agent-composer-upper-cards=""
-            className="relative z-[1] mx-6 -mb-px overflow-hidden rounded-t-3xl border border-b-0 border-border/70 bg-background/95"
+            className="relative z-[1] mx-6 -mb-px overflow-hidden rounded-t-3xl border border-b-0 border-foreground/10 bg-foreground/[0.04]"
           >
             {currentPlan ? (
               <div className={
                 backgroundTools.length > 0 || queuedPrompts.length > 0
-                  ? "border-b border-border/70"
+                  ? "border-b border-foreground/10"
                   : ""
               }>
                 <PlanBlockView
@@ -1067,7 +1066,7 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
               </div>
             ) : null}
             {backgroundTools.length > 0 ? (
-              <div className={queuedPrompts.length > 0 ? "border-b border-border/70" : ""}>
+              <div className={queuedPrompts.length > 0 ? "border-b border-foreground/10" : ""}>
                 <BackgroundCommandsDock tools={backgroundTools} />
               </div>
             ) : null}

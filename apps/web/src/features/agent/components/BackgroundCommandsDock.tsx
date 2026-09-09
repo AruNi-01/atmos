@@ -46,7 +46,7 @@ export function BackgroundCommandsDock({
   if (tools.length === 0) return null;
 
   return (
-    <div className="bg-background">
+    <div>
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
         <CollapsibleTrigger asChild>
           <div className="group flex cursor-pointer items-center gap-2 px-3 py-1.5 hover:bg-muted/10">

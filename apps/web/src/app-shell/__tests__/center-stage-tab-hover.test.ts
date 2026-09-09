@@ -37,7 +37,7 @@ describe("center stage tab hover", () => {
     expect(listFn).toContain('orientation = "horizontal"');
     expect(listFn).toContain("orientation={orientation}");
     expect(listFn).toContain(
-      '"flex h-full w-12 min-h-0 max-h-full flex-col justify-start overflow-hidden bg-background p-1"',
+      '"flex h-full w-11 min-h-0 max-h-full flex-col items-center justify-start overflow-hidden bg-[color-mix(in_oklab,var(--popover),black_10%)] p-1"',
     );
     const scrollFn = shared.slice(
       shared.indexOf("export function CenterStageScrollableTabs"),

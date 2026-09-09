@@ -22,6 +22,7 @@ import {
 } from "react";
 import { EASE_OUT, EASE_OUT_CSS } from "../../lib/ease";
 import { cn } from "../../lib/utils";
+import { indicatorLayoutFromViewport } from "./tab-indicator";
 
 type Variant = "pill" | "underline" | "segment";
 type Orientation = "horizontal" | "vertical";
@@ -64,24 +65,28 @@ function measureSelectedTab(
   if (!selected) return null;
   const listRect = list.getBoundingClientRect();
   const tabRect = selected.getBoundingClientRect();
-  const x = tabRect.left - listRect.left + list.scrollLeft;
-  const y = tabRect.top - listRect.top + list.scrollTop;
+  const box = indicatorLayoutFromViewport({
+    tabLeft: tabRect.left,
+    tabTop: tabRect.top,
+    listLeft: listRect.left,
+    listTop: listRect.top,
+    listViewportWidth: listRect.width,
+    listViewportHeight: listRect.height,
+    listOffsetWidth: list.offsetWidth,
+    listOffsetHeight: list.offsetHeight,
+    tabOffsetWidth: selected.offsetWidth,
+    tabOffsetHeight: selected.offsetHeight,
+    scrollLeft: list.scrollLeft,
+    scrollTop: list.scrollTop,
+  });
+  const indicatorClassName = selected.dataset.tabIndicatorClass ?? "";
   if (underline && orientation === "vertical") {
-    return {
-      x: x + tabRect.width - 1,
-      y,
-      w: 1,
-      h: tabRect.height,
-      indicatorClassName: selected.dataset.tabIndicatorClass ?? "",
-    };
+    return { x: box.x + box.w - 1, y: box.y, w: 1, h: box.h, indicatorClassName };
   }
-  return {
-    x,
-    y: underline ? y + tabRect.height - 1 : y,
-    w: tabRect.width,
-    h: underline ? 1 : tabRect.height,
-    indicatorClassName: selected.dataset.tabIndicatorClass ?? "",
-  };
+  if (underline) {
+    return { x: box.x, y: box.y + box.h - 1, w: box.w, h: 1, indicatorClassName };
+  }
+  return { ...box, indicatorClassName };
 }
 
 function readTransform(el: HTMLElement) {

@@ -211,7 +211,7 @@ export function CenterStageTabList({
         <MotionTabsList
           className={
             vertical
-              ? "flex h-full w-12 min-h-0 max-h-full flex-col justify-start overflow-hidden bg-background p-1"
+              ? "flex h-full w-11 min-h-0 max-h-full flex-col items-center justify-start overflow-hidden bg-[color-mix(in_oklab,var(--popover),black_10%)] p-1"
               : "flex h-8 min-w-0 max-w-full justify-start overflow-hidden bg-background py-0.5 pl-0.5 pr-0"
           }
           indicatorClassName={CENTER_STAGE_TAB_INDICATOR_CLASS}

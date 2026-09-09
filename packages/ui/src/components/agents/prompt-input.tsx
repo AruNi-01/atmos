@@ -706,7 +706,7 @@ function PromptAgentConfigMenu({
           )}
         >
           {(currentAgent?.icon ?? currentModel?.icon) ? (
-            <span className="grid size-4 shrink-0 place-items-center text-muted-foreground [&_svg]:size-3.5">
+            <span className="grid size-4 shrink-0 place-items-center overflow-hidden text-muted-foreground [&_img]:size-3.5 [&_svg]:size-3.5">
               {currentAgent?.icon ?? currentModel?.icon}
             </span>
           ) : null}
@@ -751,7 +751,7 @@ function PromptAgentConfigMenu({
                 className="flex h-full min-h-0 min-w-0 flex-col items-stretch"
               >
                 <MotionTabsList
-                  className="flex h-full w-12 min-h-0 max-h-full flex-col justify-start overflow-y-auto bg-background p-1"
+                  className="flex h-full w-11 min-h-0 max-h-full flex-col items-center justify-start overflow-y-auto bg-[color-mix(in_oklab,var(--popover),black_10%)] p-1"
                   indicatorClassName="bg-active"
                 >
                   {agents.map((option) => {
@@ -765,7 +765,7 @@ function PromptAgentConfigMenu({
                               disabled={option.disabled || agentLocked}
                               aria-label={label}
                               title={agentLocked ? labels.agentLocked : label}
-                              className="pointer-events-auto group size-7 shrink-0 px-0 text-xs aria-selected:!text-foreground"
+                              className="pointer-events-auto group size-9 shrink-0 px-0 text-xs aria-selected:!text-foreground"
                             >
                               {option.icon ?? (
                                 <span className="text-[10px] font-medium">{label.slice(0, 1)}</span>

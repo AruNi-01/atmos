@@ -143,10 +143,10 @@ export function PlanBlockView({
 
   return (
     <div
-      className={`w-full flex-col bg-background flex overflow-hidden ${
+      className={`w-full flex-col flex overflow-hidden ${
         embedded
           ? ""
-          : `border border-dashed border-border shadow-sm ${docked ? "rounded-t-xl rounded-b-none border-b-0" : "rounded-md"}`
+          : `border border-dashed border-border bg-background shadow-sm ${docked ? "rounded-t-xl rounded-b-none border-b-0" : "rounded-md"}`
       }`}
     >
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
@@ -209,7 +209,7 @@ export function PlanBlockView({
         {!isOpen && collapsedEntry && (
           <CollapsibleTrigger asChild>
             <div
-              className={`group flex cursor-pointer items-center gap-2 overflow-hidden bg-background px-3 py-1.5 hover:bg-muted/10 ${embedded || docked ? "rounded-none" : "rounded-b-md"}`}
+              className={`group flex cursor-pointer items-center gap-2 overflow-hidden px-3 py-1.5 hover:bg-muted/10 ${embedded || docked ? "rounded-none" : "rounded-b-md bg-background"}`}
             >
               <ComposerCollapseGlyph icon={ListTodo} collapsed />
               <div className="shrink-0 flex items-center justify-center w-4 h-4">

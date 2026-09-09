@@ -59,7 +59,8 @@ describe("agent prompt composer", () => {
     expect(composer).toContain("agentTablist=");
     expect(composer).toContain('orientation="vertical"');
     expect(composer).toContain("CenterStageTabList");
-    expect(composer).toContain("CENTER_STAGE_ICON_TAB_CLASS");
+    expect(composer).toContain("size-9 px-0");
+    expect(composer).toContain("size={20}");
     expect(composer).toContain("agentOptions.length === 0 ? null");
     expect(composer).not.toContain("agentLocked || !onProviderChange || agentOptions.length === 0");
     expect(composer).toContain("const agentsLocked = agentLocked || !onProviderChange");
@@ -71,9 +72,10 @@ describe("agent prompt composer", () => {
     expect(composer).not.toContain("joinUpperCards");
     expect(composer).not.toContain("!rounded-t-none border-t-0");
     expect(composer).toContain(
-      "relative z-[1] mx-6 -mb-px overflow-hidden rounded-t-3xl border border-b-0 border-border/70 bg-background/95",
+      "relative z-[1] mx-6 -mb-px overflow-hidden rounded-t-3xl border border-b-0 border-foreground/10 bg-foreground/[0.04]",
     );
     expect(composer).not.toContain("mx-6 overflow-hidden rounded-3xl border border-border/70 bg-background/95");
+    expect(composer).not.toContain("border-b-0 border-border/70 bg-background/95");
     expect(composer).not.toContain("relative flex flex-col gap-2");
     expect(composer).toContain("ComposerFlyingMessagePortal");
     expect(composer).toContain("launchComposerFly");

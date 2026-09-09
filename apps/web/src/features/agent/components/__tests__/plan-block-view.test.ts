@@ -16,6 +16,13 @@ describe("plan block view", () => {
     expect(planBlock).toContain("flex items-center gap-2 px-3 py-1.5");
   });
 
+  it("does not paint a solid card fill when embedded above the composer", () => {
+    expect(planBlock).toContain('embedded\n          ? ""');
+    expect(planBlock).not.toContain("flex-col bg-background flex");
+    expect(planBlock).toContain("overflow-hidden px-3 py-1.5 hover:bg-muted/10");
+    expect(planBlock).not.toContain("overflow-hidden bg-background px-3 py-1.5");
+  });
+
   it("shows a plan icon that morphs to the collapse chevron on header hover", () => {
     const glyph = readFileSync(
       join(import.meta.dir, "../composer-collapse-glyph.tsx"),

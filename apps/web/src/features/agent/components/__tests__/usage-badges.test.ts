@@ -54,9 +54,10 @@ describe("context window usage control", () => {
     expect(queueAt).toBeGreaterThan(panelAt);
     expect(promptAt).toBeGreaterThan(queueAt);
     expect(composer).toContain(
-      "relative z-[1] mx-6 -mb-px overflow-hidden rounded-t-3xl border border-b-0 border-border/70 bg-background/95",
+      "relative z-[1] mx-6 -mb-px overflow-hidden rounded-t-3xl border border-b-0 border-foreground/10 bg-foreground/[0.04]",
     );
     expect(composer).not.toContain("mx-6 overflow-hidden rounded-3xl border border-border/70 bg-background/95");
+    expect(composer).not.toContain("border-b-0 border-border/70 bg-background/95");
   });
 
   it("does not invent category breakdown rows without wire data", () => {

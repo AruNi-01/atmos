@@ -34,7 +34,7 @@ describe("background commands dock", () => {
     expect(dock).toContain("ComposerCollapseGlyph");
     expect(dock).toContain("SquareTerminal");
     expect(dock).toContain("collapsed={!isOpen}");
-    expect(dock).toContain('className="bg-background"');
+    expect(dock).not.toContain('className="bg-background"');
     expect(dock).toContain("hover:bg-muted/10");
     expect(dock).toContain(
       "motion-reduce:data-[state=closed]:animate-none motion-reduce:data-[state=open]:animate-none",
