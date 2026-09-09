@@ -1,0 +1,19 @@
+apps/web/src/features/resource-monitor/lib/resource-monitor-listed-session.ts
+  s_e740b1b40121b6::t_3f6e8687f073bc 12-19,23-28,37-64,67,69
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "27260beca7d1cd0ab040a6195d6b5feadb9c9882",
+  "prompts": {},
+  "sessions": {
+    "s_e740b1b40121b6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "01a0858c-078d-7ef3-b1b6-390a2660e1a8",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
