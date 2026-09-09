@@ -472,6 +472,14 @@ impl AgentRuntime for OpenCodeRuntime {
         self.map.persistence.clone()
     }
 
+    fn root_pid(&self) -> Option<u32> {
+        self.commands
+            .child
+            .try_lock()
+            .ok()
+            .and_then(|guard| guard.as_ref().and_then(tokio::process::Child::id))
+    }
+
     fn descriptor(&self) -> AgentDescriptor {
         let mut descriptor = self.map.descriptor();
         descriptor.current_config = self

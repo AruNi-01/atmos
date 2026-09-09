@@ -148,6 +148,10 @@ pub trait AgentRuntime: Send {
     fn persistence_handle(&self) -> Option<AgentPersistenceHandle>;
     fn descriptor(&self) -> AgentDescriptor;
     async fn next_event(&mut self) -> Option<AgentEventEnvelope>;
+    /// OS pid of the spawned agent process, when this runtime owns one.
+    fn root_pid(&self) -> Option<u32> {
+        None
+    }
 }
 
 #[async_trait]

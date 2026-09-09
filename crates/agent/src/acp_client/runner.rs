@@ -749,6 +749,7 @@ fn send_auth_required_error(
 /// Handle to an active ACP session - used to send prompts, receive events, and handle permissions
 pub struct AcpSessionHandle {
     pub session_id: String,
+    pub root_pid: Option<u32>,
     cmd_tx: mpsc::UnboundedSender<SessionCommand>,
     event_rx: mpsc::UnboundedReceiver<AcpSessionEvent>,
     permission_rx: mpsc::UnboundedReceiver<(PermissionRequest, oneshot::Sender<String>)>,
@@ -957,6 +958,8 @@ pub async fn run_acp_session(
     let (event_tx, event_rx) = mpsc::unbounded_channel::<AcpSessionEvent>();
     let (permission_tx, permission_rx) = mpsc::unbounded_channel();
     let (ready_tx, ready_rx) = oneshot::channel::<Result<String, String>>();
+    let pid_slot: Arc<std::sync::OnceLock<u32>> = Arc::new(std::sync::OnceLock::new());
+    let pid_slot_thread = Arc::clone(&pid_slot);
     let (ext_notify, _) = broadcast::channel(32);
     let ext_notify_thread = ext_notify.clone();
     let available_config_ids = Arc::new(Mutex::new(HashSet::new()));
@@ -993,6 +996,7 @@ pub async fn run_acp_session(
                         session_config_snapshot,
                         ext_notify_thread,
                         available_config_ids_thread,
+                        pid_slot_thread,
                     )
                     .await
                     {
@@ -1029,6 +1033,7 @@ pub async fn run_acp_session(
 
     Ok(AcpSessionHandle {
         session_id,
+        root_pid: pid_slot.get().copied(),
         cmd_tx,
         event_rx,
         permission_rx,
@@ -1054,6 +1059,7 @@ async fn run_session_inner(
     session_config_snapshot: Option<HashMap<String, String>>,
     ext_notify: broadcast::Sender<ExtNotificationPayload>,
     available_config_ids: Arc<Mutex<HashSet<String>>>,
+    pid_slot: Arc<std::sync::OnceLock<u32>>,
 ) -> Result<(), String> {
     // Must be held alive for the session duration; dropping triggers kill_on_drop
     let (stdin, stdout, stderr, child_guard) =
@@ -1064,6 +1070,9 @@ async fn run_session_inner(
             }
             msg
         })?;
+    if let Some(pid) = child_guard.id() {
+        let _ = pid_slot.set(pid);
+    }
     let _child_guard = child_guard;
 
     // Collect stderr in background. When the agent exits (pipe closes), send

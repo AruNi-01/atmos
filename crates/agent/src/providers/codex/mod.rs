@@ -127,6 +127,7 @@ struct CodexRuntime {
     commands: Arc<CodexCommands>,
     events_rx: mpsc::UnboundedReceiver<AgentEventEnvelope>,
     _child: Option<Child>,
+    root_pid: Option<u32>,
 }
 
 #[async_trait]
@@ -424,6 +425,10 @@ impl AgentRuntime for CodexRuntime {
             .and_then(|ids| ids.persistence())
     }
 
+    fn root_pid(&self) -> Option<u32> {
+        self.root_pid
+    }
+
     fn descriptor(&self) -> AgentDescriptor {
         self.commands
             .shared
@@ -455,10 +460,12 @@ async fn open_runtime(
         tokio::spawn(stderr_loop(stderr));
     }
     shared.handshake(&cfg.cwd, resume.as_deref()).await?;
+    let root_pid = child.as_ref().and_then(Child::id);
     Ok(Box::new(CodexRuntime {
         commands: Arc::new(CodexCommands { shared }),
         events_rx,
         _child: child,
+        root_pid,
     }))
 }
 

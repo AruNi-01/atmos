@@ -63,6 +63,7 @@ import {
   workspaceDefaultOpen,
 } from "@/features/resource-monitor/lib/resource-monitor-hierarchy";
 import {
+  agentStatusForResourceMonitorChat,
   canLocateResourceMonitorChatSession,
   isResourceMonitorChatSession,
   resourceMonitorSessionUiKind,
@@ -443,7 +444,7 @@ function SessionRow({
   const locatable =
     onNavigate != null &&
     (chatSession
-      ? canLocateResourceMonitorChatSession(chatSession)
+      ? canLocateResourceMonitorChatSession(chatSession, hostId)
       : location != null);
   const spaces = useCenterSpaceStore(
     (state) => state.byHost[hostId]?.spaces ?? EMPTY_CENTER_SPACES,
@@ -464,9 +465,12 @@ function SessionRow({
   });
   const goToSession = () => {
     if (!onNavigate) return;
-    if (chatSession?.agentStatus) {
-      onNavigate({ session: chatSession.agentStatus });
-      return;
+    if (chatSession) {
+      const status = agentStatusForResourceMonitorChat(chatSession, hostId);
+      if (status) {
+        onNavigate({ session: status });
+        return;
+      }
     }
     if (location) onNavigate({ location, routeKind });
   };

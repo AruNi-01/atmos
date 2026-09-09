@@ -37,6 +37,20 @@ struct LiveRuntime {
     state: Arc<Mutex<RuntimeState>>,
     alive: Arc<AtomicBool>,
     generation: u64,
+    root_pid: Option<u32>,
+}
+
+/// Live Chat UI session for Resource Monitor attribution. Not a public chat DTO.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AgentChatResourceRoot {
+    pub session_id: String,
+    pub context_id: String,
+    pub name: Option<String>,
+    pub root_pid: Option<u32>,
+}
+
+pub fn chat_resource_session_id(chat_id: &str) -> String {
+    format!("chat:{}", chat_id.trim())
 }
 
 pub struct AgentChatService {
@@ -114,6 +128,39 @@ impl AgentChatService {
 
     pub fn store(&self) -> &AgentChatStore {
         &self.store
+    }
+
+    /// Live Chat runtimes for Resource Monitor. Idle / detached chats are omitted.
+    pub async fn list_resource_roots(&self) -> Vec<AgentChatResourceRoot> {
+        let runtimes = self.runtimes.lock().await;
+        let mut roots = Vec::new();
+        for (chat_id, live) in runtimes.iter() {
+            if !live.alive.load(Ordering::SeqCst) {
+                continue;
+            }
+            let Ok(meta) = self.store.get_meta(chat_id) else {
+                continue;
+            };
+            if meta.deleted {
+                continue;
+            }
+            let context_id = meta
+                .workspace_id
+                .as_deref()
+                .or(meta.project_id.as_deref())
+                .map(str::trim)
+                .filter(|id| !id.is_empty());
+            let Some(context_id) = context_id else {
+                continue;
+            };
+            roots.push(AgentChatResourceRoot {
+                session_id: chat_resource_session_id(chat_id),
+                context_id: context_id.to_string(),
+                name: meta.title.clone(),
+                root_pid: live.root_pid,
+            });
+        }
+        roots
     }
 
     pub fn save_attachment(
@@ -1267,6 +1314,7 @@ impl AgentChatService {
             turn_usage: None,
         }));
         let generation = self.generations.fetch_add(1, Ordering::SeqCst);
+        let root_pid = session.root_pid();
         self.runtimes.lock().await.insert(
             chat_id.to_string(),
             LiveRuntime {
@@ -1274,6 +1322,7 @@ impl AgentChatService {
                 state: Arc::clone(&state),
                 alive: Arc::clone(&alive),
                 generation,
+                root_pid,
             },
         );
         let store = Arc::clone(&self.store);

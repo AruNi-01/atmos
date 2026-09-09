@@ -255,6 +255,50 @@ describe("mergeResourceMonitorChatSessions", () => {
     );
     expect(merged[0]?.workspaces[0]?.sessions).toHaveLength(1);
   });
+
+  test("keeps backend-attributed usage when overlaying Chat UI metadata", () => {
+    const chats = collectResourceMonitorChatSessions({
+      agentSessions: [status()],
+      chatTabsByContext: { "ws-1": [tab()] },
+      projects,
+    });
+    const backend = {
+      session_id: "chat:chat-1",
+      name: "Fix monitor",
+      terminal_kind: "chat",
+      usage: usage(6.2, 323),
+      processes: [
+        {
+          name: "grok",
+          usage: usage(6.2, 323),
+          ports: [],
+          leaked: false,
+        },
+      ],
+    };
+    const merged = mergeResourceMonitorChatSessions(
+      [
+        snapshotProject({
+          workspaces: [
+            {
+              workspace_id: "ws-1",
+              name: "butterfree",
+              usage: usage(8, 343),
+              sessions: [backend],
+              other_usage: usage(0, 0),
+              other_processes: [],
+            },
+          ],
+        }),
+      ],
+      chats,
+    );
+    const session = merged[0]?.workspaces[0]?.sessions[0];
+    expect(merged[0]?.workspaces[0]?.sessions).toHaveLength(1);
+    expect(session?.usage).toEqual(usage(6.2, 323));
+    expect(session?.processes).toHaveLength(1);
+    expect(isResourceMonitorChatSession(session!)).toBe(true);
+  });
 });
 
 describe("canLocateResourceMonitorChatSession", () => {

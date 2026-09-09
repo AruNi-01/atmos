@@ -24,7 +24,7 @@ pub use prefs::{
     agent_chat_prefs_path, load_agent_chat_prefs, save_agent_chat_prefs, save_last_registry_id,
     AgentChatPrefs,
 };
-pub use service::AgentChatService;
+pub use service::{chat_resource_session_id, AgentChatResourceRoot, AgentChatService};
 pub use store::AgentChatStore;
 pub use types::{
     AgentChatEvent, AgentChatIndexEntry, AgentChatMeta, AgentChatOrigin, AgentChatPayload,

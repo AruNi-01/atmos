@@ -484,6 +484,14 @@ impl AgentRuntime for PiRuntime {
             .and_then(|guard| guard.clone())
     }
 
+    fn root_pid(&self) -> Option<u32> {
+        self.commands
+            .child
+            .try_lock()
+            .ok()
+            .and_then(|guard| guard.as_ref().and_then(Child::id))
+    }
+
     fn descriptor(&self) -> AgentDescriptor {
         self.commands
             .descriptor

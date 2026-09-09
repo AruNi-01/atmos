@@ -24,6 +24,7 @@ export type {
   ResourceMonitorSessionUiKind,
 } from "@/features/resource-monitor/lib/resource-monitor-listed-session";
 export {
+  agentStatusForResourceMonitorChat,
   canLocateResourceMonitorChatSession,
   isResourceMonitorChatSession,
   resourceMonitorSessionUiKind,
@@ -254,14 +255,26 @@ function listedChatSession(
   };
 }
 
-function appendSession(
+function upsertChatSession(
   sessions: ResourceSessionMetrics[],
   session: ResourceMonitorListedSession,
 ): ResourceSessionMetrics[] {
-  if (sessions.some((item) => item.session_id === session.session_id)) {
-    return sessions;
-  }
-  return [...sessions, session];
+  const index = sessions.findIndex((item) => item.session_id === session.session_id);
+  if (index === -1) return [...sessions, session];
+  const existing = sessions[index] as ResourceMonitorListedSession;
+  const next = [...sessions];
+  next[index] = {
+    ...existing,
+    ...session,
+    usage: existing.usage,
+    processes: existing.processes,
+    name: existing.name ?? session.name,
+    terminal_kind: existing.terminal_kind || session.terminal_kind,
+    uiKind: "chat",
+    agentStatus: session.agentStatus ?? existing.agentStatus,
+    spaceId: session.spaceId ?? existing.spaceId,
+  };
+  return next;
 }
 
 function emptyWorkspace(
@@ -330,9 +343,9 @@ export function mergeResourceMonitorChatSessions(
         );
         project.workspaces = [...project.workspaces, workspace];
       }
-      workspace.sessions = appendSession(workspace.sessions, listed);
+      workspace.sessions = upsertChatSession(workspace.sessions, listed);
     } else {
-      project.sessions = appendSession(project.sessions, listed);
+      project.sessions = upsertChatSession(project.sessions, listed);
     }
   }
 

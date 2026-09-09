@@ -126,6 +126,7 @@ impl WsMessageService {
             Arc::new(AgentChatStore::new(default_chats_dir())),
             Arc::new(DefaultAgentProviderFactory::new(Arc::clone(&agent_service))),
         ));
+        resource_monitor_service.set_chat_service(Arc::clone(&agent_chat_service));
         let options_worker = Arc::new(
             OptionsPrefetchWorker::with_plans(
                 default_agent_data_dir(),

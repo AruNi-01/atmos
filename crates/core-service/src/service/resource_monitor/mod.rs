@@ -6,7 +6,7 @@ mod projection;
 mod types;
 
 use std::path::PathBuf;
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 use std::time::{Duration, Instant};
 
 use core_engine::{
@@ -16,6 +16,7 @@ use core_engine::{
 use parking_lot::Mutex;
 use tracing::warn;
 
+use crate::service::agent_chat::{AgentChatResourceRoot, AgentChatService};
 use crate::service::local_services::{LocalServicesScanResponse, LocalServicesService};
 use crate::service::project::ProjectService;
 use crate::service::terminal::{TerminalResourceRoot, TerminalService};
@@ -24,8 +25,8 @@ use crate::{Result, ServiceError};
 
 use attribution::{
     attribute, leaked_kill_roots, normalize_path, resolve_terminal_claims, AttributionInput,
-    CachedListenerPort, KillLeakedError, PathContext, PathContextKind, TerminalRootInput,
-    TmuxPaneInput,
+    CachedListenerPort, KillLeakedError, PathContext, PathContextKind, TerminalClaim,
+    TerminalRootInput, TmuxPaneInput,
 };
 
 pub use types::{
@@ -72,6 +73,7 @@ pub struct ResourceMonitorService {
     terminal_service: Arc<TerminalService>,
     local_services: Arc<LocalServicesService>,
     metrics_engine: Arc<ResourceMetricsEngine>,
+    chat_service: OnceLock<Arc<AgentChatService>>,
     cache: SnapshotCache,
     collect_lock: tokio::sync::Mutex<()>,
 }
@@ -90,9 +92,14 @@ impl ResourceMonitorService {
             terminal_service,
             local_services,
             metrics_engine,
+            chat_service: OnceLock::new(),
             cache: SnapshotCache::new(),
             collect_lock: tokio::sync::Mutex::new(()),
         }
+    }
+
+    pub fn set_chat_service(&self, chat: Arc<AgentChatService>) {
+        let _ = self.chat_service.set(chat);
     }
 
     /// Coalesced snapshot: 500 ms cache, lock, recheck, then one sample + pane list.
@@ -130,6 +137,7 @@ impl ResourceMonitorService {
         let terminal_roots = self.terminal_service.list_resource_roots().await;
         let root_inputs: Vec<TerminalRootInput> =
             terminal_roots.iter().map(terminal_root_input).collect();
+        let chat_claims = self.list_chat_claims().await;
         let metrics_engine = Arc::clone(&self.metrics_engine);
         let terminal_service = Arc::clone(&self.terminal_service);
         let server_pid = std::process::id();
@@ -159,8 +167,9 @@ impl ResourceMonitorService {
                     })
                     .collect::<Vec<_>>()
             });
-            let (claims, _) =
+            let (mut claims, _) =
                 resolve_terminal_claims(root_inputs.as_slice(), pane_inputs.as_deref());
+            claims.extend(chat_claims);
             let desktop_use_root =
                 dirs::home_dir().map(|home| home.join(".atmos").join("data").join("desktop-use"));
             let input = AttributionInput {
@@ -203,6 +212,7 @@ impl ResourceMonitorService {
         let terminal_roots = self.terminal_service.list_resource_roots().await;
         let root_inputs: Vec<TerminalRootInput> =
             terminal_roots.iter().map(terminal_root_input).collect();
+        let chat_claims = self.list_chat_claims().await;
 
         let metrics_engine = Arc::clone(&self.metrics_engine);
         let terminal_service = Arc::clone(&self.terminal_service);
@@ -233,8 +243,9 @@ impl ResourceMonitorService {
                     })
                     .collect::<Vec<_>>()
             });
-            let (claims, join_partial) =
+            let (mut claims, join_partial) =
                 resolve_terminal_claims(root_inputs.as_slice(), pane_inputs.as_deref());
+            claims.extend(chat_claims);
 
             let desktop_use_root =
                 dirs::home_dir().map(|home| home.join(".atmos").join("data").join("desktop-use"));
@@ -316,6 +327,34 @@ impl ResourceMonitorService {
             }
         }
         (contexts, partial)
+    }
+}
+
+async fn list_chat_claims_for(chat_service: Option<&Arc<AgentChatService>>) -> Vec<TerminalClaim> {
+    let Some(chat) = chat_service else {
+        return Vec::new();
+    };
+    chat.list_resource_roots()
+        .await
+        .into_iter()
+        .map(chat_claim_from_root)
+        .collect()
+}
+
+impl ResourceMonitorService {
+    async fn list_chat_claims(&self) -> Vec<TerminalClaim> {
+        list_chat_claims_for(self.chat_service.get()).await
+    }
+}
+
+fn chat_claim_from_root(root: AgentChatResourceRoot) -> TerminalClaim {
+    TerminalClaim {
+        session_id: root.session_id,
+        name: root.name,
+        terminal_kind: "chat".to_string(),
+        context_id: root.context_id,
+        root_pids: root.root_pid.into_iter().collect(),
+        missing_root: false,
     }
 }
 

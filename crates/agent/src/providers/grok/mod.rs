@@ -443,6 +443,10 @@ impl AgentRuntime for GrokMappedSession {
         self.map.descriptor()
     }
 
+    fn root_pid(&self) -> Option<u32> {
+        self.handle.root_pid
+    }
+
     async fn next_event(&mut self) -> Option<AgentEventEnvelope> {
         if let Some(event) = self.map.pending.pop_front() {
             return Some(event);
