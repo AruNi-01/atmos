@@ -1,0 +1,18 @@
+apps/web/src/features/agent/components/AgentChatPanel.tsx
+  h_5be255725524c8 973,1040
+apps/web/src/features/agent/components/AgentMessageTimelineNav.tsx
+  h_5be255725524c8 142,144,146
+apps/web/src/features/agent/components/__tests__/agent-chat-modal-frame.test.ts
+  h_5be255725524c8 39-40,208-209,211
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "3d2ab5250799cb7761c502aabe673e25d36810ab",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
