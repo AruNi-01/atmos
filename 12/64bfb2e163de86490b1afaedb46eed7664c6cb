@@ -1,0 +1,23 @@
+apps/web/src/features/agent/components/AgentAttentionIndicator.tsx
+  s_0ae7207e2b3584::t_c7a21b95fa50b6 48-58
+apps/web/src/features/agent/lib/__tests__/agent-status-ack.test.ts
+  s_0ae7207e2b3584::t_4330a4502d52ac 4-5,18-33
+apps/web/src/features/agent/lib/agent-status-ack.ts
+  s_0ae7207e2b3584::t_a39e9549229fa9 12-19
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "1264bfb2e163de86490b1afaedb46eed7664c6cb",
+  "prompts": {},
+  "sessions": {
+    "s_0ae7207e2b3584": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "df747ba9-f575-4dd0-b205-8f97d823d76f",
+        "model": "grok-4.6"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
