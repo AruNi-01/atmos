@@ -1,0 +1,16 @@
+apps/web/src/features/agent/components/UsageBadges.tsx
+  h_5be255725524c8 222-227
+apps/web/src/features/agent/components/__tests__/usage-badges.test.ts
+  h_5be255725524c8 73,80-81
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "9700f99feadf8e6374ffb540721e7eeec1c18d03",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
