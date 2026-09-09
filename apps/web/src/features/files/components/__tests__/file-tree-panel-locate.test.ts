@@ -46,6 +46,7 @@ describe("FileTreePanel locate current file", () => {
     expect(tree).toContain("expandFileTreeRevealAncestors");
     expect(tree).toContain("waitForFileTreeRowLayout");
     expect(tree).toContain("scrollFileTreeRowIntoView");
+    expect(tree).toContain("fileTreeScrollBehavior");
     expect(tree).toContain("clearFileTreeRevealTarget(target.requestId)");
 
     const revealEffectStart = tree.indexOf(

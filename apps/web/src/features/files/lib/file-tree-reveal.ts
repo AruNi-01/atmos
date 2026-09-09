@@ -37,10 +37,14 @@ function delay(ms: number): Promise<void> {
 }
 
 function prefersReducedMotion(): boolean {
-  return (
-    typeof window !== "undefined" &&
-    window.matchMedia("(prefers-reduced-motion: reduce)").matches
-  );
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+    return false;
+  }
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+export function fileTreeScrollBehavior(): ScrollBehavior {
+  return prefersReducedMotion() ? "auto" : "smooth";
 }
 
 export function fileTreeBranchRevealDelayMs(): number {
@@ -118,17 +122,24 @@ export function findFileTreeScrollParent(
  * FileTreeBranch uses overflow:hidden + 0fr, which eats element.scrollIntoView
  * before the enter transition finishes. Scroll the panel scroller instead.
  */
-export function scrollFileTreeRowIntoView(element: HTMLElement): void {
+export function scrollFileTreeRowIntoView(
+  element: HTMLElement,
+  options?: { behavior?: ScrollBehavior },
+): void {
+  const behavior = options?.behavior ?? fileTreeScrollBehavior();
   const container = findFileTreeScrollParent(element);
   if (!container) {
-    element.scrollIntoView({ block: "center", inline: "nearest" });
+    element.scrollIntoView({ block: "center", inline: "nearest", behavior });
     return;
   }
 
   const elRect = element.getBoundingClientRect();
   const cRect = container.getBoundingClientRect();
   const offset = elRect.top - cRect.top - (cRect.height - elRect.height) / 2;
-  container.scrollTop += offset;
+  container.scrollTo({
+    top: Math.max(0, container.scrollTop + offset),
+    behavior,
+  });
 }
 
 function isRowVisuallyReady(element: HTMLElement): boolean {

@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test";
 import { TREE_BRANCH_DURATION_MS } from "./file-tree-branch-open";
 import {
   expandFileTreeRevealAncestors,
+  fileTreeScrollBehavior,
   findFileTreeScrollParent,
   scrollFileTreeRowIntoView,
   waitForFileTreeRowLayout,
@@ -216,9 +217,14 @@ describe("waitForFileTreeRowLayout", () => {
 });
 
 describe("scrollFileTreeRowIntoView", () => {
-  test("scrolls the marked panel scroller instead of overflow-hidden ancestors", () => {
+  function createScroller() {
+    const calls: ScrollToOptions[] = [];
     const scroller = {
       scrollTop: 0,
+      scrollTo(options: ScrollToOptions) {
+        calls.push(options);
+        if (typeof options.top === "number") this.scrollTop = options.top;
+      },
       getBoundingClientRect: () =>
         ({
           top: 0,
@@ -232,6 +238,11 @@ describe("scrollFileTreeRowIntoView", () => {
           toJSON: () => ({}),
         }) as DOMRect,
     };
+    return { scroller, calls };
+  }
+
+  test("smooth-scrolls the marked panel scroller instead of overflow-hidden ancestors", () => {
+    const { scroller, calls } = createScroller();
 
     const row = {
       closest: (selector: string) =>
@@ -254,8 +265,66 @@ describe("scrollFileTreeRowIntoView", () => {
     } as unknown as HTMLElement;
 
     scrollFileTreeRowIntoView(row);
-    expect(scroller.scrollTop).toBe(400 - (200 - 24) / 2);
+    const top = 400 - (200 - 24) / 2;
+    expect(calls).toEqual([{ top, behavior: "smooth" }]);
+    expect(scroller.scrollTop).toBe(top);
     expect(findFileTreeScrollParent(row)).toBe(scroller as unknown as HTMLElement);
+  });
+
+  test("uses instant scroll when reduced motion is requested", () => {
+    const { scroller, calls } = createScroller();
+    const row = {
+      closest: () => scroller,
+      getBoundingClientRect: () =>
+        ({
+          top: 400,
+          bottom: 424,
+          height: 24,
+          left: 0,
+          right: 100,
+          width: 100,
+          x: 0,
+          y: 400,
+          toJSON: () => ({}),
+        }) as DOMRect,
+    } as unknown as HTMLElement;
+
+    scrollFileTreeRowIntoView(row, { behavior: "auto" });
+    expect(calls).toEqual([{ top: 400 - (200 - 24) / 2, behavior: "auto" }]);
+  });
+
+  test("falls back to smooth scrollIntoView when no scroller exists", () => {
+    const calls: ScrollIntoViewOptions[] = [];
+    const row = {
+      closest: () => null,
+      parentElement: null,
+      getBoundingClientRect: () =>
+        ({
+          top: 400,
+          bottom: 424,
+          height: 24,
+          left: 0,
+          right: 100,
+          width: 100,
+          x: 0,
+          y: 400,
+          toJSON: () => ({}),
+        }) as DOMRect,
+      scrollIntoView: (options?: ScrollIntoViewOptions) => {
+        if (options) calls.push(options);
+      },
+    } as unknown as HTMLElement;
+
+    scrollFileTreeRowIntoView(row);
+    expect(calls).toEqual([
+      { block: "center", inline: "nearest", behavior: "smooth" },
+    ]);
+  });
+});
+
+describe("fileTreeScrollBehavior", () => {
+  test("defaults to smooth when matchMedia is unavailable", () => {
+    expect(fileTreeScrollBehavior()).toBe("smooth");
   });
 });
 
