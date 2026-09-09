@@ -1,0 +1,19 @@
+crates/agent/src/options/effort.rs
+  s_ca6e683c96f534::t_aa25f5ab48bd15 1-66
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "95249bb3c409dd3b23112a53d780c638f41d6233",
+  "prompts": {},
+  "sessions": {
+    "s_ca6e683c96f534": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "01a08417-9454-73c3-a278-1267ac1a429f",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
