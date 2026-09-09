@@ -1,0 +1,16 @@
+apps/web/src/app-shell/quota-popover-utils.ts
+  h_5be255725524c8 504-506,508,510-512
+apps/web/src/features/files/components/FileTree.tsx
+  h_5be255725524c8 645
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "b95bf6d375d867164dac0fe742922ba90493e10a",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
