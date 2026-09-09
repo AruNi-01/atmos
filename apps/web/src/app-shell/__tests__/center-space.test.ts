@@ -18,8 +18,12 @@ import {
 } from "@/app-shell/center-space/center-space-fan";
 import { useCenterSpaceStore } from "@/app-shell/center-space/center-space-store";
 import {
+  createDefaultLayout,
   createEmptyCenterLayout,
+  DEFAULT_PANE_ID,
+  getPane,
   isFreshEmptyCenterLayout,
+  splitPane,
 } from "@/app-shell/center-pane/center-pane-layout";
 import { useCenterPaneLayoutStore } from "@/app-shell/center-pane/center-pane-layout-store";
 import { getWorkspaceTerminalTabs } from "@/features/terminal/store/terminal-store-helpers";
@@ -307,5 +311,34 @@ describe("center space wiring", () => {
     const layout = useCenterPaneLayoutStore.getState().ensureLayout("ws-1", [], "");
     expect(isFreshEmptyCenterLayout(layout)).toBe(true);
     expect(layout.panes[0]?.tabIds).toEqual([]);
+  });
+
+  it("does not prune a live host mosaic when membership is temporarily empty", () => {
+    const live = splitPane(
+      createDefaultLayout(["terminal", "files"], "files"),
+      { direction: "right" },
+    );
+    useCenterPaneLayoutStore.setState({
+      byContext: { "ws-1": live },
+      hydrated: true,
+    });
+    const after = useCenterPaneLayoutStore.getState().ensureLayout("ws-1", [], "");
+    expect(after.panes).toHaveLength(2);
+    expect(getPane(after, DEFAULT_PANE_ID)!.tabIds).toEqual(["terminal", "files"]);
+    expect(isFreshEmptyCenterLayout(after)).toBe(false);
+  });
+
+  it("restores wiped host membership as a single pane", () => {
+    useCenterPaneLayoutStore.setState({
+      byContext: { "ws-1": createEmptyCenterLayout() },
+      hydrated: true,
+    });
+    const restored = useCenterPaneLayoutStore
+      .getState()
+      .ensureLayout("ws-1", ["terminal", "files"], "files");
+    expect(isFreshEmptyCenterLayout(restored)).toBe(false);
+    expect(restored.panes).toHaveLength(1);
+    expect(getPane(restored, DEFAULT_PANE_ID)!.tabIds).toEqual(["terminal", "files"]);
+    expect(getPane(restored, DEFAULT_PANE_ID)!.activeTabId).toBe("files");
   });
 });

@@ -2647,8 +2647,18 @@ const CenterStage: React.FC = () => {
   React.useEffect(() => {
     if (!renderContextId) return;
     if (!openTabSourcesHydrated) return;
+    // Launchpad has no host; keep-alive frames must not reconcile against
+    // the overlay's empty membership list.
+    if (isLaunchpadCenter) return;
     const existingLayout = useCenterPaneLayoutStore.getState().getLayout(renderContextId);
     if (existingLayout && isFreshEmptyCenterLayout(existingLayout)) {
+      if (openTabIdList.length === 0) return;
+      // Fall through: a wiped host can restore membership as a single pane.
+    } else if (
+      openTabIdList.length === 0 &&
+      existingLayout &&
+      !isFreshEmptyCenterLayout(existingLayout)
+    ) {
       return;
     }
     // Reconcile open-tab membership only. Do NOT auto-openTab from URL here —
@@ -2664,6 +2674,7 @@ const CenterStage: React.FC = () => {
     activeValue,
     contextStripOrder,
     ensurePaneLayout,
+    isLaunchpadCenter,
     openTabIdKey,
     openTabIdList,
     openTabSourcesHydrated,

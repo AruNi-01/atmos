@@ -53,6 +53,7 @@ describe("center-stage chrome", () => {
     // must fall through so Terminal grids stay mounted under the overlay.
     expect(stage).toContain("if (!paintContextId)");
     expect(stage).not.toContain("if (!liveHostContextId || !paintContextId)");
+    expect(stage).toContain("if (isLaunchpadCenter) return");
 
     const support = read("../center-stage-support.tsx");
     expect(support).toContain("shouldPromoteWorkspaceSurface");

@@ -119,12 +119,26 @@ export const useCenterPaneLayoutStore = create<CenterPaneLayoutStore>((set, get)
         return get().byContext[contextId] ?? empty;
       }
     }
-    if (existing && isFreshEmptyCenterLayout(normalizeCenterPaneLayout(existing))) {
-      return normalizeCenterPaneLayout(existing);
-    }
     if (existing) {
+      const normalized = normalizeCenterPaneLayout(existing);
+      if (isFreshEmptyCenterLayout(normalized)) {
+        if (openTabIds.length === 0) return normalized;
+        // Extra spaces already returned above. A host empty layout with live
+        // membership is a wiped mosaic (e.g. Launchpad overlay reconcile) —
+        // restore tabs as a single pane. Splits cannot be recovered.
+        const restored = withCanonicalTabStrip(
+          createDefaultLayout(openTabIds, activeTabId),
+        );
+        get().setLayout(contextId, restored);
+        return restored;
+      }
+      // Launchpad overlay / deferred hops report an empty membership list
+      // while keep-alive frames are still mounted. Do not prune a live mosaic.
+      if (openTabIds.length === 0) {
+        return normalized;
+      }
       const reconciled = reconcileOpenTabs(
-        normalizeCenterPaneLayout(existing),
+        normalized,
         openTabIds,
         activeTabId,
       );
