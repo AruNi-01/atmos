@@ -192,6 +192,10 @@ export function matchesDevicePreviewSlashQuery(query: string): boolean {
     "device preview".includes(q) ||
     "atmos-device-preview".includes(q) ||
     "atmos device preview".includes(q) ||
+    "simulator-device-use".includes(q) ||
+    "simulator device use".includes(q) ||
+    "device-use".includes(q) ||
+    "device use".includes(q) ||
     "simulator".includes(q) ||
     "emulator".includes(q) ||
     "phone".includes(q) ||

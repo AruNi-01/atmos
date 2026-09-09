@@ -52,6 +52,7 @@ import { PromptComposer } from "@/features/welcome/components/PromptComposer";
 import { useWelcomeComposerAttachments } from "@/features/welcome/hooks/use-welcome-composer-attachments";
 import { useWelcomeMentionSearch } from "@/features/welcome/hooks/use-welcome-mention-search";
 import {
+  COLLAPSED_SLASH_SECTIONS,
   type WelcomeSlashPopoverState,
   useWelcomeSlashNavigation,
 } from "@/features/welcome/hooks/use-welcome-slash-navigation";
@@ -766,12 +767,7 @@ export function AutomationSetup({
                     }}
                     onSlashCancel={() => {
                       setSlashPopover(null);
-                      setExpandedSections({
-                        commands: false,
-                        skills: false,
-                        projects: false,
-                        agents: false,
-                      });
+                      setExpandedSections({ ...COLLAPSED_SLASH_SECTIONS });
                     }}
                     onSlashTrigger={(ctx) => {
                       setSlashPopover({

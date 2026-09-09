@@ -38,6 +38,18 @@ describe("agent composer triggers", () => {
     expect(source).not.toContain("onAtCancel: closePopovers");
     expect(source).not.toContain("onSlashCancel: closePopovers");
     expect(source).toContain("commandsTitle");
+    expect(source).toContain("atmosCommandsTitle");
     expect(source).toContain("slashPopover.agentCommands");
+    expect(source).toContain("slashPopover.atmosCommands");
+    expect(source).toContain("filteredAtmosCommands");
+    expect(source).toContain("showAtmosCommands");
+    expect(source).toContain("buildBrowserUseSlashCommand");
+    expect(source).toContain("buildDesktopUseSlashCommand");
+    expect(source).toContain("buildViewRunLogsSlashCommand");
+    expect(source).toContain("buildDevicePreviewSlashCommand");
+    expect(source).toContain("dynamic-skills");
+    expect(source).toContain("BROWSER_USE_SLASH_COMMAND_ID");
+    expect(source).toContain("DESKTOP_USE_SLASH_COMMAND_ID");
+    expect(source).toContain("VIEW_RUN_LOGS_SLASH_COMMAND_ID");
   });
 });

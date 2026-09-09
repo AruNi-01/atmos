@@ -37,6 +37,7 @@ import {
 import { useWelcomeComposerAttachments } from "@/features/welcome/hooks/use-welcome-composer-attachments";
 import { useWelcomeMentionSearch } from "@/features/welcome/hooks/use-welcome-mention-search";
 import {
+  COLLAPSED_SLASH_SECTIONS,
   useWelcomeSlashNavigation,
   type SlashCommandOption,
   type WelcomeSlashPopoverState,
@@ -796,12 +797,7 @@ export const TerminalAgentInputOverlay = React.forwardRef<
     setSlashPopoverView("menu");
     setSkillDisableFilter("");
     setSkillDisableSessionActions([]);
-    setExpandedSections({
-      commands: false,
-      skills: false,
-      projects: false,
-      agents: false,
-    });
+    setExpandedSections({ ...COLLAPSED_SLASH_SECTIONS });
   }, [setExpandedSections]);
 
   /**
@@ -826,12 +822,7 @@ export const TerminalAgentInputOverlay = React.forwardRef<
     setSlashPopoverView("menu");
     setSkillDisableFilter("");
     setSkillDisableSessionActions([]);
-    setExpandedSections({
-      commands: false,
-      skills: false,
-      projects: false,
-      agents: false,
-    });
+    setExpandedSections({ ...COLLAPSED_SLASH_SECTIONS });
   }, [setExpandedSections]);
 
   const handleTextChange = React.useCallback(

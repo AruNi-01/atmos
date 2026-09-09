@@ -7,11 +7,20 @@ import {
   AgentsPromptInput,
   PromptInputAddAttachmentsButton,
   PromptInputProvider,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
   cn,
   usePromptInputAttachments,
   usePromptInputController,
   type PromptModel,
 } from "@workspace/ui";
+import {
+  CENTER_STAGE_ICON_TAB_CLASS,
+  CenterStageScrollableTabs,
+  CenterStageTab,
+  CenterStageTabList,
+} from "@/app-shell/center-stage-shared-tabs";
 import {
   Astroid,
   BotMessageSquare,
@@ -47,6 +56,7 @@ import {
 import type { AgentMessage, AgentSessionUsage } from "@atmos/api-types/ws/dto/agent-chat";
 import { stopStreamingMessages } from "@/features/agent/lib/agent-chat-events";
 import { expandAgentComposerText } from "@/features/agent/lib/agent-chat-slash-command";
+import { stripSkillDisableSession } from "@/features/skills/lib/skill-disable-protocol";
 import { resolveAgentComposerPlaceholderKind } from "@/features/agent/lib/agent-composer-placeholder";
 import type { AgentActivity } from "../lib/chat-helpers";
 import type { AgentToolCallPart } from "@/features/agent/lib/agent-tool-kind";
@@ -265,6 +275,10 @@ function ComposerPromptInput({
   onAtCancel,
   onSlashTrigger,
   onSlashCancel,
+  onSkillDisableFilterChange,
+  onSkillDisableSessionClosed,
+  skillDisableSessionOpen,
+  closePopovers,
   localDraft,
   setLocalDraft,
   persistedDraftRef,
@@ -308,13 +322,16 @@ function ComposerPromptInput({
   sessionUsage,
   contextUsageOpen,
   onContextUsageOpenChange,
-  joinUpperCards = false,
 }: {
   composerRef: React.RefObject<ComposerHandle | null>;
   onAtTrigger: (ctx: import("@/features/welcome/components/PromptComposer").AtTriggerContext) => void;
   onAtCancel: () => void;
   onSlashTrigger: (ctx: import("@/features/welcome/components/PromptComposer").SlashTriggerContext) => void;
   onSlashCancel: () => void;
+  onSkillDisableFilterChange: (filter: string) => void;
+  onSkillDisableSessionClosed: () => void;
+  skillDisableSessionOpen: boolean;
+  closePopovers: () => void;
   localDraft: string;
   setLocalDraft: React.Dispatch<React.SetStateAction<string>>;
   persistedDraftRef: React.MutableRefObject<string>;
@@ -370,7 +387,6 @@ function ComposerPromptInput({
   sessionUsage: AgentSessionUsage | null;
   contextUsageOpen: boolean;
   onContextUsageOpenChange: (open: boolean) => void;
-  joinUpperCards?: boolean;
 }) {
   const t = useTranslations("Agent.components");
   const attachments = usePromptInputAttachments();
@@ -411,6 +427,7 @@ function ComposerPromptInput({
     };
   });
   const composerLocked = isResumingHistory && !isConnected;
+  const agentsLocked = agentLocked || !onProviderChange;
   const canSubmit = Boolean(
     expandAgentComposerText(localDraft) || attachments.files.length,
   ) && !composerLocked && !showStop;
@@ -418,8 +435,10 @@ function ComposerPromptInput({
   useEffect(() => {
     if (hydratedRef.current) return;
     hydratedRef.current = true;
-    if (localDraft) composerRef.current?.setText(localDraft);
-  }, [composerRef, localDraft]);
+    const restored = stripSkillDisableSession(localDraft);
+    if (restored) composerRef.current?.setText(restored);
+    if (restored !== localDraft) setLocalDraft(restored);
+  }, [composerRef, localDraft, setLocalDraft]);
 
   useEffect(() => {
     const applyDraft = (text: string, files: File[]) => {
@@ -479,13 +498,13 @@ function ComposerPromptInput({
         editor={
           <PromptComposer
             ref={composerRef}
-            submitOnEnter
+            submitOnEnter={!skillDisableSessionOpen}
             disabled={composerLocked}
             placeholder={placeholder}
             editorClassName={
               landing
-                ? "min-h-16 max-h-40 rounded-none border-0 bg-transparent px-0 py-0 text-sm leading-5"
-                : "min-h-5 max-h-40 rounded-none border-0 bg-transparent px-0 py-0 text-sm leading-5"
+                ? "min-h-16 max-h-40 select-text rounded-none border-0 bg-transparent px-0 py-0 text-sm leading-5"
+                : "min-h-5 max-h-40 select-text rounded-none border-0 bg-transparent px-0 py-0 text-sm leading-5"
             }
             placeholderClassName="left-0 top-0 text-sm leading-5 text-muted-foreground/55"
             onTextChange={setLocalDraft}
@@ -493,6 +512,8 @@ function ComposerPromptInput({
             onAtCancel={onAtCancel}
             onSlashTrigger={onSlashTrigger}
             onSlashCancel={onSlashCancel}
+            onSkillDisableFilterChange={onSkillDisableFilterChange}
+            onSkillDisableSessionClosed={onSkillDisableSessionClosed}
             onImagePaste={(blob, ext) => {
               const safeExt = ext.replace(/[^a-zA-Z0-9]/g, "") || "png";
               attachments.add([
@@ -508,6 +529,55 @@ function ComposerPromptInput({
         agent={registryId || installedAgents[0]?.id || ""}
         agentLocked={agentLocked || !onProviderChange}
         onAgentChange={onProviderChange}
+        agentTablist={
+          agentOptions.length === 0 ? null : (
+            <CenterStageTabList
+              orientation="vertical"
+              className={cn(
+                "h-full min-h-0 px-0 py-0",
+                agentsLocked && "opacity-40",
+              )}
+              value={registryId || agentOptions[0]?.value || ""}
+              onValueChange={agentsLocked ? undefined : onProviderChange}
+            >
+              <CenterStageScrollableTabs
+                orientation="vertical"
+                className="max-h-[min(22rem,calc(100dvh-8rem))]"
+              >
+                {agentOptions.map((option) => {
+                  const label = typeof option.label === "string" ? option.label : option.value;
+                  return (
+                    <Tooltip key={option.value}>
+                      <TooltipTrigger asChild>
+                        <span className="inline-flex">
+                          <CenterStageTab
+                            value={option.value}
+                            disabled={option.disabled || agentsLocked}
+                            aria-label={label}
+                            title={agentsLocked ? t("composer.agentLocked") : label}
+                            className={CENTER_STAGE_ICON_TAB_CLASS}
+                          >
+                            {option.icon}
+                          </CenterStageTab>
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent side="left" className="z-[10000]">
+                        {agentsLocked ? (
+                          t("composer.agentLocked")
+                        ) : (
+                          <span className="flex items-center gap-1.5">
+                            {label}
+                            {option.trailing}
+                          </span>
+                        )}
+                      </TooltipContent>
+                    </Tooltip>
+                  );
+                })}
+              </CenterStageScrollableTabs>
+            </CenterStageTabList>
+          )
+        }
         models={toPromptModels(modelOption)}
         model={modelOption?.currentValue || ""}
         onModelChange={(value) => modelOption && setConfigOption(modelOption.id, value)}
@@ -546,6 +616,7 @@ function ComposerPromptInput({
           choosePermission: t("composer.choosePermission"),
           model: t("composer.model"),
           modelLocked: t("composer.modelLocked"),
+          agentLocked: t("composer.agentLocked"),
           modeLocked: t("composer.modeLocked"),
           permissionLocked: t("composer.permissionLocked"),
           search: t("configOptionDropdown.searchPlaceholder"),
@@ -556,6 +627,7 @@ function ComposerPromptInput({
           loadingModels: t("composer.loadingModels"),
           thinkingEffort: t("composer.thinkingEffort"),
           fastMode: t("composer.fastMode"),
+          fastChip: t("composer.fastChip"),
         }}
         leadingAction={
           <div className="flex min-w-0 items-center gap-1">
@@ -578,6 +650,7 @@ function ComposerPromptInput({
           const composed = expandAgentComposerText(composerRef.current?.getText() ?? text);
           if (editingItem) {
             if (!composed.trim()) return;
+            closePopovers();
             await onUpdateQueuedPrompt(editingItem.id, composed);
             onFinishEdit();
             return;
@@ -588,8 +661,9 @@ function ComposerPromptInput({
             setLocalDraft(previousDraft);
             return;
           }
-          const converted = await filesForSubmit(files);
           onFlySend?.(composed);
+          const converted = await filesForSubmit(files);
+          closePopovers();
           setLocalDraft("");
           composerRef.current?.clear();
           persistedDraftRef.current = "";
@@ -631,7 +705,6 @@ function ComposerPromptInput({
         }
         className={cn(
           "w-full shadow-none",
-          joinUpperCards && "!rounded-t-none border-t-0",
           editingItem && "border-dashed border-info",
         )}
       />
@@ -749,6 +822,7 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
   );
   const persistedDraftRef = useRef(localDraft);
   const composerRef = useRef<ComposerHandle | null>(null);
+  const composerRootRef = useRef<HTMLDivElement | null>(null);
   const flyingMessageIdRef = useRef(0);
   const [flyingMessage, setFlyingMessage] = useState<ComposerFlyingMessage | null>(null);
   const [editingQueueId, setEditingQueueId] = useState<string | null>(null);
@@ -766,12 +840,13 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
   const reduceOverlayMotion = Boolean(useReducedMotion());
 
   const launchComposerFly = (text: string) => {
+    const composer = composerRootRef.current;
     const kind: ComposerFlyKind = agentActivity.busy ? "queue" : "conversation";
     const message = buildComposerFlyingMessage({
       id: flyingMessageIdRef.current + 1,
       text,
-      from: composerShellOrigin(),
-      to: composerFlyTarget(kind),
+      from: composerShellOrigin(composer),
+      to: composerFlyTarget(kind, composer),
     });
     if (!message) return;
     flyingMessageIdRef.current = message.id;
@@ -814,10 +889,14 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
   });
   const {
     popovers,
+    closePopovers,
     onAtTrigger,
     onAtCancel,
     onSlashTrigger,
     onSlashCancel,
+    onSkillDisableFilterChange,
+    onSkillDisableSessionClosed,
+    skillDisableSessionOpen,
   } = useAgentComposerPopovers({
     availableCommands,
     projectPath,
@@ -851,17 +930,18 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
 
   useEffect(() => {
     if (editingItem) return;
-    if (localDraft === persistedDraftRef.current) return;
+    const toPersist = stripSkillDisableSession(localDraft);
+    if (toPersist === persistedDraftRef.current) return;
 
     const timer = window.setTimeout(() => {
       setAgentChatDraft(
         sessionWorkspaceId,
         sessionProjectId,
         chatMode,
-        localDraft,
+        toPersist,
         instanceKey,
       );
-      persistedDraftRef.current = localDraft;
+      persistedDraftRef.current = toPersist;
     }, 180);
 
     return () => window.clearTimeout(timer);
@@ -877,6 +957,7 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
 
   return (
     <div
+      ref={composerRootRef}
       className="shrink-0 px-3 pb-3 pt-px select-none"
       data-agent-chat-composer=""
       data-agent-composer-landing={landing ? "true" : undefined}
@@ -925,41 +1006,52 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
         <div
           ref={onAboveComposerOverlaysNodeChange}
           data-agent-chat-above-composer-overlays=""
-          className="pointer-events-none absolute inset-x-0 bottom-full z-20 flex w-full flex-col gap-2 has-[*]:pb-2"
+          className="pointer-events-none absolute inset-x-0 bottom-full z-20 flex w-full flex-col gap-2 has-[.pointer-events-auto]:pb-2"
         >
-          <AnimatePresence initial={false}>
-            {showContextUsageCard ? (
-              <motion.div
-                key="agent-context-usage"
-                className="pointer-events-auto w-full"
-                initial={false}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{
-                  opacity: 0,
-                  y: 10,
-                  position: "absolute",
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  transition: reduceOverlayMotion
-                    ? { duration: 0 }
-                    : { duration: 0.28, ease: [0.22, 1, 0.36, 1] },
-                }}
-              >
-                <ContextUsageDetailsPanel
-                  usage={sessionUsage}
-                  providerId={registryId}
-                  onClose={() => setContextUsageOpen(false)}
-                />
-              </motion.div>
-            ) : null}
-          </AnimatePresence>
-          {aboveInputOverlay}
+          <div
+            data-agent-chat-scroll-button-host=""
+            className="flex justify-center empty:hidden"
+          />
+          <div
+            className={cn(
+              "flex w-full min-h-0 flex-col gap-2 empty:hidden",
+              hasUpperComposerCards && "px-6",
+            )}
+          >
+            <AnimatePresence initial={false}>
+              {showContextUsageCard ? (
+                <motion.div
+                  key="agent-context-usage"
+                  className="pointer-events-auto w-full"
+                  initial={false}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{
+                    opacity: 0,
+                    y: 10,
+                    position: "absolute",
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    transition: reduceOverlayMotion
+                      ? { duration: 0 }
+                      : { duration: 0.28, ease: [0.22, 1, 0.36, 1] },
+                  }}
+                >
+                  <ContextUsageDetailsPanel
+                    usage={sessionUsage}
+                    providerId={registryId}
+                    onClose={() => setContextUsageOpen(false)}
+                  />
+                </motion.div>
+              ) : null}
+            </AnimatePresence>
+            {aboveInputOverlay}
+          </div>
         </div>
         {hasUpperComposerCards ? (
           <div
             data-agent-composer-upper-cards=""
-            className="overflow-hidden rounded-t-3xl border border-border/70 border-b-0 bg-background/95"
+            className="relative z-[1] mx-6 -mb-px overflow-hidden rounded-t-3xl border border-b-0 border-border/70 bg-background/95"
           >
             {currentPlan ? (
               <div className={
@@ -1002,6 +1094,10 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
             onAtCancel={onAtCancel}
             onSlashTrigger={onSlashTrigger}
             onSlashCancel={onSlashCancel}
+            onSkillDisableFilterChange={onSkillDisableFilterChange}
+            onSkillDisableSessionClosed={onSkillDisableSessionClosed}
+            skillDisableSessionOpen={skillDisableSessionOpen}
+            closePopovers={closePopovers}
             localDraft={localDraft}
             setLocalDraft={setLocalDraft}
             persistedDraftRef={persistedDraftRef}
@@ -1045,7 +1141,6 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
             sessionUsage={sessionUsage}
             contextUsageOpen={contextUsageOpen}
             onContextUsageOpenChange={setContextUsageOpen}
-            joinUpperCards={hasUpperComposerCards}
           />
         </PromptInputProvider>
       </div>

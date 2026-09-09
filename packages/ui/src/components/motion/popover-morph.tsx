@@ -39,6 +39,26 @@ type MorphContextValue = {
 
 const MorphContext = createContext<MorphContextValue | null>(null);
 
+function morphPortalTriggerId(portal: Element) {
+  return portal.getAttribute("data-morph-anchor");
+}
+
+function isNestedMorphPopoverPortal(content: HTMLElement | null, portal: Element) {
+  if (!content || portal.contains(content)) return false;
+  const triggerId = morphPortalTriggerId(portal);
+  if (!triggerId) return false;
+  const trigger = document.getElementById(triggerId);
+  return Boolean(trigger && content.contains(trigger));
+}
+
+function hasOpenNestedMorphPopover(content: HTMLElement | null) {
+  if (!content) return false;
+  for (const portal of document.querySelectorAll("[data-morph-popover-portal]")) {
+    if (isNestedMorphPopoverPortal(content, portal)) return true;
+  }
+  return false;
+}
+
 function useMorphContext(component: string) {
   const ctx = useContext(MorphContext);
   if (!ctx) throw new Error(`${component} must be used within <MorphPopover>`);
@@ -104,6 +124,7 @@ export function MorphPopover({
   // registered, the root anchor stands in only if it can actually hold focus;
   // there is nowhere better than where the keyboard already is, so leave it.
   const close = useCallback(() => {
+    if (hasOpenNestedMorphPopover(contentRef.current)) return;
     setOpen(false);
     const focused = document.activeElement;
     const inPanel =
@@ -117,7 +138,10 @@ export function MorphPopover({
     (node: Node | null) => {
       if (!node) return false;
       if (root?.contains(node)) return true;
-      return !!contentRef.current?.contains(node);
+      if (contentRef.current?.contains(node)) return true;
+      if (!(node instanceof Element)) return false;
+      const portal = node.closest("[data-morph-popover-portal]");
+      return Boolean(portal && isNestedMorphPopoverPortal(contentRef.current, portal));
     },
     [root],
   );
@@ -283,6 +307,7 @@ export function MorphPopoverContent({
       {ctx.open ? (
         <motion.div
           data-morph-popover-portal=""
+          data-morph-anchor={ctx.triggerId}
           // Wrapper carries the shadow as a drop-shadow filter, which hugs the
           // clipped shape below (box-shadow would just get clipped away).
           variants={wrap}

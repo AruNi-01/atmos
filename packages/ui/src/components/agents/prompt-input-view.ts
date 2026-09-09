@@ -45,3 +45,18 @@ export function agentConfigTriggerText(input: {
   if (model && thinking) return `${model} · ${thinking}`;
   return model || thinking || agent;
 }
+
+/** One chip: `Low · Fast` when Fast is on, otherwise `Low` or `Fast`. */
+export function modelEffortTriggerLabel(input: {
+  thinkingLabel?: string;
+  fastAvailable?: boolean;
+  fastEnabled?: boolean;
+  fastLabel?: string;
+}): string {
+  const thinking = input.thinkingLabel?.trim() ?? "";
+  const fast = input.fastLabel?.trim() ?? "";
+  if (thinking && input.fastEnabled && fast) return `${thinking} · ${fast}`;
+  if (thinking) return thinking;
+  if (input.fastAvailable) return fast;
+  return "";
+}

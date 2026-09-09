@@ -62,6 +62,7 @@ interface SlashCommandPopoverProps {
   disableSkills?: SlashDisableSkillsState | null;
   expandedSections: ExpandedSections;
   filteredAgents: AgentMenuOption[];
+  filteredAtmosCommands?: SlashCommandOption[];
   filteredCommands?: SlashCommandOption[];
   filteredProjects: ProjectOption[];
   filteredSkills: SkillInfo[];
@@ -77,12 +78,116 @@ interface SlashCommandPopoverProps {
   setExpandedSections: React.Dispatch<React.SetStateAction<ExpandedSections>>;
   setItemRef: (index: number, element: HTMLButtonElement | null) => void;
   showAgents?: boolean;
+  showAtmosCommands?: boolean;
   showCommands?: boolean;
   showProjects?: boolean;
   showSkills?: boolean;
+  atmosCommandsTitle?: string;
   commandsTitle?: string;
   listRef: React.RefObject<HTMLDivElement | null>;
   view?: SlashPopoverView;
+}
+
+function SlashCommandGlyph({ commandId }: { commandId: string }) {
+  if (commandId === "spawn") {
+    return <MessagesSquare className="size-4 text-green-600 dark:text-green-400" />;
+  }
+  if (commandId === "dynamic-skills") {
+    return <EyeOff className="size-4 text-red-600 dark:text-red-400" />;
+  }
+  if (commandId === BROWSER_USE_SLASH_COMMAND_ID) {
+    return <BrowserUseIconStatic className="size-4 text-amber-600 dark:text-amber-400" />;
+  }
+  if (commandId === DESKTOP_USE_SLASH_COMMAND_ID) {
+    return <DesktopUseIconStatic className="size-4 text-violet-600 dark:text-violet-400" />;
+  }
+  if (commandId === VIEW_RUN_LOGS_SLASH_COMMAND_ID) {
+    return <ScrollText className="size-4 text-emerald-600 dark:text-emerald-400" />;
+  }
+  if (commandId === DEVICE_PREVIEW_SLASH_COMMAND_ID) {
+    return <Smartphone className="size-4 text-cyan-600 dark:text-cyan-400" />;
+  }
+  return <Zap className="size-4" />;
+}
+
+function SlashCommandSection({
+  activeIndex,
+  commands,
+  headingClassName,
+  onExpand,
+  onSelect,
+  setItemRef,
+  showMoreLabel,
+  startIndex,
+  title,
+  visibleCommands,
+}: {
+  activeIndex: number;
+  commands: SlashCommandOption[];
+  headingClassName: string;
+  onExpand: () => void;
+  onSelect?: (command: SlashCommandOption) => void;
+  setItemRef: (index: number, element: HTMLButtonElement | null) => void;
+  showMoreLabel: string;
+  startIndex: number;
+  title: string;
+  visibleCommands: SlashCommandOption[];
+}) {
+  const showMore = commands.length > 3 && visibleCommands.length < commands.length;
+  if (visibleCommands.length === 0 && !showMore) return null;
+  return (
+    <>
+      <div className={headingClassName}>{title}</div>
+      {visibleCommands.map((command, index) => {
+        const navIndex = startIndex + index;
+        return (
+          <button
+            key={command.id}
+            type="button"
+            ref={(el) => {
+              setItemRef(navIndex, el);
+            }}
+            className={cn(
+              "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left hover:bg-muted",
+              navIndex === activeIndex && "bg-muted",
+            )}
+            onMouseDown={(event) => {
+              event.preventDefault();
+              onSelect?.(command);
+            }}
+          >
+            <SlashCommandGlyph commandId={command.id} />
+            <span className="min-w-0 flex-1">
+              <span className="block truncate font-medium">{command.label}</span>
+              {command.description ? (
+                <span className="block truncate text-[11px] text-muted-foreground">
+                  {command.description}
+                </span>
+              ) : null}
+            </span>
+          </button>
+        );
+      })}
+      {showMore ? (
+        <button
+          type="button"
+          ref={(el) => {
+            setItemRef(startIndex + visibleCommands.length, el);
+          }}
+          className={cn(
+            "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-[11px] text-muted-foreground hover:bg-muted",
+            startIndex + visibleCommands.length === activeIndex && "bg-muted",
+          )}
+          onMouseDown={(event) => {
+            event.preventDefault();
+            onExpand();
+          }}
+        >
+          {showMoreLabel}
+        </button>
+      ) : null}
+    </>
+  );
 }
 
 function scopeBadgeLabel(
@@ -99,6 +204,7 @@ export function SlashCommandPopover({
   disableSkills = null,
   expandedSections,
   filteredAgents,
+  filteredAtmosCommands = [],
   filteredCommands = [],
   filteredProjects,
   filteredSkills,
@@ -114,9 +220,11 @@ export function SlashCommandPopover({
   setExpandedSections,
   setItemRef,
   showAgents = true,
+  showAtmosCommands = false,
   showCommands = false,
   showProjects = true,
   showSkills = true,
+  atmosCommandsTitle,
   commandsTitle,
   listRef,
   view = "menu",
@@ -205,6 +313,11 @@ export function SlashCommandPopover({
       ? filteredCommands
       : filteredCommands.slice(0, 3)
     : [];
+  const visibleAtmosCommands = showAtmosCommands
+    ? expandedSections.atmosCommands
+      ? filteredAtmosCommands
+      : filteredAtmosCommands.slice(0, 3)
+    : [];
   const visibleSkills = showSkills
     ? expandedSections.skills
       ? filteredSkills
@@ -222,11 +335,17 @@ export function SlashCommandPopover({
     : [];
   const commandsShowMore =
     showCommands && filteredCommands.length > 3 && !expandedSections.commands ? 1 : 0;
+  const atmosCommandsShowMore =
+    showAtmosCommands && filteredAtmosCommands.length > 3 && !expandedSections.atmosCommands
+      ? 1
+      : 0;
   const skillsShowMore = showSkills && filteredSkills.length > 3 && !expandedSections.skills ? 1 : 0;
   const projectsShowMore = showProjects && filteredProjects.length > 3 && !expandedSections.projects ? 1 : 0;
 
   const commandsCount = visibleCommands.length;
-  const skillsStartIndex = commandsCount + commandsShowMore;
+  const atmosStartIndex = commandsCount + commandsShowMore;
+  const atmosCount = visibleAtmosCommands.length;
+  const skillsStartIndex = atmosStartIndex + atmosCount + atmosCommandsShowMore;
   const skillsCount = !showSkills
     ? 0
     : expandedSections.skills
@@ -239,6 +358,8 @@ export function SlashCommandPopover({
       ? filteredProjects.length
       : Math.min(filteredProjects.length, 3);
   const agentsStartIndex = projectsStartIndex + projectsCount + projectsShowMore;
+  const commandHeadingClass = "px-2 py-1 text-xs font-medium text-muted-foreground";
+  const commandsSectionVisible = visibleCommands.length > 0 || commandsShowMore > 0;
 
   const handleBackdrop = () => {
     onClose();
@@ -246,71 +367,34 @@ export function SlashCommandPopover({
 
   const menuContent = (
     <div ref={listRef} className="max-h-80 space-y-0.5 overflow-y-auto p-1">
-      {showCommands && (visibleCommands.length > 0 || commandsShowMore > 0) ? (
-        <>
-          <div className="px-2 py-1 text-xs font-medium text-muted-foreground">
-            {commandsTitle || t("slashPopover.commands")}
-          </div>
-          {visibleCommands.map((command, index) => (
-            <button
-              key={command.id}
-              type="button"
-              ref={(el) => {
-                setItemRef(index, el);
-              }}
-              className={cn(
-                "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left hover:bg-muted",
-                index === activeIndex && "bg-muted",
-              )}
-              onMouseDown={(event) => {
-                event.preventDefault();
-                onSelectCommand?.(command);
-              }}
-            >
-              {command.id === "spawn" ? (
-                <MessagesSquare className="size-4 text-green-600 dark:text-green-400" />
-              ) : command.id === "dynamic-skills" ? (
-                <EyeOff className="size-4 text-red-600 dark:text-red-400" />
-              ) : command.id === BROWSER_USE_SLASH_COMMAND_ID ? (
-                <BrowserUseIconStatic className="size-4 text-amber-600 dark:text-amber-400" />
-              ) : command.id === DESKTOP_USE_SLASH_COMMAND_ID ? (
-                <DesktopUseIconStatic className="size-4 text-violet-600 dark:text-violet-400" />
-              ) : command.id === VIEW_RUN_LOGS_SLASH_COMMAND_ID ? (
-                <ScrollText className="size-4 text-emerald-600 dark:text-emerald-400" />
-              ) : command.id === DEVICE_PREVIEW_SLASH_COMMAND_ID ? (
-                <Smartphone className="size-4 text-cyan-600 dark:text-cyan-400" />
-              ) : (
-                <Zap className="size-4" />
-              )}
-              <span className="min-w-0 flex-1">
-                <span className="block truncate font-medium">{command.label}</span>
-                {command.description ? (
-                  <span className="block truncate text-[11px] text-muted-foreground">
-                    {command.description}
-                  </span>
-                ) : null}
-              </span>
-            </button>
-          ))}
-          {filteredCommands.length > 3 && !expandedSections.commands ? (
-            <button
-              type="button"
-              ref={(el) => {
-                setItemRef(commandsCount, el);
-              }}
-              className={cn(
-                "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-[11px] text-muted-foreground hover:bg-muted",
-                commandsCount === activeIndex && "bg-muted",
-              )}
-              onMouseDown={(event) => {
-                event.preventDefault();
-                setExpandedSections((prev) => ({ ...prev, commands: true }));
-              }}
-            >
-              {t("slashPopover.showMore", { count: filteredCommands.length - 3 })}
-            </button>
-          ) : null}
-        </>
+      {showCommands ? (
+        <SlashCommandSection
+          activeIndex={activeIndex}
+          commands={filteredCommands}
+          headingClassName={commandHeadingClass}
+          onExpand={() => setExpandedSections((prev) => ({ ...prev, commands: true }))}
+          onSelect={onSelectCommand}
+          setItemRef={setItemRef}
+          showMoreLabel={t("slashPopover.showMore", { count: filteredCommands.length - 3 })}
+          startIndex={0}
+          title={commandsTitle || t("slashPopover.commands")}
+          visibleCommands={visibleCommands}
+        />
+      ) : null}
+
+      {showAtmosCommands ? (
+        <SlashCommandSection
+          activeIndex={activeIndex}
+          commands={filteredAtmosCommands}
+          headingClassName={cn(commandHeadingClass, commandsSectionVisible && "mt-1.5")}
+          onExpand={() => setExpandedSections((prev) => ({ ...prev, atmosCommands: true }))}
+          onSelect={onSelectCommand}
+          setItemRef={setItemRef}
+          showMoreLabel={t("slashPopover.showMore", { count: filteredAtmosCommands.length - 3 })}
+          startIndex={atmosStartIndex}
+          title={atmosCommandsTitle || t("slashPopover.atmosCommands")}
+          visibleCommands={visibleAtmosCommands}
+        />
       ) : null}
 
       {showSkills ? (

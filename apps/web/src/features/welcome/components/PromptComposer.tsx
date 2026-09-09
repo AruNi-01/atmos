@@ -32,6 +32,14 @@ import {
   type AiContextKind,
 } from "@/shared/lib/ai-context-protocol";
 import {
+  PASTE_TOKEN_SOURCE,
+  buildPastePreview,
+  parsePasteToken,
+  registerComposerPaste,
+  resolveComposerPaste,
+  shouldChipPlainPaste,
+} from "@/shared/lib/composer-paste";
+import {
   imageExtensionForFile,
   normalizeComposerImageFile,
   pickClipboardImageFiles,
@@ -139,7 +147,7 @@ interface PromptComposerProps extends ComposerCallbacks {
 }
 
 const CHIP_TOKEN_PATTERN =
-  String.raw`@(?:issue|pr)#\d+|@file:[^\s]+|\/skill:[^\s]+|\/cmd:[^\s]+|atmos:\/\/terminal-selection\/[a-zA-Z0-9_.:-]+|atmos:\/\/side-chat\/[a-zA-Z0-9_.:-]+|atmos:\/\/spawn\/[a-zA-Z0-9_.:-]+|atmos:\/\/skill-disable|\[#img-\d+\]|\[#appshot:\d{13}\]|\[#ctx:[a-z0-9-]+:[a-zA-Z0-9_-]+\]`;
+  String.raw`@(?:issue|pr)#\d+|@file:[^\s]+|\/skill:[^\s]+|\/cmd:[^\s]+|atmos:\/\/terminal-selection\/[a-zA-Z0-9_.:-]+|atmos:\/\/side-chat\/[a-zA-Z0-9_.:-]+|atmos:\/\/spawn\/[a-zA-Z0-9_.:-]+|atmos:\/\/skill-disable|\[#img-\d+\]|\[#appshot:\d{13}\]|\[#ctx:[a-z0-9-]+:[a-zA-Z0-9_-]+\]|${PASTE_TOKEN_SOURCE}`;
 const TOKEN_REGEX = new RegExp(`(${CHIP_TOKEN_PATTERN})`, "g");
 const BACKSPACE_CHIP_REGEX = new RegExp(`(${CHIP_TOKEN_PATTERN})\\u00A0?$`);
 const DELETE_CHIP_REGEX = new RegExp(`^(${CHIP_TOKEN_PATTERN})\\u00A0?`);
@@ -619,6 +627,22 @@ function buildChipNode(token: string): HTMLSpanElement {
     const label = document.createElement("span");
     label.textContent = presentation.label;
     span.appendChild(label);
+  } else if (parsePasteToken(token)) {
+    const payload = resolveComposerPaste(token);
+    const lineCount = payload?.lineCount ?? 0;
+    span.dataset.kind = "paste";
+    span.dataset.pasteChip = "";
+    span.className +=
+      " cursor-pointer border-border/70 bg-muted/60 text-foreground";
+    span.appendChild(
+      buildStrokeIcon([
+        "M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2",
+        "M9 2h6v2H9z",
+      ]),
+    );
+    const label = document.createElement("span");
+    label.textContent = promptComposerT("paste.chip", { count: lineCount });
+    span.appendChild(label);
   }
   return span;
 }
@@ -731,24 +755,23 @@ function deleteChipNearCaret(root: HTMLElement, direction: "backward" | "forward
 
 function inflateInto(root: HTMLElement, text: string) {
   root.innerHTML = "";
-  const lines = text.split("\n");
-  lines.forEach((line, idx) => {
-    if (idx > 0) {
-      root.appendChild(document.createElement("br"));
+  if (!text) return;
+  // Keep newlines inside text nodes. The editor is `whitespace-pre-wrap`, so a
+  // 100-line paste is one node instead of 100 `<br>` + text pairs.
+  TOKEN_REGEX.lastIndex = 0;
+  let last = 0;
+  for (const match of text.matchAll(TOKEN_REGEX)) {
+    const offset = match.index ?? 0;
+    if (offset > last) {
+      root.appendChild(document.createTextNode(text.slice(last, offset)));
     }
-    let last = 0;
-    line.replace(TOKEN_REGEX, (match, _g, offset) => {
-      if (offset > last) {
-        root.appendChild(document.createTextNode(line.slice(last, offset)));
-      }
-      root.appendChild(buildChipNode(match));
-      last = offset + match.length;
-      return match;
-    });
-    if (last < line.length) {
-      root.appendChild(document.createTextNode(line.slice(last)));
-    }
-  });
+    root.appendChild(buildChipNode(match[0]));
+    last = offset + match[0].length;
+  }
+  TOKEN_REGEX.lastIndex = 0;
+  if (last < text.length) {
+    root.appendChild(document.createTextNode(text.slice(last)));
+  }
 }
 
 /**
@@ -1105,7 +1128,11 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
     onSkillDisableSessionClosedRef.current = onSkillDisableSessionClosed;
     const [isEmpty, setIsEmpty] = React.useState(true);
     const [chipTooltip, setChipTooltip] = React.useState<{
-      text: string;
+      kind: "text" | "paste";
+      text?: string;
+      head?: string[];
+      more?: number;
+      tail?: string[];
       top: number;
       left: number;
     } | null>(null);
@@ -1280,6 +1307,8 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
         clearSkillDisableDismiss();
         editorRef.current.innerHTML = "";
         savedCaretOffsetRef.current = 0;
+        onSkillDisableFilterChangeRef.current?.("");
+        onSkillDisableSessionClosedRef.current?.();
         fireChange();
       },
       insertMention: (mention) => {
@@ -1698,19 +1727,45 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
         return;
       }
       event.preventDefault();
-      if (text) {
-        document.execCommand("insertText", false, text);
+      if (!text || !editorRef.current) return;
+      if (shouldChipPlainPaste(text)) {
+        const token = registerComposerPaste(text);
+        insertNodeAtCaret(editorRef.current, buildChipNode(token));
+        insertNodeAtCaret(editorRef.current, document.createTextNode(CHIP_TRAILING_SPACER));
+        fireChange();
+        rememberCaretOffset();
+        return;
       }
+      insertPlainTextAtCaret(editorRef.current, text);
+      fireChange();
+      rememberCaretOffset();
     };
 
     const handleEditorMouseOver = (event: React.MouseEvent<HTMLDivElement>) => {
       const target = event.target as HTMLElement | null;
+      const pasteChip = target?.closest?.("[data-kind='paste']") as HTMLElement | null;
+      if (pasteChip && editorRef.current?.contains(pasteChip)) {
+        const payload = resolveComposerPaste(pasteChip.getAttribute("data-token") ?? "");
+        if (!payload) return;
+        const preview = buildPastePreview(payload.text);
+        const rect = pasteChip.getBoundingClientRect();
+        setChipTooltip({
+          kind: "paste",
+          head: preview.head,
+          more: preview.more,
+          tail: preview.tail,
+          top: rect.bottom + 6,
+          left: rect.left + rect.width / 2,
+        });
+        return;
+      }
       const chip = target?.closest?.("[data-tooltip]") as HTMLElement | null;
       if (!chip || !editorRef.current?.contains(chip)) return;
       const text = chip.dataset.tooltip;
       if (!text) return;
       const rect = chip.getBoundingClientRect();
       setChipTooltip({
+        kind: "text",
         text,
         top: rect.bottom + 6,
         left: rect.left + rect.width / 2,
@@ -1724,6 +1779,12 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
     const handleEditorMouseOut = (event: React.MouseEvent<HTMLDivElement>) => {
       const related = event.relatedTarget as Node | null;
       const target = event.target as HTMLElement | null;
+      const pasteChip = target?.closest?.("[data-kind='paste']") as HTMLElement | null;
+      if (pasteChip) {
+        if (related && pasteChip.contains(related)) return;
+        setChipTooltip(null);
+        return;
+      }
       const chip = target?.closest?.("[data-tooltip]") as HTMLElement | null;
       if (!chip) return;
       // Still inside the same chip — keep the tooltip / pause.
@@ -1733,6 +1794,26 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
       if (dismiss && dismiss.chip === chip) {
         dismiss.paused = false;
       }
+    };
+
+    const handleEditorMouseDown = (event: React.MouseEvent<HTMLDivElement>) => {
+      const target = event.target as HTMLElement | null;
+      const chip = target?.closest?.("[data-kind='paste']") as HTMLElement | null;
+      if (!chip || !editorRef.current?.contains(chip)) return;
+      event.preventDefault();
+    };
+
+    const handleEditorClick = (event: React.MouseEvent<HTMLDivElement>) => {
+      const target = event.target as HTMLElement | null;
+      const chip = target?.closest?.("[data-kind='paste']") as HTMLElement | null;
+      if (!chip || !editorRef.current?.contains(chip)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const expanded = expandPasteChipInPlace(chip);
+      if (!expanded) return;
+      setChipTooltip(null);
+      fireChange();
+      rememberCaretOffset();
     };
 
     React.useEffect(() => () => clearSkillDisableDismiss(), [clearSkillDisableDismiss]);
@@ -1761,6 +1842,8 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
           onMouseUp={rememberCaretOffset}
           onBlur={rememberCaretOffset}
           onPaste={handlePaste}
+          onMouseDown={handleEditorMouseDown}
+          onClick={handleEditorClick}
           onMouseOver={handleEditorMouseOver}
           onMouseOut={handleEditorMouseOut}
           className={cn(
@@ -1771,13 +1854,35 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
         />
         {chipTooltip && typeof document !== "undefined"
           ? createPortal(
-              <div
-                role="tooltip"
-                className="pointer-events-none fixed z-[2147483646] -translate-x-1/2 whitespace-pre-line rounded-md bg-foreground px-3 py-1.5 text-xs text-background shadow-md animate-in fade-in-0 zoom-in-95"
-                style={{ top: chipTooltip.top, left: chipTooltip.left }}
-              >
-                {chipTooltip.text}
-              </div>,
+              chipTooltip.kind === "paste" ? (
+                <div
+                  role="tooltip"
+                  className="pointer-events-none fixed z-[2147483646] w-max max-w-80 -translate-x-1/2 rounded-md border border-border/70 bg-popover px-3 py-2 text-xs leading-5 text-popover-foreground shadow-md animate-in fade-in-0 zoom-in-95"
+                  style={{ top: chipTooltip.top, left: chipTooltip.left }}
+                >
+                  <div className="whitespace-pre-wrap break-words">
+                    {(chipTooltip.head ?? []).join("\n")}
+                  </div>
+                  {(chipTooltip.more ?? 0) > 0 ? (
+                    <div className="py-0.5 text-muted-foreground/55">
+                      {promptComposerT("paste.moreLines", { count: chipTooltip.more ?? 0 })}
+                    </div>
+                  ) : null}
+                  {(chipTooltip.tail ?? []).length > 0 ? (
+                    <div className="whitespace-pre-wrap break-words">
+                      {(chipTooltip.tail ?? []).join("\n")}
+                    </div>
+                  ) : null}
+                </div>
+              ) : (
+                <div
+                  role="tooltip"
+                  className="pointer-events-none fixed z-[2147483646] -translate-x-1/2 whitespace-pre-line rounded-md bg-foreground px-3 py-1.5 text-xs text-background shadow-md animate-in fade-in-0 zoom-in-95"
+                  style={{ top: chipTooltip.top, left: chipTooltip.left }}
+                >
+                  {chipTooltip.text}
+                </div>
+              ),
               document.body,
             )
           : null}
@@ -1785,6 +1890,34 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
     );
   },
 );
+
+function insertPlainTextAtCaret(root: HTMLElement, text: string) {
+  const normalized = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  if (!normalized) return;
+  insertNodeAtCaret(root, document.createTextNode(normalized));
+}
+
+function expandPasteChipInPlace(chip: HTMLElement): boolean {
+  const token = chip.getAttribute("data-token") ?? "";
+  const payload = resolveComposerPaste(token);
+  if (!payload) return false;
+  const textNode = document.createTextNode(payload.text);
+  const spacer = chip.nextSibling;
+  chip.replaceWith(textNode);
+  if (
+    spacer?.nodeType === Node.TEXT_NODE &&
+    (spacer.textContent === CHIP_TRAILING_SPACER || spacer.textContent === "\u00A0")
+  ) {
+    spacer.remove();
+  }
+  const range = document.createRange();
+  range.setStart(textNode, textNode.length);
+  range.collapse(true);
+  const sel = window.getSelection();
+  sel?.removeAllRanges();
+  sel?.addRange(range);
+  return true;
+}
 
 function insertNodeAtCaret(root: HTMLElement, node: Node) {
   const sel = window.getSelection();
@@ -1798,9 +1931,13 @@ function insertNodeAtCaret(root: HTMLElement, node: Node) {
     return;
   }
   range.deleteContents();
+  const caretAfter =
+    node.nodeType === Node.DOCUMENT_FRAGMENT_NODE ? node.lastChild : node;
   range.insertNode(node);
-  range.setStartAfter(node);
-  range.collapse(true);
+  if (caretAfter) {
+    range.setStartAfter(caretAfter);
+    range.collapse(true);
+  }
   sel.removeAllRanges();
   sel.addRange(range);
 }

@@ -75,5 +75,6 @@ describe("assistant process collapse chrome", () => {
     expect(messageView).toContain("shouldShowAssistantTurnEndedChrome");
     expect(messageView).not.toContain("line-clamp-6");
     expect(messageView).not.toContain("data-transcript-mounted");
+    expect(messageView).toContain("UserMessageBody");
   });
 });

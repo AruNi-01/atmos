@@ -56,20 +56,45 @@ describe("agent prompt composer", () => {
     expect(composer).toContain("modes={toModePromptModels");
     expect(composer).toContain("permissionModes={toPermissionPromptModels");
     expect(composer).toContain("onAgentChange={onProviderChange}");
+    expect(composer).toContain("agentTablist=");
+    expect(composer).toContain('orientation="vertical"');
+    expect(composer).toContain("CenterStageTabList");
+    expect(composer).toContain("CENTER_STAGE_ICON_TAB_CLASS");
+    expect(composer).toContain("agentOptions.length === 0 ? null");
+    expect(composer).not.toContain("agentLocked || !onProviderChange || agentOptions.length === 0");
+    expect(composer).toContain("const agentsLocked = agentLocked || !onProviderChange");
+    expect(composer).toContain('agentsLocked && "opacity-40"');
+    expect(composer).toContain('fastChip: t("composer.fastChip")');
+    expect(composer).toContain('agentLocked: t("composer.agentLocked")');
     expect(composer).toContain('radius="3xl"');
     expect(composer).toContain('"w-full shadow-none"');
-    expect(composer).toContain("joinUpperCards && \"!rounded-t-none border-t-0\"");
-    expect(composer).toContain("overflow-hidden rounded-t-3xl border border-border/70 border-b-0 bg-background/95");
+    expect(composer).not.toContain("joinUpperCards");
+    expect(composer).not.toContain("!rounded-t-none border-t-0");
+    expect(composer).toContain(
+      "relative z-[1] mx-6 -mb-px overflow-hidden rounded-t-3xl border border-b-0 border-border/70 bg-background/95",
+    );
+    expect(composer).not.toContain("mx-6 overflow-hidden rounded-3xl border border-border/70 bg-background/95");
+    expect(composer).not.toContain("relative flex flex-col gap-2");
     expect(composer).toContain("ComposerFlyingMessagePortal");
     expect(composer).toContain("launchComposerFly");
+    expect(composer).toContain("composerRootRef");
+    expect(composer).toContain("composerShellOrigin(composer)");
+    expect(composer).toContain("composerFlyTarget(kind, composer)");
+    expect(composer).not.toContain("composerShellOrigin()");
+    expect(composer).not.toContain("composerFlyTarget(kind);");
     expect(composer).toContain('agentActivity.busy ? "queue" : "conversation"');
     expect(composer).toContain("data-agent-composer-upper-cards");
     expect(composer).toContain("<BackgroundCommandsDock tools={backgroundTools} />");
     expect(composer).toContain('data-agent-chat-above-composer-overlays=""');
     expect(composer).toContain(
-      '"pointer-events-none absolute inset-x-0 bottom-full z-20 flex w-full flex-col gap-2 has-[*]:pb-2"',
+      '"pointer-events-none absolute inset-x-0 bottom-full z-20 flex w-full flex-col gap-2 has-[.pointer-events-auto]:pb-2"',
     );
-    expect(composer).not.toContain("mx-6 overflow-hidden rounded-3xl border border-border/70 bg-background/95");
+    expect(composer).toContain('data-agent-chat-scroll-button-host=""');
+    expect(composer).toContain("empty:hidden");
+    expect(composer).toContain('hasUpperComposerCards && "px-6"');
+    expect(composer.indexOf("data-agent-chat-scroll-button-host")).toBeLessThan(
+      composer.indexOf("data-agent-composer-upper-cards"),
+    );
     expect(composer).toContain("modelsLocked={modelsLocked}");
     expect(composer).toContain("modesLocked={modesLocked}");
     expect(composer).toContain('modelLocked: t("composer.modelLocked")');
@@ -101,13 +126,18 @@ describe("agent prompt composer", () => {
     expect(composer).toContain("<PromptComposer");
     expect(composer).toContain("expandAgentComposerText");
     expect(composer).toContain("insertAiContext");
+    expect(composer).toContain("onSkillDisableFilterChange={onSkillDisableFilterChange}");
+    expect(composer).toContain("onSkillDisableSessionClosed={onSkillDisableSessionClosed}");
+    expect(composer).toContain("submitOnEnter={!skillDisableSessionOpen}");
+    expect(composer).toContain("closePopovers()");
+    expect(composer).toContain("stripSkillDisableSession");
     expect(composer).not.toContain("SlashCommandChip");
   });
 
   it("uses a three-line editor on new chat and a one-line editor after the session exists", () => {
     expect(composer).toContain("minRows={landing ? 2 : 1}");
-    expect(composer).toContain('"min-h-16 max-h-40 rounded-none border-0 bg-transparent px-0 py-0 text-sm leading-5"');
-    expect(composer).toContain('"min-h-5 max-h-40 rounded-none border-0 bg-transparent px-0 py-0 text-sm leading-5"');
+    expect(composer).toContain('"min-h-16 max-h-40 select-text rounded-none border-0 bg-transparent px-0 py-0 text-sm leading-5"');
+    expect(composer).toContain('"min-h-5 max-h-40 select-text rounded-none border-0 bg-transparent px-0 py-0 text-sm leading-5"');
     expect(composer).toContain("data-agent-composer-landing={landing ? \"true\" : undefined}");
   });
 
@@ -131,11 +161,12 @@ describe("agent prompt composer", () => {
     const convertAt = body.indexOf("filesForSubmit(files)");
     const clearAt = body.indexOf("attachments.clear()");
     const submitAt = body.indexOf("await onSubmit({ text: composed, files: converted })");
+    const flyAt = body.indexOf("onFlySend?.(composed)");
     expect(convertAt).toBeGreaterThan(-1);
+    expect(flyAt).toBeGreaterThan(-1);
+    expect(flyAt).toBeLessThan(convertAt);
     expect(clearAt).toBeGreaterThan(convertAt);
     expect(submitAt).toBeGreaterThan(clearAt);
-    expect(body).toContain("onFlySend?.(composed)");
-    expect(body.indexOf("onFlySend?.(composed)")).toBeLessThan(clearAt);
     expect(body).toContain("filesFromComposerParts(converted)");
   });
 

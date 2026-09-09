@@ -8,6 +8,11 @@ import {
   __resetAiContextPayloadsForTests,
   registerAiContextPrompt,
 } from "@/shared/lib/ai-context-protocol";
+import {
+  __resetComposerPasteForTests,
+  registerComposerPaste,
+} from "@/shared/lib/composer-paste";
+import { SKILL_DISABLE_PROTOCOL } from "@/features/skills/lib/skill-disable-protocol";
 
 const commands = [
   { name: "hooks-list", description: "Show hooks" },
@@ -46,6 +51,7 @@ describe("agent chat slash commands", () => {
 describe("expandAgentComposerText", () => {
   afterEach(() => {
     __resetAiContextPayloadsForTests();
+    __resetComposerPasteForTests();
   });
 
   it("turns /cmd chips into ACP slash text and keeps file mentions", () => {
@@ -61,6 +67,18 @@ describe("expandAgentComposerText", () => {
     const token = registerAiContextPrompt("terminal-selection", "npm test\npass");
     expect(expandAgentComposerText(`${token}\u00A0why failed?`)).toBe(
       "npm test\npass why failed?",
+    );
+  });
+
+  it("expands large paste chips to the original body", () => {
+    const body = Array.from({ length: 12 }, (_, i) => `line ${i + 1}`).join("\n");
+    const token = registerComposerPaste(body);
+    expect(expandAgentComposerText(`review\n${token}`)).toBe(`review\n${body}`);
+  });
+
+  it("strips the Dynamic Skills chip so it never lands in the sent prompt", () => {
+    expect(expandAgentComposerText(`${SKILL_DISABLE_PROTOCOL}\u00A0please continue`)).toBe(
+      "please continue",
     );
   });
 });

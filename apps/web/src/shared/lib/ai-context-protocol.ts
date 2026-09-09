@@ -158,8 +158,8 @@ const KIND_DEFAULTS: Record<
     icon: "terminal",
   },
   "device-preview": {
-    label: "Device preview",
-    tooltip: "Device preview",
+    label: "Simulator Device Use",
+    tooltip: "Simulator Device Use",
     tone: "cyan",
     icon: "layout",
   },

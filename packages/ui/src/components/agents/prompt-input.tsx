@@ -31,16 +31,23 @@ import {
   MorphPopoverContent,
   MorphPopoverTrigger,
 } from "../motion/popover-morph";
+import {
+  Tabs as MotionTabs,
+  TabsList as MotionTabsList,
+  TabsTrigger as MotionTabsTrigger,
+} from "../motion/tabs";
 import { RangeSlider } from "../motion/range-slider";
 import { Switch } from "../ui/switch";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "../ui/tooltip";
 import { SPRING_PRESS, SPRING_SWAP } from "../../lib/ease";
 import { cn } from "../../lib/utils";
 import {
-  agentConfigFlyoutOffsetTop,
-  agentConfigFlyoutSide,
   agentConfigTriggerText,
-  initialAgentConfigFlyout,
-  type AgentConfigFlyout,
+  modelEffortTriggerLabel,
 } from "./prompt-input-view";
 
 export interface PromptModel {
@@ -69,6 +76,7 @@ export interface PromptInputLabels {
   choosePermission?: string;
   model?: string;
   modelLocked?: string;
+  agentLocked?: string;
   modeLocked?: string;
   permissionLocked?: string;
   search?: string;
@@ -81,6 +89,8 @@ export interface PromptInputLabels {
   thinkingSmarter?: string;
   thinkingEffort?: string;
   fastMode?: string;
+  /** Short Fast chip word, e.g. `Low · Fast`. */
+  fastChip?: string;
 }
 
 export type PromptInputRadius = "2xl" | "3xl";
@@ -137,6 +147,8 @@ export interface PromptInputProps extends Omit<
   className?: string;
   /** Shell corner radius. Inner toolbar controls scale with this. Default `2xl`. */
   radius?: PromptInputRadius;
+  /** Optional left rail for the agent/model picker (e.g. vertical CenterStage tabs). */
+  agentTablist?: ReactNode;
 }
 
 const PROMPT_SHELL_RADIUS: Record<PromptInputRadius, string> = {
@@ -156,6 +168,7 @@ const DEFAULT_LABELS: Required<PromptInputLabels> = {
   choosePermission: "Permission",
   model: "Model",
   modelLocked: "This agent cannot switch models in the current session",
+  agentLocked: "This session cannot switch agents",
   modeLocked: "This agent cannot switch modes in the current session",
   permissionLocked: "This agent cannot switch permission in the current session",
   search: "Search",
@@ -168,6 +181,7 @@ const DEFAULT_LABELS: Required<PromptInputLabels> = {
   thinkingSmarter: "Smarter",
   thinkingEffort: "Effort",
   fastMode: "Fast Tier",
+  fastChip: "Fast",
 };
 
 export function PromptInput({
@@ -215,6 +229,7 @@ export function PromptInput({
   labels: labelsProp,
   className,
   radius = "2xl",
+  agentTablist,
   disabled,
   placeholder = "Ask the agent to do something…",
   "aria-label": ariaLabel = "Prompt",
@@ -450,6 +465,7 @@ export function PromptInput({
               labels={labels}
               className="min-w-0"
               controlRadius={controlRadius}
+              agentTablist={agentTablist}
             />
           ) : null}
           {footerTrailing}
@@ -604,6 +620,7 @@ function PromptAgentConfigMenu({
   labels,
   className,
   controlRadius,
+  agentTablist,
 }: {
   agents: PromptModel[];
   agent?: string;
@@ -627,106 +644,50 @@ function PromptAgentConfigMenu({
   labels: Required<PromptInputLabels>;
   className?: string;
   controlRadius: string;
+  agentTablist?: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
-  const skipAgentList = agentLocked || agents.length === 0;
-  const [flyout, setFlyout] = useState<AgentConfigFlyout | null>(
-    initialAgentConfigFlyout({ skipAgentList, agent }),
-  );
+  const skipAgentList = agents.length === 0;
   const [search, setSearch] = useState("");
-  const [flyoutSide, setFlyoutSide] = useState<"right" | "left">("right");
-  const [flyoutOffsetTop, setFlyoutOffsetTop] = useState(0);
-  const menuRef = useRef<HTMLDivElement>(null);
-  const flyoutRef = useRef<HTMLDivElement>(null);
-  const hideFlyoutTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [effortOpen, setEffortOpen] = useState(false);
   const showThinking = thinkingLevels.length > 1;
   const currentThinking = thinkingLevels.find((level) => level.value === thinking);
+  const thinkingLabel = showThinking
+    ? titleCaseLabel(optionLabelText(currentThinking ?? thinkingLevels[0]))
+    : "";
+  const showEffortControls = showThinking || fastAvailable;
+  const effortLabel = modelEffortTriggerLabel({
+    thinkingLabel,
+    fastAvailable,
+    fastEnabled,
+    fastLabel: labels.fastChip,
+  });
   const triggerText = agentConfigTriggerText({
     modelLabel: optionLabelText(currentModel),
-    thinkingLabel: showThinking
-      ? titleCaseLabel(optionLabelText(currentThinking ?? thinkingLevels[0]))
-      : "",
+    thinkingLabel,
     agentLabel: optionLabelText(currentAgent) || labels.chooseAgent,
   });
   const filteredModels = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q || flyout !== "model") return models;
+    if (!q) return models;
     return models.filter((option) => optionLabelText(option).toLowerCase().includes(q));
-  }, [flyout, models, search]);
-  const cancelHideFlyout = useCallback(() => {
-    if (hideFlyoutTimer.current == null) return;
-    clearTimeout(hideFlyoutTimer.current);
-    hideFlyoutTimer.current = null;
-  }, []);
-  const scheduleHideFlyout = useCallback(() => {
-    cancelHideFlyout();
-    hideFlyoutTimer.current = setTimeout(() => {
-      hideFlyoutTimer.current = null;
-      setFlyout(null);
-      setSearch("");
-    }, 120);
-  }, [cancelHideFlyout]);
-  const openFlyout = (next: AgentConfigFlyout) => {
-    cancelHideFlyout();
-    if (next === "model" && modelsLocked) return;
-    if (next === "model" && models.length === 0) {
-      onEmptyModelsOpen?.();
-    }
-    if (next === flyout) return;
-    setSearch("");
-    setFlyout(next);
-  };
+  }, [models, search]);
+  const selectedAgent = agent || agents[0]?.value || "";
+
   useEffect(() => {
-    if (!modelsLocked || flyout !== "model") return;
-    setFlyout(null);
     setSearch("");
-  }, [flyout, modelsLocked]);
-  useEffect(() => () => cancelHideFlyout(), [cancelHideFlyout]);
-  useLayoutEffect(() => {
-    if (!flyout || !menuRef.current) {
-      setFlyoutSide("right");
-      setFlyoutOffsetTop(0);
-      return;
-    }
-    const update = () => {
-      const menu = menuRef.current;
-      const panel = flyoutRef.current;
-      if (!menu || !panel) return;
-      const rect = menu.getBoundingClientRect();
-      setFlyoutSide(
-        agentConfigFlyoutSide({
-          menuRight: rect.right,
-          viewportWidth: window.innerWidth,
-        }),
-      );
-      setFlyoutOffsetTop(
-        agentConfigFlyoutOffsetTop({
-          menuTop: rect.top,
-          flyoutHeight: panel.offsetHeight,
-          viewportHeight: window.innerHeight,
-        }),
-      );
-    };
-    update();
-    const panel = flyoutRef.current;
-    if (!panel || typeof ResizeObserver === "undefined") return;
-    const observer = new ResizeObserver(update);
-    observer.observe(panel);
-    window.addEventListener("resize", update);
-    return () => {
-      observer.disconnect();
-      window.removeEventListener("resize", update);
-    };
-  }, [flyout]);
+  }, [agent]);
+  useEffect(() => {
+    setEffortOpen(false);
+  }, [agent, model]);
 
   return (
     <MorphPopover
       open={open}
       onOpenChange={(next) => {
         setOpen(next);
-        cancelHideFlyout();
-        setFlyout(null);
         setSearch("");
+        setEffortOpen(false);
         if (next && models.length === 0) {
           onEmptyModelsOpen?.();
         }
@@ -760,156 +721,209 @@ function PromptAgentConfigMenu({
         clip={false}
         className="overflow-visible border-0 bg-transparent p-0"
       >
-        <div
-          ref={menuRef}
-          className="relative w-[13.75rem]"
-          onPointerLeave={scheduleHideFlyout}
-        >
-          <div className="flex w-full flex-col rounded-2xl border border-border bg-popover py-1.5 shadow-[0_10px_18px_rgba(0,0,0,0.14)]">
-            {skipAgentList ? null : (
-              <ConfigMenuRow
-                label={labels.chooseAgent}
-                value={optionLabelText(currentAgent) || labels.chooseAgent}
-                active={flyout === "agent"}
-                onHover={() => openFlyout("agent")}
-              />
-            )}
-            <ConfigMenuRow
-              label={labels.model}
-              value={optionLabelText(currentModel) || labels.chooseModel}
-              active={flyout === "model"}
-              disabled={modelsLocked}
-              title={modelsLocked ? labels.modelLocked : undefined}
-              onHover={() => openFlyout("model")}
-            />
-            {showThinking ? (
-              <div
-                className="px-1 py-1"
-                onPointerEnter={() => {
-                  cancelHideFlyout();
-                  setFlyout(null);
-                  setSearch("");
-                }}
-              >
-                <ThinkingSliderPanel
-                  levels={thinkingLevels}
-                  value={thinking ?? ""}
-                  onChange={onThinkingChange}
-                  disabled={disabled}
-                  effortLabel={labels.thinkingEffort}
-                />
+        <div className="flex max-h-[min(24rem,calc(100dvh-1rem))] overflow-hidden rounded-2xl border border-border bg-popover shadow-[0_10px_18px_rgba(0,0,0,0.14)]">
+          {agentTablist !== undefined ? (
+            agentTablist ? (
+              <div className="flex min-h-0 shrink-0 items-stretch self-stretch p-1.5 pr-1">
+                {agentTablist}
               </div>
-            ) : null}
-            {fastAvailable ? (
-              <div
-                className="px-1"
-                onPointerEnter={() => {
-                  cancelHideFlyout();
-                  setFlyout(null);
-                  setSearch("");
-                }}
-              >
-                <div className="flex h-9 w-full items-center gap-3 px-2.5">
-                  <span className="shrink-0 text-sm font-medium text-foreground">
-                    {labels.fastMode}
-                  </span>
-                  <span className="min-w-0 flex-1" />
-                  <Switch
-                    checked={Boolean(fastEnabled)}
-                    disabled={disabled}
-                    onCheckedChange={(checked) => onFastChange?.(checked)}
-                    aria-label={labels.fastMode}
-                  />
-                </div>
-              </div>
-            ) : null}
-          </div>
-          {flyout ? (
+            ) : null
+          ) : skipAgentList ? null : (
             <div
               className={cn(
-                "absolute z-10",
-                flyoutSide === "right" ? "left-full pl-1.5" : "right-full pr-1.5",
+                "flex min-h-0 shrink-0 items-stretch self-stretch p-1.5 pr-1",
+                agentLocked && "opacity-40",
               )}
-              style={{ top: flyoutOffsetTop }}
-              onPointerEnter={cancelHideFlyout}
             >
-              <div
-                ref={flyoutRef}
-                className="flex max-h-[min(20rem,calc(100dvh-1rem))] w-[16.5rem] flex-col rounded-2xl border border-border bg-popover shadow-[0_10px_18px_rgba(0,0,0,0.14)]"
+              <MotionTabs
+                value={selectedAgent}
+                onValueChange={
+                  agentLocked
+                    ? undefined
+                    : (value) => {
+                        onAgentChange?.(value);
+                        setSearch("");
+                        setEffortOpen(false);
+                      }
+                }
+                variant="pill"
+                orientation="vertical"
+                className="flex h-full min-h-0 min-w-0 flex-col items-stretch"
               >
-                {flyout === "agent" ? (
-                  <ConfigFlyoutList
-                    options={agents}
-                    selected={agent}
-                    emptyLabel={labels.noResults}
-                    onSelect={(value) => {
-                      onAgentChange?.(value);
-                    }}
-                  />
-                ) : (
-                  <ConfigFlyoutList
-                    options={filteredModels}
-                    selected={model}
-                    search={search}
-                    onSearch={setSearch}
-                    searchPlaceholder={labels.searchModels}
-                    loading={Boolean(modelsLoading) && models.length === 0}
-                    loadingLabel={labels.loadingModels}
-                    emptyLabel={labels.noResults}
-                    onSelect={(value) => {
-                      onModelChange(value);
-                      setOpen(false);
-                    }}
-                    showSearch
-                  />
-                )}
+                <MotionTabsList
+                  className="flex h-full w-8 min-h-0 max-h-full flex-col justify-start overflow-y-auto bg-background px-0.5 py-0.5"
+                  indicatorClassName="bg-active"
+                >
+                  {agents.map((option) => {
+                    const label = optionLabelText(option);
+                    return (
+                      <Tooltip key={option.value}>
+                        <TooltipTrigger asChild>
+                          <span className="inline-flex">
+                            <MotionTabsTrigger
+                              value={option.value}
+                              disabled={option.disabled || agentLocked}
+                              aria-label={label}
+                              title={agentLocked ? labels.agentLocked : label}
+                              className="pointer-events-auto group size-7 shrink-0 px-0 text-xs aria-selected:!text-foreground"
+                            >
+                              {option.icon ?? (
+                                <span className="text-[10px] font-medium">{label.slice(0, 1)}</span>
+                              )}
+                            </MotionTabsTrigger>
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent side="left" className="z-[10000]">
+                          {agentLocked ? (
+                            labels.agentLocked
+                          ) : (
+                            <span className="flex items-center gap-1.5">
+                              {label}
+                              {option.trailing}
+                            </span>
+                          )}
+                        </TooltipContent>
+                      </Tooltip>
+                    );
+                  })}
+                </MotionTabsList>
+              </MotionTabs>
+            </div>
+          )}
+          <div className="flex min-h-0 w-[16.5rem] min-w-0 flex-1 flex-col">
+            <div className="flex min-w-0 items-center gap-2 px-2 pt-1.5 pb-1">
+              <span className="shrink-0 pl-1 text-[11px] text-muted-foreground">
+                {labels.model}
+              </span>
+              <div className="min-w-0 flex-1">
+                <SelectSearch
+                  value={search}
+                  onChange={setSearch}
+                  placeholder={labels.searchModels}
+                  padded={false}
+                />
               </div>
             </div>
-          ) : null}
+            <div className="min-h-0 flex-1 overflow-y-auto p-1.5 pt-0">
+              {Boolean(modelsLoading) && models.length === 0 ? (
+                <div
+                  className="flex items-center gap-2 px-2.5 py-3 text-xs text-muted-foreground"
+                  aria-busy="true"
+                  aria-live="polite"
+                >
+                  <LoaderCircle className="size-3.5 shrink-0 animate-spin" />
+                  <span>{labels.loadingModels}</span>
+                </div>
+              ) : filteredModels.length === 0 ? (
+                <div className="px-2.5 py-3 text-center text-xs text-muted-foreground">
+                  {labels.noResults}
+                </div>
+              ) : (
+                filteredModels.map((option) => {
+                  const isSelected = option.value === model;
+                  const warning = isSelected && option.tone === "warning";
+                  return (
+                    <div
+                      key={option.value}
+                      className={cn(
+                        "flex w-full items-center gap-1 rounded-lg",
+                        warning
+                          ? "bg-muted text-warning"
+                          : isSelected
+                            ? "bg-muted text-foreground"
+                            : "text-foreground hover:bg-muted/70",
+                      )}
+                    >
+                      <button
+                        type="button"
+                        disabled={option.disabled || modelsLocked}
+                        title={modelsLocked ? labels.modelLocked : undefined}
+                        onClick={() => onModelChange(option.value)}
+                        className={cn(
+                          "flex min-w-0 flex-1 gap-2 px-2.5 py-2 text-left text-sm outline-none",
+                          option.description ? "items-start" : "items-center",
+                          "disabled:pointer-events-none disabled:opacity-50",
+                        )}
+                      >
+                        <span className="min-w-0 flex-1">
+                          <OptionRow option={option} />
+                        </span>
+                      </button>
+                      {isSelected && showEffortControls ? (
+                        <MorphPopover
+                          open={effortOpen}
+                          onOpenChange={setEffortOpen}
+                          className="shrink-0"
+                        >
+                          <MorphPopoverTrigger>
+                            <button
+                              type="button"
+                              disabled={disabled}
+                              aria-label={effortLabel || labels.thinkingEffort}
+                              className="inline-flex h-6 max-w-[10rem] shrink-0 items-center gap-0.5 rounded-full bg-background px-2 text-[11px] text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2"
+                            >
+                              <span className="min-w-0 truncate">{effortLabel}</span>
+                              <ChevronRight className="size-3 shrink-0" />
+                            </button>
+                          </MorphPopoverTrigger>
+                          <MorphPopoverContent
+                            side="top"
+                            align="end"
+                            sideOffset={8}
+                            radius={16}
+                            clip={false}
+                            className="overflow-visible border-0 bg-transparent p-0"
+                          >
+                            <div className="w-[13.75rem] rounded-2xl border border-border bg-popover py-1.5 shadow-[0_10px_18px_rgba(0,0,0,0.14)]">
+                              {showThinking ? (
+                                <div className="px-1 py-1">
+                                  <ThinkingSliderPanel
+                                    levels={thinkingLevels}
+                                    value={thinking ?? ""}
+                                    onChange={onThinkingChange}
+                                    disabled={disabled}
+                                    effortLabel={labels.thinkingEffort}
+                                  />
+                                </div>
+                              ) : null}
+                              {fastAvailable ? (
+                                <div className="px-1">
+                                  <div className="flex h-9 w-full items-center gap-3 px-2.5">
+                                    <span className="shrink-0 text-sm font-medium text-foreground">
+                                      {labels.fastMode}
+                                    </span>
+                                    <span className="min-w-0 flex-1" />
+                                    <Switch
+                                      checked={Boolean(fastEnabled)}
+                                      disabled={disabled}
+                                      onCheckedChange={(checked) => onFastChange?.(checked)}
+                                      aria-label={labels.fastMode}
+                                    />
+                                  </div>
+                                </div>
+                              ) : null}
+                            </div>
+                          </MorphPopoverContent>
+                        </MorphPopover>
+                      ) : null}
+                      <span
+                        aria-hidden
+                        className={cn(
+                          "mr-2 size-3.5 shrink-0 rounded-full border",
+                          isSelected
+                            ? "border-foreground bg-foreground"
+                            : "border-muted-foreground/35",
+                        )}
+                      />
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
         </div>
       </MorphPopoverContent>
     </MorphPopover>
-  );
-}
-
-function ConfigMenuRow({
-  label,
-  value,
-  active,
-  disabled,
-  title,
-  onHover,
-}: {
-  label: string;
-  value: string;
-  active: boolean;
-  disabled?: boolean;
-  title?: string;
-  onHover: () => void;
-}) {
-  return (
-    <div className="px-1">
-      <button
-        type="button"
-        disabled={disabled}
-        title={title}
-        onPointerEnter={disabled ? undefined : onHover}
-        onFocus={disabled ? undefined : onHover}
-        onClick={disabled ? undefined : onHover}
-        className={cn(
-          "flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left text-sm outline-none",
-          disabled
-            ? "cursor-not-allowed text-muted-foreground"
-            : active
-              ? "bg-muted text-foreground"
-              : "text-foreground hover:bg-muted/60",
-        )}
-      >
-        <span className="shrink-0 font-medium">{label}</span>
-        <span className="min-w-0 flex-1 truncate text-right text-muted-foreground">{value}</span>
-        {disabled ? null : <ChevronRight className="size-3.5 shrink-0 text-muted-foreground/70" />}
-      </button>
-    </div>
   );
 }
 
@@ -1091,10 +1105,12 @@ function SelectSearch({
   value,
   onChange,
   placeholder,
+  padded = true,
 }: {
   value: string;
   onChange: (value: string) => void;
   placeholder: string;
+  padded?: boolean;
 }) {
   const reduce = useReducedMotion() ?? false;
   const [focused, setFocused] = useState(false);
@@ -1104,7 +1120,7 @@ function SelectSearch({
       initial={reduce ? { opacity: 1 } : { opacity: 0, y: -8, filter: "blur(6px)" }}
       animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
       transition={reduce ? { duration: 0 } : SPRING_SWAP}
-      className="px-1.5 pt-1.5 pb-1"
+      className={padded ? "px-1.5 pt-1.5 pb-1" : undefined}
     >
       <motion.div
         animate={{ scale: focused ? 1.015 : 1 }}

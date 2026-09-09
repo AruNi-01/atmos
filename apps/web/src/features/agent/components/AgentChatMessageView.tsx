@@ -18,6 +18,7 @@ import { AgentWorkedForLabel } from "./AgentWorkedForLabel";
 import { AssistantTurnFileChanges } from "./AssistantTurnFileChanges";
 import { MessageTurnUsageBadge } from "./UsageBadges";
 import { AgentComposerAttachmentList } from "./AgentComposerAttachments";
+import { UserMessageBody } from "./UserMessageBody";
 
 export const AgentChatMessageView = React.memo(function AgentChatMessageView({
   message,
@@ -68,6 +69,7 @@ export const AgentChatMessageView = React.memo(function AgentChatMessageView({
     <div
       data-message-index={index}
       data-agent-chat-message={message.id}
+      data-agent-chat-message-role={message.role}
       className="w-full min-w-0"
     >
       {message.role === "user" ? (
@@ -81,14 +83,7 @@ export const AgentChatMessageView = React.memo(function AgentChatMessageView({
                   className="px-0 pt-0"
                 />
               ) : null}
-              {userText ? (
-                <div
-                  className="whitespace-pre-wrap"
-                  style={{ overflowWrap: "break-word", wordBreak: "normal" }}
-                >
-                  {userText}
-                </div>
-              ) : null}
+              {userText ? <UserMessageBody text={userText} /> : null}
             </MessageContent>
             {userTime || userText.trim() ? (
               <div className="flex items-center justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100">

@@ -22,8 +22,16 @@ export interface SlashCommandOption {
   description?: string;
 }
 
-export type SlashSection = "commands" | "skills" | "projects" | "agents";
+export type SlashSection = "commands" | "atmosCommands" | "skills" | "projects" | "agents";
 export type SlashExpandedSections = Record<SlashSection, boolean>;
+
+export const COLLAPSED_SLASH_SECTIONS: SlashExpandedSections = {
+  commands: false,
+  atmosCommands: false,
+  skills: false,
+  projects: false,
+  agents: false,
+};
 
 type SlashNavigationItem<Project> =
   | { type: "command"; item: SlashCommandOption }
@@ -36,6 +44,7 @@ interface UseWelcomeSlashNavigationArgs<Project> {
   /** When false, skip arrow/enter handling (e.g. disable-skills morph view). */
   enabled?: boolean;
   filteredAgents: AgentMenuOption[];
+  filteredAtmosCommands?: SlashCommandOption[];
   filteredCommands?: SlashCommandOption[];
   filteredProjects: Project[];
   filteredSkills: SkillInfo[];
@@ -49,6 +58,7 @@ interface UseWelcomeSlashNavigationArgs<Project> {
 export function useWelcomeSlashNavigation<Project>({
   enabled = true,
   filteredAgents,
+  filteredAtmosCommands = [],
   filteredCommands = [],
   filteredProjects,
   filteredSkills,
@@ -59,10 +69,7 @@ export function useWelcomeSlashNavigation<Project>({
   popover,
 }: UseWelcomeSlashNavigationArgs<Project>) {
   const [expandedSections, setExpandedSections] = React.useState<SlashExpandedSections>({
-    commands: false,
-    skills: false,
-    projects: false,
-    agents: false,
+    ...COLLAPSED_SLASH_SECTIONS,
   });
   const [activeIndex, setActiveIndex] = React.useState(0);
   const listRef = React.useRef<HTMLDivElement | null>(null);
@@ -73,12 +80,7 @@ export function useWelcomeSlashNavigation<Project>({
 
   React.useEffect(() => {
     setActiveIndex(0);
-    setExpandedSections({
-      commands: false,
-      skills: false,
-      projects: false,
-      agents: false,
-    });
+    setExpandedSections({ ...COLLAPSED_SLASH_SECTIONS });
   }, [popover?.query]);
 
   const visibleItems = React.useMemo<Array<SlashNavigationItem<Project>>>(() => {
@@ -86,6 +88,9 @@ export function useWelcomeSlashNavigation<Project>({
     const commandsToShow = expandedSections.commands
       ? filteredCommands
       : filteredCommands.slice(0, 3);
+    const atmosCommandsToShow = expandedSections.atmosCommands
+      ? filteredAtmosCommands
+      : filteredAtmosCommands.slice(0, 3);
     const skillsToShow = expandedSections.skills ? filteredSkills : filteredSkills.slice(0, 3);
     const projectsToShow = expandedSections.projects
       ? filteredProjects
@@ -95,6 +100,10 @@ export function useWelcomeSlashNavigation<Project>({
     items.push(...commandsToShow.map((item) => ({ type: "command" as const, item })));
     if (filteredCommands.length > 3 && !expandedSections.commands) {
       items.push({ type: "show-more", section: "commands" });
+    }
+    items.push(...atmosCommandsToShow.map((item) => ({ type: "command" as const, item })));
+    if (filteredAtmosCommands.length > 3 && !expandedSections.atmosCommands) {
+      items.push({ type: "show-more", section: "atmosCommands" });
     }
     items.push(...skillsToShow.map((item) => ({ type: "skill" as const, item })));
     if (filteredSkills.length > 3 && !expandedSections.skills) {
@@ -112,7 +121,14 @@ export function useWelcomeSlashNavigation<Project>({
     }
 
     return items;
-  }, [expandedSections, filteredAgents, filteredCommands, filteredProjects, filteredSkills]);
+  }, [
+    expandedSections,
+    filteredAgents,
+    filteredAtmosCommands,
+    filteredCommands,
+    filteredProjects,
+    filteredSkills,
+  ]);
 
   React.useEffect(() => {
     setActiveIndex((prev) => {

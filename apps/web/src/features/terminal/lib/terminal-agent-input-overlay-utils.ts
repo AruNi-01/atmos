@@ -1,6 +1,7 @@
 import { agentApi as agentRestApi } from "@/api/rest-api";
 import { formatAppshotPrompt } from "@/features/appshot/lib/appshot-protocol";
 import { materializeAiContextText } from "@/shared/lib/ai-context-protocol";
+import { expandPasteTokens } from "@/shared/lib/composer-paste";
 
 export type TerminalAgentPromptAttachment = {
   number: number;
@@ -61,16 +62,18 @@ export async function resolveTerminalAgentPrompt({
   }
 
   return materializeAiContextText(
-    text
-      .replace(/@(?:issue|pr)#\d+/g, () => ".atmos/context/requirement.md")
-      .replace(/@file:([^\s]+)/g, (_match, relativePath: string) => `@${relativePath}`)
-      .replace(/\[#appshot:(\d{13})\]/g, (_match, timestamp: string) =>
-        formatAppshotPrompt(timestamp),
-      )
-      .replace(/\[#img-(\d+)\]/g, (match, number: string) => {
-        const path = attachmentPathByNumber.get(Number(number));
-        return path ? `@${path}` : match;
-      }),
+    expandPasteTokens(
+      text
+        .replace(/@(?:issue|pr)#\d+/g, () => ".atmos/context/requirement.md")
+        .replace(/@file:([^\s]+)/g, (_match, relativePath: string) => `@${relativePath}`)
+        .replace(/\[#appshot:(\d{13})\]/g, (_match, timestamp: string) =>
+          formatAppshotPrompt(timestamp),
+        )
+        .replace(/\[#img-(\d+)\]/g, (match, number: string) => {
+          const path = attachmentPathByNumber.get(Number(number));
+          return path ? `@${path}` : match;
+        }),
+    ),
   );
 }
 

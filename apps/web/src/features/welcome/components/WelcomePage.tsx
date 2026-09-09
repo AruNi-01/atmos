@@ -26,6 +26,7 @@ import { useWelcomeProjectContext } from "@/features/welcome/hooks/use-welcome-p
 import { useWelcomeMentionSearch } from "@/features/welcome/hooks/use-welcome-mention-search";
 import { useWelcomeSlashSearch } from "@/features/welcome/hooks/use-welcome-slash-search";
 import {
+  COLLAPSED_SLASH_SECTIONS,
   type SlashCommandOption,
   type WelcomeSlashPopoverState,
   useWelcomeSlashNavigation,
@@ -779,7 +780,7 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
   } = useWelcomeSlashNavigation({
     enabled: slashPopoverView === "menu",
     filteredAgents,
-    filteredCommands: slashCommands,
+    filteredAtmosCommands: slashCommands,
     filteredProjects,
     filteredSkills,
     onSelectAgent: selectSlashAgent,
@@ -798,12 +799,7 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
     setSlashPopoverView("menu");
     setSkillDisableFilter("");
     setSkillDisableSessionActions([]);
-    setExpandedSections({
-      commands: false,
-      skills: false,
-      projects: false,
-      agents: false,
-    });
+    setExpandedSections({ ...COLLAPSED_SLASH_SECTIONS });
   }, [setExpandedSections]);
 
   const handleSkillDisableSessionClosed = React.useCallback(() => {
@@ -812,12 +808,7 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
     setSlashPopoverView("menu");
     setSkillDisableFilter("");
     setSkillDisableSessionActions([]);
-    setExpandedSections({
-      commands: false,
-      skills: false,
-      projects: false,
-      agents: false,
-    });
+    setExpandedSections({ ...COLLAPSED_SLASH_SECTIONS });
   }, [setExpandedSections]);
 
   React.useEffect(() => {
@@ -1236,7 +1227,7 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
             : null,
         expandedSections,
         filteredAgents,
-        filteredCommands: slashCommands,
+        filteredAtmosCommands: slashCommands,
         filteredProjects,
         filteredSkills,
         isSkillsLoading,
@@ -1253,7 +1244,7 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
         popover: slashPopover,
         setExpandedSections,
         setItemRef: setSlashItemRef,
-        showCommands: slashCommands.length > 0,
+        showAtmosCommands: slashCommands.length > 0,
         view: slashPopoverView,
       }}
       summaryItems={filledSummaryItems}

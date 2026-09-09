@@ -5,7 +5,7 @@ import {
   agentConfigFlyoutOffsetTop,
   agentConfigFlyoutSide,
   agentConfigTriggerText,
-  initialAgentConfigFlyout,
+  modelEffortTriggerLabel,
 } from "./prompt-input-view";
 
 const promptInput = readFileSync(join(import.meta.dir, "./prompt-input.tsx"), "utf8");
@@ -14,16 +14,21 @@ describe("empty model list reload", () => {
   it("asks the host to reload when the model picker opens with no models", () => {
     expect(promptInput).toContain("onEmptyModelsOpen");
     expect(promptInput).toContain("if (next && models.length === 0)");
-    expect(promptInput).toContain('if (next === "model" && models.length === 0)');
   });
 });
 
 describe("locked session config", () => {
-  it("does not open the model flyout when models are locked", () => {
-    expect(promptInput).toContain('if (next === "model" && modelsLocked) return');
-    expect(promptInput).toContain("disabled={modelsLocked}");
+  it("does not select a different model when models are locked", () => {
+    expect(promptInput).toContain("disabled={option.disabled || modelsLocked}");
     expect(promptInput).toContain("disabled={disabled || loading || modesLocked}");
     expect(promptInput).toContain("disabled={disabled || loading || permissionModesLocked}");
+  });
+
+  it("keeps the agent rail visible and disabled when the agent is locked", () => {
+    expect(promptInput).toContain("const skipAgentList = agents.length === 0");
+    expect(promptInput).not.toContain("agentLocked || agents.length === 0");
+    expect(promptInput).toContain("agentLocked && \"opacity-40\"");
+    expect(promptInput).toContain("disabled={option.disabled || agentLocked}");
   });
 });
 
@@ -46,29 +51,6 @@ describe("permission picker", () => {
     expect(promptInput).toContain("permissionModes.length");
     expect(promptInput).toContain("onPermissionModeChange");
     expect(promptInput).toContain("disabled={disabled || loading || permissionModesLocked}");
-  });
-});
-
-describe("initialAgentConfigFlyout", () => {
-  it("keeps the secondary menu closed until Agent or Model is hovered", () => {
-    expect(
-      initialAgentConfigFlyout({
-        skipAgentList: false,
-        agent: "cursor",
-      }),
-    ).toBeNull();
-    expect(
-      initialAgentConfigFlyout({
-        skipAgentList: false,
-        agent: "",
-      }),
-    ).toBeNull();
-    expect(
-      initialAgentConfigFlyout({
-        skipAgentList: true,
-        agent: "",
-      }),
-    ).toBeNull();
   });
 });
 
@@ -114,6 +96,44 @@ describe("agentConfigFlyoutOffsetTop", () => {
   });
 });
 
+describe("modelEffortTriggerLabel", () => {
+  it("joins effort and Fast with a middle dot when Fast is on", () => {
+    expect(
+      modelEffortTriggerLabel({
+        thinkingLabel: "Low",
+        fastAvailable: true,
+        fastEnabled: true,
+        fastLabel: "Fast",
+      }),
+    ).toBe("Low · Fast");
+  });
+
+  it("shows only the thinking label when Fast is off", () => {
+    expect(
+      modelEffortTriggerLabel({
+        thinkingLabel: "Low",
+        fastAvailable: true,
+        fastEnabled: false,
+        fastLabel: "Fast",
+      }),
+    ).toBe("Low");
+  });
+
+  it("falls back to the fast label when there is no thinking ladder", () => {
+    expect(
+      modelEffortTriggerLabel({
+        thinkingLabel: "",
+        fastAvailable: true,
+        fastLabel: "Fast",
+      }),
+    ).toBe("Fast");
+  });
+
+  it("is empty when neither effort nor fast is available", () => {
+    expect(modelEffortTriggerLabel({})).toBe("");
+  });
+});
+
 describe("agentConfigTriggerText", () => {
   it("joins model and thinking with a middle dot", () => {
     expect(
@@ -151,21 +171,32 @@ describe("S2 thinking control visibility", () => {
 });
 
 describe("PromptAgentConfigMenu", () => {
-  it("keeps agent and model in a hover flyout and effort as an inline slider", () => {
+  it("puts agent tabs and models in one popover without hover flyouts", () => {
     expect(promptInput).toContain("function PromptAgentConfigMenu");
     expect(promptInput).toContain("function ThinkingSliderPanel");
-    expect(promptInput).not.toContain('flyout === "thinking"');
-    expect(promptInput).toContain("openFlyout");
-    expect(promptInput).toContain("{flyout ? (");
+    expect(promptInput).toContain('orientation="vertical"');
+    expect(promptInput).toContain("indicatorClassName=\"bg-active\"");
+    expect(promptInput).toContain("agentTablist");
+    expect(promptInput).not.toContain("openFlyout");
+    expect(promptInput).not.toContain("{flyout ? (");
+    expect(promptInput).not.toContain("function ConfigMenuRow");
     expect(promptInput).toContain("clip={false}");
-    expect(promptInput).toContain('flyoutSide === "right" ? "left-full pl-1.5" : "right-full pr-1.5"');
     expect(promptInput).not.toContain("PromptAgentModelSelect");
     expect(promptInput).not.toContain("initialAgentModelSelectView");
     expect(promptInput).not.toContain("border-t border-border/60");
   });
 
+  it("opens effort and fast controls from one selected-model chip", () => {
+    expect(promptInput).toContain("showEffortControls");
+    expect(promptInput).toContain("modelEffortTriggerLabel");
+    expect(promptInput).toContain("fastLabel: labels.fastChip");
+    expect(promptInput).toContain("function ThinkingSliderPanel");
+    expect(promptInput).toContain('aria-label={labels.fastMode}');
+    expect(promptInput).toContain("onClick={() => onModelChange(option.value)}");
+  });
+
   it("searches models only, never agents", () => {
-    expect(promptInput).toContain("searchPlaceholder={labels.searchModels}");
+    expect(promptInput).toContain("placeholder={labels.searchModels}");
     expect(promptInput).not.toContain("searchPlaceholder={labels.searchAgents}");
   });
 
@@ -175,6 +206,18 @@ describe("PromptAgentConfigMenu", () => {
     expect(promptInput).toContain(
       "Chip shown immediately after the option label (e.g. Native / ACP).",
     );
+  });
+});
+
+describe("nested morph popover", () => {
+  it("keeps a nested effort panel from dismissing the parent picker", () => {
+    const morph = readFileSync(
+      join(import.meta.dir, "../motion/popover-morph.tsx"),
+      "utf8",
+    );
+    expect(morph).toContain("data-morph-anchor={ctx.triggerId}");
+    expect(morph).toContain("hasOpenNestedMorphPopover");
+    expect(morph).toContain("isNestedMorphPopoverPortal");
   });
 });
 

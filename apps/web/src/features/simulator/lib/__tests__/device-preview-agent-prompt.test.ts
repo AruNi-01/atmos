@@ -129,11 +129,13 @@ describe("device-preview agent prompt", () => {
     expect(matchesDevicePreviewSlashQuery("device")).toBe(true);
     expect(matchesDevicePreviewSlashQuery("preview")).toBe(true);
     expect(matchesDevicePreviewSlashQuery("simulator")).toBe(true);
+    expect(matchesDevicePreviewSlashQuery("simulator device")).toBe(true);
+    expect(matchesDevicePreviewSlashQuery("device-use")).toBe(true);
     expect(matchesDevicePreviewSlashQuery("desktop")).toBe(false);
     expect(
       buildDevicePreviewSlashCommand({
-        label: "Device preview",
-        description: "Attach the claim",
+        label: "Simulator Device Use",
+        description: "Let the agent use this workspace's simulator device",
       }).id,
     ).toBe(DEVICE_PREVIEW_SLASH_COMMAND_ID);
   });
@@ -148,7 +150,7 @@ describe("device-preview agent prompt", () => {
     expect(labeled.icon).toBe("layout");
     expect(
       presentAiContextChip("device-preview", formatDevicePreviewListPrompt([])).label,
-    ).toBe("Device preview");
+    ).toBe("Simulator Device Use");
   });
 });
 

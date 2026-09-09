@@ -355,6 +355,7 @@ export {
   agentConfigFlyoutSide,
   agentConfigTriggerText,
   initialAgentConfigFlyout,
+  modelEffortTriggerLabel,
 } from "./components/agents/prompt-input-view";
 export { RangeSlider } from "./components/motion/range-slider";
 export type { RangeSliderProps } from "./components/motion/range-slider";
