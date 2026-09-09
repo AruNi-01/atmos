@@ -1,0 +1,16 @@
+apps/web/src/features/agent/components/AgentChatPanel.tsx
+  h_5be255725524c8 671,956-959,964,972,1148-1163
+apps/web/src/features/agent/components/__tests__/agent-chat-modal-frame.test.ts
+  h_5be255725524c8 154-156
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "4043b632ff11105dfe32336379a013aa9efafafa",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
