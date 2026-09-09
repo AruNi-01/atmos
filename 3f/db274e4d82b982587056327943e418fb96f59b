@@ -1,0 +1,19 @@
+apps/web/src/features/browser/lib/run-log-context.ts
+  s_33b5a77345fa1a::t_31eee4777010ac 12-19,21-24,26
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "3fdb274e4d82b982587056327943e418fb96f59b",
+  "prompts": {},
+  "sessions": {
+    "s_33b5a77345fa1a": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "9d69bd6e-136f-4331-bbdd-5ea3e42aeb01",
+        "model": "grok-4.6"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
