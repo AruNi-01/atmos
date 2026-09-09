@@ -139,11 +139,11 @@ export function AgentMessageTimelineNav({
       itemSize={itemSize}
       onItemSelect={(item) => onSelectMessage(Number(item.id))}
       className={cn(
-        "agent-message-timeline-nav pointer-events-none absolute inset-y-0 right-1 z-20 flex w-6 min-h-0 items-center overflow-visible",
+        "agent-message-timeline-nav pointer-events-none absolute inset-y-0 right-0 z-20 flex w-4 min-h-0 items-center overflow-visible",
         "[&_[data-slot=preview-rail-tick]]:origin-right [&_[data-slot=preview-rail-tick]]:rounded-full [&_[data-slot=preview-rail-tick]]:!w-3.5",
-        "[&_[data-slot=preview-rail-item]]:!w-6 [&_[data-slot=preview-rail-item]]:justify-end",
+        "[&_[data-slot=preview-rail-item]]:!w-4 [&_[data-slot=preview-rail-item]]:justify-end",
       )}
-      railClassName="pointer-events-auto w-6"
+      railClassName="pointer-events-auto w-4"
       previewContainerClassName="inset-y-0 left-auto right-full mr-3 w-[min(22rem,calc(100vw-4rem))]"
       previewClassName="w-full max-w-sm"
       renderPreview={(item) => {

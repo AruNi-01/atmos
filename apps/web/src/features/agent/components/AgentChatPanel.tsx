@@ -970,7 +970,7 @@ export function AgentChatPanel({
         >
           <ConversationContent
             data-canvas-selectable-text="true"
-            className={cn("gap-3 p-4!", wideContentClassName)}
+            className={cn("gap-3 p-4! pr-2!", wideContentClassName)}
             scrollClassName={AGENT_CHAT_SCROLL_CLASS}
           >
             {((loadingAgents && !isConnected && !isConnecting) || isConnecting || isResumingHistory) && (
@@ -1037,7 +1037,7 @@ export function AgentChatPanel({
         {!isRestoringTranscript && userMessageIndices.length > 1 ? (
           <div
             data-agent-chat-timeline-nav=""
-            className="relative w-8 shrink-0"
+            className="relative w-4 shrink-0"
           >
             <AgentMessageTimelineNav
               activeAgent={activeAgent}
