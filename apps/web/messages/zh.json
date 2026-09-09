@@ -460,7 +460,9 @@
       "codeReviewTerminal": "代码评审终端",
       "closeCodeReviewTab": "关闭代码评审标签页",
       "renameTab": "重命名标签页",
-      "renameTabPlaceholder": "输入标签页名称…"
+      "renameTabPlaceholder": "输入标签页名称…",
+      "tooltipKindTui": "TUI",
+      "tooltipKindChatUi": "对话 UI"
     },
     "footer": {
       "openOnCanvasLabel": "在画布中打开",
@@ -1291,6 +1293,7 @@
         "github": "GitHub",
         "browser": "浏览器",
         "simulator": "模拟器",
+        "overview": "总览",
         "other": "标签页"
       },
       "browser": {
@@ -2904,6 +2907,7 @@
         "chooseMode": "模式",
         "choosePermission": "权限",
         "modelLocked": "当前会话中此 Agent 无法切换模型",
+        "agentLocked": "当前会话无法切换 Agent",
         "modeLocked": "当前会话中此 Agent 无法切换模式",
         "permissionLocked": "当前会话中此 Agent 无法切换权限",
         "backToAgents": "Agent",
@@ -2912,6 +2916,7 @@
         "thinkingSmarter": "更强",
         "thinkingEffort": "思考",
         "fastMode": "快速档位",
+        "fastChip": "快速",
         "queue": "排队",
         "steer": "引导",
         "oneShotQueue": "这次排队",
@@ -2937,7 +2942,10 @@
         }
       },
       "terminalBlock": {
-        "title": "运行脚本"
+        "title": "运行脚本",
+        "moreActions": "更多",
+        "copyCommand": "复制命令",
+        "copyResult": "复制结果"
       },
       "confirmDialogs": {
         "overwrite": {
@@ -3196,7 +3204,8 @@
         "closeAria": "关闭上下文用量",
         "quotaSection": "Agent 配额用量",
         "quotaSectionWithPlan": "Agent 配额用量 · {plan}",
-        "notDetected": "未检测到"
+        "notDetected": "未检测到",
+        "quotaFetchFailed": "最近一次配额刷新失败"
       },
       "managerCards": {
         "installedVersion": "已安装 v{version}",
@@ -3339,6 +3348,10 @@
           "userAria": "复制用户消息",
           "assistantAria": "复制助手消息",
           "message": "复制消息"
+        },
+        "paste": {
+          "chip": "已粘贴：{count} 行",
+          "moreLines": "（还有 {count} 行…）"
         },
         "workedFor": "工作了 {duration}",
         "thinking": "思考中...",
@@ -4265,6 +4278,7 @@
       "slashPopover": {
         "commands": "命令",
         "agentCommands": "{agent} 命令",
+        "atmosCommands": "Atmos 内置命令",
         "skills": "技能",
         "loadingSkills": "正在加载技能...",
         "global": "全局",
@@ -4296,8 +4310,8 @@
           "description": "将最新的 Atmos Run 日志路径附加给 Agent"
         },
         "devicePreview": {
-          "label": "Device preview",
-          "description": "将当前工作区的 Device Preview 占用信息附加给 Agent"
+          "label": "Simulator Device Use",
+          "description": "让 Agent 使用当前工作区的模拟器设备"
         }
       }
     },
@@ -4999,8 +5013,7 @@
       "syncFailedTitle": "设置同步失败",
       "enabledFailed": "更新默认分屏 Agent 失败。",
       "agentFailed": "更新默认分屏 Agent 失败。",
-      "runConfigFailed": "更新默认分屏 Agent run config 失败。",
-      "newTabFailed": "更新新建 Terminal Tab 默认 Agent 失败。"
+      "runConfigFailed": "更新默认分屏 Agent run config 失败。"
     },
     "notificationStore": {
       "unknownError": "未知错误"
@@ -5248,6 +5261,27 @@
         "installed": "已安装",
         "notInstalled": "未安装",
         "webSession": "已登录网页会话",
+        "atmosApp": {
+          "title": "Atmos",
+          "description": "为 Atmos 授予辅助功能和屏幕录制。以 macOS 系统设置为准——Atmos 不能自己记下这些授权。",
+          "desktopOnly": "这些 macOS 权限仅在 Atmos 桌面端可用。",
+          "macosOnly": "这些权限仅在 macOS 上使用。",
+          "grant": "授予",
+          "done": "完成",
+          "refresh": "刷新",
+          "grantFailed": "无法打开权限授予面板。",
+          "statusFailed": "无法读取 macOS 权限状态。",
+          "items": {
+            "accessibility": {
+              "title": "辅助功能",
+              "description": "让 Atmos 在位于前台时用 ⌘⇧3–6 切换侧边栏项目；未安装 Desktop Use 时，也用于 Left⇧+Right⇧ AppShot。"
+            },
+            "screenRecording": {
+              "title": "屏幕录制",
+              "description": "未安装 Desktop Use 时，让 Atmos 为 AppShot 捕获最前窗口。"
+            }
+          }
+        },
         "desktopUse": {
           "title": "Desktop Use",
           "description": "为 Atmos Desktop Use 授予辅助功能和屏幕录制。以 macOS 系统设置为准——Atmos 不能自己记下这些授权。"
@@ -5752,6 +5786,18 @@
             "browserCookies": {
               "label": "浏览器 Cookie",
               "description": "用于已登录网页用量的钥匙串访问"
+            },
+            "atmosAccessibility": {
+              "label": "Atmos 辅助功能",
+              "description": "Atmos.app 的侧边栏快捷键与 AppShot 回退"
+            },
+            "atmosScreenRecording": {
+              "label": "Atmos 屏幕录制",
+              "description": "Atmos.app 的 AppShot 捕获回退"
+            },
+            "desktopUsePermissions": {
+              "label": "Desktop Use 权限",
+              "description": "Atmos Desktop Use 的辅助功能与屏幕录制"
             }
           },
           "about": {
@@ -6495,10 +6541,6 @@
         "agent": {
           "title": "Agent",
           "description": "默认分屏使用的 Agent 及可选 run config。更改会立即保存。"
-        },
-        "newTerminalTab": {
-          "title": "新建 Terminal Tab",
-          "description": "启用后，新建 Terminal tab 时也会在首个 pane 中启动该默认 Agent。"
         }
       },
       "richInputEnabled": {
@@ -8643,7 +8685,9 @@
       "chartSecondsAgo": "{count} 秒前",
       "chartMinutesAgo": "{count} 分钟前",
       "locateSession": "定位到此终端",
+      "locateChat": "定位到此对话",
       "sessionUnavailable": "此会话当前无法在终端中打开",
+      "chatUnavailable": "此对话当前无法打开",
       "sessionRowAria": "{action}，{name}，CPU {cpu}，内存 {memory}",
       "logicalCpus": "{count} 个逻辑 CPU",
       "coresInline": "{count} 核",
@@ -8693,6 +8737,9 @@
       "projectResources": "项目资源",
       "projectSessions": "项目会话",
       "sessions": "会话",
+      "agentSessions": "Agent 会话",
+      "kindTui": "TUI",
+      "kindChatUi": "对话 UI",
       "otherProcesses": "其他进程",
       "ungroupedProcesses": "未分组进程",
       "processes": "进程",
@@ -10143,6 +10190,10 @@
         "tooltipEnabled": "添加：{names}",
         "tooltipDisabled": "删除：{names}"
       },
+      "paste": {
+        "chip": "已粘贴：{count} 行",
+        "moreLines": "（还有 {count} 行…）"
+      },
       "selectionContext": {
         "copy": "复制",
         "addAsContext": "添加为上下文",
@@ -10165,8 +10216,8 @@
         "description": "将最新的 Atmos Run 日志路径附加给 Agent"
       },
       "devicePreviewCommand": {
-        "label": "Device preview",
-        "description": "将当前工作区的 Device Preview 占用信息附加给 Agent"
+        "label": "Simulator Device Use",
+        "description": "让 Agent 使用当前工作区的模拟器设备"
       }
     },
     "sideChat": {

@@ -460,7 +460,9 @@
       "codeReviewTerminal": "Code Review Terminal",
       "closeCodeReviewTab": "Close Code Review tab",
       "renameTab": "Rename Tab",
-      "renameTabPlaceholder": "Enter a tab name…"
+      "renameTabPlaceholder": "Enter a tab name…",
+      "tooltipKindTui": "TUI",
+      "tooltipKindChatUi": "Chat UI"
     },
     "footer": {
       "openOnCanvasLabel": "Open on canvas",
@@ -1291,6 +1293,7 @@
         "github": "GitHub",
         "browser": "Browser",
         "simulator": "Simulator",
+        "overview": "Overview",
         "other": "Tabs"
       },
       "browser": {
@@ -2904,6 +2907,7 @@
         "chooseMode": "Mode",
         "choosePermission": "Permission",
         "modelLocked": "This agent cannot switch models in the current session",
+        "agentLocked": "This session cannot switch agents",
         "modeLocked": "This agent cannot switch modes in the current session",
         "permissionLocked": "This agent cannot switch permission in the current session",
         "backToAgents": "Agents",
@@ -2912,6 +2916,7 @@
         "thinkingSmarter": "Smarter",
         "thinkingEffort": "Effort",
         "fastMode": "Fast Tier",
+        "fastChip": "Fast",
         "queue": "Queue",
         "steer": "Steer",
         "oneShotQueue": "Queue this once",
@@ -2937,7 +2942,10 @@
         }
       },
       "terminalBlock": {
-        "title": "Run Script"
+        "title": "Run Script",
+        "moreActions": "More",
+        "copyCommand": "Copy command",
+        "copyResult": "Copy result"
       },
       "confirmDialogs": {
         "overwrite": {
@@ -3196,7 +3204,8 @@
         "closeAria": "Close context usage",
         "quotaSection": "Agent quota usage",
         "quotaSectionWithPlan": "Agent quota usage · {plan}",
-        "notDetected": "Not detected"
+        "notDetected": "Not detected",
+        "quotaFetchFailed": "Latest quota refresh failed"
       },
       "managerCards": {
         "installedVersion": "Installed v{version}",
@@ -3339,6 +3348,10 @@
           "userAria": "Copy user message",
           "assistantAria": "Copy assistant message",
           "message": "Copy message"
+        },
+        "paste": {
+          "chip": "Pasted: {count} lines",
+          "moreLines": "({count} more lines...)"
         },
         "workedFor": "Worked for {duration}",
         "thinking": "Thinking...",
@@ -4265,6 +4278,7 @@
       "slashPopover": {
         "commands": "Commands",
         "agentCommands": "{agent} Commands",
+        "atmosCommands": "Atmos built-in commands",
         "skills": "Skills",
         "loadingSkills": "Loading skills...",
         "global": "Global",
@@ -4296,8 +4310,8 @@
           "description": "Attach the latest Atmos Run log path for the agent"
         },
         "devicePreview": {
-          "label": "Device preview",
-          "description": "Attach this workspace's Device Preview claim for the agent"
+          "label": "Simulator Device Use",
+          "description": "Let the agent use this workspace's simulator device"
         }
       }
     },
@@ -4999,8 +5013,7 @@
       "syncFailedTitle": "Settings Sync Failed",
       "enabledFailed": "Failed to update Default split agent.",
       "agentFailed": "Failed to update the default split agent.",
-      "runConfigFailed": "Failed to update the default split agent run config.",
-      "newTabFailed": "Failed to update New Terminal Tab default agent."
+      "runConfigFailed": "Failed to update the default split agent run config."
     },
     "notificationStore": {
       "unknownError": "Unknown error"
@@ -5248,6 +5261,27 @@
         "installed": "Installed",
         "notInstalled": "Not installed",
         "webSession": "Signed-in web session",
+        "atmosApp": {
+          "title": "Atmos",
+          "description": "Grant Accessibility and Screen Recording to Atmos. macOS System Settings is the source of truth — Atmos cannot store these grants itself.",
+          "desktopOnly": "These macOS permissions are only available in Atmos Desktop.",
+          "macosOnly": "These permissions are only used on macOS.",
+          "grant": "Grant",
+          "done": "Done",
+          "refresh": "Refresh",
+          "grantFailed": "Could not open the permission grant panel.",
+          "statusFailed": "Could not read macOS permission status.",
+          "items": {
+            "accessibility": {
+              "title": "Accessibility",
+              "description": "Lets Atmos use ⌘⇧3–6 for sidebar shortcuts while the app is frontmost, and Left⇧+Right⇧ AppShot when Desktop Use is not installed."
+            },
+            "screenRecording": {
+              "title": "Screen Recording",
+              "description": "Lets Atmos capture the frontmost window for AppShot when Desktop Use is not installed."
+            }
+          }
+        },
         "desktopUse": {
           "title": "Desktop Use",
           "description": "Grant Accessibility and Screen Recording to Atmos Desktop Use. macOS System Settings is the source of truth — Atmos cannot store these grants itself."
@@ -5752,6 +5786,18 @@
             "browserCookies": {
               "label": "Browser cookies",
               "description": "Keychain access for signed-in web usage"
+            },
+            "atmosAccessibility": {
+              "label": "Atmos Accessibility",
+              "description": "Sidebar shortcuts and AppShot fallback for Atmos.app"
+            },
+            "atmosScreenRecording": {
+              "label": "Atmos Screen Recording",
+              "description": "AppShot capture fallback for Atmos.app"
+            },
+            "desktopUsePermissions": {
+              "label": "Desktop Use permissions",
+              "description": "Accessibility and Screen Recording for Atmos Desktop Use"
             }
           },
           "about": {
@@ -6495,10 +6541,6 @@
         "agent": {
           "title": "Agent",
           "description": "Agent and optional run config used for default split. Changes save immediately."
-        },
-        "newTerminalTab": {
-          "title": "New Terminal Tab",
-          "description": "When enabled, creating a new Terminal tab also launches this default agent in the first pane."
         }
       },
       "richInputEnabled": {
@@ -8643,7 +8685,9 @@
       "chartSecondsAgo": "{count}s ago",
       "chartMinutesAgo": "{count}m ago",
       "locateSession": "Show this terminal",
+      "locateChat": "Show this chat",
       "sessionUnavailable": "This session is not open in a terminal",
+      "chatUnavailable": "This chat is not open in the workspace",
       "sessionRowAria": "{action}, {name}, CPU {cpu}, Memory {memory}",
       "logicalCpus": "{count} logical CPUs",
       "coresInline": "{count, plural, one {# core} other {# cores}}",
@@ -8693,6 +8737,9 @@
       "projectResources": "Project resources",
       "projectSessions": "Project sessions",
       "sessions": "Sessions",
+      "agentSessions": "Agent Sessions",
+      "kindTui": "TUI",
+      "kindChatUi": "Chat UI",
       "otherProcesses": "Other processes",
       "ungroupedProcesses": "Ungrouped processes",
       "processes": "Processes",
@@ -10143,6 +10190,10 @@
         "tooltipEnabled": "Added: {names}",
         "tooltipDisabled": "Removed: {names}"
       },
+      "paste": {
+        "chip": "Pasted: {count} lines",
+        "moreLines": "({count} more lines...)"
+      },
       "selectionContext": {
         "copy": "Copy",
         "addAsContext": "Add as context",
@@ -10165,8 +10216,8 @@
         "description": "Attach the latest Atmos Run log path for the agent"
       },
       "devicePreviewCommand": {
-        "label": "Device preview",
-        "description": "Attach this workspace's Device Preview claim for the agent"
+        "label": "Simulator Device Use",
+        "description": "Let the agent use this workspace's simulator device"
       }
     },
     "sideChat": {
