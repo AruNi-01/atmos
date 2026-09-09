@@ -1,0 +1,36 @@
+apps/desktop-electron/src/macos-app-permissions.test.ts
+  s_a6f08495581b7c::t_3c446522e65e57 1-70
+  s_a6f08495581b7c::t_c546dd0d276ae4 71-73
+apps/desktop-electron/native/host-shortcuts/host_shortcuts.c
+  s_a6f08495581b7c::t_810807b4afb10b 7-10,42-43,47-48,79-173,187-211,241-243,247-253,255,257-261,264-270,272-273,275,289-295,302,304,310-311
+  s_a6f08495581b7c::t_f9491a8242ffc7 296-301
+  s_a6f08495581b7c::t_c12108cb28fcb4 303
+  s_a6f08495581b7c::t_8a66916cab0a81 305-309
+  s_a6f08495581b7c::t_2cbdee3fd285b7 312-314
+apps/desktop-electron/src/macos-app-permission-geometry.ts
+  s_a6f08495581b7c::t_55037f1b4372be 1-59
+  s_a6f08495581b7c::t_fcee10319b0ad3 60-62
+apps/desktop-electron/src/macos-app-permissions.ts
+  s_a6f08495581b7c::t_48ced59b03b2c5 1-217,221,224-225
+  s_a6f08495581b7c::t_a705685ae446df 218-220
+  s_a6f08495581b7c::t_8e5d24b3d8b125 222-223
+  s_a6f08495581b7c::t_91d4e787527f16 226-228
+apps/web/src/features/settings/components/AtmosAppPermissionsPanel.tsx
+  s_a6f08495581b7c::t_3219c06f1546a8 1-298
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "9cced1740a28f4e75a50f0168966ee8014feeea6",
+  "prompts": {},
+  "sessions": {
+    "s_a6f08495581b7c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "01a0847b-de32-7ba3-ad59-1b06e8195ded",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
