@@ -1,0 +1,19 @@
+apps/web/src/app-shell/QuotaPopover.tsx
+  s_33b5a77345fa1a::t_60874937e5ecf4 48,62,428-437,621-623,816,825
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "8dfe7e3435053764b78bc827f786cd4d0d26a419",
+  "prompts": {},
+  "sessions": {
+    "s_33b5a77345fa1a": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "9d69bd6e-136f-4331-bbdd-5ea3e42aeb01",
+        "model": "grok-4.6"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
