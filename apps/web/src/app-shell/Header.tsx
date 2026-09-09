@@ -509,7 +509,7 @@ const Header: React.FC = () => {
 
         <div className="relative z-10 desktop-no-drag flex min-w-0 items-center gap-5">
           {showHeaderGitToolbar && (
-            <HeaderGitContext>
+            <HeaderGitContext
               branchSyncState={branchSyncState}
               currentBranch={currentBranch}
               currentProject={currentProject}

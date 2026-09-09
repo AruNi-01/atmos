@@ -1119,7 +1119,7 @@ export function AgentChatPanel({
                   <div className="pointer-events-none absolute inset-x-0 bottom-0 top-0 -z-10 bg-gradient-to-t from-background via-background/85 to-transparent" />
                   {pendingPermission ? (
                     <div className="min-h-0 min-w-0 w-full max-h-[80cqh]">
-                      <AgentPermissionCard>
+                      <AgentPermissionCard
                         permission={pendingPermission}
                         markdown={pendingPermissionMarkdown}
                         planIntent={
@@ -1138,7 +1138,7 @@ export function AgentChatPanel({
                     </div>
                   ) : pendingSessionOp ? (
                     <div className="min-h-0 min-w-0 w-full max-h-[50cqh]">
-                      <AgentSessionOpCard>
+                      <AgentSessionOpCard
                         request={pendingSessionOp}
                         onRespond={handleSessionOp}
                       />
