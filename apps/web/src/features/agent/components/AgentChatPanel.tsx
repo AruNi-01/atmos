@@ -668,6 +668,7 @@ export function AgentChatPanel({
     messageCount: messages.length,
     isResumingHistory,
   });
+  const showTimelineNav = !isRestoringTranscript && userMessageIndices.length > 1;
   const wasResumingHistoryRef = useRef(false);
   const [aboveComposerOverlaysNode, setAboveComposerOverlaysNode] = useState<HTMLDivElement | null>(
     null,
@@ -953,10 +954,14 @@ export function AgentChatPanel({
         data-agent-chat-column=""
       >
       <div
+        className={cn("flex min-h-0 w-full", !isNewChatLanding && "flex-1")}
+      >
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+      <div
         ref={transcriptRef}
         className={cn(
           "min-h-0 overflow-hidden",
-          isNewChatLanding ? "hidden" : "flex min-h-0 flex-1",
+          isNewChatLanding ? "hidden" : "flex-1",
         )}
       >
         <AgentChatCwdProvider
@@ -964,7 +969,7 @@ export function AgentChatPanel({
           projectOrWorkspacePath={localPath}
         >
           <Conversation
-          className="min-h-0 h-full min-w-0 flex-1 overflow-hidden"
+          className="min-h-0 h-full overflow-hidden"
           initial={isRestoringTranscript ? false : "smooth"}
           resize={isRestoringTranscript ? "instant" : "smooth"}
         >
@@ -1034,20 +1039,6 @@ export function AgentChatPanel({
           </ConversationScrollButton>
           </Conversation>
         </AgentChatCwdProvider>
-        {!isRestoringTranscript && userMessageIndices.length > 1 ? (
-          <div
-            data-agent-chat-timeline-nav=""
-            className="relative w-4 shrink-0"
-          >
-            <AgentMessageTimelineNav
-              activeAgent={activeAgent}
-              messages={messages}
-              userMessageIndices={userMessageIndices}
-              activeMessageIndex={messageNavIndex}
-              onSelectMessage={handleSelectMessage}
-            />
-          </div>
-        ) : null}
       </div>
 
       <div className="relative flex min-h-0 w-full shrink-0 flex-col">
@@ -1154,6 +1145,22 @@ export function AgentChatPanel({
             }
           />
         </div>
+      </div>
+        </div>
+        {showTimelineNav ? (
+          <div
+            data-agent-chat-timeline-nav=""
+            className="relative w-4 shrink-0"
+          >
+            <AgentMessageTimelineNav
+              activeAgent={activeAgent}
+              messages={messages}
+              userMessageIndices={userMessageIndices}
+              activeMessageIndex={messageNavIndex}
+              onSelectMessage={handleSelectMessage}
+            />
+          </div>
+        ) : null}
       </div>
       </div>
       <AgentAuthDialog

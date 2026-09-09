@@ -151,7 +151,9 @@ describe("agent chat modal frame", () => {
   it("centers a taller composer on new chat and docks a compact one after the session exists", () => {
     expect(panel).toContain("isAgentNewChatLanding");
     expect(panel).toContain('isNewChatLanding ? "justify-center overflow-y-auto pb-20" : "overflow-hidden"');
-    expect(panel).toContain('isNewChatLanding ? "hidden" : "flex min-h-0 flex-1"');
+    expect(panel).toContain('isNewChatLanding ? "hidden" : "flex-1"');
+    expect(panel).toContain("showTimelineNav");
+    expect(panel).toContain('cn("flex min-h-0 w-full", !isNewChatLanding && "flex-1")');
     expect(panel).toContain("landing={isNewChatLanding}");
     expect(panel).toContain("LogoSvg");
     expect(panel).toContain("h-20 w-auto text-foreground");
