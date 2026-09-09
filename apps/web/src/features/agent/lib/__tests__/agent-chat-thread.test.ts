@@ -3,6 +3,7 @@ import {
   agentChatHistoryListRequest,
   optionsSnapshotToConfigOptions,
   chatTitleFromPrompt,
+  CHAT_PROMPT_TITLE_MAX_CHARS,
   chatsToHistoryRows,
   filterAgentChatHistoryRows,
   defaultOptionsModelId,
@@ -30,7 +31,13 @@ import type { AgentCapabilities, AgentDescriptor, AgentOptionSupport } from "@at
 describe("agent chat helpers", () => {
   it("uses the first line of the prompt as a fallback session title", () => {
     expect(chatTitleFromPrompt("hello\nworld")).toBe("hello");
-    expect(chatTitleFromPrompt(` ${"a".repeat(80)} `)).toHaveLength(60);
+    expect(chatTitleFromPrompt("短标题")).toBe("短标题");
+    const long = chatTitleFromPrompt(` ${"a".repeat(80)} `);
+    expect(long).toHaveLength(CHAT_PROMPT_TITLE_MAX_CHARS + 1);
+    expect(long.endsWith("…")).toBe(true);
+    expect(long.startsWith("a".repeat(CHAT_PROMPT_TITLE_MAX_CHARS))).toBe(true);
+    const longCjk = chatTitleFromPrompt("字".repeat(40));
+    expect(longCjk).toBe(`${"字".repeat(CHAT_PROMPT_TITLE_MAX_CHARS)}…`);
   });
 
   it("filters history rows by chat title only", () => {
@@ -276,6 +283,24 @@ describe("agent chat helpers", () => {
       "xhigh",
     ]);
     expect(thinkingChoices(catalog, "auto")).toEqual([]);
+    expect(
+      thinkingChoices(
+        {
+          ...catalog,
+          models: [
+            {
+              id: "grok-4.6",
+              label: "Grok 4.6",
+              thinking: {
+                type: "enum",
+                options: ["xhigh", "high", "medium", "low"],
+              },
+            },
+          ],
+        },
+        "grok-4.6",
+      ),
+    ).toEqual(["low", "medium", "high", "xhigh"]);
     const opusOptions = optionsSnapshotToConfigOptions(catalog, "claude-opus-5", "high");
 
     expect(opusOptions.find((item) => item.id === "thinking")?.options.map((item) => item.name)).toEqual([

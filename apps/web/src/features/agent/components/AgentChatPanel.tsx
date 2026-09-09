@@ -956,7 +956,7 @@ export function AgentChatPanel({
         ref={transcriptRef}
         className={cn(
           "min-h-0 overflow-hidden",
-          isNewChatLanding ? "hidden" : "flex-1",
+          isNewChatLanding ? "hidden" : "flex min-h-0 flex-1",
         )}
       >
         <AgentChatCwdProvider
@@ -964,7 +964,7 @@ export function AgentChatPanel({
           projectOrWorkspacePath={localPath}
         >
           <Conversation
-          className="min-h-0 h-full overflow-hidden"
+          className="min-h-0 h-full min-w-0 flex-1 overflow-hidden"
           initial={isRestoringTranscript ? false : "smooth"}
           resize={isRestoringTranscript ? "instant" : "smooth"}
         >
@@ -1032,7 +1032,13 @@ export function AgentChatPanel({
           >
             <ChevronDown className="size-4" />
           </ConversationScrollButton>
-          {!isRestoringTranscript && (
+          </Conversation>
+        </AgentChatCwdProvider>
+        {!isRestoringTranscript && userMessageIndices.length > 1 ? (
+          <div
+            data-agent-chat-timeline-nav=""
+            className="relative w-8 shrink-0"
+          >
             <AgentMessageTimelineNav
               activeAgent={activeAgent}
               messages={messages}
@@ -1040,9 +1046,8 @@ export function AgentChatPanel({
               activeMessageIndex={messageNavIndex}
               onSelectMessage={handleSelectMessage}
             />
-          )}
-          </Conversation>
-        </AgentChatCwdProvider>
+          </div>
+        ) : null}
       </div>
 
       <div className="relative flex min-h-0 w-full shrink-0 flex-col">

@@ -29,20 +29,22 @@ describe("context window usage control", () => {
     expect(composer).toContain("showContextUsageCard");
     expect(composer).toContain('data-agent-chat-above-composer-overlays=""');
     expect(composer).toContain(
-      '"pointer-events-none absolute inset-x-0 bottom-full z-20 flex w-full flex-col gap-2 has-[*]:pb-2"',
+      '"pointer-events-none absolute inset-x-0 bottom-full z-20 flex w-full flex-col gap-2 has-[.pointer-events-auto]:pb-2"',
     );
     expect(composer).toContain("AnimatePresence");
     expect(composer).toContain('key="agent-context-usage"');
     expect(composer).toContain('position: "absolute"');
-    // Match prompt input width (full lane); do not inherit plan/queue mx-6 inset.
+    // Floating cards match the prompt lane. When plan/queue/background docks
+    // are present they stay inset (mx-6) and the overlay uses px-6 to align.
     expect(composer).toContain('"pointer-events-auto w-full"');
     expect(composer).not.toContain("pointer-events-auto mx-6\">\n                <ContextUsageDetailsPanel");
+    expect(composer).toContain('hasUpperComposerCards && "px-6"');
     expect(composer).not.toContain("showComposerCardStack");
     expect(composer).not.toContain("contextWindowUsesInlinePanel");
     expect(composer).not.toContain("contextUsageInlinePanel");
     expect(composer).not.toContain("<ContextUsageDetailsPanel\n              usage={sessionUsage}\n              providerId={registryId}\n              embedded");
     // Context usage / approvals float above the input with a gap. Plan and
-    // queue sit in-flow on the input chrome with no gap.
+    // queue sit in-flow, inset, and flush against the prompt chrome.
     const overlayAt = composer.indexOf("data-agent-chat-above-composer-overlays");
     const panelAt = composer.indexOf("<ContextUsageDetailsPanel");
     const queueAt = composer.indexOf("<MessageQueueDock");
@@ -51,7 +53,9 @@ describe("context window usage control", () => {
     expect(panelAt).toBeGreaterThan(overlayAt);
     expect(queueAt).toBeGreaterThan(panelAt);
     expect(promptAt).toBeGreaterThan(queueAt);
-    expect(composer).toContain("overflow-hidden rounded-t-3xl border border-border/70 border-b-0 bg-background/95");
+    expect(composer).toContain(
+      "relative z-[1] mx-6 -mb-px overflow-hidden rounded-t-3xl border border-b-0 border-border/70 bg-background/95",
+    );
     expect(composer).not.toContain("mx-6 overflow-hidden rounded-3xl border border-border/70 bg-background/95");
   });
 
@@ -64,5 +68,15 @@ describe("context window usage control", () => {
   it("presents quota rows from their own window data instead of inheriting reset onto extra usage", () => {
     expect(badges).toContain("presentQuotaMetric");
     expect(badges).not.toContain("displayResetText(");
+  });
+
+  it("keeps last quota numbers and shows the latest fetch failure at the top", () => {
+    expect(badges).toContain("<QuotaFetchFailureBanner");
+    expect(badges).toContain("formatQuotaFetchFailureMessage");
+    expect(badges).toContain("fetchFailureMessage");
+    const bannerAt = badges.indexOf("<QuotaFetchFailureBanner");
+    const barAt = badges.indexOf("<ContextUsageBar");
+    expect(bannerAt).toBeGreaterThan(-1);
+    expect(barAt).toBeGreaterThan(bannerAt);
   });
 });

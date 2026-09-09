@@ -4,6 +4,8 @@ import {
   displayToolPath,
   displayToolTitle,
   formatSearchScript,
+  formatToolLineRange,
+  isImageToolPath,
   languageFromPath,
   pathRelativeToCwd,
   preferredCollapsedToolTitle,
@@ -293,6 +295,47 @@ describe("S16 presentAgentTool", () => {
       code: "pub fn main() {}\n",
     });
     expect(parsed.lineRange).toEqual({ start: 1, end: 40 });
+    expect(formatToolLineRange(parsed.lineRange)).toBe("(1-40)");
+    expect(formatToolLineRange({ start: 12, end: 12 })).toBe("(12)");
+    expect(formatToolLineRange(null)).toBeNull();
+  });
+
+  it("previews local image reads from disk instead of empty text or binary code", () => {
+    expect(isImageToolPath("/tmp/shot.png")).toBe(true);
+    expect(isImageToolPath("note.md")).toBe(false);
+    const emptyText = presentAgentTool(tool({
+      kind: "read",
+      name: "Read",
+      params: {
+        type: "read",
+        path: "/Users/me/.atmos/data/agent/chats/c1/attachments/shot.png",
+        offset: null,
+        limit: null,
+      },
+      result: { type: "text", text: "" },
+    }));
+    expect(emptyText.presentation).toEqual({ kind: "empty" });
+    expect(emptyText.path).toContain("shot.png");
+
+    const binaryContent = presentAgentTool(tool({
+      kind: "read",
+      name: "Read",
+      params: { type: "read", path: "shot.webp", offset: null, limit: null },
+      result: { type: "file_content", path: "shot.webp", text: "\u0000PNG" },
+    }));
+    expect(binaryContent.presentation).toEqual({ kind: "empty" });
+    expect(binaryContent.path).toBe("shot.webp");
+  });
+
+  it("previews empty text reads from disk", () => {
+    const parsed = presentAgentTool(tool({
+      kind: "read",
+      name: "Read",
+      params: { type: "read", path: "/tmp/note.md", offset: null, limit: null },
+      result: { type: "text", text: "   " },
+    }));
+    expect(parsed.presentation).toEqual({ kind: "empty" });
+    expect(parsed.path).toBe("/tmp/note.md");
   });
 
   it("renders markdown file reads as code, not markdown preview", () => {

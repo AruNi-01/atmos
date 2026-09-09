@@ -4,7 +4,12 @@ import React, { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { composerFileUrlFromPath } from "@/features/agent/lib/agent-composer-attachment";
 import { resolveAgentChatPreviewPath } from "@/features/agent/lib/agent-chat-file-links";
-import { languageFromPath } from "@/features/agent/lib/tool-results/parse-tool-result";
+import {
+  isImageToolPath,
+  languageFromPath,
+} from "@/features/agent/lib/tool-results/parse-tool-result";
+import { ImagePreviewOverlay } from "@/shared/components/image-preview-overlay";
+import { isBrowserPreviewableImageMediaType } from "@/shared/lib/composer-image";
 import { getRuntimeApiConfig, httpBase } from "@/shared/lib/desktop-runtime";
 import { useAgentChatCwd, useAgentChatPathRoots } from "../agent-chat-cwd-context";
 import { AgentToolCodePreview } from "./AgentToolCodePreview";
@@ -22,8 +27,9 @@ function looksBinary(text: string): boolean {
 }
 
 /**
- * When a Read tool result has a path but no embedded content, fetch the file
- * via /api/system/file — including absolute paths outside the current workspace.
+ * When a Read tool result has a path but no usable embedded content, load the
+ * local file via /api/system/file — including absolute paths outside the
+ * current workspace. Image files render a compact thumbnail (click to enlarge).
  *
  * Write/Edit results must not use this path: they prefer patch/diff bodies when
  * available, and must not fetch the whole file as the primary preview.
@@ -42,6 +48,8 @@ export function AgentToolPathPreviewBody({
   const cwd = useAgentChatCwd();
   const roots = useAgentChatPathRoots();
   const absolute = resolveAgentChatPreviewPath(path, cwd, roots);
+  const alt = (absolute || path).split(/[\\/]/).filter(Boolean).pop() || path;
+  const [preview, setPreview] = useState<{ src: string; alt: string } | null>(null);
   const [state, setState] = useState<
     | { kind: "loading" }
     | { kind: "text"; text: string; language: string }
@@ -65,13 +73,17 @@ export function AgentToolPathPreviewBody({
           return;
         }
         const url = composerFileUrlFromPath(absolute, base, cfg.token);
+        if (isImageToolPath(absolute)) {
+          if (!cancelled) setState({ kind: "image", url });
+          return;
+        }
         const response = await fetch(url);
         if (!response.ok) {
           if (!cancelled) setState({ kind: "missing" });
           return;
         }
         const contentType = (response.headers.get("content-type") || "").toLowerCase();
-        if (contentType.startsWith("image/")) {
+        if (isBrowserPreviewableImageMediaType(contentType)) {
           if (!cancelled) setState({ kind: "image", url });
           return;
         }
@@ -108,10 +120,30 @@ export function AgentToolPathPreviewBody({
   }
   if (state.kind === "image") {
     return (
-      <div className="px-2 pb-2">
-        {/* eslint-disable-next-line @next/next/no-img-element -- absolute path preview via system file proxy */}
-        <img src={state.url} alt="" className="max-h-96 max-w-full rounded-md object-contain" />
-      </div>
+      <>
+        <button
+          type="button"
+          className="block cursor-zoom-in leading-none"
+          aria-label={t("imagePreview")}
+          onClick={() => setPreview({ src: state.url, alt })}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element -- absolute path preview via system file proxy */}
+          <img
+            src={state.url}
+            alt={alt}
+            draggable={false}
+            className="block max-h-32 max-w-56 object-contain"
+            onError={() => setState({ kind: "missing" })}
+          />
+        </button>
+        {preview ? (
+          <ImagePreviewOverlay
+            src={preview.src}
+            alt={preview.alt}
+            onClose={() => setPreview(null)}
+          />
+        ) : null}
+      </>
     );
   }
   return <AgentToolCodePreview code={state.text} language={state.language} />;

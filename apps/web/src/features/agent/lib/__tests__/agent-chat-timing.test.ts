@@ -7,7 +7,25 @@ import {
   snapshotLiveElapsedMs,
   thinkingBlockDurationMs,
   thinkingDurationSeconds,
+  workDurationParts,
 } from "@/features/agent/lib/agent-chat-timing";
+
+describe("workDurationParts", () => {
+  it("splits elapsed time into hours, minutes, and seconds", () => {
+    expect(workDurationParts(0)).toEqual({ hours: 0, minutes: 0, seconds: 0 });
+    expect(workDurationParts(14_000)).toEqual({ hours: 0, minutes: 0, seconds: 14 });
+    expect(workDurationParts(15 * 60_000 + 23_000)).toEqual({
+      hours: 0,
+      minutes: 15,
+      seconds: 23,
+    });
+    expect(workDurationParts(3600_000 + 20 * 60_000 + 32_000)).toEqual({
+      hours: 1,
+      minutes: 20,
+      seconds: 32,
+    });
+  });
+});
 
 describe("formatWorkDuration", () => {
   it("formats seconds, minutes, and hours", () => {

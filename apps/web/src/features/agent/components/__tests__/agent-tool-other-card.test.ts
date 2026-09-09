@@ -31,14 +31,17 @@ describe("S9 generic other tool card", () => {
     expect(block).not.toContain("chipAsTitle");
     expect(block).not.toContain("titleNode");
     expect(block).toContain("accessory={fileChip}");
+    expect(block).not.toContain("titleWithRange");
+    expect(block).toContain("lineRange={part.kind === \"read\" ? parsed.lineRange : null}");
     expect(card).not.toContain("pathLike && fileChip");
   });
 
-  it("does not repeat the execute command in the expanded terminal body", () => {
+  it("does not repeat the execute command in the collapsed title", () => {
     const terminal = readFileSync(join(import.meta.dir, "../TerminalBlock.tsx"), "utf8");
     expect(terminal).toContain("terminalBlock.title");
+    expect(terminal).toContain("preferredCollapsedToolTitle");
+    expect(terminal).toContain("AgentCommandLine");
     expect(terminal).toContain("output");
-    expect(terminal).not.toContain("AgentCommandLine");
   });
 
   it("pretty-prints other params then result", () => {

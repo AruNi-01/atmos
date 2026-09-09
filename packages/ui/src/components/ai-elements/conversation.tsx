@@ -125,7 +125,8 @@ export const ConversationScrollButton = ({
   );
 
   if (host) {
-    return createPortal(button, host);
+    const slot = host.querySelector<HTMLElement>("[data-agent-chat-scroll-button-host]");
+    return createPortal(button, slot ?? host);
   }
 
   return (

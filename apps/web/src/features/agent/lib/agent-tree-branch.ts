@@ -16,6 +16,8 @@ export const TREE_CONTENT_DELAY_MS = 70;
 export const TREE_TITLE_STAGGER_MS = 15;
 export const TREE_TITLE_SEGMENT_MS = 300;
 export const TREE_EASE = "cubic-bezier(0.22, 1, 0.36, 1)";
+export const WEBSEARCH_LINE_MS = 160;
+export const WEBSEARCH_STEP_MS = 120;
 
 export function treeTitleRevealMs(charCount: number): number {
   return TREE_CONTENT_DELAY_MS + Math.max(charCount, 1) * TREE_TITLE_STAGGER_MS + TREE_TITLE_SEGMENT_MS;
@@ -29,9 +31,13 @@ export function shouldPlayTreeTitleEnter(
   return treeReveal && !shimmer && !alreadyShown;
 }
 
-export function nextTreeRevealDelay(shown: number, pending: number): number {
+export function nextTreeRevealDelay(shown: number, _pending: number): number {
   if (shown <= 0) return TREE_START_MS;
-  if (pending > 16) return 24;
-  if (pending > 8) return 50;
-  return TREE_STEP_MS;
+  return TREE_LINE_MS;
+}
+
+export function countedRevealDelay(shown: number, target: number, stepMs: number): number | null {
+  if (shown === target) return null;
+  if (shown === 0 && target > shown) return 16;
+  return stepMs;
 }

@@ -17,6 +17,7 @@ describe("ConversationScrollButton", () => {
     expect(button).toContain("useReducedMotion");
     expect(button).toContain("createPortal");
     expect(button).toContain("host");
+    expect(button).toContain("[data-agent-chat-scroll-button-host]");
     expect(button).toContain("data-agent-chat-scroll-to-bottom");
     expect(button).toContain('size="icon"');
     expect(button).toContain("rounded-full");

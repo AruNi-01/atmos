@@ -37,7 +37,7 @@ function useDrawIn(skip: boolean): boolean {
   return drawn;
 }
 
-function BranchTrunk({ skip }: { skip: boolean }) {
+function BranchTrunk({ skip, durationMs }: { skip: boolean; durationMs: number }) {
   const grown = useDrawIn(skip);
 
   return (
@@ -49,13 +49,21 @@ function BranchTrunk({ skip }: { skip: boolean }) {
         backgroundImage: "linear-gradient(var(--border), var(--border))",
         transform: grown ? "scaleY(1)" : "scaleY(0)",
         transformOrigin: "top",
-        transition: skip ? undefined : `transform ${TREE_TRUNK_MS}ms ${TREE_EASE}`,
+        transition: skip ? undefined : `transform ${durationMs}ms ${TREE_EASE}`,
       }}
     />
   );
 }
 
-function BranchElbow({ isFirst, skip }: { isFirst: boolean; skip: boolean }) {
+function BranchElbow({
+  isFirst,
+  skip,
+  durationMs,
+}: {
+  isFirst: boolean;
+  skip: boolean;
+  durationMs: number;
+}) {
   const ref = useRef<HTMLSpanElement>(null);
   const played = useRef(skip);
   const [drawn, setDrawn] = useState(skip);
@@ -77,12 +85,12 @@ function BranchElbow({ isFirst, skip }: { isFirst: boolean; skip: boolean }) {
         { clipPath: TREE_CLIP_VERTICAL_FULL, offset: 0.55 },
         { clipPath: TREE_CLIP_FULL },
       ],
-      { duration: TREE_LINE_MS, easing: TREE_EASE, fill: "forwards" },
+      { duration: durationMs, easing: TREE_EASE, fill: "forwards" },
     );
     const timer = window.setTimeout(() => {
       played.current = true;
       setDrawn(true);
-    }, TREE_LINE_MS);
+    }, durationMs);
     return () => {
       window.clearTimeout(timer);
       // Element may already be unmounted (virtualized list / HMR); commitStyles
@@ -125,21 +133,24 @@ export function AgentTreeBranch({
   isLast,
   isFirst = false,
   animate = false,
+  durationMs = TREE_LINE_MS,
   children,
 }: {
   isLast: boolean;
   isFirst?: boolean;
   animate?: boolean;
+  durationMs?: number;
   children: ReactNode;
 }) {
   const reduced = useReducedMotion();
   const skip = !animate || Boolean(reduced);
+  const trunkMs = Math.round(durationMs * (TREE_TRUNK_MS / TREE_LINE_MS));
 
   return (
     <div className="relative flex min-h-6 min-w-0">
       <div className="relative w-7 shrink-0 self-stretch overflow-visible" aria-hidden="true">
-        {!isLast ? <BranchTrunk key="trunk" skip={skip} /> : null}
-        <BranchElbow key="elbow" isFirst={isFirst} skip={skip} />
+        {!isLast ? <BranchTrunk key="trunk" skip={skip} durationMs={trunkMs} /> : null}
+        <BranchElbow key="elbow" isFirst={isFirst} skip={skip} durationMs={durationMs} />
       </div>
       <div className="min-w-0 flex-1">{children}</div>
     </div>

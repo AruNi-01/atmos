@@ -1,9 +1,15 @@
 "use client";
 
+import { useCallback } from "react";
 import { useTranslations } from "next-intl";
+import { MoreHorizontal } from "lucide-react";
 import {
   AcpTerminal,
   AcpTerminalContent,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
 } from "@workspace/ui";
 import type { AgentToolCallPart } from "@/features/agent/lib/agent-tool-kind";
 import { getToolKindIcon } from "../lib/chat-helpers";
@@ -25,6 +31,51 @@ function executeFields(part: AgentToolCallPart): { command: string; output: stri
         ? part.result.message
         : "";
   return { command, output, cwd };
+}
+
+function ExecuteCopyMenu({
+  command,
+  output,
+}: {
+  command: string;
+  output: string;
+}) {
+  const t = useTranslations("Agent.components.terminalBlock");
+  const copy = useCallback((text: string) => {
+    const value = text.trimEnd();
+    if (!value) return;
+    void navigator.clipboard.writeText(value).catch(() => {});
+  }, []);
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          className="flex size-6 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+          aria-label={t("moreActions")}
+        >
+          <MoreHorizontal className="size-3.5" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="min-w-40">
+        <DropdownMenuItem
+          disabled={!command}
+          className="cursor-pointer"
+          onSelect={() => copy(command)}
+        >
+          {t("copyCommand")}
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          disabled={!output}
+          className="cursor-pointer"
+          onSelect={() => copy(output)}
+        >
+          {t("copyResult")}
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
 }
 
 export function TerminalBlock({
@@ -55,32 +106,41 @@ export function TerminalBlock({
       status={status}
       shimmer={running && !background}
     >
-      {commandStr ? (
-        <AgentCommandLine
-          command={commandStr}
-          className={cn("px-3 pt-2.5", !output && "pb-2.5")}
-        />
-      ) : null}
-      {output ? (
-        <div className="max-h-96 overflow-y-auto">
-          <AcpTerminal
-            output={output}
-            isStreaming={running}
-            autoScroll={running}
-            className="rounded-none border-0 bg-transparent text-inherit shadow-none"
-          >
-            <AcpTerminalContent
-              className={cn(
-                "max-h-none overflow-visible p-0 px-3 pb-2.5 text-[13px] leading-5",
-                commandStr ? "pt-1" : "pt-2.5",
-                failed ? "text-destructive" : "text-muted-foreground",
-              )}
+      <div className="relative">
+        {commandStr || output ? (
+          <div className="absolute right-1.5 top-1.5 z-10">
+            <ExecuteCopyMenu command={commandStr} output={output} />
+          </div>
+        ) : null}
+        {commandStr ? (
+          <div className="max-h-56 overflow-auto">
+            <AgentCommandLine
+              command={commandStr}
+              className={cn("px-3 pt-2.5 pr-9", !output && "pb-2.5")}
             />
-          </AcpTerminal>
-        </div>
-      ) : commandStr ? null : (
-        <AgentToolEmptyBody status={status} />
-      )}
+          </div>
+        ) : null}
+        {output ? (
+          <div className="max-h-96 overflow-y-auto">
+            <AcpTerminal
+              output={output}
+              isStreaming={running}
+              autoScroll={running}
+              className="rounded-none border-0 bg-transparent text-inherit shadow-none"
+            >
+              <AcpTerminalContent
+                className={cn(
+                  "max-h-none overflow-visible p-0 px-3 pb-2.5 text-[13px] leading-5",
+                  commandStr ? "pt-1" : "pt-2.5",
+                  failed ? "text-destructive" : "text-muted-foreground",
+                )}
+              />
+            </AcpTerminal>
+          </div>
+        ) : commandStr ? null : (
+          <AgentToolEmptyBody status={status} />
+        )}
+      </div>
     </AgentToolCard>
   );
 }

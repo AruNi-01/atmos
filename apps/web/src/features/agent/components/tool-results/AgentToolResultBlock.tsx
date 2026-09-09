@@ -8,6 +8,7 @@ import { getToolKindIcon } from "@/features/agent/lib/chat-helpers";
 import {
   hostFromUrl,
   matchCountFromSearchSummary,
+  isImageToolPath,
   preferredCollapsedToolTitle,
   presentAgentTool,
   resolveAgentToolCardHeading,
@@ -56,12 +57,6 @@ function fenceForMarkdown(code: string, language: string): string {
   let ticks = "```";
   while (code.includes(ticks)) ticks += "`";
   return `${ticks}${language}\n${code}\n${ticks}`;
-}
-
-function titleWithRange(title: string, range: ToolLineRange | null): string {
-  if (!range) return title;
-  if (range.start === range.end) return `${title} (${range.start})`;
-  return `${title} (${range.start}–${range.end})`;
 }
 
 function toolKindLabel(
@@ -158,6 +153,7 @@ function AgentToolCodeResult({
   const fileChip = path ? (
     <AgentToolFileChip
       path={path}
+      lineRange={lineRange}
       selectRanges={
         hint === "new" && additions > 0
           ? [{ startLine: 1, endLine: additions }]
@@ -240,10 +236,13 @@ export function AgentToolResultBlock({
     ? (
       <AgentToolFileChip
         path={path}
+        lineRange={part.kind === "read" ? parsed.lineRange : null}
         selectRanges={
           part.kind === "edit"
             ? changedLineRangesForPresentation(parsed.presentation, path)
-            : undefined
+            : parsed.lineRange
+              ? [{ startLine: parsed.lineRange.start, endLine: parsed.lineRange.end }]
+              : undefined
         }
       />
     )
@@ -264,11 +263,15 @@ export function AgentToolResultBlock({
         path: displayTitle(filePath, filePath),
       }),
     });
-  const title = titleWithRange(displayTitle(resolvedHeading, path), parsed.lineRange);
+  const title = displayTitle(resolvedHeading, path);
   const icon = asSkill ? <Sparkles className="size-4" /> : getToolKindIcon(part.kind);
   const { presentation, inputRows, showInput } = parsed;
   const status = part.status ?? undefined;
   const failed = status?.toLowerCase() === "failed" || presentation.kind === "error";
+  const hugImagePreview = presentation.kind === "empty"
+    && part.kind === "read"
+    && Boolean(path)
+    && isImageToolPath(path);
 
   if (presentation.kind === "diff") {
     return (
@@ -440,7 +443,7 @@ export function AgentToolResultBlock({
     <AgentToolCard
       variant="tool"
       surface={surface}
-      body={toolBodyForKind(presentation.kind)}
+      body={hugImagePreview ? "hug" : toolBodyForKind(presentation.kind)}
       tone={asSkill ? "skill" : failed ? "error" : "default"}
       icon={icon}
       title={title}

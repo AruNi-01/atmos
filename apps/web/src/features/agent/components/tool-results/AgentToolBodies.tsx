@@ -23,6 +23,11 @@ import {
   type TreeEntry,
   type WebResultLink,
 } from "@/features/agent/lib/tool-results/parse-tool-result";
+import {
+  WEBSEARCH_LINE_MS,
+  WEBSEARCH_STEP_MS,
+} from "@/features/agent/lib/agent-tree-branch";
+import { useCountedReveal } from "@/features/agent/hooks/use-sequential-reveal";
 import { AgentCommandLine } from "../AgentCommandLine";
 import { useAgentChatCwd, useAgentChatPathRoots, useDisplayToolPath } from "../agent-chat-cwd-context";
 import {
@@ -75,10 +80,13 @@ export function AgentToolWebSearchBody({
 }) {
   const [open, setOpen] = useState(false);
   const reduced = useReducedMotion();
+  const revealed = useCountedReveal(open ? links.length : 0, WEBSEARCH_STEP_MS);
   if (links.length === 0) return null;
 
   const stacked = links.slice(0, 5);
   const extra = links.length - stacked.length;
+  const expanded = links.slice(0, revealed);
+  const stackedRemaining = stacked.slice(revealed);
 
   return (
     <LayoutGroup id={layoutKey}>
@@ -87,18 +95,18 @@ export function AgentToolWebSearchBody({
           <div className="flex min-w-0 items-center gap-2" data-tree-header>
             <CollapsibleTrigger className="group inline-flex min-w-0 max-w-full items-center gap-1.5 py-0.5 text-left text-[13px] leading-5 text-muted-foreground hover:text-foreground">
               <span className="min-w-0 truncate">{sourcesLabel}</span>
-              {!open ? (
+              {stackedRemaining.length > 0 ? (
                 <span className="flex shrink-0 items-center gap-1">
                   <AvatarStack
                     size="xs"
                     variant="spring-tilt"
-                    users={stacked.map((link) => ({
+                    users={stackedRemaining.map((link) => ({
                       id: `${layoutKey}:${link.url}`,
                       name: hostFromUrl(link.url) ?? link.title,
                       content: <SiteFavicon url={link.url} className="size-4" />,
                     }))}
                   />
-                  {extra > 0 ? (
+                  {revealed === 0 && extra > 0 ? (
                     <span className="text-[11px] text-muted-foreground">+{extra}</span>
                   ) : null}
                 </span>
@@ -111,16 +119,20 @@ export function AgentToolWebSearchBody({
               />
             </CollapsibleTrigger>
           </div>
-          {open ? (
+          {expanded.length > 0 ? (
             <div className="pt-0.5">
-              {links.map((link, index) => {
+              {expanded.map((link, index) => {
                 const host = hostFromUrl(link.url) ?? link.url;
+                const title = link.title.trim();
+                const label = title || host;
                 const stackedIcon = index < stacked.length;
                 return (
                   <AgentTreeBranch
                     key={link.url}
                     isFirst={index === 0}
-                    isLast={index === links.length - 1}
+                    isLast={index === expanded.length - 1}
+                    animate={!reduced}
+                    durationMs={WEBSEARCH_LINE_MS}
                   >
                     <a
                       href={link.url}
@@ -133,26 +145,28 @@ export function AgentToolWebSearchBody({
                       <motion.div
                         layoutId={stackedIcon && !reduced ? `${layoutKey}:${link.url}` : undefined}
                         className="size-4 shrink-0"
-                        transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+                        transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
                       >
                         <SiteFavicon url={link.url} className="size-4" />
                       </motion.div>
                       <motion.span
-                        initial={reduced ? false : { opacity: 0, y: 4 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.2, delay: stackedIcon ? 0.12 : 0.04 * Math.min(index, 6) }}
+                        initial={reduced ? false : { opacity: 0, x: -4 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ duration: 0.14, ease: [0.22, 1, 0.36, 1] }}
                         className="min-w-0 flex-1 truncate text-[13px] text-foreground"
                       >
-                        {link.title}
+                        {label}
                       </motion.span>
-                      <motion.span
-                        initial={reduced ? false : { opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        transition={{ duration: 0.2, delay: stackedIcon ? 0.16 : 0.04 * Math.min(index, 6) }}
-                        className="max-w-[40%] shrink-0 truncate text-[12px] text-muted-foreground"
-                      >
-                        {host}
-                      </motion.span>
+                      {title && title !== host ? (
+                        <motion.span
+                          initial={reduced ? false : { opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          transition={{ duration: 0.14, ease: [0.22, 1, 0.36, 1] }}
+                          className="max-w-[40%] shrink-0 truncate text-[12px] text-muted-foreground"
+                        >
+                          {host}
+                        </motion.span>
+                      ) : null}
                     </a>
                   </AgentTreeBranch>
                 );

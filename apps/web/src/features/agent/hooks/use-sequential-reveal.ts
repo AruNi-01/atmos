@@ -2,7 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { useReducedMotion } from "motion/react";
-import { nextTreeRevealDelay } from "@/features/agent/lib/agent-tree-branch";
+import {
+  countedRevealDelay,
+  nextTreeRevealDelay,
+} from "@/features/agent/lib/agent-tree-branch";
 
 export function useSequentialReveal(count: number, enabled: boolean): number {
   const reduced = useReducedMotion();
@@ -25,6 +28,27 @@ export function useSequentialReveal(count: number, enabled: boolean): number {
     }, delay);
     return () => window.clearTimeout(timer);
   }, [skip, shown, count]);
+
+  return shown;
+}
+
+export function useCountedReveal(target: number, stepMs: number): number {
+  const reduced = useReducedMotion();
+  const skip = Boolean(reduced);
+  const [shown, setShown] = useState(() => (skip ? target : 0));
+
+  useEffect(() => {
+    if (skip) {
+      setShown(target);
+      return;
+    }
+    const delay = countedRevealDelay(shown, target, stepMs);
+    if (delay == null) return;
+    const timer = window.setTimeout(() => {
+      setShown((prev) => prev + (target > prev ? 1 : -1));
+    }, delay);
+    return () => window.clearTimeout(timer);
+  }, [skip, shown, target, stepMs]);
 
   return shown;
 }

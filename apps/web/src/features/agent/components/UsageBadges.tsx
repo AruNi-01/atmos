@@ -14,6 +14,7 @@ import type { AgentSessionUsage, AgentTurnUsage } from "@atmos/api-types/ws/dto/
 import type { QuotaProviderResponse } from "@/api/ws-api";
 import { useQuotaOverviewQuery } from "@/features/quota-usage/hooks/use-quota-overview-query";
 import { quotaProviderIdsForChatAgent } from "@/features/quota-usage/lib/agent-quota-provider-map";
+import { formatQuotaFetchFailureMessage } from "@/features/quota-usage/lib/quota-display";
 import { canonicalizeChatProviderId } from "@/features/agent/lib/custom-agent-registry";
 import {
   contextWindowBarTone,
@@ -26,7 +27,7 @@ import {
   providerIdentity,
   quotaMetrics,
 } from "@/app-shell/quota-popover-utils";
-import { UsageBar, UsageBarLegend } from "@/app-shell/quota-popover-components";
+import { QuotaFetchFailureBanner, UsageBar, UsageBarLegend } from "@/app-shell/quota-popover-components";
 
 function CircularProgress({
   percent,
@@ -152,6 +153,7 @@ function AgentQuotaSection({
 }
 
 function useMatchedQuota(providerId: string | null | undefined, enabled: boolean) {
+  const t = useTranslations("Agent.components.contextWindow");
   const quotaIds = useMemo(
     () => quotaProviderIdsForChatAgent(providerId, canonicalizeChatProviderId),
     [providerId],
@@ -160,18 +162,33 @@ function useMatchedQuota(providerId: string | null | undefined, enabled: boolean
     enabled: enabled && quotaIds.length > 0,
   });
 
-  return useMemo(() => {
+  const provider = useMemo(() => {
     if (quotaIds.length === 0) return null;
     const providers = quotaQuery.data?.providers ?? [];
     return (
       providers.find(
-        (provider) =>
-          quotaIds.includes(provider.id)
-          && provider.switch_enabled
-          && provider.enabled,
+        (item) =>
+          quotaIds.includes(item.id)
+          && item.switch_enabled
+          && item.enabled,
       ) ?? null
     );
   }, [quotaIds, quotaQuery.data?.providers]);
+
+  const fetchFailureMessage = useMemo(() => {
+    if (quotaIds.length === 0) return null;
+    const queryErrorText = quotaQuery.isError
+      ? quotaQuery.error instanceof Error
+        ? quotaQuery.error.message
+        : t("quotaFetchFailed")
+      : null;
+    return formatQuotaFetchFailureMessage(quotaQuery.data?.partial_failures ?? [], {
+      clientError: queryErrorText,
+      providerIds: quotaIds,
+    });
+  }, [quotaIds, quotaQuery.data?.partial_failures, quotaQuery.error, quotaQuery.isError, t]);
+
+  return { provider, fetchFailureMessage };
 }
 
 function ContextUsageSummaryBody({
@@ -180,18 +197,26 @@ function ContextUsageSummaryBody({
   sizeLabel,
   tone,
   matchedQuota,
+  fetchFailureMessage,
 }: {
   percent: number;
   usedLabel: string;
   sizeLabel: string;
   tone: ContextWindowBarTone;
   matchedQuota: QuotaProviderResponse | null;
+  fetchFailureMessage: string | null;
 }) {
   const t = useTranslations("Agent.components.contextWindow");
   const percentLabel = `${Math.round(percent)}%`;
 
   return (
     <div className="space-y-3">
+      {fetchFailureMessage ? (
+        <QuotaFetchFailureBanner
+          message={fetchFailureMessage}
+          className="rounded-2xl px-3 py-2 text-xs"
+        />
+      ) : null}
       <div className="flex items-baseline justify-between gap-3 text-xs text-muted-foreground">
         <span className="tabular-nums">{t("percentFull", { percent: percentLabel })}</span>
         <span className="tabular-nums">
@@ -221,7 +246,7 @@ export function ContextUsageDetailsPanel({
 }) {
   const t = useTranslations("Agent.components.contextWindow");
   const stats = contextWindowStats(usage);
-  const matchedQuota = useMatchedQuota(providerId, true);
+  const { provider: matchedQuota, fetchFailureMessage } = useMatchedQuota(providerId, true);
 
   if (!stats) return null;
 
@@ -257,6 +282,7 @@ export function ContextUsageDetailsPanel({
         sizeLabel={sizeLabel}
         tone={tone}
         matchedQuota={matchedQuota}
+        fetchFailureMessage={fetchFailureMessage}
       />
     </div>
   );

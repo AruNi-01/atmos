@@ -10,6 +10,7 @@ describe("agent tool markdown file presentation", () => {
     );
     expect(preview).toContain("AgentToolCodePreview");
     expect(preview).toContain("languageFromPath");
+    expect(preview).toContain("ImagePreviewOverlay");
     expect(preview).not.toContain("MarkdownRenderer");
     expect(preview).not.toContain('kind: "markdown"');
     expect(preview).not.toContain("language === \"markdown\"");
@@ -70,7 +71,7 @@ describe("agent tool markdown file presentation", () => {
     expect(diff).toContain('data-agent-diff="pr-discussion"');
   });
 
-  it("execute cards show a wrapping command above output, not in the collapsed title", () => {
+  it("execute cards show the command above output, not in the collapsed title", () => {
     const terminal = readFileSync(
       join(import.meta.dir, "../TerminalBlock.tsx"),
       "utf8",
@@ -82,9 +83,14 @@ describe("agent tool markdown file presentation", () => {
     expect(terminal).toContain("preferredCollapsedToolTitle");
     expect(terminal).toContain("AgentCommandLine");
     expect(terminal).not.toContain("Run Script:");
-    expect(command).toContain("whitespace-pre-wrap");
-    expect(command).toContain("break-all");
-    expect(command).not.toContain("overflow-x-auto");
+    expect(terminal).toContain("max-h-56 overflow-auto");
+    expect(terminal).toContain("ExecuteCopyMenu");
+    expect(terminal).toContain('t("copyCommand")');
+    expect(terminal).toContain('t("copyResult")');
+    expect(command).toContain("whitespace-pre");
+    expect(command).toContain("[&_pre.shiki_span.line]:!inline");
+    expect(command).not.toContain("whitespace-pre-wrap");
+    expect(command).not.toContain("break-all");
   });
 
   it("edit with only diff_stats renders a stats body, never path preview", () => {

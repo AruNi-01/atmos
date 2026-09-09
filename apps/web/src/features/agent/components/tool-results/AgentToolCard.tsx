@@ -19,7 +19,11 @@ import {
   TREE_EASE,
 } from "@/features/agent/lib/agent-tree-branch";
 import type { DiffLineRange } from "@/features/agent/lib/tool-results/diff-stats";
-import { hostFromUrl } from "@/features/agent/lib/tool-results/parse-tool-result";
+import {
+  formatToolLineRange,
+  hostFromUrl,
+  type ToolLineRange,
+} from "@/features/agent/lib/tool-results/parse-tool-result";
 import { useAgentChatCwd, useAgentChatPathRoots } from "../agent-chat-cwd-context";
 import { useAgentTreeReveal } from "../agent-tree-reveal-context";
 import { useMarkAssistantProcessInspecting } from "../assistant-process-inspect-context";
@@ -130,12 +134,14 @@ export function fileNameFromPath(path: string): string {
 export function AgentToolFileChip({
   path,
   line,
+  lineRange,
   isDir: hintedIsDir,
   selectRanges,
   className,
 }: {
   path: string;
   line?: number;
+  lineRange?: ToolLineRange | null;
   isDir?: boolean;
   selectRanges?: DiffLineRange[];
   className?: string;
@@ -144,6 +150,7 @@ export function AgentToolFileChip({
   const roots = useAgentChatPathRoots();
   const openWorkspacePath = useOpenAgentChatWorkspacePath();
   const name = fileNameFromPath(path);
+  const rangeText = formatToolLineRange(lineRange);
   const tooltip = displayAgentChatFilePath(path, cwd, roots);
   const openable = resolveAgentChatOpenableFile(path, cwd, roots);
   const resolvedKind = useAgentChatResolvedPathKind(hintedIsDir == null ? openable?.path : undefined);
@@ -166,6 +173,9 @@ export function AgentToolFileChip({
     <>
       <AgentToolFileGlyph path={path} isDir={isDir} className="size-3.5" />
       <span className="min-w-0 truncate">{name}</span>
+      {rangeText ? (
+        <span className="shrink-0 text-muted-foreground">{rangeText}</span>
+      ) : null}
     </>
   );
 
@@ -177,7 +187,7 @@ export function AgentToolFileChip({
         event.preventDefault();
         event.stopPropagation();
         void openWorkspacePath(path, {
-          line,
+          line: line ?? lineRange?.start,
           isDir: hintedIsDir ?? (
             resolvedKind === "directory" ? true : resolvedKind === "file" ? false : undefined
           ),
@@ -205,7 +215,7 @@ export function AgentToolFileChip({
 
 export type AgentToolSurface = "card" | "plain";
 
-export type AgentToolBody = "panel" | "plain";
+export type AgentToolBody = "panel" | "plain" | "hug";
 
 function AgentTreeFade({
   enabled,
@@ -338,7 +348,14 @@ export function AgentToolCard({
       </div>
       <CollapsibleContent className="data-[state=open]:overflow-visible">
         {hasBody ? (
-          body === "panel" ? (
+          body === "hug" ? (
+            <div
+              data-tool-body="hug"
+              className="mt-1 inline-flex max-w-full rounded-md bg-muted/50 p-2"
+            >
+              {children}
+            </div>
+          ) : body === "panel" ? (
             <div data-tool-body="panel" className="mt-1 overflow-hidden rounded-md bg-muted/50">
               {children}
             </div>

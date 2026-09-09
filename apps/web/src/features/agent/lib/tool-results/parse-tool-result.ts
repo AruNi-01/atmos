@@ -2,7 +2,12 @@ import type {
   AgentToolParams,
 } from "@atmos/api-types/ws/dto/agent-chat";
 import type { AgentToolCallPart } from "@/features/agent/lib/agent-tool-kind";
-import { isEmptyToolJson, isGenericToolLabel } from "@/features/agent/lib/agent-tool-kind";
+import {
+  isEmptyToolJson,
+  isGenericToolLabel,
+  isPlaceholderToolResult,
+} from "@/features/agent/lib/agent-tool-kind";
+import { isBrowserPreviewableImageFilename } from "@/shared/lib/composer-image";
 
 export type SearchHit = {
   path: string;
@@ -28,6 +33,12 @@ export type ToolLineRange = {
   end: number;
   total?: number;
 };
+
+export function formatToolLineRange(range: ToolLineRange | null | undefined): string | null {
+  if (!range || range.start <= 0 || range.end <= 0) return null;
+  if (range.start === range.end) return `(${range.start})`;
+  return `(${range.start}-${range.end})`;
+}
 
 export type TodoItem = {
   content: string;
@@ -280,6 +291,27 @@ export function prettyJson(value: unknown): string {
   } catch {
     return String(value);
   }
+}
+
+export function isImageToolPath(path: string | null | undefined): boolean {
+  if (!path) return false;
+  const name = path.split(/[\\/]/).filter(Boolean).pop() || path;
+  return isBrowserPreviewableImageFilename(name);
+}
+
+function shouldPreviewReadFromDisk(
+  part: AgentToolCallPart,
+  path: string | null,
+): boolean {
+  if (part.kind !== "read" || !path) return false;
+  const result = part.result;
+  if (result?.type === "error") return false;
+  if (isImageToolPath(path)) return true;
+  if (result?.type === "file_content") {
+    if (isImageToolPath(result.path)) return true;
+    return !result.text.trim();
+  }
+  return isPlaceholderToolResult(result);
 }
 
 function looksLikePatch(text: string): boolean {
@@ -552,6 +584,10 @@ export function presentAgentTool(part: AgentToolCallPart): ParsedToolResult {
   }
   if (part.kind === "delete" && params?.type === "delete") {
     return parsed(part, { kind: "delete", path: params.path }, params.path, lineRange);
+  }
+
+  if (shouldPreviewReadFromDisk(part, path)) {
+    return parsed(part, { kind: "empty" }, path, lineRange);
   }
 
   if (!result || result.type === "empty") {

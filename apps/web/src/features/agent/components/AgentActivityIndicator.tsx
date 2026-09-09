@@ -5,11 +5,12 @@ import { useState } from "react";
 import {
   ActivityIndicator,
   ActivityIndicatorGroup,
+  SlidingNumber,
   TextShimmer,
   pickActivityIndicatorStyle,
 } from "@workspace/ui";
 import type { AgentActivity } from "../lib/chat-helpers";
-import { formatWorkDuration } from "../lib/agent-chat-timing";
+import { formatWorkDuration, workDurationParts } from "../lib/agent-chat-timing";
 
 const STREAM_ORB_GROUPS = [
   ActivityIndicatorGroup.Lattice,
@@ -23,6 +24,43 @@ const STREAM_ORB_GROUPS = [
  * slot centers it so left edges match lucide `size-4` chrome.
  */
 const GLYPH_SIZE = 20;
+const CLOCK_CLASS =
+  "inline-flex items-baseline font-mono text-sm tabular-nums leading-none text-muted-foreground";
+
+function DurationUnit({ value, unit }: { value: number; unit: "h" | "m" | "s" }) {
+  return (
+    <span className="inline-flex items-baseline">
+      <SlidingNumber value={value} />
+      <span>{unit}</span>
+    </span>
+  );
+}
+
+function WorkDurationClock({
+  elapsedMs,
+  reduced,
+}: {
+  elapsedMs: number;
+  reduced: boolean;
+}) {
+  const label = formatWorkDuration(elapsedMs);
+  if (reduced) {
+    return (
+      <span className={CLOCK_CLASS} role="timer">
+        {label}
+      </span>
+    );
+  }
+
+  const { hours, minutes, seconds } = workDurationParts(elapsedMs);
+  return (
+    <span className={CLOCK_CLASS} role="timer" aria-label={label}>
+      {hours > 0 ? <DurationUnit key="h" value={hours} unit="h" /> : null}
+      {hours > 0 || minutes > 0 ? <DurationUnit key="m" value={minutes} unit="m" /> : null}
+      <DurationUnit key="s" value={seconds} unit="s" />
+    </span>
+  );
+}
 
 export function AgentActivityIndicator({
   activity,
@@ -61,9 +99,7 @@ export function AgentActivityIndicator({
           </motion.span>
         </AnimatePresence>
       </span>
-      <span className="font-mono text-sm tabular-nums leading-5 text-muted-foreground">
-        {formatWorkDuration(elapsedMs)}
-      </span>
+      <WorkDurationClock elapsedMs={elapsedMs} reduced={reduced} />
     </div>
   );
 }

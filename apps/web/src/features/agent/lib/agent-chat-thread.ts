@@ -22,7 +22,49 @@ function thinkingChoicesFromSupport(
   }
   const options = "options" in thinking ? thinking.options : undefined;
   if (!Array.isArray(options)) return [];
-  return options.map((item: string) => item.trim()).filter((item: string) => item.length > 0);
+  return sortThinkingLevels(
+    options.map((item: string) => item.trim()).filter((item: string) => item.length > 0),
+  );
+}
+
+/** Weakest → strongest so the Effort slider puts Extra high on the right. */
+function sortThinkingLevels(options: string[]): string[] {
+  return options
+    .map((item, index) => ({ item, index }))
+    .sort((left, right) => {
+      const rankDelta = thinkingLevelRank(left.item) - thinkingLevelRank(right.item);
+      return rankDelta !== 0 ? rankDelta : left.index - right.index;
+    })
+    .map((entry) => entry.item);
+}
+
+function thinkingLevelRank(level: string): number {
+  switch (level.trim().toLowerCase().replace(/[-_\s]/g, "")) {
+    case "off":
+    case "none":
+      return 0;
+    case "auto":
+      return 1;
+    case "minimal":
+      return 2;
+    case "low":
+      return 3;
+    case "medium":
+    case "med":
+      return 4;
+    case "high":
+      return 5;
+    case "xhigh":
+    case "extrahigh":
+      return 6;
+    case "max":
+    case "maximum":
+      return 7;
+    case "ultra":
+      return 8;
+    default:
+      return 100;
+  }
 }
 
 const THINKING_LEVEL_LABELS: Record<string, string> = {
@@ -802,10 +844,15 @@ export type AgentChatHistoryRow = {
   updated_at: string | null;
 };
 
+/** Tab label is max-w-[180px] (~16 CJK). Prompt fallback titles keep ~2× that. */
+export const CHAT_PROMPT_TITLE_MAX_CHARS = 32;
+
 export function chatTitleFromPrompt(text: string): string {
   const line = text.trim().split(/\r?\n/, 1)[0]?.trim() ?? "";
   if (!line) return "";
-  return Array.from(line).slice(0, 60).join("");
+  const chars = Array.from(line);
+  if (chars.length <= CHAT_PROMPT_TITLE_MAX_CHARS) return line;
+  return `${chars.slice(0, CHAT_PROMPT_TITLE_MAX_CHARS).join("")}…`;
 }
 
 export function chatsToHistoryRows(

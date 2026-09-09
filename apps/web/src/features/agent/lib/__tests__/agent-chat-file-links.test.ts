@@ -242,6 +242,8 @@ describe("agent chat file-link wiring", () => {
     expect(source).toContain("isDir={isDir}");
     expect(source).toContain("useAgentChatResolvedPathKind");
     expect(source).toContain("selectRanges");
+    expect(source).toContain("formatToolLineRange");
+    expect(source).toContain("lineRange");
     expect(source).not.toContain("queueMicrotask");
   });
 
@@ -257,6 +259,15 @@ describe("agent chat file-link wiring", () => {
     expect(preview).toContain("resolveAgentChatPreviewPath");
     expect(preview).toContain("composerFileUrlFromPath");
     expect(preview).toContain("AgentToolCodePreview");
+    expect(preview).toContain("ImagePreviewOverlay");
+    expect(preview).toContain("isImageToolPath");
+    expect(preview).toContain("max-h-32");
+    expect(preview).toContain("cursor-zoom-in");
+    expect(preview).toContain("leading-none");
+    expect(preview).toContain("className=\"block max-h-32 max-w-56 object-contain\"");
+    expect(block).toContain('body={hugImagePreview ? "hug"');
+    expect(block).toContain("isImageToolPath(path)");
+    expect(preview).not.toContain("max-h-96");
     expect(preview).not.toContain("MarkdownRenderer");
     expect(preview).not.toContain('kind: "markdown"');
     expect(preview).not.toContain("/\\.md$/i");

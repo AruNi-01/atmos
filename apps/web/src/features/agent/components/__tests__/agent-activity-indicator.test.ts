@@ -36,8 +36,11 @@ describe("agent activity indicator", () => {
     expect(source).toContain("const GLYPH_SIZE = 20");
     expect(source).toContain("size={GLYPH_SIZE}");
     expect(source).toContain('className="text-sm leading-5"');
+    expect(source).toContain("SlidingNumber");
+    expect(source).toContain("WorkDurationClock");
+    expect(source).toContain("DurationUnit");
     expect(source).toContain(
-      'className="font-mono text-sm tabular-nums leading-5 text-muted-foreground"',
+      '"inline-flex items-baseline font-mono text-sm tabular-nums leading-none text-muted-foreground"',
     );
     expect(source).not.toContain("px-1");
     expect(source).not.toContain("py-1.5");

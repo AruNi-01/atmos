@@ -35,6 +35,9 @@ describe("agent chat modal frame", () => {
     expect(panel).toContain('data-agent-chat-transcript-bottom-pad=""');
     expect(panel).toContain("transcriptBottomPadPx");
     expect(panel).toContain('className={cn("relative z-10 shrink-0", wideContentClassName)}');
+    expect(panel).toContain('data-agent-chat-timeline-nav=""');
+    expect(panel).toContain("relative w-8 shrink-0");
+    expect(panel).toContain("userMessageIndices.length > 1");
     expect(panel).toContain("<AgentPromptComposer");
     expect(panel).not.toContain('(pendingPermission || pendingSessionOp) && "gap-2"');
     expect(panel).not.toContain('max-h-[80cqh] shrink');
@@ -48,7 +51,7 @@ describe("agent chat modal frame", () => {
     );
     expect(composerSource).toContain('data-agent-chat-above-composer-overlays=""');
     expect(composerSource).toContain(
-      '"pointer-events-none absolute inset-x-0 bottom-full z-20 flex w-full flex-col gap-2 has-[*]:pb-2"',
+      '"pointer-events-none absolute inset-x-0 bottom-full z-20 flex w-full flex-col gap-2 has-[.pointer-events-auto]:pb-2"',
     );
     const contentAt = panel.indexOf("<ConversationContent");
     const confirmationAt = panel.indexOf("<AgentPermissionCard");
@@ -147,7 +150,7 @@ describe("agent chat modal frame", () => {
   it("centers a taller composer on new chat and docks a compact one after the session exists", () => {
     expect(panel).toContain("isAgentNewChatLanding");
     expect(panel).toContain('isNewChatLanding ? "justify-center overflow-y-auto pb-20" : "overflow-hidden"');
-    expect(panel).toContain('isNewChatLanding ? "hidden" : "flex-1"');
+    expect(panel).toContain('isNewChatLanding ? "hidden" : "flex min-h-0 flex-1"');
     expect(panel).toContain("landing={isNewChatLanding}");
     expect(panel).toContain("LogoSvg");
     expect(panel).toContain("h-20 w-auto text-foreground");
@@ -197,6 +200,21 @@ describe("agent chat modal frame", () => {
 
     expect(scrollButton).toContain('aria-label={t("bottom")}');
     expect(scrollButton).toContain("host={aboveComposerOverlaysNode}");
+    const nav = readFileSync(
+      join(import.meta.dir, "../AgentMessageTimelineNav.tsx"),
+      "utf8",
+    );
+    expect(nav).toContain("inset-y-0 right-1");
+    expect(nav).not.toContain("absolute right-4 top-1/2");
+    const composerSource = readFileSync(
+      join(import.meta.dir, "../AgentPromptComposer.tsx"),
+      "utf8",
+    );
+    const overlayAt = composerSource.indexOf("data-agent-chat-above-composer-overlays");
+    const scrollHostAt = composerSource.indexOf("data-agent-chat-scroll-button-host");
+    const cardsAt = composerSource.indexOf("data-agent-composer-upper-cards");
+    expect(scrollHostAt).toBeGreaterThan(overlayAt);
+    expect(cardsAt).toBeGreaterThan(scrollHostAt);
     expect(scrollButton).not.toContain("hover:w-24");
     expect(scrollButton).not.toContain("border-dashed");
     expect(scrollButton).not.toContain("group-hover:max-w");

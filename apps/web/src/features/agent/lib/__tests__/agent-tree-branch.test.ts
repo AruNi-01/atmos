@@ -2,14 +2,16 @@ import { describe, expect, it } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
+  countedRevealDelay,
   nextTreeRevealDelay,
   shouldPlayTreeTitleEnter,
   treeTitleRevealMs,
   TREE_CONTENT_DELAY_MS,
+  TREE_LINE_MS,
   TREE_START_MS,
-  TREE_STEP_MS,
   TREE_TITLE_SEGMENT_MS,
   TREE_TITLE_STAGGER_MS,
+  WEBSEARCH_STEP_MS,
 } from "@/features/agent/lib/agent-tree-branch";
 
 describe("nextTreeRevealDelay", () => {
@@ -17,10 +19,19 @@ describe("nextTreeRevealDelay", () => {
     expect(nextTreeRevealDelay(0, 4)).toBe(TREE_START_MS);
   });
 
-  it("paces later children, and catches up when a large batch is pending", () => {
-    expect(nextTreeRevealDelay(1, 3)).toBe(TREE_STEP_MS);
-    expect(nextTreeRevealDelay(1, 9)).toBe(50);
-    expect(nextTreeRevealDelay(1, 17)).toBe(24);
+  it("waits for each elbow to finish, even when a large batch is pending", () => {
+    expect(nextTreeRevealDelay(1, 3)).toBe(TREE_LINE_MS);
+    expect(nextTreeRevealDelay(1, 9)).toBe(TREE_LINE_MS);
+    expect(nextTreeRevealDelay(1, 17)).toBe(TREE_LINE_MS);
+  });
+});
+
+describe("countedRevealDelay", () => {
+  it("steps toward the target one item at a time", () => {
+    expect(countedRevealDelay(0, 0, WEBSEARCH_STEP_MS)).toBeNull();
+    expect(countedRevealDelay(0, 5, WEBSEARCH_STEP_MS)).toBe(16);
+    expect(countedRevealDelay(2, 5, WEBSEARCH_STEP_MS)).toBe(WEBSEARCH_STEP_MS);
+    expect(countedRevealDelay(5, 0, WEBSEARCH_STEP_MS)).toBe(WEBSEARCH_STEP_MS);
   });
 });
 
@@ -55,6 +66,25 @@ describe("agent tree wiring", () => {
     expect(group).toContain("AgentTreeRevealProvider");
     expect(group).toContain("AgentToolDiffStats");
     expect(group).toContain("sumToolGroupDiffStats");
+    const delays = readFileSync(
+      join(import.meta.dir, "../agent-tree-branch.ts"),
+      "utf8",
+    );
+    expect(delays).toContain("return TREE_LINE_MS");
+    expect(delays).not.toContain("pending > 16");
+  });
+
+  it("expands and collapses websearch sources one icon at a time", () => {
+    const body = readFileSync(
+      join(import.meta.dir, "../../components/tool-results/AgentToolBodies.tsx"),
+      "utf8",
+    );
+    expect(body).toContain("useCountedReveal");
+    expect(body).toContain("WEBSEARCH_STEP_MS");
+    expect(body).toContain("WEBSEARCH_LINE_MS");
+    expect(body).toContain("stackedRemaining");
+    expect(body).toContain("durationMs={WEBSEARCH_LINE_MS}");
+    expect(body).not.toContain("delay: stackedIcon");
   });
 
   it("keeps tool titles static when idle; shimmer only while running", () => {
