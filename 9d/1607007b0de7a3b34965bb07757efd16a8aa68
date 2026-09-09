@@ -1,0 +1,16 @@
+apps/web/src/app-shell/Header.tsx
+  h_5be255725524c8 512
+apps/web/src/features/agent/components/AgentChatPanel.tsx
+  h_5be255725524c8 1122,1141
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "9d1607007b0de7a3b34965bb07757efd16a8aa68",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
