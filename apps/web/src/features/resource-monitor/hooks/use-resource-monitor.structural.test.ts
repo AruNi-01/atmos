@@ -55,6 +55,9 @@ describe("useResourceMonitor lifecycle wiring", () => {
     expect(footerSrc).toContain("onCloseAutoFocus");
     expect(footerSrc).toContain("preventResourceMonitorCloseAutoFocus");
     expect(footerSrc).toContain("runResourceMonitorSessionNavigation");
+    expect(footerSrc).toContain("navigateToAgentStatusSession");
+    expect(footerSrc).toContain("isResourceMonitorAgentStatusNavigationTarget");
+    expect(footerSrc).toContain("useProjects");
     expect(footerSrc).toContain("useAppRouter");
     expect(footerSrc).toContain("handleOpenChange");
     expect(footerSrc).toContain("if (next && navigatingRef.current) return");
@@ -70,6 +73,8 @@ describe("Resource Monitor live session titles", () => {
   test("popover subscribes to workspacePanes and resolves display-only titles", () => {
     expect(popoverSrc).toContain('useTerminalStore((s) => s.workspacePanes)');
     expect(popoverSrc).toContain("buildResourceMonitorSessionDisplayMap(workspacePanes)");
+    expect(popoverSrc).toContain("collectResourceMonitorChatSessions");
+    expect(popoverSrc).toContain("mergeResourceMonitorChatSessions");
     expect(popoverSrc).toContain("liveDisplays={liveDisplays}");
     expect(popoverSrc).toContain("onNavigateSession");
     expect(hierarchySrc).toContain("resolveResourceMonitorSessionDisplay");

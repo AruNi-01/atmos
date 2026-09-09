@@ -162,6 +162,13 @@ describe("resource monitor dither structure", () => {
     expect(hierarchySrc).toContain('t("spaceBadgeAria"');
   });
 
+  test("session rows show a TUI or Chat UI kind chip after the title", () => {
+    expect(hierarchySrc).toContain("data-resource-monitor-session-kind");
+    expect(hierarchySrc).toContain('t("kindTui")');
+    expect(hierarchySrc).toContain('t("kindChatUi")');
+    expect(hierarchySrc).toContain('t("agentSessions")');
+  });
+
   test("session rows share one padded hover surface and hide the locate icon", () => {
     expect(hierarchySrc).toContain("data-resource-monitor-session-row");
     expect(hierarchySrc).toContain("RM_ROW_INTERACTIVE");

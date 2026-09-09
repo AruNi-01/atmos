@@ -1,3 +1,4 @@
+import type { AgentStatusRecord } from "@/features/agent/store/agent-status-store";
 import {
   buildLocatedPanePath,
   locationMatchesDestination,
@@ -11,10 +12,30 @@ import {
 
 export type ResourceMonitorSessionRouteKind = LocatedResourceSessionRouteKind;
 
-export type ResourceMonitorSessionNavigationTarget = {
+export type ResourceMonitorTerminalNavigationTarget = {
   location: LiveResourceSessionLocation;
   routeKind: ResourceMonitorSessionRouteKind;
 };
+
+export type ResourceMonitorAgentStatusNavigationTarget = {
+  session: AgentStatusRecord;
+};
+
+export type ResourceMonitorSessionNavigationTarget =
+  | ResourceMonitorTerminalNavigationTarget
+  | ResourceMonitorAgentStatusNavigationTarget;
+
+export function isResourceMonitorAgentStatusNavigationTarget(
+  target: ResourceMonitorSessionNavigationTarget,
+): target is ResourceMonitorAgentStatusNavigationTarget {
+  return "session" in target;
+}
+
+export function isResourceMonitorTerminalNavigationTarget(
+  target: ResourceMonitorSessionNavigationTarget,
+): target is ResourceMonitorTerminalNavigationTarget {
+  return "location" in target;
+}
 
 /**
  * Navigate from a Resource Monitor session row to the live pane.
@@ -35,7 +56,7 @@ export function navigateToResourceMonitorSession(
  * deep-link. On failure, reopen without toast or a guessed route.
  */
 export async function runResourceMonitorSessionNavigation(input: {
-  target: ResourceMonitorSessionNavigationTarget;
+  target: ResourceMonitorTerminalNavigationTarget;
   router: NavigateToLocatedPaneRouter;
   markNavigating: () => void;
   close: () => void;

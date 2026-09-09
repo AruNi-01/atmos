@@ -62,8 +62,17 @@ import {
   shouldShowProjectResources,
   workspaceDefaultOpen,
 } from "@/features/resource-monitor/lib/resource-monitor-hierarchy";
+import {
+  canLocateResourceMonitorChatSession,
+  isResourceMonitorChatSession,
+  resourceMonitorSessionUiKind,
+  type ResourceMonitorSessionUiKind,
+} from "@/features/resource-monitor/lib/resource-monitor-listed-session";
 import { findResourceMonitorSessionLocation } from "@/features/resource-monitor/lib/resource-monitor-session-locator";
-import type { ResourceMonitorSessionNavigationTarget } from "@/features/resource-monitor/lib/resource-monitor-session-navigation";
+import type {
+  ResourceMonitorSessionNavigationTarget,
+  ResourceMonitorSessionRouteKind,
+} from "@/features/resource-monitor/lib/resource-monitor-session-navigation";
 import {
   resolveResourceMonitorSessionSpaceBadge,
   type ResourceMonitorSessionSpaceBadge,
@@ -364,6 +373,19 @@ function SessionName({
   );
 }
 
+function SessionKindChip({ kind }: { kind: ResourceMonitorSessionUiKind }) {
+  const t = useTranslations("resourceMonitor.popover");
+  return (
+    <Badge
+      variant="secondary"
+      className="h-4 shrink-0 rounded px-1 text-[9px] font-medium"
+      data-resource-monitor-session-kind={kind}
+    >
+      {kind === "chat" ? t("kindChatUi") : t("kindTui")}
+    </Badge>
+  );
+}
+
 function SessionSpaceBadge({
   badge,
 }: {
@@ -394,7 +416,7 @@ function SessionRow({
 }: {
   session: ResourceSessionMetrics;
   hostId: string;
-  routeKind: ResourceMonitorSessionNavigationTarget["routeKind"];
+  routeKind: ResourceMonitorSessionRouteKind;
   liveDisplays: ReadonlyMap<string, ResourceMonitorSessionDisplay>;
   workspacePanes: LiveResourceSessionPanes | null;
   indent: number;
@@ -409,35 +431,53 @@ function SessionRow({
     t("unnamedSession"),
   );
   const name = display.displayTitle;
-  const location = findResourceMonitorSessionLocation(
-    workspacePanes,
-    hostId,
-    session.session_id,
-  );
-  const locatable = location != null && onNavigate != null;
+  const kind = resourceMonitorSessionUiKind(session);
+  const chatSession = isResourceMonitorChatSession(session) ? session : null;
+  const location = chatSession
+    ? null
+    : findResourceMonitorSessionLocation(
+        workspacePanes,
+        hostId,
+        session.session_id,
+      );
+  const locatable =
+    onNavigate != null &&
+    (chatSession
+      ? canLocateResourceMonitorChatSession(chatSession)
+      : location != null);
   const spaces = useCenterSpaceStore(
     (state) => state.byHost[hostId]?.spaces ?? EMPTY_CENTER_SPACES,
   );
   const spaceBadge = resolveResourceMonitorSessionSpaceBadge({
     spaces,
-    spaceId: location?.spaceId,
+    spaceId: chatSession?.spaceId ?? location?.spaceId,
     defaultSpaceName: spaceT("defaultSpace"),
   });
   const cpu = formatCpuPercent(session.usage.cpu_percent);
   const memory = formatMemoryBytes(session.usage.memory_rss_bytes);
   const hasProcesses = session.processes.length > 0;
   const locateAria = t("sessionRowAria", {
-    action: t("locateSession"),
+    action: kind === "chat" ? t("locateChat") : t("locateSession"),
     name,
     cpu,
     memory,
   });
+  const goToSession = () => {
+    if (!onNavigate) return;
+    if (chatSession?.agentStatus) {
+      onNavigate({ session: chatSession.agentStatus });
+      return;
+    }
+    if (location) onNavigate({ location, routeKind });
+  };
+  const kindChip = <SessionKindChip kind={kind} />;
   const nameCell = (
     <span
       className={cn(RM_NAME, "flex items-center gap-1.5")}
       style={{ paddingLeft: indent * 12 }}
     >
       <SessionName name={name} toolbarAgent={display.toolbarAgent} />
+      {kindChip}
       {spaceBadge ? <SessionSpaceBadge badge={spaceBadge} /> : null}
     </span>
   );
@@ -455,9 +495,10 @@ function SessionRow({
           type="button"
           data-resource-monitor-session=""
           data-session-id={session.session_id}
+          data-resource-monitor-session-kind={kind}
           aria-label={locateAria}
           className={cn(RM_ROW, RM_ROW_INTERACTIVE, "justify-start text-left")}
-          onClick={() => onNavigate({ location, routeKind })}
+          onClick={goToSession}
         >
           {body}
         </button>
@@ -470,11 +511,14 @@ function SessionRow({
             className={cn(RM_ROW, RM_ROW_PAD)}
             data-resource-monitor-session=""
             data-session-id={session.session_id}
+            data-resource-monitor-session-kind={kind}
           >
             {body}
           </div>
         </TooltipTrigger>
-        <TooltipContent side="top">{t("sessionUnavailable")}</TooltipContent>
+        <TooltipContent side="top">
+          {kind === "chat" ? t("chatUnavailable") : t("sessionUnavailable")}
+        </TooltipContent>
       </Tooltip>
     );
   }
@@ -484,13 +528,12 @@ function SessionRow({
       defaultOpen={false}
       data-resource-monitor-session=""
       data-session-id={session.session_id}
+      data-resource-monitor-session-kind={kind}
     >
       <div
         className={cn(RM_ROW, RM_ROW_INTERACTIVE, locatable && "cursor-pointer")}
         data-resource-monitor-session-row=""
-        onClick={
-          locatable ? () => onNavigate({ location, routeKind }) : undefined
-        }
+        onClick={locatable ? goToSession : undefined}
       >
         <span
           className={cn(RM_NAME, "flex items-center gap-1")}
@@ -513,7 +556,7 @@ function SessionRow({
               className="min-w-0 flex-1 truncate text-left"
               onClick={(event) => {
                 event.stopPropagation();
-                onNavigate({ location, routeKind });
+                goToSession();
               }}
             >
               <SessionName name={name} toolbarAgent={display.toolbarAgent} />
@@ -521,6 +564,7 @@ function SessionRow({
           ) : (
             <SessionName name={name} toolbarAgent={display.toolbarAgent} />
           )}
+          {kindChip}
           {spaceBadge ? <SessionSpaceBadge badge={spaceBadge} /> : null}
         </span>
         <MetricCells usage={session.usage} />
@@ -622,7 +666,7 @@ function ScopeSections({
   otherUsage: ResourceUsage;
   otherProcesses: ResourceProcessMetrics[];
   sessionHostId: string;
-  routeKind: ResourceMonitorSessionNavigationTarget["routeKind"];
+  routeKind: ResourceMonitorSessionRouteKind;
   liveDisplays: ReadonlyMap<string, ResourceMonitorSessionDisplay>;
   workspacePanes: LiveResourceSessionPanes | null;
   indent: number;
@@ -659,7 +703,7 @@ function ScopeSections({
         if (section.kind === "sessions") {
           return (
             <div key="sessions">
-              <SectionLabel indent={indent}>{t("sessions")}</SectionLabel>
+              <SectionLabel indent={indent}>{t("agentSessions")}</SectionLabel>
               {section.sessions.map((session) => (
                 <SessionRow
                   key={session.session_id}

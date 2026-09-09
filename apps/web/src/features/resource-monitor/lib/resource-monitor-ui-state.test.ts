@@ -250,7 +250,11 @@ describe("ResourceMonitorPopover structure", () => {
     expect(hierarchySrc).toContain('t("sharedRuntime")');
     expect(hierarchySrc).toContain('t("projects")');
     expect(hierarchySrc).toContain('t("projectResources")');
-    expect(hierarchySrc).toContain('t("sessions")');
+    expect(hierarchySrc).toContain('t("agentSessions")');
+    expect(hierarchySrc).toContain("SessionKindChip");
+    expect(hierarchySrc).toContain('t("kindTui")');
+    expect(hierarchySrc).toContain('t("kindChatUi")');
+    expect(hierarchySrc).toContain("canLocateResourceMonitorChatSession");
     expect(hierarchySrc).toContain('t("otherProcesses")');
     expect(hierarchySrc).toContain('t("noAttributedResources")');
     expect(hierarchySrc).toContain('t("ungroupedProcesses")');

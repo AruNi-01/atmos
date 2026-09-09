@@ -31,7 +31,10 @@ import {
   preventResourceMonitorParentDismiss,
   preventResourceMonitorParentEscape,
 } from "@/features/resource-monitor/lib/resource-monitor-close-autofocus";
+import { navigateToAgentStatusSession } from "@/features/agent/lib/agent-status-navigation";
+import { useProjects } from "@/features/project/hooks/use-project-bootstrap-query";
 import {
+  isResourceMonitorAgentStatusNavigationTarget,
   runResourceMonitorSessionNavigation,
   type ResourceMonitorSessionNavigationTarget,
 } from "@/features/resource-monitor/lib/resource-monitor-session-navigation";
@@ -48,6 +51,7 @@ export function ResourceMonitorFooterItem() {
   const reducedMotion = useReducedMotion();
   const navigatingRef = React.useRef(false);
   const router = useAppRouter();
+  const projects = useProjects();
   const {
     connectionState,
     showDesktop,
@@ -150,6 +154,12 @@ export function ResourceMonitorFooterItem() {
 
   const handleSessionNavigate = React.useCallback(
     (target: ResourceMonitorSessionNavigationTarget) => {
+      if (isResourceMonitorAgentStatusNavigationTarget(target)) {
+        navigatingRef.current = true;
+        setOpen(false);
+        navigateToAgentStatusSession(target.session, router, projects);
+        return;
+      }
       void runResourceMonitorSessionNavigation({
         target,
         router,
@@ -160,7 +170,7 @@ export function ResourceMonitorFooterItem() {
         reopen: () => setOpen(true),
       });
     },
-    [router],
+    [projects, router],
   );
   return (
     <TooltipProvider delayDuration={250}>
