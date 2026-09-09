@@ -751,7 +751,7 @@ function PromptAgentConfigMenu({
                 className="flex h-full min-h-0 min-w-0 flex-col items-stretch"
               >
                 <MotionTabsList
-                  className="flex h-full w-8 min-h-0 max-h-full flex-col justify-start overflow-y-auto bg-background px-0.5 py-0.5"
+                  className="flex h-full w-12 min-h-0 max-h-full flex-col justify-start overflow-y-auto bg-background p-1"
                   indicatorClassName="bg-active"
                 >
                   {agents.map((option) => {
@@ -791,18 +791,13 @@ function PromptAgentConfigMenu({
             </div>
           )}
           <div className="flex min-h-0 w-[16.5rem] min-w-0 flex-1 flex-col">
-            <div className="flex min-w-0 items-center gap-2 px-2 pt-1.5 pb-1">
-              <span className="shrink-0 pl-1 text-[11px] text-muted-foreground">
-                {labels.model}
-              </span>
-              <div className="min-w-0 flex-1">
-                <SelectSearch
-                  value={search}
-                  onChange={setSearch}
-                  placeholder={labels.searchModels}
-                  padded={false}
-                />
-              </div>
+            <div className="min-w-0 px-2 pt-1.5 pb-1">
+              <SelectSearch
+                value={search}
+                onChange={setSearch}
+                placeholder={labels.searchModels}
+                padded={false}
+              />
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto p-1.5 pt-0">
               {Boolean(modelsLoading) && models.length === 0 ? (
@@ -860,7 +855,7 @@ function PromptAgentConfigMenu({
                               type="button"
                               disabled={disabled}
                               aria-label={effortLabel || labels.thinkingEffort}
-                              className="inline-flex h-6 max-w-[10rem] shrink-0 items-center gap-0.5 rounded-full bg-background px-2 text-[11px] text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2"
+                              className="inline-flex h-6 max-w-[10rem] shrink-0 items-center gap-0.5 rounded-full bg-foreground/10 px-2 text-[11px] text-muted-foreground outline-none hover:bg-foreground/15 hover:text-foreground focus-visible:ring-2"
                             >
                               <span className="min-w-0 truncate">{effortLabel}</span>
                               <ChevronRight className="size-3 shrink-0" />

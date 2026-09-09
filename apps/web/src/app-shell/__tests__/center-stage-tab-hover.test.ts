@@ -37,7 +37,7 @@ describe("center stage tab hover", () => {
     expect(listFn).toContain('orientation = "horizontal"');
     expect(listFn).toContain("orientation={orientation}");
     expect(listFn).toContain(
-      '"flex h-full w-8 min-h-0 max-h-full flex-col justify-start overflow-hidden bg-background px-0.5 py-0.5"',
+      '"flex h-full w-12 min-h-0 max-h-full flex-col justify-start overflow-hidden bg-background p-1"',
     );
     const scrollFn = shared.slice(
       shared.indexOf("export function CenterStageScrollableTabs"),

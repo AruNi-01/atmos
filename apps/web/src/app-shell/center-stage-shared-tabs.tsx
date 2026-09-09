@@ -211,7 +211,7 @@ export function CenterStageTabList({
         <MotionTabsList
           className={
             vertical
-              ? "flex h-full w-8 min-h-0 max-h-full flex-col justify-start overflow-hidden bg-background px-0.5 py-0.5"
+              ? "flex h-full w-12 min-h-0 max-h-full flex-col justify-start overflow-hidden bg-background p-1"
               : "flex h-8 min-w-0 max-w-full justify-start overflow-hidden bg-background py-0.5 pl-0.5 pr-0"
           }
           indicatorClassName={CENTER_STAGE_TAB_INDICATOR_CLASS}
