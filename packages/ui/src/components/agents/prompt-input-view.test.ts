@@ -309,6 +309,9 @@ describe("PromptAgentConfigMenu", () => {
     expect(promptInput).toContain("formatModelProviderLabel");
     expect(promptInput).toContain("` / ${provider}`");
     expect(promptInput).toContain("const fullLabel = modelLabelWithContext(optionLabelText(option), isSelected ? contextSuffix : \"\")");
+    expect(promptInput).toContain(
+      "label: modelLabelWithContext(optionLabelText(option), contextSuffix)",
+    );
     expect(promptInput).toContain("{modelsLocked ? labels.modelLocked : fullLabel}");
     expect(promptInput).toContain("min-w-0 truncate text-sm");
   });

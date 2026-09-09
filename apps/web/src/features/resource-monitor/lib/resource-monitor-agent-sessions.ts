@@ -257,10 +257,12 @@ function upsertChatSession(
   sessions: ResourceSessionMetrics[],
   session: ResourceMonitorListedSession,
 ): ResourceSessionMetrics[] {
-  const index = sessions.findIndex((item) => item.session_id === session.session_id);
-  if (index === -1) return [...sessions, session];
-  const existing = sessions[index] as ResourceMonitorListedSession;
-  const next = [...sessions];
+  const listed = sessions as ResourceMonitorListedSession[];
+  const index = listed.findIndex((item) => item.session_id === session.session_id);
+  if (index === -1) return [...listed, session];
+  const existing = listed[index];
+  if (!existing) return [...listed, session];
+  const next = [...listed];
   next[index] = {
     ...existing,
     ...session,

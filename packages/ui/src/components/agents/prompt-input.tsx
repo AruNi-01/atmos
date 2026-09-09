@@ -945,7 +945,7 @@ function PromptAgentConfigMenu({
                               <OptionRow
                                 option={
                                   isSelected && contextSuffix
-                                    ? { ...option, label: modelLabelWithContext(option.label || option.value, contextSuffix) }
+                                    ? { ...option, label: modelLabelWithContext(optionLabelText(option), contextSuffix) }
                                     : option
                                 }
                               />

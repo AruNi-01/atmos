@@ -6,6 +6,8 @@ import type {
   AgentChatMeta,
   AgentChatPrefs,
   AgentChatPrefsSetRequest,
+  AgentChatCreateRequest,
+  AgentChatConfigureRequest,
   AgentChatSnapshot,
   AgentChatEvent,
   AgentEvent,
@@ -23,6 +25,8 @@ export type {
   AgentChatMeta,
   AgentChatPrefs,
   AgentChatPrefsSetRequest,
+  AgentChatCreateRequest,
+  AgentChatConfigureRequest,
   AgentChatSnapshot,
   AgentChatEvent,
   AgentEvent,
@@ -34,20 +38,8 @@ export type {
 };
 
 export const agentChatApi = {
-  create: (input: {
-    provider_id: string;
-    workspace_id?: string | null;
-    project_id?: string | null;
-    space_id?: string | null;
-    cwd?: string | null;
-    model?: string | null;
-    thinking?: string | null;
-    mode?: string | null;
-    permission_mode?: string | null;
-    fast?: string | null;
-    title?: string | null;
-    origin?: AgentChatOrigin | null;
-  }) => wsRequest("agent_chat_create", input),
+  create: (input: AgentChatCreateRequest) =>
+    wsRequest("agent_chat_create", input),
   list: (input: {
     workspace_id?: string | null;
     project_id?: string | null;
@@ -62,14 +54,7 @@ export const agentChatApi = {
     wsRequest("agent_chat_rename", { chat_id, title }),
   configure: (
     chat_id: string,
-    patch: {
-      provider_id?: string | null;
-      model?: string | null;
-      thinking?: string | null;
-      mode?: string | null;
-      permission_mode?: string | null;
-      fast?: string | null;
-    },
+    patch: Omit<AgentChatConfigureRequest, "chat_id">,
   ) =>
     wsRequest("agent_chat_configure", {
       chat_id,
@@ -79,6 +64,7 @@ export const agentChatApi = {
       mode: patch.mode ?? null,
       permission_mode: patch.permission_mode ?? null,
       fast: patch.fast ?? null,
+      context: patch.context ?? null,
     }),
   delete: (chat_id: string) =>
     wsRequest("agent_chat_delete", { chat_id }),
