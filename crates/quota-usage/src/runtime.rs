@@ -328,6 +328,15 @@ pub(crate) fn detect_auth(spec: &ProviderSpec) -> AuthState {
     }
 
     if spec.id == "factory" {
+        if let Ok(Some(source)) = factory::storage::load_factory_cli_auth_access_token() {
+            return AuthState {
+                status: AuthStateStatus::Detected,
+                source: Some(source.source_label),
+                detail: Some("Detected Droid CLI auth token".to_string()),
+                setup_hint: Some(spec.setup_hint.to_string()),
+            };
+        }
+
         if crate::support::browser_access::may_probe_browser_cookies("factory") {
             if let Ok(tokens) = factory::storage::load_factory_local_storage_tokens() {
                 if let Some(token) = tokens.first() {
@@ -339,15 +348,6 @@ pub(crate) fn detect_auth(spec: &ProviderSpec) -> AuthState {
                     };
                 }
             }
-        }
-
-        if let Ok(Some(source)) = factory::storage::load_factory_cli_auth_access_token() {
-            return AuthState {
-                status: AuthStateStatus::Detected,
-                source: Some(source.source_label),
-                detail: Some("Detected Droid CLI auth token".to_string()),
-                setup_hint: Some(spec.setup_hint.to_string()),
-            };
         }
 
         if let Ok(Some(source)) = load_factory_browser_cookie_source() {
@@ -737,7 +737,7 @@ fn provider_specs() -> Vec<ProviderSpec> {
             kind: ProviderKind::Hybrid,
             live_kind: Some(LiveProviderKind::Factory),
             timeout_millis: PROVIDER_TIMEOUT_MILLIS,
-            setup_hint: "Sign in to app.factory.ai first. Atmos prioritizes browser session tokens and then falls back to Droid CLI auth and FACTORY_BEARER_TOKEN.",
+            setup_hint: "Log in with Droid CLI (`droid`) or sign in to app.factory.ai. Atmos uses the Droid CLI session first, then browser tokens and FACTORY_BEARER_TOKEN.",
             auth_env_keys: &[
                 "FACTORY_COOKIE_HEADER",
                 "ATMOS_USAGE_FACTORY_COOKIE_HEADER",

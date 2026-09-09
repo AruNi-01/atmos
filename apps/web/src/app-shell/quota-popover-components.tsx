@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { Blocks, Coins, KeyRound, Plus, Trash2 } from "lucide-react";
+import { AlertCircle, Blocks, Coins, KeyRound, Plus, Trash2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import {
@@ -34,6 +34,27 @@ import {
 
 const ALL_PROVIDER_ID = "all";
 
+export function QuotaFetchFailureBanner({
+  message,
+  className,
+}: {
+  message: string;
+  className?: string;
+}) {
+  return (
+    <div
+      role="status"
+      className={cn(
+        "flex items-start gap-3 rounded-[16px] bg-muted/45 px-4 py-3 text-sm text-foreground",
+        className,
+      )}
+    >
+      <AlertCircle className="mt-0.5 size-4 shrink-0" />
+      <div className="line-clamp-2">{message}</div>
+    </div>
+  );
+}
+
 export function UsageBar({
   percent,
   segments,
@@ -54,7 +75,7 @@ export function UsageBar({
   return (
     <div className={cn("h-3 w-full overflow-hidden rounded-full bg-muted/80", className)}>
       {visibleSegments.length > 0 ? (
-        <div className="flex h-full gap-1" style={{ width: `${groupWidth}%` }}>
+        <div className="flex h-full gap-px" style={{ width: `${groupWidth}%` }}>
           {visibleSegments.map((segment, index) => (
             <div
               key={segment.label}

@@ -81,6 +81,27 @@ export function formatQuotaCarouselText(provider: QuotaProviderResponse): string
   return `${provider.label}: ${parts.join(", ")}`;
 }
 
+/** Latest fetch failure for the quota UI banner. Prefer a client/network error over stale provider issues. */
+export function formatQuotaFetchFailureMessage(
+  partialFailures: Array<{ provider_id: string; provider_label: string; message: string }>,
+  options?: {
+    clientError?: string | null;
+    providerIds?: Iterable<string>;
+  },
+): string | null {
+  const clientError = options?.clientError?.trim() || null;
+  if (clientError) return clientError;
+
+  const allowed = options?.providerIds ? new Set(options.providerIds) : null;
+  const issues = partialFailures.filter(
+    (issue) => !allowed || allowed.has(issue.provider_id),
+  );
+  if (issues.length === 0) return null;
+  return issues
+    .map((issue) => `${issue.provider_label}: ${issue.message}`)
+    .join(" · ");
+}
+
 export function buildUsageCarouselItems(
   overview: QuotaOverviewResponse | null
 ): UsageCarouselItem[] {

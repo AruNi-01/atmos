@@ -4,7 +4,6 @@ import React, { startTransition, useCallback, useEffect, useMemo, useRef, useSta
 import { AnimatePresence, motion } from "motion/react";
 import { useLocale, useTranslations } from "next-intl";
 import {
-  AlertCircle,
   Clock3,
   Check,
   ChevronLeft,
@@ -46,6 +45,7 @@ import {
   type QuotaOverviewResponse,
 } from "@/api/ws-api";
 import { useQuotaOverviewCache, useQuotaOverviewQuery } from "@/features/quota-usage/hooks/use-quota-overview-query";
+import { formatQuotaFetchFailureMessage } from "@/features/quota-usage/lib/quota-display";
 import { useLayoutSettingsStore } from "@/features/settings/store/layout-settings-store";
 import { useQuotaProviderOrder } from "@/shared/stores/use-ui-pref-hooks";
 import {
@@ -59,6 +59,7 @@ import {
   AutoRefreshCountdownBadge,
   ProviderGlyph,
   ProviderSwitch,
+  QuotaFetchFailureBanner,
   SortableProviderSwitch,
 } from "./quota-popover-components";
 
@@ -424,7 +425,16 @@ export function QuotaPopover({ open: externalOpen, onOpenChange: externalOnOpenC
   const isAllSelected = selectedProviderId === ALL_PROVIDER_ID;
   const showFooterActions = isFooterHovered || isAutoRefreshPopoverOpen;
   const showAutoRefreshAction = isAllSelected;
-  const canCycleFooterInfo = Boolean(autoRefreshTargetMs) && !error;
+  const queryErrorText = usageQuery.isError
+    ? usageQuery.error instanceof Error
+      ? usageQuery.error.message
+      : t("errors.loadOverview")
+    : null;
+  const fetchFailureMessage = formatQuotaFetchFailureMessage(
+    overview?.partial_failures ?? [],
+    { clientError: error || queryErrorText },
+  );
+  const canCycleFooterInfo = Boolean(autoRefreshTargetMs);
   const footerInfoWidthClass =
     showAutoRefreshAction || Boolean(autoRefreshTargetMs) ? "w-[236px]" : "w-[148px]";
   const showProviderArrows = providerScrollState.hasOverflow;
@@ -608,12 +618,9 @@ export function QuotaPopover({ open: externalOpen, onOpenChange: externalOnOpenC
             <div className="mx-5 border-t border-border/40" />
 
             <div className={cn("px-0 pb-1 pt-2.5", embedded && "min-h-0 flex-1 flex flex-col overflow-hidden")}>
-              {overview?.partial_failures.length ? (
-                <div className="mx-4 mb-2.5 flex items-start gap-3 rounded-[16px] bg-muted/45 px-4 py-3 text-sm text-foreground">
-                  <AlertCircle className="mt-0.5 size-4 shrink-0" />
-                  <div className="line-clamp-2">
-                    {overview.partial_failures.map((issue) => `${issue.provider_label}: ${issue.message}`).join(" · ")}
-                  </div>
+              {overview && fetchFailureMessage ? (
+                <div className="mx-4 mb-2.5">
+                  <QuotaFetchFailureBanner message={fetchFailureMessage} />
                 </div>
               ) : null}
 
@@ -806,7 +813,7 @@ export function QuotaPopover({ open: externalOpen, onOpenChange: externalOnOpenC
                       </motion.div>
                     ) : (
                       <motion.span
-                        key={error && overview ? "footer-error" : "updated-time"}
+                        key="updated-time"
                         custom={refreshSwapDirection}
                         variants={refreshSwapVariants}
                         initial="initial"
@@ -815,7 +822,7 @@ export function QuotaPopover({ open: externalOpen, onOpenChange: externalOnOpenC
                         transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
                         className="absolute inset-0 inline-flex h-7 w-full items-center whitespace-nowrap"
                       >
-                        {error && overview ? error : t("updatedAt", {
+                        {t("updatedAt", {
                           value: formatTimestamp(displayedUpdatedAt, locale, { unknownLabel: t("formatters.unknown") }),
                         })}
                       </motion.span>

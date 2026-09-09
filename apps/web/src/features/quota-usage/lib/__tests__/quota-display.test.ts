@@ -1,6 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import type { QuotaProviderResponse } from "@/api/ws-api";
-import { formatQuotaCarouselText } from "@/features/quota-usage/lib/quota-display";
+import {
+  formatQuotaCarouselText,
+  formatQuotaFetchFailureMessage,
+} from "@/features/quota-usage/lib/quota-display";
 import { extraSections } from "@/app-shell/quota-popover-utils";
 
 function provider(partial: Partial<QuotaProviderResponse>): QuotaProviderResponse {
@@ -128,5 +131,32 @@ describe("Grok quota display", () => {
         }),
       ),
     ).toBe("Grok Build: Weekly 6% used, Extra Disabled");
+  });
+});
+
+describe("formatQuotaFetchFailureMessage", () => {
+  const issues = [
+    { provider_id: "grok", provider_label: "Grok Build", message: "network unreachable" },
+    { provider_id: "claude", provider_label: "Claude", message: "timed out" },
+  ];
+
+  test("prefers the latest client/network error over provider issues", () => {
+    expect(
+      formatQuotaFetchFailureMessage(issues, { clientError: "Failed to load usage overview" }),
+    ).toBe("Failed to load usage overview");
+  });
+
+  test("joins provider issues and can filter to the current agent", () => {
+    expect(formatQuotaFetchFailureMessage(issues)).toBe(
+      "Grok Build: network unreachable · Claude: timed out",
+    );
+    expect(formatQuotaFetchFailureMessage(issues, { providerIds: ["grok"] })).toBe(
+      "Grok Build: network unreachable",
+    );
+  });
+
+  test("returns null when there is no fetch failure", () => {
+    expect(formatQuotaFetchFailureMessage([])).toBeNull();
+    expect(formatQuotaFetchFailureMessage(issues, { providerIds: ["cursor"] })).toBeNull();
   });
 });

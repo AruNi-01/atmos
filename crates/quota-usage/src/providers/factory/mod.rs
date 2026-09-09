@@ -14,8 +14,8 @@ use crate::constants::{
 use crate::models::{DetailRow, DetailSection, ProviderError, RowTone};
 use crate::runtime::LiveFetchResult;
 use crate::support::{
-    build_percent_usage_summary, format_reset_relative_text, load_factory_session_cookie_source,
-    parse_offset_datetime, round_metric, unix_now,
+    build_percent_usage_summary, decode_jwt_payload, format_reset_relative_text,
+    load_factory_session_cookie_source, parse_offset_datetime, round_metric, unix_now,
 };
 
 #[derive(Debug, Clone, Deserialize)]
@@ -110,13 +110,71 @@ struct FactoryLimitWindow {
 }
 
 pub(crate) async fn fetch_factory_live(client: &Client) -> Result<LiveFetchResult, ProviderError> {
+    let mut last_error = None::<String>;
+
+    // Droid CLI is the live session the TUI uses. Probe it before browser
+    // cookies so a stale app.factory.ai WorkOS token cannot hide a valid
+    // `~/.factory/auth.v2.loginkeychain` login.
+    if let Some(cli_auth_token) = load_factory_cli_auth_access_token().ok().flatten() {
+        if factory_access_token_usable(&cli_auth_token.access_token) {
+            match fetch_factory_with_bearer(
+                client,
+                "",
+                &cli_auth_token.access_token,
+                Some(cli_auth_token.source_label.as_str()),
+            )
+            .await
+            {
+                Ok(result) => {
+                    persist_factory_bearer(
+                        &cli_auth_token.access_token,
+                        None,
+                        Some(cli_auth_token.source_label),
+                    )?;
+                    return Ok(result);
+                }
+                Err(error) => last_error = Some(error.to_string()),
+            }
+        }
+    }
+
+    if let Some(token) = env::var("FACTORY_BEARER_TOKEN")
+        .ok()
+        .filter(|value| !value.trim().is_empty())
+    {
+        match fetch_factory_with_bearer(client, "", &token, Some("FACTORY_BEARER_TOKEN")).await {
+            Ok(result) => {
+                persist_factory_bearer(&token, None, Some("FACTORY_BEARER_TOKEN".to_string()))?;
+                return Ok(result);
+            }
+            Err(error) => last_error = Some(error.to_string()),
+        }
+    }
+
+    if let Some(session) = load_factory_session_state()? {
+        if let Some(token) = session
+            .bearer_token
+            .as_deref()
+            .filter(|value| !value.trim().is_empty())
+            .filter(|value| factory_access_token_usable(value))
+        {
+            match fetch_factory_with_bearer(client, "", token, session.source_label.as_deref())
+                .await
+            {
+                Ok(result) => {
+                    persist_factory_bearer(token, None, session.source_label.clone())?;
+                    return Ok(result);
+                }
+                Err(error) => last_error = Some(error.to_string()),
+            }
+        }
+    }
+
     let cookie_source = load_factory_session_cookie_source(None).ok();
     let cookie_header = cookie_source
         .as_ref()
         .map(|source| source.cookie_header.clone())
         .unwrap_or_default();
-    let cli_auth_token = load_factory_cli_auth_access_token().ok().flatten();
-    let mut last_error = None::<String>;
 
     let browser_tokens = if crate::support::browser_access::may_probe_browser_cookies("factory") {
         load_factory_local_storage_tokens()?
@@ -128,6 +186,7 @@ pub(crate) async fn fetch_factory_live(client: &Client) -> Result<LiveFetchResul
             .access_token
             .as_deref()
             .filter(|value| !value.trim().is_empty())
+            .filter(|value| factory_access_token_usable(value))
         {
             match fetch_factory_with_bearer(
                 client,
@@ -146,7 +205,9 @@ pub(crate) async fn fetch_factory_live(client: &Client) -> Result<LiveFetchResul
         }
     }
 
-    if let Some(token) = factory_bearer_from_cookie_header(&cookie_header) {
+    if let Some(token) = factory_bearer_from_cookie_header(&cookie_header)
+        .filter(|value| factory_access_token_usable(value))
+    {
         match fetch_factory_with_bearer(
             client,
             &cookie_header,
@@ -171,79 +232,33 @@ pub(crate) async fn fetch_factory_live(client: &Client) -> Result<LiveFetchResul
         }
     }
 
-    if let Some(session) = load_factory_session_state()? {
-        if let Some(token) = session
-            .bearer_token
-            .as_deref()
-            .filter(|value| !value.trim().is_empty())
-        {
-            match fetch_factory_with_bearer(
-                client,
-                &cookie_header,
-                token,
-                session.source_label.as_deref(),
-            )
-            .await
-            {
-                Ok(result) => {
-                    persist_factory_bearer(token, None, session.source_label.clone())?;
-                    return Ok(result);
-                }
-                Err(error) => last_error = Some(error.to_string()),
-            }
-        }
-    }
-
-    if let Some(token) = env::var("FACTORY_BEARER_TOKEN")
-        .ok()
-        .filter(|value| !value.trim().is_empty())
-    {
-        match fetch_factory_with_bearer(
-            client,
-            &cookie_header,
-            &token,
-            Some("FACTORY_BEARER_TOKEN"),
-        )
-        .await
-        {
-            Ok(result) => {
-                persist_factory_bearer(&token, None, Some("FACTORY_BEARER_TOKEN".to_string()))?;
-                return Ok(result);
-            }
-            Err(error) => last_error = Some(error.to_string()),
-        }
-    }
-
-    if let Some(cli_auth_token) = cli_auth_token {
-        match fetch_factory_with_bearer(
-            client,
-            &cookie_header,
-            &cli_auth_token.access_token,
-            Some(cli_auth_token.source_label.as_str()),
-        )
-        .await
-        {
-            Ok(result) => {
-                persist_factory_bearer(
-                    &cli_auth_token.access_token,
-                    None,
-                    Some(cli_auth_token.source_label),
-                )?;
-                return Ok(result);
-            }
-            Err(error) => last_error = Some(error.to_string()),
-        }
-    }
-
     if cookie_header.is_empty() {
         return Err(ProviderError::Fetch(last_error.unwrap_or_else(|| {
-            "Factory browser token, Droid CLI token, or bearer token not found".to_string()
+            "Droid CLI token, Factory browser token, or bearer token not found".to_string()
         })));
     }
 
     Err(ProviderError::Fetch(last_error.unwrap_or_else(|| {
         "Factory usage request failed".to_string()
     })))
+}
+
+fn factory_access_token_usable(token: &str) -> bool {
+    !factory_access_token_expired(token, unix_now())
+}
+
+fn factory_access_token_expired(token: &str, now: u64) -> bool {
+    let Some(payload) = decode_jwt_payload(token) else {
+        return false;
+    };
+    let Some(exp) = payload.get("exp").and_then(|value| {
+        value
+            .as_u64()
+            .or_else(|| value.as_i64().map(|raw| raw.max(0) as u64))
+    }) else {
+        return false;
+    };
+    exp <= now
 }
 
 fn persist_factory_bearer(
@@ -749,11 +764,31 @@ fn titleize(raw: String) -> String {
 #[cfg(test)]
 mod tests {
     use super::{
-        build_factory_live_result, factory_bearer_from_cookie_header, filter_cookie_header,
-        format_window, window_limits_has_signal, window_percent, window_reset_at,
-        FactoryLimitWindow, FactoryWindowLimits,
+        build_factory_live_result, factory_access_token_expired, factory_bearer_from_cookie_header,
+        filter_cookie_header, format_window, window_limits_has_signal, window_percent,
+        window_reset_at, FactoryLimitWindow, FactoryWindowLimits,
     };
+    use base64::Engine;
     use serde_json::json;
+
+    #[test]
+    fn skips_expired_factory_jwts_and_keeps_opaque_tokens() {
+        fn jwt_with_exp(exp: u64) -> String {
+            let payload = base64::engine::general_purpose::URL_SAFE_NO_PAD
+                .encode(format!(r#"{{"exp":{exp}}}"#));
+            format!("eyJhbGciOiJub25lIn0.{payload}.sig")
+        }
+
+        assert!(factory_access_token_expired(
+            &jwt_with_exp(1_700_000_000),
+            1_700_000_001
+        ));
+        assert!(!factory_access_token_expired(
+            &jwt_with_exp(1_700_000_100),
+            1_700_000_000
+        ));
+        assert!(!factory_access_token_expired("fk-not-a-jwt", 1_700_000_000));
+    }
 
     #[test]
     fn extracts_factory_bearer_from_cookie_header() {

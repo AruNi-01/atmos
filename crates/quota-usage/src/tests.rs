@@ -7,8 +7,8 @@ use infra::jobs::{JobId, LocalScheduler};
 
 use crate::{
     AuthState, AuthStateStatus, FetchState, FetchStateStatus, ProviderDescriptor, ProviderError,
-    ProviderKind, ProviderStatus, QuotaProvider, QuotaUsageService,
-    QUOTA_USAGE_AUTO_REFRESH_JOB_ID,
+    ProviderKind, ProviderStatus, QuotaProvider, QuotaSummary, QuotaUsageService,
+    SubscriptionSummary, QUOTA_USAGE_AUTO_REFRESH_JOB_ID,
 };
 
 #[derive(Clone)]
@@ -39,6 +39,10 @@ impl QuotaProvider for MockProvider {
 }
 
 fn mock_status(id: &str, label: &str) -> ProviderStatus {
+    mock_status_with_usage(id, label, None)
+}
+
+fn mock_status_with_usage(id: &str, label: &str, percent: Option<f64>) -> ProviderStatus {
     ProviderStatus {
         id: id.to_string(),
         label: label.to_string(),
@@ -48,8 +52,24 @@ fn mock_status(id: &str, label: &str) -> ProviderStatus {
         footer_carousel_show: false,
         healthy: true,
         last_updated_at: None,
-        subscription_summary: None,
-        usage_summary: None,
+        subscription_summary: percent.map(|_| SubscriptionSummary {
+            plan_label: Some("Pro".to_string()),
+            window_label: None,
+            credits_label: None,
+            billing_state: Some("active".to_string()),
+            reset_at: None,
+        }),
+        usage_summary: percent.map(|percent| QuotaSummary {
+            unit: Some("percent".to_string()),
+            currency: None,
+            used: Some(percent),
+            remaining: Some(100.0 - percent),
+            cap: Some(100.0),
+            percent: Some(percent),
+            used_label: Some(format!("{percent}% used")),
+            remaining_label: None,
+            cap_label: None,
+        }),
         detail_sections: vec![],
         warnings: vec![],
         auth_state: AuthState {
@@ -326,6 +346,221 @@ async fn attach_jobs_registers_and_cancels_auto_refresh() {
     assert!(!jobs.is_registered(&job_id).await);
 
     jobs.shutdown().await.unwrap();
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn failed_live_refresh_keeps_previous_numbers_and_records_partial_failure() {
+    let _iso = IsolatedQuotaDir::enter();
+    let collect_count = Arc::new(AtomicUsize::new(0));
+    let service = QuotaUsageService::new(vec![Arc::new(FlakyLiveProvider {
+        id: "grok",
+        label: "Grok Build",
+        collect_count: Arc::clone(&collect_count),
+        fail_with: FlakyFailure::FetchError,
+    })]);
+
+    let _ = service.set_provider_switch("grok", true).await;
+    collect_count.store(0, Ordering::SeqCst);
+
+    let first = service.get_overview(true, None).await;
+    assert_eq!(
+        first.providers[0]
+            .usage_summary
+            .as_ref()
+            .and_then(|s| s.percent),
+        Some(42.0)
+    );
+    assert!(first.partial_failures.is_empty());
+
+    let second = service.get_overview(true, None).await;
+    assert_eq!(
+        second.providers[0]
+            .usage_summary
+            .as_ref()
+            .and_then(|s| s.percent),
+        Some(42.0),
+        "failed refresh must not wipe the last successful numbers"
+    );
+    assert_eq!(
+        second.providers[0].fetch_state.status,
+        FetchStateStatus::Ready
+    );
+    assert_eq!(second.partial_failures.len(), 1);
+    assert_eq!(second.partial_failures[0].provider_id, "grok");
+    assert!(
+        second.partial_failures[0]
+            .message
+            .to_lowercase()
+            .contains("network"),
+        "expected a fetch-failure message, got {}",
+        second.partial_failures[0].message
+    );
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn unavailable_live_snapshot_keeps_previous_numbers() {
+    let _iso = IsolatedQuotaDir::enter();
+    let collect_count = Arc::new(AtomicUsize::new(0));
+    let service = QuotaUsageService::new(vec![Arc::new(FlakyLiveProvider {
+        id: "claude",
+        label: "Claude",
+        collect_count: Arc::clone(&collect_count),
+        fail_with: FlakyFailure::UnavailableDetected,
+    })]);
+
+    let _ = service.set_provider_switch("claude", true).await;
+    collect_count.store(0, Ordering::SeqCst);
+
+    let first = service.get_overview(true, None).await;
+    assert_eq!(
+        first.providers[0]
+            .usage_summary
+            .as_ref()
+            .and_then(|s| s.percent),
+        Some(42.0)
+    );
+
+    let second = service.get_overview(true, None).await;
+    assert_eq!(
+        second.providers[0]
+            .usage_summary
+            .as_ref()
+            .and_then(|s| s.percent),
+        Some(42.0)
+    );
+    assert!(second.providers[0].enabled);
+    assert_eq!(second.partial_failures.len(), 1);
+    assert!(second.partial_failures[0].message.contains("timed out"));
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn mixed_refresh_keeps_failed_provider_and_updates_successful_one() {
+    let _iso = IsolatedQuotaDir::enter();
+    let fail_count = Arc::new(AtomicUsize::new(0));
+    let ok_count = Arc::new(AtomicUsize::new(0));
+    let service = QuotaUsageService::new(vec![
+        Arc::new(FlakyLiveProvider {
+            id: "alpha",
+            label: "Alpha",
+            collect_count: Arc::clone(&fail_count),
+            fail_with: FlakyFailure::FetchError,
+        }),
+        Arc::new(CountingReadyProvider {
+            id: "beta",
+            label: "Beta",
+            collect_count: Arc::clone(&ok_count),
+            percent: 11.0,
+        }),
+    ]);
+
+    let _ = service.set_all_provider_switch(true).await;
+    fail_count.store(0, Ordering::SeqCst);
+    ok_count.store(0, Ordering::SeqCst);
+
+    let first = service.get_overview(true, None).await;
+    let alpha = first.providers.iter().find(|p| p.id == "alpha").unwrap();
+    assert_eq!(
+        alpha.usage_summary.as_ref().and_then(|s| s.percent),
+        Some(42.0)
+    );
+
+    // Second collect: alpha fails, beta returns a new percent.
+    let second = service.get_overview(true, None).await;
+    let alpha = second.providers.iter().find(|p| p.id == "alpha").unwrap();
+    let beta = second.providers.iter().find(|p| p.id == "beta").unwrap();
+    assert_eq!(
+        alpha.usage_summary.as_ref().and_then(|s| s.percent),
+        Some(42.0)
+    );
+    assert_eq!(
+        beta.usage_summary.as_ref().and_then(|s| s.percent),
+        Some(11.0)
+    );
+    assert_eq!(second.partial_failures.len(), 1);
+    assert_eq!(second.partial_failures[0].provider_id, "alpha");
+}
+
+#[derive(Clone, Copy)]
+enum FlakyFailure {
+    FetchError,
+    UnavailableDetected,
+}
+
+#[derive(Clone)]
+struct FlakyLiveProvider {
+    id: &'static str,
+    label: &'static str,
+    collect_count: Arc<AtomicUsize>,
+    fail_with: FlakyFailure,
+}
+
+#[async_trait]
+impl QuotaProvider for FlakyLiveProvider {
+    fn descriptor(&self) -> ProviderDescriptor {
+        ProviderDescriptor {
+            id: self.id.to_string(),
+            label: self.label.to_string(),
+        }
+    }
+
+    fn timeout(&self) -> Duration {
+        Duration::from_millis(500)
+    }
+
+    async fn collect(&self) -> Result<ProviderStatus, ProviderError> {
+        let n = self.collect_count.fetch_add(1, Ordering::SeqCst);
+        if n == 0 {
+            return Ok(mock_status_with_usage(self.id, self.label, Some(42.0)));
+        }
+        match self.fail_with {
+            FlakyFailure::FetchError => {
+                Err(ProviderError::Fetch("network unreachable".to_string()))
+            }
+            FlakyFailure::UnavailableDetected => {
+                let mut status = mock_status(self.id, self.label);
+                status.enabled = true;
+                status.healthy = false;
+                status.usage_summary = None;
+                status.subscription_summary = None;
+                status.fetch_state = FetchState {
+                    status: FetchStateStatus::Unavailable,
+                    message: Some("Usage detection timed out".to_string()),
+                };
+                Ok(status)
+            }
+        }
+    }
+}
+
+#[derive(Clone)]
+struct CountingReadyProvider {
+    id: &'static str,
+    label: &'static str,
+    collect_count: Arc<AtomicUsize>,
+    percent: f64,
+}
+
+#[async_trait]
+impl QuotaProvider for CountingReadyProvider {
+    fn descriptor(&self) -> ProviderDescriptor {
+        ProviderDescriptor {
+            id: self.id.to_string(),
+            label: self.label.to_string(),
+        }
+    }
+
+    fn timeout(&self) -> Duration {
+        Duration::from_millis(500)
+    }
+
+    async fn collect(&self) -> Result<ProviderStatus, ProviderError> {
+        self.collect_count.fetch_add(1, Ordering::SeqCst);
+        Ok(mock_status_with_usage(
+            self.id,
+            self.label,
+            Some(self.percent),
+        ))
+    }
 }
 
 #[derive(Clone)]
