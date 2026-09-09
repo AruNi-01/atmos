@@ -1,4 +1,5 @@
 pub mod acp;
+pub mod auth;
 pub mod cli;
 pub mod native;
 pub mod plan;
@@ -10,6 +11,10 @@ pub use acp::{
     StdioAcpOptionsProbe,
 };
 pub(crate) use acp::{is_mode_config_id, is_permission_mode_config_id};
+pub use auth::{
+    is_cli_login_method_id, is_native_oauth_method_id, snapshot_message_needs_auth,
+    CLI_LOGIN_METHOD_PREFIX, NATIVE_OAUTH_METHOD_PREFIX,
+};
 pub use cli::parse::{
     apply_grok_thinking_overlay, grok_thinking_for_model_id, model_id_is_table_noise,
     parse_droid_help, parse_line_list,

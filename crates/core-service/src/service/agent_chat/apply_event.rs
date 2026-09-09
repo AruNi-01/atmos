@@ -21,7 +21,7 @@ use super::types::{
     advertised_option_for_kind, apply_assistant_text_part, apply_context_usage,
     config_kind_matches, config_values_equal, elapsed_ms, keep_pending_session_selection,
     map_advertised_select_value, merge_session_usage, order_assistant_parts, parse_session_usage,
-    parse_turn_usage, pending_fast_change, pending_permission_mode_change,
+    parse_turn_usage, pending_context_change, pending_fast_change, pending_permission_mode_change,
     pending_session_config_change, pending_thinking_change, resolve_session_config_select,
     AgentChatEvent, AgentChatMeta, AgentChatPayload, AgentChatSessionOpOutcome, AgentChatSnapshot,
     FoldedMessage, MessagePart, PendingPermission, PendingSessionOp, ResolvedSessionConfig,
@@ -576,13 +576,15 @@ pub(super) async fn apply_event(
         }
         AgentEvent::ConfigChanged { config } => {
             let advertised = parse_advertised_options(&config);
-            let (model, thinking, mode, permission_mode, fast) = selected_session_config(&config);
+            let (model, thinking, mode, permission_mode, fast, context) =
+                selected_session_config(&config);
             if advertised.is_empty()
                 && model.is_none()
                 && thinking.is_none()
                 && mode.is_none()
                 && permission_mode.is_none()
                 && fast.is_none()
+                && context.is_none()
             {
                 return Ok(());
             }
@@ -596,6 +598,7 @@ pub(super) async fn apply_event(
                     mode.as_ref(),
                     permission_mode.as_ref(),
                     fast.as_ref(),
+                    context.as_ref(),
                 );
                 emitted = Some(meta.descriptor.clone());
             })?;
@@ -738,6 +741,7 @@ fn apply_config_changed(
     mode: Option<&String>,
     permission_mode: Option<&String>,
     fast: Option<&String>,
+    context: Option<&String>,
 ) {
     let complete = advertised
         .iter()
@@ -756,13 +760,36 @@ fn apply_config_changed(
                             .map(|thinking| (item.id.clone(), thinking))
                     })
                     .collect();
+                let previous_context: HashMap<String, Vec<AgentMode>> = meta
+                    .descriptor
+                    .supported_options
+                    .models
+                    .iter()
+                    .filter(|item| item.context.len() >= 2)
+                    .map(|item| (item.id.clone(), item.context.clone()))
+                    .collect();
+                let previous_fast: HashMap<String, bool> = meta
+                    .descriptor
+                    .supported_options
+                    .models
+                    .iter()
+                    .filter(|item| item.fast)
+                    .map(|item| (item.id.clone(), true))
+                    .collect();
                 let mut models = models_from_option(option, &meta.provider_id);
                 for model in &mut models {
-                    if model.thinking.is_some() {
-                        continue;
+                    if model.thinking.is_none() {
+                        if let Some(thinking) = previous_thinking.get(&model.id) {
+                            model.thinking = Some(thinking.clone());
+                        }
                     }
-                    if let Some(thinking) = previous_thinking.get(&model.id) {
-                        model.thinking = Some(thinking.clone());
+                    if model.context.is_empty() {
+                        if let Some(context) = previous_context.get(&model.id) {
+                            model.context = context.clone();
+                        }
+                    }
+                    if previous_fast.contains_key(&model.id) {
+                        model.fast = true;
                     }
                 }
                 meta.descriptor.supported_options.models = models;
@@ -824,9 +851,20 @@ fn apply_config_changed(
                 ];
             }
             _ => {
-                meta.descriptor.supported_options.fast.clear();
+                // Fast is per current model. Auto omits it; keep the true/false
+                // list so other models can still show the switch.
                 meta.descriptor.current_config.fast = None;
                 meta.applied_fast = None;
+            }
+        }
+        match advertised_option_for_kind(&advertised, "context") {
+            Some(option) if option.options.len() >= 2 => {
+                meta.descriptor.supported_options.context = modes_from_option(option);
+            }
+            _ => {
+                meta.descriptor.supported_options.context.clear();
+                meta.descriptor.current_config.context = None;
+                meta.applied_context = None;
             }
         }
     }
@@ -874,8 +912,24 @@ fn apply_config_changed(
             &meta.provider_id,
         );
     }
+    if advertised_option_for_kind(&advertised, "context").is_some()
+        || !meta.descriptor.supported_options.context.is_empty()
+    {
+        stamp_advertised_selection(
+            &advertised,
+            "context",
+            context,
+            &mut meta.applied_context,
+            &mut meta.descriptor.current_config.context,
+            &meta.provider_id,
+        );
+    }
     if complete {
         stamp_session_thinking_on_current_model(meta);
+        stamp_session_context_on_current_model(meta);
+        if advertised_option_for_kind(&advertised, "fast").is_some() {
+            stamp_session_fast_on_current_model(meta);
+        }
     }
 }
 
@@ -904,13 +958,63 @@ fn stamp_session_thinking_on_current_model(meta: &mut AgentChatMeta) {
     }
 }
 
+fn stamp_session_context_on_current_model(meta: &mut AgentChatMeta) {
+    let current_id = meta.descriptor.current_config.model.clone().or_else(|| {
+        meta.descriptor
+            .supported_options
+            .models
+            .iter()
+            .find(|model| model.is_default)
+            .map(|model| model.id.clone())
+    });
+    let Some(current_id) = current_id else {
+        return;
+    };
+    let context = meta.descriptor.supported_options.context.clone();
+    if context.len() < 2 {
+        return;
+    }
+    if let Some(model) = meta
+        .descriptor
+        .supported_options
+        .models
+        .iter_mut()
+        .find(|model| model.id == current_id)
+    {
+        model.context = context;
+    }
+}
+
+fn stamp_session_fast_on_current_model(meta: &mut AgentChatMeta) {
+    let current_id = meta.descriptor.current_config.model.clone().or_else(|| {
+        meta.descriptor
+            .supported_options
+            .models
+            .iter()
+            .find(|model| model.is_default)
+            .map(|model| model.id.clone())
+    });
+    let Some(current_id) = current_id else {
+        return;
+    };
+    if let Some(model) = meta
+        .descriptor
+        .supported_options
+        .models
+        .iter_mut()
+        .find(|model| model.id == current_id)
+    {
+        model.fast = true;
+    }
+}
+
 fn models_from_option(option: &SessionAdvertisedOption, provider_id: &str) -> Vec<AgentModel> {
     let decorate_cursor = agent::canonicalize_chat_provider_id(provider_id) == "cursor";
     option
         .options
         .iter()
         .map(|item| {
-            let label = if decorate_cursor && agent::cursor_model_has_brackets(&item.value) {
+            let label = if decorate_cursor {
                 agent::cursor_model_display_label(&item.value, item.name.as_deref())
             } else {
                 item.name.clone().unwrap_or_else(|| item.value.clone())
@@ -921,6 +1025,8 @@ fn models_from_option(option: &SessionAdvertisedOption, provider_id: &str) -> Ve
                 group: None,
                 is_default: option.current_value.as_deref() == Some(item.value.as_str()),
                 thinking: None,
+                context: Vec::new(),
+                fast: false,
             }
         })
         .collect()
@@ -972,6 +1078,7 @@ pub(super) fn selected_session_config(
     Option<String>,
     Option<String>,
     Option<String>,
+    Option<String>,
 ) {
     if let Ok(options) = serde_json::from_value::<Vec<ConfigOptionWire>>(config.clone()) {
         let mut model = None;
@@ -980,6 +1087,7 @@ pub(super) fn selected_session_config(
         let mut mode = None;
         let mut permission_mode = None;
         let mut fast = None;
+        let mut context = None;
         for option in options {
             let Some(value) = option.current_value.clone().and_then(nonempty_opt) else {
                 continue;
@@ -1008,6 +1116,10 @@ pub(super) fn selected_session_config(
                 && config_kind_matches(&option.id, option.category.as_deref(), "fast")
             {
                 fast = Some(value);
+            } else if context.is_none()
+                && config_kind_matches(&option.id, option.category.as_deref(), "context")
+            {
+                context = Some(value);
             }
         }
         return (
@@ -1016,6 +1128,7 @@ pub(super) fn selected_session_config(
             mode,
             permission_mode,
             fast,
+            context,
         );
     }
     if let Some(obj) = config.as_object() {
@@ -1031,9 +1144,10 @@ pub(super) fn selected_session_config(
             pick("mode"),
             pick("permission_mode"),
             pick("fast"),
+            pick("context"),
         );
     }
-    (None, None, None, None, None)
+    (None, None, None, None, None, None)
 }
 
 async fn persist_tool(
@@ -1569,7 +1683,13 @@ pub(super) async fn apply_pending_session_config(
     let thinking = pending_thinking_change(&store.get_meta(chat_id)?);
     let permission_mode = pending_permission_mode_change(&store.get_meta(chat_id)?);
     let fast = pending_fast_change(&store.get_meta(chat_id)?);
-    if change.is_none() && thinking.is_none() && permission_mode.is_none() && fast.is_none() {
+    let context = pending_context_change(&store.get_meta(chat_id)?);
+    if change.is_none()
+        && thinking.is_none()
+        && permission_mode.is_none()
+        && fast.is_none()
+        && context.is_none()
+    {
         return stamp_applied_session_config(store, chat_id);
     }
     let outcome = apply_live_session_config(chat_id, store, control, change.as_ref()).await?;
@@ -1581,12 +1701,14 @@ pub(super) async fn apply_pending_session_config(
         outcome.failed_thinking,
         outcome.failed_permission_mode,
         outcome.failed_fast,
+        outcome.failed_context,
     )?;
     if outcome.failed_model
         || outcome.failed_mode
         || outcome.failed_thinking
         || outcome.failed_permission_mode
         || outcome.failed_fast
+        || outcome.failed_context
     {
         let meta = store.get_meta(chat_id)?;
         emit_live(
@@ -1646,6 +1768,7 @@ pub(super) async fn sync_pending_session_config_if_needed(
         && pending_thinking_change(&meta).is_none()
         && pending_permission_mode_change(&meta).is_none()
         && pending_fast_change(&meta).is_none()
+        && pending_context_change(&meta).is_none()
     {
         return Ok(());
     }
@@ -1668,6 +1791,7 @@ fn revert_session_config(
     revert_thinking: bool,
     revert_permission_mode: bool,
     revert_fast: bool,
+    revert_context: bool,
 ) -> Result<()> {
     store.update_meta(chat_id, |meta| {
         if revert_model {
@@ -1685,6 +1809,9 @@ fn revert_session_config(
         if revert_fast {
             meta.descriptor.current_config.fast = meta.applied_fast.clone();
         }
+        if revert_context {
+            meta.descriptor.current_config.context = meta.applied_context.clone();
+        }
     })?;
     Ok(())
 }
@@ -1695,6 +1822,7 @@ pub(super) struct ConfigWriteOutcome {
     failed_thinking: bool,
     failed_permission_mode: bool,
     failed_fast: bool,
+    failed_context: bool,
 }
 
 pub(super) async fn apply_live_session_config(
@@ -1710,6 +1838,8 @@ pub(super) async fn apply_live_session_config(
         .and_then(|value| resolve_pending_select(&meta, "permission_mode", Some(value.as_str())));
     let fast = pending_fast_change(&meta)
         .and_then(|value| resolve_pending_select(&meta, "fast", Some(value.as_str())));
+    let context = pending_context_change(&meta)
+        .and_then(|value| resolve_pending_select(&meta, "context", Some(value.as_str())));
     let model = change.and_then(|item| item.model.as_ref().map(|value| value.to.clone()));
     let mode = change.and_then(|item| item.mode.as_ref().map(|value| value.to.clone()));
     let mut outcome = ConfigWriteOutcome {
@@ -1718,6 +1848,7 @@ pub(super) async fn apply_live_session_config(
         failed_thinking: false,
         failed_permission_mode: false,
         failed_fast: false,
+        failed_context: false,
     };
     if let Some(update) = config_write(
         &meta,
@@ -1763,6 +1894,11 @@ pub(super) async fn apply_live_session_config(
             outcome.failed_fast = true;
         }
     }
+    if let Some(update) = config_write(&meta, "context", context, meta.applied_context.clone()) {
+        if control.set_config(update).await.is_err() {
+            outcome.failed_context = true;
+        }
+    }
     Ok(outcome)
 }
 
@@ -1773,6 +1909,7 @@ pub(super) fn stamp_applied_session_config(store: &AgentChatStore, chat_id: &str
         meta.applied_mode = meta.descriptor.current_config.mode.clone();
         meta.applied_permission_mode = meta.descriptor.current_config.permission_mode.clone();
         meta.applied_fast = meta.descriptor.current_config.fast.clone();
+        meta.applied_context = meta.descriptor.current_config.context.clone();
     })?;
     Ok(())
 }
@@ -1838,7 +1975,12 @@ fn config_write(
                 } else {
                     None
                 },
-                previous_fast: if kind == "fast" { previous } else { None },
+                previous_fast: if kind == "fast" {
+                    previous.clone()
+                } else {
+                    None
+                },
+                previous_context: if kind == "context" { previous } else { None },
                 ..AgentRuntimeConfigUpdate::default()
             })
         }
@@ -1864,6 +2006,10 @@ fn config_write(
                 "fast" => {
                     update.fast = Some(value);
                     update.previous_fast = previous;
+                }
+                "context" => {
+                    update.context = Some(value);
+                    update.previous_context = previous;
                 }
                 _ => return None,
             }
@@ -1973,6 +2119,7 @@ mod tests {
             applied_mode: None,
             applied_permission_mode: None,
             applied_fast: None,
+            applied_context: None,
             available_commands: Vec::new(),
             session_usage: None,
             descriptor: crate::service::agent_chat::types::chat_descriptor(
@@ -2150,6 +2297,7 @@ mod tests {
                 Some("high".into()),
                 Some("agent".into()),
                 None,
+                None,
                 None
             )
         );
@@ -2158,12 +2306,19 @@ mod tests {
         ]);
         assert_eq!(
             selected_session_config(&permission),
-            (None, None, None, Some("plan".into()), None)
+            (None, None, None, Some("plan".into()), None, None)
         );
         let current = serde_json::json!({ "permission_mode": "auto", "model": "opus" });
         assert_eq!(
             selected_session_config(&current),
-            (Some("opus".into()), None, None, Some("auto".into()), None)
+            (
+                Some("opus".into()),
+                None,
+                None,
+                Some("auto".into()),
+                None,
+                None
+            )
         );
     }
 
@@ -2179,6 +2334,7 @@ mod tests {
             (
                 Some("gpt-5.3-codex".into()),
                 Some("xhigh".into()),
+                None,
                 None,
                 None,
                 None
@@ -2242,6 +2398,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         let opus = row
             .descriptor
@@ -2302,6 +2459,7 @@ mod tests {
             None,
             None,
             Some(&"false".into()),
+            None,
         );
         assert!(row.descriptor.supported_options.thinking.is_none());
         let composer = row
@@ -2372,6 +2530,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         match &row.descriptor.supported_options.thinking {
             AgentThinkingSupport::Enum { options, .. } => {
@@ -2429,6 +2588,26 @@ mod tests {
     }
 
     #[test]
+    fn selected_session_config_reads_context() {
+        let config = serde_json::json!([
+            { "id": "model", "currentValue": "gpt-5.4" },
+            { "id": "context", "currentValue": "272k" },
+            { "id": "fast", "currentValue": "false" }
+        ]);
+        assert_eq!(
+            selected_session_config(&config),
+            (
+                Some("gpt-5.4".into()),
+                None,
+                None,
+                None,
+                Some("false".into()),
+                Some("272k".into())
+            )
+        );
+    }
+
+    #[test]
     fn selected_session_config_ignores_empty_and_unknown() {
         let config = serde_json::json!([
             { "id": "model", "currentValue": "  " },
@@ -2436,7 +2615,7 @@ mod tests {
         ]);
         assert_eq!(
             selected_session_config(&config),
-            (None, None, None, None, Some("true".into()))
+            (None, None, None, None, Some("true".into()), None)
         );
     }
 
@@ -2457,6 +2636,7 @@ mod tests {
                 mode: Some("plan".into()),
                 permission_mode: None,
                 fast: None,
+                context: None,
                 title: None,
             })
             .unwrap();
@@ -2514,6 +2694,7 @@ mod tests {
                 mode: None,
                 permission_mode: None,
                 fast: None,
+                context: None,
                 title: None,
             })
             .unwrap();
@@ -2588,6 +2769,7 @@ mod tests {
                 mode: None,
                 permission_mode: None,
                 fast: None,
+                context: None,
                 title: None,
             })
             .unwrap();
@@ -2651,6 +2833,7 @@ mod tests {
                 mode: None,
                 permission_mode: None,
                 fast: None,
+                context: None,
                 title: None,
             })
             .unwrap();
@@ -2724,6 +2907,7 @@ mod tests {
                 mode: None,
                 permission_mode: None,
                 fast: None,
+                context: None,
                 title: None,
             })
             .unwrap();

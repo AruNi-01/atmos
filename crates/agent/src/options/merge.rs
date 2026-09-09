@@ -1,6 +1,7 @@
 use chrono::Utc;
 
 use crate::contract::{AgentAvailableCommand, AgentMode, AgentModel, AgentThinkingSupport};
+use crate::options::probe::auth::message_carries_auth_required;
 use crate::options::probe::cli::cursor::{
     cursor_model_display_label, cursor_model_has_brackets, fill_cursor_thinking_by_base,
     models_look_like_cursor_acp,
@@ -130,6 +131,19 @@ pub fn merge_options_snapshots(
         permission_modes = expand_sparse_permission_modes("cursor", permission_modes);
     }
 
+    let auth_message = fragments.iter().find_map(|fragment| {
+        fragment
+            .message
+            .as_deref()
+            .filter(|text| message_carries_auth_required(text))
+            .map(ToOwned::to_owned)
+            .or_else(|| {
+                (fragment.status == Some(OptionsStatus::AuthRequired))
+                    .then(|| fragment.message.clone())
+                    .flatten()
+            })
+    });
+
     if !models.is_empty()
         && matches!(
             status,
@@ -140,7 +154,7 @@ pub fn merge_options_snapshots(
         )
     {
         status = OptionsStatus::Ok;
-        message = None;
+        message = auth_message;
     }
 
     AgentOptionsSnapshot {
@@ -185,9 +199,7 @@ fn decorate_cursor_acp_labels(agent_id: &str, mut models: Vec<AgentModel>) -> Ve
         return models;
     }
     for model in &mut models {
-        if cursor_model_has_brackets(&model.id) {
-            model.label = cursor_model_display_label(&model.id, Some(&model.label));
-        }
+        model.label = cursor_model_display_label(&model.id, Some(&model.label));
     }
     models
 }
@@ -200,8 +212,16 @@ fn overlay_models(target: &mut Vec<AgentModel>, incoming: &[AgentModel]) {
             } else {
                 model.thinking.clone()
             };
+            let context = if model.context.len() < 2 {
+                existing.context.clone()
+            } else {
+                model.context.clone()
+            };
+            let fast = existing.fast || model.fast;
             *existing = model.clone();
             existing.thinking = thinking;
+            existing.context = context;
+            existing.fast = fast;
         } else {
             target.push(model.clone());
         }
@@ -214,6 +234,20 @@ fn fill_thinking_on_models(target: &mut [AgentModel], config_models: &[AgentMode
             if let Some(config) = config_models.iter().find(|item| item.id == model.id) {
                 if config.thinking.is_some() {
                     model.thinking = config.thinking.clone();
+                }
+            }
+        }
+        if model.context.len() < 2 {
+            if let Some(config) = config_models.iter().find(|item| item.id == model.id) {
+                if config.context.len() >= 2 {
+                    model.context = config.context.clone();
+                }
+            }
+        }
+        if !model.fast {
+            if let Some(config) = config_models.iter().find(|item| item.id == model.id) {
+                if config.fast {
+                    model.fast = true;
                 }
             }
         }
@@ -236,6 +270,8 @@ mod tests {
                     arg: Some("--effort".into()),
                     options: vec!["low".into(), "high".into()],
                 }),
+                context: Vec::new(),
+                fast: false,
             }],
             thinking: AgentThinkingSupport::Enum {
                 arg: Some("--effort".into()),
@@ -252,6 +288,8 @@ mod tests {
                     group: None,
                     is_default: true,
                     thinking: None,
+                    context: Vec::new(),
+                    fast: false,
                 },
                 AgentModel {
                     id: "sonnet".into(),
@@ -259,6 +297,8 @@ mod tests {
                     group: None,
                     is_default: false,
                     thinking: None,
+                    context: Vec::new(),
+                    fast: false,
                 },
             ],
             status: Some(OptionsStatus::Ok),
@@ -287,6 +327,8 @@ mod tests {
                 group: None,
                 is_default: true,
                 thinking: None,
+                context: Vec::new(),
+                fast: false,
             }],
             status: Some(OptionsStatus::Ok),
             strategy: Some(OptionsProbeStrategy::Acp),
@@ -317,6 +359,8 @@ mod tests {
                         "max".into(),
                     ],
                 }),
+                context: Vec::new(),
+                fast: false,
             }],
             status: Some(OptionsStatus::Ok),
             strategy: Some(OptionsProbeStrategy::Cli),
@@ -329,6 +373,8 @@ mod tests {
                 group: None,
                 is_default: true,
                 thinking: None,
+                context: Vec::new(),
+                fast: false,
             }],
             thinking: AgentThinkingSupport::Manual {
                 arg: "--reasoning-effort".into(),
@@ -370,6 +416,8 @@ mod tests {
                 group: None,
                 is_default: true,
                 thinking: None,
+                context: Vec::new(),
+                fast: false,
             }],
             thinking: AgentThinkingSupport::Enum {
                 arg: Some("thought_level".into()),
@@ -406,6 +454,8 @@ mod tests {
                 group: None,
                 is_default: true,
                 thinking: None,
+                context: Vec::new(),
+                fast: false,
             }],
             thinking: AgentThinkingSupport::None,
             status: Some(OptionsStatus::Ok),
@@ -442,6 +492,8 @@ mod tests {
                 group: None,
                 is_default: false,
                 thinking: None,
+                context: Vec::new(),
+                fast: false,
             }],
             status: Some(OptionsStatus::Ok),
             strategy: Some(OptionsProbeStrategy::Cli),
@@ -473,6 +525,8 @@ mod tests {
                 group: None,
                 is_default: true,
                 thinking: None,
+                context: Vec::new(),
+                fast: false,
             }],
             permission_modes: vec![AgentMode {
                 id: "default".into(),
@@ -580,6 +634,8 @@ mod tests {
                     group: None,
                     is_default: false,
                     thinking: None,
+                    context: Vec::new(),
+                    fast: false,
                 },
                 AgentModel {
                     id: "gpt-5.3-codex-high-fast".into(),
@@ -587,6 +643,8 @@ mod tests {
                     group: None,
                     is_default: false,
                     thinking: None,
+                    context: Vec::new(),
+                    fast: false,
                 },
                 AgentModel {
                     id: "composer-2.5-fast".into(),
@@ -594,6 +652,8 @@ mod tests {
                     group: None,
                     is_default: true,
                     thinking: None,
+                    context: Vec::new(),
+                    fast: false,
                 },
             ]),
             status: Some(OptionsStatus::Ok),
@@ -608,6 +668,8 @@ mod tests {
                     group: None,
                     is_default: false,
                     thinking: None,
+                    context: Vec::new(),
+                    fast: false,
                 },
                 AgentModel {
                     id: "composer-2.5[fast=true]".into(),
@@ -615,6 +677,8 @@ mod tests {
                     group: None,
                     is_default: true,
                     thinking: None,
+                    context: Vec::new(),
+                    fast: false,
                 },
             ],
             thinking: AgentThinkingSupport::Enum {
@@ -704,6 +768,8 @@ mod tests {
                     group: None,
                     is_default: false,
                     thinking: None,
+                    context: Vec::new(),
+                    fast: false,
                 },
                 AgentModel {
                     id: "gpt-5.3-codex".into(),
@@ -711,6 +777,8 @@ mod tests {
                     group: None,
                     is_default: false,
                     thinking: None,
+                    context: Vec::new(),
+                    fast: false,
                 },
                 AgentModel {
                     id: "claude-sonnet-4-6".into(),
@@ -718,6 +786,8 @@ mod tests {
                     group: None,
                     is_default: false,
                     thinking: None,
+                    context: Vec::new(),
+                    fast: false,
                 },
                 AgentModel {
                     id: "composer-2.5".into(),
@@ -725,6 +795,8 @@ mod tests {
                     group: None,
                     is_default: true,
                     thinking: None,
+                    context: Vec::new(),
+                    fast: false,
                 },
             ],
             thinking: AgentThinkingSupport::Enum {
@@ -778,5 +850,46 @@ mod tests {
             matches!(composer.thinking, Some(AgentThinkingSupport::None)),
             "composer has no effort variants"
         );
+    }
+
+    #[test]
+    fn cli_models_keep_acp_auth_message() {
+        let encoded = crate::acp_client::encode_auth_required(
+            vec![crate::acp_client::AuthMethodSummary {
+                id: "oauth".into(),
+                name: "Browser".into(),
+                description: None,
+            }],
+            "Authentication required by agent",
+        )
+        .expect("encode");
+        let merged = merge_options_snapshots(
+            "cursor",
+            &[
+                OptionsFragment {
+                    models: vec![AgentModel {
+                        id: "composer-2.5".into(),
+                        label: "Composer 2.5".into(),
+                        group: None,
+                        is_default: true,
+                        thinking: None,
+                        context: Vec::new(),
+                        fast: false,
+                    }],
+                    status: Some(OptionsStatus::Ok),
+                    strategy: Some(OptionsProbeStrategy::Cli),
+                    ..Default::default()
+                },
+                OptionsFragment {
+                    status: Some(OptionsStatus::AuthRequired),
+                    message: Some(encoded.clone()),
+                    strategy: Some(OptionsProbeStrategy::Acp),
+                    ..Default::default()
+                },
+            ],
+        );
+        assert_eq!(merged.status, OptionsStatus::Ok);
+        assert_eq!(merged.models[0].id, "composer-2.5");
+        assert_eq!(merged.message.as_deref(), Some(encoded.as_str()));
     }
 }

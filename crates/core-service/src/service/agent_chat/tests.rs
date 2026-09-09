@@ -43,6 +43,7 @@ fn create_req_for(cwd: &str, provider_id: &str) -> CreateAgentChatRequest {
         mode: None,
         permission_mode: None,
         fast: None,
+        context: None,
         title: None,
     }
 }
@@ -677,6 +678,7 @@ async fn s6_configure_sets_model_before_spawn() {
             Some("agent".into()),
             None,
             None,
+            None,
         )
         .await
         .unwrap();
@@ -713,6 +715,7 @@ async fn configure_while_running_does_not_set_live_config() {
             Some("grok-4".into()),
             Some("high".into()),
             Some("plan".into()),
+            None,
             None,
             None,
         )
@@ -760,6 +763,7 @@ async fn send_after_model_switch_emits_session_config_change() {
             Some("grok-4".into()),
             None,
             Some("plan".into()),
+            None,
             None,
             None,
         )
@@ -828,7 +832,16 @@ async fn send_after_mode_switch_sets_live_config() {
     .expect("first turn should finish");
 
     service
-        .configure(&meta.id, None, None, None, Some("plan".into()), None, None)
+        .configure(
+            &meta.id,
+            None,
+            None,
+            None,
+            Some("plan".into()),
+            None,
+            None,
+            None,
+        )
         .await
         .unwrap();
     assert_eq!(provider.create_count(), 1);
@@ -889,6 +902,7 @@ async fn send_after_unlisted_model_still_tries_set_config() {
             &meta.id,
             None,
             Some("grok-4".into()),
+            None,
             None,
             None,
             None,
@@ -961,6 +975,7 @@ async fn send_after_advertised_model_switch_uses_agent_config_id() {
             &meta.id,
             None,
             Some("grok-4".into()),
+            None,
             None,
             None,
             None,
@@ -1055,6 +1070,7 @@ async fn thinking_config_failure_does_not_report_model_switch_failed() {
             None,
             None,
             None,
+            None,
         )
         .await
         .unwrap();
@@ -1113,6 +1129,7 @@ async fn send_after_failed_set_config_reverts() {
             None,
             None,
             None,
+            None,
         )
         .await
         .unwrap();
@@ -1154,7 +1171,16 @@ async fn configure_rejects_agent_change_while_running() {
     let _ = service.send(&meta.id, "running", Vec::new()).await.unwrap();
 
     let err = service
-        .configure(&meta.id, Some("grok".into()), None, None, None, None, None)
+        .configure(
+            &meta.id,
+            Some("grok".into()),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
         .await
         .unwrap_err();
     assert!(
@@ -1371,6 +1397,7 @@ async fn app069_s10_acp_send_fork_goes_as_prompt() {
             mode: None,
             permission_mode: None,
             fast: None,
+            context: None,
             title: None,
         })
         .unwrap();
@@ -1931,6 +1958,8 @@ async fn s18_prefetch_worker_starts_once() {
                     group: None,
                     is_default: true,
                     thinking: None,
+                    context: Vec::new(),
+                    fast: false,
                 }],
                 thinking: AgentThinkingSupport::None,
                 strategies: vec![OptionsProbeStrategy::Config],
@@ -1944,6 +1973,8 @@ async fn s18_prefetch_worker_starts_once() {
                     group: None,
                     is_default: true,
                     thinking: None,
+                    context: Vec::new(),
+                    fast: false,
                 }],
                 strategies: vec![OptionsProbeStrategy::Config],
                 ..Default::default()
@@ -1985,6 +2016,8 @@ async fn s19_fresh_ok_cache_skips_probe() {
             group: None,
             is_default: true,
             thinking: None,
+            context: Vec::new(),
+            fast: false,
         }],
         strategies: vec![OptionsProbeStrategy::Config],
         ..Default::default()
@@ -2001,6 +2034,237 @@ async fn s19_fresh_ok_cache_skips_probe() {
 }
 
 #[tokio::test]
+async fn failed_probe_keeps_last_good_cursor_catalog() {
+    let root = tempfile::tempdir().unwrap();
+    let engine = OptionsProbe::with_acp_probe(
+        root.path().join("options-probe"),
+        Box::new(NoopAcpOptionsProbe),
+    );
+    let worker = Arc::new(OptionsPrefetchWorker::new(
+        root.path().to_path_buf(),
+        engine,
+        Duration::from_secs(30),
+    ));
+    worker.put_options_for_test(&AgentOptionsSnapshot {
+        agent_id: "cursor".into(),
+        status: OptionsStatus::Ok,
+        models: vec![AgentModel {
+            id: "composer-2.5".into(),
+            label: "Composer 2.5".into(),
+            group: None,
+            is_default: true,
+            thinking: None,
+            context: Vec::new(),
+            fast: false,
+        }],
+        modes: vec![AgentMode {
+            id: "agent".into(),
+            label: "Agent".into(),
+            is_default: true,
+        }],
+        permission_modes: Vec::new(),
+        commands: Vec::new(),
+        thinking: AgentThinkingSupport::None,
+        strategies_used: Vec::new(),
+        fetched_at: chrono::Utc::now(),
+        source: OptionsSource::Cache,
+        message: None,
+    });
+    let mut rx = worker.subscribe();
+    let spec = ProbePlan {
+        agent_id: "cursor".into(),
+        acp: true,
+        strategies: vec![OptionsProbeStrategy::Acp],
+        ..Default::default()
+    };
+    let result = worker.get(&spec, true).await;
+    assert_eq!(result.status, OptionsStatus::Ok);
+    assert_eq!(result.models[0].id, "composer-2.5");
+    assert!(
+        rx.try_recv().is_err(),
+        "failed probe must not broadcast an empty error catalog"
+    );
+    let cached = worker.cache_get("cursor").expect("last-good cache");
+    assert_eq!(cached.status, OptionsStatus::Ok);
+    assert_eq!(cached.models[0].id, "composer-2.5");
+}
+
+#[tokio::test]
+async fn auth_required_keeps_last_good_and_broadcasts_auth_message() {
+    use agent::acp_client::{encode_auth_required, parse_auth_required_error, AuthMethodSummary};
+    use async_trait::async_trait;
+    use std::path::Path;
+
+    struct AuthRequiredAcp;
+    #[async_trait]
+    impl agent::AcpOptionsProbe for AuthRequiredAcp {
+        async fn probe(
+            &self,
+            _agent_id: &str,
+            _isolated_cwd: &Path,
+        ) -> Result<agent::AcpOptionsProbeResult, String> {
+            Err(encode_auth_required(
+                vec![AuthMethodSummary {
+                    id: "oauth".into(),
+                    name: "Browser".into(),
+                    description: None,
+                }],
+                "Authentication required by agent",
+            )
+            .expect("encode"))
+        }
+    }
+
+    let root = tempfile::tempdir().unwrap();
+    let engine =
+        OptionsProbe::with_acp_probe(root.path().join("options-probe"), Box::new(AuthRequiredAcp));
+    let worker = Arc::new(OptionsPrefetchWorker::new(
+        root.path().to_path_buf(),
+        engine,
+        Duration::from_secs(30),
+    ));
+    worker.put_options_for_test(&AgentOptionsSnapshot {
+        agent_id: "cursor".into(),
+        status: OptionsStatus::Ok,
+        models: vec![AgentModel {
+            id: "composer-2.5".into(),
+            label: "Composer 2.5".into(),
+            group: None,
+            is_default: true,
+            thinking: None,
+            context: Vec::new(),
+            fast: false,
+        }],
+        modes: vec![AgentMode {
+            id: "agent".into(),
+            label: "Agent".into(),
+            is_default: true,
+        }],
+        permission_modes: Vec::new(),
+        commands: Vec::new(),
+        thinking: AgentThinkingSupport::None,
+        strategies_used: Vec::new(),
+        fetched_at: chrono::Utc::now(),
+        source: OptionsSource::Cache,
+        message: None,
+    });
+    let mut rx = worker.subscribe();
+    let spec = ProbePlan {
+        agent_id: "cursor".into(),
+        acp: true,
+        strategies: vec![OptionsProbeStrategy::Acp],
+        ..Default::default()
+    };
+    let result = worker.get(&spec, true).await;
+    assert_eq!(result.status, OptionsStatus::Ok);
+    assert_eq!(result.models[0].id, "composer-2.5");
+    let update = rx.try_recv().expect("auth overlay broadcast");
+    let payload = parse_auth_required_error(update.options.message.as_deref().unwrap_or(""))
+        .expect("auth payload on overlay");
+    assert_eq!(payload.methods[0].id, "oauth");
+    let cached = worker.cache_get("cursor").expect("last-good cache");
+    assert_eq!(cached.status, OptionsStatus::Ok);
+    assert_eq!(cached.models[0].id, "composer-2.5");
+    assert!(cached.message.is_none());
+}
+
+#[tokio::test]
+async fn degraded_ok_probe_keeps_last_good_for_any_agent() {
+    let root = tempfile::tempdir().unwrap();
+    let engine = OptionsProbe::with_acp_probe(
+        root.path().join("options-probe"),
+        Box::new(NoopAcpOptionsProbe),
+    );
+    let worker = Arc::new(OptionsPrefetchWorker::new(
+        root.path().to_path_buf(),
+        engine,
+        Duration::from_secs(30),
+    ));
+    worker.put_options_for_test(&AgentOptionsSnapshot {
+        agent_id: "grok".into(),
+        status: OptionsStatus::Ok,
+        models: vec![AgentModel {
+            id: "grok-4.6".into(),
+            label: "Grok 4.6".into(),
+            group: None,
+            is_default: true,
+            thinking: None,
+            context: Vec::new(),
+            fast: false,
+        }],
+        modes: vec![AgentMode {
+            id: "default".into(),
+            label: "Default".into(),
+            is_default: true,
+        }],
+        permission_modes: vec![AgentMode {
+            id: "yolo".into(),
+            label: "Yolo".into(),
+            is_default: false,
+        }],
+        commands: vec![AgentAvailableCommand {
+            name: "10x".into(),
+            description: "audit".into(),
+            hint: None,
+        }],
+        thinking: AgentThinkingSupport::None,
+        strategies_used: Vec::new(),
+        fetched_at: chrono::Utc::now(),
+        source: OptionsSource::Cache,
+        message: None,
+    });
+    let mut rx = worker.subscribe();
+    let spec = ProbePlan {
+        agent_id: "grok".into(),
+        strategies: vec![OptionsProbeStrategy::Config],
+        static_models: vec![AgentModel {
+            id: "grok-4.6".into(),
+            label: "Grok 4.6".into(),
+            group: None,
+            is_default: true,
+            thinking: None,
+            context: Vec::new(),
+            fast: false,
+        }],
+        ..Default::default()
+    };
+    let result = worker.get(&spec, true).await;
+    assert_eq!(result.status, OptionsStatus::Ok);
+    assert_eq!(result.commands[0].name, "10x");
+    assert!(
+        rx.try_recv().is_err(),
+        "models-only refresh must not replace last-good commands"
+    );
+    let cached = worker.cache_get("grok").expect("last-good cache");
+    assert_eq!(cached.commands[0].name, "10x");
+    assert_eq!(cached.permission_modes[0].id, "yolo");
+}
+
+#[tokio::test]
+async fn first_failed_probe_still_caches_error() {
+    let root = tempfile::tempdir().unwrap();
+    let engine = OptionsProbe::with_acp_probe(
+        root.path().join("options-probe"),
+        Box::new(NoopAcpOptionsProbe),
+    );
+    let worker = Arc::new(OptionsPrefetchWorker::new(
+        root.path().to_path_buf(),
+        engine,
+        Duration::from_secs(30),
+    ));
+    let spec = ProbePlan {
+        agent_id: "cursor".into(),
+        acp: true,
+        strategies: vec![OptionsProbeStrategy::Acp],
+        ..Default::default()
+    };
+    let result = worker.get(&spec, true).await;
+    assert_eq!(result.status, OptionsStatus::Error);
+    let cached = worker.cache_get("cursor").expect("error cache");
+    assert_eq!(cached.status, OptionsStatus::Error);
+}
+
+#[tokio::test]
 async fn s20_merge_cli_wins_thinking_from_config_and_probe_isolated() {
     use agent::{merge_options_snapshots, OptionsFragment};
     let config = OptionsFragment {
@@ -2013,6 +2277,8 @@ async fn s20_merge_cli_wins_thinking_from_config_and_probe_isolated() {
                 arg: Some("--effort".into()),
                 options: vec!["low".into(), "high".into()],
             }),
+            context: Vec::new(),
+            fast: false,
         }],
         thinking: AgentThinkingSupport::Enum {
             arg: Some("--effort".into()),
@@ -2028,6 +2294,8 @@ async fn s20_merge_cli_wins_thinking_from_config_and_probe_isolated() {
             group: None,
             is_default: true,
             thinking: None,
+            context: Vec::new(),
+            fast: false,
         }],
         status: Some(OptionsStatus::Ok),
         strategy: Some(OptionsProbeStrategy::Cli),
@@ -2427,6 +2695,8 @@ fn create_stamps_ready_options_into_descriptor() {
             group: None,
             is_default: true,
             thinking: None,
+            context: Vec::new(),
+            fast: false,
         }],
         modes: Vec::new(),
         permission_modes: vec![AgentMode {
@@ -2489,6 +2759,8 @@ async fn configure_rebuilds_descriptor_when_switching_provider() {
             group: None,
             is_default: true,
             thinking: None,
+            context: Vec::new(),
+            fast: false,
         }],
         modes: vec![AgentMode {
             id: "default".into(),
@@ -2518,7 +2790,16 @@ async fn configure_rebuilds_descriptor_when_switching_provider() {
     let meta = service.create(create_req("/tmp/proj")).unwrap();
     assert!(meta.descriptor.supported_options.models.is_empty());
     let updated = service
-        .configure(&meta.id, Some("grok".into()), None, None, None, None, None)
+        .configure(
+            &meta.id,
+            Some("grok".into()),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
         .await
         .unwrap();
     assert_eq!(updated.provider_id, "grok");
@@ -2537,4 +2818,34 @@ async fn configure_rebuilds_descriptor_when_switching_provider() {
         updated.descriptor.current_config.model.as_deref(),
         Some("grok-4")
     );
+}
+
+#[tokio::test]
+async fn list_resource_roots_exposes_live_pid_for_workspace_chat() {
+    let provider = Arc::new(FakeAgentProvider::new("claude").with_root_pid(4242));
+    let (_dir, service) = make_service(provider);
+    let mut req = create_req("/tmp/ws");
+    req.workspace_id = Some("ws-1".into());
+    let meta = service.create(req).unwrap();
+    let _ = service.send(&meta.id, "hello", Vec::new()).await.unwrap();
+    timeout(Duration::from_secs(2), async {
+        loop {
+            let roots = service.list_resource_roots().await;
+            if roots.iter().any(|root| {
+                root.session_id == format!("chat:{}", meta.id) && root.root_pid == Some(4242)
+            }) {
+                return;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .expect("chat resource root should expose pid");
+    let roots = service.list_resource_roots().await;
+    let root = roots
+        .iter()
+        .find(|root| root.session_id == format!("chat:{}", meta.id))
+        .expect("chat root");
+    assert_eq!(root.context_id, "ws-1");
+    assert_eq!(root.root_pid, Some(4242));
 }

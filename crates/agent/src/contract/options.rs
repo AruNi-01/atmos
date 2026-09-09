@@ -38,6 +38,12 @@ pub struct AgentModel {
     pub is_default: bool,
     #[serde(default)]
     pub thinking: Option<AgentThinkingSupport>,
+    /// Per-model context window choices (Cursor PMP `context`, e.g. `272k` / `1m`).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub context: Vec<AgentMode>,
+    /// True when this model advertises a Fast toggle (Cursor CLI `-fast` / ACP `fast`).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub fast: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

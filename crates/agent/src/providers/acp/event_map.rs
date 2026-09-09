@@ -568,8 +568,11 @@ fn merge_config_options(state: &mut EventMapState, options: &[AgentConfigOption]
     }
     if let Some(fast) = fast_modes_from_options(options) {
         state.supported_options.fast = fast;
+    }
+    if let Some(context) = context_modes_from_options(options) {
+        state.supported_options.context = context;
     } else {
-        state.supported_options.fast.clear();
+        state.supported_options.context.clear();
     }
     for option in options {
         let Some(current) = option
@@ -589,12 +592,26 @@ fn merge_config_options(state: &mut EventMapState, options: &[AgentConfigOption]
             state.current_config.thinking = Some(current.clone());
         } else if is_fast_config_id(&id) {
             state.current_config.fast = Some(current.clone());
+        } else if is_context_config_id(&id) {
+            state.current_config.context = Some(current.clone());
         } else if is_permission_mode_config_id(&option.id) {
             apply_permission_current(state, current);
         } else if is_mode_config_id(&option.id) {
             state.current_config.mode = Some(current.clone());
             if state.is_cursor() && !current.eq_ignore_ascii_case("plan") {
                 state.plan_document_active = false;
+            }
+        }
+    }
+    if fast_modes_from_options(options).is_some() {
+        if let Some(model_id) = state.current_config.model.clone() {
+            if let Some(model) = state
+                .supported_options
+                .models
+                .iter_mut()
+                .find(|item| item.id == model_id)
+            {
+                model.fast = true;
             }
         }
     }
@@ -619,6 +636,38 @@ fn is_thinking_config_id(id: &str) -> bool {
 
 fn is_fast_config_id(id: &str) -> bool {
     id == "fast" || id == "fast-mode" || id == "fast_mode"
+}
+
+fn is_context_config_id(id: &str) -> bool {
+    let compact = id.replace('_', "");
+    compact == "context" || compact == "contextwindow"
+}
+
+fn context_modes_from_options(
+    options: &[AgentConfigOption],
+) -> Option<Vec<crate::contract::AgentMode>> {
+    let option = options.iter().find(|item| {
+        let id = item.id.to_ascii_lowercase();
+        is_context_config_id(&id)
+    })?;
+    if option.options.len() < 2 {
+        return None;
+    }
+    Some(
+        option
+            .options
+            .iter()
+            .map(|value| crate::contract::AgentMode {
+                id: value.value.clone(),
+                label: value
+                    .name
+                    .clone()
+                    .filter(|name| !name.is_empty())
+                    .unwrap_or_else(|| value.value.clone()),
+                is_default: option.current_value.as_deref() == Some(value.value.as_str()),
+            })
+            .collect(),
+    )
 }
 
 fn fast_modes_from_options(

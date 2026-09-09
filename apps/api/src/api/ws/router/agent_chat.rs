@@ -74,6 +74,7 @@ impl WsMessageService {
             mode: req.mode.clone(),
             permission_mode: req.permission_mode.clone(),
             fast: req.fast.clone(),
+            context: req.context.clone(),
             title: req.title,
             origin: req.origin.unwrap_or_default(),
         })?;
@@ -146,6 +147,7 @@ impl WsMessageService {
                 req.mode,
                 req.permission_mode,
                 req.fast,
+                req.context,
             )
             .await?;
         agent_chat_meta_json(&meta)
@@ -312,6 +314,32 @@ impl WsMessageService {
             return Err(ServiceError::Validation("invalid agent_id".into()));
         }
         let spec = options_probe_plan_for(&req.agent_id);
+        if let Some(auth_method_id) = req
+            .auth_method_id
+            .as_deref()
+            .map(str::trim)
+            .filter(|id| !id.is_empty())
+        {
+            worker
+                .authenticate(
+                    &spec,
+                    auth_method_id,
+                    req.auth_secret
+                        .as_deref()
+                        .map(str::trim)
+                        .filter(|secret| !secret.is_empty()),
+                )
+                .await
+                .map_err(ServiceError::Processing)?;
+            // Authenticate RPC completing is the OAuth callback. Return last-good
+            // without waiting for a second catalog probe so the dialog can show
+            // Authenticated and close; the client then refreshes the selected agent.
+            let catalog = worker
+                .get_cached_or_probing(&spec, false)
+                .after_successful_authenticate();
+            return serde_json::to_value(catalog)
+                .map_err(|e| ServiceError::Processing(format!("serialize catalog: {e}")));
+        }
         let catalog = worker.get_cached_or_probing(&spec, req.refresh.unwrap_or(false));
         serde_json::to_value(catalog)
             .map_err(|e| ServiceError::Processing(format!("serialize catalog: {e}")))
@@ -341,6 +369,7 @@ impl WsMessageService {
                     patch.mode.as_deref(),
                     patch.permission_mode.as_deref(),
                     patch.fast.as_deref(),
+                    patch.context.as_deref(),
                 )?;
             }
         }

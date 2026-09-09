@@ -15,7 +15,9 @@ use serde_json::Value;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::time::timeout;
 
+use crate::acp_client::auth_methods_from_json;
 use crate::contract::{AgentMode, AgentModel, AgentThinkingSupport};
+use crate::options::probe::auth::auth_required_from_methods;
 use crate::options::probe::cli::parse::commands_from_value;
 use crate::options::probe::native::NativeOptionsProbeResult;
 use crate::options::{
@@ -68,6 +70,8 @@ async fn probe_inner(isolated_cwd: &Path) -> Result<NativeOptionsProbeResult, St
     let mut saw_session_commands = false;
     let mut session_new_result: Option<Value> = None;
     let mut session_sent_at: Option<Instant> = None;
+    let mut auth_methods = Vec::new();
+    let mut session_error: Option<String> = None;
 
     while Instant::now() < deadline {
         if session_sent_at.is_some_and(|sent| sent.elapsed() > Duration::from_secs(4)) {
@@ -92,13 +96,14 @@ async fn probe_inner(isolated_cwd: &Path) -> Result<NativeOptionsProbeResult, St
                     continue;
                 };
                 if !saw_init && rpc_id_u64(&frame) == Some(INIT_ID) {
-                    if frame.get("error").is_some() {
+                    if let Some(error) = frame.get("error") {
                         let _ = stdin.shutdown().await;
                         let _ = close_child(&mut child).await;
-                        return Err("grok initialize returned JSON-RPC error".into());
+                        return Err(jsonrpc_error_to_probe_error("grok", error, Vec::new()));
                     }
                     if let Some(result) = frame.get("result") {
                         commands = commands_from_initialize_result(result);
+                        auth_methods = auth_methods_from_json(result);
                         saw_init = true;
                     }
                 }
@@ -109,6 +114,14 @@ async fn probe_inner(isolated_cwd: &Path) -> Result<NativeOptionsProbeResult, St
                     }
                 }
                 if rpc_id_u64(&frame) == Some(SESSION_ID) {
+                    if let Some(error) = frame.get("error") {
+                        session_error = Some(jsonrpc_error_to_probe_error(
+                            "grok",
+                            error,
+                            auth_methods.clone(),
+                        ));
+                        break;
+                    }
                     if let Some(result) = frame.get("result") {
                         session_new_result = Some(result.clone());
                     }
@@ -147,6 +160,10 @@ async fn probe_inner(isolated_cwd: &Path) -> Result<NativeOptionsProbeResult, St
     let closed = close_child(&mut child).await;
     if !saw_init {
         return Err("grok initialize did not return a result".into());
+    }
+    if let Some(error) = session_error {
+        let _ = closed;
+        return Err(error);
     }
     let options = session_new_result
         .as_ref()
@@ -203,6 +220,8 @@ pub(crate) fn models_from_session_new(result: &Value) -> Vec<AgentModel> {
             group: None,
             is_default: current == Some(id.as_str()),
             thinking: thinking_from_reasoning_efforts(meta),
+            context: Vec::new(),
+            fast: false,
         });
     }
     out
@@ -262,6 +281,28 @@ fn rpc_id_u64(frame: &Value) -> Option<u64> {
         .or_else(|| id.as_i64().and_then(|n| u64::try_from(n).ok()))
 }
 
+fn jsonrpc_error_message(error: &Value) -> String {
+    error
+        .get("message")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|text| !text.is_empty())
+        .map(ToOwned::to_owned)
+        .unwrap_or_else(|| error.to_string())
+}
+
+fn jsonrpc_error_to_probe_error(
+    agent_id: &str,
+    error: &Value,
+    advertised_methods: Vec<crate::acp_client::AuthMethodSummary>,
+) -> String {
+    let message = jsonrpc_error_message(error);
+    if !advertised_methods.is_empty() {
+        return auth_required_from_methods(agent_id, advertised_methods);
+    }
+    crate::options::probe::auth::catalog_probe_error(agent_id, message, Vec::new()).1
+}
+
 async fn close_child(child: &mut tokio::process::Child) -> bool {
     let _ = child.start_kill();
     timeout(Duration::from_secs(2), child.wait()).await.is_ok()
@@ -315,6 +356,20 @@ mod tests {
         assert_eq!(commands[1].name, "goal");
         assert!(commands[1].hint.is_none());
         assert!(!commands.iter().any(|command| command.name == "fork"));
+    }
+
+    #[test]
+    fn session_new_auth_error_encodes_initialize_methods() {
+        let error = serde_json::json!({
+            "code": -32000,
+            "message": "auth required"
+        });
+        let methods = crate::acp_client::auth_methods_from_json(&serde_json::json!({
+            "authMethods": [{ "id": "oauth", "name": "Browser" }]
+        }));
+        let encoded = jsonrpc_error_to_probe_error("grok", &error, methods);
+        let payload = crate::acp_client::parse_auth_required_error(&encoded).expect("payload");
+        assert_eq!(payload.methods[0].id, "oauth");
     }
 
     #[test]

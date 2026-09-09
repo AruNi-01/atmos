@@ -9,7 +9,7 @@ mod tool_map;
 
 use std::collections::HashMap;
 use std::path::Path;
-use std::sync::atomic::Ordering;
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -104,6 +104,7 @@ struct PiCommands {
     descriptor: Mutex<AgentDescriptor>,
     persistence: Mutex<Option<AgentPersistenceHandle>>,
     child: Arc<Mutex<Option<Child>>>,
+    root_pid: AtomicU32,
 }
 
 #[async_trait]
@@ -485,11 +486,10 @@ impl AgentRuntime for PiRuntime {
     }
 
     fn root_pid(&self) -> Option<u32> {
-        self.commands
-            .child
-            .try_lock()
-            .ok()
-            .and_then(|guard| guard.as_ref().and_then(Child::id))
+        match self.commands.root_pid.load(Ordering::Relaxed) {
+            0 | 1 => None,
+            pid => Some(pid),
+        }
     }
 
     fn descriptor(&self) -> AgentDescriptor {
@@ -737,6 +737,8 @@ fn models_from_data(data: &Value) -> Vec<AgentModel> {
                 group: provider.map(str::to_string),
                 is_default: false,
                 thinking: None,
+                context: Vec::new(),
+                fast: false,
             })
         })
         .collect()
@@ -780,6 +782,7 @@ async fn open_pi_runtime(
         mode: None,
         ..AgentCurrentConfig::default()
     });
+    let root_pid = AtomicU32::new(child.as_ref().and_then(Child::id).unwrap_or(0));
     let child = Arc::new(Mutex::new(child));
     let (handle, startup_context) =
         match handshake(&transport, &mut descriptor, resume.as_deref(), &cfg).await {
@@ -809,6 +812,7 @@ async fn open_pi_runtime(
         descriptor: Mutex::new(descriptor),
         persistence: Mutex::new(persistence),
         child,
+        root_pid,
     });
     Ok(Box::new(PiRuntime {
         commands,

@@ -348,13 +348,14 @@ impl ResourceMonitorService {
 }
 
 fn chat_claim_from_root(root: AgentChatResourceRoot) -> TerminalClaim {
+    let missing_root = root.root_pid.is_none();
     TerminalClaim {
         session_id: root.session_id,
         name: root.name,
         terminal_kind: "chat".to_string(),
         context_id: root.context_id,
         root_pids: root.root_pid.into_iter().collect(),
-        missing_root: false,
+        missing_root,
     }
 }
 
@@ -492,6 +493,7 @@ fn merge_status(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::service::agent_chat::AgentChatResourceRoot;
     use crate::service::local_services::{
         LocalServiceDto, LocalServiceKind, LocalServiceOwnerDto, LocalServiceStatus,
         LocalServicesScanResponse, LocalServicesScope, LocalServicesService,
@@ -758,5 +760,26 @@ mod tests {
             merge_status(ResourceAttributionStatus::Complete, false),
             ResourceAttributionStatus::Complete
         );
+    }
+
+    #[test]
+    fn chat_claim_without_pid_is_missing_root() {
+        let missing = super::chat_claim_from_root(AgentChatResourceRoot {
+            session_id: "chat:c1".into(),
+            context_id: "ws-1".into(),
+            name: Some("Fix".into()),
+            root_pid: None,
+        });
+        assert!(missing.root_pids.is_empty());
+        assert!(missing.missing_root);
+
+        let present = super::chat_claim_from_root(AgentChatResourceRoot {
+            session_id: "chat:c1".into(),
+            context_id: "ws-1".into(),
+            name: Some("Fix".into()),
+            root_pid: Some(4242),
+        });
+        assert_eq!(present.root_pids, vec![4242]);
+        assert!(!present.missing_root);
     }
 }

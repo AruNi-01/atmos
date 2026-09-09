@@ -76,6 +76,7 @@ pub fn option_support_for_provider(provider_id: &str) -> AgentOptionSupport {
             modes: Capability::Supported,
             permission_modes: Capability::Supported,
             fast: Capability::Supported,
+            context: Capability::Unsupported,
         },
         "codex" => AgentOptionSupport {
             models: Capability::Supported,
@@ -83,6 +84,7 @@ pub fn option_support_for_provider(provider_id: &str) -> AgentOptionSupport {
             modes: Capability::Supported,
             permission_modes: Capability::Supported,
             fast: Capability::Supported,
+            context: Capability::Unsupported,
         },
         "pi" => AgentOptionSupport {
             models: Capability::Supported,
@@ -90,6 +92,7 @@ pub fn option_support_for_provider(provider_id: &str) -> AgentOptionSupport {
             modes: Capability::Unsupported,
             permission_modes: Capability::Unsupported,
             fast: Capability::Unsupported,
+            context: Capability::Unsupported,
         },
         "grok" => AgentOptionSupport {
             models: Capability::Supported,
@@ -97,6 +100,7 @@ pub fn option_support_for_provider(provider_id: &str) -> AgentOptionSupport {
             modes: Capability::Supported,
             permission_modes: Capability::Supported,
             fast: Capability::Unsupported,
+            context: Capability::Unsupported,
         },
         "opencode" => AgentOptionSupport {
             models: Capability::Supported,
@@ -104,14 +108,16 @@ pub fn option_support_for_provider(provider_id: &str) -> AgentOptionSupport {
             modes: Capability::Supported,
             permission_modes: Capability::Supported,
             fast: Capability::Unsupported,
+            context: Capability::Unsupported,
         },
-        // ACP agents (Cursor, …): Fast shows only when the session advertises options.
+        // ACP agents (Cursor, …): Fast / Context show only when the session advertises options.
         _ => AgentOptionSupport {
             models: Capability::Supported,
             thinking: Capability::Supported,
             modes: Capability::Supported,
             permission_modes: Capability::Supported,
             fast: Capability::Supported,
+            context: Capability::Supported,
         },
     }
 }

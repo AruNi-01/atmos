@@ -164,6 +164,8 @@ pub(crate) fn models_from_data(data: &Value) -> Vec<AgentModel> {
                 group: provider.map(str::to_string),
                 is_default: false,
                 thinking: None,
+                context: Vec::new(),
+                fast: false,
             })
         })
         .collect()

@@ -13,6 +13,7 @@ export type AgentChatLastNewChatConfigPatch = {
   mode?: string | null;
   permission_mode?: string | null;
   fast?: string | null;
+  context?: string | null;
 };
 
 export type AgentChatPrefsSetRequest = {
@@ -32,6 +33,7 @@ export type AgentChatCreateRequest = {
   mode?: string | null;
   permission_mode?: string | null;
   fast?: string | null;
+  context?: string | null;
   title?: string | null;
   origin?: AgentChatOrigin | null;
 };
@@ -68,6 +70,7 @@ export type AgentChatConfigureRequest = {
   mode?: string | null;
   permission_mode?: string | null;
   fast?: string | null;
+  context?: string | null;
 };
 
 export type AgentChatSubscribeRequest = {
@@ -126,6 +129,8 @@ export type AgentChatSessionOpRespondRequest = {
 export type AgentOptionsGetRequest = {
   agent_id: string;
   refresh?: boolean | null;
+  auth_method_id?: string | null;
+  auth_secret?: string | null;
 };
 
 export type Capability = "supported" | "unsupported";
@@ -158,6 +163,7 @@ export type AgentOptionSupport = {
   modes: Capability;
   permission_modes: Capability;
   fast?: Capability;
+  context?: Capability;
 };
 
 export type AgentDescriptor = {
@@ -171,11 +177,14 @@ export type AgentDescriptor = {
       group?: string | null;
       is_default?: boolean;
       thinking?: AgentThinkingSupport | null;
+      context?: Array<{ id: string; label: string; is_default?: boolean }>;
+      fast?: boolean;
     }>;
     thinking?: AgentThinkingSupport;
     modes?: Array<{ id: string; label: string; is_default?: boolean }>;
     permission_modes?: Array<{ id: string; label: string; is_default?: boolean }>;
     fast?: Array<{ id: string; label: string; is_default?: boolean }>;
+    context?: Array<{ id: string; label: string; is_default?: boolean }>;
   };
   current_config: {
     model?: string | null;
@@ -183,6 +192,7 @@ export type AgentDescriptor = {
     mode?: string | null;
     permission_mode?: string | null;
     fast?: string | null;
+    context?: string | null;
   };
 };
 
@@ -592,10 +602,13 @@ export type AgentOptionsSnapshot = {
     group?: string | null;
     is_default?: boolean;
     thinking?: AgentThinkingSupport | null;
+    context?: Array<{ id: string; label: string; is_default?: boolean }>;
+    fast?: boolean;
   }>;
   modes: Array<{ id: string; label: string; is_default?: boolean }>;
   permission_modes?: Array<{ id: string; label: string; is_default?: boolean }>;
   thinking: AgentThinkingSupport;
+  context?: Array<{ id: string; label: string; is_default?: boolean }>;
   strategies_used: string[];
   fetched_at: string;
   source: "cache" | "live";

@@ -25,7 +25,8 @@ pub use contract::{
 pub use manager::AgentManager;
 pub use manager::{
     is_builtin_custom_agent_id, is_native_chat_agent_id, looks_like_missing_llm_api_key,
-    native_chat_launch_spec, native_chat_sibling_id, DEEPSEEK_API_KEY_ENV, DEEPSEEK_HARNESS_ID,
+    native_chat_launch_spec, native_chat_sibling_id, registry_agent_env_overrides,
+    DEEPSEEK_API_KEY_ENV, DEEPSEEK_HARNESS_ID,
 };
 pub use models::{
     AgentConfigState, AgentId, AgentInstallResult, AgentLaunchSpec, AgentStatus, CustomAgent,
@@ -36,16 +37,17 @@ pub use options::{
     apply_options_defaults_to_current_config, apply_options_to_descriptor,
     collapse_cursor_cli_models, cursor_model_base, cursor_model_display_label,
     cursor_model_has_brackets, fill_cursor_thinking_by_base, grok_thinking_for_model_id,
-    is_native_chat_options_id, map_to_advertised_cursor_model, merge_options_snapshots,
-    model_id_is_table_noise, models_look_like_cursor_acp, options_cache_dir, parse_droid_help,
-    parse_line_list, probe_result_from_config_options, rebuild_descriptor_for_provider,
+    is_cli_login_method_id, is_native_chat_options_id, is_native_oauth_method_id,
+    map_to_advertised_cursor_model, merge_options_snapshots, model_id_is_table_noise,
+    models_look_like_cursor_acp, options_cache_dir, parse_droid_help, parse_line_list,
+    probe_result_from_config_options, rebuild_descriptor_for_provider, snapshot_message_needs_auth,
     sort_thinking_levels, supported_options_from_snapshot, thinking_from_builtin,
     AcpLaunchResolved, AcpLaunchResolver, AcpOptionsProbe, AcpOptionsProbeResult,
     AgentOptionsSnapshot, CommandOutput, CommandRunner, NativeOptionsProbe,
     NativeOptionsProbeResult, NoopAcpOptionsProbe, NoopNativeOptionsProbe, OptionsCache,
     OptionsFragment, OptionsParserKind, OptionsProbe, OptionsProbeStrategy, OptionsSource,
-    OptionsStatus, ProbePlan, ProcessCommandRunner, StdioAcpOptionsProbe, ERROR_CACHE_TTL,
-    OK_CACHE_TTL,
+    OptionsStatus, ProbePlan, ProcessCommandRunner, StdioAcpOptionsProbe, CLI_LOGIN_METHOD_PREFIX,
+    ERROR_CACHE_TTL, NATIVE_OAUTH_METHOD_PREFIX, OK_CACHE_TTL,
 };
 pub use policy::{
     canonicalize_chat_provider_id, capabilities_for_provider, is_plan_mode,

@@ -6,12 +6,17 @@ use std::time::Duration;
 use crate::options::{AgentOptionsSnapshot, OptionsProbeStrategy, OptionsStatus};
 use crate::policy::canonicalize_chat_provider_id;
 
+use super::auth::{
+    catalog_probe_error_fragment, is_cli_login_method_id, is_native_oauth_method_id,
+    native_oauth_login_argv, native_status_argv, native_token_keyring_id, native_token_stdin_argv,
+    native_unsigned_auth_message, run_native_login, token_method_env_name, NATIVE_LOGIN_TIMEOUT,
+};
 use super::cli::parse::{
-    apply_grok_thinking_overlay, commands_from_value, dedupe_models, looks_like_auth_required,
-    parse_droid_help, parse_grok, parse_json_models, parse_line_list,
+    apply_grok_thinking_overlay, commands_from_value, dedupe_models, parse_droid_help, parse_grok,
+    parse_json_models, parse_line_list,
 };
 use super::cli::{CommandRunner, ProcessCommandRunner};
-use super::plan::{OptionsParserKind, ProbePlan};
+use super::plan::{is_native_chat_options_id, OptionsParserKind, ProbePlan};
 use super::{AcpOptionsProbe, NativeOptionsProbe};
 use crate::options::merge::{merge_options_snapshots, OptionsFragment};
 
@@ -74,6 +79,73 @@ impl OptionsProbe {
         catalog
     }
 
+    pub async fn authenticate(
+        &self,
+        spec: &ProbePlan,
+        auth_method_id: &str,
+        auth_secret: Option<&str>,
+    ) -> Result<(), String> {
+        if is_cli_login_method_id(auth_method_id) {
+            return Ok(());
+        }
+        if is_native_oauth_method_id(auth_method_id) {
+            let argv = native_oauth_login_argv(auth_method_id)
+                .ok_or_else(|| format!("Unknown sign-in method: {auth_method_id}"))?;
+            return run_native_login(&argv, None, NATIVE_LOGIN_TIMEOUT).await;
+        }
+        if is_native_chat_options_id(&spec.agent_id)
+            && token_method_env_name(auth_method_id).is_some()
+        {
+            let secret = auth_secret.map(str::trim).filter(|value| !value.is_empty());
+            let Some(secret) = secret else {
+                return Err("API key is required".into());
+            };
+            if let Some(agent) = native_token_keyring_id(auth_method_id) {
+                crate::manager::persist_agent_api_key(agent, secret)?;
+            }
+            if let Some(argv) = native_token_stdin_argv(&spec.agent_id, auth_method_id) {
+                run_native_login(&argv, Some(secret), NATIVE_LOGIN_TIMEOUT).await?;
+            }
+            return Ok(());
+        }
+        let isolated = self.isolated_probe_cwd(&spec.agent_id);
+        std::fs::create_dir_all(&isolated).map_err(|error| error.to_string())?;
+        let folded = canonicalize_chat_provider_id(&spec.agent_id);
+        let use_acp = spec.acp || (is_native_chat_options_id(&spec.agent_id) && folded == "grok");
+        if !use_acp {
+            return Ok(());
+        }
+        self.acp_probe
+            .authenticate(&spec.agent_id, &isolated, auth_method_id)
+            .await
+    }
+
+    fn isolated_probe_cwd(&self, agent_id: &str) -> PathBuf {
+        let digest = {
+            use std::collections::hash_map::DefaultHasher;
+            use std::hash::{Hash, Hasher};
+            let mut hasher = DefaultHasher::new();
+            agent_id.hash(&mut hasher);
+            format!("{:016x}", hasher.finish())
+        };
+        let safe: String = agent_id
+            .chars()
+            .map(|ch| {
+                if ch.is_ascii_alphanumeric() || ch == '-' || ch == '_' {
+                    ch
+                } else {
+                    '_'
+                }
+            })
+            .collect();
+        let agent_key = if safe.is_empty() || safe == "." || safe == ".." {
+            digest
+        } else {
+            format!("{safe}-{digest}")
+        };
+        self.probe_root.join(agent_key)
+    }
+
     fn config_fragment(&self, spec: &ProbePlan) -> OptionsFragment {
         OptionsFragment {
             models: spec.static_models.clone(),
@@ -94,7 +166,7 @@ impl OptionsProbe {
         if spec.cli_command.is_empty() {
             return None;
         }
-        let timeout = super::cli::cli_timeout(spec.parser);
+        let timeout = super::cli::cli_timeout_for(&spec.agent_id, spec.parser);
         match self.command_runner.run(&spec.cli_command, timeout).await {
             Ok(output) => {
                 let combined = format!("{}\n{}", output.stdout, output.stderr);
@@ -107,17 +179,11 @@ impl OptionsProbe {
                     OptionsParserKind::LineList => parse_line_list(&output.stdout),
                 };
                 if parsed.is_empty() && !output.success {
-                    let status = if looks_like_auth_required(&combined) {
-                        OptionsStatus::AuthRequired
-                    } else {
-                        OptionsStatus::Error
-                    };
-                    return Some(OptionsFragment {
-                        status: Some(status),
-                        message: Some(combined.trim().to_string()),
-                        strategy: Some(OptionsProbeStrategy::Cli),
-                        ..Default::default()
-                    });
+                    return Some(catalog_probe_error_fragment(
+                        &spec.agent_id,
+                        combined.trim().to_string(),
+                        OptionsProbeStrategy::Cli,
+                    ));
                 }
                 let mut models = dedupe_models(parsed);
                 if canonicalize_chat_provider_id(&spec.agent_id) == "cursor" {
@@ -126,6 +192,7 @@ impl OptionsProbe {
                 Some(OptionsFragment {
                     models,
                     status: Some(OptionsStatus::Ok),
+                    message: native_unsigned_auth_message(&spec.agent_id, &combined),
                     strategy: Some(OptionsProbeStrategy::Cli),
                     ..Default::default()
                 })
@@ -140,30 +207,7 @@ impl OptionsProbe {
     }
 
     async fn acp_fragment(&self, spec: &ProbePlan) -> Option<OptionsFragment> {
-        let digest = {
-            use std::collections::hash_map::DefaultHasher;
-            use std::hash::{Hash, Hasher};
-            let mut hasher = DefaultHasher::new();
-            spec.agent_id.hash(&mut hasher);
-            format!("{:016x}", hasher.finish())
-        };
-        let safe: String = spec
-            .agent_id
-            .chars()
-            .map(|ch| {
-                if ch.is_ascii_alphanumeric() || ch == '-' || ch == '_' {
-                    ch
-                } else {
-                    '_'
-                }
-            })
-            .collect();
-        let agent_key = if safe.is_empty() || safe == "." || safe == ".." {
-            digest.clone()
-        } else {
-            format!("{safe}-{digest}")
-        };
-        let isolated = self.probe_root.join(&agent_key);
+        let isolated = self.isolated_probe_cwd(&spec.agent_id);
         if let Err(error) = std::fs::create_dir_all(&isolated) {
             return Some(OptionsFragment {
                 status: Some(OptionsStatus::Error),
@@ -194,12 +238,11 @@ impl OptionsProbe {
                     ..Default::default()
                 })
             }
-            Err(error) => Some(OptionsFragment {
-                status: Some(OptionsStatus::Error),
-                message: Some(error),
-                strategy: Some(OptionsProbeStrategy::Acp),
-                ..Default::default()
-            }),
+            Err(error) => Some(catalog_probe_error_fragment(
+                &spec.agent_id,
+                error,
+                OptionsProbeStrategy::Acp,
+            )),
         }
     }
 
@@ -224,7 +267,7 @@ impl OptionsProbe {
                         ..Default::default()
                     });
                 }
-                Some(OptionsFragment {
+                let mut fragment = OptionsFragment {
                     models: result.models,
                     modes: result.modes,
                     permission_modes: result.permission_modes,
@@ -233,14 +276,23 @@ impl OptionsProbe {
                     status: Some(OptionsStatus::Ok),
                     strategy: Some(OptionsProbeStrategy::Native),
                     ..Default::default()
-                })
+                };
+                if let Some(argv) = native_status_argv(&spec.agent_id) {
+                    if let Ok(output) = self.command_runner.run(&argv, Duration::from_secs(8)).await
+                    {
+                        fragment.message = native_unsigned_auth_message(
+                            &spec.agent_id,
+                            &format!("{}\n{}", output.stdout, output.stderr),
+                        );
+                    }
+                }
+                Some(fragment)
             }
-            Err(error) => Some(OptionsFragment {
-                status: Some(OptionsStatus::Error),
-                message: Some(error),
-                strategy: Some(OptionsProbeStrategy::Native),
-                ..Default::default()
-            }),
+            Err(error) => Some(catalog_probe_error_fragment(
+                &spec.agent_id,
+                error,
+                OptionsProbeStrategy::Native,
+            )),
         }
     }
 
@@ -315,6 +367,8 @@ mod tests {
                     group: None,
                     is_default: true,
                     thinking: None,
+                    context: Vec::new(),
+                    fast: false,
                 }],
                 modes: Vec::new(),
                 permission_modes: vec![AgentMode {
@@ -389,6 +443,57 @@ mod tests {
         assert_eq!(catalog.models[0].id, "acp-model");
     }
 
+    struct AuthRequiredAcp;
+
+    #[async_trait]
+    impl AcpOptionsProbe for AuthRequiredAcp {
+        async fn probe(
+            &self,
+            _agent_id: &str,
+            _isolated_cwd: &Path,
+        ) -> Result<AcpOptionsProbeResult, String> {
+            Err(crate::acp_client::encode_auth_required(
+                vec![crate::acp_client::AuthMethodSummary {
+                    id: "oauth".into(),
+                    name: "Browser".into(),
+                    description: None,
+                }],
+                "Authentication required by agent",
+            )
+            .expect("encode"))
+        }
+    }
+
+    #[tokio::test]
+    async fn acp_auth_required_keeps_structured_payload() {
+        let root = tempfile::tempdir().unwrap();
+        let engine = OptionsProbe {
+            command_runner: Box::new(FakeCli {
+                calls: Arc::new(AtomicUsize::new(0)),
+                output: CommandOutput {
+                    success: true,
+                    stdout: String::new(),
+                    stderr: String::new(),
+                },
+            }),
+            acp_probe: Box::new(AuthRequiredAcp),
+            native_probe: Box::new(NoopNativeOptionsProbe),
+            probe_root: root.path().to_path_buf(),
+        };
+        let spec = ProbePlan {
+            agent_id: "cursor".into(),
+            strategies: vec![OptionsProbeStrategy::Acp],
+            acp: true,
+            ..Default::default()
+        };
+        let catalog = engine.probe(&spec).await;
+        assert_eq!(catalog.status, OptionsStatus::AuthRequired);
+        let payload =
+            crate::acp_client::parse_auth_required_error(catalog.message.as_deref().unwrap_or(""))
+                .expect("auth payload");
+        assert_eq!(payload.methods[0].id, "oauth");
+    }
+
     struct CountingAcp(Arc<AtomicUsize>);
 
     #[async_trait]
@@ -420,6 +525,8 @@ mod tests {
                     group: None,
                     is_default: true,
                     thinking: None,
+                    context: Vec::new(),
+                    fast: false,
                 }],
                 modes: Vec::new(),
                 permission_modes: vec![AgentMode {
@@ -469,6 +576,51 @@ mod tests {
             .strategies_used
             .contains(&OptionsProbeStrategy::Native));
         assert!(!catalog.strategies_used.contains(&OptionsProbeStrategy::Acp));
+    }
+
+    struct LoggedOutCli;
+
+    #[async_trait]
+    impl CommandRunner for LoggedOutCli {
+        async fn run(&self, argv: &[String], _timeout: Duration) -> Result<CommandOutput, String> {
+            let joined = argv.join(" ");
+            if joined.contains("login status") {
+                return Ok(CommandOutput {
+                    success: true,
+                    stdout: "Not logged in\n".into(),
+                    stderr: String::new(),
+                });
+            }
+            Ok(CommandOutput {
+                success: true,
+                stdout: String::new(),
+                stderr: String::new(),
+            })
+        }
+    }
+
+    #[tokio::test]
+    async fn native_codex_logged_out_attaches_chatgpt_auth() {
+        let root = tempfile::tempdir().unwrap();
+        let engine = OptionsProbe {
+            command_runner: Box::new(LoggedOutCli),
+            acp_probe: Box::new(NoopAcpOptionsProbe),
+            native_probe: Box::new(CountingNative(Arc::new(AtomicUsize::new(0)))),
+            probe_root: root.path().to_path_buf(),
+        };
+        let spec = ProbePlan {
+            agent_id: "codex".into(),
+            strategies: vec![OptionsProbeStrategy::Native],
+            acp: false,
+            ..Default::default()
+        };
+        let catalog = engine.probe(&spec).await;
+        assert_eq!(catalog.status, OptionsStatus::Ok);
+        let payload =
+            crate::acp_client::parse_auth_required_error(catalog.message.as_deref().unwrap_or(""))
+                .expect("auth payload");
+        assert_eq!(payload.methods[0].id, "native_oauth:codex");
+        assert_eq!(payload.methods[1].id, "token:OPENAI_API_KEY");
     }
 
     #[tokio::test]
@@ -616,6 +768,8 @@ mod tests {
                             group: None,
                             is_default: *id == "default",
                             thinking: None,
+                            context: Vec::new(),
+                            fast: false,
                         })
                         .collect(),
                     modes: Vec::new(),

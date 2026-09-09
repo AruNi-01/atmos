@@ -103,6 +103,7 @@ pub fn snapshot_from_create_fields(
     mode: Option<&str>,
     permission_mode: Option<&str>,
     fast: Option<&str>,
+    context: Option<&str>,
 ) -> HashMap<String, String> {
     let mut map = HashMap::new();
     insert_opt(&mut map, "model", model);
@@ -110,6 +111,7 @@ pub fn snapshot_from_create_fields(
     insert_opt(&mut map, "mode", mode);
     insert_opt(&mut map, "permission_mode", permission_mode);
     insert_opt(&mut map, "fast", fast);
+    insert_opt(&mut map, "context", context);
     map
 }
 
@@ -171,6 +173,7 @@ mod tests {
             Some("agent"),
             Some("yolo"),
             Some("true"),
+            None,
         );
         upsert_agent_new_chat_config_at(&path, "cursor", first.clone()).unwrap();
 
@@ -182,6 +185,7 @@ mod tests {
             Some("high"),
             Some("plan"),
             Some("ask_always"),
+            None,
             None,
         );
         upsert_agent_new_chat_config_at(&path, "claude", second.clone()).unwrap();
@@ -197,7 +201,7 @@ mod tests {
         upsert_agent_new_chat_config_at(
             &path,
             "cursor",
-            snapshot_from_create_fields(Some("a"), None, None, None, None),
+            snapshot_from_create_fields(Some("a"), None, None, None, None, None),
         )
         .unwrap();
         // Loading alone must not rewrite the snapshot (mid-session configure path).
@@ -223,19 +227,19 @@ mod tests {
         upsert_agent_new_chat_config_at(
             &path,
             "cursor",
-            snapshot_from_create_fields(Some("old"), Some("low"), None, None, None),
+            snapshot_from_create_fields(Some("old"), Some("low"), None, None, None, None),
         )
         .unwrap();
         upsert_agent_new_chat_config_at(
             &path,
             "claude",
-            snapshot_from_create_fields(Some("opus"), None, None, None, None),
+            snapshot_from_create_fields(Some("opus"), None, None, None, None, None),
         )
         .unwrap();
         upsert_agent_new_chat_config_at(
             &path,
             "cursor",
-            snapshot_from_create_fields(Some("new"), Some("high"), Some("plan"), None, None),
+            snapshot_from_create_fields(Some("new"), Some("high"), Some("plan"), None, None, None),
         )
         .unwrap();
         let loaded = load_new_chat_configs_from(&path).unwrap();

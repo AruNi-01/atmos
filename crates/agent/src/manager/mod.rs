@@ -16,6 +16,7 @@ use crate::models::{
     AgentConfigState, AgentId, AgentInstallResult, AgentLaunchSpec, AgentStatus, KnownAgent,
     RegistryAgent, RegistryInstallResult,
 };
+use crate::policy::canonicalize_chat_provider_id;
 
 // Re-export types that are used by other crates via `crate::manager::AgentError`
 pub use self::builtin_custom::{
@@ -631,20 +632,57 @@ impl AgentManager {
         &self,
         registry_id: &str,
     ) -> Option<std::collections::HashMap<String, String>> {
-        let (agent_id, env_var) = match registry_id {
-            "claude-acp" | "claude-code-acp" => (AgentId::ClaudeCode, "ANTHROPIC_API_KEY"),
-            "codex-acp" => (AgentId::Codex, "OPENAI_API_KEY"),
-            "gemini" => (AgentId::GeminiCli, "GEMINI_API_KEY"),
-            "antigravity-acp" | "antigravity" => (AgentId::AntigravityCli, "GEMINI_API_KEY"),
-            _ => return None,
-        };
-        let key = keyring::keyring_get_api_key(agent_id).ok()?;
-        if key.is_empty() {
-            return None;
+        registry_agent_env_overrides(registry_id)
+    }
+}
+
+pub(crate) fn persist_agent_api_key(id: AgentId, api_key: &str) -> std::result::Result<(), String> {
+    let trimmed = api_key.trim();
+    if trimmed.is_empty() {
+        return Err("API key is required".into());
+    }
+    keyring::keyring_set_api_key(id, trimmed).map_err(|error| error.to_string())
+}
+
+/// Keyring env for ACP registry ids and Native Chat hosts (`claude`, `codex`, `pi`).
+pub fn registry_agent_env_overrides(
+    registry_id: &str,
+) -> Option<std::collections::HashMap<String, String>> {
+    let pairs = registry_env_keyring_pairs(registry_id);
+    if pairs.is_empty() {
+        return None;
+    }
+    let mut map = std::collections::HashMap::new();
+    for (agent_id, env_var) in pairs {
+        if let Ok(key) = keyring::keyring_get_api_key(agent_id) {
+            if !key.is_empty() {
+                map.insert(env_var.to_string(), key);
+            }
         }
-        let mut map = std::collections::HashMap::new();
-        map.insert(env_var.to_string(), key);
+    }
+    if map.is_empty() {
+        None
+    } else {
         Some(map)
+    }
+}
+
+fn registry_env_keyring_pairs(registry_id: &str) -> Vec<(AgentId, &'static str)> {
+    match registry_id {
+        "claude-acp" | "claude-code-acp" => vec![(AgentId::ClaudeCode, "ANTHROPIC_API_KEY")],
+        "codex-acp" => vec![(AgentId::Codex, "OPENAI_API_KEY")],
+        "gemini" => vec![(AgentId::GeminiCli, "GEMINI_API_KEY")],
+        "antigravity-acp" | "antigravity" => vec![(AgentId::AntigravityCli, "GEMINI_API_KEY")],
+        other => match canonicalize_chat_provider_id(other) {
+            "claude" => vec![(AgentId::ClaudeCode, "ANTHROPIC_API_KEY")],
+            "codex" => vec![(AgentId::Codex, "OPENAI_API_KEY")],
+            "pi" => vec![
+                (AgentId::GeminiCli, "GEMINI_API_KEY"),
+                (AgentId::ClaudeCode, "ANTHROPIC_API_KEY"),
+                (AgentId::Codex, "OPENAI_API_KEY"),
+            ],
+            _ => Vec::new(),
+        },
     }
 }
 

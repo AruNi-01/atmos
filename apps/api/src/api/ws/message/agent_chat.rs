@@ -27,6 +27,8 @@ pub struct AgentChatCreateRequest {
     #[serde(default)]
     pub fast: Option<String>,
     #[serde(default)]
+    pub context: Option<String>,
+    #[serde(default)]
     pub title: Option<String>,
     #[serde(default)]
     pub origin: Option<AgentChatOrigin>,
@@ -138,11 +140,26 @@ pub struct AgentChatSessionOpRespondRequest {
     pub option_id: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct AgentOptionsGetRequest {
     pub agent_id: String,
     #[serde(default)]
     pub refresh: Option<bool>,
+    #[serde(default)]
+    pub auth_method_id: Option<String>,
+    #[serde(default)]
+    pub auth_secret: Option<String>,
+}
+
+impl std::fmt::Debug for AgentOptionsGetRequest {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("AgentOptionsGetRequest")
+            .field("agent_id", &self.agent_id)
+            .field("refresh", &self.refresh)
+            .field("auth_method_id", &self.auth_method_id)
+            .field("auth_secret", &self.auth_secret.as_ref().map(|_| "***"))
+            .finish()
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -165,6 +182,8 @@ pub struct AgentChatConfigureRequest {
     pub permission_mode: Option<String>,
     #[serde(default)]
     pub fast: Option<String>,
+    #[serde(default)]
+    pub context: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -190,6 +209,8 @@ pub struct AgentChatLastNewChatConfigPatch {
     pub permission_mode: Option<String>,
     #[serde(default)]
     pub fast: Option<String>,
+    #[serde(default)]
+    pub context: Option<String>,
 }
 
 /// WS JSON for `AgentChatMeta`. Persist-only `applied_*` stay off the wire.
@@ -293,6 +314,7 @@ mod wire_tests {
             applied_mode: Some("plan".into()),
             applied_permission_mode: None,
             applied_fast: None,
+            applied_context: None,
             available_commands: Vec::new(),
             session_usage: None,
             descriptor: AgentDescriptor {

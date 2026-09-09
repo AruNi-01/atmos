@@ -87,6 +87,8 @@ pub struct AgentChatMeta {
     #[serde(default)]
     pub applied_fast: Option<String>,
     #[serde(default)]
+    pub applied_context: Option<String>,
+    #[serde(default)]
     pub available_commands: Vec<agent::AgentAvailableCommand>,
     #[serde(default)]
     pub session_usage: Option<SessionUsage>,
@@ -330,6 +332,7 @@ pub fn config_kind_matches(id: &str, category: Option<&str>, kind: &str) -> bool
             "reasoning-effort",
         ],
         "fast" => &["fast", "fast-mode", "fast_mode", "fastMode"],
+        "context" => &["context", "context_window", "contextWindow"],
         _ => return id.eq_ignore_ascii_case(kind),
     };
     aliases.iter().any(|alias| {
@@ -521,8 +524,73 @@ fn option_from_supported(meta: &AgentChatMeta, kind: &str) -> Option<SessionAdve
                     .collect(),
             })
         }
+        "fast" => {
+            let modes = &meta.descriptor.supported_options.fast;
+            if modes.is_empty() {
+                return None;
+            }
+            Some(SessionAdvertisedOption {
+                id: "fast".into(),
+                name: None,
+                category: Some("fast".into()),
+                option_type: "select".into(),
+                current_value: meta.descriptor.current_config.fast.clone(),
+                options: modes
+                    .iter()
+                    .map(|mode| SessionAdvertisedOptionValue {
+                        value: mode.id.clone(),
+                        name: Some(mode.label.clone()),
+                    })
+                    .collect(),
+            })
+        }
+        "context" => {
+            let modes = context_modes_for_meta(meta);
+            if modes.len() < 2 {
+                return None;
+            }
+            Some(SessionAdvertisedOption {
+                id: "context".into(),
+                name: None,
+                category: Some("context".into()),
+                option_type: "select".into(),
+                current_value: meta.descriptor.current_config.context.clone(),
+                options: modes
+                    .iter()
+                    .map(|mode| SessionAdvertisedOptionValue {
+                        value: mode.id.clone(),
+                        name: Some(mode.label.clone()),
+                    })
+                    .collect(),
+            })
+        }
         _ => None,
     }
+}
+
+pub fn context_modes_for_meta(meta: &AgentChatMeta) -> Vec<agent::AgentMode> {
+    let models = &meta.descriptor.supported_options.models;
+    let current = meta.descriptor.current_config.model.as_deref();
+    if let Some(model) = current.and_then(|id| models.iter().find(|item| item.id == id)) {
+        if model.context.len() >= 2 {
+            return model.context.clone();
+        }
+        if models.iter().any(|item| item.context.len() >= 2) {
+            return Vec::new();
+        }
+    }
+    if meta.descriptor.supported_options.context.len() >= 2 {
+        return meta.descriptor.supported_options.context.clone();
+    }
+    Vec::new()
+}
+
+pub fn default_context_id(modes: &[agent::AgentMode]) -> Option<String> {
+    modes
+        .iter()
+        .find(|item| item.is_default)
+        .or_else(|| modes.first())
+        .map(|item| item.id.clone())
 }
 
 pub fn resolve_session_config_select(
@@ -664,7 +732,8 @@ pub fn pending_session_config_change(meta: &AgentChatMeta) -> Option<SessionConf
         || trimmed_opt(meta.applied_mode.as_ref()).is_some()
         || trimmed_opt(meta.applied_thinking.as_ref()).is_some()
         || trimmed_opt(meta.applied_permission_mode.as_ref()).is_some()
-        || trimmed_opt(meta.applied_fast.as_ref()).is_some();
+        || trimmed_opt(meta.applied_fast.as_ref()).is_some()
+        || trimmed_opt(meta.applied_context.as_ref()).is_some();
     let current = &meta.descriptor.current_config;
     let change = SessionConfigChange {
         model: value_change(meta.applied_model.as_ref(), current.model.as_ref(), started),
@@ -697,6 +766,14 @@ pub fn pending_permission_mode_change(meta: &AgentChatMeta) -> Option<String> {
 pub fn pending_fast_change(meta: &AgentChatMeta) -> Option<String> {
     let selected = trimmed_opt(meta.descriptor.current_config.fast.as_ref())?.to_string();
     match trimmed_opt(meta.applied_fast.as_ref()) {
+        Some(applied) if applied == selected => None,
+        _ => Some(selected),
+    }
+}
+
+pub fn pending_context_change(meta: &AgentChatMeta) -> Option<String> {
+    let selected = trimmed_opt(meta.descriptor.current_config.context.as_ref())?.to_string();
+    match trimmed_opt(meta.applied_context.as_ref()) {
         Some(applied) if applied == selected => None,
         _ => Some(selected),
     }
@@ -1509,6 +1586,7 @@ pub struct CreateAgentChatRequest {
     pub mode: Option<String>,
     pub permission_mode: Option<String>,
     pub fast: Option<String>,
+    pub context: Option<String>,
     pub title: Option<String>,
 }
 
@@ -1747,6 +1825,7 @@ mod session_config_change_tests {
             applied_mode: None,
             applied_permission_mode: None,
             applied_fast: None,
+            applied_context: None,
             available_commands: Vec::new(),
             session_usage: None,
             descriptor: super::chat_descriptor(
@@ -1854,6 +1933,8 @@ mod session_config_change_tests {
                 group: None,
                 is_default: false,
                 thinking: None,
+                context: Vec::new(),
+                fast: false,
             })
             .collect();
         assert_eq!(
@@ -1885,6 +1966,8 @@ mod session_config_change_tests {
                 group: None,
                 is_default: false,
                 thinking: None,
+                context: Vec::new(),
+                fast: false,
             },
             AgentModel {
                 id: "gpt-5.3-codex[reasoning=medium,fast=false]".into(),
@@ -1892,6 +1975,8 @@ mod session_config_change_tests {
                 group: None,
                 is_default: true,
                 thinking: None,
+                context: Vec::new(),
+                fast: false,
             },
         ];
         assert_eq!(

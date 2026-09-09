@@ -10,7 +10,22 @@ pub fn supported_options_from_snapshot(catalog: &AgentOptionsSnapshot) -> AgentS
         thinking: catalog.thinking.clone(),
         modes: catalog.modes.clone(),
         permission_modes: catalog.permission_modes.clone(),
-        fast: crate::policy::native_fast_modes_for_provider(&catalog.agent_id).unwrap_or_default(),
+        fast: crate::policy::native_fast_modes_for_provider(&catalog.agent_id).unwrap_or_else(
+            || {
+                if catalog.models.iter().any(|model| model.fast) {
+                    crate::policy::boolean_fast_modes(false)
+                } else {
+                    Vec::new()
+                }
+            },
+        ),
+        context: catalog
+            .models
+            .iter()
+            .find(|model| model.is_default)
+            .filter(|model| model.context.len() >= 2)
+            .map(|model| model.context.clone())
+            .unwrap_or_default(),
     }
 }
 
@@ -130,6 +145,21 @@ pub fn apply_options_defaults_to_current_config(
         {
             config.thinking = thinking.first().cloned();
         }
+        if let Some(model) = catalog.models.iter().find(|item| item.id == *model_id) {
+            if model.context.len() >= 2
+                && config
+                    .context
+                    .as_ref()
+                    .is_none_or(|value| !model.context.iter().any(|item| item.id == *value))
+            {
+                config.context = model
+                    .context
+                    .iter()
+                    .find(|item| item.is_default)
+                    .or_else(|| model.context.first())
+                    .map(|item| item.id.clone());
+            }
+        }
     }
     if crate::policy::is_plan_mode(config.permission_mode.as_deref()) {
         if config.mode.is_none() {
@@ -203,6 +233,8 @@ mod tests {
                 group: None,
                 is_default: true,
                 thinking: None,
+                context: Vec::new(),
+                fast: false,
             }],
             modes: Vec::new(),
             permission_modes: vec![AgentMode {
@@ -263,6 +295,8 @@ mod tests {
                     group: None,
                     is_default: false,
                     thinking: None,
+                    context: Vec::new(),
+                    fast: false,
                 },
                 AgentModel {
                     id: "opus".into(),
@@ -273,6 +307,8 @@ mod tests {
                         arg: None,
                         options: vec!["low".into(), "high".into()],
                     }),
+                    context: Vec::new(),
+                    fast: false,
                 },
             ],
             modes: vec![AgentMode {
@@ -333,6 +369,8 @@ mod tests {
                     group: None,
                     is_default: true,
                     thinking: None,
+                    context: Vec::new(),
+                    fast: false,
                 },
                 AgentModel {
                     id: "deepseek/deepseek-v4-flash".into(),
@@ -340,6 +378,8 @@ mod tests {
                     group: Some("deepseek".into()),
                     is_default: false,
                     thinking: None,
+                    context: Vec::new(),
+                    fast: false,
                 },
             ],
             modes: Vec::new(),

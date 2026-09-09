@@ -99,11 +99,29 @@ impl AgentOptionsSnapshot {
             message: Some(message.into()),
         }
     }
+
+    /// ACP `authenticate` returning Ok is the browser-OAuth callback. Drop the
+    /// auth overlay so the client can show Authenticated and close, then refresh.
+    pub fn after_successful_authenticate(mut self) -> Self {
+        self.message = None;
+        if self.status == OptionsStatus::AuthRequired {
+            let has_pickers =
+                !self.models.is_empty() || !self.modes.is_empty() || !self.commands.is_empty();
+            self.status = if has_pickers {
+                OptionsStatus::Ok
+            } else {
+                OptionsStatus::Probing
+            };
+        }
+        self
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::contract::{AgentModel, AgentThinkingSupport};
+    use chrono::Utc;
 
     #[test]
     fn options_probe_strategy_includes_native() {
@@ -141,5 +159,59 @@ mod tests {
         }))
         .expect("deserialize");
         assert!(back.permission_modes.is_empty());
+    }
+
+    #[test]
+    fn after_successful_authenticate_clears_auth_overlay() {
+        let catalog = AgentOptionsSnapshot {
+            agent_id: "cursor".into(),
+            status: OptionsStatus::AuthRequired,
+            models: vec![AgentModel {
+                id: "composer-2.5".into(),
+                label: "Composer 2.5".into(),
+                group: None,
+                is_default: true,
+                thinking: None,
+                context: Vec::new(),
+                fast: false,
+            }],
+            modes: Vec::new(),
+            permission_modes: Vec::new(),
+            commands: Vec::new(),
+            thinking: AgentThinkingSupport::None,
+            strategies_used: Vec::new(),
+            fetched_at: Utc::now(),
+            source: OptionsSource::Cache,
+            message: Some("ACP_AUTH_REQUIRED::{}".into()),
+        };
+        let next = catalog.after_successful_authenticate();
+        assert_eq!(next.status, OptionsStatus::Ok);
+        assert!(next.message.is_none());
+        assert_eq!(next.models.len(), 1);
+    }
+
+    #[test]
+    fn after_successful_authenticate_without_pickers_is_probing() {
+        let next = AgentOptionsSnapshot::error("cursor", "Authentication required by agent")
+            .after_successful_authenticate();
+        assert_eq!(next.status, OptionsStatus::Error);
+        assert!(next.message.is_none());
+
+        let next = AgentOptionsSnapshot {
+            agent_id: "cursor".into(),
+            status: OptionsStatus::AuthRequired,
+            models: Vec::new(),
+            modes: Vec::new(),
+            permission_modes: Vec::new(),
+            commands: Vec::new(),
+            thinking: AgentThinkingSupport::None,
+            strategies_used: Vec::new(),
+            fetched_at: Utc::now(),
+            source: OptionsSource::Live,
+            message: Some("sign in".into()),
+        }
+        .after_successful_authenticate();
+        assert_eq!(next.status, OptionsStatus::Probing);
+        assert!(next.message.is_none());
     }
 }

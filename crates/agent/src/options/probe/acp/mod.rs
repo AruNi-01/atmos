@@ -14,6 +14,8 @@ use crate::acp_client::{run_acp_session, AcpSessionHandle};
 use crate::contract::{AgentAvailableCommand, AgentMode, AgentModel, AgentThinkingSupport};
 use crate::models::AgentLaunchSpec;
 use crate::options::effort::sort_thinking_levels;
+use crate::options::probe::plan::is_native_chat_options_id;
+use crate::policy::canonicalize_chat_provider_id;
 
 #[derive(Debug, Clone)]
 pub struct AcpOptionsProbeResult {
@@ -33,6 +35,16 @@ pub trait AcpOptionsProbe: Send + Sync {
         agent_id: &str,
         isolated_cwd: &Path,
     ) -> Result<AcpOptionsProbeResult, String>;
+
+    async fn authenticate(
+        &self,
+        agent_id: &str,
+        isolated_cwd: &Path,
+        auth_method_id: &str,
+    ) -> Result<(), String> {
+        let _ = (agent_id, isolated_cwd, auth_method_id);
+        Ok(())
+    }
 }
 
 pub struct NoopAcpOptionsProbe;
@@ -50,6 +62,28 @@ impl AcpOptionsProbe for NoopAcpOptionsProbe {
 
 const PROBE_TIMEOUT: Duration = Duration::from_secs(15);
 const NPX_PROBE_TIMEOUT: Duration = Duration::from_secs(60);
+
+fn program_basename(program: &str) -> &str {
+    Path::new(program)
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or(program)
+}
+
+/// `cursor-agent acp` often spends the first tens of seconds loading MCP
+/// servers during `session/new`. 15s is enough to spawn, not enough to finish.
+fn probe_spawn_timeout(agent_id: &str, program: &str) -> Duration {
+    let name = program_basename(program);
+    if name.eq_ignore_ascii_case("npx") {
+        return NPX_PROBE_TIMEOUT;
+    }
+    if name.eq_ignore_ascii_case("cursor-agent")
+        || crate::policy::canonicalize_chat_provider_id(agent_id) == "cursor"
+    {
+        return NPX_PROBE_TIMEOUT;
+    }
+    PROBE_TIMEOUT
+}
 
 #[derive(Clone)]
 pub struct AcpLaunchResolved {
@@ -69,6 +103,59 @@ pub struct StdioAcpOptionsProbe {
 impl StdioAcpOptionsProbe {
     pub fn new(resolver: Arc<dyn AcpLaunchResolver>) -> Self {
         Self { resolver }
+    }
+
+    async fn resolve_probe_launch(&self, agent_id: &str) -> Result<AcpLaunchResolved, String> {
+        let mut launch = self.resolver.resolve(agent_id).await?;
+        if is_native_chat_options_id(agent_id) && canonicalize_chat_provider_id(agent_id) == "grok"
+        {
+            launch.launch_spec =
+                crate::providers::grok::catalog_stdio_launch_spec(&launch.launch_spec.program);
+        }
+        Ok(launch)
+    }
+
+    async fn probe_session(
+        &self,
+        agent_id: &str,
+        isolated_cwd: &Path,
+        auth_method_id: Option<String>,
+    ) -> Result<AcpOptionsProbeResult, String> {
+        std::fs::create_dir_all(isolated_cwd).map_err(|error| error.to_string())?;
+        let launch = self.resolve_probe_launch(agent_id).await?;
+        let mut spawn_timeout = probe_spawn_timeout(agent_id, &launch.launch_spec.program);
+        if auth_method_id.is_some() {
+            spawn_timeout = spawn_timeout.max(Duration::from_secs(120));
+        }
+        let mut handle = timeout(
+            spawn_timeout,
+            run_acp_session(
+                format!("options-probe-{agent_id}"),
+                launch.launch_spec,
+                isolated_cwd.to_path_buf(),
+                Arc::new(CatalogProbeToolHandler),
+                launch.env_overrides,
+                None,
+                auth_method_id,
+                None,
+                None,
+            ),
+        )
+        .await
+        .map_err(|_| "temp ACP catalog probe timed out".to_string())?
+        .map_err(|error| error.to_string())?;
+
+        let options = drain_config_options(&mut handle, spawn_timeout).await;
+        let _ = handle.send_close();
+        let closed = timeout(Duration::from_secs(2), wait_session_end(&mut handle))
+            .await
+            .is_ok();
+        drop(handle);
+        Ok(probe_result_from_config_options(
+            &options,
+            isolated_cwd.to_path_buf(),
+            closed,
+        ))
     }
 }
 
@@ -319,6 +406,66 @@ pub fn thinking_support_from_options(options: &[AgentConfigOption]) -> AgentThin
         .unwrap_or(AgentThinkingSupport::None)
 }
 
+fn is_context_config_id(id: &str) -> bool {
+    let compact = id.to_ascii_lowercase().replace('_', "");
+    compact == "context" || compact == "contextwindow"
+}
+
+fn context_modes_from_options(options: &[AgentConfigOption]) -> Vec<crate::contract::AgentMode> {
+    let Some(option) = options
+        .iter()
+        .find(|option| is_context_config_id(&option.id))
+    else {
+        return Vec::new();
+    };
+    if option.options.len() < 2 {
+        return Vec::new();
+    }
+    option
+        .options
+        .iter()
+        .map(|value| crate::contract::AgentMode {
+            id: value.value.clone(),
+            label: value
+                .name
+                .clone()
+                .filter(|name| !name.is_empty())
+                .unwrap_or_else(|| cursor_context_label(&value.value)),
+            is_default: option.current_value.as_deref() == Some(value.value.as_str()),
+        })
+        .collect()
+}
+
+fn cursor_context_label(value: &str) -> String {
+    match value.trim().to_ascii_lowercase().as_str() {
+        "1m" => "1M".into(),
+        "272k" => "272K".into(),
+        "300k" => "300K".into(),
+        "200k" => "200K".into(),
+        other => other.to_string(),
+    }
+}
+
+fn apply_context_to_current_model(
+    models: &mut [AgentModel],
+    context: &[crate::contract::AgentMode],
+) {
+    if context.len() < 2 {
+        return;
+    }
+    let index = models
+        .iter()
+        .position(|model| model.is_default)
+        .or_else(|| models.first().map(|_| 0));
+    let Some(index) = index else {
+        return;
+    };
+    if models[index].context.len() >= 2 {
+        return;
+    }
+    models[index].context = context.to_vec();
+}
+
 fn apply_thinking_to_current_model(models: &mut [AgentModel], thinking: &AgentThinkingSupport) {
     let index = models
         .iter()
@@ -358,6 +505,8 @@ pub fn probe_result_from_config_options(
                     group: None,
                     is_default: option.current_value.as_deref() == Some(value.value.as_str()),
                     thinking: None,
+                    context: Vec::new(),
+                    fast: false,
                 })
                 .collect();
         } else if is_mode_config_id(&option.id) {
@@ -394,6 +543,8 @@ pub fn probe_result_from_config_options(
     }
     let thinking = thinking_support_from_options(options);
     apply_thinking_to_current_model(&mut models, &thinking);
+    let context = context_modes_from_options(options);
+    apply_context_to_current_model(&mut models, &context);
     AcpOptionsProbeResult {
         models,
         modes,
@@ -412,42 +563,18 @@ impl AcpOptionsProbe for StdioAcpOptionsProbe {
         agent_id: &str,
         isolated_cwd: &Path,
     ) -> Result<AcpOptionsProbeResult, String> {
-        std::fs::create_dir_all(isolated_cwd).map_err(|error| error.to_string())?;
-        let launch = self.resolver.resolve(agent_id).await?;
-        let spawn_timeout = if launch.launch_spec.program == "npx" {
-            NPX_PROBE_TIMEOUT
-        } else {
-            PROBE_TIMEOUT
-        };
-        let mut handle = timeout(
-            spawn_timeout,
-            run_acp_session(
-                format!("options-probe-{agent_id}"),
-                launch.launch_spec,
-                isolated_cwd.to_path_buf(),
-                Arc::new(CatalogProbeToolHandler),
-                launch.env_overrides,
-                None,
-                None,
-                None,
-                None,
-            ),
-        )
-        .await
-        .map_err(|_| "temp ACP catalog probe timed out".to_string())?
-        .map_err(|error| error.to_string())?;
+        self.probe_session(agent_id, isolated_cwd, None).await
+    }
 
-        let options = drain_config_options(&mut handle, spawn_timeout).await;
-        let _ = handle.send_close();
-        let closed = timeout(Duration::from_secs(2), wait_session_end(&mut handle))
+    async fn authenticate(
+        &self,
+        agent_id: &str,
+        isolated_cwd: &Path,
+        auth_method_id: &str,
+    ) -> Result<(), String> {
+        self.probe_session(agent_id, isolated_cwd, Some(auth_method_id.to_string()))
             .await
-            .is_ok();
-        drop(handle);
-        Ok(probe_result_from_config_options(
-            &options,
-            isolated_cwd.to_path_buf(),
-            closed,
-        ))
+            .map(|_| ())
     }
 }
 
@@ -499,6 +626,23 @@ async fn wait_session_end(handle: &mut AcpSessionHandle) {
 mod tests {
     use super::*;
     use crate::acp_client::types::AgentConfigOptionValue;
+
+    #[test]
+    fn cursor_agent_probe_gets_npx_length_timeout() {
+        assert_eq!(
+            probe_spawn_timeout("cursor", "cursor-agent"),
+            NPX_PROBE_TIMEOUT
+        );
+        assert_eq!(
+            probe_spawn_timeout("cursor", "/opt/bin/cursor-agent"),
+            NPX_PROBE_TIMEOUT
+        );
+        assert_eq!(probe_spawn_timeout("gemini", "gemini"), PROBE_TIMEOUT);
+        assert_eq!(
+            probe_spawn_timeout("deepseek-harness", "npx"),
+            NPX_PROBE_TIMEOUT
+        );
+    }
 
     #[test]
     fn maps_model_mode_and_thinking_from_config_options() {

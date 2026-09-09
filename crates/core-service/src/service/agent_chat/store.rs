@@ -70,6 +70,7 @@ impl AgentChatStore {
             applied_mode: None,
             applied_permission_mode: None,
             applied_fast: None,
+            applied_context: None,
             available_commands: Vec::new(),
             session_usage: None,
             descriptor: chat_descriptor(
@@ -80,6 +81,7 @@ impl AgentChatStore {
                     mode: req.mode,
                     permission_mode: req.permission_mode,
                     fast: req.fast,
+                    context: req.context,
                 },
             ),
             parent_chat_id: None,
@@ -124,6 +126,7 @@ impl AgentChatStore {
             mode: parent.descriptor.current_config.mode.clone(),
             permission_mode: parent.descriptor.current_config.permission_mode.clone(),
             fast: parent.descriptor.current_config.fast.clone(),
+            context: parent.descriptor.current_config.context.clone(),
             title: parent.title.clone(),
         })?;
         let src = self.dir_for(parent_id).join("transcript.jsonl");
@@ -1241,6 +1244,7 @@ mod tests {
                 mode: None,
                 permission_mode: None,
                 fast: None,
+                context: None,
                 title: None,
             })
             .unwrap()
@@ -2519,6 +2523,7 @@ mod tests {
                 mode: None,
                 permission_mode: None,
                 fast: None,
+                context: None,
                 title: Some("Workspace chat".into()),
             })
             .unwrap();
@@ -2558,6 +2563,7 @@ mod tests {
                 mode: None,
                 permission_mode: None,
                 fast: None,
+                context: None,
                 title: Some("Quick chat".into()),
             })
             .unwrap();

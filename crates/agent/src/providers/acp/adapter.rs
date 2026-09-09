@@ -268,6 +268,9 @@ pub(crate) fn plan_set_config_writes(
     if let Some(fast) = update.fast {
         writes.push((config_alias_ids("fast"), fast));
     }
+    if let Some(context) = update.context {
+        writes.push((config_alias_ids("context"), context));
+    }
     if let Some(mode) = update.mode.clone() {
         writes.push((config_alias_ids("mode"), mode.clone()));
         // Only agents that advertise a permission configId encode Plan there.
@@ -309,12 +312,18 @@ pub(crate) fn config_alias_ids(field: &str) -> Vec<String> {
         "model" => vec!["model".into(), "models".into()],
         "thinking" => vec![
             "effort".into(),
+            "reasoning".into(),
             "reasoning_effort".into(),
             "thought_level".into(),
             "thinking".into(),
             "think".into(),
         ],
         "fast" => vec!["fast".into(), "fast-mode".into(), "fast_mode".into()],
+        "context" => vec![
+            "context".into(),
+            "context_window".into(),
+            "contextWindow".into(),
+        ],
         "mode" => vec![
             "mode".into(),
             "modes".into(),
@@ -384,6 +393,10 @@ fn current_config_from_maps(
             .and_then(crate::policy::normalize_stored_permission)
             .or_else(|| cfg.permission_mode.clone()),
         fast: cfg.fast.clone(),
+        context: first_alias(
+            &cfg.extra_config,
+            &["context", "context_window", "contextWindow"],
+        ),
     };
     if let Some(defaults) = defaults {
         if current.model.is_none() {
@@ -394,6 +407,7 @@ fn current_config_from_maps(
                 defaults,
                 &[
                     "effort",
+                    "reasoning",
                     "reasoning_effort",
                     "thought_level",
                     "thinking",
@@ -403,6 +417,10 @@ fn current_config_from_maps(
         }
         if current.fast.is_none() {
             current.fast = first_alias(defaults, &["fast", "fast-mode", "fast_mode"]);
+        }
+        if current.context.is_none() {
+            current.context =
+                first_alias(defaults, &["context", "context_window", "contextWindow"]);
         }
         if current.mode.is_none() {
             current.mode = first_alias(defaults, &["mode", "modes"]);

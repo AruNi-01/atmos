@@ -9,7 +9,7 @@ mod tool_map;
 
 use std::collections::{HashMap, VecDeque};
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -73,6 +73,7 @@ impl Default for ClaudeNativeProvider {
 struct ClaudeCommands {
     stdin: Mutex<Option<ChildStdin>>,
     child: Mutex<Option<tokio::process::Child>>,
+    root_pid: AtomicU32,
     running_turn: Mutex<Option<String>>,
     pending_controls: Mutex<HashMap<String, oneshot::Sender<Result<Value, String>>>>,
     pending_permissions: Mutex<HashMap<String, PendingPermission>>,
@@ -534,11 +535,10 @@ impl AgentRuntime for ClaudeRuntime {
     }
 
     fn root_pid(&self) -> Option<u32> {
-        self.commands
-            .child
-            .try_lock()
-            .ok()
-            .and_then(|guard| guard.as_ref().and_then(tokio::process::Child::id))
+        match self.commands.root_pid.load(Ordering::Relaxed) {
+            0 | 1 => None,
+            pid => Some(pid),
+        }
     }
 
     fn descriptor(&self) -> AgentDescriptor {
@@ -668,6 +668,7 @@ async fn open_runtime(
             .as_deref()
             .and_then(crate::policy::normalize_stored_permission)
             .or_else(|| cfg.permission_mode.clone()),
+        context: None,
         fast: Some(if desired_fast_on {
             "true".into()
         } else {
@@ -680,6 +681,7 @@ async fn open_runtime(
         stdout,
         stderr,
     } = spawn_claude(program, &cfg, resume.as_deref(), false).await?;
+    let root_pid = AtomicU32::new(child.id().unwrap_or(0));
 
     let mut user_uuids = Vec::new();
     let mut turn_to_uuid = HashMap::new();
@@ -697,6 +699,7 @@ async fn open_runtime(
     let commands = Arc::new(ClaudeCommands {
         stdin: Mutex::new(Some(stdin)),
         child: Mutex::new(Some(child)),
+        root_pid,
         running_turn: Mutex::new(None),
         pending_controls: Mutex::new(HashMap::new()),
         pending_permissions: Mutex::new(HashMap::new()),

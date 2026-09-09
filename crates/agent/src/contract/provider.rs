@@ -65,12 +65,14 @@ pub struct AgentRuntimeConfigUpdate {
     pub mode: Option<String>,
     pub permission_mode: Option<String>,
     pub fast: Option<String>,
+    pub context: Option<String>,
     pub extra_config: HashMap<String, String>,
     pub previous_model: Option<String>,
     pub previous_thinking: Option<String>,
     pub previous_mode: Option<String>,
     pub previous_permission_mode: Option<String>,
     pub previous_fast: Option<String>,
+    pub previous_context: Option<String>,
 }
 
 #[derive(Debug, Clone, Default)]

@@ -175,6 +175,8 @@ pub(crate) fn models_from_initialize(payload: &Value) -> Vec<AgentModel> {
                 group: None,
                 is_default: index == 0,
                 thinking: None,
+                context: Vec::new(),
+                fast: false,
             });
             continue;
         }
@@ -205,6 +207,8 @@ pub(crate) fn models_from_initialize(payload: &Value) -> Vec<AgentModel> {
             group: None,
             is_default,
             thinking: thinking_from_supported_effort_levels(item),
+            context: Vec::new(),
+            fast: false,
         });
     }
     models
@@ -300,6 +304,8 @@ fn model_from_system_init(frame: &Value) -> Option<AgentModel> {
         group: None,
         is_default: true,
         thinking: None,
+        context: Vec::new(),
+        fast: false,
     })
 }
 

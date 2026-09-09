@@ -63,6 +63,76 @@ pub struct AuthRequiredPayload {
     pub message: String,
 }
 
+pub const AUTH_REQUIRED_ERROR_PREFIX: &str = "ACP_AUTH_REQUIRED::";
+
+pub fn encode_auth_required(
+    methods: Vec<AuthMethodSummary>,
+    message: impl Into<String>,
+) -> Result<String, String> {
+    if methods.is_empty() {
+        return Err(
+            "Agent requires authentication, but no auth methods were advertised".to_string(),
+        );
+    }
+    let payload = AuthRequiredPayload {
+        request_id: uuid::Uuid::new_v4().to_string(),
+        methods,
+        message: message.into(),
+    };
+    let json = serde_json::to_string(&payload)
+        .map_err(|error| format!("Serialize auth payload failed: {error}"))?;
+    Ok(format!("{AUTH_REQUIRED_ERROR_PREFIX}{json}"))
+}
+
+pub fn parse_auth_required_error(raw: &str) -> Option<AuthRequiredPayload> {
+    let idx = raw.find(AUTH_REQUIRED_ERROR_PREFIX)?;
+    let json_part = raw[idx + AUTH_REQUIRED_ERROR_PREFIX.len()..].trim();
+    let parsed: AuthRequiredPayload = serde_json::from_str(json_part).ok()?;
+    if parsed.request_id.is_empty() || parsed.methods.is_empty() {
+        return None;
+    }
+    Some(parsed)
+}
+
+pub fn auth_methods_from_json(value: &serde_json::Value) -> Vec<AuthMethodSummary> {
+    let items = value
+        .get("authMethods")
+        .or_else(|| value.get("auth_methods"))
+        .and_then(|item| item.as_array())
+        .cloned()
+        .unwrap_or_default();
+    let mut methods = Vec::new();
+    for item in items {
+        let id = item
+            .get("id")
+            .and_then(|value| value.as_str())
+            .map(str::trim)
+            .filter(|id| !id.is_empty());
+        let Some(id) = id else {
+            continue;
+        };
+        let name = item
+            .get("name")
+            .and_then(|value| value.as_str())
+            .map(str::trim)
+            .filter(|name| !name.is_empty())
+            .unwrap_or(id)
+            .to_string();
+        let description = item
+            .get("description")
+            .and_then(|value| value.as_str())
+            .map(str::trim)
+            .filter(|text| !text.is_empty())
+            .map(ToOwned::to_owned);
+        methods.push(AuthMethodSummary {
+            id: id.to_string(),
+            name,
+            description,
+        });
+    }
+    methods
+}
+
 /// ACP implementation metadata advertised by an agent.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]

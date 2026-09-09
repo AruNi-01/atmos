@@ -2,7 +2,7 @@
 //! CLI `--list-models` uses encoded ids like `gpt-5.3-codex-fast`.
 //! Chat ACP must only set advertised bracket values.
 
-use crate::contract::{AgentModel, AgentThinkingSupport};
+use crate::contract::{AgentMode, AgentModel, AgentThinkingSupport};
 use crate::options::effort::sort_thinking_levels;
 use std::collections::BTreeMap;
 
@@ -98,6 +98,8 @@ pub fn collapse_cursor_cli_models(models: Vec<AgentModel>) -> Vec<AgentModel> {
         label: String,
         is_default: bool,
         efforts: Vec<String>,
+        has_1m: bool,
+        has_fast: bool,
         order: usize,
     }
 
@@ -108,7 +110,7 @@ pub fn collapse_cursor_cli_models(models: Vec<AgentModel>) -> Vec<AgentModel> {
         if id.is_empty() {
             continue;
         }
-        let (base, effort, _fast) = strip_cli_suffixes(id);
+        let (base, effort, fast) = strip_cli_suffixes(id);
         let base = if base.is_empty() {
             id.to_string()
         } else {
@@ -119,15 +121,17 @@ pub fn collapse_cursor_cli_models(models: Vec<AgentModel>) -> Vec<AgentModel> {
             order += 1;
             Group {
                 label: {
-                    let cleaned = cursor_model_base(&model.label);
+                    let cleaned = cursor_clean_display_label(&model.label);
                     if cleaned.is_empty() {
-                        base.clone()
+                        cursor_clean_display_label(&base)
                     } else {
                         cleaned
                     }
                 },
                 is_default: false,
                 efforts: Vec::new(),
+                has_1m: false,
+                has_fast: false,
                 order: next,
             }
         });
@@ -138,6 +142,12 @@ pub fn collapse_cursor_cli_models(models: Vec<AgentModel>) -> Vec<AgentModel> {
             if !entry.efforts.iter().any(|item| item == &level) {
                 entry.efforts.push(level);
             }
+        }
+        if fast {
+            entry.has_fast = true;
+        }
+        if cursor_label_has_1m(&model.label) {
+            entry.has_1m = true;
         }
     }
 
@@ -159,13 +169,19 @@ pub fn collapse_cursor_cli_models(models: Vec<AgentModel>) -> Vec<AgentModel> {
                 AgentModel {
                     id: id.clone(),
                     label: if group.label.is_empty() {
-                        id
+                        id.clone()
                     } else {
                         group.label
                     },
                     group: None,
                     is_default: group.is_default,
                     thinking,
+                    context: if group.has_1m {
+                        cursor_inferred_context_options(&id)
+                    } else {
+                        Vec::new()
+                    },
+                    fast: group.has_fast,
                 },
             )
         })
@@ -188,6 +204,12 @@ pub fn fill_cursor_thinking_by_base(target: &mut [AgentModel], source: &[AgentMo
         if let Some(thinking) = source_model.thinking.clone() {
             model.thinking = Some(thinking);
         }
+        if model.context.is_empty() && !source_model.context.is_empty() {
+            model.context = source_model.context.clone();
+        }
+        if source_model.fast {
+            model.fast = true;
+        }
         if cursor_label_needs_upgrade(&model.label, &model.id)
             && !cursor_label_needs_upgrade(&source_model.label, &source_model.id)
         {
@@ -202,12 +224,144 @@ fn cursor_label_needs_upgrade(label: &str, id: &str) -> bool {
     if label.is_empty() {
         return true;
     }
+    if cursor_clean_display_label(label) != label {
+        return true;
+    }
+    if cursor_label_looks_like_display_name(label) {
+        return false;
+    }
     if label.eq_ignore_ascii_case(id) {
         return true;
     }
     let base = cursor_model_base(id);
     let alias = cursor_alias_key(id);
     label.eq_ignore_ascii_case(&base) || label.eq_ignore_ascii_case(&alias)
+}
+
+fn cursor_label_looks_like_display_name(label: &str) -> bool {
+    label.contains(' ') || label.chars().any(|ch| ch.is_ascii_uppercase())
+}
+
+/// Strip effort / Fast / Thinking / 1M tokens from Cursor CLI display names.
+///
+/// `--list-models` bakes those into the first variant (`GPT-5.4 1M Low`).
+/// PMP already has separate Effort / Context / Fast controls.
+pub fn cursor_clean_display_label(label: &str) -> String {
+    let trimmed = label.trim();
+    if trimmed.is_empty() {
+        return String::new();
+    }
+    let (body, suffix) = split_trailing_parens(trimmed);
+    let mut words: Vec<&str> = body.split_whitespace().collect();
+    while let Some(word) = words.last() {
+        if is_cursor_param_word(word) {
+            words.pop();
+            continue;
+        }
+        if words.len() >= 2 {
+            let pair = format!("{} {}", words[words.len() - 2], word);
+            if is_cursor_param_word(&pair) {
+                words.pop();
+                words.pop();
+                continue;
+            }
+        }
+        break;
+    }
+    words.retain(|word| !is_cursor_context_token(word));
+    let mut cleaned = words.join(" ");
+    if let Some(suffix) = suffix {
+        if !cleaned.is_empty() {
+            cleaned.push(' ');
+        }
+        cleaned.push_str(&suffix);
+    }
+    cleaned
+}
+
+fn split_trailing_parens(label: &str) -> (&str, Option<String>) {
+    let trimmed = label.trim_end();
+    if !trimmed.ends_with(')') {
+        return (trimmed, None);
+    }
+    let Some(start) = trimmed.rfind('(') else {
+        return (trimmed, None);
+    };
+    if start == 0 {
+        return (trimmed, None);
+    }
+    let inner = &trimmed[start + 1..trimmed.len() - 1];
+    if inner.eq_ignore_ascii_case("current") || inner.eq_ignore_ascii_case("no zdr") {
+        return (
+            trimmed[..start].trim_end(),
+            Some(trimmed[start..].to_string()),
+        );
+    }
+    (trimmed, None)
+}
+
+fn is_cursor_param_word(word: &str) -> bool {
+    let compact = word
+        .trim()
+        .trim_matches(|ch: char| ch == ',' || ch == ';')
+        .to_ascii_lowercase()
+        .replace(['-', '_'], "");
+    matches!(
+        compact.as_str(),
+        "fast"
+            | "thinking"
+            | "none"
+            | "minimal"
+            | "low"
+            | "medium"
+            | "med"
+            | "high"
+            | "xhigh"
+            | "extrahigh"
+            | "extra high"
+            | "max"
+            | "maximum"
+    ) || is_cursor_context_token(word)
+}
+
+fn is_cursor_context_token(word: &str) -> bool {
+    matches!(
+        word.trim().to_ascii_lowercase().as_str(),
+        "1m" | "1M" | "272k" | "300k" | "200k"
+    )
+}
+
+fn cursor_label_has_1m(label: &str) -> bool {
+    label
+        .split(|ch: char| !ch.is_ascii_alphanumeric())
+        .any(|token| token.eq_ignore_ascii_case("1m"))
+}
+
+/// Live Cursor PMP (2026-09): GPT 1M models advertise `272k` + `1m`;
+/// Claude / Muse 1M models advertise `300k` + `1m`. Default is the smaller window.
+pub fn cursor_inferred_context_options(model_id: &str) -> Vec<AgentMode> {
+    let (default_id, default_label) = cursor_default_context_for_model(model_id);
+    vec![
+        AgentMode {
+            id: default_id.into(),
+            label: default_label.into(),
+            is_default: true,
+        },
+        AgentMode {
+            id: "1m".into(),
+            label: "1M".into(),
+            is_default: false,
+        },
+    ]
+}
+
+fn cursor_default_context_for_model(model_id: &str) -> (&'static str, &'static str) {
+    let alias = cursor_alias_key(model_id);
+    if alias.starts_with("claude") || alias.starts_with("muse") {
+        ("300k", "300K")
+    } else {
+        ("272k", "272K")
+    }
 }
 
 fn find_cursor_thinking_source<'a>(
@@ -353,11 +507,19 @@ pub fn map_to_advertised_cursor_model<'a>(
 
 /// Human label: prefer ACP name, append non-empty bracket params when useful.
 pub fn cursor_model_display_label(wire_value: &str, name: Option<&str>) -> String {
-    let base_name = name
+    let raw = name
         .map(str::trim)
         .filter(|item| !item.is_empty())
         .map(str::to_string)
         .unwrap_or_else(|| cursor_model_base(wire_value));
+    let base_name = {
+        let cleaned = cursor_clean_display_label(&raw);
+        if cleaned.is_empty() {
+            raw
+        } else {
+            cleaned
+        }
+    };
     let Some(params) = cursor_model_params(wire_value) else {
         return base_name;
     };
@@ -422,6 +584,8 @@ mod tests {
                 group: None,
                 is_default: false,
                 thinking: None,
+                context: Vec::new(),
+                fast: false,
             },
             AgentModel {
                 id: "gpt-5.3-codex-high-fast".into(),
@@ -429,6 +593,8 @@ mod tests {
                 group: None,
                 is_default: true,
                 thinking: None,
+                context: Vec::new(),
+                fast: false,
             },
             AgentModel {
                 id: "gpt-5.3-codex-xhigh".into(),
@@ -436,6 +602,8 @@ mod tests {
                 group: None,
                 is_default: false,
                 thinking: None,
+                context: Vec::new(),
+                fast: false,
             },
             AgentModel {
                 id: "composer-2.5".into(),
@@ -443,6 +611,8 @@ mod tests {
                 group: None,
                 is_default: false,
                 thinking: None,
+                context: Vec::new(),
+                fast: false,
             },
             AgentModel {
                 id: "composer-2.5-fast".into(),
@@ -450,6 +620,8 @@ mod tests {
                 group: None,
                 is_default: false,
                 thinking: None,
+                context: Vec::new(),
+                fast: false,
             },
             AgentModel {
                 id: "auto".into(),
@@ -457,6 +629,8 @@ mod tests {
                 group: None,
                 is_default: false,
                 thinking: None,
+                context: Vec::new(),
+                fast: false,
             },
         ]);
         assert_eq!(
@@ -487,6 +661,100 @@ mod tests {
         ));
         let auto = collapsed.iter().find(|item| item.id == "auto").unwrap();
         assert!(matches!(auto.thinking, Some(AgentThinkingSupport::None)));
+        assert!(codex.context.is_empty());
+        assert!(composer.context.is_empty());
+        assert!(codex.fast);
+        assert!(composer.fast);
+        assert!(!auto.fast);
+    }
+
+    #[test]
+    fn collapse_strips_1m_and_effort_from_display_names() {
+        let collapsed = collapse_cursor_cli_models(vec![
+            AgentModel {
+                id: "gpt-5.4-low".into(),
+                label: "GPT-5.4 1M Low".into(),
+                group: None,
+                is_default: false,
+                thinking: None,
+                context: Vec::new(),
+                fast: false,
+            },
+            AgentModel {
+                id: "gpt-5.4-medium".into(),
+                label: "GPT-5.4 1M".into(),
+                group: None,
+                is_default: false,
+                thinking: None,
+                context: Vec::new(),
+                fast: false,
+            },
+            AgentModel {
+                id: "claude-opus-4-8-low".into(),
+                label: "Claude Opus 4.8 1M Low".into(),
+                group: None,
+                is_default: false,
+                thinking: None,
+                context: Vec::new(),
+                fast: false,
+            },
+            AgentModel {
+                id: "gpt-5.4-mini-low".into(),
+                label: "GPT-5.4 Mini Low".into(),
+                group: None,
+                is_default: false,
+                thinking: None,
+                context: Vec::new(),
+                fast: false,
+            },
+        ]);
+        let gpt = collapsed.iter().find(|item| item.id == "gpt-5.4").unwrap();
+        assert_eq!(gpt.label, "GPT-5.4");
+        assert_eq!(
+            gpt.context
+                .iter()
+                .map(|item| item.id.as_str())
+                .collect::<Vec<_>>(),
+            ["272k", "1m"]
+        );
+        assert!(gpt.context[0].is_default);
+        let claude = collapsed
+            .iter()
+            .find(|item| item.id == "claude-opus-4-8")
+            .unwrap();
+        assert_eq!(claude.label, "Claude Opus 4.8");
+        assert_eq!(
+            claude
+                .context
+                .iter()
+                .map(|item| item.id.as_str())
+                .collect::<Vec<_>>(),
+            ["300k", "1m"]
+        );
+        let mini = collapsed
+            .iter()
+            .find(|item| item.id == "gpt-5.4-mini")
+            .unwrap();
+        assert_eq!(mini.label, "GPT-5.4 Mini");
+        assert!(mini.context.is_empty());
+    }
+
+    #[test]
+    fn clean_display_label_keeps_current_and_no_zdr() {
+        assert_eq!(
+            cursor_clean_display_label("Composer 2.5 (current)"),
+            "Composer 2.5 (current)"
+        );
+        assert_eq!(
+            cursor_clean_display_label("Claude Fable 5 1M Low Thinking (NO ZDR)"),
+            "Claude Fable 5 (NO ZDR)"
+        );
+        assert_eq!(cursor_clean_display_label("GPT-5.4 1M None"), "GPT-5.4");
+        assert_eq!(cursor_clean_display_label("GPT-5.4 1M Low"), "GPT-5.4");
+        assert_eq!(
+            cursor_model_display_label("gpt-5.4", Some("GPT-5.4 1M None")),
+            "GPT-5.4"
+        );
     }
 
     #[test]
@@ -497,6 +765,8 @@ mod tests {
             group: None,
             is_default: true,
             thinking: None,
+            context: Vec::new(),
+            fast: false,
         }];
         let cli = collapse_cursor_cli_models(vec![
             AgentModel {
@@ -505,6 +775,8 @@ mod tests {
                 group: None,
                 is_default: false,
                 thinking: None,
+                context: Vec::new(),
+                fast: false,
             },
             AgentModel {
                 id: "gpt-5.3-codex-high".into(),
@@ -512,6 +784,8 @@ mod tests {
                 group: None,
                 is_default: false,
                 thinking: None,
+                context: Vec::new(),
+                fast: false,
             },
         ]);
         fill_cursor_thinking_by_base(&mut acp, &cli);
@@ -531,6 +805,8 @@ mod tests {
             group: None,
             is_default: false,
             thinking: None,
+            context: Vec::new(),
+            fast: false,
         }];
         let cli = collapse_cursor_cli_models(vec![
             AgentModel {
@@ -539,6 +815,8 @@ mod tests {
                 group: None,
                 is_default: false,
                 thinking: None,
+                context: Vec::new(),
+                fast: false,
             },
             AgentModel {
                 id: "claude-opus-4-8-high".into(),
@@ -546,6 +824,8 @@ mod tests {
                 group: None,
                 is_default: false,
                 thinking: None,
+                context: Vec::new(),
+                fast: false,
             },
         ]);
         fill_cursor_thinking_by_base(&mut acp, &cli);
@@ -567,6 +847,8 @@ mod tests {
                 group: None,
                 is_default: false,
                 thinking: None,
+                context: Vec::new(),
+                fast: false,
             },
             AgentModel {
                 id: "cursor-grok-4.6-high".into(),
@@ -574,6 +856,8 @@ mod tests {
                 group: None,
                 is_default: false,
                 thinking: None,
+                context: Vec::new(),
+                fast: false,
             },
             AgentModel {
                 id: "claude-4.6-sonnet-medium".into(),
@@ -581,6 +865,8 @@ mod tests {
                 group: None,
                 is_default: false,
                 thinking: None,
+                context: Vec::new(),
+                fast: false,
             },
             AgentModel {
                 id: "claude-4.6-sonnet-high".into(),
@@ -588,6 +874,8 @@ mod tests {
                 group: None,
                 is_default: false,
                 thinking: None,
+                context: Vec::new(),
+                fast: false,
             },
             AgentModel {
                 id: "auto".into(),
@@ -595,6 +883,8 @@ mod tests {
                 group: None,
                 is_default: true,
                 thinking: None,
+                context: Vec::new(),
+                fast: false,
             },
         ]);
         let mut acp = vec![
@@ -604,6 +894,8 @@ mod tests {
                 group: None,
                 is_default: false,
                 thinking: None,
+                context: Vec::new(),
+                fast: false,
             },
             AgentModel {
                 id: "claude-sonnet-4-6".into(),
@@ -611,6 +903,8 @@ mod tests {
                 group: None,
                 is_default: false,
                 thinking: None,
+                context: Vec::new(),
+                fast: false,
             },
             AgentModel {
                 id: "default".into(),
@@ -618,6 +912,8 @@ mod tests {
                 group: None,
                 is_default: true,
                 thinking: None,
+                context: Vec::new(),
+                fast: false,
             },
         ];
         fill_cursor_thinking_by_base(&mut acp, &cli);

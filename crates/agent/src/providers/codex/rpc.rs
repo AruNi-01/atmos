@@ -610,6 +610,7 @@ async fn overlay_models(shared: &CodexShared, result: Value) {
         fast: crate::policy::boolean_fast_modes(crate::policy::is_fast_on(
             map.current_config.fast.as_deref(),
         )),
+        context: Vec::new(),
     };
     emit_supported_options(shared, &map.supported_options);
 }

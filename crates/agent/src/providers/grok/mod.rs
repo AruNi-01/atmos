@@ -38,6 +38,10 @@ use rpc::{
 };
 use spawn::{launch_spec, merge_env, program_from_launch_spec};
 
+pub(crate) fn catalog_stdio_launch_spec(program: &str) -> crate::models::AgentLaunchSpec {
+    launch_spec(program, None, None, None)
+}
+
 const EXT_TIMEOUT: Duration = Duration::from_secs(60);
 
 pub struct GrokNativeProvider {
@@ -654,6 +658,7 @@ fn current_config_from(cfg: &AgentRuntimeConfig) -> AgentCurrentConfig {
             .and_then(crate::policy::normalize_stored_permission)
             .or_else(|| cfg.permission_mode.clone()),
         fast: None,
+        context: None,
     }
 }
 

@@ -49,6 +49,7 @@ pub struct FakeAgentProvider {
     prepare_options: Arc<std::sync::Mutex<Vec<crate::contract::AgentPermissionOption>>>,
     running_turn: Arc<Mutex<Option<String>>>,
     events_tx: Arc<Mutex<Option<mpsc::UnboundedSender<AgentEventEnvelope>>>>,
+    root_pid: Option<u32>,
 }
 
 impl FakeAgentProvider {
@@ -70,7 +71,13 @@ impl FakeAgentProvider {
             prepare_options: Arc::new(std::sync::Mutex::new(Vec::new())),
             running_turn: Arc::new(Mutex::new(None)),
             events_tx: Arc::new(Mutex::new(None)),
+            root_pid: None,
         }
+    }
+
+    pub fn with_root_pid(mut self, pid: u32) -> Self {
+        self.root_pid = Some(pid);
+        self
     }
 
     pub fn create_count(&self) -> usize {
@@ -369,6 +376,7 @@ struct FakeSession {
     events_rx: mpsc::UnboundedReceiver<AgentEventEnvelope>,
     persistence: Option<AgentPersistenceHandle>,
     descriptor: AgentDescriptor,
+    root_pid: Option<u32>,
 }
 
 #[async_trait]
@@ -383,6 +391,10 @@ impl AgentRuntime for FakeSession {
 
     fn descriptor(&self) -> AgentDescriptor {
         self.descriptor.clone()
+    }
+
+    fn root_pid(&self) -> Option<u32> {
+        self.root_pid
     }
 
     async fn next_event(&mut self) -> Option<AgentEventEnvelope> {
@@ -468,6 +480,7 @@ fn open_session(
         events_rx: rx,
         persistence,
         descriptor: fake_descriptor(&provider.id, provider.supports_steer),
+        root_pid: provider.root_pid,
     })
 }
 

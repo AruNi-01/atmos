@@ -1,5 +1,7 @@
 //! OpenCode session RPC: prompt_async, abort, permissions, questions, providers.
 
+use std::collections::HashMap;
+
 use serde_json::{json, Value};
 
 use crate::contract::AgentActionError;
@@ -215,7 +217,10 @@ pub fn models_from_providers(body: &Value) -> (AgentSupportedOptions, Option<Str
         let group = provider
             .get("name")
             .and_then(Value::as_str)
-            .map(str::to_string);
+            .map(str::trim)
+            .filter(|name| !name.is_empty())
+            .unwrap_or(provider_id)
+            .to_string();
         let Some(map) = provider.get("models").and_then(Value::as_object) else {
             continue;
         };
@@ -233,9 +238,11 @@ pub fn models_from_providers(body: &Value) -> (AgentSupportedOptions, Option<Str
             models.push(AgentModel {
                 id,
                 label,
-                group: group.clone(),
+                group: Some(group.clone()),
                 is_default,
                 thinking: thinking_from_model_variants(model),
+                context: Vec::new(),
+                fast: false,
             });
         }
     }
@@ -255,19 +262,99 @@ pub fn models_from_providers(body: &Value) -> (AgentSupportedOptions, Option<Str
 }
 
 fn thinking_from_model_variants(model: &Value) -> Option<AgentThinkingSupport> {
-    let variants = model
-        .get("variants")
-        .or_else(|| model.get("variant"))
-        .map(agent_modes_from_value)
-        .unwrap_or_default();
-    if variants.is_empty() {
+    let options = variant_ids_from_model(model);
+    if options.is_empty() {
         None
     } else {
         Some(AgentThinkingSupport::Enum {
             arg: Some("variant".into()),
-            options: variants.into_iter().map(|item| item.id).collect(),
+            options,
         })
     }
+}
+
+/// OpenCode TUI `local.model.variant.list()` is `Object.keys(model.variants)`.
+/// Catalog JSON is a map; older fixtures and `/config` overlays may still be arrays.
+fn variant_ids_from_model(model: &Value) -> Vec<String> {
+    let variants = model.get("variants").or_else(|| model.get("variant"));
+    let mut ids = match variants {
+        Some(value) if value.is_object() => object_variant_ids(value),
+        Some(value) => agent_modes_from_value(value)
+            .into_iter()
+            .map(|item| item.id)
+            .collect(),
+        None => Vec::new(),
+    };
+    if ids.is_empty() {
+        ids = effort_ids_from_reasoning_options(model);
+    }
+    ids
+}
+
+fn object_variant_ids(value: &Value) -> Vec<String> {
+    let Some(object) = value.as_object() else {
+        return Vec::new();
+    };
+    object
+        .iter()
+        .filter(|(key, item)| {
+            !key.is_empty()
+                && !item
+                    .get("disabled")
+                    .and_then(Value::as_bool)
+                    .unwrap_or(false)
+        })
+        .map(|(key, _)| key.clone())
+        .collect()
+}
+
+fn effort_ids_from_reasoning_options(model: &Value) -> Vec<String> {
+    let Some(options) = model.get("reasoning_options").and_then(Value::as_array) else {
+        return Vec::new();
+    };
+    for option in options {
+        if option.get("type").and_then(Value::as_str) != Some("effort") {
+            continue;
+        }
+        let Some(values) = option.get("values").and_then(Value::as_array) else {
+            continue;
+        };
+        return values
+            .iter()
+            .filter_map(|value| {
+                if value.is_null() {
+                    return Some("none".into());
+                }
+                value
+                    .as_str()
+                    .map(str::trim)
+                    .filter(|id| !id.is_empty())
+                    .map(str::to_string)
+            })
+            .collect();
+    }
+    Vec::new()
+}
+
+pub fn advertised_variants_by_model(models: &[AgentModel]) -> HashMap<String, Vec<String>> {
+    models
+        .iter()
+        .filter_map(|model| match &model.thinking {
+            Some(AgentThinkingSupport::Enum { options, .. }) if !options.is_empty() => {
+                Some((model.id.clone(), options.clone()))
+            }
+            _ => None,
+        })
+        .collect()
+}
+
+pub fn advertised_variants_for_model(
+    by_model: &HashMap<String, Vec<String>>,
+    model_id: Option<&str>,
+) -> Vec<String> {
+    model_id
+        .and_then(|id| by_model.get(id).cloned())
+        .unwrap_or_default()
 }
 
 pub fn session_id_from_create(body: &Value) -> Option<String> {
@@ -448,6 +535,78 @@ mod tests {
             .find(|model| model.id == "zhipuai/glm-flash")
             .unwrap();
         assert!(flash.thinking.is_none());
+    }
+
+    #[test]
+    fn providers_read_opencode_variant_map_and_skip_disabled() {
+        let body = json!({
+            "providers": [{
+                "id": "openai",
+                "models": {
+                    "gpt-5": {
+                        "name": "GPT-5",
+                        "variants": {
+                            "none": { "reasoningEffort": "none" },
+                            "low": { "reasoningEffort": "low" },
+                            "high": { "reasoningEffort": "high" },
+                            "fast": { "disabled": true }
+                        }
+                    }
+                }
+            }]
+        });
+        let (options, _) = models_from_providers(&body);
+        let gpt = options
+            .models
+            .iter()
+            .find(|model| model.id == "openai/gpt-5")
+            .unwrap();
+        assert_eq!(gpt.group.as_deref(), Some("openai"));
+        match &gpt.thinking {
+            Some(AgentThinkingSupport::Enum { options, arg }) => {
+                assert_eq!(arg.as_deref(), Some("variant"));
+                let mut levels = options.clone();
+                levels.sort();
+                assert_eq!(levels, ["high", "low", "none"]);
+            }
+            other => panic!("expected map variants, got {other:?}"),
+        }
+        let advertised = advertised_variants_by_model(&options.models);
+        let mut listed = advertised_variants_for_model(&advertised, Some("openai/gpt-5"));
+        listed.sort();
+        assert_eq!(listed, ["high", "low", "none"]);
+        assert!(advertised_variants_for_model(&advertised, Some("missing")).is_empty());
+    }
+
+    #[test]
+    fn providers_read_reasoning_options_when_variants_missing() {
+        let body = json!({
+            "providers": [{
+                "id": "openai",
+                "name": "OpenAI",
+                "models": {
+                    "gpt-5.6": {
+                        "name": "GPT-5.6",
+                        "reasoning_options": [
+                            { "type": "effort", "values": ["none", "low", "medium", "high", "xhigh", "max"] }
+                        ]
+                    }
+                }
+            }]
+        });
+        let (options, _) = models_from_providers(&body);
+        let gpt = options
+            .models
+            .iter()
+            .find(|model| model.id == "openai/gpt-5.6")
+            .unwrap();
+        assert_eq!(gpt.group.as_deref(), Some("OpenAI"));
+        match &gpt.thinking {
+            Some(AgentThinkingSupport::Enum { options, .. }) => {
+                assert_eq!(options, &["none", "low", "medium", "high", "xhigh", "max"]);
+            }
+            other => panic!("expected reasoning_options, got {other:?}"),
+        }
     }
 
     #[test]

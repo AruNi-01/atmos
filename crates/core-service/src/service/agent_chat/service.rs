@@ -1,5 +1,5 @@
 use std::collections::{HashMap, HashSet, VecDeque};
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::sync::{Arc, OnceLock};
 use std::time::{Duration, Instant};
 
@@ -37,7 +37,20 @@ struct LiveRuntime {
     state: Arc<Mutex<RuntimeState>>,
     alive: Arc<AtomicBool>,
     generation: u64,
-    root_pid: Option<u32>,
+    root_pid: Arc<AtomicU32>,
+}
+
+fn live_root_pid(slot: &AtomicU32) -> Option<u32> {
+    match slot.load(Ordering::Relaxed) {
+        0 | 1 => None,
+        pid => Some(pid),
+    }
+}
+
+fn store_live_root_pid(slot: &AtomicU32, pid: Option<u32>) {
+    if let Some(pid) = pid.filter(|pid| *pid > 1) {
+        slot.store(pid, Ordering::Relaxed);
+    }
 }
 
 /// Live Chat UI session for Resource Monitor attribution. Not a public chat DTO.
@@ -157,7 +170,7 @@ impl AgentChatService {
                 session_id: chat_resource_session_id(chat_id),
                 context_id: context_id.to_string(),
                 name: meta.title.clone(),
-                root_pid: live.root_pid,
+                root_pid: live_root_pid(&live.root_pid),
             });
         }
         roots
@@ -201,6 +214,7 @@ impl AgentChatService {
         mode: Option<&str>,
         permission_mode: Option<&str>,
         fast: Option<&str>,
+        context: Option<&str>,
     ) -> Result<()> {
         let snapshot = super::new_chat_configs::snapshot_from_create_fields(
             model,
@@ -208,6 +222,7 @@ impl AgentChatService {
             mode,
             permission_mode,
             fast,
+            context,
         );
         super::new_chat_configs::upsert_agent_new_chat_config(provider_id, snapshot)?;
         Ok(())
@@ -257,6 +272,7 @@ impl AgentChatService {
         mode: Option<String>,
         permission_mode: Option<String>,
         fast: Option<String>,
+        context: Option<String>,
     ) -> Result<AgentChatMeta> {
         let live = {
             let map = self.runtimes.lock().await;
@@ -335,11 +351,13 @@ impl AgentChatService {
             permission_mode_input.as_ref(),
         );
         let next_fast = resolve_configure_select(&resolve_meta, "fast", fast.as_ref());
+        let next_context = resolve_configure_select(&resolve_meta, "context", context.as_ref());
         let apply_model = model.is_some();
         let apply_thinking = thinking.is_some();
         let apply_mode = mode_input.is_some();
         let apply_permission_mode = permission_mode_input.is_some();
         let apply_fast = fast.is_some();
+        let apply_context = context.is_some();
         let stamp_descriptor = provider_changed
             || resolve_meta.descriptor.identity.id != current.descriptor.identity.id
             || resolve_meta.descriptor.supported_options != current.descriptor.supported_options;
@@ -356,6 +374,18 @@ impl AgentChatService {
             }
             if apply_model {
                 meta.descriptor.current_config.model = next_model.clone();
+                if !apply_context {
+                    let modes = super::types::context_modes_for_meta(meta);
+                    if modes.len() < 2 {
+                        meta.descriptor.current_config.context = None;
+                    } else {
+                        let current = meta.descriptor.current_config.context.as_deref();
+                        if current.is_none_or(|id| !modes.iter().any(|item| item.id == id)) {
+                            meta.descriptor.current_config.context =
+                                super::types::default_context_id(&modes);
+                        }
+                    }
+                }
             }
             if apply_thinking {
                 meta.descriptor.current_config.thinking = next_thinking.clone();
@@ -368,6 +398,9 @@ impl AgentChatService {
             }
             if apply_fast {
                 meta.descriptor.current_config.fast = next_fast.clone();
+            }
+            if apply_context {
+                meta.descriptor.current_config.context = next_context.clone();
             }
             if provider_changed {
                 meta.available_commands = catalog
@@ -1238,8 +1271,21 @@ impl AgentChatService {
             } else {
                 meta.descriptor.current_config.fast.clone()
             },
-            extra_config: HashMap::new(),
-            env_overrides: None,
+            extra_config: {
+                let mut extra = HashMap::new();
+                let context = if meta.persistence_handle.is_some() {
+                    meta.applied_context
+                        .clone()
+                        .or_else(|| meta.descriptor.current_config.context.clone())
+                } else {
+                    meta.descriptor.current_config.context.clone()
+                };
+                if let Some(value) = context.filter(|item| !item.trim().is_empty()) {
+                    extra.insert("context".into(), value);
+                }
+                extra
+            },
+            env_overrides: agent::registry_agent_env_overrides(&meta.provider_id),
             auth_method_id: None,
             allow_file_access: meta.workspace_id.is_some() || meta.project_id.is_some(),
             checkpoints: checkpoints_from_turns(
@@ -1314,7 +1360,8 @@ impl AgentChatService {
             turn_usage: None,
         }));
         let generation = self.generations.fetch_add(1, Ordering::SeqCst);
-        let root_pid = session.root_pid();
+        let root_pid = Arc::new(AtomicU32::new(0));
+        store_live_root_pid(&root_pid, session.root_pid());
         self.runtimes.lock().await.insert(
             chat_id.to_string(),
             LiveRuntime {
@@ -1322,7 +1369,7 @@ impl AgentChatService {
                 state: Arc::clone(&state),
                 alive: Arc::clone(&alive),
                 generation,
-                root_pid,
+                root_pid: Arc::clone(&root_pid),
             },
         );
         let store = Arc::clone(&self.store);
@@ -1346,6 +1393,7 @@ impl AgentChatService {
                 status,
                 generation,
                 Arc::clone(&runtimes),
+                Arc::clone(&root_pid),
             )
             .await;
             alive.store(false, Ordering::SeqCst);
@@ -1789,9 +1837,12 @@ async fn pump_session(
     status: Option<Arc<AgentStatusService>>,
     generation: u64,
     runtimes: Arc<Mutex<HashMap<String, LiveRuntime>>>,
+    root_pid: Arc<AtomicU32>,
 ) {
+    store_live_root_pid(&root_pid, session.root_pid());
     let mut closed_cleanly = false;
     while let Some(envelope) = session.next_event().await {
+        store_live_root_pid(&root_pid, session.root_pid());
         if matches!(envelope.payload, AgentEvent::SessionClosed) {
             closed_cleanly = true;
         }

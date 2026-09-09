@@ -24,8 +24,7 @@ use crate::acp_client::logging::append_acp_log;
 use crate::acp_client::tools::AcpToolHandler;
 use crate::acp_client::types::{
     AgentCapabilitiesSnapshot, AgentCapabilityState, AgentImplementationInfo, AgentLogoutResult,
-    AuthMethodSummary, AuthRequiredPayload, NativeAgentSession, NativeAgentSessionList,
-    PermissionRequest,
+    AuthMethodSummary, NativeAgentSession, NativeAgentSessionList, PermissionRequest,
 };
 use crate::acp_client::usage_normalize::spawn_usage_normalizer;
 use crate::acp_client::{AcpSessionEvent, AtmosAcpClient};
@@ -292,12 +291,14 @@ pub(crate) const CONFIG_ALIAS_GROUPS: &[&[&str]] = &[
     // Prefer effort/reasoning when Cursor PMP advertises them; else thinking.
     &[
         "effort",
+        "reasoning",
         "reasoning_effort",
         "thought_level",
         "thinking",
         "think",
     ],
     &["fast", "fast-mode", "fast_mode"],
+    &["context", "context_window", "contextWindow"],
 ];
 
 /// Map host/Atmos default keys onto ids present in `session/new` `configOptions`.
@@ -716,20 +717,7 @@ fn select_session_restore_method(
 }
 
 fn auth_required_message(auth_methods: Vec<AuthMethodSummary>) -> Result<String, String> {
-    if auth_methods.is_empty() {
-        return Err(
-            "Agent requires authentication, but no auth methods were advertised".to_string(),
-        );
-    }
-
-    let auth_payload = AuthRequiredPayload {
-        request_id: uuid::Uuid::new_v4().to_string(),
-        methods: auth_methods,
-        message: "Authentication required by agent".to_string(),
-    };
-    let payload = serde_json::to_string(&auth_payload)
-        .map_err(|e| format!("Serialize auth payload failed: {}", e))?;
-    Ok(format!("{}{}", AUTH_REQUIRED_ERROR_PREFIX, payload))
+    crate::acp_client::types::encode_auth_required(auth_methods, "Authentication required by agent")
 }
 
 fn send_auth_required_error(
@@ -757,7 +745,7 @@ pub struct AcpSessionHandle {
     available_config_ids: Arc<Mutex<HashSet<String>>>,
 }
 
-pub const AUTH_REQUIRED_ERROR_PREFIX: &str = "ACP_AUTH_REQUIRED::";
+pub use crate::acp_client::types::AUTH_REQUIRED_ERROR_PREFIX;
 
 #[derive(Clone)]
 pub struct AcpSessionControl {

@@ -96,6 +96,8 @@ fn parse_provider_model_table_row(line: &str) -> Option<AgentModel> {
         group: Some(provider.to_string()),
         is_default: false,
         thinking: None,
+        context: Vec::new(),
+        fast: false,
     })
 }
 
@@ -214,6 +216,8 @@ pub fn parse_line_list(output: &str) -> Vec<AgentModel> {
                 group: None,
                 is_default: is_current || id_flags.is_default || label_flags.is_default,
                 thinking: None,
+                context: Vec::new(),
+                fast: false,
             },
             is_current,
         ));
@@ -244,6 +248,8 @@ pub fn parse_grok(output: &str) -> Vec<AgentModel> {
                 group: None,
                 is_default,
                 thinking: None,
+                context: Vec::new(),
+                fast: false,
             })
         })
         .collect()
@@ -452,6 +458,8 @@ fn parse_droid_model_row(line: &str) -> Option<AgentModel> {
         group: None,
         is_default: id_flags.is_default || label_flags.is_default,
         thinking: None,
+        context: Vec::new(),
+        fast: false,
     })
 }
 
@@ -495,6 +503,8 @@ fn model_from_map_entry(key: &str, value: &Value) -> Option<AgentModel> {
                 group: None,
                 is_default: false,
                 thinking: None,
+                context: Vec::new(),
+                fast: false,
             }),
         Value::Object(_) => {
             let mut model = model_from_json(value).or_else(|| {
@@ -504,6 +514,8 @@ fn model_from_map_entry(key: &str, value: &Value) -> Option<AgentModel> {
                     group: None,
                     is_default: false,
                     thinking: None,
+                    context: Vec::new(),
+                    fast: false,
                 })
             })?;
             if model.id.is_empty() {
@@ -520,6 +532,8 @@ fn model_from_map_entry(key: &str, value: &Value) -> Option<AgentModel> {
             group: None,
             is_default: false,
             thinking: None,
+            context: Vec::new(),
+            fast: false,
         }),
     }
 }
@@ -532,6 +546,8 @@ fn model_from_json(value: &Value) -> Option<AgentModel> {
             group: None,
             is_default: false,
             thinking: None,
+            context: Vec::new(),
+            fast: false,
         }),
         Value::Object(map) => {
             // Codex `debug models` uses visibility=hide for non-list entries.
@@ -574,6 +590,8 @@ fn model_from_json(value: &Value) -> Option<AgentModel> {
                 group,
                 is_default,
                 thinking,
+                context: Vec::new(),
+                fast: false,
             })
         }
         _ => None,
@@ -640,13 +658,16 @@ pub fn thinking_from_reasoning_mode(
 pub fn looks_like_auth_required(message: &str) -> bool {
     let lower = message.to_ascii_lowercase();
     [
-        "auth",
+        "authentication required",
+        "auth required",
         "login",
         "sign in",
         "sign-in",
         "unauthorized",
         "forbidden",
         "api key",
+        "not logged in",
+        "not signed in",
     ]
     .iter()
     .any(|pattern| lower.contains(pattern))
@@ -864,6 +885,8 @@ mod tests {
                     arg: Some("thinking".into()),
                     options: vec!["xhigh".into(), "high".into(), "medium".into(), "low".into()],
                 }),
+                context: Vec::new(),
+                fast: false,
             }],
             modes: Vec::new(),
             permission_modes: Vec::new(),

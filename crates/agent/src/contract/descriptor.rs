@@ -47,6 +47,9 @@ pub struct AgentOptionSupport {
     /// Vendor-advertised fast/turbo toggle (e.g. Cursor ACP `fast`).
     #[serde(default)]
     pub fast: Capability,
+    /// Vendor-advertised context window select (e.g. Cursor ACP `context`).
+    #[serde(default)]
+    pub context: Capability,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
@@ -62,6 +65,9 @@ pub struct AgentSupportedOptions {
     /// Select values for the vendor `fast` config option (`true` / `false`, …).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub fast: Vec<AgentMode>,
+    /// Session-scoped context window select for the current model.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub context: Vec<AgentMode>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
@@ -76,6 +82,8 @@ pub struct AgentCurrentConfig {
     pub permission_mode: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fast: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub context: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -120,6 +128,8 @@ mod tests {
                 group: None,
                 is_default: true,
                 thinking: None,
+                context: Vec::new(),
+                fast: false,
             }],
             modes: Vec::new(),
             permission_modes: Vec::new(),
@@ -148,6 +158,7 @@ mod tests {
                 mode: None,
                 permission_mode: None,
                 fast: None,
+                context: None,
             },
         };
         let json = serde_json::to_value(&descriptor).expect("serialize");
@@ -230,6 +241,7 @@ mod tests {
             modes: Vec::new(),
             permission_modes: Vec::new(),
             fast: Vec::new(),
+            context: Vec::new(),
         };
         let json = serde_json::to_value(&options).expect("serialize");
         let object = json.as_object().expect("object");

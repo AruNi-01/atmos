@@ -98,6 +98,7 @@ fn current_config_from(cfg: &AgentRuntimeConfig) -> AgentCurrentConfig {
         } else {
             "false".into()
         }),
+        context: None,
     }
 }
 

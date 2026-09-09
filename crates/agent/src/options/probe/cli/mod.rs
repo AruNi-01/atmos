@@ -6,6 +6,8 @@ use async_trait::async_trait;
 use tokio::process::Command;
 use tokio::time::timeout;
 
+use crate::policy::canonicalize_chat_provider_id;
+
 use super::plan::OptionsParserKind;
 
 pub mod cursor;
@@ -66,6 +68,15 @@ pub fn cli_timeout(parser: OptionsParserKind) -> Duration {
     }
 }
 
+pub fn cli_timeout_for(agent_id: &str, parser: OptionsParserKind) -> Duration {
+    if canonicalize_chat_provider_id(agent_id) == "cursor" {
+        // `cursor-agent --list-models` talks to Cursor's catalog; 8s was racing it.
+        Duration::from_secs(20)
+    } else {
+        cli_timeout(parser)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -82,6 +93,14 @@ mod tests {
         );
         assert_eq!(
             cli_timeout(OptionsParserKind::LineList),
+            Duration::from_secs(8)
+        );
+        assert_eq!(
+            cli_timeout_for("cursor", OptionsParserKind::LineList),
+            Duration::from_secs(20)
+        );
+        assert_eq!(
+            cli_timeout_for("codex", OptionsParserKind::LineList),
             Duration::from_secs(8)
         );
     }

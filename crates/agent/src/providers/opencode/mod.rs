@@ -9,7 +9,7 @@ mod spawn;
 mod tool_map;
 
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -30,12 +30,12 @@ use crate::policy::{capabilities_for_provider, option_support_for_provider};
 use event_map::{map_event, EventMapState, MapOut, PendingAsk};
 use http::OpenCodeHttp;
 use rpc::{
-    last_user_message_id, models_from_providers, permission_legacy_body, permission_path,
-    permission_response_body, prompt_async_body, prompt_async_body_with_delivery,
-    question_answers_body, question_reject_path, question_reply_path, routes_from_doc,
-    session_create_body, session_fork_body, session_fork_path, session_id_from_create,
-    session_revert_body, session_revert_path, session_unrevert_path, user_message_id_matching,
-    OpenApiRoutes,
+    advertised_variants_by_model, advertised_variants_for_model, last_user_message_id,
+    models_from_providers, permission_legacy_body, permission_path, permission_response_body,
+    prompt_async_body, prompt_async_body_with_delivery, question_answers_body,
+    question_reject_path, question_reply_path, routes_from_doc, session_create_body,
+    session_fork_body, session_fork_path, session_id_from_create, session_revert_body,
+    session_revert_path, session_unrevert_path, user_message_id_matching, OpenApiRoutes,
 };
 use spawn::{spawn_serve, ServeChild};
 
@@ -66,11 +66,12 @@ struct OpenCodeCommands {
     session_id: String,
     routes: OpenApiRoutes,
     child: Mutex<Option<tokio::process::Child>>,
+    root_pid: AtomicU32,
     shutdown: watch::Sender<bool>,
     running_turn: tokio::sync::Mutex<Option<String>>,
     current_config: std::sync::Mutex<AgentCurrentConfig>,
     pending_asks: std::sync::Mutex<HashMap<String, PendingAsk>>,
-    advertised_variants: std::sync::Mutex<Vec<String>>,
+    advertised_variants: std::sync::Mutex<HashMap<String, Vec<String>>>,
     turn_to_message: std::sync::Mutex<HashMap<String, String>>,
     cancel_requested: AtomicBool,
     idle_armed: Arc<AtomicBool>,
@@ -104,11 +105,13 @@ impl AgentRuntimeCommands for OpenCodeCommands {
             .lock()
             .unwrap_or_else(|error| error.into_inner())
             .clone();
-        let variants = self
-            .advertised_variants
-            .lock()
-            .unwrap_or_else(|error| error.into_inner())
-            .clone();
+        let variants = advertised_variants_for_model(
+            &self
+                .advertised_variants
+                .lock()
+                .unwrap_or_else(|error| error.into_inner()),
+            config.model.as_deref(),
+        );
         let body = prompt_async_body(&input.text, &input.attachments, &config, &variants);
         let path = format!("/session/{}/prompt_async", self.session_id);
         let status = match self.http.post_no_content(&path, &body).await {
@@ -217,11 +220,13 @@ impl OpenCodeCommands {
             .lock()
             .unwrap_or_else(|error| error.into_inner())
             .clone();
-        let variants = self
-            .advertised_variants
-            .lock()
-            .unwrap_or_else(|error| error.into_inner())
-            .clone();
+        let variants = advertised_variants_for_model(
+            &self
+                .advertised_variants
+                .lock()
+                .unwrap_or_else(|error| error.into_inner()),
+            config.model.as_deref(),
+        );
         let body = prompt_async_body_with_delivery(
             &input.text,
             &input.attachments,
@@ -473,11 +478,10 @@ impl AgentRuntime for OpenCodeRuntime {
     }
 
     fn root_pid(&self) -> Option<u32> {
-        self.commands
-            .child
-            .try_lock()
-            .ok()
-            .and_then(|guard| guard.as_ref().and_then(tokio::process::Child::id))
+        match self.commands.root_pid.load(Ordering::Relaxed) {
+            0 | 1 => None,
+            pid => Some(pid),
+        }
     }
 
     fn descriptor(&self) -> AgentDescriptor {
@@ -628,6 +632,7 @@ async fn open_runtime(
         mode: cfg.mode.clone(),
         permission_mode: cfg.permission_mode.clone(),
         fast: None,
+        context: None,
     };
 
     if let Ok((status, health)) = http.get_json("/global/health").await {
@@ -703,9 +708,11 @@ async fn open_runtime(
             }
         }
     }
+    let mut advertised_variants = HashMap::new();
     if let Ok((status, providers)) = http.get_json("/config/providers").await {
         if status.is_success() {
             let (options, default_model) = models_from_providers(&providers);
+            advertised_variants = advertised_variants_by_model(&options.models);
             map.supported_options = options;
             map.load_model_context_windows(&providers);
             if current_config.model.is_none() {
@@ -727,16 +734,18 @@ async fn open_runtime(
         },
     ));
 
+    let child = serve.child;
     let commands = Arc::new(OpenCodeCommands {
         http,
         session_id,
         routes,
-        child: Mutex::new(Some(serve.child)),
+        root_pid: AtomicU32::new(child.id().unwrap_or(0)),
+        child: Mutex::new(Some(child)),
         shutdown: shutdown_tx,
         running_turn: tokio::sync::Mutex::new(None),
         current_config: std::sync::Mutex::new(current_config),
         pending_asks: std::sync::Mutex::new(HashMap::new()),
-        advertised_variants: std::sync::Mutex::new(Vec::new()),
+        advertised_variants: std::sync::Mutex::new(advertised_variants),
         turn_to_message: std::sync::Mutex::new(HashMap::new()),
         cancel_requested: AtomicBool::new(false),
         idle_armed,

@@ -169,6 +169,7 @@ mod tests {
                 Some("agent"),
                 None,
                 Some("true"),
+                None,
             ),
         )
         .unwrap();

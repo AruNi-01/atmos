@@ -5,8 +5,9 @@ use std::time::Duration;
 
 use agent::{
     apply_native_chat_options_plan, canonicalize_chat_provider_id, is_native_chat_options_id,
-    options_cache_dir, thinking_from_builtin, AgentOptionsSnapshot, OptionsCache,
-    OptionsParserKind, OptionsProbe, OptionsProbeStrategy, OptionsSource, OptionsStatus, ProbePlan,
+    options_cache_dir, snapshot_message_needs_auth, thinking_from_builtin, AgentOptionsSnapshot,
+    OptionsCache, OptionsParserKind, OptionsProbe, OptionsProbeStrategy, OptionsSource,
+    OptionsStatus, ProbePlan,
 };
 use chrono::Utc;
 use tokio::sync::{broadcast, Mutex};
@@ -196,7 +197,24 @@ impl OptionsPrefetchWorker {
         self.store_options(&catalog);
     }
 
-    fn store_options(&self, catalog: &AgentOptionsSnapshot) {
+    pub async fn authenticate(
+        &self,
+        spec: &ProbePlan,
+        auth_method_id: &str,
+        auth_secret: Option<&str>,
+    ) -> Result<(), String> {
+        self.probe
+            .authenticate(spec, auth_method_id, auth_secret)
+            .await
+    }
+
+    fn store_options(&self, catalog: &AgentOptionsSnapshot) -> bool {
+        if should_keep_cached_options(&self.cache, catalog) {
+            if snapshot_message_needs_auth(catalog.message.as_deref(), catalog.status) {
+                self.broadcast_auth_overlay(catalog);
+            }
+            return false;
+        }
         for id in options_equivalent_ids(&catalog.agent_id) {
             let mut clone = catalog.clone();
             clone.agent_id = id.clone();
@@ -206,6 +224,23 @@ impl OptionsPrefetchWorker {
             let _ = self.events.send(OptionsUpdated {
                 agent_id: id,
                 options: clone,
+            });
+        }
+        true
+    }
+
+    fn broadcast_auth_overlay(&self, incoming: &AgentOptionsSnapshot) {
+        let Some((previous, _)) = self.lookup_usable(&incoming.agent_id) else {
+            return;
+        };
+        for id in options_equivalent_ids(&incoming.agent_id) {
+            let mut overlay = previous.clone();
+            overlay.agent_id = id.clone();
+            overlay.source = OptionsSource::Live;
+            overlay.message = incoming.message.clone();
+            let _ = self.events.send(OptionsUpdated {
+                agent_id: id,
+                options: overlay,
             });
         }
     }
@@ -243,7 +278,11 @@ impl OptionsPrefetchWorker {
         self.probe_count.fetch_add(1, Ordering::SeqCst);
         let mut catalog = self.probe.probe(spec).await;
         catalog.source = OptionsSource::Live;
-        self.store_options(&catalog);
+        if !self.store_options(&catalog) {
+            if let Some((previous, _)) = self.lookup_usable(&spec.agent_id) {
+                return previous;
+            }
+        }
         catalog
     }
 
@@ -414,6 +453,49 @@ fn catalog_agent_has_acp(agent_id: &str) -> bool {
             | "hermes"
             | "copilot"
     )
+}
+
+fn snapshot_has_picker_options(catalog: &AgentOptionsSnapshot) -> bool {
+    !catalog.models.is_empty() || !catalog.commands.is_empty() || !catalog.modes.is_empty()
+}
+
+fn last_good_ok(catalog: &AgentOptionsSnapshot) -> bool {
+    catalog.status == OptionsStatus::Ok && snapshot_has_picker_options(catalog)
+}
+
+fn incoming_drops_last_good(
+    incoming: &AgentOptionsSnapshot,
+    previous: &AgentOptionsSnapshot,
+) -> bool {
+    (!previous.models.is_empty() && incoming.models.is_empty())
+        || (!previous.commands.is_empty() && incoming.commands.is_empty())
+        || (!previous.modes.is_empty() && incoming.modes.is_empty())
+        || (!previous.permission_modes.is_empty() && incoming.permission_modes.is_empty())
+}
+
+/// Keep last-good for every agent when a live probe fails or comes back
+/// thinner (CLI models after a native/ACP timeout). Silent retry replaces
+/// only on a complete Ok. AuthRequired keeps last-good pickers; the worker
+/// still broadcasts the auth payload so Chat can toast a Sign-in action.
+fn should_keep_cached_options(cache: &OptionsCache, incoming: &AgentOptionsSnapshot) -> bool {
+    let now = Utc::now();
+    let Some(previous) = options_equivalent_ids(&incoming.agent_id)
+        .iter()
+        .find_map(|id| {
+            cache
+                .get_usable(id, now)
+                .and_then(|(previous, _)| last_good_ok(&previous).then_some(previous))
+        })
+    else {
+        return false;
+    };
+    match incoming.status {
+        OptionsStatus::Ok => incoming_drops_last_good(incoming, &previous),
+        OptionsStatus::AuthRequired
+        | OptionsStatus::Error
+        | OptionsStatus::Unsupported
+        | OptionsStatus::Probing => true,
+    }
 }
 
 fn options_equivalent_ids(agent_id: &str) -> Vec<String> {
