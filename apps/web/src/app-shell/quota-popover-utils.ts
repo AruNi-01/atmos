@@ -501,14 +501,15 @@ function foldSharedPoolSegments(
   const folded: QuotaMetricRow[] = [];
   for (const row of rows) {
     const last = folded.at(-1);
-    const isShare =
-      last != null &&
+    const sharedPercent = row.percent;
+    if (
+      last &&
       last.percent != null &&
-      row.percent != null &&
+      sharedPercent != null &&
       !row.resetText &&
-      !isNonWindowUsageLabel(row.label);
-    if (isShare && last) {
-      last.segments.push({ label: row.label, percent: row.percent });
+      !isNonWindowUsageLabel(row.label)
+    ) {
+      last.segments.push({ label: row.label, percent: sharedPercent });
       continue;
     }
     folded.push({ ...row, segments: [...row.segments] });

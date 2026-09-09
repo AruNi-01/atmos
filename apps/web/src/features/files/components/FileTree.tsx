@@ -642,7 +642,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
         });
         if (cancelled || revealRequestIdRef.current !== revealRequestId) return;
 
-        targetItem?.setFocused();
+        targetItem?.setFocused?.();
         const row = await waitForFileTreeRowLayout(
           () => resolveFileTreeRowElement(targetItem, target.path),
           {
