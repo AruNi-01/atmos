@@ -721,6 +721,7 @@ mod tests {
             target_branch: Set(None),
             maximized_terminal_id: Set(None),
             trusted_scripts_hash: Set(None),
+            last_visited_at: Set(None),
         }
         .insert(db)
         .await

@@ -73,6 +73,7 @@ export interface ProjectStore {
     labels: WorkspaceLabel[],
   ) => Promise<void>;
   markWorkspaceVisited: (workspaceId: string) => Promise<void>;
+  markProjectVisited: (projectId: string) => Promise<void>;
   addWorkspacesToProject: (projectId: string, workspaceGuids: string[]) => Promise<void>;
 
   updateWorkspacePinOrder: (orderedWorkspaceIds: string[]) => Promise<void>;

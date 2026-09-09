@@ -127,8 +127,26 @@ function getRecencySource(workspace: Workspace): string {
 }
 
 function getRecencyTimestamp(workspace: Workspace): number {
-  const source = getRecencySource(workspace);
-  return source ? new Date(source).getTime() : 0;
+  return timestampOf(getRecencySource(workspace));
+}
+
+function timestampOf(source: string | undefined): number {
+  if (!source) return 0;
+  const value = new Date(source).getTime();
+  return Number.isFinite(value) ? value : 0;
+}
+
+/** Latest of the project's own visit/create time and any workspace recency. */
+export function getProjectRecencySource(project: Project): string | undefined {
+  const candidates = [
+    project.lastVisitedAt,
+    project.createdAt,
+    ...project.workspaces.map((workspace) => getRecencySource(workspace)),
+  ].filter((value): value is string => Boolean(value));
+  if (candidates.length === 0) return undefined;
+  return candidates.reduce((latest, current) =>
+    timestampOf(current) > timestampOf(latest) ? current : latest,
+  );
 }
 
 function startOfDay(input: Date): Date {
@@ -161,8 +179,7 @@ export function getWorkspaceTimeGroupKey(workspace: Workspace, now = new Date())
 
 function getEntryRecencyTimestamp(entry: FlattenedSidebarEntry): number {
   if (isFlattenedProjectEntry(entry)) {
-    const representative = getProjectGroupingWorkspace(entry.project);
-    return representative ? getRecencyTimestamp(representative) : 0;
+    return timestampOf(getProjectRecencySource(entry.project));
   }
   return getRecencyTimestamp(entry.workspace);
 }
@@ -209,9 +226,8 @@ function getEntryAgentGroupKey(
 
 function getEntryTimeSource(entry: FlattenedSidebarEntry): Date {
   if (isFlattenedProjectEntry(entry)) {
-    const representative = getProjectGroupingWorkspace(entry.project);
-    if (!representative) return new Date(0);
-    return new Date(getRecencySource(representative));
+    const source = getProjectRecencySource(entry.project);
+    return source ? new Date(source) : new Date(0);
   }
   return new Date(getRecencySource(entry.workspace));
 }

@@ -69,6 +69,8 @@ export interface Project {
   borderColor: string | null;
   logoPath: string | null;
   targetBranch?: string;
+  createdAt?: string;
+  lastVisitedAt?: string;
 }
 
 /** User-defined top-level container for projects and workspaces (APP-044). */

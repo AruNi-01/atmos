@@ -356,6 +356,8 @@ pub enum WsAction {
     ProjectDelete,
     /// 验证项目路径
     ProjectValidatePath,
+    /// 记录 Project 最近访问时间
+    ProjectMarkVisited,
 
     // ===== Group 操作 (APP-044) =====
     /// 列出所有 Group
@@ -960,6 +962,11 @@ pub struct ProjectUpdateRequest {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProjectDeleteRequest {
+    pub guid: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProjectMarkVisitedRequest {
     pub guid: String,
 }
 

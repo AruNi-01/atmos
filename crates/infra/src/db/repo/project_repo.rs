@@ -79,6 +79,7 @@ impl<'a> ProjectRepo<'a> {
             target_branch: Set(target_branch),
             maximized_terminal_id: Set(None),
             trusted_scripts_hash: Set(None),
+            last_visited_at: Set(None),
         };
 
         let result = model.insert(self.db).await?;
@@ -281,6 +282,30 @@ impl<'a> ProjectRepo<'a> {
     #[allow(dead_code)]
     pub async fn exists(&self, guid: &str) -> Result<bool> {
         Ok(self.find_by_guid(guid).await?.is_some())
+    }
+
+    pub async fn update_last_visited_at(
+        &self,
+        guid: &str,
+        last_visited_at: chrono::NaiveDateTime,
+    ) -> Result<()> {
+        let result = project::Entity::update_many()
+            .col_expr(
+                project::Column::LastVisitedAt,
+                Expr::value(Some(last_visited_at)),
+            )
+            .col_expr(
+                project::Column::UpdatedAt,
+                Expr::value(chrono::Utc::now().naive_utc()),
+            )
+            .filter(project::Column::Guid.eq(guid))
+            .filter(project::Column::IsDeleted.eq(false))
+            .exec(self.db)
+            .await?;
+        if result.rows_affected == 0 {
+            return Err(crate::error::InfraError::Custom("Project not found".into()));
+        }
+        Ok(())
     }
 
     /// 更新项目目标分支

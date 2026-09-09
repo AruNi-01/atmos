@@ -26,9 +26,21 @@ impl WorkspaceService {
 
     pub async fn mark_visited(&self, guid: String) -> Result<()> {
         let repo = WorkspaceRepo::new(&self.db);
-        Ok(repo
-            .update_last_visited_at(&guid, chrono::Utc::now().naive_utc())
-            .await?)
+        let now = chrono::Utc::now().naive_utc();
+        repo.update_last_visited_at(&guid, now).await?;
+        if let Ok(Some(workspace)) = repo.find_by_guid(&guid).await {
+            if let Err(error) = ProjectRepo::new(&self.db)
+                .update_last_visited_at(&workspace.project_guid, now)
+                .await
+            {
+                tracing::warn!(
+                    %error,
+                    project_guid = %workspace.project_guid,
+                    "failed to update project last_visited_at after workspace visit"
+                );
+            }
+        }
+        Ok(())
     }
 
     pub async fn update_workflow_status(

@@ -697,6 +697,10 @@ export const wsProjectApi = {
     });
   },
 
+  markVisited: async (guid: string): Promise<{ success: boolean }> => {
+    return wsRequest("project_mark_visited", { guid });
+  },
+
   /**
    * 检查项目是否可以删除
    */

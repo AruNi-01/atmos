@@ -66,6 +66,7 @@ export const WS_ACTIONS = [
   "project_update_order",
   "project_delete",
   "project_validate_path",
+  "project_mark_visited",
   "group_list",
   "group_create",
   "group_update",

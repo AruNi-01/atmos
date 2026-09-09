@@ -519,6 +519,10 @@ impl WsMessageService {
             WsAction::ProjectValidatePath => {
                 self.handle_fs_validate_git_path(parse_request(request.data)?)
             }
+            WsAction::ProjectMarkVisited => {
+                self.handle_project_mark_visited(parse_request(request.data)?)
+                    .await
+            }
 
             // Group (APP-044)
             WsAction::GroupList => self.handle_group_list().await,

@@ -9,9 +9,10 @@ use core_service::{Result, ServiceError};
 
 use super::{
     GithubIssuePayload, GithubPrPayload, ProjectCreateRequest, ProjectDeleteProgressNotification,
-    ProjectDeleteRequest, ProjectScriptTrustRequest, ProjectUpdateOrderRequest,
-    ProjectUpdateRequest, ProjectUpdateTargetBranchRequest, ProjectWorkspaceBootstrapResponse,
-    ScriptGetRequest, ScriptSaveRequest, WsEvent, WsManager, WsMessage, WsMessageService,
+    ProjectDeleteRequest, ProjectMarkVisitedRequest, ProjectScriptTrustRequest,
+    ProjectUpdateOrderRequest, ProjectUpdateRequest, ProjectUpdateTargetBranchRequest,
+    ProjectWorkspaceBootstrapResponse, ScriptGetRequest, ScriptSaveRequest, WsEvent, WsManager,
+    WsMessage, WsMessageService,
 };
 
 const WORKSPACE_BOOTSTRAP_CONCURRENCY: usize = 8;
@@ -271,6 +272,14 @@ impl WsMessageService {
         self.project_service
             .update_target_branch(req.guid, req.target_branch)
             .await?;
+        Ok(json!({ "success": true }))
+    }
+
+    pub(super) async fn handle_project_mark_visited(
+        &self,
+        req: ProjectMarkVisitedRequest,
+    ) -> Result<Value> {
+        self.project_service.mark_visited(req.guid).await?;
         Ok(json!({ "success": true }))
     }
 

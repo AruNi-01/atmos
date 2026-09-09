@@ -200,6 +200,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         updateWorkspaceLabel,
         updateWorkspaceLabels,
         markWorkspaceVisited,
+        markProjectVisited,
         reorderProjects,
         reorderWorkspaces,
         setupProgress,
@@ -220,6 +221,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
             updateWorkspaceLabel: s.updateWorkspaceLabel,
             updateWorkspaceLabels: s.updateWorkspaceLabels,
             markWorkspaceVisited: s.markWorkspaceVisited,
+            markProjectVisited: s.markProjectVisited,
             reorderProjects: s.reorderProjects,
             reorderWorkspaces: s.reorderWorkspaces,
             setupProgress: s.setupProgress,
@@ -636,6 +638,54 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
             }
         };
     }, [currentView, currentWorkspaceId, isLoading, markWorkspaceVisited, projects]);
+
+    const pendingVisitedProjectRef = useRef<string | null>(null);
+    const lastVisitedProjectRef = useRef<string | null>(null);
+    const visitedProjectMarkTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    useEffect(() => {
+        if (currentView !== 'project' || !currentProjectId) {
+            pendingVisitedProjectRef.current = null;
+            lastVisitedProjectRef.current = null;
+            if (visitedProjectMarkTimerRef.current) {
+                clearTimeout(visitedProjectMarkTimerRef.current);
+                visitedProjectMarkTimerRef.current = null;
+            }
+            return;
+        }
+
+        if (isLoading) {
+            return;
+        }
+
+        if (lastVisitedProjectRef.current === currentProjectId) {
+            return;
+        }
+
+        const projectExists = projects.some((project) => project.id === currentProjectId);
+        if (!projectExists) {
+            return;
+        }
+
+        pendingVisitedProjectRef.current = currentProjectId;
+        if (visitedProjectMarkTimerRef.current) {
+            clearTimeout(visitedProjectMarkTimerRef.current);
+        }
+        visitedProjectMarkTimerRef.current = setTimeout(() => {
+            visitedProjectMarkTimerRef.current = null;
+            const id = pendingVisitedProjectRef.current;
+            if (!id) return;
+            pendingVisitedProjectRef.current = null;
+            lastVisitedProjectRef.current = id;
+            void markProjectVisited(id);
+        }, 750);
+
+        return () => {
+            if (visitedProjectMarkTimerRef.current) {
+                clearTimeout(visitedProjectMarkTimerRef.current);
+                visitedProjectMarkTimerRef.current = null;
+            }
+        };
+    }, [currentView, currentProjectId, isLoading, markProjectVisited, projects]);
 
     useLeftSidebarFileTreeSync({
         currentEffectivePath,

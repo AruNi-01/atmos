@@ -40,6 +40,8 @@ export function mapProjectModel(model: ProjectModel, workspaces: Workspace[] = [
     borderColor: model.border_color,
     logoPath: model.logo_path ?? null,
     targetBranch: model.target_branch ?? undefined,
+    createdAt: model.created_at,
+    lastVisitedAt: model.last_visited_at ?? undefined,
   };
 }
 

@@ -14,7 +14,7 @@ import { getRuntimeApiConfig, httpBase } from "@/shared/lib/desktop-runtime";
 import { SidebarHeldShortcutBadge } from "@/app-shell/HeldShortcutBadge";
 import { useSidebarShortcutDigit } from "@/app-shell/held-shortcut-prefix-store";
 import { SIDEBAR_SHORTCUT_TARGET_ATTR } from "@/app-shell/shortcut-prefix";
-import { getProjectGroupingWorkspace } from "@/app-shell/sidebar/workspace-grouping";
+import { getProjectRecencySource } from "@/app-shell/sidebar/workspace-grouping";
 import { useGitStatusQuery } from "@/features/git/hooks/use-git-status-query";
 import { WorkspacePrLifecycleIcon } from "@/features/github/components/WorkspacePrStatusIcon";
 import { WorkspacePrSummary } from "@/features/github/components/WorkspacePrSummary";
@@ -142,8 +142,7 @@ export function GroupedProjectRow({
   const shortcutDigit = useSidebarShortcutDigit(projectShortcutKey);
   const { logoUrl, hasLogoLoadError, onLogoError } = useProjectLogoUrl(project.logoPath);
   const initialLetter = project.name.charAt(0).toUpperCase();
-  const representative = getProjectGroupingWorkspace(project);
-  const lastActiveSource = representative?.lastVisitedAt ?? representative?.createdAt;
+  const lastActiveSource = getProjectRecencySource(project);
   const timeAgo = lastActiveSource ? formatRelativeTime(lastActiveSource, locale) : t("notSet");
   const projectGroupId = findGroupIdForMember(groups, "project", project.id);
   const projectGroupName = projectGroupId
