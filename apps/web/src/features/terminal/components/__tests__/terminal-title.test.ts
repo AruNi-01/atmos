@@ -205,16 +205,140 @@ describe("terminal title APP-036 unique + contested agent matching", () => {
         baseTitle: "shell",
         dynamicTitle: "grok --always-approve",
         configuredAgents: agents,
-      }).toolbarAgent?.id,
-    ).toBe("grok-build");
+      }),
+    ).toMatchObject({
+      toolbarAgent: expect.objectContaining({ id: "grok-build" }),
+      displayTitle: "Grok Build",
+      oscSuffix: "",
+    });
 
     expect(
       getTerminalDisplayMeta({
         baseTitle: "shell",
         dynamicTitle: "cursor-agent --yolo",
         configuredAgents: agents,
-      }).toolbarAgent?.id,
-    ).toBe("cursor");
+      }),
+    ).toMatchObject({
+      toolbarAgent: expect.objectContaining({ id: "cursor" }),
+      displayTitle: "Cursor Agent",
+      oscSuffix: "",
+    });
+  });
+
+  it("ignores trailing CLI args when branding the pane (typed command + auto-title OSC)", () => {
+    const claude = {
+      id: "claude",
+      label: "Claude Code",
+      command: "claude",
+      iconType: "built-in" as const,
+    };
+    const gemini = {
+      id: "gemini",
+      label: "Gemini",
+      command: "gemini",
+      iconType: "built-in" as const,
+    };
+    const agy = {
+      id: "antigravity",
+      label: "Antigravity",
+      command: "agy",
+      iconType: "built-in" as const,
+    };
+    const codex = {
+      id: "codex",
+      label: "Codex",
+      command: "codex",
+      iconType: "built-in" as const,
+    };
+    const allAgents = [...agents, claude, gemini, agy, codex];
+
+    const cases: Array<{
+      dynamicTitle: string;
+      oscTitle: string;
+      id: string;
+      label: string;
+    }> = [
+      {
+        dynamicTitle: "grok",
+        oscTitle: "grok --always-approve",
+        id: "grok-build",
+        label: "Grok Build",
+      },
+      {
+        dynamicTitle: "grok --always-approve",
+        oscTitle: "grok --always-approve",
+        id: "grok-build",
+        label: "Grok Build",
+      },
+      {
+        dynamicTitle: "grok-macos-aarc --always-approve",
+        oscTitle: "grok-macos-aarc --always-approve",
+        id: "grok-build",
+        label: "Grok Build",
+      },
+      {
+        dynamicTitle: "claude",
+        oscTitle: "claude --dangerously-skip-permissions",
+        id: "claude",
+        label: "Claude Code",
+      },
+      {
+        dynamicTitle: "cursor-agent",
+        oscTitle: "cursor-agent --yolo",
+        id: "cursor",
+        label: "Cursor Agent",
+      },
+      {
+        dynamicTitle: "gemini",
+        oscTitle: "gemini --yolo",
+        id: "gemini",
+        label: "Gemini",
+      },
+      {
+        dynamicTitle: "agy",
+        oscTitle: "agy --dangerously-skip-permissions",
+        id: "antigravity",
+        label: "Antigravity",
+      },
+      {
+        dynamicTitle: "codex",
+        oscTitle: "codex --dangerously-bypass-approvals-and-sandbox",
+        id: "codex",
+        label: "Codex",
+      },
+      {
+        dynamicTitle: "hermes",
+        oscTitle: "hermes chat --yolo",
+        id: "hermes",
+        label: "Hermes Agent",
+      },
+      {
+        dynamicTitle: "codex",
+        oscTitle: "codex exec --json",
+        id: "codex",
+        label: "Codex",
+      },
+    ];
+
+    for (const { dynamicTitle, oscTitle, id, label } of cases) {
+      const meta = getTerminalDisplayMeta({
+        baseTitle: "shell",
+        dynamicTitle,
+        configuredAgents: allAgents,
+        oscTitle,
+      });
+      expect({
+        case: `${dynamicTitle} / ${oscTitle}`,
+        agentId: meta.toolbarAgent?.id,
+        displayTitle: meta.displayTitle,
+        oscSuffix: meta.oscSuffix,
+      }).toEqual({
+        case: `${dynamicTitle} / ${oscTitle}`,
+        agentId: id,
+        displayTitle: label,
+        oscSuffix: "",
+      });
+    }
   });
 
   it("S8 — does not match cursor-agent via substring of bare agent cmd", () => {
@@ -577,6 +701,13 @@ describe("native OSC 0/2 title suffix (APP-047)", () => {
     expect(isShellPreexecCommandOscTitle(pipeline)).toBe(true);
     expect(isShellPreexecCommandOscTitle("debugging auth")).toBe(false);
     expect(isShellPreexecCommandOscTitle("fix src/api")).toBe(false);
+    // Typed agent/program lines that are only flags — not session topics.
+    expect(isShellPreexecCommandOscTitle("grok --always-approve")).toBe(true);
+    expect(isShellPreexecCommandOscTitle("claude --dangerously-skip-permissions")).toBe(true);
+    expect(isShellPreexecCommandOscTitle("cursor-agent --yolo")).toBe(true);
+    // Subcommands still need agent-context filtering; they are not flag-only.
+    expect(isShellPreexecCommandOscTitle("hermes chat --yolo")).toBe(false);
+    expect(isShellPreexecCommandOscTitle("codex exec --json")).toBe(false);
 
     // Ignored shell command (even after an agent topic) → empty. The command
     // is not shown, and any previous suffix must not stick.

@@ -431,14 +431,14 @@ impl RunLogTee {
         }
     }
 
-    /// Resolve preferred latest log path for slash command.
+    /// Resolve the latest log for the View Run Logs slash command.
+    ///
+    /// Extra Run tabs write `run-{tabId}.latest.log`. Prefer the most recently
+    /// updated `*.latest.log` so a just-run extra terminal wins over a stale
+    /// default Run tab. `run-main` wins mtime ties.
     pub fn resolve_latest_path(project_root: &Path) -> Option<PathBuf> {
         let dir = run_logs_dir(project_root);
-        let preferred = latest_log_path(project_root, "run-main");
-        if preferred.is_file() {
-            return Some(preferred);
-        }
-        let mut best: Option<(SystemTime, PathBuf)> = None;
+        let mut best: Option<(SystemTime, bool, PathBuf)> = None;
         let entries = fs::read_dir(&dir).ok()?;
         for entry in entries.flatten() {
             let path = entry.path();
@@ -450,13 +450,17 @@ impl RunLogTee {
                 .metadata()
                 .and_then(|m| m.modified())
                 .unwrap_or(SystemTime::UNIX_EPOCH);
+            let is_main = name == "run-main.latest.log";
             match &best {
-                None => best = Some((mtime, path)),
-                Some((t, _)) if mtime > *t => best = Some((mtime, path)),
-                _ => {}
+                None => best = Some((mtime, is_main, path)),
+                Some((t, was_main, _)) => {
+                    if mtime > *t || (mtime == *t && is_main && !*was_main) {
+                        best = Some((mtime, is_main, path));
+                    }
+                }
             }
         }
-        best.map(|(_, p)| p)
+        best.map(|(_, _, p)| p)
     }
 }
 
@@ -537,16 +541,45 @@ mod tests {
     }
 
     #[test]
-    fn resolve_prefers_run_main() {
+    fn resolve_prefers_newer_run_over_stale_run_main() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        let logs = run_logs_dir(root);
+        fs::create_dir_all(&logs).unwrap();
+        fs::write(logs.join("run-main.latest.log"), "old main\n").unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(20));
+        fs::write(logs.join("run-2.latest.log"), "new extra\n").unwrap();
+        let resolved = RunLogTee::resolve_latest_path(root).unwrap();
+        assert!(
+            resolved.ends_with("run-2.latest.log"),
+            "expected extra tab, got {}",
+            resolved.display()
+        );
+    }
+
+    #[test]
+    fn resolve_prefers_newer_run_main() {
         let dir = tempfile::tempdir().unwrap();
         let root = dir.path();
         let tee = RunLogTee::new();
         tee.start_run(root, "run-2", Some("x"), None).unwrap();
         tee.append(root, "run-2", b"other\n");
+        std::thread::sleep(std::time::Duration::from_millis(20));
         tee.start_run(root, "run-main", Some("y"), None).unwrap();
         tee.append(root, "run-main", b"main\n");
         let resolved = RunLogTee::resolve_latest_path(root).unwrap();
         assert!(resolved.ends_with("run-main.latest.log"));
+    }
+
+    #[test]
+    fn resolve_falls_back_to_extra_tab_when_run_main_missing() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        let tee = RunLogTee::new();
+        tee.start_run(root, "run-2", Some("x"), None).unwrap();
+        tee.append(root, "run-2", b"other\n");
+        let resolved = RunLogTee::resolve_latest_path(root).unwrap();
+        assert!(resolved.ends_with("run-2.latest.log"));
     }
 
     #[test]

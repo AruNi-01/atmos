@@ -218,6 +218,26 @@ describe("resolveTerminalCenterTabPresentation", () => {
     expect(result.toolbarAgent?.id).toBe("grok-build");
   });
 
+  it("does not treat a typed agent command line as the session topic", () => {
+    const panes = {
+      a: pane({
+        id: "a",
+        label: "1",
+        dynamicTitle: "grok --always-approve",
+        oscTitle: "grok --always-approve",
+      }),
+    };
+    const result = resolveTerminalCenterTabPresentation({
+      fallbackTitle: "Term",
+      panes,
+      layout: "a",
+      configuredAgents: [grokAgent],
+    });
+    expect(result.displayTitle).toBe("Grok Build");
+    expect(result.sessionOscTitle).toBeUndefined();
+    expect(result.toolbarAgent?.id).toBe("grok-build");
+  });
+
   it("shows the agent name when the pane has no session topic or cwd", () => {
     const panes = {
       a: pane({

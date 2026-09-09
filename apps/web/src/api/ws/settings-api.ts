@@ -87,12 +87,10 @@ export interface FunctionSettings {
     rich_input_trigger_bar_visible?: boolean;
     /** When true, plain split launches the configured default agent. */
     default_split_agent_enabled?: boolean;
-    /** Explicit default agent id for plain split / optional new-tab launch. */
+    /** Explicit default agent id for plain split. */
     default_split_agent_id?: string | null;
     /** Optional run config for the default split agent. */
     default_split_agent_run_config?: TerminalAgentRunConfigInput | null;
-    /** When true (and enabled), new Terminal tabs also launch the default agent. */
-    default_split_agent_apply_to_new_tab?: boolean;
     /** xterm.js cursorStyle: block | underline | bar. Default underline. */
     cursor_style?: "block" | "underline" | "bar";
     /** When true (default), the terminal caret blinks. */

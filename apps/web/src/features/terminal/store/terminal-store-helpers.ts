@@ -321,10 +321,7 @@ export function getWorkspaceTerminalTabs(
   if (Object.prototype.hasOwnProperty.call(state.workspaceTerminalTabs, workspaceId)) {
     return state.workspaceTerminalTabs[workspaceId] ?? [];
   }
-  if (parseCenterSpaceKey(workspaceId).spaceId !== DEFAULT_CENTER_SPACE_ID) {
-    return [];
-  }
-  return [createFixedTerminalTab()];
+  return [];
 }
 
 function findPaneIdsInWorkspacePanes(

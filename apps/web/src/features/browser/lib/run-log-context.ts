@@ -9,9 +9,21 @@ export function buildRunLogLatestPath(projectRoot: string, windowName = "run-mai
   return `${root}/.atmos/run-logs/${windowName}.latest.log`;
 }
 
+/** `run-main` or `run-{tabId}` from a `*.latest.log` path. */
+export function runLogWindowNameFromLatestPath(path: string): string | null {
+  const base = path.replace(/\\/g, "/").split("/").pop() ?? "";
+  if (!base.endsWith(".latest.log")) return null;
+  const name = base.slice(0, -".latest.log".length);
+  return name.startsWith("run-") ? name : null;
+}
+
 export function buildRunLogAvailablePrompt(path: string): string {
+  const windowName = runLogWindowNameFromLatestPath(path);
+  const source = windowName
+    ? `This is an Atmos Run log (output from Run window \`${windowName}\`; \`run-main\` is the default Run tab, other \`run-*\` windows are extra Run terminals).`
+    : "This is an Atmos Run log (output from the project's Run terminal).";
   return [
-    "This is an Atmos Run log (output from the project's Run terminal).",
+    source,
     "",
     `Log path: ${path}`,
     "",

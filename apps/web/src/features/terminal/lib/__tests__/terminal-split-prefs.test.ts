@@ -38,7 +38,6 @@ describe("parseTerminalSplitPrefsFromSettings", () => {
           model: "claude-opus-4-20250514",
           extra_args: ["--verbose"],
         },
-        [TERMINAL_DEFAULT_SPLIT_AGENT_KEYS.applyToNewTerminalTab]: true,
       }),
     ).toEqual({
       enabled: true,
@@ -48,7 +47,6 @@ describe("parseTerminalSplitPrefsFromSettings", () => {
         reasoning: null,
         extra_args: ["--verbose"],
       },
-      applyToNewTerminalTab: true,
     });
   });
 
@@ -58,13 +56,11 @@ describe("parseTerminalSplitPrefsFromSettings", () => {
         [TERMINAL_DEFAULT_SPLIT_AGENT_KEYS.enabled]: true,
         [TERMINAL_DEFAULT_SPLIT_AGENT_KEYS.agentId]: "claude",
         [TERMINAL_DEFAULT_SPLIT_AGENT_KEYS.runConfig]: "{not-json",
-        [TERMINAL_DEFAULT_SPLIT_AGENT_KEYS.applyToNewTerminalTab]: true,
       }),
     ).toEqual({
       enabled: true,
       agentId: "claude",
       runConfig: null,
-      applyToNewTerminalTab: true,
     });
 
     expect(
@@ -80,7 +76,6 @@ describe("parseTerminalSplitPrefsFromSettings", () => {
       enabled: true,
       agentId: "claude",
       runConfig: null,
-      applyToNewTerminalTab: false,
     });
   });
 });

@@ -134,7 +134,7 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => {
     if (activeTabId && tabs.some((tab) => tab.id === activeTabId)) {
       return activeTabId;
     }
-    return tabs[0]?.id ?? FIXED_TERMINAL_TAB_VALUE;
+    return tabs[0]?.id ?? "";
   },
 
   setActiveTerminalTab: (workspaceId, terminalTabId) => {
@@ -690,11 +690,11 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => {
           set((currentState) => ({
             workspaceTerminalTabs: {
               ...currentState.workspaceTerminalTabs,
-              [workspaceId]: [createFixedTerminalTab()],
+              [workspaceId]: [],
             },
             workspaceActiveTerminalTabIds: {
               ...currentState.workspaceActiveTerminalTabIds,
-              [workspaceId]: FIXED_TERMINAL_TAB_VALUE,
+              [workspaceId]: "",
             },
             persistedTerminalLayouts: {
               ...currentState.persistedTerminalLayouts,
