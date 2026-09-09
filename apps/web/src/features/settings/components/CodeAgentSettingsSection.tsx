@@ -24,6 +24,7 @@ import { resolveAgentLaunchFlags } from "@/features/agent/lib/terminal-agent-yol
 import { AgentIcon } from "@/features/agent/components/AgentIcon";
 import type { CodeAgentCustomEntry } from "@/api/ws-api";
 import { AgentActivityIndicatorsSettingsSection } from "@/features/settings/components/AgentActivityIndicatorsSettingsSection";
+import { AgentToolCallDensitySettingsSection } from "@/features/settings/components/AgentToolCallDensitySettingsSection";
 import { AgentHookStatusCard } from "@/features/settings/components/AgentHookStatusCard";
 import {
   CodeAgentBehaviourSettingsSection,
@@ -195,6 +196,8 @@ export function CodeAgentSettingsSection({
           </Button>
         </SettingsGroupRow>
       </SettingsGroupCard>
+
+      <AgentToolCallDensitySettingsSection />
 
       <AgentActivityIndicatorsSettingsSection />
 

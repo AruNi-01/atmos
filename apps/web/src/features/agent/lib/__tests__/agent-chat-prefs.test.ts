@@ -14,6 +14,7 @@ describe("agent chat prefs", () => {
       modeId: "",
       permissionModeId: "",
       fastId: "",
+      contextId: "",
     });
     expect(
       preferredConfigFromDefault({
@@ -22,6 +23,7 @@ describe("agent chat prefs", () => {
         mode: "plan",
         permission_mode: "yolo",
         fast: "true",
+        context: "1m",
       }),
     ).toEqual({
       modelId: "opus",
@@ -29,6 +31,7 @@ describe("agent chat prefs", () => {
       modeId: "plan",
       permissionModeId: "yolo",
       fastId: "true",
+      contextId: "1m",
     });
     expect(
       preferredConfigFromDefault({
@@ -42,6 +45,7 @@ describe("agent chat prefs", () => {
       modeId: "",
       permissionModeId: "",
       fastId: "",
+      contextId: "",
     });
   });
 

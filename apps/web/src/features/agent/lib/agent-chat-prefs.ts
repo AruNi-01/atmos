@@ -12,6 +12,7 @@ const THINKING_CONFIG_KEYS = [
 const MODE_CONFIG_KEYS = ["mode"] as const;
 const PERMISSION_CONFIG_KEYS = ["permission_mode", "permissionMode"] as const;
 const FAST_CONFIG_KEYS = ["fast"] as const;
+const CONTEXT_CONFIG_KEYS = ["context", "context_window", "contextWindow"] as const;
 
 export type PreferredNewChatConfig = {
   modelId: string;
@@ -19,6 +20,7 @@ export type PreferredNewChatConfig = {
   modeId: string;
   permissionModeId: string;
   fastId: string;
+  contextId: string;
 };
 
 export function pickAgentDefaultConfigValue(
@@ -43,6 +45,7 @@ export function preferredConfigFromDefault(
     modeId: pickAgentDefaultConfigValue(defaultConfig, MODE_CONFIG_KEYS),
     permissionModeId: pickAgentDefaultConfigValue(defaultConfig, PERMISSION_CONFIG_KEYS),
     fastId: pickAgentDefaultConfigValue(defaultConfig, FAST_CONFIG_KEYS),
+    contextId: pickAgentDefaultConfigValue(defaultConfig, CONTEXT_CONFIG_KEYS),
   };
 }
 

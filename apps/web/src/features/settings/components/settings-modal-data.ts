@@ -251,6 +251,9 @@ const SETTINGS_TOPIC_KEYWORDS: Record<string, readonly string[]> = {
     "yolo",
     "yolo mode",
     "skip permissions",
+    "tool call density",
+    "compact",
+    "detailed",
     "show agent name",
     "terminal titles",
     "behaviour",
@@ -695,6 +698,9 @@ const SETTINGS_TOPIC_ITEMS: Record<string, readonly SettingsSearchItemDefinition
     }),
     settingsModalSearchItem("codeAgent.yoloMode", {
       keywords: ["yolo", "skip-permissions", "auto-approve", "dangerously-skip-permissions", "restore yolo"],
+    }),
+    settingsModalSearchItem("codeAgent.toolCallDensity", {
+      keywords: ["compact", "detailed", "tool calls", "fold", "collapse", "density", "tool call density"],
     }),
     settingsModalSearchItem("codeAgent.activityIndicators", {
       keywords: ["running-state icon", "unicode spinner", "orbs", "left sidebar", "footer"],

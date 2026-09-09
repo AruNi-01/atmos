@@ -24,6 +24,8 @@ export interface FunctionSettings {
     activity_indicator_center_terminal?: string;
     activity_indicator_terminal_panel?: string;
     activity_indicator_footer?: string;
+    /** Agent Chat tool-call folding: compact | standard | detailed. */
+    tool_call_density?: "compact" | "standard" | "detailed";
     saved_run_configs?: TerminalAgentSavedRunConfig[];
   };
   editor?: {
