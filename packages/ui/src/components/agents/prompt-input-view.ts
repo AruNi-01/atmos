@@ -36,14 +36,53 @@ export function agentConfigFlyoutOffsetTop(input: {
 
 export function agentConfigTriggerText(input: {
   modelLabel?: string;
+  contextLabel?: string;
   thinkingLabel?: string;
   agentLabel?: string;
 }): string {
   const model = input.modelLabel?.trim() ?? "";
+  const context = input.contextLabel?.trim() ?? "";
   const thinking = input.thinkingLabel?.trim() ?? "";
   const agent = input.agentLabel?.trim() ?? "";
-  if (model && thinking) return `${model} · ${thinking}`;
-  return model || thinking || agent;
+  const withContext = modelLabelWithContext(model, context);
+  if (withContext && thinking) return `${withContext} · ${thinking}`;
+  return withContext || thinking || agent;
+}
+
+/** Only 1M is shown on the model name; the default window stays implicit. */
+export function contextModelSuffix(label?: string, value?: string): string {
+  const token = (value ?? "").trim().toLowerCase().replace(/[-_]/g, "");
+  const text = (label ?? "").trim();
+  if (token === "1m" || text.toUpperCase() === "1M") return text || "1M";
+  return "";
+}
+
+export function modelLabelWithContext(modelLabel: string, contextSuffix: string): string {
+  const model = modelLabel.trim();
+  const suffix = contextSuffix.trim();
+  if (!model || !suffix) return model;
+  if (model.endsWith(` ${suffix}`) || /\s1m$/i.test(model)) return model;
+  return `${model} ${suffix}`;
+}
+
+/** First letter only; leave mixed-case provider names (OpenAI) unchanged. */
+export function capitalizeLeading(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  if (trimmed !== trimmed.toLowerCase()) return trimmed;
+  return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
+}
+
+/** `GPT-5 / Openai` — provider is omitted when empty. */
+export function formatModelProviderLabel(
+  model: string,
+  provider?: string | null,
+): string {
+  const name = model.trim();
+  const group = capitalizeLeading(provider ?? "");
+  if (!name) return group;
+  if (!group) return name;
+  return `${name} / ${group}`;
 }
 
 /** One chip: `Low · Fast` when Fast is on, otherwise `Low` or `Fast`. */

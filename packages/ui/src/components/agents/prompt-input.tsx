@@ -7,6 +7,7 @@ import {
   ChevronRight,
   LoaderCircle,
   Plus,
+  RefreshCw,
   Search,
   Square,
   X,
@@ -47,12 +48,18 @@ import { SPRING_PRESS, SPRING_SWAP } from "../../lib/ease";
 import { cn } from "../../lib/utils";
 import {
   agentConfigTriggerText,
+  capitalizeLeading,
+  contextModelSuffix,
+  formatModelProviderLabel,
   modelEffortTriggerLabel,
+  modelLabelWithContext,
 } from "./prompt-input-view";
 
 export interface PromptModel {
   value: string;
   label: ReactNode;
+  /** Provider / source shown after the model name as ` / Provider`. */
+  group?: string;
   description?: ReactNode;
   icon?: ReactNode;
   /** Chip shown immediately after the option label (e.g. Native / ACP). */
@@ -85,12 +92,17 @@ export interface PromptInputLabels {
   back?: string;
   noResults?: string;
   loadingModels?: string;
+  /** Reload the model catalog when switching agents leaves it empty. */
+  loadModels?: string;
+  /** Force a live model catalog probe even when the cache is still fresh. */
+  reloadModels?: string;
   thinkingFaster?: string;
   thinkingSmarter?: string;
   thinkingEffort?: string;
   fastMode?: string;
   /** Short Fast chip word, e.g. `Low · Fast`. */
   fastChip?: string;
+  context?: string;
 }
 
 export type PromptInputRadius = "2xl" | "3xl";
@@ -107,9 +119,13 @@ export interface PromptInputProps extends Omit<
   defaultModel?: string;
   onModelChange?: (model: string) => void;
   modelsLoading?: boolean;
+  /** True while a user-initiated catalog reload is in flight. */
+  modelsReloading?: boolean;
   modelsLocked?: boolean;
   /** Fired when the model picker opens while the model list is empty. */
   onEmptyModelsOpen?: () => void;
+  /** Fired when the user asks to reload the model catalog. */
+  onLoadModels?: () => void;
   agents?: PromptModel[];
   agent?: string;
   onAgentChange?: (agent: string) => void;
@@ -129,6 +145,9 @@ export interface PromptInputProps extends Omit<
   fastAvailable?: boolean;
   fastEnabled?: boolean;
   onFastChange?: (enabled: boolean) => void;
+  contextLevels?: PromptModel[];
+  context?: string;
+  onContextChange?: (context: string) => void;
   actions?: PromptAction[];
   onAction?: (action: string) => void;
   onSubmit?: (value: string, model?: string) => void | Promise<void>;
@@ -177,11 +196,14 @@ const DEFAULT_LABELS: Required<PromptInputLabels> = {
   back: "Agents",
   noResults: "No results",
   loadingModels: "Loading models",
+  loadModels: "Load",
+  reloadModels: "Reload models",
   thinkingFaster: "Faster",
   thinkingSmarter: "Smarter",
   thinkingEffort: "Effort",
   fastMode: "Fast Tier",
   fastChip: "Fast",
+  context: "Context",
 };
 
 export function PromptInput({
@@ -193,8 +215,10 @@ export function PromptInput({
   defaultModel,
   onModelChange,
   modelsLoading = false,
+  modelsReloading = false,
   modelsLocked = false,
   onEmptyModelsOpen,
+  onLoadModels,
   agents = [],
   agent,
   onAgentChange,
@@ -213,6 +237,9 @@ export function PromptInput({
   fastAvailable = false,
   fastEnabled = false,
   onFastChange,
+  contextLevels = [],
+  context,
+  onContextChange,
   actions = [],
   onAction,
   onSubmit,
@@ -441,7 +468,7 @@ export function PromptInput({
           />
         ) : null}
         <div className="ml-auto flex min-w-0 items-center gap-1">
-          {agents.length || models.length || thinkingLevels.length > 0 || fastAvailable || modelsLoading ? (
+          {agents.length || models.length || thinkingLevels.length > 0 || fastAvailable || contextLevels.length > 1 || modelsLoading ? (
             <PromptAgentConfigMenu
               agents={agents}
               agent={agent}
@@ -452,7 +479,9 @@ export function PromptInput({
               onModelChange={setModel}
               modelsLocked={modelsLocked}
               modelsLoading={modelsLoading}
+              modelsReloading={modelsReloading}
               onEmptyModelsOpen={onEmptyModelsOpen}
+              onLoadModels={onLoadModels}
               currentAgent={currentAgent}
               currentModel={currentModel}
               thinkingLevels={thinkingLevels}
@@ -461,6 +490,9 @@ export function PromptInput({
               fastAvailable={fastAvailable}
               fastEnabled={fastEnabled}
               onFastChange={onFastChange}
+              contextLevels={contextLevels}
+              context={context}
+              onContextChange={onContextChange}
               disabled={disabled || loading}
               labels={labels}
               className="min-w-0"
@@ -607,7 +639,9 @@ function PromptAgentConfigMenu({
   onModelChange,
   modelsLocked,
   modelsLoading,
+  modelsReloading,
   onEmptyModelsOpen,
+  onLoadModels,
   currentAgent,
   currentModel,
   thinkingLevels,
@@ -616,6 +650,9 @@ function PromptAgentConfigMenu({
   fastAvailable,
   fastEnabled,
   onFastChange,
+  contextLevels,
+  context,
+  onContextChange,
   disabled,
   labels,
   className,
@@ -631,7 +668,9 @@ function PromptAgentConfigMenu({
   onModelChange: (model: string) => void;
   modelsLocked?: boolean;
   modelsLoading?: boolean;
+  modelsReloading?: boolean;
   onEmptyModelsOpen?: () => void;
+  onLoadModels?: () => void;
   currentAgent?: PromptModel;
   currentModel?: PromptModel;
   thinkingLevels: PromptModel[];
@@ -640,6 +679,9 @@ function PromptAgentConfigMenu({
   fastAvailable?: boolean;
   fastEnabled?: boolean;
   onFastChange?: (enabled: boolean) => void;
+  contextLevels: PromptModel[];
+  context?: string;
+  onContextChange?: (context: string) => void;
   disabled?: boolean;
   labels: Required<PromptInputLabels>;
   className?: string;
@@ -650,20 +692,28 @@ function PromptAgentConfigMenu({
   const skipAgentList = agents.length === 0;
   const [search, setSearch] = useState("");
   const [effortOpen, setEffortOpen] = useState(false);
+  const [contextOpen, setContextOpen] = useState(false);
   const showThinking = thinkingLevels.length > 1;
+  const showContext = contextLevels.length > 1;
   const currentThinking = thinkingLevels.find((level) => level.value === thinking);
+  const currentContext = contextLevels.find((level) => level.value === context)
+    ?? contextLevels.find((level) => level.value === contextLevels[0]?.value)
+    ?? contextLevels[0];
   const thinkingLabel = showThinking
     ? titleCaseLabel(optionLabelText(currentThinking ?? thinkingLevels[0]))
     : "";
-  const showEffortControls = showThinking || fastAvailable;
+  const contextLabel = showContext ? optionLabelText(currentContext) : "";
+  const contextSuffix = showContext ? contextModelSuffix(contextLabel, context) : "";
+  const showEffortControls = showThinking || fastAvailable || showContext;
   const effortLabel = modelEffortTriggerLabel({
     thinkingLabel,
     fastAvailable,
     fastEnabled,
     fastLabel: labels.fastChip,
-  });
+  }) || contextLabel;
   const triggerText = agentConfigTriggerText({
     modelLabel: optionLabelText(currentModel),
+    contextLabel: contextSuffix,
     thinkingLabel,
     agentLabel: optionLabelText(currentAgent) || labels.chooseAgent,
   });
@@ -679,6 +729,7 @@ function PromptAgentConfigMenu({
   }, [agent]);
   useEffect(() => {
     setEffortOpen(false);
+    setContextOpen(false);
   }, [agent, model]);
 
   return (
@@ -688,6 +739,7 @@ function PromptAgentConfigMenu({
         setOpen(next);
         setSearch("");
         setEffortOpen(false);
+        setContextOpen(false);
         if (next && models.length === 0) {
           onEmptyModelsOpen?.();
         }
@@ -791,15 +843,46 @@ function PromptAgentConfigMenu({
             </div>
           )}
           <div className="flex min-h-0 w-[16.5rem] min-w-0 flex-1 flex-col">
-            <div className="min-w-0 px-2 pt-1.5 pb-1">
-              <SelectSearch
-                value={search}
-                onChange={setSearch}
-                placeholder={labels.searchModels}
-                padded={false}
-              />
-            </div>
-            <div className="min-h-0 flex-1 overflow-y-auto p-1.5 pt-0">
+            {models.length > 0 ? (
+              <div className="flex min-w-0 items-center gap-1 px-2 pt-1.5 pb-1">
+                <div className="min-w-0 flex-1">
+                  <SelectSearch
+                    value={search}
+                    onChange={setSearch}
+                    placeholder={labels.searchModels}
+                    padded={false}
+                  />
+                </div>
+                {onLoadModels ? (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        aria-label={labels.reloadModels}
+                        disabled={disabled || modelsReloading}
+                        onClick={() => onLoadModels()}
+                        className="grid size-7 shrink-0 place-items-center rounded-xl text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 disabled:pointer-events-none disabled:opacity-50"
+                      >
+                        {modelsReloading ? (
+                          <LoaderCircle className="size-3.5 animate-spin" />
+                        ) : (
+                          <RefreshCw className="size-3.5" />
+                        )}
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="z-[10000]">
+                      {labels.reloadModels}
+                    </TooltipContent>
+                  </Tooltip>
+                ) : null}
+              </div>
+            ) : null}
+            <div
+              className={cn(
+                "min-h-0 flex-1 overflow-y-auto p-1.5",
+                models.length > 0 && "pt-0",
+              )}
+            >
               {Boolean(modelsLoading) && models.length === 0 ? (
                 <div
                   className="flex items-center gap-2 px-2.5 py-3 text-xs text-muted-foreground"
@@ -809,6 +892,22 @@ function PromptAgentConfigMenu({
                   <LoaderCircle className="size-3.5 shrink-0 animate-spin" />
                   <span>{labels.loadingModels}</span>
                 </div>
+              ) : models.length === 0 ? (
+                <div className="flex flex-col items-center gap-2 px-2.5 py-3">
+                  <div className="text-center text-xs text-muted-foreground">
+                    {labels.noResults}
+                  </div>
+                  {onLoadModels ? (
+                    <button
+                      type="button"
+                      disabled={disabled}
+                      onClick={() => onLoadModels()}
+                      className="inline-flex h-7 items-center rounded-lg border border-border px-2.5 text-xs text-foreground outline-none hover:bg-muted focus-visible:ring-2 disabled:pointer-events-none disabled:opacity-50"
+                    >
+                      {labels.loadModels}
+                    </button>
+                  ) : null}
+                </div>
               ) : filteredModels.length === 0 ? (
                 <div className="px-2.5 py-3 text-center text-xs text-muted-foreground">
                   {labels.noResults}
@@ -817,6 +916,7 @@ function PromptAgentConfigMenu({
                 filteredModels.map((option) => {
                   const isSelected = option.value === model;
                   const warning = isSelected && option.tone === "warning";
+                  const fullLabel = modelLabelWithContext(optionLabelText(option), isSelected ? contextSuffix : "");
                   return (
                     <div
                       key={option.value}
@@ -829,25 +929,40 @@ function PromptAgentConfigMenu({
                             : "text-foreground hover:bg-muted/70",
                       )}
                     >
-                      <button
-                        type="button"
-                        disabled={option.disabled || modelsLocked}
-                        title={modelsLocked ? labels.modelLocked : undefined}
-                        onClick={() => onModelChange(option.value)}
-                        className={cn(
-                          "flex min-w-0 flex-1 gap-2 px-2.5 py-2 text-left text-sm outline-none",
-                          option.description ? "items-start" : "items-center",
-                          "disabled:pointer-events-none disabled:opacity-50",
-                        )}
-                      >
-                        <span className="min-w-0 flex-1">
-                          <OptionRow option={option} />
-                        </span>
-                      </button>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            type="button"
+                            disabled={option.disabled || modelsLocked}
+                            onClick={() => onModelChange(option.value)}
+                            className={cn(
+                              "flex min-w-0 flex-1 gap-2 px-2.5 py-2 text-left text-sm outline-none",
+                              option.description ? "items-start" : "items-center",
+                              "disabled:pointer-events-none disabled:opacity-50",
+                            )}
+                          >
+                            <span className="min-w-0 flex-1">
+                              <OptionRow
+                                option={
+                                  isSelected && contextSuffix
+                                    ? { ...option, label: modelLabelWithContext(option.label || option.value, contextSuffix) }
+                                    : option
+                                }
+                              />
+                            </span>
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="z-[10000] max-w-xs">
+                          {modelsLocked ? labels.modelLocked : fullLabel}
+                        </TooltipContent>
+                      </Tooltip>
                       {isSelected && showEffortControls ? (
                         <MorphPopover
                           open={effortOpen}
-                          onOpenChange={setEffortOpen}
+                          onOpenChange={(next) => {
+                            setEffortOpen(next);
+                            if (!next) setContextOpen(false);
+                          }}
                           className="shrink-0"
                         >
                           <MorphPopoverTrigger>
@@ -870,6 +985,73 @@ function PromptAgentConfigMenu({
                             className="overflow-visible border-0 bg-transparent p-0"
                           >
                             <div className="w-[13.75rem] rounded-2xl border border-border bg-popover py-1.5 shadow-[0_10px_18px_rgba(0,0,0,0.14)]">
+                              {showContext ? (
+                                <div className="px-1">
+                                  <MorphPopover
+                                    open={contextOpen}
+                                    onOpenChange={setContextOpen}
+                                    className="flex w-full"
+                                  >
+                                    <MorphPopoverTrigger>
+                                      <button
+                                        type="button"
+                                        disabled={disabled}
+                                        className="flex h-9 w-full min-w-0 items-center gap-3 rounded-lg px-2.5 text-left outline-none hover:bg-muted/70 focus-visible:ring-2"
+                                      >
+                                        <span className="shrink-0 text-sm font-medium text-foreground">
+                                          {labels.context}
+                                        </span>
+                                        <span className="min-w-0 flex-1" />
+                                        <span className="min-w-0 truncate text-sm text-muted-foreground">
+                                          {contextLabel}
+                                        </span>
+                                        <ChevronRight className="size-3 shrink-0 text-muted-foreground" />
+                                      </button>
+                                    </MorphPopoverTrigger>
+                                    <MorphPopoverContent
+                                      side="right"
+                                      align="start"
+                                      sideOffset={8}
+                                      radius={16}
+                                      clip={false}
+                                      className="overflow-visible border-0 bg-transparent p-0"
+                                    >
+                                      <div className="w-[9.5rem] rounded-2xl border border-border bg-popover p-1 shadow-[0_10px_18px_rgba(0,0,0,0.14)]">
+                                        {contextLevels.map((level) => {
+                                          const isSelected = level.value === (context || currentContext?.value);
+                                          return (
+                                            <button
+                                              key={level.value}
+                                              type="button"
+                                              disabled={disabled}
+                                              onClick={() => {
+                                                onContextChange?.(level.value);
+                                                setContextOpen(false);
+                                              }}
+                                              className={cn(
+                                                "flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm outline-none",
+                                                isSelected
+                                                  ? "bg-muted text-foreground"
+                                                  : "text-foreground hover:bg-muted/70",
+                                                "disabled:pointer-events-none disabled:opacity-50",
+                                              )}
+                                            >
+                                              <span className="min-w-0 flex-1 truncate">
+                                                {optionLabelText(level)}
+                                              </span>
+                                              {isSelected ? (
+                                                <Check className="size-3.5 shrink-0" />
+                                              ) : (
+                                                <span className="size-3.5 shrink-0" />
+                                              )}
+                                            </button>
+                                          );
+                                        })}
+                                      </div>
+                                    </MorphPopoverContent>
+                                  </MorphPopover>
+                                </div>
+                              ) : null}
                               {showThinking ? (
                                 <div className="px-1 py-1">
                                   <ThinkingSliderPanel
@@ -1174,6 +1356,7 @@ function SelectSearch({
 }
 
 function OptionRow({ option }: { option: PromptModel }) {
+  const provider = capitalizeLeading(option.group ?? "");
   return (
     <span className={cn("flex min-w-0 gap-2", option.description ? "items-start" : "items-center")}>
       {option.icon ? (
@@ -1188,7 +1371,12 @@ function OptionRow({ option }: { option: PromptModel }) {
       ) : null}
       <span className="min-w-0">
         <span className="flex min-w-0 items-center gap-1.5">
-          <span className="truncate text-sm">{option.label}</span>
+          <span className="min-w-0 truncate text-sm">
+            {option.label}
+            {provider ? (
+              <span className="text-muted-foreground">{` / ${provider}`}</span>
+            ) : null}
+          </span>
           {option.trailing ? (
             <span className="shrink-0">{option.trailing}</span>
           ) : null}
@@ -1205,5 +1393,6 @@ function OptionRow({ option }: { option: PromptModel }) {
 
 function optionLabelText(option?: PromptModel): string {
   if (!option) return "";
-  return typeof option.label === "string" ? option.label : option.value;
+  const label = typeof option.label === "string" ? option.label : option.value;
+  return formatModelProviderLabel(label, option.group);
 }

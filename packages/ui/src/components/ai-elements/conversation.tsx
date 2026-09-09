@@ -1,13 +1,14 @@
 "use client";
 
 import type { ComponentProps } from "react";
-import { useCallback } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { ArrowDownIcon, DownloadIcon } from "lucide-react";
 import { StickToBottom, useStickToBottomContext } from "use-stick-to-bottom";
 
 import { Button } from "../ui/button";
+import { SPRING_LAYOUT } from "../../lib/ease";
 import { spring } from "../../lib/springs";
 import { cn } from "../../lib/utils";
 
@@ -77,6 +78,69 @@ export type ConversationScrollButtonProps = ComponentProps<typeof Button> & {
   host?: HTMLElement | null;
 };
 
+/** Icon-only pill is a 32px circle (`h-8`); expansions spring from this width. */
+const SCROLL_BUTTON_ICON_SIZE = 32;
+
+function ConversationScrollButtonControl({
+  className,
+  children,
+  reduceMotion,
+  ...props
+}: Omit<ConversationScrollButtonProps, "host"> & { reduceMotion: boolean | null }) {
+  const measureRef = useRef<HTMLSpanElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const [width, setWidth] = useState(SCROLL_BUTTON_ICON_SIZE);
+
+  useEffect(() => {
+    const content = measureRef.current;
+    const button = buttonRef.current;
+    if (!content || !button) return;
+
+    const measure = () => {
+      const extra = button.offsetWidth - button.clientWidth;
+      const next = Math.max(
+        SCROLL_BUTTON_ICON_SIZE,
+        Math.ceil(content.scrollWidth + extra),
+      );
+      setWidth((current) => (current === next ? current : next));
+    };
+
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(content);
+    return () => observer.disconnect();
+  }, [children]);
+
+  return (
+    <Button
+      render={
+        <motion.button
+          ref={buttonRef}
+          initial={false}
+          animate={{ width }}
+          transition={reduceMotion ? { duration: 0 } : SPRING_LAYOUT}
+        />
+      }
+      className={cn(
+        "h-8 min-h-8 min-w-8 max-h-8 justify-center gap-0 overflow-hidden rounded-full border-border px-0 shadow-sm before:rounded-full sm:h-8 [&_svg]:mx-0!",
+        "has-[[data-agent-chat-scroll-below]]:justify-start",
+        className,
+      )}
+      size="sm"
+      type="button"
+      variant="secondary"
+      {...props}
+    >
+      <span
+        ref={measureRef}
+        className="inline-flex h-8 w-max shrink-0 items-center gap-1.5 has-[[data-agent-chat-scroll-below]]:pl-2 has-[[data-agent-chat-scroll-below]]:pr-2.5"
+      >
+        {children ?? <ArrowDownIcon className="size-4" />}
+      </span>
+    </Button>
+  );
+}
+
 export const ConversationScrollButton = ({
   className,
   children,
@@ -106,19 +170,14 @@ export const ConversationScrollButton = ({
           }
           transition={reduceMotion ? { duration: 0 } : spring.moderate}
         >
-          <Button
-            className={cn(
-              "size-8 rounded-full border-transparent shadow-sm before:rounded-full",
-              className,
-            )}
+          <ConversationScrollButtonControl
+            className={className}
+            reduceMotion={reduceMotion}
             onClick={handleScrollToBottom}
-            size="icon"
-            type="button"
-            variant="secondary"
             {...props}
           >
-            {children ?? <ArrowDownIcon className="size-4" />}
-          </Button>
+            {children}
+          </ConversationScrollButtonControl>
         </motion.div>
       ) : null}
     </AnimatePresence>

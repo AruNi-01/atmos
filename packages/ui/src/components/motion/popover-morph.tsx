@@ -17,13 +17,18 @@ import {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
-import { usePopoverPortalPosition } from "./popover-position";
+import {
+  type PopoverAlign,
+  type PopoverSide,
+  usePopoverPortalPosition,
+  popoverPortalCoords,
+} from "./popover-position";
 import { EASE_OUT, SPRING_PANEL } from "../../lib/ease";
 import { useOverlayDismiss } from "../../lib/hooks/use-overlay-dismiss";
 import { cn } from "../../lib/utils";
 
-type Side = "top" | "bottom";
-type Align = "start" | "end";
+type Side = PopoverSide;
+type Align = PopoverAlign;
 
 type MorphContextValue = {
   open: boolean;
@@ -217,12 +222,24 @@ export function MorphPopoverTrigger({ children }: MorphPopoverTriggerProps) {
   });
 }
 
-const originFor = (side: Side, align: Align) =>
-  `${side === "bottom" ? "top" : "bottom"} ${align === "end" ? "right" : "left"}`;
+const originFor = (side: Side, align: Align) => {
+  const vertical = align === "end" ? "bottom" : "top";
+  const horizontal = align === "end" ? "right" : "left";
+  if (side === "left") return `${vertical} right`;
+  if (side === "right") return `${vertical} left`;
+  return `${side === "bottom" ? "top" : "bottom"} ${horizontal}`;
+};
 
 // A clip that hides everything but the corner nearest the trigger, so the
 // panel appears to grow out of it. inset(top right bottom left).
 function clipHidden(side: Side, align: Align, radius: number) {
+  if (side === "left" || side === "right") {
+    const top = align === "end" ? "92%" : "0%";
+    const bottom = align === "end" ? "0%" : "92%";
+    const right = side === "right" ? "92%" : "0%";
+    const left = side === "right" ? "0%" : "92%";
+    return `inset(${top} ${right} ${bottom} ${left} round ${radius}px)`;
+  }
   const top = side === "bottom" ? "0%" : "92%";
   const bottom = side === "bottom" ? "92%" : "0%";
   const right = align === "end" ? "0%" : "92%";
@@ -267,16 +284,14 @@ export function MorphPopoverContent({
   );
 
   useEffect(() => setPortalReady(true), []);
-  const left = layout
-    ? align === "end"
-      ? layout.trigger.left + layout.trigger.width - layout.content.width
-      : layout.trigger.left
-    : 0;
-  const top = layout
-    ? side === "bottom"
-      ? layout.trigger.top + layout.trigger.height + sideOffset
-      : layout.trigger.top - layout.content.height - sideOffset
-    : 0;
+  const coords = layout
+    ? popoverPortalCoords(side, align, layout, sideOffset, {
+        width: window.innerWidth,
+        height: window.innerHeight,
+      })
+    : { left: 0, top: 0, side };
+  const { left, top } = coords;
+  const placedSide = coords.side;
 
   // Both directions travel between the exact same hidden/show states. Exit
   // targets "hidden" directly instead of introducing separate choreography.
@@ -290,7 +305,7 @@ export function MorphPopoverContent({
     ? undefined
     : {
         hidden: {
-          clipPath: clipHidden(side, align, radius),
+          clipPath: clipHidden(placedSide, align, radius),
           transition: MORPH_CLIP_TRANSITION,
         },
         show: {
@@ -319,7 +334,7 @@ export function MorphPopoverContent({
             left,
             top,
             visibility: layout ? "visible" : "hidden",
-            transformOrigin: originFor(side, align),
+            transformOrigin: originFor(placedSide, align),
           }}
           className={cn(
             "fixed z-[9999]",

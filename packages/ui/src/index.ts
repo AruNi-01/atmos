@@ -354,6 +354,8 @@ export {
   agentConfigFlyoutOffsetTop,
   agentConfigFlyoutSide,
   agentConfigTriggerText,
+  capitalizeLeading,
+  formatModelProviderLabel,
   initialAgentConfigFlyout,
   modelEffortTriggerLabel,
 } from "./components/agents/prompt-input-view";

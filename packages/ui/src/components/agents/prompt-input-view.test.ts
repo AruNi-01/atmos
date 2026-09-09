@@ -5,6 +5,9 @@ import {
   agentConfigFlyoutOffsetTop,
   agentConfigFlyoutSide,
   agentConfigTriggerText,
+  capitalizeLeading,
+  contextModelSuffix,
+  formatModelProviderLabel,
   modelEffortTriggerLabel,
 } from "./prompt-input-view";
 
@@ -14,6 +17,39 @@ describe("empty model list reload", () => {
   it("asks the host to reload when the model picker opens with no models", () => {
     expect(promptInput).toContain("onEmptyModelsOpen");
     expect(promptInput).toContain("if (next && models.length === 0)");
+  });
+
+  it("offers a Load button only when the catalog is empty, not when search filters models out", () => {
+    expect(promptInput).toContain("onLoadModels");
+    expect(promptInput).toContain("labels.loadModels");
+    expect(promptInput).toContain("onClick={() => onLoadModels()}");
+    const menuStart = promptInput.indexOf("function PromptAgentConfigMenu");
+    const menuEnd = promptInput.indexOf("function ConfigFlyoutList");
+    const menu = promptInput.slice(menuStart, menuEnd);
+    const catalogEmpty = menu.indexOf(") : models.length === 0 ? (");
+    const searchEmpty = menu.indexOf(") : filteredModels.length === 0 ? (");
+    const loadLabel = menu.indexOf("{labels.loadModels}");
+    expect(catalogEmpty).toBeGreaterThan(0);
+    expect(searchEmpty).toBeGreaterThan(catalogEmpty);
+    expect(loadLabel).toBeGreaterThan(catalogEmpty);
+    expect(loadLabel).toBeLessThan(searchEmpty);
+    expect(menu).toContain("{models.length > 0 ? (");
+  });
+
+  it("places an icon-only reload control beside the model search field", () => {
+    expect(promptInput).toContain("modelsReloading");
+    expect(promptInput).toContain("RefreshCw");
+    const menuStart = promptInput.indexOf("function PromptAgentConfigMenu");
+    const menuEnd = promptInput.indexOf("function ConfigFlyoutList");
+    const menu = promptInput.slice(menuStart, menuEnd);
+    const searchAt = menu.indexOf("<SelectSearch");
+    const reloadAt = menu.indexOf("aria-label={labels.reloadModels}");
+    const listAt = menu.indexOf("min-h-0 flex-1 overflow-y-auto");
+    expect(searchAt).toBeGreaterThan(0);
+    expect(reloadAt).toBeGreaterThan(searchAt);
+    expect(reloadAt).toBeLessThan(listAt);
+    expect(menu).toContain("grid size-7 shrink-0 place-items-center rounded-xl");
+    expect(menu).not.toContain("flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm text-muted-foreground");
   });
 });
 
@@ -160,6 +196,46 @@ describe("agentConfigTriggerText", () => {
       }),
     ).toBe("Grok 4.6");
   });
+
+  it("appends 1M after the model name when that context is selected", () => {
+    expect(
+      agentConfigTriggerText({
+        modelLabel: "Claude Opus 5",
+        contextLabel: "1M",
+        thinkingLabel: "Extra high",
+      }),
+    ).toBe("Claude Opus 5 1M · Extra high");
+    expect(
+      agentConfigTriggerText({
+        modelLabel: "Claude Opus 5 1M",
+        contextLabel: "1M",
+        thinkingLabel: "Extra high",
+      }),
+    ).toBe("Claude Opus 5 1M · Extra high");
+    expect(
+      agentConfigTriggerText({
+        modelLabel: "Claude Opus 5",
+        contextLabel: contextModelSuffix("300K", "300k"),
+        thinkingLabel: "Low",
+      }),
+    ).toBe("Claude Opus 5 · Low");
+    expect(contextModelSuffix("1M", "1m")).toBe("1M");
+    expect(contextModelSuffix("272K", "272k")).toBe("");
+  });
+});
+
+describe("formatModelProviderLabel", () => {
+  it("puts a capitalized provider after the model name", () => {
+    expect(formatModelProviderLabel("gpt-5", "openai")).toBe("gpt-5 / Openai");
+    expect(formatModelProviderLabel("GPT-5", "OpenAI")).toBe("GPT-5 / OpenAI");
+    expect(capitalizeLeading("anthropic")).toBe("Anthropic");
+    expect(capitalizeLeading("OpenAI")).toBe("OpenAI");
+  });
+
+  it("omits the provider when it is missing", () => {
+    expect(formatModelProviderLabel("gpt-5", "")).toBe("gpt-5");
+    expect(formatModelProviderLabel("gpt-5", null)).toBe("gpt-5");
+  });
 });
 
 describe("S2 thinking control visibility", () => {
@@ -188,11 +264,31 @@ describe("PromptAgentConfigMenu", () => {
 
   it("opens effort and fast controls from one selected-model chip", () => {
     expect(promptInput).toContain("showEffortControls");
-    expect(promptInput).toContain("modelEffortTriggerLabel");
+    expect(promptInput).toContain("contextLabel: contextSuffix");
     expect(promptInput).toContain("fastLabel: labels.fastChip");
     expect(promptInput).toContain("function ThinkingSliderPanel");
     expect(promptInput).toContain('aria-label={labels.fastMode}');
     expect(promptInput).toContain("onClick={() => onModelChange(option.value)}");
+  });
+
+  it("puts a Context submenu at the top of the effort popover", () => {
+    expect(promptInput).toContain("showContext = contextLevels.length > 1");
+    expect(promptInput).toContain("{labels.context}");
+    expect(promptInput).toContain("onContextChange?.(level.value)");
+    expect(promptInput).toContain("side=\"right\"");
+    expect(promptInput).toContain(
+      "flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm outline-none",
+    );
+    expect(promptInput).toContain('className="flex w-full"');
+    expect(promptInput).toContain(
+      'className="flex h-9 w-full min-w-0 items-center gap-3 rounded-lg px-2.5 text-left outline-none hover:bg-muted/70 focus-visible:ring-2"',
+    );
+    const contextIdx = promptInput.indexOf("{showContext ? (");
+    const thinkingIdx = promptInput.indexOf("{showThinking ? (");
+    const fastIdx = promptInput.indexOf("{fastAvailable ? (");
+    expect(contextIdx).toBeGreaterThan(0);
+    expect(contextIdx).toBeLessThan(thinkingIdx);
+    expect(thinkingIdx).toBeLessThan(fastIdx);
   });
 
   it("searches models only, never agents", () => {
@@ -207,6 +303,15 @@ describe("PromptAgentConfigMenu", () => {
       "Chip shown immediately after the option label (e.g. Native / ACP).",
     );
   });
+
+  it("shows the provider after the model name and tooltips the full label", () => {
+    expect(promptInput).toContain("group?: string");
+    expect(promptInput).toContain("formatModelProviderLabel");
+    expect(promptInput).toContain("` / ${provider}`");
+    expect(promptInput).toContain("const fullLabel = modelLabelWithContext(optionLabelText(option), isSelected ? contextSuffix : \"\")");
+    expect(promptInput).toContain("{modelsLocked ? labels.modelLocked : fullLabel}");
+    expect(promptInput).toContain("min-w-0 truncate text-sm");
+  });
 });
 
 describe("nested morph popover", () => {
@@ -218,6 +323,7 @@ describe("nested morph popover", () => {
     expect(morph).toContain("data-morph-anchor={ctx.triggerId}");
     expect(morph).toContain("hasOpenNestedMorphPopover");
     expect(morph).toContain("isNestedMorphPopoverPortal");
+    expect(morph).toContain("popoverPortalCoords");
   });
 });
 
