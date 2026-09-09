@@ -1,0 +1,60 @@
+apps/web/src/features/welcome/components/__tests__/prompt-composer-paste-chip.test.tsx
+  s_20f5babdfa653d::t_0ee567d92e595a 1-219,222-223
+  s_20f5babdfa653d::t_29eee579c91846 220-221
+  s_20f5babdfa653d::t_fe95d4a4a49559 224-226
+apps/web/src/features/agent/lib/__tests__/composer-flying-message.test.ts
+  s_745c9fc81fc68a::t_668e66efdbd6ba 1,4-9,70,75-79,82-240,243-244
+  s_745c9fc81fc68a::t_c2b81260c9babf 241-242
+  s_745c9fc81fc68a::t_ac953bf0944f03 245-247
+apps/web/src/shared/lib/composer-paste.ts
+  s_20f5babdfa653d::t_0c205d5e3966ab 1-288
+apps/web/src/features/agent/lib/composer-flying-message.ts
+  s_745c9fc81fc68a::t_bf14440472d0c2 2,34-35,38-42,85,94-95,100,103-105
+  s_745c9fc81fc68a::t_fd3ca018cdc055 1,12-13,36-37,43-56,58,71-72,96-98,102
+  s_745c9fc81fc68a::t_e3c0fddc268ae4 15,22-33,60-65,69-70,73-81,83,87-89,91,101
+  s_745c9fc81fc68a::t_ba7980234f4fa7 14
+  s_745c9fc81fc68a::t_3c758c20caf994 57
+  s_745c9fc81fc68a::t_cef253d24d6346 59
+apps/web/src/shared/lib/__tests__/composer-paste.test.ts
+  s_20f5babdfa653d::t_4571390452aabe 1-79
+apps/web/src/features/agent/components/__tests__/user-message-body.dom.test.tsx
+  s_20f5babdfa653d::t_944f34570a3f8c 1-152
+  s_20f5babdfa653d::t_44d9b8864f58a7 153-155
+apps/web/src/features/agent/components/UserMessageBody.tsx
+  s_20f5babdfa653d::t_8f5f808c7d81d8 1-152
+  s_20f5babdfa653d::t_0ca257bbe0c196 153-155
+apps/web/src/features/agent/components/AgentChatMessageView.tsx
+  s_0ae7207e2b3584::t_db72806cf75a8f 21,72,86
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "df1313c609014e83bdfc895ddd634a2ac661ec22",
+  "prompts": {},
+  "sessions": {
+    "s_0ae7207e2b3584": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "df747ba9-f575-4dd0-b205-8f97d823d76f",
+        "model": "grok-4.6"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_20f5babdfa653d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "01a08412-584a-7631-9dd4-507193744bff",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_745c9fc81fc68a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "01a0841a-ae50-7ce2-a321-dd950d9ecca6",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
