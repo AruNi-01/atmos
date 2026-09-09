@@ -22,9 +22,31 @@ describe("center stage tab hover", () => {
     expect(motionTabs).toContain("scale(");
     expect(motionTabs).toContain("placeIndicator");
     expect(motionTabs).toContain("measureSelectedTab");
+    expect(motionTabs).toContain('orientation = "horizontal"');
+    expect(motionTabs).toContain("aria-orientation={orientation}");
     expect(motionTabs).toContain("ResizeObserver");
     expect(motionTabs).toContain("MutationObserver");
     expect(shared).toContain("indicatorClassName={CENTER_STAGE_TAB_INDICATOR_CLASS}");
+  });
+
+  it("supports a vertical pill strip for compact icon rails", () => {
+    const listFn = shared.slice(
+      shared.indexOf("export function CenterStageTabList"),
+      shared.indexOf("export function CenterStageScrollableTabs"),
+    );
+    expect(listFn).toContain('orientation = "horizontal"');
+    expect(listFn).toContain("orientation={orientation}");
+    expect(listFn).toContain(
+      '"flex h-full w-8 min-h-0 max-h-full flex-col justify-start overflow-hidden bg-background px-0.5 py-0.5"',
+    );
+    const scrollFn = shared.slice(
+      shared.indexOf("export function CenterStageScrollableTabs"),
+      shared.indexOf("export function CenterStageStickyTabActions"),
+    );
+    expect(scrollFn).toContain('orientation = "horizontal"');
+    expect(scrollFn).toContain(
+      '"flex min-h-0 flex-1 flex-col overflow-y-auto no-scrollbar"',
+    );
   });
 
   it("uses the tasks-page motion pill tabs without a bottom divider", () => {
@@ -57,7 +79,7 @@ describe("center stage tab hover", () => {
     expect(listFn).toContain("afterTabs?: React.ReactNode");
     expect(listFn).toContain("trailing={afterTabs}");
     expect(listFn).toContain("{actions}");
-    expect(listFn).toContain('className="ml-auto flex shrink-0 items-center"');
+    expect(listFn).toContain('"ml-auto flex shrink-0 items-center"');
     expect(listFn).toContain("flex-[0_1_auto]");
     expect(listFn).toContain("gap-0.5");
     expect(listFn.indexOf("trailing={afterTabs}")).toBeLessThan(listFn.indexOf("{actions}"));
@@ -103,7 +125,7 @@ describe("center stage tab hover", () => {
     expect(motionTabs).toContain("backdrop-blur-[4px]");
     expect(motionTabs).toContain('className={cn(listClassName, "gap-1")}');
     expect(motionTabs).toContain(
-      'className="relative z-0 flex min-h-0 min-w-0 flex-1 items-center gap-0.5 self-stretch overflow-hidden"',
+      '"relative z-0 flex min-h-0 min-w-0 flex-1 items-center gap-0.5 self-stretch overflow-hidden"',
     );
     expect(motionTabs).toContain(
       'className="relative z-20 flex shrink-0 items-center self-stretch"',
@@ -133,6 +155,29 @@ describe("center stage tab hover", () => {
     expect(tabBar).toContain("CenterStageTabIconSlot");
     expect(tabBar).not.toContain("CreateTerminalTabButton");
     expect(tabBar).not.toContain("backdrop-blur-[4px]");
+  });
+
+  it("treats Overview as a labeled closable strip tab that can scroll away", () => {
+    const overviewFn = shared.slice(
+      shared.indexOf("export function CenterStageOverviewTab"),
+      shared.indexOf("export function CenterStageFileIcon"),
+    );
+    expect(overviewFn).toContain("CenterStageTabIconSlot");
+    expect(overviewFn).toContain("{label}");
+    expect(overviewFn).toContain("onClose");
+    expect(overviewFn).not.toContain("CENTER_STAGE_ICON_TAB_CLASS");
+
+    const tabListJsx = tabBar.slice(
+      tabBar.indexOf("<CenterStageTabList"),
+      tabBar.indexOf("</CenterStageTabList>"),
+    );
+    expect(tabListJsx).toContain("data-center-tabs-scroll");
+    expect(tabListJsx).toContain("{renderDescriptorTab(tab)}");
+    expect(tabListJsx).not.toContain("<CenterStageOverviewTab");
+    expect(tabBar).toContain('if (tab.kind === "overview")');
+    expect(tabBar).toContain("handleCloseOverview");
+    expect(tabBar).toContain('disabled={tab.kind === "overview"}');
+    expect(tabBar).toContain("pinOverviewFront");
   });
 
   it("opens the layouts submenu with the shared popover animation", () => {
@@ -252,6 +297,56 @@ describe("center stage tab hover", () => {
     expect(menuBlock).toContain("FileText");
     expect(menuBlock.indexOf("{terminalLabel}")).toBeLessThan(menuBlock.indexOf("{agentChatLabel}"));
     expect(menuBlock.indexOf("{agentChatLabel}")).toBeLessThan(menuBlock.indexOf("{markdownLabel}"));
+  });
+
+  it("puts TUI and Chat UI kind chips in tab tooltips, not on the pills", () => {
+    const tabs = readFileSync(
+      join(import.meta.dir, "../center-stage-tab-tooltip.tsx"),
+      "utf8",
+    );
+    expect(tabs).toContain("export function CenterStageTabKindChip");
+    expect(tabs).toContain('data-center-tab-kind-chip=""');
+    expect(tabs).toContain("kind?: React.ReactNode");
+    expect(tabs).toContain("<CenterStageTabKindChip>{kind}</CenterStageTabKindChip>");
+
+    const extraTab = tabBar.slice(
+      tabBar.indexOf("function TerminalExtraTab"),
+      tabBar.indexOf("const PLUS_MENU_TAB_EASE"),
+    );
+    const extraTooltip = extraTab.slice(
+      extraTab.indexOf("<TooltipContent"),
+      extraTab.indexOf("</TooltipContent>"),
+    );
+    const extraPill = extraTab.slice(
+      extraTab.indexOf("<CenterStageTab"),
+      extraTab.indexOf("</CenterStageTab>"),
+    );
+    expect(extraTooltip).toContain("centerStageTabBar.tooltipKindTui");
+    expect(extraTooltip).toContain("toolbarAgent ?");
+    expect(extraPill).not.toContain("tooltipKindTui");
+    expect(extraPill).not.toContain("CenterStageTabKindChip");
+
+    const chatTab = tabBar.slice(
+      tabBar.indexOf('if (tab.kind === "agent-chat")'),
+      tabBar.indexOf('if (tab.kind === "browser")'),
+    );
+    expect(chatTab).toContain("tooltipKind={t(\"centerStageTabBar.tooltipKindChatUi\")}");
+    expect(chatTab).not.toContain("CenterStageTabKindChip");
+
+    const specialTab = tabBar.slice(
+      tabBar.indexOf("function SpecialTerminalTab"),
+    );
+    const specialTooltip = specialTab.slice(
+      specialTab.indexOf("<TooltipContent"),
+      specialTab.indexOf("</TooltipContent>"),
+    );
+    const specialPill = specialTab.slice(
+      specialTab.indexOf("<CenterStageTab"),
+      specialTab.indexOf("</CenterStageTab>"),
+    );
+    expect(specialTooltip).toContain("kind={tooltipKind}");
+    expect(specialPill).not.toContain("tooltipKind");
+    expect(specialPill).not.toContain("CenterStageTabKindChip");
   });
 
   it("animates plus-menu popover height when switching tabs", () => {

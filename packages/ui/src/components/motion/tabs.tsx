@@ -24,11 +24,13 @@ import { EASE_OUT, EASE_OUT_CSS } from "../../lib/ease";
 import { cn } from "../../lib/utils";
 
 type Variant = "pill" | "underline" | "segment";
+type Orientation = "horizontal" | "vertical";
 
 type Ctx = {
   value: string;
   setValue: (v: string) => void;
   variant: Variant;
+  orientation: Orientation;
 };
 
 const TabsCtx = createContext<Ctx | null>(null);
@@ -53,13 +55,26 @@ function boxesNear(a: IndicatorBox, b: IndicatorBox, eps = 0.5) {
   );
 }
 
-function measureSelectedTab(list: HTMLElement, underline: boolean) {
+function measureSelectedTab(
+  list: HTMLElement,
+  underline: boolean,
+  orientation: Orientation,
+) {
   const selected = list.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]');
   if (!selected) return null;
   const listRect = list.getBoundingClientRect();
   const tabRect = selected.getBoundingClientRect();
   const x = tabRect.left - listRect.left + list.scrollLeft;
   const y = tabRect.top - listRect.top + list.scrollTop;
+  if (underline && orientation === "vertical") {
+    return {
+      x: x + tabRect.width - 1,
+      y,
+      w: 1,
+      h: tabRect.height,
+      indicatorClassName: selected.dataset.tabIndicatorClass ?? "",
+    };
+  }
   return {
     x,
     y: underline ? y + tabRect.height - 1 : y,
@@ -131,6 +146,7 @@ export function Tabs({
   value,
   onValueChange,
   variant = "pill",
+  orientation = "horizontal",
   children,
   className,
 }: {
@@ -138,6 +154,7 @@ export function Tabs({
   value?: string;
   onValueChange?: (v: string) => void;
   variant?: Variant;
+  orientation?: Orientation;
   children: ReactNode;
   className?: string;
 }) {
@@ -152,8 +169,8 @@ export function Tabs({
     [controlled, onValueChange],
   );
   const contextValue = useMemo(
-    () => ({ value: current, setValue, variant }),
-    [current, setValue, variant],
+    () => ({ value: current, setValue, variant, orientation }),
+    [current, orientation, setValue, variant],
   );
   return (
     <TabsCtx.Provider value={contextValue}>
@@ -180,12 +197,13 @@ export function TabsList({
   /** Chrome that must stay outside the sliding pill's clip box (e.g. + / overflow). */
   trailing?: ReactNode;
 }) {
-  const { value, variant } = useTabs();
+  const { value, variant, orientation } = useTabs();
   const reduce = useReducedMotion();
   const listRef = useRef<HTMLDivElement>(null);
   const indicatorRef = useRef<HTMLSpanElement>(null);
   const layoutRef = useRef<IndicatorBox | null>(null);
   const underline = variant === "underline";
+  const vertical = orientation === "vertical";
   const radius = variant === "pill" ? "rounded-full" : "rounded-md";
 
   useLayoutEffect(() => {
@@ -194,7 +212,7 @@ export function TabsList({
     if (!list || !indicator) return;
 
     const place = (animate: boolean) => {
-      const box = measureSelectedTab(list, underline);
+      const box = measureSelectedTab(list, underline, orientation);
       if (!box) return;
       const layout = layoutRef.current;
       if (layout && boxesNear(box, layout)) return;
@@ -248,7 +266,7 @@ export function TabsList({
       mutationObserver.disconnect();
       scroller.removeEventListener("scroll", onScroll);
     };
-  }, [reduce, underline, value]);
+  }, [orientation, reduce, underline, value]);
 
   const indicator = (
     <span
@@ -261,11 +279,21 @@ export function TabsList({
       )}
     />
   );
-  const listClassName = cn(listClasses[variant], className);
+  const listClassName = cn(
+    listClasses[variant],
+    vertical && "flex-col",
+    vertical && variant === "underline" && "border-b-0 border-r",
+    className,
+  );
 
   if (!trailing) {
     return (
-      <div ref={listRef} role="tablist" className={listClassName}>
+      <div
+        ref={listRef}
+        role="tablist"
+        aria-orientation={orientation}
+        className={listClassName}
+      >
         {indicator}
         {children}
       </div>
@@ -277,18 +305,32 @@ export function TabsList({
   // when the list is width-constrained so trailing pins to the end. Edge
   // fade is CSS scroll-driven (tabs.css) — never React state on scroll.
   return (
-    <div role="tablist" className={cn(listClassName, "gap-1")}>
+    <div
+      role="tablist"
+      aria-orientation={orientation}
+      data-orientation={orientation}
+      className={cn(listClassName, "gap-1")}
+    >
       <div
         ref={listRef}
         data-center-tabs-track=""
-        className="relative z-0 flex min-h-0 min-w-0 flex-1 items-center gap-0.5 self-stretch overflow-hidden"
+        data-orientation={orientation}
+        className={
+          vertical
+            ? "relative z-0 flex min-h-0 min-w-0 flex-1 flex-col items-center gap-0.5 self-stretch overflow-hidden"
+            : "relative z-0 flex min-h-0 min-w-0 flex-1 items-center gap-0.5 self-stretch overflow-hidden"
+        }
       >
         {indicator}
         {children}
         <div
           aria-hidden
           data-center-tabs-edge-fade=""
-          className="pointer-events-none absolute inset-y-0 right-0 z-10 w-4 bg-gradient-to-l from-background to-transparent backdrop-blur-[4px] [mask-image:linear-gradient(to_left,black,transparent)] [-webkit-mask-image:linear-gradient(to_left,black,transparent)]"
+          className={
+            vertical
+              ? "pointer-events-none absolute inset-x-0 bottom-0 z-10 h-4 bg-gradient-to-t from-background to-transparent backdrop-blur-[4px] [mask-image:linear-gradient(to_top,black,transparent)] [-webkit-mask-image:linear-gradient(to_top,black,transparent)]"
+              : "pointer-events-none absolute inset-y-0 right-0 z-10 w-4 bg-gradient-to-l from-background to-transparent backdrop-blur-[4px] [mask-image:linear-gradient(to_left,black,transparent)] [-webkit-mask-image:linear-gradient(to_left,black,transparent)]"
+          }
         />
       </div>
       <div className="relative z-20 flex shrink-0 items-center self-stretch">

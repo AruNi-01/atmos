@@ -150,6 +150,19 @@ describe("close returns to the tab that opened the closed tab", () => {
     expect(stage).not.toContain("skipLayoutRemove");
     expect(stage).toContain("activateNextAfterClosingRef.current(file.path, { paneId })");
     expect(stage).toContain("activateNextAfterClosing(tab, { paneId })");
+    expect(stage).toContain("const handleCloseAgentChatTab");
+    expect(stage).toContain("activateNextAfterClosing(value, { paneId })");
+  });
+
+  test("agent chat tab close uses the generic MRU path instead of jumping to terminal", () => {
+    const tabBar = readFileSync(
+      join(import.meta.dir, "../CenterStageTabBar.tsx"),
+      "utf8",
+    );
+    expect(tabBar).toContain("handleCloseAgentChatTab(tab.value)");
+    expect(tabBar).not.toContain(
+      'handleCenterStageTabChange(visibleTerminalTabs[0]?.id ?? "overview")',
+    );
   });
 
   test("content-triggered opens record chrome activation instead of attaching only", () => {

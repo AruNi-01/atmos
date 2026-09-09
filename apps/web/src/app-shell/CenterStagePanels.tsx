@@ -333,9 +333,7 @@ export function CenterStagePanels({
         }
         const tabs =
           allWorkspaceTerminalTabs[contextId] ??
-          (isActive
-            ? visibleTerminalTabs
-            : [{ id: FIXED_TERMINAL_TAB_VALUE, title: "Term", closable: true }]);
+          (isActive ? visibleTerminalTabs : []);
         const files = getOpenFiles(contextId);
         const last = readCenterStageLastTab(contextId);
         const validForContext = [
@@ -355,13 +353,12 @@ export function CenterStagePanels({
           "github",
           "files",
           "pt-design",
-          FIXED_TERMINAL_TAB_VALUE,
         ];
         const frameActiveTab = resolveFrameActiveTab({
           isActiveFrame: isActive,
           urlOrEditorTab: isActive ? activeValue : null,
           lastCenterTab: last,
-          fallbackTab: FIXED_TERMINAL_TAB_VALUE,
+          fallbackTab: tabs[0]?.id ?? "",
           validTabs: validForContext,
         });
         const paneActiveTabIds =
@@ -415,10 +412,7 @@ export function CenterStagePanels({
         );
         const terminalTabIds = Array.from(
           new Set(
-            (isActive
-              ? mountedTerminalTabsByContext[contextId] ?? tabs.map((tab) => tab.id)
-              : mountedTerminalTabsByContext[contextId] ?? [FIXED_TERMINAL_TAB_VALUE]
-            )
+            (mountedTerminalTabsByContext[contextId] ?? tabs.map((tab) => tab.id))
               .concat(paneActiveTerminals)
               .filter(Boolean),
           ),

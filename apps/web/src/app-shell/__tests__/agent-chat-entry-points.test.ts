@@ -99,6 +99,9 @@ describe("S2 Agent Chat entry points", () => {
 
     expect(tabBar).toContain("max-w-[180px] truncate whitespace-nowrap");
     expect(tabBar).not.toContain("truncate text-pretty");
+    expect(tabBar).toContain("AgentChatCenterTab");
+    expect(tabBar).toContain("attentionTabClass");
+    expect(tabBar).toContain("chatAttentionLookupIds");
 
     const header = readFileSync(
       join(ROOT, "../features/agent/components/AgentChatHeader.tsx"),

@@ -82,8 +82,6 @@ import {
   registerMdLiveTerminalGrid,
   subscribeMdLiveTerminalGridMount,
 } from "@/features/md-live/lib/md-live-terminal-bridge";
-import { resolveDefaultSplitAgent } from "@/features/terminal/lib/terminal-split-prefs";
-import { useTerminalSplitPrefsStore } from "@/features/settings/store/terminal-split-prefs-store";
 import { resolveAgentFixLaunchPrompt } from "@/features/agent-fix/lib/agent-fix-prompt-file";
 import { useWorkspaceCreationStore } from "@/features/workspace/store/workspace-creation-store";
 import { useWorkspaceSurfaceCacheStore } from "@/features/workspace/store/use-workspace-surface-cache-store";
@@ -495,19 +493,9 @@ const CenterStage: React.FC = () => {
   const currentSetupProgress = workspaceId ? setupProgressMap[workspaceId] : null;
   const isSetupBlocking = isWorkspaceSetupBlocking(currentSetupProgress);
   const visibleTerminalTabs = React.useMemo(() => {
-    const extraPaint =
-      Boolean(effectiveContextId) && isExtraCenterSpaceKey(effectiveContextId);
-    if (extraPaint && liveExtraSpaceEmpty) return EMPTY_TERMINAL_TABS;
     if (Array.isArray(terminalTabs)) return terminalTabs;
-    if (extraPaint) return EMPTY_TERMINAL_TABS;
-    return [
-      {
-        id: FIXED_TERMINAL_TAB_VALUE,
-        title: t("fallbackTerminalTitle"),
-        closable: true,
-      },
-    ];
-  }, [effectiveContextId, liveExtraSpaceEmpty, t, terminalTabs]);
+    return EMPTY_TERMINAL_TABS;
+  }, [terminalTabs]);
   // Prefer the workspace's remembered active terminal over always defaulting to the first tab.
   const fallbackCenterTab =
     (workspaceActiveTerminalTabId &&
@@ -1324,6 +1312,17 @@ const CenterStage: React.FC = () => {
     [activateNextAfterClosing, closeBrowserCenterTab, effectiveContextId],
   );
 
+  const handleCloseAgentChatTab = React.useCallback(
+    (value: string, paneId?: string) => {
+      if (!effectiveContextId) return;
+      activateNextAfterClosing(value, { paneId });
+      closeSurfaceIfUnowned(effectiveContextId, value, () => {
+        useAgentChatCenterTabsStore.getState().closeTab(effectiveContextId, value);
+      });
+    },
+    [activateNextAfterClosing, effectiveContextId],
+  );
+
   const handleCreateBrowserCenterTab = React.useCallback(() => {
     const contextId = liveCenterContextId ?? effectiveContextId;
     if (!contextId) return;
@@ -1390,6 +1389,14 @@ const CenterStage: React.FC = () => {
       closeToolTab(effectiveContextId, tab);
     });
   }, [activateNextAfterClosing, closeToolTab, effectiveContextId]);
+
+  const handleCloseOverview = React.useCallback((paneId?: string) => {
+    if (!effectiveContextId) return;
+    activateNextAfterClosing(OVERVIEW_TAB_ID, { paneId });
+    closeSurfaceIfUnowned(effectiveContextId, OVERVIEW_TAB_ID, () => {
+      useOverviewCenterTabStore.getState().close(effectiveContextId);
+    });
+  }, [activateNextAfterClosing, effectiveContextId]);
 
   React.useEffect(() => {
     registerBrowserHostChrome({
@@ -1839,36 +1846,15 @@ const CenterStage: React.FC = () => {
     const nextTab = createTerminalTab(contextId);
     appendTabToStripOrder(nextTab.id);
     activateCenterChromeTab(contextId, nextTab.id, { placement: "focused" });
-
-    // Await prefs before resolving the default agent so a cold mount does not
-    // launch a plain shell while disk prefs still say "apply to new tab".
-    void (async () => {
-      await useTerminalSplitPrefsStore.getState().loadSettings();
-      const splitPrefs = useTerminalSplitPrefsStore.getState();
-      const defaultAgent =
-        splitPrefs.enabled && splitPrefs.applyToNewTerminalTab
-          ? resolveDefaultSplitAgent(splitPrefs, terminalQuickOpenAgents)
-          : null;
-
-      runWhenTerminalGridReady(nextTab.id, (grid) => {
-        if (defaultAgent) {
-          void grid.createAndRunTerminal({
-            label: defaultAgent.agent.label,
-            command: defaultAgent.command,
-            agent: defaultAgent.agent,
-          });
-          return;
-        }
-        grid.focusActivePane();
-      });
-    })();
+    runWhenTerminalGridReady(nextTab.id, (grid) => {
+      grid.focusActivePane();
+    });
   }, [
     appendTabToStripOrder,
     createTerminalTab,
     effectiveContextId,
     liveCenterContextId,
     runWhenTerminalGridReady,
-    terminalQuickOpenAgents,
   ]);
 
   const handleRenameTerminalCenterTab = React.useCallback((tabId: string, title: string) => {
@@ -2366,10 +2352,12 @@ const CenterStage: React.FC = () => {
     const writeContextId = liveCenterContextId ?? effectiveContextId;
     if (!writeContextId || !val) return;
     if (val === "wiki" && experimentPrefsLoaded && !centerWikiTabEnabled) {
-      activateCenterChromeTab(writeContextId, FIXED_TERMINAL_TAB_VALUE, {
-        attach,
-        placement: options?.placement,
-      });
+      if (fallbackCenterTab) {
+        activateCenterChromeTab(writeContextId, fallbackCenterTab, {
+          attach,
+          placement: options?.placement,
+        });
+      }
       return;
     }
     activateCenterChromeTab(writeContextId, val, {
@@ -2396,6 +2384,7 @@ const CenterStage: React.FC = () => {
     centerWikiTabEnabled,
     effectiveContextId,
     experimentPrefsLoaded,
+    fallbackCenterTab,
     liveCenterContextId,
     runWhenTerminalGridReady,
   ]);
@@ -2421,6 +2410,7 @@ const CenterStage: React.FC = () => {
     previewBrowserPrefs,
     projectWikiTabVisible,
     simulatorTabVisible,
+    overviewVisible: overviewTabVisible,
     terminalTabs: visibleTerminalTabs,
     agentChatTabs,
   });
@@ -2437,6 +2427,11 @@ const CenterStage: React.FC = () => {
     tab: TabGroupItem,
     paneId?: string,
   ) => {
+    if (tab.kind === "overview") {
+      handleCloseOverview(paneId);
+      return;
+    }
+
     if (tab.kind === "terminal") {
       handleCloseTerminalCenterTab(tab.value);
       return;
@@ -2458,10 +2453,7 @@ const CenterStage: React.FC = () => {
     }
 
     if (tab.kind === "agent-chat") {
-      if (effectiveContextId) {
-        useAgentChatCenterTabsStore.getState().closeTab(effectiveContextId, tab.value);
-        activateNextAfterClosing(tab.value, { paneId });
-      }
+      handleCloseAgentChatTab(tab.value, paneId);
       return;
     }
 
@@ -2499,12 +2491,12 @@ const CenterStage: React.FC = () => {
       handleCloseFile(tab.file, paneId);
     }
   }, [
-    activateNextAfterClosing,
     closeBrowserInternalTab,
-    effectiveContextId,
+    handleCloseAgentChatTab,
     handleCloseBrowserTab,
     handleCloseFile,
     handleCloseGithubTab,
+    handleCloseOverview,
     handleCloseSimulatorTab,
     handleCloseGitHistoryTab,
     handleCloseToolTab,
@@ -2629,20 +2621,19 @@ const CenterStage: React.FC = () => {
   const resolvedPaneLayout = React.useMemo(() => {
     if (paneLayout) return paneLayout;
     // Before localStorage hydrate, a computed default would flash a 1-pane
-    // terminal over a stored split. Extra spaces stay empty; hosts stay on a
-    // single Term placeholder that ensureLayout will not persist yet.
+    // terminal over a stored split. Missing layouts stay empty until the user
+    // opens a surface (new workspaces and extra spaces alike).
     if (!paneLayoutHydrated || isExtraCenterSpaceKey(mosaicContextId)) {
       return createEmptyCenterLayout();
     }
     // During a hop the deferred open-tab list still belongs to the previous
     // context. Do not seed the destination mosaic with those tabs.
     if (mosaicContextId && mosaicContextId !== renderContextId) {
-      return createDefaultLayout(["terminal"], "terminal");
+      return createEmptyCenterLayout();
     }
-    return createDefaultLayout(
-      applyLegacyStripOrder(openTabIdList, contextStripOrder),
-      activeValue,
-    );
+    const ordered = applyLegacyStripOrder(openTabIdList, contextStripOrder);
+    if (ordered.length === 0) return createEmptyCenterLayout();
+    return createDefaultLayout(ordered, activeValue);
   }, [
     activeValue,
     contextStripOrder,
@@ -3029,6 +3020,9 @@ const CenterStage: React.FC = () => {
         handleCloseTabGroupItem={(tab) => handleCloseTabGroupItem(tab, layoutPaneId)}
         handleCloseBrowserTab={handleCloseBrowserTab}
         handleCloseFile={(file) => handleCloseFile(file, layoutPaneId)}
+        handleCloseAgentChatTab={(value) =>
+          handleCloseAgentChatTab(value, layoutPaneId)
+        }
         handleCloseGithubTab={handleCloseGithubTab}
         handleCloseTerminalCenterTab={handleCloseTerminalCenterTab}
         handleCreateBrowserCenterTab={() =>
@@ -3055,6 +3049,7 @@ const CenterStage: React.FC = () => {
             });
           })
         }
+        handleCloseOverview={() => handleCloseOverview(layoutPaneId)}
         handleCloseSimulatorTab={() => handleCloseSimulatorTab(layoutPaneId)}
         handleCloseGitHistoryTab={() => handleCloseGitHistoryTab(layoutPaneId)}
         handleCloseToolTab={(tab) => handleCloseToolTab(tab, layoutPaneId)}

@@ -3,6 +3,7 @@ import type { OpenFile } from "@/features/editor/store/use-editor-store";
 
 /** Closable center-stage tab kinds that appear in the tab strip. */
 export type CenterTabKind =
+  | "overview"
   | "terminal"
   | "project-wiki"
   | "code-review"
@@ -188,9 +189,10 @@ export function centerStripShortcutDigitFromEvent(event: {
 }
 
 /**
- * Visual strip ids used by Cmd+1–9. Overview / wiki stay pinned outside this
- * list (Overview is Cmd+0). Multi-pane layouts pass `constrainToPane` so only
- * the focused pane's strip is numbered; empty panes have no shortcut targets.
+ * Visual strip ids used by Cmd+1–9. Overview stays leftmost in the strip but
+ * is numbered separately (Cmd+0). Wiki stays pinned outside this list.
+ * Multi-pane layouts pass `constrainToPane` so only the focused pane's strip
+ * is numbered; empty panes have no shortcut targets.
  */
 export function resolveCenterStripShortcutTabIds(input: {
   membershipIds: readonly string[];

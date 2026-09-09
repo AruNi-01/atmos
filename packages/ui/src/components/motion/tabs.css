@@ -11,6 +11,11 @@
   scroll-timeline-axis: inline;
 }
 
+[data-center-tabs-track][data-orientation="vertical"] [data-center-tabs-scroll],
+[data-center-tabs-scroll][data-orientation="vertical"] {
+  scroll-timeline-axis: block;
+}
+
 [data-center-tabs-edge-fade] {
   opacity: 0;
 }
@@ -29,6 +34,10 @@
 @supports not (timeline-scope: none) {
   [data-center-tabs-track]:has([data-center-tabs-scroll]) {
     mask-image: linear-gradient(to right, #000 calc(100% - 16px), transparent);
+  }
+
+  [data-center-tabs-track][data-orientation="vertical"]:has([data-center-tabs-scroll]) {
+    mask-image: linear-gradient(to bottom, #000 calc(100% - 16px), transparent);
   }
 }
 

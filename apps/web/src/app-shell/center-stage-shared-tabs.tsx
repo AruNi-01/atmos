@@ -174,6 +174,7 @@ export function CenterStageTabList({
   children,
   className,
   onValueChange,
+  orientation = "horizontal",
   value,
 }: {
   /** Always-right chrome (fullscreen, tab groups). */
@@ -183,12 +184,16 @@ export function CenterStageTabList({
   children: React.ReactNode;
   className?: string;
   onValueChange?: (value: string) => void;
+  orientation?: "horizontal" | "vertical";
   value: string;
 }) {
+  const vertical = orientation === "vertical";
   return (
     <div
       className={cn(
-        "desktop-no-drag relative z-20 flex w-full shrink-0 items-center gap-0.5 px-2 py-1",
+        vertical
+          ? "desktop-no-drag relative z-20 flex shrink-0 flex-col items-stretch gap-0.5 px-1 py-2"
+          : "desktop-no-drag relative z-20 flex w-full shrink-0 items-center gap-0.5 px-2 py-1",
         className,
       )}
     >
@@ -196,17 +201,36 @@ export function CenterStageTabList({
         value={value}
         onValueChange={onValueChange}
         variant="pill"
-        className="flex min-h-0 min-w-0 flex-[0_1_auto] items-center"
+        orientation={orientation}
+        className={
+          vertical
+            ? "flex h-full min-h-0 min-w-0 flex-[0_1_auto] flex-col items-stretch"
+            : "flex min-h-0 min-w-0 flex-[0_1_auto] items-center"
+        }
       >
         <MotionTabsList
-          className="flex h-8 min-w-0 max-w-full justify-start overflow-hidden bg-background py-0.5 pl-0.5 pr-0"
+          className={
+            vertical
+              ? "flex h-full w-8 min-h-0 max-h-full flex-col justify-start overflow-hidden bg-background px-0.5 py-0.5"
+              : "flex h-8 min-w-0 max-w-full justify-start overflow-hidden bg-background py-0.5 pl-0.5 pr-0"
+          }
           indicatorClassName={CENTER_STAGE_TAB_INDICATOR_CLASS}
           trailing={afterTabs}
         >
           {children}
         </MotionTabsList>
       </MotionTabs>
-      {actions ? <div className="ml-auto flex shrink-0 items-center">{actions}</div> : null}
+      {actions ? (
+        <div
+          className={
+            vertical
+              ? "mt-auto flex shrink-0 items-center"
+              : "ml-auto flex shrink-0 items-center"
+          }
+        >
+          {actions}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -214,22 +238,28 @@ export function CenterStageTabList({
 export function CenterStageScrollableTabs({
   children,
   className,
+  orientation = "horizontal",
   scrollableTabsRef,
   ...rest
 }: {
   children: React.ReactNode;
   className?: string;
+  orientation?: "horizontal" | "vertical";
   scrollableTabsRef?: React.Ref<HTMLDivElement | null>;
 } & React.HTMLAttributes<HTMLDivElement>) {
+  const vertical = orientation === "vertical";
   return (
     <div
       ref={scrollableTabsRef}
       className={cn(
-        "flex min-w-0 flex-1 items-center overflow-x-auto no-scrollbar",
+        vertical
+          ? "flex min-h-0 flex-1 flex-col overflow-y-auto no-scrollbar"
+          : "flex min-w-0 flex-1 items-center overflow-x-auto no-scrollbar",
         className,
       )}
       {...rest}
       data-center-tabs-scroll=""
+      data-orientation={orientation}
     >
       {children}
     </div>
@@ -259,30 +289,46 @@ export function CenterStageStickyTabActions({
 
 export function CenterStageOverviewTab({
   className,
-  tooltipContent,
+  closeLabel,
+  label,
+  onClose,
+  onContextMenu,
+  shortcutDigit = 0,
   value = "overview",
 }: {
   className?: string;
-  tooltipContent?: React.ReactNode;
+  closeLabel?: string;
+  label: string;
+  onClose?: () => void;
+  onContextMenu?: (event: React.MouseEvent) => void;
+  shortcutDigit?: number | null;
   value?: string;
 }) {
-  const t = useTranslations("appShell.centerStageSharedTabs");
-
   return (
     <Tooltip>
       <TooltipTrigger asChild>
         <CenterStageTab
           value={value}
+          aria-label={label}
           onPointerDown={(event) => {
             preventNonPrimaryTabActivate(event);
             event.stopPropagation();
           }}
-          className={cn(CENTER_STAGE_ICON_TAB_CLASS, className)}
+          onContextMenu={onContextMenu}
+          className={className}
         >
-          <LayoutDashboard className="size-3.5" />
+          <CenterStageTabIconSlot closeLabel={closeLabel} onClose={onClose}>
+            <LayoutDashboard className="size-3.5" />
+          </CenterStageTabIconSlot>
+          <span className="max-w-[180px] truncate whitespace-nowrap">{label}</span>
+          <CenterTabHeldShortcut digit={shortcutDigit} />
         </CenterStageTab>
       </TooltipTrigger>
-      <TooltipContent side="bottom">{tooltipContent ?? t("overview")}</TooltipContent>
+      <TooltipContent side="bottom">
+        <CenterStageShortcutTooltipBody digit={shortcutDigit}>
+          {label}
+        </CenterStageShortcutTooltipBody>
+      </TooltipContent>
     </Tooltip>
   );
 }

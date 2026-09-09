@@ -131,7 +131,10 @@ export function createPaneId(existing: Iterable<string> = []): string {
 
 /** Single pane owning every open tab — matches classic Center Stage. */
 export function createDefaultLayout(tabIds: string[], activeTabId: string): CenterPaneLayout {
-  const ids = tabIds.length > 0 ? [...tabIds] : [activeTabId || "terminal"];
+  if (tabIds.length === 0 && !activeTabId) {
+    return createEmptyCenterLayout();
+  }
+  const ids = tabIds.length > 0 ? [...tabIds] : [activeTabId];
   const active = ids.includes(activeTabId) ? activeTabId : ids[0]!;
   return {
     panes: [
@@ -458,14 +461,15 @@ export function reorderPaneTabIds(
   const pane = getPane(layout, paneId);
   if (!pane) return layout;
   const owned = new Set(pane.tabIds);
-  const nextIds = orderedTabIds.filter((id) => owned.has(id));
+  const nextIds = pinOverviewFront(orderedTabIds.filter((id) => owned.has(id)));
   for (const id of pane.tabIds) {
     if (!nextIds.includes(id)) nextIds.push(id);
   }
-  if (sameStringList(pane.tabIds, nextIds)) {
+  const pinnedIds = pinOverviewFront(nextIds);
+  if (sameStringList(pane.tabIds, pinnedIds)) {
     return layout.tabStripCanonical ? layout : withCanonicalTabStrip(layout);
   }
-  const panes = layout.panes.map((p) => (p.id === paneId ? { ...p, tabIds: nextIds } : p));
+  const panes = layout.panes.map((p) => (p.id === paneId ? { ...p, tabIds: pinnedIds } : p));
   const next: CenterPaneLayout = withCanonicalTabStrip({ ...layout, panes });
   return centerPaneLayoutsEqual(layout, next) ? layout : next;
 }

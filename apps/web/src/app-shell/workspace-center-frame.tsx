@@ -389,12 +389,8 @@ function WorkspaceCenterFrameImpl({
   );
 
   const baseTabs = isUrlSyncedActive
-    ? (visibleTerminalTabs ?? [
-        { id: FIXED_TERMINAL_TAB_VALUE, title: fallbackTerminalTitle, closable: true },
-      ])
-    : storeTerminalTabs ?? [
-        { id: FIXED_TERMINAL_TAB_VALUE, title: fallbackTerminalTitle, closable: true },
-      ];
+    ? (visibleTerminalTabs ?? [])
+    : storeTerminalTabs ?? [];
 
   const tabIds = new Set(baseTabs.map((tab) => tab.id));
   const tabs: TerminalCenterTab[] = [...baseTabs];
@@ -452,13 +448,12 @@ function WorkspaceCenterFrameImpl({
     "github",
     "files",
     "pt-design",
-    FIXED_TERMINAL_TAB_VALUE,
   ];
   const frameActiveTab = resolveFrameActiveTab({
     isActiveFrame: isActiveContext,
     urlOrEditorTab: isUrlSyncedActive ? activeValue : null,
     lastCenterTab: lastTab,
-    fallbackTab: FIXED_TERMINAL_TAB_VALUE,
+    fallbackTab: tabs[0]?.id ?? "",
     validTabs,
   });
 

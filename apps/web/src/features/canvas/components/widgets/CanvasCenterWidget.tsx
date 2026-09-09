@@ -50,6 +50,7 @@ import { ReviewContextProvider } from "@/features/diff/components/review/ReviewC
 import type { AgentFixContextRef } from "@/features/agent-fix/types";
 import {
   CANVAS_CENTER_OVERVIEW_TAB_ID,
+  createCanvasCenterOverviewTab,
   ensureCanvasCenterOverviewTab,
   getCanvasCenterTabSubtitle,
   removeCanvasCenterTab,
@@ -119,6 +120,9 @@ function CanvasCenterWidgetBody({
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
   const tabs = React.useMemo(() => ensureCanvasCenterOverviewTab(source.tabs), [source.tabs]);
+  const overviewTitle =
+    tabs.find((tab) => tab.kind === "overview")?.title ??
+    createCanvasCenterOverviewTab().title;
   const activeTabId = React.useMemo(() => {
     if (source.activeTabId && tabs.some((tab) => tab.id === source.activeTabId)) {
       return source.activeTabId;
@@ -367,7 +371,7 @@ function CanvasCenterWidgetBody({
             </CenterStageStickyTabActions>
           }
         >
-          <CenterStageOverviewTab />
+          <CenterStageOverviewTab label={overviewTitle} shortcutDigit={null} />
           <CenterStageScrollableTabs>
             {tabs
               .filter(isClosableCanvasCenterTab)

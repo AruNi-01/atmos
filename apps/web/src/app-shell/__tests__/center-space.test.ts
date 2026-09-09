@@ -285,12 +285,10 @@ describe("center space wiring", () => {
     expect(setThumbBlock).toContain("markCenterLayoutDirty({ disk: false })");
   });
 
-  it("does not invent a default terminal tab for extra spaces", () => {
+  it("does not invent a default terminal tab for extra spaces or hosts", () => {
     const extra = "ws-1::space::space-abc";
     expect(getWorkspaceTerminalTabs({ workspaceTerminalTabs: {} }, extra)).toEqual([]);
-    expect(
-      getWorkspaceTerminalTabs({ workspaceTerminalTabs: {} }, "ws-1")[0]?.id,
-    ).toBe("terminal");
+    expect(getWorkspaceTerminalTabs({ workspaceTerminalTabs: {} }, "ws-1")).toEqual([]);
   });
 
   it("does not seed extra spaces from the current open-tab list", () => {
@@ -302,5 +300,12 @@ describe("center space wiring", () => {
     expect(isFreshEmptyCenterLayout(layout)).toBe(true);
     expect(layout.panes[0]?.tabIds).toEqual([]);
     expect(createEmptyCenterLayout().panes[0]?.tabIds).toEqual([]);
+  });
+
+  it("seeds a new host workspace as an empty center when no tabs are open", () => {
+    useCenterPaneLayoutStore.setState({ byContext: {}, hydrated: true });
+    const layout = useCenterPaneLayoutStore.getState().ensureLayout("ws-1", [], "");
+    expect(isFreshEmptyCenterLayout(layout)).toBe(true);
+    expect(layout.panes[0]?.tabIds).toEqual([]);
   });
 });

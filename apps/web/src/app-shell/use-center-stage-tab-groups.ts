@@ -180,6 +180,7 @@ export function useCenterStageTabGroups({
   filesTabVisible = false,
   ptDesignTabVisible = false,
   simulatorTabVisible = false,
+  overviewVisible = false,
   githubTabs,
   openFiles,
   previewBrowserPrefs = DEFAULT_PREVIEW_BROWSER_PREFS,
@@ -198,6 +199,7 @@ export function useCenterStageTabGroups({
   filesTabVisible?: boolean;
   ptDesignTabVisible?: boolean;
   simulatorTabVisible?: boolean;
+  overviewVisible?: boolean;
   githubTabs: GithubCenterTab[];
   openFiles: OpenFile[];
   previewBrowserPrefs?: PreviewBrowserPrefs;
@@ -213,6 +215,21 @@ export function useCenterStageTabGroups({
 
   const groupedTabItems = React.useMemo(() => {
     const groups: Array<{ key: string; label: string; tabs: TabGroupItem[] }> = [];
+
+    if (overviewVisible) {
+      groups.push({
+        key: "overview",
+        label: t("groups.overview"),
+        tabs: [
+          {
+            id: "overview",
+            label: tabBarT("overview"),
+            value: "overview",
+            kind: "overview",
+          },
+        ],
+      });
+    }
 
     // Sort helper: group tabs by their openedAt timestamp (ascending — oldest first,
     // matching the flat tab-bar order).
@@ -470,6 +487,7 @@ export function useCenterStageTabGroups({
     reviewTabVisible,
     runTabVisible,
     simulatorTabVisible,
+    overviewVisible,
     t,
     tabBarT,
     terminalTabs,

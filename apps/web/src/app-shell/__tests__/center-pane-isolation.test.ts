@@ -269,6 +269,7 @@ describe("center pane tab isolation", () => {
     expect(stage).toContain("useOverviewCenterTabStore");
     expect(stage).toContain("overviewTabVisible");
     expect(stage).toContain("handleCreateOverview");
+    expect(stage).toContain("handleCloseOverview");
     expect(stage).toContain("Overview is opt-in");
     expect(stage).not.toContain("storedLastTab === OVERVIEW_TAB_ID");
     expect(stage).not.toContain(': ["overview"]');

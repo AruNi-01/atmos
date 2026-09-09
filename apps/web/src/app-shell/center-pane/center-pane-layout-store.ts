@@ -106,6 +106,7 @@ export const useCenterPaneLayoutStore = create<CenterPaneLayoutStore>((set, get)
 
   ensureLayout: (contextId, openTabIds, activeTabId, legacyStripOrder = []) => {
     if (!contextId) {
+      if (openTabIds.length === 0) return createEmptyCenterLayout();
       return withCanonicalTabStrip(createDefaultLayout(openTabIds, activeTabId));
     }
     const existing = get().byContext[contextId];
@@ -136,6 +137,11 @@ export const useCenterPaneLayoutStore = create<CenterPaneLayoutStore>((set, get)
       }
       return get().byContext[contextId] ?? migrated;
     }
+    if (openTabIds.length === 0) {
+      const empty = createEmptyCenterLayout();
+      get().setLayout(contextId, empty);
+      return empty;
+    }
     const layout = withCanonicalTabStrip(
       createDefaultLayout(openTabIds, activeTabId),
     );
@@ -159,10 +165,7 @@ export const useCenterPaneLayoutStore = create<CenterPaneLayoutStore>((set, get)
 
   patchLayout: (contextId, updater) => {
     const current =
-      get().byContext[contextId] ??
-      (isExtraCenterSpaceKey(contextId)
-        ? createEmptyCenterLayout()
-        : createDefaultLayout(["terminal"], "terminal"));
+      get().byContext[contextId] ?? createEmptyCenterLayout();
     const next = updater(current);
     if (next === current || centerPaneLayoutsEqual(current, next)) {
       return;

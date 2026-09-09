@@ -19,7 +19,7 @@ import {
   verticalListSortingStrategy,
   type DragEndEvent,
 } from "@workspace/ui";
-import { Command, Inbox, List } from "lucide-react";
+import { Inbox, List } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
 import { AgentAttentionIndicator } from "@/features/agent/components/AgentAttentionIndicator";
 import { AgentStatusIndicator } from "@/features/agent/components/AgentStatusIndicator";
@@ -28,6 +28,7 @@ import {
   useAgentAttentionStore,
 } from "@/features/agent/store/agent-attention-store";
 import { AGENT_STATE, useAgentStatusStore } from "@/features/agent/store/agent-status-store";
+import { chatAttentionLookupIds } from "@/features/agent/lib/agent-status-ack";
 import {
   getEditorDisplayPath,
   type OpenFile,
@@ -52,6 +53,11 @@ export {
   CENTER_STRIP_POSITION_HOTKEYS,
   CENTER_STRIP_SHORTCUT_LIMIT,
 } from "@/app-shell/center-stage-tab-model";
+export {
+  CenterStageShortcutTooltipBody,
+  CenterStageTabKindChip,
+  ShortcutHint,
+} from "@/app-shell/center-stage-tab-tooltip";
 
 export type TabGroupItem = {
   id: string;
@@ -200,9 +206,8 @@ export function TerminalTabAgentIndicatorWithPanes({ contextId, tabId }: { conte
 export function AgentChatTabStatusIndicator({ chatId }: { chatId: string }) {
   const state = useAgentStatusStore((s) => s.getAgentStateForChatId(chatId));
   const attentionReason = useAgentAttentionStore((s) => {
-    const keys = [`chat:${chatId}`, chatId];
     let best: AttentionReason | null = null;
-    for (const id of keys) {
+    for (const id of chatAttentionLookupIds(chatId)) {
       const reason = s.panes.get(id)?.reason;
       if (!reason) continue;
       if (reason === "permission_request") return "permission_request" as const;
@@ -553,31 +558,6 @@ function splitBySectionKey(
 
 export function isTerminalCenterTabValue(value: string | null | undefined): value is string {
   return value === FIXED_TERMINAL_TAB_VALUE || !!value?.startsWith(TERMINAL_TAB_VALUE_PREFIX);
-}
-
-export function ShortcutHint({ digit }: { digit: number | string }) {
-  return (
-    <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-foreground/90">
-      <Command className="size-3" />
-      <span className="text-xs">{digit}</span>
-    </kbd>
-  );
-}
-
-export function CenterStageShortcutTooltipBody({
-  children,
-  digit,
-}: {
-  children: React.ReactNode;
-  digit?: number | string | null;
-}) {
-  if (digit == null || digit === "") return children;
-  return (
-    <div className="flex items-center gap-2">
-      {children}
-      <ShortcutHint digit={digit} />
-    </div>
-  );
 }
 
 export function getRelativePath(path: string, basePath?: string): string {

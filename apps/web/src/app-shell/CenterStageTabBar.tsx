@@ -106,6 +106,8 @@ import {
   CENTER_STAGE_ICON_TAB_CLASS,
   getCenterStageSurfaceTabVariant,
 } from "@/app-shell/center-stage-shared-tabs";
+import { attentionTabClass } from "@/features/agent/components/AgentAttentionIndicator";
+import { chatAttentionLookupIds } from "@/features/agent/lib/agent-status-ack";
 import { useAgentAttentionStore } from "@/features/agent/store/agent-attention-store";
 import { useTerminalCenterTabPresentation } from "@/features/terminal/hooks/use-terminal-center-tab-presentation";
 import { useTerminalStore } from "@/features/terminal/store/use-terminal-store";
@@ -117,6 +119,7 @@ import {
   orderCenterTabsBySavedOrder,
   preventNonPrimaryTabActivate,
 } from "@/app-shell/center-stage-tab-model";
+import { pinOverviewFront } from "@/app-shell/center-pane/center-pane-layout";
 import type { GithubCenterTab } from "@/features/github/store/use-github-center-tabs";
 import type { BrowserCenterTab } from "@/features/browser/store/use-browser-center-tabs";
 import {
@@ -152,14 +155,15 @@ interface CenterStageTabBarProps {
   wikiCenterEligible: boolean;
   wikiRefreshing: boolean;
   /**
-   * Overview is primary-pane only. Secondary multi-pane tab strips pass false
-   * so split panes stay isolated from the overview surface.
+   * Overview is one tab per pane strip. Secondary multi-pane tab strips pass
+   * false so split panes stay isolated from the overview surface.
    */
   overviewVisible?: boolean;
   handleCenterStageTabChange: (value: string) => void;
   handleCloseTabGroupItem: (tab: TabGroupItem) => void;
   handleCloseBrowserTab: (value: string) => void;
   handleCloseFile: (file: OpenFile) => void;
+  handleCloseAgentChatTab: (value: string) => void;
   handleCloseGithubTab: (value: string) => void;
   handleCloseTerminalCenterTab: (tabId: string) => void;
   handleCreateBrowserCenterTab: () => void;
@@ -168,6 +172,7 @@ interface CenterStageTabBarProps {
   handleCreateAgentChatCenterTab: () => void;
   handleCreateToolCenterTab: (tab: CenterToolTabValue) => void;
   handleCreateOverview?: () => void;
+  handleCloseOverview?: () => void;
   handleCloseSimulatorTab: () => void;
   handleCloseGitHistoryTab: () => void;
   handleCloseToolTab: (tab: CenterToolTabValue) => void;
@@ -247,6 +252,7 @@ export function CenterStageTabBar({
   handleCloseTabGroupItem,
   handleCloseBrowserTab,
   handleCloseFile,
+  handleCloseAgentChatTab,
   handleCloseGithubTab,
   handleCloseTerminalCenterTab,
   handleCreateBrowserCenterTab,
@@ -255,6 +261,7 @@ export function CenterStageTabBar({
   handleCreateAgentChatCenterTab,
   handleCreateToolCenterTab,
   handleCreateOverview,
+  handleCloseOverview,
   handleCloseSimulatorTab,
   handleCloseGitHistoryTab,
   handleCloseToolTab,
@@ -354,6 +361,15 @@ export function CenterStageTabBar({
   // of the grouped-tab popover order.
   const baseOrderedDescriptors = React.useMemo<CenterTabDescriptor[]>(() => {
     const descriptors: CenterTabDescriptor[] = [];
+
+    if (overviewVisible) {
+      descriptors.push({
+        id: "overview",
+        value: "overview",
+        kind: "overview",
+        label: t("centerStageTabBar.overview"),
+      });
+    }
 
     for (const tab of visibleTerminalTabs) {
       descriptors.push({
@@ -514,6 +530,7 @@ export function CenterStageTabBar({
     simulatorTabVisible,
     gitHistoryTabVisible,
     orderedSurfaceTabs,
+    overviewVisible,
     paneAgentChatTabs,
     previewBrowserPrefs,
     projectWikiTabVisible,
@@ -521,10 +538,15 @@ export function CenterStageTabBar({
     visibleTerminalTabs,
   ]);
 
-  const orderedDescriptors = React.useMemo(
-    () => orderCenterTabsBySavedOrder(baseOrderedDescriptors, tabStripOrder),
-    [baseOrderedDescriptors, tabStripOrder],
-  );
+  const orderedDescriptors = React.useMemo(() => {
+    const ordered = orderCenterTabsBySavedOrder(baseOrderedDescriptors, tabStripOrder);
+    const ids = pinOverviewFront(ordered.map((tab) => tab.id));
+    const byId = new Map(ordered.map((tab) => [tab.id, tab]));
+    return ids.flatMap((id) => {
+      const tab = byId.get(id);
+      return tab ? [tab] : [];
+    });
+  }, [baseOrderedDescriptors, tabStripOrder]);
 
   const scrollableTabsRef = React.useRef<HTMLDivElement>(null);
 
@@ -541,7 +563,7 @@ export function CenterStageTabBar({
       const oldIndex = ids.indexOf(String(active.id));
       const newIndex = ids.indexOf(String(over.id));
       if (oldIndex < 0 || newIndex < 0) return;
-      onTabStripOrderChange(arrayMove(ids, oldIndex, newIndex));
+      onTabStripOrderChange(pinOverviewFront(arrayMove(ids, oldIndex, newIndex)));
     },
     [onTabStripOrderChange, orderedDescriptors],
   );
@@ -596,6 +618,18 @@ export function CenterStageTabBar({
       stripShortcutTabIds,
       tab.id,
     );
+    if (tab.kind === "overview") {
+      const overviewLabel = t("centerStageTabBar.overview");
+      return (
+        <CenterStageOverviewTab
+          closeLabel={t("centerStageTabBar.closeTab", { tab: overviewLabel })}
+          label={overviewLabel}
+          onClose={() => handleCloseOverview?.()}
+          onContextMenu={(event) => openContextMenu(event, tab)}
+          shortcutDigit={0}
+        />
+      );
+    }
     if (tab.kind === "terminal") {
       const source = visibleTerminalTabs.find((item) => item.id === tab.value);
       if (!source) return null;
@@ -790,8 +824,9 @@ export function CenterStageTabBar({
       const providerId = agentTab?.providerId?.trim() || "";
       const chatId = agentTab?.chatId?.trim() || "";
       return (
-        <SpecialTerminalTab
+        <AgentChatCenterTab
           key={tab.id}
+          chatId={chatId}
           closeLabel={t("centerStageTabBar.closeTab", { tab: tab.label })}
           icon={
             providerId ? (
@@ -803,12 +838,10 @@ export function CenterStageTabBar({
           label={tab.label}
           shortcutDigit={shortcutDigit}
           tooltip={tab.label}
+          tooltipKind={t("centerStageTabBar.tooltipKindChatUi")}
           value={tab.value}
           trailing={chatId ? <AgentChatTabStatusIndicator chatId={chatId} /> : null}
-          onClose={() => {
-            useAgentChatCenterTabsStore.getState().closeTab(effectiveContextId, tab.value);
-            handleCenterStageTabChange(visibleTerminalTabs[0]?.id ?? "overview");
-          }}
+          onClose={() => handleCloseAgentChatTab(tab.value)}
           onContextMenu={(event) => openContextMenu(event, tab)}
         />
       );
@@ -952,17 +985,6 @@ export function CenterStageTabBar({
         </CenterStageStickyTabActions>
       }
     >
-      {overviewVisible ? (
-        <CenterStageOverviewTab
-          tooltipContent={
-            <div className="flex items-center gap-2">
-              <span>{t("centerStageTabBar.overview")}</span>
-              <ShortcutHint digit={0} />
-            </div>
-          }
-        />
-      ) : null}
-
       {wikiCenterEligible ? (
         <Tooltip>
           <TooltipTrigger asChild>
@@ -1035,7 +1057,11 @@ export function CenterStageTabBar({
             strategy={horizontalListSortingStrategy}
           >
             {orderedDescriptors.map((tab) => (
-              <SortableCenterStripTab key={tab.id} id={tab.id}>
+              <SortableCenterStripTab
+                key={tab.id}
+                id={tab.id}
+                disabled={tab.kind === "overview"}
+              >
                 {renderDescriptorTab(tab)}
               </SortableCenterStripTab>
             ))}
@@ -1048,6 +1074,7 @@ export function CenterStageTabBar({
 
 function isTabGroupItemClosable(tab: TabGroupItem) {
   return (
+    tab.kind === "overview" ||
     tab.kind === "terminal" ||
     tab.kind === "project-wiki" ||
     tab.kind === "code-review" ||
@@ -1075,9 +1102,11 @@ function isTabGroupItemClosable(tab: TabGroupItem) {
 function SortableCenterStripTab({
   id,
   children,
+  disabled = false,
 }: {
   id: string;
   children: React.ReactNode;
+  disabled?: boolean;
 }) {
   const {
     attributes,
@@ -1086,7 +1115,7 @@ function SortableCenterStripTab({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id });
+  } = useSortable({ id, disabled });
   const { onPointerDown, ...restListeners } = listeners ?? {};
 
   // Only while actively dragging: force grabbing cursor globally so it stays
@@ -1188,11 +1217,7 @@ function TerminalExtraTab({
           value={tab.id}
           onPointerDown={preventNonPrimaryTabActivate}
           onContextMenu={onContextMenu}
-          className={cn(
-            attentionReason && "agent-attention-ring-tab",
-            attentionReason === "permission_request" && "agent-attention-ring-permission",
-            attentionReason === "task_complete" && "agent-attention-ring-complete",
-          )}
+          className={attentionTabClass(attentionReason)}
         >
           <CenterStageTabIconSlot
             closeLabel={closeAriaLabel}
@@ -1210,7 +1235,10 @@ function TerminalExtraTab({
         </CenterStageTab>
       </TooltipTrigger>
       <TooltipContent side="bottom">
-        <CenterStageShortcutTooltipBody digit={shortcutDigit}>
+        <CenterStageShortcutTooltipBody
+          digit={shortcutDigit}
+          kind={toolbarAgent ? t("centerStageTabBar.tooltipKindTui") : undefined}
+        >
           <span>{tabLabel}</span>
         </CenterStageShortcutTooltipBody>
       </TooltipContent>
@@ -2063,14 +2091,35 @@ function CenterStageNewTabMenu({
   );
 }
 
+function AgentChatCenterTab({
+  chatId,
+  ...props
+}: {
+  chatId?: string;
+} & React.ComponentProps<typeof SpecialTerminalTab>) {
+  const attentionReason = useAgentAttentionStore((s) => {
+    let best: "permission_request" | "task_complete" | null = null;
+    for (const id of chatAttentionLookupIds(chatId)) {
+      const reason = s.panes.get(id)?.reason;
+      if (!reason) continue;
+      if (reason === "permission_request") return "permission_request" as const;
+      best = reason;
+    }
+    return best;
+  });
+  return <SpecialTerminalTab {...props} className={attentionTabClass(attentionReason)} />;
+}
+
 function SpecialTerminalTab({
   closeLabel,
   icon,
   label,
   shortcutDigit,
   tooltip,
+  tooltipKind,
   value,
   trailing,
+  className,
   onClose,
   onContextMenu,
 }: {
@@ -2079,8 +2128,10 @@ function SpecialTerminalTab({
   label: string;
   shortcutDigit?: number | null;
   tooltip: string;
+  tooltipKind?: string;
   value: string;
   trailing?: React.ReactNode;
+  className?: string;
   onClose: () => void;
   onContextMenu?: (event: React.MouseEvent) => void;
 }) {
@@ -2090,6 +2141,7 @@ function SpecialTerminalTab({
         <CenterStageTab
           value={value}
           aria-label={label}
+          className={className}
           onPointerDown={preventNonPrimaryTabActivate}
           onContextMenu={onContextMenu}
         >
@@ -2102,7 +2154,7 @@ function SpecialTerminalTab({
         </CenterStageTab>
       </TooltipTrigger>
       <TooltipContent side="bottom">
-        <CenterStageShortcutTooltipBody digit={shortcutDigit}>
+        <CenterStageShortcutTooltipBody digit={shortcutDigit} kind={tooltipKind}>
           {tooltip}
         </CenterStageShortcutTooltipBody>
       </TooltipContent>
